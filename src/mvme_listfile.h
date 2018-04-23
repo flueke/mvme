@@ -299,8 +299,10 @@ class LIBMVME_EXPORT ListFileWriter: public QObject
         u64 bytesWritten() const { return m_bytesWritten; }
 
         bool writePreamble();
+        bool writeConfig(const VMEConfig *vmeConfig);
         bool writeConfig(QByteArray contents);
         bool writeBuffer(const char *buffer, size_t size);
+        bool writeBuffer(const DataBuffer &buffer);
         bool writeEndSection();
         bool writeTimetickSection();
 

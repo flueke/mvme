@@ -66,9 +66,9 @@ public:
             setInterval(static_cast<Qt::Axis>(axis),
                         { intervals[axis].minValue, intervals[axis].maxValue });
 
-            qDebug() << __PRETTY_FUNCTION__ << "axis =" << axis
-                << ", min =" << intervals[axis].minValue
-                << ", max =" << intervals[axis].maxValue;
+            //qDebug() << __PRETTY_FUNCTION__ << "axis =" << axis
+            //    << ", min =" << intervals[axis].minValue
+            //    << ", max =" << intervals[axis].maxValue;
         }
     }
 };
@@ -631,6 +631,16 @@ void Histo2DWidget::replot()
     }
 }
 
+void Histo2DWidget::setLinZ()
+{
+    m_d->m_zScaleCombo->setCurrentIndex(0);
+}
+
+void Histo2DWidget::setLogZ()
+{
+    m_d->m_zScaleCombo->setCurrentIndex(1);
+}
+
 void Histo2DWidget::displayChanged()
 {
     auto scaleType = static_cast<AxisScaleType>(m_d->m_zScaleCombo->currentData().toInt());
@@ -1084,4 +1094,9 @@ bool Histo2DWidget::event(QEvent *e)
     }
 
     return QWidget::event(e);
+}
+
+QwtPlot *Histo2DWidget::getQwtPlot()
+{
+    return m_d->m_plot;
 }

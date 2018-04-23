@@ -283,12 +283,12 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         bool removeEventConfig(EventConfig *config);
         bool contains(EventConfig *config);
         QList<EventConfig *> getEventConfigs() const { return eventConfigs; }
-        EventConfig *getEventConfig(int eventIndex) { return eventConfigs.value(eventIndex); }
+        EventConfig *getEventConfig(int eventIndex) const { return eventConfigs.value(eventIndex); }
         EventConfig *getEventConfig(const QString &name) const;
         EventConfig *getEventConfig(const QUuid &id) const;
 
         // modules
-        ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex);
+        ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex) const;
         QList<ModuleConfig *> getAllModuleConfigs() const;
         QPair<int, int> getEventAndModuleIndices(ModuleConfig *cfg) const;
 

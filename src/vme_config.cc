@@ -802,9 +802,9 @@ void VMEConfig::write_impl(QJsonObject &json) const
         json["properties"] = props;
 }
 
-ModuleConfig *VMEConfig::getModuleConfig(int eventIndex, int moduleIndex)
+ModuleConfig *VMEConfig::getModuleConfig(int eventIndex, int moduleIndex) const
 {
-    ModuleConfig *result = 0;
+    ModuleConfig *result = nullptr;
     auto eventConfig = eventConfigs.value(eventIndex);
 
     if (eventConfig)
