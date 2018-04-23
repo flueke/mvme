@@ -28,6 +28,7 @@ class QTimer;
 class QwtPlotSpectrogram;
 class QwtLinearColorMap;
 class QwtPlotHistogram;
+class QwtPlot;
 class ScrollZoomer;
 class MVMEContext;
 class Histo1DWidget;
@@ -61,6 +62,11 @@ class Histo2DWidget: public QWidget
 
         virtual bool event(QEvent *event) override;
 
+        QwtPlot *getQwtPlot();
+
+        void setLinZ();
+        void setLogZ();
+
     private slots:
         void replot();
         void exportPlot();
@@ -84,7 +90,7 @@ class Histo2DWidget: public QWidget
         void doYProjection();
 
         Histo2DWidgetPrivate *m_d;
-        friend class Histo2DWidgetPrivate;
+        friend struct Histo2DWidgetPrivate;
 
         Histo2D *m_histo = nullptr;
         Histo2DPtr m_histoPtr;
