@@ -130,6 +130,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public QObject, public std::enable_sha
         // FIXME (14.4.18): why did I not make this const? cause of the pipe
         // being modified sort of also modifying the state of this object?
         virtual Pipe *getOutput(s32 index) = 0;
+        virtual bool hasVariableNumberOfOutputs() const { return false; }
 
         virtual QString getDisplayName() const = 0;
         virtual QString getShortName() const = 0;
@@ -169,6 +170,8 @@ struct Slot;
 class LIBMVME_EXPORT Pipe
 {
     public:
+        ~Pipe();
+
         const Parameter *first() const
         {
             if (!parameters.isEmpty())
@@ -1091,6 +1094,7 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
         virtual Slot *getSlot(s32 slotIndex) override;
 
         // Outputs
+        virtual bool hasVariableNumberOfOutputs() const override { return true; }
         virtual s32 getNumberOfOutputs() const override;
         virtual QString getOutputName(s32 outputIndex) const override;
         virtual Pipe *getOutput(s32 index) override;
@@ -1110,15 +1114,20 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
         void setStepExpression(const QString &str) { m_exprStep = str; }
         QString getStepExpression() const { return m_exprStep; }
 
+        /* Variable name prefixes for each of the operators inputs. These
+         * prefixes define the exprtk variable names used in both the begin and
+         * step expressions. */
+        QStringList getInputPrefixes() const { return m_inputPrefixes; }
+        QString getInputPrefix(s32 inputIndex) const { return m_inputPrefixes.value(inputIndex); }
+
         a2::Operator buildA2Operator(memory::Arena *arena);
 
-
     private:
-        void addOutput(QString name);
+        void addOutput(QString name = QString());
 
         QString m_exprBegin;
         QString m_exprStep;
-        QStringList m_inputNames;
+        QStringList m_inputPrefixes;
 
         QVector<std::shared_ptr<Slot>> m_inputs;
         QVector<std::shared_ptr<Pipe>> m_outputs;

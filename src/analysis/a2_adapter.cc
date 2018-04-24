@@ -33,8 +33,8 @@ do\
 namespace
 {
 
-//#ifndef NDEBUG
-#if 0
+#ifndef NDEBUG
+//#if 0
 inline QDebug a2_adapter_qlog(const char *func)
 {
     return (qDebug().nospace() << "a2_adapter::" << func << "()").space();
@@ -67,11 +67,18 @@ inline a2::PipeVectors find_output_pipe(
             qobject_cast<analysis::OperatorInterface *>(pipeSource),
             nullptr))
     {
-        assert(outputIndex < op_a2->outputCount);
+        if (op_a2->type != a2::Invalid_OperatorType)
+        {
+            assert(outputIndex < op_a2->outputCount);
 
-        result.data = op_a2->outputs[outputIndex];
-        result.lowerLimits = op_a2->outputLowerLimits[outputIndex];
-        result.upperLimits = op_a2->outputUpperLimits[outputIndex];
+            result.data = op_a2->outputs[outputIndex];
+            result.lowerLimits = op_a2->outputLowerLimits[outputIndex];
+            result.upperLimits = op_a2->outputUpperLimits[outputIndex];
+        }
+        else
+        {
+            QLOG("invalid operator type");
+        }
     }
     else
     {
@@ -533,28 +540,48 @@ DEF_OP_MAGIC(condition_filter_magic)
     return result;
 }
 
-#if 0
 DEF_OP_MAGIC(expression_operator_magic)
 {
     LOG("");
-    assert(inputSlots.size() == 1);
-    assert_slot(inputSlots[0]);
 
     auto a1_op = qobject_cast<analysis::ExpressionOperator *>(op.get());
 
     assert(a1_op);
 
-    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+    std::vector<a2::PipeVectors> a2_inputs;
+    std::vector<std::string> inputUnits;
+    std::vector<std::string> inputPrefixes;
 
-    a2::Operator result = make_expression_operator(
-        arena,
-        a2_input,
-        a1_op->getBeginExpression().toStdString(),
-        a1_op->getStepExpression().toStdString());
+    for (s32 si = 0; si < inputSlots.size(); si++)
+    {
+        a2_inputs.emplace_back(find_output_pipe(adapterState, inputSlots[si]));
+        inputUnits.emplace_back(inputSlots[si]->inputPipe->parameters.unit.toStdString());
+        inputPrefixes.emplace_back(a1_op->getInputPrefix(si).toStdString());
+    }
+
+    a2::Operator result = {};
+
+#if 1
+    try
+    {
+#endif
+
+        result = make_expression_operator(
+            arena,
+            a2_inputs,
+            inputPrefixes,
+            inputUnits,
+            a1_op->getBeginExpression().toStdString(),
+            a1_op->getStepExpression().toStdString());
+#if 1
+    } catch (const std::runtime_error &e)
+    {
+        LOG("EE Exception when making operator: %s", e.what());
+    }
+#endif
 
     return result;
 }
-#endif
 
 //
 // Sinks
@@ -760,9 +787,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::RectFilter2D::staticMetaObject,            rect_filter_magic },
     { &analysis::ConditionFilter::staticMetaObject,         condition_filter_magic },
     { &analysis::Sum::staticMetaObject,                     sum_magic },
-#if 0
     { &analysis::ExpressionOperator::staticMetaObject,      expression_operator_magic },
-#endif
 
     { &analysis::Histo1DSink::staticMetaObject,             histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject,             histo2d_sink_magic },
@@ -1117,7 +1142,7 @@ A2AdapterState a2_adapter_build(
     }
 
     // -------------------------------------------
-    // Operator -> Operator
+    // a1 Operator -> a2 Operator
     // -------------------------------------------
 
     /* The problem: I want the operators for each event be sorted by rank _and_
@@ -1153,7 +1178,7 @@ A2AdapterState a2_adapter_build(
     {
         if (!result.a2->operatorCounts[ei])
             continue;
-        LOG("  ei=%d, #op=%d", ei, (u32)result.a2->operatorCounts[ei]);
+        LOG("  ei=%d, #ops=%d", ei, (u32)result.a2->operatorCounts[ei]);
     }
 
     /* Sort the operator arrays. */
@@ -1192,14 +1217,12 @@ A2AdapterState a2_adapter_build(
     {
         if (!result.a2->operatorCounts[ei])
             continue;
-        LOG("  ei=%d, #op=%d", ei, (u32)result.a2->operatorCounts[ei]);
+        LOG("  ei=%d, #ops=%d", ei, (u32)result.a2->operatorCounts[ei]);
     }
 
     LOG("mem=%lu, start@%p", arena->used(), arena->mem);
 
-
-
-#define qcstr(str) (str.toLocal8Bit().constData())
+#define qcstr(str) ((str).toLocal8Bit().constData())
 
     LOG(">>>>>>>> result <<<<<<<<");
 
@@ -1259,6 +1282,8 @@ A2AdapterState a2_adapter_build(
             }
         }
     }
+
+#undef qcstr
 
     LOG("<<<<<<<< end result >>>>>>>>");
 

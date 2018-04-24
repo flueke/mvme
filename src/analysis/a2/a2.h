@@ -414,7 +414,7 @@ Operator make_expression_operator(
     ExpressionOperatorBuildOptions options = ExpressionOperatorBuildOptions::FullBuild);
 
 /* Can be used after calling make_expression_operator() with the InitOnly
- * option to fully build the operator. */
+ * option to complete building the operator. */
 void expression_operator_compile_step_expression(Operator *op);
 
 /* ===============================================

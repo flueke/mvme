@@ -294,6 +294,23 @@ QString getClassName(T *obj)
 }
 
 //
+// Pipe
+//
+Pipe::~Pipe()
+{
+#if 1
+    qDebug() << __PRETTY_FUNCTION__ << "pipe pipe pipe pipe" << source;
+
+    QVector<Slot *> destsCopy = destinations;
+
+    for (auto slot: destsCopy)
+    {
+        slot->disconnectPipe();
+    }
+#endif
+}
+
+//
 // Slot
 //
 
@@ -1932,6 +1949,10 @@ Pipe *ArrayMap::getOutput(s32 index)
 
 void ArrayMap::read(const QJsonObject &json)
 {
+    for (auto &slot: m_inputs)
+    {
+        slot->disconnectPipe();
+    }
     m_inputs.clear();
 
     s32 inputCount = json["numberOfInputs"].toInt();
@@ -2638,26 +2659,56 @@ void BinarySumDiff::write(QJsonObject &json) const
 //
 // ExpressionOperator
 //
+
+/* NOTES AND FIXMEs:
+
+ * This is the first operator using multiple outputs and at the same time having
+   a variable number of outputs. There will be bugs.
+
+ * When a pipe goes away the connected slots need to be notified and disconnected.
+   This could maybe happen in the Pipe destructor.
+   -> Implemented and to be tested.
+
+ * The number of outputs is only known once all inputs are connected and the
+   begin expression has been evaluated. In Analysis::read() where the
+   connections are being created the operator is not fully functional yet as
+   that code doesn't sort operators by rank nor does a full build of the
+   system.
+   How to fix this issue and create the outputs during read() time?
+
+   -> Dynamically create the required output pipes in getOutput()
+      This will have the side effect that careless code may create outputs without end.
+      You can't do
+        while (auto out = op->getOutput(outIdx++)) {}
+        but have to query the number and only request existing outputs.
+         * IMPORTANT: This has the side effect of creating outputs until an
+         * output for the requested index exists! This is done so that
+         * Analysis::read() can establish the connections.
+
+   -> Store the last known number of outputs in the analysis config and create
+      that many in ExpressionOperator::read()
+      This means connections that where valid at the time the analyis config
+      was written can be re-established when reading the config back in.
+      This might be the cleaner solution after all.
+
+ */
+
 ExpressionOperator::ExpressionOperator(QObject *parent)
     : OperatorInterface(parent)
 {
-    m_exprBegin = QSL
-        (
-        "var lower_limits[input_lower_limits[]] := input_lower_limits;\n"
-        "var upper_limits[input_upper_limits[]] := input_upper_limits;\n"
-        "return [lower_limits, upper_limits];\n"
+    m_exprBegin = QSL(
+        "return [ 'output0', input0.unit, input0.lower_limits, input0.upper_limits ];"
         );
 
-    m_exprStep = QSL
-        (
-        "for (var i := 0; i < input[]; i += 1)\n"
-        "{\n"
-        "   output[i] := input[i];\n"
-        "}\n"
+    m_exprStep = QSL(
+        "output0 := input0;"
         );
 
+    // Need at least one input slot to be usable
     addSlot();
-    addOutput("output0");
+
+    // Add a single fake output to make the ui and other parts of the system happy.
+    addOutput();
 }
 
 bool ExpressionOperator::addSlot()
@@ -2666,13 +2717,14 @@ bool ExpressionOperator::addSlot()
     auto inputType = InputType::Array;
     QString inputName;
 
-    if (m_inputNames.size() > slotCount + 1)
+    if (m_inputPrefixes.size() > slotCount)
     {
-        inputName = m_inputNames[slotCount + 1];
+        inputName = m_inputPrefixes[slotCount];
     }
     else
     {
-        inputName = QSL("input#") + QString::number(slotCount);
+        inputName = QSL("input") + QString::number(slotCount);
+        m_inputPrefixes.push_back(inputName);
     }
 
     auto slot = std::make_shared<Slot>(this, slotCount, inputName, inputType);
@@ -2688,6 +2740,8 @@ bool ExpressionOperator::removeLastSlot()
     {
         m_inputs.back()->disconnectPipe();
         m_inputs.pop_back();
+        m_inputPrefixes.pop_back();
+        assert(m_inputPrefixes.size() == m_inputs.size());
         return true;
     }
     return false;
@@ -2711,7 +2765,7 @@ void ExpressionOperator::addOutput(QString outputName)
 
     if (outputName.isEmpty())
     {
-        outputName = QSL("output#") + QString::number(outputCount);
+        outputName = QSL("output") + QString::number(outputCount);
     }
 
     auto outPipe = std::make_shared<Pipe>();
@@ -2747,7 +2801,9 @@ a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena)
 {
     /* Create the a2 operator which runs the begin script to figure out the
      * output size and limits. Then copy the limits to this operators output
-     * pipe. */
+     * pipes.
+     * NOTE: This method creates "fake" a2 input pipes inside the arena. This
+     * means it can not be used inside the a1->a2 adapter layer. */
 
     if (!required_inputs_connected_and_valid(this))
         throw std::runtime_error("Not all required inputs are connected.");
@@ -2771,9 +2827,9 @@ a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena)
     {
         std::string inputPrefix;
 
-        if (i < m_inputNames.size())
+        if (i < m_inputPrefixes.size())
         {
-            inputPrefix = m_inputNames[i].toStdString();
+            inputPrefix = m_inputPrefixes[i].toStdString();
         }
         else
         {
@@ -2798,25 +2854,32 @@ a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena)
     return a2_op;
 }
 
-
 void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
 {
     try
     {
-        // FIXME: loop till not running OOM while building
+        // FIXME: handle arena OOM here
         memory::Arena arena(Kilobytes(256));
 
         auto a2_op = buildA2Operator(&arena);
         auto d     = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op.d);
 
-        assert(d->output_units.size() == d->output_names.size());
         assert(a2_op.outputCount == d->output_units.size());
+        assert(d->output_units.size() == d->output_names.size());
 
-        m_outputs.clear();
+        m_outputs.resize(a2_op.outputCount);
 
-        for (size_t outIdx = 0; outIdx < d->output_units.size(); outIdx++)
+        for (size_t outIdx = 0; outIdx < a2_op.outputCount; outIdx++)
         {
-            auto outPipe = std::make_shared<Pipe>();
+            // Reuse pipes to not invalidate existing connections
+            auto outPipe = m_outputs.value(outIdx);
+
+            if (!outPipe)
+            {
+                outPipe = std::make_shared<Pipe>();
+                m_outputs[outIdx] = outPipe;
+            }
+
             outPipe->source = this;
             outPipe->sourceOutputIndex = outIdx;
 
@@ -2825,14 +2888,14 @@ void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
 
             outPipe->parameters.resize(a2_op.outputs[outIdx].size);
             outPipe->parameters.invalidateAll();
+            outPipe->parameters.name = QString::fromStdString(d->output_names[outIdx]);
+            outPipe->parameters.unit = QString::fromStdString(d->output_units[outIdx]);
 
             for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
             {
                 outPipe->parameters[paramIndex].lowerLimit = a2_op.outputLowerLimits[outIdx][paramIndex];
                 outPipe->parameters[paramIndex].upperLimit = a2_op.outputUpperLimits[outIdx][paramIndex];
             }
-
-            m_outputs.push_back(outPipe);
         }
     }
     catch (const std::runtime_error &e)
@@ -2845,41 +2908,57 @@ void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
     }
 }
 
-void ExpressionOperator::step()
-{
-    assert(!"not implemented. a2 must be used!");
-}
-
 void ExpressionOperator::write(QJsonObject &json) const
 {
     json["exprBegin"] = m_exprBegin;
     json["exprStep"]  = m_exprStep;
 
-    QJsonArray inputNamesArray;
+    QJsonArray inputPrefixesArray;
 
-    for (const auto &inputName: m_inputNames)
+    for (const auto &inputName: m_inputPrefixes)
     {
-        inputNamesArray.append(inputName);
+        inputPrefixesArray.append(inputName);
     }
 
-    json["inputNames"] = inputNamesArray;
+    json["inputPrefixes"] = inputPrefixesArray;
+    json["lastOutputCount"] = getNumberOfOutputs();
 }
 
 void ExpressionOperator::read(const QJsonObject &json)
 {
+    for (auto &slot: m_inputs)
+    {
+        slot->disconnectPipe();
+    }
+    m_inputs.clear();
+
     m_exprBegin = json["exprBegin"].toString();
     m_exprStep  = json["exprStep"].toString();
-    m_inputNames.clear();
+    m_inputPrefixes.clear();
 
-    auto inputNamesArray = json["inputNames"].toArray();
+    auto inputPrefixesArray = json["inputPrefixes"].toArray();
 
-    for (auto it = inputNamesArray.begin();
-         it != inputNamesArray.end();
+    for (auto it = inputPrefixesArray.begin();
+         it != inputPrefixesArray.end();
          it++)
     {
-        m_inputNames.push_back(it->toString());
+        m_inputPrefixes.push_back(it->toString());
         addSlot();
     }
+
+    // XXX: leftoff here Tue Apr 24 16:46:40 CEST 2018
+    m_outputs.clear();
+    s32 lastOutputCount = json["lastOutputCount"].toInt(1);
+
+    for (s32 i = 0; i < lastOutputCount; i++)
+    {
+        addOutput();
+    }
+}
+
+void ExpressionOperator::step()
+{
+    assert(!"not implemented. a2 must be used!");
 }
 
 //
