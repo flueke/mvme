@@ -561,6 +561,12 @@ void AddEditOperatorWidget::inputSelected(s32 slotIndex)
 void AddEditOperatorWidget::onOperatorValidityChanged()
 {
     bool isValid = m_opConfigWidget->isValid();
+
+    isValid = isValid && required_inputs_connected_and_valid(m_op);
+
+
+
+
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid);
 }
 
