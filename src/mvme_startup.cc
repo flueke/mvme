@@ -19,6 +19,7 @@ void mvme_basic_init(const QString &appName)
     qRegisterMetaType<GlobalMode>("GlobalMode");
     qRegisterMetaType<MVMEStreamWorkerState>("MVMEStreamWorkerState");
     qRegisterMetaType<ControllerState>("ControllerState");
+    qRegisterMetaType<Qt::Axis>("Qt::Axis");
 
     QCoreApplication::setOrganizationDomain("www.mesytec.com");
     QCoreApplication::setOrganizationName("mesytec");
