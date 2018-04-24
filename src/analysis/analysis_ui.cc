@@ -2050,6 +2050,27 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                         {
                             auto op = getPointer<OperatorInterface>(node);
                             highlightInputNodes(op);
+
+                            qDebug() << "Object Info: id =" << op->getId()
+                                << ", class =" << op->metaObject()->className()
+                                << ", #slots =" << op->getNumberOfSlots();
+
+                            for (s32 si = 0; si < op->getNumberOfSlots(); si++)
+                            {
+                                auto slot = op->getSlot(si);
+                                QString inputObjectId = QSL("<none>");
+
+                                if (slot->isConnected())
+                                {
+                                    inputObjectId = slot->inputPipe->getSource()->getId().toString();
+                                }
+
+                                qDebug() << " Slot" << si << ": isParamIndexInRange() =" << slot->isParamIndexInRange()
+                                    << ", isConnected() =" << slot->isConnected()
+                                    << ", sourceId =" << inputObjectId;
+                            }
+
+
                         } break;
                 }
 
