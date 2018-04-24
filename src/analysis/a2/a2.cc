@@ -2034,7 +2034,7 @@ do\
         error.is_duplicate = table.symbolExists(sym);\
         throw error;\
     }\
-} while (0);
+} while (0)
 
 Operator make_expression_operator(
     memory::Arena *arena,
@@ -2148,7 +2148,7 @@ do\
         ss << "Unexpected result type: result #" << result_idx << ", output #" << out_idx <<  ": expected type is " << #expected_type;\
         throw SemanticError(ss.str());\
     }\
-while(0);
+while(0)
 
         expect_result_type(res_name, Result::String);
         expect_result_type(res_unit, Result::String);
@@ -2995,6 +2995,8 @@ struct OperatorFunctions
 
 static const OperatorFunctions OperatorTable[OperatorTypeCount] =
 {
+    [Invalid_OperatorType] = { nullptr },
+
     [Operator_Calibration] = { calibration_step },
     [Operator_Calibration_sse] = { calibration_sse_step },
     [Operator_Calibration_idx] = { calibration_step_idx },
@@ -3035,11 +3037,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Aggregate_MeanX] = { aggregate_meanx_step },
     [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
 
-#if 0
     [Operator_Expression] = { expression_operator_step },
-#else
-    [Operator_Expression] = { nullptr },
-#endif
 };
 
 inline void step_operator(Operator *op)
@@ -3163,10 +3161,14 @@ inline u32 step_operator_range(Operator *first, Operator *last)
 
         assert(op);
         assert(op->type < ArrayCount(OperatorTable));
-        assert(OperatorTable[op->type].step);
 
-        OperatorTable[op->type].step(op);
-        opSteppedCount++;
+        if (likely(op->type != Invalid_OperatorType))
+        {
+            assert(OperatorTable[op->type].step);
+
+            OperatorTable[op->type].step(op);
+            opSteppedCount++;
+        }
     }
 
     return opSteppedCount;
@@ -3522,6 +3524,7 @@ void a2_end_event(A2 *a2, int eventIndex)
 
     if (opCount)
     {
+        // No threads
         if (A2AdditionalThreads == 0)
         {
             for (int opIdx = 0; opIdx < opCount; opIdx++)
@@ -3532,12 +3535,17 @@ void a2_end_event(A2 *a2, int eventIndex)
 
                 assert(op);
                 assert(op->type < ArrayCount(OperatorTable));
-                assert(OperatorTable[op->type].step);
 
-                OperatorTable[op->type].step(op);
-                opSteppedCount++;
+                if (likely(op->type != Invalid_OperatorType))
+                {
+                    assert(OperatorTable[op->type].step);
+
+                    OperatorTable[op->type].step(op);
+                    opSteppedCount++;
+                }
             }
         }
+        // Threaded
         else
         {
             if (opCount)
