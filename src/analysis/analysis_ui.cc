@@ -1995,7 +1995,7 @@ void EventWidgetPrivate::clearToDefaultNodeHighlights(QTreeWidgetItem *node)
                 for (auto slotIndex = 0; slotIndex < op->getNumberOfSlots(); ++slotIndex)
                 {
                     Slot *slot = op->getSlot(slotIndex);
-                    if (!slot->inputPipe)
+                    if (!slot->isParamIndexInRange())
                     {
                         node->setBackground(0, MissingInputColor);
                         break;
