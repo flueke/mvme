@@ -1678,14 +1678,14 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             le_yAxisTitle->setText(makeSlotSourceString(&histoSink->m_inputY));
 
         // x input was selected
-        if (histoSink->m_inputX.isConnected() && slot == &histoSink->m_inputX && std::isnan(histoSink->m_xLimitMin))
+        if (histoSink->m_inputX.isParamIndexInRange() && slot == &histoSink->m_inputX && std::isnan(histoSink->m_xLimitMin))
         {
             limits_x.spin_min->setValue(slot->inputPipe->parameters[slot->paramIndex].lowerLimit);
             limits_x.spin_max->setValue(slot->inputPipe->parameters[slot->paramIndex].upperLimit);
         }
 
         // y input was selected
-        if (histoSink->m_inputY.isConnected() && slot == &histoSink->m_inputY && std::isnan(histoSink->m_yLimitMin))
+        if (histoSink->m_inputY.isParamIndexInRange() && slot == &histoSink->m_inputY && std::isnan(histoSink->m_yLimitMin))
         {
             limits_y.spin_min->setValue(slot->inputPipe->parameters[slot->paramIndex].lowerLimit);
             limits_y.spin_max->setValue(slot->inputPipe->parameters[slot->paramIndex].upperLimit);
