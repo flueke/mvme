@@ -296,18 +296,24 @@ QString getClassName(T *obj)
 //
 // Pipe
 //
-Pipe::~Pipe()
+
+Pipe::Pipe()
+{}
+
+Pipe::Pipe(PipeSourceInterface *sourceObject, s32 outputIndex, const QString &paramVectorName)
+    : source(sourceObject)
+    , sourceOutputIndex(outputIndex)
 {
-#if 1
-    qDebug() << __PRETTY_FUNCTION__ << "pipe pipe pipe pipe" << source;
+    setParameterName(paramVectorName);
+}
 
-    QVector<Slot *> destsCopy = destinations;
-
-    for (auto slot: destsCopy)
+void Pipe::disconnectAllDestinationSlots()
+{
+    for (auto slot: destinations)
     {
         slot->disconnectPipe();
     }
-#endif
+    destinations.clear();
 }
 
 //
@@ -317,6 +323,7 @@ Pipe::~Pipe()
 void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
 {
     disconnectPipe();
+
     if (newInput)
     {
         inputPipe = newInput;
@@ -334,8 +341,11 @@ void Slot::disconnectPipe()
         inputPipe->removeDestination(this);
         inputPipe = nullptr;
         paramIndex = Slot::NoParamIndex;
-        Q_ASSERT(parentOperator);
-        parentOperator->slotDisconnected(this);
+
+        if (parentOperator)
+        {
+            parentOperator->slotDisconnected(this);
+        }
     }
 }
 
@@ -2681,15 +2691,14 @@ void BinarySumDiff::write(QJsonObject &json) const
       You can't do
         while (auto out = op->getOutput(outIdx++)) {}
         but have to query the number and only request existing outputs.
-         * IMPORTANT: This has the side effect of creating outputs until an
-         * output for the requested index exists! This is done so that
-         * Analysis::read() can establish the connections.
+        Doing getOutput(10) would also have to create all non-existent outputs from 0 to 10.
 
    -> Store the last known number of outputs in the analysis config and create
       that many in ExpressionOperator::read()
       This means connections that where valid at the time the analyis config
       was written can be re-established when reading the config back in.
       This might be the cleaner solution after all.
+      Still have to handle invalid connections!
 
  */
 
@@ -2707,9 +2716,71 @@ ExpressionOperator::ExpressionOperator(QObject *parent)
     // Need at least one input slot to be usable
     addSlot();
 
+    // FIXME: figure out if this is needed. it should not be. it's weird
     // Add a single fake output to make the ui and other parts of the system happy.
-    addOutput();
+    //addOutput();
 }
+
+a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena)
+{
+    return buildA2Operator(arena, a2::ExpressionOperatorBuildOptions::FullBuild);
+}
+
+a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena, a2::ExpressionOperatorBuildOptions buildOptions)
+{
+    /* NOTE: This method creates "fake" a2 input pipes inside the arena. This
+     * means it can not be used inside the a1->a2 adapter layer. */
+
+    if (!required_inputs_connected_and_valid(this))
+        throw std::runtime_error("Not all required inputs are connected.");
+
+    std::vector<a2::PipeVectors> a2_inputs;
+    std::vector<std::string> inputUnits;
+
+    for (auto slot: m_inputs)
+    {
+        auto a1_pipe = slot->inputPipe;
+        a2::PipeVectors a2_pipe = make_a2_pipe_from_a1_pipe(arena, a1_pipe);
+
+        a2_inputs.push_back(a2_pipe);
+
+        inputUnits.push_back(a1_pipe->parameters.unit.toStdString());
+    }
+
+    std::vector<std::string> inputPrefixes;
+
+    for (s32 i = 0; i < m_inputs.size(); i++)
+    {
+        std::string inputPrefix;
+
+        if (i < m_inputPrefixes.size())
+        {
+            inputPrefix = m_inputPrefixes[i].toStdString();
+        }
+        else
+        {
+            std::stringstream ss;
+            ss << "input" << i;
+            inputPrefix = ss.str();
+        }
+
+        inputPrefixes.push_back(inputPrefix);
+    }
+
+    assert(m_inputs.size() == static_cast<s32>(inputPrefixes.size()));
+
+    auto a2_op = a2::make_expression_operator(
+        arena,
+        a2_inputs,
+        inputPrefixes,
+        inputUnits,
+        m_exprBegin.toStdString(),
+        m_exprStep.toStdString(),
+        buildOptions);
+
+    return a2_op;
+}
+
 
 bool ExpressionOperator::addSlot()
 {
@@ -2768,9 +2839,9 @@ void ExpressionOperator::addOutput(QString outputName)
         outputName = QSL("output") + QString::number(outputCount);
     }
 
-    auto outPipe = std::make_shared<Pipe>();
-    outPipe->setSource(this);
-    outPipe->setParameterName(outputName);
+    auto outPipe = std::make_shared<Pipe>(this, outputCount, outputName);
+
+    m_outputs.push_back(outPipe);
 }
 
 s32 ExpressionOperator::getNumberOfOutputs() const
@@ -2797,76 +2868,35 @@ Pipe *ExpressionOperator::getOutput(s32 index)
     return nullptr;
 }
 
-a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena)
-{
-    /* Create the a2 operator which runs the begin script to figure out the
-     * output size and limits. Then copy the limits to this operators output
-     * pipes.
-     * NOTE: This method creates "fake" a2 input pipes inside the arena. This
-     * means it can not be used inside the a1->a2 adapter layer. */
-
-    if (!required_inputs_connected_and_valid(this))
-        throw std::runtime_error("Not all required inputs are connected.");
-
-    std::vector<a2::PipeVectors> a2_inputs;
-    std::vector<std::string> inputUnits;
-
-    for (auto slot: m_inputs)
-    {
-        auto a1_pipe = slot->inputPipe;
-        a2::PipeVectors a2_pipe = make_a2_pipe_from_a1_pipe(arena, a1_pipe);
-
-        a2_inputs.push_back(a2_pipe);
-
-        inputUnits.push_back(a1_pipe->parameters.unit.toStdString());
-    }
-
-    std::vector<std::string> inputPrefixes;
-
-    for (s32 i = 0; i < m_inputs.size(); i++)
-    {
-        std::string inputPrefix;
-
-        if (i < m_inputPrefixes.size())
-        {
-            inputPrefix = m_inputPrefixes[i].toStdString();
-        }
-        else
-        {
-            std::stringstream ss;
-            ss << "input" << i;
-            inputPrefix = ss.str();
-        }
-
-        inputPrefixes.push_back(inputPrefix);
-    }
-
-    assert(m_inputs.size() == static_cast<s32>(inputPrefixes.size()));
-
-    auto a2_op = a2::make_expression_operator(
-        arena,
-        a2_inputs,
-        inputPrefixes,
-        inputUnits,
-        m_exprBegin.toStdString(),
-        m_exprStep.toStdString());
-
-    return a2_op;
-}
-
 void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
 {
+    // FIXME: handle the error case properly (remove or keep outpipes? if keeping them resize to 0?)
+    // FIXME: handle arena OOM
+
     try
     {
-        // FIXME: handle arena OOM here
         memory::Arena arena(Kilobytes(256));
 
-        auto a2_op = buildA2Operator(&arena);
+        /* Create the a2 operator which runs the begin script to figure out the
+         * output size and limits. Then copy the limits to this operators output
+         * pipes. */
+
+        auto a2_op = buildA2Operator(&arena, a2::ExpressionOperatorBuildOptions::InitOnly);
         auto d     = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op.d);
 
         assert(a2_op.outputCount == d->output_units.size());
         assert(d->output_units.size() == d->output_names.size());
 
+        /* Disconnect Pipes that will be removed. */
+        for (size_t outIdx = a2_op.outputCount;
+             outIdx < static_cast<size_t>(m_outputs.size());
+             outIdx++)
+        {
+            m_outputs[outIdx]->disconnectAllDestinationSlots();
+        }
+
+        /* Resize to the new output count. This keeps existing pipes which
+         * means existing slot connections will remain valid. */
         m_outputs.resize(a2_op.outputCount);
 
         for (size_t outIdx = 0; outIdx < a2_op.outputCount; outIdx++)
@@ -2876,12 +2906,9 @@ void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
 
             if (!outPipe)
             {
-                outPipe = std::make_shared<Pipe>();
+                outPipe = std::make_shared<Pipe>(this, outIdx);
                 m_outputs[outIdx] = outPipe;
             }
-
-            outPipe->source = this;
-            outPipe->sourceOutputIndex = outIdx;
 
             assert(a2_op.outputs[outIdx].size == a2_op.outputLowerLimits[outIdx].size);
             assert(a2_op.outputs[outIdx].size == a2_op.outputUpperLimits[outIdx].size);
@@ -2946,13 +2973,28 @@ void ExpressionOperator::read(const QJsonObject &json)
         addSlot();
     }
 
-    // XXX: leftoff here Tue Apr 24 16:46:40 CEST 2018
-    m_outputs.clear();
-    s32 lastOutputCount = json["lastOutputCount"].toInt(1);
 
-    for (s32 i = 0; i < lastOutputCount; i++)
+    /* Similar to the code in beginRun(): disconnect pipes that will be
+     * removed, reuse existing ones and add new ones. */
+
+    s32 lastOutputCount = json["lastOutputCount"].toInt(0);
+
+    for (s32 outIdx = lastOutputCount; outIdx < m_outputs.size(); outIdx++)
     {
-        addOutput();
+        m_outputs[outIdx]->disconnectAllDestinationSlots();
+    }
+
+    m_outputs.resize(lastOutputCount);
+
+    for (s32 outIdx = 0; outIdx < lastOutputCount; outIdx++)
+    {
+        auto outPipe = m_outputs.value(outIdx);
+
+        if (!outPipe)
+        {
+            outPipe = std::make_shared<Pipe>(this, outIdx, QSL("output") + QString::number(outIdx));
+            m_outputs[outIdx] = outPipe;
+        }
     }
 }
 

@@ -170,7 +170,8 @@ struct Slot;
 class LIBMVME_EXPORT Pipe
 {
     public:
-        ~Pipe();
+        Pipe();
+        Pipe(PipeSourceInterface *sourceObject, s32 outputIndex, const QString &paramVectorName = QString());
 
         const Parameter *first() const
         {
@@ -224,6 +225,8 @@ class LIBMVME_EXPORT Pipe
             }
         }
 
+        /* Removes the given slot from this pipes destinations.
+         * IMPORTANT: Does not call disconnectPipe() on the slot!. */
         void removeDestination(Slot *dest)
         {
             destinations.removeAll(dest);
@@ -233,6 +236,9 @@ class LIBMVME_EXPORT Pipe
         {
             return destinations;
         }
+
+        /* Disconnects and removes all destination slots of this pipe. */
+        void disconnectAllDestinationSlots();
 
         void invalidateAll()
         {
@@ -1121,6 +1127,7 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
         QString getInputPrefix(s32 inputIndex) const { return m_inputPrefixes.value(inputIndex); }
 
         a2::Operator buildA2Operator(memory::Arena *arena);
+        a2::Operator buildA2Operator(memory::Arena *arena, a2::ExpressionOperatorBuildOptions buildOptions);
 
     private:
         void addOutput(QString name = QString());
