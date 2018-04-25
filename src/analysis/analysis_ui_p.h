@@ -142,6 +142,8 @@ QWidget *data_source_widget_factory(SourceInterface *ds);
 
 class AbstractOpConfigWidget;
 
+/* Provides the input selection grid ("SlotGrid") and instantiates a specific
+ * widget depending on the operator type. */
 class AddEditOperatorWidget: public QDialog
 {
     Q_OBJECT
@@ -212,8 +214,8 @@ class AbstractOpConfigWidget: public QWidget
 };
 
 /* One widget to rule them all.
- * This handles all of the older analysis operators. New operators should get
- * their own config widget derived from AbstractOpConfigWidget unless it's
+ * This handles most of the analysis operators. New/complex operators should
+ * get their own config widget derived from AbstractOpConfigWidget unless it's
  * simple stuff they need. */
 class OperatorConfigurationWidget: public AbstractOpConfigWidget
 {

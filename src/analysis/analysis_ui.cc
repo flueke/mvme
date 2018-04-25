@@ -1096,10 +1096,13 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                             QObject::connect(lfe_dialog, &QDialog::accepted, m_q,
                                              &EventWidget::listFilterExtractorDialogAccepted);
+
                             QObject::connect(lfe_dialog, &ListFilterExtractorDialog::applied, m_q,
                                              &EventWidget::listFilterExtractorDialogApplied);
+
                             QObject::connect(lfe_dialog, &QDialog::rejected, m_q,
                                              &EventWidget::listFilterExtractorDialogRejected);
+
                             dialog = lfe_dialog;
                         }
                         else
@@ -1211,8 +1214,10 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                                 QObject::connect(lfe_dialog, &QDialog::accepted, m_q,
                                                  &EventWidget::listFilterExtractorDialogAccepted);
+
                                 QObject::connect(lfe_dialog, &ListFilterExtractorDialog::applied, m_q,
                                                  &EventWidget::listFilterExtractorDialogApplied);
+
                                 QObject::connect(lfe_dialog, &QDialog::rejected, m_q,
                                                  &EventWidget::listFilterExtractorDialogRejected);
 

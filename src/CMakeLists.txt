@@ -65,10 +65,6 @@ add_subdirectory(analysis/a2)
 include_directories(analysis/a2)
 
 #
-# mvme_exprtk
-#
-
-#
 # libmvme
 #
 add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
@@ -77,15 +73,18 @@ set(LIBMVME_SOURCES
     "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
     "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
     "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
+
     analysis/a2_adapter.cc
     analysis/analysis.cc
+    analysis/analysis_info_widget.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
     analysis/data_extraction_widget.cc
-    analysis/analysis_info_widget.cc
     analysis/exportsink_codegen.cc
+    analysis/expression_operator_dialog.cc
     analysis/listfilter_extractor_dialog.cc
+
     config_ui.cpp
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
