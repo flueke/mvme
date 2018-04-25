@@ -1076,7 +1076,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 auto moduleConfig = getPointer<ModuleConfig>(node);
 
                 // new data sources / filters
-                auto add_action = [this, &menu, menuNew, moduleConfig](const QString &title, auto srcPtr)
+                auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig](const QString &title, auto srcPtr)
                 {
                     menuNew->addAction(title, &menu, [this, moduleConfig, srcPtr]() {
                         QDialog *dialog = nullptr;
@@ -1135,7 +1135,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                 for (auto src: sourceInstances)
                 {
-                    add_action(src->getDisplayName(), src);
+                    add_newDataSourceAction(src->getDisplayName(), src);
                 }
 
                 // default data filters and "raw display" creation
@@ -1290,7 +1290,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         {
             if (userLevel > 0)
             {
-                auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto opPtr)
+                auto add_addOperatorAction = [this, &menu, menuNew, userLevel](const QString &title, auto opPtr)
                 {
                     menuNew->addAction(title, &menu, [this, userLevel, opPtr]() {
                         auto widget = new AddEditOperatorWidget(opPtr, userLevel, m_q);
@@ -1321,7 +1321,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                 for (auto op: operatorInstances)
                 {
-                    add_action(op->getDisplayName(), op);
+                    add_addOperatorAction(op->getDisplayName(), op);
                 }
             }
         }
@@ -1379,7 +1379,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
     QMenu menu;
     auto menuNew = new QMenu;
 
-    auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto op)
+    auto add_newOperatorAction = [this, &menu, menuNew, userLevel](const QString &title, auto op)
     {
         menuNew->addAction(title, &menu, [this, userLevel, op]() {
             auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
@@ -1584,7 +1584,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             case NodeType_Module:
                 {
                     auto sink = std::make_shared<Histo1DSink>();
-                    add_action(sink->getDisplayName(), sink);
+                    add_newOperatorAction(sink->getDisplayName(), sink);
                 } break;
         }
 
@@ -1650,7 +1650,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
 
             if (sink)
             {
-                add_action(sink->getDisplayName(), sink);
+                add_newOperatorAction(sink->getDisplayName(), sink);
             }
         }
     }
@@ -1662,11 +1662,11 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             {
                 {
                     auto sink = std::make_shared<Histo1DSink>();
-                    add_action(sink->getDisplayName(), sink);
+                    add_newOperatorAction(sink->getDisplayName(), sink);
                 }
                 {
                     auto sink = std::make_shared<RateMonitorSink>();
-                    add_action(sink->getDisplayName(), sink);
+                    add_newOperatorAction(sink->getDisplayName(), sink);
                 }
             }
             else
@@ -1677,7 +1677,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                 for (auto sinkName: registry.getSinkNames())
                 {
                     OperatorPtr sink(registry.makeSink(sinkName));
-                    add_action(sink->getDisplayName(), sink);
+                    add_newOperatorAction(sink->getDisplayName(), sink);
                 }
             }
         }
