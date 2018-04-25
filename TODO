@@ -265,7 +265,7 @@ inside the export data file or added to the export header.
 
 * Add an exprtk operator! That would be freakin awesome.
 
-* Implement "copy plot to clipboard" feature
+* Implement "copy plot to clipboard" feature for Histo2D
 
 * add 64 bit DataFilter
 * phase out data_filter.h (DataFilter and MultiWordDataFilter). stick to the a2 stuff
@@ -589,9 +589,10 @@ Single Stepping and Stream Processing
 --------------------------------------------------
 * Remove now unused run-time code from the Analysis classes. Make it clear that
   they're for serialization, internal connectiviy and a2 generation only.
-* analysis session: errors out when saving and empty analysis session
+* analysis session / HDF5: errors out when saving and empty analysis session
   - enable the save action only if the analysis is non-empty
   - change the session code to be able to handle empty analyses
+  - there are leaks found by the address sanitizer pointing to H5E_get_stack
 
 * cmake: Fix the issue with FindROOT adding to the global cflags. Might be
   fixed by moving everything ROOT related into a subdirectory.
