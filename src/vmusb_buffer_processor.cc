@@ -425,13 +425,21 @@ void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
             if (iter.bytesLeft() != 0)
             {
+                /* Extra test to suppress a warning about 0xffff being left in
+                 * the buffer. This happens only on some systems and/or with
+                 * some VMUSBs, and it does not lead to any other errors, so
+                 * the warning can be suppressed here. */
+                if (iter.bytesLeft() == 2 && iter.peekU16() == 0xffff)
+                {
+                    return;
+                }
+
                 auto msg = QString(QSL("VMUSB Warning: (buffer #%3) %1 bytes left in buffer, numberOfEvents=%2"))
                     .arg(iter.bytesLeft())
                     .arg(numberOfEvents)
                     .arg(bufferNumber)
                     ;
                 logMessage(msg);
-                qDebug() << __PRETTY_FUNCTION__ << msg;
 
                 while (iter.longwordsLeft())
                 {
