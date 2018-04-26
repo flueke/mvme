@@ -2634,49 +2634,13 @@ void PipeDisplay::refresh()
         }
 
         m_infoLabel->setText("a2::PipeVectors");
+        m_parameterTable->resizeColumnsToContents();
+        m_parameterTable->resizeRowsToContents();
     }
     else
     {
-        m_parameterTable->setRowCount(m_pipe->parameters.size());
-
-        for (s32 pi = 0; pi < m_pipe->parameters.size(); ++pi)
-        {
-            const auto &param(m_pipe->parameters[pi]);
-
-            QStringList columns =
-            {
-                param.valid ? QSL("Y") : QSL("N"),
-                param.valid ? QString::number(param.value) : QSL(""),
-                QString::number(param.lowerLimit),
-                QString::number(param.upperLimit),
-            };
-
-            for (s32 ci = 0; ci < columns.size(); ci++)
-            {
-                auto item = m_parameterTable->item(pi, ci);
-                if (!item)
-                {
-                    item = new QTableWidgetItem;
-                    m_parameterTable->setItem(pi, ci, item);
-                }
-
-                item->setText(columns[ci]);
-                item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-            }
-
-            if (!m_parameterTable->verticalHeaderItem(pi))
-            {
-                m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem);
-            }
-
-            m_parameterTable->verticalHeaderItem(pi)->setText(QString::number(pi));
-        }
-
-        m_infoLabel->setText("analysis::Pipe");
+        m_parameterTable->setRowCount(0);
     }
-
-    m_parameterTable->resizeColumnsToContents();
-    m_parameterTable->resizeRowsToContents();
 }
 
 
