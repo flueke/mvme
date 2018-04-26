@@ -1857,7 +1857,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analy
 
         if (m_analysisUi)
         {
-            m_analysisUi->operatorAdded(op);
+            m_analysisUi->operatorAddedExternally(op);
         }
     }
 }
@@ -1875,7 +1875,7 @@ void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::Operato
 
     if (m_analysisUi)
     {
-        m_analysisUi->operatorEdited(op);
+        m_analysisUi->operatorEditedExternally(op);
     }
 }
 

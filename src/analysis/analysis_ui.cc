@@ -1096,14 +1096,14 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                                 lfe_dialog->newFilter();
                             }
 
-                            QObject::connect(lfe_dialog, &QDialog::accepted, m_q,
-                                             &EventWidget::listFilterExtractorDialogAccepted);
+                            QObject::connect(lfe_dialog, &QDialog::accepted,
+                                             m_q, &EventWidget::listFilterExtractorDialogAccepted);
 
-                            QObject::connect(lfe_dialog, &ListFilterExtractorDialog::applied, m_q,
-                                             &EventWidget::listFilterExtractorDialogApplied);
+                            QObject::connect(lfe_dialog, &ListFilterExtractorDialog::applied,
+                                             m_q, &EventWidget::listFilterExtractorDialogApplied);
 
-                            QObject::connect(lfe_dialog, &QDialog::rejected, m_q,
-                                             &EventWidget::listFilterExtractorDialogRejected);
+                            QObject::connect(lfe_dialog, &QDialog::rejected,
+                                             m_q, &EventWidget::listFilterExtractorDialogRejected);
 
                             dialog = lfe_dialog;
                         }
@@ -1261,8 +1261,10 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         {
             if (!m_uniqueWidgetActive)
             {
-                auto op = getPointer<OperatorInterface>(node);
-                Q_ASSERT(op);
+                auto rawOpPtr = getPointer<OperatorInterface>(node);
+                Q_ASSERT(rawOpPtr);
+
+                auto op = std::dynamic_pointer_cast<OperatorInterface>(rawOpPtr->getSharedPointer());
 
                 if (op->getNumberOfOutputs() == 1)
                 {
@@ -1273,8 +1275,9 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     });
                 }
 
+                // Edit Operator
                 menu.addAction(QSL("Edit"), [this, userLevel, op]() {
-                    auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
+                    auto widget = new AddEditOperatorDialog(op, userLevel, AddEditOperatorDialog::EditOperator, m_q);
                     widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
@@ -1282,11 +1285,17 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     m_uniqueWidget = widget;
                     clearAllTreeSelections();
                     clearAllToDefaultNodeHighlights();
+
+                    QObject::connect(widget, &QDialog::accepted,
+                                     m_q, &EventWidget::editOperatorDialogAccepted);
+
+                    QObject::connect(widget, &QDialog::rejected,
+                                     m_q, &EventWidget::addEditOperatorDialogRejected);
                 });
 
                 menu.addAction(QSL("Remove"), [this, op]() {
                     // TODO: QMessageBox::question or similar
-                    m_q->removeOperator(op);
+                    m_q->removeOperator(op.get());
                 });
             }
         }
@@ -1297,10 +1306,11 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         {
             if (userLevel > 0)
             {
-                auto add_addOperatorAction = [this, &menu, menuNew, userLevel](const QString &title, auto opPtr)
+                auto add_newOperatorAction = [this, &menu, menuNew, userLevel](const QString &title, auto opPtr)
                 {
+                    // New Operator
                     menuNew->addAction(title, &menu, [this, userLevel, opPtr]() {
-                        auto widget = new AddEditOperatorWidget(opPtr, userLevel, m_q);
+                        auto widget = new AddEditOperatorDialog(opPtr, userLevel, AddEditOperatorDialog::AddOperator, m_q);
                         widget->move(QCursor::pos());
                         widget->setAttribute(Qt::WA_DeleteOnClose);
                         widget->show();
@@ -1308,6 +1318,12 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         m_uniqueWidget = widget;
                         clearAllTreeSelections();
                         clearAllToDefaultNodeHighlights();
+
+                        QObject::connect(widget, &QDialog::accepted,
+                                         m_q, &EventWidget::addOperatorDialogAccepted);
+
+                        QObject::connect(widget, &QDialog::rejected,
+                                         m_q, &EventWidget::addEditOperatorDialogRejected);
                     });
                 };
 
@@ -1328,7 +1344,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                 for (auto op: operatorInstances)
                 {
-                    add_addOperatorAction(op->getDisplayName(), op);
+                    add_newOperatorAction(op->getDisplayName(), op);
                 }
             }
         }
@@ -1388,8 +1404,9 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
 
     auto add_newOperatorAction = [this, &menu, menuNew, userLevel](const QString &title, auto op)
     {
+        // New Display Operator
         menuNew->addAction(title, &menu, [this, userLevel, op]() {
-            auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
+            auto widget = new AddEditOperatorDialog(op, userLevel, AddEditOperatorDialog::AddOperator, m_q);
             widget->move(QCursor::pos());
             widget->setAttribute(Qt::WA_DeleteOnClose);
             widget->show();
@@ -1397,6 +1414,12 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             m_uniqueWidget = widget;
             clearAllTreeSelections();
             clearAllToDefaultNodeHighlights();
+
+            QObject::connect(widget, &QDialog::accepted,
+                             m_q, &EventWidget::addOperatorDialogAccepted);
+
+            QObject::connect(widget, &QDialog::rejected,
+                             m_q, &EventWidget::addEditOperatorDialogRejected);
         });
     };
 
@@ -1595,12 +1618,17 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                 } break;
         }
 
-        if (auto op = qobject_cast<OperatorInterface *>(obj))
+        if (auto opRawPtr = qobject_cast<OperatorInterface *>(obj))
         {
+            auto op = std::dynamic_pointer_cast<OperatorInterface>(opRawPtr->getSharedPointer());
+            assert(op);
+
+
             if (!m_uniqueWidgetActive)
             {
+                // Edit Display Operator
                 menu.addAction(QSL("&Edit"), [this, userLevel, op]() {
-                    auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
+                    auto widget = new AddEditOperatorDialog(op, userLevel, AddEditOperatorDialog::EditOperator, m_q);
                     widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
@@ -1608,21 +1636,27 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     m_uniqueWidget = widget;
                     clearAllTreeSelections();
                     clearAllToDefaultNodeHighlights();
+
+                    QObject::connect(widget, &QDialog::accepted,
+                                     m_q, &EventWidget::editOperatorDialogAccepted);
+
+                    QObject::connect(widget, &QDialog::rejected,
+                                     m_q, &EventWidget::addEditOperatorDialogRejected);
                 });
 
-                if (auto sink = qobject_cast<SinkInterface *>(op))
+                if (auto sink = std::dynamic_pointer_cast<SinkInterface>(op))
                 {
                     menu.addSeparator();
                     menu.addAction(sink->isEnabled() ? QSL("&Disable") : QSL("E&nable"),
                                    [this, sink]() {
-                        m_q->toggleSinkEnabled(sink);
+                        m_q->toggleSinkEnabled(sink.get());
                     });
                 }
 
                 menu.addSeparator();
                 menu.addAction(QSL("Remove"), [this, op]() {
-                    // TODO: QMessageBox::question or similar as there's no way to undo the action
-                    m_q->removeOperator(op);
+                    // maybe TODO: QMessageBox::question or similar as there's no way to undo the action
+                    m_q->removeOperator(op.get());
                 });
             }
         }
@@ -3110,44 +3144,26 @@ void EventWidget::highlightInputOf(Slot *slot, bool doHighlight)
     }
 }
 
-void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
+void EventWidget::addOperatorDialogAccepted()
 {
-    if (!op) return;
+    qDebug() << __PRETTY_FUNCTION__;
 
-    try
-    {
-        AnalysisPauser pauser(m_d->m_context);
-        m_d->m_context->getAnalysis()->addOperator(m_d->m_eventId, op, userLevel);
-        m_d->repopulate();
-        m_d->m_analysisWidget->updateAddRemoveUserLevelButtons();
-    }
-    catch (const std::bad_alloc &)
-    {
-        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
-    }
+    endSelectInput();
+    uniqueWidgetCloses();
+    m_d->repopulate();
+    m_d->m_analysisWidget->updateAddRemoveUserLevelButtons();
 }
 
-void EventWidget::operatorEdited(OperatorInterface *op)
+void EventWidget::editOperatorDialogAccepted()
 {
-    // Rebuild the analysis system after an edit.
+    endSelectInput();
+    uniqueWidgetCloses();
+}
 
-    AnalysisPauser pauser(m_d->m_context);
-
-    try
-    {
-        auto runInfo = m_d->m_context->getRunInfo();
-        auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(m_d->m_context->getVMEConfig());
-
-        m_d->m_context->getAnalysis()->beginRun(runInfo, vmeMap);
-    }
-    catch (const std::bad_alloc &)
-    {
-        // Not being able to allocate enough memory for the operator is hopefully the rare case.
-        // To keep the code simple we just delete the operator in question and show an error message.
-        m_d->m_context->getAnalysis()->removeOperator(op);
-        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
-    }
-
+void EventWidget::addEditOperatorDialogRejected()
+{
+    endSelectInput();
+    uniqueWidgetCloses();
     m_d->repopulate();
 }
 
@@ -3303,6 +3319,11 @@ bool EventWidget::eventFilter(QObject *watched, QEvent *event)
 #endif
 
     return QWidget::eventFilter(watched, event);
+}
+
+QUuid EventWidget::getEventId() const
+{
+    return m_d->m_eventId;
 }
 
 struct AnalysisWidgetPrivate
@@ -4361,7 +4382,7 @@ AnalysisWidget::~AnalysisWidget()
     qDebug() << __PRETTY_FUNCTION__;
 }
 
-void AnalysisWidget::operatorAdded(const std::shared_ptr<OperatorInterface> &op)
+void AnalysisWidget::operatorAddedExternally(const std::shared_ptr<OperatorInterface> &op)
 {
     const auto &opEntries(m_d->m_context->getAnalysis()->getOperators());
 
@@ -4382,7 +4403,7 @@ void AnalysisWidget::operatorAdded(const std::shared_ptr<OperatorInterface> &op)
     }
 }
 
-void AnalysisWidget::operatorEdited(const std::shared_ptr<OperatorInterface> &op)
+void AnalysisWidget::operatorEditedExternally(const std::shared_ptr<OperatorInterface> &op)
 {
     const auto &opEntries(m_d->m_context->getAnalysis()->getOperators());
 

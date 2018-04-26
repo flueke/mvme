@@ -104,7 +104,7 @@ AddEditExtractorWidget::AddEditExtractorWidget(SourcePtr srcPtr, ModuleConfig *m
     spin_unitMax->setDecimals(8);
     spin_unitMax->setMinimum(-1e20);
     spin_unitMax->setMaximum(+1e20);
-    spin_unitMax->setValue(1 << 16); // FIXME: find a better default value. Maybe input dependent (upperLimit)
+    spin_unitMax->setValue(1 << 16); // TODO: find a better default value. Maybe input dependent (upperLimit)
 
     auto genHistogramsLayout = new QHBoxLayout(m_gbGenHistograms);
     genHistogramsLayout->setContentsMargins(0, 0, 0, 0);
@@ -274,58 +274,60 @@ void AddEditExtractorWidget::reject()
 }
 
 //
-// AddEditOperatorWidget
+// AddEditOperatorDialog
 //
 
-/** IMPORTANT: This constructor makes the Widget go into "add" mode. When
- * accepted it will call eventWidget->addOperator()! */
-AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget)
-    : AddEditOperatorWidget(opPtr.get(), userLevel, eventWidget)
-{
-    m_opPtr = opPtr;
-    setWindowTitle(QString("New  %1").arg(opPtr->getDisplayName()));
-
-    // Creating a new operator. Override the setting of setNameEdited by the
-    // constructor below.
-    m_opConfigWidget->setNameEdited(false);
-}
-
-/** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
- * accepted it will call eventWidget->operatorEdited()! */
-AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget)
+AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel, Mode mode, EventWidget *eventWidget)
     : QDialog(eventWidget)
     , m_op(op)
     , m_userLevel(userLevel)
+    , m_mode(mode)
     , m_eventWidget(eventWidget)
     , m_opConfigWidget(nullptr)
 {
-    // Note: refactor this into some factory or table lookup based on
+    // TODO: refactor this into some factory or table lookup based on
     // qmetaobject if there are more operator specific widgets to handle
-    if (auto rms = qobject_cast<RateMonitorSink *>(op))
+    if (auto rms = qobject_cast<RateMonitorSink *>(op.get()))
     {
-        m_opConfigWidget = new RateMonitorConfigWidget(rms, userLevel,
-                                                       eventWidget->getContext(), this);
+        m_opConfigWidget = new RateMonitorConfigWidget(
+            rms, userLevel, eventWidget->getContext(), this);
     }
-    else if (auto op_ = qobject_cast<ExpressionOperator *>(op))
+    // TODO: write a stand-alone widget for ExpressionOperator
+    else if (auto op_ = qobject_cast<ExpressionOperator *>(op.get()))
     {
         m_opConfigWidget = new ExpressionOperatorConfigurationWidget(
-            op_, userLevel,
-            eventWidget->getContext(), this);
+            op_, userLevel, eventWidget->getContext(), this);
     }
     else
     {
-        m_opConfigWidget = new OperatorConfigurationWidget(op, userLevel,
-                                                           eventWidget->getContext(), this);
+        m_opConfigWidget = new OperatorConfigurationWidget(
+            op.get(), userLevel, eventWidget->getContext(), this);
     }
 
-    setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
+    switch (mode)
+    {
+        case AddEditOperatorDialog::AddOperator:
+            setWindowTitle(QString("New  %1").arg(m_op->getDisplayName()));
+            // This is a new operator, so either the name is empty or was auto generated.
+            m_opConfigWidget->setNameEdited(false);
+            break;
+
+        case AddEditOperatorDialog::EditOperator:
+            setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
+            // We're editing an operator so we assume the name has been specified by the user.
+            m_opConfigWidget->setNameEdited(true);
+            break;
+    }
+
     add_widget_close_action(this);
 
-    // We're editing an operator so we assume the name has been specified by the user.
-    m_opConfigWidget->setNameEdited(true);
-
     connect(m_opConfigWidget, &AbstractOpConfigWidget::validityMayHaveChanged,
-            this, &AddEditOperatorWidget::onOperatorValidityChanged);
+            this, &AddEditOperatorDialog::onOperatorValidityChanged);
+
+
+    //
+    // Slotgrid creation
+    //
 
     const s32 slotCount = m_op->getNumberOfSlots();
 
@@ -380,7 +382,7 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
             {
                 AnalysisPauser pauser(m_eventWidget->getContext());
                 m_op->removeLastSlot();
-                do_beginRun_forward(m_op);
+                do_beginRun_forward(m_op.get()); // FIXME: does this need to happen? get rid of it and the pausing
                 repopulateSlotGrid();
                 inputSelected(-1);
             }
@@ -398,8 +400,8 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
     m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
-    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorWidget::accept);
-    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorWidget::reject);
+    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorDialog::accept);
+    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorDialog::reject);
     auto buttonBoxLayout = new QVBoxLayout;
     buttonBoxLayout->addStretch();
     buttonBoxLayout->addWidget(m_buttonBox);
@@ -420,7 +422,7 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     repopulateSlotGrid();
 }
 
-void AddEditOperatorWidget::repopulateSlotGrid()
+void AddEditOperatorDialog::repopulateSlotGrid()
 {
     // Clear the grid and the select buttons
     {
@@ -500,7 +502,7 @@ void AddEditOperatorWidget::repopulateSlotGrid()
             // Update the current select button to reflect the change
             m_selectButtons[slotIndex]->setText(QSL("<select>"));
             // Disable ok button as there's now at least one unset input
-            bool enable_ok = required_inputs_connected_and_valid(m_op);
+            bool enable_ok = required_inputs_connected_and_valid(m_op.get());
             m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enable_ok);
             m_opConfigWidget->inputSelected(slotIndex);
         });
@@ -539,7 +541,7 @@ QString makeSlotSourceString(Slot *slot)
     return result;
 }
 
-void AddEditOperatorWidget::inputSelected(s32 slotIndex)
+void AddEditOperatorDialog::inputSelected(s32 slotIndex)
 {
     if (slotIndex >= 0)
     {
@@ -558,49 +560,62 @@ void AddEditOperatorWidget::inputSelected(s32 slotIndex)
     onOperatorValidityChanged();
 }
 
-void AddEditOperatorWidget::onOperatorValidityChanged()
+void AddEditOperatorDialog::onOperatorValidityChanged()
 {
-    bool isValid = m_opConfigWidget->isValid();
-
-    isValid = isValid && required_inputs_connected_and_valid(m_op);
-
-
-
+    bool isValid = m_opConfigWidget->isValid() && required_inputs_connected_and_valid(m_op.get());
 
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid);
 }
 
-void AddEditOperatorWidget::accept()
+void AddEditOperatorDialog::accept()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
     AnalysisPauser pauser(m_eventWidget->getContext());
     m_opConfigWidget->configureOperator();
-    if (m_opPtr)
+
+    auto analysis = m_eventWidget->getContext()->getAnalysis();
+
+    try
     {
-        // add mode
-        m_eventWidget->addOperator(m_opPtr, m_userLevel);
+        switch (m_mode)
+        {
+            case AddOperator:
+                {
+                    analysis->addOperator(m_eventWidget->getEventId(), m_op, m_userLevel);
+                } break;
+
+            case EditOperator:
+                {
+                    auto context = m_eventWidget->getContext();
+                    auto runInfo = context->getRunInfo();
+                    auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(context->getVMEConfig());
+                    analysis->setModified();
+                    analysis->beginRun(runInfo, vmeMap);
+                } break;
+        }
+
+        QDialog::accept();
     }
-    else
+    catch (const std::bad_alloc &)
     {
-        // edit mode
-        m_eventWidget->operatorEdited(m_op);
+        // FIXME: bring analysis into a consistent state by removing the
+        // operator in AddMode or by undoing the modifications in case
+        // of EditMode (how should this be done? there's no undo right now...)
+
+        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
+        reject();
     }
-    m_eventWidget->getContext()->getAnalysis()->setModified();
-    m_eventWidget->endSelectInput();
-    m_eventWidget->uniqueWidgetCloses();
-    QDialog::accept();
 }
 
-void AddEditOperatorWidget::reject()
+void AddEditOperatorDialog::reject()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
     AnalysisPauser pauser(m_eventWidget->getContext());
 
-    if (m_opPtr)
+    if (m_mode == AddOperator)
     {
-        // add mode
         // The operator will not be added to the analysis. This means any slots
         // connected by the user must be disconnected again to avoid having
         // stale connections in the source operators.
@@ -612,7 +627,9 @@ void AddEditOperatorWidget::reject()
     }
     else
     {
-        // edit mode
+        // FIXME: get rid of as much of the complicated slot handling code here as possible
+
+
         // Restore previous slot connections.
 
         if (m_op->hasVariableNumberOfSlots()
@@ -645,7 +662,7 @@ void AddEditOperatorWidget::reject()
 
         if (wasModified)
         {
-            do_beginRun_forward(m_op);
+            do_beginRun_forward(m_op.get());
         }
     }
     m_eventWidget->endSelectInput();
@@ -653,7 +670,7 @@ void AddEditOperatorWidget::reject()
     QDialog::reject();
 }
 
-bool AddEditOperatorWidget::eventFilter(QObject *watched, QEvent *event)
+bool AddEditOperatorDialog::eventFilter(QObject *watched, QEvent *event)
 {
     auto button = qobject_cast<QPushButton *>(watched);
     if (button && (event->type() == QEvent::Enter || event->type() == QEvent::Leave)
@@ -680,7 +697,7 @@ bool AddEditOperatorWidget::eventFilter(QObject *watched, QEvent *event)
  *
  * Maybe there's a better way to achieve the same but I didn't find it.
  */
-void AddEditOperatorWidget::resizeEvent(QResizeEvent *event)
+void AddEditOperatorDialog::resizeEvent(QResizeEvent *event)
 {
     if (!m_resizeEventSeen)
     {
@@ -1494,7 +1511,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
     }
 }
 
-// NOTE: This will be called after construction for each slot by AddEditOperatorWidget::repopulateSlotGrid()!
+// NOTE: This will be called after construction for each slot by AddEditOperatorDialog::repopulateSlotGrid()!
 void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 {
     OperatorInterface *op = m_op;

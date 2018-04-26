@@ -77,7 +77,6 @@ class EventWidget: public QWidget
         void sourceEdited(SourceInterface *src);
         void removeSource(SourceInterface *src);
 
-        void addOperator(OperatorPtr op, s32 userLevel);
         void operatorEdited(OperatorInterface *op);
         void removeOperator(OperatorInterface *op);
 
@@ -97,10 +96,19 @@ class EventWidget: public QWidget
         friend class AnalysisWidget;
         friend class AnalysisWidgetPrivate;
 
+        QUuid getEventId() const;
+
     public slots:
+        // maybe FIXME: these slots are only public because of being called by a
+        // lambda which otherwise cannot invoke them
+
         void listFilterExtractorDialogAccepted();
         void listFilterExtractorDialogApplied();
         void listFilterExtractorDialogRejected();
+
+        void addOperatorDialogAccepted();
+        void editOperatorDialogAccepted();
+        void addEditOperatorDialogRejected();
 
     private:
         EventWidgetPrivate *m_d;
@@ -143,13 +151,20 @@ QWidget *data_source_widget_factory(SourceInterface *ds);
 class AbstractOpConfigWidget;
 
 /* Provides the input selection grid ("SlotGrid") and instantiates a specific
- * widget depending on the operator type. */
-class AddEditOperatorWidget: public QDialog
+ * child widget depending on the operator type. */
+class AddEditOperatorDialog: public QDialog
 {
     Q_OBJECT
+    signals:
+        void selectInputForSlot(Slot *slot);
+
     public:
-        AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget);
-        AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget);
+        enum Mode
+        {
+            AddOperator,
+            EditOperator
+        };
+        AddEditOperatorDialog(OperatorPtr opPtr, s32 userLevel, Mode mode, EventWidget *eventWidget);
 
         virtual void resizeEvent(QResizeEvent *event) override;
 
@@ -159,9 +174,9 @@ class AddEditOperatorWidget: public QDialog
         virtual bool eventFilter(QObject *watched, QEvent *event) override;
         void repopulateSlotGrid();
 
-        OperatorPtr m_opPtr;
-        OperatorInterface *m_op;
+        OperatorPtr m_op;
         s32 m_userLevel;
+        Mode m_mode;
         EventWidget *m_eventWidget;
         QVector<QPushButton *> m_selectButtons;
         QDialogButtonBox *m_buttonBox = nullptr;

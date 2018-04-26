@@ -39,8 +39,8 @@ class AnalysisWidget: public QWidget
         AnalysisWidget(MVMEContext *ctx, QWidget *parent = 0);
         ~AnalysisWidget();
 
-        void operatorAdded(const std::shared_ptr<OperatorInterface> &op);
-        void operatorEdited(const std::shared_ptr<OperatorInterface> &op);
+        void operatorAddedExternally(const std::shared_ptr<OperatorInterface> &op);
+        void operatorEditedExternally(const std::shared_ptr<OperatorInterface> &op);
 
         void updateAddRemoveUserLevelButtons();
 

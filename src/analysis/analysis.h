@@ -127,8 +127,6 @@ class LIBMVME_EXPORT PipeSourceInterface: public QObject, public std::enable_sha
 
         virtual s32 getNumberOfOutputs() const = 0;
         virtual QString getOutputName(s32 outputIndex) const = 0;
-        // FIXME (14.4.18): why did I not make this const? cause of the pipe
-        // being modified sort of also modifying the state of this object?
         virtual Pipe *getOutput(s32 index) = 0;
         virtual bool hasVariableNumberOfOutputs() const { return false; }
 

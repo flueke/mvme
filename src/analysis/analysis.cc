@@ -3899,6 +3899,7 @@ void Analysis::processTimetick()
 void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
 {
     m_sources.push_back({eventId, moduleId, source});
+    // FIXME: restructure this, split beginRun, make a2 building explicit
     beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
@@ -3906,6 +3907,7 @@ void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const Sour
 void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
 {
     m_operators.push_back({eventId, op, userLevel});
+    // FIXME: restructure this, split beginRun, make a2 building explicit
     beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
@@ -4454,8 +4456,7 @@ void Analysis::write(QJsonObject &json) const
 
                 for (Slot *dstSlot: pipe->getDestinations())
                 {
-                    auto dstOp = dstSlot->parentOperator;
-                    if (dstOp)
+                    if (auto dstOp = dstSlot->parentOperator)
                     {
                         //qDebug() << "Connection:" << srcObject << outputIndex << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
                         QJsonObject conJson;
