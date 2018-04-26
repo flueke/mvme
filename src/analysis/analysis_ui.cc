@@ -163,7 +163,9 @@ inline TreeNode *makeOperatorTreeSourceNode(SourceInterface *source)
 
     sourceNode->setIcon(0, icon);
 
-    Q_ASSERT(source->getNumberOfOutputs() == 1); // TODO: implement the case for multiple outputs if we ever use them
+    Q_ASSERT_X(source->getNumberOfOutputs() == 1,
+               "makeOperatorTreeSourceNode",
+               "data sources with multiple output pipes not supported");
 
     if (source->getNumberOfOutputs() == 1)
     {

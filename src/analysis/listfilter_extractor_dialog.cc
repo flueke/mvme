@@ -44,39 +44,25 @@ namespace analysis
  *
  * Have to keep listview and stackedwidget contents in sync.
  *
- * Edit case:
+ * Uses cases:
  * - Edit an existing filter.
  * - Add a new filter. The module may already contain listfilters or this may
  *   be the very first listfilter added to the module.
  *
  * -> If there are no filters to display always create a new unnamed default
  *  filter.  On hitting apply add that filter to the analysis and repopulate
- *  the widget -> now the filter contenst will be reloaded from the analysis
- *  and everythin is in sync again.
+ *  the widget -> now the filter contents will be reloaded from the analysis
+ *  and everything is in sync again.
  *  When deleting the last filter either close the dialog or go back to
  *  creating an unnamed default filter.
- *
- * Maybe it's better to not populate from the analysis at all but instead get a
- * list of filters from the analysis and set it on the dialog. Later on set
- * that list on the analysis.
  *
  * What are we editing? The whole list of ListFilterExtractor for a certain
  * module as they all interact.
  *
  * If there are no filters we start out with a default filter for the module.
- *
- * TODO: Get the list of filters for the module from the
- *   Walk SourceEntry vector and filter by moduleId and SourcePtr type (must be ListFilterExtractor).
- *   => vector of shared ptr to ListFilterExtractor
- *
- *   Existing ones are directly edited as setExtractor() is used to update the a2::ListFilterExtractor.
- *   New ones have to be added to the analysis in the correct order.
- *   Moving operators changes the order so the SourceEntry vector of the
- *   analysis has to be updated. How to do this?
- *
  */
 
-/* Inputs and logic for for editing one ListFilter. */
+/* Inputs for for editing a single ListFilter. */
 struct ListFilterEditor
 {
     QWidget *widget;
@@ -616,8 +602,6 @@ int ListFilterExtractorDialog::addFilterToUi(const ListFilterExtractorPtr &ex)
 
 void ListFilterExtractorDialog::updateWordCount()
 {
-    //qDebug() << __PRETTY_FUNCTION__;
-
     size_t wordCount = 0;
 
     for (const auto &e: m_d->m_filterEditors)

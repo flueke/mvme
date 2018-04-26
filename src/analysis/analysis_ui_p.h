@@ -197,7 +197,7 @@ class AbstractOpConfigWidget: public QWidget
     public:
         AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, MVMEContext *context, QWidget *parent = nullptr);
 
-        void setNameEdited(bool b) { qDebug() << __PRETTY_FUNCTION__ << b; m_wasNameEdited = b; }
+        void setNameEdited(bool b) { m_wasNameEdited = b; }
         bool wasNameEdited() const { return m_wasNameEdited; }
 
         virtual void configureOperator() = 0;

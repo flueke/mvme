@@ -1,12 +1,39 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+
+--------------------------------------------------
+ExpressionOperator design plan
+--------------------------------------------------
+* use expr_tk to evaluate expressions
+* beginScript: one script to get information about the output structure from the operator
+* multi input and multi output!
+
+* user defined input variable names. by default auto generated names will be used:
+  input0 input1
+
+The beginscript then has the following set in the symboltable:
+  input0.lower_limits input0.upper_limits input0.unit
+  input1.lower_limits input1.upper_limits input1.unit
+
+The beginscript has to return 4 values for each output array the operator should have:
+  name, unit, lower_limits, upper_limits
+
+So the size of the return value list must be divisible by 4.
+
+* one script to fill the output, executed repeatedly by a2_end_event() when it's stepping the operators
+
+* add a user defined functions
+  is_valid(), is_invalid() for testing parameter validity (has to check for nan and the specific bit being set)
+
+* maybe add symbol table dump functionality somewhere if that is possible
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 * listfile writing, MVMEStreamWriterHelper: can writing of the final EndMarker
   be moved into closeEventSection? I was surprised that this had to be done
   manually.
 
-* logspam: readout workers still need the throttle. could also install an
-  additional central throttle in MVMEContext.
 * Move analysis efficiency display to the top Event toolbar
 
 * New Export/ListfileFilter Idea: use an operator to decide whether a full VME
@@ -273,38 +300,6 @@ inside the export data file or added to the export header.
   Move the add/edit code from EventWidget::addSource()/sourceEdited() into the
   dialog. Let the dialog notify the EventWidget about changes via a signal.
 
---------------------------------------------------
-ExpressionOperator design plan
---------------------------------------------------
-* use expr_tk to evaluate expressions
-* beginScript: one script to get information about the output structure from the operator
-* multi input and multi output!
-  but in the first step the gui only needs to support the single output case
-
-* user defined input variable names. by default auto generated names will be used:
-  input0 input1
-
-The beginscript then has the following set in the symboltable:
-  input0.lower_limits input0.upper_limits input0.unit
-  input1.lower_limits input1.upper_limits input1.unit
-
-The beginscript has to return 4 values for each output array the operator should have:
-  name, unit, lower_limits, upper_limits
-
-So the size of the return value list must be divisible by 4.
-
-* one script to fill the output
-  executed repeatedly by a2_end_event() when it's stepping the operators
-  variables:
-    in : input
-    out: output
-
-* add a user defined functions
-  is_valid(), is_invalid() for testing parameter validity (has to check for nan and the specific bit being set)
-
-* maybe add symbol table dump functionality somewhere if that is possible
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Fix paused replay and "StopIfQueueEmpty" interaction
   Identify and fix issues with single stepping and pause/resume interaction.
