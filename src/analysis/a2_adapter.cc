@@ -1220,7 +1220,7 @@ A2AdapterState a2_adapter_build(
         LOG("  ei=%d, #ops=%d", ei, (u32)result.a2->operatorCounts[ei]);
     }
 
-    LOG("mem=%lu, start@%p", arena->used(), arena->mem);
+    LOG("mem=%lu", arena->used());
 
 #define qcstr(str) ((str).toLocal8Bit().constData())
 

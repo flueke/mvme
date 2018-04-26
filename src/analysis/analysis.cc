@@ -66,34 +66,16 @@ A2AdapterState a2_adapter_build_memory_wrapper(
     const RunInfo &runInfo,
     analysis::Logger logger = {})
 {
-    A2AdapterState result;
+    auto result = a2_adapter_build(
+        arena.get(),
+        workArena.get(),
+        sources,
+        operators,
+        vmeMap,
+        runInfo);
 
-    while (true)
-    {
-        try
-        {
-            result = a2_adapter_build(
-                arena.get(),
-                workArena.get(),
-                sources,
-                operators,
-                vmeMap,
-                runInfo);
-
-            break;
-        }
-        catch (const memory::out_of_memory &)
-        {
-            /* Double the size and try again. std::bad_alloc() will be thrown
-             * if we run OOM. This will be handled further up. */
-            auto newSize = 2 * arena->size;
-            arena = std::make_unique<memory::Arena>(newSize);
-            workArena = std::make_unique<memory::Arena>(newSize);
-        }
-    }
-
-    qDebug("%s a2: mem=%u sz=%u, start@%p",
-           __FUNCTION__, (u32)arena->used(), (u32)arena->size, arena->mem);
+    qDebug("%s a2: mem=%u sz=%u segments=%u",
+           __FUNCTION__, (u32)arena->used(), (u32)arena->size(), (u32)arena->segmentCount());
 
     return result;
 }
@@ -3052,7 +3034,7 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
     // Space for the histos plus space to allow proper alignment
     size_t requiredMemory = histoCount * m_bins * sizeof(double) + histoCount * HistoMemAlignment;
 
-    if (!m_histoArena || m_histoArena->size < requiredMemory)
+    if (!m_histoArena || m_histoArena->size() < requiredMemory)
     {
         m_histoArena = std::make_shared<memory::Arena>(requiredMemory);
     }
@@ -3260,7 +3242,7 @@ void Histo1DSink::write(QJsonObject &json) const
 size_t Histo1DSink::getStorageSize() const
 {
 #if ANALYSIS_USE_SHARED_HISTO1D_MEM
-    return m_histoArena ? m_histoArena->size : 0;
+    return m_histoArena ? m_histoArena->size() : 0;
 #else
     return std::accumulate(m_histos.begin(), m_histos.end(),
                            static_cast<size_t>(0u),
