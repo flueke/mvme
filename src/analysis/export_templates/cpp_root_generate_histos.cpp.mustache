@@ -36,12 +36,23 @@ int main(int argc, char *argv[])
     input.open(inputFilename, std::ios::in | std::ios::binary);
 #endif
 
-    /* Replace the extension of the input filename with "_histos.root" and use
-     * the result as the output filename. */
-
+    /* Strip path components from input filename and replace the last part of
+     * the extension with "_histos.root". Use the result as the output
+     * filename. */
     std::string outputFilename = inputFilename;
-    outputFilename.erase(std::find(outputFilename.begin(), outputFilename.end(), '.'),
-                         outputFilename.end());
+
+    {
+        size_t startIdx = outputFilename.find_last_of("/\\");
+
+        if (startIdx != std::string::npos)
+            outputFilename = outputFilename.substr(startIdx + 1);
+
+        size_t dotIdx = outputFilename.find_last_of('.');
+
+        if (dotIdx != std::string::npos)
+            outputFilename.erase(outputFilename.begin() + dotIdx, outputFilename.end());
+    }
+
     outputFilename = "root_" + outputFilename + "_histos.root";
 
     cout << "Writing histograms to " << outputFilename << endl;
