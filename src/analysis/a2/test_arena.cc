@@ -14,13 +14,13 @@ struct Foo
     Foo()
     {
         m_instance = instance++;
-        cout << __PRETTY_FUNCTION__ << " " << m_instance << endl;
+        cout << __PRETTY_FUNCTION__ << " " << m_instance << " " << this << endl;
         destroyed = false;
     }
 
     ~Foo()
     {
-        cout << __PRETTY_FUNCTION__ << " " << m_instance << endl;
+        cout << __PRETTY_FUNCTION__ << " " << m_instance << " " << this << endl;
         destroyed = true;
         benchmark::DoNotOptimize(destroyed);
     }
@@ -36,12 +36,14 @@ static void TEST_ObjectArena(benchmark::State &state)
 {
     using memory::Arena;
 
+    cout << endl << "sizeof(Foo)=" << sizeof(Foo) << ", alignof(Foo)=" << alignof(Foo) << endl << endl;
+
     //while (state.KeepRunning())
     {
         Foo *rawFoo = nullptr;
 
         {
-            Arena arena(1024);
+            Arena arena(16);
 
             for (int i =0; i < 10; i++)
                 rawFoo = arena.pushObject<Foo>();

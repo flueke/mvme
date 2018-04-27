@@ -6,6 +6,7 @@
 #include <exception>
 #include <memory>
 #include <numeric>
+#include <type_traits>
 #include <vector>
 
 #include "util/typedefs.h"
@@ -34,26 +35,12 @@ struct destroy_only_deleter
 
 } // namespace detail
 
-/* IMPORTANT: Currently doesn't handle allocations larger than the initial
- * segment size.  This could be supported by checking the size required for an
- * allocation that overflows the current segment and then allocating that size
- * plus the desired alignment as padding.
- *
- * TODO:
- * - refactor the allocation code so that the core part exists only once.
- * - avoid the recursion when allocation fails. this can lead to a crash due to
- *   stack overflow.
- * - do not delete the segments in reset(), instead keep track of the current
- *   segment index and increment that in case the current segment overflows.
- *
- *
- * */
-
 class Arena
 {
     public:
         explicit Arena(size_t segmentSize)
             : m_segmentSize(segmentSize)
+            , m_currentSegmentIndex(0)
         {
             addSegment(m_segmentSize);
         }
@@ -64,18 +51,14 @@ class Arena
         }
 
         // can't copy
-        Arena(Arena &other) = delete;
-        Arena &operator=(Arena &other) = delete;
+        Arena(const Arena &other) = delete;
+        Arena &operator=(const Arena &other) = delete;
 
         // can move
         Arena(Arena &&other) = default;
         Arena &operator=(Arena &&other) = default;
 
-        inline size_t free() const
-        {
-            return currentSegment().free();
-        }
-
+        /** Total space used. */
         inline size_t used() const
         {
             return std::accumulate(
@@ -84,6 +67,7 @@ class Arena
                 [](size_t sum, const Segment &seg) { return sum + seg.used(); });
         }
 
+        /** Sum of all segment sizes. */
         inline size_t size() const
         {
             return std::accumulate(
@@ -92,123 +76,89 @@ class Arena
                 [](size_t sum, const Segment &seg) { return sum + seg.size; });
         }
 
+        /** Destroys objects created via pushObject() and clears all segments.
+         * Does not deallocate segments. */
         inline void reset()
         {
             destroyObjects();
 
-#if 0
             for (auto &seg: m_segments)
             {
                 seg.reset();
             }
-#else
-            m_segments.clear();
-            addSegment(m_segmentSize);
-#endif
+
+            m_currentSegmentIndex = 0;
         }
 
-        /** IMPORTANT: Use for POD types only! It doesn't do any construction
-         * nor destruction. */
+        /** Push size bytes into the arena. */
+        inline void *pushSize(size_t size, size_t align = 1)
+        {
+            return pushSize_impl(size, align);
+        }
+
+        /** IMPORTANT: Use for POD types only! It doesn't do construction nor
+         * destruction. */
         template<typename T>
         T *pushStruct(size_t align = alignof(T))
         {
-            size_t space = free();
-            auto &seg = currentSegment();
+            static_assert(std::is_trivial<T>::value, "T must be a trivial type");
 
-            if (std::align(align, sizeof(T), seg.cur, space))
-            {
-                T *result = reinterpret_cast<T*>(seg.cur);
-                seg.cur = reinterpret_cast<u8 *>(seg.cur) + sizeof(T);
-                assert(is_aligned(result, align));
-                return result;
-            }
-
-            addSegment(m_segmentSize);
-            return pushStruct<T>(align);
+            return reinterpret_cast<T *>(pushSize(sizeof(T), align));
         }
 
-        /** IMPORTANT: Use for arrays of POD types only! It doesn't do any
+        /** IMPORTANT: Use for arrays of POD types only! It doesn't do
          * construction nor destruction. */
         template<typename T>
         T *pushArray(size_t size, size_t align = alignof(T))
         {
-            size_t space = free();
-            auto &seg = currentSegment();
+            static_assert(std::is_trivial<T>::value, "T must be a trivial type");
 
-            if (std::align(align, sizeof(T) * size, seg.cur, space))
-            {
-                T *result = reinterpret_cast<T*>(seg.cur);
-                seg.cur = reinterpret_cast<u8 *>(seg.cur) + sizeof(T) * size;
-                assert(is_aligned(result, align));
-                return result;
-            }
-
-            addSegment(m_segmentSize);
-            return pushArray<T>(size, align);
+            return reinterpret_cast<T *>(pushSize(size * sizeof(T), align));
         }
 
-        /** Performs pushStruct<T>() and copies the passed in value into the arena. */
+        /** Performs pushStruct<T>() and copies the passed in value into the
+         * arena. */
         template<typename T>
         T *push(const T &t, size_t align = alignof(T))
         {
-            auto result = pushStruct<T>(align);
-            if (result)
-            {
-                *result = t;
-            }
+            T *result = pushStruct<T>(align);
+            *result = t;
             return result;
         }
 
-        /** Push size bytes into the arena. */
-        void *pushSize(size_t size, size_t align = 1)
-        {
-            return reinterpret_cast<void *>(pushArray<u8>(size, align));
-        }
-
+        /* Construct an object of type T inside the arena. The object will be
+         * properly deconstructed on resetting or destroying the arena. */
         template<typename T>
         T *pushObject(size_t align = alignof(T))
         {
-            size_t space = free();
-            auto &seg = currentSegment();
+            /* Get memory and construct the object using placement new. */
+            void *mem = pushSize(sizeof(T), align);
+            T *result = new (mem) T;
 
-            if (std::align(align, sizeof(T), seg.cur, space))
-            {
-                // Construct the object inside the arena.
-                T *result = new (seg.cur) T;
-                assert(is_aligned(result, align));
+            /* Now push a lambda calling the object destructor onto the
+             * deleters vector.
+             * To achieve exception safety a unique_ptr with a custom deleter
+             * that only runs the destructor is used to temporarily hold the
+             * object pointer. If the vector operation throws the unique_ptr
+             * will properly destroy the object. Otherwise the deleter lambda
+             * has been stored and thus the unique pointer may release() its
+             * pointee. Note that in case of an exception the space for T has
+             * already been allocated inside the arena and will not be
+             * reclaimed. */
+            std::unique_ptr<T, detail::destroy_only_deleter<T>> guard_ptr(result);
 
-                /* Now push a lambda calling the object destructor onto the
-                 * deleters vector. Object construction and vector modification
-                 * must be atomic in regards to exceptions: the object must be
-                 * destroyed even if the push fails.
-                 * To achieve exception safety a unique_ptr with a custom deleter
-                 * that only runs the destructor is used to temporarily hold the
-                 * object pointer. If the vector push throws the unique_ptr will
-                 * properly destroy the object. Otherwise the deleter lambda has
-                 * been stored and thus the unique pointer may release() its
-                 * pointee. */
+            m_deleters.emplace_back([result] () {
+                //fprintf(stderr, "%s %p\n", __PRETTY_FUNCTION__, result);
+                result->~T();
+            });
 
-                std::unique_ptr<T, detail::destroy_only_deleter<T>> guard_ptr(result);
+            /* emplace_back() did not throw. It's safe to release the guard now. */
+            guard_ptr.release();
 
-                // This next call can throw (for example bad_alloc if running OOM).
-                m_deleters.emplace_back([result] () {
-                    fprintf(stderr, "%s %p\n", __PRETTY_FUNCTION__, result);
-                    result->~T();
-                });
-
-                // emplace_back() did not throw. It's safe to release the guard now.
-                guard_ptr.release();
-
-                seg.cur = reinterpret_cast<u8 *>(seg.cur) + sizeof(T);
-
-                return result;
-            }
-
-            addSegment(m_segmentSize);
-            return pushObject<T>(align);
+            return result;
         }
 
-        size_t segmentCount() const
+        inline size_t segmentCount() const
         {
             return m_segments.size();
         }
@@ -238,17 +188,19 @@ class Arena
 
         Segment &currentSegment()
         {
-            assert(!m_segments.empty());
-            return m_segments.back();
+            assert(m_currentSegmentIndex < m_segments.size());
+
+            return m_segments[m_currentSegmentIndex];
         }
 
         const Segment &currentSegment() const
         {
-            assert(!m_segments.empty());
-            return m_segments.back();
+            assert(m_currentSegmentIndex < m_segments.size());
+
+            return m_segments[m_currentSegmentIndex];
         }
 
-        Segment &addSegment(size_t size)
+        void addSegment(size_t size)
         {
             Segment segment = {};
             segment.mem     = std::unique_ptr<u8[]>{ new u8[size] };
@@ -257,7 +209,8 @@ class Arena
 
             m_segments.emplace_back(std::move(segment));
 
-            return currentSegment();
+            //fprintf(stderr, "%s: added segment of size %u, segmentCount=%u\n",
+            //        __PRETTY_FUNCTION__, (u32)size, (u32)segmentCount());
         }
 
         inline void destroyObjects()
@@ -273,11 +226,73 @@ class Arena
             m_deleters.clear();
         }
 
+        /*
+         * Check each segment from the current one to the last. If the std::align()
+         * call succeeds use that segment and return the pointer.
+         *
+         * Otherwise add a new segment that's large enough to handle the
+         * requested size including alignment. Now the std::align() call must
+         * succeed.
+         *
+         * If the system runs OOM the call to addSegment() will throw a
+         * bad_alloc and we're done.
+         */
+
+        inline void *pushSize_impl(size_t size, size_t align)
+        {
+            //fprintf(stderr, "%s: size=%lu, align=%lu\n",
+            //        __FUNCTION__, (u64)size, (u64)align);
+
+            assert(m_currentSegmentIndex < segmentCount());
+
+            for (; m_currentSegmentIndex < segmentCount(); m_currentSegmentIndex++)
+            {
+                auto &seg = m_segments[m_currentSegmentIndex];
+                size_t space = seg.free();
+
+                if (std::align(align, size, seg.cur, space))
+                {
+                    void *result = seg.cur;
+                    seg.cur = reinterpret_cast<u8 *>(seg.cur) + size;
+                    assert(is_aligned(result, align));
+                    return result;
+                }
+            }
+
+            assert(m_currentSegmentIndex == segmentCount());
+
+            // Point to the last valid segment to stay consistent in case addSegment() throws
+            m_currentSegmentIndex--;
+
+            // This amount should guarantee that std::align() succeeds.
+            size_t sizeNeeded = size + align;
+
+            // this can throw bad_alloc
+            addSegment(sizeNeeded > m_segmentSize ? sizeNeeded : m_segmentSize);
+
+            m_currentSegmentIndex++;
+
+            auto &seg = currentSegment();
+            size_t space = seg.free();
+
+            if (std::align(align, size, seg.cur, space))
+            {
+                void *result = seg.cur;
+                seg.cur = reinterpret_cast<u8 *>(seg.cur) + size;
+                assert(is_aligned(result, align));
+                return result;
+            }
+
+            assert(false);
+            return nullptr;
+        }
+
         using Deleter = std::function<void ()>;
 
         std::vector<Deleter> m_deleters;
         std::vector<Segment> m_segments;
         size_t m_segmentSize;
+        size_t m_currentSegmentIndex;
 };
 
 } // namespace memory

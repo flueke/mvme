@@ -3720,7 +3720,7 @@ QString ExportSink::getExportFileBasename() const
 // Analysis
 //
 
-static const size_t A2InitialArenaSize = Kilobytes(256);
+static const size_t A2ArenaSegmentSize = Kilobytes(256);
 
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
@@ -3757,9 +3757,9 @@ Analysis::Analysis(QObject *parent)
     // create a2 arenas
     for (size_t i = 0; i < m_a2Arenas.size(); i++)
     {
-        m_a2Arenas[i] = std::make_unique<memory::Arena>(A2InitialArenaSize);
+        m_a2Arenas[i] = std::make_unique<memory::Arena>(A2ArenaSegmentSize);
     }
-    m_a2WorkArena = std::make_unique<memory::Arena>(A2InitialArenaSize);
+    m_a2WorkArena = std::make_unique<memory::Arena>(A2ArenaSegmentSize);
 }
 
 Analysis::~Analysis()

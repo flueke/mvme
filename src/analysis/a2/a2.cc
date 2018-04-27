@@ -216,7 +216,7 @@ DataSource make_datasource_extractor(
     DataSource result = {};
     result.type = DataSource_Extractor;
 
-    auto ex = arena->pushStruct<Extractor>();
+    auto ex = arena->pushObject<Extractor>();
     *ex = make_extractor(filter, requiredCompletions, rngSeed, options);
     result.d = ex;
 
@@ -315,7 +315,7 @@ DataSource make_datasource_listfilter_extractor(
     DataSource result = {};
     result.type = DataSource_ListFilterExtractor;
 
-    auto ex = arena->pushStruct<ListFilterExtractor>();
+    auto ex = arena->pushObject<ListFilterExtractor>();
     *ex = make_listfilter_extractor(listFilter, repetitions, rngSeed, options);
     result.d = ex;
 
