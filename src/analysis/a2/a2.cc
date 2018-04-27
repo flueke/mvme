@@ -889,7 +889,17 @@ void array_map_step(Operator *op)
     for (s32 mi = 0; mi < mappingCount; mi++)
     {
         auto mapping = d->mappings[mi];
-        op->outputs[0][mi] = op->inputs[mapping.inputIndex][mapping.paramIndex];
+
+        if (mapping.inputIndex < op->inputCount
+            && 0 <= mapping.paramIndex
+            && mapping.paramIndex < op->inputs[mapping.inputIndex].size)
+        {
+            op->outputs[0][mi] = op->inputs[mapping.inputIndex][mapping.paramIndex];
+        }
+        else
+        {
+            op->outputs[0][mi] = invalid_param();
+        }
     }
 }
 
@@ -914,8 +924,20 @@ Operator make_array_map(
     for (s32 mi = 0; mi < mappings.size; mi++)
     {
         auto m = d->mappings[mi] = mappings[mi];
-        result.outputLowerLimits[0][mi] = inputs[m.inputIndex].lowerLimits[m.paramIndex];
-        result.outputUpperLimits[0][mi] = inputs[m.inputIndex].upperLimits[m.paramIndex];
+
+        double ll = make_quiet_nan();
+        double ul = make_quiet_nan();
+
+        if (m.inputIndex < inputs.size
+            && 0 <= m.paramIndex
+            && m.paramIndex < inputs[m.inputIndex].lowerLimits.size)
+        {
+            ll = inputs[m.inputIndex].lowerLimits[m.paramIndex];
+            ul = inputs[m.inputIndex].upperLimits[m.paramIndex];
+        }
+
+        result.outputLowerLimits[0][mi] = ll;
+        result.outputUpperLimits[0][mi] = ul;
     }
 
     result.d = d;
@@ -1077,9 +1099,6 @@ void binary_equation_step_idx(Operator *op)
  * =============================================== */
 inline bool is_valid_and_inside(double param, Thresholds thresholds)
 {
-    assert(!std::isnan(thresholds.min));
-    assert(!std::isnan(thresholds.max));
-
     return (is_param_valid(param)
             && thresholds.min <= param
             && thresholds.max >= param);
@@ -1108,9 +1127,6 @@ static Operator make_aggregate_op(
     }
 
     a2_trace("resulting thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
-
-    assert(!std::isnan(thresholds.min)); // XXX: can be nan if input limits are nan
-    assert(!std::isnan(thresholds.max));
 
     auto d = arena->push(thresholds);
     result.d = d;
