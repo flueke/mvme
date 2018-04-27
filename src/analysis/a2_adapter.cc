@@ -82,8 +82,8 @@ inline a2::PipeVectors find_output_pipe(
     }
     else
     {
-        QLOG(pipeSource << pipeSource->getId());
-        assert(!"no source mapping");
+        //QLOG(pipeSource << pipeSource->getId());
+        //assert(!"no source mapping");
     }
 
     return result;
