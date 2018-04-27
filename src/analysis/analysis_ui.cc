@@ -2136,45 +2136,57 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                 {
                     Slot *slot = m_selectInputSlot;
                     Q_ASSERT(slot);
-                    AnalysisPauser pauser(m_context);
 
-                    // connect the slot with the selected input source
+                    Pipe *selectedPipe = nullptr;
+                    s32 selectedParamIndex = Slot::NoParamIndex;
+
                     switch (node->type())
                     {
+                        /* Click on a Source or Operator node: use output[0]
+                         * and connect the whole array. */
                         case NodeType_Source:
                         case NodeType_Operator:
                             {
                                 Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
 
                                 PipeSourceInterface *source = getPointer<PipeSourceInterface>(node);
-                                slot->connectPipe(source->getOutput(0), Slot::NoParamIndex);
+
+                                selectedPipe       = source->getOutput(0);
+                                selectedParamIndex = Slot::NoParamIndex;
+
+                                //slot->connectPipe(source->getOutput(0), Slot::NoParamIndex);
                             } break;
 
+                        /* Click on a specific output of an object. */
                         case NodeType_OutputPipe:
                             {
                                 Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
                                 Q_ASSERT(slot->parentOperator);
 
-                                Pipe *pipe = getPointer<Pipe>(node);
-                                slot->connectPipe(pipe, Slot::NoParamIndex);
+                                selectedPipe       = getPointer<Pipe>(node);
+                                selectedParamIndex = Slot::NoParamIndex;
+
+                                //slot->connectPipe(pipe, Slot::NoParamIndex);
                             } break;
 
+                        /* Click on a specific parameter index. */
                         case NodeType_OutputPipeParameter:
                             {
                                 Q_ASSERT(slot->acceptedInputTypes & InputType::Value);
 
-                                Pipe *pipe = getPointer<Pipe>(node);
-                                s32 paramIndex = node->data(0, DataRole_ParameterIndex).toInt();
-                                slot->connectPipe(pipe, paramIndex);
+                                selectedPipe       = getPointer<Pipe>(node);
+                                selectedParamIndex = node->data(0, DataRole_ParameterIndex).toInt();
                             } break;
 
                         InvalidDefaultCase;
                     }
 
+                    Q_ASSERT(selectedPipe);
+
                     // tell the widget that initiated the select that we're done
                     if (m_selectInputCallback)
                     {
-                        m_selectInputCallback();
+                        m_selectInputCallback(slot, selectedPipe, selectedParamIndex);
                     }
 
                     // leave SelectInput mode

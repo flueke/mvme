@@ -373,18 +373,16 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel, Mode
         connect(m_addSlotButton, &QPushButton::clicked, this, [this] () {
             m_op->addSlot();
             repopulateSlotGrid();
-            inputSelected(-1);
+            endInputSelect();
             m_removeSlotButton->setEnabled(m_op->getNumberOfSlots() > 1);
         });
 
         connect(m_removeSlotButton, &QPushButton::clicked, this, [this] () {
             if (m_op->getNumberOfSlots() > 1)
             {
-                AnalysisPauser pauser(m_eventWidget->getContext());
                 m_op->removeLastSlot();
-                do_beginRun_forward(m_op.get()); // FIXME: does this need to happen? get rid of it and the pausing
                 repopulateSlotGrid();
-                inputSelected(-1);
+                endInputSelect();
             }
             m_removeSlotButton->setEnabled(m_op->getNumberOfSlots() > 1);
         });
@@ -420,6 +418,21 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel, Mode
 
     // The widget is complete, now populate the slot grid.
     repopulateSlotGrid();
+}
+
+QString makeSlotSourceString(Slot *slot)
+{
+    Q_ASSERT(slot->inputPipe);
+    Q_ASSERT(slot->inputPipe->source);
+
+    QString result = slot->inputPipe->source->objectName();
+
+    if (slot->paramIndex != Slot::NoParamIndex)
+    {
+        result = QString("%1[%2]").arg(result).arg(slot->paramIndex);
+    }
+
+    return result;
 }
 
 void AddEditOperatorDialog::repopulateSlotGrid()
@@ -470,7 +483,9 @@ void AddEditOperatorDialog::repopulateSlotGrid()
                  * The lambda is the callback for the EventWidget. This means
                  * inputSelected() will be called with the current slotIndex
                  * once input selection is complete. */
-                m_eventWidget->selectInputFor(slot, userLevel, [this, slot, slotIndex] () {
+                m_eventWidget->selectInputFor(slot, userLevel,
+                                              [this] (Slot *destSlot, Pipe *selectedPipe, s32 selectedParamIndex) {
+#if 0
                     // The assumption is that the analysis has been paused by
                     // the EventWidget.
                     Q_ASSERT(!m_eventWidget->getContext()->isAnalysisRunning());
@@ -478,6 +493,8 @@ void AddEditOperatorDialog::repopulateSlotGrid()
                     // Update the slots source operator and all dependents
                     do_beginRun_forward(slot->parentOperator);
                     this->inputSelected(slotIndex);
+#endif
+                    this->inputSelectedForSlot(destSlot, selectedPipe, selectedParamIndex);
                 });
             }
 
@@ -518,44 +535,54 @@ void AddEditOperatorDialog::repopulateSlotGrid()
         ++row;
     }
 
-    // Updates the slot select buttons in case we're editing a connected operator
+    // Update the slot select buttons in case we're editing a connected operator
     for (s32 slotIndex = 0; slotIndex < slotCount; ++slotIndex)
     {
         if (m_op->getSlot(slotIndex)->inputPipe)
-            inputSelected(slotIndex);
-    }
-}
-
-QString makeSlotSourceString(Slot *slot)
-{
-    Q_ASSERT(slot->inputPipe);
-    Q_ASSERT(slot->inputPipe->source);
-
-    QString result = slot->inputPipe->source->objectName();
-
-    if (slot->paramIndex != Slot::NoParamIndex)
-    {
-        result = QString("%1[%2]").arg(result).arg(slot->paramIndex);
+        {
+            if (auto selectButton = m_selectButtons.value(slotIndex, nullptr))
+            {
+                selectButton->setText(makeSlotSourceString(m_op->getSlot(slotIndex)));
+            }
+        }
     }
 
-    return result;
+    onOperatorValidityChanged();
 }
 
-void AddEditOperatorDialog::inputSelected(s32 slotIndex)
+void AddEditOperatorDialog::inputSelectedForSlot(
+    Slot *destSlot,
+    Pipe *selectedPipe,
+    s32 selectedParamIndex)
 {
-    if (slotIndex >= 0)
-    {
-        Slot *slot = m_op->getSlot(slotIndex);
-        Q_ASSERT(slot);
-        qDebug() << __PRETTY_FUNCTION__ << slot;
+    qDebug() << __PRETTY_FUNCTION__
+        << "destSlot =" << destSlot
+        << "selectedPipe =" << selectedPipe
+        << "selectedParamIndex =" << selectedParamIndex;
 
+    assert(destSlot == m_op->getSlot(destSlot->parentSlotIndex));
+
+    destSlot->connectPipe(selectedPipe, selectedParamIndex);
+    //do_beginRun_forward(destSlot->parentOperator);
+
+    s32 slotIndex = destSlot->parentSlotIndex;
+
+    if (0 <= slotIndex && slotIndex < m_selectButtons.size())
+    {
         auto selectButton = m_selectButtons[slotIndex];
         QSignalBlocker b(selectButton);
         selectButton->setChecked(false);
-        selectButton->setText(makeSlotSourceString(slot));
+        selectButton->setText(makeSlotSourceString(destSlot));
     }
 
     m_opConfigWidget->inputSelected(slotIndex);
+    m_inputSelectActive = false;
+    onOperatorValidityChanged();
+}
+
+void AddEditOperatorDialog::endInputSelect()
+{
+    m_opConfigWidget->inputSelected(-1);
     m_inputSelectActive = false;
     onOperatorValidityChanged();
 }
@@ -2659,7 +2686,6 @@ void PipeDisplay::refresh()
         m_parameterTable->setRowCount(0);
     }
 }
-
 
 QWidget* CalibrationItemDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {

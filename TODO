@@ -27,6 +27,10 @@ required try to clear as little of the accumulated data as possible.
   without having to pause anything.
   just make sure that on canceling the original connections are restored (like is currently done).
   also make sure that no state is cleared unless it's really neccessary.
+  Alternatively clone the input pipes and work with those.
+  -> Fake input pipes having the original operator as the source and having the
+     exact same properties as the original pipes. This way even things like
+     makeSlotSourceString() should continue to work.
 
 * add Analysis::operatorEdited()
   This can figure out what has to happen to get the a1 side in a consistent state.

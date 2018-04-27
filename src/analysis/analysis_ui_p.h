@@ -62,7 +62,7 @@ class EventWidget: public QWidget
     Q_OBJECT
     public:
 
-        using SelectInputCallback = std::function<void ()>;
+        using SelectInputCallback = std::function<void (Slot *destSlot, Pipe *sourcePipe, s32 sourceParamIndex)>;
 
         EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
                     AnalysisWidget *analysisWidget, QWidget *parent = 0);
@@ -77,7 +77,6 @@ class EventWidget: public QWidget
         void sourceEdited(SourceInterface *src);
         void removeSource(SourceInterface *src);
 
-        void operatorEdited(OperatorInterface *op);
         void removeOperator(OperatorInterface *op);
 
         void uniqueWidgetCloses();
@@ -99,8 +98,8 @@ class EventWidget: public QWidget
         QUuid getEventId() const;
 
     public slots:
-        // maybe FIXME: these slots are only public because of being called by a
-        // lambda which otherwise cannot invoke them
+        // maybe FIXME: these slots are only public because of being called by
+        // a lambda which otherwise cannot invoke them.
 
         void listFilterExtractorDialogAccepted();
         void listFilterExtractorDialogApplied();
@@ -168,7 +167,6 @@ class AddEditOperatorDialog: public QDialog
 
         virtual void resizeEvent(QResizeEvent *event) override;
 
-        void inputSelected(s32 slotIndex);
         virtual void accept() override;
         virtual void reject() override;
         virtual bool eventFilter(QObject *watched, QEvent *event) override;
@@ -201,6 +199,13 @@ class AddEditOperatorDialog: public QDialog
 
     private:
         void onOperatorValidityChanged();
+
+        void inputSelectedForSlot(
+            Slot *destSlot,
+            Pipe *selectedPipe,
+            s32 selectedParamIndex);
+
+        void endInputSelect();
 };
 
 class AbstractOpConfigWidget: public QWidget
