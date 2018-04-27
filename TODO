@@ -119,9 +119,10 @@ TODO list, not at all sorted by priority
 --------------------------------------------------------------------------------
 Data Export Implementation - ExportSink
 --------------------------------------------------------------------------------
-* Test legality of generated variable names.
-* Make generated var names unique.
-
+* The generated CLI tools do not generated good output filenames. Manually
+  check for known extensions (".bin", ".bin.gz" and remove those from the
+  output filename.
+* (maybe) Replace the .bin extension with something more mvme like.
 
 
 === What to export / System design ===
