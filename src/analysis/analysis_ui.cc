@@ -1083,11 +1083,17 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     menuNew->addAction(title, &menu, [this, moduleConfig, srcPtr]() {
                         QDialog *dialog = nullptr;
 
-                        if (dynamic_cast<Extractor *>(srcPtr.get()))
+                        if (auto ex = std::dynamic_pointer_cast<Extractor>(srcPtr))
                         {
-                            dialog = new AddEditExtractorWidget(srcPtr, moduleConfig, m_q);
+                            dialog = new AddEditExtractorDialog(ex, moduleConfig, AddEditExtractorDialog::AddExtractor, m_q);
+
+                            QObject::connect(dialog, &QDialog::accepted,
+                                             m_q, &EventWidget::addExtractorDialogAccepted);
+
+                            QObject::connect(dialog, &QDialog::rejected,
+                                             m_q, &EventWidget::addEditExtractorDialogRejected);
                         }
-                        else if (dynamic_cast<ListFilterExtractor *>(srcPtr.get()))
+                        else if (qobject_cast<ListFilterExtractor *>(srcPtr.get()))
                         {
                             auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_context, m_q);
 
@@ -1205,11 +1211,19 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         menu.addAction(QSL("Edit"), [this, sourceInterface, moduleConfig]() {
                             QDialog *dialog = nullptr;
 
-                            if (dynamic_cast<Extractor *>(sourceInterface))
+                            auto srcPtr = sourceInterface->shared_from_this();
+
+                            if (auto ex = std::dynamic_pointer_cast<Extractor>(srcPtr))
                             {
-                                dialog = new AddEditExtractorWidget(sourceInterface, moduleConfig, m_q);
+                                dialog = new AddEditExtractorDialog(ex, moduleConfig, AddEditExtractorDialog::EditExtractor, m_q);
+
+                                QObject::connect(dialog, &QDialog::accepted,
+                                                 m_q, &EventWidget::editExtractorDialogAccepted);
+
+                                QObject::connect(dialog, &QDialog::rejected,
+                                                 m_q, &EventWidget::addEditExtractorDialogRejected);
                             }
-                            else if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(sourceInterface->shared_from_this()))
+                            else if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(srcPtr))
                             {
                                 auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_context, m_q);
                                 lfe_dialog->editListFilterExtractor(lfe);
@@ -3156,6 +3170,33 @@ void EventWidget::highlightInputOf(Slot *slot, bool doHighlight)
     }
 }
 
+//
+// Extractor add/edit/cancel
+//
+void EventWidget::addExtractorDialogAccepted()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    uniqueWidgetCloses();
+    m_d->repopulate();
+}
+
+void EventWidget::editExtractorDialogAccepted()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    uniqueWidgetCloses();
+    m_d->repopulate();
+}
+
+void EventWidget::addEditExtractorDialogRejected()
+{
+    endSelectInput();
+    uniqueWidgetCloses();
+}
+
+//
+// Operator add/edit/cancel
+//
+
 void EventWidget::addOperatorDialogAccepted()
 {
     qDebug() << __PRETTY_FUNCTION__;
@@ -3170,6 +3211,7 @@ void EventWidget::editOperatorDialogAccepted()
 {
     endSelectInput();
     uniqueWidgetCloses();
+    m_d->repopulate();
 }
 
 void EventWidget::addEditOperatorDialogRejected()
@@ -3181,6 +3223,8 @@ void EventWidget::addEditOperatorDialogRejected()
 
 void EventWidget::removeOperator(OperatorInterface *op)
 {
+    // TODO: maybe remove this method or make it private. doesn't seem like it's needed.
+
     AnalysisPauser pauser(m_d->m_context);
     m_d->m_context->getAnalysis()->removeOperator(op);
     m_d->repopulate();
@@ -3192,60 +3236,6 @@ void EventWidget::toggleSinkEnabled(SinkInterface *sink)
     AnalysisPauser pauser(m_d->m_context);
     sink->setEnabled(!sink->isEnabled());
     m_d->m_context->getAnalysis()->setModified(true);
-    m_d->repopulate();
-}
-
-void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration,
-                            const QString &unitLabel, double unitMin, double unitMax)
-{
-    if (!src) return;
-
-    auto analysis = m_d->m_context->getAnalysis();
-
-    try
-    {
-        AnalysisPauser pauser(m_d->m_context);
-
-        if (addHistogramsAndCalibration)
-        {
-            // Only implemented for Extractor type sources
-            auto extractor = std::dynamic_pointer_cast<Extractor>(src);
-            Q_ASSERT(extractor);
-            auto rawDisplay = make_raw_data_display(extractor, unitMin, unitMax, QString(), // INCOMPLETE: missing title
-                                                    unitLabel);
-            add_raw_data_display(analysis, m_d->m_eventId, module->getId(), rawDisplay);
-        }
-        else
-        {
-            analysis->addSource(m_d->m_eventId, module->getId(), src);
-        }
-        m_d->repopulate();
-    }
-    catch (const std::bad_alloc &)
-    {
-        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
-    }
-}
-
-void EventWidget::sourceEdited(SourceInterface *src)
-{
-
-    AnalysisPauser pauser(m_d->m_context);
-
-    try
-    {
-        auto runInfo = m_d->m_context->getRunInfo();
-        auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(m_d->m_context->getVMEConfig());
-
-        m_d->m_context->getAnalysis()->beginRun(runInfo, vmeMap);
-    }
-    catch (const std::bad_alloc &)
-    {
-        // Not being able to allocate enough memory here should be the rare case.
-        // To keep the code simple we just delete the source in question and show an error message.
-        m_d->m_context->getAnalysis()->removeSource(src);
-        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when editing analysis object."));
-    }
     m_d->repopulate();
 }
 

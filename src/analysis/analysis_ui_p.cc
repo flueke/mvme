@@ -76,65 +76,17 @@ namespace
 namespace analysis
 {
 //
-// AddEditExtractorWidget
+// AddEditExtractorDialog
 //
 
-/** IMPORTANT: This constructor makes the Widget go into "add" mode. When
- * accepting the widget inputs it will call eventWidget->addSource(). */
-AddEditExtractorWidget::AddEditExtractorWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget)
-    : AddEditExtractorWidget(srcPtr.get(), mod, eventWidget)
-{
-    m_srcPtr = srcPtr;
-    setWindowTitle(QString("New  %1").arg(srcPtr->getDisplayName()));
-
-    // Histogram generation and calibration
-    m_gbGenHistograms = new QGroupBox(QSL("Generate Histograms"));
-    m_gbGenHistograms->setCheckable(true);
-    m_gbGenHistograms->setChecked(true);
-
-    le_unit = new QLineEdit;
-
-    spin_unitMin = new QDoubleSpinBox;
-    spin_unitMin->setDecimals(8);
-    spin_unitMin->setMinimum(-1e20);
-    spin_unitMin->setMaximum(+1e20);
-    spin_unitMin->setValue(0.0);
-
-    spin_unitMax = new QDoubleSpinBox;
-    spin_unitMax->setDecimals(8);
-    spin_unitMax->setMinimum(-1e20);
-    spin_unitMax->setMaximum(+1e20);
-    spin_unitMax->setValue(1 << 16); // TODO: find a better default value. Maybe input dependent (upperLimit)
-
-    auto genHistogramsLayout = new QHBoxLayout(m_gbGenHistograms);
-    genHistogramsLayout->setContentsMargins(0, 0, 0, 0);
-    auto calibInfoFrame = new QFrame;
-    genHistogramsLayout->addWidget(calibInfoFrame);
-    auto calibInfoLayout = new QFormLayout(calibInfoFrame);
-    calibInfoLayout->addRow(QSL("Unit Label"), le_unit);
-    calibInfoLayout->addRow(QSL("Unit Min"), spin_unitMin);
-    calibInfoLayout->addRow(QSL("Unit Max"), spin_unitMax);
-
-    connect(m_gbGenHistograms, &QGroupBox::toggled, this, [calibInfoFrame](bool checked) {
-        calibInfoFrame->setEnabled(checked);
-    });
-
-    m_optionsLayout->insertRow(m_optionsLayout->rowCount() - 1, m_gbGenHistograms);
-
-    // Load data from the first template into the gui
-    applyTemplate(0);
-}
-
-/** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
- * accepting the widget inputs it will call eventWidget->sourceEdited(). */
-AddEditExtractorWidget::AddEditExtractorWidget(SourceInterface *src, ModuleConfig *module, EventWidget *eventWidget)
+AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *module,
+                                               Mode mode, EventWidget *eventWidget)
     : QDialog(eventWidget)
-    , m_src(src)
+    , m_ex(ex)
     , m_module(module)
     , m_eventWidget(eventWidget)
-    , m_gbGenHistograms(nullptr)
+    , m_mode(mode)
 {
-    setWindowTitle(QString("Edit %1").arg(m_src->getDisplayName()));
     add_widget_close_action(this);
 
     m_defaultExtractors = get_default_data_extractors(module->getModuleMeta().typeName);
@@ -145,14 +97,13 @@ AddEditExtractorWidget::AddEditExtractorWidget(SourceInterface *src, ModuleConfi
     loadTemplateLayout->addWidget(loadTemplateButton);
     loadTemplateLayout->addStretch();
 
-    connect(loadTemplateButton, &QPushButton::clicked, this, &AddEditExtractorWidget::runLoadTemplateDialog);
+    connect(loadTemplateButton, &QPushButton::clicked, this, &AddEditExtractorDialog::runLoadTemplateDialog);
 
-    auto extractor = qobject_cast<Extractor *>(src);
-    Q_ASSERT(extractor);
+    Q_ASSERT(m_ex);
     Q_ASSERT(module);
 
     le_name = new QLineEdit;
-    m_filterEditor = new DataExtractionEditor(extractor->getFilter().getSubFilters());
+    m_filterEditor = new DataExtractionEditor(m_ex->getFilter().getSubFilters());
     m_filterEditor->setMinimumHeight(125);
     m_filterEditor->setMinimumWidth(550);
 
@@ -160,12 +111,12 @@ AddEditExtractorWidget::AddEditExtractorWidget(SourceInterface *src, ModuleConfi
     m_spinCompletionCount->setMinimum(1);
     m_spinCompletionCount->setMaximum(std::numeric_limits<int>::max());
 
-    if (!extractor->objectName().isEmpty())
+    if (!m_ex->objectName().isEmpty())
     {
-        le_name->setText(QString("%1").arg(extractor->objectName()));
+        le_name->setText(QString("%1").arg(m_ex->objectName()));
     }
 
-    m_spinCompletionCount->setValue(extractor->getRequiredCompletionCount());
+    m_spinCompletionCount->setValue(m_ex->getRequiredCompletionCount());
 
     m_optionsLayout = new QFormLayout;
     m_optionsLayout->addRow(QSL("Name"), le_name);
@@ -178,8 +129,8 @@ AddEditExtractorWidget::AddEditExtractorWidget(SourceInterface *src, ModuleConfi
 
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
-    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditExtractorWidget::accept);
-    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditExtractorWidget::reject);
+    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditExtractorDialog::accept);
+    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditExtractorDialog::reject);
     auto buttonBoxLayout = new QVBoxLayout;
     buttonBoxLayout->addStretch();
     buttonBoxLayout->addWidget(m_buttonBox);
@@ -191,9 +142,63 @@ AddEditExtractorWidget::AddEditExtractorWidget(SourceInterface *src, ModuleConfi
     layout->addLayout(buttonBoxLayout);
 
     layout->setStretch(0, 1);
+
+    switch (mode)
+    {
+        case AddExtractor:
+            {
+                setWindowTitle(QString("New  %1").arg(m_ex->getDisplayName()));
+
+                // Histogram generation and calibration
+                m_gbGenHistograms = new QGroupBox(QSL("Generate Histograms"));
+                m_gbGenHistograms->setCheckable(true);
+                m_gbGenHistograms->setChecked(true);
+
+                le_unit = new QLineEdit;
+
+                spin_unitMin = new QDoubleSpinBox;
+                spin_unitMin->setDecimals(8);
+                spin_unitMin->setMinimum(-1e20);
+                spin_unitMin->setMaximum(+1e20);
+                spin_unitMin->setValue(0.0);
+
+                spin_unitMax = new QDoubleSpinBox;
+                spin_unitMax->setDecimals(8);
+                spin_unitMax->setMinimum(-1e20);
+                spin_unitMax->setMaximum(+1e20);
+                spin_unitMax->setValue(1 << 16); // TODO: find a better default value. Maybe input dependent (upperLimit)
+
+                auto genHistogramsLayout = new QHBoxLayout(m_gbGenHistograms);
+                genHistogramsLayout->setContentsMargins(0, 0, 0, 0);
+                auto calibInfoFrame = new QFrame;
+                genHistogramsLayout->addWidget(calibInfoFrame);
+                auto calibInfoLayout = new QFormLayout(calibInfoFrame);
+                calibInfoLayout->addRow(QSL("Unit Label"), le_unit);
+                calibInfoLayout->addRow(QSL("Unit Min"), spin_unitMin);
+                calibInfoLayout->addRow(QSL("Unit Max"), spin_unitMax);
+
+                connect(m_gbGenHistograms, &QGroupBox::toggled, this, [calibInfoFrame](bool checked) {
+                    calibInfoFrame->setEnabled(checked);
+                });
+
+                m_optionsLayout->insertRow(m_optionsLayout->rowCount() - 1, m_gbGenHistograms);
+
+                // Load data from the first template into the gui
+                applyTemplate(0);
+            } break;
+
+        case EditExtractor:
+            {
+                setWindowTitle(QString("Edit %1").arg(m_ex->getDisplayName()));
+            } break;
+    }
 }
 
-void AddEditExtractorWidget::runLoadTemplateDialog()
+AddEditExtractorDialog::~AddEditExtractorDialog()
+{
+}
+
+void AddEditExtractorDialog::runLoadTemplateDialog()
 {
     auto templateList = new QListWidget;
 
@@ -227,7 +232,7 @@ void AddEditExtractorWidget::runLoadTemplateDialog()
  * The index is an index into a vector of Extractor instances obtained from
  * get_default_data_extractors() cached in m_defaultExtractors.
  */
-void AddEditExtractorWidget::applyTemplate(int index)
+void AddEditExtractorDialog::applyTemplate(int index)
 {
     if (0 <= index && index < m_defaultExtractors.size())
     {
@@ -239,34 +244,64 @@ void AddEditExtractorWidget::applyTemplate(int index)
     }
 }
 
-void AddEditExtractorWidget::accept()
+void AddEditExtractorDialog::accept()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
     AnalysisPauser pauser(m_eventWidget->getContext());
 
-    auto extractor = qobject_cast<Extractor *>(m_src);
-
-    extractor->setObjectName(le_name->text());
+    m_ex->setObjectName(le_name->text());
     m_filterEditor->apply();
-    extractor->getFilter().setSubFilters(m_filterEditor->m_subFilters);
-    extractor->setRequiredCompletionCount(m_spinCompletionCount->value());
+    m_ex->getFilter().setSubFilters(m_filterEditor->m_subFilters);
+    m_ex->setRequiredCompletionCount(m_spinCompletionCount->value());
 
-    if (m_srcPtr)
-    {
-        m_eventWidget->addSource(m_srcPtr, m_module, m_gbGenHistograms->isChecked(),
-                                 le_unit->text(), spin_unitMin->value(), spin_unitMax->value());
-    }
-    else
-    {
-        m_eventWidget->sourceEdited(m_src);
-    }
+    auto analysis = m_eventWidget->getContext()->getAnalysis();
 
-    m_eventWidget->uniqueWidgetCloses();
-    QDialog::accept();
+    try
+    {
+        switch (m_mode)
+        {
+            case AddExtractor:
+                {
+                    // TODO: call beginRun on the new extractor and rebuild a2. no need to clear other stuff.
+                    bool genHistos = m_gbGenHistograms->isChecked();
+
+                    if (genHistos)
+                    {
+                        auto rawDisplay = make_raw_data_display(m_ex, spin_unitMin->value(), spin_unitMax->value(),
+                                                                QString(), // FIXME: missing title
+                                                                le_unit->text());
+
+                        add_raw_data_display(analysis, m_eventWidget->getEventId(), m_module->getId(), rawDisplay);
+                    }
+                    else
+                    {
+                        analysis->addSource(m_eventWidget->getEventId(), m_module->getId(), m_ex);
+                    }
+                } break;
+
+            case EditExtractor:
+                {
+                    // TODO: do_beginRun_forward on the extractor here. then
+                    // rebuild a2. no need to clear stuff that's not affected.
+                    auto context = m_eventWidget->getContext();
+                    auto runInfo = context->getRunInfo();
+                    auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(context->getVMEConfig());
+                    analysis->setModified();
+                    analysis->beginRun(runInfo, vmeMap);
+                } break;
+        }
+
+        QDialog::accept();
+    }
+    catch (const std::bad_alloc &)
+    {
+        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
+        reject();
+    }
 }
 
-void AddEditExtractorWidget::reject()
+void AddEditExtractorDialog::reject()
 {
     qDebug() << __PRETTY_FUNCTION__;
     m_eventWidget->uniqueWidgetCloses();
@@ -614,6 +649,7 @@ void AddEditOperatorDialog::accept()
 
             case EditOperator:
                 {
+                    // TODO: do_beginRun_forward here
                     auto context = m_eventWidget->getContext();
                     auto runInfo = context->getRunInfo();
                     auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(context->getVMEConfig());
@@ -2608,7 +2644,6 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
     : QWidget(parent, Qt::Tool)
     , m_analysis(analysis)
     , m_pipe(pipe)
-    , m_infoLabel(new QLabel)
     , m_parameterTable(new QTableWidget)
 {
     auto layout = new QGridLayout(this);
@@ -2618,7 +2653,6 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
     auto closeButton = new QPushButton(QSL("Close"));
     connect(closeButton, &QPushButton::clicked, this, &QWidget::close);
 
-    layout->addWidget(m_infoLabel, row++, 0);
     layout->addWidget(m_parameterTable, row++, 0);
     layout->addWidget(closeButton, row++, 0, 1, 1);
 
@@ -2677,7 +2711,6 @@ void PipeDisplay::refresh()
             m_parameterTable->verticalHeaderItem(pi)->setText(QString::number(pi));
         }
 
-        m_infoLabel->setText("a2::PipeVectors");
         m_parameterTable->resizeColumnsToContents();
         m_parameterTable->resizeRowsToContents();
     }

@@ -98,12 +98,16 @@ class EventWidget: public QWidget
         QUuid getEventId() const;
 
     public slots:
-        // maybe FIXME: these slots are only public because of being called by
-        // a lambda which otherwise cannot invoke them.
+        // Note: these slots are only public because of being called by a
+        // lambda which otherwise cannot invoke them.
 
         void listFilterExtractorDialogAccepted();
         void listFilterExtractorDialogApplied();
         void listFilterExtractorDialogRejected();
+
+        void addExtractorDialogAccepted();
+        void editExtractorDialogAccepted();
+        void addEditExtractorDialogRejected();
 
         void addOperatorDialogAccepted();
         void editOperatorDialogAccepted();
@@ -113,27 +117,34 @@ class EventWidget: public QWidget
         EventWidgetPrivate *m_d;
 };
 
-class AddEditExtractorWidget: public QDialog
+class AddEditExtractorDialog: public QDialog
 {
     Q_OBJECT
     public:
-        AddEditExtractorWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget);
-        AddEditExtractorWidget(SourceInterface *src, ModuleConfig *mod, EventWidget *eventWidget);
+        enum Mode
+        {
+            AddExtractor,
+            EditExtractor
+        };
+
+        AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *mod, Mode mode, EventWidget *eventWidget = nullptr);
+        virtual ~AddEditExtractorDialog();
 
         virtual void accept() override;
         virtual void reject() override;
 
-        SourcePtr m_srcPtr;
-        SourceInterface *m_src;
+    private:
+        std::shared_ptr<Extractor> m_ex;
         ModuleConfig *m_module;
         EventWidget *m_eventWidget;
+        Mode m_mode;
 
         QLineEdit *le_name;
         QDialogButtonBox *m_buttonBox;
         DataExtractionEditor *m_filterEditor;
         QFormLayout *m_optionsLayout;
         QSpinBox *m_spinCompletionCount;
-        QGroupBox *m_gbGenHistograms;
+        QGroupBox *m_gbGenHistograms = nullptr;
         QLineEdit *le_unit = nullptr;
         QDoubleSpinBox *spin_unitMin = nullptr;
         QDoubleSpinBox *spin_unitMax = nullptr;
@@ -163,6 +174,7 @@ class AddEditOperatorDialog: public QDialog
             AddOperator,
             EditOperator
         };
+
         AddEditOperatorDialog(OperatorPtr opPtr, s32 userLevel, Mode mode, EventWidget *eventWidget);
 
         virtual void resizeEvent(QResizeEvent *event) override;
@@ -419,7 +431,6 @@ class PipeDisplay: public QWidget
         Analysis *m_analysis;
         Pipe *m_pipe;
 
-        QLabel *m_infoLabel;
         QTableWidget *m_parameterTable;
 };
 
