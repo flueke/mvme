@@ -90,6 +90,20 @@ namespace SIS3153Registers
     static const u32 ModuleIdAndFirmware        = 0x1;
     static const u32 SerialNumber               = 0x2;
     static const u32 LemoIOControl              = 0x3;
+
+    namespace LemoIOControlValues
+    {
+        /* The bits below are used to enable a certain setting. Shifting a bit
+         * by DisableShift and writing it to the register disables the setting.
+         */
+        static const u32 DisableShift = 16;
+
+        /* High level control of the outputs. The choice between NIM and TTL
+         * should be made via the onboard jumpbers. */
+        static const u32 OUT1 = 1u << 4;
+        static const u32 OUT2 = 1u << 5;
+    }
+
     static const u32 UDPConfiguration           = 0x4;
 
     namespace UDPConfigurationValues

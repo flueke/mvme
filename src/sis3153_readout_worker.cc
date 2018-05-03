@@ -1202,10 +1202,22 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         setupUDPForwarding();
 
-        // Light up LED_A right before entering DAQ mode
+        //
+        // Turn on LED_A right before entering DAQ mode
+        //
         error = sis->writeRegister(
             SIS3153Registers::USBControlAndStatus,
             SIS3153Registers::USBControlAndStatusValues::LED_A);
+        if (error.isError()) throw error;
+
+        //
+        // Activate OUT1.
+        // Note: the choice between NIM and TTL should be made via the jumpers.
+        //
+        sis_log("Activating OUT1");
+        error = sis->writeRegister(
+            SIS3153Registers::LemoIOControl,
+            SIS3153Registers::LemoIOControlValues::OUT1);
         if (error.isError()) throw error;
 
         m_processingState = {};
@@ -1379,6 +1391,22 @@ void SIS3153ReadoutWorker::readoutLoop()
 
             m_lossCounter.currentFlags = EventLossCounter::Flag_IsStaleData;
 
+            // Turn on LED_A again
+            error = sis->writeRegister(
+                SIS3153Registers::USBControlAndStatus,
+                SIS3153Registers::USBControlAndStatusValues::LED_A);
+            if (error.isError()) throw error;
+
+            //
+            // Activate OUT1.
+            // Note: the choice between NIM and TTL should be made via the jumpers.
+            //
+            sis_log("Activating OUT1");
+            error = sis->writeRegister(
+                SIS3153Registers::LemoIOControl,
+                SIS3153Registers::LemoIOControlValues::OUT1);
+            if (error.isError()) throw error;
+
             error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, m_stackListControlRegisterValue);
 
             if (error.isError())
@@ -1430,7 +1458,7 @@ namespace
 
 void SIS3153ReadoutWorker::leaveDAQMode()
 {
-    /* Note: These operations use the control socket instead of the main socket
+    /* IMPORTANT: These operations use the control socket instead of the main socket
      * so that DAQ data packets and the register read/write packets do not get
      * mixed up. */
 
@@ -1507,6 +1535,12 @@ void SIS3153ReadoutWorker::leaveDAQMode()
     err_wrap(ctrl->udp_sis3153_register_write(
             USBControlAndStatus,
             USBControlAndStatusValues::LED_A << USBControlAndStatusValues::DisableShift));
+
+    sis_log("Deactivating OUT1");
+    err_wrap(ctrl->udp_sis3153_register_write(
+            SIS3153Registers::LemoIOControl,
+            SIS3153Registers::LemoIOControlValues::OUT1
+            << SIS3153Registers::LemoIOControlValues::DisableShift));
 
     sis_log(QString(QSL("SIS3153 readout left DAQ mode (%1 remaining packets received, last sequenceNumber=%2)"))
             .arg(leaveDAQPacketCount)
@@ -2413,7 +2447,7 @@ void SIS3153ReadoutWorker::logMessage(const QString &message, bool useThrottle)
 
 void SIS3153ReadoutWorker::logMessage(const QString &message)
 {
-    m_workerContext.logMessage(message);
+    m_workerContext.logMessage(message, false);
 }
 
 DataBuffer *SIS3153ReadoutWorker::getOutputBuffer()

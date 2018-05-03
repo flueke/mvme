@@ -56,7 +56,7 @@ struct VMEReadoutWorkerContext
 
         if (!useThrottle)
         {
-            qDebug() << msg;
+            qDebug().noquote() << msg;
             this->logger(msg);
         }
         else
@@ -72,12 +72,12 @@ struct VMEReadoutWorkerContext
                                   .arg(msg)
                                   .arg(suppressedMessages)
                                  );
-                    qDebug() << finalMsg;
+                    qDebug().noquote() << finalMsg;
                     this->logger(finalMsg);
                 }
                 else
                 {
-                    qDebug() << msg;
+                    qDebug().noquote() << msg;
                     this->logger(msg);
                 }
             }
