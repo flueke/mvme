@@ -1,6 +1,9 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
+  packetStatus 0x132 is not valid!
+
 * listfile writing, MVMEStreamWriterHelper: can writing of the final EndMarker
   be moved into closeEventSection? I was surprised that this had to be done
   manually.

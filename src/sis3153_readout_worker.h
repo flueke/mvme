@@ -116,6 +116,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
         // readout stuff
         void readoutLoop();
+        void enterDAQMode(u32 stackListControlValue);
         void leaveDAQMode();
         ReadBufferResult readAndProcessBuffer();
 
