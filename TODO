@@ -1,6 +1,7 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+
 * a2::Operator_KeepPrevious does not seem to set output limits. Is this bugged?
   Fix the test if needed.
 
@@ -196,7 +197,15 @@ So the size of the return value list must be divisible by 4.
 --------------------------------------------------------------------------------
 Data Export Implementation - ExportSink
 --------------------------------------------------------------------------------
-* The generated CLI tools do not generated good output filenames. Manually
+More ideas from Robert:
+* Make it possible to export multiple events into the same file. This will need
+  a way to select data from different events. Also the file needs to contain
+  the event number for each record.
+* Add a "system" event containing the current timetick count and systems stats,
+  rates, etc.
+
+
+* The generated CLI tools do not generate good output filenames. Manually
   check for known extensions (".bin", ".bin.gz" and remove those from the
   output filename.
 * (maybe) Replace the .bin extension with something more mvme like.
