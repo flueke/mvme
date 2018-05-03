@@ -1066,6 +1066,8 @@ Operator make_binary_equation_idx(
     double outputUpperLimit)
 {
     assert(equationIndex < ArrayCount(BinaryEquationTable));
+    assert(0 <= inputIndexA && inputIndexA < inputA.data.size);
+    assert(0 <= inputIndexB && inputIndexB < inputB.data.size);
 
     auto result = make_operator(arena, Operator_BinaryEquation_idx, 2, 1);
     assign_input(&result, inputA, 0);

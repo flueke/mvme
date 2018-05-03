@@ -1,6 +1,8 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* a2::Operator_KeepPrevious does not seem to set output limits. Is this bugged?
+  Fix the test if needed.
 
 --------------------------------------------------
 GUI <-> Analysis <-> a2 refactoring
