@@ -54,11 +54,14 @@ do\
 do\
 {\
     logMessage(msg);\
-    auto dbg(qDebug());\
-    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << msg;\
+    qDebug().nospace().noquote() << __PRETTY_FUNCTION__ << " " << msg;\
 } while (0)
 #else
-#define sis_log(msg)
+#define sis_log(msg)\
+do\
+{\
+    logMessage(msg);\
+} while (0)
 #endif
 
 using namespace vme_script;
@@ -676,6 +679,23 @@ SIS3153ReadoutWorker::~SIS3153ReadoutWorker()
 {
 }
 
+VMEError SIS3153ReadoutWorker::uploadStackList(u32 stackLoadAddress, QVector<u32> stackList)
+{
+    auto sis = qobject_cast<SIS3153 *>(m_workerContext.controller);
+
+    u32 wordsWritten = 0;
+
+    auto error = make_sis_error(sis->getImpl()->udp_sis3153_register_dma_write(
+            stackLoadAddress, stackList.data(), stackList.size() - 1, &wordsWritten));
+
+    sis_trace(QString("uploaded stackList to offset 0x%1, wordsWritten=%2")
+              .arg(stackLoadAddress, 8, 16, QLatin1Char('0'))
+              .arg(wordsWritten)
+             );
+
+    return error;
+}
+
 void SIS3153ReadoutWorker::start(quint32 cycles)
 {
     qDebug() << __PRETTY_FUNCTION__ << "cycles to run =" << cycles;
@@ -850,7 +870,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
             qDebug() << __PRETTY_FUNCTION__ << event << ", #commands =" << readoutCommands.size();
             qDebug() << __PRETTY_FUNCTION__ << ">>>>> begin sis stackList for event" << event << ":";
-            debugOutputBuffer(reinterpret_cast<u8 *>(stackList.data()), stackList.size() * sizeof(u32));
+            qDebugOutputBuffer(reinterpret_cast<u8 *>(stackList.data()), stackList.size() * sizeof(u32));
             qDebug() << __PRETTY_FUNCTION__ << "<<<<< end sis stackList";
 
             if (event->triggerCondition == TriggerCondition::Interrupt)
@@ -1202,26 +1222,18 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         setupUDPForwarding();
 
-        // Light up LED_A right before entering DAQ mode
-        error = sis->writeRegister(
-            SIS3153Registers::USBControlAndStatus,
-            SIS3153Registers::USBControlAndStatusValues::LED_A);
-        if (error.isError()) throw error;
-
+        m_listfileHelper = std::make_unique<DAQReadoutListfileHelper>(m_workerContext);
         m_processingState = {};
         m_counters = {};
         m_counters.watchdogStackList = m_watchdogStackListIndex;
         m_lossCounter = EventLossCounter(&m_counters, &m_workerContext);
 
-        /* Save the current state of stackListControlValue for
-         * leaving/re-entering DAQ mode later on. */
+        // Save the current state of stackListControlValue for
+        // leaving/re-entering DAQ mode later on.
         m_stackListControlRegisterValue = stackListControlValue;
 
         // enter DAQ mode
-        error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, stackListControlValue);
-        if (error.isError()) throw error;
-
-        m_listfileHelper = std::make_unique<DAQReadoutListfileHelper>(m_workerContext);
+        enterDAQMode(m_stackListControlRegisterValue);
 
         //
         // Readout
@@ -1277,23 +1289,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
     }
 
     setState(DAQState::Idle);
-}
-
-VMEError SIS3153ReadoutWorker::uploadStackList(u32 stackLoadAddress, QVector<u32> stackList)
-{
-    auto sis = qobject_cast<SIS3153 *>(m_workerContext.controller);
-
-    u32 wordsWritten = 0;
-
-    auto error = make_sis_error(sis->getImpl()->udp_sis3153_register_dma_write(
-            stackLoadAddress, stackList.data(), stackList.size() - 1, &wordsWritten));
-
-    sis_trace(QString("uploaded stackList to offset 0x%1, wordsWritten=%2")
-              .arg(stackLoadAddress, 8, 16, QLatin1Char('0'))
-              .arg(wordsWritten)
-             );
-
-    return error;
 }
 
 void SIS3153ReadoutWorker::readoutLoop()
@@ -1368,22 +1363,9 @@ void SIS3153ReadoutWorker::readoutLoop()
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-            VMEError error;
-
-            // (flueke): taken from sis3153/stack_list_buffer_example.cpp
-            // clear List execution counter (List-Event number)
-            // This makes the next event sequence number be '1'.
-            error = sis->writeRegister(SIS3153ETH_STACK_LIST_TRIGGER_CMD, 8);
-            if (error.isError())
-                throw QString("Error resuming SIS3153 DAQ mode: %1").arg(error.toString());
-
             m_lossCounter.currentFlags = EventLossCounter::Flag_IsStaleData;
 
-            error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, m_stackListControlRegisterValue);
-
-            if (error.isError())
-                throw QString("Error resuming SIS3153 DAQ mode: %1").arg(error.toString());
-
+            enterDAQMode(m_stackListControlRegisterValue);
             setState(DAQState::Running);
             sis_log(QSL("SIS3153 readout resumed"));
         }
@@ -1428,9 +1410,47 @@ namespace
     }
 } // end anon namespace
 
+void SIS3153ReadoutWorker::enterDAQMode(u32 stackListControlValue)
+{
+    using namespace SIS3153Registers;
+
+    auto sis = qobject_cast<SIS3153 *>(m_workerContext.controller);
+
+    // sis3153eth instance using the control socket.
+    auto ctrlSocket = sis->getCtrlImpl();
+
+    // Taken from sis3153/stack_list_buffer_example.cpp:
+    // clear List execution counter (List-Event number)
+    // This makes the next event sequence number be '1'.
+    auto error = sis->writeRegister(SIS3153ETH_STACK_LIST_TRIGGER_CMD, 8);
+    if (error.isError()) throw error;
+
+    // Enter DAQ mode using the main socket. This socket will receive the
+    // readout data packets.
+    sis_log("Activating autonomous readout mode");
+    error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, stackListControlValue);
+    if (error.isError()) throw error;
+
+    // SIS should be ready to react to triggers now.
+
+    // Turn on LED_A
+    sis_log("Activating LED_A");
+    err_wrap(ctrlSocket->udp_sis3153_register_write(
+            USBControlAndStatus,
+            USBControlAndStatusValues::LED_A));
+
+    // Activate OUT1.
+    // Note: the choice between NIM and TTL should be made via the jumpers
+    // (Section 7.4 in the manual).
+    sis_log("Activating OUT1");
+    err_wrap(ctrlSocket->udp_sis3153_register_write(
+            LemoIOControl,
+            LemoIOControlValues::OUT1));
+}
+
 void SIS3153ReadoutWorker::leaveDAQMode()
 {
-    /* Note: These operations use the control socket instead of the main socket
+    /* IMPORTANT: These operations use the control socket instead of the main socket
      * so that DAQ data packets and the register read/write packets do not get
      * mixed up. */
 
@@ -1438,6 +1458,19 @@ void SIS3153ReadoutWorker::leaveDAQMode()
 
     // sis3153eth instance using the control socket.
     auto ctrl = m_sis->getCtrlImpl();
+
+    // Turn off LED_A
+    sis_log("Deactivating LED_A");
+    err_wrap(ctrl->udp_sis3153_register_write(
+            USBControlAndStatus,
+            USBControlAndStatusValues::LED_A << USBControlAndStatusValues::DisableShift));
+
+    // Clear OUT1
+    sis_log("Deactivating OUT1");
+    err_wrap(ctrl->udp_sis3153_register_write(
+            LemoIOControl,
+            LemoIOControlValues::OUT1 << LemoIOControlValues::DisableShift));
+
 
     // Turn off all DAQ mode features that where enabled in start()
     err_wrap(ctrl->udp_sis3153_register_write(
@@ -1502,11 +1535,6 @@ void SIS3153ReadoutWorker::leaveDAQMode()
         qDebug() << "<<<< end reading final buffers";
         m_lossCounter.endLeavingDAQ();
 #endif
-
-    // Turn off LED_A
-    err_wrap(ctrl->udp_sis3153_register_write(
-            USBControlAndStatus,
-            USBControlAndStatusValues::LED_A << USBControlAndStatusValues::DisableShift));
 
     sis_log(QString(QSL("SIS3153 readout left DAQ mode (%1 remaining packets received, last sequenceNumber=%2)"))
             .arg(leaveDAQPacketCount)
@@ -2413,7 +2441,7 @@ void SIS3153ReadoutWorker::logMessage(const QString &message, bool useThrottle)
 
 void SIS3153ReadoutWorker::logMessage(const QString &message)
 {
-    m_workerContext.logMessage(message);
+    m_workerContext.logMessage(message, false);
 }
 
 DataBuffer *SIS3153ReadoutWorker::getOutputBuffer()
