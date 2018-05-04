@@ -29,8 +29,9 @@
 #include <QJsonDocument>
 #include <QMessageBox>
 
-void debugOutputBuffer(u8 *dataBuffer, size_t bufferSize)
+void qDebugOutputBuffer(u8 *dataBuffer, size_t bufferSize)
 {
+#ifndef QT_NO_DEBUG_OUTPUT
     BufferIterator iter(dataBuffer, bufferSize);
     u32 wordIndex = 0;
 
@@ -48,6 +49,7 @@ void debugOutputBuffer(u8 *dataBuffer, size_t bufferSize)
     {
         qDebug("%3u: 0x%02x", wordIndex++, iter.extractU8());
     }
+#endif
 }
 
 QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize)

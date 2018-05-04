@@ -94,7 +94,7 @@ static void dump_listfile(ListFile *listfile, VMEConfig *vmeConfig)
 
                      cout << str.toStdString() << endl;
 
-                     debugOutputBuffer(reinterpret_cast<u8 *>(dataBegin), dataSize * sizeof(u32));
+                     qDebugOutputBuffer(reinterpret_cast<u8 *>(dataBegin), dataSize * sizeof(u32));
                  }
              }
              else if (result.flags & Result::NotSet)

@@ -54,11 +54,14 @@ do\
 do\
 {\
     logMessage(msg);\
-    auto dbg(qDebug());\
-    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << msg;\
+    qDebug().nospace().noquote() << __PRETTY_FUNCTION__ << " " << msg;\
 } while (0)
 #else
-#define sis_log(msg)
+#define sis_log(msg)\
+do\
+{\
+    logMessage(msg);\
+} while (0)
 #endif
 
 using namespace vme_script;
@@ -867,7 +870,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
             qDebug() << __PRETTY_FUNCTION__ << event << ", #commands =" << readoutCommands.size();
             qDebug() << __PRETTY_FUNCTION__ << ">>>>> begin sis stackList for event" << event << ":";
-            debugOutputBuffer(reinterpret_cast<u8 *>(stackList.data()), stackList.size() * sizeof(u32));
+            qDebugOutputBuffer(reinterpret_cast<u8 *>(stackList.data()), stackList.size() * sizeof(u32));
             qDebug() << __PRETTY_FUNCTION__ << "<<<<< end sis stackList";
 
             if (event->triggerCondition == TriggerCondition::Interrupt)
