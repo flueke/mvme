@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <QDialog>
+#include "analysis_ui_p.h"
 
 class MVMEContext;
 
@@ -19,9 +20,13 @@ class ExpressionOperatorDialog: public QDialog
         void applied();
 
     public:
-        ExpressionOperatorDialog(ExpressionOperator *op, int userLevel,
-                                 EventWidget *eventWidget, QWidget *parent = nullptr);
+        ExpressionOperatorDialog(const std::shared_ptr<ExpressionOperator> &op, int userLevel,
+                                 OperatorEditorMode mode, EventWidget *eventWidget);
+
         virtual ~ExpressionOperatorDialog();
+
+        virtual void accept() override;
+        virtual void reject() override;
 
     private:
         struct Private;

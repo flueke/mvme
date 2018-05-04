@@ -38,11 +38,6 @@ required try to clear as little of the accumulated data as possible.
 * add Analysis::operatorEdited()
   This can figure out what has to happen to get the a1 side in a consistent state.
 
-* improve the Arena: instead of throwing out_of_memory() and the clients having
-  to implement a realloc loop maintain a list of memory segments. As soon as an
-  allocation doesn't fit into the current segment anymore allocate a new one.
-
-
 --------------------------------------------------
 ExpressionOperator design plan
 --------------------------------------------------

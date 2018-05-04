@@ -312,7 +312,7 @@ void AddEditExtractorDialog::reject()
 // AddEditOperatorDialog
 //
 
-AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel, Mode mode, EventWidget *eventWidget)
+AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel, OperatorEditorMode mode, EventWidget *eventWidget)
     : QDialog(eventWidget)
     , m_op(op)
     , m_userLevel(userLevel)
@@ -341,13 +341,13 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel, Mode
 
     switch (mode)
     {
-        case AddEditOperatorDialog::AddOperator:
+        case OperatorEditorMode::New:
             setWindowTitle(QString("New  %1").arg(m_op->getDisplayName()));
             // This is a new operator, so either the name is empty or was auto generated.
             m_opConfigWidget->setNameEdited(false);
             break;
 
-        case AddEditOperatorDialog::EditOperator:
+        case OperatorEditorMode::Edit:
             setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
             // We're editing an operator so we assume the name has been specified by the user.
             m_opConfigWidget->setNameEdited(true);
@@ -642,12 +642,12 @@ void AddEditOperatorDialog::accept()
     {
         switch (m_mode)
         {
-            case AddOperator:
+            case OperatorEditorMode::New:
                 {
                     analysis->addOperator(m_eventWidget->getEventId(), m_op, m_userLevel);
                 } break;
 
-            case EditOperator:
+            case OperatorEditorMode::Edit:
                 {
                     // TODO: do_beginRun_forward here
                     auto context = m_eventWidget->getContext();
@@ -677,57 +677,62 @@ void AddEditOperatorDialog::reject()
 
     AnalysisPauser pauser(m_eventWidget->getContext());
 
-    if (m_mode == AddOperator)
+    switch (m_mode)
     {
-        // The operator will not be added to the analysis. This means any slots
-        // connected by the user must be disconnected again to avoid having
-        // stale connections in the source operators.
-        for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-        {
-            Slot *slot = m_op->getSlot(slotIndex);
-            slot->disconnectPipe();
-        }
-    }
-    else
-    {
-        // FIXME: get rid of as much of the complicated slot handling code here as possible
-
-
-        // Restore previous slot connections.
-
-        if (m_op->hasVariableNumberOfSlots()
-            && (m_op->getNumberOfSlots() != m_slotBackups.size()))
-        {
-            // Restore the original number of inputs.
-            while (m_op->removeLastSlot());
-
-            while (m_op->getNumberOfSlots() < m_slotBackups.size())
+        case OperatorEditorMode::New:
             {
-                m_op->addSlot();
-            }
-        }
+                // The operator will not be added to the analysis. This means any slots
+                // connected by the user must be disconnected again to avoid having
+                // stale connections in the source operators.
+                for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+                {
+                    Slot *slot = m_op->getSlot(slotIndex);
+                    slot->disconnectPipe();
+                }
+            } break;
 
-        Q_ASSERT(m_op->getNumberOfSlots() == m_slotBackups.size());
-
-        bool wasModified = false;
-
-        for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-        {
-            Slot *slot = m_op->getSlot(slotIndex);
-            auto oldConnection = m_slotBackups[slotIndex];
-            if (slot->inputPipe != oldConnection.inputPipe
-                || slot->paramIndex != oldConnection.paramIndex)
+        case OperatorEditorMode::Edit:
             {
-                wasModified = true;
-                slot->connectPipe(oldConnection.inputPipe, oldConnection.paramIndex);
-            }
-        }
+                // FIXME: get rid of as much of the complicated slot handling code here as possible
 
-        if (wasModified)
-        {
-            do_beginRun_forward(m_op.get());
-        }
+
+                // Restore previous slot connections.
+
+                if (m_op->hasVariableNumberOfSlots()
+                    && (m_op->getNumberOfSlots() != m_slotBackups.size()))
+                {
+                    // Restore the original number of inputs.
+                    while (m_op->removeLastSlot());
+
+                    while (m_op->getNumberOfSlots() < m_slotBackups.size())
+                    {
+                        m_op->addSlot();
+                    }
+                }
+
+                Q_ASSERT(m_op->getNumberOfSlots() == m_slotBackups.size());
+
+                bool wasModified = false;
+
+                for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+                {
+                    Slot *slot = m_op->getSlot(slotIndex);
+                    auto oldConnection = m_slotBackups[slotIndex];
+                    if (slot->inputPipe != oldConnection.inputPipe
+                        || slot->paramIndex != oldConnection.paramIndex)
+                    {
+                        wasModified = true;
+                        slot->connectPipe(oldConnection.inputPipe, oldConnection.paramIndex);
+                    }
+                }
+
+                if (wasModified)
+                {
+                    do_beginRun_forward(m_op.get());
+                }
+            } break;
     }
+
     m_eventWidget->endSelectInput();
     m_eventWidget->uniqueWidgetCloses();
     QDialog::reject();

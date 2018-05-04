@@ -57,6 +57,12 @@ class DataExtractionEditor;
 struct EventWidgetPrivate;
 class OperatorConfigurationWidget;
 
+enum class OperatorEditorMode
+{
+    New,
+    Edit
+};
+
 class EventWidget: public QWidget
 {
     Q_OBJECT
@@ -169,13 +175,8 @@ class AddEditOperatorDialog: public QDialog
         void selectInputForSlot(Slot *slot);
 
     public:
-        enum Mode
-        {
-            AddOperator,
-            EditOperator
-        };
 
-        AddEditOperatorDialog(OperatorPtr opPtr, s32 userLevel, Mode mode, EventWidget *eventWidget);
+        AddEditOperatorDialog(OperatorPtr opPtr, s32 userLevel, OperatorEditorMode mode, EventWidget *eventWidget);
 
         virtual void resizeEvent(QResizeEvent *event) override;
 
@@ -186,7 +187,7 @@ class AddEditOperatorDialog: public QDialog
 
         OperatorPtr m_op;
         s32 m_userLevel;
-        Mode m_mode;
+        OperatorEditorMode m_mode;
         EventWidget *m_eventWidget;
         QVector<QPushButton *> m_selectButtons;
         QDialogButtonBox *m_buttonBox = nullptr;
@@ -220,6 +221,8 @@ class AddEditOperatorDialog: public QDialog
         void endInputSelect();
 };
 
+/* Base implementation and interface for custom operator configuration UIs.
+ * Created and used by AddEditOperatorDialog. */
 class AbstractOpConfigWidget: public QWidget
 {
     Q_OBJECT

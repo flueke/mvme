@@ -28,6 +28,7 @@
 #include "analysis_session.h"
 #endif
 #include "listfilter_extractor_dialog.h"
+#include "expression_operator_dialog.h"
 
 #include "../config_ui.h"
 #include "../histo1d_widget.h"
@@ -1060,6 +1061,29 @@ s32 EventWidgetPrivate::getUserLevelForTree(QTreeWidget *tree)
     return -1;
 }
 
+namespace
+{
+
+QDialog *operator_editor_factory(const std::shared_ptr<OperatorInterface> &op,
+                                 s32 userLevel, OperatorEditorMode mode, EventWidget *eventWidget)
+{
+    QDialog *result = nullptr;
+
+    if (auto expr = std::dynamic_pointer_cast<ExpressionOperator>(op))
+    {
+        result = new ExpressionOperatorDialog(expr, userLevel, mode, eventWidget);
+    }
+    else
+    {
+        result = new AddEditOperatorDialog(op, userLevel, mode, eventWidget);
+    }
+
+    return result;
+}
+
+} // end anon namespace
+
+/* Context menu for the operator tree views (top). */
 void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
 {
     auto node = tree->itemAt(pos);
@@ -1071,6 +1095,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
     if (node)
     {
+        /* The level 0 tree. This is where the VME side modules show up and
+         * data extractors can be created. */
         if (userLevel == 0 && node->type() == NodeType_Module)
         {
             if (!m_uniqueWidgetActive)
@@ -1186,13 +1212,17 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             }
         }
 
+        /* Context menu for an existing data source. */
         if (userLevel == 0 && node->type() == NodeType_Source)
         {
             auto sourceInterface = getPointer<SourceInterface>(node);
 
             if (sourceInterface)
             {
-                Q_ASSERT(sourceInterface->getNumberOfOutputs() == 1); // TODO: implement the case for multiple outputs
+                Q_ASSERT_X(sourceInterface->getNumberOfOutputs() == 1,
+                           "doDisplayTreeContextMenu",
+                           "data sources with multiple outputs are not supported");
+
                 auto pipe = sourceInterface->getOutput(0);
 
                 menu.addAction(QSL("Show Parameters"), [this, pipe]() {
@@ -1255,7 +1285,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     }
 
                     menu.addAction(QSL("Remove"), [this, sourceInterface]() {
-                        // TODO: QMessageBox::question or similar
+                        // TODO: QMessageBox::question or similar or undo functionality
                         m_q->removeSource(sourceInterface);
                     });
                 }
@@ -1291,24 +1321,24 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                 // Edit Operator
                 menu.addAction(QSL("Edit"), [this, userLevel, op]() {
-                    auto widget = new AddEditOperatorDialog(op, userLevel, AddEditOperatorDialog::EditOperator, m_q);
-                    widget->move(QCursor::pos());
-                    widget->setAttribute(Qt::WA_DeleteOnClose);
-                    widget->show();
+                    auto dialog = operator_editor_factory(op, userLevel, OperatorEditorMode::Edit, m_q);
+                    dialog->move(QCursor::pos());
+                    dialog->setAttribute(Qt::WA_DeleteOnClose);
+                    dialog->show();
                     m_uniqueWidgetActive = true;
-                    m_uniqueWidget = widget;
+                    m_uniqueWidget = dialog;
                     clearAllTreeSelections();
                     clearAllToDefaultNodeHighlights();
 
-                    QObject::connect(widget, &QDialog::accepted,
+                    QObject::connect(dialog, &QDialog::accepted,
                                      m_q, &EventWidget::editOperatorDialogAccepted);
 
-                    QObject::connect(widget, &QDialog::rejected,
+                    QObject::connect(dialog, &QDialog::rejected,
                                      m_q, &EventWidget::addEditOperatorDialogRejected);
                 });
 
                 menu.addAction(QSL("Remove"), [this, op]() {
-                    // TODO: QMessageBox::question or similar
+                    // TODO: QMessageBox::question or similar or undo functionality
                     m_q->removeOperator(op.get());
                 });
             }
@@ -1320,23 +1350,23 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         {
             if (userLevel > 0)
             {
-                auto add_newOperatorAction = [this, &menu, menuNew, userLevel](const QString &title, auto opPtr)
+                auto add_newOperatorAction = [this, &menu, menuNew, userLevel](const QString &title, auto op)
                 {
                     // New Operator
-                    menuNew->addAction(title, &menu, [this, userLevel, opPtr]() {
-                        auto widget = new AddEditOperatorDialog(opPtr, userLevel, AddEditOperatorDialog::AddOperator, m_q);
-                        widget->move(QCursor::pos());
-                        widget->setAttribute(Qt::WA_DeleteOnClose);
-                        widget->show();
+                    menuNew->addAction(title, &menu, [this, userLevel, op]() {
+                        auto dialog = operator_editor_factory(op, userLevel, OperatorEditorMode::New, m_q);
+                        dialog->move(QCursor::pos());
+                        dialog->setAttribute(Qt::WA_DeleteOnClose);
+                        dialog->show();
                         m_uniqueWidgetActive = true;
-                        m_uniqueWidget = widget;
+                        m_uniqueWidget = dialog;
                         clearAllTreeSelections();
                         clearAllToDefaultNodeHighlights();
 
-                        QObject::connect(widget, &QDialog::accepted,
+                        QObject::connect(dialog, &QDialog::accepted,
                                          m_q, &EventWidget::addOperatorDialogAccepted);
 
-                        QObject::connect(widget, &QDialog::rejected,
+                        QObject::connect(dialog, &QDialog::rejected,
                                          m_q, &EventWidget::addEditOperatorDialogRejected);
                     });
                 };
@@ -1386,25 +1416,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
     }
 }
 
-void EventWidget::listFilterExtractorDialogAccepted()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    m_d->repopulate();
-    uniqueWidgetCloses();
-}
-
-void EventWidget::listFilterExtractorDialogApplied()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    m_d->repopulate();
-}
-
-void EventWidget::listFilterExtractorDialogRejected()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    uniqueWidgetCloses();
-}
-
+/* Context menu for the display/sink trees (bottom). */
 void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
 {
     Q_ASSERT(userLevel >= 0 && userLevel < m_levelTrees.size());
@@ -1420,19 +1432,20 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
     {
         // New Display Operator
         menuNew->addAction(title, &menu, [this, userLevel, op]() {
-            auto widget = new AddEditOperatorDialog(op, userLevel, AddEditOperatorDialog::AddOperator, m_q);
-            widget->move(QCursor::pos());
-            widget->setAttribute(Qt::WA_DeleteOnClose);
-            widget->show();
+            auto dialog = operator_editor_factory(op, userLevel, OperatorEditorMode::New, m_q);
+
+            dialog->move(QCursor::pos());
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->show();
             m_uniqueWidgetActive = true;
-            m_uniqueWidget = widget;
+            m_uniqueWidget = dialog;
             clearAllTreeSelections();
             clearAllToDefaultNodeHighlights();
 
-            QObject::connect(widget, &QDialog::accepted,
+            QObject::connect(dialog, &QDialog::accepted,
                              m_q, &EventWidget::addOperatorDialogAccepted);
 
-            QObject::connect(widget, &QDialog::rejected,
+            QObject::connect(dialog, &QDialog::rejected,
                              m_q, &EventWidget::addEditOperatorDialogRejected);
         });
     };
@@ -1642,19 +1655,19 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             {
                 // Edit Display Operator
                 menu.addAction(QSL("&Edit"), [this, userLevel, op]() {
-                    auto widget = new AddEditOperatorDialog(op, userLevel, AddEditOperatorDialog::EditOperator, m_q);
-                    widget->move(QCursor::pos());
-                    widget->setAttribute(Qt::WA_DeleteOnClose);
-                    widget->show();
+                    auto dialog = operator_editor_factory(op, userLevel, OperatorEditorMode::Edit, m_q);
+                    dialog->move(QCursor::pos());
+                    dialog->setAttribute(Qt::WA_DeleteOnClose);
+                    dialog->show();
                     m_uniqueWidgetActive = true;
-                    m_uniqueWidget = widget;
+                    m_uniqueWidget = dialog;
                     clearAllTreeSelections();
                     clearAllToDefaultNodeHighlights();
 
-                    QObject::connect(widget, &QDialog::accepted,
+                    QObject::connect(dialog, &QDialog::accepted,
                                      m_q, &EventWidget::editOperatorDialogAccepted);
 
-                    QObject::connect(widget, &QDialog::rejected,
+                    QObject::connect(dialog, &QDialog::rejected,
                                      m_q, &EventWidget::addEditOperatorDialogRejected);
                 });
 
@@ -3194,9 +3207,30 @@ void EventWidget::addEditExtractorDialogRejected()
 }
 
 //
+// ListFilter Extractor
+//
+void EventWidget::listFilterExtractorDialogAccepted()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    m_d->repopulate();
+    uniqueWidgetCloses();
+}
+
+void EventWidget::listFilterExtractorDialogApplied()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    m_d->repopulate();
+}
+
+void EventWidget::listFilterExtractorDialogRejected()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    uniqueWidgetCloses();
+}
+
+//
 // Operator add/edit/cancel
 //
-
 void EventWidget::addOperatorDialogAccepted()
 {
     qDebug() << __PRETTY_FUNCTION__;
@@ -3220,6 +3254,10 @@ void EventWidget::addEditOperatorDialogRejected()
     uniqueWidgetCloses();
     m_d->repopulate();
 }
+
+//
+//
+//
 
 void EventWidget::removeOperator(OperatorInterface *op)
 {
