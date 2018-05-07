@@ -1144,7 +1144,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                             InvalidCodePath;
                         }
 
-                        dialog->move(QCursor::pos());
+                        //POS dialog->move(QCursor::pos());
                         dialog->setAttribute(Qt::WA_DeleteOnClose);
                         dialog->show();
                         m_uniqueWidgetActive = true;
@@ -1274,7 +1274,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                                 InvalidCodePath;
                             }
 
-                            dialog->move(QCursor::pos());
+                            //POS dialog->move(QCursor::pos());
                             dialog->setAttribute(Qt::WA_DeleteOnClose);
                             dialog->show();
                             m_uniqueWidgetActive = true;
@@ -1322,7 +1322,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 // Edit Operator
                 menu.addAction(QSL("Edit"), [this, userLevel, op]() {
                     auto dialog = operator_editor_factory(op, userLevel, OperatorEditorMode::Edit, m_q);
-                    dialog->move(QCursor::pos());
+                    //POS dialog->move(QCursor::pos());
                     dialog->setAttribute(Qt::WA_DeleteOnClose);
                     dialog->show();
                     m_uniqueWidgetActive = true;
@@ -1355,7 +1355,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     // New Operator
                     menuNew->addAction(title, &menu, [this, userLevel, op]() {
                         auto dialog = operator_editor_factory(op, userLevel, OperatorEditorMode::New, m_q);
-                        dialog->move(QCursor::pos());
+                        //POS dialog->move(QCursor::pos());
                         dialog->setAttribute(Qt::WA_DeleteOnClose);
                         dialog->show();
                         m_uniqueWidgetActive = true;
@@ -1434,7 +1434,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
         menuNew->addAction(title, &menu, [this, userLevel, op]() {
             auto dialog = operator_editor_factory(op, userLevel, OperatorEditorMode::New, m_q);
 
-            dialog->move(QCursor::pos());
+            //POS dialog->move(QCursor::pos());
             dialog->setAttribute(Qt::WA_DeleteOnClose);
             dialog->show();
             m_uniqueWidgetActive = true;
@@ -1656,7 +1656,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                 // Edit Display Operator
                 menu.addAction(QSL("&Edit"), [this, userLevel, op]() {
                     auto dialog = operator_editor_factory(op, userLevel, OperatorEditorMode::Edit, m_q);
-                    dialog->move(QCursor::pos());
+                    //POS dialog->move(QCursor::pos());
                     dialog->setAttribute(Qt::WA_DeleteOnClose);
                     dialog->show();
                     m_uniqueWidgetActive = true;
@@ -3097,6 +3097,8 @@ EventWidget::~EventWidget()
 
 void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback)
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
     m_d->m_mode = EventWidgetPrivate::SelectInput;
     m_d->m_selectInputSlot = slot;
     m_d->m_selectInputUserLevel = userLevel;
@@ -3107,6 +3109,8 @@ void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback 
 
 void EventWidget::endSelectInput()
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
     if (m_d->m_mode == EventWidgetPrivate::SelectInput)
     {
         m_d->m_mode = EventWidgetPrivate::Default;
