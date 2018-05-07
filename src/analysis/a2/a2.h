@@ -19,9 +19,6 @@
 
 namespace a2
 {
-/* Note: a2 passes out_of_memory() from memory::Arena through. Use an external
- * mechanism to catch this, increase the memory size and try again. */
-
 using ParamVec = TypedBlock<double, s32>;
 
 void print_param_vector(ParamVec pv);
