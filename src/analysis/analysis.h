@@ -46,7 +46,7 @@ class VMEConfig;
 
 namespace memory
 {
-struct Arena;
+class Arena;
 };
 
 /*
