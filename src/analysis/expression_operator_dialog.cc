@@ -302,6 +302,311 @@ QString ExpressionOperatorEditorComponent::expressionText() const
 }
 
 //
+// ExpressionOperatorDialog and Private implementation
+//
+
+namespace
+{
+    struct Model;
+} // end anon namespace
+
+struct ExpressionOperatorDialog::Private
+{
+    friend struct Model;
+
+    Private(ExpressionOperatorDialog *q)
+        : m_q(q)
+    {}
+
+    ExpressionOperatorDialog *m_q;
+    std::shared_ptr<ExpressionOperator> m_op;
+    int m_userLevel;
+    OperatorEditorMode m_mode;
+    EventWidget *m_eventWidget;
+    std::unique_ptr<Model> m_model;
+
+    QTabWidget *m_tabWidget;
+
+    // tab0: operator name and input select
+    QLineEdit *le_operatorName;
+    SlotGrid m_slotGrid;
+
+    // tab1: begin expression
+    ExpressionOperatorEditorComponent *m_beginExpressionEditor;
+
+    // tab2: step expression
+    ExpressionOperatorEditorComponent *m_stepExpressionEditor;
+
+    QDialogButtonBox *m_buttonBox;
+
+    void repopulateSlotGrid();
+    void repopulateUI();
+
+    void loadFromOperator();
+
+    void onInputSelected(Slot *destSlot, s32 slotIndex,
+                         Pipe *sourcePipe, s32 sourceParamIndex);
+
+    void onInputCleared(s32 slotIndex);
+};
+
+namespace
+{
+
+/* Notes about the Model structure:
+ *
+ * This is used to hold the current state of the ExpressionOperator UI. The GUI
+ * can be populated using this information and both the a1 and a2 versions of
+ * the ExpressionOperator can be created from the information in the model.
+ *
+ * User interactions with the gui will trigger code that updates the model.
+ *
+ * When the user wants to evaluate one of the expressions
+ * a2::make_expression_operator() is used to create the operator. Errors can be
+ * displayed in the respective ExpressionOperatorEditorComponent.
+ *
+ * This code is not fast. Memory allocations from std::vector happen
+ * frequently!
+ *
+ * Remember: the operator can not be built if any of the inputs is unconnected.
+ * The resulting data will be a vector with length 0 which can not be
+ * registered in an exprtk symbol table.
+ */
+
+struct PipeVectorStorage
+{
+    std::vector<double> data;
+    std::vector<double> lowerLimits;
+    std::vector<double> upperLimits;
+};
+
+struct A2PipeWithStorage
+{
+    A2PipeWithStorage()
+        : a2_pipe{}
+        , storage{}
+    {}
+
+    A2PipeWithStorage(const A2PipeWithStorage &) = delete;
+    A2PipeWithStorage &operator=(const A2PipeWithStorage &) = delete;
+
+    A2PipeWithStorage(A2PipeWithStorage &&) = default;
+    A2PipeWithStorage &operator=(A2PipeWithStorage &&) = default;
+
+    a2::PipeVectors a2_pipe;
+    PipeVectorStorage storage;
+};
+
+void assert_consistency(const A2PipeWithStorage &pipeWithStorage)
+{
+    const auto &a2_pipe = pipeWithStorage.a2_pipe;
+    const auto &storage = pipeWithStorage.storage;
+
+    qDebug() << __PRETTY_FUNCTION__ << a2_pipe.data.size;
+
+    assert(a2_pipe.data.size == a2_pipe.lowerLimits.size);
+    assert(a2_pipe.data.size == a2_pipe.upperLimits.size);
+
+    const s32 expected_size = static_cast<s32>(storage.data.size());
+
+    assert(a2_pipe.data.size == expected_size);
+    assert(a2_pipe.lowerLimits.size == expected_size);
+    assert(a2_pipe.upperLimits.size == expected_size);
+
+    assert(a2_pipe.data.data == storage.data.data());
+    assert(a2_pipe.lowerLimits.data == storage.lowerLimits.data());
+    assert(a2_pipe.upperLimits.data == storage.upperLimits.data());
+}
+
+// FIXME: can't make pipe const because getParameter is not const
+A2PipeWithStorage make_a2_pipe_with_storage(Pipe *pipe)
+{
+    A2PipeWithStorage result;
+
+    s32 size = pipe->getSize();
+
+    auto &storage = result.storage;
+    storage.data.resize(size);
+    storage.lowerLimits.resize(size);
+    storage.upperLimits.resize(size);
+
+    for (s32 pi = 0; pi < size; pi++)
+    {
+        const auto &a1_param = pipe->getParameter(pi);
+
+        storage.data[pi]        = a1_param->value;
+        storage.lowerLimits[pi] = a1_param->lowerLimit;
+        storage.upperLimits[pi] = a1_param->upperLimit;
+    }
+
+    result.a2_pipe =
+    {
+        { storage.data.data(), size },
+        { storage.lowerLimits.data(), size },
+        { storage.upperLimits.data(), size }
+    };
+
+    assert_consistency(result);
+
+    return result;
+}
+
+struct Model
+{
+    /* A clone of the original operator that's being edited. This is here so
+     * that we have proper Slot pointers to pass to
+     * EventWidget::selectInputFor() on input selection.
+     *
+     * Note that pipe -> slot connections are not made on this clone as the
+     * source pipes would be modified by that operation. Once the infrastructure
+     * allows making the connections without having to worry about leaving the
+     * analysis in an inconsistent state in any scenario, the clone could be
+     * used for pipe connections. */
+    std::unique_ptr<ExpressionOperator> opClone;
+
+    /* Pointers to the original input pipes are stored here so that the
+     * analysis::ExpressionOperator can be modified properly once the user
+     * accepts the changes. */
+    std::vector<Pipe *> a1_inputPipes;
+    std::vector<A2PipeWithStorage> inputs;
+    std::vector<s32> inputIndexes;
+    std::vector<std::string> inputPrefixes;
+    std::vector<std::string> inputUnits;
+    std::string beginExpression;
+    std::string stepExpression;
+
+    Model() = default;
+
+    Model(const Model &) = delete;
+    Model &operator=(const Model &) = delete;
+
+    Model(Model &&) = default;
+    Model &operator=(Model &&) = default;
+};
+
+void assert_internal_consistency(const Model &model)
+{
+    assert(model.inputs.size() == model.inputIndexes.size());
+    assert(model.inputs.size() == model.inputPrefixes.size());
+    assert(model.inputs.size() == model.inputUnits.size());
+    assert(model.inputs.size() == model.a1_inputPipes.size());
+
+    for (size_t ii = 0; ii < model.inputs.size(); ii++)
+    {
+        assert_consistency(model.inputs[ii]);
+    }
+}
+
+void assert_consistency(const Model &model)
+{
+    assert(model.opClone);
+    assert(model.opClone->getNumberOfSlots() > 0);
+    assert(static_cast<size_t>(model.opClone->getNumberOfSlots()) == model.inputs.size());
+
+    assert_internal_consistency(model);
+}
+
+/* IMPORTANT: This will potentially leave the model in an inconsistent state as
+ * no slot will be added to model.opClone! */
+void add_model_only_input(Model &model)
+{
+    model.inputs.push_back({});
+    model.inputIndexes.push_back(a2::NoParamIndex);
+    model.a1_inputPipes.push_back(nullptr);
+    model.inputPrefixes.push_back({});
+    model.inputUnits.push_back({});
+}
+
+void add_new_input_slot(Model &model)
+{
+    assert_consistency(model);
+
+    s32 si = model.opClone->getNumberOfSlots();
+    model.opClone->addSlot();
+    add_model_only_input(model);
+    qDebug() << model.opClone->getInputPrefix(si);
+    model.inputPrefixes[si] = model.opClone->getInputPrefix(si).toStdString();
+
+    assert_consistency(model);
+}
+
+void pop_input_slot(Model &model)
+{
+    assert_consistency(model);
+
+    if (model.opClone->removeLastSlot())
+    {
+        model.inputs.pop_back();
+        model.inputIndexes.pop_back();
+        model.a1_inputPipes.pop_back();
+        model.inputPrefixes.pop_back();
+        model.inputUnits.pop_back();
+    }
+
+    assert_consistency(model);
+}
+
+void connect_input(Model &model, s32 inputIndex, Pipe *inPipe, s32 paramIndex)
+{
+    assert_consistency(model);
+
+    assert(0 <= inputIndex && inputIndex < model.opClone->getNumberOfSlots());
+    assert(inPipe);
+
+    model.inputs[inputIndex] = make_a2_pipe_with_storage(inPipe);
+    model.inputIndexes[inputIndex] = paramIndex;
+    model.a1_inputPipes[inputIndex] = inPipe;
+    model.inputPrefixes[inputIndex] = model.opClone->getInputPrefix(inputIndex).toStdString();
+    model.inputUnits[inputIndex] = inPipe->getParameters().unit.toStdString();
+
+    assert_consistency(model);
+}
+
+void disconnect_input(Model &model, s32 inputIndex)
+{
+    assert_consistency(model);
+
+    assert(0 <= inputIndex && inputIndex < model.opClone->getNumberOfSlots());
+
+    model.inputs[inputIndex] = {};
+    model.inputIndexes[inputIndex] = a2::NoParamIndex;
+    model.a1_inputPipes[inputIndex] = nullptr;
+    model.inputUnits[inputIndex] = {};
+    // Note: Keeps input prefix intact.
+
+    assert_consistency(model);
+}
+
+void load_from_operator(Model &model, ExpressionOperator &op)
+{
+    model.inputs.clear();
+    model.inputIndexes.clear();
+    model.inputPrefixes.clear();
+    model.inputUnits.clear();
+
+    model.opClone = std::unique_ptr<ExpressionOperator>(op.cloneViaSerialization());
+
+    assert(op.getNumberOfSlots() == model.opClone->getNumberOfSlots());
+
+    for (s32 si = 0; si < op.getNumberOfSlots(); si++)
+    {
+        Slot *slot = op.getSlot(si);
+
+        add_model_only_input(model);
+        model.inputPrefixes[si] = model.opClone->getInputPrefix(si).toStdString();
+
+        if (slot && slot->isConnected() && slot->isArrayConnection())
+        {
+            connect_input(model, si, slot->inputPipe, slot->paramIndex);
+        }
+    }
+
+    assert_consistency(model);
+}
+
+} // end anon namespace
+
+//
 // SlotGrid
 //
 
@@ -348,10 +653,11 @@ void slotgrid_endInputSelect(SlotGrid *sg)
     }
 }
 
-void repopulate_slotgrid(SlotGrid *sg, OperatorInterface *op, EventWidget *eventWidget, s32 userLevel)
+void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s32 userLevel)
 {
-    // Clear the slot grid and the select buttons
+    assert_consistency(model);
 
+    // Clear the slot grid and the select buttons
     while (QLayoutItem *child = sg->slotLayout->takeAt(0))
     {
         if (auto widget = child->widget())
@@ -367,6 +673,9 @@ void repopulate_slotgrid(SlotGrid *sg, OperatorInterface *op, EventWidget *event
     sg->varNameLineEdits.clear();
 
     // Repopulate
+
+    const auto &op = model.opClone;
+    assert(op);
 
     const s32 slotCount = op->getNumberOfSlots();
     assert(slotCount > 0);
@@ -391,6 +700,25 @@ void repopulate_slotgrid(SlotGrid *sg, OperatorInterface *op, EventWidget *event
         auto clearButton = new QPushButton(QIcon(":/dialog-close.png"), QString());
         sg->clearButtons.push_back(clearButton);
 
+        auto le_varName  = new QLineEdit;
+        sg->varNameLineEdits.push_back(le_varName);
+
+        if (model.a1_inputPipes[slotIndex])
+        {
+            QString sourceText = model.a1_inputPipes[slotIndex]->source->objectName();
+
+            if (model.inputIndexes[slotIndex] != a2::NoParamIndex)
+            {
+                sourceText = (QSL("%1[%2]")
+                              .arg(sourceText)
+                              .arg(model.inputIndexes[slotIndex]));
+            }
+
+            selectButton->setText(sourceText);
+        }
+
+        le_varName->setText(QString::fromStdString(model.inputPrefixes[slotIndex]));
+
         QObject::connect(selectButton, &QPushButton::toggled,
                 sg->outerFrame, [=] (bool checked) {
 
@@ -409,9 +737,9 @@ void repopulate_slotgrid(SlotGrid *sg, OperatorInterface *op, EventWidget *event
                     // This is the callback that will be invoked by the
                     // eventwidget when input selection is complete.
 
+                    selectButton->setChecked(false);
                     emit selectButton->inputSelected(destSlot, slotIndex,
                                                      sourcePipe, sourceParamIndex);
-                    selectButton->setChecked(false);
                 });
 
                 // Uncheck the other buttons.
@@ -431,9 +759,6 @@ void repopulate_slotgrid(SlotGrid *sg, OperatorInterface *op, EventWidget *event
             eventWidget->endSelectInput();
         });
 
-        auto le_varName  = new QLineEdit;
-        sg->varNameLineEdits.push_back(le_varName);
-
         col = 0;
 
         sg->slotLayout->addWidget(new QLabel(slot->name), row, col++);
@@ -450,219 +775,13 @@ void repopulate_slotgrid(SlotGrid *sg, OperatorInterface *op, EventWidget *event
     sg->slotLayout->setColumnStretch(1, 1);
     sg->slotLayout->setColumnStretch(2, 0);
     sg->slotLayout->setColumnStretch(3, 1);
+
+    sg->removeSlotButton->setEnabled(slotCount > 1);
 }
-
-void repopulate_slotgrid(SlotGrid *sg, const std::shared_ptr<OperatorInterface> &op, EventWidget *eventWidget, s32 userLevel)
-{
-    return repopulate_slotgrid(sg, op.get(), eventWidget, userLevel);
-}
-
-//
-// ExpressionOperatorDialog and Private implementation
-//
-
-struct ExpressionOperatorDialog::Private
-{
-    Private(ExpressionOperatorDialog *q)
-        : m_q(q)
-    {}
-
-    ExpressionOperatorDialog *m_q;
-    std::shared_ptr<ExpressionOperator> m_op;
-    int m_userLevel;
-    OperatorEditorMode m_mode;
-    EventWidget *m_eventWidget;
-
-    QTabWidget *m_tabWidget;
-
-    // tab0: operator name and input select
-    QLineEdit *le_operatorName;
-    SlotGrid m_slotGrid;
-
-    // tab1: begin expression
-    ExpressionOperatorEditorComponent *m_beginExpressionEditor;
-
-    // tab2: step expression
-    ExpressionOperatorEditorComponent *m_stepExpressionEditor;
-
-    QDialogButtonBox *m_buttonBox;
-
-    void repopulateSlotGrid();
-
-    void onInputSelected(Slot *destSlot, s32 slotIndex,
-                         Pipe *sourcePipe, s32 sourceParamIndex);
-
-    void onInputCleared(s32 slotIndex);
-
-    void loadFromOperator();
-
-    friend struct Model;
-};
-
-namespace
-{
-
-/* Notes about the Model structure:
- *
- * This is used to hold the current state of the ExpressionOperator UI. The GUI
- * can be populated using this information and both the a1 and a2 versions of
- * the ExpressionOperator can be created from the information in the model.
- *
- * User interactions with the gui will trigger code that updates the model.
- *
- * When the user wants to evaluate one of the expressions
- * a2::make_expression_operator() is used to create the operator. Errors can be
- * displayed in the respective ExpressionOperatorEditorComponent.
- *
- * This code is not fast. Memory allocations from std::vector happen
- * frequently!
- *
- * Remember: the operator can not be built if any of the inputs is unconnected.
- * The resulting data will be a vector with length 0 which can not be
- * registered in an exprtk symbol table.
- */
-
-struct PipeVectorStorage
-{
-    std::vector<double> data;
-    std::vector<double> lowerLimits;
-    std::vector<double> upperLimits;
-};
-
-using A2PipeWithStorage = std::pair<a2::PipeVectors, PipeVectorStorage>;
-
-void assert_consistency(const A2PipeWithStorage &pipeWithStorage)
-{
-    const auto &a2_pipe = pipeWithStorage.first;
-    const auto &storage = pipeWithStorage.second;
-
-    assert(a2_pipe.data.size == a2_pipe.lowerLimits.size);
-    assert(a2_pipe.data.size == a2_pipe.upperLimits.size);
-
-    const s32 expected_size = static_cast<s32>(storage.data.size());
-
-    assert(a2_pipe.data.size == expected_size);
-    assert(a2_pipe.lowerLimits.size == expected_size);
-    assert(a2_pipe.upperLimits.size == expected_size);
-
-    assert(a2_pipe.data.data == storage.data.data());
-    assert(a2_pipe.lowerLimits.data == storage.lowerLimits.data());
-    assert(a2_pipe.upperLimits.data == storage.upperLimits.data());
-}
-
-// FIXME: can't make pipe const because getParameter is not const
-A2PipeWithStorage make_a2_pipe_with_storage(Pipe *pipe)
-{
-    s32 size = pipe->getSize();
-
-    PipeVectorStorage storage = {};
-    storage.data.resize(size);
-    storage.lowerLimits.resize(size);
-    storage.upperLimits.resize(size);
-
-    for (s32 pi = 0; pi < size; pi++)
-    {
-        const auto &a1_param = pipe->getParameter(pi);
-
-        storage.data[pi]        = a1_param->value;
-        storage.lowerLimits[pi] = a1_param->lowerLimit;
-        storage.upperLimits[pi] = a1_param->upperLimit;
-    }
-
-    a2::PipeVectors a2_pipe =
-    {
-        { storage.data.data(), size },
-        { storage.lowerLimits.data(), size },
-        { storage.upperLimits.data(), size }
-    };
-
-    auto result = std::make_pair(a2_pipe, storage);
-
-    assert_consistency(result);
-
-    return result;
-}
-
-struct Model
-{
-    std::vector<a2::PipeVectors> inputs;
-    std::vector<PipeVectorStorage> inputStorage;
-    std::vector<std::string> inputPrefixes;
-    std::vector<std::string> inputUnits;
-    std::string beginExpression;
-    std::string stepExpression;
-
-    /* Pointers to the original input pipes are stored here so that the
-     * analysis::ExpressionOperator can be modified properly once the user
-     * accepts the changes. */
-    std::vector<Pipe *> a1_inputPipes;
-};
-
-void assert_consistency(const Model &model)
-{
-    assert(model.inputs.size() == model.inputStorage.size());
-    assert(model.inputs.size() == model.inputPrefixes.size());
-    assert(model.inputs.size() == model.inputUnits.size());
-    assert(model.inputs.size() == model.a1_inputPipes.size());
-
-    for (size_t ii = 0; ii < model.inputs.size(); ii++)
-    {
-        assert_consistency(std::make_pair(model.inputs[ii], model.inputStorage[ii]));
-    }
-}
-
-void load_from_operator(Model &dest, ExpressionOperator &op)
-{
-    dest.inputs.clear();
-    dest.inputStorage.clear();
-    dest.inputPrefixes.clear();
-    dest.inputUnits.clear();
-
-    for (s32 si = 0; si < op.getNumberOfSlots(); si++)
-    {
-        Slot *slot = op.getSlot(si);
-
-        if (slot && slot->isConnected() && slot->isArrayConnection())
-        {
-            Pipe *a1_pipe = slot->inputPipe;
-            assert(a1_pipe);
-            auto ps = make_a2_pipe_with_storage(a1_pipe);
-            dest.inputs.push_back(ps.first);
-            dest.inputStorage.push_back(ps.second);
-            dest.a1_inputPipes.push_back(slot->inputPipe);
-        }
-        else
-        {
-            dest.inputs.push_back(a2::PipeVectors{});
-            dest.inputStorage.push_back(PipeVectorStorage{});
-            dest.a1_inputPipes.push_back(nullptr);
-        }
-    }
-
-    assert_consistency(dest);
-}
-
-void add_input(Model &model)
-{
-}
-
-void pop_input(Model &model)
-{
-}
-
-void connect_input(Model &model, s32 inputIndex, Pipe *inPipe)
-{
-}
-
-void disconnect_input(Model &model, s32 inputIndex)
-{
-}
-
-} // end anon namespace
 
 void ExpressionOperatorDialog::Private::repopulateSlotGrid()
 {
-    repopulate_slotgrid(&m_slotGrid, m_op, m_eventWidget, m_userLevel);
+    repopulate_slotgrid(&m_slotGrid, *m_model, m_eventWidget, m_userLevel);
 
     for (auto &selectButton: m_slotGrid.selectButtons)
     {
@@ -684,11 +803,21 @@ void ExpressionOperatorDialog::Private::repopulateSlotGrid()
     }
 }
 
+void ExpressionOperatorDialog::Private::repopulateUI()
+{
+    repopulateSlotGrid();
+
+    m_beginExpressionEditor->setExpressionText(
+        QString::fromStdString(m_model->beginExpression));
+
+    m_stepExpressionEditor->setExpressionText(
+        QString::fromStdString(m_model->stepExpression));
+}
+
 void ExpressionOperatorDialog::Private::loadFromOperator()
 {
-    m_beginExpressionEditor->setExpressionText(m_op->getBeginExpression());
-    m_stepExpressionEditor->setExpressionText(m_op->getStepExpression());
-    repopulateSlotGrid();
+    load_from_operator(*m_model, *m_op);
+    repopulateUI();
 }
 
 void ExpressionOperatorDialog::Private::onInputSelected(
@@ -696,11 +825,14 @@ void ExpressionOperatorDialog::Private::onInputSelected(
     Pipe *sourcePipe, s32 sourceParamIndex)
 {
     qDebug() << __PRETTY_FUNCTION__ << destSlot << slotIndex << sourcePipe << sourceParamIndex;
+    connect_input(*m_model, slotIndex, sourcePipe, sourceParamIndex);
+    repopulateUI();
 }
 
 void ExpressionOperatorDialog::Private::onInputCleared(s32 slotIndex)
 {
     qDebug() << __PRETTY_FUNCTION__ << slotIndex;
+    disconnect_input(*m_model, slotIndex);
 }
 
 ExpressionOperatorDialog::ExpressionOperatorDialog(
@@ -715,7 +847,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     m_d->m_mode        = mode;
     m_d->m_eventWidget = eventWidget;
     m_d->m_tabWidget   = new QTabWidget;
-
+    m_d->m_model       = std::make_unique<Model>();
 
     // tab0: operator name and input select
     {
@@ -777,20 +909,21 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
 
     // Slotgrid interactions
     connect(m_d->m_slotGrid.addSlotButton, &QPushButton::clicked, this, [this]() {
-        m_d->m_op->addSlot();
+        add_new_input_slot(*m_d->m_model);
         m_d->repopulateSlotGrid();
-        m_d->m_slotGrid.removeSlotButton->setEnabled(m_d->m_op->getNumberOfSlots() > 1);
+        m_d->m_slotGrid.removeSlotButton->setEnabled(m_d->m_model->opClone->getNumberOfSlots() > 1);
         m_d->m_eventWidget->endSelectInput();
     });
 
     connect(m_d->m_slotGrid.removeSlotButton, &QPushButton::clicked, this, [this] () {
-        if (m_d->m_op->getNumberOfSlots() > 1)
+        if (m_d->m_model->opClone->getNumberOfSlots() > 1)
         {
-            m_d->m_op->removeLastSlot();
+            pop_input_slot(*m_d->m_model);
             m_d->repopulateSlotGrid();
             m_d->m_eventWidget->endSelectInput();
         }
-        m_d->m_slotGrid.removeSlotButton->setEnabled(m_d->m_op->getNumberOfSlots() > 1);
+        m_d->m_slotGrid.removeSlotButton->setEnabled(
+            m_d->m_model->opClone->getNumberOfSlots() > 1);
     });
 
     // Initialize and misc setup
