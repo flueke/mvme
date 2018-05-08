@@ -369,6 +369,7 @@ void repopulate_slotgrid(SlotGrid *sg, OperatorInterface *op, EventWidget *event
     // Repopulate
 
     const s32 slotCount = op->getNumberOfSlots();
+    assert(slotCount > 0);
 
     s32 row = 0;
     s32 col = 0;
@@ -403,10 +404,13 @@ void repopulate_slotgrid(SlotGrid *sg, OperatorInterface *op, EventWidget *event
 
                 eventWidget->selectInputFor(
                     slot, userLevel,
-                    [selectButton] (Slot *destSlot, Pipe *sourcePipe, s32 sourceParamIndex) {
+                    [selectButton, slotIndex] (Slot *destSlot,
+                                               Pipe *sourcePipe, s32 sourceParamIndex) {
                     // This is the callback that will be invoked by the
                     // eventwidget when input selection is complete.
-                    emit selectButton->inputSelected(sourcePipe, sourceParamIndex);
+
+                    emit selectButton->inputSelected(destSlot, slotIndex,
+                                                     sourcePipe, sourceParamIndex);
                     selectButton->setChecked(false);
                 });
 
@@ -484,21 +488,219 @@ struct ExpressionOperatorDialog::Private
     QDialogButtonBox *m_buttonBox;
 
     void repopulateSlotGrid();
-    void onInputPipeSelected();
-    void onInputCleared();
+
+    void onInputSelected(Slot *destSlot, s32 slotIndex,
+                         Pipe *sourcePipe, s32 sourceParamIndex);
+
+    void onInputCleared(s32 slotIndex);
 
     void loadFromOperator();
+
+    friend struct Model;
 };
+
+namespace
+{
+
+/* Notes about the Model structure:
+ *
+ * This is used to hold the current state of the ExpressionOperator UI. The GUI
+ * can be populated using this information and both the a1 and a2 versions of
+ * the ExpressionOperator can be created from the information in the model.
+ *
+ * User interactions with the gui will trigger code that updates the model.
+ *
+ * When the user wants to evaluate one of the expressions
+ * a2::make_expression_operator() is used to create the operator. Errors can be
+ * displayed in the respective ExpressionOperatorEditorComponent.
+ *
+ * This code is not fast. Memory allocations from std::vector happen
+ * frequently!
+ *
+ * Remember: the operator can not be built if any of the inputs is unconnected.
+ * The resulting data will be a vector with length 0 which can not be
+ * registered in an exprtk symbol table.
+ */
+
+struct PipeVectorStorage
+{
+    std::vector<double> data;
+    std::vector<double> lowerLimits;
+    std::vector<double> upperLimits;
+};
+
+using A2PipeWithStorage = std::pair<a2::PipeVectors, PipeVectorStorage>;
+
+void assert_consistency(const A2PipeWithStorage &pipeWithStorage)
+{
+    const auto &a2_pipe = pipeWithStorage.first;
+    const auto &storage = pipeWithStorage.second;
+
+    assert(a2_pipe.data.size == a2_pipe.lowerLimits.size);
+    assert(a2_pipe.data.size == a2_pipe.upperLimits.size);
+
+    const s32 expected_size = static_cast<s32>(storage.data.size());
+
+    assert(a2_pipe.data.size == expected_size);
+    assert(a2_pipe.lowerLimits.size == expected_size);
+    assert(a2_pipe.upperLimits.size == expected_size);
+
+    assert(a2_pipe.data.data == storage.data.data());
+    assert(a2_pipe.lowerLimits.data == storage.lowerLimits.data());
+    assert(a2_pipe.upperLimits.data == storage.upperLimits.data());
+}
+
+// FIXME: can't make pipe const because getParameter is not const
+A2PipeWithStorage make_a2_pipe_with_storage(Pipe *pipe)
+{
+    s32 size = pipe->getSize();
+
+    PipeVectorStorage storage = {};
+    storage.data.resize(size);
+    storage.lowerLimits.resize(size);
+    storage.upperLimits.resize(size);
+
+    for (s32 pi = 0; pi < size; pi++)
+    {
+        const auto &a1_param = pipe->getParameter(pi);
+
+        storage.data[pi]        = a1_param->value;
+        storage.lowerLimits[pi] = a1_param->lowerLimit;
+        storage.upperLimits[pi] = a1_param->upperLimit;
+    }
+
+    a2::PipeVectors a2_pipe =
+    {
+        { storage.data.data(), size },
+        { storage.lowerLimits.data(), size },
+        { storage.upperLimits.data(), size }
+    };
+
+    auto result = std::make_pair(a2_pipe, storage);
+
+    assert_consistency(result);
+
+    return result;
+}
+
+struct Model
+{
+    std::vector<a2::PipeVectors> inputs;
+    std::vector<PipeVectorStorage> inputStorage;
+    std::vector<std::string> inputPrefixes;
+    std::vector<std::string> inputUnits;
+    std::string beginExpression;
+    std::string stepExpression;
+
+    /* Pointers to the original input pipes are stored here so that the
+     * analysis::ExpressionOperator can be modified properly once the user
+     * accepts the changes. */
+    std::vector<Pipe *> a1_inputPipes;
+};
+
+void assert_consistency(const Model &model)
+{
+    assert(model.inputs.size() == model.inputStorage.size());
+    assert(model.inputs.size() == model.inputPrefixes.size());
+    assert(model.inputs.size() == model.inputUnits.size());
+    assert(model.inputs.size() == model.a1_inputPipes.size());
+
+    for (size_t ii = 0; ii < model.inputs.size(); ii++)
+    {
+        assert_consistency(std::make_pair(model.inputs[ii], model.inputStorage[ii]));
+    }
+}
+
+void load_from_operator(Model &dest, ExpressionOperator &op)
+{
+    dest.inputs.clear();
+    dest.inputStorage.clear();
+    dest.inputPrefixes.clear();
+    dest.inputUnits.clear();
+
+    for (s32 si = 0; si < op.getNumberOfSlots(); si++)
+    {
+        Slot *slot = op.getSlot(si);
+
+        if (slot && slot->isConnected() && slot->isArrayConnection())
+        {
+            Pipe *a1_pipe = slot->inputPipe;
+            assert(a1_pipe);
+            auto ps = make_a2_pipe_with_storage(a1_pipe);
+            dest.inputs.push_back(ps.first);
+            dest.inputStorage.push_back(ps.second);
+            dest.a1_inputPipes.push_back(slot->inputPipe);
+        }
+        else
+        {
+            dest.inputs.push_back(a2::PipeVectors{});
+            dest.inputStorage.push_back(PipeVectorStorage{});
+            dest.a1_inputPipes.push_back(nullptr);
+        }
+    }
+
+    assert_consistency(dest);
+}
+
+void add_input(Model &model)
+{
+}
+
+void pop_input(Model &model)
+{
+}
+
+void connect_input(Model &model, s32 inputIndex, Pipe *inPipe)
+{
+}
+
+void disconnect_input(Model &model, s32 inputIndex)
+{
+}
+
+} // end anon namespace
 
 void ExpressionOperatorDialog::Private::repopulateSlotGrid()
 {
     repopulate_slotgrid(&m_slotGrid, m_op, m_eventWidget, m_userLevel);
+
+    for (auto &selectButton: m_slotGrid.selectButtons)
+    {
+        QObject::connect(selectButton, &InputSelectButton::inputSelected,
+                         m_q, [this] (Slot *destSlot, s32 slotIndex,
+                                      Pipe *sourcePipe, s32 sourceParamIndex) {
+            this->onInputSelected(destSlot, slotIndex, sourcePipe, sourceParamIndex);
+        });
+    }
+
+    for (s32 bi = 0; bi < m_slotGrid.clearButtons.size(); ++bi)
+    {
+        auto &clearButton = m_slotGrid.clearButtons[bi];
+
+        QObject::connect(clearButton, &QPushButton::clicked,
+                         m_q, [this, bi] () {
+            this->onInputCleared(bi);
+        });
+    }
 }
 
 void ExpressionOperatorDialog::Private::loadFromOperator()
 {
     m_beginExpressionEditor->setExpressionText(m_op->getBeginExpression());
     m_stepExpressionEditor->setExpressionText(m_op->getStepExpression());
+    repopulateSlotGrid();
+}
+
+void ExpressionOperatorDialog::Private::onInputSelected(
+    Slot *destSlot, s32 slotIndex,
+    Pipe *sourcePipe, s32 sourceParamIndex)
+{
+    qDebug() << __PRETTY_FUNCTION__ << destSlot << slotIndex << sourcePipe << sourceParamIndex;
+}
+
+void ExpressionOperatorDialog::Private::onInputCleared(s32 slotIndex)
+{
+    qDebug() << __PRETTY_FUNCTION__ << slotIndex;
 }
 
 ExpressionOperatorDialog::ExpressionOperatorDialog(

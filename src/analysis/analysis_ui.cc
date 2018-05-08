@@ -2209,10 +2209,13 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     }
 
                     Q_ASSERT(selectedPipe);
+                    Q_ASSERT(m_selectInputCallback);
 
                     // tell the widget that initiated the select that we're done
                     if (m_selectInputCallback)
                     {
+                        qDebug() << __PRETTY_FUNCTION__ << "invoking selectInputCallback:"
+                            << slot << selectedPipe << selectedParamIndex;
                         m_selectInputCallback(slot, selectedPipe, selectedParamIndex);
                     }
 
@@ -3109,8 +3112,6 @@ void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback 
 
 void EventWidget::endSelectInput()
 {
-    qDebug() << __PRETTY_FUNCTION__;
-
     if (m_d->m_mode == EventWidgetPrivate::SelectInput)
     {
         m_d->m_mode = EventWidgetPrivate::Default;

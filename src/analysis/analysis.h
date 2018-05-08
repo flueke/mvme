@@ -1111,6 +1111,9 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
         virtual QString getDisplayName() const override { return QSL("Expression"); }
         virtual QString getShortName() const override { return QSL("Expr"); }
 
+        // Clone
+        ExpressionOperator *cloneViaSerialization() const;
+
         // ExpressionOperator specific
         void setBeginExpression(const QString &str) { m_exprBegin = str; }
         QString getBeginExpression() const { return m_exprBegin; }
@@ -1125,7 +1128,8 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
         QString getInputPrefix(s32 inputIndex) const { return m_inputPrefixes.value(inputIndex); }
 
         a2::Operator buildA2Operator(memory::Arena *arena);
-        a2::Operator buildA2Operator(memory::Arena *arena, a2::ExpressionOperatorBuildOptions buildOptions);
+        a2::Operator buildA2Operator(memory::Arena *arena,
+                                     a2::ExpressionOperatorBuildOptions buildOptions);
 
     private:
         void addOutput(QString name = QString());

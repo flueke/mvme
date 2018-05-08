@@ -38,6 +38,13 @@ required try to clear as little of the accumulated data as possible.
 * add Analysis::operatorEdited()
   This can figure out what has to happen to get the a1 side in a consistent state.
 
+* additional a1 layer considerations and open questions:
+  - operator cloning
+    * high level clone semantics. what's required, what's sane?
+    * is using write -> read always the best way. which way causes the least amount of code duplication?
+    * performance: cloning is not happening frequently, so the serialization way should be good enough.
+    * what should happen with connections, object id, object name?
+
 --------------------------------------------------
 ExpressionOperator design plan
 --------------------------------------------------

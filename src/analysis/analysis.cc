@@ -2697,10 +2697,6 @@ ExpressionOperator::ExpressionOperator(QObject *parent)
 
     // Need at least one input slot to be usable
     addSlot();
-
-    // FIXME: figure out if this is needed. it should not be. it's weird
-    // Add a single fake output to make the ui and other parts of the system happy.
-    //addOutput();
 }
 
 a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena)
@@ -2708,10 +2704,11 @@ a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena)
     return buildA2Operator(arena, a2::ExpressionOperatorBuildOptions::FullBuild);
 }
 
-a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena, a2::ExpressionOperatorBuildOptions buildOptions)
+a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena,
+                                                 a2::ExpressionOperatorBuildOptions buildOptions)
 {
     /* NOTE: This method creates "fake" a2 input pipes inside the arena. This
-     * means it can not be used inside the a1->a2 adapter layer. */
+     * means it cannot be used inside the a1->a2 adapter layer. */
 
     if (!required_inputs_connected_and_valid(this))
         throw std::runtime_error("Not all required inputs are connected.");
@@ -2853,7 +2850,6 @@ Pipe *ExpressionOperator::getOutput(s32 index)
 void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
 {
     // FIXME: handle the error case properly (remove or keep outpipes? if keeping them resize to 0?)
-    // FIXME: handle arena OOM
 
     try
     {
@@ -2983,6 +2979,17 @@ void ExpressionOperator::read(const QJsonObject &json)
 void ExpressionOperator::step()
 {
     assert(!"not implemented. a2 must be used!");
+}
+
+ExpressionOperator *ExpressionOperator::cloneViaSerialization() const
+{
+    QJsonObject transferData;
+    this->write(transferData);
+
+    auto result = std::make_unique<ExpressionOperator>();
+    result->read(transferData);
+
+    return result.release();
 }
 
 //
