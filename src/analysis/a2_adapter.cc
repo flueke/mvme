@@ -551,12 +551,14 @@ DEF_OP_MAGIC(expression_operator_magic)
     std::vector<a2::PipeVectors> a2_inputs;
     std::vector<std::string> inputUnits;
     std::vector<std::string> inputPrefixes;
+    std::vector<s32> inputIndexes;
 
     for (s32 si = 0; si < inputSlots.size(); si++)
     {
         a2_inputs.emplace_back(find_output_pipe(adapterState, inputSlots[si]));
         inputUnits.emplace_back(inputSlots[si]->inputPipe->parameters.unit.toStdString());
         inputPrefixes.emplace_back(a1_op->getInputPrefix(si).toStdString());
+        inputIndexes.emplace_back(inputSlots[si]->paramIndex);
     }
 
     a2::Operator result = {};
@@ -569,6 +571,7 @@ DEF_OP_MAGIC(expression_operator_magic)
         result = make_expression_operator(
             arena,
             a2_inputs,
+            inputIndexes,
             inputPrefixes,
             inputUnits,
             a1_op->getBeginExpression().toStdString(),

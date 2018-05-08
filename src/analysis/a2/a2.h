@@ -401,9 +401,12 @@ enum class ExpressionOperatorBuildOptions: u8
     FullBuild,
 };
 
+static const s32 NoParamIndex = -1;
+
 Operator make_expression_operator(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &input_param_indexes,
     const std::vector<std::string> &input_prefixes,
     const std::vector<std::string> &input_units,
     const std::string &expr_begin_str,

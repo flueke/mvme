@@ -2057,6 +2057,7 @@ do\
 Operator make_expression_operator(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &input_param_indexes,
     const std::vector<std::string> &input_prefixes,
     const std::vector<std::string> &input_units,
     const std::string &expr_begin_str,
@@ -2078,15 +2079,27 @@ Operator make_expression_operator(
         const auto &input  = inputs[i];
         const auto &prefix = input_prefixes[i];
         const auto &unit   = input_units[i];
+        const auto &pi     = input_param_indexes[i];
 
         register_symbol_checked(d->symtab_begin, createString, prefix + ".unit",
                                 unit);
 
-        register_symbol_checked(d->symtab_begin, addVector,    prefix + ".lower_limits",
-                                input.lowerLimits.data, input.lowerLimits.size);
+        if (pi == NoParamIndex)
+        {
+            register_symbol_checked(d->symtab_begin, addVector, prefix + ".lower_limits",
+                                    input.lowerLimits.data, input.lowerLimits.size);
 
-        register_symbol_checked(d->symtab_begin, addVector,    prefix + ".upper_limits",
-                                input.upperLimits.data, input.upperLimits.size);
+            register_symbol_checked(d->symtab_begin, addVector, prefix + ".upper_limits",
+                                    input.upperLimits.data, input.upperLimits.size);
+        }
+        else
+        {
+            register_symbol_checked(d->symtab_begin, addScalar, prefix + ".lower_limit",
+                                    input.lowerLimits.data[pi]);
+
+            register_symbol_checked(d->symtab_begin, addScalar, prefix + ".upper_limit",
+                                    input.upperLimits.data[pi]);
+        }
     }
 
     /* Setup and evaluate the begin expression. */
@@ -2131,18 +2144,33 @@ Operator make_expression_operator(
         const auto &input  = inputs[in_idx];
         const auto &prefix = input_prefixes[in_idx];
         const auto &unit   = input_units[in_idx];
-
-        register_symbol_checked(d->symtab_step, addVector,    prefix,
-                                input.data.data, input.data.size);
+        const auto &pi     = input_param_indexes[in_idx];
 
         register_symbol_checked(d->symtab_step, createString, prefix + ".unit",
                                 unit);
 
-        register_symbol_checked(d->symtab_step, addVector,    prefix + ".lower_limits",
-                                input.lowerLimits.data, input.lowerLimits.size);
+        if (pi == NoParamIndex)
+        {
+            register_symbol_checked(d->symtab_step, addVector, prefix,
+                                    input.data.data, input.data.size);
 
-        register_symbol_checked(d->symtab_step, addVector,    prefix + ".upper_limits",
-                                input.upperLimits.data, input.upperLimits.size);
+            register_symbol_checked(d->symtab_step, addVector, prefix + ".lower_limits",
+                                    input.lowerLimits.data, input.lowerLimits.size);
+
+            register_symbol_checked(d->symtab_step, addVector, prefix + ".upper_limits",
+                                    input.upperLimits.data, input.upperLimits.size);
+        }
+        else
+        {
+            register_symbol_checked(d->symtab_step, addScalar, prefix,
+                                    input.data.data[pi]);
+
+            register_symbol_checked(d->symtab_step, addScalar, prefix + ".lower_limit",
+                                    input.lowerLimits.data[pi]);
+
+            register_symbol_checked(d->symtab_step, addScalar, prefix + ".upper_limit",
+                                    input.upperLimits.data[pi]);
+        }
     }
 
     /* Interpret the results returned from the begin expression and build the

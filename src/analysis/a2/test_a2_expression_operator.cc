@@ -43,6 +43,7 @@ TEST(a2ExpressionOperator, PassThroughSingleInput)
 
     std::vector<std::string> input_prefixes = { "input0" };
     std::vector<std::string> input_units    = { "apples" };
+    std::vector<s32> input_param_indexes    = { NoParamIndex };
 
     std::string expr_begin =
         "return [ 'output0', input0.unit, input0.lower_limits, input0.upper_limits ];";
@@ -53,6 +54,7 @@ TEST(a2ExpressionOperator, PassThroughSingleInput)
     auto op = make_expression_operator(
         &arena,
         inputs,
+        input_param_indexes,
         input_prefixes,
         input_units,
         expr_begin,
@@ -121,6 +123,7 @@ TEST(a2ExpressionOperator, PassThroughTwoInputs)
 
     std::vector<std::string> input_prefixes = { "input0", "input1" };
     std::vector<std::string> input_units    = { "apples", "oranges" };
+    std::vector<s32> input_param_indexes    = { NoParamIndex, NoParamIndex };
 
     std::string expr_begin =
         "return ["
@@ -137,6 +140,7 @@ TEST(a2ExpressionOperator, PassThroughTwoInputs)
     auto op = make_expression_operator(
         &arena,
         inputs,
+        input_param_indexes,
         input_prefixes,
         input_units,
         expr_begin,
@@ -217,6 +221,7 @@ TEST(a2ExpressionOperator, OutputSpecifications)
 
     std::vector<std::string> input_prefixes = { "input0" };
     std::vector<std::string> input_units    = { "apples" };
+    std::vector<s32> input_param_indexes    = { NoParamIndex };
 
     std::string expr_step = "output0 := input0;";
 
@@ -231,6 +236,7 @@ TEST(a2ExpressionOperator, OutputSpecifications)
         ASSERT_THROW(make_expression_operator(
                 &arena,
                 inputs,
+                input_param_indexes,
                 input_prefixes,
                 input_units,
                 expr_begin,

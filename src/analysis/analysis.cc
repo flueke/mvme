@@ -2714,6 +2714,7 @@ a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena,
         throw std::runtime_error("Not all required inputs are connected.");
 
     std::vector<a2::PipeVectors> a2_inputs;
+    std::vector<s32> inputIndexes;
     std::vector<std::string> inputUnits;
 
     for (auto slot: m_inputs)
@@ -2722,6 +2723,7 @@ a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena,
         a2::PipeVectors a2_pipe = make_a2_pipe_from_a1_pipe(arena, a1_pipe);
 
         a2_inputs.push_back(a2_pipe);
+        inputIndexes.push_back(slot->paramIndex);
 
         inputUnits.push_back(a1_pipe->parameters.unit.toStdString());
     }
@@ -2751,6 +2753,7 @@ a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena,
     auto a2_op = a2::make_expression_operator(
         arena,
         a2_inputs,
+        inputIndexes,
         inputPrefixes,
         inputUnits,
         m_exprBegin.toStdString(),
@@ -2764,7 +2767,7 @@ a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena,
 bool ExpressionOperator::addSlot()
 {
     s32 slotCount  = getNumberOfSlots();
-    auto inputType = InputType::Array;
+    auto inputType = InputType::Both;
     QString inputName;
 
     if (m_inputPrefixes.size() > slotCount)
