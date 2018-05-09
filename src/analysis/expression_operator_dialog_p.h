@@ -69,7 +69,7 @@ struct SlotGrid
 
     QVector<InputSelectButton *> selectButtons;
     QVector<QPushButton *> clearButtons;
-    QVector<QLineEdit *> varNameLineEdits;
+    QVector<QLineEdit *> inputPrefixLineEdits;
 };
 
 /** Display for a single analysis pipe with optionally editable parameter
@@ -80,7 +80,6 @@ class ExpressionOperatorPipeView: public QWidget
     public:
         ExpressionOperatorPipeView(QWidget *parent = nullptr);
 
-        void setPipe(Pipe *a1_pipe);
         void setPipe(const a2::PipeVectors &a2_pipe);
 
     public slots:
@@ -88,29 +87,36 @@ class ExpressionOperatorPipeView: public QWidget
 
     private:
         QTableWidget *m_tableWidget;
-
-        Pipe *m_a1Pipe;
         a2::PipeVectors m_a2Pipe;
-        memory::Arena m_pipeAdapterStorage;
 };
 
 /** Vertical arrangement of a group of ExpressionOperatorPipeViews in a
  * QToolBox. */
-class ExpressionOperatorPipesToolBox: public QToolBox
+class ExpressionOperatorPipesView: public QToolBox
 {
     Q_OBJECT
     public:
-        ExpressionOperatorPipesToolBox(QWidget *parent = nullptr);
+        ExpressionOperatorPipesView(QWidget *parent = nullptr);
 
-        int addPipe(Pipe *a1_pipe, const QString &title = QString());
+        void setPipes(const std::vector<a2::PipeVectors> &pipes,
+                      const QStringList &titles);
+
+#if 0
+        void setTitles(const QStringList &titles);
+#endif
+
+    public slots:
+        void refresh();
+
+#if 0
         int addPipe(const a2::PipeVectors &a2_pipe, const QString &title = QString());
 
-        bool setPipe(int index, Pipe *a1_pipe, const QString &title = QString());
         bool setPipe(int index, const a2::PipeVectors &a2_pipe, const QString &title = QString());
 
         void popPipe();
 
         int addEmptyPipe(const QString &title = QString()); // creates a fake entry
+#endif
 };
 
 /** Display of expression (exprtk) interal errors and analysis specific
@@ -163,15 +169,32 @@ class ExpressionEditorWidget: public QWidget
 class ExpressionOperatorEditorComponent: public QWidget
 {
     Q_OBJECT
+    signals:
+        void eval();
+
     public:
         ExpressionOperatorEditorComponent(QWidget *parent = nullptr);
 
         void setExpressionText(const QString &text);
         QString expressionText() const;
 
+        void setInputs(const std::vector<a2::PipeVectors> &pipes,
+                       const QStringList &titles);
+
+        void setOutputs(const std::vector<a2::PipeVectors> &pipes,
+                        const QStringList &titles);
+
+        ExpressionOperatorPipesView *getInputPipesView() { return m_inputPipesView; }
+        ExpressionOperatorPipesView *getOutputPipesView() { return m_outputPipesView; }
+
+#if 0
+        void refreshInputs();
+        void refreshOutputs();
+#endif
+
     private:
-        ExpressionOperatorPipesToolBox *m_toolBox_inputPipes;
-        ExpressionOperatorPipesToolBox *m_toolBox_outputPipes;
+        ExpressionOperatorPipesView *m_inputPipesView;
+        ExpressionOperatorPipesView *m_outputPipesView;
         ExpressionEditorWidget *m_editorWidget;
         QPushButton *m_evalButton;
 };

@@ -417,6 +417,8 @@ Operator make_expression_operator(
  * option to complete building the operator. */
 void expression_operator_compile_step_expression(Operator *op);
 
+void expression_operator_step(Operator *op);
+
 /* ===============================================
  * Histograms
  * =============================================== */
