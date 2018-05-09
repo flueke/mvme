@@ -35,7 +35,7 @@ struct {{struct_name}}
             if (it != indexes.end())
             {
                 size_t ii = it - indexes.begin();
-                assert(ii < value.size());
+                assert(ii < values.size());
                 return values.at(ii);
             }
 
