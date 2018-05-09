@@ -373,15 +373,15 @@ namespace
  * registered in an exprtk symbol table.
  */
 
-struct PipeVectorStorage
-{
-    std::vector<double> data;
-    std::vector<double> lowerLimits;
-    std::vector<double> upperLimits;
-};
-
 struct A2PipeWithStorage
 {
+    struct Storage
+    {
+        std::vector<double> data;
+        std::vector<double> lowerLimits;
+        std::vector<double> upperLimits;
+    };
+
     A2PipeWithStorage()
         : a2_pipe{}
         , storage{}
@@ -394,7 +394,7 @@ struct A2PipeWithStorage
     A2PipeWithStorage &operator=(A2PipeWithStorage &&) = default;
 
     a2::PipeVectors a2_pipe;
-    PipeVectorStorage storage;
+    Storage storage;
 };
 
 void assert_consistency(const A2PipeWithStorage &pipeWithStorage)
