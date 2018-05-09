@@ -82,7 +82,8 @@ So the size of the return value list must be divisible by 4.
   gauss dann: gauss max, gauss pos
 
 * 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
-  packetStatus 0x132 is not valid!
+  packetStatus 0x132 is not valid! This should wrap.
+* Add the "explore workspace" button the analysis UI
 
 * listfile writing, MVMEStreamWriterHelper: can writing of the final EndMarker
   be moved into closeEventSection? I was surprised that this had to be done
@@ -208,8 +209,10 @@ More ideas from Robert:
 * Add a "system" event containing the current timetick count and systems stats,
   rates, etc.
 
-
 * The generated CLI tools do not generate good output filenames. Manually
+* The export sink needs to log which output file is being written! Right now
+  it's all very mysterious.
+* The generated CLI tools do not generated good output filenames. Manually
   check for known extensions (".bin", ".bin.gz" and remove those from the
   output filename.
 * (maybe) Replace the .bin extension with something more mvme like.
