@@ -65,10 +65,9 @@ ExpressionOperatorPipeView::ExpressionOperatorPipeView(QWidget *parent)
     , m_a2Pipe{}
 {
     auto layout = new QVBoxLayout(this);
-    s32 row = 0;
-    s32 nCols = 1;
+    layout->setContentsMargins(0, 0, 0, 0);
 
-    layout->addWidget(m_tableWidget, row++, 0);
+    layout->addWidget(m_tableWidget);
 
     // columns:
     // Valid, Value, lower Limit, upper Limit
@@ -113,6 +112,7 @@ void ExpressionOperatorPipeView::refresh()
         for (s32 ci = 0; ci < columns.size(); ci++)
         {
             auto item = m_tableWidget->item(pi, ci);
+
             if (!item)
             {
                 item = new QTableWidgetItem;
@@ -250,7 +250,7 @@ ExpressionEditorWidget::ExpressionEditorWidget(QWidget *parent)
     splitter->addWidget(m_exprEdit);
     splitter->addWidget(m_exprErrors);
     splitter->setStretchFactor(0, 80);
-    splitter->setStretchFactor(0, 20);
+    splitter->setStretchFactor(1, 20);
 
     auto widgetLayout = new QHBoxLayout(this);;
     widgetLayout->setContentsMargins(0, 0, 0, 0);
@@ -279,14 +279,14 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
     , m_evalButton(new QPushButton(QSL("&Eval")))
 {
     auto buttonLayout = new QHBoxLayout;
-    buttonLayout->setContentsMargins(0, 0, 0, 0);
+    //buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->addWidget(make_spacer_widget());
     buttonLayout->addWidget(m_evalButton);
     buttonLayout->addWidget(make_spacer_widget());
 
     auto editorFrame = new QFrame(this);
     auto editorFrameLayout = new QVBoxLayout(editorFrame);
-    editorFrameLayout->setContentsMargins(0, 0, 0, 0);
+    //editorFrameLayout->setContentsMargins(0, 0, 0, 0);
     editorFrameLayout->addWidget(m_editorWidget);
     editorFrameLayout->addLayout(buttonLayout);
 
@@ -294,9 +294,9 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
     splitter->addWidget(m_inputPipesView);
     splitter->addWidget(editorFrame);
     splitter->addWidget(m_outputPipesView);
-    splitter->setStretchFactor(0, 20);
-    splitter->setStretchFactor(1, 60);
-    splitter->setStretchFactor(2, 20);
+    splitter->setStretchFactor(0, 25);
+    splitter->setStretchFactor(1, 50);
+    splitter->setStretchFactor(2, 25);
 
     auto widgetLayout = new QHBoxLayout(this);
     widgetLayout->addWidget(splitter);
@@ -1163,7 +1163,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     auto dialogLayout = new QVBoxLayout(this);
     dialogLayout->addWidget(m_d->m_tabWidget);
     dialogLayout->addWidget(m_d->m_buttonBox);
-    dialogLayout->setContentsMargins(2, 2, 2, 2);
+    //dialogLayout->setContentsMargins(2, 2, 2, 2);
     dialogLayout->setStretch(0, 1);
 
     // Slotgrid interactions
