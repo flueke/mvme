@@ -392,7 +392,7 @@ struct ExpressionOperatorDialog::Private
 
     void repopulateSlotGrid();
 
-    void updateModelFromOperator();
+    void updateGUIFromOperator();
     void updateModelFromGUI();
     void repopulateGUIFromModel();
 
@@ -494,17 +494,18 @@ struct Model
      * used for pipe connections. */
     std::unique_ptr<ExpressionOperator> opClone;
 
-    /* Pointers to the original input pipes are stored here so that the
-     * analysis::ExpressionOperator can be modified properly once the user
-     * accepts the changes. */
     std::vector<a2::PipeVectors> inputs;
     std::vector<A2PipeStorage> inputStorage;
     std::vector<s32> inputIndexes;
     std::vector<std::string> inputPrefixes;
     std::vector<std::string> inputUnits;
-    std::vector<Pipe *> a1_inputPipes;
     std::string beginExpression;
     std::string stepExpression;
+
+    /* Pointers to the original input pipes are stored here so that the
+     * analysis::ExpressionOperator can be modified properly once the user
+     * accepts the changes. */
+    std::vector<Pipe *> a1_inputPipes;
 
     Model() = default;
 
@@ -886,7 +887,7 @@ QStringList qStringList_from_vector(const std::vector<std::string> &strings)
     return result;
 }
 
-void ExpressionOperatorDialog::Private::updateModelFromOperator()
+void ExpressionOperatorDialog::Private::updateGUIFromOperator()
 {
     load_from_operator(*m_model, *m_op);
     repopulateGUIFromModel();
@@ -911,6 +912,8 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
     repopulateSlotGrid();
 
     // expression text
+
+    // FIXME: this resets the undo/redo history of the underlying QPlainTextEdit
     m_beginExpressionEditor->setExpressionText(
         QString::fromStdString(m_model->beginExpression));
 
@@ -1202,7 +1205,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     add_widget_close_action(this);
     resize(800, 600);
 
-    m_d->updateModelFromOperator();
+    m_d->updateGUIFromOperator();
 }
 
 ExpressionOperatorDialog::~ExpressionOperatorDialog()
