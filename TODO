@@ -1,6 +1,19 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* DAQ readout performance: try to make better use of the data buffers.
+  Currently one processed controller buffer ends up in the data buffer, which
+  means for sis it's only around 1500 bytes.
+  Do the following: put events into the same buffer until less than a user-set
+  limit is free in the buffer or a specific time interval has passed. Then
+  write the buffer to disk and in case of a non-local buffer put it into the
+  "full" queue.
+  Make sure the condition where an event should still go into a certain buffer
+  but the space inside the buffer is not enough is reported properly. In this
+  case the user-set limit has to be adjusted.
+  Reallocations of the buffer could be done but the case where a buffer is
+  enlarged again and again must be avoided.
+
 * a2::Operator_KeepPrevious does not seem to set output limits. Is this bugged?
   Fix the test if needed.
 
@@ -96,6 +109,8 @@ So the size of the return value list must be divisible by 4.
   manually.
 
 * Move analysis efficiency display to the top Event toolbar
+* efficiency: when the efficiency is slightly below 100% the display will still
+  show a 1.00 due to rounding. maybe color the number if it's not 100%.
 
 * New Export/ListfileFilter Idea: use an operator to decide whether a full VME
   data event should be copied to an output listfile or be suppressed.
