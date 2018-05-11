@@ -101,8 +101,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         ControllerState getControllerState() const;
         VMEReadoutWorker *getReadoutWorker() { return m_readoutWorker; }
-        VMEConfig *getConfig() { return m_vmeConfig; }
-        VMEConfig *getVMEConfig() { return m_vmeConfig; }
+        VMEConfig *getConfig() const { return m_vmeConfig; }
+        VMEConfig *getVMEConfig() const { return m_vmeConfig; }
         void setVMEConfig(VMEConfig *config);
         QList<EventConfig *> getEventConfigs() const { return m_vmeConfig->getEventConfigs(); }
         QString getUniqueModuleName(const QString &prefix) const;
