@@ -1029,7 +1029,7 @@ void Histo1DWidget::updateStatistics()
         .arg(m_stats.mean, fieldWidth)
         .arg(maxBinCenter, fieldWidth)
         .arg(m_stats.maxValue, fieldWidth)
-        .arg(m_stats.entryCount, fieldWidth)
+        .arg(m_stats.entryCount, fieldWidth, 'f', 0)
         //.arg(lowerBound, fieldWidth)
         //.arg(upperBound, fieldWidth)
         ;

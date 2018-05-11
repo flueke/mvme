@@ -210,11 +210,11 @@ void DAQStatsWidget::updateWidget()
         if (std::isnan(eventLossRatio)) eventLossRatio = 0.0;
         if (std::isnan(eventLossRate)) eventLossRate = 0.0;
 
-        QString lossText = (QString("lost=%1, rcvd=%2\n"
+        QString lossText = (QString("lost=%1, received=%2\n"
                                     "lossRatio=%3, lossRate=%4 events/s"
                                     )
                             .arg(totalLostEvents)
-                            .arg(totalGoodEvents)
+                            .arg(totalGoodEvents, 0, 'f', 0)
                             .arg(eventLossRatio, 0, 'f', 3)
                             .arg(eventLossRate)
                            );

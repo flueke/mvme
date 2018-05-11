@@ -1,7 +1,6 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
-
 * a2::Operator_KeepPrevious does not seem to set output limits. Is this bugged?
   Fix the test if needed.
 
@@ -84,6 +83,13 @@ So the size of the return value list must be divisible by 4.
 * 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
   packetStatus 0x132 is not valid! This should wrap.
 * Add the "explore workspace" button the analysis UI
+* SIS readout: received count and Timestamp histo count have a small delta of 1
+  up to 3 counts. Figure out where this is coming from.
+
+* Add the "explore workspace" button the analysis UI
+
+* 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
+  packetStatus 0x132 is not valid! This should wrap.
 
 * listfile writing, MVMEStreamWriterHelper: can writing of the final EndMarker
   be moved into closeEventSection? I was surprised that this had to be done
