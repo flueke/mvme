@@ -95,6 +95,9 @@ class EventWidget: public QWidget
 
         MVMEContext *getContext() const;
         AnalysisWidget *getAnalysisWidget() const;
+        Analysis *getAnalysis() const;
+        RunInfo getRunInfo() const;
+        VMEConfig *getVMEConfig() const;
 
         virtual bool eventFilter(QObject *watched, QEvent *event);
 

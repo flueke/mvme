@@ -3330,6 +3330,21 @@ AnalysisWidget *EventWidget::getAnalysisWidget() const
     return m_d->m_analysisWidget;
 }
 
+Analysis *EventWidget::getAnalysis() const
+{
+    return m_d->m_context->getAnalysis();
+}
+
+RunInfo EventWidget::getRunInfo() const
+{
+    return getContext()->getRunInfo();
+}
+
+VMEConfig *EventWidget::getVMEConfig() const
+{
+    return getContext()->getVMEConfig();
+}
+
 bool EventWidget::eventFilter(QObject *watched, QEvent *event)
 {
 #if 0

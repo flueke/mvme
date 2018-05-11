@@ -4,6 +4,7 @@
 #include "a2_adapter.h"
 #include "a2/a2_impl.h"
 #include "analysis_ui_p.h"
+#include "mvme_context_lib.h"
 
 #include <QSplitter>
 #include <QTabWidget>
@@ -185,18 +186,6 @@ void ExpressionOperatorPipesView::setPipes(const std::vector<a2::PipeVectors> &p
         }
     }
 }
-
-#if 0
-void ExpressionOperatorPipesView::setTitles(const QStringList &titles)
-{
-    s32 maxIndex = std::min(count(), titles.size());
-
-    for (s32 i = 0; i < maxIndex; i++)
-    {
-        setItemText(i, titles[i]);
-    }
-}
-#endif
 
 void ExpressionOperatorPipesView::refresh()
 {
@@ -551,18 +540,6 @@ void ExpressionOperatorEditorComponent::clearEvaluationError()
     m_editorWidget->clearError();
 }
 
-#if 0
-void ExpressionOperatorEditorComponent::refreshInputs()
-{
-    m_inputPipesView->refresh();
-}
-
-void ExpressionOperatorEditorComponent::refreshOutputs()
-{
-    m_outputPipesView->refresh();
-}
-#endif
-
 //
 // ExpressionOperatorDialog and Private implementation
 //
@@ -633,6 +610,19 @@ struct ExpressionOperatorDialog::Private
 
 namespace
 {
+
+QStringList qStringList_from_vector(const std::vector<std::string> &strings)
+{
+    QStringList result;
+    result.reserve(strings.size());
+
+    for (const auto &str: strings)
+    {
+        result.push_back(QString::fromStdString(str));
+    }
+
+    return result;
+}
 
 /* Notes about the Model structure:
  *
@@ -712,10 +702,10 @@ struct Model
      * EventWidget::selectInputFor() on input selection.
      *
      * Note that pipe -> slot connections are not made on this clone as the
-     * source pipes would be modified by that operation. Once the infrastructure
-     * allows making the connections without having to worry about leaving the
-     * analysis in an inconsistent state in any scenario, the clone could be
-     * used for pipe connections. */
+     * source pipes would be modified by that operation. Instead the selected
+     * input pipes and indexes are stored in the model aswell. Once the user
+     * accepts the changes the original operator will be modified according to
+     * the data stored in the model. */
     std::unique_ptr<ExpressionOperator> opClone;
 
     std::vector<a2::PipeVectors> inputs;
@@ -730,6 +720,8 @@ struct Model
      * analysis::ExpressionOperator can be modified properly once the user
      * accepts the changes. */
     std::vector<Pipe *> a1_inputPipes;
+
+    QString operatorName;
 
     Model() = default;
 
@@ -798,6 +790,7 @@ void add_new_input_slot(Model &model)
     assert_consistency(model);
 
     s32 si = model.opClone->getNumberOfSlots();
+    // this generates a new input prefix if needed
     model.opClone->addSlot();
     add_model_only_input(model);
     qDebug() << model.opClone->getInputPrefix(si);
@@ -872,6 +865,8 @@ void load_from_operator(Model &model, ExpressionOperator &op)
 
     assert(op.getNumberOfSlots() == model.opClone->getNumberOfSlots());
 
+    model.operatorName = op.objectName();
+
     for (s32 si = 0; si < op.getNumberOfSlots(); si++)
     {
         Slot *slot = op.getSlot(si);
@@ -889,6 +884,39 @@ void load_from_operator(Model &model, ExpressionOperator &op)
     model.stepExpression  = op.getStepExpression().toStdString();
 
     assert_consistency(model);
+}
+
+void save_to_operator(const Model &model, ExpressionOperator &op)
+{
+    assert_consistency(model);
+
+    while (op.removeLastSlot()) {};
+
+    const s32 slotCount = static_cast<s32>(model.inputs.size());
+
+    while (op.getNumberOfSlots() < slotCount)
+    {
+        op.addSlot();
+    }
+
+    for (s32 slotIndex = 0; slotIndex < slotCount; slotIndex++)
+    {
+        // Note: it's ok to pass a nullptr Pipe here. It will leave the slot in
+        // disconnected state.
+        op.connectInputSlot(slotIndex,
+                            model.a1_inputPipes[slotIndex],
+                            model.inputIndexes[slotIndex]);
+    }
+
+    op.setBeginExpression(QString::fromStdString(model.beginExpression));
+    op.setStepExpression(QString::fromStdString(model.stepExpression));
+    op.setInputPrefixes(qStringList_from_vector(model.inputPrefixes));
+    op.setObjectName(model.operatorName);
+
+    // Note: opClone should not need to be udpated: the only parts used are its
+    // slots and those should have been updated in add_new_input_slot() and
+    // pop_input_slot().
+    assert(model.opClone->getNumberOfSlots() == op.getNumberOfSlots());
 }
 
 } // end anon namespace
@@ -1098,19 +1126,6 @@ void ExpressionOperatorDialog::Private::repopulateSlotGrid()
     }
 }
 
-QStringList qStringList_from_vector(const std::vector<std::string> &strings)
-{
-    QStringList result;
-    result.reserve(strings.size());
-
-    for (const auto &str: strings)
-    {
-        result.push_back(QString::fromStdString(str));
-    }
-
-    return result;
-}
-
 void ExpressionOperatorDialog::Private::updateGUIFromOperator()
 {
     load_from_operator(*m_model, *m_op);
@@ -1119,6 +1134,8 @@ void ExpressionOperatorDialog::Private::updateGUIFromOperator()
 
 void ExpressionOperatorDialog::Private::updateModelFromGUI()
 {
+    m_model->operatorName = le_operatorName->text();
+
     assert(m_model->inputPrefixes.size()
            == static_cast<size_t>(m_slotGrid.inputPrefixLineEdits.size()));
 
@@ -1133,6 +1150,8 @@ void ExpressionOperatorDialog::Private::updateModelFromGUI()
 
 void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
 {
+    le_operatorName->setText(m_model->operatorName);
+
     repopulateSlotGrid();
 
     // expression text
@@ -1181,10 +1200,7 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
 void ExpressionOperatorDialog::Private::onAddSlotButtonClicked()
 {
     add_new_input_slot(*m_model);
-
-    //m_slotGrid.removeSlotButton->setEnabled(m_model->opClone->getNumberOfSlots() > 1);
     m_eventWidget->endSelectInput();
-
     repopulateGUIFromModel();
 }
 
@@ -1193,10 +1209,7 @@ void ExpressionOperatorDialog::Private::onRemoveSlotButtonClicked()
     if (m_model->opClone->getNumberOfSlots() > 1)
     {
         pop_input_slot(*m_model);
-
-        //m_slotGrid.removeSlotButton->setEnabled(m_model->opClone->getNumberOfSlots() > 1);
         m_eventWidget->endSelectInput();
-
         repopulateGUIFromModel();
     }
 }
@@ -1262,15 +1275,6 @@ void ExpressionOperatorDialog::Private::evalBeginExpression()
         m_beginExpressionEditor->setEvaluationError(std::current_exception());
     }
 
-#if 0
-    catch (const a2::ExpressionOperatorError &e)
-    {
-    }
-    catch (const a2::a2_exprtk::ParserErrorList &e)
-    {
-    }
-#endif
-
     repopulateGUIFromModel();
 }
 
@@ -1296,6 +1300,11 @@ void ExpressionOperatorDialog::Private::evalStepExpression()
     }
     catch (const std::runtime_error &e)
     {
+        // FIXME: this can get confusing if the error came from evaluating the
+        // begin expression. split into InitOnly and compile steps. if InitOnly
+        // fails switch back to the begin tab or add an error message telling
+        // the user to fix the begin script first
+
         qDebug() << QString::fromStdString(e.what());
         m_a2Op = {};
         m_stepExpressionEditor->setEvaluationError(std::current_exception());
@@ -1361,27 +1370,6 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
         m_d->m_tabWidget->addTab(page, QSL("&Step Expression"));
     }
 
-#if 0
-    connect(m_d->m_tabWidget, &QTabWidget::currentChanged,
-            this, [this] (int tabIndex) {
-        switch (tabIndex)
-        {
-            case 0:
-                break;
-
-            case 1:
-                m_d->m_beginExpressionEditor->refreshInputs();
-                break;
-
-            case 2:
-                m_d->m_stepExpressionEditor->refreshInputs();
-                break;
-
-            InvalidDefaultCase;
-        }
-    });
-#endif
-
     // buttonbox: ok/cancel
     m_d->m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     //m_d->m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
@@ -1442,6 +1430,35 @@ ExpressionOperatorDialog::~ExpressionOperatorDialog()
 
 void ExpressionOperatorDialog::accept()
 {
+    AnalysisPauser pauser(m_d->m_eventWidget->getContext());
+
+    m_d->updateModelFromGUI();
+    save_to_operator(*m_d->m_model, *m_d->m_op);
+
+    auto analysis = m_d->m_eventWidget->getAnalysis();
+
+    switch (m_d->m_mode)
+    {
+        case OperatorEditorMode::New:
+            {
+                analysis->addOperator(m_d->m_eventWidget->getEventId(),
+                                      m_d->m_op, m_d->m_userLevel);
+            } break;
+
+        case OperatorEditorMode::Edit:
+            {
+                // TODO: do_beginRun_forward here
+                // TODO: encapsulate further. too many details here
+
+                auto runInfo = m_d->m_eventWidget->getRunInfo();
+                auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(
+                    m_d->m_eventWidget->getVMEConfig());
+
+                analysis->setModified();
+                analysis->beginRun(runInfo, vmeMap);
+            } break;
+    }
+
     QDialog::accept();
 }
 

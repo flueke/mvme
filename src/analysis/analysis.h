@@ -98,7 +98,7 @@ struct LIBMVME_EXPORT ParameterVector: public QVector<Parameter>
     }
 
     // Note: name was not used at all but the introduction of the
-    // ExpressionOperator changes that!
+    // ExpressionOperator might change that!
     QString name;
     QString unit;
 };
@@ -1124,8 +1124,9 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
         /* Variable name prefixes for each of the operators inputs. These
          * prefixes define the exprtk variable names used in both the begin and
          * step expressions. */
-        QStringList getInputPrefixes() const { return m_inputPrefixes; }
         QString getInputPrefix(s32 inputIndex) const { return m_inputPrefixes.value(inputIndex); }
+        QStringList getInputPrefixes() const { return m_inputPrefixes; }
+        void setInputPrefixes(const QStringList &prefixes) { m_inputPrefixes = prefixes; }
 
         a2::Operator buildA2Operator(memory::Arena *arena);
         a2::Operator buildA2Operator(memory::Arena *arena,
