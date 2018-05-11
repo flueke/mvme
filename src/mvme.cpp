@@ -98,7 +98,7 @@ struct MVMEWindowPrivate
             // important main window actions
             *actionShowMainWindow, *actionShowAnalysis,
             *actionShowLog, *actionShowListfileBrowser,
-            *actionShowRateMonitor,
+            //*actionShowRateMonitor,
 
             // utility/tool windows
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
@@ -182,9 +182,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionShowListfileBrowser->setShortcut(QSL("Ctrl+4"));
     m_d->actionShowListfileBrowser->setShortcutContext(Qt::ApplicationShortcut);
 
-    m_d->actionShowRateMonitor = new QAction(QSL("Rate Monitor"), this);
-    m_d->actionShowRateMonitor->setShortcut(QSL("Ctrl+5"));
-    m_d->actionShowRateMonitor->setShortcutContext(Qt::ApplicationShortcut);
+    //m_d->actionShowRateMonitor = new QAction(QSL("Rate Monitor"), this);
+    //m_d->actionShowRateMonitor->setShortcut(QSL("Ctrl+5"));
+    //m_d->actionShowRateMonitor->setShortcutContext(Qt::ApplicationShortcut);
 
     m_d->actionToolVMEDebug             = new QAction(QSL("VME Debug"), this);
     m_d->actionToolImportHisto1D        = new QAction(QSL("Import Histo1D"), this);
@@ -218,7 +218,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->actionShowAnalysis,            &QAction::triggered, this, &MVMEMainWindow::onActionAnalysis_UI_triggered);
     connect(m_d->actionShowLog,                 &QAction::triggered, this, &MVMEMainWindow::onActionLog_Window_triggered);
     connect(m_d->actionShowListfileBrowser,     &QAction::triggered, this, &MVMEMainWindow::onActionListfileBrowser_triggered);
-    connect(m_d->actionShowRateMonitor,         &QAction::triggered, this, &MVMEMainWindow::onActionShowRateMonitor_triggered);
+    //connect(m_d->actionShowRateMonitor,         &QAction::triggered, this, &MVMEMainWindow::onActionShowRateMonitor_triggered);
 
     connect(m_d->actionToolVMEDebug,            &QAction::triggered, this, &MVMEMainWindow::onActionVME_Debug_triggered);
     connect(m_d->actionToolImportHisto1D,       &QAction::triggered, this, &MVMEMainWindow::onActionImport_Histo1D_triggered);
@@ -264,7 +264,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuWindow->addAction(m_d->actionShowAnalysis);
     m_d->menuWindow->addAction(m_d->actionShowLog);
     m_d->menuWindow->addAction(m_d->actionShowListfileBrowser);
-    m_d->menuWindow->addAction(m_d->actionShowRateMonitor);
+    //m_d->menuWindow->addAction(m_d->actionShowRateMonitor);
 
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
     m_d->menuTools->addAction(m_d->actionToolImportHisto1D);
