@@ -2115,21 +2115,22 @@ Operator make_expression_operator(
      */
     static const size_t ElementsPerOutput = 4;
 
-    auto results = d->expr_begin.results();
+    auto begin_results = d->expr_begin.results();
 
-    if (results.size() == 0)
+    if (begin_results.size() == 0)
     {
         throw SemanticError("Empty result list from BeginExpression");
     }
 
-    if (results.size() % ElementsPerOutput != 0)
+    if (begin_results.size() % ElementsPerOutput != 0)
     {
         std::ostringstream ss;
-        ss << "BeginExpression returned an invalid number of results (" << results.size() << ")";
+        ss << "BeginExpression returned an invalid number of results ("
+            << begin_results.size() << ")";
         throw SemanticError(ss.str());
     }
 
-    const size_t outputCount = results.size() / ElementsPerOutput;
+    const size_t outputCount = begin_results.size() / ElementsPerOutput;
 
     assert(outputCount < std::numeric_limits<s32>::max());
 
@@ -2179,10 +2180,10 @@ Operator make_expression_operator(
          out_idx < outputCount;
          out_idx++, result_idx += ElementsPerOutput)
     {
-        auto &res_name = results[result_idx + 0];
-        auto &res_unit = results[result_idx + 1];
-        auto &res_ll   = results[result_idx + 2];
-        auto &res_ul   = results[result_idx + 3];
+        auto &res_name = begin_results[result_idx + 0];
+        auto &res_unit = begin_results[result_idx + 1];
+        auto &res_ll   = begin_results[result_idx + 2];
+        auto &res_ul   = begin_results[result_idx + 3];
 
         using Result = a2_exprtk::Expression::Result;
 
@@ -3588,6 +3589,10 @@ void a2_end_event(A2 *a2, int eventIndex)
 
                     OperatorTable[op->type].step(op);
                     opSteppedCount++;
+                }
+                else
+                {
+                    InvalidCodePath;
                 }
             }
         }
