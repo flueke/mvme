@@ -124,10 +124,49 @@ class ExpressionOperatorPipesView: public QToolBox
 class ExpressionErrorWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void parserErrorClicked(int line, int col);
+
     public:
         ExpressionErrorWidget(QWidget *parent = nullptr);
 
+        void setError(const std::exception_ptr &ep);
+
+    public slots:
+        void clear();
+
+    private slots:
+        void onCellDoubleClicked(int row, int column);
+
     private:
+        struct Entry
+        {
+            enum class Type
+            {
+                ParserError,
+                SymbolError,
+                SemanticError,
+                RuntimeError,
+            };
+
+            Entry(Type t = Type::RuntimeError)
+                : type(t)
+                , semanticError("<unspecified>")
+                , runtimeError("<unspecified>")
+            {}
+
+            Type type;
+            a2::a2_exprtk::ParserError parserError;
+            a2::ExpressionOperatorSymbolError symbolError;
+            a2::ExpressionOperatorSemanticError semanticError;
+            std::runtime_error runtimeError;
+        };
+
+        void assertConsistency();
+        void prepareEntries(const std::exception_ptr &ep);
+        void populateTable();
+
+        QVector<Entry> m_entries;
         QTableWidget *m_errorTable;
 };
 
@@ -138,7 +177,14 @@ class ExpressionTextEditor: public QWidget
     public:
         ExpressionTextEditor(QWidget *parent = nullptr);
 
+        void setExpressionText(const QString &text);
+        QString expressionText() const;
+
         QPlainTextEdit *textEdit() { return m_textEdit; }
+
+    public slots:
+        void highlightError(int row, int col);
+        void clearErrorHighlight();
 
     private:
         QPlainTextEdit *m_textEdit;
@@ -151,11 +197,16 @@ class ExpressionEditorWidget: public QWidget
     public:
         ExpressionEditorWidget(QWidget *parent = nullptr);
 
-        void setText(const QString &);
-        QString text() const;
+        void setExpressionText(const QString &);
+        QString expressionText() const;
+
+        void setError(const std::exception_ptr &ep);
+
+    public slots:
+        void clearError();
 
     private:
-        ExpressionTextEditor *m_exprEdit;
+        ExpressionTextEditor *m_exprTextEdit;
         ExpressionErrorWidget *m_exprErrors;
 };
 
@@ -186,6 +237,9 @@ class ExpressionOperatorEditorComponent: public QWidget
 
         ExpressionOperatorPipesView *getInputPipesView() { return m_inputPipesView; }
         ExpressionOperatorPipesView *getOutputPipesView() { return m_outputPipesView; }
+
+        void setEvaluationError(const std::exception_ptr &ep);
+        void clearEvaluationError();
 
 #if 0
         void refreshInputs();

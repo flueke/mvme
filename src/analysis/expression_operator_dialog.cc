@@ -24,6 +24,16 @@
 
  - FIXME: unit labels for inputs _and_ outputs are missing
 
+ - on eval error the output part should keep it's size. the whole splitter size
+   thing is ugly.
+
+ - resize cols and rows to contents on widget resize event. rate limit this or
+   maybe use a delayed time or something if needed.
+
+ - implement the save functionality. use the a1 pipes to bring the original
+   operator into the desired state. also the "add/edited" part of the analysis
+   has to be called.
+
  */
 
 namespace analysis
@@ -206,9 +216,177 @@ ExpressionErrorWidget::ExpressionErrorWidget(QWidget *parent)
     : QWidget(parent)
     , m_errorTable(new QTableWidget)
 {
+    QStringList headerLabels = { QSL("Type"), QSL("Message"), QSL("Line"), QSL("Column") };
+
+    m_errorTable->setColumnCount(headerLabels.size());
+    m_errorTable->setHorizontalHeaderLabels(headerLabels);
+    m_errorTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+
     auto layout = new QHBoxLayout(this);
     layout->addWidget(m_errorTable);
     layout->setContentsMargins(0, 0, 0, 0);
+
+    connect(m_errorTable, &QTableWidget::cellDoubleClicked,
+            this, &ExpressionErrorWidget::onCellDoubleClicked);
+}
+
+void ExpressionErrorWidget::setError(const std::exception_ptr &ep)
+{
+    clear();
+    prepareEntries(ep);
+    populateTable();
+    assertConsistency();
+}
+
+void ExpressionErrorWidget::prepareEntries(const std::exception_ptr &ep)
+{
+    try
+    {
+        std::rethrow_exception(ep);
+    }
+    catch (const a2::a2_exprtk::ParserErrorList &errorList)
+    {
+        for (const auto &pe: errorList)
+        {
+            Entry entry(Entry::Type::ParserError);
+            entry.parserError = pe;
+            m_entries.push_back(entry);
+        }
+    }
+    catch (const a2::ExpressionOperatorSymbolError &e)
+    {
+        Entry entry(Entry::Type::SymbolError);
+        entry.symbolError = e;
+        m_entries.push_back(entry);
+    }
+    catch (const a2::ExpressionOperatorSemanticError &e)
+    {
+        Entry entry(Entry::Type::SemanticError);
+        entry.semanticError = e;
+        m_entries.push_back(entry);
+    }
+    catch (const std::runtime_error &e)
+    {
+        Entry entry(Entry::Type::RuntimeError);
+        entry.runtimeError = e;
+        m_entries.push_back(entry);
+    }
+    catch (...)
+    {
+        InvalidCodePath;
+
+        Entry entry(Entry::Type::RuntimeError);
+        m_entries.push_back(entry);
+    }
+}
+
+void ExpressionErrorWidget::populateTable()
+{
+    m_errorTable->setRowCount(m_entries.size());
+    s32 row = 0;
+
+    for (const auto &entry: m_entries)
+    {
+        s32 col = 0;
+
+        switch (entry.type)
+        {
+#define set_next_item(text)\
+            do\
+            {\
+                auto item = std::make_unique<QTableWidgetItem>(text);\
+                item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);\
+                m_errorTable->setItem(row, col++, item.release());\
+            } while (0);
+
+            case Entry::Type::ParserError:
+                {
+                    set_next_item(QString::fromStdString(entry.parserError.mode));
+                    set_next_item(QString::fromStdString(entry.parserError.diagnostic));
+                    set_next_item(QString::number(entry.parserError.line));
+                    set_next_item(QString::number(entry.parserError.column));
+                } break;
+
+            case Entry::Type::SymbolError:
+                {
+
+                    QString msg;
+
+                    if (entry.symbolError.is_duplicate)
+                    {
+                        msg = (QSL("Could not register symbol name '%1': symbol name exists.")
+                               .arg(entry.symbolError.symbol_name.c_str()));
+                    }
+                    else
+                    {
+                        msg = (QSL("Could not register symbol name '%1': invalid symbol name.")
+                               .arg(entry.symbolError.symbol_name.c_str()));
+                    }
+
+                    set_next_item(QSL("SymbolError"));
+                    set_next_item(msg);
+                    set_next_item(QSL(""));
+                    set_next_item(QSL(""));
+
+                } break;
+
+            case Entry::Type::SemanticError:
+                {
+                    set_next_item(QSL("SemanticError"));
+                    set_next_item(QString::fromStdString(entry.semanticError.message));
+                    set_next_item(QSL(""));
+                    set_next_item(QSL(""));
+                } break;
+
+            case Entry::Type::RuntimeError:
+                {
+                    set_next_item(QSL("Unknown Error"));
+                    set_next_item(entry.runtimeError.what());
+                    set_next_item(QSL(""));
+                    set_next_item(QSL(""));
+                } break;
+#undef set_next_item
+        }
+
+        row++;
+    }
+
+    m_errorTable->resizeRowsToContents();
+    m_errorTable->resizeColumnsToContents();
+}
+
+void ExpressionErrorWidget::clear()
+{
+    assertConsistency();
+
+    m_entries.clear();
+    m_errorTable->clearContents();
+    m_errorTable->setRowCount(0);
+
+    assertConsistency();
+}
+
+void ExpressionErrorWidget::onCellDoubleClicked(int row, int column)
+{
+    assertConsistency();
+    assert(row < m_entries.size());
+    assert(row < m_errorTable->rowCount());
+
+    const auto &entry = m_entries[row];
+
+    if (entry.type == Entry::Type::ParserError)
+    {
+        emit parserErrorClicked(
+            static_cast<int>(entry.parserError.line),
+            static_cast<int>(entry.parserError.column));
+    }
+}
+
+void ExpressionErrorWidget::assertConsistency()
+{
+    qDebug() << __PRETTY_FUNCTION__ << "entries:" << m_entries.size()
+        << ", table rows:" << m_errorTable->rowCount();
+    assert(m_entries.size() == m_errorTable->rowCount());
 }
 
 //
@@ -237,17 +415,40 @@ ExpressionTextEditor::ExpressionTextEditor(QWidget *parent)
     widgetLayout->setContentsMargins(0, 0, 0, 0);
 }
 
+void ExpressionTextEditor::setExpressionText(const QString &text)
+{
+    if (text != m_textEdit->toPlainText())
+    {
+        m_textEdit->setPlainText(text);
+    }
+}
+
+QString ExpressionTextEditor::expressionText() const
+{
+    return m_textEdit->toPlainText();
+}
+
+void ExpressionTextEditor::highlightError(int row, int col)
+{
+    qDebug() << __PRETTY_FUNCTION__ << row << col;
+}
+
+void ExpressionTextEditor::clearErrorHighlight()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+}
+
 //
 // ExpressionEditorWidget
 //
 ExpressionEditorWidget::ExpressionEditorWidget(QWidget *parent)
     : QWidget(parent)
-    , m_exprEdit(new ExpressionTextEditor)
+    , m_exprTextEdit(new ExpressionTextEditor)
     , m_exprErrors(new ExpressionErrorWidget)
 {
     auto splitter = new QSplitter(Qt::Vertical);
     //splitter->setHandleWidth(0);
-    splitter->addWidget(m_exprEdit);
+    splitter->addWidget(m_exprTextEdit);
     splitter->addWidget(m_exprErrors);
     splitter->setStretchFactor(0, 80);
     splitter->setStretchFactor(1, 20);
@@ -255,17 +456,30 @@ ExpressionEditorWidget::ExpressionEditorWidget(QWidget *parent)
     auto widgetLayout = new QHBoxLayout(this);;
     widgetLayout->setContentsMargins(0, 0, 0, 0);
     widgetLayout->addWidget(splitter);
+
+    connect(m_exprErrors, &ExpressionErrorWidget::parserErrorClicked,
+            m_exprTextEdit, &ExpressionTextEditor::highlightError);
 }
 
-void ExpressionEditorWidget::setText(const QString &text)
+void ExpressionEditorWidget::setExpressionText(const QString &text)
 {
-    m_exprEdit->textEdit()->setPlainText(text);
-
+    m_exprTextEdit->setExpressionText(text);
 }
 
-QString ExpressionEditorWidget::text() const
+QString ExpressionEditorWidget::expressionText() const
 {
-    return m_exprEdit->textEdit()->toPlainText();
+    return m_exprTextEdit->expressionText();
+}
+
+void ExpressionEditorWidget::setError(const std::exception_ptr &ep)
+{
+    m_exprErrors->setError(ep);
+}
+
+void ExpressionEditorWidget::clearError()
+{
+    m_exprErrors->clear();
+    m_exprTextEdit->clearErrorHighlight();
 }
 
 //
@@ -307,12 +521,12 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
 
 void ExpressionOperatorEditorComponent::setExpressionText(const QString &text)
 {
-    m_editorWidget->setText(text);
+    m_editorWidget->setExpressionText(text);
 }
 
 QString ExpressionOperatorEditorComponent::expressionText() const
 {
-    return m_editorWidget->text();
+    return m_editorWidget->expressionText();
 }
 
 void ExpressionOperatorEditorComponent::setInputs(const std::vector<a2::PipeVectors> &pipes,
@@ -325,6 +539,16 @@ void ExpressionOperatorEditorComponent::setOutputs(const std::vector<a2::PipeVec
                                                   const QStringList &titles)
 {
     m_outputPipesView->setPipes(pipes, titles);
+}
+
+void ExpressionOperatorEditorComponent::setEvaluationError(const std::exception_ptr &ep)
+{
+    m_editorWidget->setError(ep);
+}
+
+void ExpressionOperatorEditorComponent::clearEvaluationError()
+{
+    m_editorWidget->clearError();
 }
 
 #if 0
@@ -913,7 +1137,6 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
 
     // expression text
 
-    // FIXME: this resets the undo/redo history of the underlying QPlainTextEdit
     m_beginExpressionEditor->setExpressionText(
         QString::fromStdString(m_model->beginExpression));
 
@@ -1029,11 +1252,14 @@ void ExpressionOperatorDialog::Private::evalBeginExpression()
             m_model->beginExpression,
             m_model->stepExpression,
             a2::ExpressionOperatorBuildOptions::InitOnly);
+
+        m_beginExpressionEditor->clearEvaluationError();
     }
     catch (const std::runtime_error &e)
     {
-        qDebug() << QString::fromStdString(e.what());
         m_a2Op = {};
+        qDebug() << QString::fromStdString(e.what());
+        m_beginExpressionEditor->setEvaluationError(std::current_exception());
     }
 
 #if 0
@@ -1066,11 +1292,13 @@ void ExpressionOperatorDialog::Private::evalStepExpression()
 
         a2::expression_operator_step(&m_a2Op);
 
+        m_stepExpressionEditor->clearEvaluationError();
     }
     catch (const std::runtime_error &e)
     {
         qDebug() << QString::fromStdString(e.what());
         m_a2Op = {};
+        m_stepExpressionEditor->setEvaluationError(std::current_exception());
     }
 
     repopulateGUIFromModel();
