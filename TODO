@@ -1,6 +1,9 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* SIS readout: received count and Timestamp histo count have a small delta of 1
+  up to 3 counts. Figure out where this is coming from.
+
 * Add the "explore workspace" button the analysis UI
 
 * 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
