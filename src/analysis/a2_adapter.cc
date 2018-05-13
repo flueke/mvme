@@ -563,11 +563,8 @@ DEF_OP_MAGIC(expression_operator_magic)
 
     a2::Operator result = {};
 
-#if 1
     try
     {
-#endif
-
         result = make_expression_operator(
             arena,
             a2_inputs,
@@ -576,12 +573,11 @@ DEF_OP_MAGIC(expression_operator_magic)
             inputUnits,
             a1_op->getBeginExpression().toStdString(),
             a1_op->getStepExpression().toStdString());
-#if 1
     } catch (const std::runtime_error &e)
     {
         LOG("EE Exception when making operator: %s", e.what());
+        throw;
     }
-#endif
 
     return result;
 }
@@ -805,7 +801,7 @@ a2::Operator a2_adapter_magic(
     const RunInfo &runInfo)
 {
     a2::Operator result = {};
-    result.type = a2::OperatorTypeCount;
+    result.type = a2::Invalid_OperatorType;
 
     assert(op->getNumberOfSlots() <= a2::Operator::MaxInputCount);
     assert(op->getNumberOfOutputs() <= a2::Operator::MaxOutputCount);
@@ -828,13 +824,17 @@ a2::Operator a2_adapter_magic(
 
     if (operator_magic)
     {
-        LOG("found magic for %s (objectName=%s)", op->metaObject()->className(), op->objectName().toLocal8Bit().constData());
+        LOG("found magic for %s (objectName=%s)", op->metaObject()->className(),
+            op->objectName().toLocal8Bit().constData());
+
         QLOG(op.get() << op->getId());
+
         result = operator_magic(arena, state, op, inputSlots, outputPipes, runInfo);
     }
     else
     {
         LOG("EE no magic for %s :(", op->metaObject()->className());
+        InvalidCodePath;
     }
 
     return result;
@@ -877,7 +877,7 @@ a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Pipe *pi
         pipe->sourceOutputIndex);
 }
 
-void a2_adapter_build_extractors(
+void a2_adapter_build_datasources(
     memory::Arena *arena,
     A2AdapterState *state,
     const QVector<Analysis::SourceEntry> &sourceEntries,
@@ -973,9 +973,9 @@ void a2_adapter_build_extractors(
 
 struct OperatorInfo
 {
-    OperatorPtr op;
+    Analysis::OperatorEntry opEntry;
     int rank;
-    s32 a2OperatorType = -1;
+    s32 a2OperatorType = a2::Invalid_OperatorType;
 };
 
 using OperatorsByEventIndex = std::array<QVector<OperatorInfo>, a2::MaxVMEEvents>;
@@ -992,10 +992,76 @@ OperatorsByEventIndex group_operators_by_event(
 
         Q_ASSERT(eventIndex < a2::MaxVMEEvents);
 
-        operators[eventIndex].push_back({ oe.op, oe.op->getMaximumInputRank(), -1 });
+        operators[eventIndex].push_back({ oe, oe.op->getMaximumInputRank(), -1 });
     }
 
     return operators;
+}
+
+void a2_adapter_build_single_operator(
+    memory::Arena *arena,
+    A2AdapterState *state,
+    OperatorInfo &opInfo,
+    s32 eventIndex,
+    const RunInfo &runInfo)
+{
+    /* FIXME: for correctness a test if any of the input operators caused an
+     * error has to be performed here:
+     * For each input operator if the operator to be adapted:
+     *   if inputOperator is in state->operatorErrors:
+     *     do not build this operator
+     *     instead also add it to the set of errors
+     *     the reason should be set to "Input operator is in error state".
+     *
+     * For the ExpressionOperator this is not needed right now as the operator
+     * tries an a2 build in ExpressionOperator::beginRun() and if that fails
+     * keeps its outputs but resizes them to 0. Connected histo sinks will pick
+     * this up and not error out.
+     * Still, other dependent operators may not behave as well as the histosink
+     * does an fail or assert in this case. Also no error information is
+     * conveyed to the user.
+     */
+
+    try
+    {
+        auto a2_op = a2_adapter_magic(arena, state, opInfo.opEntry.op, runInfo);
+
+        if (a2::Invalid_OperatorType != a2_op.type && a2_op.type < a2::OperatorTypeCount)
+        {
+            opInfo.a2OperatorType = a2_op.type;
+            u8 &opCount = state->a2->operatorCounts[eventIndex];
+            state->a2->operators[eventIndex][opCount] = a2_op;
+            state->a2->operatorRanks[eventIndex][opCount] = opInfo.rank;
+            state->operatorMap.insert(opInfo.opEntry.op.get(),
+                                      state->a2->operators[eventIndex] + opCount);
+            opCount++;
+            LOG("a2_op.type=%d", (s32)(a2_op.type));
+        }
+        else
+        {
+            A2AdapterState::ErrorInfo error
+            {
+                opInfo.opEntry,
+                eventIndex,
+                QSL("Adapter function returned invalid operator type."),
+                std::current_exception() // will result in a null exception_ptr
+            };
+
+            state->operatorErrors.push_back(error);
+        }
+    }
+    catch (const std::runtime_error &e)
+    {
+        A2AdapterState::ErrorInfo error
+        {
+            opInfo.opEntry,
+            eventIndex,
+            QSL("Exception from operator adapter function."),
+            std::current_exception()
+        };
+
+        state->operatorErrors.push_back(error);
+    }
 }
 
 /* Fills in state and operators. */
@@ -1014,18 +1080,7 @@ void a2_adapter_build_operators(
 
         for (auto &opInfo: operators[ei])
         {
-            auto a2_op = a2_adapter_magic(arena, state, opInfo.op, runInfo);
-
-            if (a2_op.type < a2::OperatorTypeCount)
-            {
-                opInfo.a2OperatorType = a2_op.type;
-                u8 &op_cnt = state->a2->operatorCounts[ei];
-                state->a2->operators[ei][op_cnt] = a2_op;
-                state->a2->operatorRanks[ei][op_cnt] = opInfo.rank;
-                state->operatorMap.insert(opInfo.op.get(), state->a2->operators[ei] + op_cnt);
-                op_cnt++;
-                LOG("a2_op.type=%d", (s32)(a2_op.type));
-            }
+            a2_adapter_build_single_operator(arena, state, opInfo, ei, runInfo);
         }
     }
 }
@@ -1062,7 +1117,8 @@ void set_null_if_input_is(OperatorEntryVector &operators, OperatorInterface *inp
     }
 }
 
-auto a2_adapter_filter_operators(QVector<Analysis::OperatorEntry> operators)
+QVector<Analysis::OperatorEntry> a2_adapter_filter_operators(
+    QVector<Analysis::OperatorEntry> operators)
 {
     QVector<Analysis::OperatorEntry> result;
 
@@ -1129,7 +1185,7 @@ A2AdapterState a2_adapter_build(
     // Source -> Extractor
     // -------------------------------------------
 
-    a2_adapter_build_extractors(
+    a2_adapter_build_datasources(
         arena,
         &result,
         sourceEntries,
@@ -1143,6 +1199,8 @@ A2AdapterState a2_adapter_build(
             continue;
         LOG("  ei=%d, #ds=%d", ei, (u32)result.a2->dataSourceCounts[ei]);
     }
+
+    assert(sourceEntries.size() == result.sourceMap.size());
 
     // -------------------------------------------
     // a1 Operator -> a2 Operator
@@ -1184,6 +1242,8 @@ A2AdapterState a2_adapter_build(
         LOG("  ei=%d, #ops=%d", ei, (u32)result.a2->operatorCounts[ei]);
     }
 
+    assert(operatorEntries.size() == result.operatorMap.size() + result.operatorErrors.size());
+
     /* Sort the operator arrays. */
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
@@ -1204,6 +1264,7 @@ A2AdapterState a2_adapter_build(
     result.a2->operators.fill(nullptr);
     result.a2->operatorRanks.fill(nullptr);
     result.operatorMap.clear();
+    result.operatorErrors.clear();
 
     /* Second build using the destination arena. */
     LOG("a2 adapter build second pass");
@@ -1222,6 +1283,8 @@ A2AdapterState a2_adapter_build(
             continue;
         LOG("  ei=%d, #ops=%d", ei, (u32)result.a2->operatorCounts[ei]);
     }
+
+    assert(operatorEntries.size() == result.operatorMap.size() + result.operatorErrors.size());
 
     LOG("mem=%lu", arena->used());
 
@@ -1283,6 +1346,23 @@ A2AdapterState a2_adapter_build(
                     a1_op ? a1_op->metaObject()->className() : "nullptr",
                     a1_op ? qcstr(a1_op->objectName()) : "nullptr");
             }
+        }
+    }
+
+    if (!result.operatorErrors.isEmpty())
+    {
+        LOG("%d operator adapter errors:", result.operatorErrors.size());
+
+        for (const auto &errorInfo: result.operatorErrors)
+        {
+            auto &a1_op = errorInfo.opEntry.op;
+
+            LOG("  ei=%d, a1_type=%s, a1_name=%s, reason=%s",
+                errorInfo.eventIndex,
+                a1_op ? a1_op->metaObject()->className() : "nullptr",
+                a1_op ? qcstr(a1_op->objectName()) : "nullptr",
+                qcstr(errorInfo.reason)
+                );
         }
     }
 

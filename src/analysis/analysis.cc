@@ -2852,17 +2852,15 @@ Pipe *ExpressionOperator::getOutput(s32 index)
 
 void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
 {
-    // FIXME: handle the error case properly (remove or keep outpipes? if keeping them resize to 0?)
-
     try
     {
-        memory::Arena arena(Kilobytes(256));
-
         /* Create the a2 operator which runs the begin script to figure out the
          * output size and limits. Then copy the limits to this operators output
          * pipes. */
 
-        auto a2_op = buildA2Operator(&arena, a2::ExpressionOperatorBuildOptions::InitOnly);
+        memory::Arena arena(Kilobytes(256));
+
+        auto a2_op = buildA2Operator(&arena, a2::ExpressionOperatorBuildOptions::FullBuild);
         auto d     = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op.d);
 
         assert(a2_op.outputCount == d->output_units.size());
@@ -2913,6 +2911,15 @@ void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
             logger(QString::fromStdString(e.what()));
         }
         qDebug() << __PRETTY_FUNCTION__ << e.what();
+
+        /* On error keep existing pipes but resize them to zero length. This
+         * way pipe -> slot connections will persist. Full array connections by
+         * dependent operators will remain valid but be of size zero, indexed
+         * connections will be out of range. */
+        for (auto &outPipe: m_outputs)
+        {
+            outPipe->parameters.resize(0);
+        }
     }
 }
 
@@ -3794,7 +3801,8 @@ void Analysis::beginRun(
 
     updateRanks();
 
-    qSort(m_operators.begin(), m_operators.end(), [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
+    qSort(m_operators.begin(), m_operators.end(),
+          [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
         return oe1.op->getMaximumInputRank() < oe2.op->getMaximumInputRank();
     });
 

@@ -169,7 +169,8 @@ class LIBMVME_EXPORT Pipe
 {
     public:
         Pipe();
-        Pipe(PipeSourceInterface *sourceObject, s32 outputIndex, const QString &paramVectorName = QString());
+        Pipe(PipeSourceInterface *sourceObject, s32 outputIndex,
+             const QString &paramVectorName = QString());
 
         const Parameter *first() const
         {
@@ -1569,7 +1570,10 @@ class LIBMVME_EXPORT Analysis: public QObject
         Analysis(QObject *parent = nullptr);
         virtual ~Analysis();
 
-        void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap, Logger logger = {});
+        void beginRun(const RunInfo &runInfo,
+                      const vme_analysis_common::VMEIdToIndex &vmeMap,
+                      Logger logger = {});
+
         void beginEvent(int eventIndex);
         void processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size);
         void endEvent(int eventIndex);

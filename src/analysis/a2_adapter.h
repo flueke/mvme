@@ -17,10 +17,18 @@ struct A2AdapterState
     using SourceHash   = BiHash<SourceInterface *, a2::DataSource *>;
     using OperatorHash = BiHash<OperatorInterface *, a2::Operator *>;
 
+    struct ErrorInfo
+    {
+        Analysis::OperatorEntry opEntry;
+        s32 eventIndex;
+        QString reason;
+        std::exception_ptr ep;
+    };
+
     SourceHash   sourceMap;
     OperatorHash operatorMap;
+    QVector<ErrorInfo> operatorErrors;
 };
-
 
 /*
  * operators must be sorted by rank and their beginRun() must have been called.
