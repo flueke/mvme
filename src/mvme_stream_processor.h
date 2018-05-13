@@ -87,7 +87,6 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         //
         void beginRun(const RunInfo &runInfo, analysis::Analysis *analysis,
                       VMEConfig *vmeConfig, u32 listfileVersion, Logger logger);
-        void startConsumers();
         void endRun();
         void processDataBuffer(DataBuffer *buffer);
 
@@ -165,6 +164,7 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer);
 
     private:
+        void startConsumers();
         std::unique_ptr<MVMEStreamProcessorPrivate> m_d;
 };
 
