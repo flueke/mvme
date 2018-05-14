@@ -998,6 +998,38 @@ OperatorsByEventIndex group_operators_by_event(
     return operators;
 }
 
+/* Returns true if any of the inputs of the given operator is contained in the
+ * set of error info objects. */
+bool has_input_from_error_set(const OperatorPtr &op,
+                              const A2AdapterState::ErrorInfoVector &errorInfos)
+{
+    bool result = false;
+
+    for (s32 si = 0; si < op->getNumberOfSlots(); si++)
+    {
+        auto slot = op->getSlot(si);
+
+        if (!(slot && slot->isConnected() && slot->inputPipe->getSource()))
+            continue;
+
+        if (auto inputOp = qobject_cast<OperatorInterface *>(slot->inputPipe->getSource()))
+        {
+            auto it = std::find_if(errorInfos.begin(), errorInfos.end(),
+                                   [&inputOp] (const A2AdapterState::ErrorInfo &errorInfo) {
+                return errorInfo.opEntry.op.get() == inputOp;
+            });
+
+            if (it != errorInfos.end())
+            {
+                result = true;
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
 void a2_adapter_build_single_operator(
     memory::Arena *arena,
     A2AdapterState *state,
@@ -1007,7 +1039,7 @@ void a2_adapter_build_single_operator(
 {
     /* FIXME: for correctness a test if any of the input operators caused an
      * error has to be performed here:
-     * For each input operator if the operator to be adapted:
+     * For each input operator of the operator to be adapted:
      *   if inputOperator is in state->operatorErrors:
      *     do not build this operator
      *     instead also add it to the set of errors
@@ -1021,6 +1053,20 @@ void a2_adapter_build_single_operator(
      * does an fail or assert in this case. Also no error information is
      * conveyed to the user.
      */
+    if (has_input_from_error_set(opInfo.opEntry.op, state->operatorErrors))
+    {
+        A2AdapterState::ErrorInfo error
+        {
+            opInfo.opEntry,
+            eventIndex,
+            QSL("Input operator is in error/invalid state."),
+            std::current_exception() // will result in a null exception_ptr
+        };
+
+        state->operatorErrors.push_back(error);
+
+        return;
+    }
 
     try
     {

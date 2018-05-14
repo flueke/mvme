@@ -25,9 +25,11 @@ struct A2AdapterState
         std::exception_ptr ep;
     };
 
+    using ErrorInfoVector = QVector<ErrorInfo>;
+
     SourceHash   sourceMap;
     OperatorHash operatorMap;
-    QVector<ErrorInfo> operatorErrors;
+    ErrorInfoVector operatorErrors;
 };
 
 /*
