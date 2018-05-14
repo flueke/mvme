@@ -485,6 +485,29 @@ namespace
 
 } // end anon namespace
 
+u64 SIS3153ReadoutWorker::Counters::receivedEventsExcludingWatchdog() const
+{
+    u64 result = 0u;
+
+    for (s32 sli = 0; sli < static_cast<s32>(stackListCounts.size()); sli++)
+    {
+        if (sli != watchdogStackList)
+            result += stackListCounts[sli];
+    }
+
+    return result;
+}
+
+u64 SIS3153ReadoutWorker::Counters::receivedEventsIncludingWatchdog() const
+{
+    return std::accumulate(std::begin(stackListCounts), std::end(stackListCounts),
+                           static_cast<u64>(0u));
+}
+
+u64 SIS3153ReadoutWorker::Counters::receivedWatchdogEvents() const
+{
+    return watchdogStackList < 0 ? 0u : stackListCounts[watchdogStackList];
+}
 
 /* FIXME 18.1.2018
  * ==========================================================================
