@@ -239,8 +239,12 @@ class ExpressionOperatorEditorComponent: public QWidget
 
     protected:
         virtual void showEvent(QShowEvent *event) override;
+        virtual void resizeEvent(QResizeEvent *event) override;
 
     private:
+        void setHSplitterSizes();
+
+
         ExpressionOperatorPipesView *m_inputPipesView;
         ExpressionOperatorPipesView *m_outputPipesView;
         ExpressionEditorWidget *m_editorWidget;

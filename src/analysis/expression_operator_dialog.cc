@@ -536,10 +536,8 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
             this, &ExpressionOperatorEditorComponent::eval);
 }
 
-void ExpressionOperatorEditorComponent::showEvent(QShowEvent *event)
+void ExpressionOperatorEditorComponent::setHSplitterSizes()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
-
     int totalWidth = m_hSplitter->width();
     QList<int> sizes = { 0, 0, 0 };
 
@@ -549,11 +547,23 @@ void ExpressionOperatorEditorComponent::showEvent(QShowEvent *event)
     sizes[2] = m_outputPipesView->sizeHint().width();
     totalWidth -= sizes[2];
 
-    sizes[1] = totalWidth;
+    sizes[1] = std::max(totalWidth, 800);
 
     m_hSplitter->setSizes(sizes);
+}
+
+void ExpressionOperatorEditorComponent::showEvent(QShowEvent *event)
+{
+    setHSplitterSizes();
 
     QWidget::showEvent(event);
+}
+
+void ExpressionOperatorEditorComponent::resizeEvent(QResizeEvent *event)
+{
+    setHSplitterSizes();
+
+    QWidget::resizeEvent(event);
 }
 
 void ExpressionOperatorEditorComponent::setExpressionText(const QString &text)
