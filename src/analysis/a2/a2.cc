@@ -2210,8 +2210,12 @@ while(0)
         if(res_ll.vector.size() != res_ul.vector.size())
         {
             std::ostringstream ss;
-            ss << "Different sizes of limit specifications for output #" << out_idx
-                << ": lower_limits: " << res_ll.vector.size() << ", upper_limits: " << res_ul.vector.size();
+
+            ss << "Different sizes of limit specifications for output#" << out_idx
+                << " " << res_name.string
+                << ": lower_limits: " << res_ll.vector.size()
+                << ", upper_limits: " << res_ul.vector.size();
+
             throw SemanticError(ss.str());
         }
 

@@ -26,6 +26,7 @@
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSplitter>
 #include <QTableWidget>
 #include <QToolBox>
 
@@ -85,6 +86,9 @@ class ExpressionOperatorPipeView: public QWidget
     public slots:
         void refresh();
 
+    protected:
+        virtual void showEvent(QShowEvent *event) override;
+
     private:
         QTableWidget *m_tableWidget;
         a2::PipeVectors m_a2Pipe;
@@ -101,22 +105,11 @@ class ExpressionOperatorPipesView: public QToolBox
         void setPipes(const std::vector<a2::PipeVectors> &pipes,
                       const QStringList &titles);
 
-#if 0
-        void setTitles(const QStringList &titles);
-#endif
-
     public slots:
         void refresh();
 
-#if 0
-        int addPipe(const a2::PipeVectors &a2_pipe, const QString &title = QString());
-
-        bool setPipe(int index, const a2::PipeVectors &a2_pipe, const QString &title = QString());
-
-        void popPipe();
-
-        int addEmptyPipe(const QString &title = QString()); // creates a fake entry
-#endif
+    protected:
+        virtual void showEvent(QShowEvent *event) override;
 };
 
 /** Display of expression (exprtk) interal errors and analysis specific
@@ -134,6 +127,9 @@ class ExpressionErrorWidget: public QWidget
 
     public slots:
         void clear();
+
+    protected:
+        virtual void showEvent(QShowEvent *event) override;
 
     private slots:
         void onCellDoubleClicked(int row, int column);
@@ -241,16 +237,15 @@ class ExpressionOperatorEditorComponent: public QWidget
         void setEvaluationError(const std::exception_ptr &ep);
         void clearEvaluationError();
 
-#if 0
-        void refreshInputs();
-        void refreshOutputs();
-#endif
+    protected:
+        virtual void showEvent(QShowEvent *event) override;
 
     private:
         ExpressionOperatorPipesView *m_inputPipesView;
         ExpressionOperatorPipesView *m_outputPipesView;
         ExpressionEditorWidget *m_editorWidget;
         QPushButton *m_evalButton;
+        QSplitter *m_hSplitter;
 };
 
 } // end namespace analysis

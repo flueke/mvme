@@ -6,7 +6,6 @@
 #include "analysis_ui_p.h"
 #include "mvme_context_lib.h"
 
-#include <QSplitter>
 #include <QTabWidget>
 
 /* NOTES:
@@ -76,7 +75,7 @@ ExpressionOperatorPipeView::ExpressionOperatorPipeView(QWidget *parent)
     , m_a2Pipe{}
 {
     auto layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
+    //layout->setContentsMargins(0, 0, 0, 0);
 
     layout->addWidget(m_tableWidget);
 
@@ -86,6 +85,16 @@ ExpressionOperatorPipeView::ExpressionOperatorPipeView(QWidget *parent)
     m_tableWidget->setHorizontalHeaderLabels({"Valid", "Value", "Lower Limit", "Upper Limit"});
 
     refresh();
+}
+
+void ExpressionOperatorPipeView::showEvent(QShowEvent *event)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
+    m_tableWidget->resizeColumnsToContents();
+    m_tableWidget->resizeRowsToContents();
+
+    QWidget::showEvent(event);
 }
 
 void ExpressionOperatorPipeView::setPipe(const a2::PipeVectors &a2_pipe)
@@ -154,6 +163,13 @@ ExpressionOperatorPipesView::ExpressionOperatorPipesView(QWidget *parent)
 {
 }
 
+void ExpressionOperatorPipesView::showEvent(QShowEvent *event)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
+    QWidget::showEvent(event);
+}
+
 void ExpressionOperatorPipesView::setPipes(const std::vector<a2::PipeVectors> &pipes,
                                            const QStringList &titles)
 {
@@ -217,6 +233,16 @@ ExpressionErrorWidget::ExpressionErrorWidget(QWidget *parent)
 
     connect(m_errorTable, &QTableWidget::cellDoubleClicked,
             this, &ExpressionErrorWidget::onCellDoubleClicked);
+}
+
+void ExpressionErrorWidget::showEvent(QShowEvent *event)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
+    m_errorTable->resizeRowsToContents();
+    m_errorTable->resizeColumnsToContents();
+
+    QWidget::showEvent(event);
 }
 
 void ExpressionErrorWidget::setError(const std::exception_ptr &ep)
@@ -480,6 +506,7 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
     , m_outputPipesView(new ExpressionOperatorPipesView)
     , m_editorWidget(new ExpressionEditorWidget)
     , m_evalButton(new QPushButton(QSL("&Eval")))
+    , m_hSplitter(new QSplitter(Qt::Horizontal))
 {
     auto buttonLayout = new QHBoxLayout;
     //buttonLayout->setContentsMargins(0, 0, 0, 0);
@@ -493,19 +520,40 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
     editorFrameLayout->addWidget(m_editorWidget);
     editorFrameLayout->addLayout(buttonLayout);
 
-    auto splitter = new QSplitter(Qt::Horizontal);
+    auto splitter = m_hSplitter;
     splitter->addWidget(m_inputPipesView);
     splitter->addWidget(editorFrame);
     splitter->addWidget(m_outputPipesView);
     splitter->setStretchFactor(0, 25);
     splitter->setStretchFactor(1, 50);
     splitter->setStretchFactor(2, 25);
+    splitter->setChildrenCollapsible(false);
 
     auto widgetLayout = new QHBoxLayout(this);
     widgetLayout->addWidget(splitter);
 
     connect(m_evalButton, &QPushButton::clicked,
             this, &ExpressionOperatorEditorComponent::eval);
+}
+
+void ExpressionOperatorEditorComponent::showEvent(QShowEvent *event)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
+    int totalWidth = m_hSplitter->width();
+    QList<int> sizes = { 0, 0, 0 };
+
+    sizes[0] = m_inputPipesView->sizeHint().width();
+    totalWidth -= sizes[0];
+
+    sizes[2] = m_outputPipesView->sizeHint().width();
+    totalWidth -= sizes[2];
+
+    sizes[1] = totalWidth;
+
+    m_hSplitter->setSizes(sizes);
+
+    QWidget::showEvent(event);
 }
 
 void ExpressionOperatorEditorComponent::setExpressionText(const QString &text)
@@ -591,11 +639,13 @@ struct ExpressionOperatorDialog::Private
 
     QDialogButtonBox *m_buttonBox;
 
-    void repopulateSlotGrid();
+    void updateModelFromOperator(); // op  -> model
+    void updateModelFromGUI();      // gui -> model
 
-    void updateGUIFromOperator();
-    void updateModelFromGUI();
     void repopulateGUIFromModel();
+    void repopulateSlotGridFromModel();
+
+    void postInputsModified();
 
     void onAddSlotButtonClicked();
     void onRemoveSlotButtonClicked();
@@ -604,8 +654,8 @@ struct ExpressionOperatorDialog::Private
     void onInputCleared(s32 slotIndex);
     void onInputPrefixEdited(s32 slotIndex, const QString &text);
 
-    void evalBeginExpression();
-    void evalStepExpression();
+    void model_evalBeginExpression();
+    void model_evalStepExpression();
 };
 
 namespace
@@ -976,7 +1026,10 @@ void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s
     while (QLayoutItem *child = sg->slotLayout->takeAt(0))
     {
         if (auto widget = child->widget())
-            delete widget;
+        {
+            //delete widget;
+            widget->deleteLater();
+        }
         delete child;
     }
 
@@ -1094,7 +1147,7 @@ void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s
     sg->removeSlotButton->setEnabled(slotCount > 1);
 }
 
-void ExpressionOperatorDialog::Private::repopulateSlotGrid()
+void ExpressionOperatorDialog::Private::repopulateSlotGridFromModel()
 {
     repopulate_slotgrid(&m_slotGrid, *m_model, m_eventWidget, m_userLevel);
 
@@ -1119,17 +1172,20 @@ void ExpressionOperatorDialog::Private::repopulateSlotGrid()
         auto le = m_slotGrid.inputPrefixLineEdits[bi];
 
         QObject::connect(le, &QLineEdit::editingFinished,
-                         m_q, [this, bi, le] () {
+                         m_slotGrid.outerFrame, [this, bi, le] () {
+            qDebug() << "inputPrefixLineEdit signaled editingFinished";
             assert(static_cast<size_t>(bi) < m_model->inputPrefixes.size());
             this->onInputPrefixEdited(bi, le->text());
         });
     }
 }
 
-void ExpressionOperatorDialog::Private::updateGUIFromOperator()
+void ExpressionOperatorDialog::Private::updateModelFromOperator()
 {
     load_from_operator(*m_model, *m_op);
-    repopulateGUIFromModel();
+
+    model_evalBeginExpression();
+    model_evalStepExpression();
 }
 
 void ExpressionOperatorDialog::Private::updateModelFromGUI()
@@ -1152,10 +1208,9 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
 {
     le_operatorName->setText(m_model->operatorName);
 
-    repopulateSlotGrid();
+    repopulateSlotGridFromModel();
 
     // expression text
-
     m_beginExpressionEditor->setExpressionText(
         QString::fromStdString(m_model->beginExpression));
 
@@ -1197,20 +1252,30 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
     m_stepExpressionEditor->setOutputs(outputs, outputNames);
 }
 
+void ExpressionOperatorDialog::Private::postInputsModified()
+{
+    updateModelFromGUI();
+    repopulateGUIFromModel();
+}
+
 void ExpressionOperatorDialog::Private::onAddSlotButtonClicked()
 {
-    add_new_input_slot(*m_model);
     m_eventWidget->endSelectInput();
-    repopulateGUIFromModel();
+
+    add_new_input_slot(*m_model);
+    repopulateSlotGridFromModel();
+    postInputsModified();
 }
 
 void ExpressionOperatorDialog::Private::onRemoveSlotButtonClicked()
 {
     if (m_model->opClone->getNumberOfSlots() > 1)
     {
-        pop_input_slot(*m_model);
         m_eventWidget->endSelectInput();
-        repopulateGUIFromModel();
+
+        pop_input_slot(*m_model);
+        repopulateSlotGridFromModel();
+        postInputsModified();
     }
 }
 
@@ -1220,27 +1285,26 @@ void ExpressionOperatorDialog::Private::onInputSelected(
 {
     qDebug() << __PRETTY_FUNCTION__ << destSlot << slotIndex << sourcePipe << sourceParamIndex;
     connect_input(*m_model, slotIndex, sourcePipe, sourceParamIndex);
-    repopulateGUIFromModel();
+
+    postInputsModified();
 }
 
 void ExpressionOperatorDialog::Private::onInputCleared(s32 slotIndex)
 {
     qDebug() << __PRETTY_FUNCTION__ << slotIndex;
     disconnect_input(*m_model, slotIndex);
-    repopulateGUIFromModel();
+
+    postInputsModified();
 }
 
 void ExpressionOperatorDialog::Private::onInputPrefixEdited(s32 slotIndex,
                                                             const QString &text)
 {
     qDebug() << __PRETTY_FUNCTION__ << slotIndex << text;
-
-    m_model->inputPrefixes[slotIndex] = text.toStdString();
-    m_beginExpressionEditor->getInputPipesView()->setItemText(slotIndex, text);
-    m_stepExpressionEditor->getInputPipesView()->setItemText(slotIndex, text);
+    postInputsModified();
 }
 
-void ExpressionOperatorDialog::Private::evalBeginExpression()
+void ExpressionOperatorDialog::Private::model_evalBeginExpression()
 {
     /* build a2 operator using m_arena and the data from the model.
      * store the operator in a member variable.
@@ -1251,8 +1315,6 @@ void ExpressionOperatorDialog::Private::evalBeginExpression()
      * if the build succeeds use the operators output pipes and the
      * a2::ExpressionOperatorData struct to populate the output pipes view.
      */
-
-    updateModelFromGUI();
 
     try
     {
@@ -1270,17 +1332,21 @@ void ExpressionOperatorDialog::Private::evalBeginExpression()
     }
     catch (const std::runtime_error &e)
     {
+        qDebug() << __FUNCTION__ << "runtime_error:" << QString::fromStdString(e.what());
+
         m_a2Op = {};
-        qDebug() << QString::fromStdString(e.what());
         m_beginExpressionEditor->setEvaluationError(std::current_exception());
     }
 
     repopulateGUIFromModel();
 }
 
-void ExpressionOperatorDialog::Private::evalStepExpression()
+void ExpressionOperatorDialog::Private::model_evalStepExpression()
 {
-    updateModelFromGUI();
+    /* Full build split into InitOnly and an additional compilation of the step
+     * expression if the init part succeeded. This is done so that errors from
+     * the begin expr do not show up in the step expr editor.
+     * */
 
     try
     {
@@ -1292,11 +1358,7 @@ void ExpressionOperatorDialog::Private::evalStepExpression()
             m_model->inputUnits,
             m_model->beginExpression,
             m_model->stepExpression,
-            a2::ExpressionOperatorBuildOptions::FullBuild);
-
-        a2::expression_operator_step(&m_a2Op);
-
-        m_stepExpressionEditor->clearEvaluationError();
+            a2::ExpressionOperatorBuildOptions::InitOnly);
     }
     catch (const std::runtime_error &e)
     {
@@ -1305,9 +1367,28 @@ void ExpressionOperatorDialog::Private::evalStepExpression()
         // fails switch back to the begin tab or add an error message telling
         // the user to fix the begin script first
 
-        qDebug() << QString::fromStdString(e.what());
+        qDebug() << __FUNCTION__ << "InitOnly failed:" << QString::fromStdString(e.what());
+
         m_a2Op = {};
-        m_stepExpressionEditor->setEvaluationError(std::current_exception());
+        std::runtime_error error("Evaluation of the Output Defintion expression failed.");
+        m_stepExpressionEditor->setEvaluationError(std::make_exception_ptr(error));
+    }
+
+    if (m_a2Op.type == a2::Operator_Expression)
+    {
+        try
+        {
+            a2::expression_operator_compile_step_expression(&m_a2Op);
+            a2::expression_operator_step(&m_a2Op);
+
+            m_stepExpressionEditor->clearEvaluationError();
+        }
+        catch (const std::runtime_error &e)
+        {
+            qDebug() << __FUNCTION__ << "runtime_error:" << QString::fromStdString(e.what());
+
+            m_stepExpressionEditor->setEvaluationError(std::current_exception());
+        }
     }
 
     repopulateGUIFromModel();
@@ -1355,7 +1436,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
 
         l->addWidget(m_d->m_beginExpressionEditor);
 
-        m_d->m_tabWidget->addTab(page, QSL("&Begin Expression"));
+        m_d->m_tabWidget->addTab(page, QSL("&Output Definition"));
     }
 
     // tab2: step expression
@@ -1372,8 +1453,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
 
     // buttonbox: ok/cancel
     m_d->m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
-    //m_d->m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
-    m_d->m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+    m_d->m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(false);
 
     connect(m_d->m_buttonBox, &QDialogButtonBox::accepted, this, &ExpressionOperatorDialog::accept);
     connect(m_d->m_buttonBox, &QDialogButtonBox::rejected, this, &ExpressionOperatorDialog::reject);
@@ -1397,12 +1477,16 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     // Script evaluation
     connect(m_d->m_beginExpressionEditor, &ExpressionOperatorEditorComponent::eval,
             this, [this] () {
-        m_d->evalBeginExpression();
+        m_d->updateModelFromGUI();
+        m_d->model_evalBeginExpression();
+        m_d->repopulateGUIFromModel();
     });
 
     connect(m_d->m_stepExpressionEditor, &ExpressionOperatorEditorComponent::eval,
             this, [this] () {
-        m_d->evalStepExpression();
+        m_d->updateModelFromGUI();
+        m_d->model_evalStepExpression();
+        m_d->repopulateGUIFromModel();
     });
 
     // Initialize and misc setup
@@ -1421,7 +1505,8 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     add_widget_close_action(this);
     resize(800, 600);
 
-    m_d->updateGUIFromOperator();
+    m_d->updateModelFromOperator();
+    m_d->repopulateGUIFromModel();
 }
 
 ExpressionOperatorDialog::~ExpressionOperatorDialog()
