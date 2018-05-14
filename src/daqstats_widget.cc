@@ -201,8 +201,8 @@ void DAQStatsWidget::updateWidget()
         sisCounters = rdoWorker->getCounters();
 
         double totalLostEvents = sisCounters.lostEvents;
-        double totalGoodEvents = std::accumulate(std::begin(sisCounters.stackListCounts), std::end(sisCounters.stackListCounts), 0.0);
-        double eventLossRatio = totalLostEvents / totalGoodEvents;
+        double totalGoodEvents = sisCounters.receivedEventsExcludingWatchdog();
+        double eventLossRatio  = totalLostEvents / totalGoodEvents;
 
         u64 deltaLostEvents   = calc_delta0(sisCounters.lostEvents, m_d->prevSISCounters.lostEvents);
         double eventLossRate  = deltaLostEvents / dt;
