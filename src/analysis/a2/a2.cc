@@ -2042,17 +2042,7 @@ void condition_filter_step(Operator *op)
  * Expression Operator
  * =============================================== */
 
-#define register_symbol_checked(table, meth, sym, ...)\
-do\
-{\
-    if (!(table.meth(sym, ##__VA_ARGS__)))\
-    {\
-        ExpressionOperatorSymbolError error;\
-        error.symbol_name  = sym;\
-        error.is_duplicate = table.symbolExists(sym);\
-        throw error;\
-    }\
-} while (0)
+#define register_symbol(table, meth, sym, ...) table.meth(sym, ##__VA_ARGS__)
 
 Operator make_expression_operator(
     memory::Arena *arena,
@@ -2081,24 +2071,24 @@ Operator make_expression_operator(
         const auto &unit   = input_units[i];
         const auto &pi     = input_param_indexes[i];
 
-        register_symbol_checked(d->symtab_begin, createString, prefix + ".unit",
-                                unit);
+        register_symbol(d->symtab_begin, createString, prefix + ".unit",
+                        unit);
 
         if (pi == NoParamIndex)
         {
-            register_symbol_checked(d->symtab_begin, addVector, prefix + ".lower_limits",
-                                    input.lowerLimits.data, input.lowerLimits.size);
+            register_symbol(d->symtab_begin, addVector, prefix + ".lower_limits",
+                            input.lowerLimits.data, input.lowerLimits.size);
 
-            register_symbol_checked(d->symtab_begin, addVector, prefix + ".upper_limits",
-                                    input.upperLimits.data, input.upperLimits.size);
+            register_symbol(d->symtab_begin, addVector, prefix + ".upper_limits",
+                            input.upperLimits.data, input.upperLimits.size);
         }
         else
         {
-            register_symbol_checked(d->symtab_begin, addScalar, prefix + ".lower_limit",
-                                    input.lowerLimits.data[pi]);
+            register_symbol(d->symtab_begin, addScalar, prefix + ".lower_limit",
+                            input.lowerLimits.data[pi]);
 
-            register_symbol_checked(d->symtab_begin, addScalar, prefix + ".upper_limit",
-                                    input.upperLimits.data[pi]);
+            register_symbol(d->symtab_begin, addScalar, prefix + ".upper_limit",
+                            input.upperLimits.data[pi]);
         }
     }
 
@@ -2147,30 +2137,30 @@ Operator make_expression_operator(
         const auto &unit   = input_units[in_idx];
         const auto &pi     = input_param_indexes[in_idx];
 
-        register_symbol_checked(d->symtab_step, createString, prefix + ".unit",
-                                unit);
+        register_symbol(d->symtab_step, createString, prefix + ".unit",
+                        unit);
 
         if (pi == NoParamIndex)
         {
-            register_symbol_checked(d->symtab_step, addVector, prefix,
-                                    input.data.data, input.data.size);
+            register_symbol(d->symtab_step, addVector, prefix,
+                            input.data.data, input.data.size);
 
-            register_symbol_checked(d->symtab_step, addVector, prefix + ".lower_limits",
-                                    input.lowerLimits.data, input.lowerLimits.size);
+            register_symbol(d->symtab_step, addVector, prefix + ".lower_limits",
+                            input.lowerLimits.data, input.lowerLimits.size);
 
-            register_symbol_checked(d->symtab_step, addVector, prefix + ".upper_limits",
-                                    input.upperLimits.data, input.upperLimits.size);
+            register_symbol(d->symtab_step, addVector, prefix + ".upper_limits",
+                            input.upperLimits.data, input.upperLimits.size);
         }
         else
         {
-            register_symbol_checked(d->symtab_step, addScalar, prefix,
-                                    input.data.data[pi]);
+            register_symbol(d->symtab_step, addScalar, prefix,
+                            input.data.data[pi]);
 
-            register_symbol_checked(d->symtab_step, addScalar, prefix + ".lower_limit",
-                                    input.lowerLimits.data[pi]);
+            register_symbol(d->symtab_step, addScalar, prefix + ".lower_limit",
+                            input.lowerLimits.data[pi]);
 
-            register_symbol_checked(d->symtab_step, addScalar, prefix + ".upper_limit",
-                                    input.upperLimits.data[pi]);
+            register_symbol(d->symtab_step, addScalar, prefix + ".upper_limit",
+                            input.upperLimits.data[pi]);
         }
     }
 
@@ -2232,14 +2222,14 @@ while(0)
 
         //fprintf(stderr, "output[%lu] variable name = %s\n", out_idx, res_name.string.c_str());
 
-        register_symbol_checked(d->symtab_step, addVector, res_name.string,
-                                result.outputs[out_idx].data, result.outputs[out_idx].size);
+        register_symbol(d->symtab_step, addVector, res_name.string,
+                        result.outputs[out_idx].data, result.outputs[out_idx].size);
 
-        register_symbol_checked(d->symtab_step, addVector, res_name.string + ".lower_limits",
-                                result.outputLowerLimits[out_idx].data, result.outputLowerLimits[out_idx].size);
+        register_symbol(d->symtab_step, addVector, res_name.string + ".lower_limits",
+                        result.outputLowerLimits[out_idx].data, result.outputLowerLimits[out_idx].size);
 
-        register_symbol_checked(d->symtab_step, addVector, res_name.string + ".upper_limits",
-                                result.outputUpperLimits[out_idx].data, result.outputUpperLimits[out_idx].size);
+        register_symbol(d->symtab_step, addVector, res_name.string + ".upper_limits",
+                        result.outputUpperLimits[out_idx].data, result.outputUpperLimits[out_idx].size);
     }
 
     d->expr_step.registerSymbolTable(d->symtab_step);
@@ -2254,7 +2244,7 @@ while(0)
     return result;
 }
 
-#undef register_symbol_checked
+#undef register_symbol
 
 void expression_operator_compile_step_expression(Operator *op)
 {

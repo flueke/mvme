@@ -60,11 +60,15 @@ typedef Parser::settings_t              ParserSettings;
 typedef exprtk::results_context<double> ResultsContext;
 
 static const size_t CompileOptions = ParserSettings::e_replacer          +
-                                   //ParserSettings::e_joiner            + // Joins things like "< =" to become "<="
+                                     // Joins things like "< =" to become "<="
+                                     //ParserSettings::e_joiner            +
+
                                      ParserSettings::e_numeric_check     +
                                      ParserSettings::e_bracket_check     +
                                      ParserSettings::e_sequence_check    +
-                                     ParserSettings::e_commutative_check + // "3x" -> "3*x"
+
+                                     // "3x" -> "3*x"
+                                     ParserSettings::e_commutative_check +
                                      ParserSettings::e_strength_reduction;
 
 /* NOTE: I wanted to disable e_commutative_check but when doing so the
@@ -76,12 +80,15 @@ static const size_t CompileOptions = ParserSettings::e_replacer          +
 
 struct SymbolTable::Private
 {
+    bool enableExceptions;
     detail::SymbolTable symtab_impl;
 };
 
-SymbolTable::SymbolTable()
+SymbolTable::SymbolTable(bool enableExceptions)
     : m_d(std::make_unique<Private>())
-{}
+{
+    m_d->enableExceptions = enableExceptions;
+}
 
 SymbolTable::~SymbolTable()
 {
@@ -91,44 +98,135 @@ SymbolTable::~SymbolTable()
 SymbolTable::SymbolTable(const SymbolTable &other)
     : m_d(std::make_unique<Private>())
 {
-    // Reference counted shallow copy implementation
+    m_d->enableExceptions = other.m_d->enableExceptions;
+
+    // exprtk uses a reference counted shallow copy implementation
     m_d->symtab_impl = other.m_d->symtab_impl;
 }
 
 SymbolTable &SymbolTable::operator=(const SymbolTable &other)
 {
+    m_d->enableExceptions = other.m_d->enableExceptions;
     m_d->symtab_impl = other.m_d->symtab_impl;
     return *this;
 }
 
 bool SymbolTable::addScalar(const std::string &name, double &value)
 {
-    return m_d->symtab_impl.add_variable(name, value);
+    bool result = m_d->symtab_impl.add_variable(name, value);
+
+    if (!result && m_d->enableExceptions)
+    {
+        SymbolError error(name);
+
+        if (SymbolTable::isReservedSymbol(name))
+            error.reason = SymbolError::Reason::IsReservedSymbol;
+        else if (symbolExists(name))
+            error.reason = SymbolError::Reason::SymbolExists;
+
+        throw error;
+    }
+
+    return result;
 }
 
 bool SymbolTable::addString(const std::string &name, std::string &str)
 {
-    return m_d->symtab_impl.add_stringvar(name, str);
+    bool result = m_d->symtab_impl.add_stringvar(name, str);
+
+    if (!result && m_d->enableExceptions)
+    {
+        SymbolError error(name);
+
+        if (SymbolTable::isReservedSymbol(name))
+            error.reason = SymbolError::Reason::IsReservedSymbol;
+        else if (symbolExists(name))
+            error.reason = SymbolError::Reason::SymbolExists;
+
+        throw error;
+    }
+
+    return result;
 }
 
 bool SymbolTable::addVector(const std::string &name, std::vector<double> &vec)
 {
-    return m_d->symtab_impl.add_vector(name, vec);
+    bool result = m_d->symtab_impl.add_vector(name, vec);
+
+    if (!result && m_d->enableExceptions)
+    {
+        SymbolError error(name);
+
+        if (SymbolTable::isReservedSymbol(name))
+            error.reason = SymbolError::Reason::IsReservedSymbol;
+        else if (symbolExists(name))
+            error.reason = SymbolError::Reason::SymbolExists;
+        else if (vec.size() == 0)
+            error.reason = SymbolError::Reason::IsZeroLengthArray;
+
+        throw error;
+    }
+
+    return result;
 }
 
 bool SymbolTable::addVector(const std::string &name, double *array, size_t size)
 {
-    return m_d->symtab_impl.add_vector(name, array, size);
+    bool result = m_d->symtab_impl.add_vector(name, array, size);
+
+    if (!result && m_d->enableExceptions)
+    {
+        SymbolError error(name);
+
+        if (SymbolTable::isReservedSymbol(name))
+            error.reason = SymbolError::Reason::IsReservedSymbol;
+        else if (symbolExists(name))
+            error.reason = SymbolError::Reason::SymbolExists;
+        else if (size == 0)
+            error.reason = SymbolError::Reason::IsZeroLengthArray;
+
+        throw error;
+    }
+
+    return result;
 }
 
 bool SymbolTable::addConstant(const std::string &name, double value)
 {
-    return m_d->symtab_impl.add_constant(name, value);
+    bool result = m_d->symtab_impl.add_constant(name, value);
+
+    if (!result && m_d->enableExceptions)
+    {
+        SymbolError error(name);
+
+        if (SymbolTable::isReservedSymbol(name))
+            error.reason = SymbolError::Reason::IsReservedSymbol;
+        else if (symbolExists(name))
+            error.reason = SymbolError::Reason::SymbolExists;
+
+        throw error;
+    }
+
+    return result;
 }
 
 bool SymbolTable::createString(const std::string &name, const std::string &str)
 {
-    return m_d->symtab_impl.create_stringvar(name, str);
+    bool result = m_d->symtab_impl.create_stringvar(name, str);
+
+    if (!result && m_d->enableExceptions)
+    {
+        SymbolError error(name);
+
+        if (SymbolTable::isReservedSymbol(name))
+            error.reason = SymbolError::Reason::IsReservedSymbol;
+        else if (symbolExists(name))
+            error.reason = SymbolError::Reason::SymbolExists;
+
+        throw error;
+    }
+
+    return result;
 }
 
 bool SymbolTable::addConstants()
@@ -184,18 +282,24 @@ SymbolTable SymbolTable::makeA2RuntimeLibrary()
 {
     SymbolTable result;
 
-    result.m_d->symtab_impl.add_function("is_valid",
-                                         [](double p) { return static_cast<double>(is_param_valid(p)); });
+    result.m_d->symtab_impl.add_function(
+        "is_valid", [](double p) { return static_cast<double>(is_param_valid(p)); });
 
-    result.m_d->symtab_impl.add_function("is_invalid",
-                                         [](double p) { return static_cast<double>(!is_param_valid(p)); });
+    result.m_d->symtab_impl.add_function(
+        "is_invalid", [](double p) { return static_cast<double>(!is_param_valid(p)); });
 
-    result.m_d->symtab_impl.add_function("make_invalid", invalid_param);
+    result.m_d->symtab_impl.add_function(
+        "make_invalid", invalid_param);
 
-    result.m_d->symtab_impl.add_function("is_nan",
-                                         [](double d) { return static_cast<double>(std::isnan(d)); });
+    result.m_d->symtab_impl.add_function(
+        "is_nan", [](double d) { return static_cast<double>(std::isnan(d)); });
 
     return result;
+}
+
+bool SymbolTable::isReservedSymbol(const std::string &name)
+{
+    return exprtk::details::is_reserved_symbol(name);
 }
 
 #if 0

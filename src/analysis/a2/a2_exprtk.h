@@ -34,74 +34,72 @@ struct ParserErrorList: std::runtime_error
     Container::const_iterator end() const   { return errors.end(); }
 };
 
+struct SymbolError: public std::runtime_error
+{
+    enum class Reason
+    {
+        Unspecified,
+        IsReservedSymbol,
+        SymbolExists,
+        IsZeroLengthArray,
+    };
+
+    explicit SymbolError(const std::string symbolName_ = {},
+                         Reason reason_ = Reason::Unspecified)
+        : std::runtime_error("SymbolError")
+        , symbolName(symbolName_)
+        , reason(reason_)
+    { }
+
+    std::string symbolName;
+    Reason reason = Reason::Unspecified;
+};
+
 class SymbolTable
 {
     public:
-#if 0
-        struct Entry
-        {
-            enum Type
-            {
-                Scalar,
-                String,
-                Vector,
-                Array,
-                Constant
-            };
+        /* If enableExceptions is true the addXYZ() and createString() methods will
+         * throw an instance of SymbolError if registering the symbol fails.
+         * Note that addConstants() will not throw. */
+        explicit SymbolTable(bool enableExceptions=true);
+        ~SymbolTable();
 
-            Type type;
+        /* Uses the exprtk::symbol_table copy constructor internally, which
+         * performs a reference counted shallow copy. Thus the same semantics as
+         * for the exprtk symbol tables apply. */
+        SymbolTable(const SymbolTable &other);
+        SymbolTable &operator=(const SymbolTable &other);
 
-            union
-            {
-                double *scalar;
-                std::string *string;
-                std::vector<double> *vector;
+        bool addScalar(const std::string &name, double &value);
+        bool addString(const std::string &name, std::string &str);
+        bool addVector(const std::string &name, std::vector<double> &vec);
+        bool addVector(const std::string &name, double *array, size_t size);
+        bool addConstant(const std::string &name, double value); // TO
 
-                struct
-                {
-                    double *array;
-                    size_t size;
-                };
+        bool createString(const std::string &name, const std::string &str);
 
-                double constant;
-            };
-        };
-#endif
+        bool addConstants(); // pi, epsilon, inf
 
-    SymbolTable();
-    ~SymbolTable();
+        /* NOTE: There's currently no way to get back to the original std::vector
+         * registered via addVector(), only the pointer and size can be queried. */
 
-    SymbolTable(const SymbolTable &other);
-    SymbolTable &operator=(const SymbolTable &other);
+        std::vector<std::string> getSymbolNames() const;
+        bool symbolExists(const std::string &name) const;
 
-    bool addScalar(const std::string &name, double &value);
-    bool addString(const std::string &name, std::string &str);
-    bool addVector(const std::string &name, std::vector<double> &vec);
-    bool addVector(const std::string &name, double *array, size_t size);
-    bool addConstant(const std::string &name, double value); // TO
+        double *getScalar(const std::string &name);
+        std::string *getString(const std::string &name);
+        std::pair<double *, size_t> getVector(const std::string &name);
+        //double getConstant(const std::string &name) const;
 
-    bool createString(const std::string &name, const std::string &str);
+        /* Runtime library containing frequently used functions for use in expressions.
+         * An instance of this will automatically be registered for expressions in
+         * make_expression_operator().
+         * Contains the following functions:
+         * is_valid(p), is_invalid(p), make_invalid(), is_nan(d)
+         */
+        static SymbolTable makeA2RuntimeLibrary();
 
-    bool addConstants(); // pi, epsilon, inf
-
-    // NOTE: There's currently no way to get back to the original std::vector
-    // registered via addVector(), only the pointer and size can be queried.
-
-    std::vector<std::string> getSymbolNames() const;
-    bool symbolExists(const std::string &name) const;
-
-    double *getScalar(const std::string &name);
-    std::string *getString(const std::string &name);
-    std::pair<double *, size_t> getVector(const std::string &name);
-    //double getConstant(const std::string &name) const;
-
-    /* Runtime library containing frequently used functions for use in expressions.
-     * An instance of this will automatically be registered for expressions in
-     * make_expression_operator().
-     * Contains the following functions:
-     * is_valid(p), is_invalid(p), make_invalid(), is_nan(d)
-     */
-    static SymbolTable makeA2RuntimeLibrary();
+        static bool isReservedSymbol(const std::string &name);
 
     private:
         friend class Expression;
@@ -154,3 +152,35 @@ class Expression
 } // namespace a2
 
 #endif /* __A2_EXPRTK_H__ */
+
+#if 0
+        struct Entry
+        {
+            enum Type
+            {
+                Scalar,
+                String,
+                Vector,
+                Array,
+                Constant
+            };
+
+            Type type;
+
+            union
+            {
+                double *scalar;
+                std::string *string;
+                std::vector<double> *vector;
+
+                struct
+                {
+                    double *array;
+                    size_t size;
+                };
+
+                double constant;
+            };
+        };
+#endif
+

@@ -356,19 +356,6 @@ struct ExpressionOperatorError: public std::runtime_error
     using std::runtime_error::runtime_error;
 };
 
-/* Thrown if a symbol can not be registered with a symbol table. */
-// FIXME: this most likely should be moved into a2_exprtk!
-// FIXME: specifically handle zero length arrays
-struct ExpressionOperatorSymbolError: public ExpressionOperatorError
-{
-    std::string symbol_name;
-    bool is_duplicate;
-
-    ExpressionOperatorSymbolError()
-        : ExpressionOperatorError("SymbolError")
-    {}
-};
-
 /* Thrown if the return value of the begin expression is malformed or contains
  * unexpected data types. */
 struct ExpressionOperatorSemanticError: public ExpressionOperatorError
