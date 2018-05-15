@@ -28,6 +28,7 @@
 #include <QPushButton>
 #include <QSplitter>
 #include <QTableWidget>
+#include <QToolBar>
 #include <QToolBox>
 
 #include "a2/a2.h"
@@ -153,7 +154,7 @@ class ExpressionErrorWidget: public QWidget
 
             Type type;
             a2::a2_exprtk::ParserError parserError;
-            a2::ExpressionOperatorSymbolError symbolError;
+            a2::a2_exprtk::SymbolError symbolError;;
             a2::ExpressionOperatorSemanticError semanticError;
             std::runtime_error runtimeError;
         };
@@ -198,6 +199,9 @@ class ExpressionEditorWidget: public QWidget
 
         void setError(const std::exception_ptr &ep);
 
+        ExpressionTextEditor *getTextEditor() { return m_exprTextEdit; }
+        ExpressionErrorWidget *getErrorWidget() { return m_exprErrors; }
+
     public slots:
         void clearError();
 
@@ -211,6 +215,7 @@ class ExpressionEditorWidget: public QWidget
  * From left to right:
  * - input pipes toolbox
  * - editor with clickable error display and an "exec/eval" button.
+ *   toolbar
  * - output pipes toolbox
  */
 class ExpressionOperatorEditorComponent: public QWidget
@@ -218,6 +223,10 @@ class ExpressionOperatorEditorComponent: public QWidget
     Q_OBJECT
     signals:
         void eval();
+        void step();
+        void sampleInputs();
+        void randomizeInputs();
+        void generateDefaultCode();
 
     public:
         ExpressionOperatorEditorComponent(QWidget *parent = nullptr);
@@ -231,11 +240,15 @@ class ExpressionOperatorEditorComponent: public QWidget
         void setOutputs(const std::vector<a2::PipeVectors> &pipes,
                         const QStringList &titles);
 
+        void setEvaluationError(const std::exception_ptr &ep);
+        void clearEvaluationError();
+
+        QToolBar *getToolBar() { return m_toolBar; }
+        ExpressionEditorWidget *getEditorWidget() { return m_editorWidget; }
         ExpressionOperatorPipesView *getInputPipesView() { return m_inputPipesView; }
         ExpressionOperatorPipesView *getOutputPipesView() { return m_outputPipesView; }
 
-        void setEvaluationError(const std::exception_ptr &ep);
-        void clearEvaluationError();
+        QAction *getActionStep() { return m_actionStep; }
 
     protected:
         virtual void showEvent(QShowEvent *event) override;
@@ -244,12 +257,15 @@ class ExpressionOperatorEditorComponent: public QWidget
     private:
         void setHSplitterSizes();
 
+        //void onActionHelp_triggered();
+
 
         ExpressionOperatorPipesView *m_inputPipesView;
         ExpressionOperatorPipesView *m_outputPipesView;
+        QToolBar *m_toolBar;
         ExpressionEditorWidget *m_editorWidget;
-        QPushButton *m_evalButton;
         QSplitter *m_hSplitter;
+        QAction *m_actionStep = nullptr;
 };
 
 } // end namespace analysis

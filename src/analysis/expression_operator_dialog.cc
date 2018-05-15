@@ -268,16 +268,16 @@ void ExpressionErrorWidget::prepareEntries(const std::exception_ptr &ep)
             m_entries.push_back(entry);
         }
     }
-    catch (const a2::ExpressionOperatorSymbolError &e)
-    {
-        Entry entry(Entry::Type::SymbolError);
-        entry.symbolError = e;
-        m_entries.push_back(entry);
-    }
     catch (const a2::ExpressionOperatorSemanticError &e)
     {
         Entry entry(Entry::Type::SemanticError);
         entry.semanticError = e;
+        m_entries.push_back(entry);
+    }
+    catch (const a2::a2_exprtk::SymbolError &e)
+    {
+        Entry entry(Entry::Type::SymbolError);
+        entry.symbolError = e;
         m_entries.push_back(entry);
     }
     catch (const std::runtime_error &e)
@@ -327,15 +327,30 @@ void ExpressionErrorWidget::populateTable()
 
                     QString msg;
 
-                    if (entry.symbolError.is_duplicate)
+                    using Reason = a2::a2_exprtk::SymbolError::Reason;
+
+                    switch (entry.symbolError.reason)
                     {
-                        msg = (QSL("Could not register symbol name '%1': symbol name exists.")
-                               .arg(entry.symbolError.symbol_name.c_str()));
-                    }
-                    else
-                    {
-                        msg = (QSL("Could not register symbol name '%1': invalid symbol name.")
-                               .arg(entry.symbolError.symbol_name.c_str()));
+
+                        case Reason::IsReservedSymbol:
+                            msg = (QSL("Could not register symbol '%1': reserved symbol name.")
+                                   .arg(entry.symbolError.symbolName.c_str()));
+                            break;
+
+                        case Reason::SymbolExists:
+                            msg = (QSL("Could not register symbol '%1': symbol name exists.")
+                                   .arg(entry.symbolError.symbolName.c_str()));
+                            break;
+
+                        case Reason::IsZeroLengthArray:
+                            msg = (QSL("Could not register symbol '%1': cannot register zero length arrays.")
+                                   .arg(entry.symbolError.symbolName.c_str()));
+                            break;
+
+                        case Reason::Unspecified:
+                            msg = (QSL("Could not register symbol '%1': invalid symbol name.")
+                                   .arg(entry.symbolError.symbolName.c_str()));
+                            break;
                     }
 
                     set_next_item(QSL("SymbolError"));
@@ -422,6 +437,7 @@ ExpressionTextEditor::ExpressionTextEditor(QWidget *parent)
     , m_textEdit(new QPlainTextEdit)
 {
     auto font = make_monospace_font();
+    font.setPointSize(8);
     m_textEdit->setFont(font);
     m_textEdit->setTabStopWidth(calculate_tabstop_width(font, TabStop));
 
@@ -504,21 +520,14 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
     : QWidget(parent)
     , m_inputPipesView(new ExpressionOperatorPipesView)
     , m_outputPipesView(new ExpressionOperatorPipesView)
+    , m_toolBar(make_toolbar())
     , m_editorWidget(new ExpressionEditorWidget)
-    , m_evalButton(new QPushButton(QSL("&Eval")))
     , m_hSplitter(new QSplitter(Qt::Horizontal))
 {
-    auto buttonLayout = new QHBoxLayout;
-    //buttonLayout->setContentsMargins(0, 0, 0, 0);
-    buttonLayout->addWidget(make_spacer_widget());
-    buttonLayout->addWidget(m_evalButton);
-    buttonLayout->addWidget(make_spacer_widget());
-
     auto editorFrame = new QFrame(this);
     auto editorFrameLayout = new QVBoxLayout(editorFrame);
-    //editorFrameLayout->setContentsMargins(0, 0, 0, 0);
+    editorFrameLayout->addWidget(m_toolBar);
     editorFrameLayout->addWidget(m_editorWidget);
-    editorFrameLayout->addLayout(buttonLayout);
 
     auto splitter = m_hSplitter;
     splitter->addWidget(m_inputPipesView);
@@ -532,8 +541,54 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
     auto widgetLayout = new QHBoxLayout(this);
     widgetLayout->addWidget(splitter);
 
-    connect(m_evalButton, &QPushButton::clicked,
-            this, &ExpressionOperatorEditorComponent::eval);
+    m_toolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+
+#define tb_aa(arg, ...) m_toolBar->addAction(arg, ##__VA_ARGS__)
+#define tb_sep() m_toolBar->addSeparator()
+    QAction *action;
+
+    action = tb_aa(QIcon(":/window_icon.png"), QSL("&Eval"),
+                   this, &ExpressionOperatorEditorComponent::eval);
+    action->setToolTip(QSL("Recompile the current expression"));
+
+    m_actionStep = tb_aa(QIcon(":/window_icon.png"), QSL("S&tep"),
+                   this, &ExpressionOperatorEditorComponent::step);
+    m_actionStep->setToolTip(QSL("Perform one step of the operator without prior recompilation."));
+    m_actionStep->setEnabled(false);
+
+
+    tb_sep();
+
+    tb_aa(QIcon(":/window_icon.png"), QSL("&Sample Inputs"),
+                   this, &ExpressionOperatorEditorComponent::sampleInputs);
+
+    tb_aa(QIcon(":/window_icon.png"), QSL("&Randomize Inputs"),
+                   this, &ExpressionOperatorEditorComponent::randomizeInputs);
+
+    tb_sep();
+
+    QPlainTextEdit *textEdit = m_editorWidget->getTextEditor()->textEdit();
+
+    QAction* actionUndo = tb_aa(QIcon::fromTheme("edit-undo"), "Undo",
+                                textEdit, &QPlainTextEdit::undo);
+    actionUndo->setEnabled(false);
+
+    QAction *actionRedo = tb_aa(QIcon::fromTheme("edit-redo"), "Redo",
+                                textEdit, &QPlainTextEdit::redo);
+    actionRedo->setEnabled(false);
+
+    connect(textEdit, &QPlainTextEdit::undoAvailable, actionUndo, &QAction::setEnabled);
+    connect(textEdit, &QPlainTextEdit::redoAvailable, actionRedo, &QAction::setEnabled);
+
+    tb_sep();
+
+    //tb_aa("Show Symbol Table");
+    //tb_aa("Generate Code", this, &ExpressionOperatorEditorComponent::generateDefaultCode);
+    //tb_aa("&Help", this, &ExpressionOperatorEditorComponent::onActionHelp_triggered);
+
+#undef tb_sep
+#undef tb_aa
+
 }
 
 void ExpressionOperatorEditorComponent::setHSplitterSizes()
@@ -654,6 +709,8 @@ struct ExpressionOperatorDialog::Private
 
     void repopulateGUIFromModel();
     void repopulateSlotGridFromModel();
+    void refreshInputPipesViews();
+    void refreshOutputPipesViews();
 
     void postInputsModified();
 
@@ -666,6 +723,9 @@ struct ExpressionOperatorDialog::Private
 
     void model_evalBeginExpression();
     void model_evalStepExpression();
+    void model_stepOperator();
+    void model_sampleInputs();
+    void model_randomizeInputs();
 };
 
 namespace
@@ -778,7 +838,8 @@ struct Model
 
     /* Pointers to the original input pipes are stored here so that the
      * analysis::ExpressionOperator can be modified properly once the user
-     * accepts the changes. */
+     * accepts the changes.
+     * Also used for sampling input data from a running analysis. */
     std::vector<Pipe *> a1_inputPipes;
 
     QString operatorName;
@@ -1265,7 +1326,20 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
 void ExpressionOperatorDialog::Private::postInputsModified()
 {
     updateModelFromGUI();
-    repopulateGUIFromModel();
+    model_evalBeginExpression();
+    model_evalStepExpression();
+}
+
+void ExpressionOperatorDialog::Private::refreshInputPipesViews()
+{
+    m_beginExpressionEditor->getInputPipesView()->refresh();
+    m_stepExpressionEditor->getInputPipesView()->refresh();
+}
+
+void ExpressionOperatorDialog::Private::refreshOutputPipesViews()
+{
+    m_beginExpressionEditor->getOutputPipesView()->refresh();
+    m_stepExpressionEditor->getOutputPipesView()->refresh();
 }
 
 void ExpressionOperatorDialog::Private::onAddSlotButtonClicked()
@@ -1372,11 +1446,6 @@ void ExpressionOperatorDialog::Private::model_evalStepExpression()
     }
     catch (const std::runtime_error &e)
     {
-        // FIXME: this can get confusing if the error came from evaluating the
-        // begin expression. split into InitOnly and compile steps. if InitOnly
-        // fails switch back to the begin tab or add an error message telling
-        // the user to fix the begin script first
-
         qDebug() << __FUNCTION__ << "InitOnly failed:" << QString::fromStdString(e.what());
 
         m_a2Op = {};
@@ -1402,6 +1471,56 @@ void ExpressionOperatorDialog::Private::model_evalStepExpression()
     }
 
     repopulateGUIFromModel();
+}
+
+void ExpressionOperatorDialog::Private::model_stepOperator()
+{
+    assert(m_a2Op.type == a2::Operator_Expression);
+
+    if (m_a2Op.type == a2::Operator_Expression)
+    {
+        a2::expression_operator_step(&m_a2Op);
+        refreshOutputPipesViews();
+    }
+}
+
+static void copy_data(const a2::PipeVectors &sourcePipe, a2::PipeVectors &destPipe)
+{
+    const size_t count = std::min(sourcePipe.data.size, destPipe.data.size);
+
+    for (size_t i = 0; i < count; i++)
+    {
+        destPipe.data[i] = sourcePipe.data[i];
+    }
+}
+
+void ExpressionOperatorDialog::Private::model_sampleInputs()
+{
+    assert_consistency(*m_model);
+
+    auto analysis = m_eventWidget->getAnalysis();
+    auto a2State  = analysis->getA2AdapterState();
+
+    if (!a2State) return;
+
+    for (size_t ii = 0; ii < m_model->inputs.size(); ii++)
+    {
+        auto a1_pipe = m_model->a1_inputPipes[ii];
+
+        if (!a1_pipe) continue;
+
+        auto a2_sourcePipe = find_output_pipe(a2State, a1_pipe);
+        auto a2_destPipe   = m_model->inputs[ii];
+
+        copy_data(a2_sourcePipe, a2_destPipe);
+    }
+
+    refreshInputPipesViews();
+}
+
+void ExpressionOperatorDialog::Private::model_randomizeInputs()
+{
+    refreshInputPipesViews();
 }
 
 ExpressionOperatorDialog::ExpressionOperatorDialog(
@@ -1484,19 +1603,47 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
         m_d->onRemoveSlotButtonClicked();
     });
 
-    // Script evaluation
+    // Editor component interaction (eval script, step, sample inputs)
+
+    // eval
     connect(m_d->m_beginExpressionEditor, &ExpressionOperatorEditorComponent::eval,
             this, [this] () {
         m_d->updateModelFromGUI();
         m_d->model_evalBeginExpression();
-        m_d->repopulateGUIFromModel();
     });
 
     connect(m_d->m_stepExpressionEditor, &ExpressionOperatorEditorComponent::eval,
             this, [this] () {
         m_d->updateModelFromGUI();
         m_d->model_evalStepExpression();
-        m_d->repopulateGUIFromModel();
+    });
+
+    // step
+    connect(m_d->m_stepExpressionEditor, &ExpressionOperatorEditorComponent::step,
+            this, [this] () {
+        m_d->model_stepOperator();
+    });
+
+    // sample input data
+    connect(m_d->m_beginExpressionEditor, &ExpressionOperatorEditorComponent::sampleInputs,
+            this, [this] () {
+        m_d->model_sampleInputs();
+    });
+
+    connect(m_d->m_stepExpressionEditor, &ExpressionOperatorEditorComponent::sampleInputs,
+            this, [this] () {
+        m_d->model_sampleInputs();
+    });
+
+    // randomize input data
+    connect(m_d->m_beginExpressionEditor, &ExpressionOperatorEditorComponent::sampleInputs,
+            this, [this] () {
+        m_d->model_randomizeInputs();
+    });
+
+    connect(m_d->m_stepExpressionEditor, &ExpressionOperatorEditorComponent::sampleInputs,
+            this, [this] () {
+        m_d->model_randomizeInputs();
     });
 
     // Initialize and misc setup
@@ -1542,7 +1689,7 @@ void ExpressionOperatorDialog::accept()
 
         case OperatorEditorMode::Edit:
             {
-                // TODO: do_beginRun_forward here
+                // TODO: do_beginRun_forward here instead of the full beginRun()
                 // TODO: encapsulate further. too many details here
 
                 auto runInfo = m_d->m_eventWidget->getRunInfo();
