@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <exception>
+#include <functional>
 #include <memory>
 #include <numeric>
 #include <type_traits>
