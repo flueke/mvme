@@ -71,12 +71,16 @@ bool InputSelectButton::eventFilter(QObject *watched, QEvent *event)
 //
 ExpressionOperatorPipeView::ExpressionOperatorPipeView(QWidget *parent)
     : QWidget(parent)
+    , m_unitLabel(new QLabel(this))
     , m_tableWidget(new QTableWidget(this))
     , m_a2Pipe{}
 {
+    auto infoLayout = new QFormLayout;
+    infoLayout->addRow(QSL("Unit:"), m_unitLabel);
+
     auto layout = new QVBoxLayout(this);
     //layout->setContentsMargins(0, 0, 0, 0);
-
+    layout->addLayout(infoLayout);
     layout->addWidget(m_tableWidget);
 
     // columns:
@@ -97,9 +101,11 @@ void ExpressionOperatorPipeView::showEvent(QShowEvent *event)
     QWidget::showEvent(event);
 }
 
-void ExpressionOperatorPipeView::setPipe(const a2::PipeVectors &a2_pipe)
+void ExpressionOperatorPipeView::setPipe(const a2::PipeVectors &a2_pipe,
+                                         const QString &unit)
 {
     m_a2Pipe = a2_pipe;
+    m_unitLabel->setText(unit);
     refresh();
 }
 
@@ -171,9 +177,11 @@ void ExpressionOperatorPipesView::showEvent(QShowEvent *event)
 }
 
 void ExpressionOperatorPipesView::setPipes(const std::vector<a2::PipeVectors> &pipes,
-                                           const QStringList &titles)
+                                           const QStringList &titles,
+                                           const QStringList &units)
 {
     assert(static_cast<s32>(pipes.size()) == titles.size());
+    assert(static_cast<s32>(pipes.size()) == units.size());
 
     s32 prevIndex = currentIndex();
     s32 newSize = titles.size();
@@ -191,13 +199,13 @@ void ExpressionOperatorPipesView::setPipes(const std::vector<a2::PipeVectors> &p
 
         if ((pv = qobject_cast<ExpressionOperatorPipeView *>(widget(pi))))
         {
-            pv->setPipe(pipes[pi]);
+            pv->setPipe(pipes[pi], units[pi]);
             setItemText(pi, titles[pi]);
         }
         else
         {
             pv = new ExpressionOperatorPipeView;
-            pv->setPipe(pipes[pi]);
+            pv->setPipe(pipes[pi], units[pi]);
             addItem(pv, titles[pi]);
         }
     }
@@ -632,15 +640,17 @@ QString ExpressionOperatorEditorComponent::expressionText() const
 }
 
 void ExpressionOperatorEditorComponent::setInputs(const std::vector<a2::PipeVectors> &pipes,
-                                                  const QStringList &titles)
+                                                  const QStringList &titles,
+                                                  const QStringList &units)
 {
-    m_inputPipesView->setPipes(pipes, titles);
+    m_inputPipesView->setPipes(pipes, titles, units);
 }
 
 void ExpressionOperatorEditorComponent::setOutputs(const std::vector<a2::PipeVectors> &pipes,
-                                                  const QStringList &titles)
+                                                  const QStringList &titles,
+                                                  const QStringList &units)
 {
-    m_outputPipesView->setPipes(pipes, titles);
+    m_outputPipesView->setPipes(pipes, titles, units);
 }
 
 void ExpressionOperatorEditorComponent::setEvaluationError(const std::exception_ptr &ep)
@@ -1290,14 +1300,19 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
 
     // input pipes and variable names
     m_beginExpressionEditor->setInputs(m_model->inputs,
-                                       qStringList_from_vector(m_model->inputPrefixes));
+                                       qStringList_from_vector(m_model->inputPrefixes),
+                                       qStringList_from_vector(m_model->inputUnits)
+                                       );
 
     m_stepExpressionEditor->setInputs(m_model->inputs,
-                                       qStringList_from_vector(m_model->inputPrefixes));
+                                       qStringList_from_vector(m_model->inputPrefixes),
+                                       qStringList_from_vector(m_model->inputUnits)
+                                     );
 
     // output pipes from the a2 operator
     std::vector<a2::PipeVectors> outputs;
     QStringList outputNames;
+    QStringList outputUnits;
 
     if (m_a2Op.type == a2::Operator_Expression)
     {
@@ -1316,11 +1331,12 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
 
             outputs.push_back(pipe);
             outputNames.push_back(QString::fromStdString(a2OpData->output_names[outIdx]));
+            outputUnits.push_back(QString::fromStdString(a2OpData->output_units[outIdx]));
         }
     }
 
-    m_beginExpressionEditor->setOutputs(outputs, outputNames);
-    m_stepExpressionEditor->setOutputs(outputs, outputNames);
+    m_beginExpressionEditor->setOutputs(outputs, outputNames, outputUnits);
+    m_stepExpressionEditor->setOutputs(outputs, outputNames, outputUnits);
 }
 
 void ExpressionOperatorDialog::Private::postInputsModified()

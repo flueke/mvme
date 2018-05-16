@@ -23,6 +23,7 @@
 
 #include <QFrame>
 #include <QGridLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -82,7 +83,7 @@ class ExpressionOperatorPipeView: public QWidget
     public:
         ExpressionOperatorPipeView(QWidget *parent = nullptr);
 
-        void setPipe(const a2::PipeVectors &a2_pipe);
+        void setPipe(const a2::PipeVectors &a2_pipe, const QString &unit = {});
 
     public slots:
         void refresh();
@@ -91,6 +92,7 @@ class ExpressionOperatorPipeView: public QWidget
         virtual void showEvent(QShowEvent *event) override;
 
     private:
+        QLabel *m_unitLabel;
         QTableWidget *m_tableWidget;
         a2::PipeVectors m_a2Pipe;
 };
@@ -104,7 +106,8 @@ class ExpressionOperatorPipesView: public QToolBox
         ExpressionOperatorPipesView(QWidget *parent = nullptr);
 
         void setPipes(const std::vector<a2::PipeVectors> &pipes,
-                      const QStringList &titles);
+                      const QStringList &titles,
+                      const QStringList &units);
 
     public slots:
         void refresh();
@@ -235,10 +238,12 @@ class ExpressionOperatorEditorComponent: public QWidget
         QString expressionText() const;
 
         void setInputs(const std::vector<a2::PipeVectors> &pipes,
-                       const QStringList &titles);
+                       const QStringList &titles,
+                       const QStringList &units);
 
         void setOutputs(const std::vector<a2::PipeVectors> &pipes,
-                        const QStringList &titles);
+                        const QStringList &titles,
+                        const QStringList &units);
 
         void setEvaluationError(const std::exception_ptr &ep);
         void clearEvaluationError();
