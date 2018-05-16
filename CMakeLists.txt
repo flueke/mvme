@@ -105,10 +105,14 @@ include_directories(${QWT_INCLUDE_DIR})
 find_library(QWT_LIBRARY_RELEASE NAMES qwt qwt-qt5 qwt6)
 find_library(QWT_LIBRARY_DEBUG   NAMES qwtd qwt-qt5d qwt6d)
 
-set(QWT_LIBRARY
-    optimized ${QWT_LIBRARY_RELEASE}
-    debug ${QWT_LIBRARY_DEBUG}
-    )
+if (WIN32 OR QWT_LIBRARY_DEBUG)
+    set(QWT_LIBRARY
+        optimized ${QWT_LIBRARY_RELEASE}
+        debug ${QWT_LIBRARY_DEBUG}
+        )
+else()
+    set(QWT_LIBRARY ${QWT_LIBRARY_RELEASE})
+endif()
 
 message("-- Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
 message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
