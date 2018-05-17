@@ -10,7 +10,6 @@
 
 #include "a2_param.h"
 #include "util/assert.h"
-#include "util/nan.h"
 
 #ifndef NDEBUG
 
@@ -278,37 +277,30 @@ std::pair<double *, size_t> SymbolTable::getVector(const std::string &name)
     return std::pair<double *, size_t>(nullptr, 0);
 }
 
-SymbolTable SymbolTable::makeA2RuntimeLibrary()
+bool SymbolTable::addFunction(const std::string &name, Function00 f)
 {
-    SymbolTable result;
+    return m_d->symtab_impl.add_function(name, f);
+}
 
-    result.m_d->symtab_impl.add_function(
-        "is_valid", [](double p) { return static_cast<double>(is_param_valid(p)); });
+bool SymbolTable::addFunction(const std::string &name, Function01 f)
+{
+    return m_d->symtab_impl.add_function(name, f);
+}
 
-    result.m_d->symtab_impl.add_function(
-        "is_invalid", [](double p) { return static_cast<double>(!is_param_valid(p)); });
+bool SymbolTable::addFunction(const std::string &name, Function02 f)
+{
+    return m_d->symtab_impl.add_function(name, f);
+}
 
-    result.m_d->symtab_impl.add_function(
-        "make_invalid", invalid_param);
-
-    result.m_d->symtab_impl.add_function(
-        "is_nan", [](double d) { return static_cast<double>(std::isnan(d)); });
-
-    return result;
+bool SymbolTable::addFunction(const std::string &name, Function03 f)
+{
+    return m_d->symtab_impl.add_function(name, f);
 }
 
 bool SymbolTable::isReservedSymbol(const std::string &name)
 {
     return exprtk::details::is_reserved_symbol(name);
 }
-
-#if 0
-double SymbolTable::getConstant(const std::string &name) const
-{
-    assert(false);
-    return make_quiet_nan();
-}
-#endif
 
 namespace
 {

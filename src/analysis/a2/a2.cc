@@ -2048,6 +2048,28 @@ void condition_filter_step(Operator *op)
  * Expression Operator
  * =============================================== */
 
+a2_exprtk::SymbolTable make_expression_operator_runtime_library()
+{
+    a2_exprtk::SymbolTable result;
+
+    /* Note: the conversion from lambda to function pointer works because the
+     * lambdas are non-capturing. */
+
+    result.addFunction(
+        "is_valid", [](double p) { return static_cast<double>(is_param_valid(p)); });
+
+    result.addFunction(
+        "is_invalid", [](double p) { return static_cast<double>(!is_param_valid(p)); });
+
+    result.addFunction(
+        "make_invalid", invalid_param);
+
+    result.addFunction(
+        "is_nan", [](double d) { return static_cast<double>(std::isnan(d)); });
+
+    return result;
+}
+
 #define register_symbol(table, meth, sym, ...) table.meth(sym, ##__VA_ARGS__)
 
 Operator make_expression_operator(
@@ -2099,8 +2121,8 @@ Operator make_expression_operator(
     }
 
     /* Setup and evaluate the begin expression. */
+    d->expr_begin.registerSymbolTable(make_expression_operator_runtime_library());
     d->expr_begin.registerSymbolTable(d->symtab_begin);
-    d->expr_begin.registerSymbolTable(a2_exprtk::SymbolTable::makeA2RuntimeLibrary());
     d->expr_begin.setExpressionString(expr_begin_str);
     d->expr_begin.compile();
     d->expr_begin.eval();
@@ -2238,8 +2260,8 @@ while(0)
                         result.outputUpperLimits[out_idx].data, result.outputUpperLimits[out_idx].size);
     }
 
+    d->expr_step.registerSymbolTable(make_expression_operator_runtime_library());
     d->expr_step.registerSymbolTable(d->symtab_step);
-    d->expr_step.registerSymbolTable(a2_exprtk::SymbolTable::makeA2RuntimeLibrary());
     d->expr_step.setExpressionString(expr_step_str);
 
     if (options == ExpressionOperatorBuildOptions::FullBuild)

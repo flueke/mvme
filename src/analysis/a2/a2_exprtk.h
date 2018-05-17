@@ -90,15 +90,16 @@ class SymbolTable
         double *getScalar(const std::string &name);
         std::string *getString(const std::string &name);
         std::pair<double *, size_t> getVector(const std::string &name);
-        //double getConstant(const std::string &name) const;
 
-        /* Runtime library containing frequently used functions for use in expressions.
-         * An instance of this will automatically be registered for expressions in
-         * make_expression_operator().
-         * Contains the following functions:
-         * is_valid(p), is_invalid(p), make_invalid(), is_nan(d)
-         */
-        static SymbolTable makeA2RuntimeLibrary();
+        using Function00 = double (*)();
+        using Function01 = double (*)(double);
+        using Function02 = double (*)(double, double);
+        using Function03 = double (*)(double, double, double);
+
+        bool addFunction(const std::string &name, Function00 f);
+        bool addFunction(const std::string &name, Function01 f);
+        bool addFunction(const std::string &name, Function02 f);
+        bool addFunction(const std::string &name, Function03 f);
 
         static bool isReservedSymbol(const std::string &name);
 

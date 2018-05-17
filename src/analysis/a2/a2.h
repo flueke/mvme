@@ -368,6 +368,16 @@ struct ExpressionOperatorSemanticError: public ExpressionOperatorError
     {}
 };
 
+/* Runtime library containing basic analysis related functions.
+ *
+ * An instance of the library will automatically be registered for expressions
+ * used in the expression operator.
+ *
+ * Contains the following functions:
+ * is_valid(p), is_invalid(p), make_invalid(), is_nan(d)
+ */
+a2_exprtk::SymbolTable make_expression_operator_runtime_library();
+
 struct ExpressionOperatorData
 {
     a2_exprtk::SymbolTable symtab_begin;
