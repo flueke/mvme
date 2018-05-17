@@ -26,21 +26,9 @@ do\
 
 
 /* TODO list for a2_exprtk:
- * figure out if add_function() is needed, if so add an implementation to
-   SymbolTable
-   add_functions() is not easy to hide if it's at all possible:
-   registering classes derived from exprtk::ifunction<T> requires an instance
-   and that instance needs to stay around. Also acces to exprtk internals is
-   needed.
-   Lambdas can not be registed without implementation access either as that
-   requires the register functions to be a template and the implementation to
-   be visible.
 
  * understand why e_commutative_check behaves the way it does. see the note
    below CompileOptions for an explanation
-
- * implement "double getConstant(const std::string &name) const" if needed and
-   possible
 
  */
 
