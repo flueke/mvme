@@ -22,8 +22,23 @@ find_package(Threads)
 find_path(QUAZIP_INCLUDE_DIR
     NAMES quazip.h
     PATH_SUFFIXES quazip quazip-qt5 quazip5)
-find_library(QUAZIP_QT5 NAMES quazip quazip-qt5 quazip5)
+
 include_directories(${QUAZIP_INCLUDE_DIR})
+
+find_library(QUAZIP_QT5_RELEASE NAMES quazip quazip-qt5 quazip5)
+find_library(QUAZIP_QT5_DEBUG NAMES quazipd quazip-qt5d quazip5d)
+
+if (WIN32 OR QUAZIP_QT5_DEBUG)
+    set(QUAZIP_QT5
+        optimized ${QUAZIP_QT5_RELEASE}
+        debug ${QUAZIP_QT5_DEBUG}
+        )
+else()
+    set(QUAZIP_QT5 ${QUAZIP_QT5_RELEASE})
+endif()
+
+message("-- Using QUAZIP_INCLUDE_DIR=${QUAZIP_INCLUDE_DIR}")
+message("-- Using QUAZIP_QT5=${QUAZIP_QT5}")
 
 # libusb-0.1
 if (WIN32)
