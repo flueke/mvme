@@ -24,7 +24,7 @@ TEST(a2Exprtk, SymbolTableAddThings)
 
     {
         ASSERT_TRUE(symtab.addScalar("scalar1", scalar1));
-        ASSERT_FALSE(symtab.addScalar("scalar1", scalar1));
+        ASSERT_THROW(symtab.addScalar("scalar1", scalar1), SymbolError);
         auto var_names = symtab.getSymbolNames();
         ASSERT_EQ(var_names.size(), 1);
         ASSERT_TRUE(std::find(var_names.begin(), var_names.end(), "scalar1") != var_names.end());
@@ -32,8 +32,8 @@ TEST(a2Exprtk, SymbolTableAddThings)
 
     {
         ASSERT_TRUE(symtab.addString("string1", string1));
-        ASSERT_FALSE(symtab.addScalar("scalar1", scalar1));
-        ASSERT_FALSE(symtab.addString("string1", string1));
+        ASSERT_THROW(symtab.addScalar("scalar1", scalar1), SymbolError);
+        ASSERT_THROW(symtab.addString("string1", string1), SymbolError);
         auto var_names = symtab.getSymbolNames();
         ASSERT_EQ(var_names.size(), 2);
         ASSERT_TRUE(std::find(var_names.begin(), var_names.end(), "scalar1") != var_names.end());
@@ -41,7 +41,7 @@ TEST(a2Exprtk, SymbolTableAddThings)
     }
 
     {
-        ASSERT_FALSE(symtab.addVector("empty_vec", empty_vec));
+        ASSERT_THROW(symtab.addVector("empty_vec", empty_vec), SymbolError);
         auto var_names = symtab.getSymbolNames();
         ASSERT_FALSE(std::find(var_names.begin(), var_names.end(), "vector1") != var_names.end());
     }
@@ -52,7 +52,7 @@ TEST(a2Exprtk, SymbolTableAddThings)
         // that symbol_table<T>::symbol_exists() doesn't check the vector_store
         // for the name. This might be a bug or for some reason deliberate.
         // Update: I fixed the code in the local copy of exprtk.
-        ASSERT_FALSE(symtab.addVector("vector1", filled_vec));
+        ASSERT_THROW(symtab.addVector("vector1", filled_vec), SymbolError);
 
         auto var_names = symtab.getSymbolNames();
         ASSERT_EQ(var_names.size(), 3);
@@ -211,9 +211,9 @@ TEST(a2Exprtk, VariableNames)
     ASSERT_TRUE(symtab.addScalar("foo.bar", x));
     ASSERT_EQ(symtab.getScalar("foo.bar"), &x);
 
-    ASSERT_FALSE(symtab.addScalar("break", x));
-    ASSERT_FALSE(symtab.addScalar("endsWithDot.", x));
-    ASSERT_FALSE(symtab.addScalar(".startWithDot", x));
+    ASSERT_THROW(symtab.addScalar("break", x), SymbolError);
+    ASSERT_THROW(symtab.addScalar("endsWithDot.", x), SymbolError);
+    ASSERT_THROW(symtab.addScalar(".startWithDot", x), SymbolError);
 
     Expression expr("foo.bar * 2");
     expr.registerSymbolTable(symtab);
