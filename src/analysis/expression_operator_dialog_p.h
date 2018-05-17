@@ -109,6 +109,8 @@ class ExpressionOperatorPipesView: public QToolBox
                       const QStringList &titles,
                       const QStringList &units);
 
+        virtual QSize sizeHint() const override;
+
     public slots:
         void refresh();
 

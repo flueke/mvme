@@ -105,7 +105,7 @@ void ExpressionOperatorPipeView::setPipe(const a2::PipeVectors &a2_pipe,
                                          const QString &unit)
 {
     m_a2Pipe = a2_pipe;
-    m_unitLabel->setText(unit);
+    m_unitLabel->setText(unit.isEmpty() ? QSL("&lt;empty&gt;") : unit);
     refresh();
 }
 
@@ -209,6 +209,13 @@ void ExpressionOperatorPipesView::setPipes(const std::vector<a2::PipeVectors> &p
             addItem(pv, titles[pi]);
         }
     }
+}
+
+QSize ExpressionOperatorPipesView::sizeHint() const
+{
+    auto result = QToolBox::sizeHint();
+    qDebug() << __PRETTY_FUNCTION__ << "width" << result.width();
+    return result;
 }
 
 void ExpressionOperatorPipesView::refresh()
@@ -607,10 +614,14 @@ void ExpressionOperatorEditorComponent::setHSplitterSizes()
     sizes[0] = m_inputPipesView->sizeHint().width();
     totalWidth -= sizes[0];
 
+    qDebug() << __PRETTY_FUNCTION__ << "width of input pipes view from sizehint:" << sizes[0];
+
     sizes[2] = m_outputPipesView->sizeHint().width();
     totalWidth -= sizes[2];
 
     sizes[1] = std::max(totalWidth, 800);
+
+    qDebug() << __PRETTY_FUNCTION__ << "width of the editor area:" << sizes[1];
 
     m_hSplitter->setSizes(sizes);
 }
@@ -1337,6 +1348,7 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
 
     m_beginExpressionEditor->setOutputs(outputs, outputNames, outputUnits);
     m_stepExpressionEditor->setOutputs(outputs, outputNames, outputUnits);
+    m_stepExpressionEditor->getActionStep()->setEnabled(m_a2Op.type == a2::Operator_Expression);
 }
 
 void ExpressionOperatorDialog::Private::postInputsModified()
@@ -1500,7 +1512,10 @@ void ExpressionOperatorDialog::Private::model_stepOperator()
     }
 }
 
-static void copy_data(const a2::PipeVectors &sourcePipe, a2::PipeVectors &destPipe)
+namespace
+{
+
+void copy_pipe_data(const a2::PipeVectors &sourcePipe, a2::PipeVectors &destPipe)
 {
     const size_t count = std::min(sourcePipe.data.size, destPipe.data.size);
 
@@ -1509,6 +1524,43 @@ static void copy_data(const a2::PipeVectors &sourcePipe, a2::PipeVectors &destPi
         destPipe.data[i] = sourcePipe.data[i];
     }
 }
+
+/* C++17 has an std::clamp template with roughly the same interface. */
+inline double my_clamp(double v, double lo, double hi)
+{
+    assert(!(hi < lo));
+    if (v < lo) return lo;
+    if (hi < v) return hi;
+    return v;
+}
+
+void randomize_pipe_data(a2::PipeVectors &pipe)
+{
+    /* Note: starting out with the assumption that the limits are the same for
+     * each element of the pipe. When filling the element the specific limits
+     * are checked and if the generated random value is out of range it will be
+     * clamped to be inside the range. This may yield a value equal to the
+     * upper limit which is not correct as the limit specification in a2 is
+     * supposed to be exclusive. I'm ignoring this case here as it's just test
+     * data being generated. */
+
+    if (pipe.data.size == 0) return;
+
+    double ll = pipe.lowerLimits[0];
+    double ul = pipe.upperLimits[0];
+
+    std::uniform_real_distribution<double> dist(ll, ul);
+    pcg32_fast rng;
+    std::random_device rd;
+    rng.seed(rd());
+
+    for (s32 pi = 0; pi < pipe.data.size; pi++)
+    {
+        pipe.data[pi] = my_clamp(dist(rng), pipe.lowerLimits[pi], pipe.upperLimits[pi]);
+    }
+}
+
+} // end anon namespace
 
 void ExpressionOperatorDialog::Private::model_sampleInputs()
 {
@@ -1528,7 +1580,7 @@ void ExpressionOperatorDialog::Private::model_sampleInputs()
         auto a2_sourcePipe = find_output_pipe(a2State, a1_pipe);
         auto a2_destPipe   = m_model->inputs[ii];
 
-        copy_data(a2_sourcePipe, a2_destPipe);
+        copy_pipe_data(a2_sourcePipe, a2_destPipe);
     }
 
     refreshInputPipesViews();
@@ -1536,6 +1588,13 @@ void ExpressionOperatorDialog::Private::model_sampleInputs()
 
 void ExpressionOperatorDialog::Private::model_randomizeInputs()
 {
+    assert_consistency(*m_model);
+
+    for (size_t ii = 0; ii < m_model->inputs.size(); ii++)
+    {
+        randomize_pipe_data(m_model->inputs[ii]);
+    }
+
     refreshInputPipesViews();
 }
 
@@ -1652,12 +1711,12 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     });
 
     // randomize input data
-    connect(m_d->m_beginExpressionEditor, &ExpressionOperatorEditorComponent::sampleInputs,
+    connect(m_d->m_beginExpressionEditor, &ExpressionOperatorEditorComponent::randomizeInputs,
             this, [this] () {
         m_d->model_randomizeInputs();
     });
 
-    connect(m_d->m_stepExpressionEditor, &ExpressionOperatorEditorComponent::sampleInputs,
+    connect(m_d->m_stepExpressionEditor, &ExpressionOperatorEditorComponent::randomizeInputs,
             this, [this] () {
         m_d->model_randomizeInputs();
     });
