@@ -83,6 +83,41 @@ So the size of the return value list must be divisible by 4.
 
 * maybe add symbol table dump functionality somewhere if that is possible
 
+Additional/Advanced Features:
+* user defined functions using the exprtk syntax. SECTION 15 -> function_compositor
+  Limited to returning a single scalar value and up to six input parameters
+  - function name
+  - args and their names
+  - code
+
+   // define function koo1(x,y,z) { ... }
+   compositor
+      .add(function_t()
+         .name("koo1")
+         .var("x").var("y").var("z")
+         .expression("1 + cos(x * y) / z;"));
+
+  -> one function compositor per operator. this would allow to define them recursively I think
+
+* persistent / static variables
+
+  Could be used to keep some accumulator or the last N events or the last
+  result around in the step script.
+
+  statics would be (re)initialized at compile time and then kept during calls to step.
+
+  To make this work the following is needed:
+  for scalars: name and initial value
+  for arrays: name and size.
+
+  Then the expression operator can create the variables in the symbol table
+  instance and initialize them.
+  These variables will only be available in the step expression.
+  The size definition of arrays must be done via an expression aswell as that's
+  the only way to dynamically get to the input sizes. This script will have the
+  same symbol table as the begin expression.
+
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Histo2d: add export to clipboard
