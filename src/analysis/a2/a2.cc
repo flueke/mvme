@@ -321,7 +321,7 @@ DataSource make_datasource_listfilter_extractor(
 
     result.moduleIndex = moduleIndex;
 
-    // This call works as listFilter and repetitionAddressCache have been
+    // This call works because listFilter and repetitionAddressCache have been
     // initialzed at this point.
     size_t addressCount = get_address_count(&result);
 
@@ -409,6 +409,12 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
 /* ===============================================
  * Operators
  * =============================================== */
+
+/** Creates an operator with the specified type and input and output counts.
+ *
+ * To make the operator functional inputs have to be set using assign_input()
+ * and output parameter vectors have to be created and setup using
+ * push_output_vectors(). */
 Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
 {
     Operator result = {};

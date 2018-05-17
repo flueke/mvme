@@ -60,6 +60,7 @@ class SymbolTable
     public:
         /* If enableExceptions is true the addXYZ() and createString() methods will
          * throw an instance of SymbolError if registering the symbol fails.
+         * Otherwise the methods will return false on error.
          * Note that addConstants() will not throw. */
         explicit SymbolTable(bool enableExceptions=true);
         ~SymbolTable();
