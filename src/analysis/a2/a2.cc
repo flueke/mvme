@@ -2072,6 +2072,103 @@ a2_exprtk::SymbolTable make_expression_operator_runtime_library()
 
 #define register_symbol(table, meth, sym, ...) table.meth(sym, ##__VA_ARGS__)
 
+namespace
+{
+struct OutputSpec
+{
+    std::string name;
+    std::string unit;
+    std::vector<double> lowerLimits;
+    std::vector<double> upperLimits;
+};
+
+using Result = a2_exprtk::Expression::Result;
+using SemanticError = ExpressionOperatorSemanticError;
+
+
+OutputSpec build_output_spec(size_t out_idx, size_t result_idx,
+                             const Result &res_name,
+                             const Result &res_unit,
+                             const Result &res_size,
+                             const Result &res_ll,
+                             const Result &res_ul)
+
+{
+    OutputSpec result = {};
+    std::ostringstream ss;
+
+#define expect_result_type(res, expected_type)\
+do\
+    if (res.type != expected_type)\
+    {\
+        std::ostringstream ss;\
+        ss << "Unexpected result type: result #" << result_idx\
+        << ", output #" << out_idx <<  ": expected type is " << #expected_type;\
+        throw SemanticError(ss.str());\
+    }\
+while(0)
+
+    expect_result_type(res_name, Result::String);
+    expect_result_type(res_unit, Result::String);
+    expect_result_type(res_size, Result::Scalar);
+
+#undef expect_result_type
+
+    result.name = res_name.string;
+    result.unit = res_unit.string;
+
+    s32 outputSize = std::lround(res_size.scalar);
+
+    if (outputSize <= 0)
+    {
+        ss << "output#" << out_idx << ", name=" << result.name
+            << ": Invalid output size returned (" << outputSize << ")";
+        throw SemanticError(ss.str());
+    }
+
+    if (res_ll.type == Result::Scalar && res_ul.type == Result::Scalar)
+    {
+        result.lowerLimits.resize(outputSize);
+        std::fill(result.lowerLimits.begin(), result.lowerLimits.end(), res_ll.scalar);
+
+        result.upperLimits.resize(outputSize);
+        std::fill(result.upperLimits.begin(), result.upperLimits.end(), res_ul.scalar);
+    }
+    else if (res_ll.type == Result::Vector && res_ul.type == Result::Vector)
+    {
+        if(res_ll.vector.size() != res_ul.vector.size())
+        {
+            ss << "output#" << out_idx << ", name=" << result.name
+               << ": Different sizes of limit specifications"
+                << ": lower_limits[]: " << res_ll.vector.size()
+                << ", upper_limits[]: " << res_ul.vector.size();
+            throw SemanticError(ss.str());
+        }
+
+        if (res_ll.vector.size() != static_cast<size_t>(outputSize))
+        {
+            ss << "output#" << out_idx << ", name=" << result.name
+                << ": Output size and size of limit arrays differ!"
+                << " output size =" << outputSize
+                << ", limits size =" << res_ll.vector.size();
+            throw SemanticError(ss.str());
+        }
+
+        result.lowerLimits = res_ll.vector;
+        result.upperLimits = res_ul.vector;
+    }
+    else
+    {
+        ss << "output#" << out_idx << ", name=" << result.name
+            << ": Limit definitions must either both be scalars or both be arrays.";
+        throw SemanticError(ss.str());
+    }
+
+    return result;
+}
+
+} // end anon namspace
+
 Operator make_expression_operator(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
@@ -2082,8 +2179,6 @@ Operator make_expression_operator(
     const std::string &expr_step_str,
     ExpressionOperatorBuildOptions options)
 {
-    using SemanticError = ExpressionOperatorSemanticError;
-
     assert(inputs.size() > 0);
     assert(inputs.size() < std::numeric_limits<s32>::max());
     assert(inputs.size() == input_prefixes.size());
@@ -2128,10 +2223,16 @@ Operator make_expression_operator(
     d->expr_begin.eval();
 
     /* Build outputs from the information returned from the begin expression.
-     * The result format is
-     * [ (output_name, output_unit, lower_limits[], upper_limits[]), ... ]
+     *
+     * The result format is a list of tuples with 5 elements per tuple. A tuple
+     * defines a single output array. Each tuple must have the following form
+     * and datatypes:
+     *
+     * output_var_name, output_unit, output_size, lower_limit_spec, upper_limit_spec
+     * string,          string,      scalar,      scalar/array,     scalar/array
+     *
      */
-    static const size_t ElementsPerOutput = 4;
+    static const size_t ElementsPerOutput = 5;
 
     auto begin_results = d->expr_begin.results();
 
@@ -2198,65 +2299,36 @@ Operator make_expression_operator(
          out_idx < outputCount;
          out_idx++, result_idx += ElementsPerOutput)
     {
-        auto &res_name = begin_results[result_idx + 0];
-        auto &res_unit = begin_results[result_idx + 1];
-        auto &res_ll   = begin_results[result_idx + 2];
-        auto &res_ul   = begin_results[result_idx + 3];
+        auto outSpec = build_output_spec(
+            out_idx, result_idx,
+            begin_results[result_idx + 0],
+            begin_results[result_idx + 1],
+            begin_results[result_idx + 2],
+            begin_results[result_idx + 3],
+            begin_results[result_idx + 4]);
 
-        using Result = a2_exprtk::Expression::Result;
+        push_output_vectors(arena, &result, out_idx, outSpec.lowerLimits.size());
 
-#define expect_result_type(res, expected_type)\
-do\
-    if (res.type != expected_type)\
-    {\
-        std::ostringstream ss;\
-        ss << "Unexpected result type: result #" << result_idx << ", output #" << out_idx <<  ": expected type is " << #expected_type;\
-        throw SemanticError(ss.str());\
-    }\
-while(0)
-
-        expect_result_type(res_name, Result::String);
-        expect_result_type(res_unit, Result::String);
-        expect_result_type(res_ll,   Result::Vector);
-        expect_result_type(res_ul,   Result::Vector);
-
-#undef expect_result_type
-
-        assert(res_ll.vector.size() > 0);
-        assert(res_ll.vector.size() < std::numeric_limits<s32>::max());
-
-        if(res_ll.vector.size() != res_ul.vector.size())
+        for (size_t paramIndex = 0;
+             paramIndex < outSpec.lowerLimits.size();
+             paramIndex++)
         {
-            std::ostringstream ss;
-
-            ss << "Different sizes of limit specifications for output#" << out_idx
-                << " " << res_name.string
-                << ": lower_limits: " << res_ll.vector.size()
-                << ", upper_limits: " << res_ul.vector.size();
-
-            throw SemanticError(ss.str());
+            result.outputLowerLimits[out_idx][paramIndex] = outSpec.lowerLimits[paramIndex];
+            result.outputUpperLimits[out_idx][paramIndex] = outSpec.upperLimits[paramIndex];
         }
 
-        push_output_vectors(arena, &result, out_idx, res_ll.vector.size());
-
-        for (size_t paramIndex = 0; paramIndex < res_ll.vector.size(); paramIndex++)
-        {
-            result.outputLowerLimits[out_idx][paramIndex] = res_ll.vector[paramIndex];
-            result.outputUpperLimits[out_idx][paramIndex] = res_ul.vector[paramIndex];
-        }
-
-        d->output_names.push_back(res_name.string);
-        d->output_units.push_back(res_unit.string);
+        d->output_names.push_back(outSpec.name);
+        d->output_units.push_back(outSpec.unit);
 
         //fprintf(stderr, "output[%lu] variable name = %s\n", out_idx, res_name.string.c_str());
 
-        register_symbol(d->symtab_step, addVector, res_name.string,
+        register_symbol(d->symtab_step, addVector, outSpec.name,
                         result.outputs[out_idx].data, result.outputs[out_idx].size);
 
-        register_symbol(d->symtab_step, addVector, res_name.string + ".lower_limits",
+        register_symbol(d->symtab_step, addVector, outSpec.name + ".lower_limits",
                         result.outputLowerLimits[out_idx].data, result.outputLowerLimits[out_idx].size);
 
-        register_symbol(d->symtab_step, addVector, res_name.string + ".upper_limits",
+        register_symbol(d->symtab_step, addVector, outSpec.name + ".upper_limits",
                         result.outputUpperLimits[out_idx].data, result.outputUpperLimits[out_idx].size);
     }
 

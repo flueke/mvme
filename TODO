@@ -1,6 +1,12 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+
+* multi output arraymap
+* constant generator operator:
+  multiple outputs
+* autosave feature for the analysis
+
 * DAQ readout performance: try to make better use of the data buffers.
   Currently one processed controller buffer ends up in the data buffer, which
   means for sis it's only around 1500 bytes.
