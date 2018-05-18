@@ -1375,10 +1375,11 @@ void make_empty_file(const QString &filePath)
 
 void MVMEContext::newWorkspace(const QString &dirName)
 {
-    QDir dir(dirName);
-
-    if (!dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty())
-        throw QString(QSL("Selected directory is not empty"));
+    if (QDir(dirName).exists(WorkspaceIniName))
+    {
+        openWorkspace(dirName);
+        return;
+    }
 
     auto workspaceSettings(makeWorkspaceSettings(dirName));
     workspaceSettings->setValue(QSL("LastVMEConfig"), DefaultVMEConfigFileName);
