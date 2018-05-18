@@ -6,6 +6,7 @@
 #include "analysis_ui_p.h"
 #include "mvme_context_lib.h"
 
+#include <QHeaderView>
 #include <QTabWidget>
 
 /* NOTES:
@@ -95,8 +96,8 @@ void ExpressionOperatorPipeView::showEvent(QShowEvent *event)
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 
-    m_tableWidget->resizeColumnsToContents();
-    m_tableWidget->resizeRowsToContents();
+    //m_tableWidget->resizeColumnsToContents();
+    //m_tableWidget->resizeRowsToContents();
 
     QWidget::showEvent(event);
 }
@@ -562,8 +563,8 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
 #define tb_sep() m_toolBar->addSeparator()
     QAction *action;
 
-    action = tb_aa(QIcon(":/window_icon.png"), QSL("&Eval"),
-                   this, &ExpressionOperatorEditorComponent::eval);
+    action = tb_aa(QIcon(":/window_icon.png"), QSL("&Compile"),
+                   this, &ExpressionOperatorEditorComponent::compile);
     action->setToolTip(QSL("Recompile the current expression"));
 
     m_actionStep = tb_aa(QIcon(":/window_icon.png"), QSL("S&tep"),
@@ -742,8 +743,8 @@ struct ExpressionOperatorDialog::Private
     void onInputCleared(s32 slotIndex);
     void onInputPrefixEdited(s32 slotIndex, const QString &text);
 
-    void model_evalBeginExpression();
-    void model_evalStepExpression();
+    void model_compileBeginExpression();
+    void model_compileStepExpression();
     void model_stepOperator();
     void model_sampleInputs();
     void model_randomizeInputs();
@@ -1276,8 +1277,8 @@ void ExpressionOperatorDialog::Private::updateModelFromOperator()
 {
     load_from_operator(*m_model, *m_op);
 
-    model_evalBeginExpression();
-    model_evalStepExpression();
+    model_compileBeginExpression();
+    model_compileStepExpression();
 }
 
 void ExpressionOperatorDialog::Private::updateModelFromGUI()
@@ -1354,8 +1355,8 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
 void ExpressionOperatorDialog::Private::postInputsModified()
 {
     updateModelFromGUI();
-    model_evalBeginExpression();
-    model_evalStepExpression();
+    model_compileBeginExpression();
+    model_compileStepExpression();
 }
 
 void ExpressionOperatorDialog::Private::refreshInputPipesViews()
@@ -1416,7 +1417,7 @@ void ExpressionOperatorDialog::Private::onInputPrefixEdited(s32 slotIndex,
     postInputsModified();
 }
 
-void ExpressionOperatorDialog::Private::model_evalBeginExpression()
+void ExpressionOperatorDialog::Private::model_compileBeginExpression()
 {
     /* build a2 operator using m_arena and the data from the model.
      * store the operator in a member variable.
@@ -1453,7 +1454,7 @@ void ExpressionOperatorDialog::Private::model_evalBeginExpression()
     repopulateGUIFromModel();
 }
 
-void ExpressionOperatorDialog::Private::model_evalStepExpression()
+void ExpressionOperatorDialog::Private::model_compileStepExpression()
 {
     /* Full build split into InitOnly and an additional compilation of the step
      * expression if the init part succeeded. This is done so that errors from
@@ -1634,6 +1635,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     // tab1: begin expression
     {
         m_d->m_beginExpressionEditor = new ExpressionOperatorEditorComponent;
+        m_d->m_beginExpressionEditor->getActionStep()->setVisible(false);
 
         auto page = new QWidget(this);
         auto l    = new QHBoxLayout(page);
@@ -1681,16 +1683,16 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     // Editor component interaction (eval script, step, sample inputs)
 
     // eval
-    connect(m_d->m_beginExpressionEditor, &ExpressionOperatorEditorComponent::eval,
+    connect(m_d->m_beginExpressionEditor, &ExpressionOperatorEditorComponent::compile,
             this, [this] () {
         m_d->updateModelFromGUI();
-        m_d->model_evalBeginExpression();
+        m_d->model_compileBeginExpression();
     });
 
-    connect(m_d->m_stepExpressionEditor, &ExpressionOperatorEditorComponent::eval,
+    connect(m_d->m_stepExpressionEditor, &ExpressionOperatorEditorComponent::compile,
             this, [this] () {
         m_d->updateModelFromGUI();
-        m_d->model_evalStepExpression();
+        m_d->model_compileStepExpression();
     });
 
     // step

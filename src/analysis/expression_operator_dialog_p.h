@@ -227,11 +227,11 @@ class ExpressionOperatorEditorComponent: public QWidget
 {
     Q_OBJECT
     signals:
-        void eval();
+        void compile();
         void step();
         void sampleInputs();
         void randomizeInputs();
-        void generateDefaultCode();
+        //TODO void generateDefaultCode();
 
     public:
         ExpressionOperatorEditorComponent(QWidget *parent = nullptr);
