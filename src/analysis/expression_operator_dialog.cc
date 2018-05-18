@@ -1552,8 +1552,14 @@ void randomize_pipe_data(a2::PipeVectors &pipe)
 
     std::uniform_real_distribution<double> dist(ll, ul);
     pcg32_fast rng;
+
+#ifndef Q_OS_WIN
     std::random_device rd;
     rng.seed(rd());
+#else
+    // std::random_device is bad under mingw
+    rng.seed(std::time(nullptr));
+#endif
 
     for (s32 pi = 0; pi < pipe.data.size; pi++)
     {
