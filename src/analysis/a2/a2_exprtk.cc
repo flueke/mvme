@@ -40,11 +40,13 @@ namespace a2_exprtk
 namespace detail
 {
 
-typedef exprtk::symbol_table<double>    SymbolTable;
-typedef exprtk::expression<double>      Expression;
-typedef exprtk::parser<double>          Parser;
-typedef Parser::settings_t              ParserSettings;
-typedef exprtk::results_context<double> ResultsContext;
+typedef exprtk::symbol_table<double>        SymbolTable;
+typedef exprtk::expression<double>          Expression;
+typedef exprtk::parser<double>              Parser;
+typedef Parser::settings_t                  ParserSettings;
+typedef exprtk::results_context<double>     ResultsContext;
+typedef exprtk::function_compositor<double> Compositor;
+typedef typename Compositor::function       CompositorFunction;
 
 static const size_t CompileOptions = ParserSettings::e_replacer          +
                                      // Joins things like "< =" to become "<="
@@ -432,6 +434,94 @@ std::vector<Expression::Result> Expression::results()
     }
 
     return ret;
+}
+
+struct FunctionCompositor::Private
+{
+    Private()
+    {}
+
+    Private(const SymbolTable &symTab)
+        : compositor_impl(symTab.m_d->symtab_impl)
+    {}
+
+    SymbolTable symbolTable;
+    detail::Compositor compositor_impl;
+};
+
+FunctionCompositor::FunctionCompositor()
+    : m_d(std::make_unique<Private>())
+{}
+
+FunctionCompositor::FunctionCompositor(const SymbolTable &symTab)
+    : m_d(std::make_unique<Private>(symTab))
+{}
+
+FunctionCompositor::~FunctionCompositor()
+{}
+
+SymbolTable FunctionCompositor::getSymbolTable() const
+{
+    return m_d->symbolTable;
+}
+
+void FunctionCompositor::addAuxiliarySymbolTable(const SymbolTable &auxSymbols)
+{
+    m_d->compositor_impl.add_auxiliary_symtab(auxSymbols.m_d->symtab_impl);
+}
+
+bool FunctionCompositor::addFunction(const std::string &name, const std::string &expr,
+                 const std::string &v0)
+{
+    bool result = m_d->compositor_impl.add(
+        detail::CompositorFunction(name, expr, v0)
+        );
+
+    return result;
+}
+
+bool FunctionCompositor::addFunction(const std::string &name, const std::string &expr,
+                 const std::string &v0, const std::string &v1)
+{
+    bool result = m_d->compositor_impl.add(
+        detail::CompositorFunction(name, expr, v0, v1)
+        );
+
+    return result;
+}
+
+bool FunctionCompositor::addFunction(const std::string &name, const std::string &expr,
+                 const std::string &v0, const std::string &v1,
+                 const std::string &v2)
+{
+    bool result = m_d->compositor_impl.add(
+        detail::CompositorFunction(name, expr, v0, v1, v2)
+        );
+
+    return result;
+}
+
+bool FunctionCompositor::addFunction(const std::string &name, const std::string &expr,
+                 const std::string &v0, const std::string &v1,
+                 const std::string &v2, const std::string &v3)
+{
+    bool result = m_d->compositor_impl.add(
+        detail::CompositorFunction(name, expr, v0, v1, v2, v3)
+        );
+
+    return result;
+}
+
+bool FunctionCompositor::addFunction(const std::string &name, const std::string &expr,
+                 const std::string &v0, const std::string &v1,
+                 const std::string &v2, const std::string &v3,
+                 const std::string &v4)
+{
+    bool result = m_d->compositor_impl.add(
+        detail::CompositorFunction(name, expr, v0, v1, v2, v3, v4)
+        );
+
+    return result;
 }
 
 } // namespace a2_exprtk

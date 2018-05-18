@@ -105,7 +105,7 @@ class SymbolTable
 
     private:
         friend class Expression;
-        friend struct SymbolTableHelper;
+        friend class FunctionCompositor;
         struct Private;
         std::unique_ptr<Private> m_d;
 };
@@ -150,39 +150,42 @@ class Expression
         std::unique_ptr<Private> m_d;
 };
 
+class FunctionCompositor
+{
+    public:
+        FunctionCompositor();
+        FunctionCompositor(const SymbolTable &symTab);
+        ~FunctionCompositor();
+
+        SymbolTable getSymbolTable() const;
+
+        void addAuxiliarySymbolTable(const SymbolTable &auxSymbols);
+
+        bool addFunction(const std::string &name, const std::string &expr,
+                         const std::string &v0);
+
+        bool addFunction(const std::string &name, const std::string &expr,
+                         const std::string &v0, const std::string &v1);
+
+        bool addFunction(const std::string &name, const std::string &expr,
+                         const std::string &v0, const std::string &v1,
+                         const std::string &v2);
+
+        bool addFunction(const std::string &name, const std::string &expr,
+                         const std::string &v0, const std::string &v1,
+                         const std::string &v2, const std::string &v3);
+
+        bool addFunction(const std::string &name, const std::string &expr,
+                         const std::string &v0, const std::string &v1,
+                         const std::string &v2, const std::string &v3,
+                         const std::string &v4);
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> m_d;
+};
+
 } // namespace a2_exprtk
 } // namespace a2
 
 #endif /* __A2_EXPRTK_H__ */
-
-#if 0
-        struct Entry
-        {
-            enum Type
-            {
-                Scalar,
-                String,
-                Vector,
-                Array,
-                Constant
-            };
-
-            Type type;
-
-            union
-            {
-                double *scalar;
-                std::string *string;
-                std::vector<double> *vector;
-
-                struct
-                {
-                    double *array;
-                    size_t size;
-                };
-
-                double constant;
-            };
-        };
-#endif
-
