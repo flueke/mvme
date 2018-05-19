@@ -2688,7 +2688,9 @@ ExpressionOperator::ExpressionOperator(QObject *parent)
     : OperatorInterface(parent)
 {
     m_exprBegin = QSL(
-        "return [ 'output0', input0.unit, input0.lower_limits, input0.upper_limits ];"
+        "return ["
+        "    'output0', input0.unit, input0.lower_limits[], input0.lower_limits, input0.upper_limits"
+        "];"
         );
 
     m_exprStep = QSL(

@@ -5,6 +5,7 @@
 #include "a2/a2_impl.h"
 #include "analysis_ui_p.h"
 #include "mvme_context_lib.h"
+#include "util/cpp17_algo.h"
 
 #include <QHeaderView>
 #include <QTabWidget>
@@ -163,21 +164,21 @@ void ExpressionOperatorPipeView::refresh()
 }
 
 //
-// ExpressionOperatorPipesView
+// ExpressionOperatorPipesToolBox
 //
-ExpressionOperatorPipesView::ExpressionOperatorPipesView(QWidget *parent)
+ExpressionOperatorPipesToolBox::ExpressionOperatorPipesToolBox(QWidget *parent)
     : QToolBox(parent)
 {
 }
 
-void ExpressionOperatorPipesView::showEvent(QShowEvent *event)
+void ExpressionOperatorPipesToolBox::showEvent(QShowEvent *event)
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 
     QWidget::showEvent(event);
 }
 
-void ExpressionOperatorPipesView::setPipes(const std::vector<a2::PipeVectors> &pipes,
+void ExpressionOperatorPipesToolBox::setPipes(const std::vector<a2::PipeVectors> &pipes,
                                            const QStringList &titles,
                                            const QStringList &units)
 {
@@ -212,18 +213,130 @@ void ExpressionOperatorPipesView::setPipes(const std::vector<a2::PipeVectors> &p
     }
 }
 
-QSize ExpressionOperatorPipesView::sizeHint() const
+QSize ExpressionOperatorPipesToolBox::sizeHint() const
 {
     auto result = QToolBox::sizeHint();
     qDebug() << __PRETTY_FUNCTION__ << "width" << result.width();
     return result;
 }
 
-void ExpressionOperatorPipesView::refresh()
+void ExpressionOperatorPipesToolBox::refresh()
 {
     for (s32 i = 0; i < count(); i++)
     {
         if (auto pv = qobject_cast<ExpressionOperatorPipeView *>(widget(i)))
+        {
+            pv->refresh();
+        }
+    }
+}
+
+//
+// ExpressionOperatorPipesComboView
+//
+ExpressionOperatorPipesComboView::ExpressionOperatorPipesComboView(QWidget *parent)
+    : QWidget(parent)
+    , m_selectCombo(new QComboBox)
+    , m_pipeStack(new QStackedWidget)
+{
+    auto layout = new QVBoxLayout(this);
+    layout->addWidget(m_selectCombo);
+    layout->addWidget(m_pipeStack);
+
+    connect(m_selectCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+            m_pipeStack, &QStackedWidget::setCurrentIndex);
+}
+
+void ExpressionOperatorPipesComboView::showEvent(QShowEvent *event)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
+    QWidget::showEvent(event);
+}
+
+void ExpressionOperatorPipesComboView::setPipes(const std::vector<a2::PipeVectors> &pipes,
+                                           const QStringList &titles,
+                                           const QStringList &units)
+{
+    assert(static_cast<s32>(pipes.size()) == titles.size());
+    assert(static_cast<s32>(pipes.size()) == units.size());
+
+
+    s32 newSize   = titles.size();
+    s32 prevIndex = m_selectCombo->currentIndex();
+
+    qDebug() << this << "newSize = " << newSize;
+
+    //prevIndex = prevIndex >= 0 ? prevIndex : 0;
+
+    while (m_selectCombo->count() > newSize)
+    {
+        s32 idx = m_selectCombo->count() - 1;
+
+        m_selectCombo->removeItem(idx);
+
+        if (auto pv = m_pipeStack->widget(idx))
+        {
+            m_pipeStack->removeWidget(pv);
+            pv->deleteLater();
+        }
+    }
+
+    qDebug() << this << "stack:" << m_pipeStack->count() << ", combo:" << m_selectCombo->count();
+
+    for (s32 pi = 0; pi < newSize; pi++)
+    {
+        if (pi < m_selectCombo->count())
+        {
+            if (auto pv = qobject_cast<ExpressionOperatorPipeView *>(m_pipeStack->widget(pi)))
+            {
+                m_selectCombo->setItemText(pi, titles[pi]);
+                pv->setPipe(pipes[pi], units[pi]);
+                qDebug() << this << "existing pi:" << pi << ", pv: " << pv;
+            }
+        }
+        else
+        {
+            m_selectCombo->addItem(titles[pi]);
+            auto pv = new ExpressionOperatorPipeView;
+            pv->setPipe(pipes[pi], units[pi]);
+            m_pipeStack->addWidget(pv);
+            qDebug() << this << "new pi:" << pi << ", pv: " << pv;
+        }
+    }
+
+    qDebug() << this << "stack:" << m_pipeStack->count() << ", combo:" << m_selectCombo->count();
+
+    if (newSize > 0)
+    {
+        prevIndex = prevIndex >= 0 ? prevIndex : 0;
+    }
+    else
+    {
+        prevIndex = -1;
+    }
+
+    m_selectCombo->setCurrentIndex(prevIndex);
+
+    qDebug() << this << "count = " << m_selectCombo->count();
+}
+
+QSize ExpressionOperatorPipesComboView::sizeHint() const
+{
+#if 0
+    auto result = QToolBox::sizeHint();
+    qDebug() << __PRETTY_FUNCTION__ << "width" << result.width();
+    return result;
+#else
+    return QWidget::sizeHint();
+#endif
+}
+
+void ExpressionOperatorPipesComboView::refresh()
+{
+    for (s32 pi = 0; pi < m_pipeStack->count(); pi++)
+    {
+        if (auto pv = qobject_cast<ExpressionOperatorPipeView *>(m_pipeStack->widget(pi)))
         {
             pv->refresh();
         }
@@ -534,8 +647,8 @@ void ExpressionEditorWidget::clearError()
 //
 ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *parent)
     : QWidget(parent)
-    , m_inputPipesView(new ExpressionOperatorPipesView)
-    , m_outputPipesView(new ExpressionOperatorPipesView)
+    , m_inputPipesView(new ExpressionOperatorPipesComboView)
+    , m_outputPipesView(new ExpressionOperatorPipesComboView)
     , m_toolBar(make_toolbar())
     , m_editorWidget(new ExpressionEditorWidget)
     , m_hSplitter(new QSplitter(Qt::Horizontal))
@@ -615,14 +728,14 @@ void ExpressionOperatorEditorComponent::setHSplitterSizes()
     sizes[0] = m_inputPipesView->sizeHint().width();
     totalWidth -= sizes[0];
 
-    qDebug() << __PRETTY_FUNCTION__ << "width of input pipes view from sizehint:" << sizes[0];
+    //qDebug() << __PRETTY_FUNCTION__ << "width of input pipes view from sizehint:" << sizes[0];
 
     sizes[2] = m_outputPipesView->sizeHint().width();
     totalWidth -= sizes[2];
 
     sizes[1] = std::max(totalWidth, 800);
 
-    qDebug() << __PRETTY_FUNCTION__ << "width of the editor area:" << sizes[1];
+    //qDebug() << __PRETTY_FUNCTION__ << "width of the editor area:" << sizes[1];
 
     m_hSplitter->setSizes(sizes);
 }

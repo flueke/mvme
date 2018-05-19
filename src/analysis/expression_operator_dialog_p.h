@@ -21,6 +21,7 @@
 #ifndef __EXPRESSION_OPERATOR_DIALOG_P_H__
 #define __EXPRESSION_OPERATOR_DIALOG_P_H__
 
+#include <QComboBox>
 #include <QFrame>
 #include <QGridLayout>
 #include <QLabel>
@@ -28,6 +29,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSplitter>
+#include <QStackedWidget>
 #include <QTableWidget>
 #include <QToolBar>
 #include <QToolBox>
@@ -99,11 +101,11 @@ class ExpressionOperatorPipeView: public QWidget
 
 /** Vertical arrangement of a group of ExpressionOperatorPipeViews in a
  * QToolBox. */
-class ExpressionOperatorPipesView: public QToolBox
+class ExpressionOperatorPipesToolBox: public QToolBox
 {
     Q_OBJECT
     public:
-        ExpressionOperatorPipesView(QWidget *parent = nullptr);
+        ExpressionOperatorPipesToolBox(QWidget *parent = nullptr);
 
         void setPipes(const std::vector<a2::PipeVectors> &pipes,
                       const QStringList &titles,
@@ -116,6 +118,29 @@ class ExpressionOperatorPipesView: public QToolBox
 
     protected:
         virtual void showEvent(QShowEvent *event) override;
+};
+
+class ExpressionOperatorPipesComboView: public QWidget
+{
+    Q_OBJECT
+    public:
+        ExpressionOperatorPipesComboView(QWidget *parent = nullptr);
+
+        void setPipes(const std::vector<a2::PipeVectors> &pipes,
+                      const QStringList &titles,
+                      const QStringList &units);
+
+        virtual QSize sizeHint() const override;
+
+    public slots:
+        void refresh();
+
+    protected:
+        virtual void showEvent(QShowEvent *event) override;
+
+    private:
+        QComboBox *m_selectCombo;
+        QStackedWidget *m_pipeStack;
 };
 
 /** Display of expression (exprtk) interal errors and analysis specific
@@ -252,8 +277,8 @@ class ExpressionOperatorEditorComponent: public QWidget
 
         QToolBar *getToolBar() { return m_toolBar; }
         ExpressionEditorWidget *getEditorWidget() { return m_editorWidget; }
-        ExpressionOperatorPipesView *getInputPipesView() { return m_inputPipesView; }
-        ExpressionOperatorPipesView *getOutputPipesView() { return m_outputPipesView; }
+        ExpressionOperatorPipesComboView *getInputPipesView() { return m_inputPipesView; }
+        ExpressionOperatorPipesComboView *getOutputPipesView() { return m_outputPipesView; }
 
         QAction *getActionStep() { return m_actionStep; }
 
@@ -267,8 +292,8 @@ class ExpressionOperatorEditorComponent: public QWidget
         //void onActionHelp_triggered();
 
 
-        ExpressionOperatorPipesView *m_inputPipesView;
-        ExpressionOperatorPipesView *m_outputPipesView;
+        ExpressionOperatorPipesComboView *m_inputPipesView;
+        ExpressionOperatorPipesComboView *m_outputPipesView;
         QToolBar *m_toolBar;
         ExpressionEditorWidget *m_editorWidget;
         QSplitter *m_hSplitter;
