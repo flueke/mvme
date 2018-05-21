@@ -1024,6 +1024,8 @@ void assert_consistency(const Model &model)
 {
     assert(model.opClone);
     assert(model.opClone->getNumberOfSlots() > 0);
+    qDebug() << "clone slots" << model.opClone->getNumberOfSlots()
+        << ", model slots" << model.inputs.size();
     assert(static_cast<size_t>(model.opClone->getNumberOfSlots()) == model.inputs.size());
 
     assert_internal_consistency(model);
@@ -1074,8 +1076,6 @@ void pop_input_slot(Model &model)
 
 void connect_input(Model &model, s32 inputIndex, Pipe *inPipe, s32 paramIndex)
 {
-    assert_consistency(model);
-
     assert(0 <= inputIndex && inputIndex < model.opClone->getNumberOfSlots());
     assert(inPipe);
 
@@ -1088,8 +1088,6 @@ void connect_input(Model &model, s32 inputIndex, Pipe *inPipe, s32 paramIndex)
     //model.inputPrefixes[inputIndex] = model.opClone->getInputPrefix(inputIndex).toStdString();
     model.inputUnits[inputIndex] = inPipe->getParameters().unit.toStdString();
     model.a1_inputPipes[inputIndex] = inPipe;
-
-    assert_consistency(model);
 }
 
 void disconnect_input(Model &model, s32 inputIndex)
