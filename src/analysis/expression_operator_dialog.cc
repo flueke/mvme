@@ -1723,6 +1723,13 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     : QDialog(eventWidget)
     , m_d(std::make_unique<Private>(this))
 {
+    setWindowFlags((Qt::Window
+                   | Qt::CustomizeWindowHint
+                   | Qt::WindowTitleHint
+                   | Qt::WindowMinMaxButtonsHint
+                   | Qt::WindowCloseButtonHint)
+                   & ~Qt::WindowShadeButtonHint);
+
     m_d->m_op          = op;
     m_d->m_userLevel   = userLevel;
     m_d->m_mode        = mode;
