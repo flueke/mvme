@@ -1418,6 +1418,7 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
 Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
     : QWidget(parent)
     , m_histos(histos)
+    , m_histoSpin(new QSpinBox)
     , m_currentIndex(0)
 {
     resize(600, 400);
@@ -1428,14 +1429,14 @@ Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
 
     connect(m_histoWidget, &QWidget::windowTitleChanged, this, &QWidget::setWindowTitle);
 
-    /* Create a spinbox to cycle through the histograms and add it to the
-     * Histo1DWidgets toolbar. */
-    auto histoSpinBox = new QSpinBox;
-    histoSpinBox->setMaximum(histos.size() - 1);
-    connect(histoSpinBox, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+    /* Add the histo index spinbox to the Histo1DWidget toolbar. */
+
+    m_histoSpin->setMaximum(histos.size() - 1);
+
+    connect(m_histoSpin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, &Histo1DListWidget::onHistoSpinBoxValueChanged);
 
-    m_histoWidget->m_d->m_toolBar->addWidget(make_vbox_container(QSL("Histogram #"), histoSpinBox));
+    m_histoWidget->m_d->m_toolBar->addWidget(make_vbox_container(QSL("Histogram #"), m_histoSpin));
 
     auto layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -1443,27 +1444,12 @@ Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
     layout->addWidget(m_histoWidget);
 
     setWindowTitle(m_histoWidget->windowTitle());
-    onHistoSpinBoxValueChanged(0);
+    selectHistogram(0);
 }
 
 void Histo1DListWidget::onHistoSpinBoxValueChanged(int index)
 {
-    m_currentIndex = index;
-    if (auto histo = m_histos.value(index))
-    {
-        m_histoWidget->setHistogram(histo.get());
-        m_histoWidget->setContext(m_context);
-
-        if (m_calib)
-        {
-            m_histoWidget->setCalibrationInfo(m_calib, index);
-        }
-
-        if (m_sink)
-        {
-            m_histoWidget->setSink(m_sink, m_sinkModifiedCallback);
-        }
-    }
+    selectHistogram(index);
 }
 
 void Histo1DListWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib)
@@ -1482,4 +1468,28 @@ void Histo1DListWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModif
     m_sinkModifiedCallback = sinkModifiedCallback;
 
     onHistoSpinBoxValueChanged(m_currentIndex);
+}
+
+void Histo1DListWidget::selectHistogram(int index)
+{
+    m_currentIndex = index;
+
+    if (auto histo = m_histos.value(index))
+    {
+        m_histoWidget->setHistogram(histo.get());
+        m_histoWidget->setContext(m_context);
+
+        if (m_calib)
+        {
+            m_histoWidget->setCalibrationInfo(m_calib, index);
+        }
+
+        if (m_sink)
+        {
+            m_histoWidget->setSink(m_sink, m_sinkModifiedCallback);
+        }
+
+        QSignalBlocker sb(m_histoSpin);
+        m_histoSpin->setValue(index);
+    }
 }

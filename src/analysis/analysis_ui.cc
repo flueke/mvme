@@ -1496,16 +1496,14 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     {
                         menu.addAction(QSL("Open Histogram"), m_q, [this, widgetInfo]() {
 
-                            Histo1D *histo = widgetInfo.histos[widgetInfo.histoAddress].get();
-
-                            if (!m_context->hasObjectWidget(histo) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                            if (!m_context->hasObjectWidget(widgetInfo.sink.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                             {
-                                auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
+                                auto widget = new Histo1DListWidget(widgetInfo.histos);
                                 widget->setContext(m_context);
 
                                 if (widgetInfo.calib)
                                 {
-                                    widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress);
+                                    widget->setCalibration(widgetInfo.calib);
                                 }
 
                                 {
@@ -1515,14 +1513,14 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                                     });
                                 }
 
-                                m_context->addObjectWidget(widget, histo,
-                                                           widgetInfo.sink->getId().toString()
-                                                           + QSL("_")
-                                                           + QString::number(widgetInfo.histoAddress));
+                                widget->selectHistogram(widgetInfo.histoAddress);
+
+                                m_context->addObjectWidget(widget, widgetInfo.sink.get(), widgetInfo.sink->getId().toString());
                             }
-                            else
+                            else if (auto widget = qobject_cast<Histo1DListWidget *>(m_context->getObjectWidget(widgetInfo.sink.get())))
                             {
-                                m_context->activateObjectWidget(histo);
+                                widget->selectHistogram(widgetInfo.histoAddress);
+                                show_and_activate(widget);
                             }
                         });
                     }
@@ -2245,16 +2243,15 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     if (!widgetInfo.histos[widgetInfo.histoAddress])
                         break;
 
-                    Histo1D *histo = widgetInfo.histos[widgetInfo.histoAddress].get();
 
-                    if (!m_context->hasObjectWidget(histo) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                    if (!m_context->hasObjectWidget(widgetInfo.sink.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
+                        auto widget = new Histo1DListWidget(widgetInfo.histos);
                         widget->setContext(m_context);
 
                         if (widgetInfo.calib)
                         {
-                            widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress);
+                            widget->setCalibration(widgetInfo.calib);
                         }
 
                         {
@@ -2264,14 +2261,14 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                             });
                         }
 
-                        m_context->addObjectWidget(widget, histo,
-                                                   widgetInfo.sink->getId().toString()
-                                                   + QSL("_")
-                                                   + QString::number(widgetInfo.histoAddress));
+                        widget->selectHistogram(widgetInfo.histoAddress);
+
+                        m_context->addObjectWidget(widget, widgetInfo.sink.get(), widgetInfo.sink->getId().toString());
                     }
-                    else
+                    else if (auto widget = qobject_cast<Histo1DListWidget *>(m_context->getObjectWidget(widgetInfo.sink.get())))
                     {
-                        m_context->activateObjectWidget(histo);
+                        widget->selectHistogram(widgetInfo.histoAddress);
+                        show_and_activate(widget);
                     }
                 } break;
 
