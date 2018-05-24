@@ -3751,7 +3751,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerSource<Extractor>();
 
     m_registry.registerOperator<CalibrationMinMax>();
-    m_registry.registerOperator<IndexSelector>();
+    //m_registry.registerOperator<IndexSelector>();
     m_registry.registerOperator<PreviousValue>();
     //m_registry.registerOperator<RetainValid>();
     m_registry.registerOperator<Difference>();
