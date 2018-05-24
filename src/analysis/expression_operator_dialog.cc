@@ -543,8 +543,13 @@ void ExpressionErrorWidget::populateTable()
 
             case Entry::Type::ParserError:
                 {
+                    auto verboseErrorText = QString::fromStdString(entry.parserError.diagnostic)
+                        + ", src_loc=" + QString::fromStdString(entry.parserError.src_location)
+                        + ", err_line=" + QString::fromStdString(entry.parserError.error_line);
+
                     set_next_item(QString::fromStdString(entry.parserError.mode));
-                    set_next_item(QString::fromStdString(entry.parserError.diagnostic));
+                    //set_next_item(QString::fromStdString(entry.parserError.diagnostic));
+                    set_next_item(verboseErrorText);
                     set_next_item(QString::number(entry.parserError.line + 1));
                     set_next_item(QString::number(entry.parserError.column + 1));
                 } break;
