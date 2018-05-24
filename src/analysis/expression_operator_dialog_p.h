@@ -26,7 +26,6 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -35,6 +34,7 @@
 #include <QToolBox>
 
 #include "a2/a2.h"
+#include "code_editor.h"
 
 namespace analysis
 {
@@ -87,16 +87,28 @@ class ExpressionOperatorPipeView: public QWidget
 
         void setPipe(const a2::PipeVectors &a2_pipe, const QString &unit = {});
 
+        void setDataEditable(bool b) { m_dataEditable = b; refresh(); }
+        bool isDataEditable() const  { return m_dataEditable; }
+
+        virtual bool eventFilter(QObject *watched, QEvent *event) override;
+
     public slots:
         void refresh();
 
     protected:
         virtual void showEvent(QShowEvent *event) override;
 
+    private slots:
+        void onCellChanged(int row, int col);
+
     private:
+        void copy();
+        void paste();
+
         QLabel *m_unitLabel;
         QTableWidget *m_tableWidget;
         a2::PipeVectors m_a2Pipe;
+        bool m_dataEditable;
 };
 
 /** Vertical arrangement of a group of ExpressionOperatorPipeViews in a
@@ -130,6 +142,9 @@ class ExpressionOperatorPipesComboView: public QWidget
                       const QStringList &titles,
                       const QStringList &units);
 
+        void setPipeDataEditable(bool b);
+        bool isPipeDataEditable() const;
+
         virtual QSize sizeHint() const override;
 
     public slots:
@@ -141,6 +156,7 @@ class ExpressionOperatorPipesComboView: public QWidget
     private:
         QComboBox *m_selectCombo;
         QStackedWidget *m_pipeStack;
+        bool m_pipeDataEditable;
 };
 
 /** Display of expression (exprtk) interal errors and analysis specific
@@ -150,6 +166,7 @@ class ExpressionErrorWidget: public QWidget
     Q_OBJECT
     signals:
         void parserErrorClicked(int line, int col);
+        void parserErrorDoubleClicked(int line, int col);
 
     public:
         ExpressionErrorWidget(QWidget *parent = nullptr);
@@ -163,7 +180,8 @@ class ExpressionErrorWidget: public QWidget
         virtual void showEvent(QShowEvent *event) override;
 
     private slots:
-        void onCellDoubleClicked(int row, int column);
+        void onCellClicked(int row, int col);
+        void onCellDoubleClicked(int row, int col);
 
     private:
         struct Entry
@@ -198,26 +216,27 @@ class ExpressionErrorWidget: public QWidget
 };
 
 /** Specialized editor widget for exprtk expressions. */
-class ExpressionTextEditor: public QWidget
+class ExpressionCodeEditor: public QWidget
 {
     Q_OBJECT
     public:
-        ExpressionTextEditor(QWidget *parent = nullptr);
+        ExpressionCodeEditor(QWidget *parent = nullptr);
 
         void setExpressionText(const QString &text);
         QString expressionText() const;
 
-        QPlainTextEdit *textEdit() { return m_textEdit; }
+        CodeEditor *codeEditor() { return m_codeEditor; }
 
     public slots:
         void highlightError(int row, int col);
+        void jumpToError(int row, int col);
         void clearErrorHighlight();
 
     private:
-        QPlainTextEdit *m_textEdit;
+        CodeEditor *m_codeEditor;
 };
 
-/** Combines ExpressionTextEditor and ExpressionErrorWidget. */
+/** Combines ExpressionCodeEditor and ExpressionErrorWidget. */
 class ExpressionEditorWidget: public QWidget
 {
     Q_OBJECT
@@ -229,15 +248,15 @@ class ExpressionEditorWidget: public QWidget
 
         void setError(const std::exception_ptr &ep);
 
-        ExpressionTextEditor *getTextEditor() { return m_exprTextEdit; }
-        ExpressionErrorWidget *getErrorWidget() { return m_exprErrors; }
+        ExpressionCodeEditor *getTextEditor() { return m_exprCodeEditor; }
+        ExpressionErrorWidget *getErrorWidget() { return m_exprErrorWidget; }
 
     public slots:
         void clearError();
 
     private:
-        ExpressionTextEditor *m_exprTextEdit;
-        ExpressionErrorWidget *m_exprErrors;
+        ExpressionCodeEditor *m_exprCodeEditor;
+        ExpressionErrorWidget *m_exprErrorWidget;
 };
 
 /** Complete editor component for one of the subexpressions of the

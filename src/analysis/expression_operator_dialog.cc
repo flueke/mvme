@@ -71,17 +71,21 @@ bool InputSelectButton::eventFilter(QObject *watched, QEvent *event)
 //
 // ExpressionOperatorPipeView
 //
+static const int PipeView_ValidColumn = 0;
+static const int PipeView_DataColumn  = 1;
+
 ExpressionOperatorPipeView::ExpressionOperatorPipeView(QWidget *parent)
     : QWidget(parent)
     , m_unitLabel(new QLabel(this))
     , m_tableWidget(new QTableWidget(this))
     , m_a2Pipe{}
+    , m_dataEditable(false)
 {
     auto infoLayout = new QFormLayout;
     infoLayout->addRow(QSL("Unit:"), m_unitLabel);
 
     auto layout = new QVBoxLayout(this);
-    //layout->setContentsMargins(0, 0, 0, 0);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->addLayout(infoLayout);
     layout->addWidget(m_tableWidget);
 
@@ -89,6 +93,11 @@ ExpressionOperatorPipeView::ExpressionOperatorPipeView(QWidget *parent)
     // Valid, Value, lower Limit, upper Limit
     m_tableWidget->setColumnCount(4);
     m_tableWidget->setHorizontalHeaderLabels({"Valid", "Value", "Lower Limit", "Upper Limit"});
+
+    connect(m_tableWidget, &QTableWidget::cellChanged,
+            this, &ExpressionOperatorPipeView::onCellChanged);
+
+    m_tableWidget->installEventFilter(this);
 
     refresh();
 }
@@ -113,6 +122,8 @@ void ExpressionOperatorPipeView::setPipe(const a2::PipeVectors &a2_pipe,
 
 void ExpressionOperatorPipeView::refresh()
 {
+    QSignalBlocker sb(m_tableWidget);
+
     const auto &pipe = m_a2Pipe;
 
     if (pipe.data.size < 0)
@@ -147,8 +158,20 @@ void ExpressionOperatorPipeView::refresh()
                 m_tableWidget->setItem(pi, ci, item);
             }
 
-            item->setText(columns[ci]);
-            item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+
+            Qt::ItemFlags flags = Qt::ItemIsSelectable | Qt::ItemIsEnabled;
+
+            if (ci == PipeView_DataColumn && isDataEditable())
+            {
+                item->setData(Qt::DisplayRole, param);
+                flags |= Qt::ItemIsEditable;
+            }
+            else
+            {
+                item->setText(columns[ci]);
+            }
+
+            item->setFlags(flags);
         }
 
         if (!m_tableWidget->verticalHeaderItem(pi))
@@ -161,6 +184,56 @@ void ExpressionOperatorPipeView::refresh()
 
     m_tableWidget->resizeColumnsToContents();
     m_tableWidget->resizeRowsToContents();
+}
+
+void ExpressionOperatorPipeView::onCellChanged(int row, int col)
+{
+    qDebug() << __PRETTY_FUNCTION__ << row << col;
+
+    if (!isDataEditable()) return;
+
+    if (col == PipeView_DataColumn && row < m_a2Pipe.data.size)
+    {
+        m_a2Pipe.data[row] = m_tableWidget->item(row, PipeView_DataColumn)
+            ->data(Qt::EditRole).toDouble();
+
+        m_tableWidget->item(row, PipeView_ValidColumn)->setText(QSL("Y"));
+    }
+}
+
+bool ExpressionOperatorPipeView::eventFilter(QObject *watched, QEvent *event)
+{
+    assert(watched == m_tableWidget);
+
+    if (event->type() == QEvent::KeyPress)
+    {
+        auto keyEvent = reinterpret_cast<QKeyEvent *>(event);
+
+        if (keyEvent->matches(QKeySequence::Copy))
+        {
+            copy();
+            return true;
+        }
+        else if (keyEvent->matches(QKeySequence::Paste))
+        {
+            paste();
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void ExpressionOperatorPipeView::copy()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    if (!isDataEditable()) return;
+}
+
+void ExpressionOperatorPipeView::paste()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    if (!isDataEditable()) return;
 }
 
 //
@@ -238,8 +311,10 @@ ExpressionOperatorPipesComboView::ExpressionOperatorPipesComboView(QWidget *pare
     : QWidget(parent)
     , m_selectCombo(new QComboBox)
     , m_pipeStack(new QStackedWidget)
+    , m_pipeDataEditable(false)
 {
     auto layout = new QVBoxLayout(this);
+    layout->setContentsMargins(2, 2, 2, 2);
     layout->addWidget(m_selectCombo);
     layout->addWidget(m_pipeStack);
 
@@ -292,6 +367,7 @@ void ExpressionOperatorPipesComboView::setPipes(const std::vector<a2::PipeVector
             {
                 m_selectCombo->setItemText(pi, titles[pi]);
                 pv->setPipe(pipes[pi], units[pi]);
+                pv->setDataEditable(isPipeDataEditable());
                 qDebug() << this << "existing pi:" << pi << ", pv: " << pv;
             }
         }
@@ -300,6 +376,7 @@ void ExpressionOperatorPipesComboView::setPipes(const std::vector<a2::PipeVector
             m_selectCombo->addItem(titles[pi]);
             auto pv = new ExpressionOperatorPipeView;
             pv->setPipe(pipes[pi], units[pi]);
+            pv->setDataEditable(isPipeDataEditable());
             m_pipeStack->addWidget(pv);
             qDebug() << this << "new pi:" << pi << ", pv: " << pv;
         }
@@ -343,6 +420,24 @@ void ExpressionOperatorPipesComboView::refresh()
     }
 }
 
+void ExpressionOperatorPipesComboView::setPipeDataEditable(bool editable)
+{
+    for (s32 pi = 0; pi < m_pipeStack->count(); pi++)
+    {
+        if (auto pv = qobject_cast<ExpressionOperatorPipeView *>(m_pipeStack->widget(pi)))
+        {
+            pv->setDataEditable(editable);
+        }
+    }
+
+    m_pipeDataEditable = editable;
+}
+
+bool ExpressionOperatorPipesComboView::isPipeDataEditable() const
+{
+    return m_pipeDataEditable;
+}
+
 //
 // ExpressionErrorWidget
 //
@@ -359,6 +454,9 @@ ExpressionErrorWidget::ExpressionErrorWidget(QWidget *parent)
     auto layout = new QHBoxLayout(this);
     layout->addWidget(m_errorTable);
     layout->setContentsMargins(0, 0, 0, 0);
+
+    connect(m_errorTable, &QTableWidget::cellClicked,
+            this, &ExpressionErrorWidget::onCellClicked);
 
     connect(m_errorTable, &QTableWidget::cellDoubleClicked,
             this, &ExpressionErrorWidget::onCellDoubleClicked);
@@ -447,8 +545,8 @@ void ExpressionErrorWidget::populateTable()
                 {
                     set_next_item(QString::fromStdString(entry.parserError.mode));
                     set_next_item(QString::fromStdString(entry.parserError.diagnostic));
-                    set_next_item(QString::number(entry.parserError.line));
-                    set_next_item(QString::number(entry.parserError.column));
+                    set_next_item(QString::number(entry.parserError.line + 1));
+                    set_next_item(QString::number(entry.parserError.column + 1));
                 } break;
 
             case Entry::Type::SymbolError:
@@ -525,7 +623,7 @@ void ExpressionErrorWidget::clear()
     assertConsistency();
 }
 
-void ExpressionErrorWidget::onCellDoubleClicked(int row, int column)
+void ExpressionErrorWidget::onCellClicked(int row, int column)
 {
     assertConsistency();
     assert(row < m_entries.size());
@@ -536,8 +634,24 @@ void ExpressionErrorWidget::onCellDoubleClicked(int row, int column)
     if (entry.type == Entry::Type::ParserError)
     {
         emit parserErrorClicked(
-            static_cast<int>(entry.parserError.line),
-            static_cast<int>(entry.parserError.column));
+            static_cast<int>(entry.parserError.line + 1),
+            static_cast<int>(entry.parserError.column + 1));
+    }
+}
+
+void ExpressionErrorWidget::onCellDoubleClicked(int row, int column)
+{
+    assertConsistency();
+    assert(row < m_entries.size());
+    assert(row < m_errorTable->rowCount());
+
+    const auto &entry = m_entries[row];
+
+    if (entry.type == Entry::Type::ParserError)
+    {
+        emit parserErrorDoubleClicked(
+            static_cast<int>(entry.parserError.line + 1),
+            static_cast<int>(entry.parserError.column + 1));
     }
 }
 
@@ -549,7 +663,7 @@ void ExpressionErrorWidget::assertConsistency()
 }
 
 //
-// ExpressionTextEditor
+// ExpressionCodeEditor
 //
 int calculate_tabstop_width(const QFont &font, int tabstop)
 {
@@ -559,43 +673,79 @@ int calculate_tabstop_width(const QFont &font, int tabstop)
     return metrics.width(spaces);
 }
 
-static const int TabStop = 4;
+static const int TabStop = 2;
 
-ExpressionTextEditor::ExpressionTextEditor(QWidget *parent)
+ExpressionCodeEditor::ExpressionCodeEditor(QWidget *parent)
     : QWidget(parent)
-    , m_textEdit(new QPlainTextEdit)
+    , m_codeEditor(new CodeEditor)
 {
     auto font = make_monospace_font();
     font.setPointSize(8);
-    m_textEdit->setFont(font);
-    m_textEdit->setTabStopWidth(calculate_tabstop_width(font, TabStop));
+    m_codeEditor->setFont(font);
+    m_codeEditor->setTabStopWidth(calculate_tabstop_width(font, TabStop));
+    m_codeEditor->setLineWrapMode(QPlainTextEdit::NoWrap);
+    m_codeEditor->enableCurrentLineHighlight(false);
 
     auto widgetLayout = new QHBoxLayout(this);
-    widgetLayout->addWidget(m_textEdit);
+    widgetLayout->addWidget(m_codeEditor);
     widgetLayout->setContentsMargins(0, 0, 0, 0);
 }
 
-void ExpressionTextEditor::setExpressionText(const QString &text)
+void ExpressionCodeEditor::setExpressionText(const QString &text)
 {
-    if (text != m_textEdit->toPlainText())
+    if (text != m_codeEditor->toPlainText())
     {
-        m_textEdit->setPlainText(text);
+        m_codeEditor->setPlainText(text);
     }
 }
 
-QString ExpressionTextEditor::expressionText() const
+QString ExpressionCodeEditor::expressionText() const
 {
-    return m_textEdit->toPlainText();
+    return m_codeEditor->toPlainText();
 }
 
-void ExpressionTextEditor::highlightError(int row, int col)
+void ExpressionCodeEditor::highlightError(int row, int col)
 {
     qDebug() << __PRETTY_FUNCTION__ << row << col;
+
+    auto cursor = m_codeEditor->textCursor();
+
+    cursor.movePosition(QTextCursor::Start);
+    cursor.movePosition(QTextCursor::Down, QTextCursor::MoveAnchor, row - 1);
+    cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, col - 1);
+
+    QColor lineColor = QColor(Qt::red).lighter(160);
+
+    QTextEdit::ExtraSelection selection;
+    selection.format.setBackground(lineColor);
+    selection.format.setProperty(QTextFormat::FullWidthSelection, true);
+    selection.cursor = cursor;
+    selection.cursor.clearSelection();
+
+    QList<QTextEdit::ExtraSelection> extraSelections = { selection };
+    m_codeEditor->setExtraSelections(extraSelections);
 }
 
-void ExpressionTextEditor::clearErrorHighlight()
+void ExpressionCodeEditor::jumpToError(int row, int col)
+{
+    qDebug() << __PRETTY_FUNCTION__ << row << col;
+
+    auto cursor = m_codeEditor->textCursor();
+
+    cursor.movePosition(QTextCursor::Start);
+    cursor.movePosition(QTextCursor::Down, QTextCursor::MoveAnchor, row - 1);
+    cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, col - 1);
+
+    m_codeEditor->setTextCursor(cursor);
+    m_codeEditor->setFocus();
+}
+
+void ExpressionCodeEditor::clearErrorHighlight()
 {
     qDebug() << __PRETTY_FUNCTION__;
+
+    QList<QTextEdit::ExtraSelection> extraSelections;
+    m_codeEditor->setExtraSelections(extraSelections);
 }
 
 //
@@ -603,13 +753,13 @@ void ExpressionTextEditor::clearErrorHighlight()
 //
 ExpressionEditorWidget::ExpressionEditorWidget(QWidget *parent)
     : QWidget(parent)
-    , m_exprTextEdit(new ExpressionTextEditor)
-    , m_exprErrors(new ExpressionErrorWidget)
+    , m_exprCodeEditor(new ExpressionCodeEditor)
+    , m_exprErrorWidget(new ExpressionErrorWidget)
 {
     auto splitter = new QSplitter(Qt::Vertical);
     //splitter->setHandleWidth(0);
-    splitter->addWidget(m_exprTextEdit);
-    splitter->addWidget(m_exprErrors);
+    splitter->addWidget(m_exprCodeEditor);
+    splitter->addWidget(m_exprErrorWidget);
     splitter->setStretchFactor(0, 80);
     splitter->setStretchFactor(1, 20);
 
@@ -617,29 +767,32 @@ ExpressionEditorWidget::ExpressionEditorWidget(QWidget *parent)
     widgetLayout->setContentsMargins(0, 0, 0, 0);
     widgetLayout->addWidget(splitter);
 
-    connect(m_exprErrors, &ExpressionErrorWidget::parserErrorClicked,
-            m_exprTextEdit, &ExpressionTextEditor::highlightError);
+    connect(m_exprErrorWidget, &ExpressionErrorWidget::parserErrorClicked,
+            m_exprCodeEditor, &ExpressionCodeEditor::highlightError);
+
+    connect(m_exprErrorWidget, &ExpressionErrorWidget::parserErrorDoubleClicked,
+            m_exprCodeEditor, &ExpressionCodeEditor::jumpToError);
 }
 
 void ExpressionEditorWidget::setExpressionText(const QString &text)
 {
-    m_exprTextEdit->setExpressionText(text);
+    m_exprCodeEditor->setExpressionText(text);
 }
 
 QString ExpressionEditorWidget::expressionText() const
 {
-    return m_exprTextEdit->expressionText();
+    return m_exprCodeEditor->expressionText();
 }
 
 void ExpressionEditorWidget::setError(const std::exception_ptr &ep)
 {
-    m_exprErrors->setError(ep);
+    m_exprErrorWidget->setError(ep);
 }
 
 void ExpressionEditorWidget::clearError()
 {
-    m_exprErrors->clear();
-    m_exprTextEdit->clearErrorHighlight();
+    m_exprErrorWidget->clear();
+    m_exprCodeEditor->clearErrorHighlight();
 }
 
 //
@@ -696,18 +849,18 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
 
     tb_sep();
 
-    QPlainTextEdit *textEdit = m_editorWidget->getTextEditor()->textEdit();
+    CodeEditor *CodeEditor = m_editorWidget->getTextEditor()->codeEditor();
 
     QAction* actionUndo = tb_aa(QIcon::fromTheme("edit-undo"), "Undo",
-                                textEdit, &QPlainTextEdit::undo);
+                                CodeEditor, &QPlainTextEdit::undo);
     actionUndo->setEnabled(false);
 
     QAction *actionRedo = tb_aa(QIcon::fromTheme("edit-redo"), "Redo",
-                                textEdit, &QPlainTextEdit::redo);
+                                CodeEditor, &QPlainTextEdit::redo);
     actionRedo->setEnabled(false);
 
-    connect(textEdit, &QPlainTextEdit::undoAvailable, actionUndo, &QAction::setEnabled);
-    connect(textEdit, &QPlainTextEdit::redoAvailable, actionRedo, &QAction::setEnabled);
+    connect(CodeEditor, &QPlainTextEdit::undoAvailable, actionUndo, &QAction::setEnabled);
+    connect(CodeEditor, &QPlainTextEdit::redoAvailable, actionRedo, &QAction::setEnabled);
 
     tb_sep();
 
@@ -718,6 +871,7 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
 #undef tb_sep
 #undef tb_aa
 
+    m_inputPipesView->setPipeDataEditable(true);
 }
 
 void ExpressionOperatorEditorComponent::setHSplitterSizes()
@@ -1460,6 +1614,7 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
 
     m_beginExpressionEditor->setOutputs(outputs, outputNames, outputUnits);
     m_stepExpressionEditor->setOutputs(outputs, outputNames, outputUnits);
+    qDebug() << "setting step action enabled to" << (m_a2Op.type == a2::Operator_Expression);
     m_stepExpressionEditor->getActionStep()->setEnabled(m_a2Op.type == a2::Operator_Expression);
 }
 
