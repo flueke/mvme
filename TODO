@@ -66,6 +66,15 @@ required try to clear as little of the accumulated data as possible.
 --------------------------------------------------
 ExpressionOperator design plan
 --------------------------------------------------
+Most recent todo list:
+* Comment syntax highlighting similay to vme script editor
+* Keyword highlighting if easily possible. Could also add known functions and highlight those.
+* Links to the exprtk homepage
+* Use first part of the documentation and make it available in the editor gui
+* text description of what each of the scripts is for, how the return value of the begin script is structured
+* explain how invalid parameters are implemented and how they need to be handled
+
+
 * use expr_tk to evaluate expressions
 * beginScript: one script to get information about the output structure from the operator
 * multi input and multi output!

@@ -2673,15 +2673,25 @@ void BinarySumDiff::write(QJsonObject &json) const
 ExpressionOperator::ExpressionOperator(QObject *parent)
     : OperatorInterface(parent)
 {
-    m_exprBegin = QSL(
-        "return ["
-        "    'output0', input0.unit, input0.lower_limits[], input0.lower_limits, input0.upper_limits"
-        "];"
-        );
+    QString genericIntroComment;
 
-    m_exprStep = QSL(
-        "output0 := input0;"
-        );
+    {
+        QFile f(QSL(":/analysis/expr_data/generic_intro_comment.exprtk"));
+        f.open(QIODevice::ReadOnly);
+        genericIntroComment = QString::fromUtf8(f.readAll());
+    }
+
+    {
+        QFile f(QSL(":/analysis/expr_data/basic_begin_script.exprtk"));
+        f.open(QIODevice::ReadOnly);
+        m_exprBegin = genericIntroComment + "\n" + QString::fromUtf8(f.readAll());
+    }
+
+    {
+        QFile f(QSL(":/analysis/expr_data/basic_step_script.exprtk"));
+        f.open(QIODevice::ReadOnly);
+        m_exprStep = genericIntroComment + "\n" + QString::fromUtf8(f.readAll());
+    }
 
     // Need at least one input slot to be usable
     addSlot();
