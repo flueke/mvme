@@ -25,13 +25,6 @@ do\
 #endif // NDEBUG
 
 
-/* TODO list for a2_exprtk:
-
- * understand why e_commutative_check behaves the way it does. see the note
-   below CompileOptions for an explanation
-
- */
-
 namespace a2
 {
 namespace a2_exprtk
@@ -57,13 +50,20 @@ static const size_t CompileOptions = ParserSettings::e_replacer          +
                                      ParserSettings::e_sequence_check    +
 
                                      // "3x" -> "3*x"
-                                     ParserSettings::e_commutative_check +
+                                     //ParserSettings::e_commutative_check +
                                      ParserSettings::e_strength_reduction;
 
-/* NOTE: I wanted to disable e_commutative_check but when doing so the
- * expression "3x+42" does not result in a parser error but instead behaves
- * like "x+42". I haven't tested the behaviour extensively yet as what I really
- * want is a parser error to be thrown. */
+/* Note: the commutative check also affects things that might be surprising like e.g.
+ *
+ *   for (var i := 0; i < 10; i += 1) { }
+ *   var x := 0;
+ *
+ * will result in an "Invalid assignment operation error". The correct way to
+ * write this would be to add a semicolon after the for-loop body.  Disabling
+ * the commutative check makes the above code work, while at the same time
+ * being for "C-like".
+ */
+
 
 } // namespace detail
 
@@ -354,6 +354,7 @@ void Expression::registerSymbolTable(const SymbolTable &symtab)
     d->expr_begin.register_symbol_table(d->symtab_globalFunctions);
     d->expr_begin.register_symbol_table(d->symtab_globalVariables);
 */
+
 /** Registers the constants symbol table (pi, epsilon, inf) and compiles the
  * expression.
  * Throws ParserErrorList on error.
