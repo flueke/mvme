@@ -695,6 +695,7 @@ ExpressionCodeEditor::ExpressionCodeEditor(QWidget *parent)
     m_codeEditor->setTabStopWidth(calculate_tabstop_width(font, TabStop));
     m_codeEditor->setLineWrapMode(QPlainTextEdit::NoWrap);
     m_codeEditor->enableCurrentLineHighlight(false);
+    new ExpressionOperatorSyntaxHighlighter(m_codeEditor->document());
 
     auto widgetLayout = new QHBoxLayout(this);
     widgetLayout->addWidget(m_codeEditor);
@@ -2153,6 +2154,49 @@ void ExpressionOperatorDialog::accept()
 void ExpressionOperatorDialog::reject()
 {
     QDialog::reject();
+}
+
+void ExpressionOperatorSyntaxHighlighter::highlightBlock(const QString &text)
+{
+    static const QRegularExpression reComment("(#|//).*$");
+    static const QRegExp reMultiStart("/\\*");
+    static const QRegExp reMultiEnd("\\*/");
+
+    QTextCharFormat commentFormat;
+    commentFormat.setForeground(Qt::blue);
+
+    setCurrentBlockState(0);
+
+    int startIndex = 0;
+    if (previousBlockState() != 1)
+    {
+        startIndex = text.indexOf(reMultiStart);
+    }
+
+    while (startIndex >= 0)
+    {
+        int endIndex = text.indexOf(reMultiEnd, startIndex);
+        int commentLength;
+        if (endIndex == -1)
+        {
+            setCurrentBlockState(1);
+            commentLength = text.length() - startIndex;
+        }
+        else
+        {
+            commentLength = endIndex - startIndex + reMultiEnd.matchedLength() + 3;
+        }
+        setFormat(startIndex, commentLength, commentFormat);
+        startIndex = text.indexOf(reMultiStart, startIndex + commentLength);
+    }
+
+    QRegularExpressionMatch match;
+    int index = text.indexOf(reComment, 0, &match);
+    if (index >= 0)
+    {
+        int length = match.capturedLength();
+        setFormat(index, length, commentFormat);
+    }
 }
 
 } // end namespace analysis

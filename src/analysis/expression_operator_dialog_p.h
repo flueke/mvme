@@ -29,6 +29,7 @@
 #include <QPushButton>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QSyntaxHighlighter>
 #include <QTableWidget>
 #include <QToolBar>
 #include <QToolBox>
@@ -330,6 +331,15 @@ class ExpressionOperatorEditorComponent: public QWidget
         ExpressionEditorWidget *m_editorWidget;
         QSplitter *m_hSplitter;
         QAction *m_actionStep = nullptr;
+};
+
+struct ExpressionOperatorSyntaxHighlighter: public QSyntaxHighlighter
+{
+    Q_OBJECT
+    using QSyntaxHighlighter::QSyntaxHighlighter;
+
+    protected:
+        virtual void highlightBlock(const QString &text) override;
 };
 
 } // end namespace analysis
