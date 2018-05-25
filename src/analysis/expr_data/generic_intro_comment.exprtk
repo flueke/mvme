@@ -1,0 +1,27 @@
+/* Basic Scripting Information:
+ * - assignment is done using the ':=' operator, not '=' which performs as comparison!
+ * - local variables need to be defined using the 'var' keyword
+ * - statements are terminated with a semicolon
+ * - arrays can be created by specifying the dimension in square brackets:
+ *   var a0[3];                     // default initalized to zero
+ *   var a1[5] := { 0, 1, 2, 3, 4}; // explicit init
+ *
+ * - strings are enclosed in single quotes 'like so'
+ *
+ * Examples:
+ *   var x := 42;
+ *   var y := 3*x - 23;
+ *   var a0[5] := { 0, 1, 2, 3, 4 };
+ *   var a1[5];
+ *   var a0_len := a0[]; // [] is the array length operator
+ *
+ *   for (var i := 0; i < a1[]; i += 1) {
+ *     if (i = 0) { // '==' works too
+ *       a1[i] := y;
+ *     } else {
+ *       a1[i] := i;
+ *     }
+ *   }
+ *
+ * - C-style comments are supported as are full line comments starting with either '#' or '//'
+ */

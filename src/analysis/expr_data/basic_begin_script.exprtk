@@ -1,0 +1,4 @@
+return [
+    'output0', input0.unit, input0.lower_limits[], input0.lower_limits, input0.upper_limits
+];
+

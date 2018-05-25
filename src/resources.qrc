@@ -86,6 +86,10 @@
     <file>analysis/export_templates/python_sparse_export_dump.py.mustache</file>
 
     <file>analysis/export_templates/pyroot_generate_histos.py.mustache</file>
+
+    <file>analysis/expr_data/generic_intro_comment.exprtk</file>
+    <file>analysis/expr_data/basic_begin_script.exprtk</file>
+    <file>analysis/expr_data/basic_step_script.exprtk</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml
