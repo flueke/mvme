@@ -106,8 +106,8 @@ void ExpressionOperatorPipeView::showEvent(QShowEvent *event)
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 
-    //m_tableWidget->resizeColumnsToContents();
-    //m_tableWidget->resizeRowsToContents();
+    m_tableWidget->resizeRowsToContents();
+    m_tableWidget->resizeColumnsToContents();
 
     QWidget::showEvent(event);
 }
@@ -464,10 +464,13 @@ ExpressionErrorWidget::ExpressionErrorWidget(QWidget *parent)
 
 void ExpressionErrorWidget::showEvent(QShowEvent *event)
 {
+#if 0
     qDebug() << __PRETTY_FUNCTION__ << this;
 
+    qDebug() << __PRETTY_FUNCTION__ << "resizing table to contents";
     m_errorTable->resizeRowsToContents();
     m_errorTable->resizeColumnsToContents();
+#endif
 
     QWidget::showEvent(event);
 }
@@ -524,7 +527,9 @@ void ExpressionErrorWidget::prepareEntries(const std::exception_ptr &ep)
 
 void ExpressionErrorWidget::populateTable()
 {
+    m_errorTable->clearContents();
     m_errorTable->setRowCount(m_entries.size());
+
     s32 row = 0;
 
     for (const auto &entry: m_entries)
@@ -543,13 +548,15 @@ void ExpressionErrorWidget::populateTable()
 
             case Entry::Type::ParserError:
                 {
+#if 0
                     auto verboseErrorText = QString::fromStdString(entry.parserError.diagnostic)
                         + ", src_loc=" + QString::fromStdString(entry.parserError.src_location)
                         + ", err_line=" + QString::fromStdString(entry.parserError.error_line);
+#endif
 
                     set_next_item(QString::fromStdString(entry.parserError.mode));
-                    //set_next_item(QString::fromStdString(entry.parserError.diagnostic));
-                    set_next_item(verboseErrorText);
+                    set_next_item(QString::fromStdString(entry.parserError.diagnostic));
+                    //set_next_item(verboseErrorText);
                     set_next_item(QString::number(entry.parserError.line + 1));
                     set_next_item(QString::number(entry.parserError.column + 1));
                 } break;
@@ -613,8 +620,8 @@ void ExpressionErrorWidget::populateTable()
         row++;
     }
 
-    m_errorTable->resizeRowsToContents();
     m_errorTable->resizeColumnsToContents();
+    m_errorTable->resizeRowsToContents();
 }
 
 void ExpressionErrorWidget::clear()
@@ -662,8 +669,6 @@ void ExpressionErrorWidget::onCellDoubleClicked(int row, int column)
 
 void ExpressionErrorWidget::assertConsistency()
 {
-    qDebug() << __PRETTY_FUNCTION__ << "entries:" << m_entries.size()
-        << ", table rows:" << m_errorTable->rowCount();
     assert(m_entries.size() == m_errorTable->rowCount());
 }
 
@@ -694,6 +699,9 @@ ExpressionCodeEditor::ExpressionCodeEditor(QWidget *parent)
     auto widgetLayout = new QHBoxLayout(this);
     widgetLayout->addWidget(m_codeEditor);
     widgetLayout->setContentsMargins(0, 0, 0, 0);
+
+    connect(m_codeEditor, &QPlainTextEdit::modificationChanged,
+            this, &ExpressionCodeEditor::modificationChanged);
 }
 
 void ExpressionCodeEditor::setExpressionText(const QString &text)
@@ -777,6 +785,9 @@ ExpressionEditorWidget::ExpressionEditorWidget(QWidget *parent)
 
     connect(m_exprErrorWidget, &ExpressionErrorWidget::parserErrorDoubleClicked,
             m_exprCodeEditor, &ExpressionCodeEditor::jumpToError);
+
+    connect(m_exprCodeEditor, &ExpressionCodeEditor::modificationChanged,
+            this, &ExpressionEditorWidget::modificationChanged);
 }
 
 void ExpressionEditorWidget::setExpressionText(const QString &text)
@@ -840,7 +851,9 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
 
     m_actionStep = tb_aa(QIcon(":/window_icon.png"), QSL("S&tep"),
                    this, &ExpressionOperatorEditorComponent::step);
-    m_actionStep->setToolTip(QSL("Perform one step of the operator without prior recompilation."));
+    m_actionStep->setToolTip(
+        QSL("Perform one step of the operator.<br/>"
+            "Recompilation will only be performed if any of the scripts was modified."));
     m_actionStep->setEnabled(false);
 
 
@@ -854,18 +867,20 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
 
     tb_sep();
 
-    CodeEditor *CodeEditor = m_editorWidget->getTextEditor()->codeEditor();
+    CodeEditor *codeEditor = m_editorWidget->getTextEditor()->codeEditor();
 
     QAction* actionUndo = tb_aa(QIcon::fromTheme("edit-undo"), "Undo",
-                                CodeEditor, &QPlainTextEdit::undo);
+                                codeEditor, &QPlainTextEdit::undo);
     actionUndo->setEnabled(false);
 
     QAction *actionRedo = tb_aa(QIcon::fromTheme("edit-redo"), "Redo",
-                                CodeEditor, &QPlainTextEdit::redo);
+                                codeEditor, &QPlainTextEdit::redo);
     actionRedo->setEnabled(false);
 
-    connect(CodeEditor, &QPlainTextEdit::undoAvailable, actionUndo, &QAction::setEnabled);
-    connect(CodeEditor, &QPlainTextEdit::redoAvailable, actionRedo, &QAction::setEnabled);
+    connect(codeEditor, &QPlainTextEdit::undoAvailable, actionUndo, &QAction::setEnabled);
+    connect(codeEditor, &QPlainTextEdit::redoAvailable, actionRedo, &QAction::setEnabled);
+    connect(m_editorWidget, &ExpressionEditorWidget::modificationChanged,
+            this, &ExpressionOperatorEditorComponent::expressionModificationChanged);
 
     tb_sep();
 
@@ -928,6 +943,7 @@ void ExpressionOperatorEditorComponent::setInputs(const std::vector<a2::PipeVect
                                                   const QStringList &units)
 {
     m_inputPipesView->setPipes(pipes, titles, units);
+    setHSplitterSizes();
 }
 
 void ExpressionOperatorEditorComponent::setOutputs(const std::vector<a2::PipeVectors> &pipes,
@@ -935,6 +951,7 @@ void ExpressionOperatorEditorComponent::setOutputs(const std::vector<a2::PipeVec
                                                   const QStringList &units)
 {
     m_outputPipesView->setPipes(pipes, titles, units);
+    setHSplitterSizes();
 }
 
 void ExpressionOperatorEditorComponent::setEvaluationError(const std::exception_ptr &ep)
@@ -945,6 +962,16 @@ void ExpressionOperatorEditorComponent::setEvaluationError(const std::exception_
 void ExpressionOperatorEditorComponent::clearEvaluationError()
 {
     m_editorWidget->clearError();
+}
+
+void ExpressionOperatorEditorComponent::setExpressionModified(bool modified)
+{
+    m_editorWidget->getTextEditor()->codeEditor()->document()->setModified(modified);
+}
+
+bool ExpressionOperatorEditorComponent::isExpressionModified() const
+{
+    return m_editorWidget->getTextEditor()->codeEditor()->document()->isModified();
 }
 
 //
@@ -959,6 +986,8 @@ namespace
 struct ExpressionOperatorDialog::Private
 {
     static const size_t WorkArenaSegmentSize = Kilobytes(4);
+    static const int TabIndex_Begin = 1;
+    static const int TabIndex_Step  = 2;
 
     Private(ExpressionOperatorDialog *q)
         : m_q(q)
@@ -982,6 +1011,7 @@ struct ExpressionOperatorDialog::Private
     // the a2 operator recreated when the user wants to evaluate one of the
     // scripts
     a2::Operator m_a2Op;
+    bool m_lastStepCompileSucceeded = false;
 
 
     QTabWidget *m_tabWidget;
@@ -1183,8 +1213,6 @@ void assert_consistency(const Model &model)
 {
     assert(model.opClone);
     assert(model.opClone->getNumberOfSlots() > 0);
-    qDebug() << "clone slots" << model.opClone->getNumberOfSlots()
-        << ", model slots" << model.inputs.size();
     assert(static_cast<size_t>(model.opClone->getNumberOfSlots()) == model.inputs.size());
 
     assert_internal_consistency(model);
@@ -1565,6 +1593,9 @@ void ExpressionOperatorDialog::Private::updateModelFromGUI()
 
     m_model->beginExpression = m_beginExpressionEditor->expressionText().toStdString();
     m_model->stepExpression  = m_stepExpressionEditor->expressionText().toStdString();
+
+    m_beginExpressionEditor->setExpressionModified(false);
+    m_stepExpressionEditor->setExpressionModified(false);
 }
 
 void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
@@ -1619,8 +1650,9 @@ void ExpressionOperatorDialog::Private::repopulateGUIFromModel()
 
     m_beginExpressionEditor->setOutputs(outputs, outputNames, outputUnits);
     m_stepExpressionEditor->setOutputs(outputs, outputNames, outputUnits);
-    qDebug() << "setting step action enabled to" << (m_a2Op.type == a2::Operator_Expression);
-    m_stepExpressionEditor->getActionStep()->setEnabled(m_a2Op.type == a2::Operator_Expression);
+
+    bool enableStepAction = (m_a2Op.type == a2::Operator_Expression && m_lastStepCompileSucceeded);
+    m_stepExpressionEditor->getActionStep()->setEnabled(enableStepAction);
 }
 
 void ExpressionOperatorDialog::Private::postInputsModified()
@@ -1761,12 +1793,14 @@ void ExpressionOperatorDialog::Private::model_compileStepExpression()
             a2::expression_operator_step(&m_a2Op);
 
             m_stepExpressionEditor->clearEvaluationError();
+            m_lastStepCompileSucceeded = true;
         }
         catch (const std::runtime_error &e)
         {
             qDebug() << __FUNCTION__ << "runtime_error:" << QString::fromStdString(e.what());
 
             m_stepExpressionEditor->setEvaluationError(std::current_exception());
+            m_lastStepCompileSucceeded = false;
         }
     }
 
@@ -1942,11 +1976,19 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     }
 
     // buttonbox: ok/cancel
-    m_d->m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    m_d->m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok
+                                            | QDialogButtonBox::Cancel
+                                            | QDialogButtonBox::Apply,
+                                            this);
+
     m_d->m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(false);
 
     connect(m_d->m_buttonBox, &QDialogButtonBox::accepted, this, &ExpressionOperatorDialog::accept);
     connect(m_d->m_buttonBox, &QDialogButtonBox::rejected, this, &ExpressionOperatorDialog::reject);
+    connect(m_d->m_buttonBox, &QDialogButtonBox::clicked, this, [this] (QAbstractButton *button) {
+        if (m_d->m_buttonBox->buttonRole(button) == QDialogButtonBox::ApplyRole)
+            apply();
+    });
 
     // main layout
     auto dialogLayout = new QVBoxLayout(this);
@@ -1966,7 +2008,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
 
     // Editor component interaction (eval script, step, sample inputs)
 
-    // eval
+    // compile
     connect(m_d->m_beginExpressionEditor, &ExpressionOperatorEditorComponent::compile,
             this, [this] () {
         m_d->updateModelFromGUI();
@@ -1982,7 +2024,16 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     // step
     connect(m_d->m_stepExpressionEditor, &ExpressionOperatorEditorComponent::step,
             this, [this] () {
-        m_d->model_stepOperator();
+        if (m_d->m_beginExpressionEditor->isExpressionModified()
+            || m_d->m_stepExpressionEditor->isExpressionModified())
+        {
+            m_d->updateModelFromGUI();
+            m_d->model_compileStepExpression();
+        }
+        else
+        {
+            m_d->model_stepOperator();
+        }
     });
 
     // sample input data
@@ -2005,6 +2056,34 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     connect(m_d->m_stepExpressionEditor, &ExpressionOperatorEditorComponent::randomizeInputs,
             this, [this] () {
         m_d->model_randomizeInputs();
+    });
+
+    auto set_tab_modified = [this] (int index, bool modified)
+    {
+        static const QString Marker = QSL(" *");
+
+        auto text = m_d->m_tabWidget->tabText(index);
+        bool hasMarker = text.endsWith(Marker);
+
+        if (modified && !hasMarker)
+            text += Marker;
+        else if (!modified && hasMarker)
+            text = text.mid(0, text.size() - Marker.size());
+
+        m_d->m_tabWidget->setTabText(index, text);
+    };
+
+    // modified
+    connect(m_d->m_beginExpressionEditor,
+            &ExpressionOperatorEditorComponent::expressionModificationChanged,
+            this, [set_tab_modified] (bool modified) {
+        set_tab_modified(Private::TabIndex_Begin, modified);
+    });
+
+    connect(m_d->m_stepExpressionEditor,
+            &ExpressionOperatorEditorComponent::expressionModificationChanged,
+            this, [set_tab_modified] (bool modified) {
+        set_tab_modified(Private::TabIndex_Step, modified);
     });
 
     // Initialize and misc setup
@@ -2031,12 +2110,14 @@ ExpressionOperatorDialog::~ExpressionOperatorDialog()
 {
 }
 
-void ExpressionOperatorDialog::accept()
+void ExpressionOperatorDialog::apply()
 {
     AnalysisPauser pauser(m_d->m_eventWidget->getContext());
 
     m_d->updateModelFromGUI();
     save_to_operator(*m_d->m_model, *m_d->m_op);
+    m_d->model_compileBeginExpression();
+    m_d->model_compileStepExpression();
 
     auto analysis = m_d->m_eventWidget->getAnalysis();
 
@@ -2061,7 +2142,11 @@ void ExpressionOperatorDialog::accept()
                 analysis->beginRun(runInfo, vmeMap);
             } break;
     }
+}
 
+void ExpressionOperatorDialog::accept()
+{
+    apply();
     QDialog::accept();
 }
 

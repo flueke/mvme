@@ -144,6 +144,7 @@ class ExpressionOperatorPipesComboView: public QWidget
 
         void setPipeDataEditable(bool b);
         bool isPipeDataEditable() const;
+        s32 pipeCount() const { return m_pipeStack->count(); }
 
         virtual QSize sizeHint() const override;
 
@@ -219,6 +220,9 @@ class ExpressionErrorWidget: public QWidget
 class ExpressionCodeEditor: public QWidget
 {
     Q_OBJECT
+    signals:
+        void modificationChanged(bool changed);
+
     public:
         ExpressionCodeEditor(QWidget *parent = nullptr);
 
@@ -240,6 +244,9 @@ class ExpressionCodeEditor: public QWidget
 class ExpressionEditorWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void modificationChanged(bool changed);
+
     public:
         ExpressionEditorWidget(QWidget *parent = nullptr);
 
@@ -275,7 +282,8 @@ class ExpressionOperatorEditorComponent: public QWidget
         void step();
         void sampleInputs();
         void randomizeInputs();
-        //TODO void generateDefaultCode();
+
+        void expressionModificationChanged(bool changed);
 
     public:
         ExpressionOperatorEditorComponent(QWidget *parent = nullptr);
@@ -301,15 +309,20 @@ class ExpressionOperatorEditorComponent: public QWidget
 
         QAction *getActionStep() { return m_actionStep; }
 
+        s32 inputPipeCount()  { return m_inputPipesView->pipeCount(); }
+        s32 outputPipeCount() { return m_outputPipesView->pipeCount(); }
+
+        bool isExpressionModified() const;
+
+    public slots:
+        void setExpressionModified(bool modified);
+
     protected:
         virtual void showEvent(QShowEvent *event) override;
         virtual void resizeEvent(QResizeEvent *event) override;
 
     private:
         void setHSplitterSizes();
-
-        //void onActionHelp_triggered();
-
 
         ExpressionOperatorPipesComboView *m_inputPipesView;
         ExpressionOperatorPipesComboView *m_outputPipesView;

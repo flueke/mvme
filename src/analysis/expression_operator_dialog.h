@@ -25,6 +25,9 @@ class ExpressionOperatorDialog: public QDialog
 
         virtual ~ExpressionOperatorDialog();
 
+
+    public slots:
+        void apply();
         virtual void accept() override;
         virtual void reject() override;
 
