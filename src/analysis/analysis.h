@@ -1134,8 +1134,6 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
                                      a2::ExpressionOperatorBuildOptions buildOptions);
 
     private:
-        void addOutput(QString name = QString());
-
         QString m_exprBegin;
         QString m_exprStep;
         QStringList m_inputPrefixes;

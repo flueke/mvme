@@ -2652,14 +2652,10 @@ void BinarySumDiff::write(QJsonObject &json) const
 // ExpressionOperator
 //
 
-/* NOTES AND FIXMEs:
+/* NOTES about the ExpressionOperator:
 
  * This is the first operator using multiple outputs and at the same time having
    a variable number of outputs. There will be bugs.
-
- * When a pipe goes away the connected slots need to be notified and disconnected.
-   This could maybe happen in the Pipe destructor.
-   -> Implemented and to be tested.
 
  * The number of outputs is only known once all inputs are connected and the
    begin expression has been evaluated. In Analysis::read() where the
@@ -2667,21 +2663,11 @@ void BinarySumDiff::write(QJsonObject &json) const
    that code doesn't sort operators by rank nor does a full build of the
    system.
    How to fix this issue and create the outputs during read() time?
-
-   -> Dynamically create the required output pipes in getOutput()
-      This will have the side effect that careless code may create outputs without end.
-      You can't do
-        while (auto out = op->getOutput(outIdx++)) {}
-        but have to query the number and only request existing outputs.
-        Doing getOutput(10) would also have to create all non-existent outputs from 0 to 10.
-
    -> Store the last known number of outputs in the analysis config and create
       that many in ExpressionOperator::read()
       This means connections that where valid at the time the analyis config
       was written can be re-established when reading the config back in.
-      This might be the cleaner solution after all.
-      Still have to handle invalid connections!
-
+      This is now stored in 'lastOutputCount'
  */
 
 ExpressionOperator::ExpressionOperator(QObject *parent)
@@ -2812,20 +2798,6 @@ Slot *ExpressionOperator::getSlot(s32 slotIndex)
     return (slotIndex < getNumberOfSlots()
             ? m_inputs.at(slotIndex).get()
             : nullptr);
-}
-
-void ExpressionOperator::addOutput(QString outputName)
-{
-    s32 outputCount = getNumberOfOutputs();
-
-    if (outputName.isEmpty())
-    {
-        outputName = QSL("output") + QString::number(outputCount);
-    }
-
-    auto outPipe = std::make_shared<Pipe>(this, outputCount, outputName);
-
-    m_outputs.push_back(outPipe);
 }
 
 s32 ExpressionOperator::getNumberOfOutputs() const
