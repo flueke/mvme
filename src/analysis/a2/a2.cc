@@ -2067,6 +2067,11 @@ a2_exprtk::SymbolTable make_expression_operator_runtime_library()
     result.addFunction(
         "is_nan", [](double d) { return static_cast<double>(std::isnan(d)); });
 
+    result.addFunction(
+        "valid_or", [](double p, double def_value) {
+            return is_param_valid(p) ? p : def_value;
+    });
+
     return result;
 }
 
@@ -2204,6 +2209,9 @@ Operator make_expression_operator(
 
             register_symbol(d->symtab_begin, addVector, prefix + ".upper_limits",
                             input.upperLimits.data, input.upperLimits.size);
+
+            register_symbol(d->symtab_begin, addConstant, prefix + ".size",
+                            input.lowerLimits.size);
         }
         else
         {
@@ -2279,6 +2287,9 @@ Operator make_expression_operator(
 
             register_symbol(d->symtab_step, addVector, prefix + ".upper_limits",
                             input.upperLimits.data, input.upperLimits.size);
+
+            register_symbol(d->symtab_step, addConstant, prefix + ".size",
+                            input.lowerLimits.size);
         }
         else
         {
@@ -2330,6 +2341,12 @@ Operator make_expression_operator(
 
         register_symbol(d->symtab_step, addVector, outSpec.name + ".upper_limits",
                         result.outputUpperLimits[out_idx].data, result.outputUpperLimits[out_idx].size);
+
+        register_symbol(d->symtab_step, addConstant, outSpec.name + ".size",
+                        result.outputs[out_idx].size);
+
+        register_symbol(d->symtab_step, createString, outSpec.name + ".unit",
+                        outSpec.unit);
     }
 
     d->expr_step.registerSymbolTable(make_expression_operator_runtime_library());

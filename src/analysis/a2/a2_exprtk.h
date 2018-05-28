@@ -75,7 +75,7 @@ class SymbolTable
         bool addString(const std::string &name, std::string &str);
         bool addVector(const std::string &name, std::vector<double> &vec);
         bool addVector(const std::string &name, double *array, size_t size);
-        bool addConstant(const std::string &name, double value); // TO
+        bool addConstant(const std::string &name, double value);
 
         bool createString(const std::string &name, const std::string &str);
 
