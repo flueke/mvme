@@ -6,6 +6,7 @@ TODO list, not at all sorted by priority
 * constant generator operator:
   multiple outputs
 * autosave feature for the analysis
+* add ability to remotely start/stop/pause and request status
 
 * DAQ readout performance: try to make better use of the data buffers.
   Currently one processed controller buffer ends up in the data buffer, which

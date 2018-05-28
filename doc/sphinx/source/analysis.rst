@@ -531,6 +531,8 @@ for the :ref:`Calibration Operator <analysis-Calibration>`.
 Predefined filters can be loaded into the UI using the *Load Filter Template*
 button.
 
+.. TODO: add listfilter extractor documentation and example of when to use this
+
 
 .. _analysis-operators:
 
@@ -741,6 +743,12 @@ Implements data export to binary files and C++/Python example code generation.
 The Export Sink has a variable number of data input arrays that will be written
 to disk. Additionally a single value condition input can be used to pre-filter
 data: output data will only be generated if the condition input is *valid*.
+
+.. TODO: - describe the dependencies of the code and how to build the c++ stuff
+..         including that the cmakelists uses ROOTSYS to find ROOT
+..       - note that this if offline only and mention why it's done this way (ROOT linkage stuff)
+
+.. TODO: add RateMonitor Sink
 
 
 Loading an Analysis / Importing Objects
