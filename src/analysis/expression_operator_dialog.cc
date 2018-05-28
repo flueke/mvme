@@ -2128,6 +2128,7 @@ void ExpressionOperatorDialog::apply()
             {
                 analysis->addOperator(m_d->m_eventWidget->getEventId(),
                                       m_d->m_op, m_d->m_userLevel);
+                m_d->m_mode = OperatorEditorMode::Edit;
             } break;
 
         case OperatorEditorMode::Edit:
