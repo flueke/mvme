@@ -304,16 +304,15 @@ system is "stepped" in terms of events: in each step all the
 The task of each source is to extract relevant values from its input data and
 make these values available to subsequent operators and sinks.
 
-.. FIXME: What is the correct order?
-
 After all sources have processed the module event data, the dependent operators
-and sinks are stepped in the correct order. Each object consumes its input and
-generates new output or in the case of sinks accumulates incoming data into a
-histogram.
+and sinks are stepped in order. Each object consumes its input and generates
+new output or in the case of sinks accumulates incoming data into a histogram.
 
 .. figure:: images/analysis_flowchart.png
 
     Example analysis dataflow
+
+.. _analysis-parameter-arrays:
 
 Parameter Arrays
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
