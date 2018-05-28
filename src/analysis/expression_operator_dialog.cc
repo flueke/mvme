@@ -846,25 +846,29 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
 #define tb_sep() m_toolBar->addSeparator()
     QAction *action;
 
-    action = tb_aa(QIcon(":/window_icon.png"), QSL("&Compile"),
+    action = tb_aa(QIcon(":/hammer.png"), QSL("&Compile"),
                    this, &ExpressionOperatorEditorComponent::compile);
     action->setToolTip(QSL("Recompile the current expression"));
 
-    m_actionStep = tb_aa(QIcon(":/window_icon.png"), QSL("S&tep"),
+    m_actionStep = tb_aa(QIcon(":/gear--arrow.png"), QSL("S&tep"),
                    this, &ExpressionOperatorEditorComponent::step);
     m_actionStep->setToolTip(
         QSL("Perform one step of the operator.<br/>"
-            "Recompilation will only be performed if any of the scripts was modified."));
+            "Recompilation will only be performed if any of the scripts was modified.<br/>"));
     m_actionStep->setEnabled(false);
 
 
     tb_sep();
 
-    tb_aa(QIcon(":/window_icon.png"), QSL("&Sample Inputs"),
+    action = tb_aa(QIcon(":/binocular--arrow.png"), QSL("&Sample Inputs"),
                    this, &ExpressionOperatorEditorComponent::sampleInputs);
+    action->setToolTip(
+        QSL("Samples the current values of the inputs from a running/paused analysis run."));
 
-    tb_aa(QIcon(":/window_icon.png"), QSL("&Randomize Inputs"),
+    action = tb_aa(QIcon(":/arrow-switch.png"), QSL("&Randomize Inputs"),
                    this, &ExpressionOperatorEditorComponent::randomizeInputs);
+    action->setToolTip(
+        QSL("Randomizes the parameter values of each input array."));
 
     tb_sep();
 
@@ -1051,6 +1055,8 @@ struct ExpressionOperatorDialog::Private
     void model_stepOperator();
     void model_sampleInputs();
     void model_randomizeInputs();
+
+    QString generateNameForNewOperator();
 };
 
 namespace
@@ -1819,6 +1825,30 @@ void ExpressionOperatorDialog::Private::model_stepOperator()
     }
 }
 
+QString ExpressionOperatorDialog::Private::generateNameForNewOperator()
+{
+    auto eventId   = m_eventWidget->getEventId();
+    auto opEntries = m_eventWidget->getAnalysis()->getOperators(eventId);
+
+    QSet<QString> names;
+
+    for (const auto &oe: opEntries)
+    {
+        names.insert(oe.op->objectName());
+    }
+
+    static const QString pattern = QSL("expr%1");
+    int suffix = 0;
+    QString result;
+
+    do
+    {
+        result = pattern.arg(suffix++);
+    } while (names.contains(result));
+
+    return result;
+}
+
 namespace
 {
 
@@ -2092,6 +2122,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     {
         case OperatorEditorMode::New:
             {
+                m_d->m_op->setObjectName(m_d->generateNameForNewOperator());
                 setWindowTitle(QString("New  %1").arg(m_d->m_op->getDisplayName()));
             } break;
         case OperatorEditorMode::Edit:
@@ -2129,6 +2160,7 @@ void ExpressionOperatorDialog::apply()
                 analysis->addOperator(m_d->m_eventWidget->getEventId(),
                                       m_d->m_op, m_d->m_userLevel);
                 m_d->m_mode = OperatorEditorMode::Edit;
+                m_d->m_eventWidget->repopulate();
             } break;
 
         case OperatorEditorMode::Edit:
