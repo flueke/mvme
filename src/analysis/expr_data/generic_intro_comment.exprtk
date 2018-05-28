@@ -1,6 +1,6 @@
 # Basic Scripting Information:
 # ==============================================================================
-# * assignment is done using the ':=' operator, not '=' which performs as comparison!
+# * assignment is done using the ':=' operator, not '=' which performs a comparison!
 # * local variables need to be defined using the 'var' keyword
 # * statements are terminated with a semicolon
 # * 1d arrays can be created by specifying the dimension in square brackets:
