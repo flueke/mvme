@@ -2,10 +2,30 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+* autosave feature for the analysis and the vme config
+  Use a QTimer with a configurable AutoSavePeriod in the main thread
+  On timeout use autosoaves/<config_name>_autosave.<config_ext> as the filename
+  an write the config to that file.
+  Better: write the config to a temp file and on success move the temp file to
+  the autosave directory with the correct filename.
+
+  On opening another config file immediately stop the auto save for the current
+  one.
+
+  Stuff needed: autosave dir, current filename, extension,
+  interval, code that does the serialization.
+
+  How to handle new, yet unnamed files? _new_autosave.analysis? _new_vmeconfig_autosave.vme, just autosave.<ext>?
+
+  Also update the autosaver when the name is finally set. This could be done by
+  unregistering the unnamed file and registering the same file with the new
+  name and restarting the timer (restart because the file was just saved
+  otherwise it would not have gotten a name).
+
+
 * multi output arraymap
 * constant generator operator:
   multiple outputs
-* autosave feature for the analysis
 * add ability to remotely start/stop/pause and request status
 
 * DAQ readout performance: try to make better use of the data buffers.

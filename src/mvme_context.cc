@@ -35,6 +35,7 @@
 #include "vme_analysis_common.h"
 #include "vme_controller_factory.h"
 #include "mvme_root_data_writer.h"
+#include "file_autosaver.h"
 
 #include "sis3153_readout_worker.h" // FIXME: remove once VMUSBReadoutWorker has been upated
 
@@ -90,6 +91,9 @@ struct MVMEContextPrivate
 #if 0
     std::unique_ptr<mvme_root::RootDataWriter> m_rootWriter;
 #endif
+
+    FileAutoSaver *m_vmeConfigAutoSaver = nullptr;
+    FileAutoSaver *m_analysisAutoSaver = nullptr;
 
     void stopDAQ();
     void pauseDAQ();
@@ -1751,11 +1755,15 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
             stopAnalysis();
         }
 
+        m_d->m_analysisAutoSaver->stop();
+
         delete m_analysis;
         m_analysis = analysis_ng.release();
         m_analysis->beginRun(getRunInfo(),
                              vme_analysis_common::build_id_to_index_mapping(getVMEConfig()),
                              [this](const QString &msg) { this->logMessage(msg); });
+
+        m_d->m_analysisAutoSaver->start();
 
         emit analysisChanged();
 
