@@ -39,6 +39,8 @@
    operator into the desired state. also the "add/edited" part of the analysis
    has to be called.
 
+ - implement copy/paste for PipeView
+
  */
 
 namespace analysis
@@ -107,8 +109,6 @@ ExpressionOperatorPipeView::ExpressionOperatorPipeView(QWidget *parent)
 
 void ExpressionOperatorPipeView::showEvent(QShowEvent *event)
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
-
     m_tableWidget->resizeRowsToContents();
     m_tableWidget->resizeColumnsToContents();
 
@@ -191,8 +191,6 @@ void ExpressionOperatorPipeView::refresh()
 
 void ExpressionOperatorPipeView::onCellChanged(int row, int col)
 {
-    qDebug() << __PRETTY_FUNCTION__ << row << col;
-
     if (!isDataEditable()) return;
 
     if (col == PipeView_DataColumn && row < m_a2Pipe.data.size)
@@ -240,74 +238,6 @@ void ExpressionOperatorPipeView::paste()
 }
 
 //
-// ExpressionOperatorPipesToolBox
-//
-ExpressionOperatorPipesToolBox::ExpressionOperatorPipesToolBox(QWidget *parent)
-    : QToolBox(parent)
-{
-}
-
-void ExpressionOperatorPipesToolBox::showEvent(QShowEvent *event)
-{
-    qDebug() << __PRETTY_FUNCTION__ << this;
-
-    QWidget::showEvent(event);
-}
-
-void ExpressionOperatorPipesToolBox::setPipes(const std::vector<a2::PipeVectors> &pipes,
-                                           const QStringList &titles,
-                                           const QStringList &units)
-{
-    assert(static_cast<s32>(pipes.size()) == titles.size());
-    assert(static_cast<s32>(pipes.size()) == units.size());
-
-    s32 prevIndex = currentIndex();
-    s32 newSize = titles.size();
-
-    while (count() > newSize)
-    {
-        auto w = widget(count() - 1);
-        removeItem(count() - 1);
-        delete w;
-    }
-
-    for (s32 pi = 0; pi < newSize; pi++)
-    {
-        ExpressionOperatorPipeView *pv = nullptr;
-
-        if ((pv = qobject_cast<ExpressionOperatorPipeView *>(widget(pi))))
-        {
-            pv->setPipe(pipes[pi], units[pi]);
-            setItemText(pi, titles[pi]);
-        }
-        else
-        {
-            pv = new ExpressionOperatorPipeView;
-            pv->setPipe(pipes[pi], units[pi]);
-            addItem(pv, titles[pi]);
-        }
-    }
-}
-
-QSize ExpressionOperatorPipesToolBox::sizeHint() const
-{
-    auto result = QToolBox::sizeHint();
-    qDebug() << __PRETTY_FUNCTION__ << "width" << result.width();
-    return result;
-}
-
-void ExpressionOperatorPipesToolBox::refresh()
-{
-    for (s32 i = 0; i < count(); i++)
-    {
-        if (auto pv = qobject_cast<ExpressionOperatorPipeView *>(widget(i)))
-        {
-            pv->refresh();
-        }
-    }
-}
-
-//
 // ExpressionOperatorPipesComboView
 //
 ExpressionOperatorPipesComboView::ExpressionOperatorPipesComboView(QWidget *parent)
@@ -325,13 +255,6 @@ ExpressionOperatorPipesComboView::ExpressionOperatorPipesComboView(QWidget *pare
             m_pipeStack, &QStackedWidget::setCurrentIndex);
 }
 
-void ExpressionOperatorPipesComboView::showEvent(QShowEvent *event)
-{
-    qDebug() << __PRETTY_FUNCTION__ << this;
-
-    QWidget::showEvent(event);
-}
-
 void ExpressionOperatorPipesComboView::setPipes(const std::vector<a2::PipeVectors> &pipes,
                                            const QStringList &titles,
                                            const QStringList &units)
@@ -342,10 +265,6 @@ void ExpressionOperatorPipesComboView::setPipes(const std::vector<a2::PipeVector
 
     s32 newSize   = titles.size();
     s32 prevIndex = m_selectCombo->currentIndex();
-
-    qDebug() << this << "newSize = " << newSize;
-
-    //prevIndex = prevIndex >= 0 ? prevIndex : 0;
 
     while (m_selectCombo->count() > newSize)
     {
@@ -360,7 +279,8 @@ void ExpressionOperatorPipesComboView::setPipes(const std::vector<a2::PipeVector
         }
     }
 
-    qDebug() << this << "stack:" << m_pipeStack->count() << ", combo:" << m_selectCombo->count();
+    //qDebug() << this << "sizes: stack:" << m_pipeStack->count()
+    //    << ", combo:" << m_selectCombo->count();
 
     for (s32 pi = 0; pi < newSize; pi++)
     {
@@ -385,7 +305,8 @@ void ExpressionOperatorPipesComboView::setPipes(const std::vector<a2::PipeVector
         }
     }
 
-    qDebug() << this << "stack:" << m_pipeStack->count() << ", combo:" << m_selectCombo->count();
+    //qDebug() << this << "stack:" << m_pipeStack->count()
+    //    << ", combo:" << m_selectCombo->count();
 
     if (newSize > 0)
     {
@@ -398,18 +319,7 @@ void ExpressionOperatorPipesComboView::setPipes(const std::vector<a2::PipeVector
 
     m_selectCombo->setCurrentIndex(prevIndex);
 
-    qDebug() << this << "count = " << m_selectCombo->count();
-}
-
-QSize ExpressionOperatorPipesComboView::sizeHint() const
-{
-#if 0
-    auto result = QToolBox::sizeHint();
-    qDebug() << __PRETTY_FUNCTION__ << "width" << result.width();
-    return result;
-#else
-    return QWidget::sizeHint();
-#endif
+    //qDebug() << this << "count = " << m_selectCombo->count();
 }
 
 void ExpressionOperatorPipesComboView::refresh()
@@ -463,19 +373,6 @@ ExpressionErrorWidget::ExpressionErrorWidget(QWidget *parent)
 
     connect(m_errorTable, &QTableWidget::cellDoubleClicked,
             this, &ExpressionErrorWidget::onCellDoubleClicked);
-}
-
-void ExpressionErrorWidget::showEvent(QShowEvent *event)
-{
-#if 0
-    qDebug() << __PRETTY_FUNCTION__ << this;
-
-    qDebug() << __PRETTY_FUNCTION__ << "resizing table to contents";
-    m_errorTable->resizeRowsToContents();
-    m_errorTable->resizeColumnsToContents();
-#endif
-
-    QWidget::showEvent(event);
 }
 
 void ExpressionErrorWidget::setError(const std::exception_ptr &ep)
@@ -723,7 +620,7 @@ QString ExpressionCodeEditor::expressionText() const
 
 void ExpressionCodeEditor::highlightError(int row, int col)
 {
-    qDebug() << __PRETTY_FUNCTION__ << row << col;
+    //qDebug() << __PRETTY_FUNCTION__ << row << col;
 
     auto cursor = m_codeEditor->textCursor();
 
@@ -745,7 +642,7 @@ void ExpressionCodeEditor::highlightError(int row, int col)
 
 void ExpressionCodeEditor::jumpToError(int row, int col)
 {
-    qDebug() << __PRETTY_FUNCTION__ << row << col;
+    //qDebug() << __PRETTY_FUNCTION__ << row << col;
 
     auto cursor = m_codeEditor->textCursor();
 
@@ -759,7 +656,7 @@ void ExpressionCodeEditor::jumpToError(int row, int col)
 
 void ExpressionCodeEditor::clearErrorHighlight()
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    //qDebug() << __PRETTY_FUNCTION__;
 
     QList<QTextEdit::ExtraSelection> extraSelections;
     m_codeEditor->setExtraSelections(extraSelections);
@@ -915,7 +812,9 @@ void ExpressionOperatorEditorComponent::setHSplitterSizes()
     sizes[2] = m_outputPipesView->sizeHint().width();
     totalWidth -= sizes[2];
 
-    sizes[1] = std::max(totalWidth, 800);
+    static const s32 EditorMinWidth = 800;
+
+    sizes[1] = std::max(totalWidth, EditorMinWidth);
 
     //qDebug() << __PRETTY_FUNCTION__ << "width of the editor area:" << sizes[1];
 
@@ -1315,7 +1214,6 @@ void add_new_input_slot(Model &model)
     // this generates a new input prefix if needed
     model.opClone->addSlot();
     add_model_only_input(model);
-    qDebug() << model.opClone->getInputPrefix(si);
     model.inputPrefixes[si] = model.opClone->getInputPrefix(si).toStdString();
 
     assert_consistency(model);
@@ -1641,7 +1539,6 @@ void ExpressionOperatorDialog::Private::repopulateSlotGridFromModel()
 
         QObject::connect(le, &QLineEdit::editingFinished,
                          m_slotGrid.outerFrame, [this, bi, le] () {
-            qDebug() << "inputPrefixLineEdit signaled editingFinished";
             assert(static_cast<size_t>(bi) < m_model->inputPrefixes.size());
             this->onInputPrefixEdited(bi, le->text());
         });

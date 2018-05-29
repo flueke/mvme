@@ -112,27 +112,8 @@ class ExpressionOperatorPipeView: public QWidget
         bool m_dataEditable;
 };
 
-/** Vertical arrangement of a group of ExpressionOperatorPipeViews in a
- * QToolBox. */
-class ExpressionOperatorPipesToolBox: public QToolBox
-{
-    Q_OBJECT
-    public:
-        ExpressionOperatorPipesToolBox(QWidget *parent = nullptr);
-
-        void setPipes(const std::vector<a2::PipeVectors> &pipes,
-                      const QStringList &titles,
-                      const QStringList &units);
-
-        virtual QSize sizeHint() const override;
-
-    public slots:
-        void refresh();
-
-    protected:
-        virtual void showEvent(QShowEvent *event) override;
-};
-
+/* Displays multiple ExpressionOperatorPipeViews in a stacked widget. The
+ * current pipe can be selected via a combobox. */
 class ExpressionOperatorPipesComboView: public QWidget
 {
     Q_OBJECT
@@ -147,13 +128,8 @@ class ExpressionOperatorPipesComboView: public QWidget
         bool isPipeDataEditable() const;
         s32 pipeCount() const { return m_pipeStack->count(); }
 
-        virtual QSize sizeHint() const override;
-
     public slots:
         void refresh();
-
-    protected:
-        virtual void showEvent(QShowEvent *event) override;
 
     private:
         QComboBox *m_selectCombo;
@@ -177,9 +153,6 @@ class ExpressionErrorWidget: public QWidget
 
     public slots:
         void clear();
-
-    protected:
-        virtual void showEvent(QShowEvent *event) override;
 
     private slots:
         void onCellClicked(int row, int col);
