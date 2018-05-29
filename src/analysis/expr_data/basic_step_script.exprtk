@@ -23,7 +23,8 @@
 # A consequence of this is that the following code to sum up the values of an
 # array will yield a NaN in case any of the array members are invalid:
 #
-#   var sum:=0; for (var i:=0; i<array[]; i+=1) { sum += array[i]; }
+#   var sum:=0;
+#   for (var i:=0; i<my_array[]; i+=1) { sum += my_array[i]; }
 #
 # To detect and generate invalid parameters the following functions have been
 # defined for use inside scripts:
@@ -34,8 +35,9 @@
 # explicitly create an invalid parameter.
 # A corrected version of the above loop:
 #
-#   var sum:=0; for (var i:=0; i<array[]; i+=1) {
-#      sum += is_valid(array[i]) ? array[i] : 0.0;
+#   var sum:=0;
+#   for (var i:=0; i<my_array[]; i+=1) {
+#      sum += is_valid(my_array[i]) ? my_array[i] : 0.0;
 #   }
 #
 #
@@ -43,13 +45,15 @@
 # ------------------------------------------------------------------------------
 # The line below simply copies input0 to output0 (assignment of arrays performs
 # the copy internally).
-# output0 := input0;
-
+#
+#   output0 := input0;
+#
 # Doing the same manually using a loop:
-# for (var i := 0; i < input0.size; i += 1)
-# {
-#     output0[i] := input0[i];
-# }
+#
+#   for (var i := 0; i < input0.size; i += 1)
+#   {
+#       output0[i] := input0[i];
+#   }
 
 
 output0 := input0;

@@ -754,7 +754,7 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
                    this, &ExpressionOperatorEditorComponent::step);
     m_actionStep->setToolTip(
         QSL("Perform one step of the operator.<br/>"
-            "Recompilation will only be performed if any of the scripts was modified.<br/>"));
+            "Recompilation will only be done if any of the scripts was modified."));
     m_actionStep->setEnabled(false);
 
 

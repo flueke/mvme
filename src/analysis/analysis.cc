@@ -2684,13 +2684,13 @@ ExpressionOperator::ExpressionOperator(QObject *parent)
     {
         QFile f(QSL(":/analysis/expr_data/basic_begin_script.exprtk"));
         f.open(QIODevice::ReadOnly);
-        m_exprBegin = genericIntroComment + "\n\n" + QString::fromUtf8(f.readAll());
+        m_exprBegin = genericIntroComment + "\n" + QString::fromUtf8(f.readAll());
     }
 
     {
         QFile f(QSL(":/analysis/expr_data/basic_step_script.exprtk"));
         f.open(QIODevice::ReadOnly);
-        m_exprStep = genericIntroComment + "\n\n" + QString::fromUtf8(f.readAll());
+        m_exprStep = genericIntroComment + "\n" + QString::fromUtf8(f.readAll());
     }
 
     // Need at least one input slot to be usable
