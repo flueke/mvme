@@ -1,14 +1,17 @@
 #include "expression_operator_dialog.h"
 #include "expression_operator_dialog_p.h"
 
-#include "a2_adapter.h"
 #include "a2/a2_impl.h"
+#include "a2_adapter.h"
 #include "analysis_ui_p.h"
 #include "mvme_context_lib.h"
+#include "qt_util.h"
 #include "util/cpp17_algo.h"
 
+#include <QApplication>
 #include <QHeaderView>
 #include <QTabWidget>
+#include <QTextBrowser>
 
 /* NOTES:
  - new slot grid implementation with space for the input variable name column.
@@ -889,9 +892,9 @@ ExpressionOperatorEditorComponent::ExpressionOperatorEditorComponent(QWidget *pa
 
     tb_sep();
 
+    tb_aa(QIcon(":/help.png"), "&Help", this, &ExpressionOperatorEditorComponent::onActionHelp_triggered);
     //tb_aa("Show Symbol Table");
     //tb_aa("Generate Code", this, &ExpressionOperatorEditorComponent::generateDefaultCode);
-    //tb_aa("&Help", this, &ExpressionOperatorEditorComponent::onActionHelp_triggered);
 
 #undef tb_sep
 #undef tb_aa
@@ -977,6 +980,73 @@ void ExpressionOperatorEditorComponent::setExpressionModified(bool modified)
 bool ExpressionOperatorEditorComponent::isExpressionModified() const
 {
     return m_editorWidget->getTextEditor()->codeEditor()->document()->isModified();
+}
+
+namespace
+{
+    static const char *HelpWidgetObjectName = "ExpressionOperatorHelp";
+    static const char *HelpWidgetStyleSheet =
+        "QTextBrowser {"
+        "   background: #e1e1e1;"
+        "}"
+        ;
+
+    QWidget *make_help_widget()
+    {
+        auto result = new QTextBrowser;
+        result->setStyleSheet(HelpWidgetStyleSheet);
+        result->setAttribute(Qt::WA_DeleteOnClose);
+        result->setObjectName(HelpWidgetObjectName);
+        result->setWindowTitle("Expression Operator Help");
+        result->setOpenExternalLinks(true);
+        result->resize(800, 800);
+        add_widget_close_action(result);
+
+        auto geoSaver = new WidgetGeometrySaver(result);
+        geoSaver->addAndRestore(result, QSL("WindowGeometries/") + result->objectName());
+
+        {
+            QFile inFile(":/analysis/expr_data/expr_help.html");
+
+            if (inFile.open(QIODevice::ReadOnly))
+            {
+                QTextStream inStream(&inFile);
+                result->document()->setHtml(inStream.readAll());
+            }
+            else
+            {
+                InvalidCodePath;
+                result->document()->setHtml(QSL("<b>Error: help file not found!</b>"));
+            }
+
+            // scroll to top
+            auto cursor = result->textCursor();
+            cursor.setPosition(0);
+            result->setTextCursor(cursor);
+        }
+
+        return result;
+    }
+} // end anon namespace
+
+void ExpressionOperatorEditorComponent::onActionHelp_triggered()
+{
+    auto widgets = QApplication::topLevelWidgets();
+
+    auto it = std::find_if(widgets.begin(), widgets.end(), [](const QWidget *widget) {
+        return widget->objectName() == HelpWidgetObjectName;
+    });
+
+    if (it != widgets.end())
+    {
+        auto widget = *it;
+        show_and_activate(widget);
+    }
+    else
+    {
+        auto widget = make_help_widget();
+        widget->show();
+    }
 }
 
 //

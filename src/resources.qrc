@@ -100,6 +100,7 @@
     <file>analysis/expr_data/generic_intro_comment.exprtk</file>
     <file>analysis/expr_data/basic_begin_script.exprtk</file>
     <file>analysis/expr_data/basic_step_script.exprtk</file>
+    <file>analysis/expr_data/expr_help.html</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml
