@@ -49,6 +49,9 @@
 #include <QProgressDialog>
 #include <QMessageBox>
 
+namespace
+{
+
 /* Buffers to pass between DAQ/replay and the analysis. The buffer size should
  * be at least twice as big as the max VMUSB buffer size (2 * 64k).
  *
@@ -69,6 +72,10 @@ static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
 
+static const QString VMEConfigAutoSaveFileName = QSL(".vme_autosave.vme");
+static const QString AnalysisAutoSaveFileName  = QSL(".analysis_autosave.analysis");
+static const int DefaultConfigFileAutosaveInterval_ms = 1 * 60 * 1000;
+
 /* Maximum number of connection attempts to the current VMEController before
  * giving up. */
 static const int VMECtrlConnectMaxRetryCount = 3;
@@ -76,6 +83,59 @@ static const int VMECtrlConnectMaxRetryCount = 3;
 /* Maximum number of entries to keep in the logbuffer. Once this is exceeded
  * the oldest entries will be removed. */
 static const s64 LogBufferMaxEntries = 100 * 1000;
+
+class VMEConfigSerializer
+{
+    public:
+        VMEConfigSerializer(MVMEContext *context)
+            : m_context(context)
+        { }
+
+        QByteArray operator()()
+        {
+            QJsonObject contents;
+            m_context->getVMEConfig()->write(contents);
+
+            QJsonObject container;
+            container["DAQConfig"] = contents;
+
+            QJsonDocument doc(container);
+            return doc.toJson();
+        }
+
+    private:
+        MVMEContext *m_context;
+};
+
+class AnalysisSerializer
+{
+    public:
+        AnalysisSerializer(MVMEContext *context)
+            : m_context(context)
+        { }
+
+        QByteArray operator()()
+        {
+            auto vmeConfig = m_context->getVMEConfig();
+            auto analysis = m_context->getAnalysis();
+
+            vme_analysis_common::add_vme_properties_to_analysis(vmeConfig, analysis);
+
+            QJsonObject contents;
+            analysis->write(contents);
+
+            QJsonObject container;
+            container["AnalysisNG"] = contents;
+
+            QJsonDocument doc(container);
+            return doc.toJson();
+        }
+
+    private:
+        MVMEContext *m_context;
+};
+
+} // end anon namespace
 
 struct MVMEContextPrivate
 {
@@ -92,8 +152,8 @@ struct MVMEContextPrivate
     std::unique_ptr<mvme_root::RootDataWriter> m_rootWriter;
 #endif
 
-    FileAutoSaver *m_vmeConfigAutoSaver = nullptr;
-    FileAutoSaver *m_analysisAutoSaver = nullptr;
+    std::unique_ptr<FileAutoSaver> m_vmeConfigAutoSaver;
+    std::unique_ptr<FileAutoSaver> m_analysisAutoSaver;
 
     void stopDAQ();
     void pauseDAQ();
@@ -529,11 +589,16 @@ MVMEContext::~MVMEContext()
 
     // Disconnect controller signals so that we're not emitting our own
     // controllerStateChanged anymore.
-    disconnect(m_controller, &VMEController::controllerStateChanged, this, &MVMEContext::controllerStateChanged);
+    disconnect(m_controller, &VMEController::controllerStateChanged,
+               this, &MVMEContext::controllerStateChanged);
+
     // Same for daqStateChanged() and mvmeStreamWorkerStateChanged
-    disconnect(m_readoutWorker, &VMEReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
-    disconnect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
-    disconnect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged, this, &MVMEContext::onMVMEStreamWorkerStateChanged);
+    disconnect(m_readoutWorker, &VMEReadoutWorker::stateChanged,
+               this, &MVMEContext::onDAQStateChanged);
+    disconnect(m_listFileWorker, &ListFileReader::stateChanged,
+               this, &MVMEContext::onDAQStateChanged);
+    disconnect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged,
+               this, &MVMEContext::onMVMEStreamWorkerStateChanged);
 
     delete m_controller;
     delete m_analysis;
@@ -544,6 +609,8 @@ MVMEContext::~MVMEContext()
     Q_ASSERT(m_freeBuffers.queue.size() + m_fullBuffers.queue.size() == DataBufferCount);
     qDeleteAll(m_freeBuffers.queue);
     qDeleteAll(m_fullBuffers.queue);
+
+    cleanupWorkspaceAutoSaveFiles();
 
     delete m_d;
 
@@ -574,9 +641,14 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
     for (auto event: config->getEventConfigs())
         onEventAdded(event);
 
-    connect(m_vmeConfig, &VMEConfig::eventAdded, this, &MVMEContext::onEventAdded);
-    connect(m_vmeConfig, &VMEConfig::eventAboutToBeRemoved, this, &MVMEContext::onEventAboutToBeRemoved);
-    connect(m_vmeConfig, &VMEConfig::globalScriptAboutToBeRemoved, this, &MVMEContext::onGlobalScriptAboutToBeRemoved);
+    connect(m_vmeConfig, &VMEConfig::eventAdded,
+            this, &MVMEContext::onEventAdded);
+
+    connect(m_vmeConfig, &VMEConfig::eventAboutToBeRemoved,
+            this, &MVMEContext::onEventAboutToBeRemoved);
+
+    connect(m_vmeConfig, &VMEConfig::globalScriptAboutToBeRemoved,
+            this, &MVMEContext::onGlobalScriptAboutToBeRemoved);
 
     if (m_readoutWorker)
     {
@@ -586,6 +658,12 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
     }
 
     setVMEController(config->getControllerType(), config->getControllerSettings());
+
+    if (m_d->m_vmeConfigAutoSaver)
+    {
+        // (re)start the autosaver
+        m_d->m_vmeConfigAutoSaver->start();
+    }
 
     emit daqConfigChanged(config);
 }
@@ -1385,12 +1463,12 @@ void MVMEContext::newWorkspace(const QString &dirName)
         return;
     }
 
+    cleanupWorkspaceAutoSaveFiles();
+
     auto workspaceSettings(makeWorkspaceSettings(dirName));
     workspaceSettings->setValue(QSL("LastVMEConfig"), DefaultVMEConfigFileName);
     workspaceSettings->setValue(QSL("LastAnalysisConfig"), DefaultAnalysisConfigFileName);
-    //workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
     workspaceSettings->setValue(QSL("WriteListFile"), true);
-    //workspaceSettings->setValue(QSL("PlotsDirectory"), QSL("plots"));
 
     // Force sync to create the mvmeworkspace.ini file
     workspaceSettings->sync();
@@ -1453,6 +1531,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
     try
     {
+        cleanupWorkspaceAutoSaveFiles();
         setWorkspaceDirectory(dirName);
         auto workspaceSettings(makeWorkspaceSettings(dirName));
 
@@ -1496,6 +1575,8 @@ void MVMEContext::openWorkspace(const QString &dirName)
             }
         }
 
+        // special listfile output directory handling. TODO: this might not
+        // actually be needed anymore
         {
             ListFileOutputInfo info = readFromSettings(*workspaceSettings);
 
@@ -1530,81 +1611,204 @@ void MVMEContext::openWorkspace(const QString &dirName)
         //
         // VME config
         //
-
         auto lastVMEConfig = workspaceSettings->value(QSL("LastVMEConfig")).toString();
+        assert(!lastVMEConfig.isEmpty());
 
-        // Load the last used vme config
-        if (!lastVMEConfig.isEmpty())
+        if (dir.exists(VMEConfigAutoSaveFileName))
         {
-            qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig << " (INI)";
-            loadVMEConfig(dir.filePath(lastVMEConfig));
+            qDebug() << __PRETTY_FUNCTION__ << "found VMEConfig autosave";
+
+            auto tLast = QFileInfo(lastVMEConfig).lastModified();
+            auto tAuto = QFileInfo(dir.filePath(VMEConfigAutoSaveFileName)).lastModified();
+
+            if (tLast < tAuto)
+            {
+                QMessageBox mb(
+                    QMessageBox::Question, QSL("VME autosave file found"),
+                    QSL("A VME config autosave file from a previous mvme session was found.<br>"
+                        "Do you want to open the autosave?"),
+                    QMessageBox::Open | QMessageBox::Cancel);
+
+                mb.button(QMessageBox::Cancel)->setText(QSL("Ignore"));
+
+                int choice = mb.exec();
+
+                switch (choice)
+                {
+                    case QMessageBox::Open:
+                        loadVMEConfig(dir.filePath(VMEConfigAutoSaveFileName));
+                        getVMEConfig()->setModified(true);
+                        setConfigFileName(lastVMEConfig);
+                        break;
+
+                    case QMessageBox::Cancel:
+                        loadVMEConfig(dir.filePath(lastVMEConfig));
+                        break;
+
+                    InvalidDefaultCase;
+                }
+            }
         }
-        // Check if a file with the default name exists and if so load it.
-        else if (QFile::exists(dir.filePath(DefaultVMEConfigFileName)))
-        {
-            qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig << " (DefaultName)";
-            loadVMEConfig(dir.filePath(DefaultVMEConfigFileName));
-        }
-        // Neither last nor default files exist => create empty default
         else
         {
-            qDebug() << __PRETTY_FUNCTION__ << "setting default vme filename";
-            // No previous filename is known so use a default name without updating
-            // the workspace settings.
-            setConfigFileName(DefaultVMEConfigFileName, false);
+            // Load the last used vme config
+            if (!lastVMEConfig.isEmpty())
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig
+                    << " (INI)";
+
+                loadVMEConfig(dir.filePath(lastVMEConfig));
+            }
+            // Check if a file with the default name exists and if so load it.
+            else if (QFile::exists(dir.filePath(DefaultVMEConfigFileName)))
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig
+                    << " (DefaultName)";
+
+                loadVMEConfig(dir.filePath(DefaultVMEConfigFileName));
+            }
+            // Neither last nor default files exist => create empty default
+            else
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "setting default vme filename";
+                // No previous filename is known so use a default name without updating
+                // the workspace settings.
+                setConfigFileName(DefaultVMEConfigFileName, false);
+            }
         }
 
         //
         // Analysis config
         //
-
         auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
+        assert(!lastAnalysisConfig.isEmpty());
 
-        if (!lastAnalysisConfig.isEmpty())
+        if (dir.exists(AnalysisAutoSaveFileName))
         {
-            qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" << lastAnalysisConfig << " (INI)";
-            loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
-        }
-        else if (QFile::exists(dir.filePath(DefaultAnalysisConfigFileName)))
-        {
-            qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" << lastAnalysisConfig << " (DefaultName)";
-            loadAnalysisConfig(dir.filePath(DefaultAnalysisConfigFileName));
+            qDebug() << __PRETTY_FUNCTION__ << "found Analysis autosave";
+
+            auto tLast = QFileInfo(lastAnalysisConfig).lastModified();
+            auto tAuto = QFileInfo(dir.filePath(AnalysisAutoSaveFileName)).lastModified();
+
+
+            if (tLast < tAuto)
+            {
+                QMessageBox mb(
+                    QMessageBox::Question, QSL("Analysis autosave file found"),
+                    QSL("An Analysis autosave file from a previous mvme session was found.<br>"
+                        "Do you want to open the autosave?"),
+                    QMessageBox::Open | QMessageBox::Cancel);
+
+                mb.button(QMessageBox::Cancel)->setText(QSL("Ignore"));
+
+                int choice = mb.exec();
+
+                switch (choice)
+                {
+                    case QMessageBox::Open:
+                        loadAnalysisConfig(dir.filePath(AnalysisAutoSaveFileName));
+                        getAnalysis()->setModified(true);
+                        setAnalysisConfigFileName(lastAnalysisConfig);
+                        break;
+
+                    case QMessageBox::Cancel:
+                        loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
+                        break;
+
+                    InvalidDefaultCase;
+                }
+            }
         }
         else
         {
-            qDebug() << __PRETTY_FUNCTION__ << "setting default analysis filename";
-            setAnalysisConfigFileName(DefaultAnalysisConfigFileName, false);
+            if (!lastAnalysisConfig.isEmpty())
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" <<
+                    lastAnalysisConfig << " (INI)";
+
+                loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
+            }
+            else if (QFile::exists(dir.filePath(DefaultAnalysisConfigFileName)))
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" <<
+                    lastAnalysisConfig << " (DefaultName)";
+
+                loadAnalysisConfig(dir.filePath(DefaultAnalysisConfigFileName));
+            }
+            else
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "setting default analysis filename";
+                setAnalysisConfigFileName(DefaultAnalysisConfigFileName, false);
+            }
+
+            // No exceptions thrown -> store workspace directory in global settings
+            QSettings settings;
+            settings.setValue(QSL("LastWorkspaceDirectory"), getWorkspaceDirectory());
+
+            //
+            // Load analysis session auto save
+            //
+
+            /* Try to load an analysis session auto save. Only loads analysis data, not
+             * the analysis itself from the file.
+             * Does not have an effect if there's a mismatch between the current analysis
+             * and the one stored in the session as operator ids will be different so no
+             * data will be loaded.
+             * NOTE: the session auto save is done at the end of
+             * MVMEStreamWorker::start().
+             */
+            auto sessionPath = getWorkspacePath(QSL("SessionDirectory"));
+            QFileInfo fi(sessionPath + "/last_session.hdf5");
+
+            if (fi.exists())
+            {
+                logMessage(QString("Loading analysis session auto save %1").arg(fi.filePath()));
+                load_analysis_session(fi.filePath(), getAnalysis());
+            }
         }
 
-        // No exceptions thrown -> store workspace directory in global settings
-        QSettings settings;
-        settings.setValue(QSL("LastWorkspaceDirectory"), getWorkspaceDirectory());
-
         //
-        // Load analysis session auto save
+        // Create the autosavers here as the workspace specific autosave
+        // directory is known at this point.
         //
 
-        /* Try to load an analysis session auto save. Only loads analysis data,
-         * not the analysis itself from the file.
-         * Does not have an effect if there's a mismatch between the current
-         * analysis and the one stored in the session as operator ids will be
-         * different so no data will be loaded.
-         * NOTE: the auto save is done at the end of MVMEStreamWorker::start().
-         */
-        auto sessionPath = getWorkspacePath(QSL("SessionDirectory"));
-        QFileInfo fi(sessionPath + "/last_session.hdf5");
+        m_d->m_vmeConfigAutoSaver = std::make_unique<FileAutoSaver>(
+            VMEConfigSerializer(this),
+            dir.filePath(VMEConfigAutoSaveFileName),
+            DefaultConfigFileAutosaveInterval_ms);
 
-        if (fi.exists())
-        {
-            logMessage(QString("Loading analysis session auto save %1").arg(fi.filePath()));
-            load_analysis_session(fi.filePath(), getAnalysis());
-        }
+        m_d->m_vmeConfigAutoSaver->setObjectName(QSL("VmeConfigAutoSaver"));
+        m_d->m_vmeConfigAutoSaver->start();
+
+        m_d->m_analysisAutoSaver = std::make_unique<FileAutoSaver>(
+            AnalysisSerializer(this),
+            dir.filePath(AnalysisAutoSaveFileName),
+            DefaultConfigFileAutosaveInterval_ms);
+
+        m_d->m_analysisAutoSaver->setObjectName(QSL("AnalysisAutoSaver"));
+        m_d->m_analysisAutoSaver->start();
     }
     catch (const QString &)
     {
         // Restore previous workspace directory as the load was not successfull
         setWorkspaceDirectory(lastWorkspaceDirectory);
         throw;
+    }
+}
+
+void MVMEContext::cleanupWorkspaceAutoSaveFiles()
+{
+    if (isWorkspaceOpen())
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "removing autosaves";
+
+        QDir wsDir(getWorkspaceDirectory());
+        QFile::remove(wsDir.filePath(VMEConfigAutoSaveFileName));
+        QFile::remove(wsDir.filePath(AnalysisAutoSaveFileName));
+    }
+    else
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "no workspace open, nothing to do";
     }
 }
 
@@ -1677,6 +1881,21 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
     setConfigFileName(fileName);
     setMode(GlobalMode::DAQ);
     setVMEController(vmeConfig->getControllerType(), vmeConfig->getControllerSettings());
+
+    if (m_d->m_vmeConfigAutoSaver)
+    {
+        // (re)start the autosaver
+        m_d->m_vmeConfigAutoSaver->start();
+    }
+}
+
+void MVMEContext::vmeConfigWasSaved()
+{
+    if (m_d->m_vmeConfigAutoSaver)
+    {
+        // (re)start the autosaver
+        m_d->m_vmeConfigAutoSaver->start();
+    }
 }
 
 bool MVMEContext::loadAnalysisConfig(const QString &fileName)
@@ -1714,7 +1933,8 @@ bool MVMEContext::loadAnalysisConfig(const QByteArray &blob, const QString &inpu
     return loadAnalysisConfig(doc, inputInfo);
 }
 
-bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo, AnalysisLoadFlags flags)
+bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo,
+                                     AnalysisLoadFlags flags)
 {
     using namespace analysis;
     using namespace vme_analysis_common;
@@ -1755,15 +1975,17 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
             stopAnalysis();
         }
 
-        m_d->m_analysisAutoSaver->stop();
-
         delete m_analysis;
         m_analysis = analysis_ng.release();
         m_analysis->beginRun(getRunInfo(),
                              vme_analysis_common::build_id_to_index_mapping(getVMEConfig()),
                              [this](const QString &msg) { this->logMessage(msg); });
 
-        m_d->m_analysisAutoSaver->start();
+        if (m_d->m_analysisAutoSaver)
+        {
+            // (re)start the autosaver
+            m_d->m_analysisAutoSaver->start();
+        }
 
         emit analysisChanged();
 
@@ -1781,13 +2003,32 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
     {
         m_analysis->clear();
         setAnalysisConfigFileName(QString());
-        QMessageBox::critical(m_mainwin, QSL("Error"), QString("Out of memory when creating analysis objects."));
+        QMessageBox::critical(m_mainwin, QSL("Error"),
+                              QString("Out of memory when creating analysis objects."));
         emit analysisChanged();
 
         return false;
     }
 
     return true;
+}
+
+void MVMEContext::analysisWasCleared()
+{
+    if (m_d->m_analysisAutoSaver)
+    {
+        // (re)start the autosaver
+        m_d->m_analysisAutoSaver->start();
+    }
+}
+
+void MVMEContext::analysisWasSaved()
+{
+    if (m_d->m_analysisAutoSaver)
+    {
+        // (re)start the autosaver
+        m_d->m_analysisAutoSaver->start();
+    }
 }
 
 void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)

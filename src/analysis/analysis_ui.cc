@@ -3570,9 +3570,11 @@ void AnalysisWidgetPrivate::actionNew()
 {
     if (m_context->getAnalysis()->isModified())
     {
-        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis configuration?"),
-                           QSL("The current analysis configuration has modifications. Do you want to save it?"),
-                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+        QMessageBox msgBox(
+            QMessageBox::Question, QSL("Save analysis configuration?"),
+            QSL("The current analysis configuration has modifications. Do you want to save it?"),
+            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+
         int result = msgBox.exec();
 
         if (result == QMessageBox::Save)
@@ -3597,6 +3599,7 @@ void AnalysisWidgetPrivate::actionNew()
     m_context->getAnalysis()->clear();
     m_context->getAnalysis()->setModified(false);
     m_context->setAnalysisConfigFileName(QString());
+    m_context->analysisWasCleared();
     repopulate();
 }
 
@@ -3654,6 +3657,7 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
         {
             m_context->setAnalysisConfigFileName(result.second);
             m_context->getAnalysis()->setModified(false);
+            m_context->analysisWasSaved();
         }
 
         return result;

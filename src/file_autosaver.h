@@ -6,6 +6,31 @@
 #include <memory>
 #include "typedefs.h"
 
+/* File auto save feature in mvme:
+ *
+ * Periodically save the vme and analysis configs to disk to avoid losing all
+ * changes in case the program should crash.
+ *
+ * On opening a workspace check to see if an auto save exists and ask the user
+ * if it should be loaded or deleted.
+ *
+ * On closing a workspace the last thing that should happen is removal of
+ * existing autosaves. This has to happen after all config files have been
+ * saved or the changes have been explicitly discarded by the user.
+ *
+ * If the user decides to load an autosave clear the filename so that it is
+ * treated like a new file and a new name has to be picked
+ *
+ * or
+ *
+ * use the autosave name. !!! But this would conflict with the autosave feature
+ * itself!
+ *
+ * Also directly opening an autosave filename could be treated like the
+ * autoload (meaning clear the filename) on opening a workspace or it will
+ * yield to the open autosave overwriting itself :)
+ */
+
 class FileAutoSaver: public QObject
 {
     Q_OBJECT
@@ -25,8 +50,8 @@ class FileAutoSaver: public QObject
 
     public slots:
         void setInterval(s32 interval_ms) { m_timer->setInterval(interval_ms); }
-        void start() { m_timer->start(); }
-        void stop() { m_timer->stop(); }
+        void start();
+        void stop();
         bool isActive() { return m_timer->isActive(); }
         void saveNow();
 

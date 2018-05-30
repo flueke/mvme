@@ -209,7 +209,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     //pb_notes  = make_toolbutton(QSL(":/text-document.png"), QSL("Notes"));
     //connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
 
-    QToolButton *pb_treeSettings = nullptr;
+    QToolButton *pb_moreMenu = nullptr;
 
     {
         auto menu = new QMenu(this);
@@ -223,9 +223,9 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
         auto action_exploreWorkspace = menu->addAction(QIcon(":/folder_orange.png"), QSL("Explore Workspace"));
         connect(action_exploreWorkspace, &QAction::triggered, this, &VMEConfigTreeWidget::exploreWorkspace);
 
-        pb_treeSettings = make_toolbutton(QSL(":/tree-settings.png"), QSL("More"));
-        pb_treeSettings->setMenu(menu);
-        pb_treeSettings->setPopupMode(QToolButton::InstantPopup);
+        pb_moreMenu = make_toolbutton(QSL(":/tree-settings.png"), QSL("More"));
+        pb_moreMenu->setMenu(menu);
+        pb_moreMenu->setPopupMode(QToolButton::InstantPopup);
 
         QSettings settings;
         action_showAdvanced->setChecked(settings.value("DAQTree/ShowAdvanced", false).toBool());
@@ -239,7 +239,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     buttonLayout->addWidget(pb_load);
     buttonLayout->addWidget(pb_save);
     buttonLayout->addWidget(pb_saveAs);
-    buttonLayout->addWidget(pb_treeSettings);
+    buttonLayout->addWidget(pb_moreMenu);
     //buttonLayout->addWidget(pb_notes); TODO: implement this
     buttonLayout->addStretch(1);
 

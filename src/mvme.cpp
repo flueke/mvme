@@ -813,7 +813,9 @@ bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
         obj->setModified(false);
     }
 
+    m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
+
     return true;
 }
 
@@ -859,7 +861,9 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
 
     m_d->m_context->setConfigFileName(fileName);
     m_d->m_context->getConfig()->setModified(false);
+    m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
+
     return true;
 }
 

@@ -2,26 +2,28 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+* Add config file modifications checks on opening/creating a workspace. These
+  where never present!
+
+* try to apply DRY to analysis and vme config serialization. grep for
+  "DAQConfig" and "AnalysisNG" extract that code into functions and update
+  callers
+
+* in openWorkspace(): figure out if the special handling of the listfile output
+  dir is really needed.
+
 * autosave feature for the analysis and the vme config
-  Use a QTimer with a configurable AutoSavePeriod in the main thread
-  On timeout use autosoaves/<config_name>_autosave.<config_ext> as the filename
-  an write the config to that file.
-  Better: write the config to a temp file and on success move the temp file to
-  the autosave directory with the correct filename.
-
-  On opening another config file immediately stop the auto save for the current
-  one.
-
-  Stuff needed: autosave dir, current filename, extension,
-  interval, code that does the serialization.
-
-  How to handle new, yet unnamed files? _new_autosave.analysis? _new_vmeconfig_autosave.vme, just autosave.<ext>?
-
-  Also update the autosaver when the name is finally set. This could be done by
-  unregistering the unnamed file and registering the same file with the new
-  name and restarting the timer (restart because the file was just saved
-  otherwise it would not have gotten a name).
-
+  Fix weirdness when autosave is present but configs have been touched to have
+  newer timestamps.
+  Steps where:
+  - create new workspace, edit configs to contain something, safe, close.
+  - Open mvme, edit configs, wait for the autosaver and kill mvme.
+  - Restart mvme. The autosave popup should appear. Use "ignore" (this might
+    update the LastVMEConfig and LastAnalysisConfig ini settings...)
+  - kill mvme
+  - touch the autosave file to update their timestamps
+  - start mvme
+  => weirdness happened with the workspace dir showing "." and the configs being empty.
 
 * multi output arraymap
 * constant generator operator:
