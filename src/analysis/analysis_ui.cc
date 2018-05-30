@@ -4432,6 +4432,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() { m_d->doPeriodicUpdate(); });
 
     m_d->updateActions();
+    resize(800, 600);
 }
 
 AnalysisWidget::~AnalysisWidget()

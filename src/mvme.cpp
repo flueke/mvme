@@ -1016,6 +1016,7 @@ void MVMEMainWindow::onActionLog_Window_triggered()
             this->m_d->m_logView = nullptr;
         });
 
+        m_d->m_logView->resize(600, 800);
         m_d->m_geometrySaver->addAndRestore(m_d->m_logView, QSL("WindowGeometries/LogView"));
     }
 
