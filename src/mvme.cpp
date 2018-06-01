@@ -813,7 +813,9 @@ bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
         obj->setModified(false);
     }
 
+    m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
+
     return true;
 }
 
@@ -859,7 +861,9 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
 
     m_d->m_context->setConfigFileName(fileName);
     m_d->m_context->getConfig()->setModified(false);
+    m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
+
     return true;
 }
 
@@ -1016,6 +1020,7 @@ void MVMEMainWindow::onActionLog_Window_triggered()
             this->m_d->m_logView = nullptr;
         });
 
+        m_d->m_logView->resize(600, 800);
         m_d->m_geometrySaver->addAndRestore(m_d->m_logView, QSL("WindowGeometries/LogView"));
     }
 

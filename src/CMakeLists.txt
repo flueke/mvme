@@ -95,6 +95,7 @@ set(LIBMVME_SOURCES
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
+    analysis/code_editor.cc
     analysis/data_extraction_widget.cc
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
@@ -106,6 +107,7 @@ set(LIBMVME_SOURCES
     daqstats_widget.cc
     data_filter.cc
     data_filter_edit.cc
+    file_autosaver.cc
     globals.cc
     gui_util.cc
     histo1d.cc

@@ -1,0 +1,53 @@
+# Output Definition script
+# ==============================================================================
+# The purpose of this script is to define the number and properties of the
+# output arrays the expression operator should have.
+#
+# Note: this Output Defintion Script is only executed once at analysis startup
+# time! Its output is used to fully construct the expression operator.
+#
+# The operators inputs need to be connected and properly named before this
+# script will work.
+#
+# This script has to return a sequence of tuples with the following form and
+# data types:
+#
+#  out_name, out_unit, out_size, out_lower_limit, out_upper_limit
+#  String,   String,   Scalar,   Scalar/Array,    Scalar/Array
+#
+# One of these tuples defines one output array. out_name has to be a valid
+# exprtk identifier. This is the variable name for this output in the "Step
+# Expression" script. out_unit may be an empty string (use '' in that case) and
+# out_size must be a positive integer value.
+# The limits can either be specified using two scalars, which will set the same
+# limit for each of the output parameters, or two arrays, each having out_size
+# elements, can be used if individual limits for each parameter are needed.
+#
+# The script has access to all currently defined and connected inputs. For each
+# input if the input is connected to an array the following variables are
+# defined:
+#
+#   input_name.unit, input_name.size, input_name.lower_limits, input_name.upper_limits
+#
+# If the input is connected to a single parameter the variables are:
+#
+#   input_name.unit, input_name.lower_limit, input_name.upper_limit
+#
+# The example code below creates one output named 'output0' having the same
+# properties as the input array 'input0' ("pass through").
+#
+# return [
+#     'output0', input0.unit, input0.size, input0.lower_limits, input0.upper_limits
+# ];
+#
+# Multiple outputs:
+#
+# return [
+#     'output0', input0.unit, input0.size, input0.lower_limits, input0.upper_limits,
+#     'output1', 'MeV',       8,           0.0,                 100.0
+# ];
+
+
+return [
+    'output0', input0.unit, input0.size, input0.lower_limits, input0.upper_limits
+];

@@ -68,7 +68,9 @@ class EventWidget: public QWidget
     Q_OBJECT
     public:
 
-        using SelectInputCallback = std::function<void (Slot *destSlot, Pipe *sourcePipe, s32 sourceParamIndex)>;
+        using SelectInputCallback = std::function<void (Slot *destSlot,
+                                                        Pipe *sourcePipe,
+                                                        s32 sourceParamIndex)>;
 
         EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
                     AnalysisWidget *analysisWidget, QWidget *parent = 0);

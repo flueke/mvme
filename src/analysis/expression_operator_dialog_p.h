@@ -21,18 +21,21 @@
 #ifndef __EXPRESSION_OPERATOR_DIALOG_P_H__
 #define __EXPRESSION_OPERATOR_DIALOG_P_H__
 
+#include <QComboBox>
 #include <QFrame>
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSplitter>
+#include <QStackedWidget>
+#include <QSyntaxHighlighter>
 #include <QTableWidget>
 #include <QToolBar>
 #include <QToolBox>
 
 #include "a2/a2.h"
+#include "code_editor.h"
 
 namespace analysis
 {
@@ -85,37 +88,53 @@ class ExpressionOperatorPipeView: public QWidget
 
         void setPipe(const a2::PipeVectors &a2_pipe, const QString &unit = {});
 
+        void setDataEditable(bool b) { m_dataEditable = b; refresh(); }
+        bool isDataEditable() const  { return m_dataEditable; }
+
+        virtual bool eventFilter(QObject *watched, QEvent *event) override;
+
     public slots:
         void refresh();
 
     protected:
         virtual void showEvent(QShowEvent *event) override;
 
+    private slots:
+        void onCellChanged(int row, int col);
+
     private:
+        void copy();
+        void paste();
+
         QLabel *m_unitLabel;
         QTableWidget *m_tableWidget;
         a2::PipeVectors m_a2Pipe;
+        bool m_dataEditable;
 };
 
-/** Vertical arrangement of a group of ExpressionOperatorPipeViews in a
- * QToolBox. */
-class ExpressionOperatorPipesView: public QToolBox
+/* Displays multiple ExpressionOperatorPipeViews in a stacked widget. The
+ * current pipe can be selected via a combobox. */
+class ExpressionOperatorPipesComboView: public QWidget
 {
     Q_OBJECT
     public:
-        ExpressionOperatorPipesView(QWidget *parent = nullptr);
+        ExpressionOperatorPipesComboView(QWidget *parent = nullptr);
 
         void setPipes(const std::vector<a2::PipeVectors> &pipes,
                       const QStringList &titles,
                       const QStringList &units);
 
-        virtual QSize sizeHint() const override;
+        void setPipeDataEditable(bool b);
+        bool isPipeDataEditable() const;
+        s32 pipeCount() const { return m_pipeStack->count(); }
 
     public slots:
         void refresh();
 
-    protected:
-        virtual void showEvent(QShowEvent *event) override;
+    private:
+        QComboBox *m_selectCombo;
+        QStackedWidget *m_pipeStack;
+        bool m_pipeDataEditable;
 };
 
 /** Display of expression (exprtk) interal errors and analysis specific
@@ -125,6 +144,7 @@ class ExpressionErrorWidget: public QWidget
     Q_OBJECT
     signals:
         void parserErrorClicked(int line, int col);
+        void parserErrorDoubleClicked(int line, int col);
 
     public:
         ExpressionErrorWidget(QWidget *parent = nullptr);
@@ -134,11 +154,9 @@ class ExpressionErrorWidget: public QWidget
     public slots:
         void clear();
 
-    protected:
-        virtual void showEvent(QShowEvent *event) override;
-
     private slots:
-        void onCellDoubleClicked(int row, int column);
+        void onCellClicked(int row, int col);
+        void onCellDoubleClicked(int row, int col);
 
     private:
         struct Entry
@@ -173,29 +191,36 @@ class ExpressionErrorWidget: public QWidget
 };
 
 /** Specialized editor widget for exprtk expressions. */
-class ExpressionTextEditor: public QWidget
+class ExpressionCodeEditor: public QWidget
 {
     Q_OBJECT
+    signals:
+        void modificationChanged(bool changed);
+
     public:
-        ExpressionTextEditor(QWidget *parent = nullptr);
+        ExpressionCodeEditor(QWidget *parent = nullptr);
 
         void setExpressionText(const QString &text);
         QString expressionText() const;
 
-        QPlainTextEdit *textEdit() { return m_textEdit; }
+        CodeEditor *codeEditor() { return m_codeEditor; }
 
     public slots:
         void highlightError(int row, int col);
+        void jumpToError(int row, int col);
         void clearErrorHighlight();
 
     private:
-        QPlainTextEdit *m_textEdit;
+        CodeEditor *m_codeEditor;
 };
 
-/** Combines ExpressionTextEditor and ExpressionErrorWidget. */
+/** Combines ExpressionCodeEditor and ExpressionErrorWidget. */
 class ExpressionEditorWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void modificationChanged(bool changed);
+
     public:
         ExpressionEditorWidget(QWidget *parent = nullptr);
 
@@ -204,15 +229,15 @@ class ExpressionEditorWidget: public QWidget
 
         void setError(const std::exception_ptr &ep);
 
-        ExpressionTextEditor *getTextEditor() { return m_exprTextEdit; }
-        ExpressionErrorWidget *getErrorWidget() { return m_exprErrors; }
+        ExpressionCodeEditor *getTextEditor() { return m_exprCodeEditor; }
+        ExpressionErrorWidget *getErrorWidget() { return m_exprErrorWidget; }
 
     public slots:
         void clearError();
 
     private:
-        ExpressionTextEditor *m_exprTextEdit;
-        ExpressionErrorWidget *m_exprErrors;
+        ExpressionCodeEditor *m_exprCodeEditor;
+        ExpressionErrorWidget *m_exprErrorWidget;
 };
 
 /** Complete editor component for one of the subexpressions of the
@@ -227,11 +252,12 @@ class ExpressionOperatorEditorComponent: public QWidget
 {
     Q_OBJECT
     signals:
-        void eval();
+        void compile();
         void step();
         void sampleInputs();
         void randomizeInputs();
-        void generateDefaultCode();
+
+        void expressionModificationChanged(bool changed);
 
     public:
         ExpressionOperatorEditorComponent(QWidget *parent = nullptr);
@@ -252,27 +278,44 @@ class ExpressionOperatorEditorComponent: public QWidget
 
         QToolBar *getToolBar() { return m_toolBar; }
         ExpressionEditorWidget *getEditorWidget() { return m_editorWidget; }
-        ExpressionOperatorPipesView *getInputPipesView() { return m_inputPipesView; }
-        ExpressionOperatorPipesView *getOutputPipesView() { return m_outputPipesView; }
+        ExpressionOperatorPipesComboView *getInputPipesView() { return m_inputPipesView; }
+        ExpressionOperatorPipesComboView *getOutputPipesView() { return m_outputPipesView; }
 
         QAction *getActionStep() { return m_actionStep; }
+
+        s32 inputPipeCount()  { return m_inputPipesView->pipeCount(); }
+        s32 outputPipeCount() { return m_outputPipesView->pipeCount(); }
+
+        bool isExpressionModified() const;
+
+    public slots:
+        void setExpressionModified(bool modified);
 
     protected:
         virtual void showEvent(QShowEvent *event) override;
         virtual void resizeEvent(QResizeEvent *event) override;
 
+    private slots:
+        void onActionHelp_triggered();
+
     private:
         void setHSplitterSizes();
 
-        //void onActionHelp_triggered();
-
-
-        ExpressionOperatorPipesView *m_inputPipesView;
-        ExpressionOperatorPipesView *m_outputPipesView;
+        ExpressionOperatorPipesComboView *m_inputPipesView;
+        ExpressionOperatorPipesComboView *m_outputPipesView;
         QToolBar *m_toolBar;
         ExpressionEditorWidget *m_editorWidget;
         QSplitter *m_hSplitter;
         QAction *m_actionStep = nullptr;
+};
+
+struct ExpressionOperatorSyntaxHighlighter: public QSyntaxHighlighter
+{
+    Q_OBJECT
+    using QSyntaxHighlighter::QSyntaxHighlighter;
+
+    protected:
+        virtual void highlightBlock(const QString &text) override;
 };
 
 } // end namespace analysis

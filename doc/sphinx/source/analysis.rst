@@ -304,16 +304,15 @@ system is "stepped" in terms of events: in each step all the
 The task of each source is to extract relevant values from its input data and
 make these values available to subsequent operators and sinks.
 
-.. FIXME: What is the correct order?
-
 After all sources have processed the module event data, the dependent operators
-and sinks are stepped in the correct order. Each object consumes its input and
-generates new output or in the case of sinks accumulates incoming data into a
-histogram.
+and sinks are stepped in order. Each object consumes its input and generates
+new output or in the case of sinks accumulates incoming data into a histogram.
 
 .. figure:: images/analysis_flowchart.png
 
     Example analysis dataflow
+
+.. _analysis-parameter-arrays:
 
 Parameter Arrays
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -531,6 +530,8 @@ for the :ref:`Calibration Operator <analysis-Calibration>`.
 Predefined filters can be loaded into the UI using the *Load Filter Template*
 button.
 
+.. TODO: add listfilter extractor documentation and example of when to use this
+
 
 .. _analysis-operators:
 
@@ -741,6 +742,12 @@ Implements data export to binary files and C++/Python example code generation.
 The Export Sink has a variable number of data input arrays that will be written
 to disk. Additionally a single value condition input can be used to pre-filter
 data: output data will only be generated if the condition input is *valid*.
+
+.. TODO: - describe the dependencies of the code and how to build the c++ stuff
+..         including that the cmakelists uses ROOTSYS to find ROOT
+..       - note that this if offline only and mention why it's done this way (ROOT linkage stuff)
+
+.. TODO: add RateMonitor Sink
 
 
 Loading an Analysis / Importing Objects

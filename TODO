@@ -1,6 +1,35 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+
+* Add config file modifications checks on opening/creating a workspace. These
+  where never present!
+
+* try to apply DRY to analysis and vme config serialization. grep for
+  "DAQConfig" and "AnalysisNG" extract that code into functions and update
+  callers
+
+* in openWorkspace(): figure out if the special handling of the listfile output
+  dir is really needed.
+
+* autosave feature for the analysis and the vme config
+  Fix weirdness when autosave is present but configs have been touched to have
+  newer timestamps.
+  Steps where:
+  - create new workspace, edit configs to contain something, safe, close.
+  - Open mvme, edit configs, wait for the autosaver and kill mvme.
+  - Restart mvme. The autosave popup should appear. Use "ignore" (this might
+    update the LastVMEConfig and LastAnalysisConfig ini settings...)
+  - kill mvme
+  - touch the autosave file to update their timestamps
+  - start mvme
+  => weirdness happened with the workspace dir showing "." and the configs being empty.
+
+* multi output arraymap
+* constant generator operator:
+  multiple outputs
+* add ability to remotely start/stop/pause and request status
+
 * DAQ readout performance: try to make better use of the data buffers.
   Currently one processed controller buffer ends up in the data buffer, which
   means for sis it's only around 1500 bytes.
@@ -60,6 +89,15 @@ required try to clear as little of the accumulated data as possible.
 --------------------------------------------------
 ExpressionOperator design plan
 --------------------------------------------------
+Most recent todo list:
+* Comment syntax highlighting similay to vme script editor
+* Keyword highlighting if easily possible. Could also add known functions and highlight those.
+* Links to the exprtk homepage
+* Use first part of the documentation and make it available in the editor gui
+* text description of what each of the scripts is for, how the return value of the begin script is structured
+* explain how invalid parameters are implemented and how they need to be handled
+
+
 * use expr_tk to evaluate expressions
 * beginScript: one script to get information about the output structure from the operator
 * multi input and multi output!

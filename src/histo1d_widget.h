@@ -22,6 +22,7 @@
 #define __HISTO1D_WIDGET_H__
 
 #include "histo1d.h"
+#include <QSpinBox>
 #include <QWidget>
 
 class QTextStream;
@@ -130,11 +131,14 @@ class Histo1DListWidget: public QWidget
         void setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib);
         void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
 
+        void selectHistogram(int histoIndex);
+
     private:
         void onHistoSpinBoxValueChanged(int index);
 
         HistoList m_histos;
         Histo1DWidget *m_histoWidget;
+        QSpinBox *m_histoSpin;
         s32 m_currentIndex = 0;
         std::shared_ptr<analysis::CalibrationMinMax> m_calib;
         MVMEContext *m_context = nullptr;

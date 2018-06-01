@@ -25,13 +25,6 @@ do\
 #endif // NDEBUG
 
 
-/* TODO list for a2_exprtk:
-
- * understand why e_commutative_check behaves the way it does. see the note
-   below CompileOptions for an explanation
-
- */
-
 namespace a2
 {
 namespace a2_exprtk
@@ -40,11 +33,13 @@ namespace a2_exprtk
 namespace detail
 {
 
-typedef exprtk::symbol_table<double>    SymbolTable;
-typedef exprtk::expression<double>      Expression;
-typedef exprtk::parser<double>          Parser;
-typedef Parser::settings_t              ParserSettings;
-typedef exprtk::results_context<double> ResultsContext;
+typedef exprtk::symbol_table<double>        SymbolTable;
+typedef exprtk::expression<double>          Expression;
+typedef exprtk::parser<double>              Parser;
+typedef Parser::settings_t                  ParserSettings;
+typedef exprtk::results_context<double>     ResultsContext;
+typedef exprtk::function_compositor<double> Compositor;
+typedef typename Compositor::function       CompositorFunction;
 
 static const size_t CompileOptions = ParserSettings::e_replacer          +
                                      // Joins things like "< =" to become "<="
@@ -55,13 +50,20 @@ static const size_t CompileOptions = ParserSettings::e_replacer          +
                                      ParserSettings::e_sequence_check    +
 
                                      // "3x" -> "3*x"
-                                     ParserSettings::e_commutative_check +
+                                     //ParserSettings::e_commutative_check +
                                      ParserSettings::e_strength_reduction;
 
-/* NOTE: I wanted to disable e_commutative_check but when doing so the
- * expression "3x+42" does not result in a parser error but instead behaves
- * like "x+42". I haven't tested the behaviour extensively yet as what I really
- * want is a parser error to be thrown. */
+/* Note: the commutative check also affects things that might be surprising like e.g.
+ *
+ *   for (var i := 0; i < 10; i += 1) { }
+ *   var x := 0;
+ *
+ * will result in an "Invalid assignment operation error". The correct way to
+ * write this would be to add a semicolon after the for-loop body.  Disabling
+ * the commutative check makes the above code work, while at the same time
+ * being for "C-like".
+ */
+
 
 } // namespace detail
 
@@ -352,6 +354,7 @@ void Expression::registerSymbolTable(const SymbolTable &symtab)
     d->expr_begin.register_symbol_table(d->symtab_globalFunctions);
     d->expr_begin.register_symbol_table(d->symtab_globalVariables);
 */
+
 /** Registers the constants symbol table (pi, epsilon, inf) and compiles the
  * expression.
  * Throws ParserErrorList on error.
@@ -432,6 +435,94 @@ std::vector<Expression::Result> Expression::results()
     }
 
     return ret;
+}
+
+struct FunctionCompositor::Private
+{
+    Private()
+    {}
+
+    Private(const SymbolTable &symTab)
+        : compositor_impl(symTab.m_d->symtab_impl)
+    {}
+
+    SymbolTable symbolTable;
+    detail::Compositor compositor_impl;
+};
+
+FunctionCompositor::FunctionCompositor()
+    : m_d(std::make_unique<Private>())
+{}
+
+FunctionCompositor::FunctionCompositor(const SymbolTable &symTab)
+    : m_d(std::make_unique<Private>(symTab))
+{}
+
+FunctionCompositor::~FunctionCompositor()
+{}
+
+SymbolTable FunctionCompositor::getSymbolTable() const
+{
+    return m_d->symbolTable;
+}
+
+void FunctionCompositor::addAuxiliarySymbolTable(const SymbolTable &auxSymbols)
+{
+    m_d->compositor_impl.add_auxiliary_symtab(auxSymbols.m_d->symtab_impl);
+}
+
+bool FunctionCompositor::addFunction(const std::string &name, const std::string &expr,
+                 const std::string &v0)
+{
+    bool result = m_d->compositor_impl.add(
+        detail::CompositorFunction(name, expr, v0)
+        );
+
+    return result;
+}
+
+bool FunctionCompositor::addFunction(const std::string &name, const std::string &expr,
+                 const std::string &v0, const std::string &v1)
+{
+    bool result = m_d->compositor_impl.add(
+        detail::CompositorFunction(name, expr, v0, v1)
+        );
+
+    return result;
+}
+
+bool FunctionCompositor::addFunction(const std::string &name, const std::string &expr,
+                 const std::string &v0, const std::string &v1,
+                 const std::string &v2)
+{
+    bool result = m_d->compositor_impl.add(
+        detail::CompositorFunction(name, expr, v0, v1, v2)
+        );
+
+    return result;
+}
+
+bool FunctionCompositor::addFunction(const std::string &name, const std::string &expr,
+                 const std::string &v0, const std::string &v1,
+                 const std::string &v2, const std::string &v3)
+{
+    bool result = m_d->compositor_impl.add(
+        detail::CompositorFunction(name, expr, v0, v1, v2, v3)
+        );
+
+    return result;
+}
+
+bool FunctionCompositor::addFunction(const std::string &name, const std::string &expr,
+                 const std::string &v0, const std::string &v1,
+                 const std::string &v2, const std::string &v3,
+                 const std::string &v4)
+{
+    bool result = m_d->compositor_impl.add(
+        detail::CompositorFunction(name, expr, v0, v1, v2, v3, v4)
+        );
+
+    return result;
 }
 
 } // namespace a2_exprtk
