@@ -97,7 +97,12 @@ Additional/Advanced Features:
          .var("x").var("y").var("z")
          .expression("1 + cos(x * y) / z;"));
 
-  -> one function compositor per operator. this would allow to define them recursively I think
+  -> one function compositor per operator. This also allows to define recursive
+  functions and functions that call other "dynamic" functions.
+
+  Also check out the add_auxiliary_symtab() method of the compositor. This
+  would allow having access to variables from arbitrary symbol tables in the
+  function body definition. -> use the a2 runtime library symbol table with this method.
 
 * persistent / static variables
 
@@ -116,6 +121,12 @@ Additional/Advanced Features:
   The size definition of arrays must be done via an expression aswell as that's
   the only way to dynamically get to the input sizes. This script will have the
   same symbol table as the begin expression.
+
+  Alternatively could use a return statement returning pairs of (name,
+  variable) and then loop through the variables and create and register the
+  appropriate types.
+
+  Which solution is better?
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
