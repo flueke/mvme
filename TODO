@@ -2,33 +2,60 @@
 TODO list, not at all sorted by priority
 ==================================================
 
-* Add config file modifications checks on opening/creating a workspace. These
-  where never present!
+* Move multievent processing setting into the analysis.
+
+* in openWorkspace(): figure out if the special handling of the listfile output
+  dir is really needed.
 
 * try to apply DRY to analysis and vme config serialization. grep for
   "DAQConfig" and "AnalysisNG" extract that code into functions and update
   callers
 
-* in openWorkspace(): figure out if the special handling of the listfile output
-  dir is really needed.
-
-* autosave feature for the analysis and the vme config
-  Fix weirdness when autosave is present but configs have been touched to have
-  newer timestamps.
-  Steps where:
-  - create new workspace, edit configs to contain something, safe, close.
-  - Open mvme, edit configs, wait for the autosaver and kill mvme.
-  - Restart mvme. The autosave popup should appear. Use "ignore" (this might
-    update the LastVMEConfig and LastAnalysisConfig ini settings...)
-  - kill mvme
-  - touch the autosave file to update their timestamps
-  - start mvme
-  => weirdness happened with the workspace dir showing "." and the configs being empty.
-
 * multi output arraymap
 * constant generator operator:
   multiple outputs
-* add ability to remotely start/stop/pause and request status
+
+------------------------------------------------------------
+add ability to remotely start/stop/pause and request status
+------------------------------------------------------------
+* Note: running this in the gui thread would be convenient as the code to check
+  and process remote messages will then not have to care about race conditions.
+
+  One problem: the gui uses QMessageBoxes to communicate lots of errors. Remote
+  control will not see these and the gui will get stuck in the event loop used
+  by QMessageBox::exec(). This event loop will then still serve remote
+  connections depending on how things are implemented (e.g. a timer polling
+  remote sockets).
+
+  Places where QMessageBoxes are used:
+  MVMEContext:
+  - listfile read errors
+  - config file modiciations
+  - workspace autosave files
+  - config load errors
+  - OOM errors from the analysis
+
+  MVMEMainWindow:
+  - workspace new/open/close errors
+
+  Transform this: do not allow GUI in the MVMEContext implementation. Instead
+  use exceptions or return error information to callers.
+
+  Add a layer on top of that to handle GUI displays and interactions.
+
+  Make the remote control layer use the MVMEContext implementation. Return
+  errors in response to commands.
+
+* gui thread is idle: polls socket or gets notified
+  read incoming data. assemble message.
+  if valid message received:
+      exec whatever the message wants to happen
+      create a response and send it
+
+
+- End of remote control feature ----------------------------
+
+
 
 * DAQ readout performance: try to make better use of the data buffers.
   Currently one processed controller buffer ends up in the data buffer, which
