@@ -1615,7 +1615,6 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // VME config
         //
         auto lastVMEConfig = workspaceSettings->value(QSL("LastVMEConfig")).toString();
-        assert(!lastVMEConfig.isEmpty());
 
         if (dir.exists(VMEConfigAutoSaveFilename))
         {
@@ -1684,7 +1683,6 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // Analysis config
         //
         auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
-        assert(!lastAnalysisConfig.isEmpty());
 
         if (dir.exists(AnalysisAutoSaveFilename))
         {
