@@ -1529,6 +1529,28 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                                 show_and_activate(widget);
                             }
                         });
+
+                        menu.addAction(QSL("Open Histogram in new window"), m_q, [this, widgetInfo]() {
+
+                            auto widget = new Histo1DListWidget(widgetInfo.histos);
+                            widget->setContext(m_context);
+
+                            if (widgetInfo.calib)
+                            {
+                                widget->setCalibration(widgetInfo.calib);
+                            }
+
+                            {
+                                auto context = m_context;
+                                widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                                    context->analysisOperatorEdited(sink);
+                                });
+                            }
+
+                            widget->selectHistogram(widgetInfo.histoAddress);
+
+                            m_context->addObjectWidget(widget, widgetInfo.sink.get(), widgetInfo.sink->getId().toString());
+                        });
                     }
                 } break;
 
@@ -1541,30 +1563,24 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     {
 
                         menu.addAction(QSL("Open 1D List View"), m_q, [this, widgetInfo]() {
+                            // always creates a new window
+                            auto widget = new Histo1DListWidget(widgetInfo.histos);
+                            widget->setContext(m_context);
 
-                            if (!m_context->hasObjectWidget(widgetInfo.sink.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                            if (widgetInfo.calib)
                             {
-                                auto widget = new Histo1DListWidget(widgetInfo.histos);
-                                widget->setContext(m_context);
-
-                                if (widgetInfo.calib)
-                                {
-                                    widget->setCalibration(widgetInfo.calib);
-                                }
-
-                                {
-                                    auto context = m_context;
-                                    widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                                        context->analysisOperatorEdited(sink);
-                                    });
-                                }
-
-                                m_context->addObjectWidget(widget, widgetInfo.sink.get(), widgetInfo.sink->getId().toString());
+                                widget->setCalibration(widgetInfo.calib);
                             }
-                            else
+
                             {
-                                m_context->activateObjectWidget(widgetInfo.sink.get());
+                                auto context = m_context;
+                                widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                                    context->analysisOperatorEdited(sink);
+                                });
                             }
+
+                            m_context->addObjectWidget(widget, widgetInfo.sink.get(), widgetInfo.sink->getId().toString());
+
                         });
                     }
 
@@ -1587,7 +1603,8 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                         if (histo)
                         {
                             auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(histoSink->getSharedPointer());
-                            menu.addAction(QSL("Open"), m_q, [this, histo, sinkPtr, userLevel]() {
+
+                            menu.addAction(QSL("Open Histogram"), m_q, [this, histo, sinkPtr, userLevel]() {
 
                                 if (!m_context->hasObjectWidget(sinkPtr.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                                 {
@@ -1619,6 +1636,33 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                                 {
                                     m_context->activateObjectWidget(sinkPtr.get());
                                 }
+                            });
+
+                            menu.addAction(QSL("Open Histogram in new window"), m_q, [this, histo, sinkPtr, userLevel]() {
+
+                                auto histoPtr = sinkPtr->m_histo;
+                                auto widget = new Histo2DWidget(histoPtr);
+
+                                auto context = m_context;
+                                auto eventId = m_eventId;
+
+                                widget->setSink(sinkPtr,
+                                                // addSinkCallback
+                                                [context, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
+                                                    context->addAnalysisOperator(eventId, sink, userLevel);
+                                                },
+                                                // sinkModifiedCallback
+                                                [context] (const std::shared_ptr<Histo2DSink> &sink) {
+                                                    context->analysisOperatorEdited(sink);
+                                                },
+                                                // makeUniqueOperatorNameFunction
+                                                [context] (const QString &name) {
+                                                    return make_unique_operator_name(context->getAnalysis(), name);
+                                                });
+
+                                widget->setContext(m_context);
+
+                                m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
                             });
                         }
                     }
