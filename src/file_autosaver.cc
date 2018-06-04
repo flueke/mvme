@@ -3,6 +3,7 @@
 #include <cassert>
 #include <QDebug>
 #include <QTemporaryFile>
+#include <QTime>
 
 #include "qt_util.h"
 
@@ -24,11 +25,13 @@ void FileAutoSaver::start()
 {
     if (isActive())
     {
-        qDebug() << "restarting" << objectName();
+        qDebug().noquote() << QTime::currentTime().toString()
+            << "restarting" << objectName();
     }
     else
     {
-        qDebug() << "starting" << objectName();
+        qDebug().noquote() << QTime::currentTime().toString()
+            << "starting" << objectName();
     }
 
     m_timer->start();
@@ -36,7 +39,8 @@ void FileAutoSaver::start()
 
 void FileAutoSaver::stop()
 {
-    qDebug() << "stopping" << objectName();
+    qDebug().noquote() << QTime::currentTime().toString()
+        << "stopping" << objectName();
 
     m_timer->stop();
 }
@@ -77,7 +81,8 @@ void FileAutoSaver::saveNow()
         return;
     }
 
-    qDebug() << objectName() << "wrote output file " << m_outputFilename;
+    qDebug().noquote() << QTime::currentTime().toString()
+        << objectName() << "wrote output file " << m_outputFilename;
 
     emit saved(m_outputFilename);
 }

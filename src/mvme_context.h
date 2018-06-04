@@ -331,8 +331,9 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         std::shared_ptr<QSettings> makeWorkspaceSettings(const QString &workspaceDirectory) const;
         void setWorkspaceDirectory(const QString &dirName);
         void cleanupWorkspaceAutoSaveFiles();
-        void prepareStart();
+
         QString getListFileOutputDirectoryFullPath(const QString &directory) const;
+        void prepareStart();
 
         MVMEContextPrivate *m_d;
 
