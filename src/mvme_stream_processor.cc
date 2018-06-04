@@ -24,8 +24,8 @@ struct MultiEventModuleInfo
 
     /* The filter used to identify module headers and extract the module
      * section size. */
-    a2::data_filter::DataFilter moduleHeaderFilter;             // constant between beginRun() and endRun()
-    a2::data_filter::CacheEntry filterCacheModuleSectionSize;   // constant between beginRun() and endRun()
+    a2::data_filter::DataFilter moduleHeaderFilter;           // constant between beginRun() and endRun()
+    a2::data_filter::CacheEntry filterCacheModuleSectionSize; // constant between beginRun() and endRun()
 
     /* Cache pointers to the corresponding module config. */
     ModuleConfig *moduleConfig = nullptr;

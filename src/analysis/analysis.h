@@ -1723,13 +1723,18 @@ struct LIBMVME_EXPORT RawDataDisplay
     std::shared_ptr<Histo1DSink> calibratedHistoSink;
 };
 
-RawDataDisplay LIBMVME_EXPORT make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
-                                     const QString &xAxisTitle, const QString &unitLabel);
+RawDataDisplay LIBMVME_EXPORT make_raw_data_display(
+    std::shared_ptr<Extractor> extractor,
+    double unitMin, double unitMax,
+    const QString &xAxisTitle, const QString &unitLabel);
 
-RawDataDisplay LIBMVME_EXPORT make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
-                                     const QString &name, const QString &xAxisTitle, const QString &unitLabel);
+RawDataDisplay LIBMVME_EXPORT make_raw_data_display(
+    const MultiWordDataFilter &extractionFilter,
+    double unitMin, double unitMax,
+    const QString &name, const QString &xAxisTitle, const QString &unitLabel);
 
-void LIBMVME_EXPORT add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display);
+void LIBMVME_EXPORT add_raw_data_display(
+    Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display);
 
 void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo = {});
 
@@ -1744,7 +1749,8 @@ void LIBMVME_EXPORT generate_new_object_ids(Analysis *analysis);
 
 QString LIBMVME_EXPORT info_string(const Analysis *analysis);
 
-void LIBMVME_EXPORT adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, OperatorInterface *op, s32 levelDelta);
+void LIBMVME_EXPORT adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries,
+                                             OperatorInterface *op, s32 levelDelta);
 
 } // end namespace analysis
 
