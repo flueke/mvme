@@ -2569,4 +2569,106 @@ void ExportSinkStatusMonitor::update()
     }
 }
 
+//
+// EventSettingsDialog
+//
+
+EventSettingsDialog::EventSettingsDialog(const QVariantMap &settings, QWidget *parent)
+    : QDialog(parent)
+    , m_settings(settings)
+    , cb_multiEvent(new QCheckBox)
+{
+    setWindowTitle(QSL("Analysis Event Settings"));
+
+    auto gbSettings = new QGroupBox(QSL("Event settings"));
+    auto settingsLayout = new QFormLayout(gbSettings);
+    settingsLayout->addRow(QSL("Multi Event Processing"), cb_multiEvent);
+    auto label = new QLabel(QSL("Becomes active on the next DAQ/Replay start."));
+    set_widget_font_pointsize_relative(label, -1);
+    settingsLayout->addRow(label);
+
+    auto dialogLayout = new QVBoxLayout(this);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    auto bbLayout = new QHBoxLayout;
+    bbLayout->addStretch(1);
+    bbLayout->addWidget(bb);
+
+    dialogLayout->addWidget(gbSettings);
+    dialogLayout->addLayout(bbLayout);
+    dialogLayout->setStretch(0, 1);
+
+    QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    cb_multiEvent->setChecked(settings.value(QSL("MultiEventProcessing"), false).toBool());
 }
+
+void EventSettingsDialog::accept()
+{
+    m_settings.insert(QSL("MultiEventProcessing"), cb_multiEvent->isChecked());
+
+    QDialog::accept();
+}
+
+//
+// ModuleSettingsDialog
+//
+
+ModuleSettingsDialog::ModuleSettingsDialog(const ModuleConfig *moduleConfig,
+                                           const QVariantMap &settings,
+                                           QWidget *parent)
+    : QDialog(parent)
+    , m_settings(settings)
+    , m_filterEdit(makeFilterEdit())
+{
+    setWindowTitle(QSL("Analysis Module Settings"));
+
+    auto gbSettings = new QGroupBox(QSL("Module settings"));
+    auto settingsLayout = new QFormLayout(gbSettings);
+    settingsLayout->addRow(QSL("Multi Event Header Filter"), m_filterEdit);
+    auto label = new QLabel(QSL(
+            "Used to split the module data section into individual events.<br/>"
+            "Only has an effect if Multi Event Processing is enabled for the"
+            " current event.<br/>"
+            "Changes become active on the next DAQ/Replay start."
+            ));
+    label->setWordWrap(true);
+
+    set_widget_font_pointsize_relative(label, -1);
+    settingsLayout->addRow(label);
+
+    auto dialogLayout = new QVBoxLayout(this);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    auto bbLayout = new QHBoxLayout;
+    bbLayout->addStretch(1);
+    bbLayout->addWidget(bb);
+
+    dialogLayout->addWidget(gbSettings);
+    dialogLayout->addLayout(bbLayout);
+    dialogLayout->setStretch(0, 1);
+
+    QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    // populate
+    QString filterString = settings.value(QSL("MultiEventHeaderFilter")).toString();
+
+    if (filterString.isEmpty())
+    {
+        filterString = moduleConfig->getModuleMeta().eventHeaderFilter;
+    }
+
+    m_filterEdit->setFilterString(filterString);
+}
+
+void ModuleSettingsDialog::accept()
+{
+    m_settings.insert(QSL("MultiEventHeaderFilter"), m_filterEdit->text().trimmed());
+
+    QDialog::accept();
+}
+
+
+} // end namespace analysis

@@ -1602,7 +1602,8 @@ class LIBMVME_EXPORT Analysis: public QObject
         void removeSource(SourceInterface *source);
 
         QVector<ListFilterExtractorPtr> getListFilterExtractors(ModuleConfig *module) const;
-        void setListFilterExtractors(ModuleConfig *module, const QVector<ListFilterExtractorPtr> &extractors);
+        void setListFilterExtractors(ModuleConfig *module,
+                                     const QVector<ListFilterExtractorPtr> &extractors);
 
         const QVector<OperatorEntry> &getOperators() const { return m_operators; }
         QVector<OperatorEntry> &getOperators() { return m_operators; }
@@ -1696,11 +1697,20 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         RunInfo getRunInfo() const { return m_runInfo; }
 
+        /* Additional settings tied to VME objects but stored in the analysis
+         * due to logical and convenience reasons.
+         * Contains things like: the MultiEventProcessing flag for VME event
+         * configs and the ModuleHeaderFilter string for module configs.
+         */
+        void setVMEObjectSettings(const QUuid &objectId, const QVariantMap &settings);
+        QVariantMap getVMEObjectSettings(const QUuid &objectId) const;
+
     private:
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
         QVector<SourceEntry> m_sources;
         QVector<OperatorEntry> m_operators;
+        QMap<QUuid, QVariantMap> m_vmeObjectSettings;
 
         Registry m_registry;
 

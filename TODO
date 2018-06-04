@@ -2,7 +2,13 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+* Could combine Analysis VMEObjectSettings and ModuleProperties data.
+
+* Multievent: figure out how and if the stream processor correctly handles
+  modules that are disabled in the vme config.
 * Move multievent processing setting into the analysis.
+  FIXME: why does mutli event for the whole event get disabled if one of
+  the modules disabled? This does seem unnecessary.
 
 * in openWorkspace(): figure out if the special handling of the listfile output
   dir is really needed.

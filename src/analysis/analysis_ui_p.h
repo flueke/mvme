@@ -21,11 +21,7 @@
 #ifndef __ANALYSIS_UI_P_H__
 #define __ANALYSIS_UI_P_H__
 
-#include "analysis.h"
-#include "../histo_util.h"
-
 #include <functional>
-
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
@@ -45,6 +41,10 @@
 #include <QToolBar>
 #include <QTreeWidget>
 #include <QWidget>
+
+#include "analysis.h"
+#include "histo_util.h"
+#include "data_filter_edit.h"
 
 class MVMEContext;
 class ModuleConfig;
@@ -467,6 +467,39 @@ class ExportSinkStatusMonitor: public QWidget
                *label_status;
 
         QPushButton *pb_openDirectory;
+};
+
+class EventSettingsDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        EventSettingsDialog(const QVariantMap &settings, QWidget *parent = nullptr);
+
+        QVariantMap getSettings() const { return m_settings; }
+
+        virtual void accept() override;
+
+    private:
+        QVariantMap m_settings;
+
+        QCheckBox *cb_multiEvent;
+};
+
+class ModuleSettingsDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        ModuleSettingsDialog(const ModuleConfig *moduleConfig,
+                             const QVariantMap &settings,
+                             QWidget *parent = nullptr);
+
+        QVariantMap getSettings() const { return m_settings; }
+
+        virtual void accept() override;
+
+    private:
+        QVariantMap m_settings;
+        DataFilterEdit *m_filterEdit;
 };
 
 }

@@ -120,20 +120,37 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
         auto eventConfig = eventConfigs[eventIndex];
         auto moduleConfigs = eventConfig->getModuleConfigs();
 
-        // multievent enable: start out with the setting for the EventConfig
-        m_d->doMultiEventProcessing[eventIndex] = eventConfig->isMultiEventProcessingEnabled();
+        // multievent enable: start out using the setting from the analysis side
+        auto eventSettings = analysis->getVMEObjectSettings(eventConfig->getId());
+
+        m_d->doMultiEventProcessing[eventIndex] =
+            eventSettings.value("MultiEventProcessing").toBool();
 
         for (s32 moduleIndex = 0;
              moduleIndex < moduleConfigs.size();
              ++moduleIndex)
         {
             auto moduleConfig = moduleConfigs[moduleIndex];
+            auto moduleSettings = analysis->getVMEObjectSettings(moduleConfig->getId());
             MultiEventModuleInfo &modInfo(m_d->eventInfos[eventIndex][moduleIndex]);
 
-            auto moduleEventHeaderFilter = moduleConfig->getEventHeaderFilter();
+            // Check the analysis side module settings for the multi event header filter.
+            // If none is found use the moduleConfig to get the default filter for the
+            // module type.
+
+            auto moduleEventHeaderFilter = moduleSettings.value(
+                QSL("MultiEventHeaderFilter")).toString();
+
+            if (moduleEventHeaderFilter.isEmpty())
+            {
+                moduleEventHeaderFilter = moduleConfig->getModuleMeta().eventHeaderFilter;
+            }
 
             if (moduleEventHeaderFilter.isEmpty() || !moduleConfig->isEnabled())
             {
+                // FIXME: why does mutli event for the whole event get disabled if one of
+                // the modules disabled? This does seem unnecessary.
+
                 // multievent enable: override the event setting as we don't
                 // have a filter for splitting the event data
                 m_d->doMultiEventProcessing[eventIndex] = false;

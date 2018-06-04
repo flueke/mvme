@@ -1212,6 +1212,22 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     menuImport->addAction(m_actionImportForModuleFromTemplate.get());
                     menuImport->addAction(m_actionImportForModuleFromFile.get());
                     menu.addMenu(menuImport);
+
+                    // Module Settings
+                    menu.addAction(QIcon(QSL(":/gear.png")), QSL("Module Settings"),
+                                         &menu, [this, moduleConfig]() {
+
+                        auto analysis = m_context->getAnalysis();
+                        auto moduleSettings = analysis->getVMEObjectSettings(moduleConfig->getId());
+
+                        ModuleSettingsDialog dialog(moduleConfig, moduleSettings, m_q);
+
+                        if (dialog.exec() == QDialog::Accepted)
+                        {
+                            analysis->setVMEObjectSettings(moduleConfig->getId(),
+                                                           dialog.getSettings());
+                        }
+                    });
                 }
 
                 actionNewIsFirst = true;
@@ -3119,6 +3135,21 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
         }
     });
 
+    // Event settings action
+    QAction *actionEventSettings = new QAction(
+        QIcon(QSL(":/gear.png")), QSL("Event settings"), this);
+
+    connect(actionEventSettings, &QAction::triggered, this, [this] {
+        auto analysis = m_d->m_context->getAnalysis();
+
+        EventSettingsDialog dialog(analysis->getVMEObjectSettings(m_d->m_eventId), this);
+
+        if (dialog.exec() == QDialog::Accepted)
+        {
+            analysis->setVMEObjectSettings(m_d->m_eventId, dialog.getSettings());
+        }
+    });
+
     m_d->m_eventRateLabel = new QLabel;
 
     // create the lower toolbar
@@ -3129,7 +3160,10 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
         tb->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         tb->addAction(m_d->m_actionSelectVisibleLevels);
         tb->addSeparator();
+        tb->addAction(actionEventSettings);
+        tb->addSeparator();
         tb->addWidget(m_d->m_eventRateLabel);
+
 #ifndef QT_NO_DEBUG
         tb->addSeparator();
         tb->addAction(QSL("Repopulate (dev)"), this, [this]() { m_d->repopulate(); });

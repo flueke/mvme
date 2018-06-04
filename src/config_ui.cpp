@@ -60,7 +60,6 @@ struct EventConfigDialogPrivate
 {
     QLineEdit *le_name;
     QComboBox *combo_condition;
-    QCheckBox *cb_multiEvent;
     QStackedWidget *stack_options;
     QDialogButtonBox *buttonBox;
 
@@ -82,7 +81,6 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
 {
     m_d->le_name = new QLineEdit;
     m_d->combo_condition = new QComboBox;
-    m_d->cb_multiEvent = new QCheckBox;
     m_d->stack_options = new QStackedWidget;
     m_d->buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
@@ -93,18 +91,11 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
     m_d->spin_irqVector = new QSpinBox(this);
     m_d->spin_irqVector->setMaximum(255);
 
-    auto layout_adv = new QFormLayout;
-    layout_adv->addRow(QSL("Multi Event Processing"), m_d->cb_multiEvent);
-
-    auto sec_advanced = new Section(QSL("Advanced"));
-    sec_advanced->setContentLayout(*layout_adv);
-
     auto gb_nameAndCond = new QGroupBox;
     auto gb_layout   = new QFormLayout(gb_nameAndCond);
     gb_layout->setContentsMargins(2, 2, 2, 2);
     gb_layout->addRow(QSL("Name"), m_d->le_name);
     gb_layout->addRow(QSL("Condition"), m_d->combo_condition);
-    gb_layout->addRow(sec_advanced);
 
 
     auto layout = new QVBoxLayout(this);
@@ -113,7 +104,8 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
     layout->addWidget(m_d->stack_options);
     layout->addWidget(m_d->buttonBox);
 
-    connect(m_d->combo_condition, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+    connect(m_d->combo_condition,
+            static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
             m_d->stack_options, &QStackedWidget::setCurrentIndex);
 
     connect(m_d->buttonBox, &QDialogButtonBox::accepted, this, &EventConfigDialog::accept);
@@ -149,7 +141,8 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
                 vmusbTimerLayout->addRow(QSL("Period"), m_d->spin_vmusbTimerPeriod);
                 vmusbTimerLayout->addRow(QSL("Frequency"), m_d->spin_vmusbTimerFrequency);
 
-                conditions = { TriggerCondition:: Interrupt, TriggerCondition::NIM1, TriggerCondition::Periodic };
+                conditions = { TriggerCondition:: Interrupt,
+                    TriggerCondition::NIM1, TriggerCondition::Periodic };
 
                 m_d->stack_options->addWidget(irqWidget);
                 m_d->stack_options->addWidget(new QWidget);         // nim has no special gui
@@ -224,8 +217,6 @@ void EventConfigDialog::loadFromConfig()
         m_d->combo_condition->setCurrentIndex(condIndex);
     }
 
-    m_d->cb_multiEvent->setChecked(config->isMultiEventProcessingEnabled());
-
     m_d->spin_irqLevel->setValue(config->irqLevel);
     m_d->spin_irqVector->setValue(config->irqVector);
 
@@ -251,7 +242,6 @@ void EventConfigDialog::saveToConfig()
 
     config->setObjectName(m_d->le_name->text());
     config->triggerCondition = static_cast<TriggerCondition>(m_d->combo_condition->currentData().toInt());
-    config->setMultiEventProcessingEnabled(m_d->cb_multiEvent->isChecked());
     config->irqLevel = static_cast<uint8_t>(m_d->spin_irqLevel->value());
     config->irqVector = static_cast<uint8_t>(m_d->spin_irqVector->value());
 
@@ -350,16 +340,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     addressEdit->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
     addressEdit->setText(QString("0x%1").arg(module->getBaseAddress(), 8, 16, QChar('0')));
 
-    eventHeaderFilterEdit = makeFilterEdit();
-
-    auto layout_advanced = new QFormLayout(this); // XXX: Width is only calculated correctly if there is a parent.
-    layout_advanced->setContentsMargins(2, 2, 2, 2);
-    layout_advanced->addRow("Multi Event Header Filter", eventHeaderFilterEdit);
-
-    auto sec_advanced = new Section(QSL("Advanced"));
-    sec_advanced->setMinimumWidth(layout_advanced->sizeHint().width());
-    sec_advanced->setContentLayout(*layout_advanced);
-
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -368,7 +348,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     layout->addRow("Type", typeCombo);
     layout->addRow("Name", nameEdit);
     layout->addRow("Address", addressEdit);
-    layout->addRow(sec_advanced);
     layout->addRow(bb);
 
     auto onTypeComboIndexChanged = [this](int index)
@@ -384,16 +363,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
         }
 
         nameEdit->setText(name);
-
-        if (m_module->getEventHeaderFilter().isEmpty()
-            || m_module->getModuleMeta().typeId != mm.typeId)
-        {
-            eventHeaderFilterEdit->setText(mm.eventHeaderFilter);
-        }
-        else
-        {
-            eventHeaderFilterEdit->setText(m_module->getEventHeaderFilter());
-        }
     };
 
     connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
@@ -425,13 +394,6 @@ void ModuleConfigDialog::accept()
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
 
-    QByteArray filterNoSpaces;
-    for (auto c: eventHeaderFilterEdit->text().toLocal8Bit())
-    {
-        if (c != ' ')
-            filterNoSpaces.push_back(c);
-    }
-    m_module->setEventHeaderFilter(filterNoSpaces);
     QDialog::accept();
 }
 

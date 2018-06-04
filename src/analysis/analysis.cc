@@ -4354,10 +4354,24 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
         }
     }
 
+    // VME Object Settings
+    m_vmeObjectSettings.clear();
+
+    {
+        auto container = json["VMEObjectSettings"].toObject();
+
+        for (auto it = container.begin(); it != container.end(); it++)
+        {
+            QUuid objectId(QUuid(it.key()));
+            QVariantMap eventSettings(it.value().toObject().toVariantMap());
+
+            m_vmeObjectSettings.insert(objectId, eventSettings);
+        }
+    }
+
     // Dynamic QObject Properties
     loadDynamicProperties(json["properties"].toObject(), this);
 
-    //beginRun(m_runInfo, m_vmeMap);
     setModified(false);
 
     return result;
@@ -4442,7 +4456,8 @@ void Analysis::write(QJsonObject &json) const
                 {
                     if (auto dstOp = dstSlot->parentOperator)
                     {
-                        //qDebug() << "Connection:" << srcObject << outputIndex << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
+                        //qDebug() << "Connection:" << srcObject << outputIndex
+                        //         << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
                         QJsonObject conJson;
                         conJson["srcId"] = srcObject->getId().toString();
                         conJson["srcIndex"] = outputIndex;
@@ -4456,6 +4471,19 @@ void Analysis::write(QJsonObject &json) const
         }
 
         json["connections"] = conArray;
+    }
+
+    // VME Object Settings
+    {
+        QJsonObject dest;
+
+        for (auto objectId: m_vmeObjectSettings.keys())
+        {
+            dest[objectId.toString()] = QJsonObject::fromVariantMap(
+                m_vmeObjectSettings.value(objectId));
+        }
+
+        json["VMEObjectSettings"] = dest;
     }
 
     // Dynamic QObject Properties
@@ -4474,6 +4502,18 @@ void Analysis::setModified(bool b)
         m_modified = b;
         emit modifiedChanged(b);
     }
+}
+
+void Analysis::setVMEObjectSettings(const QUuid &objectId, const QVariantMap &settings)
+{
+    bool modifies = (settings != m_vmeObjectSettings.value(objectId));
+    m_vmeObjectSettings.insert(objectId, settings);
+    if (modifies) setModified(true);
+}
+
+QVariantMap Analysis::getVMEObjectSettings(const QUuid &objectId) const
+{
+    return m_vmeObjectSettings.value(objectId);
 }
 
 static const double maxRawHistoBins = (1 << 16);
