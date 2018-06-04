@@ -172,6 +172,13 @@ void set_widget_font_pointsize(QWidget *widget, s32 pointSize)
     widget->setFont(font);
 }
 
+void set_widget_font_pointsize_relative(QWidget *widget, s32 relPointSize)
+{
+    auto font = widget->font();
+    font.setPointSize(font.pointSize() + relPointSize);
+    widget->setFont(font);
+}
+
 QToolBar *make_toolbar(QWidget *parent)
 {
     auto tb = new QToolBar(parent);
