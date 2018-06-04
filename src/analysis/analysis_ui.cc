@@ -2763,6 +2763,14 @@ void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
                       .arg(format_number(walltimeRate, QSL("cps"), UnitScaling::Decimal, 0, 'g', 3))
                       );
     }
+    else // not a replay
+    {
+        auto daqStats = m_context->getDAQStats();
+        double efficiency = daqStats.getAnalysisEfficiency();
+        efficiency = std::isnan(efficiency) ? 0.0 : efficiency;
+
+        labelText += QSL("\nEfficiency=%1").arg(efficiency, 0, 'f', 2);
+    }
 
     m_eventRateLabel->setText(labelText);
 
@@ -3095,7 +3103,8 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
     }
 
     // Lower ToolBar, to the right of the event selection combo
-    m_d->m_actionSelectVisibleLevels = new QAction(QIcon(QSL(":/eye_pencil.png")), QSL("Level Visiblity"), this);
+    m_d->m_actionSelectVisibleLevels = new QAction(QIcon(QSL(":/eye_pencil.png")),
+                                                   QSL("Level Visiblity"), this);
 
     connect(m_d->m_actionSelectVisibleLevels, &QAction::triggered, this, [this] {
 
@@ -4445,16 +4454,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         {
 
             auto daqStats = m_d->m_context->getDAQStats();
-
-            double totalBuffers = daqStats.totalBuffersRead;
-            double droppedBuffers = daqStats.droppedBuffers;
-            double analyzedBuffers = totalBuffers - droppedBuffers;
-            double efficiency = analyzedBuffers / totalBuffers;
-
-            if (std::isnan(efficiency))
-            {
-                efficiency = 0.0;
-            }
+            double efficiency = daqStats.getAnalysisEfficiency();
+            efficiency = std::isnan(efficiency) ? 0.0 : efficiency;
 
             m_d->m_labelEfficiency->setText(QString("Efficiency: %1")
                                             .arg(efficiency, 0, 'f', 2));
@@ -4462,9 +4463,9 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
             auto tt = (QString("Analyzed Buffers:\t%1\n"
                                "Skipped Buffers:\t%2\n"
                                "Total Buffers:\t%3")
-                       .arg(analyzedBuffers)
-                       .arg(droppedBuffers)
-                       .arg(totalBuffers)
+                       .arg(daqStats.getAnalyzedBuffers())
+                       .arg(daqStats.droppedBuffers)
+                       .arg(daqStats.totalBuffersRead)
                       );
 
             m_d->m_labelEfficiency->setToolTip(tt);

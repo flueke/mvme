@@ -83,3 +83,9 @@ QString generate_output_filename(const ListFileOutputInfo &info)
 
     return result;
 }
+
+double DAQStats::getAnalysisEfficiency() const
+{
+    double efficiency = getAnalyzedBuffers() / static_cast<double>(totalBuffersRead);
+    return efficiency;
+}
