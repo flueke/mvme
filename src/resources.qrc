@@ -30,6 +30,8 @@
     <file alias="folder_orange.png">resources/folder-orange.png</file>
     <file alias="function.png">resources/function.png</file>
     <file alias="gear--arrow.png">resources/gear--arrow.png</file>
+    <file alias="gear--pencil.png">resources/gear--pencil.png</file>
+    <file alias="gear.png">resources/gear.png</file>
     <file alias="generic_chart_with_pencil.png">resources/chart--pencil.png</file>
     <file alias="hammer.png">resources/hammer.png</file>
     <file alias="help.png">resources/system-help.png</file>
