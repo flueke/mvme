@@ -2502,7 +2502,7 @@ ExportSinkStatusMonitor::ExportSinkStatusMonitor(const std::shared_ptr<ExportSin
     , label_eventsWritten(new QLabel)
     , label_bytesWritten(new QLabel)
     , label_status(new QLabel)
-    , pb_openDirectory(new QPushButton(QSL("Open")))
+    , pb_openDirectory(new QPushButton(QIcon(":/folder_orange.png"), QSL("Open")))
 {
     label_status->setWordWrap(true);
 
@@ -2526,7 +2526,11 @@ ExportSinkStatusMonitor::ExportSinkStatusMonitor(const std::shared_ptr<ExportSin
     }
 
     connect(pb_openDirectory, &QPushButton::clicked, this, [this]() {
-        QDesktopServices::openUrl(m_sink->getOutputPrefixPath());
+        QString path = "file://"
+            + m_context->getWorkspaceDirectory() + "/"
+            + m_sink->getOutputPrefixPath();
+
+        QDesktopServices::openUrl(path);
     });
 
     static const int UpdateInterval_ms = 1000;
