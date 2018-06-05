@@ -433,9 +433,10 @@ operations or through other means.</p>
 <p>A consequence of this is that the following code to sum up the values of an
 array will yield a NaN in case any of the array members are invalid:</p>
 <pre class="literal-block">
-var sum:=0;
-for (var i:=0; i&lt;my_array[]; i+=1) { sum += my_array[i]; }
+var my_sum:=0;
+for (var i:=0; i&lt;my_array[]; i+=1) { my_sum += my_array[i]; }
 </pre>
+<p>Also the built-in <tt class="docutils literal">sum()</tt> function will return a NaN value.</p>
 <p>To detect and generate invalid parameters the following functions have been
 defined for use inside scripts:</p>
 <pre class="literal-block">
@@ -445,11 +446,12 @@ is_valid(), is_invalid(), is_nan() and make_invalid()
 explicitly create an invalid parameter.</p>
 <p>A better version of the above loop:</p>
 <pre class="literal-block">
-var sum:=0;
+var my_sum:=0;
 for (var i:=0; i&lt;my_array[]; i+=1) {
-   sum += is_valid(my_array[i]) ? my_array[i] : 0.0;
+   my_sum += is_valid(my_array[i]) ? my_array[i] : 0.0;
 }
 </pre>
+<p>Use <tt class="docutils literal">make_invalid()</tt> like this: <tt class="docutils literal">var my_var := <span class="pre">make_invalid();</span></tt>.</p>
 </div>
 <div class="section" id="exprtk-capabilities-functions-and-more">
 <h1>exprtk capabilities, functions and more</h1>

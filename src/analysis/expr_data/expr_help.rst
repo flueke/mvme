@@ -63,8 +63,10 @@ operations or through other means.
 A consequence of this is that the following code to sum up the values of an
 array will yield a NaN in case any of the array members are invalid: ::
 
-    var sum:=0;
-    for (var i:=0; i<my_array[]; i+=1) { sum += my_array[i]; }
+    var my_sum:=0;
+    for (var i:=0; i<my_array[]; i+=1) { my_sum += my_array[i]; }
+
+Also the built-in ``sum()`` function will return a NaN value.
 
 To detect and generate invalid parameters the following functions have been
 defined for use inside scripts: ::
@@ -76,17 +78,17 @@ explicitly create an invalid parameter.
 
 A better version of the above loop: ::
 
-    var sum:=0;
+    var my_sum:=0;
     for (var i:=0; i<my_array[]; i+=1) {
-       sum += is_valid(my_array[i]) ? my_array[i] : 0.0;
+       my_sum += is_valid(my_array[i]) ? my_array[i] : 0.0;
     }
+
+Use ``make_invalid()`` like this: ``var my_var := make_invalid();``.
 
 exprtk capabilities, functions and more
 --------------------------------------------------
 
-The following are excerpts from the ``exprtk`` readme file:
-
-::
+The following are excerpts from the ``exprtk`` readme file: ::
 
     [SECTION 01 - CAPABILITIES]
     The  ExprTk expression  evaluator supports  the following  fundamental
