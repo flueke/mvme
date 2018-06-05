@@ -1458,22 +1458,27 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             auto stack = new QStackedWidget;
 
             auto label = new QLabel(QSL(
-                        "Sparse format writes out indexes and values, omitting invalid parameters and NaNs.\n"
-                        "For input arrays where for most events only a few parameters are valid, this format"
-                        " produces much smaller output files than the Full format."
+                        "Sparse format writes out indexes and values, omitting"
+                        " invalid parameters and NaNs.\n"
+                        "For input arrays where for most events only a few"
+                        " parameters are valid, this format produces much"
+                        " smaller output files than the Full format."
                         ));
+            set_widget_font_pointsize_relative(label, -1);
             label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
             label->setFrameShape(QFrame::StyledPanel);
             stack->addWidget(label);
 
             label = new QLabel(QSL(
-                        "Full format writes out each input array as-is, including invalid parameters"
-                        " (special NaN values).\n"
-                        "Use this format if for most events all of the array parameters are valid or read"
-                        " performance of the exported data file is critical.\n"
+                        "Full format writes out each input array as-is,"
+                        " including invalid parameters (special NaN values).\n"
+                        "Use this format if for most events all of the array"
+                        " parameters are valid or read performance of the"
+                        " exported data file is critical.\n"
                         "Warning: this format can produce large files quickly!"
                         ));
+            set_widget_font_pointsize_relative(label, -1);
             label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
             label->setFrameShape(QFrame::StyledPanel);
@@ -1494,9 +1499,11 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
             auto label = new QLabel(QSL(
                     "zlib compression will produce a gzip compatible compressed file.\n"
-                    "Generated C++ code will require the zlib development files to be installed on the system.\n"
+                    "Generated C++ code will require the zlib development files"
+                    " to be installed on the system.\n"
                     "Generated Python code will use the gzip module included with Python."
                     ));
+            set_widget_font_pointsize_relative(label, -1);
             label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
             label->setFrameShape(QFrame::StyledPanel);
@@ -1504,9 +1511,12 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             formLayout->addRow(label);
         }
 
-        // codegen
+        // codegen and open output directory
         {
-            pb_generateCode = new QPushButton("C++ && Python code");
+            pb_generateCode  = new QPushButton(QSL("C++ && Python code"));
+
+            pb_openOutputDir = new QPushButton(QIcon(":/folder_orange.png"),
+                                               QSL("Open output directory"));
 
             auto gb    = new QGroupBox("Code generation");
             auto l     = new QGridLayout(gb);
@@ -1517,12 +1527,14 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
                     " buttons below to generate the code files.\n"
                     "Errors during code generation will be shown in the Log Window."
                    ));
+            set_widget_font_pointsize_relative(label, -1);
             label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 
-            l->addWidget(label,                0, 0, 1, 2);
+            l->addWidget(label,                0, 0, 1, 3);
             l->addWidget(pb_generateCode,      1, 0);
-            l->addWidget(make_spacer_widget(), 1, 1);
+            l->addWidget(pb_openOutputDir,     1, 1);
+            l->addWidget(make_spacer_widget(), 1, 2);
 
             formLayout->addRow(gb);
 
@@ -1552,6 +1564,27 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
             connect(this, &AbstractOpConfigWidget::validityMayHaveChanged, this, [this]() {
                 pb_generateCode->setEnabled(isValid());
+            });
+
+            connect(pb_openOutputDir, &QPushButton::clicked, this, [this, ex, logger] () {
+                try
+                {
+                    this->configureOperator();
+
+                    QString path = "file://"
+                        + m_context->getWorkspaceDirectory() + "/"
+                        + ex->getOutputPrefixPath();
+
+                    QDesktopServices::openUrl(path);
+                }
+                catch (const QString &e)
+                {
+                    logger(e);
+                }
+                catch (const std::exception &e)
+                {
+                    logger(QString::fromStdString(e.what()));
+                }
             });
         }
 

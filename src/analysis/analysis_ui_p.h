@@ -343,7 +343,8 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
         bool m_prefixPathWasManuallyEdited = false;
 
         QPushButton *pb_selectOutputDirectory,
-                    *pb_generateCode;
+                    *pb_generateCode,
+                    *pb_openOutputDir;
 
         QComboBox *combo_exportFormat;
         QComboBox *combo_exportCompression;
