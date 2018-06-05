@@ -1121,7 +1121,8 @@ void MVMEContext::setConfigFileName(QString name, bool updateWorkspace)
         m_configFileName = name;
         if (updateWorkspace)
         {
-            makeWorkspaceSettings()->setValue(QSL("LastVMEConfig"), name.remove(getWorkspaceDirectory() + '/'));
+            makeWorkspaceSettings()->setValue(
+                QSL("LastVMEConfig"), name.remove(getWorkspaceDirectory() + '/'));
         }
         emit daqConfigFileNameChanged(name);
     }
@@ -1134,7 +1135,8 @@ void MVMEContext::setAnalysisConfigFileName(QString name, bool updateWorkspace)
         m_analysisConfigFileName = name;
         if (updateWorkspace)
         {
-            makeWorkspaceSettings()->setValue(QSL("LastAnalysisConfig"), name.remove(getWorkspaceDirectory() + '/'));
+            makeWorkspaceSettings()->setValue(
+                QSL("LastAnalysisConfig"), name.remove(getWorkspaceDirectory() + '/'));
         }
         emit analysisConfigFileNameChanged(name);
     }
@@ -1456,12 +1458,17 @@ void make_empty_file(const QString &filePath)
 
 void MVMEContext::newWorkspace(const QString &dirName)
 {
-    if (QDir(dirName).exists(WorkspaceIniName))
+    QDir destDir(dirName);
+
+
+    // If the INI file exists assume this is a proper workspace and open it.
+    if (destDir.exists(WorkspaceIniName))
     {
         openWorkspace(dirName);
         return;
     }
 
+    // cleanup autosaves in the previous workspace
     cleanupWorkspaceAutoSaveFiles();
 
     auto workspaceSettings(makeWorkspaceSettings(dirName));
@@ -1478,26 +1485,32 @@ void MVMEContext::newWorkspace(const QString &dirName)
             .arg(workspaceSettings->fileName());
     }
 
-    try
+    if (!destDir.exists(DefaultVMEConfigFileName))
     {
-        make_empty_file(QDir(dirName).filePath(DefaultVMEConfigFileName));
-    }
-    catch (const QString &e)
-    {
-        throw QString("Error creating VME config file %1: %2")
-            .arg(DefaultVMEConfigFileName)
-            .arg(e);
+        try
+        {
+            make_empty_file(QDir(dirName).filePath(DefaultVMEConfigFileName));
+        }
+        catch (const QString &e)
+        {
+            throw QString("Error creating VME config file %1: %2")
+                .arg(DefaultVMEConfigFileName)
+                .arg(e);
+        }
     }
 
-    try
+    if (!destDir.exists(DefaultAnalysisConfigFileName))
     {
-        make_empty_file(QDir(dirName).filePath(DefaultAnalysisConfigFileName));
-    }
-    catch (const QString &e)
-    {
-        throw QString("Error creating Analysis config file %1: %2")
-            .arg(DefaultAnalysisConfigFileName)
-            .arg(e);
+        try
+        {
+            make_empty_file(QDir(dirName).filePath(DefaultAnalysisConfigFileName));
+        }
+        catch (const QString &e)
+        {
+            throw QString("Error creating Analysis config file %1: %2")
+                .arg(DefaultAnalysisConfigFileName)
+                .arg(e);
+        }
     }
 
     openWorkspace(dirName);
@@ -1625,8 +1638,10 @@ void MVMEContext::openWorkspace(const QString &dirName)
             {
                 QMessageBox mb(
                     QMessageBox::Question, QSL("VME autosave file found"),
-                    QSL("A VME config autosave file from a previous mvme session was found.<br>"
-                        "Do you want to open the autosave?"),
+                    QSL("A VME config autosave file from a previous mvme session"
+                        " was found in %1.<br>"
+                        "Do you want to open the autosave?")
+                    .arg(dirName),
                     QMessageBox::Open | QMessageBox::Cancel);
 
                 mb.button(QMessageBox::Cancel)->setText(QSL("Ignore"));
@@ -1694,8 +1709,10 @@ void MVMEContext::openWorkspace(const QString &dirName)
             {
                 QMessageBox mb(
                     QMessageBox::Question, QSL("Analysis autosave file found"),
-                    QSL("An Analysis autosave file from a previous mvme session was found.<br>"
-                        "Do you want to open the autosave?"),
+                    QSL("An Analysis autosave file from a previous mvme session"
+                        " was found in %1.<br>"
+                        "Do you want to open the autosave?")
+                    .arg(dirName),
                     QMessageBox::Open | QMessageBox::Cancel);
 
                 mb.button(QMessageBox::Cancel)->setText(QSL("Ignore"));
@@ -1725,14 +1742,18 @@ void MVMEContext::openWorkspace(const QString &dirName)
                 qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" <<
                     lastAnalysisConfig << " (INI)";
 
-                loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
+                bool couldLoad = loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
+
+                if (!couldLoad)
+                {
+                    setAnalysisConfigFileName(DefaultAnalysisConfigFileName);
+                    getAnalysis()->setModified();
+                }
             }
             else if (QFile::exists(dir.filePath(DefaultAnalysisConfigFileName)))
             {
                 qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" <<
                     lastAnalysisConfig << " (DefaultName)";
-
-                loadAnalysisConfig(dir.filePath(DefaultAnalysisConfigFileName));
             }
             else
             {
@@ -1903,6 +1924,9 @@ bool MVMEContext::loadAnalysisConfig(const QString &fileName)
 
     QJsonDocument doc(gui_read_json_file(fileName));
 
+    if (doc.isNull())
+        return false;
+
     if (loadAnalysisConfig(doc, QFileInfo(fileName).fileName()))
     {
         setAnalysisConfigFileName(fileName);
@@ -1915,6 +1939,9 @@ bool MVMEContext::loadAnalysisConfig(const QString &fileName)
 bool MVMEContext::loadAnalysisConfig(QIODevice *input, const QString &inputInfo)
 {
     QJsonDocument doc(gui_read_json(input));
+
+    if (doc.isNull())
+        return false;
 
     if (loadAnalysisConfig(doc, inputInfo))
     {

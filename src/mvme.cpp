@@ -1608,7 +1608,8 @@ bool MVMEMainWindow::createNewOrOpenExistingWorkspace()
     do
     {
         auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-        auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Create a new or select an existing workspace directory"), startDir);
+        auto dirName  = QFileDialog::getExistingDirectory(
+            this, QSL("Create a new or select an existing workspace directory"), startDir);
 
         if (dirName.isEmpty())
         {
@@ -1618,36 +1619,31 @@ bool MVMEMainWindow::createNewOrOpenExistingWorkspace()
 
         QDir dir(dirName);
 
-        bool triedToOpenExisting = true;
+        bool dirWasEmpty = dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty();
 
         try
         {
-            if (dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty())
-            {
-                triedToOpenExisting = false;
-                m_d->m_context->newWorkspace(dirName);
-            }
-            else
-            {
-                triedToOpenExisting = true;
-                m_d->m_context->openWorkspace(dirName);
-            }
-        } catch (const QString &e)
+            // This internally handles the case where a proper workspace is
+            // selected and simply opens it.
+            m_d->m_context->newWorkspace(dirName);
+        }
+        catch (const QString &e)
         {
             Q_ASSERT(!m_d->m_context->isWorkspaceOpen());
 
             QString title;
-            if (triedToOpenExisting)
+            if (dirWasEmpty)
             {
-                title = QSL("Error opening workspace");
+                title = QSL("Error creating workspace");
             }
             else
             {
-                title = QSL("Error creating workspace");
+                title = QSL("Error opening workspace");
             }
 
             QMessageBox::warning(this, title, e);
         }
+
     } while (!m_d->m_context->isWorkspaceOpen());
 
     return true;
