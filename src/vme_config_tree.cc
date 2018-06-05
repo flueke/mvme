@@ -1016,12 +1016,13 @@ void VMEConfigTreeWidget::dumpVMUSBRegisters()
 
 void VMEConfigTreeWidget::exploreWorkspace()
 {
-    QString path = "file://" + m_context->getWorkspaceDirectory();
+    QString path = m_context->getWorkspaceDirectory();
+    QUrl url = QUrl::fromLocalFile(path);
 
     m_context->logMessage(QSL("Passing '%1' to QDesktopServices::openUrl().")
-                          .arg(path));
+                          .arg(url.toString()));
 
-    QDesktopServices::openUrl(path);
+    QDesktopServices::openUrl(url);
 }
 
 void VMEConfigTreeWidget::showEditNotes()

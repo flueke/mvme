@@ -1571,11 +1571,10 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
                 {
                     this->configureOperator();
 
-                    QString path = "file://"
-                        + m_context->getWorkspaceDirectory() + "/"
-                        + ex->getOutputPrefixPath();
+                    QString path = m_context->getWorkspaceDirectory() + "/" +
+                        ex->getOutputPrefixPath();
 
-                    QDesktopServices::openUrl(path);
+                    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
                 }
                 catch (const QString &e)
                 {
@@ -2559,11 +2558,10 @@ ExportSinkStatusMonitor::ExportSinkStatusMonitor(const std::shared_ptr<ExportSin
     }
 
     connect(pb_openDirectory, &QPushButton::clicked, this, [this]() {
-        QString path = "file://"
-            + m_context->getWorkspaceDirectory() + "/"
+        QString path = m_context->getWorkspaceDirectory() + "/"
             + m_sink->getOutputPrefixPath();
 
-        QDesktopServices::openUrl(path);
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
     });
 
     static const int UpdateInterval_ms = 1000;
