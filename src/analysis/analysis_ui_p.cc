@@ -1374,7 +1374,8 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         // operator and struct/class name
         {
             auto label = new QLabel(QSL(
-                    "<i>Name</i> must be a valid C++/Python identifier as it is used for generated struct and class names."));
+                    "<i>Name</i> must be a valid C++/Python identifier as it is used"
+                    " for generated struct and class names."));
             label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
             label->setFrameShape(QFrame::StyledPanel);

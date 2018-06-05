@@ -215,13 +215,17 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
         auto menu = new QMenu(this);
         action_showAdvanced = menu->addAction(QSL("Show advanced objects"));
         action_showAdvanced->setCheckable(true);
-        connect(action_showAdvanced, &QAction::changed, this, &VMEConfigTreeWidget::onActionShowAdvancedChanged);
+        connect(action_showAdvanced, &QAction::changed, this,
+                &VMEConfigTreeWidget::onActionShowAdvancedChanged);
 
         auto action_dumpVMUSBRegisters = menu->addAction(QSL("Dump VMUSB Registers"));
-        connect(action_dumpVMUSBRegisters, &QAction::triggered, this, &VMEConfigTreeWidget::dumpVMUSBRegisters);
+        connect(action_dumpVMUSBRegisters, &QAction::triggered,
+                this, &VMEConfigTreeWidget::dumpVMUSBRegisters);
 
-        auto action_exploreWorkspace = menu->addAction(QIcon(":/folder_orange.png"), QSL("Explore Workspace"));
-        connect(action_exploreWorkspace, &QAction::triggered, this, &VMEConfigTreeWidget::exploreWorkspace);
+        auto action_exploreWorkspace = menu->addAction(QIcon(":/folder_orange.png"),
+                                                       QSL("Explore Workspace"));
+        connect(action_exploreWorkspace, &QAction::triggered,
+                this, &VMEConfigTreeWidget::exploreWorkspace);
 
         pb_moreMenu = make_toolbutton(QSL(":/tree-settings.png"), QSL("More"));
         pb_moreMenu->setMenu(menu);
@@ -1012,7 +1016,13 @@ void VMEConfigTreeWidget::dumpVMUSBRegisters()
 
 void VMEConfigTreeWidget::exploreWorkspace()
 {
-    QDesktopServices::openUrl(m_context->getWorkspaceDirectory());
+    QString path = "file:///" + m_context->getWorkspaceDirectory();
+
+
+    m_context->logMessage(QSL("Passing '%1' to QDesktopServices::openUrl().")
+                          .arg(path));
+
+    QDesktopServices::openUrl(path);
 }
 
 void VMEConfigTreeWidget::showEditNotes()
