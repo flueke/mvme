@@ -30,17 +30,17 @@
 #include "listfilter_extractor_dialog.h"
 #include "expression_operator_dialog.h"
 
-#include "../config_ui.h"
-#include "../histo1d_widget.h"
-#include "../histo2d_widget.h"
-#include "../mvme_context.h"
-#include "../mvme_context_lib.h"
-#include "../mvme_stream_worker.h"
-#include "../rate_monitor_widget.h"
-#include "../treewidget_utils.h"
-#include "../util/counters.h"
-#include "../util/strings.h"
-#include "../vme_analysis_common.h"
+#include "histo1d_widget.h"
+#include "histo2d_widget.h"
+#include "mvme_context.h"
+#include "mvme_context_lib.h"
+#include "mvme_stream_worker.h"
+#include "rate_monitor_widget.h"
+#include "treewidget_utils.h"
+#include "util/counters.h"
+#include "util/strings.h"
+#include "vme_analysis_common.h"
+#include "vme_config_ui.h"
 
 #include <QApplication>
 #include <QComboBox>

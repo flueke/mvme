@@ -31,13 +31,11 @@
 #include "analysis/analysis_session.h"
 #include "analysis/analysis_ui.h"
 #include "analysis/a2/memory.h"
-#include "config_ui.h"
+#include "vme_config_ui.h"
 #include "vme_analysis_common.h"
 #include "vme_controller_factory.h"
 #include "mvme_root_data_writer.h"
 #include "file_autosaver.h"
-
-#include "sis3153_readout_worker.h" // FIXME: remove once VMUSBReadoutWorker has been upated
 
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"

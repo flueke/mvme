@@ -101,7 +101,6 @@ set(LIBMVME_SOURCES
     analysis/expression_operator_dialog.cc
     analysis/listfilter_extractor_dialog.cc
 
-    config_ui.cpp
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
     daqstats_widget.cc
@@ -151,6 +150,7 @@ set(LIBMVME_SOURCES
     vme_analysis_common.cc
     vme_config.cc
     vme_config_tree.cc
+    vme_config_ui.cc
     vme_controller.cpp
     vme_controller_factory.cc
     vme_controller_ui.cc

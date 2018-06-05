@@ -397,7 +397,6 @@ void EventConfig::read_impl(const QJsonObject &json)
         triggerCondition = (it != TriggerConditionNames.end()) ? it.key() : TriggerCondition::NIM1;
         triggerOptions = json["triggerOptions"].toObject().toVariantMap();
     }
-    // TODO: move irqLevel and the other settings into triggerOptions
     irqLevel = json["irqLevel"].toInt();
     irqVector = json["irqVector"].toInt();
     scalerReadoutPeriod = json["scalerReadoutPeriod"].toInt();
@@ -436,7 +435,6 @@ void EventConfig::write_impl(QJsonObject &json) const
 {
     json["triggerCondition"] = TriggerConditionNames.value(triggerCondition);
     json["triggerOptions"]   = QJsonObject::fromVariantMap(triggerOptions);
-    // TODO: move these into triggerOptions
     json["irqLevel"] = irqLevel;
     json["irqVector"] = irqVector;
     json["scalerReadoutPeriod"] = scalerReadoutPeriod;

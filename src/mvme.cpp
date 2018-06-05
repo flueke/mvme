@@ -22,7 +22,7 @@
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
-#include "config_ui.h"
+#include "vme_config_ui.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
 #include "gui_util.h"
