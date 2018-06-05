@@ -1792,6 +1792,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // directory is known at this point.
         //
 
+        // vme
         m_d->m_vmeConfigAutoSaver = std::make_unique<FileAutoSaver>(
             VMEConfigSerializer(this),
             dir.filePath(VMEConfigAutoSaveFilename),
@@ -1800,6 +1801,12 @@ void MVMEContext::openWorkspace(const QString &dirName)
         m_d->m_vmeConfigAutoSaver->setObjectName(QSL("VmeConfigAutoSaver"));
         m_d->m_vmeConfigAutoSaver->start();
 
+        connect(m_d->m_vmeConfigAutoSaver.get(), &FileAutoSaver::writeError,
+                this, [this] (const QString &filename, const QString &errorMessage) {
+            logMessage(errorMessage);
+        });
+
+        // analysis
         m_d->m_analysisAutoSaver = std::make_unique<FileAutoSaver>(
             AnalysisSerializer(this),
             dir.filePath(AnalysisAutoSaveFilename),
@@ -1807,6 +1814,11 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
         m_d->m_analysisAutoSaver->setObjectName(QSL("AnalysisAutoSaver"));
         m_d->m_analysisAutoSaver->start();
+
+        connect(m_d->m_analysisAutoSaver.get(), &FileAutoSaver::writeError,
+                this, [this] (const QString &filename, const QString &errorMessage) {
+            logMessage(errorMessage);
+        });
     }
     catch (const QString &)
     {

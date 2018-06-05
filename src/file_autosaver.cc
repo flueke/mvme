@@ -56,33 +56,55 @@ void FileAutoSaver::saveNow()
 
     if (!tempFile.open())
     {
-        emit writeError(m_outputFilename, QSL("Could not create temporary file"));
+        emit writeError(m_outputFilename,
+                        QSL("%1: Could not create temporary file")
+                        .arg(objectName()));
         return;
     }
 
+    auto data = m_serializer();
+
+    qDebug().noquote() << QTime::currentTime().toString()
+        << objectName() << "writing" << data.size()
+        << "bytes to temp file " << tempFile.fileName();
+
     if (tempFile.write(m_serializer()) == -1)
     {
-        emit writeError(m_outputFilename, QSL("Could not write to temporary file"));
+        emit writeError(m_outputFilename,
+                        QSL("%1: Could not write to temporary file %2")
+                        .arg(objectName())
+                        .arg(tempFile.fileName()));
         return;
     }
+
+    tempFile.close(); // close to flush
 
     if (QFile::exists(m_outputFilename))
     {
         if (!QFile::remove(m_outputFilename))
         {
-            emit writeError(m_outputFilename, QSL("Could not remove existing output file"));
+            emit writeError(m_outputFilename,
+                            QSL("%1: Could not remove existing output file %2")
+                            .arg(objectName())
+                            .arg(m_outputFilename));
             return;
         }
     }
 
     if (!QFile::copy(tempFile.fileName(), m_outputFilename))
     {
-        emit writeError(m_outputFilename, QSL("Could not copy temporary file to output file"));
+        emit writeError(m_outputFilename,
+                        QSL("%1: Could not copy temporary file %2 to output file %3")
+                        .arg(tempFile.fileName())
+                        .arg(m_outputFilename)
+                        );
         return;
     }
 
     qDebug().noquote() << QTime::currentTime().toString()
-        << objectName() << "wrote output file " << m_outputFilename;
+        << objectName()
+        << "copied temp file" << tempFile.fileName()
+        << "to output file" << m_outputFilename;
 
     emit saved(m_outputFilename);
 }
