@@ -505,9 +505,18 @@ struct EventWidgetPrivate
     // TODO: get rid of m_uniqueWidgetActive and only use m_uniqueWidget instead
     bool m_uniqueWidgetActive = false;
     QWidget *m_uniqueWidget = nullptr;
-    Slot *m_selectInputSlot = nullptr;
-    s32 m_selectInputUserLevel;
-    EventWidget::SelectInputCallback m_selectInputCallback;
+
+    struct InputSelectInfo
+    {
+        Slot *slot = nullptr;
+        s32 userLevel;
+        EventWidget::SelectInputCallback callback;
+        // Set of additional pipe sources to be considered invalid as valid
+        // inputs for the slot.
+        QSet<PipeSourceInterface *> additionalInvalidSources;
+    };
+
+    InputSelectInfo m_inputSelectInfo;
 
     QSplitter *m_operatorFrameSplitter;
     QSplitter *m_displayFrameSplitter;
@@ -1838,11 +1847,11 @@ void EventWidgetPrivate::modeChanged()
     {
         case Default:
             {
-                /* The previous mode was SelectInput so m_selectInputUserLevel
+                /* The previous mode was SelectInput so m_inputSelectInfo.userLevel
                  * must still be valid */
-                Q_ASSERT(m_selectInputUserLevel < m_levelTrees.size());
+                Q_ASSERT(m_inputSelectInfo.userLevel < m_levelTrees.size());
 
-                for (s32 userLevel = 0; userLevel <= m_selectInputUserLevel; ++userLevel)
+                for (s32 userLevel = 0; userLevel <= m_inputSelectInfo.userLevel; userLevel++)
                 {
                     auto opTree = m_levelTrees[userLevel].operatorTree;
                     clearToDefaultNodeHighlights(opTree->invisibleRootItem());
@@ -1855,9 +1864,9 @@ void EventWidgetPrivate::modeChanged()
                 clearAllTreeSelections();
 
 
-                Q_ASSERT(m_selectInputUserLevel < m_levelTrees.size());
+                Q_ASSERT(m_inputSelectInfo.userLevel < m_levelTrees.size());
 
-                for (s32 userLevel = 0; userLevel <= m_selectInputUserLevel; ++userLevel)
+                for (s32 userLevel = 0; userLevel <= m_inputSelectInfo.userLevel; ++userLevel)
                 {
                     auto opTree = m_levelTrees[userLevel].operatorTree;
                     highlightValidInputNodes(opTree->invisibleRootItem());
@@ -1868,7 +1877,8 @@ void EventWidgetPrivate::modeChanged()
     updateActions();
 }
 
-static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
+static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot,
+                             QSet<PipeSourceInterface *> additionalInvalidSources)
 {
     PipeSourceInterface *dstObject = slot->parentOperator;
     Q_ASSERT(dstObject);
@@ -1893,17 +1903,24 @@ static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
 
     bool result = false;
 
+    // do not allow self-connections
     if (srcObject == dstObject)
     {
-        // do not allow self-connections! :)
         result = false;
     }
+    // check the set of additional source to ignore
+    else if (additionalInvalidSources.contains(srcObject))
+    {
+        result = false;
+    }
+    // check that the accepted input type is matched
     else if ((slot->acceptedInputTypes & InputType::Array)
         && (node->type() == NodeType_Operator || node->type() == NodeType_Source))
     {
         // Highlight operator and source nodes only if they have exactly a
         // single output.
         PipeSourceInterface *pipeSource = getPointer<PipeSourceInterface>(node);
+
         if (pipeSource->getNumberOfOutputs() == 1)
         {
             result = true;
@@ -1934,7 +1951,8 @@ static const QColor MissingInputColor           = QColor(0xB2, 0x22, 0x22, 255.0
 
 void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
 {
-    if (isValidInputNode(node, m_selectInputSlot))
+    if (isValidInputNode(node, m_inputSelectInfo.slot,
+                         m_inputSelectInfo.additionalInvalidSources))
     {
         node->setBackground(0, ValidInputNodeColor);
     }
@@ -2222,10 +2240,11 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
 
         case SelectInput:
             {
-                if (isValidInputNode(node, m_selectInputSlot)
-                    && getUserLevelForTree(node->treeWidget()) <= m_selectInputUserLevel)
+                if (isValidInputNode(node, m_inputSelectInfo.slot,
+                                     m_inputSelectInfo.additionalInvalidSources)
+                    && getUserLevelForTree(node->treeWidget()) <= m_inputSelectInfo.userLevel)
                 {
-                    Slot *slot = m_selectInputSlot;
+                    Slot *slot = m_inputSelectInfo.slot;
                     Q_ASSERT(slot);
 
                     Pipe *selectedPipe = nullptr;
@@ -2273,19 +2292,19 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     }
 
                     Q_ASSERT(selectedPipe);
-                    Q_ASSERT(m_selectInputCallback);
+                    Q_ASSERT(m_inputSelectInfo.callback);
 
                     // tell the widget that initiated the select that we're done
-                    if (m_selectInputCallback)
+                    if (m_inputSelectInfo.callback)
                     {
                         qDebug() << __PRETTY_FUNCTION__ << "invoking selectInputCallback:"
                             << slot << selectedPipe << selectedParamIndex;
-                        m_selectInputCallback(slot, selectedPipe, selectedParamIndex);
+                        m_inputSelectInfo.callback(slot, selectedPipe, selectedParamIndex);
                     }
 
                     // leave SelectInput mode
                     m_mode = Default;
-                    m_selectInputCallback = nullptr;
+                    m_inputSelectInfo.callback = nullptr;
                     modeChanged();
                 }
             } break;
@@ -3188,14 +3207,17 @@ EventWidget::~EventWidget()
     delete m_d;
 }
 
-void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback)
+void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback,
+                                 QSet<PipeSourceInterface *> additionalInvalidSources)
 {
     qDebug() << __PRETTY_FUNCTION__;
 
+    m_d->m_inputSelectInfo.slot = slot;
+    m_d->m_inputSelectInfo.userLevel = userLevel;
+    m_d->m_inputSelectInfo.callback = callback;
+    m_d->m_inputSelectInfo.additionalInvalidSources = additionalInvalidSources;
+
     m_d->m_mode = EventWidgetPrivate::SelectInput;
-    m_d->m_selectInputSlot = slot;
-    m_d->m_selectInputUserLevel = userLevel;
-    m_d->m_selectInputCallback = callback;
     m_d->modeChanged();
     // The actual input selection is handled in onNodeClicked()
 }
@@ -3205,7 +3227,7 @@ void EventWidget::endSelectInput()
     if (m_d->m_mode == EventWidgetPrivate::SelectInput)
     {
         m_d->m_mode = EventWidgetPrivate::Default;
-        m_d->m_selectInputCallback = nullptr;
+        m_d->m_inputSelectInfo = {};
         m_d->modeChanged();
     }
 }

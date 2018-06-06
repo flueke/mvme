@@ -49,8 +49,6 @@ class InputSelectButton: public QPushButton
     Q_OBJECT
     signals:
         void beginInputSelect();
-        void inputSelected(Slot *destSlot, s32 destSlotIndex,
-                           Pipe *selectedPipe, s32 selectedParamIndex);
 
     public:
         InputSelectButton(Slot *destSlot, s32 userLevel,

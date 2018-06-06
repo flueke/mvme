@@ -13,7 +13,7 @@
 #include <QTabWidget>
 #include <QTextBrowser>
 
-/* NOTES:
+/* NOTES and TODO:
  - new slot grid implementation with space for the input variable name column.
    2nd step: try to abstract this so the slot grid can be instantiated and customized and is reusable
 
@@ -29,6 +29,15 @@
  - utility: symbol table inspection
 
  - implement copy/paste for editable PipeView
+
+ - remove the part that updates the gui from model_compileXYZ(). Instead make the gui
+   update calls explicit.
+ - add a flags argument to repopulateGUIFromModel() with the option to only rebuild parts
+   of the gui (i.e. leave the slotgrid intact if nothing changed there)
+ - as an alternative to the flags improve the slotgrid repopulate code to reuse existing
+   items and only clear things that are not needed anymore.
+ - store the result of the compilations somewhere. specifically the Step part must know if
+   the Begin part has an error and thus Step was never compiled.
 
  */
 
@@ -1106,15 +1115,18 @@ class A2PipeStorage
 
 struct Model
 {
-    /* A clone of the original operator that's being edited. This is here so
-     * that we have proper Slot pointers to pass to
-     * EventWidget::selectInputFor() on input selection.
+    /* A clone of the original operator that's being edited. This is here so that we have
+     * proper Slot pointers to pass to EventWidget::selectInputFor() on input selection.
      *
-     * Note that pipe -> slot connections are not made on this clone as the
-     * source pipes would be modified by that operation. Instead the selected
-     * input pipes and indexes are stored in the model aswell. Once the user
-     * accepts the changes the original operator will be modified according to
-     * the data stored in the model. */
+     * Note: using opClone for input selection has the side effect that input selection
+     * sees the source operator as being different than the operator begin edited (m_op).
+     * That's why self connections where possible until the additionalInvalidSources
+     * argument was added to EventWidget::selectInputFor().
+     *
+     * Note that pipe -> slot connections are not made on this clone as the source pipes
+     * would be modified by that operation. Instead the selected input pipes and indexes
+     * are stored in the model aswell. Once the user accepts the changes the original
+     * operator will be modified according to the data stored in the model. */
     std::unique_ptr<ExpressionOperator> opClone;
 
     std::vector<a2::PipeVectors> inputs;
@@ -1349,6 +1361,8 @@ SlotGrid make_slotgrid(QWidget *parent = nullptr)
     sg.removeSlotButton = new QPushButton(QIcon(QSL(":/list_remove.png")), QString());
     sg.removeSlotButton->setToolTip(QSL("Remove last input"));
 
+    // a "row" below the slotFrame (which contains the grid layout) for the add/remove
+    // slot buttons
     auto addRemoveSlotButtonsLayout = new QHBoxLayout;
     addRemoveSlotButtonsLayout->setContentsMargins(2, 2, 2, 2);
     addRemoveSlotButtonsLayout->addStretch();
@@ -1382,9 +1396,9 @@ void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s
     {
         if (auto widget = child->widget())
         {
-            //delete widget;
             widget->deleteLater();
         }
+
         delete child;
     }
 
@@ -1428,7 +1442,14 @@ void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s
 
         if (model.a1_inputPipes[slotIndex])
         {
-            QString sourceText = model.a1_inputPipes[slotIndex]->source->objectName();
+            auto inputPipe   = model.a1_inputPipes[slotIndex];
+            auto inputSource = inputPipe->source;
+            QString sourceText = inputSource->objectName();
+
+            if (inputSource->getNumberOfOutputs() > 1)
+            {
+                sourceText += "." + inputSource->getOutputName(inputPipe->sourceOutputIndex);
+            }
 
             if (model.inputIndexes[slotIndex] != a2::NoParamIndex)
             {
@@ -1452,18 +1473,6 @@ void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s
             if (checked)
             {
                 emit selectButton->beginInputSelect();
-
-                eventWidget->selectInputFor(
-                    slot, userLevel,
-                    [selectButton, slotIndex] (Slot *destSlot,
-                                               Pipe *sourcePipe, s32 sourceParamIndex) {
-                    // This is the callback that will be invoked by the
-                    // eventwidget when input selection is complete.
-
-                    selectButton->setChecked(false);
-                    emit selectButton->inputSelected(destSlot, slotIndex,
-                                                     sourcePipe, sourceParamIndex);
-                });
 
                 // Uncheck the other buttons.
                 for (s32 bi = 0; bi < sg->selectButtons.size(); bi++)
@@ -1506,30 +1515,50 @@ void ExpressionOperatorDialog::Private::repopulateSlotGridFromModel()
 {
     repopulate_slotgrid(&m_slotGrid, *m_model, m_eventWidget, m_userLevel);
 
-    for (auto &selectButton: m_slotGrid.selectButtons)
+    assert(m_slotGrid.selectButtons.size() == m_slotGrid.clearButtons.size());
+    assert(m_slotGrid.selectButtons.size() == m_slotGrid.inputPrefixLineEdits.size());
+
+
+    for (s32 slotIndex = 0; slotIndex < m_slotGrid.selectButtons.size(); slotIndex++)
     {
-        QObject::connect(selectButton, &InputSelectButton::inputSelected,
-                         m_q, [this] (Slot *destSlot, s32 slotIndex,
-                                      Pipe *sourcePipe, s32 sourceParamIndex) {
-            this->onInputSelected(destSlot, slotIndex, sourcePipe, sourceParamIndex);
+        Slot *slot = m_model->opClone->getSlot(slotIndex);
+
+        // select input
+        auto selectButton = m_slotGrid.selectButtons[slotIndex];
+
+        connect(selectButton, &InputSelectButton::beginInputSelect,
+                m_q, [this, slot, slotIndex] () {
+
+            // This is the callback that will be invoked by the eventwidget when input
+            // selection is complete.
+            auto callback = [this, slotIndex](
+                Slot *destSlot, Pipe *sourcePipe, s32 sourceParamIndex)
+            {
+                this->onInputSelected(destSlot, slotIndex, sourcePipe, sourceParamIndex);
+            };
+
+            m_eventWidget->selectInputFor(slot, m_userLevel, callback, { m_op.get() });
         });
-    }
 
-    for (s32 bi = 0; bi < m_slotGrid.clearButtons.size(); ++bi)
-    {
-        auto &clearButton = m_slotGrid.clearButtons[bi];
+        // clear input
+        auto clearButton = m_slotGrid.clearButtons[slotIndex];
 
-        QObject::connect(clearButton, &QPushButton::clicked,
-                         m_q, [this, bi] () {
-            this->onInputCleared(bi);
+        connect(clearButton, &QPushButton::clicked, m_q, [this, slotIndex] () {
+            this->onInputCleared(slotIndex);
         });
 
-        auto le = m_slotGrid.inputPrefixLineEdits[bi];
+        // input variable name
+        auto le = m_slotGrid.inputPrefixLineEdits[slotIndex];
 
-        QObject::connect(le, &QLineEdit::editingFinished,
-                         m_slotGrid.outerFrame, [this, bi, le] () {
-            assert(static_cast<size_t>(bi) < m_model->inputPrefixes.size());
-            this->onInputPrefixEdited(bi, le->text());
+        connect(le, &QLineEdit::editingFinished,
+                m_slotGrid.outerFrame, [this, slotIndex, le] () {
+
+            assert(static_cast<size_t>(slotIndex) < m_model->inputPrefixes.size());
+
+            if (le->text().toStdString() != m_model->inputPrefixes[slotIndex])
+            {
+                this->onInputPrefixEdited(slotIndex, le->text());
+            }
         });
     }
 }

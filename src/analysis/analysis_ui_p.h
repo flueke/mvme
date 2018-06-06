@@ -76,7 +76,8 @@ class EventWidget: public QWidget
                     AnalysisWidget *analysisWidget, QWidget *parent = 0);
         ~EventWidget();
 
-        void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback);
+        void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback,
+                            QSet<PipeSourceInterface *> additionalInvalidSources = {});
         void endSelectInput();
         void highlightInputOf(Slot *slot, bool doHighlight);
 
