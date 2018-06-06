@@ -309,13 +309,22 @@ class ExpressionOperatorEditorComponent: public QWidget
         QAction *m_actionStep = nullptr;
 };
 
+/* This class is based on the Qt Syntax Highlighter Example. */
 struct ExpressionOperatorSyntaxHighlighter: public QSyntaxHighlighter
 {
     Q_OBJECT
     using QSyntaxHighlighter::QSyntaxHighlighter;
+    public:
+        ExpressionOperatorSyntaxHighlighter(QTextDocument *parentDoc);
+        virtual ~ExpressionOperatorSyntaxHighlighter();
 
     protected:
         virtual void highlightBlock(const QString &text) override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> m_d;
+
 };
 
 } // end namespace analysis

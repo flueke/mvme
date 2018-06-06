@@ -23,23 +23,12 @@
 
  - required:
    clickable error display for scripts. errors can come from expr_tk (wrapped
-   in a2_exprtk layer) and from the ExpressionOperator itself (e.g. malformed beginExpr output, SemanticError).
+   in a2_exprtk layer) and from the ExpressionOperator itself (e.g. malformed beginExpr output,
+   SemanticError).
 
  - utility: symbol table inspection
 
- - FIXME: unit labels for inputs _and_ outputs are missing
-
- - on eval error the output part should keep it's size. the whole splitter size
-   thing is ugly.
-
- - resize cols and rows to contents on widget resize event. rate limit this or
-   maybe use a delayed time or something if needed.
-
- - implement the save functionality. use the a1 pipes to bring the original
-   operator into the desired state. also the "add/edited" part of the analysis
-   has to be called.
-
- - implement copy/paste for PipeView
+ - implement copy/paste for editable PipeView
 
  */
 
@@ -2156,46 +2145,168 @@ void ExpressionOperatorDialog::reject()
     QDialog::reject();
 }
 
+
+//
+// ExpressionOperatorSyntaxHighlighter
+//
+
+namespace
+{
+    static const int BlockState_InCode    = 0;
+    static const int BlockState_InComment = 1;
+} // end anon namespace
+
+struct ExpressionOperatorSyntaxHighlighter::Private
+{
+    struct HighlightingRule
+    {
+        QRegExp pattern;
+        QTextCharFormat format;
+    };
+
+    Private();
+
+
+    QVector<HighlightingRule> highlightingRules;
+
+    QRegularExpression reSingleLineComment;
+    QRegExp reMultiLineCommentStart;
+    QRegExp reMultiLineCommentEnd;
+
+    QTextCharFormat commentFormat,
+                    keywordFormat,
+                    baseFunctionFormat,
+                    stringFormat;
+};
+
+ExpressionOperatorSyntaxHighlighter::Private::Private()
+    : reSingleLineComment("(#|//).*$")
+    , reMultiLineCommentStart("/\\*")
+    , reMultiLineCommentEnd("\\*/")
+{
+    /* Format colors are based on the Qt Creator Default Color Scheme. */
+    commentFormat.setForeground(QColor("#000080"));
+    stringFormat.setForeground(QColor("#008000"));
+
+    keywordFormat.setForeground(QColor("#808000"));
+    keywordFormat.setFontWeight(QFont::Bold);
+
+    baseFunctionFormat.setForeground(QColor("#800080"));
+    baseFunctionFormat.setFontWeight(QFont::Bold);
+
+    HighlightingRule rule;
+
+    // keywords
+    auto keywords = QStringList()
+        << "break" <<  "case" <<  "continue" <<  "default" <<  "false" <<  "for"
+        << "if" << "else" << "ilike" <<  "in" << "like" << "and" <<  "nand" << "nor"
+        << "not" <<  "null" <<  "or" <<   "repeat" << "return" <<  "shl" <<  "shr"
+        << "swap" << "switch" << "true" <<  "until" << "var" <<  "while" << "xnor"
+        << "xor";
+
+    for (const auto &str: keywords)
+    {
+        rule.pattern = QRegExp("\\b" + str + "\\b");
+        rule.format  = keywordFormat;
+        highlightingRules.append(rule);
+    }
+
+    // base functions
+    auto baseFunctions = QStringList()
+        << "abs" << "acos" <<  "acosh" << "asin" <<  "asinh" << "atan" <<  "atanh"
+        << "atan2" <<  "avg" <<  "ceil" <<  "clamp" <<  "cos" <<  "cosh" <<  "cot"
+        << "csc" <<  "equal" <<  "erf" <<  "erfc" <<  "exp" <<  "expm1" << "floor"
+        << "frac" << "hypot" << "iclamp" <<  "like" << "log" << "log10" <<  "log2"
+        << "logn" << "log1p" << "mand" << "max" << "min" << "mod" << "mor" <<  "mul"
+        << "ncdf" <<  "pow" <<  "root" <<  "round" <<  "roundn" <<  "sec" << "sgn"
+        << "sin" << "sinc" << "sinh" << "sqrt" << "sum" << "swap" << "tan" << "tanh"
+        << "trunc" <<  "not_equal" <<  "inrange" <<  "deg2grad" <<   "deg2rad"
+        << "rad2deg" << "grad2deg";
+
+    // a2 runtime lib functions
+    baseFunctions << "is_valid" << "is_invalid" << "make_invalid" << "is_nan" << "valid_or";
+
+    for (const auto &str: baseFunctions)
+    {
+        rule.pattern = QRegExp("\\b" + str + "\\b");
+        rule.format  = baseFunctionFormat;
+        highlightingRules.append(rule);
+    }
+
+    // other rules
+    rule.pattern = QRegExp("'.*'");
+    rule.format = stringFormat;
+    highlightingRules.append(rule);
+}
+
+ExpressionOperatorSyntaxHighlighter::ExpressionOperatorSyntaxHighlighter(QTextDocument *parentDoc)
+    : QSyntaxHighlighter(parentDoc)
+    , m_d(std::make_unique<Private>())
+{ }
+
+ExpressionOperatorSyntaxHighlighter::~ExpressionOperatorSyntaxHighlighter()
+{ }
+
 void ExpressionOperatorSyntaxHighlighter::highlightBlock(const QString &text)
 {
-    static const QRegularExpression reComment("(#|//).*$");
-    static const QRegExp reMultiStart("/\\*");
-    static const QRegExp reMultiEnd("\\*/");
+    //qDebug() << __PRETTY_FUNCTION__ << "text.size() =" << text.size()
+    //    << "rule count =" << m_d->highlightingRules.size();
 
-    QTextCharFormat commentFormat;
-    commentFormat.setForeground(Qt::blue);
 
-    setCurrentBlockState(0);
-
-    int startIndex = 0;
-    if (previousBlockState() != 1)
+    for (const auto &rule: m_d->highlightingRules)
     {
-        startIndex = text.indexOf(reMultiStart);
+        auto re(rule.pattern);
+
+        int index = re.indexIn(text);
+
+        //qDebug() << __PRETTY_FUNCTION__ << "pattern =" << re << "first index =" << index;
+
+        while (index >= 0)
+        {
+            int length = re.matchedLength();
+            setFormat(index, length, rule.format);
+            index = re.indexIn(text, index + length);
+            //qDebug() << __PRETTY_FUNCTION__ << "pattern =" << re << "new index =" << index;
+        }
+    }
+
+    setCurrentBlockState(BlockState_InCode);
+    int startIndex = 0;
+
+    // C-style multiline comments
+
+    if (previousBlockState() != BlockState_InComment)
+    {
+        startIndex = text.indexOf(m_d->reMultiLineCommentStart);
     }
 
     while (startIndex >= 0)
     {
-        int endIndex = text.indexOf(reMultiEnd, startIndex);
+        int endIndex = text.indexOf(m_d->reMultiLineCommentEnd, startIndex);
         int commentLength;
+
         if (endIndex == -1)
         {
-            setCurrentBlockState(1);
+            setCurrentBlockState(BlockState_InComment);
             commentLength = text.length() - startIndex;
         }
         else
         {
-            commentLength = endIndex - startIndex + reMultiEnd.matchedLength() + 3;
+            commentLength = endIndex - startIndex + m_d->reMultiLineCommentEnd.matchedLength();
         }
-        setFormat(startIndex, commentLength, commentFormat);
-        startIndex = text.indexOf(reMultiStart, startIndex + commentLength);
+
+        setFormat(startIndex, commentLength, m_d->commentFormat);
+        startIndex = text.indexOf(m_d->reMultiLineCommentStart, startIndex + commentLength);
     }
 
+    // single line comments
     QRegularExpressionMatch match;
-    int index = text.indexOf(reComment, 0, &match);
+    int index = text.indexOf(m_d->reSingleLineComment, 0, &match);
+
     if (index >= 0)
     {
-        int length = match.capturedLength();
-        setFormat(index, length, commentFormat);
+        int length = match.capturedLength(); // matches to EoL
+        setFormat(index, length, m_d->commentFormat);
     }
 }
 
