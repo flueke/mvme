@@ -2,6 +2,27 @@
 Changelog
 ##################################################
 
+0.9.4
+-------
+* New: :ref:`Analysis Expression Operator<analysis-ExpressionOperator>`
+
+  This is an operator that allows user-defined scripts to be executed for each readout
+  event. Internally `exprtk`_ is used to compile and evaluate expressions.
+
+* New: :ref:`Analysis Export Sink<analysis-ExportSink>`
+
+  Allows exporting of analysis parameter arrays to binary files. Full and sparse data
+  export formats and optional zlib compression are available.
+
+  Source code showing how to read and process the exported data and generate ROOT
+  histograms can be generated.
+
+* General fixes and improvements to the SIS3153 readout code
+
+* Moved the MultiEvent Processing option and the MultiEvent Module Header Filters from the
+  VME side to the analysis side. This is more logical and allows changing the option when
+  doing a replay.
+
 0.9.3
 -------
 
