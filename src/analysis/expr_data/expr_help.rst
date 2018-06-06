@@ -2,8 +2,8 @@ Expression Operator Overview
 ================================================================================
 
 Parsing, compilation and evaluation of the expressions is done using the
-``exprtk`` library by Arash Partow. Very detailed information can be found on
-the web:
+``exprtk`` library by Arash Partow. Detailed information can be found on the
+web:
 
 - https://github.com/ArashPartow/exprtk/blob/master/readme.txt
 - http://www.partow.net/programming/exprtk/index.html
@@ -11,13 +11,15 @@ the web:
 Quick Syntax Guide
 --------------------------------------------------
 
-- The syntax is somewhat similar to C with a few exceptions
-- Local variables need to be defined using the ``var`` keyword
+- The syntax is somewhat similar to C with a few exceptions (notably ':=' is
+  used for assignment!)
+- Local variables need to be defined using the ``var`` keyword: ``var my_x :=
+  42;``
 - Statements are terminated with a semicolon
 - Assignment is done using the ``:=`` operator, **not** ``=`` (which performs a
   comparison)!
 - To increment a variable use ``var_name += 1`` as pre- and post-increment
-  (``++``, ``--``) operators are not available.
+  operators are not available.
 - One dimensional arrays (or *vectors*) can be created using this syntax::
 
     var a0[3];                     // Default initalized to zero.
@@ -33,21 +35,22 @@ Quick Syntax Guide
 - Comments can be C-style (``/* ... */``) or to end-of-line using either
   ``//`` or ``#``
 
-Examples:::
+Example:::
 
     var x := 42;
     var y := 3*x - 23;
     var a0[5] := { 0, 1, 2, 3, 4 };
-    var a1[5];
+    var a1[10];
     var a0_len := a0[]; // array length
 
     for (var i := 0; i < a1[]; i += 1) {
-        if (i = 0) { // '==' works too
-            a1[i] := y;
+        if (i = 0) { // '==' works too for comparison
+            a1[i] := is_valid(y) ? y^2 : 3.14;
         } else {
             a1[i] := i;
         }
     }
+
 
 MVME specific: parameter values and validity
 --------------------------------------------------
@@ -71,10 +74,12 @@ Also the built-in ``sum()`` function will return a NaN value.
 To detect and generate invalid parameters the following functions have been
 defined for use inside scripts: ::
 
-    is_valid(), is_invalid(), is_nan() and make_invalid()
+    is_valid(), is_invalid(), is_nan(), make_invalid(), valid_or()
 
 The first three test a single scalar value. ``make_invalid()`` is used to
-explicitly create an invalid parameter.
+explicitly create an invalid parameter. ``valid_or()`` takes two arguments: the
+parameter to test and a default value and returns the parameter if it is valid,
+the default value otherwise.
 
 A better version of the above loop: ::
 
