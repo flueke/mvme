@@ -702,16 +702,21 @@ user-defined expressions.
 
 The operator supports multiple inputs and outputs. The definition of the
 outputs is done using an exprtk script, which means arbitrary calculations can
-be performed on the input limits to determine how many outputs the operator
-should have and how they are shaped.
+be performed to calculate the number of outputs, their sizes and their
+parameter limits.
 
+During analysis runtime a second script, the *step script*, is evaluted each
+time event data is available. The script calculates and assigns parameter
+values to the operators output arrays.
 
+Details about the syntax and semantics are provided in the online help in the
+Expression Operator user interface.
 
 
 .. _analysis-sinks:
 
-Data Sinks (Histograms / Data Export)
-----------------------------------------
+Data Sinks
+-----------------------------------------
 
 mvme currently implements the following data sinks:
 
@@ -742,7 +747,7 @@ Export Sink
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autofigure:: images/analysis_export_sink_ui.png
-    :scale-latex: 80%
+    :scale-latex: 60%
 
 .. _ROOT: https://root.cern.ch/
 
@@ -778,6 +783,12 @@ command line argument, e.g: ::
 
 Rate Monitor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The rate monitor uses its input values as precalculated rates or calculates the
+rate using the difference of successive input values. Rate values are kept in a
+circular buffer and a plot of the rate over time can be displayed.
+
+Details can be found in the Rate Monitor user interface.
 
 
 Loading an Analysis / Importing Objects

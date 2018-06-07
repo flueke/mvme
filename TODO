@@ -2,6 +2,8 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+* make double click on operators open the editor GUI
+
 * detect and disallow circular operator connections.
   op1 uses op2.output0 as input
   op2 uses op1.output0 as input

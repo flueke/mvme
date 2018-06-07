@@ -17,11 +17,17 @@ Changelog
   Source code showing how to read and process the exported data and generate ROOT
   histograms can be generated.
 
-* General fixes and improvements to the SIS3153 readout code
+* New: :ref:`Analysis Rate Monitor<analysis-RateMonitorSink>`
+
+  Allows to monitor and plot analysis data flow rates and rates calculated from successive
+  counter values (e.g. timestamp differences).
 
 * Moved the MultiEvent Processing option and the MultiEvent Module Header Filters from the
   VME side to the analysis side. This is more logical and allows changing the option when
   doing a replay.
+
+* General fixes and improvements to the SIS3153 readout code.
+
 
 0.9.3
 -------
@@ -67,3 +73,5 @@ Changelog
 * Add option to keep histo data across runs/replays
 * Fixes to histograms with axis unit values >= 2^31
 * Always use ZIP format for listfiles
+
+.. _exprtk: http://www.partow.net/programming/exprtk/index.html
