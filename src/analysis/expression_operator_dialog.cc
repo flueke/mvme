@@ -289,7 +289,7 @@ void ExpressionOperatorPipesComboView::setPipes(const std::vector<a2::PipeVector
                 m_selectCombo->setItemText(pi, titles[pi]);
                 pv->setPipe(pipes[pi], units[pi]);
                 pv->setDataEditable(isPipeDataEditable());
-                qDebug() << this << "existing pi:" << pi << ", pv: " << pv;
+                //qDebug() << this << "existing pi:" << pi << ", pv: " << pv;
             }
         }
         else
@@ -299,7 +299,7 @@ void ExpressionOperatorPipesComboView::setPipes(const std::vector<a2::PipeVector
             pv->setPipe(pipes[pi], units[pi]);
             pv->setDataEditable(isPipeDataEditable());
             m_pipeStack->addWidget(pv);
-            qDebug() << this << "new pi:" << pi << ", pv: " << pv;
+            //qDebug() << this << "new pi:" << pi << ", pv: " << pv;
         }
     }
 
@@ -950,98 +950,6 @@ void ExpressionOperatorEditorComponent::onActionHelp_triggered()
 // ExpressionOperatorDialog and Private implementation
 //
 
-namespace
-{
-    struct Model;
-} // end anon namespace
-
-struct ExpressionOperatorDialog::Private
-{
-    static const size_t WorkArenaSegmentSize = Kilobytes(4);
-    static const int TabIndex_Begin = 1;
-    static const int TabIndex_Step  = 2;
-
-    Private(ExpressionOperatorDialog *q)
-        : m_q(q)
-        , m_arena(WorkArenaSegmentSize)
-    {}
-
-    ExpressionOperatorDialog *m_q;
-
-    // The operator being added or edited
-    std::shared_ptr<ExpressionOperator> m_op;
-    // The userlevel the operator is placed in
-    int m_userLevel;
-    // new or edit
-    OperatorEditorMode m_mode;
-    // backpointer to the eventwidget used for input selection
-    EventWidget *m_eventWidget;
-    // data transfer to/from gui and storage of inputs
-    std::unique_ptr<Model> m_model;
-    // work arena for a2 operator creation
-    memory::Arena m_arena;
-    // the a2 operator recreated when the user wants to evaluate one of the
-    // scripts
-    a2::Operator m_a2Op;
-    bool m_lastStepCompileSucceeded = false;
-
-
-    QTabWidget *m_tabWidget;
-
-    // tab0: operator name and input select
-    QLineEdit *le_operatorName;
-    SlotGrid m_slotGrid;
-
-    // tab1: begin expression
-    ExpressionOperatorEditorComponent *m_beginExpressionEditor;
-
-    // tab2: step expression
-    ExpressionOperatorEditorComponent *m_stepExpressionEditor;
-
-    QDialogButtonBox *m_buttonBox;
-
-    void updateModelFromOperator(); // op  -> model
-    void updateModelFromGUI();      // gui -> model
-
-    void repopulateGUIFromModel();
-    void repopulateSlotGridFromModel();
-    void refreshInputPipesViews();
-    void refreshOutputPipesViews();
-
-    void postInputsModified();
-
-    void onAddSlotButtonClicked();
-    void onRemoveSlotButtonClicked();
-    void onInputSelected(Slot *destSlot, s32 slotIndex,
-                         Pipe *sourcePipe, s32 sourceParamIndex);
-    void onInputCleared(s32 slotIndex);
-    void onInputPrefixEdited(s32 slotIndex, const QString &text);
-
-    void model_compileBeginExpression();
-    void model_compileStepExpression();
-    void model_stepOperator();
-    void model_sampleInputs();
-    void model_randomizeInputs();
-
-    QString generateNameForNewOperator();
-};
-
-namespace
-{
-
-QStringList qStringList_from_vector(const std::vector<std::string> &strings)
-{
-    QStringList result;
-    result.reserve(strings.size());
-
-    for (const auto &str: strings)
-    {
-        result.push_back(QString::fromStdString(str));
-    }
-
-    return result;
-}
-
 /* Notes about the Model structure:
  *
  * This is used to hold the current state of the ExpressionOperator UI. The GUI
@@ -1103,8 +1011,23 @@ class A2PipeStorage
             };
         }
 
-        friend void assert_consistency(const a2::PipeVectors &a2_pipe,
-                                       const A2PipeStorage &storage);
+        void assert_consistency(const a2::PipeVectors &a2_pipe) const
+        {
+            //qDebug() << __PRETTY_FUNCTION__ << a2_pipe.data.size;
+
+            assert(a2_pipe.data.size == a2_pipe.lowerLimits.size);
+            assert(a2_pipe.data.size == a2_pipe.upperLimits.size);
+
+            const s32 expected_size = static_cast<s32>(data.size());
+
+            assert(a2_pipe.data.size == expected_size);
+            assert(a2_pipe.lowerLimits.size == expected_size);
+            assert(a2_pipe.upperLimits.size == expected_size);
+
+            assert(a2_pipe.data.data == data.data());
+            assert(a2_pipe.lowerLimits.data == lowerLimits.data());
+            assert(a2_pipe.upperLimits.data == upperLimits.data());
+        }
 
     private:
         std::vector<double> data;
@@ -1112,6 +1035,9 @@ class A2PipeStorage
         std::vector<double> upperLimits;
 
 };
+
+namespace detail
+{
 
 struct Model
 {
@@ -1154,24 +1080,6 @@ struct Model
     Model &operator=(Model &&) = default;
 };
 
-void assert_consistency(const a2::PipeVectors &a2_pipe, const A2PipeStorage &storage)
-{
-    //qDebug() << __PRETTY_FUNCTION__ << a2_pipe.data.size;
-
-    assert(a2_pipe.data.size == a2_pipe.lowerLimits.size);
-    assert(a2_pipe.data.size == a2_pipe.upperLimits.size);
-
-    const s32 expected_size = static_cast<s32>(storage.data.size());
-
-    assert(a2_pipe.data.size == expected_size);
-    assert(a2_pipe.lowerLimits.size == expected_size);
-    assert(a2_pipe.upperLimits.size == expected_size);
-
-    assert(a2_pipe.data.data == storage.data.data());
-    assert(a2_pipe.lowerLimits.data == storage.lowerLimits.data());
-    assert(a2_pipe.upperLimits.data == storage.upperLimits.data());
-}
-
 void assert_internal_consistency(const Model &model)
 {
     assert(model.inputs.size() == model.inputStorage.size());
@@ -1182,7 +1090,7 @@ void assert_internal_consistency(const Model &model)
 
     for (size_t ii = 0; ii < model.inputs.size(); ii++)
     {
-        assert_consistency(model.inputs[ii], model.inputStorage[ii]);
+        model.inputStorage[ii].assert_consistency(model.inputs[ii]);
     }
 }
 
@@ -1193,6 +1101,97 @@ void assert_consistency(const Model &model)
     assert(static_cast<size_t>(model.opClone->getNumberOfSlots()) == model.inputs.size());
 
     assert_internal_consistency(model);
+}
+
+} // end namespace detail
+
+using detail::Model;
+
+struct ExpressionOperatorDialog::Private
+{
+    static const size_t WorkArenaSegmentSize = Kilobytes(4);
+    static const int TabIndex_Begin = 1;
+    static const int TabIndex_Step  = 2;
+
+    Private(ExpressionOperatorDialog *q)
+        : m_q(q)
+        , m_arena(WorkArenaSegmentSize)
+    {}
+
+    ExpressionOperatorDialog *m_q;
+
+    // The operator being added or edited
+    std::shared_ptr<ExpressionOperator> m_op;
+    // The userlevel the operator is placed in
+    int m_userLevel;
+    // new or edit
+    OperatorEditorMode m_mode;
+    // backpointer to the eventwidget used for input selection
+    EventWidget *m_eventWidget;
+    // data transfer to/from gui and storage of inputs
+    std::unique_ptr<Model> m_model;
+    // work arena for a2 operator creation
+    memory::Arena m_arena;
+    // the a2 operator recreated when the user wants to evaluate one of the
+    // scripts
+    a2::Operator m_a2Op;
+    bool m_lastStepCompileSucceeded = false;
+
+
+    QTabWidget *m_tabWidget;
+
+    // tab0: operator name and input select
+    QLineEdit *le_operatorName;
+    SlotGrid *m_slotGrid;
+
+    // tab1: begin expression
+    ExpressionOperatorEditorComponent *m_beginExpressionEditor;
+
+    // tab2: step expression
+    ExpressionOperatorEditorComponent *m_stepExpressionEditor;
+
+    QDialogButtonBox *m_buttonBox;
+
+    void updateModelFromOperator(); // op  -> model
+    void updateModelFromGUI();      // gui -> model
+
+    void repopulateGUIFromModel();
+    void repopulateSlotGridFromModel();
+    void refreshInputPipesViews();
+    void refreshOutputPipesViews();
+
+    void postInputsModified();
+
+    void onAddSlotButtonClicked();
+    void onRemoveSlotButtonClicked();
+    void onInputSelected(Slot *destSlot, s32 slotIndex,
+                         Pipe *sourcePipe, s32 sourceParamIndex);
+    void onInputCleared(s32 slotIndex);
+    void onInputPrefixEdited(s32 slotIndex, const QString &text);
+
+    void model_compileBeginExpression();
+    void model_compileStepExpression();
+    void model_stepOperator();
+    void model_sampleInputs();
+    void model_randomizeInputs();
+
+    QString generateNameForNewOperator();
+};
+
+namespace
+{
+
+QStringList qStringList_from_vector(const std::vector<std::string> &strings)
+{
+    QStringList result;
+    result.reserve(strings.size());
+
+    for (const auto &str: strings)
+    {
+        result.push_back(QString::fromStdString(str));
+    }
+
+    return result;
 }
 
 /* IMPORTANT: This will potentially leave the model in an inconsistent state as
@@ -1341,58 +1340,48 @@ void save_to_operator(const Model &model, ExpressionOperator &op)
 //
 // SlotGrid
 //
-
-SlotGrid make_slotgrid(QWidget *parent = nullptr)
+SlotGrid::SlotGrid(QWidget *parent)
+    : QFrame(parent)
 {
-    SlotGrid sg = {};
+    auto slotFrame  = new QFrame;
+    m_slotLayout = new QGridLayout(slotFrame);
+    m_slotLayout->setContentsMargins(2, 2, 2, 2);
+    m_slotLayout->setColumnStretch(0, 0); // index
+    m_slotLayout->setColumnStretch(1, 1); // select button with input name
+    m_slotLayout->setColumnStretch(2, 1); // variable name inside the script
+    m_slotLayout->setColumnStretch(3, 0); // clear selection button
 
-    sg.slotFrame  = new QFrame;
-    sg.slotLayout = new QGridLayout(sg.slotFrame);
+    m_addSlotButton = new QPushButton(QIcon(QSL(":/list_add.png")), QString());
+    m_addSlotButton->setToolTip(QSL("Add input"));
 
-    sg.slotLayout->setContentsMargins(2, 2, 2, 2);
-    sg.slotLayout->setColumnStretch(0, 0); // index
-    sg.slotLayout->setColumnStretch(1, 1); // select button with input name
-    sg.slotLayout->setColumnStretch(2, 1); // variable name inside the script
-    sg.slotLayout->setColumnStretch(3, 0); // clear selection button
-
-    sg.addSlotButton = new QPushButton(QIcon(QSL(":/list_add.png")), QString());
-    sg.addSlotButton->setToolTip(QSL("Add input"));
-
-    sg.removeSlotButton = new QPushButton(QIcon(QSL(":/list_remove.png")), QString());
-    sg.removeSlotButton->setToolTip(QSL("Remove last input"));
+    m_removeSlotButton = new QPushButton(QIcon(QSL(":/list_remove.png")), QString());
+    m_removeSlotButton->setToolTip(QSL("Remove last input"));
 
     // a "row" below the slotFrame (which contains the grid layout) for the add/remove
     // slot buttons
     auto addRemoveSlotButtonsLayout = new QHBoxLayout;
     addRemoveSlotButtonsLayout->setContentsMargins(2, 2, 2, 2);
     addRemoveSlotButtonsLayout->addStretch();
-    addRemoveSlotButtonsLayout->addWidget(sg.addSlotButton);
-    addRemoveSlotButtonsLayout->addWidget(sg.removeSlotButton);
+    addRemoveSlotButtonsLayout->addWidget(m_addSlotButton);
+    addRemoveSlotButtonsLayout->addWidget(m_removeSlotButton);
 
-    sg.outerFrame = new QFrame(parent);
-    auto outerLayout = new QVBoxLayout(sg.outerFrame);
+    auto outerLayout = new QVBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
-    outerLayout->addWidget(sg.slotFrame);
+    outerLayout->addWidget(slotFrame);
     outerLayout->addLayout(addRemoveSlotButtonsLayout);
     outerLayout->setStretch(0, 1);
 
-    return sg;
+
+    connect(m_addSlotButton, &QPushButton::clicked, this, &SlotGrid::addSlot);
+    connect(m_removeSlotButton, &QPushButton::clicked, this, &SlotGrid::removeSlot);
 }
 
-void slotgrid_endInputSelect(SlotGrid *sg)
-{
-    for (auto &selectButton: sg->selectButtons)
-    {
-        selectButton->setChecked(false);
-    }
-}
-
-void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s32 userLevel)
+void SlotGrid::repopulate(const detail::Model &model, EventWidget *eventWidget, s32 userLevel)
 {
     assert_consistency(model);
 
     // Clear the slot grid and the select buttons
-    while (QLayoutItem *child = sg->slotLayout->takeAt(0))
+    while (QLayoutItem *child = m_slotLayout->takeAt(0))
     {
         if (auto widget = child->widget())
         {
@@ -1402,12 +1391,12 @@ void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s
         delete child;
     }
 
-    Q_ASSERT(sg->slotLayout->count() == 0);
+    Q_ASSERT(m_slotLayout->count() == 0);
 
     // These have been deleted by the layout clearing code above.
-    sg->selectButtons.clear();
-    sg->clearButtons.clear();
-    sg->inputPrefixLineEdits.clear();
+    selectButtons.clear();
+    clearButtons.clear();
+    inputPrefixLineEdits.clear();
 
     // Repopulate
 
@@ -1420,10 +1409,10 @@ void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s
     s32 row = 0;
     s32 col = 0;
 
-    sg->slotLayout->addWidget(new QLabel(QSL("Input#")), row, col++);
-    sg->slotLayout->addWidget(new QLabel(QSL("Select")), row, col++);
-    sg->slotLayout->addWidget(new QLabel(QSL("Clear")), row, col++);
-    sg->slotLayout->addWidget(new QLabel(QSL("Variable Name")), row, col++);
+    m_slotLayout->addWidget(new QLabel(QSL("Input#")), row, col++);
+    m_slotLayout->addWidget(new QLabel(QSL("Select")), row, col++);
+    m_slotLayout->addWidget(new QLabel(QSL("Clear")), row, col++);
+    m_slotLayout->addWidget(new QLabel(QSL("Variable Name")), row, col++);
 
     row++;
 
@@ -1432,13 +1421,13 @@ void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s
         Slot *slot = op->getSlot(slotIndex);
 
         auto selectButton = new InputSelectButton(slot, userLevel, eventWidget);
-        sg->selectButtons.push_back(selectButton);
+        selectButtons.push_back(selectButton);
 
         auto clearButton = new QPushButton(QIcon(":/dialog-close.png"), QString());
-        sg->clearButtons.push_back(clearButton);
+        clearButtons.push_back(clearButton);
 
         auto le_inputPrefix  = new QLineEdit;
-        sg->inputPrefixLineEdits.push_back(le_inputPrefix);
+        inputPrefixLineEdits.push_back(le_inputPrefix);
 
         if (model.a1_inputPipes[slotIndex])
         {
@@ -1464,7 +1453,7 @@ void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s
         le_inputPrefix->setText(QString::fromStdString(model.inputPrefixes[slotIndex]));
 
         QObject::connect(selectButton, &QPushButton::toggled,
-                sg->outerFrame, [=] (bool checked) {
+                         this, [this, eventWidget, slotIndex] (bool checked) {
 
             // Cancel any previous input selection. Has no effect if no input
             // selection was active.
@@ -1472,95 +1461,73 @@ void repopulate_slotgrid(SlotGrid *sg, Model &model, EventWidget *eventWidget, s
 
             if (checked)
             {
-                emit selectButton->beginInputSelect();
-
                 // Uncheck the other buttons.
-                for (s32 bi = 0; bi < sg->selectButtons.size(); bi++)
+                for (s32 bi = 0; bi < selectButtons.size(); bi++)
                 {
                     if (bi != slotIndex)
-                        sg->selectButtons[bi]->setChecked(false);
+                        selectButtons[bi]->setChecked(false);
                 }
+
+                emit beginInputSelect(slotIndex);
             }
         });
 
         QObject::connect(clearButton, &QPushButton::clicked,
-                         sg->outerFrame, [selectButton, eventWidget, sg]() {
+                         this, [this, selectButton, eventWidget, slotIndex]() {
+
             selectButton->setText(QSL("<select>"));
             selectButton->setChecked(false);
-            slotgrid_endInputSelect(sg);
+            endInputSelect();
             eventWidget->endSelectInput();
+            emit clearInput(slotIndex);
+        });
+
+        connect(le_inputPrefix, &QLineEdit::editingFinished,
+                this, [this, &model, slotIndex, le_inputPrefix]() {
+
+            assert(static_cast<size_t>(slotIndex) < model.inputPrefixes.size());
+
+            if (le_inputPrefix->text().toStdString() != model.inputPrefixes[slotIndex])
+            {
+                emit inputPrefixEdited(slotIndex, le_inputPrefix->text());
+            }
         });
 
         col = 0;
 
-        sg->slotLayout->addWidget(new QLabel(slot->name), row, col++);
-        sg->slotLayout->addWidget(selectButton, row, col++);
-        sg->slotLayout->addWidget(clearButton, row, col++);
-        sg->slotLayout->addWidget(le_inputPrefix, row, col++);
+        m_slotLayout->addWidget(new QLabel(slot->name), row, col++);
+        m_slotLayout->addWidget(selectButton, row, col++);
+        m_slotLayout->addWidget(clearButton, row, col++);
+        m_slotLayout->addWidget(le_inputPrefix, row, col++);
 
         row++;
     }
 
-    sg->slotLayout->setRowStretch(row, 1);
+    m_slotLayout->setRowStretch(row, 1);
 
-    sg->slotLayout->setColumnStretch(0, 0);
-    sg->slotLayout->setColumnStretch(1, 1);
-    sg->slotLayout->setColumnStretch(2, 0);
-    sg->slotLayout->setColumnStretch(3, 1);
+    m_slotLayout->setColumnStretch(0, 0);
+    m_slotLayout->setColumnStretch(1, 1);
+    m_slotLayout->setColumnStretch(2, 0);
+    m_slotLayout->setColumnStretch(3, 1);
 
-    sg->removeSlotButton->setEnabled(slotCount > 1);
+    m_removeSlotButton->setEnabled(slotCount > 1);
+
+    assert(selectButtons.size() == static_cast<s32>(model.inputs.size()));
+    assert(selectButtons.size() == clearButtons.size());
+    assert(selectButtons.size() == inputPrefixLineEdits.size());
+}
+
+void SlotGrid::endInputSelect()
+{
+    for (auto &selectButton: selectButtons)
+    {
+        selectButton->setChecked(false);
+    }
 }
 
 void ExpressionOperatorDialog::Private::repopulateSlotGridFromModel()
 {
-    repopulate_slotgrid(&m_slotGrid, *m_model, m_eventWidget, m_userLevel);
-
-    assert(m_slotGrid.selectButtons.size() == m_slotGrid.clearButtons.size());
-    assert(m_slotGrid.selectButtons.size() == m_slotGrid.inputPrefixLineEdits.size());
-
-
-    for (s32 slotIndex = 0; slotIndex < m_slotGrid.selectButtons.size(); slotIndex++)
-    {
-        Slot *slot = m_model->opClone->getSlot(slotIndex);
-
-        // select input
-        auto selectButton = m_slotGrid.selectButtons[slotIndex];
-
-        connect(selectButton, &InputSelectButton::beginInputSelect,
-                m_q, [this, slot, slotIndex] () {
-
-            // This is the callback that will be invoked by the eventwidget when input
-            // selection is complete.
-            auto callback = [this, slotIndex](
-                Slot *destSlot, Pipe *sourcePipe, s32 sourceParamIndex)
-            {
-                this->onInputSelected(destSlot, slotIndex, sourcePipe, sourceParamIndex);
-            };
-
-            m_eventWidget->selectInputFor(slot, m_userLevel, callback, { m_op.get() });
-        });
-
-        // clear input
-        auto clearButton = m_slotGrid.clearButtons[slotIndex];
-
-        connect(clearButton, &QPushButton::clicked, m_q, [this, slotIndex] () {
-            this->onInputCleared(slotIndex);
-        });
-
-        // input variable name
-        auto le = m_slotGrid.inputPrefixLineEdits[slotIndex];
-
-        connect(le, &QLineEdit::editingFinished,
-                m_slotGrid.outerFrame, [this, slotIndex, le] () {
-
-            assert(static_cast<size_t>(slotIndex) < m_model->inputPrefixes.size());
-
-            if (le->text().toStdString() != m_model->inputPrefixes[slotIndex])
-            {
-                this->onInputPrefixEdited(slotIndex, le->text());
-            }
-        });
-    }
+    m_slotGrid->repopulate(*m_model, m_eventWidget, m_userLevel);
 }
 
 void ExpressionOperatorDialog::Private::updateModelFromOperator()
@@ -1576,11 +1543,11 @@ void ExpressionOperatorDialog::Private::updateModelFromGUI()
     m_model->operatorName = le_operatorName->text();
 
     assert(m_model->inputPrefixes.size()
-           == static_cast<size_t>(m_slotGrid.inputPrefixLineEdits.size()));
+           == static_cast<size_t>(m_slotGrid->inputPrefixLineEdits.size()));
 
-    for (s32 i = 0; i < m_slotGrid.inputPrefixLineEdits.size(); i++)
+    for (s32 i = 0; i < m_slotGrid->inputPrefixLineEdits.size(); i++)
     {
-        m_model->inputPrefixes[i] = m_slotGrid.inputPrefixLineEdits[i]->text().toStdString();
+        m_model->inputPrefixes[i] = m_slotGrid->inputPrefixLineEdits[i]->text().toStdString();
     }
 
     m_model->beginExpression = m_beginExpressionEditor->expressionText().toStdString();
@@ -1929,7 +1896,6 @@ void ExpressionOperatorDialog::Private::model_randomizeInputs()
 ExpressionOperatorDialog::ExpressionOperatorDialog(
     const std::shared_ptr<ExpressionOperator> &op,
     int userLevel, OperatorEditorMode mode, EventWidget *eventWidget)
-
     : QDialog(eventWidget)
     , m_d(std::make_unique<Private>(this))
 {
@@ -1951,11 +1917,11 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     {
         m_d->le_operatorName = new QLineEdit;
 
-        m_d->m_slotGrid = make_slotgrid(this);
+        m_d->m_slotGrid = new SlotGrid(this);
         auto gb_slotGrid = new QGroupBox(QSL("Inputs"), this);
         auto gb_slotGridLayout = new QHBoxLayout(gb_slotGrid);
         gb_slotGridLayout->setContentsMargins(2, 2, 2, 2);
-        gb_slotGridLayout->addWidget(m_d->m_slotGrid.outerFrame);
+        gb_slotGridLayout->addWidget(m_d->m_slotGrid);
 
         auto page = new QWidget(this);
         auto l    = new QFormLayout(page);
@@ -2014,12 +1980,37 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     dialogLayout->setStretch(0, 1);
 
     // Slotgrid interactions
-    connect(m_d->m_slotGrid.addSlotButton, &QPushButton::clicked, this, [this]() {
+    connect(m_d->m_slotGrid, &SlotGrid::addSlot, this, [this]() {
         m_d->onAddSlotButtonClicked();
     });
 
-    connect(m_d->m_slotGrid.removeSlotButton, &QPushButton::clicked, this, [this] () {
+    connect(m_d->m_slotGrid, &SlotGrid::removeSlot, this, [this]() {
         m_d->onRemoveSlotButtonClicked();
+    });
+
+    connect(m_d->m_slotGrid, &SlotGrid::beginInputSelect,
+            this, [this] (s32 slotIndex) {
+
+        // This is the callback that will be invoked by the eventwidget when input
+        // selection is complete.
+        auto callback = [this, slotIndex](Slot *destSlot, Pipe *sourcePipe, s32 sourceParamIndex)
+        {
+            m_d->onInputSelected(destSlot, slotIndex, sourcePipe, sourceParamIndex);
+        };
+
+        auto slot = m_d->m_model->opClone->getSlot(slotIndex);
+
+        m_d->m_eventWidget->selectInputFor(slot, m_d->m_userLevel, callback, { m_d->m_op.get() });
+    });
+
+    connect(m_d->m_slotGrid, &SlotGrid::clearInput,
+            this, [this] (s32 slotIndex) {
+        m_d->onInputCleared(slotIndex);
+    });
+
+    connect(m_d->m_slotGrid, &SlotGrid::inputPrefixEdited,
+            this, [this] (s32 slotIndex, const QString &text) {
+        m_d->onInputPrefixEdited(slotIndex, text);
     });
 
     // Editor component interaction (eval script, step, sample inputs)
