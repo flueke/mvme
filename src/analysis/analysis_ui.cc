@@ -1903,24 +1903,21 @@ static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot,
 
     bool result = false;
 
-    // do not allow self-connections
     if (srcObject == dstObject)
     {
+        // do not allow self-connections! :)
         result = false;
     }
-    // check the set of additional source to ignore
     else if (additionalInvalidSources.contains(srcObject))
     {
         result = false;
     }
-    // check that the accepted input type is matched
     else if ((slot->acceptedInputTypes & InputType::Array)
         && (node->type() == NodeType_Operator || node->type() == NodeType_Source))
     {
         // Highlight operator and source nodes only if they have exactly a
         // single output.
         PipeSourceInterface *pipeSource = getPointer<PipeSourceInterface>(node);
-
         if (pipeSource->getNumberOfOutputs() == 1)
         {
             result = true;
@@ -1951,8 +1948,7 @@ static const QColor MissingInputColor           = QColor(0xB2, 0x22, 0x22, 255.0
 
 void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
 {
-    if (isValidInputNode(node, m_inputSelectInfo.slot,
-                         m_inputSelectInfo.additionalInvalidSources))
+    if (isValidInputNode(node, m_inputSelectInfo.slot, m_inputSelectInfo.additionalInvalidSources))
     {
         node->setBackground(0, ValidInputNodeColor);
     }

@@ -363,9 +363,11 @@ ul.auto-toc {
 <div class="document" id="expression-operator-overview">
 <h1 class="title">Expression Operator Overview</h1>
 
+<!-- IMPORTANT: Remember to run 'make' inside the analysis/expr_data directory to -->
+<!-- update the HTML file!! -->
 <p>Parsing, compilation and evaluation of the expressions is done using the
-<tt class="docutils literal">exprtk</tt> library by Arash Partow. Very detailed information can be found on
-the web:</p>
+<tt class="docutils literal">exprtk</tt> library by Arash Partow. Detailed information can be found on the
+web:</p>
 <ul class="simple">
 <li><a class="reference external" href="https://github.com/ArashPartow/exprtk/blob/master/readme.txt">https://github.com/ArashPartow/exprtk/blob/master/readme.txt</a></li>
 <li><a class="reference external" href="http://www.partow.net/programming/exprtk/index.html">http://www.partow.net/programming/exprtk/index.html</a></li>
@@ -373,9 +375,11 @@ the web:</p>
 <div class="section" id="quick-syntax-guide">
 <h1>Quick Syntax Guide</h1>
 <ul>
-<li><p class="first">The syntax is somewhat similar to C with a few exceptions</p>
+<li><p class="first">The syntax is somewhat similar to C with a few exceptions (notably ':=' is
+used for assignment!)</p>
 </li>
-<li><p class="first">Local variables need to be defined using the <tt class="docutils literal">var</tt> keyword</p>
+<li><p class="first">Local variables need to be defined using the <tt class="docutils literal">var</tt> keyword: <tt class="docutils literal">var my_x :=
+42;</tt></p>
 </li>
 <li><p class="first">Statements are terminated with a semicolon</p>
 </li>
@@ -383,7 +387,7 @@ the web:</p>
 comparison)!</p>
 </li>
 <li><p class="first">To increment a variable use <tt class="docutils literal">var_name += 1</tt> as pre- and post-increment
-(<tt class="docutils literal">++</tt>, <tt class="docutils literal"><span class="pre">--</span></tt>) operators are not available.</p>
+operators are not available.</p>
 </li>
 <li><p class="first">One dimensional arrays (or <em>vectors</em>) can be created using this syntax:</p>
 <pre class="literal-block">
@@ -404,17 +408,17 @@ a1[] == 5
 <tt class="docutils literal">//</tt> or <tt class="docutils literal">#</tt></p>
 </li>
 </ul>
-<p>Examples::</p>
+<p>Example::</p>
 <pre class="literal-block">
 var x := 42;
 var y := 3*x - 23;
 var a0[5] := { 0, 1, 2, 3, 4 };
-var a1[5];
+var a1[10];
 var a0_len := a0[]; // array length
 
 for (var i := 0; i &lt; a1[]; i += 1) {
-    if (i = 0) { // '==' works too
-        a1[i] := y;
+    if (i = 0) { // '==' works too for comparison
+        a1[i] := is_valid(y) ? y^2 : 3.14;
     } else {
         a1[i] := i;
     }
@@ -440,10 +444,12 @@ for (var i:=0; i&lt;my_array[]; i+=1) { my_sum += my_array[i]; }
 <p>To detect and generate invalid parameters the following functions have been
 defined for use inside scripts:</p>
 <pre class="literal-block">
-is_valid(), is_invalid(), is_nan() and make_invalid()
+is_valid(), is_invalid(), is_nan(), make_invalid(), valid_or()
 </pre>
 <p>The first three test a single scalar value. <tt class="docutils literal">make_invalid()</tt> is used to
-explicitly create an invalid parameter.</p>
+explicitly create an invalid parameter. <tt class="docutils literal">valid_or()</tt> takes two arguments: the
+parameter to test and a default value and returns the parameter if it is valid,
+the default value otherwise.</p>
 <p>A better version of the above loop:</p>
 <pre class="literal-block">
 var my_sum:=0;
@@ -458,6 +464,7 @@ for (var i:=0; i&lt;my_array[]; i+=1) {
 <p>The following are excerpts from the <tt class="docutils literal">exprtk</tt> readme file:</p>
 <pre class="literal-block">
 [SECTION 01 - CAPABILITIES]
+
 The  ExprTk expression  evaluator supports  the following  fundamental
 arithmetic operations, functions and processes:
 
@@ -500,6 +507,7 @@ arithmetic operations, functions and processes:
      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 [SECTION 02 - EXAMPLE EXPRESSIONS]
+
 The following is  a short listing  of infix format  based mathematical
 expressions that can be parsed and evaluated using the ExprTk library.
 
@@ -1009,6 +1017,7 @@ appropriate may represent any of one the following:
      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 [SECTION 09 - FUNDAMENTAL TYPES]
+
 ExprTk supports three fundamental types which can be used freely in
 expressions. The types are as follows:
 

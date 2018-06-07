@@ -2217,7 +2217,9 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
             QSL("Counter Difference"),
             QSL("Input values are interpreted as increasing counter values.\n"
                 "The resulting rate is calculated from the difference of successive input values.\n"
-                "The sampling rate is tied to the event rate."
+                "The sampling rate is tied to the event rate. This option"
+                " should mostly be used in periodic events with a fixed"
+                " interval."
                 )
         },
 
@@ -2225,7 +2227,9 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
             RateMonitorSink::Type::PrecalculatedRate,
             QSL("Precalculated Rate"),
             QSL("Input values are interpreted as rate values and are directly recorded.\n"
-                "The sampling rate is tied to the event rate."
+                "The sampling rate is tied to the event rate. This option"
+                " should mostly be used in periodic events with a fixed"
+                " interval."
                 )
         },
     }

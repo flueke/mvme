@@ -1,3 +1,6 @@
+.. IMPORTANT: Remember to run 'make' inside the analysis/expr_data directory to
+.. update the HTML file!!
+
 Expression Operator Overview
 ================================================================================
 
@@ -96,6 +99,7 @@ exprtk capabilities, functions and more
 The following are excerpts from the ``exprtk`` readme file: ::
 
     [SECTION 01 - CAPABILITIES]
+
     The  ExprTk expression  evaluator supports  the following  fundamental
     arithmetic operations, functions and processes:
 
@@ -138,6 +142,7 @@ The following are excerpts from the ``exprtk`` readme file: ::
          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     [SECTION 02 - EXAMPLE EXPRESSIONS]
+
     The following is  a short listing  of infix format  based mathematical
     expressions that can be parsed and evaluated using the ExprTk library.
 
@@ -647,6 +652,7 @@ The following are excerpts from the ``exprtk`` readme file: ::
          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     [SECTION 09 - FUNDAMENTAL TYPES]
+
     ExprTk supports three fundamental types which can be used freely in
     expressions. The types are as follows:
 
