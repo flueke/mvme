@@ -504,6 +504,9 @@ class ModuleSettingsDialog: public QDialog
         DataFilterEdit *m_filterEdit;
 };
 
+QString make_input_source_text(Slot *slot);
+QString make_input_source_text(Pipe *inputPipe, s32 paramIndex = Slot::NoParamIndex);
+
 }
 
 #endif /* __ANALYSIS_UI_P_H__ */

@@ -449,16 +449,36 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel, Oper
     repopulateSlotGrid();
 }
 
-QString makeSlotSourceString(Slot *slot)
+QString make_input_source_text(Slot *slot)
 {
-    Q_ASSERT(slot->inputPipe);
-    Q_ASSERT(slot->inputPipe->source);
+    Q_ASSERT(slot);
 
-    QString result = slot->inputPipe->source->objectName();
+    return slot ? make_input_source_text(slot->inputPipe, slot->paramIndex) : QString();
+}
 
-    if (slot->paramIndex != Slot::NoParamIndex)
+QString make_input_source_text(Pipe *inputPipe, s32 paramIndex)
+{
+    Q_ASSERT(inputPipe);
+    Q_ASSERT(inputPipe->source);
+
+    QString result;
+
+    if (inputPipe && inputPipe->source)
     {
-        result = QString("%1[%2]").arg(result).arg(slot->paramIndex);
+        auto inputSource = inputPipe->source;
+        result = inputSource->objectName();
+
+        if (inputSource->getNumberOfOutputs() > 1)
+        {
+            result += "." + inputSource->getOutputName(inputPipe->sourceOutputIndex);
+        }
+
+        if (paramIndex != Slot::NoParamIndex)
+        {
+            result = (QSL("%1[%2]")
+                          .arg(result)
+                          .arg(paramIndex));
+        }
     }
 
     return result;
@@ -571,7 +591,7 @@ void AddEditOperatorDialog::repopulateSlotGrid()
         {
             if (auto selectButton = m_selectButtons.value(slotIndex, nullptr))
             {
-                selectButton->setText(makeSlotSourceString(m_op->getSlot(slotIndex)));
+                selectButton->setText(make_input_source_text(m_op->getSlot(slotIndex)));
             }
         }
     }
@@ -601,7 +621,7 @@ void AddEditOperatorDialog::inputSelectedForSlot(
         auto selectButton = m_selectButtons[slotIndex];
         QSignalBlocker b(selectButton);
         selectButton->setChecked(false);
-        selectButton->setText(makeSlotSourceString(destSlot));
+        selectButton->setText(make_input_source_text(destSlot));
     }
 
     m_opConfigWidget->inputSelected(slotIndex);
@@ -1635,14 +1655,14 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 
         if (op->getNumberOfSlots() == 1 && op->getSlot(0)->isConnected())
         {
-            le_name->setText(makeSlotSourceString(op->getSlot(0)));
+            le_name->setText(make_input_source_text(op->getSlot(0)));
         }
         else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
         {
             if (histoSink->m_inputX.isConnected() && histoSink->m_inputY.isConnected())
             {
-                QString nameX = makeSlotSourceString(&histoSink->m_inputX);
-                QString nameY = makeSlotSourceString(&histoSink->m_inputY);
+                QString nameX = make_input_source_text(&histoSink->m_inputX);
+                QString nameY = make_input_source_text(&histoSink->m_inputY);
                 le_name->setText(QString("%1_vs_%2").arg(nameX).arg(nameY));
             }
         }
@@ -1650,8 +1670,8 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         {
             if (difference->m_inputA.isConnected() && difference->m_inputB.isConnected())
             {
-                QString nameA = makeSlotSourceString(&difference->m_inputA);
-                QString nameB = makeSlotSourceString(&difference->m_inputB);
+                QString nameA = make_input_source_text(&difference->m_inputA);
+                QString nameB = make_input_source_text(&difference->m_inputB);
                 le_name->setText(QString("%1 - %2").arg(nameA).arg(nameB));
             }
         }
@@ -1659,8 +1679,8 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         {
             if (condFilter->m_dataInput.isConnected() && condFilter->m_conditionInput.isConnected())
             {
-                QString dataName = makeSlotSourceString(&condFilter->m_dataInput);
-                QString condName = makeSlotSourceString(&condFilter->m_conditionInput);
+                QString dataName = make_input_source_text(&condFilter->m_dataInput);
+                QString condName = make_input_source_text(&condFilter->m_conditionInput);
                 le_name->setText(QString("%1_if_%2").arg(dataName).arg(condName));
             }
         }
@@ -1668,8 +1688,8 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         {
             if (filter->getSlot(0)->isConnected() && filter->getSlot(1)->isConnected())
             {
-                QString nameX = makeSlotSourceString(filter->getSlot(0));
-                QString nameY = makeSlotSourceString(filter->getSlot(1));
+                QString nameX = make_input_source_text(filter->getSlot(0));
+                QString nameY = make_input_source_text(filter->getSlot(1));
                 le_name->setText(QString("%1_%2").arg(nameX).arg(nameY));
             }
         }
@@ -1678,7 +1698,7 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             // Slot 1 is the first data input.
             if (ex->getSlot(1)->isConnected())
             {
-                QString name = variablify(makeSlotSourceString(op->getSlot(1)));
+                QString name = variablify(make_input_source_text(op->getSlot(1)));
                 le_name->setText(name);
             }
         }
@@ -1686,8 +1706,8 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         {
             if (binOp->getSlot(0)->isConnected() && binOp->getSlot(1)->isConnected())
             {
-                QString nameA = makeSlotSourceString(binOp->getSlot(0));
-                QString nameB = makeSlotSourceString(binOp->getSlot(1));
+                QString nameA = make_input_source_text(binOp->getSlot(0));
+                QString nameB = make_input_source_text(binOp->getSlot(1));
                 le_name->setText(QString("%1_%2").arg(nameA).arg(nameB));
             }
         }
@@ -1790,10 +1810,10 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
         if (le_xAxisTitle->text().isEmpty() && histoSink->m_inputX.isConnected())
-            le_xAxisTitle->setText(makeSlotSourceString(&histoSink->m_inputX));
+            le_xAxisTitle->setText(make_input_source_text(&histoSink->m_inputX));
 
         if (le_yAxisTitle->text().isEmpty() && histoSink->m_inputY.isConnected())
-            le_yAxisTitle->setText(makeSlotSourceString(&histoSink->m_inputY));
+            le_yAxisTitle->setText(make_input_source_text(&histoSink->m_inputY));
 
         // x input was selected
         if (histoSink->m_inputX.isParamIndexInRange() && slot == &histoSink->m_inputX && std::isnan(histoSink->m_xLimitMin))
@@ -2367,7 +2387,7 @@ void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
 
     if (!wasNameEdited())
     {
-        auto name = makeSlotSourceString(m_rms->getSlot(0));
+        auto name = make_input_source_text(m_rms->getSlot(0));
 
         switch (static_cast<RateMonitorSink::Type>(combo_type->currentData().toInt()))
         {

@@ -1432,22 +1432,9 @@ void SlotGrid::repopulate(const detail::Model &model, EventWidget *eventWidget, 
         if (model.a1_inputPipes[slotIndex])
         {
             auto inputPipe   = model.a1_inputPipes[slotIndex];
-            auto inputSource = inputPipe->source;
-            QString sourceText = inputSource->objectName();
+            s32 paramIndex   = model.inputIndexes[slotIndex];
 
-            if (inputSource->getNumberOfOutputs() > 1)
-            {
-                sourceText += "." + inputSource->getOutputName(inputPipe->sourceOutputIndex);
-            }
-
-            if (model.inputIndexes[slotIndex] != a2::NoParamIndex)
-            {
-                sourceText = (QSL("%1[%2]")
-                              .arg(sourceText)
-                              .arg(model.inputIndexes[slotIndex]));
-            }
-
-            selectButton->setText(sourceText);
+            selectButton->setText(make_input_source_text(inputPipe, paramIndex));
         }
 
         le_inputPrefix->setText(QString::fromStdString(model.inputPrefixes[slotIndex]));
