@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(mvme)
 
+# AUTOMOC related: https://cmake.org/cmake/help/v3.10/policy/CMP0071.html
+#cmake_policy(SET CMP0071 NEW)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
@@ -12,7 +15,7 @@ set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
 
@@ -80,16 +83,17 @@ include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 
 # HDF5
-set(HDF5_USE_STATIC_LIBRARIES Off)
+set(HDF5_USE_STATIC_LIBRARIES OFF)
+find_package(HDF5 COMPONENTS CXX REQUIRED)
 
-find_package(HDF5 COMPONENTS CXX)
 if (HDF5_FOUND)
     message("-- Found HDF5 - Enabling analysis session save/load support.")
+    message("-- HDF5_INCLUDE_DIRS=${HDF5_INCLUDE_DIRS}")
+    message("-- HDF5_CXX_LIBRARIES=${HDF5_CXX_LIBRARIES}")
     include_directories(${HDF5_INCLUDE_DIRS})
+    message(">>>>>> HDF5_DEFINITIONS=${HDF5_DEFINITIONS}")
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HDF5_DEFINITIONS}")
     add_definitions(-DMVME_ENABLE_HDF5)
-else(HDF5_FOUND)
-    message("-- HDF5 not found - Disabling analysis session save/load support.")
 endif(HDF5_FOUND)
 
 # qwt
@@ -97,10 +101,19 @@ find_path(QWT_INCLUDE_DIR
     NAMES qwt_plot.h
     PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3 qt5/qwt6)
 
-find_library(QWT_LIBRARY NAMES qwt qwt-qt5 qwt6)
 include_directories(${QWT_INCLUDE_DIR})
-#include(FindPackageHandleStandardArgs)
-#find_package_handle_standard_args(Qwt DEFAULT_MSG QWT_LIBRARY QWT_INCLUDE_DIR)
+
+find_library(QWT_LIBRARY_RELEASE NAMES qwt qwt-qt5 qwt6)
+find_library(QWT_LIBRARY_DEBUG   NAMES qwtd qwt-qt5d qwt6d)
+
+if (WIN32 OR QWT_LIBRARY_DEBUG)
+    set(QWT_LIBRARY
+        optimized ${QWT_LIBRARY_RELEASE}
+        debug ${QWT_LIBRARY_DEBUG}
+        )
+else()
+    set(QWT_LIBRARY ${QWT_LIBRARY_RELEASE})
+endif()
 
 message("-- Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
 message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
@@ -139,7 +152,10 @@ option(BUILD_TESTS "Build test binaries" OFF)
 
 if (BUILD_TESTS)
     message("-- Building test binaries")
+    include(CTest)
     enable_testing()
+    add_subdirectory(3rdparty/googletest)
+    include_directories(${gtest_SOURCE_DIR}/include)
     add_subdirectory(test)
 endif()
 

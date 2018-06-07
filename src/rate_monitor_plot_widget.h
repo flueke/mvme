@@ -9,6 +9,7 @@
 
 class QwtPlot;
 class QwtPlotCurve;
+class ScrollZoomer;
 
 struct RateMonitorPlotWidgetPrivate;
 
@@ -38,12 +39,12 @@ class LIBMVME_EXPORT RateMonitorPlotWidget: public QWidget
         // internal qwt objects
         QwtPlot *getPlot();
 
-        QwtPlotCurve *getPlotCurve(const RateSamplerPtr &rate);
-        QwtPlotCurve *getPlotCurve(int index);
-        QVector<QwtPlotCurve *> getPlotCurves();
+        QwtPlotCurve *getPlotCurve(const RateSamplerPtr &rate) const;
+        QwtPlotCurve *getPlotCurve(int index) const;
+        QVector<QwtPlotCurve *> getPlotCurves() const;
+        ScrollZoomer *getZoomer() const;
 
     public slots:
-
         void replot();
 
     private slots:

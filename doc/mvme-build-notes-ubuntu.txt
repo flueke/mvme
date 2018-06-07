@@ -1,0 +1,53 @@
+============================================================
+Building mvme2 under ubuntu-18.04 amd64
+============================================================
+
+Starting from the "minimal" installation with all updates installed (05/16/18).
+
+Installed "vim vim-scripts vim-gtk" just to have my usual editor.
+
+* Install the following packages:
+build-essential
+cmake
+git
+git-gui
+gitk
+libboost-dev
+libhdf5-dev
+libquazip5-dev
+libqwt-qt5-dev
+libusb-dev
+qtbase5-dev
+zlib1g-dev
+
+* Commands
+git clone https://github.com/flueke/mvme
+cd mvme
+git checkout dev         # Want the dev branch as master is quite old
+cd ..
+mkdir build-mvme
+cd build-mvme
+cmake -DCMAKE_BUILD_TYPE=Debug ../mvme
+make -j4
+
+
+* FIXME and TODO list
+- install sphinx and other doc stuff once the basic build works
+- None of the tags I made ended up on github! These probably need to be
+  manually pushed.
+
+============================================================
+Building mvme2 under ubuntu-16.04 amd64
+============================================================
+
+Starting from a clean ubuntu-16.04 installation with all updates installed.
+Package installations where done using 'apt-get install'.
+
+The version of Qt in ubuntu-16.04 is 5.5 but mvme requires at least Qt-5.7. Qt
+>= 5.7 is not even in the backports repository. I also think that HDF5-1.8.x is
+too old aswell.
+
+This means on a default ubuntu-16.04 mvme cannot be built anymore. The user has
+manually install newer versions of Qt and HDF5 and has to take care that the
+version of qwt interoperates well with Qt.
+

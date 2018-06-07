@@ -21,11 +21,7 @@
 #ifndef __ANALYSIS_UI_P_H__
 #define __ANALYSIS_UI_P_H__
 
-#include "analysis.h"
-#include "../histo_util.h"
-
 #include <functional>
-
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
@@ -35,15 +31,20 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLineEdit>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QStyledItemDelegate>
-#include <QTreeWidget>
 #include <QTableWidget>
 #include <QToolBar>
+#include <QTreeWidget>
 #include <QWidget>
+
+#include "analysis.h"
+#include "histo_util.h"
+#include "data_filter_edit.h"
 
 class MVMEContext;
 class ModuleConfig;
@@ -56,18 +57,27 @@ class DataExtractionEditor;
 struct EventWidgetPrivate;
 class OperatorConfigurationWidget;
 
+enum class OperatorEditorMode
+{
+    New,
+    Edit
+};
+
 class EventWidget: public QWidget
 {
     Q_OBJECT
     public:
 
-        using SelectInputCallback = std::function<void ()>;
+        using SelectInputCallback = std::function<void (Slot *destSlot,
+                                                        Pipe *sourcePipe,
+                                                        s32 sourceParamIndex)>;
 
         EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
                     AnalysisWidget *analysisWidget, QWidget *parent = 0);
         ~EventWidget();
 
-        void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback);
+        void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback,
+                            QSet<PipeSourceInterface *> additionalInvalidSources = {});
         void endSelectInput();
         void highlightInputOf(Slot *slot, bool doHighlight);
 
@@ -76,55 +86,77 @@ class EventWidget: public QWidget
         void sourceEdited(SourceInterface *src);
         void removeSource(SourceInterface *src);
 
-        void addOperator(OperatorPtr op, s32 userLevel);
-        void operatorEdited(OperatorInterface *op);
         void removeOperator(OperatorInterface *op);
 
         void uniqueWidgetCloses();
         void addUserLevel();
         void removeUserLevel();
+        void toggleSinkEnabled(SinkInterface *sink);
         void repopulate();
         QToolBar *getToolBar();
         QToolBar *getEventSelectAreaToolBar();
 
         MVMEContext *getContext() const;
         AnalysisWidget *getAnalysisWidget() const;
+        Analysis *getAnalysis() const;
+        RunInfo getRunInfo() const;
+        VMEConfig *getVMEConfig() const;
 
         virtual bool eventFilter(QObject *watched, QEvent *event);
 
         friend class AnalysisWidget;
         friend class AnalysisWidgetPrivate;
 
+        QUuid getEventId() const;
+
     public slots:
+        // Note: these slots are only public because of being called by a
+        // lambda which otherwise cannot invoke them.
+
         void listFilterExtractorDialogAccepted();
         void listFilterExtractorDialogApplied();
         void listFilterExtractorDialogRejected();
+
+        void addExtractorDialogAccepted();
+        void editExtractorDialogAccepted();
+        void addEditExtractorDialogRejected();
+
+        void addOperatorDialogAccepted();
+        void editOperatorDialogAccepted();
+        void addEditOperatorDialogRejected();
 
     private:
         EventWidgetPrivate *m_d;
 };
 
-class AddEditExtractorWidget: public QDialog
+class AddEditExtractorDialog: public QDialog
 {
     Q_OBJECT
     public:
-        AddEditExtractorWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget);
-        AddEditExtractorWidget(SourceInterface *src, ModuleConfig *mod, EventWidget *eventWidget);
+        enum Mode
+        {
+            AddExtractor,
+            EditExtractor
+        };
+
+        AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *mod, Mode mode, EventWidget *eventWidget = nullptr);
+        virtual ~AddEditExtractorDialog();
 
         virtual void accept() override;
         virtual void reject() override;
 
-        SourcePtr m_srcPtr;
-        SourceInterface *m_src;
+    private:
+        std::shared_ptr<Extractor> m_ex;
         ModuleConfig *m_module;
         EventWidget *m_eventWidget;
+        Mode m_mode;
 
         QLineEdit *le_name;
         QDialogButtonBox *m_buttonBox;
         DataExtractionEditor *m_filterEditor;
         QFormLayout *m_optionsLayout;
         QSpinBox *m_spinCompletionCount;
-        QGroupBox *m_gbGenHistograms;
+        QGroupBox *m_gbGenHistograms = nullptr;
         QLineEdit *le_unit = nullptr;
         QDoubleSpinBox *spin_unitMin = nullptr;
         QDoubleSpinBox *spin_unitMax = nullptr;
@@ -135,64 +167,33 @@ class AddEditExtractorWidget: public QDialog
         void applyTemplate(int index);
 };
 
-class ListFilterExtractorDialog: public QDialog
-{
-    Q_OBJECT
-    signals:
-        void applied();
-
-    public:
-        ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis,
-                                  MVMEContext *context, QWidget *parent = nullptr);
-        virtual ~ListFilterExtractorDialog();
-
-        void editSource(const SourcePtr &src);
-
-        QVector<ListFilterExtractorPtr> getExtractors() const;
-
-    public slots:
-        virtual void accept() override;
-        virtual void reject() override;
-
-        void newFilter();
-
-    private slots:
-        void apply();
-        void removeFilter();
-        void cloneFilter();
-        void updateWordCount();
-
-    private:
-        void repopulate();
-        int addFilterToUi(const ListFilterExtractorPtr &ex);
-
-        struct ListFilterExtractorDialogPrivate;
-
-        std::unique_ptr<ListFilterExtractorDialogPrivate> m_d;
-};
 
 QWidget *data_source_widget_factory(SourceInterface *ds);
 
 class AbstractOpConfigWidget;
 
-class AddEditOperatorWidget: public QDialog
+/* Provides the input selection grid ("SlotGrid") and instantiates a specific
+ * child widget depending on the operator type. */
+class AddEditOperatorDialog: public QDialog
 {
     Q_OBJECT
+    signals:
+        void selectInputForSlot(Slot *slot);
+
     public:
-        AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget);
-        AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget);
+
+        AddEditOperatorDialog(OperatorPtr opPtr, s32 userLevel, OperatorEditorMode mode, EventWidget *eventWidget);
 
         virtual void resizeEvent(QResizeEvent *event) override;
 
-        void inputSelected(s32 slotIndex);
         virtual void accept() override;
         virtual void reject() override;
         virtual bool eventFilter(QObject *watched, QEvent *event) override;
         void repopulateSlotGrid();
 
-        OperatorPtr m_opPtr;
-        OperatorInterface *m_op;
+        OperatorPtr m_op;
         s32 m_userLevel;
+        OperatorEditorMode m_mode;
         EventWidget *m_eventWidget;
         QVector<QPushButton *> m_selectButtons;
         QDialogButtonBox *m_buttonBox = nullptr;
@@ -214,40 +215,62 @@ class AddEditOperatorWidget: public QDialog
 
         static const s32 WidgetMinWidth  = 325;
         static const s32 WidgetMinHeight = 175;
+
+    private:
+        void onOperatorValidityChanged();
+
+        void inputSelectedForSlot(
+            Slot *destSlot,
+            Pipe *selectedPipe,
+            s32 selectedParamIndex);
+
+        void endInputSelect();
 };
 
+/* Base implementation and interface for custom operator configuration UIs.
+ * Created and used by AddEditOperatorDialog. */
 class AbstractOpConfigWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void validityMayHaveChanged();
+
     public:
-        AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, QWidget *parent = nullptr);
+        AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, MVMEContext *context, QWidget *parent = nullptr);
 
         void setNameEdited(bool b) { m_wasNameEdited = b; }
         bool wasNameEdited() const { return m_wasNameEdited; }
 
         virtual void configureOperator() = 0;
         virtual void inputSelected(s32 slotIndex) = 0;
+        virtual bool isValid() const = 0;
 
     protected:
         OperatorInterface *m_op;
         s32 m_userLevel;
         bool m_wasNameEdited;
+        MVMEContext *m_context;
 
         QLineEdit *le_name = nullptr;
 };
 
 /* One widget to rule them all.
- * This handles all of the older analysis operators. New operators should get
- * their own config widget derived from AbstractOpConfigWidget unless it's
+ * This handles most of the analysis operators. New/complex operators should
+ * get their own config widget derived from AbstractOpConfigWidget unless it's
  * simple stuff they need. */
 class OperatorConfigurationWidget: public AbstractOpConfigWidget
 {
     Q_OBJECT
     public:
-        OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, QWidget *parent = nullptr);
+        OperatorConfigurationWidget(OperatorInterface *op,
+                                    s32 userLevel,
+                                    MVMEContext *context,
+                                    QWidget *parent = nullptr);
+
         //bool validateInputs();
         void configureOperator() override;
         void inputSelected(s32 slotIndex) override;
+        bool isValid() const override;
 
 
         // Histo1DSink and Histo2DSink
@@ -311,16 +334,35 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
 
         QDoubleSpinBox *spin_minThreshold,
                        *spin_maxThreshold;
+
+        // ConditionFilter
+        QCheckBox *cb_invertCondition;
+
+        // ExportSink
+        QLineEdit *le_exportPrefixPath;
+
+        bool m_prefixPathWasManuallyEdited = false;
+
+        QPushButton *pb_selectOutputDirectory,
+                    *pb_generateCode,
+                    *pb_openOutputDir;
+
+        QComboBox *combo_exportFormat;
+        QComboBox *combo_exportCompression;
 };
 
 class RateMonitorConfigWidget: public AbstractOpConfigWidget
 {
     Q_OBJECT
     public:
-        RateMonitorConfigWidget(RateMonitorSink *op, s32 userLevel, QWidget *parent = nullptr);
+        RateMonitorConfigWidget(RateMonitorSink *op,
+                                s32 userLevel,
+                                MVMEContext *context,
+                                QWidget *parent = nullptr);
 
         void configureOperator() override;
         void inputSelected(s32 slotIndex) override;
+        bool isValid() const override;
 
     private:
         RateMonitorSink *m_rms;
@@ -330,8 +372,9 @@ class RateMonitorConfigWidget: public AbstractOpConfigWidget
         QLineEdit *le_unit;
         QDoubleSpinBox *spin_factor;
         QDoubleSpinBox *spin_offset;
+        QDoubleSpinBox *spin_interval;
 
-        // TODO: implement the min/max way of calibrating the input values
+        // TODO (maybe): implement the min/max way of calibrating the input values
         //QDoubleSpinBox *spin_unitMin;
         //QDoubleSpinBox *spin_unitMax;
         //QStackedWidget *stack_calibration;
@@ -349,7 +392,6 @@ class PipeDisplay: public QWidget
         Analysis *m_analysis;
         Pipe *m_pipe;
 
-        QLabel *m_infoLabel;
         QTableWidget *m_parameterTable;
 };
 
@@ -393,6 +435,8 @@ class DisplayTree: public EventWidgetTree
 
         QTreeWidgetItem *histo1DRoot = nullptr;
         QTreeWidgetItem *histo2DRoot = nullptr;
+        QTreeWidgetItem *rateRoot    = nullptr;
+        QTreeWidgetItem *exportRoot  = nullptr;
 };
 
 class SessionErrorDialog: public QDialog
@@ -400,6 +444,64 @@ class SessionErrorDialog: public QDialog
     Q_OBJECT
     public:
         SessionErrorDialog(const QString &message, const QString &title = QString(), QWidget *parent = nullptr);
+};
+
+class ExportSinkStatusMonitor: public QWidget
+{
+    Q_OBJECT
+    public:
+        ExportSinkStatusMonitor(const std::shared_ptr<ExportSink> &sink,
+                                MVMEContext *context,
+                                QWidget *parent = nullptr);
+
+    private slots:
+        void update();
+
+    private:
+        std::shared_ptr<ExportSink> m_sink;
+        MVMEContext *m_context;
+
+        QLabel *label_outputDirectory,
+               *label_fileName,
+               *label_fileSize,
+               *label_eventsWritten,
+               *label_bytesWritten,
+               *label_status;
+
+        QPushButton *pb_openDirectory;
+};
+
+class EventSettingsDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        EventSettingsDialog(const QVariantMap &settings, QWidget *parent = nullptr);
+
+        QVariantMap getSettings() const { return m_settings; }
+
+        virtual void accept() override;
+
+    private:
+        QVariantMap m_settings;
+
+        QCheckBox *cb_multiEvent;
+};
+
+class ModuleSettingsDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        ModuleSettingsDialog(const ModuleConfig *moduleConfig,
+                             const QVariantMap &settings,
+                             QWidget *parent = nullptr);
+
+        QVariantMap getSettings() const { return m_settings; }
+
+        virtual void accept() override;
+
+    private:
+        QVariantMap m_settings;
+        DataFilterEdit *m_filterEdit;
 };
 
 }

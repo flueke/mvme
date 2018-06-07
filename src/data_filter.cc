@@ -22,7 +22,9 @@
 #include "qt_util.h"
 #include "util/bits.h"
 
+#include <cassert>
 #include <cctype>
+#include <cmath>
 #include <stdexcept>
 
 #define DATA_FILTER_DEBUG 0
@@ -211,7 +213,7 @@ DataFilter makeFilterFromBytes(const QByteArray &filterDataRaw, s32 wordIndex)
 QString generate_pretty_filter_string(u8 bits, char c)
 {
     QString buffer;
-    buffer.resize(bits + (bits / 4 - 1), ' ');
+    buffer.resize(bits + std::ceil(bits / 4.0 - 1.0), ' ');
 
     int outidx = buffer.size() - 1;
     u8 bits_written = 0;
@@ -223,6 +225,7 @@ QString generate_pretty_filter_string(u8 bits, char c)
             buffer[outidx--] = ' ';
         }
 
+        assert(outidx >= 0);
         buffer[outidx--] = c;
         bits_written++;
     }
@@ -262,22 +265,3 @@ QString generate_pretty_filter_string(u8 dataBits, u8 totalBits, char c)
     return buffer;
 }
 
-QLineEdit *makeFilterEdit(u8 bits)
-{
-    QFont font;
-    font.setFamily(QSL("Monospace"));
-    font.setStyleHint(QFont::Monospace);
-    font.setPointSize(9);
-
-    QLineEdit *result = new QLineEdit;
-    result->setFont(font);
-    result->setInputMask(generate_pretty_filter_string(bits, 'N'));
-    result->setAlignment(Qt::AlignRight);
-
-    QFontMetrics fm(font);
-    s32 padding = 6;
-    s32 width = fm.width(result->inputMask()) + padding;
-    result->setMinimumWidth(width);
-
-    return result;
-}

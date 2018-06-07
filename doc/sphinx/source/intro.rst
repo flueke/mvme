@@ -17,16 +17,16 @@ Features
 ==================================================
 
 * High-rate, low-latency VME module readout
-* WIENER VM-USB Controller support
+* Supports the WIENER VM-USB Controller:
 
   * Readout rates of up to 15 MB/s
   * USB2 connection
 
-* Struck SIS3153 Controller support:
+* Supports the Struck SIS3153 Controller over **GBit/s ethernet**:
 
   * Readout rates of up to 35 MB/s from a single module.
-  * Optimized setups can yield around 50 MB/s.
-  * GBit/s Ethernet connection
+  * Optimized setups can yield around 52 MB/s.
+  * GBit/s Ethernet connection required
 
 * Easy creation and configuration of the VME setup
 
@@ -37,12 +37,10 @@ Features
 * Live histogramming of readout data (1D and 2D)
 * Rate Monitoring of internal system rates and external rates generated from
   readout data (e.g. scaler modules, event counters).
-* Flexible VME module data extraction
+* Flexible VME module data extraction using matching and filtering on the bit level
 * Graphical analysis UI
 * Optional compression of output listfiles
 * Replays of recorded listfile data
-
-.. TODO: maybe add uses cases and/or limitations here?
 
 ==================================================
 High-level overview

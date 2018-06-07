@@ -304,16 +304,15 @@ system is "stepped" in terms of events: in each step all the
 The task of each source is to extract relevant values from its input data and
 make these values available to subsequent operators and sinks.
 
-.. FIXME: What is the correct order?
-
-After all sources have processed the module event data the dependent operators
-and sinks are stepped in the correct order. Each object consumes its input and
-generates new output or in the case of sinks accumulates incoming data into a
-histogram.
+After all sources have processed the module event data, the dependent operators
+and sinks are stepped in order. Each object consumes its input and generates
+new output or in the case of sinks accumulates incoming data into a histogram.
 
 .. figure:: images/analysis_flowchart.png
 
     Example analysis dataflow
+
+.. _analysis-parameter-arrays:
 
 Parameter Arrays
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -531,13 +530,15 @@ for the :ref:`Calibration Operator <analysis-Calibration>`.
 Predefined filters can be loaded into the UI using the *Load Filter Template*
 button.
 
+.. TODO: add listfilter extractor documentation and example of when to use this
+
 
 .. _analysis-operators:
 
 Operators
 ----------------------------------------
 
-mvme currently implements the following operators:
+The following operators are currently implemented in mvme:
 
 
 .. _analysis-Calibration:
@@ -571,18 +572,6 @@ the *Apply* button to set all addresses to the global min and max values.
     Refer to :ref:`Working with 1D Histograms
     <analysis-working-with-1d-histos-calibration>` for details.
 
-
-.. _analysis-IndexSelector:
-
-Index Selector
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Select a specific index from the input array and copy it to the output.
-
-This operator produces an output array of size 1.
-
-.. autofigure:: images/analysis_op_IndexSelector.png
-    :scale-latex: 80%
 
 .. _analysis-PreviousValue:
 
@@ -700,10 +689,34 @@ Condition Filter
 Copies data input to output if the corresponding element of the condition input
 is valid.
 
+
+.. _exprtk: http://www.partow.net/programming/exprtk/index.html
+
+.. _analysis-ExpressionOperator:
+
+Expression Operator
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This operator uses the `exprtk`_ library to compile and evaluate C-like,
+user-defined expressions.
+
+The operator supports multiple inputs and outputs. The definition of the
+outputs is done using an exprtk script, which means arbitrary calculations can
+be performed to calculate the number of outputs, their sizes and their
+parameter limits.
+
+During analysis runtime a second script, the *step script*, is evaluted each
+time event data is available. The script calculates and assigns parameter
+values to the operators output arrays.
+
+Details about the syntax and semantics are provided in the online help in the
+Expression Operator user interface.
+
+
 .. _analysis-sinks:
 
-Histograms (Sinks)
-----------------------------------------
+Data Sinks
+-----------------------------------------
 
 mvme currently implements the following data sinks:
 
@@ -723,10 +736,59 @@ See :ref:`Working with 1D histograms <analysis-working-with-1d-histos>` for usag
 2D Histogram
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Accumulates two incoming parameters into a 2D histogram. On each step of the
-operator data will only be accumulated if both the X- and Y inputs are *valid*.
+Accumulates two incoming parameters into a 2D histogram. On each event input
+data will only be accumulated if both the X- and Y inputs are *valid*.
 
 See :ref:`Working with 2D histograms <analysis-working-with-2d-histos>` for details.
+
+.. _analysis-ExportSink:
+
+Export Sink
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofigure:: images/analysis_export_sink_ui.png
+    :scale-latex: 60%
+
+.. _ROOT: https://root.cern.ch/
+
+Implements data export to binary files and C++/Python example code generation.
+
+The Export Sink has a variable number of data input arrays that will be written
+to disk. Additionally a single parameter condition input can be used to
+pre-filter data: output data will only be generated if the condition input is
+*valid*.
+
+For each DAQ run or replay an export file named *data_<runid>.bin* is generated
+and the data from each event is appended to that file. If zlib compression is
+enabled the extension *.bin.gz* is used.
+
+The inputs define the layout of the exported data (in the case of the
+"Plain/Full" format the export file contains plain, packed C-structs).
+
+Use the "C++ & Python Code" button to generate code examples showing how to
+read and work with export data.
+
+To compile the C++ code run ``cmake . && make`` inside the export directory.
+The CMake file will try to find a `ROOT`_ installation using the environment
+variable ``${ROOTSYS}`` and will search for **zlib** in the standard system
+paths.
+
+Most of the generated executables take an export binary file as their first
+command line argument, e.g: ::
+
+    ./root_generate_histos my_run_001.bin.gz
+
+
+.. _analysis-RateMonitorSink:
+
+Rate Monitor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The rate monitor uses its input values as precalculated rates or calculates the
+rate using the difference of successive input values. Rate values are kept in a
+circular buffer and a plot of the rate over time can be displayed.
+
+Details can be found in the Rate Monitor user interface.
 
 
 Loading an Analysis / Importing Objects

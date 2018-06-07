@@ -2,6 +2,33 @@
 Changelog
 ##################################################
 
+0.9.4
+-------
+* New: :ref:`Analysis Expression Operator<analysis-ExpressionOperator>`
+
+  This is an operator that allows user-defined scripts to be executed for each readout
+  event. Internally `exprtk`_ is used to compile and evaluate expressions.
+
+* New: :ref:`Analysis Export Sink<analysis-ExportSink>`
+
+  Allows exporting of analysis parameter arrays to binary files. Full and sparse data
+  export formats and optional zlib compression are available.
+
+  Source code showing how to read and process the exported data and generate ROOT
+  histograms can be generated.
+
+* New: :ref:`Analysis Rate Monitor<analysis-RateMonitorSink>`
+
+  Allows to monitor and plot analysis data flow rates and rates calculated from successive
+  counter values (e.g. timestamp differences).
+
+* Moved the MultiEvent Processing option and the MultiEvent Module Header Filters from the
+  VME side to the analysis side. This is more logical and allows changing the option when
+  doing a replay.
+
+* General fixes and improvements to the SIS3153 readout code.
+
+
 0.9.3
 -------
 
@@ -46,3 +73,5 @@ Changelog
 * Add option to keep histo data across runs/replays
 * Fixes to histograms with axis unit values >= 2^31
 * Always use ZIP format for listfiles
+
+.. _exprtk: http://www.partow.net/programming/exprtk/index.html

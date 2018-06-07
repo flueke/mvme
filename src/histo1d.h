@@ -86,7 +86,13 @@ class Histo1D: public QObject
 
         // Returns the bin number or -1 in case of under/overflow.
         s32 fill(double x, double weight = 1.0);
+
+        /* Returns the counts of the bin containing the given x value. */
         double getValue(double x) const;
+
+        /* Returns a pair of (x_bin_low_edge, y_counts) for the given x value. */
+        std::pair<double, double> getValueAndBinLowEdge(double x) const;
+
         void clear();
         inline double *data() { return m_data; }
 

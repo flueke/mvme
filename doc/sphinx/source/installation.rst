@@ -31,7 +31,7 @@ System Requirements
     installation.
 
 * No additional drivers are required when using the `Struck`_ SIS3153
-  Controller. Just make sure you're using a GBit/s ethernet when connecting to
+  Controller. Just make sure you're using a **GBit/s** ethernet connection to
   the controller.
 
 * At least 4 GB RAM is recommended.
@@ -54,7 +54,7 @@ external dependency is the GNU C Library glibc. When using a modern Linux
 distribution no glibc version errors should occur.
 
 Installation is simple: unpack the supplied archive and execute the *mvme*
-binary::
+startup script::
 
     $ tar xf mvme-x64-1.0.tar.bz2
     $ ./mvme-x64-1.0/mvme.sh
@@ -160,10 +160,12 @@ serial becomes ``0x2a`` and the resulting MAC-address is ``00:00:56:15:30:2a``.
 * Creating the ARP entry under linux:
 
   With root permissions an ARP entry can be addded this way:
+
     ``# arp -s  192.168.100.42 00:00:56:15:30:2a``
 
   To make the entry permanent (at least on debian and ubuntu systems) the file
   /etc/ethers can be used. Add a line like this to the file:
+
     ``00:00:56:15:30:2a 192.168.100.42``
 
   This will take effect on the next reboot (or when restarting the networking
@@ -171,8 +173,9 @@ serial becomes ``0x2a`` and the resulting MAC-address is ``00:00:56:15:30:2a``.
 
 * Creating the ARP entry under windows:
 
-  Open a ``cmd.exe`` prompt with administrator permissions and use the following
-  command to create the ARP entry:
+  Open a ``cmd.exe`` prompt with **administrator** permissions and use the
+  following command to create the ARP entry:
+
     ``arp -s  192.168.100.42 00-00-56-15-30-2a``
 
 

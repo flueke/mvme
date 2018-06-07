@@ -1,2 +1,4 @@
 # BLT readout until BERR or number of transfers reached
-mbltfifo a32 0x0000 2097151
+# Temporarily using bltfifo instead of the MBLT variant to avoid data
+# corruption with the fast SIS3153 readout.
+bltfifo a32 0x0000 2097151

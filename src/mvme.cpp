@@ -22,7 +22,7 @@
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
-#include "config_ui.h"
+#include "vme_config_ui.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
 #include "gui_util.h"
@@ -71,6 +71,8 @@
 
 using namespace vats;
 
+static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.analysis);; All Files (*.*)");
+
 struct MVMEWindowPrivate
 {
     MVMEContext *m_context;
@@ -98,7 +100,7 @@ struct MVMEWindowPrivate
             // important main window actions
             *actionShowMainWindow, *actionShowAnalysis,
             *actionShowLog, *actionShowListfileBrowser,
-            *actionShowRateMonitor,
+            //*actionShowRateMonitor,
 
             // utility/tool windows
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
@@ -182,9 +184,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionShowListfileBrowser->setShortcut(QSL("Ctrl+4"));
     m_d->actionShowListfileBrowser->setShortcutContext(Qt::ApplicationShortcut);
 
-    m_d->actionShowRateMonitor = new QAction(QSL("Rate Monitor"), this);
-    m_d->actionShowRateMonitor->setShortcut(QSL("Ctrl+5"));
-    m_d->actionShowRateMonitor->setShortcutContext(Qt::ApplicationShortcut);
+    //m_d->actionShowRateMonitor = new QAction(QSL("Rate Monitor"), this);
+    //m_d->actionShowRateMonitor->setShortcut(QSL("Ctrl+5"));
+    //m_d->actionShowRateMonitor->setShortcutContext(Qt::ApplicationShortcut);
 
     m_d->actionToolVMEDebug             = new QAction(QSL("VME Debug"), this);
     m_d->actionToolImportHisto1D        = new QAction(QSL("Import Histo1D"), this);
@@ -218,7 +220,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->actionShowAnalysis,            &QAction::triggered, this, &MVMEMainWindow::onActionAnalysis_UI_triggered);
     connect(m_d->actionShowLog,                 &QAction::triggered, this, &MVMEMainWindow::onActionLog_Window_triggered);
     connect(m_d->actionShowListfileBrowser,     &QAction::triggered, this, &MVMEMainWindow::onActionListfileBrowser_triggered);
-    connect(m_d->actionShowRateMonitor,         &QAction::triggered, this, &MVMEMainWindow::onActionShowRateMonitor_triggered);
+    //connect(m_d->actionShowRateMonitor,         &QAction::triggered, this, &MVMEMainWindow::onActionShowRateMonitor_triggered);
 
     connect(m_d->actionToolVMEDebug,            &QAction::triggered, this, &MVMEMainWindow::onActionVME_Debug_triggered);
     connect(m_d->actionToolImportHisto1D,       &QAction::triggered, this, &MVMEMainWindow::onActionImport_Histo1D_triggered);
@@ -264,7 +266,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuWindow->addAction(m_d->actionShowAnalysis);
     m_d->menuWindow->addAction(m_d->actionShowLog);
     m_d->menuWindow->addAction(m_d->actionShowListfileBrowser);
-    m_d->menuWindow->addAction(m_d->actionShowRateMonitor);
+    //m_d->menuWindow->addAction(m_d->actionShowRateMonitor);
 
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
     m_d->menuTools->addAction(m_d->actionToolImportHisto1D);
@@ -323,6 +325,8 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     QTimer::singleShot(0, [this] () {
         updateActions();
 
+        // TODO: add pref to remember if rate monitor was open. restore that state here
+
         // Create and open log and analysis windows.
         onActionLog_Window_triggered();
         onActionAnalysis_UI_triggered();
@@ -365,26 +369,57 @@ void MVMEMainWindow::loadConfig(const QString &fileName)
 
 void MVMEMainWindow::onActionNewWorkspace_triggered()
 {
-    auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-    auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Create new workspace directory"), startDir);
+    // TODO: run through open windows and check for modifications (right now
+    // only the VMEScriptEditor needs checking).
 
-    if (dirName.isEmpty())
+    // vme config
+    if (m_d->m_context->getConfig()->isModified())
     {
-        // Dialog was canceled
-        return;
+        QMessageBox msgBox(
+            QMessageBox::Question, "Save VME configuration?",
+            "The current VME configuration has modifications. Do you want to save it?",
+            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save && !onActionSaveVMEConfig_triggered())
+        {
+            return;
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
     }
 
-    try
+    // analysis config
+    if (m_d->m_context->getAnalysis()->isModified())
     {
-        m_d->m_context->newWorkspace(dirName);
-    } catch (const QString &e)
-    {
-        QMessageBox::critical(this, QSL("Workspace Error"), QString("Error creating workspace: %1").arg(e));
-    }
-}
+        QMessageBox msgBox(
+            QMessageBox::Question, QSL("Save analysis config?"),
+            QSL("The current analysis configuration has modifications. Do you want to save it?"),
+            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
 
-void MVMEMainWindow::onActionOpenWorkspace_triggered()
-{
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            auto result = saveAnalysisConfig(m_d->m_context->getAnalysis(),
+                                             m_d->m_context->getAnalysisConfigFileName(),
+                                             m_d->m_context->getWorkspaceDirectory(),
+                                             DefaultAnalysisFileFilter,
+                                             m_d->m_context);
+            if (!result.first)
+            {
+                return;
+            }
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
    /* Use the parent directory of last opened workspace as the start directory
     * for browsing. */
     auto startDir = QSettings().value("LastWorkspaceDirectory").toString();
@@ -400,7 +435,95 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
         startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     }
 
-    auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Select workspace"), startDir);
+    auto dirName  = QFileDialog::getExistingDirectory(
+        this, QSL("Create new workspace directory"), startDir);
+
+    if (dirName.isEmpty())
+    {
+        // Dialog was canceled
+        return;
+    }
+
+    try
+    {
+        m_d->m_context->newWorkspace(dirName);
+    } catch (const QString &e)
+    {
+        QMessageBox::critical(this, QSL("Workspace Error"),
+                              QString("Error creating workspace: %1").arg(e));
+    }
+}
+
+void MVMEMainWindow::onActionOpenWorkspace_triggered()
+{
+    // TODO: run through open windows and check for modifications (right now
+    // only the VMEScriptEditor needs checking).
+
+    // vme config
+    if (m_d->m_context->getConfig()->isModified())
+    {
+        QMessageBox msgBox(
+            QMessageBox::Question, "Save VME configuration?",
+            "The current VME configuration has modifications. Do you want to save it?",
+            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save && !onActionSaveVMEConfig_triggered())
+        {
+            return;
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
+    // analysis config
+    if (m_d->m_context->getAnalysis()->isModified())
+    {
+        QMessageBox msgBox(
+            QMessageBox::Question, QSL("Save analysis config?"),
+            QSL("The current analysis configuration has modifications. Do you want to save it?"),
+            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            auto result = saveAnalysisConfig(m_d->m_context->getAnalysis(),
+                                             m_d->m_context->getAnalysisConfigFileName(),
+                                             m_d->m_context->getWorkspaceDirectory(),
+                                             DefaultAnalysisFileFilter,
+                                             m_d->m_context);
+            if (!result.first)
+            {
+                return;
+            }
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
+   /* Use the parent directory of last opened workspace as the start directory
+    * for browsing. */
+    auto startDir = QSettings().value("LastWorkspaceDirectory").toString();
+
+    if (!startDir.isEmpty())
+    {
+        QDir dir(startDir);
+        dir.cdUp();
+        startDir = dir.absolutePath();
+    }
+    else
+    {
+        startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
+    auto dirName  = QFileDialog::getExistingDirectory(
+        this, QSL("Select workspace"), startDir);
 
     if (dirName.isEmpty())
         return;
@@ -410,7 +533,8 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
         m_d->m_context->openWorkspace(dirName);
     } catch (const QString &e)
     {
-        QMessageBox::critical(this, QSL("Workspace Error"), QString("Error opening workspace: %1").arg(e));
+        QMessageBox::critical(this, QSL("Workspace Error"),
+                              QString("Error opening workspace: %1").arg(e));
     }
 }
 
@@ -528,8 +652,6 @@ void MVMEMainWindow::displayAboutQt()
 {
     QMessageBox::aboutQt(this, QSL("About Qt"));
 }
-
-static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.analysis);; All Files (*.*)");
 
 void MVMEMainWindow::closeEvent(QCloseEvent *event)
 {
@@ -811,7 +933,9 @@ bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
         obj->setModified(false);
     }
 
+    m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
+
     return true;
 }
 
@@ -857,7 +981,9 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
 
     m_d->m_context->setConfigFileName(fileName);
     m_d->m_context->getConfig()->setModified(false);
+    m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
+
     return true;
 }
 
@@ -1014,6 +1140,7 @@ void MVMEMainWindow::onActionLog_Window_triggered()
             this->m_d->m_logView = nullptr;
         });
 
+        m_d->m_logView->resize(600, 800);
         m_d->m_geometrySaver->addAndRestore(m_d->m_logView, QSL("WindowGeometries/LogView"));
     }
 
@@ -1481,7 +1608,8 @@ bool MVMEMainWindow::createNewOrOpenExistingWorkspace()
     do
     {
         auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-        auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Create a new or select an existing workspace directory"), startDir);
+        auto dirName  = QFileDialog::getExistingDirectory(
+            this, QSL("Create a new or select an existing workspace directory"), startDir);
 
         if (dirName.isEmpty())
         {
@@ -1491,36 +1619,31 @@ bool MVMEMainWindow::createNewOrOpenExistingWorkspace()
 
         QDir dir(dirName);
 
-        bool triedToOpenExisting = true;
+        bool dirWasEmpty = dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty();
 
         try
         {
-            if (dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty())
-            {
-                triedToOpenExisting = false;
-                m_d->m_context->newWorkspace(dirName);
-            }
-            else
-            {
-                triedToOpenExisting = true;
-                m_d->m_context->openWorkspace(dirName);
-            }
-        } catch (const QString &e)
+            // This internally handles the case where a proper workspace is
+            // selected and simply opens it.
+            m_d->m_context->newWorkspace(dirName);
+        }
+        catch (const QString &e)
         {
             Q_ASSERT(!m_d->m_context->isWorkspaceOpen());
 
             QString title;
-            if (triedToOpenExisting)
+            if (dirWasEmpty)
             {
-                title = QSL("Error opening workspace");
+                title = QSL("Error creating workspace");
             }
             else
             {
-                title = QSL("Error creating workspace");
+                title = QSL("Error opening workspace");
             }
 
             QMessageBox::warning(this, title, e);
         }
+
     } while (!m_d->m_context->isWorkspaceOpen());
 
     return true;

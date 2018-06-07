@@ -51,7 +51,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         {
             /* The number of complete events by stacklist. Extracted from the
              * "packetAck" byte.
-             * Partial fragments are not counted by fully reassembled partial
+             * Partial fragments are not counted but fully reassembled partial
              * events are.
              */
             StackListCountsArray stackListCounts;
@@ -93,6 +93,10 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
                 partialFragments.fill(0);
                 reassembledPartials.fill(0);
             }
+
+            u64 receivedEventsExcludingWatchdog() const;
+            u64 receivedEventsIncludingWatchdog() const;
+            u64 receivedWatchdogEvents() const;
         };
 
         inline const Counters &getCounters() const
@@ -102,6 +106,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
     private:
         void setState(DAQState state);
+        void logMessage(const QString &message, bool useThrottle);
         void logMessage(const QString &message);
         void logError(const QString &);
 
@@ -115,6 +120,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
         // readout stuff
         void readoutLoop();
+        void enterDAQMode(u32 stackListControlValue);
         void leaveDAQMode();
         ReadBufferResult readAndProcessBuffer();
 

@@ -1,0 +1,159 @@
+#include <cmath>
+#include <fstream>
+#include <iostream>
+
+#include <TFile.h>
+#include <TH1.h>
+
+#ifdef MVME_EXPORT_USE_ZSTR
+#include "zstr.hpp"
+#endif
+
+#include "{{export_header_file}}"
+
+using std::cout;
+using std::endl;
+
+/* Number of bins of the ROOT histograms. */
+static const size_t HistoBins = 1u << 12;
+
+int main(int argc, char *argv[])
+{
+    if (argc < 2)
+    {
+        cout << "Usage: " << argv[0] << " <input_file>" << endl;
+        return 1;
+    }
+
+    std::string inputFilename = argv[1];
+    cout << "Reading input from: " << inputFilename << endl;
+
+#ifdef MVME_EXPORT_USE_ZSTR
+    zstr::ifstream input(inputFilename);
+#else
+    std::ifstream input;
+    input.exceptions(std::ios::failbit | std::ios::badbit);
+    input.open(inputFilename, std::ios::in | std::ios::binary);
+#endif
+
+    /* Strip path components from input filename and replace the last part of
+     * the extension with "_histos.root". Use the result as the output
+     * filename. */
+    std::string outputFilename = inputFilename;
+
+    {
+        size_t startIdx = outputFilename.find_last_of("/\\");
+
+        if (startIdx != std::string::npos)
+            outputFilename = outputFilename.substr(startIdx + 1);
+
+        size_t dotIdx = outputFilename.find_last_of('.');
+
+        if (dotIdx != std::string::npos)
+            outputFilename.erase(outputFilename.begin() + dotIdx, outputFilename.end());
+    }
+
+    outputFilename = "root_" + outputFilename + "_histos.root";
+
+    cout << "Writing histograms to " << outputFilename << endl;
+
+    TFile f(outputFilename.c_str(), "recreate");
+
+    if (!f.IsOpen()) return 1;
+
+    size_t histoCount = 0;
+    {{struct_name}} event;
+
+    /* Create a histogram for each parameter of each array. */
+    std::vector<std::vector<TH1D *>> histo_lists;
+
+    for (size_t arrayIndex = 0;
+         arrayIndex < event.getArrayCount();
+         arrayIndex++)
+    {
+        size_t dim = event.getArrayDimension(arrayIndex);
+
+        std::vector<TH1D *> histos(dim);
+
+        for (size_t paramIndex = 0; paramIndex < dim; paramIndex++)
+        {
+            auto limits       = event.getLimits(arrayIndex, paramIndex);
+            std::string name  = event.getArrayName(arrayIndex) + "[" + std::to_string(paramIndex) + "]";
+            std::string title = name;
+
+            auto histo = new TH1D(name.c_str(), title.c_str(), HistoBins, limits.first, limits.second);
+
+            histos[paramIndex] = histo;
+            histoCount++;
+        }
+
+        histo_lists.emplace_back(histos);
+    }
+
+    cout << "Created " << histoCount << " TH1D instances." << endl;
+    cout << "Filling histograms..." << endl;
+
+    size_t eventsRead = 0;
+
+    while (input.good())
+    {
+        /* Fill the event structure with data from the input file. */
+        read(input, event);
+
+        if (!input.good())
+            break;
+
+        eventsRead++;
+
+        /* Loop over all exported arrays. */
+        for (size_t arrayIndex = 0;
+             arrayIndex < event.getArrayCount();
+             arrayIndex++)
+        {
+{{#full?}}
+            const size_t dim    = event.getArrayDimension(arrayIndex);
+            const double *array = event.getArray(arrayIndex);
+
+            /* Loop over array elements, filling the histogram for the current
+             * array and parameter. */
+            for (size_t paramIndex = 0; paramIndex < dim; paramIndex++)
+            {
+                double value = array[paramIndex];
+
+                if (!std::isnan(value))
+                {
+                    TH1D *histo = histo_lists[arrayIndex][paramIndex];
+                    histo->Fill(value);
+                }
+            }
+{{/full?}}
+{{#sparse?}}
+            const {{struct_name}}::SparseArray *array = event.getArray(arrayIndex);
+
+            /* Loop over the lists of indexes and values, filling the
+             * corresponding histogram. */
+            for (size_t ii = 0; ii < array->size(); ii++)
+            {
+                uint16_t paramIndex = array->indexes[ii];
+                double   value      = array->values[ii];
+
+                TH1D *histo = histo_lists[arrayIndex][paramIndex];
+                histo->Fill(value);
+            }
+{{/sparse?}}
+        }
+    }
+
+    f.Write();
+
+    for (auto &histos: histo_lists)
+    {
+        for (TH1D *histo: histos)
+            delete histo;
+    }
+
+    cout << "Read " << eventsRead << " events from " << inputFilename << endl;
+}
+{{!
+vim:ft=cpp
+}}

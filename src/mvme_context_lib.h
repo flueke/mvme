@@ -22,4 +22,13 @@ struct OpenListfileFlags
  * one from the listfile. Perform this check before calling this function! */
 ContextOpenListfileResult context_open_listfile(MVMEContext *context, const QString &filename, u16 flags = 0);
 
+struct AnalysisPauser
+{
+    AnalysisPauser(MVMEContext *context);
+    ~AnalysisPauser();
+
+    MVMEContext *context;
+    bool was_running;
+};
+
 #endif /* __MVME_CONTEXT_LIB_H__ */

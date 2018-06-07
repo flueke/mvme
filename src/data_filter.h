@@ -24,7 +24,6 @@
 #include <QByteArray>
 #include <QDebug>
 #include <QHash>
-#include <QLineEdit>
 #include <QVector>
 #include "libmvme_export.h"
 #include "typedefs.h"
@@ -254,9 +253,6 @@ LIBMVME_EXPORT DataFilter makeFilterFromString(const QString &str, s32 wordIndex
 
 // Removes spaces, creates filter.
 LIBMVME_EXPORT DataFilter makeFilterFromBytes(const QByteArray &bytes, s32 wordIndex = -1);
-
-// Create a QLineEdit setup for convenient filter editing and display.
-LIBMVME_EXPORT QLineEdit *makeFilterEdit(u8 bits = 32);
 
 // Groups of 4 chars separated by a space, no padding on the left.
 LIBMVME_EXPORT QString generate_pretty_filter_string(u8 bits = 32, char c = 'N');

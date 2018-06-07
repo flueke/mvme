@@ -57,5 +57,6 @@ class SIS3153EthSettingsWidget: public VMEControllerSettingsWidget
         QGroupBox *m_gb_enableForwarding;
         QLineEdit *m_le_forwardingAddress;
         QSpinBox *m_spin_forwardingPort;
+        QComboBox *m_combo_packetGap;
 };
 #endif /* __VME_CONTROLLER_UI_P_H__ */

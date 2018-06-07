@@ -2,9 +2,24 @@
 #define __MVME_A2__IMPL_H__
 
 #include "a2.h"
+#include "memory.h"
 
 namespace a2
 {
+
+inline void push_output_vectors(
+    memory::Arena *arena,
+    Operator *op,
+    s32 outputIndex,
+    s32 size,
+    double lowerLimit = 0.0,
+    double upperLimit = 0.0)
+{
+    op->outputs[outputIndex] = push_param_vector(arena, size, invalid_param());
+    op->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
+    op->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
+}
+
 
 /* ===============================================
  * Operators
@@ -12,6 +27,8 @@ namespace a2
 
 enum OperatorType
 {
+    Invalid_OperatorType = 0,
+
     Operator_Calibration,
     Operator_Calibration_sse,
     Operator_Calibration_idx,
@@ -21,6 +38,7 @@ enum OperatorType
     Operator_Difference_idx,
     Operator_ArrayMap,
     Operator_BinaryEquation,
+    Operator_BinaryEquation_idx,
 
     Operator_H1DSink,
     Operator_H1DSink_idx,
@@ -29,6 +47,9 @@ enum OperatorType
     Operator_RateMonitor_PrecalculatedRate,
     Operator_RateMonitor_CounterDifference,
     Operator_RateMonitor_FlowRate,
+
+    Operator_ExportSinkFull,
+    Operator_ExportSinkSparse,
 
     Operator_RangeFilter,
     Operator_RangeFilter_idx,
@@ -49,6 +70,8 @@ enum OperatorType
     Operator_Aggregate_MeanX,
     Operator_Aggregate_SigmaX,
 
+    Operator_Expression,
+
     OperatorTypeCount
 };
 
@@ -62,6 +85,7 @@ void binary_equation_step(Operator *op);
 void aggregate_sum_step(Operator *op);
 void aggregate_multiplicity_step(Operator *op);
 void aggregate_max_step(Operator *op);
+void expression_operator_step(Operator *op);
 
 void h1d_sink_step(Operator *op);
 void h1d_sink_step_idx(Operator *op);

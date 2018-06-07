@@ -1,9 +1,11 @@
 #ifndef __RATE_MONITOR_BASE_H__
 #define __RATE_MONITOR_BASE_H__
 
+#include <boost/iterator/filter_iterator.hpp>
 #include <QDebug>
 #include <QRectF>
 #include <QString>
+
 #include "analysis/a2/rate_sampler.h"
 #include "histo_util.h"
 #include "typedefs.h"
@@ -15,21 +17,33 @@ using a2::RateHistoryBuffer;
 using a2::RateSampler;
 using a2::RateSamplerPtr;
 
+struct not_nan_filter
+{
+    inline bool operator() (double d) { return !std::isnan(d); }
+};
+
 inline double get_max_value(const RateHistoryBuffer &rh, double defaultValue = 0.0)
 {
-    auto max_it = std::max_element(rh.begin(), rh.end());
-    double max_value = (max_it == rh.end()) ? defaultValue : *max_it;
+    const auto f_begin = boost::make_filter_iterator<not_nan_filter, RateHistoryBuffer::const_iterator>(rh.begin());
+    const auto f_end   = boost::make_filter_iterator<not_nan_filter, RateHistoryBuffer::const_iterator>(rh.end());
+
+    auto max_it = std::max_element(f_begin, f_end);
+
+    double max_value = (max_it == f_end) ? defaultValue : *max_it;
     return max_value;
 }
 
 inline std::pair<double, double> get_minmax_values(const RateHistoryBuffer &rh,
                                                    const std::pair<double, double> defaultValues = { 0.0, 0.0 })
 {
-    auto minmax_iters = std::minmax_element(rh.begin(), rh.end());
+    const auto f_begin = boost::make_filter_iterator<not_nan_filter, RateHistoryBuffer::const_iterator>(rh.begin());
+    const auto f_end   = boost::make_filter_iterator<not_nan_filter, RateHistoryBuffer::const_iterator>(rh.end());
+
+    auto minmax_iters = std::minmax_element(f_begin, f_end);
 
     auto result = std::make_pair(
-        minmax_iters.first  == rh.end() ? defaultValues.first  : *minmax_iters.first,
-        minmax_iters.second == rh.end() ? defaultValues.second : *minmax_iters.second);
+        minmax_iters.first  == f_end ? defaultValues.first  : *minmax_iters.first,
+        minmax_iters.second == f_end ? defaultValues.second : *minmax_iters.second);
 
     return result;
 }
@@ -47,23 +61,34 @@ inline std::pair<double, double> get_minmax_values(const a2::RateSampler &sample
     ssize_t maxIndex = sampler.getSampleIndex(timeInterval.maxValue);
     const ssize_t size = sampler.rateHistory.size();
 
-    qDebug() << __PRETTY_FUNCTION__ << "minValue =" << timeInterval.minValue << " -> index =" << minIndex;
-    qDebug() << __PRETTY_FUNCTION__ << "maxValue =" << timeInterval.maxValue << " -> index =" << maxIndex;
+    qDebug() << __PRETTY_FUNCTION__ << "time minValue =" << timeInterval.minValue << " -> index =" << minIndex;
+    qDebug() << __PRETTY_FUNCTION__ << "time maxValue =" << timeInterval.maxValue << " -> index =" << maxIndex;
+
+    //for (ssize_t i = 0; i < size; i++)
+    //{
+    //    qDebug() << "  " << i << sampler.rateHistory.at(i);
+    //}
 
     if (0 <= minIndex && minIndex < size
         && 0 <= maxIndex && maxIndex <= size)
     {
         const auto &rh(sampler.rateHistory);
 
-        auto minmax_iters = std::minmax_element(rh.begin() + minIndex,
-                                                rh.begin() + maxIndex);
+        const auto f_begin = boost::make_filter_iterator<not_nan_filter, RateHistoryBuffer::const_iterator>(rh.begin() + minIndex);
+        const auto f_end   = boost::make_filter_iterator<not_nan_filter, RateHistoryBuffer::const_iterator>(rh.begin() + maxIndex);
+
+        auto minmax_iters = std::minmax_element(f_begin, f_end);
 
         auto result = std::make_pair(
-            minmax_iters.first  == rh.end() ? defaultValues.first  : *minmax_iters.first,
-            minmax_iters.second == rh.end() ? defaultValues.second : *minmax_iters.second);
+            minmax_iters.first  == f_end ? defaultValues.first  : *minmax_iters.first,
+            minmax_iters.second == f_end ? defaultValues.second : *minmax_iters.second);
+
+        qDebug() << __PRETTY_FUNCTION__ << "valid indices, result =" << result;
 
         return result;
     }
+
+    qDebug() << __PRETTY_FUNCTION__ << "invalid indices, returning defaults: =" << defaultValues;
 
     return defaultValues;
 }

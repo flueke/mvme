@@ -29,7 +29,7 @@
 #include "vme_daq.h"
 
 class EventConfig;
-class BufferIterator;
+struct BufferIterator;
 class ListFileWriter;
 class VMUSB;
 
@@ -58,11 +58,12 @@ class VMUSBBufferProcessor: public QObject
         u32 processEvent(BufferIterator &inIter, DataBuffer *outputBuffer, ProcessorState *state,
                          u64 bufferNumber, u16 eventIndex, u16 numberOfEvents);
         DAQStats *getStats();
+        void logMessage(const QString &message, bool useThrottle);
         void logMessage(const QString &message);
         void resetRunState(); // call this when a new DAQ run starts
         void warnIfStreamWriterError(u64 bufferNumber, int writerFlags, u16 eventIndex);
 
-        friend class VMUSBBufferProcessorPrivate;
+        friend struct VMUSBBufferProcessorPrivate;
         VMUSBBufferProcessorPrivate *m_d;
 
         QMap<int, EventConfig *> m_eventConfigByStackID;

@@ -4,39 +4,21 @@
 #ifdef liba2_shared_EXPORTS
 #include "a2_export.h"
 #endif
+
+#include "a2_exprtk.h"
+#include "a2_param.h"
 #include "listfilter.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
 #include "rate_sampler.h"
-#include "util/nan.h"
 #include "util/typed_block.h"
 
 #include <cassert>
+#include <cpp11-on-multicore/common/rwlock.h>
 #include <pcg_random.hpp>
 
 namespace a2
 {
-/* Note: a2 passes out_of_memory() from memory::Arena through. Use an external
- * mechanism to catch this, increase the memory size and try again. */
-
-
-/* Bit used as payload of NaN values to identify an invalid parameter.
- * If the bit is not set the NaN was generated as the result of a calculation
- * and the parameter is considered valid.
- */
-static const int ParamInvalidBit = 1u << 0;
-
-inline bool is_param_valid(double param)
-{
-    return !(std::isnan(param) && (get_payload(param) & ParamInvalidBit));
-}
-
-inline double invalid_param()
-{
-    static const double result = make_nan(ParamInvalidBit);
-    return result;
-}
-
 using ParamVec = TypedBlock<double, s32>;
 
 void print_param_vector(ParamVec pv);
@@ -101,8 +83,15 @@ enum DataSourceType
 struct DataSourceOptions
 {
     using opt_t = u8;
-    static const opt_t NoOption      = 0u;
-    static const opt_t NoAddedRandom = 1u;
+    static const opt_t NoOption                             = 0u;
+
+    /* Do not add a random value in [0.0, 1.0) to the extracted data value. */
+    static const opt_t NoAddedRandom                        = 1u << 0;
+
+    /* Make the repetition value of ListFilters contribute to the low bits of
+     * the final address value. By default the repetition number contributes to
+     * the high address bits. */
+    static const opt_t RepetitionContributesLowAddressBits  = 1u << 1;
 };
 
 struct Extractor
@@ -114,18 +103,19 @@ struct Extractor
     DataSourceOptions::opt_t options;
 };
 
+size_t get_address_count(Extractor *ex);
+
 struct ListFilterExtractor
 {
     data_filter::ListFilter listFilter;
-    data_filter::DataFilter repetitionAddressFilter;
-    data_filter::CacheEntry repetitionAddressCache;
     pcg32_fast rng;
     u8 repetitions;
     DataSourceOptions::opt_t options;
 };
 
+size_t get_base_address_bits(ListFilterExtractor *ex);
+size_t get_repetition_address_bits(ListFilterExtractor *ex);
 size_t get_address_bits(ListFilterExtractor *ex);
-size_t get_address_count(Extractor *ex);
 size_t get_address_count(ListFilterExtractor *ex);
 
 Extractor make_extractor(
@@ -144,7 +134,6 @@ DataSource make_datasource_extractor(
 
 ListFilterExtractor make_listfilter_extractor(
     data_filter::ListFilter listFilter,
-    data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
     DataSourceOptions::opt_t options = 0);
@@ -152,7 +141,6 @@ ListFilterExtractor make_listfilter_extractor(
 DataSource make_datasource_listfilter_extractor(
     memory::Arena *arena,
     data_filter::ListFilter listFilter,
-    data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
     u8 moduleIndex,
@@ -189,6 +177,7 @@ struct Operator
 };
 
 void assign_input(Operator *op, PipeVectors input, s32 inputIndex);
+
 Operator make_calibration(
     memory::Arena *arena,
     PipeVectors input,
@@ -253,6 +242,16 @@ Operator make_binary_equation(
     double outputLowerLimit,
     double outputUpperLimit);
 
+Operator make_binary_equation_idx(
+    memory::Arena *arena,
+    PipeVectors inputA,
+    PipeVectors inputB,
+    s32 inputIndexA,
+    s32 inputIndexB,
+    u32 equationIndex,
+    double outputLowerLimit,
+    double outputUpperLimit);
+
 Operator make_range_filter(
     memory::Arena *arena,
     PipeVectors input,
@@ -287,6 +286,7 @@ Operator make_condition_filter(
     memory::Arena *arena,
     PipeVectors dataInput,
     PipeVectors condInput,
+    bool inverted,
     s32 dataIndex = -1,
     s32 condIndex = -1);
 
@@ -347,6 +347,76 @@ Operator make_aggregate_sigmax(
     memory::Arena *arena,
     PipeVectors input,
     Thresholds thresholds);
+
+/* ===============================================
+ * Expression Operator
+ * =============================================== */
+struct ExpressionOperatorError: public std::runtime_error
+{
+    using std::runtime_error::runtime_error;
+};
+
+/* Thrown if the return value of the begin expression is malformed or contains
+ * unexpected data types. */
+struct ExpressionOperatorSemanticError: public ExpressionOperatorError
+{
+    std::string message;
+
+    ExpressionOperatorSemanticError(const std::string &msg)
+        : ExpressionOperatorError("SemanticError")
+        , message(msg)
+    {}
+};
+
+/* Runtime library containing basic analysis related functions.
+ *
+ * An instance of the library will automatically be registered for expressions
+ * used in the expression operator.
+ *
+ * Contains the following functions:
+ * is_valid(p), is_invalid(p), make_invalid(), is_nan(d)
+ */
+a2_exprtk::SymbolTable make_expression_operator_runtime_library();
+
+struct ExpressionOperatorData
+{
+    a2_exprtk::SymbolTable symtab_begin;
+    a2_exprtk::SymbolTable symtab_step;
+    a2_exprtk::Expression expr_begin;
+    a2_exprtk::Expression expr_step;
+
+    std::vector<std::string> output_names;
+    std::vector<std::string> output_units;
+};
+
+enum class ExpressionOperatorBuildOptions: u8
+{
+    /* Compiles and evaluates the begin expression and uses the result to build
+     * the operator outputs, populate the symbol table for the step expression
+     * and the ExpressionOperatorData output_names and output_units. */
+    InitOnly,
+
+    /* Performs the InitOnly steps and then compiles the step expression. */
+    FullBuild,
+};
+
+static const s32 NoParamIndex = -1;
+
+Operator make_expression_operator(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &input_param_indexes,
+    const std::vector<std::string> &input_prefixes,
+    const std::vector<std::string> &input_units,
+    const std::string &expr_begin_str,
+    const std::string &expr_step_str,
+    ExpressionOperatorBuildOptions options = ExpressionOperatorBuildOptions::FullBuild);
+
+/* Can be used after calling make_expression_operator() with the InitOnly
+ * option to complete building the operator. */
+void expression_operator_compile_step_expression(Operator *op);
+
+void expression_operator_step(Operator *op);
 
 /* ===============================================
  * Histograms
@@ -463,6 +533,90 @@ Operator make_rate_monitor(
     RateMonitorType type);
 
 //
+// ExportSink
+//
+
+enum class ExportSinkFormat
+{
+    /* Writes whole arrays with a size prefix. Use if all channels respond for
+     * every event. In this case the output data will be smaller than the
+     * indexed format. */
+    Full,
+
+    /* Indexed/Sparse format:
+     * Writes a size prefix and two arrays, the first containing the parameter
+     * indices, the second the coressponding values. Only valid values are
+     * written out.
+     * Use this if only a couple of channels respond per event. In this case it
+     * will produce much smaller data than the Full format. */
+    Sparse,
+};
+
+struct ExportSinkData
+{
+    // Output filename. May include a path. Is relative to the application
+    // working directory which is the workspace directory.
+    std::string filename;
+
+    //  0:  turn of compression; makes this operator write directly to the output file
+    // -1:  Z_DEFAULT_COMPRESSION
+    //  1:  Z_BEST_SPEED
+    //  9:  Z_BEST_COMPRESSION
+    int compressionLevel;
+
+    // The lowest level output stream. Right now always a std::ofstream
+    // working on this operators output filename.
+    std::unique_ptr<std::ostream> ostream;
+
+    // ostream used when compression is enabled.
+    std::unique_ptr<std::ostream> z_ostream;
+
+    // Condition input index. If negative the condition input will be unused.
+    s32 condIndex = -1;
+
+    // runtime state
+    u64 eventsWritten = 0;
+    u64 bytesWritten  = 0;
+    std::string lastError;
+
+    mutable NonRecursiveRWLock lastErrorLock;
+    using WriteGuard = WriteLockGuard<NonRecursiveRWLock>;
+    using ReadGuard  = ReadLockGuard<NonRecursiveRWLock>;
+
+    std::string getLastError() const
+    {
+        ReadGuard guard(lastErrorLock);
+        return lastError;
+    }
+
+    void setLastError(const std::string &msg)
+    {
+        WriteGuard guard(lastErrorLock);
+        lastError = msg;
+    }
+};
+
+// No condition input. All data will be written to the output file.
+Operator make_export_sink(
+    memory::Arena *arena,
+    const std::string &output_filename,
+    int compressionLevel,
+    ExportSinkFormat format,
+    TypedBlock<PipeVectors, s32> dataInputs
+    );
+
+// With condition input. This can dramatically reduce the output data size.
+Operator make_export_sink(
+    memory::Arena *arena,
+    const std::string &output_filename,
+    int compressionLevel,
+    ExportSinkFormat format,
+    TypedBlock<PipeVectors, s32> dataInputs,
+    PipeVectors condInput,
+    s32 condIndex
+    );
+
+//
 // A2 structure and entry points
 //
 
@@ -479,7 +633,9 @@ struct A2
     std::array<u8 *, MaxVMEEvents> operatorRanks;
 };
 
-void a2_begin_run(A2 *a2);
+using Logger = std::function<void (const std::string &msg)>;
+
+void a2_begin_run(A2 *a2, Logger logger);
 void a2_begin_event(A2 *a2, int eventIndex);
 void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize);
 void a2_end_event(A2 *a2, int eventIndex);

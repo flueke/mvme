@@ -131,6 +131,12 @@ double Histo1D::getValue(double x) const
     return m_data[bin];
 }
 
+std::pair<double, double> Histo1D::getValueAndBinLowEdge(double x) const
+{
+    s64 bin = m_xAxisBinning.getBin(x);
+    return std::make_pair(getBinLowEdge(bin), getBinContent(bin));
+}
+
 void Histo1D::clear()
 {
     m_count = 0.0;

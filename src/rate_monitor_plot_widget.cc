@@ -18,6 +18,7 @@
 #include "scrollzoomer.h"
 #include "util/assert.h"
 #include "util/counters.h"
+#include "util.h"
 
 //
 // RateMonitorPlotWidget
@@ -63,8 +64,6 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
 
         qDebug() << __PRETTY_FUNCTION__
             << "sample =" << i
-            << ", offset =" << offset
-            << ", bufferIndex =" << bufferIndex
             << ", buffer->size =" << rateHistory->size()
             << ", buffer->cap =" << rateHistory->capacity()
             << ", result =" << result;
@@ -82,6 +81,21 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
     RateSamplerPtr sampler;
 };
 
+class RateMonitorPlotCurve: public QwtPlotCurve
+{
+    public:
+        using QwtPlotCurve::QwtPlotCurve;
+
+    protected:
+        void drawLines(QPainter *painter,
+                       const QwtScaleMap &xMap, const QwtScaleMap &yMap,
+                       const QRectF &canvasRect, int from, int to ) const
+        {
+            qDebug() << __PRETTY_FUNCTION__;
+            QwtPlotCurve::drawLines(painter, xMap, yMap, canvasRect, from, to);
+        }
+};
+
 struct RateMonitorPlotWidgetPrivate
 {
     QVector<RateSamplerPtr> m_samplers;
@@ -90,6 +104,21 @@ struct RateMonitorPlotWidgetPrivate
     ScrollZoomer *m_zoomer;
     QVector<QwtPlotCurve *> m_curves;
     QwtPlotLegendItem m_plotLegendItem;
+};
+
+struct DateScaleFormat
+{
+    QwtDate::IntervalType interval;
+    QString format;
+};
+
+static const DateScaleFormat DateScaleFormatTable[] =
+{
+    { QwtDate::Millisecond,     QSL("H'h' m'm' s's' zzz'ms'") },
+    { QwtDate::Second,          QSL("H'h' m'm' s's'") },
+    { QwtDate::Minute,          QSL("H'h' m'm'") },
+    { QwtDate::Hour,            QSL("H'h' m'm'") },
+    { QwtDate::Day,             QSL("d 'd'") },
 };
 
 RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
@@ -106,11 +135,13 @@ RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
         m_d->m_plot->setAxisScaleEngine(QwtPlot::xBottom, engine);
 
         auto draw = new QwtDateScaleDraw(Qt::UTC);
-        draw->setDateFormat(QwtDate::Millisecond,   QSL("H'h' m'm' s's' zzz'ms'"));
-        draw->setDateFormat(QwtDate::Second,        QSL("H'h' m'm' s's'"));
-        draw->setDateFormat(QwtDate::Minute,        QSL("H'h' m'm'"));
-        draw->setDateFormat(QwtDate::Hour,          QSL("H'h' m'm'"));
-        draw->setDateFormat(QwtDate::Day,           QSL("d 'd'"));
+
+        for (size_t i = 0; i < ArrayCount(DateScaleFormatTable); i++)
+        {
+            draw->setDateFormat(
+                DateScaleFormatTable[i].interval,
+                DateScaleFormatTable[i].format);
+        }
 
         m_d->m_plot->setAxisScaleDraw(QwtPlot::xBottom, draw);
     }
@@ -152,7 +183,7 @@ void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
     assert(sampler);
     assert(m_d->m_samplers.size() == m_d->m_curves.size());
 
-    auto curve = std::make_unique<QwtPlotCurve>(title);
+    auto curve = std::make_unique<RateMonitorPlotCurve>(title);
     curve->setData(new RateMonitorPlotData(sampler));
     curve->setPen(color);
     curve->setStyle(QwtPlotCurve::Lines);
@@ -305,20 +336,33 @@ void RateMonitorPlotWidget::replot()
 
             if (haveYMinMax)
             {
+                if (std::abs(yMax - yMin) == 0.0)
+                {
+                    yMin -= 1.0;
+                    yMax += 1.0;
+                }
+
+                double delta  = std::abs(yMax - yMin);
+                double offset = delta * 0.05;
+
+#if 1
                 qDebug() << __PRETTY_FUNCTION__
                     << "found y minmax for visible x range. auto scaling y and setting zoomBase";
+
                 switch (getYAxisScale())
                 {
                     case AxisScale::Linear:
-                        yMax *= ScaleFactor;
+                        yMin -= offset;
+                        yMax += offset;
                         break;
 
                     case AxisScale::Logarithmic:
                         yMax = std::pow(yMax, ScaleFactor);
                         break;
                 }
+#endif
 
-                m_d->m_plot->setAxisScale(QwtPlot::yLeft,   yMin, yMax);
+                m_d->m_plot->setAxisScale(QwtPlot::yLeft, yMin, yMax);
                 m_d->m_zoomer->setZoomBase();
             }
         }
@@ -348,9 +392,9 @@ void RateMonitorPlotWidget::setYAxisScale(AxisScale scaling)
             break;
 
         case AxisScale::Logarithmic:
-            static const double LogScaleMinBound = 0.1;
+            static const double LogScaleMinBound = 1.0;
             auto scaleEngine = new QwtLogScaleEngine;
-            scaleEngine->setTransformation(new MinBoundLogTransform(LogScaleMinBound));
+            //scaleEngine->setTransformation(new MinBoundLogTransform(LogScaleMinBound));
             m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
             m_d->m_plot->setAxisAutoScale(QwtPlot::yLeft, true);
             break;
@@ -388,7 +432,7 @@ QwtPlot *RateMonitorPlotWidget::getPlot()
     return m_d->m_plot;
 }
 
-QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(const RateSamplerPtr &sampler)
+QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(const RateSamplerPtr &sampler) const
 {
     int index = m_d->m_samplers.indexOf(sampler);
 
@@ -401,7 +445,7 @@ QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(const RateSamplerPtr &sampler)
     return nullptr;
 }
 
-QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(int index)
+QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(int index) const
 {
     if (0 < index && index < m_d->m_samplers.size())
     {
@@ -412,7 +456,12 @@ QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(int index)
     return nullptr;
 }
 
-QVector<QwtPlotCurve *> RateMonitorPlotWidget::getPlotCurves()
+QVector<QwtPlotCurve *> RateMonitorPlotWidget::getPlotCurves() const
 {
     return m_d->m_curves;
+}
+
+ScrollZoomer *RateMonitorPlotWidget::getZoomer() const
+{
+    return m_d->m_zoomer;
 }

@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
     const size_t BufferCapacity1 = 3600;
     const size_t BufferCapacity2 = 750;
     const s32 ReplotPeriod_ms = 1000;
-    const s32 NewDataPeriod_ms = 250;
+    const s32 NewDataPeriod_ms = 150;
     const s32 NewDataCount = 50;
 
     // plot data

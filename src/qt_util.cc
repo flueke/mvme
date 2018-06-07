@@ -20,6 +20,7 @@
  */
 #include "qt_util.h"
 
+#include <cassert>
 #include <QAction>
 #include <QCloseEvent>
 #include <QCoreApplication>
@@ -171,6 +172,13 @@ void set_widget_font_pointsize(QWidget *widget, s32 pointSize)
     widget->setFont(font);
 }
 
+void set_widget_font_pointsize_relative(QWidget *widget, s32 relPointSize)
+{
+    auto font = widget->font();
+    font.setPointSize(font.pointSize() + relPointSize);
+    widget->setFont(font);
+}
+
 QToolBar *make_toolbar(QWidget *parent)
 {
     auto tb = new QToolBar(parent);
@@ -213,6 +221,7 @@ QFont make_monospace_font(QFont baseFont)
 {
     baseFont.setFamily(QSL("Monospace"));
     baseFont.setStyleHint(QFont::Monospace);
+    baseFont.setFixedPitch(true);
     return baseFont;
 }
 
@@ -226,7 +235,7 @@ void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags)
     QCoreApplication::processEvents(flags, maxtime_ms);
 }
 
-QWidget *make_vbox_container(const QString &labelText, QWidget *widget)
+QWidget *make_vbox_container(const QString &labelText, QWidget *widget, int spacing)
 {
     auto label = new QLabel(labelText);
     label->setAlignment(Qt::AlignCenter);
@@ -234,7 +243,7 @@ QWidget *make_vbox_container(const QString &labelText, QWidget *widget)
     auto container = new QWidget;
     auto layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
+    layout->setSpacing(spacing);
     layout->addWidget(label);
     layout->addWidget(widget);
 
@@ -271,4 +280,17 @@ QToolButton *make_action_toolbutton(QAction *action)
     font.setPointSize(7);
     result->setFont(font);
     return result;
+}
+
+int get_widget_row(QFormLayout *layout, QWidget *widget)
+{
+    assert(layout);
+    assert(widget);
+
+    int row;
+    QFormLayout::ItemRole role;
+
+    layout->getWidgetPosition(widget, &row, &role);
+
+    return row;
 }

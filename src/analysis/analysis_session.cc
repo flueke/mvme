@@ -567,7 +567,7 @@ herr_t error_stack_walker(unsigned n, const H5E_error2_t *err, void *client_data
     if (d->flags & WalkerData::Abort)
         return 0;
 
-#if 0
+#if 1
     qDebug() << __PRETTY_FUNCTION__ << n;
     qDebug() << "\t" << err->cls_id << err->maj_num << err->min_num << err->line
              << err->func_name << err->file_name << err->desc;
@@ -588,9 +588,27 @@ herr_t error_stack_walker(unsigned n, const H5E_error2_t *err, void *client_data
 
 QString get_h5_error_message(const H5::Exception &e)
 {
-    //qDebug() << __PRETTY_FUNCTION__;
-    //qDebug() << e.getCDetailMsg();
-    //qDebug() << e.getCFuncName();
+    qDebug() << __PRETTY_FUNCTION__;
+    qDebug() << e.getCDetailMsg();
+    qDebug() << e.getCFuncName();
+#if 0
+    qDebug() << __PRETTY_FUNCTION__ << "printing error:";
+    e.printError();
+    qDebug() << __PRETTY_FUNCTION__ << "error printed";
+#endif
+
+#if 1
+    /* Note: this is a bad workaround so that there's at least something to
+     * display to the user in case of an error. I'd prefer having the
+     * walkErrorStack() way work but that needs some more debugging and maybe a
+     * custom build of the hdf5 libs.
+     */
+    return QString::fromStdString(e.getFuncName()) + ": " + QString::fromStdString(e.getDetailMsg());
+
+#elif 0
+    /* Note: This is the recommended way of doing custom error handling in HDF5
+     * but I always get empty results.
+     */
 
     WalkerData walkerData = {};
 
@@ -602,8 +620,12 @@ QString get_h5_error_message(const H5::Exception &e)
 
     return result;
 
-#if 0
-    // Note: No fmemopen() under Windows.
+#else
+
+    /* Note: This way of capturing the error stack messages is not portable as
+     * there's no fmemopen() under Windows.
+     */
+
     char errorBuffer[1u << 16];
     std::fill(errorBuffer, errorBuffer + sizeof(errorBuffer), '\0');
 
@@ -614,6 +636,10 @@ QString get_h5_error_message(const H5::Exception &e)
         fclose(errorStream);
 
         return QString(errorBuffer);
+    }
+    else
+    {
+        assert(false);
     }
 
     return QString();
@@ -681,6 +707,23 @@ QPair<QJsonDocument, QString> load_analysis_config_from_session_file(const QStri
     return result;
 }
 
+/* Note (flueke): The hdf5 code that happens in init and destroy below seems
+ * superfluous - hdf5 works with or without.
+ * Also enabling the destroy code crashes the application at exit.
+ *
+ * The crash happens in run_exit_handlers(). The stack may be corrupted at this
+ * point. I tried linking the hdf5 libs directly to the mvme binary but that
+ * didn't change anything (the idea was that maybe the lib is unloaded before
+ * run_exit_handlers() is invoked).
+ *
+ * Next try: use static libs. These need to be compiled with fPIC though, which
+ * does not seem to be the case for the standard debian package.
+ *
+ * Update 23.4.18: static libs didn't change anything. I still don't know what
+ * I'm doing wrong. I should build and play around with the example code that
+ * comes with hdf5.
+ */
+
 QPair<bool, QString> analysis_session_system_init()
 {
     qDebug() << __PRETTY_FUNCTION__;
@@ -690,11 +733,14 @@ QPair<bool, QString> analysis_session_system_init()
 #if 0
     try
     {
-        H5Library::open();
-        H5Library::initH5cpp();
+        //H5Library::dontAtExit();
+        //H5Library::open();
+        //H5Library::initH5cpp();
+        //Exception::dontPrint();
     }
     catch (const H5::Exception &e)
     {
+        assert(false);
         result.first = false;
         result.second = get_h5_error_message(e);
     }
@@ -712,11 +758,12 @@ QPair<bool, QString> analysis_session_system_destroy()
 #if 0
     try
     {
-        H5Library::termH5cpp();
-        H5Library::close();
+        //H5Library::termH5cpp();
+        //H5Library::close();
     }
     catch (const H5::Exception &e)
     {
+        assert(false);
         result.first = false;
         result.second = get_h5_error_message(e);
     }

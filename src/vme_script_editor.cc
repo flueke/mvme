@@ -30,6 +30,7 @@
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QShortcut>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QStatusBar>
@@ -38,7 +39,7 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-static const int tabStop = 4;
+static const int TabStop = 4;
 
 struct VMEScriptEditorPrivate
 {
@@ -68,7 +69,7 @@ struct VMEScriptEditorPrivate
     QWidget *searchWindow;
     QLineEdit *searchInput;
     QPushButton *findNext;
-    QPushButton *findPrev;
+    //QPushButton *findPrev;
 };
 
 VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, QWidget *parent)
@@ -88,11 +89,11 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     //
     {
         m_d->searchWindow = new QWidget(this);
-        m_d->searchWindow->setWindowFlags(Qt::Tool
-                                        | Qt::CustomizeWindowHint
-                                        | Qt::WindowTitleHint
-                                        | Qt::WindowCloseButtonHint
-                                        );
+        //m_d->searchWindow->setWindowFlags(Qt::Tool
+        //                                | Qt::CustomizeWindowHint
+        //                                | Qt::WindowTitleHint
+        //                                | Qt::WindowCloseButtonHint
+        //                                );
         m_d->searchWindow->setWindowTitle(QSL("Search"));
 
         auto hideAction = new QAction(QSL("Close"), m_d->searchWindow);
@@ -102,23 +103,26 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
         connect(hideAction, &QAction::triggered, m_d->searchWindow, &QWidget::hide);
 
         m_d->searchInput = new QLineEdit;
-        m_d->searchInput->setMinimumWidth(200);
-        m_d->findNext = new QPushButton(QSL("&Next"));
-        m_d->findPrev = new QPushButton(QSL("&Prev"));
-        m_d->findPrev->setVisible(false); // FIXME: findPrev() is not working
+        m_d->searchInput->setMinimumWidth(80);
+        m_d->findNext = new QPushButton(QSL("Find"));
+        //m_d->findPrev = new QPushButton(QSL("&Prev"));
+        //m_d->findPrev->setVisible(false); // FIXME: findPrev() is not working
 
         connect(m_d->searchInput, &QLineEdit::textEdited, this, &VMEScriptEditor::onSearchTextEdited);
         connect(m_d->searchInput, &QLineEdit::returnPressed, this, [this] () { findNext(); });
         connect(m_d->findNext, &QPushButton::clicked, this, &VMEScriptEditor::findNext);
-        connect(m_d->findPrev, &QPushButton::clicked, this, &VMEScriptEditor::findPrev);
+        //connect(m_d->findPrev, &QPushButton::clicked, this, &VMEScriptEditor::findPrev);
 
         auto layout = new QHBoxLayout(m_d->searchWindow);
         layout->addWidget(m_d->searchInput);
         layout->addWidget(m_d->findNext);
-        layout->addWidget(m_d->findPrev);
+        //layout->addWidget(m_d->findPrev);
         layout->setContentsMargins(2, 2, 2, 2);
         layout->setSpacing(2);
         layout->setStretch(0, 1);
+
+        auto shortcut = new QShortcut(QSL("Ctrl+F"), this);
+        connect(shortcut, &QShortcut::activated, this, &VMEScriptEditor::search);
     }
 
     // Editor area
@@ -132,7 +136,7 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     {
         // Tab width calculation
         QString spaces;
-        for (int i = 0; i < tabStop; ++i)
+        for (int i = 0; i < TabStop; ++i)
             spaces += " ";
         QFontMetrics metrics(font);
         m_d->m_editor->setTabStopWidth(metrics.width(spaces));
@@ -146,6 +150,14 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
         connect(parentConfig, &ConfigObject::modified, this, &VMEScriptEditor::updateWindowTitle);
 
     m_d->m_editor->setPlainText(m_d->m_script->getScriptContents());
+
+    auto pal = m_d->m_editor->palette();
+    auto color = pal.color(QPalette::Active, QPalette::Highlight);
+    pal.setColor(QPalette::Inactive, QPalette::Highlight, color);
+    color = pal.color(QPalette::Active, QPalette::HighlightedText);
+    pal.setColor(QPalette::Inactive, QPalette::HighlightedText, color);
+    m_d->m_editor->setPalette(pal);
+
     updateWindowTitle();
 
     connect(m_d->m_editor->document(), &QTextDocument::contentsChanged, this, &VMEScriptEditor::onEditorTextChanged);
@@ -182,12 +194,16 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     m_d->m_toolBar->addAction(QIcon(":/document-save-as.png"), "Save to file", this, &VMEScriptEditor::saveToFile);
     m_d->m_toolBar->addSeparator();
     m_d->m_toolBar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert);
-    action = m_d->m_toolBar->addAction(QIcon(":/ui_search_field.png"), "Search", this, &VMEScriptEditor::search);
-    action->setShortcut(QSL("Ctrl+F"));
+
     m_d->m_toolBar->addSeparator();
 
     // Add the script Help action from the main window
     m_d->m_toolBar->addAction(m_d->m_context->getMainWindow()->findChild<QAction *>("actionVMEScriptRef"));
+
+    m_d->m_toolBar->addSeparator();
+
+    // Search input field and button
+    m_d->m_toolBar->addWidget(m_d->searchWindow);
 
     // Statusbar and info widgets
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelPosition);
@@ -207,13 +223,13 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     layout->addWidget(m_d->m_editor);
     layout->addWidget(m_d->m_statusBar);
 
+    m_d->m_editor->setFocus();
     m_d->updateCursorPositionLabel();
     resize(650, 400);
 }
 
 VMEScriptEditor::~VMEScriptEditor()
 {
-    delete m_d->searchWindow;
     delete m_d;
 }
 
@@ -407,6 +423,7 @@ void VMEScriptEditor::search()
     }
     else
     {
+        m_d->searchWindow->activateWindow();
         m_d->searchInput->setFocus();
     }
 }

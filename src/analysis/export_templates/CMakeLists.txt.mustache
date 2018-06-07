@@ -1,0 +1,47 @@
+cmake_minimum_required(VERSION 3.1)
+project({{struct_name}})
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 11)
+add_definitions(-Wall)
+
+find_package(ZLIB)
+
+if (NOT ZLIB_FOUND)
+    message("-- Could not find zlib. Disabling compressed file support.")
+else()
+    include_directories(${ZLIB_INCLUDE_DIRS})
+    add_definitions(-DMVME_EXPORT_USE_ZSTR)
+endif()
+
+add_executable(export_info {{export_impl_file}} export_info.cpp)
+add_executable(export_dump {{export_impl_file}} export_dump.cpp)
+
+if (ZLIB_FOUND)
+    target_link_libraries(export_dump ${ZLIB_LIBRARIES})
+endif()
+
+list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
+find_package(ROOT COMPONENTS Core RIO Tree Hist)
+
+if (NOT ROOT_FOUND)
+    message("-- Could not find ROOT. Disabling ROOT histogramer.")
+else()
+    message("-- Using ROOT installation from ${ROOT_USE_FILE}")
+    include(${ROOT_USE_FILE})
+
+    add_executable(root_generate_histos {{export_impl_file}} root_generate_histos.cpp)
+
+    target_link_libraries(
+        root_generate_histos
+        ${ROOT_LIBRARIES}
+        ${ROOT_Core_LIBRARY}
+        ${ROOT_RIO_LIBRARY}
+        ${ROOT_Tree_LIBRARY}
+        ${ROOT_Hist_LIBRARY}
+        ${ZLIB_LIBRARIES}
+        )
+endif()
+{{!
+vim:ft=cmake
+}}

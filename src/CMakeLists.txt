@@ -2,6 +2,7 @@
 
 include(GenerateExportHeader)
 
+# Qt5
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -10,14 +11,34 @@ find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
+    #add_definitions(-DQT_NO_DEBUG)
+    add_definitions(-DQT_NO_DEBUG_OUTPUT)
+endif()
+
 find_package(Threads)
 
 # quazip
 find_path(QUAZIP_INCLUDE_DIR
     NAMES quazip.h
     PATH_SUFFIXES quazip quazip-qt5 quazip5)
-find_library(QUAZIP_QT5 NAMES quazip quazip-qt5 quazip5)
+
 include_directories(${QUAZIP_INCLUDE_DIR})
+
+find_library(QUAZIP_QT5_RELEASE NAMES quazip quazip-qt5 quazip5)
+find_library(QUAZIP_QT5_DEBUG NAMES quazipd quazip-qt5d quazip5d)
+
+if (WIN32 OR QUAZIP_QT5_DEBUG)
+    set(QUAZIP_QT5
+        optimized ${QUAZIP_QT5_RELEASE}
+        debug ${QUAZIP_QT5_DEBUG}
+        )
+else()
+    set(QUAZIP_QT5 ${QUAZIP_QT5_RELEASE})
+endif()
+
+message("-- Using QUAZIP_INCLUDE_DIR=${QUAZIP_INCLUDE_DIR}")
+message("-- Using QUAZIP_QT5=${QUAZIP_QT5}")
 
 # libusb-0.1
 if (WIN32)
@@ -67,18 +88,25 @@ set(LIBMVME_SOURCES
     "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
     "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
     "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
+
     analysis/a2_adapter.cc
     analysis/analysis.cc
+    analysis/analysis_info_widget.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
+    analysis/code_editor.cc
     analysis/data_extraction_widget.cc
-    analysis/analysis_info_widget.cc
-    config_ui.cpp
+    analysis/exportsink_codegen.cc
+    analysis/expression_operator_dialog.cc
+    analysis/listfilter_extractor_dialog.cc
+
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
     daqstats_widget.cc
     data_filter.cc
+    data_filter_edit.cc
+    file_autosaver.cc
     globals.cc
     gui_util.cc
     histo1d.cc
@@ -96,7 +124,7 @@ set(LIBMVME_SOURCES
     mvme_context_lib.cc
     mvme.cpp
     mvme_listfile.cc
-    mvme_startup.cc
+    mvme_session.cc
     mvme_stream_iter.cc
     mvme_stream_processor.cc
     mvme_stream_util.cc
@@ -122,6 +150,7 @@ set(LIBMVME_SOURCES
     vme_analysis_common.cc
     vme_config.cc
     vme_config_tree.cc
+    vme_config_ui.cc
     vme_controller.cpp
     vme_controller_factory.cc
     vme_controller_ui.cc
@@ -259,10 +288,10 @@ add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
 install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
 add_mvme_executable(dev_listfile_dumper "dev_listfile_dumper.cc")
 add_mvme_executable(dev_rate_monitoring "dev_rate_monitoring.cc")
+add_mvme_executable(dev_rate_monitor_widget "dev_rate_monitor_widget.cc")
 
-if (HDF5_FOUND)
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
-endif(HDF5_FOUND)
+add_mvme_executable(dev_data_filter_edit "dev_data_filter_edit.cc")
 
 if (ENABLE_ROOT AND ROOT_FOUND)
     set(mvme_root_LIBS

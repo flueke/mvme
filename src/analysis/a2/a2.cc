@@ -1,18 +1,20 @@
 #include "mpmc_queue.cc"
 #include "a2_impl.h"
 #include "util/assert.h"
+#include "util/perf.h"
+#include "cpp11-on-multicore/common/benaphore.h"
 
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <mutex>
 #include <queue>
 #include <random>
 #include <thread>
-#include "util/perf.h"
-#include "cpp11-on-multicore/common/benaphore.h"
+#include <zstr/src/zstr.hpp>
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
@@ -128,19 +130,6 @@ void assign_input(Operator *op, PipeVectors input, s32 inputIndex)
     op->inputUpperLimits[inputIndex] = input.upperLimits;
 }
 
-void push_output_vectors(
-    Arena *arena,
-    Operator *op,
-    s32 outputIndex,
-    s32 size,
-    double lowerLimit = 0.0,
-    double upperLimit = 0.0)
-{
-    op->outputs[outputIndex] = push_param_vector(arena, size, invalid_param());
-    op->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
-    op->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
-}
-
 /* ===============================================
  * Extractors
  * =============================================== */
@@ -172,10 +161,22 @@ size_t get_address_count(Extractor *ex)
     return 1u << bits;
 }
 
-size_t get_address_bits(ListFilterExtractor *ex)
+size_t get_base_address_bits(ListFilterExtractor *ex)
 {
     size_t baseAddressBits = get_extract_bits(&ex->listFilter, MultiWordFilter::CacheA);
-    size_t repAddressBits  = ex->repetitionAddressCache.extractBits;
+    return baseAddressBits;
+}
+
+size_t get_repetition_address_bits(ListFilterExtractor *ex)
+{
+    size_t result = static_cast<size_t>(std::ceil(std::log2(ex->repetitions)));
+    return result;
+}
+
+size_t get_address_bits(ListFilterExtractor *ex)
+{
+    size_t baseAddressBits = get_base_address_bits(ex);
+    size_t repAddressBits  = get_repetition_address_bits(ex);
     size_t bits = baseAddressBits + repAddressBits;
     return bits;
 }
@@ -215,7 +216,7 @@ DataSource make_datasource_extractor(
     DataSource result = {};
     result.type = DataSource_Extractor;
 
-    auto ex = arena->pushStruct<Extractor>();
+    auto ex = arena->pushObject<Extractor>();
     *ex = make_extractor(filter, requiredCompletions, rngSeed, options);
     result.d = ex;
 
@@ -266,8 +267,8 @@ void extractor_process_module_data(DataSource *ds, u32 *data, u32 size)
             if (ex->currentCompletions >= ex->requiredCompletions)
             {
                 ex->currentCompletions = 0;
-                u64 address = extract(&ex->filter, MultiWordFilter::CacheA);
-                u64 value   = extract(&ex->filter, MultiWordFilter::CacheD);
+                u64  address = extract(&ex->filter, MultiWordFilter::CacheA);
+                double value = static_cast<double>(extract(&ex->filter, MultiWordFilter::CacheD));
 
                 assert(address < static_cast<u64>(ds->output.data.size));
 
@@ -289,7 +290,6 @@ void extractor_process_module_data(DataSource *ds, u32 *data, u32 size)
 // ListFilterExtractor
 ListFilterExtractor make_listfilter_extractor(
     data_filter::ListFilter listFilter,
-    data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
     DataSourceOptions::opt_t options)
@@ -297,8 +297,6 @@ ListFilterExtractor make_listfilter_extractor(
     ListFilterExtractor ex = {};
 
     ex.listFilter = listFilter;
-    ex.repetitionAddressFilter = repetitionAddressFilter;
-    ex.repetitionAddressCache = make_cache_entry(repetitionAddressFilter, 'A');
     ex.rng.seed(rngSeed);
     ex.repetitions = repetitions;
     ex.options = options;
@@ -309,7 +307,6 @@ ListFilterExtractor make_listfilter_extractor(
 DataSource make_datasource_listfilter_extractor(
     memory::Arena *arena,
     data_filter::ListFilter listFilter,
-    data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
     u8 moduleIndex,
@@ -318,13 +315,13 @@ DataSource make_datasource_listfilter_extractor(
     DataSource result = {};
     result.type = DataSource_ListFilterExtractor;
 
-    auto ex = arena->pushStruct<ListFilterExtractor>();
-    *ex = make_listfilter_extractor(listFilter, repetitionAddressFilter, repetitions, rngSeed, options);
+    auto ex = arena->pushObject<ListFilterExtractor>();
+    *ex = make_listfilter_extractor(listFilter, repetitions, rngSeed, options);
     result.d = ex;
 
     result.moduleIndex = moduleIndex;
 
-    // This call works as listFilter and repetitionAddressCache have been
+    // This call works because listFilter and repetitionAddressCache have been
     // initialzed at this point.
     size_t addressCount = get_address_count(&result);
 
@@ -358,6 +355,11 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
 
     auto ex = reinterpret_cast<ListFilterExtractor *>(ds->d);
 
+    const u16 baseAddressBits = get_base_address_bits(ex);
+    const u16 repetitionBits  = get_repetition_address_bits(ex);
+
+    assert(ex->repetitions <= (1u << repetitionBits));
+
     for (u32 rep = 0; rep < ex->repetitions; rep++)
     {
         // Combine input data words and extract address and data values.
@@ -365,31 +367,26 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
         curPtr += ex->listFilter.wordCount;
         curSize -= ex->listFilter.wordCount;
 
-        // FIXME (maybe): runs the multiwordfilter twice which is not really
-        // needed. also if addressResult.second is false dataResult.second will
-        // also be false.
-        auto addressResult = extract_from_combined(&ex->listFilter, combined, MultiWordFilter::CacheA);
-        auto dataResult    = extract_from_combined(&ex->listFilter, combined, MultiWordFilter::CacheD);
+        auto result = extract_address_and_value_from_combined(&ex->listFilter, combined);
 
-        //printf("combined=%lx, addr=%lx, data=%lx\n", combined, addressResult.first, dataResult.first);
+        //printf("combined=%lx, addr=%lx, data=%lx\n", combined, result.address, result.value);
 
-        if (!addressResult.second || !dataResult.second)
+        if (!result.matched)
             continue;
 
-        // Check the repetition filter for a match for the current repetition
-        // and extract its address value.
-        u32 repCountAddress = (matches(ex->repetitionAddressFilter, rep)
-                               ? extract(ex->repetitionAddressCache, rep)
-                               : 0u);
+        u64  address = result.address;
+        double value = result.value;
 
-        // Number of bits from the MultiWordFilter alone, without the bits that
-        // will be contributed by the repetitionAddressFilter.
-        u16 baseAddressBits = get_extract_bits(&ex->listFilter, MultiWordFilter::CacheA);
-
-        // Make the address bits from the repetition count contribute to the
-        // high bits of the resulting address.
-        u64 address = addressResult.first | (repCountAddress << baseAddressBits);
-        u64 value   = dataResult.first;
+        // Make the address bits from the repetition number contribute to the
+        // final address value.
+        if (ex->options & DataSourceOptions::RepetitionContributesLowAddressBits)
+        {
+            address = (address << repetitionBits) | rep;
+        }
+        else
+        {
+            address |= (rep << baseAddressBits);
+        }
 
         assert(address < static_cast<u64>(ds->output.data.size));
 
@@ -409,10 +406,15 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
     return curPtr;
 }
 
-
 /* ===============================================
  * Operators
  * =============================================== */
+
+/** Creates an operator with the specified type and input and output counts.
+ *
+ * To make the operator functional inputs have to be set using assign_input()
+ * and output parameter vectors have to be created and setup using
+ * push_output_vectors(). */
 Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
 {
     Operator result = {};
@@ -432,13 +434,6 @@ Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
 
     return  result;
 }
-
-struct OperatorFunctions
-{
-    using StepFunction = void (*)(Operator *op);
-
-    StepFunction step;
-};
 
 /* Calibration equation:
  * paramRange  = paramMax - paramMin    (the input range)
@@ -900,7 +895,17 @@ void array_map_step(Operator *op)
     for (s32 mi = 0; mi < mappingCount; mi++)
     {
         auto mapping = d->mappings[mi];
-        op->outputs[0][mi] = op->inputs[mapping.inputIndex][mapping.paramIndex];
+
+        if (mapping.inputIndex < op->inputCount
+            && 0 <= mapping.paramIndex
+            && mapping.paramIndex < op->inputs[mapping.inputIndex].size)
+        {
+            op->outputs[0][mi] = op->inputs[mapping.inputIndex][mapping.paramIndex];
+        }
+        else
+        {
+            op->outputs[0][mi] = invalid_param();
+        }
     }
 }
 
@@ -925,8 +930,20 @@ Operator make_array_map(
     for (s32 mi = 0; mi < mappings.size; mi++)
     {
         auto m = d->mappings[mi] = mappings[mi];
-        result.outputLowerLimits[0][mi] = inputs[m.inputIndex].lowerLimits[m.paramIndex];
-        result.outputUpperLimits[0][mi] = inputs[m.inputIndex].upperLimits[m.paramIndex];
+
+        double ll = make_quiet_nan();
+        double ul = make_quiet_nan();
+
+        if (m.inputIndex < inputs.size
+            && 0 <= m.paramIndex
+            && m.paramIndex < inputs[m.inputIndex].lowerLimits.size)
+        {
+            ll = inputs[m.inputIndex].lowerLimits[m.paramIndex];
+            ul = inputs[m.inputIndex].upperLimits[m.paramIndex];
+        }
+
+        result.outputLowerLimits[0][mi] = ll;
+        result.outputUpperLimits[0][mi] = ul;
     }
 
     result.d = d;
@@ -939,7 +956,7 @@ using BinaryEquationFunction = void (*)(ParamVec a, ParamVec b, ParamVec out);
 #define add_binary_equation(x) \
 [](ParamVec a, ParamVec b, ParamVec o)\
 {\
-    for (s32 i = 0; i < a.size; ++i)\
+    for (s32 i = 0; i < a.size && i < b.size; ++i)\
     {\
         if (is_param_valid(a[i]) && is_param_valid(b[i])) \
         {\
@@ -970,6 +987,41 @@ static BinaryEquationFunction BinaryEquationTable[] =
 
 static const size_t BinaryEquationCount = ArrayCount(BinaryEquationTable);
 
+using BinaryEquationFunction_idx = void (*)(ParamVec a, s32 ai, ParamVec b, s32 bi, ParamVec out);
+
+#define add_binary_equation_idx(x) \
+[](ParamVec a, s32 ai, ParamVec b, s32 bi, ParamVec o)\
+{\
+    if (is_param_valid(a[ai]) && is_param_valid(b[bi])) \
+    {\
+        x;\
+    }\
+    else\
+    {\
+        o[0] = invalid_param();\
+    }\
+}
+
+static BinaryEquationFunction_idx BinaryEquationTable_idx[] =
+{
+    add_binary_equation_idx(o[0] = a[ai] + b[bi]),
+
+    add_binary_equation_idx(o[0] = a[ai] - b[bi]),
+
+    add_binary_equation_idx(o[0] = (a[ai] + b[bi]) / (a[ai] - b[bi])),
+
+    add_binary_equation_idx(o[0] = (a[ai] - b[bi]) / (a[ai] + b[bi])),
+
+    add_binary_equation_idx(o[0] = a[ai] / (a[ai] - b[bi])),
+
+    add_binary_equation_idx(o[0] = (a[ai] - b[bi]) / a[ai]),
+};
+#undef add_binary_equation_idx
+
+static const size_t BinaryEquationCount_idx = ArrayCount(BinaryEquationTable_idx);
+
+static_assert(BinaryEquationCount == BinaryEquationCount_idx, "Expected same number of equations for non-index and index cases.");
+
 void binary_equation_step(Operator *op)
 {
     // The equationIndex is stored directly in the d pointer.
@@ -994,7 +1046,7 @@ Operator make_binary_equation(
     assign_input(&result, inputA, 0);
     assign_input(&result, inputB, 1);
 
-    push_output_vectors(arena, &result, 0, inputA.data.size,
+    push_output_vectors(arena, &result, 0, std::min(inputA.data.size, inputB.data.size),
                         outputLowerLimit, outputUpperLimit);
 
     result.d = (void *)(uintptr_t)equationIndex;
@@ -1002,14 +1054,59 @@ Operator make_binary_equation(
     return result;
 }
 
+struct BinaryEquationIdxData
+{
+    u32 equationIndex;
+    s32 inputIndexA;
+    s32 inputIndexB;
+};
+
+Operator make_binary_equation_idx(
+    memory::Arena *arena,
+    PipeVectors inputA,
+    PipeVectors inputB,
+    s32 inputIndexA,
+    s32 inputIndexB,
+    u32 equationIndex,
+    double outputLowerLimit,
+    double outputUpperLimit)
+{
+    assert(equationIndex < ArrayCount(BinaryEquationTable));
+    assert(0 <= inputIndexA && inputIndexA < inputA.data.size);
+    assert(0 <= inputIndexB && inputIndexB < inputB.data.size);
+
+    auto result = make_operator(arena, Operator_BinaryEquation_idx, 2, 1);
+    assign_input(&result, inputA, 0);
+    assign_input(&result, inputB, 1);
+
+    auto d = arena->pushStruct<BinaryEquationIdxData>();
+    result.d = d;
+
+    d->equationIndex = equationIndex;
+    d->inputIndexA   = inputIndexA;
+    d->inputIndexB   = inputIndexB;
+
+    push_output_vectors(arena, &result, 0, 1,
+                        outputLowerLimit, outputUpperLimit);
+
+    return result;
+}
+
+void binary_equation_step_idx(Operator *op)
+{
+    auto d = reinterpret_cast<BinaryEquationIdxData *>(op->d);
+
+    BinaryEquationTable_idx[d->equationIndex](
+        op->inputs[0], d->inputIndexA,
+        op->inputs[1], d->inputIndexB,
+        op->outputs[0]);
+}
+
 /* ===============================================
  * AggregateOps
  * =============================================== */
 inline bool is_valid_and_inside(double param, Thresholds thresholds)
 {
-    assert(!std::isnan(thresholds.min));
-    assert(!std::isnan(thresholds.max));
-
     return (is_param_valid(param)
             && thresholds.min <= param
             && thresholds.max >= param);
@@ -1038,9 +1135,6 @@ static Operator make_aggregate_op(
     }
 
     a2_trace("resulting thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
-
-    assert(!std::isnan(thresholds.min)); // XXX: can be nan if input limits are nan
-    assert(!std::isnan(thresholds.max));
 
     auto d = arena->push(thresholds);
     result.d = d;
@@ -1130,20 +1224,14 @@ void aggregate_multiplicity_step(Operator *op)
     auto output = op->outputs[0];
     auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
 
-    output[0] = invalid_param();
-    s32 result = -1;
+    output[0] = 0.0;
 
     for (s32 i = 0; i < input.size; i++)
     {
         if (is_valid_and_inside(input[i], thresholds))
         {
-            result++;
+            output[0]++;
         }
-    }
-
-    if (result >= 0) // got at least one valid
-    {
-        output[0] = result + 1; // adjust for the initial -1
     }
 }
 
@@ -1822,12 +1910,14 @@ struct ConditionFilterData
 {
     s32 dataIndex;
     s32 condIndex;
+    bool inverted;
 };
 
 Operator make_condition_filter(
     memory::Arena *arena,
     PipeVectors dataInput,
     PipeVectors condInput,
+    bool inverted,
     s32 dataIndex,
     s32 condIndex)
 {
@@ -1849,7 +1939,7 @@ Operator make_condition_filter(
 
     auto result = make_operator(arena, Operator_ConditionFilter, 2, 1);
 
-    auto d = arena->push<ConditionFilterData>({ dataIndex, condIndex, });
+    auto d = arena->push<ConditionFilterData>({ dataIndex, condIndex, inverted });
     result.d = d;
 
     assign_input(&result, dataInput, 0);
@@ -1911,7 +2001,20 @@ void condition_filter_step(Operator *op)
                 condParam = condInput[d->condIndex];
             }
 
-            output[pi] = (is_param_valid(condParam) ? dataInput[pi] : invalid_param());
+            bool condValid = is_param_valid(condParam);
+
+            if (condValid && !d->inverted)
+            {
+                output[pi] = dataInput[pi];
+            }
+            else if (!condValid && d->inverted)
+            {
+                output[pi] = dataInput[pi];
+            }
+            else
+            {
+                output[pi] = invalid_param();
+            }
         }
     }
     else
@@ -1924,9 +2027,361 @@ void condition_filter_step(Operator *op)
         assert(output.size == 1);
 
         double condParam = condInput[d->condIndex];
+        bool condValid   = is_param_valid(condParam);
 
-        output[0] = (is_param_valid(condParam) ? dataInput[d->dataIndex] : invalid_param());
+        if (condValid && !d->inverted)
+        {
+            output[0] = dataInput[d->dataIndex];
+        }
+        else if (!condValid && d->inverted)
+        {
+            output[0] = dataInput[d->dataIndex];
+        }
+        else
+        {
+            output[0] = invalid_param();
+        }
     }
+}
+
+/* ===============================================
+ * Expression Operator
+ * =============================================== */
+
+a2_exprtk::SymbolTable make_expression_operator_runtime_library()
+{
+    a2_exprtk::SymbolTable result;
+
+    /* Note: the conversion from lambda to function pointer works because the
+     * lambdas are non-capturing. */
+
+    result.addFunction(
+        "is_valid", [](double p) { return static_cast<double>(is_param_valid(p)); });
+
+    result.addFunction(
+        "is_invalid", [](double p) { return static_cast<double>(!is_param_valid(p)); });
+
+    result.addFunction(
+        "make_invalid", invalid_param);
+
+    result.addFunction(
+        "is_nan", [](double d) { return static_cast<double>(std::isnan(d)); });
+
+    result.addFunction(
+        "valid_or", [](double p, double def_value) {
+            return is_param_valid(p) ? p : def_value;
+    });
+
+    return result;
+}
+
+#define register_symbol(table, meth, sym, ...) table.meth(sym, ##__VA_ARGS__)
+
+namespace
+{
+struct OutputSpec
+{
+    std::string name;
+    std::string unit;
+    std::vector<double> lowerLimits;
+    std::vector<double> upperLimits;
+};
+
+using Result = a2_exprtk::Expression::Result;
+using SemanticError = ExpressionOperatorSemanticError;
+
+
+OutputSpec build_output_spec(size_t out_idx, size_t result_idx,
+                             const Result &res_name,
+                             const Result &res_unit,
+                             const Result &res_size,
+                             const Result &res_ll,
+                             const Result &res_ul)
+
+{
+    OutputSpec result = {};
+    std::ostringstream ss;
+
+#define expect_result_type(res, expected_type)\
+do\
+    if (res.type != expected_type)\
+    {\
+        std::ostringstream ss;\
+        ss << "Unexpected result type: result #" << result_idx\
+        << ", output #" << out_idx <<  ": expected type is " << #expected_type;\
+        throw SemanticError(ss.str());\
+    }\
+while(0)
+
+    expect_result_type(res_name, Result::String);
+    expect_result_type(res_unit, Result::String);
+    expect_result_type(res_size, Result::Scalar);
+
+#undef expect_result_type
+
+    result.name = res_name.string;
+    result.unit = res_unit.string;
+
+    s32 outputSize = std::lround(res_size.scalar);
+
+    if (outputSize <= 0)
+    {
+        ss << "output#" << out_idx << ", name=" << result.name
+            << ": Invalid output size returned (" << outputSize << ")";
+        throw SemanticError(ss.str());
+    }
+
+    if (res_ll.type == Result::Scalar && res_ul.type == Result::Scalar)
+    {
+        result.lowerLimits.resize(outputSize);
+        std::fill(result.lowerLimits.begin(), result.lowerLimits.end(), res_ll.scalar);
+
+        result.upperLimits.resize(outputSize);
+        std::fill(result.upperLimits.begin(), result.upperLimits.end(), res_ul.scalar);
+    }
+    else if (res_ll.type == Result::Vector && res_ul.type == Result::Vector)
+    {
+        if(res_ll.vector.size() != res_ul.vector.size())
+        {
+            ss << "output#" << out_idx << ", name=" << result.name
+               << ": Different sizes of limit specifications"
+                << ": lower_limits[]: " << res_ll.vector.size()
+                << ", upper_limits[]: " << res_ul.vector.size();
+            throw SemanticError(ss.str());
+        }
+
+        if (res_ll.vector.size() != static_cast<size_t>(outputSize))
+        {
+            ss << "output#" << out_idx << ", name=" << result.name
+                << ": Output size and size of limit arrays differ!"
+                << " output size =" << outputSize
+                << ", limits size =" << res_ll.vector.size();
+            throw SemanticError(ss.str());
+        }
+
+        result.lowerLimits = res_ll.vector;
+        result.upperLimits = res_ul.vector;
+    }
+    else
+    {
+        ss << "output#" << out_idx << ", name=" << result.name
+            << ": Limit definitions must either both be scalars or both be arrays.";
+        throw SemanticError(ss.str());
+    }
+
+    return result;
+}
+
+} // end anon namspace
+
+Operator make_expression_operator(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &input_param_indexes,
+    const std::vector<std::string> &input_prefixes,
+    const std::vector<std::string> &input_units,
+    const std::string &expr_begin_str,
+    const std::string &expr_step_str,
+    ExpressionOperatorBuildOptions options)
+{
+    assert(inputs.size() > 0);
+    assert(inputs.size() < std::numeric_limits<s32>::max());
+    assert(inputs.size() == input_prefixes.size());
+    assert(inputs.size() == input_units.size());
+
+    auto d = arena->pushObject<ExpressionOperatorData>();
+
+    /* Fill the begin expression symbol table with unit and limit information. */
+    for (size_t i = 0; i < inputs.size(); i++)
+    {
+        const auto &input  = inputs[i];
+        const auto &prefix = input_prefixes[i];
+        const auto &unit   = input_units[i];
+        const auto &pi     = input_param_indexes[i];
+
+        register_symbol(d->symtab_begin, createString, prefix + ".unit",
+                        unit);
+
+        if (pi == NoParamIndex)
+        {
+            register_symbol(d->symtab_begin, addVector, prefix + ".lower_limits",
+                            input.lowerLimits.data, input.lowerLimits.size);
+
+            register_symbol(d->symtab_begin, addVector, prefix + ".upper_limits",
+                            input.upperLimits.data, input.upperLimits.size);
+
+            register_symbol(d->symtab_begin, addConstant, prefix + ".size",
+                            input.lowerLimits.size);
+        }
+        else
+        {
+            register_symbol(d->symtab_begin, addScalar, prefix + ".lower_limit",
+                            input.lowerLimits.data[pi]);
+
+            register_symbol(d->symtab_begin, addScalar, prefix + ".upper_limit",
+                            input.upperLimits.data[pi]);
+        }
+    }
+
+    /* Setup and evaluate the begin expression. */
+    d->expr_begin.registerSymbolTable(make_expression_operator_runtime_library());
+    d->expr_begin.registerSymbolTable(d->symtab_begin);
+    d->expr_begin.setExpressionString(expr_begin_str);
+    d->expr_begin.compile();
+    d->expr_begin.eval();
+
+    /* Build outputs from the information returned from the begin expression.
+     *
+     * The result format is a list of tuples with 5 elements per tuple. A tuple
+     * defines a single output array. Each tuple must have the following form
+     * and datatypes:
+     *
+     * output_var_name, output_unit, output_size, lower_limit_spec, upper_limit_spec
+     * string,          string,      scalar,      scalar/array,     scalar/array
+     *
+     */
+    static const size_t ElementsPerOutput = 5;
+
+    auto begin_results = d->expr_begin.results();
+
+    if (begin_results.size() == 0)
+    {
+        throw SemanticError("Empty result list from BeginExpression");
+    }
+
+    if (begin_results.size() % ElementsPerOutput != 0)
+    {
+        std::ostringstream ss;
+        ss << "BeginExpression returned an invalid number of results ("
+            << begin_results.size() << ")";
+        throw SemanticError(ss.str());
+    }
+
+    const size_t outputCount = begin_results.size() / ElementsPerOutput;
+
+    assert(outputCount < std::numeric_limits<s32>::max());
+
+    auto result = make_operator(arena, Operator_Expression, inputs.size(), outputCount);
+    result.d = d;
+
+    /* Assign operator inputs and create input symbol in the step symbol table. */
+    for (size_t in_idx = 0; in_idx < inputs.size(); in_idx++)
+    {
+        assign_input(&result, inputs[in_idx], in_idx);
+
+        const auto &input  = inputs[in_idx];
+        const auto &prefix = input_prefixes[in_idx];
+        const auto &unit   = input_units[in_idx];
+        const auto &pi     = input_param_indexes[in_idx];
+
+        register_symbol(d->symtab_step, createString, prefix + ".unit",
+                        unit);
+
+        if (pi == NoParamIndex)
+        {
+            register_symbol(d->symtab_step, addVector, prefix,
+                            input.data.data, input.data.size);
+
+            register_symbol(d->symtab_step, addVector, prefix + ".lower_limits",
+                            input.lowerLimits.data, input.lowerLimits.size);
+
+            register_symbol(d->symtab_step, addVector, prefix + ".upper_limits",
+                            input.upperLimits.data, input.upperLimits.size);
+
+            register_symbol(d->symtab_step, addConstant, prefix + ".size",
+                            input.lowerLimits.size);
+        }
+        else
+        {
+            register_symbol(d->symtab_step, addScalar, prefix,
+                            input.data.data[pi]);
+
+            register_symbol(d->symtab_step, addScalar, prefix + ".lower_limit",
+                            input.lowerLimits.data[pi]);
+
+            register_symbol(d->symtab_step, addScalar, prefix + ".upper_limit",
+                            input.upperLimits.data[pi]);
+        }
+    }
+
+    /* Interpret the results returned from the begin expression and build the
+     * output vectors accordingly. */
+    for (size_t out_idx = 0, result_idx = 0;
+         out_idx < outputCount;
+         out_idx++, result_idx += ElementsPerOutput)
+    {
+        auto outSpec = build_output_spec(
+            out_idx, result_idx,
+            begin_results[result_idx + 0],
+            begin_results[result_idx + 1],
+            begin_results[result_idx + 2],
+            begin_results[result_idx + 3],
+            begin_results[result_idx + 4]);
+
+        push_output_vectors(arena, &result, out_idx, outSpec.lowerLimits.size());
+
+        for (size_t paramIndex = 0;
+             paramIndex < outSpec.lowerLimits.size();
+             paramIndex++)
+        {
+            result.outputLowerLimits[out_idx][paramIndex] = outSpec.lowerLimits[paramIndex];
+            result.outputUpperLimits[out_idx][paramIndex] = outSpec.upperLimits[paramIndex];
+        }
+
+        d->output_names.push_back(outSpec.name);
+        d->output_units.push_back(outSpec.unit);
+
+        //fprintf(stderr, "output[%lu] variable name = %s\n", out_idx, res_name.string.c_str());
+
+        register_symbol(d->symtab_step, addVector, outSpec.name,
+                        result.outputs[out_idx].data, result.outputs[out_idx].size);
+
+        register_symbol(d->symtab_step, addVector, outSpec.name + ".lower_limits",
+                        result.outputLowerLimits[out_idx].data, result.outputLowerLimits[out_idx].size);
+
+        register_symbol(d->symtab_step, addVector, outSpec.name + ".upper_limits",
+                        result.outputUpperLimits[out_idx].data, result.outputUpperLimits[out_idx].size);
+
+        register_symbol(d->symtab_step, addConstant, outSpec.name + ".size",
+                        result.outputs[out_idx].size);
+
+        register_symbol(d->symtab_step, createString, outSpec.name + ".unit",
+                        outSpec.unit);
+    }
+
+    d->expr_step.registerSymbolTable(make_expression_operator_runtime_library());
+    d->expr_step.registerSymbolTable(d->symtab_step);
+    d->expr_step.setExpressionString(expr_step_str);
+
+    if (options == ExpressionOperatorBuildOptions::FullBuild)
+    {
+        expression_operator_compile_step_expression(&result);
+    }
+
+    return result;
+}
+
+#undef register_symbol
+
+void expression_operator_compile_step_expression(Operator *op)
+{
+    assert(op->type == Operator_Expression);
+
+    auto d = reinterpret_cast<ExpressionOperatorData *>(op->d);
+
+    d->expr_step.compile();
+}
+
+void expression_operator_step(Operator *op)
+{
+    assert(op->type == Operator_Expression);
+
+    auto d = reinterpret_cast<ExpressionOperatorData *>(op->d);
+
+    /* References to the input and output have been bound in
+     * make_expression_operator(). No need to pass anything here, just evaluate
+     * the step expression. */
+    d->expr_step.eval();
 }
 
 /* ===============================================
@@ -2248,9 +2703,9 @@ static void debug_samplers(const TypedBlock<RateSampler *, s32> &samplers, const
                 prefix,
                 i,
                 sampler,
-                sampler->rateHistory.get(),
-                sampler->rateHistory->capacity(),
-                sampler->rateHistory->size()
+                &sampler->rateHistory,
+                sampler->rateHistory.capacity(),
+                sampler->rateHistory.size()
                );
     }
 }
@@ -2388,18 +2843,318 @@ void rate_monitor_sample_flow(Operator *op)
 
         a2_trace_np("  [%d] lastRate=%lf, history size =%lf, history capacity=%lf\n",
                     idx, sampler->lastRate,
-                    static_cast<double>(sampler->rateHistory ? sampler->rateHistory->size() : 0u),
-                    static_cast<double>(sampler->rateHistory ? sampler->rateHistory->capacity() : 0u)
+                    static_cast<double>(sampler->rateHistory.size()),
+                    static_cast<double>(sampler->rateHistory.capacity())
                    );
     }
+}
+
+//
+// ExportSink
+//
+
+Operator make_export_sink(
+    memory::Arena *arena,
+    const std::string &output_filename,
+    int compressionLevel,
+    ExportSinkFormat format,
+    TypedBlock<PipeVectors, s32> dataInputs
+    )
+{
+    return make_export_sink(
+        arena,
+        output_filename,
+        compressionLevel,
+        format,
+        dataInputs,
+        PipeVectors(),
+        -1);
+}
+
+Operator make_export_sink(
+    memory::Arena *arena,
+    const std::string &output_filename,
+    int compressionLevel,
+    ExportSinkFormat format,
+    TypedBlock<PipeVectors, s32> dataInputs,
+    PipeVectors condInput,
+    s32 condIndex
+    )
+{
+    Operator result = {};
+
+    s32 inputCount = dataInputs.size;
+
+    if (condIndex >= 0)
+        inputCount++;
+
+    switch (format)
+    {
+        case ExportSinkFormat::Full:
+            result = make_operator(arena, Operator_ExportSinkFull, inputCount, 0);
+            break;
+        case ExportSinkFormat::Sparse:
+            result = make_operator(arena, Operator_ExportSinkSparse, inputCount, 0);
+            break;
+    }
+
+    auto d = arena->pushObject<ExportSinkData>();
+    result.d = d;
+
+    d->filename         = output_filename;
+    d->compressionLevel = compressionLevel;
+    d->condIndex        = condIndex;
+
+    // Assign data inputs.
+    for (s32 ii = 0; ii < dataInputs.size; ii++)
+    {
+        assign_input(&result, dataInputs[ii], ii);
+    }
+
+    // The optional condition input is the last input. It's only used if
+    // condIndex is valid.
+    if (condIndex >= 0)
+    {
+        assign_input(&result, condInput, inputCount - 1);
+    }
+
+    return result;
+}
+
+static const size_t CompressionBufferSize = 1u << 20;
+
+/* NOTE: About error handling in the ExportSink:
+ * - std::ofstream by default has exceptions disabled. The method rdstate() can
+ *   be used to query the status of the error bits after each operation.
+ *
+ * - The zstr implementation enables exceptions by default and from looking at
+ *   the code the implementation assumes that exceptions stay enabled.
+ *
+ * > The export sink code enables exceptions both for the low level ofstream
+ *   and for the zstr ostream.
+ *
+ *   All I/O operations must be wrapped in a try/catch block. Additionally any
+ *   further I/O operations are only performed if the good() method of the
+ *   stream returns true. This means after the first I/O exception is caught no
+ *   further attempts at writing to the file are performed.
+ */
+
+void export_sink_begin_run(Operator *op, Logger logger)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ExportSinkFull
+           || op->type == Operator_ExportSinkSparse);
+
+    auto d = reinterpret_cast<ExportSinkData *>(op->d);
+
+    d->ostream.reset(new std::ofstream(d->filename, std::ios::binary | std::ios::trunc));
+
+    // Enable ios exceptions for the lowest level output stream. This operation can throw.
+    try
+    {
+        d->ostream->exceptions(std::ios::failbit | std::ios::badbit);
+
+        if (d->compressionLevel != 0)
+        {
+            d->z_ostream.reset(new zstr::ostream(*d->ostream));
+        }
+
+        std::ostringstream ss;
+        ss << "File Export: Opened output file " << d->filename;
+        logger(ss.str());
+    }
+    catch (const std::exception &e)
+    {
+        std::ostringstream ss;
+        ss << "File Export: Error opening output file " << d->filename << ": " << e.what();
+        logger(ss.str());
+        d->setLastError(ss.str());
+    }
+}
+
+void export_sink_full_step(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ExportSinkFull);
+
+    auto d = reinterpret_cast<ExportSinkData *>(op->d);
+
+    std::ostream *outp = (d->compressionLevel != 0
+                          ? d->z_ostream.get()
+                          : d->ostream.get());
+
+    if (!outp) return;
+
+    s32 dataInputCount = op->inputCount;
+
+    // Test the condition input if it's used
+    if (d->condIndex >= 0)
+    {
+        assert(d->condIndex < op->inputs[op->inputCount - 1].size);
+
+        if (!is_param_valid(op->inputs[op->inputCount - 1][d->condIndex]))
+            return;
+
+        dataInputCount = op->inputCount - 1;
+    }
+
+    try
+    {
+        if (outp->good())
+        {
+            for (s32 inputIndex = 0;
+                 inputIndex < dataInputCount && outp->good();
+                 inputIndex++)
+            {
+                auto input = op->inputs[inputIndex];
+                assert(input.size <= std::numeric_limits<u16>::max());
+
+                size_t bytes = input.size * sizeof(double);
+
+                outp->write(reinterpret_cast<char *>(input.data), bytes);
+
+                d->bytesWritten += bytes;
+            }
+
+            d->eventsWritten++;
+        }
+    }
+    catch (const std::exception &e)
+    {
+        std::ostringstream ss;
+        ss << "Error writing to output file " << d->filename << ": " << e.what();
+        d->setLastError(ss.str());
+    }
+}
+
+static size_t write_indexed_parameter_vector(std::ostream &out, const ParamVec &vec)
+{
+    assert(vec.size >= 0);
+    assert(vec.size <= std::numeric_limits<u16>::max());
+
+    size_t bytesWritten = 0;
+    u16 validCount = 0;
+
+    for (s32 i = 0; i < vec.size; i++)
+    {
+        if (is_param_valid(vec[i]))
+            validCount++;
+    }
+
+    // Write a size prefix and two arrays with length 'validCount', one
+    // containing 16-bit index values, the other containing the corresponding
+    // parameter values.
+    out.write(reinterpret_cast<char *>(&validCount), sizeof(validCount));
+    bytesWritten += sizeof(validCount);
+
+    for (u16 i = 0; i < static_cast<u16>(vec.size); i++)
+    {
+        if (is_param_valid(vec[i]))
+        {
+            // 16-bit index value
+            out.write(reinterpret_cast<char *>(&i), sizeof(i));
+            bytesWritten += sizeof(i);
+        }
+    }
+
+    for (u16 i = 0; i < static_cast<u16>(vec.size); i++)
+    {
+        if (is_param_valid(vec[i]))
+        {
+            // 64-bit double value
+            out.write(reinterpret_cast<char *>(vec.data + i), sizeof(double));
+            bytesWritten += sizeof(double);
+        }
+    }
+
+    return bytesWritten;
+}
+
+void export_sink_sparse_step(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ExportSinkSparse);
+
+    auto d = reinterpret_cast<ExportSinkData *>(op->d);
+
+    std::ostream *outp = (d->compressionLevel != 0
+                          ? d->z_ostream.get()
+                          : d->ostream.get());
+
+    if (!outp) return;
+
+    s32 dataInputCount = op->inputCount;
+
+    // Test the condition input if it's used
+    if (d->condIndex >= 0)
+    {
+        assert(d->condIndex < op->inputs[op->inputCount - 1].size);
+
+        if (!is_param_valid(op->inputs[op->inputCount - 1][d->condIndex]))
+            return;
+
+        dataInputCount = op->inputCount - 1;
+    }
+
+    try
+    {
+        if (outp->good())
+        {
+            for (s32 inputIndex = 0;
+                 inputIndex < dataInputCount && outp->good();
+                 inputIndex++)
+            {
+                auto input = op->inputs[inputIndex];
+                assert(input.size <= std::numeric_limits<u16>::max());
+
+                size_t bytes = write_indexed_parameter_vector(*outp, input);
+                d->bytesWritten += bytes;
+            }
+
+            d->eventsWritten++;
+        }
+    }
+    catch (const std::exception &e)
+    {
+        std::ostringstream ss;
+        ss << "Error writing to output file " << d->filename << ": " << e.what();
+        d->setLastError(ss.str());
+    }
+}
+
+void export_sink_end_run(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ExportSinkFull
+           || op->type == Operator_ExportSinkSparse);
+
+    auto d = reinterpret_cast<ExportSinkData *>(op->d);
+
+    // The destructors being called as a result of clearing the unique_ptrs
+    // should not throw.
+    d->z_ostream = {};
+    d->ostream   = {};
 }
 
 /* ===============================================
  * A2 implementation
  * =============================================== */
 
+struct OperatorFunctions
+{
+    using StepFunction      = void (*)(Operator *op);
+    using BeginRunFunction  = void (*)(Operator *op, Logger logger);
+    using EndRunFunction    = void (*)(Operator *op);
+
+    StepFunction step;
+    BeginRunFunction begin_run = nullptr;
+    EndRunFunction end_run = nullptr;
+};
+
 static const OperatorFunctions OperatorTable[OperatorTypeCount] =
 {
+    [Invalid_OperatorType] = { nullptr },
+
     [Operator_Calibration] = { calibration_step },
     [Operator_Calibration_sse] = { calibration_sse_step },
     [Operator_Calibration_idx] = { calibration_step_idx },
@@ -2409,12 +3164,19 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Difference_idx] = { difference_step_idx },
     [Operator_ArrayMap] = { array_map_step },
     [Operator_BinaryEquation] = { binary_equation_step },
+    [Operator_BinaryEquation_idx] = { binary_equation_step_idx },
+
     [Operator_H1DSink] = { h1d_sink_step },
     [Operator_H1DSink_idx] = { h1d_sink_step_idx },
     [Operator_H2DSink] = { h2d_sink_step },
+
     [Operator_RateMonitor_PrecalculatedRate] = { rate_monitor_step },
     [Operator_RateMonitor_CounterDifference] = { rate_monitor_step },
     [Operator_RateMonitor_FlowRate] = { rate_monitor_step },
+
+    [Operator_ExportSinkFull]   = { export_sink_full_step,   export_sink_begin_run, export_sink_end_run },
+    [Operator_ExportSinkSparse] = { export_sink_sparse_step, export_sink_begin_run, export_sink_end_run },
+
     [Operator_RangeFilter] = { range_filter_step },
     [Operator_RangeFilter_idx] = { range_filter_step_idx },
     [Operator_RectFilter] = { rect_filter_step },
@@ -2432,6 +3194,8 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Aggregate_MaxX] = { aggregate_maxx_step },
     [Operator_Aggregate_MeanX] = { aggregate_meanx_step },
     [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
+
+    [Operator_Expression] = { expression_operator_step },
 };
 
 inline void step_operator(Operator *op)
@@ -2555,10 +3319,14 @@ inline u32 step_operator_range(Operator *first, Operator *last)
 
         assert(op);
         assert(op->type < ArrayCount(OperatorTable));
-        assert(OperatorTable[op->type].step);
 
-        OperatorTable[op->type].step(op);
-        opSteppedCount++;
+        if (likely(op->type != Invalid_OperatorType))
+        {
+            assert(OperatorTable[op->type].step);
+
+            OperatorTable[op->type].step(op);
+            opSteppedCount++;
+        }
     }
 
     return opSteppedCount;
@@ -2789,7 +3557,7 @@ static OperatorRangeWorkQueue A2WorkQueue(WorkQueueSize);
 
 static std::vector<std::thread> A2Threads = {};
 
-void a2_begin_run(A2 *a2)
+void a2_begin_run(A2 *a2, Logger logger)
 {
     if (A2AdditionalThreads > 0)
     {
@@ -2800,6 +3568,25 @@ void a2_begin_run(A2 *a2)
         for (int threadId = 0; threadId < A2AdditionalThreads; threadId++)
         {
             A2Threads.emplace_back(a2_worker_loop, &A2WorkQueue, ThreadInfo{ threadId });
+        }
+    }
+
+    // call begin_run functions stored in the OperatorTable
+    for (s32 ei = 0; ei < MaxVMEEvents; ei++)
+    {
+        const int opCount = a2->operatorCounts[ei];
+
+        for (int opIdx = 0; opIdx < opCount; opIdx++)
+        {
+            Operator *op = a2->operators[ei] + opIdx;
+
+            assert(op);
+            assert(op->type < ArrayCount(OperatorTable));
+
+            if (OperatorTable[op->type].begin_run)
+            {
+                OperatorTable[op->type].begin_run(op, logger);
+            }
         }
     }
 }
@@ -2855,7 +3642,29 @@ void a2_end_run(A2 *a2)
         }
     }
 
-    a2_trace("done\n");
+    a2_trace("done joining threads\n");
+
+    // call end_run functions stored in the OperatorTable
+    for (s32 ei = 0; ei < MaxVMEEvents; ei++)
+    {
+        const int opCount = a2->operatorCounts[ei];
+
+        for (int opIdx = 0; opIdx < opCount; opIdx++)
+        {
+            Operator *op = a2->operators[ei] + opIdx;
+
+            assert(op);
+            assert(op->type < ArrayCount(OperatorTable));
+
+            if (OperatorTable[op->type].end_run)
+            {
+                OperatorTable[op->type].end_run(op);
+            }
+        }
+    }
+
+    a2_trace("done");
+    //fprintf(stderr, "a2::%s() done\n", __FUNCTION__);
 }
 
 // step operators for the eventIndex
@@ -2873,6 +3682,7 @@ void a2_end_event(A2 *a2, int eventIndex)
 
     if (opCount)
     {
+        // No threads
         if (A2AdditionalThreads == 0)
         {
             for (int opIdx = 0; opIdx < opCount; opIdx++)
@@ -2883,12 +3693,21 @@ void a2_end_event(A2 *a2, int eventIndex)
 
                 assert(op);
                 assert(op->type < ArrayCount(OperatorTable));
-                assert(OperatorTable[op->type].step);
 
-                OperatorTable[op->type].step(op);
-                opSteppedCount++;
+                if (likely(op->type != Invalid_OperatorType))
+                {
+                    assert(OperatorTable[op->type].step);
+
+                    OperatorTable[op->type].step(op);
+                    opSteppedCount++;
+                }
+                else
+                {
+                    InvalidCodePath;
+                }
             }
         }
+        // Threaded
         else
         {
             if (opCount)

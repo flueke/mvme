@@ -90,8 +90,11 @@ QString LIBMVME_EXPORT get_template_path();
 // Output diagnostic information about the templates.
 LIBMVME_EXPORT QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates);
 
-VMEModuleMeta LIBMVME_EXPORT get_module_meta_by_typename(const MVMETemplates &templates, const QString &moduleTypename);
-VMEModuleMeta LIBMVME_EXPORT get_module_meta_by_typeId(const MVMETemplates &templates, u8 typeId);
+VMEModuleMeta LIBMVME_EXPORT get_module_meta_by_typename(const MVMETemplates &templates,
+                                                         const QString &moduleTypename);
+
+VMEModuleMeta LIBMVME_EXPORT get_module_meta_by_typeId(const MVMETemplates &templates,
+                                                       u8 typeId);
 
 }  // namespace vats
 

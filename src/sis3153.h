@@ -24,8 +24,8 @@
 #include "libmvme_export.h"
 #include "vme_controller.h"
 
-class SIS3153Private;
 class sis3153eth;
+struct SIS3153Private;
 
 class LIBMVME_EXPORT SIS3153: public VMEController
 {
@@ -70,6 +70,9 @@ class LIBMVME_EXPORT SIS3153: public VMEController
         VMEError readRegister(u32 address, u32 *outValue);
         VMEError writeRegister(u32 address, u32 value);
 
+        void setResetOnConnect(bool sendReset);
+        bool doesResetOnConnect() const;
+
     private:
         SIS3153Private *m_d;
 };
@@ -87,7 +90,47 @@ namespace SIS3153Registers
     static const u32 ModuleIdAndFirmware        = 0x1;
     static const u32 SerialNumber               = 0x2;
     static const u32 LemoIOControl              = 0x3;
+
+    namespace LemoIOControlValues
+    {
+        /* The bits below are used to enable a certain setting. Shifting a bit
+         * by DisableShift and writing it to the register disables the setting.
+         */
+        static const u32 DisableShift = 16;
+
+        /* High level control of the outputs. The choice between NIM and TTL
+         * should be made via the onboard jumpbers. */
+        static const u32 OUT1 = 1u << 4;
+        static const u32 OUT2 = 1u << 5;
+    }
+
     static const u32 UDPConfiguration           = 0x4;
+
+    namespace UDPConfigurationValues
+    {
+        static const u32 GapTimeMask             = 0xfu;
+        static const u32 GapTimeValueCount       = GapTimeMask + 1;
+
+        static const QString GapTimeValues[GapTimeValueCount] =
+        {
+            "256 ns",
+            "512 ns",
+            "1 us",
+            "2 us",
+            "4 us",
+            "8 us",
+            "10 us",
+            "12 us",
+            "14 us",
+            "16 us",
+            "20 us",
+            "28 us",
+            "32 us",
+            "41 us",
+            "50 us",
+            "57 us",
+        };
+    }
 
     static const u32 VMEMasterStatusAndControl  = 0x10;
     static const u32 VMEMasterCycleStatus       = 0x11;

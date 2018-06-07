@@ -29,7 +29,7 @@ class MVMEContext;
 namespace analysis
 {
 
-class AnalysisWidgetPrivate;
+struct AnalysisWidgetPrivate;
 class OperatorInterface;
 
 class AnalysisWidget: public QWidget
@@ -39,15 +39,15 @@ class AnalysisWidget: public QWidget
         AnalysisWidget(MVMEContext *ctx, QWidget *parent = 0);
         ~AnalysisWidget();
 
-        void operatorAdded(const std::shared_ptr<OperatorInterface> &op);
-        void operatorEdited(const std::shared_ptr<OperatorInterface> &op);
+        void operatorAddedExternally(const std::shared_ptr<OperatorInterface> &op);
+        void operatorEditedExternally(const std::shared_ptr<OperatorInterface> &op);
 
         void updateAddRemoveUserLevelButtons();
 
         virtual bool event(QEvent *event) override;
 
     private:
-        friend class AnalysisWidgetPrivate;
+        friend struct AnalysisWidgetPrivate;
         AnalysisWidgetPrivate *m_d;
 
         void eventConfigModified();

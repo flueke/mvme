@@ -5,7 +5,12 @@
  * read access from the GUI thread is ok or if the buffer has to be guarded by
  * an RW lock. If buffer debugging is enabled assertions will fire under high
  * load as the analysis thread is pushing values onto the buffer while the GUI
- * plots the buffer contents. */
+ * plots the buffer contents.
+ *
+ * Results are good so far: if buffer debugging is disabled concurrent reads
+ * cause no issues. To implement a "clear history" operation I added a
+ * read/writer lock to the RateSampler struct. The lock is used to guard write
+ * operations from concurrent accesses, reads are not guarded right now. */
 #define BOOST_CB_DISABLE_DEBUG
 #include <boost/circular_buffer.hpp>
 
@@ -30,13 +35,16 @@ struct RateSampler
     // setup
     //
 
-    /* Scale factor to multiply recorded samples/rates by. */
+    /* Scale factor to multiply recorded samples/rates by. This scales the rate
+     * values, not the time axis. */
     double scale  = 1.0;
 
-    /* Offset for recorded samples/rates. */
+    /* Offset for recorded samples/rates. Scales the rate values, not the time
+     * axis. */
     double offset = 0.0;
 
-    /* Sampling interval in seconds. Not used for sampling but for x-axis scaling. */
+    /* Sampling interval in seconds. Not used for sampling but for x-axis
+     * scaling. Used in getSampleTime() and getSampleIndex(). */
     double interval = 1.0;
 
     //
@@ -70,7 +78,6 @@ struct RateSampler
         WriteGuard guard(rwLock);
 
         std::tie(lastRate, lastDelta) = calcRateAndDelta(value);
-        lastRate = std::isnan(lastRate) ? 0.0 : lastRate;
 
         if (rateHistory.capacity())
         {
@@ -86,7 +93,6 @@ struct RateSampler
         WriteGuard guard(rwLock);
 
         lastRate = rate * scale + offset;
-        lastRate = std::isnan(lastRate) ? 0.0 : lastRate;
 
         if (rateHistory.capacity())
         {
@@ -112,7 +118,6 @@ struct RateSampler
 
     void clearHistory(bool keepSampleCount = false)
     {
-        fprintf(stderr, "Hello, WriteGuard!\n");
         WriteGuard guard(rwLock);
 
         rateHistory.clear();
@@ -120,8 +125,6 @@ struct RateSampler
 
         if (!keepSampleCount)
             totalSamples = 0.0;
-
-        fprintf(stderr, "Goodbye, WriteGuard!\n");
     }
 
     double getSample(size_t sampleIndex) const

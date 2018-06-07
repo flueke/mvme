@@ -114,6 +114,9 @@ struct DAQStats
     u64 listFileBytesWritten = 0;
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
     QString listfileFilename; // For replay mode: the current replay filename
+
+    u64 getAnalyzedBuffers() const { return totalBuffersRead - droppedBuffers; }
+    double getAnalysisEfficiency() const;
 };
 
 /* Information about the current DAQ run or the run that's being replayed from
@@ -128,9 +131,10 @@ struct RunInfo
      * contents only works if the number of bins and the binning do not change
      * between runs. If set to false all histograms will be cleared before the
      * replay starts. */
+    // TODO: replace with flags
     bool keepAnalysisState = false;
-
     bool isReplay = false;
+    //bool generateExportFiles = false;
 };
 
 enum class ListFileFormat

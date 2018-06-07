@@ -147,6 +147,8 @@ namespace
     }
 }
 
+static const size_t MaxLogMessagesPerSecond = 5;
+
 VMUSBReadoutWorker::VMUSBReadoutWorker(QObject *parent)
     : VMEReadoutWorker(parent)
     , m_state(DAQState::Idle)
@@ -413,7 +415,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         // Debug Dump of all VMUSB registers
         //
         logMessage(QSL(""));
-        dump_registers(vmusb, [this] (const QString &line) { this->logMessage(line); });
+        dump_registers(vmusb, [this] (const QString &line) { logMessage(line); });
 
         //
         // Debug: record raw buffers to file
@@ -466,7 +468,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             auto msg = (QString("Closing vmusb raw buffers file %1")
                         .arg(m_rawBufferOut.fileName()));
             logMessage(msg);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
 
             m_rawBufferOut.close();
         }
@@ -681,7 +682,8 @@ void VMUSBReadoutWorker::readoutLoop()
                                .arg(readResult.error.toString())
                                .arg(readResult.bytesRead)
                                .arg(nReadErrors)
-                               .arg(nGoodReads)
+                               .arg(nGoodReads),
+                               true
                                );
                     logReadErrorTimer.restart();
                 }
@@ -756,9 +758,9 @@ void VMUSBReadoutWorker::logError(const QString &message)
     logMessage(QString("VMUSB Error: %1").arg(message));
 }
 
-void VMUSBReadoutWorker::logMessage(const QString &message)
+void VMUSBReadoutWorker::logMessage(const QString &message, bool useThrottle)
 {
-    m_workerContext.logMessage(message);
+    m_workerContext.logMessage(message, useThrottle);
 }
 
 VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_ms)

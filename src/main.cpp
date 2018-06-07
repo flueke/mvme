@@ -19,7 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvme.h"
-#include "mvme_startup.h"
+#include "mvme_session.h"
 
 #include <QApplication>
 #include <QMessageBox>
@@ -31,10 +31,11 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setWindowIcon(QIcon(":/window_icon.png"));
 
-    mvme_basic_init();
+    mvme_init();
 
 #ifdef QT_NO_DEBUG
-    QSplashScreen splash(QPixmap(":/splash-screen.png"), Qt::CustomizeWindowHint | Qt::Window | Qt::WindowStaysOnTopHint);
+    QSplashScreen splash(QPixmap(":/splash-screen.png"),
+                         Qt::CustomizeWindowHint | Qt::Window | Qt::WindowStaysOnTopHint);
     auto font = splash.font();
     font.setPixelSize(22);
     splash.setFont(font);
@@ -70,15 +71,21 @@ int main(int argc, char *argv[])
         {
             try
             {
-                w.getContext()->openWorkspace(settings.value(QSL("LastWorkspaceDirectory")).toString());
+                // Call 'newWorkspace' which will create missing files and open
+                // the workspace.
+                w.getContext()->newWorkspace(
+                    settings.value(QSL("LastWorkspaceDirectory")).toString());
+
             } catch (const QString &e)
             {
-                QMessageBox::warning(&w, QSL("Could not open workspace"), QString("Error opening last workspace: %1.").arg(e));
+                QMessageBox::warning(&w, QSL("Could not open workspace"),
+                                     QString("Error opening last workspace: %1").arg(e));
+
                 settings.remove(QSL("LastWorkspaceDirectory"));
 
                 if (!w.createNewOrOpenExistingWorkspace())
                 {
-                    // canceled by user
+                    // canceled by user -> quit mvme
                     w.close();
                 }
             }
@@ -87,13 +94,15 @@ int main(int argc, char *argv[])
         {
             if (!w.createNewOrOpenExistingWorkspace())
             {
-                // canceled by user
+                // canceled by user -> quit mvme
                 w.close();
             }
         }
     });
 
     int ret = app.exec();
+
+    mvme_shutdown();
 
     return ret;
 }

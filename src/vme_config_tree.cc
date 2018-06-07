@@ -22,7 +22,7 @@
 #include "mvme.h"
 #include "vme_config.h"
 #include "mvme_context.h"
-#include "config_ui.h"
+#include "vme_config_ui.h"
 #include "treewidget_utils.h"
 #include "mvme_stream_worker.h"
 #include "vmusb.h"
@@ -209,23 +209,27 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     //pb_notes  = make_toolbutton(QSL(":/text-document.png"), QSL("Notes"));
     //connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
 
-    QToolButton *pb_treeSettings = nullptr;
+    QToolButton *pb_moreMenu = nullptr;
 
     {
         auto menu = new QMenu(this);
         action_showAdvanced = menu->addAction(QSL("Show advanced objects"));
         action_showAdvanced->setCheckable(true);
-        connect(action_showAdvanced, &QAction::changed, this, &VMEConfigTreeWidget::onActionShowAdvancedChanged);
+        connect(action_showAdvanced, &QAction::changed, this,
+                &VMEConfigTreeWidget::onActionShowAdvancedChanged);
 
         auto action_dumpVMUSBRegisters = menu->addAction(QSL("Dump VMUSB Registers"));
-        connect(action_dumpVMUSBRegisters, &QAction::triggered, this, &VMEConfigTreeWidget::dumpVMUSBRegisters);
+        connect(action_dumpVMUSBRegisters, &QAction::triggered,
+                this, &VMEConfigTreeWidget::dumpVMUSBRegisters);
 
-        auto action_exploreWorkspace = menu->addAction(QIcon(":/folder_orange.png"), QSL("Explore Workspace"));
-        connect(action_exploreWorkspace, &QAction::triggered, this, &VMEConfigTreeWidget::exploreWorkspace);
+        auto action_exploreWorkspace = menu->addAction(QIcon(":/folder_orange.png"),
+                                                       QSL("Explore Workspace"));
+        connect(action_exploreWorkspace, &QAction::triggered,
+                this, &VMEConfigTreeWidget::exploreWorkspace);
 
-        pb_treeSettings = make_toolbutton(QSL(":/tree-settings.png"), QSL("More"));
-        pb_treeSettings->setMenu(menu);
-        pb_treeSettings->setPopupMode(QToolButton::InstantPopup);
+        pb_moreMenu = make_toolbutton(QSL(":/tree-settings.png"), QSL("More"));
+        pb_moreMenu->setMenu(menu);
+        pb_moreMenu->setPopupMode(QToolButton::InstantPopup);
 
         QSettings settings;
         action_showAdvanced->setChecked(settings.value("DAQTree/ShowAdvanced", false).toBool());
@@ -239,7 +243,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     buttonLayout->addWidget(pb_load);
     buttonLayout->addWidget(pb_save);
     buttonLayout->addWidget(pb_saveAs);
-    buttonLayout->addWidget(pb_treeSettings);
+    buttonLayout->addWidget(pb_moreMenu);
     //buttonLayout->addWidget(pb_notes); TODO: implement this
     buttonLayout->addStretch(1);
 
@@ -1012,7 +1016,9 @@ void VMEConfigTreeWidget::dumpVMUSBRegisters()
 
 void VMEConfigTreeWidget::exploreWorkspace()
 {
-    QDesktopServices::openUrl(m_context->getWorkspaceDirectory());
+    QString path = m_context->getWorkspaceDirectory();
+
+    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 }
 
 void VMEConfigTreeWidget::showEditNotes()

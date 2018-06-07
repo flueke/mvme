@@ -35,6 +35,22 @@ QString to_string(VMEControllerType type)
     return QString();
 }
 
+QString LIBMVME_EXPORT to_string(ControllerState state)
+{
+    switch (state)
+    {
+        case ControllerState::Connected:
+            return QSL("Connected");
+        case ControllerState::Disconnected:
+            return QSL("Disconnected");
+        case ControllerState::Connecting:
+            return QSL("Connecting");
+    }
+
+    InvalidCodePath;
+    return QString();
+}
+
 VMEControllerType from_string(const QString &str)
 {
     if (str == QSL("VMUSB"))

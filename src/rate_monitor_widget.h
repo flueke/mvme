@@ -23,7 +23,7 @@
 
 struct RateMonitorWidgetPrivate;
 
-class RateMonitorWidget: public QWidget
+class LIBMVME_EXPORT RateMonitorWidget: public QWidget
 {
     Q_OBJECT
     public:
@@ -41,7 +41,6 @@ class RateMonitorWidget: public QWidget
 
     private slots:
         void replot();
-        void exportPlot();
         void zoomerZoomed(const QRectF &);
         void mouseCursorMovedToPlotCoord(QPointF);
         void mouseCursorLeftPlot();

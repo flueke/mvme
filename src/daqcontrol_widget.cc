@@ -22,13 +22,17 @@
 
 #include <QHBoxLayout>
 #include <QFormLayout>
+#include <QRegularExpressionValidator>
+#include <QStorageInfo>
 #include <QTimer>
 
 #include "mvme_context.h"
+#include "sis3153.h"
 #include "util.h"
+#include "util/strings.h"
 #include "vme_controller_ui.h"
 
-static const int updateInterval = 500;
+static const int WidgetUpdateInterval_ms = 500;
 
 // zlib supports [0,9] with 6 being the default.
 //
@@ -68,10 +72,12 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     , pb_reconnect(new QPushButton)
     , pb_controllerSettings(new QPushButton)
     , pb_runSettings(new QPushButton)
+    , pb_forceReset(new QPushButton)
     , label_controllerState(new QLabel)
     , label_daqState(new QLabel)
     , label_analysisState(new QLabel)
     , label_listfileSize(new QLabel)
+    , label_freeStorageSpace(new QLabel)
     , cb_writeListfile(new QCheckBox)
     , combo_compression(new QComboBox)
     , le_listfileFilename(new QLineEdit)
@@ -170,6 +176,13 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
     });
 
+    connect(pb_forceReset, &QPushButton::clicked, this, [this] {
+        auto sis = qobject_cast<SIS3153 *>(m_context->getVMEController());
+        assert(sis);
+        sis->setResetOnConnect(true);
+        m_context->reconnectVMEController();
+    });
+
     connect(pb_controllerSettings, &QPushButton::clicked, this, [this] {
         VMEControllerSettingsDialog dialog(m_context);
         dialog.setWindowModality(Qt::ApplicationModal);
@@ -205,6 +218,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::controllerStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &DAQControlWidget::updateWidget);
+    connect(m_context, &MVMEContext::vmeControllerSet, this, &DAQControlWidget::updateWidget);
 
 
     //
@@ -215,6 +229,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     pb_stop->setText(QSL("Stop"));
     pb_oneCycle->setText(QSL("1 Cycle"));
     pb_reconnect->setText(QSL("Reconnect"));
+    pb_forceReset->setText(QSL("Force Reset"));
     pb_controllerSettings->setText(QSL("Settings"));
     pb_runSettings->setText(QSL("Run Settings"));
 
@@ -252,12 +267,14 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
     // vme controller
     {
-        auto ctrlLayout = new QHBoxLayout;
+        auto ctrlLayout = new QGridLayout;
         ctrlLayout->setContentsMargins(0, 0, 0, 0);
         ctrlLayout->setSpacing(2);
-        ctrlLayout->addWidget(label_controllerState);
-        ctrlLayout->addWidget(pb_reconnect);
-        ctrlLayout->addWidget(pb_controllerSettings);
+        ctrlLayout->addWidget(label_controllerState, 0, 0);
+        ctrlLayout->addWidget(pb_controllerSettings, 0, 1);
+        ctrlLayout->addWidget(pb_reconnect, 1, 0);
+        ctrlLayout->addWidget(pb_forceReset, 1, 1);
+
         stateFrameLayout->addRow(QSL("VME Controller:"), ctrlLayout);
     }
 
@@ -297,6 +314,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
         gbLayout->addRow(QSL("Current Filename:"), le_listfileFilename);
         gbLayout->addRow(QSL("Current Size:"), label_listfileSize);
+        gbLayout->addRow(QSL("Free Space:"), label_freeStorageSpace);
     }
 
     // widget layout
@@ -311,7 +329,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     // widget update timer setup
     //
     auto timer = new QTimer(this);
-    timer->setInterval(updateInterval);
+    timer->setInterval(WidgetUpdateInterval_ms);
     timer->start();
 
     connect(timer, &QTimer::timeout, this, &DAQControlWidget::updateWidget);
@@ -467,6 +485,16 @@ void DAQControlWidget::updateWidget()
     pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
     pb_controllerSettings->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
 
+    if (auto sis = qobject_cast<SIS3153 *>(m_context->getVMEController()))
+    {
+        pb_forceReset->setVisible(true);
+        pb_forceReset->setEnabled(controllerState == ControllerState::Disconnected);
+    }
+    else
+    {
+        pb_forceReset->setVisible(false);
+    }
+
     //
     // listfile options
     //
@@ -501,27 +529,40 @@ void DAQControlWidget::updateWidget()
         le_listfileFilename->setText(filename);
 
 
-    double mb = 0.0;
-
     auto sizeLabel = qobject_cast<QLabel *>(gb_listfileLayout->labelForField(label_listfileSize));
 
     switch (globalMode)
     {
         case GlobalMode::DAQ:
-            // FIXME: use the actual size of the file on disk as compression is a thing...
-            mb = static_cast<double>(stats.listFileBytesWritten) / (1024.0*1024.0);
-            sizeLabel->setText(QSL("Current Size:"));
-            break;
+            {
+                sizeLabel->setText(QSL("Current Size:"));
+                QFile fi(stats.listfileFilename);
+                auto str = format_number(fi.size(), QSL("B"), UnitScaling::Binary,
+                                         // fieldWidth, format, precision
+                                         0, 'f', 2);
+                label_listfileSize->setText(str);
+            } break;
 
         case GlobalMode::ListFile:
-            mb = static_cast<double>(stats.listFileTotalBytes) / (1024.0*1024.0);
-            sizeLabel->setText(QSL("Replay Size:"));
-            break;
+            {
+                sizeLabel->setText(QSL("Replay Size:"));
+                QFile fi(stats.listfileFilename);
+                auto str = format_number(fi.size(), QSL("B"), UnitScaling::Binary,
+                                         // fieldWidth, format, precision
+                                         0, 'f', 2);
+                label_listfileSize->setText(str);
+            } break;
     }
 
-    auto sizeString = QString("%1 MB").arg(mb, 6, 'f', 2);
+    {
+        QStorageInfo si(m_context->getWorkspaceDirectory());
+        auto freeBytes = si.bytesFree();
+        auto str = format_number(freeBytes, QSL("B"), UnitScaling::Binary,
+                                 // fieldWidth, format, precision
+                                 0, 'f', 2);
 
-    label_listfileSize->setText(sizeString);
+        label_freeStorageSpace->setText(str);
+    }
 
     cb_writeListfile->setEnabled(isDAQIdle && !isReplay);
     combo_compression->setEnabled(isDAQIdle && !isReplay);
@@ -543,6 +584,9 @@ DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, Q
 
     le_exampleName->setReadOnly(true);
     spin_runNumber->setMinimum(1);
+
+    auto re_prefix = QRegularExpression(QSL("^[^\\\\/]+$"));
+    le_prefix->setValidator(new QRegularExpressionValidator(re_prefix, le_prefix));
 
     // populate
     le_prefix->setText(settings.prefix);

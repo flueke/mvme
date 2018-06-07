@@ -167,9 +167,6 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
 
         void addInitScript(VMEScriptConfig *script);
 
-        void setEventHeaderFilter(const QByteArray &filter);
-        QByteArray getEventHeaderFilter() const { return m_eventHeaderFilter; }
-
         EventConfig *getEventConfig() const;
 
     protected:
@@ -181,7 +178,6 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         VMEScriptConfig *m_resetScript;
         VMEScriptConfig *m_readoutScript;
         QVector<VMEScriptConfig *> m_initScripts;
-        QByteArray m_eventHeaderFilter;
         vats::VMEModuleMeta m_meta;
 };
 
@@ -236,22 +232,11 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         // Maybe should move this elsewhere as it is vmusb specific
         uint8_t stackID;
 
-        bool isMultiEventProcessingEnabled() const { return m_multiEventProcessingEnabled; }
-        void setMultiEventProcessingEnabled(bool b)
-        {
-            if (m_multiEventProcessingEnabled != b)
-            {
-                m_multiEventProcessingEnabled = b;
-                setModified();
-            }
-        }
-
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
-        bool m_multiEventProcessingEnabled = false;
         QList<ModuleConfig *> modules;
 };
 
@@ -283,12 +268,12 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         bool removeEventConfig(EventConfig *config);
         bool contains(EventConfig *config);
         QList<EventConfig *> getEventConfigs() const { return eventConfigs; }
-        EventConfig *getEventConfig(int eventIndex) { return eventConfigs.value(eventIndex); }
+        EventConfig *getEventConfig(int eventIndex) const { return eventConfigs.value(eventIndex); }
         EventConfig *getEventConfig(const QString &name) const;
         EventConfig *getEventConfig(const QUuid &id) const;
 
         // modules
-        ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex);
+        ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex) const;
         QList<ModuleConfig *> getAllModuleConfigs() const;
         QPair<int, int> getEventAndModuleIndices(ModuleConfig *cfg) const;
 

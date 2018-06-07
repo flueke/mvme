@@ -828,6 +828,16 @@ bool ListFileWriter::writePreamble()
     return true;
 }
 
+bool ListFileWriter::writeConfig(const VMEConfig *vmeConfig)
+{
+    QJsonObject json;
+    vmeConfig->write(json);
+    QJsonObject parentJson;
+    parentJson["DAQConfig"] = json;
+    QJsonDocument doc(parentJson);
+    return writeConfig(doc.toJson());
+}
+
 bool ListFileWriter::writeConfig(QByteArray contents)
 {
     using LF = listfile_v1;
@@ -886,6 +896,11 @@ bool ListFileWriter::writeBuffer(const char *buffer, size_t size)
         return true;
     }
     return false;
+}
+
+bool ListFileWriter::writeBuffer(const DataBuffer &buffer)
+{
+    return writeBuffer(reinterpret_cast<const char *>(buffer.data), buffer.used);
 }
 
 bool ListFileWriter::writeEmptySection(SectionType sectionType)
