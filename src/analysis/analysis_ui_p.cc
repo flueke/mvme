@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "a2_adapter.h"
+#include "a2/a2_exprtk.h"
 #include "analysis_ui_p.h"
 #include "analysis_util.h"
 #include "data_extraction_widget.h"
@@ -27,6 +28,7 @@
 #include "../histo_util.h"
 #include "../vme_config.h"
 #include "../mvme_context.h"
+#include "../mvme_context_lib.h"
 #include "../qt_util.h"
 #include "../data_filter.h"
 #include "../data_filter_edit.h"
@@ -74,65 +76,17 @@ namespace
 namespace analysis
 {
 //
-// AddEditExtractorWidget
+// AddEditExtractorDialog
 //
 
-/** IMPORTANT: This constructor makes the Widget go into "add" mode. When
- * accepting the widget inputs it will call eventWidget->addSource(). */
-AddEditExtractorWidget::AddEditExtractorWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget)
-    : AddEditExtractorWidget(srcPtr.get(), mod, eventWidget)
-{
-    m_srcPtr = srcPtr;
-    setWindowTitle(QString("New  %1").arg(srcPtr->getDisplayName()));
-
-    // Histogram generation and calibration
-    m_gbGenHistograms = new QGroupBox(QSL("Generate Histograms"));
-    m_gbGenHistograms->setCheckable(true);
-    m_gbGenHistograms->setChecked(true);
-
-    le_unit = new QLineEdit;
-
-    spin_unitMin = new QDoubleSpinBox;
-    spin_unitMin->setDecimals(8);
-    spin_unitMin->setMinimum(-1e20);
-    spin_unitMin->setMaximum(+1e20);
-    spin_unitMin->setValue(0.0);
-
-    spin_unitMax = new QDoubleSpinBox;
-    spin_unitMax->setDecimals(8);
-    spin_unitMax->setMinimum(-1e20);
-    spin_unitMax->setMaximum(+1e20);
-    spin_unitMax->setValue(1 << 16); // FIXME: find a better default value. Maybe input dependent (upperLimit)
-
-    auto genHistogramsLayout = new QHBoxLayout(m_gbGenHistograms);
-    genHistogramsLayout->setContentsMargins(0, 0, 0, 0);
-    auto calibInfoFrame = new QFrame;
-    genHistogramsLayout->addWidget(calibInfoFrame);
-    auto calibInfoLayout = new QFormLayout(calibInfoFrame);
-    calibInfoLayout->addRow(QSL("Unit Label"), le_unit);
-    calibInfoLayout->addRow(QSL("Unit Min"), spin_unitMin);
-    calibInfoLayout->addRow(QSL("Unit Max"), spin_unitMax);
-
-    connect(m_gbGenHistograms, &QGroupBox::toggled, this, [calibInfoFrame](bool checked) {
-        calibInfoFrame->setEnabled(checked);
-    });
-
-    m_optionsLayout->insertRow(m_optionsLayout->rowCount() - 1, m_gbGenHistograms);
-
-    // Load data from the first template into the gui
-    applyTemplate(0);
-}
-
-/** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
- * accepting the widget inputs it will call eventWidget->sourceEdited(). */
-AddEditExtractorWidget::AddEditExtractorWidget(SourceInterface *src, ModuleConfig *module, EventWidget *eventWidget)
+AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *module,
+                                               Mode mode, EventWidget *eventWidget)
     : QDialog(eventWidget)
-    , m_src(src)
+    , m_ex(ex)
     , m_module(module)
     , m_eventWidget(eventWidget)
-    , m_gbGenHistograms(nullptr)
+    , m_mode(mode)
 {
-    setWindowTitle(QString("Edit %1").arg(m_src->getDisplayName()));
     add_widget_close_action(this);
 
     m_defaultExtractors = get_default_data_extractors(module->getModuleMeta().typeName);
@@ -143,14 +97,13 @@ AddEditExtractorWidget::AddEditExtractorWidget(SourceInterface *src, ModuleConfi
     loadTemplateLayout->addWidget(loadTemplateButton);
     loadTemplateLayout->addStretch();
 
-    connect(loadTemplateButton, &QPushButton::clicked, this, &AddEditExtractorWidget::runLoadTemplateDialog);
+    connect(loadTemplateButton, &QPushButton::clicked, this, &AddEditExtractorDialog::runLoadTemplateDialog);
 
-    auto extractor = qobject_cast<Extractor *>(src);
-    Q_ASSERT(extractor);
+    Q_ASSERT(m_ex);
     Q_ASSERT(module);
 
     le_name = new QLineEdit;
-    m_filterEditor = new DataExtractionEditor(extractor->getFilter().getSubFilters());
+    m_filterEditor = new DataExtractionEditor(m_ex->getFilter().getSubFilters());
     m_filterEditor->setMinimumHeight(125);
     m_filterEditor->setMinimumWidth(550);
 
@@ -158,12 +111,12 @@ AddEditExtractorWidget::AddEditExtractorWidget(SourceInterface *src, ModuleConfi
     m_spinCompletionCount->setMinimum(1);
     m_spinCompletionCount->setMaximum(std::numeric_limits<int>::max());
 
-    if (!extractor->objectName().isEmpty())
+    if (!m_ex->objectName().isEmpty())
     {
-        le_name->setText(QString("%1").arg(extractor->objectName()));
+        le_name->setText(QString("%1").arg(m_ex->objectName()));
     }
 
-    m_spinCompletionCount->setValue(extractor->getRequiredCompletionCount());
+    m_spinCompletionCount->setValue(m_ex->getRequiredCompletionCount());
 
     m_optionsLayout = new QFormLayout;
     m_optionsLayout->addRow(QSL("Name"), le_name);
@@ -176,8 +129,8 @@ AddEditExtractorWidget::AddEditExtractorWidget(SourceInterface *src, ModuleConfi
 
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
-    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditExtractorWidget::accept);
-    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditExtractorWidget::reject);
+    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditExtractorDialog::accept);
+    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditExtractorDialog::reject);
     auto buttonBoxLayout = new QVBoxLayout;
     buttonBoxLayout->addStretch();
     buttonBoxLayout->addWidget(m_buttonBox);
@@ -189,9 +142,63 @@ AddEditExtractorWidget::AddEditExtractorWidget(SourceInterface *src, ModuleConfi
     layout->addLayout(buttonBoxLayout);
 
     layout->setStretch(0, 1);
+
+    switch (mode)
+    {
+        case AddExtractor:
+            {
+                setWindowTitle(QString("New  %1").arg(m_ex->getDisplayName()));
+
+                // Histogram generation and calibration
+                m_gbGenHistograms = new QGroupBox(QSL("Generate Histograms"));
+                m_gbGenHistograms->setCheckable(true);
+                m_gbGenHistograms->setChecked(true);
+
+                le_unit = new QLineEdit;
+
+                spin_unitMin = new QDoubleSpinBox;
+                spin_unitMin->setDecimals(8);
+                spin_unitMin->setMinimum(-1e20);
+                spin_unitMin->setMaximum(+1e20);
+                spin_unitMin->setValue(0.0);
+
+                spin_unitMax = new QDoubleSpinBox;
+                spin_unitMax->setDecimals(8);
+                spin_unitMax->setMinimum(-1e20);
+                spin_unitMax->setMaximum(+1e20);
+                spin_unitMax->setValue(1 << 16); // TODO: find a better default value. Maybe input dependent (upperLimit)
+
+                auto genHistogramsLayout = new QHBoxLayout(m_gbGenHistograms);
+                genHistogramsLayout->setContentsMargins(0, 0, 0, 0);
+                auto calibInfoFrame = new QFrame;
+                genHistogramsLayout->addWidget(calibInfoFrame);
+                auto calibInfoLayout = new QFormLayout(calibInfoFrame);
+                calibInfoLayout->addRow(QSL("Unit Label"), le_unit);
+                calibInfoLayout->addRow(QSL("Unit Min"), spin_unitMin);
+                calibInfoLayout->addRow(QSL("Unit Max"), spin_unitMax);
+
+                connect(m_gbGenHistograms, &QGroupBox::toggled, this, [calibInfoFrame](bool checked) {
+                    calibInfoFrame->setEnabled(checked);
+                });
+
+                m_optionsLayout->insertRow(m_optionsLayout->rowCount() - 1, m_gbGenHistograms);
+
+                // Load data from the first template into the gui
+                applyTemplate(0);
+            } break;
+
+        case EditExtractor:
+            {
+                setWindowTitle(QString("Edit %1").arg(m_ex->getDisplayName()));
+            } break;
+    }
 }
 
-void AddEditExtractorWidget::runLoadTemplateDialog()
+AddEditExtractorDialog::~AddEditExtractorDialog()
+{
+}
+
+void AddEditExtractorDialog::runLoadTemplateDialog()
 {
     auto templateList = new QListWidget;
 
@@ -225,7 +232,7 @@ void AddEditExtractorWidget::runLoadTemplateDialog()
  * The index is an index into a vector of Extractor instances obtained from
  * get_default_data_extractors() cached in m_defaultExtractors.
  */
-void AddEditExtractorWidget::applyTemplate(int index)
+void AddEditExtractorDialog::applyTemplate(int index)
 {
     if (0 <= index && index < m_defaultExtractors.size())
     {
@@ -237,34 +244,64 @@ void AddEditExtractorWidget::applyTemplate(int index)
     }
 }
 
-void AddEditExtractorWidget::accept()
+void AddEditExtractorDialog::accept()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
     AnalysisPauser pauser(m_eventWidget->getContext());
 
-    auto extractor = qobject_cast<Extractor *>(m_src);
-
-    extractor->setObjectName(le_name->text());
+    m_ex->setObjectName(le_name->text());
     m_filterEditor->apply();
-    extractor->getFilter().setSubFilters(m_filterEditor->m_subFilters);
-    extractor->setRequiredCompletionCount(m_spinCompletionCount->value());
+    m_ex->getFilter().setSubFilters(m_filterEditor->m_subFilters);
+    m_ex->setRequiredCompletionCount(m_spinCompletionCount->value());
 
-    if (m_srcPtr)
-    {
-        m_eventWidget->addSource(m_srcPtr, m_module, m_gbGenHistograms->isChecked(),
-                                 le_unit->text(), spin_unitMin->value(), spin_unitMax->value());
-    }
-    else
-    {
-        m_eventWidget->sourceEdited(m_src);
-    }
+    auto analysis = m_eventWidget->getContext()->getAnalysis();
 
-    m_eventWidget->uniqueWidgetCloses();
-    QDialog::accept();
+    try
+    {
+        switch (m_mode)
+        {
+            case AddExtractor:
+                {
+                    // TODO: call beginRun on the new extractor and rebuild a2. no need to clear other stuff.
+                    bool genHistos = m_gbGenHistograms->isChecked();
+
+                    if (genHistos)
+                    {
+                        auto rawDisplay = make_raw_data_display(m_ex, spin_unitMin->value(), spin_unitMax->value(),
+                                                                QString(), // FIXME: missing title
+                                                                le_unit->text());
+
+                        add_raw_data_display(analysis, m_eventWidget->getEventId(), m_module->getId(), rawDisplay);
+                    }
+                    else
+                    {
+                        analysis->addSource(m_eventWidget->getEventId(), m_module->getId(), m_ex);
+                    }
+                } break;
+
+            case EditExtractor:
+                {
+                    // TODO: do_beginRun_forward on the extractor here. then
+                    // rebuild a2. no need to clear stuff that's not affected.
+                    auto context = m_eventWidget->getContext();
+                    auto runInfo = context->getRunInfo();
+                    auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(context->getVMEConfig());
+                    analysis->setModified();
+                    analysis->beginRun(runInfo, vmeMap);
+                } break;
+        }
+
+        QDialog::accept();
+    }
+    catch (const std::bad_alloc &)
+    {
+        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
+        reject();
+    }
 }
 
-void AddEditExtractorWidget::reject()
+void AddEditExtractorDialog::reject()
 {
     qDebug() << __PRETTY_FUNCTION__;
     m_eventWidget->uniqueWidgetCloses();
@@ -272,781 +309,54 @@ void AddEditExtractorWidget::reject()
 }
 
 //
-// ListFilterExtractorDialog
+// AddEditOperatorDialog
 //
 
-/* Parts
- * Left:
- *   Modulename label
- *   Filter list or table
- *   Input words used label
- *   Filter operations: buttons or tableview interaction
- *   clone (copy) operation
- *
- *  Right:
- *    ListFilter name label
- *    Repetitions
- *    Combine options:
- *      word size
- *      word count
- *      swap word order
- *
- *    Filter fields:
- *     repetition index
- *     two 32 bit filter inputs
- *
- *
- * Right side embedded into a QStackedWidget.
- *
- * Have to keep listview and stackedwidget contents in sync.
- *
- * Edit case:
- * - Edit an existing filter.
- * - Add a new filter. The module may already contain listfilters or this may
- *   be the very first listfilter added to the module.
- *
- * -> If there are no filters to display always create a new unnamed default
- *  filter.  On hitting apply add that filter to the analysis and repopulate
- *  the widget -> now the filter contenst will be reloaded from the analysis
- *  and everythin is in sync again.
- *  When deleting the last filter either close the dialog or go back to
- *  creating an unnamed default filter.
- *
- * Maybe it's better to not populate from the analysis at all but instead get a
- * list of filters from the analysis and set it on the dialog. Later on set
- * that list on the analysis.
- *
- * What are we editing? The whole list of ListFilterExtractor for a certain
- * module as they all interact.
- *
- * If there are no filters we start out with a default filter for the module.
- *
- * TODO: Get the list of filters for the module from the
- *   Walk SourceEntry vector and filter by moduleId and SourcePtr type (must be ListFilterExtractor).
- *   => vector of shared ptr to ListFilterExtractor
- *
- *   Existing ones are directly edited as setExtractor() is used to update the a2::ListFilterExtractor.
- *   New ones have to be added to the analysis in the correct order.
- *   Moving operators changes the order so the SourceEntry vector of the
- *   analysis has to be updated. How to do this?
- *
- */
-
-/* Inputs and logic for for editing one ListFilter. */
-struct ListFilterEditor
-{
-    QWidget *widget;
-
-    QLabel *label_addressBits,
-           *label_dataBits,
-           *label_outputSize,
-           *label_combinedBits;
-
-    QSpinBox *spin_repetitions,
-             *spin_wordCount;
-
-    QLineEdit *le_name;
-
-    DataFilterEdit *filter_lowWord,
-                   *filter_highWord;
-
-    QComboBox *combo_wordSize;
-
-    QCheckBox *cb_swapWords,
-              *cb_addRandom;
-};
-
-static a2::data_filter::ListFilter listfilter_editor_make_a2_listfilter(ListFilterEditor e)
-{
-    using namespace a2::data_filter;
-
-    std::vector<std::string> filters =
-    {
-        e.filter_lowWord->text().toStdString(),
-        e.filter_highWord->text().toStdString(),
-    };
-
-    ListFilter::Flag flags = e.combo_wordSize->currentData().toUInt();
-
-    if (e.cb_swapWords->isChecked())
-    {
-        flags |= ListFilter::ReverseCombine;
-    }
-
-    return make_listfilter(flags, e.spin_wordCount->value(), filters);
-}
-
-static a2::ListFilterExtractor listfilter_editor_make_a2_extractor(ListFilterEditor e)
-{
-    using namespace a2::data_filter;
-
-    auto listFilter = listfilter_editor_make_a2_listfilter(e);
-
-    a2::DataSourceOptions::opt_t options = 0;
-
-    if (!e.cb_addRandom->isChecked())
-        options |= a2::DataSourceOptions::NoAddedRandom;
-
-    a2::ListFilterExtractor ex_a2 = a2::make_listfilter_extractor(
-        listFilter,
-        e.spin_repetitions->value(),
-        0,
-        options);
-
-    return ex_a2;
-}
-
-static void listfilter_editor_update_info_labels(ListFilterEditor e)
-{
-    auto ex = listfilter_editor_make_a2_extractor(e);
-
-    size_t addressBits              = get_address_bits(&ex);
-    size_t addressCount             = get_address_count(&ex);
-    size_t baseAddressBits          = get_base_address_bits(&ex);
-    size_t repetitionAddressBits    = get_repetition_address_bits(&ex);
-    size_t dataBits                 = get_extract_bits(&ex.listFilter, a2::data_filter::MultiWordFilter::CacheD);
-    size_t combinedBits             = ((ex.listFilter.flags & a2::data_filter::ListFilter::WordSize32) ? 32 : 16) * ex.listFilter.wordCount;
-
-    assert(combinedBits <= 64);
-
-    e.label_addressBits->setText(QString("%1 (%2 base + %3 repetition)")
-                                 .arg(addressBits)
-                                 .arg(baseAddressBits)
-                                 .arg(repetitionAddressBits));
-
-    e.label_outputSize->setText(QString::number(addressCount));
-    e.label_dataBits->setText(QString::number(dataBits));
-    e.label_combinedBits->setText(QString::number(combinedBits));
-}
-
-static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
-{
-    using a2::data_filter::ListFilter;
-
-    ListFilterEditor e = {};
-
-    e.widget = new QWidget(parent);
-    e.le_name = new QLineEdit;
-    e.label_addressBits = new QLabel;
-    e.label_dataBits = new QLabel;
-    e.label_outputSize = new QLabel;
-    e.label_combinedBits = new QLabel;
-    e.spin_repetitions = new QSpinBox;
-    e.spin_wordCount = new QSpinBox;
-    e.filter_lowWord = makeFilterEdit();
-    e.filter_highWord = makeFilterEdit();
-    e.combo_wordSize = new QComboBox;
-    e.cb_swapWords = new QCheckBox;
-    e.cb_addRandom = new QCheckBox;
-
-    e.spin_repetitions->setMinimum(1);
-    e.spin_repetitions->setMaximum(std::numeric_limits<u8>::max());
-
-    e.combo_wordSize->addItem("16 bit", ListFilter::NoFlag);
-    e.combo_wordSize->addItem("32 bit", ListFilter::WordSize32);
-
-    e.spin_wordCount->setMinimum(1);
-
-    // word size handling
-    auto on_wordSize_selected = [e] (int index)
-    {
-        switch (static_cast<ListFilter::Flag>(e.combo_wordSize->itemData(index).toInt()))
-        {
-            case ListFilter::NoFlag:
-                e.spin_wordCount->setMaximum(4);
-                break;
-
-            case ListFilter::WordSize32:
-                e.spin_wordCount->setMaximum(2);
-                break;
-        }
-    };
-
-    QObject::connect(e.combo_wordSize, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-                     e.widget, on_wordSize_selected);
-
-    on_wordSize_selected(0);
-
-    // React to changes to the number of input data words consumed which
-    // dictate how many bits are available after the combine step.
-    auto on_nof_input_bits_changed = [e]()
-    {
-        auto flags          = static_cast<ListFilter::Flag>(e.combo_wordSize->currentData().toInt());
-        auto wordCount      = e.spin_wordCount->value();
-        size_t combinedBits = ((flags & a2::data_filter::ListFilter::WordSize32) ? 32 : 16) * wordCount;
-
-        assert(combinedBits <= 64);
-
-        ssize_t loBits = std::min(static_cast<ssize_t>(32), static_cast<ssize_t>(combinedBits));
-        ssize_t hiBits = std::max(static_cast<ssize_t>(0),  static_cast<ssize_t>(combinedBits) - 32);
-
-        e.filter_lowWord->setBitCount(loBits);
-        e.filter_highWord->setBitCount(hiBits);
-    };
-
-    QObject::connect(e.combo_wordSize, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-                     e.widget, on_nof_input_bits_changed);
-
-    QObject::connect(e.spin_wordCount, static_cast<void (QSpinBox::*) (int)>(&QSpinBox::valueChanged),
-                     e.widget, on_nof_input_bits_changed);
-
-    on_nof_input_bits_changed();
-
-    auto update_editor = [e]() { listfilter_editor_update_info_labels(e); };
-
-    // bit count and output size labels
-    //repetitions and wordCount and all filter edits
-    QObject::connect(e.spin_repetitions, static_cast<void (QSpinBox::*) (int)>(&QSpinBox::valueChanged),
-                     e.widget, update_editor);
-    QObject::connect(e.spin_wordCount, static_cast<void (QSpinBox::*) (int)>(&QSpinBox::valueChanged),
-                     e.widget, update_editor);
-    QObject::connect(e.combo_wordSize, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-                     e.widget, update_editor);
-
-    QObject::connect(e.filter_lowWord, &QLineEdit::textChanged, e.widget, update_editor);
-    QObject::connect(e.filter_highWord, &QLineEdit::textChanged, e.widget, update_editor);
-
-    // layout
-    auto layout = new QFormLayout(e.widget);
-
-    layout->addRow("Name", e.le_name);
-    layout->addRow("Repetitions", e.spin_repetitions);
-
-    {
-        auto gb_input = new QGroupBox("Input");
-        auto layout_input = new QFormLayout(gb_input);
-
-        layout_input->addRow("Word size", e.combo_wordSize);
-        layout_input->addRow("Words to combine", e.spin_wordCount);
-        layout_input->addRow("Reverse combine", e.cb_swapWords);
-
-        layout->addRow(gb_input);
-    }
-
-    {
-        auto gb_extraction = new QGroupBox("Data Extraction");
-        auto layout_extraction = new QFormLayout(gb_extraction);
-
-        layout_extraction->addRow("Second word", e.filter_highWord);
-        layout_extraction->addRow("First word", e.filter_lowWord);
-        layout_extraction->addRow("Add Random in [0, 1)", e.cb_addRandom);
-
-        layout->addRow(gb_extraction);
-    }
-
-    {
-        auto gb_info = new QGroupBox("Info");
-        auto layout_info = new QFormLayout(gb_info);
-
-        layout_info->addRow("Bits from combine step:", e.label_combinedBits);
-        layout_info->addRow("Extracted data bits:", e.label_dataBits);
-        layout_info->addRow("Extracted address bits:", e.label_addressBits);
-        layout_info->addRow("Output vector size:", e.label_outputSize);
-
-        layout->addRow(gb_info);
-    }
-
-    return e;
-}
-
-static void listfilter_editor_load_from_extractor(ListFilterEditor e, const ListFilterExtractor *ex)
-{
-    using a2::data_filter::ListFilter;
-
-    e.le_name->setText(ex->objectName());
-
-    auto ex_a2 = ex->getExtractor();
-    auto listfilter = ex_a2.listFilter;
-
-    e.spin_repetitions->setValue(ex_a2.repetitions);
-    e.combo_wordSize->setCurrentIndex(listfilter.flags & ListFilter::WordSize32);
-    e.spin_wordCount->setValue(listfilter.wordCount);
-    e.cb_swapWords->setChecked(listfilter.flags & ListFilter::ReverseCombine);
-    e.cb_addRandom->setChecked(!(ex_a2.options & a2::DataSourceOptions::NoAddedRandom));
-
-    auto lo = QString::fromStdString(to_string(listfilter.extractionFilter.filters[0]));
-    auto hi = QString::fromStdString(to_string(listfilter.extractionFilter.filters[1]));
-
-    qDebug() << __PRETTY_FUNCTION__ << "loFilterText before beautifying =" << lo;
-    qDebug() << __PRETTY_FUNCTION__ << "hiFilterText before beautifying =" << hi;
-
-    size_t combinedBits = get_listfilter_combined_bit_count(&ex_a2.listFilter);
-    ssize_t loBits = std::min(static_cast<ssize_t>(32), static_cast<ssize_t>(combinedBits));
-    ssize_t hiBits = std::max(static_cast<ssize_t>(0), static_cast<ssize_t>(combinedBits) - 32l);
-
-    lo = lo.right(loBits);
-    hi = hi.right(hiBits);
-
-    qDebug() << __PRETTY_FUNCTION__ << "loFilterText after beautifying =" << lo;
-    qDebug() << __PRETTY_FUNCTION__ << "hiFilterText after beautifying =" << hi;
-
-    e.filter_lowWord->setText(lo);
-    e.filter_highWord->setText(hi);
-
-    listfilter_editor_update_info_labels(e);
-}
-
-static void listfilter_editor_save_to_extractor(ListFilterEditor e, ListFilterExtractor *ex)
-{
-    using namespace a2::data_filter;
-
-    auto ex_a2 = listfilter_editor_make_a2_extractor(e);
-
-    ex->setObjectName(e.le_name->text());
-    ex->setExtractor(ex_a2);
-}
-
-struct ListFilterListWidgetUi
-{
-    QWidget *widget;
-
-    QListWidget *listWidget;
-
-    QPushButton *pb_addFilter,
-                *pb_removeFilter,
-                *pb_cloneFilter;
-
-    QLabel *label_moduleName,
-           *label_totalWordsUsed;
-};
-
-static ListFilterListWidgetUi make_listfilter_list_ui(QWidget *parent = nullptr)
-{
-    ListFilterListWidgetUi ui = {};
-
-    ui.widget = new QWidget(parent);
-    ui.listWidget = new QListWidget;
-    ui.pb_addFilter = new QPushButton("Add Filter");
-    ui.pb_removeFilter = new QPushButton("Remove Filter");
-    ui.pb_cloneFilter = new QPushButton("Clone Filter");
-    ui.label_moduleName = new QLabel;
-    ui.label_totalWordsUsed = new QLabel;
-
-    // layout
-
-    QSizePolicy pol(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    pol.setVerticalStretch(1);
-    ui.listWidget->setSizePolicy(pol);
-    ui.listWidget->setSelectionMode(QAbstractItemView::SingleSelection);
-    ui.listWidget->setDragEnabled(true);
-    ui.listWidget->viewport()->setAcceptDrops(true);
-    ui.listWidget->setDropIndicatorShown(true);
-    ui.listWidget->setDragDropMode(QAbstractItemView::InternalMove);
-
-    auto widgetLayout = new QFormLayout(ui.widget);
-
-    widgetLayout->addRow("Module name", ui.label_moduleName);
-    widgetLayout->addRow(ui.listWidget);
-    widgetLayout->addRow("Total input words used", ui.label_totalWordsUsed);
-    {
-        auto l = new QHBoxLayout;
-        l->addWidget(ui.pb_addFilter);
-        l->addWidget(ui.pb_removeFilter);
-        l->addWidget(ui.pb_cloneFilter);
-
-        widgetLayout->addRow(l);
-    }
-
-    ui.pb_removeFilter->setEnabled(false);
-    ui.pb_cloneFilter->setEnabled(false);
-
-    return ui;
-}
-
-struct ListFilterExtractorDialog::ListFilterExtractorDialogPrivate
-{
-    ModuleConfig *m_module;
-    analysis::Analysis *m_analysis;
-    MVMEContext *m_context;
-    QVector<ListFilterExtractorPtr> m_extractors;
-    QVector<ListFilterEditor> m_filterEditors;
-
-    QStackedWidget *m_editorStack;
-    ListFilterListWidgetUi listWidgetUi;
-
-    QSignalMapper m_nameChangedMapper;
-};
-
-ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis,
-                                                     MVMEContext *context, QWidget *parent)
-    : QDialog(parent)
-    , m_d(std::make_unique<ListFilterExtractorDialogPrivate>())
-{
-    m_d->m_module = mod;
-    m_d->m_analysis = analysis;
-    m_d->m_context = context;
-    m_d->listWidgetUi = make_listfilter_list_ui();
-    m_d->m_editorStack = new QStackedWidget;
-
-    // left filter list layout
-    auto filterListLayout = new QVBoxLayout;
-    filterListLayout->addWidget(m_d->listWidgetUi.widget);
-
-    auto editorLayout = new QVBoxLayout;
-    editorLayout->addWidget(m_d->m_editorStack);
-    editorLayout->addStretch(1);
-
-    // contents layout: filter list on the left, stack of filter editors to the right
-    auto contentsLayout = new QHBoxLayout;
-    contentsLayout->addLayout(filterListLayout);
-    contentsLayout->addLayout(editorLayout);
-    contentsLayout->setStretch(1, 1);
-
-    // buttonbox
-    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Apply | QDialogButtonBox::Cancel);
-    buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
-
-    // outer widget layout: list and edit widgets top, buttonbox bottom
-    auto widgetLayout = new QVBoxLayout(this);
-    widgetLayout->addLayout(contentsLayout);
-    widgetLayout->setStretch(0, 1);
-    widgetLayout->addWidget(buttonBox);
-
-
-    //
-    // gui state changes and interactions
-    //
-
-
-    setWindowTitle(QSL("ListFilter Editor"));
-
-    connect(buttonBox, &QDialogButtonBox::accepted, this, &ListFilterExtractorDialog::accept);
-    connect(buttonBox, &QDialogButtonBox::rejected, this, &ListFilterExtractorDialog::reject);
-    connect(buttonBox, &QDialogButtonBox::clicked, this, [this, buttonBox](QAbstractButton *button) {
-        if (buttonBox->buttonRole(button) == QDialogButtonBox::ApplyRole) { apply(); }
-    });
-    auto on_listWidgetUi_currentRowChanged = [this](int index)
-    {
-        m_d->listWidgetUi.pb_removeFilter->setEnabled(index >= 0 && m_d->m_extractors.size() > 1);
-        m_d->listWidgetUi.pb_cloneFilter->setEnabled(index >= 0 && m_d->m_extractors.size() > 0);
-        m_d->m_editorStack->setCurrentIndex(index);
-    };
-
-    connect(m_d->listWidgetUi.listWidget, &QListWidget::currentRowChanged,
-            this, on_listWidgetUi_currentRowChanged);
-
-    connect(m_d->listWidgetUi.pb_addFilter, &QPushButton::clicked,
-            this, &ListFilterExtractorDialog::newFilter);
-
-    connect(m_d->listWidgetUi.pb_removeFilter, &QPushButton::clicked,
-            this, &ListFilterExtractorDialog::removeFilter);
-
-    connect(m_d->listWidgetUi.pb_cloneFilter, &QPushButton::clicked,
-            this, &ListFilterExtractorDialog::cloneFilter);
-
-    connect(m_d->listWidgetUi.listWidget->model(), &QAbstractItemModel::rowsMoved,
-            this, [this](const QModelIndex &parent, int srcIdx, int endIdx,
-                         const QModelIndex &dest, int dstIdx) {
-
-                qDebug() << "orig: srcIdx =" << srcIdx << ", dstIdx =" << dstIdx;
-
-                Q_ASSERT(endIdx - srcIdx == 0);
-                Q_ASSERT(srcIdx != dstIdx);
-
-                auto ex = m_d->m_extractors[srcIdx];
-                auto fe = m_d->m_filterEditors[srcIdx];
-
-                m_d->m_extractors.remove(srcIdx);
-                m_d->m_filterEditors.remove(srcIdx);
-
-                if (dstIdx > srcIdx)
-                    dstIdx -= 1;
-
-                if (dstIdx > m_d->m_extractors.size())
-                    dstIdx = m_d->m_extractors.size();
-
-                m_d->m_extractors.insert(dstIdx, ex);
-                m_d->m_filterEditors.insert(dstIdx, fe);
-
-                // Instead of fiddling with the editorStack, trying to figure
-                // out which widget has to move where this code just empties
-                // the stack and repopulates it using the existing ListFilterEditors.
-
-                while (m_d->m_editorStack->count())
-                {
-                    auto w = m_d->m_editorStack->widget(0);
-                    m_d->m_editorStack->removeWidget(w);
-                }
-
-                for (const auto &editor: m_d->m_filterEditors)
-                {
-                    m_d->m_editorStack->addWidget(editor.widget);
-                }
-
-                auto w = m_d->m_editorStack->widget(dstIdx);
-                m_d->m_editorStack->setCurrentWidget(w);
-
-                Q_ASSERT(m_d->m_editorStack->count() == m_d->m_extractors.size());
-                Q_ASSERT(m_d->m_editorStack->count() == m_d->m_filterEditors.size());
-     });
-
-
-    auto on_nameChanged = [this](int index)
-    {
-        auto item = m_d->listWidgetUi.listWidget->item(index);
-        if (item && 0 <= index && index < m_d->m_filterEditors.size())
-        {
-            auto editor = m_d->m_filterEditors.at(index);
-            item->setText(editor.le_name->text());
-        }
-    };
-
-    connect(&m_d->m_nameChangedMapper, static_cast<void (QSignalMapper::*) (int index)>(&QSignalMapper::mapped),
-            this, on_nameChanged);
-
-    repopulate();
-}
-
-ListFilterExtractorDialog::~ListFilterExtractorDialog()
-{
-}
-
-void ListFilterExtractorDialog::repopulate()
-{
-    m_d->m_extractors = m_d->m_analysis->getListFilterExtractors(m_d->m_module);
-
-    if (m_d->m_extractors.isEmpty())
-        newFilter();
-
-    int oldRow = m_d->listWidgetUi.listWidget->currentRow();
-
-    // clear the stacked editor widgets
-    while (m_d->m_editorStack->count())
-    {
-        auto w = m_d->m_editorStack->widget(0);
-        m_d->m_editorStack->removeWidget(w);
-        w->deleteLater();
-    }
-
-    // clear the left list widget
-    while (auto lw = m_d->listWidgetUi.listWidget->takeItem(0))
-    {
-        delete lw;
-    }
-
-    m_d->m_filterEditors.clear();
-
-    // populate
-    for (auto ex: m_d->m_extractors)
-    {
-        addFilterToUi(ex);
-    }
-
-    // restore selection if possible
-    if (0 <= oldRow && oldRow < m_d->m_extractors.size())
-    {
-        m_d->listWidgetUi.listWidget->setCurrentRow(oldRow);
-    }
-    else
-    {
-        m_d->listWidgetUi.listWidget->setCurrentRow(0);
-    }
-
-    m_d->listWidgetUi.label_moduleName->setText(m_d->m_module->objectName());
-}
-
-int ListFilterExtractorDialog::addFilterToUi(const ListFilterExtractorPtr &ex)
-{
-    auto editor = make_listfilter_editor();
-    listfilter_editor_load_from_extractor(editor, ex.get());
-    m_d->m_filterEditors.push_back(editor);
-    m_d->m_editorStack->addWidget(editor.widget);
-    m_d->listWidgetUi.listWidget->addItem(ex->objectName());
-
-    connect(editor.le_name, &QLineEdit::textChanged,
-            &m_d->m_nameChangedMapper, static_cast<void (QSignalMapper::*) ()>(&QSignalMapper::map));
-
-    m_d->m_nameChangedMapper.setMapping(editor.le_name, m_d->m_filterEditors.size() - 1);
-
-    connect(editor.spin_wordCount, static_cast<void (QSpinBox::*) (int)>(&QSpinBox::valueChanged),
-            this, &ListFilterExtractorDialog::updateWordCount);
-
-    connect(editor.spin_repetitions, static_cast<void (QSpinBox::*) (int)>(&QSpinBox::valueChanged),
-            this, &ListFilterExtractorDialog::updateWordCount);
-
-    updateWordCount();
-
-    return m_d->listWidgetUi.listWidget->count() - 1;
-}
-
-void ListFilterExtractorDialog::updateWordCount()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-
-    size_t wordCount = 0;
-
-    for (const auto &e: m_d->m_filterEditors)
-    {
-        auto ex = listfilter_editor_make_a2_extractor(e);
-
-        wordCount += ex.repetitions * ex.listFilter.wordCount;
-    }
-
-    m_d->listWidgetUi.label_totalWordsUsed->setText(QString::number(wordCount));
-}
-
-void ListFilterExtractorDialog::accept()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    apply();
-    QDialog::accept();
-}
-
-void ListFilterExtractorDialog::reject()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    QDialog::reject();
-}
-
-void ListFilterExtractorDialog::apply()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-
-    Q_ASSERT(m_d->m_extractors.size() == m_d->listWidgetUi.listWidget->count());
-    Q_ASSERT(m_d->m_extractors.size() == m_d->m_editorStack->count());
-    Q_ASSERT(m_d->m_extractors.size() == m_d->m_filterEditors.size());
-
-    for (int i = 0; i < m_d->m_extractors.size(); i++)
-    {
-        auto ex = m_d->m_extractors.at(i);
-        auto filterEditor = m_d->m_filterEditors.at(i);
-        listfilter_editor_save_to_extractor(filterEditor, ex.get());
-    }
-
-    {
-        AnalysisPauser pauser(m_d->m_context);
-        m_d->m_analysis->setListFilterExtractors(m_d->m_module, m_d->m_extractors);
-    }
-
-    repopulate();
-
-    emit applied();
-}
-
-void ListFilterExtractorDialog::newFilter()
-{
-    auto ex = std::make_shared<ListFilterExtractor>();
-    ex->setObjectName(QSL("new filter"));
-
-#if 1
-    auto listFilter = a2::data_filter::make_listfilter(
-        a2::data_filter::ListFilter::NoFlag, 1, {
-            "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
-            "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX" });
-
-            //"1XXX XXXX XXXX XXXX 2XXX XXXX XXXX XXXX",
-            //"3XXX XXXX XXXX XXXX 4XXX XXXX XXXX XXXX" });
-#else
-    auto listFilter = a2::data_filter::make_listfilter(
-        a2::data_filter::ListFilter::NoFlag, 1);
-#endif
-
-    auto ex_a2 = a2::make_listfilter_extractor(listFilter, 1, 0, a2::DataSourceOptions::NoAddedRandom);
-
-    ex->setExtractor(ex_a2);
-
-    m_d->m_extractors.push_back(ex);
-    int idx = addFilterToUi(ex);
-    m_d->listWidgetUi.listWidget->setCurrentRow(idx);
-}
-
-void ListFilterExtractorDialog::removeFilter()
-{
-    int index = m_d->listWidgetUi.listWidget->currentRow();
-    Q_ASSERT(0 <= index && index < m_d->m_extractors.size());
-
-    m_d->m_extractors.removeAt(index);
-    delete m_d->listWidgetUi.listWidget->takeItem(index);
-    auto widget = m_d->m_editorStack->widget(index);
-    m_d->m_editorStack->removeWidget(widget);
-    widget->deleteLater();
-    m_d->m_filterEditors.removeAt(index);
-}
-
-void ListFilterExtractorDialog::cloneFilter()
-{
-    int index = m_d->listWidgetUi.listWidget->currentRow();
-    Q_ASSERT(0 <= index && index < m_d->m_extractors.size());
-
-    auto clone = std::make_shared<ListFilterExtractor>();
-    listfilter_editor_save_to_extractor(m_d->m_filterEditors[index], clone.get());
-    clone->setObjectName(clone->objectName() + " copy");
-    m_d->m_extractors.push_back(clone);
-    int idx = addFilterToUi(clone);
-    m_d->listWidgetUi.listWidget->setCurrentRow(idx);
-}
-
-void ListFilterExtractorDialog::editSource(const SourcePtr &src)
-{
-    qDebug() << __PRETTY_FUNCTION__ << src.get();
-    if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(src))
-    {
-        int idx = m_d->m_extractors.indexOf(lfe);
-        if (0 <= idx && idx < m_d->m_extractors.size())
-        {
-            m_d->listWidgetUi.listWidget->setCurrentRow(idx);
-        }
-    }
-}
-
-QVector<ListFilterExtractorPtr> ListFilterExtractorDialog::getExtractors() const
-{
-    return m_d->m_extractors;
-}
-
-//
-// AddEditOperatorWidget
-//
-
-/** IMPORTANT: This constructor makes the Widget go into "add" mode. When
- * accepted it will call eventWidget->addOperator()! */
-AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget)
-    : AddEditOperatorWidget(opPtr.get(), userLevel, eventWidget)
-{
-    m_opPtr = opPtr;
-    setWindowTitle(QString("New  %1").arg(opPtr->getDisplayName()));
-
-    // Creating a new operator. Override the setting of setNameEdited by the
-    // constructor below.
-    m_opConfigWidget->setNameEdited(false);
-}
-
-/** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
- * accepted it will call eventWidget->operatorEdited()! */
-AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget)
+AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel, OperatorEditorMode mode, EventWidget *eventWidget)
     : QDialog(eventWidget)
     , m_op(op)
     , m_userLevel(userLevel)
+    , m_mode(mode)
     , m_eventWidget(eventWidget)
     , m_opConfigWidget(nullptr)
 {
-    // Note: refactor this into some factory or table lookup based on
+    // TODO: refactor this into some factory or table lookup based on
     // qmetaobject if there are more operator specific widgets to handle
-    if (auto rms = qobject_cast<RateMonitorSink *>(op))
+    if (auto rms = qobject_cast<RateMonitorSink *>(op.get()))
     {
-        m_opConfigWidget = new RateMonitorConfigWidget(rms, userLevel,
-                                                       eventWidget->getContext(), this);
-    }
-    else if (auto op_ = qobject_cast<ExpressionOperator *>(op))
-    {
-        m_opConfigWidget = new ExpressionOperatorConfigurationWidget(
-            op_, userLevel,
-            eventWidget->getContext(), this);
+        m_opConfigWidget = new RateMonitorConfigWidget(
+            rms, userLevel, eventWidget->getContext(), this);
     }
     else
     {
-        m_opConfigWidget = new OperatorConfigurationWidget(op, userLevel,
-                                                           eventWidget->getContext(), this);
+        m_opConfigWidget = new OperatorConfigurationWidget(
+            op.get(), userLevel, eventWidget->getContext(), this);
     }
 
-    setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
+    switch (mode)
+    {
+        case OperatorEditorMode::New:
+            setWindowTitle(QString("New  %1").arg(m_op->getDisplayName()));
+            // This is a new operator, so either the name is empty or was auto generated.
+            m_opConfigWidget->setNameEdited(false);
+            break;
+
+        case OperatorEditorMode::Edit:
+            setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
+            // We're editing an operator so we assume the name has been specified by the user.
+            m_opConfigWidget->setNameEdited(true);
+            break;
+    }
+
     add_widget_close_action(this);
 
-    // We're editing an operator so we assume the name has been specified by the user.
-    m_opConfigWidget->setNameEdited(true);
-
     connect(m_opConfigWidget, &AbstractOpConfigWidget::validityMayHaveChanged,
-            this, &AddEditOperatorWidget::onOperatorValidityChanged);
+            this, &AddEditOperatorDialog::onOperatorValidityChanged);
+
+
+    //
+    // Slotgrid creation
+    //
 
     const s32 slotCount = m_op->getNumberOfSlots();
 
@@ -1092,18 +402,16 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
         connect(m_addSlotButton, &QPushButton::clicked, this, [this] () {
             m_op->addSlot();
             repopulateSlotGrid();
-            inputSelected(-1);
+            endInputSelect();
             m_removeSlotButton->setEnabled(m_op->getNumberOfSlots() > 1);
         });
 
         connect(m_removeSlotButton, &QPushButton::clicked, this, [this] () {
             if (m_op->getNumberOfSlots() > 1)
             {
-                AnalysisPauser pauser(m_eventWidget->getContext());
                 m_op->removeLastSlot();
-                do_beginRun_forward(m_op);
                 repopulateSlotGrid();
-                inputSelected(-1);
+                endInputSelect();
             }
             m_removeSlotButton->setEnabled(m_op->getNumberOfSlots() > 1);
         });
@@ -1119,8 +427,8 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
     m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
-    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorWidget::accept);
-    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorWidget::reject);
+    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorDialog::accept);
+    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorDialog::reject);
     auto buttonBoxLayout = new QVBoxLayout;
     buttonBoxLayout->addStretch();
     buttonBoxLayout->addWidget(m_buttonBox);
@@ -1141,7 +449,22 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     repopulateSlotGrid();
 }
 
-void AddEditOperatorWidget::repopulateSlotGrid()
+QString makeSlotSourceString(Slot *slot)
+{
+    Q_ASSERT(slot->inputPipe);
+    Q_ASSERT(slot->inputPipe->source);
+
+    QString result = slot->inputPipe->source->objectName();
+
+    if (slot->paramIndex != Slot::NoParamIndex)
+    {
+        result = QString("%1[%2]").arg(result).arg(slot->paramIndex);
+    }
+
+    return result;
+}
+
+void AddEditOperatorDialog::repopulateSlotGrid()
 {
     // Clear the grid and the select buttons
     {
@@ -1189,7 +512,9 @@ void AddEditOperatorWidget::repopulateSlotGrid()
                  * The lambda is the callback for the EventWidget. This means
                  * inputSelected() will be called with the current slotIndex
                  * once input selection is complete. */
-                m_eventWidget->selectInputFor(slot, userLevel, [this, slot, slotIndex] () {
+                m_eventWidget->selectInputFor(slot, userLevel,
+                                              [this] (Slot *destSlot, Pipe *selectedPipe, s32 selectedParamIndex) {
+#if 0
                     // The assumption is that the analysis has been paused by
                     // the EventWidget.
                     Q_ASSERT(!m_eventWidget->getContext()->isAnalysisRunning());
@@ -1197,6 +522,8 @@ void AddEditOperatorWidget::repopulateSlotGrid()
                     // Update the slots source operator and all dependents
                     do_beginRun_forward(slot->parentOperator);
                     this->inputSelected(slotIndex);
+#endif
+                    this->inputSelectedForSlot(destSlot, selectedPipe, selectedParamIndex);
                 });
             }
 
@@ -1221,7 +548,7 @@ void AddEditOperatorWidget::repopulateSlotGrid()
             // Update the current select button to reflect the change
             m_selectButtons[slotIndex]->setText(QSL("<select>"));
             // Disable ok button as there's now at least one unset input
-            bool enable_ok = required_inputs_connected_and_valid(m_op);
+            bool enable_ok = required_inputs_connected_and_valid(m_op.get());
             m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enable_ok);
             m_opConfigWidget->inputSelected(slotIndex);
         });
@@ -1237,41 +564,44 @@ void AddEditOperatorWidget::repopulateSlotGrid()
         ++row;
     }
 
-    // Updates the slot select buttons in case we're editing a connected operator
+    // Update the slot select buttons in case we're editing a connected operator
     for (s32 slotIndex = 0; slotIndex < slotCount; ++slotIndex)
     {
         if (m_op->getSlot(slotIndex)->inputPipe)
-            inputSelected(slotIndex);
-    }
-}
-
-QString makeSlotSourceString(Slot *slot)
-{
-    Q_ASSERT(slot->inputPipe);
-    Q_ASSERT(slot->inputPipe->source);
-
-    QString result = slot->inputPipe->source->objectName();
-
-    if (slot->paramIndex != Slot::NoParamIndex)
-    {
-        result = QString("%1[%2]").arg(result).arg(slot->paramIndex);
+        {
+            if (auto selectButton = m_selectButtons.value(slotIndex, nullptr))
+            {
+                selectButton->setText(makeSlotSourceString(m_op->getSlot(slotIndex)));
+            }
+        }
     }
 
-    return result;
+    onOperatorValidityChanged();
 }
 
-void AddEditOperatorWidget::inputSelected(s32 slotIndex)
+void AddEditOperatorDialog::inputSelectedForSlot(
+    Slot *destSlot,
+    Pipe *selectedPipe,
+    s32 selectedParamIndex)
 {
-    if (slotIndex >= 0)
-    {
-        Slot *slot = m_op->getSlot(slotIndex);
-        Q_ASSERT(slot);
-        qDebug() << __PRETTY_FUNCTION__ << slot;
+    qDebug() << __PRETTY_FUNCTION__
+        << "destSlot =" << destSlot
+        << "selectedPipe =" << selectedPipe
+        << "selectedParamIndex =" << selectedParamIndex;
 
+    assert(destSlot == m_op->getSlot(destSlot->parentSlotIndex));
+
+    destSlot->connectPipe(selectedPipe, selectedParamIndex);
+    //do_beginRun_forward(destSlot->parentOperator);
+
+    s32 slotIndex = destSlot->parentSlotIndex;
+
+    if (0 <= slotIndex && slotIndex < m_selectButtons.size())
+    {
         auto selectButton = m_selectButtons[slotIndex];
         QSignalBlocker b(selectButton);
         selectButton->setChecked(false);
-        selectButton->setText(makeSlotSourceString(slot));
+        selectButton->setText(makeSlotSourceString(destSlot));
     }
 
     m_opConfigWidget->inputSelected(slotIndex);
@@ -1279,96 +609,130 @@ void AddEditOperatorWidget::inputSelected(s32 slotIndex)
     onOperatorValidityChanged();
 }
 
-void AddEditOperatorWidget::onOperatorValidityChanged()
+void AddEditOperatorDialog::endInputSelect()
 {
-    bool isValid = m_opConfigWidget->isValid();
+    m_opConfigWidget->inputSelected(-1);
+    m_inputSelectActive = false;
+    onOperatorValidityChanged();
+}
+
+void AddEditOperatorDialog::onOperatorValidityChanged()
+{
+    bool isValid = m_opConfigWidget->isValid() && required_inputs_connected_and_valid(m_op.get());
+
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid);
 }
 
-void AddEditOperatorWidget::accept()
+void AddEditOperatorDialog::accept()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
     AnalysisPauser pauser(m_eventWidget->getContext());
     m_opConfigWidget->configureOperator();
-    if (m_opPtr)
+
+    auto analysis = m_eventWidget->getContext()->getAnalysis();
+
+    try
     {
-        // add mode
-        m_eventWidget->addOperator(m_opPtr, m_userLevel);
+        switch (m_mode)
+        {
+            case OperatorEditorMode::New:
+                {
+                    analysis->addOperator(m_eventWidget->getEventId(), m_op, m_userLevel);
+                } break;
+
+            case OperatorEditorMode::Edit:
+                {
+                    // TODO: do_beginRun_forward here
+                    auto context = m_eventWidget->getContext();
+                    auto runInfo = context->getRunInfo();
+                    auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(context->getVMEConfig());
+                    analysis->setModified();
+                    analysis->beginRun(runInfo, vmeMap);
+                } break;
+        }
+
+        QDialog::accept();
     }
-    else
+    catch (const std::bad_alloc &)
     {
-        // edit mode
-        m_eventWidget->operatorEdited(m_op);
+        // FIXME: bring analysis into a consistent state by removing the
+        // operator in AddMode or by undoing the modifications in case
+        // of EditMode (how should this be done? there's no undo right now...)
+
+        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
+        reject();
     }
-    m_eventWidget->getContext()->getAnalysis()->setModified();
-    m_eventWidget->endSelectInput();
-    m_eventWidget->uniqueWidgetCloses();
-    QDialog::accept();
 }
 
-void AddEditOperatorWidget::reject()
+void AddEditOperatorDialog::reject()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
     AnalysisPauser pauser(m_eventWidget->getContext());
 
-    if (m_opPtr)
+    switch (m_mode)
     {
-        // add mode
-        // The operator will not be added to the analysis. This means any slots
-        // connected by the user must be disconnected again to avoid having
-        // stale connections in the source operators.
-        for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-        {
-            Slot *slot = m_op->getSlot(slotIndex);
-            slot->disconnectPipe();
-        }
-    }
-    else
-    {
-        // edit mode
-        // Restore previous slot connections.
-
-        if (m_op->hasVariableNumberOfSlots()
-            && (m_op->getNumberOfSlots() != m_slotBackups.size()))
-        {
-            // Restore the original number of inputs.
-            while (m_op->removeLastSlot());
-
-            while (m_op->getNumberOfSlots() < m_slotBackups.size())
+        case OperatorEditorMode::New:
             {
-                m_op->addSlot();
-            }
-        }
+                // The operator will not be added to the analysis. This means any slots
+                // connected by the user must be disconnected again to avoid having
+                // stale connections in the source operators.
+                for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+                {
+                    Slot *slot = m_op->getSlot(slotIndex);
+                    slot->disconnectPipe();
+                }
+            } break;
 
-        Q_ASSERT(m_op->getNumberOfSlots() == m_slotBackups.size());
-
-        bool wasModified = false;
-
-        for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-        {
-            Slot *slot = m_op->getSlot(slotIndex);
-            auto oldConnection = m_slotBackups[slotIndex];
-            if (slot->inputPipe != oldConnection.inputPipe
-                || slot->paramIndex != oldConnection.paramIndex)
+        case OperatorEditorMode::Edit:
             {
-                wasModified = true;
-                slot->connectPipe(oldConnection.inputPipe, oldConnection.paramIndex);
-            }
-        }
+                // FIXME: get rid of as much of the complicated slot handling code here as possible
 
-        if (wasModified)
-        {
-            do_beginRun_forward(m_op);
-        }
+
+                // Restore previous slot connections.
+
+                if (m_op->hasVariableNumberOfSlots()
+                    && (m_op->getNumberOfSlots() != m_slotBackups.size()))
+                {
+                    // Restore the original number of inputs.
+                    while (m_op->removeLastSlot());
+
+                    while (m_op->getNumberOfSlots() < m_slotBackups.size())
+                    {
+                        m_op->addSlot();
+                    }
+                }
+
+                Q_ASSERT(m_op->getNumberOfSlots() == m_slotBackups.size());
+
+                bool wasModified = false;
+
+                for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+                {
+                    Slot *slot = m_op->getSlot(slotIndex);
+                    auto oldConnection = m_slotBackups[slotIndex];
+                    if (slot->inputPipe != oldConnection.inputPipe
+                        || slot->paramIndex != oldConnection.paramIndex)
+                    {
+                        wasModified = true;
+                        slot->connectPipe(oldConnection.inputPipe, oldConnection.paramIndex);
+                    }
+                }
+
+                if (wasModified)
+                {
+                    do_beginRun_forward(m_op.get());
+                }
+            } break;
     }
+
     m_eventWidget->endSelectInput();
     m_eventWidget->uniqueWidgetCloses();
     QDialog::reject();
 }
 
-bool AddEditOperatorWidget::eventFilter(QObject *watched, QEvent *event)
+bool AddEditOperatorDialog::eventFilter(QObject *watched, QEvent *event)
 {
     auto button = qobject_cast<QPushButton *>(watched);
     if (button && (event->type() == QEvent::Enter || event->type() == QEvent::Leave)
@@ -1395,7 +759,7 @@ bool AddEditOperatorWidget::eventFilter(QObject *watched, QEvent *event)
  *
  * Maybe there's a better way to achieve the same but I didn't find it.
  */
-void AddEditOperatorWidget::resizeEvent(QResizeEvent *event)
+void AddEditOperatorDialog::resizeEvent(QResizeEvent *event)
 {
     if (!m_resizeEventSeen)
     {
@@ -2010,7 +1374,8 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         // operator and struct/class name
         {
             auto label = new QLabel(QSL(
-                    "<i>Name</i> must be a valid C++/Python identifier as it is used for generated struct and class names."));
+                    "<i>Name</i> must be a valid C++/Python identifier as it is used"
+                    " for generated struct and class names."));
             label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
             label->setFrameShape(QFrame::StyledPanel);
@@ -2093,22 +1458,27 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             auto stack = new QStackedWidget;
 
             auto label = new QLabel(QSL(
-                        "Sparse format writes out indexes and values, omitting invalid parameters and NaNs.\n"
-                        "For input arrays where for most events only a few parameters are valid, this format"
-                        " produces much smaller output files than the Full format."
+                        "Sparse format writes out indexes and values, omitting"
+                        " invalid parameters and NaNs.\n"
+                        "For input arrays where for most events only a few"
+                        " parameters are valid, this format produces much"
+                        " smaller output files than the Full format."
                         ));
+            set_widget_font_pointsize_relative(label, -1);
             label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
             label->setFrameShape(QFrame::StyledPanel);
             stack->addWidget(label);
 
             label = new QLabel(QSL(
-                        "Full format writes out each input array as-is, including invalid parameters"
-                        " (special NaN values).\n"
-                        "Use this format if for most events all of the array parameters are valid or read"
-                        " performance of the exported data file is critical.\n"
+                        "Full format writes out each input array as-is,"
+                        " including invalid parameters (special NaN values).\n"
+                        "Use this format if for most events all of the array"
+                        " parameters are valid or read performance of the"
+                        " exported data file is critical.\n"
                         "Warning: this format can produce large files quickly!"
                         ));
+            set_widget_font_pointsize_relative(label, -1);
             label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
             label->setFrameShape(QFrame::StyledPanel);
@@ -2129,9 +1499,11 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
             auto label = new QLabel(QSL(
                     "zlib compression will produce a gzip compatible compressed file.\n"
-                    "Generated C++ code will require the zlib development files to be installed on the system.\n"
+                    "Generated C++ code will require the zlib development files"
+                    " to be installed on the system.\n"
                     "Generated Python code will use the gzip module included with Python."
                     ));
+            set_widget_font_pointsize_relative(label, -1);
             label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
             label->setFrameShape(QFrame::StyledPanel);
@@ -2139,9 +1511,12 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             formLayout->addRow(label);
         }
 
-        // codegen
+        // codegen and open output directory
         {
-            pb_generateCode = new QPushButton("C++ && Python code");
+            pb_generateCode  = new QPushButton(QSL("C++ && Python code"));
+
+            pb_openOutputDir = new QPushButton(QIcon(":/folder_orange.png"),
+                                               QSL("Open output directory"));
 
             auto gb    = new QGroupBox("Code generation");
             auto l     = new QGridLayout(gb);
@@ -2152,12 +1527,14 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
                     " buttons below to generate the code files.\n"
                     "Errors during code generation will be shown in the Log Window."
                    ));
+            set_widget_font_pointsize_relative(label, -1);
             label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 
-            l->addWidget(label,                0, 0, 1, 2);
+            l->addWidget(label,                0, 0, 1, 3);
             l->addWidget(pb_generateCode,      1, 0);
-            l->addWidget(make_spacer_widget(), 1, 1);
+            l->addWidget(pb_openOutputDir,     1, 1);
+            l->addWidget(make_spacer_widget(), 1, 2);
 
             formLayout->addRow(gb);
 
@@ -2188,6 +1565,26 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             connect(this, &AbstractOpConfigWidget::validityMayHaveChanged, this, [this]() {
                 pb_generateCode->setEnabled(isValid());
             });
+
+            connect(pb_openOutputDir, &QPushButton::clicked, this, [this, ex, logger] () {
+                try
+                {
+                    this->configureOperator();
+
+                    QString path = m_context->getWorkspaceDirectory() + "/" +
+                        ex->getOutputPrefixPath();
+
+                    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+                }
+                catch (const QString &e)
+                {
+                    logger(e);
+                }
+                catch (const std::exception &e)
+                {
+                    logger(QString::fromStdString(e.what()));
+                }
+            });
         }
 
         //
@@ -2209,7 +1606,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
     }
 }
 
-// NOTE: This will be called after construction for each slot by AddEditOperatorWidget::repopulateSlotGrid()!
+// NOTE: This will be called after construction for each slot by AddEditOperatorDialog::repopulateSlotGrid()!
 void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 {
     OperatorInterface *op = m_op;
@@ -2399,14 +1796,14 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             le_yAxisTitle->setText(makeSlotSourceString(&histoSink->m_inputY));
 
         // x input was selected
-        if (histoSink->m_inputX.isConnected() && slot == &histoSink->m_inputX && std::isnan(histoSink->m_xLimitMin))
+        if (histoSink->m_inputX.isParamIndexInRange() && slot == &histoSink->m_inputX && std::isnan(histoSink->m_xLimitMin))
         {
             limits_x.spin_min->setValue(slot->inputPipe->parameters[slot->paramIndex].lowerLimit);
             limits_x.spin_max->setValue(slot->inputPipe->parameters[slot->paramIndex].upperLimit);
         }
 
         // y input was selected
-        if (histoSink->m_inputY.isConnected() && slot == &histoSink->m_inputY && std::isnan(histoSink->m_yLimitMin))
+        if (histoSink->m_inputY.isParamIndexInRange() && slot == &histoSink->m_inputY && std::isnan(histoSink->m_yLimitMin))
         {
             limits_y.spin_min->setValue(slot->inputPipe->parameters[slot->paramIndex].lowerLimit);
             limits_y.spin_max->setValue(slot->inputPipe->parameters[slot->paramIndex].upperLimit);
@@ -2820,7 +2217,9 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
             QSL("Counter Difference"),
             QSL("Input values are interpreted as increasing counter values.\n"
                 "The resulting rate is calculated from the difference of successive input values.\n"
-                "The sampling rate is tied to the event rate."
+                "The sampling rate is tied to the event rate. This option"
+                " should mostly be used in periodic events with a fixed"
+                " interval."
                 )
         },
 
@@ -2828,7 +2227,9 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
             RateMonitorSink::Type::PrecalculatedRate,
             QSL("Precalculated Rate"),
             QSL("Input values are interpreted as rate values and are directly recorded.\n"
-                "The sampling rate is tied to the event rate."
+                "The sampling rate is tied to the event rate. This option"
+                " should mostly be used in periodic events with a fixed"
+                " interval."
                 )
         },
     }
@@ -2997,283 +2398,6 @@ bool RateMonitorConfigWidget::isValid() const
 }
 
 //
-// ExpressionEditor
-//
-
-static const int TabStop = 4;
-
-ExpressionEditor::ExpressionEditor(QWidget *parent)
-    : QWidget(parent)
-{
-    m_textEdit = new QPlainTextEdit;
-    m_errorTable = new QTableWidget;
-    pb_compile = new QPushButton("Compile");
-    pb_run     = new QPushButton("Run");
-
-
-    auto buttonsLayout = new QHBoxLayout;
-    buttonsLayout->addWidget(pb_compile);
-    buttonsLayout->addWidget(pb_run);
-
-    auto widgetLayout = new QVBoxLayout(this);
-    widgetLayout->setContentsMargins(0, 0, 0, 0);
-    widgetLayout->addWidget(m_textEdit);
-    widgetLayout->addWidget(m_errorTable);
-    widgetLayout->addLayout(buttonsLayout);
-    widgetLayout->setStretch(0, 4);
-    widgetLayout->setStretch(1, 1);
-    widgetLayout->setStretch(2, 0);
-
-    // Smaller monospace font for editor and table widget
-    auto font = make_monospace_font();
-    font.setPointSize(8);
-    m_textEdit->setFont(make_monospace_font());
-
-    {
-        // Tab width calculation
-        QString spaces;
-        for (int i = 0; i < TabStop; ++i)
-            spaces += " ";
-        QFontMetrics metrics(font);
-        m_textEdit->setTabStopWidth(metrics.width(spaces));
-    }
-
-    m_errorTable->setFont(font);
-}
-
-void ExpressionEditor::setExpressionString(const QString &exprString)
-{
-    m_textEdit->setPlainText(exprString);
-}
-
-QString ExpressionEditor::getExpressionString() const
-{
-    return m_textEdit->toPlainText();
-}
-
-//
-// ExpressionOperatorConfigurationWidget
-//
-
-/* Two scripts to edit: begin and step
- *
- * "compile" button.
- *
- * Error display. Clickable so that the editor can jump to the error location and highlight the line.
- *
- * Input arrays with limits and generated example values.
- * Output arrays containing the results of evaluating the operator using the example input data.
- *
- * Later:
- * Auto compile option becoming active if the user stopped typing for a while.
- * Library of predefined and user defined scripts.
- * Debugging tools: symbol table dump.
- *
- */
-static a2::PipeVectors make_a2_pipe_from_a1_pipe(memory::Arena *arena, analysis::Pipe *a1_inPipe)
-{
-    a2::PipeVectors result = {};
-
-    const auto size = a1_inPipe->getSize();
-
-    result.data        = a2::push_param_vector(arena, size, make_quiet_nan());
-    result.lowerLimits = a2::push_param_vector(arena, size);
-    result.upperLimits = a2::push_param_vector(arena, size);
-
-    for (s32 i = 0; i < size; i++)
-    {
-        const auto &a1_param(a1_inPipe->getParameter(i));
-        result.data[i]        = a1_param->value;
-        result.lowerLimits[i] = a1_param->lowerLimit;
-        result.upperLimits[i] = a1_param->upperLimit;
-    }
-
-    return result;
-}
-
-static void populate_pipe_table(a2::PipeVectors pipe, QTableWidget *table)
-{
-    assert(table);
-
-    table->setRowCount(pipe.data.size);
-
-    for (s32 pi = 0; pi < pipe.data.size; pi++)
-    {
-        double param      = pipe.data[pi];
-        double lowerLimit = pipe.lowerLimits[pi];
-        double upperLimit = pipe.upperLimits[pi];
-
-        QStringList columns =
-        {
-            a2::is_param_valid(param) ? QSL("Y") : QSL("N"),
-            a2::is_param_valid(param) ? QString::number(param) : QSL(""),
-            QString::number(lowerLimit),
-            QString::number(upperLimit),
-        };
-
-        for (s32 ci = 0; ci < columns.size(); ci++)
-        {
-            auto item = table->item(pi, ci);
-            if (!item)
-            {
-                item = new QTableWidgetItem;
-                table->setItem(pi, ci, item);
-            }
-
-            item->setText(columns[ci]);
-            item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        }
-
-        if (!table->verticalHeaderItem(pi))
-        {
-            table->setVerticalHeaderItem(pi, new QTableWidgetItem);
-        }
-
-        table->verticalHeaderItem(pi)->setText(QString::number(pi));
-    }
-
-    table->resizeColumnsToContents();
-    table->resizeRowsToContents();
-}
-
-
-ExpressionOperatorConfigurationWidget::ExpressionOperatorConfigurationWidget(ExpressionOperator *op,
-                                                                             s32 userLevel,
-                                                                             MVMEContext *context,
-                                                                             QWidget *parent)
-    : AbstractOpConfigWidget(op, userLevel, context, parent)
-    , m_op(op)
-    , m_arena(ArenaSize)
-    , m_exprBeginEditor(new ExpressionEditor)
-    , m_exprStepEditor(new ExpressionEditor)
-    , m_tw_input(new QTableWidget)
-    , m_tw_output(new QTableWidget)
-{
-    le_name = new QLineEdit;
-
-    connect(le_name, &QLineEdit::textEdited, this, [this](const QString &newText) {
-        // If the user clears the textedit reset NameEdited to false.
-        this->setNameEdited(!newText.isEmpty());
-    });
-
-    le_name->setText(op->objectName());
-
-    for (auto tw: { m_tw_input, m_tw_output })
-    {
-        tw->setColumnCount(4);
-        tw->setHorizontalHeaderLabels({"Valid", "Value", "Lower Limit", "Upper Limit"});
-        auto font = make_monospace_font();
-        font.setPointSize(8);
-        tw->setFont(font);
-    }
-
-    auto pb_rebuild = new QPushButton("rebuild");
-    connect(pb_rebuild, &QPushButton::clicked, this, [this]() { this->rebuild(); });
-
-    auto otherStuffLayout = new QHBoxLayout;
-    otherStuffLayout->addWidget(pb_rebuild);
-    otherStuffLayout->addSpacing(1);
-
-    //
-    // populate the widget
-    //
-
-    auto *propertiesLayout = new QFormLayout;
-    propertiesLayout->setContentsMargins(2, 2, 2, 2);
-    propertiesLayout->addRow(QSL("Name"), le_name);
-
-    auto mainSplitter = new QSplitter(Qt::Horizontal);
-
-    mainSplitter->addWidget(make_vbox_container("Begin", m_exprBeginEditor));
-    mainSplitter->addWidget(make_vbox_container("Step", m_exprStepEditor));
-    mainSplitter->addWidget(make_vbox_container("Input", m_tw_input));
-    mainSplitter->addWidget(make_vbox_container("Output", m_tw_output));
-
-    auto mainLayout = new QVBoxLayout;
-    mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->addWidget(mainSplitter);
-    mainLayout->addLayout(otherStuffLayout);
-
-    auto widgetLayout = new QVBoxLayout(this);
-    widgetLayout->setContentsMargins(0, 0, 0, 0);
-
-    widgetLayout->addLayout(propertiesLayout);
-    widgetLayout->addLayout(mainLayout);
-    widgetLayout->setStretch(0, 0);
-    widgetLayout->setStretch(1, 1);
-
-    //
-    // load from operator into gui
-    //
-
-    reloadFromOperator();
-}
-
-void ExpressionOperatorConfigurationWidget::configureOperator()
-{
-    assert(required_inputs_connected_and_valid(m_op));
-
-    m_op->setObjectName(le_name->text());
-}
-
-void ExpressionOperatorConfigurationWidget::inputSelected(s32 slotIndex)
-{
-    if (no_input_connected(m_op) && !wasNameEdited())
-    {
-        le_name->clear();
-        setNameEdited(false);
-    }
-
-    if (!wasNameEdited())
-    {
-        auto name = makeSlotSourceString(m_op->getSlot(0));
-
-        le_name->setText(name);
-    }
-
-    rebuild();
-}
-
-bool ExpressionOperatorConfigurationWidget::isValid() const
-{
-    return true;
-}
-
-void ExpressionOperatorConfigurationWidget::rebuild()
-{
-#if 0
-    m_a2_inPipe = {};
-    m_a2_op = {};
-    m_arena.reset();
-
-    if (required_inputs_connected_and_valid(m_op))
-    {
-        auto a1_inPipe = m_op->getSlot(0)->inputPipe;
-
-        m_a2_inPipe = make_a2_pipe_from_a1_pipe(&m_arena, a1_inPipe);
-
-        m_a2_op = a2::make_expression_operator(
-            &m_arena,
-            m_a2_inPipe,
-            m_exprBeginEditor->getExpressionString().toStdString(),
-            m_exprStepEditor->getExpressionString().toStdString()
-            );
-
-        populate_pipe_table(m_a2_inPipe, m_tw_input);
-    }
-#else
-    assert(!"disabled for now to speed up building");
-#endif
-}
-
-void ExpressionOperatorConfigurationWidget::reloadFromOperator()
-{
-    m_exprBeginEditor->setExpressionString(m_op->getBeginExpression());
-    m_exprStepEditor->setExpressionString(m_op->getStepExpression());
-    rebuild();
-}
-
-//
 // PipeDisplay
 //
 
@@ -3281,7 +2405,6 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
     : QWidget(parent, Qt::Tool)
     , m_analysis(analysis)
     , m_pipe(pipe)
-    , m_infoLabel(new QLabel)
     , m_parameterTable(new QTableWidget)
 {
     auto layout = new QGridLayout(this);
@@ -3291,7 +2414,6 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
     auto closeButton = new QPushButton(QSL("Close"));
     connect(closeButton, &QPushButton::clicked, this, &QWidget::close);
 
-    layout->addWidget(m_infoLabel, row++, 0);
     layout->addWidget(m_parameterTable, row++, 0);
     layout->addWidget(closeButton, row++, 0, 1, 1);
 
@@ -3350,52 +2472,14 @@ void PipeDisplay::refresh()
             m_parameterTable->verticalHeaderItem(pi)->setText(QString::number(pi));
         }
 
-        m_infoLabel->setText("a2::PipeVectors");
+        m_parameterTable->resizeColumnsToContents();
+        m_parameterTable->resizeRowsToContents();
     }
     else
     {
-        m_parameterTable->setRowCount(m_pipe->parameters.size());
-
-        for (s32 pi = 0; pi < m_pipe->parameters.size(); ++pi)
-        {
-            const auto &param(m_pipe->parameters[pi]);
-
-            QStringList columns =
-            {
-                param.valid ? QSL("Y") : QSL("N"),
-                param.valid ? QString::number(param.value) : QSL(""),
-                QString::number(param.lowerLimit),
-                QString::number(param.upperLimit),
-            };
-
-            for (s32 ci = 0; ci < columns.size(); ci++)
-            {
-                auto item = m_parameterTable->item(pi, ci);
-                if (!item)
-                {
-                    item = new QTableWidgetItem;
-                    m_parameterTable->setItem(pi, ci, item);
-                }
-
-                item->setText(columns[ci]);
-                item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-            }
-
-            if (!m_parameterTable->verticalHeaderItem(pi))
-            {
-                m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem);
-            }
-
-            m_parameterTable->verticalHeaderItem(pi)->setText(QString::number(pi));
-        }
-
-        m_infoLabel->setText("analysis::Pipe");
+        m_parameterTable->setRowCount(0);
     }
-
-    m_parameterTable->resizeColumnsToContents();
-    m_parameterTable->resizeRowsToContents();
 }
-
 
 QWidget* CalibrationItemDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
@@ -3454,7 +2538,7 @@ ExportSinkStatusMonitor::ExportSinkStatusMonitor(const std::shared_ptr<ExportSin
     , label_eventsWritten(new QLabel)
     , label_bytesWritten(new QLabel)
     , label_status(new QLabel)
-    , pb_openDirectory(new QPushButton(QSL("Open")))
+    , pb_openDirectory(new QPushButton(QIcon(":/folder_orange.png"), QSL("Open")))
 {
     label_status->setWordWrap(true);
 
@@ -3478,7 +2562,10 @@ ExportSinkStatusMonitor::ExportSinkStatusMonitor(const std::shared_ptr<ExportSin
     }
 
     connect(pb_openDirectory, &QPushButton::clicked, this, [this]() {
-        QDesktopServices::openUrl(m_sink->getOutputPrefixPath());
+        QString path = m_context->getWorkspaceDirectory() + "/"
+            + m_sink->getOutputPrefixPath();
+
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
     });
 
     static const int UpdateInterval_ms = 1000;
@@ -3522,4 +2609,106 @@ void ExportSinkStatusMonitor::update()
     }
 }
 
+//
+// EventSettingsDialog
+//
+
+EventSettingsDialog::EventSettingsDialog(const QVariantMap &settings, QWidget *parent)
+    : QDialog(parent)
+    , m_settings(settings)
+    , cb_multiEvent(new QCheckBox)
+{
+    setWindowTitle(QSL("Analysis Event Settings"));
+
+    auto gbSettings = new QGroupBox(QSL("Event settings"));
+    auto settingsLayout = new QFormLayout(gbSettings);
+    settingsLayout->addRow(QSL("Multi Event Processing"), cb_multiEvent);
+    auto label = new QLabel(QSL("Becomes active on the next DAQ/Replay start."));
+    set_widget_font_pointsize_relative(label, -1);
+    settingsLayout->addRow(label);
+
+    auto dialogLayout = new QVBoxLayout(this);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    auto bbLayout = new QHBoxLayout;
+    bbLayout->addStretch(1);
+    bbLayout->addWidget(bb);
+
+    dialogLayout->addWidget(gbSettings);
+    dialogLayout->addLayout(bbLayout);
+    dialogLayout->setStretch(0, 1);
+
+    QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    cb_multiEvent->setChecked(settings.value(QSL("MultiEventProcessing"), false).toBool());
 }
+
+void EventSettingsDialog::accept()
+{
+    m_settings.insert(QSL("MultiEventProcessing"), cb_multiEvent->isChecked());
+
+    QDialog::accept();
+}
+
+//
+// ModuleSettingsDialog
+//
+
+ModuleSettingsDialog::ModuleSettingsDialog(const ModuleConfig *moduleConfig,
+                                           const QVariantMap &settings,
+                                           QWidget *parent)
+    : QDialog(parent)
+    , m_settings(settings)
+    , m_filterEdit(makeFilterEdit())
+{
+    setWindowTitle(QSL("Analysis Module Settings"));
+
+    auto gbSettings = new QGroupBox(QSL("Module settings"));
+    auto settingsLayout = new QFormLayout(gbSettings);
+    settingsLayout->addRow(QSL("Multi Event Header Filter"), m_filterEdit);
+    auto label = new QLabel(QSL(
+            "Used to split the module data section into individual events.<br/>"
+            "Only has an effect if Multi Event Processing is enabled for the"
+            " current event.<br/>"
+            "Changes become active on the next DAQ/Replay start."
+            ));
+    label->setWordWrap(true);
+
+    set_widget_font_pointsize_relative(label, -1);
+    settingsLayout->addRow(label);
+
+    auto dialogLayout = new QVBoxLayout(this);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    auto bbLayout = new QHBoxLayout;
+    bbLayout->addStretch(1);
+    bbLayout->addWidget(bb);
+
+    dialogLayout->addWidget(gbSettings);
+    dialogLayout->addLayout(bbLayout);
+    dialogLayout->setStretch(0, 1);
+
+    QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    // populate
+    QString filterString = settings.value(QSL("MultiEventHeaderFilter")).toString();
+
+    if (filterString.isEmpty())
+    {
+        filterString = moduleConfig->getModuleMeta().eventHeaderFilter;
+    }
+
+    m_filterEdit->setFilterString(filterString);
+}
+
+void ModuleSettingsDialog::accept()
+{
+    m_settings.insert(QSL("MultiEventHeaderFilter"), m_filterEdit->text().trimmed());
+
+    QDialog::accept();
+}
+
+
+} // end namespace analysis

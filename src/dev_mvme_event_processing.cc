@@ -80,8 +80,6 @@ void process_listfile(Context &context, ListFile *listfile)
         context.listfileVersion,
         context.logger);
 
-    context.streamProcessor.startConsumers();
-
     auto &counters = context.streamProcessor.getCounters();
     counters.startTime = QDateTime::currentDateTime();
     counters.stopTime  = QDateTime();

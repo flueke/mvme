@@ -20,7 +20,7 @@ endfunction(add_mvme_test)
 # code and we end up with undefined references to the vtable.
 
 add_mvme_test(test_data_filter test_data_filter.cc)
-add_mvme_test(test_analysis_aggregate_ops test_analysis_aggregate_ops.cc)
+#add_mvme_test(test_analysis_aggregate_ops test_analysis_aggregate_ops.cc)
 add_mvme_test(test_leaky_bucket test_leaky_bucket.cc)
 
 # google/benchmark based tests

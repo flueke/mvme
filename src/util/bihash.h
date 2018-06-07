@@ -33,6 +33,13 @@ struct BiHash
         map.clear();
         reverse_map.clear();
     }
+
+    inline s32 size()
+    {
+        assert(map.size() == reverse_map.size());
+
+        return map.size();
+    }
 };
 
 #endif /* __MVME_UTIL_BIHASH_H__ */

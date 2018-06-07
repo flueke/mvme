@@ -13,6 +13,9 @@ mvme_stream::StreamInfo streaminfo_from_vmeconfig(VMEConfig *vmeConfig, u32 list
     for (s32 ei = 0; ei < eventConfigs.size(); ei++)
     {
         auto event = eventConfigs[ei];
+
+        // FIXME: this stuff moved to the analysis side now (18/06/04)
+#if 0
         streamInfo.multiEventEnabled.set(ei, event->isMultiEventProcessingEnabled());
 
         auto moduleConfigs = event->getModuleConfigs();
@@ -36,6 +39,9 @@ mvme_stream::StreamInfo streaminfo_from_vmeconfig(VMEConfig *vmeConfig, u32 list
                 streamInfo.moduleHeaderFilters[ei][mi] = fc;
             }
         }
+#else
+        streamInfo.multiEventEnabled.set(ei, false);
+#endif
     }
 
     return streamInfo;

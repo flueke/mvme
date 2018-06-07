@@ -1,51 +1,61 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
     <!-- icons -->
-    <file alias="vme_script.png">resources/document-yellow-32x32.png</file>
-    <file alias="config_category.png">resources/folder-orange.png</file>
-    <file alias="folder_orange.png">resources/folder-orange.png</file>
-    <file alias="vme_module.png">resources/audio-card.png</file>
-    <file alias="dialog-close.png">resources/dialog-close.png</file>
-    <file alias="dialog-ok-apply.png">resources/dialog-ok-apply.png</file>
-    <file alias="document-new.png">resources/document-new.png</file>
-    <file alias="document-open.png">resources/document-open.png</file>
-    <file alias="document-revert.png">resources/document-revert.png</file>
-    <file alias="document-save.png">resources/document-save.png</file>
-    <file alias="document-save-as.png">resources/document-save-as.png</file>
-    <file alias="document-pdf.png">resources/document-pdf.png</file>
-    <file alias="script-run.png">resources/media-playback-start.png</file>
-    <file alias="tree-settings.png">resources/view-list-tree.png</file>
-    <file alias="data_filter.png">resources/view-filter.png</file>
-    <file alias="listfilter.png">resources/document-list.png</file>
-    <file alias="hist1d.png">resources/office-chart-bar.png</file>
-    <file alias="hist2d.png">resources/hist2d.png</file>
-    <file alias="info.png">resources/dialog-information.png</file>
-    <file alias="help.png">resources/system-help.png</file>
-    <file alias="exclam-circle.png">resources/emblem-important.png</file>
-    <file alias="sink.png">resources/server-database.png</file>
-    <file alias="list_add.png">resources/list-add.png</file>
-    <file alias="list_remove.png">resources/list-remove.png</file>
-    <file alias="clear_histos.png">resources/user-trash.png</file>
-    <file alias="zoom_in.png">resources/zoom-in.png</file>
-    <file alias="arrow_down.png">resources/arrow-270.png</file>
-    <file alias="arrow_right.png">resources/arrow.png</file>
-    <file alias="arrow_left.png">resources/arrow-180.png</file>
-    <file alias="window_icon.png">resources/mvme_32x32.png</file>
-    <file alias="folder_import.png">resources/blue-folder-import.png</file>
     <file alias="analysis_module_import.png">resources/script-import.png</file>
-    <file alias="histo_subrange.png">resources/selection-resize.png</file>
-    <file alias="generic_chart_with_pencil.png">resources/chart--pencil.png</file>
-    <file alias="histo_resolution.png">resources/grid.png</file>
-    <file alias="eye_pencil.png">resources/eye--pencil.png</file>
-    <file alias="document_import.png">resources/document-import.png</file>
-    <file alias="ui_search_field.png">resources/ui-search-field.png</file>
-    <file alias="text-document.png">resources/text-x-katefilelist.png</file>
-    <file alias="text_field_clear.png">resources/ui-text-field-clear-button.png</file>
+    <file alias="arrow-circle-double.png">resources/arrow-circle-double.png</file>
+    <file alias="arrow_down.png">resources/arrow-270.png</file>
+    <file alias="arrow_left.png">resources/arrow-180.png</file>
+    <file alias="arrow_right.png">resources/arrow.png</file>
+    <file alias="arrow-switch.png">resources/arrow-switch.png</file>
+    <file alias="binocular--arrow.png">resources/binocular--arrow.png</file>
+    <file alias="clear_histos.png">resources/user-trash.png</file>
+    <file alias="config_category.png">resources/folder-orange.png</file>
     <file alias="control_pause.png">resources/control-pause.png</file>
     <file alias="control_play.png">resources/control.png</file>
     <file alias="control_play_stop.png">resources/control-stop.png</file>
+    <file alias="data_filter.png">resources/view-filter.png</file>
+    <file alias="dialog-close.png">resources/dialog-close.png</file>
+    <file alias="dialog-ok-apply.png">resources/dialog-ok-apply.png</file>
+    <file alias="document_import.png">resources/document-import.png</file>
+    <file alias="document-new.png">resources/document-new.png</file>
+    <file alias="document-open.png">resources/document-open.png</file>
+    <file alias="document-pdf.png">resources/document-pdf.png</file>
+    <file alias="document-revert.png">resources/document-revert.png</file>
+    <file alias="document-save-as.png">resources/document-save-as.png</file>
+    <file alias="document-save.png">resources/document-save.png</file>
+    <file alias="exclamation-circle.png">resources/exclamation-circle.png</file>
+    <file alias="exclam-circle.png">resources/emblem-important.png</file>
+    <file alias="eye_pencil.png">resources/eye--pencil.png</file>
+    <file alias="folder_import.png">resources/blue-folder-import.png</file>
+    <file alias="folder_orange.png">resources/folder-orange.png</file>
+    <file alias="function.png">resources/function.png</file>
+    <file alias="gear--arrow.png">resources/gear--arrow.png</file>
+    <file alias="gear--pencil.png">resources/gear--pencil.png</file>
+    <file alias="gear.png">resources/gear.png</file>
+    <file alias="generic_chart_with_pencil.png">resources/chart--pencil.png</file>
+    <file alias="hammer.png">resources/hammer.png</file>
+    <file alias="help.png">resources/system-help.png</file>
+    <file alias="hist1d.png">resources/office-chart-bar.png</file>
+    <file alias="hist2d.png">resources/hist2d.png</file>
+    <file alias="histo_resolution.png">resources/grid.png</file>
+    <file alias="histo_subrange.png">resources/selection-resize.png</file>
+    <file alias="info.png">resources/dialog-information.png</file>
+    <file alias="list_add.png">resources/list-add.png</file>
+    <file alias="listfilter.png">resources/document-list.png</file>
+    <file alias="list_remove.png">resources/list-remove.png</file>
+    <file alias="script-run.png">resources/media-playback-start.png</file>
+    <file alias="sink.png">resources/server-database.png</file>
+    <file alias="text-document.png">resources/text-x-katefilelist.png</file>
+    <file alias="text_field_clear.png">resources/ui-text-field-clear-button.png</file>
+    <file alias="tree-settings.png">resources/view-list-tree.png</file>
+    <file alias="ui_search_field.png">resources/ui-search-field.png</file>
     <file alias="vme_event.png">resources/application-monitor.png</file>
     <file alias="vme_global_scripts.png">resources/script-globe.png</file>
+    <file alias="vme_module.png">resources/audio-card.png</file>
+    <file alias="vme_script.png">resources/document-yellow-32x32.png</file>
+    <file alias="window_icon.png">resources/mvme_32x32.png</file>
+    <file alias="zoom_in.png">resources/zoom-in.png</file>
+
 
     <file alias="operator_calibration.png">resources/measure.png</file>
     <file alias="operator_difference.png">resources/minus-white.png</file>
@@ -54,10 +64,12 @@
     <file alias="operator_sum.png">resources/sum.png</file>
     <file alias="rate_monitor_sink.png">resources/application-monitor.png</file>
 
+    <!-- non icon files -->
     <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>
     <file alias="mesytec-logo.png">resources/mesytec-logo.png</file>
     <file alias="splash-screen.png">resources/Splash_Screen.png</file>
     <file alias="vme-script-help.html">resources/vme-script-help.html</file>
+
 
     <!-- export sink -->
     <file>analysis/export_templates/CMakeLists.txt.mustache</file>
@@ -86,6 +98,11 @@
     <file>analysis/export_templates/python_sparse_export_dump.py.mustache</file>
 
     <file>analysis/export_templates/pyroot_generate_histos.py.mustache</file>
+
+    <file>analysis/expr_data/generic_intro_comment.exprtk</file>
+    <file>analysis/expr_data/basic_begin_script.exprtk</file>
+    <file>analysis/expr_data/basic_step_script.exprtk</file>
+    <file>analysis/expr_data/expr_help.html</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml

@@ -1,6 +1,229 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+
+* make double click on operators open the editor GUI
+
+* detect and disallow circular operator connections.
+  op1 uses op2.output0 as input
+  op2 uses op1.output0 as input
+  -> crash in updateRanks() due to infinite recursion. Also crashes if it's not
+  a direct circle but with intermediate operator in-between.
+  This needs fixing in updateRanks() and updateRank() and in the UI so that
+  invalid pipes are not highlighted.
+
+* Improve the loadAnalysisConfig() and similar callchains. Right now they end
+  up in gui_read_json_file() which displays a message box with a generic "could
+  not read from" error but nothing specific.
+  Return value can be tested by checking for isNull() on the returned document.
+
+* Multievent: figure out how and if the stream processor correctly handles
+  modules that are disabled in the vme config.
+* FIXME: why does mutli event for the whole event get disabled if one of
+  the modules is disabled? This does seem unnecessary.
+
+* in openWorkspace(): figure out if the special handling of the listfile output
+  dir is really needed.
+
+* try to apply DRY to analysis and vme config serialization. grep for
+  "DAQConfig" and "AnalysisNG" extract that code into functions and update
+  callers
+
+* multi output arraymap
+* constant generator operator:
+  multiple outputs
+
+------------------------------------------------------------
+add ability to remotely start/stop/pause and request status
+------------------------------------------------------------
+* Note: running this in the gui thread would be convenient as the code to check
+  and process remote messages will then not have to care about race conditions.
+
+  One problem: the gui uses QMessageBoxes to communicate lots of errors. Remote
+  control will not see these and the gui will get stuck in the event loop used
+  by QMessageBox::exec(). This event loop will then still serve remote
+  connections depending on how things are implemented (e.g. a timer polling
+  remote sockets).
+
+  Places where QMessageBoxes are used:
+  MVMEContext:
+  - listfile read errors
+  - config file modiciations
+  - workspace autosave files
+  - config load errors
+  - OOM errors from the analysis
+
+  MVMEMainWindow:
+  - workspace new/open/close errors
+
+  Transform this: do not allow GUI in the MVMEContext implementation. Instead
+  use exceptions or return error information to callers.
+
+  Add a layer on top of that to handle GUI displays and interactions.
+
+  Make the remote control layer use the MVMEContext implementation. Return
+  errors in response to commands.
+
+* gui thread is idle: polls socket or gets notified
+  read incoming data. assemble message.
+  if valid message received:
+      exec whatever the message wants to happen
+      create a response and send it
+
+
+- End of remote control feature ----------------------------
+
+
+
+* DAQ readout performance: try to make better use of the data buffers.
+  Currently one processed controller buffer ends up in the data buffer, which
+  means for sis it's only around 1500 bytes.
+  Do the following: put events into the same buffer until less than a user-set
+  limit is free in the buffer or a specific time interval has passed. Then
+  write the buffer to disk and in case of a non-local buffer put it into the
+  "full" queue.
+  Make sure the condition where an event should still go into a certain buffer
+  but the space inside the buffer is not enough is reported properly. In this
+  case the user-set limit has to be adjusted.
+  Reallocations of the buffer could be done but the case where a buffer is
+  enlarged again and again must be avoided.
+
+* a2::Operator_KeepPrevious does not seem to set output limits. Is this bugged?
+  Fix the test if needed.
+
+--------------------------------------------------
+GUI <-> Analysis <-> a2 refactoring
+--------------------------------------------------
+The goal is to pause and rebuild as little as possible. If a rebuild is
+required try to clear as little of the accumulated data as possible.
+
+* make a2_adapter building explicit, not part of a global beginRun
+
+* try to use do_beginRun_forward() whenever possible, then rebuild a2 and resume.
+  Is there any state that has to be kept and restored after an a2 build?
+
+* in the future try to classify modifications. some things need to clear
+  histograms because the structure changed, other things do not (e.g. label only change)
+
+* establishing pipe and slot connections:
+  (dis)connecting an operators slot to/from a pipe modifies the pipe (adds to destinations array)
+  disconnect also affects all dependent operators of the operator whose slot is
+  disconnected: the operators output size/number and validity state will be
+  changed, thus connections further down may become (temporarily) invalid.
+
+  How to handle this in the gui:
+  as the a1 system is not executed directly anymore the changes can be made
+  without having to pause anything.
+  just make sure that on canceling the original connections are restored (like is currently done).
+  also make sure that no state is cleared unless it's really neccessary.
+  Alternatively clone the input pipes and work with those.
+  -> Fake input pipes having the original operator as the source and having the
+     exact same properties as the original pipes. This way even things like
+     makeSlotSourceString() should continue to work.
+
+* add Analysis::operatorEdited()
+  This can figure out what has to happen to get the a1 side in a consistent state.
+
+* additional a1 layer considerations and open questions:
+  - operator cloning
+    * high level clone semantics. what's required, what's sane?
+    * is using write -> read always the best way. which way causes the least amount of code duplication?
+    * performance: cloning is not happening frequently, so the serialization way should be good enough.
+    * what should happen with connections, object id, object name?
+
+--------------------------------------------------
+ExpressionOperator design plan
+--------------------------------------------------
+Most recent todo list:
+* Keyword highlighting if easily possible. Could also add known functions and highlight those.
+* Links to the exprtk homepage
+* Use first part of the documentation and make it available in the editor gui
+* text description of what each of the scripts is for, how the return value of the begin script is structured
+* explain how invalid parameters are implemented and how they need to be handled
+
+
+* use expr_tk to evaluate expressions
+* beginScript: one script to get information about the output structure from the operator
+* multi input and multi output!
+
+* user defined input variable names. by default auto generated names will be used:
+  input0 input1
+
+The beginscript then has the following set in the symboltable:
+  input0.lower_limits input0.upper_limits input0.unit
+  input1.lower_limits input1.upper_limits input1.unit
+
+The beginscript has to return 4 values for each output array the operator should have:
+  name, unit, lower_limits, upper_limits
+
+So the size of the return value list must be divisible by 4.
+
+* one script to fill the output, executed repeatedly by a2_end_event() when it's stepping the operators
+
+* add a user defined functions
+  is_valid(), is_invalid() for testing parameter validity (has to check for nan and the specific bit being set)
+
+* maybe add symbol table dump functionality somewhere if that is possible
+
+Additional/Advanced Features:
+* user defined functions using the exprtk syntax. SECTION 15 -> function_compositor
+  Limited to returning a single scalar value and up to six input parameters
+  - function name
+  - args and their names
+  - code
+
+   // define function koo1(x,y,z) { ... }
+   compositor
+      .add(function_t()
+         .name("koo1")
+         .var("x").var("y").var("z")
+         .expression("1 + cos(x * y) / z;"));
+
+  -> one function compositor per operator. This also allows to define recursive
+  functions and functions that call other "dynamic" functions.
+
+  Also check out the add_auxiliary_symtab() method of the compositor. This
+  would allow having access to variables from arbitrary symbol tables in the
+  function body definition. -> use the a2 runtime library symbol table with this method.
+
+* persistent / static variables
+
+  Could be used to keep some accumulator or the last N events or the last
+  result around in the step script.
+
+  statics would be (re)initialized at compile time and then kept during calls to step.
+
+  To make this work the following is needed:
+  for scalars: name and initial value
+  for arrays: name and size.
+
+  Then the expression operator can create the variables in the symbol table
+  instance and initialize them.
+  These variables will only be available in the step expression.
+  The size definition of arrays must be done via an expression aswell as that's
+  the only way to dynamically get to the input sizes. This script will have the
+  same symbol table as the begin expression.
+
+  Alternatively could use a return statement returning pairs of (name,
+  variable) and then loop through the variables and create and register the
+  appropriate types.
+
+  Which solution is better?
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Histo2d: add export to clipboard
+  also path is wrong
+
+* Histo1d: stats display is not good
+  gauss parameter nur anzeigen wenn gauss angezeigt wird.
+  sonst nur maxbin, maxvalue, entrycount
+  gauss dann: gauss max, gauss pos
+
+* 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
+  packetStatus 0x132 is not valid! This should wrap.
+* Add the "explore workspace" button the analysis UI
 * SIS readout: received count and Timestamp histo count have a small delta of 1
   up to 3 counts. Figure out where this is coming from.
 
@@ -13,9 +236,9 @@ TODO list, not at all sorted by priority
   be moved into closeEventSection? I was surprised that this had to be done
   manually.
 
-* logspam: readout workers still need the throttle. could also install an
-  additional central throttle in MVMEContext.
 * Move analysis efficiency display to the top Event toolbar
+* efficiency: when the efficiency is slightly below 100% the display will still
+  show a 1.00 due to rounding. maybe color the number if it's not 100%.
 
 * New Export/ListfileFilter Idea: use an operator to decide whether a full VME
   data event should be copied to an output listfile or be suppressed.
@@ -40,6 +263,7 @@ TODO list, not at all sorted by priority
 * add example of how to extract an extended timestamp (48 bits) from our modules to the documentation
 
 * analysis session auto save: get rid of the errors when auto saving an empty analysis
+  HDF5: find a way to make the error reporting work. Currently there's nice console output but nothing else.
 
 * Tell Tino about SIS packet loss detection not being accurately possible
   because of the sequence numbers only appearing before events, which has the
@@ -127,6 +351,14 @@ TODO list, not at all sorted by priority
 --------------------------------------------------------------------------------
 Data Export Implementation - ExportSink
 --------------------------------------------------------------------------------
+More ideas from Robert:
+* Make it possible to export multiple events into the same file. This will need
+  a way to select data from different events. Also the file needs to contain
+  the event number for each record.
+* Add a "system" event containing the current timetick count and systems stats,
+  rates, etc.
+
+* The generated CLI tools do not generate good output filenames. Manually
 * The export sink needs to log which output file is being written! Right now
   it's all very mysterious.
 * The generated CLI tools do not generated good output filenames. Manually
@@ -283,30 +515,6 @@ inside the export data file or added to the export header.
   Move the add/edit code from EventWidget::addSource()/sourceEdited() into the
   dialog. Let the dialog notify the EventWidget about changes via a signal.
 
---------------------------------------------------
-expression operator design plan
---------------------------------------------------
-* use expr_tk to evaluate expressions
-* single input, single output
-
-* one script to init the output limits
-  executed during beginRun()
-  variables:
-    in : input_lower_limits, input_upper_limits, input_unit
-    out: lower_limits, upper_limits, unit
-
-* one script to fill the output
-  executed repeatedly by a2_end_event() when it's stepping the operators
-  variables:
-    in : input
-    out: output
-
-* add a user defined functions
-  is_valid(), is_invalid() for testing parameter validity (has to check for nan and the specific bit being set)
-
-* maybe add symbol table dump functionality somewhere if that is possible
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Fix paused replay and "StopIfQueueEmpty" interaction
   Identify and fix issues with single stepping and pause/resume interaction.
@@ -315,15 +523,8 @@ expression operator design plan
 * add sis3153 firmware update utility to 'extras' directory. Also package and
   install sis library code (maybe). Ask struck if this is allowed.
 
-* 2D combined histo shows proper colors in the plot when using Log view, shows
-  only 0 (blue) when using Lin scaling.
-
 * Add element wise array multiplication operator and/or a calibration operator
   using slope and offset values.
-
-* Add an exprtk operator! That would be freakin awesome.
-
-* Implement "copy plot to clipboard" feature
 
 --------------------------------------------------
 Rate displays and Rate monitoring
@@ -555,8 +756,6 @@ Be careful with the different rate types as they are updated at different times:
   experiment time for a replay.
 
 
-<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
 --------------------------------------------------
 Single Stepping and Stream Processing
 --------------------------------------------------
@@ -714,8 +913,6 @@ Single Stepping and Stream Processing
 - Fix diagnosis window hanging and eating system memory when EOE check is
   active and a lot of errors are occuring
 
-* Log throttling!!!!
-
 * Check for off-by-one errors in the 2D projection code
 
 * lastlog.log:
@@ -774,26 +971,16 @@ Single Stepping and Stream Processing
 
 * add ability to add notes to VME/analysis config (maybe other objects too)
 * VMEScript: add print command
-* Limit the number of messages/s appended to the logview. With multithreading:
-  do messages fill up one of the threads event queues? Can this be limited
-  somehow? Better to directly limit the generation of these messages?
 
 * Histos:
   * add histogram cuts
   * add histogram fitting
 
 * Mesytec Werbung ^^ Hintergrundbilder, Wasserzeichen, etc. (CSS Theme?)
-* Hist2d: look for standard color scales as used in publications, ROOT, etc.
-  https://root.cern.ch/doc/master/TColor_8cxx_source.html#l02400
-* How to handle filters without matching module? Right now they're not
-  displayed until a module with the corresponding (eventIndex,moduleIndex) is
-  created.
-  Related: Remove Hist2d on filter removal?
-  => would all be fixed when moving from (eventIndex, moduleIndex) to using object ids.
-
 * threading and vme commands
   * run vme scripts in a separate thread when invoked from the gui
 
 * save and restore the zoom and pan of histograms
 * save and restore open histograms
 * Fix diagnostics window blocking when there are a lot of error messages being generated.
+  -> use the leaky bucket throttle for this

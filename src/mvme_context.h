@@ -101,8 +101,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         ControllerState getControllerState() const;
         VMEReadoutWorker *getReadoutWorker() { return m_readoutWorker; }
-        VMEConfig *getConfig() { return m_vmeConfig; }
-        VMEConfig *getVMEConfig() { return m_vmeConfig; }
+        VMEConfig *getConfig() const { return m_vmeConfig; }
+        VMEConfig *getVMEConfig() const { return m_vmeConfig; }
         void setVMEConfig(VMEConfig *config);
         QList<EventConfig *> getEventConfigs() const { return m_vmeConfig->getEventConfigs(); }
         QString getUniqueModuleName(const QString &prefix) const;
@@ -247,6 +247,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QString getWorkspacePath(const QString &settingsKey, const QString &defaultValue = QString(), bool setIfDefaulted = true) const;
 
         void loadVMEConfig(const QString &fileName);
+        void vmeConfigWasSaved();
 
         struct AnalysisLoadFlags
         {
@@ -257,6 +258,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         bool loadAnalysisConfig(QIODevice *input, const QString &inputInfo = QString());
         bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString(), AnalysisLoadFlags flags = {});
         bool loadAnalysisConfig(const QByteArray &blob, const QString &inputInfo = QString());
+        void analysisWasCleared();
+        void analysisWasSaved();
 
         // listfile output
         void setListFileOutputInfo(const ListFileOutputInfo &info);
@@ -327,8 +330,10 @@ class LIBMVME_EXPORT MVMEContext: public QObject
     private:
         std::shared_ptr<QSettings> makeWorkspaceSettings(const QString &workspaceDirectory) const;
         void setWorkspaceDirectory(const QString &dirName);
-        void prepareStart();
+        void cleanupWorkspaceAutoSaveFiles();
+
         QString getListFileOutputDirectoryFullPath(const QString &directory) const;
+        void prepareStart();
 
         MVMEContextPrivate *m_d;
 
@@ -368,15 +373,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         ThreadSafeDataBufferQueue m_fullBuffers;
 
         analysis::AnalysisWidget *m_analysisUi = nullptr;
-};
-
-struct AnalysisPauser
-{
-    AnalysisPauser(MVMEContext *context);
-    ~AnalysisPauser();
-
-    MVMEContext *context;
-    bool was_running;
 };
 
 struct DAQPauser

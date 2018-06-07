@@ -266,15 +266,6 @@ void ModuleConfig::addInitScript(VMEScriptConfig *script)
     setModified(true);
 }
 
-void ModuleConfig::setEventHeaderFilter(const QByteArray &filter)
-{
-    if (filter != m_eventHeaderFilter)
-    {
-        m_eventHeaderFilter = filter;
-        setModified(true);
-    }
-}
-
 VMEScriptConfig *ModuleConfig::getInitScript(const QString &scriptName) const
 {
     auto it = std::find_if(m_initScripts.begin(), m_initScripts.end(),
@@ -322,15 +313,6 @@ void ModuleConfig::read_impl(const QJsonObject &json)
         m_initScripts.push_back(cfg);
     }
 
-    if (json.contains(QSL("eventHeaderFilter")))
-    {
-        m_eventHeaderFilter = json["eventHeaderFilter"].toString().toLocal8Bit();
-    }
-    else
-    {
-        m_eventHeaderFilter = m_meta.eventHeaderFilter;
-    }
-
     loadDynamicProperties(json["properties"].toObject(), this);
 }
 
@@ -365,28 +347,8 @@ void ModuleConfig::write_impl(QJsonObject &json) const
         json["initScripts"] = dstArray;
     }
 
-    // event header filter
-    json["eventHeaderFilter"] = QString::fromLocal8Bit(m_eventHeaderFilter);
-
-#if 0
-    QJsonObject scriptsObject;
-
-    for (auto it = vmeScripts.begin();
-         it != vmeScripts.end();
-         ++it)
-    {
-        QJsonObject scriptJson;
-        if (it.value())
-        {
-            it.value()->write(scriptJson);
-            scriptsObject[it.key()] = scriptJson;
-        }
-    }
-
-    json["vme_scripts"] = scriptsObject;
-#endif
-
     auto props = storeDynamicProperties(this);
+
     if (!props.isEmpty())
         json["properties"] = props;
 }
@@ -426,7 +388,8 @@ void EventConfig::read_impl(const QJsonObject &json)
     // triggerCondition and options
     {
         auto tcName = json["triggerCondition"].toString();
-        auto it = std::find_if(TriggerConditionNames.begin(), TriggerConditionNames.end(), [tcName](const auto &testName) {
+        auto it = std::find_if(TriggerConditionNames.begin(), TriggerConditionNames.end(),
+                               [tcName](const auto &testName) {
             return tcName == testName;
         });
 
@@ -434,12 +397,10 @@ void EventConfig::read_impl(const QJsonObject &json)
         triggerCondition = (it != TriggerConditionNames.end()) ? it.key() : TriggerCondition::NIM1;
         triggerOptions = json["triggerOptions"].toObject().toVariantMap();
     }
-    // TODO: move irqLevel and the other settings into triggerOptions
     irqLevel = json["irqLevel"].toInt();
     irqVector = json["irqVector"].toInt();
     scalerReadoutPeriod = json["scalerReadoutPeriod"].toInt();
     scalerReadoutFrequency = json["scalerReadoutFrequency"].toInt();
-    m_multiEventProcessingEnabled = json["multiEventProcessingEnabled"].toBool();
 
     QJsonArray moduleArray = json["modules"].toArray();
     for (int i=0; i<moduleArray.size(); ++i)
@@ -474,12 +435,10 @@ void EventConfig::write_impl(QJsonObject &json) const
 {
     json["triggerCondition"] = TriggerConditionNames.value(triggerCondition);
     json["triggerOptions"]   = QJsonObject::fromVariantMap(triggerOptions);
-    // TODO: move these into triggerOptions
     json["irqLevel"] = irqLevel;
     json["irqVector"] = irqVector;
     json["scalerReadoutPeriod"] = scalerReadoutPeriod;
     json["scalerReadoutFrequency"] = scalerReadoutFrequency;
-    json["multiEventProcessingEnabled"] = m_multiEventProcessingEnabled;
 
 
 

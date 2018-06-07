@@ -27,6 +27,8 @@ inline void push_output_vectors(
 
 enum OperatorType
 {
+    Invalid_OperatorType = 0,
+
     Operator_Calibration,
     Operator_Calibration_sse,
     Operator_Calibration_idx,

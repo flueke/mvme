@@ -66,34 +66,16 @@ A2AdapterState a2_adapter_build_memory_wrapper(
     const RunInfo &runInfo,
     analysis::Logger logger = {})
 {
-    A2AdapterState result;
+    auto result = a2_adapter_build(
+        arena.get(),
+        workArena.get(),
+        sources,
+        operators,
+        vmeMap,
+        runInfo);
 
-    while (true)
-    {
-        try
-        {
-            result = a2_adapter_build(
-                arena.get(),
-                workArena.get(),
-                sources,
-                operators,
-                vmeMap,
-                runInfo);
-
-            break;
-        }
-        catch (const memory::out_of_memory &)
-        {
-            /* Double the size and try again. std::bad_alloc() will be thrown
-             * if we run OOM. This will be handled further up. */
-            auto newSize = 2 * arena->size;
-            arena = std::make_unique<memory::Arena>(newSize);
-            workArena = std::make_unique<memory::Arena>(newSize);
-        }
-    }
-
-    qDebug("%s a2: mem=%u sz=%u, start@%p",
-           __FUNCTION__, (u32)arena->used(), (u32)arena->size, arena->mem);
+    qDebug("%s a2: mem=%u sz=%u segments=%u",
+           __FUNCTION__, (u32)arena->used(), (u32)arena->size(), (u32)arena->segmentCount());
 
     return result;
 }
@@ -294,12 +276,36 @@ QString getClassName(T *obj)
 }
 
 //
+// Pipe
+//
+
+Pipe::Pipe()
+{}
+
+Pipe::Pipe(PipeSourceInterface *sourceObject, s32 outputIndex, const QString &paramVectorName)
+    : source(sourceObject)
+    , sourceOutputIndex(outputIndex)
+{
+    setParameterName(paramVectorName);
+}
+
+void Pipe::disconnectAllDestinationSlots()
+{
+    for (auto slot: destinations)
+    {
+        slot->disconnectPipe();
+    }
+    destinations.clear();
+}
+
+//
 // Slot
 //
 
 void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
 {
     disconnectPipe();
+
     if (newInput)
     {
         inputPipe = newInput;
@@ -317,8 +323,11 @@ void Slot::disconnectPipe()
         inputPipe->removeDestination(this);
         inputPipe = nullptr;
         paramIndex = Slot::NoParamIndex;
-        Q_ASSERT(parentOperator);
-        parentOperator->slotDisconnected(this);
+
+        if (parentOperator)
+        {
+            parentOperator->slotDisconnected(this);
+        }
     }
 }
 
@@ -1932,6 +1941,10 @@ Pipe *ArrayMap::getOutput(s32 index)
 
 void ArrayMap::read(const QJsonObject &json)
 {
+    for (auto &slot: m_inputs)
+    {
+        slot->disconnectPipe();
+    }
     m_inputs.clear();
 
     s32 inputCount = json["numberOfInputs"].toInt();
@@ -2638,89 +2651,339 @@ void BinarySumDiff::write(QJsonObject &json) const
 //
 // ExpressionOperator
 //
+
+/* NOTES about the ExpressionOperator:
+
+ * This is the first operator using multiple outputs and at the same time having
+   a variable number of outputs. There will be bugs.
+
+ * The number of outputs is only known once all inputs are connected and the
+   begin expression has been evaluated. In Analysis::read() where the
+   connections are being created the operator is not fully functional yet as
+   that code doesn't sort operators by rank nor does a full build of the
+   system.
+   How to fix this issue and create the outputs during read() time?
+   -> Store the last known number of outputs in the analysis config and create
+      that many in ExpressionOperator::read()
+      This means connections that where valid at the time the analyis config
+      was written can be re-established when reading the config back in.
+      This is now stored in 'lastOutputCount'
+ */
+
 ExpressionOperator::ExpressionOperator(QObject *parent)
-    : BasicOperator(parent)
+    : OperatorInterface(parent)
 {
-    m_inputSlot.acceptedInputTypes = InputType::Array;
+    QString genericIntroComment;
 
-    m_exprBegin = QSL
-        (
-        "var lower_limits[input_lower_limits[]] := input_lower_limits;\n"
-        "var upper_limits[input_upper_limits[]] := input_upper_limits;\n"
-        "return [lower_limits, upper_limits];\n"
-        );
+    {
+        QFile f(QSL(":/analysis/expr_data/generic_intro_comment.exprtk"));
+        f.open(QIODevice::ReadOnly);
+        genericIntroComment = QString::fromUtf8(f.readAll());
+    }
 
-    m_exprStep = QSL
-        (
-        "for (var i := 0; i < input[]; i += 1)\n"
-        "{\n"
-        "   output[i] := input[i];\n"
-        "}\n"
-        );
+    {
+        QFile f(QSL(":/analysis/expr_data/basic_begin_script.exprtk"));
+        f.open(QIODevice::ReadOnly);
+        m_exprBegin = genericIntroComment + "\n" + QString::fromUtf8(f.readAll());
+    }
+
+    {
+        QFile f(QSL(":/analysis/expr_data/basic_step_script.exprtk"));
+        f.open(QIODevice::ReadOnly);
+        m_exprStep = genericIntroComment + "\n" + QString::fromUtf8(f.readAll());
+    }
+
+    // Need at least one input slot to be usable
+    addSlot();
+}
+
+a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena)
+{
+    return buildA2Operator(arena, a2::ExpressionOperatorBuildOptions::FullBuild);
+}
+
+a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena,
+                                                 a2::ExpressionOperatorBuildOptions buildOptions)
+{
+    /* NOTE: This method creates "fake" a2 input pipes inside the arena. This
+     * means it cannot be used inside the a1->a2 adapter layer. */
+
+    if (!required_inputs_connected_and_valid(this))
+        throw std::runtime_error("Not all required inputs are connected.");
+
+    std::vector<a2::PipeVectors> a2_inputs;
+    std::vector<s32> inputIndexes;
+    std::vector<std::string> inputUnits;
+
+    for (auto slot: m_inputs)
+    {
+        auto a1_pipe = slot->inputPipe;
+        a2::PipeVectors a2_pipe = make_a2_pipe_from_a1_pipe(arena, a1_pipe);
+
+        a2_inputs.push_back(a2_pipe);
+        inputIndexes.push_back(slot->paramIndex);
+
+        inputUnits.push_back(a1_pipe->parameters.unit.toStdString());
+    }
+
+    std::vector<std::string> inputPrefixes;
+
+    for (s32 i = 0; i < m_inputs.size(); i++)
+    {
+        std::string inputPrefix;
+
+        if (i < m_inputPrefixes.size())
+        {
+            inputPrefix = m_inputPrefixes[i].toStdString();
+        }
+        else
+        {
+            std::stringstream ss;
+            ss << "input" << i;
+            inputPrefix = ss.str();
+        }
+
+        inputPrefixes.push_back(inputPrefix);
+    }
+
+    assert(m_inputs.size() == static_cast<s32>(inputPrefixes.size()));
+
+    auto a2_op = a2::make_expression_operator(
+        arena,
+        a2_inputs,
+        inputIndexes,
+        inputPrefixes,
+        inputUnits,
+        m_exprBegin.toStdString(),
+        m_exprStep.toStdString(),
+        buildOptions);
+
+    return a2_op;
+}
+
+
+bool ExpressionOperator::addSlot()
+{
+    s32 slotCount  = getNumberOfSlots();
+    auto inputType = InputType::Both;
+    QString inputName;
+
+    if (m_inputPrefixes.size() > slotCount)
+    {
+        inputName = m_inputPrefixes[slotCount];
+    }
+    else
+    {
+        inputName = QSL("input") + QString::number(slotCount);
+        m_inputPrefixes.push_back(inputName);
+    }
+
+    auto slot = std::make_shared<Slot>(this, slotCount, inputName, inputType);
+
+    m_inputs.push_back(slot);
+
+    return true;
+}
+
+bool ExpressionOperator::removeLastSlot()
+{
+    if (getNumberOfSlots() > 1)
+    {
+        m_inputs.back()->disconnectPipe();
+        m_inputs.pop_back();
+        m_inputPrefixes.pop_back();
+        assert(m_inputPrefixes.size() == m_inputs.size());
+        return true;
+    }
+    return false;
+}
+
+s32 ExpressionOperator::getNumberOfSlots() const
+{
+    return m_inputs.size();
+}
+
+Slot *ExpressionOperator::getSlot(s32 slotIndex)
+{
+    return (slotIndex < getNumberOfSlots()
+            ? m_inputs.at(slotIndex).get()
+            : nullptr);
+}
+
+s32 ExpressionOperator::getNumberOfOutputs() const
+{
+    return m_outputs.size();
+}
+
+QString ExpressionOperator::getOutputName(s32 outputIndex) const
+{
+    if (auto pp = m_outputs.value(outputIndex))
+    {
+        return pp->getParameterName();
+    }
+
+    return {};
+}
+
+Pipe *ExpressionOperator::getOutput(s32 index)
+{
+    if (auto pp = m_outputs.value(index))
+    {
+        return pp.get();
+    }
+    return nullptr;
 }
 
 void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
 {
-#if 0
-    /* Create the a2 operator which runs the begin script to figure out the
-     * output size and limits. Then copy the limits to this operators output
-     * pipe. */
-
-    if (!m_inputSlot.inputPipe) return;
-
-    memory::Arena arena(Kilobytes(256));
-
-    auto a1_inPipe = m_inputSlot.inputPipe;
-
-    a2::PipeVectors a2_inPipe = {};
-    a2_inPipe.data = a2::push_param_vector(&arena, a1_inPipe->getSize(), make_quiet_nan());
-    a2_inPipe.lowerLimits = a2::push_param_vector(&arena, a1_inPipe->getSize());
-    a2_inPipe.upperLimits = a2::push_param_vector(&arena, a1_inPipe->getSize());
-
-    for (s32 i = 0; i < a1_inPipe->getSize(); i++)
+    try
     {
-        a2_inPipe.lowerLimits[i] = a1_inPipe->getParameter(i)->lowerLimit;
-        a2_inPipe.upperLimits[i] = a1_inPipe->getParameter(i)->upperLimit;
+        /* Create the a2 operator which runs the begin script to figure out the
+         * output size and limits. Then copy the limits to this operators output
+         * pipes. */
+
+        memory::Arena arena(Kilobytes(256));
+
+        auto a2_op = buildA2Operator(&arena, a2::ExpressionOperatorBuildOptions::FullBuild);
+        auto d     = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op.d);
+
+        assert(a2_op.outputCount == d->output_units.size());
+        assert(d->output_units.size() == d->output_names.size());
+
+        /* Disconnect Pipes that will be removed. */
+        for (size_t outIdx = a2_op.outputCount;
+             outIdx < static_cast<size_t>(m_outputs.size());
+             outIdx++)
+        {
+            m_outputs[outIdx]->disconnectAllDestinationSlots();
+        }
+
+        /* Resize to the new output count. This keeps existing pipes which
+         * means existing slot connections will remain valid. */
+        m_outputs.resize(a2_op.outputCount);
+
+        for (size_t outIdx = 0; outIdx < a2_op.outputCount; outIdx++)
+        {
+            // Reuse pipes to not invalidate existing connections
+            auto outPipe = m_outputs.value(outIdx);
+
+            if (!outPipe)
+            {
+                outPipe = std::make_shared<Pipe>(this, outIdx);
+                m_outputs[outIdx] = outPipe;
+            }
+
+            assert(a2_op.outputs[outIdx].size == a2_op.outputLowerLimits[outIdx].size);
+            assert(a2_op.outputs[outIdx].size == a2_op.outputUpperLimits[outIdx].size);
+
+            outPipe->parameters.resize(a2_op.outputs[outIdx].size);
+            outPipe->parameters.invalidateAll();
+            outPipe->parameters.name = QString::fromStdString(d->output_names[outIdx]);
+            outPipe->parameters.unit = QString::fromStdString(d->output_units[outIdx]);
+
+            for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
+            {
+                outPipe->parameters[paramIndex].lowerLimit = a2_op.outputLowerLimits[outIdx][paramIndex];
+                outPipe->parameters[paramIndex].upperLimit = a2_op.outputUpperLimits[outIdx][paramIndex];
+            }
+        }
     }
-
-    auto a2_op = a2::make_expression_operator(
-        &arena,
-        a2_inPipe,
-        getBeginExpression().toStdString(),
-        getStepExpression().toStdString());
-
-    assert(a2_op.outputLowerLimits[0].size == a2_op.outputUpperLimits[0].size);
-
-    auto &params(m_output.getParameters());
-    params.resize(a2_op.outputLowerLimits[0].size);
-
-    for (s32 i = 0; i < params.size(); i++)
+    catch (const std::runtime_error &e)
     {
-        params[i].lowerLimit = a2_op.outputLowerLimits[0][i];
-        params[i].upperLimit = a2_op.outputUpperLimits[0][i];
+        if (logger)
+        {
+            logger(QString::fromStdString(e.what()));
+        }
+        qDebug() << __PRETTY_FUNCTION__ << e.what();
+
+        /* On error keep existing pipes but resize them to zero length. This
+         * way pipe -> slot connections will persist. Full array connections by
+         * dependent operators will remain valid but be of size zero, indexed
+         * connections will be out of range. */
+        for (auto &outPipe: m_outputs)
+        {
+            outPipe->parameters.resize(0);
+        }
     }
-
-    params.invalidateAll();
-#else
-    assert(!"disabled for now to speed up building");
-#endif
-}
-
-void ExpressionOperator::step()
-{
-    assert(!"not implemented. a2 should be used!");
 }
 
 void ExpressionOperator::write(QJsonObject &json) const
 {
     json["exprBegin"] = m_exprBegin;
-    json["exprStep"] = m_exprStep;
+    json["exprStep"]  = m_exprStep;
+
+    QJsonArray inputPrefixesArray;
+
+    for (const auto &inputName: m_inputPrefixes)
+    {
+        inputPrefixesArray.append(inputName);
+    }
+
+    json["inputPrefixes"] = inputPrefixesArray;
+    json["lastOutputCount"] = getNumberOfOutputs();
 }
 
 void ExpressionOperator::read(const QJsonObject &json)
 {
+    for (auto &slot: m_inputs)
+    {
+        slot->disconnectPipe();
+    }
+    m_inputs.clear();
+
     m_exprBegin = json["exprBegin"].toString();
-    m_exprStep = json["exprStep"].toString();
+    m_exprStep  = json["exprStep"].toString();
+    m_inputPrefixes.clear();
+
+    auto inputPrefixesArray = json["inputPrefixes"].toArray();
+
+    for (auto it = inputPrefixesArray.begin();
+         it != inputPrefixesArray.end();
+         it++)
+    {
+        m_inputPrefixes.push_back(it->toString());
+        addSlot();
+    }
+
+
+    /* Similar to the code in beginRun(): disconnect pipes that will be
+     * removed, reuse existing ones and add new ones. */
+
+    s32 lastOutputCount = json["lastOutputCount"].toInt(0);
+
+    for (s32 outIdx = lastOutputCount; outIdx < m_outputs.size(); outIdx++)
+    {
+        m_outputs[outIdx]->disconnectAllDestinationSlots();
+    }
+
+    m_outputs.resize(lastOutputCount);
+
+    for (s32 outIdx = 0; outIdx < lastOutputCount; outIdx++)
+    {
+        auto outPipe = m_outputs.value(outIdx);
+
+        if (!outPipe)
+        {
+            outPipe = std::make_shared<Pipe>(this, outIdx, QSL("output") + QString::number(outIdx));
+            m_outputs[outIdx] = outPipe;
+        }
+    }
+}
+
+void ExpressionOperator::step()
+{
+    assert(!"not implemented. a2 must be used!");
+}
+
+ExpressionOperator *ExpressionOperator::cloneViaSerialization() const
+{
+    QJsonObject transferData;
+    this->write(transferData);
+
+    auto result = std::make_unique<ExpressionOperator>();
+    result->read(transferData);
+
+    return result.release();
 }
 
 //
@@ -2772,7 +3035,7 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
     // Space for the histos plus space to allow proper alignment
     size_t requiredMemory = histoCount * m_bins * sizeof(double) + histoCount * HistoMemAlignment;
 
-    if (!m_histoArena || m_histoArena->size < requiredMemory)
+    if (!m_histoArena || m_histoArena->size() < requiredMemory)
     {
         m_histoArena = std::make_shared<memory::Arena>(requiredMemory);
     }
@@ -2980,7 +3243,7 @@ void Histo1DSink::write(QJsonObject &json) const
 size_t Histo1DSink::getStorageSize() const
 {
 #if ANALYSIS_USE_SHARED_HISTO1D_MEM
-    return m_histoArena ? m_histoArena->size : 0;
+    return m_histoArena ? m_histoArena->size() : 0;
 #else
     return std::accumulate(m_histos.begin(), m_histos.end(),
                            static_cast<size_t>(0u),
@@ -3458,7 +3721,7 @@ QString ExportSink::getExportFileBasename() const
 // Analysis
 //
 
-static const size_t A2InitialArenaSize = Kilobytes(256);
+static const size_t A2ArenaSegmentSize = Kilobytes(256);
 
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
@@ -3470,7 +3733,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerSource<Extractor>();
 
     m_registry.registerOperator<CalibrationMinMax>();
-    m_registry.registerOperator<IndexSelector>();
+    //m_registry.registerOperator<IndexSelector>();
     m_registry.registerOperator<PreviousValue>();
     //m_registry.registerOperator<RetainValid>();
     m_registry.registerOperator<Difference>();
@@ -3481,7 +3744,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerOperator<RectFilter2D>();
     m_registry.registerOperator<BinarySumDiff>();
     m_registry.registerOperator<AggregateOps>();
-    //m_registry.registerOperator<ExpressionOperator>();
+    m_registry.registerOperator<ExpressionOperator>();
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();
@@ -3495,9 +3758,9 @@ Analysis::Analysis(QObject *parent)
     // create a2 arenas
     for (size_t i = 0; i < m_a2Arenas.size(); i++)
     {
-        m_a2Arenas[i] = std::make_unique<memory::Arena>(A2InitialArenaSize);
+        m_a2Arenas[i] = std::make_unique<memory::Arena>(A2ArenaSegmentSize);
     }
-    m_a2WorkArena = std::make_unique<memory::Arena>(A2InitialArenaSize);
+    m_a2WorkArena = std::make_unique<memory::Arena>(A2ArenaSegmentSize);
 }
 
 Analysis::~Analysis()
@@ -3522,7 +3785,8 @@ void Analysis::beginRun(
 
     updateRanks();
 
-    qSort(m_operators.begin(), m_operators.end(), [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
+    qSort(m_operators.begin(), m_operators.end(),
+          [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
         return oe1.op->getMaximumInputRank() < oe2.op->getMaximumInputRank();
     });
 
@@ -3619,6 +3883,7 @@ void Analysis::processTimetick()
 void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
 {
     m_sources.push_back({eventId, moduleId, source});
+    // FIXME: restructure this, split beginRun, make a2 building explicit
     beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
@@ -3626,6 +3891,7 @@ void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const Sour
 void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
 {
     m_operators.push_back({eventId, op, userLevel});
+    // FIXME: restructure this, split beginRun, make a2 building explicit
     beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
@@ -4066,6 +4332,9 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 auto srcRawPtr = srcObject.get();
                 auto dstRawPtr = dstObject.get();
                 Slot *dstSlot = dstObject->getSlot(dstIndex);
+
+                qDebug() << __PRETTY_FUNCTION__ << "src =" << srcObject << ", dst =" << dstObject;
+
                 Q_ASSERT(dstSlot);
 
                 if (dstSlot)
@@ -4085,10 +4354,24 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
         }
     }
 
+    // VME Object Settings
+    m_vmeObjectSettings.clear();
+
+    {
+        auto container = json["VMEObjectSettings"].toObject();
+
+        for (auto it = container.begin(); it != container.end(); it++)
+        {
+            QUuid objectId(QUuid(it.key()));
+            QVariantMap eventSettings(it.value().toObject().toVariantMap());
+
+            m_vmeObjectSettings.insert(objectId, eventSettings);
+        }
+    }
+
     // Dynamic QObject Properties
     loadDynamicProperties(json["properties"].toObject(), this);
 
-    //beginRun(m_runInfo, m_vmeMap);
     setModified(false);
 
     return result;
@@ -4171,10 +4454,10 @@ void Analysis::write(QJsonObject &json) const
 
                 for (Slot *dstSlot: pipe->getDestinations())
                 {
-                    auto dstOp = dstSlot->parentOperator;
-                    if (dstOp)
+                    if (auto dstOp = dstSlot->parentOperator)
                     {
-                        //qDebug() << "Connection:" << srcObject << outputIndex << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
+                        //qDebug() << "Connection:" << srcObject << outputIndex
+                        //         << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
                         QJsonObject conJson;
                         conJson["srcId"] = srcObject->getId().toString();
                         conJson["srcIndex"] = outputIndex;
@@ -4188,6 +4471,19 @@ void Analysis::write(QJsonObject &json) const
         }
 
         json["connections"] = conArray;
+    }
+
+    // VME Object Settings
+    {
+        QJsonObject dest;
+
+        for (auto objectId: m_vmeObjectSettings.keys())
+        {
+            dest[objectId.toString()] = QJsonObject::fromVariantMap(
+                m_vmeObjectSettings.value(objectId));
+        }
+
+        json["VMEObjectSettings"] = dest;
     }
 
     // Dynamic QObject Properties
@@ -4206,6 +4502,18 @@ void Analysis::setModified(bool b)
         m_modified = b;
         emit modifiedChanged(b);
     }
+}
+
+void Analysis::setVMEObjectSettings(const QUuid &objectId, const QVariantMap &settings)
+{
+    bool modifies = (settings != m_vmeObjectSettings.value(objectId));
+    m_vmeObjectSettings.insert(objectId, settings);
+    if (modifies) setModified(true);
+}
+
+QVariantMap Analysis::getVMEObjectSettings(const QUuid &objectId) const
+{
+    return m_vmeObjectSettings.value(objectId);
 }
 
 static const double maxRawHistoBins = (1 << 16);

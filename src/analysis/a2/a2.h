@@ -4,11 +4,13 @@
 #ifdef liba2_shared_EXPORTS
 #include "a2_export.h"
 #endif
+
+#include "a2_exprtk.h"
+#include "a2_param.h"
 #include "listfilter.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
 #include "rate_sampler.h"
-#include "util/nan.h"
 #include "util/typed_block.h"
 
 #include <cassert>
@@ -17,27 +19,6 @@
 
 namespace a2
 {
-/* Note: a2 passes out_of_memory() from memory::Arena through. Use an external
- * mechanism to catch this, increase the memory size and try again. */
-
-
-/* Bit used as payload of NaN values to identify an invalid parameter.
- * If the bit is not set the NaN was generated as the result of a calculation
- * and the parameter is considered valid.
- */
-static const int ParamInvalidBit = 1u << 0;
-
-inline bool is_param_valid(double param)
-{
-    return !(std::isnan(param) && (get_payload(param) & ParamInvalidBit));
-}
-
-inline double invalid_param()
-{
-    static const double result = make_nan(ParamInvalidBit);
-    return result;
-}
-
 using ParamVec = TypedBlock<double, s32>;
 
 void print_param_vector(ParamVec pv);
@@ -370,13 +351,72 @@ Operator make_aggregate_sigmax(
 /* ===============================================
  * Expression Operator
  * =============================================== */
-#if 0
+struct ExpressionOperatorError: public std::runtime_error
+{
+    using std::runtime_error::runtime_error;
+};
+
+/* Thrown if the return value of the begin expression is malformed or contains
+ * unexpected data types. */
+struct ExpressionOperatorSemanticError: public ExpressionOperatorError
+{
+    std::string message;
+
+    ExpressionOperatorSemanticError(const std::string &msg)
+        : ExpressionOperatorError("SemanticError")
+        , message(msg)
+    {}
+};
+
+/* Runtime library containing basic analysis related functions.
+ *
+ * An instance of the library will automatically be registered for expressions
+ * used in the expression operator.
+ *
+ * Contains the following functions:
+ * is_valid(p), is_invalid(p), make_invalid(), is_nan(d)
+ */
+a2_exprtk::SymbolTable make_expression_operator_runtime_library();
+
+struct ExpressionOperatorData
+{
+    a2_exprtk::SymbolTable symtab_begin;
+    a2_exprtk::SymbolTable symtab_step;
+    a2_exprtk::Expression expr_begin;
+    a2_exprtk::Expression expr_step;
+
+    std::vector<std::string> output_names;
+    std::vector<std::string> output_units;
+};
+
+enum class ExpressionOperatorBuildOptions: u8
+{
+    /* Compiles and evaluates the begin expression and uses the result to build
+     * the operator outputs, populate the symbol table for the step expression
+     * and the ExpressionOperatorData output_names and output_units. */
+    InitOnly,
+
+    /* Performs the InitOnly steps and then compiles the step expression. */
+    FullBuild,
+};
+
+static const s32 NoParamIndex = -1;
+
 Operator make_expression_operator(
     memory::Arena *arena,
-    PipeVectors inPipe,
-    const std::string &begin_expr,
-    const std::string &step_expr);
-#endif
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &input_param_indexes,
+    const std::vector<std::string> &input_prefixes,
+    const std::vector<std::string> &input_units,
+    const std::string &expr_begin_str,
+    const std::string &expr_step_str,
+    ExpressionOperatorBuildOptions options = ExpressionOperatorBuildOptions::FullBuild);
+
+/* Can be used after calling make_expression_operator() with the InitOnly
+ * option to complete building the operator. */
+void expression_operator_compile_step_expression(Operator *op);
+
+void expression_operator_step(Operator *op);
 
 /* ===============================================
  * Histograms
@@ -527,9 +567,6 @@ struct ExportSinkData
     // The lowest level output stream. Right now always a std::ofstream
     // working on this operators output filename.
     std::unique_ptr<std::ostream> ostream;
-
-    // stream buffer used for compression.
-    //std::unique_ptr<std::streambuf> z_streambuf;
 
     // ostream used when compression is enabled.
     std::unique_ptr<std::ostream> z_ostream;

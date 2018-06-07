@@ -19,7 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvme.h"
-#include "mvme_startup.h"
+#include "mvme_session.h"
 #include "vme_controller_factory.h"
 #include "analysis/analysis_util.h"
 
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
     try
     {
         // init mvme using a non-default app name to not mess with the standard mvme.conf
-        mvme_basic_init("mvme_test_launcher_module_template");
+        mvme_init("mvme_test_launcher_module_template");
         MVMEMainWindow w;
         auto context = w.getContext();
 
@@ -265,6 +265,7 @@ int main(int argc, char *argv[])
         });
 
         ret = app.exec();
+        mvme_shutdown();
     }
     catch (const VMEError &e)
     {

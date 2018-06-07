@@ -46,7 +46,7 @@ class VMEConfig;
 
 namespace memory
 {
-struct Arena;
+class Arena;
 };
 
 /*
@@ -97,7 +97,8 @@ struct LIBMVME_EXPORT ParameterVector: public QVector<Parameter>
         }
     }
 
-    // Note: name is currently not used anywhere in the gui
+    // Note: name was not used at all but the introduction of the
+    // ExpressionOperator might change that!
     QString name;
     QString unit;
 };
@@ -127,6 +128,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public QObject, public std::enable_sha
         virtual s32 getNumberOfOutputs() const = 0;
         virtual QString getOutputName(s32 outputIndex) const = 0;
         virtual Pipe *getOutput(s32 index) = 0;
+        virtual bool hasVariableNumberOfOutputs() const { return false; }
 
         virtual QString getDisplayName() const = 0;
         virtual QString getShortName() const = 0;
@@ -166,6 +168,10 @@ struct Slot;
 class LIBMVME_EXPORT Pipe
 {
     public:
+        Pipe();
+        Pipe(PipeSourceInterface *sourceObject, s32 outputIndex,
+             const QString &paramVectorName = QString());
+
         const Parameter *first() const
         {
             if (!parameters.isEmpty())
@@ -218,6 +224,8 @@ class LIBMVME_EXPORT Pipe
             }
         }
 
+        /* Removes the given slot from this pipes destinations.
+         * IMPORTANT: Does not call disconnectPipe() on the slot!. */
         void removeDestination(Slot *dest)
         {
             destinations.removeAll(dest);
@@ -227,6 +235,9 @@ class LIBMVME_EXPORT Pipe
         {
             return destinations;
         }
+
+        /* Disconnects and removes all destination slots of this pipe. */
+        void disconnectAllDestinationSlots();
 
         void invalidateAll()
         {
@@ -1068,30 +1079,67 @@ class LIBMVME_EXPORT BinarySumDiff: public OperatorInterface
         double m_outputUpperLimit;
 };
 
-class LIBMVME_EXPORT ExpressionOperator: public BasicOperator
+class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
     public:
         ExpressionOperator(QObject *parent = 0);
 
+        // Init and execute
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
+        // Inputs
+        virtual bool hasVariableNumberOfSlots() const override { return true; }
+        virtual bool addSlot() override;
+        virtual bool removeLastSlot() override;
+
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        // Outputs
+        virtual bool hasVariableNumberOfOutputs() const override { return true; }
+        virtual s32 getNumberOfOutputs() const override;
+        virtual QString getOutputName(s32 outputIndex) const override;
+        virtual Pipe *getOutput(s32 index) override;
+
+        // Serialization
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
+        // Info
         virtual QString getDisplayName() const override { return QSL("Expression"); }
         virtual QString getShortName() const override { return QSL("Expr"); }
 
+        // Clone
+        ExpressionOperator *cloneViaSerialization() const;
+
+        // ExpressionOperator specific
         void setBeginExpression(const QString &str) { m_exprBegin = str; }
         QString getBeginExpression() const { return m_exprBegin; }
 
         void setStepExpression(const QString &str) { m_exprStep = str; }
         QString getStepExpression() const { return m_exprStep; }
 
+        /* Variable name prefixes for each of the operators inputs. These
+         * prefixes define the exprtk variable names used in both the begin and
+         * step expressions. */
+        QString getInputPrefix(s32 inputIndex) const { return m_inputPrefixes.value(inputIndex); }
+        QStringList getInputPrefixes() const { return m_inputPrefixes; }
+        void setInputPrefixes(const QStringList &prefixes) { m_inputPrefixes = prefixes; }
+
+        a2::Operator buildA2Operator(memory::Arena *arena);
+        a2::Operator buildA2Operator(memory::Arena *arena,
+                                     a2::ExpressionOperatorBuildOptions buildOptions);
+
     private:
         QString m_exprBegin;
         QString m_exprStep;
+        QStringList m_inputPrefixes;
+
+        QVector<std::shared_ptr<Slot>> m_inputs;
+        QVector<std::shared_ptr<Pipe>> m_outputs;
 };
 
 //
@@ -1520,10 +1568,10 @@ class LIBMVME_EXPORT Analysis: public QObject
         Analysis(QObject *parent = nullptr);
         virtual ~Analysis();
 
-        /* Important: only the overload taking the hash of index pairs prepares
-         * the a2 system!
-         */
-        void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap, Logger logger = {});
+        void beginRun(const RunInfo &runInfo,
+                      const vme_analysis_common::VMEIdToIndex &vmeMap,
+                      Logger logger = {});
+
         void beginEvent(int eventIndex);
         void processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size);
         void endEvent(int eventIndex);
@@ -1554,7 +1602,8 @@ class LIBMVME_EXPORT Analysis: public QObject
         void removeSource(SourceInterface *source);
 
         QVector<ListFilterExtractorPtr> getListFilterExtractors(ModuleConfig *module) const;
-        void setListFilterExtractors(ModuleConfig *module, const QVector<ListFilterExtractorPtr> &extractors);
+        void setListFilterExtractors(ModuleConfig *module,
+                                     const QVector<ListFilterExtractorPtr> &extractors);
 
         const QVector<OperatorEntry> &getOperators() const { return m_operators; }
         QVector<OperatorEntry> &getOperators() { return m_operators; }
@@ -1648,11 +1697,20 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         RunInfo getRunInfo() const { return m_runInfo; }
 
+        /* Additional settings tied to VME objects but stored in the analysis
+         * due to logical and convenience reasons.
+         * Contains things like: the MultiEventProcessing flag for VME event
+         * configs and the ModuleHeaderFilter string for module configs.
+         */
+        void setVMEObjectSettings(const QUuid &objectId, const QVariantMap &settings);
+        QVariantMap getVMEObjectSettings(const QUuid &objectId) const;
+
     private:
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
         QVector<SourceEntry> m_sources;
         QVector<OperatorEntry> m_operators;
+        QMap<QUuid, QVariantMap> m_vmeObjectSettings;
 
         Registry m_registry;
 
@@ -1675,13 +1733,18 @@ struct LIBMVME_EXPORT RawDataDisplay
     std::shared_ptr<Histo1DSink> calibratedHistoSink;
 };
 
-RawDataDisplay LIBMVME_EXPORT make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
-                                     const QString &xAxisTitle, const QString &unitLabel);
+RawDataDisplay LIBMVME_EXPORT make_raw_data_display(
+    std::shared_ptr<Extractor> extractor,
+    double unitMin, double unitMax,
+    const QString &xAxisTitle, const QString &unitLabel);
 
-RawDataDisplay LIBMVME_EXPORT make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
-                                     const QString &name, const QString &xAxisTitle, const QString &unitLabel);
+RawDataDisplay LIBMVME_EXPORT make_raw_data_display(
+    const MultiWordDataFilter &extractionFilter,
+    double unitMin, double unitMax,
+    const QString &name, const QString &xAxisTitle, const QString &unitLabel);
 
-void LIBMVME_EXPORT add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display);
+void LIBMVME_EXPORT add_raw_data_display(
+    Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display);
 
 void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo = {});
 
@@ -1696,7 +1759,8 @@ void LIBMVME_EXPORT generate_new_object_ids(Analysis *analysis);
 
 QString LIBMVME_EXPORT info_string(const Analysis *analysis);
 
-void LIBMVME_EXPORT adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, OperatorInterface *op, s32 levelDelta);
+void LIBMVME_EXPORT adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries,
+                                             OperatorInterface *op, s32 levelDelta);
 
 } // end namespace analysis
 

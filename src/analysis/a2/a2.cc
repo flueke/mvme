@@ -1,7 +1,4 @@
 #include "mpmc_queue.cc"
-#if 0
-#include "a2_exprtk.h"
-#endif
 #include "a2_impl.h"
 #include "util/assert.h"
 #include "util/perf.h"
@@ -219,7 +216,7 @@ DataSource make_datasource_extractor(
     DataSource result = {};
     result.type = DataSource_Extractor;
 
-    auto ex = arena->pushStruct<Extractor>();
+    auto ex = arena->pushObject<Extractor>();
     *ex = make_extractor(filter, requiredCompletions, rngSeed, options);
     result.d = ex;
 
@@ -318,13 +315,13 @@ DataSource make_datasource_listfilter_extractor(
     DataSource result = {};
     result.type = DataSource_ListFilterExtractor;
 
-    auto ex = arena->pushStruct<ListFilterExtractor>();
+    auto ex = arena->pushObject<ListFilterExtractor>();
     *ex = make_listfilter_extractor(listFilter, repetitions, rngSeed, options);
     result.d = ex;
 
     result.moduleIndex = moduleIndex;
 
-    // This call works as listFilter and repetitionAddressCache have been
+    // This call works because listFilter and repetitionAddressCache have been
     // initialzed at this point.
     size_t addressCount = get_address_count(&result);
 
@@ -412,6 +409,12 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
 /* ===============================================
  * Operators
  * =============================================== */
+
+/** Creates an operator with the specified type and input and output counts.
+ *
+ * To make the operator functional inputs have to be set using assign_input()
+ * and output parameter vectors have to be created and setup using
+ * push_output_vectors(). */
 Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
 {
     Operator result = {};
@@ -892,7 +895,17 @@ void array_map_step(Operator *op)
     for (s32 mi = 0; mi < mappingCount; mi++)
     {
         auto mapping = d->mappings[mi];
-        op->outputs[0][mi] = op->inputs[mapping.inputIndex][mapping.paramIndex];
+
+        if (mapping.inputIndex < op->inputCount
+            && 0 <= mapping.paramIndex
+            && mapping.paramIndex < op->inputs[mapping.inputIndex].size)
+        {
+            op->outputs[0][mi] = op->inputs[mapping.inputIndex][mapping.paramIndex];
+        }
+        else
+        {
+            op->outputs[0][mi] = invalid_param();
+        }
     }
 }
 
@@ -917,8 +930,20 @@ Operator make_array_map(
     for (s32 mi = 0; mi < mappings.size; mi++)
     {
         auto m = d->mappings[mi] = mappings[mi];
-        result.outputLowerLimits[0][mi] = inputs[m.inputIndex].lowerLimits[m.paramIndex];
-        result.outputUpperLimits[0][mi] = inputs[m.inputIndex].upperLimits[m.paramIndex];
+
+        double ll = make_quiet_nan();
+        double ul = make_quiet_nan();
+
+        if (m.inputIndex < inputs.size
+            && 0 <= m.paramIndex
+            && m.paramIndex < inputs[m.inputIndex].lowerLimits.size)
+        {
+            ll = inputs[m.inputIndex].lowerLimits[m.paramIndex];
+            ul = inputs[m.inputIndex].upperLimits[m.paramIndex];
+        }
+
+        result.outputLowerLimits[0][mi] = ll;
+        result.outputUpperLimits[0][mi] = ul;
     }
 
     result.d = d;
@@ -1047,6 +1072,8 @@ Operator make_binary_equation_idx(
     double outputUpperLimit)
 {
     assert(equationIndex < ArrayCount(BinaryEquationTable));
+    assert(0 <= inputIndexA && inputIndexA < inputA.data.size);
+    assert(0 <= inputIndexB && inputIndexB < inputB.data.size);
 
     auto result = make_operator(arena, Operator_BinaryEquation_idx, 2, 1);
     assign_input(&result, inputA, 0);
@@ -1080,9 +1107,6 @@ void binary_equation_step_idx(Operator *op)
  * =============================================== */
 inline bool is_valid_and_inside(double param, Thresholds thresholds)
 {
-    assert(!std::isnan(thresholds.min));
-    assert(!std::isnan(thresholds.max));
-
     return (is_param_valid(param)
             && thresholds.min <= param
             && thresholds.max >= param);
@@ -1111,9 +1135,6 @@ static Operator make_aggregate_op(
     }
 
     a2_trace("resulting thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
-
-    assert(!std::isnan(thresholds.min)); // XXX: can be nan if input limits are nan
-    assert(!std::isnan(thresholds.max));
 
     auto d = arena->push(thresholds);
     result.d = d;
@@ -2027,19 +2048,328 @@ void condition_filter_step(Operator *op)
  * Expression Operator
  * =============================================== */
 
-#if 0
-Operator make_expression_operator(
-    memory::Arena *arena,
-    PipeVectors inPipe,
-    const std::string &begin_expr,
-    const std::string &step_expr)
+a2_exprtk::SymbolTable make_expression_operator_runtime_library()
 {
-    auto result = make_operator(arena, Operator_Expression, 1, 1);
-    assign_input(&result, inPipe, 0);
+    a2_exprtk::SymbolTable result;
 
-    expr_create(arena, &result, begin_expr, step_expr);
+    /* Note: the conversion from lambda to function pointer works because the
+     * lambdas are non-capturing. */
+
+    result.addFunction(
+        "is_valid", [](double p) { return static_cast<double>(is_param_valid(p)); });
+
+    result.addFunction(
+        "is_invalid", [](double p) { return static_cast<double>(!is_param_valid(p)); });
+
+    result.addFunction(
+        "make_invalid", invalid_param);
+
+    result.addFunction(
+        "is_nan", [](double d) { return static_cast<double>(std::isnan(d)); });
+
+    result.addFunction(
+        "valid_or", [](double p, double def_value) {
+            return is_param_valid(p) ? p : def_value;
+    });
 
     return result;
+}
+
+#define register_symbol(table, meth, sym, ...) table.meth(sym, ##__VA_ARGS__)
+
+namespace
+{
+struct OutputSpec
+{
+    std::string name;
+    std::string unit;
+    std::vector<double> lowerLimits;
+    std::vector<double> upperLimits;
+};
+
+using Result = a2_exprtk::Expression::Result;
+using SemanticError = ExpressionOperatorSemanticError;
+
+
+OutputSpec build_output_spec(size_t out_idx, size_t result_idx,
+                             const Result &res_name,
+                             const Result &res_unit,
+                             const Result &res_size,
+                             const Result &res_ll,
+                             const Result &res_ul)
+
+{
+    OutputSpec result = {};
+    std::ostringstream ss;
+
+#define expect_result_type(res, expected_type)\
+do\
+    if (res.type != expected_type)\
+    {\
+        std::ostringstream ss;\
+        ss << "Unexpected result type: result #" << result_idx\
+        << ", output #" << out_idx <<  ": expected type is " << #expected_type;\
+        throw SemanticError(ss.str());\
+    }\
+while(0)
+
+    expect_result_type(res_name, Result::String);
+    expect_result_type(res_unit, Result::String);
+    expect_result_type(res_size, Result::Scalar);
+
+#undef expect_result_type
+
+    result.name = res_name.string;
+    result.unit = res_unit.string;
+
+    s32 outputSize = std::lround(res_size.scalar);
+
+    if (outputSize <= 0)
+    {
+        ss << "output#" << out_idx << ", name=" << result.name
+            << ": Invalid output size returned (" << outputSize << ")";
+        throw SemanticError(ss.str());
+    }
+
+    if (res_ll.type == Result::Scalar && res_ul.type == Result::Scalar)
+    {
+        result.lowerLimits.resize(outputSize);
+        std::fill(result.lowerLimits.begin(), result.lowerLimits.end(), res_ll.scalar);
+
+        result.upperLimits.resize(outputSize);
+        std::fill(result.upperLimits.begin(), result.upperLimits.end(), res_ul.scalar);
+    }
+    else if (res_ll.type == Result::Vector && res_ul.type == Result::Vector)
+    {
+        if(res_ll.vector.size() != res_ul.vector.size())
+        {
+            ss << "output#" << out_idx << ", name=" << result.name
+               << ": Different sizes of limit specifications"
+                << ": lower_limits[]: " << res_ll.vector.size()
+                << ", upper_limits[]: " << res_ul.vector.size();
+            throw SemanticError(ss.str());
+        }
+
+        if (res_ll.vector.size() != static_cast<size_t>(outputSize))
+        {
+            ss << "output#" << out_idx << ", name=" << result.name
+                << ": Output size and size of limit arrays differ!"
+                << " output size =" << outputSize
+                << ", limits size =" << res_ll.vector.size();
+            throw SemanticError(ss.str());
+        }
+
+        result.lowerLimits = res_ll.vector;
+        result.upperLimits = res_ul.vector;
+    }
+    else
+    {
+        ss << "output#" << out_idx << ", name=" << result.name
+            << ": Limit definitions must either both be scalars or both be arrays.";
+        throw SemanticError(ss.str());
+    }
+
+    return result;
+}
+
+} // end anon namspace
+
+Operator make_expression_operator(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &input_param_indexes,
+    const std::vector<std::string> &input_prefixes,
+    const std::vector<std::string> &input_units,
+    const std::string &expr_begin_str,
+    const std::string &expr_step_str,
+    ExpressionOperatorBuildOptions options)
+{
+    assert(inputs.size() > 0);
+    assert(inputs.size() < std::numeric_limits<s32>::max());
+    assert(inputs.size() == input_prefixes.size());
+    assert(inputs.size() == input_units.size());
+
+    auto d = arena->pushObject<ExpressionOperatorData>();
+
+    /* Fill the begin expression symbol table with unit and limit information. */
+    for (size_t i = 0; i < inputs.size(); i++)
+    {
+        const auto &input  = inputs[i];
+        const auto &prefix = input_prefixes[i];
+        const auto &unit   = input_units[i];
+        const auto &pi     = input_param_indexes[i];
+
+        register_symbol(d->symtab_begin, createString, prefix + ".unit",
+                        unit);
+
+        if (pi == NoParamIndex)
+        {
+            register_symbol(d->symtab_begin, addVector, prefix + ".lower_limits",
+                            input.lowerLimits.data, input.lowerLimits.size);
+
+            register_symbol(d->symtab_begin, addVector, prefix + ".upper_limits",
+                            input.upperLimits.data, input.upperLimits.size);
+
+            register_symbol(d->symtab_begin, addConstant, prefix + ".size",
+                            input.lowerLimits.size);
+        }
+        else
+        {
+            register_symbol(d->symtab_begin, addScalar, prefix + ".lower_limit",
+                            input.lowerLimits.data[pi]);
+
+            register_symbol(d->symtab_begin, addScalar, prefix + ".upper_limit",
+                            input.upperLimits.data[pi]);
+        }
+    }
+
+    /* Setup and evaluate the begin expression. */
+    d->expr_begin.registerSymbolTable(make_expression_operator_runtime_library());
+    d->expr_begin.registerSymbolTable(d->symtab_begin);
+    d->expr_begin.setExpressionString(expr_begin_str);
+    d->expr_begin.compile();
+    d->expr_begin.eval();
+
+    /* Build outputs from the information returned from the begin expression.
+     *
+     * The result format is a list of tuples with 5 elements per tuple. A tuple
+     * defines a single output array. Each tuple must have the following form
+     * and datatypes:
+     *
+     * output_var_name, output_unit, output_size, lower_limit_spec, upper_limit_spec
+     * string,          string,      scalar,      scalar/array,     scalar/array
+     *
+     */
+    static const size_t ElementsPerOutput = 5;
+
+    auto begin_results = d->expr_begin.results();
+
+    if (begin_results.size() == 0)
+    {
+        throw SemanticError("Empty result list from BeginExpression");
+    }
+
+    if (begin_results.size() % ElementsPerOutput != 0)
+    {
+        std::ostringstream ss;
+        ss << "BeginExpression returned an invalid number of results ("
+            << begin_results.size() << ")";
+        throw SemanticError(ss.str());
+    }
+
+    const size_t outputCount = begin_results.size() / ElementsPerOutput;
+
+    assert(outputCount < std::numeric_limits<s32>::max());
+
+    auto result = make_operator(arena, Operator_Expression, inputs.size(), outputCount);
+    result.d = d;
+
+    /* Assign operator inputs and create input symbol in the step symbol table. */
+    for (size_t in_idx = 0; in_idx < inputs.size(); in_idx++)
+    {
+        assign_input(&result, inputs[in_idx], in_idx);
+
+        const auto &input  = inputs[in_idx];
+        const auto &prefix = input_prefixes[in_idx];
+        const auto &unit   = input_units[in_idx];
+        const auto &pi     = input_param_indexes[in_idx];
+
+        register_symbol(d->symtab_step, createString, prefix + ".unit",
+                        unit);
+
+        if (pi == NoParamIndex)
+        {
+            register_symbol(d->symtab_step, addVector, prefix,
+                            input.data.data, input.data.size);
+
+            register_symbol(d->symtab_step, addVector, prefix + ".lower_limits",
+                            input.lowerLimits.data, input.lowerLimits.size);
+
+            register_symbol(d->symtab_step, addVector, prefix + ".upper_limits",
+                            input.upperLimits.data, input.upperLimits.size);
+
+            register_symbol(d->symtab_step, addConstant, prefix + ".size",
+                            input.lowerLimits.size);
+        }
+        else
+        {
+            register_symbol(d->symtab_step, addScalar, prefix,
+                            input.data.data[pi]);
+
+            register_symbol(d->symtab_step, addScalar, prefix + ".lower_limit",
+                            input.lowerLimits.data[pi]);
+
+            register_symbol(d->symtab_step, addScalar, prefix + ".upper_limit",
+                            input.upperLimits.data[pi]);
+        }
+    }
+
+    /* Interpret the results returned from the begin expression and build the
+     * output vectors accordingly. */
+    for (size_t out_idx = 0, result_idx = 0;
+         out_idx < outputCount;
+         out_idx++, result_idx += ElementsPerOutput)
+    {
+        auto outSpec = build_output_spec(
+            out_idx, result_idx,
+            begin_results[result_idx + 0],
+            begin_results[result_idx + 1],
+            begin_results[result_idx + 2],
+            begin_results[result_idx + 3],
+            begin_results[result_idx + 4]);
+
+        push_output_vectors(arena, &result, out_idx, outSpec.lowerLimits.size());
+
+        for (size_t paramIndex = 0;
+             paramIndex < outSpec.lowerLimits.size();
+             paramIndex++)
+        {
+            result.outputLowerLimits[out_idx][paramIndex] = outSpec.lowerLimits[paramIndex];
+            result.outputUpperLimits[out_idx][paramIndex] = outSpec.upperLimits[paramIndex];
+        }
+
+        d->output_names.push_back(outSpec.name);
+        d->output_units.push_back(outSpec.unit);
+
+        //fprintf(stderr, "output[%lu] variable name = %s\n", out_idx, res_name.string.c_str());
+
+        register_symbol(d->symtab_step, addVector, outSpec.name,
+                        result.outputs[out_idx].data, result.outputs[out_idx].size);
+
+        register_symbol(d->symtab_step, addVector, outSpec.name + ".lower_limits",
+                        result.outputLowerLimits[out_idx].data, result.outputLowerLimits[out_idx].size);
+
+        register_symbol(d->symtab_step, addVector, outSpec.name + ".upper_limits",
+                        result.outputUpperLimits[out_idx].data, result.outputUpperLimits[out_idx].size);
+
+        register_symbol(d->symtab_step, addConstant, outSpec.name + ".size",
+                        result.outputs[out_idx].size);
+
+        register_symbol(d->symtab_step, createString, outSpec.name + ".unit",
+                        outSpec.unit);
+    }
+
+    d->expr_step.registerSymbolTable(make_expression_operator_runtime_library());
+    d->expr_step.registerSymbolTable(d->symtab_step);
+    d->expr_step.setExpressionString(expr_step_str);
+
+    if (options == ExpressionOperatorBuildOptions::FullBuild)
+    {
+        expression_operator_compile_step_expression(&result);
+    }
+
+    return result;
+}
+
+#undef register_symbol
+
+void expression_operator_compile_step_expression(Operator *op)
+{
+    assert(op->type == Operator_Expression);
+
+    auto d = reinterpret_cast<ExpressionOperatorData *>(op->d);
+
+    d->expr_step.compile();
 }
 
 void expression_operator_step(Operator *op)
@@ -2051,9 +2381,8 @@ void expression_operator_step(Operator *op)
     /* References to the input and output have been bound in
      * make_expression_operator(). No need to pass anything here, just evaluate
      * the step expression. */
-    expr_eval_step(d);
+    d->expr_step.eval();
 }
-#endif
 
 /* ===============================================
  * Histograms
@@ -2594,8 +2923,6 @@ Operator make_export_sink(
 
 static const size_t CompressionBufferSize = 1u << 20;
 
-// TODO: make sure zlib error handling and reporting works. exceptions need to be caught (and maybe wrapped)!
-
 /* NOTE: About error handling in the ExportSink:
  * - std::ofstream by default has exceptions disabled. The method rdstate() can
  *   be used to query the status of the error bits after each operation.
@@ -2826,6 +3153,8 @@ struct OperatorFunctions
 
 static const OperatorFunctions OperatorTable[OperatorTypeCount] =
 {
+    [Invalid_OperatorType] = { nullptr },
+
     [Operator_Calibration] = { calibration_step },
     [Operator_Calibration_sse] = { calibration_sse_step },
     [Operator_Calibration_idx] = { calibration_step_idx },
@@ -2866,11 +3195,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Aggregate_MeanX] = { aggregate_meanx_step },
     [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
 
-#if 0
     [Operator_Expression] = { expression_operator_step },
-#else
-    [Operator_Expression] = { nullptr },
-#endif
 };
 
 inline void step_operator(Operator *op)
@@ -2994,10 +3319,14 @@ inline u32 step_operator_range(Operator *first, Operator *last)
 
         assert(op);
         assert(op->type < ArrayCount(OperatorTable));
-        assert(OperatorTable[op->type].step);
 
-        OperatorTable[op->type].step(op);
-        opSteppedCount++;
+        if (likely(op->type != Invalid_OperatorType))
+        {
+            assert(OperatorTable[op->type].step);
+
+            OperatorTable[op->type].step(op);
+            opSteppedCount++;
+        }
     }
 
     return opSteppedCount;
@@ -3353,6 +3682,7 @@ void a2_end_event(A2 *a2, int eventIndex)
 
     if (opCount)
     {
+        // No threads
         if (A2AdditionalThreads == 0)
         {
             for (int opIdx = 0; opIdx < opCount; opIdx++)
@@ -3363,12 +3693,21 @@ void a2_end_event(A2 *a2, int eventIndex)
 
                 assert(op);
                 assert(op->type < ArrayCount(OperatorTable));
-                assert(OperatorTable[op->type].step);
 
-                OperatorTable[op->type].step(op);
-                opSteppedCount++;
+                if (likely(op->type != Invalid_OperatorType))
+                {
+                    assert(OperatorTable[op->type].step);
+
+                    OperatorTable[op->type].step(op);
+                    opSteppedCount++;
+                }
+                else
+                {
+                    InvalidCodePath;
+                }
             }
         }
+        // Threaded
         else
         {
             if (opCount)

@@ -1,0 +1,43 @@
+# Step Expression
+# ==============================================================================
+# This script is the main part of the expression operator. It is executed each
+# time data is available to consume.
+#
+# The script has access to all defined input and output arrays. For data access
+# the plain variable name is used, e.g. 'input1' or 'output0'. Other properties
+# are accessible in the same way as in the "Output Definition Script":
+#
+#   var_name.unit, var_name.size, var_name.lower_limits, var_name.upper_limits
+#
+# Basic "passthrough" example
+# ------------------------------------------------------------------------------
+# The line below simply copies input0 to output0 (assignment of arrays performs
+# the copy internally).
+#
+#   output0 := input0;
+#
+# Doing the same manually using a loop:
+#
+#   for (var i := 0; i < input0.size; i += 1)
+#   {
+#       output0[i] := input0[i];
+#   }
+
+output0 := input0;
+
+
+
+# Syntax example:
+# var x := 42;
+# var y := 3*x - 23;
+# var a0[5] := { 0, 1, 2, 3, 4 };
+# var a1[10];
+# var a0_len := a0[]; // array length
+#
+# for (var i := 0; i < a1[]; i += 1) {
+#     if (i = 0) { // '==' works too for comparison
+#         a1[i] := is_valid(y) ? y^2 : 3.14;
+#     } else {
+#         a1[i] := i;
+#     }
+# }

@@ -6,12 +6,6 @@
 
 class LIBMVME_EXPORT DataFilterEdit: public QLineEdit
 {
-        // set/query number of bits. setting the bits will change the input
-        // mask and truncate the current text on the left if needed.
-        //
-        // if new_bits > old_bits the previous full text could be restored (always keep the text with the max number of bits)
-        // or alternatively the low bits should be kept and the new bits filled with 'X'
-        // or input for each number of bits could be kept and set appropriately
     Q_OBJECT
     public:
         explicit DataFilterEdit(QWidget *parent = nullptr);
@@ -19,6 +13,8 @@ class LIBMVME_EXPORT DataFilterEdit: public QLineEdit
         DataFilterEdit(const QString &filterString, QWidget *parent = nullptr);
         DataFilterEdit(const DataFilter &filter, QWidget *parent = nullptr);
 
+        // set/query number of bits. setting the bits will change the input
+        // mask and truncate the current text on the left if needed.
         void setBitCount(int bits);
         int getBitCount() const { return m_bits; }
 

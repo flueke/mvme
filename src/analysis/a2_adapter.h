@@ -17,10 +17,20 @@ struct A2AdapterState
     using SourceHash   = BiHash<SourceInterface *, a2::DataSource *>;
     using OperatorHash = BiHash<OperatorInterface *, a2::Operator *>;
 
+    struct ErrorInfo
+    {
+        Analysis::OperatorEntry opEntry;
+        s32 eventIndex;
+        QString reason;
+        std::exception_ptr ep;
+    };
+
+    using ErrorInfoVector = QVector<ErrorInfo>;
+
     SourceHash   sourceMap;
     OperatorHash operatorMap;
+    ErrorInfoVector operatorErrors;
 };
-
 
 /*
  * operators must be sorted by rank and their beginRun() must have been called.
@@ -51,6 +61,8 @@ QVector<T> to_qvector(TypedBlock<T, SizeType> block)
 
     return result;
 }
+
+a2::PipeVectors make_a2_pipe_from_a1_pipe(memory::Arena *arena, analysis::Pipe *a1_inPipe);
 
 } // namespace analysis
 

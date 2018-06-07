@@ -49,7 +49,7 @@ message("-- Found zlib for liba2 in ${ZLIB_INCLUDE_DIRS}")
 
 set(liba2_SOURCES
     a2.cc
-    #a2_exprtk.cc
+    a2_exprtk.cc
     data_filter.cc
     listfilter.cc)
 
@@ -61,25 +61,36 @@ if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     )
 endif()
 
-add_library(liba2_shared SHARED ${liba2_SOURCES})
-target_link_libraries(liba2_shared ${ZLIB_LIBRARIES})
-set_target_properties(liba2_shared PROPERTIES OUTPUT_NAME a2)
-target_include_directories(liba2_shared PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-include(GenerateExportHeader)
-generate_export_header(liba2_shared
-    EXPORT_MACRO_NAME "LIBA2_EXPORT"
-    EXPORT_FILE_NAME "a2_export.h")
+option(A2_BUILD_SHARED "Build shared version of the a2 library" OFF)
+option(A2_BUILD_STATIC "Build static version of the a2 library" ON)
 
-add_library(liba2_static STATIC ${liba2_SOURCES})
-target_link_libraries(liba2_static ${ZLIB_LIBRARIES})
-set_target_properties(liba2_static PROPERTIES
-    OUTPUT_NAME a2
-    POSITION_INDEPENDENT_CODE ON)
+if (A2_BUILD_SHARED)
+    add_library(liba2_shared SHARED ${liba2_SOURCES})
+    target_link_libraries(liba2_shared ${ZLIB_LIBRARIES})
+    set_target_properties(liba2_shared PROPERTIES OUTPUT_NAME a2)
+    target_include_directories(liba2_shared PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+    include(GenerateExportHeader)
+    generate_export_header(liba2_shared
+        EXPORT_MACRO_NAME "LIBA2_EXPORT"
+        EXPORT_FILE_NAME "a2_export.h")
+
+    set(A2_TEST_LIBRARY liba2_shared)
+endif (A2_BUILD_SHARED)
+
+if (A2_BUILD_STATIC)
+    add_library(liba2_static STATIC ${liba2_SOURCES})
+    target_link_libraries(liba2_static ${ZLIB_LIBRARIES})
+    set_target_properties(liba2_static PROPERTIES
+        OUTPUT_NAME a2
+        POSITION_INDEPENDENT_CODE ON)
+
+    set(A2_TEST_LIBRARY liba2_static)
+endif (A2_BUILD_STATIC)
 
 function(add_a2_test exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
-    add_dependencies(${exe_name} liba2_shared)
-    target_link_libraries(${exe_name} liba2_shared)
+    add_dependencies(${exe_name} ${A2_TEST_LIBRARY})
+    target_link_libraries(${exe_name} ${A2_TEST_LIBRARY})
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_a2_test)
 
@@ -92,11 +103,11 @@ if(BUILD_TESTS)
 
     function(add_a2_bench exe_name exe_sources)
         add_executable(${exe_name} ${exe_sources})
-        add_dependencies(${exe_name} liba2_shared)
+        add_dependencies(${exe_name} ${A2_TEST_LIBRARY})
         if (WIN32)
-            target_link_libraries(${exe_name} liba2_shared ${GOOGLE_BENCHMARK} Threads::Threads shlwapi.lib)
+            target_link_libraries(${exe_name} ${A2_TEST_LIBRARY} ${GOOGLE_BENCHMARK} Threads::Threads shlwapi.lib)
         else(WIN32)
-            target_link_libraries(${exe_name} liba2_shared ${GOOGLE_BENCHMARK} Threads::Threads)
+            target_link_libraries(${exe_name} ${A2_TEST_LIBRARY} ${GOOGLE_BENCHMARK} Threads::Threads)
         endif(WIN32)
         add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
     endfunction(add_a2_bench)
@@ -106,6 +117,14 @@ if(BUILD_TESTS)
     add_a2_bench(test_a2_param test_a2_param.cc)
     add_a2_bench(test_a2_listfilter test_listfilter.cc)
     add_a2_bench(test_a2_arena test_arena.cc)
+
+    add_executable(test_a2_exprtk a2_exprtk.cc test_a2_exprtk.cc)
+    target_link_libraries(test_a2_exprtk gtest gtest_main)
+    add_test(NAME test_a2_exprtk COMMAND $<TARGET_FILE:test_a2_exprtk>)
+
+    add_executable(test_a2_expression_operator test_a2_expression_operator.cc)
+    target_link_libraries(test_a2_expression_operator ${A2_TEST_LIBRARY} gtest gtest_main)
+    add_test(NAME test_a2_expression_operator COMMAND $<TARGET_FILE:test_a2_expression_operator>)
 
 endif(BUILD_TESTS)
 
