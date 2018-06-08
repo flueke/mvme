@@ -81,6 +81,8 @@ message("-- GIT_BRANCH=${GIT_BRANCH}")
 # 3rdparty
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/")
+add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
 
 # HDF5
 set(HDF5_USE_STATIC_LIBRARIES OFF)
