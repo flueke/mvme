@@ -1785,8 +1785,6 @@ void SIS3153ReadoutWorker::processBuffer(
             // start or continue partial event processing
             if (m_processingState.stackList >= 0 || !isLastPacket)
             {
-                bool isLastPacket = packetAck & SIS3153Constants::AckIsLastPacketMask;
-
                 sis_trace(QString("buffer #%1 -> partial event buffer (isLastPacket=%2)")
                           .arg(bufferNumber)
                           .arg(isLastPacket));
