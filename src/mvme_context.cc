@@ -19,23 +19,25 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvme_context.h"
-#include "mvme_context_lib.h"
-#include "mvme.h"
-#include "sis3153.h"
-#include "vmusb.h"
-#include "vmusb_readout_worker.h"
-#include "vmusb_buffer_processor.h"
-#include "mvme_stream_worker.h"
-#include "mvme_listfile.h"
+
+#include "analysis/a2/memory.h"
 #include "analysis/analysis.h"
 #include "analysis/analysis_session.h"
 #include "analysis/analysis_ui.h"
-#include "analysis/a2/memory.h"
-#include "vme_config_ui.h"
-#include "vme_analysis_common.h"
-#include "vme_controller_factory.h"
-#include "mvme_root_data_writer.h"
 #include "file_autosaver.h"
+#include "mvme_context_lib.h"
+#include "mvme.h"
+#include "mvme_listfile.h"
+#include "mvme_root_data_writer.h"
+#include "mvme_stream_worker.h"
+#include "remote_control.h"
+#include "sis3153.h"
+#include "vme_analysis_common.h"
+#include "vme_config_ui.h"
+#include "vme_controller_factory.h"
+#include "vmusb_buffer_processor.h"
+#include "vmusb.h"
+#include "vmusb_readout_worker.h"
 
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
@@ -135,6 +137,8 @@ class AnalysisSerializer
 
 } // end anon namespace
 
+using remote_control::RemoteControl;
+
 struct MVMEContextPrivate
 {
     MVMEContext *m_q;
@@ -152,6 +156,8 @@ struct MVMEContextPrivate
 
     std::unique_ptr<FileAutoSaver> m_vmeConfigAutoSaver;
     std::unique_ptr<FileAutoSaver> m_analysisAutoSaver;
+
+    std::unique_ptr<RemoteControl> m_remoteControl;
 
     void stopDAQ();
     void pauseDAQ();
@@ -414,6 +420,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     , m_analysis(new analysis::Analysis)
 {
     m_d->m_q = this;
+    m_d->m_remoteControl = std::make_unique<RemoteControl>(this);
 
     for (size_t i=0; i<DataBufferCount; ++i)
     {
@@ -537,6 +544,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     setMode(GlobalMode::DAQ);
     setVMEConfig(new VMEConfig(this));
     setVMEController(VMEControllerType::VMUSB);
+    m_d->m_remoteControl->start();
 
     qDebug() << __PRETTY_FUNCTION__ << "startup: done";
 }

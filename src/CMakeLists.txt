@@ -135,6 +135,7 @@ set(LIBMVME_SOURCES
     rate_monitor_plot_widget.cc
     rate_monitor_widget.cc
     realtimedata.cpp
+    remote_control.cc
     scrollbar.cpp
     scrollzoomer.cpp
     sis3153.cc
@@ -212,6 +213,7 @@ target_link_libraries(libmvme
     ${LIBMVME_ADDITIONAL_LIBS}
     liba2_static
     Threads::Threads
+    jcon
     )
 
 install(TARGETS libmvme DESTINATION .)
