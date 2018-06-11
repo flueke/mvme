@@ -14,7 +14,8 @@
 namespace {
     QString logInvoke(const QMetaMethod& meta_method,
                       const QVariantList& args,
-                      const QVariant& return_value);
+                      const QVariant& return_value,
+                      const QVariant &exception_info = {});
 }
 
 namespace jcon {
@@ -43,6 +44,9 @@ void JsonRpcServer::registerServices(const QObjectList& services)
 void JsonRpcServer::jsonRequestReceived(const QJsonObject& request,
                                         QObject* socket)
 {
+    qDebug() << __PRETTY_FUNCTION__ << "received request:" <<
+        QJsonDocument(request).toJson();
+
     JCON_ASSERT(request.value("jsonrpc").toString() == "2.0");
 
     if (request.value("jsonrpc").toString() != "2.0") {
@@ -51,35 +55,56 @@ void JsonRpcServer::jsonRequestReceived(const QJsonObject& request,
     }
 
     QString method_name = request.value("method").toString();
+
     if (method_name.isEmpty()) {
         logError("no method present in request");
+        return;
     }
 
     QVariant params = request.value("params").toVariant();
+
+    if (params.isNull())
+    {
+        params = QVariantList();
+    }
+
     QString request_id = request.value("id").toVariant().toString();
 
     QVariant return_value;
-    if (!dispatch(method_name, params, request_id, return_value)) {
-        auto msg = QString("method '%1' not found, check name and "
-                           "parameter types ").arg(method_name);
-        logError(msg);
+    QVariant error_info;
+
+    if (!dispatch(method_name, params, request_id, return_value, error_info))
+    {
+        QJsonDocument error;
+
+        if (!error_info.isNull())
+        {
+            error = createErrorResponse(request_id, error_info);
+            logError(error.toJson());
+        }
+        else
+        {
+            auto msg = QString("method '%1' not found, check name and "
+                               "parameter types ").arg(method_name);
+
+            error = createErrorResponse(request_id, JsonRpcError::EC_MethodNotFound, msg);
+            logError(msg);
+        }
 
         // send error response if request had valid ID
-        if (request_id != InvalidRequestId) {
-            QJsonDocument error =
-                createErrorResponse(request_id,
-                                    JsonRpcError::EC_MethodNotFound,
-                                    msg);
-
-            JsonRpcEndpoint* endpoint = findClient(socket);
-            if (!endpoint) {
-                logError("invalid client socket, cannot send response");
-                return;
+        if (request_id != InvalidRequestId)
+        {
+            if (JsonRpcEndpoint* endpoint = findClient(socket))
+            {
+                endpoint->send(error);
             }
-
-            endpoint->send(error);
-            return;
+            else
+            {
+                logError("invalid client socket, cannot send response");
+            }
         }
+
+        return;
     }
 
     // send response if request had valid ID
@@ -115,7 +140,8 @@ void JsonRpcServer::invalidJsonReceived(const QString &data, QObject *socket)
 bool JsonRpcServer::dispatch(const QString& method_name,
                              const QVariant& params,
                              const QString& request_id,
-                             QVariant& return_value)
+                             QVariant& return_value,
+                             QVariant &error_info)
 {
     for (auto& s : m_services) {
         const QMetaObject* meta_obj = s->metaObject();
@@ -125,11 +151,11 @@ bool JsonRpcServer::dispatch(const QString& method_name,
                 if (params.type() == QVariant::List ||
                     params.type() == QVariant::StringList)
                 {
-                    if (call(s, meta_method, params.toList(), return_value)) {
+                    if (call(s, meta_method, params.toList(), return_value, error_info)) {
                         return true;
                     }
                 } else if (params.type() == QVariant::Map) {
-                    if (call(s, meta_method, params.toMap(), return_value)) {
+                    if (call(s, meta_method, params.toMap(), return_value, error_info)) {
                         return true;
                     }
                 }
@@ -142,7 +168,8 @@ bool JsonRpcServer::dispatch(const QString& method_name,
 bool JsonRpcServer::call(QObject* object,
                          const QMetaMethod& meta_method,
                          const QVariantList& args,
-                         QVariant& return_value)
+                         QVariant& return_value,
+                         QVariant &error_info)
 {
     return_value = QVariant();
 
@@ -151,13 +178,14 @@ bool JsonRpcServer::call(QObject* object,
         return false;
     }
 
-    return doCall(object, meta_method, converted_args, return_value);
+    return doCall(object, meta_method, converted_args, return_value, error_info);
 }
 
 bool JsonRpcServer::call(QObject* object,
                          const QMetaMethod& meta_method,
                          const QVariantMap& args,
-                         QVariant& return_value)
+                         QVariant& return_value,
+                         QVariant &error_info)
 {
     return_value = QVariant();
 
@@ -166,7 +194,7 @@ bool JsonRpcServer::call(QObject* object,
         return false;
     }
 
-    return doCall(object, meta_method, converted_args, return_value);
+    return doCall(object, meta_method, converted_args, return_value, error_info);
 }
 
 bool JsonRpcServer::convertArgs(const QMetaMethod& meta_method,
@@ -270,7 +298,8 @@ bool JsonRpcServer::convertArgs(const QMetaMethod& meta_method,
 bool JsonRpcServer::doCall(QObject* object,
                            const QMetaMethod& meta_method,
                            QVariantList& converted_args,
-                           QVariant& return_value)
+                           QVariant& return_value,
+                           QVariant &error_info)
 {
     QList<QGenericArgument> arguments;
 
@@ -301,29 +330,68 @@ bool JsonRpcServer::doCall(QObject* object,
         const_cast<void*>(return_value.constData())
     );
 
-    // perform the call
-    bool ok = meta_method.invoke(
-        object,
-        Qt::DirectConnection,
-        return_argument,
-        arguments.value(0),
-        arguments.value(1),
-        arguments.value(2),
-        arguments.value(3),
-        arguments.value(4),
-        arguments.value(5),
-        arguments.value(6),
-        arguments.value(7),
-        arguments.value(8),
-        arguments.value(9)
-    );
+    // Perform the call. If an exception is thrown error_info will be filled in.
+    try
+    {
+        // perform the call
+        bool ok = meta_method.invoke(
+            object,
+            Qt::DirectConnection,
+            return_argument,
+            arguments.value(0),
+            arguments.value(1),
+            arguments.value(2),
+            arguments.value(3),
+            arguments.value(4),
+            arguments.value(5),
+            arguments.value(6),
+            arguments.value(7),
+            arguments.value(8),
+            arguments.value(9)
+        );
 
-    if (!ok) {
-        // qDebug() << "calling" << meta_method.methodSignature() << "failed.";
+        if (!ok) {
+            qDebug() << "Error: calling" << meta_method.methodSignature() << "failed.";
+            return false;
+        }
+
+        logInfo(logInvoke(meta_method, converted_args, return_value));
+    }
+    catch (const QVariant &exception_info)
+    {
+        /* This is a way for the service implementation to gain fine grained control over
+         * the returned JSON-RPC error object. The thrown QVariant can be a map containing
+         * "code", "message" and optionally "data" which is then passed through as the
+         * error object returned to the caller.
+         * If the QVariant is not a map or does not contain the required keys it is
+         * converted to a Json object and used as the value of "data" in the resulting
+         * error object.
+         * Error objects: http://www.jsonrpc.org/specification#error_object
+         */
+
+        qDebug() << "Error: calling" << meta_method.methodSignature()
+            << "raised a QVariantMap exception:" << exception_info;
+
+        error_info = exception_info;
+        logInfo(logInvoke(meta_method, converted_args, return_value, exception_info));
+
         return false;
     }
+    catch (const std::exception &e)
+    {
+        qDebug() << "Error: calling" << meta_method.methodSignature()
+            << "raised a std::exception:" << e.what();
 
-    logInfo(logInvoke(meta_method, converted_args, return_value));
+        QVariantMap exception_info {
+            { "code", -32603 }, // internal server error
+            { "message", QString("Procedure call raised an exception: %1").arg(e.what()) }
+        };
+
+        error_info = exception_info;
+        logInfo(logInvoke(meta_method, converted_args, return_value, exception_info));
+
+        return false;
+    }
 
     return true;
 }
@@ -355,6 +423,8 @@ QJsonDocument JsonRpcServer::createResponse(const QString& request_id,
         res_json_obj["result"] = return_value.toBool();
     } else if (return_value.type() == QVariant::String) {
         res_json_obj["result"] = return_value.toString();
+    } else if (return_value.type() == QVariant::StringList) {
+        res_json_obj["result"] = QJsonValue::fromVariant(return_value);
     } else {
         auto msg =
             QString("method '%1' has unknown return type: %2")
@@ -380,9 +450,63 @@ QJsonDocument JsonRpcServer::createErrorResponse(const QString& request_id,
 
     QJsonObject res_json_obj {
         { "jsonrpc", "2.0" },
-        { "error", error_object },
-        { "id", request_id }
+        { "error", error_object }
     };
+
+    if (!request_id.isNull())
+    {
+        res_json_obj["id"] = request_id;
+    }
+    else
+    {
+        res_json_obj["id"] = QJsonValue::Null;
+    }
+
+    return QJsonDocument(res_json_obj);
+}
+
+QJsonDocument JsonRpcServer::createErrorResponse(const QString& request_id,
+                                                 const QVariant &error_info)
+{
+    QJsonObject error_object;
+
+    if (error_info.type() == QVariant::Map)
+    {
+        auto error_map = error_info.toMap();
+
+        if (error_map.contains("code") && error_map.contains("message"))
+        {
+            // error_info is in json spec format: pass it through
+            error_object = QJsonObject::fromVariantMap(error_map);
+        }
+        else
+        {
+            error_object["code"] = -32603; // internal server error
+            error_object["message"] = "Procedure call raised an exception";
+            error_object["data"] = QJsonObject::fromVariantMap(error_map);
+        }
+    }
+    else
+    {
+        error_object["code"] = -32603; // internal server error
+        error_object["message"] = "Procedure call raised an exception";
+        error_object["data"] = error_info.toJsonObject();
+    }
+
+    QJsonObject res_json_obj {
+        { "jsonrpc", "2.0" },
+        { "error", error_object }
+    };
+
+    if (!request_id.isNull())
+    {
+        res_json_obj["id"] = request_id;
+    }
+    else
+    {
+        res_json_obj["id"] = QJsonValue::Null;
+    }
+
     return QJsonDocument(res_json_obj);
 }
 
@@ -402,7 +526,8 @@ namespace {
 
 QString logInvoke(const QMetaMethod& meta_method,
                   const QVariantList& args,
-                  const QVariant& return_value)
+                  const QVariant& return_value,
+                  const QVariant &exception_info)
 {
     const auto ns = meta_method.parameterNames();
     auto ps = jcon::variantListToStringList(args);
@@ -423,6 +548,11 @@ QString logInvoke(const QMetaMethod& meta_method,
         msg += QString("with argument%1: %2")
             .arg(args_sl.size() == 1 ? "" : "s")
             .arg(args_sl.join(", "));
+    }
+
+    if (!exception_info.isNull())
+    {
+        msg += " -> exception_info: " + jcon::variantToString(exception_info);
     }
 
     if (return_value.isValid()) {

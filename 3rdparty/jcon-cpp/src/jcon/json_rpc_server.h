@@ -39,6 +39,7 @@ signals:
 
 public slots:
     void jsonRequestReceived(const QJsonObject& request, QObject* socket);
+    void invalidJsonReceived(const QString &data, QObject *socket);
 
 protected slots:
     virtual void newConnection() = 0;
@@ -55,17 +56,20 @@ private:
     bool dispatch(const QString& method_name,
                   const QVariant& params,
                   const QString& request_id,
-                  QVariant& return_value);
+                  QVariant& return_value,
+                  QVariant &error_info);
 
     bool call(QObject* object,
               const QMetaMethod& meta_method,
               const QVariantList& args,
-              QVariant& return_value);
+              QVariant& return_value,
+              QVariant &error_info);
 
     bool call(QObject* object,
               const QMetaMethod& meta_method,
               const QVariantMap& args,
-              QVariant& return_value);
+              QVariant& return_value,
+              QVariant &error_info);
 
 
     bool convertArgs(const QMetaMethod& meta_method,
@@ -79,14 +83,19 @@ private:
     bool doCall(QObject* object,
                 const QMetaMethod& meta_method,
                 QVariantList& converted_args,
-                QVariant& return_value);
+                QVariant& return_value,
+                QVariant &error_info);
 
     QJsonDocument createResponse(const QString& request_id,
                                  const QVariant& return_value,
                                  const QString& method_name);
+
     QJsonDocument createErrorResponse(const QString& request_id,
                                       int code,
                                       const QString& message);
+
+    QJsonDocument createErrorResponse(const QString& request_id,
+                                      const QVariant &error_info);
 
     std::shared_ptr<JsonRpcLogger> m_logger;
     QObjectList m_services;

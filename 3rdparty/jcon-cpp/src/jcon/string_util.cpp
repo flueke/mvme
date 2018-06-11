@@ -15,6 +15,9 @@ QString variantToString(const QVariant& v)
     if (v.canConvert<QString>()) {
         return v.toString();
     }
+    if (v.canConvert<QStringList>()) {
+        return QString("string list (%1 elements)").arg(v.toStringList().size());
+    }
 
     return ("N/A");
 }
