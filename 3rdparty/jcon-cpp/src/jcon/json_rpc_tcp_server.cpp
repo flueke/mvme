@@ -83,6 +83,9 @@ void JsonRpcTcpServer::newConnection()
         connect(endpoint.get(), &JsonRpcEndpoint::jsonObjectReceived,
                 this, &JsonRpcServer::jsonRequestReceived);
 
+        connect(endpoint.get(), &JsonRpcEndpoint::invalidJsonReceived,
+                this, &JsonRpcServer::invalidJsonReceived);
+
         m_client_endpoints[tcp_socket] = endpoint;
 
         emit(clientConnected(tcp_socket));

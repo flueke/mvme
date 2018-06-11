@@ -49,7 +49,13 @@ signals:
      * @param[in] obj The JSON object received.
      * @param[in] sender The socket identifier (e.g. a QTcpSocket*).
      */
-    void jsonObjectReceived(const QJsonObject& obj, QObject* sender);
+    void jsonObjectReceived(const QJsonObject& obj, QObject* senderSocket);
+
+    /**
+     * Emitted in case the received data could not be converted to a json or the document
+     * does not contain a json object.
+     */
+    void invalidJsonReceived(const QString &data, QObject *senderSocket);
 
     /// Emitted when the underlying socket is connected.
     void socketConnected(QObject* socket);

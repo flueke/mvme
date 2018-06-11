@@ -161,8 +161,18 @@ QByteArray JsonRpcEndpoint::processBuffer(const QByteArray& buffer,
                     auto doc = QJsonDocument::fromJson(buf.left(i));
                     JCON_ASSERT(!doc.isNull());
                     JCON_ASSERT(doc.isObject());
+
                     if (doc.isObject())
+                    {
                         emit jsonObjectReceived(doc.object(), socket);
+                    }
+                    else
+                    {
+                        emit invalidJsonReceived(buf.left(i), socket);
+                        qDebug() << __PRETTY_FUNCTION__
+                            << "Did not receive a Json Document! Sending error response."
+                            << " Ignoring request and continuing";
+                    }
                     buf = chopLeft(buf, i);
                     i = 0;
                     continue;

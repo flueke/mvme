@@ -98,6 +98,20 @@ void JsonRpcServer::jsonRequestReceived(const QJsonObject& request,
     }
 }
 
+void JsonRpcServer::invalidJsonReceived(const QString &data, QObject *socket)
+{
+    qDebug() << __PRETTY_FUNCTION__ << "received invalid json data:" << data
+        << "sending error response";
+
+    if (JsonRpcEndpoint *endpoint = findClient(socket))
+    {
+        QJsonDocument error = createErrorResponse(
+            QString(), JsonRpcError::EC_ParseError, "Parse error");
+
+        endpoint->send(error);
+    }
+}
+
 bool JsonRpcServer::dispatch(const QString& method_name,
                              const QVariant& params,
                              const QString& request_id,
