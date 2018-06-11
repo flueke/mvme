@@ -24,7 +24,7 @@
 #include <QWidget>
 
 class MVMEContext;
-class DAQStatsWidgetPrivate;
+struct DAQStatsWidgetPrivate;
 
 class DAQStatsWidget: public QWidget
 {
