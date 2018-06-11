@@ -64,9 +64,9 @@ void FileAutoSaver::saveNow()
 
     auto data = m_serializer();
 
-    qDebug().noquote() << QTime::currentTime().toString()
-        << objectName() << "writing" << data.size()
-        << "bytes to temp file " << tempFile.fileName();
+    //qDebug().noquote() << QTime::currentTime().toString()
+    //    << objectName() << "writing" << data.size()
+    //    << "bytes to temp file " << tempFile.fileName();
 
     if (tempFile.write(m_serializer()) == -1)
     {
@@ -101,10 +101,10 @@ void FileAutoSaver::saveNow()
         return;
     }
 
-    qDebug().noquote() << QTime::currentTime().toString()
-        << objectName()
-        << "copied temp file" << tempFile.fileName()
-        << "to output file" << m_outputFilename;
+    //qDebug().noquote() << QTime::currentTime().toString()
+    //    << objectName()
+    //    << "copied temp file" << tempFile.fileName()
+    //    << "to output file" << m_outputFilename;
 
     emit saved(m_outputFilename);
 }
