@@ -554,9 +554,14 @@ void MVMEStreamWorker::start()
 
         if (result.first)
         {
-            logMessage(QString("Auto saved analysis session to %1").arg(filename));
+            //logMessage(QString("Auto saved analysis session to %1").arg(filename));
         }
-        // silent in the error case
+        else
+        {
+            logMessage(QString("Error saving analysis ssession to %1: %2")
+                       .arg(filename)
+                       .arg(result.second));
+        }
     }
 
     setState(MVMEStreamWorkerState::Idle);

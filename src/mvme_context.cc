@@ -1790,7 +1790,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
             if (fi.exists())
             {
-                logMessage(QString("Loading analysis session auto save %1").arg(fi.filePath()));
+                //logMessage(QString("Loading analysis session auto save %1").arg(fi.filePath()));
                 load_analysis_session(fi.filePath(), getAnalysis());
             }
         }
