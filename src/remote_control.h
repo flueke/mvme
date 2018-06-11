@@ -7,6 +7,14 @@
 namespace remote_control
 {
 
+enum ErrorCodes: s32
+{
+    NotInDAQMode                = 101,
+    ReadoutWorkerBusy           = 102,
+    AnalysisWorkerBusy          = 103,
+    ControllerNotConnected      = 104,
+};
+
 class RemoteControl: public QObject
 {
     Q_OBJECT
@@ -30,26 +38,27 @@ class DAQControlService: public QObject
         DAQControlService(MVMEContext *context);
 
     public slots:
-        void startDAQ();
-        void stopDAQ();
-        void pauseDAQ();
-        void resumeDAQ();
+        QString getDAQState();
+        bool startDAQ();
+        bool stopDAQ();
 
     private:
         MVMEContext *m_context;
 };
 
-class StatusInfoService: public QObject
+class InfoService: public QObject
 {
     Q_OBJECT
     public:
-        StatusInfoService(MVMEContext *context);
+        InfoService(MVMEContext *context);
 
     public slots:
-        QVariantMap getDAQState();
+        QString getMVMEVersion();
+        QStringList getLogMessages();
         QVariantMap getDAQStats();
         QVariantMap getAnalysisStats();
-        QString getLogMessages();
+        QString getVMEControllerType();
+        QVariantMap getVMEControllerStats();
 
     private:
         MVMEContext *m_context;
