@@ -13,6 +13,8 @@ enum ErrorCodes: s32
     ReadoutWorkerBusy           = 102,
     AnalysisWorkerBusy          = 103,
     ControllerNotConnected      = 104,
+
+    NoVMEControllerFound        = 201,
 };
 
 class RemoteControl: public QObject

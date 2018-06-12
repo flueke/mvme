@@ -1,6 +1,8 @@
 #include "remote_control.h"
 
 #include "git_sha1.h"
+#include "sis3153_readout_worker.h"
+
 #include "jcon/json_rpc_logger.h"
 #include "jcon/json_rpc_tcp_server.h"
 
@@ -49,6 +51,11 @@ QVariant make_error_info(int code, const QString &msg)
         { "code", code },
         { "message", msg }
     };
+}
+
+inline QVariant u64_to_var(u64 value)
+{
+    return QVariant(static_cast<qulonglong>(value));
 }
 
 } // end anon namespace
@@ -194,16 +201,24 @@ QVariantMap InfoService::getDAQStats()
     r["state"]                  = DAQStateStrings.value(m_context->getDAQState());
     r["startTime"]              = stats.startTime;
     r["endTime"]                = stats.endTime;
-    r["totalBytesRead"]         = QVariant::fromValue(stats.totalBytesRead);
-    r["totalBuffersRead"]       = QVariant::fromValue(stats.totalBuffersRead);
-    r["buffersWithErrors"]      = QVariant::fromValue(stats.buffersWithErrors);
-    r["droppedBuffers"]         = QVariant::fromValue(stats.droppedBuffers);
-    r["totalNetBytesRead"]      = QVariant::fromValue(stats.totalNetBytesRead);
-    r["listFileBytesWritten"]   = QVariant::fromValue(stats.listFileBytesWritten);
+    r["totalBytesRead"]         = u64_to_var(stats.totalBytesRead);
+    r["totalBuffersRead"]       = u64_to_var(stats.totalBuffersRead);
+    r["buffersWithErrors"]      = u64_to_var(stats.buffersWithErrors);
+    r["droppedBuffers"]         = u64_to_var(stats.droppedBuffers);
+    r["totalNetBytesRead"]      = u64_to_var(stats.totalNetBytesRead);
+    r["listFileBytesWritten"]   = u64_to_var(stats.listFileBytesWritten);
     r["listFileFilename"]       = stats.listfileFilename;
-    r["analyzedBuffers"]        = QVariant::fromValue(stats.getAnalyzedBuffers());
+    r["analyzedBuffers"]        = u64_to_var(stats.getAnalyzedBuffers());
     r["analysisEfficiency"]     = stats.getAnalysisEfficiency();
     r["runId"]                  = runInfo.runId;
+
+    try
+    {
+        r["VMEControllerStats"] = getVMEControllerStats();
+    }
+    catch (const QVariantMap &)
+    {
+    }
 
     return r;
 }
@@ -216,13 +231,88 @@ QVariantMap InfoService::getAnalysisStats()
 
 QString InfoService::getVMEControllerType()
 {
+    auto ctrl = m_context->getVMEController();
+    assert(ctrl);
+
+    if (!ctrl)
+        throw make_error_info(ErrorCodes::NoVMEControllerFound, "No VME controller found");
+
     return to_string(m_context->getVMEController()->getType());
 }
 
+namespace
+{
+
+QVariantMap sis_counters_to_variantmap(const SIS3153ReadoutWorker::Counters &counters)
+{
+    QVariantMap r;
+
+    {
+        QVariantList sl;
+
+        for (size_t si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
+        {
+            QVariantMap data =
+            {
+                { "completeEvents", u64_to_var(counters.stackListCounts[si]) },
+                { "Berr_BlockRead", u64_to_var(counters.stackListBerrCounts_Block[si]) },
+                { "Berr_Read",      u64_to_var(counters.stackListBerrCounts_Read[si]) },
+                { "Berr_Write",     u64_to_var(counters.stackListBerrCounts_Write[si]) },
+                { "embeddedEvents", u64_to_var(counters.embeddedEvents[si]) },
+                { "partialFragments", u64_to_var(counters.partialFragments[si]) },
+                { "reassembledPartials", u64_to_var(counters.reassembledPartials[si]) },
+            };
+
+            sl.append(data);
+        }
+
+        r["stacklistCounters"] = sl;
+        r["lostEvents"] = u64_to_var(counters.lostEvents);
+        r["multiEventPackets"] = u64_to_var(counters.multiEventPackets);
+        r["watchdogStackList"] = counters.watchdogStackList;
+        r["receivedEventsExcludingWatchdog"] = u64_to_var(counters.receivedEventsExcludingWatchdog());
+        r["receivedEventsIncludingWatchdog"] = u64_to_var(counters.receivedEventsIncludingWatchdog());
+        r["receivedWatchdogEvents"] = u64_to_var(counters.receivedWatchdogEvents());
+    }
+
+    return r;
+}
+
+} // end anon namespace
+
 QVariantMap InfoService::getVMEControllerStats()
 {
-    qDebug() << __PRETTY_FUNCTION__;
-    return {};
+    auto ctrl = m_context->getVMEController();
+    assert(ctrl);
+
+    if (!ctrl)
+        throw make_error_info(ErrorCodes::NoVMEControllerFound, "No VME controller found");
+
+    QVariantMap result;
+
+    switch (ctrl->getType())
+    {
+        case VMEControllerType::VMUSB:
+            {
+                // no specific stats present
+            } break;
+
+        case VMEControllerType::SIS3153:
+            {
+                auto readoutWorker = qobject_cast<SIS3153ReadoutWorker *>(
+                    m_context->getReadoutWorker());
+                assert(readoutWorker);
+
+                const auto counters = readoutWorker->getCounters();
+
+                result = sis_counters_to_variantmap(counters);
+
+            } break;
+    }
+
+    result["controllerType"] = getVMEControllerType();
+
+    return result;
 }
 
 } // end namespace remote_control
