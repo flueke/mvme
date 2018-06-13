@@ -83,7 +83,7 @@ Returns the type of VME controller in use.
   **String**
 
 
-getVMEControllerType
+getVMEControllerStats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Returns detailed VME controller statistics if available for the current
 controller type.
