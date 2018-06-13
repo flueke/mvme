@@ -24,6 +24,8 @@ public:
     void listen(const QHostAddress& addr, int port) override;
     void close() override;
 
+    bool isListening() const;
+
 protected:
     JsonRpcEndpoint* findClient(QObject* socket) override;
 

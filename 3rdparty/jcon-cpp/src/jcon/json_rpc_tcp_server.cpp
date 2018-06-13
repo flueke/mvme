@@ -45,6 +45,11 @@ void JsonRpcTcpServer::close()
     m_server.close();
 }
 
+bool JsonRpcTcpServer::isListening() const
+{
+    return m_server.isListening();
+}
+
 JsonRpcEndpoint* JsonRpcTcpServer::findClient(QObject* socket)
 {
     QTcpSocket* tcp_socket = qobject_cast<QTcpSocket*>(socket);
