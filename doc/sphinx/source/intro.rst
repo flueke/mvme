@@ -41,6 +41,9 @@ Features
 * Graphical analysis UI
 * Optional compression of output listfiles
 * Replays of recorded listfile data
+* JSON-RPC remote control interface over TCP
+
+  Allows to remotely start and stop DAQ runs and request status information.
 
 ==================================================
 High-level overview

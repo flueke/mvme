@@ -28,6 +28,10 @@ Changelog
 
 * General fixes and improvements to the SIS3153 readout code.
 
+* New: JSON-RPC interface using TCP as the transport mechanism.
+
+  Allows to start/stop DAQ runs and to request status information.
+
 
 0.9.3
 -------
