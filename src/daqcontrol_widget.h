@@ -32,6 +32,7 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QSettings>
 #include <QSpinBox>
 #include <QWidget>
 
@@ -58,6 +59,7 @@ class DAQControlWidget: public QWidget
                     *pb_reconnect,
                     *pb_controllerSettings,
                     *pb_runSettings,
+                    *pb_workspaceSettings,
                     *pb_forceReset;
 
         QLabel *label_controllerState,
@@ -97,6 +99,27 @@ class DAQRunSettingsDialog: public QDialog
         QCheckBox *cb_useTimestamp;
         QLineEdit *le_exampleName;
         QDialogButtonBox *m_bb;
+};
+
+class WorkspaceSettingsDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        WorkspaceSettingsDialog(const std::shared_ptr<QSettings> &settings, QWidget *parent = 0);
+
+    public slots:
+        virtual void accept() override;
+        virtual void reject() override;
+
+    private:
+        void populate();
+
+        QGroupBox *gb_jsonRPC;
+        QLineEdit *le_jsonRPCListenAddress;
+        QSpinBox *spin_jsonRPCListenPort;
+        QDialogButtonBox *m_bb;
+
+        std::shared_ptr<QSettings> m_settings;
 };
 
 #endif /* __DAQCONTROL_WIDGET_H__ */

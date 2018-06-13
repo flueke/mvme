@@ -69,7 +69,11 @@ namespace remote_control
 
 struct RemoteControl::Private
 {
+    MVMEContext *m_context;
     std::unique_ptr<jcon::JsonRpcTcpServer> m_server;
+    QString m_listenAddress;
+    int m_listenPort;
+    std::unique_ptr<HostInfoWrapper> m_hostInfoWrapper;
 };
 
 RemoteControl::RemoteControl(MVMEContext *context, QObject *parent)
@@ -78,6 +82,7 @@ RemoteControl::RemoteControl(MVMEContext *context, QObject *parent)
 {
     auto logger = std::make_shared<RpcLogger>(context);
 
+    m_d->m_context = context;
     m_d->m_server = std::make_unique<jcon::JsonRpcTcpServer>(nullptr, logger);
     m_d->m_server->registerServices({
         new DAQControlService(context),
@@ -90,16 +95,70 @@ RemoteControl::~RemoteControl()
 
 void RemoteControl::start()
 {
-    // FIXME: configurability please! also there's an
-    // overload taking a QHostAddress to bind to a specific interface
-    m_d->m_server->listen(6002);
+    if (m_d->m_listenAddress.isEmpty())
+    {
+        m_d->m_server->listen(m_d->m_listenPort);
+
+        m_d->m_context->logMessage(QSL("JSON RPC server listening on port %1.")
+                              .arg(m_d->m_listenPort));
+    }
+    else
+    {
+        auto lookedUp = [this] (const QHostInfo &hi)
+        {
+            auto addresses = hi.addresses();
+
+            qDebug() << __PRETTY_FUNCTION__
+                << "host lookup done. got" << addresses.size() << "results";
+
+            if (!addresses.isEmpty())
+            {
+                m_d->m_server->listen(addresses.first(), m_d->m_listenPort);
+
+                m_d->m_context->logMessage(QSL("JSON RPC server listening on port %1:%2.")
+                                           .arg(addresses.first().toString())
+                                           .arg(m_d->m_listenPort));
+            }
+        };
+
+        m_d->m_hostInfoWrapper = std::make_unique<HostInfoWrapper>(lookedUp);
+        m_d->m_hostInfoWrapper->lookupHost(m_d->m_listenAddress);
+    }
 }
 
 void RemoteControl::stop()
 {
-    m_d->m_server->close();
+    if (m_d->m_server->isListening())
+    {
+        m_d->m_context->logMessage(QSL("Stopping JSON RPC server"));
+        m_d->m_server->close();
+    }
 }
 
+void RemoteControl::setListenAddress(const QString &address)
+{
+    m_d->m_listenAddress = address;
+}
+
+void RemoteControl::setListenPort(int port)
+{
+    m_d->m_listenPort = port;
+}
+
+QString RemoteControl::getListenAddress() const
+{
+    return m_d->m_listenAddress;
+}
+
+int RemoteControl::getListenPort() const
+{
+    return m_d->m_listenPort;
+}
+
+MVMEContext *RemoteControl::getContext() const
+{
+    return m_d->m_context;
+}
 
 //
 // DAQControlService
@@ -173,7 +232,7 @@ InfoService::InfoService(MVMEContext *context)
 {
 }
 
-QString InfoService::getMVMEVersion()
+QString InfoService::getVersion()
 {
     QString versionString = QString("mvme-%1").arg(GIT_VERSION);
 
@@ -221,12 +280,6 @@ QVariantMap InfoService::getDAQStats()
     }
 
     return r;
-}
-
-QVariantMap InfoService::getAnalysisStats()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    return {};
 }
 
 QString InfoService::getVMEControllerType()
@@ -313,6 +366,22 @@ QVariantMap InfoService::getVMEControllerStats()
     result["controllerType"] = getVMEControllerType();
 
     return result;
+}
+
+HostInfoWrapper::HostInfoWrapper(Callback callback, QObject *parent)
+    : QObject(parent)
+    , m_callback(callback)
+{
+}
+
+void HostInfoWrapper::lookupHost(const QString &name)
+{
+    QHostInfo::lookupHost(name, this, SLOT(lookedUp(const QHostInfo &)));
+}
+
+void HostInfoWrapper::lookedUp(const QHostInfo &hi)
+{
+    if (m_callback) m_callback(hi);
 }
 
 } // end namespace remote_control

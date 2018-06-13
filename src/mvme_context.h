@@ -246,6 +246,10 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         // Returns an empty string if not workspace is open
         QString getWorkspacePath(const QString &settingsKey, const QString &defaultValue = QString(), bool setIfDefaulted = true) const;
 
+        /* Reapplies some of the settings found in the mvmeworkspace.ini file.  Right now
+         * (re)starts or stops the JSON-RPC server. */
+        void reapplyWorkspaceSettings();
+
         void loadVMEConfig(const QString &fileName);
         void vmeConfigWasSaved();
 

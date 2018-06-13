@@ -1,6 +1,7 @@
 #ifndef __MVME_REMOTE_CONTROL_H__
 #define __MVME_REMOTE_CONTROL_H__
 
+#include <QHostInfo>
 #include <QObject>
 #include "mvme_context.h"
 
@@ -24,8 +25,18 @@ class RemoteControl: public QObject
         RemoteControl(MVMEContext *context, QObject *parent = nullptr);
         ~RemoteControl();
 
+        void setListenAddress(const QString &address);
+        void setListenPort(int port);
+
+        QString getListenAddress() const;
+        int getListenPort() const;
+
+        MVMEContext *getContext() const;
+
     public slots:
+        /** Opens the listening socket and starts accepting clients. */
         void start();
+        /** Closes the listening socket. */
         void stop();
 
     private:
@@ -55,15 +66,31 @@ class InfoService: public QObject
         InfoService(MVMEContext *context);
 
     public slots:
-        QString getMVMEVersion();
+        QString getVersion();
         QStringList getLogMessages();
         QVariantMap getDAQStats();
-        QVariantMap getAnalysisStats();
         QString getVMEControllerType();
         QVariantMap getVMEControllerStats();
 
     private:
         MVMEContext *m_context;
+};
+
+class HostInfoWrapper: public QObject
+{
+    Q_OBJECT
+    public:
+        using Callback = std::function<void (const QHostInfo &)>;
+
+        HostInfoWrapper(Callback callback, QObject *parent = nullptr);
+
+        void lookupHost(const QString &name);
+
+    private slots:
+        void lookedUp(const QHostInfo &hi);
+
+    private:
+        Callback m_callback;
 };
 
 } // end namespace remote_control

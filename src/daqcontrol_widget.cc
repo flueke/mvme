@@ -27,6 +27,7 @@
 #include <QTimer>
 
 #include "mvme_context.h"
+#include "qt_util.h"
 #include "sis3153.h"
 #include "util.h"
 #include "util/strings.h"
@@ -72,6 +73,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     , pb_reconnect(new QPushButton)
     , pb_controllerSettings(new QPushButton)
     , pb_runSettings(new QPushButton)
+    , pb_workspaceSettings(new QPushButton)
     , pb_forceReset(new QPushButton)
     , label_controllerState(new QLabel)
     , label_daqState(new QLabel)
@@ -204,6 +206,15 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         }
     });
 
+    connect(pb_workspaceSettings, &QPushButton::clicked, this, [this] {
+        WorkspaceSettingsDialog dialog(m_context->makeWorkspaceSettings());
+        dialog.setWindowModality(Qt::ApplicationModal);
+        if (dialog.exec() == QDialog::Accepted)
+        {
+            m_context->reapplyWorkspaceSettings();
+        }
+    });
+
     fill_compression_combo(combo_compression);
 
     connect(combo_compression, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged), this, [this] (int index) {
@@ -232,6 +243,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     pb_forceReset->setText(QSL("Force Reset"));
     pb_controllerSettings->setText(QSL("Settings"));
     pb_runSettings->setText(QSL("Run Settings"));
+    pb_workspaceSettings->setText(QSL("Workspace Settings"));
 
     {
         auto pal = le_listfileFilename->palette();
@@ -308,6 +320,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
             hbox->setContentsMargins(0, 0, 0, 0);
             hbox->setSpacing(2);
             hbox->addWidget(pb_runSettings);
+            hbox->addWidget(pb_workspaceSettings);
             hbox->addStretch();
             gbLayout->addRow(hbox);
         }
@@ -648,4 +661,65 @@ DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, Q
 void DAQRunSettingsDialog::updateExample()
 {
     le_exampleName->setText(generate_output_filename(m_settings));
+}
+
+WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings> &settings,
+                                                 QWidget *parent)
+    : QDialog(parent)
+    , gb_jsonRPC(new QGroupBox(QSL("Enable JSON-RPC Server")))
+    , le_jsonRPCListenAddress(new QLineEdit)
+    , spin_jsonRPCListenPort(new QSpinBox)
+    , m_bb(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this))
+    , m_settings(settings)
+{
+    gb_jsonRPC->setCheckable(true);
+    spin_jsonRPCListenPort->setMinimum(1);
+    spin_jsonRPCListenPort->setMaximum((1 << 16) - 1);
+
+    {
+        auto label = new QLabel(QSL(
+                "Enables a built-in JSON-RPC server allowing remote control"
+                " and remote status queries.\n"
+                "The listen address may be a hostname or an IP address. Leave blank to"
+                " bind to all local interfaces."));
+
+        label->setWordWrap(true);
+        set_widget_font_pointsize_relative(label, -1);
+
+        auto l = new QFormLayout(gb_jsonRPC);
+        l->addRow(label);
+        l->addRow(QSL("Listen Address"), le_jsonRPCListenAddress);
+        l->addRow(QSL("Listen Port"), spin_jsonRPCListenPort);
+    }
+
+    auto widgetLayout = new QVBoxLayout(this);
+    widgetLayout->addWidget(gb_jsonRPC);
+    widgetLayout->addWidget(m_bb);
+
+    QObject::connect(m_bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    QObject::connect(m_bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    populate();
+}
+
+void WorkspaceSettingsDialog::populate()
+{
+    gb_jsonRPC->setChecked(m_settings->value(QSL("JSON-RPC/Enabled")).toBool());
+    le_jsonRPCListenAddress->setText(m_settings->value(QSL("JSON-RPC/ListenAddress")).toString());
+    spin_jsonRPCListenPort->setValue(m_settings->value(QSL("JSON-RPC/ListenPort")).toInt());
+}
+
+void WorkspaceSettingsDialog::accept()
+{
+    m_settings->setValue(QSL("JSON-RPC/Enabled"), gb_jsonRPC->isChecked());
+    m_settings->setValue(QSL("JSON-RPC/ListenAddress"), le_jsonRPCListenAddress->text());
+    m_settings->setValue(QSL("JSON-RPC/ListenPort"), spin_jsonRPCListenPort->value());
+    m_settings->sync();
+
+    QDialog::accept();
+}
+
+void WorkspaceSettingsDialog::reject()
+{
+    QDialog::reject();
 }

@@ -43,11 +43,12 @@
 #include "git_sha1.h"
 #endif
 
-#include <QtConcurrent>
-#include <QTimer>
-#include <QThread>
-#include <QProgressDialog>
+#include <QHostAddress>
 #include <QMessageBox>
+#include <QProgressDialog>
+#include <QtConcurrent>
+#include <QThread>
+#include <QTimer>
 
 namespace
 {
@@ -83,6 +84,8 @@ static const int VMECtrlConnectMaxRetryCount = 3;
 /* Maximum number of entries to keep in the logbuffer. Once this is exceeded
  * the oldest entries will be removed. */
 static const s64 LogBufferMaxEntries = 100 * 1000;
+
+static const int JSON_RPC_DefaultListenPort = 13800;
 
 class VMEConfigSerializer
 {
@@ -544,7 +547,6 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     setMode(GlobalMode::DAQ);
     setVMEConfig(new VMEConfig(this));
     setVMEController(VMEControllerType::VMUSB);
-    m_d->m_remoteControl->start();
 
     qDebug() << __PRETTY_FUNCTION__ << "startup: done";
 }
@@ -1468,7 +1470,6 @@ void MVMEContext::newWorkspace(const QString &dirName)
 {
     QDir destDir(dirName);
 
-
     // If the INI file exists assume this is a proper workspace and open it.
     if (destDir.exists(WorkspaceIniName))
     {
@@ -1483,6 +1484,9 @@ void MVMEContext::newWorkspace(const QString &dirName)
     workspaceSettings->setValue(QSL("LastVMEConfig"), DefaultVMEConfigFileName);
     workspaceSettings->setValue(QSL("LastAnalysisConfig"), DefaultAnalysisConfigFileName);
     workspaceSettings->setValue(QSL("WriteListFile"), true);
+    workspaceSettings->setValue(QSL("JSON-RPC/Enabled"), false);
+    workspaceSettings->setValue(QSL("JSON-RPC/ListenAddress"), QString());
+    workspaceSettings->setValue(QSL("JSON-RPC/ListenPort"), JSON_RPC_DefaultListenPort);
 
     // Force sync to create the mvmeworkspace.ini file
     workspaceSettings->sync();
@@ -1556,6 +1560,14 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
         setWorkspaceDirectory(dirName);
         auto workspaceSettings(makeWorkspaceSettings(dirName));
+
+        // settings defaults
+        if (!workspaceSettings->contains(QSL("JSON-RPC/Enabled")))
+            workspaceSettings->setValue(QSL("JSON-RPC/Enabled"), false);
+        if (!workspaceSettings->contains(QSL("JSON-RPC/ListenAddress")))
+            workspaceSettings->setValue(QSL("JSON-RPC/ListenAddress"), QString());
+        if (!workspaceSettings->contains(QSL("JSON-RPC/ListenPort")))
+            workspaceSettings->setValue(QSL("JSON-RPC/ListenPort"), JSON_RPC_DefaultListenPort);
 
         // listfile subdir
         {
@@ -1827,6 +1839,8 @@ void MVMEContext::openWorkspace(const QString &dirName)
                 this, [this] (const QString &filename, const QString &errorMessage) {
             logMessage(errorMessage);
         });
+
+        reapplyWorkspaceSettings();
     }
     catch (const QString &)
     {
@@ -1877,7 +1891,9 @@ std::shared_ptr<QSettings> MVMEContext::makeWorkspaceSettings(const QString &wor
     return std::make_shared<QSettings>(dir.filePath(WorkspaceIniName), QSettings::IniFormat);
 }
 
-QString MVMEContext::getWorkspacePath(const QString &settingsKey, const QString &defaultValue, bool setIfDefaulted) const
+QString MVMEContext::getWorkspacePath(const QString &settingsKey,
+                                      const QString &defaultValue,
+                                      bool setIfDefaulted) const
 {
     auto settings = makeWorkspaceSettings();
 
@@ -1900,6 +1916,26 @@ QString MVMEContext::getWorkspacePath(const QString &settingsKey, const QString 
     }
 
     return QDir(getWorkspaceDirectory()).filePath(settingsValue);
+}
+
+void MVMEContext::reapplyWorkspaceSettings()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+
+    auto settings = makeWorkspaceSettings();
+
+    m_d->m_remoteControl->stop();
+
+    if (settings->value(QSL("JSON-RPC/Enabled")).toBool())
+    {
+        m_d->m_remoteControl->setListenAddress(
+            settings->value(QSL("JSON-RPC/ListenAddress")).toString());
+
+        m_d->m_remoteControl->setListenPort(
+            settings->value(QSL("JSON-RPC/ListenPort")).toInt());
+
+        m_d->m_remoteControl->start();
+    }
 }
 
 void MVMEContext::loadVMEConfig(const QString &fileName)
