@@ -183,7 +183,7 @@ bool DAQControlService::startDAQ()
 
     if (m_context->getMVMEStreamWorkerState() != MVMEStreamWorkerState::Idle)
     {
-        throw make_error_info(ErrorCodes::AnalysisWorkerBusy, "DAQ stream worker busy");
+        throw make_error_info(ErrorCodes::AnalysisWorkerBusy, "DAQ analysis worker busy");
     }
 
     if (m_context->getVMEController()->getState() != ControllerState::Connected)
@@ -212,7 +212,7 @@ bool DAQControlService::stopDAQ()
 
     if (m_context->getMVMEStreamWorkerState() != MVMEStreamWorkerState::Idle)
     {
-        throw make_error_info(ErrorCodes::AnalysisWorkerBusy, "DAQ stream worker still busy");
+        throw make_error_info(ErrorCodes::AnalysisWorkerBusy, "DAQ analysis worker still busy");
     }
 
     return true;
@@ -221,6 +221,19 @@ bool DAQControlService::stopDAQ()
 QString DAQControlService::getDAQState()
 {
     return DAQStateStrings.value(m_context->getDAQState());
+}
+
+QString DAQControlService::reconnectVMEController()
+{
+    if (m_context->getMode() != GlobalMode::DAQ)
+        throw make_error_info(ErrorCodes::NotInDAQMode, "Not in DAQ mode");
+
+    if (m_context->getDAQState() != DAQState::Idle)
+        throw make_error_info(ErrorCodes::ReadoutWorkerBusy, "DAQ not idle");
+
+    m_context->reconnectVMEController();
+
+    return QSL("Reconnection attempt initiated");
 }
 
 //
@@ -258,6 +271,7 @@ QVariantMap InfoService::getDAQStats()
     QVariantMap r;
 
     r["state"]                  = DAQStateStrings.value(m_context->getDAQState());
+    r["currentTime"]            = QDateTime::currentDateTime();
     r["startTime"]              = stats.startTime;
     r["endTime"]                = stats.endTime;
     r["totalBytesRead"]         = u64_to_var(stats.totalBytesRead);
@@ -270,14 +284,6 @@ QVariantMap InfoService::getDAQStats()
     r["analyzedBuffers"]        = u64_to_var(stats.getAnalyzedBuffers());
     r["analysisEfficiency"]     = stats.getAnalysisEfficiency();
     r["runId"]                  = runInfo.runId;
-
-    try
-    {
-        r["VMEControllerStats"] = getVMEControllerStats();
-    }
-    catch (const QVariantMap &)
-    {
-    }
 
     return r;
 }
@@ -364,8 +370,20 @@ QVariantMap InfoService::getVMEControllerStats()
     }
 
     result["controllerType"] = getVMEControllerType();
+    result["controllerState"] = to_string(ctrl->getState());
 
     return result;
+}
+
+QString InfoService::getVMEControllerState()
+{
+    auto ctrl = m_context->getVMEController();
+    assert(ctrl);
+
+    if (!ctrl)
+        throw make_error_info(ErrorCodes::NoVMEControllerFound, "No VME controller found");
+
+    return to_string(ctrl->getState());
 }
 
 HostInfoWrapper::HostInfoWrapper(Callback callback, QObject *parent)

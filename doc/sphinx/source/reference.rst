@@ -23,11 +23,46 @@ control functionality. To enable/disable the RPC-Server use the "Workspace
 Settings" button in the DAQ Controls Window and follow the instructions there.
 
 If the RPC-Server is enabled mvme will open a TCP listening socket and accept
-incoming connections. Requests are currently not length-prefixed, instead data
-is read until a full JSON object has been received. The received JSON is then
-interpreted according to the JSON-RPC spec.
+incoming connections. By default mvme binds to all interfaces and listens on
+port 13800.
+
+Requests are currently not length-prefixed, instead data is read until a full
+JSON object has been received. The received JSON is then interpreted according
+to the JSON-RPC spec.
 
 **Note:** The JSON-RPC batch feature is not supported by the server implementation.
+
+A command line client written in Python3 can be found in the mvme distribution
+under ``extras/mvme_jsonrpc_client.py``: ::
+
+    $ python3 extras/mvme_jsonrpc_client.py localhost 13800 getDAQState
+    ---> {"id": "0", "jsonrpc": "2.0", "method": "getDAQState", "params": []}
+    <--- {"id": "0", "jsonrpc": "2.0", "result": "Running"}
+
+Examples
+-----------------------------------------
+* Requesting DAQ State: ::
+
+    ---> {"id": "0", "jsonrpc": "2.0", "method": "getDAQState", "params": []}
+    <--- {"id": "0", "jsonrpc": "2.0", "result": "Running"}
+
+* Starting data acquisition: ::
+
+    ---> {"id": "0", "jsonrpc": "2.0", "method": "startDAQ", "params": []}
+    <--- {"id": "0", "jsonrpc": "2.0", "result": true}
+
+* An error response: ::
+
+    ---> {"id": "0", "jsonrpc": "2.0", "method": "startDAQ", "params": []}
+    <--- {"error": {"code": 102, "message": "DAQ readout worker busy"}, "id": "0", "jsonrpc": "2.0"}
+
+* Requesting DAQ stats: ::
+
+    ---> {"id": "0", "jsonrpc": "2.0", "method": "getDAQStats", "params": []}
+    <--- {"id": "0", "jsonrpc": "2.0", "result": {"analysisEfficiency": 1, "analyzedBuffers": 4644, "buffersWithErrors": 0, "currentTime": "2018-06-14T11:45:21", "droppedBuffers": 0, "endTime": null, "listFileBytesWritten": 0, "listFileFilename": "", "runId": "180614_114412", "startTime": "2018-06-14T11:44:13", "state": "Running", "totalBuffersRead": 4644, "totalBytesRead": 6366924, "totalNetBytesRead": 5851300}}
+
+Methods
+-----------------------------------------
 
 getVersion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -97,7 +132,35 @@ controller type.
   **Object**
 
 
+getVMEControllerState
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Returns the connection state of the VME controller.
 
+* Parameters
+
+  None
+
+* Returns:
+
+  **String** - "Connected", "Disconnected" or "Connecting"
+
+reconnectVMEController
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Starts a reconnection attempt of the VME controller. The operation is
+asynchronous, thus the result will not be directly available. Instead the
+controller state needs to be polled via ``getVMEControllerState`` to see the
+result of the reconnection attempt.
+
+**Note**: this might in the future be changed to a synchronous version, which
+immediately returns the result or any errors that occured.
+
+* Parameters
+
+  None
+
+* Returns:
+
+  **String** - "Reconnection attempt initiated"
 
 getDAQState
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

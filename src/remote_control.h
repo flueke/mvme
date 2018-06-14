@@ -54,6 +54,7 @@ class DAQControlService: public QObject
         QString getDAQState();
         bool startDAQ();
         bool stopDAQ();
+        QString reconnectVMEController();
 
     private:
         MVMEContext *m_context;
@@ -71,6 +72,7 @@ class InfoService: public QObject
         QVariantMap getDAQStats();
         QString getVMEControllerType();
         QVariantMap getVMEControllerStats();
+        QString getVMEControllerState();
 
     private:
         MVMEContext *m_context;
