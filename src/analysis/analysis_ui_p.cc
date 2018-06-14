@@ -658,7 +658,7 @@ void AddEditOperatorDialog::accept()
         {
             case OperatorEditorMode::New:
                 {
-                    analysis->addOperator(m_eventWidget->getEventId(), m_op, m_userLevel);
+                    analysis->addOperator(m_eventWidget->getEventId(), m_userLevel, m_op);
                 } break;
 
             case OperatorEditorMode::Edit:

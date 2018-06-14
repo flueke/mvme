@@ -60,8 +60,8 @@ using analysis::Analysis;
 A2AdapterState a2_adapter_build_memory_wrapper(
     ArenaPtr &arena,
     ArenaPtr &workArena,
-    const QVector<Analysis::SourceEntry> &sources,
-    const QVector<Analysis::OperatorEntry> &operators,
+    const analysis::SourceVector &sources,
+    const analysis::OperatorVector &operators,
     const vme_analysis_common::VMEIdToIndex &vmeMap,
     const RunInfo &runInfo,
     analysis::Logger logger = {})
@@ -3767,10 +3767,331 @@ Analysis::~Analysis()
 {
 }
 
-void Analysis::beginRun(
-    const RunInfo &runInfo,
-    const vme_analysis_common::VMEIdToIndex &vmeMap,
-    Logger logger)
+//
+// Data Sources
+//
+
+SourceVector Analysis::getSources(const QUuid &eventId, const QUuid &moduleId) const
+{
+    SourceVector result;
+
+    for (const auto &s: m_sources)
+    {
+        if (s->getEventId() == eventId && s->getModuleId() == moduleId)
+            result.push_back(s);
+    }
+
+    return result;
+}
+
+SourceVector Analysis::getSources(const QUuid &moduleId) const
+{
+    SourceVector result;
+
+    for (const auto &s: m_sources)
+    {
+        if (s->getModuleId() == moduleId)
+            result.push_back(s);
+    }
+
+    return result;
+}
+
+SourcePtr Analysis::getSource(const QUuid &sourceId) const
+{
+    auto it = std::find_if(m_sources.begin(), m_sources.end(),
+                           [sourceId](const SourcePtr &src) {
+        return src->getId() == sourceId;
+    });
+
+    return it != m_sources.end() ? *it : nullptr;
+}
+
+void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
+{
+    source->setEventId(eventId);
+    source->setModuleId(moduleId);
+    addSource(source);
+}
+
+void Analysis::addSource(const SourcePtr &source)
+{
+    m_sources.push_back(source);
+    setModified();
+    beginRun(m_runInfo, m_vmeMap); // FIXME:BEGINRUN
+}
+
+void Analysis::removeSource(const SourcePtr &source)
+{
+    removeSource(source.get());
+}
+
+void Analysis::removeSource(SourceInterface *source)
+{
+    assert(source);
+
+    auto it = std::find_if(m_sources.begin(), m_sources.end(),
+                           [source](const SourcePtr &src) {
+        return src.get() == source;
+    });
+
+    if (it != m_sources.end())
+    {
+        // Remove our output pipes from any connected slots.
+        for (s32 outputIndex = 0;
+             outputIndex < source->getNumberOfOutputs();
+             outputIndex++)
+        {
+            Pipe *outPipe = source->getOutput(outputIndex);
+            for (Slot *destSlot: outPipe->getDestinations())
+            {
+                destSlot->disconnectPipe();
+            }
+            assert(outPipe->getDestinations().isEmpty());
+        }
+
+        m_sources.erase(it);
+        setModified();
+        beginRun(m_runInfo, m_vmeMap); // FIXME:BEGINRUN
+    }
+}
+
+ListFilterExtractorVector Analysis::getListFilterExtractors(const QUuid &eventId,
+                                                            const QUuid &moduleId) const
+{
+    ListFilterExtractorVector result;
+
+    for (const auto &source: getSources(eventId, moduleId))
+    {
+        if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(source))
+        {
+            result.push_back(lfe);
+        }
+    }
+
+    return result;
+}
+
+void Analysis::setListFilterExtractors(const QUuid &eventId,
+                                       const QUuid &moduleId,
+                                       const ListFilterExtractorVector &extractors)
+{
+    // remove existing listfilter extractors
+    auto it = std::remove_if(m_sources.begin(), m_sources.end(),
+                             [&eventId, &moduleId] (const SourcePtr &source) {
+
+        return (qobject_cast<ListFilterExtractor *>(source.get())
+                && source->getEventId() == eventId
+                && source->getModuleId() == moduleId);
+    });
+
+    m_sources.erase(it, m_sources.end());
+
+    // add the new sources
+    for (auto lfe: extractors)
+    {
+        lfe->setEventId(eventId);
+        lfe->setModuleId(moduleId);
+        m_sources.push_back(lfe);
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "added" << extractors.size() << "listfilter extractors";
+
+    // Rebuild and notify about modification state
+    setModified();
+    beginRun(m_runInfo, m_vmeMap); // FIXME:BEGINRUN
+}
+
+//
+// Operators
+//
+
+OperatorVector Analysis::getOperators(const QUuid &eventId) const
+{
+    OperatorVector result;
+
+    for (const auto &op: m_operators)
+    {
+        if (op->getEventId() == eventId)
+            result.push_back(op);
+    }
+
+    return result;
+}
+
+OperatorVector Analysis::getOperators(const QUuid &eventId, s32 userLevel) const
+{
+    OperatorVector result;
+
+    for (const auto &op: m_operators)
+    {
+        if (op->getEventId() == eventId && op->getUserLevel() == userLevel)
+            result.push_back(op);
+    }
+
+    return result;
+}
+
+OperatorPtr Analysis::getOperator(const QUuid &operatorId) const
+{
+    auto it = std::find_if(m_operators.begin(), m_operators.end(),
+                           [operatorId](const OperatorPtr &op) {
+        return op->getId() == operatorId;
+    });
+
+    return it != m_operators.end() ? *it : nullptr;
+}
+
+void Analysis::addOperator(const QUuid &eventId, s32 userLevel, const OperatorPtr &op)
+{
+    op->setEventId(eventId);
+    op->setUserLevel(userLevel);
+    addOperator(op);
+}
+
+void Analysis::addOperator(const OperatorPtr &op)
+{
+    m_operators.push_back(op);
+    setModified();
+    beginRun(m_runInfo, m_vmeMap); // FIXME:BEGINRUN
+}
+
+void Analysis::removeOperator(const OperatorPtr &op)
+{
+    removeOperator(op.get());
+}
+
+void Analysis::removeOperator(OperatorInterface *op)
+{
+    assert(op);
+
+    auto it = std::find_if(m_operators.begin(), m_operators.end(),
+                           [op](const OperatorPtr &op_) {
+        return op_.get() == op;
+    });
+
+    if (it != m_operators.end())
+    {
+        // Remove pipe connections to our input slots.
+        for (s32 si = 0; si < op->getNumberOfSlots(); si++)
+        {
+            Slot *inputSlot = op->getSlot(si);
+            assert(inputSlot);
+            inputSlot->disconnectPipe();
+            assert(!inputSlot->inputPipe);
+        }
+
+        // Remove our output pipes from any connected slots.
+        for (s32 outputIndex = 0;
+             outputIndex < op->getNumberOfOutputs();
+             ++outputIndex)
+        for (s32 oi = 0; oi < op->getNumberOfOutputs(); oi++)
+        {
+            Pipe *outPipe = op->getOutput(oi);
+            for (Slot *destSlot: outPipe->getDestinations())
+            {
+                destSlot->disconnectPipe();
+            }
+            assert(outPipe->getDestinations().isEmpty());
+        }
+
+        m_operators.erase(it);
+        setModified();
+        beginRun(m_runInfo, m_vmeMap); // FIXME:BEGINRUN
+    }
+}
+
+//
+// Pre and post run work
+//
+
+void Analysis::updateRanks()
+{
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << ">>>>> begin";
+#endif
+
+    for (auto src: m_sources)
+    {
+#if ENABLE_ANALYSIS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << "setting output ranks of source"
+            << getClassName(source) << source->objectName() << "to 0";
+#endif
+
+        for (s32 oi = 0; oi < src->getNumberOfOutputs(); oi++)
+        {
+            src->getOutput(oi)->setRank(0);
+        }
+    }
+
+    QSet<OperatorInterface *> updated;
+
+    for (auto op: m_operators)
+    {
+        updateRank(op.get(), updated);
+    }
+
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "<<<<< end";
+#endif
+}
+
+void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated)
+{
+    assert(op);
+
+    if (updated.contains(op))
+        return;
+
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << ">>>>> updating rank for"
+        << getClassName(op)
+        << op->objectName();
+#endif
+
+    for (s32 si = 0; si < op->getNumberOfSlots(); si++)
+    {
+        if (Pipe *inputPipe = op->getSlot(si)->inputPipe)
+        {
+            auto *inputObject(inputPipe->getSource());
+
+            // Only operators need to be updated. Data sources will have their rank
+            // set to 0 already.
+            if (auto inputOperator = qobject_cast<OperatorInterface *>(inputObject))
+            {
+                updateRank(inputOperator, updated);
+            }
+        }
+    }
+
+    const s32 maxInputRank = op->getMaximumInputRank();
+
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "maxInputRank =" << maxInputRank;
+#endif
+
+    for (s32 oi = 0; oi < op->getNumberOfOutputs(); oi++)
+    {
+        op->getOutput(oi)->setRank(maxInputRank + 1);
+        updated.insert(op);
+
+#if ENABLE_ANALYSIS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << "output" << oi
+            << "now has rank" << op->getOutput(oi)->getRank();
+#endif
+    }
+
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "<<<<< updated rank for"
+        << getClassName(op)
+        << op->objectName()
+        << "new output rank" << op->getMaximumOutputRank();
+#endif
+}
+
+void Analysis::beginRun(const RunInfo &runInfo,
+                        const vme_analysis_common::VMEIdToIndex &vmeMap,
+                        Logger logger)
 {
     m_runInfo = runInfo;
     m_vmeMap = vmeMap;
@@ -3786,19 +4107,19 @@ void Analysis::beginRun(
     updateRanks();
 
     qSort(m_operators.begin(), m_operators.end(),
-          [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
-        return oe1.op->getMaximumInputRank() < oe2.op->getMaximumInputRank();
+          [] (const OperatorPtr &op1, const OperatorPtr &op2) {
+        return op1->getMaximumInputRank() < op2->getMaximumInputRank();
     });
 
 #if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "<<<<< operators sorted by maximum input rank";
-    for (const auto &opEntry: m_operators)
+    for (const auto &op: m_operators)
     {
         qDebug() << "  "
-            << "max input rank =" << opEntry.op->getMaximumInputRank()
-            << getClassName(opEntry.op.get())
-            << opEntry.op->objectName()
-            << ", max output rank =" << opEntry.op->getMaximumOutputRank();
+            << "max input rank =" << op->getMaximumInputRank()
+            << getClassName(op.get())
+            << op->objectName()
+            << ", max output rank =" << op->getMaximumOutputRank();
     }
     qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by maximum input rank";
 #endif
@@ -3807,14 +4128,14 @@ void Analysis::beginRun(
         << m_sources.size() << " sources,"
         << m_operators.size() << " operators";
 
-    for (auto &sourceEntry: m_sources)
+    for (auto &source: m_sources)
     {
-        sourceEntry.source->beginRun(runInfo, logger);
+        source->beginRun(runInfo, logger);
     }
 
-    for (auto &operatorEntry: m_operators)
+    for (auto &op: m_operators)
     {
-        if (auto sink = qobject_cast<SinkInterface *>(operatorEntry.op.get()))
+        if (auto sink = qobject_cast<SinkInterface *>(op.get()))
         {
             if (!sink->isEnabled())
             {
@@ -3822,8 +4143,10 @@ void Analysis::beginRun(
             }
         }
 
-        operatorEntry.op->beginRun(runInfo, logger);
+        op->beginRun(runInfo, logger);
     }
+
+#if 1 // FIXME:BEGINRUN
 
     // Build the a2 system
 
@@ -3844,21 +4167,35 @@ void Analysis::beginRun(
             m_vmeMap,
             runInfo,
             logger));
+#endif
 }
 
 void Analysis::endRun()
 {
-    for (auto &sourceEntry: m_sources)
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__
+        << "calling endRun() on" << m_sources.size() << "data sources";
+#endif
+
+    for (auto &source: m_sources)
     {
-        sourceEntry.source->endRun();
+        source->endRun();
     }
 
-    for (auto &operatorEntry: m_operators)
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__
+        << "calling endRun() on" << m_operators.size() << "operators";
+#endif
+
+    for (auto &op: m_operators)
     {
-        operatorEntry.op->endRun();
+        op->endRun();
     }
 }
 
+//
+// Processing
+//
 void Analysis::beginEvent(int eventIndex)
 {
     a2_begin_event(m_a2State->a2, eventIndex);
@@ -3880,333 +4217,14 @@ void Analysis::processTimetick()
     a2_timetick(m_a2State->a2);
 }
 
-void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
-{
-    m_sources.push_back({eventId, moduleId, source});
-    // FIXME: restructure this, split beginRun, make a2 building explicit
-    beginRun(m_runInfo, m_vmeMap);
-    setModified();
-}
-
-void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
-{
-    m_operators.push_back({eventId, op, userLevel});
-    // FIXME: restructure this, split beginRun, make a2 building explicit
-    beginRun(m_runInfo, m_vmeMap);
-    setModified();
-}
-
 double Analysis::getTimetickCount() const
 {
     return m_timetickCount;
 }
 
-void Analysis::updateRanks()
-{
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << ">>>>> begin";
-#endif
-
-    for (auto &sourceEntry: m_sources)
-    {
-        SourceInterface *source = sourceEntry.source.get();
-        Q_ASSERT(source);
-        const s32 outputCount = source->getNumberOfOutputs();
-
-#if ENABLE_ANALYSIS_DEBUG
-        qDebug() << __PRETTY_FUNCTION__ << "setting output ranks of source"
-            << getClassName(source) << source->objectName() << "to 0";
-#endif
-
-
-        for (s32 outputIndex = 0;
-             outputIndex < outputCount;
-             ++outputIndex)
-        {
-            source->getOutput(outputIndex)->setRank(0);
-        }
-    }
-
-    QSet<OperatorInterface *> updated;
-
-    for (auto &opEntry: m_operators)
-    {
-        OperatorInterface *op = opEntry.op.get();
-
-        updateRank(op, updated);
-    }
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "<<<<< end";
-#endif
-}
-
-void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated)
-{
-    if (updated.contains(op))
-        return;
-
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << ">>>>> updating rank for"
-        << getClassName(op)
-        << op->objectName();
-#endif
-
-    for (s32 inputIndex = 0;
-         inputIndex < op->getNumberOfSlots();
-         ++inputIndex)
-    {
-        Pipe *input = op->getSlot(inputIndex)->inputPipe;
-
-        if (input)
-        {
-            PipeSourceInterface *source(input->getSource());
-
-            // Only operators need to be updated. Sources will have their rank
-            // set to 0 already.
-            OperatorInterface *sourceOp(qobject_cast<OperatorInterface *>(source));
-
-            if (sourceOp)
-            {
-                updateRank(sourceOp, updated);
-            }
-        }
-        else
-        {
-#if ENABLE_ANALYSIS_DEBUG
-            qDebug() << __PRETTY_FUNCTION__ << "input slot" << inputIndex << "is not connected";
-#endif
-        }
-    }
-
-    s32 maxInputRank = op->getMaximumInputRank();
-
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "maxInputRank =" << maxInputRank;
-#endif
-
-    for (s32 outputIndex = 0;
-         outputIndex < op->getNumberOfOutputs();
-         ++outputIndex)
-    {
-        op->getOutput(outputIndex)->setRank(maxInputRank + 1);
-        updated.insert(op);
-
-#if ENABLE_ANALYSIS_DEBUG
-        qDebug() << __PRETTY_FUNCTION__ << "output"
-            << outputIndex << "now has rank"
-            << op->getOutput(outputIndex)->getRank();
-#endif
-    }
-
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "<<<<< updated rank for"
-        << getClassName(op)
-        << op->objectName()
-        << "new output rank" << op->getMaximumOutputRank();
-#endif
-}
-
-void Analysis::removeSource(const SourcePtr &source)
-{
-    removeSource(source.get());
-}
-
-void Analysis::removeSource(SourceInterface *source)
-{
-    s32 entryIndex = -1;
-    for (s32 i = 0; i < m_sources.size(); ++i)
-    {
-        if (m_sources[i].source.get() == source)
-        {
-            entryIndex = i;
-            break;
-        }
-    }
-
-    Q_ASSERT(entryIndex >= 0);
-
-    if (entryIndex >= 0)
-    {
-        // Remove our output pipes from any connected slots.
-        for (s32 outputIndex = 0;
-             outputIndex < source->getNumberOfOutputs();
-             ++outputIndex)
-        {
-            Pipe *outPipe = source->getOutput(outputIndex);
-            for (Slot *destSlot: outPipe->getDestinations())
-            {
-                destSlot->disconnectPipe();
-            }
-            Q_ASSERT(outPipe->getDestinations().isEmpty());
-        }
-
-        // Remove the source entry. Releases our reference to the SourcePtr stored there.
-        m_sources.remove(entryIndex);
-
-        // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun(m_runInfo, m_vmeMap);
-
-        setModified();
-    }
-}
-
-QVector<ListFilterExtractorPtr>
-Analysis::getListFilterExtractors(ModuleConfig *module) const
-{
-    QVector<ListFilterExtractorPtr> result;
-
-    Q_ASSERT(module->getEventConfig());
-
-    if (!module->getEventConfig())
-        return result;
-
-    for (const auto &se: getSources(module->getEventConfig()->getId(), module->getId()))
-    {
-        if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(se.source))
-        {
-            result.push_back(lfe);
-        }
-    }
-
-    return result;
-}
-
-/** Replaces the ListFilterExtractors for module with the given extractors. */
-void
-Analysis::setListFilterExtractors(ModuleConfig *module, const QVector<ListFilterExtractorPtr> &extractors)
-{
-    Q_ASSERT(module->getEventConfig());
-
-    if (!module->getEventConfig())
-        return;
-
-    // Remove all source entries containing a ListFilterExtractor for the module.
-    auto it = std::remove_if(m_sources.begin(), m_sources.end(), [module](const SourceEntry &se) {
-        return (qobject_cast<ListFilterExtractor *>(se.source.get()) && se.moduleId == module->getId());
-    });
-
-    m_sources.erase(it, m_sources.end());
-
-    // Now build new SourceEntries for the given extractors and append them to m_sources
-    for (const auto &ex: extractors)
-    {
-        m_sources.push_back({module->getEventConfig()->getId(), module->getId(), ex});
-    }
-
-    qDebug() << __PRETTY_FUNCTION__ << "added" << extractors.size() << "listfilter extractors";
-
-    // Rebuild and notify about modification state
-    beginRun(m_runInfo, m_vmeMap);
-    setModified();
-}
-
-void Analysis::removeOperator(const OperatorPtr &op)
-{
-    removeOperator(op.get());
-}
-
-void Analysis::removeOperator(OperatorInterface *op)
-{
-    s32 entryIndex = -1;
-    for (s32 i = 0; i < m_operators.size(); ++i)
-    {
-        if (m_operators[i].op.get() == op)
-        {
-            entryIndex = i;
-            break;
-        }
-    }
-
-    Q_ASSERT(entryIndex >= 0);
-
-    if (entryIndex >= 0)
-    {
-        // Remove pipe connections to our input slots.
-        for (s32 inputSlotIndex = 0;
-             inputSlotIndex < op->getNumberOfSlots();
-             ++inputSlotIndex)
-        {
-            Slot *inputSlot = op->getSlot(inputSlotIndex);
-            Q_ASSERT(inputSlot);
-            inputSlot->disconnectPipe();
-            Q_ASSERT(!inputSlot->inputPipe);
-        }
-
-        // Remove our output pipes from any connected slots.
-        for (s32 outputIndex = 0;
-             outputIndex < op->getNumberOfOutputs();
-             ++outputIndex)
-        {
-            Pipe *outPipe = op->getOutput(outputIndex);
-            for (Slot *destSlot: outPipe->getDestinations())
-            {
-                destSlot->disconnectPipe();
-            }
-            Q_ASSERT(outPipe->getDestinations().isEmpty());
-        }
-
-        // Remove the operator entry. Releases our reference to the OperatorPtr stored there.
-        m_operators.remove(entryIndex);
-
-        // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun(m_runInfo, m_vmeMap);
-
-        setModified();
-    }
-}
-
-void Analysis::clear()
-{
-    m_sources.clear();
-    m_operators.clear();
-    beginRun(m_runInfo, m_vmeMap);
-    setModified();
-}
-
-bool Analysis::isEmpty() const
-{
-    return m_sources.isEmpty() && m_operators.isEmpty();
-}
-
-s32 Analysis::getNumberOfSinks() const
-{
-    return std::count_if(m_operators.begin(), m_operators.end(), [](const OperatorEntry &e) {
-        return qobject_cast<SinkInterface *>(e.op.get()) != nullptr;
-    });
-}
-
-size_t Analysis::getTotalSinkStorageSize() const
-{
-    return std::accumulate(m_operators.begin(), m_operators.end(),
-                           static_cast<size_t>(0),
-                           [](size_t v, const OperatorEntry &e) {
-
-        if (auto sink = qobject_cast<SinkInterface *>(e.op.get()))
-            v += sink->getStorageSize();
-
-        return v;
-    });
-}
-
-s32 Analysis::getMaxUserLevel() const
-{
-    auto it = std::max_element(m_operators.begin(), m_operators.end(), [](const auto &a, const auto &b) {
-        return a.userLevel < b.userLevel;
-    });
-
-    return (it != m_operators.end() ? it->userLevel : 0);
-}
-
-s32 Analysis::getMaxUserLevel(const QUuid &eventId) const
-{
-    auto ops = getOperators(eventId);
-
-    auto it = std::max_element(ops.begin(), ops.end(), [](const auto &a, const auto &b) {
-        return a.userLevel < b.userLevel;
-    });
-
-    return (it != ops.end() ? it->userLevel : 0);
-}
+//
+// Serialization
+//
 
 Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vmeConfig)
 {
@@ -4221,7 +4239,8 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
         result.code = VersionTooNew;
         result.errorData["File version"] = version;
         result.errorData["Max supported version"] = CurrentAnalysisVersion;
-        result.errorData["Message"] = QSL("The file was generated by a newer version of mvme. Please upgrade.");
+        result.errorData["Message"] = QSL(
+            "The analysis file was generated by a newer version of mvme. Please upgrade.");
         return result;
     }
 
@@ -4249,7 +4268,10 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 auto eventId  = QUuid(objectJson["eventId"].toString());
                 auto moduleId = QUuid(objectJson["moduleId"].toString());
 
-                m_sources.push_back({eventId, moduleId, source});
+                source->setEventId(eventId);
+                source->setModuleId(moduleId);
+
+                m_sources.push_back(source);
 
                 objectsById.insert(source->getId(), source);
             }
@@ -4287,7 +4309,10 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 auto eventId = QUuid(objectJson["eventId"].toString());
                 auto userLevel = objectJson["userLevel"].toInt();
 
-                m_operators.push_back({eventId, op, userLevel});
+                op->setEventId(eventId);
+                op->setUserLevel(userLevel);
+
+                m_operators.push_back(op);
 
                 objectsById.insert(op->getId(), op);
             }
@@ -4384,14 +4409,14 @@ void Analysis::write(QJsonObject &json) const
     // Sources
     {
         QJsonArray destArray;
-        for (auto &sourceEntry: m_sources)
+        for (auto &srcPtr: m_sources)
         {
-            SourceInterface *source = sourceEntry.source.get();
+            SourceInterface *source = srcPtr.get();
             QJsonObject destObject;
             destObject["id"] = source->getId().toString();
             destObject["name"] = source->objectName();
-            destObject["eventId"]  = sourceEntry.eventId.toString();
-            destObject["moduleId"] = sourceEntry.moduleId.toString();
+            destObject["eventId"]  = source->getEventId().toString();
+            destObject["moduleId"] = source->getModuleId().toString();
             destObject["class"] = getClassName(source);
             QJsonObject dataJson;
             source->write(dataJson);
@@ -4405,16 +4430,16 @@ void Analysis::write(QJsonObject &json) const
     {
         QJsonArray destArray;
 
-        for (auto &opEntry: m_operators)
+        for (auto &opPtr: m_operators)
         {
-            OperatorInterface *op = opEntry.op.get();
+            OperatorInterface *op = opPtr.get();
 
             QJsonObject destObject;
             destObject["id"]        = op->getId().toString();
             destObject["name"]      = op->objectName();
-            destObject["eventId"]   = opEntry.eventId.toString();
+            destObject["eventId"]   = op->getEventId().toString();
             destObject["class"]     = getClassName(op);
-            destObject["userLevel"] = opEntry.userLevel;
+            destObject["userLevel"] = op->getUserLevel();
 
             QJsonObject dataJson;
             op->write(dataJson);
@@ -4436,14 +4461,14 @@ void Analysis::write(QJsonObject &json) const
         QJsonArray conArray;
         QVector<PipeSourceInterface *> pipeSources;
 
-        for (auto &sourceEntry: m_sources)
+        for (auto &source: m_sources)
         {
-            pipeSources.push_back(sourceEntry.source.get());
+            pipeSources.push_back(source.get());
         }
 
-        for (auto &opEntry: m_operators)
+        for (auto &op: m_operators)
         {
-            pipeSources.push_back(opEntry.op.get());
+            pipeSources.push_back(op.get());
         }
 
         for (PipeSourceInterface *srcObject: pipeSources)
@@ -4492,6 +4517,65 @@ void Analysis::write(QJsonObject &json) const
     if (!props.isEmpty())
         json["properties"] = props;
 }
+
+//
+// Misc
+//
+s32 Analysis::getNumberOfSinks() const
+{
+    return std::count_if(m_operators.begin(), m_operators.end(), [](const OperatorPtr &op) {
+        return qobject_cast<SinkInterface *>(op.get()) != nullptr;
+    });
+}
+
+size_t Analysis::getTotalSinkStorageSize() const
+{
+    return std::accumulate(m_operators.begin(), m_operators.end(),
+                           static_cast<size_t>(0u),
+                           [](size_t v, const OperatorPtr &op) {
+
+        if (auto sink = qobject_cast<SinkInterface *>(op.get()))
+            v += sink->getStorageSize();
+
+        return v;
+    });
+}
+
+s32 Analysis::getMaxUserLevel() const
+{
+    auto it = std::max_element(m_operators.begin(), m_operators.end(),
+                               [](const auto &a, const auto &b) {
+        return a->getUserLevel() < b->getUserLevel();
+    });
+
+    return (it != m_operators.end() ? (*it)->getUserLevel() : 0);
+}
+
+s32 Analysis::getMaxUserLevel(const QUuid &eventId) const
+{
+    auto ops = getOperators(eventId);
+
+    auto it = std::max_element(ops.begin(), ops.end(),
+                               [](const auto &a, const auto &b) {
+        return a->getUserLevel() < b->getUserLevel();
+    });
+
+    return (it != m_operators.end() ? (*it)->getUserLevel() : 0);
+}
+
+void Analysis::clear()
+{
+    m_sources.clear();
+    m_operators.clear();
+    beginRun(m_runInfo, m_vmeMap);
+    setModified();
+}
+
+bool Analysis::isEmpty() const
+{
+    return m_sources.isEmpty() && m_operators.isEmpty();
+}
+
 
 void Analysis::setModified(bool b)
 {
@@ -4576,9 +4660,9 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display)
 {
     analysis->addSource(eventId, moduleId, display.extractor);
-    analysis->addOperator(eventId, display.rawHistoSink, 0);
-    analysis->addOperator(eventId, display.calibration, 1);
-    analysis->addOperator(eventId, display.calibratedHistoSink, 1);
+    analysis->addOperator(eventId, 0, display.rawHistoSink);
+    analysis->addOperator(eventId, 1, display.calibration);
+    analysis->addOperator(eventId, 1, display.calibratedHistoSink);
 }
 
 void do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo)
@@ -4648,9 +4732,8 @@ QString make_unique_operator_name(Analysis *analysis, const QString &prefix)
 {
     int suffixNumber = 0;
 
-    for (const auto &opEntry: analysis->getOperators())
+    for (const auto &op: analysis->getOperators())
     {
-        const auto &op(opEntry.op);
         auto name = op->objectName();
 
         if (name.startsWith(prefix))
@@ -4727,11 +4810,11 @@ bool no_input_connected(OperatorInterface *op)
 
 void generate_new_object_ids(Analysis *analysis)
 {
-    for (auto &sourceEntry: analysis->getSources())
-        sourceEntry.source->setId(QUuid::createUuid());
+    for (auto &source: analysis->getSources())
+        source->setId(QUuid::createUuid());
 
-    for (auto &operatorEntry: analysis->getOperators())
-        operatorEntry.op->setId(QUuid::createUuid());
+    for (auto &op: analysis->getOperators())
+        op->setId(QUuid::createUuid());
 }
 
 QString info_string(const Analysis *analysis)
@@ -4743,48 +4826,60 @@ QString info_string(const Analysis *analysis)
     return result;
 }
 
-static void adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, OperatorInterface *op, s32 levelDelta,
-                                     QSet<OperatorInterface *> &adjusted)
+namespace
+{
+
+void adjust_userlevel_forward(const OperatorVector &operators,
+                              OperatorInterface *op,
+                              s32 levelDelta,
+                              QSet<OperatorInterface *> &adjusted)
 {
     // Note: Could be optimized by searching from the last operators position
-    // forward, as the vector is sorted by operator rank: adjust_userlevel_forward(entryIt, endIt, op, ...)
+    // forward if the vector is sorted by operator rank:
+    // adjust_userlevel_forward(entryIt, endIt, op, ...)
 
     if (adjusted.contains(op) || levelDelta == 0)
         return;
 
-    auto entryIt = std::find_if(opEntries.begin(), opEntries.end(), [op](const auto &opEntry) {
-        return opEntry.op.get() == op;
+    auto opit = std::find_if(operators.begin(), operators.end(),
+                           [op] (const OperatorPtr &op_) {
+        return op_.get() == op;
     });
 
-    if (entryIt != opEntries.end())
+    if (opit != operators.end())
     {
-        auto &opEntry(*entryIt);
+        auto op = *opit;
 
-        opEntry.userLevel += levelDelta;
-        adjusted.insert(op);
+        op->setUserLevel(op->getUserLevel() + levelDelta);
+        adjusted.insert(op.get());
 
-        for (s32 outputIndex = 0;
-             outputIndex < op->getNumberOfOutputs();
-             ++outputIndex)
+        for (s32 oi = 0; oi < op->getNumberOfOutputs(); oi++)
         {
-            auto outputPipe = op->getOutput(outputIndex);
+            auto outputPipe = op->getOutput(oi);
 
             for (Slot *destSlot: outputPipe->getDestinations())
             {
                 if (destSlot->parentOperator)
                 {
-                    adjust_userlevel_forward(opEntries, destSlot->parentOperator, levelDelta, adjusted);
+                    adjust_userlevel_forward(operators,
+                                             destSlot->parentOperator,
+                                             levelDelta,
+                                             adjusted);
                 }
             }
         }
     }
 }
 
-void adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, OperatorInterface *op, s32 levelDelta)
+} // end anon namespace
+
+void adjust_userlevel_forward(const OperatorVector &operators,
+                              OperatorInterface *op,
+                              s32 levelDelta)
 {
     QSet<OperatorInterface *> adjusted;
 
-    adjust_userlevel_forward(opEntries, op, levelDelta, adjusted);
+    adjust_userlevel_forward(operators, op, levelDelta, adjusted);
 }
 
-}
+} // end namespace analysis

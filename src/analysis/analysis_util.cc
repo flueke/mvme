@@ -28,9 +28,9 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
 
         if (readResult)
         {
-            for (auto entry: filterAnalysis.getSources())
+            for (auto source: filterAnalysis.getSources())
             {
-                auto extractor = std::dynamic_pointer_cast<Extractor>(entry.source);
+                auto extractor = std::dynamic_pointer_cast<Extractor>(source);
                 if (extractor)
                 {
                     result.push_back(extractor);

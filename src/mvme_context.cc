@@ -2176,7 +2176,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analy
     if (eventConfig)
     {
         AnalysisPauser pauser(this);
-        getAnalysis()->addOperator(eventId, op, userLevel);
+        getAnalysis()->addOperator(eventId, userLevel, op);
 
         if (m_analysisUi)
         {

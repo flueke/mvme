@@ -1767,13 +1767,13 @@ void ExpressionOperatorDialog::Private::model_stepOperator()
 QString ExpressionOperatorDialog::Private::generateNameForNewOperator()
 {
     auto eventId   = m_eventWidget->getEventId();
-    auto opEntries = m_eventWidget->getAnalysis()->getOperators(eventId);
+    auto operators = m_eventWidget->getAnalysis()->getOperators(eventId);
 
     QSet<QString> names;
 
-    for (const auto &oe: opEntries)
+    for (const auto &op: operators)
     {
-        names.insert(oe.op->objectName());
+        names.insert(op->objectName());
     }
 
     static const QString pattern = QSL("expr%1");
@@ -2121,7 +2121,7 @@ void ExpressionOperatorDialog::apply()
         case OperatorEditorMode::New:
             {
                 analysis->addOperator(m_d->m_eventWidget->getEventId(),
-                                      m_d->m_op, m_d->m_userLevel);
+                                      m_d->m_userLevel, m_d->m_op);
                 m_d->m_mode = OperatorEditorMode::Edit;
                 m_d->m_eventWidget->repopulate();
             } break;

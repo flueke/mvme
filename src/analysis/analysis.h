@@ -109,7 +109,9 @@ class OperatorInterface;
 class Pipe;
 
 /* Interface to indicate that something can the be source of a Pipe. */
-class LIBMVME_EXPORT PipeSourceInterface: public QObject, public std::enable_shared_from_this<PipeSourceInterface>
+class LIBMVME_EXPORT PipeSourceInterface:
+    public QObject,
+    public std::enable_shared_from_this<PipeSourceInterface>
 {
     Q_OBJECT
     public:
@@ -147,12 +149,22 @@ class LIBMVME_EXPORT PipeSourceInterface: public QObject, public std::enable_sha
 
         std::shared_ptr<PipeSourceInterface> getSharedPointer() { return shared_from_this(); }
 
+        /** The id of the VME event this object is a member of. */
+        QUuid getEventId() const { return m_eventId; }
+        void setEventId(const QUuid &id) { m_eventId = id; }
+
+        /** User defined level used for UI display structuring. */
+        s32 getUserLevel() const { return m_userLevel; }
+        void setUserLevel(s32 level) { m_userLevel = level; }
+
     private:
         PipeSourceInterface() = delete;
         QUuid m_id;
+        QUuid m_eventId;
+        s32   m_userLevel;
 };
 
-typedef std::shared_ptr<PipeSourceInterface> PipeSourcePtr;
+using PipeSourcePtr = std::shared_ptr<PipeSourceInterface>;
 
 } // end namespace analysis
 
@@ -271,7 +283,8 @@ struct LIBMVME_EXPORT Slot
 {
     static const s32 NoParamIndex = -1; // special paramIndex value for InputType::Array
 
-    Slot(OperatorInterface *parentOp, s32 parentSlotIndex, const QString &name, u32 acceptedInputs = InputType::Both)
+    Slot(OperatorInterface *parentOp, s32 parentSlotIndex,
+         const QString &name, u32 acceptedInputs = InputType::Both)
         : acceptedInputTypes(acceptedInputs)
         , parentOperator(parentOp)
         , parentSlotIndex(parentSlotIndex)
@@ -345,6 +358,14 @@ class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
         virtual void write(QJsonObject &json) const = 0;
 
         virtual ~SourceInterface() {}
+
+        /** The id of the VME module this object is attached to. Only relevant for data
+         * sources and these are directly attached to modules. */
+        QUuid getModuleId() const { return m_moduleId; }
+        void setModuleId(const QUuid &id) { m_moduleId = id; }
+
+    private:
+        QUuid m_moduleId;
 };
 
 /* Operator interface. Consumes one or multiple input pipes and produces one or
@@ -386,7 +407,8 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
 
 };
 
-typedef std::shared_ptr<OperatorInterface> OperatorPtr;
+using OperatorPtr = std::shared_ptr<OperatorInterface>;
+using OperatorVector = QVector<OperatorPtr>;
 
 } // end namespace analysis
 
@@ -425,7 +447,7 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
         bool m_enabled = true;
 };
 
-typedef std::shared_ptr<SinkInterface> SinkPtr;
+using SinkPtr = std::shared_ptr<SinkInterface>;
 
 } // end namespace analysis
 
@@ -439,7 +461,8 @@ namespace analysis
 // Sources
 //
 
-typedef std::shared_ptr<SourceInterface> SourcePtr;
+using SourcePtr = std::shared_ptr<SourceInterface>;
+using SourceVector = QVector<SourcePtr>;
 
 /* A Source using a MultiWordDataFilter for data extraction. Additionally
  * requiredCompletionCount can be set to only produce output for the nth
@@ -537,6 +560,7 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
 };
 
 using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;
+using ListFilterExtractorVector = QVector<ListFilterExtractorPtr>;
 
 //
 // Operators
@@ -1549,136 +1573,77 @@ class LIBMVME_EXPORT Analysis: public QObject
         void modifiedChanged(bool);
 
     public:
-        struct SourceEntry
-        {
-            QUuid eventId;
-            QUuid moduleId;
-            SourcePtr source;
-        };
-
-        struct OperatorEntry
-        {
-            QUuid eventId;
-            OperatorPtr op;
-
-            // A user defined level used for UI display structuring.
-            s32 userLevel;
-        };
-
         Analysis(QObject *parent = nullptr);
         virtual ~Analysis();
 
+        //
+        // Data Sources
+        //
+        const SourceVector &getSources() const { return m_sources; }
+        SourceVector &getSources() { return m_sources; }
+        SourceVector getSources(const QUuid &eventId, const QUuid &moduleId) const;
+        SourceVector getSources(const QUuid &moduleId) const;
+        SourcePtr getSource(const QUuid &sourceId) const;
+
+        void addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source);
+        void addSource(const SourcePtr &source);
+        void removeSource(const SourcePtr &source);
+        void removeSource(SourceInterface *source);
+
+        s32 getNumberOfSources() const { return m_sources.size(); }
+
+        // Special handling for listfilter extractors as they only make sense when grouped
+        // up as each consumes a certain amount of inputs words and the next filter
+        // continues with the remaining input data.
+
+        /** Returns the ListFilterExtractors attached to the module with the given id. */
+        ListFilterExtractorVector getListFilterExtractors(const QUuid &eventId,
+                                                          const QUuid &moduleId) const;
+
+        /** Replaces the ListFilterExtractors for the module identified by the given
+         * moduleid with the given extractors. */
+        void setListFilterExtractors(const QUuid &eventId, const QUuid &moduleId,
+                                     const ListFilterExtractorVector &extractors);
+
+        //
+        // Operators
+        //
+        const OperatorVector &getOperators() const { return m_operators; }
+        OperatorVector &getOperators() { return m_operators; }
+        OperatorVector getOperators(const QUuid &eventId) const;
+        OperatorVector getOperators(const QUuid &eventId, s32 userLevel) const;
+        OperatorPtr getOperator(const QUuid &operatorId) const;
+
+        void addOperator(const QUuid &eventId, s32 userLevel, const OperatorPtr &op);
+        void addOperator(const OperatorPtr &op);
+        void removeOperator(const OperatorPtr &op);
+        void removeOperator(OperatorInterface *op);
+
+        s32 getNumberOfOperators() const { return m_operators.size(); }
+
+        //
+        // Pre and post run work
+        //
+
+        void updateRanks();
         void beginRun(const RunInfo &runInfo,
                       const vme_analysis_common::VMEIdToIndex &vmeMap,
                       Logger logger = {});
+        void endRun();
 
+        //
+        // Processing
+        //
         void beginEvent(int eventIndex);
         void processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size);
         void endEvent(int eventIndex);
         // Called once for every SectionType_Timetick section
         void processTimetick();
-        void endRun();
-
-        const QVector<SourceEntry> &getSources() const { return m_sources; }
-        QVector<SourceEntry> &getSources() { return m_sources; }
-
-        QVector<SourceEntry> getSources(const QUuid &eventId, const QUuid &moduleId) const
-        {
-            QVector<SourceEntry> result;
-
-            for (const auto &e: m_sources)
-            {
-                if (e.eventId == eventId && e.moduleId == moduleId)
-                {
-                    result.push_back(e);
-                }
-            }
-
-            return result;
-        }
-
-        void addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source);
-        void removeSource(const SourcePtr &source);
-        void removeSource(SourceInterface *source);
-
-        QVector<ListFilterExtractorPtr> getListFilterExtractors(ModuleConfig *module) const;
-        void setListFilterExtractors(ModuleConfig *module,
-                                     const QVector<ListFilterExtractorPtr> &extractors);
-
-        const QVector<OperatorEntry> &getOperators() const { return m_operators; }
-        QVector<OperatorEntry> &getOperators() { return m_operators; }
-
-        const QVector<OperatorEntry> getOperators(const QUuid &eventId) const
-        {
-            QVector<OperatorEntry> result;
-
-            for (const auto &e: m_operators)
-            {
-                if (e.eventId == eventId)
-                {
-                  result.push_back(e);
-                }
-            }
-
-            return result;
-        }
-
-        const QVector<OperatorEntry> getOperators(const QUuid &eventId, s32 userLevel) const
-        {
-            QVector<OperatorEntry> result;
-
-            for (const auto &e: m_operators)
-            {
-                if (e.eventId == eventId && e.userLevel == userLevel)
-                {
-                  result.push_back(e);
-                }
-            }
-
-            return result;
-        }
-
-        OperatorEntry *getOperatorEntry(const QUuid &operatorId)
-        {
-            for (auto &entry: m_operators)
-            {
-                if (entry.op->getId() == operatorId)
-                    return &entry;
-            }
-
-            return nullptr;
-        }
-
-        OperatorPtr getOperator(const QUuid &operatorId)
-        {
-            OperatorPtr result;
-
-            auto entryPtr = getOperatorEntry(operatorId);
-            if (entryPtr)
-            {
-                result = entryPtr->op;
-            }
-            return result;
-        }
-
-        void addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel);
-        void removeOperator(const OperatorPtr &op);
-        void removeOperator(OperatorInterface *op);
-
-        void updateRanks();
-
-        void clear();
-        bool isEmpty() const;
-        s32 getNumberOfSources() const { return m_sources.size(); }
-        s32 getNumberOfOperators() const { return m_operators.size(); }
-        s32 getNumberOfSinks() const;
-        s32 getMaxUserLevel() const;
-        s32 getMaxUserLevel(const QUuid &eventId) const;
-        size_t getTotalSinkStorageSize() const;
         double getTimetickCount() const;
 
-        Registry &getRegistry() { return m_registry; }
-
+        //
+        // Serialization
+        //
         enum ReadResultCodes
         {
             NoError = 0,
@@ -1689,6 +1654,17 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         ReadResult read(const QJsonObject &json, VMEConfig *vmeConfig = nullptr);
         void write(QJsonObject &json) const;
+
+        //
+        // Misc
+        //
+        s32 getNumberOfSinks() const;
+        size_t getTotalSinkStorageSize() const;
+        s32 getMaxUserLevel() const;
+        s32 getMaxUserLevel(const QUuid &eventId) const;
+
+        void clear();
+        bool isEmpty() const;
 
         bool isModified() const { return m_modified; }
         void setModified(bool b = true);
@@ -1705,11 +1681,14 @@ class LIBMVME_EXPORT Analysis: public QObject
         void setVMEObjectSettings(const QUuid &objectId, const QVariantMap &settings);
         QVariantMap getVMEObjectSettings(const QUuid &objectId) const;
 
+        Registry &getRegistry() { return m_registry; }
+
+
     private:
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
-        QVector<SourceEntry> m_sources;
-        QVector<OperatorEntry> m_operators;
+        SourceVector m_sources;
+        OperatorVector m_operators;
         QMap<QUuid, QVariantMap> m_vmeObjectSettings;
 
         Registry m_registry;
@@ -1759,8 +1738,9 @@ void LIBMVME_EXPORT generate_new_object_ids(Analysis *analysis);
 
 QString LIBMVME_EXPORT info_string(const Analysis *analysis);
 
-void LIBMVME_EXPORT adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries,
-                                             OperatorInterface *op, s32 levelDelta);
+void LIBMVME_EXPORT adjust_userlevel_forward(const OperatorVector &operators,
+                                             OperatorInterface *op,
+                                             s32 levelDelta);
 
 } // end namespace analysis
 

@@ -292,20 +292,20 @@ void save_analysis_session_(const QString &filename, analysis::Analysis *analysi
     // Histograms
     auto operators = analysis->getOperators();
 
-    for (auto oe: operators)
+    for (auto op: operators)
     {
-        if (auto histoSink = qobject_cast<Histo1DSink *>(oe.op.get()))
+        if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
         {
             save_Histo1DSink(outfile, histoSink);
         }
-        else if (auto histoSink = qobject_cast<Histo2DSink *>(oe.op.get()))
+        else if (auto histoSink = qobject_cast<Histo2DSink *>(op.get()))
         {
             if (histoSink->m_histo)
             {
                 save_Histo2DSink(outfile, histoSink);
             }
         }
-        else if (auto rms = qobject_cast<RateMonitorSink *>(oe.op.get()))
+        else if (auto rms = qobject_cast<RateMonitorSink *>(op.get()))
         {
             save_RateMonitorSink(outfile, rms);
         }

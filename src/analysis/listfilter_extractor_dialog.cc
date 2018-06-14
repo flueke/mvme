@@ -534,7 +534,8 @@ ListFilterExtractorDialog::~ListFilterExtractorDialog()
 
 void ListFilterExtractorDialog::repopulate()
 {
-    m_d->m_extractors = m_d->m_analysis->getListFilterExtractors(m_d->m_module);
+    m_d->m_extractors = m_d->m_analysis->getListFilterExtractors(
+        m_d->m_module->getEventId(), m_d->m_module->getId());
 
     if (m_d->m_extractors.isEmpty())
         newFilter();
@@ -644,7 +645,9 @@ void ListFilterExtractorDialog::apply()
 
     {
         AnalysisPauser pauser(m_d->m_context);
-        m_d->m_analysis->setListFilterExtractors(m_d->m_module, m_d->m_extractors);
+        m_d->m_analysis->setListFilterExtractors(m_d->m_module->getEventId(),
+                                                 m_d->m_module->getId(),
+                                                 m_d->m_extractors);
     }
 
     repopulate();

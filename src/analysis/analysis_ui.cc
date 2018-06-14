@@ -388,15 +388,15 @@ bool EventWidgetTree::dropMimeData(QTreeWidgetItem *parentItem, int parentIndex,
     {
         QUuid id(encodedIds.at(i));
 
-        if (auto opEntry = analysis->getOperatorEntry(id))
+        if (auto op = analysis->getOperator(id))
         {
-            bool isSink = (qobject_cast<SinkInterface *>(opEntry->op.get()) != nullptr);
+            bool isSink = (qobject_cast<SinkInterface *>(op.get()) != nullptr);
 
             if ((isSink && isDisplayTree)
                 || (!isSink && !isDisplayTree))
             {
-                s32 levelDelta = m_userLevel - opEntry->userLevel;
-                adjust_userlevel_forward(analysis->getOperators(), opEntry->op.get(), levelDelta);
+                s32 levelDelta = m_userLevel - op->getUserLevel();
+                adjust_userlevel_forward(analysis->getOperators(), op.get(), levelDelta);
                 didMove = true;
             }
         }
@@ -611,9 +611,9 @@ void EventWidgetPrivate::createView(const QUuid &eventId)
     auto analysis = m_context->getAnalysis();
     s32 maxUserLevel = 0;
 
-    for (const auto &opEntry: analysis->getOperators(eventId))
+    for (const auto &op: analysis->getOperators(eventId))
     {
-        maxUserLevel = std::max(maxUserLevel, opEntry.userLevel);
+        maxUserLevel = std::max(maxUserLevel, op->getUserLevel());
     }
 
     // Level 0: special case for data sources
@@ -669,7 +669,7 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         0);
 
     // Populate the OperatorTree
-    for (auto mod: modules)
+    for (const auto &mod: modules)
     {
         QObject::disconnect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
         QObject::connect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
@@ -677,20 +677,20 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         result.operatorTree->addTopLevelItem(moduleNode);
         moduleNode->setExpanded(true);
 
-        auto sourceEntries = analysis->getSources(eventId, mod->getId());
+        auto sources = analysis->getSources(eventId, mod->getId());
 
 #ifndef QT_NO_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << ">>>>> sources in order:";
-        for (auto se: sourceEntries)
+        for (auto source: sources)
         {
-            qDebug() << se.source.get();
+            qDebug() << source.get();
         }
         qDebug() << __PRETTY_FUNCTION__ << " <<<< end sources";
 #endif
 
-        for (auto sourceEntry: sourceEntries)
+        for (auto source: sources)
         {
-            auto sourceNode = makeOperatorTreeSourceNode(sourceEntry.source.get());
+            auto sourceNode = makeOperatorTreeSourceNode(source.get());
             moduleNode->addChild(sourceNode);
         }
     }
@@ -698,25 +698,25 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
     // Populate the DisplayTree
     // Create module nodes and nodes for the raw histograms for each data source for the module.
     QSet<QObject *> sinksAddedBelowModules;
-    auto opEntries = analysis->getOperators(eventId, 0);
+    auto operators = analysis->getOperators(eventId, 0);
 
-    for (auto mod: modules)
+    for (const auto &mod: modules)
     {
         auto moduleNode = makeModuleNode(mod);
         result.displayTree->addTopLevelItem(moduleNode);
         moduleNode->setExpanded(true);
 
-        for (auto sourceEntry: analysis->getSources(eventId, mod->getId()))
+        for (const auto &source: analysis->getSources(eventId, mod->getId()))
         {
-            for (const auto &entry: opEntries)
+            for (const auto &op: operators)
             {
-                auto sink = qobject_cast<SinkInterface *>(entry.op.get());
+                auto sink = qobject_cast<SinkInterface *>(op.get());
 
-                if (sink && (sink->getSlot(0)->inputPipe == sourceEntry.source->getOutput(0)))
+                if (sink && (sink->getSlot(0)->inputPipe == source->getOutput(0)))
                 {
                     TreeNode *node = nullptr;
 
-                    if (auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get()))
+                    if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
                     {
                         node = makeHisto1DNode(histoSink);
                     }
@@ -737,9 +737,9 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
 
     // This handles any "lost" display elements. E.g. raw histograms whose data
     // source has been deleted.
-    for (auto &entry: opEntries)
+    for (auto &op: operators)
     {
-        if (auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get()))
+        if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
         {
             if (!sinksAddedBelowModules.contains(histoSink))
             {
@@ -747,7 +747,7 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
                 result.displayTree->addTopLevelItem(histoNode);
             }
         }
-        else if (auto histoSink = qobject_cast<Histo2DSink *>(entry.op.get()))
+        else if (auto histoSink = qobject_cast<Histo2DSink *>(op.get()))
         {
             if (!sinksAddedBelowModules.contains(histoSink))
             {
@@ -755,7 +755,7 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
                 result.displayTree->addTopLevelItem(histoNode);
             }
         }
-        else if (auto sink = qobject_cast<SinkInterface *>(entry.op.get()))
+        else if (auto sink = qobject_cast<SinkInterface *>(op.get()))
         {
             if (!sinksAddedBelowModules.contains(sink))
             {
@@ -779,14 +779,14 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 leve
 
     // Build a list of operators for the current level
     auto analysis = m_context->getAnalysis();
-    QVector<Analysis::OperatorEntry> operators = analysis->getOperators(eventId, level);
+    auto operators = analysis->getOperators(eventId, level);
 
     // Populate the OperatorTree
-    for (auto entry: operators)
+    for (auto op: operators)
     {
-        if(!qobject_cast<SinkInterface *>(entry.op.get()))
+        if(!qobject_cast<SinkInterface *>(op.get()))
         {
-            auto opNode = makeOperatorNode(entry.op.get());
+            auto opNode = makeOperatorNode(op.get());
             if (level > 0)
             {
                 opNode->setFlags(opNode->flags() | Qt::ItemIsDragEnabled);
@@ -814,33 +814,33 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 leve
         result.displayTree->rateRoot    = rateRoot;
         result.displayTree->exportRoot  = exportRoot;
 
-        for (const auto &entry: operators)
+        for (const auto &op: operators)
         {
             TreeNode *theNode = nullptr;
 
-            if (auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get()))
+            if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
             {
                 auto histoNode = makeHisto1DNode(histoSink);
                 histo1DRoot->addChild(histoNode);
                 theNode = histoNode;
             }
-            else if (auto histoSink = qobject_cast<Histo2DSink *>(entry.op.get()))
+            else if (auto histoSink = qobject_cast<Histo2DSink *>(op.get()))
             {
                 auto histoNode = makeHisto2DNode(histoSink);
                 histo2DRoot->addChild(histoNode);
                 theNode = histoNode;
             }
-            else if (auto rms = qobject_cast<RateMonitorSink *>(entry.op.get()))
+            else if (auto rms = qobject_cast<RateMonitorSink *>(op.get()))
             {
                 theNode = makeSinkNode(rms);
                 rateRoot->addChild(theNode);
             }
-            else if (auto ex = qobject_cast<ExportSink *>(entry.op.get()))
+            else if (auto ex = qobject_cast<ExportSink *>(op.get()))
             {
                 theNode = makeSinkNode(ex);
                 exportRoot->addChild(theNode);
             }
-            else if (auto sink = qobject_cast<SinkInterface *>(entry.op.get()))
+            else if (auto sink = qobject_cast<SinkInterface *>(op.get()))
             {
                 auto sinkNode = makeSinkNode(sink);
                 result.displayTree->addTopLevelItem(sinkNode);
@@ -1119,14 +1119,16 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 auto moduleConfig = getPointer<ModuleConfig>(node);
 
                 // new data sources / filters
-                auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig](const QString &title, auto srcPtr)
+                auto add_newDataSourceAction =
+                    [this, &menu, menuNew, moduleConfig](const QString &title, auto srcPtr)
                 {
                     menuNew->addAction(title, &menu, [this, moduleConfig, srcPtr]() {
                         QDialog *dialog = nullptr;
 
                         if (auto ex = std::dynamic_pointer_cast<Extractor>(srcPtr))
                         {
-                            dialog = new AddEditExtractorDialog(ex, moduleConfig, AddEditExtractorDialog::AddExtractor, m_q);
+                            dialog = new AddEditExtractorDialog(
+                                ex, moduleConfig, AddEditExtractorDialog::AddExtractor, m_q);
 
                             QObject::connect(dialog, &QDialog::accepted,
                                              m_q, &EventWidget::addExtractorDialogAccepted);
@@ -1136,9 +1138,11 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         }
                         else if (qobject_cast<ListFilterExtractor *>(srcPtr.get()))
                         {
-                            auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_context, m_q);
+                            auto lfe_dialog = new ListFilterExtractorDialog(
+                                moduleConfig, m_context->getAnalysis(), m_context, m_q);
 
-                            if (!m_context->getAnalysis()->getListFilterExtractors(moduleConfig).isEmpty())
+                            if (!m_context->getAnalysis()->getListFilterExtractors(
+                                    moduleConfig->getEventId(), moduleConfig->getId()).isEmpty())
                             {
                                 lfe_dialog->newFilter();
                             }
@@ -2935,25 +2939,30 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
 
     s32 baseUserLevel = targetAnalysis->getMaxUserLevel(moduleInfo.eventId);
 
-    for (auto entry: sources)
+    for (auto source: sources)
     {
-        Q_ASSERT(entry.eventId == moduleInfo.eventId);
-        Q_ASSERT(entry.moduleId == moduleInfo.id);
-        targetAnalysis->addSource(entry.eventId, entry.moduleId, entry.source);
+        Q_ASSERT(source->getEventId() == moduleInfo.eventId);
+        Q_ASSERT(source->getModuleId() == moduleInfo.id);
+
+        targetAnalysis->addSource(source->getEventId(),
+                                  source->getModuleId(),
+                                  source);
     }
 
-    for (auto entry: operators)
+    for (auto op: operators)
     {
-        Q_ASSERT(entry.eventId == moduleInfo.eventId);
+        Q_ASSERT(op->getEventId() == moduleInfo.eventId);
 
-        s32 targetUserLevel = baseUserLevel + entry.userLevel;
+        s32 targetUserLevel = baseUserLevel + op->getUserLevel();
 
-        if (entry.userLevel == 0 && qobject_cast<SinkInterface *>(entry.op.get()))
+        if (op->getUserLevel() == 0 && qobject_cast<SinkInterface *>(op.get()))
         {
             targetUserLevel = 0;
         }
 
-        targetAnalysis->addOperator(entry.eventId, entry.op, targetUserLevel);
+        targetAnalysis->addOperator(op->getEventId(),
+                                    targetUserLevel,
+                                    op);
     }
 
     repopulate();
@@ -3653,9 +3662,9 @@ void AnalysisWidgetPrivate::closeAllHistogramWidgets()
             widget->close();
     };
 
-    for (const auto &opEntry: m_context->getAnalysis()->getOperators())
+    for (const auto &op: m_context->getAnalysis()->getOperators())
     {
-        if (auto sink = qobject_cast<Histo1DSink *>(opEntry.op.get()))
+        if (auto sink = qobject_cast<Histo1DSink *>(op.get()))
         {
             close_if_not_null(m_context->getObjectWidget(sink));
 
@@ -3664,7 +3673,7 @@ void AnalysisWidgetPrivate::closeAllHistogramWidgets()
                 close_if_not_null(m_context->getObjectWidget(histoPtr.get()));
             }
         }
-        else if (auto sink = qobject_cast<Histo2DSink *>(opEntry.op.get()))
+        else if (auto sink = qobject_cast<Histo2DSink *>(op.get()))
         {
             close_if_not_null(m_context->getObjectWidget(sink));
         }
@@ -3857,15 +3866,15 @@ void AnalysisWidgetPrivate::actionImport()
             }
         }
 
-        for (auto entry: sources)
+        for (auto source: sources)
         {
-            Q_ASSERT(vmeEventIds.contains(entry.eventId));
-            Q_ASSERT(vmeModuleIds.contains(entry.moduleId));
+            Q_ASSERT(vmeEventIds.contains(source->getEventId()));
+            Q_ASSERT(vmeModuleIds.contains(source->getModuleId()));
         }
 
-        for (auto entry: operators)
+        for (auto op: operators)
         {
-            Q_ASSERT(vmeEventIds.contains(entry.eventId));
+            Q_ASSERT(vmeEventIds.contains(op->getEventId()));
         }
     }
 #endif
@@ -3875,28 +3884,30 @@ void AnalysisWidgetPrivate::actionImport()
     auto targetAnalysis = m_context->getAnalysis();
 
     QHash<QUuid, s32> eventMaxUserLevels;
-    for (auto opEntry: targetAnalysis->getOperators())
+    for (auto op: targetAnalysis->getOperators())
     {
-        if (!eventMaxUserLevels.contains(opEntry.eventId))
+        auto eventId = op->getEventId();
+
+        if (!eventMaxUserLevels.contains(eventId))
         {
-            eventMaxUserLevels.insert(opEntry.eventId, targetAnalysis->getMaxUserLevel(opEntry.eventId));
+            eventMaxUserLevels.insert(eventId, targetAnalysis->getMaxUserLevel(eventId));
         }
     }
 
-    for (auto entry: sources)
+    for (auto source: sources)
     {
-        targetAnalysis->addSource(entry.eventId, entry.moduleId, entry.source);
+        targetAnalysis->addSource(source->getEventId(), source->getModuleId(), source);
     }
 
-    for (auto entry: operators)
+    for (auto op: operators)
     {
-        s32 baseUserLevel = eventMaxUserLevels.value(entry.eventId, 0);
-        s32 targetUserLevel = baseUserLevel + entry.userLevel;
-        if (entry.userLevel == 0 && qobject_cast<SinkInterface *>(entry.op.get()))
+        s32 baseUserLevel = eventMaxUserLevels.value(op->getEventId(), 0);
+        s32 targetUserLevel = baseUserLevel + op->getUserLevel();
+        if (op->getUserLevel() == 0 && qobject_cast<SinkInterface *>(op.get()))
         {
             targetUserLevel = 0;
         }
-        targetAnalysis->addOperator(entry.eventId, entry.op, targetUserLevel);
+        targetAnalysis->addOperator(op->getEventId(), targetUserLevel, op);
     }
 
     repopulate();
@@ -3906,16 +3917,16 @@ void AnalysisWidgetPrivate::actionClearHistograms()
 {
     AnalysisPauser pauser(m_context);
 
-    for (auto &opEntry: m_context->getAnalysis()->getOperators())
+    for (auto &op: m_context->getAnalysis()->getOperators())
     {
-        if (auto histoSink = qobject_cast<Histo1DSink *>(opEntry.op.get()))
+        if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
         {
             for (auto &histo: histoSink->m_histos)
             {
                 histo->clear();
             }
         }
-        else if (auto histoSink = qobject_cast<Histo2DSink *>(opEntry.op.get()))
+        else if (auto histoSink = qobject_cast<Histo2DSink *>(op.get()))
         {
             if (histoSink->m_histo)
             {
@@ -4232,9 +4243,9 @@ void AnalysisWidgetPrivate::updateAddRemoveUserLevelButtons()
     auto analysis = m_context->getAnalysis();
     s32 maxUserLevel = 0;
 
-    for (const auto &opEntry: analysis->getOperators(eventId))
+    for (const auto &op: analysis->getOperators(eventId))
     {
-        maxUserLevel = std::max(maxUserLevel, opEntry.userLevel);
+        maxUserLevel = std::max(maxUserLevel, op->getUserLevel());
     }
 
     s32 numUserLevels = maxUserLevel + 1;
@@ -4547,45 +4558,23 @@ AnalysisWidget::~AnalysisWidget()
     qDebug() << __PRETTY_FUNCTION__;
 }
 
-void AnalysisWidget::operatorAddedExternally(const std::shared_ptr<OperatorInterface> &op)
+void AnalysisWidget::operatorAddedExternally(const OperatorPtr &op)
 {
-    const auto &opEntries(m_d->m_context->getAnalysis()->getOperators());
+    const auto &operators(m_d->m_context->getAnalysis()->getOperators());
 
-    // Find the OperatorEntry for the newly added operator
-    auto it = std::find_if(opEntries.begin(), opEntries.end(), [op] (const Analysis::OperatorEntry &entry) {
-        return entry.op == op;
-    });
-
-    if (it != opEntries.end())
+    if (auto eventWidget = m_d->m_eventWidgetsByEventId.value(op->getEventId()))
     {
-        // Get and repopulate the widget by using OperatorEntry.eventId
-        auto entry = *it;
-        auto eventWidget = m_d->m_eventWidgetsByEventId.value(entry.eventId);
-        if (eventWidget)
-        {
-            eventWidget->m_d->repopulate();
-        }
+        eventWidget->m_d->repopulate();
     }
 }
 
-void AnalysisWidget::operatorEditedExternally(const std::shared_ptr<OperatorInterface> &op)
+void AnalysisWidget::operatorEditedExternally(const OperatorPtr &op)
 {
-    const auto &opEntries(m_d->m_context->getAnalysis()->getOperators());
+    const auto &operators(m_d->m_context->getAnalysis()->getOperators());
 
-    // Find the OperatorEntry for the edited operator
-    auto it = std::find_if(opEntries.begin(), opEntries.end(), [op] (const Analysis::OperatorEntry &entry) {
-        return entry.op == op;
-    });
-
-    if (it != opEntries.end())
+    if (auto eventWidget = m_d->m_eventWidgetsByEventId.value(op->getEventId()))
     {
-        // Get and repopulate the widget by using OperatorEntry.eventId
-        auto entry = *it;
-        auto eventWidget = m_d->m_eventWidgetsByEventId.value(entry.eventId);
-        if (eventWidget)
-        {
-            eventWidget->m_d->repopulate();
-        }
+        eventWidget->m_d->repopulate();
     }
 }
 
