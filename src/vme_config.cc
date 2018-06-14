@@ -358,6 +358,16 @@ EventConfig *ModuleConfig::getEventConfig() const
     return qobject_cast<EventConfig *>(parent());
 }
 
+QUuid ModuleConfig::getEventId() const
+{
+    if (auto eventConfig = getEventConfig())
+    {
+        return eventConfig->getId();
+    }
+
+    return {};
+}
+
 //
 // EventConfig
 //

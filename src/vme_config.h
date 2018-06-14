@@ -168,6 +168,7 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         void addInitScript(VMEScriptConfig *script);
 
         EventConfig *getEventConfig() const;
+        QUuid getEventId() const;
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
