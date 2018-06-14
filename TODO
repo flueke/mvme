@@ -1,15 +1,13 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
-
-* RPC: option to set listening interface and port. New global preferences
-  dialog? Workspace specific? Where to place this option?
-* RPC: limit max request size to something reasonable
-* RPC: fork jcon-cpp on github and push local changes there
+* BUGFIXES wanted for 0.9.5
+  - 2D projection exports: no name and wrong starting directory
+  - 1D histos have the same somewhere
+  - combined histo view: last index is missing!
+  - save analysis as: wrong filename extension
 
 * Plan for the next days (12/06/18):
-  - get RPC into a decent state
-  - document the RPC interface at that point
   - start work on analysis object import/export implementation.
     Things to consider:
       * grouping of operators and keeping grouping intact when importing exporting
@@ -25,6 +23,10 @@ TODO list, not at all sorted by priority
       point at which the a2 system is rebuilt
     * also finally fix pause/resume/singlestep. this should probably be
       followed or accompanied by redoing the mvme stream iteration code
+
+* RPC: limit max request size to something reasonable
+* RPC: fork jcon-cpp on github and push local changes there
+
 
 * make double click on operators open the editor GUI
 
