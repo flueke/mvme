@@ -51,13 +51,13 @@ class Arena;
 
 /*
  *   Operators vs Sources vs Sinks:
- *   - Sources have no input but are directly attached to a module.
- *     -> They have eventIndex and moduleIndex whereas operators are only
- *        associated with an event.
- *   - Source have a processModuleData() method, Operators have a step() method
- *   - Sinks usually don't have any output but consume input. Histograms could
- *     have output but outputting whole histograms into ParameterVectors doubles
- *     the storage required for historams.
+ *   - Data Sources have no input but are directly attached to a module.
+ *     They have an eventId and a moduleId whereas operators are only associated with an
+ *     event.
+ *   - Data Sources take module data directly. After all module data has been passed to
+ *     all relevant data sources the operators for that event are stepped.
+ *   - Sinks usually don't have any output but consume input and accumulate it or write it
+ *     to disk.
  */
 
 namespace analysis
@@ -337,8 +337,7 @@ struct LIBMVME_EXPORT Slot
     bool isOptional = false;
 };
 
-/* Data source interface. The analysis feeds complete module event data into
- * this using processModuleData(). */
+/* Data source interface. */
 class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
 {
     Q_OBJECT
@@ -350,9 +349,6 @@ class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
          * This will also be called by Analysis UI to be able to get array
          * sizes from operator output pipes! */
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override {}
-
-        /* Use beginEvent() to invalidate output parameters if needed. */
-        virtual void beginEvent() {}
 
         virtual void read(const QJsonObject &json) = 0;
         virtual void write(QJsonObject &json) const = 0;
@@ -379,8 +375,6 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
 
         /* Use beginRun() to preallocate the outputs and setup internal state. */
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override {}
-
-        virtual void step() = 0;
 
         virtual s32 getNumberOfSlots() const = 0;
 
@@ -483,7 +477,6 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
         void setRequiredCompletionCount(u32 count) { m_requiredCompletionCount = count; }
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void beginEvent() override;
 
         virtual s32 getNumberOfOutputs() const override;
         virtual QString getOutputName(s32 outputIndex) const override;
@@ -528,7 +521,6 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         ListFilterExtractor(QObject *parent = nullptr);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void beginEvent() override;
 
         virtual s32 getNumberOfOutputs() const override { return 1; }
         virtual QString getOutputName(s32 outputIndex) const override { return QSL("Combined and extracted data array"); }
@@ -635,7 +627,6 @@ class LIBMVME_EXPORT CalibrationMinMax: public BasicOperator
         CalibrationMinMax(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         void setCalibration(s32 address, const CalibrationMinMaxParameters &params);
         void setCalibration(s32 address, double unitMin, double unitMax)
@@ -683,7 +674,6 @@ class LIBMVME_EXPORT IndexSelector: public BasicOperator
         s32 getIndex() const { return m_index; }
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -705,7 +695,6 @@ class LIBMVME_EXPORT PreviousValue: public BasicOperator
         PreviousValue(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -726,7 +715,6 @@ class LIBMVME_EXPORT RetainValid: public BasicOperator
         RetainValid(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -746,7 +734,6 @@ class LIBMVME_EXPORT Difference: public OperatorInterface
         Difference(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         // PipeSourceInterface
         s32 getNumberOfOutputs() const override { return 1; }
@@ -783,7 +770,6 @@ class LIBMVME_EXPORT Sum: public BasicOperator
         Sum(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -830,7 +816,6 @@ class LIBMVME_EXPORT AggregateOps: public BasicOperator
         AggregateOps(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -889,7 +874,6 @@ class LIBMVME_EXPORT ArrayMap: public OperatorInterface
         virtual bool removeLastSlot() override;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         // Inputs
         virtual s32 getNumberOfSlots() const override;
@@ -937,7 +921,6 @@ class LIBMVME_EXPORT RangeFilter1D: public BasicOperator
         bool m_keepOutside = false;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -962,7 +945,6 @@ class LIBMVME_EXPORT ConditionFilter: public OperatorInterface
         ConditionFilter(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         // Inputs
         virtual s32 getNumberOfSlots() const override;
@@ -995,7 +977,6 @@ class LIBMVME_EXPORT RectFilter2D: public OperatorInterface
         RectFilter2D(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         // Inputs
         virtual s32 getNumberOfSlots() const override;
@@ -1058,7 +1039,6 @@ class LIBMVME_EXPORT BinarySumDiff: public OperatorInterface
         BinarySumDiff(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         // Inputs
         virtual s32 getNumberOfSlots() const override;
@@ -1112,7 +1092,6 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
 
         // Init and execute
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         // Inputs
         virtual bool hasVariableNumberOfSlots() const override { return true; }
@@ -1176,7 +1155,6 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
         Histo1DSink(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1223,7 +1201,6 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         virtual Slot *getSlot(s32 slotIndex) override;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1270,7 +1247,6 @@ class LIBMVME_EXPORT RateMonitorSink: public BasicSink
         RateMonitorSink(QObject *parent = nullptr);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1341,7 +1317,6 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         virtual bool removeLastSlot() override;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-        virtual void step() override;
 
         // Inputs
         virtual s32 getNumberOfSlots() const override;

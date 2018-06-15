@@ -452,17 +452,6 @@ void Extractor::beginRun(const RunInfo &runInfo, Logger logger)
     }
 }
 
-void Extractor::beginEvent()
-{
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << this << objectName();
-#endif
-
-    clear_completion(&m_fastFilter);
-    m_currentCompletionCount = 0;
-    m_output.getParameters().invalidateAll();
-}
-
 s32 Extractor::getNumberOfOutputs() const
 {
     return 1;
@@ -579,11 +568,6 @@ void ListFilterExtractor::beginRun(const RunInfo &runInfo, Logger logger)
     }
 
     params.name = this->objectName();
-}
-
-void ListFilterExtractor::beginEvent()
-{
-    m_output.getParameters().invalidateAll();
 }
 
 void ListFilterExtractor::write(QJsonObject &json) const
@@ -753,70 +737,6 @@ void CalibrationMinMax::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void CalibrationMinMax::step()
-{
-    auto calibOneParam = [](const Parameter &inParam, Parameter &outParam, const CalibrationMinMaxParameters &calib)
-    {
-        outParam.valid = inParam.valid;
-        if (inParam.valid)
-        {
-            double a1 = inParam.lowerLimit;
-            double a2 = inParam.upperLimit;
-            double t1 = calib.unitMin;
-            double t2 = calib.unitMax;
-
-            Q_ASSERT(a1 - a2 != 0.0);
-            Q_ASSERT(t1 - t2 != 0.0);
-
-            //if (std::abs(a1) > std::abs(a2))
-            //    std::swap(a1, a2);
-
-            //if (std::abs(t1) > std::abs(t2))
-            //    std::swap(t1, t2);
-
-            outParam.value = (inParam.value - a1) * (t2 - t1) / (a2 - a1) + t1;
-        }
-    };
-
-    if (m_inputSlot.inputPipe)
-    {
-        auto &out(m_output.getParameters());
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-        const s32 inSize = in.size();
-
-        s32 idxMin = 0;
-        s32 idxMax = in.size();
-
-        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
-        {
-            Q_ASSERT(out.size() == 1);
-            idxMin = m_inputSlot.paramIndex;
-            idxMax = idxMin + 1;
-        }
-        else
-        {
-            Q_ASSERT(out.size() == in.size());
-        }
-
-        for (s32 idx = idxMin, outIdx = 0;
-             idx < idxMax;
-             ++idx, ++outIdx)
-        {
-            auto &outParam(out[outIdx]);
-
-            if (idx < inSize)
-            {
-                const auto &inParam(in[idx]);
-                calibOneParam(inParam, outParam, getCalibration(idx));
-            }
-            else
-            {
-                outParam.valid = false;
-            }
-        }
-    }
-}
-
 void CalibrationMinMax::setCalibration(s32 address, const CalibrationMinMaxParameters &params)
 {
     m_calibrations.resize(std::max(m_calibrations.size(), address+1));
@@ -923,22 +843,6 @@ void IndexSelector::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void IndexSelector::step()
-{
-    if (m_inputSlot.inputPipe)
-    {
-        auto &out(m_output.getParameters());
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-
-        out[0].valid = false;
-
-        if (m_index < in.size())
-        {
-            out[0] = in[m_index];
-        }
-    }
-}
-
 void IndexSelector::read(const QJsonObject &json)
 {
     m_index = json["index"].toInt();
@@ -1007,39 +911,6 @@ void PreviousValue::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void PreviousValue::step()
-{
-    if (m_inputSlot.inputPipe)
-    {
-        auto &out(m_output.getParameters());
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-
-        s32 minIdx = 0;
-        s32 maxIdx = out.size();
-        s32 paramIndex = (m_inputSlot.paramIndex == Slot::NoParamIndex ? 0 : m_inputSlot.paramIndex);
-
-        // Copy elements instead of assigning the vector directly as others
-        // (e.g. the PipeDisplay widget) may keep temporary references to our
-        // output vector and those would be invalidated on assignment!
-        for (s32 idx = minIdx; idx < maxIdx; ++idx, ++paramIndex)
-        {
-            out[idx] = m_previousInput[paramIndex];
-        }
-
-        paramIndex = (m_inputSlot.paramIndex == Slot::NoParamIndex ? 0 : m_inputSlot.paramIndex);
-
-        for (s32 idx = minIdx; idx < maxIdx; ++idx, ++paramIndex)
-        {
-            const Parameter &inParam(in[paramIndex]);
-
-            if (!m_keepValid || inParam.valid)
-            {
-                m_previousInput[idx] = inParam;
-            }
-        }
-    }
-}
-
 void PreviousValue::read(const QJsonObject &json)
 {
     m_keepValid = json["keepValid"].toBool();
@@ -1101,42 +972,6 @@ void RetainValid::beginRun(const RunInfo &, Logger logger)
         out.resize(0);
         out.name = QString();
         out.unit = QString();
-    }
-}
-
-void RetainValid::step()
-{
-    if (m_inputSlot.inputPipe)
-    {
-        auto &out(m_output.getParameters());
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-
-        s32 paramIndex = m_inputSlot.paramIndex;
-
-        if (paramIndex != Slot::NoParamIndex)
-        {
-            Q_ASSERT(paramIndex >= 0 && paramIndex < in.size());
-
-            if (in[paramIndex].valid)
-            {
-                out[0] = in[paramIndex];
-            }
-        }
-        else
-        {
-            const s32 size = in.size();
-
-            for (s32 address = 0; address < size; ++address)
-            {
-                auto &outParam(out[address]);
-                const auto &inParam(in[address]);
-
-                if (inParam.valid)
-                {
-                    outParam = inParam;
-                }
-            }
-        }
     }
 }
 
@@ -1236,46 +1071,6 @@ void Difference::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void Difference::step()
-{
-    if (!m_inputA.isParamIndexInRange() || !m_inputB.isParamIndexInRange())
-        return;
-
-    if (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex)
-    {
-        // Both inputs are single values
-        auto &out(m_output.parameters[0]);
-        const auto &inA(m_inputA.inputPipe->parameters[m_inputA.paramIndex]);
-        const auto &inB(m_inputB.inputPipe->parameters[m_inputB.paramIndex]);
-        out.valid = (inA.valid && inB.valid);
-        if (out.valid)
-        {
-            out.value = inA.value - inB.value;
-        }
-    }
-    else if (m_inputA.paramIndex == Slot::NoParamIndex && m_inputB.paramIndex == Slot::NoParamIndex)
-    {
-        // Both inputs are arrays
-        const auto &paramsA(m_inputA.inputPipe->parameters);
-        const auto &paramsB(m_inputB.inputPipe->parameters);
-        auto &paramsOut(m_output.parameters);
-
-        s32 maxIdx = paramsOut.size();
-        for (s32 idx = 0; idx < maxIdx; ++idx)
-        {
-            paramsOut[idx].valid = (paramsA[idx].valid && paramsB[idx].valid);
-            if (paramsOut[idx].valid)
-            {
-                paramsOut[idx].value = paramsA[idx].value - paramsB[idx].value;
-            }
-        }
-    }
-    else
-    {
-        InvalidCodePath;
-    }
-}
-
 void Difference::read(const QJsonObject &json)
 {
 }
@@ -1330,43 +1125,6 @@ void Sum::beginRun(const RunInfo &, Logger logger)
         out.resize(0);
         out.name = QString();
         out.unit = QString();
-    }
-}
-
-void Sum::step()
-{
-    if (m_inputSlot.inputPipe)
-    {
-        auto &outParam(m_output.getParameters()[0]);
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-
-        outParam.value = 0.0;
-        outParam.valid = false;
-        s32 validCount = 0;
-
-        for (s32 i = 0; i < in.size(); ++i)
-        {
-            const auto &inParam(in[i]);
-
-            if (inParam.valid)
-            {
-                outParam.value += inParam.value;
-                outParam.valid = true;
-                ++validCount;
-            }
-        }
-
-        if (m_calculateMean)
-        {
-            if (validCount > 0)
-            {
-                outParam.value /= validCount;
-            }
-            else
-            {
-                outParam.valid = false;
-            }
-        }
     }
 }
 
@@ -1552,163 +1310,6 @@ void AggregateOps::beginRun(const RunInfo &runInfo, Logger logger)
     }
 }
 
-void AggregateOps::step()
-{
-    // validity check and threshold tests
-    auto is_valid_and_inside = [](const auto param, double tmin, double tmax)
-    {
-        return (param.valid
-                && (std::isnan(tmin) || param.value >= tmin)
-                && (std::isnan(tmax) || param.value <= tmax));
-    };
-
-    if (!m_inputSlot.inputPipe)
-        return;
-
-    auto &outParam(m_output.getParameters()[0]);
-    const auto &in(m_inputSlot.inputPipe->getParameters());
-
-    if (m_op == Op_Min)
-    {
-        outParam.value = std::numeric_limits<double>::max();
-    }
-    else if (m_op == Op_Max)
-    {
-        outParam.value = std::numeric_limits<double>::lowest();
-    }
-    else
-    {
-        outParam.value = 0.0;
-    }
-
-    outParam.valid = false;
-    u32 validCount = 0;
-
-    s32 minMaxIndex = 0; // stores index of min/max value for Op_MinX/Op_MaxX
-    double meanX = 0.0;
-    double meanXEntryCount = 0.0;
-
-    for (s32 i = 0; i < in.size(); ++i)
-    {
-        const auto &inParam(in[i]);
-
-        if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
-        {
-            ++validCount;
-
-            if (m_op == Op_Sum || m_op == Op_Mean || m_op == Op_Sigma)
-            {
-                outParam.value += inParam.value;
-            }
-            else if (m_op == Op_Min)
-            {
-                outParam.value = std::min(outParam.value, inParam.value);
-            }
-            else if (m_op == Op_Max)
-            {
-                outParam.value = std::max(outParam.value, inParam.value);
-            }
-            else if (m_op == Op_MinX)
-            {
-                if (inParam.value < in[minMaxIndex].value)
-                {
-                    minMaxIndex = i;
-                }
-            }
-            else if (m_op == Op_MaxX)
-            {
-                if (inParam.value > in[minMaxIndex].value)
-                {
-                    minMaxIndex = i;
-                }
-            }
-            else if (m_op == Op_MeanX || m_op == Op_SigmaX)
-            {
-                meanX += inParam.value * i;
-                meanXEntryCount += inParam.value;
-            }
-        }
-    }
-
-    outParam.valid = (validCount > 0);
-
-    if ((m_op == Op_Mean || m_op == Op_Sigma) && outParam.valid)
-    {
-        outParam.value /= validCount; // mean
-
-        if (m_op == Op_Sigma && outParam.value != 0.0)
-        {
-            double mu = outParam.value;
-            double sigma = 0.0;
-
-            for (s32 i = 0; i < in.size(); ++i)
-            {
-                const auto &inParam(in[i]);
-                if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
-                {
-                    double d = inParam.value - mu;
-                    d *= d;
-                    sigma += d;
-                }
-            }
-            sigma = std::sqrt(sigma / validCount);
-            outParam.value = sigma;
-        }
-    }
-    else if (m_op == Op_Multiplicity)
-    {
-        outParam.value = validCount;
-        outParam.valid = true;
-    }
-    else if (m_op == Op_MinX || m_op == Op_MaxX)
-    {
-        outParam.value = minMaxIndex;
-    }
-    else if (m_op == Op_MeanX || m_op == Op_SigmaX)
-    {
-        outParam.valid = true;
-
-        if (meanXEntryCount != 0.0)
-        {
-            meanX /= meanXEntryCount;
-
-            if (m_op == Op_MeanX)
-            {
-                outParam.value = meanX;
-            }
-            else if (m_op == Op_SigmaX)
-            {
-                double sigma = 0.0;
-
-                if (meanX != 0.0)
-                {
-                    for (s32 i = 0; i < in.size(); ++i)
-                    {
-                        const auto &inParam(in[i]);
-                        if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
-                        {
-                            double v = inParam.value;
-                            if (v != 0.0)
-                            {
-                                double d = i - meanX;
-                                d *= d;
-                                sigma += d * v;
-                            }
-                        }
-                    }
-                    sigma = sqrt(sigma / meanXEntryCount);
-                }
-
-                outParam.value = sigma;
-            }
-        }
-        else
-        {
-            outParam.value = 0.0;
-        }
-    }
-}
-
 void AggregateOps::read(const QJsonObject &json)
 {
     m_op = aggregateOp_from_string(json["operation"].toString());
@@ -1879,34 +1480,6 @@ void ArrayMap::beginRun(const RunInfo &, Logger logger)
 #endif
 }
 
-void ArrayMap::step()
-{
-    s32 mappingCount = m_mappings.size();
-
-    for (s32 mIndex = 0;
-         mIndex < mappingCount;
-         ++mIndex)
-    {
-        IndexPair ip(m_mappings.at(mIndex));
-        Parameter *inParam = nullptr;
-        Slot *inputSlot = ip.slotIndex < m_inputs.size() ? m_inputs[ip.slotIndex].get() : nullptr;
-
-        if (inputSlot && inputSlot->inputPipe)
-        {
-            inParam = inputSlot->inputPipe->getParameter(ip.paramIndex);
-        }
-
-        if (inParam)
-        {
-            m_output.parameters[mIndex] = *inParam;
-        }
-        else
-        {
-            m_output.parameters[mIndex].valid = false;
-        }
-    }
-}
-
 s32 ArrayMap::getNumberOfSlots() const
 {
     return m_inputs.size();
@@ -2055,54 +1628,6 @@ void RangeFilter1D::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void RangeFilter1D::step()
-{
-    if (m_inputSlot.isParamIndexInRange())
-    {
-        auto &out(m_output.getParameters());
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-
-        s32 idxMin = 0;
-        s32 idxMax = in.size();
-
-        if (m_inputSlot.isParameterConnection())
-        {
-            idxMin = m_inputSlot.paramIndex;
-            idxMax = idxMin + 1;
-        }
-
-        for (s32 idx = idxMin, outIdx = 0;
-             idx < idxMax;
-             ++idx, ++outIdx)
-        {
-            auto &outParam(out[outIdx]);
-            const auto &inParam(in[idx]);
-
-            if (inParam.valid)
-            {
-                bool inRange = (m_minValue <= inParam.value && inParam.value < m_maxValue);
-
-                if ((inRange && !m_keepOutside)
-                    || (!inRange && m_keepOutside))
-                {
-                    // Only assigning value instead of the whole parameter
-                    // because the limits have been adjusted in beginRun()
-                    outParam.value = inParam.value;
-                    outParam.valid = true;
-                }
-                else
-                {
-                    outParam.valid = false;
-                }
-            }
-            else
-            {
-                outParam.valid = false;
-            }
-        }
-    }
-}
-
 void RangeFilter1D::read(const QJsonObject &json)
 {
     m_minValue = json["minValue"].toDouble();
@@ -2179,54 +1704,6 @@ void ConditionFilter::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void ConditionFilter::step()
-{
-#if 1
-    assert(!"not implemented. a2 should be used!");
-#else
-    if (m_dataInput.isParamIndexInRange() && m_conditionInput.isParamIndexInRange())
-    {
-        auto &out(m_output.getParameters());
-        const auto &dataIn(m_dataInput.inputPipe->getParameters());
-        const auto &condIn(m_conditionInput.inputPipe->getParameters());
-
-        s32 idxMin = 0;
-        s32 idxMax = out.size();
-
-        if (m_dataInput.isParameterConnection())
-        {
-            idxMin = m_dataInput.paramIndex;
-            idxMax = idxMin + 1;
-        }
-
-        for (s32 idx = idxMin, outIdx = 0;
-             idx < idxMax;
-             ++idx, ++outIdx)
-        {
-            auto &outParam(out[outIdx]);
-            const auto &dataParam(dataIn[idx]);
-
-            // The index into the condition array can be out of range if the
-            // condition array is smaller than the data array. In that case a
-            // default constructed and thus invalid parameter will be used.
-            const auto condParam(m_conditionInput.isParameterConnection()
-                                 ? condIn.value(m_conditionInput.paramIndex)
-                                 : condIn.value(idx));
-
-            if (condParam.valid)
-            {
-                outParam.valid = dataParam.valid;
-                outParam.value = dataParam.value;
-            }
-            else
-            {
-                outParam.valid = false;
-            }
-        }
-    }
-#endif
-}
-
 // Inputs
 s32 ConditionFilter::getNumberOfSlots() const
 {
@@ -2297,32 +1774,6 @@ void RectFilter2D::beginRun(const RunInfo &, Logger logger)
 
     // Both connected and in range
     out.resize(1);
-}
-
-void RectFilter2D::step()
-{
-    if (!m_xInput.isParamIndexInRange() || !m_yInput.isParamIndexInRange())
-        return;
-
-    Parameter *out(m_output.getParameter(0));
-    Parameter *px = m_xInput.inputPipe->getParameter(m_xInput.paramIndex);
-    Parameter *py = m_yInput.inputPipe->getParameter(m_yInput.paramIndex);
-
-    Q_ASSERT(out);
-    Q_ASSERT(px);
-    Q_ASSERT(py);
-
-    out->valid = false;
-
-    if (px->valid && py->valid)
-    {
-        bool xInRange = m_xInterval.contains(px->value);
-        bool yInRange = m_yInterval.contains(py->value);
-
-        out->valid = (m_op == OpAnd
-                      ? (xInRange && yInRange)
-                      : (xInRange || yInRange));
-    }
 }
 
 s32 RectFilter2D::getNumberOfSlots() const
@@ -2550,27 +2001,6 @@ void BinarySumDiff::beginRun(const RunInfo &, Logger logger)
         param.lowerLimit = m_outputLowerLimit;
         param.upperLimit = m_outputUpperLimit;
     }
-}
-
-void BinarySumDiff::step()
-{
-    assert(!"not implemented. a2 should be used!");
-#if 0
-    auto &o(m_output.getParameters());
-
-    if (!o.isEmpty())
-    {
-        const auto &a(m_inputA.inputPipe->getParameters());
-        const auto &b(m_inputB.inputPipe->getParameters());
-        auto fn = EquationImpls.at(m_equationIndex).impl;
-
-        fn(a, b, o);
-    }
-    else
-    {
-        o.invalidateAll();
-    }
-#endif
 }
 
 s32 BinarySumDiff::getNumberOfSlots() const
@@ -2970,11 +2400,6 @@ void ExpressionOperator::read(const QJsonObject &json)
     }
 }
 
-void ExpressionOperator::step()
-{
-    assert(!"not implemented. a2 must be used!");
-}
-
 ExpressionOperator *ExpressionOperator::cloneViaSerialization() const
 {
     QJsonObject transferData;
@@ -3188,40 +2613,6 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
 #endif
 }
 
-void Histo1DSink::step()
-{
-    if (m_inputSlot.inputPipe && !m_histos.empty())
-    {
-        s32 paramIndex = m_inputSlot.paramIndex;
-
-        if (paramIndex >= 0)
-        {
-            // Input is a single value
-            const Parameter *param = m_inputSlot.inputPipe->getParameter(paramIndex);
-            if (param && param->valid)
-            {
-                m_histos[0]->fill(param->value);
-            }
-        }
-        else
-        {
-            // Input is an array
-            const auto &in(m_inputSlot.inputPipe->getParameters());
-            const s32 inSize = in.size();
-            const s32 histoCount = m_histos.size();
-
-            for (s32 paramIndex = 0; paramIndex < std::min(inSize, histoCount); ++paramIndex)
-            {
-                const Parameter *param = m_inputSlot.inputPipe->getParameter(paramIndex);
-                if (param && param->valid)
-                {
-                    m_histos[paramIndex]->fill(param->value);
-                }
-            }
-        }
-    }
-}
-
 void Histo1DSink::read(const QJsonObject &json)
 {
     m_bins = json["nBins"].toInt();
@@ -3367,20 +2758,6 @@ Slot *Histo2DSink::getSlot(s32 slotIndex)
     }
 }
 
-void Histo2DSink::step()
-{
-    if (m_inputX.inputPipe && m_inputY.inputPipe && m_histo)
-    {
-        auto paramX = m_inputX.inputPipe->getParameter(m_inputX.paramIndex);
-        auto paramY = m_inputY.inputPipe->getParameter(m_inputY.paramIndex);
-
-        if (isParameterValid(paramX) && isParameterValid(paramY))
-        {
-            m_histo->fill(paramX->value, paramY->value);
-        }
-    }
-}
-
 void Histo2DSink::read(const QJsonObject &json)
 {
     m_xBins = static_cast<s32>(json["xBins"].toInt());
@@ -3513,11 +2890,6 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
         assert(sampler->offset == getCalibrationOffset());
         assert(sampler->interval == getSamplingInterval());
     }
-}
-
-void RateMonitorSink::step()
-{
-    assert(!"not implemented. a2 should be used!");
 }
 
 void RateMonitorSink::write(QJsonObject &json) const
@@ -3653,11 +3025,6 @@ void ExportSink::generateCode(Logger logger)
 QStringList ExportSink::getOutputFilenames()
 {
     return ExportSinkCodeGenerator(this).getOutputFilenames();
-}
-
-void ExportSink::step()
-{
-    assert(!"not implemented. a2 must be used!");
 }
 
 void ExportSink::write(QJsonObject &json) const
