@@ -140,7 +140,7 @@ static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &s
     s32 firstHistoIndex = std::max(xInterval.minValue, 0.0);
     s32 lastHistoIndex  = std::min(xInterval.maxValue, static_cast<double>(sink->m_histos.size() - 1));
 
-    for (s32 hi = firstHistoIndex; hi < lastHistoIndex; hi++)
+    for (s32 hi = firstHistoIndex; hi <= lastHistoIndex; hi++)
     {
         auto histo  = sink->m_histos.at(hi);
         auto stats = histo->calcStatistics(yInterval.minValue, yInterval.maxValue);
@@ -160,7 +160,7 @@ static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &s
     auto firstHisto   = sink->m_histos.at(firstHistoIndex);
     auto firstBinning = firstHisto->getAxisBinning(Qt::XAxis);
 
-    result.intervals[Qt::XAxis] = { static_cast<double>(firstHistoIndex), static_cast<double>(lastHistoIndex) };
+    result.intervals[Qt::XAxis] = { static_cast<double>(firstHistoIndex), static_cast<double>(lastHistoIndex + 1) };
     result.intervals[Qt::YAxis] = { firstBinning.getMin(), firstBinning.getMax() };
     result.intervals[Qt::ZAxis] = { 0.0, result.maxZ };
 
@@ -525,7 +525,7 @@ void Histo2DWidget::replot()
             visibleXInterval =
             {
                 0.0,
-                static_cast<double>(m_histo1DSink->m_histos.size() - 1)
+                static_cast<double>(m_histo1DSink->m_histos.size())
             };
 
             visibleYInterval =
@@ -986,9 +986,19 @@ void Histo2DWidget::doXProjection()
                                 visibleMinY, visibleMaxY);
     }
 
+    QString projHistoObjectName;
+
+    if (m_histo)
+        projHistoObjectName = m_histo->objectName() + " X-Projection";
+    else if (m_histo1DSink)
+        projHistoObjectName = m_histo1DSink->objectName() + " Combined X-Projection";
+
+    histo->setObjectName(projHistoObjectName);
+
     if (!m_xProjWidget)
     {
         m_xProjWidget = new Histo1DWidget(histo);
+        m_xProjWidget->setContext(m_context);
         m_xProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_xProjWidget->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_xProjWidget, &QObject::destroyed, this, [this] (QObject *) {
@@ -1039,9 +1049,19 @@ void Histo2DWidget::doYProjection()
                                 visibleMinY, visibleMaxY);
     }
 
+    QString projHistoObjectName;
+
+    if (m_histo)
+        projHistoObjectName = m_histo->objectName() + " Y-Projection";
+    else if (m_histo1DSink)
+        projHistoObjectName = m_histo1DSink->objectName() + " Combined Y-Projection";
+
+    histo->setObjectName(projHistoObjectName);
+
     if (!m_yProjWidget)
     {
         m_yProjWidget = new Histo1DWidget(histo);
+        m_yProjWidget->setContext(m_context);
         m_yProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_yProjWidget->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_yProjWidget, &QObject::destroyed, this, [this] (QObject *) {
