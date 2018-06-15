@@ -1881,6 +1881,28 @@ void EventWidgetPrivate::modeChanged()
     updateActions();
 }
 
+static bool forward_path_exists(PipeSourceInterface *from, PipeSourceInterface *to)
+{
+    if (!from) return false;
+    if (!to) return false;
+
+
+    for (s32 oi = 0; oi < from->getNumberOfOutputs(); oi++)
+    {
+        auto outPipe = from->getOutput(oi);
+
+        for (auto destSlot: outPipe->getDestinations())
+        {
+            if (destSlot->parentOperator == to)
+                return true;
+            if (destSlot->parentOperator && forward_path_exists(destSlot->parentOperator, to))
+                return true;
+        }
+    }
+
+    return false;
+}
+
 static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot,
                              QSet<PipeSourceInterface *> additionalInvalidSources)
 {
@@ -1909,10 +1931,19 @@ static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot,
 
     if (srcObject == dstObject)
     {
-        // do not allow self-connections! :)
+        // do not allow direct self-connections! :)
         result = false;
     }
     else if (additionalInvalidSources.contains(srcObject))
+    {
+        // manually given pipe sources to ignore
+        result = false;
+    }
+    else if (forward_path_exists(dstObject, srcObject))
+    {
+        result = false;
+    }
+    else if (forward_path_exists(srcObject, dstObject))
     {
         result = false;
     }

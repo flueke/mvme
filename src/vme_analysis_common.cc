@@ -32,6 +32,7 @@
 #include <QVBoxLayout>
 
 #include "analysis/analysis.h"
+#include "analysis/analysis_util.h"
 #include "qt_util.h"
 
 using namespace analysis;
@@ -141,25 +142,6 @@ static void rewrite_module(Analysis *analysis,
     }
 }
 
-static void collect_dependent_operators(QSet<OperatorInterface *> &operatorSet, PipeSourceInterface *pipeSource)
-{
-    for (s32 outputIndex = 0;
-         outputIndex < pipeSource->getNumberOfOutputs();
-         ++outputIndex)
-    {
-        auto outputPipe = pipeSource->getOutput(outputIndex);
-
-        for (Slot *destSlot: outputPipe->getDestinations())
-        {
-            if (destSlot->parentOperator)
-            {
-                operatorSet.insert(destSlot->parentOperator);
-                collect_dependent_operators(operatorSet, destSlot->parentOperator);
-            }
-        }
-    }
-}
-
 static bool has_no_connected_slots(OperatorInterface *op)
 {
     for (s32 slotIndex = 0;
@@ -190,7 +172,7 @@ static void discard_module(Analysis *analysis, const QUuid &moduleId)
 
     for (auto &source: sourcesToRemove)
     {
-        collect_dependent_operators(operatorsToMaybeRemove, source);
+        collect_dependent_operators(source, operatorsToMaybeRemove);
     }
 
     for (auto &source: sourcesToRemove)

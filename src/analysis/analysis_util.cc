@@ -53,4 +53,58 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
     return result;
 }
 
+QSet<OperatorInterface *> collect_dependent_operators(PipeSourceInterface *startObject)
+{
+    QSet<OperatorInterface *> result;
+
+    collect_dependent_operators(startObject, result);
+
+    return result;
+}
+
+void collect_dependent_operators(PipeSourceInterface *startObject,
+                                 QSet<OperatorInterface *> &result)
+{
+    for (s32 oi = 0; oi < startObject->getNumberOfOutputs(); oi++)
+    {
+        auto outPipe = startObject->getOutput(oi);
+
+        for (auto destSlot: outPipe->getDestinations())
+        {
+            if (destSlot->parentOperator)
+            {
+                result.insert(destSlot->parentOperator);
+                collect_dependent_operators(destSlot->parentOperator, result);
+            }
+        }
+    }
+}
+
+QSet<PipeSourceInterface *> collect_dependent_objects(PipeSourceInterface *startObject)
+{
+    QSet<PipeSourceInterface *> result;
+
+    collect_dependent_objects(startObject, result);
+
+    return result;
+}
+
+void collect_dependent_objects(PipeSourceInterface *startObject,
+                                 QSet<PipeSourceInterface *> &result)
+{
+    for (s32 oi = 0; oi < startObject->getNumberOfOutputs(); oi++)
+    {
+        auto outPipe = startObject->getOutput(oi);
+
+        for (auto destSlot: outPipe->getDestinations())
+        {
+            if (destSlot->parentOperator)
+            {
+                result.insert(destSlot->parentOperator);
+                collect_dependent_objects(destSlot->parentOperator, result);
+            }
+        }
+    }
+}
+
 } // namespace analysis

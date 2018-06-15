@@ -468,7 +468,7 @@ QString make_input_source_text(Pipe *inputPipe, s32 paramIndex)
         auto inputSource = inputPipe->source;
         result = inputSource->objectName();
 
-        if (inputSource->getNumberOfOutputs() > 1)
+        if (inputSource->hasVariableNumberOfOutputs())
         {
             result += "." + inputSource->getOutputName(inputPipe->sourceOutputIndex);
         }

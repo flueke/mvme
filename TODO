@@ -1,6 +1,11 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+a2_adapter::a2_adapter_magic() found magic for analysis::Difference (objectName=madc32.amplitude - madc32.event_counter/ts)
+a2_adapter::a2_adapter_magic() analysis::Difference(0x555555889460, name = "madc32.amplitude - madc32.event_counter/ts") QUuid("{b9fea00d-5a28-47cb-908a-553e3acc3b58}")
+a2_adapter::difference_magic() 
+mvme: /home/florian/src/mvme2/src/analysis/a2/a2.cc:786: a2::Operator a2::make_difference(memory::Arena*, a2::PipeVectors, a2::PipeVectors): Assertion `inPipeA.data.size == inPipeB.data.size' failed.
+
 * BUGFIXES wanted for 0.9.5
   - 2D projection exports: no name and wrong starting directory
   - 1D histos have the same somewhere

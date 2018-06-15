@@ -4,6 +4,7 @@
 #include "a2/a2_impl.h"
 #include "a2_adapter.h"
 #include "analysis_ui_p.h"
+#include "analysis_util.h"
 #include "mvme_context_lib.h"
 #include "qt_util.h"
 #include "util/cpp17_algo.h"
@@ -1987,7 +1988,11 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
 
         auto slot = m_d->m_model->opClone->getSlot(slotIndex);
 
-        m_d->m_eventWidget->selectInputFor(slot, m_d->m_userLevel, callback, { m_d->m_op.get() });
+        auto invalidSources = collect_dependent_objects(m_d->m_op.get());
+
+        invalidSources.insert(m_d->m_op.get());
+
+        m_d->m_eventWidget->selectInputFor(slot, m_d->m_userLevel, callback, invalidSources);
     });
 
     connect(m_d->m_slotGrid, &SlotGrid::clearInput,
