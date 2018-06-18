@@ -38,11 +38,14 @@
 #include <qwt_raster_data.h>
 #include <qwt_scale_engine.h>
 
+#include <QApplication>
 #include <QBoxLayout>
+#include <QClipboard>
 #include <QComboBox>
 #include <QDebug>
 #include <QDir>
 #include <QFormLayout>
+#include <QMenu>
 #include <QStatusBar>
 #include <QStatusTipEvent>
 #include <QTimer>
@@ -343,8 +346,6 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         set_widget_font_pointsize(tb, 7);
     }
 
-    QAction *action = nullptr;
-
     // Z-Scale Selection
     {
         m_d->m_zScaleCombo = new QComboBox;
@@ -359,14 +360,29 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         tb->addWidget(make_vbox_container(QSL("Z-Scale"), zScaleCombo));
     }
 
-    action = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("X-Proj"), this, &Histo2DWidget::on_tb_projX_clicked);
-    action = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Y-Proj"), this, &Histo2DWidget::on_tb_projY_clicked);
-    m_d->m_actionClear = tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear")); // Connected by other constructors
+    tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("X-Proj"),
+                  this, &Histo2DWidget::on_tb_projX_clicked);
+    tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Y-Proj"),
+                  this, &Histo2DWidget::on_tb_projY_clicked);
+    // Connected by other constructors
+    m_d->m_actionClear = tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"));
 
-    action = tb->addAction(QIcon(":/document-pdf.png"), QSL("Export"), this, &Histo2DWidget::exportPlot);
-    action->setStatusTip(QSL("Export plot to a PDF or image file"));
+    // export plot to file / clipboard
+    {
+        auto menu = new QMenu(this);
+        menu->addAction(QSL("to file"), this, &Histo2DWidget::exportPlot);
+        menu->addAction(QSL("to clipboard"), this, &Histo2DWidget::exportPlotToClipboard);
 
-    m_d->m_actionSubRange = tb->addAction(QIcon(":/histo_subrange.png"), QSL("Subrange"), this, &Histo2DWidget::on_tb_subRange_clicked);
+        auto button = make_toolbutton(QSL(":/document-pdf.png"), QSL("Export"));
+        button->setStatusTip(QSL("Export plot to file or clipboard"));
+        button->setMenu(menu);
+        button->setPopupMode(QToolButton::InstantPopup);
+
+        tb->addWidget(button);
+    }
+
+    m_d->m_actionSubRange = tb->addAction(QIcon(":/histo_subrange.png"), QSL("Subrange"),
+                                          this, &Histo2DWidget::on_tb_subRange_clicked);
     m_d->m_actionSubRange->setStatusTip(QSL("Limit the histogram to specific X and Y axis ranges"));
     m_d->m_actionSubRange->setEnabled(false);
 
@@ -715,6 +731,55 @@ void Histo2DWidget::exportPlot()
     m_d->m_plot->setTitle(QString());
     m_d->m_plot->setFooter(QString());
     m_d->m_waterMarkLabel->hide();
+}
+
+void Histo2DWidget::exportPlotToClipboard()
+{
+    QString title;
+    QString footer;
+
+    if (m_histo)
+    {
+        title = m_histo->getTitle();
+        footer = m_histo->getFooter();
+    }
+    else if (m_histo1DSink)
+    {
+        title = windowTitle();
+        // just use the first histograms footer
+        if (auto h1d = m_histo1DSink->m_histos.value(0))
+        {
+            footer = h1d->getFooter();
+        }
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+
+    m_d->m_plot->setTitle(title);
+
+
+    QwtText footerText(footer);
+    footerText.setRenderFlags(Qt::AlignLeft);
+    m_d->m_plot->setFooter(footerText);
+    m_d->m_waterMarkLabel->show();
+
+    QSize size(1024, 768);
+    QImage image(size, QImage::Format_ARGB32_Premultiplied);
+    image.fill(0);
+
+    QwtPlotRenderer renderer;
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground
+                             | QwtPlotRenderer::DiscardCanvasBackground);
+    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
+    renderer.renderTo(m_d->m_plot, image);
+
+    m_d->m_plot->setTitle(QString());
+    m_d->m_plot->setFooter(QString());
+    m_d->m_waterMarkLabel->hide();
+
+    QApplication::clipboard()->setImage(image);
 }
 
 bool Histo2DWidget::zAxisIsLog() const
