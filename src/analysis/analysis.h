@@ -108,7 +108,20 @@ using Logger = std::function<void (const QString &)>;
 class OperatorInterface;
 class Pipe;
 
-/* Interface to indicate that something can the be source of a Pipe. */
+/** System internal flags for analysis objects. */
+namespace ObjectFlags
+{
+    using Flags = u32;
+
+    static const Flags None            = 0u;
+    /* Indicates that a beginRun() step is needed before the object can be used.  */
+    static const Flags NeedsRebuild    = 1u << 0;
+};
+
+/* Interface to indicate that something can the be source of a Pipe.
+ * Base for data sources (objects consuming module data and producing output parameter
+ * vectors) and for operators (objects consuming and producing parameter vectors.
+ */
 class LIBMVME_EXPORT PipeSourceInterface:
     public QObject,
     public std::enable_shared_from_this<PipeSourceInterface>
@@ -157,11 +170,22 @@ class LIBMVME_EXPORT PipeSourceInterface:
         s32 getUserLevel() const { return m_userLevel; }
         void setUserLevel(s32 level) { m_userLevel = level; }
 
+        /** Object flags containing system internal information. */
+        ObjectFlags::Flags getObjectFlags() const { return m_flags; }
+        void setObjectFlags(ObjectFlags::Flags flags) { m_flags = flags; }
+        void clearObjectFlags(ObjectFlags::Flags flagsToClear)
+        {
+            m_flags &= (~flagsToClear);
+        }
+
+        virtual void clearState() {}
+
     private:
         PipeSourceInterface() = delete;
         QUuid m_id;
         QUuid m_eventId;
         s32   m_userLevel;
+        ObjectFlags::Flags m_flags = ObjectFlags::None;
 };
 
 using PipeSourcePtr = std::shared_ptr<PipeSourceInterface>;
@@ -1145,6 +1169,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
         Histo1DSink(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+        virtual void clearState() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1161,6 +1186,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
 
         s32 getNumberOfHistos() const { return m_histos.size(); }
 
+        // FIXME: move to private vars
         QVector<std::shared_ptr<Histo1D>> m_histos;
         s32 m_bins = 0;
         QString m_xAxisTitle;
@@ -1191,6 +1217,7 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         virtual Slot *getSlot(s32 slotIndex) override;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+        virtual void clearState() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1237,6 +1264,7 @@ class LIBMVME_EXPORT RateMonitorSink: public BasicSink
         RateMonitorSink(QObject *parent = nullptr);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+        virtual void clearState() override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1648,6 +1676,9 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         Registry &getRegistry() { return m_registry; }
 
+        ObjectFlags::Flags getObjectFlags() const { return m_flags; }
+        ObjectFlags::Flags &getObjectFlags() { return m_flags; }
+        void setObjectFlags(ObjectFlags::Flags flags) { m_flags = flags; }
 
     private:
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
@@ -1667,6 +1698,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         u8 m_a2ArenaIndex;
         std::unique_ptr<memory::Arena> m_a2WorkArena;
         std::unique_ptr<A2AdapterState> m_a2State;
+        ObjectFlags::Flags m_flags = ObjectFlags::None;
 };
 
 struct LIBMVME_EXPORT RawDataDisplay

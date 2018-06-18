@@ -1,9 +1,54 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+--------------------------------------------------
+GUI <-> Analysis <-> a2 refactoring
+--------------------------------------------------
+The goal is to pause and rebuild as little as possible. If a rebuild is
+required try to clear as little of the accumulated data as possible.
+
+
+* Think about keepAnalysisState: Maybe add a clearState() method to
+  PipeSourceInterface. The reason is that with the addition of the NeedsRebuild
+  flag most operators beginRun() won't be executed anymore unless the RunInfo
+  or the VMEMap changed. This means if keepAnalysisState was false and remains
+  false on starting a new run the state won't be cleared.  A check and an extra
+  loop could be made at the end of Analysis::beginRun() to tell child objcets
+  to clear their state if needed.
+
+
+* in the future try to classify modifications. some things need to clear
+  histograms because the structure changed, other things do not (e.g. label only change)
+
+* establishing pipe and slot connections:
+  (dis)connecting an operators slot to/from a pipe modifies the pipe (adds to destinations array)
+  disconnect also affects all dependent operators of the operator whose slot is
+  disconnected: the operators output size/number and validity state will be
+  changed, thus connections further down may become (temporarily) invalid.
+
+  How to handle this in the gui:
+  as the a1 system is not executed directly anymore the changes can be made
+  without having to pause anything.
+  just make sure that on canceling the original connections are restored (like is currently done).
+  also make sure that no state is cleared unless it's really neccessary.
+  Alternatively clone the input pipes and work with those.
+  -> Fake input pipes having the original operator as the source and having the
+     exact same properties as the original pipes. This way even things like
+     makeSlotSourceString() should continue to work.
+     => Implemented for the ExpressionOperator but has the side effect of
+     making it harder to detect circular connections.
+
+* additional a1 layer considerations and open questions:
+  - operator cloning
+    * high level clone semantics. what's required, what's sane?
+    * is using write -> read always the best way. which way causes the least amount of code duplication?
+    * performance: cloning is not happening frequently, so the serialization way should be good enough.
+    * what should happen with connections, object id, object name?
+--------------------------------------------------
+
 a2_adapter::a2_adapter_magic() found magic for analysis::Difference (objectName=madc32.amplitude - madc32.event_counter/ts)
 a2_adapter::a2_adapter_magic() analysis::Difference(0x555555889460, name = "madc32.amplitude - madc32.event_counter/ts") QUuid("{b9fea00d-5a28-47cb-908a-553e3acc3b58}")
-a2_adapter::difference_magic() 
+a2_adapter::difference_magic()
 mvme: /home/florian/src/mvme2/src/analysis/a2/a2.cc:786: a2::Operator a2::make_difference(memory::Arena*, a2::PipeVectors, a2::PipeVectors): Assertion `inPipeA.data.size == inPipeB.data.size' failed.
 
 * BUGFIXES wanted for 0.9.5
@@ -60,48 +105,9 @@ mvme: /home/florian/src/mvme2/src/analysis/a2/a2.cc:786: a2::Operator a2::make_d
 * multi output arraymap
 * constant generator operator:
   multiple outputs
-
-------------------------------------------------------------
-add ability to remotely start/stop/pause and request status
-------------------------------------------------------------
-* Note: running this in the gui thread would be convenient as the code to check
-  and process remote messages will then not have to care about race conditions.
-
-  One problem: the gui uses QMessageBoxes to communicate lots of errors. Remote
-  control will not see these and the gui will get stuck in the event loop used
-  by QMessageBox::exec(). This event loop will then still serve remote
-  connections depending on how things are implemented (e.g. a timer polling
-  remote sockets).
-
-  Places where QMessageBoxes are used:
-  MVMEContext:
-  - listfile read errors
-  - config file modiciations
-  - workspace autosave files
-  - config load errors
-  - OOM errors from the analysis
-
-  MVMEMainWindow:
-  - workspace new/open/close errors
-
-  Transform this: do not allow GUI in the MVMEContext implementation. Instead
-  use exceptions or return error information to callers.
-
-  Add a layer on top of that to handle GUI displays and interactions.
-
-  Make the remote control layer use the MVMEContext implementation. Return
-  errors in response to commands.
-
-* gui thread is idle: polls socket or gets notified
-  read incoming data. assemble message.
-  if valid message received:
-      exec whatever the message wants to happen
-      create a response and send it
-
-
-- End of remote control feature ----------------------------
-
-
+  stepped each time the event has data (a2_end_event)
+  fixed rank of 0 so that these are always stepped first, thus consumers can
+  count on having the data be active on the output pipes
 
 * DAQ readout performance: try to make better use of the data buffers.
   Currently one processed controller buffer ends up in the data buffer, which
@@ -118,46 +124,6 @@ add ability to remotely start/stop/pause and request status
 
 * a2::Operator_KeepPrevious does not seem to set output limits. Is this bugged?
   Fix the test if needed.
-
---------------------------------------------------
-GUI <-> Analysis <-> a2 refactoring
---------------------------------------------------
-The goal is to pause and rebuild as little as possible. If a rebuild is
-required try to clear as little of the accumulated data as possible.
-
-* make a2_adapter building explicit, not part of a global beginRun
-
-* try to use do_beginRun_forward() whenever possible, then rebuild a2 and resume.
-  Is there any state that has to be kept and restored after an a2 build?
-
-* in the future try to classify modifications. some things need to clear
-  histograms because the structure changed, other things do not (e.g. label only change)
-
-* establishing pipe and slot connections:
-  (dis)connecting an operators slot to/from a pipe modifies the pipe (adds to destinations array)
-  disconnect also affects all dependent operators of the operator whose slot is
-  disconnected: the operators output size/number and validity state will be
-  changed, thus connections further down may become (temporarily) invalid.
-
-  How to handle this in the gui:
-  as the a1 system is not executed directly anymore the changes can be made
-  without having to pause anything.
-  just make sure that on canceling the original connections are restored (like is currently done).
-  also make sure that no state is cleared unless it's really neccessary.
-  Alternatively clone the input pipes and work with those.
-  -> Fake input pipes having the original operator as the source and having the
-     exact same properties as the original pipes. This way even things like
-     makeSlotSourceString() should continue to work.
-
-* add Analysis::operatorEdited()
-  This can figure out what has to happen to get the a1 side in a consistent state.
-
-* additional a1 layer considerations and open questions:
-  - operator cloning
-    * high level clone semantics. what's required, what's sane?
-    * is using write -> read always the best way. which way causes the least amount of code duplication?
-    * performance: cloning is not happening frequently, so the serialization way should be good enough.
-    * what should happen with connections, object id, object name?
 
 --------------------------------------------------
 ExpressionOperator design plan

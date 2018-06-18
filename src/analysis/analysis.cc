@@ -28,6 +28,7 @@
 
 #include "a2_adapter.h"
 #include "a2/multiword_datafilter.h"
+#include "analysis_util.h"
 #include "exportsink_codegen.h"
 #include "../vme_config.h"
 
@@ -2508,6 +2509,15 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
     }
 }
 
+void Histo1DSink::clearState()
+{
+    qDebug() << __PRETTY_FUNCTION__ << objectName();
+    for (auto &histo: m_histos)
+    {
+        histo->clear();
+    }
+}
+
 void Histo1DSink::read(const QJsonObject &json)
 {
     m_bins = json["nBins"].toInt();
@@ -2625,6 +2635,12 @@ void Histo2DSink::beginRun(const RunInfo &runInfo, Logger logger)
             m_histo->setAxisInfo(Qt::YAxis, info);
         }
     }
+}
+
+void Histo2DSink::clearState()
+{
+    qDebug() << __PRETTY_FUNCTION__ << objectName();
+    m_histo->clear();
 }
 
 s32 Histo2DSink::getNumberOfSlots() const
@@ -2776,6 +2792,16 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
         assert(sampler->scale == getCalibrationFactor());
         assert(sampler->offset == getCalibrationOffset());
         assert(sampler->interval == getSamplingInterval());
+    }
+}
+
+void RateMonitorSink::clearState()
+{
+    qDebug() << __PRETTY_FUNCTION__ << objectName();
+    for (auto &sampler: m_samplers)
+    {
+        sampler->rateHistory.resize(0.0);
+        sampler->totalSamples = 0.0;
     }
 }
 
@@ -3070,7 +3096,7 @@ void Analysis::addSource(const SourcePtr &source)
 {
     m_sources.push_back(source);
     setModified();
-    beginRun(m_runInfo, m_vmeMap); // FIXME:BEGINRUN
+    source->setObjectFlags(ObjectFlags::NeedsRebuild);
 }
 
 void Analysis::removeSource(const SourcePtr &source)
@@ -3089,6 +3115,12 @@ void Analysis::removeSource(SourceInterface *source)
 
     if (it != m_sources.end())
     {
+        // Mark all dependees as needing a rebuild
+        for (auto &obj: collect_dependent_objects(source))
+        {
+            obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+        }
+
         // Remove our output pipes from any connected slots.
         for (s32 outputIndex = 0;
              outputIndex < source->getNumberOfOutputs();
@@ -3104,7 +3136,6 @@ void Analysis::removeSource(SourceInterface *source)
 
         m_sources.erase(it);
         setModified();
-        beginRun(m_runInfo, m_vmeMap); // FIXME:BEGINRUN
     }
 }
 
@@ -3137,21 +3168,29 @@ void Analysis::setListFilterExtractors(const QUuid &eventId,
                 && source->getModuleId() == moduleId);
     });
 
+    // Mark the dependees of the extractors being removed as needing a rebuild.
+    for (auto jt = it; jt != m_sources.end(); jt++)
+    {
+        for (auto &obj: collect_dependent_objects(jt->get()))
+        {
+            obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+        }
+    }
+
     m_sources.erase(it, m_sources.end());
 
-    // add the new sources
+    // Add the new sources, also setting the rebuild flag.
     for (auto lfe: extractors)
     {
         lfe->setEventId(eventId);
         lfe->setModuleId(moduleId);
         m_sources.push_back(lfe);
+        lfe->setObjectFlags(ObjectFlags::NeedsRebuild);
     }
 
     qDebug() << __PRETTY_FUNCTION__ << "added" << extractors.size() << "listfilter extractors";
 
-    // Rebuild and notify about modification state
     setModified();
-    beginRun(m_runInfo, m_vmeMap); // FIXME:BEGINRUN
 }
 
 //
@@ -3205,7 +3244,7 @@ void Analysis::addOperator(const OperatorPtr &op)
 {
     m_operators.push_back(op);
     setModified();
-    beginRun(m_runInfo, m_vmeMap); // FIXME:BEGINRUN
+    op->setObjectFlags(ObjectFlags::NeedsRebuild);
 }
 
 void Analysis::removeOperator(const OperatorPtr &op)
@@ -3224,6 +3263,11 @@ void Analysis::removeOperator(OperatorInterface *op)
 
     if (it != m_operators.end())
     {
+        for (auto &obj: collect_dependent_objects(op))
+        {
+            obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+        }
+
         // Remove pipe connections to our input slots.
         for (s32 si = 0; si < op->getNumberOfSlots(); si++)
         {
@@ -3234,9 +3278,6 @@ void Analysis::removeOperator(OperatorInterface *op)
         }
 
         // Remove our output pipes from any connected slots.
-        for (s32 outputIndex = 0;
-             outputIndex < op->getNumberOfOutputs();
-             ++outputIndex)
         for (s32 oi = 0; oi < op->getNumberOfOutputs(); oi++)
         {
             Pipe *outPipe = op->getOutput(oi);
@@ -3249,7 +3290,6 @@ void Analysis::removeOperator(OperatorInterface *op)
 
         m_operators.erase(it);
         setModified();
-        beginRun(m_runInfo, m_vmeMap); // FIXME:BEGINRUN
     }
 }
 
@@ -3345,6 +3385,8 @@ void Analysis::beginRun(const RunInfo &runInfo,
                         const vme_analysis_common::VMEIdToIndex &vmeMap,
                         Logger logger)
 {
+    const bool fullBuild = (m_runInfo != runInfo || m_vmeMap != vmeMap);
+
     m_runInfo = runInfo;
     m_vmeMap = vmeMap;
 
@@ -3371,7 +3413,8 @@ void Analysis::beginRun(const RunInfo &runInfo,
             << "max input rank =" << op->getMaximumInputRank()
             << getClassName(op.get())
             << op->objectName()
-            << ", max output rank =" << op->getMaximumOutputRank();
+            << ", max output rank =" << op->getMaximumOutputRank()
+            << ", flags =" << op->getObjectFlags();
     }
     qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by maximum input rank";
 #endif
@@ -3382,7 +3425,19 @@ void Analysis::beginRun(const RunInfo &runInfo,
 
     for (auto &source: m_sources)
     {
-        source->beginRun(runInfo, logger);
+        if (fullBuild || source->getObjectFlags() & ObjectFlags::NeedsRebuild)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "beginRun on" << source->objectName()
+                << ", fullBuild =" << fullBuild
+                << ", objectFlags =" << source->getObjectFlags();
+
+            source->beginRun(runInfo, logger);
+            source->clearObjectFlags(ObjectFlags::NeedsRebuild);
+        }
+        else if (!runInfo.keepAnalysisState)
+        {
+            source->clearState();
+        }
     }
 
     for (auto &op: m_operators)
@@ -3395,7 +3450,19 @@ void Analysis::beginRun(const RunInfo &runInfo,
             }
         }
 
-        op->beginRun(runInfo, logger);
+        if (fullBuild || op->getObjectFlags() & ObjectFlags::NeedsRebuild)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "beginRun on" << op->objectName()
+                << ", fullBuild =" << fullBuild
+                << ", objectFlags =" << op->getObjectFlags();
+
+            op->beginRun(runInfo, logger);
+            op->clearObjectFlags(ObjectFlags::NeedsRebuild);
+        }
+        else if (!runInfo.keepAnalysisState)
+        {
+            op->clearState();
+        }
     }
 
 #if 1 // FIXME:BEGINRUN
@@ -3522,6 +3589,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
 
                 source->setEventId(eventId);
                 source->setModuleId(moduleId);
+                source->setObjectFlags(ObjectFlags::NeedsRebuild);
 
                 m_sources.push_back(source);
 
@@ -3563,6 +3631,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
 
                 op->setEventId(eventId);
                 op->setUserLevel(userLevel);
+                op->setObjectFlags(ObjectFlags::NeedsRebuild);
 
                 m_operators.push_back(op);
 
@@ -3819,7 +3888,6 @@ void Analysis::clear()
 {
     m_sources.clear();
     m_operators.clear();
-    beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
 
