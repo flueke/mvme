@@ -33,8 +33,6 @@
 
 #define ENABLE_ANALYSIS_DEBUG 0
 
-#define ANALYSIS_USE_SHARED_HISTO1D_MEM 1
-
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
 {
@@ -2424,7 +2422,6 @@ Histo1DSink::Histo1DSink(QObject *parent)
 
 void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
 {
-#if ANALYSIS_USE_SHARED_HISTO1D_MEM
     /* Single memory block allocation strategy:
      * Don't shrink.
      * If resizing to a larger size, recreate the arena. This will invalidate
@@ -2485,7 +2482,11 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
         }
 
         AxisBinning binning(m_bins, xMin, xMax);
-        SharedHistoMem histoMem = { m_histoArena, m_histoArena->pushArray<double>(m_bins, HistoMemAlignment) };
+        SharedHistoMem histoMem =
+        {
+            m_histoArena,
+            m_histoArena->pushArray<double>(m_bins, HistoMemAlignment)
+        };
 
         assert(histoMem.data);
 
@@ -2527,90 +2528,6 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
             histo->setFooter(QString("<small>runId=%1</small>").arg(runInfo.runId));
         }
     }
-
-#else
-    // Instead of just clearing the histos vector and recreating it this code
-    // tries to reuse existing histograms. This is done so that open histogram
-    // windows still reference the correct histogram after beginRun() is
-    // invoked. Otherwise the user would have to reopen histogram windows quite
-    // frequently.
-
-    if (m_inputSlot.isParamIndexInRange())
-    {
-        s32 minIdx = 0;
-        s32 maxIdx = m_inputSlot.inputPipe->parameters.size();
-
-        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
-        {
-            minIdx = m_inputSlot.paramIndex;
-            maxIdx = minIdx + 1;
-        }
-
-        m_histos.resize(maxIdx - minIdx);
-
-        for (s32 idx = minIdx, histoIndex = 0; idx < maxIdx; ++idx, ++histoIndex)
-        {
-            double xMin = m_xLimitMin;
-            double xMax = m_xLimitMax;
-
-            if (std::isnan(xMin))
-            {
-                xMin = m_inputSlot.inputPipe->parameters[idx].lowerLimit;
-            }
-
-            if (std::isnan(xMax))
-            {
-                xMax = m_inputSlot.inputPipe->parameters[idx].upperLimit;
-            }
-
-            if (m_histos[histoIndex])
-            {
-                auto histo = m_histos[histoIndex].get();
-
-                if (histo->getNumberOfBins() != static_cast<u32>(m_bins) || !runInfo.keepAnalysisState)
-                {
-                    histo->resize(m_bins); // calls clear() even if the size does not change
-                }
-
-                AxisBinning newBinning(m_bins, xMin, xMax);
-
-                if (newBinning != histo->getAxisBinning(Qt::XAxis))
-                {
-                    histo->setAxisBinning(Qt::XAxis, newBinning);
-                    histo->clear(); // have to clear because the binning changed
-                }
-            }
-            else
-            {
-                m_histos[histoIndex] = std::make_unique<Histo1D>(m_bins, xMin, xMax);
-            }
-
-            auto histo = m_histos[histoIndex].get();
-            auto histoName = this->objectName();
-            AxisInfo axisInfo;
-            axisInfo.title = this->m_xAxisTitle;
-            axisInfo.unit  = m_inputSlot.inputPipe->parameters.unit;
-
-            if (maxIdx - minIdx > 1)
-            {
-                histoName = QString("%1[%2]").arg(histoName).arg(idx);
-                axisInfo.title = QString("%1[%2]").arg(axisInfo.title).arg(idx);
-            }
-            histo->setObjectName(histoName);
-            histo->setAxisInfo(Qt::XAxis, axisInfo);
-            histo->setTitle(histoName);
-
-            if (!runInfo.runId.isEmpty())
-            {
-                histo->setFooter(QString("<small>runId=%1</small>").arg(runInfo.runId));
-            }
-        }
-    }
-    else
-    {
-        m_histos.resize(0);
-    }
-#endif
 }
 
 void Histo1DSink::read(const QJsonObject &json)
@@ -2633,15 +2550,7 @@ void Histo1DSink::write(QJsonObject &json) const
 
 size_t Histo1DSink::getStorageSize() const
 {
-#if ANALYSIS_USE_SHARED_HISTO1D_MEM
     return m_histoArena ? m_histoArena->size() : 0;
-#else
-    return std::accumulate(m_histos.begin(), m_histos.end(),
-                           static_cast<size_t>(0u),
-                           [](size_t v, const auto &histoPtr) {
-        return v + histoPtr->getStorageSize();
-    });
-#endif
 }
 
 //
