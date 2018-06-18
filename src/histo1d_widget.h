@@ -22,6 +22,7 @@
 #define __HISTO1D_WIDGET_H__
 
 #include "histo1d.h"
+#include "libmvme_export.h"
 #include <QSpinBox>
 #include <QWidget>
 
@@ -43,7 +44,7 @@ namespace analysis
 
 struct Histo1DWidgetPrivate;
 
-class Histo1DWidget: public QWidget
+class LIBMVME_EXPORT Histo1DWidget: public QWidget
 {
     Q_OBJECT
     public:

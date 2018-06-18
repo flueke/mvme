@@ -23,6 +23,7 @@
 
 #include "analysis/a2/memory.h"
 #include "histo_util.h"
+#include "libmvme_export.h"
 #include <memory>
 #include <QObject>
 
@@ -52,7 +53,7 @@ struct SharedHistoMem
     double *data = nullptr;
 };
 
-class Histo1D: public QObject
+class LIBMVME_EXPORT Histo1D: public QObject
 {
     Q_OBJECT
 
