@@ -22,6 +22,7 @@
 #define __HISTO1D_WIDGET_H__
 
 #include "histo1d.h"
+#include "libmvme_export.h"
 #include <QSpinBox>
 #include <QWidget>
 
@@ -43,7 +44,7 @@ namespace analysis
 
 struct Histo1DWidgetPrivate;
 
-class Histo1DWidget: public QWidget
+class LIBMVME_EXPORT Histo1DWidget: public QWidget
 {
     Q_OBJECT
     public:
@@ -64,11 +65,16 @@ class Histo1DWidget: public QWidget
         friend class Histo1DListWidget;
 
         void setContext(MVMEContext *context) { m_context = context; }
-        void setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib, s32 histoAddress);
+        void setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib,
+                                s32 histoAddress);
         void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
 
-    private slots:
+        //QwtPlotCurve *getPlotCurve() { return m_plotCurve; }
+
+    public slots:
         void replot();
+
+    private slots:
         void exportPlot();
         void exportPlotToClipboard();
         void saveHistogram();
@@ -97,7 +103,8 @@ class Histo1DWidget: public QWidget
 
         Histo1D *m_histo;
         Histo1DPtr m_histoPtr;
-        QwtPlotCurve *m_plotCurve;
+        //QwtPlotCurve *m_plotCurve;
+        QwtPlotHistogram *m_plotHisto;
 
         ScrollZoomer *m_zoomer;
         QTimer *m_replotTimer;

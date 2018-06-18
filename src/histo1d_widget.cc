@@ -105,6 +105,53 @@ class Histo1DPointData: public QwtSeriesData<QPointF>
         Histo1D *m_histo;
 };
 
+class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
+{
+    public:
+        Histo1DIntervalData(Histo1D *histo)
+            : QwtSeriesData<QwtIntervalSample>()
+            , m_histo(histo)
+        {}
+
+        virtual size_t size() const override
+        {
+            return m_histo->getNumberOfBins();
+        }
+
+        virtual QwtIntervalSample sample(size_t i) const override
+        {
+            auto result = QwtIntervalSample(
+                m_histo->getBinContent(i),
+                m_histo->getBinLowEdge(i),
+                m_histo->getBinLowEdge(i) + m_histo->getBinWidth());
+
+            return result;
+        }
+
+        virtual QRectF boundingRect() const override
+        {
+            // Qt and Qwt have different understanding of rectangles. For Qt
+            // it's top-down like screen coordinates, for Qwt it's bottom-up
+            // like the coordinates in a plot.
+            //auto result = QRectF(
+            //    m_histo->getXMin(),  m_histo->getMaxValue(), // top-left
+            //    m_histo->getWidth(), m_histo->getMaxValue());  // width, height
+            auto result = QRectF(
+                m_histo->getXMin(), 0.0,
+                m_histo->getWidth(), m_histo->getMaxValue());
+
+            return result;
+        }
+
+    private:
+        Histo1D *m_histo;
+};
+
+/* Calculates a gauss fit using the currently visible maximum histogram value.
+ *
+ * Note: The resolution is independent of the underlying histograms resolution.
+ * Instead NumberOfPoints samples are used at all zoom levels.
+ */
 static const double FWHMSigmaFactor = 2.3548;
 
 static inline double squared(double x)
@@ -112,11 +159,6 @@ static inline double squared(double x)
     return x * x;
 }
 
-/* Calculates a gauss fit using the currently visible maximum histogram value.
- *
- * Note: The resolution is independent of the underlying histograms resolution.
- * Instead NumberOfPoints samples are used at all zoom levels.
- */
 class Histo1DGaussCurveData: public QwtSyntheticPointData
 {
     static const size_t NumberOfPoints = 500;
@@ -317,7 +359,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     : QWidget(parent)
     , m_d(new Histo1DWidgetPrivate)
     , m_histo(histo)
-    , m_plotCurve(new QwtPlotCurve)
+    //, m_plotCurve(new QwtPlotCurve)
+    , m_plotHisto(new QwtPlotHistogram)
     , m_replotTimer(new QTimer(this))
     , m_cursorPosition(make_quiet_nan(), make_quiet_nan())
     , m_context(nullptr)
@@ -354,7 +397,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_actionGaussFit->setCheckable(true);
     connect(m_d->m_actionGaussFit, &QAction::toggled, this, &Histo1DWidget::on_tb_gauss_toggled);
 
-    m_d->m_actionRateEstimation = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Rate Est."));
+    m_d->m_actionRateEstimation = tb->addAction(QIcon(":/generic_chart_with_pencil.png"),
+                                                QSL("Rate Est."));
     m_d->m_actionRateEstimation->setStatusTip(QSL("Rate Estimation"));
     m_d->m_actionRateEstimation->setCheckable(true);
     connect(m_d->m_actionRateEstimation, &QAction::toggled, this, &Histo1DWidget::on_tb_rate_toggled);
@@ -381,7 +425,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     action = tb->addAction(QIcon(":/document-save.png"), QSL("Save"), this, &Histo1DWidget::saveHistogram);
     action->setStatusTip(QSL("Save the histogram to a text file"));
 
-    m_d->m_actionSubRange = tb->addAction(QIcon(":/histo_subrange.png"), QSL("Subrange"), this, &Histo1DWidget::on_tb_subRange_clicked);
+    m_d->m_actionSubRange = tb->addAction(QIcon(":/histo_subrange.png"), QSL("Subrange"),
+                                          this, &Histo1DWidget::on_tb_subRange_clicked);
     m_d->m_actionSubRange->setStatusTip(QSL("Limit the histogram to a specific X-Axis range"));
     m_d->m_actionSubRange->setEnabled(false);
 
@@ -394,7 +439,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_actionCalibUi->setCheckable(true);
     m_d->m_actionCalibUi->setVisible(false);
     m_d->m_actionCalibUi->setStatusTip(QSL("Edit the histograms input calibration"));
-    connect(m_d->m_actionCalibUi, &QAction::toggled, this, [this](bool b) { m_d->setCalibUiVisible(b); });
+    connect(m_d->m_actionCalibUi, &QAction::toggled,
+            this, [this](bool b) { m_d->setCalibUiVisible(b); });
 
     m_d->m_actionInfo = tb->addAction(QIcon(":/info.png"), QSL("Info"));
     m_d->m_actionInfo->setCheckable(true);
@@ -420,9 +466,12 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     // Setup the plot
     m_d->m_plot = new QwtPlot;
 
-    m_plotCurve->setStyle(QwtPlotCurve::Steps);
-    m_plotCurve->setCurveAttribute(QwtPlotCurve::Inverted);
-    m_plotCurve->attach(m_d->m_plot);
+    //m_plotCurve->setStyle(QwtPlotCurve::Steps);
+    //m_plotCurve->setCurveAttribute(QwtPlotCurve::Inverted);
+    //m_plotCurve->attach(m_d->m_plot);
+
+    m_plotHisto->setStyle(QwtPlotHistogram::Outline);
+    m_plotHisto->attach(m_d->m_plot);
 
     m_d->m_plot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
 
@@ -510,9 +559,13 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     connect(m_d->m_calibUi.applyButton, &QPushButton::clicked, this, &Histo1DWidget::calibApply);
     connect(m_d->m_calibUi.fillMaxButton, &QPushButton::clicked, this, &Histo1DWidget::calibFillMax);
     //connect(m_d->m_calibUi.resetToFilterButton, &QPushButton::clicked, this, &Histo1DWidget::calibResetToFilter);
-    connect(m_d->m_calibUi.closeButton, &QPushButton::clicked, this, [this]() { m_d->m_calibUi.window->reject(); });
+    connect(m_d->m_calibUi.closeButton, &QPushButton::clicked,
+            this, [this]() { m_d->m_calibUi.window->reject(); });
 
-    QVector<QDoubleSpinBox *> spins = { m_d->m_calibUi.actual1, m_d->m_calibUi.actual2, m_d->m_calibUi.target1, m_d->m_calibUi.target2 };
+    QVector<QDoubleSpinBox *> spins = {
+        m_d->m_calibUi.actual1, m_d->m_calibUi.actual2,
+        m_d->m_calibUi.target1, m_d->m_calibUi.target2
+    };
 
     for (auto spin: spins)
     {
@@ -593,7 +646,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     TRY_ASSERT(connect(m_d->m_rateEstimationPointPicker, SIGNAL(selected(const QPointF &)),
                        this, SLOT(on_ratePointerPicker_selected(const QPointF &))));
 
-    auto make_plot_curve = [](QColor penColor, double penWidth, double zLayer, QwtPlot *plot = nullptr, bool hide = true)
+    auto make_plot_curve = [](QColor penColor, double penWidth,
+                              double zLayer, QwtPlot *plot = nullptr, bool hide = true)
     {
         auto result = new QwtPlotCurve;
 
@@ -697,7 +751,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
 Histo1DWidget::~Histo1DWidget()
 {
-    delete m_plotCurve;
+    //delete m_plotCurve;
+    delete m_plotHisto;
     delete m_statsText;
     delete m_d;
 }
@@ -712,7 +767,8 @@ void Histo1DWidget::setHistogram(const Histo1DPtr &histoPtr)
 void Histo1DWidget::setHistogram(Histo1D *histo)
 {
     m_histo = histo;
-    m_plotCurve->setData(new Histo1DPointData(m_histo));
+    //m_plotCurve->setData(new Histo1DPointData(m_histo));
+    m_plotHisto->setData(new Histo1DIntervalData(m_histo));
     m_d->m_gaussCurve->setData(new Histo1DGaussCurveData(m_histo));
     m_d->m_rateEstimationCurve->setData(new RateEstimationCurveData(m_histo, &m_d->m_rateEstimationData));
 
