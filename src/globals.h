@@ -135,7 +135,20 @@ struct RunInfo
     bool keepAnalysisState = false;
     bool isReplay = false;
     //bool generateExportFiles = false;
+
 };
+
+inline bool operator==(const RunInfo &a, const RunInfo &b)
+{
+    return a.runId == b.runId
+        && a.keepAnalysisState == b.keepAnalysisState
+        && a.isReplay == b.isReplay;
+}
+
+inline bool operator!=(const RunInfo &a, const RunInfo &b)
+{
+    return !(a == b);
+}
 
 enum class ListFileFormat
 {
