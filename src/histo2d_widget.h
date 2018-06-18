@@ -70,6 +70,7 @@ class Histo2DWidget: public QWidget
     private slots:
         void replot();
         void exportPlot();
+        void exportPlotToClipboard();
         void mouseCursorMovedToPlotCoord(QPointF);
         void mouseCursorLeftPlot();
         void displayChanged();

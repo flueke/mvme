@@ -371,7 +371,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         menu->addAction(QSL("to clipboard"), this, &Histo1DWidget::exportPlotToClipboard);
 
         auto button = make_toolbutton(QSL(":/document-pdf.png"), QSL("Export"));
-        button->setStatusTip(QSL("Export plot to a PDF or image file"));
+        button->setStatusTip(QSL("Export plot to file or clipboard"));
         button->setMenu(menu);
         button->setPopupMode(QToolButton::InstantPopup);
 
@@ -1098,7 +1098,8 @@ void Histo1DWidget::exportPlotToClipboard()
     image.fill(0);
 
     QwtPlotRenderer renderer;
-    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground
+                             | QwtPlotRenderer::DiscardCanvasBackground);
     renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
     renderer.renderTo(m_d->m_plot, image);
 
