@@ -123,7 +123,7 @@ class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
             auto result = QwtIntervalSample(
                 m_histo->getBinContent(i),
                 m_histo->getBinLowEdge(i),
-                m_histo->getBinLowEdge(i) + m_histo->getBinWidth());
+                m_histo->getBinLowEdge(i+1));
 
             return result;
         }
