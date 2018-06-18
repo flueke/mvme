@@ -488,8 +488,6 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
         virtual QString getDisplayName() const override { return QSL("Filter Extractor"); }
         virtual QString getShortName() const override { return QSL("FExt"); }
 
-        QVector<double> getHitCounts() const;
-
         using Options = a2::DataSourceOptions;
         Options::opt_t getOptions() const { return m_options; }
         void setOptions(Options::opt_t options) { m_options = options; }
@@ -500,14 +498,6 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
         u32 m_requiredCompletionCount = 1;
         u64 m_rngSeed;
 
-        // state
-        u32 m_currentCompletionCount = 0;
-
-        // number of times the filter yielded data for each address
-        QVector<double> m_hitCounts;
-        mutable QMutex m_hitCountsMutex;
-
-        pcg32_fast m_rng;
         Pipe m_output;
         Options::opt_t m_options;
 };

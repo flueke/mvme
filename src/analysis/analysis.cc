@@ -403,12 +403,11 @@ Extractor::Extractor(QObject *parent)
 
 void Extractor::beginRun(const RunInfo &runInfo, Logger logger)
 {
-    m_currentCompletionCount = 0;
-
     m_fastFilter = {};
     for (auto slowFilter: m_filter.getSubFilters())
     {
-        auto subfilter = a2::data_filter::make_filter(slowFilter.getFilter().toStdString(), slowFilter.getWordIndex());
+        auto subfilter = a2::data_filter::make_filter(slowFilter.getFilter().toStdString(),
+                                                      slowFilter.getWordIndex());
         add_subfilter(&m_fastFilter, subfilter);
     }
 
@@ -433,21 +432,6 @@ void Extractor::beginRun(const RunInfo &runInfo, Logger logger)
     }
 
     params.name = this->objectName();
-
-    m_rng.seed(m_rngSeed);
-
-    {
-        QMutexLocker lock(&m_hitCountsMutex);
-        m_hitCounts.resize(addressCount);
-
-        if (!runInfo.keepAnalysisState)
-        {
-            for (s32 i=0; i<m_hitCounts.size(); ++i)
-            {
-                m_hitCounts[i] = 0.0;
-            }
-        }
-    }
 }
 
 s32 Extractor::getNumberOfOutputs() const
@@ -525,12 +509,6 @@ void Extractor::write(QJsonObject &json) const
     json["subFilters"] = filterArray;
     json["requiredCompletionCount"] = static_cast<qint64>(m_requiredCompletionCount);
     json["options"] = static_cast<s32>(m_options);
-}
-
-QVector<double> Extractor::getHitCounts() const
-{
-    QMutexLocker lock(&m_hitCountsMutex);
-    return m_hitCounts;
 }
 
 //
@@ -3009,9 +2987,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerSource<Extractor>();
 
     m_registry.registerOperator<CalibrationMinMax>();
-    //m_registry.registerOperator<IndexSelector>();
     m_registry.registerOperator<PreviousValue>();
-    //m_registry.registerOperator<RetainValid>();
     m_registry.registerOperator<Difference>();
     m_registry.registerOperator<Sum>();
     m_registry.registerOperator<ArrayMap>();
