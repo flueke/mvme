@@ -7,10 +7,7 @@ a2_adapter::difference_magic()
 mvme: /home/florian/src/mvme2/src/analysis/a2/a2.cc:786: a2::Operator a2::make_difference(memory::Arena*, a2::PipeVectors, a2::PipeVectors): Assertion `inPipeA.data.size == inPipeB.data.size' failed.
 
 * BUGFIXES wanted for 0.9.5
-  - 2D projection exports: no name and wrong starting directory
-  - 1D histos have the same somewhere
-  - combined histo view: last index is missing!
-  - save analysis as: wrong filename extension
+  add export to clipboard for 2d combined and projection histos
 
 * Plan for the next days (12/06/18):
   - start work on analysis object import/export implementation.

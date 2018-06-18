@@ -173,6 +173,12 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
                                          double startX, double endX,
                                          double startY, double endY)
 {
+    qDebug() << __PRETTY_FUNCTION__
+        << axis
+        << "startX" << startX << "endX" << endX
+        << "startY" << startY << "endY" << endY;
+
+
     double projStart = (axis == Qt::XAxis ? startX : startY);
     double projEnd   = (axis == Qt::XAxis ? endX : endY);
 
@@ -183,10 +189,14 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
     auto otherBinning = histo->getAxisBinning(axis == Qt::XAxis ? Qt::YAxis : Qt::XAxis);
 
     s64 projStartBin = projBinning.getBinBounded(projStart);
-    s64 projEndBin   = projBinning.getBinBounded(projEnd);
+    s64 projEndBin   = projBinning.getBinBounded(projEnd) + 1;
 
     s64 otherStartBin = otherBinning.getBinBounded(otherStart);
-    s64 otherEndBin   = otherBinning.getBinBounded(otherEnd);
+    s64 otherEndBin   = otherBinning.getBinBounded(otherEnd) + 1;
+
+    qDebug() << __PRETTY_FUNCTION__
+        << "projEndBin" << projEndBin
+        << "otherEndBin" << otherEndBin;
 
     s64 nProjBins = (projEndBin - projStartBin) + 1;
 
@@ -196,7 +206,9 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
 
     auto result = std::make_shared<Histo1D>(nProjBins, projStart, projEnd);
     result->setAxisInfo(Qt::XAxis, histo->getAxisInfo(axis));
-    result->setObjectName(histo->objectName() + (axis == Qt::XAxis ? QSL(" X") : QSL(" Y")) + QSL(" Projection"));
+    result->setObjectName(histo->objectName()
+                          + (axis == Qt::XAxis ? QSL(" X") : QSL(" Y"))
+                          + QSL(" Projection"));
 
     u32 destBin = 0;
 
@@ -263,6 +275,10 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
 
     s64 otherStartBin = otherBinning.getBinBounded(otherStart);
     s64 otherEndBin   = otherBinning.getBinBounded(otherEnd);
+
+    qDebug() << __PRETTY_FUNCTION__
+        << "projEndBin" << projEndBin
+        << "otherEndBin" << otherEndBin;
 
     s64 nProjBins = (projEndBin - projStartBin) + 1;
 

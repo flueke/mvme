@@ -1058,6 +1058,8 @@ void Histo1DWidget::exportPlot()
     fileName.replace("\\", "_");
     fileName += QSL(".pdf");
 
+    assert(m_context);
+
     if (m_context)
     {
         fileName = QDir(m_context->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
