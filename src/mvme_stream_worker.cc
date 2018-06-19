@@ -47,6 +47,7 @@ enum InternalState
     StopImmediately,
     Pause,
     SingleStep,
+    PausedAfterSingleStep
 };
 
 static const QMap<InternalState, QString> InternalState_StringTable =
@@ -56,6 +57,7 @@ static const QMap<InternalState, QString> InternalState_StringTable =
     { StopImmediately,                  QSL("InternalState::StopImmediately") },
     { Pause,                            QSL("InternalState::Pause") },
     { SingleStep,                       QSL("InternalState::SingleStep") },
+    { PausedAfterSingleStep,            QSL("InternalState::PausedAfterSingleStep") },
 };
 
 static const u32 FilledBufferWaitTimeout_ms = 125;
@@ -64,13 +66,18 @@ static const double PauseMaxSleep_ms = 125.0;
 
 } // end anon namespace
 
-const QMap<MVMEStreamWorkerState, QString> MVMEStreamWorkerState_StringTable =
+QString to_string(const MVMEStreamWorkerState &state)
 {
-    { MVMEStreamWorkerState::Idle,              QSL("Idle") },
-    { MVMEStreamWorkerState::Paused,            QSL("Paused") },
-    { MVMEStreamWorkerState::Running,           QSL("Running") },
-    { MVMEStreamWorkerState::SingleStepping,    QSL("Stepping") },
-};
+    static const QMap<MVMEStreamWorkerState, QString> MVMEStreamWorkerState_StringTable =
+    {
+        { MVMEStreamWorkerState::Idle,              QSL("Idle") },
+        { MVMEStreamWorkerState::Paused,            QSL("Paused") },
+        { MVMEStreamWorkerState::Running,           QSL("Running") },
+        { MVMEStreamWorkerState::SingleStepping,    QSL("Stepping") },
+    };
+
+    return MVMEStreamWorkerState_StringTable.value(state);
+}
 
 struct MVMEStreamWorkerPrivate
 {
@@ -150,8 +157,8 @@ void MVMEStreamWorker::setState(MVMEStreamWorkerState newState)
     m_d->state = newState;
 
     qDebug() << __PRETTY_FUNCTION__
-        << MVMEStreamWorkerState_StringTable[oldState] << "(" << static_cast<int>(oldState) << ") ->"
-        << MVMEStreamWorkerState_StringTable[newState] << "(" << static_cast<int>(newState) << ")";
+        << to_string(oldState) << "(" << static_cast<int>(oldState) << ") ->"
+        << to_string(newState) << "(" << static_cast<int>(newState) << ")";
 
     emit stateChanged(newState);
 
@@ -448,6 +455,7 @@ void MVMEStreamWorker::start(bool keepState)
                     break;
 
                 case SingleStep:
+                case PausedAfterSingleStep:
                     // logic error: may only happen in paused state
                     InvalidCodePath;
                     break;
@@ -458,6 +466,7 @@ void MVMEStreamWorker::start(bool keepState)
             switch (internalState)
             {
                 case Pause:
+                case PausedAfterSingleStep:
                     // stay paused
                     QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick_ms()));
                     break;
@@ -488,7 +497,7 @@ void MVMEStreamWorker::start(bool keepState)
                         }
                     }
 
-                    m_d->internalState = Pause;
+                    m_d->internalState = PausedAfterSingleStep;
 
                     break;
 
@@ -592,7 +601,9 @@ void MVMEStreamWorker::resume()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    Q_ASSERT(m_d->internalState == InternalState::Pause);
+    Q_ASSERT(m_d->internalState == InternalState::Pause
+             || m_d->internalState == InternalState::PausedAfterSingleStep);
+
     m_d->internalState = InternalState::KeepRunning;
 }
 
@@ -601,7 +612,8 @@ void MVMEStreamWorker::singleStep()
     qDebug() << __PRETTY_FUNCTION__ << "current internalState ="
         << InternalState_StringTable[m_d->internalState];
 
-    Q_ASSERT(m_d->internalState == InternalState::Pause);
+    Q_ASSERT(m_d->internalState == InternalState::Pause
+             || m_d->internalState == InternalState::PausedAfterSingleStep);
 
     qDebug() << __PRETTY_FUNCTION__ << "setting internalState to SingleStep";
     m_d->internalState = SingleStep;

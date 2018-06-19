@@ -4217,7 +4217,7 @@ void AnalysisWidgetPrivate::actionPause(bool actionIsChecked)
             break;
 
         case MVMEStreamWorkerState::SingleStepping:
-            // cannot pause/resume during the time a singlestepping is active
+            // cannot pause/resume during the time a singlestep is active
             InvalidCodePath;
             break;
     }
@@ -4225,8 +4225,6 @@ void AnalysisWidgetPrivate::actionPause(bool actionIsChecked)
 
 void AnalysisWidgetPrivate::actionStepNextEvent()
 {
-    //m_context->logMessage(QSL("Single stepping not yet implement! :("));
-
     auto streamWorker = m_context->getMVMEStreamWorker();
     auto workerState = streamWorker->getState();
 

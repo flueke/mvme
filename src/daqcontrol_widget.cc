@@ -466,7 +466,7 @@ void DAQControlWidget::updateWidget()
     }
 
     label_daqState->setText(daqStateString);
-    label_analysisState->setText(MVMEStreamWorkerState_StringTable.value(streamWorkerState, QSL("unknown")));
+    label_analysisState->setText(to_string(streamWorkerState));
 
     rb_keepData->setEnabled(daqState == DAQState::Idle);
     rb_clearData->setEnabled(daqState == DAQState::Idle);

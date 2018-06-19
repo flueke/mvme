@@ -46,7 +46,7 @@ enum class MVMEStreamWorkerState
 
 Q_DECLARE_METATYPE(MVMEStreamWorkerState);
 
-extern const QMap<MVMEStreamWorkerState, QString> MVMEStreamWorkerState_StringTable;
+QString to_string(const MVMEStreamWorkerState &state);
 
 class LIBMVME_EXPORT MVMEStreamWorker: public QObject
 {

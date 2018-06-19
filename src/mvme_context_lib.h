@@ -2,6 +2,7 @@
 #define __MVME_CONTEXT_LIB_H__
 
 #include "mvme_listfile.h"
+#include "mvme_stream_worker.h"
 
 class MVMEContext;
 
@@ -20,15 +21,17 @@ struct OpenListfileFlags
 
 /* Important: Does not check if the current analysis is modified before loading
  * one from the listfile. Perform this check before calling this function! */
-ContextOpenListfileResult context_open_listfile(MVMEContext *context, const QString &filename, u16 flags = 0);
+ContextOpenListfileResult context_open_listfile(MVMEContext *context,
+                                                const QString &filename,
+                                                u16 flags = 0);
 
 struct AnalysisPauser
 {
     AnalysisPauser(MVMEContext *context);
     ~AnalysisPauser();
 
-    MVMEContext *context;
-    bool was_running;
+    MVMEContext *m_context;
+    MVMEStreamWorkerState m_prevState;
 };
 
 #endif /* __MVME_CONTEXT_LIB_H__ */
