@@ -1,4 +1,5 @@
 #include "mvme_context_lib.h"
+#include "analysis/analysis.h"
 #include "mvme_context.h"
 #include "util_zip.h"
 
@@ -76,6 +77,6 @@ AnalysisPauser::~AnalysisPauser()
     qDebug() << __PRETTY_FUNCTION__ << "was_running =" << was_running;
     if (was_running)
     {
-        context->resumeAnalysis();
+        context->resumeAnalysis(analysis::Analysis::KeepState);
     }
 }

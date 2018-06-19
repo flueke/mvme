@@ -257,48 +257,38 @@ void AddEditExtractorDialog::accept()
 
     auto analysis = m_eventWidget->getContext()->getAnalysis();
 
-    try
+    switch (m_mode)
     {
-        switch (m_mode)
-        {
-            case AddExtractor:
+        case AddExtractor:
+            {
+                bool genHistos = m_gbGenHistograms->isChecked();
+
+                if (genHistos)
                 {
-                    // TODO: call beginRun on the new extractor and rebuild a2. no need to clear other stuff.
-                    bool genHistos = m_gbGenHistograms->isChecked();
+                    auto rawDisplay = make_raw_data_display(
+                        m_ex, spin_unitMin->value(), spin_unitMax->value(),
+                        // FIXME: missing title
+                        QString(), le_unit->text());
 
-                    if (genHistos)
-                    {
-                        auto rawDisplay = make_raw_data_display(m_ex, spin_unitMin->value(), spin_unitMax->value(),
-                                                                QString(), // FIXME: missing title
-                                                                le_unit->text());
-
-                        add_raw_data_display(analysis, m_eventWidget->getEventId(), m_module->getId(), rawDisplay);
-                    }
-                    else
-                    {
-                        analysis->addSource(m_eventWidget->getEventId(), m_module->getId(), m_ex);
-                    }
-                } break;
-
-            case EditExtractor:
+                    add_raw_data_display(
+                        analysis, m_eventWidget->getEventId(), m_module->getId(),
+                        rawDisplay);
+                }
+                else
                 {
-                    // TODO: do_beginRun_forward on the extractor here. then
-                    // rebuild a2. no need to clear stuff that's not affected.
-                    auto context = m_eventWidget->getContext();
-                    auto runInfo = context->getRunInfo();
-                    auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(context->getVMEConfig());
-                    analysis->setModified();
-                    analysis->beginRun(runInfo, vmeMap);
-                } break;
-        }
+                    analysis->addSource(m_eventWidget->getEventId(), m_module->getId(), m_ex);
+                }
+            } break;
 
-        QDialog::accept();
+        case EditExtractor:
+            {
+                analysis->sourceEdited(m_ex);
+            } break;
     }
-    catch (const std::bad_alloc &)
-    {
-        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
-        reject();
-    }
+
+    analysis->beginRun(Analysis::KeepState);
+
+    QDialog::accept();
 }
 
 void AddEditExtractorDialog::reject()
@@ -312,7 +302,8 @@ void AddEditExtractorDialog::reject()
 // AddEditOperatorDialog
 //
 
-AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel, OperatorEditorMode mode, EventWidget *eventWidget)
+AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel,
+                                             OperatorEditorMode mode, EventWidget *eventWidget)
     : QDialog(eventWidget)
     , m_op(op)
     , m_userLevel(userLevel)
@@ -514,7 +505,8 @@ void AddEditOperatorDialog::repopulateSlotGrid()
         selectButton->installEventFilter(this);
         m_selectButtons.push_back(selectButton);
 
-        connect(selectButton, &QPushButton::toggled, this, [this, slot, slotIndex, userLevel](bool checked) {
+        connect(selectButton, &QPushButton::toggled,
+                this, [this, slot, slotIndex, userLevel](bool checked) {
             // Cancel any previous input selection. Has no effect if no input selection was active.
             m_eventWidget->endSelectInput();
 
@@ -532,18 +524,12 @@ void AddEditOperatorDialog::repopulateSlotGrid()
                  * The lambda is the callback for the EventWidget. This means
                  * inputSelected() will be called with the current slotIndex
                  * once input selection is complete. */
-                m_eventWidget->selectInputFor(slot, userLevel,
-                                              [this] (Slot *destSlot, Pipe *selectedPipe, s32 selectedParamIndex) {
-#if 0
-                    // The assumption is that the analysis has been paused by
-                    // the EventWidget.
-                    Q_ASSERT(!m_eventWidget->getContext()->isAnalysisRunning());
+                m_eventWidget->selectInputFor(
+                    slot, userLevel,
+                    [this] (Slot *destSlot, Pipe *selectedPipe, s32 selectedParamIndex) {
 
-                    // Update the slots source operator and all dependents
-                    do_beginRun_forward(slot->parentOperator);
-                    this->inputSelected(slotIndex);
-#endif
                     this->inputSelectedForSlot(destSlot, selectedPipe, selectedParamIndex);
+
                 });
             }
 
@@ -562,7 +548,6 @@ void AddEditOperatorDialog::repopulateSlotGrid()
                 button->setChecked(false);
             }
 
-            AnalysisPauser pauser(m_eventWidget->getContext());
             // Clear the slot
             slot->disconnectPipe();
             // Update the current select button to reflect the change
@@ -612,7 +597,6 @@ void AddEditOperatorDialog::inputSelectedForSlot(
     assert(destSlot == m_op->getSlot(destSlot->parentSlotIndex));
 
     destSlot->connectPipe(selectedPipe, selectedParamIndex);
-    //do_beginRun_forward(destSlot->parentOperator);
 
     s32 slotIndex = destSlot->parentSlotIndex;
 
@@ -624,6 +608,7 @@ void AddEditOperatorDialog::inputSelectedForSlot(
         selectButton->setText(make_input_source_text(destSlot));
     }
 
+    m_op->setObjectFlags(ObjectFlags::NeedsRebuild);
     m_opConfigWidget->inputSelected(slotIndex);
     m_inputSelectActive = false;
     onOperatorValidityChanged();
@@ -652,44 +637,28 @@ void AddEditOperatorDialog::accept()
 
     auto analysis = m_eventWidget->getContext()->getAnalysis();
 
-    try
+    switch (m_mode)
     {
-        switch (m_mode)
-        {
-            case OperatorEditorMode::New:
-                {
-                    analysis->addOperator(m_eventWidget->getEventId(), m_userLevel, m_op);
-                } break;
+        case OperatorEditorMode::New:
+            {
+                analysis->addOperator(m_eventWidget->getEventId(), m_userLevel, m_op);
+            } break;
 
-            case OperatorEditorMode::Edit:
-                {
-                    // TODO: do_beginRun_forward here
-                    auto context = m_eventWidget->getContext();
-                    auto runInfo = context->getRunInfo();
-                    auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(context->getVMEConfig());
-                    analysis->setModified();
-                    analysis->beginRun(runInfo, vmeMap);
-                } break;
-        }
-
-        QDialog::accept();
+        case OperatorEditorMode::Edit:
+            {
+                analysis->operatorEdited(m_op);
+            } break;
     }
-    catch (const std::bad_alloc &)
-    {
-        // FIXME: bring analysis into a consistent state by removing the
-        // operator in AddMode or by undoing the modifications in case
-        // of EditMode (how should this be done? there's no undo right now...)
 
-        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
-        reject();
-    }
+    analysis->beginRun(Analysis::KeepState);
+
+    QDialog::accept();
 }
 
 void AddEditOperatorDialog::reject()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    AnalysisPauser pauser(m_eventWidget->getContext());
 
     switch (m_mode)
     {
@@ -707,8 +676,7 @@ void AddEditOperatorDialog::reject()
 
         case OperatorEditorMode::Edit:
             {
-                // FIXME: get rid of as much of the complicated slot handling code here as possible
-
+                AnalysisPauser pauser(m_eventWidget->getContext());
 
                 // Restore previous slot connections.
 
@@ -742,7 +710,9 @@ void AddEditOperatorDialog::reject()
 
                 if (wasModified)
                 {
-                    do_beginRun_forward(m_op.get());
+                    m_op->setObjectFlags(ObjectFlags::NeedsRebuild);
+                    auto analysis = m_eventWidget->getAnalysis();
+                    analysis->beginRun(Analysis::KeepState);
                 }
             } break;
     }

@@ -178,7 +178,7 @@ struct MVMEContextPrivate
 
     // Analysis
     void stopAnalysis();
-    void resumeAnalysis();
+    void resumeAnalysis(analysis::Analysis::BeginRunOption option);
 
     void clearLog();
 };
@@ -360,12 +360,14 @@ void MVMEContextPrivate::stopAnalysis()
     qDebug() << __PRETTY_FUNCTION__ << "analysis stopped";
 }
 
-void MVMEContextPrivate::resumeAnalysis()
+void MVMEContextPrivate::resumeAnalysis(analysis::Analysis::BeginRunOption runOption)
 {
     if (m_q->m_streamWorker->getState() == MVMEStreamWorkerState::Idle)
     {
+        bool keepState = runOption != analysis::Analysis::ClearState;
+
         QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "start",
-                                  Qt::QueuedConnection);
+                                  Qt::QueuedConnection, Q_ARG(bool, keepState));
 
         qDebug() << __PRETTY_FUNCTION__ << "analysis resumed";
     }
@@ -2078,7 +2080,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
         if (was_running && !flags.NoAutoResume)
         {
-            resumeAnalysis();
+            resumeAnalysis(Analysis::ClearState);
         }
     }
     catch (const std::bad_alloc &e)
@@ -2156,9 +2158,9 @@ void MVMEContext::stopAnalysis()
     m_d->stopAnalysis();
 }
 
-void MVMEContext::resumeAnalysis()
+void MVMEContext::resumeAnalysis(analysis::Analysis::BeginRunOption runOption)
 {
-    m_d->resumeAnalysis();
+    m_d->resumeAnalysis(runOption);
 }
 
 QJsonDocument MVMEContext::getAnalysisJsonDocument() const

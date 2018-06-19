@@ -32,7 +32,7 @@
 #include "exportsink_codegen.h"
 #include "../vme_config.h"
 
-#define ENABLE_ANALYSIS_DEBUG 0
+#define ENABLE_ANALYSIS_DEBUG 1
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -3097,6 +3097,16 @@ void Analysis::addSource(const SourcePtr &source)
     source->setObjectFlags(ObjectFlags::NeedsRebuild);
 }
 
+void Analysis::sourceEdited(const SourcePtr &source)
+{
+    setModified();
+
+    source->setObjectFlags(ObjectFlags::NeedsRebuild);
+
+    for (auto &obj: collect_dependent_objects(source.get()))
+        obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+}
+
 void Analysis::removeSource(const SourcePtr &source)
 {
     removeSource(source.get());
@@ -3245,6 +3255,16 @@ void Analysis::addOperator(const OperatorPtr &op)
     op->setObjectFlags(ObjectFlags::NeedsRebuild);
 }
 
+void Analysis::operatorEdited(const OperatorPtr &op)
+{
+    setModified();
+
+    op->setObjectFlags(ObjectFlags::NeedsRebuild);
+
+    for (auto &obj: collect_dependent_objects(op.get()))
+        obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+}
+
 void Analysis::removeOperator(const OperatorPtr &op)
 {
     removeOperator(op.get());
@@ -3305,7 +3325,7 @@ void Analysis::updateRanks()
     {
 #if ENABLE_ANALYSIS_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "setting output ranks of source"
-            << getClassName(source) << source->objectName() << "to 0";
+            << getClassName(src.get()) << src->objectName() << "to 0";
 #endif
 
         for (s32 oi = 0; oi < src->getNumberOfOutputs(); oi++)
@@ -3384,9 +3404,14 @@ void Analysis::beginRun(const RunInfo &runInfo,
                         Logger logger)
 {
     const bool fullBuild = (
-        m_runInfo != runInfo
+        m_runInfo.runId != runInfo.runId
+        || m_runInfo.isReplay != runInfo.isReplay
         || m_vmeMap != vmeMap
         || getObjectFlags() & ObjectFlags::NeedsRebuild);
+
+    qDebug() << __PRETTY_FUNCTION__
+        << "fullBuild =" << fullBuild
+        << ", keepAnalysisState =" << runInfo.keepAnalysisState;
 
     m_runInfo = runInfo;
     m_vmeMap = vmeMap;
@@ -3424,6 +3449,8 @@ void Analysis::beginRun(const RunInfo &runInfo,
         << m_sources.size() << " sources,"
         << m_operators.size() << " operators";
 
+    u32 sourcesBuilt = 0;
+
     for (auto &source: m_sources)
     {
         if (fullBuild || source->getObjectFlags() & ObjectFlags::NeedsRebuild)
@@ -3434,12 +3461,15 @@ void Analysis::beginRun(const RunInfo &runInfo,
 
             source->beginRun(runInfo, logger);
             source->clearObjectFlags(ObjectFlags::NeedsRebuild);
+            sourcesBuilt++;
         }
         else if (!runInfo.keepAnalysisState)
         {
             source->clearState();
         }
     }
+
+    u32 operatorsBuilt = 0;
 
     for (auto &op: m_operators)
     {
@@ -3459,6 +3489,7 @@ void Analysis::beginRun(const RunInfo &runInfo,
 
             op->beginRun(runInfo, logger);
             op->clearObjectFlags(ObjectFlags::NeedsRebuild);
+            operatorsBuilt++;
         }
         else if (!runInfo.keepAnalysisState)
         {
@@ -3467,6 +3498,9 @@ void Analysis::beginRun(const RunInfo &runInfo,
     }
 
     clearObjectFlags(ObjectFlags::NeedsRebuild);
+
+    qDebug() << __PRETTY_FUNCTION__ << "built" << sourcesBuilt << "sources"
+        " and " << operatorsBuilt << "operators";
 
 #if 1 // FIXME:BEGINRUN
 
@@ -3490,6 +3524,21 @@ void Analysis::beginRun(const RunInfo &runInfo,
             runInfo,
             logger));
 #endif
+}
+
+void Analysis::beginRun(BeginRunOption option, Logger logger)
+{
+    switch (option)
+    {
+        case BeginRunOption::ClearState:
+            m_runInfo.keepAnalysisState = false;
+            break;
+        case BeginRunOption::KeepState:
+            m_runInfo.keepAnalysisState = true;
+            break;
+    }
+
+    beginRun(m_runInfo, m_vmeMap, logger);
 }
 
 void Analysis::endRun()

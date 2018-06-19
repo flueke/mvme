@@ -1,42 +1,26 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+
+--------------------------------------------------
+BUGFIXES wanted for 0.9.5
+--------------------------------------------------
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- start work on analysis object import/export implementation.
+* grouping of operators and keeping grouping intact when importing exporting
+* clone behaviour for extractors: copy rng seed or reseed? is a clone an
+  identical copy or something similar but not exactly the same?
+  Use case wise reseeding would be better.
+
 --------------------------------------------------
 GUI <-> Analysis <-> a2 refactoring
 --------------------------------------------------
-The goal is to pause and rebuild as little as possible. If a rebuild is
-required try to clear as little of the accumulated data as possible.
+Keep analysis/stream proc stats when starting/resuming with keepData option set.
 
-
-* Think about keepAnalysisState: Maybe add a clearState() method to
-  PipeSourceInterface. The reason is that with the addition of the NeedsRebuild
-  flag most operators beginRun() won't be executed anymore unless the RunInfo
-  or the VMEMap changed. This means if keepAnalysisState was false and remains
-  false on starting a new run the state won't be cleared.  A check and an extra
-  loop could be made at the end of Analysis::beginRun() to tell child objcets
-  to clear their state if needed.
-
-
-* in the future try to classify modifications. some things need to clear
-  histograms because the structure changed, other things do not (e.g. label only change)
-
-* establishing pipe and slot connections:
-  (dis)connecting an operators slot to/from a pipe modifies the pipe (adds to destinations array)
-  disconnect also affects all dependent operators of the operator whose slot is
-  disconnected: the operators output size/number and validity state will be
-  changed, thus connections further down may become (temporarily) invalid.
-
-  How to handle this in the gui:
-  as the a1 system is not executed directly anymore the changes can be made
-  without having to pause anything.
-  just make sure that on canceling the original connections are restored (like is currently done).
-  also make sure that no state is cleared unless it's really neccessary.
-  Alternatively clone the input pipes and work with those.
-  -> Fake input pipes having the original operator as the source and having the
-     exact same properties as the original pipes. This way even things like
-     makeSlotSourceString() should continue to work.
-     => Implemented for the ExpressionOperator but has the side effect of
-     making it harder to detect circular connections.
+* also finally fix pause/resume/singlestep. this should probably be
+  followed or accompanied by redoing the mvme stream iteration code
 
 * additional a1 layer considerations and open questions:
   - operator cloning
@@ -44,46 +28,18 @@ required try to clear as little of the accumulated data as possible.
     * is using write -> read always the best way. which way causes the least amount of code duplication?
     * performance: cloning is not happening frequently, so the serialization way should be good enough.
     * what should happen with connections, object id, object name?
---------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 a2_adapter::a2_adapter_magic() found magic for analysis::Difference (objectName=madc32.amplitude - madc32.event_counter/ts)
 a2_adapter::a2_adapter_magic() analysis::Difference(0x555555889460, name = "madc32.amplitude - madc32.event_counter/ts") QUuid("{b9fea00d-5a28-47cb-908a-553e3acc3b58}")
 a2_adapter::difference_magic()
 mvme: /home/florian/src/mvme2/src/analysis/a2/a2.cc:786: a2::Operator a2::make_difference(memory::Arena*, a2::PipeVectors, a2::PipeVectors): Assertion `inPipeA.data.size == inPipeB.data.size' failed.
 
-* BUGFIXES wanted for 0.9.5
-  add export to clipboard for 2d combined and projection histos
-
-* Plan for the next days (12/06/18):
-  - start work on analysis object import/export implementation.
-    Things to consider:
-      * grouping of operators and keeping grouping intact when importing exporting
-      * clone behaviour for extractors: copy rng seed or reseed? is a clone an
-        identical copy or something similar but not exactly the same?
-        Use case wise reseeding would be better.
-
-  - start working on restructuring beginRun():
-    * switch back to do_beginRun_forward() everywhere.
-    * split a1 and a2 layers so that more operations can be performed without
-      having to constantly pause/resume the analysis. instead after changes
-      have been applied to the a1 layer there should be a kind of "commit"
-      point at which the a2 system is rebuilt
-    * also finally fix pause/resume/singlestep. this should probably be
-      followed or accompanied by redoing the mvme stream iteration code
 
 * RPC: limit max request size to something reasonable
 * RPC: fork jcon-cpp on github and push local changes there
 
-
 * make double click on operators open the editor GUI
-
-* detect and disallow circular operator connections.
-  op1 uses op2.output0 as input
-  op2 uses op1.output0 as input
-  -> crash in updateRanks() due to infinite recursion. Also crashes if it's not
-  a direct circle but with intermediate operator in-between.
-  This needs fixing in updateRanks() and updateRank() and in the UI so that
-  invalid pipes are not highlighted.
 
 * Improve the loadAnalysisConfig() and similar callchains. Right now they end
   up in gui_read_json_file() which displays a message box with a generic "could
@@ -128,37 +84,6 @@ mvme: /home/florian/src/mvme2/src/analysis/a2/a2.cc:786: a2::Operator a2::make_d
 --------------------------------------------------
 ExpressionOperator design plan
 --------------------------------------------------
-Most recent todo list:
-* Keyword highlighting if easily possible. Could also add known functions and highlight those.
-* Links to the exprtk homepage
-* Use first part of the documentation and make it available in the editor gui
-* text description of what each of the scripts is for, how the return value of the begin script is structured
-* explain how invalid parameters are implemented and how they need to be handled
-
-
-* use expr_tk to evaluate expressions
-* beginScript: one script to get information about the output structure from the operator
-* multi input and multi output!
-
-* user defined input variable names. by default auto generated names will be used:
-  input0 input1
-
-The beginscript then has the following set in the symboltable:
-  input0.lower_limits input0.upper_limits input0.unit
-  input1.lower_limits input1.upper_limits input1.unit
-
-The beginscript has to return 4 values for each output array the operator should have:
-  name, unit, lower_limits, upper_limits
-
-So the size of the return value list must be divisible by 4.
-
-* one script to fill the output, executed repeatedly by a2_end_event() when it's stepping the operators
-
-* add a user defined functions
-  is_valid(), is_invalid() for testing parameter validity (has to check for nan and the specific bit being set)
-
-* maybe add symbol table dump functionality somewhere if that is possible
-
 Additional/Advanced Features:
 * user defined functions using the exprtk syntax. SECTION 15 -> function_compositor
   Limited to returning a single scalar value and up to six input parameters
@@ -206,9 +131,6 @@ Additional/Advanced Features:
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* Histo2d: add export to clipboard
-  also path is wrong
 
 * Histo1d: stats display is not good
   gauss parameter nur anzeigen wenn gauss angezeigt wird.

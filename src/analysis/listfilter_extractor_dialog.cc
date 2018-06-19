@@ -648,6 +648,7 @@ void ListFilterExtractorDialog::apply()
         m_d->m_analysis->setListFilterExtractors(m_d->m_module->getEventId(),
                                                  m_d->m_module->getId(),
                                                  m_d->m_extractors);
+        m_d->m_analysis->beginRun(Analysis::KeepState);
     }
 
     repopulate();

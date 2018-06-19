@@ -2133,17 +2133,11 @@ void ExpressionOperatorDialog::apply()
 
         case OperatorEditorMode::Edit:
             {
-                // TODO: do_beginRun_forward here instead of the full beginRun()
-                // TODO: encapsulate further. too many details here
-
-                auto runInfo = m_d->m_eventWidget->getRunInfo();
-                auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(
-                    m_d->m_eventWidget->getVMEConfig());
-
-                analysis->setModified();
-                analysis->beginRun(runInfo, vmeMap);
+                analysis->operatorEdited(m_d->m_op);
             } break;
     }
+
+    analysis->beginRun(Analysis::KeepState);
 }
 
 void ExpressionOperatorDialog::accept()

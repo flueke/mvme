@@ -1591,6 +1591,7 @@ class LIBMVME_EXPORT Analysis: public AnalysisObject
 
         void addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source);
         void addSource(const SourcePtr &source);
+        void sourceEdited(const SourcePtr &source);
         void removeSource(const SourcePtr &source);
         void removeSource(SourceInterface *source);
 
@@ -1620,6 +1621,7 @@ class LIBMVME_EXPORT Analysis: public AnalysisObject
 
         void addOperator(const QUuid &eventId, s32 userLevel, const OperatorPtr &op);
         void addOperator(const OperatorPtr &op);
+        void operatorEdited(const OperatorPtr &op);
         void removeOperator(const OperatorPtr &op);
         void removeOperator(OperatorInterface *op);
 
@@ -1633,6 +1635,13 @@ class LIBMVME_EXPORT Analysis: public AnalysisObject
         void beginRun(const RunInfo &runInfo,
                       const vme_analysis_common::VMEIdToIndex &vmeMap,
                       Logger logger = {});
+
+        enum BeginRunOption
+        {
+            ClearState,
+            KeepState,
+        };
+        void beginRun(BeginRunOption option, Logger logger = {});
         void endRun();
 
         //

@@ -365,7 +365,7 @@ void single_step_one_event(ProcessingState &procState, MVMEStreamProcessor &stre
 } // end anon namespace
 
 /* The main worker loop. */
-void MVMEStreamWorker::start()
+void MVMEStreamWorker::start(bool keepState)
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 
@@ -376,6 +376,9 @@ void MVMEStreamWorker::start()
 
     m_d->runInfo = m_d->context->getRunInfo();
     //m_d->runInfo.generateExportFiles = true;
+
+    // XXX: last minute decision
+    m_d->runInfo.keepAnalysisState = keepState;
 
     m_d->streamProcessor.beginRun(
         m_d->runInfo,
