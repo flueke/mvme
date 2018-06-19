@@ -2783,7 +2783,7 @@ void rate_monitor_step(Operator *op)
 
                     a2_trace_np("  [%d] recording value %lf\n", idx, value);
 
-                    d->samplers[idx]->record_rate(value);
+                    d->samplers[idx]->recordRate(value);
                 }
             } break;
 

@@ -2778,7 +2778,7 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
             if (!runInfo.keepAnalysisState)
             {
                 // truncates the history size (not the capacity) to zero
-                clear_rate_sampler(sampler);
+                sampler->clearHistory();
             }
         }
 
@@ -2799,7 +2799,7 @@ void RateMonitorSink::clearState()
     qDebug() << __PRETTY_FUNCTION__ << objectName();
     for (auto &sampler: m_samplers)
     {
-        clear_rate_sampler(sampler);
+        sampler->clearHistory();
     }
 }
 
