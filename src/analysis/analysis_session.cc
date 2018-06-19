@@ -8,13 +8,6 @@
 using namespace analysis;
 using namespace H5;
 
-/* Stuff I need to load a session:
- * - Analysis Config:
- *   To load into the analysis system. Will create histograms and reserve histogram space.
- * - histo sink uuid and hsitogram data (1d or 2d)
- *
- */
-
 namespace
 {
 
@@ -135,7 +128,8 @@ void save_Histo1DSink(H5File &outfile, Histo1DSink *histoSink)
         dataset_creation_plist
         );
 
-    add_string_attribute(dataset, QString("className"), QString(histoSink->metaObject()->className()));
+    add_string_attribute(dataset, QString("className"),
+                         QString(histoSink->metaObject()->className()));
     add_string_attribute(dataset, "id", histoSink->getId().toString());
 
     for (s32 histoIndex = 0; histoIndex < histoSink->m_histos.size(); histoIndex++)
@@ -191,7 +185,8 @@ void save_Histo2DSink(H5File &outfile, Histo2DSink *histoSink)
         dataset_creation_plist
         );
 
-    add_string_attribute(dataset, QString("className"), QString(histoSink->metaObject()->className()));
+    add_string_attribute(dataset, QString("className"),
+                         QString(histoSink->metaObject()->className()));
     add_string_attribute(dataset, "id", histoSink->getId().toString());
 
     dataset.write(
@@ -207,12 +202,14 @@ void save_RateMonitorSink(H5File &outfile, RateMonitorSink *rms)
     const auto samplerCount = rms->rateSamplerCount();
     const auto capacity     = rms->getRateHistoryCapacity();
 
-    qDebug() << __PRETTY_FUNCTION__ << "count =" << samplerCount << ", capacity =" << capacity;
+    qDebug() << __PRETTY_FUNCTION__ << "count =" << samplerCount
+        << ", capacity =" << capacity;
 
     const hsize_t dimensions[] =
     {
         (hsize_t)samplerCount,
-        (hsize_t)capacity + 1 // HACK: store RateSampler::totalSamples as the first element of the dataset
+        // HACK: store RateSampler::totalSamples as the first element of the dataset
+        (hsize_t)capacity + 1
     };
 
     DataSpace memspace(2, dimensions, nullptr);
@@ -243,7 +240,8 @@ void save_RateMonitorSink(H5File &outfile, RateMonitorSink *rms)
         dataset_creation_plist
         );
 
-    add_string_attribute(dataset, QString("className"), QString(rms->metaObject()->className()));
+    add_string_attribute(dataset, QString("className"),
+                         QString(rms->metaObject()->className()));
     add_string_attribute(dataset, "id", rms->getId().toString());
 
     std::vector<double> buffer;
@@ -255,9 +253,12 @@ void save_RateMonitorSink(H5File &outfile, RateMonitorSink *rms)
 
         std::fill(buffer.begin(), buffer.end(), make_quiet_nan());
 
-        buffer[0] = sampler->totalSamples; // HACK: store RateSampler::totalSamples as the first element of the dataset
+        // HACK: store RateSampler::totalSamples as the first element of the dataset
+        buffer[0] = sampler->totalSamples;
 
-        for (size_t historyIndex = 0; historyIndex < sampler->rateHistory.size(); historyIndex++)
+        for (size_t historyIndex = 0;
+             historyIndex < sampler->rateHistory.size();
+             historyIndex++)
         {
             buffer[historyIndex + 1] = sampler->rateHistory[historyIndex];
         }
@@ -363,8 +364,8 @@ void load_Histo1DSink(DataSet &dataset, Histo1DSink *histoSink)
     DataSpace memspace(2, dimensions, nullptr);
 
     Slab<2> memSlab;
-    memSlab.start   = { 0, 0 };
-    memSlab.count   = { 1, dimensions[1] };
+    memSlab.start   = { {0, 0} };
+    memSlab.count   = { {1, dimensions[1]} };
 
     memspace.selectHyperslab(
         H5S_SELECT_SET,
@@ -379,8 +380,8 @@ void load_Histo1DSink(DataSet &dataset, Histo1DSink *histoSink)
             continue;
 
         Slab<2> fileSlab;
-        fileSlab.start  = { (hsize_t)histoIndex, 0 };
-        fileSlab.count  = { 1, dimensions[1] };
+        fileSlab.start  = { {(hsize_t)histoIndex, 0} };
+        fileSlab.count  = { {1, dimensions[1]} };
 
         dataspace.selectHyperslab(
             H5S_SELECT_SET,
@@ -509,18 +510,21 @@ void load_analysis_session_(const QString &filename, analysis::Analysis *analysi
                 auto id_str = read_string_attribute(dataset, "id");
                 auto id = QUuid(QString::fromStdString(id_str));
 
-                if (auto histoSink = qobject_cast<Histo1DSink *>(analysis->getOperator(id).get()))
+                if (auto histoSink = qobject_cast<Histo1DSink *>(
+                        analysis->getOperator(id).get()))
                 {
                     load_Histo1DSink(dataset, histoSink);
                 }
-                else if (auto histoSink = qobject_cast<Histo2DSink *>(analysis->getOperator(id).get()))
+                else if (auto histoSink = qobject_cast<Histo2DSink *>(
+                        analysis->getOperator(id).get()))
                 {
                     if (histoSink->m_histo)
                     {
                         load_Histo2DSink(dataset, histoSink);
                     }
                 }
-                else if (auto rms = qobject_cast<RateMonitorSink *>(analysis->getOperator(id).get()))
+                else if (auto rms = qobject_cast<RateMonitorSink *>(
+                        analysis->getOperator(id).get()))
                 {
                     load_RateMonitorSink(dataset, rms);
                 }
@@ -651,7 +655,8 @@ QString get_h5_error_message(const H5::Exception &e)
 namespace analysis
 {
 
-QPair<bool, QString> save_analysis_session(const QString &filename, analysis::Analysis *analysis)
+QPair<bool, QString> save_analysis_session(
+    const QString &filename, analysis::Analysis *analysis)
 {
     qDebug() << __PRETTY_FUNCTION__;
 
@@ -670,7 +675,8 @@ QPair<bool, QString> save_analysis_session(const QString &filename, analysis::An
     return result;
 }
 
-QPair<bool, QString> load_analysis_session(const QString &filename, analysis::Analysis *analysis)
+QPair<bool, QString> load_analysis_session(
+    const QString &filename, analysis::Analysis *analysis)
 {
     qDebug() << __PRETTY_FUNCTION__;
 
@@ -689,7 +695,8 @@ QPair<bool, QString> load_analysis_session(const QString &filename, analysis::An
     return result;
 }
 
-QPair<QJsonDocument, QString> load_analysis_config_from_session_file(const QString &filename)
+QPair<QJsonDocument, QString> load_analysis_config_from_session_file(
+    const QString &filename)
 {
     qDebug() << __PRETTY_FUNCTION__;
 
