@@ -2475,11 +2475,6 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
         {
             assert(!histo->ownsMemory());
             histo->setData(histoMem, binning);
-
-            if (!runInfo.keepAnalysisState)
-            {
-                histo->clear();
-            }
         }
         else
         {
@@ -2506,6 +2501,11 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
         {
             histo->setFooter(QString("<small>runId=%1</small>").arg(runInfo.runId));
         }
+    }
+
+    if (!runInfo.keepAnalysisState)
+    {
+        clearState();
     }
 }
 
@@ -2597,7 +2597,7 @@ void Histo2DSink::beginRun(const RunInfo &runInfo, Logger logger)
                 || m_histo->getAxisBinning(Qt::YAxis).getBins() != static_cast<u32>(m_yBins)
                 || !runInfo.keepAnalysisState)
             {
-                // resize always clears the histo
+                // resize always implicitly clears
                 m_histo->resize(m_xBins, m_yBins);
             }
 
@@ -2778,8 +2778,7 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
             if (!runInfo.keepAnalysisState)
             {
                 // truncates the history size (not the capacity) to zero
-                sampler->rateHistory.resize(0);
-                sampler->totalSamples = 0.0;
+                clear_rate_sampler(sampler);
             }
         }
 
@@ -2800,8 +2799,7 @@ void RateMonitorSink::clearState()
     qDebug() << __PRETTY_FUNCTION__ << objectName();
     for (auto &sampler: m_samplers)
     {
-        sampler->rateHistory.resize(0.0);
-        sampler->totalSamples = 0.0;
+        clear_rate_sampler(sampler);
     }
 }
 
@@ -3004,7 +3002,7 @@ QString ExportSink::getExportFileBasename() const
 static const size_t A2ArenaSegmentSize = Kilobytes(256);
 
 Analysis::Analysis(QObject *parent)
-    : QObject(parent)
+    : AnalysisObject(parent)
     , m_modified(false)
     , m_timetickCount(0.0)
     , m_a2ArenaIndex(0)
@@ -3385,7 +3383,10 @@ void Analysis::beginRun(const RunInfo &runInfo,
                         const vme_analysis_common::VMEIdToIndex &vmeMap,
                         Logger logger)
 {
-    const bool fullBuild = (m_runInfo != runInfo || m_vmeMap != vmeMap);
+    const bool fullBuild = (
+        m_runInfo != runInfo
+        || m_vmeMap != vmeMap
+        || getObjectFlags() & ObjectFlags::NeedsRebuild);
 
     m_runInfo = runInfo;
     m_vmeMap = vmeMap;
@@ -3464,6 +3465,8 @@ void Analysis::beginRun(const RunInfo &runInfo,
             op->clearState();
         }
     }
+
+    clearObjectFlags(ObjectFlags::NeedsRebuild);
 
 #if 1 // FIXME:BEGINRUN
 

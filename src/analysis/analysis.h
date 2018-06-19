@@ -118,18 +118,38 @@ namespace ObjectFlags
     static const Flags NeedsRebuild    = 1u << 0;
 };
 
+class LIBMVME_EXPORT AnalysisObject: public QObject
+{
+    Q_OBJECT
+    public:
+        AnalysisObject(QObject *parent = nullptr)
+            : QObject(parent)
+        { }
+
+        /** Object flags containing system internal information. */
+        ObjectFlags::Flags getObjectFlags() const { return m_flags; }
+        void setObjectFlags(ObjectFlags::Flags flags) { m_flags = flags; }
+        void clearObjectFlags(ObjectFlags::Flags flagsToClear)
+        {
+            m_flags &= (~flagsToClear);
+        }
+
+    private:
+        ObjectFlags::Flags m_flags = ObjectFlags::None;
+};
+
 /* Interface to indicate that something can the be source of a Pipe.
  * Base for data sources (objects consuming module data and producing output parameter
  * vectors) and for operators (objects consuming and producing parameter vectors.
  */
 class LIBMVME_EXPORT PipeSourceInterface:
-    public QObject,
+    public AnalysisObject,
     public std::enable_shared_from_this<PipeSourceInterface>
 {
     Q_OBJECT
     public:
         PipeSourceInterface(QObject *parent = 0)
-            : QObject(parent)
+            : AnalysisObject(parent)
             , m_id(QUuid::createUuid())
         {
             //qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
@@ -170,14 +190,6 @@ class LIBMVME_EXPORT PipeSourceInterface:
         s32 getUserLevel() const { return m_userLevel; }
         void setUserLevel(s32 level) { m_userLevel = level; }
 
-        /** Object flags containing system internal information. */
-        ObjectFlags::Flags getObjectFlags() const { return m_flags; }
-        void setObjectFlags(ObjectFlags::Flags flags) { m_flags = flags; }
-        void clearObjectFlags(ObjectFlags::Flags flagsToClear)
-        {
-            m_flags &= (~flagsToClear);
-        }
-
         virtual void clearState() {}
 
     private:
@@ -185,7 +197,6 @@ class LIBMVME_EXPORT PipeSourceInterface:
         QUuid m_id;
         QUuid m_eventId;
         s32   m_userLevel;
-        ObjectFlags::Flags m_flags = ObjectFlags::None;
 };
 
 using PipeSourcePtr = std::shared_ptr<PipeSourceInterface>;
@@ -1558,7 +1569,7 @@ class LIBMVME_EXPORT Registry
         QMap<QString, SinkInterface *(*)()> m_sinkRegistry;
 };
 
-class LIBMVME_EXPORT Analysis: public QObject
+class LIBMVME_EXPORT Analysis: public AnalysisObject
 {
     Q_OBJECT
     signals:
@@ -1676,10 +1687,6 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         Registry &getRegistry() { return m_registry; }
 
-        ObjectFlags::Flags getObjectFlags() const { return m_flags; }
-        ObjectFlags::Flags &getObjectFlags() { return m_flags; }
-        void setObjectFlags(ObjectFlags::Flags flags) { m_flags = flags; }
-
     private:
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
@@ -1698,7 +1705,6 @@ class LIBMVME_EXPORT Analysis: public QObject
         u8 m_a2ArenaIndex;
         std::unique_ptr<memory::Arena> m_a2WorkArena;
         std::unique_ptr<A2AdapterState> m_a2State;
-        ObjectFlags::Flags m_flags = ObjectFlags::None;
 };
 
 struct LIBMVME_EXPORT RawDataDisplay
