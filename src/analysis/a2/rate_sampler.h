@@ -153,6 +153,18 @@ struct RateSampler
 
 using RateSamplerPtr = std::shared_ptr<RateSampler>;
 
+// changes the history size (not the capacity) to zero
+inline void clear_rate_sampler(a2::RateSampler *sampler)
+{
+        sampler->rateHistory.resize(0);
+        sampler->totalSamples = 0.0;
+}
+
+inline void clear_rate_sampler(a2::RateSamplerPtr &sampler)
+{
+    clear_rate_sampler(sampler.get());
+}
+
 } // namespace a2
 
 #endif /* __A2_RATE_SAMPLER_H__ */
