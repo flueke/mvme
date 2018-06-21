@@ -481,6 +481,16 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
 
 using SinkPtr = std::shared_ptr<SinkInterface>;
 
+enum class DisplayLocation
+{
+    Any,
+    Operator,
+    Sink
+};
+
+QString to_string(const DisplayLocation &loc);
+DisplayLocation displayLocation_from_string(const QString &str);
+
 /** Contains a list of analysis object ids. */
 class LIBMVME_EXPORT Directory: public AnalysisObject
 {
@@ -526,9 +536,17 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
         bool contains(const QUuid &id) const { return m_members.contains(id); }
         int size() const { return m_members.size(); }
 
+        DisplayLocation getDisplayLocation() const { return m_displayLocation; }
+        void setDisplayLocation(const DisplayLocation &loc)
+        {
+            m_displayLocation = loc;
+        }
+
+
     private:
         MemberContainer m_members;
         QUuid m_eventId;
+        DisplayLocation m_displayLocation;
 };
 
 using DirectoryPtr = std::shared_ptr<Directory>;
@@ -1687,7 +1705,17 @@ class LIBMVME_EXPORT Analysis: public AnalysisObject
         //
         // Directory Objects
         //
-        const DirectoryVector &getDirectories() const;
+        const DirectoryVector &getDirectories() const { return m_directories; }
+
+        const DirectoryVector getDirectories(const QUuid &eventId,
+                                             const DisplayLocation &loc = DisplayLocation::Any) const;
+
+        const DirectoryVector getDirectories(const QUuid &eventId,
+                                             s32 userLevel,
+                                             const DisplayLocation &loc = DisplayLocation::Any) const;
+
+        DirectoryPtr getDirectory(const QUuid &id) const;
+
         void setDirectories(const DirectoryVector &dirs)
         {
             m_directories = dirs;
@@ -1714,6 +1742,8 @@ class LIBMVME_EXPORT Analysis: public AnalysisObject
         }
 
         int directoryCount() const { return m_directories.size(); }
+
+        DirectoryPtr getParentDirectory(const AnalysisObjectPtr &obj) const;
 
         //
         // Pre and post run work

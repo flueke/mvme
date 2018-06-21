@@ -393,6 +393,37 @@ s32 OperatorInterface::getMaximumOutputRank()
 //
 // Directory
 //
+
+QString to_string(const DisplayLocation &loc)
+{
+    switch (loc)
+    {
+        case DisplayLocation::Any:
+            return QSL("any");
+
+        case DisplayLocation::Operator:
+            return QSL("operator");
+
+        case DisplayLocation::Sink:
+            return QSL("sink");
+    }
+
+    return QSL("any");
+}
+
+DisplayLocation displayLocation_from_string(const QString &str_)
+{
+    auto str = str_.toLower();
+
+    if (str == QSL("operator"))
+        return DisplayLocation::Operator;
+
+    if (str == QSL("sink"))
+        return DisplayLocation::Sink;
+
+    return DisplayLocation::Any;
+}
+
 void Directory::read(const QJsonObject &json)
 {
     m_members.clear();
@@ -403,6 +434,8 @@ void Directory::read(const QJsonObject &json)
     {
         m_members.push_back(QUuid(it->toString()));
     }
+
+    setDisplayLocation(displayLocation_from_string(json["displayLocation"].toString()));
 }
 
 void Directory::write(QJsonObject &json) const
@@ -415,6 +448,7 @@ void Directory::write(QJsonObject &json) const
     }
 
     json["members"] = memberIds;
+    json["displayLocation"] = to_string(getDisplayLocation());
 }
 
 //
@@ -3350,6 +3384,69 @@ void Analysis::removeOperator(OperatorInterface *op)
 }
 
 //
+// Directories
+//
+const DirectoryVector Analysis::getDirectories(const QUuid &eventId,
+                                               const DisplayLocation &loc) const
+{
+    DirectoryVector result;
+
+    for (const auto &dir: m_directories)
+    {
+        if (dir->getEventId() == eventId
+            && (loc == DisplayLocation::Any || dir->getDisplayLocation() == loc))
+        {
+            result.push_back(dir);
+        }
+    }
+
+    return result;
+}
+
+const DirectoryVector Analysis::getDirectories(const QUuid &eventId, s32 userLevel,
+                                               const DisplayLocation &loc) const
+{
+    DirectoryVector result;
+
+    for (const auto &dir: m_directories)
+    {
+        if (dir->getEventId() == eventId
+            && dir->getUserLevel() == userLevel
+            && (loc == DisplayLocation::Any || dir->getDisplayLocation() == loc))
+        {
+            result.push_back(dir);
+        }
+    }
+
+    return result;
+}
+
+DirectoryPtr Analysis::getDirectory(const QUuid &id) const
+{
+    for (const auto &dir: m_directories)
+    {
+        if (dir->getId() == id)
+            return dir;
+    }
+
+    return nullptr;
+}
+
+DirectoryPtr Analysis::getParentDirectory(const AnalysisObjectPtr &obj) const
+{
+    // Returns the first parent directory that matches. GUI/other logic has to ensure that
+    // objects are only members of a single directory for things to work properly.
+
+    for (const auto &dir: m_directories)
+    {
+        if (dir->contains(obj))
+            return dir;
+    }
+
+    return nullptr;
+}
+
+//
 // Pre and post run work
 //
 
@@ -4019,6 +4116,7 @@ void Analysis::clear()
 {
     m_sources.clear();
     m_operators.clear();
+    m_directories.clear();
     setModified();
 }
 
