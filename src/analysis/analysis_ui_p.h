@@ -399,7 +399,8 @@ class CalibrationItemDelegate: public QStyledItemDelegate
 {
     public:
         using QStyledItemDelegate::QStyledItemDelegate;
-        virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const;
+        virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+                                      const QModelIndex &index) const;
 };
 
 /* Specialized tree for the EventWidget.
@@ -417,7 +418,8 @@ class EventWidgetTree: public QTreeWidget
         s32 m_userLevel = 0;
 
     protected:
-        virtual bool dropMimeData(QTreeWidgetItem *parent, int index, const QMimeData *data, Qt::DropAction action) override;
+        virtual bool dropMimeData(QTreeWidgetItem *parent, int index,
+                                  const QMimeData *data, Qt::DropAction action) override;
         virtual QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
         virtual QStringList mimeTypes() const override;
         virtual Qt::DropActions supportedDropActions() const override;
