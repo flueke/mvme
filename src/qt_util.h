@@ -23,6 +23,7 @@
 
 #include "typedefs.h"
 
+#include <memory>
 #include <QEventLoop>
 #include <QFormLayout>
 #include <QFrame>
@@ -151,5 +152,11 @@ class NonShrinkingLabelHelper
         s32 m_maxWidth  = 0;
         s32 m_maxHeight = 0;
 };
+
+template<typename T>
+uint qHash(const std::shared_ptr<T> &ptr, uint seed = 0)
+{
+    return qHash(ptr.get());
+}
 
 #endif /* __QT_UTIL_H__ */
