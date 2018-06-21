@@ -118,13 +118,23 @@ namespace ObjectFlags
     static const Flags NeedsRebuild    = 1u << 0;
 };
 
-class LIBMVME_EXPORT AnalysisObject: public QObject
+class LIBMVME_EXPORT AnalysisObject:
+    public QObject,
+    public std::enable_shared_from_this<AnalysisObject>
 {
     Q_OBJECT
     public:
         AnalysisObject(QObject *parent = nullptr)
             : QObject(parent)
+            , m_id(QUuid::createUuid())
+            , m_userLevel(0)
         { }
+
+        QUuid getId() const { return m_id; }
+        /* Note: setId() should only be used when restoring the object from a
+         * config file. Otherwise just keep the id that's generated in the
+         * constructor. */
+        void setId(const QUuid &id) { m_id = id; }
 
         /** Object flags containing system internal information. */
         ObjectFlags::Flags getObjectFlags() const { return m_flags; }
@@ -134,23 +144,29 @@ class LIBMVME_EXPORT AnalysisObject: public QObject
             m_flags &= (~flagsToClear);
         }
 
+        /** User defined level used for UI display structuring. */
+        s32 getUserLevel() const { return m_userLevel; }
+        void setUserLevel(s32 level) { m_userLevel = level; }
+
     private:
         ObjectFlags::Flags m_flags = ObjectFlags::None;
+        QUuid m_id;
+        s32 m_userLevel;
 };
+
+using AnalysisObjectPtr = std::shared_ptr<AnalysisObject>;
+using AnalysisObjectVector = QVector<AnalysisObjectPtr>;
 
 /* Interface to indicate that something can the be source of a Pipe.
  * Base for data sources (objects consuming module data and producing output parameter
  * vectors) and for operators (objects consuming and producing parameter vectors.
  */
-class LIBMVME_EXPORT PipeSourceInterface:
-    public AnalysisObject,
-    public std::enable_shared_from_this<PipeSourceInterface>
+class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
 {
     Q_OBJECT
     public:
         PipeSourceInterface(QObject *parent = 0)
             : AnalysisObject(parent)
-            , m_id(QUuid::createUuid())
         {
             //qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
         }
@@ -168,35 +184,22 @@ class LIBMVME_EXPORT PipeSourceInterface:
         virtual QString getDisplayName() const = 0;
         virtual QString getShortName() const = 0;
 
-        QUuid getId() const { return m_id; }
-        /* Note: setId() should only be used when restoring the object from a
-         * config file. Otherwise just keep the id that's generated in the
-         * constructor. */
-        void setId(const QUuid &id) { m_id = id; }
-
         /* Use beginRun() to preallocate the outputs and setup internal state.
          * This will also be called by Analysis UI to be able to get array
          * sizes from operator output pipes! */
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) = 0;
         virtual void endRun() {};
 
-        std::shared_ptr<PipeSourceInterface> getSharedPointer() { return shared_from_this(); }
-
         /** The id of the VME event this object is a member of. */
         QUuid getEventId() const { return m_eventId; }
         void setEventId(const QUuid &id) { m_eventId = id; }
 
-        /** User defined level used for UI display structuring. */
-        s32 getUserLevel() const { return m_userLevel; }
-        void setUserLevel(s32 level) { m_userLevel = level; }
 
         virtual void clearState() {}
 
     private:
         PipeSourceInterface() = delete;
-        QUuid m_id;
         QUuid m_eventId;
-        s32   m_userLevel;
 };
 
 using PipeSourcePtr = std::shared_ptr<PipeSourceInterface>;
@@ -477,6 +480,59 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
 };
 
 using SinkPtr = std::shared_ptr<SinkInterface>;
+
+/** Contains a list of analysis object ids. */
+class LIBMVME_EXPORT Directory: public AnalysisObject
+{
+    Q_OBJECT
+    public:
+        using MemberContainer = QVector<QUuid>;
+        using iterator        = MemberContainer::iterator;
+        using const_iterator  = MemberContainer::const_iterator;
+
+        using AnalysisObject::AnalysisObject;
+
+        /** The id of the VME event this object is a member of. */
+        QUuid getEventId() const { return m_eventId; }
+        void setEventId(const QUuid &id) { m_eventId = id; }
+
+        void read(const QJsonObject &json);
+        void write(QJsonObject &json) const;
+
+        MemberContainer getMembers() const { return m_members; }
+        void setMembers(const MemberContainer &members) { m_members = members; }
+
+        void push_back(const AnalysisObjectPtr &obj) { m_members.push_back(obj->getId()); }
+        void push_back(AnalysisObjectPtr &&obj) { m_members.push_back(obj->getId()); }
+        void push_back(const QUuid &id) { m_members.push_back(id); }
+        void push_back(QUuid &&id) { m_members.push_back(id); }
+
+        const_iterator begin() const { return m_members.begin(); }
+        const_iterator end() const { return m_members.end(); }
+        iterator begin() { return m_members.begin(); }
+        iterator end() { return m_members.end(); }
+
+        int indexOf(const AnalysisObjectPtr &obj, int from = 0) const
+        {
+            return m_members.indexOf(obj->getId(), from);
+        }
+
+        int indexOf(const QUuid &id, int from = 0) const
+        {
+            return m_members.indexOf(id, from);
+        }
+
+        bool contains(const AnalysisObjectPtr &obj) const { return m_members.contains(obj->getId()); }
+        bool contains(const QUuid &id) const { return m_members.contains(id); }
+        int size() const { return m_members.size(); }
+
+    private:
+        MemberContainer m_members;
+        QUuid m_eventId;
+};
+
+using DirectoryPtr = std::shared_ptr<Directory>;
+using DirectoryVector = QVector<DirectoryPtr>;
 
 } // end namespace analysis
 
@@ -1627,6 +1683,38 @@ class LIBMVME_EXPORT Analysis: public AnalysisObject
 
         s32 getNumberOfOperators() const { return m_operators.size(); }
 
+
+        //
+        // Directory Objects
+        //
+        const DirectoryVector &getDirectories() const;
+        void setDirectories(const DirectoryVector &dirs)
+        {
+            m_directories = dirs;
+            setModified();
+        }
+
+        void addDirectory(const DirectoryPtr &dir)
+        {
+            qDebug() << __PRETTY_FUNCTION__;
+            m_directories.push_back(dir);
+            setModified();
+        }
+
+        void removeDirectory(const DirectoryPtr &dir)
+        {
+            int index = m_directories.indexOf(dir);
+            removeDirectory(index);
+        }
+
+        void removeDirectory(const int index)
+        {
+            m_directories.removeAt(index);
+            setModified();
+        }
+
+        int directoryCount() const { return m_directories.size(); }
+
         //
         // Pre and post run work
         //
@@ -1701,6 +1789,7 @@ class LIBMVME_EXPORT Analysis: public AnalysisObject
 
         SourceVector m_sources;
         OperatorVector m_operators;
+        DirectoryVector m_directories;
         QMap<QUuid, QVariantMap> m_vmeObjectSettings;
 
         Registry m_registry;

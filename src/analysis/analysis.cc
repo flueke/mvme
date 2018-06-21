@@ -42,7 +42,8 @@ QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
 }
 
 template<>
-const QMap<analysis::Analysis::ReadResultCodes, const char *> analysis::Analysis::ReadResult::ErrorCodeStrings =
+const QMap<analysis::Analysis::ReadResultCodes, const char *>
+analysis::Analysis::ReadResult::ErrorCodeStrings =
 {
     { analysis::Analysis::NoError, "No Error" },
     { analysis::Analysis::VersionTooNew, "Version too new" },
@@ -161,10 +162,12 @@ a2::data_filter::ListFilter a2_listfilter_from_json(const QJsonObject &json)
 
 namespace analysis
 {
-/* File versioning. If the format changes this version needs to be incremented
- * and a conversion routine has to be implemented.
+/* File versioning. If the format changes this version needs to be incremented and a
+ * conversion routine has to be implemented.
+ * Incrementing can also be done to force users to use a newer version of mvme to load the
+ * analysis. This way they won't run into missing features/undefined behaviour.
  */
-static const int CurrentAnalysisVersion = 2;
+static const int CurrentAnalysisVersion = 3;
 
 /* This function converts from analysis config versions prior to V2, which
  * stored eventIndex and moduleIndex instead of eventId and moduleId.
@@ -235,12 +238,18 @@ static QJsonObject v1_to_v2(QJsonObject json, VMEConfig *vmeConfig)
     return json;
 }
 
+static QJsonObject noop_converter(QJsonObject json, VMEConfig *)
+{
+    return json;
+}
+
 using VersionConverter = std::function<QJsonObject (QJsonObject, VMEConfig *)>;
 
 static QVector<VersionConverter> VersionConverters =
 {
     nullptr,
-    v1_to_v2
+    v1_to_v2,
+    noop_converter
 };
 
 static int get_version(const QJsonObject &json)
@@ -262,7 +271,9 @@ static QJsonObject convert_to_current_version(QJsonObject json, VMEConfig *vmeCo
         json = converter(json, vmeConfig);
         json[QSL("MVMEAnalysisVersion")] = version + 1;
 
-        qDebug() << __PRETTY_FUNCTION__ << "converted Analysis from version" << version << "to version" << version+1;
+        qDebug() << __PRETTY_FUNCTION__
+            << "converted Analysis from version" << version
+            << "to version" << version+1;
     }
 
     return json;
@@ -377,6 +388,33 @@ s32 OperatorInterface::getMaximumOutputRank()
     }
 
     return result;
+}
+
+//
+// Directory
+//
+void Directory::read(const QJsonObject &json)
+{
+    m_members.clear();
+
+    auto memberIds = json["members"].toArray();
+
+    for (auto it = memberIds.begin(); it != memberIds.end(); it++)
+    {
+        m_members.push_back(QUuid(it->toString()));
+    }
+}
+
+void Directory::write(QJsonObject &json) const
+{
+    QJsonArray memberIds;
+
+    for (const auto &id: m_members)
+    {
+        memberIds.append(id.toString());
+    }
+
+    json["members"] = memberIds;
 }
 
 //
@@ -3698,11 +3736,12 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
         struct Connection
         {
             PipeSourceInterface *srcObject;
-            s32 srcIndex; // the output index of the source object
+            s32 srcIndex;      // the output index of the source object
 
             OperatorInterface *dstObject;
-            s32 dstIndex; // the input index of the dest object
-            s32 dstParamIndex; // array index the input uses or Slot::NoParamIndex if the whole input is used
+            s32 dstIndex;      // the input index of the dest object
+            s32 dstParamIndex; // array index the input uses
+                               // or Slot::NoParamIndex if the whole input is used
         };
         */
 
@@ -3769,6 +3808,23 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
 
     // Dynamic QObject Properties
     loadDynamicProperties(json["properties"].toObject(), this);
+
+    // Directory Objects
+    {
+        QJsonArray array = json["directories"].toArray();
+
+        for (auto it = array.begin(); it != array.end(); ++it)
+        {
+            auto objectJson = it->toObject();
+            auto dir = std::make_shared<Directory>();
+            dir->setId(QUuid(objectJson["id"].toString()));
+            dir->setObjectName(objectJson["name"].toString());
+            dir->setEventId(QUuid(objectJson["eventId"].toString()));
+            dir->setUserLevel(objectJson["userLevel"].toInt());
+            dir->read(objectJson["data"].toObject());
+            addDirectory(dir);
+        }
+    }
 
     setModified(false);
 
@@ -3889,6 +3945,29 @@ void Analysis::write(QJsonObject &json) const
 
     if (!props.isEmpty())
         json["properties"] = props;
+
+    // Directory Objects
+    {
+        QJsonArray destArray;
+
+        for (const auto &dir: m_directories)
+        {
+            QJsonObject destObject;
+
+            destObject["id"]        = dir->getId().toString();
+            destObject["name"]      = dir->objectName();
+            destObject["eventId"]   = dir->getEventId().toString();
+            destObject["userLevel"] = dir->getUserLevel();
+
+            QJsonObject dataJson;
+            dir->write(dataJson);
+
+            destObject["data"] = dataJson;
+            destArray.append(destObject);
+        }
+
+        json["directories"] = destArray;
+    }
 }
 
 //
