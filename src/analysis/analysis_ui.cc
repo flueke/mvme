@@ -346,14 +346,14 @@ Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
 
     auto histoSink = getPointer<Histo1DSink>(sinkNode);
     result.histos = histoSink->m_histos;
-    result.sink = std::dynamic_pointer_cast<Histo1DSink>(histoSink->getSharedPointer());
+    result.sink = std::dynamic_pointer_cast<Histo1DSink>(histoSink->shared_from_this());
 
     // Check if the histosinks input is a CalibrationMinMax
     if (Pipe *sinkInputPipe = histoSink->getSlot(0)->inputPipe)
     {
         if (auto calibRaw = qobject_cast<CalibrationMinMax *>(sinkInputPipe->getSource()))
         {
-            result.calib = std::dynamic_pointer_cast<CalibrationMinMax>(calibRaw->getSharedPointer());
+            result.calib = std::dynamic_pointer_cast<CalibrationMinMax>(calibRaw->shared_from_this());
         }
     }
 
@@ -1343,7 +1343,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 auto rawOpPtr = getPointer<OperatorInterface>(node);
                 Q_ASSERT(rawOpPtr);
 
-                auto op = std::dynamic_pointer_cast<OperatorInterface>(rawOpPtr->getSharedPointer());
+                auto op = std::dynamic_pointer_cast<OperatorInterface>(rawOpPtr->shared_from_this());
 
                 if (op->getNumberOfOutputs() == 1)
                 {
@@ -1631,7 +1631,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                         auto histo = histoSink->m_histo;
                         if (histo)
                         {
-                            auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(histoSink->getSharedPointer());
+                            auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(histoSink->shared_from_this());
 
                             menu.addAction(QSL("Open Histogram"), m_q, [this, histo, sinkPtr, userLevel]() {
 
@@ -1700,7 +1700,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             case NodeType_Sink:
                 if (auto ex = qobject_cast<ExportSink *>(obj))
                 {
-                    auto sinkPtr = std::dynamic_pointer_cast<ExportSink>(ex->getSharedPointer());
+                    auto sinkPtr = std::dynamic_pointer_cast<ExportSink>(ex->shared_from_this());
                     menu.addAction("Open Status Monitor", m_q, [this, sinkPtr]() {
                         if (!m_context->hasObjectWidget(sinkPtr.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                         {
@@ -1724,7 +1724,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
 
         if (auto opRawPtr = qobject_cast<OperatorInterface *>(obj))
         {
-            auto op = std::dynamic_pointer_cast<OperatorInterface>(opRawPtr->getSharedPointer());
+            auto op = std::dynamic_pointer_cast<OperatorInterface>(opRawPtr->shared_from_this());
             assert(op);
 
 
@@ -2423,7 +2423,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
             case NodeType_Histo2DSink:
                 {
-                    auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(getPointer<Histo2DSink>(node)->getSharedPointer());
+                    auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(getPointer<Histo2DSink>(node)->shared_from_this());
 
                     if (!sinkPtr->m_histo)
                         break;
@@ -2461,7 +2461,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                 } break;
 
             case NodeType_Sink:
-                if (auto rms = std::dynamic_pointer_cast<RateMonitorSink>(getPointer<RateMonitorSink>(node)->getSharedPointer()))
+                if (auto rms = std::dynamic_pointer_cast<RateMonitorSink>(getPointer<RateMonitorSink>(node)->shared_from_this()))
                 {
                     if (!m_context->hasObjectWidget(rms.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
@@ -2481,7 +2481,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         m_context->activateObjectWidget(rms.get());
                     }
                 }
-                else if (auto ex = std::dynamic_pointer_cast<ExportSink>(getPointer<ExportSink>(node)->getSharedPointer()))
+                else if (auto ex = std::dynamic_pointer_cast<ExportSink>(getPointer<ExportSink>(node)->shared_from_this()))
                 {
                     if (!m_context->hasObjectWidget(ex.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {

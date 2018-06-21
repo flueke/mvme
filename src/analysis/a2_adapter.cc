@@ -102,7 +102,7 @@ do                                                          \
 {                                                           \
     assert(slot->inputPipe);                                \
     assert(slot->inputPipe->source);                        \
-    assert(slot->inputPipe->source->getSharedPointer());    \
+    assert(slot->inputPipe->source->shared_from_this());    \
 } while (0)
 
 using InputSlots = QVector<analysis::Slot *>;
