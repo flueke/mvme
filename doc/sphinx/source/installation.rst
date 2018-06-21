@@ -6,10 +6,8 @@ Installation
 System Requirements
 ==================================================
 
-* Any recent Linux distribution or a version of Windows 7 or later.
-
-  Both 64- and 32-bit systems are supported but the 64-bit version is
-  recommended due to the larger address space.
+* Any recent 64-bit Linux distribution or a 64-bit version of Windows 7 or
+  later.
 
 * If using the `WIENER`_ VM-USB VME Controller:
 
