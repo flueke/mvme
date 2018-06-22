@@ -3434,13 +3434,77 @@ DirectoryPtr Analysis::getDirectory(const QUuid &id) const
 
 DirectoryPtr Analysis::getParentDirectory(const AnalysisObjectPtr &obj) const
 {
-    // Returns the first parent directory that matches. GUI/other logic has to ensure that
-    // objects are only members of a single directory for things to work properly.
+    // Returns the first parent directory that contains the given object.
 
     for (const auto &dir: m_directories)
     {
         if (dir->contains(obj))
             return dir;
+    }
+
+    return nullptr;
+}
+
+AnalysisObjectVector Analysis::getDirectoryContents(const QUuid &directoryId) const
+{
+    return getDirectoryContents(getDirectory(directoryId));
+}
+
+AnalysisObjectVector Analysis::getDirectoryContents(const DirectoryPtr &dir) const
+{
+    AnalysisObjectVector result;
+
+    if (dir)
+    {
+        for (auto id: dir->getMembers())
+        {
+            result.push_back(getObject(id));
+        }
+    }
+
+    return result;
+}
+
+class IdComparator
+{
+    public:
+        IdComparator(const QUuid &idToMatch)
+            : m_id(idToMatch)
+        { }
+
+        template<typename T>
+        bool operator()(const T &obj)
+        {
+            return m_id == obj->getId();
+        }
+
+    private:
+        QUuid m_id;
+};
+
+AnalysisObjectPtr Analysis::getObject(const QUuid &id) const
+{
+    IdComparator cmp(id);
+
+    {
+        auto it = std::find_if(m_sources.begin(), m_sources.end(), cmp);
+
+        if (it != m_sources.end())
+            return *it;
+    }
+
+    {
+        auto it = std::find_if(m_operators.begin(), m_operators.end(), cmp);
+
+        if (it != m_operators.end())
+            return *it;
+    }
+
+    {
+        auto it = std::find_if(m_directories.begin(), m_directories.end(), cmp);
+
+        if (it != m_directories.end())
+            return *it;
     }
 
     return nullptr;

@@ -542,6 +542,9 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
             m_displayLocation = loc;
         }
 
+        void remove(int index) { m_members.removeAt(index); }
+        void remove(const AnalysisObjectPtr &obj) { remove(obj->getId()); }
+        void remove(const QUuid &id) { m_members.removeAll(id); }
 
     private:
         MemberContainer m_members;
@@ -1744,6 +1747,13 @@ class LIBMVME_EXPORT Analysis: public AnalysisObject
         int directoryCount() const { return m_directories.size(); }
 
         DirectoryPtr getParentDirectory(const AnalysisObjectPtr &obj) const;
+        AnalysisObjectVector getDirectoryContents(const QUuid &directoryId) const;
+        AnalysisObjectVector getDirectoryContents(const DirectoryPtr &directory) const;
+
+        //
+        // Untyped Object access
+        //
+        AnalysisObjectPtr getObject(const QUuid &id) const;
 
         //
         // Pre and post run work
@@ -1869,8 +1879,10 @@ void LIBMVME_EXPORT generate_new_object_ids(Analysis *analysis);
 
 QString LIBMVME_EXPORT info_string(const Analysis *analysis);
 
-void LIBMVME_EXPORT adjust_userlevel_forward(const OperatorVector &operators,
-                                             OperatorInterface *op,
+/** Adjusts the userlevel of all the dependees of the given operator_ by the specified
+ * levelDelta. */
+void LIBMVME_EXPORT adjust_userlevel_forward(const OperatorVector &allOperators,
+                                             OperatorInterface *operator_,
                                              s32 levelDelta);
 
 } // end namespace analysis
