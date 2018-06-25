@@ -116,13 +116,107 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Data
     return raw ? raw->shared_from_this() : AnalysisObjectPtr();
 }
 
+/* QTreeWidgetItem does not support setting separate values for Qt::DisplayRole and
+ * Qt::EditRole. This subclass removes this limitation.
+ *
+ * The implementation keeps track of whether DisplayRole and EditRole data have been set.
+ * If specific data for the requested role is available it will be returned, otherwise the
+ * other roles data is returned.
+ *
+ * NOTE: Do not use for the headerview as that requires special handling which needs
+ * access to the private QTreeModel class.
+ * Link to the Qt code: https://code.woboq.org/qt5/qtbase/src/widgets/itemviews/qtreewidget.cpp.html#_ZN15QTreeWidgetItem7setDataEiiRK8QVariant
+ */
 class TreeNode: public QTreeWidgetItem
 {
     public:
-        using QTreeWidgetItem::QTreeWidgetItem;
+        TreeNode(int type = QTreeWidgetItem::Type)
+            : QTreeWidgetItem(type)
+        { }
+
+        TreeNode(const QStringList &strings, int type = QTreeWidgetItem::Type)
+            : QTreeWidgetItem(type)
+        {
+            for (int i = 0; i < strings.size(); i++)
+            {
+                setText(i, strings.at(i));
+            }
+        }
+
+        virtual void setData(int column, int role, const QVariant &value) override
+        {
+            if (column < 0)
+                return;
+
+            if (role != Qt::DisplayRole && role != Qt::EditRole)
+            {
+                QTreeWidgetItem::setData(column, role, value);
+                return;
+            }
+
+            if (column >= m_columnData.size())
+            {
+                m_columnData.resize(column + 1);
+            }
+
+            auto &entry = m_columnData[column];
+
+            switch (role)
+            {
+                case Qt::DisplayRole:
+                    if (entry.displayData != value)
+                    {
+                        entry.displayData = value;
+                        entry.flags |= Data::HasDisplayData;
+                        emitDataChanged();
+                    }
+                    break;
+
+                case Qt::EditRole:
+                    if (entry.editData != value)
+                    {
+                        entry.editData = value;
+                        entry.flags |= Data::HasEditData;
+                        emitDataChanged();
+                    }
+                    break;
+
+                InvalidDefaultCase;
+            }
+        }
+
+        virtual QVariant data(int column, int role) const override
+        {
+            if (role != Qt::DisplayRole && role != Qt::EditRole)
+            {
+                return QTreeWidgetItem::data(column, role);
+            }
+
+            if (0 <= column && column < m_columnData.size())
+            {
+                const auto &entry = m_columnData[column];
+
+                switch (role)
+                {
+                    case Qt::DisplayRole:
+                        if (entry.flags & Data::HasDisplayData)
+                            return entry.displayData;
+                        return entry.editData;
+
+                    case Qt::EditRole:
+                        if (entry.flags & Data::HasEditData)
+                            return entry.editData;
+                        return entry.displayData;
+
+                    InvalidDefaultCase;
+                }
+            }
+
+            return QVariant();
+        }
 
         // Custom sorting for numeric columns
-        virtual bool operator<(const QTreeWidgetItem &other) const
+        virtual bool operator<(const QTreeWidgetItem &other) const override
         {
             if (type() == other.type() && treeWidget() && treeWidget()->sortColumn() == 0)
             {
@@ -142,52 +236,17 @@ class TreeNode: public QTreeWidgetItem
             return QTreeWidgetItem::operator<(other);
         }
 
-        /* Invoked when editing an item via F2 or QTreeWidget::editItem() */
-        virtual void setData(int column, int role, const QVariant &value)
+    private:
+        struct Data
         {
-            if (column == 0 && role == Qt::EditRole)
-            {
-                if (value.toString().indexOf("<b>") >= 0)
-                {
-                    qDebug() << "value is" << value.toString();
-                    assert(false);
-                }
+            static const u8 HasDisplayData = 1u << 0;
+            static const u8 HasEditData    = 1u << 1;
+            QVariant displayData;
+            QVariant editData;
+            u8 flags = 0u;
+        };
 
-                if (auto obj = get_pointer<AnalysisObject>(this))
-                {
-                    bool modified = value.toString() != obj->objectName();
-
-                    obj->setObjectName(value.toString());
-                    if (auto tw = qobject_cast<ObjectTree *>(treeWidget()))
-                    {
-                        if (modified)
-                            tw->getEventWidget()->getAnalysis()->setModified(true);
-                    }
-
-                    if (auto op = qobject_cast<OperatorInterface *>(obj))
-                    {
-                        QTreeWidgetItem::setData(0, Qt::EditRole, op->objectName());
-                        QTreeWidgetItem::setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
-                                op->getShortName(),
-                                op->objectName()));
-
-                        qDebug() << __PRETTY_FUNCTION__
-                            << "EditRole =" << data(0, Qt::EditRole)
-                            << ", DisplayRole =" << data(0, Qt::DisplayRole);
-                    }
-                }
-            }
-            else
-            {
-                if ((role == Qt::DisplayRole && type() == NodeType_Operator)
-                    || role == Qt::EditRole)
-                {
-                    qDebug() << __PRETTY_FUNCTION__ << "forwarding to QTreeWidgetItem:"
-                        << " column=" << column << ", role=" << role << ", value=" << value;
-                }
-                QTreeWidgetItem::setData(column, role, value);
-            }
-        }
+        QVector<Data> m_columnData;
 };
 
 template<typename T>
@@ -210,7 +269,8 @@ inline TreeNode *make_module_node(ModuleConfig *mod)
 inline TreeNode *make_datasource_node(SourceInterface *source)
 {
     auto sourceNode = make_node(source, NodeType_Source);
-    sourceNode->setText(0, source->objectName());
+    sourceNode->setData(0, Qt::DisplayRole, source->objectName());
+    sourceNode->setData(0, Qt::EditRole, source->objectName());
     sourceNode->setFlags(sourceNode->flags() | Qt::ItemIsEditable);
 
     auto icon = QIcon(":/data_filter.png");
@@ -281,9 +341,13 @@ static QIcon make_operator_icon(OperatorInterface *op)
 inline TreeNode *make_histo1d_node(Histo1DSink *sink)
 {
     auto node = make_node(sink, NodeType_Histo1DSink);
-    node->setText(0, QString("<b>%1</b> %2").arg(
+
+    node->setData(0, Qt::EditRole, sink->objectName());
+    node->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
             sink->getShortName(),
             sink->objectName()));
+
+
     node->setIcon(0, make_operator_icon(sink));
     node->setFlags(node->flags() | Qt::ItemIsEditable);
 
@@ -307,7 +371,8 @@ inline TreeNode *make_histo1d_node(Histo1DSink *sink)
 inline TreeNode *make_histo2d_node(Histo2DSink *sink)
 {
     auto node = make_node(sink, NodeType_Histo2DSink);
-    node->setText(0, QString("<b>%1</b> %2").arg(
+    node->setData(0, Qt::EditRole, sink->objectName());
+    node->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
             sink->getShortName(),
             sink->objectName()));
     node->setIcon(0, make_operator_icon(sink));
@@ -319,7 +384,8 @@ inline TreeNode *make_histo2d_node(Histo2DSink *sink)
 inline TreeNode *make_sink_node(SinkInterface *sink)
 {
     auto node = make_node(sink, NodeType_Sink);
-    node->setText(0, QString("<b>%1</b> %2").arg(
+    node->setData(0, Qt::EditRole, sink->objectName());
+    node->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
             sink->getShortName(),
             sink->objectName()));
     node->setIcon(0, make_operator_icon(sink));
@@ -333,9 +399,9 @@ inline TreeNode *make_operator_node(OperatorInterface *op)
     auto result = make_node(op, NodeType_Operator);
 
     result->setData(0, Qt::EditRole, op->objectName());
-    //result->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
-    //        op->getShortName(),
-    //        op->objectName()));
+    result->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
+            op->getShortName(),
+            op->objectName()));
 
     result->setIcon(0, make_operator_icon(op));
     result->setFlags(result->flags() | Qt::ItemIsEditable);
@@ -562,7 +628,7 @@ bool ObjectTree::dropMimeData(QTreeWidgetItem *parentItem,
             auto sink = std::dynamic_pointer_cast<SinkInterface>(obj);
 
             if (sink && !isSinkTree) continue;
-            if (op && isSinkTree) continue;
+            if (!sink && isSinkTree) continue;
 
             if (auto sourceDir = analysis->getParentDirectory(obj))
             {
@@ -815,6 +881,7 @@ struct EventWidgetPrivate
     void clearAllToDefaultNodeHighlights();
     void onNodeClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel);
+    void onNodeChanged(TreeNode *node, int column, s32 userLevel);
     void clearAllTreeSelections();
     void clearTreeSelectionsExcept(QTreeWidget *tree);
     void generateDefaultFilters(ModuleConfig *module);
@@ -868,7 +935,7 @@ UserLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &di
 
     result.operatorTree->setObjectName(opTitle);
     result.operatorTree->headerItem()->setText(0, opTitle);
-    result.operatorTree->setSelectionMode(QAbstractItemView::SingleSelection);
+    result.operatorTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
     result.sinkTree->setObjectName(dispTitle);
     result.sinkTree->headerItem()->setText(0, dispTitle);
@@ -1145,6 +1212,7 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
     }
     result.sinkTree->sortItems(0, Qt::AscendingOrder);
 
+
     return result;
 }
 
@@ -1194,6 +1262,10 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
             onNodeDoubleClicked(reinterpret_cast<TreeNode *>(node), column, levelIndex);
         });
 
+        QObject::connect(tree, &QTreeWidget::itemChanged,
+                         m_q, [this, levelIndex] (QTreeWidgetItem *item, int column) {
+            onNodeChanged(reinterpret_cast<TreeNode *>(item), column, levelIndex);
+        });
 
         QObject::connect(tree, &QTreeWidget::currentItemChanged,
                          m_q, [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous) {
@@ -2799,6 +2871,58 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     }
                 }
                 break;
+        }
+    }
+}
+
+void EventWidgetPrivate::onNodeChanged(TreeNode *node, int column, s32 userLevel)
+{
+    if (column != 0)
+        return;
+
+    switch (node->type())
+    {
+        case NodeType_Source:
+        case NodeType_Operator:
+        case NodeType_Histo1DSink:
+        case NodeType_Histo2DSink:
+        case NodeType_Sink:
+        case NodeType_Directory:
+            break;
+
+        default:
+            return;
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << node << column << userLevel;
+
+
+    if (auto obj = get_pointer<AnalysisObject>(node))
+    {
+        auto value    = node->data(0, Qt::EditRole).toString();
+        bool modified = value != obj->objectName();
+
+        //qDebug() << __PRETTY_FUNCTION__
+        //    << "node =" << node
+        //    << ", value =" << value
+        //    << ", objName =" << obj->objectName()
+        //    << ", modified =" << modified;
+
+        if (modified)
+        {
+            obj->setObjectName(value);
+            m_q->getAnalysis()->setModified(true);
+
+            if (auto op = qobject_cast<OperatorInterface *>(obj))
+            {
+                node->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
+                        op->getShortName(),
+                        op->objectName()));
+            }
+            else
+            {
+                node->setData(0, Qt::DisplayRole, value);
+            }
         }
     }
 }
