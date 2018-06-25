@@ -286,6 +286,32 @@ QString getClassName(T *obj)
 }
 
 //
+// AnalysisObject
+//
+// TODO: reseed RNG seeds
+std::unique_ptr<AnalysisObject> AnalysisObject::clone() const
+{
+    auto qobjectPtr  = metaObject()->newInstance();
+    auto downcastPtr = qobject_cast<AnalysisObject *>(qobjectPtr);
+    assert(downcastPtr);
+
+    std::unique_ptr<AnalysisObject> result(downcastPtr);
+
+    // Use the JSON serialization layer to clone object data.
+    {
+        QJsonObject tmpStorage;
+        this->write(tmpStorage);
+        result->read(tmpStorage);
+    }
+
+    result->setObjectName(this->objectName() + QSL(" (copy)"));
+
+    post_clone(result.get());
+
+    return result;
+}
+
+//
 // Pipe
 //
 
@@ -3074,7 +3100,7 @@ QString ExportSink::getExportFileBasename() const
 static const size_t A2ArenaSegmentSize = Kilobytes(256);
 
 Analysis::Analysis(QObject *parent)
-    : AnalysisObject(parent)
+    : QObject(parent)
     , m_modified(false)
     , m_timetickCount(0.0)
     , m_a2ArenaIndex(0)

@@ -136,7 +136,7 @@ class LIBMVME_EXPORT AnalysisObject:
          * constructor. */
         void setId(const QUuid &id) { m_id = id; }
 
-        /** Object flags containing system internal information. */
+        /* Object flags containing system internal information. */
         ObjectFlags::Flags getObjectFlags() const { return m_flags; }
         void setObjectFlags(ObjectFlags::Flags flags) { m_flags = flags; }
         void clearObjectFlags(ObjectFlags::Flags flagsToClear)
@@ -144,9 +144,17 @@ class LIBMVME_EXPORT AnalysisObject:
             m_flags &= (~flagsToClear);
         }
 
-        /** User defined level used for UI display structuring. */
+        /* User defined level used for UI display structuring. */
         s32 getUserLevel() const { return m_userLevel; }
         void setUserLevel(s32 level) { m_userLevel = level; }
+
+        /* JSON serialization and cloning */
+        virtual void read(const QJsonObject &json) = 0;
+        virtual void write(QJsonObject &json) const = 0;
+        std::unique_ptr<AnalysisObject> clone() const;
+
+    protected:
+        virtual void post_clone(AnalysisObject *clone) const {}
 
     private:
         ObjectFlags::Flags m_flags = ObjectFlags::None;
@@ -168,7 +176,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
         PipeSourceInterface(QObject *parent = 0)
             : AnalysisObject(parent)
         {
-            //qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
+            //qDebug() << __PRETTY_FUNCTION__ << reinterpret_;
         }
 
         virtual ~PipeSourceInterface()
@@ -387,9 +395,6 @@ class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
          * This will also be called by Analysis UI to be able to get array
          * sizes from operator output pipes! */
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override {}
-
-        virtual void read(const QJsonObject &json) = 0;
-        virtual void write(QJsonObject &json) const = 0;
 
         virtual ~SourceInterface() {}
 
@@ -1646,7 +1651,7 @@ class LIBMVME_EXPORT Registry
         QMap<QString, SinkInterface *(*)()> m_sinkRegistry;
 };
 
-class LIBMVME_EXPORT Analysis: public AnalysisObject
+class LIBMVME_EXPORT Analysis: public QObject
 {
     Q_OBJECT
     signals:
@@ -1796,6 +1801,14 @@ class LIBMVME_EXPORT Analysis: public AnalysisObject
         ReadResult read(const QJsonObject &json, VMEConfig *vmeConfig = nullptr);
         void write(QJsonObject &json) const;
 
+        /* Object flags containing system internal information. */
+        ObjectFlags::Flags getObjectFlags() const { return m_flags; }
+        void setObjectFlags(ObjectFlags::Flags flags) { m_flags = flags; }
+        void clearObjectFlags(ObjectFlags::Flags flagsToClear)
+        {
+            m_flags &= (~flagsToClear);
+        }
+
         //
         // Misc
         //
@@ -1831,6 +1844,7 @@ class LIBMVME_EXPORT Analysis: public AnalysisObject
         OperatorVector m_operators;
         DirectoryVector m_directories;
         QMap<QUuid, QVariantMap> m_vmeObjectSettings;
+        ObjectFlags::Flags m_flags = ObjectFlags::None;
 
         Registry m_registry;
 
