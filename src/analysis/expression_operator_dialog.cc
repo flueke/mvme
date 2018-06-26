@@ -228,12 +228,14 @@ void ExpressionOperatorPipeView::copy()
 {
     qDebug() << __PRETTY_FUNCTION__;
     if (!isDataEditable()) return;
+    // TODO: implement copy()
 }
 
 void ExpressionOperatorPipeView::paste()
 {
     qDebug() << __PRETTY_FUNCTION__;
     if (!isDataEditable()) return;
+    // TODO: implement paste()
 }
 
 //

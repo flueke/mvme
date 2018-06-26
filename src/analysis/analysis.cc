@@ -288,7 +288,7 @@ QString getClassName(T *obj)
 //
 // AnalysisObject
 //
-// TODO: reseed RNG seeds
+
 std::unique_ptr<AnalysisObject> AnalysisObject::clone() const
 {
     auto qobjectPtr  = metaObject()->newInstance();
@@ -305,8 +305,9 @@ std::unique_ptr<AnalysisObject> AnalysisObject::clone() const
     }
 
     result->setObjectName(this->objectName() + QSL(" (copy)"));
-
-    post_clone(result.get());
+    result->setUserLevel(this->getUserLevel());
+    result->setEventId(this->getEventId());
+    result->postClone(this); // Let subclasses pull additional information from 'this'.
 
     return result;
 }
@@ -368,6 +369,16 @@ void Slot::disconnectPipe()
 }
 
 //
+// SourceInterface
+//
+void SourceInterface::postClone(const AnalysisObject *cloneSource)
+{
+    auto si = qobject_cast<SourceInterface *>(cloneSource);
+    assert(si);
+    this->setModuleId(si->getModuleId());
+}
+
+//
 // OperatorInterface
 //
 // FIXME: does not perform acceptedInputTypes validity test atm!
@@ -414,6 +425,17 @@ s32 OperatorInterface::getMaximumOutputRank()
     }
 
     return result;
+}
+
+//
+// SinkInterface
+//
+
+void SinkInterface::postClone(const AnalysisObject *cloneSource)
+{
+    auto si = qobject_cast<SinkInterface *>(cloneSource);
+    assert(si);
+    this->setEnabled(si->isEnabled());
 }
 
 //
@@ -610,6 +632,13 @@ void Extractor::write(QJsonObject &json) const
     json["options"] = static_cast<s32>(m_options);
 }
 
+void Extractor::postClone(const AnalysisObject *cloneSource)
+{
+    // Generate a new seed for the clone
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
+}
+
 //
 // ListFilterExtractor
 //
@@ -661,6 +690,13 @@ void ListFilterExtractor::read(const QJsonObject &json)
     QString sSeed = json["rngSeed"].toString();
     m_rngSeed = sSeed.toULongLong(nullptr, 16);
     m_a2Extractor.options = static_cast<Options::opt_t>(json["options"].toInt());
+}
+
+void ListFilterExtractor::postClone(const AnalysisObject *cloneSource)
+{
+    // Generate a new seed for the clone
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
 }
 
 //
@@ -3900,6 +3936,8 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
 
                 if (auto sink = qobject_cast<SinkInterface *>(op.get()))
                 {
+                    // FIXME: move into SinkInterface::read and the counterpart into
+                    // SinkInterface::write
                     sink->setEnabled(objectJson["enabled"].toBool(true));
                 }
 

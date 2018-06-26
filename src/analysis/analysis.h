@@ -153,13 +153,23 @@ class LIBMVME_EXPORT AnalysisObject:
         virtual void write(QJsonObject &json) const = 0;
         std::unique_ptr<AnalysisObject> clone() const;
 
+        /** The id of the VME event this object is a member of. */
+        QUuid getEventId() const { return m_eventId; }
+        void setEventId(const QUuid &id) { m_eventId = id; }
+
     protected:
-        virtual void post_clone(AnalysisObject *clone) const {}
+        /* Invoked by the clone() method on the cloned object. The source of the clone is
+         * passed in cloneSource.
+         * The purpose of this method is to pull any additional required information from
+         * cloneSource and copy it to the clone.
+         * Also steps like creating a new random seed have to be performed here. */
+        virtual void postClone(const AnalysisObject *cloneSource) {}
 
     private:
         ObjectFlags::Flags m_flags = ObjectFlags::None;
         QUuid m_id;
         s32 m_userLevel;
+        QUuid m_eventId;
 };
 
 using AnalysisObjectPtr = std::shared_ptr<AnalysisObject>;
@@ -198,16 +208,10 @@ class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) = 0;
         virtual void endRun() {};
 
-        /** The id of the VME event this object is a member of. */
-        QUuid getEventId() const { return m_eventId; }
-        void setEventId(const QUuid &id) { m_eventId = id; }
-
-
         virtual void clearState() {}
 
     private:
         PipeSourceInterface() = delete;
-        QUuid m_eventId;
 };
 
 using PipeSourcePtr = std::shared_ptr<PipeSourceInterface>;
@@ -403,6 +407,9 @@ class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
         QUuid getModuleId() const { return m_moduleId; }
         void setModuleId(const QUuid &id) { m_moduleId = id; }
 
+    protected:
+        virtual void postClone(const AnalysisObject *cloneSource) override;
+
     private:
         QUuid m_moduleId;
 };
@@ -422,9 +429,6 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
         virtual s32 getNumberOfSlots() const = 0;
 
         virtual Slot *getSlot(s32 slotIndex) = 0;
-
-        virtual void read(const QJsonObject &json) = 0;
-        virtual void write(QJsonObject &json) const = 0;
 
         /* If paramIndex is Slot::NoParamIndex the operator should use the whole array. */
         void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex);
@@ -479,6 +483,9 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
          * work as dependencies have to be managed. */
         void setEnabled(bool b) { m_enabled = b; }
         bool isEnabled() const  { return m_enabled; }
+
+    protected:
+        virtual void postClone(const AnalysisObject *cloneSource) override;
 
     private:
         bool m_enabled = true;
@@ -610,6 +617,7 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
         void setOptions(Options::opt_t options) { m_options = options; }
 
         // configuration
+        // FIXME: make private
         MultiWordDataFilter m_filter;
         a2::data_filter::MultiWordFilter m_fastFilter;
         u32 m_requiredCompletionCount = 1;
@@ -617,6 +625,9 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         Pipe m_output;
         Options::opt_t m_options;
+
+    protected:
+        virtual void postClone(const AnalysisObject *cloneSource) override;
 };
 
 class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
@@ -647,6 +658,9 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         using Options = a2::DataSourceOptions;
         Options::opt_t getOptions() const { return m_a2Extractor.options; }
         void setOptions(Options::opt_t options) { m_a2Extractor.options = options; }
+
+    protected:
+        virtual void postClone(const AnalysisObject *cloneSource) override;
 
     private:
         Pipe m_output;
