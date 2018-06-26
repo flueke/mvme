@@ -871,7 +871,7 @@ struct EventWidgetPrivate
     s32 getUserLevelForTree(QTreeWidget *tree);
 
     void doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
-    void doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
+    void doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
 
     void modeChanged();
     void highlightValidInputNodes(QTreeWidgetItem *node);
@@ -1243,7 +1243,7 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
 
     QObject::connect(dispTree, &QWidget::customContextMenuRequested,
                      m_q, [this, dispTree, levelIndex] (QPoint pos) {
-        doDisplayTreeContextMenu(dispTree, pos, levelIndex);
+        doSinkTreeContextMenu(dispTree, pos, levelIndex);
     });
 
     for (auto tree: {opTree, reinterpret_cast<ObjectTree *>(dispTree)})
@@ -1622,7 +1622,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             if (sourceInterface)
             {
                 Q_ASSERT_X(sourceInterface->getNumberOfOutputs() == 1,
-                           "doDisplayTreeContextMenu",
+                           "doSinkTreeContextMenu",
                            "data sources with multiple outputs are not supported");
 
                 auto pipe = sourceInterface->getOutput(0);
@@ -1831,7 +1831,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 }
 
 /* Context menu for the display/sink trees (bottom). */
-void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
+void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
 {
     Q_ASSERT(userLevel >= 0 && userLevel < m_levelTrees.size());
 
@@ -2280,8 +2280,8 @@ static bool forward_path_exists(PipeSourceInterface *from, PipeSourceInterface *
     return false;
 }
 
-static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot,
-                             QSet<PipeSourceInterface *> additionalInvalidSources)
+static bool is_valid_input_node(QTreeWidgetItem *node, Slot *slot,
+                                QSet<PipeSourceInterface *> additionalInvalidSources)
 {
     PipeSourceInterface *dstObject = slot->parentOperator;
     Q_ASSERT(dstObject);
@@ -2320,10 +2320,13 @@ static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot,
     {
         result = false;
     }
-    else if (forward_path_exists(srcObject, dstObject))
-    {
-        result = false;
-    }
+    // FIXME: enabling this breaks input selection for Histo2DSink: selecting the first
+    // axis input works. this then created a forward path and selecting input for the 2nd
+    // axis from the same input pipe is not allowed anymore
+    //else if (forward_path_exists(srcObject, dstObject))
+    //{
+    //    result = false;
+    //}
     else if ((slot->acceptedInputTypes & InputType::Array)
         && (node->type() == NodeType_Operator || node->type() == NodeType_Source))
     {
@@ -2360,7 +2363,7 @@ static const QColor MissingInputColor           = QColor(0xB2, 0x22, 0x22, 255.0
 
 void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
 {
-    if (isValidInputNode(node, m_inputSelectInfo.slot, m_inputSelectInfo.additionalInvalidSources))
+    if (is_valid_input_node(node, m_inputSelectInfo.slot, m_inputSelectInfo.additionalInvalidSources))
     {
         node->setBackground(0, ValidInputNodeColor);
     }
@@ -2648,7 +2651,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
 
         case SelectInput:
             {
-                if (isValidInputNode(node, m_inputSelectInfo.slot,
+                if (is_valid_input_node(node, m_inputSelectInfo.slot,
                                      m_inputSelectInfo.additionalInvalidSources)
                     && getUserLevelForTree(node->treeWidget()) <= m_inputSelectInfo.userLevel)
                 {
@@ -3681,6 +3684,9 @@ void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback 
     m_d->m_inputSelectInfo.userLevel = userLevel;
     m_d->m_inputSelectInfo.callback = callback;
     m_d->m_inputSelectInfo.additionalInvalidSources = additionalInvalidSources;
+
+    //qDebug() << __PRETTY_FUNCTION__ << "additionalInvalidSources ="
+    //    << additionalInvalidSources;
 
     m_d->m_mode = EventWidgetPrivate::SelectInput;
     m_d->modeChanged();
