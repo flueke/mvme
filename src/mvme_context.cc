@@ -2172,13 +2172,15 @@ QJsonDocument MVMEContext::getAnalysisJsonDocument() const
     return doc;
 }
 
-void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel)
+void MVMEContext::addAnalysisOperator(QUuid eventId,
+                                      const std::shared_ptr<analysis::OperatorInterface> &op,
+                                      s32 userLevel)
 {
-    auto eventConfig = m_vmeConfig->getEventConfig(eventId);
-    if (eventConfig)
+    if (auto eventConfig = m_vmeConfig->getEventConfig(eventId))
     {
         AnalysisPauser pauser(this);
         getAnalysis()->addOperator(eventId, userLevel, op);
+        getAnalysis()->beginRun(analysis::Analysis::KeepState);
 
         if (m_analysisUi)
         {
@@ -2190,13 +2192,8 @@ void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analy
 void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
 {
     AnalysisPauser pauser(this);
-    m_analysis->setModified();
-
-    auto runInfo = getRunInfo();
-    auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(getVMEConfig());
-
-    getAnalysis()->beginRun(runInfo, vmeMap,
-                            [this](const QString &msg) { this->logMessage(msg); });
+    getAnalysis()->operatorEdited(op);
+    getAnalysis()->beginRun(analysis::Analysis::KeepState);
 
     if (m_analysisUi)
     {
