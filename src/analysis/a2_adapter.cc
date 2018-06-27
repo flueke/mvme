@@ -6,8 +6,8 @@
 #include <QMetaObject>
 #include <QMetaClassInfo>
 
-#ifndef NDEBUG
-//#if 1
+//#ifndef NDEBUG
+#if 0
 
 #define LOG(fmt, ...)\
 do\

@@ -2897,8 +2897,8 @@ void EventWidgetPrivate::onNodeChanged(TreeNode *node, int column, s32 userLevel
             return;
     }
 
-    qDebug() << __PRETTY_FUNCTION__ << node << column << userLevel;
-
+    //qDebug() << __PRETTY_FUNCTION__
+    //    << "node =" << node << ", col =" << column << ", userLevel =" << userLevel;
 
     if (auto obj = get_pointer<AnalysisObject>(node))
     {

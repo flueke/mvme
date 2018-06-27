@@ -181,8 +181,8 @@ Additional/Advanced Features:
 * efficiency: when the efficiency is slightly below 100% the display will still
   show a 1.00 due to rounding. maybe color the number if it's not 100%.
 
-* New Export/ListfileFilter Idea: use an operator to decide whether a full VME
-  data event should be copied to an output listfile or be suppressed.
+* New Export/ListfileFilter Idea: use an operator to decide whether a full, raw
+  VME data event should be copied to an output listfile or be suppressed.
   This is basically a copy and filter operation for listfile with the decision
   being made at an arbitrary point in the analysis for the specific event.
   This needs access to the raw input data.
@@ -299,7 +299,6 @@ More ideas from Robert:
 * Add a "system" event containing the current timetick count and systems stats,
   rates, etc.
 
-* The generated CLI tools do not generate good output filenames. Manually
 * The export sink needs to log which output file is being written! Right now
   it's all very mysterious.
 * The generated CLI tools do not generated good output filenames. Manually
