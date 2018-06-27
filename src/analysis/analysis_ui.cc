@@ -116,6 +116,14 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Data
     return raw ? raw->shared_from_this() : AnalysisObjectPtr();
 }
 
+template<typename T>
+std::shared_ptr<T> get_shared_analysis_object(QTreeWidgetItem *node,
+                                              s32 dataRole = DataRole_Pointer)
+{
+    auto objPtr = get_analysis_object(node, dataRole);
+    return std::dynamic_pointer_cast<T>(objPtr);
+}
+
 /* QTreeWidgetItem does not support setting separate values for Qt::DisplayRole and
  * Qt::EditRole. This subclass removes this limitation.
  *
@@ -901,6 +909,7 @@ struct EventWidgetPrivate
 
     void setSinksEnabled(const QVector<SinkInterface *> sinks, bool enabled);
     void removeSinks(const QVector<SinkInterface *> sinks);
+    void removeDirectory(const DirectoryPtr &dir);
 };
 
 void EventWidgetPrivate::createView(const QUuid &eventId)
@@ -1262,11 +1271,6 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
             onNodeDoubleClicked(reinterpret_cast<TreeNode *>(node), column, levelIndex);
         });
 
-        QObject::connect(tree, &QTreeWidget::itemChanged,
-                         m_q, [this, levelIndex] (QTreeWidgetItem *item, int column) {
-            onNodeChanged(reinterpret_cast<TreeNode *>(item), column, levelIndex);
-        });
-
         QObject::connect(tree, &QTreeWidget::currentItemChanged,
                          m_q, [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous) {
             if (current)
@@ -1274,6 +1278,12 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
                 clearTreeSelectionsExcept(tree);
             }
             updateActions();
+        });
+
+        // inline editing via F2
+        QObject::connect(tree, &QTreeWidget::itemChanged,
+                         m_q, [this, levelIndex] (QTreeWidgetItem *item, int column) {
+            onNodeChanged(reinterpret_cast<TreeNode *>(item), column, levelIndex);
         });
 
         TreeType treeType = (tree == opTree ? TreeType_Operator : TreeType_Sink);
@@ -1742,6 +1752,24 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     m_q->removeOperator(op.get());
                 });
             }
+        }
+
+        if (node->type() == NodeType_Directory && !m_uniqueWidget)
+        {
+
+            menu.addAction("Rename", [node] () {
+                if (auto tw = node->treeWidget())
+                {
+                    tw->editItem(node);
+                }
+            });
+
+            auto raw = get_pointer<Directory>(node);
+            auto dir = get_shared_analysis_object<Directory>(node);
+
+            menu.addAction("Remove", [this, dir] () {
+                removeDirectory(dir);
+            });
         }
     }
     else // No node selected
@@ -3351,7 +3379,8 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
     if (!event)
         return;
 
-    QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Import analysis objects"), startPath, AnalysisFileFilter);
+    QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Import analysis objects"),
+                                                    startPath, AnalysisFileFilter);
 
     if (fileName.isEmpty())
         return;
@@ -3391,11 +3420,11 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
 
     m_context->logMessage(QString("Importing %1").arg(info_string(&analysis)));
 
-    if (analysis.isEmpty())
-        return;
-
     auto sources = analysis.getSources();
     auto operators = analysis.getOperators();
+
+    if (sources.isEmpty() && operators.isEmpty())
+        return;
 
     AnalysisPauser pauser(m_context);
     auto targetAnalysis = m_context->getAnalysis();
@@ -3427,6 +3456,10 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
                                     targetUserLevel,
                                     op);
     }
+
+    targetAnalysis->beginRun(Analysis::KeepState);
+
+    // FIXME: directories
 
     repopulate();
 }
@@ -3461,6 +3494,24 @@ void EventWidgetPrivate::removeSinks(const QVector<SinkInterface *> sinks)
 
     repopulate();
     m_analysisWidget->updateAddRemoveUserLevelButtons();
+}
+
+void EventWidgetPrivate::removeDirectory(const DirectoryPtr &dir)
+{
+    auto analysis = m_context->getAnalysis();
+    auto objects = analysis->getDirectoryContents(dir);
+
+    if (!objects.isEmpty())
+    {
+        AnalysisPauser pauser(m_context);
+        analysis->removeDirectoryRecursively(dir);
+    }
+    else
+    {
+        analysis->removeDirectory(dir);
+    }
+
+    repopulate();
 }
 
 static const u32 EventWidgetPeriodicRefreshInterval_ms = 1000;
@@ -4284,6 +4335,7 @@ void AnalysisWidgetPrivate::actionImport()
 
     auto sources = analysis.getSources();
     auto operators = analysis.getOperators();
+    // FIXME: directories
 
 #ifndef QT_NO_DEBUG
     {

@@ -3514,6 +3514,11 @@ AnalysisObjectVector Analysis::getDirectoryContents(const QUuid &directoryId) co
 
 AnalysisObjectVector Analysis::getDirectoryContents(const DirectoryPtr &dir) const
 {
+    return getDirectoryContents(dir.get());
+}
+
+AnalysisObjectVector Analysis::getDirectoryContents(const Directory *dir) const
+{
     AnalysisObjectVector result;
 
     if (dir)
@@ -3525,6 +3530,15 @@ AnalysisObjectVector Analysis::getDirectoryContents(const DirectoryPtr &dir) con
     }
 
     return result;
+}
+
+int Analysis::removeDirectoryRecursively(const DirectoryPtr &dir)
+{
+    auto objects = getDirectoryContents(dir);
+    int removed = removeObjectsRecursively(objects);
+    removeDirectory(dir);
+    removed++;
+    return removed;
 }
 
 class IdComparator
@@ -3570,6 +3584,31 @@ AnalysisObjectPtr Analysis::getObject(const QUuid &id) const
     }
 
     return nullptr;
+}
+
+int Analysis::removeObjectsRecursively(const AnalysisObjectVector &objects)
+{
+    int removed = 0u;
+
+    for (const auto &obj: objects)
+    {
+        if (auto source = std::dynamic_pointer_cast<SourceInterface>(obj))
+        {
+            removeSource(source);
+            removed++;
+        }
+        else if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+        {
+            removeOperator(op);
+            removed++;
+        }
+        else if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
+        {
+            removed += removeDirectoryRecursively(dir);
+        }
+    }
+
+    return removed;
 }
 
 //
@@ -4237,7 +4276,7 @@ s32 Analysis::getMaxUserLevel(const QUuid &eventId) const
         return a->getUserLevel() < b->getUserLevel();
     });
 
-    return (it != m_operators.end() ? (*it)->getUserLevel() : 0);
+    return (it != ops.end() ? (*it)->getUserLevel() : 0);
 }
 
 void Analysis::clear()
@@ -4250,7 +4289,10 @@ void Analysis::clear()
 
 bool Analysis::isEmpty() const
 {
-    return m_sources.isEmpty() && m_operators.isEmpty();
+    return (m_sources.isEmpty()
+            && m_operators.isEmpty()
+            && m_directories.isEmpty()
+            );
 }
 
 

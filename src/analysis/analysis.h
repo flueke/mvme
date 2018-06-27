@@ -1757,7 +1757,7 @@ class LIBMVME_EXPORT Analysis: public QObject
             removeDirectory(index);
         }
 
-        void removeDirectory(const int index)
+        void removeDirectory(int index)
         {
             m_directories.removeAt(index);
             setModified();
@@ -1768,11 +1768,15 @@ class LIBMVME_EXPORT Analysis: public QObject
         DirectoryPtr getParentDirectory(const AnalysisObjectPtr &obj) const;
         AnalysisObjectVector getDirectoryContents(const QUuid &directoryId) const;
         AnalysisObjectVector getDirectoryContents(const DirectoryPtr &directory) const;
+        AnalysisObjectVector getDirectoryContents(const Directory *directory) const;
+
+        int removeDirectoryRecursively(const DirectoryPtr &dir);
 
         //
         // Untyped Object access
         //
         AnalysisObjectPtr getObject(const QUuid &id) const;
+        int removeObjectsRecursively(const AnalysisObjectVector &objects);
 
         //
         // Pre and post run work
