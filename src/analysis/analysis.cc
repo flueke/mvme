@@ -4319,9 +4319,15 @@ QVariantMap Analysis::getVMEObjectSettings(const QUuid &objectId) const
     return m_vmeObjectSettings.value(objectId);
 }
 
+int Analysis::getCurrentAnalysisVersion()
+{
+    return CurrentAnalysisVersion;
+}
+
 static const double maxRawHistoBins = (1 << 16);
 
-RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
+RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor,
+                                     double unitMin, double unitMax,
                                      const QString &xAxisTitle, const QString &unitLabel)
 {
     RawDataDisplay result;
@@ -4366,8 +4372,10 @@ RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, doubl
     return result;
 }
 
-RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
-                                     const QString &objectName, const QString &xAxisTitle, const QString &unitLabel)
+RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter,
+                                     double unitMin, double unitMax,
+                                     const QString &objectName,
+                                     const QString &xAxisTitle, const QString &unitLabel)
 {
     auto extractor = std::make_shared<Extractor>();
     extractor->setFilter(extractionFilter);
