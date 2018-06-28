@@ -91,7 +91,6 @@ class RateMonitorPlotCurve: public QwtPlotCurve
                        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
                        const QRectF &canvasRect, int from, int to ) const
         {
-            qDebug() << __PRETTY_FUNCTION__;
             QwtPlotCurve::drawLines(painter, xMap, yMap, canvasRect, from, to);
         }
 };
