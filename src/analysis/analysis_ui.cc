@@ -20,6 +20,7 @@
  */
 #include "analysis_ui.h"
 #include "analysis_ui_p.h"
+#include "analysis_serialization.h"
 #include "analysis_util.h"
 #include "data_extraction_widget.h"
 #include "analysis_info_widget.h"
@@ -3585,30 +3586,7 @@ bool EventWidgetPrivate::canExport() const
 static const char *AnalysisLibraryFileFilter =
     "MVME Analysis Library Files (*.analysislib);; All Files (*.*)";
 
-void collect_objects_recursively(const AnalysisObjectVector &vec,
-                                 const Analysis *analysis,
-                                 QSet<AnalysisObjectPtr> &dest)
-{
-    for (const auto &obj: vec)
-    {
-        dest.insert(obj);
-
-        if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
-        {
-            collect_objects_recursively(analysis->getDirectoryContents(dir), analysis, dest);
-        }
-    }
-}
-
-QSet<AnalysisObjectPtr> collect_objects_recursively(const AnalysisObjectVector &vec,
-                                                    const Analysis *analysis)
-{
-    QSet<AnalysisObjectPtr> result;
-
-    collect_objects_recursively(vec, analysis, result);
-
-    return result;
-}
+static const char *AnalysisLibraryFileExtension = ".analysislib";
 
 void EventWidgetPrivate::actionExport()
 {
@@ -3626,26 +3604,37 @@ void EventWidgetPrivate::actionExport()
     if (fileName.isEmpty())
         return;
 
+    QFileInfo fi(fileName);
+
+    if (fi.completeSuffix().isEmpty())
+        fileName += AnalysisLibraryFileExtension;
+
     // Step 1) Collect all objects that have to be written out
     auto selectedObjects = getAllSelectedObjects();
-    auto allObjects = collect_objects_recursively(selectedObjects, m_context->getAnalysis());
+    auto allObjects = collect_objects_recursively_ordered(selectedObjects, m_context->getAnalysis());
 
-    // Step 2) Create the export JSON object
-    QJsonArray sourcesArray;
-    QJsonArray operatorsArray;
-    QJsonArray directoriesArray;
+    qDebug() << __PRETTY_FUNCTION__
+        << "#selected =" << selectedObjects.size()
+        << ", #collected =" << allObjects.size();
 
-    for (const auto &obj: allObjects)
-    {
-        if (auto source = std::dynamic_pointer_cast<SourceInterface>(obj))
-        {
-        }
-    }
+    // Step 2) Create the JSON structures and document
+    ObjectSerializerVisitor sv;
+    visit_objects(allObjects.begin(), allObjects.end(), sv);
 
-    // XXX: leftoff here
+    QJsonObject exportData;
+    exportData["MVMEAnalysisVersion"] = Analysis::getCurrentAnalysisVersion();
+    exportData["sources"] = sv.sourcesArray;
+    exportData["operators"] = sv.operatorsArray;
+    exportData["directories"] = sv.directoriesArray;
+    exportData["connections"] = serialize_internal_connections(allObjects);
 
-    QJsonObject jsonRoot;
-    jsonRoot["MVMEAnalysisVersion"] = Analysis::getCurrentAnalysisVersion();
+    QJsonObject exportRoot;
+    exportRoot["MVMEAnalysisExport"] = exportData;
+
+    QJsonDocument doc(exportRoot);
+
+    // Step 3) Write to file
+    gui_write_json_file(fileName, doc);
 }
 
 void EventWidgetPrivate::actionImport()

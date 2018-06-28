@@ -1950,6 +1950,15 @@ void LIBMVME_EXPORT adjust_userlevel_forward(const OperatorVector &allOperators,
                                              OperatorInterface *operator_,
                                              s32 levelDelta);
 
+template<typename T>
+QString getClassName(T *obj)
+{
+    return obj->metaObject()->className();
+}
+
+AnalysisObjectVector collect_objects_recursively_ordered(const AnalysisObjectVector &vec,
+                                                         const Analysis *analysis);
+
 } // end namespace analysis
 
 #endif /* __ANALYSIS_H__ */

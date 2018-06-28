@@ -279,12 +279,6 @@ static QJsonObject convert_to_current_version(QJsonObject json, VMEConfig *vmeCo
     return json;
 }
 
-template<typename T>
-QString getClassName(T *obj)
-{
-    return obj->metaObject()->className();
-}
-
 //
 // AnalysisObject
 //
@@ -4627,6 +4621,44 @@ void adjust_userlevel_forward(const OperatorVector &operators,
     QSet<OperatorInterface *> adjusted;
 
     adjust_userlevel_forward(operators, op, levelDelta, adjusted);
+}
+
+namespace
+{
+    void collect_objects_recursively_ordered(const AnalysisObjectVector &vec,
+                                             const Analysis *analysis,
+                                             QSet<AnalysisObjectPtr> &unordered,
+                                             QVector<AnalysisObjectPtr> &ordered)
+    {
+        for (const auto &obj: vec)
+        {
+            if (!unordered.contains(obj))
+            {
+                unordered.insert(obj);
+                ordered.push_back(obj);
+            }
+
+            if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
+            {
+                collect_objects_recursively_ordered(analysis->getDirectoryContents(dir),
+                                                    analysis,
+                                                    unordered,
+                                                    ordered);
+            }
+        }
+    }
+
+} // end anon namespace
+
+AnalysisObjectVector collect_objects_recursively_ordered(const AnalysisObjectVector &vec,
+                                                               const Analysis *analysis)
+{
+    QSet<AnalysisObjectPtr> unordered;
+    AnalysisObjectVector ordered;
+
+    collect_objects_recursively_ordered(vec, analysis, unordered, ordered);
+
+    return ordered;
 }
 
 } // end namespace analysis

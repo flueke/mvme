@@ -92,6 +92,7 @@ set(LIBMVME_SOURCES
     analysis/a2_adapter.cc
     analysis/analysis.cc
     analysis/analysis_info_widget.cc
+    analysis/analysis_serialization.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
