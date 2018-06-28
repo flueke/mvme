@@ -26,6 +26,7 @@
     <file alias="exclamation-circle.png">resources/exclamation-circle.png</file>
     <file alias="exclam-circle.png">resources/emblem-important.png</file>
     <file alias="eye_pencil.png">resources/eye--pencil.png</file>
+    <file alias="folder_export.png">resources/blue-folder-export.png</file>
     <file alias="folder_import.png">resources/blue-folder-import.png</file>
     <file alias="folder_orange.png">resources/folder-orange.png</file>
     <file alias="function.png">resources/function.png</file>

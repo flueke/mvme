@@ -42,7 +42,8 @@ QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
 }
 
 template<>
-const QMap<analysis::Analysis::ReadResultCodes, const char *> analysis::Analysis::ReadResult::ErrorCodeStrings =
+const QMap<analysis::Analysis::ReadResultCodes, const char *>
+analysis::Analysis::ReadResult::ErrorCodeStrings =
 {
     { analysis::Analysis::NoError, "No Error" },
     { analysis::Analysis::VersionTooNew, "Version too new" },
@@ -161,10 +162,12 @@ a2::data_filter::ListFilter a2_listfilter_from_json(const QJsonObject &json)
 
 namespace analysis
 {
-/* File versioning. If the format changes this version needs to be incremented
- * and a conversion routine has to be implemented.
+/* File versioning. If the format changes this version needs to be incremented and a
+ * conversion routine has to be implemented.
+ * Incrementing can also be done to force users to use a newer version of mvme to load the
+ * analysis. This way they won't run into missing features/undefined behaviour.
  */
-static const int CurrentAnalysisVersion = 2;
+static const int CurrentAnalysisVersion = 3;
 
 /* This function converts from analysis config versions prior to V2, which
  * stored eventIndex and moduleIndex instead of eventId and moduleId.
@@ -235,12 +238,18 @@ static QJsonObject v1_to_v2(QJsonObject json, VMEConfig *vmeConfig)
     return json;
 }
 
+static QJsonObject noop_converter(QJsonObject json, VMEConfig *)
+{
+    return json;
+}
+
 using VersionConverter = std::function<QJsonObject (QJsonObject, VMEConfig *)>;
 
 static QVector<VersionConverter> VersionConverters =
 {
     nullptr,
-    v1_to_v2
+    v1_to_v2,
+    noop_converter
 };
 
 static int get_version(const QJsonObject &json)
@@ -262,16 +271,39 @@ static QJsonObject convert_to_current_version(QJsonObject json, VMEConfig *vmeCo
         json = converter(json, vmeConfig);
         json[QSL("MVMEAnalysisVersion")] = version + 1;
 
-        qDebug() << __PRETTY_FUNCTION__ << "converted Analysis from version" << version << "to version" << version+1;
+        qDebug() << __PRETTY_FUNCTION__
+            << "converted Analysis from version" << version
+            << "to version" << version+1;
     }
 
     return json;
 }
 
-template<typename T>
-QString getClassName(T *obj)
+//
+// AnalysisObject
+//
+
+std::unique_ptr<AnalysisObject> AnalysisObject::clone() const
 {
-    return obj->metaObject()->className();
+    auto qobjectPtr  = metaObject()->newInstance();
+    auto downcastPtr = qobject_cast<AnalysisObject *>(qobjectPtr);
+    assert(downcastPtr);
+
+    std::unique_ptr<AnalysisObject> result(downcastPtr);
+
+    // Use the JSON serialization layer to clone object data.
+    {
+        QJsonObject tmpStorage;
+        this->write(tmpStorage);
+        result->read(tmpStorage);
+    }
+
+    result->setObjectName(this->objectName() + QSL(" (copy)"));
+    result->setUserLevel(this->getUserLevel());
+    result->setEventId(this->getEventId());
+    result->postClone(this); // Let subclasses pull additional information from 'this'.
+
+    return result;
 }
 
 //
@@ -331,6 +363,21 @@ void Slot::disconnectPipe()
 }
 
 //
+// SourceInterface
+//
+void SourceInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
+void SourceInterface::postClone(const AnalysisObject *cloneSource)
+{
+    auto si = qobject_cast<SourceInterface *>(cloneSource);
+    assert(si);
+    this->setModuleId(si->getModuleId());
+}
+
+//
 // OperatorInterface
 //
 // FIXME: does not perform acceptedInputTypes validity test atm!
@@ -377,6 +424,93 @@ s32 OperatorInterface::getMaximumOutputRank()
     }
 
     return result;
+}
+
+void OperatorInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
+//
+// SinkInterface
+//
+
+void SinkInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
+void SinkInterface::postClone(const AnalysisObject *cloneSource)
+{
+    auto si = qobject_cast<SinkInterface *>(cloneSource);
+    assert(si);
+    this->setEnabled(si->isEnabled());
+}
+
+//
+// Directory
+//
+
+QString to_string(const DisplayLocation &loc)
+{
+    switch (loc)
+    {
+        case DisplayLocation::Any:
+            return QSL("any");
+
+        case DisplayLocation::Operator:
+            return QSL("operator");
+
+        case DisplayLocation::Sink:
+            return QSL("sink");
+    }
+
+    return QSL("any");
+}
+
+DisplayLocation displayLocation_from_string(const QString &str_)
+{
+    auto str = str_.toLower();
+
+    if (str == QSL("operator"))
+        return DisplayLocation::Operator;
+
+    if (str == QSL("sink"))
+        return DisplayLocation::Sink;
+
+    return DisplayLocation::Any;
+}
+
+void Directory::read(const QJsonObject &json)
+{
+    m_members.clear();
+
+    auto memberIds = json["members"].toArray();
+
+    for (auto it = memberIds.begin(); it != memberIds.end(); it++)
+    {
+        m_members.push_back(QUuid(it->toString()));
+    }
+
+    setDisplayLocation(displayLocation_from_string(json["displayLocation"].toString()));
+}
+
+void Directory::write(QJsonObject &json) const
+{
+    QJsonArray memberIds;
+
+    for (const auto &id: m_members)
+    {
+        memberIds.append(id.toString());
+    }
+
+    json["members"] = memberIds;
+    json["displayLocation"] = to_string(getDisplayLocation());
+}
+
+void Directory::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
 }
 
 //
@@ -512,6 +646,13 @@ void Extractor::write(QJsonObject &json) const
     json["options"] = static_cast<s32>(m_options);
 }
 
+void Extractor::postClone(const AnalysisObject *cloneSource)
+{
+    // Generate a new seed for the clone
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
+}
+
 //
 // ListFilterExtractor
 //
@@ -563,6 +704,13 @@ void ListFilterExtractor::read(const QJsonObject &json)
     QString sSeed = json["rngSeed"].toString();
     m_rngSeed = sSeed.toULongLong(nullptr, 16);
     m_a2Extractor.options = static_cast<Options::opt_t>(json["options"].toInt());
+}
+
+void ListFilterExtractor::postClone(const AnalysisObject *cloneSource)
+{
+    // Generate a new seed for the clone
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
 }
 
 //
@@ -3002,7 +3150,7 @@ QString ExportSink::getExportFileBasename() const
 static const size_t A2ArenaSegmentSize = Kilobytes(256);
 
 Analysis::Analysis(QObject *parent)
-    : AnalysisObject(parent)
+    : QObject(parent)
     , m_modified(false)
     , m_timetickCount(0.0)
     , m_a2ArenaIndex(0)
@@ -3309,6 +3457,172 @@ void Analysis::removeOperator(OperatorInterface *op)
         m_operators.erase(it);
         setModified();
     }
+}
+
+//
+// Directories
+//
+const DirectoryVector Analysis::getDirectories(const QUuid &eventId,
+                                               const DisplayLocation &loc) const
+{
+    DirectoryVector result;
+
+    for (const auto &dir: m_directories)
+    {
+        if (dir->getEventId() == eventId
+            && (loc == DisplayLocation::Any || dir->getDisplayLocation() == loc))
+        {
+            result.push_back(dir);
+        }
+    }
+
+    return result;
+}
+
+const DirectoryVector Analysis::getDirectories(const QUuid &eventId, s32 userLevel,
+                                               const DisplayLocation &loc) const
+{
+    DirectoryVector result;
+
+    for (const auto &dir: m_directories)
+    {
+        if (dir->getEventId() == eventId
+            && dir->getUserLevel() == userLevel
+            && (loc == DisplayLocation::Any || dir->getDisplayLocation() == loc))
+        {
+            result.push_back(dir);
+        }
+    }
+
+    return result;
+}
+
+DirectoryPtr Analysis::getDirectory(const QUuid &id) const
+{
+    for (const auto &dir: m_directories)
+    {
+        if (dir->getId() == id)
+            return dir;
+    }
+
+    return nullptr;
+}
+
+DirectoryPtr Analysis::getParentDirectory(const AnalysisObjectPtr &obj) const
+{
+    // Returns the first parent directory that contains the given object.
+
+    for (const auto &dir: m_directories)
+    {
+        if (dir->contains(obj))
+            return dir;
+    }
+
+    return nullptr;
+}
+
+AnalysisObjectVector Analysis::getDirectoryContents(const QUuid &directoryId) const
+{
+    return getDirectoryContents(getDirectory(directoryId));
+}
+
+AnalysisObjectVector Analysis::getDirectoryContents(const DirectoryPtr &dir) const
+{
+    return getDirectoryContents(dir.get());
+}
+
+AnalysisObjectVector Analysis::getDirectoryContents(const Directory *dir) const
+{
+    AnalysisObjectVector result;
+
+    if (dir)
+    {
+        for (auto id: dir->getMembers())
+        {
+            result.push_back(getObject(id));
+        }
+    }
+
+    return result;
+}
+
+int Analysis::removeDirectoryRecursively(const DirectoryPtr &dir)
+{
+    auto objects = getDirectoryContents(dir);
+    int removed = removeObjectsRecursively(objects);
+    removeDirectory(dir);
+    removed++;
+    return removed;
+}
+
+class IdComparator
+{
+    public:
+        IdComparator(const QUuid &idToMatch)
+            : m_id(idToMatch)
+        { }
+
+        template<typename T>
+        bool operator()(const T &obj)
+        {
+            return m_id == obj->getId();
+        }
+
+    private:
+        QUuid m_id;
+};
+
+AnalysisObjectPtr Analysis::getObject(const QUuid &id) const
+{
+    IdComparator cmp(id);
+
+    {
+        auto it = std::find_if(m_sources.begin(), m_sources.end(), cmp);
+
+        if (it != m_sources.end())
+            return *it;
+    }
+
+    {
+        auto it = std::find_if(m_operators.begin(), m_operators.end(), cmp);
+
+        if (it != m_operators.end())
+            return *it;
+    }
+
+    {
+        auto it = std::find_if(m_directories.begin(), m_directories.end(), cmp);
+
+        if (it != m_directories.end())
+            return *it;
+    }
+
+    return nullptr;
+}
+
+int Analysis::removeObjectsRecursively(const AnalysisObjectVector &objects)
+{
+    int removed = 0u;
+
+    for (const auto &obj: objects)
+    {
+        if (auto source = std::dynamic_pointer_cast<SourceInterface>(obj))
+        {
+            removeSource(source);
+            removed++;
+        }
+        else if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+        {
+            removeOperator(op);
+            removed++;
+        }
+        else if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
+        {
+            removed += removeDirectoryRecursively(dir);
+        }
+    }
+
+    return removed;
 }
 
 //
@@ -3675,6 +3989,8 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
 
                 if (auto sink = qobject_cast<SinkInterface *>(op.get()))
                 {
+                    // FIXME: move into SinkInterface::read and the counterpart into
+                    // SinkInterface::write
                     sink->setEnabled(objectJson["enabled"].toBool(true));
                 }
 
@@ -3698,11 +4014,12 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
         struct Connection
         {
             PipeSourceInterface *srcObject;
-            s32 srcIndex; // the output index of the source object
+            s32 srcIndex;      // the output index of the source object
 
             OperatorInterface *dstObject;
-            s32 dstIndex; // the input index of the dest object
-            s32 dstParamIndex; // array index the input uses or Slot::NoParamIndex if the whole input is used
+            s32 dstIndex;      // the input index of the dest object
+            s32 dstParamIndex; // array index the input uses
+                               // or Slot::NoParamIndex if the whole input is used
         };
         */
 
@@ -3769,6 +4086,23 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
 
     // Dynamic QObject Properties
     loadDynamicProperties(json["properties"].toObject(), this);
+
+    // Directory Objects
+    {
+        QJsonArray array = json["directories"].toArray();
+
+        for (auto it = array.begin(); it != array.end(); ++it)
+        {
+            auto objectJson = it->toObject();
+            auto dir = std::make_shared<Directory>();
+            dir->setId(QUuid(objectJson["id"].toString()));
+            dir->setObjectName(objectJson["name"].toString());
+            dir->setEventId(QUuid(objectJson["eventId"].toString()));
+            dir->setUserLevel(objectJson["userLevel"].toInt());
+            dir->read(objectJson["data"].toObject());
+            addDirectory(dir);
+        }
+    }
 
     setModified(false);
 
@@ -3889,6 +4223,29 @@ void Analysis::write(QJsonObject &json) const
 
     if (!props.isEmpty())
         json["properties"] = props;
+
+    // Directory Objects
+    {
+        QJsonArray destArray;
+
+        for (const auto &dir: m_directories)
+        {
+            QJsonObject destObject;
+
+            destObject["id"]        = dir->getId().toString();
+            destObject["name"]      = dir->objectName();
+            destObject["eventId"]   = dir->getEventId().toString();
+            destObject["userLevel"] = dir->getUserLevel();
+
+            QJsonObject dataJson;
+            dir->write(dataJson);
+
+            destObject["data"] = dataJson;
+            destArray.append(destObject);
+        }
+
+        json["directories"] = destArray;
+    }
 }
 
 //
@@ -3933,19 +4290,23 @@ s32 Analysis::getMaxUserLevel(const QUuid &eventId) const
         return a->getUserLevel() < b->getUserLevel();
     });
 
-    return (it != m_operators.end() ? (*it)->getUserLevel() : 0);
+    return (it != ops.end() ? (*it)->getUserLevel() : 0);
 }
 
 void Analysis::clear()
 {
     m_sources.clear();
     m_operators.clear();
+    m_directories.clear();
     setModified();
 }
 
 bool Analysis::isEmpty() const
 {
-    return m_sources.isEmpty() && m_operators.isEmpty();
+    return (m_sources.isEmpty()
+            && m_operators.isEmpty()
+            && m_directories.isEmpty()
+            );
 }
 
 
@@ -3972,9 +4333,15 @@ QVariantMap Analysis::getVMEObjectSettings(const QUuid &objectId) const
     return m_vmeObjectSettings.value(objectId);
 }
 
+int Analysis::getCurrentAnalysisVersion()
+{
+    return CurrentAnalysisVersion;
+}
+
 static const double maxRawHistoBins = (1 << 16);
 
-RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
+RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor,
+                                     double unitMin, double unitMax,
                                      const QString &xAxisTitle, const QString &unitLabel)
 {
     RawDataDisplay result;
@@ -4019,8 +4386,10 @@ RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, doubl
     return result;
 }
 
-RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
-                                     const QString &objectName, const QString &xAxisTitle, const QString &unitLabel)
+RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter,
+                                     double unitMin, double unitMax,
+                                     const QString &objectName,
+                                     const QString &xAxisTitle, const QString &unitLabel)
 {
     auto extractor = std::make_shared<Extractor>();
     extractor->setFilter(extractionFilter);
@@ -4252,6 +4621,44 @@ void adjust_userlevel_forward(const OperatorVector &operators,
     QSet<OperatorInterface *> adjusted;
 
     adjust_userlevel_forward(operators, op, levelDelta, adjusted);
+}
+
+namespace
+{
+    void collect_objects_recursively_ordered(const AnalysisObjectVector &vec,
+                                             const Analysis *analysis,
+                                             QSet<AnalysisObjectPtr> &unordered,
+                                             QVector<AnalysisObjectPtr> &ordered)
+    {
+        for (const auto &obj: vec)
+        {
+            if (!unordered.contains(obj))
+            {
+                unordered.insert(obj);
+                ordered.push_back(obj);
+            }
+
+            if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
+            {
+                collect_objects_recursively_ordered(analysis->getDirectoryContents(dir),
+                                                    analysis,
+                                                    unordered,
+                                                    ordered);
+            }
+        }
+    }
+
+} // end anon namespace
+
+AnalysisObjectVector collect_objects_recursively_ordered(const AnalysisObjectVector &vec,
+                                                               const Analysis *analysis)
+{
+    QSet<AnalysisObjectPtr> unordered;
+    AnalysisObjectVector ordered;
+
+    collect_objects_recursively_ordered(vec, analysis, unordered, ordered);
+
+    return ordered;
 }
 
 } // end namespace analysis

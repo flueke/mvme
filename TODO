@@ -32,14 +32,39 @@ Issues: naming of objects both when importing and when pasting.
 --------------------------------------------------
 BUGFIXES wanted for 0.9.5
 --------------------------------------------------
+* Manual: mention the "show advanced objects" button and what it does
+  maybe even enable them by default (talk to robert about this)
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - start work on analysis object import/export implementation.
 * grouping of operators and keeping grouping intact when importing exporting
+  -> use directories for grouping
+
 * clone behaviour for extractors: copy rng seed or reseed? is a clone an
   identical copy or something similar but not exactly the same?
   Use case wise reseeding would be better.
+  -> reseed in post_clone
+* think about whether to keep the logic that moves dependent operators around
+  when an operator is moved between userlevels. Keep this behaviour? Also note
+  that this interacts with the input selection code which currently only allows
+  selecting stuff from lower userlevels.
+  I think this could be removed as the loop detection code should handle all
+  invalid cases by now.
+
+=> Discussion result: allow histograms to reside anywhere and do not limit the input connections.
+   Keep the userlevel enforcing rules for the operator trees though.
+
+* Directory context menu
+
+* Remove fixed root nodes. Instead let the user group things by creating directories.
+  Could generate directories when creating the default filters.
+
+* copy/paste via cloning. handle multi selection copy / paste in the following way:
+  keep all internal connections intact, meaning recreate internal connections on the copies
+
+* pausing is not needed when doing drag/drop into/from a directory. drag and
+  drop mostly does not need the analaysis to be paused.
 
 --------------------------------------------------
 GUI <-> Analysis <-> a2 refactoring
@@ -183,8 +208,8 @@ Additional/Advanced Features:
 * efficiency: when the efficiency is slightly below 100% the display will still
   show a 1.00 due to rounding. maybe color the number if it's not 100%.
 
-* New Export/ListfileFilter Idea: use an operator to decide whether a full VME
-  data event should be copied to an output listfile or be suppressed.
+* New Export/ListfileFilter Idea: use an operator to decide whether a full, raw
+  VME data event should be copied to an output listfile or be suppressed.
   This is basically a copy and filter operation for listfile with the decision
   being made at an arbitrary point in the analysis for the specific event.
   This needs access to the raw input data.
@@ -301,7 +326,6 @@ More ideas from Robert:
 * Add a "system" event containing the current timetick count and systems stats,
   rates, etc.
 
-* The generated CLI tools do not generate good output filenames. Manually
 * The export sink needs to log which output file is being written! Right now
   it's all very mysterious.
 * The generated CLI tools do not generated good output filenames. Manually

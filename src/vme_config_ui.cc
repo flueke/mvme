@@ -446,7 +446,9 @@ namespace
     }
 }
 
-QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng, const QString &fileName, QString startPath, QString fileFilter)
+QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
+                                            const QString &fileName, QString startPath,
+                                            QString fileFilter)
 {
     if (fileName.isEmpty())
         return gui_saveAnalysisConfigAs(analysis_ng, startPath, fileFilter);
@@ -458,12 +460,14 @@ QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng, con
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng, QString path, QString fileFilter)
+QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
+                                              QString path, QString fileFilter)
 {
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
-    QString fileName = QFileDialog::getSaveFileName(nullptr, QSL("Save analysis config"), path, fileFilter);
+    QString fileName = QFileDialog::getSaveFileName(nullptr, QSL("Save analysis config"),
+                                                    path, fileFilter);
 
     if (fileName.isEmpty())
         return qMakePair(false, QString());

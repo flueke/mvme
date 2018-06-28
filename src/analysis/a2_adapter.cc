@@ -6,8 +6,8 @@
 #include <QMetaObject>
 #include <QMetaClassInfo>
 
-#ifndef NDEBUG
-//#if 1
+//#ifndef NDEBUG
+#if 0
 
 #define LOG(fmt, ...)\
 do\
@@ -102,7 +102,7 @@ do                                                          \
 {                                                           \
     assert(slot->inputPipe);                                \
     assert(slot->inputPipe->source);                        \
-    assert(slot->inputPipe->source->getSharedPointer());    \
+    assert(slot->inputPipe->source->shared_from_this());    \
 } while (0)
 
 using InputSlots = QVector<analysis::Slot *>;

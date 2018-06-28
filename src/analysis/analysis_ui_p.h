@@ -102,8 +102,6 @@ class EventWidget: public QWidget
         RunInfo getRunInfo() const;
         VMEConfig *getVMEConfig() const;
 
-        virtual bool eventFilter(QObject *watched, QEvent *event);
-
         friend class AnalysisWidget;
         friend class AnalysisWidgetPrivate;
 
@@ -139,7 +137,8 @@ class AddEditExtractorDialog: public QDialog
             EditExtractor
         };
 
-        AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *mod, Mode mode, EventWidget *eventWidget = nullptr);
+        AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *mod,
+                               Mode mode, EventWidget *eventWidget = nullptr);
         virtual ~AddEditExtractorDialog();
 
         virtual void accept() override;
@@ -182,7 +181,8 @@ class AddEditOperatorDialog: public QDialog
 
     public:
 
-        AddEditOperatorDialog(OperatorPtr opPtr, s32 userLevel, OperatorEditorMode mode, EventWidget *eventWidget);
+        AddEditOperatorDialog(OperatorPtr opPtr, s32 userLevel,
+                              OperatorEditorMode mode, EventWidget *eventWidget);
 
         virtual void resizeEvent(QResizeEvent *event) override;
 
@@ -399,7 +399,8 @@ class CalibrationItemDelegate: public QStyledItemDelegate
 {
     public:
         using QStyledItemDelegate::QStyledItemDelegate;
-        virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const;
+        virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+                                      const QModelIndex &index) const;
 };
 
 /* Specialized tree for the EventWidget.
@@ -407,31 +408,46 @@ class CalibrationItemDelegate: public QStyledItemDelegate
  * The declaration is here because of MOC, the implementation is in
  * analysis_ui.cc because of locally defined types.
  */
-class EventWidgetTree: public QTreeWidget
+class ObjectTree: public QTreeWidget
 {
     Q_OBJECT
     public:
-        using QTreeWidget::QTreeWidget;
+        ObjectTree(QWidget *parent = nullptr)
+            : QTreeWidget(parent)
+        {}
 
-        EventWidget *m_eventWidget = nullptr;
-        s32 m_userLevel = 0;
+        ObjectTree(EventWidget *eventWidget, s32 userLevel, QWidget *parent = nullptr)
+            : QTreeWidget(parent)
+            , m_eventWidget(eventWidget)
+            , m_userLevel(userLevel)
+        {}
+
+        EventWidget *getEventWidget() const { return m_eventWidget; }
+        void setEventWidget(EventWidget *widget) { m_eventWidget = widget; }
+        s32 getUserLevel() const { return m_userLevel; }
+        void setUserLevel(s32 userLevel) { m_userLevel = userLevel; }
 
     protected:
-        virtual bool dropMimeData(QTreeWidgetItem *parent, int index, const QMimeData *data, Qt::DropAction action) override;
+        virtual bool dropMimeData(QTreeWidgetItem *parent, int index,
+                                  const QMimeData *data, Qt::DropAction action) override;
         virtual QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
         virtual QStringList mimeTypes() const override;
         virtual Qt::DropActions supportedDropActions() const override;
         virtual void dropEvent(QDropEvent *event) override;
+
+    private:
+        EventWidget *m_eventWidget = nullptr;
+        s32 m_userLevel = 0;
 };
 
 /* Subclass storing pointers to the roots for 1D and 2D histograms. Originally
  * finding those nodes was done via QTreeWidget::topLevelItem() but this would
  * break if anything gets sorted before or in-between the two root nodes. */
-class DisplayTree: public EventWidgetTree
+class SinkTree: public ObjectTree
 {
     Q_OBJECT
     public:
-        using EventWidgetTree::EventWidgetTree;
+        using ObjectTree::ObjectTree;
 
         QTreeWidgetItem *histo1DRoot = nullptr;
         QTreeWidgetItem *histo2DRoot = nullptr;
@@ -443,7 +459,8 @@ class SessionErrorDialog: public QDialog
 {
     Q_OBJECT
     public:
-        SessionErrorDialog(const QString &message, const QString &title = QString(), QWidget *parent = nullptr);
+        SessionErrorDialog(const QString &message, const QString &title = QString(),
+                           QWidget *parent = nullptr);
 };
 
 class ExportSinkStatusMonitor: public QWidget
