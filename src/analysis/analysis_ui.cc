@@ -951,15 +951,19 @@ void EventWidgetPrivate::createView(const QUuid &eventId)
 
 UserLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &dispTitle, s32 level)
 {
+    const auto editTriggers = QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed;
+
     UserLevelTrees result = { new ObjectTree, new SinkTree, level };
 
     result.operatorTree->setObjectName(opTitle);
     result.operatorTree->headerItem()->setText(0, opTitle);
     result.operatorTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    result.operatorTree->setEditTriggers(editTriggers);
 
     result.sinkTree->setObjectName(dispTitle);
     result.sinkTree->headerItem()->setText(0, dispTitle);
     result.sinkTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    result.sinkTree->setEditTriggers(editTriggers);
 
     for (auto tree: {result.operatorTree, reinterpret_cast<ObjectTree *>(result.sinkTree)})
     {
