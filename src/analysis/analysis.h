@@ -118,6 +118,8 @@ namespace ObjectFlags
     static const Flags NeedsRebuild    = 1u << 0;
 };
 
+class ObjectVisitor;
+
 class LIBMVME_EXPORT AnalysisObject:
     public QObject,
     public std::enable_shared_from_this<AnalysisObject>
@@ -153,9 +155,12 @@ class LIBMVME_EXPORT AnalysisObject:
         virtual void write(QJsonObject &json) const = 0;
         std::unique_ptr<AnalysisObject> clone() const;
 
-        /** The id of the VME event this object is a member of. */
+        /* The id of the VME event this object is a member of. */
         QUuid getEventId() const { return m_eventId; }
         void setEventId(const QUuid &id) { m_eventId = id; }
+
+        /* Visitor support */
+        virtual void accept(ObjectVisitor &visitor) = 0;
 
     protected:
         /* Invoked by the clone() method on the cloned object. The source of the clone is
@@ -407,6 +412,8 @@ class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
         QUuid getModuleId() const { return m_moduleId; }
         void setModuleId(const QUuid &id) { m_moduleId = id; }
 
+        virtual void accept(ObjectVisitor &visitor) override;
+
     protected:
         virtual void postClone(const AnalysisObject *cloneSource) override;
 
@@ -446,6 +453,7 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
         virtual bool addSlot() { return false; }
         virtual bool removeLastSlot() { return false; }
 
+        virtual void accept(ObjectVisitor &visitor) override;
 };
 
 using OperatorPtr = std::shared_ptr<OperatorInterface>;
@@ -484,6 +492,8 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
         void setEnabled(bool b) { m_enabled = b; }
         bool isEnabled() const  { return m_enabled; }
 
+        virtual void accept(ObjectVisitor &visitor) override;
+
     protected:
         virtual void postClone(const AnalysisObject *cloneSource) override;
 
@@ -518,8 +528,8 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
         QUuid getEventId() const { return m_eventId; }
         void setEventId(const QUuid &id) { m_eventId = id; }
 
-        void read(const QJsonObject &json);
-        void write(QJsonObject &json) const;
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
 
         MemberContainer getMembers() const { return m_members; }
         void setMembers(const MemberContainer &members) { m_members = members; }
@@ -558,6 +568,8 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
         void remove(const AnalysisObjectPtr &obj) { remove(obj->getId()); }
         void remove(const QUuid &id) { m_members.removeAll(id); }
 
+        virtual void accept(ObjectVisitor &visitor) override;
+
     private:
         MemberContainer m_members;
         QUuid m_eventId;
@@ -566,6 +578,25 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
 
 using DirectoryPtr = std::shared_ptr<Directory>;
 using DirectoryVector = QVector<DirectoryPtr>;
+
+class ObjectVisitor
+{
+    public:
+        virtual void visit(SourceInterface *source) = 0;
+        virtual void visit(OperatorInterface *op) = 0;
+        virtual void visit(SinkInterface *sink) = 0;
+        virtual void visit(Directory *dir) = 0;
+};
+
+template<typename It>
+void visit_objects(It begin_, It end_, ObjectVisitor &visitor)
+{
+    while (begin_ != end_)
+    {
+        (*begin_)->accept(visitor);
+        begin_++;
+    }
+}
 
 } // end namespace analysis
 
@@ -1854,6 +1885,8 @@ class LIBMVME_EXPORT Analysis: public QObject
         QVariantMap getVMEObjectSettings(const QUuid &objectId) const;
 
         Registry &getRegistry() { return m_registry; }
+
+        static int getCurrentAnalysisVersion();
 
     private:
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);

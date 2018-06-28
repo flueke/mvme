@@ -331,4 +331,17 @@ find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 
+if(BUILD_TESTS)
+
+    function(add_mvme_gtest exe_name exe_source)
+        add_executable(${exe_name} ${exe_source})
+        add_dependencies(${exe_name} libmvme)
+        target_link_libraries(${exe_name} libmvme gtest gtest_main)
+        add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+    endfunction(add_mvme_gtest)
+
+    add_mvme_gtest(test_object_visitor analysis/test_object_visitor.cc)
+
+endif(BUILD_TESTS)
+
 # vim:tw=0

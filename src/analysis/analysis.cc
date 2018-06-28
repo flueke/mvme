@@ -371,6 +371,11 @@ void Slot::disconnectPipe()
 //
 // SourceInterface
 //
+void SourceInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
 void SourceInterface::postClone(const AnalysisObject *cloneSource)
 {
     auto si = qobject_cast<SourceInterface *>(cloneSource);
@@ -427,9 +432,19 @@ s32 OperatorInterface::getMaximumOutputRank()
     return result;
 }
 
+void OperatorInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
 //
 // SinkInterface
 //
+
+void SinkInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
 
 void SinkInterface::postClone(const AnalysisObject *cloneSource)
 {
@@ -497,6 +512,11 @@ void Directory::write(QJsonObject &json) const
 
     json["members"] = memberIds;
     json["displayLocation"] = to_string(getDisplayLocation());
+}
+
+void Directory::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
 }
 
 //
