@@ -179,6 +179,7 @@ class LIBMVME_EXPORT AnalysisObject:
 
 using AnalysisObjectPtr = std::shared_ptr<AnalysisObject>;
 using AnalysisObjectVector = QVector<AnalysisObjectPtr>;
+using AnalysisObjectSet = QSet<AnalysisObjectPtr>;
 
 /* Interface to indicate that something can the be source of a Pipe.
  * Base for data sources (objects consuming module data and producing output parameter
@@ -1713,7 +1714,8 @@ class LIBMVME_EXPORT Analysis: public QObject
         const SourceVector &getSources() const { return m_sources; }
         SourceVector &getSources() { return m_sources; }
         SourceVector getSources(const QUuid &eventId, const QUuid &moduleId) const;
-        SourceVector getSources(const QUuid &moduleId) const;
+        SourceVector getSourcesByModule(const QUuid &moduleId) const;
+        SourceVector getSourcesByEvent(const QUuid &eventId) const;
         SourcePtr getSource(const QUuid &sourceId) const;
 
         void addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source);
@@ -1808,6 +1810,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         //
         AnalysisObjectPtr getObject(const QUuid &id) const;
         int removeObjectsRecursively(const AnalysisObjectVector &objects);
+        AnalysisObjectVector getAllObjects() const;
 
         //
         // Pre and post run work
@@ -1956,8 +1959,15 @@ QString getClassName(T *obj)
     return obj->metaObject()->className();
 }
 
-AnalysisObjectVector collect_objects_recursively_ordered(const AnalysisObjectVector &vec,
-                                                         const Analysis *analysis);
+AnalysisObjectVector expand_objects(const AnalysisObjectVector &vec,
+                                    const Analysis *analysis);
+
+AnalysisObjectVector order_objects(const AnalysisObjectSet &objects,
+                                   const Analysis *analysis);
+
+AnalysisObjectVector order_objects(const AnalysisObjectVector &objects,
+                                   const Analysis *analysis);
+
 
 } // end namespace analysis
 

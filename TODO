@@ -29,6 +29,7 @@ BUGFIXES wanted for 0.9.5
    Keep the userlevel enforcing rules for the operator trees though.
 
 * Directory context menu
+* Start editing newly created directories to allow setting a propery name immediately
 
 * Remove fixed root nodes. Instead let the user group things by creating directories.
   Could generate directories when creating the default filters.

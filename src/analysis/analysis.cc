@@ -3208,13 +3208,26 @@ SourceVector Analysis::getSources(const QUuid &eventId, const QUuid &moduleId) c
     return result;
 }
 
-SourceVector Analysis::getSources(const QUuid &moduleId) const
+SourceVector Analysis::getSourcesByModule(const QUuid &moduleId) const
 {
     SourceVector result;
 
     for (const auto &s: m_sources)
     {
         if (s->getModuleId() == moduleId)
+            result.push_back(s);
+    }
+
+    return result;
+}
+
+SourceVector Analysis::getSourcesByEvent(const QUuid &eventId) const
+{
+    SourceVector result;
+
+    for (const auto &s: m_sources)
+    {
+        if (s->getEventId() == eventId)
             result.push_back(s);
     }
 
@@ -3600,6 +3613,8 @@ AnalysisObjectPtr Analysis::getObject(const QUuid &id) const
     return nullptr;
 }
 
+/* Removes the objects contained in the objects vector from the analysis.
+ * If a directory is encountered its contents will be removed recursively. */
 int Analysis::removeObjectsRecursively(const AnalysisObjectVector &objects)
 {
     int removed = 0u;
@@ -3623,6 +3638,26 @@ int Analysis::removeObjectsRecursively(const AnalysisObjectVector &objects)
     }
 
     return removed;
+}
+
+/* Returns a vector containing all child objects of this analysis. Object ordering is
+ * preserved, this means, e.g. ListFilterExtractors will retain the correct ordering. */
+AnalysisObjectVector Analysis::getAllObjects() const
+{
+    AnalysisObjectVector result;
+
+    result.reserve(m_sources.size() + m_operators.size() + m_directories.size());
+
+    for (const auto &obj: m_sources)
+        result.append(obj);
+
+    for (const auto &obj: m_operators)
+        result.append(obj);
+
+    for (const auto &obj: m_directories)
+        result.append(obj);
+
+    return result;
 }
 
 //
@@ -4398,7 +4433,8 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
     return make_raw_data_display(extractor, unitMin, unitMax, xAxisTitle, unitLabel);
 }
 
-void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display)
+void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId,
+                          const RawDataDisplay &display)
 {
     analysis->addSource(eventId, moduleId, display.extractor);
     analysis->addOperator(eventId, 0, display.rawHistoSink);
@@ -4625,40 +4661,70 @@ void adjust_userlevel_forward(const OperatorVector &operators,
 
 namespace
 {
-    void collect_objects_recursively_ordered(const AnalysisObjectVector &vec,
-                                             const Analysis *analysis,
-                                             QSet<AnalysisObjectPtr> &unordered,
-                                             QVector<AnalysisObjectPtr> &ordered)
-    {
-        for (const auto &obj: vec)
-        {
-            if (!unordered.contains(obj))
-            {
-                unordered.insert(obj);
-                ordered.push_back(obj);
-            }
 
-            if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
-            {
-                collect_objects_recursively_ordered(analysis->getDirectoryContents(dir),
-                                                    analysis,
-                                                    unordered,
-                                                    ordered);
-            }
+    void expand_objects(const AnalysisObjectVector &vec,
+                        const Analysis *analysis,
+                        AnalysisObjectSet &visited,
+                        AnalysisObjectVector &result)
+{
+    for (const auto &obj: vec)
+    {
+        if (!visited.contains(obj))
+        {
+            visited.insert(obj);
+            result.push_back(obj);
+        }
+
+        if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
+        {
+            expand_objects(analysis->getDirectoryContents(dir),
+                           analysis, visited, result);
         }
     }
+}
 
 } // end anon namespace
 
-AnalysisObjectVector collect_objects_recursively_ordered(const AnalysisObjectVector &vec,
-                                                               const Analysis *analysis)
+/* Recursively expands the given object vector to contain all subobjects inside any
+ * directories contained in the original vector. */
+AnalysisObjectVector expand_objects(const AnalysisObjectVector &vec,
+                                    const Analysis *analysis)
 {
-    QSet<AnalysisObjectPtr> unordered;
-    AnalysisObjectVector ordered;
+    AnalysisObjectVector result;
+    AnalysisObjectSet visited;
 
-    collect_objects_recursively_ordered(vec, analysis, unordered, ordered);
+    expand_objects(vec, analysis, visited, result);
 
-    return ordered;
+    return result;
+}
+
+/* Returns a vector of the objects contained in given object set but in the same order as
+ * the objects are stored in the analysis.
+ * Note: directories are not expanded, no recursion is done. */
+AnalysisObjectVector order_objects(const AnalysisObjectSet &objects,
+                                   const Analysis *analysis)
+{
+    AnalysisObjectVector result;
+
+    // Iteration done in analysis object storage order.
+    for (const auto &obj: analysis->getAllObjects())
+    {
+        if (objects.contains(obj))
+            result.push_back(obj);
+    }
+
+    return result;
+}
+
+AnalysisObjectVector order_objects(const AnalysisObjectVector &objects,
+                                   const Analysis *analysis)
+{
+    AnalysisObjectSet set;
+
+    for (const auto &obj: objects)
+        set.insert(obj);
+
+    return order_objects(set, analysis);
 }
 
 } // end namespace analysis
