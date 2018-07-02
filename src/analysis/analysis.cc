@@ -3402,6 +3402,36 @@ OperatorPtr Analysis::getOperator(const QUuid &operatorId) const
     return it != m_operators.end() ? *it : nullptr;
 }
 
+OperatorVector Analysis::getNonSinkOperators() const
+{
+    OperatorVector result;
+
+    for (const auto &op: m_operators)
+    {
+        if (!qobject_cast<SinkInterface *>(op.get()))
+        {
+            result.push_back(op);
+        }
+    }
+
+    return result;
+}
+
+OperatorVector Analysis::getSinkOperators() const
+{
+    OperatorVector result;
+
+    for (const auto &op: m_operators)
+    {
+        if (qobject_cast<SinkInterface *>(op.get()))
+        {
+            result.push_back(op);
+        }
+    }
+
+    return result;
+}
+
 void Analysis::addOperator(const QUuid &eventId, s32 userLevel, const OperatorPtr &op)
 {
     op->setEventId(eventId);

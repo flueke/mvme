@@ -640,7 +640,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
 
         for (auto &id: ids)
         {
-            if (auto source = getAnalysis()->getSource(id))
+            if (auto source = analysis->getSource(id))
             {
                 source->setModuleId(QUuid());
                 analysis->sourceEdited(source);
@@ -696,9 +696,6 @@ QMimeData *OperatorTree::mimeData(const QList<QTreeWidgetItem *> items) const
         switch (item->type())
         {
             case NodeType_Operator:
-            case NodeType_Histo1DSink:
-            case NodeType_Histo2DSink:
-            case NodeType_Sink:
                 {
                     if (auto op = get_pointer<OperatorInterface>(item))
                     {
@@ -734,7 +731,78 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
                                 const QMimeData *data,
                                 Qt::DropAction action)
 {
-    return false;
+    if (action != Qt::MoveAction)
+        return false;
+
+    if (!data->hasFormat(OperatorIdListMIMEType))
+        return false;
+
+    auto ids = decode_id_list(data->data(DataSourceIdListMIMEType));
+
+    if (ids.isEmpty())
+        return false;
+
+    DirectoryPtr destDir;
+
+    if (parentItem && parentItem->type() == NodeType_Directory)
+    {
+        destDir = std::dynamic_pointer_cast<Directory>(
+            get_pointer<Directory>(parentItem)->shared_from_this());
+    }
+
+    bool result = false;
+    auto analysis = getEventWidget()->getContext()->getAnalysis();
+
+    AnalysisPauser pauser(getContext());
+
+    for (auto &id: ids)
+    {
+        auto obj = analysis->getObject(id);
+
+        const s32 levelDelta = getUserLevel() - obj->getUserLevel();
+
+        if (destDir) // drop onto a directory
+        {
+            // XXX: leftoff
+            if (auto sourceDir = analysis->getParentDirectory(obj))
+            {
+                qDebug() << __PRETTY_FUNCTION__
+                    << "removing" << obj.get() << "from dir" << sourceDir.get();
+
+                sourceDir->remove(obj);
+            }
+
+            qDebug() << __PRETTY_FUNCTION__ <<
+                "adding object" << obj.get() << "to directory" << destDir.get() <<
+                "new userlevel =" << getUserLevel();
+
+            // Move objects into destDir. This flattens any source hierarchy.
+            destDir->push_back(obj);
+            // TODO: adjust non sink operators by level delta
+            if (auto op = analysis->getOperator(id))
+            {
+            }
+            else
+            {
+                obj->setUserLevel(getUserLevel());
+            }
+            result = true;
+        }
+        else // drop onto a tree
+        {
+            if (auto sourceDir = analysis->getParentDirectory(obj))
+            {
+                qDebug() << __PRETTY_FUNCTION__
+                    << "removing" << obj.get() << "from dir" << sourceDir.get();
+
+                sourceDir->remove(obj);
+            }
+            // TODO: adjust non sink operators by level delta
+        }
+
+    }
+
+    return result;
 }
 
 // SinkTree

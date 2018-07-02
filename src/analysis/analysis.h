@@ -1747,6 +1747,8 @@ class LIBMVME_EXPORT Analysis: public QObject
         OperatorVector getOperators(const QUuid &eventId) const;
         OperatorVector getOperators(const QUuid &eventId, s32 userLevel) const;
         OperatorPtr getOperator(const QUuid &operatorId) const;
+        OperatorVector getNonSinkOperators() const;
+        OperatorVector getSinkOperators() const;
 
         void addOperator(const QUuid &eventId, s32 userLevel, const OperatorPtr &op);
         void addOperator(const OperatorPtr &op);
