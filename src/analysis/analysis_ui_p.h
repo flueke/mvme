@@ -405,8 +405,8 @@ class CalibrationItemDelegate: public QStyledItemDelegate
 
 /* Specialized tree for the EventWidget.
  *
- * The declaration is here because of MOC, the implementation is in
- * analysis_ui.cc because of locally defined types.
+ * Note: the declaration is here because of MOC, the implementation is in analysis_ui.cc
+ * because of locally defined types.
  */
 class ObjectTree: public QTreeWidget
 {
@@ -424,14 +424,12 @@ class ObjectTree: public QTreeWidget
 
         EventWidget *getEventWidget() const { return m_eventWidget; }
         void setEventWidget(EventWidget *widget) { m_eventWidget = widget; }
+        MVMEContext *getContext() const;
+        Analysis *getAnalysis() const;
         s32 getUserLevel() const { return m_userLevel; }
         void setUserLevel(s32 userLevel) { m_userLevel = userLevel; }
 
     protected:
-        virtual bool dropMimeData(QTreeWidgetItem *parent, int index,
-                                  const QMimeData *data, Qt::DropAction action) override;
-        virtual QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
-        virtual QStringList mimeTypes() const override;
         virtual Qt::DropActions supportedDropActions() const override;
         virtual void dropEvent(QDropEvent *event) override;
 
@@ -440,9 +438,38 @@ class ObjectTree: public QTreeWidget
         s32 m_userLevel = 0;
 };
 
-/* Subclass storing pointers to the roots for 1D and 2D histograms. Originally
- * finding those nodes was done via QTreeWidget::topLevelItem() but this would
- * break if anything gets sorted before or in-between the two root nodes. */
+class OperatorTree: public ObjectTree
+{
+    Q_OBJECT
+    public:
+        using ObjectTree::ObjectTree;
+
+    protected:
+        virtual QStringList mimeTypes() const override;
+
+        virtual bool dropMimeData(QTreeWidgetItem *parent, int index,
+                                  const QMimeData *data, Qt::DropAction action) override;
+
+        virtual QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
+};
+
+class DataSourceTree: public OperatorTree
+{
+    Q_OBJECT
+    public:
+        using OperatorTree::OperatorTree;
+
+        QTreeWidgetItem *unassignedDataSourcesRoot = nullptr;
+
+    protected:
+        virtual QStringList mimeTypes() const override;
+
+        virtual bool dropMimeData(QTreeWidgetItem *parent, int index,
+                                  const QMimeData *data, Qt::DropAction action) override;
+
+        virtual QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
+};
+
 class SinkTree: public ObjectTree
 {
     Q_OBJECT
@@ -453,6 +480,14 @@ class SinkTree: public ObjectTree
         QTreeWidgetItem *histo2DRoot = nullptr;
         QTreeWidgetItem *rateRoot    = nullptr;
         QTreeWidgetItem *exportRoot  = nullptr;
+
+    protected:
+        virtual QStringList mimeTypes() const override;
+
+        virtual bool dropMimeData(QTreeWidgetItem *parent, int index,
+                                  const QMimeData *data, Qt::DropAction action) override;
+
+        virtual QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
 };
 
 class SessionErrorDialog: public QDialog

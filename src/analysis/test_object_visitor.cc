@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "analysis.h"
+#include "object_visitor.h"
 
 using namespace analysis;
 

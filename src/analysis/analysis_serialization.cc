@@ -1,4 +1,5 @@
 #include "analysis_serialization.h"
+#include "analysis.h"
 #include <QHash>
 
 namespace analysis
@@ -142,6 +143,46 @@ QJsonArray serialize_internal_connections(const AnalysisObjectVector &objects)
     }
 
     return result;
+}
+
+void ObjectSerializerVisitor::visit(SourceInterface *source) 
+{
+    sourcesArray.append(serialize(source));
+    visitedObjects.append(source->shared_from_this());
+}
+
+void ObjectSerializerVisitor::visit(OperatorInterface *op)
+{
+    operatorsArray.append(serialize(op));
+    visitedObjects.append(op->shared_from_this());
+}
+
+void ObjectSerializerVisitor::visit(SinkInterface *sink)
+{
+    operatorsArray.append(serialize(sink));
+    visitedObjects.append(sink->shared_from_this());
+}
+
+void ObjectSerializerVisitor::visit(Directory *dir)
+{
+    directoriesArray.append(serialize(dir));
+    visitedObjects.append(dir->shared_from_this());
+}
+
+QJsonArray ObjectSerializerVisitor::serializeConnections() const
+{
+    return serialize_internal_connections(visitedObjects);
+}
+
+QJsonObject ObjectSerializerVisitor::finalize() const
+{
+    QJsonObject json;
+    json["MVMEAnalysisVersion"] = Analysis::getCurrentAnalysisVersion();
+    json["sources"] = sourcesArray;
+    json["operators"] = operatorsArray;
+    json["directories"] = directoriesArray;
+    json["connections"] = serializeConnections();
+    return json;
 }
 
 } // end namespace analysis

@@ -584,8 +584,7 @@ void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, VMECo
 
     for (const auto &source: sources)
     {
-        if (!vmeEventIds.contains(source->getEventId())
-            || !vmeModuleIds.contains(source->getModuleId()))
+        if (!vmeEventIds.contains(source->getEventId()))
         {
             analysis->removeSource(source);
         }

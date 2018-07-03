@@ -101,6 +101,7 @@ set(LIBMVME_SOURCES
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
     analysis/listfilter_extractor_dialog.cc
+    analysis/object_factory.cc
 
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
