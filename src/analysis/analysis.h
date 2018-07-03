@@ -28,7 +28,9 @@
 #include "histo1d.h"
 #include "histo2d.h"
 #include "libmvme_export.h"
+#include "object_factory.h"
 #include "typedefs.h"
+
 #include "../globals.h"
 #include "../rate_monitor_base.h"
 #include "../vme_analysis_common.h"
@@ -579,25 +581,6 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
 
 using DirectoryPtr = std::shared_ptr<Directory>;
 using DirectoryVector = QVector<DirectoryPtr>;
-
-class ObjectVisitor
-{
-    public:
-        virtual void visit(SourceInterface *source) = 0;
-        virtual void visit(OperatorInterface *op) = 0;
-        virtual void visit(SinkInterface *sink) = 0;
-        virtual void visit(Directory *dir) = 0;
-};
-
-template<typename It>
-void visit_objects(It begin_, It end_, ObjectVisitor &visitor)
-{
-    while (begin_ != end_)
-    {
-        (*begin_)->accept(visitor);
-        begin_++;
-    }
-}
 
 } // end namespace analysis
 
@@ -1538,165 +1521,6 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         Format m_format = Format::Sparse;
 };
 
-/* Note: The qobject_cast()s in the createXXX() functions are there to ensure
- * that the types properly implement the declared interface. They need to have
- * the Q_INTERFACES() macro either directly in their declaration or inherit it
- * from a parent class.
- */
-
-template<typename T>
-SourceInterface *createSource()
-{
-    auto result = new T;
-    Q_ASSERT(qobject_cast<SourceInterface *>(result));
-    return result;
-}
-
-template<typename T>
-OperatorInterface *createOperator()
-{
-    auto result = new T;
-    Q_ASSERT(qobject_cast<OperatorInterface *>(result));
-    return result;
-}
-
-template<typename T>
-SinkInterface *createSink()
-{
-    auto result = new T;
-    Q_ASSERT(qobject_cast<SinkInterface *>(result));
-    return result;
-}
-
-class LIBMVME_EXPORT Registry
-{
-    public:
-        template<typename T>
-        bool registerSource(const QString &name)
-        {
-            if (m_sourceRegistry.contains(name))
-                return false;
-
-            m_sourceRegistry.insert(name, &createSource<T>);
-
-#ifndef QT_NO_DEBUG
-            // Force using the creator function to possibly trigger its assertion.
-            delete makeSource(name);
-#endif
-
-            return true;
-        }
-
-        template<typename T>
-        bool registerSource()
-        {
-            QString className = T::staticMetaObject.className();
-            return registerSource<T>(className);
-        }
-
-        template<typename T>
-        bool registerOperator(const QString &name)
-        {
-            if (m_operatorRegistry.contains(name))
-                return false;
-
-            m_operatorRegistry.insert(name, &createOperator<T>);
-
-#ifndef QT_NO_DEBUG
-            // Force using the creator function to possibly trigger its assertion.
-            delete makeOperator(name);
-#endif
-
-            return true;
-        }
-
-        template<typename T>
-        bool registerOperator()
-        {
-            QString className = T::staticMetaObject.className();
-            return registerOperator<T>(className);
-        }
-
-        template<typename T>
-        bool registerSink(const QString &name)
-        {
-            if (m_sinkRegistry.contains(name))
-                return false;
-
-            m_sinkRegistry.insert(name, &createSink<T>);
-
-#ifndef QT_NO_DEBUG
-            // Force using the creator function to possibly trigger its assertion.
-            delete makeSink(name);
-#endif
-
-            return true;
-        }
-
-        template<typename T>
-        bool registerSink()
-        {
-            QString className = T::staticMetaObject.className();
-            return registerSink<T>(className);
-        }
-
-        SourceInterface *makeSource(const QString &name)
-        {
-            SourceInterface *result = nullptr;
-
-            if (m_sourceRegistry.contains(name))
-            {
-                result = m_sourceRegistry[name]();
-            }
-
-            return result;
-        }
-
-        OperatorInterface *makeOperator(const QString &name)
-        {
-            OperatorInterface *result = nullptr;
-
-            if (m_operatorRegistry.contains(name))
-            {
-                result = m_operatorRegistry[name]();
-            }
-
-            return result;
-        }
-
-        SinkInterface *makeSink(const QString &name)
-        {
-            SinkInterface *result = nullptr;
-
-            if (m_sinkRegistry.contains(name))
-            {
-                result = m_sinkRegistry[name]();
-            }
-
-            return result;
-        }
-
-        QStringList getSourceNames() const
-        {
-            return m_sourceRegistry.keys();
-        }
-
-        QStringList getOperatorNames() const
-        {
-            return m_operatorRegistry.keys();
-        }
-
-        QStringList getSinkNames() const
-        {
-            return m_sinkRegistry.keys();
-        }
-
-    private:
-        QMap<QString, SourceInterface *(*)()> m_sourceRegistry;
-        QMap<QString, OperatorInterface *(*)()> m_operatorRegistry;
-        QMap<QString, SinkInterface *(*)()> m_sinkRegistry;
-};
-
 class LIBMVME_EXPORT Analysis: public QObject
 {
     Q_OBJECT
@@ -1813,6 +1637,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         AnalysisObjectPtr getObject(const QUuid &id) const;
         int removeObjectsRecursively(const AnalysisObjectVector &objects);
         AnalysisObjectVector getAllObjects() const;
+        int objectCount() const;
 
         //
         // Pre and post run work
@@ -1889,7 +1714,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         void setVMEObjectSettings(const QUuid &objectId, const QVariantMap &settings);
         QVariantMap getVMEObjectSettings(const QUuid &objectId) const;
 
-        Registry &getRegistry() { return m_registry; }
+        ObjectFactory &getObjectFactory() { return m_objectFactory; }
 
         static int getCurrentAnalysisVersion();
 
@@ -1902,7 +1727,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         QMap<QUuid, QVariantMap> m_vmeObjectSettings;
         ObjectFlags::Flags m_flags = ObjectFlags::None;
 
-        Registry m_registry;
+        ObjectFactory m_objectFactory;
 
         bool m_modified;
         RunInfo m_runInfo;

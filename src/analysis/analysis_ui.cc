@@ -1675,8 +1675,9 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
 
         QObject::connect(tree, &QTreeWidget::itemSelectionChanged,
                          m_q, [this, tree] () {
-            qDebug() << "itemSelectionChanged on" << tree
-                << ", new selected item count =" << tree->selectedItems().size();
+            //qDebug() << "itemSelectionChanged on" << tree
+            //    << ", new selected item count =" << tree->selectedItems().size();
+            updateActions();
         });
     }
 }
@@ -1926,7 +1927,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 };
 
                 auto analysis = m_context->getAnalysis();
-                auto &registry(analysis->getRegistry());
+                auto &registry(analysis->getObjectFactory());
 
                 QVector<SourcePtr> sourceInstances;
 
@@ -2196,7 +2197,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 };
 
                 auto analysis = m_context->getAnalysis();
-                auto &registry(analysis->getRegistry());
+                auto &registry(analysis->getObjectFactory());
                 QVector<OperatorPtr> operatorInstances;
 
                 for (auto operatorName: registry.getOperatorNames())
@@ -2619,7 +2620,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             else
             {
                 auto analysis = m_context->getAnalysis();
-                auto &registry(analysis->getRegistry());
+                auto &registry(analysis->getObjectFactory());
 
                 for (auto sinkName: registry.getSinkNames())
                 {
@@ -3976,37 +3977,71 @@ void EventWidgetPrivate::actionExport()
         fileName += AnalysisLibraryFileExtension;
 
     // Step 1) Collect all objects that have to be written out
-    auto selectedObjects = getAllSelectedObjects();
     auto analysis = m_context->getAnalysis();
+    auto selectedObjects = getAllSelectedObjects();
     auto allObjects = order_objects(expand_objects(selectedObjects, analysis), analysis);
 
     qDebug() << __PRETTY_FUNCTION__
         << "#selected =" << selectedObjects.size()
         << ", #collected =" << allObjects.size();
 
-    // Step 2) Create the JSON structures and document
+    // Step 2) Create the JSON structures and the document
     ObjectSerializerVisitor sv;
     visit_objects(allObjects.begin(), allObjects.end(), sv);
 
-    QJsonObject exportData;
-    exportData["MVMEAnalysisVersion"] = Analysis::getCurrentAnalysisVersion();
-    exportData["sources"] = sv.sourcesArray;
-    exportData["operators"] = sv.operatorsArray;
-    exportData["directories"] = sv.directoriesArray;
-    exportData["connections"] = serialize_internal_connections(allObjects);
-
     QJsonObject exportRoot;
-    exportRoot["MVMEAnalysisExport"] = exportData;
+    exportRoot["MVMEAnalysisExport"] = sv.finalize();
 
     QJsonDocument doc(exportRoot);
 
+    qDebug() << __PRETTY_FUNCTION__
+        << "exporting" << sv.objectCount() << "objects";
+
     // Step 3) Write to file
-    gui_write_json_file(fileName, doc); // FIXME: replace with something that can give a specific error message for this concrete operation
+    // FIXME: replace with something that can give a specific error message for
+    // this concrete file save operation instead of just a generic write error
+    gui_write_json_file(fileName, doc);
 }
 
 void EventWidgetPrivate::actionImport()
 {
+    /* Global import without a specific target directory/userlevel or a
+     * subselection of objects.
+     * The following should happen:
+     * Read in the file, check for version errors and create all contained objects.
+     * Place them as is without modifying userlevels or directories.
+     * Regenerate unique IDs
+     * Later: for each imported object check if an object of the same type and
+     * name exists. If so append a suffix to the object name to make it unique.
+     */
     qDebug() << __PRETTY_FUNCTION__;
+
+    QString startPath = m_context->getWorkspaceDirectory();
+
+    QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Import analysis objects"),
+                                                    startPath, AnalysisLibraryFileFilter);
+
+    if (fileName.isEmpty())
+        return;
+
+    QJsonDocument doc(gui_read_json_file(fileName));
+    auto exportRoot = doc.object();
+
+    if (!exportRoot.contains("MVMEAnalysisExport"))
+    {
+        QMessageBox::critical(m_q, "File format error", "File format error");
+        return;
+    }
+
+    auto importData = exportRoot["MVMEAnalysisExport"].toObject();
+
+    if (importData["MVMEAnalysisVersion"].toInt() > Analysis::getCurrentAnalysisVersion())
+    {
+        QMessageBox::critical(m_q, "File version error",
+                              "The library file was written by a more recent version of mvme."
+                              " Please update to the latest release.");
+        return;
+    }
 }
 
 void EventWidgetPrivate::setSinksEnabled(const QVector<SinkInterface *> sinks, bool enabled)

@@ -28,9 +28,11 @@
 
 #include "a2_adapter.h"
 #include "a2/multiword_datafilter.h"
+#include "analysis_serialization.h"
 #include "analysis_util.h"
 #include "exportsink_codegen.h"
 #include "../vme_config.h"
+#include "object_visitor.h"
 
 #define ENABLE_ANALYSIS_DEBUG 1
 
@@ -3155,29 +3157,29 @@ Analysis::Analysis(QObject *parent)
     , m_timetickCount(0.0)
     , m_a2ArenaIndex(0)
 {
-    m_registry.registerSource<ListFilterExtractor>();
-    m_registry.registerSource<Extractor>();
+    m_objectFactory.registerSource<ListFilterExtractor>();
+    m_objectFactory.registerSource<Extractor>();
 
-    m_registry.registerOperator<CalibrationMinMax>();
-    m_registry.registerOperator<PreviousValue>();
-    m_registry.registerOperator<Difference>();
-    m_registry.registerOperator<Sum>();
-    m_registry.registerOperator<ArrayMap>();
-    m_registry.registerOperator<RangeFilter1D>();
-    m_registry.registerOperator<ConditionFilter>();
-    m_registry.registerOperator<RectFilter2D>();
-    m_registry.registerOperator<BinarySumDiff>();
-    m_registry.registerOperator<AggregateOps>();
-    m_registry.registerOperator<ExpressionOperator>();
+    m_objectFactory.registerOperator<CalibrationMinMax>();
+    m_objectFactory.registerOperator<PreviousValue>();
+    m_objectFactory.registerOperator<Difference>();
+    m_objectFactory.registerOperator<Sum>();
+    m_objectFactory.registerOperator<ArrayMap>();
+    m_objectFactory.registerOperator<RangeFilter1D>();
+    m_objectFactory.registerOperator<ConditionFilter>();
+    m_objectFactory.registerOperator<RectFilter2D>();
+    m_objectFactory.registerOperator<BinarySumDiff>();
+    m_objectFactory.registerOperator<AggregateOps>();
+    m_objectFactory.registerOperator<ExpressionOperator>();
 
-    m_registry.registerSink<Histo1DSink>();
-    m_registry.registerSink<Histo2DSink>();
-    m_registry.registerSink<RateMonitorSink>();
-    m_registry.registerSink<ExportSink>();
+    m_objectFactory.registerSink<Histo1DSink>();
+    m_objectFactory.registerSink<Histo2DSink>();
+    m_objectFactory.registerSink<RateMonitorSink>();
+    m_objectFactory.registerSink<ExportSink>();
 
-    qDebug() << "Registered Sources:   " << m_registry.getSourceNames();
-    qDebug() << "Registered Operators: " << m_registry.getOperatorNames();
-    qDebug() << "Registered Sinks:     " << m_registry.getSinkNames();
+    qDebug() << "Registered Sources:   " << m_objectFactory.getSourceNames();
+    qDebug() << "Registered Operators: " << m_objectFactory.getOperatorNames();
+    qDebug() << "Registered Sinks:     " << m_objectFactory.getSinkNames();
 
     // create a2 arenas
     for (size_t i = 0; i < m_a2Arenas.size(); i++)
@@ -3676,7 +3678,7 @@ AnalysisObjectVector Analysis::getAllObjects() const
 {
     AnalysisObjectVector result;
 
-    result.reserve(m_sources.size() + m_operators.size() + m_directories.size());
+    result.reserve(objectCount());
 
     for (const auto &obj: m_sources)
         result.append(obj);
@@ -3686,6 +3688,17 @@ AnalysisObjectVector Analysis::getAllObjects() const
 
     for (const auto &obj: m_directories)
         result.append(obj);
+
+    return result;
+}
+
+int Analysis::objectCount() const
+{
+    int result = 0;
+
+    result += m_sources.size();
+    result += m_operators.size();
+    result += m_directories.size();
 
     return result;
 }
@@ -4007,7 +4020,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
             auto objectJson = it->toObject();
             auto className = objectJson["class"].toString();
 
-            SourcePtr source(m_registry.makeSource(className));
+            SourcePtr source(m_objectFactory.makeSource(className));
 
             if (source)
             {
@@ -4038,12 +4051,12 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
             auto objectJson = it->toObject();
             auto className = objectJson["class"].toString();
 
-            OperatorPtr op(m_registry.makeOperator(className));
+            OperatorPtr op(m_objectFactory.makeOperator(className));
 
             // No operator with the given name exists, try a sink instead.
             if (!op)
             {
-                op.reset(m_registry.makeSink(className));
+                op.reset(m_objectFactory.makeSink(className));
             }
 
             if (op)
@@ -4176,99 +4189,11 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
 
 void Analysis::write(QJsonObject &json) const
 {
-    json["MVMEAnalysisVersion"] = CurrentAnalysisVersion;
+    auto objects = getAllObjects();
+    ObjectSerializerVisitor sv;
+    visit_objects(objects.begin(), objects.end(), sv);
 
-    // Sources
-    {
-        QJsonArray destArray;
-        for (auto &srcPtr: m_sources)
-        {
-            SourceInterface *source = srcPtr.get();
-            QJsonObject destObject;
-            destObject["id"] = source->getId().toString();
-            destObject["name"] = source->objectName();
-            destObject["eventId"]  = source->getEventId().toString();
-            destObject["moduleId"] = source->getModuleId().toString();
-            destObject["class"] = getClassName(source);
-            QJsonObject dataJson;
-            source->write(dataJson);
-            destObject["data"] = dataJson;
-            destArray.append(destObject);
-        }
-        json["sources"] = destArray;
-    }
-
-    // Operators
-    {
-        QJsonArray destArray;
-
-        for (auto &opPtr: m_operators)
-        {
-            OperatorInterface *op = opPtr.get();
-
-            QJsonObject destObject;
-            destObject["id"]        = op->getId().toString();
-            destObject["name"]      = op->objectName();
-            destObject["eventId"]   = op->getEventId().toString();
-            destObject["class"]     = getClassName(op);
-            destObject["userLevel"] = op->getUserLevel();
-
-            QJsonObject dataJson;
-            op->write(dataJson);
-            destObject["data"] = dataJson;
-
-            if (auto sink = qobject_cast<SinkInterface *>(op))
-            {
-                destObject["enabled"] = sink->isEnabled();
-            }
-
-            destArray.append(destObject);
-
-        }
-        json["operators"] = destArray;
-    }
-
-    // Connections
-    {
-        QJsonArray conArray;
-        QVector<PipeSourceInterface *> pipeSources;
-
-        for (auto &source: m_sources)
-        {
-            pipeSources.push_back(source.get());
-        }
-
-        for (auto &op: m_operators)
-        {
-            pipeSources.push_back(op.get());
-        }
-
-        for (PipeSourceInterface *srcObject: pipeSources)
-        {
-            for (s32 outputIndex = 0; outputIndex < srcObject->getNumberOfOutputs(); ++outputIndex)
-            {
-                Pipe *pipe = srcObject->getOutput(outputIndex);
-
-                for (Slot *dstSlot: pipe->getDestinations())
-                {
-                    if (auto dstOp = dstSlot->parentOperator)
-                    {
-                        //qDebug() << "Connection:" << srcObject << outputIndex
-                        //         << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
-                        QJsonObject conJson;
-                        conJson["srcId"] = srcObject->getId().toString();
-                        conJson["srcIndex"] = outputIndex;
-                        conJson["dstId"] = dstOp->getId().toString();
-                        conJson["dstIndex"] = dstSlot->parentSlotIndex;
-                        conJson["dstParamIndex"] = static_cast<qint64>(dstSlot->paramIndex);
-                        conArray.append(conJson);
-                    }
-                }
-            }
-        }
-
-        json["connections"] = conArray;
-    }
+    json = sv.finalize();
 
     // VME Object Settings
     {
@@ -4288,29 +4213,6 @@ void Analysis::write(QJsonObject &json) const
 
     if (!props.isEmpty())
         json["properties"] = props;
-
-    // Directory Objects
-    {
-        QJsonArray destArray;
-
-        for (const auto &dir: m_directories)
-        {
-            QJsonObject destObject;
-
-            destObject["id"]        = dir->getId().toString();
-            destObject["name"]      = dir->objectName();
-            destObject["eventId"]   = dir->getEventId().toString();
-            destObject["userLevel"] = dir->getUserLevel();
-
-            QJsonObject dataJson;
-            dir->write(dataJson);
-
-            destObject["data"] = dataJson;
-            destArray.append(destObject);
-        }
-
-        json["directories"] = destArray;
-    }
 }
 
 //
@@ -4622,6 +4524,8 @@ void generate_new_object_ids(Analysis *analysis)
 
     for (auto &op: analysis->getOperators())
         op->setId(QUuid::createUuid());
+
+    // FIXME: directories are missing here
 }
 
 QString info_string(const Analysis *analysis)
@@ -4728,7 +4632,7 @@ AnalysisObjectVector expand_objects(const AnalysisObjectVector &vec,
     return result;
 }
 
-/* Returns a vector of the objects contained in given object set but in the same order as
+/* Returns a vector of the objects contained in the given object set but in the same order as
  * the objects are stored in the analysis.
  * Note: directories are not expanded, no recursion is done. */
 AnalysisObjectVector order_objects(const AnalysisObjectSet &objects,
