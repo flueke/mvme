@@ -4013,6 +4013,7 @@ void EventWidgetPrivate::actionImport()
      * Regenerate unique IDs
      * Later: for each imported object check if an object of the same type and
      * name exists. If so append a suffix to the object name to make it unique.
+     * Finally select the newly added objects.
      */
     qDebug() << __PRETTY_FUNCTION__;
 
