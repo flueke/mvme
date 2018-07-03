@@ -570,7 +570,7 @@ void MVMEStreamWorker::start(bool keepState)
         }
         else
         {
-            logMessage(QString("Error saving analysis ssession to %1: %2")
+            logMessage(QString("Error saving analysis session to %1: %2")
                        .arg(filename)
                        .arg(result.second));
         }
