@@ -737,7 +737,7 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
     if (!data->hasFormat(OperatorIdListMIMEType))
         return false;
 
-    auto ids = decode_id_list(data->data(DataSourceIdListMIMEType));
+    auto ids = decode_id_list(data->data(OperatorIdListMIMEType));
 
     if (ids.isEmpty())
         return false;
@@ -753,53 +753,43 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
     bool result = false;
     auto analysis = getEventWidget()->getContext()->getAnalysis();
 
-    AnalysisPauser pauser(getContext());
+    AnalysisObjectVector droppedObjects;
+    droppedObjects.reserve(ids.size());
 
     for (auto &id: ids)
     {
         auto obj = analysis->getObject(id);
+        droppedObjects.append(obj);
 
         const s32 levelDelta = getUserLevel() - obj->getUserLevel();
 
-        if (destDir) // drop onto a directory
+        if (auto sourceDir = analysis->getParentDirectory(obj))
         {
-            // XXX: leftoff
-            if (auto sourceDir = analysis->getParentDirectory(obj))
-            {
-                qDebug() << __PRETTY_FUNCTION__
-                    << "removing" << obj.get() << "from dir" << sourceDir.get();
+            sourceDir->remove(obj);
+        }
 
-                sourceDir->remove(obj);
-            }
-
-            qDebug() << __PRETTY_FUNCTION__ <<
-                "adding object" << obj.get() << "to directory" << destDir.get() <<
-                "new userlevel =" << getUserLevel();
-
-            // Move objects into destDir. This flattens any source hierarchy.
+        // Move objects into destDir. This flattens any source hierarchy.
+        if (destDir)
+        {
             destDir->push_back(obj);
-            // TODO: adjust non sink operators by level delta
-            if (auto op = analysis->getOperator(id))
-            {
-            }
-            else
-            {
-                obj->setUserLevel(getUserLevel());
-            }
-            result = true;
         }
-        else // drop onto a tree
+
+        if (auto op = analysis->getOperator(id))
         {
-            if (auto sourceDir = analysis->getParentDirectory(obj))
-            {
-                qDebug() << __PRETTY_FUNCTION__
-                    << "removing" << obj.get() << "from dir" << sourceDir.get();
-
-                sourceDir->remove(obj);
-            }
-            // TODO: adjust non sink operators by level delta
+            adjust_userlevel_forward(analysis->getNonSinkOperators(), op.get(), levelDelta);
         }
+        else
+        {
+            obj->setUserLevel(getUserLevel());
+        }
+        result = true;
+    }
 
+    if (result)
+    {
+        getAnalysis()->setModified();
+        getEventWidget()->repopulate();
+        getEventWidget()->selectObjects(droppedObjects);
     }
 
     return result;
@@ -857,7 +847,67 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
                             const QMimeData *data,
                             Qt::DropAction action)
 {
-    return false;
+    // FIXME: dragging two histos to userlevel + 1 can cause a crash happening in
+    // QAbstractItemModelPrivate::removePersistentIndexData()
+
+
+    if (getUserLevel() == 0)
+        return false;
+
+    if (action != Qt::MoveAction)
+        return false;
+
+    if (!data->hasFormat(SinkIdListMIMEType))
+        return false;
+
+    auto ids = decode_id_list(data->data(SinkIdListMIMEType));
+
+    if (ids.isEmpty())
+        return false;
+
+    DirectoryPtr destDir;
+
+    if (parentItem && parentItem->type() == NodeType_Directory)
+    {
+        destDir = std::dynamic_pointer_cast<Directory>(
+            get_pointer<Directory>(parentItem)->shared_from_this());
+    }
+
+    bool result = false;
+    auto analysis = getEventWidget()->getContext()->getAnalysis();
+
+    AnalysisObjectVector droppedObjects;
+    droppedObjects.reserve(ids.size());
+
+    for (auto &id: ids)
+    {
+        auto obj = analysis->getObject(id);
+        droppedObjects.append(obj);
+
+        if (auto sourceDir = analysis->getParentDirectory(obj))
+        {
+            sourceDir->remove(obj);
+        }
+
+        // Move objects into destDir. This flattens any source hierarchy.
+        if (destDir)
+        {
+            destDir->push_back(obj);
+        }
+
+        obj->setUserLevel(getUserLevel());
+
+        result = true;
+    }
+
+    if (result)
+    {
+        getAnalysis()->setModified();
+        getEventWidget()->repopulate();
+        getEventWidget()->selectObjects(droppedObjects);
+    }
+
+    return result;
 }
 
 #if 0
@@ -4119,8 +4169,8 @@ void EventWidgetPrivate::actionImport()
 
         for (auto &obj: objectStore.sources)
         {
-            // Reset the data sources module id. This will make the source unassigned to
-            // any module and the user has to assign it later.
+            // Reset the data sources module id. This will make the source unassigned any
+            // module and the user has to assign it later.
             obj->setModuleId(QUuid());
             obj->setEventId(m_eventId);
         }
@@ -4687,6 +4737,11 @@ VMEConfig *EventWidget::getVMEConfig() const
 QUuid EventWidget::getEventId() const
 {
     return m_d->m_eventId;
+}
+
+void EventWidget::selectObjects(const AnalysisObjectVector &objects)
+{
+    m_d->selectObjects(objects);
 }
 
 struct AnalysisWidgetPrivate

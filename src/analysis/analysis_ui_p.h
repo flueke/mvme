@@ -107,6 +107,8 @@ class EventWidget: public QWidget
 
         QUuid getEventId() const;
 
+        void selectObjects(const AnalysisObjectVector &objects);
+
     public slots:
         // Note: these slots are only public because of being called by a
         // lambda which otherwise cannot invoke them.

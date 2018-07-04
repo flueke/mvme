@@ -12,8 +12,8 @@ Goals:
 Add a new JSON container format to store exported objects. Update GUI to support
 multi selections. Implement export to file.
 
-Implement a simple full library import. Then change the GUI to be able to show
-a view of the library objects. The user can then select a subset of the
+Implement a simple full library import. Maybe: change the GUI to be able to
+show a view of the library objects. The user can then select a subset of the
 library to import.
 
 Figure out what the import view needs to do and split/refactor the current ui
@@ -22,7 +22,9 @@ highlighting logic.
 
 Use serialization to implement copy/paste.
 
-Issues: naming of objects both when importing and when pasting.
+Issues: naming of objects both when importing and when pasting.  -> Iterate
+through objects and compare type and name. If an exact match is found append a
+suffix to the new object.
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -53,7 +55,7 @@ BUGFIXES wanted for 0.9.5
   invalid cases by now.
 
 => Discussion result: allow histograms to reside anywhere and do not limit the input connections.
-   Keep the userlevel enforcing rules for the operator trees though.
+   Keep the userlevel enforcing rules for the operator trees only.
 
 * Directory context menu
 * Start editing newly created directories to allow setting a propery name immediately
