@@ -1157,9 +1157,11 @@ struct EventWidgetPrivate
         TreeType_Sink,
         TreeType_Count
     };
-    // Keeps track of the expansion state of those tree nodes that are storing objects in DataRole_Pointer.
-    // There's two sets, one for the operator trees and one for the display
-    // trees, because objects may have nodes in both trees.
+    // Keeps track of the expansion state of those tree nodes that are storing objects in
+    // DataRole_Pointer.
+    // There's two sets, one for the operator trees and one for the display trees, because
+    // objects may have nodes in both trees.
+    // FIXME: does the case with two nodes really occur?
     std::array<SetOfVoidStar, TreeType_Count> m_expandedObjects;
     QTimer *m_displayRefreshTimer;
 
@@ -1228,10 +1230,15 @@ struct EventWidgetPrivate
     void periodicUpdateEventRate(double dt_s);
     void updateActions();
 
+    // Object and node selections
+
     // Returns the currentItem() of the tree widget that has focus.
     QTreeWidgetItem *getCurrentNode() const;
     QList<QTreeWidgetItem *> getAllSelectedNodes() const;
     AnalysisObjectVector getAllSelectedObjects() const;
+    void clearSelections();
+    void selectObjects(const AnalysisObjectVector &objects);
+
 
     // import / export
     void importForModuleFromTemplate();
@@ -3486,6 +3493,9 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
             if (!source)
                 continue;
 
+            if (source->getModuleId().isNull()) // source not assigned to a module
+                continue;
+
             auto ds_a2 = a2State->sourceMap.value(source, nullptr);
 
             if (!ds_a2)
@@ -3777,6 +3787,62 @@ AnalysisObjectVector EventWidgetPrivate::getAllSelectedObjects() const
     return result;
 }
 
+void EventWidgetPrivate::clearSelections()
+{
+    for (const auto &trees: m_levelTrees)
+    {
+        for (auto tree: trees.getObjectTrees())
+        {
+            tree->selectionModel()->clear();
+        }
+    }
+}
+
+static void select_objects(QTreeWidgetItem *root, const AnalysisObjectSet &objects)
+{
+    switch (root->type())
+    {
+        case NodeType_Source:
+        case NodeType_Operator:
+        case NodeType_Histo1DSink:
+        case NodeType_Histo2DSink:
+        case NodeType_Sink:
+        case NodeType_Directory:
+            {
+                auto obj = get_shared_analysis_object<AnalysisObject>(root);
+
+                if (objects.contains(obj))
+                    root->setSelected(true);
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    for (int ci = 0; ci < root->childCount(); ci++)
+    {
+        auto child = root->child(ci);
+        select_objects(child, objects);
+    }
+}
+
+void EventWidgetPrivate::selectObjects(const AnalysisObjectVector &objects)
+{
+    clearSelections();
+
+    auto objectSet = to_set(objects);
+
+    for (const auto &trees: m_levelTrees)
+    {
+        for (auto tree: trees.getObjectTrees())
+        {
+            auto root = tree->invisibleRootItem();
+            select_objects(root, objectSet);
+        }
+    }
+}
+
 void EventWidgetPrivate::updateActions()
 {
     auto node = getCurrentNode();
@@ -4036,12 +4102,47 @@ void EventWidgetPrivate::actionImport()
 
     auto importData = exportRoot["MVMEAnalysisExport"].toObject();
 
-    if (importData["MVMEAnalysisVersion"].toInt() > Analysis::getCurrentAnalysisVersion())
+    try
     {
-        QMessageBox::critical(m_q, "File version error",
-                              "The library file was written by a more recent version of mvme."
-                              " Please update to the latest release.");
-        return;
+        auto analysis = m_context->getAnalysis();
+
+        auto objectStore = deserialize_objects(
+            importData,
+            m_context->getVMEConfig(),
+            analysis->getObjectFactory());
+
+        establish_connections(objectStore);
+
+        generate_new_object_ids(objectStore.allObjects());
+
+        // Assign all imported objects to the current event.
+
+        for (auto &obj: objectStore.sources)
+        {
+            // Reset the data sources module id. This will make the source unassigned to
+            // any module and the user has to assign it later.
+            obj->setModuleId(QUuid());
+            obj->setEventId(m_eventId);
+        }
+
+        for (auto &obj: objectStore.operators)
+        {
+            obj->setEventId(m_eventId);
+        }
+
+        for (auto &obj: objectStore.directories)
+        {
+            obj->setEventId(m_eventId);
+        }
+
+        AnalysisPauser pauser(m_context);
+        analysis->addObjects(objectStore);
+        repopulate();
+        selectObjects(objectStore.allObjects());
+    }
+    catch (const std::runtime_error &e)
+    {
+        QMessageBox::critical(m_q, "Import error", e.what());
     }
 }
 
