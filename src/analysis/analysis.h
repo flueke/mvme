@@ -179,10 +179,6 @@ class LIBMVME_EXPORT AnalysisObject:
         QUuid m_eventId;
 };
 
-using AnalysisObjectPtr = std::shared_ptr<AnalysisObject>;
-using AnalysisObjectVector = QVector<AnalysisObjectPtr>;
-using AnalysisObjectSet = QSet<AnalysisObjectPtr>;
-
 /* Interface to indicate that something can the be source of a Pipe.
  * Base for data sources (objects consuming module data and producing output parameter
  * vectors) and for operators (objects consuming and producing parameter vectors.
@@ -221,8 +217,6 @@ class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
     private:
         PipeSourceInterface() = delete;
 };
-
-using PipeSourcePtr = std::shared_ptr<PipeSourceInterface>;
 
 } // end namespace analysis
 
@@ -459,9 +453,6 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
         virtual void accept(ObjectVisitor &visitor) override;
 };
 
-using OperatorPtr = std::shared_ptr<OperatorInterface>;
-using OperatorVector = QVector<OperatorPtr>;
-
 } // end namespace analysis
 
 #define SourceInterface_iid "com.mesytec.mvme.analysis.SourceInterface.1"
@@ -503,8 +494,6 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
     private:
         bool m_enabled = true;
 };
-
-using SinkPtr = std::shared_ptr<SinkInterface>;
 
 enum class DisplayLocation
 {
@@ -579,9 +568,6 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
         DisplayLocation m_displayLocation;
 };
 
-using DirectoryPtr = std::shared_ptr<Directory>;
-using DirectoryVector = QVector<DirectoryPtr>;
-
 } // end namespace analysis
 
 #define SinkInterface_iid "com.mesytec.mvme.analysis.SinkInterface.1"
@@ -593,9 +579,6 @@ namespace analysis
 //
 // Sources
 //
-
-using SourcePtr = std::shared_ptr<SourceInterface>;
-using SourceVector = QVector<SourcePtr>;
 
 /* A Source using a MultiWordDataFilter for data extraction. Additionally
  * requiredCompletionCount can be set to only produce output for the nth
@@ -1521,6 +1504,8 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         Format m_format = Format::Sparse;
 };
 
+class AnalysisObjectStore;
+
 class LIBMVME_EXPORT Analysis: public QObject
 {
     Q_OBJECT
@@ -1638,6 +1623,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         int removeObjectsRecursively(const AnalysisObjectVector &objects);
         AnalysisObjectVector getAllObjects() const;
         int objectCount() const;
+        void addObjects(const AnalysisObjectStore &objects);
 
         //
         // Pre and post run work
@@ -1724,7 +1710,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         SourceVector m_sources;
         OperatorVector m_operators;
         DirectoryVector m_directories;
-        QMap<QUuid, QVariantMap> m_vmeObjectSettings;
+        QHash<QUuid, QVariantMap> m_vmeObjectSettings;
         ObjectFlags::Flags m_flags = ObjectFlags::None;
 
         ObjectFactory m_objectFactory;
@@ -1767,10 +1753,6 @@ QString LIBMVME_EXPORT make_unique_operator_name(Analysis *analysis, const QStri
 
 bool LIBMVME_EXPORT required_inputs_connected_and_valid(OperatorInterface *op);
 bool LIBMVME_EXPORT no_input_connected(OperatorInterface *op);
-
-/** Generate new unique IDs for all sources and operators.
- * Note: Does not update the ModuleProperties information! */
-void LIBMVME_EXPORT generate_new_object_ids(Analysis *analysis);
 
 QString LIBMVME_EXPORT info_string(const Analysis *analysis);
 
