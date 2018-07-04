@@ -4,7 +4,10 @@
 namespace analysis
 {
 
-AnalysisObject *ObjectFactory::makeObject(const QString &name)
+/* Returns a new object that was registered under the given name.
+ * In the case of duplicate names priority is as follows: sources, operators, sinks.
+ */
+AnalysisObject *ObjectFactory::makeObject(const QString &name) const
 {
     if (auto result = makeSource(name))
         return result;
@@ -18,7 +21,7 @@ AnalysisObject *ObjectFactory::makeObject(const QString &name)
     return nullptr;
 }
 
-SourceInterface *ObjectFactory::makeSource(const QString &name)
+SourceInterface *ObjectFactory::makeSource(const QString &name) const
 {
     SourceInterface *result = nullptr;
 
@@ -30,7 +33,7 @@ SourceInterface *ObjectFactory::makeSource(const QString &name)
     return result;
 }
 
-OperatorInterface *ObjectFactory::makeOperator(const QString &name)
+OperatorInterface *ObjectFactory::makeOperator(const QString &name) const
 {
     OperatorInterface *result = nullptr;
 
@@ -42,7 +45,7 @@ OperatorInterface *ObjectFactory::makeOperator(const QString &name)
     return result;
 }
 
-SinkInterface *ObjectFactory::makeSink(const QString &name)
+SinkInterface *ObjectFactory::makeSink(const QString &name) const
 {
     SinkInterface *result = nullptr;
 

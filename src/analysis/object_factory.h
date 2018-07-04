@@ -97,10 +97,10 @@ class LIBMVME_EXPORT ObjectFactory
             return registerSink<T>(className);
         }
 
-        AnalysisObject *makeObject(const QString &name);
-        SourceInterface *makeSource(const QString &name);
-        OperatorInterface *makeOperator(const QString &name);
-        SinkInterface *makeSink(const QString &name);
+        AnalysisObject *makeObject(const QString &name) const;
+        SourceInterface *makeSource(const QString &name) const;
+        OperatorInterface *makeOperator(const QString &name) const;
+        SinkInterface *makeSink(const QString &name) const;
 
         QStringList getSourceNames() const
         {

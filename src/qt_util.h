@@ -66,6 +66,7 @@ QAction *add_widget_close_action(QWidget *widget,
 
 QJsonObject storeDynamicProperties(const QObject *object);
 void loadDynamicProperties(const QJsonObject &json, QObject *dest);
+void loadDynamicProperties(const QVariantMap &properties, QObject *dest);
 
 
 // VerticalLabel source: https://stackoverflow.com/a/18515898

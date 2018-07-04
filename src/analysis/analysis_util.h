@@ -28,6 +28,26 @@ void LIBMVME_EXPORT
     collect_dependent_objects(PipeSourceInterface *startObject,
                                  QSet<PipeSourceInterface *> &dest);
 
+void LIBMVME_EXPORT
+    generate_new_object_ids(const AnalysisObjectVector &objects);
+
+/** Generate new unique IDs for all objects in the analysis.
+ * IMPORTANT: Does not update the ModuleProperties information! It will still contain the
+ * old IDs. */
+void LIBMVME_EXPORT
+    generate_new_object_ids(Analysis *analysis);
+
+template<typename It>
+    void generate_new_object_ids(It begin_, It end_)
+{
+    while (begin_ != end_)
+    {
+        (*begin_++)->setId(QUuid::createUuid());
+    }
+}
+
+AnalysisObjectSet to_set(const AnalysisObjectVector &objects);
+
 
 } // namespace analysis
 

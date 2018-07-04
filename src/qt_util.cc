@@ -115,8 +115,12 @@ QJsonObject storeDynamicProperties(const QObject *object)
 
 void loadDynamicProperties(const QJsonObject &json, QObject *dest)
 {
-    auto properties = json.toVariantMap();
+    loadDynamicProperties(json.toVariantMap(), dest);
 
+}
+
+void loadDynamicProperties(const QVariantMap &properties, QObject *dest)
+{
     for (auto propName: properties.keys())
     {
         const auto &value = properties[propName];

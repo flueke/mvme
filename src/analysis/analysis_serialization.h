@@ -3,20 +3,23 @@
 
 #include "analysis_fwd.h"
 #include "object_visitor.h"
+#include "typedefs.h"
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QUuid>
+#include <QVariantMap>
+
+class VMEConfig;
 
 namespace analysis
 {
 
-QJsonObject serialize(SourceInterface *source);
-QJsonObject serialize(OperatorInterface *op);
-QJsonObject serialize(SinkInterface *sink);
-QJsonObject serialize(Directory *dir);
+QJsonObject LIBMVME_EXPORT serialize(SourceInterface *source);
+QJsonObject LIBMVME_EXPORT serialize(OperatorInterface *op);
+QJsonObject LIBMVME_EXPORT serialize(SinkInterface *sink);
+QJsonObject LIBMVME_EXPORT serialize(Directory *dir);
 
-QJsonArray serialize_internal_connections(const AnalysisObjectVector &objects);
-
-struct ObjectSerializerVisitor: public ObjectVisitor
+struct LIBMVME_EXPORT ObjectSerializerVisitor: public ObjectVisitor
 {
     virtual void visit(SourceInterface *source) override;
     virtual void visit(OperatorInterface *op) override;
@@ -33,7 +36,8 @@ struct ObjectSerializerVisitor: public ObjectVisitor
     AnalysisObjectVector visitedObjects;
 };
 
-struct AddObjectsVisitor: public ObjectVisitor
+#if 0
+struct LIBMVME_EXPORT AddObjectsVisitor: public ObjectVisitor
 {
     AddObjectsVisitor(Analysis *dest);
 
@@ -42,6 +46,56 @@ struct AddObjectsVisitor: public ObjectVisitor
     virtual void visit(SinkInterface *sink) override;
     virtual void visit(Directory *dir) override;
 };
+#endif
+
+struct LIBMVME_EXPORT Connection
+{
+    PipeSourcePtr srcObject;
+    s32 srcIndex;
+
+    OperatorPtr dstObject;
+    s32 dstIndex;
+    s32 dstParamIndex;
+
+    bool operator==(const Connection &other) const
+    {
+        return srcObject == other.srcObject
+            && srcIndex == other.srcIndex
+            && dstObject == other.dstObject
+            && dstIndex == other.dstIndex
+            && dstParamIndex == other.dstParamIndex;
+    }
+};
+
+uint LIBMVME_EXPORT qHash(const Connection &con, uint seed = 0);
+
+QJsonObject LIBMVME_EXPORT serialze_connection(const Connection &con);
+
+QSet<Connection> LIBMVME_EXPORT collect_internal_collections(const AnalysisObjectVector &objects);
+
+QJsonArray LIBMVME_EXPORT serialize_internal_connections(const AnalysisObjectVector &objects);
+
+struct LIBMVME_EXPORT AnalysisObjectStore
+{
+    SourceVector sources;
+    OperatorVector operators;
+    DirectoryVector directories;
+    QSet<Connection> connections;
+    QHash<QUuid, AnalysisObjectPtr> objectsById;
+    QHash<QUuid, QVariantMap> objectSettingsById;
+    QVariantMap dynamicQObjectProperties;
+
+    AnalysisObjectVector allObjects() const;
+};
+
+class ObjectFactory;
+
+AnalysisObjectStore LIBMVME_EXPORT deserialize_objects(QJsonObject data,
+                                                       VMEConfig *vmeConfig,
+                                                       const ObjectFactory &objectFactory);
+
+void LIBMVME_EXPORT establish_connections(const QSet<Connection> &connections);
+void LIBMVME_EXPORT establish_connections(const AnalysisObjectStore &objectStore);
 
 } // end namespace analysis
 

@@ -107,4 +107,17 @@ void collect_dependent_objects(PipeSourceInterface *startObject,
     }
 }
 
+void generate_new_object_ids(const AnalysisObjectVector &objects)
+{
+    for (auto &obj: objects)
+    {
+        obj->setId(QUuid::createUuid());
+    }
+}
+
+void generate_new_object_ids(Analysis *analysis)
+{
+    generate_new_object_ids(analysis->getAllObjects());
+}
+
 } // namespace analysis
