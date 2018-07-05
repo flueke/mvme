@@ -3080,6 +3080,23 @@ void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
 
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
+    switch (node->type())
+    {
+        case NodeType_Source:
+        case NodeType_Operator:
+        case NodeType_Histo1DSink:
+        case NodeType_Histo2DSink:
+        case NodeType_Sink:
+        case NodeType_Directory:
+            if (auto obj = get_analysis_object(node))
+            {
+                qDebug() << "click on object: id =" << obj->getId()
+                    << ", class =" << obj->metaObject()->className()
+                    << ", flags =" << to_string(obj->getObjectFlags());
+            }
+            break;
+    }
+
     switch (m_mode)
     {
         case Default:
@@ -3459,23 +3476,26 @@ void EventWidgetPrivate::clearTreeSelectionsExcept(QTreeWidget *treeNotToClear)
 
 void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 {
-    AnalysisPauser pauser(m_context);
-
-    auto defaultFilters = get_default_data_extractors(module->getModuleMeta().typeName);
-
-    for (auto &ex: defaultFilters)
     {
-        auto dataFilter = ex->getFilter();
-        double unitMin = 0.0;
-        double unitMax = std::pow(2.0, dataFilter.getDataBits());
-        QString name = module->getModuleMeta().typeName + QSL(".") + ex->objectName().section('.', 0, -1);
+        AnalysisPauser pauser(m_context);
 
-        RawDataDisplay rawDataDisplay = make_raw_data_display(dataFilter, unitMin, unitMax,
-                                                              name,
-                                                              ex->objectName().section('.', 0, -1),
-                                                              QString());
+        auto defaultFilters = get_default_data_extractors(module->getModuleMeta().typeName);
 
-        add_raw_data_display(m_context->getAnalysis(), m_eventId, module->getId(), rawDataDisplay);
+        for (auto &ex: defaultFilters)
+        {
+            auto dataFilter = ex->getFilter();
+            double unitMin = 0.0;
+            double unitMax = std::pow(2.0, dataFilter.getDataBits());
+            QString name = module->getModuleMeta().typeName + QSL(".")
+                + ex->objectName().section('.', 0, -1);
+
+            RawDataDisplay rawDataDisplay = make_raw_data_display(dataFilter, unitMin, unitMax,
+                                                                  name,
+                                                                  ex->objectName().section('.', 0, -1),
+                                                                  QString());
+
+            add_raw_data_display(m_context->getAnalysis(), m_eventId, module->getId(), rawDataDisplay);
+        }
     }
 
     repopulate();

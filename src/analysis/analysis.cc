@@ -164,6 +164,16 @@ a2::data_filter::ListFilter a2_listfilter_from_json(const QJsonObject &json)
 
 namespace analysis
 {
+QString to_string(const ObjectFlags::Flags &flags)
+{
+    QString result;
+
+    if (flags & ObjectFlags::NeedsRebuild)
+        result += "NeedsRebuild";
+
+    return result;
+}
+
 /* File versioning. If the format changes this version needs to be incremented and a
  * conversion routine has to be implemented.
  * Incrementing can also be done to force users to use a newer version of mvme to load the
@@ -2595,10 +2605,31 @@ Histo2DSink::Histo2DSink(QObject *parent)
 // the input parameters limits. Clears the histogram.
 void Histo2DSink::beginRun(const RunInfo &runInfo, Logger logger)
 {
-    if (m_inputX.inputPipe && m_inputY.inputPipe
-        && m_inputX.paramIndex < m_inputX.inputPipe->parameters.size()
-        && m_inputY.paramIndex < m_inputY.inputPipe->parameters.size())
+    if (m_inputX.inputPipe && m_inputY.inputPipe)
     {
+        auto sourceX = m_inputX.inputPipe->getSource();
+        auto sourceY = m_inputY.inputPipe->getSource();
+
+        qDebug() << __PRETTY_FUNCTION__
+            << metaObject()->className()
+            << objectName() << getId()
+            << "sourceX =" << sourceX << ", flagsX =" << to_string(sourceX->getObjectFlags())
+            << ", paramIndexX =" << m_inputX.paramIndex
+            << "\n"
+            << "sourceY =" << sourceY << ", flagsY =" << to_string(sourceY->getObjectFlags())
+            << ", paramIndexY =" << m_inputY.paramIndex
+            << "\n"
+            << ", required_inputs_connected_and_valid =" << required_inputs_connected_and_valid(this)
+            ;
+    }
+
+    if (m_inputX.inputPipe && m_inputY.inputPipe
+        && 0 <= m_inputX.paramIndex && m_inputX.paramIndex < m_inputX.inputPipe->parameters.size()
+        && 0 <= m_inputY.paramIndex && m_inputY.paramIndex < m_inputY.inputPipe->parameters.size())
+    {
+        auto sourceX = m_inputX.inputPipe->getSource();
+        auto sourceY = m_inputY.inputPipe->getSource();
+
         double xMin = m_xLimitMin;
         double xMax = m_xLimitMax;
 
@@ -3755,9 +3786,13 @@ void Analysis::beginRun(const RunInfo &runInfo,
     {
         if (fullBuild || source->getObjectFlags() & ObjectFlags::NeedsRebuild)
         {
-            qDebug() << __PRETTY_FUNCTION__ << "beginRun on" << source->objectName()
+            qDebug() << __PRETTY_FUNCTION__
+                << "beginRun() on"
+                << " class =" << source->metaObject()->className()
+                << ", name =" << source->objectName()
+                << ", id =" << source->getId()
                 << ", fullBuild =" << fullBuild
-                << ", objectFlags =" << source->getObjectFlags();
+                << ", objectFlags =" << to_string(source->getObjectFlags());
 
             source->beginRun(runInfo, logger);
             source->clearObjectFlags(ObjectFlags::NeedsRebuild);
@@ -3783,9 +3818,15 @@ void Analysis::beginRun(const RunInfo &runInfo,
 
         if (fullBuild || op->getObjectFlags() & ObjectFlags::NeedsRebuild)
         {
-            qDebug() << __PRETTY_FUNCTION__ << "beginRun on" << op->objectName()
+            qDebug() << __PRETTY_FUNCTION__
+                << "beginRun() on"
+                << " class =" << op->metaObject()->className()
+                << ", name =" << op->objectName()
+                << ", id =" << op->getId()
                 << ", fullBuild =" << fullBuild
-                << ", objectFlags =" << op->getObjectFlags();
+                << ", objectFlags =" << to_string(op->getObjectFlags())
+                << ", connected_and_valid =" << required_inputs_connected_and_valid(op.get())
+                ;
 
             op->beginRun(runInfo, logger);
             op->clearObjectFlags(ObjectFlags::NeedsRebuild);

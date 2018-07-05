@@ -824,8 +824,11 @@ a2::Operator a2_adapter_magic(
 
     if (operator_magic)
     {
-        LOG("found magic for %s (objectName=%s)", op->metaObject()->className(),
-            op->objectName().toLocal8Bit().constData());
+        LOG("found magic for %s (objectName=%s, id=%s)",
+            op->metaObject()->className(),
+            op->objectName().toLocal8Bit().constData()
+            op->getId().toString().toLocal8Bit().constData()
+            );
 
         QLOG(op.get() << op->getId());
 

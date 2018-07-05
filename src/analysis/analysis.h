@@ -120,6 +120,8 @@ namespace ObjectFlags
     static const Flags NeedsRebuild    = 1u << 0;
 };
 
+QString to_string(const ObjectFlags::Flags &flags);
+
 class ObjectVisitor;
 
 class LIBMVME_EXPORT AnalysisObject:
@@ -355,7 +357,18 @@ struct LIBMVME_EXPORT Slot
 
     inline bool isParamIndexInRange() const
     {
-        return (isConnected() && (paramIndex < inputPipe->getSize()));
+        if (!isConnected())
+            return false;
+
+        if (isParameterConnection())
+        {
+            return ((acceptedInputTypes & InputType::Value)
+                    && 0 <= paramIndex && paramIndex < inputPipe->getSize());
+        }
+        else
+        {
+            return (acceptedInputTypes & InputType::Array);
+        }
     }
 
     inline bool isArrayConnection() const
