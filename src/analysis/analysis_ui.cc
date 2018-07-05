@@ -779,9 +779,19 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
             destDir->push_back(obj);
         }
 
+        // FIXME: things bug out here
         if (auto op = analysis->getOperator(id))
         {
             adjust_userlevel_forward(analysis->getNonSinkOperators(), op.get(), levelDelta);
+        }
+        else if (auto dir = analysis->getDirectory(id))
+        {
+            auto objects = analysis->getDirectoryContentsRecursively(id);
+
+            for (auto &obj: objects)
+            {
+                obj->setUserLevel(getUserLevel());
+            }
         }
         else
         {
@@ -1294,7 +1304,6 @@ struct EventWidgetPrivate
     void clearSelections();
     void selectObjects(const AnalysisObjectVector &objects);
 
-
     // import / export
     void importForModuleFromTemplate();
     void importForModuleFromFile();
@@ -1306,6 +1315,8 @@ struct EventWidgetPrivate
     void setSinksEnabled(const QVector<SinkInterface *> sinks, bool enabled);
     void removeSinks(const QVector<SinkInterface *> sinks);
     void removeDirectoryRecursively(const DirectoryPtr &dir);
+
+    QTreeWidgetItem *findNode(const AnalysisObjectPtr &obj);
 };
 
 void EventWidgetPrivate::createView(const QUuid &eventId)
@@ -2091,7 +2102,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                 if (isAttachedToModule)
                 {
-                    menu.addAction(QSL("Show Parameters"), [this, pipe]() {
+                    menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
                         makeAndShowPipeDisplay(pipe);
                     });
                 }
@@ -2149,7 +2160,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         });
                     }
 
-                    menu.addAction(QSL("Remove"), [this, sourceInterface]() {
+                    menu.addAction(QIcon::fromTheme("edit-delete"), QSL("Remove"),
+                                   [this, sourceInterface]() {
                         // TODO: QMessageBox::question or similar or undo functionality
                         m_q->removeSource(sourceInterface);
                     });
@@ -2161,7 +2173,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         {
             auto pipe = get_pointer<Pipe>(node);
 
-            menu.addAction(QSL("Show Parameters"), [this, pipe]() {
+            menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
                 makeAndShowPipeDisplay(pipe);
             });
         }
@@ -2179,7 +2191,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 {
                     Pipe *pipe = op->getOutput(0);
 
-                    menu.addAction(QSL("Show Parameters"), [this, pipe]() {
+                    menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
                         makeAndShowPipeDisplay(pipe);
                     });
                 }
@@ -2228,12 +2240,32 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
             if (auto dir = get_shared_analysis_object<Directory>(node))
             {
-
                 menu.addSeparator();
                 menu.addAction(QIcon::fromTheme("edit-delete"), "Remove", [this, dir] () {
                     // TODO: QMessageBox::question or similar or undo functionality
                     removeDirectoryRecursively(dir);
                 });
+
+                menuNew->addSeparator();
+                menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
+                                   &menu, [this, userLevel, dir]() {
+
+                    auto newDir = std::make_shared<Directory>();
+                    newDir->setObjectName("New Directory");
+                    newDir->setUserLevel(userLevel);
+                    newDir->setEventId(m_eventId);
+                    newDir->setDisplayLocation(DisplayLocation::Operator);
+                    dir->push_back(newDir);
+                    m_context->getAnalysis()->addDirectory(newDir);
+                    repopulate();
+
+                    if (auto node = findNode(dir))
+                        node->setExpanded(true);
+
+                    if (auto node = findNode(newDir))
+                        node->treeWidget()->editItem(node);
+                });
+                actionNewIsFirst = true;
             }
         }
     }
@@ -2291,14 +2323,16 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
                                    &menu, [this, userLevel]() {
 
-                    auto dir = std::make_shared<Directory>();
-                    dir->setObjectName("New Directory");
-                    dir->setUserLevel(userLevel);
-                    dir->setEventId(m_eventId);
-                    dir->setDisplayLocation(DisplayLocation::Operator);
-                    m_context->getAnalysis()->addDirectory(dir);
+                    auto newDir = std::make_shared<Directory>();
+                    newDir->setObjectName("New Directory");
+                    newDir->setUserLevel(userLevel);
+                    newDir->setEventId(m_eventId);
+                    newDir->setDisplayLocation(DisplayLocation::Operator);
+                    m_context->getAnalysis()->addDirectory(newDir);
                     repopulate();
 
+                    if (auto node = findNode(newDir))
+                        node->treeWidget()->editItem(node);
                 });
             }
         }
@@ -2389,7 +2423,8 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             });
 
             menu.addSeparator();
-            menu.addAction("Remove selected", [this, selectedSinks] {
+            menu.addAction(QIcon::fromTheme("edit-delete"), "Remove selected",
+                           [this, selectedSinks] {
                 removeSinks(selectedSinks);
             });
         }
@@ -2639,7 +2674,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 }
 
                 menu.addSeparator();
-                menu.addAction(QSL("Remove"), [this, op]() {
+                menu.addAction(QIcon::fromTheme("edit-delete"), QSL("Remove"), [this, op]() {
                     // maybe TODO: QMessageBox::question or similar as there's no way to undo the action
                     m_q->removeOperator(op.get());
                 });
@@ -4301,6 +4336,39 @@ void EventWidgetPrivate::removeDirectoryRecursively(const DirectoryPtr &dir)
     }
 
     repopulate();
+}
+
+static QTreeWidgetItem *find_node(QTreeWidgetItem *root, const AnalysisObjectPtr &obj)
+{
+    if (root)
+    {
+        if (get_pointer<void>(root) == obj.get())
+            return root;
+
+        const s32 childCount = root->childCount();
+
+        for (s32 ci = 0; ci < childCount; ci++)
+        {
+            if (auto result = find_node(root->child(ci), obj))
+                return result;
+        }
+    }
+
+    return nullptr;
+}
+
+QTreeWidgetItem *EventWidgetPrivate::findNode(const AnalysisObjectPtr &obj)
+{
+    for (auto &trees: m_levelTrees)
+    {
+        if (auto node = find_node(trees.operatorTree->invisibleRootItem(), obj))
+            return node;
+
+        if (auto node = find_node(trees.sinkTree->invisibleRootItem(), obj))
+            return node;
+    }
+
+    return nullptr;
 }
 
 static const u32 EventWidgetPeriodicRefreshInterval_ms = 1000;

@@ -47,6 +47,7 @@
     <file alias="pencil.png">resources/pencil.png</file>
     <file alias="script-run.png">resources/media-playback-start.png</file>
     <file alias="sink.png">resources/server-database.png</file>
+    <file alias="table.png">resources/table.png</file>
     <file alias="text-document.png">resources/text-x-katefilelist.png</file>
     <file alias="text_field_clear.png">resources/ui-text-field-clear-button.png</file>
     <file alias="tree-settings.png">resources/view-list-tree.png</file>

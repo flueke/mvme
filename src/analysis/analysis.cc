@@ -3515,6 +3515,35 @@ AnalysisObjectVector Analysis::getDirectoryContents(const Directory *dir) const
     return result;
 }
 
+AnalysisObjectVector Analysis::getDirectoryContentsRecursively(const QUuid &directoryId) const
+{
+    return getDirectoryContentsRecursively(getDirectory(directoryId));
+}
+
+AnalysisObjectVector Analysis::getDirectoryContentsRecursively(const DirectoryPtr &dir) const
+{
+    return getDirectoryContentsRecursively(dir.get());
+}
+
+AnalysisObjectVector Analysis::getDirectoryContentsRecursively(const Directory *dir) const
+{
+    AnalysisObjectVector result;
+
+    auto objects = getDirectoryContents(dir);
+
+    result += objects;
+
+    for (auto &obj: objects)
+    {
+        if (auto subdir = std::dynamic_pointer_cast<Directory>(obj))
+        {
+            result += getDirectoryContentsRecursively(subdir);
+        }
+    }
+
+    return result;
+}
+
 int Analysis::removeDirectoryRecursively(const DirectoryPtr &dir)
 {
     auto objects = getDirectoryContents(dir);

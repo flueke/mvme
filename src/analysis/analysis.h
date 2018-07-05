@@ -1627,6 +1627,10 @@ class LIBMVME_EXPORT Analysis: public QObject
         AnalysisObjectVector getDirectoryContents(const DirectoryPtr &directory) const;
         AnalysisObjectVector getDirectoryContents(const Directory *directory) const;
 
+        AnalysisObjectVector getDirectoryContentsRecursively(const QUuid &directoryId) const;
+        AnalysisObjectVector getDirectoryContentsRecursively(const DirectoryPtr &directory) const;
+        AnalysisObjectVector getDirectoryContentsRecursively(const Directory *directory) const;
+
         int removeDirectoryRecursively(const DirectoryPtr &dir);
 
         //
