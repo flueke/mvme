@@ -2711,7 +2711,10 @@ void Histo2DSink::beginRun(const RunInfo &runInfo, Logger logger)
 void Histo2DSink::clearState()
 {
     qDebug() << __PRETTY_FUNCTION__ << objectName();
-    m_histo->clear();
+    if (m_histo)
+    {
+        m_histo->clear();
+    }
 }
 
 s32 Histo2DSink::getNumberOfSlots() const
