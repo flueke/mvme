@@ -3495,6 +3495,7 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
                                                                   QString());
 
             add_raw_data_display(m_context->getAnalysis(), m_eventId, module->getId(), rawDataDisplay);
+            m_context->getAnalysis()->beginRun(Analysis::KeepState);
         }
     }
 

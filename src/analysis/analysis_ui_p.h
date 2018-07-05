@@ -168,7 +168,6 @@ class AddEditExtractorDialog: public QDialog
         void applyTemplate(int index);
 };
 
-
 QWidget *data_source_widget_factory(SourceInterface *ds);
 
 class AbstractOpConfigWidget;
