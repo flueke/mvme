@@ -2711,29 +2711,27 @@ void EventWidgetPrivate::modeChanged()
     {
         case Default:
             {
-                /* The previous mode was SelectInput so m_inputSelectInfo.userLevel
-                 * must still be valid */
                 Q_ASSERT(m_inputSelectInfo.userLevel < m_levelTrees.size());
-
-                for (s32 userLevel = 0; userLevel <= m_inputSelectInfo.userLevel; userLevel++)
-                {
-                    auto opTree = m_levelTrees[userLevel].operatorTree;
-                    clearToDefaultNodeHighlights(opTree->invisibleRootItem());
-                }
+                clearAllToDefaultNodeHighlights();
             } break;
 
         case SelectInput:
             // highlight valid sources
             {
-                clearAllTreeSelections();
-
-
                 Q_ASSERT(m_inputSelectInfo.userLevel < m_levelTrees.size());
 
-                for (s32 userLevel = 0; userLevel <= m_inputSelectInfo.userLevel; ++userLevel)
+                clearAllTreeSelections();
+
+                const bool isSink = qobject_cast<SinkInterface *>(
+                    m_inputSelectInfo.slot->parentOperator);
+
+                for (auto &trees: m_levelTrees)
                 {
-                    auto opTree = m_levelTrees[userLevel].operatorTree;
-                    highlightValidInputNodes(opTree->invisibleRootItem());
+                    if (isSink ||
+                        (getUserLevelForTree(trees.operatorTree) <= m_inputSelectInfo.userLevel))
+                    {
+                        highlightValidInputNodes(trees.operatorTree->invisibleRootItem());
+                    }
                 }
             } break;
     }
@@ -3158,9 +3156,13 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
             {
                 clearTreeSelectionsExcept(node->treeWidget());
 
+                const bool isSink = qobject_cast<SinkInterface *>(
+                    m_inputSelectInfo.slot->parentOperator);
+
                 if (is_valid_input_node(node, m_inputSelectInfo.slot,
                                      m_inputSelectInfo.additionalInvalidSources)
-                    && getUserLevelForTree(node->treeWidget()) <= m_inputSelectInfo.userLevel)
+                    && (isSink || (getUserLevelForTree(node->treeWidget())
+                                   <= m_inputSelectInfo.userLevel)))
                 {
                     Slot *slot = m_inputSelectInfo.slot;
                     Q_ASSERT(slot);
@@ -4527,6 +4529,7 @@ void EventWidget::endSelectInput()
 {
     if (m_d->m_mode == EventWidgetPrivate::SelectInput)
     {
+        qDebug() << __PRETTY_FUNCTION__ << "switching from SelectInput to Default mode";
         m_d->m_mode = EventWidgetPrivate::Default;
         m_d->m_inputSelectInfo = {};
         m_d->modeChanged();
