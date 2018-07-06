@@ -630,13 +630,15 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
      * If dropped onto a module the selected sources are (re)assigned to that module.
      */
 
+    const auto mimeType = DataSourceIdListMIMEType;
+
     if (action != Qt::MoveAction)
         return false;
 
-    if (!data->hasFormat(DataSourceIdListMIMEType))
+    if (!data->hasFormat(mimeType))
         return false;
 
-    auto ids = decode_id_list(data->data(DataSourceIdListMIMEType));
+    auto ids = decode_id_list(data->data(mimeType));
 
     if (ids.isEmpty())
         return false;
@@ -672,7 +674,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
 
         for (auto &id: ids)
         {
-            if (auto source = getAnalysis()->getSource(id))
+            if (auto source = analysis->getSource(id))
             {
                 source->setModuleId(module->getId());
                 analysis->sourceEdited(source);
@@ -685,20 +687,13 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
 
     if (didModify)
     {
+        analysis->setModified();
         getEventWidget()->repopulate();
         getEventWidget()->selectObjects(droppedObjects);
     }
 
-    /* Note: deliberately returning false here. Returning true has the effect that the
-     * source of the drag and drop operation somehow gets notified of the change or gets
-     * directly updated by Qt. This in turn has the effect of a crash happening when
-     * destroying the tree widgets when repopulating the EventWidget. The crash even
-     * happens when the call to repopluate is performed from within the Qt event loop via
-     * a singleshot timer.
-     *
-     * To me it seems that the logic that updates the source of the drag operation somehow
-     * corrupts the internal state of the QTreeWidget and its model.
-     */
+    /* Returning false here to circumvent a crash which seems to be caused by
+     * Qt updating the source of the drop operation. */
     return false;
 }
 
@@ -762,13 +757,15 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
                                 const QMimeData *data,
                                 Qt::DropAction action)
 {
+    const auto mimeType = OperatorIdListMIMEType;
+
     if (action != Qt::MoveAction)
         return false;
 
-    if (!data->hasFormat(OperatorIdListMIMEType))
+    if (!data->hasFormat(mimeType))
         return false;
 
-    auto ids = decode_id_list(data->data(OperatorIdListMIMEType));
+    auto ids = decode_id_list(data->data(mimeType));
 
     if (ids.isEmpty())
         return false;
@@ -785,13 +782,13 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
     bool didModify = false;
     auto analysis = getEventWidget()->getContext()->getAnalysis();
 
-    AnalysisObjectVector droppedObjects;
-    droppedObjects.reserve(ids.size());
+    AnalysisObjectVector movedObjects;
+    movedObjects.reserve(ids.size());
 
     for (auto &id: ids)
     {
         auto obj = analysis->getObject(id);
-        droppedObjects.append(obj);
+        movedObjects.append(obj);
 
         qDebug() << __PRETTY_FUNCTION__ << "handling dropped object" << obj.get();
 
@@ -807,24 +804,38 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
             destDir->push_back(obj);
         }
 
+        obj->setUserLevel(getUserLevel());
+
         if (auto op = analysis->getOperator(id))
         {
-            adjust_userlevel_forward(analysis->getNonSinkOperators(), op.get(), levelDelta);
+            for (auto dep: collect_dependent_operators(op, CollectFlags::Operators))
+            {
+                dep->setUserLevel(dep->getUserLevel() + levelDelta);
+                movedObjects.append(dep->shared_from_this());
+            }
         }
         else if (auto dir = analysis->getDirectory(id))
         {
+            /* FIXME: the dependees of operators inside the directory do need
+             * to have their userlevel adjusted
+             *
+             * Doing the adjustment will create a problem if they have a parent
+             * directory. The directory will have contents in multiple
+             * userlevels and probably show up in multiple places.
+             * This case should be avoided and probably detected and handled
+             * somehow.
+             *
+             * Skipping the adjustment can lead to an operator arrangement
+             * that's not supposed to be allowed. The user can still manually
+             * fix that though.
+             */
+
             auto childObjects = analysis->getDirectoryContentsRecursively(dir);
 
             for (auto &childObject: childObjects)
             {
                 childObject->setUserLevel(getUserLevel());
             }
-
-            dir->setUserLevel(getUserLevel());
-        }
-        else
-        {
-            obj->setUserLevel(getUserLevel());
         }
 
         didModify = true;
@@ -835,7 +846,7 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
         analysis->setModified();
         auto eventWidget = getEventWidget();
         eventWidget->repopulate();
-        eventWidget->selectObjects(droppedObjects);
+        eventWidget->selectObjects(movedObjects);
 
         if (destDir)
         {
@@ -846,16 +857,6 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
         }
     }
 
-    /* Note: deliberately returning false here. Returning true has the effect that the
-     * source of the drag and drop operation somehow gets notified of the change or gets
-     * directly updated by Qt. This in turn has the effect of a crash happening when
-     * destroying the tree widgets when repopulating the EventWidget. The crash even
-     * happens when the call to repopluate is performed from within the Qt event loop via
-     * a singleshot timer.
-     *
-     * To me it seems that the logic that updates the source of the drag operation somehow
-     * corrupts the internal state of the QTreeWidget and its model.
-     */
     return false;
 }
 
@@ -915,16 +916,18 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
                             const QMimeData *data,
                             Qt::DropAction action)
 {
+    const auto mimeType = SinkIdListMIMEType;
+
     if (getUserLevel() == 0)
         return false;
 
     if (action != Qt::MoveAction)
         return false;
 
-    if (!data->hasFormat(SinkIdListMIMEType))
+    if (!data->hasFormat(mimeType))
         return false;
 
-    auto ids = decode_id_list(data->data(SinkIdListMIMEType));
+    auto ids = decode_id_list(data->data(mimeType));
 
     if (ids.isEmpty())
         return false;
@@ -958,6 +961,8 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
             destDir->push_back(obj);
         }
 
+        obj->setUserLevel(getUserLevel());
+
         if (auto dir = analysis->getDirectory(id))
         {
             auto childObjects = analysis->getDirectoryContentsRecursively(dir);
@@ -966,15 +971,7 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
             {
                 childObject->setUserLevel(getUserLevel());
             }
-
-            dir->setUserLevel(getUserLevel());
         }
-        else
-        {
-            obj->setUserLevel(getUserLevel());
-        }
-
-        obj->setUserLevel(getUserLevel());
 
         didModify = true;
     }
@@ -995,16 +992,6 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
         }
     }
 
-    /* Note: deliberately returning false here. Returning true has the effect that the
-     * source of the drag and drop operation somehow gets notified of the change or gets
-     * directly updated by Qt. This in turn has the effect of a crash happening when
-     * destroying the tree widgets when repopulating the EventWidget. The crash even
-     * happens when the call to repopluate is performed from within the Qt event loop via
-     * a singleshot timer.
-     *
-     * To me it seems that the logic that updates the source of the drag operation somehow
-     * corrupts the internal state of the QTreeWidget and its model.
-     */
     return false;
 }
 

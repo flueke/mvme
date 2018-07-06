@@ -53,17 +53,29 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
     return result;
 }
 
-QSet<OperatorInterface *> collect_dependent_operators(PipeSourceInterface *startObject)
+//
+// Dependencies returned as OperatorInterface*
+//
+
+QSet<OperatorInterface *> collect_dependent_operators(PipeSourceInterface *startObject,
+                                                      CollectFlags::Flag flags)
 {
     QSet<OperatorInterface *> result;
 
-    collect_dependent_operators(startObject, result);
+    collect_dependent_operators(startObject, result, flags);
 
     return result;
+}
+
+QSet<OperatorInterface *> collect_dependent_operators(const PipeSourcePtr &startObject,
+                                                      CollectFlags::Flag flags)
+{
+    return collect_dependent_operators(startObject.get(), flags);
 }
 
 void collect_dependent_operators(PipeSourceInterface *startObject,
-                                 QSet<OperatorInterface *> &result)
+                                 QSet<OperatorInterface *> &result,
+                                 CollectFlags::Flag flags)
 {
     for (s32 oi = 0; oi < startObject->getNumberOfOutputs(); oi++)
     {
@@ -71,40 +83,50 @@ void collect_dependent_operators(PipeSourceInterface *startObject,
 
         for (auto destSlot: outPipe->getDestinations())
         {
-            if (destSlot->parentOperator)
+            if (auto op = destSlot->parentOperator)
             {
-                result.insert(destSlot->parentOperator);
-                collect_dependent_operators(destSlot->parentOperator, result);
+                auto test = flags & CollectFlags::All;
+
+                if (test == CollectFlags::All
+                    || (test == CollectFlags::Operators && !is_sink(op))
+                    || (test == CollectFlags::Sinks && is_sink(op)))
+                {
+                    result.insert(op);
+                    collect_dependent_operators(op, result, flags);
+                }
             }
         }
     }
 }
 
-QSet<PipeSourceInterface *> collect_dependent_objects(PipeSourceInterface *startObject)
+void collect_dependent_operators(const PipeSourcePtr &startObject,
+                                 QSet<OperatorInterface *> &result,
+                                 CollectFlags::Flag flags)
+{
+    return collect_dependent_operators(startObject.get(), result, flags);
+}
+
+//
+// Dependencies returned as PipeSourceInterface*
+//
+
+QSet<PipeSourceInterface *> collect_dependent_objects(PipeSourceInterface *startObject,
+                                                      CollectFlags::Flag flags)
 {
     QSet<PipeSourceInterface *> result;
 
-    collect_dependent_objects(startObject, result);
+    for (auto &op: collect_dependent_operators(startObject, flags))
+    {
+        result.insert(qobject_cast<PipeSourceInterface *>(op));
+    }
 
     return result;
 }
 
-void collect_dependent_objects(PipeSourceInterface *startObject,
-                                 QSet<PipeSourceInterface *> &result)
+QSet<PipeSourceInterface *> collect_dependent_objects(const PipeSourcePtr &startObject,
+                                                      CollectFlags::Flag flags)
 {
-    for (s32 oi = 0; oi < startObject->getNumberOfOutputs(); oi++)
-    {
-        auto outPipe = startObject->getOutput(oi);
-
-        for (auto destSlot: outPipe->getDestinations())
-        {
-            if (destSlot->parentOperator)
-            {
-                result.insert(destSlot->parentOperator);
-                collect_dependent_objects(destSlot->parentOperator, result);
-            }
-        }
-    }
+    return collect_dependent_objects(startObject.get(), flags);
 }
 
 void generate_new_object_ids(const AnalysisObjectVector &objects)

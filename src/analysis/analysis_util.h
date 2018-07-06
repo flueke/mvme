@@ -10,23 +10,55 @@ namespace analysis
 QVector<std::shared_ptr<Extractor>> LIBMVME_EXPORT
     get_default_data_extractors(const QString &moduleTypeName);
 
-QSet<PipeSourceInterface *> LIBMVME_EXPORT
-    collect_dependent_operators();
+namespace CollectFlags
+{
+    using Flag = u8;
 
+    static const Flag Operators = 1u << 0;
+    static const Flag Sinks     = 1u << 1;
+    static const Flag All       = Operators | Sinks;
+};
+
+
+//
+// Dependencies returned as OperatorInterface*
+//
 
 QSet<OperatorInterface *> LIBMVME_EXPORT
-    collect_dependent_operators(PipeSourceInterface *startObject);
+collect_dependent_operators(PipeSourceInterface *startObject,
+                            CollectFlags::Flag flags = CollectFlags::All);
+
+QSet<OperatorInterface *> LIBMVME_EXPORT
+collect_dependent_operators(const PipeSourcePtr &startObject,
+                            CollectFlags::Flag flags = CollectFlags::All);
 
 void LIBMVME_EXPORT
-    collect_dependent_operators(PipeSourceInterface *startObject,
-                                 QSet<OperatorInterface *> &dest);
+collect_dependent_operators(PipeSourceInterface *startObject,
+                            QSet<OperatorInterface *> &dest,
+                            CollectFlags::Flag flags = CollectFlags::All);
+
+void LIBMVME_EXPORT
+collect_dependent_operators(const PipeSourcePtr &startObject,
+                            QSet<OperatorInterface *> &dest,
+                            CollectFlags::Flag flags = CollectFlags::All);
+
+
+//
+// Dependencies returned as PipeSourceInterface*
+//
 
 QSet<PipeSourceInterface *> LIBMVME_EXPORT
-    collect_dependent_objects(PipeSourceInterface *startObject);
+collect_dependent_objects(PipeSourceInterface *startObject,
+                          CollectFlags::Flag flags = CollectFlags::All);
 
-void LIBMVME_EXPORT
-    collect_dependent_objects(PipeSourceInterface *startObject,
-                                 QSet<PipeSourceInterface *> &dest);
+QSet<PipeSourceInterface *> LIBMVME_EXPORT
+collect_dependent_objects(const PipeSourcePtr &startObject,
+                          CollectFlags::Flag flags = CollectFlags::All);
+
+
+//
+// object ids
+//
 
 void LIBMVME_EXPORT
     generate_new_object_ids(const AnalysisObjectVector &objects);
@@ -46,8 +78,17 @@ template<typename It>
     }
 }
 
+
+//
+// misc
+//
+
 AnalysisObjectSet to_set(const AnalysisObjectVector &objects);
 
+inline bool is_sink(OperatorInterface *op)
+{
+    return qobject_cast<SinkInterface *>(op);
+}
 
 } // namespace analysis
 
