@@ -101,6 +101,7 @@ class EventWidget: public QWidget
         Analysis *getAnalysis() const;
         RunInfo getRunInfo() const;
         VMEConfig *getVMEConfig() const;
+        QTreeWidgetItem *findNode(const AnalysisObjectPtr &obj);
 
         friend class AnalysisWidget;
         friend class AnalysisWidgetPrivate;
@@ -423,6 +424,8 @@ class ObjectTree: public QTreeWidget
             , m_userLevel(userLevel)
         {}
 
+        virtual ~ObjectTree() override;
+
         EventWidget *getEventWidget() const { return m_eventWidget; }
         void setEventWidget(EventWidget *widget) { m_eventWidget = widget; }
         MVMEContext *getContext() const;
@@ -444,6 +447,8 @@ class OperatorTree: public ObjectTree
     Q_OBJECT
     public:
         using ObjectTree::ObjectTree;
+
+        virtual ~OperatorTree() override;
 
     protected:
         virtual QStringList mimeTypes() const override;
