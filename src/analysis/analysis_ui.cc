@@ -1764,6 +1764,8 @@ QDialog *operator_editor_factory(const std::shared_ptr<OperatorInterface> &op,
 /* Context menu for the operator tree views (top). */
 void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
 {
+    Q_ASSERT(userLevel >= 0 && userLevel < m_levelTrees.size());
+
     auto node = tree->itemAt(pos);
     auto obj  = get_qobject(node);
 
@@ -2475,6 +2477,46 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 {
                     auto sink = std::make_shared<Histo1DSink>();
                     add_newSinkAction(sink->getDisplayName(), sink);
+                } break;
+
+            case NodeType_Directory:
+                {
+                    menu.addAction("Rename", [node] () {
+                        if (auto tw = node->treeWidget())
+                        {
+                            tw->editItem(node);
+                        }
+                    });
+
+                    if (auto dir = get_shared_analysis_object<Directory>(node))
+                    {
+                        menu.addSeparator();
+                        menu.addAction(QIcon::fromTheme("edit-delete"), "Remove", [this, dir] () {
+                            // TODO: QMessageBox::question or similar or undo functionality
+                            removeDirectoryRecursively(dir);
+                        });
+
+                        menuNew->addSeparator();
+                        menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
+                                           &menu, [this, userLevel, dir]() {
+
+                            auto newDir = std::make_shared<Directory>();
+                            newDir->setObjectName("New Directory");
+                            newDir->setUserLevel(userLevel);
+                            newDir->setEventId(m_eventId);
+                            newDir->setDisplayLocation(DisplayLocation::Sink);
+                            dir->push_back(newDir);
+                            m_context->getAnalysis()->addDirectory(newDir);
+                            repopulate();
+
+                            if (auto node = findNode(dir))
+                                node->setExpanded(true);
+
+                            if (auto node = findNode(newDir))
+                                node->treeWidget()->editItem(node);
+                        });
+                        //actionNewIsFirst = true;
+                    }
                 } break;
         }
 
