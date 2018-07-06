@@ -482,11 +482,6 @@ class SinkTree: public ObjectTree
     public:
         using ObjectTree::ObjectTree;
 
-        QTreeWidgetItem *histo1DRoot = nullptr;
-        QTreeWidgetItem *histo2DRoot = nullptr;
-        QTreeWidgetItem *rateRoot    = nullptr;
-        QTreeWidgetItem *exportRoot  = nullptr;
-
     protected:
         virtual QStringList mimeTypes() const override;
 

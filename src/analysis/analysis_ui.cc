@@ -724,7 +724,6 @@ QMimeData *OperatorTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
         if (nodes.contains(node->parent()))
             continue;
 
-
         switch (node->type())
         {
             case NodeType_Operator:
@@ -866,29 +865,33 @@ QStringList SinkTree::mimeTypes() const
     return { SinkIdListMIMEType };
 }
 
-QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> items) const
+QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
 {
-    QVector<QByteArray> encodedIds;
+    QVector<QByteArray> idData;
 
-    for (auto item: items)
+    for (auto node: nodes)
     {
-        switch (item->type())
+        // Skip non top-level nodes
+        if (nodes.contains(node->parent()))
+            continue;
+
+        switch (node->type())
         {
             case NodeType_Histo1DSink:
             case NodeType_Histo2DSink:
             case NodeType_Sink:
                 {
-                    if (auto op = get_pointer<OperatorInterface>(item))
+                    if (auto op = get_pointer<OperatorInterface>(node))
                     {
-                        encodedIds.push_back(op->getId().toByteArray());
+                        idData.push_back(op->getId().toByteArray());
                     }
                 } break;
 
             case NodeType_Directory:
                 {
-                    if (auto dir = get_pointer<Directory>(item))
+                    if (auto dir = get_pointer<Directory>(node))
                     {
-                        encodedIds.push_back(dir->getId().toByteArray());
+                        idData.push_back(dir->getId().toByteArray());
                     }
                 } break;
 
@@ -897,12 +900,12 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> items) const
         }
     }
 
-    QByteArray encoded;
-    QDataStream stream(&encoded, QIODevice::WriteOnly);
-    stream << encodedIds;
+    QByteArray buffer;
+    QDataStream stream(&buffer, QIODevice::WriteOnly);
+    stream << idData;
 
     auto result = new QMimeData;
-    result->setData(SinkIdListMIMEType, encoded);
+    result->setData(SinkIdListMIMEType, buffer);
 
     return result;
 }
@@ -1004,238 +1007,6 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
      */
     return false;
 }
-
-#if 0
-bool ObjectTree::dropMimeData(QTreeWidgetItem *parentItem,
-                                   int parentIndex,
-                                   const QMimeData *data,
-                                   Qt::DropAction action)
-{
-    qDebug() << __PRETTY_FUNCTION__
-        << "parentItem =" << parentItem
-        << ", parentIndex =" << parentIndex
-        << ", action =" << action;
-
-    /* Cases to handle when dropping objects:
-     * - Always test for operator and display tree matches. Do not allow dropping objects
-     *   onto the wrong trees.
-     * - Move objects from tree to tree
-     *   => Adjust the userlevel of the objects.
-     * - Move objects from dir to tree
-     *   => Adjust userlevel of objects and remove them from the source dir.
-     * - Move objects from dir to dir
-     *   => Remove from source dir, add to destDir and adjust the objects userlevel
-     *
-     * The source objects can contain directories too. Should recusrive directories be
-     * allowed? Yes!
-     *
-     * Breakdown:
-     * - list of source ids -> list of source objects
-     * - dest tree -> dest userLevel
-     * - [dest parentItem] -> destDir
-     * - for each source object -> parent dir
-     *   Objects have to be removed from parent dir when being moved!
-     *
-     * The case where a dir including its objects are selected and moved will leave move
-     * the dir and the objects to the target. The source dir will be empty afterwards and
-     * the objects will be at the same level as the source dir.
-     *
-     * To move a hierarchy only the top level dir must be selected. This will move the dir
-     * and keep the objects inside it.
-     *
-     */
-
-    if (action != Qt::MoveAction)
-        return false;
-
-    if (!data->hasFormat(OperatorIdListMIMEType))
-        return false;
-
-    DirectoryPtr destDir;
-
-    if (parentItem && parentItem->type() == NodeType_Directory)
-    {
-        destDir = std::dynamic_pointer_cast<Directory>(
-            get_pointer<Directory>(parentItem)->shared_from_this());
-    }
-
-    const bool isSinkTree = (qobject_cast<SinkTree *>(this) != nullptr);
-
-    if (destDir)
-    {
-        auto loc = destDir->getDisplayLocation();
-
-        if ((loc == DisplayLocation::Operator && isSinkTree)
-            || (loc == DisplayLocation::Sink && !isSinkTree))
-        {
-            return false;
-        }
-    }
-
-    auto encoded = data->data(OperatorIdListMIMEType);
-    QDataStream stream(&encoded, QIODevice::ReadOnly);
-    QVector<QByteArray> sourceIds;
-    stream >> sourceIds;
-
-    AnalysisPauser pauser(m_eventWidget->getContext());
-    auto analysis = m_eventWidget->getContext()->getAnalysis();
-    bool didMove  = false;
-
-    for (const auto &idData: sourceIds)
-    {
-        QUuid sourceId(idData);
-
-        auto obj = analysis->getObject(sourceId);
-        bool isSink = (qobject_cast<SinkInterface *>(obj.get()) != nullptr);
-
-        if (!obj) continue;
-
-        if (destDir) // drop onto a directory
-        {
-            assert(destDir->getUserLevel() == m_userLevel);
-
-            if (auto sourceDir = analysis->getParentDirectory(obj))
-            {
-                qDebug() << __PRETTY_FUNCTION__
-                    << "removing" << obj.get() << "from dir" << sourceDir.get();
-
-                sourceDir->remove(obj);
-            }
-
-            qDebug() << __PRETTY_FUNCTION__ <<
-                "adding object" << obj.get() << "to directory" << destDir.get() <<
-                "new userlevel =" << m_userLevel;
-
-            // Move objects into destDir. This flattens any source hierarchy.
-            destDir->push_back(obj);
-
-            if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-            {
-                s32 levelDelta = m_userLevel - op->getUserLevel();
-
-                qDebug() << __PRETTY_FUNCTION__ <<
-                    "adjusting userlevel of" << op.get() << "and dependees by" << levelDelta;
-
-                // Move all source operators by the same amount of userlevels.
-                adjust_userlevel_forward(analysis->getOperators(), op.get(), levelDelta);
-            }
-            else
-            {
-                obj->setUserLevel(m_userLevel);
-            }
-
-            didMove = true;
-        }
-        else // drop onto a tree
-        {
-            auto op = std::dynamic_pointer_cast<OperatorInterface>(obj);
-            auto sink = std::dynamic_pointer_cast<SinkInterface>(obj);
-
-            if (sink && !isSinkTree) continue;
-            if (!sink && isSinkTree) continue;
-
-            if (auto sourceDir = analysis->getParentDirectory(obj))
-            {
-                qDebug() << __PRETTY_FUNCTION__
-                    << "removing" << obj.get() << "from dir" << sourceDir.get();
-
-                sourceDir->remove(obj);
-            }
-
-            if (op)
-            {
-                // drop operator onto tree
-
-                s32 levelDelta = m_userLevel - op->getUserLevel();
-
-                qDebug() << __PRETTY_FUNCTION__ <<
-                    "adjusting userlevel of" << op.get() << "and dependees by" << levelDelta;
-
-                // Move all source operators by the same amount of userlevels.
-                adjust_userlevel_forward(analysis->getOperators(), op.get(), levelDelta);
-                didMove = true;
-            }
-            else if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
-            {
-                // drop directory onto tree
-
-                s32 levelDelta = m_userLevel - dir->getUserLevel();
-
-                dir->setUserLevel(m_userLevel);
-
-                for (auto member: analysis->getDirectoryContents(dir))
-                {
-                    if (auto memberOp = std::dynamic_pointer_cast<OperatorInterface>(member))
-                    {
-                        adjust_userlevel_forward(analysis->getOperators(), memberOp.get(), levelDelta);
-                    }
-                    else
-                    {
-                        member->setUserLevel(m_userLevel);
-                    }
-                }
-
-                didMove = true;
-            }
-        }
-    }
-
-    if (didMove)
-    {
-        analysis->setModified(true);
-        m_eventWidget->repopulate();
-        m_eventWidget->getAnalysisWidget()->updateAddRemoveUserLevelButtons();
-        // TODO: find node for dest dir and expand it. this has to happen after repopulate
-        // which will create new nodes for everything
-    }
-
-    qDebug() << __PRETTY_FUNCTION__ << "done, didMove =" << didMove;
-
-    return didMove;
-}
-
-QMimeData *ObjectTree::mimeData(const QList<QTreeWidgetItem *> items) const
-{
-    QVector<QByteArray> encodedIds;
-
-    for (auto item: items)
-    {
-        switch (item->type())
-        {
-            case NodeType_Operator:
-            case NodeType_Histo1DSink:
-            case NodeType_Histo2DSink:
-            case NodeType_Sink:
-                {
-                    if (auto op = get_pointer<OperatorInterface>(item))
-                    {
-                        encodedIds.push_back(op->getId().toByteArray());
-                    }
-                } break;
-
-            case NodeType_Directory:
-                {
-                    if (auto dir = get_pointer<Directory>(item))
-                    {
-                        encodedIds.push_back(dir->getId().toByteArray());
-                    }
-                } break;
-
-            default:
-                break;
-        }
-    }
-
-    QByteArray encoded;
-    QDataStream stream(&encoded, QIODevice::WriteOnly);
-    stream << encodedIds;
-
-    auto result = new QMimeData;
-    result->setData(OperatorIdListMIMEType, encoded);
-
-    return result;
-}
-#endif
 
 /* Operator (top) and Sink (bottom) trees showing objects for one userlevel. */
 struct UserLevelTrees
@@ -1647,10 +1418,10 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
 
     QHash<DirectoryPtr, TreeNode *> dirNodes;
 
-    add_directory_nodes(result.operatorTree, opDirs, dirNodes, analysis);
-    add_directory_nodes(result.sinkTree, sinkDirs, dirNodes, analysis);
-
     // Populate the OperatorTree
+
+    add_directory_nodes(result.operatorTree, opDirs, dirNodes, analysis);
+
     auto operators = analysis->getOperators(eventId, level);
 
     for (auto op: operators)
@@ -1680,60 +1451,45 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
     result.operatorTree->sortItems(0, Qt::AscendingOrder);
 
     // Populate the SinkTree
+
+    add_directory_nodes(result.sinkTree, sinkDirs, dirNodes, analysis);
+
     {
-        auto histo1DRoot = new TreeNode({QSL("1D")});
-        auto histo2DRoot = new TreeNode({QSL("2D")});
-        auto rateRoot    = new TreeNode({QSL("Rates")});
-        auto exportRoot  = new TreeNode({QSL("Exports")});
-
-        for (auto node: { histo1DRoot, histo2DRoot, rateRoot, exportRoot })
-        {
-            result.sinkTree->addTopLevelItem(node);
-            node->setExpanded(true);
-        }
-
-        result.sinkTree->histo1DRoot = histo1DRoot;
-        result.sinkTree->histo2DRoot = histo2DRoot;
-        result.sinkTree->rateRoot    = rateRoot;
-        result.sinkTree->exportRoot  = exportRoot;
-
         for (const auto &op: operators)
         {
-            TreeNode *theNode = nullptr;
+            std::unique_ptr<TreeNode> theNode;
 
             if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
             {
-                auto histoNode = make_histo1d_node(histoSink);
-                histo1DRoot->addChild(histoNode);
-                theNode = histoNode;
+                theNode.reset(make_histo1d_node(histoSink));
             }
             else if (auto histoSink = qobject_cast<Histo2DSink *>(op.get()))
             {
-                auto histoNode = make_histo2d_node(histoSink);
-                histo2DRoot->addChild(histoNode);
-                theNode = histoNode;
-            }
-            else if (auto rms = qobject_cast<RateMonitorSink *>(op.get()))
-            {
-                theNode = make_sink_node(rms);
-                rateRoot->addChild(theNode);
-            }
-            else if (auto ex = qobject_cast<ExportSink *>(op.get()))
-            {
-                theNode = make_sink_node(ex);
-                exportRoot->addChild(theNode);
+                theNode.reset(make_histo2d_node(histoSink));
             }
             else if (auto sink = qobject_cast<SinkInterface *>(op.get()))
             {
-                auto sinkNode = make_sink_node(sink);
-                result.sinkTree->addTopLevelItem(sinkNode);
-                theNode = sinkNode;
+                theNode.reset(make_sink_node(sink));
             }
 
-            if (theNode && level > 0)
+            if (theNode)
             {
-                theNode->setFlags(theNode->flags() | Qt::ItemIsDragEnabled);
+                if (level > 0)
+                    theNode->setFlags(theNode->flags() | Qt::ItemIsDragEnabled);
+
+                if (auto dir = analysis->getParentDirectory(op))
+                {
+                    if (auto dirNode = dirNodes.value(dir))
+                    {
+                        dirNode->addChild(theNode.release());
+                    }
+                }
+                else
+                {
+                    result.sinkTree->addTopLevelItem(theNode.release());
+                }
             }
+
         }
     }
     result.sinkTree->sortItems(0, Qt::AscendingOrder);
@@ -2412,6 +2168,9 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     repopulate();
 
                     if (auto node = findNode(newDir))
+                        node->setExpanded(true);
+
+                    if (auto node = findNode(newDir))
                         node->treeWidget()->editItem(node);
                 });
             }
@@ -2760,40 +2519,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 });
             }
         }
-
-        if (userLevel > 0 && !m_uniqueWidget)
-        {
-            auto sinkTree = m_levelTrees[userLevel].sinkTree;
-            Q_ASSERT(sinkTree->topLevelItemCount() >= 2);
-            Q_ASSERT(sinkTree->histo1DRoot);
-            Q_ASSERT(sinkTree->histo2DRoot);
-            Q_ASSERT(sinkTree->rateRoot);
-            Q_ASSERT(sinkTree->exportRoot);
-
-            std::shared_ptr<SinkInterface> sink;
-
-            if (node == sinkTree->histo1DRoot)
-            {
-                sink = std::make_shared<Histo1DSink>();
-            }
-            else if (node == sinkTree->histo2DRoot)
-            {
-                sink = std::make_shared<Histo2DSink>();
-            }
-            else if (node == sinkTree->rateRoot)
-            {
-                sink = std::make_shared<RateMonitorSink>();
-            }
-            else if (node == sinkTree->exportRoot)
-            {
-                sink = std::make_shared<ExportSink>();
-            }
-
-            if (sink)
-            {
-                add_newSinkAction(sink->getDisplayName(), sink);
-            }
-        }
     }
     else // No node selected
     {
@@ -2825,13 +2550,19 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
                                    &menu, [this, userLevel]() {
 
-                    auto dir = std::make_shared<Directory>();
-                    dir->setObjectName("New Directory");
-                    dir->setUserLevel(userLevel);
-                    dir->setEventId(m_eventId);
-                    dir->setDisplayLocation(DisplayLocation::Sink);
-                    m_context->getAnalysis()->addDirectory(dir);
+                    auto newDir = std::make_shared<Directory>();
+                    newDir->setObjectName("New Directory");
+                    newDir->setUserLevel(userLevel);
+                    newDir->setEventId(m_eventId);
+                    newDir->setDisplayLocation(DisplayLocation::Sink);
+                    m_context->getAnalysis()->addDirectory(newDir);
                     repopulate();
+
+                    if (auto node = findNode(newDir))
+                        node->setExpanded(true);
+
+                    if (auto node = findNode(newDir))
+                        node->treeWidget()->editItem(node);
                 });
             }
         }
