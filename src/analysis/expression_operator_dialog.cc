@@ -1128,7 +1128,7 @@ struct ExpressionOperatorDialog::Private
     // The userlevel the operator is placed in
     int m_userLevel;
     // new or edit
-    OperatorEditorMode m_mode;
+    ObjectEditorMode m_mode;
     // backpointer to the eventwidget used for input selection
     EventWidget *m_eventWidget;
     // data transfer to/from gui and storage of inputs
@@ -1885,8 +1885,8 @@ void ExpressionOperatorDialog::Private::model_randomizeInputs()
 
 ExpressionOperatorDialog::ExpressionOperatorDialog(
     const std::shared_ptr<ExpressionOperator> &op,
-    int userLevel, OperatorEditorMode mode, EventWidget *eventWidget)
-    : QDialog(eventWidget)
+    int userLevel, ObjectEditorMode mode, EventWidget *eventWidget)
+    : ObjectEditorDialog(eventWidget)
     , m_d(std::make_unique<Private>(this))
 {
     setWindowFlags((Qt::Window
@@ -2090,12 +2090,12 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     // Initialize and misc setup
     switch (m_d->m_mode)
     {
-        case OperatorEditorMode::New:
+        case ObjectEditorMode::New:
             {
                 m_d->m_op->setObjectName(m_d->generateNameForNewOperator());
                 setWindowTitle(QString("New  %1").arg(m_d->m_op->getDisplayName()));
             } break;
-        case OperatorEditorMode::Edit:
+        case ObjectEditorMode::Edit:
             {
                 setWindowTitle(QString("Edit %1").arg(m_d->m_op->getDisplayName()));
             } break;
@@ -2125,15 +2125,16 @@ void ExpressionOperatorDialog::apply()
 
     switch (m_d->m_mode)
     {
-        case OperatorEditorMode::New:
+        case ObjectEditorMode::New:
             {
                 analysis->addOperator(m_d->m_eventWidget->getEventId(),
                                       m_d->m_userLevel, m_d->m_op);
-                m_d->m_mode = OperatorEditorMode::Edit;
+                m_d->m_mode = ObjectEditorMode::Edit;
+                // FIXME: get rid of this code
                 m_d->m_eventWidget->repopulate();
             } break;
 
-        case OperatorEditorMode::Edit:
+        case ObjectEditorMode::Edit:
             {
                 analysis->operatorEdited(m_d->m_op);
             } break;

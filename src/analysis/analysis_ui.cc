@@ -1112,6 +1112,7 @@ struct EventWidgetPrivate
     s32 getUserLevelForTree(QTreeWidget *tree);
 
     void doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
+    void doDataSourceOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
     void doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
 
     void modeChanged();
@@ -1729,10 +1730,49 @@ s32 EventWidgetPrivate::getUserLevelForTree(QTreeWidget *tree)
 namespace
 {
 
-QDialog *operator_editor_factory(const std::shared_ptr<OperatorInterface> &op,
-                                 s32 userLevel, OperatorEditorMode mode, EventWidget *eventWidget)
+ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src, s32 userLevel,
+                                              ObjectEditorMode mode,
+                                              ModuleConfig *moduleConfig,
+                                              EventWidget *eventWidget)
 {
-    QDialog *result = nullptr;
+    ObjectEditorDialog *result = nullptr;
+
+    if (auto ex = std::dynamic_pointer_cast<Extractor>(src))
+    {
+        result = new AddEditExtractorDialog(ex, moduleConfig, mode, eventWidget);
+
+    }
+    else if (auto ex = std::dynamic_pointer_cast<ListFilterExtractor>(src))
+    {
+        auto context = eventWidget->getContext();
+        auto analysis = context->getAnalysis();
+
+        auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, analysis, context, eventWidget);
+        result = lfe_dialog;
+
+        if (!analysis->getListFilterExtractors(
+                moduleConfig->getEventId(), moduleConfig->getId()).isEmpty())
+        {
+            lfe_dialog->newFilter();
+        }
+    }
+
+    QObject::connect(result, &ObjectEditorDialog::applied,
+                     eventWidget, &EventWidget::objectEditorDialogApplied);
+
+    QObject::connect(result, &QDialog::accepted,
+                     eventWidget, &EventWidget::objectEditorDialogAccepted);
+
+    QObject::connect(result, &QDialog::rejected,
+                     eventWidget, &EventWidget::objectEditorDialogRejected);
+
+    return result;
+}
+
+ObjectEditorDialog *operator_editor_factory(const OperatorPtr &op, s32 userLevel,
+                                 ObjectEditorMode mode, EventWidget *eventWidget)
+{
+    ObjectEditorDialog *result = nullptr;
 
     if (auto expr = std::dynamic_pointer_cast<ExpressionOperator>(op))
     {
@@ -1742,6 +1782,15 @@ QDialog *operator_editor_factory(const std::shared_ptr<OperatorInterface> &op,
     {
         result = new AddEditOperatorDialog(op, userLevel, mode, eventWidget);
     }
+
+    QObject::connect(result, &ObjectEditorDialog::applied,
+                     eventWidget, &EventWidget::objectEditorDialogApplied);
+
+    QObject::connect(result, &QDialog::accepted,
+                     eventWidget, &EventWidget::objectEditorDialogAccepted);
+
+    QObject::connect(result, &QDialog::rejected,
+                     eventWidget, &EventWidget::objectEditorDialogRejected);
 
     return result;
 }
@@ -1753,228 +1802,224 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 {
     Q_ASSERT(userLevel >= 0 && userLevel < m_levelTrees.size());
 
-    auto node = tree->itemAt(pos);
-    auto obj  = get_qobject(node);
-
-    QMenu menu;
-    auto menuNew = new QMenu(&menu);
-    bool actionNewIsFirst = false;
-
-    if (node)
+    if (userLevel == 0)
     {
-        /* The level 0 tree. This is where the VME side modules show up and
-         * data extractors can be created. */
-        if (userLevel == 0 && node->type() == NodeType_Module)
+        doDataSourceOperatorTreeContextMenu(tree, pos, userLevel);
+    }
+    else
+    {
+        auto node = tree->itemAt(pos);
+        auto obj  = get_qobject(node);
+
+        QMenu menu;
+        auto menuNew = new QMenu(&menu);
+        bool actionNewIsFirst = false;
+
+        if (node)
         {
-            if (!m_uniqueWidget)
+            /* The level 0 tree. This is where the VME side modules show up and
+             * data extractors can be created. */
+            if (userLevel == 0 && node->type() == NodeType_Module)
             {
-                auto moduleConfig = get_pointer<ModuleConfig>(node);
-
-                // new data sources / filters
-                auto add_newDataSourceAction =
-                    [this, &menu, menuNew, moduleConfig](const QString &title, auto srcPtr)
+                if (!m_uniqueWidget)
                 {
-                    auto icon = make_datasource_icon(srcPtr.get());
+                    auto moduleConfig = get_pointer<ModuleConfig>(node);
 
-                    menuNew->addAction(icon, title, &menu, [this, moduleConfig, srcPtr]() {
-                        QDialog *dialog = nullptr;
-
-                        if (auto ex = std::dynamic_pointer_cast<Extractor>(srcPtr))
+                    // new data sources / filters
+                    auto add_newDataSourceAction =
+                        [this, &menu, menuNew, moduleConfig, userLevel](
+                            const QString &title, auto srcPtr)
                         {
-                            dialog = new AddEditExtractorDialog(
-                                ex, moduleConfig, AddEditExtractorDialog::AddExtractor, m_q);
+                            auto icon = make_datasource_icon(srcPtr.get());
 
-                            QObject::connect(dialog, &QDialog::accepted,
-                                             m_q, &EventWidget::addExtractorDialogAccepted);
+                            menuNew->addAction(
+                                icon, title, &menu, [this, moduleConfig, srcPtr, userLevel]() {
 
-                            QObject::connect(dialog, &QDialog::rejected,
-                                             m_q, &EventWidget::addEditExtractorDialogRejected);
-                        }
-                        else if (qobject_cast<ListFilterExtractor *>(srcPtr.get()))
-                        {
-                            auto lfe_dialog = new ListFilterExtractorDialog(
-                                moduleConfig, m_context->getAnalysis(), m_context, m_q);
+                                auto dialog = datasource_editor_factory(
+                                    srcPtr, userLevel, ObjectEditorMode::New, moduleConfig, m_q);
 
-                            if (!m_context->getAnalysis()->getListFilterExtractors(
-                                    moduleConfig->getEventId(), moduleConfig->getId()).isEmpty())
-                            {
-                                lfe_dialog->newFilter();
-                            }
+                                assert(dialog);
 
-                            QObject::connect(lfe_dialog, &QDialog::accepted,
-                                             m_q, &EventWidget::listFilterExtractorDialogAccepted);
+                                //POS dialog->move(QCursor::pos());
+                                dialog->setAttribute(Qt::WA_DeleteOnClose);
+                                dialog->show();
+                                m_uniqueWidget = dialog;
+                                clearAllTreeSelections();
+                                clearAllToDefaultNodeHighlights();
+                            });
+                        };
 
-                            QObject::connect(lfe_dialog, &ListFilterExtractorDialog::applied,
-                                             m_q, &EventWidget::listFilterExtractorDialogApplied);
+                    auto analysis = m_context->getAnalysis();
+                    auto &registry(analysis->getObjectFactory());
 
-                            QObject::connect(lfe_dialog, &QDialog::rejected,
-                                             m_q, &EventWidget::listFilterExtractorDialogRejected);
+                    QVector<SourcePtr> sourceInstances;
 
-                            dialog = lfe_dialog;
-                        }
-                        else
-                        {
-                            InvalidCodePath;
-                        }
-
-                        //POS dialog->move(QCursor::pos());
-                        dialog->setAttribute(Qt::WA_DeleteOnClose);
-                        dialog->show();
-                        m_uniqueWidget = dialog;
-                        clearAllTreeSelections();
-                        clearAllToDefaultNodeHighlights();
-                    });
-                };
-
-                auto analysis = m_context->getAnalysis();
-                auto &registry(analysis->getObjectFactory());
-
-                QVector<SourcePtr> sourceInstances;
-
-                for (auto sourceName: registry.getSourceNames())
-                {
-                    SourcePtr src(registry.makeSource(sourceName));
-                    sourceInstances.push_back(src);
-                }
-
-                // Sort sources by displayname
-                qSort(sourceInstances.begin(), sourceInstances.end(),
-                      [](const SourcePtr &a, const SourcePtr &b) {
-                    return a->getDisplayName() < b->getDisplayName();
-                });
-
-                for (auto src: sourceInstances)
-                {
-                    add_newDataSourceAction(src->getDisplayName(), src);
-                }
-
-                // default data filters and "raw display" creation
-                if (moduleConfig)
-                {
-                    auto defaultExtractors = get_default_data_extractors(
-                        moduleConfig->getModuleMeta().typeName);
-
-                    if (!defaultExtractors.isEmpty())
+                    for (auto sourceName: registry.getSourceNames())
                     {
-                        menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
+                        SourcePtr src(registry.makeSource(sourceName));
+                        sourceInstances.push_back(src);
+                    }
 
-                            QMessageBox box(
-                                QMessageBox::Question,
-                                QSL("Generate default filters"),
-                                QSL("This action will generate extraction filters,"
-                                    ", calibrations and histograms for the selected module."
-                                    " Do you want to continue?"),
-                                QMessageBox::Ok | QMessageBox::No,
-                                m_q);
+                    // Sort sources by displayname
+                    qSort(sourceInstances.begin(), sourceInstances.end(),
+                          [](const SourcePtr &a, const SourcePtr &b) {
+                              return a->getDisplayName() < b->getDisplayName();
+                          });
 
-                            box.button(QMessageBox::Ok)->setText("Yes, generate filters");
+                    for (auto src: sourceInstances)
+                    {
+                        add_newDataSourceAction(src->getDisplayName(), src);
+                    }
 
-                            if (box.exec() == QMessageBox::Ok)
-                            {
-                                generateDefaultFilters(moduleConfig);
-                            }
+                    // default data filters and "raw display" creation
+                    if (moduleConfig)
+                    {
+                        auto defaultExtractors = get_default_data_extractors(
+                            moduleConfig->getModuleMeta().typeName);
+
+                        if (!defaultExtractors.isEmpty())
+                        {
+                            menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
+
+                                QMessageBox box(
+                                    QMessageBox::Question,
+                                    QSL("Generate default filters"),
+                                    QSL("This action will generate extraction filters,"
+                                        ", calibrations and histograms for the selected module."
+                                        " Do you want to continue?"),
+                                    QMessageBox::Ok | QMessageBox::No,
+                                    m_q);
+
+                                box.button(QMessageBox::Ok)->setText("Yes, generate filters");
+
+                                if (box.exec() == QMessageBox::Ok)
+                                {
+                                    generateDefaultFilters(moduleConfig);
+                                }
+                            });
+                        }
+
+                        auto menuImport = new QMenu(&menu);
+                        menuImport->setTitle(QSL("Import"));
+                        //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
+                        menuImport->addAction(m_actionImportForModuleFromTemplate.get());
+                        menuImport->addAction(m_actionImportForModuleFromFile.get());
+                        menu.addMenu(menuImport);
+
+                        // Module Settings
+                        menu.addAction(
+                            QIcon(QSL(":/gear.png")), QSL("Module Settings"),
+                            &menu, [this, moduleConfig]() {
+
+                                auto analysis = m_context->getAnalysis();
+                                auto moduleSettings = analysis->getVMEObjectSettings(
+                                    moduleConfig->getId());
+
+                                ModuleSettingsDialog dialog(moduleConfig, moduleSettings, m_q);
+
+                                if (dialog.exec() == QDialog::Accepted)
+                                {
+                                    analysis->setVMEObjectSettings(
+                                        moduleConfig->getId(), dialog.getSettings());
+                                }
+                            });
+                    }
+
+                    actionNewIsFirst = true;
+                }
+            }
+
+            /* Context menu for an existing data source. */
+            if (userLevel == 0 && node->type() == NodeType_Source)
+            {
+                auto srcPtr = get_shared_analysis_object<SourceInterface>(node);
+
+                if (srcPtr)
+                {
+                    Q_ASSERT_X(srcPtr->getNumberOfOutputs() == 1,
+                               "doOperatorTreeContextMenu",
+                               "data sources with multiple outputs are not supported");
+
+                    auto moduleNode = node->parent();
+                    ModuleConfig *moduleConfig = nullptr;
+
+                    if (moduleNode && moduleNode->type() == NodeType_Module)
+                        moduleConfig = get_pointer<ModuleConfig>(moduleNode);
+
+                    const bool isAttachedToModule = moduleConfig != nullptr;
+
+                    auto pipe = srcPtr->getOutput(0);
+
+                    if (isAttachedToModule)
+                    {
+                        menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
+                            makeAndShowPipeDisplay(pipe);
                         });
                     }
 
-                    auto menuImport = new QMenu(&menu);
-                    menuImport->setTitle(QSL("Import"));
-                    //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
-                    menuImport->addAction(m_actionImportForModuleFromTemplate.get());
-                    menuImport->addAction(m_actionImportForModuleFromFile.get());
-                    menu.addMenu(menuImport);
-
-                    // Module Settings
-                    menu.addAction(QIcon(QSL(":/gear.png")), QSL("Module Settings"),
-                                         &menu, [this, moduleConfig]() {
-
-                        auto analysis = m_context->getAnalysis();
-                        auto moduleSettings = analysis->getVMEObjectSettings(moduleConfig->getId());
-
-                        ModuleSettingsDialog dialog(moduleConfig, moduleSettings, m_q);
-
-                        if (dialog.exec() == QDialog::Accepted)
+                    if (!m_uniqueWidget)
+                    {
+                        if (moduleConfig)
                         {
-                            analysis->setVMEObjectSettings(moduleConfig->getId(),
-                                                           dialog.getSettings());
+                            menu.addAction(
+                                QIcon(":/pencil.png"), QSL("Edit"),
+                                [this, srcPtr, moduleConfig, userLevel]() {
+
+                                    auto dialog = datasource_editor_factory(
+                                        srcPtr, userLevel, ObjectEditorMode::Edit, moduleConfig, m_q);
+
+                                    assert(dialog);
+
+                                    //POS dialog->move(QCursor::pos());
+                                    dialog->setAttribute(Qt::WA_DeleteOnClose);
+                                    dialog->show();
+                                    m_uniqueWidget = dialog;
+                                    clearAllTreeSelections();
+                                    clearAllToDefaultNodeHighlights();
+                                });
                         }
-                    });
-                }
 
-                actionNewIsFirst = true;
+                        menu.addAction(
+                            QIcon::fromTheme("edit-delete"), QSL("Remove"), [this, srcPtr]() {
+                                // TODO: QMessageBox::question or similar or undo functionality
+                                m_q->removeSource(srcPtr.get());
+                            });
+                    }
+                }
             }
-        }
 
-        /* Context menu for an existing data source. */
-        if (userLevel == 0 && node->type() == NodeType_Source)
-        {
-            auto sourceInterface = get_pointer<SourceInterface>(node);
-
-            if (sourceInterface)
+            if (userLevel > 0 && node->type() == NodeType_OutputPipe)
             {
-                Q_ASSERT_X(sourceInterface->getNumberOfOutputs() == 1,
-                           "doOperatorTreeContextMenu",
-                           "data sources with multiple outputs are not supported");
+                auto pipe = get_pointer<Pipe>(node);
 
-                auto moduleNode = node->parent();
-                ModuleConfig *moduleConfig = nullptr;
+                menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
+                    makeAndShowPipeDisplay(pipe);
+                });
+            }
 
-                if (moduleNode && moduleNode->type() == NodeType_Module)
-                    moduleConfig = get_pointer<ModuleConfig>(moduleNode);
-
-                const bool isAttachedToModule = moduleConfig != nullptr;
-
-                auto pipe = sourceInterface->getOutput(0);
-
-                if (isAttachedToModule)
-                {
-                    menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
-                        makeAndShowPipeDisplay(pipe);
-                    });
-                }
-
+            if (userLevel > 0 && node->type() == NodeType_Operator)
+            {
                 if (!m_uniqueWidget)
                 {
-                    if (moduleConfig)
+                    auto rawOpPtr = get_pointer<OperatorInterface>(node);
+                    Q_ASSERT(rawOpPtr);
+
+                    auto op = std::dynamic_pointer_cast<OperatorInterface>(rawOpPtr->shared_from_this());
+
+                    if (op->getNumberOfOutputs() == 1)
                     {
-                        menu.addAction(QIcon(":/pencil.png"),
-                                       QSL("Edit"), [this, sourceInterface, moduleConfig]() {
-                            QDialog *dialog = nullptr;
+                        Pipe *pipe = op->getOutput(0);
 
-                            auto srcPtr = sourceInterface->shared_from_this();
+                        menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
+                            makeAndShowPipeDisplay(pipe);
+                        });
+                    }
 
-                            if (auto ex = std::dynamic_pointer_cast<Extractor>(srcPtr))
-                            {
-                                dialog = new AddEditExtractorDialog(
-                                    ex, moduleConfig, AddEditExtractorDialog::EditExtractor, m_q);
-
-                                QObject::connect(dialog, &QDialog::accepted,
-                                                 m_q, &EventWidget::editExtractorDialogAccepted);
-
-                                QObject::connect(dialog, &QDialog::rejected,
-                                                 m_q, &EventWidget::addEditExtractorDialogRejected);
-                            }
-                            else if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(srcPtr))
-                            {
-                                auto lfe_dialog = new ListFilterExtractorDialog(
-                                    moduleConfig, m_context->getAnalysis(), m_context, m_q);
-
-                                lfe_dialog->editListFilterExtractor(lfe);
-
-                                QObject::connect(lfe_dialog, &QDialog::accepted, m_q,
-                                                 &EventWidget::listFilterExtractorDialogAccepted);
-
-                                QObject::connect(lfe_dialog, &ListFilterExtractorDialog::applied, m_q,
-                                                 &EventWidget::listFilterExtractorDialogApplied);
-
-                                QObject::connect(lfe_dialog, &QDialog::rejected, m_q,
-                                                 &EventWidget::listFilterExtractorDialogRejected);
-
-                                dialog = lfe_dialog;
-                            }
-                            else
-                            {
-                                InvalidCodePath;
-                            }
+                    // Edit Operator
+                    menu.addAction(
+                        QIcon(":/pencil.png"), QSL("Edit"), [this, userLevel, op]() {
+                            auto dialog = operator_editor_factory(
+                                op, userLevel, ObjectEditorMode::Edit, m_q);
 
                             //POS dialog->move(QCursor::pos());
                             dialog->setAttribute(Qt::WA_DeleteOnClose);
@@ -1983,62 +2028,24 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                             clearAllTreeSelections();
                             clearAllToDefaultNodeHighlights();
                         });
-                    }
 
-                    menu.addAction(QIcon::fromTheme("edit-delete"), QSL("Remove"),
-                                   [this, sourceInterface]() {
+                    menu.addAction("Rename", [node] () {
+                        if (auto tw = node->treeWidget())
+                        {
+                            tw->editItem(node);
+                        }
+                    });
+
+                    menu.addSeparator();
+                    menu.addAction(QIcon::fromTheme("edit-delete"), QSL("Remove"), [this, op]() {
                         // TODO: QMessageBox::question or similar or undo functionality
-                        m_q->removeSource(sourceInterface);
+                        m_q->removeOperator(op.get());
                     });
                 }
             }
-        }
 
-        if (userLevel > 0 && node->type() == NodeType_OutputPipe)
-        {
-            auto pipe = get_pointer<Pipe>(node);
-
-            menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
-                makeAndShowPipeDisplay(pipe);
-            });
-        }
-
-        if (userLevel > 0 && node->type() == NodeType_Operator)
-        {
-            if (!m_uniqueWidget)
+            if (node->type() == NodeType_Directory && !m_uniqueWidget)
             {
-                auto rawOpPtr = get_pointer<OperatorInterface>(node);
-                Q_ASSERT(rawOpPtr);
-
-                auto op = std::dynamic_pointer_cast<OperatorInterface>(rawOpPtr->shared_from_this());
-
-                if (op->getNumberOfOutputs() == 1)
-                {
-                    Pipe *pipe = op->getOutput(0);
-
-                    menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
-                        makeAndShowPipeDisplay(pipe);
-                    });
-                }
-
-                // Edit Operator
-                menu.addAction(QIcon(":/pencil.png"),
-                               QSL("Edit"), [this, userLevel, op]() {
-                    auto dialog = operator_editor_factory(op, userLevel, OperatorEditorMode::Edit, m_q);
-                    //POS dialog->move(QCursor::pos());
-                    dialog->setAttribute(Qt::WA_DeleteOnClose);
-                    dialog->show();
-                    m_uniqueWidget = dialog;
-                    clearAllTreeSelections();
-                    clearAllToDefaultNodeHighlights();
-
-                    QObject::connect(dialog, &QDialog::accepted,
-                                     m_q, &EventWidget::editOperatorDialogAccepted);
-
-                    QObject::connect(dialog, &QDialog::rejected,
-                                     m_q, &EventWidget::addEditOperatorDialogRejected);
-                });
-
                 menu.addAction("Rename", [node] () {
                     if (auto tw = node->treeWidget())
                     {
@@ -2046,146 +2053,139 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     }
                 });
 
-                menu.addSeparator();
-                menu.addAction(QIcon::fromTheme("edit-delete"), QSL("Remove"), [this, op]() {
-                    // TODO: QMessageBox::question or similar or undo functionality
-                    m_q->removeOperator(op.get());
-                });
-            }
-        }
-
-        if (node->type() == NodeType_Directory && !m_uniqueWidget)
-        {
-            menu.addAction("Rename", [node] () {
-                if (auto tw = node->treeWidget())
+                if (auto dir = get_shared_analysis_object<Directory>(node))
                 {
-                    tw->editItem(node);
-                }
-            });
-
-            if (auto dir = get_shared_analysis_object<Directory>(node))
-            {
-                menu.addSeparator();
-                menu.addAction(QIcon::fromTheme("edit-delete"), "Remove", [this, dir] () {
-                    // TODO: QMessageBox::question or similar or undo functionality
-                    removeDirectoryRecursively(dir);
-                });
-
-                menuNew->addSeparator();
-                menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
-                                   &menu, [this, userLevel, dir]() {
-
-                    auto newDir = std::make_shared<Directory>();
-                    newDir->setObjectName("New Directory");
-                    newDir->setUserLevel(userLevel);
-                    newDir->setEventId(m_eventId);
-                    newDir->setDisplayLocation(DisplayLocation::Operator);
-                    dir->push_back(newDir);
-                    m_context->getAnalysis()->addDirectory(newDir);
-                    repopulate();
-
-                    if (auto node = findNode(dir))
-                        node->setExpanded(true);
-
-                    if (auto node = findNode(newDir))
-                        node->treeWidget()->editItem(node);
-                });
-                actionNewIsFirst = true;
-            }
-        }
-    }
-    else // No node selected
-    {
-        if (m_mode == EventWidgetPrivate::Default && !m_uniqueWidget)
-        {
-            if (userLevel > 0)
-            {
-                auto add_newOperatorAction = [this, &menu, menuNew, userLevel]
-                    (const QString &title, auto op)
-                {
-                    auto icon = make_operator_icon(op.get());
-                    // New Operator
-                    menuNew->addAction(icon, title, &menu, [this, userLevel, op]() {
-                        auto dialog = operator_editor_factory(
-                            op, userLevel, OperatorEditorMode::New, m_q);
-                        //POS dialog->move(QCursor::pos());
-                        dialog->setAttribute(Qt::WA_DeleteOnClose);
-                        dialog->show();
-                        m_uniqueWidget = dialog;
-                        clearAllTreeSelections();
-                        clearAllToDefaultNodeHighlights();
-
-                        QObject::connect(dialog, &QDialog::accepted,
-                                         m_q, &EventWidget::addOperatorDialogAccepted);
-
-                        QObject::connect(dialog, &QDialog::rejected,
-                                         m_q, &EventWidget::addEditOperatorDialogRejected);
+                    menu.addSeparator();
+                    menu.addAction(QIcon::fromTheme("edit-delete"), "Remove", [this, dir] () {
+                        // TODO: QMessageBox::question or similar or undo functionality
+                        removeDirectoryRecursively(dir);
                     });
-                };
 
-                auto analysis = m_context->getAnalysis();
-                auto &registry(analysis->getObjectFactory());
-                QVector<OperatorPtr> operatorInstances;
+                    menuNew->addSeparator();
+                    menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
+                                       &menu, [this, userLevel, dir]() {
 
-                for (auto operatorName: registry.getOperatorNames())
-                {
-                    OperatorPtr op(registry.makeOperator(operatorName));
-                    operatorInstances.push_back(op);
+                                           auto newDir = std::make_shared<Directory>();
+                                           newDir->setObjectName("New Directory");
+                                           newDir->setUserLevel(userLevel);
+                                           newDir->setEventId(m_eventId);
+                                           newDir->setDisplayLocation(DisplayLocation::Operator);
+                                           dir->push_back(newDir);
+                                           m_context->getAnalysis()->addDirectory(newDir);
+                                           repopulate();
+
+                                           if (auto node = findNode(dir))
+                                               node->setExpanded(true);
+
+                                           if (auto node = findNode(newDir))
+                                               node->treeWidget()->editItem(node);
+                                       });
+                    actionNewIsFirst = true;
                 }
-
-                // Sort operators by displayname
-                qSort(operatorInstances.begin(), operatorInstances.end(),
-                      [](const OperatorPtr &a, const OperatorPtr &b) {
-                    return a->getDisplayName() < b->getDisplayName();
-                });
-
-                for (auto op: operatorInstances)
-                {
-                    add_newOperatorAction(op->getDisplayName(), op);
-                }
-
-                menuNew->addSeparator();
-                menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
-                                   &menu, [this, userLevel]() {
-
-                    auto newDir = std::make_shared<Directory>();
-                    newDir->setObjectName("New Directory");
-                    newDir->setUserLevel(userLevel);
-                    newDir->setEventId(m_eventId);
-                    newDir->setDisplayLocation(DisplayLocation::Operator);
-                    m_context->getAnalysis()->addDirectory(newDir);
-                    repopulate();
-
-                    if (auto node = findNode(newDir))
-                        node->setExpanded(true);
-
-                    if (auto node = findNode(newDir))
-                        node->treeWidget()->editItem(node);
-                });
             }
         }
-    }
-
-    if (menuNew->isEmpty())
-    {
-        delete menuNew;
-    }
-    else
-    {
-        auto actionNew = menu.addAction(QSL("New"));
-        actionNew->setMenu(menuNew);
-        QAction *before = nullptr;
-        if (actionNewIsFirst)
+        else // No node selected
         {
-            before = menu.actions().value(0);
-        }
-        menu.insertAction(before, actionNew);
-    }
+            if (m_mode == EventWidgetPrivate::Default && !m_uniqueWidget)
+            {
+                if (userLevel > 0)
+                {
+                    auto add_newOperatorAction = [this, &menu, menuNew, userLevel]
+                        (const QString &title, auto op)
+                        {
+                            auto icon = make_operator_icon(op.get());
+                            // New Operator
+                            menuNew->addAction(icon, title, &menu, [this, userLevel, op]() {
+                                auto dialog = operator_editor_factory(
+                                    op, userLevel, ObjectEditorMode::New, m_q);
 
-    if (!menu.isEmpty())
-    {
-        menu.exec(tree->mapToGlobal(pos));
+                                //POS dialog->move(QCursor::pos());
+                                dialog->setAttribute(Qt::WA_DeleteOnClose);
+                                dialog->show();
+                                m_uniqueWidget = dialog;
+                                clearAllTreeSelections();
+                                clearAllToDefaultNodeHighlights();
+                            });
+                        };
+
+                    auto analysis = m_context->getAnalysis();
+                    auto &registry(analysis->getObjectFactory());
+                    QVector<OperatorPtr> operatorInstances;
+
+                    for (auto operatorName: registry.getOperatorNames())
+                    {
+                        OperatorPtr op(registry.makeOperator(operatorName));
+                        operatorInstances.push_back(op);
+                    }
+
+                    // Sort operators by displayname
+                    qSort(operatorInstances.begin(), operatorInstances.end(),
+                          [](const OperatorPtr &a, const OperatorPtr &b) {
+                              return a->getDisplayName() < b->getDisplayName();
+                          });
+
+                    for (auto op: operatorInstances)
+                    {
+                        add_newOperatorAction(op->getDisplayName(), op);
+                    }
+
+                    menuNew->addSeparator();
+                    menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
+                                       &menu, [this, userLevel]() {
+
+                                           auto newDir = std::make_shared<Directory>();
+                                           newDir->setObjectName("New Directory");
+                                           newDir->setUserLevel(userLevel);
+                                           newDir->setEventId(m_eventId);
+                                           newDir->setDisplayLocation(DisplayLocation::Operator);
+                                           m_context->getAnalysis()->addDirectory(newDir);
+                                           repopulate();
+
+                                           if (auto node = findNode(newDir))
+                                               node->setExpanded(true);
+
+                                           if (auto node = findNode(newDir))
+                                               node->treeWidget()->editItem(node);
+                                       });
+                }
+            }
+        }
+
+        if (menuNew->isEmpty())
+        {
+            delete menuNew;
+        }
+        else
+        {
+            auto actionNew = menu.addAction(QSL("New"));
+            actionNew->setMenu(menuNew);
+            QAction *before = nullptr;
+            if (actionNewIsFirst)
+            {
+                before = menu.actions().value(0);
+            }
+            menu.insertAction(before, actionNew);
+        }
+
+        if (!menu.isEmpty())
+        {
+            menu.exec(tree->mapToGlobal(pos));
+        }
     }
+}
+
+void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
+                                                             QPoint pos,
+                                                             s32 userLevel)
+{
+    /* Context menu for the top-left tree which contains modules and their
+     * datasources. */
+    // FIXME: implement this
+
+    assert(userLevel == 0);
+
+    auto node = tree->itemAt(pos);
+    auto obj  = get_qobject(node);
 }
 
 /* Context menu for the display/sink trees (bottom). */
@@ -2206,7 +2206,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
         auto icon = make_operator_icon(op.get());
         // New Display Operator
         menuNew->addAction(icon, title, &menu, [this, userLevel, op]() {
-            auto dialog = operator_editor_factory(op, userLevel, OperatorEditorMode::New, m_q);
+            auto dialog = operator_editor_factory(op, userLevel, ObjectEditorMode::New, m_q);
 
             //POS dialog->move(QCursor::pos());
             dialog->setAttribute(Qt::WA_DeleteOnClose);
@@ -2214,12 +2214,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             m_uniqueWidget = dialog;
             clearAllTreeSelections();
             clearAllToDefaultNodeHighlights();
-
-            QObject::connect(dialog, &QDialog::accepted,
-                             m_q, &EventWidget::addOperatorDialogAccepted);
-
-            QObject::connect(dialog, &QDialog::rejected,
-                             m_q, &EventWidget::addEditOperatorDialogRejected);
         });
     };
 
@@ -2517,19 +2511,15 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             {
                 // Edit Display Operator
                 menu.addAction(QSL("&Edit"), [this, userLevel, op]() {
-                    auto dialog = operator_editor_factory(op, userLevel, OperatorEditorMode::Edit, m_q);
+                    auto dialog = operator_editor_factory(
+                        op, userLevel, ObjectEditorMode::Edit, m_q);
+
                     //POS dialog->move(QCursor::pos());
                     dialog->setAttribute(Qt::WA_DeleteOnClose);
                     dialog->show();
                     m_uniqueWidget = dialog;
                     clearAllTreeSelections();
                     clearAllToDefaultNodeHighlights();
-
-                    QObject::connect(dialog, &QDialog::accepted,
-                                     m_q, &EventWidget::editOperatorDialogAccepted);
-
-                    QObject::connect(dialog, &QDialog::rejected,
-                                     m_q, &EventWidget::addEditOperatorDialogRejected);
                 });
 
                 if (auto sink = std::dynamic_pointer_cast<SinkInterface>(op))
@@ -4549,73 +4539,28 @@ void EventWidget::highlightInputOf(Slot *slot, bool doHighlight)
 //
 // Extractor add/edit/cancel
 //
-void EventWidget::addExtractorDialogAccepted()
+void EventWidget::objectEditorDialogApplied()
 {
     qDebug() << __PRETTY_FUNCTION__;
-    uniqueWidgetCloses();
+    //endSelectInput(); // FIXME: needed?
     m_d->repopulate();
+    m_d->m_analysisWidget->updateAddRemoveUserLevelButtons();
 }
 
-void EventWidget::editExtractorDialogAccepted()
+void EventWidget::objectEditorDialogAccepted()
 {
     qDebug() << __PRETTY_FUNCTION__;
-    uniqueWidgetCloses();
-    m_d->repopulate();
-}
-
-void EventWidget::addEditExtractorDialogRejected()
-{
-    endSelectInput();
-    uniqueWidgetCloses();
-}
-
-//
-// ListFilter Extractor
-//
-void EventWidget::listFilterExtractorDialogAccepted()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    m_d->repopulate();
-    uniqueWidgetCloses();
-}
-
-void EventWidget::listFilterExtractorDialogApplied()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    m_d->repopulate();
-}
-
-void EventWidget::listFilterExtractorDialogRejected()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    uniqueWidgetCloses();
-}
-
-//
-// Operator add/edit/cancel
-//
-void EventWidget::addOperatorDialogAccepted()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-
-    endSelectInput();
+    //endSelectInput(); // FIXME: needed?
     uniqueWidgetCloses();
     m_d->repopulate();
     m_d->m_analysisWidget->updateAddRemoveUserLevelButtons();
 }
 
-void EventWidget::editOperatorDialogAccepted()
+void EventWidget::objectEditorDialogRejected()
 {
-    endSelectInput();
+    qDebug() << __PRETTY_FUNCTION__;
+    //endSelectInput(); // FIXME: needed?
     uniqueWidgetCloses();
-    m_d->repopulate();
-}
-
-void EventWidget::addEditOperatorDialogRejected()
-{
-    endSelectInput();
-    uniqueWidgetCloses();
-    m_d->repopulate();
 }
 
 //

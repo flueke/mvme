@@ -399,7 +399,7 @@ struct ListFilterExtractorDialog::ListFilterExtractorDialogPrivate
 
 ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis,
                                                      MVMEContext *context, QWidget *parent)
-    : QDialog(parent)
+    : ObjectEditorDialog(parent)
     , m_d(std::make_unique<ListFilterExtractorDialogPrivate>())
 {
     m_d->m_module = mod;
@@ -423,7 +423,9 @@ ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis
     contentsLayout->setStretch(1, 1);
 
     // buttonbox
-    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Apply | QDialogButtonBox::Cancel);
+    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok
+                                          | QDialogButtonBox::Apply
+                                          | QDialogButtonBox::Cancel);
     buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
 
     // outer widget layout: list and edit widgets top, buttonbox bottom

@@ -43,8 +43,9 @@
 #include <QWidget>
 
 #include "analysis.h"
-#include "histo_util.h"
 #include "data_filter_edit.h"
+#include "histo_util.h"
+#include "object_editor_dialog.h"
 
 class MVMEContext;
 class ModuleConfig;
@@ -57,11 +58,6 @@ class DataExtractionEditor;
 struct EventWidgetPrivate;
 class OperatorConfigurationWidget;
 
-enum class OperatorEditorMode
-{
-    New,
-    Edit
-};
 
 class EventWidget: public QWidget
 {
@@ -111,37 +107,20 @@ class EventWidget: public QWidget
         void selectObjects(const AnalysisObjectVector &objects);
 
     public slots:
-        // Note: these slots are only public because of being called by a
-        // lambda which otherwise cannot invoke them.
-
-        void listFilterExtractorDialogAccepted();
-        void listFilterExtractorDialogApplied();
-        void listFilterExtractorDialogRejected();
-
-        void addExtractorDialogAccepted();
-        void editExtractorDialogAccepted();
-        void addEditExtractorDialogRejected();
-
-        void addOperatorDialogAccepted();
-        void editOperatorDialogAccepted();
-        void addEditOperatorDialogRejected();
+        void objectEditorDialogApplied();
+        void objectEditorDialogAccepted();
+        void objectEditorDialogRejected();
 
     private:
         EventWidgetPrivate *m_d;
 };
 
-class AddEditExtractorDialog: public QDialog
+class AddEditExtractorDialog: public ObjectEditorDialog
 {
     Q_OBJECT
     public:
-        enum Mode
-        {
-            AddExtractor,
-            EditExtractor
-        };
-
         AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *mod,
-                               Mode mode, EventWidget *eventWidget = nullptr);
+                               ObjectEditorMode mode, EventWidget *eventWidget = nullptr);
         virtual ~AddEditExtractorDialog();
 
         virtual void accept() override;
@@ -151,7 +130,7 @@ class AddEditExtractorDialog: public QDialog
         std::shared_ptr<Extractor> m_ex;
         ModuleConfig *m_module;
         EventWidget *m_eventWidget;
-        Mode m_mode;
+        ObjectEditorMode m_mode;
 
         QLineEdit *le_name;
         QDialogButtonBox *m_buttonBox;
@@ -175,7 +154,7 @@ class AbstractOpConfigWidget;
 
 /* Provides the input selection grid ("SlotGrid") and instantiates a specific
  * child widget depending on the operator type. */
-class AddEditOperatorDialog: public QDialog
+class AddEditOperatorDialog: public ObjectEditorDialog
 {
     Q_OBJECT
     signals:
@@ -184,7 +163,7 @@ class AddEditOperatorDialog: public QDialog
     public:
 
         AddEditOperatorDialog(OperatorPtr opPtr, s32 userLevel,
-                              OperatorEditorMode mode, EventWidget *eventWidget);
+                              ObjectEditorMode mode, EventWidget *eventWidget);
 
         virtual void resizeEvent(QResizeEvent *event) override;
 
@@ -195,7 +174,7 @@ class AddEditOperatorDialog: public QDialog
 
         OperatorPtr m_op;
         s32 m_userLevel;
-        OperatorEditorMode m_mode;
+        ObjectEditorMode m_mode;
         EventWidget *m_eventWidget;
         QVector<QPushButton *> m_selectButtons;
         QDialogButtonBox *m_buttonBox = nullptr;

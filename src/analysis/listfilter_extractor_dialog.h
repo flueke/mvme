@@ -3,18 +3,16 @@
 
 #include <QDialog>
 #include "analysis.h"
+#include "object_editor_dialog.h"
 
 class MVMEContext;
 
 namespace analysis
 {
 
-class ListFilterExtractorDialog: public QDialog
+class ListFilterExtractorDialog: public ObjectEditorDialog
 {
     Q_OBJECT
-    signals:
-        void applied();
-
     public:
         ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis,
                                   MVMEContext *context, QWidget *parent = nullptr);

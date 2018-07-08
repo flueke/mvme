@@ -80,8 +80,8 @@ namespace analysis
 //
 
 AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *module,
-                                               Mode mode, EventWidget *eventWidget)
-    : QDialog(eventWidget)
+                                               ObjectEditorMode mode, EventWidget *eventWidget)
+    : ObjectEditorDialog(eventWidget)
     , m_ex(ex)
     , m_module(module)
     , m_eventWidget(eventWidget)
@@ -97,7 +97,8 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
     loadTemplateLayout->addWidget(loadTemplateButton);
     loadTemplateLayout->addStretch();
 
-    connect(loadTemplateButton, &QPushButton::clicked, this, &AddEditExtractorDialog::runLoadTemplateDialog);
+    connect(loadTemplateButton, &QPushButton::clicked,
+            this, &AddEditExtractorDialog::runLoadTemplateDialog);
 
     Q_ASSERT(m_ex);
     Q_ASSERT(module);
@@ -145,7 +146,7 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
 
     switch (mode)
     {
-        case AddExtractor:
+        case ObjectEditorMode::New:
             {
                 setWindowTitle(QString("New  %1").arg(m_ex->getDisplayName()));
 
@@ -187,7 +188,7 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
                 applyTemplate(0);
             } break;
 
-        case EditExtractor:
+        case ObjectEditorMode::Edit:
             {
                 setWindowTitle(QString("Edit %1").arg(m_ex->getDisplayName()));
             } break;
@@ -259,7 +260,7 @@ void AddEditExtractorDialog::accept()
 
     switch (m_mode)
     {
-        case AddExtractor:
+        case ObjectEditorMode::New:
             {
                 bool genHistos = m_gbGenHistograms->isChecked();
 
@@ -280,7 +281,7 @@ void AddEditExtractorDialog::accept()
                 }
             } break;
 
-        case EditExtractor:
+        case ObjectEditorMode::Edit:
             {
                 analysis->sourceEdited(m_ex);
             } break;
@@ -303,8 +304,8 @@ void AddEditExtractorDialog::reject()
 //
 
 AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel,
-                                             OperatorEditorMode mode, EventWidget *eventWidget)
-    : QDialog(eventWidget)
+                                             ObjectEditorMode mode, EventWidget *eventWidget)
+    : ObjectEditorDialog(eventWidget)
     , m_op(op)
     , m_userLevel(userLevel)
     , m_mode(mode)
@@ -326,13 +327,13 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel,
 
     switch (mode)
     {
-        case OperatorEditorMode::New:
+        case ObjectEditorMode::New:
             setWindowTitle(QString("New  %1").arg(m_op->getDisplayName()));
             // This is a new operator, so either the name is empty or was auto generated.
             m_opConfigWidget->setNameEdited(false);
             break;
 
-        case OperatorEditorMode::Edit:
+        case ObjectEditorMode::Edit:
             setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
             // We're editing an operator so we assume the name has been specified by the user.
             m_opConfigWidget->setNameEdited(true);
@@ -639,12 +640,12 @@ void AddEditOperatorDialog::accept()
 
     switch (m_mode)
     {
-        case OperatorEditorMode::New:
+        case ObjectEditorMode::New:
             {
                 analysis->addOperator(m_eventWidget->getEventId(), m_userLevel, m_op);
             } break;
 
-        case OperatorEditorMode::Edit:
+        case ObjectEditorMode::Edit:
             {
                 analysis->operatorEdited(m_op);
             } break;
@@ -662,7 +663,7 @@ void AddEditOperatorDialog::reject()
 
     switch (m_mode)
     {
-        case OperatorEditorMode::New:
+        case ObjectEditorMode::New:
             {
                 // The operator will not be added to the analysis. This means any slots
                 // connected by the user must be disconnected again to avoid having
@@ -674,7 +675,7 @@ void AddEditOperatorDialog::reject()
                 }
             } break;
 
-        case OperatorEditorMode::Edit:
+        case ObjectEditorMode::Edit:
             {
                 AnalysisPauser pauser(m_eventWidget->getContext());
 
