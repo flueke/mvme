@@ -2,7 +2,10 @@
 TODO list, not at all sorted by priority
 ==================================================
 * BUGFIXES wanted for 0.9.5
-  add export to clipboard for 2d combined and projection histos
+  - add export to clipboard for 2d combined and projection histos
+  - if loading a config file fails when opening a filename from the
+    mvmeworkspace.ini file show an explicit error message about the filename in
+    the ini possibly being wrong.
 
 * Plan for the next days (12/06/18):
   - start work on analysis object import/export implementation.

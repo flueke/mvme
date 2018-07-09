@@ -109,8 +109,6 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         ScrollZoomer *m_zoomer;
         QTimer *m_replotTimer;
         Histo1DStatistics m_stats;
-        QwtPlotTextLabel *m_statsTextItem;
-        QwtText *m_statsText;
         QPointF m_cursorPosition;
 
         std::shared_ptr<analysis::CalibrationMinMax> m_calib;
