@@ -2186,6 +2186,141 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
 
     auto node = tree->itemAt(pos);
     auto obj  = get_qobject(node);
+
+    if (!m_uniqueWidget)
+    {
+        QMenu menu;
+        auto menuNew = new QMenu(&menu);
+
+        auto analysis = m_context->getAnalysis();
+        auto objectFactory = analysis->getObjectFactory();
+
+        switch (node->type())
+        {
+            case NodeType_Module:
+                {
+                    auto moduleConfig = get_pointer<ModuleConfig>(node);
+
+                    // new data sources / filters
+                    QVector<SourcePtr> sourceInstances;
+
+                    for (auto sourceName: objectFactory.getSourceNames())
+                    {
+                        SourcePtr src(objectFactory.makeSource(sourceName));
+                        sourceInstances.push_back(src);
+                    }
+
+                    // Sort sources by displayname
+                    qSort(sourceInstances.begin(), sourceInstances.end(),
+                          [](const SourcePtr &a, const SourcePtr &b) {
+                              return a->getDisplayName() < b->getDisplayName();
+                          });
+
+                    auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig, userLevel] (
+                        const QString &title, auto srcPtr) {
+                        auto icon = make_datasource_icon(srcPtr.get());
+
+                        menuNew->addAction(icon, title, &menu,
+                                           [this, moduleConfig, srcPtr, userLevel]() {
+
+                                auto dialog = datasource_editor_factory(
+                                    srcPtr, userLevel, ObjectEditorMode::New, moduleConfig, m_q);
+
+                                assert(dialog);
+
+                                //POS dialog->move(QCursor::pos());
+                                dialog->setAttribute(Qt::WA_DeleteOnClose);
+                                dialog->show();
+                                m_uniqueWidget = dialog;
+                                clearAllTreeSelections();
+                                clearAllToDefaultNodeHighlights();
+                            });
+                    };
+
+                    for (auto src: sourceInstances)
+                    {
+                        add_newDataSourceAction(src->getDisplayName(), src);
+                    }
+
+                    // default data filters and "raw display" creation
+                    if (moduleConfig)
+                    {
+                        auto defaultExtractors = get_default_data_extractors(
+                            moduleConfig->getModuleMeta().typeName);
+
+                        if (!defaultExtractors.isEmpty())
+                        {
+                            menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
+
+                                QMessageBox box(
+                                    QMessageBox::Question,
+                                    QSL("Generate default filters"),
+                                    QSL("This action will generate extraction filters,"
+                                        ", calibrations and histograms for the selected module."
+                                        " Do you want to continue?"),
+                                    QMessageBox::Ok | QMessageBox::No,
+                                    m_q);
+
+                                box.button(QMessageBox::Ok)->setText("Yes, generate filters");
+
+                                if (box.exec() == QMessageBox::Ok)
+                                {
+                                    generateDefaultFilters(moduleConfig);
+                                }
+                            });
+                        }
+
+                        auto menuImport = new QMenu(&menu);
+                        menuImport->setTitle(QSL("Import"));
+                        //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
+                        menuImport->addAction(m_actionImportForModuleFromTemplate.get());
+                        menuImport->addAction(m_actionImportForModuleFromFile.get());
+                        menu.addMenu(menuImport);
+
+                        // Module Settings
+                        // TODO: move Module Settings into a separate dialog that contains
+                        // all the multievent settings combined
+                        menu.addAction(QIcon(QSL(":/gear.png")), QSL("Module Settings"),
+                                       &menu, [this, moduleConfig]() {
+
+                                auto analysis = m_context->getAnalysis();
+                                auto moduleSettings = analysis->getVMEObjectSettings(
+                                    moduleConfig->getId());
+
+                                ModuleSettingsDialog dialog(moduleConfig, moduleSettings, m_q);
+
+                                if (dialog.exec() == QDialog::Accepted)
+                                {
+                                    analysis->setVMEObjectSettings(
+                                        moduleConfig->getId(), dialog.getSettings());
+                                }
+                            });
+                    }
+                }
+                break;
+        }
+
+        if (menuNew->isEmpty())
+        {
+            delete menuNew;
+        }
+        else
+        {
+            auto actionNew = menu.addAction(QSL("New"));
+            actionNew->setMenu(menuNew);
+            QAction *before = nullptr;
+            if (actionNewIsFirst)
+            {
+                before = menu.actions().value(0);
+            }
+            menu.insertAction(before, actionNew);
+        }
+
+        if (!menu.isEmpty())
+        {
+            menu.exec(tree->mapToGlobal(pos));
+        }
+    }
 }
 
 /* Context menu for the display/sink trees (bottom). */
