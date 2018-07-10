@@ -1,6 +1,21 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+
+--------------------------------------------------
+BUGFIXES wanted for 0.9.5
+--------------------------------------------------
+* Manual: mention the "show advanced objects" button and what it does
+  maybe even enable them by default (talk to robert about this)
+- if loading a config file fails when opening a filename from the
+  mvmeworkspace.ini file show an explicit error message about the filename in
+  the ini possibly being wrong.
+- h2d and possibly everything that's indexed does not properly
+  get connected on analysis load.
+  manually reselecting the inputs temporarily fixes the issue
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 --------------------------------------------------
 Analysis: object export/import
 --------------------------------------------------
@@ -25,17 +40,6 @@ Use serialization to implement copy/paste.
 Issues: naming of objects both when importing and when pasting.  -> Iterate
 through objects and compare type and name. If an exact match is found append a
 suffix to the new object.
-
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-
---------------------------------------------------
-BUGFIXES wanted for 0.9.5
---------------------------------------------------
-* Manual: mention the "show advanced objects" button and what it does
-  maybe even enable them by default (talk to robert about this)
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -69,27 +73,12 @@ BUGFIXES wanted for 0.9.5
 * pausing is not needed when doing drag/drop into/from a directory. drag and
   drop mostly does not need the analaysis to be paused.
 
---------------------------------------------------
-GUI <-> Analysis <-> a2 refactoring
---------------------------------------------------
-Keep analysis/stream proc stats when starting/resuming with keepData option set.
+* New Feature: add pause/resume markers and/or absolute timestamps to the listfile.
+  This would allow for example splitting the run on pause/resume if the user
+  changed settings in-between.
 
-* also finally fix pause/resume/singlestep. this should probably be
-  followed or accompanied by redoing the mvme stream iteration code
-
-* additional a1 layer considerations and open questions:
-  - operator cloning
-    * high level clone semantics. what's required, what's sane?
-    * is using write -> read always the best way. which way causes the least amount of code duplication?
-    * performance: cloning is not happening frequently, so the serialization way should be good enough.
-    * what should happen with connections, object id, object name?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-a2_adapter::a2_adapter_magic() found magic for analysis::Difference (objectName=madc32.amplitude - madc32.event_counter/ts)
-a2_adapter::a2_adapter_magic() analysis::Difference(0x555555889460, name = "madc32.amplitude - madc32.event_counter/ts") QUuid("{b9fea00d-5a28-47cb-908a-553e3acc3b58}")
-a2_adapter::difference_magic()
-mvme: /home/florian/src/mvme2/src/analysis/a2/a2.cc:786: a2::Operator a2::make_difference(memory::Arena*, a2::PipeVectors, a2::PipeVectors): Assertion `inPipeA.data.size == inPipeB.data.size' failed.
-
+* 1d/2d histos: ranges can be specified for h2d but not for h1d. h1d dialog is
+  missing some features compared to h2d
 
 * RPC: limit max request size to something reasonable
 * RPC: fork jcon-cpp on github and push local changes there

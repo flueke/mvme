@@ -25,6 +25,7 @@
 #include "analysis/analysis.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
+#include "mvme_qwt.h"
 
 #include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
@@ -178,7 +179,8 @@ class Histo1DGaussCurveData: public QwtSyntheticPointData
             // much more stable x-position.
             double a = m_stats.fwhmCenter;
 
-            double firstTerm  = m_stats.maxValue; // This is (1.0 / (SqrtPI2 * s)) if the resulting area should be 1.
+            // This is (1.0 / (SqrtPI2 * s)) if the resulting area should be 1.
+            double firstTerm  = m_stats.maxValue;
             double exponent   = -0.5 * ((squared(x - a) / squared(s)));
             double secondTerm = std::exp(exponent);
             double yValue     = firstTerm * secondTerm;
@@ -296,6 +298,12 @@ struct Histo1DWidgetPrivate
     QwtPlotMarker *m_rateEstimationX2Marker;
     QwtPlotMarker *m_rateEstimationFormulaMarker;
 
+    mvme_qwt::TextLabelItem *m_globalStatsTextItem;
+    mvme_qwt::TextLabelItem *m_gaussStatsTextItem;
+    mvme_qwt::TextLabelRowLayout m_textLabelLayout;
+    std::unique_ptr<QwtText> m_globalStatsText;
+    std::unique_ptr<QwtText> m_gaussStatsText;
+
     QwtPlotCurve *m_gaussCurve = nullptr;
     QwtPlotCurve *m_rateEstimationCurve = nullptr;
 
@@ -349,6 +357,37 @@ enum class AxisScaleType
     Logarithmic
 };
 
+namespace
+{
+
+std::unique_ptr<QwtText> make_text_box(int renderFlags = Qt::AlignRight | Qt::AlignTop)
+{
+    auto result = std::make_unique<QwtText>();
+
+    /* This controls the alignment of the whole text on the canvas aswell as
+     * the alignment of the text itself. */
+    result->setRenderFlags(renderFlags);
+
+    QPen borderPen(Qt::SolidLine);
+    borderPen.setColor(Qt::black);
+    result->setBorderPen(borderPen);
+
+    QBrush brush;
+    brush.setColor("#e6e2de");
+    brush.setStyle(Qt::SolidPattern);
+    result->setBackgroundBrush(brush);
+
+    /* The text rendered by qwt looked non-antialiased when using the RichText
+     * format. Manually setting the pixelSize fixes this. */
+    QFont font;
+    font.setPixelSize(10);
+    result->setFont(font);
+
+    return result;
+}
+
+} // end anon namespace
+
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histoPtr, QWidget *parent)
     : Histo1DWidget(histoPtr.get(), parent)
 {
@@ -401,7 +440,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
                                                 QSL("Rate Est."));
     m_d->m_actionRateEstimation->setStatusTip(QSL("Rate Estimation"));
     m_d->m_actionRateEstimation->setCheckable(true);
-    connect(m_d->m_actionRateEstimation, &QAction::toggled, this, &Histo1DWidget::on_tb_rate_toggled);
+    connect(m_d->m_actionRateEstimation, &QAction::toggled,
+            this, &Histo1DWidget::on_tb_rate_toggled);
 
     tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
         m_histo->clear();
@@ -422,7 +462,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         tb->addWidget(button);
     }
 
-    action = tb->addAction(QIcon(":/document-save.png"), QSL("Save"), this, &Histo1DWidget::saveHistogram);
+    action = tb->addAction(QIcon(":/document-save.png"), QSL("Save"),
+                           this, &Histo1DWidget::saveHistogram);
     action->setStatusTip(QSL("Save the histogram to a text file"));
 
     m_d->m_actionSubRange = tb->addAction(QIcon(":/histo_subrange.png"), QSL("Subrange"),
@@ -502,35 +543,25 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     }));
 
     //
-    // Stats text
+    // Global stats box
     //
-    m_statsText = new QwtText;
-    /* This controls the alignment of the whole text on the canvas aswell as
-     * the alignment of text itself. */
-    m_statsText->setRenderFlags(Qt::AlignRight | Qt::AlignTop);
-
-    QPen borderPen(Qt::SolidLine);
-    borderPen.setColor(Qt::black);
-    m_statsText->setBorderPen(borderPen);
-
-    QBrush brush;
-    brush.setColor("#e6e2de");
-    brush.setStyle(Qt::SolidPattern);
-    m_statsText->setBackgroundBrush(brush);
-
-    /* The text rendered by qwt looked non-antialiased when using the RichText
-     * format. Manually setting the pixelSize fixes this. */
-    QFont font;
-    font.setPixelSize(12);
-    m_statsText->setFont(font);
-
-    m_statsTextItem = new QwtPlotTextLabel;
-    //m_statsTextItem->setRenderHint(QwtPlotItem::RenderAntialiased);
+    m_d->m_globalStatsText = make_text_box(Qt::AlignTop | Qt::AlignRight);
+    m_d->m_globalStatsTextItem = new mvme_qwt::TextLabelItem();
     /* Margin added to contentsMargins() of the canvas. This is (mis)used to
      * not clip the top scrollbar. */
-    m_statsTextItem->setMargin(25);
-    m_statsTextItem->setText(*m_statsText);
-    m_statsTextItem->attach(m_d->m_plot);
+    //m_d->m_globalStatsTextItem->setMargin(25);
+
+    //
+    // Gauss stats box
+    //
+    m_d->m_gaussStatsText = make_text_box(Qt::AlignTop | Qt::AlignRight);
+
+    m_d->m_gaussStatsTextItem = new mvme_qwt::TextLabelItem();
+    m_d->m_gaussStatsTextItem->setVisible(false);
+
+    m_d->m_textLabelLayout.addTextLabel(m_d->m_globalStatsTextItem);
+    m_d->m_textLabelLayout.addTextLabel(m_d->m_gaussStatsTextItem);
+    m_d->m_textLabelLayout.attachAll(m_d->m_plot);
 
     //
     // Calib Ui
@@ -753,7 +784,6 @@ Histo1DWidget::~Histo1DWidget()
 {
     //delete m_plotCurve;
     delete m_plotHisto;
-    delete m_statsText;
     delete m_d;
 }
 
@@ -875,7 +905,8 @@ void Histo1DWidget::replot()
 
         // Same values as used in RateEstimationCurveData but printed here to avoid spamming
         double norm_fitCurve          = y1 / (( 1.0 / tau) * pow(E1, -x1 / tau));
-        double norm_fitCurve_adjusted = norm_fitCurve * m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio();
+        double norm_fitCurve_adjusted =
+            norm_fitCurve * m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio();
 
 #if 0
         qDebug() << __PRETTY_FUNCTION__ << endl
@@ -968,7 +999,6 @@ void Histo1DWidget::replot()
 
     auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
     m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
-
     m_d->m_plot->replot();
 
 #if 0
@@ -1061,40 +1091,69 @@ void Histo1DWidget::updateStatistics()
     double lowerBound = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double upperBound = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
 
+    //
+    // global stats
+    //
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
-    static const QString textTemplate = QSL(
+    static const QString globalStatsTemplate = QSL(
         "<table>"
-        "<tr><td align=\"left\">RMS    </td><td>%L1</td></tr>"
-        "<tr><td align=\"left\">FWHM   </td><td>%L2</td></tr>"
-        "<tr><td align=\"left\">Mean   </td><td>%L3</td></tr>"
-        "<tr><td align=\"left\">Max    </td><td>%L4</td></tr>"
-        "<tr><td align=\"left\">Max Y  </td><td>%L5</td></tr>"
-        "<tr><td align=\"left\">Counts </td><td>%L6</td></tr>"
-        //"<tr><td align=\"left\">Stats LB </td><td>%L7</td></tr>"
-        //"<tr><td align=\"left\">Stats UB </td><td>%L8</td></tr>"
+        "<tr><td align=\"left\">Mean   </td><td>%L1</td></tr>"
+        "<tr><td align=\"left\">RMS    </td><td>%L2</td></tr>"
+        "<tr><td align=\"left\">Max    </td><td>%L3</td></tr>"
+        "<tr><td align=\"left\">Max Y  </td><td>%L4</td></tr>"
+        "<tr><td align=\"left\">Counts </td><td>%L5</td></tr>"
         "</table>"
         );
 
     double maxBinCenter = (m_stats.entryCount > 0) ? m_histo->getBinCenter(m_stats.maxBin) : 0.0;
 
     static const int fieldWidth = 0;
-    QString buffer = textTemplate
-        .arg(m_stats.sigma, fieldWidth)
-        .arg(m_stats.fwhm)
+    QString buffer = globalStatsTemplate
         .arg(m_stats.mean, fieldWidth)
+        .arg(m_stats.sigma, fieldWidth)
         .arg(maxBinCenter, fieldWidth)
         .arg(m_stats.maxValue, fieldWidth)
         .arg(m_stats.entryCount, fieldWidth, 'f', 0)
-        //.arg(lowerBound, fieldWidth)
-        //.arg(upperBound, fieldWidth)
         ;
 
-    m_statsText->setText(buffer, QwtText::RichText);
-    m_statsTextItem->setText(*m_statsText);
+    m_d->m_globalStatsText->setText(buffer, QwtText::RichText);
+    m_d->m_globalStatsTextItem->setText(*m_d->m_globalStatsText);
 
-    auto curveData = reinterpret_cast<Histo1DGaussCurveData *>(m_d->m_gaussCurve->data());
-    curveData->setStats(m_stats);
+    //
+    // gauss peak stats
+    //
+    auto gaussCurveData = reinterpret_cast<Histo1DGaussCurveData *>(m_d->m_gaussCurve->data());
+    gaussCurveData->setStats(m_stats);
+
+    static const double Sqrt2Pi = std::sqrt(2 * M_PI);
+
+    double a = m_stats.maxValue;
+    double s = m_stats.fwhm / FWHMSigmaFactor;
+    double scaleFactor = m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio();
+
+
+    double thingsBelowGauss = a * s * Sqrt2Pi;
+    // Scale with the max y value. This is the value of the maxBin
+    thingsBelowGauss *= scaleFactor;
+
+    static const QString gaussStatsTemplate = QSL(
+        "<table>"
+        "<tr><th>Gauss</th></tr>"
+        "<tr><td align=\"left\">FWHM  </td><td>%L1</td></tr>"
+        "<tr><td align=\"left\">Center</td><td>%L2</td></tr>"
+        "<tr><td align=\"left\">Counts</td><td>%L3</td></tr>"
+        "</table>"
+        );
+
+    buffer = gaussStatsTemplate
+        .arg(m_stats.fwhm)
+        .arg(m_stats.fwhmCenter)
+        .arg(thingsBelowGauss)
+        ;
+
+    m_d->m_gaussStatsText->setText(buffer, QwtText::RichText);
+    m_d->m_gaussStatsTextItem->setText(*m_d->m_gaussStatsText);
 }
 
 bool Histo1DWidget::yAxisIsLog()
@@ -1414,10 +1473,12 @@ void Histo1DWidget::on_tb_gauss_toggled(bool checked)
     if (checked)
     {
         m_d->m_gaussCurve->show();
+        m_d->m_gaussStatsTextItem->setVisible(true);
     }
     else
     {
         m_d->m_gaussCurve->hide();
+        m_d->m_gaussStatsTextItem->setVisible(false);
     }
 
     replot();
