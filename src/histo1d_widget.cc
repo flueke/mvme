@@ -1098,15 +1098,11 @@ void Histo1DWidget::updateStatistics()
 
     static const QString globalStatsTemplate = QSL(
         "<table>"
-        //"<tr><th>Global</th></tr>"
-        //"<tr><td align=\"left\">RMS    </td><td>%L1</td></tr>"
-        //"<tr><td align=\"left\">FWHM   </td><td>%L2</td></tr>"
-        "<tr><td align=\"left\">Mean   </td><td>%L3</td></tr>"
-        "<tr><td align=\"left\">Max    </td><td>%L4</td></tr>"
-        "<tr><td align=\"left\">Max Y  </td><td>%L5</td></tr>"
-        "<tr><td align=\"left\">Counts </td><td>%L6</td></tr>"
-        //"<tr><td align=\"left\">Stats LB </td><td>%L7</td></tr>"
-        //"<tr><td align=\"left\">Stats UB </td><td>%L8</td></tr>"
+        "<tr><td align=\"left\">Mean   </td><td>%L1</td></tr>"
+        "<tr><td align=\"left\">RMS    </td><td>%L2</td></tr>"
+        "<tr><td align=\"left\">Max    </td><td>%L3</td></tr>"
+        "<tr><td align=\"left\">Max Y  </td><td>%L4</td></tr>"
+        "<tr><td align=\"left\">Counts </td><td>%L5</td></tr>"
         "</table>"
         );
 
@@ -1114,14 +1110,11 @@ void Histo1DWidget::updateStatistics()
 
     static const int fieldWidth = 0;
     QString buffer = globalStatsTemplate
-        //.arg(m_stats.sigma, fieldWidth)
-        //.arg(m_stats.fwhm)
         .arg(m_stats.mean, fieldWidth)
+        .arg(m_stats.sigma, fieldWidth)
         .arg(maxBinCenter, fieldWidth)
         .arg(m_stats.maxValue, fieldWidth)
         .arg(m_stats.entryCount, fieldWidth, 'f', 0)
-        //.arg(lowerBound, fieldWidth)
-        //.arg(upperBound, fieldWidth)
         ;
 
     m_d->m_globalStatsText->setText(buffer, QwtText::RichText);
@@ -1133,27 +1126,30 @@ void Histo1DWidget::updateStatistics()
     auto gaussCurveData = reinterpret_cast<Histo1DGaussCurveData *>(m_d->m_gaussCurve->data());
     gaussCurveData->setStats(m_stats);
 
-    double a = m_stats.fwhmCenter;
+    static const double Sqrt2Pi = std::sqrt(2 * M_PI);
+
+    double a = m_stats.maxValue;
     double s = m_stats.fwhm / FWHMSigmaFactor;
-    double Sqrt2Pi = std::sqrt(2 * M_PI);
+    double scaleFactor = m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio();
 
 
-    double thingsFromBelow = a * std::sqrt(squared(s) * 0.5) * Sqrt2Pi;
+    double thingsBelowGauss = a * s * Sqrt2Pi;
+    // Scale with the max y value. This is the value of the maxBin
+    thingsBelowGauss *= scaleFactor;
 
     static const QString gaussStatsTemplate = QSL(
         "<table>"
-        "<tr><td align=\"left\">RMS     </td><td>%L1</td></tr>"
-        "<tr><td align=\"left\">FWHM    </td><td>%L2</td></tr>"
-        "<tr><td align=\"left\">Center X</td><td>%L3</td></tr>"
-        //"<tr><td align=\"left\">Things  </td><td>%L4</td></tr>"
+        "<tr><th>Gauss</th></tr>"
+        "<tr><td align=\"left\">FWHM  </td><td>%L1</td></tr>"
+        "<tr><td align=\"left\">Center</td><td>%L2</td></tr>"
+        "<tr><td align=\"left\">Counts</td><td>%L3</td></tr>"
         "</table>"
         );
 
     buffer = gaussStatsTemplate
-        .arg(m_stats.sigma, fieldWidth)
         .arg(m_stats.fwhm)
         .arg(m_stats.fwhmCenter)
-        //.arg(thingsFromBelow)
+        .arg(thingsBelowGauss)
         ;
 
     m_d->m_gaussStatsText->setText(buffer, QwtText::RichText);

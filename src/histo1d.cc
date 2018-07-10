@@ -267,8 +267,11 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) co
             return y0 + ((y1 - y0) / (x1 - x0)) *  (x - x0);
         };
 
-        double leftBinFraction  = interp(getBinContent(leftBin+1), leftBin+1, getBinContent(leftBin), leftBin, halfMax);
-        double rightBinFraction = interp(getBinContent(rightBin-1), rightBin-1, getBinContent(rightBin), rightBin, halfMax);
+        double leftBinFraction  = interp(getBinContent(leftBin+1), leftBin+1,
+                                         getBinContent(leftBin), leftBin, halfMax);
+
+        double rightBinFraction = interp(getBinContent(rightBin-1), rightBin-1,
+                                         getBinContent(rightBin), rightBin, halfMax);
 
 #if 0
         qDebug() << __PRETTY_FUNCTION__ << "FWHM: leftbin" << leftBinFraction << "rightBin" << rightBinFraction << "maxBin" << result.maxBin
