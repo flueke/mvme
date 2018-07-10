@@ -14,6 +14,9 @@ TODO list, not at all sorted by priority
   This would allow for example splitting the run on pause/resume if the user
   changed settings in-between.
 
+* 1d/2d histos: ranges can be specified for h2d but not for h1d. h1d dialog is
+  missing some features compared to h2d
+
 * RPC: limit max request size to something reasonable
 * RPC: fork jcon-cpp on github and push local changes there
 

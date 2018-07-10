@@ -14,19 +14,9 @@
 #include <QTextBrowser>
 
 /* NOTES and TODO:
- - new slot grid implementation with space for the input variable name column.
-   2nd step: try to abstract this so the slot grid can be instantiated and customized and is reusable
-
  - workflow:
    select inputs, write init script, run init script, check output definition is as desired,
    write step script, test with sample data, accept changes
-
- - required:
-   clickable error display for scripts. errors can come from expr_tk (wrapped
-   in a2_exprtk layer) and from the ExpressionOperator itself (e.g. malformed beginExpr output,
-   SemanticError).
-
- - utility: symbol table inspection
 
  - implement copy/paste for editable PipeView
 
@@ -1290,7 +1280,7 @@ void load_from_operator(Model &model, ExpressionOperator &op)
         add_model_only_input(model);
         model.inputPrefixes[si] = model.opClone->getInputPrefix(si).toStdString();
 
-        if (slot && slot->isConnected() && slot->isArrayConnection())
+        if (slot && slot->isConnected())
         {
             connect_input(model, si, slot->inputPipe, slot->paramIndex);
         }
