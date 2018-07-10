@@ -25,6 +25,7 @@
 #include "analysis/analysis.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
+#include "mvme_qwt.h"
 
 #include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
@@ -269,136 +270,6 @@ class RateEstimationCurveData: public QwtSyntheticPointData
 static const double PlotTextLayerZ  = 1000.0;
 static const double PlotAdditionalCurvesLayerZ = 1010.0;
 
-class QwtTextRowPlotItemLayout;
-
-class TestingQwtPlotTextLabel: public QwtPlotTextLabel
-{
-    public:
-        TestingQwtPlotTextLabel(const QString &name)
-            : QwtPlotTextLabel()
-            , m_name(name)
-        {}
-
-        QString objectName() const { return m_name; }
-
-        // This is the public method that's called by Qwt to figure out where to draw the
-        // label.
-        virtual QRectF textRect(const QRectF &rect, const QSizeF &textSize) const override;
-
-        QRectF textRectInternal(const QRectF &rect, const QSizeF &textSize) const
-        {
-            auto result = QwtPlotTextLabel::textRect(rect, textSize);
-
-            qDebug() << __PRETTY_FUNCTION__
-                << "objectName =" << objectName() << ", input rect =" << rect
-                << ", input textSize =" << textSize << ", result =" << result;
-
-            return result;
-        }
-
-        void setRowLayout(QwtTextRowPlotItemLayout *layout)
-        {
-            m_rowLayout = layout;
-        }
-
-    protected:
-        virtual void draw(QPainter *painter, const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-                          const QRectF &canvasRect) const override
-        {
-            qDebug() << __PRETTY_FUNCTION__;
-            QwtPlotTextLabel::draw(painter, xMap, yMap, canvasRect);
-
-
-            // FIXME: leftoff here
-
-            if (m_rowLayout)
-            {
-            }
-        }
-
-    private:
-        QString m_name;
-        QwtTextRowPlotItemLayout *m_rowLayout;
-};
-
-class QwtTextRowPlotItemLayout
-{
-    public:
-        void addTextLabel(TestingQwtPlotTextLabel *label)
-        {
-            m_textLabels.push_back(label);
-            label->setRowLayout(this);
-        }
-
-        QVector<TestingQwtPlotTextLabel *> getTextLabels() const
-        {
-            return m_textLabels;
-        }
-
-        int indexOf(const TestingQwtPlotTextLabel *label) const
-        {
-            return m_textLabels.indexOf(const_cast<TestingQwtPlotTextLabel *>(label));
-        }
-
-        void attachAll(QwtPlot *plot)
-        {
-            for (auto label: m_textLabels)
-            {
-                label->attach(plot);
-            }
-        }
-
-    private:
-        QVector<TestingQwtPlotTextLabel *> m_textLabels;
-};
-
-QRectF TestingQwtPlotTextLabel::textRect(const QRectF &rect, const QSizeF &textSize) const
-{
-    static const int Margin = 0;
-
-    QRectF result = textRectInternal(rect, textSize);
-
-    qDebug() << __PRETTY_FUNCTION__
-        << "objectName =" << objectName() << ", input rect =" << rect
-        << ", input textSize =" << textSize << ", initial result =" << result;
-
-    if (m_rowLayout)
-    {
-        /* Walk through all the labels in the parent layout up to this.
-         * Subract the width of the label rectangles plus a margin from the x coordinate.
-         */
-        int xoffset = 0;
-
-        qDebug() << __PRETTY_FUNCTION__ << "begin label iteration";
-
-        for (auto label: m_rowLayout->getTextLabels())
-        {
-            if (label == this) break;
-            auto labelRect = label->textRectInternal(rect, textSize);
-
-            qDebug() << __PRETTY_FUNCTION__ << "loop: width for label" << label->objectName()
-                << " =" << labelRect.width();
-
-            xoffset += labelRect.width() + Margin;
-            qDebug() << "xoffset +=" << labelRect.width() + Margin;
-        }
-
-        qDebug() << __PRETTY_FUNCTION__ << "end label iteration";
-
-        if (xoffset)
-        {
-            qDebug() << __PRETTY_FUNCTION__ << "moving by" << xoffset;
-            result.moveRight(result.right() - (xoffset + result.width()));
-        }
-    }
-
-    qDebug() << __PRETTY_FUNCTION__
-        << "objectName =" << objectName() << ", input rect =" << rect
-        << ", input textSize =" << textSize << ", result =" << result;
-
-    return result;
-}
-
 struct Histo1DWidgetPrivate
 {
     Histo1DWidget *m_q;
@@ -427,11 +298,11 @@ struct Histo1DWidgetPrivate
     QwtPlotMarker *m_rateEstimationX2Marker;
     QwtPlotMarker *m_rateEstimationFormulaMarker;
 
-    TestingQwtPlotTextLabel *m_globalStatsTextItem;
-    TestingQwtPlotTextLabel *m_gaussStatsTextItem;
+    mvme_qwt::TextLabelItem *m_globalStatsTextItem;
+    mvme_qwt::TextLabelItem *m_gaussStatsTextItem;
+    mvme_qwt::TextLabelRowLayout m_textLabelLayout;
     std::unique_ptr<QwtText> m_globalStatsText;
     std::unique_ptr<QwtText> m_gaussStatsText;
-    std::unique_ptr<QwtTextRowPlotItemLayout> m_textBoxLayout;
 
     QwtPlotCurve *m_gaussCurve = nullptr;
     QwtPlotCurve *m_rateEstimationCurve = nullptr;
@@ -509,7 +380,7 @@ std::unique_ptr<QwtText> make_text_box(int renderFlags = Qt::AlignRight | Qt::Al
     /* The text rendered by qwt looked non-antialiased when using the RichText
      * format. Manually setting the pixelSize fixes this. */
     QFont font;
-    font.setPixelSize(12);
+    font.setPixelSize(10);
     result->setFont(font);
 
     return result;
@@ -569,7 +440,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
                                                 QSL("Rate Est."));
     m_d->m_actionRateEstimation->setStatusTip(QSL("Rate Estimation"));
     m_d->m_actionRateEstimation->setCheckable(true);
-    connect(m_d->m_actionRateEstimation, &QAction::toggled, this, &Histo1DWidget::on_tb_rate_toggled);
+    connect(m_d->m_actionRateEstimation, &QAction::toggled,
+            this, &Histo1DWidget::on_tb_rate_toggled);
 
     tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
         m_histo->clear();
@@ -590,7 +462,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         tb->addWidget(button);
     }
 
-    action = tb->addAction(QIcon(":/document-save.png"), QSL("Save"), this, &Histo1DWidget::saveHistogram);
+    action = tb->addAction(QIcon(":/document-save.png"), QSL("Save"),
+                           this, &Histo1DWidget::saveHistogram);
     action->setStatusTip(QSL("Save the histogram to a text file"));
 
     m_d->m_actionSubRange = tb->addAction(QIcon(":/histo_subrange.png"), QSL("Subrange"),
@@ -673,23 +546,22 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     // Global stats box
     //
     m_d->m_globalStatsText = make_text_box(Qt::AlignTop | Qt::AlignRight);
-    m_d->m_globalStatsTextItem = new TestingQwtPlotTextLabel("global");
+    m_d->m_globalStatsTextItem = new mvme_qwt::TextLabelItem();
     /* Margin added to contentsMargins() of the canvas. This is (mis)used to
      * not clip the top scrollbar. */
-    m_d->m_globalStatsTextItem->setMargin(25);
+    //m_d->m_globalStatsTextItem->setMargin(25);
 
     //
     // Gauss stats box
     //
     m_d->m_gaussStatsText = make_text_box(Qt::AlignTop | Qt::AlignRight);
 
-    m_d->m_gaussStatsTextItem = new TestingQwtPlotTextLabel("gauss");
-    m_d->m_gaussStatsTextItem->setMargin(25);
+    m_d->m_gaussStatsTextItem = new mvme_qwt::TextLabelItem();
+    m_d->m_gaussStatsTextItem->setVisible(false);
 
-    m_d->m_textBoxLayout = std::make_unique<QwtTextRowPlotItemLayout>();
-    m_d->m_textBoxLayout->addTextLabel(m_d->m_globalStatsTextItem);
-    m_d->m_textBoxLayout->addTextLabel(m_d->m_gaussStatsTextItem);
-    m_d->m_textBoxLayout->attachAll(m_d->m_plot);
+    m_d->m_textLabelLayout.addTextLabel(m_d->m_globalStatsTextItem);
+    m_d->m_textLabelLayout.addTextLabel(m_d->m_gaussStatsTextItem);
+    m_d->m_textLabelLayout.attachAll(m_d->m_plot);
 
     //
     // Calib Ui
@@ -982,8 +854,6 @@ void Histo1DWidget::updateAxisScales()
 
 void Histo1DWidget::replot()
 {
-    qDebug() << __PRETTY_FUNCTION__ << "begin replot";
-
     updateStatistics();
     updateAxisScales();
     updateCursorInfoLabel();
@@ -1035,7 +905,8 @@ void Histo1DWidget::replot()
 
         // Same values as used in RateEstimationCurveData but printed here to avoid spamming
         double norm_fitCurve          = y1 / (( 1.0 / tau) * pow(E1, -x1 / tau));
-        double norm_fitCurve_adjusted = norm_fitCurve * m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio();
+        double norm_fitCurve_adjusted =
+            norm_fitCurve * m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio();
 
 #if 0
         qDebug() << __PRETTY_FUNCTION__ << endl
@@ -1128,9 +999,7 @@ void Histo1DWidget::replot()
 
     auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
     m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
-    qDebug() << __PRETTY_FUNCTION__ << "pre qwt replot";
     m_d->m_plot->replot();
-    qDebug() << __PRETTY_FUNCTION__ << "post qwt replot";
 
 #if 0
     // prints plot item pointers and their z value
@@ -1139,7 +1008,6 @@ void Histo1DWidget::replot()
         qDebug() << __PRETTY_FUNCTION__ << item << item->z();
     }
 #endif
-    qDebug() << __PRETTY_FUNCTION__ << "end of replot";
 }
 
 void Histo1DWidget::displayChanged()
@@ -1223,10 +1091,14 @@ void Histo1DWidget::updateStatistics()
     double lowerBound = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double upperBound = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
 
+    //
+    // global stats
+    //
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
-    static const QString textTemplate = QSL(
+    static const QString globalStatsTemplate = QSL(
         "<table>"
+        //"<tr><th>Global</th></tr>"
         //"<tr><td align=\"left\">RMS    </td><td>%L1</td></tr>"
         //"<tr><td align=\"left\">FWHM   </td><td>%L2</td></tr>"
         "<tr><td align=\"left\">Mean   </td><td>%L3</td></tr>"
@@ -1241,7 +1113,7 @@ void Histo1DWidget::updateStatistics()
     double maxBinCenter = (m_stats.entryCount > 0) ? m_histo->getBinCenter(m_stats.maxBin) : 0.0;
 
     static const int fieldWidth = 0;
-    QString buffer = textTemplate
+    QString buffer = globalStatsTemplate
         //.arg(m_stats.sigma, fieldWidth)
         //.arg(m_stats.fwhm)
         .arg(m_stats.mean, fieldWidth)
@@ -1255,11 +1127,36 @@ void Histo1DWidget::updateStatistics()
     m_d->m_globalStatsText->setText(buffer, QwtText::RichText);
     m_d->m_globalStatsTextItem->setText(*m_d->m_globalStatsText);
 
-    auto curveData = reinterpret_cast<Histo1DGaussCurveData *>(m_d->m_gaussCurve->data());
-    curveData->setStats(m_stats);
+    //
+    // gauss peak stats
+    //
+    auto gaussCurveData = reinterpret_cast<Histo1DGaussCurveData *>(m_d->m_gaussCurve->data());
+    gaussCurveData->setStats(m_stats);
+
+    double a = m_stats.fwhmCenter;
+    double s = m_stats.fwhm / FWHMSigmaFactor;
+    double Sqrt2Pi = std::sqrt(2 * M_PI);
 
 
-    m_d->m_gaussStatsText->setText("foobar", QwtText::RichText);
+    double thingsFromBelow = a * std::sqrt(squared(s) * 0.5) * Sqrt2Pi;
+
+    static const QString gaussStatsTemplate = QSL(
+        "<table>"
+        "<tr><td align=\"left\">RMS     </td><td>%L1</td></tr>"
+        "<tr><td align=\"left\">FWHM    </td><td>%L2</td></tr>"
+        "<tr><td align=\"left\">Center X</td><td>%L3</td></tr>"
+        //"<tr><td align=\"left\">Things  </td><td>%L4</td></tr>"
+        "</table>"
+        );
+
+    buffer = gaussStatsTemplate
+        .arg(m_stats.sigma, fieldWidth)
+        .arg(m_stats.fwhm)
+        .arg(m_stats.fwhmCenter)
+        //.arg(thingsFromBelow)
+        ;
+
+    m_d->m_gaussStatsText->setText(buffer, QwtText::RichText);
     m_d->m_gaussStatsTextItem->setText(*m_d->m_gaussStatsText);
 }
 
@@ -1580,10 +1477,12 @@ void Histo1DWidget::on_tb_gauss_toggled(bool checked)
     if (checked)
     {
         m_d->m_gaussCurve->show();
+        m_d->m_gaussStatsTextItem->setVisible(true);
     }
     else
     {
         m_d->m_gaussCurve->hide();
+        m_d->m_gaussStatsTextItem->setVisible(false);
     }
 
     replot();

@@ -6,27 +6,16 @@ TODO list, not at all sorted by priority
   - if loading a config file fails when opening a filename from the
     mvmeworkspace.ini file show an explicit error message about the filename in
     the ini possibly being wrong.
+  - h2d and expr op and possibly everything that's indexed does not properly
+    get connected on analysis load.
+    manually reselecting the inputs temporarily fixes the issue
 
-* Plan for the next days (12/06/18):
-  - start work on analysis object import/export implementation.
-    Things to consider:
-      * grouping of operators and keeping grouping intact when importing exporting
-      * clone behaviour for extractors: copy rng seed or reseed? is a clone an
-        identical copy or something similar but not exactly the same?
-        Use case wise reseeding would be better.
-
-  - start working on restructuring beginRun():
-    * switch back to do_beginRun_forward() everywhere.
-    * split a1 and a2 layers so that more operations can be performed without
-      having to constantly pause/resume the analysis. instead after changes
-      have been applied to the a1 layer there should be a kind of "commit"
-      point at which the a2 system is rebuilt
-    * also finally fix pause/resume/singlestep. this should probably be
-      followed or accompanied by redoing the mvme stream iteration code
+* New Feature: add pause/resume markers and/or absolute timestamps to the listfile.
+  This would allow for example splitting the run on pause/resume if the user
+  changed settings in-between.
 
 * RPC: limit max request size to something reasonable
 * RPC: fork jcon-cpp on github and push local changes there
-
 
 * make double click on operators open the editor GUI
 
