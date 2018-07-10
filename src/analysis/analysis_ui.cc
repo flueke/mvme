@@ -2184,142 +2184,206 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
 
     assert(userLevel == 0);
 
+    if (m_uniqueWidget) return;
+
     auto node = tree->itemAt(pos);
+
+    if (!node) return;
+
     auto obj  = get_qobject(node);
 
-    if (!m_uniqueWidget)
+    QMenu menu;
+    auto menuNew = new QMenu(&menu);
+    bool actionNewIsFirst = false;
+
+    auto analysis = m_context->getAnalysis();
+    auto objectFactory = analysis->getObjectFactory();
+
+    switch (node->type())
     {
-        QMenu menu;
-        auto menuNew = new QMenu(&menu);
+        case NodeType_Module:
+            {
+                auto moduleConfig = get_pointer<ModuleConfig>(node);
 
-        auto analysis = m_context->getAnalysis();
-        auto objectFactory = analysis->getObjectFactory();
+                // new data sources / filters
+                QVector<SourcePtr> sourceInstances;
 
-        switch (node->type())
-        {
-            case NodeType_Module:
+                for (auto sourceName: objectFactory.getSourceNames())
                 {
-                    auto moduleConfig = get_pointer<ModuleConfig>(node);
+                    SourcePtr src(objectFactory.makeSource(sourceName));
+                    sourceInstances.push_back(src);
+                }
 
-                    // new data sources / filters
-                    QVector<SourcePtr> sourceInstances;
+                // Sort sources by displayname
+                qSort(sourceInstances.begin(), sourceInstances.end(),
+                      [](const SourcePtr &a, const SourcePtr &b) {
+                          return a->getDisplayName() < b->getDisplayName();
+                      });
 
-                    for (auto sourceName: objectFactory.getSourceNames())
+                auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig, userLevel] (
+                    const QString &title, auto srcPtr) {
+                    auto icon = make_datasource_icon(srcPtr.get());
+
+                    menuNew->addAction(icon, title, &menu,
+                                       [this, moduleConfig, srcPtr, userLevel]() {
+
+                            auto dialog = datasource_editor_factory(
+                                srcPtr, userLevel, ObjectEditorMode::New, moduleConfig, m_q);
+
+                            assert(dialog);
+
+                            //POS dialog->move(QCursor::pos());
+                            dialog->setAttribute(Qt::WA_DeleteOnClose);
+                            dialog->show();
+                            m_uniqueWidget = dialog;
+                            clearAllTreeSelections();
+                            clearAllToDefaultNodeHighlights();
+                        });
+                };
+
+                for (auto src: sourceInstances)
+                {
+                    add_newDataSourceAction(src->getDisplayName(), src);
+                }
+
+                // default data filters and "raw display" creation
+                if (moduleConfig)
+                {
+                    auto defaultExtractors = get_default_data_extractors(
+                        moduleConfig->getModuleMeta().typeName);
+
+                    if (!defaultExtractors.isEmpty())
                     {
-                        SourcePtr src(objectFactory.makeSource(sourceName));
-                        sourceInstances.push_back(src);
+                        menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
+
+                            QMessageBox box(
+                                QMessageBox::Question,
+                                QSL("Generate default filters"),
+                                QSL("This action will generate extraction filters,"
+                                    ", calibrations and histograms for the selected module."
+                                    " Do you want to continue?"),
+                                QMessageBox::Ok | QMessageBox::No,
+                                m_q);
+
+                            box.button(QMessageBox::Ok)->setText("Yes, generate filters");
+
+                            if (box.exec() == QMessageBox::Ok)
+                            {
+                                generateDefaultFilters(moduleConfig);
+                            }
+                        });
                     }
 
-                    // Sort sources by displayname
-                    qSort(sourceInstances.begin(), sourceInstances.end(),
-                          [](const SourcePtr &a, const SourcePtr &b) {
-                              return a->getDisplayName() < b->getDisplayName();
-                          });
+                    auto menuImport = new QMenu(&menu);
+                    menuImport->setTitle(QSL("Import"));
+                    //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
+                    menuImport->addAction(m_actionImportForModuleFromTemplate.get());
+                    menuImport->addAction(m_actionImportForModuleFromFile.get());
+                    menu.addMenu(menuImport);
 
-                    auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig, userLevel] (
-                        const QString &title, auto srcPtr) {
-                        auto icon = make_datasource_icon(srcPtr.get());
+                    // Module Settings
+                    // TODO: move Module Settings into a separate dialog that contains
+                    // all the multievent settings combined
+                    menu.addAction(QIcon(QSL(":/gear.png")), QSL("Module Settings"),
+                                   &menu, [this, moduleConfig]() {
 
-                        menuNew->addAction(icon, title, &menu,
-                                           [this, moduleConfig, srcPtr, userLevel]() {
+                            auto analysis = m_context->getAnalysis();
+                            auto moduleSettings = analysis->getVMEObjectSettings(
+                                moduleConfig->getId());
 
-                                auto dialog = datasource_editor_factory(
-                                    srcPtr, userLevel, ObjectEditorMode::New, moduleConfig, m_q);
+                            ModuleSettingsDialog dialog(moduleConfig, moduleSettings, m_q);
 
-                                assert(dialog);
+                            if (dialog.exec() == QDialog::Accepted)
+                            {
+                                analysis->setVMEObjectSettings(
+                                    moduleConfig->getId(), dialog.getSettings());
+                            }
+                        });
+                }
 
-                                //POS dialog->move(QCursor::pos());
-                                dialog->setAttribute(Qt::WA_DeleteOnClose);
-                                dialog->show();
-                                m_uniqueWidget = dialog;
-                                clearAllTreeSelections();
-                                clearAllToDefaultNodeHighlights();
-                            });
-                    };
+                actionNewIsFirst = true;
+            }
+            break;
 
-                    for (auto src: sourceInstances)
+        case NodeType_Source:
+            {
+                auto srcPtr = get_shared_analysis_object<SourceInterface>(node);
+
+                if (srcPtr)
+                {
+                    Q_ASSERT_X(srcPtr->getNumberOfOutputs() == 1,
+                               "doOperatorTreeContextMenu",
+                               "data sources with multiple outputs are not supported");
+
+                    auto moduleNode = node->parent();
+                    ModuleConfig *moduleConfig = nullptr;
+
+                    if (moduleNode && moduleNode->type() == NodeType_Module)
+                        moduleConfig = get_pointer<ModuleConfig>(moduleNode);
+
+                    const bool isAttachedToModule = moduleConfig != nullptr;
+
+                    auto pipe = srcPtr->getOutput(0);
+
+                    if (isAttachedToModule)
                     {
-                        add_newDataSourceAction(src->getDisplayName(), src);
+                        menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
+                            makeAndShowPipeDisplay(pipe);
+                        });
                     }
 
-                    // default data filters and "raw display" creation
-                    if (moduleConfig)
+                    if (!m_uniqueWidget)
                     {
-                        auto defaultExtractors = get_default_data_extractors(
-                            moduleConfig->getModuleMeta().typeName);
-
-                        if (!defaultExtractors.isEmpty())
+                        if (moduleConfig)
                         {
-                            menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
+                            menu.addAction(
+                                QIcon(":/pencil.png"), QSL("Edit"),
+                                [this, srcPtr, moduleConfig, userLevel]() {
 
-                                QMessageBox box(
-                                    QMessageBox::Question,
-                                    QSL("Generate default filters"),
-                                    QSL("This action will generate extraction filters,"
-                                        ", calibrations and histograms for the selected module."
-                                        " Do you want to continue?"),
-                                    QMessageBox::Ok | QMessageBox::No,
-                                    m_q);
+                                    auto dialog = datasource_editor_factory(
+                                        srcPtr, userLevel, ObjectEditorMode::Edit, moduleConfig, m_q);
 
-                                box.button(QMessageBox::Ok)->setText("Yes, generate filters");
+                                    assert(dialog);
 
-                                if (box.exec() == QMessageBox::Ok)
-                                {
-                                    generateDefaultFilters(moduleConfig);
-                                }
-                            });
+                                    //POS dialog->move(QCursor::pos());
+                                    dialog->setAttribute(Qt::WA_DeleteOnClose);
+                                    dialog->show();
+                                    m_uniqueWidget = dialog;
+                                    clearAllTreeSelections();
+                                    clearAllToDefaultNodeHighlights();
+                                });
                         }
 
-                        auto menuImport = new QMenu(&menu);
-                        menuImport->setTitle(QSL("Import"));
-                        //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
-                        menuImport->addAction(m_actionImportForModuleFromTemplate.get());
-                        menuImport->addAction(m_actionImportForModuleFromFile.get());
-                        menu.addMenu(menuImport);
-
-                        // Module Settings
-                        // TODO: move Module Settings into a separate dialog that contains
-                        // all the multievent settings combined
-                        menu.addAction(QIcon(QSL(":/gear.png")), QSL("Module Settings"),
-                                       &menu, [this, moduleConfig]() {
-
-                                auto analysis = m_context->getAnalysis();
-                                auto moduleSettings = analysis->getVMEObjectSettings(
-                                    moduleConfig->getId());
-
-                                ModuleSettingsDialog dialog(moduleConfig, moduleSettings, m_q);
-
-                                if (dialog.exec() == QDialog::Accepted)
-                                {
-                                    analysis->setVMEObjectSettings(
-                                        moduleConfig->getId(), dialog.getSettings());
-                                }
+                        menu.addAction(
+                            QIcon::fromTheme("edit-delete"), QSL("Remove"), [this, srcPtr]() {
+                                // TODO: QMessageBox::question or similar or undo functionality
+                                m_q->removeSource(srcPtr.get());
                             });
                     }
                 }
-                break;
-        }
-
-        if (menuNew->isEmpty())
-        {
-            delete menuNew;
-        }
-        else
-        {
-            auto actionNew = menu.addAction(QSL("New"));
-            actionNew->setMenu(menuNew);
-            QAction *before = nullptr;
-            if (actionNewIsFirst)
-            {
-                before = menu.actions().value(0);
             }
-            menu.insertAction(before, actionNew);
-        }
+            break;
+    }
 
-        if (!menu.isEmpty())
+    if (menuNew->isEmpty())
+    {
+        delete menuNew;
+    }
+    else
+    {
+        auto actionNew = menu.addAction(QSL("New"));
+        actionNew->setMenu(menuNew);
+        QAction *before = nullptr;
+        if (actionNewIsFirst)
         {
-            menu.exec(tree->mapToGlobal(pos));
+            before = menu.actions().value(0);
         }
+        menu.insertAction(before, actionNew);
+    }
+
+    if (!menu.isEmpty())
+    {
+        menu.exec(tree->mapToGlobal(pos));
     }
 }
 
