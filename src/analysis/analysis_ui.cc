@@ -1114,6 +1114,7 @@ struct EventWidgetPrivate
     void doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
     void doDataSourceOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
     void doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
+    void doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
 
     void modeChanged();
     void highlightValidInputNodes(QTreeWidgetItem *node);
@@ -1138,6 +1139,7 @@ struct EventWidgetPrivate
 
     // Returns the currentItem() of the tree widget that has focus.
     QTreeWidgetItem *getCurrentNode() const;
+
     QList<QTreeWidgetItem *> getAllSelectedNodes() const;
     AnalysisObjectVector getAllSelectedObjects() const;
     void clearSelections();
@@ -1151,12 +1153,34 @@ struct EventWidgetPrivate
     void actionExport();
     void actionImport();
 
-    void setSinksEnabled(const QVector<SinkInterface *> sinks, bool enabled);
+    void setSinksEnabled(const SinkVector &sinks, bool enabled);
+
     void removeSinks(const QVector<SinkInterface *> sinks);
     void removeDirectoryRecursively(const DirectoryPtr &dir);
+    void removeObjects(const AnalysisObjectVector &objects);
 
     QTreeWidgetItem *findNode(const AnalysisObjectPtr &obj);
 };
+
+template<typename T, typename C>
+QVector<std::shared_ptr<T>> objects_from_nodes(const C &nodes)
+{
+    QVector<std::shared_ptr<T>> result;
+
+    for (const auto &node: nodes)
+    {
+        if (auto obj = get_shared_analysis_object<T>(node))
+            result.push_back(obj);
+    }
+
+    return result;
+}
+
+template<typename C>
+AnalysisObjectVector objects_from_nodes(const C &nodes)
+{
+    return objects_from_nodes<AnalysisObject>(nodes);
+}
 
 void EventWidgetPrivate::createView(const QUuid &eventId)
 {
@@ -1492,28 +1516,28 @@ static const s32 minTreeHeight = 150;
 void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
 {
     auto opTree   = trees.operatorTree;
-    auto dispTree = trees.sinkTree;
+    auto sinkTree = trees.sinkTree;
     s32 levelIndex = trees.userLevel;
 
     opTree->setMinimumWidth(minTreeWidth);
     opTree->setMinimumHeight(minTreeHeight);
     opTree->setContextMenuPolicy(Qt::CustomContextMenu);
 
-    dispTree->setMinimumWidth(minTreeWidth);
-    dispTree->setMinimumHeight(minTreeHeight);
-    dispTree->setContextMenuPolicy(Qt::CustomContextMenu);
+    sinkTree->setMinimumWidth(minTreeWidth);
+    sinkTree->setMinimumHeight(minTreeHeight);
+    sinkTree->setContextMenuPolicy(Qt::CustomContextMenu);
 
     m_operatorFrameSplitter->addWidget(opTree);
-    m_displayFrameSplitter->addWidget(dispTree);
+    m_displayFrameSplitter->addWidget(sinkTree);
 
     QObject::connect(opTree, &QWidget::customContextMenuRequested,
                      m_q, [this, opTree, levelIndex] (QPoint pos) {
         doOperatorTreeContextMenu(opTree, pos, levelIndex);
     });
 
-    QObject::connect(dispTree, &QWidget::customContextMenuRequested,
-                     m_q, [this, dispTree, levelIndex] (QPoint pos) {
-        doSinkTreeContextMenu(dispTree, pos, levelIndex);
+    QObject::connect(sinkTree, &QWidget::customContextMenuRequested,
+                     m_q, [this, sinkTree, levelIndex] (QPoint pos) {
+        doSinkTreeContextMenu(sinkTree, pos, levelIndex);
     });
 
     for (auto tree: trees.getObjectTrees())
@@ -1800,377 +1824,160 @@ ObjectEditorDialog *operator_editor_factory(const OperatorPtr &op, s32 userLevel
 /* Context menu for the operator tree views (top). */
 void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
 {
-    Q_ASSERT(userLevel >= 0 && userLevel < m_levelTrees.size());
+    Q_ASSERT(0 <= userLevel && userLevel < m_levelTrees.size());
 
     if (userLevel == 0)
     {
         doDataSourceOperatorTreeContextMenu(tree, pos, userLevel);
+        return;
+    }
+
+    if (m_uniqueWidget) return;
+
+    auto globalSelectedObjects = getAllSelectedObjects();
+    //auto localSelectedObjects  = objects_from_nodes(tree->selectedItems());
+    auto activeNode   = tree->itemAt(pos);
+    //auto activeObject = get_shared_analysis_object<AnalysisObject>(activeNode);
+
+    QMenu menu;
+
+    if (activeNode)
+    {
+        if (activeNode->type() == NodeType_OutputPipe)
+        {
+            auto pipe = get_pointer<Pipe>(activeNode);
+
+            menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
+                makeAndShowPipeDisplay(pipe);
+            });
+        }
+
+        if (activeNode->type() == NodeType_Operator)
+        {
+            if (auto op = get_shared_analysis_object<OperatorInterface>(activeNode))
+            {
+                if (op->getNumberOfOutputs() == 1)
+                {
+                    Pipe *pipe = op->getOutput(0);
+
+                    menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
+                        makeAndShowPipeDisplay(pipe);
+                    });
+                }
+
+                menu.addAction(
+                    QIcon(":/pencil.png"), QSL("Edit"), [this, userLevel, op]() {
+                        auto dialog = operator_editor_factory(
+                            op, userLevel, ObjectEditorMode::Edit, m_q);
+
+                        //POS dialog->move(QCursor::pos());
+                        dialog->setAttribute(Qt::WA_DeleteOnClose);
+                        dialog->show();
+                        m_uniqueWidget = dialog;
+                        clearAllTreeSelections();
+                        clearAllToDefaultNodeHighlights();
+                    });
+
+                menu.addAction("Rename", [activeNode] () {
+                    if (auto tw = activeNode->treeWidget())
+                    {
+                        tw->editItem(activeNode);
+                    }
+                });
+            }
+
+            if (auto dir = get_shared_analysis_object<Directory>(activeNode))
+            {
+                menu.addAction("Rename", [activeNode] () {
+                    if (auto tw = activeNode->treeWidget())
+                    {
+                        tw->editItem(activeNode);
+                    }
+                });
+            }
+        }
     }
     else
     {
-        auto node = tree->itemAt(pos);
-        auto obj  = get_qobject(node);
-
-        QMenu menu;
         auto menuNew = new QMenu(&menu);
-        bool actionNewIsFirst = false;
 
-        if (node)
-        {
-            /* The level 0 tree. This is where the VME side modules show up and
-             * data extractors can be created. */
-            if (userLevel == 0 && node->type() == NodeType_Module)
-            {
-                if (!m_uniqueWidget)
-                {
-                    auto moduleConfig = get_pointer<ModuleConfig>(node);
+        auto add_newOperatorAction = [this, &menu, menuNew, userLevel]
+            (const QString &title, auto op) {
+                auto icon = make_operator_icon(op.get());
+                // New Operator
+                menuNew->addAction(icon, title, &menu, [this, userLevel, op]() {
+                    auto dialog = operator_editor_factory(
+                        op, userLevel, ObjectEditorMode::New, m_q);
 
-                    // new data sources / filters
-                    auto add_newDataSourceAction =
-                        [this, &menu, menuNew, moduleConfig, userLevel](
-                            const QString &title, auto srcPtr)
-                        {
-                            auto icon = make_datasource_icon(srcPtr.get());
-
-                            menuNew->addAction(
-                                icon, title, &menu, [this, moduleConfig, srcPtr, userLevel]() {
-
-                                auto dialog = datasource_editor_factory(
-                                    srcPtr, userLevel, ObjectEditorMode::New, moduleConfig, m_q);
-
-                                assert(dialog);
-
-                                //POS dialog->move(QCursor::pos());
-                                dialog->setAttribute(Qt::WA_DeleteOnClose);
-                                dialog->show();
-                                m_uniqueWidget = dialog;
-                                clearAllTreeSelections();
-                                clearAllToDefaultNodeHighlights();
-                            });
-                        };
-
-                    auto analysis = m_context->getAnalysis();
-                    auto &registry(analysis->getObjectFactory());
-
-                    QVector<SourcePtr> sourceInstances;
-
-                    for (auto sourceName: registry.getSourceNames())
-                    {
-                        SourcePtr src(registry.makeSource(sourceName));
-                        sourceInstances.push_back(src);
-                    }
-
-                    // Sort sources by displayname
-                    qSort(sourceInstances.begin(), sourceInstances.end(),
-                          [](const SourcePtr &a, const SourcePtr &b) {
-                              return a->getDisplayName() < b->getDisplayName();
-                          });
-
-                    for (auto src: sourceInstances)
-                    {
-                        add_newDataSourceAction(src->getDisplayName(), src);
-                    }
-
-                    // default data filters and "raw display" creation
-                    if (moduleConfig)
-                    {
-                        auto defaultExtractors = get_default_data_extractors(
-                            moduleConfig->getModuleMeta().typeName);
-
-                        if (!defaultExtractors.isEmpty())
-                        {
-                            menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
-
-                                QMessageBox box(
-                                    QMessageBox::Question,
-                                    QSL("Generate default filters"),
-                                    QSL("This action will generate extraction filters,"
-                                        ", calibrations and histograms for the selected module."
-                                        " Do you want to continue?"),
-                                    QMessageBox::Ok | QMessageBox::No,
-                                    m_q);
-
-                                box.button(QMessageBox::Ok)->setText("Yes, generate filters");
-
-                                if (box.exec() == QMessageBox::Ok)
-                                {
-                                    generateDefaultFilters(moduleConfig);
-                                }
-                            });
-                        }
-
-                        auto menuImport = new QMenu(&menu);
-                        menuImport->setTitle(QSL("Import"));
-                        //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
-                        menuImport->addAction(m_actionImportForModuleFromTemplate.get());
-                        menuImport->addAction(m_actionImportForModuleFromFile.get());
-                        menu.addMenu(menuImport);
-
-                        // Module Settings
-                        menu.addAction(
-                            QIcon(QSL(":/gear.png")), QSL("Module Settings"),
-                            &menu, [this, moduleConfig]() {
-
-                                auto analysis = m_context->getAnalysis();
-                                auto moduleSettings = analysis->getVMEObjectSettings(
-                                    moduleConfig->getId());
-
-                                ModuleSettingsDialog dialog(moduleConfig, moduleSettings, m_q);
-
-                                if (dialog.exec() == QDialog::Accepted)
-                                {
-                                    analysis->setVMEObjectSettings(
-                                        moduleConfig->getId(), dialog.getSettings());
-                                }
-                            });
-                    }
-
-                    actionNewIsFirst = true;
-                }
-            }
-
-            /* Context menu for an existing data source. */
-            if (userLevel == 0 && node->type() == NodeType_Source)
-            {
-                auto srcPtr = get_shared_analysis_object<SourceInterface>(node);
-
-                if (srcPtr)
-                {
-                    Q_ASSERT_X(srcPtr->getNumberOfOutputs() == 1,
-                               "doOperatorTreeContextMenu",
-                               "data sources with multiple outputs are not supported");
-
-                    auto moduleNode = node->parent();
-                    ModuleConfig *moduleConfig = nullptr;
-
-                    if (moduleNode && moduleNode->type() == NodeType_Module)
-                        moduleConfig = get_pointer<ModuleConfig>(moduleNode);
-
-                    const bool isAttachedToModule = moduleConfig != nullptr;
-
-                    auto pipe = srcPtr->getOutput(0);
-
-                    if (isAttachedToModule)
-                    {
-                        menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
-                            makeAndShowPipeDisplay(pipe);
-                        });
-                    }
-
-                    if (!m_uniqueWidget)
-                    {
-                        if (moduleConfig)
-                        {
-                            menu.addAction(
-                                QIcon(":/pencil.png"), QSL("Edit"),
-                                [this, srcPtr, moduleConfig, userLevel]() {
-
-                                    auto dialog = datasource_editor_factory(
-                                        srcPtr, userLevel, ObjectEditorMode::Edit, moduleConfig, m_q);
-
-                                    assert(dialog);
-
-                                    //POS dialog->move(QCursor::pos());
-                                    dialog->setAttribute(Qt::WA_DeleteOnClose);
-                                    dialog->show();
-                                    m_uniqueWidget = dialog;
-                                    clearAllTreeSelections();
-                                    clearAllToDefaultNodeHighlights();
-                                });
-                        }
-
-                        menu.addAction(
-                            QIcon::fromTheme("edit-delete"), QSL("Remove"), [this, srcPtr]() {
-                                // TODO: QMessageBox::question or similar or undo functionality
-                                m_q->removeSource(srcPtr.get());
-                            });
-                    }
-                }
-            }
-
-            if (userLevel > 0 && node->type() == NodeType_OutputPipe)
-            {
-                auto pipe = get_pointer<Pipe>(node);
-
-                menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
-                    makeAndShowPipeDisplay(pipe);
+                    //POS dialog->move(QCursor::pos());
+                    dialog->setAttribute(Qt::WA_DeleteOnClose);
+                    dialog->show();
+                    m_uniqueWidget = dialog;
+                    clearAllTreeSelections();
+                    clearAllToDefaultNodeHighlights();
                 });
-            }
+            };
 
-            if (userLevel > 0 && node->type() == NodeType_Operator)
-            {
-                if (!m_uniqueWidget)
-                {
-                    auto rawOpPtr = get_pointer<OperatorInterface>(node);
-                    Q_ASSERT(rawOpPtr);
+        auto objectFactory = m_context->getAnalysis()->getObjectFactory();
+        OperatorVector operators;
 
-                    auto op = std::dynamic_pointer_cast<OperatorInterface>(rawOpPtr->shared_from_this());
-
-                    if (op->getNumberOfOutputs() == 1)
-                    {
-                        Pipe *pipe = op->getOutput(0);
-
-                        menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
-                            makeAndShowPipeDisplay(pipe);
-                        });
-                    }
-
-                    // Edit Operator
-                    menu.addAction(
-                        QIcon(":/pencil.png"), QSL("Edit"), [this, userLevel, op]() {
-                            auto dialog = operator_editor_factory(
-                                op, userLevel, ObjectEditorMode::Edit, m_q);
-
-                            //POS dialog->move(QCursor::pos());
-                            dialog->setAttribute(Qt::WA_DeleteOnClose);
-                            dialog->show();
-                            m_uniqueWidget = dialog;
-                            clearAllTreeSelections();
-                            clearAllToDefaultNodeHighlights();
-                        });
-
-                    menu.addAction("Rename", [node] () {
-                        if (auto tw = node->treeWidget())
-                        {
-                            tw->editItem(node);
-                        }
-                    });
-
-                    menu.addSeparator();
-                    menu.addAction(QIcon::fromTheme("edit-delete"), QSL("Remove"), [this, op]() {
-                        // TODO: QMessageBox::question or similar or undo functionality
-                        m_q->removeOperator(op.get());
-                    });
-                }
-            }
-
-            if (node->type() == NodeType_Directory && !m_uniqueWidget)
-            {
-                menu.addAction("Rename", [node] () {
-                    if (auto tw = node->treeWidget())
-                    {
-                        tw->editItem(node);
-                    }
-                });
-
-                if (auto dir = get_shared_analysis_object<Directory>(node))
-                {
-                    menu.addSeparator();
-                    menu.addAction(QIcon::fromTheme("edit-delete"), "Remove", [this, dir] () {
-                        // TODO: QMessageBox::question or similar or undo functionality
-                        removeDirectoryRecursively(dir);
-                    });
-
-                    menuNew->addSeparator();
-                    menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
-                                       &menu, [this, userLevel, dir]() {
-
-                                           auto newDir = std::make_shared<Directory>();
-                                           newDir->setObjectName("New Directory");
-                                           newDir->setUserLevel(userLevel);
-                                           newDir->setEventId(m_eventId);
-                                           newDir->setDisplayLocation(DisplayLocation::Operator);
-                                           dir->push_back(newDir);
-                                           m_context->getAnalysis()->addDirectory(newDir);
-                                           repopulate();
-
-                                           if (auto node = findNode(dir))
-                                               node->setExpanded(true);
-
-                                           if (auto node = findNode(newDir))
-                                               node->treeWidget()->editItem(node);
-                                       });
-                    actionNewIsFirst = true;
-                }
-            }
-        }
-        else // No node selected
+        for (auto operatorName: objectFactory.getOperatorNames())
         {
-            if (m_mode == EventWidgetPrivate::Default && !m_uniqueWidget)
-            {
-                if (userLevel > 0)
-                {
-                    auto add_newOperatorAction = [this, &menu, menuNew, userLevel]
-                        (const QString &title, auto op)
-                        {
-                            auto icon = make_operator_icon(op.get());
-                            // New Operator
-                            menuNew->addAction(icon, title, &menu, [this, userLevel, op]() {
-                                auto dialog = operator_editor_factory(
-                                    op, userLevel, ObjectEditorMode::New, m_q);
-
-                                //POS dialog->move(QCursor::pos());
-                                dialog->setAttribute(Qt::WA_DeleteOnClose);
-                                dialog->show();
-                                m_uniqueWidget = dialog;
-                                clearAllTreeSelections();
-                                clearAllToDefaultNodeHighlights();
-                            });
-                        };
-
-                    auto analysis = m_context->getAnalysis();
-                    auto &registry(analysis->getObjectFactory());
-                    QVector<OperatorPtr> operatorInstances;
-
-                    for (auto operatorName: registry.getOperatorNames())
-                    {
-                        OperatorPtr op(registry.makeOperator(operatorName));
-                        operatorInstances.push_back(op);
-                    }
-
-                    // Sort operators by displayname
-                    qSort(operatorInstances.begin(), operatorInstances.end(),
-                          [](const OperatorPtr &a, const OperatorPtr &b) {
-                              return a->getDisplayName() < b->getDisplayName();
-                          });
-
-                    for (auto op: operatorInstances)
-                    {
-                        add_newOperatorAction(op->getDisplayName(), op);
-                    }
-
-                    menuNew->addSeparator();
-                    menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
-                                       &menu, [this, userLevel]() {
-
-                                           auto newDir = std::make_shared<Directory>();
-                                           newDir->setObjectName("New Directory");
-                                           newDir->setUserLevel(userLevel);
-                                           newDir->setEventId(m_eventId);
-                                           newDir->setDisplayLocation(DisplayLocation::Operator);
-                                           m_context->getAnalysis()->addDirectory(newDir);
-                                           repopulate();
-
-                                           if (auto node = findNode(newDir))
-                                               node->setExpanded(true);
-
-                                           if (auto node = findNode(newDir))
-                                               node->treeWidget()->editItem(node);
-                                       });
-                }
-            }
+            OperatorPtr op(objectFactory.makeOperator(operatorName));
+            operators.push_back(op);
         }
 
-        if (menuNew->isEmpty())
+        // Sort operators by displayname
+        qSort(operators.begin(), operators.end(),
+              [](const OperatorPtr &a, const OperatorPtr &b) {
+                  return a->getDisplayName() < b->getDisplayName();
+              });
+
+        for (auto op: operators)
         {
-            delete menuNew;
-        }
-        else
-        {
-            auto actionNew = menu.addAction(QSL("New"));
-            actionNew->setMenu(menuNew);
-            QAction *before = nullptr;
-            if (actionNewIsFirst)
-            {
-                before = menu.actions().value(0);
-            }
-            menu.insertAction(before, actionNew);
+            add_newOperatorAction(op->getDisplayName(), op);
         }
 
-        if (!menu.isEmpty())
-        {
-            menu.exec(tree->mapToGlobal(pos));
-        }
+        menuNew->addSeparator();
+        menuNew->addAction(
+            QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
+            &menu, [this, userLevel]() {
+                auto newDir = std::make_shared<Directory>();
+                newDir->setObjectName("New Directory");
+                newDir->setUserLevel(userLevel);
+                newDir->setEventId(m_eventId);
+                newDir->setDisplayLocation(DisplayLocation::Operator);
+                m_context->getAnalysis()->addDirectory(newDir);
+                repopulate();
+
+                if (auto node = findNode(newDir))
+                    node->setExpanded(true);
+
+                if (auto node = findNode(newDir))
+                    node->treeWidget()->editItem(node);
+            });
+
+        auto actionNew = menu.addAction(QSL("New"));
+        actionNew->setMenu(menuNew);
+        auto before = menu.actions().value(0);
+        menu.insertAction(before, actionNew);
+    }
+
+    if (!globalSelectedObjects.isEmpty())
+    {
+
+        // TODO: add a copy action
+        menu.addSeparator();
+        menu.addAction(
+            QIcon::fromTheme("edit-delete"), "Remove selected",
+            [this, globalSelectedObjects] {
+                removeObjects(globalSelectedObjects);
+            });
+    }
+
+    if (!menu.isEmpty())
+    {
+        menu.exec(tree->mapToGlobal(pos));
     }
 }
 
@@ -2180,55 +1987,160 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
 {
     /* Context menu for the top-left tree which contains modules and their
      * datasources. */
-    // FIXME: implement this
 
     assert(userLevel == 0);
 
     if (m_uniqueWidget) return;
 
-    auto node = tree->itemAt(pos);
-
-    if (!node) return;
-
-    auto obj  = get_qobject(node);
+    auto globalSelectedObjects = getAllSelectedObjects();
+    auto activeNode = tree->itemAt(pos);
 
     QMenu menu;
-    auto menuNew = new QMenu(&menu);
-    bool actionNewIsFirst = false;
 
-    auto analysis = m_context->getAnalysis();
-    auto objectFactory = analysis->getObjectFactory();
-
-    switch (node->type())
+    if (activeNode)
     {
-        case NodeType_Module:
-            {
-                auto moduleConfig = get_pointer<ModuleConfig>(node);
+        if (activeNode->type() == NodeType_Module)
+        {
+            auto menuNew = new QMenu(&menu);
+            auto moduleConfig = get_pointer<ModuleConfig>(activeNode);
 
-                // new data sources / filters
-                QVector<SourcePtr> sourceInstances;
-
-                for (auto sourceName: objectFactory.getSourceNames())
-                {
-                    SourcePtr src(objectFactory.makeSource(sourceName));
-                    sourceInstances.push_back(src);
-                }
-
-                // Sort sources by displayname
-                qSort(sourceInstances.begin(), sourceInstances.end(),
-                      [](const SourcePtr &a, const SourcePtr &b) {
-                          return a->getDisplayName() < b->getDisplayName();
-                      });
-
-                auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig, userLevel] (
-                    const QString &title, auto srcPtr) {
+            auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig, userLevel]
+                (const QString &title, auto srcPtr) {
                     auto icon = make_datasource_icon(srcPtr.get());
 
                     menuNew->addAction(icon, title, &menu,
                                        [this, moduleConfig, srcPtr, userLevel]() {
 
+                                           auto dialog = datasource_editor_factory(
+                                               srcPtr, userLevel, ObjectEditorMode::New, moduleConfig, m_q);
+
+                                           assert(dialog);
+
+                                           //POS dialog->move(QCursor::pos());
+                                           dialog->setAttribute(Qt::WA_DeleteOnClose);
+                                           dialog->show();
+                                           m_uniqueWidget = dialog;
+                                           clearAllTreeSelections();
+                                           clearAllToDefaultNodeHighlights();
+                                       });
+                };
+
+            // new data sources / filters
+            auto objectFactory = m_context->getAnalysis()->getObjectFactory();
+            QVector<SourcePtr> sources;
+
+            for (auto sourceName: objectFactory.getSourceNames())
+            {
+                SourcePtr src(objectFactory.makeSource(sourceName));
+                sources.push_back(src);
+            }
+
+            // Sort sources by displayname
+            qSort(sources.begin(), sources.end(),
+                  [](const SourcePtr &a, const SourcePtr &b) {
+                      return a->getDisplayName() < b->getDisplayName();
+                  });
+
+
+            for (auto src: sources)
+            {
+                add_newDataSourceAction(src->getDisplayName(), src);
+            }
+
+            // default data filters and "raw display" creation
+            auto defaultExtractors = get_default_data_extractors(
+                moduleConfig->getModuleMeta().typeName);
+
+            if (!defaultExtractors.isEmpty())
+            {
+                menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
+
+                    QMessageBox box(
+                        QMessageBox::Question,
+                        QSL("Generate default filters"),
+                        QSL("This action will generate extraction filters,"
+                            ", calibrations and histograms for the selected module."
+                            " Do you want to continue?"),
+                        QMessageBox::Ok | QMessageBox::No,
+                        m_q);
+
+                    box.button(QMessageBox::Ok)->setText("Yes, generate filters");
+
+                    if (box.exec() == QMessageBox::Ok)
+                    {
+                        generateDefaultFilters(moduleConfig);
+                    }
+                });
+            }
+
+#if 0
+            auto menuImport = new QMenu(&menu);
+            menuImport->setTitle(QSL("Import"));
+            //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
+            menuImport->addAction(m_actionImportForModuleFromTemplate.get());
+            menuImport->addAction(m_actionImportForModuleFromFile.get());
+            menu.addMenu(menuImport);
+#endif
+
+            // Module Settings
+            // TODO: move Module Settings into a separate dialog that contains
+            // all the multievent settings combined
+            menu.addAction(
+                QIcon(QSL(":/gear.png")), QSL("Module Settings"),
+                &menu, [this, moduleConfig]() {
+
+                    auto analysis = m_context->getAnalysis();
+                    auto moduleSettings = analysis->getVMEObjectSettings(
+                        moduleConfig->getId());
+
+                    ModuleSettingsDialog dialog(moduleConfig, moduleSettings, m_q);
+
+                    if (dialog.exec() == QDialog::Accepted)
+                    {
+                        analysis->setVMEObjectSettings(
+                            moduleConfig->getId(), dialog.getSettings());
+                    }
+                });
+
+            auto actionNew = menu.addAction(QSL("New"));
+            actionNew->setMenu(menuNew);
+            auto before = menu.actions().value(0);
+            menu.insertAction(before, actionNew);
+        }
+
+        if (activeNode->type() == NodeType_Source)
+        {
+            if (auto srcPtr = get_shared_analysis_object<SourceInterface>(activeNode))
+            {
+                Q_ASSERT_X(srcPtr->getNumberOfOutputs() == 1,
+                           "doOperatorTreeContextMenu",
+                           "data sources with multiple outputs are not supported");
+
+                auto moduleNode = activeNode->parent();
+                ModuleConfig *moduleConfig = nullptr;
+
+                if (moduleNode && moduleNode->type() == NodeType_Module)
+                    moduleConfig = get_pointer<ModuleConfig>(moduleNode);
+
+                const bool isAttachedToModule = moduleConfig != nullptr;
+
+                auto pipe = srcPtr->getOutput(0);
+
+                if (isAttachedToModule)
+                {
+                    menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
+                        makeAndShowPipeDisplay(pipe);
+                    });
+                }
+
+                if (moduleConfig)
+                {
+                    menu.addAction(
+                        QIcon(":/pencil.png"), QSL("Edit"),
+                        [this, srcPtr, moduleConfig, userLevel]() {
+
                             auto dialog = datasource_editor_factory(
-                                srcPtr, userLevel, ObjectEditorMode::New, moduleConfig, m_q);
+                                srcPtr, userLevel, ObjectEditorMode::Edit, moduleConfig, m_q);
 
                             assert(dialog);
 
@@ -2239,146 +2151,20 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                             clearAllTreeSelections();
                             clearAllToDefaultNodeHighlights();
                         });
-                };
-
-                for (auto src: sourceInstances)
-                {
-                    add_newDataSourceAction(src->getDisplayName(), src);
-                }
-
-                // default data filters and "raw display" creation
-                if (moduleConfig)
-                {
-                    auto defaultExtractors = get_default_data_extractors(
-                        moduleConfig->getModuleMeta().typeName);
-
-                    if (!defaultExtractors.isEmpty())
-                    {
-                        menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
-
-                            QMessageBox box(
-                                QMessageBox::Question,
-                                QSL("Generate default filters"),
-                                QSL("This action will generate extraction filters,"
-                                    ", calibrations and histograms for the selected module."
-                                    " Do you want to continue?"),
-                                QMessageBox::Ok | QMessageBox::No,
-                                m_q);
-
-                            box.button(QMessageBox::Ok)->setText("Yes, generate filters");
-
-                            if (box.exec() == QMessageBox::Ok)
-                            {
-                                generateDefaultFilters(moduleConfig);
-                            }
-                        });
-                    }
-
-                    auto menuImport = new QMenu(&menu);
-                    menuImport->setTitle(QSL("Import"));
-                    //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
-                    menuImport->addAction(m_actionImportForModuleFromTemplate.get());
-                    menuImport->addAction(m_actionImportForModuleFromFile.get());
-                    menu.addMenu(menuImport);
-
-                    // Module Settings
-                    // TODO: move Module Settings into a separate dialog that contains
-                    // all the multievent settings combined
-                    menu.addAction(QIcon(QSL(":/gear.png")), QSL("Module Settings"),
-                                   &menu, [this, moduleConfig]() {
-
-                            auto analysis = m_context->getAnalysis();
-                            auto moduleSettings = analysis->getVMEObjectSettings(
-                                moduleConfig->getId());
-
-                            ModuleSettingsDialog dialog(moduleConfig, moduleSettings, m_q);
-
-                            if (dialog.exec() == QDialog::Accepted)
-                            {
-                                analysis->setVMEObjectSettings(
-                                    moduleConfig->getId(), dialog.getSettings());
-                            }
-                        });
-                }
-
-                actionNewIsFirst = true;
-            }
-            break;
-
-        case NodeType_Source:
-            {
-                auto srcPtr = get_shared_analysis_object<SourceInterface>(node);
-
-                if (srcPtr)
-                {
-                    Q_ASSERT_X(srcPtr->getNumberOfOutputs() == 1,
-                               "doOperatorTreeContextMenu",
-                               "data sources with multiple outputs are not supported");
-
-                    auto moduleNode = node->parent();
-                    ModuleConfig *moduleConfig = nullptr;
-
-                    if (moduleNode && moduleNode->type() == NodeType_Module)
-                        moduleConfig = get_pointer<ModuleConfig>(moduleNode);
-
-                    const bool isAttachedToModule = moduleConfig != nullptr;
-
-                    auto pipe = srcPtr->getOutput(0);
-
-                    if (isAttachedToModule)
-                    {
-                        menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
-                            makeAndShowPipeDisplay(pipe);
-                        });
-                    }
-
-                    if (!m_uniqueWidget)
-                    {
-                        if (moduleConfig)
-                        {
-                            menu.addAction(
-                                QIcon(":/pencil.png"), QSL("Edit"),
-                                [this, srcPtr, moduleConfig, userLevel]() {
-
-                                    auto dialog = datasource_editor_factory(
-                                        srcPtr, userLevel, ObjectEditorMode::Edit, moduleConfig, m_q);
-
-                                    assert(dialog);
-
-                                    //POS dialog->move(QCursor::pos());
-                                    dialog->setAttribute(Qt::WA_DeleteOnClose);
-                                    dialog->show();
-                                    m_uniqueWidget = dialog;
-                                    clearAllTreeSelections();
-                                    clearAllToDefaultNodeHighlights();
-                                });
-                        }
-
-                        menu.addAction(
-                            QIcon::fromTheme("edit-delete"), QSL("Remove"), [this, srcPtr]() {
-                                // TODO: QMessageBox::question or similar or undo functionality
-                                m_q->removeSource(srcPtr.get());
-                            });
-                    }
                 }
             }
-            break;
-    }
-
-    if (menuNew->isEmpty())
-    {
-        delete menuNew;
-    }
-    else
-    {
-        auto actionNew = menu.addAction(QSL("New"));
-        actionNew->setMenu(menuNew);
-        QAction *before = nullptr;
-        if (actionNewIsFirst)
-        {
-            before = menu.actions().value(0);
         }
-        menu.insertAction(before, actionNew);
+    }
+
+    if (!globalSelectedObjects.isEmpty())
+    {
+        // TODO: add a copy action
+        menu.addSeparator();
+        menu.addAction(
+            QIcon::fromTheme("edit-delete"), "Remove selected",
+            [this, globalSelectedObjects] {
+                removeObjects(globalSelectedObjects);
+            });
     }
 
     if (!menu.isEmpty())
@@ -2390,8 +2176,17 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
 /* Context menu for the display/sink trees (bottom). */
 void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
 {
-    Q_ASSERT(userLevel >= 0 && userLevel < m_levelTrees.size());
+    Q_ASSERT(0 <= userLevel && userLevel < m_levelTrees.size());
 
+    if (userLevel == 0)
+    {
+        doRawDataSinkTreeContextMenu(tree, pos, userLevel);
+        return;
+    }
+
+
+
+#if 0
     auto selectedNodes = tree->selectedItems();
     auto node          = tree->itemAt(pos);
     auto obj           = get_qobject(node);
@@ -2795,6 +2590,220 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
         auto actionNew = menu.addAction(QSL("New"));
         actionNew->setMenu(menuNew);
         menu.addAction(actionNew);
+    }
+
+    if (!menu.isEmpty())
+    {
+        menu.exec(tree->mapToGlobal(pos));
+    }
+#endif
+}
+
+void EventWidgetPrivate::doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
+{
+    assert(userLevel == 0);
+
+    if (m_uniqueWidget) return;
+
+    auto globalSelectedObjects = getAllSelectedObjects();
+    auto activeNode = tree->itemAt(pos);
+
+    QMenu menu;
+
+    if (!activeNode || activeNode->type() == NodeType_Module)
+    {
+        auto menuNew = new QMenu(&menu);
+
+        auto add_newSinkAction =
+            [this, &menu, menuNew, userLevel] (const QString &title, auto op) {
+                auto icon = make_operator_icon(op.get());
+                // New Display Operator
+                menuNew->addAction(icon, title, &menu, [this, userLevel, op]() {
+                    auto dialog = operator_editor_factory(op, userLevel, ObjectEditorMode::New, m_q);
+
+                    //POS dialog->move(QCursor::pos());
+                    dialog->setAttribute(Qt::WA_DeleteOnClose);
+                    dialog->show();
+                    m_uniqueWidget = dialog;
+                    clearAllTreeSelections();
+                    clearAllToDefaultNodeHighlights();
+                });
+            };
+
+        QVector<OperatorPtr> sinks = {
+            std::make_shared<Histo1DSink>(),
+            std::make_shared<RateMonitorSink>()
+        };
+
+        for (auto &sink: sinks)
+        {
+            add_newSinkAction(sink->getDisplayName(), sink);
+        }
+
+        auto actionNew = menu.addAction(QSL("New"));
+        actionNew->setMenu(menuNew);
+        auto before = menu.actions().value(0);
+        menu.insertAction(before, actionNew);
+    }
+
+    if (activeNode && activeNode->type() == NodeType_Histo1D)
+    {
+        Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
+        Q_ASSERT(widgetInfo.sink);
+
+        if (widgetInfo.histoAddress < widgetInfo.histos.size())
+        {
+            menu.addAction(QSL("Open Histogram"), m_q, [this, widgetInfo]() {
+
+                if (!m_context->hasObjectWidget(widgetInfo.sink.get())
+                    || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                {
+                    auto widget = new Histo1DListWidget(widgetInfo.histos);
+                    widget->setContext(m_context);
+
+                    if (widgetInfo.calib)
+                    {
+                        widget->setCalibration(widgetInfo.calib);
+                    }
+
+                    {
+                        auto context = m_context;
+                        widget->setSink(widgetInfo.sink, [context]
+                                        (const std::shared_ptr<Histo1DSink> &sink) {
+                                            context->analysisOperatorEdited(sink);
+                                        });
+                    }
+
+                    widget->selectHistogram(widgetInfo.histoAddress);
+
+                    m_context->addObjectWidget(widget, widgetInfo.sink.get(),
+                                               widgetInfo.sink->getId().toString());
+                }
+                else if (auto widget = qobject_cast<Histo1DListWidget *>(
+                        m_context->getObjectWidget(widgetInfo.sink.get())))
+                {
+                    widget->selectHistogram(widgetInfo.histoAddress);
+                    show_and_activate(widget);
+                }
+            });
+
+            menu.addAction(
+                QSL("Open Histogram in new window"), m_q, [this, widgetInfo]() {
+
+                    auto widget = new Histo1DListWidget(widgetInfo.histos);
+                    widget->setContext(m_context);
+
+                    if (widgetInfo.calib)
+                    {
+                        widget->setCalibration(widgetInfo.calib);
+                    }
+
+                    {
+                        auto context = m_context;
+                        widget->setSink(widgetInfo.sink,
+                                        [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                            context->analysisOperatorEdited(sink);
+                        });
+                    }
+
+                    widget->selectHistogram(widgetInfo.histoAddress);
+
+                    m_context->addObjectWidget(widget, widgetInfo.sink.get(),
+                                               widgetInfo.sink->getId().toString());
+                });
+        }
+    }
+    else if (activeNode && activeNode->type() == NodeType_Histo1DSink)
+    {
+        Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
+        Q_ASSERT(widgetInfo.sink);
+
+        if (widgetInfo.histoAddress < widgetInfo.histos.size())
+        {
+
+            menu.addAction(QSL("Open 1D List View"), m_q, [this, widgetInfo]() {
+                // always creates a new window
+                auto widget = new Histo1DListWidget(widgetInfo.histos);
+                widget->setContext(m_context);
+
+                if (widgetInfo.calib)
+                {
+                    widget->setCalibration(widgetInfo.calib);
+                }
+
+                {
+                    auto context = m_context;
+                    widget->setSink(widgetInfo.sink,
+                                    [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                        context->analysisOperatorEdited(sink);
+                    });
+                }
+
+                m_context->addObjectWidget(widget, widgetInfo.sink.get(),
+                                           widgetInfo.sink->getId().toString());
+            });
+        }
+
+        if (widgetInfo.histos.size())
+        {
+            menu.addAction(QSL("Open 2D Combined View"), m_q, [this, widgetInfo]() {
+                auto widget = new Histo2DWidget(widgetInfo.sink, m_context);
+                widget->setContext(m_context);
+                m_context->addWidget(widget, widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
+            });
+        }
+    }
+    else if (activeNode && activeNode->type() == NodeType_Sink)
+    {
+        if (auto rms = get_shared_analysis_object<RateMonitorSink>(activeNode))
+        {
+            menu.addAction(QSL("Open Rate Monitor"), m_q, [this, rms]() {
+
+                if (!m_context->hasObjectWidget(rms.get())
+                    || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                {
+                    auto context = m_context;
+                    auto widget = new RateMonitorWidget(rms->getRateSamplers());
+
+                    widget->setSink(rms, [context](const std::shared_ptr<RateMonitorSink> &sink) {
+                        context->analysisOperatorEdited(sink);
+                    });
+
+                    widget->setPlotExportDirectory(
+                        m_context->getWorkspacePath(QSL("PlotsDirectory")));
+
+                    m_context->addObjectWidget(widget, rms.get(), rms->getId().toString());
+                }
+                else
+                {
+                    m_context->activateObjectWidget(rms.get());
+                }
+            });
+        }
+    }
+
+    auto selectedSinks = objects_from_nodes<SinkInterface>(getAllSelectedNodes());
+
+    if (!selectedSinks.isEmpty())
+    {
+        menu.addAction("E&nable selected", [this, selectedSinks] {
+            setSinksEnabled(selectedSinks, true);
+        });
+
+        menu.addAction("&Disable selected", [this, selectedSinks] {
+            setSinksEnabled(selectedSinks, false);
+        });
+    }
+
+    if (!globalSelectedObjects.isEmpty())
+    {
+        // TODO: add a copy action
+        menu.addSeparator();
+        menu.addAction(
+            QIcon::fromTheme("edit-delete"), "Remove selected",
+            [this, globalSelectedObjects] {
+                removeObjects(globalSelectedObjects);
+            });
     }
 
     if (!menu.isEmpty())
@@ -3935,27 +3944,7 @@ QList<QTreeWidgetItem *> EventWidgetPrivate::getAllSelectedNodes() const
  * unterlying Qt itemview selection mechanism. */
 AnalysisObjectVector EventWidgetPrivate::getAllSelectedObjects() const
 {
-    AnalysisObjectVector result;
-
-    for (const auto &node: getAllSelectedNodes())
-    {
-        switch (node->type())
-        {
-            case NodeType_Source:
-            case NodeType_Operator:
-            case NodeType_Histo1DSink:
-            case NodeType_Histo2DSink:
-            case NodeType_Sink:
-            case NodeType_Directory:
-                if (auto obj = get_analysis_object(node))
-                {
-                    result.push_back(obj);
-                }
-                break;
-        }
-    }
-
-    return result;
+    return objects_from_nodes(getAllSelectedNodes());
 }
 
 void EventWidgetPrivate::clearSelections()
@@ -4317,7 +4306,7 @@ void EventWidgetPrivate::actionImport()
     }
 }
 
-void EventWidgetPrivate::setSinksEnabled(const QVector<SinkInterface *> sinks, bool enabled)
+void EventWidgetPrivate::setSinksEnabled(const SinkVector &sinks, bool enabled)
 {
     if (sinks.isEmpty())
         return;
@@ -4365,6 +4354,17 @@ void EventWidgetPrivate::removeDirectoryRecursively(const DirectoryPtr &dir)
     }
 
     repopulate();
+}
+
+void EventWidgetPrivate::removeObjects(const AnalysisObjectVector &objects)
+{
+    if (!objects.isEmpty())
+    {
+        AnalysisPauser pauser(m_context);
+        auto analysis = m_context->getAnalysis();
+        analysis->removeObjectsRecursively(objects);
+        repopulate();
+    }
 }
 
 static QTreeWidgetItem *find_node(QTreeWidgetItem *root, const AnalysisObjectPtr &obj)

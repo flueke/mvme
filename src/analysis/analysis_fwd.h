@@ -26,6 +26,7 @@ using SourceVector = QVector<SourcePtr>;
 using OperatorPtr = std::shared_ptr<OperatorInterface>;
 using OperatorVector = QVector<OperatorPtr>;
 using SinkPtr = std::shared_ptr<SinkInterface>;
+using SinkVector = QVector<SinkPtr>;
 using DirectoryPtr = std::shared_ptr<Directory>;
 using DirectoryVector = QVector<DirectoryPtr>;
 
