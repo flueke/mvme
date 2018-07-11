@@ -2,6 +2,14 @@
 Changelog
 ##################################################
 
+0.9.4.1
+-------
+* Fix expression operator GUI not properly loading indexed parameter
+  connections
+
+* Split Histo1D info box into global and gauss specific statistics. Fixes to
+  gauss related calculations.
+
 0.9.4
 -------
 * New: :ref:`Analysis Expression Operator<analysis-ExpressionOperator>`
