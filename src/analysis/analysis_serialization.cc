@@ -452,7 +452,7 @@ AnalysisObjectStore deserialize_objects(QJsonObject data,
                     srcIndex,
                     dstObject,
                     dstSlot->parentSlotIndex,
-                    dstSlot->paramIndex
+                    paramIndex
                 };
 
                 result.connections.insert(con);
