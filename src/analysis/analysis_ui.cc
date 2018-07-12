@@ -45,6 +45,7 @@
 
 #include <QApplication>
 #include <QComboBox>
+#include <QClipboard>
 #include <QCursor>
 #include <QDesktopServices>
 #include <QFileDialog>
@@ -543,6 +544,9 @@ static const QString OperatorIdListMIMEType = QSL("application/x-mvme-analysis-o
 
 // Sink-type operators and directories
 static const QString SinkIdListMIMEType = QSL("application/x-mvme-analysis-sink-id-list");
+
+// Generic, untyped analysis objects
+static const QString ObjectIdListMIMEType = QSL("application/x-mvme-analysis-object-id-list");
 
 namespace
 {
@@ -1172,6 +1176,10 @@ struct EventWidgetPrivate
     void removeObjects(const AnalysisObjectVector &objects);
 
     QTreeWidgetItem *findNode(const AnalysisObjectPtr &obj);
+
+    void copyToClipboard(const AnalysisObjectVector &objects);
+    bool canPaste();
+    void pasteFromClipboard(QTreeWidget *tree, s32 userLevel);
 };
 
 template<typename T, typename C>
@@ -1994,10 +2002,30 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         menu.insertAction(before, actionNew);
     }
 
+    menu.addSeparator();
+
+    QAction *action;
+
+    action = menu.addAction(
+        QIcon::fromTheme("edit-copy"), "Copy",
+        [this, globalSelectedObjects] {
+            copyToClipboard(globalSelectedObjects);
+        });
+
+    action->setEnabled(!globalSelectedObjects.isEmpty());
+
+    action = menu.addAction(
+        QIcon::fromTheme("edit-paste"), "Paste",
+        [this, tree, userLevel] {
+            pasteFromClipboard(tree, userLevel);
+        });
+
+    action->setEnabled(canPaste());
+
     if (!globalSelectedObjects.isEmpty())
     {
-        // TODO: add a copy action
         menu.addSeparator();
+
         menu.addAction(
             QIcon::fromTheme("edit-delete"), "Remove selected",
             [this, globalSelectedObjects] {
@@ -4843,6 +4871,38 @@ QTreeWidgetItem *EventWidgetPrivate::findNode(const AnalysisObjectPtr &obj)
     }
 
     return nullptr;
+}
+
+void EventWidgetPrivate::copyToClipboard(const AnalysisObjectVector &objects)
+{
+    QVector<QByteArray> idData;
+    idData.reserve(objects.size());
+
+    for (auto obj: objects)
+    {
+        idData.push_back(obj->getId().toByteArray());
+    }
+
+    QByteArray buffer;
+    QDataStream stream(&buffer, QIODevice::WriteOnly);
+    stream << idData;
+
+    auto mimeData = new QMimeData;
+    mimeData->setData(ObjectIdListMIMEType, buffer);
+
+    QGuiApplication::clipboard()->setMimeData(mimeData);
+}
+
+bool EventWidgetPrivate::canPaste()
+{
+    auto clipboardData = QGuiApplication::clipboard()->mimeData();
+
+    return clipboardData->hasFormat(ObjectIdListMIMEType);
+}
+
+void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *tree, s32 userLevel)
+{
+    qDebug() << __PRETTY_FUNCTION__ << tree << userLevel << canPaste();
 }
 
 static const u32 EventWidgetPeriodicRefreshInterval_ms = 1000;
