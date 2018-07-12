@@ -303,12 +303,16 @@ void AddEditExtractorDialog::reject()
 // AddEditOperatorDialog
 //
 
-AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel,
-                                             ObjectEditorMode mode, EventWidget *eventWidget)
+AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
+                                             s32 userLevel,
+                                             ObjectEditorMode mode,
+                                             const DirectoryPtr &destDir,
+                                             EventWidget *eventWidget)
     : ObjectEditorDialog(eventWidget)
     , m_op(op)
     , m_userLevel(userLevel)
     , m_mode(mode)
+    , m_destDir(destDir)
     , m_eventWidget(eventWidget)
     , m_opConfigWidget(nullptr)
 {
@@ -643,6 +647,11 @@ void AddEditOperatorDialog::accept()
         case ObjectEditorMode::New:
             {
                 analysis->addOperator(m_eventWidget->getEventId(), m_userLevel, m_op);
+
+                if (m_destDir)
+                {
+                    m_destDir->push_back(m_op);
+                }
             } break;
 
         case ObjectEditorMode::Edit:

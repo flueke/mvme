@@ -3,6 +3,11 @@
 namespace analysis
 {
 
+ObjectEditorDialog::ObjectEditorDialog(QWidget *parent)
+    : QDialog(parent)
+{
+}
+
 ObjectEditorDialog::~ObjectEditorDialog()
 {
 }

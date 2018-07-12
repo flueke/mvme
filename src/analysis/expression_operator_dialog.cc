@@ -1119,6 +1119,8 @@ struct ExpressionOperatorDialog::Private
     int m_userLevel;
     // new or edit
     ObjectEditorMode m_mode;
+    // destination directory for new operators. may be null
+    DirectoryPtr m_destDir;
     // backpointer to the eventwidget used for input selection
     EventWidget *m_eventWidget;
     // data transfer to/from gui and storage of inputs
@@ -1873,9 +1875,11 @@ void ExpressionOperatorDialog::Private::model_randomizeInputs()
     refreshInputPipesViews();
 }
 
-ExpressionOperatorDialog::ExpressionOperatorDialog(
-    const std::shared_ptr<ExpressionOperator> &op,
-    int userLevel, ObjectEditorMode mode, EventWidget *eventWidget)
+ExpressionOperatorDialog::ExpressionOperatorDialog(const std::shared_ptr<ExpressionOperator> &op,
+                                                   int userLevel,
+                                                   ObjectEditorMode mode,
+                                                   const DirectoryPtr &destDir,
+                                                   EventWidget *eventWidget)
     : ObjectEditorDialog(eventWidget)
     , m_d(std::make_unique<Private>(this))
 {
@@ -1889,6 +1893,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     m_d->m_op          = op;
     m_d->m_userLevel   = userLevel;
     m_d->m_mode        = mode;
+    m_d->m_destDir     = destDir;
     m_d->m_eventWidget = eventWidget;
     m_d->m_tabWidget   = new QTabWidget;
     m_d->m_model       = std::make_unique<Model>();
@@ -2119,9 +2124,13 @@ void ExpressionOperatorDialog::apply()
             {
                 analysis->addOperator(m_d->m_eventWidget->getEventId(),
                                       m_d->m_userLevel, m_d->m_op);
+
                 m_d->m_mode = ObjectEditorMode::Edit;
-                // FIXME: get rid of this code
-                m_d->m_eventWidget->repopulate();
+
+                if (m_d->m_destDir)
+                {
+                    m_d->m_destDir->push_back(m_d->m_op);
+                }
             } break;
 
         case ObjectEditorMode::Edit:
@@ -2131,6 +2140,7 @@ void ExpressionOperatorDialog::apply()
     }
 
     analysis->beginRun(Analysis::KeepState);
+    emit applied();
 }
 
 void ExpressionOperatorDialog::accept()
@@ -2143,7 +2153,6 @@ void ExpressionOperatorDialog::reject()
 {
     QDialog::reject();
 }
-
 
 //
 // ExpressionOperatorSyntaxHighlighter

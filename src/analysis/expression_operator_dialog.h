@@ -17,15 +17,14 @@ class ExpressionOperator;
 class ExpressionOperatorDialog: public ObjectEditorDialog
 {
     Q_OBJECT
-    signals:
-        void applied();
-
     public:
-    ExpressionOperatorDialog(const std::shared_ptr<ExpressionOperator> &op, int userLevel,
-                             ObjectEditorMode mode, EventWidget *eventWidget);
+        ExpressionOperatorDialog(const std::shared_ptr<ExpressionOperator> &op,
+                                 int userLevel,
+                                 ObjectEditorMode mode,
+                                 const DirectoryPtr &destDir,
+                                 EventWidget *eventWidget);
 
         virtual ~ExpressionOperatorDialog();
-
 
     public slots:
         void apply();

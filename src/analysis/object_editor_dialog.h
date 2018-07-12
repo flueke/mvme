@@ -19,7 +19,7 @@ class ObjectEditorDialog: public QDialog
         void applied();
 
     public:
-        using QDialog::QDialog;
+        ObjectEditorDialog(QWidget *parent = nullptr);
         virtual ~ObjectEditorDialog();
 };
 

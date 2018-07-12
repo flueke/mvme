@@ -162,8 +162,11 @@ class AddEditOperatorDialog: public ObjectEditorDialog
 
     public:
 
-        AddEditOperatorDialog(OperatorPtr opPtr, s32 userLevel,
-                              ObjectEditorMode mode, EventWidget *eventWidget);
+        AddEditOperatorDialog(OperatorPtr opPtr,
+                              s32 userLevel,
+                              ObjectEditorMode mode,
+                              const DirectoryPtr &destDir,
+                              EventWidget *eventWidget);
 
         virtual void resizeEvent(QResizeEvent *event) override;
 
@@ -175,6 +178,7 @@ class AddEditOperatorDialog: public ObjectEditorDialog
         OperatorPtr m_op;
         s32 m_userLevel;
         ObjectEditorMode m_mode;
+        DirectoryPtr m_destDir;
         EventWidget *m_eventWidget;
         QVector<QPushButton *> m_selectButtons;
         QDialogButtonBox *m_buttonBox = nullptr;
