@@ -10,11 +10,22 @@ BUGFIXES wanted for 0.9.5
 - if loading a config file fails when opening a filename from the
   mvmeworkspace.ini file show an explicit error message about the filename in
   the ini possibly being wrong.
-- h2d and possibly everything that's indexed does not properly
-  get connected on analysis load.
-  manually reselecting the inputs temporarily fixes the issue
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* SIS3153 and windows: hostname lookups do seem to return cached results. This
+  means if mvme tried to connect while the SIS hostname wasn't available yet
+  any further connection attempts will fail.
+  Opening a cmd prompt and pinging the SIS updates some system cache and
+  gethostbyname() returns the proper IP address.
+  Users won't know this and probably will think that mvme is bugged and needs
+  to be restarted for communication to work.
+
+* DAQControl: Quickly pressing start and stop leaves mvme hanging in a progress
+  dialog. Closing the progress dialog and pressing stop again does properly
+  stop the DAQ.
+  Make sure the stop button is only activated once the readout thread is
+  completely done and can be properly stopped.
 
 --------------------------------------------------
 Analysis: object export/import
@@ -175,11 +186,6 @@ Additional/Advanced Features:
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* Histo1d: stats display is not good
-  gauss parameter nur anzeigen wenn gauss angezeigt wird.
-  sonst nur maxbin, maxvalue, entrycount
-  gauss dann: gauss max, gauss pos
 
 * 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
   packetStatus 0x132 is not valid! This should wrap.
