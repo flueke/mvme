@@ -36,18 +36,6 @@ struct LIBMVME_EXPORT ObjectSerializerVisitor: public ObjectVisitor
     AnalysisObjectVector visitedObjects;
 };
 
-#if 0
-struct LIBMVME_EXPORT AddObjectsVisitor: public ObjectVisitor
-{
-    AddObjectsVisitor(Analysis *dest);
-
-    virtual void visit(SourceInterface *source) override;
-    virtual void visit(OperatorInterface *op) override;
-    virtual void visit(SinkInterface *sink) override;
-    virtual void visit(Directory *dir) override;
-};
-#endif
-
 struct LIBMVME_EXPORT Connection
 {
     PipeSourcePtr srcObject;
