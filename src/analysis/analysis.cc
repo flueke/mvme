@@ -188,6 +188,7 @@ static const int CurrentAnalysisVersion = 3;
 std::unique_ptr<AnalysisObject> AnalysisObject::clone() const
 {
     auto qobjectPtr  = metaObject()->newInstance();
+    qDebug() << metaObject()->className() << qobjectPtr;
     auto downcastPtr = qobject_cast<AnalysisObject *>(qobjectPtr);
     assert(downcastPtr);
 
@@ -200,7 +201,7 @@ std::unique_ptr<AnalysisObject> AnalysisObject::clone() const
         result->read(tmpStorage);
     }
 
-    result->setObjectName(this->objectName() + QSL(" (copy)"));
+    result->setObjectName(this->objectName());
     result->setUserLevel(this->getUserLevel());
     result->setEventId(this->getEventId());
     result->postClone(this); // Let subclasses pull additional information from 'this'.
@@ -274,9 +275,10 @@ void SourceInterface::accept(ObjectVisitor &visitor)
 
 void SourceInterface::postClone(const AnalysisObject *cloneSource)
 {
-    auto si = qobject_cast<SourceInterface *>(cloneSource);
+    auto si = qobject_cast<const SourceInterface *>(cloneSource);
     assert(si);
     this->setModuleId(si->getModuleId());
+    AnalysisObject::postClone(cloneSource);
 }
 
 //
@@ -344,14 +346,19 @@ void SinkInterface::accept(ObjectVisitor &visitor)
 
 void SinkInterface::postClone(const AnalysisObject *cloneSource)
 {
-    auto si = qobject_cast<SinkInterface *>(cloneSource);
+    auto si = qobject_cast<const SinkInterface *>(cloneSource);
     assert(si);
     this->setEnabled(si->isEnabled());
+    OperatorInterface::postClone(cloneSource);
 }
 
 //
 // Directory
 //
+
+Directory::Directory(QObject *parent)
+    : AnalysisObject(parent)
+{ }
 
 QString to_string(const DisplayLocation &loc)
 {
@@ -553,6 +560,7 @@ void Extractor::postClone(const AnalysisObject *cloneSource)
     // Generate a new seed for the clone
     std::uniform_int_distribution<u64> dist;
     m_rngSeed = dist(StaticRandomDevice);
+    SourceInterface::postClone(cloneSource);
 }
 
 //
@@ -613,6 +621,7 @@ void ListFilterExtractor::postClone(const AnalysisObject *cloneSource)
     // Generate a new seed for the clone
     std::uniform_int_distribution<u64> dist;
     m_rngSeed = dist(StaticRandomDevice);
+    SourceInterface::postClone(cloneSource);
 }
 
 //
@@ -3680,6 +3689,25 @@ void Analysis::addObjects(const AnalysisObjectStore &store)
     for (auto &obj: store.directories)
     {
         addDirectory(obj);
+    }
+}
+
+void Analysis::addObjects(const AnalysisObjectVector &objects)
+{
+    for (const auto &obj: objects)
+    {
+        if (auto src = std::dynamic_pointer_cast<SourceInterface>(obj))
+        {
+            addSource(src);
+        }
+        else if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+        {
+            addOperator(op);
+        }
+        else if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
+        {
+            addDirectory(dir);
+        }
     }
 }
 
