@@ -22,6 +22,7 @@
 #include "sis3153.h"
 
 #include <QDebug>
+#include <QHostInfo>
 #include <QMutex>
 #include <QThread>
 
@@ -213,8 +214,31 @@ VMEError SIS3153::open()
         sis->set_UdpSocketOptionBufSize(SocketReceiveBufferSize);
     }
 
+
+    /* XXX XXX XXX: Testing code:
+     * Resolve the hostname here using the Qt layer and pass an IPv4 address string to
+     * set_UdpSocketSIS3153_IpAddress(). This method internally uses gethostbyname() which
+     * when given an IP-address just copies the argument to its result structure. */
+
+    auto hostInfo = QHostInfo::fromName(m_d->address);
+
+    if (hostInfo.error() != QHostInfo::NoError)
+    {
+        return VMEError(VMEError::HostLookupFailed, hostInfo.errorString());
+    }
+
+    auto addresses = hostInfo.addresses();
+
+    if (addresses.isEmpty())
+    {
+        return VMEError(VMEError::HostNotFound);
+    }
+
+    auto addressData = addresses.first().toString().toLocal8Bit();
+
+
     // set ip address / hostname
-    auto addressData = m_d->address.toLocal8Bit();
+    //auto addressData = m_d->address.toLocal8Bit();
 
 #ifdef SIS3153_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "addressData =" << addressData;
