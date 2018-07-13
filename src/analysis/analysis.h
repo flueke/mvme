@@ -1492,6 +1492,9 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
 
         void generateCode(Logger logger);
 
+    protected:
+        virtual void postClone(const AnalysisObject *cloneSource) override;
+
     private:
         // Optional single value condition input. If invalid no data will be
         // exported in that event cycle. If unconnected all occurrences of the

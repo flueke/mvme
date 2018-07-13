@@ -3038,6 +3038,15 @@ void ExportSink::read(const QJsonObject &json)
     setFormat(static_cast<Format>(json["format"].toInt(static_cast<s32>(Format::Sparse))));
 }
 
+void ExportSink::postClone(const AnalysisObject *cloneSource)
+{
+    auto cs = qobject_cast<const ExportSink *>(cloneSource);
+    assert(cs);
+
+    m_outputPrefixPath = cs->getOutputPrefixPath() + "_copy";
+    SinkInterface::postClone(cloneSource);
+}
+
 QString ExportSink::getDataFilePath(const RunInfo &runInfo) const
 {
     QString result = getOutputPrefixPath() + "/" + getDataFileName(runInfo);
