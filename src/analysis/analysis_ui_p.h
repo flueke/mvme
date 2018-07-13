@@ -57,6 +57,7 @@ class AnalysisWidget;
 class DataExtractionEditor;
 struct EventWidgetPrivate;
 class OperatorConfigurationWidget;
+class ObjectTree;
 
 
 class EventWidget: public QWidget
@@ -105,6 +106,10 @@ class EventWidget: public QWidget
         QUuid getEventId() const;
 
         void selectObjects(const AnalysisObjectVector &objects);
+        AnalysisObjectVector getAllSelectedObjects() const;
+        AnalysisObjectVector getTopLevelSelectedObjects() const;
+        void copyToClipboard(const AnalysisObjectVector &objects);
+        void pasteFromClipboard(QTreeWidget *destTree);
 
     public slots:
         void objectEditorDialogApplied();
@@ -415,10 +420,12 @@ class ObjectTree: public QTreeWidget
         Analysis *getAnalysis() const;
         s32 getUserLevel() const { return m_userLevel; }
         void setUserLevel(s32 userLevel) { m_userLevel = userLevel; }
+        QList<QTreeWidgetItem *> getTopLevelSelectedNodes() const;
 
     protected:
         virtual Qt::DropActions supportedDropActions() const override;
         virtual void dropEvent(QDropEvent *event) override;
+        virtual void keyPressEvent(QKeyEvent *event) override;
 
     private:
         EventWidget *m_eventWidget = nullptr;

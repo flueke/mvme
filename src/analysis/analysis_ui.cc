@@ -594,9 +594,43 @@ void ObjectTree::dropEvent(QDropEvent *event)
     QAbstractItemView::dropEvent(event);
 }
 
+void ObjectTree::keyPressEvent(QKeyEvent *event)
+{
+    if (event->matches(QKeySequence::Copy))
+    {
+        auto selectedTopLevelObjects = getEventWidget()->getTopLevelSelectedObjects();
+        getEventWidget()->copyToClipboard(selectedTopLevelObjects);
+    }
+    else if (event->matches(QKeySequence::Paste))
+    {
+        getEventWidget()->pasteFromClipboard(this);
+    }
+    else
+    {
+        QTreeWidget::keyPressEvent(event);
+    }
+}
+
+QList<QTreeWidgetItem *> ObjectTree::getTopLevelSelectedNodes() const
+{
+    QList<QTreeWidgetItem *> result;
+
+    auto nodes = selectedItems();
+
+    for (auto node: nodes)
+    {
+        if (nodes.contains(node->parent()))
+            continue;
+
+        result.push_back(node);
+    }
+
+    return result;
+}
+
 Qt::DropActions ObjectTree::supportedDropActions() const
 {
-    return Qt::MoveAction; // TODO: allow copying of objects
+    return Qt::MoveAction;
 }
 
 // DataSourceTree
@@ -1158,6 +1192,9 @@ struct EventWidgetPrivate
 
     QList<QTreeWidgetItem *> getAllSelectedNodes() const;
     AnalysisObjectVector getAllSelectedObjects() const;
+    QList<QTreeWidgetItem *> getTopLevelSelectedNodes() const;
+    AnalysisObjectVector getTopLevelSelectedObjects() const;
+
     void clearSelections();
     void selectObjects(const AnalysisObjectVector &objects);
 
@@ -1179,7 +1216,7 @@ struct EventWidgetPrivate
 
     void copyToClipboard(const AnalysisObjectVector &objects);
     bool canPaste();
-    void pasteFromClipboard(QTreeWidget *tree, s32 userLevel);
+    void pasteFromClipboard(QTreeWidget *destTree);
 };
 
 template<typename T, typename C>
@@ -2002,25 +2039,28 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         menu.insertAction(before, actionNew);
     }
 
-    menu.addSeparator();
+    // Copy/Paste
+    {
+        menu.addSeparator();
 
-    QAction *action;
+        QAction *action;
 
-    action = menu.addAction(
-        QIcon::fromTheme("edit-copy"), "Copy",
-        [this, globalSelectedObjects] {
-            copyToClipboard(globalSelectedObjects);
-        });
+        action = menu.addAction(
+            QIcon::fromTheme("edit-copy"), "Copy",
+            [this, globalSelectedObjects] {
+                copyToClipboard(globalSelectedObjects);
+            }, QKeySequence::Copy);
 
-    action->setEnabled(!globalSelectedObjects.isEmpty());
+        action->setEnabled(!globalSelectedObjects.isEmpty());
 
-    action = menu.addAction(
-        QIcon::fromTheme("edit-paste"), "Paste",
-        [this, tree, userLevel] {
-            pasteFromClipboard(tree, userLevel);
-        });
+        action = menu.addAction(
+            QIcon::fromTheme("edit-paste"), "Paste",
+            [this, tree] {
+                pasteFromClipboard(tree);
+            }, QKeySequence::Paste);
 
-    action->setEnabled(canPaste());
+        action->setEnabled(canPaste());
+    }
 
     if (!globalSelectedObjects.isEmpty())
     {
@@ -2214,9 +2254,31 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
         }
     }
 
+    // Copy/Paste
+    {
+        menu.addSeparator();
+
+        QAction *action;
+
+        action = menu.addAction(
+            QIcon::fromTheme("edit-copy"), "Copy",
+            [this, globalSelectedObjects] {
+                copyToClipboard(globalSelectedObjects);
+            }, QKeySequence::Copy);
+
+        action->setEnabled(!globalSelectedObjects.isEmpty());
+
+        action = menu.addAction(
+            QIcon::fromTheme("edit-paste"), "Paste",
+            [this, tree] {
+                pasteFromClipboard(tree);
+            }, QKeySequence::Paste);
+
+        action->setEnabled(canPaste());
+    }
+
     if (!globalSelectedObjects.isEmpty())
     {
-        // TODO: add a copy action
         menu.addSeparator();
         menu.addAction(
             QIcon::fromTheme("edit-delete"), "Remove selected",
@@ -2585,24 +2647,49 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
         menu.insertAction(before, actionNew);
     }
 
-    auto selectedSinks = objects_from_nodes<SinkInterface>(getAllSelectedNodes());
-
-    if (!selectedSinks.isEmpty())
+    // Copy/Paste
     {
         menu.addSeparator();
 
-        menu.addAction("E&nable selected", [this, selectedSinks] {
-            setSinksEnabled(selectedSinks, true);
-        });
+        QAction *action;
 
-        menu.addAction("&Disable selected", [this, selectedSinks] {
-            setSinksEnabled(selectedSinks, false);
-        });
+        action = menu.addAction(
+            QIcon::fromTheme("edit-copy"), "Copy",
+            [this, globalSelectedObjects] {
+                copyToClipboard(globalSelectedObjects);
+            }, QKeySequence::Copy);
+
+        action->setEnabled(!globalSelectedObjects.isEmpty());
+
+        action = menu.addAction(
+            QIcon::fromTheme("edit-paste"), "Paste",
+            [this, tree] {
+                pasteFromClipboard(tree);
+            }, QKeySequence::Paste);
+
+        action->setEnabled(canPaste());
+    }
+
+    // sink enable/disable
+    {
+        auto selectedSinks = objects_from_nodes<SinkInterface>(getAllSelectedNodes());
+
+        if (!selectedSinks.isEmpty())
+        {
+            menu.addSeparator();
+
+            menu.addAction("E&nable selected", [this, selectedSinks] {
+                setSinksEnabled(selectedSinks, true);
+            });
+
+            menu.addAction("&Disable selected", [this, selectedSinks] {
+                setSinksEnabled(selectedSinks, false);
+            });
+        }
     }
 
     if (!globalSelectedObjects.isEmpty())
     {
-        // TODO: add a copy action
         menu.addSeparator();
         menu.addAction(
             QIcon::fromTheme("edit-delete"), "Remove selected",
@@ -2615,421 +2702,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
     {
         menu.exec(tree->mapToGlobal(pos));
     }
-#if 0
-    auto selectedNodes = tree->selectedItems();
-    auto node          = tree->itemAt(pos);
-    auto obj           = get_qobject(node);
-
-    QMenu menu;
-    auto menuNew = new QMenu;
-
-    auto add_newSinkAction = [this, &menu, menuNew, userLevel]
-        (const QString &title, auto op)
-    {
-        auto icon = make_operator_icon(op.get());
-        // New Display Operator
-        menuNew->addAction(icon, title, &menu, [this, userLevel, op]() {
-            auto dialog = operator_editor_factory(op, userLevel, ObjectEditorMode::New, m_q);
-
-            //POS dialog->move(QCursor::pos());
-            dialog->setAttribute(Qt::WA_DeleteOnClose);
-            dialog->show();
-            m_uniqueWidget = dialog;
-            clearAllTreeSelections();
-            clearAllToDefaultNodeHighlights();
-        });
-    };
-
-    if (selectedNodes.size() > 1)
-    {
-        QVector<SinkInterface *> selectedSinks;
-        selectedSinks.reserve(selectedNodes.size());
-
-        for (auto node: selectedNodes)
-        {
-            switch (node->type())
-            {
-                case NodeType_Histo1DSink:
-                case NodeType_Histo2DSink:
-                case NodeType_Sink:
-                    selectedSinks.push_back(get_pointer<SinkInterface>(node));
-                    break;
-            }
-        }
-
-        if (selectedSinks.size())
-        {
-            menu.addAction("E&nable selected", [this, selectedSinks] {
-                setSinksEnabled(selectedSinks, true);
-            });
-
-            menu.addAction("&Disable selected", [this, selectedSinks] {
-                setSinksEnabled(selectedSinks, false);
-            });
-
-            menu.addSeparator();
-            menu.addAction(QIcon::fromTheme("edit-delete"), "Remove selected",
-                           [this, selectedSinks] {
-                removeSinks(selectedSinks);
-            });
-        }
-    }
-    else if (node)
-    {
-        switch (node->type())
-        {
-            case NodeType_Histo1D:
-                {
-                    Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
-                    Q_ASSERT(widgetInfo.sink);
-
-                    if (widgetInfo.histoAddress < widgetInfo.histos.size())
-                    {
-                        menu.addAction(QSL("Open Histogram"), m_q, [this, widgetInfo]() {
-
-                            if (!m_context->hasObjectWidget(widgetInfo.sink.get())
-                                || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                            {
-                                auto widget = new Histo1DListWidget(widgetInfo.histos);
-                                widget->setContext(m_context);
-
-                                if (widgetInfo.calib)
-                                {
-                                    widget->setCalibration(widgetInfo.calib);
-                                }
-
-                                {
-                                    auto context = m_context;
-                                    widget->setSink(widgetInfo.sink, [context]
-                                                    (const std::shared_ptr<Histo1DSink> &sink) {
-                                        context->analysisOperatorEdited(sink);
-                                    });
-                                }
-
-                                widget->selectHistogram(widgetInfo.histoAddress);
-
-                                m_context->addObjectWidget(widget, widgetInfo.sink.get(),
-                                                           widgetInfo.sink->getId().toString());
-                            }
-                            else if (auto widget = qobject_cast<Histo1DListWidget *>(
-                                    m_context->getObjectWidget(widgetInfo.sink.get())))
-                            {
-                                widget->selectHistogram(widgetInfo.histoAddress);
-                                show_and_activate(widget);
-                            }
-                        });
-
-                        menu.addAction(QSL("Open Histogram in new window"), m_q,
-                                       [this, widgetInfo]() {
-
-                            auto widget = new Histo1DListWidget(widgetInfo.histos);
-                            widget->setContext(m_context);
-
-                            if (widgetInfo.calib)
-                            {
-                                widget->setCalibration(widgetInfo.calib);
-                            }
-
-                            {
-                                auto context = m_context;
-                                widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                                    context->analysisOperatorEdited(sink);
-                                });
-                            }
-
-                            widget->selectHistogram(widgetInfo.histoAddress);
-
-                            m_context->addObjectWidget(widget, widgetInfo.sink.get(), widgetInfo.sink->getId().toString());
-                        });
-                    }
-                } break;
-
-            case NodeType_Histo1DSink:
-                {
-                    Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
-                    Q_ASSERT(widgetInfo.sink);
-
-                    if (widgetInfo.histoAddress < widgetInfo.histos.size())
-                    {
-
-                        menu.addAction(QSL("Open 1D List View"), m_q, [this, widgetInfo]() {
-                            // always creates a new window
-                            auto widget = new Histo1DListWidget(widgetInfo.histos);
-                            widget->setContext(m_context);
-
-                            if (widgetInfo.calib)
-                            {
-                                widget->setCalibration(widgetInfo.calib);
-                            }
-
-                            {
-                                auto context = m_context;
-                                widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                                    context->analysisOperatorEdited(sink);
-                                });
-                            }
-
-                            m_context->addObjectWidget(widget, widgetInfo.sink.get(), widgetInfo.sink->getId().toString());
-
-                        });
-                    }
-
-
-                    if (widgetInfo.histos.size())
-                    {
-                        menu.addAction(QSL("Open 2D Combined View"), m_q, [this, widgetInfo]() {
-                            auto widget = new Histo2DWidget(widgetInfo.sink, m_context);
-                            widget->setContext(m_context);
-                            m_context->addWidget(widget, widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
-                        });
-                    }
-                } break;
-
-            case NodeType_Histo2DSink:
-                {
-                    if (auto histoSink = qobject_cast<Histo2DSink *>(obj))
-                    {
-                        auto histo = histoSink->m_histo;
-                        if (histo)
-                        {
-                            auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(histoSink->shared_from_this());
-
-                            menu.addAction(QSL("Open Histogram"), m_q, [this, histo, sinkPtr, userLevel]() {
-
-                                if (!m_context->hasObjectWidget(sinkPtr.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                                {
-                                    auto histoPtr = sinkPtr->m_histo;
-                                    auto widget = new Histo2DWidget(histoPtr);
-
-                                    auto context = m_context;
-                                    auto eventId = m_eventId;
-
-                                    widget->setSink(sinkPtr,
-                                                    // addSinkCallback
-                                                    [context, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
-                                                        context->addAnalysisOperator(eventId, sink, userLevel);
-                                                    },
-                                                    // sinkModifiedCallback
-                                                    [context] (const std::shared_ptr<Histo2DSink> &sink) {
-                                                        context->analysisOperatorEdited(sink);
-                                                    },
-                                                    // makeUniqueOperatorNameFunction
-                                                    [context] (const QString &name) {
-                                                        return make_unique_operator_name(context->getAnalysis(), name);
-                                                    });
-
-                                    widget->setContext(m_context);
-
-                                    m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
-                                }
-                                else
-                                {
-                                    m_context->activateObjectWidget(sinkPtr.get());
-                                }
-                            });
-
-                            menu.addAction(QSL("Open Histogram in new window"), m_q,
-                                           [this, histo, sinkPtr, userLevel]() {
-
-                                auto histoPtr = sinkPtr->m_histo;
-                                auto widget = new Histo2DWidget(histoPtr);
-
-                                auto context = m_context;
-                                auto eventId = m_eventId;
-
-                                widget->setSink(sinkPtr,
-                                                // addSinkCallback
-                                                [context, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
-                                                    context->addAnalysisOperator(eventId, sink, userLevel);
-                                                },
-                                                // sinkModifiedCallback
-                                                [context] (const std::shared_ptr<Histo2DSink> &sink) {
-                                                    context->analysisOperatorEdited(sink);
-                                                },
-                                                // makeUniqueOperatorNameFunction
-                                                [context] (const QString &name) {
-                                                    return make_unique_operator_name(context->getAnalysis(), name);
-                                                });
-
-                                widget->setContext(m_context);
-
-                                m_context->addObjectWidget(widget, sinkPtr.get(),
-                                                           sinkPtr->getId().toString());
-                            });
-                        }
-                    }
-                } break;
-
-            case NodeType_Sink:
-                if (auto ex = qobject_cast<ExportSink *>(obj))
-                {
-                    auto sinkPtr = std::dynamic_pointer_cast<ExportSink>(ex->shared_from_this());
-
-                    menu.addAction("Open Status Monitor", m_q, [this, sinkPtr]() {
-                        if (!m_context->hasObjectWidget(sinkPtr.get())
-                            || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                        {
-                            auto widget = new ExportSinkStatusMonitor(sinkPtr, m_context);
-                            m_context->addObjectWidget(widget, sinkPtr.get(),
-                                                       sinkPtr->getId().toString());
-                        }
-                        else
-                        {
-                            m_context->activateObjectWidget(sinkPtr.get());
-                        }
-                    });
-                }
-                break;
-
-            case NodeType_Module:
-                {
-                    auto sink = std::make_shared<Histo1DSink>();
-                    add_newSinkAction(sink->getDisplayName(), sink);
-                } break;
-
-            case NodeType_Directory:
-                {
-                    menu.addAction("Rename", [node] () {
-                        if (auto tw = node->treeWidget())
-                        {
-                            tw->editItem(node);
-                        }
-                    });
-
-                    if (auto dir = get_shared_analysis_object<Directory>(node))
-                    {
-                        menu.addSeparator();
-                        menu.addAction(QIcon::fromTheme("edit-delete"), "Remove", [this, dir] () {
-                            // TODO: QMessageBox::question or similar or undo functionality
-                            removeDirectoryRecursively(dir);
-                        });
-
-                        menuNew->addSeparator();
-                        menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
-                                           &menu, [this, userLevel, dir]() {
-
-                            auto newDir = std::make_shared<Directory>();
-                            newDir->setObjectName("New Directory");
-                            newDir->setUserLevel(userLevel);
-                            newDir->setEventId(m_eventId);
-                            newDir->setDisplayLocation(DisplayLocation::Sink);
-                            dir->push_back(newDir);
-                            m_context->getAnalysis()->addDirectory(newDir);
-                            repopulate();
-
-                            if (auto node = findNode(dir))
-                                node->setExpanded(true);
-
-                            if (auto node = findNode(newDir))
-                                node->treeWidget()->editItem(node);
-                        });
-                        //actionNewIsFirst = true;
-                    }
-                } break;
-        }
-
-        if (auto opRawPtr = qobject_cast<OperatorInterface *>(obj))
-        {
-            auto op = std::dynamic_pointer_cast<OperatorInterface>(opRawPtr->shared_from_this());
-            assert(op);
-
-
-            if (!m_uniqueWidget)
-            {
-                // Edit Display Operator
-                menu.addAction(QSL("&Edit"), [this, userLevel, op]() {
-                    auto dialog = operator_editor_factory(
-                        op, userLevel, ObjectEditorMode::Edit, m_q);
-
-                    //POS dialog->move(QCursor::pos());
-                    dialog->setAttribute(Qt::WA_DeleteOnClose);
-                    dialog->show();
-                    m_uniqueWidget = dialog;
-                    clearAllTreeSelections();
-                    clearAllToDefaultNodeHighlights();
-                });
-
-                if (auto sink = std::dynamic_pointer_cast<SinkInterface>(op))
-                {
-                    menu.addSeparator();
-                    menu.addAction(sink->isEnabled() ? QSL("&Disable") : QSL("E&nable"),
-                                   [this, sink]() {
-                        m_q->toggleSinkEnabled(sink.get());
-                    });
-                }
-
-                menu.addSeparator();
-                menu.addAction(QIcon::fromTheme("edit-delete"), QSL("Remove"), [this, op]() {
-                    // maybe TODO: QMessageBox::question or similar as there's no way to undo the action
-                    m_q->removeOperator(op.get());
-                });
-            }
-        }
-    }
-    else // No node selected
-    {
-        if (m_mode == EventWidgetPrivate::Default && !m_uniqueWidget)
-        {
-            if (userLevel == 0)
-            {
-                {
-                    auto sink = std::make_shared<Histo1DSink>();
-                    add_newSinkAction(sink->getDisplayName(), sink);
-                }
-                {
-                    auto sink = std::make_shared<RateMonitorSink>();
-                    add_newSinkAction(sink->getDisplayName(), sink);
-                }
-            }
-            else
-            {
-                auto analysis = m_context->getAnalysis();
-                auto &registry(analysis->getObjectFactory());
-
-                for (auto sinkName: registry.getSinkNames())
-                {
-                    OperatorPtr sink(registry.makeSink(sinkName));
-                    add_newSinkAction(sink->getDisplayName(), sink);
-                }
-
-                menuNew->addSeparator();
-                menuNew->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Directory"),
-                                   &menu, [this, userLevel]() {
-
-                    auto newDir = std::make_shared<Directory>();
-                    newDir->setObjectName("New Directory");
-                    newDir->setUserLevel(userLevel);
-                    newDir->setEventId(m_eventId);
-                    newDir->setDisplayLocation(DisplayLocation::Sink);
-                    m_context->getAnalysis()->addDirectory(newDir);
-                    repopulate();
-
-                    if (auto node = findNode(newDir))
-                        node->setExpanded(true);
-
-                    if (auto node = findNode(newDir))
-                        node->treeWidget()->editItem(node);
-                });
-            }
-        }
-    }
-
-    if (menuNew->isEmpty())
-    {
-        delete menuNew;
-    }
-    else
-    {
-        auto actionNew = menu.addAction(QSL("New"));
-        actionNew->setMenu(menuNew);
-        menu.addAction(actionNew);
-    }
-
-    if (!menu.isEmpty())
-    {
-        menu.exec(tree->mapToGlobal(pos));
-    }
-#endif
 }
 
 void EventWidgetPrivate::doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
@@ -3253,19 +2925,45 @@ void EventWidgetPrivate::doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint 
         }
     }
 
-    auto selectedSinks = objects_from_nodes<SinkInterface>(getAllSelectedNodes());
-
-    if (!selectedSinks.isEmpty())
+    // Copy/Paste
     {
         menu.addSeparator();
 
-        menu.addAction("E&nable selected", [this, selectedSinks] {
-            setSinksEnabled(selectedSinks, true);
-        });
+        QAction *action;
 
-        menu.addAction("&Disable selected", [this, selectedSinks] {
-            setSinksEnabled(selectedSinks, false);
-        });
+        action = menu.addAction(
+            QIcon::fromTheme("edit-copy"), "Copy",
+            [this, globalSelectedObjects] {
+                copyToClipboard(globalSelectedObjects);
+            }, QKeySequence::Copy);
+
+        action->setEnabled(!globalSelectedObjects.isEmpty());
+
+        action = menu.addAction(
+            QIcon::fromTheme("edit-paste"), "Paste",
+            [this, tree, userLevel] {
+                pasteFromClipboard(tree);
+            }, QKeySequence::Paste);
+
+        action->setEnabled(canPaste());
+    }
+
+    // sink enable/disable
+    {
+        auto selectedSinks = objects_from_nodes<SinkInterface>(getAllSelectedNodes());
+
+        if (!selectedSinks.isEmpty())
+        {
+            menu.addSeparator();
+
+            menu.addAction("E&nable selected", [this, selectedSinks] {
+                setSinksEnabled(selectedSinks, true);
+            });
+
+            menu.addAction("&Disable selected", [this, selectedSinks] {
+                setSinksEnabled(selectedSinks, false);
+            });
+        }
     }
 
     if (!globalSelectedObjects.isEmpty())
@@ -4420,6 +4118,32 @@ AnalysisObjectVector EventWidgetPrivate::getAllSelectedObjects() const
     return objects_from_nodes(getAllSelectedNodes());
 }
 
+/* Returns the concatenation of the individual tree selections. Only top level nodes are
+ * returned, meaning if a tree selection contains and object and its parent directory,
+ * only the parent directory is added to the result.
+ * Note that the results are not sorted in a specific way but reflect the ordering of the
+ * unterlying Qt itemview selection mechanism. */
+QList<QTreeWidgetItem *> EventWidgetPrivate::getTopLevelSelectedNodes() const
+{
+    QList<QTreeWidgetItem *> result;
+
+    for (const auto &trees: m_levelTrees)
+    {
+        result.append(trees.operatorTree->getTopLevelSelectedNodes());
+        result.append(trees.sinkTree->getTopLevelSelectedNodes());
+    }
+
+    return result;
+}
+
+/* Returns the set of selected top-level analysis objects across all userlevel tree widgets.
+ * Note that the results are not sorted in a specific way but reflect the ordering of the
+ * unterlying Qt itemview selection mechanism. */
+AnalysisObjectVector EventWidgetPrivate::getTopLevelSelectedObjects() const
+{
+    return objects_from_nodes(getTopLevelSelectedNodes());
+}
+
 void EventWidgetPrivate::clearSelections()
 {
     for (const auto &trees: m_levelTrees)
@@ -4708,7 +4432,7 @@ void EventWidgetPrivate::actionImport()
      * subselection of objects.
      * The following should happen:
      * Read in the file, check for version errors and create all contained objects.
-     * Place them as is without modifying userlevels or directories.
+     * Place them as is, without modifying userlevels or directories.
      * Regenerate unique IDs
      * Later: for each imported object check if an object of the same type and
      * name exists. If so append a suffix to the object name to make it unique.
@@ -4875,6 +4599,8 @@ QTreeWidgetItem *EventWidgetPrivate::findNode(const AnalysisObjectPtr &obj)
 
 void EventWidgetPrivate::copyToClipboard(const AnalysisObjectVector &objects)
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
     QVector<QByteArray> idData;
     idData.reserve(objects.size());
 
@@ -4900,9 +4626,77 @@ bool EventWidgetPrivate::canPaste()
     return clipboardData->hasFormat(ObjectIdListMIMEType);
 }
 
-void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *tree, s32 userLevel)
+void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 {
-    qDebug() << __PRETTY_FUNCTION__ << tree << userLevel << canPaste();
+    if (!canPaste()) return;
+
+    auto tree = qobject_cast<ObjectTree *>(destTree);
+    assert(tree);
+
+    if (!tree) return;
+
+    const auto mimeType = ObjectIdListMIMEType;
+    auto clipboardData = QGuiApplication::clipboard()->mimeData();
+    auto ids = decode_id_list(clipboardData->data(mimeType));
+    auto analysis = m_context->getAnalysis();
+
+    AnalysisObjectVector srcObjects;
+    srcObjects.reserve(ids.size());
+
+    for (const auto &id: ids)
+    {
+        if (auto srcObject = analysis->getObject(id))
+            srcObjects.push_back(srcObject);
+    }
+
+    if (srcObjects.isEmpty()) return;
+
+    srcObjects = order_objects(expand_objects(srcObjects, analysis), analysis);
+
+    // Maps source object to cloned object
+    QHash<AnalysisObjectPtr, AnalysisObjectPtr> cloneMapping;
+    AnalysisObjectVector cloneVector;
+
+    for (const auto &srcObject: srcObjects)
+    {
+        auto clone = std::shared_ptr<AnalysisObject>(srcObject->clone());
+        cloneMapping.insert(srcObject, clone);
+        cloneVector.push_back(clone);
+    }
+
+    for (auto it = cloneMapping.begin();
+         it != cloneMapping.end();
+         it++)
+    {
+        auto &src   = it.key();
+        auto &clone = it.value();
+
+        if (auto srcParentDir = analysis->getParentDirectory(src))
+        {
+            if (auto cloneParentDir = std::dynamic_pointer_cast<Directory>(
+                    cloneMapping.value(srcParentDir)))
+            {
+                cloneParentDir->push_back(clone);
+            }
+        }
+
+        clone->setObjectName(clone->objectName() + QSL(" Copy"));
+        clone->setUserLevel(tree->getUserLevel());
+
+        if (auto dataSource = std::dynamic_pointer_cast<SourceInterface>(clone))
+        {
+            dataSource->setModuleId(QUuid());
+        }
+    }
+
+    // TODO: internal connections
+
+    {
+        AnalysisPauser pauser(m_context);
+        analysis->addObjects(cloneVector);
+    }
+
+    repopulate();
 }
 
 static const u32 EventWidgetPeriodicRefreshInterval_ms = 1000;
@@ -5078,7 +4872,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
     // Import
     {
         auto action = new QAction(QIcon(QSL(":/folder_import.png")), QSL("Import"), this);
-        action->setToolTip(QSL("Import objects from file to this event."));
+        action->setToolTip(QSL("Import objects from file."));
         action->setStatusTip(action->toolTip());
         m_d->m_actionImport = action;
         connect(m_d->m_actionImport, &QAction::triggered, this, [this] {
@@ -5362,6 +5156,26 @@ QUuid EventWidget::getEventId() const
 void EventWidget::selectObjects(const AnalysisObjectVector &objects)
 {
     m_d->selectObjects(objects);
+}
+
+AnalysisObjectVector EventWidget::getAllSelectedObjects() const
+{
+    return m_d->getAllSelectedObjects();
+}
+
+AnalysisObjectVector EventWidget::getTopLevelSelectedObjects() const
+{
+    return m_d->getTopLevelSelectedObjects();
+}
+
+void EventWidget::copyToClipboard(const AnalysisObjectVector &objects)
+{
+    m_d->copyToClipboard(objects);
+}
+
+void EventWidget::pasteFromClipboard(QTreeWidget *tree)
+{
+    m_d->pasteFromClipboard(tree);
 }
 
 struct AnalysisWidgetPrivate
