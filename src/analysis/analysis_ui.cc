@@ -842,6 +842,8 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 
         qDebug() << __PRETTY_FUNCTION__ << "handling dropped object" << obj.get();
 
+        // fix - variable
+
         const s32 levelDelta = getUserLevel() - obj->getUserLevel();
 
         if (auto sourceDir = analysis->getParentDirectory(obj))
@@ -858,16 +860,22 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 
         if (auto op = analysis->getOperator(id))
         {
+            /* Problems here: dependent operators can be in the set of dropped objects and
+             * can have their userlevel adjusted multiple times. This can move them very
+             * far to the right, leaving gaps of empty userlevels in-between.
+             */
             for (auto dep: collect_dependent_operators(op, CollectFlags::Operators))
             {
-                dep->setUserLevel(dep->getUserLevel() + levelDelta);
+                s32 level = std::max(0, dep->getUserLevel() + levelDelta);
+                dep->setUserLevel(level);
                 movedObjects.append(dep->shared_from_this());
             }
         }
         else if (auto dir = analysis->getDirectory(id))
         {
-            /* FIXME: the dependees of operators inside the directory do need
-             * to have their userlevel adjusted
+            /* NOTE: the dependees of operators inside the directory would need to have
+             * their userlevel adjusted to maintain the "flow from left-to-right"
+             * semantics.
              *
              * Doing the adjustment will create a problem if they have a parent
              * directory. The directory will have contents in multiple
@@ -878,6 +886,9 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
              * Skipping the adjustment can lead to an operator arrangement
              * that's not supposed to be allowed. The user can still manually
              * fix that though.
+             *
+             * For now the adjustment is simply skipped and the user has to rearrange
+             * things if they broke them.
              */
 
             auto childObjects = analysis->getDirectoryContentsRecursively(dir);
@@ -2941,7 +2952,7 @@ void EventWidgetPrivate::doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint 
 
         action = menu.addAction(
             QIcon::fromTheme("edit-paste"), "Paste",
-            [this, tree, userLevel] {
+            [this, tree] {
                 pasteFromClipboard(tree);
             }, QKeySequence::Paste);
 
@@ -4553,8 +4564,16 @@ void EventWidgetPrivate::removeDirectoryRecursively(const DirectoryPtr &dir)
     repopulate();
 }
 
+QDebug &operator<<(QDebug &dbg, const AnalysisObjectPtr &obj)
+{
+    dbg << obj.get() << ", id =" << (obj ? obj->getId() : QSL(""));
+    return dbg;
+}
+
 void EventWidgetPrivate::removeObjects(const AnalysisObjectVector &objects)
 {
+    qDebug() << __PRETTY_FUNCTION__ << objects;
+
     if (!objects.isEmpty())
     {
         AnalysisPauser pauser(m_context);
@@ -4635,10 +4654,19 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 
     if (!tree) return;
 
+    DirectoryPtr destDir;
+
+    if (tree->currentItem() && tree->currentItem()->type() == NodeType_Directory)
+    {
+        destDir = get_shared_analysis_object<Directory>(tree->currentItem());
+    }
+
     const auto mimeType = ObjectIdListMIMEType;
     auto clipboardData = QGuiApplication::clipboard()->mimeData();
     auto ids = decode_id_list(clipboardData->data(mimeType));
     auto analysis = m_context->getAnalysis();
+
+    check_directory_consistency(analysis->getDirectories());
 
     AnalysisObjectVector srcObjects;
     srcObjects.reserve(ids.size());
@@ -4656,13 +4684,25 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
     // Maps source object to cloned object
     QHash<AnalysisObjectPtr, AnalysisObjectPtr> cloneMapping;
     AnalysisObjectVector cloneVector;
+    QSet<QString> srcObjectNames;
+    DirectoryVector clonedDirectories;
 
     for (const auto &srcObject: srcObjects)
     {
         auto clone = std::shared_ptr<AnalysisObject>(srcObject->clone());
         cloneMapping.insert(srcObject, clone);
         cloneVector.push_back(clone);
+
+        srcObjectNames.insert(srcObject->objectName());
+
+        if (auto dir = std::dynamic_pointer_cast<Directory>(clone))
+        {
+            clonedDirectories.push_back(dir);
+            assert(dir->getMembers().isEmpty());
+        }
     }
+
+    check_directory_consistency(clonedDirectories);
 
     for (auto it = cloneMapping.begin();
          it != cloneMapping.end();
@@ -4671,32 +4711,84 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
         auto &src   = it.key();
         auto &clone = it.value();
 
-        if (auto srcParentDir = analysis->getParentDirectory(src))
-        {
-            if (auto cloneParentDir = std::dynamic_pointer_cast<Directory>(
-                    cloneMapping.value(srcParentDir)))
-            {
-                cloneParentDir->push_back(clone);
-            }
-        }
-
         clone->setObjectName(clone->objectName() + QSL(" Copy"));
         clone->setUserLevel(tree->getUserLevel());
 
         if (auto dataSource = std::dynamic_pointer_cast<SourceInterface>(clone))
         {
+            // Remove cloned data sources from their module, making them unassigned.
             dataSource->setModuleId(QUuid());
+        }
+
+        if (auto srcParentDir = analysis->getParentDirectory(src))
+        {
+            // The source has a parent directory. Put the clone into the equivalent cloned
+            // directory.
+            if (auto cloneParentDir = std::dynamic_pointer_cast<Directory>(
+                    cloneMapping.value(srcParentDir)))
+            {
+                cloneParentDir->push_back(clone);
+                check_directory_consistency(clonedDirectories);
+            }
+            else if (destDir)
+            {
+                // The source object does not have a parent directory, meaning it's a
+                // top-level item.
+                // If pasting into a directory all the top-level clones have to be moved.
+                destDir->push_back(clone);
+                check_directory_consistency(clonedDirectories);
+            }
+        }
+        else if (destDir)
+        {
+            // The source object does not have a parent directory, meaning it's a
+            // top-level item.
+            // If pasting into a directory all the top-level clones have to be moved.
+            destDir->push_back(clone);
+            check_directory_consistency(clonedDirectories);
+        }
+
+        // TODO: proper unique object names
+        //while (srcObjectNames.contains(clone->objectName()))
+        //{
+        //    QRegularExpression re(".*\\ Copy\\ \\d*");
+        //}
+    }
+
+    check_directory_consistency(clonedDirectories);
+    check_directory_consistency(analysis->getDirectories());
+
+    // Collect, rewrite and restore internal collections of the cloned objects
+    QSet<Connection> srcConnections = collect_internal_collections(srcObjects);
+    QSet<Connection> dstConnections;
+
+    for (auto con: srcConnections)
+    {
+        auto srcClone = std::dynamic_pointer_cast<PipeSourceInterface>(
+            cloneMapping.value(con.srcObject));
+
+        auto dstClone = std::dynamic_pointer_cast<OperatorInterface>(
+            cloneMapping.value(con.dstObject));
+
+        if (srcClone && dstClone)
+        {
+            con.srcObject = srcClone;
+            con.dstObject = dstClone;
+
+            dstConnections.insert(con);
         }
     }
 
-    // TODO: internal connections
+    establish_connections(dstConnections);
 
     {
         AnalysisPauser pauser(m_context);
         analysis->addObjects(cloneVector);
+        check_directory_consistency(analysis->getDirectories());
     }
 
     repopulate();
+    selectObjects(cloneVector);
 }
 
 static const u32 EventWidgetPeriodicRefreshInterval_ms = 1000;

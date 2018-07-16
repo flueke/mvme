@@ -152,7 +152,7 @@ class LIBMVME_EXPORT AnalysisObject:
 
         /* User defined level used for UI display structuring. */
         s32 getUserLevel() const { return m_userLevel; }
-        void setUserLevel(s32 level) { m_userLevel = level; }
+        void setUserLevel(s32 level);
 
         /* JSON serialization and cloning */
         virtual void read(const QJsonObject &json) = 0;
@@ -526,6 +526,7 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
         using MemberContainer = QVector<QUuid>;
         using iterator        = MemberContainer::iterator;
         using const_iterator  = MemberContainer::const_iterator;
+        using MemberSet       = QSet<QUuid>;
 
         Q_INVOKABLE Directory(QObject *parent = nullptr);
 
@@ -534,6 +535,7 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
 
         MemberContainer getMembers() const { return m_members; }
         void setMembers(const MemberContainer &members) { m_members = members; }
+        MemberSet getMemberSet() const;
 
         void push_back(const AnalysisObjectPtr &obj) { m_members.push_back(obj->getId()); }
         void push_back(AnalysisObjectPtr &&obj) { m_members.push_back(obj->getId()); }
@@ -571,10 +573,18 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
 
         virtual void accept(ObjectVisitor &visitor) override;
 
+    protected:
+        // Empties the newly cloned directory. This is to avoid objects having multiple
+        // parent directories after the parent was cloned.
+        virtual void postClone(const AnalysisObject *cloneSource) override;
+
     private:
         MemberContainer m_members;
         DisplayLocation m_displayLocation;
 };
+
+bool check_directory_consistency(const DirectoryVector &dirs);
+
 
 } // end namespace analysis
 
@@ -1593,30 +1603,10 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         DirectoryPtr getDirectory(const QUuid &id) const;
 
-        void setDirectories(const DirectoryVector &dirs)
-        {
-            m_directories = dirs;
-            setModified();
-        }
-
-        void addDirectory(const DirectoryPtr &dir)
-        {
-            qDebug() << __PRETTY_FUNCTION__;
-            m_directories.push_back(dir);
-            setModified();
-        }
-
-        void removeDirectory(const DirectoryPtr &dir)
-        {
-            int index = m_directories.indexOf(dir);
-            removeDirectory(index);
-        }
-
-        void removeDirectory(int index)
-        {
-            m_directories.removeAt(index);
-            setModified();
-        }
+        void setDirectories(const DirectoryVector &dirs);
+        void addDirectory(const DirectoryPtr &dir);
+        void removeDirectory(const DirectoryPtr &dir);
+        void removeDirectory(int index);
 
         int directoryCount() const { return m_directories.size(); }
 

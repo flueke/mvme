@@ -388,6 +388,8 @@ AnalysisObjectStore deserialize_objects(QJsonObject data,
 
                 result.operators.push_back(op);
                 result.objectsById.insert(op->getId(), op);
+
+                assert(op->getUserLevel() >= 0);
             }
         }
     }
@@ -409,6 +411,8 @@ AnalysisObjectStore deserialize_objects(QJsonObject data,
 
             result.directories.push_back(dir);
             result.objectsById.insert(dir->getId(), dir);
+
+            assert(dir->getUserLevel() >= 0);
         }
     }
 

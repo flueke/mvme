@@ -185,6 +185,11 @@ static const int CurrentAnalysisVersion = 3;
 // AnalysisObject
 //
 
+void AnalysisObject::setUserLevel(s32 level)
+{
+    m_userLevel = std::max(0, level);
+}
+
 std::unique_ptr<AnalysisObject> AnalysisObject::clone() const
 {
     auto qobjectPtr  = metaObject()->newInstance();
@@ -356,10 +361,6 @@ void SinkInterface::postClone(const AnalysisObject *cloneSource)
 // Directory
 //
 
-Directory::Directory(QObject *parent)
-    : AnalysisObject(parent)
-{ }
-
 QString to_string(const DisplayLocation &loc)
 {
     switch (loc)
@@ -390,6 +391,22 @@ DisplayLocation displayLocation_from_string(const QString &str_)
     return DisplayLocation::Any;
 }
 
+Directory::Directory(QObject *parent)
+    : AnalysisObject(parent)
+{ }
+
+Directory::MemberSet Directory::getMemberSet() const
+{
+    MemberSet result;
+
+    for (const auto &id: m_members)
+    {
+        result.insert(id);
+    }
+
+    return result;
+}
+
 void Directory::read(const QJsonObject &json)
 {
     m_members.clear();
@@ -417,10 +434,51 @@ void Directory::write(QJsonObject &json) const
     json["displayLocation"] = to_string(getDisplayLocation());
 }
 
+void Directory::postClone(const AnalysisObject *cloneSource)
+{
+    m_members.clear();
+    AnalysisObject::postClone(cloneSource);
+}
+
 void Directory::accept(ObjectVisitor &visitor)
 {
     visitor.visit(this);
 }
+
+bool check_directory_consistency(const DirectoryVector &dirs)
+{
+#ifndef QT_NO_DEBUG
+    qDebug() << __PRETTY_FUNCTION__;
+
+    QHash<DirectoryPtr, Directory::MemberSet> memberSets;
+
+    for (const auto &dir: dirs)
+    {
+        memberSets.insert(dir, dir->getMemberSet());
+    }
+
+    Directory::MemberSet allMembers;
+
+    for (auto it = memberSets.begin();
+         it != memberSets.end();
+         it++)
+    {
+        auto &dir = it.key();
+        auto &set = it.value();
+
+        if (allMembers.intersects(set))
+        {
+            qDebug() << __PRETTY_FUNCTION__ << dir;
+            assert(false);
+        }
+
+        allMembers.unite(set);
+    }
+#endif
+
+    return true;
+}
+
 
 //
 // Extractor
@@ -3495,10 +3553,49 @@ DirectoryPtr Analysis::getDirectory(const QUuid &id) const
     return nullptr;
 }
 
+void Analysis::setDirectories(const DirectoryVector &dirs)
+{
+    m_directories = dirs;
+    setModified();
+}
+
+void Analysis::addDirectory(const DirectoryPtr &dir)
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    m_directories.push_back(dir);
+    setModified();
+}
+
+void Analysis::removeDirectory(const DirectoryPtr &dir)
+{
+    int index = m_directories.indexOf(dir);
+    removeDirectory(index);
+}
+
+void Analysis::removeDirectory(int index)
+{
+    m_directories.removeAt(index);
+    setModified();
+}
+
 DirectoryPtr Analysis::getParentDirectory(const AnalysisObjectPtr &obj) const
 {
-    // Returns the first parent directory that contains the given object.
+#ifndef QT_NO_DEBUG
+    // Consistency check making sure that the object is not a member of multiple
+    // directories.
+    bool found = false;
 
+    for (const auto &dir: m_directories)
+    {
+        if (dir->contains(obj))
+        {
+            assert(!found);
+            found = true;
+        }
+    }
+#endif
+
+    // Returns the first parent directory that contains the given object.
     for (const auto &dir: m_directories)
     {
         if (dir->contains(obj))
