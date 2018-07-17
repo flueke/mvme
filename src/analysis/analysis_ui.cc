@@ -3387,7 +3387,9 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
             {
                 qDebug() << "click on object: id =" << obj->getId()
                     << ", class =" << obj->metaObject()->className()
-                    << ", flags =" << to_string(obj->getObjectFlags());
+                    << ", flags =" << to_string(obj->getObjectFlags())
+                    << ", ulvl  =" << obj->getUserLevel()
+                    ;
             }
             break;
     }
@@ -3873,13 +3875,17 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
 
             auto hitCounts = to_qvector(ds_a2->hitCounts);
 
+            if (hitCounts.size() != node->childCount())
+                continue;
+
             auto &prevHitCounts = m_extractorCounters[source].hitCounts;
 
             prevHitCounts.resize(hitCounts.size());
 
             auto hitCountDeltas = calc_deltas0(hitCounts, prevHitCounts);
             auto hitCountRates = hitCountDeltas;
-            std::for_each(hitCountRates.begin(), hitCountRates.end(), [dt_s](double &d) { d /= dt_s; });
+            std::for_each(hitCountRates.begin(), hitCountRates.end(),
+                          [dt_s](double &d) { d /= dt_s; });
 
             Q_ASSERT(hitCounts.size() == node->childCount());
 
@@ -3967,7 +3973,8 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
                 auto entryCountDeltas = calc_deltas0(entryCounts, prevEntryCounts);
                 auto entryCountRates = entryCountDeltas;
-                std::for_each(entryCountRates.begin(), entryCountRates.end(), [dt_s](double &d) { d /= dt_s; });
+                std::for_each(entryCountRates.begin(), entryCountRates.end(),
+                              [dt_s](double &d) { d /= dt_s; });
 
                 auto maxCount = std::min(entryCounts.size(), node->childCount());
 
