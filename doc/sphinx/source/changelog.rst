@@ -2,6 +2,34 @@
 Changelog
 ##################################################
 
+0.9.5
+-------
+This version contains major enhancements to the analysis user interface and
+handling of analysis objects.
+
+* It is now possible to export an object selection to a library file and import
+  objects from library files.
+
+* Directory objects have been added which, in addition to the previously
+  existing userlevels, allow to further structure an analysis.
+
+  Directories can contain operators, data sinks (histograms, rate monitors,
+  etc.) and  other directories.
+
+* Objects can now be moved between userlevels and directories using drag and
+  drop.
+
+* A copy/paste mechanism has been implemented which allows creating a copy of a
+  selection of objects.
+
+  If internally connected objects are copie and then pasted the connections
+  will be restored on the copies.
+
+Other fixes and changes:
+
+* Improved hostname lookups for the SIS3153 under Windows. The result is now
+  up-to-date without requiring a restart of mvme.
+
 0.9.4.1
 -------
 * Fix expression operator GUI not properly loading indexed parameter
