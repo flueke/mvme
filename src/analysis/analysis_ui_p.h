@@ -455,6 +455,8 @@ class DataSourceTree: public OperatorTree
     public:
         using OperatorTree::OperatorTree;
 
+        virtual ~DataSourceTree() override;
+
         QTreeWidgetItem *unassignedDataSourcesRoot = nullptr;
 
     protected:
@@ -471,6 +473,8 @@ class SinkTree: public ObjectTree
     Q_OBJECT
     public:
         using ObjectTree::ObjectTree;
+
+        virtual ~SinkTree() override;
 
     protected:
         virtual QStringList mimeTypes() const override;

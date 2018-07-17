@@ -634,6 +634,12 @@ Qt::DropActions ObjectTree::supportedDropActions() const
 }
 
 // DataSourceTree
+
+DataSourceTree::~DataSourceTree()
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+}
+
 QStringList DataSourceTree::mimeTypes() const
 {
     return { DataSourceIdListMIMEType };
@@ -930,6 +936,12 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 }
 
 // SinkTree
+
+SinkTree::~SinkTree()
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+}
+
 QStringList SinkTree::mimeTypes() const
 {
     return { SinkIdListMIMEType };
@@ -937,6 +949,8 @@ QStringList SinkTree::mimeTypes() const
 
 QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
 {
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
     QVector<QByteArray> idData;
 
     for (auto node: nodes)

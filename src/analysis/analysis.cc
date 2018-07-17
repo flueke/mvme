@@ -3908,7 +3908,10 @@ void Analysis::beginRun(const RunInfo &runInfo,
 
     qDebug() << __PRETTY_FUNCTION__
         << "fullBuild =" << fullBuild
-        << ", keepAnalysisState =" << runInfo.keepAnalysisState;
+        << ", keepAnalysisState =" << runInfo.keepAnalysisState
+        << ", runId =" << runInfo.runId
+        << ", localFlags =" << to_string(getObjectFlags())
+        ;
 
     m_runInfo = runInfo;
     m_vmeMap = vmeMap;
