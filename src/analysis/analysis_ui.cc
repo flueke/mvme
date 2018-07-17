@@ -742,8 +742,9 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
         getEventWidget()->selectObjects(droppedObjects);
     }
 
-    /* Returning false here to circumvent a crash which seems to be caused by
-     * Qt updating the source of the drop operation. */
+    /* Returning false here to circumvent a crash which seems to be caused by Qt updating
+     * the source of the drop operation which can not work as the tree is rebuilt in
+     * repopulate(). */
     return false;
 }
 
@@ -807,6 +808,9 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
                                 const QMimeData *data,
                                 Qt::DropAction action)
 {
+    /* Note: This code assumes that only top level items are passed in via the mime data
+     * object. OperatorTree::mimeData() guarantees this. */
+
     const auto mimeType = OperatorIdListMIMEType;
 
     if (action != Qt::MoveAction)
@@ -829,49 +833,57 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
             get_pointer<Directory>(parentItem)->shared_from_this());
     }
 
-    bool didModify = false;
     auto analysis = getEventWidget()->getContext()->getAnalysis();
 
-    AnalysisObjectVector movedObjects;
-    movedObjects.reserve(ids.size());
+    AnalysisObjectSet dropSet;
 
-    for (auto &id: ids)
+    for (const auto &id: ids)
     {
-        auto obj = analysis->getObject(id);
+        if (auto obj = analysis->getObject(id))
+            dropSet.insert(obj);
+    }
+
+    if (dropSet.isEmpty()) return false;
+
+    AnalysisObjectVector movedObjects;
+    movedObjects.reserve(dropSet.size());
+
+    const s32 destUserLevel = getUserLevel();
+
+    for (auto &obj: dropSet)
+    {
+        const s32 levelDelta = destUserLevel - obj->getUserLevel();
+
+        obj->setUserLevel(destUserLevel);
+
         movedObjects.append(obj);
-
-        qDebug() << __PRETTY_FUNCTION__ << "handling dropped object" << obj.get();
-
-        // fix - variable
-
-        const s32 levelDelta = getUserLevel() - obj->getUserLevel();
 
         if (auto sourceDir = analysis->getParentDirectory(obj))
         {
             sourceDir->remove(obj);
         }
 
-        if (destDir)
+        if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
         {
-            destDir->push_back(obj);
-        }
-
-        obj->setUserLevel(getUserLevel());
-
-        if (auto op = analysis->getOperator(id))
-        {
-            /* Problems here: dependent operators can be in the set of dropped objects and
-             * can have their userlevel adjusted multiple times. This can move them very
-             * far to the right, leaving gaps of empty userlevels in-between.
-             */
-            for (auto dep: collect_dependent_operators(op, CollectFlags::Operators))
+            for (auto &depRaw: collect_dependent_operators(op, CollectFlags::Operators))
             {
-                s32 level = std::max(0, dep->getUserLevel() + levelDelta);
+                auto dep = depRaw->shared_from_this();
+
+                // avoid adjusting the same object multiple times
+                if (dropSet.contains(dep))
+                    continue;
+
+                // XXX: This code retains relative userlevel differences.
+                //s32 level = std::max(0, dep->getUserLevel() + levelDelta);
+
+                // XXX: This code sets the fixed destUserLevel on dependencies aswell
+                s32 level = destUserLevel;
+
                 dep->setUserLevel(level);
-                movedObjects.append(dep->shared_from_this());
+                movedObjects.append(dep);
             }
         }
-        else if (auto dir = analysis->getDirectory(id))
+        else if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
         {
             /* NOTE: the dependees of operators inside the directory would need to have
              * their userlevel adjusted to maintain the "flow from left-to-right"
@@ -895,26 +907,22 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 
             for (auto &childObject: childObjects)
             {
-                childObject->setUserLevel(getUserLevel());
+                childObject->setUserLevel(destUserLevel);
+                movedObjects.append(childObject);
             }
         }
-
-        didModify = true;
     }
 
-    if (didModify)
-    {
-        analysis->setModified();
-        auto eventWidget = getEventWidget();
-        eventWidget->repopulate();
-        eventWidget->selectObjects(movedObjects);
+    analysis->setModified();
+    auto eventWidget = getEventWidget();
+    eventWidget->repopulate();
+    eventWidget->selectObjects(movedObjects);
 
-        if (destDir)
+    if (destDir)
+    {
+        if (auto node = eventWidget->findNode(destDir))
         {
-            if (auto node = eventWidget->findNode(destDir))
-            {
-                node->setExpanded(true);
-            }
+            node->setExpanded(true);
         }
     }
 
