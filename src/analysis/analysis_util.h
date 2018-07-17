@@ -85,10 +85,18 @@ template<typename It>
 
 AnalysisObjectSet to_set(const AnalysisObjectVector &objects);
 
-inline bool is_sink(OperatorInterface *op)
+inline bool is_sink(AnalysisObject *obj)
 {
-    return qobject_cast<SinkInterface *>(op);
+    return qobject_cast<SinkInterface *>(obj);
 }
+
+inline bool is_sink(const AnalysisObjectPtr &obj)
+{
+    return is_sink(obj.get());
+}
+
+QSet<QString> get_object_names(const AnalysisObjectVector &objects);
+QString make_clone_name(const QString &currentName, const QSet<QString> &allNames);
 
 } // namespace analysis
 

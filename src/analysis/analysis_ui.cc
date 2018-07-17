@@ -755,7 +755,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
         // until the next DAQ/replay start. Event then the UI won't be updated as it
         // doesn't know that the structure changed.
         // This is a systematic problem: the rebuild in the streamworker thread can cause
-        // changed which mean the GUI should be updated, but the GUI will never know.
+        // changes which means the GUI should be updated, but the GUI will never know.
         analysis->beginRun(Analysis::KeepState);
     }
 
@@ -767,7 +767,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
     }
 
     /* Returning false here to circumvent a crash which seems to be caused by Qt updating
-     * the source of the drop operation which can not work as the tree is rebuilt in
+     * the source of the drop operation which cannot work as the tree is rebuilt in
      * repopulate(). */
     return false;
 }
@@ -4774,7 +4774,6 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
     // Maps source object to cloned object
     QHash<AnalysisObjectPtr, AnalysisObjectPtr> cloneMapping;
     AnalysisObjectVector cloneVector;
-    QSet<QString> srcObjectNames;
 
 #ifndef QT_NO_DEBUG
     DirectoryVector clonedDirectories;
@@ -4789,8 +4788,6 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
         cloneMapping.insert(srcObject, clone);
         cloneVector.push_back(clone);
 
-        srcObjectNames.insert(srcObject->objectName());
-
 #ifndef QT_NO_DEBUG
         if (auto dir = std::dynamic_pointer_cast<Directory>(clone))
         {
@@ -4802,6 +4799,8 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 
     check_cloned_dirs;
 
+    auto allNames = get_object_names(analysis->getAllObjects());
+
     for (auto it = cloneMapping.begin();
          it != cloneMapping.end();
          it++)
@@ -4809,8 +4808,8 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
         auto &src   = it.key();
         auto &clone = it.value();
 
-        clone->setObjectName(clone->objectName() + QSL(" Copy"));
-
+        clone->setObjectName(make_clone_name(clone->objectName(), allNames));
+        allNames.insert(clone->objectName());
 
         if (!(qobject_cast<SinkInterface *>(clone.get()) && clone->getUserLevel() == 0))
         {
@@ -4836,7 +4835,6 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
             }
             else if (destDir && may_move_into(clone, destDir))
             {
-                // If pasting into a directory all the top-level clones have to be moved.
                 destDir->push_back(clone);
                 check_cloned_dirs;
             }

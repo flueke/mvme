@@ -345,6 +345,7 @@ if(BUILD_TESTS)
     endfunction(add_mvme_gtest)
 
     add_mvme_gtest(test_object_visitor analysis/test_object_visitor.cc)
+    add_mvme_gtest(test_analysis_util analysis/test_analysis_util.cc)
 
 endif(BUILD_TESTS)
 
