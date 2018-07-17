@@ -4660,6 +4660,46 @@ bool EventWidgetPrivate::canPaste()
     return clipboardData->hasFormat(ObjectIdListMIMEType);
 }
 
+namespace
+{
+
+bool may_move_into(const AnalysisObject *obj, const Directory *destDir)
+{
+    assert(obj);
+    assert(destDir);
+
+    if (qobject_cast<SourceInterface *>(obj))
+        return false;
+
+    if (qobject_cast<SinkInterface *>(obj))
+    {
+        // "raw" sinks, have to stay in userlevel 0
+        if (obj->getUserLevel() == 0)
+            return false;
+
+        return destDir->getDisplayLocation() == DisplayLocation::Sink;
+    }
+
+    if (qobject_cast<OperatorInterface *>(obj))
+    {
+        return destDir->getDisplayLocation() == DisplayLocation::Operator;
+    }
+
+    if (auto dir = qobject_cast<const Directory *>(obj))
+    {
+        return destDir->getDisplayLocation() == dir->getDisplayLocation();
+    }
+
+    return false;
+}
+
+bool may_move_into(const AnalysisObjectPtr &obj, const DirectoryPtr &destDir)
+{
+    return may_move_into(obj.get(), destDir.get());
+}
+
+} // end anon namespace
+
 void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 {
     if (!canPaste()) return;
@@ -4700,7 +4740,13 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
     QHash<AnalysisObjectPtr, AnalysisObjectPtr> cloneMapping;
     AnalysisObjectVector cloneVector;
     QSet<QString> srcObjectNames;
+
+#ifndef QT_NO_DEBUG
     DirectoryVector clonedDirectories;
+#define check_cloned_dirs check_directory_consistency(clonedDirectories)
+#else
+#define check_cloned_dirs
+#endif
 
     for (const auto &srcObject: srcObjects)
     {
@@ -4710,14 +4756,16 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 
         srcObjectNames.insert(srcObject->objectName());
 
+#ifndef QT_NO_DEBUG
         if (auto dir = std::dynamic_pointer_cast<Directory>(clone))
         {
             clonedDirectories.push_back(dir);
             assert(dir->getMembers().isEmpty());
         }
+#endif
     }
 
-    check_directory_consistency(clonedDirectories);
+    check_cloned_dirs;
 
     for (auto it = cloneMapping.begin();
          it != cloneMapping.end();
@@ -4727,7 +4775,13 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
         auto &clone = it.value();
 
         clone->setObjectName(clone->objectName() + QSL(" Copy"));
-        clone->setUserLevel(tree->getUserLevel());
+
+
+        if (!(qobject_cast<SinkInterface *>(clone.get()) && clone->getUserLevel() == 0))
+        {
+            // Objects other than non-raw sinks have their userlevel adjusted
+            clone->setUserLevel(tree->getUserLevel());
+        }
 
         if (auto dataSource = std::dynamic_pointer_cast<SourceInterface>(clone))
         {
@@ -4743,24 +4797,22 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
                     cloneMapping.value(srcParentDir)))
             {
                 cloneParentDir->push_back(clone);
-                check_directory_consistency(clonedDirectories);
+                check_cloned_dirs;
             }
-            else if (destDir)
+            else if (destDir && may_move_into(clone, destDir))
             {
-                // The source object does not have a parent directory, meaning it's a
-                // top-level item.
                 // If pasting into a directory all the top-level clones have to be moved.
                 destDir->push_back(clone);
-                check_directory_consistency(clonedDirectories);
+                check_cloned_dirs;
             }
         }
-        else if (destDir)
+        else if (destDir && may_move_into(clone, destDir))
         {
             // The source object does not have a parent directory, meaning it's a
             // top-level item.
             // If pasting into a directory all the top-level clones have to be moved.
             destDir->push_back(clone);
-            check_directory_consistency(clonedDirectories);
+            check_cloned_dirs;
         }
 
         // TODO: proper unique object names
@@ -4770,7 +4822,7 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
         //}
     }
 
-    check_directory_consistency(clonedDirectories);
+    check_cloned_dirs;
     check_directory_consistency(analysis->getDirectories());
 
     // Collect, rewrite and restore internal collections of the cloned objects
