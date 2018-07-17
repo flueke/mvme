@@ -707,12 +707,17 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
 
     if (!parentItem || parentItem == unassignedDataSourcesRoot)
     {
+        // move from module to unassigned
+
         AnalysisPauser pauser(getContext());
 
         for (auto &id: ids)
         {
             if (auto source = analysis->getSource(id))
             {
+                qDebug() << __PRETTY_FUNCTION__ <<
+                    "removing module assignment from data source " << source.get();
+
                 source->setModuleId(QUuid());
                 analysis->sourceEdited(source);
                 droppedObjects.append(source);
@@ -723,6 +728,8 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
     }
     else if (parentItem && parentItem->type() == NodeType_Module)
     {
+        // assign to module
+
         auto module = qobject_cast<ModuleConfig *>(get_qobject(parentItem));
         assert(module);
 
@@ -732,6 +739,9 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
         {
             if (auto source = analysis->getSource(id))
             {
+                qDebug() << __PRETTY_FUNCTION__
+                    << "assigning source " << source.get() << " to module " << module;
+
                 source->setModuleId(module->getId());
                 analysis->sourceEdited(source);
                 droppedObjects.append(source);
@@ -739,6 +749,14 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
         }
 
         didModify = true;
+        // HACK: rebuild analysis here so that the changes are visible to the repopulate()
+        // call below. If this is not done and the analysis is idle the pauser won't issue
+        // the call to MVMEStreamWorker::start() and thus the analysis won't be rebuilt
+        // until the next DAQ/replay start. Event then the UI won't be updated as it
+        // doesn't know that the structure changed.
+        // This is a systematic problem: the rebuild in the streamworker thread can cause
+        // changed which mean the GUI should be updated, but the GUI will never know.
+        analysis->beginRun(Analysis::KeepState);
     }
 
     if (didModify)
@@ -999,6 +1017,8 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
                             const QMimeData *data,
                             Qt::DropAction action)
 {
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
     const auto mimeType = SinkIdListMIMEType;
 
     if (getUserLevel() == 0)
@@ -1354,7 +1374,8 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
 
         auto sources = analysis->getSources(eventId, mod->getId());
 
-#ifndef QT_NO_DEBUG
+#if 0
+//#ifndef QT_NO_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << ">>>>> sources in order:";
         for (auto source: sources)
         {
