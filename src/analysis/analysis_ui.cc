@@ -4799,7 +4799,7 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 
     check_cloned_dirs;
 
-    auto allNames = get_object_names(analysis->getAllObjects());
+    auto namesByMetaType = group_object_names_by_metatype(analysis->getAllObjects());
 
     for (auto it = cloneMapping.begin();
          it != cloneMapping.end();
@@ -4808,8 +4808,10 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
         auto &src   = it.key();
         auto &clone = it.value();
 
-        clone->setObjectName(make_clone_name(clone->objectName(), allNames));
-        allNames.insert(clone->objectName());
+        auto cloneName = make_clone_name(clone->objectName(),
+                                         namesByMetaType[clone->metaObject()]);
+        clone->setObjectName(cloneName);
+        namesByMetaType[clone->metaObject()].insert(cloneName);
 
         if (!(qobject_cast<SinkInterface *>(clone.get()) && clone->getUserLevel() == 0))
         {
@@ -4847,12 +4849,6 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
             destDir->push_back(clone);
             check_cloned_dirs;
         }
-
-        // TODO: proper unique object names
-        //while (srcObjectNames.contains(clone->objectName()))
-        //{
-        //    QRegularExpression re(".*\\ Copy\\ \\d*");
-        //}
     }
 
     check_cloned_dirs;

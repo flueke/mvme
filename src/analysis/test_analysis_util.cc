@@ -5,19 +5,39 @@ using namespace analysis;
 
 TEST(analysis_util, CloneNames)
 {
-    QSet<QString> names;
-    QString clone;
-    auto name = QSL("Name");
+    {
+        QSet<QString> names;
+        QString clone;
+        auto name = QSL("Name");
 
-    clone = make_clone_name(name, names);
-    ASSERT_EQ(clone, QString("Name"));
-    names.insert(clone);
+        clone = make_clone_name(name, names);
+        ASSERT_EQ(clone, QString("Name"));
+    }
 
-    clone = make_clone_name(name, names);
-    ASSERT_EQ(clone, QString("Name Copy"));
-    names.insert(clone);
+    {
+        QSet<QString> names = { QSL("Name") };
+        QString clone;
+        auto name = QSL("Name");
 
-    clone = make_clone_name(name, names);
-    ASSERT_EQ(clone, QString("Name Copy1"));
-    names.insert(clone);
+        clone = make_clone_name(name, names);
+        ASSERT_EQ(clone, QString("Name Copy"));
+    }
+
+    {
+        QSet<QString> names = { QSL("Name"), QSL("Name Copy") };
+        QString clone;
+        auto name = QSL("Name");
+
+        clone = make_clone_name(name, names);
+        ASSERT_EQ(clone, QString("Name Copy1"));
+    }
+
+    {
+        QSet<QString> names = { QSL("Name"), QSL("Name Copy"), QSL("Name Copy1") };
+        QString clone;
+        auto name = QSL("Name");
+
+        clone = make_clone_name(name, names);
+        ASSERT_EQ(clone, QString("Name Copy2"));
+    }
 }

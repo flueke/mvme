@@ -95,8 +95,14 @@ inline bool is_sink(const AnalysisObjectPtr &obj)
     return is_sink(obj.get());
 }
 
-QSet<QString> get_object_names(const AnalysisObjectVector &objects);
-QString make_clone_name(const QString &currentName, const QSet<QString> &allNames);
+
+using StringSet = QSet<QString>;
+using NamesByMetaObject = QHash<const QMetaObject *, StringSet>;
+
+StringSet get_object_names(const AnalysisObjectVector &objects);
+NamesByMetaObject group_object_names_by_metatype(const AnalysisObjectVector &objects);
+
+QString make_clone_name(const QString &currentName, const StringSet &allNames);
 
 } // namespace analysis
 

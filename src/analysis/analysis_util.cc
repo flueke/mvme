@@ -155,33 +155,45 @@ QSet<QString> get_object_names(const AnalysisObjectVector &objects)
     return result;
 }
 
-static const char *CloneNameRegexp = "^.+(?<suffix>\\ Copy(?<counter>\\d+)?)$";
+NamesByMetaObject group_object_names_by_metatype(const AnalysisObjectVector &objects)
+{
+    NamesByMetaObject result;
 
-QString make_clone_name(const QString &currentName, const QSet<QString> &allNames)
+    for (auto &obj: objects)
+    {
+        result[obj->metaObject()].insert(obj->objectName());
+    }
+
+    return result;
+}
+
+// Note: the first '+?' is the ungreedy version of '+'
+// A great regex debugging helper can be found here: https://regex101.com/
+static const char *CloneNameRegexp = "^.+?(?<suffix>\\ Copy(?<counter>\\d+)?)$";
+
+QString make_clone_name(const QString &currentName, const StringSet &allNames)
 {
     if (currentName.isEmpty()) return currentName;
 
     QString result = currentName;
-    u32 counter = 0;
 
     while (allNames.contains(result))
     {
         static const QRegularExpression re(CloneNameRegexp);
         auto match = re.match(result);
-        assert(match.hasMatch());
 
-        if (match.capturedRef(QSL("suffix")).isNull())
+        if (!match.hasMatch() || match.capturedRef(QSL("suffix")).isNull())
         {
             result += QSL(" Copy");
         }
         else if (match.capturedRef(QSL("counter")).isNull())
         {
-            result += QString::number(counter);
+            result += QString::number(1);
         }
         else
         {
             auto sref = match.capturedRef(QSL("counter"));
-            counter = sref.toULong() + 1;
+            ulong counter = sref.toULong() + 1;
 
             result.replace(match.capturedStart(QSL("counter")),
                            match.capturedLength(QSL("counter")),
