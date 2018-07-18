@@ -813,7 +813,8 @@ static bool is_set_to_min(QDoubleSpinBox *spin)
     return (spin->value() == spin->minimum());
 }
 
-static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mappings, QTableWidget *tw_input, QTableWidget *tw_output)
+static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mappings,
+                                       QTableWidget *tw_input, QTableWidget *tw_output)
 {
     Q_ASSERT(arrayMap && tw_input && tw_output);
 
@@ -878,7 +879,8 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
         if (!slot || !slot->isConnected())
             continue;
 
-        auto item = make_table_item(slot->inputPipe->source->objectName(), mapping.slotIndex, mapping.paramIndex);
+        auto item = make_table_item(slot->inputPipe->source->objectName(),
+                                    mapping.slotIndex, mapping.paramIndex);
 
         tw_output->setRowCount(tw_output->rowCount() + 1);
         tw_output->setItem(tw_output->rowCount() - 1, 0, item);

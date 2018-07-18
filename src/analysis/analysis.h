@@ -1073,6 +1073,9 @@ class LIBMVME_EXPORT RangeFilter1D: public BasicOperator
  *
  * Data is only copied to the output if the corresponding condition input
  * parameter is valid.
+ *
+ * If the condition input is a single value it is applied to all elements of the data
+ * input.
  */
 class LIBMVME_EXPORT ConditionFilter: public OperatorInterface
 {
