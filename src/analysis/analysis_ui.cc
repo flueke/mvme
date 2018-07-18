@@ -897,11 +897,13 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
                 if (dropSet.contains(dep))
                     continue;
 
-                // XXX: This code retains relative userlevel differences.
-                //s32 level = std::max(0, dep->getUserLevel() + levelDelta);
-
-                // XXX: This code sets the fixed destUserLevel on dependencies aswell
+#if 0
+                // This code retains relative userlevel differences.
+                s32 level = std::max(0, dep->getUserLevel() + levelDelta);
+#else
+                // This code sets the fixed destUserLevel on dependencies aswell
                 s32 level = destUserLevel;
+#endif
 
                 dep->setUserLevel(level);
                 movedObjects.append(dep);
@@ -1177,11 +1179,6 @@ struct EventWidgetPrivate
     // The user level that was manually added via addUserLevel()
     s32 m_manualUserLevel = 0;
 
-    // Actions used in makeToolBar()
-    std::unique_ptr<QAction> m_actionImportForModuleFromTemplate;
-    std::unique_ptr<QAction> m_actionImportForModuleFromFile;
-    QWidgetAction *m_actionModuleImport;
-
     // Actions and widgets used in makeEventSelectAreaToolBar()
     QAction *m_actionExport;
     QAction *m_actionImport;
@@ -1252,9 +1249,6 @@ struct EventWidgetPrivate
     void selectObjects(const AnalysisObjectVector &objects);
 
     // import / export
-    void importForModuleFromTemplate();
-    void importForModuleFromFile();
-    void importForModule(ModuleConfig *module, const QString &startPath);
     bool canExport() const;
     void actionExport();
     void actionImport();
@@ -1752,24 +1746,6 @@ void EventWidgetPrivate::repopulate()
 
     auto splitterSizes = m_operatorFrameSplitter->sizes();
     // clear
-#if 0
-    for (auto trees: m_levelTrees)
-    {
-        // FIXME: this is done because setParent(nullptr) below will cause a
-        // focus-in event on one of the other trees and that will call
-        // EventWidget::eventFilter() which will call setCurrentItem() on
-        // whatever tree gained focus which will emit currentItemChanged()
-        // which will invoke a lambda which will call onNodeClicked() which
-        // will call clearAllToDefaultNodeHighlights() which will try to figure
-        // out if any operator is missing any inputs which will dereference the
-        // operator which might have just been deleted via the context menu.
-        // This is complicated and not great. Is it generally dangerous to have
-        // currentItemChanged() call onNodeClicked()? Is there some other way
-        // to stop the call chain earlier?
-        trees.operatorTree->removeEventFilter(m_q);
-        trees.sinkTree->removeEventFilter(m_q);
-    }
-#endif
 
     for (auto trees: m_levelTrees)
     {
@@ -2224,15 +2200,6 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                     }
                 });
             }
-
-#if 0
-            auto menuImport = new QMenu(&menu);
-            menuImport->setTitle(QSL("Import"));
-            //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
-            menuImport->addAction(m_actionImportForModuleFromTemplate.get());
-            menuImport->addAction(m_actionImportForModuleFromFile.get());
-            menu.addMenu(menuImport);
-#endif
 
             // Module Settings
             // TODO: move Module Settings into a separate dialog that contains
@@ -3133,13 +3100,6 @@ static bool is_valid_input_node(QTreeWidgetItem *node, Slot *slot,
     {
         result = false;
     }
-    // FIXME: enabling this breaks input selection for Histo2DSink: selecting the first
-    // axis input works. this then created a forward path and selecting input for the 2nd
-    // axis from the same input pipe is not allowed anymore
-    //else if (forward_path_exists(srcObject, dstObject))
-    //{
-    //    result = false;
-    //}
     else if ((slot->acceptedInputTypes & InputType::Array)
         && (node->type() == NodeType_Operator || node->type() == NodeType_Source))
     {
@@ -4265,154 +4225,12 @@ void EventWidgetPrivate::updateActions()
 {
     auto node = getCurrentNode();
 
-    m_actionModuleImport->setEnabled(false);
-    m_actionImportForModuleFromTemplate->setEnabled(false);
-    m_actionImportForModuleFromFile->setEnabled(false);
     m_actionExport->setEnabled(false);
 
     if (m_mode == Default)
     {
-        if (node && node->type() == NodeType_Module)
-        {
-            if (auto module = get_pointer<ModuleConfig>(node))
-            {
-                m_actionModuleImport->setEnabled(true);
-                m_actionImportForModuleFromTemplate->setEnabled(true);
-                m_actionImportForModuleFromFile->setEnabled(true);
-            }
-        }
-
         m_actionExport->setEnabled(canExport());
     }
-}
-
-void EventWidgetPrivate::importForModuleFromTemplate()
-{
-    auto node = getCurrentNode();
-
-    if (node && node->type() == NodeType_Module)
-    {
-        if (auto module = get_pointer<ModuleConfig>(node))
-        {
-            QString path = vats::get_module_path(module->getModuleMeta().typeName) + QSL("/analysis");
-            importForModule(module, path);
-        }
-    }
-}
-
-void EventWidgetPrivate::importForModuleFromFile()
-{
-    auto node = getCurrentNode();
-
-    if (node && node->type() == NodeType_Module)
-    {
-        if (auto module = get_pointer<ModuleConfig>(node))
-        {
-            importForModule(module, m_context->getWorkspaceDirectory());
-        }
-    }
-}
-
-/* Importing of module specific analysis objects
- * - Module must be given
- * - Let user pick a file starting in the given startPath
- * - Load analysis from file
- * - Generate new IDs for analysis objects
- * - Try auto assignment but using only the ModuleInfo from the given target module
- * - If auto assignment fails run the assigment gui also using only info for the selected module.
- * - Remove analysis objects not related to the target module.
- * - Add the remaining objects into the existing analysis
- */
-void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &startPath)
-{
-    auto event = qobject_cast<EventConfig *>(module->parent());
-
-    if (!event)
-        return;
-
-    QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Import analysis objects"),
-                                                    startPath, AnalysisFileFilter);
-
-    if (fileName.isEmpty())
-        return;
-
-    QJsonDocument doc(gui_read_json_file(fileName));
-    auto json = doc.object()[QSL("AnalysisNG")].toObject();
-
-    Analysis analysis;
-    auto readResult = analysis.read(json, m_context->getVMEConfig());
-
-    if (!readResult)
-    {
-        readResult.errorData["Source file"] = fileName;
-        QMessageBox::critical(m_q,
-                              QSL("Error importing analysis"),
-                              readResult.toRichText());
-        return;
-    }
-
-    using namespace vme_analysis_common;
-
-    ModuleInfo moduleInfo;
-    moduleInfo.id = module->getId();
-    moduleInfo.typeName = module->getModuleMeta().typeName;
-    moduleInfo.name = module->objectName();
-    moduleInfo.eventId = event->getId();
-
-    generate_new_object_ids(&analysis);
-
-    if (!auto_assign_vme_modules({moduleInfo}, &analysis))
-    {
-        if (!run_vme_analysis_module_assignment_ui({moduleInfo}, &analysis))
-            return;
-    }
-
-    remove_analysis_objects_unless_matching(&analysis, moduleInfo);
-
-    m_context->logMessage(QString("Importing %1").arg(info_string(&analysis)));
-
-    auto sources = analysis.getSources();
-    auto operators = analysis.getOperators();
-
-    if (sources.isEmpty() && operators.isEmpty())
-        return;
-
-    AnalysisPauser pauser(m_context);
-    auto targetAnalysis = m_context->getAnalysis();
-
-    s32 baseUserLevel = targetAnalysis->getMaxUserLevel(moduleInfo.eventId);
-
-    for (auto source: sources)
-    {
-        Q_ASSERT(source->getEventId() == moduleInfo.eventId);
-        Q_ASSERT(source->getModuleId() == moduleInfo.id);
-
-        targetAnalysis->addSource(source->getEventId(),
-                                  source->getModuleId(),
-                                  source);
-    }
-
-    for (auto op: operators)
-    {
-        Q_ASSERT(op->getEventId() == moduleInfo.eventId);
-
-        s32 targetUserLevel = baseUserLevel + op->getUserLevel();
-
-        if (op->getUserLevel() == 0 && qobject_cast<SinkInterface *>(op.get()))
-        {
-            targetUserLevel = 0;
-        }
-
-        targetAnalysis->addOperator(op->getEventId(),
-                                    targetUserLevel,
-                                    op);
-    }
-
-    targetAnalysis->beginRun(Analysis::KeepState);
-
-    // FIXME: directories
-
-    repopulate();
 }
 
 bool EventWidgetPrivate::canExport() const
@@ -4991,35 +4809,6 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
      * and getEventSelectAreaToolBar(). */
 
     // Upper ToolBar actions
-
-    m_d->m_actionImportForModuleFromTemplate = std::make_unique<QAction>("Import from template");
-    m_d->m_actionImportForModuleFromFile     = std::make_unique<QAction>("Import from file");
-    m_d->m_actionModuleImport = new QWidgetAction(this);
-    {
-        auto menu = new QMenu(this);
-        menu->addAction(m_d->m_actionImportForModuleFromTemplate.get());
-        menu->addAction(m_d->m_actionImportForModuleFromFile.get());
-
-        auto toolButton = new QToolButton;
-        toolButton->setMenu(menu);
-        toolButton->setPopupMode(QToolButton::InstantPopup);
-        toolButton->setIcon(QIcon(QSL(":/analysis_module_import.png")));
-        toolButton->setText(QSL("Import module objects"));
-        toolButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-        auto font = toolButton->font();
-        font.setPointSize(7);
-        toolButton->setFont(font);
-
-        m_d->m_actionModuleImport->setDefaultWidget(toolButton);
-    }
-
-    connect(m_d->m_actionImportForModuleFromTemplate.get(), &QAction::triggered, this, [this] {
-        m_d->importForModuleFromTemplate();
-    });
-
-    connect(m_d->m_actionImportForModuleFromFile.get(), &QAction::triggered, this, [this] {
-        m_d->importForModuleFromFile();
-    });
 
     // create the upper toolbar
     {
@@ -5660,129 +5449,6 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
 
     return result;
 }
-
-#if 0
-void AnalysisWidgetPrivate::actionImport()
-{
-    // Step 0) Let the user pick a file
-    // Step 1) Create Analysis from file contents
-    // Step 2) Generate new IDs for analysis objects
-    // Step 3) Try auto-assignment of modules
-    // Step 4) If auto assignment fails run the assignment gui
-    // Step 5) Add the remaining objects into the existing analysis
-
-    // Step 0) Let the user pick a file
-    auto path = m_context->getWorkspaceDirectory();
-    if (path.isEmpty())
-        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-
-    QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Import analysis"),
-                                                    path, AnalysisFileFilter);
-
-    if (fileName.isEmpty())
-        return;
-
-    // Step 1) Create Analysis from file contents
-    QJsonDocument doc(gui_read_json_file(fileName));
-    auto json = doc.object()[QSL("AnalysisNG")].toObject();
-
-    Analysis analysis;
-    auto readResult = analysis.read(json, m_context->getVMEConfig());
-
-    if (!readResult)
-    {
-        readResult.errorData["Source file"] = fileName;
-        QMessageBox::critical(m_q,
-                              QSL("Error importing analysis"),
-                              readResult.toRichText());
-        return;
-    }
-
-    // Step 2) Generate new IDs for analysis objects
-    generate_new_object_ids(&analysis);
-
-    // Step 3) Try auto-assignment of modules
-    using namespace vme_analysis_common;
-
-    if (!auto_assign_vme_modules(m_context->getVMEConfig(), &analysis))
-    {
-    // Step 4) If auto assignment fails run the assignment gui
-        if (!run_vme_analysis_module_assignment_ui(m_context->getVMEConfig(), &analysis))
-            return;
-    }
-
-    remove_analysis_objects_unless_matching(&analysis, m_context->getVMEConfig());
-
-    m_context->logMessage(QString("Importing %1").arg(info_string(&analysis)));
-
-    if (analysis.isEmpty())
-        return;
-
-    auto sources = analysis.getSources();
-    auto operators = analysis.getOperators();
-    // FIXME: directories
-
-#ifndef QT_NO_DEBUG
-    {
-        QSet<QUuid> vmeEventIds;
-        QSet<QUuid> vmeModuleIds;
-        for (auto ec: m_context->getVMEConfig()->getEventConfigs())
-        {
-            vmeEventIds.insert(ec->getId());
-
-            for (auto mc: ec->getModuleConfigs())
-            {
-                vmeModuleIds.insert(mc->getId());
-            }
-        }
-
-        for (auto source: sources)
-        {
-            Q_ASSERT(vmeEventIds.contains(source->getEventId()));
-            Q_ASSERT(vmeModuleIds.contains(source->getModuleId()));
-        }
-
-        for (auto op: operators)
-        {
-            Q_ASSERT(vmeEventIds.contains(op->getEventId()));
-        }
-    }
-#endif
-
-    // Step 5) Add the remaining objects into the existing analysis
-    AnalysisPauser pauser(m_context);
-    auto targetAnalysis = m_context->getAnalysis();
-
-    QHash<QUuid, s32> eventMaxUserLevels;
-    for (auto op: targetAnalysis->getOperators())
-    {
-        auto eventId = op->getEventId();
-
-        if (!eventMaxUserLevels.contains(eventId))
-        {
-            eventMaxUserLevels.insert(eventId, targetAnalysis->getMaxUserLevel(eventId));
-        }
-    }
-
-    for (auto source: sources)
-    {
-        targetAnalysis->addSource(source->getEventId(), source->getModuleId(), source);
-    }
-
-    for (auto op: operators)
-    {
-        s32 baseUserLevel = eventMaxUserLevels.value(op->getEventId(), 0);
-        s32 targetUserLevel = baseUserLevel + op->getUserLevel();
-        if (op->getUserLevel() == 0 && qobject_cast<SinkInterface *>(op.get()))
-        {
-            targetUserLevel = 0;
-        }
-        targetAnalysis->addOperator(op->getEventId(), targetUserLevel, op);
-    }
-
-    repopulate();
-}
-#endif
 
 void AnalysisWidgetPrivate::actionClearHistograms()
 {
