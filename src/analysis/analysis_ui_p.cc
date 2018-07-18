@@ -934,6 +934,17 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         combo_xBins = make_resolution_combo(Histo1DMinBits, Histo1DMaxBits, Histo1DDefBits);
         select_by_resolution(combo_xBins, histoSink->m_bins);
         formLayout->addRow(QSL("Resolution"), combo_xBins);
+
+        limits_x = make_axis_limits_ui(QSL("X Limits"),
+                                       std::numeric_limits<double>::lowest(),
+                                       std::numeric_limits<double>::max(),
+                                       histoSink->m_xLimitMin,
+                                       histoSink->m_xLimitMax,
+                                       histoSink->hasActiveLimits());
+
+        limits_x.outerFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+
+        formLayout->addRow(limits_x.outerFrame);
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
@@ -955,15 +966,21 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         formLayout->addRow(QSL("Y Resolution"), combo_yBins);
 
         limits_x = make_axis_limits_ui(QSL("X Limits"),
-                                       std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
-                                       histoSink->m_xLimitMin, histoSink->m_xLimitMax, histoSink->hasActiveLimits(Qt::XAxis));
+                                       std::numeric_limits<double>::lowest(),
+                                       std::numeric_limits<double>::max(),
+                                       histoSink->m_xLimitMin,
+                                       histoSink->m_xLimitMax,
+                                       histoSink->hasActiveLimits(Qt::XAxis));
 
         // FIXME: input validation
         //connect(limits_x.rb_limited, &QAbstractButton::toggled, this, [this] (bool) { this->validateInputs(); });
 
         limits_y = make_axis_limits_ui(QSL("Y Limits"),
-                                       std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
-                                       histoSink->m_yLimitMin, histoSink->m_yLimitMax, histoSink->hasActiveLimits(Qt::YAxis));
+                                       std::numeric_limits<double>::lowest(),
+                                       std::numeric_limits<double>::max(),
+                                       histoSink->m_yLimitMin,
+                                       histoSink->m_yLimitMax,
+                                       histoSink->hasActiveLimits(Qt::YAxis));
 
         // FIXME: input validation
         //connect(limits_y.rb_limited, &QAbstractButton::toggled, this, [this] (bool) { this->validateInputs(); });
@@ -1788,6 +1805,15 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         {
             le_xAxisTitle->setText(le_name->text());
         }
+
+        if (histoSink->getSlot(0)->isParamIndexInRange()
+            && slot == histoSink->getSlot(0)
+            && std::isnan(histoSink->m_xLimitMin))
+        {
+            s32 paramIndex = slot->isParameterConnection() ? slot->paramIndex : 0;
+            limits_x.spin_min->setValue(slot->inputPipe->parameters[paramIndex].lowerLimit);
+            limits_x.spin_max->setValue(slot->inputPipe->parameters[paramIndex].upperLimit);
+        }
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
@@ -1798,14 +1824,18 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             le_yAxisTitle->setText(make_input_source_text(&histoSink->m_inputY));
 
         // x input was selected
-        if (histoSink->m_inputX.isParamIndexInRange() && slot == &histoSink->m_inputX && std::isnan(histoSink->m_xLimitMin))
+        if (histoSink->m_inputX.isParamIndexInRange()
+            && slot == &histoSink->m_inputX
+            && std::isnan(histoSink->m_xLimitMin))
         {
             limits_x.spin_min->setValue(slot->inputPipe->parameters[slot->paramIndex].lowerLimit);
             limits_x.spin_max->setValue(slot->inputPipe->parameters[slot->paramIndex].upperLimit);
         }
 
         // y input was selected
-        if (histoSink->m_inputY.isParamIndexInRange() && slot == &histoSink->m_inputY && std::isnan(histoSink->m_yLimitMin))
+        if (histoSink->m_inputY.isParamIndexInRange()
+            && slot == &histoSink->m_inputY
+            && std::isnan(histoSink->m_yLimitMin))
         {
             limits_y.spin_min->setValue(slot->inputPipe->parameters[slot->paramIndex].lowerLimit);
             limits_y.spin_max->setValue(slot->inputPipe->parameters[slot->paramIndex].upperLimit);
@@ -1918,6 +1948,18 @@ void OperatorConfigurationWidget::configureOperator()
 
         s32 bins = combo_xBins->currentData().toInt();
         histoSink->m_bins = bins;
+
+        if (limits_x.rb_limited->isChecked())
+        {
+            histoSink->m_xLimitMin = limits_x.spin_min->value();
+            histoSink->m_xLimitMax = limits_x.spin_max->value();
+        }
+        else
+        {
+            histoSink->m_xLimitMin = make_quiet_nan();
+            histoSink->m_xLimitMax = make_quiet_nan();
+        }
+
         // Actually updating the histograms is done in Histo1DSink::beginRun();
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
