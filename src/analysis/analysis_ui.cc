@@ -2037,7 +2037,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         clearAllToDefaultNodeHighlights();
                     });
 
-                menu.addAction("Rename", [activeNode] () {
+                menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
                     if (auto tw = activeNode->treeWidget())
                     {
                         tw->editItem(activeNode);
@@ -2053,7 +2053,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             auto before = menu.actions().value(0);
             menu.insertAction(before, actionNew);
 
-            menu.addAction("Rename", [activeNode] () {
+            menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
                 if (auto tw = activeNode->treeWidget())
                 {
                     tw->editItem(activeNode);
@@ -2619,7 +2619,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             auto before = menu.actions().value(0);
             menu.insertAction(before, actionNew);
 
-            menu.addAction("Rename", [activeNode] () {
+            menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
                 if (auto tw = activeNode->treeWidget())
                 {
                     tw->editItem(activeNode);
@@ -2650,7 +2650,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     });
                 }
 
-                menu.addAction("Rename", [activeNode] () {
+                menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
                     if (auto tw = activeNode->treeWidget())
                     {
                         tw->editItem(activeNode);
@@ -2935,7 +2935,7 @@ void EventWidgetPrivate::doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint 
                     });
                 }
 
-                menu.addAction("Rename", [activeNode] () {
+                menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
                     if (auto tw = activeNode->treeWidget())
                     {
                         tw->editItem(activeNode);
