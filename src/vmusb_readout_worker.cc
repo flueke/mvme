@@ -449,7 +449,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         readoutLoop();
 
-        stats.stop();
         logMessage(QSL("Leaving readout loop"));
         logMessage(QSL(""));
 
@@ -457,8 +456,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         // DAQ Stop
         //
         vme_daq_shutdown(daqConfig, vmusb, [this] (const QString &msg) { logMessage(msg); });
-
-        m_bufferProcessor->endRun();
 
         //
         // Debug: close raw buffers file
@@ -472,9 +469,16 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             m_rawBufferOut.close();
         }
 
+        logMessage(QSL(""));
         logMessage(QString(QSL("VMUSB readout stopped on %1"))
                    .arg(QDateTime::currentDateTime().toString())
                    );
+
+        // Note: endRun() collects the log contents, which means it should be one of the
+        // last actions happening in here. Log messages generated after this point won't
+        // show up in the listfile.
+        m_bufferProcessor->endRun();
+        stats.stop();
     }
     catch (const char *message)
     {

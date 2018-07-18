@@ -1268,8 +1268,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         readoutLoop();
 
-        m_listfileHelper->endRun();
-        m_workerContext.daqStats->stop();
         sis_log(QSL("Leaving readout loop"));
         sis_log(QSL(""));
 
@@ -1290,9 +1288,16 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             m_rawBufferOut.close();
         }
 
+        sis_log(QSL(""));
         sis_log(QString(QSL("SIS3153 readout stopped on %1"))
                 .arg(QDateTime::currentDateTime().toString())
                );
+
+        // Note: endRun() collects the log contents, which means it should be one of the
+        // last actions happening in here. Log messages generated after this point won't
+        // show up in the listfile.
+        m_listfileHelper->endRun();
+        m_workerContext.daqStats->stop();
     }
     catch (const std::runtime_error &e)
     {
