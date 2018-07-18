@@ -7,19 +7,18 @@ BUGFIXES wanted for 0.9.5
 --------------------------------------------------
 * Manual: mention the "show advanced objects" button and what it does
   maybe even enable them by default (talk to robert about this)
-- if loading a config file fails when opening a filename from the
+
+* if loading a config file fails when opening a filename from the
   mvmeworkspace.ini file show an explicit error message about the filename in
   the ini possibly being wrong.
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* condition filter: if condition input is a single value it should apply to the
+  whole input array, not just to the first element.
 
-* SIS3153 and windows: hostname lookups do seem to return cached results. This
-  means if mvme tried to connect while the SIS hostname wasn't available yet
-  any further connection attempts will fail.
-  Opening a cmd prompt and pinging the SIS updates some system cache and
-  gethostbyname() returns the proper IP address.
-  Users won't know this and probably will think that mvme is bugged and needs
-  to be restarted for communication to work.
+* new feature: dynamic downscaling of histograms. display only, histo data is
+  not modified. use powers of 2 for downscaling
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * DAQControl: Quickly pressing start and stop leaves mvme hanging in a progress
   dialog. Closing the progress dialog and pressing stop again does properly
@@ -35,66 +34,14 @@ Goals:
 * copy/paste objects
 * directory like grouping
 
-Add a new JSON container format to store exported objects. Update GUI to support
-multi selections. Implement export to file.
-
-Implement a simple full library import. Maybe: change the GUI to be able to
-show a view of the library objects. The user can then select a subset of the
-library to import.
-
-Figure out what the import view needs to do and split/refactor the current ui
-code accordingly. Try to abstract out context menus, selection modes and
-highlighting logic.
-
-Use serialization to implement copy/paste.
-
-Issues: naming of objects both when importing and when pasting.  -> Iterate
-through objects and compare type and name. If an exact match is found append a
-suffix to the new object.
-
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-- start work on analysis object import/export implementation.
-* grouping of operators and keeping grouping intact when importing exporting
-  -> use directories for grouping
-
-* clone behaviour for extractors: copy rng seed or reseed? is a clone an
-  identical copy or something similar but not exactly the same?
-  Use case wise reseeding would be better.
-  -> reseed in post_clone
-* think about whether to keep the logic that moves dependent operators around
-  when an operator is moved between userlevels. Keep this behaviour? Also note
-  that this interacts with the input selection code which currently only allows
-  selecting stuff from lower userlevels.
-  I think this could be removed as the loop detection code should handle all
-  invalid cases by now.
-
-=> Discussion result: allow histograms to reside anywhere and do not limit the input connections.
-   Keep the userlevel enforcing rules for the operator trees only.
-
-* Directory context menu
-* Start editing newly created directories to allow setting a propery name immediately
-
-* Remove fixed root nodes. Instead let the user group things by creating directories.
-  Could generate directories when creating the default filters.
-
-* copy/paste via cloning. handle multi selection copy / paste in the following way:
-  keep all internal connections intact, meaning recreate internal connections on the copies
-
-* pausing is not needed when doing drag/drop into/from a directory. drag and
-  drop mostly does not need the analaysis to be paused.
 
 * New Feature: add pause/resume markers and/or absolute timestamps to the listfile.
   This would allow for example splitting the run on pause/resume if the user
   changed settings in-between.
 
-* 1d/2d histos: ranges can be specified for h2d but not for h1d. h1d dialog is
-  missing some features compared to h2d
-
 * RPC: limit max request size to something reasonable
 * RPC: fork jcon-cpp on github and push local changes there
-
-* make double click on operators open the editor GUI
 
 * Improve the loadAnalysisConfig() and similar callchains. Right now they end
   up in gui_read_json_file() which displays a message box with a generic "could
