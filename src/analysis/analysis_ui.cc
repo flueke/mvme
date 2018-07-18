@@ -3687,8 +3687,62 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     {
                         m_context->activateObjectWidget(ex.get());
                     }
-                }
-                break;
+                } break;
+
+            case NodeType_OutputPipe:
+                if (auto pipe = get_pointer<Pipe>(node))
+                {
+                    makeAndShowPipeDisplay(pipe);
+                } break;
+
+            case NodeType_Operator:
+                if (!m_uniqueWidget)
+                {
+                    if (auto op = get_shared_analysis_object<OperatorInterface>(node))
+                    {
+                        auto dialog = operator_editor_factory(
+                            op, userLevel, ObjectEditorMode::Edit, DirectoryPtr(), m_q);
+
+                        //POS dialog->move(QCursor::pos());
+                        dialog->setAttribute(Qt::WA_DeleteOnClose);
+                        dialog->show();
+                        m_uniqueWidget = dialog;
+                        clearAllTreeSelections();
+                        clearAllToDefaultNodeHighlights();
+                    }
+                } break;
+
+            case NodeType_Source:
+                if (!m_uniqueWidget)
+                {
+                    if (auto srcPtr = get_shared_analysis_object<SourceInterface>(node))
+                    {
+                        Q_ASSERT_X(srcPtr->getNumberOfOutputs() == 1,
+                                   "doOperatorTreeContextMenu",
+                                   "data sources with multiple outputs are not supported");
+
+                        auto moduleNode = node->parent();
+                        ModuleConfig *moduleConfig = nullptr;
+
+                        if (moduleNode && moduleNode->type() == NodeType_Module)
+                            moduleConfig = get_pointer<ModuleConfig>(moduleNode);
+
+                        if (moduleConfig)
+                        {
+                            auto dialog = datasource_editor_factory(
+                                srcPtr, userLevel, ObjectEditorMode::Edit, moduleConfig, m_q);
+
+                            assert(dialog);
+
+                            //POS dialog->move(QCursor::pos());
+                            dialog->setAttribute(Qt::WA_DeleteOnClose);
+                            dialog->show();
+                            m_uniqueWidget = dialog;
+                            clearAllTreeSelections();
+                            clearAllToDefaultNodeHighlights();
+                        }
+                    }
+                } break;
         }
     }
 }
