@@ -100,7 +100,10 @@ class LIBMVME_EXPORT Histo1D: public QObject
         inline u32 getNumberOfBins() const { return m_xAxisBinning.getBins(); }
         inline size_t getStorageSize() const { return getNumberOfBins() * sizeof(double); }
 
-        inline double getBinContent(u32 bin) const { return (bin < getNumberOfBins()) ? m_data[bin] : 0.0; }
+        inline double getBinContent(u32 bin) const
+        {
+            return (bin < getNumberOfBins()) ? m_data[bin] : 0.0;
+        }
         bool setBinContent(u32 bin, double value);
 
         inline double getXMin() const { return m_xAxisBinning.getMin(); }
@@ -151,12 +154,6 @@ class LIBMVME_EXPORT Histo1D: public QObject
             }
         }
 
-        // FIXME: not updated when a2 is in use
-        inline double getEntryCount() const { return m_count; }
-        /*
-        double getMaxValue() const { return m_maxValue; }
-        u32 getMaxBin() const { return m_maxBin; }
-        */
         struct ValueAndBin
         {
             double value;

@@ -186,7 +186,10 @@ class AxisBinning
         inline double getBinsToUnitsRatio() const { return getBins() / getWidth(); }
 
         // Allows passing a fractional bin number
-        inline double getBinLowEdgeFractional(double binFraction) const { return getMin() + binFraction * getBinWidth(); }
+        inline double getBinLowEdgeFractional(double binFraction) const
+        {
+            return getMin() + binFraction * getBinWidth();
+        }
 
         /* Returns the bin number for the value x. Returns Underflow/Overflow
          * if x is out of range. */

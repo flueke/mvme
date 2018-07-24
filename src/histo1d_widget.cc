@@ -65,47 +65,6 @@
 
 static const s32 ReplotPeriod_ms = 1000;
 
-class Histo1DPointData: public QwtSeriesData<QPointF>
-{
-    public:
-        Histo1DPointData(Histo1D *histo)
-            : QwtSeriesData<QPointF>()
-            , m_histo(histo)
-        {}
-
-        virtual size_t size() const override
-        {
-            return m_histo->getNumberOfBins();
-        }
-
-        virtual QPointF sample(size_t i) const override
-        {
-            auto result = QPointF(
-                m_histo->getBinLowEdge(i),
-                m_histo->getBinContent(i));
-
-            return result;
-        }
-
-        virtual QRectF boundingRect() const override
-        {
-            // Qt and Qwt have different understanding of rectangles. For Qt
-            // it's top-down like screen coordinates, for Qwt it's bottom-up
-            // like the coordinates in a plot.
-            //auto result = QRectF(
-            //    m_histo->getXMin(),  m_histo->getMaxValue(), // top-left
-            //    m_histo->getWidth(), m_histo->getMaxValue());  // width, height
-            auto result = QRectF(
-                m_histo->getXMin(), 0.0,
-                m_histo->getWidth(), m_histo->getMaxValue());
-
-            return result;
-        }
-
-    private:
-        Histo1D *m_histo;
-};
-
 class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
 {
     public:
@@ -797,19 +756,10 @@ void Histo1DWidget::setHistogram(const Histo1DPtr &histoPtr)
 void Histo1DWidget::setHistogram(Histo1D *histo)
 {
     m_histo = histo;
-    //m_plotCurve->setData(new Histo1DPointData(m_histo));
     m_plotHisto->setData(new Histo1DIntervalData(m_histo));
     m_d->m_gaussCurve->setData(new Histo1DGaussCurveData(m_histo));
-    m_d->m_rateEstimationCurve->setData(new RateEstimationCurveData(m_histo, &m_d->m_rateEstimationData));
-
-    // Reset the zoom stack and zoom fully zoom out as the scales might be
-    // completely different now.
-    // FIXME: this is not good for the usage of projection widgets where the
-    // histo is replaced with a similar one. The zoom level should stay the same in that case...
-    // Maybe compare the axses before replacing the histo and decide based on
-    // that whether to reset the zoom stack or not.
-    //m_zoomer->setZoomStack(QStack<QRectF>(), -1);
-    //m_zoomer->zoom(0);
+    m_d->m_rateEstimationCurve->setData(new RateEstimationCurveData(m_histo,
+                                                                    &m_d->m_rateEstimationData));
 
     displayChanged();
     replot();

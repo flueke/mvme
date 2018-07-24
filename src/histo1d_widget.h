@@ -102,6 +102,8 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         friend struct Histo1DWidgetPrivate;
 
         Histo1D *m_histo;
+        // Note: this is only used to keep the reference count up if a shared_ptr was
+        // passed in. Otherwise everything is currently done through the raw pointer.
         Histo1DPtr m_histoPtr;
         //QwtPlotCurve *m_plotCurve;
         QwtPlotHistogram *m_plotHisto;
