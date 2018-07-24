@@ -12,11 +12,45 @@ BUGFIXES wanted for 0.9.5
   mvmeworkspace.ini file show an explicit error message about the filename in
   the ini possibly being wrong.
 
-* condition filter: if condition input is a single value it should apply to the
-  whole input array, not just to the first element.
-
 * new feature: dynamic downscaling of histograms. display only, histo data is
   not modified. use powers of 2 for downscaling
+  Things like gauss, maxima, etc should all use the dynamically downscaled data.
+
+getNumberOfBins()           -> getNumberOfSamples/getNumberOfVirtualBins
+                            -> or the other way: getNumberOfStorageBins()
+getBinContent(bin)
+getBinLowEdge(bin)
+getValueAndBinLowEdge(x)
+getAxisBinning(axis)
+calcStatistics(x1, x2)
+getBinCenter()
+
+
+
+- Histo1DIntervalData
+- Histo1DGaussCurveData does not care as everything is done through a local
+  Histo1DStatistics member.
+- RateEstimationCurveData uses getValueAndBinLowEdge(x)
+- Calibration needs to use the original information.
+- infoText in replot() uses under and overflow and axis binning information
+
+  => Possible implementation 1: add a H1D interface and implement a downsampler
+  taking a reference to the original histogram and forwarding most operations
+  to the original except the calls mentioned above.
+
+  => Possible implementation 2: directly add a scale factor to Histo1D and
+  adjust the implementation of the calls above accordingly.
+
+  Maybe adding the scale factor to AxisBinning does most of what's needed?
+
+* workspace and vme controller settings and such:
+  Roberts use case is: open listfile, try to locally reproduce problems a
+  customer has. This means he will in most/all cases have to change the sis
+  address or even the controller type to match his local setup. This is
+  annoying.
+  Instead when loading a listfile keep the local controller settings and/or use
+  a "dummy" controller.
+
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
