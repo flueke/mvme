@@ -3,8 +3,12 @@ TODO list, not at all sorted by priority
 ==================================================
 
 --------------------------------------------------
-BUGFIXES wanted for 0.9.5
+BUGFIXES and FEATURES wanted for 0.9.5 :)
 --------------------------------------------------
+
+* Fix/cleanup SIS stale buffer handling code. Make it at least so that the
+  buffers are counted somewhere.
+
 * Manual: mention the "show advanced objects" button and what it does
   maybe even enable them by default (talk to robert about this)
 
@@ -12,9 +16,11 @@ BUGFIXES wanted for 0.9.5
   mvmeworkspace.ini file show an explicit error message about the filename in
   the ini possibly being wrong.
 
-* new feature: dynamic downscaling of histograms. display only, histo data is
-  not modified. use powers of 2 for downscaling
-  Things like gauss, maxima, etc should all use the dynamically downscaled data.
+* new feature: dynamic resolution reduction of histograms.
+  display only, histo data is not modified. use powers of 2 for downscaling.
+  This is not "scaling" as it's not linear (unless you look at the powers of 2,
+  those are linear). Things like gauss, maxima, etc should all use the
+  dynamically downscaled data.
 
 getNumberOfBins()           -> getNumberOfSamples/getNumberOfVirtualBins
                             -> or the other way: getNumberOfStorageBins()
@@ -24,8 +30,6 @@ getValueAndBinLowEdge(x)
 getAxisBinning(axis)
 calcStatistics(x1, x2)
 getBinCenter()
-
-
 
 - Histo1DIntervalData
 - Histo1DGaussCurveData does not care as everything is done through a local
@@ -51,6 +55,10 @@ getBinCenter()
   Instead when loading a listfile keep the local controller settings and/or use
   a "dummy" controller.
 
+* RateMonitor
+  Allow indexed connections.
+  Even better: make it so that it can handle a variable number of inputs, with
+  each accepting both connection types.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

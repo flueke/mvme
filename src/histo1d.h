@@ -89,26 +89,26 @@ class LIBMVME_EXPORT Histo1D: public QObject
         s32 fill(double x, double weight = 1.0);
 
         /* Returns the counts of the bin containing the given x value. */
-        // XXX: downsampling
+        // XXX: ResReduction
         double getValue(double x) const;
 
         /* Returns a pair of (x_bin_low_edge, y_counts) for the given x value. */
-        // XXX: downsampling
+        // XXX: ResReduction
         std::pair<double, double> getValueAndBinLowEdge(double x) const;
 
         void clear();
         inline double *data() { return m_data; }
 
-        // XXX: downsampling
+        // XXX: ResReduction
         inline u32 getNumberOfBins() const { return m_xAxisBinning.getBins(); }
         inline size_t getStorageSize() const { return getNumberOfBins() * sizeof(double); }
 
-        // XXX: downsampling
+        // XXX: ResReduction
         inline double getBinContent(u32 bin) const
         {
             return (bin < getNumberOfBins()) ? m_data[bin] : 0.0;
         }
-        // XXX: downsampling
+        // XXX: ResReduction
         bool setBinContent(u32 bin, double value);
 
         inline double getXMin() const { return m_xAxisBinning.getMin(); }
@@ -119,7 +119,7 @@ class LIBMVME_EXPORT Histo1D: public QObject
         inline double getBinLowEdge(u32 bin) const { return m_xAxisBinning.getBinLowEdge(bin); }
         inline double getBinCenter(u32 bin) const { return m_xAxisBinning.getBinCenter(bin); }
 
-        // XXX: downsampling
+        // XXX: ResReduction
         AxisBinning getAxisBinning(Qt::Axis axis) const
         {
             switch (axis)
