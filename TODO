@@ -6,8 +6,8 @@ TODO list, not at all sorted by priority
 BUGFIXES and FEATURES wanted for 0.9.5 :)
 --------------------------------------------------
 
-* Fix/cleanup SIS stale buffer handling code. Make it at least so that the
-  buffers are counted somewhere.
+* SIS settings: add a warning to the jumbo frames option
+* SIS settings: add an example hostname to the hostname lineedit
 
 * Manual: mention the "show advanced objects" button and what it does
   maybe even enable them by default (talk to robert about this)
