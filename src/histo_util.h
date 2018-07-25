@@ -157,6 +157,9 @@ class AxisBinning
     public:
         static const s64 Underflow = -1;
         static const s64 Overflow = -2;
+        /* Default value for most getters which means to use the number of bins directly
+         * and not perform any resolution reduction. */
+        static const u32 NoResolutionReduction = 0;
 
 
         AxisBinning()
@@ -178,53 +181,74 @@ class AxisBinning
         inline void setMin(double min) { m_min = min; }
         inline void setMax(double max) { m_max = max; }
 
-        inline u32 getBins() const { return m_nBins; }
+        inline u32 getBins(u32 rrf = NoResolutionReduction) const
+        {
+            return rrf == NoResolutionReduction ? m_nBins : m_nBins / rrf;
+        }
+
         inline void setBins(u32 bins) { m_nBins = bins; }
-        inline double getBinWidth() const { return getWidth() / getBins(); }
-        inline double getBinLowEdge(u32 bin) const { return getMin() + bin * getBinWidth(); }
-        inline double getBinCenter(u32 bin) const { return getBinLowEdge(bin) + getBinWidth() * 0.5; }
-        inline double getBinsToUnitsRatio() const { return getBins() / getWidth(); }
+
+        inline double getBinWidth(u32 rrf = NoResolutionReduction) const
+        {
+            return getWidth() / getBins(rrf);
+        }
+
+        inline double getBinLowEdge(u32 bin, u32 rrf = NoResolutionReduction) const
+        {
+            return getMin() + bin * getBinWidth(rrf);
+        }
+
+        inline double getBinCenter(u32 bin, u32 rrf = NoResolutionReduction) const
+        {
+            return getBinLowEdge(bin, rrf) + getBinWidth(rrf) * 0.5;
+        }
+
+        inline double getBinsToUnitsRatio(u32 rrf = NoResolutionReduction) const
+        {
+            return getBins(rrf) / getWidth();
+        }
 
         // Allows passing a fractional bin number
-        inline double getBinLowEdgeFractional(double binFraction) const
+        inline double getBinLowEdgeFractional(double binFraction,
+                                              u32 rrf = NoResolutionReduction) const
         {
-            return getMin() + binFraction * getBinWidth();
+            return getMin() + binFraction * getBinWidth(rrf);
         }
 
         /* Returns the bin number for the value x. Returns Underflow/Overflow
          * if x is out of range. */
         // FIXME: I think this returns 0 for NaNs!
-        inline s64 getBin(double x) const
+        inline s64 getBin(double x, u32 rrf = NoResolutionReduction) const
         {
-            double bin = getBinUnchecked(x);
+            double bin = getBinUnchecked(x, rrf);
 
             if (bin < 0.0)
                 return Underflow;
 
-            if (bin >= getBins())
+            if (bin >= getBins(rrf))
                 return Overflow;
 
             return static_cast<s64>(bin);
         }
 
-        inline s64 getBinBounded(double x) const
+        inline s64 getBinBounded(double x, u32 rrf = NoResolutionReduction) const
         {
-            s64 bin = getBin(x);
+            s64 bin = getBin(x, rrf);
 
             if (bin == Underflow)
                 bin = 0;
 
             if (bin == Overflow)
-                bin = getBins() - 1;
+                bin = getBins(rrf) - 1;
 
             return bin;
         }
 
         /* Returns the bin number for the value x. No check is performed if x
          * is in range of the axis. */
-        inline double getBinUnchecked(double x) const
+        inline double getBinUnchecked(double x, u32 rrf = NoResolutionReduction) const
         {
-            double bin = m_nBins * (x - m_min) / (m_max - m_min);
+            double bin = getBins(rrf) * (x - m_min) / (m_max - m_min);
             return bin;
         }
 
@@ -302,8 +326,10 @@ struct HistoAxisLimitsUI
     QRadioButton *rb_fullRange;
 };
 
-HistoAxisLimitsUI make_axis_limits_ui(const QString &groupBoxTitle, double inputMin, double inputMax,
-                                      double limitMin, double limitMax, bool isLimited);
+HistoAxisLimitsUI make_axis_limits_ui(const QString &groupBoxTitle,
+                                      double inputMin, double inputMax,
+                                      double limitMin, double limitMax,
+                                      bool isLimited);
 
 class Histo2D;
 class Histo1D;

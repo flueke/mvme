@@ -71,7 +71,9 @@ class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
         Histo1DIntervalData(Histo1D *histo)
             : QwtSeriesData<QwtIntervalSample>()
             , m_histo(histo)
-        {}
+        {
+            assert(histo);
+        }
 
         virtual size_t size() const override
         {

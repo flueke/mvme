@@ -123,18 +123,19 @@ s32 Histo1D::fill(double x, double weight)
     return -1; // nan
 }
 
-double Histo1D::getValue(double x) const
+double Histo1D::getValue(double x, u32 rrf) const
 {
-    s64 bin = m_xAxisBinning.getBin(x);
+    s64 bin = m_xAxisBinning.getBin(x, rrf);
     if (bin < 0)
         return 0.0;
-    return m_data[bin];
+
+    return getBinContent(bin, rrf);
 }
 
-std::pair<double, double> Histo1D::getValueAndBinLowEdge(double x) const
+std::pair<double, double> Histo1D::getValueAndBinLowEdge(double x, u32 rrf) const
 {
-    s64 bin = m_xAxisBinning.getBin(x);
-    return std::make_pair(getBinLowEdge(bin), getBinContent(bin));
+    s64 bin = m_xAxisBinning.getBin(x, rrf);
+    return std::make_pair(getBinLowEdge(bin, rrf), getBinContent(bin));
 }
 
 void Histo1D::clear()
@@ -177,35 +178,35 @@ void Histo1D::debugDump(bool dumpEmptyBins) const
     }
 }
 
-Histo1DStatistics Histo1D::calcStatistics(double minX, double maxX) const
+Histo1DStatistics Histo1D::calcStatistics(double minX, double maxX, u32 rrf) const
 {
-    s64 minBin = m_xAxisBinning.getBinUnchecked(minX);
-    s64 maxBin = m_xAxisBinning.getBinUnchecked(maxX);
+    s64 minBin = m_xAxisBinning.getBinUnchecked(minX, rrf);
+    s64 maxBin = m_xAxisBinning.getBinUnchecked(maxX, rrf);
 
     minBin = std::max(static_cast<s64>(0), minBin);
     maxBin = std::max(static_cast<s64>(0), maxBin);
 
     if (minBin >= 0 && maxBin >= 0)
     {
-        return calcBinStatistics(minBin, maxBin);
+        return calcBinStatistics(minBin, maxBin, rrf);
     }
 
     return {};
 }
 
-Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) const
+Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u32 rrf) const
 {
     Histo1DStatistics result;
 
     if (startBin > onePastEndBin)
         std::swap(startBin, onePastEndBin);
 
-    onePastEndBin = std::min(onePastEndBin, getNumberOfBins());
+    onePastEndBin = std::min(onePastEndBin, getNumberOfBins(rrf));
 
     for (u32 bin = startBin; bin < onePastEndBin; ++bin)
     {
-        double v = getBinContent(bin);
-        result.mean += v * getBinLowEdge(bin);
+        double v = getBinContent(bin, rrf);
+        result.mean += v * getBinLowEdge(bin, rrf);
         result.entryCount += v; // This assumes weights of 1.0!!
 
         if (v > result.maxValue)
@@ -224,10 +225,10 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) co
     {
         for (u32 bin = startBin; bin < onePastEndBin; ++bin)
         {
-            u32 v = getBinContent(bin);
+            u32 v = getBinContent(bin, rrf);
             if (v)
             {
-                double d = getBinLowEdge(bin) - result.mean;
+                double d = getBinLowEdge(bin, rrf) - result.mean;
                 d *= d;
                 result.sigma += d * v;
             }
@@ -244,7 +245,7 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) co
         double leftBin = 0.0;
         for (s64 bin = result.maxBin; bin >= startBin; --bin)
         {
-            if (getBinContent(bin) < halfMax)
+            if (getBinContent(bin, rrf) < halfMax)
             {
                 leftBin = bin;
                 break;
@@ -255,7 +256,7 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) co
         double rightBin = 0.0;
         for (u32 bin = result.maxBin; bin < onePastEndBin; ++bin)
         {
-            if (getBinContent(bin) < halfMax)
+            if (getBinContent(bin, rrf) < halfMax)
             {
                 rightBin = bin;
                 break;
@@ -267,11 +268,11 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) co
             return y0 + ((y1 - y0) / (x1 - x0)) *  (x - x0);
         };
 
-        double leftBinFraction  = interp(getBinContent(leftBin+1), leftBin+1,
-                                         getBinContent(leftBin), leftBin, halfMax);
+        double leftBinFraction  = interp(getBinContent(leftBin+1, rrf), leftBin+1,
+                                         getBinContent(leftBin, rrf), leftBin, halfMax);
 
-        double rightBinFraction = interp(getBinContent(rightBin-1), rightBin-1,
-                                         getBinContent(rightBin), rightBin, halfMax);
+        double rightBinFraction = interp(getBinContent(rightBin-1, rrf), rightBin-1,
+                                         getBinContent(rightBin, rrf), rightBin, halfMax);
 
 #if 0
         qDebug() << __PRETTY_FUNCTION__ << "FWHM: leftbin" << leftBinFraction << "rightBin" << rightBinFraction << "maxBin" << result.maxBin
@@ -279,10 +280,10 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) co
 #endif
 
         auto binning = getAxisBinning(Qt::XAxis);
-        double rightLowEdge = binning.getBinLowEdgeFractional(rightBinFraction);
-        double leftLowEdge = binning.getBinLowEdgeFractional(leftBinFraction);
+        double rightLowEdge = binning.getBinLowEdgeFractional(rightBinFraction, rrf);
+        double leftLowEdge = binning.getBinLowEdgeFractional(leftBinFraction, rrf);
         result.fwhm = std::abs(rightLowEdge - leftLowEdge);
-        double binWidth2 = binning.getBinWidth() * 0.5;
+        double binWidth2 = binning.getBinWidth(rrf) * 0.5;
         // moves the fwhm center by half a bin width to the right
         result.fwhmCenter = (rightLowEdge + leftLowEdge) * 0.5 + binWidth2;
     }
@@ -336,20 +337,21 @@ Histo1D *readHisto1D(QTextStream &in)
     return result;
 }
 
-Histo1D::ValueAndBin Histo1D::getMaxValueAndBin() const
+Histo1D::ValueAndBin Histo1D::getMaxValueAndBin(u32 rrf) const
 {
     ValueAndBin result = {};
-    const u32 binCount = getNumberOfBins();
+    const u32 binCount = getNumberOfBins(rrf);
 
     if (binCount > 0)
     {
-        result.value = m_data[0];
+        result.value = getBinContent(0, rrf);
 
         for (u32 bin = 1; bin < binCount; bin++)
         {
-            if (m_data[bin] >= result.value)
+            auto v = getBinContent(bin, rrf);
+            if (v >= result.value)
             {
-                result.value = m_data[bin];
+                result.value = v;
                 result.bin   = bin;
             }
         }
