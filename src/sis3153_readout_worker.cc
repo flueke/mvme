@@ -514,11 +514,11 @@ u64 SIS3153ReadoutWorker::Counters::receivedWatchdogEvents() const
  * There are problems when doing the full "leave daq mode sequence" which
  * includes using the FlushBufferEnable bit under high data rates. The
  * workaround for now is to just stop the daq and read any udp packets that are
- * in-flight. This means parts of a buffer (<= 1500 bytes) can still be queued
- * up inside the controller. This stale data will be the first data to be sent
- * out when starting the daq again. That's the reason why the 0xbb-header
- * sequence numbers often start at a number value > 1 instead of at 1 and then
- * later on drop to 1.
+ * in-flight. This means parts of a buffer (<= 1500 bytes, <= 8000 bytes if
+ * jumbo frames are used)) can still be queued up inside the controller. This
+ * stale data will be the first data to be sent out when starting the daq
+ * again. That's the reason why the 0xbb-header sequence numbers often start at
+ * a number value > 1 instead of at 1 and then later on drop to 1.
  * Until I find a clean and reliable way to flush the SIS buffer I'm just
  * going to implemented a workaround: throw away all data packets at the start of
  * a run until the packet number 1 appears.
@@ -1965,12 +1965,20 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         // zero.
         s32 seqNum = (beginHeader & SIS3153Constants::BeginEventSequenceNumberMask);
 
-        if (m_lossCounter.handleEventSequenceNumber(seqNum, bufferNumber) & EventLossCounter::Flag_IsStaleData)
+        if (m_lossCounter.handleEventSequenceNumber(seqNum, bufferNumber)
+            & EventLossCounter::Flag_IsStaleData)
         {
-            auto msg = QString(QSL("(buffer #%1) received stale data (single event). seqNum=%2. Skipping event."))
+            m_counters.staleEvents++;
+
+            auto msg = QString(QSL(
+                    "(buffer #%1) received stale data (single event)."
+                    " seqNum=%2. Skipping event."))
                 .arg(bufferNumber)
                 .arg(seqNum);
+            //logMessage(msg, true);
             qDebug() << __PRETTY_FUNCTION__ << msg;
+
+            // FIXME: why is NoneSet returned? shouldn't it be SkipInput?
             return ProcessorAction::NoneSet;
         }
     }
@@ -2162,10 +2170,16 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
             if (m_lossCounter.handleEventSequenceNumber(seqNum, bufferNumber) & EventLossCounter::Flag_IsStaleData)
             {
-                auto msg = QString(QSL("(buffer #%1) received stale data (partialEvent). seqNum=%2. Skipping buffer."))
+                m_counters.staleEvents++;
+
+                auto msg = QString(QSL(
+                        "(buffer #%1) received stale data (partialEvent)."
+                        " seqNum=%2. Skipping buffer."))
                     .arg(bufferNumber)
                     .arg(seqNum);
+                //logMessage(msg, true);
                 qDebug() << __PRETTY_FUNCTION__ << msg;
+
                 return ProcessorAction::SkipInput;
             }
         }

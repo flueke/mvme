@@ -69,6 +69,9 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
             /* The number of multievent packets received. */
             u64 multiEventPackets = 0;
 
+            /* Number of events that are considered stale by the EventLossCounter. */
+            u64 staleEvents = 0;
+
             /* The number of embedded events extracted from multievent packets. */
             StackListCountsArray embeddedEvents;
 

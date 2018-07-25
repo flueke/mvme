@@ -42,6 +42,7 @@ static const QVector<const char *> RdoCounterLabels =
     "lostEvents",
     "partialFragments",
     "reassembledPartials",
+    "staleEvents"
 };
 
 namespace
@@ -214,6 +215,7 @@ void SIS3153DebugWidget::refresh()
         m_rdoCounterLabels[i++]->setText(QString::number(counters.lostEvents));
         m_rdoCounterLabels[i++]->setText(partialFragmentsText);
         m_rdoCounterLabels[i++]->setText(reassembledPartialsText);
+        m_rdoCounterLabels[i++]->setText(QString::number(counters.staleEvents));
     }
 }
 
