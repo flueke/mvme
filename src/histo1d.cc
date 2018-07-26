@@ -188,6 +188,13 @@ Histo1DStatistics Histo1D::calcStatistics(double minX, double maxX, u32 rrf) con
 
     if (minBin >= 0 && maxBin >= 0)
     {
+
+        qDebug() << __PRETTY_FUNCTION__
+            << "minBin =" << minBin << ", minX =" << minX
+            << endl
+            << "maxBin =" << maxBin << ", maxX =" << maxX
+            << endl
+            << ", rrf =" << rrf;
         return calcBinStatistics(minBin, maxBin, rrf);
     }
 
@@ -196,6 +203,11 @@ Histo1DStatistics Histo1D::calcStatistics(double minX, double maxX, u32 rrf) con
 
 Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u32 rrf) const
 {
+    qDebug() << __PRETTY_FUNCTION__
+        << "startBin =" << startBin
+        << ", onePastEndBin =" << onePastEndBin
+        << ", rrf =" << rrf;
+
     Histo1DStatistics result;
 
     if (startBin > onePastEndBin)
@@ -267,6 +279,11 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
         {
             return y0 + ((y1 - y0) / (x1 - x0)) *  (x - x0);
         };
+
+        qDebug() << __PRETTY_FUNCTION__
+            << "leftBin =" << leftBin
+            << ", rightBin =" << rightBin
+            << ", rrf = " << rrf;
 
         double leftBinFraction  = interp(getBinContent(leftBin+1, rrf), leftBin+1,
                                          getBinContent(leftBin, rrf), leftBin, halfMax);

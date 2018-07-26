@@ -1326,7 +1326,6 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
             return !(std::isnan(m_xLimitMin) || std::isnan(m_xLimitMax));
         }
 
-        static const s32 UsePhysicalResolution = 0;
 
         /* Resolution reduction: The number of bins used for visualization and statistics
          * computation is stored in the Histo1DSink. The value UsePhysicalResolution
@@ -1334,6 +1333,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
          * of physical bins currently set.
          * Note that this number must be less than or equal to the number of physical
          * bins. */
+        static const s32 UsePhysicalResolution = 0;
 
         void setResolutionReductionBinCount(s32 bins = UsePhysicalResolution)
         {

@@ -169,6 +169,7 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis)
                            otherBinning.getMin(), otherBinning.getMax());
 }
 
+// XXX: ResReduction
 std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
                                          double startX, double endX,
                                          double startY, double endY)

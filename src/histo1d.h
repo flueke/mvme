@@ -87,7 +87,7 @@ class LIBMVME_EXPORT Histo1D: public QObject
         void setData(const SharedHistoMem &mem, AxisBinning newBinning);
 
         // Returns the bin number or -1 in case of under/overflow.
-        // XXX: ResReduction
+        // XXX: No ResReduction
         s32 fill(double x, double weight = 1.0);
 
         /* Returns the counts of the bin containing the given x value. */
@@ -193,7 +193,7 @@ class LIBMVME_EXPORT Histo1D: public QObject
         };
 
         ValueAndBin getMaxValueAndBin(u32 rrf = NoRR) const;
-        double getMaxValue() const { return getMaxValueAndBin().value; }
+        double getMaxValue(u32 rrf = NoRR) const { return getMaxValueAndBin(rrf).value; }
         u32 getMaxBin(u32 rrf = NoRR) const { return getMaxValueAndBin(rrf).bin; }
 
         void debugDump(bool dumpEmptyBins = true) const;
