@@ -186,7 +186,13 @@ class AxisBinning
             return rrf == NoResolutionReduction ? m_nBins : m_nBins / rrf;
         }
 
+        inline u32 getBinCount(u32 rrf = NoResolutionReduction) const
+        {
+            return getBins(rrf);
+        }
+
         inline void setBins(u32 bins) { m_nBins = bins; }
+        inline void setBinCount(u32 bins) { setBins(bins); }
 
         inline double getBinWidth(u32 rrf = NoResolutionReduction) const
         {
@@ -239,7 +245,7 @@ class AxisBinning
                 bin = 0;
 
             if (bin == Overflow)
-                bin = getBins(rrf) - 1;
+                bin = getBinCount(rrf) - 1;
 
             return bin;
         }
@@ -248,7 +254,7 @@ class AxisBinning
          * is in range of the axis. */
         inline double getBinUnchecked(double x, u32 rrf = NoResolutionReduction) const
         {
-            double bin = getBins(rrf) * (x - m_min) / (m_max - m_min);
+            double bin = getBinCount(rrf) * (x - m_min) / (m_max - m_min);
             return bin;
         }
 

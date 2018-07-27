@@ -6,6 +6,8 @@ TODO list, not at all sorted by priority
 BUGFIXES and FEATURES wanted for 0.9.5 :)
 --------------------------------------------------
 
+* 10:57:49: SIS3153 readout starting on joi iul. 26 10:57:49 2018
+
 * SIS settings: add a warning to the jumbo frames option
 * SIS settings: add an example hostname to the hostname lineedit
 

@@ -193,16 +193,16 @@ class RateEstimationCurveData: public QwtSyntheticPointData
     static const size_t NumberOfPoints = 500;
 
     public:
-    RateEstimationCurveData(Histo1D *histo, RateEstimationData *data)
-        : QwtSyntheticPointData(NumberOfPoints)
-        , m_histo(histo)
-        , m_data(data)
-    {}
+        RateEstimationCurveData(Histo1D *histo, RateEstimationData *data)
+            : QwtSyntheticPointData(NumberOfPoints)
+            , m_histo(histo)
+            , m_data(data)
+        {}
 
         virtual double y(double x) const override
         {
-            auto xy1 = m_histo->getValueAndBinLowEdge(m_data->x1);
-            auto xy2 = m_histo->getValueAndBinLowEdge(m_data->x2);
+            auto xy1 = m_histo->getValueAndBinLowEdge(m_data->x1, m_rrf);
+            auto xy2 = m_histo->getValueAndBinLowEdge(m_data->x2, m_rrf);
 
             double x1 = xy1.first;
             double y1 = xy1.second;
@@ -216,7 +216,8 @@ class RateEstimationCurveData: public QwtSyntheticPointData
 
             qDebug() << __PRETTY_FUNCTION__
                 << "graphical norm =" << norm
-                << "bin / units adjusted norm" << norm * m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio()
+                << "bin / units adjusted norm"
+                << norm * m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio()
                 ;
 #endif
 
@@ -281,6 +282,8 @@ struct Histo1DWidgetPrivate
     QwtPlotTextLabel *m_waterMarkLabel;
 
     QComboBox *m_yScaleCombo;
+    QSlider *m_rrSlider;
+    u32 m_rrf = Histo1D::NoRR;
 
     CalibUi m_calibUi;
 
@@ -336,6 +339,8 @@ struct Histo1DWidgetPrivate
                 AnalysisPauser pauser(m_context);
                 m_sink->m_bins = combo_xBins->currentData().toInt();
                 m_context->analysisOperatorEdited(m_sink);
+                m_rrSlider->setMaximum(std::log2(m_histo->getNumberOfBins()));
+                m_rrSlider->setValue(m_rrSlider->maximum());
             }
         }
     }
@@ -503,6 +508,24 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         }
     });
 
+    // Resolution Reduction
+    {
+        auto rrSlider = new QSlider(Qt::Horizontal);
+        m_d->m_rrSlider = rrSlider;
+        rrSlider->setMinimum(4);
+        rrSlider->setMaximum(std::log2(m_d->m_histo->getNumberOfBins()));
+        rrSlider->setValue(rrSlider->maximum());
+        tb->addWidget(make_vbox_container(QSL("Visible Resolution"), rrSlider));
+
+        connect(rrSlider, &QSlider::valueChanged, this, [this] (int sliderValue) {
+            // (phys number of bins) / (res reduction number of bins)
+            auto pnob  = m_d->m_histo->getNumberOfBins();
+            auto rrnob = 1u << sliderValue;
+            m_d->m_rrf = pnob / rrnob;
+            qDebug() << __PRETTY_FUNCTION__ << "rrf =" << m_d->m_rrf;
+            replot();
+        });
+    }
 
     tb->addWidget(make_spacer_widget());
 
@@ -855,11 +878,15 @@ void Histo1DWidgetPrivate::updateAxisScales()
 void Histo1DWidget::replot()
 {
     // ResultionReduction
-    u32 rrf = 4;
+    //const u32 rrf = Histo1D::NoRR;
+    const u32 rrf = m_d->m_rrf;
 
     m_d->updateStatistics(rrf);
     m_d->updateAxisScales();
     m_d->updateCursorInfoLabel(rrf);
+
+    m_d->m_plotHistoData->setResolutionReductionFactor(rrf);
+    m_d->m_plotRateEstimationData->setResolutionReductionFactor(rrf);
 
     auto xBinning = m_d->m_histo->getAxisBinning(Qt::XAxis);
 
@@ -916,7 +943,7 @@ void Histo1DWidget::replot()
 
 #if 0
         qDebug() << __PRETTY_FUNCTION__ << endl
-            << "run =" << m_context->getRunInfo().runId << endl
+            << "run =" << m_d->m_context->getRunInfo().runId << endl
             << "  x1,y1 =" << x1 << y1 << endl
             << "  x2,y2 =" << x2 << y2 << endl
             << "  tau   =" << tau << endl
@@ -927,7 +954,11 @@ void Histo1DWidget::replot()
             << "  norm = freeCounts_0_inf =" << norm << endl
             << "  freeCounts_0_x1   =" << freeCounts_0_x1 << endl
             << "  histoCounts_0_x1  =" << histoCounts_0_x1 << endl
-            << "  histoCounts_total =" << m_histo->calcStatistics(m_histo->getXMin(), m_histo->getXMax()).entryCount << endl
+            << "  histoCounts_total ="
+            << m_d->m_histo->calcStatistics(m_d->m_histo->getXMin(),
+                                            m_d->m_histo->getXMax(),
+                                            rrf).entryCount
+            << endl
             << "  efficiency        =" << efficiency << endl
             << endl
             << "  norm_fitCurve          =" << norm_fitCurve << endl
@@ -997,6 +1028,8 @@ void Histo1DWidget::replot()
         m_d->m_rateEstimationFormulaMarker->setYValue(plotY);
         m_d->m_rateEstimationFormulaMarker->setLabel(rateFormulaText);
         m_d->m_rateEstimationFormulaMarker->show();
+
+        //qDebug() << __PRETTY_FUNCTION__ << "rate estimation formula marker x,y =" << x1 << plotY;
     }
 
     // window and axis titles
@@ -1006,8 +1039,6 @@ void Histo1DWidget::replot()
     auto axisInfo = m_d->m_histo->getAxisInfo(Qt::XAxis);
     m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
 
-    m_d->m_plotHistoData->setResolutionReductionFactor(rrf);
-    m_d->m_plotRateEstimationData->setResolutionReductionFactor(rrf);
     m_d->m_plot->replot();
 
 #if 0
@@ -1519,12 +1550,12 @@ void Histo1DWidget::on_tb_test_clicked()
 
 void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
 {
-    // TODO: ResolutionReduction
     if (std::isnan(m_d->m_rateEstimationData.x1))
     {
         m_d->m_rateEstimationData.x1 = pos.x();
 
-        double x1 = m_d->m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1).first;
+        double x1 = m_d->m_histo->getValueAndBinLowEdge(
+            m_d->m_rateEstimationData.x1, m_d->m_rrf).first;
 
         m_d->m_rateEstimationX1Marker->setXValue(m_d->m_rateEstimationData.x1);
         m_d->m_rateEstimationX1Marker->setLabel(QString("    x1=%1").arg(x1));
@@ -1543,8 +1574,11 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
         m_d->m_rateEstimationPointPicker->setEnabled(false);
         m_d->m_zoomer->setEnabled(true);
 
-        double x1 = m_d->m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1).first;
-        double x2 = m_d->m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x2).first;
+        double x1 = m_d->m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1,
+                                                        m_d->m_rrf).first;
+
+        double x2 = m_d->m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x2,
+                                                        m_d->m_rrf).first;
 
         // set both x1 and x2 as they might have been swapped above
         m_d->m_rateEstimationX1Marker->setXValue(m_d->m_rateEstimationData.x1);

@@ -135,7 +135,7 @@ double Histo1D::getValue(double x, u32 rrf) const
 std::pair<double, double> Histo1D::getValueAndBinLowEdge(double x, u32 rrf) const
 {
     s64 bin = m_xAxisBinning.getBin(x, rrf);
-    return std::make_pair(getBinLowEdge(bin, rrf), getBinContent(bin));
+    return std::make_pair(getBinLowEdge(bin, rrf), getBinContent(bin, rrf));
 }
 
 void Histo1D::clear()
@@ -188,7 +188,6 @@ Histo1DStatistics Histo1D::calcStatistics(double minX, double maxX, u32 rrf) con
 
     if (minBin >= 0 && maxBin >= 0)
     {
-
         qDebug() << __PRETTY_FUNCTION__
             << "minBin =" << minBin << ", minX =" << minX
             << endl
@@ -266,7 +265,7 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
 
         // find first bin to the right with  value < halfMax
         double rightBin = 0.0;
-        for (u32 bin = result.maxBin; bin < onePastEndBin; ++bin)
+        for (s64 bin = result.maxBin; bin < onePastEndBin; ++bin)
         {
             if (getBinContent(bin, rrf) < halfMax)
             {
@@ -280,10 +279,17 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
             return y0 + ((y1 - y0) / (x1 - x0)) *  (x - x0);
         };
 
+#if 0
         qDebug() << __PRETTY_FUNCTION__
-            << "leftBin =" << leftBin
+            << endl
+            << "  rrf =" << rrf
+            << ", startBin =" << startBin
+            << ", onePastEndBin =" << onePastEndBin
+            << endl
+            << "  leftBin =" << leftBin
             << ", rightBin =" << rightBin
-            << ", rrf = " << rrf;
+            ;
+#endif
 
         double leftBinFraction  = interp(getBinContent(leftBin+1, rrf), leftBin+1,
                                          getBinContent(leftBin, rrf), leftBin, halfMax);
@@ -292,17 +298,20 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
                                          getBinContent(rightBin, rrf), rightBin, halfMax);
 
 #if 0
-        qDebug() << __PRETTY_FUNCTION__ << "FWHM: leftbin" << leftBinFraction << "rightBin" << rightBinFraction << "maxBin" << result.maxBin
-            << "fwhm" << result.fwhm << "fwhmCenter" << result.fwhmCenter;
+        qDebug() << __PRETTY_FUNCTION__
+            << "FWHM: leftbin" << leftBinFraction
+            << ", rightBin" << rightBinFraction << "maxBin" << result.maxBin
+            << endl
+            << "  fwhm" << result.fwhm << "fwhmCenter" << result.fwhmCenter;
 #endif
 
         auto binning = getAxisBinning(Qt::XAxis);
         double rightLowEdge = binning.getBinLowEdgeFractional(rightBinFraction, rrf);
         double leftLowEdge = binning.getBinLowEdgeFractional(leftBinFraction, rrf);
         result.fwhm = std::abs(rightLowEdge - leftLowEdge);
-        double binWidth2 = binning.getBinWidth(rrf) * 0.5;
+        double binWidth_2 = binning.getBinWidth(rrf) * 0.5;
         // moves the fwhm center by half a bin width to the right
-        result.fwhmCenter = (rightLowEdge + leftLowEdge) * 0.5 + binWidth2;
+        result.fwhmCenter = (rightLowEdge + leftLowEdge) * 0.5 + binWidth_2;
     }
 
     return result;

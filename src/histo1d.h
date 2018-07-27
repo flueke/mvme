@@ -86,22 +86,19 @@ class LIBMVME_EXPORT Histo1D: public QObject
          * doesn't right now. */
         void setData(const SharedHistoMem &mem, AxisBinning newBinning);
 
-        // Returns the bin number or -1 in case of under/overflow.
-        // XXX: No ResReduction
+        // Returns the bin number that was filled or -1 in case of under/overflow.
+        // Note: No Resolution Reduction for the fill operation.
         s32 fill(double x, double weight = 1.0);
 
         /* Returns the counts of the bin containing the given x value. */
-        // XXX: ResReduction
         double getValue(double x, u32 rrf = NoRR) const;
 
         /* Returns a pair of (x_bin_low_edge, y_counts) for the given x value. */
-        // XXX: ResReduction
         std::pair<double, double> getValueAndBinLowEdge(double x, u32 rrf = NoRR) const;
 
         void clear();
         inline double *data() { return m_data; }
 
-        // XXX: ResReduction
         inline u32 getNumberOfBins(u32 rrf = NoRR) const
         {
             return m_xAxisBinning.getBins(rrf);
@@ -109,22 +106,43 @@ class LIBMVME_EXPORT Histo1D: public QObject
 
         inline size_t getStorageSize() const { return getNumberOfBins() * sizeof(double); }
 
-        // XXX: ResReduction
         inline double getBinContent(u32 bin, u32 rrf = NoRR) const
         {
+            // number of physical bins
+            const auto pnob = getNumberOfBins();
+
             if (rrf == NoRR)
             {
-                return (bin < getNumberOfBins()) ? m_data[bin] : 0.0;
+                // no resolution reduction -> direct indexing
+                return (bin < pnob) ? m_data[bin] : 0.0;
             }
 
             // "consecutive summation"
             u32 beginBin = bin * rrf;
             u32 endBin   = std::min(beginBin + rrf, getNumberOfBins());
 
-            return std::accumulate(m_data + beginBin, m_data + endBin, 0.0);
+#if 0
+                qDebug() << __PRETTY_FUNCTION__
+                    << endl
+                    << "  input: bin =" << bin << ", rrf =" << rrf
+                    << endl
+                    << "  beginBin =" << beginBin << ", endBin =" << endBin
+                    << endl
+                    << " numberOfBins(NoRR) =" << getNumberOfBins()
+                    << " numberOfBins(rrf) =" << getNumberOfBins(rrf)
+                    ;
+#endif
+
+            if (beginBin < pnob && endBin <= pnob)
+            {
+                return std::accumulate(m_data + beginBin, m_data + endBin, 0.0);
+            }
+
+            // out of range
+            return 0.0;
         }
 
-        // XXX: No ResReduction
+        // Note: No Resolution Reduction for the fill operation.
         bool setBinContent(u32 bin, double value);
 
         inline double getXMin() const { return m_xAxisBinning.getMin(); }
