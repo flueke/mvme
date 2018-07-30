@@ -874,6 +874,10 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         {
             stackListControlValue |= SIS3153Registers::StackListControlValues::ListBufferEnable;
         }
+        else
+        {
+            sis_log("Disabling packet buffering (Debug option)!");
+        }
 
         u32 nextTimerTriggerSource = SIS3153Registers::TriggerSourceTimer1;
 
