@@ -27,8 +27,9 @@
 #include <QGroupBox>
 #include <QMessageBox>
 
-#include "qt_util.h"
+#include "gui_util.h"
 #include "mvme_context.h"
+#include "qt_util.h"
 #include "sis3153.h"
 #include "vme_controller_factory.h"
 #include "vme_controller_ui_p.h"
@@ -81,12 +82,41 @@ SIS3153EthSettingsWidget::SIS3153EthSettingsWidget(QWidget *parent)
     }
 
     auto l = new QFormLayout(this);
+
     l->addRow(QSL("Hostname / IP Address"), m_le_sisAddress);
+    l->addRow(make_framed_description_label(QSL(
+                "If using DHCP the requested hostname is <i>sis3153-NNNN</i>, "
+                " where N is the serial number in decimal with leading zeroes.<br/>"
+                "Example: sis3153-0045 for serial number 45."
+                )));
+
     l->addRow(QSL("Enable UDP Jumbo Frames"), m_cb_jumboFrames);
-    l->addRow(QSL("UDP Packet Gap"), m_combo_packetGap);
+    l->addRow(make_framed_description_label(QSL(
+                "Use ethernet jumbo frames. Note that all intermediate network components"
+                " and the receiving network card have to support and be setup correctly"
+                " for this option to work."
+                )));
+
+    l->addRow(QSL("Debug: UDP Packet Gap"), m_combo_packetGap);
     l->addRow(QSL("Debug: Write raw buffer file"), m_cb_debugRawBuffers);
     l->addRow(QSL("Debug: Disable Buffering"), m_cb_disableBuffering);
+
+#if 0
+    l->addRow(make_framed_description_label(QSL(
+                "Disable buffering to make optimal use of the maximum packet size."
+                " This will greatly decrease performance and increase the total number of "
+                " packets sent out by the controller."
+                )));
+#endif
+
     l->addRow(QSL("Debug: Disable Watchdog"), m_cb_disableWatchdog);
+
+#if 0
+    l->addRow(make_framed_description_label(QSL(
+                "Do not generate watchdog packets. At low data rates this will result in"
+                " receive timeouts being logged during a DAQ run."
+                )));
+#endif
 
     m_gb_enableForwarding->setTitle("Enable UDP Forwarding");
     m_gb_enableForwarding->setCheckable(true);
@@ -98,6 +128,10 @@ SIS3153EthSettingsWidget::SIS3153EthSettingsWidget(QWidget *parent)
     forwardLayout->addRow(QSL("UDP Port"), m_spin_forwardingPort);
 
     l->addRow(m_gb_enableForwarding);
+    //l->addRow(make_framed_description_label(QSL(
+    //            "Forward raw datagrams from the controller to the given host:port"
+    //            " combination."
+    //            )));
 }
 
 void SIS3153EthSettingsWidget::validate()

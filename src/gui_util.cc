@@ -27,6 +27,8 @@
 #include <QTextStream>
 #include <QWidget>
 
+#include "qt_util.h"
+
 #define QSL(str) QStringLiteral(str)
 
 QWidget *make_vme_script_ref_widget()
@@ -64,4 +66,18 @@ QPixmap embellish_pixmap(const QString &original_source, const QString &embellis
     QPainter painter(&result);
     painter.drawPixmap(target_rect, embellishment, embellishment.rect());
     return result;
+}
+
+QLabel *make_framed_description_label(const QString &text, QWidget *parent)
+{
+    auto label = new QLabel(text, parent);
+
+    set_widget_font_pointsize_relative(label, -1);
+    label->setWordWrap(true);
+    label->setTextInteractionFlags(label->textInteractionFlags()
+                                   | Qt::TextSelectableByMouse);
+    label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    label->setFrameShape(QFrame::StyledPanel);
+
+    return label;
 }
