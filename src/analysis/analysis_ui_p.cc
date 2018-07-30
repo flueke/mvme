@@ -18,20 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#include "a2_adapter.h"
-#include "a2/a2_exprtk.h"
 #include "analysis_ui_p.h"
-#include "analysis_util.h"
-#include "data_extraction_widget.h"
-#include "exportsink_codegen.h"
-#include "../globals.h"
-#include "../histo_util.h"
-#include "../vme_config.h"
-#include "../mvme_context.h"
-#include "../mvme_context_lib.h"
-#include "../qt_util.h"
-#include "../data_filter.h"
-#include "../data_filter_edit.h"
 
 #include <array>
 #include <limits>
@@ -55,6 +42,21 @@
 #include <QStackedWidget>
 #include <QTextBrowser>
 #include <QTimer>
+
+#include "a2_adapter.h"
+#include "a2/a2_exprtk.h"
+#include "analysis_util.h"
+#include "data_extraction_widget.h"
+#include "exportsink_codegen.h"
+#include "../globals.h"
+#include "../histo_util.h"
+#include "../vme_config.h"
+#include "../mvme_context.h"
+#include "../mvme_context_lib.h"
+#include "../qt_util.h"
+#include "../data_filter.h"
+#include "../data_filter_edit.h"
+#include "../gui_util.h"
 
 namespace
 {
@@ -1392,12 +1394,9 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
     {
         // operator and struct/class name
         {
-            auto label = new QLabel(QSL(
+            auto label = make_framed_description_label(QSL(
                     "<i>Name</i> must be a valid C++/Python identifier as it is used"
                     " for generated struct and class names."));
-            label->setWordWrap(true);
-            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-            label->setFrameShape(QFrame::StyledPanel);
 
             int nameRow = get_widget_row(formLayout, le_name);
             formLayout->insertRow(nameRow + 1, label);
@@ -1476,20 +1475,16 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
             auto stack = new QStackedWidget;
 
-            auto label = new QLabel(QSL(
+            auto label = make_framed_description_label(QSL(
                         "Sparse format writes out indexes and values, omitting"
                         " invalid parameters and NaNs.\n"
                         "For input arrays where for most events only a few"
                         " parameters are valid, this format produces much"
                         " smaller output files than the Full format."
                         ));
-            set_widget_font_pointsize_relative(label, -1);
-            label->setWordWrap(true);
-            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-            label->setFrameShape(QFrame::StyledPanel);
             stack->addWidget(label);
 
-            label = new QLabel(QSL(
+            label = make_framed_description_label(QSL(
                         "Full format writes out each input array as-is,"
                         " including invalid parameters (special NaN values).\n"
                         "Use this format if for most events all of the array"
@@ -1497,10 +1492,6 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
                         " exported data file is critical.\n"
                         "Warning: this format can produce large files quickly!"
                         ));
-            set_widget_font_pointsize_relative(label, -1);
-            label->setWordWrap(true);
-            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-            label->setFrameShape(QFrame::StyledPanel);
             stack->addWidget(label);
 
             connect(combo_exportFormat, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
@@ -1516,16 +1507,12 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             combo_exportCompression->addItem("zlib fast", 1);
             formLayout->addRow("Compression", combo_exportCompression);
 
-            auto label = new QLabel(QSL(
+            auto label = make_framed_description_label(QSL(
                     "zlib compression will produce a gzip compatible compressed file.\n"
                     "Generated C++ code will require the zlib development files"
                     " to be installed on the system.\n"
                     "Generated Python code will use the gzip module included with Python."
                     ));
-            set_widget_font_pointsize_relative(label, -1);
-            label->setWordWrap(true);
-            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-            label->setFrameShape(QFrame::StyledPanel);
 
             formLayout->addRow(label);
         }
@@ -1540,14 +1527,12 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             auto gb    = new QGroupBox("Code generation");
             auto l     = new QGridLayout(gb);
             l->setContentsMargins(2, 2, 2, 2);
-            auto label = new QLabel(QSL(
+            auto label = make_framed_description_label(QSL(
                     "Important: Code generation will overwrite existing files!\n"
                     "Set the output path and export options above, then use the"
                     " buttons below to generate the code files.\n"
                     "Errors during code generation will be shown in the Log Window."
                    ));
-            set_widget_font_pointsize_relative(label, -1);
-            label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 
             l->addWidget(label,                0, 0, 1, 3);

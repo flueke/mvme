@@ -70,9 +70,14 @@ QPixmap embellish_pixmap(const QString &original_source, const QString &embellis
 
 QLabel *make_framed_description_label(const QString &text, QWidget *parent)
 {
-    auto label = new QLabel(text, parent);
+    auto label = new FixWordWrapBugLabel(text, parent);
 
     set_widget_font_pointsize_relative(label, -1);
+
+    QSizePolicy pol(label->sizePolicy().horizontalPolicy(),
+                    QSizePolicy::Minimum);
+    label->setSizePolicy(pol);
+
     label->setWordWrap(true);
     label->setTextInteractionFlags(label->textInteractionFlags()
                                    | Qt::TextSelectableByMouse);
@@ -80,4 +85,18 @@ QLabel *make_framed_description_label(const QString &text, QWidget *parent)
     label->setFrameShape(QFrame::StyledPanel);
 
     return label;
+}
+
+/* https://bugreports.qt.io/browse/QTBUG-37673 */
+void FixWordWrapBugLabel::resizeEvent(QResizeEvent *event)
+{
+    QLabel::resizeEvent( event );
+
+    if (wordWrap() && sizePolicy().verticalPolicy() == QSizePolicy::Minimum)
+    {
+        // heightForWidth rely on minimumSize to evaulate, so reset it before
+        setMinimumHeight( 0 );
+        // define minimum height
+        setMinimumHeight( heightForWidth( width() ) );
+    }
 }

@@ -37,4 +37,13 @@ QPixmap embellish_pixmap(const QString &original_source, const QString &embellis
 
 QLabel *make_framed_description_label(const QString &text, QWidget *parent = nullptr);
 
+class FixWordWrapBugLabel: public QLabel
+{
+    public:
+        using QLabel::QLabel;
+
+    protected:
+        virtual void resizeEvent(QResizeEvent *event) override;
+};
+
 #endif /* __GUI_UTIL_H__ */
