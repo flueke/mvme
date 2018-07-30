@@ -763,7 +763,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
 
         sis_log(QString(QSL("SIS3153 readout starting on %1"))
-                .arg(QDateTime::currentDateTime().toString())
+                .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
                );
 
         //
@@ -1290,7 +1290,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         sis_log(QSL(""));
         sis_log(QString(QSL("SIS3153 readout stopped on %1"))
-                .arg(QDateTime::currentDateTime().toString())
+                .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
                );
 
         // Note: endRun() collects the log contents, which means it should be one of the

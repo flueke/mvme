@@ -253,7 +253,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     try
     {
         logMessage(QString(QSL("VMUSB readout starting on %1"))
-                   .arg(QDateTime::currentDateTime().toString())
+                   .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
                    );
 
         validate_vme_config(daqConfig); // throws on error
@@ -471,7 +471,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         logMessage(QSL(""));
         logMessage(QString(QSL("VMUSB readout stopped on %1"))
-                   .arg(QDateTime::currentDateTime().toString())
+                   .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
                    );
 
         // Note: endRun() collects the log contents, which means it should be one of the
