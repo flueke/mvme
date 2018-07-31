@@ -64,6 +64,7 @@
 #endif
 
 static const s32 ReplotPeriod_ms = 1000;
+static const u32 RRFMin = 2;
 
 class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
 {
@@ -338,7 +339,10 @@ struct Histo1DWidgetPrivate
             {
                 AnalysisPauser pauser(m_context);
                 m_sink->m_bins = combo_xBins->currentData().toInt();
+                m_sink->setResolutionReductionFactor(Histo1D::NoRR);
                 m_context->analysisOperatorEdited(m_sink);
+
+                qDebug() << __PRETTY_FUNCTION__ << "setting rrSlider to max";
                 m_rrSlider->setMaximum(std::log2(m_histo->getNumberOfBins()));
                 m_rrSlider->setValue(m_rrSlider->maximum());
             }
@@ -354,6 +358,7 @@ struct Histo1DWidgetPrivate
     void calibApply();
     void calibFillMax();
     void calibResetToFilter();
+    void onRRSliderValueChanged(int sliderValue);
     void exportPlot();
     void exportPlotToClipboard();
     void saveHistogram();
@@ -510,20 +515,12 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     // Resolution Reduction
     {
-        auto rrSlider = new QSlider(Qt::Horizontal);
-        m_d->m_rrSlider = rrSlider;
-        rrSlider->setMinimum(4);
-        rrSlider->setMaximum(std::log2(m_d->m_histo->getNumberOfBins()));
-        rrSlider->setValue(rrSlider->maximum());
-        tb->addWidget(make_vbox_container(QSL("Visible Resolution"), rrSlider));
+        m_d->m_rrSlider = new QSlider(Qt::Horizontal);
+        m_d->m_rrSlider->setMinimum(RRFMin);
+        tb->addWidget(make_vbox_container(QSL("Visible Resolution"), m_d->m_rrSlider));
 
-        connect(rrSlider, &QSlider::valueChanged, this, [this] (int sliderValue) {
-            // (phys number of bins) / (res reduction number of bins)
-            auto pnob  = m_d->m_histo->getNumberOfBins();
-            auto rrnob = 1u << sliderValue;
-            m_d->m_rrf = pnob / rrnob;
-            qDebug() << __PRETTY_FUNCTION__ << "rrf =" << m_d->m_rrf;
-            replot();
+        connect(m_d->m_rrSlider, &QSlider::valueChanged, this, [this] (int sliderValue) {
+            m_d->onRRSliderValueChanged(sliderValue);
         });
     }
 
@@ -835,6 +832,13 @@ void Histo1DWidget::setHistogram(Histo1D *histo)
     // ownership goes to qwt
     m_d->m_rateEstimationCurve->setData(m_d->m_plotRateEstimationData);
 
+    m_d->m_rrSlider->setMaximum(std::log2(m_d->m_histo->getNumberOfBins()));
+
+    if (m_d->m_rrf == Histo1D::NoRR)
+        m_d->m_rrSlider->setValue(m_d->m_rrSlider->maximum());
+
+    //qDebug() << __PRETTY_FUNCTION__ << "new RRSlider max" << m_d->m_rrSlider->maximum();
+
     m_d->displayChanged();
 }
 
@@ -877,8 +881,7 @@ void Histo1DWidgetPrivate::updateAxisScales()
 
 void Histo1DWidget::replot()
 {
-    // ResultionReduction
-    //const u32 rrf = Histo1D::NoRR;
+    // ResolutionReduction
     const u32 rrf = m_d->m_rrf;
 
     m_d->updateStatistics(rrf);
@@ -1118,7 +1121,7 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
 void Histo1DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 {
     m_d->m_cursorPosition = pos;
-    // ResultionReduction
+    // ResolutionReduction
     u32 rrf = 4;
     m_d->updateCursorInfoLabel(rrf);
 }
@@ -1126,7 +1129,7 @@ void Histo1DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 void Histo1DWidget::mouseCursorLeftPlot()
 {
     m_d->m_cursorPosition = QPointF(make_quiet_nan(), make_quiet_nan());
-    // ResultionReduction
+    // ResolutionReduction
     u32 rrf = 4;
     m_d->updateCursorInfoLabel(rrf);
 }
@@ -1486,13 +1489,87 @@ bool Histo1DWidget::event(QEvent *e)
     return QWidget::event(e);
 }
 
+void Histo1DWidgetPrivate::onRRSliderValueChanged(int sliderValue)
+{
+#if 0
+    qDebug() << __PRETTY_FUNCTION__
+        << "rrS min/max =" << m_rrSlider->minimum() << m_rrSlider->maximum()
+        << ", new rrS value =" << sliderValue
+        << ", current rrf =" << m_rrf
+        ;
+#endif
+
+    // (phys number of bins) / (res reduction number of bins)
+    u32 physBins = m_histo->getNumberOfBins();
+    u32 visBins   = 1u << sliderValue;
+    m_rrf = physBins / visBins;
+
+#if 0
+    qDebug() << __PRETTY_FUNCTION__
+        << "physBins =" << physBins
+        << ", visBins =" << visBins
+        << ", new rrf =" << m_rrf;
+#endif
+
+    if (m_sink)
+    {
+        //qDebug() << "  updating sink" << m_sink.get();
+
+        m_sink->setResolutionReductionFactor(m_rrf);
+
+        // FIXME: this code results in the analysis being modified marked modified on open
+        // a histogram for the first time as the rrf changes from 0 (NoRR) to 1 (physBins
+        // == visBins)
+        // Also invoking the callback here rebuilds the analysis immediately. This is not
+        // needed at all as the res reduction is a display only thing and doesn't interact
+        // with the a2 runtime in any way.
+#if 0
+        if (m_sinkModifiedCallback)
+        {
+            qDebug() << "  invoking sinkModifiedCallback";
+            m_sinkModifiedCallback(m_sink);
+        }
+#endif
+    }
+
+    m_q->replot();
+
+    //qDebug() << __PRETTY_FUNCTION__ << "<<<<< end of function";
+}
+
 void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback)
 {
     Q_ASSERT(sink);
+
     m_d->m_sink = sink;
     m_d->m_sinkModifiedCallback = sinkModifiedCallback;
     m_d->m_actionSubRange->setEnabled(true);
     m_d->m_actionChangeRes->setEnabled(true);
+
+    auto rrf = sink->getResolutionReductionFactor();
+
+    if (rrf == Histo1D::NoRR)
+    {
+#if 0
+        qDebug() << __PRETTY_FUNCTION__
+            << "setting rrSlider value to max" << m_d->m_rrSlider->maximum();
+#endif
+
+        m_d->m_rrSlider->setValue(m_d->m_rrSlider->maximum());
+    }
+    else
+    {
+        u32 visBins = m_d->m_histo->getNumberOfBins() / rrf;
+        int sliderValue = std::log2(visBins);
+
+#if 0
+        qDebug() << __PRETTY_FUNCTION__
+            << "sink rrf =" << rrf
+            << ", -> setting slider value to" << sliderValue;
+#endif
+
+        m_d->m_rrSlider->setValue(sliderValue);
+    }
 }
 
 void Histo1DWidget::on_tb_subRange_clicked()

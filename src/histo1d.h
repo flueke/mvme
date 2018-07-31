@@ -108,16 +108,14 @@ class LIBMVME_EXPORT Histo1D: public QObject
 
         inline double getBinContent(u32 bin, u32 rrf = NoRR) const
         {
-            // number of physical bins
-            const auto pnob = getNumberOfBins();
+            const auto physBins = getNumberOfBins();
 
             if (rrf == NoRR)
             {
                 // no resolution reduction -> direct indexing
-                return (bin < pnob) ? m_data[bin] : 0.0;
+                return (bin < physBins) ? m_data[bin] : 0.0;
             }
 
-            // "consecutive summation"
             u32 beginBin = bin * rrf;
             u32 endBin   = std::min(beginBin + rrf, getNumberOfBins());
 
@@ -133,8 +131,9 @@ class LIBMVME_EXPORT Histo1D: public QObject
                     ;
 #endif
 
-            if (beginBin < pnob && endBin <= pnob)
+            if (beginBin < physBins && endBin <= physBins)
             {
+                // consecutive summation of the bins in [beginBin, endBin)
                 return std::accumulate(m_data + beginBin, m_data + endBin, 0.0);
             }
 

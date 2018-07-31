@@ -157,8 +157,9 @@ class AxisBinning
     public:
         static const s64 Underflow = -1;
         static const s64 Overflow = -2;
+
         /* Default value for most getters which means to use the number of bins directly
-         * and not perform any resolution reduction. */
+         * and to not perform any resolution reduction. */
         static const u32 NoResolutionReduction = 0;
 
 

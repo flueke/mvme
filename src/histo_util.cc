@@ -169,7 +169,7 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis)
                            otherBinning.getMin(), otherBinning.getMax());
 }
 
-// XXX: ResReduction
+// TODO: ResReduction
 std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
                                          double startX, double endX,
                                          double startY, double endY)
@@ -243,6 +243,7 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
 
 /* Creates a projection for a combined view of the given histograms list.
  * Assumes that all histograms in the list have the same x-axis binning!. */
+// TODO: ResReduction
 Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
                            double startX, double endX,
                            double startY, double endY)
