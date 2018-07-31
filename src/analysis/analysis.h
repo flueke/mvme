@@ -1383,6 +1383,24 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
 
         QString m_xAxisTitle;
         QString m_yAxisTitle;
+
+        void setResolutionReductionFactors(const ResolutionReductionFactors &rrf)
+        {
+            m_rrf = rrf;
+        }
+
+        void setResolutionReductionFactors(u32 rrfX, u32 rrfY)
+        {
+            m_rrf = { {rrfX, rrfY} };
+        }
+
+        ResolutionReductionFactors getResolutionReductionFactors() const
+        {
+            return m_rrf;
+        }
+
+    private:
+        ResolutionReductionFactors m_rrf;
 };
 
 class LIBMVME_EXPORT RateMonitorSink: public BasicSink

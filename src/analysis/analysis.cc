@@ -2816,6 +2816,9 @@ void Histo2DSink::read(const QJsonObject &json)
 
     m_xAxisTitle = json["xAxisTitle"].toString();
     m_yAxisTitle = json["yAxisTitle"].toString();
+
+    m_rrf.x = json["rrfX"].toInt(AxisBinning::NoResolutionReduction);
+    m_rrf.y = json["rrfY"].toInt(AxisBinning::NoResolutionReduction);
 }
 
 void Histo2DSink::write(QJsonObject &json) const
@@ -2830,6 +2833,9 @@ void Histo2DSink::write(QJsonObject &json) const
 
     json["xAxisTitle"] = m_xAxisTitle;
     json["yAxisTitle"] = m_yAxisTitle;
+
+    json["rrfX"] = static_cast<qint64>(m_rrf.x);
+    json["rrfY"] = static_cast<qint64>(m_rrf.y);
 }
 
 size_t Histo2DSink::getStorageSize() const
