@@ -6,11 +6,6 @@ TODO list, not at all sorted by priority
 BUGFIXES and FEATURES wanted for 0.9.5 :)
 --------------------------------------------------
 
-* 10:57:49: SIS3153 readout starting on joi iul. 26 10:57:49 2018
-
-* SIS settings: add a warning to the jumbo frames option
-* SIS settings: add an example hostname to the hostname lineedit
-
 * Manual: mention the "show advanced objects" button and what it does
   maybe even enable them by default (talk to robert about this)
 
@@ -18,20 +13,26 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
   mvmeworkspace.ini file show an explicit error message about the filename in
   the ini possibly being wrong.
 
+--------------------------------------------------
 * new feature: dynamic resolution reduction of histograms.
+--------------------------------------------------
   display only, histo data is not modified. use powers of 2 for downscaling.
   This is not "scaling" as it's not linear (unless you look at the powers of 2,
   those are linear). Things like gauss, maxima, etc should all use the
   dynamically downscaled data.
 
-getNumberOfBins()           -> getNumberOfSamples/getNumberOfVirtualBins
-                            -> or the other way: getNumberOfStorageBins()
-getBinContent(bin)
-getBinLowEdge(bin)
-getValueAndBinLowEdge(x)
-getAxisBinning(axis)
-calcStatistics(x1, x2)
-getBinCenter()
+  - analysis is not marked as modified when a sinks rrf is updated.
+    the change is still applied and stored on disk, it's just the modification
+    flag
+
+  getNumberOfBins()           -> getNumberOfSamples/getNumberOfVirtualBins
+                              -> or the other way: getNumberOfStorageBins()
+  getBinContent(bin)
+  getBinLowEdge(bin)
+  getValueAndBinLowEdge(x)
+  getAxisBinning(axis)
+  calcStatistics(x1, x2)
+  getBinCenter()
 
 - Histo1DIntervalData
 - Histo1DGaussCurveData does not care as everything is done through a local
@@ -48,6 +49,22 @@ getBinCenter()
   adjust the implementation of the calls above accordingly.
 
   Maybe adding the scale factor to AxisBinning does most of what's needed?
+
+Histo2d res reduction:
+
+  Reduction should be possible for both axes independently.
+  Reduced bin contents is the sum of the physical bins in the rectangle formed
+  by res reduction on both axes.
+
+  QwtRasterData::initRaster() can and should probably be used to perform
+  dynamic res reduction. This should solve the issue where a histo with a
+  resolution larger than the number of available pixels does show uncolored
+  values depsite there being data.
+
+
+
+
+
 
 * workspace and vme controller settings and such:
   Roberts use case is: open listfile, try to locally reproduce problems a

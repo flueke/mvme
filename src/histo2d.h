@@ -38,6 +38,22 @@ struct Histo2DStatistics
     Intervals intervals;
 };
 
+union ResolutionReductionFactors
+{
+    struct
+    {
+        u32 x;
+        u32 y;
+    };
+    std::array<u32, 2> factors;
+
+    inline bool isNoReduction() const
+    {
+        return (x == AxisBinning::NoResolutionReduction
+                && y == AxisBinning::NoResolutionReduction);
+    }
+};
+
 class Histo2D: public QObject
 {
     Q_OBJECT
@@ -57,15 +73,22 @@ class Histo2D: public QObject
         void resize(s32 xBins, s32 yBins);
 
         void fill(double x, double y, double weight = 1.0);
-        double getValue(double x, double y) const;
-        double getBinContent(u32 xBin, u32 yBin) const;
+
+        double getValue(double x, double y,
+                        const ResolutionReductionFactors &rrf = {}) const;
+
+        double getBinContent(u32 xBin, u32 yBin,
+                             const ResolutionReductionFactors &rrf = {}) const;
+
         void clear();
         inline double *data() { return m_data; }
 
         void debugDump() const;
         inline size_t getStorageSize() const
         {
-            return getAxisBinning(Qt::XAxis).getBins() * getAxisBinning(Qt::YAxis).getBins() * sizeof(double);
+            return getAxisBinning(Qt::XAxis).getBins()
+                * getAxisBinning(Qt::YAxis).getBins()
+                * sizeof(double);
         }
 
         AxisBinning getAxisBinning(Qt::Axis axis) const
@@ -109,8 +132,13 @@ class Histo2D: public QObject
 
         AxisInterval getInterval(Qt::Axis axis) const;
 
-        Histo2DStatistics calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const;
-        Histo2DStatistics calcGlobalStatistics() const;
+        Histo2DStatistics calcStatistics(
+            AxisInterval xInterval,
+            AxisInterval yInterval,
+            const ResolutionReductionFactors &rrf = {}) const;
+
+        Histo2DStatistics calcGlobalStatistics(
+            const ResolutionReductionFactors &rrf = {}) const;
 
         double getUnderflow() const { return m_underflow; }
         void setUnderflow(double value) { m_underflow = value; }

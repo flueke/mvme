@@ -88,20 +88,37 @@ void Histo2D::fill(double x, double y, double weight)
     }
 }
 
-double Histo2D::getValue(double x, double y) const
+double Histo2D::getValue(double x, double y,
+                         const ResolutionReductionFactors &rrf) const
 {
-    s64 xBin = m_axisBinnings[Qt::XAxis].getBin(x);
-    s64 yBin = m_axisBinnings[Qt::YAxis].getBin(y);
+    // TODO: RR
+    if (rrf.isNoReduction())
+    {
+        // implementation from before RR was introduced
+        s64 xBin = m_axisBinnings[Qt::XAxis].getBin(x);
+        s64 yBin = m_axisBinnings[Qt::YAxis].getBin(y);
 
-    if (xBin < 0 || yBin < 0)
-        return 0.0;
+        if (xBin < 0 || yBin < 0)
+            return 0.0;
 
-    u32 linearBin = yBin * m_axisBinnings[Qt::XAxis].getBins() + xBin;
-    return m_data[linearBin];
+        u32 linearBin = yBin * m_axisBinnings[Qt::XAxis].getBins() + xBin;
+        return m_data[linearBin];
+    }
+
+    /* Summation of the rectangle formed by the x and y bins specified by the individual
+     * axis res reductions.
+     *
+     * Implementation: sum up the rows of the rectangles.
+     *
+     * */
+
+    s64 binX1 = m_axisBinnings[Qt::XAxis].getBin(x, rrf.x);
+    s64 binY1 = m_axisBinnings[Qt::YAxis].getBin(y, rrf.y);
 }
 
 
-double Histo2D::getBinContent(u32 xBin, u32 yBin) const
+double Histo2D::getBinContent(u32 xBin, u32 yBin,
+                              const ResolutionReductionFactors &rrf) const
 {
     double result = make_quiet_nan();
 
