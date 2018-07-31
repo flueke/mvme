@@ -1,0 +1,43 @@
+--------------------------------------------------
+SIS3153 firmware upgrade instructions
+--------------------------------------------------
+
+As you are going to read out multiple modules you could actually benefit
+from upgrading the SIS firmware. In older versions the SIS produced a
+special data word in the case where a module read out via (M)BLT did not
+produce any data. It was not possible to distinguish between this special
+data word or actual data coming from the module on the software side so this
+behavior was changed.
+
+For the upgrade you need a windows machine and a USB cable (doesn't have to
+be USB3, slower connection types also work).
+
+A ZIP archive containing the USB driver, the firmware loader and firmware image version
+16.a6 (the latest as of March 2018).
+
+I've uploaded a ZIP archive containing the USB driver, the firmware loader and
+firmware 16.a6 to our website:
+  https://mesytec.com/downloads/sis3153-driver_loader_firmware-16a6.zip
+
+Once plugged in the SIS will show up in the Windows Device Manager under
+"Other Devices". Right click and select "Update Driver Software" then "Browse"
+and point it to 'sis3153-driver_loader_firmware/usbDriver'.
+
+After installation the SIS should show up under "SIS Acquisition Devices".
+
+Now start the loaderGUI.exe in 'sis3153-driver_loader_firmware/loaderGui'.
+IMPORTANT: The loaderGUI has to be restarted after selecting the firmware image.
+
+Select 'File -> Set FPGA Firmware Image' and select the
+'sis3153-driver_loader_firmware/sis3153_v16A6.bin'.
+
+Now restart the application and press the 'Update' button. The process will
+take a while and I've even seen the "not responding" text appear in the title
+bar of the window. Just leave it running till 100%. The SIS will reboot automatically
+and when connecting via mvme again you should see a message like
+
+"Opened VME controller SIS3153-0042 (address=sis3153-0042) - Firmware 0x16a6"
+
+with the newly programmed version number at the end.
+
+
