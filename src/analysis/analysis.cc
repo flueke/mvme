@@ -2641,7 +2641,7 @@ void Histo1DSink::read(const QJsonObject &json)
     m_xAxisTitle = json["xAxisTitle"].toString();
     m_xLimitMin = json["xLimitMin"].toDouble(make_quiet_nan());
     m_xLimitMax = json["xLimitMax"].toDouble(make_quiet_nan());
-    m_rrBins = json["rrBins"].toInt(UsePhysicalResolution);
+    m_rrf = json["resolutionReductionFactor"].toInt(Histo1D::NoRR);
 
     Q_ASSERT(m_bins > 0);
 }
@@ -2652,7 +2652,7 @@ void Histo1DSink::write(QJsonObject &json) const
     json["xAxisTitle"] = m_xAxisTitle;
     json["xLimitMin"]  = m_xLimitMin;
     json["xLimitMax"]  = m_xLimitMax;
-    json["rrBins"] = static_cast<qint64>(getResolutionReductionBinCount());
+    json["resolutionReductionFactor"] = static_cast<qint64>(getResolutionReductionFactor());
 }
 
 size_t Histo1DSink::getStorageSize() const

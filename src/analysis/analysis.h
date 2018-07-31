@@ -1326,27 +1326,13 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
             return !(std::isnan(m_xLimitMin) || std::isnan(m_xLimitMax));
         }
 
-
-        /* Resolution reduction: The number of bins used for visualization and statistics
-         * computation is stored in the Histo1DSink. The value UsePhysicalResolution
-         * can be used to reset the sink to its default behaviour indepent of the number
-         * of physical bins currently set.
-         * Note that this number must be less than or equal to the number of physical
-         * bins. */
-        static const s32 UsePhysicalResolution = 0;
-
-        void setResolutionReductionBinCount(s32 bins = UsePhysicalResolution)
-        {
-            m_rrBins = bins;
-        }
-
-        s32 getResolutionReductionBinCount() const { return m_rrBins; }
-
+        void setResolutionReductionFactor(u32 rrf) { m_rrf = rrf; }
+        u32 getResolutionReductionFactor() const { return m_rrf; }
 
     private:
         u32 fillsSinceLastDebug = 0;
         std::shared_ptr<memory::Arena> m_histoArena;
-        u32 m_rrBins = UsePhysicalResolution;
+        u32 m_rrf;
 };
 
 class LIBMVME_EXPORT Histo2DSink: public SinkInterface
