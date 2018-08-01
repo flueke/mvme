@@ -20,12 +20,6 @@
  */
 #include "histo1d_widget.h"
 #include "histo1d_widget_p.h"
-#include "scrollzoomer.h"
-#include "util.h"
-#include "analysis/analysis.h"
-#include "mvme_context.h"
-#include "mvme_context_lib.h"
-#include "mvme_qwt.h"
 
 #include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
@@ -58,6 +52,14 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QToolBar>
+
+#include "analysis/analysis.h"
+#include "histo_gui_util.h"
+#include "mvme_context.h"
+#include "mvme_context_lib.h"
+#include "mvme_qwt.h"
+#include "scrollzoomer.h"
+#include "util.h"
 
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
@@ -515,8 +517,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     // Resolution Reduction
     {
-        m_d->m_rrSlider = new QSlider(Qt::Horizontal);
-        m_d->m_rrSlider->setMinimum(RRFMin);
+        m_d->m_rrSlider = make_res_reduction_slider();
         tb->addWidget(make_vbox_container(QSL("Visible Resolution"), m_d->m_rrSlider));
 
         connect(m_d->m_rrSlider, &QSlider::valueChanged, this, [this] (int sliderValue) {

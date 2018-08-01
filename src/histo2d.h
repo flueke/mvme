@@ -25,8 +25,32 @@
 #include <QObject>
 #include <array>
 
+struct ResolutionReductionFactors
+{
+    u32 x = AxisBinning::NoResolutionReduction;
+    u32 y = AxisBinning::NoResolutionReduction;
+
+    inline bool isNoReduction() const
+    {
+        return (x == AxisBinning::NoResolutionReduction
+                && y == AxisBinning::NoResolutionReduction);
+    }
+
+    inline u32 getXFactor() const
+    {
+        return x == AxisBinning::NoResolutionReduction ? 1u : x;
+    }
+
+    inline u32 getYFactor() const
+    {
+        return y == AxisBinning::NoResolutionReduction ? 1u : y;
+    }
+};
+
 struct Histo2DStatistics
 {
+    using Intervals = std::array<AxisInterval, 3>;
+
     u32 maxBinX = 0;        // x bin of max value
     u32 maxBinY = 0;        // y bin of max value
     double maxX = 0.0;      // low edge of maxBinX
@@ -34,25 +58,23 @@ struct Histo2DStatistics
     double maxZ = 0.0;
     double entryCount = 0;
 
-    using Intervals = std::array<AxisInterval, 3>;
+    /* The resolution reduction that was in effect when the stats where calculated.
+     * bin numbers are given in terms of these factors. */
+    ResolutionReductionFactors rrf = {};
+
+    /* The x- and y-axis intervals for which the stats where calculated and the resulting
+     * z-interval. */
     Intervals intervals;
 };
 
-union ResolutionReductionFactors
+#ifndef QT_NO_DEBUG
+inline QDebug &operator<<(QDebug &dbg, const ResolutionReductionFactors &rrf)
 {
-    struct
-    {
-        u32 x;
-        u32 y;
-    };
-    std::array<u32, 2> factors;
-
-    inline bool isNoReduction() const
-    {
-        return (x == AxisBinning::NoResolutionReduction
-                && y == AxisBinning::NoResolutionReduction);
-    }
-};
+    QDebugStateSaver ss(dbg);
+    dbg.nospace().noquote() << "RRF(" << rrf.x << ", " << rrf.y << ")";
+    return dbg;
+}
+#endif
 
 class Histo2D: public QObject
 {

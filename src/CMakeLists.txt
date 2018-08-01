@@ -118,6 +118,7 @@ set(LIBMVME_SOURCES
     histo2d.cc
     histo2d_widget.cc
     histo2d_widget_p.cc
+    histo_gui_util.cc
     histo_util.cc
     listfile_browser.cc
     listfile_constants.cc

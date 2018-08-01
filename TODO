@@ -13,6 +13,10 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
   mvmeworkspace.ini file show an explicit error message about the filename in
   the ini possibly being wrong.
 
+* void Histo1DWidgetPrivate::calibApply()
+  void Histo1DWidgetPrivate::calibResetToFilter()
+  Change them to make use of the improved analysis rebuild mechanism
+
 --------------------------------------------------
 * new feature: dynamic resolution reduction of histograms.
 --------------------------------------------------

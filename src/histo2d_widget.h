@@ -57,7 +57,9 @@ class Histo2DWidget: public QWidget
         ~Histo2DWidget();
 
         void setContext(MVMEContext *context) { m_context = context; }
-        void setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback,
+        void setSink(const SinkPtr &sink,
+                     HistoSinkCallback addSinkCallback,
+                     HistoSinkCallback sinkModifiedCallback,
                      MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction);
 
         virtual bool event(QEvent *event) override;

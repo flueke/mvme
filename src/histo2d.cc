@@ -91,44 +91,64 @@ void Histo2D::fill(double x, double y, double weight)
 double Histo2D::getValue(double x, double y,
                          const ResolutionReductionFactors &rrf) const
 {
-    // TODO: RR
-    if (rrf.isNoReduction())
-    {
-        // implementation from before RR was introduced
-        s64 xBin = m_axisBinnings[Qt::XAxis].getBin(x);
-        s64 yBin = m_axisBinnings[Qt::YAxis].getBin(y);
+    s64 binX = m_axisBinnings[Qt::XAxis].getBin(x, rrf.x);
+    s64 binY = m_axisBinnings[Qt::YAxis].getBin(y, rrf.y);
 
-        if (xBin < 0 || yBin < 0)
-            return 0.0;
+    if (binX < 0 || binY < 0) // under-/overflow
+        return 0.0;
 
-        u32 linearBin = yBin * m_axisBinnings[Qt::XAxis].getBins() + xBin;
-        return m_data[linearBin];
-    }
+    return getBinContent(binX, binY, rrf);
+}
 
+double Histo2D::getBinContent(u32 xInputBin, u32 yInputBin,
+                              const ResolutionReductionFactors &rrf) const
+{
     /* Summation of the rectangle formed by the x and y bins specified by the individual
      * axis res reductions.
      *
      * Implementation: sum up the rows of the rectangles.
-     *
-     * */
+     */
+    u32 xBinCount = m_axisBinnings[Qt::XAxis].getBinCount();
+    u32 yBinCount = m_axisBinnings[Qt::YAxis].getBinCount();
 
-    s64 binX1 = m_axisBinnings[Qt::XAxis].getBin(x, rrf.x);
-    s64 binY1 = m_axisBinnings[Qt::YAxis].getBin(y, rrf.y);
-}
+    u32 ix1 = xInputBin * rrf.getXFactor();
+    u32 ix2 = ix1 + rrf.getXFactor();
 
+    u32 iy1 = yInputBin * rrf.getYFactor();
+    u32 iy2 = iy1 + rrf.getYFactor();
 
-double Histo2D::getBinContent(u32 xBin, u32 yBin,
-                              const ResolutionReductionFactors &rrf) const
-{
-    double result = make_quiet_nan();
+    ix1 = qBound(0u, ix1, xBinCount - 1);
+    ix2 = qBound(0u, ix2, xBinCount);
 
-    if (xBin < getAxisBinning(Qt::XAxis).getBins() && yBin < getAxisBinning(Qt::YAxis).getBins())
+    iy1 = qBound(0u, iy1, yBinCount - 1);
+    iy2 = qBound(0u, iy2, yBinCount);
+
+    double result = 0.0;
+    int nBins  = 0;
+
+    for (s64 iy = iy1; iy < iy2; iy++)
     {
-        u32 linearBin = yBin * getAxisBinning(Qt::XAxis).getBins() + xBin;
-        result = m_data[linearBin];
+        for (s64 ix = ix1; ix < ix2; ix++)
+        {
+            result += m_data[iy * xBinCount + ix];
+            nBins++;
+        }
     }
 
-    return result;
+#if 0
+    qDebug() << __PRETTY_FUNCTION__ << this
+        << endl
+        << "  xInputBin=" << xInputBin << ", yInputBin=" << yInputBin << ", rrf=" << rrf
+        << endl
+        << "  xBinCount=" << xBinCount << ", yBinCount=" << yBinCount
+        << endl
+        << "  ix1=" << ix1 << ", ix2=" << ix2
+        << endl
+        << "  iy1=" << iy1 << ", iy2=" << iy2
+        << "summed bins =" << nBins << ", final value =" << result;
+        ;
+#endif
+        return result;
 }
 
 void Histo2D::clear()
@@ -172,38 +192,45 @@ AxisInterval Histo2D::getInterval(Qt::Axis axis) const
     return result;
 }
 
-Histo2DStatistics Histo2D::calcGlobalStatistics() const
+Histo2DStatistics Histo2D::calcGlobalStatistics(const ResolutionReductionFactors &rrf) const
 {
-    return calcStatistics(getInterval(Qt::XAxis), getInterval(Qt::YAxis));
+    return calcStatistics(getInterval(Qt::XAxis),
+                          getInterval(Qt::YAxis),
+                          rrf);
 }
 
-Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const
+Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval,
+                                          AxisInterval yInterval,
+                                          const ResolutionReductionFactors &rrf) const
 {
+    // TODO: rrf
     //qDebug() << __PRETTY_FUNCTION__
     //    << "xInterval =" << xInterval.minValue << xInterval.maxValue
     //    << "yInterval =" << yInterval.minValue << yInterval.maxValue;
 
     Histo2DStatistics result;
 
+    result.rrf = rrf;
+
     // x
-    s64 xMinBin = m_axisBinnings[Qt::XAxis].getBin(xInterval.minValue);
-    s64 xMaxBin = m_axisBinnings[Qt::XAxis].getBin(xInterval.maxValue);
+    s64 xMinBin = m_axisBinnings[Qt::XAxis].getBin(xInterval.minValue, rrf.x);
+    s64 xMaxBin = m_axisBinnings[Qt::XAxis].getBin(xInterval.maxValue, rrf.x);
 
     if (xMinBin < 0)
         xMinBin = 0;
 
     if (xMaxBin < 0)
-        xMaxBin = m_axisBinnings[Qt::XAxis].getBins() - 1;
+        xMaxBin = m_axisBinnings[Qt::XAxis].getBinCount(rrf.x) - 1;
 
     // y
-    s64 yMinBin = m_axisBinnings[Qt::YAxis].getBin(yInterval.minValue);
-    s64 yMaxBin = m_axisBinnings[Qt::YAxis].getBin(yInterval.maxValue);
+    s64 yMinBin = m_axisBinnings[Qt::YAxis].getBin(yInterval.minValue, rrf.y);
+    s64 yMaxBin = m_axisBinnings[Qt::YAxis].getBin(yInterval.maxValue, rrf.y);
 
     if (yMinBin < 0)
         yMinBin = 0;
 
     if (yMaxBin < 0)
-        yMaxBin = m_axisBinnings[Qt::YAxis].getBins() - 1;
+        yMaxBin = m_axisBinnings[Qt::YAxis].getBinCount(rrf.y) - 1;
 
     for (s64 yBin = yMinBin;
          yBin <= yMaxBin;
@@ -213,8 +240,10 @@ Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval y
              xBin <= xMaxBin;
              ++xBin)
         {
-            s64 linearBin = yBin * m_axisBinnings[Qt::XAxis].getBins() + xBin;
-            double v = m_data[linearBin];
+            //s64 linearBin = yBin * m_axisBinnings[Qt::XAxis].getBins() + xBin;
+            //double v = m_data[linearBin];
+
+            double v = getBinContent(xBin, yBin, rrf);
 
             if (!std::isnan(v))
             {
@@ -229,8 +258,8 @@ Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval y
         }
     }
 
-    result.maxX = m_axisBinnings[Qt::XAxis].getBinLowEdge(result.maxBinX);
-    result.maxY = m_axisBinnings[Qt::YAxis].getBinLowEdge(result.maxBinY);
+    result.maxX = m_axisBinnings[Qt::XAxis].getBinLowEdge(result.maxBinX, rrf.x);
+    result.maxY = m_axisBinnings[Qt::YAxis].getBinLowEdge(result.maxBinY, rrf.y);
 
     result.intervals[Qt::XAxis] = xInterval;
     result.intervals[Qt::YAxis] = yInterval;

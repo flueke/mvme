@@ -1391,7 +1391,7 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
 
         void setResolutionReductionFactors(u32 rrfX, u32 rrfY)
         {
-            m_rrf = { {rrfX, rrfY} };
+            m_rrf = { rrfX, rrfY };
         }
 
         ResolutionReductionFactors getResolutionReductionFactors() const
