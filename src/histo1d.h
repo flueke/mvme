@@ -35,8 +35,13 @@ struct Histo1DStatistics
     double sigma = 0.0;
     double entryCount = 0;
     double fwhm = 0.0;
+
     // X coordinate of the center between the fwhm edges
     double fwhmCenter = 0.0;
+
+    /* The resultion reduction that was in effect when the stats where calculated.
+     * bin numbers are given in terms of this factor. */
+    u32 rrf = AxisBinning::NoResolutionReduction;
 };
 
 struct HistoLogicError: public std::runtime_error
@@ -106,23 +111,26 @@ class LIBMVME_EXPORT Histo1D: public QObject
 
         inline size_t getStorageSize() const { return getNumberOfBins() * sizeof(double); }
 
-        inline double getBinContent(u32 bin, u32 rrf = NoRR) const
+        /* If rrf is in effect the given inputBin is interpreted in terms of the reduced
+         * total bin count. Otherwise it represents the physical bin number. */
+        inline double getBinContent(u32 inputBin, u32 rrf = NoRR) const
         {
             const auto physBins = getNumberOfBins();
 
             if (rrf == NoRR)
             {
                 // no resolution reduction -> direct indexing
-                return (bin < physBins) ? m_data[bin] : 0.0;
+                return (inputBin < physBins) ? m_data[inputBin] : 0.0;
             }
 
-            u32 beginBin = bin * rrf;
+            // Go from reduced bins to physical bins
+            u32 beginBin = inputBin * rrf;
             u32 endBin   = std::min(beginBin + rrf, getNumberOfBins());
 
 #if 0
                 qDebug() << __PRETTY_FUNCTION__
                     << endl
-                    << "  input: bin =" << bin << ", rrf =" << rrf
+                    << "  input: bin =" << inputBin << ", rrf =" << rrf
                     << endl
                     << "  beginBin =" << beginBin << ", endBin =" << endBin
                     << endl

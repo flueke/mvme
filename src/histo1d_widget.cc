@@ -1121,17 +1121,13 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
 void Histo1DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 {
     m_d->m_cursorPosition = pos;
-    // ResolutionReduction
-    u32 rrf = 4;
-    m_d->updateCursorInfoLabel(rrf);
+    m_d->updateCursorInfoLabel(m_d->m_rrf);
 }
 
 void Histo1DWidget::mouseCursorLeftPlot()
 {
     m_d->m_cursorPosition = QPointF(make_quiet_nan(), make_quiet_nan());
-    // ResolutionReduction
-    u32 rrf = 4;
-    m_d->updateCursorInfoLabel(rrf);
+    m_d->updateCursorInfoLabel(m_d->m_rrf);
 }
 
 void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
@@ -1327,15 +1323,15 @@ void Histo1DWidgetPrivate::updateCursorInfoLabel(u32 rrf)
     double plotX = m_cursorPosition.x();
     double plotY = m_cursorPosition.y();
     auto binning = m_histo->getAxisBinning(Qt::XAxis);
-    s64 binX = binning.getBin(plotX);
+    s64 binX = binning.getBin(plotX, rrf);
 
     QString text;
 
     if (!qIsNaN(plotX) && !qIsNaN(plotY) && binX >= 0)
     {
         double x = plotX;
-        double y = m_histo->getBinContent(binX);
-        double binLowEdge = binning.getBinLowEdge((u32)binX);
+        double y = m_histo->getBinContent(binX, rrf);
+        double binLowEdge = binning.getBinLowEdge((u32)binX, rrf);
 
         text = QString("x=%1\n"
                        "y=%2\n"
@@ -1429,6 +1425,7 @@ void Histo1DWidgetPrivate::calibApply()
     m_calibUi.actual1->setValue(m_calibUi.target1->value());
     m_calibUi.actual2->setValue(m_calibUi.target2->value());
 
+    // TODO: Refactor to not use do_beginRun_forward
     AnalysisPauser pauser(m_context);
 
     m_calib->setCalibration(address, targetMin, targetMax);
@@ -1559,7 +1556,7 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
     }
     else
     {
-        u32 visBins = m_d->m_histo->getNumberOfBins() / rrf;
+        u32 visBins = m_d->m_histo->getNumberOfBins(rrf);
         int sliderValue = std::log2(visBins);
 
 #if 0

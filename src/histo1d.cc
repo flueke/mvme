@@ -214,6 +214,8 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
 
     Histo1DStatistics result;
 
+    result.rrf = rrf;
+
     if (startBin > onePastEndBin)
         std::swap(startBin, onePastEndBin);
 
