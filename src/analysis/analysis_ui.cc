@@ -5429,10 +5429,12 @@ void AnalysisWidgetPrivate::actionNew()
 void AnalysisWidgetPrivate::actionOpen()
 {
     auto path = m_context->getWorkspaceDirectory();
+
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
-    QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Load analysis config"), path, AnalysisFileFilter);
+    QString fileName = QFileDialog::getOpenFileName(
+        m_q, QSL("Load analysis config"), path, AnalysisFileFilter);
 
     if (fileName.isEmpty())
         return;
