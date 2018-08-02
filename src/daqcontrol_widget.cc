@@ -381,7 +381,19 @@ void DAQControlWidget::updateWidget()
 
     if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Connected)
     {
-        enableStartButton = true;
+        switch (daqState)
+        {
+            case DAQState::Running:
+            case DAQState::Paused:
+            case DAQState::Idle:
+                enableStartButton = true;
+                break;
+
+            case DAQState::Starting:
+            case DAQState::Stopping:
+                enableStartButton = false;
+                break;
+        }
     }
     else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && streamWorkerState == MVMEStreamWorkerState::Idle)
     {
@@ -393,20 +405,30 @@ void DAQControlWidget::updateWidget()
     //
     // stop button
     //
-    pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Connected)
-                             || (globalMode == GlobalMode::ListFile && daqState != DAQState::Idle))
-                           );
+
+    bool canStopDAQ = (daqState == DAQState::Running
+                       || daqState == DAQState::Paused);
+
+
+    pb_stop->setEnabled(((globalMode == GlobalMode::DAQ
+                          && canStopDAQ
+                          && controllerState == ControllerState::Connected)
+                         || (globalMode == GlobalMode::ListFile && canStopDAQ)
+                        ));
 
     //
     // one cycle button
     //
     bool enableOneCycleButton = false;
 
-    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Connected && daqState == DAQState::Idle)
+    if (globalMode == GlobalMode::DAQ
+        && controllerState == ControllerState::Connected
+        && daqState == DAQState::Idle)
     {
         enableOneCycleButton = true;
     }
-    else if (globalMode == GlobalMode::ListFile && (daqState == DAQState::Idle || daqState == DAQState::Paused))
+    else if (globalMode == GlobalMode::ListFile
+             && (daqState == DAQState::Idle || daqState == DAQState::Paused))
     {
         enableOneCycleButton = true;
     }
