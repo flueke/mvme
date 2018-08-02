@@ -1277,6 +1277,8 @@ void Histo2DWidget::doXProjection()
     {
         m_xProjWidget = new Histo1DWidget(histo);
         m_xProjWidget->setContext(m_context);
+        m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
+        m_xProjWidget->setResolutionReductionSliderEnabled(false);
         m_xProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_xProjWidget->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_xProjWidget, &QObject::destroyed, this, [this] (QObject *) {
@@ -1301,6 +1303,7 @@ void Histo2DWidget::doXProjection()
     else
     {
         m_xProjWidget->setHistogram(histo);
+        m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
     }
 }
 
@@ -1339,6 +1342,8 @@ void Histo2DWidget::doYProjection()
     if (!m_yProjWidget)
     {
         m_yProjWidget = new Histo1DWidget(histo);
+        m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
+        m_yProjWidget->setResolutionReductionSliderEnabled(false);
         m_yProjWidget->setContext(m_context);
         m_yProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_yProjWidget->setAttribute(Qt::WA_DeleteOnClose);
@@ -1364,6 +1369,7 @@ void Histo2DWidget::doYProjection()
     else
     {
         m_yProjWidget->setHistogram(histo);
+        m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
     }
 }
 

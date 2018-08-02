@@ -1580,6 +1580,19 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
     }
 }
 
+void Histo1DWidget::setResolutionReductionFactor(u32 rrf)
+{
+    u32 physBins = m_d->m_histo->getNumberOfBins();
+    u32 visBins  = physBins / rrf;
+    int sliderValue = std::log2(visBins);
+    m_d->m_rrSlider->setValue(sliderValue);
+}
+
+void Histo1DWidget::setResolutionReductionSliderEnabled(bool b)
+{
+    m_d->m_rrSlider->setEnabled(b);
+}
+
 void Histo1DWidget::on_tb_subRange_clicked()
 {
     Q_ASSERT(m_d->m_sink);

@@ -69,6 +69,9 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
                                 s32 histoAddress);
         void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
 
+        void setResolutionReductionFactor(u32 rrf);
+        void setResolutionReductionSliderEnabled(bool b);
+
         //QwtPlotCurve *getPlotCurve() { return m_plotCurve; }
 
     public slots:
