@@ -17,24 +17,6 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
   void Histo1DWidgetPrivate::calibResetToFilter()
   Change them to make use of the improved analysis rebuild mechanism
 
---------------------------------------------------
-* new feature: dynamic resolution reduction of histograms.
---------------------------------------------------
-Histo2d res reduction:
-  - Maybe: think about and test the case where the h2d res is larger than the
-    pixels in the display area and possibly use a dynamic rrf in this case.
-
-
-
-
-* workspace and vme controller settings and such:
-  Roberts use case is: open listfile, try to locally reproduce problems a
-  customer has. This means he will in most/all cases have to change the sis
-  address or even the controller type to match his local setup. This is
-  annoying.
-  Instead when loading a listfile keep the local controller settings and/or use
-  a "dummy" controller.
-
 * RateMonitor
   Allow indexed connections.
   Even better: make it so that it can handle a variable number of inputs, with
@@ -42,21 +24,26 @@ Histo2d res reduction:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* DAQControl: Quickly pressing start and stop leaves mvme hanging in a progress
-  dialog. Closing the progress dialog and pressing stop again does properly
-  stop the DAQ.
-  Make sure the stop button is only activated once the readout thread is
-  completely done and can be properly stopped.
+* workspace and vme controller settings and such:
+  Roberts use case is: open listfile, try to locally reproduce problems a
+  customer has. This means he will in most/all cases have to change the sis
+  address or even the controller type to match his local setup. This is
+  annoying. Even more of a problem is that after making changes he has to
+  change the SIS back to the customer settings if he wants to send them the
+  listfile.
 
---------------------------------------------------
-Analysis: object export/import
---------------------------------------------------
-Goals:
-* export analysis objects to file. load objects from file.
-* copy/paste objects
-* directory like grouping
+  Instead when loading a listfile keep the local controller settings and/or use
+  a "dummy" controller.
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  My use case: see exactly what the customer is doing: hostname or ip-address,
+  jumbo frames, additional controller settings. I sometimes really need this
+  info and do not want it to be hidden behind some magic.
+
+
+* Histo2d res reduction/rendering:
+  - Maybe: think about and test the case where the h2d res is larger than the
+    pixels in the display area and possibly use a dynamic rrf in this case.
+
 
 * New Feature: add pause/resume markers and/or absolute timestamps to the listfile.
   This would allow for example splitting the run on pause/resume if the user

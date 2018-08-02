@@ -22,13 +22,22 @@ handling of analysis objects.
 * A copy/paste mechanism has been implemented which allows creating a copy of a
   selection of objects.
 
-  If internally connected objects are copie and then pasted the connections
+  If internally connected objects are copied and then pasted the connections
   will be restored on the copies.
 
 Other fixes and changes:
 
-* Improved hostname lookups for the SIS3153 under Windows. The result is now
-  up-to-date without requiring a restart of mvme.
+* New feature: dynamic resolution reduction for 1D and 2D histograms.
+
+  Axis display resolutions can now be adjusted via sliders in the user
+  interface without having to change the physical resolution of the underlying
+  histogram.
+
+* Improved hostname lookups for the SIS3153 VME controller under Windows. The
+  result is now up-to-date without requiring a restart of mvme.
+
+* Add libpng to the linux binary package. This fixes a shared library version
+  conflict under Ubuntu 18.04.
 
 0.9.4.1
 -------
