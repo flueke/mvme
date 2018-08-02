@@ -20,52 +20,9 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
 --------------------------------------------------
 * new feature: dynamic resolution reduction of histograms.
 --------------------------------------------------
-  display only, histo data is not modified. use powers of 2 for downscaling.
-  This is not "scaling" as it's not linear (unless you look at the powers of 2,
-  those are linear). Things like gauss, maxima, etc should all use the
-  dynamically downscaled data.
-
-  - analysis is not marked as modified when a sinks rrf is updated.
-    the change is still applied and stored on disk, it's just the modification
-    flag
-
-  getNumberOfBins()           -> getNumberOfSamples/getNumberOfVirtualBins
-                              -> or the other way: getNumberOfStorageBins()
-  getBinContent(bin)
-  getBinLowEdge(bin)
-  getValueAndBinLowEdge(x)
-  getAxisBinning(axis)
-  calcStatistics(x1, x2)
-  getBinCenter()
-
-- Histo1DIntervalData
-- Histo1DGaussCurveData does not care as everything is done through a local
-  Histo1DStatistics member.
-- RateEstimationCurveData uses getValueAndBinLowEdge(x)
-- Calibration needs to use the original information.
-- infoText in replot() uses under and overflow and axis binning information
-
-  => Possible implementation 1: add a H1D interface and implement a downsampler
-  taking a reference to the original histogram and forwarding most operations
-  to the original except the calls mentioned above.
-
-  => Possible implementation 2: directly add a scale factor to Histo1D and
-  adjust the implementation of the calls above accordingly.
-
-  Maybe adding the scale factor to AxisBinning does most of what's needed?
-
 Histo2d res reduction:
-
-  Reduction should be possible for both axes independently.
-  Reduced bin contents is the sum of the physical bins in the rectangle formed
-  by res reduction on both axes.
-
-  QwtRasterData::initRaster() can and should probably be used to perform
-  dynamic res reduction. This should solve the issue where a histo with a
-  resolution larger than the number of available pixels does show uncolored
-  values depsite there being data.
-
-
+  - Maybe: think about and test the case where the h2d res is larger than the
+    pixels in the display area and possibly use a dynamic rrf in this case.
 
 
 

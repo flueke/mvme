@@ -318,7 +318,8 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
             m_d->m_plotWidget->setYAxisScale(scaling);
         });
 
-        tb->addWidget(make_vbox_container(QSL("Y-Scale"), yScaleCombo));
+        tb->addWidget(make_vbox_container(QSL("Y-Scale"), yScaleCombo)
+                      .container.release());
     }
 
     tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
@@ -373,7 +374,8 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
                 this, [this] (int index) { m_d->selectPlot(index); });
 
         tb->addWidget(make_spacer_widget());
-        tb->addWidget(make_vbox_container(QSL("Rate #"), spin_plotIndex));
+        tb->addWidget(make_vbox_container(QSL("Rate #"), spin_plotIndex)
+                      .container.release());
     }
 
     // Statusbar and info widgets

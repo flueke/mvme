@@ -106,14 +106,25 @@ inline QFrame *make_separator_frame(Qt::Orientation orientation = Qt::Horizontal
     return frame;
 }
 
-inline QLabel *make_aligned_label(const QString &text, Qt::Alignment alignment = (Qt::AlignLeft | Qt::AlignVCenter))
+inline QLabel *make_aligned_label(const QString &text,
+                                  Qt::Alignment alignment = (Qt::AlignLeft | Qt::AlignVCenter))
 {
     auto label = new QLabel(text);
     label->setAlignment(alignment);
     return label;
 }
 
-QWidget *make_vbox_container(const QString &labelText, QWidget *widget, int spacing = 2);
+struct VBoxContainerWithLabel
+{
+    std::unique_ptr<QWidget> container;
+    QVBoxLayout *layout;
+    QLabel *label;
+    QWidget *widget;
+};
+
+VBoxContainerWithLabel make_vbox_container(const QString &labelText, QWidget *widget,
+                                           int spacing = 2, int labelRelativeFontPointSize = 0);
+
 QWidget *make_spacer_widget(QWidget *parent = nullptr);
 QToolButton *make_toolbutton(const QString &icon, const QString &text);
 QToolButton *make_action_toolbutton(QAction *action);

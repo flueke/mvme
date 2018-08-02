@@ -286,6 +286,7 @@ struct Histo1DWidgetPrivate
 
     QComboBox *m_yScaleCombo;
     QSlider *m_rrSlider;
+    QLabel *m_rrLabel;
     u32 m_rrf = Histo1D::NoRR;
 
     CalibUi m_calibUi;
@@ -443,7 +444,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         connect(yScaleCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
                 this, [this]() { m_d->displayChanged(); });
 
-        tb->addWidget(make_vbox_container(QSL("Y-Scale"), yScaleCombo));
+        tb->addWidget(make_vbox_container(QSL("Y-Scale"), yScaleCombo, 2, -2)
+                      .container.release());
     }
 
     m_d->m_actionGaussFit = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
@@ -518,7 +520,10 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     // Resolution Reduction
     {
         m_d->m_rrSlider = make_res_reduction_slider();
-        tb->addWidget(make_vbox_container(QSL("Visible Resolution"), m_d->m_rrSlider));
+        //m_d->m_rrSlider->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Maximum);
+        auto boxStruct = make_vbox_container(QSL("Visible Resolution"), m_d->m_rrSlider, 0, -2);
+        m_d->m_rrLabel = boxStruct.label;
+        tb->addWidget(boxStruct.container.release());
 
         connect(m_d->m_rrSlider, &QSlider::valueChanged, this, [this] (int sliderValue) {
             m_d->onRRSliderValueChanged(sliderValue);
@@ -1502,6 +1507,11 @@ void Histo1DWidgetPrivate::onRRSliderValueChanged(int sliderValue)
     u32 visBins   = 1u << sliderValue;
     m_rrf = physBins / visBins;
 
+    m_rrLabel->setText(QSL("Visible Resolution: %1, %2 bit")
+                       .arg(visBins)
+                       .arg(std::log2(visBins))
+                      );
+
 #if 0
     qDebug() << __PRETTY_FUNCTION__
         << "physBins =" << physBins
@@ -1695,7 +1705,8 @@ Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
     connect(m_histoSpin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, &Histo1DListWidget::onHistoSpinBoxValueChanged);
 
-    m_histoWidget->m_d->m_toolBar->addWidget(make_vbox_container(QSL("Histogram #"), m_histoSpin));
+    m_histoWidget->m_d->m_toolBar->addWidget(make_vbox_container(QSL("Histogram #"), m_histoSpin)
+                      .container.release());
 
     auto layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);

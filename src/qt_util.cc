@@ -239,19 +239,24 @@ void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags)
     QCoreApplication::processEvents(flags, maxtime_ms);
 }
 
-QWidget *make_vbox_container(const QString &labelText, QWidget *widget, int spacing)
+VBoxContainerWithLabel make_vbox_container(const QString &labelText, QWidget *widget,
+                                           int spacing, int labelRelativeFontPointSize)
 {
     auto label = new QLabel(labelText);
     label->setAlignment(Qt::AlignCenter);
+    set_widget_font_pointsize_relative(label, labelRelativeFontPointSize);
 
-    auto container = new QWidget;
-    auto layout = new QVBoxLayout(container);
+    auto container = std::make_unique<QWidget>();
+    auto layout = new QVBoxLayout(container.get());
     layout->setContentsMargins(0, 0, 0, 0);
+
     layout->setSpacing(spacing);
     layout->addWidget(label);
     layout->addWidget(widget);
 
-    return container;
+    VBoxContainerWithLabel result { std::move(container), layout, label, widget };
+
+    return result;
 }
 
 QWidget *make_spacer_widget(QWidget *parent)
