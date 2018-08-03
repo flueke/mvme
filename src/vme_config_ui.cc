@@ -318,7 +318,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
             currentVendor = mm.vendorName;
         }
 
-        typeCombo->addItem(mm.displayName);
+        typeCombo->addItem(mm.displayName, mm.typeId);
 
         if (mm.typeId == module->getModuleMeta().typeId)
         {
@@ -353,9 +353,17 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 
     auto onTypeComboIndexChanged = [this](int index)
     {
-        Q_ASSERT(0 <= index && index < m_moduleMetas.size());
+        u8 typeId = typeCombo->currentData().toUInt();
 
-        const auto &mm(m_moduleMetas[index]);
+        auto it = std::find_if(
+            m_moduleMetas.begin(), m_moduleMetas.end(),
+            [typeId] (const auto &mm) { return mm.typeId == typeId; });
+
+        assert(it != m_moduleMetas.end());
+
+        if (it == m_moduleMetas.end()) return;
+
+        const auto &mm(*it);
         QString name = m_module->objectName();
 
         if (name.isEmpty())
@@ -389,8 +397,17 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 void ModuleConfigDialog::accept()
 {
     bool ok;
-    Q_ASSERT(typeCombo->currentIndex() >= 0 && typeCombo->currentIndex() < m_moduleMetas.size());
-    const auto &mm(m_moduleMetas[typeCombo->currentIndex()]);
+    u8 typeId = typeCombo->currentData().toUInt();
+
+    auto it = std::find_if(
+        m_moduleMetas.begin(), m_moduleMetas.end(),
+        [typeId] (const auto &mm) { return mm.typeId == typeId; });
+
+    assert(it != m_moduleMetas.end());
+
+    if (it == m_moduleMetas.end()) return;
+
+    const auto &mm(*it);
     m_module->setModuleMeta(mm);
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
