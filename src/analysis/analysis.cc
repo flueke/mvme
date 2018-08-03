@@ -2513,6 +2513,7 @@ static const size_t HistoMemAlignment = 64;
 
 Histo1DSink::Histo1DSink(QObject *parent)
     : BasicSink(parent)
+    , m_rrf(AxisBinning::NoResolutionReduction)
 {
 }
 
