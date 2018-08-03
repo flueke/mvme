@@ -289,7 +289,8 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 
     /* Sort by vendorName and then displayName, giving the vendorName "mesytec"
      * the highest priority. */
-    qSort(m_moduleMetas.begin(), m_moduleMetas.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
+    qSort(m_moduleMetas.begin(), m_moduleMetas.end(),
+          [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
         if (a.vendorName == b.vendorName)
             return a.displayName < b.displayName;
 
