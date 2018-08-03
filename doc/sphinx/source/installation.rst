@@ -29,7 +29,7 @@ System Requirements
     installation.
 
 * No additional drivers are required when using the `Struck`_ SIS3153
-  Controller. Just make sure you're using a **GBit/s** ethernet connection to
+  Controller. Just make sure you are using a **GBit/s** ethernet connection to
   the controller.
 
 * At least 4 GB RAM is recommended.
