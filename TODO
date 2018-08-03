@@ -6,6 +6,14 @@ TODO list, not at all sorted by priority
 BUGFIXES and FEATURES wanted for 0.9.5 :)
 --------------------------------------------------
 
+* VMUSB goes into a bad state after doing "1 Cycle"
+
+* Both vme controllers: check if it's possible to activate one of the outputs
+  while the controller is actively processing a readout stack. This output
+  could then be used as the busy input for e.g. a caen785 adc or for our
+  modules and prevent this prevent the module from generating new data while
+  the controller reads it out.
+
 * Manual: mention the "show advanced objects" button and what it does
   maybe even enable them by default (talk to robert about this)
 
