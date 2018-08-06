@@ -5,6 +5,9 @@ TODO list, not at all sorted by priority
 --------------------------------------------------
 BUGFIXES and FEATURES wanted for 0.9.5 :)
 --------------------------------------------------
+* SIS3153 weirdness: when disabling the MDPP16 but leaving the mesyctec_counter
+  module in the timer event active we end up with a huge data rate. What's
+  happening here?
 
 * VMUSB goes into a bad state after doing "1 Cycle"
 
@@ -13,9 +16,6 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
   could then be used as the busy input for e.g. a caen785 adc or for our
   modules and prevent this prevent the module from generating new data while
   the controller reads it out.
-
-* Manual: mention the "show advanced objects" button and what it does
-  maybe even enable them by default (talk to robert about this)
 
 * if loading a config file fails when opening a filename from the
   mvmeworkspace.ini file show an explicit error message about the filename in
@@ -31,6 +31,10 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
   each accepting both connection types.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Doc: add descriptions of the SIS LEDs and outputs and how the controller behaves
+* Doc: change the mention of "dropped buffers" to instead point to the analysis efficiency display.
+* Doc: mention the "show advanced objects" button and what it does
+  maybe even enable them by default (talk to robert about this)
 
 * workspace and vme controller settings and such:
   Roberts use case is: open listfile, try to locally reproduce problems a
