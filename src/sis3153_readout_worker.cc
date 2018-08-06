@@ -340,14 +340,36 @@ namespace
             flags);
     }
 
-    QVector<u32> build_stackList(SIS3153 *sis, const vme_script::VMEScript &commands)
+    /* Note: if lemoIOControlBaseValue is non-negative this functions adds writes to the
+     * LemoIOControl register at the beginning and end of the stacklist. The first write
+     * enables OUT2, the second at the end of the list disables OUT2. */
+    QVector<u32> build_stackList(SIS3153 *sis, const vme_script::VMEScript &commands,
+                                 s64 lemoIOControlBaseValue = -1)
     {
+        static const size_t RegisterWriteCommandSize = 4u;
+        using namespace SIS3153Registers;
+
         size_t stackListSize = calculate_stackList_size(commands);
+
+        if (lemoIOControlBaseValue > 0)
+        {
+            stackListSize += 2 * RegisterWriteCommandSize;
+        }
+
+        // Preallocate as the sis lib uses pointers and offsets into existing memory.
         QVector<u32> result(stackListSize);
         u32 resultOffset = 0;
 
         auto impl = sis->getImpl();
         impl->list_generate_add_header(&resultOffset, result.data());
+
+        if (lemoIOControlBaseValue > 0)
+        {
+            impl->list_generate_add_register_write(
+                &resultOffset, result.data(),
+                SIS3153Registers::LemoIOControl,
+                static_cast<u32>(lemoIOControlBaseValue) | LemoIOControlValues::OUT2);
+        }
 
         for (const auto &command: commands)
         {
@@ -423,6 +445,15 @@ namespace
                     InvalidCodePath;
                     break;
             }
+        }
+
+        if (lemoIOControlBaseValue > 0)
+        {
+            impl->list_generate_add_register_write(
+                &resultOffset, result.data(),
+                SIS3153Registers::LemoIOControl,
+                (static_cast<u32>(lemoIOControlBaseValue)
+                 | (LemoIOControlValues::OUT2 << LemoIOControlValues::DisableShift)));
         }
 
         impl->list_generate_add_trailer(&resultOffset, result.data());
@@ -642,6 +673,8 @@ void SIS3153ReadoutWorker::EventLossCounter::endLeavingDAQ()
 
 static const QVector<TriggerCondition> TriggerPriorityList =
 {
+    /* Highest priority to the Periodic trigger so that it is executed even if other
+     * methods trigger rapidly and to avoid jitter. */
     TriggerCondition::Periodic,
     TriggerCondition::Input1RisingEdge,
     TriggerCondition::Input1FallingEdge,
@@ -858,13 +891,20 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         }
 
         //
-        // Build IRQ Readout Scripts
+        // Build IRQ Readout Scripts, create stacklists, upload and setup triggers
         //
         m_eventConfigsByStackList.fill(nullptr);
         m_eventIndexByStackList.fill(-1);
         m_watchdogStackListIndex = -1;
+        m_lemoIORegDAQBaseValue = SIS3153Registers::LemoIOControlValues::OUT1;
 
+        // next stack list index to use
         s32 stackListIndex = 0;
+
+        // index of the "main" stacklist which enables OUT2 during execution or -1 if not
+        // set yet.
+        s32 stackListIndex_OUT2 = -1;
+
         u32 stackLoadAddress = SIS3153ETH_STACK_RAM_START_ADDR;
         u32 stackListControlValue = 0;
 
@@ -888,10 +928,33 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             EventConfig *event = eventAndIndex.config;
             int eventIndex     = eventAndIndex.index;
 
+            /* Decision point on whether to enable OUT2 during stacklist execution of this
+             * event. Basically the first non-periodic event will be used (the "main"
+             * event). */
+            s64 lemoIORegBaseValue = -1;
+
+            if (stackListIndex_OUT2 < 0)
+            {
+                switch (event->triggerCondition)
+                {
+                    case TriggerCondition::Input1RisingEdge:
+                    case TriggerCondition::Input1FallingEdge:
+                    case TriggerCondition::Input2RisingEdge:
+                    case TriggerCondition::Input2FallingEdge:
+                    case TriggerCondition::Interrupt:
+                        lemoIORegBaseValue = m_lemoIORegDAQBaseValue;
+                        stackListIndex_OUT2 = stackListIndex;
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+
             // build the command stack list
             auto readoutCommands = build_event_readout_script(event);
             validate_event_readout_script(readoutCommands);
-            QVector<u32> stackList = build_stackList(sis, readoutCommands);
+            QVector<u32> stackList = build_stackList(sis, readoutCommands, lemoIORegBaseValue);
             u32 stackListConfigValue = 0;   // SIS3153ETH_STACK_LISTn_CONFIG
             u32 stackListTriggerValue = 0;  // SIS3153ETH_STACK_LISTn_TRIGGER_SOURCE
 
@@ -991,6 +1054,11 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                             .arg(stackList.size())
                             .arg(stackLoadAddress, 4, 16, QLatin1Char('0'))
                            );
+
+                if (stackListIndex == stackListIndex_OUT2)
+                {
+                    msg += ", OUT2";
+                }
 
                 sis_log(msg);
 
@@ -1477,7 +1545,7 @@ void SIS3153ReadoutWorker::enterDAQMode(u32 stackListControlValue)
     sis_log("Activating OUT1");
     err_wrap(ctrlSocket->udp_sis3153_register_write(
             LemoIOControl,
-            LemoIOControlValues::OUT1));
+            m_lemoIORegDAQBaseValue));
 }
 
 void SIS3153ReadoutWorker::leaveDAQMode()
@@ -1501,7 +1569,7 @@ void SIS3153ReadoutWorker::leaveDAQMode()
     sis_log("Deactivating OUT1");
     err_wrap(ctrl->udp_sis3153_register_write(
             LemoIOControl,
-            LemoIOControlValues::OUT1 << LemoIOControlValues::DisableShift));
+            m_lemoIORegDAQBaseValue << LemoIOControlValues::DisableShift));
 
 
     // Turn off all DAQ mode features that where enabled in start()

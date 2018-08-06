@@ -39,6 +39,8 @@ Other fixes and changes:
 * Add libpng to the linux binary package. This fixes a shared library version
   conflict under Ubuntu 18.04.
 
+* SIS3153: OUT2 is now active during execution of the main readout stack.
+
 0.9.4.1
 -------
 * Fix expression operator GUI not properly loading indexed parameter
