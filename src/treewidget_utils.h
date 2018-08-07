@@ -21,6 +21,7 @@
 #ifndef __TREEWIDGET_UTIL_H__
 #define __TREEWIDGET_UTIL_H__
 
+#include <functional>
 #include <QStyledItemDelegate>
 #include <QTreeWidgetItem>
 
@@ -30,7 +31,11 @@ class NoEditDelegate: public QStyledItemDelegate
 {
     public:
         NoEditDelegate(QObject* parent=0): QStyledItemDelegate(parent) {}
-        virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const {
+
+        virtual QWidget* createEditor(QWidget *parent,
+                                      const QStyleOptionViewItem &option,
+                                      const QModelIndex &index) const
+        {
             return 0;
         }
 };
@@ -83,8 +88,31 @@ class HtmlDelegate : public QStyledItemDelegate
         using QStyledItemDelegate::QStyledItemDelegate;
 
     protected:
-        void paint ( QPainter * painter, const QStyleOptionViewItem & option, const QModelIndex & index ) const;
-        QSize sizeHint ( const QStyleOptionViewItem & option, const QModelIndex & index ) const;
+        void paint(QPainter *painter,
+                   const QStyleOptionViewItem &option,
+                   const QModelIndex &index) const;
+
+        QSize sizeHint(const QStyleOptionViewItem &option,
+                       const QModelIndex &index) const;
+};
+
+class CanDisableItemsHtmlDelegate: public HtmlDelegate
+{
+    public:
+        using IsItemDisabledFunctor = std::function<bool (QTreeWidgetItem *)>;
+
+        CanDisableItemsHtmlDelegate(const IsItemDisabledFunctor &isItemDisabled,
+                                    QObject *parent = nullptr)
+            : HtmlDelegate(parent)
+            , m_isItemDisabled(isItemDisabled)
+        {}
+
+    protected:
+        virtual void initStyleOption(QStyleOptionViewItem *option,
+                                     const QModelIndex &index) const override;
+
+    private:
+        IsItemDisabledFunctor m_isItemDisabled;
 };
 
 #endif /* __TREEWIDGET_UTIL_H__ */

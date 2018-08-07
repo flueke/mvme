@@ -1331,10 +1331,21 @@ UserLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &di
     result.sinkTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     result.sinkTree->setEditTriggers(editTriggers);
 
+    auto isNodeDisabled = [](QTreeWidgetItem *node) -> bool
+    {
+        if (node->type() == NodeType_Module)
+        {
+            if (auto module = get_pointer<ModuleConfig>(node))
+                return !module->isEnabled();
+        }
+
+        return false;
+    };
+
     for (auto tree: result.getObjectTrees())
     {
         tree->setExpandsOnDoubleClick(false);
-        tree->setItemDelegate(new HtmlDelegate(tree));
+        tree->setItemDelegate(new CanDisableItemsHtmlDelegate(isNodeDisabled, tree));
         tree->setDragEnabled(true);
         tree->viewport()->setAcceptDrops(true);
         tree->setDropIndicatorShown(true);
