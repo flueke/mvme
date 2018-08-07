@@ -136,7 +136,8 @@ class VMEConfigTreeItemDelegate: public QStyledItemDelegate
         }
 
     protected:
-        virtual void initStyleOption(QStyleOptionViewItem *option, const QModelIndex &index) const override
+        virtual void initStyleOption(QStyleOptionViewItem *option,
+                                     const QModelIndex &index) const override
         {
             QStyledItemDelegate::initStyleOption(option, index);
 
