@@ -156,7 +156,7 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         void setBaseAddress(uint32_t address);
 
         const vats::VMEModuleMeta getModuleMeta() const { return m_meta; }
-        void setModuleMeta(const vats::VMEModuleMeta &meta) { m_meta = meta; }
+        void setModuleMeta(const vats::VMEModuleMeta &meta);
 
         VMEScriptConfig *getResetScript() const { return m_resetScript; }
         VMEScriptConfig *getReadoutScript() const { return m_readoutScript; }

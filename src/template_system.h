@@ -69,6 +69,14 @@ struct LIBMVME_EXPORT VMEModuleMeta
     QString templatePath;
 };
 
+bool operator==(const VMETemplate &ta, const VMETemplate &tb);
+bool operator==(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb);
+bool operator==(const VMEModuleMeta &mma, const VMEModuleMeta &mmb);
+
+bool operator!=(const VMETemplate &ta, const VMETemplate &tb);
+bool operator!=(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb);
+bool operator!=(const VMEModuleMeta &mma, const VMEModuleMeta &mmb);
+
 struct LIBMVME_EXPORT MVMETemplates
 {
     VMEEventTemplates eventTemplates;

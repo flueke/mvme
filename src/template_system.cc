@@ -137,6 +137,49 @@ namespace
 namespace vats
 {
 
+bool operator==(const VMETemplate &ta, const VMETemplate &tb)
+{
+    return (ta.contents == tb.contents
+            && ta.name == tb.name
+            && ta.sourceFileName == tb.sourceFileName
+           );
+}
+
+bool operator==(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb)
+{
+    return (mta.reset == mtb.reset
+            && mta.readout == mtb.readout
+            && mta.init == mtb.init
+           );
+}
+
+bool operator==(const VMEModuleMeta &mma, const VMEModuleMeta &mmb)
+{
+    return (mma.typeId == mmb.typeId
+            && mma.typeName == mmb.typeName
+            && mma.displayName == mmb.displayName
+            && mma.vendorName == mmb.vendorName
+            && mma.templates == mmb.templates
+            && mma.eventHeaderFilter == mmb.eventHeaderFilter
+            && mma.templatePath == mmb.templatePath
+           );
+}
+
+bool operator!=(const VMETemplate &ta, const VMETemplate &tb)
+{
+    return !(ta == tb);
+}
+
+bool operator!=(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb)
+{
+    return !(mta == mtb);
+}
+
+bool operator!=(const VMEModuleMeta &mma, const VMEModuleMeta &mmb)
+{
+    return !(mma == mmb);
+}
+
 QDebug operator<<(QDebug debug, const MVMETemplates &templates);
 
 QString get_template_path()
