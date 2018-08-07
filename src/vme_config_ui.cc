@@ -21,7 +21,6 @@
 #include "vme_config_ui.h"
 #include "analysis/analysis.h"
 #include "data_filter_edit.h"
-#include "gui_util.h"
 #include "mvme_context.h"
 #include "qt-collapsible-section/Section.h"
 #include "vme_config.h"
@@ -353,12 +352,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 
     if (!isNewModule)
     {
-        layout->addRow(make_framed_description_label(QSL(
-                    "Note: changing the type of an existing module does not update/replace"
-                    " previously generated VME scripts.<br/>"
-                    "It is recommended to instead delete the module and recreate a new one"
-                    " with the desired type."
-                    )));
+        typeCombo->setEnabled(false);
     }
 
     layout->addRow("Type", typeCombo);
@@ -397,7 +391,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
         typeCombo->setCurrentIndex(typeComboIndex);
         onTypeComboIndexChanged(typeComboIndex);
     }
-
 
     auto updateOkButton = [=]()
     {
