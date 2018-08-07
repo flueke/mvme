@@ -2,12 +2,12 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+
 --------------------------------------------------
 BUGFIXES and FEATURES wanted for 0.9.5 :)
 --------------------------------------------------
-* SIS3153 weirdness: when disabling the MDPP16 but leaving the mesyctec_counter
-  module in the timer event active we end up with a huge data rate. What's
-  happening here?
+* VMUSB: make OUT2 signal DAQ mode: set it to zero on connect, then to 1 when
+  entering DAQ mode and back to 0 when leaving DAQ mode
 
 * VMUSB goes into a bad state after doing "1 Cycle"
 
@@ -161,8 +161,6 @@ Additional/Advanced Features:
 * SIS readout: received count and Timestamp histo count have a small delta of 1
   up to 3 counts. Figure out where this is coming from.
 
-* Add the "explore workspace" button the analysis UI
-
 * 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
   packetStatus 0x132 is not valid! This should wrap.
 
@@ -170,7 +168,6 @@ Additional/Advanced Features:
   be moved into closeEventSection? I was surprised that this had to be done
   manually.
 
-* Move analysis efficiency display to the top Event toolbar
 * efficiency: when the efficiency is slightly below 100% the display will still
   show a 1.00 due to rounding. maybe color the number if it's not 100%.
 
@@ -179,11 +176,6 @@ Additional/Advanced Features:
   This is basically a copy and filter operation for listfile with the decision
   being made at an arbitrary point in the analysis for the specific event.
   This needs access to the raw input data.
-
-* Add grouping of operators. Allow disabling of groups.
-  These would be like directories in the filesystem. Also for histograms a
-  widget with free placement of histograms could be added. This stuff would be
-  stored in the analysis.
 
 * Transport more state of the DAQ to the analysis side. Right now the stream
   processor always creates a session auto-save even if the DAQ did not start up
@@ -236,11 +228,6 @@ Additional/Advanced Features:
   - The a2 adapter will assert because no histo is found for the index.
   This also affects other operators. Fix this!
 
-* Implement QwtPlotCurve subclass that handles NaN-values before passing the
-  data (in the form of a QPolygonF) to QPainter.
-  The standard solution used in other plotting libraries is to plot the
-  function segment wise, plotting nothing where NaN values are involved.
-
 * Rate Monitor Widget:
   - make sure rate values are scaled to the "middle" of the y axis
   - improve time labels: don't show hours and minutes if time scale is less than a minute
@@ -259,26 +246,6 @@ Additional/Advanced Features:
 * All filters: make sure address bits are <= 16. This is a reasonable limit and
   avoids crashes due to wrong inputs into the filter fields.
 
-* SIS
-  - check if windows tuning can be done similar to the linux sysctl stuff
-    -> setsockopt(BUFSIZE_something) can be done
-  - suppress log spam
-  - fix "no error" errors under windows. use the wsa stuff
-  - log spam suppression could use a sort of tag system and "histogramming" of
-    the generated messages. output would then be generated at a fixed clock
-    rate.  Each message has an assoicated tag. If a message is to be logged the
-    central msg buffer is checked to see if it already contains that tag. If
-    true the count for that tag is incremented and no further processing is
-    done. Otherwise the data associated with the message (just a string right
-    now) is stored in the buffer and the count is set to 1.
-    On every clock tick all the messages present in the buffer are printed and
-    augmented with the number of instances of that message type.
-
-* General: suppress log spam at the source
-
-* VME config: cannot change module type sometimes. going from mqdc to mdi
-  doesn't work. Other things do work. Something is broken there.
-
 * VME Script "Run" button: this still blocks the GUI.
 * Really do fix the analysis pause/resume interaction with the daq.
 
@@ -294,125 +261,17 @@ More ideas from Robert:
 
 * The export sink needs to log which output file is being written! Right now
   it's all very mysterious.
-* The generated CLI tools do not generated good output filenames. Manually
+* The generated CLI tools do not generate good output filenames. Manually
   check for known extensions (".bin", ".bin.gz" and remove those from the
   output filename.
 * (maybe) Replace the .bin extension with something more mvme like.
-
-
-=== What to export / System design ===
-* ExportSink operator
-  - with variable number of data inputs (arrays only atm)
-  - enable/disable flag (implement this in the a1 layer. if the op is disabled do not build the a2 implementation)
-  - a special condition input (single value only). if valid an ouput event is
-    generated, otherwise no output is written.
-  - selectable handling of invalids and nans for the indexed format.
-    nan/invalid could be skipped entirely if desired.
-  - defined byte order (little endian) -> NO, use native byte order and let the consumer worry about this
-
-* Need to decide when to write output files. In the beginRun() callchain? Add
-  additional data to RunInfo?
-  This should work in stand-alone applications aswell. Would be good to put it
-  into the analysis system, not have it external like a2_begin_run()
-
-  Distinction between (re)building the analysis structure and actually starting a run.
-
-* For each ExportSink a different filename must be used.
-  Plan right now: <workspace>/export/<run_id>/<export_op_1>.mvmexport
-  Enforce the unique filename condition before writing anything.
-
-* To be able to synchronize the data from multiple files each event could carry
-  the current timetick.
-
-* Assuming one file per event:
-e0                              implicit event index
-  m0                            module index. not written out
-    ds00                        data source. can be selected for export
-    ds01
-  m1
-    ds10
-    ds11
-
-Further analysis operators in this event
-op0
-  op0.0
-  op0.1
-    op0.1.0
-
-op1
-  op1.0
-
-  /* Make it packed, no padding wanted. */
-  struct Event
-  {
-      u32 timetick;
-
-      double ds00[ds00.size];
-      double ds01[ds01.size];
-      double ds10[ds10.size];
-      double ds11[ds11.size];
-
-      double op0[op0.size];
-      double op1[];
-      double op00[];
-      double op01[];
-      double op10[];
-      double op010[];
-
-      /* Static const data. Will only have to pay once for this. But linkage
-       * might be an issue I think. Do I need an implementation file for this
-       * to work? Any other way to place the data in the header and have the
-       * compiler figure out the linkage stuff?
-       * Or just generate the implementation file aswell and be done with it.
-       * NOTE: This data could just as well also live in the exported data file.
-       * Could also use the trick where the header is included twice, the
-       * second time around preceeded by a #define IMPL.
-       */
-      static const u32 number_of_data_arrays;
-      static const u32 array_offsets[number_of_data_arrays];
-      static const u32 array_sizes[number_of_data_arrays];
-
-      /* Fixed length, null terminated strings containing unmodified names of
-       * the arrays. */
-      static const char array_names[128][number_of_data_arrays];
-
-      /* Or an array of all the null terminated strings and an array of start
-       * offsets into the string data array. */
-       static const char array_names[total_number_of_characters_for_all_names];
-       static const char array_name_offsets[number_of_data_arrays];
-  };
-
-The above needs a robust name generation scheme. Metadata could also be stored
-inside the export data file or added to the export header.
-- No duplicate names
-- Valid c++ identifiers
-- Separate Events via distinct names and/or namespaces and maybe more?
-
-
-* binary format with generated c header file
-* python layer. numpy, pyroot examples
-(* text format with structure description in a header section
-  - printf format string for doubles: use something that does not lose precision when read back in)
-* compression for both formats
-* if the above works ROOT export should also be doable
-* export to hdf5 could also be nice
-* invalid parameters would be printed as "nan". keep the distinction between
-  plain nan and invalid?
-* byte order marking
-* file magic number
-* version number
-* export to an auto created subdirectory named after the run. This keeps
-  exported files togther.
-  Can also generated a source file with basic readout code.
-  User will want to edit that file but on the next export it will be
-  overwritten. How can this use case be made more convenient?
-  -> Not an issue: they copy paste the readout code and only have to get the
-  #include <path/to/generated_header> right.
-* The user might also have to build an implementation file to be able to get
-  all the static data.
+* (maybe) byte order marking. The bin file are not meant as permanent storage
+  but to be consumed by a user program which then stored data in e.g. ROOT
+  format.
+* (maybe) file magic number
+* (maybe) version number
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 * add build date to info window thingy
 * Andi has a setup where the "compression" combo box has an empty value. no/fast compression can still be selected but the initial value is empty.
 * ListFilterEditor: hide the bits that are not available in the combined words.
