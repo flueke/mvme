@@ -26,7 +26,7 @@
 namespace vmusb_constants
 {
 
-static const size_t BufferMaxSize = 27 * 1024;
+static const std::size_t BufferMaxSize = 27 * 1024;
 
 namespace Buffer
 {
@@ -65,6 +65,50 @@ static const int StackIDMax = 7;
 // Manual Section 4.5.13
 static const u32 BLTMaxTransferCount    = 1u << 23;
 static const u32 MBLTMaxTransferCount   = 1u << 22;
+
+namespace NIMO1
+{
+    namespace Shifts
+    {
+        static const u32 Code   = 0u;
+        static const u32 Invert = 3u;
+        static const u32 Latch  = 4u;
+    }
+
+    namespace Codes
+    {
+        static const u32 Busy               = 0u;
+        static const u32 EventTrigger       = 1u;
+        static const u32 BusRequest         = 2u;
+        static const u32 XferToDataBuffer   = 3u;
+        static const u32 DGG_A              = 4u;
+        static const u32 DGG_B              = 5u;
+        static const u32 EndOfEvent         = 6u;
+        static const u32 USBTrigger         = 7u;
+    }
+}
+
+namespace NIMO2
+{
+    namespace Shifts
+    {
+        static const u32 Code   =  8u;
+        static const u32 Invert = 11u;
+        static const u32 Latch  = 12u;
+    }
+
+    namespace Codes
+    {
+        static const u32 USBTrigger         = 0u;
+        static const u32 ExecutingVMECmd    = 1u;
+        static const u32 VMEAddressStrobe   = 2u;
+        static const u32 XferToUSBFIFO      = 3u;
+        static const u32 DGG_A              = 4u;
+        static const u32 DGG_B              = 5u;
+        static const u32 EndOfEvent         = 6u;
+        static const u32 USBTrigger2        = 7u;
+    }
+}
 
 } // end namespace vmusb_constants
 

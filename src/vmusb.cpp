@@ -404,6 +404,17 @@ VMEError VMUSB::open()
             close();
         }
 
+        qDebug() << __PRETTY_FUNCTION__ << ">>> post open and error recovery register dump";
+        dump_registers(this, [](const QString &line) { qDebug().noquote() << " " << line; });
+        qDebug() << __PRETTY_FUNCTION__ << "<<< end of register dump";
+
+        // O1 latch bit
+        // O1 invert bit
+        //u32 devSources = (1u << 4); // | (1u << 3);
+        //error = setDeviceSources(devSources);
+        //assert(!error.isError());
+        //assert(getDeviceSources() == devSources);
+
         return error;
     }
 

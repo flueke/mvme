@@ -318,18 +318,35 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             throw QString("Setting VMUSB Bulk Transfer Register failed: %1").arg(error.toString());
 
         //
-        // LED Sources and Dev Sources (NIM outputs)
+        // LED Sources
         //
 
         // set bottom yellow light to USB Trigger and latched
         m_daqLedSources  = (1u << 24) | (1u << 28);
         m_daqLedSources |= (3u <<  0); // top yellow: USB InFIFO Full
-        // set NIM O2 to USB Trigger and latched
-        m_daqDevSources = (0u <<  8) | (1u << 12);
 
         error = vmusb->setLedSources(m_daqLedSources);
         if (error.isError())
             throw QString("Setting VMUSB LED Sources Register failed: %1").arg(error.toString());
+
+        //
+        // Dev Sources (NIM outputs)
+        // The value is kept around to be able to properly restore it on resuming from
+        // pause.
+        //
+        m_daqDevSources = (
+            /* NIM O1 is used to signal activity for the first non-periodic readout
+             * list. */
+              (NIMO1::Codes::Busy << NIMO1::Shifts::Code)
+            | (1u << NIMO1::Shifts::Latch)
+            | (1u << NIMO1::Shifts::Invert)
+
+            /* NIM O2 should be active while the VMUSB is in autonomous mode. This is one
+             * by setting it up to react to the USBTrigger bit of the action register. */
+            | (NIMO2::Codes::USBTrigger << NIMO2::Shifts::Code)
+            | (1u << NIMO2::Shifts::Invert)
+            | (1u << NIMO2::Shifts::Latch)
+            );
 
         error = vmusb->setDeviceSources(m_daqDevSources);
         if (error.isError())
@@ -340,6 +357,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         m_vmusbStack.resetLoadOffset(); // reset the static load offset
         int nextStackID = 2; // start at ID=2 as NIM=0 and scaler=1 (fixed)
+        bool NIMO1InUse = false;
 
         for (auto event: daqConfig->getEventConfigs())
         {
@@ -368,18 +386,59 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             VMEScript readoutScript = build_event_readout_script(event);
             validate_event_readout_script(readoutScript);
-            CVMUSBReadoutList readoutList(readoutScript);
+
+            CVMUSBReadoutList readoutList;
+
+#if 1
+            if (!NIMO1InUse && event->triggerCondition != TriggerCondition::Periodic)
+            {
+                /* This event is considered as the "main" event in regards to activating
+                 * NIM OUT1.
+                 * The activation is done by adding writes of the DEVSrcRegister to the
+                 * beginning and end of the readout list. */
+                qDebug("%s: prefix DEVSrcRegister write value = 0x%08x",
+                       __PRETTY_FUNCTION__, m_daqDevSources);
+                readoutList.addRegisterWrite(DEVSrcRegister, m_daqDevSources);
+            }
+#endif
+
+            readoutList.append(CVMUSBReadoutList(readoutScript));
+
+            bool doLogOutputForNIMO1 = false;
+
+#if 1
+            if (!NIMO1InUse && event->triggerCondition != TriggerCondition::Periodic)
+            {
+                u32 val = (m_daqDevSources &
+                    ~((1u << NIMO1::Shifts::Latch) | (1u << NIMO1::Shifts::Invert))
+                    );
+                qDebug("%s: postfix DEVSrcRegister write value = 0x%08x",
+                       __PRETTY_FUNCTION__, val);
+                readoutList.addRegisterWrite(DEVSrcRegister, val);
+
+                NIMO1InUse = true;
+                doLogOutputForNIMO1 = true;
+            }
+#endif
+
             m_vmusbStack.setContents(QVector<u32>::fromStdVector(readoutList.get()));
 
             if (m_vmusbStack.getContents().size())
             {
-                logMessage(QString("Loading readout stack for event \"%1\""
+                auto msg = (QString("Loading readout stack for event \"%1\""
                                    ", stack id = %2, size= %4, load offset = %3")
                            .arg(event->objectName())
                            .arg(m_vmusbStack.getStackID())
                            .arg(VMUSBStack::loadOffset)
                            .arg(m_vmusbStack.getContents().size())
                            );
+
+                if (doLogOutputForNIMO1)
+                {
+                    msg += ", NIM O1";
+                }
+
+                logMessage(msg);
 
                 {
                     QString tmp;
