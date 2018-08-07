@@ -19,12 +19,13 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_config_ui.h"
-#include "vme_config.h"
-#include "mvme_context.h"
-#include "vme_script.h"
 #include "analysis/analysis.h"
-#include "qt-collapsible-section/Section.h"
 #include "data_filter_edit.h"
+#include "gui_util.h"
+#include "mvme_context.h"
+#include "qt-collapsible-section/Section.h"
+#include "vme_config.h"
+#include "vme_script.h"
 
 #include <cmath>
 
@@ -346,6 +347,20 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     auto layout = new QFormLayout(this);
+
+    const bool isNewModule = (module->getModuleMeta().typeId
+                              == vats::VMEModuleMeta::InvalidTypeId);
+
+    if (!isNewModule)
+    {
+        layout->addRow(make_framed_description_label(QSL(
+                    "Note: changing the type of an existing module does not update/replace"
+                    " previously generated VME scripts.<br/>"
+                    "It is recommended to instead delete the module and recreate a new one"
+                    " with the desired type."
+                    )));
+    }
+
     layout->addRow("Type", typeCombo);
     layout->addRow("Name", nameEdit);
     layout->addRow("Address", addressEdit);
