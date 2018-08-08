@@ -706,9 +706,7 @@ DEF_OP_MAGIC(rate_monitor_sink_magic)
     using a2::RateSampler;
 
     LOG("");
-    assert(inputSlots.size() == 1);
-    assert_slot(inputSlots[0]);
-    assert(inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex);
+    assert(inputSlots.size() >= 1);
 
     auto rms = qobject_cast<analysis::RateMonitorSink *>(op.get());
 
@@ -720,13 +718,22 @@ DEF_OP_MAGIC(rate_monitor_sink_magic)
     QVector<RateSampler *> samplers;
     samplers.reserve(shared_samplers.size());
     std::transform(shared_samplers.begin(), shared_samplers.end(),
-                   std::back_inserter(samplers), [](auto &shared_sampler) { return shared_sampler.get(); });
+                   std::back_inserter(samplers), [](auto &shared_sampler) {
+                       return shared_sampler.get();
+                   });
+
+    QVector<a2::PipeVectors> a2_inputs(inputSlots.size());
+
+    for (s32 si = 0; si < inputSlots.size(); si++)
+    {
+        a2_inputs[si] = find_output_pipe(adapterState, inputSlots[si]);
+    }
 
     assert(samplers.size() == shared_samplers.size());
 
     a2::Operator result = a2::make_rate_monitor(
         arena,
-        a2_input,
+        { a2_inputs.data(), a2_inputs.size() },
         { samplers.data(), samplers.size() },
         rms->getType()
         );

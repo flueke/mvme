@@ -1403,13 +1403,22 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         ResolutionReductionFactors m_rrf;
 };
 
-class LIBMVME_EXPORT RateMonitorSink: public BasicSink
+class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::SinkInterface)
     public:
         using Type = a2::RateMonitorType;
 
         Q_INVOKABLE RateMonitorSink(QObject *parent = nullptr);
+
+        virtual bool hasVariableNumberOfSlots() const override { return true; }
+        virtual bool addSlot() override;
+        virtual bool removeLastSlot() override;
+
+        // Inputs
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void clearState() override;
@@ -1455,6 +1464,7 @@ class LIBMVME_EXPORT RateMonitorSink: public BasicSink
         void setSamplingInterval(double d) { m_samplingInterval = d; }
 
     private:
+        QVector<std::shared_ptr<Slot>> m_inputs;
         QVector<a2::RateSamplerPtr> m_samplers;
 
         /* The desired size of rate history buffers. Analogous to the number of

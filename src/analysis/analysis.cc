@@ -2885,23 +2885,68 @@ static RateMonitorSink::Type rate_monitor_sink_type_from_string(const QString &s
 }
 
 RateMonitorSink::RateMonitorSink(QObject *parent)
-    : BasicSink(parent)
+    : SinkInterface(parent)
 {
-    m_inputSlot.acceptedInputTypes = InputType::Array;
+    addSlot();
+}
+
+bool RateMonitorSink::addSlot()
+{
+    auto inputType = InputType::Both;
+
+    auto slot = std::make_shared<Slot>(
+        this, getNumberOfSlots(),
+        QSL("Input #") + QString::number(getNumberOfSlots()), inputType);
+
+    m_inputs.push_back(slot);
+
+    return true;
+}
+
+bool RateMonitorSink::removeLastSlot()
+{
+    if (m_inputs.size() > 1)
+    {
+        m_inputs.back()->disconnectPipe();
+        m_inputs.pop_back();
+        return true;
+    }
+
+    return false;
+}
+
+Slot *RateMonitorSink::getSlot(s32 slotIndex)
+{
+    return m_inputs.value(slotIndex).get();
+}
+
+s32 RateMonitorSink::getNumberOfSlots() const
+{
+    return m_inputs.size();
 }
 
 void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
 {
-    if (!m_inputSlot.isConnected())
+    if (no_input_connected(this))
     {
         m_samplers.resize(0);
         return;
     }
 
-    // Currently only supports connecting to arrays, not single parameters.
-    assert(m_inputSlot.paramIndex == Slot::NoParamIndex);
+    size_t requiredSamplers = 0u;
 
-    m_samplers.resize(m_inputSlot.inputPipe->parameters.size());
+    for (const auto &slot: m_inputs)
+    {
+        if (!slot->isConnected())
+            continue;
+
+        if (slot->isParameterConnection())
+            requiredSamplers += 1u;
+        else
+            requiredSamplers += slot->inputPipe->getSize();
+    }
+
+    m_samplers.resize(requiredSamplers);
 
     for (auto &sampler: m_samplers)
     {

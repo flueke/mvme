@@ -6,16 +6,12 @@ TODO list, not at all sorted by priority
 --------------------------------------------------
 BUGFIXES and FEATURES wanted for 0.9.5 :)
 --------------------------------------------------
-* VMUSB: make OUT2 signal DAQ mode: set it to zero on connect, then to 1 when
-  entering DAQ mode and back to 0 when leaving DAQ mode
+* Doc: add descriptions of the SIS LEDs and outputs and how the controller behaves
+* Doc: change the mention of "dropped buffers" to instead point to the analysis efficiency display.
+* Doc: mention the "show advanced objects" button and what it does
+  maybe even enable them by default (talk to robert about this)
 
 * VMUSB goes into a bad state after doing "1 Cycle"
-
-* Both vme controllers: check if it's possible to activate one of the outputs
-  while the controller is actively processing a readout stack. This output
-  could then be used as the busy input for e.g. a caen785 adc or for our
-  modules and prevent this prevent the module from generating new data while
-  the controller reads it out.
 
 * if loading a config file fails when opening a filename from the
   mvmeworkspace.ini file show an explicit error message about the filename in
@@ -25,16 +21,15 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
   void Histo1DWidgetPrivate::calibResetToFilter()
   Change them to make use of the improved analysis rebuild mechanism
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 * RateMonitor
   Allow indexed connections.
   Even better: make it so that it can handle a variable number of inputs, with
-  each accepting both connection types.
+  each accepting both connection types. capacity and other parameters will be
+  the same for all inputs.
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-* Doc: add descriptions of the SIS LEDs and outputs and how the controller behaves
-* Doc: change the mention of "dropped buffers" to instead point to the analysis efficiency display.
-* Doc: mention the "show advanced objects" button and what it does
-  maybe even enable them by default (talk to robert about this)
+  RateMonitor plot: build something that shows all rates of a ratemonitor in a
+  single plot.
 
 * workspace and vme controller settings and such:
   Roberts use case is: open listfile, try to locally reproduce problems a
@@ -55,7 +50,6 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
 * Histo2d res reduction/rendering:
   - Maybe: think about and test the case where the h2d res is larger than the
     pixels in the display area and possibly use a dynamic rrf in this case.
-
 
 * New Feature: add pause/resume markers and/or absolute timestamps to the listfile.
   This would allow for example splitting the run on pause/resume if the user
