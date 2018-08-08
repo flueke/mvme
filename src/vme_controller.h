@@ -71,6 +71,7 @@ class LIBMVME_EXPORT VMEError
             InvalidIPAddress,
             UnexpectedAddressMode,
             HostLookupFailed,
+            WrongControllerType,
         };
 
         VMEError()

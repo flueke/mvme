@@ -317,6 +317,16 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
                 addMaskedCountFifoRead32(cmd.blockAddress, amod_from_AddressMode(cmd.blockAddressMode, false, true));
 
             } break;
+
+        case CommandType::VMUSB_WriteRegister:
+            {
+                addRegisterWrite(cmd.address, cmd.value);
+            } break;
+
+        case CommandType::VMUSB_ReadRegister:
+            {
+                addRegisterRead(cmd.address);
+            } break;
     }
 }
 
