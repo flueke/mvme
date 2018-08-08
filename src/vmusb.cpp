@@ -404,16 +404,59 @@ VMEError VMUSB::open()
             close();
         }
 
-        qDebug() << __PRETTY_FUNCTION__ << ">>> post open and error recovery register dump";
+        qDebug() << __PRETTY_FUNCTION__ << ">>>1>>> post error recovery register dump";
         dump_registers(this, [](const QString &line) { qDebug().noquote() << " " << line; });
-        qDebug() << __PRETTY_FUNCTION__ << "<<< end of register dump";
+        qDebug() << __PRETTY_FUNCTION__ << "<<<1<<< end of register dump";
 
-        // O1 latch bit
-        // O1 invert bit
-        //u32 devSources = (1u << 4); // | (1u << 3);
-        //error = setDeviceSources(devSources);
-        //assert(!error.isError());
-        //assert(getDeviceSources() == devSources);
+        using namespace vmusb_constants;
+
+        /* NIM O1 is used to signal activity for the first non-periodic readout
+         * stack. */
+
+        /* NIM O2 should be active while the VMUSB is in autonomous mode. This is one
+         * by setting it up to react to the USBTrigger bit of the action register. */
+
+        //
+        // Step 1: Set latch bits
+        //
+        u32 devSources = 0;
+#if 0
+        u32 devSources = (
+              (NIMO1::Codes::Busy << NIMO1::Shifts::Code)
+            | (1u << NIMO1::Shifts::Latch)
+            //| (1u << NIMO1::Shifts::Invert)
+
+            | (NIMO2::Codes::USBTrigger << NIMO2::Shifts::Code)
+            | (1u << NIMO2::Shifts::Latch)
+            //| (1u << NIMO2::Shifts::Invert)
+            );
+
+        error = setDeviceSources(devSources);
+        assert(!error.isError());
+        assert(getDeviceSources() == devSources);
+
+        qDebug() << __PRETTY_FUNCTION__ << ">>>2>>> intermediate register dump";
+        dump_registers(this, [](const QString &line) { qDebug().noquote() << " " << line; });
+        qDebug() << __PRETTY_FUNCTION__ << "<<<2<<< end of register dump";
+
+        //
+        // Step 2: Clear latch bits
+        //
+        devSources = (
+            (NIMO1::Codes::Busy << NIMO1::Shifts::Code)
+            //| (1u << NIMO1::Shifts::Invert)
+
+            | (NIMO2::Codes::USBTrigger << NIMO2::Shifts::Code)
+            );
+#endif
+
+        error = setDeviceSources(devSources);
+        assert(!error.isError());
+        assert(getDeviceSources() == devSources);
+
+        qDebug() << __PRETTY_FUNCTION__ << ">>>3>>> post open register dump";
+        dump_registers(this, [](const QString &line) { qDebug().noquote() << " " << line; });
+        qDebug() << __PRETTY_FUNCTION__ << "<<<3<<< end of register dump";
 
         return error;
     }

@@ -188,8 +188,11 @@ static const int PostLeaveDaqModeDelay_ms = 100;
 
 static const double PauseMaxSleep_ms = 125.0;
 
-static VMEError enter_daq_mode(VMUSB *vmusb, u32 additionalBits = 0, u32 ledSources = 0, u32 devSources = 0)
+static VMEError enter_daq_mode(VMUSB *vmusb, u32 additionalBits = 0,
+                               u32 ledSources = 0, u32 devSources = 0)
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
     VMEError result;
 
     result = vmusb->writeRegister(LEDSrcRegister, ledSources);
@@ -214,8 +217,9 @@ static VMEError leave_daq_mode(VMUSB *vmusb, u32 additionalBits = 0)
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    auto result = vmusb->leaveDaqMode(additionalBits);
+    VMEError result;
 
+    result = vmusb->leaveDaqMode(additionalBits);
     if (!result.isError())
     {
         QThread::msleep(PostLeaveDaqModeDelay_ms);
@@ -334,19 +338,23 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         // The value is kept around to be able to properly restore it on resuming from
         // pause.
         //
+#if 0
         m_daqDevSources = (
             /* NIM O1 is used to signal activity for the first non-periodic readout
-             * list. */
-              (NIMO1::Codes::Busy << NIMO1::Shifts::Code)
-            | (1u << NIMO1::Shifts::Latch)
-            | (1u << NIMO1::Shifts::Invert)
+             * stack. */
+            (NIMO1::Codes::Busy << NIMO1::Shifts::Code)
+            //| (1u << NIMO1::Shifts::Latch)
+            //| (1u << NIMO1::Shifts::Invert)
 
-            /* NIM O2 should be active while the VMUSB is in autonomous mode. This is one
+            /* NIM O2 should be active while the VMUSB is in autonomous mode. This is done
              * by setting it up to react to the USBTrigger bit of the action register. */
             | (NIMO2::Codes::USBTrigger << NIMO2::Shifts::Code)
-            | (1u << NIMO2::Shifts::Invert)
-            | (1u << NIMO2::Shifts::Latch)
+            //| (1u << NIMO2::Shifts::Latch)
+            //| (1u << NIMO2::Shifts::Invert)
             );
+#else
+        m_daqDevSources = 0;
+#endif
 
         error = vmusb->setDeviceSources(m_daqDevSources);
         if (error.isError())
@@ -389,16 +397,22 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             CVMUSBReadoutList readoutList;
 
-#if 1
+#if 0
             if (!NIMO1InUse && event->triggerCondition != TriggerCondition::Periodic)
             {
                 /* This event is considered as the "main" event in regards to activating
                  * NIM OUT1.
                  * The activation is done by adding writes of the DEVSrcRegister to the
                  * beginning and end of the readout list. */
+                u32 val = (m_daqDevSources
+                           | (1u << NIMO1::Shifts::Latch)
+                           | (1u << NIMO1::Shifts::Invert)
+                          );
+
                 qDebug("%s: prefix DEVSrcRegister write value = 0x%08x",
-                       __PRETTY_FUNCTION__, m_daqDevSources);
-                readoutList.addRegisterWrite(DEVSrcRegister, m_daqDevSources);
+                       __PRETTY_FUNCTION__, val);
+
+                readoutList.addRegisterWrite(DEVSrcRegister, val);
             }
 #endif
 
@@ -406,14 +420,19 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             bool doLogOutputForNIMO1 = false;
 
-#if 1
+#if 0
             if (!NIMO1InUse && event->triggerCondition != TriggerCondition::Periodic)
             {
                 u32 val = (m_daqDevSources &
-                    ~((1u << NIMO1::Shifts::Latch) | (1u << NIMO1::Shifts::Invert))
-                    );
+                           ~(
+                               (1u << NIMO1::Shifts::Latch)
+                               //| (1u << NIMO1::Shifts::Invert)
+                            )
+                          );
+
                 qDebug("%s: postfix DEVSrcRegister write value = 0x%08x",
                        __PRETTY_FUNCTION__, val);
+
                 readoutList.addRegisterWrite(DEVSrcRegister, val);
 
                 NIMO1InUse = true;
@@ -651,11 +670,17 @@ void VMUSBReadoutWorker::readoutLoop()
 
             error = vmusb->setLedSources(0);
             if (error.isError())
-                throw QString("Error leaving VMUSB DAQ mode: setLedSources() failed: %1").arg(error.toString());
+            {
+                throw QString("Error leaving VMUSB DAQ mode: setLedSources() failed: %1")
+                    .arg(error.toString());
+            }
 
-            error = vmusb->setDeviceSources(0);
+            error = vmusb->setDeviceSources(m_daqDevSources);
             if (error.isError())
-                throw QString("Error leaving VMUSB DAQ mode: setDeviceSources() failed: %1").arg(error.toString());
+            {
+                throw QString("Error leaving VMUSB DAQ mode: setDeviceSources() failed: %1")
+                    .arg(error.toString());
+            }
 
             setState(DAQState::Paused);
             logMessage(QSL("VMUSB readout paused"));
@@ -663,7 +688,8 @@ void VMUSBReadoutWorker::readoutLoop()
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-            error = enter_daq_mode(vmusb, actionRegisterAdditionalBits, m_daqLedSources, m_daqDevSources);
+            error = enter_daq_mode(vmusb, actionRegisterAdditionalBits,
+                                   m_daqLedSources, m_daqDevSources);
             if (error.isError())
                 throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
 
@@ -722,7 +748,8 @@ void VMUSBReadoutWorker::readoutLoop()
 
                 readResult = readBuffer(daqModeHackTimeout_ms);
 
-                error = enter_daq_mode(vmusb, actionRegisterAdditionalBits, m_daqLedSources, m_daqDevSources);
+                error = enter_daq_mode(vmusb, actionRegisterAdditionalBits,
+                                       m_daqLedSources, m_daqDevSources);
                 if (error.isError())
                     throw QString("Error entering VMUSB DAQ mode (in timeout handling): %1").arg(error.toString());
                 qDebug() << "end USE_DAQMODE_HACK";
