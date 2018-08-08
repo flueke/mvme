@@ -570,8 +570,6 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                             QSL("Disable Module Warning"),
                             QSL("Warning: disabling the VME module that is generating the trigger"
                                 " can lead to unexpected readout behavior.<br/>"
-                                "IRQs can be resignaled immediately after a readout cycle because"
-                                " the contents of the \"Cycle End\" script will still be executed."
                                )
                             );
                     }
