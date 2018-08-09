@@ -78,10 +78,26 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
     assert(index < m_samplers.size());
     auto sampler = m_samplers.value(index);
 
+    QString xTitle;
+
+    if (sampler && m_sink)
+    {
+        s32 inputIndex = m_sink->getSamplerToInputMapping().value(index, -1);
+        s32 relativeSamplerIndex = index - m_sink->getSamplerStartOffset(inputIndex);
+        auto slot = m_sink->getSlot(inputIndex);
+
+        if (slot && slot->inputPipe && slot->inputPipe->getSource())
+        {
+            auto src = slot->inputPipe->getSource();
+
+            xTitle = src->objectName() + "." + QString::number(relativeSamplerIndex);
+        }
+    }
+
     if (sampler)
     {
-        QString xTitle = m_sink ? m_sink->objectName() + "." : QSL("");
-        xTitle += QString::number(index);
+        //QString xTitle = m_sink ? m_sink->objectName() + "." : QSL("");
+        //xTitle += QString::number(index);
 
         m_plotWidget->removeRateSampler(0);
         m_plotWidget->addRateSampler(sampler, xTitle);
@@ -94,7 +110,8 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
         }
         m_plotWidget->getPlot()->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
 
-        qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get() << ", xTitle =" << xTitle;
+        //qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get()
+        //    << ", xTitle =" << xTitle;
     }
 
     m_currentIndex = index;
@@ -270,7 +287,8 @@ void RateMonitorWidgetPrivate::exportPlotToClipboard()
     image.fill(0);
 
     QwtPlotRenderer renderer;
-    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground
+                             | QwtPlotRenderer::DiscardCanvasBackground);
     renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
     renderer.renderTo(plot, image);
 
