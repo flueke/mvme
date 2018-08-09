@@ -2927,25 +2927,49 @@ s32 RateMonitorSink::getNumberOfSlots() const
 
 void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
 {
+    m_samplerInputMapping.resize(0);
+
     if (no_input_connected(this))
     {
         m_samplers.resize(0);
+        m_inputSamplerOffsets.resize(0);
         return;
     }
 
+    m_inputSamplerOffsets.resize(getNumberOfSlots());
+
     size_t requiredSamplers = 0u;
 
-    for (const auto &slot: m_inputs)
+    for (s32 ii = 0; ii < getNumberOfSlots(); ii++)
     {
-        if (!slot->isConnected())
-            continue;
+        auto slot = getSlot(ii);
 
-        if (slot->isParameterConnection())
-            requiredSamplers += 1u;
+        if (!slot->isConnected())
+        {
+            m_inputSamplerOffsets[ii] = -1;
+        }
         else
-            requiredSamplers += slot->inputPipe->getSize();
+        {
+            m_inputSamplerOffsets[ii] = requiredSamplers;
+
+            if (slot->isParameterConnection())
+            {
+                requiredSamplers += 1u;
+                m_samplerInputMapping.push_back(ii);
+            }
+            else
+            {
+                requiredSamplers += slot->inputPipe->getSize();
+
+                for (s32 pi = 0; pi < slot->inputPipe->getSize(); pi++)
+                {
+                    m_samplerInputMapping.push_back(ii);
+                }
+            }
+        }
     }
 
+    assert(static_cast<size_t>(m_samplerInputMapping.size()) == requiredSamplers);
     m_samplers.resize(requiredSamplers);
 
     for (auto &sampler: m_samplers)
@@ -2992,6 +3016,7 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
 void RateMonitorSink::clearState()
 {
     qDebug() << __PRETTY_FUNCTION__ << objectName();
+
     for (auto &sampler: m_samplers)
     {
         sampler->clearHistory();
@@ -3006,10 +3031,29 @@ void RateMonitorSink::write(QJsonObject &json) const
     json["calibrationFactor"] = getCalibrationFactor();
     json["calibrationOffset"] = getCalibrationOffset();
     json["samplingInterval"]  = getSamplingInterval();
+    json["numberOfInputs"] = getNumberOfSlots();
 }
 
 void RateMonitorSink::read(const QJsonObject &json)
 {
+    for (auto &slot: m_inputs)
+    {
+        slot->disconnectPipe();
+    }
+    m_inputs.clear();
+    m_samplers.clear();
+
+    // Default to 1 to enable reading of older analysis files that contain the single
+    // input version of the RateMonitorSink
+    s32 inputCount = json["numberOfInputs"].toInt(1);
+
+    for (s32 inputIndex = 0;
+         inputIndex < inputCount;
+         ++inputIndex)
+    {
+        addSlot();
+    }
+
     m_type = rate_monitor_sink_type_from_string(json["type"].toString());
     m_rateHistoryCapacity = json["capacity"].toInt();
     m_unitLabel = json["unitLabel"].toString();

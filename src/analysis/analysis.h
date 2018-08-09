@@ -1445,6 +1445,16 @@ class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
             return m_samplers.value(index, {});
         }
 
+        QVector<s32> getSamplerToInputMapping() const { return m_samplerInputMapping; }
+
+        s32 getInputIndexForSamplerIndex(s32 samplerIndex) const {
+            return m_samplerInputMapping.value(samplerIndex, -1);
+        }
+
+        s32 getSamplerStartOffset(s32 inputIndex) const {
+            return m_inputSamplerOffsets.value(inputIndex, -1);
+        };
+
         Type getType() const { return m_type; }
         void setType(Type type) { m_type = type; }
 
@@ -1466,6 +1476,14 @@ class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
     private:
         QVector<std::shared_ptr<Slot>> m_inputs;
         QVector<a2::RateSamplerPtr> m_samplers;
+
+        // [samplerIndex] -> inputIndex; size == m_samplers.size()
+        QVector<s32> m_samplerInputMapping;
+
+        // [inputIndex] -> start offset into samplers; size == m_inputs.size()
+        // The number of samplers for each input is known by looking at the inputs
+        // connection type and size.
+        QVector<s32> m_inputSamplerOffsets;
 
         /* The desired size of rate history buffers. Analogous to the number of
          * bins for histograms.
