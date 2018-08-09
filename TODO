@@ -12,6 +12,8 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
   maybe even enable them by default (talk to robert about this)
 
 * VMUSB goes into a bad state after doing "1 Cycle"
+* VMUSB: if it dies and "stop DAQ" is clicked the progress window doesn't go
+  away.
 
 * if loading a config file fails when opening a filename from the
   mvmeworkspace.ini file show an explicit error message about the filename in

@@ -1525,9 +1525,9 @@ void Histo1DWidgetPrivate::onRRSliderValueChanged(int sliderValue)
 
         m_sink->setResolutionReductionFactor(m_rrf);
 
-        // FIXME: this code results in the analysis being modified marked modified on open
-        // a histogram for the first time as the rrf changes from 0 (NoRR) to 1 (physBins
-        // == visBins)
+        // FIXME: this code results in the analysis being marked modified on opening a
+        // histogram for the first time as the rrf changes from 0 (NoRR) to 1 (physBins ==
+        // visBins)
         // Also invoking the callback here rebuilds the analysis immediately. This is not
         // needed at all as the res reduction is a display only thing and doesn't interact
         // with the a2 runtime in any way.
