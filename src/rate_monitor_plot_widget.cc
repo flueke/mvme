@@ -224,6 +224,14 @@ void RateMonitorPlotWidget::removeRateSampler(int index)
     assert(m_d->m_samplers.size() == m_d->m_curves.size());
 }
 
+void RateMonitorPlotWidget::removeAllRateSamplers()
+{
+    while (rateCount())
+    {
+        removeRateSampler(0);
+    }
+}
+
 int RateMonitorPlotWidget::rateCount() const
 {
     assert(m_d->m_samplers.size() == m_d->m_curves.size());

@@ -25,6 +25,7 @@ class LIBMVME_EXPORT RateMonitorPlotWidget: public QWidget
                             const QColor &color = Qt::black);
         void removeRateSampler(const RateSamplerPtr &sampler);
         void removeRateSampler(int index);
+        void removeAllRateSamplers();
         int rateCount() const;
         QVector<RateSamplerPtr> getRateSamplers() const;
         RateSamplerPtr getRateSampler(int index) const;

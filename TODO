@@ -14,6 +14,10 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
 * VMUSB goes into a bad state after doing "1 Cycle"
 * VMUSB: if it dies and "stop DAQ" is clicked the progress window doesn't go
   away.
+* DAQ Start and then immediately pressing "Run script" in the debug window
+  causes a crash.
+* Debug CBUS functionality: MDPP-16 doesn't get a CBUS result after leaving DAQ
+  mode. It's needs a write to the reset register to make it work again.
 
 * if loading a config file fails when opening a filename from the
   mvmeworkspace.ini file show an explicit error message about the filename in
@@ -25,11 +29,6 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 * RateMonitor
-  Allow indexed connections.
-  Even better: make it so that it can handle a variable number of inputs, with
-  each accepting both connection types. capacity and other parameters will be
-  the same for all inputs.
-
   RateMonitor plot: build something that shows all rates of a ratemonitor in a
   single plot.
 

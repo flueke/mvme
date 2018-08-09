@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QBoxLayout>
+#include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
 #include <QMenu>
@@ -38,6 +39,7 @@ struct RateMonitorWidgetPrivate
 
     QToolBar *m_toolBar;
     QComboBox *m_yScaleCombo;
+    QCheckBox *m_cb_combinedView;
     QSpinBox *m_spin_plotIndex;
 
     QStatusBar *m_statusBar;
@@ -80,28 +82,69 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
 
     QString xTitle;
 
-    if (sampler && m_sink)
+    // TODO: compress the implementation.
+    // TODO: list of colors to use and cycle through
+    // TODO: legend field showing plot and their colors. I've played with this stuff
+    // already somehere.
+
+    if (0 <= index)
     {
-        s32 inputIndex = m_sink->getSamplerToInputMapping().value(index, -1);
-        s32 relativeSamplerIndex = index - m_sink->getSamplerStartOffset(inputIndex);
-        auto slot = m_sink->getSlot(inputIndex);
-
-        if (slot && slot->inputPipe && slot->inputPipe->getSource())
+        if (sampler && m_sink)
         {
-            auto src = slot->inputPipe->getSource();
+            s32 inputIndex = m_sink->getSamplerToInputMapping().value(index, -1);
+            s32 relativeSamplerIndex = index - m_sink->getSamplerStartOffset(inputIndex);
+            auto slot = m_sink->getSlot(inputIndex);
 
-            xTitle = src->objectName() + "." + QString::number(relativeSamplerIndex);
+            if (slot && slot->inputPipe && slot->inputPipe->getSource())
+            {
+                auto src = slot->inputPipe->getSource();
+
+                xTitle = src->objectName() + "." + QString::number(relativeSamplerIndex);
+            }
+        }
+
+        if (sampler)
+        {
+            //QString xTitle = m_sink ? m_sink->objectName() + "." : QSL("");
+            //xTitle += QString::number(index);
+
+            m_plotWidget->removeAllRateSamplers();
+            m_plotWidget->addRateSampler(sampler, xTitle);
+            m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(xTitle);
+
+            QString yTitle = QSL("Rate");
+            if (m_sink && !m_sink->getUnitLabel().isEmpty())
+            {
+                yTitle = m_sink->getUnitLabel();
+            }
+            m_plotWidget->getPlot()->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
+
+            //qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get()
+            //    << ", xTitle =" << xTitle;
         }
     }
-
-    if (sampler)
+    else
     {
-        //QString xTitle = m_sink ? m_sink->objectName() + "." : QSL("");
-        //xTitle += QString::number(index);
+        m_plotWidget->removeAllRateSamplers();
 
-        m_plotWidget->removeRateSampler(0);
-        m_plotWidget->addRateSampler(sampler, xTitle);
-        m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(xTitle);
+        for (s32 samplerIndex = 0; samplerIndex < m_samplers.size(); samplerIndex++)
+        {
+            s32 inputIndex = m_sink->getSamplerToInputMapping().value(samplerIndex, -1);
+            s32 relativeSamplerIndex = samplerIndex - m_sink->getSamplerStartOffset(inputIndex);
+            auto slot = m_sink->getSlot(inputIndex);
+            QString xTitle;
+
+            if (slot && slot->inputPipe && slot->inputPipe->getSource())
+            {
+                auto src = slot->inputPipe->getSource();
+
+                xTitle = src->objectName() + "." + QString::number(relativeSamplerIndex);
+            }
+
+            m_plotWidget->addRateSampler(m_samplers[samplerIndex], xTitle);
+        }
+
+        m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("");
 
         QString yTitle = QSL("Rate");
         if (m_sink && !m_sink->getUnitLabel().isEmpty())
@@ -109,9 +152,6 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
             yTitle = m_sink->getUnitLabel();
         }
         m_plotWidget->getPlot()->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
-
-        //qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get()
-        //    << ", xTitle =" << xTitle;
     }
 
     m_currentIndex = index;
@@ -126,33 +166,46 @@ void RateMonitorWidgetPrivate::updateVisibleRangeInfoLabel()
     auto scaleDraw     = plot->axisScaleDraw(QwtPlot::xBottom);
     QString minStr     = scaleDraw->label(visibleMinX).text();
     QString maxStr     = scaleDraw->label(visibleMaxX).text();
+    QString text;
 
-    const auto &sampler = currentSampler();
-    ssize_t minIdx      = sampler->getSampleIndex(visibleMinX / 1000.0);
-    ssize_t maxIdx      = sampler->getSampleIndex(visibleMaxX / 1000.0);
-
-    double  avg  = 0.0;
-    ssize_t size = sampler->rateHistory.size();
-
-    if (0 <= minIdx && minIdx < size
-        && 0 <= maxIdx && maxIdx < size)
+    if (const auto sampler = currentSampler())
     {
-        double sum   = std::accumulate(sampler->rateHistory.begin() + minIdx,
-                                       sampler->rateHistory.begin() + maxIdx + 1,
-                                       0.0);
-        double count = maxIdx - minIdx + 1;
-        avg = sum / count;
-    }
+        ssize_t minIdx = sampler->getSampleIndex(visibleMinX / 1000.0);
+        ssize_t maxIdx = sampler->getSampleIndex(visibleMaxX / 1000.0);
 
-    auto text = (QSL("Visible Interval:\n"
-                     "xMin = %1\n"
-                     "xMax = %2\n"
-                     "avg. Rate = %3"
-                     )
-                 .arg(minStr)
-                 .arg(maxStr)
-                 .arg(avg)
-                 );
+        double  avg  = 0.0;
+        ssize_t size = sampler->rateHistory.size();
+
+        if (0 <= minIdx && minIdx < size
+            && 0 <= maxIdx && maxIdx < size)
+        {
+            double sum   = std::accumulate(sampler->rateHistory.begin() + minIdx,
+                                           sampler->rateHistory.begin() + maxIdx + 1,
+                                           0.0);
+            double count = maxIdx - minIdx + 1;
+            avg = sum / count;
+        }
+
+        text = (QSL("Visible Interval:\n"
+                    "xMin = %1\n"
+                    "xMax = %2\n"
+                    "avg. Rate = %3"
+                   )
+                .arg(minStr)
+                .arg(maxStr)
+                .arg(avg)
+               );
+    }
+    else
+    {
+        text = (QSL("Visible Interval:\n"
+                    "xMin = %1\n"
+                    "xMax = %2"
+                   )
+                .arg(minStr)
+                .arg(maxStr)
+               );
+    }
 
     m_labelVisibleRangeInfoHelper.setText(text);
 }
@@ -166,32 +219,35 @@ void RateMonitorWidgetPrivate::updateCursorInfoLabel()
 
     if (!std::isnan(plotX) && !std::isnan(plotY))
     {
-        const auto &sampler = currentSampler();
+        auto sampler = currentSampler() ? currentSampler() : m_samplers.value(0);
 
-        ssize_t iy = sampler->getSampleIndex(plotX / 1000.0);
-        double y   = make_quiet_nan();
-
-        if (0 <= iy && iy < static_cast<ssize_t>(sampler->historySize()))
+        if (sampler)
         {
-            y = sampler->getSample(iy);
+            ssize_t iy = sampler->getSampleIndex(plotX / 1000.0);
+            double y   = make_quiet_nan();
+
+            if (0 <= iy && iy < static_cast<ssize_t>(sampler->historySize()))
+            {
+                y = sampler->getSample(iy);
+            }
+
+            /* To format the x-axis time value the plots axis scale draw is used.
+             * This ensure the same formatting on the axis scale and the info
+             * label. */
+            auto scaleDraw  = m_plotWidget->getPlot()->axisScaleDraw(QwtPlot::xBottom);
+            QString xString = scaleDraw->label(plotX).text();
+            QString yUnit   = m_sink ? m_sink->getUnitLabel() : QSL("");
+
+            text = (QString("x=%1\n"
+                            "y=%2 %3\n"
+                            "sampleIndex=%4"
+                           )
+                    .arg(xString)
+                    .arg(y)
+                    .arg(yUnit)
+                    .arg(iy)
+                   );
         }
-
-        /* To format the x-axis time value the plots axis scale draw is used.
-         * This ensure the same formatting on the axis scale and the info
-         * label. */
-        auto scaleDraw  = m_plotWidget->getPlot()->axisScaleDraw(QwtPlot::xBottom);
-        QString xString = scaleDraw->label(plotX).text();
-        QString yUnit   = m_sink ? m_sink->getUnitLabel() : QSL("");
-
-        text = (QString("x=%1\n"
-                        "y=%2 %3\n"
-                        "sampleIndex=%4"
-                       )
-                .arg(xString)
-                .arg(y)
-                .arg(yUnit)
-                .arg(iy)
-               );
     }
 
     m_labelCursorInfoHelper.setText(text);
@@ -199,19 +255,23 @@ void RateMonitorWidgetPrivate::updateCursorInfoLabel()
 
 void RateMonitorWidgetPrivate::updatePlotInfoLabel()
 {
-    const auto &sampler = currentSampler();
+    auto sampler = currentSampler() ? currentSampler() : m_samplers.value(0);
+    QString infoText;
 
-    auto infoText = (QString(
-            "Capacity:  %1\n"
-            "Size:      %2\n"
-            "# Samples: %3\n"
-            "Interval:  %4"
-            )
-        .arg(sampler->historyCapacity())
-        .arg(sampler->historySize())
-        .arg(sampler->totalSamples)
-        .arg(sampler->interval)
-        );
+    if (sampler)
+    {
+        infoText = (QString(
+                "Capacity:  %1\n"
+                "Size:      %2\n"
+                "# Samples: %3\n"
+                "Interval:  %4"
+                )
+            .arg(sampler->historyCapacity())
+            .arg(sampler->historySize())
+            .arg(sampler->totalSamples)
+            .arg(sampler->interval)
+            );
+    }
 
     m_labelPlotInfo->setText(infoText);
 }
@@ -385,6 +445,23 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
 
     // Plot selection spinbox
     {
+        auto cb_combined = new QCheckBox(QSL("Combined View"));
+        m_d->m_cb_combinedView = cb_combined;
+
+        connect(cb_combined, &QCheckBox::stateChanged,
+                this, [this] (int state) {
+                    m_d->m_spin_plotIndex->setEnabled(state == Qt::Unchecked);
+
+                    if (state == Qt::Checked)
+                    {
+                        m_d->selectPlot(-1);
+                    }
+                    else
+                    {
+                        m_d->selectPlot(m_d->m_spin_plotIndex->value());
+                    }
+                });
+
         auto spin_plotIndex = new QSpinBox;
         m_d->m_spin_plotIndex = spin_plotIndex;
 
@@ -392,7 +469,8 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
                 this, [this] (int index) { m_d->selectPlot(index); });
 
         tb->addWidget(make_spacer_widget());
-        tb->addWidget(make_vbox_container(QSL("Rate #"), spin_plotIndex)
+        tb->addWidget(cb_combined);
+        tb->addWidget(make_vbox_container(QSL("Rate #"), spin_plotIndex, 2, -2)
                       .container.release());
     }
 
