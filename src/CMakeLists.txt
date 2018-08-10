@@ -336,6 +336,14 @@ find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 
+#
+# listfile recovery tool
+#
+find_library(ZLIB z)
+add_executable(mvme_recover_listfile mvme_recover_listfile_hack.c)
+target_link_libraries(mvme_recover_listfile ${ZLIB})
+install(TARGETS mvme_recover_listfile DESTINATION .)
+
 if(BUILD_TESTS)
 
     function(add_mvme_gtest exe_name exe_source)
