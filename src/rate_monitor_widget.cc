@@ -75,52 +75,62 @@ void RateMonitorWidgetPrivate::postConstruct()
     selectPlot(0);
 }
 
+/* Constructs a name for the sampler with the given samplerIndex by looking at the
+ * samplers input source. */
+QString make_ratemonitor_plot_title(const RateMonitorWidget::SinkPtr &sink, s32 samplerIndex)
+{
+    QString result(QSL("not set"));
+
+    if (sink)
+    {
+        s32 inputIndex = sink->getSamplerToInputMapping().value(samplerIndex, -1);
+        auto slot = sink->getSlot(inputIndex);
+
+        if (slot && slot->inputPipe && slot->inputPipe->getSource())
+        {
+            auto src = slot->inputPipe->getSource();
+
+            s32 relativeSamplerIndex = samplerIndex - sink->getSamplerStartOffset(inputIndex);
+
+            s32 titleIndexValue = (slot->paramIndex == analysis::Slot::NoParamIndex
+                                   ? relativeSamplerIndex
+                                   : slot->paramIndex);
+
+            result = src->objectName() + "." + QString::number(titleIndexValue);
+        }
+    }
+
+    return result;
+}
+
 void RateMonitorWidgetPrivate::selectPlot(int index)
 {
     assert(index < m_samplers.size());
     auto sampler = m_samplers.value(index);
 
-    QString xTitle;
+    QString yTitle = QSL("Rate");
 
-    // TODO: compress the implementation.
     // TODO: list of colors to use and cycle through
     // TODO: legend field showing plot and their colors. I've played with this stuff
     // already somehere.
 
     if (0 <= index)
     {
-        if (sampler && m_sink)
-        {
-            s32 inputIndex = m_sink->getSamplerToInputMapping().value(index, -1);
-            s32 relativeSamplerIndex = index - m_sink->getSamplerStartOffset(inputIndex);
-            auto slot = m_sink->getSlot(inputIndex);
-
-            if (slot && slot->inputPipe && slot->inputPipe->getSource())
-            {
-                auto src = slot->inputPipe->getSource();
-
-                xTitle = src->objectName() + "." + QString::number(relativeSamplerIndex);
-            }
-        }
-
         if (sampler)
         {
-            //QString xTitle = m_sink ? m_sink->objectName() + "." : QSL("");
-            //xTitle += QString::number(index);
-
             m_plotWidget->removeAllRateSamplers();
-            m_plotWidget->addRateSampler(sampler, xTitle);
-            m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(xTitle);
 
-            QString yTitle = QSL("Rate");
+            QString plotTitle = make_ratemonitor_plot_title(m_sink, index);
+            m_plotWidget->addRateSampler(sampler, plotTitle);
+            m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(plotTitle);
+
             if (m_sink && !m_sink->getUnitLabel().isEmpty())
             {
                 yTitle = m_sink->getUnitLabel();
             }
-            m_plotWidget->getPlot()->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
 
             //qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get()
-            //    << ", xTitle =" << xTitle;
+            //    << ", plotTitle =" << plotTitle;
         }
     }
     else
@@ -129,31 +139,25 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
 
         for (s32 samplerIndex = 0; samplerIndex < m_samplers.size(); samplerIndex++)
         {
-            s32 inputIndex = m_sink->getSamplerToInputMapping().value(samplerIndex, -1);
-            s32 relativeSamplerIndex = samplerIndex - m_sink->getSamplerStartOffset(inputIndex);
-            auto slot = m_sink->getSlot(inputIndex);
-            QString xTitle;
-
-            if (slot && slot->inputPipe && slot->inputPipe->getSource())
-            {
-                auto src = slot->inputPipe->getSource();
-
-                xTitle = src->objectName() + "." + QString::number(relativeSamplerIndex);
-            }
-
-            m_plotWidget->addRateSampler(m_samplers[samplerIndex], xTitle);
+            QString plotTitle = make_ratemonitor_plot_title(m_sink, samplerIndex);
+            m_plotWidget->addRateSampler(m_samplers[samplerIndex], plotTitle);
+            qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get()
+                << ", plotTitle =" << plotTitle;
         }
 
-        m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("");
-
-        QString yTitle = QSL("Rate");
         if (m_sink && !m_sink->getUnitLabel().isEmpty())
         {
             yTitle = m_sink->getUnitLabel();
         }
-        m_plotWidget->getPlot()->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
+
+        if (m_sink)
+        {
+            m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(
+                m_sink->objectName());
+        }
     }
 
+    m_plotWidget->getPlot()->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
     m_currentIndex = index;
     m_q->replot();
 }
