@@ -149,12 +149,8 @@ Additional/Advanced Features:
 
 * 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
   packetStatus 0x132 is not valid! This should wrap.
-* Add the "explore workspace" button the analysis UI
 * SIS readout: received count and Timestamp histo count have a small delta of 1
   up to 3 counts. Figure out where this is coming from.
-
-* 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
-  packetStatus 0x132 is not valid! This should wrap.
 
 * listfile writing, MVMEStreamWriterHelper: can writing of the final EndMarker
   be moved into closeEventSection? I was surprised that this had to be done
@@ -192,8 +188,6 @@ Additional/Advanced Features:
   or partials.
 
   A real packet number prefix would be ideal.
-
-* Integrate the listfile recovery hack thingy into mvme. Build it and distrubte the binary with releases.
 
 * Maybe add a session file browser/explorer thingy. Could even allow multiple
   open sessions at once. Make sure histos and other objects clearly show which
@@ -239,7 +233,6 @@ Additional/Advanced Features:
   avoids crashes due to wrong inputs into the filter fields.
 
 * VME Script "Run" button: this still blocks the GUI.
-* Really do fix the analysis pause/resume interaction with the daq.
 
 --------------------------------------------------------------------------------
 Data Export Implementation - ExportSink
@@ -253,10 +246,6 @@ More ideas from Robert:
 
 * The export sink needs to log which output file is being written! Right now
   it's all very mysterious.
-* The generated CLI tools do not generate good output filenames. Manually
-  check for known extensions (".bin", ".bin.gz" and remove those from the
-  output filename.
-* (maybe) Replace the .bin extension with something more mvme like.
 * (maybe) byte order marking. The bin file are not meant as permanent storage
   but to be consumed by a user program which then stored data in e.g. ROOT
   format.
@@ -266,8 +255,7 @@ More ideas from Robert:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 * add build date to info window thingy
 * Andi has a setup where the "compression" combo box has an empty value. no/fast compression can still be selected but the initial value is empty.
-* ListFilterEditor: hide the bits that are not available in the combined words.
-* filters: add option to disable adding the random value
+* filters: add option to disable adding the random value (done for listfilters)
 
 
 * Projection of combined H2D does not update axis scales after the source H1D
@@ -279,133 +267,25 @@ More ideas from Robert:
   change. I tried passing keepAnalysisState = true but the histo still got
   cleared.
 
-* Fix paused replay and "StopIfQueueEmpty" interaction
-  Identify and fix issues with single stepping and pause/resume interaction.
-  Somethings wrong with these things.
-
 * add sis3153 firmware update utility to 'extras' directory. Also package and
   install sis library code (maybe). Ask struck if this is allowed.
 
 * Add element wise array multiplication operator and/or a calibration operator
   using slope and offset values.
-
-* Add an exprtk operator! That would be freakin awesome.
-
-* Implement "copy plot to clipboard" feature for Histo2D
 
 * add 64 bit DataFilter
 * phase out data_filter.h (DataFilter and MultiWordDataFilter). stick to the a2 stuff
-* Redo the way EventWidget and AddEditExtractorWidget work together right now.
-  Move the add/edit code from EventWidget::addSource()/sourceEdited() into the
-  dialog. Let the dialog notify the EventWidget about changes via a signal.
-
-
-* Fix paused replay and "StopIfQueueEmpty" interaction
-  Identify and fix issues with single stepping and pause/resume interaction.
-  Somethings wrong with these things.
-
-* add sis3153 firmware update utility to 'extras' directory. Also package and
-  install sis library code (maybe). Ask struck if this is allowed.
-
-* Add element wise array multiplication operator and/or a calibration operator
-  using slope and offset values.
-
---------------------------------------------------
-Rate displays and Rate monitoring
---------------------------------------------------
-* analaysis combined rate calculation thingy:
-    calibrate,
-    calc difference between cur and prev
-    make rate output available
-  How to build these things easily?
-  a2 level: combine existing operators
-  a1 level: input/output logic
-            create a2 instance and query for output sizes
-
 * Make mvme internal "system" rates available to the analysis.
   Might split this into VME and Analysis rates. Think about how to feed those
   to the analysis system.
   Make this efficient and easily integrated.
-  XXX: Do not make these rates available inside the analysis in the first step.
-  Figure out how to manage counters and rates first!
 
-  A summary screen similar to what wanpengs screenshot shows:
-  I'd like a catalog of all available rates in the system.
-  The user should be able to easily add/remove rates to monitor in a sort of
-  table view.
-  Certain rates should also be plotted in combined rate display.
+* RateHistory needs to only be kept if the specific rate should be plotted.
+  Otherwise if the rate should only be displayed it's enough to keep the last
+  (most recent) rate value that was calculated. The GUI should be able to pick
+  that up.
 
-  How to handle different time bases then? This would mean differing X-axis
-  scales so is not a good idea.
-
-  See next item.
-
-Counters                            Owner                           updated by                          update time / place             timebase
-==================================================================================================================================================================================================================
-DAQStats                            MVMEContext                     rdo workers/listfile reader         constantly during readout       any; fixed to 1s wallclock
-  bytes/s
-  buffers/s
-  netBytes/s
-  droppedBuffers/s
-  errorBuffers/s
-  listfileBytesWritten/s
-
-MVMEStreamProcessorCounters         MVMEStreamProcessor             stream proc                         processDataBuffer               either real wallclock or
-                                                                                                                                        based on replay timeticks
-                                                                                                                                        => two modes: realtime / daqtime
-                                                                                                                                        Same data could be used to fill different RateHistories. One would
-                                                                                                                                        be filled on every timetick, the other every wallclock second. This
-                                                                                                                                        would yield both, the daqtime and the realtime rates.
-  bytes/s
-  buffers/s
-  errors/s
-  totalEvents/s
-  event[ei]/s
-  module[ei][mi]/s
-
-
-SIS3153ReadoutWorker::Counters      SIS3153ReadoutWorker            SIS3153ReadoutWorker                during readout                  any; fixed to 1s wallclock
-  stacklistCounts[stacklist]/t
-  stacklistBerr_Block[stacklist]/t
-  stacklistBerr_Read[stacklist]/t
-  stacklistBerr_Write[stacklist]/t
-  lostEvents/t
-  multiEventPackets/t
-  embeddedEvents[stacklist]/t
-  partialFragments[stacklist]/t
-  reassembledPartials[stacklist]/t
-
-Analysis data source hitCounts      analysis                        analysis                            during replay                   Can be polled at any time. Like MVMEStreamProcessorCounters both
-  Each extractor updates these on                                                                                                       realtime and timetick based updates are possible.
-  every hit.
-  Structure changes as analysis
-  filters are modified.
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-* Additional info for each counter:
-  [scaling factor and offset] (basically calibration information)
-  unit label
-  unitscaling: binary / decimal
-  poll interval / timebase, e.g: 1/s 1/timeticks
-
-
-* Notes about timetick based updates:
-  The update could be done on every timetick that's either contained in the
-  listfile or that's generated by the MVMEStreamWorker during readout.
-
-  Another way would be to perform the update at an interval that's not related
-  to the timeticks, calculate the timetick difference and the rate average over
-  that period and then push the calculated average multiple times onto the
-  history buffer, once for each elapsed timetick.
-  This would cause less load but make the rate history less exact in the case
-  where the replay is faster than realtime.
-
-RateHistory needs to only be kept if the specific rate should be plotted.
-Otherwise if the rate should only be displayed it's enough to keep the last
-(most recent) rate value that was calculated. The GUI should be able to pick
-that up.
-
-Totals are also interesting and should be displayed alongside rates.
+  Totals are also interesting and should be displayed alongside rates.
 
 System design:
 List / Tree of available counters. Must be able to deal with arrays of known
@@ -547,8 +427,9 @@ Single Stepping and Stream Processing
 * Display buffer context in case of a parse error
 
 * Distinction/difference between a stream and a buffer?
-  As a buffer can contain multiple section or even a complete listfile it is an MVMEStream.
-  But an MVMEStream will mostly consist of multiple buffers as generated by the readout or from reading a listfile.
+  As a buffer can contain multiple sections or even a complete listfile it is an MVMEStream.
+  But an MVMEStream will mostly consist of multiple buffers as generated by the
+  readout or from reading a listfile.
 
 * Info to parse an mvme stream and report errors:
   - is multievent enabled for eventIndex N?
@@ -581,6 +462,7 @@ Single Stepping and Stream Processing
 --------------------------------------------------
 * Remove now unused run-time code from the Analysis classes. Make it clear that
   they're for serialization, internal connectiviy and a2 generation only.
+
 * analysis session / HDF5: errors out when saving and empty analysis session
   - enable the save action only if the analysis is non-empty
   - change the session code to be able to handle empty analyses
@@ -665,16 +547,12 @@ Single Stepping and Stream Processing
     * Histo1DWidget: zoom out after setHistogram()
       But not when the usage is the one in x- and y-projections where the histo is
       replaced with a similar one.
-    * Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
     * Read up on binning error calculations. See how ROOT does it.
-    * show fwhm only when gauss display is active
 
 * Analysis and AnalysisUI
     * Open new histograms immediately. Do this when creating a sub-histogram.
       Maybe only if DAQ/Replay is running?
     * Copy/Paste
-      - Copy needs a clone() operation for analysis elements.
-      - On copying an extractor the edit dialog should be opened.
       - Having the ability to clone operators would allow making editing of
         operators much safer.
         Right now if the user picks another input or clears any input slots the
@@ -740,7 +618,8 @@ Single Stepping and Stream Processing
   - add pause/resume
   - figure out why buffers/s never has a fractional part
     -> part of the system. addBuffersRead() and addBytesRead() each call maybeUpdateIntervalCounters().
-       If we're reading less than 1 buffer per second the resulting bytesPerSecond will be 0 for that interval.
+       If we're reading less than 1 buffer per second the resulting
+       bytesPerSecond will be 0 for that interval.
     How to make this better?
 - License info needs Apache License for PCG. Maybe others. Check what is needed here!
   Also use info from resources/README
