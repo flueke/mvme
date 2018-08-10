@@ -10,6 +10,7 @@
 #include <QSpinBox>
 #include <QTimer>
 #include <qwt_date.h>
+#include <qwt_legend.h>
 #include <qwt_plot.h>
 #include <qwt_plot_renderer.h>
 #include <qwt_plot_textlabel.h>
@@ -103,9 +104,42 @@ QString make_ratemonitor_plot_title(const RateMonitorWidget::SinkPtr &sink, s32 
     return result;
 }
 
+const QVector<QColor> make_plot_colors()
+{
+    static const QVector<QColor> result =
+    {
+        "#000000",
+        "#e6194b",
+        "#3cb44b",
+        "#ffe119",
+        "#0082c8",
+        "#f58231",
+        "#911eb4",
+        "#46f0f0",
+        "#f032e6",
+        "#d2f53c",
+        "#fabebe",
+        "#008080",
+        "#e6beff",
+        "#aa6e28",
+        "#fffac8",
+        "#800000",
+        "#aaffc3",
+        "#808000",
+        "#ffd8b1",
+        "#000080",
+        "#FFFFFF",
+    };
+
+    return result;
+};
+
+/* Select the plot with the given index or switch to combined view if index is negative.
+ */
 void RateMonitorWidgetPrivate::selectPlot(int index)
 {
     assert(index < m_samplers.size());
+
     auto sampler = m_samplers.value(index);
 
     QString yTitle = QSL("Rate");
@@ -116,6 +150,8 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
 
     if (0 <= index)
     {
+        // Single curve display.
+
         if (sampler)
         {
             m_plotWidget->removeAllRateSamplers();
@@ -124,37 +160,43 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
             m_plotWidget->addRateSampler(sampler, plotTitle);
             m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(plotTitle);
 
-            if (m_sink && !m_sink->getUnitLabel().isEmpty())
-            {
-                yTitle = m_sink->getUnitLabel();
-            }
-
             //qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get()
             //    << ", plotTitle =" << plotTitle;
         }
+
+        m_plotWidget->getPlot()->insertLegend(nullptr);
     }
     else
     {
+        // Combined view showing all sampler curves in the same plot.
+        static const auto colors = make_plot_colors();
+        const int ncolors = colors.size();
+
         m_plotWidget->removeAllRateSamplers();
 
         for (s32 samplerIndex = 0; samplerIndex < m_samplers.size(); samplerIndex++)
         {
             QString plotTitle = make_ratemonitor_plot_title(m_sink, samplerIndex);
-            m_plotWidget->addRateSampler(m_samplers[samplerIndex], plotTitle);
-            qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get()
-                << ", plotTitle =" << plotTitle;
+
+            auto color = colors.value(samplerIndex % ncolors);
+
+            m_plotWidget->addRateSampler(m_samplers[samplerIndex], plotTitle, color);
+
+            //qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get()
+            //    << ", plotTitle =" << plotTitle;
         }
 
-        if (m_sink && !m_sink->getUnitLabel().isEmpty())
-        {
-            yTitle = m_sink->getUnitLabel();
-        }
+        auto legend = std::make_unique<QwtLegend>();
+        //legend->setDefaultItemMode(QwtLegendData::Checkable);
+        //static_cast<QwtPlot::LegendPosition>(data));
+        m_plotWidget->getPlot()->insertLegend(legend.release(), QwtPlot::LeftLegend);
 
-        if (m_sink)
-        {
-            m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(
-                m_sink->objectName());
-        }
+        m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(QString());
+    }
+
+    if (m_sink && !m_sink->getUnitLabel().isEmpty())
+    {
+        yTitle = m_sink->getUnitLabel();
     }
 
     m_plotWidget->getPlot()->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
@@ -449,22 +491,27 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
 
     // Plot selection spinbox
     {
-        auto cb_combined = new QCheckBox(QSL("Combined View"));
+        auto cb_combined = new QCheckBox(/*QSL("Combined View")*/);
         m_d->m_cb_combinedView = cb_combined;
 
-        connect(cb_combined, &QCheckBox::stateChanged,
-                this, [this] (int state) {
-                    m_d->m_spin_plotIndex->setEnabled(state == Qt::Unchecked);
+        connect(cb_combined, &QCheckBox::stateChanged, this, [this] (int state) {
 
-                    if (state == Qt::Checked)
-                    {
-                        m_d->selectPlot(-1);
-                    }
-                    else
-                    {
-                        m_d->selectPlot(m_d->m_spin_plotIndex->value());
-                    }
-                });
+            m_d->m_spin_plotIndex->setEnabled(state == Qt::Unchecked);
+
+            if (m_d->m_sink)
+            {
+                m_d->m_sink->setUseCombinedView(state == Qt::Checked);
+            }
+
+            if (state == Qt::Checked)
+            {
+                m_d->selectPlot(-1);
+            }
+            else
+            {
+                m_d->selectPlot(m_d->m_spin_plotIndex->value());
+            }
+        });
 
         auto spin_plotIndex = new QSpinBox;
         m_d->m_spin_plotIndex = spin_plotIndex;
@@ -473,9 +520,17 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
                 this, [this] (int index) { m_d->selectPlot(index); });
 
         tb->addWidget(make_spacer_widget());
-        tb->addWidget(cb_combined);
-        tb->addWidget(make_vbox_container(QSL("Rate #"), spin_plotIndex, 2, -2)
-                      .container.release());
+
+        auto c_w = new QWidget;
+        auto c_l = new QGridLayout(c_w);
+        c_l->setContentsMargins(0, 0, 0, 0);
+        c_l->setSpacing(2);
+        c_l->addWidget(new QLabel(QSL("Rate #")),   0, 0, Qt::AlignCenter);
+        c_l->addWidget(spin_plotIndex,              1, 0, Qt::AlignCenter);
+        c_l->addWidget(new QLabel(QSL("Combined")), 0, 1, Qt::AlignCenter);
+        c_l->addWidget(cb_combined,                 1, 1, Qt::AlignCenter);
+
+        tb->addWidget(c_w);
     }
 
     // Statusbar and info widgets
@@ -592,8 +647,17 @@ void RateMonitorWidget::setSink(const SinkPtr &sink, SinkModifiedCallback sinkMo
 {
     m_d->m_sink = sink;
     m_d->m_sinkModifiedCallback = sinkModifiedCallback;
-    // Select the current plot again to update the plot title
-    m_d->selectPlot(m_d->m_currentIndex);
+
+    qDebug() << __PRETTY_FUNCTION__
+        << "sink =" << sink.get()
+        << ", getUseCombinedView() =" << sink->getUseCombinedView();
+
+    if (sink->getUseCombinedView())
+        m_d->m_cb_combinedView->setChecked(true);
+    else
+        m_d->m_spin_plotIndex->setValue(m_d->m_currentIndex);
+
+    //m_d->selectPlot(sink->getUseCombinedView() ? -1 : m_d->m_currentIndex);
 }
 
 void RateMonitorWidget::setPlotExportDirectory(const QDir &dir)

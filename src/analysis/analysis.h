@@ -1473,6 +1473,9 @@ class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
         double getSamplingInterval() const { return m_samplingInterval; }
         void setSamplingInterval(double d) { m_samplingInterval = d; }
 
+        void setUseCombinedView(bool b) { m_useCombinedView = b; }
+        bool getUseCombinedView() const { return m_useCombinedView; }
+
     private:
         QVector<std::shared_ptr<Slot>> m_inputs;
         QVector<a2::RateSamplerPtr> m_samplers;
@@ -1496,6 +1499,7 @@ class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
         double m_calibrationFactor = 1.0;
         double m_calibrationOffset = 0.0;
         double m_samplingInterval  = 1.0;
+        bool m_useCombinedView = false;
 };
 
 class LIBMVME_EXPORT ExportSink: public SinkInterface

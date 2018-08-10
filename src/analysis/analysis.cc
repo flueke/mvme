@@ -3032,6 +3032,7 @@ void RateMonitorSink::write(QJsonObject &json) const
     json["calibrationOffset"] = getCalibrationOffset();
     json["samplingInterval"]  = getSamplingInterval();
     json["numberOfInputs"] = getNumberOfSlots();
+    json["useCombinedView"] = getUseCombinedView();
 }
 
 void RateMonitorSink::read(const QJsonObject &json)
@@ -3060,6 +3061,7 @@ void RateMonitorSink::read(const QJsonObject &json)
     m_calibrationFactor = json["calibrationFactor"].toDouble(1.0);
     m_calibrationOffset = json["m_calibrationOffset"].toDouble(0.0);
     m_samplingInterval  = json["samplingInterval"].toDouble(1.0);
+    m_useCombinedView   = json["useCombinedView"].toBool(false);
 }
 
 size_t RateMonitorSink::getStorageSize() const
