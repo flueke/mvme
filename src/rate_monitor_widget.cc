@@ -144,10 +144,6 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
 
     QString yTitle = QSL("Rate");
 
-    // TODO: list of colors to use and cycle through
-    // TODO: legend field showing plot and their colors. I've played with this stuff
-    // already somehere.
-
     if (0 <= index)
     {
         // Single curve display.
@@ -188,7 +184,6 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
 
         auto legend = std::make_unique<QwtLegend>();
         //legend->setDefaultItemMode(QwtLegendData::Checkable);
-        //static_cast<QwtPlot::LegendPosition>(data));
         m_plotWidget->getPlot()->insertLegend(legend.release(), QwtPlot::LeftLegend);
 
         m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(QString());
@@ -648,16 +643,10 @@ void RateMonitorWidget::setSink(const SinkPtr &sink, SinkModifiedCallback sinkMo
     m_d->m_sink = sink;
     m_d->m_sinkModifiedCallback = sinkModifiedCallback;
 
-    qDebug() << __PRETTY_FUNCTION__
-        << "sink =" << sink.get()
-        << ", getUseCombinedView() =" << sink->getUseCombinedView();
-
     if (sink->getUseCombinedView())
         m_d->m_cb_combinedView->setChecked(true);
     else
         m_d->m_spin_plotIndex->setValue(m_d->m_currentIndex);
-
-    //m_d->selectPlot(sink->getUseCombinedView() ? -1 : m_d->m_currentIndex);
 }
 
 void RateMonitorWidget::setPlotExportDirectory(const QDir &dir)

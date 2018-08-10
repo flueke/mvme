@@ -28,9 +28,6 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
   Change them to make use of the improved analysis rebuild mechanism
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-* RateMonitor
-  RateMonitor plot: build something that shows all rates of a ratemonitor in a
-  single plot.
 
 * workspace and vme controller settings and such:
   Roberts use case is: open listfile, try to locally reproduce problems a
