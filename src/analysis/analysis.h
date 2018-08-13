@@ -518,7 +518,16 @@ enum class DisplayLocation
 QString to_string(const DisplayLocation &loc);
 DisplayLocation displayLocation_from_string(const QString &str);
 
-/** Contains a list of analysis object ids. */
+/** Contains a list of analysis object ids.
+ *
+ * IMPORTANT: The list of members of a directory is stored as a vector of object ids.
+ * Creating a clone of this directory will clone the memberlist and result in all member
+ * objects being part of this directory and the cloned one.
+ *
+ * To keep the analysis in a consistent state the member id list has to be regenerated
+ * using the object ids of the newly created clones of member objects. This is done in
+ * generate_new_object_ids().
+ */
 class LIBMVME_EXPORT Directory: public AnalysisObject
 {
     Q_OBJECT
@@ -583,8 +592,8 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
         DisplayLocation m_displayLocation;
 };
 
-bool check_directory_consistency(const DirectoryVector &dirs);
-
+bool check_directory_consistency(const DirectoryVector &dirs,
+                                 const Analysis *analysis = nullptr);
 
 } // end namespace analysis
 

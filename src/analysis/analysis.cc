@@ -445,7 +445,7 @@ void Directory::accept(ObjectVisitor &visitor)
     visitor.visit(this);
 }
 
-bool check_directory_consistency(const DirectoryVector &dirs)
+bool check_directory_consistency(const DirectoryVector &dirs, const Analysis *analysis)
 {
 #ifndef QT_NO_DEBUG
     qDebug() << __PRETTY_FUNCTION__;
@@ -468,7 +468,24 @@ bool check_directory_consistency(const DirectoryVector &dirs)
 
         if (allMembers.intersects(set))
         {
-            qDebug() << __PRETTY_FUNCTION__ << dir;
+            auto duplicates = allMembers;
+            duplicates.intersect(set);
+
+            qDebug() << __PRETTY_FUNCTION__
+                << "checking dir" << dir << dir->getId() << dir->objectName()
+                << ", duplicates:" << duplicates;
+
+            if (analysis)
+            {
+                for (const auto &did: duplicates)
+                {
+                    if (auto dup = analysis->getObject(did))
+                    {
+                        qDebug() << "  duplicate:" << dup->objectName() << dup->getId();
+                    }
+                }
+            }
+
             assert(false);
         }
 
@@ -3674,6 +3691,7 @@ void Analysis::removeDirectory(const DirectoryPtr &dir)
 
 void Analysis::removeDirectory(int index)
 {
+    assert(0 <= index && index < m_directories.size());
     m_directories.removeAt(index);
     setModified();
 }
@@ -3684,13 +3702,24 @@ DirectoryPtr Analysis::getParentDirectory(const AnalysisObjectPtr &obj) const
     // Consistency check making sure that the object is not a member of multiple
     // directories.
     bool found = false;
+    DirectoryPtr firstFoundDir;
 
     for (const auto &dir: m_directories)
     {
         if (dir->contains(obj))
         {
+            if (found)
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "object" << obj
+                    << " is contained in multiple directories:"
+                    << ", firstFoundDir =" << firstFoundDir.get()
+                    << ", current dir =" << dir.get()
+                    ;
+            }
+
             assert(!found);
             found = true;
+            firstFoundDir = dir;
         }
     }
 #endif
