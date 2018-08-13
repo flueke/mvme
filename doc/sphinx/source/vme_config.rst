@@ -110,6 +110,7 @@ DAQ startup procedure
       * Run all *Module Init* scripts
 
     * Run the Events *Multicast DAQ Start* script
+
 * Set the controller to autonomous DAQ mode
 
 Control is handed to the VME controller. mvme is now reading and
@@ -124,3 +125,17 @@ DAQ stop procedure
 * Read leftover data from the VME controller
 * Run the *DAQ Stop* script for each Event
 * Execute global *DAQ Stop* scripts
+
+VME Controller specifics
+------------------------
+
+SIS3153
+~~~~~~~
+
+If using the SIS3153 VME controller additional commands which activate Lemo
+OUT2 during execution of the readout will be added to the script for the main
+readout event. The main event is considered to be the first non-periodic event
+defined in the VME configuration.
+
+OUT1 and LED_A are activated prior to entering autonomous DAQ mode and
+deactivated after leaving DAQ mode.

@@ -40,6 +40,19 @@ Other fixes and changes:
   conflict under Ubuntu 18.04.
 
 * SIS3153: OUT2 is now active during execution of the main readout stack.
+  OUT1 is active while in autonomous DAQ mode (unchanged).
+
+* The Rate Monitor can now take multiple inputs each of which can be an
+  array or a single parameter.
+
+  Also implemented a combined view showing all rates of a Rate Monitor in a
+  single plot.
+
+* Add new VM-USB specific vme script commands: ``vmusb_write_reg`` and
+  ``vmusb_read_reg`` which allow setting up the VM-USB NIM outputs, the
+  internal scalers and delay and gate generators.
+
+  Refer to the VM-USB manual for details about these registers.
 
 0.9.4.1
 -------

@@ -151,7 +151,9 @@ steps:
   mvme. If during a DAQ run the analysis system cannot keep up with the
   incoming data rate some buffers will not be passed on to the analysis.
 
-  The number of buffers not passed on is shown as *Buffers dropped* in the
-  statistics area at the bottom of the main window.
+  The fraction of *processed buffers / total buffers* is called the *analysis
+  efficiency* and is shown in the bottom status bar of the analysis window.
+  Hovering of the Efficiency number shows a tooltip with detailed buffer
+  counts.
 
   When replaying from file *all* buffers are passed to the analysis.
