@@ -702,6 +702,8 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
     bool didModify = false;
     auto analysis = getEventWidget()->getContext()->getAnalysis();
 
+    check_directory_consistency(analysis->getDirectories(), analysis);
+
     AnalysisObjectVector droppedObjects;
     droppedObjects.reserve(ids.size());
 
@@ -758,6 +760,8 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
         // changes which means the GUI should be updated, but the GUI will never know.
         analysis->beginRun(Analysis::KeepState);
     }
+
+    check_directory_consistency(analysis->getDirectories(), analysis);
 
     if (didModify)
     {
@@ -859,6 +863,8 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 
     auto analysis = getEventWidget()->getContext()->getAnalysis();
 
+    check_directory_consistency(analysis->getDirectories(), analysis);
+
     AnalysisObjectSet dropSet;
 
     for (const auto &id: ids)
@@ -943,6 +949,8 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
             }
         }
     }
+
+    check_directory_consistency(analysis->getDirectories(), analysis);
 
     analysis->setModified();
     auto eventWidget = getEventWidget();
@@ -1053,6 +1061,8 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
     bool didModify = false;
     auto analysis = getEventWidget()->getContext()->getAnalysis();
 
+    check_directory_consistency(analysis->getDirectories(), analysis);
+
     AnalysisObjectVector droppedObjects;
     droppedObjects.reserve(ids.size());
 
@@ -1085,6 +1095,8 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
 
         didModify = true;
     }
+
+    check_directory_consistency(analysis->getDirectories(), analysis);
 
     if (didModify)
     {
@@ -4421,10 +4433,14 @@ void EventWidgetPrivate::actionImport()
     {
         auto analysis = m_context->getAnalysis();
 
+        check_directory_consistency(analysis->getDirectories(), analysis);
+
         auto objectStore = deserialize_objects(
             importData,
             m_context->getVMEConfig(),
             analysis->getObjectFactory());
+
+        check_directory_consistency(objectStore.directories);
 
         establish_connections(objectStore);
 
@@ -4450,8 +4466,13 @@ void EventWidgetPrivate::actionImport()
             obj->setEventId(m_eventId);
         }
 
+        check_directory_consistency(objectStore.directories);
+
         AnalysisPauser pauser(m_context);
         analysis->addObjects(objectStore);
+
+        check_directory_consistency(analysis->getDirectories(), analysis);
+
         repopulate();
         selectObjects(objectStore.allObjects());
     }
@@ -4653,7 +4674,7 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
     auto ids = decode_id_list(clipboardData->data(mimeType));
     auto analysis = m_context->getAnalysis();
 
-    check_directory_consistency(analysis->getDirectories());
+    check_directory_consistency(analysis->getDirectories(), analysis);
 
     AnalysisObjectVector srcObjects;
     srcObjects.reserve(ids.size());
@@ -4749,7 +4770,7 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
     }
 
     check_cloned_dirs;
-    check_directory_consistency(analysis->getDirectories());
+    check_directory_consistency(analysis->getDirectories(), analysis);
 
     // Collect, rewrite and restore internal collections of the cloned objects
     QSet<Connection> srcConnections = collect_internal_collections(srcObjects);
@@ -4777,7 +4798,7 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
     {
         AnalysisPauser pauser(m_context);
         analysis->addObjects(cloneVector);
-        check_directory_consistency(analysis->getDirectories());
+        check_directory_consistency(analysis->getDirectories(), analysis);
     }
 
     repopulate();
