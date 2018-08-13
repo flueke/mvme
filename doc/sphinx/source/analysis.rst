@@ -858,7 +858,7 @@ time to add ranges of objects to an existing selection.
 Copy/Paste
 ~~~~~~~~~~
 
-Object selections can be copied to clipbard by using *Ctrl-C* or choosing
+Object selections can be copied to clipboard by using *Ctrl-C* or choosing
 *Copy* in a context menu.
 
 Pasting is done via *Ctrl-V* or *Paste* in a trees or directories context menu.

@@ -2,8 +2,8 @@
 Changelog
 ##################################################
 
-0.9.5
--------
+Version 0.9.5
+-------------
 
 .. note::
   Analysis files created by this version can not be opened by prior versions
@@ -59,16 +59,16 @@ Other fixes and changes:
 
   Refer to the VM-USB manual for details about these registers.
 
-0.9.4.1
--------
+Version 0.9.4.1
+---------------
 * Fix expression operator GUI not properly loading indexed parameter
   connections
 
 * Split Histo1D info box into global and gauss specific statistics. Fixes to
   gauss related calculations.
 
-0.9.4
--------
+Version 0.9.4
+-------------
 * New: :ref:`Analysis Expression Operator<analysis-ExpressionOperator>`
 
   This is an operator that allows user-defined scripts to be executed for each readout
@@ -98,8 +98,8 @@ Other fixes and changes:
   Allows to start/stop DAQ runs and to request status information.
 
 
-0.9.3
--------
+Version 0.9.3
+-------------
 
 * Support for the Struck SIS3153 VME Controller using an ethernet connection
 * Analysis:
@@ -120,8 +120,8 @@ Other fixes and changes:
 * More options on how the output listfile names are generated.
 * Various bugfixes and improvements
 
-0.9.2
--------
+Version 0.9.2
+-------------
 
 * New experimental feature: multi event readout support to achieve higher data
   rates.
@@ -134,8 +134,8 @@ Other fixes and changes:
 * Analysis performance improvements.
 * Major updates to the VME templates for mesytec modules.
 
-0.9.1
--------
+Version 0.9.1
+-------------
 
 * Record a timetick every second. Timeticks are stored as sections in the
   listfile and are passed to the analyis during DAQ and replay.

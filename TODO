@@ -3,10 +3,11 @@ TODO list, not at all sorted by priority
 ==================================================
 
 --------------------------------------------------
-BUGFIXES and FEATURES wanted for 0.9.5 :)
+BUGFIXES and FEATURES wanted for 0.9.6
 --------------------------------------------------
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Doc: add ListFilterExtractor to Data Sources
 * VMUSB goes into a bad state after doing "1 Cycle"
 * VMUSB: if it dies and "stop DAQ" is clicked the progress window doesn't go
   away.
