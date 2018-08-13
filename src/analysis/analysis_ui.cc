@@ -3335,6 +3335,7 @@ void EventWidgetPrivate::clearToDefaultNodeHighlights(QTreeWidgetItem *node)
         case NodeType_Operator:
         case NodeType_Histo1DSink:
         case NodeType_Histo2DSink:
+        case NodeType_Sink:
             {
                 auto op = get_pointer<OperatorInterface>(node);
                 for (auto slotIndex = 0; slotIndex < op->getNumberOfSlots(); ++slotIndex)
