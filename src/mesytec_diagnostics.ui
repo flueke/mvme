@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>856</width>
-    <height>616</height>
+    <height>674</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -138,7 +138,7 @@
      </item>
     </layout>
    </item>
-   <item row="2" column="0">
+   <item row="3" column="0">
     <layout class="QGridLayout" name="gridLayout_9" columnstretch="1,0">
      <item row="0" column="0" rowspan="2">
       <widget class="QGroupBox" name="groupBox">
@@ -473,200 +473,8 @@
     </layout>
    </item>
    <item row="1" column="0">
-    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1,1,1,1">
-     <item>
-      <widget class="QGroupBox" name="groupBox_14">
-       <property name="title">
-        <string>Filter</string>
-       </property>
-       <layout class="QGridLayout" name="gridLayout">
-        <item row="0" column="0">
-         <widget class="QLabel" name="label_38">
-          <property name="text">
-           <string>LoChan</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1">
-         <widget class="QSpinBox" name="diagLowChannel2">
-          <property name="maximum">
-           <number>33</number>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QLabel" name="label_32">
-          <property name="text">
-           <string>HiChan</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QSpinBox" name="diagHiChannel2">
-          <property name="maximum">
-           <number>33</number>
-          </property>
-          <property name="value">
-           <number>31</number>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0">
-         <widget class="QLabel" name="label_18">
-          <property name="text">
-           <string>LoChan</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="1">
-         <widget class="QSpinBox" name="diagLowChannel">
-          <property name="maximum">
-           <number>33</number>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="0">
-         <widget class="QLabel" name="label_19">
-          <property name="text">
-           <string>HiChan</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="1">
-         <widget class="QSpinBox" name="diagHiChannel">
-          <property name="maximum">
-           <number>33</number>
-          </property>
-          <property name="value">
-           <number>33</number>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <widget class="QGroupBox" name="groupBox_12">
-       <property name="title">
-        <string>Minima</string>
-       </property>
-       <layout class="QGridLayout" name="gridLayout_4" columnstretch="0,1,0,1">
-        <item row="0" column="0">
-         <widget class="QLabel" name="label_22">
-          <property name="text">
-           <string>Mean:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1">
-         <widget class="QLabel" name="meanmin">
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="2">
-         <widget class="QLabel" name="meanmax_4">
-          <property name="text">
-           <string>at</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="3">
-         <widget class="QLabel" name="meanminchan">
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QLabel" name="label_27">
-          <property name="text">
-           <string>Sigma:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QLabel" name="sigmin">
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="2">
-         <widget class="QLabel" name="meanmax_6">
-          <property name="text">
-           <string>at</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="3">
-         <widget class="QLabel" name="sigminchan">
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0">
-         <widget class="QLabel" name="label_30">
-          <property name="text">
-           <string>Mean:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="1">
-         <widget class="QLabel" name="meanmin_filt">
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="2">
-         <widget class="QLabel" name="meanmax_9">
-          <property name="text">
-           <string>at</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="3">
-         <widget class="QLabel" name="meanminchan_filt">
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="0">
-         <widget class="QLabel" name="label_31">
-          <property name="text">
-           <string>Sigma:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="1">
-         <widget class="QLabel" name="sigmin_filt">
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="2">
-         <widget class="QLabel" name="meanmax_10">
-          <property name="text">
-           <string>at</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="3">
-         <widget class="QLabel" name="sigminchan_filt">
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
+    <layout class="QGridLayout" name="gridLayout_14">
+     <item row="0" column="2">
       <widget class="QGroupBox" name="groupBox_11">
        <property name="title">
         <string>Maxima</string>
@@ -787,7 +595,72 @@
        </layout>
       </widget>
      </item>
-     <item>
+     <item row="0" column="4">
+      <widget class="QGroupBox" name="groupBox_15">
+       <property name="title">
+        <string>Realtime Odd / Even</string>
+       </property>
+       <layout class="QGridLayout" name="gridLayout_6" columnstretch="0,1,1">
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_40">
+          <property name="text">
+           <string>Sigma:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLabel" name="rtMeanEven">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_39">
+          <property name="text">
+           <string>Mean:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLabel" name="rtMeanOdd">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLabel" name="rtSigmEven">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="rtSigmOdd">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="label_2">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="0" column="3">
       <widget class="QGroupBox" name="groupBox_13">
        <property name="title">
         <string>Odd / Even</string>
@@ -880,65 +753,229 @@
        </layout>
       </widget>
      </item>
-     <item>
-      <widget class="QGroupBox" name="groupBox_15">
+     <item row="0" column="0">
+      <widget class="QGroupBox" name="groupBox_14">
        <property name="title">
-        <string>Realtime Odd / Even</string>
+        <string>Filter</string>
        </property>
-       <layout class="QGridLayout" name="gridLayout_6" columnstretch="0,1,1">
-        <item row="1" column="0">
-         <widget class="QLabel" name="label_40">
-          <property name="text">
-           <string>Sigma:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="2">
-         <widget class="QLabel" name="rtMeanEven">
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
+       <layout class="QGridLayout" name="gridLayout">
         <item row="0" column="0">
-         <widget class="QLabel" name="label_39">
+         <widget class="QLabel" name="label_38">
+          <property name="text">
+           <string>LoChan</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QSpinBox" name="diagLowChannel2">
+          <property name="maximum">
+           <number>33</number>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_32">
+          <property name="text">
+           <string>HiChan</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QSpinBox" name="diagHiChannel2">
+          <property name="maximum">
+           <number>33</number>
+          </property>
+          <property name="value">
+           <number>31</number>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label_18">
+          <property name="text">
+           <string>LoChan</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QSpinBox" name="diagLowChannel">
+          <property name="maximum">
+           <number>33</number>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="label_19">
+          <property name="text">
+           <string>HiChan</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QSpinBox" name="diagHiChannel">
+          <property name="maximum">
+           <number>33</number>
+          </property>
+          <property name="value">
+           <number>33</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QGroupBox" name="groupBox_12">
+       <property name="title">
+        <string>Minima</string>
+       </property>
+       <layout class="QGridLayout" name="gridLayout_4" columnstretch="0,1,0,1">
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_22">
           <property name="text">
            <string>Mean:</string>
           </property>
          </widget>
         </item>
         <item row="0" column="1">
-         <widget class="QLabel" name="rtMeanOdd">
+         <widget class="QLabel" name="meanmin">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLabel" name="meanmax_4">
+          <property name="text">
+           <string>at</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QLabel" name="meanminchan">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_27">
+          <property name="text">
+           <string>Sigma:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="sigmin">
           <property name="text">
            <string>0</string>
           </property>
          </widget>
         </item>
         <item row="1" column="2">
-         <widget class="QLabel" name="rtSigmEven">
+         <widget class="QLabel" name="meanmax_6">
           <property name="text">
-           <string>0</string>
+           <string>at</string>
           </property>
          </widget>
         </item>
-        <item row="1" column="1">
-         <widget class="QLabel" name="rtSigmOdd">
+        <item row="1" column="3">
+         <widget class="QLabel" name="sigminchan">
           <property name="text">
            <string>0</string>
           </property>
          </widget>
         </item>
         <item row="2" column="0">
-         <widget class="QLabel" name="label">
+         <widget class="QLabel" name="label_30">
           <property name="text">
-           <string/>
+           <string>Mean:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLabel" name="meanmin_filt">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="2">
+         <widget class="QLabel" name="meanmax_9">
+          <property name="text">
+           <string>at</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="3">
+         <widget class="QLabel" name="meanminchan_filt">
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
         <item row="3" column="0">
-         <widget class="QLabel" name="label_2">
+         <widget class="QLabel" name="label_31">
           <property name="text">
-           <string/>
+           <string>Sigma:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QLabel" name="sigmin_filt">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="2">
+         <widget class="QLabel" name="meanmax_10">
+          <property name="text">
+           <string>at</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="3">
+         <widget class="QLabel" name="sigminchan_filt">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="1" column="1" colspan="2">
+      <widget class="QFrame" name="frame_4">
+       <property name="frameShape">
+        <enum>QFrame::StyledPanel</enum>
+       </property>
+       <layout class="QGridLayout" name="gridLayout_15" columnstretch="0,1">
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_23">
+          <property name="text">
+           <string>1st chan range mean delta:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLabel" name="delta_mean_maxmin">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_24">
+          <property name="text">
+           <string>2nd chan range mean delta:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="delta_mean_maxmin_filt">
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
@@ -954,7 +991,7 @@
  </resources>
  <connections/>
  <buttongroups>
-  <buttongroup name="stampModeGroup"/>
   <buttongroup name="binRangeGroup"/>
+  <buttongroup name="stampModeGroup"/>
  </buttongroups>
 </ui>
