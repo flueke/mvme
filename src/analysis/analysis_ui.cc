@@ -4242,8 +4242,10 @@ void EventWidgetPrivate::clearSelections()
     }
 }
 
-static void select_objects(QTreeWidgetItem *root, const AnalysisObjectSet &objects)
+static bool select_objects(QTreeWidgetItem *root, const AnalysisObjectSet &objects)
 {
+    bool didSelect = false;
+
     switch (root->type())
     {
         case NodeType_Source:
@@ -4256,7 +4258,10 @@ static void select_objects(QTreeWidgetItem *root, const AnalysisObjectSet &objec
                 auto obj = get_shared_analysis_object<AnalysisObject>(root);
 
                 if (objects.contains(obj))
+                {
                     root->setSelected(true);
+                    didSelect = true;
+                }
             }
             break;
 
@@ -4267,8 +4272,11 @@ static void select_objects(QTreeWidgetItem *root, const AnalysisObjectSet &objec
     for (int ci = 0; ci < root->childCount(); ci++)
     {
         auto child = root->child(ci);
-        select_objects(child, objects);
+        if (select_objects(child, objects))
+            root->setExpanded(true);
     }
+
+    return didSelect;
 }
 
 void EventWidgetPrivate::selectObjects(const AnalysisObjectVector &objects)
