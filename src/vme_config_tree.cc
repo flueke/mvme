@@ -234,7 +234,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
         pb_moreMenu->setPopupMode(QToolButton::InstantPopup);
 
         QSettings settings;
-        action_showAdvanced->setChecked(settings.value("DAQTree/ShowAdvanced", false).toBool());
+        action_showAdvanced->setChecked(settings.value("DAQTree/ShowAdvanced", true).toBool());
         onActionShowAdvancedChanged();
     }
 
