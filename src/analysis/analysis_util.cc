@@ -132,9 +132,35 @@ QSet<PipeSourceInterface *> collect_dependent_objects(const PipeSourcePtr &start
 
 void generate_new_object_ids(const AnalysisObjectVector &objects)
 {
+    QHash<QUuid, QUuid> oldToNewIds;
+
     for (auto &obj: objects)
     {
-        obj->setId(QUuid::createUuid());
+        auto oldId = obj->getId();
+        auto newId = QUuid::createUuid();
+        obj->setId(newId);
+        oldToNewIds.insert(oldId, newId);
+    }
+
+    /* Rewrite directory member lists. */
+    for (auto &obj: objects)
+    {
+        if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
+        {
+            auto oldMembers = dir->getMembers();
+            Directory::MemberContainer newMembers;
+            newMembers.reserve(oldMembers.size());
+
+            for (const auto &oldId: oldMembers)
+            {
+                if (!oldToNewIds.value(oldId).isNull())
+                {
+                    newMembers.push_back(oldToNewIds.value(oldId));
+                }
+            }
+
+            dir->setMembers(newMembers);
+        }
     }
 }
 

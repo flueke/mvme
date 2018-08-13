@@ -69,16 +69,6 @@ void LIBMVME_EXPORT
 void LIBMVME_EXPORT
     generate_new_object_ids(Analysis *analysis);
 
-template<typename It>
-    void generate_new_object_ids(It begin_, It end_)
-{
-    while (begin_ != end_)
-    {
-        (*begin_++)->setId(QUuid::createUuid());
-    }
-}
-
-
 //
 // misc
 //
