@@ -339,10 +339,12 @@ message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 #
 # listfile recovery tool
 #
-find_library(ZLIB z)
-add_executable(mvme_recover_listfile mvme_recover_listfile_hack.c)
-target_link_libraries(mvme_recover_listfile ${ZLIB})
-install(TARGETS mvme_recover_listfile DESTINATION .)
+if (NOT WIN32)
+    find_library(ZLIB z)
+    add_executable(mvme_recover_listfile mvme_recover_listfile_hack.c)
+    target_link_libraries(mvme_recover_listfile ${ZLIB})
+    install(TARGETS mvme_recover_listfile DESTINATION .)
+endif (NOT WIN32)
 
 if(BUILD_TESTS)
 

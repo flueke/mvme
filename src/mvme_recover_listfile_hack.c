@@ -75,10 +75,10 @@ int main(int argc, char *argv[])
 	dd des;
 	uint32_t sig;
 	int first = 0;
-	unsigned long long lastloc, startloc, i, len;
+	unsigned long long lastloc = 0u, startloc, i, len;
 	char filename[UINT16_MAX];
-	char buffer[0x10000];
-	char zbuffer[0x10000];
+	unsigned char buffer[0x10000];
+	unsigned char zbuffer[0x10000];
 	int ret;
 	z_stream strm;
     size_t of_size = 0; // output file size
