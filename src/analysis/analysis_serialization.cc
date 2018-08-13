@@ -252,9 +252,9 @@ QVector<VersionConverter> get_version_converters()
 {
     static QVector<VersionConverter> VersionConverters =
     {
-        nullptr,
-        v1_to_v2,
-        noop_converter
+        nullptr,        // 0 -> 1
+        v1_to_v2,       // 1 -> 2
+        noop_converter, // 2 -> 3
     };
 
     return VersionConverters;

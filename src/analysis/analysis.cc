@@ -175,7 +175,7 @@ QString to_string(const ObjectFlags::Flags &flags)
 }
 
 /* File versioning. If the format changes this version needs to be incremented and a
- * conversion routine has to be implemented.
+ * conversion routine has to be implemented (analysis_serialization.cc).
  * Incrementing can also be done to force users to use a newer version of mvme to load the
  * analysis. This way they won't run into missing features/undefined behaviour.
  */
