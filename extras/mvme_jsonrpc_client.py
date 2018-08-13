@@ -6,6 +6,11 @@ import socket
 import sys
 import time
 
+if (sys.version_info.major < 3
+        or (sys.version_info.major == 3 and sys.version_info.minor < 2)):
+    print("This script requires Python version >= 3.2")
+    sys.exit(1)
+
 # Command line arguments:
 #   mvme_jsonrpc_client.py [options] host port command [params]
 # Example:
