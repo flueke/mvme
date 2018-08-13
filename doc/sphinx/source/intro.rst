@@ -118,7 +118,8 @@ calibrate raw ADC values to voltage). Operators can have multiple inputs and
 produce a single output array.
 
 **Sinks** are data accumulators that do not produce any output parameters.
-Currently 1D and 2D histogram sinks are implemented.
+Currently 1D and 2D histograms, a rate monitor and a file exporter are
+implemented.
 
 Output parameters of sources and operators can be inspected at runtime.
 Objects can be added, removed and modified even while the DAQ or a replay is

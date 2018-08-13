@@ -45,7 +45,8 @@ which levels are shown/hidden.
 
 The UI enforces the rule that operators can use inputs from levels less-than or
 equal to their own level. This means data should always flow from left to
-right.
+right. This restriction does not apply to data sinks in the bottom tree. These
+can be freely placed on any userlevel in the bottom tree.
 
 Operators can be moved between levels by dragging and dropping them.
 
@@ -791,8 +792,8 @@ circular buffer and a plot of the rate over time can be displayed.
 Details can be found in the Rate Monitor user interface.
 
 
-Loading an Analysis / Importing Objects
----------------------------------------
+Loading foreign analysis files
+------------------------------
 
 Internally VME modules are uniquely identified by a UUID and the module type
 name. This information is stored in both the VME and analysis configs.
@@ -815,15 +816,72 @@ Use the radio buttons to assign analysis objects to VME modules. Select
 *discard* to completely remove the corresponding module from the analysis.
 
 If the dialog is accepted the source objects UUIDs will be rewritten to match
-the VME object ids.
+the VME object ids. This will modify the in-memory analysis.
 
-In addition to opening an analysis file and thus replacing the current analysis
-objects, it is possible to add objects to the current analysis. Use the
-*Import* action fronm the Analysis UI toolbar to import from another file.
 
-Directly importing for a specific module is possible by right-clicking the
-module in the Analysis UI and selecting *Import*. Only objects matching the
-selected module type will be imported from the selected analysis.
+More UI structuring and interactions
+------------------------------------
 
-Newly imported operators will be placed in a new User Level in the UI. Use drag
-and drop to reorder them as needed.
+Directories
+~~~~~~~~~~~
+
+Analysis *Directory* objects can be created in all but the first userlevels (L >
+0). Directories are placed in either the top or bottom trees and keep that
+assignment throughout their lifetime. Directories can contain any analysis
+objects from the corresponding tree and other subdirectories.
+
+Creating a new directory is done via **New -> Directory** in the context menu.
+
+A directory can serve as the destination of a Drag and Drop operation. All
+moved objects will be reparented to this destination directory.
+
+Drag and Drop
+~~~~~~~~~~~~~
+
+Objects can be moved in-between trees by dragging and dropping. Selected
+objects from the source tree will be moved to the destination tree. If the
+destination is a directory all dropped objects will be reparented into that
+directory.
+
+Multiselections
+~~~~~~~~~~~~~~~
+
+By holding *Ctrl* and clicking analysis objects it is possible to create a
+(cross-tree) multiselection. Combine holding *Ctrl* and *Shift* at the same
+time to add ranges of objects to an existing selection.
+
+.. note::
+  Cross-tree multiselections do not apply to drag and drop operations as these
+  start and end on specific trees. Thus using a cross-tree selection as the
+  source of a drag operation would be counterintuitive.
+
+Copy/Paste
+~~~~~~~~~~
+
+Object selections can be copied to clipbard by using *Ctrl-C* or choosing
+*Copy* in a context menu.
+
+Pasting is done via *Ctrl-V* or *Paste* in a trees or directories context menu.
+
+If a selection containing internally connected objects is pasted the
+connections will be restored on the newly created copies of the original
+objects. This way a network of operators and sinks can be duplicated quickly as
+only the "external" inputs will need to be reconnected on the copies.
+
+If a directory has been copied the paste operation will create clones of the
+directory and all of its subobjects.
+
+Copy/paste of data sources is possible but newly pasted objects will not be
+assigned to a specific module yet.
+
+Import/Export
+~~~~~~~~~~~~~
+
+A way to share parts of an analysis is to **export** a cross-tree
+multiselection to file and later on **import** from file. Use the *Export* and
+*Import* toolbar entries in the analysis UI to perform these actions.
+
+The behavior is similary to the copy/paste operations: all selected objects
+will be exported to file. On import clones of these objects are created,
+internal connections are restored and all objects are placed in the same
+userlevels as their originals.

@@ -4,6 +4,11 @@ Changelog
 
 0.9.5
 -------
+
+.. note::
+  Analysis files created by this version can not be opened by prior versions
+  because the file format has changed.
+
 This version contains major enhancements to the analysis user interface and
 handling of analysis objects.
 
@@ -40,10 +45,10 @@ Other fixes and changes:
   conflict under Ubuntu 18.04.
 
 * SIS3153: OUT2 is now active during execution of the main readout stack.
-  OUT1 is active while in autonomous DAQ mode (unchanged).
+  Unchanged: OUT1 is active while in autonomous DAQ mode.
 
-* The Rate Monitor can now take multiple inputs each of which can be an
-  array or a single parameter.
+* The Rate Monitor can now take multiple inputs, each of which can be an array
+  or a single parameter.
 
   Also implemented a combined view showing all rates of a Rate Monitor in a
   single plot.
