@@ -887,6 +887,11 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
             sourceDir->remove(obj);
         }
 
+        if (destDir)
+        {
+            destDir->push_back(obj);
+        }
+
         if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
         {
             for (auto &depRaw: collect_dependent_operators(op, CollectFlags::Operators))
