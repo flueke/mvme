@@ -2,22 +2,18 @@
 TODO list, not at all sorted by priority
 ==================================================
 
-
 --------------------------------------------------
 BUGFIXES and FEATURES wanted for 0.9.5 :)
 --------------------------------------------------
-* Doc: add descriptions of the SIS LEDs and outputs and how the controller behaves
-* Doc: change the mention of "dropped buffers" to instead point to the analysis efficiency display.
-* Doc: mention the "show advanced objects" button and what it does
-  maybe even enable them by default (talk to robert about this)
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 * VMUSB goes into a bad state after doing "1 Cycle"
 * VMUSB: if it dies and "stop DAQ" is clicked the progress window doesn't go
   away.
 * DAQ Start and then immediately pressing "Run script" in the debug window
   causes a crash.
 * Debug CBUS functionality: MDPP-16 doesn't get a CBUS result after leaving DAQ
-  mode. It's needs a write to the reset register to make it work again.
+  mode. It's needs a write to the reset register to make it work again. Why?
 
 * if loading a config file fails when opening a filename from the
   mvmeworkspace.ini file show an explicit error message about the filename in
@@ -27,7 +23,17 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
   void Histo1DWidgetPrivate::calibResetToFilter()
   Change them to make use of the improved analysis rebuild mechanism
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* JSON RPC: add info about SIS hostname/IP and firmware revision and VMUSB usb
+  port and firmware.
+
+* Try to get rid of the module assignment dialog. Instead use the "unassigned"
+  category for data sources, the usual "input is not conneceted -> draw in red"
+  way of communicating issues with the operator to the user and drag/drop to
+  fix module assignments.
+
+  Problems: events may not match up at all. Right now there's no way to display
+  stuff that can't be assigned to a particular VME event. Also cross-event
+  drag/drop is not possible in any way right now.
 
 * workspace and vme controller settings and such:
   Roberts use case is: open listfile, try to locally reproduce problems a
@@ -94,10 +100,10 @@ BUGFIXES and FEATURES wanted for 0.9.5 :)
   enlarged again and again must be avoided.
 
 * a2::Operator_KeepPrevious does not seem to set output limits. Is this bugged?
-  Fix the test if needed.
+  Fix the test case if needed.
 
 --------------------------------------------------
-ExpressionOperator design plan
+ExpressionOperator future design plan
 --------------------------------------------------
 Additional/Advanced Features:
 * user defined functions using the exprtk syntax. SECTION 15 -> function_compositor
