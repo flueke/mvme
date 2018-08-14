@@ -26,6 +26,7 @@
 #include <qwt_plot_magnifier.h>
 #include <qwt_plot_panner.h>
 #include <qwt_plot_renderer.h>
+#include <qwt_plot_shapeitem.h>
 #include <qwt_plot_spectrogram.h>
 #include <qwt_plot_textlabel.h>
 #include <qwt_raster_data.h>
@@ -331,6 +332,7 @@ struct Histo2DWidgetPrivate
     ResolutionReductionFactors m_rrf = {};
 
     QwtPlotPicker *m_cutPolyPicker;
+    std::unique_ptr<QwtPlotShapeItem> m_cutShapeItem;
 
     Histo2D *m_histo = nullptr;
     Histo2DPtr m_histoPtr;
@@ -533,7 +535,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
             m_d->onCutPolyPickerActivated(on);
         }));
 
-#if 0
+#if 1
         auto action = tb->addAction("Cut Test");
         connect(action, &QAction::triggered, this, [this]() {
             m_d->m_zoomer->setEnabled(false);
@@ -1543,10 +1545,44 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
 
     if (!active)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "poly selection ="
-            << m_cutPolyPicker->selection();
+        if (!m_cutShapeItem)
+        {
+            m_cutShapeItem = std::make_unique<QwtPlotShapeItem>(QSL("Cut"));
+            m_cutShapeItem->attach(m_plot);
 
+            QBrush brush(QColor("#d0d78e"), Qt::DiagCrossPattern);
+            m_cutShapeItem->setBrush(brush);
+        }
+
+        auto pixelPoly = m_cutPolyPicker->selection();
+
+        qDebug() << __PRETTY_FUNCTION__ << "pixel poly selection ="
+            << pixelPoly;
+
+        QPolygonF poly;
+        poly.reserve(pixelPoly.size() + 1);
+
+        for (const auto &point: pixelPoly)
+        {
+            poly.push_back(QPointF(
+                    m_plot->invTransform(QwtPlot::xBottom, point.x()),
+                    m_plot->invTransform(QwtPlot::yLeft, point.y())
+                    ));
+        }
+
+        // close the poly
+        if (!poly.isEmpty())
+        {
+            poly.push_back(poly.first());
+        }
+
+        qDebug() << __PRETTY_FUNCTION__ << "plot poly selection ="
+            << poly;
+
+        m_cutShapeItem->setPolygon(poly);
+
+        // Back to default ui interactions: disable cut picker, enable zoomer
         m_cutPolyPicker->setEnabled(false);
-        m_zoomer->setEnabled(true);
+        //m_zoomer->setEnabled(true);
     }
 }
