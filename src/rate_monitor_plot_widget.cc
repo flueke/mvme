@@ -91,7 +91,6 @@ class RateMonitorPlotCurve: public QwtPlotCurve
                        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
                        const QRectF &canvasRect, int from, int to ) const
         {
-            qDebug() << __PRETTY_FUNCTION__;
             QwtPlotCurve::drawLines(painter, xMap, yMap, canvasRect, from, to);
         }
 };
@@ -223,6 +222,14 @@ void RateMonitorPlotWidget::removeRateSampler(int index)
     }
 
     assert(m_d->m_samplers.size() == m_d->m_curves.size());
+}
+
+void RateMonitorPlotWidget::removeAllRateSamplers()
+{
+    while (rateCount())
+    {
+        removeRateSampler(0);
+    }
 }
 
 int RateMonitorPlotWidget::rateCount() const

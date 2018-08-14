@@ -93,17 +93,20 @@ namespace
     {
         QDir dir(path);
         VMEModuleTemplates result;
-        result.readout = read_vme_template(dir.filePath("readout.vmescript"), QSL("Module Readout"), logger, baseDir);
-        result.reset   = read_vme_template(dir.filePath("reset.vmescript"), QSL("Module Reset"), logger, baseDir);
+        result.readout = read_vme_template(dir.filePath("readout.vmescript"),
+                                           QSL("Module Readout"), logger, baseDir);
+        result.reset   = read_vme_template(dir.filePath("reset.vmescript"),
+                                           QSL("Module Reset"), logger, baseDir);
 
-        auto initEntries = dir.entryList({ QSL("init-*.vmescript") }, QDir::Files | QDir::Readable, QDir::Name);
+        auto initEntries = dir.entryList({ QSL("init-*.vmescript") },
+                                         QDir::Files | QDir::Readable, QDir::Name);
 
         for (const auto &fileName: initEntries)
         {
             VMETemplate vmeTemplate;
             QString entryFilePath = dir.filePath(fileName);
             vmeTemplate.contents = read_file(entryFilePath, logger);
-            vmeTemplate.sourceFileName = baseDir.relativeFilePath(entryFilePath); // dir.filePath(fileName);
+            vmeTemplate.sourceFileName = baseDir.relativeFilePath(entryFilePath);
 
             QRegularExpression re;
             re.setPattern("^init-\\d\\d-(.*)\\.vmescript$");
@@ -134,6 +137,49 @@ namespace
 namespace vats
 {
 
+bool operator==(const VMETemplate &ta, const VMETemplate &tb)
+{
+    return (ta.contents == tb.contents
+            && ta.name == tb.name
+            && ta.sourceFileName == tb.sourceFileName
+           );
+}
+
+bool operator==(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb)
+{
+    return (mta.reset == mtb.reset
+            && mta.readout == mtb.readout
+            && mta.init == mtb.init
+           );
+}
+
+bool operator==(const VMEModuleMeta &mma, const VMEModuleMeta &mmb)
+{
+    return (mma.typeId == mmb.typeId
+            && mma.typeName == mmb.typeName
+            && mma.displayName == mmb.displayName
+            && mma.vendorName == mmb.vendorName
+            && mma.templates == mmb.templates
+            && mma.eventHeaderFilter == mmb.eventHeaderFilter
+            && mma.templatePath == mmb.templatePath
+           );
+}
+
+bool operator!=(const VMETemplate &ta, const VMETemplate &tb)
+{
+    return !(ta == tb);
+}
+
+bool operator!=(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb)
+{
+    return !(mta == mtb);
+}
+
+bool operator!=(const VMEModuleMeta &mma, const VMEModuleMeta &mmb)
+{
+    return !(mma == mmb);
+}
+
 QDebug operator<<(QDebug debug, const MVMETemplates &templates);
 
 QString get_template_path()
@@ -159,17 +205,21 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
     const QDir baseDir(path);
     MVMETemplates result;
 
-    result.eventTemplates.daqStart          = read_vme_template(baseDir.filePath(QSL("event/event_daq_start.vmescript")),
-                                                                QSL("DAQ Start"), logger, baseDir);
+    result.eventTemplates.daqStart          = read_vme_template(
+        baseDir.filePath(QSL("event/event_daq_start.vmescript")),
+        QSL("DAQ Start"), logger, baseDir);
 
-    result.eventTemplates.daqStop           = read_vme_template(baseDir.filePath(QSL("event/event_daq_stop.vmescript")),
-                                                                QSL("DAQ Stop"), logger, baseDir);
+    result.eventTemplates.daqStop           = read_vme_template(
+        baseDir.filePath(QSL("event/event_daq_stop.vmescript")),
+        QSL("DAQ Stop"), logger, baseDir);
 
-    result.eventTemplates.readoutCycleStart = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_start.vmescript")),
-                                                                QSL("Cycle Start"), logger, baseDir);
+    result.eventTemplates.readoutCycleStart = read_vme_template(
+        baseDir.filePath(QSL("event/readout_cycle_start.vmescript")),
+        QSL("Cycle Start"), logger, baseDir);
 
-    result.eventTemplates.readoutCycleEnd   = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_end.vmescript")),
-                                                                QSL("Cycle End"), logger, baseDir);
+    result.eventTemplates.readoutCycleEnd   = read_vme_template(
+        baseDir.filePath(QSL("event/readout_cycle_end.vmescript")),
+        QSL("Cycle End"), logger, baseDir);
 
     auto dirEntries = baseDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Readable);
 
@@ -250,7 +300,8 @@ static QTextStream &print(QTextStream &out, const VMEModuleMeta &module, int ind
     do_indent(out, indent) << "typeId=" << static_cast<u32>(module.typeId) << endl;
     do_indent(out, indent) << "typeName=" << module.typeName << endl;
     do_indent(out, indent) << "displayName=" << module.displayName << endl;
-    do_indent(out, indent) << "eventHeaderFilter=" << QString::fromLocal8Bit(module.eventHeaderFilter) << endl;
+    do_indent(out, indent) << "eventHeaderFilter="
+        << QString::fromLocal8Bit(module.eventHeaderFilter) << endl;
 
     do_indent(out, indent) << "templates:" << endl;
 
@@ -285,7 +336,9 @@ QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates)
 
         out << ">>>>> Known Modules <<<<<" << endl;
         const int fw = 20;
-        left(out) << qSetFieldWidth(fw) << "typeId" << "typeName" << "displayName" << qSetFieldWidth(0) << endl;
+        left(out) << qSetFieldWidth(fw)
+            << "typeId" << "typeName" << "displayName"
+            << qSetFieldWidth(0) << endl;
 
         for (const auto &mm: modules)
         {
@@ -334,7 +387,8 @@ QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates)
     return out;
 }
 
-VMEModuleMeta get_module_meta_by_typename(const MVMETemplates &templates, const QString &moduleTypeName)
+VMEModuleMeta get_module_meta_by_typename(const MVMETemplates &templates,
+                                          const QString &moduleTypeName)
 {
     for (auto mm: templates.moduleMetas)
     {

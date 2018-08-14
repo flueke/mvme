@@ -1,0 +1,78 @@
+## Parameters
+
+# 4.13 - Interrupt Level
+# Has to match the irq setting in the parent vme event.
+write a32 d16 0x100A 1
+
+# 4.21 - Event Trigger Register
+# An IRQ is generated when number of stored events in the buffer is equal to
+# this value. Setting this to 0 disables interrupt generation.
+write a32 d16 0x1020 1
+
+# 4.16 - Control Register 1
+# Bit 2: BLKEND
+# Bit 5: BERR enable
+# Bit 6: Align 64
+# With the above bits set the module sends only one event per block transfer
+# readout and then generates a BERR on the VME bus. Also dummy words are
+# inserted into the datastream to guarantee an even number of data words.
+# See also "5.6 - Block Transfer Mode"
+write a32 d16 0x1010 0b1100100
+
+# 4.28 Bit Set 2 - Operation Mode
+# Bit 11: Auto incr.
+write a32 d16 0x1032 0x800
+
+
+# 4.41 Thresholds Memory
+# caen785
+write a32 d16 0x1080 0 # channel  0
+write a32 d16 0x1082 0 # channel  1
+write a32 d16 0x1084 0 # channel  2
+write a32 d16 0x1086 0 # channel  3
+write a32 d16 0x1088 0 # channel  4
+write a32 d16 0x108A 0 # channel  5
+write a32 d16 0x108C 0 # channel  6
+write a32 d16 0x108E 0 # channel  7
+write a32 d16 0x1090 0 # channel  8
+write a32 d16 0x1092 0 # channel  9
+write a32 d16 0x1094 0 # channel 10
+write a32 d16 0x1096 0 # channel 11
+write a32 d16 0x1098 0 # channel 12
+write a32 d16 0x109A 0 # channel 13
+write a32 d16 0x109C 0 # channel 14
+write a32 d16 0x109E 0 # channel 15
+write a32 d16 0x10A0 0 # channel 16
+write a32 d16 0x10A2 0 # channel 17
+write a32 d16 0x10A4 0 # channel 18
+write a32 d16 0x10A6 0 # channel 19
+write a32 d16 0x10A8 0 # channel 20
+write a32 d16 0x10AA 0 # channel 21
+write a32 d16 0x10AC 0 # channel 22
+write a32 d16 0x10AE 0 # channel 23
+write a32 d16 0x10B0 0 # channel 24
+write a32 d16 0x10B2 0 # channel 25
+write a32 d16 0x10B4 0 # channel 26
+write a32 d16 0x10B6 0 # channel 27
+write a32 d16 0x10B8 0 # channel 28
+write a32 d16 0x10BA 0 # channel 29
+write a32 d16 0x10BC 0 # channel 30
+write a32 d16 0x10BE 0 # channel 31
+
+# caen785n
+#write a32 d16 0x1080 0 # channel  0
+#write a32 d16 0x1084 0 # channel  1
+#write a32 d16 0x1088 0 # channel  2
+#write a32 d16 0x108C 0 # channel  3
+#write a32 d16 0x1090 0 # channel  4
+#write a32 d16 0x1094 0 # channel  5
+#write a32 d16 0x1098 0 # channel  6
+#write a32 d16 0x109C 0 # channel  7
+#write a32 d16 0x10A0 0 # channel  8
+#write a32 d16 0x10A4 0 # channel  9
+#write a32 d16 0x10A8 0 # channel 10
+#write a32 d16 0x10AC 0 # channel 11
+#write a32 d16 0x10B0 0 # channel 12
+#write a32 d16 0x10B4 0 # channel 13
+#write a32 d16 0x10B8 0 # channel 14
+#write a32 d16 0x10BC 0 # channel 15

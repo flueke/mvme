@@ -1,34 +1,67 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
-* BUGFIXES wanted for 0.9.5
-  - add export to clipboard for 2d combined and projection histos
-  - if loading a config file fails when opening a filename from the
-    mvmeworkspace.ini file show an explicit error message about the filename in
-    the ini possibly being wrong.
-  - h2d and expr op and possibly everything that's indexed does not properly
-    get connected on analysis load.
-    manually reselecting the inputs temporarily fixes the issue
+
+--------------------------------------------------
+BUGFIXES and FEATURES wanted for 0.9.6
+--------------------------------------------------
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Doc: add ListFilterExtractor to Data Sources
+* VMUSB goes into a bad state after doing "1 Cycle"
+* VMUSB: if it dies and "stop DAQ" is clicked the progress window doesn't go
+  away.
+* DAQ Start and then immediately pressing "Run script" in the debug window
+  causes a crash.
+* Debug CBUS functionality: MDPP-16 doesn't get a CBUS result after leaving DAQ
+  mode. It's needs a write to the reset register to make it work again. Why?
+
+* if loading a config file fails when opening a filename from the
+  mvmeworkspace.ini file show an explicit error message about the filename in
+  the ini possibly being wrong.
+
+* void Histo1DWidgetPrivate::calibApply()
+  void Histo1DWidgetPrivate::calibResetToFilter()
+  Change them to make use of the improved analysis rebuild mechanism
+
+* JSON RPC: add info about SIS hostname/IP and firmware revision and VMUSB usb
+  port and firmware.
+
+* Try to get rid of the module assignment dialog. Instead use the "unassigned"
+  category for data sources, the usual "input is not conneceted -> draw in red"
+  way of communicating issues with the operator to the user and drag/drop to
+  fix module assignments.
+
+  Problems: events may not match up at all. Right now there's no way to display
+  stuff that can't be assigned to a particular VME event. Also cross-event
+  drag/drop is not possible in any way right now.
+
+* workspace and vme controller settings and such:
+  Roberts use case is: open listfile, try to locally reproduce problems a
+  customer has. This means he will in most/all cases have to change the sis
+  address or even the controller type to match his local setup. This is
+  annoying. Even more of a problem is that after making changes he has to
+  change the SIS back to the customer settings if he wants to send them the
+  listfile.
+
+  Instead when loading a listfile keep the local controller settings and/or use
+  a "dummy" controller.
+
+  My use case: see exactly what the customer is doing: hostname or ip-address,
+  jumbo frames, additional controller settings. I sometimes really need this
+  info and do not want it to be hidden behind some magic.
+
+
+* Histo2d res reduction/rendering:
+  - Maybe: think about and test the case where the h2d res is larger than the
+    pixels in the display area and possibly use a dynamic rrf in this case.
 
 * New Feature: add pause/resume markers and/or absolute timestamps to the listfile.
   This would allow for example splitting the run on pause/resume if the user
   changed settings in-between.
 
-* 1d/2d histos: ranges can be specified for h2d but not for h1d. h1d dialog is
-  missing some features compared to h2d
-
 * RPC: limit max request size to something reasonable
 * RPC: fork jcon-cpp on github and push local changes there
-
-* make double click on operators open the editor GUI
-
-* detect and disallow circular operator connections.
-  op1 uses op2.output0 as input
-  op2 uses op1.output0 as input
-  -> crash in updateRanks() due to infinite recursion. Also crashes if it's not
-  a direct circle but with intermediate operator in-between.
-  This needs fixing in updateRanks() and updateRank() and in the UI so that
-  invalid pipes are not highlighted.
 
 * Improve the loadAnalysisConfig() and similar callchains. Right now they end
   up in gui_read_json_file() which displays a message box with a generic "could
@@ -50,48 +83,9 @@ TODO list, not at all sorted by priority
 * multi output arraymap
 * constant generator operator:
   multiple outputs
-
-------------------------------------------------------------
-add ability to remotely start/stop/pause and request status
-------------------------------------------------------------
-* Note: running this in the gui thread would be convenient as the code to check
-  and process remote messages will then not have to care about race conditions.
-
-  One problem: the gui uses QMessageBoxes to communicate lots of errors. Remote
-  control will not see these and the gui will get stuck in the event loop used
-  by QMessageBox::exec(). This event loop will then still serve remote
-  connections depending on how things are implemented (e.g. a timer polling
-  remote sockets).
-
-  Places where QMessageBoxes are used:
-  MVMEContext:
-  - listfile read errors
-  - config file modiciations
-  - workspace autosave files
-  - config load errors
-  - OOM errors from the analysis
-
-  MVMEMainWindow:
-  - workspace new/open/close errors
-
-  Transform this: do not allow GUI in the MVMEContext implementation. Instead
-  use exceptions or return error information to callers.
-
-  Add a layer on top of that to handle GUI displays and interactions.
-
-  Make the remote control layer use the MVMEContext implementation. Return
-  errors in response to commands.
-
-* gui thread is idle: polls socket or gets notified
-  read incoming data. assemble message.
-  if valid message received:
-      exec whatever the message wants to happen
-      create a response and send it
-
-
-- End of remote control feature ----------------------------
-
-
+  stepped each time the event has data (a2_end_event)
+  fixed rank of 0 so that these are always stepped first, thus consumers can
+  count on having the data be active on the output pipes
 
 * DAQ readout performance: try to make better use of the data buffers.
   Currently one processed controller buffer ends up in the data buffer, which
@@ -107,82 +101,11 @@ add ability to remotely start/stop/pause and request status
   enlarged again and again must be avoided.
 
 * a2::Operator_KeepPrevious does not seem to set output limits. Is this bugged?
-  Fix the test if needed.
+  Fix the test case if needed.
 
 --------------------------------------------------
-GUI <-> Analysis <-> a2 refactoring
+ExpressionOperator future design plan
 --------------------------------------------------
-The goal is to pause and rebuild as little as possible. If a rebuild is
-required try to clear as little of the accumulated data as possible.
-
-* make a2_adapter building explicit, not part of a global beginRun
-
-* try to use do_beginRun_forward() whenever possible, then rebuild a2 and resume.
-  Is there any state that has to be kept and restored after an a2 build?
-
-* in the future try to classify modifications. some things need to clear
-  histograms because the structure changed, other things do not (e.g. label only change)
-
-* establishing pipe and slot connections:
-  (dis)connecting an operators slot to/from a pipe modifies the pipe (adds to destinations array)
-  disconnect also affects all dependent operators of the operator whose slot is
-  disconnected: the operators output size/number and validity state will be
-  changed, thus connections further down may become (temporarily) invalid.
-
-  How to handle this in the gui:
-  as the a1 system is not executed directly anymore the changes can be made
-  without having to pause anything.
-  just make sure that on canceling the original connections are restored (like is currently done).
-  also make sure that no state is cleared unless it's really neccessary.
-  Alternatively clone the input pipes and work with those.
-  -> Fake input pipes having the original operator as the source and having the
-     exact same properties as the original pipes. This way even things like
-     makeSlotSourceString() should continue to work.
-
-* add Analysis::operatorEdited()
-  This can figure out what has to happen to get the a1 side in a consistent state.
-
-* additional a1 layer considerations and open questions:
-  - operator cloning
-    * high level clone semantics. what's required, what's sane?
-    * is using write -> read always the best way. which way causes the least amount of code duplication?
-    * performance: cloning is not happening frequently, so the serialization way should be good enough.
-    * what should happen with connections, object id, object name?
-
---------------------------------------------------
-ExpressionOperator design plan
---------------------------------------------------
-Most recent todo list:
-* Keyword highlighting if easily possible. Could also add known functions and highlight those.
-* Links to the exprtk homepage
-* Use first part of the documentation and make it available in the editor gui
-* text description of what each of the scripts is for, how the return value of the begin script is structured
-* explain how invalid parameters are implemented and how they need to be handled
-
-
-* use expr_tk to evaluate expressions
-* beginScript: one script to get information about the output structure from the operator
-* multi input and multi output!
-
-* user defined input variable names. by default auto generated names will be used:
-  input0 input1
-
-The beginscript then has the following set in the symboltable:
-  input0.lower_limits input0.upper_limits input0.unit
-  input1.lower_limits input1.upper_limits input1.unit
-
-The beginscript has to return 4 values for each output array the operator should have:
-  name, unit, lower_limits, upper_limits
-
-So the size of the return value list must be divisible by 4.
-
-* one script to fill the output, executed repeatedly by a2_end_event() when it's stepping the operators
-
-* add a user defined functions
-  is_valid(), is_invalid() for testing parameter validity (has to check for nan and the specific bit being set)
-
-* maybe add symbol table dump functionality somewhere if that is possible
-
 Additional/Advanced Features:
 * user defined functions using the exprtk syntax. SECTION 15 -> function_compositor
   Limited to returning a single scalar value and up to six input parameters
@@ -231,43 +154,23 @@ Additional/Advanced Features:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* Histo2d: add export to clipboard
-  also path is wrong
-
-* Histo1d: stats display is not good
-  gauss parameter nur anzeigen wenn gauss angezeigt wird.
-  sonst nur maxbin, maxvalue, entrycount
-  gauss dann: gauss max, gauss pos
-
 * 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
   packetStatus 0x132 is not valid! This should wrap.
-* Add the "explore workspace" button the analysis UI
 * SIS readout: received count and Timestamp histo count have a small delta of 1
   up to 3 counts. Figure out where this is coming from.
-
-* Add the "explore workspace" button the analysis UI
-
-* 13:22:12: SIS3153 Warning: (buffer #109373) (partialEvent) Unexpected packetStatus: 0x89, expected 0x132. Skipping buffer. (suppressed 105 earlier messages)
-  packetStatus 0x132 is not valid! This should wrap.
 
 * listfile writing, MVMEStreamWriterHelper: can writing of the final EndMarker
   be moved into closeEventSection? I was surprised that this had to be done
   manually.
 
-* Move analysis efficiency display to the top Event toolbar
 * efficiency: when the efficiency is slightly below 100% the display will still
   show a 1.00 due to rounding. maybe color the number if it's not 100%.
 
-* New Export/ListfileFilter Idea: use an operator to decide whether a full VME
-  data event should be copied to an output listfile or be suppressed.
+* New Export/ListfileFilter Idea: use an operator to decide whether a full, raw
+  VME data event should be copied to an output listfile or be suppressed.
   This is basically a copy and filter operation for listfile with the decision
   being made at an arbitrary point in the analysis for the specific event.
   This needs access to the raw input data.
-
-* Add grouping of operators. Allow disabling of groups.
-  These would be like directories in the filesystem. Also for histograms a
-  widget with free placement of histograms could be added. This stuff would be
-  stored in the analysis.
 
 * Transport more state of the DAQ to the analysis side. Right now the stream
   processor always creates a session auto-save even if the DAQ did not start up
@@ -292,8 +195,6 @@ Additional/Advanced Features:
   or partials.
 
   A real packet number prefix would be ideal.
-
-* Integrate the listfile recovery hack thingy into mvme. Build it and distrubte the binary with releases.
 
 * Maybe add a session file browser/explorer thingy. Could even allow multiple
   open sessions at once. Make sure histos and other objects clearly show which
@@ -320,11 +221,6 @@ Additional/Advanced Features:
   - The a2 adapter will assert because no histo is found for the index.
   This also affects other operators. Fix this!
 
-* Implement QwtPlotCurve subclass that handles NaN-values before passing the
-  data (in the form of a QPolygonF) to QPainter.
-  The standard solution used in other plotting libraries is to plot the
-  function segment wise, plotting nothing where NaN values are involved.
-
 * Rate Monitor Widget:
   - make sure rate values are scaled to the "middle" of the y axis
   - improve time labels: don't show hours and minutes if time scale is less than a minute
@@ -343,28 +239,7 @@ Additional/Advanced Features:
 * All filters: make sure address bits are <= 16. This is a reasonable limit and
   avoids crashes due to wrong inputs into the filter fields.
 
-* SIS
-  - check if windows tuning can be done similar to the linux sysctl stuff
-    -> setsockopt(BUFSIZE_something) can be done
-  - suppress log spam
-  - fix "no error" errors under windows. use the wsa stuff
-  - log spam suppression could use a sort of tag system and "histogramming" of
-    the generated messages. output would then be generated at a fixed clock
-    rate.  Each message has an assoicated tag. If a message is to be logged the
-    central msg buffer is checked to see if it already contains that tag. If
-    true the count for that tag is incremented and no further processing is
-    done. Otherwise the data associated with the message (just a string right
-    now) is stored in the buffer and the count is set to 1.
-    On every clock tick all the messages present in the buffer are printed and
-    augmented with the number of instances of that message type.
-
-* General: suppress log spam at the source
-
-* VME config: cannot change module type sometimes. going from mqdc to mdi
-  doesn't work. Other things do work. Something is broken there.
-
 * VME Script "Run" button: this still blocks the GUI.
-* Really do fix the analysis pause/resume interaction with the daq.
 
 --------------------------------------------------------------------------------
 Data Export Implementation - ExportSink
@@ -376,132 +251,18 @@ More ideas from Robert:
 * Add a "system" event containing the current timetick count and systems stats,
   rates, etc.
 
-* The generated CLI tools do not generate good output filenames. Manually
 * The export sink needs to log which output file is being written! Right now
   it's all very mysterious.
-* The generated CLI tools do not generated good output filenames. Manually
-  check for known extensions (".bin", ".bin.gz" and remove those from the
-  output filename.
-* (maybe) Replace the .bin extension with something more mvme like.
-
-
-=== What to export / System design ===
-* ExportSink operator
-  - with variable number of data inputs (arrays only atm)
-  - enable/disable flag (implement this in the a1 layer. if the op is disabled do not build the a2 implementation)
-  - a special condition input (single value only). if valid an ouput event is
-    generated, otherwise no output is written.
-  - selectable handling of invalids and nans for the indexed format.
-    nan/invalid could be skipped entirely if desired.
-  - defined byte order (little endian) -> NO, use native byte order and let the consumer worry about this
-
-* Need to decide when to write output files. In the beginRun() callchain? Add
-  additional data to RunInfo?
-  This should work in stand-alone applications aswell. Would be good to put it
-  into the analysis system, not have it external like a2_begin_run()
-
-  Distinction between (re)building the analysis structure and actually starting a run.
-
-* For each ExportSink a different filename must be used.
-  Plan right now: <workspace>/export/<run_id>/<export_op_1>.mvmexport
-  Enforce the unique filename condition before writing anything.
-
-* To be able to synchronize the data from multiple files each event could carry
-  the current timetick.
-
-* Assuming one file per event:
-e0                              implicit event index
-  m0                            module index. not written out
-    ds00                        data source. can be selected for export
-    ds01
-  m1
-    ds10
-    ds11
-
-Further analysis operators in this event
-op0
-  op0.0
-  op0.1
-    op0.1.0
-
-op1
-  op1.0
-
-  /* Make it packed, no padding wanted. */
-  struct Event
-  {
-      u32 timetick;
-
-      double ds00[ds00.size];
-      double ds01[ds01.size];
-      double ds10[ds10.size];
-      double ds11[ds11.size];
-
-      double op0[op0.size];
-      double op1[];
-      double op00[];
-      double op01[];
-      double op10[];
-      double op010[];
-
-      /* Static const data. Will only have to pay once for this. But linkage
-       * might be an issue I think. Do I need an implementation file for this
-       * to work? Any other way to place the data in the header and have the
-       * compiler figure out the linkage stuff?
-       * Or just generate the implementation file aswell and be done with it.
-       * NOTE: This data could just as well also live in the exported data file.
-       * Could also use the trick where the header is included twice, the
-       * second time around preceeded by a #define IMPL.
-       */
-      static const u32 number_of_data_arrays;
-      static const u32 array_offsets[number_of_data_arrays];
-      static const u32 array_sizes[number_of_data_arrays];
-
-      /* Fixed length, null terminated strings containing unmodified names of
-       * the arrays. */
-      static const char array_names[128][number_of_data_arrays];
-
-      /* Or an array of all the null terminated strings and an array of start
-       * offsets into the string data array. */
-       static const char array_names[total_number_of_characters_for_all_names];
-       static const char array_name_offsets[number_of_data_arrays];
-  };
-
-The above needs a robust name generation scheme. Metadata could also be stored
-inside the export data file or added to the export header.
-- No duplicate names
-- Valid c++ identifiers
-- Separate Events via distinct names and/or namespaces and maybe more?
-
-
-* binary format with generated c header file
-* python layer. numpy, pyroot examples
-(* text format with structure description in a header section
-  - printf format string for doubles: use something that does not lose precision when read back in)
-* compression for both formats
-* if the above works ROOT export should also be doable
-* export to hdf5 could also be nice
-* invalid parameters would be printed as "nan". keep the distinction between
-  plain nan and invalid?
-* byte order marking
-* file magic number
-* version number
-* export to an auto created subdirectory named after the run. This keeps
-  exported files togther.
-  Can also generated a source file with basic readout code.
-  User will want to edit that file but on the next export it will be
-  overwritten. How can this use case be made more convenient?
-  -> Not an issue: they copy paste the readout code and only have to get the
-  #include <path/to/generated_header> right.
-* The user might also have to build an implementation file to be able to get
-  all the static data.
+* (maybe) byte order marking. The bin file are not meant as permanent storage
+  but to be consumed by a user program which then stored data in e.g. ROOT
+  format.
+* (maybe) file magic number
+* (maybe) version number
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 * add build date to info window thingy
 * Andi has a setup where the "compression" combo box has an empty value. no/fast compression can still be selected but the initial value is empty.
-* ListFilterEditor: hide the bits that are not available in the combined words.
-* filters: add option to disable adding the random value
+* filters: add option to disable adding the random value (done for listfilters)
 
 
 * Projection of combined H2D does not update axis scales after the source H1D
@@ -513,133 +274,25 @@ inside the export data file or added to the export header.
   change. I tried passing keepAnalysisState = true but the histo still got
   cleared.
 
-* Fix paused replay and "StopIfQueueEmpty" interaction
-  Identify and fix issues with single stepping and pause/resume interaction.
-  Somethings wrong with these things.
-
 * add sis3153 firmware update utility to 'extras' directory. Also package and
   install sis library code (maybe). Ask struck if this is allowed.
 
 * Add element wise array multiplication operator and/or a calibration operator
   using slope and offset values.
-
-* Add an exprtk operator! That would be freakin awesome.
-
-* Implement "copy plot to clipboard" feature for Histo2D
 
 * add 64 bit DataFilter
 * phase out data_filter.h (DataFilter and MultiWordDataFilter). stick to the a2 stuff
-* Redo the way EventWidget and AddEditExtractorWidget work together right now.
-  Move the add/edit code from EventWidget::addSource()/sourceEdited() into the
-  dialog. Let the dialog notify the EventWidget about changes via a signal.
-
-
-* Fix paused replay and "StopIfQueueEmpty" interaction
-  Identify and fix issues with single stepping and pause/resume interaction.
-  Somethings wrong with these things.
-
-* add sis3153 firmware update utility to 'extras' directory. Also package and
-  install sis library code (maybe). Ask struck if this is allowed.
-
-* Add element wise array multiplication operator and/or a calibration operator
-  using slope and offset values.
-
---------------------------------------------------
-Rate displays and Rate monitoring
---------------------------------------------------
-* analaysis combined rate calculation thingy:
-    calibrate,
-    calc difference between cur and prev
-    make rate output available
-  How to build these things easily?
-  a2 level: combine existing operators
-  a1 level: input/output logic
-            create a2 instance and query for output sizes
-
 * Make mvme internal "system" rates available to the analysis.
   Might split this into VME and Analysis rates. Think about how to feed those
   to the analysis system.
   Make this efficient and easily integrated.
-  XXX: Do not make these rates available inside the analysis in the first step.
-  Figure out how to manage counters and rates first!
 
-  A summary screen similar to what wanpengs screenshot shows:
-  I'd like a catalog of all available rates in the system.
-  The user should be able to easily add/remove rates to monitor in a sort of
-  table view.
-  Certain rates should also be plotted in combined rate display.
+* RateHistory needs to only be kept if the specific rate should be plotted.
+  Otherwise if the rate should only be displayed it's enough to keep the last
+  (most recent) rate value that was calculated. The GUI should be able to pick
+  that up.
 
-  How to handle different time bases then? This would mean differing X-axis
-  scales so is not a good idea.
-
-  See next item.
-
-Counters                            Owner                           updated by                          update time / place             timebase
-==================================================================================================================================================================================================================
-DAQStats                            MVMEContext                     rdo workers/listfile reader         constantly during readout       any; fixed to 1s wallclock
-  bytes/s
-  buffers/s
-  netBytes/s
-  droppedBuffers/s
-  errorBuffers/s
-  listfileBytesWritten/s
-
-MVMEStreamProcessorCounters         MVMEStreamProcessor             stream proc                         processDataBuffer               either real wallclock or
-                                                                                                                                        based on replay timeticks
-                                                                                                                                        => two modes: realtime / daqtime
-                                                                                                                                        Same data could be used to fill different RateHistories. One would
-                                                                                                                                        be filled on every timetick, the other every wallclock second. This
-                                                                                                                                        would yield both, the daqtime and the realtime rates.
-  bytes/s
-  buffers/s
-  errors/s
-  totalEvents/s
-  event[ei]/s
-  module[ei][mi]/s
-
-
-SIS3153ReadoutWorker::Counters      SIS3153ReadoutWorker            SIS3153ReadoutWorker                during readout                  any; fixed to 1s wallclock
-  stacklistCounts[stacklist]/t
-  stacklistBerr_Block[stacklist]/t
-  stacklistBerr_Read[stacklist]/t
-  stacklistBerr_Write[stacklist]/t
-  lostEvents/t
-  multiEventPackets/t
-  embeddedEvents[stacklist]/t
-  partialFragments[stacklist]/t
-  reassembledPartials[stacklist]/t
-
-Analysis data source hitCounts      analysis                        analysis                            during replay                   Can be polled at any time. Like MVMEStreamProcessorCounters both
-  Each extractor updates these on                                                                                                       realtime and timetick based updates are possible.
-  every hit.
-  Structure changes as analysis
-  filters are modified.
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-* Additional info for each counter:
-  [scaling factor and offset] (basically calibration information)
-  unit label
-  unitscaling: binary / decimal
-  poll interval / timebase, e.g: 1/s 1/timeticks
-
-
-* Notes about timetick based updates:
-  The update could be done on every timetick that's either contained in the
-  listfile or that's generated by the MVMEStreamWorker during readout.
-
-  Another way would be to perform the update at an interval that's not related
-  to the timeticks, calculate the timetick difference and the rate average over
-  that period and then push the calculated average multiple times onto the
-  history buffer, once for each elapsed timetick.
-  This would cause less load but make the rate history less exact in the case
-  where the replay is faster than realtime.
-
-RateHistory needs to only be kept if the specific rate should be plotted.
-Otherwise if the rate should only be displayed it's enough to keep the last
-(most recent) rate value that was calculated. The GUI should be able to pick
-that up.
-
-Totals are also interesting and should be displayed alongside rates.
+  Totals are also interesting and should be displayed alongside rates.
 
 System design:
 List / Tree of available counters. Must be able to deal with arrays of known
@@ -781,8 +434,9 @@ Single Stepping and Stream Processing
 * Display buffer context in case of a parse error
 
 * Distinction/difference between a stream and a buffer?
-  As a buffer can contain multiple section or even a complete listfile it is an MVMEStream.
-  But an MVMEStream will mostly consist of multiple buffers as generated by the readout or from reading a listfile.
+  As a buffer can contain multiple sections or even a complete listfile it is an MVMEStream.
+  But an MVMEStream will mostly consist of multiple buffers as generated by the
+  readout or from reading a listfile.
 
 * Info to parse an mvme stream and report errors:
   - is multievent enabled for eventIndex N?
@@ -815,6 +469,7 @@ Single Stepping and Stream Processing
 --------------------------------------------------
 * Remove now unused run-time code from the Analysis classes. Make it clear that
   they're for serialization, internal connectiviy and a2 generation only.
+
 * analysis session / HDF5: errors out when saving and empty analysis session
   - enable the save action only if the analysis is non-empty
   - change the session code to be able to handle empty analyses
@@ -899,16 +554,12 @@ Single Stepping and Stream Processing
     * Histo1DWidget: zoom out after setHistogram()
       But not when the usage is the one in x- and y-projections where the histo is
       replaced with a similar one.
-    * Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
     * Read up on binning error calculations. See how ROOT does it.
-    * show fwhm only when gauss display is active
 
 * Analysis and AnalysisUI
     * Open new histograms immediately. Do this when creating a sub-histogram.
       Maybe only if DAQ/Replay is running?
     * Copy/Paste
-      - Copy needs a clone() operation for analysis elements.
-      - On copying an extractor the edit dialog should be opened.
       - Having the ability to clone operators would allow making editing of
         operators much safer.
         Right now if the user picks another input or clears any input slots the
@@ -974,7 +625,8 @@ Single Stepping and Stream Processing
   - add pause/resume
   - figure out why buffers/s never has a fractional part
     -> part of the system. addBuffersRead() and addBytesRead() each call maybeUpdateIntervalCounters().
-       If we're reading less than 1 buffer per second the resulting bytesPerSecond will be 0 for that interval.
+       If we're reading less than 1 buffer per second the resulting
+       bytesPerSecond will be 0 for that interval.
     How to make this better?
 - License info needs Apache License for PCG. Maybe others. Check what is needed here!
   Also use info from resources/README

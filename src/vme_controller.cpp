@@ -77,6 +77,7 @@ static const QMap<VMEError::ErrorType, QString> errorNames =
     { VMEError::HostNotFound,           QSL("Host not found") },
     { VMEError::InvalidIPAddress,       QSL("Invalid IP address") },
     { VMEError::UnexpectedAddressMode,  QSL("Unexpected address mode") },
+    { VMEError::HostLookupFailed,       QSL("Host lookup failed") },
 };
 
 QString VMEError::toString() const

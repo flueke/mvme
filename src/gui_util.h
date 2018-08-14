@@ -21,6 +21,7 @@
 #ifndef __GUI_UTIL_H__
 #define __GUI_UTIL_H__
 
+#include <QLabel>
 #include <QPixmap>
 
 class QWidget;
@@ -33,5 +34,16 @@ QWidget *make_vme_script_ref_widget();
  * Returns the resulting pixmap.
  */
 QPixmap embellish_pixmap(const QString &original_source, const QString &embellishment_source);
+
+QLabel *make_framed_description_label(const QString &text, QWidget *parent = nullptr);
+
+class FixWordWrapBugLabel: public QLabel
+{
+    public:
+        using QLabel::QLabel;
+
+    protected:
+        virtual void resizeEvent(QResizeEvent *event) override;
+};
 
 #endif /* __GUI_UTIL_H__ */

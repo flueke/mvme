@@ -314,6 +314,9 @@ int sis3153eth::set_UdpSocketBindMyOwnPort( char* pc_ip_addr_string){
 /*************************************************************************************/
 
 int sis3153eth::set_UdpSocketSIS3153_IpAddress( char* sis3153_ip_addr_string){
+
+    fprintf(stderr, "%s: address string: %s\n", __PRETTY_FUNCTION__, sis3153_ip_addr_string);
+
     int return_code=0;
     char temp_ip_addr_string[32] ;
     struct hostent *hp;     /* host information */

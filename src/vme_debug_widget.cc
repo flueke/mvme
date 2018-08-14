@@ -54,7 +54,10 @@ VMEDebugWidget::VMEDebugWidget(MVMEContext *context, QWidget *parent)
 
     auto onControllerStateChanged = [this] (ControllerState state)
     {
-        ui->outerFrame->setEnabled(state == ControllerState::Connected);
+        bool enable = (state == ControllerState::Connected);
+        ui->gb_read->setEnabled(enable);
+        ui->gb_write->setEnabled(enable);
+        ui->gb_vmeScript->setEnabled(enable);
     };
 
     connect(m_context, &MVMEContext::controllerStateChanged, this, onControllerStateChanged);
@@ -189,14 +192,18 @@ void VMEDebugWidget::on_readRead1_clicked()
     address += (offset << 16);
 
     ui->bltResult->clear();
-    ui->readResult1->clear();
+    ui->readResult1_hex->clear();
+    ui->readResult1_dec->clear();
 
     if (ui->readModeSingle->isChecked())
     {
         u16 value = doRead(address);
 
-        ui->readResult1->setText(QString("0x%1")
+        ui->readResult1_hex->setText(QString("0x%1")
                                  .arg(value, 4, 16, QChar('0'))
+                                );
+        ui->readResult1_dec->setText(QString("%1")
+                                 .arg(value, 0, 10, QChar(' '))
                                 );
     }
     else
@@ -253,8 +260,11 @@ void VMEDebugWidget::on_readRead2_clicked()
 
     u16 value = doRead(address);
 
-    ui->readResult2->setText(QString("0x%1")
+    ui->readResult2_hex->setText(QString("0x%1")
                              .arg(value, 4, 16, QChar('0'))
+                            );
+    ui->readResult2_dec->setText(QString("%1")
+                             .arg(value, 0, 10, QChar(' '))
                             );
 
     if (ui->readLoop2->isChecked())
@@ -270,8 +280,11 @@ void VMEDebugWidget::on_readRead3_clicked()
 
     u16 value = doRead(address);
 
-    ui->readResult3->setText(QString("0x%1")
+    ui->readResult3_hex->setText(QString("0x%1")
                              .arg(value, 4, 16, QChar('0'))
+                            );
+    ui->readResult3_dec->setText(QString("%1")
+                             .arg(value, 0, 10, QChar(' '))
                             );
 
     if (ui->readLoop3->isChecked())

@@ -2686,6 +2686,7 @@ static OperatorType operator_type(RateMonitorType rateMonitorType)
 struct RateMonitorData
 {
     TypedBlock<RateSampler *, s32> samplers;
+    TypedBlock<s32, s32> input_param_indexes;
 };
 
 struct RateMonitorData_FlowRate: public RateMonitorData
@@ -2693,14 +2694,14 @@ struct RateMonitorData_FlowRate: public RateMonitorData
     ParamVec hitCounts;
 };
 
-static void debug_samplers(const TypedBlock<RateSampler *, s32> &samplers, const char *prefix)
+static void debug_samplers(const TypedBlock<RateSampler *, s32> &samplers, const std::string &prefix)
 {
     for (s32 i = 0; i < samplers.size; i++)
     {
         RateSampler *sampler = samplers[i];
 
         a2_trace("%s: sampler[%d]@%p, rateHistory@%p, capacity=%lu, size=%lu\n",
-                prefix,
+                prefix.c_str(),
                 i,
                 sampler,
                 &sampler->rateHistory,
@@ -2712,24 +2713,28 @@ static void debug_samplers(const TypedBlock<RateSampler *, s32> &samplers, const
 
 Operator make_rate_monitor(
     memory::Arena *arena,
-    PipeVectors inPipe,
+    TypedBlock<PipeVectors, s32> inputs,
+    TypedBlock<s32, s32> input_param_indexes,
     TypedBlock<RateSampler *, s32> samplers,
     RateMonitorType type)
 {
-    assert(inPipe.data.size == samplers.size);
+    assert(inputs.size == input_param_indexes.size);
 
-    //debug_samplers(samplers, "input");
+    s32 expectedSamplerCount = 0u;
 
-    auto result = make_operator(arena, operator_type(type), 1, 0);
-    assign_input(&result, inPipe, 0);
-
-    auto debug_in_out_samplers = [](const auto &inSamplers, const auto &outSamplers)
+    for (s32 ii = 0; ii < inputs.size; ii++)
     {
-        assert(inSamplers.size == outSamplers.size);
+        debug_samplers(samplers, "input" + std::to_string(ii));
 
-        //debug_samplers(inSamplers,  "input");
-        //debug_samplers(outSamplers, "output");
-    };
+        if (input_param_indexes[ii] < 0)
+            expectedSamplerCount += inputs[ii].data.size;
+        else
+            expectedSamplerCount++;
+    }
+
+    assert(samplers.size == expectedSamplerCount);
+
+    auto result = make_operator(arena, operator_type(type), inputs.size, 0);
 
     switch (type)
     {
@@ -2739,25 +2744,26 @@ Operator make_rate_monitor(
                 auto d = arena->pushStruct<RateMonitorData>();
                 result.d = d;
                 d->samplers = push_copy_typed_block(arena, samplers);
-
-                debug_in_out_samplers(samplers, d->samplers);
-
+                d->input_param_indexes = push_copy_typed_block(arena, input_param_indexes);
             } break;
 
         case RateMonitorType::FlowRate:
             {
                 auto d = arena->pushStruct<RateMonitorData_FlowRate>();
                 result.d = d;
-                //d->samplers = push_copy_typed_block(arena, samplers);
-                d->samplers = push_typed_block<RateSampler *, s32>(arena, samplers.size);
-                for (s32 i = 0; i < samplers.size; i++)
-                {
-                    d->samplers[i] = samplers[i];
-                }
+                d->samplers = push_copy_typed_block(arena, samplers);
+                d->input_param_indexes = push_copy_typed_block(arena, input_param_indexes);
                 d->hitCounts = push_param_vector(arena, samplers.size, 0.0);
-
-                debug_in_out_samplers(samplers, d->samplers);
             } break;
+    }
+
+
+    for (s32 ii = 0; ii < inputs.size; ii++)
+    {
+        const auto &input  = inputs[ii];
+        const auto &pi     = input_param_indexes[ii];
+
+        assign_input(&result, input, ii);
     }
 
     return result;
@@ -2767,61 +2773,110 @@ void rate_monitor_step(Operator *op)
 {
     a2_trace("\n");
 
-    s32 maxIdx = op->inputs[0].size;
+    auto d = reinterpret_cast<RateMonitorData *>(op->d);
+    s32 samplerIndex = 0;
 
-    switch (op->type)
+    for (s32 ii = 0; ii < op->inputCount; ii++)
     {
-        case Operator_RateMonitor_PrecalculatedRate:
-            {
-                auto d = reinterpret_cast<RateMonitorData *>(op->d);
+        assert(samplerIndex < d->samplers.size);
 
-                a2_trace("recording %d precalculated rates\n", maxIdx);
+        auto &input = op->inputs[ii];
+        const auto pi = d->input_param_indexes[ii];
 
-                for (s32 idx = 0; idx < maxIdx; idx++)
+        switch (op->type)
+        {
+            case Operator_RateMonitor_PrecalculatedRate:
                 {
-                    double value = op->inputs[0][idx];
+                    //a2_trace("recording %d precalculated rates\n", maxIdx);
 
-                    a2_trace_np("  [%d] recording value %lf\n", idx, value);
-
-                    d->samplers[idx]->record_rate(value);
-                }
-            } break;
-
-        case Operator_RateMonitor_CounterDifference:
-            {
-                auto d = reinterpret_cast<RateMonitorData *>(op->d);
-
-                a2_trace("recording %d counter differences\n", maxIdx);
-
-                for (s32 idx = 0; idx < maxIdx; idx++)
-                {
-                    a2_trace_np("  [%d] sampling value %lf, lastValue=%lf, delta=%lf\n",
-                                idx, op->inputs[0][idx],
-                                d->samplers[idx]->lastValue,
-                                op->inputs[0][idx] - d->samplers[idx]->lastValue
-                               );
-
-                    d->samplers[idx]->sample(op->inputs[0][idx]);
-                }
-            } break;
-
-        case Operator_RateMonitor_FlowRate:
-            {
-                auto d = reinterpret_cast<RateMonitorData_FlowRate *>(op->d);
-
-                a2_trace("incrementing %d hitCounts\n", maxIdx);
-
-                for (s32 idx = 0; idx < maxIdx; idx++)
-                {
-                    if (is_param_valid(op->inputs[0][idx]))
+                    if (pi == NoParamIndex)
                     {
-                        d->hitCounts[idx]++;
-                    }
-                }
-            } break;
+                        for (s32 paramIndex = 0; paramIndex < input.size; paramIndex++)
+                        {
+                            double value = input[paramIndex];
 
-        InvalidDefaultCase;
-    };
+                            //a2_trace_np("  [%d] recording value %lf\n", idx, value);
+
+                            d->samplers[samplerIndex++]->recordRate(value);
+                        }
+                    }
+                    else
+                    {
+                        assert(pi < input.size);
+
+                        double value = input[pi];
+
+                        //a2_trace_np("  [%d] recording value %lf\n", idx, value);
+
+                        d->samplers[samplerIndex++]->recordRate(value);
+                    }
+                } break;
+
+            case Operator_RateMonitor_CounterDifference:
+                {
+                    //a2_trace("recording %d counter differences\n", maxIdx);
+
+                    if (pi == NoParamIndex)
+                    {
+                        for (s32 paramIndex = 0; paramIndex < input.size; paramIndex++)
+                        {
+                            //a2_trace_np("  [%d] sampling value %lf, lastValue=%lf, delta=%lf\n",
+                            //            idx, op->inputs[0][idx],
+                            //            d->samplers[idx]->lastValue,
+                            //            op->inputs[0][idx] - d->samplers[idx]->lastValue
+                            //           );
+
+                            double value = input[paramIndex];
+                            d->samplers[samplerIndex++]->sample(value);
+                        }
+                    }
+                    else
+                    {
+                        assert(pi < input.size);
+
+                        double value = input[pi];
+
+                        //a2_trace_np("  [%d] recording value %lf\n", idx, value);
+
+                        d->samplers[samplerIndex++]->sample(value);
+                    }
+                } break;
+
+            case Operator_RateMonitor_FlowRate:
+                {
+                    auto d = reinterpret_cast<RateMonitorData_FlowRate *>(op->d);
+                    assert(d->hitCounts.size == d->samplers.size);
+
+                    //a2_trace("incrementing %d hitCounts\n", maxIdx);
+                    if (pi == NoParamIndex)
+                    {
+                        for (s32 paramIndex = 0; paramIndex < input.size; paramIndex++)
+                        {
+                            if (is_param_valid(input[paramIndex]))
+                            {
+                                d->hitCounts[samplerIndex]++;
+                            }
+
+                            samplerIndex++;
+                        }
+                    }
+                    else
+                    {
+                        if (is_param_valid(input[pi]))
+                        {
+                            d->hitCounts[samplerIndex]++;
+                        }
+
+                        samplerIndex++;
+                    }
+
+                } break;
+
+                InvalidDefaultCase;
+        }
+    }
+
+    assert(samplerIndex == d->samplers.size);
 }
 
 void rate_monitor_sample_flow(Operator *op)

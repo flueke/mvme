@@ -1,54 +1,9 @@
 ## Parameters for MQDC-32
 
-# Operation Mode
-# ############################################################################
-# bank_operation
-0x6040  0b000       # bit0: 0 -> banks connected
-                    #       1 -> operate banks independently
-                    # bits 2, 1: bank 1, 0 -> switch weak pull on resistor off
-                    #            (usually leave bits at 0, 0)
-
-# adc_resolution
-#0x6042  0           # 0 -> always 4k
-
-# offset_bank0 (channels 0 to 15)
-#0x6044 130         # Valid range is 0-255. Shifts the 4k spectrum by +-1000 bins.
-#                   # Typical value: 130
-# offset_bank1 (channels 16 to 31)
-#0x6046 130         # Valid range is 0-255. Shifts the 4k spectrum by +-1000 bins
-#                   # Typical value: 130
-#                   # offset_bank1 also works for joined banks
-# Note: Setting the offsets may take some milliseconds to take effect in the hardware.
-
-# slc_off
-0x6048  0           # If set to 1 switch of sliding scale
-
-# skip_oorange
-0x604A  0           # Skip out-of-range values
-
-# Gate Limit
-# ############################################################################
-# Refer to the lookup table in the manual for register value to time
-# conversion.
-# limit_bank0
-0x6050  255         # 4 -> 4.5 ns, 255 -> no limitation
-# limit_bank1
-0x6052  255         # same as limit_bank_0
-
-# Experiment Trigger
-# ############################################################################
-# Delay of experiment gate relative to end of QDC-gate [ns]. Up to 16384 ns (16k).
-# exp_trig_delay0
-0x6054  0           # delay for bank0 or both if joined banks
-# exp_trig_delay1
-0x6056  0           # delay for bank1 if not joined
 
 # I/O
 # ############################################################################
-# input coupling
-0x6060  0b000       # bit0: bank0: 0 -> AC, 1 -> DC
-                    # bit1: bank1: 0 -> AC, 1 -> DC
-                    # bit2: 0 -> BLR on, 1 -> BLR off (since FW0114)
+# IO indices (ECL, NIM) always count from bottom (0) to top (3)
 # ECL_term
 0x6062  0b11000     # switch ECL/LVDS terminators on (1 -> on)
                     # Unconnected inputs will be in a well defined state by
@@ -57,10 +12,12 @@
                     # | Bit       | 4     | 3     | 2     | 1     | 0     |
                     # +===========+=======+=======+=======+=======+=======+
                     # | ECL input | gates | gates | reset | gate1 | gate0 |
-                    # | term.     | bank1 | bank0 | ECL2  | ECL1  | ECL0  |
+                    # | term.     | bank1 | bank0 | ECL1  | ECL2  | ECL3  |
                     # +-----------+-------+-------+-------+-------+-------+
 
-# ECL_gate1_osc (ECL2)
+# ECL_gate0  (ECL3) # Topmost ECL pin pair (below gnd pair) always Gate 0 when ECL selected
+
+# ECL_gate1_osc(ECL2)
 0x6064  0           # 0 -> gate1 input
                     # 1 -> oscillator input (also set CTRA.ts_sources (0x6096)!)
 
@@ -73,16 +30,18 @@
 0x6068  0           # 0 -> Gate 0 and 1 from NIM inputs
                     # 1 -> Gate 0 and 1 from ECL inputs
 
-# NIM_gat1_osc (NIM 2)
+# NIM_gat0      (NIM 3); Topmost NIM connector always Gate 0 when NIM selected
+
+# NIM_gat1_osc  (NIM 2)
 0x606A  0           # 0 -> gate1 input
                     # 1 -> oscillator input (also set CTRA.ts_sources (0x6096)!)
 
-# NIM_fc_reset (NIM 1)
+# NIM_fc_reset  (NIM 1)
 0x606C  0           # 0 -> fast clear input ( = "not Gate")
                     # 1 -> reset time stamp counter
                     # 2 -> input for experiment trigger (since FW0110)
 
-# NIM_busy (NIM 0)
+# NIM_busy      (NIM 0)
 0x606E  0           # 0 -> as busy (in independent bank operation:
                     #               active when both banks are busy)
                     # 3 -> as CBus output
@@ -94,9 +53,9 @@
 # Internal Test Pulser
 # ############################################################################
 # pulser_status
-0x6070  0           # 0b000 -> off
-                    # 0b100 -> amplitude = 0
-                    # 0b101 -> use pulser amplitude with 100 ns gate
+0x6070  0           # 0 -> off
+                    # 4 -> amplitude = 0
+                    # 5 -> use pulser amplitude with 100 ns gate
 
 # pulser_daq (8 bits)
 0x6072  32          # Pulser amplitude, typ. 32 for bin 2000
@@ -111,16 +70,9 @@
 0x6098  1           # timestamp = time / ts_divisor
                     # 0 means division by 65536
 
-# stop_ctr
-#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
-                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
-                    # with 0 -> run, 1 -> stop counter
 
 # Thresholds
 # ############################################################################
-
-# ignore_thresholds
-0x604C  0           # If set the threshold settings starting a 0x4000 are ignored (0 is assumed).
 
 # Individual channel thresholds. 12 bit values, 0 means the threshold is not used.
 # 0x1FFF switches the channel off.
@@ -156,3 +108,56 @@
 0x403A  0           # channel 29
 0x403C  0           # channel 30
 0x403E  0           # channel 31
+
+# ignore_thresholds
+0x604C  0           # If set the threshold settings starting a 0x4000 are ignored (0 is assumed).
+
+
+#***************************************************
+#**************** ADVANCED MODES *******************
+#***************************************************
+# Operation Mode
+# ############################################################################
+# bank_operation
+0x6040  0           # bit0: 0 -> banks connected
+                    #       1 -> operate banks independently
+
+# BANK OFFSETS
+##############################################################################
+# offset_bank0 (channels 0 to 15)
+ 0x6044 130         # Valid range is 0-255. Shifts the 4k spectrum by +-1000 bins.
+#                   # Typical value: 130
+# offset_bank1 (channels 16 to 31)
+ 0x6046 130         # Valid range is 0-255. Shifts the 4k spectrum by +-1000 bins
+#                   # Typical value: 130
+#                   # offset_bank1 also works for joined banks
+# Note: Setting the offsets may take some milliseconds to take effect in the hardware.
+
+# Gate Limit
+# ############################################################################
+# Refer to the lookup table in the manual for register value to time
+# conversion.
+# limit_bank0
+0x6050  255         # 4 -> 4.5 ns, 255 -> no limitation
+# limit_bank1
+0x6052  255         # same as limit_bank_0
+
+# Experiment Trigger
+# ############################################################################
+# Delay of experiment gate relative to end of QDC-gate [ns]. Up to 16384 ns (16k).
+# exp_trig_delay0
+0x6054  0           # delay for bank0 or both if joined banks
+# exp_trig_delay1
+0x6056  0           # delay for bank1 if not joined
+
+
+#***************************************************
+#**************** SPECIALS *************************
+#***************************************************
+# input coupling
+0x6060  0b000       # bit0: bank0: 0 -> AC, 1 -> DC
+                    # bit1: bank1: 0 -> AC, 1 -> DC
+                    # bit2: 0 -> BLR on, 1 -> BLR off (since FW0114)
+
+# skip_oorange
+0x604A  0           # Skip out-of-range values

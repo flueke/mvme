@@ -399,7 +399,7 @@ struct ListFilterExtractorDialog::ListFilterExtractorDialogPrivate
 
 ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis,
                                                      MVMEContext *context, QWidget *parent)
-    : QDialog(parent)
+    : ObjectEditorDialog(parent)
     , m_d(std::make_unique<ListFilterExtractorDialogPrivate>())
 {
     m_d->m_module = mod;
@@ -423,7 +423,9 @@ ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis
     contentsLayout->setStretch(1, 1);
 
     // buttonbox
-    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Apply | QDialogButtonBox::Cancel);
+    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok
+                                          | QDialogButtonBox::Apply
+                                          | QDialogButtonBox::Cancel);
     buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
 
     // outer widget layout: list and edit widgets top, buttonbox bottom
@@ -534,7 +536,8 @@ ListFilterExtractorDialog::~ListFilterExtractorDialog()
 
 void ListFilterExtractorDialog::repopulate()
 {
-    m_d->m_extractors = m_d->m_analysis->getListFilterExtractors(m_d->m_module);
+    m_d->m_extractors = m_d->m_analysis->getListFilterExtractors(
+        m_d->m_module->getEventId(), m_d->m_module->getId());
 
     if (m_d->m_extractors.isEmpty())
         newFilter();
@@ -644,7 +647,10 @@ void ListFilterExtractorDialog::apply()
 
     {
         AnalysisPauser pauser(m_d->m_context);
-        m_d->m_analysis->setListFilterExtractors(m_d->m_module, m_d->m_extractors);
+        m_d->m_analysis->setListFilterExtractors(m_d->m_module->getEventId(),
+                                                 m_d->m_module->getId(),
+                                                 m_d->m_extractors);
+        m_d->m_analysis->beginRun(Analysis::KeepState);
     }
 
     repopulate();

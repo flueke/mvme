@@ -225,8 +225,8 @@ static const unsigned int GMODERegister(4);     // Global mode register.
 static const unsigned int DAQSetRegister(8);    // DAQ settings register.
 static const unsigned int LEDSrcRegister(0xc);	// LED source register.
 static const unsigned int DEVSrcRegister(0x10);	// Device source register.
-static const unsigned int DGGARegister(0x14);   // GDD A settings.
-static const unsigned int DGGBRegister(0x18);   // GDD B settings.
+static const unsigned int DGGARegister(0x14);   // DGG A settings.
+static const unsigned int DGGBRegister(0x18);   // DGG B settings.
 static const unsigned int ScalerA(0x1c);        // Scaler A counter.
 static const unsigned int ScalerB(0x20);        // Scaler B data.
 //static const unsigned int ExtractMask(0x24);    // CountExtract mask. // I think this is from an older firmware.

@@ -92,6 +92,7 @@ set(LIBMVME_SOURCES
     analysis/a2_adapter.cc
     analysis/analysis.cc
     analysis/analysis_info_widget.cc
+    analysis/analysis_serialization.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
@@ -100,6 +101,8 @@ set(LIBMVME_SOURCES
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
     analysis/listfilter_extractor_dialog.cc
+    analysis/object_factory.cc
+    analysis/object_editor_dialog.cc
 
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
@@ -115,6 +118,7 @@ set(LIBMVME_SOURCES
     histo2d.cc
     histo2d_widget.cc
     histo2d_widget_p.cc
+    histo_gui_util.cc
     histo_util.cc
     listfile_browser.cc
     listfile_constants.cc
@@ -331,5 +335,29 @@ endif(ENABLE_ROOT AND ROOT_FOUND)
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
+
+#
+# listfile recovery tool
+#
+if (NOT WIN32)
+    find_library(ZLIB z)
+    add_executable(mvme_recover_listfile mvme_recover_listfile_hack.c)
+    target_link_libraries(mvme_recover_listfile ${ZLIB})
+    install(TARGETS mvme_recover_listfile DESTINATION .)
+endif (NOT WIN32)
+
+if(BUILD_TESTS)
+
+    function(add_mvme_gtest exe_name exe_source)
+        add_executable(${exe_name} ${exe_source})
+        add_dependencies(${exe_name} libmvme)
+        target_link_libraries(${exe_name} libmvme gtest gtest_main)
+        add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+    endfunction(add_mvme_gtest)
+
+    add_mvme_gtest(test_object_visitor analysis/test_object_visitor.cc)
+    add_mvme_gtest(test_analysis_util analysis/test_analysis_util.cc)
+
+endif(BUILD_TESTS)
 
 # vim:tw=0

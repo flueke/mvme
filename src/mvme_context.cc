@@ -178,7 +178,7 @@ struct MVMEContextPrivate
 
     // Analysis
     void stopAnalysis();
-    void resumeAnalysis();
+    void resumeAnalysis(analysis::Analysis::BeginRunOption option);
 
     void clearLog();
 };
@@ -360,12 +360,14 @@ void MVMEContextPrivate::stopAnalysis()
     qDebug() << __PRETTY_FUNCTION__ << "analysis stopped";
 }
 
-void MVMEContextPrivate::resumeAnalysis()
+void MVMEContextPrivate::resumeAnalysis(analysis::Analysis::BeginRunOption runOption)
 {
     if (m_q->m_streamWorker->getState() == MVMEStreamWorkerState::Idle)
     {
+        bool keepState = runOption != analysis::Analysis::ClearState;
+
         QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "start",
-                                  Qt::QueuedConnection);
+                                  Qt::QueuedConnection, Q_ARG(bool, keepState));
 
         qDebug() << __PRETTY_FUNCTION__ << "analysis resumed";
     }
@@ -2078,7 +2080,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
         if (was_running && !flags.NoAutoResume)
         {
-            resumeAnalysis();
+            resumeAnalysis(Analysis::ClearState);
         }
     }
     catch (const std::bad_alloc &e)
@@ -2156,9 +2158,9 @@ void MVMEContext::stopAnalysis()
     m_d->stopAnalysis();
 }
 
-void MVMEContext::resumeAnalysis()
+void MVMEContext::resumeAnalysis(analysis::Analysis::BeginRunOption runOption)
 {
-    m_d->resumeAnalysis();
+    m_d->resumeAnalysis(runOption);
 }
 
 QJsonDocument MVMEContext::getAnalysisJsonDocument() const
@@ -2170,13 +2172,15 @@ QJsonDocument MVMEContext::getAnalysisJsonDocument() const
     return doc;
 }
 
-void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel)
+void MVMEContext::addAnalysisOperator(QUuid eventId,
+                                      const std::shared_ptr<analysis::OperatorInterface> &op,
+                                      s32 userLevel)
 {
-    auto eventConfig = m_vmeConfig->getEventConfig(eventId);
-    if (eventConfig)
+    if (auto eventConfig = m_vmeConfig->getEventConfig(eventId))
     {
         AnalysisPauser pauser(this);
-        getAnalysis()->addOperator(eventId, op, userLevel);
+        getAnalysis()->addOperator(eventId, userLevel, op);
+        getAnalysis()->beginRun(analysis::Analysis::KeepState);
 
         if (m_analysisUi)
         {
@@ -2188,13 +2192,8 @@ void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analy
 void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
 {
     AnalysisPauser pauser(this);
-    m_analysis->setModified();
-
-    auto runInfo = getRunInfo();
-    auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(getVMEConfig());
-
-    getAnalysis()->beginRun(runInfo, vmeMap,
-                            [this](const QString &msg) { this->logMessage(msg); });
+    getAnalysis()->operatorEdited(op);
+    getAnalysis()->beginRun(analysis::Analysis::KeepState);
 
     if (m_analysisUi)
     {

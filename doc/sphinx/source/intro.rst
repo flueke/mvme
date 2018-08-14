@@ -118,7 +118,8 @@ calibrate raw ADC values to voltage). Operators can have multiple inputs and
 produce a single output array.
 
 **Sinks** are data accumulators that do not produce any output parameters.
-Currently 1D and 2D histogram sinks are implemented.
+Currently 1D and 2D histograms, a rate monitor and a file exporter are
+implemented.
 
 Output parameters of sources and operators can be inspected at runtime.
 Objects can be added, removed and modified even while the DAQ or a replay is
@@ -151,7 +152,9 @@ steps:
   mvme. If during a DAQ run the analysis system cannot keep up with the
   incoming data rate some buffers will not be passed on to the analysis.
 
-  The number of buffers not passed on is shown as *Buffers dropped* in the
-  statistics area at the bottom of the main window.
+  The fraction of *processed buffers / total buffers* is called the *analysis
+  efficiency* and is shown in the bottom status bar of the analysis window.
+  Hovering of the Efficiency number shows a tooltip with detailed buffer
+  counts.
 
   When replaying from file *all* buffers are passed to the analysis.

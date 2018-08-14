@@ -21,6 +21,7 @@
 #ifndef UUID_9196420f_dd04_4572_8e4b_952039634913
 #define UUID_9196420f_dd04_4572_8e4b_952039634913
 
+#include "analysis/analysis.h"
 #include "globals.h"
 #include "databuffer.h"
 #include "libmvme_export.h"
@@ -48,8 +49,6 @@ class QThread;
 
 namespace analysis
 {
-    class Analysis;
-    class OperatorInterface;
     class AnalysisWidget;
 }
 
@@ -276,7 +275,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         bool isAnalysisRunning();
         void stopAnalysis();
-        void resumeAnalysis();
+        void resumeAnalysis(analysis::Analysis::BeginRunOption option);
         QJsonDocument getAnalysisJsonDocument() const;
 
         void setAnalysisUi(analysis::AnalysisWidget *analysisUi)

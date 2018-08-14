@@ -25,8 +25,32 @@
 #include <QObject>
 #include <array>
 
+struct ResolutionReductionFactors
+{
+    u32 x = AxisBinning::NoResolutionReduction;
+    u32 y = AxisBinning::NoResolutionReduction;
+
+    inline bool isNoReduction() const
+    {
+        return (x == AxisBinning::NoResolutionReduction
+                && y == AxisBinning::NoResolutionReduction);
+    }
+
+    inline u32 getXFactor() const
+    {
+        return x == AxisBinning::NoResolutionReduction ? 1u : x;
+    }
+
+    inline u32 getYFactor() const
+    {
+        return y == AxisBinning::NoResolutionReduction ? 1u : y;
+    }
+};
+
 struct Histo2DStatistics
 {
+    using Intervals = std::array<AxisInterval, 3>;
+
     u32 maxBinX = 0;        // x bin of max value
     u32 maxBinY = 0;        // y bin of max value
     double maxX = 0.0;      // low edge of maxBinX
@@ -34,9 +58,23 @@ struct Histo2DStatistics
     double maxZ = 0.0;
     double entryCount = 0;
 
-    using Intervals = std::array<AxisInterval, 3>;
+    /* The resolution reduction that was in effect when the stats where calculated.
+     * bin numbers are given in terms of these factors. */
+    ResolutionReductionFactors rrf = {};
+
+    /* The x- and y-axis intervals for which the stats where calculated and the resulting
+     * z-interval. */
     Intervals intervals;
 };
+
+#ifndef QT_NO_DEBUG
+inline QDebug &operator<<(QDebug &dbg, const ResolutionReductionFactors &rrf)
+{
+    QDebugStateSaver ss(dbg);
+    dbg.nospace().noquote() << "RRF(" << rrf.x << ", " << rrf.y << ")";
+    return dbg;
+}
+#endif
 
 class Histo2D: public QObject
 {
@@ -57,15 +95,22 @@ class Histo2D: public QObject
         void resize(s32 xBins, s32 yBins);
 
         void fill(double x, double y, double weight = 1.0);
-        double getValue(double x, double y) const;
-        double getBinContent(u32 xBin, u32 yBin) const;
+
+        double getValue(double x, double y,
+                        const ResolutionReductionFactors &rrf = {}) const;
+
+        double getBinContent(u32 xBin, u32 yBin,
+                             const ResolutionReductionFactors &rrf = {}) const;
+
         void clear();
         inline double *data() { return m_data; }
 
         void debugDump() const;
         inline size_t getStorageSize() const
         {
-            return getAxisBinning(Qt::XAxis).getBins() * getAxisBinning(Qt::YAxis).getBins() * sizeof(double);
+            return getAxisBinning(Qt::XAxis).getBins()
+                * getAxisBinning(Qt::YAxis).getBins()
+                * sizeof(double);
         }
 
         AxisBinning getAxisBinning(Qt::Axis axis) const
@@ -109,8 +154,13 @@ class Histo2D: public QObject
 
         AxisInterval getInterval(Qt::Axis axis) const;
 
-        Histo2DStatistics calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const;
-        Histo2DStatistics calcGlobalStatistics() const;
+        Histo2DStatistics calcStatistics(
+            AxisInterval xInterval,
+            AxisInterval yInterval,
+            const ResolutionReductionFactors &rrf = {}) const;
+
+        Histo2DStatistics calcGlobalStatistics(
+            const ResolutionReductionFactors &rrf = {}) const;
 
         double getUnderflow() const { return m_underflow; }
         void setUnderflow(double value) { m_underflow = value; }

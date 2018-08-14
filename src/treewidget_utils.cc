@@ -26,7 +26,8 @@
 #include <QTextDocument>
 #include <QDebug>
 
-void HtmlDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
+void HtmlDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
+                         const QModelIndex &index) const
 {
     QStyleOptionViewItem optionV4 = option;
     initStyleOption(&optionV4, index);
@@ -46,7 +47,11 @@ void HtmlDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
 
     // Highlighting text if item is selected
     if (optionV4.state & QStyle::State_Selected)
-        ctx.palette.setColor(QPalette::Text, optionV4.palette.color(QPalette::Active, QPalette::HighlightedText));
+    {
+        ctx.palette.setColor(QPalette::Text,
+                             optionV4.palette.color(QPalette::Active,
+                                                    QPalette::HighlightedText));
+    }
 
     QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &optionV4);
     painter->save();
@@ -67,4 +72,18 @@ QSize HtmlDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelInd
     doc.setDocumentMargin(1);
     doc.setTextWidth(optionV4.rect.width());
     return QSize(doc.idealWidth(), doc.size().height());
+}
+
+void CanDisableItemsHtmlDelegate::initStyleOption(QStyleOptionViewItem *option,
+                                                  const QModelIndex &index) const
+{
+    QStyledItemDelegate::initStyleOption(option, index);
+
+    if (auto node = reinterpret_cast<QTreeWidgetItem *>(index.internalPointer()))
+    {
+        if (m_isItemDisabled && m_isItemDisabled(node))
+        {
+            option->state &= ~QStyle::State_Enabled;
+        }
+    }
 }

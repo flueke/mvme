@@ -46,7 +46,7 @@ enum class MVMEStreamWorkerState
 
 Q_DECLARE_METATYPE(MVMEStreamWorkerState);
 
-extern const QMap<MVMEStreamWorkerState, QString> MVMEStreamWorkerState_StringTable;
+QString to_string(const MVMEStreamWorkerState &state);
 
 class LIBMVME_EXPORT MVMEStreamWorker: public QObject
 {
@@ -82,7 +82,7 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
         void singleStep();
 
     public slots:
-        void start();
+        void start(bool keepState = false);
 
         /* Is invoked from MVMEMainWindow via QMetaObject::invokeMethod so that
          * it runs in our thread. */

@@ -28,12 +28,13 @@
 
 #include "a2_adapter.h"
 #include "a2/multiword_datafilter.h"
+#include "analysis_serialization.h"
+#include "analysis_util.h"
 #include "exportsink_codegen.h"
 #include "../vme_config.h"
+#include "object_visitor.h"
 
-#define ENABLE_ANALYSIS_DEBUG 0
-
-#define ANALYSIS_USE_SHARED_HISTO1D_MEM 1
+#define ENABLE_ANALYSIS_DEBUG 1
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -43,7 +44,8 @@ QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
 }
 
 template<>
-const QMap<analysis::Analysis::ReadResultCodes, const char *> analysis::Analysis::ReadResult::ErrorCodeStrings =
+const QMap<analysis::Analysis::ReadResultCodes, const char *>
+analysis::Analysis::ReadResult::ErrorCodeStrings =
 {
     { analysis::Analysis::NoError, "No Error" },
     { analysis::Analysis::VersionTooNew, "Version too new" },
@@ -60,8 +62,8 @@ using analysis::Analysis;
 A2AdapterState a2_adapter_build_memory_wrapper(
     ArenaPtr &arena,
     ArenaPtr &workArena,
-    const QVector<Analysis::SourceEntry> &sources,
-    const QVector<Analysis::OperatorEntry> &operators,
+    const analysis::SourceVector &sources,
+    const analysis::OperatorVector &operators,
     const vme_analysis_common::VMEIdToIndex &vmeMap,
     const RunInfo &runInfo,
     analysis::Logger logger = {})
@@ -162,117 +164,54 @@ a2::data_filter::ListFilter a2_listfilter_from_json(const QJsonObject &json)
 
 namespace analysis
 {
-/* File versioning. If the format changes this version needs to be incremented
- * and a conversion routine has to be implemented.
- */
-static const int CurrentAnalysisVersion = 2;
-
-/* This function converts from analysis config versions prior to V2, which
- * stored eventIndex and moduleIndex instead of eventId and moduleId.
- */
-static QJsonObject v1_to_v2(QJsonObject json, VMEConfig *vmeConfig)
+QString to_string(const ObjectFlags::Flags &flags)
 {
-    bool couldConvert = true;
+    QString result;
 
-    if (!vmeConfig)
-    {
-        // TODO: report error here
-        return json;
-    }
+    if (flags & ObjectFlags::NeedsRebuild)
+        result += "NeedsRebuild";
 
-    // sources
-    auto array = json["sources"].toArray();
-
-    for (auto it = array.begin(); it != array.end(); ++it)
-    {
-        auto objectJson = it->toObject();
-        int eventIndex = objectJson["eventIndex"].toInt();
-        int moduleIndex = objectJson["moduleIndex"].toInt();
-
-        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
-        auto moduleConfig = vmeConfig->getModuleConfig(eventIndex, moduleIndex);
-
-        if (eventConfig && moduleConfig)
-        {
-            objectJson["eventId"] = eventConfig->getId().toString();
-            objectJson["moduleId"] = moduleConfig->getId().toString();
-            *it = objectJson;
-        }
-        else
-        {
-            couldConvert = false;
-        }
-    }
-    json["sources"] = array;
-
-    // operators
-    array = json["operators"].toArray();
-
-    for (auto it = array.begin(); it != array.end(); ++it)
-    {
-        auto objectJson = it->toObject();
-        int eventIndex = objectJson["eventIndex"].toInt();
-
-        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
-
-        if (eventConfig)
-        {
-            objectJson["eventId"] = eventConfig->getId().toString();
-            *it = objectJson;
-        }
-        else
-        {
-            couldConvert = false;
-        }
-    }
-    json["operators"] = array;
-
-    if (!couldConvert)
-    {
-        // TODO: report this
-        qDebug() << "Error converting to v2!!!================================================";
-    }
-
-    return json;
+    return result;
 }
 
-using VersionConverter = std::function<QJsonObject (QJsonObject, VMEConfig *)>;
+/* File versioning. If the format changes this version needs to be incremented and a
+ * conversion routine has to be implemented (analysis_serialization.cc).
+ * Incrementing can also be done to force users to use a newer version of mvme to load the
+ * analysis. This way they won't run into missing features/undefined behaviour.
+ */
+static const int CurrentAnalysisVersion = 3;
 
-static QVector<VersionConverter> VersionConverters =
+//
+// AnalysisObject
+//
+
+void AnalysisObject::setUserLevel(s32 level)
 {
-    nullptr,
-    v1_to_v2
-};
-
-static int get_version(const QJsonObject &json)
-{
-    return json[QSL("MVMEAnalysisVersion")].toInt(1);
-};
-
-static QJsonObject convert_to_current_version(QJsonObject json, VMEConfig *vmeConfig)
-{
-    int version;
-
-    while ((version = get_version(json)) < CurrentAnalysisVersion)
-    {
-        auto converter = VersionConverters.value(version);
-
-        if (!converter)
-            break;
-
-        json = converter(json, vmeConfig);
-        json[QSL("MVMEAnalysisVersion")] = version + 1;
-
-        qDebug() << __PRETTY_FUNCTION__ << "converted Analysis from version" << version << "to version" << version+1;
-    }
-
-    return json;
+    m_userLevel = std::max(0, level);
 }
 
-template<typename T>
-QString getClassName(T *obj)
+std::unique_ptr<AnalysisObject> AnalysisObject::clone() const
 {
-    return obj->metaObject()->className();
+    auto qobjectPtr  = metaObject()->newInstance();
+    qDebug() << metaObject()->className() << qobjectPtr;
+    auto downcastPtr = qobject_cast<AnalysisObject *>(qobjectPtr);
+    assert(downcastPtr);
+
+    std::unique_ptr<AnalysisObject> result(downcastPtr);
+
+    // Use the JSON serialization layer to clone object data.
+    {
+        QJsonObject tmpStorage;
+        this->write(tmpStorage);
+        result->read(tmpStorage);
+    }
+
+    result->setObjectName(this->objectName());
+    result->setUserLevel(this->getUserLevel());
+    result->setEventId(this->getEventId());
+    result->postClone(this); // Let subclasses pull additional information from 'this'.
+
+    return result;
 }
 
 //
@@ -332,6 +271,22 @@ void Slot::disconnectPipe()
 }
 
 //
+// SourceInterface
+//
+void SourceInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
+void SourceInterface::postClone(const AnalysisObject *cloneSource)
+{
+    auto si = qobject_cast<const SourceInterface *>(cloneSource);
+    assert(si);
+    this->setModuleId(si->getModuleId());
+    AnalysisObject::postClone(cloneSource);
+}
+
+//
 // OperatorInterface
 //
 // FIXME: does not perform acceptedInputTypes validity test atm!
@@ -380,6 +335,168 @@ s32 OperatorInterface::getMaximumOutputRank()
     return result;
 }
 
+void OperatorInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
+//
+// SinkInterface
+//
+
+void SinkInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
+void SinkInterface::postClone(const AnalysisObject *cloneSource)
+{
+    auto si = qobject_cast<const SinkInterface *>(cloneSource);
+    assert(si);
+    this->setEnabled(si->isEnabled());
+    OperatorInterface::postClone(cloneSource);
+}
+
+//
+// Directory
+//
+
+QString to_string(const DisplayLocation &loc)
+{
+    switch (loc)
+    {
+        case DisplayLocation::Any:
+            return QSL("any");
+
+        case DisplayLocation::Operator:
+            return QSL("operator");
+
+        case DisplayLocation::Sink:
+            return QSL("sink");
+    }
+
+    return QSL("any");
+}
+
+DisplayLocation displayLocation_from_string(const QString &str_)
+{
+    auto str = str_.toLower();
+
+    if (str == QSL("operator"))
+        return DisplayLocation::Operator;
+
+    if (str == QSL("sink"))
+        return DisplayLocation::Sink;
+
+    return DisplayLocation::Any;
+}
+
+Directory::Directory(QObject *parent)
+    : AnalysisObject(parent)
+{ }
+
+Directory::MemberSet Directory::getMemberSet() const
+{
+    MemberSet result;
+
+    for (const auto &id: m_members)
+    {
+        result.insert(id);
+    }
+
+    return result;
+}
+
+void Directory::read(const QJsonObject &json)
+{
+    m_members.clear();
+
+    auto memberIds = json["members"].toArray();
+
+    for (auto it = memberIds.begin(); it != memberIds.end(); it++)
+    {
+        m_members.push_back(QUuid(it->toString()));
+    }
+
+    setDisplayLocation(displayLocation_from_string(json["displayLocation"].toString()));
+}
+
+void Directory::write(QJsonObject &json) const
+{
+    QJsonArray memberIds;
+
+    for (const auto &id: m_members)
+    {
+        memberIds.append(id.toString());
+    }
+
+    json["members"] = memberIds;
+    json["displayLocation"] = to_string(getDisplayLocation());
+}
+
+void Directory::postClone(const AnalysisObject *cloneSource)
+{
+    m_members.clear();
+    AnalysisObject::postClone(cloneSource);
+}
+
+void Directory::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
+bool check_directory_consistency(const DirectoryVector &dirs, const Analysis *analysis)
+{
+#ifndef QT_NO_DEBUG
+    qDebug() << __PRETTY_FUNCTION__;
+
+    QHash<DirectoryPtr, Directory::MemberSet> memberSets;
+
+    for (const auto &dir: dirs)
+    {
+        memberSets.insert(dir, dir->getMemberSet());
+    }
+
+    Directory::MemberSet allMembers;
+
+    for (auto it = memberSets.begin();
+         it != memberSets.end();
+         it++)
+    {
+        auto &dir = it.key();
+        auto &set = it.value();
+
+        if (allMembers.intersects(set))
+        {
+            auto duplicates = allMembers;
+            duplicates.intersect(set);
+
+            qDebug() << __PRETTY_FUNCTION__
+                << "checking dir" << dir << dir->getId() << dir->objectName()
+                << ", duplicates:" << duplicates;
+
+            if (analysis)
+            {
+                for (const auto &did: duplicates)
+                {
+                    if (auto dup = analysis->getObject(did))
+                    {
+                        qDebug() << "  duplicate:" << dup->objectName() << dup->getId();
+                    }
+                }
+            }
+
+            assert(false);
+        }
+
+        allMembers.unite(set);
+    }
+#endif
+
+    return true;
+}
+
+
 //
 // Extractor
 //
@@ -405,12 +522,11 @@ Extractor::Extractor(QObject *parent)
 
 void Extractor::beginRun(const RunInfo &runInfo, Logger logger)
 {
-    m_currentCompletionCount = 0;
-
     m_fastFilter = {};
     for (auto slowFilter: m_filter.getSubFilters())
     {
-        auto subfilter = a2::data_filter::make_filter(slowFilter.getFilter().toStdString(), slowFilter.getWordIndex());
+        auto subfilter = a2::data_filter::make_filter(slowFilter.getFilter().toStdString(),
+                                                      slowFilter.getWordIndex());
         add_subfilter(&m_fastFilter, subfilter);
     }
 
@@ -435,32 +551,6 @@ void Extractor::beginRun(const RunInfo &runInfo, Logger logger)
     }
 
     params.name = this->objectName();
-
-    m_rng.seed(m_rngSeed);
-
-    {
-        QMutexLocker lock(&m_hitCountsMutex);
-        m_hitCounts.resize(addressCount);
-
-        if (!runInfo.keepAnalysisState)
-        {
-            for (s32 i=0; i<m_hitCounts.size(); ++i)
-            {
-                m_hitCounts[i] = 0.0;
-            }
-        }
-    }
-}
-
-void Extractor::beginEvent()
-{
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << this << objectName();
-#endif
-
-    clear_completion(&m_fastFilter);
-    m_currentCompletionCount = 0;
-    m_output.getParameters().invalidateAll();
 }
 
 s32 Extractor::getNumberOfOutputs() const
@@ -540,10 +630,12 @@ void Extractor::write(QJsonObject &json) const
     json["options"] = static_cast<s32>(m_options);
 }
 
-QVector<double> Extractor::getHitCounts() const
+void Extractor::postClone(const AnalysisObject *cloneSource)
 {
-    QMutexLocker lock(&m_hitCountsMutex);
-    return m_hitCounts;
+    // Generate a new seed for the clone
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
+    SourceInterface::postClone(cloneSource);
 }
 
 //
@@ -581,11 +673,6 @@ void ListFilterExtractor::beginRun(const RunInfo &runInfo, Logger logger)
     params.name = this->objectName();
 }
 
-void ListFilterExtractor::beginEvent()
-{
-    m_output.getParameters().invalidateAll();
-}
-
 void ListFilterExtractor::write(QJsonObject &json) const
 {
     json["listFilter"] = to_json(m_a2Extractor.listFilter);
@@ -602,6 +689,14 @@ void ListFilterExtractor::read(const QJsonObject &json)
     QString sSeed = json["rngSeed"].toString();
     m_rngSeed = sSeed.toULongLong(nullptr, 16);
     m_a2Extractor.options = static_cast<Options::opt_t>(json["options"].toInt());
+}
+
+void ListFilterExtractor::postClone(const AnalysisObject *cloneSource)
+{
+    // Generate a new seed for the clone
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
+    SourceInterface::postClone(cloneSource);
 }
 
 //
@@ -753,70 +848,6 @@ void CalibrationMinMax::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void CalibrationMinMax::step()
-{
-    auto calibOneParam = [](const Parameter &inParam, Parameter &outParam, const CalibrationMinMaxParameters &calib)
-    {
-        outParam.valid = inParam.valid;
-        if (inParam.valid)
-        {
-            double a1 = inParam.lowerLimit;
-            double a2 = inParam.upperLimit;
-            double t1 = calib.unitMin;
-            double t2 = calib.unitMax;
-
-            Q_ASSERT(a1 - a2 != 0.0);
-            Q_ASSERT(t1 - t2 != 0.0);
-
-            //if (std::abs(a1) > std::abs(a2))
-            //    std::swap(a1, a2);
-
-            //if (std::abs(t1) > std::abs(t2))
-            //    std::swap(t1, t2);
-
-            outParam.value = (inParam.value - a1) * (t2 - t1) / (a2 - a1) + t1;
-        }
-    };
-
-    if (m_inputSlot.inputPipe)
-    {
-        auto &out(m_output.getParameters());
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-        const s32 inSize = in.size();
-
-        s32 idxMin = 0;
-        s32 idxMax = in.size();
-
-        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
-        {
-            Q_ASSERT(out.size() == 1);
-            idxMin = m_inputSlot.paramIndex;
-            idxMax = idxMin + 1;
-        }
-        else
-        {
-            Q_ASSERT(out.size() == in.size());
-        }
-
-        for (s32 idx = idxMin, outIdx = 0;
-             idx < idxMax;
-             ++idx, ++outIdx)
-        {
-            auto &outParam(out[outIdx]);
-
-            if (idx < inSize)
-            {
-                const auto &inParam(in[idx]);
-                calibOneParam(inParam, outParam, getCalibration(idx));
-            }
-            else
-            {
-                outParam.valid = false;
-            }
-        }
-    }
-}
-
 void CalibrationMinMax::setCalibration(s32 address, const CalibrationMinMaxParameters &params)
 {
     m_calibrations.resize(std::max(m_calibrations.size(), address+1));
@@ -923,22 +954,6 @@ void IndexSelector::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void IndexSelector::step()
-{
-    if (m_inputSlot.inputPipe)
-    {
-        auto &out(m_output.getParameters());
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-
-        out[0].valid = false;
-
-        if (m_index < in.size())
-        {
-            out[0] = in[m_index];
-        }
-    }
-}
-
 void IndexSelector::read(const QJsonObject &json)
 {
     m_index = json["index"].toInt();
@@ -1007,39 +1022,6 @@ void PreviousValue::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void PreviousValue::step()
-{
-    if (m_inputSlot.inputPipe)
-    {
-        auto &out(m_output.getParameters());
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-
-        s32 minIdx = 0;
-        s32 maxIdx = out.size();
-        s32 paramIndex = (m_inputSlot.paramIndex == Slot::NoParamIndex ? 0 : m_inputSlot.paramIndex);
-
-        // Copy elements instead of assigning the vector directly as others
-        // (e.g. the PipeDisplay widget) may keep temporary references to our
-        // output vector and those would be invalidated on assignment!
-        for (s32 idx = minIdx; idx < maxIdx; ++idx, ++paramIndex)
-        {
-            out[idx] = m_previousInput[paramIndex];
-        }
-
-        paramIndex = (m_inputSlot.paramIndex == Slot::NoParamIndex ? 0 : m_inputSlot.paramIndex);
-
-        for (s32 idx = minIdx; idx < maxIdx; ++idx, ++paramIndex)
-        {
-            const Parameter &inParam(in[paramIndex]);
-
-            if (!m_keepValid || inParam.valid)
-            {
-                m_previousInput[idx] = inParam;
-            }
-        }
-    }
-}
-
 void PreviousValue::read(const QJsonObject &json)
 {
     m_keepValid = json["keepValid"].toBool();
@@ -1101,42 +1083,6 @@ void RetainValid::beginRun(const RunInfo &, Logger logger)
         out.resize(0);
         out.name = QString();
         out.unit = QString();
-    }
-}
-
-void RetainValid::step()
-{
-    if (m_inputSlot.inputPipe)
-    {
-        auto &out(m_output.getParameters());
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-
-        s32 paramIndex = m_inputSlot.paramIndex;
-
-        if (paramIndex != Slot::NoParamIndex)
-        {
-            Q_ASSERT(paramIndex >= 0 && paramIndex < in.size());
-
-            if (in[paramIndex].valid)
-            {
-                out[0] = in[paramIndex];
-            }
-        }
-        else
-        {
-            const s32 size = in.size();
-
-            for (s32 address = 0; address < size; ++address)
-            {
-                auto &outParam(out[address]);
-                const auto &inParam(in[address]);
-
-                if (inParam.valid)
-                {
-                    outParam = inParam;
-                }
-            }
-        }
     }
 }
 
@@ -1236,46 +1182,6 @@ void Difference::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void Difference::step()
-{
-    if (!m_inputA.isParamIndexInRange() || !m_inputB.isParamIndexInRange())
-        return;
-
-    if (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex)
-    {
-        // Both inputs are single values
-        auto &out(m_output.parameters[0]);
-        const auto &inA(m_inputA.inputPipe->parameters[m_inputA.paramIndex]);
-        const auto &inB(m_inputB.inputPipe->parameters[m_inputB.paramIndex]);
-        out.valid = (inA.valid && inB.valid);
-        if (out.valid)
-        {
-            out.value = inA.value - inB.value;
-        }
-    }
-    else if (m_inputA.paramIndex == Slot::NoParamIndex && m_inputB.paramIndex == Slot::NoParamIndex)
-    {
-        // Both inputs are arrays
-        const auto &paramsA(m_inputA.inputPipe->parameters);
-        const auto &paramsB(m_inputB.inputPipe->parameters);
-        auto &paramsOut(m_output.parameters);
-
-        s32 maxIdx = paramsOut.size();
-        for (s32 idx = 0; idx < maxIdx; ++idx)
-        {
-            paramsOut[idx].valid = (paramsA[idx].valid && paramsB[idx].valid);
-            if (paramsOut[idx].valid)
-            {
-                paramsOut[idx].value = paramsA[idx].value - paramsB[idx].value;
-            }
-        }
-    }
-    else
-    {
-        InvalidCodePath;
-    }
-}
-
 void Difference::read(const QJsonObject &json)
 {
 }
@@ -1330,43 +1236,6 @@ void Sum::beginRun(const RunInfo &, Logger logger)
         out.resize(0);
         out.name = QString();
         out.unit = QString();
-    }
-}
-
-void Sum::step()
-{
-    if (m_inputSlot.inputPipe)
-    {
-        auto &outParam(m_output.getParameters()[0]);
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-
-        outParam.value = 0.0;
-        outParam.valid = false;
-        s32 validCount = 0;
-
-        for (s32 i = 0; i < in.size(); ++i)
-        {
-            const auto &inParam(in[i]);
-
-            if (inParam.valid)
-            {
-                outParam.value += inParam.value;
-                outParam.valid = true;
-                ++validCount;
-            }
-        }
-
-        if (m_calculateMean)
-        {
-            if (validCount > 0)
-            {
-                outParam.value /= validCount;
-            }
-            else
-            {
-                outParam.valid = false;
-            }
-        }
     }
 }
 
@@ -1552,163 +1421,6 @@ void AggregateOps::beginRun(const RunInfo &runInfo, Logger logger)
     }
 }
 
-void AggregateOps::step()
-{
-    // validity check and threshold tests
-    auto is_valid_and_inside = [](const auto param, double tmin, double tmax)
-    {
-        return (param.valid
-                && (std::isnan(tmin) || param.value >= tmin)
-                && (std::isnan(tmax) || param.value <= tmax));
-    };
-
-    if (!m_inputSlot.inputPipe)
-        return;
-
-    auto &outParam(m_output.getParameters()[0]);
-    const auto &in(m_inputSlot.inputPipe->getParameters());
-
-    if (m_op == Op_Min)
-    {
-        outParam.value = std::numeric_limits<double>::max();
-    }
-    else if (m_op == Op_Max)
-    {
-        outParam.value = std::numeric_limits<double>::lowest();
-    }
-    else
-    {
-        outParam.value = 0.0;
-    }
-
-    outParam.valid = false;
-    u32 validCount = 0;
-
-    s32 minMaxIndex = 0; // stores index of min/max value for Op_MinX/Op_MaxX
-    double meanX = 0.0;
-    double meanXEntryCount = 0.0;
-
-    for (s32 i = 0; i < in.size(); ++i)
-    {
-        const auto &inParam(in[i]);
-
-        if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
-        {
-            ++validCount;
-
-            if (m_op == Op_Sum || m_op == Op_Mean || m_op == Op_Sigma)
-            {
-                outParam.value += inParam.value;
-            }
-            else if (m_op == Op_Min)
-            {
-                outParam.value = std::min(outParam.value, inParam.value);
-            }
-            else if (m_op == Op_Max)
-            {
-                outParam.value = std::max(outParam.value, inParam.value);
-            }
-            else if (m_op == Op_MinX)
-            {
-                if (inParam.value < in[minMaxIndex].value)
-                {
-                    minMaxIndex = i;
-                }
-            }
-            else if (m_op == Op_MaxX)
-            {
-                if (inParam.value > in[minMaxIndex].value)
-                {
-                    minMaxIndex = i;
-                }
-            }
-            else if (m_op == Op_MeanX || m_op == Op_SigmaX)
-            {
-                meanX += inParam.value * i;
-                meanXEntryCount += inParam.value;
-            }
-        }
-    }
-
-    outParam.valid = (validCount > 0);
-
-    if ((m_op == Op_Mean || m_op == Op_Sigma) && outParam.valid)
-    {
-        outParam.value /= validCount; // mean
-
-        if (m_op == Op_Sigma && outParam.value != 0.0)
-        {
-            double mu = outParam.value;
-            double sigma = 0.0;
-
-            for (s32 i = 0; i < in.size(); ++i)
-            {
-                const auto &inParam(in[i]);
-                if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
-                {
-                    double d = inParam.value - mu;
-                    d *= d;
-                    sigma += d;
-                }
-            }
-            sigma = std::sqrt(sigma / validCount);
-            outParam.value = sigma;
-        }
-    }
-    else if (m_op == Op_Multiplicity)
-    {
-        outParam.value = validCount;
-        outParam.valid = true;
-    }
-    else if (m_op == Op_MinX || m_op == Op_MaxX)
-    {
-        outParam.value = minMaxIndex;
-    }
-    else if (m_op == Op_MeanX || m_op == Op_SigmaX)
-    {
-        outParam.valid = true;
-
-        if (meanXEntryCount != 0.0)
-        {
-            meanX /= meanXEntryCount;
-
-            if (m_op == Op_MeanX)
-            {
-                outParam.value = meanX;
-            }
-            else if (m_op == Op_SigmaX)
-            {
-                double sigma = 0.0;
-
-                if (meanX != 0.0)
-                {
-                    for (s32 i = 0; i < in.size(); ++i)
-                    {
-                        const auto &inParam(in[i]);
-                        if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
-                        {
-                            double v = inParam.value;
-                            if (v != 0.0)
-                            {
-                                double d = i - meanX;
-                                d *= d;
-                                sigma += d * v;
-                            }
-                        }
-                    }
-                    sigma = sqrt(sigma / meanXEntryCount);
-                }
-
-                outParam.value = sigma;
-            }
-        }
-        else
-        {
-            outParam.value = 0.0;
-        }
-    }
-}
-
 void AggregateOps::read(const QJsonObject &json)
 {
     m_op = aggregateOp_from_string(json["operation"].toString());
@@ -1879,34 +1591,6 @@ void ArrayMap::beginRun(const RunInfo &, Logger logger)
 #endif
 }
 
-void ArrayMap::step()
-{
-    s32 mappingCount = m_mappings.size();
-
-    for (s32 mIndex = 0;
-         mIndex < mappingCount;
-         ++mIndex)
-    {
-        IndexPair ip(m_mappings.at(mIndex));
-        Parameter *inParam = nullptr;
-        Slot *inputSlot = ip.slotIndex < m_inputs.size() ? m_inputs[ip.slotIndex].get() : nullptr;
-
-        if (inputSlot && inputSlot->inputPipe)
-        {
-            inParam = inputSlot->inputPipe->getParameter(ip.paramIndex);
-        }
-
-        if (inParam)
-        {
-            m_output.parameters[mIndex] = *inParam;
-        }
-        else
-        {
-            m_output.parameters[mIndex].valid = false;
-        }
-    }
-}
-
 s32 ArrayMap::getNumberOfSlots() const
 {
     return m_inputs.size();
@@ -2055,54 +1739,6 @@ void RangeFilter1D::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void RangeFilter1D::step()
-{
-    if (m_inputSlot.isParamIndexInRange())
-    {
-        auto &out(m_output.getParameters());
-        const auto &in(m_inputSlot.inputPipe->getParameters());
-
-        s32 idxMin = 0;
-        s32 idxMax = in.size();
-
-        if (m_inputSlot.isParameterConnection())
-        {
-            idxMin = m_inputSlot.paramIndex;
-            idxMax = idxMin + 1;
-        }
-
-        for (s32 idx = idxMin, outIdx = 0;
-             idx < idxMax;
-             ++idx, ++outIdx)
-        {
-            auto &outParam(out[outIdx]);
-            const auto &inParam(in[idx]);
-
-            if (inParam.valid)
-            {
-                bool inRange = (m_minValue <= inParam.value && inParam.value < m_maxValue);
-
-                if ((inRange && !m_keepOutside)
-                    || (!inRange && m_keepOutside))
-                {
-                    // Only assigning value instead of the whole parameter
-                    // because the limits have been adjusted in beginRun()
-                    outParam.value = inParam.value;
-                    outParam.valid = true;
-                }
-                else
-                {
-                    outParam.valid = false;
-                }
-            }
-            else
-            {
-                outParam.valid = false;
-            }
-        }
-    }
-}
-
 void RangeFilter1D::read(const QJsonObject &json)
 {
     m_minValue = json["minValue"].toDouble();
@@ -2179,54 +1815,6 @@ void ConditionFilter::beginRun(const RunInfo &, Logger logger)
     }
 }
 
-void ConditionFilter::step()
-{
-#if 1
-    assert(!"not implemented. a2 should be used!");
-#else
-    if (m_dataInput.isParamIndexInRange() && m_conditionInput.isParamIndexInRange())
-    {
-        auto &out(m_output.getParameters());
-        const auto &dataIn(m_dataInput.inputPipe->getParameters());
-        const auto &condIn(m_conditionInput.inputPipe->getParameters());
-
-        s32 idxMin = 0;
-        s32 idxMax = out.size();
-
-        if (m_dataInput.isParameterConnection())
-        {
-            idxMin = m_dataInput.paramIndex;
-            idxMax = idxMin + 1;
-        }
-
-        for (s32 idx = idxMin, outIdx = 0;
-             idx < idxMax;
-             ++idx, ++outIdx)
-        {
-            auto &outParam(out[outIdx]);
-            const auto &dataParam(dataIn[idx]);
-
-            // The index into the condition array can be out of range if the
-            // condition array is smaller than the data array. In that case a
-            // default constructed and thus invalid parameter will be used.
-            const auto condParam(m_conditionInput.isParameterConnection()
-                                 ? condIn.value(m_conditionInput.paramIndex)
-                                 : condIn.value(idx));
-
-            if (condParam.valid)
-            {
-                outParam.valid = dataParam.valid;
-                outParam.value = dataParam.value;
-            }
-            else
-            {
-                outParam.valid = false;
-            }
-        }
-    }
-#endif
-}
-
 // Inputs
 s32 ConditionFilter::getNumberOfSlots() const
 {
@@ -2297,32 +1885,6 @@ void RectFilter2D::beginRun(const RunInfo &, Logger logger)
 
     // Both connected and in range
     out.resize(1);
-}
-
-void RectFilter2D::step()
-{
-    if (!m_xInput.isParamIndexInRange() || !m_yInput.isParamIndexInRange())
-        return;
-
-    Parameter *out(m_output.getParameter(0));
-    Parameter *px = m_xInput.inputPipe->getParameter(m_xInput.paramIndex);
-    Parameter *py = m_yInput.inputPipe->getParameter(m_yInput.paramIndex);
-
-    Q_ASSERT(out);
-    Q_ASSERT(px);
-    Q_ASSERT(py);
-
-    out->valid = false;
-
-    if (px->valid && py->valid)
-    {
-        bool xInRange = m_xInterval.contains(px->value);
-        bool yInRange = m_yInterval.contains(py->value);
-
-        out->valid = (m_op == OpAnd
-                      ? (xInRange && yInRange)
-                      : (xInRange || yInRange));
-    }
 }
 
 s32 RectFilter2D::getNumberOfSlots() const
@@ -2550,27 +2112,6 @@ void BinarySumDiff::beginRun(const RunInfo &, Logger logger)
         param.lowerLimit = m_outputLowerLimit;
         param.upperLimit = m_outputUpperLimit;
     }
-}
-
-void BinarySumDiff::step()
-{
-    assert(!"not implemented. a2 should be used!");
-#if 0
-    auto &o(m_output.getParameters());
-
-    if (!o.isEmpty())
-    {
-        const auto &a(m_inputA.inputPipe->getParameters());
-        const auto &b(m_inputB.inputPipe->getParameters());
-        auto fn = EquationImpls.at(m_equationIndex).impl;
-
-        fn(a, b, o);
-    }
-    else
-    {
-        o.invalidateAll();
-    }
-#endif
 }
 
 s32 BinarySumDiff::getNumberOfSlots() const
@@ -2970,11 +2511,6 @@ void ExpressionOperator::read(const QJsonObject &json)
     }
 }
 
-void ExpressionOperator::step()
-{
-    assert(!"not implemented. a2 must be used!");
-}
-
 ExpressionOperator *ExpressionOperator::cloneViaSerialization() const
 {
     QJsonObject transferData;
@@ -2994,12 +2530,12 @@ static const size_t HistoMemAlignment = 64;
 
 Histo1DSink::Histo1DSink(QObject *parent)
     : BasicSink(parent)
+    , m_rrf(AxisBinning::NoResolutionReduction)
 {
 }
 
 void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
 {
-#if ANALYSIS_USE_SHARED_HISTO1D_MEM
     /* Single memory block allocation strategy:
      * Don't shrink.
      * If resizing to a larger size, recreate the arena. This will invalidate
@@ -3060,7 +2596,11 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
         }
 
         AxisBinning binning(m_bins, xMin, xMax);
-        SharedHistoMem histoMem = { m_histoArena, m_histoArena->pushArray<double>(m_bins, HistoMemAlignment) };
+        SharedHistoMem histoMem =
+        {
+            m_histoArena,
+            m_histoArena->pushArray<double>(m_bins, HistoMemAlignment)
+        };
 
         assert(histoMem.data);
 
@@ -3070,11 +2610,6 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
         {
             assert(!histo->ownsMemory());
             histo->setData(histoMem, binning);
-
-            if (!runInfo.keepAnalysisState)
-            {
-                histo->clear();
-            }
         }
         else
         {
@@ -3103,122 +2638,18 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
         }
     }
 
-#else
-    // Instead of just clearing the histos vector and recreating it this code
-    // tries to reuse existing histograms. This is done so that open histogram
-    // windows still reference the correct histogram after beginRun() is
-    // invoked. Otherwise the user would have to reopen histogram windows quite
-    // frequently.
-
-    if (m_inputSlot.isParamIndexInRange())
+    if (!runInfo.keepAnalysisState)
     {
-        s32 minIdx = 0;
-        s32 maxIdx = m_inputSlot.inputPipe->parameters.size();
-
-        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
-        {
-            minIdx = m_inputSlot.paramIndex;
-            maxIdx = minIdx + 1;
-        }
-
-        m_histos.resize(maxIdx - minIdx);
-
-        for (s32 idx = minIdx, histoIndex = 0; idx < maxIdx; ++idx, ++histoIndex)
-        {
-            double xMin = m_xLimitMin;
-            double xMax = m_xLimitMax;
-
-            if (std::isnan(xMin))
-            {
-                xMin = m_inputSlot.inputPipe->parameters[idx].lowerLimit;
-            }
-
-            if (std::isnan(xMax))
-            {
-                xMax = m_inputSlot.inputPipe->parameters[idx].upperLimit;
-            }
-
-            if (m_histos[histoIndex])
-            {
-                auto histo = m_histos[histoIndex].get();
-
-                if (histo->getNumberOfBins() != static_cast<u32>(m_bins) || !runInfo.keepAnalysisState)
-                {
-                    histo->resize(m_bins); // calls clear() even if the size does not change
-                }
-
-                AxisBinning newBinning(m_bins, xMin, xMax);
-
-                if (newBinning != histo->getAxisBinning(Qt::XAxis))
-                {
-                    histo->setAxisBinning(Qt::XAxis, newBinning);
-                    histo->clear(); // have to clear because the binning changed
-                }
-            }
-            else
-            {
-                m_histos[histoIndex] = std::make_unique<Histo1D>(m_bins, xMin, xMax);
-            }
-
-            auto histo = m_histos[histoIndex].get();
-            auto histoName = this->objectName();
-            AxisInfo axisInfo;
-            axisInfo.title = this->m_xAxisTitle;
-            axisInfo.unit  = m_inputSlot.inputPipe->parameters.unit;
-
-            if (maxIdx - minIdx > 1)
-            {
-                histoName = QString("%1[%2]").arg(histoName).arg(idx);
-                axisInfo.title = QString("%1[%2]").arg(axisInfo.title).arg(idx);
-            }
-            histo->setObjectName(histoName);
-            histo->setAxisInfo(Qt::XAxis, axisInfo);
-            histo->setTitle(histoName);
-
-            if (!runInfo.runId.isEmpty())
-            {
-                histo->setFooter(QString("<small>runId=%1</small>").arg(runInfo.runId));
-            }
-        }
+        clearState();
     }
-    else
-    {
-        m_histos.resize(0);
-    }
-#endif
 }
 
-void Histo1DSink::step()
+void Histo1DSink::clearState()
 {
-    if (m_inputSlot.inputPipe && !m_histos.empty())
+    qDebug() << __PRETTY_FUNCTION__ << objectName();
+    for (auto &histo: m_histos)
     {
-        s32 paramIndex = m_inputSlot.paramIndex;
-
-        if (paramIndex >= 0)
-        {
-            // Input is a single value
-            const Parameter *param = m_inputSlot.inputPipe->getParameter(paramIndex);
-            if (param && param->valid)
-            {
-                m_histos[0]->fill(param->value);
-            }
-        }
-        else
-        {
-            // Input is an array
-            const auto &in(m_inputSlot.inputPipe->getParameters());
-            const s32 inSize = in.size();
-            const s32 histoCount = m_histos.size();
-
-            for (s32 paramIndex = 0; paramIndex < std::min(inSize, histoCount); ++paramIndex)
-            {
-                const Parameter *param = m_inputSlot.inputPipe->getParameter(paramIndex);
-                if (param && param->valid)
-                {
-                    m_histos[paramIndex]->fill(param->value);
-                }
-            }
-        }
+        histo->clear();
     }
 }
 
@@ -3228,6 +2659,7 @@ void Histo1DSink::read(const QJsonObject &json)
     m_xAxisTitle = json["xAxisTitle"].toString();
     m_xLimitMin = json["xLimitMin"].toDouble(make_quiet_nan());
     m_xLimitMax = json["xLimitMax"].toDouble(make_quiet_nan());
+    m_rrf = json["resolutionReductionFactor"].toInt(Histo1D::NoRR);
 
     Q_ASSERT(m_bins > 0);
 }
@@ -3238,19 +2670,12 @@ void Histo1DSink::write(QJsonObject &json) const
     json["xAxisTitle"] = m_xAxisTitle;
     json["xLimitMin"]  = m_xLimitMin;
     json["xLimitMax"]  = m_xLimitMax;
+    json["resolutionReductionFactor"] = static_cast<qint64>(getResolutionReductionFactor());
 }
 
 size_t Histo1DSink::getStorageSize() const
 {
-#if ANALYSIS_USE_SHARED_HISTO1D_MEM
     return m_histoArena ? m_histoArena->size() : 0;
-#else
-    return std::accumulate(m_histos.begin(), m_histos.end(),
-                           static_cast<size_t>(0u),
-                           [](size_t v, const auto &histoPtr) {
-        return v + histoPtr->getStorageSize();
-    });
-#endif
 }
 
 //
@@ -3267,10 +2692,31 @@ Histo2DSink::Histo2DSink(QObject *parent)
 // the input parameters limits. Clears the histogram.
 void Histo2DSink::beginRun(const RunInfo &runInfo, Logger logger)
 {
-    if (m_inputX.inputPipe && m_inputY.inputPipe
-        && m_inputX.paramIndex < m_inputX.inputPipe->parameters.size()
-        && m_inputY.paramIndex < m_inputY.inputPipe->parameters.size())
+    if (m_inputX.inputPipe && m_inputY.inputPipe)
     {
+        auto sourceX = m_inputX.inputPipe->getSource();
+        auto sourceY = m_inputY.inputPipe->getSource();
+
+        qDebug() << __PRETTY_FUNCTION__
+            << metaObject()->className()
+            << objectName() << getId()
+            << "sourceX =" << sourceX << ", flagsX =" << to_string(sourceX->getObjectFlags())
+            << ", paramIndexX =" << m_inputX.paramIndex
+            << "\n"
+            << "sourceY =" << sourceY << ", flagsY =" << to_string(sourceY->getObjectFlags())
+            << ", paramIndexY =" << m_inputY.paramIndex
+            << "\n"
+            << ", required_inputs_connected_and_valid =" << required_inputs_connected_and_valid(this)
+            ;
+    }
+
+    if (m_inputX.inputPipe && m_inputY.inputPipe
+        && 0 <= m_inputX.paramIndex && m_inputX.paramIndex < m_inputX.inputPipe->parameters.size()
+        && 0 <= m_inputY.paramIndex && m_inputY.paramIndex < m_inputY.inputPipe->parameters.size())
+    {
+        auto sourceX = m_inputX.inputPipe->getSource();
+        auto sourceY = m_inputY.inputPipe->getSource();
+
         double xMin = m_xLimitMin;
         double xMax = m_xLimitMax;
 
@@ -3309,7 +2755,7 @@ void Histo2DSink::beginRun(const RunInfo &runInfo, Logger logger)
                 || m_histo->getAxisBinning(Qt::YAxis).getBins() != static_cast<u32>(m_yBins)
                 || !runInfo.keepAnalysisState)
             {
-                // resize always clears the histo
+                // resize always implicitly clears
                 m_histo->resize(m_xBins, m_yBins);
             }
 
@@ -3349,6 +2795,15 @@ void Histo2DSink::beginRun(const RunInfo &runInfo, Logger logger)
     }
 }
 
+void Histo2DSink::clearState()
+{
+    qDebug() << __PRETTY_FUNCTION__ << objectName();
+    if (m_histo)
+    {
+        m_histo->clear();
+    }
+}
+
 s32 Histo2DSink::getNumberOfSlots() const
 {
     return 2;
@@ -3367,20 +2822,6 @@ Slot *Histo2DSink::getSlot(s32 slotIndex)
     }
 }
 
-void Histo2DSink::step()
-{
-    if (m_inputX.inputPipe && m_inputY.inputPipe && m_histo)
-    {
-        auto paramX = m_inputX.inputPipe->getParameter(m_inputX.paramIndex);
-        auto paramY = m_inputY.inputPipe->getParameter(m_inputY.paramIndex);
-
-        if (isParameterValid(paramX) && isParameterValid(paramY))
-        {
-            m_histo->fill(paramX->value, paramY->value);
-        }
-    }
-}
-
 void Histo2DSink::read(const QJsonObject &json)
 {
     m_xBins = static_cast<s32>(json["xBins"].toInt());
@@ -3393,6 +2834,9 @@ void Histo2DSink::read(const QJsonObject &json)
 
     m_xAxisTitle = json["xAxisTitle"].toString();
     m_yAxisTitle = json["yAxisTitle"].toString();
+
+    m_rrf.x = json["rrfX"].toInt(AxisBinning::NoResolutionReduction);
+    m_rrf.y = json["rrfY"].toInt(AxisBinning::NoResolutionReduction);
 }
 
 void Histo2DSink::write(QJsonObject &json) const
@@ -3407,6 +2851,9 @@ void Histo2DSink::write(QJsonObject &json) const
 
     json["xAxisTitle"] = m_xAxisTitle;
     json["yAxisTitle"] = m_yAxisTitle;
+
+    json["rrfX"] = static_cast<qint64>(m_rrf.x);
+    json["rrfY"] = static_cast<qint64>(m_rrf.y);
 }
 
 size_t Histo2DSink::getStorageSize() const
@@ -3455,23 +2902,92 @@ static RateMonitorSink::Type rate_monitor_sink_type_from_string(const QString &s
 }
 
 RateMonitorSink::RateMonitorSink(QObject *parent)
-    : BasicSink(parent)
+    : SinkInterface(parent)
 {
-    m_inputSlot.acceptedInputTypes = InputType::Array;
+    addSlot();
+}
+
+bool RateMonitorSink::addSlot()
+{
+    auto inputType = InputType::Both;
+
+    auto slot = std::make_shared<Slot>(
+        this, getNumberOfSlots(),
+        QSL("Input #") + QString::number(getNumberOfSlots()), inputType);
+
+    m_inputs.push_back(slot);
+
+    return true;
+}
+
+bool RateMonitorSink::removeLastSlot()
+{
+    if (m_inputs.size() > 1)
+    {
+        m_inputs.back()->disconnectPipe();
+        m_inputs.pop_back();
+        return true;
+    }
+
+    return false;
+}
+
+Slot *RateMonitorSink::getSlot(s32 slotIndex)
+{
+    return m_inputs.value(slotIndex).get();
+}
+
+s32 RateMonitorSink::getNumberOfSlots() const
+{
+    return m_inputs.size();
 }
 
 void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
 {
-    if (!m_inputSlot.isConnected())
+    m_samplerInputMapping.resize(0);
+
+    if (no_input_connected(this))
     {
         m_samplers.resize(0);
+        m_inputSamplerOffsets.resize(0);
         return;
     }
 
-    // Currently only supports connecting to arrays, not single parameters.
-    assert(m_inputSlot.paramIndex == Slot::NoParamIndex);
+    m_inputSamplerOffsets.resize(getNumberOfSlots());
 
-    m_samplers.resize(m_inputSlot.inputPipe->parameters.size());
+    size_t requiredSamplers = 0u;
+
+    for (s32 ii = 0; ii < getNumberOfSlots(); ii++)
+    {
+        auto slot = getSlot(ii);
+
+        if (!slot->isConnected())
+        {
+            m_inputSamplerOffsets[ii] = -1;
+        }
+        else
+        {
+            m_inputSamplerOffsets[ii] = requiredSamplers;
+
+            if (slot->isParameterConnection())
+            {
+                requiredSamplers += 1u;
+                m_samplerInputMapping.push_back(ii);
+            }
+            else
+            {
+                requiredSamplers += slot->inputPipe->getSize();
+
+                for (s32 pi = 0; pi < slot->inputPipe->getSize(); pi++)
+                {
+                    m_samplerInputMapping.push_back(ii);
+                }
+            }
+        }
+    }
+
+    assert(static_cast<size_t>(m_samplerInputMapping.size()) == requiredSamplers);
+    m_samplers.resize(requiredSamplers);
 
     for (auto &sampler: m_samplers)
     {
@@ -3498,8 +3014,7 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
             if (!runInfo.keepAnalysisState)
             {
                 // truncates the history size (not the capacity) to zero
-                sampler->rateHistory.resize(0);
-                sampler->totalSamples = 0.0;
+                sampler->clearHistory();
             }
         }
 
@@ -3515,9 +3030,14 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
     }
 }
 
-void RateMonitorSink::step()
+void RateMonitorSink::clearState()
 {
-    assert(!"not implemented. a2 should be used!");
+    qDebug() << __PRETTY_FUNCTION__ << objectName();
+
+    for (auto &sampler: m_samplers)
+    {
+        sampler->clearHistory();
+    }
 }
 
 void RateMonitorSink::write(QJsonObject &json) const
@@ -3528,16 +3048,37 @@ void RateMonitorSink::write(QJsonObject &json) const
     json["calibrationFactor"] = getCalibrationFactor();
     json["calibrationOffset"] = getCalibrationOffset();
     json["samplingInterval"]  = getSamplingInterval();
+    json["numberOfInputs"] = getNumberOfSlots();
+    json["useCombinedView"] = getUseCombinedView();
 }
 
 void RateMonitorSink::read(const QJsonObject &json)
 {
+    for (auto &slot: m_inputs)
+    {
+        slot->disconnectPipe();
+    }
+    m_inputs.clear();
+    m_samplers.clear();
+
+    // Default to 1 to enable reading of older analysis files that contain the single
+    // input version of the RateMonitorSink
+    s32 inputCount = json["numberOfInputs"].toInt(1);
+
+    for (s32 inputIndex = 0;
+         inputIndex < inputCount;
+         ++inputIndex)
+    {
+        addSlot();
+    }
+
     m_type = rate_monitor_sink_type_from_string(json["type"].toString());
     m_rateHistoryCapacity = json["capacity"].toInt();
     m_unitLabel = json["unitLabel"].toString();
     m_calibrationFactor = json["calibrationFactor"].toDouble(1.0);
     m_calibrationOffset = json["m_calibrationOffset"].toDouble(0.0);
     m_samplingInterval  = json["samplingInterval"].toDouble(1.0);
+    m_useCombinedView   = json["useCombinedView"].toBool(false);
 }
 
 size_t RateMonitorSink::getStorageSize() const
@@ -3655,11 +3196,6 @@ QStringList ExportSink::getOutputFilenames()
     return ExportSinkCodeGenerator(this).getOutputFilenames();
 }
 
-void ExportSink::step()
-{
-    assert(!"not implemented. a2 must be used!");
-}
-
 void ExportSink::write(QJsonObject &json) const
 {
     json["dataInputCount"]   = m_dataInputs.size();
@@ -3684,6 +3220,15 @@ void ExportSink::read(const QJsonObject &json)
     setOutputPrefixPath(json["outputPrefixPath"].toString());
     setCompressionLevel(json["compressionLevel"].toInt());
     setFormat(static_cast<Format>(json["format"].toInt(static_cast<s32>(Format::Sparse))));
+}
+
+void ExportSink::postClone(const AnalysisObject *cloneSource)
+{
+    auto cs = qobject_cast<const ExportSink *>(cloneSource);
+    assert(cs);
+
+    m_outputPrefixPath = cs->getOutputPrefixPath() + "_copy";
+    SinkInterface::postClone(cloneSource);
 }
 
 QString ExportSink::getDataFilePath(const RunInfo &runInfo) const
@@ -3729,31 +3274,29 @@ Analysis::Analysis(QObject *parent)
     , m_timetickCount(0.0)
     , m_a2ArenaIndex(0)
 {
-    m_registry.registerSource<ListFilterExtractor>();
-    m_registry.registerSource<Extractor>();
+    m_objectFactory.registerSource<ListFilterExtractor>();
+    m_objectFactory.registerSource<Extractor>();
 
-    m_registry.registerOperator<CalibrationMinMax>();
-    //m_registry.registerOperator<IndexSelector>();
-    m_registry.registerOperator<PreviousValue>();
-    //m_registry.registerOperator<RetainValid>();
-    m_registry.registerOperator<Difference>();
-    m_registry.registerOperator<Sum>();
-    m_registry.registerOperator<ArrayMap>();
-    m_registry.registerOperator<RangeFilter1D>();
-    m_registry.registerOperator<ConditionFilter>();
-    m_registry.registerOperator<RectFilter2D>();
-    m_registry.registerOperator<BinarySumDiff>();
-    m_registry.registerOperator<AggregateOps>();
-    m_registry.registerOperator<ExpressionOperator>();
+    m_objectFactory.registerOperator<CalibrationMinMax>();
+    m_objectFactory.registerOperator<PreviousValue>();
+    m_objectFactory.registerOperator<Difference>();
+    m_objectFactory.registerOperator<Sum>();
+    m_objectFactory.registerOperator<ArrayMap>();
+    m_objectFactory.registerOperator<RangeFilter1D>();
+    m_objectFactory.registerOperator<ConditionFilter>();
+    m_objectFactory.registerOperator<RectFilter2D>();
+    m_objectFactory.registerOperator<BinarySumDiff>();
+    m_objectFactory.registerOperator<AggregateOps>();
+    m_objectFactory.registerOperator<ExpressionOperator>();
 
-    m_registry.registerSink<Histo1DSink>();
-    m_registry.registerSink<Histo2DSink>();
-    m_registry.registerSink<RateMonitorSink>();
-    m_registry.registerSink<ExportSink>();
+    m_objectFactory.registerSink<Histo1DSink>();
+    m_objectFactory.registerSink<Histo2DSink>();
+    m_objectFactory.registerSink<RateMonitorSink>();
+    m_objectFactory.registerSink<ExportSink>();
 
-    qDebug() << "Registered Sources:   " << m_registry.getSourceNames();
-    qDebug() << "Registered Operators: " << m_registry.getOperatorNames();
-    qDebug() << "Registered Sinks:     " << m_registry.getSinkNames();
+    qDebug() << "Registered Sources:   " << m_objectFactory.getSourceNames();
+    qDebug() << "Registered Operators: " << m_objectFactory.getOperatorNames();
+    qDebug() << "Registered Sinks:     " << m_objectFactory.getSinkNames();
 
     // create a2 arenas
     for (size_t i = 0; i < m_a2Arenas.size(); i++)
@@ -3767,11 +3310,738 @@ Analysis::~Analysis()
 {
 }
 
-void Analysis::beginRun(
-    const RunInfo &runInfo,
-    const vme_analysis_common::VMEIdToIndex &vmeMap,
-    Logger logger)
+//
+// Data Sources
+//
+
+SourceVector Analysis::getSources(const QUuid &eventId, const QUuid &moduleId) const
 {
+    SourceVector result;
+
+    for (const auto &s: m_sources)
+    {
+        if (s->getEventId() == eventId && s->getModuleId() == moduleId)
+            result.push_back(s);
+    }
+
+    return result;
+}
+
+SourceVector Analysis::getSourcesByModule(const QUuid &moduleId) const
+{
+    SourceVector result;
+
+    for (const auto &s: m_sources)
+    {
+        if (s->getModuleId() == moduleId)
+            result.push_back(s);
+    }
+
+    return result;
+}
+
+SourceVector Analysis::getSourcesByEvent(const QUuid &eventId) const
+{
+    SourceVector result;
+
+    for (const auto &s: m_sources)
+    {
+        if (s->getEventId() == eventId)
+            result.push_back(s);
+    }
+
+    return result;
+}
+
+SourcePtr Analysis::getSource(const QUuid &sourceId) const
+{
+    auto it = std::find_if(m_sources.begin(), m_sources.end(),
+                           [sourceId](const SourcePtr &src) {
+        return src->getId() == sourceId;
+    });
+
+    return it != m_sources.end() ? *it : nullptr;
+}
+
+void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
+{
+    source->setEventId(eventId);
+    source->setModuleId(moduleId);
+    addSource(source);
+}
+
+void Analysis::addSource(const SourcePtr &source)
+{
+    m_sources.push_back(source);
+    setModified();
+    source->setObjectFlags(ObjectFlags::NeedsRebuild);
+}
+
+void Analysis::sourceEdited(const SourcePtr &source)
+{
+    setModified();
+
+    source->setObjectFlags(ObjectFlags::NeedsRebuild);
+
+    for (auto &obj: collect_dependent_objects(source.get()))
+        obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+}
+
+void Analysis::removeSource(const SourcePtr &source)
+{
+    removeSource(source.get());
+}
+
+void Analysis::removeSource(SourceInterface *source)
+{
+    assert(source);
+
+    auto it = std::find_if(m_sources.begin(), m_sources.end(),
+                           [source](const SourcePtr &src) {
+        return src.get() == source;
+    });
+
+    if (it != m_sources.end())
+    {
+        // Mark all dependees as needing a rebuild
+        for (auto &obj: collect_dependent_objects(source))
+        {
+            obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+        }
+
+        // Remove our output pipes from any connected slots.
+        for (s32 outputIndex = 0;
+             outputIndex < source->getNumberOfOutputs();
+             outputIndex++)
+        {
+            Pipe *outPipe = source->getOutput(outputIndex);
+            for (Slot *destSlot: outPipe->getDestinations())
+            {
+                destSlot->disconnectPipe();
+            }
+            assert(outPipe->getDestinations().isEmpty());
+        }
+
+        m_sources.erase(it);
+        setModified();
+    }
+}
+
+ListFilterExtractorVector Analysis::getListFilterExtractors(const QUuid &eventId,
+                                                            const QUuid &moduleId) const
+{
+    ListFilterExtractorVector result;
+
+    for (const auto &source: getSources(eventId, moduleId))
+    {
+        if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(source))
+        {
+            result.push_back(lfe);
+        }
+    }
+
+    return result;
+}
+
+void Analysis::setListFilterExtractors(const QUuid &eventId,
+                                       const QUuid &moduleId,
+                                       const ListFilterExtractorVector &extractors)
+{
+    // remove existing listfilter extractors
+    auto it = std::remove_if(m_sources.begin(), m_sources.end(),
+                             [&eventId, &moduleId] (const SourcePtr &source) {
+
+        return (qobject_cast<ListFilterExtractor *>(source.get())
+                && source->getEventId() == eventId
+                && source->getModuleId() == moduleId);
+    });
+
+    // Mark the dependees of the extractors being removed as needing a rebuild.
+    for (auto jt = it; jt != m_sources.end(); jt++)
+    {
+        for (auto &obj: collect_dependent_objects(jt->get()))
+        {
+            obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+        }
+    }
+
+    m_sources.erase(it, m_sources.end());
+
+    // Add the new sources, also setting the rebuild flag.
+    for (auto lfe: extractors)
+    {
+        lfe->setEventId(eventId);
+        lfe->setModuleId(moduleId);
+        m_sources.push_back(lfe);
+        lfe->setObjectFlags(ObjectFlags::NeedsRebuild);
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "added" << extractors.size() << "listfilter extractors";
+
+    setModified();
+}
+
+//
+// Operators
+//
+
+OperatorVector Analysis::getOperators(const QUuid &eventId) const
+{
+    OperatorVector result;
+
+    for (const auto &op: m_operators)
+    {
+        if (op->getEventId() == eventId)
+            result.push_back(op);
+    }
+
+    return result;
+}
+
+OperatorVector Analysis::getOperators(const QUuid &eventId, s32 userLevel) const
+{
+    OperatorVector result;
+
+    for (const auto &op: m_operators)
+    {
+        if (op->getEventId() == eventId && op->getUserLevel() == userLevel)
+            result.push_back(op);
+    }
+
+    return result;
+}
+
+OperatorPtr Analysis::getOperator(const QUuid &operatorId) const
+{
+    auto it = std::find_if(m_operators.begin(), m_operators.end(),
+                           [operatorId](const OperatorPtr &op) {
+        return op->getId() == operatorId;
+    });
+
+    return it != m_operators.end() ? *it : nullptr;
+}
+
+OperatorVector Analysis::getNonSinkOperators() const
+{
+    OperatorVector result;
+
+    for (const auto &op: m_operators)
+    {
+        if (!qobject_cast<SinkInterface *>(op.get()))
+        {
+            result.push_back(op);
+        }
+    }
+
+    return result;
+}
+
+OperatorVector Analysis::getSinkOperators() const
+{
+    OperatorVector result;
+
+    for (const auto &op: m_operators)
+    {
+        if (qobject_cast<SinkInterface *>(op.get()))
+        {
+            result.push_back(op);
+        }
+    }
+
+    return result;
+}
+
+void Analysis::addOperator(const QUuid &eventId, s32 userLevel, const OperatorPtr &op)
+{
+    op->setEventId(eventId);
+    op->setUserLevel(userLevel);
+    addOperator(op);
+}
+
+void Analysis::addOperator(const OperatorPtr &op)
+{
+    m_operators.push_back(op);
+    setModified();
+    op->setObjectFlags(ObjectFlags::NeedsRebuild);
+}
+
+void Analysis::operatorEdited(const OperatorPtr &op)
+{
+    setModified();
+
+    op->setObjectFlags(ObjectFlags::NeedsRebuild);
+
+    for (auto &obj: collect_dependent_objects(op.get()))
+        obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+}
+
+void Analysis::removeOperator(const OperatorPtr &op)
+{
+    removeOperator(op.get());
+}
+
+void Analysis::removeOperator(OperatorInterface *op)
+{
+    assert(op);
+
+    auto it = std::find_if(m_operators.begin(), m_operators.end(),
+                           [op](const OperatorPtr &op_) {
+        return op_.get() == op;
+    });
+
+    if (it != m_operators.end())
+    {
+        for (auto &obj: collect_dependent_objects(op))
+        {
+            obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+        }
+
+        // Remove pipe connections to our input slots.
+        for (s32 si = 0; si < op->getNumberOfSlots(); si++)
+        {
+            Slot *inputSlot = op->getSlot(si);
+            assert(inputSlot);
+            inputSlot->disconnectPipe();
+            assert(!inputSlot->inputPipe);
+        }
+
+        // Remove our output pipes from any connected slots.
+        for (s32 oi = 0; oi < op->getNumberOfOutputs(); oi++)
+        {
+            Pipe *outPipe = op->getOutput(oi);
+            for (Slot *destSlot: outPipe->getDestinations())
+            {
+                destSlot->disconnectPipe();
+            }
+            assert(outPipe->getDestinations().isEmpty());
+        }
+
+        m_operators.erase(it);
+        setModified();
+    }
+}
+
+//
+// Directories
+//
+const DirectoryVector Analysis::getDirectories(const QUuid &eventId,
+                                               const DisplayLocation &loc) const
+{
+    DirectoryVector result;
+
+    for (const auto &dir: m_directories)
+    {
+        if (dir->getEventId() == eventId
+            && (loc == DisplayLocation::Any || dir->getDisplayLocation() == loc))
+        {
+            result.push_back(dir);
+        }
+    }
+
+    return result;
+}
+
+const DirectoryVector Analysis::getDirectories(const QUuid &eventId, s32 userLevel,
+                                               const DisplayLocation &loc) const
+{
+    DirectoryVector result;
+
+    for (const auto &dir: m_directories)
+    {
+        if (dir->getEventId() == eventId
+            && dir->getUserLevel() == userLevel
+            && (loc == DisplayLocation::Any || dir->getDisplayLocation() == loc))
+        {
+            result.push_back(dir);
+        }
+    }
+
+    return result;
+}
+
+DirectoryPtr Analysis::getDirectory(const QUuid &id) const
+{
+    for (const auto &dir: m_directories)
+    {
+        if (dir->getId() == id)
+            return dir;
+    }
+
+    return nullptr;
+}
+
+void Analysis::setDirectories(const DirectoryVector &dirs)
+{
+    m_directories = dirs;
+    setModified();
+}
+
+void Analysis::addDirectory(const DirectoryPtr &dir)
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    m_directories.push_back(dir);
+    setModified();
+}
+
+void Analysis::removeDirectory(const DirectoryPtr &dir)
+{
+    int index = m_directories.indexOf(dir);
+    removeDirectory(index);
+}
+
+void Analysis::removeDirectory(int index)
+{
+    assert(0 <= index && index < m_directories.size());
+    m_directories.removeAt(index);
+    setModified();
+}
+
+DirectoryPtr Analysis::getParentDirectory(const AnalysisObjectPtr &obj) const
+{
+#ifndef QT_NO_DEBUG
+    // Consistency check making sure that the object is not a member of multiple
+    // directories.
+    bool found = false;
+    DirectoryPtr firstFoundDir;
+
+    for (const auto &dir: m_directories)
+    {
+        if (dir->contains(obj))
+        {
+            if (found)
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "object" << obj
+                    << " is contained in multiple directories:"
+                    << ", firstFoundDir =" << firstFoundDir.get()
+                    << ", current dir =" << dir.get()
+                    ;
+            }
+
+            assert(!found);
+            found = true;
+            firstFoundDir = dir;
+        }
+    }
+#endif
+
+    // Returns the first parent directory that contains the given object.
+    for (const auto &dir: m_directories)
+    {
+        if (dir->contains(obj))
+            return dir;
+    }
+
+    return nullptr;
+}
+
+AnalysisObjectVector Analysis::getDirectoryContents(const QUuid &directoryId) const
+{
+    return getDirectoryContents(getDirectory(directoryId));
+}
+
+AnalysisObjectVector Analysis::getDirectoryContents(const DirectoryPtr &dir) const
+{
+    return getDirectoryContents(dir.get());
+}
+
+AnalysisObjectVector Analysis::getDirectoryContents(const Directory *dir) const
+{
+    AnalysisObjectVector result;
+
+    if (dir)
+    {
+        for (auto id: dir->getMembers())
+        {
+            result.push_back(getObject(id));
+        }
+    }
+
+    return result;
+}
+
+AnalysisObjectVector Analysis::getDirectoryContentsRecursively(const QUuid &directoryId) const
+{
+    return getDirectoryContentsRecursively(getDirectory(directoryId));
+}
+
+AnalysisObjectVector Analysis::getDirectoryContentsRecursively(const DirectoryPtr &dir) const
+{
+    return getDirectoryContentsRecursively(dir.get());
+}
+
+AnalysisObjectVector Analysis::getDirectoryContentsRecursively(const Directory *dir) const
+{
+    AnalysisObjectVector result;
+
+    auto objects = getDirectoryContents(dir);
+
+    result += objects;
+
+    for (auto &obj: objects)
+    {
+        if (auto subdir = std::dynamic_pointer_cast<Directory>(obj))
+        {
+            result += getDirectoryContentsRecursively(subdir);
+        }
+    }
+
+    return result;
+}
+
+int Analysis::removeDirectoryRecursively(const DirectoryPtr &dir)
+{
+    auto objects = getDirectoryContents(dir);
+    int removed = removeObjectsRecursively(objects);
+    removeDirectory(dir);
+    removed++;
+    return removed;
+}
+
+class IdComparator
+{
+    public:
+        IdComparator(const QUuid &idToMatch)
+            : m_id(idToMatch)
+        { }
+
+        template<typename T>
+        bool operator()(const T &obj)
+        {
+            return m_id == obj->getId();
+        }
+
+    private:
+        QUuid m_id;
+};
+
+AnalysisObjectPtr Analysis::getObject(const QUuid &id) const
+{
+    IdComparator cmp(id);
+
+    {
+        auto it = std::find_if(m_sources.begin(), m_sources.end(), cmp);
+
+        if (it != m_sources.end())
+            return *it;
+    }
+
+    {
+        auto it = std::find_if(m_operators.begin(), m_operators.end(), cmp);
+
+        if (it != m_operators.end())
+            return *it;
+    }
+
+    {
+        auto it = std::find_if(m_directories.begin(), m_directories.end(), cmp);
+
+        if (it != m_directories.end())
+            return *it;
+    }
+
+    return nullptr;
+}
+
+/* Removes the objects contained in the objects vector from the analysis.
+ * If a directory is encountered its contents will be removed recursively. */
+int Analysis::removeObjectsRecursively(const AnalysisObjectVector &objects)
+{
+    int removed = 0u;
+
+    for (const auto &obj: objects)
+    {
+        if (auto source = std::dynamic_pointer_cast<SourceInterface>(obj))
+        {
+            removeSource(source);
+            removed++;
+        }
+        else if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+        {
+            removeOperator(op);
+            removed++;
+        }
+        else if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
+        {
+            removed += removeDirectoryRecursively(dir);
+        }
+    }
+
+    return removed;
+}
+
+/* Returns a vector containing all child objects of this analysis. Object ordering is
+ * preserved, this means, e.g. ListFilterExtractors will retain the correct ordering. */
+AnalysisObjectVector Analysis::getAllObjects() const
+{
+    AnalysisObjectVector result;
+
+    result.reserve(objectCount());
+
+    for (const auto &obj: m_sources)
+        result.append(obj);
+
+    for (const auto &obj: m_operators)
+        result.append(obj);
+
+    for (const auto &obj: m_directories)
+        result.append(obj);
+
+    return result;
+}
+
+int Analysis::objectCount() const
+{
+    int result = 0;
+
+    result += m_sources.size();
+    result += m_operators.size();
+    result += m_directories.size();
+
+    return result;
+}
+
+void Analysis::addObjects(const AnalysisObjectStore &store)
+{
+    for (auto &obj: store.sources)
+    {
+        addSource(obj);
+    }
+
+    for (auto &obj: store.operators)
+    {
+        addOperator(obj);
+    }
+
+    for (auto &obj: store.directories)
+    {
+        addDirectory(obj);
+    }
+}
+
+void Analysis::addObjects(const AnalysisObjectVector &objects)
+{
+    for (const auto &obj: objects)
+    {
+        if (auto src = std::dynamic_pointer_cast<SourceInterface>(obj))
+        {
+            addSource(src);
+        }
+        else if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+        {
+            addOperator(op);
+        }
+        else if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
+        {
+            addDirectory(dir);
+        }
+    }
+}
+
+//
+// Pre and post run work
+//
+
+void Analysis::updateRanks()
+{
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << ">>>>> begin";
+#endif
+
+    for (auto src: m_sources)
+    {
+#if ENABLE_ANALYSIS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << "setting output ranks of source"
+            << getClassName(src.get()) << src->objectName() << "to 0";
+#endif
+
+        for (s32 oi = 0; oi < src->getNumberOfOutputs(); oi++)
+        {
+            src->getOutput(oi)->setRank(0);
+        }
+    }
+
+    QSet<OperatorInterface *> updated;
+
+    for (auto op: m_operators)
+    {
+        updateRank(op.get(), updated);
+    }
+
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "<<<<< end";
+#endif
+}
+
+void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated)
+{
+    assert(op);
+
+    if (updated.contains(op))
+        return;
+
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << ">>>>> updating rank for"
+        << getClassName(op)
+        << op->objectName();
+#endif
+
+    for (s32 si = 0; si < op->getNumberOfSlots(); si++)
+    {
+        if (Pipe *inputPipe = op->getSlot(si)->inputPipe)
+        {
+            auto *inputObject(inputPipe->getSource());
+
+            // Only operators need to be updated. Data sources will have their rank
+            // set to 0 already.
+            if (auto inputOperator = qobject_cast<OperatorInterface *>(inputObject))
+            {
+                updateRank(inputOperator, updated);
+            }
+        }
+    }
+
+    const s32 maxInputRank = op->getMaximumInputRank();
+
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "maxInputRank =" << maxInputRank;
+#endif
+
+    for (s32 oi = 0; oi < op->getNumberOfOutputs(); oi++)
+    {
+        op->getOutput(oi)->setRank(maxInputRank + 1);
+        updated.insert(op);
+
+#if ENABLE_ANALYSIS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << "output" << oi
+            << "now has rank" << op->getOutput(oi)->getRank();
+#endif
+    }
+
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "<<<<< updated rank for"
+        << getClassName(op)
+        << op->objectName()
+        << "new output rank" << op->getMaximumOutputRank();
+#endif
+}
+
+void Analysis::beginRun(const RunInfo &runInfo,
+                        const vme_analysis_common::VMEIdToIndex &vmeMap,
+                        Logger logger)
+{
+    const bool fullBuild = (
+        m_runInfo.runId != runInfo.runId
+        || m_runInfo.isReplay != runInfo.isReplay
+        || m_vmeMap != vmeMap
+        || getObjectFlags() & ObjectFlags::NeedsRebuild);
+
+    qDebug() << __PRETTY_FUNCTION__
+        << "fullBuild =" << fullBuild
+        << ", keepAnalysisState =" << runInfo.keepAnalysisState
+        << ", runId =" << runInfo.runId
+        << ", localFlags =" << to_string(getObjectFlags())
+        ;
+
     m_runInfo = runInfo;
     m_vmeMap = vmeMap;
 
@@ -3786,19 +4056,20 @@ void Analysis::beginRun(
     updateRanks();
 
     qSort(m_operators.begin(), m_operators.end(),
-          [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
-        return oe1.op->getMaximumInputRank() < oe2.op->getMaximumInputRank();
+          [] (const OperatorPtr &op1, const OperatorPtr &op2) {
+        return op1->getMaximumInputRank() < op2->getMaximumInputRank();
     });
 
 #if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "<<<<< operators sorted by maximum input rank";
-    for (const auto &opEntry: m_operators)
+    for (const auto &op: m_operators)
     {
         qDebug() << "  "
-            << "max input rank =" << opEntry.op->getMaximumInputRank()
-            << getClassName(opEntry.op.get())
-            << opEntry.op->objectName()
-            << ", max output rank =" << opEntry.op->getMaximumOutputRank();
+            << "max input rank =" << op->getMaximumInputRank()
+            << getClassName(op.get())
+            << op->objectName()
+            << ", max output rank =" << op->getMaximumOutputRank()
+            << ", flags =" << op->getObjectFlags();
     }
     qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by maximum input rank";
 #endif
@@ -3807,14 +4078,35 @@ void Analysis::beginRun(
         << m_sources.size() << " sources,"
         << m_operators.size() << " operators";
 
-    for (auto &sourceEntry: m_sources)
+    u32 sourcesBuilt = 0;
+
+    for (auto &source: m_sources)
     {
-        sourceEntry.source->beginRun(runInfo, logger);
+        if (fullBuild || source->getObjectFlags() & ObjectFlags::NeedsRebuild)
+        {
+            qDebug() << __PRETTY_FUNCTION__
+                << "beginRun() on"
+                << " class =" << source->metaObject()->className()
+                << ", name =" << source->objectName()
+                << ", id =" << source->getId()
+                << ", fullBuild =" << fullBuild
+                << ", objectFlags =" << to_string(source->getObjectFlags());
+
+            source->beginRun(runInfo, logger);
+            source->clearObjectFlags(ObjectFlags::NeedsRebuild);
+            sourcesBuilt++;
+        }
+        else if (!runInfo.keepAnalysisState)
+        {
+            source->clearState();
+        }
     }
 
-    for (auto &operatorEntry: m_operators)
+    u32 operatorsBuilt = 0;
+
+    for (auto &op: m_operators)
     {
-        if (auto sink = qobject_cast<SinkInterface *>(operatorEntry.op.get()))
+        if (auto sink = qobject_cast<SinkInterface *>(op.get()))
         {
             if (!sink->isEnabled())
             {
@@ -3822,8 +4114,34 @@ void Analysis::beginRun(
             }
         }
 
-        operatorEntry.op->beginRun(runInfo, logger);
+        if (fullBuild || op->getObjectFlags() & ObjectFlags::NeedsRebuild)
+        {
+            qDebug() << __PRETTY_FUNCTION__
+                << "beginRun() on"
+                << " class =" << op->metaObject()->className()
+                << ", name =" << op->objectName()
+                << ", id =" << op->getId()
+                << ", fullBuild =" << fullBuild
+                << ", objectFlags =" << to_string(op->getObjectFlags())
+                << ", connected_and_valid =" << required_inputs_connected_and_valid(op.get())
+                ;
+
+            op->beginRun(runInfo, logger);
+            op->clearObjectFlags(ObjectFlags::NeedsRebuild);
+            operatorsBuilt++;
+        }
+        else if (!runInfo.keepAnalysisState)
+        {
+            op->clearState();
+        }
     }
+
+    clearObjectFlags(ObjectFlags::NeedsRebuild);
+
+    qDebug() << __PRETTY_FUNCTION__ << "built" << sourcesBuilt << "sources"
+        " and " << operatorsBuilt << "operators";
+
+#if 1 // FIXME:BEGINRUN
 
     // Build the a2 system
 
@@ -3844,21 +4162,50 @@ void Analysis::beginRun(
             m_vmeMap,
             runInfo,
             logger));
+#endif
+}
+
+void Analysis::beginRun(BeginRunOption option, Logger logger)
+{
+    switch (option)
+    {
+        case BeginRunOption::ClearState:
+            m_runInfo.keepAnalysisState = false;
+            break;
+        case BeginRunOption::KeepState:
+            m_runInfo.keepAnalysisState = true;
+            break;
+    }
+
+    beginRun(m_runInfo, m_vmeMap, logger);
 }
 
 void Analysis::endRun()
 {
-    for (auto &sourceEntry: m_sources)
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__
+        << "calling endRun() on" << m_sources.size() << "data sources";
+#endif
+
+    for (auto &source: m_sources)
     {
-        sourceEntry.source->endRun();
+        source->endRun();
     }
 
-    for (auto &operatorEntry: m_operators)
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__
+        << "calling endRun() on" << m_operators.size() << "operators";
+#endif
+
+    for (auto &op: m_operators)
     {
-        operatorEntry.op->endRun();
+        op->endRun();
     }
 }
 
+//
+// Processing
+//
 void Analysis::beginEvent(int eventIndex)
 {
     a2_begin_event(m_a2State->a2, eventIndex);
@@ -3880,598 +4227,53 @@ void Analysis::processTimetick()
     a2_timetick(m_a2State->a2);
 }
 
-void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
-{
-    m_sources.push_back({eventId, moduleId, source});
-    // FIXME: restructure this, split beginRun, make a2 building explicit
-    beginRun(m_runInfo, m_vmeMap);
-    setModified();
-}
-
-void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
-{
-    m_operators.push_back({eventId, op, userLevel});
-    // FIXME: restructure this, split beginRun, make a2 building explicit
-    beginRun(m_runInfo, m_vmeMap);
-    setModified();
-}
-
 double Analysis::getTimetickCount() const
 {
     return m_timetickCount;
 }
 
-void Analysis::updateRanks()
-{
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << ">>>>> begin";
-#endif
-
-    for (auto &sourceEntry: m_sources)
-    {
-        SourceInterface *source = sourceEntry.source.get();
-        Q_ASSERT(source);
-        const s32 outputCount = source->getNumberOfOutputs();
-
-#if ENABLE_ANALYSIS_DEBUG
-        qDebug() << __PRETTY_FUNCTION__ << "setting output ranks of source"
-            << getClassName(source) << source->objectName() << "to 0";
-#endif
-
-
-        for (s32 outputIndex = 0;
-             outputIndex < outputCount;
-             ++outputIndex)
-        {
-            source->getOutput(outputIndex)->setRank(0);
-        }
-    }
-
-    QSet<OperatorInterface *> updated;
-
-    for (auto &opEntry: m_operators)
-    {
-        OperatorInterface *op = opEntry.op.get();
-
-        updateRank(op, updated);
-    }
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "<<<<< end";
-#endif
-}
-
-void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated)
-{
-    if (updated.contains(op))
-        return;
-
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << ">>>>> updating rank for"
-        << getClassName(op)
-        << op->objectName();
-#endif
-
-    for (s32 inputIndex = 0;
-         inputIndex < op->getNumberOfSlots();
-         ++inputIndex)
-    {
-        Pipe *input = op->getSlot(inputIndex)->inputPipe;
-
-        if (input)
-        {
-            PipeSourceInterface *source(input->getSource());
-
-            // Only operators need to be updated. Sources will have their rank
-            // set to 0 already.
-            OperatorInterface *sourceOp(qobject_cast<OperatorInterface *>(source));
-
-            if (sourceOp)
-            {
-                updateRank(sourceOp, updated);
-            }
-        }
-        else
-        {
-#if ENABLE_ANALYSIS_DEBUG
-            qDebug() << __PRETTY_FUNCTION__ << "input slot" << inputIndex << "is not connected";
-#endif
-        }
-    }
-
-    s32 maxInputRank = op->getMaximumInputRank();
-
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "maxInputRank =" << maxInputRank;
-#endif
-
-    for (s32 outputIndex = 0;
-         outputIndex < op->getNumberOfOutputs();
-         ++outputIndex)
-    {
-        op->getOutput(outputIndex)->setRank(maxInputRank + 1);
-        updated.insert(op);
-
-#if ENABLE_ANALYSIS_DEBUG
-        qDebug() << __PRETTY_FUNCTION__ << "output"
-            << outputIndex << "now has rank"
-            << op->getOutput(outputIndex)->getRank();
-#endif
-    }
-
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "<<<<< updated rank for"
-        << getClassName(op)
-        << op->objectName()
-        << "new output rank" << op->getMaximumOutputRank();
-#endif
-}
-
-void Analysis::removeSource(const SourcePtr &source)
-{
-    removeSource(source.get());
-}
-
-void Analysis::removeSource(SourceInterface *source)
-{
-    s32 entryIndex = -1;
-    for (s32 i = 0; i < m_sources.size(); ++i)
-    {
-        if (m_sources[i].source.get() == source)
-        {
-            entryIndex = i;
-            break;
-        }
-    }
-
-    Q_ASSERT(entryIndex >= 0);
-
-    if (entryIndex >= 0)
-    {
-        // Remove our output pipes from any connected slots.
-        for (s32 outputIndex = 0;
-             outputIndex < source->getNumberOfOutputs();
-             ++outputIndex)
-        {
-            Pipe *outPipe = source->getOutput(outputIndex);
-            for (Slot *destSlot: outPipe->getDestinations())
-            {
-                destSlot->disconnectPipe();
-            }
-            Q_ASSERT(outPipe->getDestinations().isEmpty());
-        }
-
-        // Remove the source entry. Releases our reference to the SourcePtr stored there.
-        m_sources.remove(entryIndex);
-
-        // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun(m_runInfo, m_vmeMap);
-
-        setModified();
-    }
-}
-
-QVector<ListFilterExtractorPtr>
-Analysis::getListFilterExtractors(ModuleConfig *module) const
-{
-    QVector<ListFilterExtractorPtr> result;
-
-    Q_ASSERT(module->getEventConfig());
-
-    if (!module->getEventConfig())
-        return result;
-
-    for (const auto &se: getSources(module->getEventConfig()->getId(), module->getId()))
-    {
-        if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(se.source))
-        {
-            result.push_back(lfe);
-        }
-    }
-
-    return result;
-}
-
-/** Replaces the ListFilterExtractors for module with the given extractors. */
-void
-Analysis::setListFilterExtractors(ModuleConfig *module, const QVector<ListFilterExtractorPtr> &extractors)
-{
-    Q_ASSERT(module->getEventConfig());
-
-    if (!module->getEventConfig())
-        return;
-
-    // Remove all source entries containing a ListFilterExtractor for the module.
-    auto it = std::remove_if(m_sources.begin(), m_sources.end(), [module](const SourceEntry &se) {
-        return (qobject_cast<ListFilterExtractor *>(se.source.get()) && se.moduleId == module->getId());
-    });
-
-    m_sources.erase(it, m_sources.end());
-
-    // Now build new SourceEntries for the given extractors and append them to m_sources
-    for (const auto &ex: extractors)
-    {
-        m_sources.push_back({module->getEventConfig()->getId(), module->getId(), ex});
-    }
-
-    qDebug() << __PRETTY_FUNCTION__ << "added" << extractors.size() << "listfilter extractors";
-
-    // Rebuild and notify about modification state
-    beginRun(m_runInfo, m_vmeMap);
-    setModified();
-}
-
-void Analysis::removeOperator(const OperatorPtr &op)
-{
-    removeOperator(op.get());
-}
-
-void Analysis::removeOperator(OperatorInterface *op)
-{
-    s32 entryIndex = -1;
-    for (s32 i = 0; i < m_operators.size(); ++i)
-    {
-        if (m_operators[i].op.get() == op)
-        {
-            entryIndex = i;
-            break;
-        }
-    }
-
-    Q_ASSERT(entryIndex >= 0);
-
-    if (entryIndex >= 0)
-    {
-        // Remove pipe connections to our input slots.
-        for (s32 inputSlotIndex = 0;
-             inputSlotIndex < op->getNumberOfSlots();
-             ++inputSlotIndex)
-        {
-            Slot *inputSlot = op->getSlot(inputSlotIndex);
-            Q_ASSERT(inputSlot);
-            inputSlot->disconnectPipe();
-            Q_ASSERT(!inputSlot->inputPipe);
-        }
-
-        // Remove our output pipes from any connected slots.
-        for (s32 outputIndex = 0;
-             outputIndex < op->getNumberOfOutputs();
-             ++outputIndex)
-        {
-            Pipe *outPipe = op->getOutput(outputIndex);
-            for (Slot *destSlot: outPipe->getDestinations())
-            {
-                destSlot->disconnectPipe();
-            }
-            Q_ASSERT(outPipe->getDestinations().isEmpty());
-        }
-
-        // Remove the operator entry. Releases our reference to the OperatorPtr stored there.
-        m_operators.remove(entryIndex);
-
-        // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun(m_runInfo, m_vmeMap);
-
-        setModified();
-    }
-}
-
-void Analysis::clear()
-{
-    m_sources.clear();
-    m_operators.clear();
-    beginRun(m_runInfo, m_vmeMap);
-    setModified();
-}
-
-bool Analysis::isEmpty() const
-{
-    return m_sources.isEmpty() && m_operators.isEmpty();
-}
-
-s32 Analysis::getNumberOfSinks() const
-{
-    return std::count_if(m_operators.begin(), m_operators.end(), [](const OperatorEntry &e) {
-        return qobject_cast<SinkInterface *>(e.op.get()) != nullptr;
-    });
-}
-
-size_t Analysis::getTotalSinkStorageSize() const
-{
-    return std::accumulate(m_operators.begin(), m_operators.end(),
-                           static_cast<size_t>(0),
-                           [](size_t v, const OperatorEntry &e) {
-
-        if (auto sink = qobject_cast<SinkInterface *>(e.op.get()))
-            v += sink->getStorageSize();
-
-        return v;
-    });
-}
-
-s32 Analysis::getMaxUserLevel() const
-{
-    auto it = std::max_element(m_operators.begin(), m_operators.end(), [](const auto &a, const auto &b) {
-        return a.userLevel < b.userLevel;
-    });
-
-    return (it != m_operators.end() ? it->userLevel : 0);
-}
-
-s32 Analysis::getMaxUserLevel(const QUuid &eventId) const
-{
-    auto ops = getOperators(eventId);
-
-    auto it = std::max_element(ops.begin(), ops.end(), [](const auto &a, const auto &b) {
-        return a.userLevel < b.userLevel;
-    });
-
-    return (it != ops.end() ? it->userLevel : 0);
-}
+//
+// Serialization
+//
 
 Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vmeConfig)
 {
-    clear();
-
     ReadResult result = {};
 
-    int version = get_version(inputJson);
-
-    if (version > CurrentAnalysisVersion)
+    try
     {
-        result.code = VersionTooNew;
-        result.errorData["File version"] = version;
-        result.errorData["Max supported version"] = CurrentAnalysisVersion;
-        result.errorData["Message"] = QSL("The file was generated by a newer version of mvme. Please upgrade.");
-        return result;
+        clear();
+        auto objectStore = deserialize_objects(inputJson, vmeConfig, m_objectFactory);
+        establish_connections(objectStore);
+
+        for (const auto &obj: objectStore.sources)
+            m_sources.append(obj);
+
+        for (const auto &obj: objectStore.operators)
+            m_operators.append(obj);
+
+        for (const auto &obj: objectStore.directories)
+            m_directories.append(obj);
+
+        m_vmeObjectSettings = objectStore.objectSettingsById;
+        loadDynamicProperties(objectStore.dynamicQObjectProperties, this);
+        setModified(false);
     }
-
-    QJsonObject json = convert_to_current_version(inputJson, vmeConfig);
-
-    QMap<QUuid, PipeSourcePtr> objectsById;
-
-    // Sources
+    catch (const std::runtime_error &e)
     {
-        QJsonArray array = json["sources"].toArray();
-
-        for (auto it = array.begin(); it != array.end(); ++it)
-        {
-            auto objectJson = it->toObject();
-            auto className = objectJson["class"].toString();
-
-            SourcePtr source(m_registry.makeSource(className));
-
-            if (source)
-            {
-                source->setId(QUuid(objectJson["id"].toString()));
-                source->setObjectName(objectJson["name"].toString());
-                source->read(objectJson["data"].toObject());
-
-                auto eventId  = QUuid(objectJson["eventId"].toString());
-                auto moduleId = QUuid(objectJson["moduleId"].toString());
-
-                m_sources.push_back({eventId, moduleId, source});
-
-                objectsById.insert(source->getId(), source);
-            }
-        }
+        result.errorData["Message"] = e.what();
     }
-
-    // Operators
-    {
-        QJsonArray array = json["operators"].toArray();
-
-        for (auto it = array.begin(); it != array.end(); ++it)
-        {
-            auto objectJson = it->toObject();
-            auto className = objectJson["class"].toString();
-
-            OperatorPtr op(m_registry.makeOperator(className));
-
-            // No operator with the given name exists, try a sink instead.
-            if (!op)
-            {
-                op.reset(m_registry.makeSink(className));
-            }
-
-            if (op)
-            {
-                op->setId(QUuid(objectJson["id"].toString()));
-                op->setObjectName(objectJson["name"].toString());
-                op->read(objectJson["data"].toObject());
-
-                if (auto sink = qobject_cast<SinkInterface *>(op.get()))
-                {
-                    sink->setEnabled(objectJson["enabled"].toBool(true));
-                }
-
-                auto eventId = QUuid(objectJson["eventId"].toString());
-                auto userLevel = objectJson["userLevel"].toInt();
-
-                m_operators.push_back({eventId, op, userLevel});
-
-                objectsById.insert(op->getId(), op);
-            }
-        }
-    }
-
-    // Connections
-    {
-        /* Connections are defined by a structure looking like this:
-        struct Connection
-        {
-            PipeSourceInterface *srcObject;
-            s32 srcIndex; // the output index of the source object
-
-            OperatorInterface *dstObject;
-            s32 dstIndex; // the input index of the dest object
-            s32 dstParamIndex; // array index the input uses or Slot::NoParamIndex if the whole input is used
-        };
-        */
-
-        QJsonArray array = json["connections"].toArray();
-        for (auto it = array.begin(); it != array.end(); ++it)
-        {
-            auto objectJson = it->toObject();
-
-            // PipeSourceInterface data
-            QUuid srcId(objectJson["srcId"].toString());
-            s32 srcIndex = objectJson["srcIndex"].toInt();
-
-            // OperatorInterface data
-            QUuid dstId(objectJson["dstId"].toString());
-            s32 dstIndex = objectJson["dstIndex"].toInt();
-
-            // Slot data
-            s32 paramIndex = objectJson["dstParamIndex"].toInt();
-
-            auto srcObject = objectsById.value(srcId);
-            auto dstObject = std::dynamic_pointer_cast<OperatorInterface>(objectsById.value(dstId));
-
-            if (srcObject && dstObject)
-            {
-                auto srcRawPtr = srcObject.get();
-                auto dstRawPtr = dstObject.get();
-                Slot *dstSlot = dstObject->getSlot(dstIndex);
-
-                qDebug() << __PRETTY_FUNCTION__ << "src =" << srcObject << ", dst =" << dstObject;
-
-                Q_ASSERT(dstSlot);
-
-                if (dstSlot)
-                {
-                    dstSlot->paramIndex = paramIndex;
-
-                    Pipe *thePipe = srcRawPtr->getOutput(srcIndex);
-
-                    Q_ASSERT(thePipe);
-                    Q_ASSERT(thePipe->source == srcRawPtr);
-
-                    dstRawPtr->connectInputSlot(dstIndex, thePipe, paramIndex);
-
-                    Q_ASSERT(thePipe->destinations.contains(dstSlot));
-                }
-            }
-        }
-    }
-
-    // VME Object Settings
-    m_vmeObjectSettings.clear();
-
-    {
-        auto container = json["VMEObjectSettings"].toObject();
-
-        for (auto it = container.begin(); it != container.end(); it++)
-        {
-            QUuid objectId(QUuid(it.key()));
-            QVariantMap eventSettings(it.value().toObject().toVariantMap());
-
-            m_vmeObjectSettings.insert(objectId, eventSettings);
-        }
-    }
-
-    // Dynamic QObject Properties
-    loadDynamicProperties(json["properties"].toObject(), this);
-
-    setModified(false);
 
     return result;
 }
 
 void Analysis::write(QJsonObject &json) const
 {
-    json["MVMEAnalysisVersion"] = CurrentAnalysisVersion;
+    auto objects = getAllObjects();
+    ObjectSerializerVisitor sv;
+    visit_objects(objects.begin(), objects.end(), sv);
 
-    // Sources
-    {
-        QJsonArray destArray;
-        for (auto &sourceEntry: m_sources)
-        {
-            SourceInterface *source = sourceEntry.source.get();
-            QJsonObject destObject;
-            destObject["id"] = source->getId().toString();
-            destObject["name"] = source->objectName();
-            destObject["eventId"]  = sourceEntry.eventId.toString();
-            destObject["moduleId"] = sourceEntry.moduleId.toString();
-            destObject["class"] = getClassName(source);
-            QJsonObject dataJson;
-            source->write(dataJson);
-            destObject["data"] = dataJson;
-            destArray.append(destObject);
-        }
-        json["sources"] = destArray;
-    }
-
-    // Operators
-    {
-        QJsonArray destArray;
-
-        for (auto &opEntry: m_operators)
-        {
-            OperatorInterface *op = opEntry.op.get();
-
-            QJsonObject destObject;
-            destObject["id"]        = op->getId().toString();
-            destObject["name"]      = op->objectName();
-            destObject["eventId"]   = opEntry.eventId.toString();
-            destObject["class"]     = getClassName(op);
-            destObject["userLevel"] = opEntry.userLevel;
-
-            QJsonObject dataJson;
-            op->write(dataJson);
-            destObject["data"] = dataJson;
-
-            if (auto sink = qobject_cast<SinkInterface *>(op))
-            {
-                destObject["enabled"] = sink->isEnabled();
-            }
-
-            destArray.append(destObject);
-
-        }
-        json["operators"] = destArray;
-    }
-
-    // Connections
-    {
-        QJsonArray conArray;
-        QVector<PipeSourceInterface *> pipeSources;
-
-        for (auto &sourceEntry: m_sources)
-        {
-            pipeSources.push_back(sourceEntry.source.get());
-        }
-
-        for (auto &opEntry: m_operators)
-        {
-            pipeSources.push_back(opEntry.op.get());
-        }
-
-        for (PipeSourceInterface *srcObject: pipeSources)
-        {
-            for (s32 outputIndex = 0; outputIndex < srcObject->getNumberOfOutputs(); ++outputIndex)
-            {
-                Pipe *pipe = srcObject->getOutput(outputIndex);
-
-                for (Slot *dstSlot: pipe->getDestinations())
-                {
-                    if (auto dstOp = dstSlot->parentOperator)
-                    {
-                        //qDebug() << "Connection:" << srcObject << outputIndex
-                        //         << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
-                        QJsonObject conJson;
-                        conJson["srcId"] = srcObject->getId().toString();
-                        conJson["srcIndex"] = outputIndex;
-                        conJson["dstId"] = dstOp->getId().toString();
-                        conJson["dstIndex"] = dstSlot->parentSlotIndex;
-                        conJson["dstParamIndex"] = static_cast<qint64>(dstSlot->paramIndex);
-                        conArray.append(conJson);
-                    }
-                }
-            }
-        }
-
-        json["connections"] = conArray;
-    }
+    json = sv.finalize();
 
     // VME Object Settings
     {
@@ -4492,6 +4294,68 @@ void Analysis::write(QJsonObject &json) const
     if (!props.isEmpty())
         json["properties"] = props;
 }
+
+//
+// Misc
+//
+s32 Analysis::getNumberOfSinks() const
+{
+    return std::count_if(m_operators.begin(), m_operators.end(), [](const OperatorPtr &op) {
+        return qobject_cast<SinkInterface *>(op.get()) != nullptr;
+    });
+}
+
+size_t Analysis::getTotalSinkStorageSize() const
+{
+    return std::accumulate(m_operators.begin(), m_operators.end(),
+                           static_cast<size_t>(0u),
+                           [](size_t v, const OperatorPtr &op) {
+
+        if (auto sink = qobject_cast<SinkInterface *>(op.get()))
+            v += sink->getStorageSize();
+
+        return v;
+    });
+}
+
+s32 Analysis::getMaxUserLevel() const
+{
+    auto it = std::max_element(m_operators.begin(), m_operators.end(),
+                               [](const auto &a, const auto &b) {
+        return a->getUserLevel() < b->getUserLevel();
+    });
+
+    return (it != m_operators.end() ? (*it)->getUserLevel() : 0);
+}
+
+s32 Analysis::getMaxUserLevel(const QUuid &eventId) const
+{
+    auto ops = getOperators(eventId);
+
+    auto it = std::max_element(ops.begin(), ops.end(),
+                               [](const auto &a, const auto &b) {
+        return a->getUserLevel() < b->getUserLevel();
+    });
+
+    return (it != ops.end() ? (*it)->getUserLevel() : 0);
+}
+
+void Analysis::clear()
+{
+    m_sources.clear();
+    m_operators.clear();
+    m_directories.clear();
+    setModified();
+}
+
+bool Analysis::isEmpty() const
+{
+    return (m_sources.isEmpty()
+            && m_operators.isEmpty()
+            && m_directories.isEmpty()
+            );
+}
+
 
 void Analysis::setModified(bool b)
 {
@@ -4516,9 +4380,15 @@ QVariantMap Analysis::getVMEObjectSettings(const QUuid &objectId) const
     return m_vmeObjectSettings.value(objectId);
 }
 
+int Analysis::getCurrentAnalysisVersion()
+{
+    return CurrentAnalysisVersion;
+}
+
 static const double maxRawHistoBins = (1 << 16);
 
-RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
+RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor,
+                                     double unitMin, double unitMax,
                                      const QString &xAxisTitle, const QString &unitLabel)
 {
     RawDataDisplay result;
@@ -4563,8 +4433,10 @@ RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, doubl
     return result;
 }
 
-RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
-                                     const QString &objectName, const QString &xAxisTitle, const QString &unitLabel)
+RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter,
+                                     double unitMin, double unitMax,
+                                     const QString &objectName,
+                                     const QString &xAxisTitle, const QString &unitLabel)
 {
     auto extractor = std::make_shared<Extractor>();
     extractor->setFilter(extractionFilter);
@@ -4573,12 +4445,13 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
     return make_raw_data_display(extractor, unitMin, unitMax, xAxisTitle, unitLabel);
 }
 
-void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display)
+void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId,
+                          const RawDataDisplay &display)
 {
     analysis->addSource(eventId, moduleId, display.extractor);
-    analysis->addOperator(eventId, display.rawHistoSink, 0);
-    analysis->addOperator(eventId, display.calibration, 1);
-    analysis->addOperator(eventId, display.calibratedHistoSink, 1);
+    analysis->addOperator(eventId, 0, display.rawHistoSink);
+    analysis->addOperator(eventId, 1, display.calibration);
+    analysis->addOperator(eventId, 1, display.calibratedHistoSink);
 }
 
 void do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo)
@@ -4648,9 +4521,8 @@ QString make_unique_operator_name(Analysis *analysis, const QString &prefix)
 {
     int suffixNumber = 0;
 
-    for (const auto &opEntry: analysis->getOperators())
+    for (const auto &op: analysis->getOperators())
     {
-        const auto &op(opEntry.op);
         auto name = op->objectName();
 
         if (name.startsWith(prefix))
@@ -4725,15 +4597,6 @@ bool no_input_connected(OperatorInterface *op)
     return result;
 }
 
-void generate_new_object_ids(Analysis *analysis)
-{
-    for (auto &sourceEntry: analysis->getSources())
-        sourceEntry.source->setId(QUuid::createUuid());
-
-    for (auto &operatorEntry: analysis->getOperators())
-        operatorEntry.op->setId(QUuid::createUuid());
-}
-
 QString info_string(const Analysis *analysis)
 {
     QString result = QString("Analysis: %1 Data Sources, %2 Operators")
@@ -4743,48 +4606,128 @@ QString info_string(const Analysis *analysis)
     return result;
 }
 
-static void adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, OperatorInterface *op, s32 levelDelta,
-                                     QSet<OperatorInterface *> &adjusted)
+namespace
+{
+
+void adjust_userlevel_forward(const OperatorVector &operators,
+                              OperatorInterface *op,
+                              s32 levelDelta,
+                              QSet<OperatorInterface *> &adjusted)
 {
     // Note: Could be optimized by searching from the last operators position
-    // forward, as the vector is sorted by operator rank: adjust_userlevel_forward(entryIt, endIt, op, ...)
+    // forward if the vector is sorted by operator rank:
+    // adjust_userlevel_forward(entryIt, endIt, op, ...)
 
     if (adjusted.contains(op) || levelDelta == 0)
         return;
 
-    auto entryIt = std::find_if(opEntries.begin(), opEntries.end(), [op](const auto &opEntry) {
-        return opEntry.op.get() == op;
+    auto opit = std::find_if(operators.begin(), operators.end(),
+                           [op] (const OperatorPtr &op_) {
+        return op_.get() == op;
     });
 
-    if (entryIt != opEntries.end())
+    if (opit != operators.end())
     {
-        auto &opEntry(*entryIt);
+        auto op = *opit;
 
-        opEntry.userLevel += levelDelta;
-        adjusted.insert(op);
+        op->setUserLevel(op->getUserLevel() + levelDelta);
+        adjusted.insert(op.get());
 
-        for (s32 outputIndex = 0;
-             outputIndex < op->getNumberOfOutputs();
-             ++outputIndex)
+        for (s32 oi = 0; oi < op->getNumberOfOutputs(); oi++)
         {
-            auto outputPipe = op->getOutput(outputIndex);
+            auto outputPipe = op->getOutput(oi);
 
             for (Slot *destSlot: outputPipe->getDestinations())
             {
                 if (destSlot->parentOperator)
                 {
-                    adjust_userlevel_forward(opEntries, destSlot->parentOperator, levelDelta, adjusted);
+                    adjust_userlevel_forward(operators,
+                                             destSlot->parentOperator,
+                                             levelDelta,
+                                             adjusted);
                 }
             }
         }
     }
 }
 
-void adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, OperatorInterface *op, s32 levelDelta)
+} // end anon namespace
+
+void adjust_userlevel_forward(const OperatorVector &operators,
+                              OperatorInterface *op,
+                              s32 levelDelta)
 {
     QSet<OperatorInterface *> adjusted;
 
-    adjust_userlevel_forward(opEntries, op, levelDelta, adjusted);
+    adjust_userlevel_forward(operators, op, levelDelta, adjusted);
 }
 
+namespace
+{
+
+    void expand_objects(const AnalysisObjectVector &vec,
+                        const Analysis *analysis,
+                        AnalysisObjectSet &visited,
+                        AnalysisObjectVector &result)
+{
+    for (const auto &obj: vec)
+    {
+        if (!visited.contains(obj))
+        {
+            visited.insert(obj);
+            result.push_back(obj);
+        }
+
+        if (auto dir = std::dynamic_pointer_cast<Directory>(obj))
+        {
+            expand_objects(analysis->getDirectoryContents(dir),
+                           analysis, visited, result);
+        }
+    }
 }
+
+} // end anon namespace
+
+/* Recursively expands the given object vector to contain all subobjects inside any
+ * directories contained in the original vector. */
+AnalysisObjectVector expand_objects(const AnalysisObjectVector &vec,
+                                    const Analysis *analysis)
+{
+    AnalysisObjectVector result;
+    AnalysisObjectSet visited;
+
+    expand_objects(vec, analysis, visited, result);
+
+    return result;
+}
+
+/* Returns a vector of the objects contained in the given object set but in the same order as
+ * the objects are stored in the analysis.
+ * Note: directories are not expanded, no recursion is done. */
+AnalysisObjectVector order_objects(const AnalysisObjectSet &objects,
+                                   const Analysis *analysis)
+{
+    AnalysisObjectVector result;
+
+    // Iteration done in analysis object storage order.
+    for (const auto &obj: analysis->getAllObjects())
+    {
+        if (objects.contains(obj))
+            result.push_back(obj);
+    }
+
+    return result;
+}
+
+AnalysisObjectVector order_objects(const AnalysisObjectVector &objects,
+                                   const Analysis *analysis)
+{
+    AnalysisObjectSet set;
+
+    for (const auto &obj: objects)
+        set.insert(obj);
+
+    return order_objects(set, analysis);
+}
+
+} // end namespace analysis

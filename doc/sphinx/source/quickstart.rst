@@ -42,7 +42,7 @@ Log View.
 ==================================================
 VME Setup
 ==================================================
-* Select the mvme main window containing the *VME Config* area.
+* Select the mvme main window (*Ctrl+1*) containing the *VME Config* area.
 
 * Create a VME event:
 

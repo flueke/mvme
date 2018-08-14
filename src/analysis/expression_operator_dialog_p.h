@@ -92,7 +92,7 @@ class SlotGrid: public QFrame
 };
 
 /** Display for a single analysis pipe with optionally editable parameter
- * value. */
+ * values. */
 class ExpressionOperatorPipeView: public QWidget
 {
     Q_OBJECT

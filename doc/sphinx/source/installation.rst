@@ -6,10 +6,8 @@ Installation
 System Requirements
 ==================================================
 
-* Any recent Linux distribution or a version of Windows 7 or later.
-
-  Both 64- and 32-bit systems are supported but the 64-bit version is
-  recommended due to the larger address space.
+* Any recent 64-bit Linux distribution or a 64-bit version of Windows 7 or
+  later.
 
 * If using the `WIENER`_ VM-USB VME Controller:
 
@@ -31,7 +29,7 @@ System Requirements
     installation.
 
 * No additional drivers are required when using the `Struck`_ SIS3153
-  Controller. Just make sure you're using a **GBit/s** ethernet connection to
+  Controller. Just make sure you are using a **GBit/s** ethernet connection to
   the controller.
 
 * At least 4 GB RAM is recommended.

@@ -19,7 +19,7 @@ struct A2AdapterState
 
     struct ErrorInfo
     {
-        Analysis::OperatorEntry opEntry;
+        OperatorPtr op;
         s32 eventIndex;
         QString reason;
         std::exception_ptr ep;
@@ -43,8 +43,8 @@ struct A2AdapterState
 A2AdapterState a2_adapter_build(
     memory::Arena *arena,
     memory::Arena *workArena,
-    const QVector<Analysis::SourceEntry> &sources,
-    const QVector<Analysis::OperatorEntry> &operators,
+    const analysis::SourceVector &sources,
+    const analysis::OperatorVector &operators,
     const vme_analysis_common::VMEIdToIndex &vmeMap,
     const RunInfo &runInfo);
 

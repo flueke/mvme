@@ -31,6 +31,7 @@ namespace analysis
 
 struct AnalysisWidgetPrivate;
 class OperatorInterface;
+using OperatorPtr = std::shared_ptr<OperatorInterface>;
 
 class AnalysisWidget: public QWidget
 {
@@ -39,8 +40,8 @@ class AnalysisWidget: public QWidget
         AnalysisWidget(MVMEContext *ctx, QWidget *parent = 0);
         ~AnalysisWidget();
 
-        void operatorAddedExternally(const std::shared_ptr<OperatorInterface> &op);
-        void operatorEditedExternally(const std::shared_ptr<OperatorInterface> &op);
+        void operatorAddedExternally(const OperatorPtr &op);
+        void operatorEditedExternally(const OperatorPtr &op);
 
         void updateAddRemoveUserLevelButtons();
 

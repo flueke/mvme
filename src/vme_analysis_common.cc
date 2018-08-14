@@ -32,6 +32,7 @@
 #include <QVBoxLayout>
 
 #include "analysis/analysis.h"
+#include "analysis/analysis_util.h"
 #include "qt_util.h"
 
 using namespace analysis;
@@ -100,7 +101,10 @@ struct ChangeInfo
     QUuid toEventId;
 };
 
-static void rewrite_module(Analysis *analysis, const QUuid &fromModuleId, const QUuid &toModuleId, const QUuid &toEventId)
+static void rewrite_module(Analysis *analysis,
+                           const QUuid &fromModuleId,
+                           const QUuid &toModuleId,
+                           const QUuid &toEventId)
 {
     qDebug() << "rewrite_module: fromModuleId =" << fromModuleId
         << ", toModuleId =" << toModuleId
@@ -109,49 +113,31 @@ static void rewrite_module(Analysis *analysis, const QUuid &fromModuleId, const 
     QUuid fromEventId;
 
     auto &sources(analysis->getSources());
-    for (Analysis::SourceEntry &source: sources)
+
+    for (auto &source: sources)
     {
-        if (source.moduleId == fromModuleId)
+        if (source->getModuleId() == fromModuleId)
         {
             // Save the eventId and use it when changing the operator entries
             // below. No matter how many sources there are, there should only
             // ever be a single eventId as a the module identified by
             // fromModuleId cannot be a member of different events.
-            fromEventId = source.eventId;
+            fromEventId = source->getEventId();
 
             // Rewrite the source entry
-            source.moduleId = toModuleId;
-            source.eventId = toEventId;
+            source->setModuleId(toModuleId);
+            source->setEventId(toEventId);
             analysis->setModified(true);
         }
     }
 
     auto &operators(analysis->getOperators());
-    for (Analysis::OperatorEntry &op: operators)
+    for (auto &op: operators)
     {
-        if (op.eventId == fromEventId)
+        if (op->getEventId() == fromEventId)
         {
-            op.eventId = toEventId;
+            op->setEventId(toEventId);
             analysis->setModified(true);
-        }
-    }
-}
-
-static void collect_dependent_operators(QSet<OperatorInterface *> &operatorSet, PipeSourceInterface *pipeSource)
-{
-    for (s32 outputIndex = 0;
-         outputIndex < pipeSource->getNumberOfOutputs();
-         ++outputIndex)
-    {
-        auto outputPipe = pipeSource->getOutput(outputIndex);
-
-        for (Slot *destSlot: outputPipe->getDestinations())
-        {
-            if (destSlot->parentOperator)
-            {
-                operatorSet.insert(destSlot->parentOperator);
-                collect_dependent_operators(operatorSet, destSlot->parentOperator);
-            }
         }
     }
 }
@@ -174,11 +160,11 @@ static void discard_module(Analysis *analysis, const QUuid &moduleId)
 {
     QVector<SourceInterface *> sourcesToRemove;
 
-    for (auto sourceEntry: analysis->getSources())
+    for (auto source: analysis->getSources())
     {
-        if (sourceEntry.moduleId == moduleId)
+        if (source->getModuleId() == moduleId)
         {
-            sourcesToRemove.push_back(sourceEntry.source.get());
+            sourcesToRemove.push_back(source.get());
         }
     }
 
@@ -186,7 +172,7 @@ static void discard_module(Analysis *analysis, const QUuid &moduleId)
 
     for (auto &source: sourcesToRemove)
     {
-        collect_dependent_operators(operatorsToMaybeRemove, source);
+        collect_dependent_operators(source, operatorsToMaybeRemove);
     }
 
     for (auto &source: sourcesToRemove)
@@ -197,7 +183,8 @@ static void discard_module(Analysis *analysis, const QUuid &moduleId)
     while (!operatorsToMaybeRemove.isEmpty())
     {
         bool didRemove = false;
-        auto it = std::find_if(operatorsToMaybeRemove.begin(), operatorsToMaybeRemove.end(), has_no_connected_slots);
+        auto it = std::find_if(operatorsToMaybeRemove.begin(), operatorsToMaybeRemove.end(),
+                               has_no_connected_slots);
 
         if (it != operatorsToMaybeRemove.end())
         {
@@ -546,30 +533,33 @@ bool run_vme_analysis_module_assignment_ui(QVector<ModuleInfo> vModInfos, analys
     return true;
 }
 
-void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const QUuid &moduleId, const QUuid &eventId)
+void remove_analysis_objects_unless_matching(analysis::Analysis *analysis,
+                                             const QUuid &moduleId,
+                                             const QUuid &eventId)
 {
-    QVector<Analysis::SourceEntry> sources = analysis->getSources();
+    auto sources = analysis->getSources();
 
     for (const auto &source: sources)
     {
-        if (source.moduleId != moduleId || source.eventId != eventId)
+        if (source->getModuleId() != moduleId || source->getEventId() != eventId)
         {
-            analysis->removeSource(source.source);
+            analysis->removeSource(source);
         }
     }
 
-    QVector<Analysis::OperatorEntry> operators = analysis->getOperators();
+    auto operators = analysis->getOperators();
 
     for (const auto &op: operators)
     {
-        if (op.eventId != eventId)
+        if (op->getEventId() != eventId)
         {
-            analysis->removeOperator(op.op);
+            analysis->removeOperator(op);
         }
     }
 }
 
-void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const ModuleInfo &moduleInfo)
+void remove_analysis_objects_unless_matching(analysis::Analysis *analysis,
+                                             const ModuleInfo &moduleInfo)
 {
     remove_analysis_objects_unless_matching(analysis, moduleInfo.id, moduleInfo.eventId);
 }
@@ -579,6 +569,7 @@ void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, VMECo
     QSet<QUuid> vmeEventIds;
     QSet<QUuid> vmeModuleIds;
 
+    // collect all ids contained in vmeConfig
     for (auto eventConfig: vmeConfig->getEventConfigs())
     {
         vmeEventIds.insert(eventConfig->getId());
@@ -589,23 +580,23 @@ void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, VMECo
         }
     }
 
-    QVector<Analysis::SourceEntry> sources = analysis->getSources();
+    auto sources = analysis->getSources();
 
     for (const auto &source: sources)
     {
-        if (!vmeEventIds.contains(source.eventId) || !vmeModuleIds.contains(source.moduleId))
+        if (!vmeEventIds.contains(source->getEventId()))
         {
-            analysis->removeSource(source.source);
+            analysis->removeSource(source);
         }
     }
 
-    QVector<Analysis::OperatorEntry> operators = analysis->getOperators();
+    auto operators = analysis->getOperators();
 
     for (const auto &op: operators)
     {
-        if (!vmeEventIds.contains(op.eventId))
+        if (!vmeEventIds.contains(op->getEventId()))
         {
-            analysis->removeOperator(op.op);
+            analysis->removeOperator(op);
         }
     }
 }

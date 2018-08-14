@@ -93,8 +93,8 @@ Returns the messages buffered up in the MVME log.
 
 getDAQStats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Returns information about the current DAQ run including counter values and
-VME controller statistics.
+Returns information about the current DAQ run including counter values, the
+current run ID, listfile output filename and start time.
 
 * Parameters
 

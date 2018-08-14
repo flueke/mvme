@@ -1,27 +1,5 @@
 ## Parameters for MDPP-16_SCP
 
-# Operation Mode
-# ############################################################################
-# tdc_resolution
-0x6042  5           # 0 ->  24 ps = 25 ns / 1024
-                    # 1 ->  49 ps = 25 ns / 512
-                    # 2 ->  98 ps = 25 ns / 256
-                    # 3 -> 195 ps = 25 ns / 128
-                    # 4 -> 391 ps = 25 ns / 64
-                    # 5 -> 781 ps = 25 ns / 32
-
-# adc_resolution
-0x6046  0           # number of valid output bits for maximum amplitude
-                    # 0 -> 16 bits
-                    # 1 -> 15 bits
-                    # 2 -> 14 bits
-                    # 3 -> 13 bits
-                    # 4 -> 12 bits
-
-# first_hit
-0x605C  1           # 0 -> transmit all hits per channel in the window
-                    # 1 -> only transmit first hit per channel in the window
-
 # Trigger Setup
 # ############################################################################
 # win_start
@@ -61,78 +39,6 @@
 0x605E  0x100       # 0x100 -> whole bank (OR of all channels)
                     # single channel: trigger_output = 128 + (chan * 4)
                     #                 with channel in 0..15
-
-# I/O
-# ############################################################################
-# Sorted from top to bottom, as on the front panel.
-
-# ECL3 input
-0x6060  0x00        # 0x00 -> off
-                    # 0x01 -> trig0, terminated
-                    # 0x11 -> trig0, unterminated
-# ECL2 input
-0x6062  0x00        # 0x00 -> off
-                    # 0x01 -> sync, terminated
-                    # 0x11 -> sync, unterminated
-                    # 0x02 -> trig1, terminated
-                    # 0x12 -> trig1, unterminated
-# ECL1 input
-0x6064  0x00        # 0x00 -> off
-                    # 0x01 -> reset, terminated
-                    # 0x11 -> reset, unterminated
-# ECL0 output
-0x6066  0x00        # 0x0 -> off
-                    # 0x4 -> busy
-                    # 0x8 -> data in buffer above threshold 0x6018 (= Data ready)
-                    # 0x9 -> events in buffer above threshold 0x601E
-
-# NIM4 input
-0x6068  1           # 0 -> off
-                    # 1 -> trig0_in
-
-# NIM3
-# Note: Front panel Monitor setting overrides this setting (becomes mon1
-# output).
-0x606A  0           # 0 -> off
-                    # 2 -> sync in (also set CTRA.ts_sources (0x6096)!)
-# NIM2
-# Note: Front panel Monitor setting overrides this setting (becomes mon0
-# output).
-0x606C  1           # 0 -> off
-                    # 1 -> trig1_in
-                    # 2 -> reset
-
-# NIM1 is always trigger output
-
-# NIM0
-0x6074  1           # 0 -> off
-                    # 1 -> CBus
-                    # 4 -> busy_out (== FIFO full or ACQ stopped)
-                    # 8 -> data in buffer above threshold 0x6018
-                    # 9 -> events in buffer above threshold 0x601E
-
-# Internal Test Pulser
-# ############################################################################
-# pulser_status
-0x6070  0           # 0 -> off, 1 -> on
-
-# pulser_amplitude
-0x6072  400         # maximum amplitude: 0xFFF = 4095
-
-# Timestamp/Event Counters: CTRA, CTRB
-# ############################################################################
-# ts_sources
-0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
-                    # bit 1: external reset enable
-
-# ts_divisor (16 bit value)
-0x6098  1           # timestamp = time / ts_divisor
-                    # 0 means division by 65536
-
-# stop_ctr
-#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
-                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
-                    # with 0 -> run, 1 -> stop counter
 
 # Front end settings
 # ############################################################################
@@ -184,7 +90,6 @@
 
 # Channel / Channel Pair Front end settings
 # ############################################################################
-
 /*
 # channels (0, 1)
 0x6100       0
@@ -283,3 +188,90 @@
 0x6128    1000    # reset_time
 0x612A      80    # signal_rise_time
 */
+
+# Operation Mode
+# ############################################################################
+# tdc_resolution
+0x6042  5           # 0 ->  24 ps = 25 ns / 1024
+                    # 1 ->  49 ps = 25 ns / 512
+                    # 2 ->  98 ps = 25 ns / 256
+                    # 3 -> 195 ps = 25 ns / 128
+                    # 4 -> 391 ps = 25 ns / 64
+                    # 5 -> 781 ps = 25 ns / 32
+
+# first_hit
+0x605C  1           # 0 -> transmit all hits per channel in the window
+                    # 1 -> only transmit first hit per channel in the window
+
+
+# I/O
+# ############################################################################
+# Sorted from top to bottom, as on the front panel.
+
+# ECL3 input
+0x6060  0x00        # 0x00 -> off
+                    # 0x01 -> trig0, terminated
+                    # 0x11 -> trig0, unterminated
+# ECL2 input
+0x6062  0x00        # 0x00 -> off
+                    # 0x01 -> sync, terminated
+                    # 0x11 -> sync, unterminated
+                    # 0x02 -> trig1, terminated
+                    # 0x12 -> trig1, unterminated
+# ECL1 input
+0x6064  0x00        # 0x00 -> off
+                    # 0x01 -> reset, terminated
+                    # 0x11 -> reset, unterminated
+# ECL0 output
+0x6066  0x00        # 0x0 -> off
+                    # 0x4 -> busy
+                    # 0x8 -> data in buffer above threshold 0x6018 (= Data ready)
+                    # 0x9 -> events in buffer above threshold 0x601E
+
+# NIM4 input
+0x6068  1           # 0 -> off
+                    # 1 -> trig0_in
+
+# NIM3
+# Note: Front panel Monitor setting overrides this setting (becomes mon1
+# output).
+0x606A  0           # 0 -> off
+                    # 2 -> sync in (also set CTRA.ts_sources (0x6096)!)
+# NIM2
+# Note: Front panel Monitor setting overrides this setting (becomes mon0
+# output).
+0x606C  1           # 0 -> off
+                    # 1 -> trig1_in
+                    # 2 -> reset
+
+# NIM1 is always trigger output
+
+# NIM0
+0x6074  1           # 0 -> off
+                    # 1 -> CBus
+                    # 4 -> busy_out (== FIFO full or ACQ stopped)
+                    # 8 -> data in buffer above threshold 0x6018
+                    # 9 -> events in buffer above threshold 0x601E
+
+# Internal Test Pulser
+# ############################################################################
+# pulser_status
+0x6070  0           # 0 -> off, 1 -> on
+
+# pulser_amplitude
+0x6072  400         # maximum amplitude: 0xFFF = 4095
+
+# Timestamp/Event Counters: CTRA, CTRB
+# ############################################################################
+# ts_sources
+0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
+                    # bit 1: external reset enable
+
+# ts_divisor (16 bit value)
+0x6098  1           # timestamp = time / ts_divisor
+                    # 0 means division by 65536
+
+# stop_ctr
+#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
+                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
+                    # with 0 -> run, 1 -> stop counter

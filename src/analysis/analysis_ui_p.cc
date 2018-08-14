@@ -18,20 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#include "a2_adapter.h"
-#include "a2/a2_exprtk.h"
 #include "analysis_ui_p.h"
-#include "analysis_util.h"
-#include "data_extraction_widget.h"
-#include "exportsink_codegen.h"
-#include "../globals.h"
-#include "../histo_util.h"
-#include "../vme_config.h"
-#include "../mvme_context.h"
-#include "../mvme_context_lib.h"
-#include "../qt_util.h"
-#include "../data_filter.h"
-#include "../data_filter_edit.h"
 
 #include <array>
 #include <limits>
@@ -55,6 +42,21 @@
 #include <QStackedWidget>
 #include <QTextBrowser>
 #include <QTimer>
+
+#include "a2_adapter.h"
+#include "a2/a2_exprtk.h"
+#include "analysis_util.h"
+#include "data_extraction_widget.h"
+#include "exportsink_codegen.h"
+#include "../globals.h"
+#include "../histo_util.h"
+#include "../vme_config.h"
+#include "../mvme_context.h"
+#include "../mvme_context_lib.h"
+#include "../qt_util.h"
+#include "../data_filter.h"
+#include "../data_filter_edit.h"
+#include "../gui_util.h"
 
 namespace
 {
@@ -80,8 +82,8 @@ namespace analysis
 //
 
 AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *module,
-                                               Mode mode, EventWidget *eventWidget)
-    : QDialog(eventWidget)
+                                               ObjectEditorMode mode, EventWidget *eventWidget)
+    : ObjectEditorDialog(eventWidget)
     , m_ex(ex)
     , m_module(module)
     , m_eventWidget(eventWidget)
@@ -97,7 +99,8 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
     loadTemplateLayout->addWidget(loadTemplateButton);
     loadTemplateLayout->addStretch();
 
-    connect(loadTemplateButton, &QPushButton::clicked, this, &AddEditExtractorDialog::runLoadTemplateDialog);
+    connect(loadTemplateButton, &QPushButton::clicked,
+            this, &AddEditExtractorDialog::runLoadTemplateDialog);
 
     Q_ASSERT(m_ex);
     Q_ASSERT(module);
@@ -145,7 +148,7 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
 
     switch (mode)
     {
-        case AddExtractor:
+        case ObjectEditorMode::New:
             {
                 setWindowTitle(QString("New  %1").arg(m_ex->getDisplayName()));
 
@@ -187,7 +190,7 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
                 applyTemplate(0);
             } break;
 
-        case EditExtractor:
+        case ObjectEditorMode::Edit:
             {
                 setWindowTitle(QString("Edit %1").arg(m_ex->getDisplayName()));
             } break;
@@ -257,48 +260,38 @@ void AddEditExtractorDialog::accept()
 
     auto analysis = m_eventWidget->getContext()->getAnalysis();
 
-    try
+    switch (m_mode)
     {
-        switch (m_mode)
-        {
-            case AddExtractor:
+        case ObjectEditorMode::New:
+            {
+                bool genHistos = m_gbGenHistograms->isChecked();
+
+                if (genHistos)
                 {
-                    // TODO: call beginRun on the new extractor and rebuild a2. no need to clear other stuff.
-                    bool genHistos = m_gbGenHistograms->isChecked();
+                    auto rawDisplay = make_raw_data_display(
+                        m_ex, spin_unitMin->value(), spin_unitMax->value(),
+                        // FIXME: missing title
+                        QString(), le_unit->text());
 
-                    if (genHistos)
-                    {
-                        auto rawDisplay = make_raw_data_display(m_ex, spin_unitMin->value(), spin_unitMax->value(),
-                                                                QString(), // FIXME: missing title
-                                                                le_unit->text());
-
-                        add_raw_data_display(analysis, m_eventWidget->getEventId(), m_module->getId(), rawDisplay);
-                    }
-                    else
-                    {
-                        analysis->addSource(m_eventWidget->getEventId(), m_module->getId(), m_ex);
-                    }
-                } break;
-
-            case EditExtractor:
+                    add_raw_data_display(
+                        analysis, m_eventWidget->getEventId(), m_module->getId(),
+                        rawDisplay);
+                }
+                else
                 {
-                    // TODO: do_beginRun_forward on the extractor here. then
-                    // rebuild a2. no need to clear stuff that's not affected.
-                    auto context = m_eventWidget->getContext();
-                    auto runInfo = context->getRunInfo();
-                    auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(context->getVMEConfig());
-                    analysis->setModified();
-                    analysis->beginRun(runInfo, vmeMap);
-                } break;
-        }
+                    analysis->addSource(m_eventWidget->getEventId(), m_module->getId(), m_ex);
+                }
+            } break;
 
-        QDialog::accept();
+        case ObjectEditorMode::Edit:
+            {
+                analysis->sourceEdited(m_ex);
+            } break;
     }
-    catch (const std::bad_alloc &)
-    {
-        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
-        reject();
-    }
+
+    analysis->beginRun(Analysis::KeepState);
+
+    QDialog::accept();
 }
 
 void AddEditExtractorDialog::reject()
@@ -312,11 +305,16 @@ void AddEditExtractorDialog::reject()
 // AddEditOperatorDialog
 //
 
-AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel, OperatorEditorMode mode, EventWidget *eventWidget)
-    : QDialog(eventWidget)
+AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
+                                             s32 userLevel,
+                                             ObjectEditorMode mode,
+                                             const DirectoryPtr &destDir,
+                                             EventWidget *eventWidget)
+    : ObjectEditorDialog(eventWidget)
     , m_op(op)
     , m_userLevel(userLevel)
     , m_mode(mode)
+    , m_destDir(destDir)
     , m_eventWidget(eventWidget)
     , m_opConfigWidget(nullptr)
 {
@@ -335,13 +333,13 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op, s32 userLevel, Oper
 
     switch (mode)
     {
-        case OperatorEditorMode::New:
+        case ObjectEditorMode::New:
             setWindowTitle(QString("New  %1").arg(m_op->getDisplayName()));
             // This is a new operator, so either the name is empty or was auto generated.
             m_opConfigWidget->setNameEdited(false);
             break;
 
-        case OperatorEditorMode::Edit:
+        case ObjectEditorMode::Edit:
             setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
             // We're editing an operator so we assume the name has been specified by the user.
             m_opConfigWidget->setNameEdited(true);
@@ -468,7 +466,7 @@ QString make_input_source_text(Pipe *inputPipe, s32 paramIndex)
         auto inputSource = inputPipe->source;
         result = inputSource->objectName();
 
-        if (inputSource->getNumberOfOutputs() > 1)
+        if (inputSource->hasVariableNumberOfOutputs())
         {
             result += "." + inputSource->getOutputName(inputPipe->sourceOutputIndex);
         }
@@ -514,7 +512,8 @@ void AddEditOperatorDialog::repopulateSlotGrid()
         selectButton->installEventFilter(this);
         m_selectButtons.push_back(selectButton);
 
-        connect(selectButton, &QPushButton::toggled, this, [this, slot, slotIndex, userLevel](bool checked) {
+        connect(selectButton, &QPushButton::toggled,
+                this, [this, slot, slotIndex, userLevel](bool checked) {
             // Cancel any previous input selection. Has no effect if no input selection was active.
             m_eventWidget->endSelectInput();
 
@@ -532,18 +531,12 @@ void AddEditOperatorDialog::repopulateSlotGrid()
                  * The lambda is the callback for the EventWidget. This means
                  * inputSelected() will be called with the current slotIndex
                  * once input selection is complete. */
-                m_eventWidget->selectInputFor(slot, userLevel,
-                                              [this] (Slot *destSlot, Pipe *selectedPipe, s32 selectedParamIndex) {
-#if 0
-                    // The assumption is that the analysis has been paused by
-                    // the EventWidget.
-                    Q_ASSERT(!m_eventWidget->getContext()->isAnalysisRunning());
+                m_eventWidget->selectInputFor(
+                    slot, userLevel,
+                    [this] (Slot *destSlot, Pipe *selectedPipe, s32 selectedParamIndex) {
 
-                    // Update the slots source operator and all dependents
-                    do_beginRun_forward(slot->parentOperator);
-                    this->inputSelected(slotIndex);
-#endif
                     this->inputSelectedForSlot(destSlot, selectedPipe, selectedParamIndex);
+
                 });
             }
 
@@ -562,7 +555,6 @@ void AddEditOperatorDialog::repopulateSlotGrid()
                 button->setChecked(false);
             }
 
-            AnalysisPauser pauser(m_eventWidget->getContext());
             // Clear the slot
             slot->disconnectPipe();
             // Update the current select button to reflect the change
@@ -612,7 +604,6 @@ void AddEditOperatorDialog::inputSelectedForSlot(
     assert(destSlot == m_op->getSlot(destSlot->parentSlotIndex));
 
     destSlot->connectPipe(selectedPipe, selectedParamIndex);
-    //do_beginRun_forward(destSlot->parentOperator);
 
     s32 slotIndex = destSlot->parentSlotIndex;
 
@@ -624,6 +615,7 @@ void AddEditOperatorDialog::inputSelectedForSlot(
         selectButton->setText(make_input_source_text(destSlot));
     }
 
+    m_op->setObjectFlags(ObjectFlags::NeedsRebuild);
     m_opConfigWidget->inputSelected(slotIndex);
     m_inputSelectActive = false;
     onOperatorValidityChanged();
@@ -652,48 +644,37 @@ void AddEditOperatorDialog::accept()
 
     auto analysis = m_eventWidget->getContext()->getAnalysis();
 
-    try
+    switch (m_mode)
     {
-        switch (m_mode)
-        {
-            case OperatorEditorMode::New:
+        case ObjectEditorMode::New:
+            {
+                analysis->addOperator(m_eventWidget->getEventId(), m_userLevel, m_op);
+
+                if (m_destDir)
                 {
-                    analysis->addOperator(m_eventWidget->getEventId(), m_op, m_userLevel);
-                } break;
+                    m_destDir->push_back(m_op);
+                }
+            } break;
 
-            case OperatorEditorMode::Edit:
-                {
-                    // TODO: do_beginRun_forward here
-                    auto context = m_eventWidget->getContext();
-                    auto runInfo = context->getRunInfo();
-                    auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(context->getVMEConfig());
-                    analysis->setModified();
-                    analysis->beginRun(runInfo, vmeMap);
-                } break;
-        }
-
-        QDialog::accept();
+        case ObjectEditorMode::Edit:
+            {
+                analysis->operatorEdited(m_op);
+            } break;
     }
-    catch (const std::bad_alloc &)
-    {
-        // FIXME: bring analysis into a consistent state by removing the
-        // operator in AddMode or by undoing the modifications in case
-        // of EditMode (how should this be done? there's no undo right now...)
 
-        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
-        reject();
-    }
+    analysis->beginRun(Analysis::KeepState);
+
+    QDialog::accept();
 }
 
 void AddEditOperatorDialog::reject()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    AnalysisPauser pauser(m_eventWidget->getContext());
 
     switch (m_mode)
     {
-        case OperatorEditorMode::New:
+        case ObjectEditorMode::New:
             {
                 // The operator will not be added to the analysis. This means any slots
                 // connected by the user must be disconnected again to avoid having
@@ -705,10 +686,9 @@ void AddEditOperatorDialog::reject()
                 }
             } break;
 
-        case OperatorEditorMode::Edit:
+        case ObjectEditorMode::Edit:
             {
-                // FIXME: get rid of as much of the complicated slot handling code here as possible
-
+                AnalysisPauser pauser(m_eventWidget->getContext());
 
                 // Restore previous slot connections.
 
@@ -742,7 +722,9 @@ void AddEditOperatorDialog::reject()
 
                 if (wasModified)
                 {
-                    do_beginRun_forward(m_op.get());
+                    m_op->setObjectFlags(ObjectFlags::NeedsRebuild);
+                    auto analysis = m_eventWidget->getAnalysis();
+                    analysis->beginRun(Analysis::KeepState);
                 }
             } break;
     }
@@ -833,7 +815,8 @@ static bool is_set_to_min(QDoubleSpinBox *spin)
     return (spin->value() == spin->minimum());
 }
 
-static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mappings, QTableWidget *tw_input, QTableWidget *tw_output)
+static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mappings,
+                                       QTableWidget *tw_input, QTableWidget *tw_output)
 {
     Q_ASSERT(arrayMap && tw_input && tw_output);
 
@@ -898,7 +881,8 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
         if (!slot || !slot->isConnected())
             continue;
 
-        auto item = make_table_item(slot->inputPipe->source->objectName(), mapping.slotIndex, mapping.paramIndex);
+        auto item = make_table_item(slot->inputPipe->source->objectName(),
+                                    mapping.slotIndex, mapping.paramIndex);
 
         tw_output->setRowCount(tw_output->rowCount() + 1);
         tw_output->setItem(tw_output->rowCount() - 1, 0, item);
@@ -952,6 +936,17 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         combo_xBins = make_resolution_combo(Histo1DMinBits, Histo1DMaxBits, Histo1DDefBits);
         select_by_resolution(combo_xBins, histoSink->m_bins);
         formLayout->addRow(QSL("Resolution"), combo_xBins);
+
+        limits_x = make_axis_limits_ui(QSL("X Limits"),
+                                       std::numeric_limits<double>::lowest(),
+                                       std::numeric_limits<double>::max(),
+                                       histoSink->m_xLimitMin,
+                                       histoSink->m_xLimitMax,
+                                       histoSink->hasActiveLimits());
+
+        limits_x.outerFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+
+        formLayout->addRow(limits_x.outerFrame);
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
@@ -973,15 +968,21 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         formLayout->addRow(QSL("Y Resolution"), combo_yBins);
 
         limits_x = make_axis_limits_ui(QSL("X Limits"),
-                                       std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
-                                       histoSink->m_xLimitMin, histoSink->m_xLimitMax, histoSink->hasActiveLimits(Qt::XAxis));
+                                       std::numeric_limits<double>::lowest(),
+                                       std::numeric_limits<double>::max(),
+                                       histoSink->m_xLimitMin,
+                                       histoSink->m_xLimitMax,
+                                       histoSink->hasActiveLimits(Qt::XAxis));
 
         // FIXME: input validation
         //connect(limits_x.rb_limited, &QAbstractButton::toggled, this, [this] (bool) { this->validateInputs(); });
 
         limits_y = make_axis_limits_ui(QSL("Y Limits"),
-                                       std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
-                                       histoSink->m_yLimitMin, histoSink->m_yLimitMax, histoSink->hasActiveLimits(Qt::YAxis));
+                                       std::numeric_limits<double>::lowest(),
+                                       std::numeric_limits<double>::max(),
+                                       histoSink->m_yLimitMin,
+                                       histoSink->m_yLimitMax,
+                                       histoSink->hasActiveLimits(Qt::YAxis));
 
         // FIXME: input validation
         //connect(limits_y.rb_limited, &QAbstractButton::toggled, this, [this] (bool) { this->validateInputs(); });
@@ -1393,12 +1394,9 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
     {
         // operator and struct/class name
         {
-            auto label = new QLabel(QSL(
+            auto label = make_framed_description_label(QSL(
                     "<i>Name</i> must be a valid C++/Python identifier as it is used"
                     " for generated struct and class names."));
-            label->setWordWrap(true);
-            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-            label->setFrameShape(QFrame::StyledPanel);
 
             int nameRow = get_widget_row(formLayout, le_name);
             formLayout->insertRow(nameRow + 1, label);
@@ -1477,20 +1475,16 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
             auto stack = new QStackedWidget;
 
-            auto label = new QLabel(QSL(
+            auto label = make_framed_description_label(QSL(
                         "Sparse format writes out indexes and values, omitting"
                         " invalid parameters and NaNs.\n"
                         "For input arrays where for most events only a few"
                         " parameters are valid, this format produces much"
                         " smaller output files than the Full format."
                         ));
-            set_widget_font_pointsize_relative(label, -1);
-            label->setWordWrap(true);
-            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-            label->setFrameShape(QFrame::StyledPanel);
             stack->addWidget(label);
 
-            label = new QLabel(QSL(
+            label = make_framed_description_label(QSL(
                         "Full format writes out each input array as-is,"
                         " including invalid parameters (special NaN values).\n"
                         "Use this format if for most events all of the array"
@@ -1498,10 +1492,6 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
                         " exported data file is critical.\n"
                         "Warning: this format can produce large files quickly!"
                         ));
-            set_widget_font_pointsize_relative(label, -1);
-            label->setWordWrap(true);
-            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-            label->setFrameShape(QFrame::StyledPanel);
             stack->addWidget(label);
 
             connect(combo_exportFormat, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
@@ -1517,16 +1507,12 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             combo_exportCompression->addItem("zlib fast", 1);
             formLayout->addRow("Compression", combo_exportCompression);
 
-            auto label = new QLabel(QSL(
+            auto label = make_framed_description_label(QSL(
                     "zlib compression will produce a gzip compatible compressed file.\n"
                     "Generated C++ code will require the zlib development files"
                     " to be installed on the system.\n"
                     "Generated Python code will use the gzip module included with Python."
                     ));
-            set_widget_font_pointsize_relative(label, -1);
-            label->setWordWrap(true);
-            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-            label->setFrameShape(QFrame::StyledPanel);
 
             formLayout->addRow(label);
         }
@@ -1541,14 +1527,12 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             auto gb    = new QGroupBox("Code generation");
             auto l     = new QGridLayout(gb);
             l->setContentsMargins(2, 2, 2, 2);
-            auto label = new QLabel(QSL(
+            auto label = make_framed_description_label(QSL(
                     "Important: Code generation will overwrite existing files!\n"
                     "Set the output path and export options above, then use the"
                     " buttons below to generate the code files.\n"
                     "Errors during code generation will be shown in the Log Window."
                    ));
-            set_widget_font_pointsize_relative(label, -1);
-            label->setWordWrap(true);
             label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 
             l->addWidget(label,                0, 0, 1, 3);
@@ -1806,6 +1790,15 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         {
             le_xAxisTitle->setText(le_name->text());
         }
+
+        if (histoSink->getSlot(0)->isParamIndexInRange()
+            && slot == histoSink->getSlot(0)
+            && std::isnan(histoSink->m_xLimitMin))
+        {
+            s32 paramIndex = slot->isParameterConnection() ? slot->paramIndex : 0;
+            limits_x.spin_min->setValue(slot->inputPipe->parameters[paramIndex].lowerLimit);
+            limits_x.spin_max->setValue(slot->inputPipe->parameters[paramIndex].upperLimit);
+        }
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
@@ -1816,14 +1809,18 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             le_yAxisTitle->setText(make_input_source_text(&histoSink->m_inputY));
 
         // x input was selected
-        if (histoSink->m_inputX.isParamIndexInRange() && slot == &histoSink->m_inputX && std::isnan(histoSink->m_xLimitMin))
+        if (histoSink->m_inputX.isParamIndexInRange()
+            && slot == &histoSink->m_inputX
+            && std::isnan(histoSink->m_xLimitMin))
         {
             limits_x.spin_min->setValue(slot->inputPipe->parameters[slot->paramIndex].lowerLimit);
             limits_x.spin_max->setValue(slot->inputPipe->parameters[slot->paramIndex].upperLimit);
         }
 
         // y input was selected
-        if (histoSink->m_inputY.isParamIndexInRange() && slot == &histoSink->m_inputY && std::isnan(histoSink->m_yLimitMin))
+        if (histoSink->m_inputY.isParamIndexInRange()
+            && slot == &histoSink->m_inputY
+            && std::isnan(histoSink->m_yLimitMin))
         {
             limits_y.spin_min->setValue(slot->inputPipe->parameters[slot->paramIndex].lowerLimit);
             limits_y.spin_max->setValue(slot->inputPipe->parameters[slot->paramIndex].upperLimit);
@@ -1936,6 +1933,18 @@ void OperatorConfigurationWidget::configureOperator()
 
         s32 bins = combo_xBins->currentData().toInt();
         histoSink->m_bins = bins;
+
+        if (limits_x.rb_limited->isChecked())
+        {
+            histoSink->m_xLimitMin = limits_x.spin_min->value();
+            histoSink->m_xLimitMax = limits_x.spin_max->value();
+        }
+        else
+        {
+            histoSink->m_xLimitMin = make_quiet_nan();
+            histoSink->m_xLimitMax = make_quiet_nan();
+        }
+
         // Actually updating the histograms is done in Histo1DSink::beginRun();
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))

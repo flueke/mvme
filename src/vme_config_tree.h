@@ -93,6 +93,7 @@ class VMEConfigTreeWidget: public QWidget
         void exploreWorkspace();
         void showEditNotes();
         void toggleObjectEnabled(QTreeWidgetItem *node, int expectedNodeType);
+        bool isObjectEnabled(QTreeWidgetItem *node, int expectedNodeType) const;
 
         void runScriptConfigs(const QVector<VMEScriptConfig *> &configs);
 

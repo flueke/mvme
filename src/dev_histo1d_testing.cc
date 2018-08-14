@@ -5,15 +5,30 @@
 #include <QFrame>
 #include "qwt_plot_curve.h"
 
-static const u32 nBins = 4;
+static const u32 nBins = 16;
 static const double xMin = 0.0;
-static const double xMax = 4.0;
+static const double xMax = 16.0;
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    auto histo = std::make_shared<Histo1D>(nBins, 0.0, 4.0);
+    auto histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
+
+    histo->fill(0.0, 1.0);
+    histo->fill(1.0, 2.0);
+    histo->fill(2.0, 3.0);
+    histo->fill(3.0, 2.0);
+
+    histo->fill(0.0, 1.0);
+    histo->fill(1.0, 2.0);
+    histo->fill(2.0, 3.0);
+    histo->fill(3.0, 2.0);
+
+    histo->fill(0.0, 1.0);
+    histo->fill(1.0, 2.0);
+    histo->fill(2.0, 3.0);
+    histo->fill(3.0, 2.0);
 
     histo->fill(0.0, 1.0);
     histo->fill(1.0, 2.0);

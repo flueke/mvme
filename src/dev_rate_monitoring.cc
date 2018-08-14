@@ -232,7 +232,7 @@ int main(int argc, char *argv[])
             //double value = dist(gen);
             double value = (std::sin(x1 * 0.25) + SinOffset) * SinScale;
             x1 += SinInc;
-            sampler1->record_rate(value);
+            sampler1->recordRate(value);
         }
     });
 
@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
         {
             double value = (std::cos(x2 * 0.25) + SinOffset + 0.5) * SinScale;
             x2 += SinInc + 0.125;
-            sampler2->record_rate(value);
+            sampler2->recordRate(value);
         }
     });
 #endif

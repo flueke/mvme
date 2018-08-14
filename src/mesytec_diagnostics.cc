@@ -705,6 +705,10 @@ void MesytecDiagnosticsWidget::dispDiag1()
     ui->sigmodd->setText(str);
     str.sprintf("%2.2f", m_diag->getSigma(EVEN));
     ui->sigmeven->setText(str);
+
+    // delta between min and max mean values
+    str.sprintf("%2.2f", m_diag->getMean(MAXIDX) - m_diag->getMean(MINIDX));
+    ui->delta_mean_maxmin->setText(str);
 }
 
 void MesytecDiagnosticsWidget::dispDiag2()
@@ -737,6 +741,10 @@ void MesytecDiagnosticsWidget::dispDiag2()
     ui->sigmodd_filt->setText(str);
     str.sprintf("%2.2f", m_diag->getSigma(EVENFILT));
     ui->sigmeven_filt->setText(str);
+
+    // delta between min and max mean values
+    str.sprintf("%2.2f", m_diag->getMean(MAXFILT) - m_diag->getMean(MINFILT));
+    ui->delta_mean_maxmin_filt->setText(str);
 }
 
 void MesytecDiagnosticsWidget::dispResultList()

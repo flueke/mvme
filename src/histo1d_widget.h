@@ -64,10 +64,13 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
 
         friend class Histo1DListWidget;
 
-        void setContext(MVMEContext *context) { m_context = context; }
+        void setContext(MVMEContext *context);
         void setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib,
                                 s32 histoAddress);
         void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
+
+        void setResolutionReductionFactor(u32 rrf);
+        void setResolutionReductionSliderEnabled(bool b);
 
         //QwtPlotCurve *getPlotCurve() { return m_plotCurve; }
 
@@ -75,14 +78,14 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         void replot();
 
     private slots:
-        void exportPlot();
-        void exportPlotToClipboard();
-        void saveHistogram();
+        /* IMPORTANT: leave slots invoked by qwt here for now. do not use lambdas!
+         * Reason: there is/was a bug where qwt signals could only be succesfully
+         * connected using the old SIGNAL/SLOT macros. Newer function pointer based
+         * connections did not work. */
         void zoomerZoomed(const QRectF &);
         void mouseCursorMovedToPlotCoord(QPointF);
         void mouseCursorLeftPlot();
-        void updateStatistics();
-        void displayChanged();
+
         void on_tb_subRange_clicked();
         void on_tb_rate_toggled(bool checked);
         void on_tb_gauss_toggled(bool checked);
@@ -90,34 +93,8 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         void on_ratePointerPicker_selected(const QPointF &);
 
     private:
-        void updateAxisScales();
-        bool yAxisIsLog();
-        bool yAxisIsLin();
-        void updateCursorInfoLabel();
-        void calibApply();
-        void calibFillMax();
-        void calibResetToFilter();
-
-        Histo1DWidgetPrivate *m_d;
+        std::unique_ptr<Histo1DWidgetPrivate> m_d;
         friend struct Histo1DWidgetPrivate;
-
-        Histo1D *m_histo;
-        Histo1DPtr m_histoPtr;
-        //QwtPlotCurve *m_plotCurve;
-        QwtPlotHistogram *m_plotHisto;
-
-        ScrollZoomer *m_zoomer;
-        QTimer *m_replotTimer;
-        Histo1DStatistics m_stats;
-        QPointF m_cursorPosition;
-
-        std::shared_ptr<analysis::CalibrationMinMax> m_calib;
-        s32 m_histoAddress;
-        MVMEContext *m_context;
-
-        SinkPtr m_sink;
-        HistoSinkCallback m_sinkModifiedCallback;
-
 };
 
 class Histo1DListWidget: public QWidget

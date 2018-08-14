@@ -33,6 +33,7 @@
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QMenu>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSettings>
 #include <QToolButton>
@@ -135,7 +136,8 @@ class VMEConfigTreeItemDelegate: public QStyledItemDelegate
         }
 
     protected:
-        virtual void initStyleOption(QStyleOptionViewItem *option, const QModelIndex &index) const override
+        virtual void initStyleOption(QStyleOptionViewItem *option,
+                                     const QModelIndex &index) const override
         {
             QStyledItemDelegate::initStyleOption(option, index);
 
@@ -232,7 +234,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
         pb_moreMenu->setPopupMode(QToolButton::InstantPopup);
 
         QSettings settings;
-        action_showAdvanced->setChecked(settings.value("DAQTree/ShowAdvanced", false).toBool());
+        action_showAdvanced->setChecked(settings.value("DAQTree/ShowAdvanced", true).toBool());
         onActionShowAdvancedChanged();
     }
 
@@ -557,9 +559,25 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
         if (isIdle)
         {
             menu.addSeparator();
-            menu.addAction(obj->isEnabled() ? QSL("Disable Module") : QSL("Enable Module"),
-                           this, [this, node]() { toggleObjectEnabled(node, NodeType_Module); });
-            menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
+            menu.addAction(
+                obj->isEnabled() ? QSL("Disable Module") : QSL("Enable Module"),
+                this, [this, node]() {
+
+                    if (isObjectEnabled(node, NodeType_Module))
+                    {
+                        QMessageBox::warning(
+                            this,
+                            QSL("Disable Module Warning"),
+                            QSL("Warning: disabling the VME module that is generating the trigger"
+                                " can lead to unexpected readout behavior.<br/>"
+                               )
+                            );
+                    }
+
+                    toggleObjectEnabled(node, NodeType_Module);
+                });
+
+           menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
         }
 
         if (!m_context->getMVMEStreamWorker()->hasDiagnostics() && obj->isEnabled())
@@ -788,6 +806,19 @@ void VMEConfigTreeWidget::toggleObjectEnabled(QTreeWidgetItem *node, int expecte
             obj->setEnabled(!obj->isEnabled());
         }
     }
+}
+
+bool VMEConfigTreeWidget::isObjectEnabled(QTreeWidgetItem *node, int expectedNodeType) const
+{
+    if (node && node->type() == expectedNodeType)
+    {
+        if (auto obj = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer)))
+        {
+            return obj->isEnabled();
+        }
+    }
+
+    return false;
 }
 
 void VMEConfigTreeWidget::editEvent()

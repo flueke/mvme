@@ -23,6 +23,7 @@
 
 #include "typedefs.h"
 
+#include <memory>
 #include <QEventLoop>
 #include <QFormLayout>
 #include <QFrame>
@@ -65,6 +66,7 @@ QAction *add_widget_close_action(QWidget *widget,
 
 QJsonObject storeDynamicProperties(const QObject *object);
 void loadDynamicProperties(const QJsonObject &json, QObject *dest);
+void loadDynamicProperties(const QVariantMap &properties, QObject *dest);
 
 
 // VerticalLabel source: https://stackoverflow.com/a/18515898
@@ -104,14 +106,25 @@ inline QFrame *make_separator_frame(Qt::Orientation orientation = Qt::Horizontal
     return frame;
 }
 
-inline QLabel *make_aligned_label(const QString &text, Qt::Alignment alignment = (Qt::AlignLeft | Qt::AlignVCenter))
+inline QLabel *make_aligned_label(const QString &text,
+                                  Qt::Alignment alignment = (Qt::AlignLeft | Qt::AlignVCenter))
 {
     auto label = new QLabel(text);
     label->setAlignment(alignment);
     return label;
 }
 
-QWidget *make_vbox_container(const QString &labelText, QWidget *widget, int spacing = 2);
+struct VBoxContainerWithLabel
+{
+    std::unique_ptr<QWidget> container;
+    QVBoxLayout *layout;
+    QLabel *label;
+    QWidget *widget;
+};
+
+VBoxContainerWithLabel make_vbox_container(const QString &labelText, QWidget *widget,
+                                           int spacing = 2, int labelRelativeFontPointSize = 0);
+
 QWidget *make_spacer_widget(QWidget *parent = nullptr);
 QToolButton *make_toolbutton(const QString &icon, const QString &text);
 QToolButton *make_action_toolbutton(QAction *action);
@@ -151,5 +164,11 @@ class NonShrinkingLabelHelper
         s32 m_maxWidth  = 0;
         s32 m_maxHeight = 0;
 };
+
+template<typename T>
+uint qHash(const std::shared_ptr<T> &ptr, uint seed = 0)
+{
+    return qHash(ptr.get());
+}
 
 #endif /* __QT_UTIL_H__ */

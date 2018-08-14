@@ -1,0 +1,11 @@
+# Reset the module to a clean default state here. This is executed before
+# initializing the modules at DAQ start time.
+
+# 4.11/12 - 'Bit Set 1' and 'Bit Clear 1' registers
+# Bit 7 is the 'soft reset' bit
+write a32 d16 0x1006 0x80 # enable soft reset
+wait 100ms
+write a32 d16 0x1008 0x80 # disable soft reset
+
+# 4.8 - Firmware Revision: read out to appear in the logfile
+read a32 d16 0x1000

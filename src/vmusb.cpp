@@ -404,6 +404,10 @@ VMEError VMUSB::open()
             close();
         }
 
+        qDebug() << __PRETTY_FUNCTION__ << ">>>>>> post error recovery register dump";
+        dump_registers(this, [](const QString &line) { qDebug().noquote() << " " << line; });
+        qDebug() << __PRETTY_FUNCTION__ << "<<<<<< end of register dump";
+
         return error;
     }
 

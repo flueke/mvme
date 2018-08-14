@@ -21,13 +21,6 @@
 #include "histo2d_widget.h"
 #include "histo2d_widget_p.h"
 
-#include "analysis/a2_adapter.h"
-#include "analysis/analysis.h"
-#include "histo1d_widget.h"
-#include "mvme_context.h"
-#include "scrollzoomer.h"
-#include "util.h"
-
 #include <qwt_plot_spectrogram.h>
 #include <qwt_color_map.h>
 #include <qwt_scale_widget.h>
@@ -51,6 +44,17 @@
 #include <QTimer>
 #include <QToolBar>
 
+#include "analysis/a2_adapter.h"
+#include "analysis/analysis.h"
+#include "histo1d_widget.h"
+#include "histo_gui_util.h"
+#include "mvme_context.h"
+#include "mvme_context_lib.h"
+#include "qt_util.h"
+#include "scrollzoomer.h"
+#include "util.h"
+
+
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
 #endif
@@ -59,9 +63,24 @@ static const s32 ReplotPeriod_ms = 1000;
 
 using Intervals = Histo2DStatistics::Intervals;
 
-class RasterDataBase: public QwtRasterData
+struct RasterDataBase: public QwtRasterData
 {
-public:
+    ResolutionReductionFactors m_rrf;
+
+#ifndef QT_NO_DEBUG
+    /* Counts the number of samples obtained by qwt when doing a replot. Has to be atomic
+     * as QwtPlotSpectrogram::renderImage() uses threaded rendering internally.
+     * The number of samples heavily depends on the result of the pixelHint() method and
+     * is performance critical. */
+    mutable std::atomic<u64> m_sampledValuesForLastReplot;
+#endif
+
+    RasterDataBase()
+#ifndef QT_NO_DEBUG
+        : m_sampledValuesForLastReplot(0u)
+#endif
+    {}
+
     void setIntervals(const Intervals &intervals)
     {
         for (size_t axis = 0; axis < intervals.size(); axis++)
@@ -74,49 +93,122 @@ public:
             //    << ", max =" << intervals[axis].maxValue;
         }
     }
+
+    void setResolutionReductionFactors(u32 rrfX, u32 rrfY) { m_rrf = { rrfX, rrfY }; }
+    void setResolutionReductionFactors(const ResolutionReductionFactors &rrf) { m_rrf = rrf; }
+
+    virtual void initRaster(const QRectF &area, const QSize &raster) override
+    {
+        preReplot();
+        QwtRasterData::initRaster(area, raster);
+    }
+
+    virtual void discardRaster() override
+    {
+        postReplot();
+        QwtRasterData::discardRaster();
+    }
+
+    void preReplot()
+    {
+        qDebug() << __PRETTY_FUNCTION__ << this;
+#ifndef QT_NO_DEBUG
+        m_sampledValuesForLastReplot = 0u;
+#endif
+    }
+
+    void postReplot()
+    {
+#ifndef QT_NO_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << this
+            << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+#endif
+    }
 };
 
 struct Histo2DRasterData: public RasterDataBase
 {
+    Histo2D *m_histo;
+
     Histo2DRasterData(Histo2D *histo)
         : RasterDataBase()
         , m_histo(histo)
-    {
-    }
+    {}
 
     virtual double value(double x, double y) const override
     {
-        double v = m_histo->getValue(x, y);
+#ifndef QT_NO_DEBUG
+        m_sampledValuesForLastReplot++;
+#endif
+        //qDebug() << __PRETTY_FUNCTION__ << this
+        //    << "x" << x << ", y" << y;
+
+        double v = m_histo->getValue(x, y, m_rrf);
         double r = (v > 0.0 ? v : make_quiet_nan());
         return r;
     }
 
-    Histo2D *m_histo;
+    virtual QRectF pixelHint(const QRectF &area) const override
+    {
+        QRectF result
+        {
+            0.0, 0.0,
+            m_histo->getAxisBinning(Qt::XAxis).getBinWidth(m_rrf.x),
+            m_histo->getAxisBinning(Qt::YAxis).getBinWidth(m_rrf.y)
+        };
+
+        //qDebug() << __PRETTY_FUNCTION__ << ">>>>>>" << result;
+
+        return result;
+    }
+
 };
 
 using HistoList = QVector<std::shared_ptr<Histo1D>>;
 
 struct Histo1DListRasterData: public RasterDataBase
 {
+    HistoList m_histos;
+
     Histo1DListRasterData(const HistoList &histos)
         : RasterDataBase()
         , m_histos(histos)
-    {
-    }
+    {}
 
     virtual double value(double x, double y) const override
     {
+#ifndef QT_NO_DEBUG
+        m_sampledValuesForLastReplot++;
+#endif
         int histoIndex = x;
 
         if (histoIndex < 0 || histoIndex >= m_histos.size())
             return make_quiet_nan();
 
-        double v = m_histos[histoIndex]->getValue(y);
+        double v = m_histos[histoIndex]->getValue(y, m_rrf.y);
         double r = (v > 0.0 ? v : make_quiet_nan());
         return r;
     }
 
-    HistoList m_histos;
+    virtual QRectF pixelHint(const QRectF &area) const override
+    {
+        double sizeX = 1.0;
+        double sizeY = 1.0;
+
+        if (!m_histos.isEmpty())
+        {
+            sizeY = m_histos[0]->getBinWidth(m_rrf.y);
+        }
+
+        QRectF result
+        {
+            0.0, 0.0, sizeX, sizeY
+        };
+
+        //qDebug() << __PRETTY_FUNCTION__ << ">>>>>>" << result;
+
+        return result;
+    }
 };
 
 using Histo1DSinkPtr = Histo2DWidget::Histo1DSinkPtr;
@@ -124,7 +216,8 @@ using Histo1DSinkPtr = Histo2DWidget::Histo1DSinkPtr;
 static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &sink,
                                                          AxisInterval xInterval,
                                                          AxisInterval yInterval,
-                                                         analysis::A2AdapterState *a2State)
+                                                         analysis::A2AdapterState *a2State,
+                                                         const u32 rrfY)
 {
     assert(sink);
     assert(a2State);
@@ -146,7 +239,7 @@ static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &s
     for (s32 hi = firstHistoIndex; hi <= lastHistoIndex; hi++)
     {
         auto histo  = sink->m_histos.at(hi);
-        auto stats = histo->calcStatistics(yInterval.minValue, yInterval.maxValue);
+        auto stats = histo->calcStatistics(yInterval.minValue, yInterval.maxValue, rrfY);
 
         result.entryCount += stats.entryCount;
 
@@ -155,7 +248,7 @@ static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &s
             result.maxBinX = hi;
             result.maxBinY = stats.maxBin;
             result.maxX = hi;
-            result.maxY = histo->getBinLowEdge(stats.maxBin);
+            result.maxY = histo->getBinLowEdge(stats.maxBin, rrfY);
             result.maxZ = stats.maxValue;
         }
     }
@@ -163,7 +256,10 @@ static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &s
     auto firstHisto   = sink->m_histos.at(firstHistoIndex);
     auto firstBinning = firstHisto->getAxisBinning(Qt::XAxis);
 
-    result.intervals[Qt::XAxis] = { static_cast<double>(firstHistoIndex), static_cast<double>(lastHistoIndex + 1) };
+    result.intervals[Qt::XAxis] = {
+        static_cast<double>(firstHistoIndex),
+        static_cast<double>(lastHistoIndex + 1)
+    };
     result.intervals[Qt::YAxis] = { firstBinning.getMin(), firstBinning.getMax() };
     result.intervals[Qt::ZAxis] = { 0.0, result.maxZ };
 
@@ -220,6 +316,17 @@ struct Histo2DWidgetPrivate
     QwtText *m_waterMarkText;
     QwtPlotTextLabel *m_waterMarkLabel;
 
+    // Resolution Reduction
+    QSlider *m_rrSliderX;
+    QSlider *m_rrSliderY;
+
+    QLabel *m_rrLabelX;
+    QLabel *m_rrLabelY;
+
+    QWidget *m_rrSliderXContainer;
+
+    ResolutionReductionFactors m_rrf = {};
+
     void onActionChangeResolution()
     {
         auto combo_xBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
@@ -247,15 +354,26 @@ struct Histo2DWidgetPrivate
 
             bool modified = (sink->m_xBins != xBins || sink->m_yBins != yBins);
 
-            sink->m_xBins = xBins;
-            sink->m_yBins = yBins;
-
             if (modified)
             {
+                AnalysisPauser pauser(m_q->m_context);
+
+                sink->m_xBins = xBins;
+                sink->m_yBins = yBins;
+                sink->setResolutionReductionFactors({});
                 m_q->m_context->analysisOperatorEdited(sink);
+
+                m_rrSliderX->setMaximum(std::log2(xBins));
+                m_rrSliderX->setValue(m_rrSliderX->maximum());
+
+                m_rrSliderY->setMaximum(std::log2(yBins));
+                m_rrSliderY->setValue(m_rrSliderY->maximum());
             }
         }
     }
+
+    void onRRSliderXValueChanged(int sliderValue);
+    void onRRSliderYValueChanged(int sliderValue);
 };
 
 enum class AxisScaleType
@@ -263,13 +381,6 @@ enum class AxisScaleType
     Linear,
     Logarithmic
 };
-
-static QWidget *make_spacer_widget()
-{
-    auto result = new QWidget;
-    result->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    return result;
-}
 
 Histo2DWidget::Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent)
     : Histo2DWidget(histoPtr.get(), parent)
@@ -298,6 +409,12 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
         replot();
     });
 
+    m_d->m_rrSliderX->setMaximum(std::log2(m_histo->getAxisBinning(Qt::XAxis).getBinCount()));
+    m_d->m_rrSliderX->setValue(m_d->m_rrSliderX->maximum());
+
+    m_d->m_rrSliderY->setMaximum(std::log2(m_histo->getAxisBinning(Qt::YAxis).getBinCount()));
+    m_d->m_rrSliderY->setValue(m_d->m_rrSliderY->maximum());
+
     displayChanged();
 }
 
@@ -311,6 +428,27 @@ Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, MVMEContext *con
     m_histo1DSink = histo1DSink;
     auto histData = new Histo1DListRasterData(m_histo1DSink->m_histos);
     m_plotItem->setData(histData);
+
+    m_d->m_rrSliderX->setMaximum(histo1DSink->getNumberOfHistos());
+    m_d->m_rrSliderX->setValue(m_d->m_rrSliderX->maximum());
+    m_d->m_rrSliderX->setEnabled(false);
+    m_d->m_rrSliderXContainer->setVisible(false);
+    for (auto childWidget: m_d->m_rrSliderXContainer->findChildren<QWidget *>())
+    {
+        childWidget->setVisible(false);
+    }
+
+    if (m_histo1DSink->getNumberOfHistos())
+    {
+        auto histo = m_histo1DSink->getHisto(0);
+        m_d->m_rrSliderY->setMaximum(std::log2(histo->getNumberOfBins()));
+        m_d->m_rrSliderY->setValue(m_d->m_rrSliderY->maximum());
+    }
+    else
+    {
+        m_d->m_rrSliderY->setMinimum(0);
+        m_d->m_rrSliderY->setMaximum(0);
+    }
 
     connect(m_d->m_actionClear, &QAction::triggered, this, [this]() {
         for (auto &histo: m_histo1DSink->m_histos)
@@ -357,7 +495,8 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         connect(zScaleCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
                 this, &Histo2DWidget::displayChanged);
 
-        tb->addWidget(make_vbox_container(QSL("Z-Scale"), zScaleCombo));
+        tb->addWidget(make_vbox_container(QSL("Z-Scale"), zScaleCombo, 2, -2)
+                      .container.release());
     }
 
     tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("X-Proj"),
@@ -399,6 +538,33 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
             childWidget->setVisible(b);
         }
     });
+
+    // Resolution Reduction X
+    {
+        m_d->m_rrSliderX = make_res_reduction_slider();
+        auto boxStruct = make_vbox_container(QSL("Visible X Resolution"), m_d->m_rrSliderX, 0, -2);
+        m_d->m_rrLabelX = boxStruct.label;
+        m_d->m_rrSliderXContainer = boxStruct.container.get();
+        tb->addWidget(boxStruct.container.release());
+
+        connect(m_d->m_rrSliderX, &QSlider::valueChanged, this, [this] (int sliderValue) {
+            m_d->onRRSliderXValueChanged(sliderValue);
+        });
+    }
+
+    // Resolution Reduction Y
+    {
+        m_d->m_rrSliderY = make_res_reduction_slider();
+        auto boxStruct = make_vbox_container(QSL("Visible Y Resolution"), m_d->m_rrSliderY, 0, -2);
+        m_d->m_rrLabelY = boxStruct.label;
+        tb->addWidget(boxStruct.container.release());
+
+        connect(m_d->m_rrSliderY, &QSlider::valueChanged, this, [this] (int sliderValue) {
+            m_d->onRRSliderYValueChanged(sliderValue);
+        });
+    }
+
+    tb->addWidget(make_spacer_widget());
 
     // Plot
 
@@ -513,6 +679,10 @@ void Histo2DWidget::replot()
      * - update projections
      */
 
+    const auto rrf = m_d->m_rrf;
+
+    qDebug() << __PRETTY_FUNCTION__ << "rrf =" << rrf;
+
     QwtInterval visibleXInterval = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).interval();
     QwtInterval visibleYInterval = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).interval();
 
@@ -551,8 +721,14 @@ void Histo2DWidget::replot()
             };
         }
 
-        m_d->m_plot->setAxisScale(QwtPlot::xBottom, visibleXInterval.minValue(), visibleXInterval.maxValue());
-        m_d->m_plot->setAxisScale(QwtPlot::yLeft,   visibleYInterval.minValue(), visibleYInterval.maxValue());
+        m_d->m_plot->setAxisScale(QwtPlot::xBottom,
+                                  visibleXInterval.minValue(),
+                                  visibleXInterval.maxValue());
+
+        m_d->m_plot->setAxisScale(QwtPlot::yLeft,
+                                  visibleYInterval.minValue(),
+                                  visibleYInterval.maxValue());
+
         m_zoomer->setZoomBase();
     }
 
@@ -562,7 +738,8 @@ void Histo2DWidget::replot()
     {
         stats = m_histo->calcStatistics(
             { visibleXInterval.minValue(), visibleXInterval.maxValue() },
-            { visibleYInterval.minValue(), visibleYInterval.maxValue() });
+            { visibleYInterval.minValue(), visibleYInterval.maxValue() },
+            rrf);
     }
     else if (m_histo1DSink)
     {
@@ -570,11 +747,15 @@ void Histo2DWidget::replot()
             m_histo1DSink,
             { visibleXInterval.minValue(), visibleXInterval.maxValue() },
             { visibleYInterval.minValue(), visibleYInterval.maxValue() },
-            m_context->getAnalysis()->getA2AdapterState());
+            m_context->getAnalysis()->getA2AdapterState(),
+            rrf.y);
     }
 
     auto rasterData = reinterpret_cast<RasterDataBase *>(m_plotItem->data());
     rasterData->setIntervals(stats.intervals);
+    // Important: Has to happen before updateCursorInfoLabel() as that calls
+    // Histo1DListRasterData::value() internally  which uses the rrf.
+    rasterData->setResolutionReductionFactors(rrf);
 
     auto zInterval = rasterData->interval(Qt::ZAxis);
     double zBase = zAxisIsLog() ? 1.0 : 0.0;
@@ -590,6 +771,7 @@ void Histo2DWidget::replot()
 
     // window and axis titles
     QString windowTitle;
+
     if (m_histo)
     {
         windowTitle = QString("Histogram %1").arg(m_histo->objectName());
@@ -862,6 +1044,7 @@ void Histo2DWidget::zoomerZoomed(const QRectF &zoomRect)
     replot();
 }
 
+// TODO: RR
 void Histo2DWidget::updateCursorInfoLabel()
 {
     double plotX = m_cursorPosition.x();
@@ -872,19 +1055,21 @@ void Histo2DWidget::updateCursorInfoLabel()
 
     if (m_histo)
     {
-        binX = m_histo->getAxisBinning(Qt::XAxis).getBin(plotX);
-        binY = m_histo->getAxisBinning(Qt::YAxis).getBin(plotY);
+        binX = m_histo->getAxisBinning(Qt::XAxis).getBin(plotX, m_d->m_rrf.x);
+        binY = m_histo->getAxisBinning(Qt::YAxis).getBin(plotY, m_d->m_rrf.y);
 
-        value = m_histo->getValue(plotX, plotY);
+        value = m_histo->getValue(plotX, plotY, m_d->m_rrf);
     }
     else if (m_histo1DSink && m_histo1DSink->getNumberOfHistos() > 0)
     {
         /* x goes from 0 to #histos.
          * For y the x binning of the first histo is used. */
 
-        auto xBinning = AxisBinning(m_histo1DSink->getNumberOfHistos(), 0.0, m_histo1DSink->getNumberOfHistos());
+        auto xBinning = AxisBinning(m_histo1DSink->getNumberOfHistos(),
+                                    0.0, m_histo1DSink->getNumberOfHistos());
         binX = xBinning.getBin(plotX);
-        binY = m_histo1DSink->getHisto(0)->getAxisBinning(Qt::XAxis).getBin(plotY);
+        binY = m_histo1DSink->getHisto(0)->getAxisBinning(Qt::XAxis)
+            .getBin(plotY, m_d->m_rrf.y);
 
         auto histData = reinterpret_cast<Histo1DListRasterData *>(m_plotItem->data());
         value = histData->value(plotX, plotY);
@@ -914,11 +1099,13 @@ void Histo2DWidget::updateCursorInfoLabel()
     // use the largest width the label ever had to stop the label from constantly changing its width
     if (m_d->m_labelCursorInfo->isVisible())
     {
-        m_d->m_labelCursorInfoMaxWidth = std::max(m_d->m_labelCursorInfoMaxWidth, m_d->m_labelCursorInfo->width());
+        m_d->m_labelCursorInfoMaxWidth = std::max(m_d->m_labelCursorInfoMaxWidth,
+                                                  m_d->m_labelCursorInfo->width());
         m_d->m_labelCursorInfo->setMinimumWidth(m_d->m_labelCursorInfoMaxWidth);
 
         m_d->m_labelCursorInfo->setMinimumHeight(m_d->m_labelCursorInfoMaxHeight);
-        m_d->m_labelCursorInfoMaxHeight = std::max(m_d->m_labelCursorInfoMaxHeight, m_d->m_labelCursorInfo->height());
+        m_d->m_labelCursorInfoMaxHeight = std::max(m_d->m_labelCursorInfoMaxHeight,
+                                                   m_d->m_labelCursorInfo->height());
     }
 }
 
@@ -1000,7 +1187,9 @@ void Histo2DWidget::on_tb_info_clicked()
 #endif
 }
 
-void Histo2DWidget::setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback,
+void Histo2DWidget::setSink(const SinkPtr &sink,
+                            HistoSinkCallback addSinkCallback,
+                            HistoSinkCallback sinkModifiedCallback,
                             MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction)
 {
     Q_ASSERT(m_histo && sink && sink->m_histo.get() == m_histo);
@@ -1011,6 +1200,30 @@ void Histo2DWidget::setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallba
     m_makeUniqueOperatorNameFunction = makeUniqueOperatorNameFunction;
     m_d->m_actionSubRange->setEnabled(true);
     m_d->m_actionChangeRes->setEnabled(true);
+
+    auto rrf = sink->getResolutionReductionFactors();
+
+    if (rrf.x == AxisBinning::NoResolutionReduction)
+    {
+        m_d->m_rrSliderX->setValue(m_d->m_rrSliderX->maximum());
+    }
+    else
+    {
+        u32 visBins = m_histo->getAxisBinning(Qt::XAxis).getBinCount(rrf.x);
+        int sliderValue = std::log2(visBins);
+        m_d->m_rrSliderX->setValue(sliderValue);
+    }
+
+    if (rrf.y == AxisBinning::NoResolutionReduction)
+    {
+        m_d->m_rrSliderY->setValue(m_d->m_rrSliderY->maximum());
+    }
+    else
+    {
+        u32 visBins = m_histo->getAxisBinning(Qt::YAxis).getBinCount(rrf.x);
+        int sliderValue = std::log2(visBins);
+        m_d->m_rrSliderY->setValue(sliderValue);
+    }
 }
 
 void Histo2DWidget::on_tb_subRange_clicked()
@@ -1064,6 +1277,8 @@ void Histo2DWidget::doXProjection()
     {
         m_xProjWidget = new Histo1DWidget(histo);
         m_xProjWidget->setContext(m_context);
+        m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
+        m_xProjWidget->setResolutionReductionSliderEnabled(false);
         m_xProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_xProjWidget->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_xProjWidget, &QObject::destroyed, this, [this] (QObject *) {
@@ -1088,6 +1303,7 @@ void Histo2DWidget::doXProjection()
     else
     {
         m_xProjWidget->setHistogram(histo);
+        m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
     }
 }
 
@@ -1126,6 +1342,8 @@ void Histo2DWidget::doYProjection()
     if (!m_yProjWidget)
     {
         m_yProjWidget = new Histo1DWidget(histo);
+        m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
+        m_yProjWidget->setResolutionReductionSliderEnabled(false);
         m_yProjWidget->setContext(m_context);
         m_yProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_yProjWidget->setAttribute(Qt::WA_DeleteOnClose);
@@ -1151,6 +1369,7 @@ void Histo2DWidget::doYProjection()
     else
     {
         m_yProjWidget->setHistogram(histo);
+        m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
     }
 }
 
@@ -1184,4 +1403,75 @@ bool Histo2DWidget::event(QEvent *e)
 QwtPlot *Histo2DWidget::getQwtPlot()
 {
     return m_d->m_plot;
+}
+
+void Histo2DWidgetPrivate::onRRSliderXValueChanged(int sliderValue)
+{
+    if (m_q->m_histo)
+    {
+        u32 physBins = m_q->m_histo->getAxisBinning(Qt::XAxis).getBinCount();
+        u32 visBins  = 1u << sliderValue;
+        m_rrf.x = physBins / visBins;
+
+        m_rrLabelX->setText(QSL("Visible X Resolution: %1, %2 bit")
+                            .arg(visBins)
+                            .arg(std::log2(visBins))
+                           );
+
+        //qDebug() << __PRETTY_FUNCTION__
+        //    << "rrx adjust: sliderValue =" << sliderValue << "new rrf =" << m_rrf;
+
+        if (m_q->m_sink)
+        {
+            m_q->m_sink->setResolutionReductionFactors(m_rrf);
+        }
+    }
+    else if (m_q->m_histo1DSink)
+    {
+        // NOOP for now
+    }
+
+    m_q->replot();
+}
+
+void Histo2DWidgetPrivate::onRRSliderYValueChanged(int sliderValue)
+{
+    if (m_q->m_histo)
+    {
+        u32 physBins = m_q->m_histo->getAxisBinning(Qt::YAxis).getBinCount();
+        u32 visBins  = 1u << sliderValue;
+        m_rrf.y = physBins / visBins;
+
+        m_rrLabelY->setText(QSL("Visible Y Resolution: %1, %2 bit")
+                            .arg(visBins)
+                            .arg(std::log2(visBins))
+                           );
+
+        //qDebug() << __PRETTY_FUNCTION__
+        //    << "rry adjust: sliderValue =" << sliderValue << "new rrf =" << m_rrf;
+
+        if (m_q->m_sink)
+        {
+            m_q->m_sink->setResolutionReductionFactors(m_rrf);
+        }
+
+    }
+    else if (m_q->m_histo1DSink && m_q->m_histo1DSink->getNumberOfHistos() > 0)
+    {
+        auto histo = m_q->m_histo1DSink->getHisto(0);
+
+        u32 physBins = histo->getAxisBinning(Qt::XAxis).getBinCount();
+        u32 visBins  = 1u << sliderValue;
+        m_rrf.y = physBins / visBins;
+
+        m_rrLabelY->setText(QSL("Visible Y Resolution: %1, %2 bit")
+                            .arg(visBins)
+                            .arg(std::log2(visBins))
+                           );
+
+        //qDebug() << __PRETTY_FUNCTION__
+        //    << "rry adjust: sliderValue =" << sliderValue << "new rrf =" << m_rrf;
+    }
+
+    m_q->replot();
 }

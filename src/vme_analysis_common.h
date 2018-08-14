@@ -76,6 +76,12 @@ struct VMEConfigIndex
     s32 moduleIndex;
 };
 
+inline bool operator==(const VMEConfigIndex &a, const VMEConfigIndex &b)
+{
+    return a.eventIndex == b.eventIndex
+        && a.moduleIndex == b.moduleIndex;
+}
+
 using VMEIdToIndex = QHash<QUuid, VMEConfigIndex>;
 
 VMEIdToIndex build_id_to_index_mapping(const VMEConfig *vmeConfig);

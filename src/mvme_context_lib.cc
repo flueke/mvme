@@ -1,4 +1,5 @@
 #include "mvme_context_lib.h"
+#include "analysis/analysis.h"
 #include "mvme_context.h"
 #include "util_zip.h"
 
@@ -59,23 +60,37 @@ ContextOpenListfileResult context_open_listfile(MVMEContext *context, const QStr
 // AnalysisPauser
 //
 AnalysisPauser::AnalysisPauser(MVMEContext *context)
-    : context(context)
+    : m_context(context)
+    , m_prevState(m_context->getMVMEStreamWorkerState())
 {
-    was_running = context->isAnalysisRunning();
+    qDebug() << __PRETTY_FUNCTION__ << "prevState =" << to_string(m_prevState);
 
-    qDebug() << __PRETTY_FUNCTION__ << "was_running =" << was_running;
-
-    if (was_running)
+    switch (m_prevState)
     {
-        context->stopAnalysis();
+        case MVMEStreamWorkerState::Running:
+            m_context->stopAnalysis();
+            break;
+
+        case MVMEStreamWorkerState::Idle:
+        case MVMEStreamWorkerState::Paused:
+        case MVMEStreamWorkerState::SingleStepping:
+            break;
     }
 }
 
 AnalysisPauser::~AnalysisPauser()
 {
-    qDebug() << __PRETTY_FUNCTION__ << "was_running =" << was_running;
-    if (was_running)
+    qDebug() << __PRETTY_FUNCTION__ << "prevState =" << to_string(m_prevState);
+
+    switch (m_prevState)
     {
-        context->resumeAnalysis();
+        case MVMEStreamWorkerState::Running:
+            m_context->resumeAnalysis(analysis::Analysis::KeepState);
+            break;
+
+        case MVMEStreamWorkerState::Idle:
+        case MVMEStreamWorkerState::Paused:
+        case MVMEStreamWorkerState::SingleStepping:
+            break;
     }
 }

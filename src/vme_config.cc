@@ -257,6 +257,15 @@ void ModuleConfig::setBaseAddress(uint32_t address)
     }
 }
 
+void ModuleConfig::setModuleMeta(const vats::VMEModuleMeta &meta)
+{
+    if (m_meta != meta)
+    {
+        m_meta = meta;
+        setModified();
+    }
+}
+
 void ModuleConfig::addInitScript(VMEScriptConfig *script)
 {
     Q_ASSERT(script);

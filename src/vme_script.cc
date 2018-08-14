@@ -21,6 +21,7 @@
 #include "vme_script.h"
 #include "util.h"
 #include "vme_controller.h"
+#include "vmusb.h"
 
 #include <QFile>
 #include <QTextStream>
@@ -320,7 +321,7 @@ Command parseResetBase(const QStringList &args, int lineNumber)
     auto usage = QString("%1").arg(args[0]);
 
     if (args.size() != 1)
-        throw ParseError(QString("Invalid numer of arguments. Usage: %1").arg(usage), lineNumber);
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
 
     Command result;
 
@@ -329,28 +330,92 @@ Command parseResetBase(const QStringList &args, int lineNumber)
     return result;
 }
 
+static const QMap<QString, u32> VMUSB_RegisterNameToAddress =
+{
+    { QSL("dev_src"),   DEVSrcRegister },
+    { QSL("dgg_a"),     DGGARegister },
+    { QSL("dgg_b"),     DGGBRegister },
+    { QSL("dgg_ext"),   DGGExtended },
+    { QSL("sclr_a"),    ScalerA },
+    { QSL("sclr_b"),    ScalerB },
+};
+
+Command parse_VMUSB_write_reg(const QStringList &args, int lineNumber)
+{
+    auto usage = QString("%1 (%2) <value>")
+        .arg(args.value(0))
+        .arg(VMUSB_RegisterNameToAddress.keys().join("|"))
+        ;
+
+    if (args.size() != 3)
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = commandType_from_string(args[0]);
+
+    if (!VMUSB_RegisterNameToAddress.contains(args[1]))
+    {
+        throw ParseError(QString("Invalid VMUSB register name given. Usage: %1").arg(usage),
+                         lineNumber);
+    }
+
+    result.address = VMUSB_RegisterNameToAddress.value(args[1]);
+    result.value   = parseValue(args[2]);
+
+    return result;
+}
+
+Command parse_VMUSB_read_reg(const QStringList &args, int lineNumber)
+{
+    auto usage = QString("%1 (%2)")
+        .arg(args.value(0))
+        .arg(VMUSB_RegisterNameToAddress.keys().join("|"))
+        ;
+
+    if (args.size() != 2)
+    {
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+    }
+
+    Command result;
+    result.type = commandType_from_string(args[0]);
+
+    if (!VMUSB_RegisterNameToAddress.contains(args[1]))
+    {
+        throw ParseError(QString("Invalid VMUSB register name given. Usage: %1").arg(usage),
+                         lineNumber);
+    }
+
+    result.address = VMUSB_RegisterNameToAddress.value(args[1]);
+
+    return result;
+}
+
 typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
 
 static const QMap<QString, CommandParser> commandParsers =
 {
-    { QSL("read"),          parseRead },
-    { QSL("write"),         parseWrite },
-    { QSL("writeabs"),      parseWrite },
-    { QSL("wait"),          parseWait },
-    { QSL("marker"),        parseMarker },
+    { QSL("read"),              parseRead },
+    { QSL("write"),             parseWrite },
+    { QSL("writeabs"),          parseWrite },
+    { QSL("wait"),              parseWait },
+    { QSL("marker"),            parseMarker },
 
-    { QSL("blt"),           parseBlockTransfer },
-    { QSL("bltfifo"),       parseBlockTransfer },
-    { QSL("mblt"),          parseBlockTransfer },
-    { QSL("mbltfifo"),      parseBlockTransfer },
+    { QSL("blt"),               parseBlockTransfer },
+    { QSL("bltfifo"),           parseBlockTransfer },
+    { QSL("mblt"),              parseBlockTransfer },
+    { QSL("mbltfifo"),          parseBlockTransfer },
 
-    { QSL("bltcount"),      parseBlockTransferCountRead },
-    { QSL("bltfifocount"),  parseBlockTransferCountRead },
-    { QSL("mbltcount"),     parseBlockTransferCountRead },
-    { QSL("mbltfifocount"), parseBlockTransferCountRead },
+    { QSL("bltcount"),          parseBlockTransferCountRead },
+    { QSL("bltfifocount"),      parseBlockTransferCountRead },
+    { QSL("mbltcount"),         parseBlockTransferCountRead },
+    { QSL("mbltfifocount"),     parseBlockTransferCountRead },
 
-    { QSL("setbase"),       parseSetBase },
-    { QSL("resetbase"),     parseResetBase },
+    { QSL("setbase"),           parseSetBase },
+    { QSL("resetbase"),         parseResetBase },
+
+    { QSL("vmusb_write_reg"),    parse_VMUSB_write_reg },
+    { QSL("vmusb_read_reg"),     parse_VMUSB_read_reg },
 };
 
 static QString handle_multiline_comments(QString line, bool &in_multiline_comment)
@@ -536,21 +601,23 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
 
 static const QMap<CommandType, QString> commandTypeToString =
 {
-    { CommandType::Read,            QSL("read") },
-    { CommandType::Write,           QSL("write") },
-    { CommandType::WriteAbs,        QSL("writeabs") },
-    { CommandType::Wait,            QSL("wait") },
-    { CommandType::Marker,          QSL("marker") },
-    { CommandType::BLT,             QSL("blt") },
-    { CommandType::BLTFifo,         QSL("bltfifo") },
-    { CommandType::MBLT,            QSL("mblt") },
-    { CommandType::MBLTFifo,        QSL("mbltfifo") },
-    { CommandType::BLTCount,        QSL("bltcount") },
-    { CommandType::BLTFifoCount,    QSL("bltfifocount") },
-    { CommandType::MBLTCount,       QSL("mbltcount") },
-    { CommandType::MBLTFifoCount,   QSL("mbltfifocount") },
-    { CommandType::SetBase,         QSL("setbase") },
-    { CommandType::ResetBase,       QSL("resetbase") },
+    { CommandType::Read,                QSL("read") },
+    { CommandType::Write,               QSL("write") },
+    { CommandType::WriteAbs,            QSL("writeabs") },
+    { CommandType::Wait,                QSL("wait") },
+    { CommandType::Marker,              QSL("marker") },
+    { CommandType::BLT,                 QSL("blt") },
+    { CommandType::BLTFifo,             QSL("bltfifo") },
+    { CommandType::MBLT,                QSL("mblt") },
+    { CommandType::MBLTFifo,            QSL("mbltfifo") },
+    { CommandType::BLTCount,            QSL("bltcount") },
+    { CommandType::BLTFifoCount,        QSL("bltfifocount") },
+    { CommandType::MBLTCount,           QSL("mbltcount") },
+    { CommandType::MBLTFifoCount,       QSL("mbltfifocount") },
+    { CommandType::SetBase,             QSL("setbase") },
+    { CommandType::ResetBase,           QSL("resetbase") },
+    { CommandType::VMUSB_WriteRegister, QSL("vmusb_write_reg") },
+    { CommandType::VMUSB_ReadRegister,  QSL("vmusb_read_reg") },
 };
 
 QString to_string(CommandType commandType)
@@ -675,7 +742,25 @@ QString to_string(const Command &cmd)
                     .arg(cmdStr)
                     .arg(format_hex(cmd.address));
             } break;
+
+        case CommandType::VMUSB_WriteRegister:
+            {
+                buffer = QString(QSL("%1 %2 %3 (%4)"))
+                    .arg(cmdStr)
+                    .arg(format_hex(cmd.address))
+                    .arg(format_hex(cmd.value))
+                    .arg(getRegisterName(cmd.address));
+            } break;
+
+        case CommandType::VMUSB_ReadRegister:
+            {
+                buffer = QString(QSL("%1 %2 (%3)"))
+                    .arg(cmdStr)
+                    .arg(format_hex(cmd.address))
+                    .arg(getRegisterName(cmd.address));
+            } break;
     }
+
     return buffer;
 }
 
@@ -694,6 +779,8 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::WriteAbs:
         case CommandType::SetBase:
         case CommandType::ResetBase:
+        case CommandType::VMUSB_WriteRegister:
+        case CommandType::VMUSB_ReadRegister:
             break;
 
         case CommandType::Read:
@@ -784,7 +871,8 @@ void SyntaxHighlighter::highlightBlock(const QString &text)
     }
 }
 
-ResultList run_script(VMEController *controller, const VMEScript &script, LoggerFun logger, bool logEachResult)
+ResultList run_script(VMEController *controller, const VMEScript &script,
+                      LoggerFun logger, bool logEachResult)
 {
     ResultList results;
 
@@ -1022,6 +1110,29 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
 
             } break;
 #endif
+
+        case CommandType::VMUSB_WriteRegister:
+            if (auto vmusb = qobject_cast<VMUSB *>(controller))
+            {
+                result.error = vmusb->writeRegister(cmd.address, cmd.value);
+            }
+            else
+            {
+                result.error = VMEError(VMEError::WrongControllerType,
+                                        QSL("VMUSB controller required"));
+            } break;
+
+        case CommandType::VMUSB_ReadRegister:
+            if (auto vmusb = qobject_cast<VMUSB *>(controller))
+            {
+                result.value = 0u;
+                result.error = vmusb->readRegister(cmd.address, &result.value);
+            }
+            else
+            {
+                result.error = VMEError(VMEError::WrongControllerType,
+                                        QSL("VMUSB controller required"));
+            } break;
     }
 
     return result;
@@ -1051,6 +1162,7 @@ QString format_result(const Result &result)
 
         case CommandType::Write:
         case CommandType::WriteAbs:
+        case CommandType::VMUSB_WriteRegister:
             ret += QSL(", write ok");
             break;
 
@@ -1078,6 +1190,13 @@ QString format_result(const Result &result)
                         .arg(result.valueVector[i], 8, 16, QChar('0'));
                 }
             } break;
+
+        case CommandType::VMUSB_ReadRegister:
+            ret += QSL(" -> 0x%1, %2")
+                .arg(result.value, 8, 16, QChar('0'))
+                .arg(result.value)
+                ;
+            break;
     }
 
     return ret;

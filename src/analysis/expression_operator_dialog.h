@@ -4,6 +4,7 @@
 #include <memory>
 #include <QDialog>
 #include "analysis_ui_p.h"
+#include "object_editor_dialog.h"
 
 class MVMEContext;
 
@@ -13,18 +14,17 @@ namespace analysis
 class EventWidget;
 class ExpressionOperator;
 
-class ExpressionOperatorDialog: public QDialog
+class ExpressionOperatorDialog: public ObjectEditorDialog
 {
     Q_OBJECT
-    signals:
-        void applied();
-
     public:
-        ExpressionOperatorDialog(const std::shared_ptr<ExpressionOperator> &op, int userLevel,
-                                 OperatorEditorMode mode, EventWidget *eventWidget);
+        ExpressionOperatorDialog(const std::shared_ptr<ExpressionOperator> &op,
+                                 int userLevel,
+                                 ObjectEditorMode mode,
+                                 const DirectoryPtr &destDir,
+                                 EventWidget *eventWidget);
 
         virtual ~ExpressionOperatorDialog();
-
 
     public slots:
         void apply();

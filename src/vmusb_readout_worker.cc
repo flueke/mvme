@@ -188,15 +188,14 @@ static const int PostLeaveDaqModeDelay_ms = 100;
 
 static const double PauseMaxSleep_ms = 125.0;
 
-static VMEError enter_daq_mode(VMUSB *vmusb, u32 additionalBits = 0, u32 ledSources = 0, u32 devSources = 0)
+static VMEError enter_daq_mode(VMUSB *vmusb, u32 additionalBits = 0,
+                               u32 ledSources = 0)
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
     VMEError result;
 
     result = vmusb->writeRegister(LEDSrcRegister, ledSources);
-    if (result.isError())
-        return result;
-
-    result = vmusb->writeRegister(DEVSrcRegister, devSources);
     if (result.isError())
         return result;
 
@@ -214,8 +213,9 @@ static VMEError leave_daq_mode(VMUSB *vmusb, u32 additionalBits = 0)
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    auto result = vmusb->leaveDaqMode(additionalBits);
+    VMEError result;
 
+    result = vmusb->leaveDaqMode(additionalBits);
     if (!result.isError())
     {
         QThread::msleep(PostLeaveDaqModeDelay_ms);
@@ -253,7 +253,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     try
     {
         logMessage(QString(QSL("VMUSB readout starting on %1"))
-                   .arg(QDateTime::currentDateTime().toString())
+                   .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
                    );
 
         validate_vme_config(daqConfig); // throws on error
@@ -318,20 +318,25 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             throw QString("Setting VMUSB Bulk Transfer Register failed: %1").arg(error.toString());
 
         //
-        // LED Sources and Dev Sources (NIM outputs)
+        // LED Sources
         //
 
         // set bottom yellow light to USB Trigger and latched
         m_daqLedSources  = (1u << 24) | (1u << 28);
         m_daqLedSources |= (3u <<  0); // top yellow: USB InFIFO Full
-        // set NIM O2 to USB Trigger and latched
-        m_daqDevSources = (0u <<  8) | (1u << 12);
 
         error = vmusb->setLedSources(m_daqLedSources);
         if (error.isError())
             throw QString("Setting VMUSB LED Sources Register failed: %1").arg(error.toString());
 
-        error = vmusb->setDeviceSources(m_daqDevSources);
+        //
+        // Dev Sources (NIM outputs)
+        // The output register is set to zero. Should happen before vme_daq_init() as vme
+        // scripts can write this register.
+        //
+        u32 daqDevSources = 0;
+
+        error = vmusb->setDeviceSources(daqDevSources);
         if (error.isError())
             throw QString("Setting VMUSB DEV Sources Register failed: %1").arg(error.toString());
 
@@ -340,6 +345,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         m_vmusbStack.resetLoadOffset(); // reset the static load offset
         int nextStackID = 2; // start at ID=2 as NIM=0 and scaler=1 (fixed)
+        bool NIMO1InUse = false;
 
         for (auto event: daqConfig->getEventConfigs())
         {
@@ -368,18 +374,22 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             VMEScript readoutScript = build_event_readout_script(event);
             validate_event_readout_script(readoutScript);
+
             CVMUSBReadoutList readoutList(readoutScript);
+
             m_vmusbStack.setContents(QVector<u32>::fromStdVector(readoutList.get()));
 
             if (m_vmusbStack.getContents().size())
             {
-                logMessage(QString("Loading readout stack for event \"%1\""
+                auto msg = (QString("Loading readout stack for event \"%1\""
                                    ", stack id = %2, size= %4, load offset = %3")
                            .arg(event->objectName())
                            .arg(m_vmusbStack.getStackID())
                            .arg(VMUSBStack::loadOffset)
                            .arg(m_vmusbStack.getContents().size())
                            );
+
+                logMessage(msg);
 
                 {
                     QString tmp;
@@ -449,7 +459,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         readoutLoop();
 
-        stats.stop();
         logMessage(QSL("Leaving readout loop"));
         logMessage(QSL(""));
 
@@ -457,8 +466,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         // DAQ Stop
         //
         vme_daq_shutdown(daqConfig, vmusb, [this] (const QString &msg) { logMessage(msg); });
-
-        m_bufferProcessor->endRun();
 
         //
         // Debug: close raw buffers file
@@ -472,9 +479,16 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             m_rawBufferOut.close();
         }
 
+        logMessage(QSL(""));
         logMessage(QString(QSL("VMUSB readout stopped on %1"))
-                   .arg(QDateTime::currentDateTime().toString())
+                   .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
                    );
+
+        // Note: endRun() collects the log contents, which means it should be one of the
+        // last actions happening in here. Log messages generated after this point won't
+        // show up in the listfile.
+        m_bufferProcessor->endRun();
+        stats.stop();
     }
     catch (const char *message)
     {
@@ -551,7 +565,7 @@ void VMUSBReadoutWorker::readoutLoop()
 {
     auto vmusb = m_vmusb;
     u32 actionRegisterAdditionalBits = 1u << 1; // USB trigger
-    auto error = enter_daq_mode(vmusb, actionRegisterAdditionalBits, m_daqLedSources, m_daqDevSources);
+    auto error = enter_daq_mode(vmusb, actionRegisterAdditionalBits, m_daqLedSources);
 
     if (error.isError())
         throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
@@ -588,11 +602,10 @@ void VMUSBReadoutWorker::readoutLoop()
 
             error = vmusb->setLedSources(0);
             if (error.isError())
-                throw QString("Error leaving VMUSB DAQ mode: setLedSources() failed: %1").arg(error.toString());
-
-            error = vmusb->setDeviceSources(0);
-            if (error.isError())
-                throw QString("Error leaving VMUSB DAQ mode: setDeviceSources() failed: %1").arg(error.toString());
+            {
+                throw QString("Error leaving VMUSB DAQ mode: setLedSources() failed: %1")
+                    .arg(error.toString());
+            }
 
             setState(DAQState::Paused);
             logMessage(QSL("VMUSB readout paused"));
@@ -600,7 +613,8 @@ void VMUSBReadoutWorker::readoutLoop()
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-            error = enter_daq_mode(vmusb, actionRegisterAdditionalBits, m_daqLedSources, m_daqDevSources);
+            error = enter_daq_mode(vmusb, actionRegisterAdditionalBits,
+                                   m_daqLedSources);
             if (error.isError())
                 throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
 
@@ -651,17 +665,16 @@ void VMUSBReadoutWorker::readoutLoop()
                 qDebug() << "begin USE_DAQMODE_HACK";
                 error = leave_daq_mode(vmusb);
                 if (error.isError())
-                    throw QString("Error leaving VMUSB DAQ mode (in timeout handling): %1").arg(error.toString());
-
-                // Note: not writing LED and DEV sources here as we're
-                // re-entering DAQ mode right away. This way the LED / NIM
-                // output stays active.
+                    throw QString("Error leaving VMUSB DAQ mode (in timeout handling): %1")
+                        .arg(error.toString());
 
                 readResult = readBuffer(daqModeHackTimeout_ms);
 
-                error = enter_daq_mode(vmusb, actionRegisterAdditionalBits, m_daqLedSources, m_daqDevSources);
+                error = enter_daq_mode(vmusb, actionRegisterAdditionalBits,
+                                       m_daqLedSources);
                 if (error.isError())
-                    throw QString("Error entering VMUSB DAQ mode (in timeout handling): %1").arg(error.toString());
+                    throw QString("Error entering VMUSB DAQ mode (in timeout handling): %1")
+                        .arg(error.toString());
                 qDebug() << "end USE_DAQMODE_HACK";
             }
 #endif
@@ -721,10 +734,6 @@ void VMUSBReadoutWorker::readoutLoop()
     error = vmusb->setLedSources(0);
     if (error.isError())
         throw QString("Error leaving VMUSB DAQ mode: setLedSources() failed: %1").arg(error.toString());
-
-    error = vmusb->setDeviceSources(0);
-    if (error.isError())
-        throw QString("Error leaving VMUSB DAQ mode: setDeviceSources() failed: %1").arg(error.toString());
 }
 
 void VMUSBReadoutWorker::setState(DAQState state)

@@ -528,7 +528,8 @@ enum class RateMonitorType
 
 Operator make_rate_monitor(
     memory::Arena *arena,
-    PipeVectors inPipe,
+    TypedBlock<PipeVectors, s32> inputs,
+    TypedBlock<s32, s32> input_param_indexes,
     TypedBlock<RateSampler *, s32> samplers,
     RateMonitorType type);
 

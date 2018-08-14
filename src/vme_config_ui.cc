@@ -19,12 +19,12 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_config_ui.h"
-#include "vme_config.h"
-#include "mvme_context.h"
-#include "vme_script.h"
 #include "analysis/analysis.h"
-#include "qt-collapsible-section/Section.h"
 #include "data_filter_edit.h"
+#include "mvme_context.h"
+#include "qt-collapsible-section/Section.h"
+#include "vme_config.h"
+#include "vme_script.h"
 
 #include <cmath>
 
@@ -289,7 +289,8 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 
     /* Sort by vendorName and then displayName, giving the vendorName "mesytec"
      * the highest priority. */
-    qSort(m_moduleMetas.begin(), m_moduleMetas.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
+    qSort(m_moduleMetas.begin(), m_moduleMetas.end(),
+          [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
         if (a.vendorName == b.vendorName)
             return a.displayName < b.displayName;
 
@@ -317,7 +318,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
             currentVendor = mm.vendorName;
         }
 
-        typeCombo->addItem(mm.displayName);
+        typeCombo->addItem(mm.displayName, mm.typeId);
 
         if (mm.typeId == module->getModuleMeta().typeId)
         {
@@ -345,6 +346,15 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     auto layout = new QFormLayout(this);
+
+    const bool isNewModule = (module->getModuleMeta().typeId
+                              == vats::VMEModuleMeta::InvalidTypeId);
+
+    if (!isNewModule)
+    {
+        typeCombo->setEnabled(false);
+    }
+
     layout->addRow("Type", typeCombo);
     layout->addRow("Name", nameEdit);
     layout->addRow("Address", addressEdit);
@@ -352,9 +362,17 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 
     auto onTypeComboIndexChanged = [this](int index)
     {
-        Q_ASSERT(0 <= index && index < m_moduleMetas.size());
+        u8 typeId = typeCombo->currentData().toUInt();
 
-        const auto &mm(m_moduleMetas[index]);
+        auto it = std::find_if(
+            m_moduleMetas.begin(), m_moduleMetas.end(),
+            [typeId] (const auto &mm) { return mm.typeId == typeId; });
+
+        assert(it != m_moduleMetas.end());
+
+        if (it == m_moduleMetas.end()) return;
+
+        const auto &mm(*it);
         QString name = m_module->objectName();
 
         if (name.isEmpty())
@@ -374,7 +392,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
         onTypeComboIndexChanged(typeComboIndex);
     }
 
-
     auto updateOkButton = [=]()
     {
         bool isOk = (addressEdit->hasAcceptableInput() && typeCombo->count() > 0);
@@ -388,8 +405,17 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 void ModuleConfigDialog::accept()
 {
     bool ok;
-    Q_ASSERT(typeCombo->currentIndex() >= 0 && typeCombo->currentIndex() < m_moduleMetas.size());
-    const auto &mm(m_moduleMetas[typeCombo->currentIndex()]);
+    u8 typeId = typeCombo->currentData().toUInt();
+
+    auto it = std::find_if(
+        m_moduleMetas.begin(), m_moduleMetas.end(),
+        [typeId] (const auto &mm) { return mm.typeId == typeId; });
+
+    assert(it != m_moduleMetas.end());
+
+    if (it == m_moduleMetas.end()) return;
+
+    const auto &mm(*it);
     m_module->setModuleMeta(mm);
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
@@ -446,7 +472,9 @@ namespace
     }
 }
 
-QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng, const QString &fileName, QString startPath, QString fileFilter)
+QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
+                                            const QString &fileName, QString startPath,
+                                            QString fileFilter)
 {
     if (fileName.isEmpty())
         return gui_saveAnalysisConfigAs(analysis_ng, startPath, fileFilter);
@@ -458,12 +486,14 @@ QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng, con
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng, QString path, QString fileFilter)
+QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
+                                              QString path, QString fileFilter)
 {
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
-    QString fileName = QFileDialog::getSaveFileName(nullptr, QSL("Save analysis config"), path, fileFilter);
+    QString fileName = QFileDialog::getSaveFileName(nullptr, QSL("Save analysis config"),
+                                                    path, fileFilter);
 
     if (fileName.isEmpty())
         return qMakePair(false, QString());

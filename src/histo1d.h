@@ -35,8 +35,13 @@ struct Histo1DStatistics
     double sigma = 0.0;
     double entryCount = 0;
     double fwhm = 0.0;
+
     // X coordinate of the center between the fwhm edges
     double fwhmCenter = 0.0;
+
+    /* The resultion reduction that was in effect when the stats where calculated.
+     * bin numbers are given in terms of this factor. */
+    u32 rrf = AxisBinning::NoResolutionReduction;
 };
 
 struct HistoLogicError: public std::runtime_error
@@ -64,6 +69,8 @@ class LIBMVME_EXPORT Histo1D: public QObject
         void axisBinningChanged(Qt::Axis axis);
 
     public:
+        static const u32 NoRR = AxisBinning::NoResolutionReduction;
+
         /* This constructor will make the histo allocate memory internally.
          * resize() will be available. */
         Histo1D(u32 nBins, double xMin, double xMax, QObject *parent = 0);
@@ -71,7 +78,6 @@ class LIBMVME_EXPORT Histo1D: public QObject
         /* Uses the memory passed in with the data pointer. resize() will not
          * be available. */
         Histo1D(AxisBinning binning, const SharedHistoMem &mem, QObject *parent = 0);
-
         ~Histo1D();
 
         bool ownsMemory() const { return !m_externalMemory.arena; }
@@ -85,31 +91,85 @@ class LIBMVME_EXPORT Histo1D: public QObject
          * doesn't right now. */
         void setData(const SharedHistoMem &mem, AxisBinning newBinning);
 
-        // Returns the bin number or -1 in case of under/overflow.
+        // Returns the bin number that was filled or -1 in case of under/overflow.
+        // Note: No Resolution Reduction for the fill operation.
         s32 fill(double x, double weight = 1.0);
 
         /* Returns the counts of the bin containing the given x value. */
-        double getValue(double x) const;
+        double getValue(double x, u32 rrf = NoRR) const;
 
         /* Returns a pair of (x_bin_low_edge, y_counts) for the given x value. */
-        std::pair<double, double> getValueAndBinLowEdge(double x) const;
+        std::pair<double, double> getValueAndBinLowEdge(double x, u32 rrf = NoRR) const;
 
         void clear();
         inline double *data() { return m_data; }
 
-        inline u32 getNumberOfBins() const { return m_xAxisBinning.getBins(); }
+        inline u32 getNumberOfBins(u32 rrf = NoRR) const
+        {
+            return m_xAxisBinning.getBins(rrf);
+        }
+
         inline size_t getStorageSize() const { return getNumberOfBins() * sizeof(double); }
 
-        inline double getBinContent(u32 bin) const { return (bin < getNumberOfBins()) ? m_data[bin] : 0.0; }
+        /* If rrf is in effect the given inputBin is interpreted in terms of the reduced
+         * total bin count. Otherwise it represents the physical bin number. */
+        inline double getBinContent(u32 inputBin, u32 rrf = NoRR) const
+        {
+            const auto physBins = getNumberOfBins();
+
+            if (rrf == NoRR)
+            {
+                // no resolution reduction -> direct indexing
+                return (inputBin < physBins) ? m_data[inputBin] : 0.0;
+            }
+
+            // Go from reduced bins to physical bins
+            u32 beginBin = inputBin * rrf;
+            u32 endBin   = std::min(beginBin + rrf, getNumberOfBins());
+
+#if 0
+                qDebug() << __PRETTY_FUNCTION__
+                    << endl
+                    << "  input: bin =" << inputBin << ", rrf =" << rrf
+                    << endl
+                    << "  beginBin =" << beginBin << ", endBin =" << endBin
+                    << endl
+                    << " numberOfBins(NoRR) =" << getNumberOfBins()
+                    << " numberOfBins(rrf) =" << getNumberOfBins(rrf)
+                    ;
+#endif
+
+            if (beginBin < physBins && endBin <= physBins)
+            {
+                // consecutive summation of the bins in [beginBin, endBin)
+                return std::accumulate(m_data + beginBin, m_data + endBin, 0.0);
+            }
+
+            // out of range
+            return 0.0;
+        }
+
+        // Note: No Resolution Reduction for the fill operation.
         bool setBinContent(u32 bin, double value);
 
         inline double getXMin() const { return m_xAxisBinning.getMin(); }
         inline double getXMax() const { return m_xAxisBinning.getMax(); }
         inline double getWidth() const { return m_xAxisBinning.getWidth(); }
 
-        inline double getBinWidth() const { return m_xAxisBinning.getBinWidth(); }
-        inline double getBinLowEdge(u32 bin) const { return m_xAxisBinning.getBinLowEdge(bin); }
-        inline double getBinCenter(u32 bin) const { return m_xAxisBinning.getBinCenter(bin); }
+        inline double getBinWidth(u32 rrf = NoRR) const
+        {
+            return m_xAxisBinning.getBinWidth(rrf);
+        }
+
+        inline double getBinLowEdge(u32 bin, u32 rrf = NoRR) const
+        {
+            return m_xAxisBinning.getBinLowEdge(bin, rrf);
+        }
+
+        inline double getBinCenter(u32 bin, u32 rrf = NoRR) const
+        {
+            return m_xAxisBinning.getBinCenter(bin, rrf);
+        }
 
         AxisBinning getAxisBinning(Qt::Axis axis) const
         {
@@ -151,21 +211,15 @@ class LIBMVME_EXPORT Histo1D: public QObject
             }
         }
 
-        // FIXME: not updated when a2 is in use
-        inline double getEntryCount() const { return m_count; }
-        /*
-        double getMaxValue() const { return m_maxValue; }
-        u32 getMaxBin() const { return m_maxBin; }
-        */
         struct ValueAndBin
         {
             double value;
             u32 bin;
         };
 
-        ValueAndBin getMaxValueAndBin() const;
-        double getMaxValue() const { return getMaxValueAndBin().value; }
-        u32 getMaxBin() const { return getMaxValueAndBin().bin; }
+        ValueAndBin getMaxValueAndBin(u32 rrf = NoRR) const;
+        double getMaxValue(u32 rrf = NoRR) const { return getMaxValueAndBin(rrf).value; }
+        u32 getMaxBin(u32 rrf = NoRR) const { return getMaxValueAndBin(rrf).bin; }
 
         void debugDump(bool dumpEmptyBins = true) const;
 
@@ -175,8 +229,8 @@ class LIBMVME_EXPORT Histo1D: public QObject
         double getOverflow() const { return m_overflow; }
         void setOverflow(double value) { m_overflow = value; }
 
-        Histo1DStatistics calcStatistics(double minX, double maxX) const;
-        Histo1DStatistics calcBinStatistics(u32 startBin, u32 onePastEndBin) const;
+        Histo1DStatistics calcStatistics(double minX, double maxX, u32 rrf = NoRR) const;
+        Histo1DStatistics calcBinStatistics(u32 startBin, u32 onePastEndBin, u32 rrf = NoRR) const;
 
         void setTitle(const QString &title)
         {

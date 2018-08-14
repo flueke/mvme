@@ -196,7 +196,19 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         std::array<EventConfig *, SIS3153Constants::NumberOfStackLists> m_eventConfigsByStackList;
         std::array<int, SIS3153Constants::NumberOfStackLists> m_eventIndexByStackList;
         Counters m_counters;
+
+        // Saves the state of the stack list control register as computed by the DAQ start
+        // sequence. This is used to restore the correct value on resuming the DAQ from
+        // pause.
         u32 m_stackListControlRegisterValue = 0;
+
+        // Set at the beginning of the DAQ start sequence. During DAQ operation the set
+        // bits should be kept active, other bits may be modified via stacklists by the
+        // controller itself.
+        // This is used to turn on OUT2 during execution of the first non-timer,
+        // non-watchdog stacklist.
+        u32 m_lemoIORegDAQBaseValue = 0;
+
         int m_watchdogStackListIndex = -1;
         DataBuffer m_localEventBuffer;
         std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;

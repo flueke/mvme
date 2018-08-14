@@ -88,7 +88,7 @@ struct RateSampler
         lastValue = value;
     }
 
-    void record_rate(double rate)
+    void recordRate(double rate)
     {
         WriteGuard guard(rwLock);
 
@@ -116,6 +116,7 @@ struct RateSampler
     size_t historySize() const { return rateHistory.size(); }
     size_t historyCapacity() const { return rateHistory.capacity(); }
 
+    // Clears history contents but keeps its capacity
     void clearHistory(bool keepSampleCount = false)
     {
         WriteGuard guard(rwLock);

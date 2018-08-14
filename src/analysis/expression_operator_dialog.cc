@@ -4,6 +4,7 @@
 #include "a2/a2_impl.h"
 #include "a2_adapter.h"
 #include "analysis_ui_p.h"
+#include "analysis_util.h"
 #include "mvme_context_lib.h"
 #include "qt_util.h"
 #include "util/cpp17_algo.h"
@@ -217,12 +218,14 @@ void ExpressionOperatorPipeView::copy()
 {
     qDebug() << __PRETTY_FUNCTION__;
     if (!isDataEditable()) return;
+    // TODO: implement copy()
 }
 
 void ExpressionOperatorPipeView::paste()
 {
     qDebug() << __PRETTY_FUNCTION__;
     if (!isDataEditable()) return;
+    // TODO: implement paste()
 }
 
 //
@@ -1115,7 +1118,9 @@ struct ExpressionOperatorDialog::Private
     // The userlevel the operator is placed in
     int m_userLevel;
     // new or edit
-    OperatorEditorMode m_mode;
+    ObjectEditorMode m_mode;
+    // destination directory for new operators. may be null
+    DirectoryPtr m_destDir;
     // backpointer to the eventwidget used for input selection
     EventWidget *m_eventWidget;
     // data transfer to/from gui and storage of inputs
@@ -1757,13 +1762,13 @@ void ExpressionOperatorDialog::Private::model_stepOperator()
 QString ExpressionOperatorDialog::Private::generateNameForNewOperator()
 {
     auto eventId   = m_eventWidget->getEventId();
-    auto opEntries = m_eventWidget->getAnalysis()->getOperators(eventId);
+    auto operators = m_eventWidget->getAnalysis()->getOperators(eventId);
 
     QSet<QString> names;
 
-    for (const auto &oe: opEntries)
+    for (const auto &op: operators)
     {
-        names.insert(oe.op->objectName());
+        names.insert(op->objectName());
     }
 
     static const QString pattern = QSL("expr%1");
@@ -1870,10 +1875,12 @@ void ExpressionOperatorDialog::Private::model_randomizeInputs()
     refreshInputPipesViews();
 }
 
-ExpressionOperatorDialog::ExpressionOperatorDialog(
-    const std::shared_ptr<ExpressionOperator> &op,
-    int userLevel, OperatorEditorMode mode, EventWidget *eventWidget)
-    : QDialog(eventWidget)
+ExpressionOperatorDialog::ExpressionOperatorDialog(const std::shared_ptr<ExpressionOperator> &op,
+                                                   int userLevel,
+                                                   ObjectEditorMode mode,
+                                                   const DirectoryPtr &destDir,
+                                                   EventWidget *eventWidget)
+    : ObjectEditorDialog(eventWidget)
     , m_d(std::make_unique<Private>(this))
 {
     setWindowFlags((Qt::Window
@@ -1886,6 +1893,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     m_d->m_op          = op;
     m_d->m_userLevel   = userLevel;
     m_d->m_mode        = mode;
+    m_d->m_destDir     = destDir;
     m_d->m_eventWidget = eventWidget;
     m_d->m_tabWidget   = new QTabWidget;
     m_d->m_model       = std::make_unique<Model>();
@@ -1977,7 +1985,11 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
 
         auto slot = m_d->m_model->opClone->getSlot(slotIndex);
 
-        m_d->m_eventWidget->selectInputFor(slot, m_d->m_userLevel, callback, { m_d->m_op.get() });
+        auto invalidSources = collect_dependent_objects(m_d->m_op.get());
+
+        invalidSources.insert(m_d->m_op.get());
+
+        m_d->m_eventWidget->selectInputFor(slot, m_d->m_userLevel, callback, invalidSources);
     });
 
     connect(m_d->m_slotGrid, &SlotGrid::clearInput,
@@ -2073,12 +2085,12 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(
     // Initialize and misc setup
     switch (m_d->m_mode)
     {
-        case OperatorEditorMode::New:
+        case ObjectEditorMode::New:
             {
                 m_d->m_op->setObjectName(m_d->generateNameForNewOperator());
                 setWindowTitle(QString("New  %1").arg(m_d->m_op->getDisplayName()));
             } break;
-        case OperatorEditorMode::Edit:
+        case ObjectEditorMode::Edit:
             {
                 setWindowTitle(QString("Edit %1").arg(m_d->m_op->getDisplayName()));
             } break;
@@ -2108,27 +2120,27 @@ void ExpressionOperatorDialog::apply()
 
     switch (m_d->m_mode)
     {
-        case OperatorEditorMode::New:
+        case ObjectEditorMode::New:
             {
                 analysis->addOperator(m_d->m_eventWidget->getEventId(),
-                                      m_d->m_op, m_d->m_userLevel);
-                m_d->m_mode = OperatorEditorMode::Edit;
-                m_d->m_eventWidget->repopulate();
+                                      m_d->m_userLevel, m_d->m_op);
+
+                m_d->m_mode = ObjectEditorMode::Edit;
+
+                if (m_d->m_destDir)
+                {
+                    m_d->m_destDir->push_back(m_d->m_op);
+                }
             } break;
 
-        case OperatorEditorMode::Edit:
+        case ObjectEditorMode::Edit:
             {
-                // TODO: do_beginRun_forward here instead of the full beginRun()
-                // TODO: encapsulate further. too many details here
-
-                auto runInfo = m_d->m_eventWidget->getRunInfo();
-                auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(
-                    m_d->m_eventWidget->getVMEConfig());
-
-                analysis->setModified();
-                analysis->beginRun(runInfo, vmeMap);
+                analysis->operatorEdited(m_d->m_op);
             } break;
     }
+
+    analysis->beginRun(Analysis::KeepState);
+    emit applied();
 }
 
 void ExpressionOperatorDialog::accept()
@@ -2141,7 +2153,6 @@ void ExpressionOperatorDialog::reject()
 {
     QDialog::reject();
 }
-
 
 //
 // ExpressionOperatorSyntaxHighlighter
