@@ -21,15 +21,16 @@
 #include "histo2d_widget.h"
 #include "histo2d_widget_p.h"
 
-#include <qwt_plot_spectrogram.h>
 #include <qwt_color_map.h>
-#include <qwt_scale_widget.h>
-#include <qwt_plot_renderer.h>
-#include <qwt_plot_panner.h>
+#include <qwt_picker_machine.h>
 #include <qwt_plot_magnifier.h>
+#include <qwt_plot_panner.h>
+#include <qwt_plot_renderer.h>
+#include <qwt_plot_spectrogram.h>
 #include <qwt_plot_textlabel.h>
 #include <qwt_raster_data.h>
 #include <qwt_scale_engine.h>
+#include <qwt_scale_widget.h>
 
 #include <QApplication>
 #include <QBoxLayout>
@@ -111,8 +112,8 @@ struct RasterDataBase: public QwtRasterData
 
     void preReplot()
     {
-        qDebug() << __PRETTY_FUNCTION__ << this;
 #ifndef QT_NO_DEBUG
+        //qDebug() << __PRETTY_FUNCTION__ << this;
         m_sampledValuesForLastReplot = 0u;
 #endif
     }
@@ -120,8 +121,8 @@ struct RasterDataBase: public QwtRasterData
     void postReplot()
     {
 #ifndef QT_NO_DEBUG
-        qDebug() << __PRETTY_FUNCTION__ << this
-            << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+        //qDebug() << __PRETTY_FUNCTION__ << this
+        //    << "sampled values for last replot: " << m_sampledValuesForLastReplot;
 #endif
     }
 };
@@ -313,6 +314,8 @@ struct Histo2DWidgetPrivate
 
     QComboBox *m_zScaleCombo;
 
+    std::unique_ptr<QwtPlotSpectrogram> m_plotItem;
+    ScrollZoomer *m_zoomer;
     QwtText *m_waterMarkText;
     QwtPlotTextLabel *m_waterMarkLabel;
 
@@ -327,13 +330,33 @@ struct Histo2DWidgetPrivate
 
     ResolutionReductionFactors m_rrf = {};
 
+    QwtPlotPicker *m_cutPolyPicker;
+
+    Histo2D *m_histo = nullptr;
+    Histo2DPtr m_histoPtr;
+    Histo1DSinkPtr m_histo1DSink;
+    QTimer *m_replotTimer;
+    QPointF m_cursorPosition;
+    int m_labelCursorInfoWidth;
+
+    std::shared_ptr<analysis::Histo2DSink> m_sink;
+    Histo2DWidget::HistoSinkCallback m_addSinkCallback;
+    Histo2DWidget::HistoSinkCallback m_sinkModifiedCallback;
+    Histo2DWidget::MakeUniqueOperatorNameFunction m_makeUniqueOperatorNameFunction;
+
+    Histo1DWidget *m_xProjWidget = nullptr;
+    Histo1DWidget *m_yProjWidget = nullptr;
+
+    WidgetGeometrySaver *m_geometrySaver;
+    MVMEContext *m_context = nullptr;
+
     void onActionChangeResolution()
     {
         auto combo_xBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
         auto combo_yBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
 
-        select_by_resolution(combo_xBins, m_q->m_sink->m_xBins);
-        select_by_resolution(combo_yBins, m_q->m_sink->m_yBins);
+        select_by_resolution(combo_xBins, m_sink->m_xBins);
+        select_by_resolution(combo_yBins, m_sink->m_yBins);
 
         QDialog dialog(m_q);
         auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
@@ -348,7 +371,7 @@ struct Histo2DWidgetPrivate
 
         if (dialog.exec() == QDialog::Accepted)
         {
-            auto sink  = m_q->m_sink;
+            auto sink  = m_sink;
             auto xBins = combo_xBins->currentData().toInt();
             auto yBins = combo_yBins->currentData().toInt();
 
@@ -356,12 +379,12 @@ struct Histo2DWidgetPrivate
 
             if (modified)
             {
-                AnalysisPauser pauser(m_q->m_context);
+                AnalysisPauser pauser(m_context);
 
                 sink->m_xBins = xBins;
                 sink->m_yBins = yBins;
                 sink->setResolutionReductionFactors({});
-                m_q->m_context->analysisOperatorEdited(sink);
+                m_context->analysisOperatorEdited(sink);
 
                 m_rrSliderX->setMaximum(std::log2(xBins));
                 m_rrSliderX->setValue(m_rrSliderX->maximum());
@@ -374,6 +397,8 @@ struct Histo2DWidgetPrivate
 
     void onRRSliderXValueChanged(int sliderValue);
     void onRRSliderYValueChanged(int sliderValue);
+
+    void onCutPolyPickerActivated(bool on);
 };
 
 enum class AxisScaleType
@@ -382,95 +407,19 @@ enum class AxisScaleType
     Logarithmic
 };
 
-Histo2DWidget::Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent)
-    : Histo2DWidget(histoPtr.get(), parent)
-{
-    m_histoPtr = histoPtr;
-}
-
-Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
-    : Histo2DWidget(parent)
-{
-    m_histo = histo;
-    auto histData = new Histo2DRasterData(m_histo);
-    m_plotItem->setData(histData);
-
-    connect(m_histo, &Histo2D::axisBinningChanged, this, [this] (Qt::Axis) {
-        // Handle axis changes by zooming out fully. This will make sure
-        // possible axis scale changes are immediately visible and the zoomer
-        // is in a clean state.
-        m_zoomer->setZoomStack(QStack<QRectF>(), -1);
-        m_zoomer->zoom(0);
-        replot();
-    });
-
-    connect(m_d->m_actionClear, &QAction::triggered, this, [this]() {
-        m_histo->clear();
-        replot();
-    });
-
-    m_d->m_rrSliderX->setMaximum(std::log2(m_histo->getAxisBinning(Qt::XAxis).getBinCount()));
-    m_d->m_rrSliderX->setValue(m_d->m_rrSliderX->maximum());
-
-    m_d->m_rrSliderY->setMaximum(std::log2(m_histo->getAxisBinning(Qt::YAxis).getBinCount()));
-    m_d->m_rrSliderY->setValue(m_d->m_rrSliderY->maximum());
-
-    displayChanged();
-}
-
-Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, MVMEContext *context, QWidget *parent)
-    : Histo2DWidget(parent)
-{
-    Q_ASSERT(histo1DSink);
-    Q_ASSERT(context);
-
-    m_context = context;
-    m_histo1DSink = histo1DSink;
-    auto histData = new Histo1DListRasterData(m_histo1DSink->m_histos);
-    m_plotItem->setData(histData);
-
-    m_d->m_rrSliderX->setMaximum(histo1DSink->getNumberOfHistos());
-    m_d->m_rrSliderX->setValue(m_d->m_rrSliderX->maximum());
-    m_d->m_rrSliderX->setEnabled(false);
-    m_d->m_rrSliderXContainer->setVisible(false);
-    for (auto childWidget: m_d->m_rrSliderXContainer->findChildren<QWidget *>())
-    {
-        childWidget->setVisible(false);
-    }
-
-    if (m_histo1DSink->getNumberOfHistos())
-    {
-        auto histo = m_histo1DSink->getHisto(0);
-        m_d->m_rrSliderY->setMaximum(std::log2(histo->getNumberOfBins()));
-        m_d->m_rrSliderY->setValue(m_d->m_rrSliderY->maximum());
-    }
-    else
-    {
-        m_d->m_rrSliderY->setMinimum(0);
-        m_d->m_rrSliderY->setMaximum(0);
-    }
-
-    connect(m_d->m_actionClear, &QAction::triggered, this, [this]() {
-        for (auto &histo: m_histo1DSink->m_histos)
-        {
-            histo->clear();
-        }
-        replot();
-    });
-
-    displayChanged();
-}
-
+/* The private constructor doing most of the object creation and initialization. To be
+ * invoked by all other, more specific constructors. */
 Histo2DWidget::Histo2DWidget(QWidget *parent)
     : QWidget(parent)
-    , m_d(new Histo2DWidgetPrivate)
-    , m_plotItem(new QwtPlotSpectrogram)
-    , m_replotTimer(new QTimer(this))
-    , m_cursorPosition(make_quiet_nan(), make_quiet_nan())
-    , m_labelCursorInfoWidth(-1)
-    , m_geometrySaver(new WidgetGeometrySaver(this))
+    , m_d(std::make_unique<Histo2DWidgetPrivate>())
 {
     m_d->m_q = this;
+
+    m_d->m_plotItem = std::make_unique<QwtPlotSpectrogram>();
+    m_d->m_replotTimer = new QTimer(this);
+    m_d->m_cursorPosition = { make_quiet_nan(), make_quiet_nan() };
+    m_d->m_labelCursorInfoWidth = -1;
+    m_d->m_geometrySaver = new WidgetGeometrySaver(this);
 
     m_d->m_toolBar = new QToolBar;
     m_d->m_plot = new QwtPlot;
@@ -564,33 +513,62 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         });
     }
 
+    // XXX: cut test
+    {
+        m_d->m_cutPolyPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
+                                             QwtPicker::PolygonRubberBand,
+                                             QwtPicker::ActiveOnly,
+                                             m_d->m_plot->canvas());
+
+        QPen pickerPen(Qt::red);
+        m_d->m_cutPolyPicker->setTrackerPen(pickerPen);
+        m_d->m_cutPolyPicker->setRubberBandPen(pickerPen);
+        m_d->m_cutPolyPicker->setStateMachine(new QwtPickerPolygonMachine);
+        m_d->m_cutPolyPicker->setEnabled(false);
+
+        //TRY_ASSERT(connect(m_d->m_cutPolyPicker, SIGNAL(selected(const QPointF &)),
+        //                   this, SLOT(on_ratePointerPicker_selected(const QPointF &))));
+
+        TRY_ASSERT(connect(m_d->m_cutPolyPicker, &QwtPicker::activated, this, [this](bool on) {
+            m_d->onCutPolyPickerActivated(on);
+        }));
+
+#if 0
+        auto action = tb->addAction("Cut Test");
+        connect(action, &QAction::triggered, this, [this]() {
+            m_d->m_zoomer->setEnabled(false);
+            m_d->m_cutPolyPicker->setEnabled(true);
+        });
+#endif
+    }
+
     tb->addWidget(make_spacer_widget());
 
     // Plot
 
-    m_plotItem->setRenderThreadCount(0); // use system specific ideal thread count
-    m_plotItem->setColorMap(getColorMap());
-    m_plotItem->attach(m_d->m_plot);
+    m_d->m_plotItem->setRenderThreadCount(0); // use system specific ideal thread count
+    m_d->m_plotItem->setColorMap(getColorMap());
+    m_d->m_plotItem->attach(m_d->m_plot);
 
     auto rightAxis = m_d->m_plot->axisWidget(QwtPlot::yRight);
     rightAxis->setTitle("Counts");
     rightAxis->setColorBarEnabled(true);
     m_d->m_plot->enableAxis(QwtPlot::yRight);
 
-    connect(m_replotTimer, SIGNAL(timeout()), this, SLOT(replot()));
-    m_replotTimer->start(ReplotPeriod_ms);
+    connect(m_d->m_replotTimer, SIGNAL(timeout()), this, SLOT(replot()));
+    m_d->m_replotTimer->start(ReplotPeriod_ms);
 
     m_d->m_plot->canvas()->setMouseTracking(true);
 
-    m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
+    m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
 
-    TRY_ASSERT(connect(m_zoomer, SIGNAL(zoomed(const QRectF &)),
+    TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
 
-    TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
                        this, &Histo2DWidget::mouseCursorMovedToPlotCoord));
 
-    TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &Histo2DWidget::mouseCursorLeftPlot));
 
     //
@@ -662,10 +640,93 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     mainLayout->setStretch(1, 1);
 }
 
+Histo2DWidget::Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent)
+    : Histo2DWidget(histoPtr.get(), parent)
+{
+    m_d->m_histoPtr = histoPtr;
+}
+
+Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
+    : Histo2DWidget(parent)
+{
+    m_d->m_histo = histo;
+    auto histData = new Histo2DRasterData(m_d->m_histo);
+    m_d->m_plotItem->setData(histData);
+
+    connect(m_d->m_histo, &Histo2D::axisBinningChanged, this, [this] (Qt::Axis) {
+        // Handle axis changes by zooming out fully. This will make sure
+        // possible axis scale changes are immediately visible and the zoomer
+        // is in a clean state.
+        m_d->m_zoomer->setZoomStack(QStack<QRectF>(), -1);
+        m_d->m_zoomer->zoom(0);
+        replot();
+    });
+
+    connect(m_d->m_actionClear, &QAction::triggered, this, [this]() {
+        m_d->m_histo->clear();
+        replot();
+    });
+
+    m_d->m_rrSliderX->setMaximum(std::log2(m_d->m_histo->getAxisBinning(Qt::XAxis).getBinCount()));
+    m_d->m_rrSliderX->setValue(m_d->m_rrSliderX->maximum());
+
+    m_d->m_rrSliderY->setMaximum(std::log2(m_d->m_histo->getAxisBinning(Qt::YAxis).getBinCount()));
+    m_d->m_rrSliderY->setValue(m_d->m_rrSliderY->maximum());
+
+    displayChanged();
+}
+
+Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, MVMEContext *context, QWidget *parent)
+    : Histo2DWidget(parent)
+{
+    Q_ASSERT(histo1DSink);
+    Q_ASSERT(context);
+
+    m_d->m_context = context;
+    m_d->m_histo1DSink = histo1DSink;
+    auto histData = new Histo1DListRasterData(m_d->m_histo1DSink->m_histos);
+    m_d->m_plotItem->setData(histData);
+
+    m_d->m_rrSliderX->setMaximum(histo1DSink->getNumberOfHistos());
+    m_d->m_rrSliderX->setValue(m_d->m_rrSliderX->maximum());
+    m_d->m_rrSliderX->setEnabled(false);
+    m_d->m_rrSliderXContainer->setVisible(false);
+    for (auto childWidget: m_d->m_rrSliderXContainer->findChildren<QWidget *>())
+    {
+        childWidget->setVisible(false);
+    }
+
+    if (m_d->m_histo1DSink->getNumberOfHistos())
+    {
+        auto histo = m_d->m_histo1DSink->getHisto(0);
+        m_d->m_rrSliderY->setMaximum(std::log2(histo->getNumberOfBins()));
+        m_d->m_rrSliderY->setValue(m_d->m_rrSliderY->maximum());
+    }
+    else
+    {
+        m_d->m_rrSliderY->setMinimum(0);
+        m_d->m_rrSliderY->setMaximum(0);
+    }
+
+    connect(m_d->m_actionClear, &QAction::triggered, this, [this]() {
+        for (auto &histo: m_d->m_histo1DSink->m_histos)
+        {
+            histo->clear();
+        }
+        replot();
+    });
+
+    displayChanged();
+}
+
+
 Histo2DWidget::~Histo2DWidget()
 {
-    delete m_plotItem;
-    delete m_d;
+}
+
+void Histo2DWidget::setContext(MVMEContext *context)
+{
+    m_d->m_context = context;
 }
 
 void Histo2DWidget::replot()
@@ -681,37 +742,37 @@ void Histo2DWidget::replot()
 
     const auto rrf = m_d->m_rrf;
 
-    qDebug() << __PRETTY_FUNCTION__ << "rrf =" << rrf;
+    //qDebug() << __PRETTY_FUNCTION__ << "rrf =" << rrf;
 
     QwtInterval visibleXInterval = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).interval();
     QwtInterval visibleYInterval = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).interval();
 
     // If fully zoomed out set axis scales to full size and use that as the zoomer base.
-    if (m_zoomer->zoomRectIndex() == 0)
+    if (m_d->m_zoomer->zoomRectIndex() == 0)
     {
-        if (m_histo)
+        if (m_d->m_histo)
         {
             visibleXInterval =
             {
-                m_histo->getAxisBinning(Qt::XAxis).getMin(),
-                m_histo->getAxisBinning(Qt::XAxis).getMax()
+                m_d->m_histo->getAxisBinning(Qt::XAxis).getMin(),
+                m_d->m_histo->getAxisBinning(Qt::XAxis).getMax()
             };
 
             visibleYInterval =
             {
-                m_histo->getAxisBinning(Qt::YAxis).getMin(),
-                m_histo->getAxisBinning(Qt::YAxis).getMax()
+                m_d->m_histo->getAxisBinning(Qt::YAxis).getMin(),
+                m_d->m_histo->getAxisBinning(Qt::YAxis).getMax()
             };
         }
-        else if (m_histo1DSink)
+        else if (m_d->m_histo1DSink)
         {
-            auto firstHisto   = m_histo1DSink->m_histos.at(0);
+            auto firstHisto   = m_d->m_histo1DSink->m_histos.at(0);
             auto firstBinning = firstHisto->getAxisBinning(Qt::XAxis);
 
             visibleXInterval =
             {
                 0.0,
-                static_cast<double>(m_histo1DSink->m_histos.size())
+                static_cast<double>(m_d->m_histo1DSink->m_histos.size())
             };
 
             visibleYInterval =
@@ -729,29 +790,29 @@ void Histo2DWidget::replot()
                                   visibleYInterval.minValue(),
                                   visibleYInterval.maxValue());
 
-        m_zoomer->setZoomBase();
+        m_d->m_zoomer->setZoomBase();
     }
 
     Histo2DStatistics stats;
 
-    if (m_histo)
+    if (m_d->m_histo)
     {
-        stats = m_histo->calcStatistics(
+        stats = m_d->m_histo->calcStatistics(
             { visibleXInterval.minValue(), visibleXInterval.maxValue() },
             { visibleYInterval.minValue(), visibleYInterval.maxValue() },
             rrf);
     }
-    else if (m_histo1DSink)
+    else if (m_d->m_histo1DSink)
     {
         stats = calc_Histo1DSink_combined_stats(
-            m_histo1DSink,
+            m_d->m_histo1DSink,
             { visibleXInterval.minValue(), visibleXInterval.maxValue() },
             { visibleYInterval.minValue(), visibleYInterval.maxValue() },
-            m_context->getAnalysis()->getA2AdapterState(),
+            m_d->m_context->getAnalysis()->getA2AdapterState(),
             rrf.y);
     }
 
-    auto rasterData = reinterpret_cast<RasterDataBase *>(m_plotItem->data());
+    auto rasterData = reinterpret_cast<RasterDataBase *>(m_d->m_plotItem->data());
     rasterData->setIntervals(stats.intervals);
     // Important: Has to happen before updateCursorInfoLabel() as that calls
     // Histo1DListRasterData::value() internally  which uses the rrf.
@@ -772,24 +833,24 @@ void Histo2DWidget::replot()
     // window and axis titles
     QString windowTitle;
 
-    if (m_histo)
+    if (m_d->m_histo)
     {
-        windowTitle = QString("Histogram %1").arg(m_histo->objectName());
+        windowTitle = QString("Histogram %1").arg(m_d->m_histo->objectName());
 
-        auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
+        auto axisInfo = m_d->m_histo->getAxisInfo(Qt::XAxis);
         m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
 
-        axisInfo = m_histo->getAxisInfo(Qt::YAxis);
+        axisInfo = m_d->m_histo->getAxisInfo(Qt::YAxis);
         m_d->m_plot->axisWidget(QwtPlot::yLeft)->setTitle(make_title_string(axisInfo));
     }
-    else if (m_histo1DSink)
+    else if (m_d->m_histo1DSink)
     {
-        windowTitle = QString("%1 2D combined").arg(m_histo1DSink->objectName());
+        windowTitle = QString("%1 2D combined").arg(m_d->m_histo1DSink->objectName());
 
         m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(QSL("Histogram #"));
 
         // Use the first histograms x axis as the title for the combined y axis
-        if (auto histo = m_histo1DSink->getHisto(0))
+        if (auto histo = m_d->m_histo1DSink->getHisto(0))
         {
             auto axisInfo = histo->getAxisInfo(Qt::XAxis);
             m_d->m_plot->axisWidget(QwtPlot::yLeft)->setTitle(make_title_string(axisInfo));
@@ -818,12 +879,12 @@ void Histo2DWidget::replot()
     m_d->m_plot->replot();
 
     // projections
-    if (m_xProjWidget)
+    if (m_d->m_xProjWidget)
     {
         doXProjection();
     }
 
-    if (m_yProjWidget)
+    if (m_d->m_yProjWidget)
     {
         doYProjection();
     }
@@ -856,7 +917,7 @@ void Histo2DWidget::displayChanged()
         m_d->m_plot->setAxisAutoScale(QwtPlot::yRight, true);
     }
 
-    m_plotItem->setColorMap(getColorMap());
+    m_d->m_plotItem->setColorMap(getColorMap());
 
     replot();
 }
@@ -867,18 +928,18 @@ void Histo2DWidget::exportPlot()
     QString title;
     QString footer;
 
-    if (m_histo)
+    if (m_d->m_histo)
     {
-        fileName = m_histo->objectName();
-        title = m_histo->getTitle();
-        footer = m_histo->getFooter();
+        fileName = m_d->m_histo->objectName();
+        title    = m_d->m_histo->getTitle();
+        footer   = m_d->m_histo->getFooter();
     }
-    else if (m_histo1DSink)
+    else if (m_d->m_histo1DSink)
     {
-        fileName = m_histo1DSink->objectName();
+        fileName = m_d->m_histo1DSink->objectName();
         title = windowTitle();
         // just use the first histograms footer
-        if (auto h1d = m_histo1DSink->m_histos.value(0))
+        if (auto h1d = m_d->m_histo1DSink->m_histos.value(0))
         {
             footer = h1d->getFooter();
         }
@@ -892,9 +953,9 @@ void Histo2DWidget::exportPlot()
     fileName.replace("\\", "_");
     fileName += QSL(".pdf");
 
-    if (m_context)
+    if (m_d->m_context)
     {
-        fileName = QDir(m_context->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
+        fileName = QDir(m_d->m_context->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
     }
 
     m_d->m_plot->setTitle(title);
@@ -920,16 +981,16 @@ void Histo2DWidget::exportPlotToClipboard()
     QString title;
     QString footer;
 
-    if (m_histo)
+    if (m_d->m_histo)
     {
-        title = m_histo->getTitle();
-        footer = m_histo->getFooter();
+        title  = m_d->m_histo->getTitle();
+        footer = m_d->m_histo->getFooter();
     }
-    else if (m_histo1DSink)
+    else if (m_d->m_histo1DSink)
     {
         title = windowTitle();
         // just use the first histograms footer
-        if (auto h1d = m_histo1DSink->m_histos.value(0))
+        if (auto h1d = m_d->m_histo1DSink->m_histos.value(0))
         {
             footer = h1d->getFooter();
         }
@@ -1001,13 +1062,13 @@ QwtLinearColorMap *Histo2DWidget::getColorMap() const
 
 void Histo2DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 {
-    m_cursorPosition = pos;
+    m_d->m_cursorPosition = pos;
     updateCursorInfoLabel();
 }
 
 void Histo2DWidget::mouseCursorLeftPlot()
 {
-    m_cursorPosition = QPointF(make_quiet_nan(), make_quiet_nan());
+    m_d->m_cursorPosition = QPointF(make_quiet_nan(), make_quiet_nan());
     updateCursorInfoLabel();
 }
 
@@ -1047,31 +1108,31 @@ void Histo2DWidget::zoomerZoomed(const QRectF &zoomRect)
 // TODO: RR
 void Histo2DWidget::updateCursorInfoLabel()
 {
-    double plotX = m_cursorPosition.x();
-    double plotY = m_cursorPosition.y();
+    double plotX = m_d->m_cursorPosition.x();
+    double plotY = m_d->m_cursorPosition.y();
     s64 binX = -1;
     s64 binY = -1;
     double value = 0.0;
 
-    if (m_histo)
+    if (m_d->m_histo)
     {
-        binX = m_histo->getAxisBinning(Qt::XAxis).getBin(plotX, m_d->m_rrf.x);
-        binY = m_histo->getAxisBinning(Qt::YAxis).getBin(plotY, m_d->m_rrf.y);
+        binX = m_d->m_histo->getAxisBinning(Qt::XAxis).getBin(plotX, m_d->m_rrf.x);
+        binY = m_d->m_histo->getAxisBinning(Qt::YAxis).getBin(plotY, m_d->m_rrf.y);
 
-        value = m_histo->getValue(plotX, plotY, m_d->m_rrf);
+        value = m_d->m_histo->getValue(plotX, plotY, m_d->m_rrf);
     }
-    else if (m_histo1DSink && m_histo1DSink->getNumberOfHistos() > 0)
+    else if (m_d->m_histo1DSink && m_d->m_histo1DSink->getNumberOfHistos() > 0)
     {
         /* x goes from 0 to #histos.
          * For y the x binning of the first histo is used. */
 
-        auto xBinning = AxisBinning(m_histo1DSink->getNumberOfHistos(),
-                                    0.0, m_histo1DSink->getNumberOfHistos());
+        auto xBinning = AxisBinning(m_d->m_histo1DSink->getNumberOfHistos(),
+                                    0.0, m_d->m_histo1DSink->getNumberOfHistos());
         binX = xBinning.getBin(plotX);
-        binY = m_histo1DSink->getHisto(0)->getAxisBinning(Qt::XAxis)
+        binY = m_d->m_histo1DSink->getHisto(0)->getAxisBinning(Qt::XAxis)
             .getBin(plotY, m_d->m_rrf.y);
 
-        auto histData = reinterpret_cast<Histo1DListRasterData *>(m_plotItem->data());
+        auto histData = reinterpret_cast<Histo1DListRasterData *>(m_d->m_plotItem->data());
         value = histData->value(plotX, plotY);
     }
 
@@ -1192,12 +1253,12 @@ void Histo2DWidget::setSink(const SinkPtr &sink,
                             HistoSinkCallback sinkModifiedCallback,
                             MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction)
 {
-    Q_ASSERT(m_histo && sink && sink->m_histo.get() == m_histo);
+    Q_ASSERT(m_d->m_histo && sink && sink->m_histo.get() == m_d->m_histo);
 
-    m_sink = sink;
-    m_addSinkCallback = addSinkCallback;
-    m_sinkModifiedCallback = sinkModifiedCallback;
-    m_makeUniqueOperatorNameFunction = makeUniqueOperatorNameFunction;
+    m_d->m_sink = sink;
+    m_d->m_addSinkCallback = addSinkCallback;
+    m_d->m_sinkModifiedCallback = sinkModifiedCallback;
+    m_d->m_makeUniqueOperatorNameFunction = makeUniqueOperatorNameFunction;
     m_d->m_actionSubRange->setEnabled(true);
     m_d->m_actionChangeRes->setEnabled(true);
 
@@ -1209,7 +1270,7 @@ void Histo2DWidget::setSink(const SinkPtr &sink,
     }
     else
     {
-        u32 visBins = m_histo->getAxisBinning(Qt::XAxis).getBinCount(rrf.x);
+        u32 visBins = m_d->m_histo->getAxisBinning(Qt::XAxis).getBinCount(rrf.x);
         int sliderValue = std::log2(visBins);
         m_d->m_rrSliderX->setValue(sliderValue);
     }
@@ -1220,7 +1281,7 @@ void Histo2DWidget::setSink(const SinkPtr &sink,
     }
     else
     {
-        u32 visBins = m_histo->getAxisBinning(Qt::YAxis).getBinCount(rrf.x);
+        u32 visBins = m_d->m_histo->getAxisBinning(Qt::YAxis).getBinCount(rrf.x);
         int sliderValue = std::log2(visBins);
         m_d->m_rrSliderY->setValue(sliderValue);
     }
@@ -1228,15 +1289,15 @@ void Histo2DWidget::setSink(const SinkPtr &sink,
 
 void Histo2DWidget::on_tb_subRange_clicked()
 {
-    Q_ASSERT(m_sink);
+    Q_ASSERT(m_d->m_sink);
 
     double visibleMinX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double visibleMaxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
     double visibleMinY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
     double visibleMaxY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
 
-    Histo2DSubRangeDialog dialog(m_sink, m_addSinkCallback, m_sinkModifiedCallback,
-                                 m_makeUniqueOperatorNameFunction,
+    Histo2DSubRangeDialog dialog(m_d->m_sink, m_d->m_addSinkCallback, m_d->m_sinkModifiedCallback,
+                                 m_d->m_makeUniqueOperatorNameFunction,
                                  visibleMinX, visibleMaxX, visibleMinY, visibleMaxY,
                                  this);
     dialog.exec();
@@ -1251,59 +1312,59 @@ void Histo2DWidget::doXProjection()
 
     Histo1DPtr histo;
 
-    if (m_histo)
+    if (m_d->m_histo)
     {
-        histo = make_x_projection(m_histo,
+        histo = make_x_projection(m_d->m_histo,
                                   visibleMinX, visibleMaxX,
                                   visibleMinY, visibleMaxY);
     }
-    else if (m_histo1DSink)
+    else if (m_d->m_histo1DSink)
     {
-        histo = make_projection(m_histo1DSink->m_histos, Qt::XAxis,
+        histo = make_projection(m_d->m_histo1DSink->m_histos, Qt::XAxis,
                                 visibleMinX, visibleMaxX,
                                 visibleMinY, visibleMaxY);
     }
 
     QString projHistoObjectName;
 
-    if (m_histo)
-        projHistoObjectName = m_histo->objectName() + " X-Projection";
-    else if (m_histo1DSink)
-        projHistoObjectName = m_histo1DSink->objectName() + " Combined X-Projection";
+    if (m_d->m_histo)
+        projHistoObjectName = m_d->m_histo->objectName() + " X-Projection";
+    else if (m_d->m_histo1DSink)
+        projHistoObjectName = m_d->m_histo1DSink->objectName() + " Combined X-Projection";
 
     histo->setObjectName(projHistoObjectName);
 
-    if (!m_xProjWidget)
+    if (!m_d->m_xProjWidget)
     {
-        m_xProjWidget = new Histo1DWidget(histo);
-        m_xProjWidget->setContext(m_context);
-        m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
-        m_xProjWidget->setResolutionReductionSliderEnabled(false);
-        m_xProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
-        m_xProjWidget->setAttribute(Qt::WA_DeleteOnClose);
-        connect(m_xProjWidget, &QObject::destroyed, this, [this] (QObject *) {
-            m_xProjWidget = nullptr;
+        m_d->m_xProjWidget = new Histo1DWidget(histo);
+        m_d->m_xProjWidget->setContext(m_d->m_context);
+        m_d->m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
+        m_d->m_xProjWidget->setResolutionReductionSliderEnabled(false);
+        m_d->m_xProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
+        m_d->m_xProjWidget->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_d->m_xProjWidget, &QObject::destroyed, this, [this] (QObject *) {
+            m_d->m_xProjWidget = nullptr;
         });
-        add_widget_close_action(m_xProjWidget);
+        add_widget_close_action(m_d->m_xProjWidget);
 
         QString stateKey;
 
-        if (m_histo)
+        if (m_d->m_histo)
         {
-            stateKey = (m_sink ? m_sink->getId().toString() : m_histo->objectName());
+            stateKey = (m_d->m_sink ? m_d->m_sink->getId().toString() : m_d->m_histo->objectName());
         }
-        else if (m_histo1DSink)
+        else if (m_d->m_histo1DSink)
         {
-            stateKey = m_histo1DSink->getId().toString() + QSL("_combined");
+            stateKey = m_d->m_histo1DSink->getId().toString() + QSL("_combined");
         }
 
         stateKey = stateKey + QSL("_xProj");
-        m_geometrySaver->addAndRestore(m_xProjWidget, QSL("WindowGeometries/") + stateKey);
+        m_d->m_geometrySaver->addAndRestore(m_d->m_xProjWidget, QSL("WindowGeometries/") + stateKey);
     }
     else
     {
-        m_xProjWidget->setHistogram(histo);
-        m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
+        m_d->m_xProjWidget->setHistogram(histo);
+        m_d->m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
     }
 }
 
@@ -1316,60 +1377,60 @@ void Histo2DWidget::doYProjection()
 
     Histo1DPtr histo;
 
-    if (m_histo)
+    if (m_d->m_histo)
     {
 
-        histo = make_y_projection(m_histo,
+        histo = make_y_projection(m_d->m_histo,
                                   visibleMinX, visibleMaxX,
                                   visibleMinY, visibleMaxY);
     }
-    else if (m_histo1DSink)
+    else if (m_d->m_histo1DSink)
     {
-        histo = make_projection(m_histo1DSink->m_histos, Qt::YAxis,
+        histo = make_projection(m_d->m_histo1DSink->m_histos, Qt::YAxis,
                                 visibleMinX, visibleMaxX,
                                 visibleMinY, visibleMaxY);
     }
 
     QString projHistoObjectName;
 
-    if (m_histo)
-        projHistoObjectName = m_histo->objectName() + " Y-Projection";
-    else if (m_histo1DSink)
-        projHistoObjectName = m_histo1DSink->objectName() + " Combined Y-Projection";
+    if (m_d->m_histo)
+        projHistoObjectName = m_d->m_histo->objectName() + " Y-Projection";
+    else if (m_d->m_histo1DSink)
+        projHistoObjectName = m_d->m_histo1DSink->objectName() + " Combined Y-Projection";
 
     histo->setObjectName(projHistoObjectName);
 
-    if (!m_yProjWidget)
+    if (!m_d->m_yProjWidget)
     {
-        m_yProjWidget = new Histo1DWidget(histo);
-        m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
-        m_yProjWidget->setResolutionReductionSliderEnabled(false);
-        m_yProjWidget->setContext(m_context);
-        m_yProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
-        m_yProjWidget->setAttribute(Qt::WA_DeleteOnClose);
-        connect(m_yProjWidget, &QObject::destroyed, this, [this] (QObject *) {
-            m_yProjWidget = nullptr;
+        m_d->m_yProjWidget = new Histo1DWidget(histo);
+        m_d->m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
+        m_d->m_yProjWidget->setResolutionReductionSliderEnabled(false);
+        m_d->m_yProjWidget->setContext(m_d->m_context);
+        m_d->m_yProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
+        m_d->m_yProjWidget->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_d->m_yProjWidget, &QObject::destroyed, this, [this] (QObject *) {
+            m_d->m_yProjWidget = nullptr;
         });
-        add_widget_close_action(m_yProjWidget);
+        add_widget_close_action(m_d->m_yProjWidget);
 
         QString stateKey;
 
-        if (m_histo)
+        if (m_d->m_histo)
         {
-            stateKey = (m_sink ? m_sink->getId().toString() : m_histo->objectName());
+            stateKey = (m_d->m_sink ? m_d->m_sink->getId().toString() : m_d->m_histo->objectName());
         }
-        else if (m_histo1DSink)
+        else if (m_d->m_histo1DSink)
         {
-            stateKey = m_histo1DSink->getId().toString() + QSL("_combined");
+            stateKey = m_d->m_histo1DSink->getId().toString() + QSL("_combined");
         }
 
         stateKey = stateKey + QSL("_yProj");
-        m_geometrySaver->addAndRestore(m_yProjWidget, QSL("WindowGeometries/") + stateKey);
+        m_d->m_geometrySaver->addAndRestore(m_d->m_yProjWidget, QSL("WindowGeometries/") + stateKey);
     }
     else
     {
-        m_yProjWidget->setHistogram(histo);
-        m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
+        m_d->m_yProjWidget->setHistogram(histo);
+        m_d->m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
     }
 }
 
@@ -1377,16 +1438,16 @@ void Histo2DWidget::on_tb_projX_clicked()
 {
     doXProjection();
 
-    m_xProjWidget->show();
-    m_xProjWidget->raise();
+    m_d->m_xProjWidget->show();
+    m_d->m_xProjWidget->raise();
 }
 
 void Histo2DWidget::on_tb_projY_clicked()
 {
     doYProjection();
 
-    m_yProjWidget->show();
-    m_yProjWidget->raise();
+    m_d->m_yProjWidget->show();
+    m_d->m_yProjWidget->raise();
 }
 
 bool Histo2DWidget::event(QEvent *e)
@@ -1407,9 +1468,9 @@ QwtPlot *Histo2DWidget::getQwtPlot()
 
 void Histo2DWidgetPrivate::onRRSliderXValueChanged(int sliderValue)
 {
-    if (m_q->m_histo)
+    if (m_histo)
     {
-        u32 physBins = m_q->m_histo->getAxisBinning(Qt::XAxis).getBinCount();
+        u32 physBins = m_histo->getAxisBinning(Qt::XAxis).getBinCount();
         u32 visBins  = 1u << sliderValue;
         m_rrf.x = physBins / visBins;
 
@@ -1421,12 +1482,12 @@ void Histo2DWidgetPrivate::onRRSliderXValueChanged(int sliderValue)
         //qDebug() << __PRETTY_FUNCTION__
         //    << "rrx adjust: sliderValue =" << sliderValue << "new rrf =" << m_rrf;
 
-        if (m_q->m_sink)
+        if (m_sink)
         {
-            m_q->m_sink->setResolutionReductionFactors(m_rrf);
+            m_sink->setResolutionReductionFactors(m_rrf);
         }
     }
-    else if (m_q->m_histo1DSink)
+    else if (m_histo1DSink)
     {
         // NOOP for now
     }
@@ -1436,9 +1497,9 @@ void Histo2DWidgetPrivate::onRRSliderXValueChanged(int sliderValue)
 
 void Histo2DWidgetPrivate::onRRSliderYValueChanged(int sliderValue)
 {
-    if (m_q->m_histo)
+    if (m_histo)
     {
-        u32 physBins = m_q->m_histo->getAxisBinning(Qt::YAxis).getBinCount();
+        u32 physBins = m_histo->getAxisBinning(Qt::YAxis).getBinCount();
         u32 visBins  = 1u << sliderValue;
         m_rrf.y = physBins / visBins;
 
@@ -1450,15 +1511,15 @@ void Histo2DWidgetPrivate::onRRSliderYValueChanged(int sliderValue)
         //qDebug() << __PRETTY_FUNCTION__
         //    << "rry adjust: sliderValue =" << sliderValue << "new rrf =" << m_rrf;
 
-        if (m_q->m_sink)
+        if (m_sink)
         {
-            m_q->m_sink->setResolutionReductionFactors(m_rrf);
+            m_sink->setResolutionReductionFactors(m_rrf);
         }
 
     }
-    else if (m_q->m_histo1DSink && m_q->m_histo1DSink->getNumberOfHistos() > 0)
+    else if (m_histo1DSink && m_histo1DSink->getNumberOfHistos() > 0)
     {
-        auto histo = m_q->m_histo1DSink->getHisto(0);
+        auto histo = m_histo1DSink->getHisto(0);
 
         u32 physBins = histo->getAxisBinning(Qt::XAxis).getBinCount();
         u32 visBins  = 1u << sliderValue;
@@ -1474,4 +1535,18 @@ void Histo2DWidgetPrivate::onRRSliderYValueChanged(int sliderValue)
     }
 
     m_q->replot();
+}
+
+void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
+{
+    qDebug() << __PRETTY_FUNCTION__ << "active =" << active;
+
+    if (!active)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "poly selection ="
+            << m_cutPolyPicker->selection();
+
+        m_cutPolyPicker->setEnabled(false);
+        m_zoomer->setEnabled(true);
+    }
 }
