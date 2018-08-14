@@ -69,7 +69,8 @@ class AutoBeginClickPointMachine: public QwtPickerMachine
             setState(StateInitial);
         }
 
-        virtual QList<QwtPickerMachine::Command> transition(const QwtEventPattern &eventPattern, const QEvent *ev) override
+        virtual QList<QwtPickerMachine::Command> transition(const QwtEventPattern &eventPattern,
+                                                            const QEvent *ev) override
         {
             QList<QwtPickerMachine::Command> cmdList;
 
@@ -94,7 +95,7 @@ class AutoBeginClickPointMachine: public QwtPickerMachine
 
                 case QEvent::MouseButtonRelease:
                     {
-                        // End selection in mouse button 1 release
+                        // End selection on mouse button 1 release
                         if (eventPattern.mouseMatch(QwtEventPattern::MouseSelect1,
                                                     reinterpret_cast<const QMouseEvent *>(ev)))
                         {
