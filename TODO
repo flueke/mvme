@@ -7,10 +7,68 @@ BUGFIXES and FEATURES wanted for 0.9.6
 --------------------------------------------------
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+--------------------------------------------------
+Histogram Cuts
+--------------------------------------------------
+* For H1D: [xmin, xmax) range
+* For H2D: polygon
+
+Values have to be inside the range (1d) or the polygon area (2d) to pass
+through the cut. Passing means setting the output or condition flag to true.
+
+-> So far:
+* 1d cuts have a single input and a range to test.
+* 2d cuts have two inputs and a polygon to test.
+* Cuts have a single condition flag as their output. It's set to true if the
+  input has passed the test.
+
+Cuts can only be applied after their inputs are available, the same way as
+operators can only consume inputs produced earlier. This means cuts have a rank
+similar to operators.
+
+Cuts can be applied to anything after they have been processed, not only to the
+cuts inputs themselves. For example a h2d could be accumulated only if two
+other values fall into a cut defined elsewhere, e.g. "accumulate x and y time
+values if x and y energy values are inside this area".
+
+Cut creation: the easiest way is to graphically select two point on a h1d for a
+1d cut or to draw a polygon by clicking into a h2d for a 2d cut. This way the
+inputs and parameters are known.
+
+Having the inputs the rank can be calculated. The gui and logic have to ensure
+that only higher ranks can make use of the cut.
+
+Also when viewing any histogram and the cuts parameters are used for the
+axis/axes the cut should be displayed again and should be modifiable.
+
+How to show the user which cut is applied to which histogram? The action of
+applying a cut could be done via drag and drop or a new kind of input select
+mode where the histograms to apply the cut to are clicked.
+But after the cut has been applied there's no easy way to graphically see which
+cut is active where.
+
+Also: can multiple cuts be applied to the same histo?  -> Yes, this could be
+done. The histo inputs have to be higher rank than all of the cuts inputs. This
+way the cuts have been evaluated at the point where the histo data should be
+accumulated. Thus all the cut tests can be performed and ANDed together. One
+could even form logical expressions using cuts.
+
+
+Cut Implentation Plan
+---------------------
+* 1d range selection, 2d poly selection
+* drawing of selections into plots (highlight selected area)
+* High level Cut objects
+* Low level cut implementation
+  Range / Polygon test -> binary output value
+* Structure to perform quick lookups of active cuts for a given operator and to
+  get the active cut value.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
 * Doc: add ListFilterExtractor to Data Sources
-* VMUSB goes into a bad state after doing "1 Cycle"
-* VMUSB: if it dies and "stop DAQ" is clicked the progress window doesn't go
-  away.
 * DAQ Start and then immediately pressing "Run script" in the debug window
   causes a crash.
 * Debug CBUS functionality: MDPP-16 doesn't get a CBUS result after leaving DAQ
