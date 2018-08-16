@@ -3753,8 +3753,20 @@ void a2_end_event(A2 *a2, int eventIndex)
                 {
                     assert(OperatorTable[op->type].step);
 
-                    OperatorTable[op->type].step(op);
-                    opSteppedCount++;
+                    if (op->conditionIndex >= 0)
+                        assert(static_cast<size_t>(op->conditionIndex) < a2->conditions.size());
+
+                    if (op->conditionIndex < 0 || a2->conditions.test(op->conditionIndex))
+                    {
+                        // no cond or cond is true
+                        OperatorTable[op->type].step(op);
+                        opSteppedCount++;
+                    }
+                    else
+                    {
+                        // cond is false
+                        // TODO COND invalidate the operators outputs.
+                    }
                 }
                 else
                 {

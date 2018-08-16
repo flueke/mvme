@@ -1,6 +1,11 @@
 #ifndef __MVME_A2_H__
 #define __MVME_A2_H__
 
+#include <boost/dynamic_bitset.hpp>
+#include <cassert>
+#include <cpp11-on-multicore/common/rwlock.h>
+#include <pcg_random.hpp>
+
 #ifdef liba2_shared_EXPORTS
 #include "a2_export.h"
 #endif
@@ -12,10 +17,6 @@
 #include "multiword_datafilter.h"
 #include "rate_sampler.h"
 #include "util/typed_block.h"
-
-#include <cassert>
-#include <cpp11-on-multicore/common/rwlock.h>
-#include <pcg_random.hpp>
 
 namespace a2
 {
@@ -161,7 +162,7 @@ struct Operator
 {
     using count_type = u8;
 
-    static const auto MaxInputCount = std::numeric_limits<count_type>::max();
+    static const auto MaxInputCount  = std::numeric_limits<count_type>::max();
     static const auto MaxOutputCount = std::numeric_limits<count_type>::max();
 
     ParamVec *inputs;
@@ -171,6 +172,7 @@ struct Operator
     ParamVec *outputLowerLimits;
     ParamVec *outputUpperLimits;
     void *d;
+    s16 conditionIndex;
     u8 inputCount;
     u8 outputCount;
     u8 type;
@@ -632,6 +634,17 @@ struct A2
     std::array<u8, MaxVMEEvents> operatorCounts;
     std::array<Operator *, MaxVMEEvents> operators;
     std::array<u8 *, MaxVMEEvents> operatorRanks;
+
+    boost::dynamic_bitset<> conditions;
+
+    A2(): conditions()
+    {
+        dataSourceCounts.fill(0);
+        dataSources.fill(nullptr);
+        operatorCounts.fill(0);
+        operators.fill(nullptr);
+        operatorRanks.fill(0);
+    }
 };
 
 using Logger = std::function<void (const std::string &msg)>;

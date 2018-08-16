@@ -45,7 +45,8 @@ Having the inputs the rank can be calculated. The gui and logic have to ensure
 that only higher ranks can make use of the cut.
 
 Also when viewing any histogram and the cuts parameters are used for the
-axis/axes the cut should be displayed again and should be modifiable.
+axis/axes the cut should be displayed again and should (in the future) be
+modifiable.
 
 How to show the user which cut is applied to which histogram? The action of
 applying a cut could be done via drag and drop or a new kind of input select
@@ -53,7 +54,7 @@ mode where the histograms to apply the cut to are clicked.
 But after the cut has been applied there's no easy way to graphically see which
 cut is active where.
 
-Also: can multiple cuts be applied to the same histo?  -> Yes, this could be
+Also: can multiple cuts be applied to the same histo? -> Yes, this could be
 done. The histo inputs have to be higher rank than all of the cuts inputs. This
 way the cuts have been evaluated at the point where the histo data should be
 accumulated. Thus all the cut tests can be performed and ANDed together. One
@@ -68,6 +69,11 @@ WORKING * drawing of selections into plots (highlight selected area)
   Range / Polygon test -> binary output value
 * Structure to perform quick lookups of active cuts for a given operator and to
   get the active cut value.
+* A1: Base Cut object to be able to filter them out when populating the
+  existing UI.
+  So they are implemented as operators to seamlessly fit into the existing
+  analysis system (input selection, data flow) but treated specially for
+  display purposes
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
