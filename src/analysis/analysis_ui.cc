@@ -4547,6 +4547,7 @@ void EventWidgetPrivate::removeObjects(const AnalysisObjectVector &objects)
         AnalysisPauser pauser(m_context);
         auto analysis = m_context->getAnalysis();
         analysis->removeObjectsRecursively(objects);
+        m_analysisWidget->updateAddRemoveUserLevelButtons();
         repopulate();
     }
 }
