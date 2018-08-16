@@ -18,6 +18,8 @@
 #include "rate_sampler.h"
 #include "util/typed_block.h"
 
+#define A2_ENABLE_CONDITIONS 1
+
 namespace a2
 {
 using ParamVec = TypedBlock<double, s32>;
@@ -164,6 +166,7 @@ struct Operator
 
     static const auto MaxInputCount  = std::numeric_limits<count_type>::max();
     static const auto MaxOutputCount = std::numeric_limits<count_type>::max();
+    static const s16  NoCondition    = -1;
 
     ParamVec *inputs;
     ParamVec *inputLowerLimits;
@@ -635,6 +638,7 @@ struct A2
     std::array<Operator *, MaxVMEEvents> operators;
     std::array<u8 *, MaxVMEEvents> operatorRanks;
 
+#if A2_ENABLE_CONDITIONS
     boost::dynamic_bitset<> conditions;
 
     A2(): conditions()
@@ -645,6 +649,12 @@ struct A2
         operators.fill(nullptr);
         operatorRanks.fill(0);
     }
+
+    ~A2()
+    {
+        fprintf(stderr, "A2A2A2A2A2A2 %s %p\n", __PRETTY_FUNCTION__, this);
+    }
+#endif
 };
 
 using Logger = std::function<void (const std::string &msg)>;

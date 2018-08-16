@@ -1222,7 +1222,7 @@ A2AdapterState a2_adapter_build(
     const RunInfo &runInfo)
 {
     A2AdapterState result = {};
-    result.a2 = arena->pushObject<a2::A2>({});
+    result.a2 = arena->pushObject<a2::A2>();
 
     for (u32 i = 0; i < result.a2->dataSourceCounts.size(); i++)
     {

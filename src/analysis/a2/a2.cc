@@ -430,6 +430,7 @@ Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
     result.type = type;
     result.inputCount = inputCount;
     result.outputCount = outputCount;
+    result.conditionIndex = Operator::NoCondition;
     result.d = nullptr;
 
     return  result;
@@ -3753,6 +3754,7 @@ void a2_end_event(A2 *a2, int eventIndex)
                 {
                     assert(OperatorTable[op->type].step);
 
+#if A2_ENABLE_CONDITIONS
                     if (op->conditionIndex >= 0)
                         assert(static_cast<size_t>(op->conditionIndex) < a2->conditions.size());
 
@@ -3767,6 +3769,10 @@ void a2_end_event(A2 *a2, int eventIndex)
                         // cond is false
                         // TODO COND invalidate the operators outputs.
                     }
+#else
+                        OperatorTable[op->type].step(op);
+                        opSteppedCount++;
+#endif
                 }
                 else
                 {
