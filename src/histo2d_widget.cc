@@ -1579,10 +1579,16 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
         qDebug() << __PRETTY_FUNCTION__ << "plot poly selection ="
             << poly;
 
+        // TODO: store the polygon in a new 2d cut object
         m_cutShapeItem->setPolygon(poly);
 
         // Back to default ui interactions: disable cut picker, enable zoomer
         m_cutPolyPicker->setEnabled(false);
-        //m_zoomer->setEnabled(true);
+
+        // Tell the zoomer to ignore the release following from the last right-click that
+        // closed the polygon. This seemed the easiest way to avoid unexpectedly zooming
+        // out.
+        m_zoomer->ignoreNextMouseRelease();
+        m_zoomer->setEnabled(true);
     }
 }
