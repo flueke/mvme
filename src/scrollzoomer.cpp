@@ -545,6 +545,18 @@ void ScrollZoomer::widgetLeaveEvent( QEvent * event )
     QwtPlotZoomer::widgetLeaveEvent(event);
 }
 
+void ScrollZoomer::widgetMouseReleaseEvent(QMouseEvent *me)
+{
+    if (m_ignoreNextMouseRelease)
+    {
+        m_ignoreNextMouseRelease = false;
+    }
+    else
+    {
+        QwtPlotZoomer::widgetMouseReleaseEvent(me);
+    }
+}
+
 // Note: modified version of the implementation in qwt_plot_picker.cpp
 QwtText ScrollZoomer::trackerTextF( const QPointF &pos ) const
 {
@@ -567,4 +579,9 @@ QwtText ScrollZoomer::trackerTextF( const QPointF &pos ) const
             break;
     }
     return QwtText( text );
+}
+
+void ScrollZoomer::ignoreNextMouseRelease()
+{
+    m_ignoreNextMouseRelease = true;
 }
