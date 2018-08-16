@@ -1795,9 +1795,16 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             && slot == histoSink->getSlot(0)
             && std::isnan(histoSink->m_xLimitMin))
         {
-            s32 paramIndex = slot->isParameterConnection() ? slot->paramIndex : 0;
-            limits_x.spin_min->setValue(slot->inputPipe->parameters[paramIndex].lowerLimit);
-            limits_x.spin_max->setValue(slot->inputPipe->parameters[paramIndex].upperLimit);
+            s32 paramIndex = slot->paramIndex;
+
+            if (paramIndex == Slot::NoParamIndex && slot->inputPipe->getSize() > 0)
+                paramIndex = 0;
+
+            if (0 <= paramIndex && paramIndex < slot->inputPipe->getSize())
+            {
+                limits_x.spin_min->setValue(slot->inputPipe->parameters[paramIndex].lowerLimit);
+                limits_x.spin_max->setValue(slot->inputPipe->parameters[paramIndex].upperLimit);
+            }
         }
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
