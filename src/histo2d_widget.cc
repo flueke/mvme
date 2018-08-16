@@ -537,9 +537,10 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
 
 #if 1
         auto action = tb->addAction("Cut Test");
-        connect(action, &QAction::triggered, this, [this]() {
-            m_d->m_zoomer->setEnabled(false);
-            m_d->m_cutPolyPicker->setEnabled(true);
+        action->setCheckable(true);
+        connect(action, &QAction::toggled, this, [this](bool checked) {
+            m_d->m_zoomer->setEnabled(!checked);
+            m_d->m_cutPolyPicker->setEnabled(checked);
         });
 #endif
     }
@@ -1550,7 +1551,8 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
             m_cutShapeItem = std::make_unique<QwtPlotShapeItem>(QSL("Cut"));
             m_cutShapeItem->attach(m_plot);
 
-            QBrush brush(QColor("#d0d78e"), Qt::DiagCrossPattern);
+            //QBrush brush(QColor("#d0d78e"), Qt::DiagCrossPattern);
+            QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
             m_cutShapeItem->setBrush(brush);
         }
 

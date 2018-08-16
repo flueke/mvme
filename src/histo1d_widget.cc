@@ -28,6 +28,7 @@
 #include <qwt_plot_panner.h>
 #include <qwt_plot_renderer.h>
 #include <qwt_plot_textlabel.h>
+#include <qwt_plot_zoneitem.h>
 #include <qwt_point_data.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_widget.h>
@@ -261,14 +262,25 @@ struct Histo1DWidgetPrivate
             *m_actionChangeRes,
             *m_actionGaussFit,
             *m_actionCalibUi,
-            *m_actionInfo;
+            *m_actionInfo,
+            *m_actionPickCutPoints;
 
+    // rate estimation
     RateEstimationData m_rateEstimationData;
     QwtPlotPicker *m_rateEstimationPointPicker;
     QwtPlotMarker *m_rateEstimationX1Marker;
     QwtPlotMarker *m_rateEstimationX2Marker;
     QwtPlotMarker *m_rateEstimationFormulaMarker;
+    RateEstimationCurveData *m_plotRateEstimationData = nullptr; // owned by qwt
 
+    // cut creation / display
+    QwtPlotPicker *m_cutPointPicker;
+    QwtPlotMarker *m_cutIntervalMarkerX1;
+    QwtPlotMarker *m_cutIntervalMarkerX2;
+    std::unique_ptr<QwtPlotZoneItem> m_cutZoneItem;
+    QwtInterval m_cutInterval;
+
+    // text items / stats
     mvme_qwt::TextLabelItem *m_globalStatsTextItem;
     mvme_qwt::TextLabelItem *m_gaussStatsTextItem;
     mvme_qwt::TextLabelRowLayout m_textLabelLayout;
@@ -276,8 +288,6 @@ struct Histo1DWidgetPrivate
     std::unique_ptr<QwtText> m_gaussStatsText;
 
     Histo1DIntervalData *m_plotHistoData = nullptr; // owned by qwt
-    RateEstimationCurveData *m_plotRateEstimationData = nullptr; // owned by qwt
-
     QwtPlotCurve *m_gaussCurve = nullptr;
     QwtPlotCurve *m_rateEstimationCurve = nullptr;
 
@@ -365,6 +375,9 @@ struct Histo1DWidgetPrivate
     void exportPlot();
     void exportPlotToClipboard();
     void saveHistogram();
+
+    void onCutPointPickerActivated(bool on);
+    void onCutPointPickerPointSelected(const QPointF &point);
 };
 
 enum class AxisScaleType
@@ -530,6 +543,22 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         });
     }
 
+    // XXX Cut toolbar button
+    action = tb->addAction("Cut Test");
+    action->setCheckable(true);
+    m_d->m_actionPickCutPoints = action;
+    connect(action, &QAction::toggled, this, [this](bool checked) {
+        if (checked)
+        {
+            m_d->m_cutInterval = QwtInterval(make_quiet_nan(), make_quiet_nan());
+        }
+
+        m_d->m_zoomer->setEnabled(!checked);
+        m_d->m_cutPointPicker->setEnabled(checked);
+    });
+
+    // Final, right-side spacer. The listwidget adds the histo selection spinbox after
+    // this.
     tb->addWidget(make_spacer_widget());
 
     // Setup the plot
@@ -726,15 +755,45 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         return result;
     };
 
+    m_d->m_rateEstimationCurve = make_plot_curve(Qt::red, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
+
+    //
+    // XXX: cut test
+    //
+    {
+        m_d->m_cutPointPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
+                                             QwtPicker::VLineRubberBand,
+                                             QwtPicker::ActiveOnly,
+                                             m_d->m_plot->canvas());
+
+        QPen pickerPen(Qt::red);
+        m_d->m_cutPointPicker->setTrackerPen(pickerPen);
+        m_d->m_cutPointPicker->setRubberBandPen(pickerPen);
+        m_d->m_cutPointPicker->setStateMachine(new AutoBeginClickPointMachine);
+        m_d->m_cutPointPicker->setEnabled(false);
+
+        TRY_ASSERT(connect(m_d->m_cutPointPicker, &QwtPicker::activated, this, [this](bool on) {
+            m_d->onCutPointPickerActivated(on);
+        }));
+
+        TRY_ASSERT(connect(
+                m_d->m_cutPointPicker,
+                // so ugly :-(
+                static_cast<void (QwtPlotPicker::*) (const QPointF &)>(
+                    &QwtPlotPicker::selected),
+
+                this, [this] (const QPointF &point) {
+                    m_d->onCutPointPickerPointSelected(point);
+                }));
+
+        m_d->m_cutIntervalMarkerX1 = make_position_marker(m_d->m_plot);
+        m_d->m_cutIntervalMarkerX2 = make_position_marker(m_d->m_plot);
+    }
+
     //
     // Gauss Curve
     //
     m_d->m_gaussCurve = make_plot_curve(Qt::green, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
-
-    //
-    // Rate Estimation Curve
-    //
-    m_d->m_rateEstimationCurve = make_plot_curve(Qt::red, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
 
     //
     // Watermark text when exporting
@@ -1692,6 +1751,58 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
     }
 
     replot();
+}
+
+void Histo1DWidgetPrivate::onCutPointPickerActivated(bool on)
+{
+    qDebug() << __PRETTY_FUNCTION__ << on;
+}
+
+void Histo1DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
+{
+    qDebug() << __PRETTY_FUNCTION__ << point;
+
+    if (std::isnan(m_cutInterval.minValue()))
+    {
+        m_cutInterval.setMinValue(point.x());
+
+        m_cutIntervalMarkerX1->setXValue(m_cutInterval.minValue());
+        m_cutIntervalMarkerX1->setLabel(QString("    x1=%1").arg(m_cutInterval.minValue()));
+        m_cutIntervalMarkerX1->show();
+    }
+    else if (std::isnan(m_cutInterval.maxValue()))
+    {
+        if (!m_cutZoneItem)
+        {
+            m_cutZoneItem = std::make_unique<QwtPlotZoneItem>();
+            m_cutZoneItem->attach(m_plot);
+
+            //QBrush brush(QColor("#d0d78e"), Qt::DiagCrossPattern);
+            QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
+            m_cutZoneItem->setBrush(brush);
+
+            //m_cutZoneItem->setPen(Qt::black, 1.0, Qt::DashDotLine);
+        }
+
+        double x = point.x();
+        m_cutInterval.setMaxValue(x);
+        m_cutInterval = m_cutInterval.normalized(); // swaps if needed
+
+        m_cutIntervalMarkerX1->setXValue(m_cutInterval.minValue());
+        m_cutIntervalMarkerX1->setLabel(QString("    x1=%1").arg(m_cutInterval.minValue()));
+        m_cutIntervalMarkerX1->show();
+
+        m_cutIntervalMarkerX2->setXValue(m_cutInterval.maxValue());
+        m_cutIntervalMarkerX2->setLabel(QString("    x2=%1").arg(m_cutInterval.maxValue()));
+        m_cutIntervalMarkerX2->show();
+
+        m_cutZoneItem->setInterval(m_cutInterval);
+        m_actionPickCutPoints->setChecked(false);
+
+        // TODO: store the two coordinates in a new 1d cut object
+    }
+
+    m_q->replot();
 }
 
 //

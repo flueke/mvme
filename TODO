@@ -18,10 +18,15 @@ Values have to be inside the range (1d) or the polygon area (2d) to pass
 through the cut. Passing means setting the output or condition flag to true.
 
 -> So far:
-* 1d cuts have a single input and a range to test.
-* 2d cuts have two inputs and a polygon to test.
-* Cuts have a single condition flag as their output. It's set to true if the
-  input has passed the test.
+* 1d cuts have a single input pipe of size N and N intervals to test against.
+  The output is a bitset of size N.
+
+* 2d cuts have two indexed inputs and a polygon to test against.
+  The output is a single bit.
+
+* From a performance perspective it could be good to create special 2d cuts for
+  rectangles, ellipses and other geometric shapes. Hit tests could be sped up
+  dramatically if full polygon tests are not required.
 
 Cuts can only be applied after their inputs are available, the same way as
 operators can only consume inputs produced earlier. This means cuts have a rank
@@ -54,11 +59,10 @@ way the cuts have been evaluated at the point where the histo data should be
 accumulated. Thus all the cut tests can be performed and ANDed together. One
 could even form logical expressions using cuts.
 
-
 Cut Implentation Plan
 ---------------------
-* 1d range selection, 2d poly selection
-* drawing of selections into plots (highlight selected area)
+WORKING* 1d range selection, 2d poly selection
+WORKING * drawing of selections into plots (highlight selected area)
 * High level Cut objects
 * Low level cut implementation
   Range / Polygon test -> binary output value
