@@ -22,8 +22,11 @@
 #define __HISTO2D_H__
 
 #include "histo_util.h"
+
 #include <QObject>
 #include <array>
+
+#include "libmvme_export.h"
 
 struct ResolutionReductionFactors
 {
@@ -76,7 +79,7 @@ inline QDebug &operator<<(QDebug &dbg, const ResolutionReductionFactors &rrf)
 }
 #endif
 
-class Histo2D: public QObject
+class LIBMVME_EXPORT Histo2D: public QObject
 {
     Q_OBJECT
 

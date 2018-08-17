@@ -1603,9 +1603,31 @@ void Histo2DWidgetPrivate::onRRSliderYValueChanged(int sliderValue)
     m_q->replot();
 }
 
+using BGPoint = boost::geometry::model::d2::point_xy<double>;
+using BGPoly  = boost::geometry::model::polygon<BGPoint>;
+
+BGPoly make_boost_geometry_poly(const QPolygonF &qtPoly, bool doCorrect = true)
+{
+    std::vector<BGPoint> points;
+    points.reserve(qtPoly.size());
+
+    for (auto qp: qtPoly)
+    {
+        points.push_back(BGPoint(qp.x(), qp.y()));
+    }
+
+    BGPoly result;
+    boost::geometry::append(result, points);
+
+    if (doCorrect)
+        boost::geometry::correct(result);
+
+    return result;
+}
+
 void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
 {
-    qDebug() << __PRETTY_FUNCTION__ << "active =" << active;
+    //qDebug() << __PRETTY_FUNCTION__ << "active =" << active;
 
     if (!active)
     {
@@ -1621,8 +1643,8 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
 
         auto pixelPoly = m_cutPolyPicker->selection();
 
-        qDebug() << __PRETTY_FUNCTION__ << "pixel poly selection ="
-            << pixelPoly;
+        //qDebug() << __PRETTY_FUNCTION__ << "pixel poly selection ="
+        //    << pixelPoly;
 
         QPolygonF poly;
         poly.reserve(pixelPoly.size() + 1);
@@ -1641,8 +1663,8 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
             poly.push_back(poly.first());
         }
 
-        qDebug() << __PRETTY_FUNCTION__ << "plot poly selection ="
-            << poly;
+        //qDebug() << __PRETTY_FUNCTION__ << "plot poly selection ="
+        //    << poly;
 
         // TODO: store the polygon in a new 2d cut object
         m_cutShapeItem->setPolygon(poly);
@@ -1660,27 +1682,26 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
         m_actionCreateCut->setChecked(false);
 
         m_q->replot();
+
+        auto bgPoly = make_boost_geometry_poly(poly);
+
+        std::stringstream ss;
+        ss << boost::geometry::wkt(bgPoly);
+
+        qDebug().nospace()
+            <<  "{"
+            << endl << "    \"" << ss.str().c_str() << "\" ,"
+            << endl << "{";
     }
 }
 
 void Histo2DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
 {
-    qDebug() << __PRETTY_FUNCTION__ << point;
+    //qDebug() << __PRETTY_FUNCTION__ << point;
 
-    using Point = boost::geometry::model::d2::point_xy<double>;
-    using Poly  = boost::geometry::model::polygon<Point>;
+    BGPoly poly = make_boost_geometry_poly(m_cutShapePolygonQt);
 
-    std::vector<Point> points;
-
-    for (auto qp: m_cutShapePolygonQt)
-    {
-        points.push_back(Point(qp.x(), qp.y()));
-    }
-
-    Poly poly;
-    boost::geometry::append(poly, points);
-
-    Point pointToTest(point.x(), point.y());
+    BGPoint pointToTest(point.x(), point.y());
 
     std::string valid_msg;
     bool was_valid = boost::geometry::is_valid(poly, valid_msg);
@@ -1694,8 +1715,11 @@ void Histo2DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
 
     std::stringstream ss;
 
-    ss << boost::geometry::wkt(poly);
+    ss << boost::geometry::wkt(pointToTest);
 
+    const bool is_within = boost::geometry::within(pointToTest, poly);
+
+#if 0
     qDebug() << __PRETTY_FUNCTION__
         << endl
         << "was_valid =" << was_valid << ", msg =" << valid_msg.c_str()
@@ -1706,4 +1730,8 @@ void Histo2DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
         << endl
         << "WKT =" << ss.str().c_str()
         ;
+#else
+    qDebug().nospace()
+        << "    { \"" << ss.str().c_str() << "\", " << is_within << " },";
+#endif
 }

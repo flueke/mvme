@@ -117,6 +117,7 @@ if(BUILD_TESTS)
     add_a2_bench(test_a2_param test_a2_param.cc)
     add_a2_bench(test_a2_listfilter test_listfilter.cc)
     add_a2_bench(test_a2_arena test_arena.cc)
+    add_a2_bench(bench_poly_within bench_poly_within.cc)
 
     add_executable(test_a2_exprtk a2_exprtk.cc test_a2_exprtk.cc)
     target_link_libraries(test_a2_exprtk gtest gtest_main)
