@@ -300,6 +300,7 @@ add_mvme_executable(dev_rate_monitor_widget "dev_rate_monitor_widget.cc")
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
 add_mvme_executable(dev_data_filter_edit "dev_data_filter_edit.cc")
 add_mvme_executable(dev_histo1d_testing "dev_histo1d_testing.cc")
+add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
 
 if (ENABLE_ROOT AND ROOT_FOUND)
     set(mvme_root_LIBS

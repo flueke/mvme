@@ -652,7 +652,6 @@ struct A2
 
     ~A2()
     {
-        fprintf(stderr, "A2A2A2A2A2A2 %s %p\n", __PRETTY_FUNCTION__, this);
     }
 #endif
 };

@@ -46,6 +46,15 @@
 #include <QTimer>
 #include <QToolBar>
 
+/* Circumvent compile errors related to the 'Q' numeric literal suffix.
+ * See https://svn.boost.org/trac10/ticket/9240 and
+ * https://www.boost.org/doc/libs/1_68_0/libs/math/doc/html/math_toolkit/config_macros.html
+ * for details. */
+#define BOOST_MATH_DISABLE_FLOAT128
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
 #include "histo1d_widget.h"
@@ -311,7 +320,8 @@ struct Histo2DWidgetPrivate
     QAction *m_actionClear,
             *m_actionSubRange,
             *m_actionChangeRes,
-            *m_actionInfo;
+            *m_actionInfo,
+            *m_actionCreateCut;
 
     QComboBox *m_zScaleCombo;
 
@@ -331,8 +341,11 @@ struct Histo2DWidgetPrivate
 
     ResolutionReductionFactors m_rrf = {};
 
+    // Cuts
     QwtPlotPicker *m_cutPolyPicker;
     std::unique_ptr<QwtPlotShapeItem> m_cutShapeItem;
+    QPolygonF m_cutShapePolygonQt;
+    QwtPlotPicker *m_cutPointPicker;
 
     Histo2D *m_histo = nullptr;
     Histo2DPtr m_histoPtr;
@@ -401,6 +414,7 @@ struct Histo2DWidgetPrivate
     void onRRSliderYValueChanged(int sliderValue);
 
     void onCutPolyPickerActivated(bool on);
+    void onCutPointPickerPointSelected(const QPointF &point);
 };
 
 enum class AxisScaleType
@@ -517,32 +531,81 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
 
     // XXX: cut test
     {
+        QPen pickerPen(Qt::red);
+
+
+        // polygon picker for cut creation
         m_d->m_cutPolyPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
                                              QwtPicker::PolygonRubberBand,
                                              QwtPicker::ActiveOnly,
                                              m_d->m_plot->canvas());
 
-        QPen pickerPen(Qt::red);
         m_d->m_cutPolyPicker->setTrackerPen(pickerPen);
         m_d->m_cutPolyPicker->setRubberBandPen(pickerPen);
         m_d->m_cutPolyPicker->setStateMachine(new QwtPickerPolygonMachine);
         m_d->m_cutPolyPicker->setEnabled(false);
 
-        //TRY_ASSERT(connect(m_d->m_cutPolyPicker, SIGNAL(selected(const QPointF &)),
-        //                   this, SLOT(on_ratePointerPicker_selected(const QPointF &))));
+        m_d->m_cutPointPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
+                                                  QwtPicker::CrossRubberBand,
+                                                  QwtPicker::ActiveOnly,
+                                                  m_d->m_plot->canvas());
 
         TRY_ASSERT(connect(m_d->m_cutPolyPicker, &QwtPicker::activated, this, [this](bool on) {
             m_d->onCutPolyPickerActivated(on);
         }));
 
-#if 1
-        auto action = tb->addAction("Cut Test");
+        auto action = tb->addAction("Dev: Create cut");
         action->setCheckable(true);
+        m_d->m_actionCreateCut = action;
+
         connect(action, &QAction::toggled, this, [this](bool checked) {
-            m_d->m_zoomer->setEnabled(!checked);
-            m_d->m_cutPolyPicker->setEnabled(checked);
+            if (checked)
+            {
+                m_d->m_zoomer->setEnabled(false);
+                m_d->m_cutPointPicker->setEnabled(false);
+                m_d->m_cutPolyPicker->setEnabled(true);
+            }
+            else
+            {
+                m_d->m_zoomer->setEnabled(true);
+                m_d->m_cutPointPicker->setEnabled(false);
+                m_d->m_cutPolyPicker->setEnabled(false);
+            }
         });
-#endif
+
+        // point picker to create points for PiP tests
+        m_d->m_cutPointPicker->setTrackerPen(pickerPen);
+        m_d->m_cutPointPicker->setRubberBandPen(pickerPen);
+        m_d->m_cutPointPicker->setStateMachine(new AutoBeginClickPointMachine);
+        m_d->m_cutPointPicker->setEnabled(false);
+
+        TRY_ASSERT(connect(
+                m_d->m_cutPointPicker,
+                // so ugly :-(
+                static_cast<void (QwtPlotPicker::*) (const QPointF &)>(
+                    &QwtPlotPicker::selected),
+
+                this, [this] (const QPointF &point) {
+                    m_d->onCutPointPickerPointSelected(point);
+                }));
+
+        action = tb->addAction("Dev: PiP test");
+        action->setCheckable(true);
+
+        connect(action, &QAction::toggled, this, [this](bool checked) {
+            if (checked)
+            {
+                m_d->m_zoomer->setEnabled(false);
+                m_d->m_cutPointPicker->setEnabled(true);
+                m_d->m_cutPolyPicker->setEnabled(false);
+            }
+            else
+            {
+                m_d->m_zoomer->setEnabled(true);
+                m_d->m_cutPointPicker->setEnabled(false);
+                m_d->m_cutPolyPicker->setEnabled(false);
+            }
+        });
     }
 
     tb->addWidget(make_spacer_widget());
@@ -1583,6 +1646,7 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
 
         // TODO: store the polygon in a new 2d cut object
         m_cutShapeItem->setPolygon(poly);
+        m_cutShapePolygonQt = poly;
 
         // Back to default ui interactions: disable cut picker, enable zoomer
         m_cutPolyPicker->setEnabled(false);
@@ -1592,5 +1656,54 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
         // out.
         m_zoomer->ignoreNextMouseRelease();
         m_zoomer->setEnabled(true);
+
+        m_actionCreateCut->setChecked(false);
+
+        m_q->replot();
     }
+}
+
+void Histo2DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
+{
+    qDebug() << __PRETTY_FUNCTION__ << point;
+
+    using Point = boost::geometry::model::d2::point_xy<double>;
+    using Poly  = boost::geometry::model::polygon<Point>;
+
+    std::vector<Point> points;
+
+    for (auto qp: m_cutShapePolygonQt)
+    {
+        points.push_back(Point(qp.x(), qp.y()));
+    }
+
+    Poly poly;
+    boost::geometry::append(poly, points);
+
+    Point pointToTest(point.x(), point.y());
+
+    std::string valid_msg;
+    bool was_valid = boost::geometry::is_valid(poly, valid_msg);
+
+    if (!was_valid)
+    {
+        boost::geometry::correct(poly);
+    }
+
+    bool is_valid = boost::geometry::is_valid(poly);
+
+    std::stringstream ss;
+
+    ss << boost::geometry::wkt(poly);
+
+    qDebug() << __PRETTY_FUNCTION__
+        << endl
+        << "was_valid =" << was_valid << ", msg =" << valid_msg.c_str()
+        << endl
+        << "is_valid  =" << is_valid
+        << endl
+        << "within =" << boost::geometry::within(pointToTest, poly)
+        << endl
+        << "WKT =" << ss.str().c_str()
+        ;
 }

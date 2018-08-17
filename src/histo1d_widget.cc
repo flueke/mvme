@@ -762,19 +762,15 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     //
     {
         m_d->m_cutPointPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
-                                             QwtPicker::VLineRubberBand,
-                                             QwtPicker::ActiveOnly,
-                                             m_d->m_plot->canvas());
+                                                  QwtPicker::VLineRubberBand,
+                                                  QwtPicker::ActiveOnly,
+                                                  m_d->m_plot->canvas());
 
         QPen pickerPen(Qt::red);
         m_d->m_cutPointPicker->setTrackerPen(pickerPen);
         m_d->m_cutPointPicker->setRubberBandPen(pickerPen);
         m_d->m_cutPointPicker->setStateMachine(new AutoBeginClickPointMachine);
         m_d->m_cutPointPicker->setEnabled(false);
-
-        TRY_ASSERT(connect(m_d->m_cutPointPicker, &QwtPicker::activated, this, [this](bool on) {
-            m_d->onCutPointPickerActivated(on);
-        }));
 
         TRY_ASSERT(connect(
                 m_d->m_cutPointPicker,
@@ -1751,11 +1747,6 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
     }
 
     replot();
-}
-
-void Histo1DWidgetPrivate::onCutPointPickerActivated(bool on)
-{
-    qDebug() << __PRETTY_FUNCTION__ << on;
 }
 
 void Histo1DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
