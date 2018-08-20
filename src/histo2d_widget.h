@@ -24,6 +24,8 @@
 #include "histo2d.h"
 #include <QWidget>
 
+#include "libmvme_export.h"
+
 class MVMEContext;
 class QwtPlot;
 class QwtLinearColorMap;
@@ -36,7 +38,7 @@ namespace analysis
 
 struct Histo2DWidgetPrivate;
 
-class Histo2DWidget: public QWidget
+class LIBMVME_EXPORT Histo2DWidget: public QWidget
 {
     Q_OBJECT
     public:

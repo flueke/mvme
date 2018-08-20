@@ -36,6 +36,8 @@
 #include <QToolBar>
 #include <QToolButton>
 
+#include "libmvme_export.h"
+
 #define QSL(str) QStringLiteral(str)
 
 class QAction;
@@ -59,9 +61,10 @@ class WidgetGeometrySaver: public QObject
         QHash<QWidget *, QString> m_widgetKeys;
 };
 
-QAction *add_widget_close_action(QWidget *widget,
-                                const QKeySequence &shortcut = QKeySequence(QSL("Ctrl+W")),
-                                Qt::ShortcutContext shortcutContext = Qt::WidgetWithChildrenShortcut);
+LIBMVME_EXPORT QAction *
+add_widget_close_action(QWidget *widget,
+                        const QKeySequence &shortcut = QKeySequence(QSL("Ctrl+W")),
+                        Qt::ShortcutContext shortcutContext = Qt::WidgetWithChildrenShortcut);
 
 
 QJsonObject storeDynamicProperties(const QObject *object);
