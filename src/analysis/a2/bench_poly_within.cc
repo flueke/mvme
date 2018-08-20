@@ -12,7 +12,8 @@
 
 namespace bg = boost::geometry;
 using Point   = bg::model::d2::point_xy<double>;
-using Polygon = bg::model::polygon<Point>;
+// template parameters: point type, clockwise, closed
+using Polygon = bg::model::polygon<Point, true, true>;
 
 using benchmark::Counter;
 
