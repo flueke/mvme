@@ -7,8 +7,7 @@
  * for details. */
 #define BOOST_MATH_DISABLE_FLOAT128
 #include <boost/geometry.hpp>
-//#include <boost/geometry/geometries/point_xy.hpp>
-//#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
 
 namespace bg = boost::geometry;
 using Point   = bg::model::d2::point_xy<double>;
