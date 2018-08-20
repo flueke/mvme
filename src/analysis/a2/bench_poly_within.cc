@@ -256,7 +256,7 @@ struct PointAndResult
 };
 
 /* Arg(0) is the index of the benchmark data to use in the Benchmarks vector. */
-static void BM_poly_within_test(benchmark::State &state)
+static void BM_pip_test(benchmark::State &state)
 {
     const size_t dataIndex = static_cast<size_t>(state.range(0));
     assert(dataIndex < Benchmarks.size());
@@ -294,6 +294,49 @@ static void BM_poly_within_test(benchmark::State &state)
     state.counters["Pip_rate"]  = Counter(pipCount, Counter::kIsRate);
     state.counters["poly_outer_points"] = polygon.outer().size();
 }
-BENCHMARK(BM_poly_within_test)->DenseRange(0, Benchmarks.size() - 1);
+BENCHMARK(BM_pip_test)->DenseRange(0, Benchmarks.size() - 1);
+
+/* Arg(0) is the index of the benchmark data to use in the Benchmarks vector.
+ * Runs boost::geometry::correct() on the polygon prior to benchmarking. */
+static void BM_pip_test_with_correction(benchmark::State &state)
+{
+    const size_t dataIndex = static_cast<size_t>(state.range(0));
+    assert(dataIndex < Benchmarks.size());
+
+    const auto &benchData = Benchmarks[dataIndex];
+
+    // read input data
+    Polygon polygon;
+    std::vector<PointAndResult> pars;
+
+    bg::read_wkt(benchData.polygon, polygon);
+    bg::correct(polygon);
+
+    for (const auto &ipar: benchData.pointsAndResults)
+    {
+        Point p;
+        bg::read_wkt(ipar.point, p);
+        pars.push_back({p, ipar.result});
+    }
+
+    // run the Point in Polygon tests
+    size_t pipCount = 0;
+
+    for (auto _: state)
+    {
+        for (const auto &par: pars)
+        {
+            const bool is_within = bg::within(par.point, polygon);
+            benchmark::DoNotOptimize(is_within);
+            assert(is_within == par.result);
+            pipCount++;
+        }
+    }
+
+    state.counters["PiP_count"] = Counter(pipCount);
+    state.counters["Pip_rate"]  = Counter(pipCount, Counter::kIsRate);
+    state.counters["poly_outer_points"] = polygon.outer().size();
+}
+BENCHMARK(BM_pip_test_with_correction)->DenseRange(0, Benchmarks.size() - 1);
 
 BENCHMARK_MAIN();
