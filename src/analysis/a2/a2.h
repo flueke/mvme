@@ -639,6 +639,7 @@ struct A2
     std::array<u8 *, MaxVMEEvents> operatorRanks;
 
 #if A2_ENABLE_CONDITIONS
+    // TODO: use the ArenaAllocator for the conditions
     boost::dynamic_bitset<> conditions;
 
     A2(): conditions()

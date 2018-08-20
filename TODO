@@ -9,10 +9,10 @@ BUGFIXES and FEATURES wanted for 0.9.6
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 --------------------------------------------------
-Histogram Cuts
+Analysis Conditions (Histogram Cuts and more)
 --------------------------------------------------
 * For H1D: [xmin, xmax) range
-* For H2D: polygon
+* For H2D: polygon, sepcial cases: ellipses, rectangles
 
 Values have to be inside the range (1d) or the polygon area (2d) to pass
 through the cut. Passing means setting the output or condition flag to true.
@@ -41,7 +41,7 @@ Cut creation: the easiest way is to graphically select two point on a h1d for a
 1d cut or to draw a polygon by clicking into a h2d for a 2d cut. This way the
 inputs and parameters are known.
 
-Having the inputs the rank can be calculated. The gui and logic have to ensure
+Knowing the inputs the rank can be calculated. The gui and logic have to ensure
 that only higher ranks can make use of the cut.
 
 Also when viewing any histogram and the cuts parameters are used for the
@@ -67,13 +67,29 @@ WORKING * drawing of selections into plots (highlight selected area)
 * High level Cut objects
 * Low level cut implementation
   Range / Polygon test -> binary output value
+  For polygon tests boost::geometry seems to do fine.
+
 * Structure to perform quick lookups of active cuts for a given operator and to
   get the active cut value.
-* A1: Base Cut object to be able to filter them out when populating the
+
+  Add a condition index member variable to the operator structure.
+
+  Number all conditions in the system sequentially. Use an analysis global
+  boost::dynamic_bitset holding one bit for each of the conditions.
+
+  Unset all bits in a2_begin_event(), then process module data as usual. In
+  a2_end_event check the operators condition index and if it's valid test the
+  corresponding bit.
+  If it's set step the operator, otherwise set all its output parameters to
+  invalid. Special handling might be needed for Operator_KeepPrevious but that
+  could be done directly in a2_end_event().
+
+
+* A1: BaseCondition object to be able to filter them out when populating the
   existing UI.
-  So they are implemented as operators to seamlessly fit into the existing
-  analysis system (input selection, data flow) but treated specially for
-  display purposes
+  The conditions are implemented as operators to seamlessly fit into the
+  existing analysis system (input selection, data flow) but treated specially
+  for display purposes.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
