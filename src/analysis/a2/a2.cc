@@ -79,6 +79,8 @@ static const size_t ParamVecAlignment = 64;
 /* Asserted in extractor_process_module_data(). */
 static const size_t ModuleDataAlignment = alignof(u32);
 
+/* IMPORTANT: This does not work anymore with the introduction of A2.conditionBits. Access
+ * to this variable would have to be guarded. */
 static const int A2AdditionalThreads = 0;
 static const int OperatorsPerThreadTask = 6;
 
@@ -3259,7 +3261,27 @@ inline void step_operator(Operator *op)
     OperatorTable[op->type].step(op);
 }
 
-A2 make_a2(
+#if A2_ENABLE_CONDITIONS
+A2::A2(memory::Arena *arena)
+    : conditionBits(BitsetAllocator(arena))
+{
+    fprintf(stderr, "%s@%p\n", __PRETTY_FUNCTION__, this);
+
+    dataSourceCounts.fill(0);
+    dataSources.fill(nullptr);
+    operatorCounts.fill(0);
+    operators.fill(nullptr);
+    operatorRanks.fill(0);
+}
+
+A2::~A2()
+{
+    fprintf(stderr, "%s@%p\n", __PRETTY_FUNCTION__, this);
+}
+
+#endif
+
+A2 *make_a2(
     Arena *arena,
     std::initializer_list<u8> dataSourceCounts,
     std::initializer_list<u8> operatorCounts)
@@ -3267,26 +3289,20 @@ A2 make_a2(
     assert(dataSourceCounts.size() < MaxVMEEvents);
     assert(operatorCounts.size() < MaxVMEEvents);
 
-    A2 result = {};
-
-    result.dataSourceCounts.fill(0);
-    result.dataSources.fill(nullptr);
-    result.operatorCounts.fill(0);
-    result.operators.fill(nullptr);
-    result.operatorRanks.fill(0);
+    auto result = arena->pushObject<A2>(arena);
 
     const u8 *ec = dataSourceCounts.begin();
 
     for (size_t ei = 0; ei < dataSourceCounts.size(); ++ei, ++ec)
     {
         //printf("%s: %lu -> %u\n", __PRETTY_FUNCTION__, ei, (u32)*ec);
-        result.dataSources[ei] = arena->pushArray<DataSource>(*ec);
+        result->dataSources[ei] = arena->pushArray<DataSource>(*ec);
     }
 
     for (size_t ei = 0; ei < operatorCounts.size(); ++ei)
     {
-        result.operators[ei] = arena->pushArray<Operator>(operatorCounts.begin()[ei]);
-        result.operatorRanks[ei] = arena->pushArray<u8>(operatorCounts.begin()[ei]);
+        result->operators[ei] = arena->pushArray<Operator>(operatorCounts.begin()[ei]);
+        result->operatorRanks[ei] = arena->pushArray<u8>(operatorCounts.begin()[ei]);
     }
 
     return result;
@@ -3756,9 +3772,12 @@ void a2_end_event(A2 *a2, int eventIndex)
 
 #if A2_ENABLE_CONDITIONS
                     if (op->conditionIndex >= 0)
-                        assert(static_cast<size_t>(op->conditionIndex) < a2->conditions.size());
+                    {
+                        assert(static_cast<size_t>(op->conditionIndex) < a2->conditionBits.size());
+                    }
 
-                    if (op->conditionIndex < 0 || a2->conditions.test(op->conditionIndex))
+                    if (op->conditionIndex < 0
+                        || a2->conditionBits.test(op->conditionIndex))
                     {
                         // no cond or cond is true
                         OperatorTable[op->type].step(op);

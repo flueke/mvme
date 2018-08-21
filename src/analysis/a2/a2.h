@@ -639,21 +639,21 @@ struct A2
     std::array<u8 *, MaxVMEEvents> operatorRanks;
 
 #if A2_ENABLE_CONDITIONS
-    // TODO: use the ArenaAllocator for the conditions
-    boost::dynamic_bitset<> conditions;
+    using BlockType = unsigned long;
+    using BitsetAllocator = memory::ArenaAllocator<BlockType>;
+    using ConditionBitset = boost::dynamic_bitset<BlockType, BitsetAllocator>;
 
-    A2(): conditions()
-    {
-        dataSourceCounts.fill(0);
-        dataSources.fill(nullptr);
-        operatorCounts.fill(0);
-        operators.fill(nullptr);
-        operatorRanks.fill(0);
-    }
+    ConditionBitset conditionBits;
 
-    ~A2()
-    {
-    }
+    A2(memory::Arena *arena);
+    ~A2();
+
+    /* No copy or move allowed for now as I don't want to deal with the combination of
+     * copy/move semantics and the custom arena alloctor. */
+    A2(const A2 &) = delete;
+    A2(A2 &&) = delete;
+    A2 &operator=(const A2 &) = delete;
+    A2 &operator=(A2 &&) = delete;
 #endif
 };
 
