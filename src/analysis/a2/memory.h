@@ -159,6 +159,32 @@ class Arena
             return result;
         }
 
+        /* Construct an object of type T using the forwarded Args inside the arena. The
+         * object will be properly deconstructed on resetting or destroying the arena. */
+        template<typename T, typename... Args>
+        T *pushObject(Args &&... args)
+        {
+            /* Get memory and construct the object using placement new. */
+            void *mem = pushSize(sizeof(T), alignof(T));
+            T *result = new (mem) T(std::forward<Args>(args)...);
+
+            fprintf(stderr, "%s@%p: constructed result %p from forwarded args\n",
+                    __PRETTY_FUNCTION__, this, result);
+
+            std::unique_ptr<T, detail::destroy_only_deleter<T>> guard_ptr(result);
+
+            m_deleters.emplace_back([result] () {
+                fprintf(stderr, "%s deleter for %p\n", __PRETTY_FUNCTION__, result);
+                result->~T();
+            });
+
+            /* emplace_back() did not throw. It's safe to release the guard now. */
+            guard_ptr.release();
+
+            return result;
+        }
+
+
         inline size_t segmentCount() const
         {
             return m_segments.size();
