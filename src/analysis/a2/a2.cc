@@ -2388,7 +2388,74 @@ void expression_operator_step(Operator *op)
 }
 
 /* ===============================================
- * Histograms
+ * Conditions
+ * =============================================== */
+struct ConditionBaseData
+{
+    // index into A2::conditionBits
+    s16 conditionIndex;
+};
+
+struct ConditionIntervalData: public ConditionBaseData
+{
+    TypedBlock<Interval, s32> intervals;
+};
+
+struct ConditionRectangleData: public ConditionBaseData
+{
+    Interval xInterval;
+    Interval yInterval;
+};
+
+namespace bg = boost::geometry;
+
+using Point = bg::model::d2::point_xy<double>;
+
+/* Note: I would have liked to use arena allocation for the polygon ring
+ * storage but the boost polygon implementation does not support passing in
+ * instances of stateful allocators (yet?). */
+#if 0
+using Polygon = bg::model::polygon<
+    Point, true, true,              // Point, ClockWise, Closed
+    std::vector, std::vector,       // PointList, RingList
+    memory::ArenaAllocator,         // PointAlloc
+    memory::ArenaAllocator>;        // RingAlloc
+#else
+using Polygon = bg::model::polygon<
+    Point, true, true>;             // Point, ClockWise, Closed
+#endif
+
+struct ConditionPolygonData: public ConditionBaseData
+{
+    Polygon polygon;
+};
+
+void condition_interval_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 0);
+    assert(op->type == Operator_Calibration);
+
+    auto d = reinterpret_cast<ConditionIntervalData *>(op->d);
+
+    assert(op->inputs[0].size == d->intervals.size);
+    const s32 maxIdx = op->inputs[0].size;
+
+    for (s32 idx = 0; idx < maxIdx; idx++)
+    {
+        bool condIsTrue = in_range(d->intervals[idx], op->inputs[0][idx]);
+    }
+}
+
+/*
+struct ConditionLogicData
+{
+};
+*/
+
+/* ===============================================
+ * Sinks: Histograms/RateMonitor/ExportSink
  * =============================================== */
 
 inline double get_bin_unchecked(Binning binning, s32 binCount, double x)
