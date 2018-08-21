@@ -53,6 +53,8 @@ struct Thresholds
     double max;
 };
 
+using Interval = Thresholds;
+
 inline bool in_range(Thresholds t, double v)
 {
     return (t.min <= v && v < t.max);
@@ -175,7 +177,7 @@ struct Operator
     ParamVec *outputLowerLimits;
     ParamVec *outputUpperLimits;
     void *d;
-    s16 conditionIndex;
+    s16 conditionIndex; // index into A2::conditionBits
     u8 inputCount;
     u8 outputCount;
     u8 type;
@@ -424,7 +426,11 @@ void expression_operator_compile_step_expression(Operator *op);
 void expression_operator_step(Operator *op);
 
 /* ===============================================
- * Histograms
+ * Conditions
+ * =============================================== */
+
+/* ===============================================
+ * Sinks: Histograms/RateMonitor/ExportSink
  * =============================================== */
 struct Binning
 {
