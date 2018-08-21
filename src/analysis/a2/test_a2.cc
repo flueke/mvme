@@ -46,8 +46,7 @@ static void BM_a2(benchmark::State &state)
     int moduleIndex = 0;
     const int moduleIterations = 1; // "modules per event"
 
-    auto a2 = arena.pushObject<A2>();
-    *a2 = make_a2(&arena, { 1 }, { 2 });
+    auto a2 = make_a2(&arena, { 1 }, { 2 });
     assert(a2->dataSources[eventIndex]);
     assert(a2->operators[eventIndex]);
 

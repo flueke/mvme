@@ -184,7 +184,6 @@ class Arena
             return result;
         }
 
-
         inline size_t segmentCount() const
         {
             return m_segments.size();
