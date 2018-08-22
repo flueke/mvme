@@ -90,7 +90,6 @@ void binary_equation_step(Operator *op, A2 *a2 = nullptr);
 void aggregate_sum_step(Operator *op, A2 *a2 = nullptr);
 void aggregate_multiplicity_step(Operator *op, A2 *a2 = nullptr);
 void aggregate_max_step(Operator *op, A2 *a2 = nullptr);
-void expression_operator_step(Operator *op, A2 *a2 = nullptr);
 
 void h1d_sink_step(Operator *op, A2 *a2 = nullptr);
 void h1d_sink_step_idx(Operator *op, A2 *a2 = nullptr);

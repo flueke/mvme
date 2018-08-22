@@ -430,7 +430,9 @@ Operator make_expression_operator(
  * option to complete building the operator. */
 void expression_operator_compile_step_expression(Operator *op);
 
-void expression_operator_step(Operator *op);
+struct A2;
+
+void expression_operator_step(Operator *op, A2 *a2 = nullptr);
 
 /* ===============================================
  * Conditions
