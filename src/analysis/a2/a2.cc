@@ -2401,7 +2401,8 @@ void expression_operator_step(Operator *op, A2 *a2)
  * =============================================== */
 struct ConditionBaseData
 {
-    // index into A2::conditionBits
+    /* Index into A2::conditionBits. This is the bit being set/cleared by this
+     * condition when it is stepped. */
     s16 conditionIndex;
 };
 

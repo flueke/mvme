@@ -176,8 +176,15 @@ struct Operator
     ParamVec *outputs;
     ParamVec *outputLowerLimits;
     ParamVec *outputUpperLimits;
+
+    /* Operator type specific private data pointer. */
     void *d;
-    s16 conditionIndex; // index into A2::conditionBits
+
+    /* Index into A2::conditionBits. This is the active condition bit for this
+     * operator.  It is used to decide whether to step the operator or skip
+     * this event. */
+    s16 conditionIndex;
+
     u8 inputCount;
     u8 outputCount;
     u8 type;
