@@ -508,6 +508,20 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
         bool m_enabled = true;
 };
 
+class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface);
+    public:
+        using OperatorInterface::OperatorInterface;
+
+        // PipeSourceInterface
+        s32 getNumberOfOutputs() const override { return 0; }
+        QString getOutputName(s32 outputIndex) const override { return QString(); }
+        Pipe *getOutput(s32 index) override { return nullptr; }
+};
+
+
 enum class DisplayLocation
 {
     Any,
@@ -599,6 +613,9 @@ bool check_directory_consistency(const DirectoryVector &dirs,
 
 #define SinkInterface_iid "com.mesytec.mvme.analysis.SinkInterface.1"
 Q_DECLARE_INTERFACE(analysis::SinkInterface, SinkInterface_iid);
+
+#define ConditionInterface_iid "com.mesytec.mvme.analysis.ConditionInterface.1"
+Q_DECLARE_INTERFACE(analysis::ConditionInterface, ConditionInterface_iid);
 
 namespace analysis
 {
@@ -1292,6 +1309,72 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
 
         QVector<std::shared_ptr<Slot>> m_inputs;
         QVector<std::shared_ptr<Pipe>> m_outputs;
+};
+
+//
+// Conditions
+//
+class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::ConditionInterface)
+    public:
+        Q_INVOKABLE ConditionInterval(QObject *parent = 0);
+
+        virtual QString getDisplayName() const override { return QSL("Interval Condition"); }
+        virtual QString getShortName() const override { return QSL("CondInter"); }
+
+        virtual void accept(ObjectVisitor &visitor) override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+};
+
+class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::ConditionInterface)
+    public:
+        Q_INVOKABLE ConditionRectangle(QObject *parent = 0);
+
+        virtual QString getDisplayName() const override { return QSL("Rectangle Condition"); }
+        virtual QString getShortName() const override { return QSL("CondRect"); }
+
+        virtual void accept(ObjectVisitor &visitor) override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+};
+
+class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::ConditionInterface)
+    public:
+        Q_INVOKABLE ConditionPolygon(QObject *parent = 0);
+
+        virtual QString getDisplayName() const override { return QSL("Polygon Condition"); }
+        virtual QString getShortName() const override { return QSL("CondPoly"); }
+
+        virtual void accept(ObjectVisitor &visitor) override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 };
 
 //

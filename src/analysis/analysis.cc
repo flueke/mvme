@@ -3263,6 +3263,115 @@ QString ExportSink::getExportFileBasename() const
 }
 
 //
+// Conditions
+//
+
+//
+// ConditionInterval
+//
+ConditionInterval::ConditionInterval(QObject *parent)
+    : ConditionInterface(parent)
+{
+}
+
+void ConditionInterval::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
+void ConditionInterval::write(QJsonObject &json) const
+{
+    assert(!"implement me");
+}
+
+void ConditionInterval::read(const QJsonObject &json)
+{
+    assert(!"implement me");
+}
+
+s32 ConditionInterval::getNumberOfSlots() const
+{
+}
+
+Slot *ConditionInterval::getSlot(s32 slotIndex)
+{
+}
+
+void ConditionInterval::beginRun(const RunInfo &runInfo, Logger logger)
+{
+}
+
+//
+// ConditionRectangle
+//
+ConditionRectangle::ConditionRectangle(QObject *parent)
+    : ConditionInterface(parent)
+{
+}
+
+void ConditionRectangle::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
+void ConditionRectangle::write(QJsonObject &json) const
+{
+    assert(!"implement me");
+}
+
+void ConditionRectangle::read(const QJsonObject &json)
+{
+    assert(!"implement me");
+}
+
+s32 ConditionRectangle::getNumberOfSlots() const
+{
+}
+
+Slot *ConditionRectangle::getSlot(s32 slotIndex)
+{
+}
+
+void ConditionRectangle::beginRun(const RunInfo &runInfo, Logger logger)
+{
+}
+
+//
+// ConditionPolygon
+//
+ConditionPolygon::ConditionPolygon(QObject *parent)
+    : ConditionInterface(parent)
+{
+}
+
+void ConditionPolygon::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
+void ConditionPolygon::write(QJsonObject &json) const
+{
+    assert(!"implement me");
+}
+
+void ConditionPolygon::read(const QJsonObject &json)
+{
+    assert(!"implement me");
+}
+
+s32 ConditionPolygon::getNumberOfSlots() const
+{
+}
+
+Slot *ConditionPolygon::getSlot(s32 slotIndex)
+{
+}
+
+void ConditionPolygon::beginRun(const RunInfo &runInfo, Logger logger)
+{
+}
+
+//
 // Analysis
 //
 
@@ -3288,6 +3397,9 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerOperator<BinarySumDiff>();
     m_objectFactory.registerOperator<AggregateOps>();
     m_objectFactory.registerOperator<ExpressionOperator>();
+    m_objectFactory.registerOperator<ConditionInterval>();
+    m_objectFactory.registerOperator<ConditionRectangle>();
+    m_objectFactory.registerOperator<ConditionPolygon>();
 
     m_objectFactory.registerSink<Histo1DSink>();
     m_objectFactory.registerSink<Histo2DSink>();
