@@ -2409,6 +2409,8 @@ struct ConditionRectangleData: public ConditionBaseData
 {
     Interval xInterval;
     Interval yInterval;
+    s32 xIndex;
+    s32 yIndex;
 };
 
 namespace bg = boost::geometry;
@@ -2432,6 +2434,8 @@ using Polygon = bg::model::polygon<
 struct ConditionPolygonData: public ConditionBaseData
 {
     Polygon polygon;
+    s32 xIndex;
+    s32 yIndex;
 };
 
 void condition_interval_step(Operator *op, A2 *a2)
@@ -2439,17 +2443,64 @@ void condition_interval_step(Operator *op, A2 *a2)
     a2_trace("\n");
     assert(op->inputCount == 1);
     assert(op->outputCount == 0);
-    assert(op->type == Operator_Calibration);
+    assert(op->type == Operator_ConditionInterval);
 
     auto d = reinterpret_cast<ConditionIntervalData *>(op->d);
 
     assert(op->inputs[0].size == d->intervals.size);
+    assert(0 <= d->conditionIndex);
+    assert(static_cast<size_t>(d->conditionIndex) < a2->conditionBits.size());
+    assert(static_cast<size_t>(d->conditionIndex) + d->intervals.size <= a2->conditionBits.size());
+
     const s32 maxIdx = op->inputs[0].size;
 
     for (s32 idx = 0; idx < maxIdx; idx++)
     {
-        bool condIsTrue = in_range(d->intervals[idx], op->inputs[0][idx]);
+        bool condResult = in_range(d->intervals[idx], op->inputs[0][idx]);
+
+        a2->conditionBits.set(d->conditionIndex + idx, condResult);
     }
+}
+
+void condition_rectangle_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 2);
+    assert(op->outputCount == 0);
+    assert(op->type == Operator_ConditionRectangle);
+
+    auto d = reinterpret_cast<ConditionRectangleData *>(op->d);
+
+    assert(0 <= d->conditionIndex);
+    assert(static_cast<size_t>(d->conditionIndex) < a2->conditionBits.size());
+    assert(d->xIndex < op->inputs[0].size);
+    assert(d->yIndex < op->inputs[1].size);
+
+    bool xInside = in_range(d->xInterval, op->inputs[0][d->xIndex]);
+    bool yInside = in_range(d->yInterval, op->inputs[1][d->yIndex]);
+
+    a2->conditionBits.set(d->conditionIndex, xInside && yInside);
+}
+
+void condition_polygon_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 2);
+    assert(op->outputCount == 0);
+    assert(op->type == Operator_ConditionPolygon);
+
+    auto d = reinterpret_cast<ConditionPolygonData *>(op->d);
+
+    assert(0 <= d->conditionIndex);
+    assert(static_cast<size_t>(d->conditionIndex) < a2->conditionBits.size());
+    assert(d->xIndex < op->inputs[0].size);
+    assert(d->yIndex < op->inputs[1].size);
+
+    Point p = { op->inputs[0][d->xIndex], op->inputs[1][d->yIndex] };
+
+    bool condResult = bg::within(p, d->polygon);
+
+    a2->conditionBits.set(d->conditionIndex, condResult);
 }
 
 /*
