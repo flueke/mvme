@@ -2476,7 +2476,6 @@ bool is_condition_operator(const Operator &op)
 }
 
 Operator make_condition_interval(
-    A2 *a2,
     memory::Arena *arena,
     PipeVectors input,
     const std::vector<Interval> &intervals)
@@ -2495,7 +2494,6 @@ Operator make_condition_interval(
 }
 
 Operator make_condition_rectangle(
-    A2 *a2,
     memory::Arena *arena,
     PipeVectors xInput,
     PipeVectors yInput,
@@ -2522,13 +2520,12 @@ Operator make_condition_rectangle(
 }
 
 Operator make_condition_polygon(
-    A2 *a2,
     memory::Arena *arena,
     PipeVectors xInput,
     PipeVectors yInput,
     s32 xIndex,
     s32 yIndex,
-    std::vector<std::pair<double, double>> polygon)
+    const std::vector<std::pair<double, double>> &polygon)
 {
     auto result = make_operator(arena, Operator_ConditionPolygon, 2, 0);
 

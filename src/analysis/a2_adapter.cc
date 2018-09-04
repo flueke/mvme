@@ -782,6 +782,86 @@ DEF_OP_MAGIC(export_sink_magic)
     return result;
 }
 
+DEF_OP_MAGIC(condition_interval_magic)
+{
+    LOG("");
+
+    auto cond = qobject_cast<analysis::ConditionInterval *>(op.get());
+    assert(cond);
+    assert(inputSlots.size() == 1);
+
+    std::vector<a2::Interval> a2_intervals;
+    a2_intervals.reserve(cond->getIntervals().size());
+
+    for (const auto &interval: cond->getIntervals())
+    {
+        a2_intervals.push_back({ interval.min, interval.max });
+    }
+
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+
+    a2::Operator result = make_condition_interval(
+        arena,
+        a2_input,
+        a2_intervals);
+
+    return result;
+}
+
+DEF_OP_MAGIC(condition_rectangle_magic)
+{
+    LOG("");
+
+    auto cond = qobject_cast<analysis::ConditionRectangle *>(op.get());
+    assert(cond);
+    assert(inputSlots.size() == 2);
+
+    const auto rect = cond->getRectangle();
+
+    a2::Interval xInterval = { rect.left(), rect.right() };
+    a2::Interval yInterval = { rect.bottom(), rect.top() };
+
+    a2::Operator result = make_condition_rectangle(
+        arena,
+        find_output_pipe(adapterState, inputSlots[0]),
+        find_output_pipe(adapterState, inputSlots[1]),
+        inputSlots[0]->paramIndex,
+        inputSlots[1]->paramIndex,
+        xInterval,
+        yInterval);
+
+    return result;
+}
+
+DEF_OP_MAGIC(condition_polygon_magic)
+{
+    LOG("");
+
+    auto cond = qobject_cast<analysis::ConditionPolygon *>(op.get());
+    assert(cond);
+    assert(inputSlots.size() == 2);
+
+    auto polygon = cond->getPolygon();
+
+    std::vector<std::pair<double, double>> a2_polygon;
+    a2_polygon.reserve(polygon.size());
+
+    for (const auto &point: polygon)
+    {
+        a2_polygon.push_back({ point.x(), point.y() });
+    }
+
+    a2::Operator result = make_condition_polygon(
+        arena,
+        find_output_pipe(adapterState, inputSlots[0]),
+        find_output_pipe(adapterState, inputSlots[1]),
+        inputSlots[0]->paramIndex,
+        inputSlots[1]->paramIndex,
+        a2_polygon);
+
+    return result;
+}
+
 static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 {
     { &analysis::CalibrationMinMax::staticMetaObject,       calibration_magic },
@@ -795,6 +875,10 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::ConditionFilter::staticMetaObject,         condition_filter_magic },
     { &analysis::Sum::staticMetaObject,                     sum_magic },
     { &analysis::ExpressionOperator::staticMetaObject,      expression_operator_magic },
+
+    { &analysis::ConditionInterval::staticMetaObject,       condition_interval_magic },
+    { &analysis::ConditionRectangle::staticMetaObject,      condition_rectangle_magic },
+    { &analysis::ConditionPolygon::staticMetaObject,        condition_polygon_magic },
 
     { &analysis::Histo1DSink::staticMetaObject,             histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject,             histo2d_sink_magic },
@@ -1061,7 +1145,7 @@ void a2_adapter_build_single_operator(
      * keeps its outputs but resizes them to 0. Connected histo sinks will pick
      * this up and not error out.
      * Still, other dependent operators may not behave as well as the histosink
-     * does an fail or assert in this case. Also no error information is
+     * does and fail or assert in this case. Also no error information is
      * conveyed to the user.
      */
     if (has_input_from_error_set(opInfo.op, state->operatorErrors))
@@ -1333,6 +1417,23 @@ A2AdapterState a2_adapter_build(
     }
 
     assert(filteredOperators.size() == result.operatorMap.size() + result.operatorErrors.size());
+
+    /* Setting up the condition bits:
+     * walk through a2 operators checking if the op is a condition.
+     * set the bit index of the condition and increment the current bit index
+     * by the number of cond bits used.
+     * => the conditionBits bitset and the ConditionBaseData.conditionIndex for
+     * all the conditions are now setup correctly. */
+
+        // XXX: leftoff
+    /* Setting up the condition bit indexes for operators:
+     * walk through a2 operators checking if the corresponding a1 operator has
+     * an active condition.
+     * FIXME: this can not be done right now.
+     * if so look up the a2 condition operator in the operatorMap and set its
+     * bit index to the a1 operators index (plus a subindex if using interval
+     * an interval condition).
+     */
 
     LOG("mem=%lu", arena->used());
 

@@ -441,7 +441,7 @@ void expression_operator_step(Operator *op, A2 *a2 = nullptr);
 Operator make_condition_interval(
     memory::Arena *arena,
     PipeVectors input,
-    std::vector<Interval> intervals);
+    const std::vector<Interval> &intervals);
 
 Operator make_condition_rectangle(
     memory::Arena *arena,
@@ -458,7 +458,7 @@ Operator make_condition_polygon(
     PipeVectors yInput,
     s32 xIndex,
     s32 yIndex,
-    std::vector<std::pair<double, double>> polygon);
+    const std::vector<std::pair<double, double>> &polygon);
 
 /* ===============================================
  * Sinks: Histograms/RateMonitor/ExportSink
