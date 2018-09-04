@@ -1314,6 +1314,15 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
 //
 // Conditions
 //
+
+struct Interval
+{
+    double min = make_quiet_nan();
+    double max = make_quiet_nan();
+
+    void normalize();
+};
+
 class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
 {
     Q_OBJECT
@@ -1324,8 +1333,6 @@ class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
         virtual QString getDisplayName() const override { return QSL("Interval Condition"); }
         virtual QString getShortName() const override { return QSL("CondInter"); }
 
-        virtual void accept(ObjectVisitor &visitor) override;
-
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
@@ -1333,6 +1340,16 @@ class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
         virtual Slot *getSlot(s32 slotIndex) override;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        void setIntervals(const QVector<Interval> &intervals);
+        QVector<Interval> getIntervals() const;
+
+        void setInterval(s32 address, const Interval &interval);
+        Interval getInterval(s32 address) const;
+
+    private:
+        Slot m_input;
+        QVector<Interval> m_intervals;
 };
 
 class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
@@ -1345,8 +1362,6 @@ class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
         virtual QString getDisplayName() const override { return QSL("Rectangle Condition"); }
         virtual QString getShortName() const override { return QSL("CondRect"); }
 
-        virtual void accept(ObjectVisitor &visitor) override;
-
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
@@ -1354,6 +1369,14 @@ class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
         virtual Slot *getSlot(s32 slotIndex) override;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        void setRectangle(const QRectF &rect);
+        QRectF getRectangle() const;
+
+    private:
+        Slot m_inputX;
+        Slot m_inputY;
+        QRectF m_rectangle;
 };
 
 class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
@@ -1366,8 +1389,6 @@ class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
         virtual QString getDisplayName() const override { return QSL("Polygon Condition"); }
         virtual QString getShortName() const override { return QSL("CondPoly"); }
 
-        virtual void accept(ObjectVisitor &visitor) override;
-
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
@@ -1375,6 +1396,14 @@ class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
         virtual Slot *getSlot(s32 slotIndex) override;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        void setPolygon(const QRectF &polygon);
+        QPolygonF getPolygon() const;
+
+    private:
+        Slot m_inputX;
+        Slot m_inputY;
+        QPolygonF m_polygon;
 };
 
 //

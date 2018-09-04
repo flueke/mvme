@@ -9,11 +9,12 @@ namespace analysis
 {
 
 class AnalysisObject;
-class PipeSourceInterface;
-class SourceInterface;
-class OperatorInterface;
-class SinkInterface;
+class ConditionInterface;
 class Directory;
+class OperatorInterface;
+class PipeSourceInterface;
+class SinkInterface;
+class SourceInterface;
 
 class Analysis;
 

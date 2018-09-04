@@ -273,17 +273,17 @@ void Slot::disconnectPipe()
 //
 // SourceInterface
 //
-void SourceInterface::accept(ObjectVisitor &visitor)
-{
-    visitor.visit(this);
-}
-
 void SourceInterface::postClone(const AnalysisObject *cloneSource)
 {
     auto si = qobject_cast<const SourceInterface *>(cloneSource);
     assert(si);
     this->setModuleId(si->getModuleId());
     AnalysisObject::postClone(cloneSource);
+}
+
+void SourceInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
 }
 
 //
@@ -3263,42 +3263,159 @@ QString ExportSink::getExportFileBasename() const
 }
 
 //
-// Conditions
+// Condition Support
 //
+
+void Interval::normalize()
+{
+    if (min > max) std::swap(min, max);
+}
+
+QJsonObject to_json(const Interval &interval)
+{
+    QJsonObject result;
+    result["min"] = interval.min;
+    result["max"] = interval.max;
+    return result;
+}
+
+Interval interval_from_json(const QJsonObject &json)
+{
+    Interval result;
+    result.min = json["min"].toDouble(make_quiet_nan());
+    result.max = json["max"].toDouble(make_quiet_nan());
+    return result;
+}
+
+QJsonObject to_json(const QPointF &point)
+{
+    QJsonObject result;
+    result["x"] = point.x();
+    result["y"] = point.y();
+    return result;
+}
+
+QPointF qpointf_from_json(const QJsonObject &json)
+{
+    return { json["x"].toDouble(), json["y"].toDouble() };
+}
+
+QJsonObject to_json(const QRectF &rect)
+{
+    QJsonObject result;
+
+    result["topLeft"] = to_json(rect.topLeft());
+    result["bottomRight"] = to_json(rect.bottomRight());
+
+    return result;
+}
+
+QRectF qrectf_from_json(const QJsonObject &json)
+{
+    QRectF result(qpointf_from_json(json["topLeft"].toObject()),
+                  qpointf_from_json(json["bottomRight"].toObject()));
+
+    return result;
+}
+
+QJsonArray to_json(const QPolygonF &poly)
+{
+    QJsonArray points;
+
+    for (const auto &point: poly)
+    {
+        points.append(to_json(point));
+    }
+
+    return points;
+}
+
+QPolygonF qpolygonf_from_json(const QJsonArray &points)
+{
+    QPolygonF result;
+    result.reserve(points.size());
+
+    for (auto it = points.begin(); it != points.end(); it++)
+    {
+        result.append(qpointf_from_json(it->toObject()));
+    }
+
+    return result;
+}
 
 //
 // ConditionInterval
 //
+
 ConditionInterval::ConditionInterval(QObject *parent)
     : ConditionInterface(parent)
+    , m_input(this, 0, QSL("Input"), InputType::Array)
 {
-}
-
-void ConditionInterval::accept(ObjectVisitor &visitor)
-{
-    visitor.visit(this);
 }
 
 void ConditionInterval::write(QJsonObject &json) const
 {
-    assert(!"implement me");
+    QJsonArray jsonIntervals;
+
+    for (const auto &interval: m_intervals)
+    {
+        jsonIntervals.append(to_json(interval));
+    }
+
+    json["intervals"] = jsonIntervals;
 }
 
 void ConditionInterval::read(const QJsonObject &json)
 {
-    assert(!"implement me");
+    m_intervals.clear();
+
+    auto jsonIntervals = json["intervals"].toArray();
+
+    for (auto it = jsonIntervals.begin(); it != jsonIntervals.end(); it++)
+    {
+        m_intervals.append(interval_from_json(it->toObject()));
+    }
 }
 
 s32 ConditionInterval::getNumberOfSlots() const
 {
+    return 1;
 }
 
 Slot *ConditionInterval::getSlot(s32 slotIndex)
 {
+    return slotIndex == 0 ? &m_input : nullptr;
 }
 
 void ConditionInterval::beginRun(const RunInfo &runInfo, Logger logger)
 {
+}
+
+void ConditionInterval::setIntervals(const QVector<Interval> &intervals)
+{
+    m_intervals = intervals;
+}
+
+QVector<Interval> ConditionInterval::getIntervals() const
+{
+    return m_intervals;
+}
+
+void ConditionInterval::setInterval(s32 address, const Interval &interval)
+{
+    if (address >= 0)
+    {
+        m_intervals.resize(std::max(m_intervals.size(), address+1));
+
+        assert(address < m_intervals.size());
+
+        m_intervals[address] = interval;
+    }
+}
+
+Interval ConditionInterval::getInterval(s32 address) const
+{
+    return m_intervals.value(address, {});
 }
 
 //
@@ -3306,34 +3423,50 @@ void ConditionInterval::beginRun(const RunInfo &runInfo, Logger logger)
 //
 ConditionRectangle::ConditionRectangle(QObject *parent)
     : ConditionInterface(parent)
+    , m_inputX(this, 0, QSL("X Input"), InputType::Value)
+    , m_inputY(this, 1, QSL("Y Input"), InputType::Value)
 {
-}
-
-void ConditionRectangle::accept(ObjectVisitor &visitor)
-{
-    visitor.visit(this);
 }
 
 void ConditionRectangle::write(QJsonObject &json) const
 {
-    assert(!"implement me");
+    json["rectangle"] = to_json(m_rectangle);
 }
 
 void ConditionRectangle::read(const QJsonObject &json)
 {
-    assert(!"implement me");
+    m_rectangle = qrectf_from_json(json["rectangle"].toObject());
 }
 
 s32 ConditionRectangle::getNumberOfSlots() const
 {
+    return 2;
 }
 
 Slot *ConditionRectangle::getSlot(s32 slotIndex)
 {
+    switch (slotIndex)
+    {
+        case 0: return &m_inputX;
+        case 1: return &m_inputY;
+        default: break;
+    }
+
+    return nullptr;
 }
 
 void ConditionRectangle::beginRun(const RunInfo &runInfo, Logger logger)
 {
+}
+
+void ConditionRectangle::setRectangle(const QRectF &rect)
+{
+    m_rectangle = rect;
+}
+
+QRectF ConditionRectangle::getRectangle() const
+{
+    return m_rectangle;
 }
 
 //
@@ -3341,34 +3474,50 @@ void ConditionRectangle::beginRun(const RunInfo &runInfo, Logger logger)
 //
 ConditionPolygon::ConditionPolygon(QObject *parent)
     : ConditionInterface(parent)
+    , m_inputX(this, 0, QSL("X Input"), InputType::Value)
+    , m_inputY(this, 1, QSL("Y Input"), InputType::Value)
 {
-}
-
-void ConditionPolygon::accept(ObjectVisitor &visitor)
-{
-    visitor.visit(this);
 }
 
 void ConditionPolygon::write(QJsonObject &json) const
 {
-    assert(!"implement me");
+    json["polygon"] = to_json(m_polygon);
 }
 
 void ConditionPolygon::read(const QJsonObject &json)
 {
-    assert(!"implement me");
+    m_polygon = qpolygonf_from_json(json["polygon"].toArray());
 }
 
 s32 ConditionPolygon::getNumberOfSlots() const
 {
+    return 2;
 }
 
 Slot *ConditionPolygon::getSlot(s32 slotIndex)
 {
+    switch (slotIndex)
+    {
+        case 0: return &m_inputX;
+        case 1: return &m_inputY;
+        default: break;
+    }
+
+    return nullptr;
 }
 
 void ConditionPolygon::beginRun(const RunInfo &runInfo, Logger logger)
 {
+}
+
+void ConditionPolygon::setPolygon(const QRectF &polygon)
+{
+    m_polygon = polygon;
+}
+
+QPolygonF ConditionPolygon::getPolygon() const
+{
+    return m_polygon;
 }
 
 //
