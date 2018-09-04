@@ -11,10 +11,6 @@ BUGFIXES and FEATURES wanted yesterday
   it again doesn't seem to update the display or for some other reason the
   operator is not colored red again.
 
-* Verify that the Analysis object visitor accept() methods are working as
-  intended. I'm confused as to why some of the accept() methods are implemented
-  in base classes but not overriden in leaf classes.
-
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 --------------------------------------------------

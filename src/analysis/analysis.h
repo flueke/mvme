@@ -1897,6 +1897,15 @@ class LIBMVME_EXPORT Analysis: public QObject
         QHash<QUuid, QVariantMap> m_vmeObjectSettings;
         ObjectFlags::Flags m_flags = ObjectFlags::None;
 
+        // XXX: leftoff
+        struct ConditionMapping
+        {
+            ConditionPtr cond;
+            s32 index = 0;
+        };
+
+        QHash<OperatorPtr, ConditionMapping> m_condMappings;
+
         ObjectFactory m_objectFactory;
 
         bool m_modified;
