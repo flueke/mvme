@@ -2396,7 +2396,8 @@ void expression_operator_step(Operator *op, A2 *a2)
 struct ConditionBaseData
 {
     /* Index into A2::conditionBits. This is the bit being set/cleared by this
-     * condition when it is stepped. */
+     * condition when it is stepped. For conditions using multiple bits this is
+     * the index of the first bit. */
     s16 conditionIndex;
 };
 
@@ -2437,6 +2438,121 @@ struct ConditionPolygonData: public ConditionBaseData
     s32 xIndex;
     s32 yIndex;
 };
+
+u32 get_number_of_condition_bits_used(const Operator &op)
+{
+    assert(op.inputCount >= 1);
+
+    switch (op.type)
+    {
+        case Operator_ConditionInterval:
+            return op.inputs[0].size;
+
+        case Operator_ConditionRectangle:
+        case Operator_ConditionPolygon:
+            return 1;
+
+        default:
+            break;
+    }
+
+    return 0;
+}
+
+bool is_condition_operator(const Operator &op)
+{
+    switch (op.type)
+    {
+        case Operator_ConditionInterval:
+        case Operator_ConditionRectangle:
+        case Operator_ConditionPolygon:
+            return true;
+
+        default:
+            break;
+    }
+
+    return false;
+}
+
+Operator make_condition_interval(
+    A2 *a2,
+    memory::Arena *arena,
+    PipeVectors input,
+    const std::vector<Interval> &intervals)
+{
+    auto result = make_operator(arena, Operator_ConditionInterval, 1, 0);
+
+    assign_input(&result, input, 0);
+
+    auto d = arena->pushStruct<ConditionIntervalData>();
+    result.d = d;
+
+    d->conditionIndex = Operator::NoCondition;
+    d->intervals = push_copy_typed_block<Interval, s32>(arena, intervals);
+
+    return result;
+}
+
+Operator make_condition_rectangle(
+    A2 *a2,
+    memory::Arena *arena,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
+    Interval xInterval,
+    Interval yInterval)
+{
+    auto result = make_operator(arena, Operator_ConditionRectangle, 2, 0);
+
+    assign_input(&result, xInput, 0);
+    assign_input(&result, yInput, 1);
+
+    auto d = arena->pushStruct<ConditionRectangleData>();
+    result.d = d;
+
+    d->conditionIndex = Operator::NoCondition;
+    d->xIndex = xIndex;
+    d->yIndex = yIndex;
+    d->xInterval = xInterval;
+    d->yInterval = yInterval;
+
+    return result;
+}
+
+Operator make_condition_polygon(
+    A2 *a2,
+    memory::Arena *arena,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
+    std::vector<std::pair<double, double>> polygon)
+{
+    auto result = make_operator(arena, Operator_ConditionPolygon, 2, 0);
+
+    assign_input(&result, xInput, 0);
+    assign_input(&result, yInput, 1);
+
+    // Note: pushObject because ConditionPolygonData is non-trivial
+    auto d = arena->pushObject<ConditionPolygonData>();
+    result.d = d;
+
+    d->conditionIndex = Operator::NoCondition;
+    d->xIndex = xIndex;
+    d->yIndex = yIndex;
+
+    d->polygon.outer().reserve(polygon.size());
+
+    for (const auto &p: polygon)
+    {
+        bg::append(d->polygon, Point{p.first, p.second});
+    }
+
+    return result;
+
+}
 
 void condition_interval_step(Operator *op, A2 *a2)
 {

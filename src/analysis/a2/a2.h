@@ -181,8 +181,8 @@ struct Operator
     void *d;
 
     /* Index into A2::conditionBits. This is the active condition bit for this
-     * operator.  It is used to decide whether to step the operator or skip
-     * this event. */
+     * operator. It is used to decide whether to step the operator or skip this
+     * event. */
     s16 conditionIndex;
 
     u8 inputCount;
@@ -437,6 +437,28 @@ void expression_operator_step(Operator *op, A2 *a2 = nullptr);
 /* ===============================================
  * Conditions
  * =============================================== */
+
+Operator make_condition_interval(
+    memory::Arena *arena,
+    PipeVectors input,
+    std::vector<Interval> intervals);
+
+Operator make_condition_rectangle(
+    memory::Arena *arena,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
+    Interval xInterval,
+    Interval yInterval);
+
+Operator make_condition_polygon(
+    memory::Arena *arena,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
+    std::vector<std::pair<double, double>> polygon);
 
 /* ===============================================
  * Sinks: Histograms/RateMonitor/ExportSink

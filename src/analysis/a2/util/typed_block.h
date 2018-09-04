@@ -98,6 +98,22 @@ TypedBlock<T, SizeType> push_copy_typed_block(
 }
 
 template<typename T, typename SizeType = size_t>
+TypedBlock<T, SizeType> push_copy_typed_block(
+    memory::Arena *arena,
+    const std::vector<T> &source,
+    size_t align = alignof(T))
+{
+    auto result = push_typed_block<T, SizeType>(arena, static_cast<SizeType>(source.size()), align);
+
+    for (SizeType i = 0; i < static_cast<SizeType>(source.size()); i++)
+    {
+        result[i] = source[i];
+    }
+
+    return result;
+}
+
+template<typename T, typename SizeType = size_t>
 TypedBlock<T, SizeType> make_typed_block(
     T *data,
     SizeType size)
