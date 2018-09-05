@@ -7,7 +7,7 @@
 #include <QMetaClassInfo>
 
 //#ifndef NDEBUG
-#if 0
+#if 1
 
 #define LOG(fmt, ...)\
 do\
@@ -918,7 +918,7 @@ a2::Operator a2_adapter_magic(
     {
         LOG("found magic for %s (objectName=%s, id=%s)",
             op->metaObject()->className(),
-            op->objectName().toLocal8Bit().constData()
+            op->objectName().toLocal8Bit().constData(),
             op->getId().toString().toLocal8Bit().constData()
             );
 
@@ -931,6 +931,8 @@ a2::Operator a2_adapter_magic(
         LOG("EE no magic for %s :(", op->metaObject()->className());
         InvalidCodePath;
     }
+
+    result.conditionIndex = a2::Operator::NoCondition;
 
     return result;
 }
@@ -1132,6 +1134,10 @@ void a2_adapter_build_single_operator(
     s32 eventIndex,
     const RunInfo &runInfo)
 {
+    assert(state->a1);
+    assert(state->a2);
+
+
     /* FIXME: for correctness a test if any of the input operators caused an
      * error has to be performed here:
      * For each input operator of the operator to be adapted:
@@ -1167,8 +1173,21 @@ void a2_adapter_build_single_operator(
     {
         auto a2_op = a2_adapter_magic(arena, state, opInfo.op, runInfo);
 
+        assert(a2_op.conditionIndex == a2::Operator::NoCondition);
+
         if (a2::Invalid_OperatorType != a2_op.type && a2_op.type < a2::OperatorTypeCount)
         {
+            // Check for active condition
+            if (auto link = state->a1->getConditionLink(opInfo.op))
+            {
+                // Check if the conditions bit index is known
+                if (state->conditionBitIndexes.contains(link.condition.get()))
+                {
+                    a2_op.conditionIndex =
+                        state->conditionBitIndexes.value(link.condition.get()) + link.subIndex;
+                }
+            }
+
             opInfo.a2OperatorType = a2_op.type;
             u8 &opCount = state->a2->operatorCounts[eventIndex];
             state->a2->operators[eventIndex][opCount] = a2_op;
@@ -1176,7 +1195,10 @@ void a2_adapter_build_single_operator(
             state->operatorMap.insert(opInfo.op.get(),
                                       state->a2->operators[eventIndex] + opCount);
             opCount++;
-            LOG("a2_op.type=%d", (s32)(a2_op.type));
+
+            LOG("a2_op.type=%d, .conditionIndex=%d",
+                (s32)(a2_op.type), a2_op.conditionIndex);
+
         }
         else
         {
@@ -1300,12 +1322,15 @@ analysis::OperatorVector a2_adapter_filter_operators(analysis::OperatorVector op
 A2AdapterState a2_adapter_build(
     memory::Arena *arena,
     memory::Arena *workArena,
+    Analysis *analysis,
     const analysis::SourceVector &sources,
     const analysis::OperatorVector &operators,
     const vme_analysis_common::VMEIdToIndex &vmeMap,
     const RunInfo &runInfo)
 {
     A2AdapterState result = {};
+
+    result.a1 = analysis;
     result.a2 = arena->pushObject<a2::A2>(arena);
 
     for (u32 i = 0; i < result.a2->dataSourceCounts.size(); i++)
@@ -1339,8 +1364,8 @@ A2AdapterState a2_adapter_build(
     // a1 Operator -> a2 Operator
     // -------------------------------------------
 
-    /* The problem: I want the operators for each event be sorted by rank _and_
-     * by a2::OperatorType.
+    /* The problem: I want the operators for each event to be sorted by rank
+     * _and_ by a2::OperatorType.
      *
      * The a2::OperatorType resulting from converting an analysis operator is
      * not known without actually doing the conversion.
@@ -1376,7 +1401,7 @@ A2AdapterState a2_adapter_build(
 
     assert(filteredOperators.size() == result.operatorMap.size() + result.operatorErrors.size());
 
-    /* Sort the operator arrays. */
+    /* Sort the operator arrays by rank and type */
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
         qSort(
@@ -1390,6 +1415,31 @@ A2AdapterState a2_adapter_build(
                 return oi1.rank < oi2.rank;
             });
     }
+
+    /* Walk sorted operator arrays assigning increasing condition bit positions
+     * for condition operators and filling the conditionBitIndexes bi-hash. */
+    s32 nextConditionBitIndex = 0;
+    u32 totalConditionBits = 0u;
+
+    for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
+    {
+        const auto &opInfos(operatorsByEventIndex[ei]);
+
+        for (auto &opInfo: opInfos)
+        {
+            if (auto cond = qobject_cast<ConditionInterface *>(opInfo.op.get()))
+            {
+                assert(!result.conditionBitIndexes.contains(cond));
+                assert(!result.conditionBitIndexes.contains(nextConditionBitIndex));
+
+                result.conditionBitIndexes.insert(cond, nextConditionBitIndex);
+                nextConditionBitIndex += cond->getNumberOfConditionBits();
+                totalConditionBits += cond->getNumberOfConditionBits();
+            }
+        }
+    }
+
+    result.a2->conditionBits.resize(totalConditionBits);
 
     /* Clear the operator part. */
     result.a2->operatorCounts.fill(0);
@@ -1417,23 +1467,6 @@ A2AdapterState a2_adapter_build(
     }
 
     assert(filteredOperators.size() == result.operatorMap.size() + result.operatorErrors.size());
-
-    /* Setting up the condition bits:
-     * walk through a2 operators checking if the op is a condition.
-     * set the bit index of the condition and increment the current bit index
-     * by the number of cond bits used.
-     * => the conditionBits bitset and the ConditionBaseData.conditionIndex for
-     * all the conditions are now setup correctly. */
-
-        // XXX: leftoff
-    /* Setting up the condition bit indexes for operators:
-     * walk through a2 operators checking if the corresponding a1 operator has
-     * an active condition.
-     * FIXME: this can not be done right now.
-     * if so look up the a2 condition operator in the operatorMap and set its
-     * bit index to the a1 operators index (plus a subindex if using interval
-     * an interval condition).
-     */
 
     LOG("mem=%lu", arena->used());
 
@@ -1487,13 +1520,15 @@ A2AdapterState a2_adapter_build(
 
                 analysis::OperatorInterface *a1_op = result.operatorMap.value(op, nullptr);
 
-                LOG("    [%d] operator@%p, rank=%d, type=%d, a1_type=%s, a1_name=%s",
+                LOG("    [%3d] operator@%p, rank=%2d, type=%2d, condIdx=%d a1_type=%s, a1_name=%s",
                     opIndex,
                     op,
                     rank,
                     (s32)op->type,
+                    op->conditionIndex,
                     a1_op ? a1_op->metaObject()->className() : "nullptr",
-                    a1_op ? qcstr(a1_op->objectName()) : "nullptr");
+                    a1_op ? qcstr(a1_op->objectName()) : "nullptr"
+                    );
             }
         }
     }
@@ -1513,6 +1548,27 @@ A2AdapterState a2_adapter_build(
                 qcstr(errorInfo.reason)
                 );
         }
+    }
+
+    LOG("conditions:");
+
+    LOG("  bits=%lu", result.a2->conditionBits.size());
+
+    for (const auto &cond: result.conditionBitIndexes.hash.keys())
+    {
+        s16 bitIndex = result.conditionBitIndexes.value(cond);
+
+        assert(bitIndex < static_cast<s32>(result.a2->conditionBits.size()));
+
+        auto a2_cond = result.operatorMap.value(cond);
+
+        assert(a2_cond);
+
+        LOG("    bitIndex=%3d, a2_cond=%p, a2_type=%2d, a1_type=%s, a1_name=%s",
+            bitIndex, a2_cond, a2_cond->type,
+            cond->metaObject()->className(),
+            qcstr(cond->objectName())
+           );
     }
 
 #undef qcstr
