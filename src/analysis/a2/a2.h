@@ -182,7 +182,8 @@ struct Operator
 
     /* Index into A2::conditionBits. This is the active condition bit for this
      * operator. It is used to decide whether to step the operator or skip this
-     * event. */
+     * event. The special value Operator::NoCondition is used if no condition
+     * is active for the operator. */
     s16 conditionIndex;
 
     u8 inputCount;
