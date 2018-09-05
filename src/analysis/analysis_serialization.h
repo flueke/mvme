@@ -27,7 +27,8 @@ struct LIBMVME_EXPORT ObjectSerializerVisitor: public ObjectVisitor
     virtual void visit(Directory *dir) override;
 
     QJsonArray serializeConnections() const;
-    QJsonObject finalize() const;
+    QJsonArray serializeConditionLinks(const ConditionLinks &links) const;
+    QJsonObject finalize(const Analysis *analysis) const;
     int objectCount() const { return visitedObjects.size(); }
 
     QJsonArray sourcesArray;
@@ -72,6 +73,7 @@ struct LIBMVME_EXPORT AnalysisObjectStore
     QHash<QUuid, AnalysisObjectPtr> objectsById;
     QHash<QUuid, QVariantMap> objectSettingsById;
     QVariantMap dynamicQObjectProperties;
+    ConditionLinks conditionLinks;
 
     AnalysisObjectVector allObjects() const;
 };

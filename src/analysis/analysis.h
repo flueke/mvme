@@ -519,6 +519,8 @@ class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
         s32 getNumberOfOutputs() const override { return 0; }
         QString getOutputName(s32 outputIndex) const override { return QString(); }
         Pipe *getOutput(s32 index) override { return nullptr; }
+
+        virtual u32 getNumberOfConditionBits() const = 0;
 };
 
 
@@ -1347,6 +1349,8 @@ class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
         void setInterval(s32 address, const Interval &interval);
         Interval getInterval(s32 address) const;
 
+        virtual u32 getNumberOfConditionBits() const override;
+
     private:
         Slot m_input;
         QVector<Interval> m_intervals;
@@ -1372,6 +1376,8 @@ class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
 
         void setRectangle(const QRectF &rect);
         QRectF getRectangle() const;
+
+        virtual u32 getNumberOfConditionBits() const override { return 1; }
 
     private:
         Slot m_inputX;
@@ -1399,6 +1405,8 @@ class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
 
         void setPolygon(const QRectF &polygon);
         QPolygonF getPolygon() const;
+
+        virtual u32 getNumberOfConditionBits() const override { return 1; }
 
     private:
         Slot m_inputX;
@@ -1705,6 +1713,16 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
 
 class AnalysisObjectStore;
 
+struct LIBMVME_EXPORT ConditionLink
+{
+    std::shared_ptr<ConditionInterface> condition;
+    s32 subIndex = 0;
+
+    explicit operator bool() const { return condition != nullptr; }
+};
+
+using ConditionLinks = QHash<OperatorPtr, ConditionLink>;
+
 class LIBMVME_EXPORT Analysis: public QObject
 {
     Q_OBJECT
@@ -1766,6 +1784,15 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         s32 getNumberOfOperators() const { return m_operators.size(); }
 
+        //
+        // Condition
+        //
+        ConditionVector getConditions() const;
+        ConditionVector getConditions(const QUuid &eventId) const;
+        ConditionPtr getCondition(const OperatorPtr &op) const;
+        ConditionLink getConditionLink(const OperatorPtr &op) const;
+        ConditionLinks getConditionLinks() const;
+        bool hasActiveCondition(const OperatorPtr &op) const;
 
         //
         // Directory Objects
@@ -1896,15 +1923,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         DirectoryVector m_directories;
         QHash<QUuid, QVariantMap> m_vmeObjectSettings;
         ObjectFlags::Flags m_flags = ObjectFlags::None;
-
-        // XXX: leftoff
-        struct ConditionMapping
-        {
-            ConditionPtr cond;
-            s32 index = 0;
-        };
-
-        QHash<OperatorPtr, ConditionMapping> m_condMappings;
+        ConditionLinks m_conditionLinks;
 
         ObjectFactory m_objectFactory;
 

@@ -62,6 +62,7 @@ using analysis::Analysis;
 A2AdapterState a2_adapter_build_memory_wrapper(
     ArenaPtr &arena,
     ArenaPtr &workArena,
+    Analysis *analysis,
     const analysis::SourceVector &sources,
     const analysis::OperatorVector &operators,
     const vme_analysis_common::VMEIdToIndex &vmeMap,
@@ -71,6 +72,7 @@ A2AdapterState a2_adapter_build_memory_wrapper(
     auto result = a2_adapter_build(
         arena.get(),
         workArena.get(),
+        analysis,
         sources,
         operators,
         vmeMap,
@@ -3418,6 +3420,11 @@ Interval ConditionInterval::getInterval(s32 address) const
     return m_intervals.value(address, {});
 }
 
+u32 ConditionInterval::getNumberOfConditionBits() const
+{
+    return m_input.isConnected() ? m_input.inputPipe->getSize() : 0u;
+}
+
 //
 // ConditionRectangle
 //
@@ -3880,6 +3887,57 @@ void Analysis::removeOperator(OperatorInterface *op)
         m_operators.erase(it);
         setModified();
     }
+}
+
+ConditionVector Analysis::getConditions() const
+{
+    ConditionVector result;
+
+    for (const auto &op: m_operators)
+    {
+        if (auto cond = std::dynamic_pointer_cast<ConditionInterface>(op))
+        {
+            result.push_back(cond);
+        }
+    }
+
+    return result;
+}
+
+ConditionVector Analysis::getConditions(const QUuid &eventId) const
+{
+
+    auto pred = [eventId] (const ConditionPtr &cond)
+    {
+        return cond->getEventId() != eventId;
+    };
+
+    auto result = getConditions();
+
+    result.erase(std::remove_if(result.begin(), result.end(), pred),
+                 result.end());
+
+    return result;
+}
+
+ConditionPtr Analysis::getCondition(const OperatorPtr &op) const
+{
+    return m_conditionLinks.value(op).condition;
+}
+
+ConditionLink Analysis::getConditionLink(const OperatorPtr &op) const
+{
+    return m_conditionLinks.value(op);
+}
+
+ConditionLinks Analysis::getConditionLinks() const
+{
+    return m_conditionLinks;
+}
+
+bool Analysis::hasActiveCondition(const OperatorPtr &op) const
+{
+    return m_conditionLinks.value(op).condition != nullptr;
 }
 
 //
@@ -4418,6 +4476,7 @@ void Analysis::beginRun(const RunInfo &runInfo,
         a2_adapter_build_memory_wrapper(
             m_a2Arenas[m_a2ArenaIndex],
             m_a2WorkArena,
+            this,
             m_sources,
             m_operators,
             m_vmeMap,
@@ -4517,7 +4576,9 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
             m_directories.append(obj);
 
         m_vmeObjectSettings = objectStore.objectSettingsById;
+        m_conditionLinks = objectStore.conditionLinks;
         loadDynamicProperties(objectStore.dynamicQObjectProperties, this);
+
         setModified(false);
     }
     catch (const std::runtime_error &e)
@@ -4534,7 +4595,7 @@ void Analysis::write(QJsonObject &json) const
     ObjectSerializerVisitor sv;
     visit_objects(objects.begin(), objects.end(), sv);
 
-    json = sv.finalize();
+    json = sv.finalize(this);
 
     // VME Object Settings
     {

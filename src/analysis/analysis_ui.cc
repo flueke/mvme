@@ -4383,7 +4383,7 @@ void EventWidgetPrivate::actionExport()
     visit_objects(allObjects.begin(), allObjects.end(), sv);
 
     QJsonObject exportRoot;
-    exportRoot["MVMEAnalysisExport"] = sv.finalize();
+    exportRoot["MVMEAnalysisExport"] = sv.finalize(analysis);
 
     QJsonDocument doc(exportRoot);
 

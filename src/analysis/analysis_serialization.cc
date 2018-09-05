@@ -74,6 +74,15 @@ QJsonObject serialze_connection(const Connection &con)
     return result;
 }
 
+QJsonObject serialize_conditionlink(const OperatorPtr &op, const ConditionLink &cl)
+{
+    QJsonObject result;
+    result["operatorId"] = op->getId().toString();
+    result["conditionId"] = cl.condition->getId().toString();
+    result["subIndex"] = cl.subIndex;
+    return result;
+}
+
 QSet<Connection> collect_internal_collections(const AnalysisObjectVector &objects)
 {
     QSet<Connection> connections;
@@ -158,7 +167,25 @@ QJsonArray ObjectSerializerVisitor::serializeConnections() const
     return serialize_internal_connections(visitedObjects);
 }
 
-QJsonObject ObjectSerializerVisitor::finalize() const
+QJsonArray ObjectSerializerVisitor::serializeConditionLinks(const ConditionLinks &links) const
+{
+    QJsonArray result;
+
+    for (auto it = links.begin(); it != links.end(); it++)
+    {
+        const auto &op(it.key());
+        const auto &link(it.value());
+
+        if (op && link)
+        {
+            result.append(serialize_conditionlink(op, link));
+        }
+    }
+
+    return result;
+}
+
+QJsonObject ObjectSerializerVisitor::finalize(const Analysis *analysis) const
 {
     QJsonObject json;
     json["MVMEAnalysisVersion"] = Analysis::getCurrentAnalysisVersion();
@@ -166,6 +193,7 @@ QJsonObject ObjectSerializerVisitor::finalize() const
     json["operators"] = operatorsArray;
     json["directories"] = directoriesArray;
     json["connections"] = serializeConnections();
+    json["conditionLinks"] = serializeConditionLinks(analysis->getConditionLinks());
     return json;
 }
 
@@ -460,6 +488,31 @@ AnalysisObjectStore deserialize_objects(QJsonObject data,
                 };
 
                 result.connections.insert(con);
+            }
+        }
+    }
+
+    // Condition Links
+    {
+        QJsonArray array = data["conditionLinks"].toArray();
+
+        for (auto it = array.begin(); it != array.end(); ++it)
+        {
+            auto objectJson = it->toObject();
+
+            QUuid opId(objectJson["operatorId"].toString());
+            QUuid condId(objectJson["conditionId"].toString());
+            s32 subIndex = objectJson["subIndex"].toInt();
+
+            auto op = std::dynamic_pointer_cast<OperatorInterface>(
+                result.objectsById.value(opId));
+
+            auto cond = std::dynamic_pointer_cast<ConditionInterface>(
+                result.objectsById.value(condId));
+
+            if (op && cond)
+            {
+                result.conditionLinks.insert(op, { cond, subIndex });
             }
         }
     }
