@@ -1177,7 +1177,28 @@ void a2_adapter_build_single_operator(
 
         if (a2::Invalid_OperatorType != a2_op.type && a2_op.type < a2::OperatorTypeCount)
         {
-            // Check for active condition
+            /* If the operator is a condition set the index of the first bit to
+             * write when evaluating the condition.
+             * This is part of the active side where the condition bit is
+             * written to. */
+            if (auto a1_cond = qobject_cast<ConditionInterface *>(opInfo.op.get()))
+            {
+                assert(is_condition_operator(a2_op));
+
+                auto d = reinterpret_cast<a2::ConditionBaseData *>(a2_op.d);
+
+                /* It's not an error if the bit index is not setup yet as it's
+                 * only known during the second pass build phase. */
+                if (state->conditionBitIndexes.contains(a1_cond))
+                {
+                    d->firstBitIndex = state->conditionBitIndexes.value(a1_cond);
+                }
+            }
+
+            /* Check for active condition and set the corresponding bit index
+             * on the operator.
+             * This is part of the passive side where a condition has to be
+             * checked. */
             if (auto link = state->a1->getConditionLink(opInfo.op))
             {
                 // Check if the conditions bit index is known
@@ -1190,6 +1211,8 @@ void a2_adapter_build_single_operator(
 
             opInfo.a2OperatorType = a2_op.type;
             u8 &opCount = state->a2->operatorCounts[eventIndex];
+
+            // Copy the operator struct into the A2 instance
             state->a2->operators[eventIndex][opCount] = a2_op;
             state->a2->operatorRanks[eventIndex][opCount] = opInfo.rank;
             state->operatorMap.insert(opInfo.op.get(),
@@ -1417,7 +1440,8 @@ A2AdapterState a2_adapter_build(
     }
 
     /* Walk sorted operator arrays assigning increasing condition bit positions
-     * for condition operators and filling the conditionBitIndexes bi-hash. */
+     * for condition operators and filling the conditionBitIndexes bi-hash.
+     * This information will be available for the second build pass below. */
     s32 nextConditionBitIndex = 0;
     u32 totalConditionBits = 0u;
 
@@ -1440,6 +1464,7 @@ A2AdapterState a2_adapter_build(
     }
 
     result.a2->conditionBits.resize(totalConditionBits);
+    result.a2->conditionBits.reset(); // clear all bits
 
     /* Clear the operator part. */
     result.a2->operatorCounts.fill(0);
@@ -1564,8 +1589,10 @@ A2AdapterState a2_adapter_build(
 
         assert(a2_cond);
 
-        LOG("    bitIndex=%3d, a2_cond=%p, a2_type=%2d, a1_type=%s, a1_name=%s",
-            bitIndex, a2_cond, a2_cond->type,
+        LOG("    firstBit=%3d, bitCount=%u, a2_cond=%p, a2_type=%2d, a1_type=%s, a1_name=%s",
+            bitIndex,
+            get_number_of_condition_bits_used(*a2_cond),
+            a2_cond, a2_cond->type,
             cond->metaObject()->className(),
             qcstr(cond->objectName())
            );
