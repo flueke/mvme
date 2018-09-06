@@ -22,6 +22,7 @@
 #include "analysis_ui_p.h"
 #include "analysis_serialization.h"
 #include "analysis_util.h"
+#include "condition_tree.h"
 #include "data_extraction_widget.h"
 #include "analysis_info_widget.h"
 #include "a2_adapter.h"
@@ -5261,6 +5262,7 @@ struct AnalysisWidgetPrivate
     AnalysisWidget *m_q;
     MVMEContext *m_context;
     QHash<QUuid, EventWidget *> m_eventWidgetsByEventId;
+    QHash<QUuid, ConditionTreeWidget *> m_conditionTreesByEventId;
 
 
     QToolBar *m_toolbar;
@@ -5268,6 +5270,7 @@ struct AnalysisWidgetPrivate
     QStackedWidget *m_eventWidgetStack;
     QStackedWidget *m_eventWidgetToolBarStack;
     QStackedWidget *m_eventWidgetEventSelectAreaToolBarStack;
+    QStackedWidget *m_conditionTreeStack;
     QToolButton *m_removeUserLevelButton;
     QToolButton *m_addUserLevelButton;
     QStatusBar *m_statusBar;
@@ -5320,10 +5323,12 @@ static void clear_stacked_widget(QStackedWidget *stackedWidget)
 
 void AnalysisWidgetPrivate::repopulate()
 {
+    clear_stacked_widget(m_conditionTreeStack);
     clear_stacked_widget(m_eventWidgetEventSelectAreaToolBarStack);
     clear_stacked_widget(m_eventWidgetToolBarStack);
     clear_stacked_widget(m_eventWidgetStack);
     m_eventWidgetsByEventId.clear();
+    m_conditionTreesByEventId.clear();
 
     // Repopulate combobox and stacked widget
     auto eventConfigs = m_context->getEventConfigs();
@@ -5342,10 +5347,15 @@ void AnalysisWidgetPrivate::repopulate()
         scrollArea->setWidget(eventWidget);
         scrollArea->setWidgetResizable(true);
 
+        auto conditionTree = new ConditionTreeWidget(eventWidget);
+
         m_eventWidgetStack->addWidget(scrollArea);
         m_eventWidgetToolBarStack->addWidget(eventWidget->getToolBar());
         m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->getEventSelectAreaToolBar());
+        m_conditionTreeStack->addWidget(conditionTree);
+
         m_eventWidgetsByEventId[eventId] = eventWidget;
+        m_conditionTreesByEventId[eventId] = conditionTree;
     }
 
     repopulateEventSelectCombo();
@@ -5394,6 +5404,11 @@ void AnalysisWidgetPrivate::doPeriodicUpdate()
     for (auto eventWidget: m_eventWidgetsByEventId.values())
     {
         eventWidget->m_d->doPeriodicUpdate();
+    }
+
+    for (auto conditionTree: m_conditionTreesByEventId.values())
+    {
+        conditionTree->doPeriodicUpdate();
     }
 }
 
@@ -5964,6 +5979,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
             m_d->m_eventWidgetEventSelectAreaToolBarStack, &QStackedWidget::setCurrentIndex);
 
+    m_d->m_conditionTreeStack = new QStackedWidget;
+    connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
+            m_d->m_conditionTreeStack, &QStackedWidget::setCurrentIndex);
+
+
     // toolbar
     {
         m_d->m_toolbar = make_toolbar();
@@ -6130,11 +6150,15 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     layout->setContentsMargins(2, 2, 2, 2);
     layout->setSpacing(2);
     s32 row = 0;
-    layout->addWidget(toolbarFrame, row++, 0);
-    layout->addLayout(eventSelectLayout, row++, 0);
-    layout->addWidget(m_d->m_eventWidgetStack, row++, 0);
-    layout->setRowStretch(row-1, 1);
-    layout->addWidget(m_d->m_statusBar, row++, 0);
+    layout->addWidget(toolbarFrame,             row++, 0); // 0, 0
+    layout->addLayout(eventSelectLayout,        row++, 0); // 1, 0
+    layout->addWidget(m_d->m_eventWidgetStack,  row++, 0); // 2, 0
+    layout->setRowStretch(row-1, 1); // 2, 0
+    layout->addWidget(m_d->m_statusBar,         row++, 0); // 3, 0
+
+    layout->addWidget(m_d->m_conditionTreeStack,2, 1);
+    layout->setColumnStretch(0, 1);
+    layout->setColumnStretch(1, 0);
 
     auto analysis = ctx->getAnalysis();
 
@@ -6225,21 +6249,27 @@ AnalysisWidget::~AnalysisWidget()
 
 void AnalysisWidget::operatorAddedExternally(const OperatorPtr &op)
 {
-    const auto &operators(m_d->m_context->getAnalysis()->getOperators());
-
     if (auto eventWidget = m_d->m_eventWidgetsByEventId.value(op->getEventId()))
     {
         eventWidget->m_d->repopulate();
+    }
+
+    if (auto conditionTree = m_d->m_conditionTreesByEventId.value(op->getEventId()))
+    {
+        conditionTree->repopulate();
     }
 }
 
 void AnalysisWidget::operatorEditedExternally(const OperatorPtr &op)
 {
-    const auto &operators(m_d->m_context->getAnalysis()->getOperators());
-
     if (auto eventWidget = m_d->m_eventWidgetsByEventId.value(op->getEventId()))
     {
         eventWidget->m_d->repopulate();
+    }
+
+    if (auto conditionTree = m_d->m_conditionTreesByEventId.value(op->getEventId()))
+    {
+        conditionTree->repopulate();
     }
 }
 

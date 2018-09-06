@@ -59,7 +59,6 @@ struct EventWidgetPrivate;
 class OperatorConfigurationWidget;
 class ObjectTree;
 
-
 class EventWidget: public QWidget
 {
     Q_OBJECT

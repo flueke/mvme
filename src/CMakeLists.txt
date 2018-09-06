@@ -97,6 +97,7 @@ set(LIBMVME_SOURCES
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
     analysis/code_editor.cc
+    analysis/condition_tree.cc
     analysis/data_extraction_widget.cc
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
