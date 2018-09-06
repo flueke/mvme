@@ -18,8 +18,6 @@
 #include "rate_sampler.h"
 #include "util/typed_block.h"
 
-#define A2_ENABLE_CONDITIONS 1
-
 namespace a2
 {
 using ParamVec = TypedBlock<double, s32>;
@@ -192,6 +190,7 @@ struct Operator
 };
 
 void assign_input(Operator *op, PipeVectors input, s32 inputIndex);
+void invalidate_outputs(Operator *op);
 
 Operator make_calibration(
     memory::Arena *arena,
@@ -439,6 +438,20 @@ void expression_operator_step(Operator *op, A2 *a2 = nullptr);
  * Conditions
  * =============================================== */
 
+/* Base structure used for the Operator::d member of condition operators. */
+struct ConditionBaseData
+{
+    static const s16 InvalidIndex = -1;
+
+    /* Index into A2::conditionBits. This is the bit being set/cleared by this
+     * condition when it is stepped. For conditions using multiple bits this is
+     * the index of the first bit. */
+    s16 firstBitIndex;
+};
+
+bool is_condition_operator(const Operator &op);
+u32 get_number_of_condition_bits_used(const Operator &op);
+
 Operator make_condition_interval(
     memory::Arena *arena,
     PipeVectors input,
@@ -676,7 +689,6 @@ struct A2
     std::array<Operator *, MaxVMEEvents> operators;
     std::array<u8 *, MaxVMEEvents> operatorRanks;
 
-#if A2_ENABLE_CONDITIONS
     using BlockType = unsigned long;
     using BitsetAllocator = memory::ArenaAllocator<BlockType>;
     using ConditionBitset = boost::dynamic_bitset<BlockType, BitsetAllocator>;
@@ -692,7 +704,6 @@ struct A2
     A2(A2 &&) = delete;
     A2 &operator=(const A2 &) = delete;
     A2 &operator=(A2 &&) = delete;
-#endif
 };
 
 using Logger = std::function<void (const std::string &msg)>;

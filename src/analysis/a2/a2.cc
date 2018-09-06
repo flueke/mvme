@@ -27,7 +27,7 @@
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
 //#ifndef NDEBUG
-#if 0
+#if 1
 
 // printf style trace macro
 #define a2_trace(fmt, ...)\
@@ -42,9 +42,12 @@ do\
 {\
     fprintf(stderr, fmt, ##__VA_ARGS__);\
 } while (0);
+
 #else
+
 #define a2_trace(...)
 #define a2_trace_np(...)
+
 #endif
 
 #include <iostream>
@@ -133,6 +136,14 @@ void assign_input(Operator *op, PipeVectors input, s32 inputIndex)
     op->inputs[inputIndex] = input.data;
     op->inputLowerLimits[inputIndex] = input.lowerLimits;
     op->inputUpperLimits[inputIndex] = input.upperLimits;
+}
+
+void invalidate_outputs(Operator *op)
+{
+    for (u8 outIdx = 0; outIdx < op->outputCount; outIdx++)
+    {
+        invalidate_all(op->outputs[outIdx]);
+    }
 }
 
 /* ===============================================
@@ -2393,13 +2404,6 @@ void expression_operator_step(Operator *op, A2 *a2)
 /* ===============================================
  * Conditions
  * =============================================== */
-struct ConditionBaseData
-{
-    /* Index into A2::conditionBits. This is the bit being set/cleared by this
-     * condition when it is stepped. For conditions using multiple bits this is
-     * the index of the first bit. */
-    s16 conditionIndex;
-};
 
 struct ConditionIntervalData: public ConditionBaseData
 {
@@ -2439,6 +2443,22 @@ struct ConditionPolygonData: public ConditionBaseData
     s32 yIndex;
 };
 
+bool is_condition_operator(const Operator &op)
+{
+    switch (op.type)
+    {
+        case Operator_ConditionInterval:
+        case Operator_ConditionRectangle:
+        case Operator_ConditionPolygon:
+            return true;
+
+        default:
+            break;
+    }
+
+    return false;
+}
+
 u32 get_number_of_condition_bits_used(const Operator &op)
 {
     assert(op.inputCount >= 1);
@@ -2459,22 +2479,6 @@ u32 get_number_of_condition_bits_used(const Operator &op)
     return 0;
 }
 
-bool is_condition_operator(const Operator &op)
-{
-    switch (op.type)
-    {
-        case Operator_ConditionInterval:
-        case Operator_ConditionRectangle:
-        case Operator_ConditionPolygon:
-            return true;
-
-        default:
-            break;
-    }
-
-    return false;
-}
-
 Operator make_condition_interval(
     memory::Arena *arena,
     PipeVectors input,
@@ -2487,7 +2491,7 @@ Operator make_condition_interval(
     auto d = arena->pushStruct<ConditionIntervalData>();
     result.d = d;
 
-    d->conditionIndex = Operator::NoCondition;
+    d->firstBitIndex = ConditionBaseData::InvalidIndex;
     d->intervals = push_copy_typed_block<Interval, s32>(arena, intervals);
 
     return result;
@@ -2510,7 +2514,7 @@ Operator make_condition_rectangle(
     auto d = arena->pushStruct<ConditionRectangleData>();
     result.d = d;
 
-    d->conditionIndex = Operator::NoCondition;
+    d->firstBitIndex = ConditionBaseData::InvalidIndex;
     d->xIndex = xIndex;
     d->yIndex = yIndex;
     d->xInterval = xInterval;
@@ -2536,7 +2540,7 @@ Operator make_condition_polygon(
     auto d = arena->pushObject<ConditionPolygonData>();
     result.d = d;
 
-    d->conditionIndex = Operator::NoCondition;
+    d->firstBitIndex = ConditionBaseData::InvalidIndex;
     d->xIndex = xIndex;
     d->yIndex = yIndex;
 
@@ -2561,9 +2565,9 @@ void condition_interval_step(Operator *op, A2 *a2)
     auto d = reinterpret_cast<ConditionIntervalData *>(op->d);
 
     assert(op->inputs[0].size == d->intervals.size);
-    assert(0 <= d->conditionIndex);
-    assert(static_cast<size_t>(d->conditionIndex) < a2->conditionBits.size());
-    assert(static_cast<size_t>(d->conditionIndex) + d->intervals.size <= a2->conditionBits.size());
+    assert(0 <= d->firstBitIndex);
+    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
+    assert(static_cast<size_t>(d->firstBitIndex) + d->intervals.size <= a2->conditionBits.size());
 
     const s32 maxIdx = op->inputs[0].size;
 
@@ -2571,7 +2575,7 @@ void condition_interval_step(Operator *op, A2 *a2)
     {
         bool condResult = in_range(d->intervals[idx], op->inputs[0][idx]);
 
-        a2->conditionBits.set(d->conditionIndex + idx, condResult);
+        a2->conditionBits.set(d->firstBitIndex + idx, condResult);
     }
 }
 
@@ -2584,15 +2588,15 @@ void condition_rectangle_step(Operator *op, A2 *a2)
 
     auto d = reinterpret_cast<ConditionRectangleData *>(op->d);
 
-    assert(0 <= d->conditionIndex);
-    assert(static_cast<size_t>(d->conditionIndex) < a2->conditionBits.size());
+    assert(0 <= d->firstBitIndex);
+    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
     assert(d->xIndex < op->inputs[0].size);
     assert(d->yIndex < op->inputs[1].size);
 
     bool xInside = in_range(d->xInterval, op->inputs[0][d->xIndex]);
     bool yInside = in_range(d->yInterval, op->inputs[1][d->yIndex]);
 
-    a2->conditionBits.set(d->conditionIndex, xInside && yInside);
+    a2->conditionBits.set(d->firstBitIndex, xInside && yInside);
 }
 
 void condition_polygon_step(Operator *op, A2 *a2)
@@ -2604,8 +2608,8 @@ void condition_polygon_step(Operator *op, A2 *a2)
 
     auto d = reinterpret_cast<ConditionPolygonData *>(op->d);
 
-    assert(0 <= d->conditionIndex);
-    assert(static_cast<size_t>(d->conditionIndex) < a2->conditionBits.size());
+    assert(0 <= d->firstBitIndex);
+    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
     assert(d->xIndex < op->inputs[0].size);
     assert(d->yIndex < op->inputs[1].size);
 
@@ -2613,7 +2617,7 @@ void condition_polygon_step(Operator *op, A2 *a2)
 
     bool condResult = bg::within(p, d->polygon);
 
-    a2->conditionBits.set(d->conditionIndex, condResult);
+    a2->conditionBits.set(d->firstBitIndex, condResult);
 }
 
 /*
@@ -3490,9 +3494,12 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
 
     [Operator_Expression] = { expression_operator_step },
+
+    [Operator_ConditionInterval] = { condition_interval_step },
+    [Operator_ConditionRectangle] = { condition_rectangle_step },
+    [Operator_ConditionPolygon] = { condition_polygon_step },
 };
 
-#if A2_ENABLE_CONDITIONS
 A2::A2(memory::Arena *arena)
     : conditionBits(BitsetAllocator(arena))
 {
@@ -3509,8 +3516,6 @@ A2::~A2()
 {
     fprintf(stderr, "%s@%p\n", __PRETTY_FUNCTION__, this);
 }
-
-#endif
 
 A2 *make_a2(
     Arena *arena,
@@ -3718,54 +3723,71 @@ void a2_end_event(A2 *a2, int eventIndex)
 
     a2_trace("ei=%d, stepping %d operators\n", eventIndex, opCount);
 
-    if (opCount)
+    for (int opIdx = 0; opIdx < opCount; opIdx++)
     {
-        for (int opIdx = 0; opIdx < opCount; opIdx++)
+        Operator *op = operators + opIdx;
+
+        a2_trace("  op@%p\n", op);
+
+        assert(op);
+        assert(op->type < ArrayCount(OperatorTable));
+
+        if (likely(op->type != Invalid_OperatorType))
         {
-            Operator *op = operators + opIdx;
+            assert(OperatorTable[op->type].step);
 
-            a2_trace("  op@%p\n", op);
-
-            assert(op);
-            assert(op->type < ArrayCount(OperatorTable));
-
-            if (likely(op->type != Invalid_OperatorType))
+            if (op->conditionIndex >= 0)
             {
-                assert(OperatorTable[op->type].step);
+                assert(static_cast<size_t>(op->conditionIndex) < a2->conditionBits.size());
+            }
 
-#if A2_ENABLE_CONDITIONS
-                if (op->conditionIndex >= 0)
-                {
-                    assert(static_cast<size_t>(op->conditionIndex) < a2->conditionBits.size());
-                }
-
-                if (op->conditionIndex < 0
-                    || a2->conditionBits.test(op->conditionIndex))
-                {
-                    // no cond or cond is true
-                    OperatorTable[op->type].step(op, a2);
-                    opSteppedCount++;
-                }
-                else
-                {
-                    // cond is false
-                    // TODO COND invalidate the operators outputs.
-                }
-#else
+            if (op->conditionIndex < 0
+                || a2->conditionBits.test(op->conditionIndex))
+            {
+                // no active condition or the condition is true
                 OperatorTable[op->type].step(op, a2);
                 opSteppedCount++;
-#endif
             }
             else
             {
-                InvalidCodePath;
+                // condition is false -> invalidate all outputs
+                invalidate_outputs(op);
             }
+        }
+        else
+        {
+            InvalidCodePath;
         }
     }
 
     assert(opSteppedCount == opCount);
 
     a2_trace("ei=%d, %d operators stepped\n", eventIndex, opSteppedCount);
+
+    for (int opIdx = 0; opIdx < opCount; opIdx++)
+    {
+        Operator *op = operators + opIdx;
+
+        if (is_condition_operator(*op))
+        {
+            auto d = reinterpret_cast<ConditionBaseData *>(op->d);
+            u32 bitCount = get_number_of_condition_bits_used(*op);
+
+            assert(d->firstBitIndex >= 0);
+
+            a2_trace("ei=%d, condOp@%p, condType=%u, firstBit=%d, bitCount=%u:\n  ",
+                     eventIndex, op, op->type, d->firstBitIndex, bitCount);
+
+
+            for (u32 pos = d->firstBitIndex; pos < d->firstBitIndex + bitCount; pos++)
+            {
+                assert(pos < a2->conditionBits.size());
+                a2_trace_np("%d, ", a2->conditionBits.test(pos));
+            }
+
+            a2_trace_np("\n");
+        }
+    }
 }
 
 void a2_timetick(A2 *a2)
