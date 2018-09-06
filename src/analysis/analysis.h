@@ -1323,6 +1323,7 @@ struct Interval
     double max = make_quiet_nan();
 
     void normalize();
+    Interval normalized() const;
 };
 
 class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
@@ -1715,7 +1716,11 @@ class AnalysisObjectStore;
 
 struct LIBMVME_EXPORT ConditionLink
 {
+    /* The condition referenced by this link. */
     std::shared_ptr<ConditionInterface> condition;
+
+    /* Subindex into the conditions bits in case the condition has multiple
+     * bits. */
     s32 subIndex = 0;
 
     explicit operator bool() const { return condition != nullptr; }

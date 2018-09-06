@@ -3273,6 +3273,23 @@ void Interval::normalize()
     if (min > max) std::swap(min, max);
 }
 
+Interval Interval::normalized() const
+{
+    auto result = *this;
+    result.normalize();
+    return result;
+}
+
+template<typename It>
+void normalize_intervals(It first, It onePastEnd)
+{
+    while (first != onePastEnd)
+    {
+        first->normalize();
+        first++;
+    }
+}
+
 QJsonObject to_json(const Interval &interval)
 {
     QJsonObject result;
@@ -3355,6 +3372,16 @@ ConditionInterval::ConditionInterval(QObject *parent)
 {
 }
 
+void ConditionInterval::beginRun(const RunInfo &runInfo, Logger logger)
+{
+    if (m_input.isConnected())
+    {
+        // Discards any additional intervals and adds invalid intervals to the
+        // end if needed.
+        m_intervals.resize(m_input.inputPipe->getSize());
+    }
+}
+
 void ConditionInterval::write(QJsonObject &json) const
 {
     QJsonArray jsonIntervals;
@@ -3389,13 +3416,10 @@ Slot *ConditionInterval::getSlot(s32 slotIndex)
     return slotIndex == 0 ? &m_input : nullptr;
 }
 
-void ConditionInterval::beginRun(const RunInfo &runInfo, Logger logger)
-{
-}
-
 void ConditionInterval::setIntervals(const QVector<Interval> &intervals)
 {
     m_intervals = intervals;
+    normalize_intervals(m_intervals.begin(), m_intervals.end());
 }
 
 QVector<Interval> ConditionInterval::getIntervals() const
@@ -3411,7 +3435,7 @@ void ConditionInterval::setInterval(s32 address, const Interval &interval)
 
         assert(address < m_intervals.size());
 
-        m_intervals[address] = interval;
+        m_intervals[address] = interval.normalized();
     }
 }
 
