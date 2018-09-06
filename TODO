@@ -11,6 +11,8 @@ BUGFIXES and FEATURES wanted yesterday
   it again doesn't seem to update the display or for some other reason the
   operator is not colored red again.
 
+* SIS: when not connected and doing an Init Module mvme hangs in recvfrom()
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 --------------------------------------------------
@@ -26,12 +28,9 @@ through the cut. Passing means setting the output or condition flag to true.
 * 1d cuts have a single input pipe of size N and N intervals to test against.
   The output is a bitset of size N.
 
-* 2d cuts have two indexed inputs and a polygon to test against.
-  The output is a single bit.
-
-* From a performance perspective it could be good to create special 2d cuts for
-  rectangles, ellipses and other geometric shapes. Hit tests could be sped up
-  dramatically if full polygon tests are not required.
+* 2d cuts have two indexed inputs and a polygon or a rectangle to test against.
+  The output is a single bit. More geometric shapes (ellipsis) should be added
+  if they have simpler hit tests that speed things up.
 
 Cuts can only be applied after their inputs are available, the same way as
 operators can only consume inputs produced earlier. This means cuts have a rank
@@ -65,16 +64,25 @@ way the cuts have been evaluated at the point where the histo data should be
 accumulated. Thus all the cut tests can be performed and ANDed together. One
 could even form logical expressions using cuts.
 
-Cut Implentation Plan
+Condition/Cut implementation plan and next steps
+------------------------------------------------
+Needed to further test things:
+* Ability to set interval values for the ConditionInterval.
+* Ability to create/edit interval conditions graphically in a 1d histogram.
+* Ability to create/edit rectangle and polygon ConditionOperators graphically using
+  the histo widgets.
+* Applying a cut to operators.
+
+
 ---------------------
 WORKING* 1d range selection, 2d poly selection
 WORKING * drawing of selections into plots (highlight selected area)
-* High level Cut objects
-* Low level cut implementation
+WORKING* High level Cut objects
+WORKING* Low level cut implementation
   Range / Polygon test -> binary output value
   For polygon tests boost::geometry seems to do fine.
 
-* Structure to perform quick lookups of active cuts for a given operator and to
+WORKING* Structure to perform quick lookups of active cuts for a given operator and to
   get the active cut value.
 
   Add a condition index member variable to the operator structure.
@@ -90,11 +98,79 @@ WORKING * drawing of selections into plots (highlight selected area)
   could be done directly in a2_end_event().
 
 
-* A1: BaseCondition object to be able to filter them out when populating the
+WORKING * A1: BaseCondition object to be able to filter them out when populating the
   existing UI.
   The conditions are implemented as operators to seamlessly fit into the
   existing analysis system (input selection, data flow) but treated specially
   for display purposes.
+
+* Clean up the histo widgets. Add a real GUI for cut creation, editing and
+  display.
+
+* Create a condition display widget where a list of conditions is shown. When
+  selecting a normal operator the active cut should be highlighted. On
+  selecting a cut the dependent operators should be highlighted.  Probably
+  should make this a tree as boolean compound conditions could be display as a
+  tree. This would mean that conditions can appear multiple times in different
+  places in the cut tree.
+
+  Another structuring element are input ranks.
+
+* Add logic to figure out if a certain cut can be graphically displayed in a
+  given histogram. If so allow showing the cut there.
+
+* Add debugging helpers for cuts. During single event stepping the individual
+  bits of the cuts should be inspectable.
+
+
+
+
+WORKING* 1d range selection, 2d poly selection
+WORKING * drawing of selections into plots (highlight selected area)
+WORKING* High level Cut objects
+WORKING* Low level cut implementation
+  Range / Polygon test -> binary output value
+  For polygon tests boost::geometry seems to do fine.
+
+WORKING* Structure to perform quick lookups of active cuts for a given operator and to
+  get the active cut value.
+
+  Add a condition index member variable to the operator structure.
+
+  Number all conditions in the system sequentially. Use an analysis global
+  boost::dynamic_bitset holding one bit for each of the conditions.
+
+  Unset all bits in a2_begin_event(), then process module data as usual. In
+  a2_end_event check the operators condition index and if it's valid test the
+  corresponding bit.
+  If it's set step the operator, otherwise set all its output parameters to
+  invalid. Special handling might be needed for Operator_KeepPrevious but that
+  could be done directly in a2_end_event().
+
+
+WORKING * A1: BaseCondition object to be able to filter them out when populating the
+  existing UI.
+  The conditions are implemented as operators to seamlessly fit into the
+  existing analysis system (input selection, data flow) but treated specially
+  for display purposes.
+
+* Clean up the histo widgets. Add a real GUI for cut creation, editing and
+  display.
+
+* Create a condition display widget where a list of conditions is shown. When
+  selecting a normal operator the active cut should be highlighted. On
+  selecting a cut the dependent operators should be highlighted.  Probably
+  should make this a tree as boolean compound conditions could be display as a
+  tree. This would mean that conditions can appear multiple times in different
+  places in the cut tree.
+
+  Another structuring element are input ranks.
+
+* Add logic to figure out if a certain cut can be graphically displayed in a
+  given histogram. If so allow showing the cut there.
+
+* Add debugging helpers for cuts. During single event stepping the individual
+  bits of the cuts should be inspectable.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

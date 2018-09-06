@@ -1994,7 +1994,6 @@ AnalysisObjectVector order_objects(const AnalysisObjectSet &objects,
 AnalysisObjectVector order_objects(const AnalysisObjectVector &objects,
                                    const Analysis *analysis);
 
-
 } // end namespace analysis
 
 #endif /* __ANALYSIS_H__ */

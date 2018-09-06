@@ -27,7 +27,7 @@
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
 //#ifndef NDEBUG
-#if 1
+#if 0
 
 // printf style trace macro
 #define a2_trace(fmt, ...)\
