@@ -13,6 +13,10 @@ BUGFIXES and FEATURES wanted yesterday
 
 * SIS: when not connected and doing an Init Module mvme hangs in recvfrom()
 
+* HtmlDelegate doesn't seem to know how wide the rendered contents are.
+  Resizing the column by double clicking the headerview separator chooses a
+  width that's too small.
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 --------------------------------------------------
@@ -30,7 +34,7 @@ through the cut. Passing means setting the output or condition flag to true.
 
 * 2d cuts have two indexed inputs and a polygon or a rectangle to test against.
   The output is a single bit. More geometric shapes (ellipsis) should be added
-  if they have simpler hit tests that speed things up.
+  if they have simpler hit tests that speed things up and are convenient to use.
 
 Cuts can only be applied after their inputs are available, the same way as
 operators can only consume inputs produced earlier. This means cuts have a rank
@@ -66,13 +70,40 @@ could even form logical expressions using cuts.
 
 Condition/Cut implementation plan and next steps
 ------------------------------------------------
-Needed to further test things:
-* Ability to set interval values for the ConditionInterval.
 * Ability to create/edit interval conditions graphically in a 1d histogram.
+
+  Creating a 1d cut is easy: the user picks two points and they are used to
+  generate the intervals for the complete input array.
+
+  Editing is a bit harder: individual intervals should be adjustable via the UI
+  but it should also be possible to bunch edit all the array values.
+
+  Also editing must be explicitly started either by selecting the cut in the
+  ConditionWidget or having a list of cuts that can be edited inside the
+  Histo1DWidget. The reason is that multiple cuts can be defined using the same
+  input data so there's no 1:1 match between cuts and histograms.
+
+  -> First implementation: make cuts editable by clicking in the
+  ConditionWindow. Figure out which histogram displays the cuts input data and
+  open it. Tell the histo widget to edit the specific cut.
+
 * Ability to create/edit rectangle and polygon ConditionOperators graphically using
   the histo widgets.
-* Applying a cut to operators.
 
+  Creation is the same as for 1d cuts: the user picks points (for polygon) or
+  creates a rectangle/ellipse by dragging/clicking and the cut is created.
+
+  Editing is the same as for 1d cuts: inside the widget a list of possible cuts
+  has to be presented otherwise editing can be started from the ConditionWindow.
+
+* Applying cuts to operators:
+  A cut is selected in the cut window. in case of interval cuts a specific
+  index has to be selected.
+
+  The user now wants to apply the cut and uses the context menu or a button in
+  the condition window. This changes the mode of the eventwidget to
+  "ApplyCondition". In this mode operators that can make use of the condition
+  show a checkbox which can be used to apply the condition.
 
 ---------------------
 WORKING* 1d range selection, 2d poly selection

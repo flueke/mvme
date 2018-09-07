@@ -23,6 +23,7 @@
 #include <QFile>
 #include <QHBoxLayout>
 #include <QPainter>
+#include <QStackedWidget>
 #include <QTextBrowser>
 #include <QTextStream>
 #include <QWidget>
@@ -99,4 +100,14 @@ void FixWordWrapBugLabel::resizeEvent(QResizeEvent *event)
         // define minimum height
         setMinimumHeight( heightForWidth( width() ) );
     }
+}
+
+void clear_stacked_widget(QStackedWidget *stackedWidget)
+{
+    while (auto widget = stackedWidget->currentWidget())
+    {
+        stackedWidget->removeWidget(widget);
+        widget->deleteLater();
+    }
+    Q_ASSERT(stackedWidget->count() == 0);
 }

@@ -22,7 +22,7 @@
 #include "analysis_ui_p.h"
 #include "analysis_serialization.h"
 #include "analysis_util.h"
-#include "condition_tree.h"
+#include "condition_ui.h"
 #include "data_extraction_widget.h"
 #include "analysis_info_widget.h"
 #include "a2_adapter.h"
@@ -32,6 +32,7 @@
 #include "listfilter_extractor_dialog.h"
 #include "expression_operator_dialog.h"
 
+#include "gui_util.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
 #include "mvme_context.h"
@@ -141,107 +142,10 @@ std::shared_ptr<T> get_shared_analysis_object(QTreeWidgetItem *node,
     return std::dynamic_pointer_cast<T>(objPtr);
 }
 
-/* QTreeWidgetItem does not support setting separate values for Qt::DisplayRole and
- * Qt::EditRole. This subclass removes this limitation.
- *
- * The implementation keeps track of whether DisplayRole and EditRole data have been set.
- * If specific data for the requested role is available it will be returned, otherwise the
- * other roles data is returned.
- *
- * This subclass also implements custom (numeric) sorting behavior for output pipe
- * parameter and histogram index values in operator<().
- *
- * NOTE: Do not use for the headerview as that requires special handling which needs
- * access to the private QTreeModel class.
- * Link to the Qt code: https://code.woboq.org/qt5/qtbase/src/widgets/itemviews/qtreewidget.cpp.html#_ZN15QTreeWidgetItem7setDataEiiRK8QVariant
- */
-class TreeNode: public QTreeWidgetItem
+class TreeNode: public BasicTreeNode
 {
     public:
-        TreeNode(int type = QTreeWidgetItem::Type)
-            : QTreeWidgetItem(type)
-        { }
-
-        TreeNode(const QStringList &strings, int type = QTreeWidgetItem::Type)
-            : QTreeWidgetItem(type)
-        {
-            for (int i = 0; i < strings.size(); i++)
-            {
-                setText(i, strings.at(i));
-            }
-        }
-
-        virtual void setData(int column, int role, const QVariant &value) override
-        {
-            if (column < 0)
-                return;
-
-            if (role != Qt::DisplayRole && role != Qt::EditRole)
-            {
-                QTreeWidgetItem::setData(column, role, value);
-                return;
-            }
-
-            if (column >= m_columnData.size())
-            {
-                m_columnData.resize(column + 1);
-            }
-
-            auto &entry = m_columnData[column];
-
-            switch (role)
-            {
-                case Qt::DisplayRole:
-                    if (entry.displayData != value)
-                    {
-                        entry.displayData = value;
-                        entry.flags |= Data::HasDisplayData;
-                        emitDataChanged();
-                    }
-                    break;
-
-                case Qt::EditRole:
-                    if (entry.editData != value)
-                    {
-                        entry.editData = value;
-                        entry.flags |= Data::HasEditData;
-                        emitDataChanged();
-                    }
-                    break;
-
-                InvalidDefaultCase;
-            }
-        }
-
-        virtual QVariant data(int column, int role) const override
-        {
-            if (role != Qt::DisplayRole && role != Qt::EditRole)
-            {
-                return QTreeWidgetItem::data(column, role);
-            }
-
-            if (0 <= column && column < m_columnData.size())
-            {
-                const auto &entry = m_columnData[column];
-
-                switch (role)
-                {
-                    case Qt::DisplayRole:
-                        if (entry.flags & Data::HasDisplayData)
-                            return entry.displayData;
-                        return entry.editData;
-
-                    case Qt::EditRole:
-                        if (entry.flags & Data::HasEditData)
-                            return entry.editData;
-                        return entry.displayData;
-
-                    InvalidDefaultCase;
-                }
-            }
-
-            return QVariant();
-        }
+        using BasicTreeNode::BasicTreeNode;
 
         // Custom sorting for numeric columns
         virtual bool operator<(const QTreeWidgetItem &other) const override
@@ -263,18 +167,6 @@ class TreeNode: public QTreeWidgetItem
             }
             return QTreeWidgetItem::operator<(other);
         }
-
-    private:
-        struct Data
-        {
-            static const u8 HasDisplayData = 1u << 0;
-            static const u8 HasEditData    = 1u << 1;
-            QVariant displayData;
-            QVariant editData;
-            u8 flags = 0u;
-        };
-
-        QVector<Data> m_columnData;
 };
 
 template<typename T>
@@ -1830,6 +1722,8 @@ void EventWidgetPrivate::repopulate()
     expandObjectNodes(m_levelTrees, m_expandedObjects);
     clearAllToDefaultNodeHighlights();
     updateActions();
+
+    m_analysisWidget->getConditionWidget()->repopulate(m_eventIndex);
 }
 
 void EventWidgetPrivate::addUserLevel()
@@ -4985,16 +4879,32 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
         tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
         tb->addWidget(m_d->m_eventRateLabel);
+
         tb->addSeparator();
+
         tb->addAction(m_d->m_actionSelectVisibleLevels);
         tb->addAction(actionEventSettings);
+
         tb->addSeparator();
+
         tb->addAction(m_d->m_actionExport);
         tb->addAction(m_d->m_actionImport);
 
+        tb->addSeparator();
+
+        tb->addAction(QSL("Conditions/Cuts"), this, [this]() {
+            if (auto w = getAnalysisWidget()->getConditionWidget())
+            {
+                w->show();
+                w->raise();
+            }
+        });
+
 #ifndef QT_NO_DEBUG
         tb->addSeparator();
-        tb->addAction(QSL("Repopulate (dev)"), this, [this]() { m_d->repopulate(); });
+        tb->addAction(QSL("Repopulate (dev)"), this, [this]() {
+            m_d->repopulate();
+        });
 #endif
     }
 
@@ -5262,7 +5172,6 @@ struct AnalysisWidgetPrivate
     AnalysisWidget *m_q;
     MVMEContext *m_context;
     QHash<QUuid, EventWidget *> m_eventWidgetsByEventId;
-    QHash<QUuid, ConditionTreeWidget *> m_conditionTreesByEventId;
 
 
     QToolBar *m_toolbar;
@@ -5270,7 +5179,7 @@ struct AnalysisWidgetPrivate
     QStackedWidget *m_eventWidgetStack;
     QStackedWidget *m_eventWidgetToolBarStack;
     QStackedWidget *m_eventWidgetEventSelectAreaToolBarStack;
-    QStackedWidget *m_conditionTreeStack;
+    std::unique_ptr<ConditionWidget> m_conditionWidget;
     QToolButton *m_removeUserLevelButton;
     QToolButton *m_addUserLevelButton;
     QStatusBar *m_statusBar;
@@ -5310,25 +5219,12 @@ struct AnalysisWidgetPrivate
     void updateAddRemoveUserLevelButtons();
 };
 
-// Clears the stacked widget and deletes its child widgets
-static void clear_stacked_widget(QStackedWidget *stackedWidget)
-{
-    while (auto widget = stackedWidget->currentWidget())
-    {
-        stackedWidget->removeWidget(widget);
-        widget->deleteLater();
-    }
-    Q_ASSERT(stackedWidget->count() == 0);
-}
-
 void AnalysisWidgetPrivate::repopulate()
 {
-    clear_stacked_widget(m_conditionTreeStack);
     clear_stacked_widget(m_eventWidgetEventSelectAreaToolBarStack);
     clear_stacked_widget(m_eventWidgetToolBarStack);
     clear_stacked_widget(m_eventWidgetStack);
     m_eventWidgetsByEventId.clear();
-    m_conditionTreesByEventId.clear();
 
     // Repopulate combobox and stacked widget
     auto eventConfigs = m_context->getEventConfigs();
@@ -5341,25 +5237,23 @@ void AnalysisWidgetPrivate::repopulate()
     {
         auto eventConfig = eventConfigs[eventIndex];
         auto eventId = eventConfig->getId();
-        auto eventWidget = new EventWidget(m_context, eventId, eventIndex, m_q);
+
+        auto eventWidget = new EventWidget(
+            m_context, eventId, eventIndex, m_q);
+
+        m_eventWidgetToolBarStack->addWidget(eventWidget->getToolBar());
+        m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->getEventSelectAreaToolBar());
+        m_eventWidgetsByEventId[eventId] = eventWidget;
 
         auto scrollArea = new QScrollArea;
         scrollArea->setWidget(eventWidget);
         scrollArea->setWidgetResizable(true);
 
-        auto conditionTree = new ConditionTreeWidget(eventWidget);
-
         m_eventWidgetStack->addWidget(scrollArea);
-        m_eventWidgetToolBarStack->addWidget(eventWidget->getToolBar());
-        m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->getEventSelectAreaToolBar());
-        m_conditionTreeStack->addWidget(conditionTree);
-
-        m_eventWidgetsByEventId[eventId] = eventWidget;
-        m_conditionTreesByEventId[eventId] = conditionTree;
     }
 
+    m_conditionWidget->repopulate();
     repopulateEventSelectCombo();
-
     updateWindowTitle();
     updateAddRemoveUserLevelButtons();
 }
@@ -5406,10 +5300,7 @@ void AnalysisWidgetPrivate::doPeriodicUpdate()
         eventWidget->m_d->doPeriodicUpdate();
     }
 
-    for (auto conditionTree: m_conditionTreesByEventId.values())
-    {
-        conditionTree->doPeriodicUpdate();
-    }
+    m_conditionWidget->doPeriodicUpdate();
 }
 
 void AnalysisWidgetPrivate::closeAllUniqueWidgets()
@@ -5979,10 +5870,22 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
             m_d->m_eventWidgetEventSelectAreaToolBarStack, &QStackedWidget::setCurrentIndex);
 
-    m_d->m_conditionTreeStack = new QStackedWidget;
-    connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
-            m_d->m_conditionTreeStack, &QStackedWidget::setCurrentIndex);
+    // condition/cut displays
+    {
+        m_d->m_conditionWidget = std::make_unique<ConditionWidget>(m_d->m_context);
+        auto condWidget = m_d->m_conditionWidget.get();
 
+        m_d->m_geometrySaver->addAndRestore(
+            condWidget, QSL("WindowGeometries/AnalysisConditionsWidget"));
+
+        add_widget_close_action(condWidget);
+
+        connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
+                condWidget, &ConditionWidget::selectEvent);
+
+        condWidget->show();
+        condWidget->raise();
+    }
 
     // toolbar
     {
@@ -6150,15 +6053,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     layout->setContentsMargins(2, 2, 2, 2);
     layout->setSpacing(2);
     s32 row = 0;
-    layout->addWidget(toolbarFrame,             row++, 0); // 0, 0
-    layout->addLayout(eventSelectLayout,        row++, 0); // 1, 0
-    layout->addWidget(m_d->m_eventWidgetStack,  row++, 0); // 2, 0
-    layout->setRowStretch(row-1, 1); // 2, 0
-    layout->addWidget(m_d->m_statusBar,         row++, 0); // 3, 0
-
-    layout->addWidget(m_d->m_conditionTreeStack,2, 1);
-    layout->setColumnStretch(0, 1);
-    layout->setColumnStretch(1, 0);
+    layout->addWidget(toolbarFrame,             row++, 0);
+    layout->addLayout(eventSelectLayout,        row++, 0);
+    layout->addWidget(m_d->m_eventWidgetStack,  row++, 0);
+    layout->setRowStretch(row-1, 1);
+    layout->addWidget(m_d->m_statusBar,         row++, 0);
 
     auto analysis = ctx->getAnalysis();
 
@@ -6254,10 +6153,7 @@ void AnalysisWidget::operatorAddedExternally(const OperatorPtr &op)
         eventWidget->m_d->repopulate();
     }
 
-    if (auto conditionTree = m_d->m_conditionTreesByEventId.value(op->getEventId()))
-    {
-        conditionTree->repopulate();
-    }
+    m_d->m_conditionWidget->repopulate();
 }
 
 void AnalysisWidget::operatorEditedExternally(const OperatorPtr &op)
@@ -6267,15 +6163,17 @@ void AnalysisWidget::operatorEditedExternally(const OperatorPtr &op)
         eventWidget->m_d->repopulate();
     }
 
-    if (auto conditionTree = m_d->m_conditionTreesByEventId.value(op->getEventId()))
-    {
-        conditionTree->repopulate();
-    }
+    m_d->m_conditionWidget->repopulate();
 }
 
 void AnalysisWidget::updateAddRemoveUserLevelButtons()
 {
     m_d->updateAddRemoveUserLevelButtons();
+}
+
+ConditionWidget *AnalysisWidget::getConditionWidget() const
+{
+    return m_d->m_conditionWidget.get();
 }
 
 void AnalysisWidget::eventConfigModified()

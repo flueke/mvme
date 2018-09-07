@@ -30,6 +30,7 @@ namespace analysis
 {
 
 struct AnalysisWidgetPrivate;
+class ConditionWidget;
 class OperatorInterface;
 using OperatorPtr = std::shared_ptr<OperatorInterface>;
 
@@ -44,6 +45,7 @@ class AnalysisWidget: public QWidget
         void operatorEditedExternally(const OperatorPtr &op);
 
         void updateAddRemoveUserLevelButtons();
+        ConditionWidget *getConditionWidget() const;
 
         virtual bool event(QEvent *event) override;
 

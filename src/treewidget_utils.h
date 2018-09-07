@@ -25,6 +25,8 @@
 #include <QStyledItemDelegate>
 #include <QTreeWidgetItem>
 
+#include "typedefs.h"
+
 // Solution to only allow editing of certain columns while still using the QTreeWidget.
 // Source: http://stackoverflow.com/a/4657065
 class NoEditDelegate: public QStyledItemDelegate
@@ -113,6 +115,52 @@ class CanDisableItemsHtmlDelegate: public HtmlDelegate
 
     private:
         IsItemDisabledFunctor m_isItemDisabled;
+};
+
+/* QTreeWidgetItem does not support setting separate values for Qt::DisplayRole and
+ * Qt::EditRole. This subclass removes this limitation.
+ *
+ * The implementation keeps track of whether DisplayRole and EditRole data have been set.
+ * If specific data for the requested role is available it will be returned, otherwise the
+ * other roles data is returned.
+ *
+ * This subclass also implements custom (numeric) sorting behavior for output pipe
+ * parameter and histogram index values in operator<().
+ *
+ * NOTE: Do not use for the headerview as that requires special handling which needs
+ * access to the private QTreeModel class.
+ * Link to the Qt code: https://code.woboq.org/qt5/qtbase/src/widgets/itemviews/qtreewidget.cpp.html#_ZN15QTreeWidgetItem7setDataEiiRK8QVariant
+ */
+class BasicTreeNode: public QTreeWidgetItem
+{
+    public:
+        BasicTreeNode(int type = QTreeWidgetItem::Type)
+            : QTreeWidgetItem(type)
+        { }
+
+        BasicTreeNode(const QStringList &strings, int type = QTreeWidgetItem::Type)
+            : QTreeWidgetItem(type)
+        {
+            for (int i = 0; i < strings.size(); i++)
+            {
+                setText(i, strings.at(i));
+            }
+        }
+
+        virtual void setData(int column, int role, const QVariant &value) override;
+        virtual QVariant data(int column, int role) const override;
+
+    private:
+        struct Data
+        {
+            static const u8 HasDisplayData = 1u << 0;
+            static const u8 HasEditData    = 1u << 1;
+            QVariant displayData;
+            QVariant editData;
+            u8 flags = 0u;
+        };
+
+        QVector<Data> m_columnData;
 };
 
 #endif /* __TREEWIDGET_UTIL_H__ */

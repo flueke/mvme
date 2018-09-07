@@ -26,6 +26,8 @@
 #include <QTextDocument>
 #include <QDebug>
 
+#include "util.h"
+
 void HtmlDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
                          const QModelIndex &index) const
 {
@@ -86,4 +88,76 @@ void CanDisableItemsHtmlDelegate::initStyleOption(QStyleOptionViewItem *option,
             option->state &= ~QStyle::State_Enabled;
         }
     }
+}
+
+void BasicTreeNode::setData(int column, int role, const QVariant &value)
+{
+    if (column < 0)
+        return;
+
+    if (role != Qt::DisplayRole && role != Qt::EditRole)
+    {
+        QTreeWidgetItem::setData(column, role, value);
+        return;
+    }
+
+    if (column >= m_columnData.size())
+    {
+        m_columnData.resize(column + 1);
+    }
+
+    auto &entry = m_columnData[column];
+
+    switch (role)
+    {
+        case Qt::DisplayRole:
+            if (entry.displayData != value)
+            {
+                entry.displayData = value;
+                entry.flags |= Data::HasDisplayData;
+                emitDataChanged();
+            }
+            break;
+
+        case Qt::EditRole:
+            if (entry.editData != value)
+            {
+                entry.editData = value;
+                entry.flags |= Data::HasEditData;
+                emitDataChanged();
+            }
+            break;
+
+            InvalidDefaultCase;
+    }
+}
+
+QVariant BasicTreeNode::data(int column, int role) const
+{
+    if (role != Qt::DisplayRole && role != Qt::EditRole)
+    {
+        return QTreeWidgetItem::data(column, role);
+    }
+
+    if (0 <= column && column < m_columnData.size())
+    {
+        const auto &entry = m_columnData[column];
+
+        switch (role)
+        {
+            case Qt::DisplayRole:
+                if (entry.flags & Data::HasDisplayData)
+                    return entry.displayData;
+                return entry.editData;
+
+            case Qt::EditRole:
+                if (entry.flags & Data::HasEditData)
+                    return entry.editData;
+                return entry.displayData;
+
+                InvalidDefaultCase;
+        }
+    }
+
+    return QVariant();
 }
