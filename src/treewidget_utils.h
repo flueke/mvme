@@ -22,6 +22,7 @@
 #define __TREEWIDGET_UTIL_H__
 
 #include <functional>
+#include <memory>
 #include <QStyledItemDelegate>
 #include <QTreeWidgetItem>
 
@@ -87,15 +88,20 @@ QTreeWidgetItem *findFirstNode(QTreeWidgetItem *node, Predicate predicate)
 class HtmlDelegate : public QStyledItemDelegate
 {
     public:
-        using QStyledItemDelegate::QStyledItemDelegate;
+        HtmlDelegate(QObject *parent = nullptr);
+        virtual ~HtmlDelegate() override;
 
     protected:
         void paint(QPainter *painter,
                    const QStyleOptionViewItem &option,
-                   const QModelIndex &index) const;
+                   const QModelIndex &index) const override;
 
         QSize sizeHint(const QStyleOptionViewItem &option,
-                       const QModelIndex &index) const;
+                       const QModelIndex &index) const override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> m_d;
 };
 
 class CanDisableItemsHtmlDelegate: public HtmlDelegate

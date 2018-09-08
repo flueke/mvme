@@ -28,52 +28,110 @@
 
 #include "util.h"
 
+namespace
+{
+
+struct DocAndStyleOption
+{
+    QTextDocument doc;
+    QStyleOptionViewItem optionV4;
+};
+
+}
+
+struct HtmlDelegate::Private
+{
+    // Added on the left and right of the text
+    static const int ExtraHorizontalMargin = 1;
+
+    void initDocAndStyle(DocAndStyleOption &dos,
+                         const QStyleOptionViewItem &opt,
+                         const QModelIndex &index)
+    {
+        dos.optionV4 = opt;
+        m_q->initStyleOption(&dos.optionV4, index);
+
+        dos.doc.setDefaultFont(dos.optionV4.font);
+        dos.doc.setHtml(dos.optionV4.text);
+        dos.doc.setDocumentMargin(1);
+    }
+
+    HtmlDelegate *m_q;
+};
+
+HtmlDelegate::HtmlDelegate(QObject *parent)
+    : QStyledItemDelegate(parent)
+    , m_d(std::make_unique<Private>())
+{
+    m_d->m_q = this;
+}
+
+HtmlDelegate::~HtmlDelegate()
+{ }
+
 void HtmlDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
                          const QModelIndex &index) const
 {
-    QStyleOptionViewItem optionV4 = option;
-    initStyleOption(&optionV4, index);
+    DocAndStyleOption dos;
+    m_d->initDocAndStyle(dos, option, index);
 
-    QStyle *style = optionV4.widget? optionV4.widget->style() : QApplication::style();
+    QStyle *style = dos.optionV4.widget? dos.optionV4.widget->style() : QApplication::style();
 
-    QTextDocument doc;
-    doc.setDefaultFont(optionV4.font);
-    doc.setHtml(optionV4.text);
-    doc.setDocumentMargin(1);
+    // Unset the text and use the style to draw the item icon, checkbox, etc.
+    dos.optionV4.text = QString();
+    style->drawControl(QStyle::CE_ItemViewItem, &dos.optionV4, painter);
 
-    /// Painting item without text
-    optionV4.text = QString();
-    style->drawControl(QStyle::CE_ItemViewItem, &optionV4, painter);
+#if 0
+    qDebug() << __PRETTY_FUNCTION__ << this
+        << "opt.rect.width=" << dos.optionV4.rect.width()
+        << ", doc.textWidth=" << dos.doc.textWidth()
+        << ", doc.idealWidth=" << dos.doc.idealWidth()
+        << ", doc.toPlainText=" << dos.doc.toPlainText()
+        ;
+#endif
 
+    // Now manually draw the text using the supplied QPainter
     QAbstractTextDocumentLayout::PaintContext ctx;
 
-    // Highlighting text if item is selected
-    if (optionV4.state & QStyle::State_Selected)
+    // Text highlighting if the item is selected
+    if (dos.optionV4.state & QStyle::State_Selected)
     {
         ctx.palette.setColor(QPalette::Text,
-                             optionV4.palette.color(QPalette::Active,
-                                                    QPalette::HighlightedText));
+                             dos.optionV4.palette.color(QPalette::Active,
+                                                        QPalette::HighlightedText));
     }
 
-    QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &optionV4);
+
+    QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &dos.optionV4);
+
+    auto topLeft = textRect.topLeft();
+    topLeft.rx() += Private::ExtraHorizontalMargin;
+
     painter->save();
-    painter->translate(textRect.topLeft());
-    painter->setClipRect(textRect.translated(-textRect.topLeft()));
-    doc.documentLayout()->draw(painter, ctx);
+    painter->translate(topLeft);
+    painter->setClipRect(textRect.translated(-topLeft));
+    dos.doc.documentLayout()->draw(painter, ctx);
     painter->restore();
 }
 
 QSize HtmlDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
-    QStyleOptionViewItem optionV4 = option;
-    initStyleOption(&optionV4, index);
+    DocAndStyleOption dos;
+    m_d->initDocAndStyle(dos, option, index);
 
-    QTextDocument doc;
-    doc.setDefaultFont(optionV4.font);
-    doc.setHtml(optionV4.text);
-    doc.setDocumentMargin(1);
-    doc.setTextWidth(optionV4.rect.width());
-    return QSize(doc.idealWidth(), doc.size().height());
+#if 0
+    qDebug() << __PRETTY_FUNCTION__ << this
+        << "opt.rect.width=" << dos.optionV4.rect.width()
+        << ", doc.textWidth=" << dos.doc.textWidth()
+        << ", doc.idealWidth=" << dos.doc.idealWidth()
+        << ", doc.toPlainText=" << dos.doc.toPlainText()
+        ;
+#endif
+
+    int width  = dos.doc.idealWidth() + 2 * Private::ExtraHorizontalMargin;
+    int height = dos.doc.size().height();
+
+    return QSize(width, height);
 }
 
 void CanDisableItemsHtmlDelegate::initStyleOption(QStyleOptionViewItem *option,
