@@ -195,7 +195,6 @@ ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
     layout->setStretch(1, 1);
 
     setWindowTitle(QSL("Conditions/Cuts"));
-    add_widget_close_action(this);
 
     repopulate();
 }
