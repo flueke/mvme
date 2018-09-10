@@ -9,6 +9,8 @@ class MVMEContext;
 namespace analysis
 {
 
+class ConditionInterface;
+
 class ConditionTreeWidget: public QTreeWidget
 {
     Q_OBJECT
@@ -29,6 +31,11 @@ class ConditionTreeWidget: public QTreeWidget
 class ConditionWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void applyConditionBegin(ConditionInterface *cond, int bitIndex);
+        void applyConditionAccept();
+        void applyConditionReject();
+
     public:
         ConditionWidget(MVMEContext *ctx, QWidget *parent = nullptr);
 
