@@ -94,6 +94,7 @@ set(LIBMVME_SOURCES
     analysis/analysis_info_widget.cc
     analysis/analysis_serialization.cc
     analysis/analysis_ui.cc
+    analysis/analysis_ui_lib.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
     analysis/code_editor.cc
