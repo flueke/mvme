@@ -115,6 +115,10 @@ class EventWidget: public QWidget
         void objectEditorDialogAccepted();
         void objectEditorDialogRejected();
 
+        void applyConditionBegin(ConditionInterface *cond, int bitIndex);
+        void applyConditionAccept();
+        void applyConditionReject();
+
     private:
         EventWidgetPrivate *m_d;
 };

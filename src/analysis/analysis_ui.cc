@@ -19,31 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "analysis_ui.h"
-#include "analysis_ui_p.h"
-#include "analysis_serialization.h"
-#include "analysis_util.h"
-#include "condition_ui.h"
-#include "data_extraction_widget.h"
-#include "analysis_info_widget.h"
-#include "a2_adapter.h"
-#ifdef MVME_ENABLE_HDF5
-#include "analysis_session.h"
-#endif
-#include "listfilter_extractor_dialog.h"
-#include "expression_operator_dialog.h"
 
-#include "gui_util.h"
-#include "histo1d_widget.h"
-#include "histo2d_widget.h"
-#include "mvme_context.h"
-#include "mvme_context_lib.h"
-#include "mvme_stream_worker.h"
-#include "rate_monitor_widget.h"
-#include "treewidget_utils.h"
-#include "util/counters.h"
-#include "util/strings.h"
-#include "vme_analysis_common.h"
-#include "vme_config_ui.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -53,6 +29,7 @@
 #include <QFileDialog>
 #include <QGuiApplication>
 #include <QHBoxLayout>
+#include <QJsonObject>
 #include <QLabel>
 #include <QListWidget>
 #include <QMenu>
@@ -70,8 +47,34 @@
 #include <QToolButton>
 #include <QWidgetAction>
 
+#include "a2_adapter.h"
+#include "analysis_info_widget.h"
+#include "analysis_serialization.h"
+#include "analysis_ui_lib.h"
+#include "analysis_ui_p.h"
+#include "analysis_util.h"
+#include "condition_ui.h"
+#include "data_extraction_widget.h"
+#include "expression_operator_dialog.h"
+#include "gui_util.h"
+#include "histo1d_widget.h"
+#include "histo2d_widget.h"
+#include "listfilter_extractor_dialog.h"
+#include "mvme_context.h"
+#include "mvme_context_lib.h"
+#include "mvme_stream_worker.h"
+#include "rate_monitor_widget.h"
+#include "treewidget_utils.h"
+#include "util/counters.h"
+#include "util/strings.h"
+#include "vme_analysis_common.h"
+#include "vme_config_ui.h"
 
-#include <QJsonObject>
+#ifdef MVME_ENABLE_HDF5
+#include "analysis_session.h"
+#endif
+
+
 
 namespace analysis
 {
@@ -101,17 +104,6 @@ enum NodeType
 
     NodeType_MaxNodeType
 };
-
-template<typename T>
-T *get_pointer(QTreeWidgetItem *node, s32 dataRole = DataRole_Pointer)
-{
-    return node ? reinterpret_cast<T *>(node->data(0, dataRole).value<void *>()) : nullptr;
-}
-
-inline QObject *get_qobject(QTreeWidgetItem *node, s32 dataRole = Qt::UserRole)
-{
-    return get_pointer<QObject>(node, dataRole);
-}
 
 AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = DataRole_Pointer)
 {
@@ -1039,8 +1031,16 @@ struct EventWidgetPrivate
 {
     enum Mode
     {
+        /* Default mode interactions: add/remove objects, operations on selections,
+         * drag and drop. */
         Default,
-        SelectInput
+
+        /* An data extractor or operator add/edit dialog is active and waits
+         * for input selection by the user. */
+        SelectInput,
+
+        /* XXX COND */
+        ApplyCondition,
     };
 
     EventWidget *m_q;
@@ -1065,6 +1065,14 @@ struct EventWidgetPrivate
     };
 
     InputSelectInfo m_inputSelectInfo;
+
+    struct ApplyConditionInfo // TODO: replace with ConditionLink (analysis.h)
+    {
+        ConditionInterface *cond;
+        s32 bitIndex;
+    };
+
+    ApplyConditionInfo m_applyConditionInfo;
 
     QSplitter *m_operatorFrameSplitter;
     QSplitter *m_displayFrameSplitter;
@@ -1126,12 +1134,15 @@ struct EventWidgetPrivate
     void doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
     void doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
 
-    void modeChanged();
+    void setMode(Mode mode);
+    void modeChanged(Mode oldMode, Mode mode);
     void highlightValidInputNodes(QTreeWidgetItem *node);
     void highlightInputNodes(OperatorInterface *op);
     void highlightOutputNodes(PipeSourceInterface *ps);
     void clearToDefaultNodeHighlights(QTreeWidgetItem *node);
     void clearAllToDefaultNodeHighlights();
+    void updateNodesForApplyConditionMode();
+    void updateNodesForApplyConditionMode(QTreeWidgetItem *node);
     void onNodeClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeChanged(TreeNode *node, int column, s32 userLevel);
@@ -1175,6 +1186,25 @@ struct EventWidgetPrivate
     bool canPaste();
     void pasteFromClipboard(QTreeWidget *destTree);
 };
+
+QString mode_to_string(EventWidgetPrivate::Mode mode)
+{
+    switch (mode)
+    {
+        case EventWidgetPrivate::Default:
+            return QSL("Default");
+
+        case EventWidgetPrivate::SelectInput:
+            return QSL("SelectInput");
+
+        case EventWidgetPrivate::ApplyCondition:
+            return QSL("ApplyCondition");
+
+        InvalidDefaultCase;
+    }
+
+    return QSL("");
+}
 
 template<typename T, typename C>
 QVector<std::shared_ptr<T>> objects_from_nodes(const C &nodes)
@@ -1278,7 +1308,7 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         QSL("L0 Raw Data Display"),
         0);
 
-    // Populate the OperatorTree
+    // Populate the OperatorTree (top left)
     for (const auto &mod: modules)
     {
         QObject::disconnect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
@@ -1333,7 +1363,7 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         }
     }
 
-    // Populate the SinkTree
+    // Populate the SinkTree (bottom left)
     // Create module nodes and nodes for the raw histograms for each data source for the module.
     QSet<QObject *> sinksAddedBelowModules;
     auto operators = analysis->getOperators(eventId, 0);
@@ -1368,6 +1398,7 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
                         moduleNode->addChild(node);
                         sinksAddedBelowModules.insert(sink);
                     }
+
                 }
             }
         }
@@ -2927,9 +2958,20 @@ void EventWidgetPrivate::doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint 
     }
 }
 
-void EventWidgetPrivate::modeChanged()
+void EventWidgetPrivate::setMode(Mode mode)
 {
-    switch (m_mode)
+    auto oldMode = m_mode;
+    m_mode = mode;
+    modeChanged(oldMode, mode);
+}
+
+void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
+{
+    qDebug() << __PRETTY_FUNCTION__
+        << "oldMode=" << mode_to_string(oldMode)
+        << "newMode=" << mode_to_string(mode);
+
+    switch (mode)
     {
         case Default:
             {
@@ -2955,6 +2997,18 @@ void EventWidgetPrivate::modeChanged()
                         highlightValidInputNodes(trees.operatorTree->invisibleRootItem());
                     }
                 }
+            } break;
+
+        case ApplyCondition:
+            {
+                const auto &condInfo = m_applyConditionInfo;
+                assert(condInfo.cond);
+                assert(condInfo.bitIndex >= 0);
+                assert(condInfo.bitIndex < condInfo.cond->getNumberOfBits());
+
+                clearAllTreeSelections();
+                clearAllToDefaultNodeHighlights();
+                updateNodesForApplyConditionMode();
             } break;
     }
 
@@ -3292,6 +3346,72 @@ void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
     }
 }
 
+void EventWidgetPrivate::updateNodesForApplyConditionMode()
+{
+    for (auto &trees: m_levelTrees)
+    {
+        for (auto &tree: trees.getObjectTrees())
+        {
+            updateNodesForApplyConditionMode(tree->invisibleRootItem());
+        }
+    }
+}
+
+void EventWidgetPrivate::updateNodesForApplyConditionMode(QTreeWidgetItem *node)
+{
+    auto &aci = m_applyConditionInfo;
+
+    assert(aci.cond);
+    assert(aci.bitIndex >= 0);
+    assert(aci.bitIndex < aci.cond->getNumberOfBits());
+
+
+    for (s32 ci = 0; ci < node->childCount(); ci++)
+    {
+        auto child = node->child(ci);
+        updateNodesForApplyConditionMode(child);
+    }
+
+    switch (node->type())
+    {
+        case NodeType_Operator:
+        case NodeType_Histo1DSink:
+        case NodeType_Histo2DSink:
+        case NodeType_Sink:
+            break;
+
+        default:
+            return;
+    }
+
+    OperatorPtr op;
+
+    if (auto op_ = get_qobject_pointer<OperatorInterface>(node))
+    {
+        op = std::dynamic_pointer_cast<OperatorInterface>(op_->shared_from_this());
+    }
+
+    assert(op);
+
+    qDebug() << __PRETTY_FUNCTION__
+        << aci.cond << aci.cond->getMaximumInputRank()
+        << op.get() << op->getMaximumInputRank();
+
+    // XXX: leftoff here
+    // FIXME: think about this
+    if (aci.cond->getMaximumInputRank() <= op->getMaximumInputRank())
+    {
+        auto opCond  = m_context->getAnalysis()->getConditionLink(op);
+        auto checked = ((opCond.condition.get() == aci.cond
+                        && opCond.subIndex == aci.bitIndex)
+                        ? Qt::Checked
+                        : Qt::Unchecked);
+
+        node->setFlags(node->flags() | Qt::ItemIsUserCheckable);
+        node->setCheckState(0, checked);
+    }
+}
+
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
     switch (node->type())
@@ -3441,9 +3561,8 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     }
 
                     // leave SelectInput mode
-                    m_mode = Default;
                     m_inputSelectInfo.callback = nullptr;
-                    modeChanged();
+                    setMode(Default);
                 }
             } break;
     }
@@ -4074,6 +4193,10 @@ void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
 
         labelText += QSL("\nEfficiency=%1").arg(efficiency, 0, 'f', 2);
     }
+
+#ifndef NDEBUG
+    labelText += QSL("\nMode=%1").arg(mode_to_string(m_mode));
+#endif
 
     m_eventRateLabel->setText(labelText);
 
@@ -4940,7 +5063,7 @@ void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback 
     //    << additionalInvalidSources;
 
     m_d->m_mode = EventWidgetPrivate::SelectInput;
-    m_d->modeChanged();
+    m_d->setMode(EventWidgetPrivate::SelectInput);
     // The actual input selection is handled in onNodeClicked()
 }
 
@@ -4949,9 +5072,8 @@ void EventWidget::endSelectInput()
     if (m_d->m_mode == EventWidgetPrivate::SelectInput)
     {
         qDebug() << __PRETTY_FUNCTION__ << "switching from SelectInput to Default mode";
-        m_d->m_mode = EventWidgetPrivate::Default;
         m_d->m_inputSelectInfo = {};
-        m_d->modeChanged();
+        m_d->setMode(EventWidgetPrivate::Default);
     }
 }
 
@@ -5048,6 +5170,33 @@ void EventWidget::objectEditorDialogRejected()
     qDebug() << __PRETTY_FUNCTION__;
     //endSelectInput(); // FIXME: needed?
     uniqueWidgetCloses();
+}
+
+void EventWidget::applyConditionBegin(ConditionInterface *cond, int bitIndex)
+{
+    if (cond->getEventId() != getEventId()) return;
+
+    qDebug() << __PRETTY_FUNCTION__ << this << getEventId() << cond->getEventId();
+
+    m_d->m_applyConditionInfo = { cond, bitIndex };
+    m_d->setMode(EventWidgetPrivate::ApplyCondition);
+}
+
+void EventWidget::applyConditionAccept()
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
+    // TODO: make required changes to the analysis here
+    m_d->m_applyConditionInfo = { nullptr, -1 };
+    m_d->setMode(EventWidgetPrivate::Default);
+}
+
+void EventWidget::applyConditionReject()
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
+    m_d->m_applyConditionInfo = { nullptr, -1 };
+    m_d->setMode(EventWidgetPrivate::Default);
 }
 
 //
@@ -5240,6 +5389,15 @@ void AnalysisWidgetPrivate::repopulate()
 
         auto eventWidget = new EventWidget(
             m_context, eventId, eventIndex, m_q);
+
+        QObject::connect(m_conditionWidget.get(), &ConditionWidget::applyConditionBegin,
+                         eventWidget, &EventWidget::applyConditionBegin);
+
+        QObject::connect(m_conditionWidget.get(), &ConditionWidget::applyConditionAccept,
+                         eventWidget, &EventWidget::applyConditionAccept);
+
+        QObject::connect(m_conditionWidget.get(), &ConditionWidget::applyConditionReject,
+                         eventWidget, &EventWidget::applyConditionReject);
 
         m_eventWidgetToolBarStack->addWidget(eventWidget->getToolBar());
         m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->getEventSelectAreaToolBar());
