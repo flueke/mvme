@@ -132,11 +132,13 @@ QString variablify(QString str)
 
         if (i == 0)
         {
-            match = ReIsValidFirstChar.match(str, i, QRegularExpression::NormalMatch, QRegularExpression::AnchoredMatchOption);
+            match = ReIsValidFirstChar.match(str, i, QRegularExpression::NormalMatch,
+                                             QRegularExpression::AnchoredMatchOption);
         }
         else
         {
-            match = ReIsValidChar.match(str, i, QRegularExpression::NormalMatch, QRegularExpression::AnchoredMatchOption);
+            match = ReIsValidChar.match(str, i, QRegularExpression::NormalMatch,
+                                        QRegularExpression::AnchoredMatchOption);
         }
 
         if (!match.hasMatch())
@@ -264,7 +266,8 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
     return result;
 }
 
-void ExportSinkCodeGenerator::Private::generate(RenderFunction render, ExportSinkCodeGenerator::Logger logger)
+void ExportSinkCodeGenerator::Private::generate(RenderFunction render,
+                                                ExportSinkCodeGenerator::Logger logger)
 {
     QString fmtString;
 
@@ -333,10 +336,12 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render, ExportSin
                        data, pyFilePath, 0, logger);
 
         render(QSL(":/analysis/export_templates/python_%1_export_dump.py.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_dump.py"), TemplateRenderFlags::SetExecutable, logger);
+               data, exportDir.filePath("export_dump.py"), TemplateRenderFlags::SetExecutable,
+               logger);
 
         render(QSL(":/analysis/export_templates/pyroot_generate_histos.py.mustache"),
-                       data, exportDir.filePath("pyroot_generate_histos.py"), TemplateRenderFlags::SetExecutable, logger);
+               data, exportDir.filePath("pyroot_generate_histos.py"), TemplateRenderFlags::SetExecutable,
+               logger);
     }
 }
 
