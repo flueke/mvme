@@ -1457,8 +1457,8 @@ A2AdapterState a2_adapter_build(
                 assert(!result.conditionBitIndexes.contains(nextConditionBitIndex));
 
                 result.conditionBitIndexes.insert(cond, nextConditionBitIndex);
-                nextConditionBitIndex += cond->getNumberOfConditionBits();
-                totalConditionBits += cond->getNumberOfConditionBits();
+                nextConditionBitIndex += cond->getNumberOfBits();
+                totalConditionBits += cond->getNumberOfBits();
             }
         }
     }
