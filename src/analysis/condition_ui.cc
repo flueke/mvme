@@ -69,7 +69,7 @@ Node *make_condition_node(ConditionInterface *cond)
 
     if (auto condi = qobject_cast<ConditionInterval *>(cond))
     {
-        for (u32 bi = 0; bi < condi->getNumberOfBits(); bi++)
+        for (s32 bi = 0; bi < condi->getNumberOfBits(); bi++)
         {
             auto child = make_node(condi, NodeType_ConditionBit);
             child->setData(0, DataRole_BitIndex, bi);
@@ -203,7 +203,7 @@ ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
         m_d->m_actionApplyCondition->setEnabled(false);
     }
 
-    m_d->pb_applyConditionAccept = new QPushButton(QSL("Apply"));
+    m_d->pb_applyConditionAccept = new QPushButton(QSL("Accept"));
     m_d->pb_applyConditionReject = new QPushButton(QSL("Cancel"));
 
     m_d->pb_applyConditionAccept->setVisible(false);
@@ -233,6 +233,7 @@ ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
     layout->addLayout(buttonsLayout);
     layout->addWidget(m_d->m_treeStack);
     layout->setStretch(2, 1);
+    layout->setContentsMargins(2, 0, 0, 0);
 
     setWindowTitle(QSL("Conditions/Cuts"));
 
@@ -316,6 +317,7 @@ void ConditionWidget::Private::onNodeClicked(QTreeWidgetItem *node)
             if (auto cond = qobject_cast<ConditionInterface *>(get_qobject(node)))
             {
                 m_actionApplyCondition->setEnabled(cond->getNumberOfBits() == 1);
+                emit m_q->objectSelected(cond->shared_from_this());
             }
             else
             {
@@ -326,12 +328,17 @@ void ConditionWidget::Private::onNodeClicked(QTreeWidgetItem *node)
 
         case NodeType_ConditionBit:
             m_actionApplyCondition->setEnabled(true);
+            if (auto cond = qobject_cast<ConditionInterface *>(get_qobject(node->parent())))
+            {
+                emit m_q->objectSelected(cond->shared_from_this());
+            }
             break;
 
         default:
             m_actionApplyCondition->setEnabled(false);
             break;
     }
+
 }
 
 void ConditionWidget::Private::onActionApplyConditionClicked()

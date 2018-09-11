@@ -22,6 +22,11 @@ BUGFIXES and FEATURES wanted yesterday
 --------------------------------------------------
 Analysis Conditions (Histogram Cuts and more)
 --------------------------------------------------
+* Figure out how compound conditions and the internal dependency ranks work
+  together.
+
+
+
 * For H1D: [xmin, xmax) range
 * For H2D: polygon, sepcial cases: ellipses, rectangles
 

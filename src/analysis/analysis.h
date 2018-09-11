@@ -520,7 +520,7 @@ class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
         QString getOutputName(s32 outputIndex) const override { return QString(); }
         Pipe *getOutput(s32 index) override { return nullptr; }
 
-        virtual u32 getNumberOfBits() const = 0; // FIXME: change to s32 return type to avoid signedness warnings/casts
+        virtual s32 getNumberOfBits() const = 0;
 };
 
 
@@ -1350,7 +1350,7 @@ class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
         void setInterval(s32 address, const Interval &interval);
         Interval getInterval(s32 address) const;
 
-        virtual u32 getNumberOfBits() const override;
+        virtual s32 getNumberOfBits() const override;
 
     private:
         Slot m_input;
@@ -1378,7 +1378,7 @@ class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
         void setRectangle(const QRectF &rect);
         QRectF getRectangle() const;
 
-        virtual u32 getNumberOfBits() const override { return 1; }
+        virtual s32 getNumberOfBits() const override { return 1; }
 
     private:
         Slot m_inputX;
@@ -1407,7 +1407,7 @@ class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
         void setPolygon(const QRectF &polygon);
         QPolygonF getPolygon() const;
 
-        virtual u32 getNumberOfBits() const override { return 1; }
+        virtual s32 getNumberOfBits() const override { return 1; }
 
     private:
         Slot m_inputX;
@@ -1796,8 +1796,11 @@ class LIBMVME_EXPORT Analysis: public QObject
         ConditionVector getConditions(const QUuid &eventId) const;
         ConditionPtr getCondition(const OperatorPtr &op) const;
         ConditionLink getConditionLink(const OperatorPtr &op) const;
+        ConditionLink getConditionLink(const OperatorInterface *op) const;
         ConditionLinks getConditionLinks() const;
         bool hasActiveCondition(const OperatorPtr &op) const;
+
+        void setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
 
         //
         // Directory Objects

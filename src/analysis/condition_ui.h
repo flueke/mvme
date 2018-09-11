@@ -6,6 +6,8 @@ class MVMEContext;
 #include <memory>
 #include <QTreeWidget>
 
+#include "analysis_fwd.h"
+
 namespace analysis
 {
 
@@ -35,6 +37,7 @@ class ConditionWidget: public QWidget
         void applyConditionBegin(ConditionInterface *cond, int bitIndex);
         void applyConditionAccept();
         void applyConditionReject();
+        void objectSelected(const AnalysisObjectPtr &obj);
 
     public:
         ConditionWidget(MVMEContext *ctx, QWidget *parent = nullptr);

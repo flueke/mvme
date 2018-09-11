@@ -3444,7 +3444,7 @@ Interval ConditionInterval::getInterval(s32 address) const
     return m_intervals.value(address, {});
 }
 
-u32 ConditionInterval::getNumberOfBits() const
+s32 ConditionInterval::getNumberOfBits() const
 {
     return m_input.isConnected() ? m_input.inputPipe->getSize() : 0u;
 }
@@ -3954,6 +3954,13 @@ ConditionLink Analysis::getConditionLink(const OperatorPtr &op) const
     return m_conditionLinks.value(op);
 }
 
+ConditionLink Analysis::getConditionLink(const OperatorInterface *op) const
+{
+    auto analysisObject = const_cast<OperatorInterface *>(op)->shared_from_this();
+
+    return getConditionLink(std::dynamic_pointer_cast<OperatorInterface>(analysisObject));
+}
+
 ConditionLinks Analysis::getConditionLinks() const
 {
     return m_conditionLinks;
@@ -3962,6 +3969,13 @@ ConditionLinks Analysis::getConditionLinks() const
 bool Analysis::hasActiveCondition(const OperatorPtr &op) const
 {
     return m_conditionLinks.value(op).condition != nullptr;
+}
+
+void Analysis::setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex)
+{
+    auto condPtr = std::dynamic_pointer_cast<ConditionInterface>(cond->shared_from_this());
+    m_conditionLinks.insert(op, { condPtr, subIndex });
+    // FIXME: (maybe) set objects flags here
 }
 
 //
@@ -4328,6 +4342,7 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
         << op->objectName();
 #endif
 
+    // Walk the inputs of this operator and update their ranks first
     for (s32 si = 0; si < op->getNumberOfSlots(); si++)
     {
         if (Pipe *inputPipe = op->getSlot(si)->inputPipe)
@@ -4343,7 +4358,20 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
         }
     }
 
-    const s32 maxInputRank = op->getMaximumInputRank();
+    s32 maxInputRank = op->getMaximumInputRank();
+
+    // Check if the operator uses a condition and update that. Then adjust this
+    // operators input rank.
+    if (auto condLink = getConditionLink(op))
+    {
+        updateRank(condLink.condition.get(), updated);
+        s32 prevRank = maxInputRank;
+        maxInputRank = std::max(maxInputRank, condLink.condition->getMaximumInputRank());
+        qDebug() << __PRETTY_FUNCTION__ << "op" << op
+            << " uses conditon" << condLink.condition.get()
+            << ", prevInputRank =" << prevRank
+            << ", adjustedInputRank =" << maxInputRank;
+    }
 
 #if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "maxInputRank =" << maxInputRank;

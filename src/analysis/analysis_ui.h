@@ -24,6 +24,8 @@
 #include <memory>
 #include <QWidget>
 
+#include "analysis_fwd.h"
+
 class MVMEContext;
 
 namespace analysis
@@ -31,8 +33,6 @@ namespace analysis
 
 struct AnalysisWidgetPrivate;
 class ConditionWidget;
-class OperatorInterface;
-using OperatorPtr = std::shared_ptr<OperatorInterface>;
 
 class AnalysisWidget: public QWidget
 {
@@ -46,6 +46,7 @@ class AnalysisWidget: public QWidget
 
         void updateAddRemoveUserLevelButtons();
         ConditionWidget *getConditionWidget() const;
+        void showObjectInfo(const AnalysisObjectPtr &obj);
 
         virtual bool event(QEvent *event) override;
 
