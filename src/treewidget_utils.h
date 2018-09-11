@@ -169,4 +169,13 @@ class BasicTreeNode: public QTreeWidgetItem
         QVector<Data> m_columnData;
 };
 
+QVector<QTreeWidgetItem *> get_checked_nodes(QTreeWidgetItem *node,
+                                             Qt::CheckState checkStateMask = Qt::Checked,
+                                             int checkStateColumn = 0);
+
+void get_checked_nodes(QVector<QTreeWidgetItem *> &dest,
+                       QTreeWidgetItem *root,
+                       Qt::CheckState checkStateMask = Qt::Checked,
+                       int column = 0);
+
 #endif /* __TREEWIDGET_UTIL_H__ */
