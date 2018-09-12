@@ -5,32 +5,46 @@ TODO list, not at all sorted by priority
 --------------------------------------------------
 BUGFIXES and FEATURES wanted yesterday
 --------------------------------------------------
-* ExportSink is marked red in the UI. This happens if the optional condition
-  input is not connected.
-  Also connecting that input immediately clear the red marker but disconnecting
-  it again doesn't seem to update the display or for some other reason the
-  operator is not colored red again.
-
 * SIS: when not connected and doing an Init Module mvme hangs in recvfrom()
 
 * HtmlDelegate doesn't seem to know how wide the rendered contents are.
   Resizing the column by double clicking the headerview separator chooses a
   width that's too small.
 
-* Editing a H2D name via 'F2' is not really possible while a run is active. The
-  nodes text will be updated periodically which interferes with editing.
-
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 --------------------------------------------------
 Analysis Conditions (Histogram Cuts and more)
 --------------------------------------------------
+* Editing a H2D name via 'F2' is not really possible while a run is active. The
+  nodes text will be updated periodically which interferes with editing.
+* ExportSink is marked red in the UI. This happens if the optional condition
+  input is not connected.
+  Also connecting that input immediately clear the red marker but disconnecting
+  it again doesn't seem to update the display or for some other reason the
+  operator is not colored red again.
+* Add tests for rank calculations and condition candidates
+* Make candidate display instant. Detect if changes have been made and only
+  then show the apply and discard buttons.
+* Improve the way node content is set/cleared. The same is true for
+  highlighting.
+* Add good focus handling between the main and condition widgets.
+  Does the widget need some indicator? I think right now it's only recognizable
+  by finding the current tree selection. Also i believe this breaks when using
+  the keyboard to move in a tree.
+* Improve how analysis changes are propagated. The analysis ui has to not only
+  react to changes made by its own dialogs anymore but also to changes made by
+  the h2dwidget.
+* Maybe create a system for qwt plot picker handling and related tasks. The
+  same might be needed for QwtPlotShapeItems to show and modify cuts
+  graphically.
+
 * Sinks need to be cleared when their condition is applied/removed/modified.
+
+* Add a analysis ui mode description window and indicator somewhere.
 
 * Figure out how compound conditions and the internal dependency ranks work
   together.
-
-
 
 * For H1D: [xmin, xmax) range
 * For H2D: polygon, sepcial cases: ellipses, rectangles
