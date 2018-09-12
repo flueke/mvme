@@ -344,8 +344,6 @@ struct Histo2DWidgetPrivate
     // Cuts
     QwtPlotPicker *m_cutPolyPicker;
     std::unique_ptr<QwtPlotShapeItem> m_cutShapeItem;
-    QPolygonF m_cutShapePolygonQt;
-    QwtPlotPicker *m_cutPointPicker;
 
     Histo2D *m_histo = nullptr;
     Histo2DPtr m_histoPtr;
@@ -414,7 +412,6 @@ struct Histo2DWidgetPrivate
     void onRRSliderYValueChanged(int sliderValue);
 
     void onCutPolyPickerActivated(bool on);
-    void onCutPointPickerPointSelected(const QPointF &point);
 };
 
 enum class AxisScaleType
@@ -545,64 +542,24 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         m_d->m_cutPolyPicker->setStateMachine(new QwtPickerPolygonMachine);
         m_d->m_cutPolyPicker->setEnabled(false);
 
-        m_d->m_cutPointPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
-                                                  QwtPicker::CrossRubberBand,
-                                                  QwtPicker::ActiveOnly,
-                                                  m_d->m_plot->canvas());
-
         TRY_ASSERT(connect(m_d->m_cutPolyPicker, &QwtPicker::activated, this, [this](bool on) {
             m_d->onCutPolyPickerActivated(on);
         }));
 
         auto action = tb->addAction("Dev: Create cut");
         action->setCheckable(true);
+        action->setEnabled(false); // will be enabled in setContext()
         m_d->m_actionCreateCut = action;
 
         connect(action, &QAction::toggled, this, [this](bool checked) {
             if (checked)
             {
                 m_d->m_zoomer->setEnabled(false);
-                m_d->m_cutPointPicker->setEnabled(false);
                 m_d->m_cutPolyPicker->setEnabled(true);
             }
             else
             {
                 m_d->m_zoomer->setEnabled(true);
-                m_d->m_cutPointPicker->setEnabled(false);
-                m_d->m_cutPolyPicker->setEnabled(false);
-            }
-        });
-
-        // point picker to create points for PiP tests
-        m_d->m_cutPointPicker->setTrackerPen(pickerPen);
-        m_d->m_cutPointPicker->setRubberBandPen(pickerPen);
-        m_d->m_cutPointPicker->setStateMachine(new AutoBeginClickPointMachine);
-        m_d->m_cutPointPicker->setEnabled(false);
-
-        TRY_ASSERT(connect(
-                m_d->m_cutPointPicker,
-                // so ugly :-(
-                static_cast<void (QwtPlotPicker::*) (const QPointF &)>(
-                    &QwtPlotPicker::selected),
-
-                this, [this] (const QPointF &point) {
-                    m_d->onCutPointPickerPointSelected(point);
-                }));
-
-        action = tb->addAction("Dev: PiP test");
-        action->setCheckable(true);
-
-        connect(action, &QAction::toggled, this, [this](bool checked) {
-            if (checked)
-            {
-                m_d->m_zoomer->setEnabled(false);
-                m_d->m_cutPointPicker->setEnabled(true);
-                m_d->m_cutPolyPicker->setEnabled(false);
-            }
-            else
-            {
-                m_d->m_zoomer->setEnabled(true);
-                m_d->m_cutPointPicker->setEnabled(false);
                 m_d->m_cutPolyPicker->setEnabled(false);
             }
         });
@@ -793,6 +750,7 @@ Histo2DWidget::~Histo2DWidget()
 void Histo2DWidget::setContext(MVMEContext *context)
 {
     m_d->m_context = context;
+    m_d->m_actionCreateCut->setEnabled(context != nullptr);
 }
 
 void Histo2DWidget::replot()
@@ -1603,135 +1561,84 @@ void Histo2DWidgetPrivate::onRRSliderYValueChanged(int sliderValue)
     m_q->replot();
 }
 
-using BGPoint = boost::geometry::model::d2::point_xy<double>;
-using BGPoly  = boost::geometry::model::polygon<BGPoint>;
-
-BGPoly make_boost_geometry_poly(const QPolygonF &qtPoly, bool doCorrect = true)
-{
-    std::vector<BGPoint> points;
-    points.reserve(qtPoly.size());
-
-    for (auto qp: qtPoly)
-    {
-        points.push_back(BGPoint(qp.x(), qp.y()));
-    }
-
-    BGPoly result;
-    boost::geometry::append(result, points);
-
-    if (doCorrect)
-        boost::geometry::correct(result);
-
-    return result;
-}
-
 void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
 {
-    //qDebug() << __PRETTY_FUNCTION__ << "active =" << active;
+    assert(m_context);
+    assert(m_sink);
 
-    if (!active)
+    if (active) return;
+
+    auto pixelPoly = m_cutPolyPicker->selection();
+
+    QPolygonF poly;
+    poly.reserve(pixelPoly.size() + 1);
+
+    for (const auto &point: pixelPoly)
     {
-        if (!m_cutShapeItem)
-        {
-            m_cutShapeItem = std::make_unique<QwtPlotShapeItem>(QSL("Cut"));
-            m_cutShapeItem->attach(m_plot);
-
-            //QBrush brush(QColor("#d0d78e"), Qt::DiagCrossPattern);
-            QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
-            m_cutShapeItem->setBrush(brush);
-        }
-
-        auto pixelPoly = m_cutPolyPicker->selection();
-
-        //qDebug() << __PRETTY_FUNCTION__ << "pixel poly selection ="
-        //    << pixelPoly;
-
-        QPolygonF poly;
-        poly.reserve(pixelPoly.size() + 1);
-
-        for (const auto &point: pixelPoly)
-        {
-            poly.push_back(QPointF(
-                    m_plot->invTransform(QwtPlot::xBottom, point.x()),
-                    m_plot->invTransform(QwtPlot::yLeft, point.y())
-                    ));
-        }
-
-        // close the poly
-        if (!poly.isEmpty())
-        {
-            poly.push_back(poly.first());
-        }
-
-        //qDebug() << __PRETTY_FUNCTION__ << "plot poly selection ="
-        //    << poly;
-
-        // TODO: store the polygon in a new 2d cut object
-        m_cutShapeItem->setPolygon(poly);
-        m_cutShapePolygonQt = poly;
-
-        // Back to default ui interactions: disable cut picker, enable zoomer
-        m_cutPolyPicker->setEnabled(false);
-
-        // Tell the zoomer to ignore the release following from the last right-click that
-        // closed the polygon. This seemed the easiest way to avoid unexpectedly zooming
-        // out.
-        m_zoomer->ignoreNextMouseRelease();
-        m_zoomer->setEnabled(true);
-
-        m_actionCreateCut->setChecked(false);
-
-        m_q->replot();
-
-        auto bgPoly = make_boost_geometry_poly(poly);
-
-        std::stringstream ss;
-        ss << boost::geometry::wkt(bgPoly);
-
-        qDebug().nospace()
-            <<  "{"
-            << endl << "    \"" << ss.str().c_str() << "\" ,"
-            << endl << "{";
-    }
-}
-
-void Histo2DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
-{
-    //qDebug() << __PRETTY_FUNCTION__ << point;
-
-    BGPoly poly = make_boost_geometry_poly(m_cutShapePolygonQt);
-
-    BGPoint pointToTest(point.x(), point.y());
-
-    std::string valid_msg;
-    bool was_valid = boost::geometry::is_valid(poly, valid_msg);
-
-    if (!was_valid)
-    {
-        boost::geometry::correct(poly);
+        poly.push_back(QPointF(
+                m_plot->invTransform(QwtPlot::xBottom, point.x()),
+                m_plot->invTransform(QwtPlot::yLeft, point.y())
+                ));
     }
 
-    bool is_valid = boost::geometry::is_valid(poly);
+    // close the poly
+    if (!poly.isEmpty())
+    {
+        poly.push_back(poly.first());
+    }
 
-    std::stringstream ss;
+    if (!m_cutShapeItem)
+    {
+        // create the shape item for rendering the polygon in the plot
+        m_cutShapeItem = std::make_unique<QwtPlotShapeItem>(QSL("Cut"));
+        m_cutShapeItem->attach(m_plot);
 
-    ss << boost::geometry::wkt(pointToTest);
+        //QBrush brush(QColor("#d0d78e"), Qt::DiagCrossPattern);
+        QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
+        m_cutShapeItem->setBrush(brush);
+    }
 
-    const bool is_within = boost::geometry::within(pointToTest, poly);
+    assert(m_cutShapeItem);
 
-#if 0
-    qDebug() << __PRETTY_FUNCTION__
-        << endl
-        << "was_valid =" << was_valid << ", msg =" << valid_msg.c_str()
-        << endl
-        << "is_valid  =" << is_valid
-        << endl
-        << "within =" << boost::geometry::within(pointToTest, poly)
-        << endl
-        << "WKT =" << ss.str().c_str()
-        ;
-#else
-    qDebug().nospace()
-        << "    { \"" << ss.str().c_str() << "\", " << is_within << " },";
-#endif
+    // render the polygon
+    m_cutShapeItem->setPolygon(poly);
+
+    // Back to default ui interactions: disable cut picker, enable zoomer
+    m_cutPolyPicker->setEnabled(false);
+
+    // Tell the zoomer to ignore the release following from the last right-click that
+    // closed the polygon. This seemed the easiest way to avoid unexpectedly zooming
+    // out.
+    m_zoomer->ignoreNextMouseRelease();
+    m_zoomer->setEnabled(true);
+
+    m_actionCreateCut->setChecked(false);
+
+    m_q->replot();
+
+
+    // create a new cut object and add it to the analysis
+
+    auto cond = std::make_shared<analysis::ConditionPolygon>();
+    cond->setPolygon(poly);
+    cond->setObjectName(QSL("New Polygon Cut"));
+
+    {
+        auto xInput = m_sink->getSlot(0)->inputPipe;
+        auto xIndex = m_sink->getSlot(0)->paramIndex;
+        auto yInput = m_sink->getSlot(1)->inputPipe;
+        auto yIndex = m_sink->getSlot(1)->paramIndex;
+
+        AnalysisPauser pauser(m_context);
+        cond->connectInputSlot(0, xInput, xIndex);
+        cond->connectInputSlot(1, yInput, yIndex);
+
+        // FIXME: remove this once conditions do not show up in the event trees anymore
+        const int userLevel = 3;
+
+        m_context->getAnalysis()->addOperator(
+            m_sink->getEventId(),
+            userLevel,
+            cond);
+    }
 }
