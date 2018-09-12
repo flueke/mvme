@@ -46,15 +46,6 @@
 #include <QTimer>
 #include <QToolBar>
 
-/* Circumvent compile errors related to the 'Q' numeric literal suffix.
- * See https://svn.boost.org/trac10/ticket/9240 and
- * https://www.boost.org/doc/libs/1_68_0/libs/math/doc/html/math_toolkit/config_macros.html
- * for details. */
-#define BOOST_MATH_DISABLE_FLOAT128
-#include <boost/geometry.hpp>
-#include <boost/geometry/geometries/point_xy.hpp>
-#include <boost/geometry/geometries/polygon.hpp>
-
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
 #include "histo1d_widget.h"
