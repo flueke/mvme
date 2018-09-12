@@ -456,6 +456,9 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
         s32 getMaximumInputRank();
         s32 getMaximumOutputRank();
 
+        void setRank(s32 rank) { m_rank = rank; }
+        s32 getRank() const { return m_rank; }
+
         virtual void slotConnected(Slot *slot) {}
         virtual void slotDisconnected(Slot *slot) {}
 
@@ -464,6 +467,9 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
         virtual bool removeLastSlot() { return false; }
 
         virtual void accept(ObjectVisitor &visitor) override;
+
+    private:
+        s32 m_rank = 0;
 };
 
 } // end namespace analysis
@@ -1724,6 +1730,17 @@ struct LIBMVME_EXPORT ConditionLink
     s32 subIndex = 0;
 
     explicit operator bool() const { return condition != nullptr; }
+
+    bool operator==(const ConditionLink &other) const
+    {
+        return (condition == other.condition
+                && subIndex == other.subIndex);
+    }
+
+    bool operator!=(const ConditionLink &other) const
+    {
+        return !(*this == other);
+    }
 };
 
 using ConditionLinks = QHash<OperatorPtr, ConditionLink>;
@@ -1800,7 +1817,16 @@ class LIBMVME_EXPORT Analysis: public QObject
         ConditionLinks getConditionLinks() const;
         bool hasActiveCondition(const OperatorPtr &op) const;
 
-        void setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
+        /* Links the given operator to the given condition and subindex. Any
+         * existing condition link will be replaced. */
+        bool setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
+
+        /* Clears the condition link of the given operator if it was linked to
+         * the given condition and subIndex. */
+        bool clearConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
+
+        /* Clears the condition link of the given operator. */
+        bool clearConditionLink(const OperatorPtr &op);
 
         //
         // Directory Objects

@@ -1089,7 +1089,7 @@ OperatorsByEventIndex group_operators_by_event(
 
         assert(eventIndex < a2::MaxVMEEvents);
 
-        result[eventIndex].push_back({ op, op->getMaximumInputRank(), -1 });
+        result[eventIndex].push_back({ op, op->getRank(), -1 });
     }
 
     return result;

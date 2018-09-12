@@ -1169,11 +1169,11 @@ struct EventWidgetPrivate
     AnalysisObjectVector getTopLevelSelectedObjects() const;
 
     QVector<QTreeWidgetItem *> getCheckedNodes(
-        Qt::CheckState checkStateMask = Qt::Checked,
+        Qt::CheckState checkState = Qt::Checked,
         int checkStateColumn = 0) const;
 
     AnalysisObjectVector getCheckedObjects(
-        Qt::CheckState checkStateMask = Qt::Checked,
+        Qt::CheckState checkState = Qt::Checked,
         int checkStateColumn = 0) const;
 
     void clearSelections();
@@ -3409,15 +3409,14 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode(QTreeWidgetItem *node)
     assert(op);
 
     qDebug() << __PRETTY_FUNCTION__
-        << aci.cond << aci.cond->getMaximumInputRank()
-        << op.get() << op->getMaximumInputRank();
-
+        << "condRank =" << aci.cond << aci.cond->getRank()
+        << "opRank =" << op.get() << op->getRank();
 
 
     /* Cannot apply to self or to higher ranks. */
     // FIXME: think about the +1 :-)
     bool canApply = (aci.cond != op.get()
-                     && aci.cond->getMaximumInputRank() <= op->getMaximumInputRank() + 1);
+                     && aci.cond->getRank() <= op->getRank());
 
     /* Test the conditions inputs: the condition cannot be applied to one of
      * its own inputs. */
@@ -4304,7 +4303,7 @@ AnalysisObjectVector EventWidgetPrivate::getTopLevelSelectedObjects() const
 }
 
 QVector<QTreeWidgetItem *> EventWidgetPrivate::getCheckedNodes(
-    Qt::CheckState checkStateMask, int checkStateColumn) const
+    Qt::CheckState checkState, int checkStateColumn) const
 {
     QVector<QTreeWidgetItem *> result;
 
@@ -4313,7 +4312,7 @@ QVector<QTreeWidgetItem *> EventWidgetPrivate::getCheckedNodes(
         for (const auto &tree: trees.getObjectTrees())
         {
             get_checked_nodes(result, tree->invisibleRootItem(),
-                              checkStateMask, checkStateColumn);
+                              checkState, checkStateColumn);
         }
     }
 
@@ -4321,9 +4320,9 @@ QVector<QTreeWidgetItem *> EventWidgetPrivate::getCheckedNodes(
 }
 
 AnalysisObjectVector EventWidgetPrivate::getCheckedObjects(
-    Qt::CheckState checkStateMask, int checkStateColumn) const
+    Qt::CheckState checkState, int checkStateColumn) const
 {
-    return objects_from_nodes(getCheckedNodes(checkStateMask, checkStateColumn));
+    return objects_from_nodes(getCheckedNodes(checkState, checkStateColumn));
 }
 
 void EventWidgetPrivate::clearSelections()
@@ -5246,11 +5245,9 @@ void EventWidget::applyConditionAccept()
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 
-    /* Collect checked nodes, get operators from these nodes.  Create a
+    /* Collect checked nodes, get operators from these nodes. Create a
      * condition link for each operator to the current conditionInfos condition
-     * and index.
-     * Rebuild all modified operators.
-     * FIXME: do more things need to be rebuilt?
+     * and index. Then rebuild the analysis.
      */
 
     auto analysis = m_d->getAnalysis();
@@ -5262,12 +5259,40 @@ void EventWidget::applyConditionAccept()
         {
             qDebug() << "setting condition link for" << op.get();
 
-            m_d->getAnalysis()->setConditionLink(
+            bool modified = m_d->getAnalysis()->setConditionLink(
                 op,
                 m_d->m_applyConditionInfo.cond,
                 m_d->m_applyConditionInfo.bitIndex);
+
+            if (modified)
+            {
+                analysis->setModified(true);
+            }
         }
     }
+
+    objects = m_d->getCheckedObjects(Qt::Unchecked);
+
+    for (auto &obj: objects)
+    {
+        if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+        {
+            qDebug() << "clearing condition link for" << op.get();
+
+            bool modified = m_d->getAnalysis()->clearConditionLink(
+                op,
+                m_d->m_applyConditionInfo.cond,
+                m_d->m_applyConditionInfo.bitIndex);
+
+            if (modified)
+            {
+                analysis->setModified(true);
+            }
+        }
+    }
+
+    AnalysisPauser pauser(getContext());
+    analysis->beginRun(Analysis::KeepState);
 
     m_d->m_applyConditionInfo = { nullptr, -1 };
     m_d->setMode(EventWidgetPrivate::Default);
@@ -6323,9 +6348,19 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     centralLayout->addWidget(m_d->m_eventWidgetStack);
     centralLayout->setStretch(1, 1);
 
+    auto conditionsTabWidget = new QTabWidget;
+    conditionsTabWidget->addTab(m_d->m_conditionWidget,
+                                QIcon(QSL(":/scissors.png")),
+                                QSL("Cuts/Conditions"));
+
+    auto objectInfoTabWidget = new QTabWidget;
+    objectInfoTabWidget->addTab(m_d->m_objectInfoWidget,
+                                QIcon(QSL(":/info.png")),
+                                QSL("Object Info"));
+
     auto rightWidget = new QSplitter(Qt::Vertical);
-    rightWidget->addWidget(m_d->m_conditionWidget);
-    rightWidget->addWidget(m_d->m_objectInfoWidget);
+    rightWidget->addWidget(conditionsTabWidget);
+    rightWidget->addWidget(objectInfoTabWidget);
 
     auto mainSplitter = new QSplitter;
     mainSplitter->addWidget(centralWidget);

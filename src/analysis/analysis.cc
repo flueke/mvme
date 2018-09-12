@@ -3971,11 +3971,50 @@ bool Analysis::hasActiveCondition(const OperatorPtr &op) const
     return m_conditionLinks.value(op).condition != nullptr;
 }
 
-void Analysis::setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex)
+bool Analysis::setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex)
 {
     auto condPtr = std::dynamic_pointer_cast<ConditionInterface>(cond->shared_from_this());
-    m_conditionLinks.insert(op, { condPtr, subIndex });
-    // FIXME: (maybe) set objects flags here
+    ConditionLink cl{ condPtr, subIndex };
+
+    if (cl != m_conditionLinks.value(op))
+    {
+        m_conditionLinks.insert(op, { condPtr, subIndex });
+
+        // Set rebuild flag to  clear operator state (e.g. histogram contents)
+        // after the condition was set or changed.
+        op->setObjectFlags(ObjectFlags::NeedsRebuild);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool Analysis::clearConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex)
+{
+    auto condPtr = std::dynamic_pointer_cast<ConditionInterface>(cond->shared_from_this());
+    ConditionLink cl{ condPtr, subIndex };
+
+    if (m_conditionLinks.value(op) == cl)
+    {
+        m_conditionLinks.remove(op);
+        op->setObjectFlags(ObjectFlags::NeedsRebuild);
+        return true;
+    }
+
+    return false;
+}
+
+bool Analysis::clearConditionLink(const OperatorPtr &op)
+{
+    if (m_conditionLinks.contains(op))
+    {
+        m_conditionLinks.remove(op);
+        op->setObjectFlags(ObjectFlags::NeedsRebuild);
+        return true;
+    }
+
+    return false;
 }
 
 //
@@ -4349,8 +4388,8 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
         {
             auto *inputObject(inputPipe->getSource());
 
-            // Only operators need to be updated. Data sources will have their rank
-            // set to 0 already.
+            // Only operators need to be updated. Data sources will have their
+            // output ranks set to 0 already.
             if (auto inputOperator = qobject_cast<OperatorInterface *>(inputObject))
             {
                 updateRank(inputOperator, updated);
@@ -4358,28 +4397,35 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
         }
     }
 
-    s32 maxInputRank = op->getMaximumInputRank();
+    const s32 maxInputRank = op->getMaximumInputRank();
+    s32 newRank = maxInputRank + 1;
 
     // Check if the operator uses a condition and update that. Then adjust this
     // operators input rank.
     if (auto condLink = getConditionLink(op))
     {
         updateRank(condLink.condition.get(), updated);
-        s32 prevRank = maxInputRank;
-        maxInputRank = std::max(maxInputRank, condLink.condition->getMaximumInputRank());
+
+        const s32 condRank = condLink.condition->getRank();
+
+        newRank = std::max(maxInputRank, condRank) + 1;
+
         qDebug() << __PRETTY_FUNCTION__ << "op" << op
             << " uses conditon" << condLink.condition.get()
-            << ", prevInputRank =" << prevRank
-            << ", adjustedInputRank =" << maxInputRank;
+            << ", this.maxInputRank =" << maxInputRank
+            << ", cond.rank =" << condRank
+            << ", newRank =" << newRank;
     }
 
+    op->setRank(newRank);
+
 #if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "maxInputRank =" << maxInputRank;
+    qDebug() << __PRETTY_FUNCTION__ << "newRank =" << newRank;
 #endif
 
     for (s32 oi = 0; oi < op->getNumberOfOutputs(); oi++)
     {
-        op->getOutput(oi)->setRank(maxInputRank + 1);
+        op->getOutput(oi)->setRank(newRank);
         updated.insert(op);
 
 #if ENABLE_ANALYSIS_DEBUG
@@ -4392,7 +4438,7 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
     qDebug() << __PRETTY_FUNCTION__ << "<<<<< updated rank for"
         << getClassName(op)
         << op->objectName()
-        << "new output rank" << op->getMaximumOutputRank();
+        << "new rank" << op->getRank();
 #endif
 }
 
@@ -4428,21 +4474,22 @@ void Analysis::beginRun(const RunInfo &runInfo,
 
     qSort(m_operators.begin(), m_operators.end(),
           [] (const OperatorPtr &op1, const OperatorPtr &op2) {
-        return op1->getMaximumInputRank() < op2->getMaximumInputRank();
+        return op1->getRank() < op2->getRank();
     });
 
 #if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "<<<<< operators sorted by maximum input rank";
+    qDebug() << __PRETTY_FUNCTION__ << "<<<<< operators sorted by rank";
     for (const auto &op: m_operators)
     {
         qDebug() << "  "
-            << "max input rank =" << op->getMaximumInputRank()
+            << "rank =" << op->getRank()
+            << ", maxInputRank =" << op->getMaximumInputRank()
             << getClassName(op.get())
             << op->objectName()
             << ", max output rank =" << op->getMaximumOutputRank()
             << ", flags =" << op->getObjectFlags();
     }
-    qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by maximum input rank";
+    qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by rank";
 #endif
 
     qDebug() << __PRETTY_FUNCTION__ << "analysis::Analysis:"

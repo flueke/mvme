@@ -233,7 +233,7 @@ ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
     layout->addLayout(buttonsLayout);
     layout->addWidget(m_d->m_treeStack);
     layout->setStretch(2, 1);
-    layout->setContentsMargins(2, 0, 0, 0);
+    layout->setContentsMargins(0, 0, 0, 0);
 
     setWindowTitle(QSL("Conditions/Cuts"));
 

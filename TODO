@@ -17,11 +17,16 @@ BUGFIXES and FEATURES wanted yesterday
   Resizing the column by double clicking the headerview separator chooses a
   width that's too small.
 
+* Editing a H2D name via 'F2' is not really possible while a run is active. The
+  nodes text will be updated periodically which interferes with editing.
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 --------------------------------------------------
 Analysis Conditions (Histogram Cuts and more)
 --------------------------------------------------
+* Sinks need to be cleared when their condition is applied/removed/modified.
+
 * Figure out how compound conditions and the internal dependency ranks work
   together.
 
