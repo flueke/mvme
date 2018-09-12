@@ -1,5 +1,6 @@
 #include "object_info_widget.h"
 
+#include "a2_adapter.h"
 #include "analysis.h"
 #include "mvme_context.h"
 #include "qt_util.h"
@@ -78,8 +79,12 @@ void ObjectInfoWidget::refresh()
         .arg(to_string(obj->getObjectFlags()))
         ;
 
+    auto analysis = m_d->m_context->getAnalysis();
+
     if (auto op = qobject_cast<OperatorInterface *>(obj.get()))
     {
+        text += QSL("\nrank=%1").arg(op->getRank());
+
         text += QSL("\n#inputs=%1, maxInRank=%2")
             .arg(op->getNumberOfSlots())
             .arg(op->getMaximumInputRank());
@@ -88,15 +93,41 @@ void ObjectInfoWidget::refresh()
             .arg(op->getNumberOfOutputs())
             .arg(op->getMaximumOutputRank());
 
-        auto analysis = m_d->m_context->getAnalysis();
 
         if (auto condLink = analysis->getConditionLink(op))
         {
-            text += QSL("\ncondLink=%1[%2], condMaxInRank=%3")
+            text += QSL("\ncondLink=%1[%2], condRank=%3")
                 .arg(condLink.condition->objectName())
                 .arg(condLink.subIndex)
-                .arg(condLink.condition->getMaximumInputRank());
+                .arg(condLink.condition->getRank());
         }
+    }
+
+    auto a2State = analysis->getA2AdapterState();
+    auto cond = qobject_cast<ConditionInterface *>(obj.get());
+
+    if (a2State && a2State->a2 && cond && a2State->conditionBitIndexes.contains(cond))
+    {
+        // FIXME: async copy or direct reference here. does access to the
+        // bitset need to be guarded? if copying try to find a faster way than
+        // testing and setting bit-by-bit. maybe alloc, clear and use an
+        // overloaded OR operator
+        const auto &condBits = a2State->a2->conditionBits;
+        s32 firstBit = a2State->conditionBitIndexes.value(cond);
+
+        QString buffer;
+
+        // rough estimate to avoid too many reallocations
+        buffer.reserve(cond->getNumberOfBits() * 3);
+
+        for (s32 bi = firstBit; bi < firstBit + cond->getNumberOfBits(); bi++)
+        {
+            assert(0 <= bi && static_cast<size_t>(bi) < condBits.size());
+
+            buffer += QSL("%1,").arg(condBits.test(bi));
+        }
+
+        text += QSL("\nbits=") + buffer;
     }
 
     label->setText(text);
