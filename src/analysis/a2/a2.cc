@@ -3720,6 +3720,7 @@ void a2_end_event(A2 *a2, int eventIndex)
     Operator *operators = a2->operators[eventIndex];
     u8 *ranks = a2->operatorRanks[eventIndex];
     s32 opSteppedCount = 0;
+    s32 opCondSkipped  = 0;
 
     a2_trace("ei=%d, stepping %d operators\n", eventIndex, opCount);
 
@@ -3752,6 +3753,7 @@ void a2_end_event(A2 *a2, int eventIndex)
             {
                 // condition is false -> invalidate all outputs
                 invalidate_outputs(op);
+                opCondSkipped++;
             }
         }
         else
@@ -3760,9 +3762,10 @@ void a2_end_event(A2 *a2, int eventIndex)
         }
     }
 
-    assert(opSteppedCount == opCount);
+    assert(opSteppedCount + opCondSkipped == opCount);
 
-    a2_trace("ei=%d, %d operators stepped\n", eventIndex, opSteppedCount);
+    a2_trace("ei=%d, operators stepped=%d, condSkipped=%d\n",
+             eventIndex, opSteppedCount, opCondSkipped);
 
     for (int opIdx = 0; opIdx < opCount; opIdx++)
     {

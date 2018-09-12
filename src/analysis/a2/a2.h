@@ -693,6 +693,9 @@ struct A2
     using BitsetAllocator = memory::ArenaAllocator<BlockType>;
     using ConditionBitset = boost::dynamic_bitset<BlockType, BitsetAllocator>;
 
+    /* FIXME: hide this member and provide and accessor that creates and returns
+     * a copy of the bitset. The copy should use std::allocator instead of the
+     * BitsetAllocator. */
     ConditionBitset conditionBits;
 
     A2(memory::Arena *arena);
