@@ -16,9 +16,6 @@
                     # 2 -> time only (TDC mode)
                     # 3 -> long integral, short integral and time
 
-# adc_resolution
-#0x6046             # always 4k
-
 # first_hit
 0x605C  1           # 0 -> transmit all hits per channel in the window
                     # 1 -> only transmit first hit per channel in the window
