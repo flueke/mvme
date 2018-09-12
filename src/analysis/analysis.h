@@ -1410,7 +1410,7 @@ class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
-        void setPolygon(const QRectF &polygon);
+        void setPolygon(const QPolygonF &polygon);
         QPolygonF getPolygon() const;
 
         virtual s32 getNumberOfBits() const override { return 1; }

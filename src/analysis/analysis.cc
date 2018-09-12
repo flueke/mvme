@@ -3541,7 +3541,7 @@ void ConditionPolygon::beginRun(const RunInfo &runInfo, Logger logger)
 {
 }
 
-void ConditionPolygon::setPolygon(const QRectF &polygon)
+void ConditionPolygon::setPolygon(const QPolygonF &polygon)
 {
     m_polygon = polygon;
 }
