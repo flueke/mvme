@@ -222,28 +222,29 @@ QVariant BasicTreeNode::data(int column, int role) const
 
 void get_checked_nodes(QVector<QTreeWidgetItem *> &dest,
                        QTreeWidgetItem *root,
-                       Qt::CheckState checkStateMask,
+                       Qt::CheckState testCheckState,
                        int column)
 {
-    auto checkState = root->checkState(column);
-    if (checkState & checkStateMask)
+    auto nodeCheckState = root->checkState(column);
+
+    if (testCheckState == nodeCheckState)
     {
         dest.push_back(root);
     }
 
     for (s32 ci = 0; ci < root->childCount(); ci++)
     {
-        get_checked_nodes(dest, root->child(ci), checkStateMask, column);
+        get_checked_nodes(dest, root->child(ci), testCheckState, column);
     }
 }
 
 QVector<QTreeWidgetItem *> get_checked_nodes(QTreeWidgetItem *node,
-                                             Qt::CheckState checkStateMask,
+                                             Qt::CheckState checkState,
                                              int checkStateColumn)
 {
     QVector<QTreeWidgetItem *> result;
 
-    get_checked_nodes(result, node, checkStateMask, checkStateColumn);
+    get_checked_nodes(result, node, checkState, checkStateColumn);
 
     return result;
 }

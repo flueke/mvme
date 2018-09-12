@@ -175,7 +175,7 @@ QVector<QTreeWidgetItem *> get_checked_nodes(QTreeWidgetItem *node,
 
 void get_checked_nodes(QVector<QTreeWidgetItem *> &dest,
                        QTreeWidgetItem *root,
-                       Qt::CheckState checkStateMask = Qt::Checked,
+                       Qt::CheckState checkState = Qt::Checked,
                        int column = 0);
 
 #endif /* __TREEWIDGET_UTIL_H__ */
