@@ -170,12 +170,17 @@ class BasicTreeNode: public QTreeWidgetItem
 };
 
 QVector<QTreeWidgetItem *> get_checked_nodes(QTreeWidgetItem *node,
-                                             Qt::CheckState checkStateMask = Qt::Checked,
+                                             Qt::CheckState checkState = Qt::Checked,
                                              int checkStateColumn = 0);
 
 void get_checked_nodes(QVector<QTreeWidgetItem *> &dest,
                        QTreeWidgetItem *root,
                        Qt::CheckState checkState = Qt::Checked,
                        int column = 0);
+
+using SetOfVoidStar = QSet<void *>;
+
+void expand_tree_nodes(QTreeWidgetItem *root, const SetOfVoidStar &pointers,
+                       int dataColumn = 0, int dataRole = Qt::UserRole);
 
 #endif /* __TREEWIDGET_UTIL_H__ */

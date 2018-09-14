@@ -248,3 +248,24 @@ QVector<QTreeWidgetItem *> get_checked_nodes(QTreeWidgetItem *node,
 
     return result;
 }
+
+void expand_tree_nodes(QTreeWidgetItem *root, const SetOfVoidStar &pointers,
+                       int dataColumn, int dataRole)
+{
+    s32 childCount = root->childCount();
+
+    for (s32 childIndex = 0;
+         childIndex < childCount;
+         ++childIndex)
+    {
+        auto childNode = root->child(childIndex);
+        expand_tree_nodes(childNode, pointers);
+    }
+
+    void *voidObj = root->data(dataColumn, dataRole).value<void *>();
+
+    if (voidObj && pointers.contains(voidObj))
+    {
+        root->setExpanded(true);
+    }
+}
