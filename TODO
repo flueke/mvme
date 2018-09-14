@@ -20,10 +20,13 @@ Analysis Conditions (Histogram Cuts and more)
   nodes text will be updated periodically which interferes with editing.
 * ExportSink is marked red in the UI. This happens if the optional condition
   input is not connected.
-  Also connecting that input immediately clear the red marker but disconnecting
+  Also connecting that input immediately clears the red marker but disconnecting
   it again doesn't seem to update the display or for some other reason the
   operator is not colored red again.
-* Add tests for rank calculations and condition candidates
+* Add tests for rank calculations and condition candidates. I think for
+  candicates I'll have to look and the input ranks not at the newly added rank
+  itself. The reason is that prior condition application can have added ranks
+  in-between.
 * Make candidate display instant. Detect if changes have been made and only
   then show the apply and discard buttons.
 * Improve the way node content is set/cleared. The same is true for
@@ -38,6 +41,9 @@ Analysis Conditions (Histogram Cuts and more)
 * Maybe create a system for qwt plot picker handling and related tasks. The
   same might be needed for QwtPlotShapeItems to show and modify cuts
   graphically.
+* Deleting a condition keeps it alive in the condlink. Switch to weak_ptr here?
+  This will involve calls to lock() sometimes on two objects at the same time,
+  e.g. in ConditionLink::operator==()
 
 * Sinks need to be cleared when their condition is applied/removed/modified.
 

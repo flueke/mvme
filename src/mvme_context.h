@@ -68,8 +68,12 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void daqConfigChanged(VMEConfig *config);
         void daqConfigFileNameChanged(const QString &fileName);
 
+        /* Emitted when a new analysis is loaded.
+         * Note that a nullptr may be passed in case loading did not succeed. */
+        void analysisChanged(analysis::Analysis *analysis);
+
+        /* Emitted when the current analysis file name changed. */
         void analysisConfigFileNameChanged(const QString &name);
-        void analysisChanged();
 
         void objectAdded(QObject *object);
         void objectAboutToBeRemoved(QObject *object);
@@ -243,7 +247,9 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         // Returns an empty shared_Ptr if getWorkspaceDirectory() returns an empty string
         std::shared_ptr<QSettings> makeWorkspaceSettings() const;
         // Returns an empty string if not workspace is open
-        QString getWorkspacePath(const QString &settingsKey, const QString &defaultValue = QString(), bool setIfDefaulted = true) const;
+        QString getWorkspacePath(const QString &settingsKey,
+                                 const QString &defaultValue = QString(),
+                                 bool setIfDefaulted = true) const;
 
         /* Reapplies some of the settings found in the mvmeworkspace.ini file.  Right now
          * (re)starts or stops the JSON-RPC server. */
@@ -259,7 +265,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         bool loadAnalysisConfig(const QString &fileName);
         bool loadAnalysisConfig(QIODevice *input, const QString &inputInfo = QString());
-        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString(), AnalysisLoadFlags flags = {});
+        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString(),
+                                AnalysisLoadFlags flags = {});
         bool loadAnalysisConfig(const QByteArray &blob, const QString &inputInfo = QString());
         void analysisWasCleared();
         void analysisWasSaved();
@@ -271,7 +278,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         bool isWorkspaceModified() const;
 
-        analysis::Analysis *getAnalysis() const { return m_analysis; }
+        analysis::Analysis *getAnalysis() const { return m_analysis.get(); }
 
         bool isAnalysisRunning();
         void stopAnalysis();
@@ -370,7 +377,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         ListFileReader *m_listFileWorker;
         QTime m_replayTime;
 
-        analysis::Analysis *m_analysis;
+        std::unique_ptr<analysis::Analysis> m_analysis;
 
         ThreadSafeDataBufferQueue m_freeBuffers;
         ThreadSafeDataBufferQueue m_fullBuffers;

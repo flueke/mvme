@@ -285,7 +285,7 @@ void AddEditExtractorDialog::accept()
 
         case ObjectEditorMode::Edit:
             {
-                analysis->sourceEdited(m_ex);
+                analysis->setSourceEdited(m_ex);
             } break;
     }
 

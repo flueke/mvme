@@ -46,11 +46,13 @@ class ConditionWidget: public QWidget
 
         void repopulate();
         void repopulate(int eventIndex);
+        void repopulate(const QUuid &eventId);
         void doPeriodicUpdate();
 
     public slots:
         void selectEvent(int eventIndex);
         void selectEventById(const QUuid &eventId);
+        void clearTreeSelections();
 
     private:
         struct Private;

@@ -607,7 +607,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
                     "removing module assignment from data source " << source.get();
 
                 source->setModuleId(QUuid());
-                analysis->sourceEdited(source);
+                analysis->setSourceEdited(source);
                 droppedObjects.append(source);
             }
         }
@@ -631,7 +631,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
                     << "assigning source " << source.get() << " to module " << module;
 
                 source->setModuleId(module->getId());
-                analysis->sourceEdited(source);
+                analysis->setSourceEdited(source);
                 droppedObjects.append(source);
             }
         }
@@ -1672,34 +1672,15 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
     }
 }
 
-static void expandObjectNodes(QTreeWidgetItem *node, const SetOfVoidStar &objectsToExpand)
-{
-    s32 childCount = node->childCount();
-
-    for (s32 childIndex = 0;
-         childIndex < childCount;
-         ++childIndex)
-    {
-        auto childNode = node->child(childIndex);
-        expandObjectNodes(childNode, objectsToExpand);
-    }
-
-    void *voidObj = get_pointer<void>(node);
-
-    if (voidObj && objectsToExpand.contains(voidObj))
-    {
-        node->setExpanded(true);
-    }
-}
-
 template<typename T>
 static void expandObjectNodes(const QVector<UserLevelTrees> &treeVector, const T &objectsToExpand)
 {
     for (auto trees: treeVector)
     {
-        expandObjectNodes(trees.operatorTree->invisibleRootItem(),
+        expand_tree_nodes(trees.operatorTree->invisibleRootItem(),
                           objectsToExpand[EventWidgetPrivate::TreeType_Operator]);
-        expandObjectNodes(trees.sinkTree->invisibleRootItem(),
+
+        expand_tree_nodes(trees.sinkTree->invisibleRootItem(),
                           objectsToExpand[EventWidgetPrivate::TreeType_Sink]);
     }
 }
@@ -3462,7 +3443,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     << ", flags =" << to_string(obj->getObjectFlags())
                     << ", ulvl  =" << obj->getUserLevel()
                     ;
-
+                emit m_q->objectSelected(obj);
             }
             break;
     }
@@ -5250,15 +5231,35 @@ void EventWidget::applyConditionAccept()
      * and index. Then rebuild the analysis.
      */
 
-    auto analysis = m_d->getAnalysis();
-    auto objects  = m_d->getCheckedObjects();
+    /* XXX: By introducing and using the analysis modification signals the
+     * following changed:
+     * - checked and unchecked objects have to be fetched from the trees
+     *   _before_ any changes are made to the analysis.
+     * - This widget and its trees are recreated for each succesfull call to
+     *   setConditionLink()/clearConditionLink()
+     *
+     * How to avoid excessive rebuilding when using granular signals like this?
+     * Signals emitted by the analysis could be blocked here but then other
+     * observers won't be notified of the changes.
+     *
+     * A notification wrapper instance could be used in-between this widget and
+     * the analysis. Then signals would only be blocked in the local wrapper
+     * instance without affecting other observers.
+     *
+     * Another way would be to implement a delayed repopulate/repaint where
+     * only a flag is set in repopulate() and the actual repop is done elsewhere
+     * at a later time and only once. But of course delayed updates will then
+     * be the default way of doing things, even if sometimes a direct update is
+     * desired.
+     */
+    auto analysis         = m_d->getAnalysis();
+    auto checkedObjects   = m_d->getCheckedObjects();
+    auto uncheckedObjects = m_d->getCheckedObjects(Qt::Unchecked);
 
-    for (auto &obj: objects)
+    for (auto &obj: checkedObjects)
     {
         if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
         {
-            qDebug() << "setting condition link for" << op.get();
-
             bool modified = m_d->getAnalysis()->setConditionLink(
                 op,
                 m_d->m_applyConditionInfo.cond,
@@ -5266,19 +5267,16 @@ void EventWidget::applyConditionAccept()
 
             if (modified)
             {
+                qDebug() << "set condition link for" << op.get();
                 analysis->setModified(true);
             }
         }
     }
 
-    objects = m_d->getCheckedObjects(Qt::Unchecked);
-
-    for (auto &obj: objects)
+    for (auto &obj: uncheckedObjects)
     {
         if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
         {
-            qDebug() << "clearing condition link for" << op.get();
-
             bool modified = m_d->getAnalysis()->clearConditionLink(
                 op,
                 m_d->m_applyConditionInfo.cond,
@@ -5286,6 +5284,7 @@ void EventWidget::applyConditionAccept()
 
             if (modified)
             {
+                qDebug() << "cleared condition link for" << op.get();
                 analysis->setModified(true);
             }
         }
@@ -5296,6 +5295,7 @@ void EventWidget::applyConditionAccept()
 
     m_d->m_applyConditionInfo = { nullptr, -1 };
     m_d->setMode(EventWidgetPrivate::Default);
+    m_d->repopulate();
 }
 
 void EventWidget::applyConditionReject()
@@ -5429,7 +5429,7 @@ struct AnalysisWidgetPrivate
     MVMEContext *m_context;
     QHash<QUuid, EventWidget *> m_eventWidgetsByEventId;
     QVector<EventWidget *> m_eventWidgetsByEventIndex;
-
+    AnalysisSignalWrapper m_analysisSignalWrapper;
 
     QToolBar *m_toolbar;
     QComboBox *m_eventSelectCombo;
@@ -5451,8 +5451,10 @@ struct AnalysisWidgetPrivate
     QAction *m_actionPause;
     QAction *m_actionStepNextEvent;
 
+    void onAnalysisChanged(Analysis *analysis);
     void repopulate();
     void repopulateEventSelectCombo();
+    void repopulateEventRelatedWidgets(const QUuid &eventId);
     void doPeriodicUpdate();
 
     void closeAllUniqueWidgets();
@@ -5475,7 +5477,99 @@ struct AnalysisWidgetPrivate
 
     void updateWindowTitle();
     void updateAddRemoveUserLevelButtons();
+
+    // react to changes made to the analysis
+    void onDataSourceAdded(const SourcePtr &src);
+    void onDataSourceRemoved(const SourcePtr &src);
+    void onOperatorAdded(const OperatorPtr &op);
+    void onOperatorRemoved(const OperatorPtr &op);
+    void onDirectoryAdded(const DirectoryPtr &dir);
+    void onDirectoryRemoved(const DirectoryPtr &dir);
+    void onConditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl);
+    void onConditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl);
 };
+
+void AnalysisWidgetPrivate::onAnalysisChanged(Analysis *analysis)
+{
+    /* Assuming the old analysis has been (or will be deleted via
+     * deleteLater()), thus signals needs not be disconnected manually here. */
+
+    m_analysisSignalWrapper.setAnalysis(analysis);
+    repopulate();
+}
+
+void AnalysisWidgetPrivate::onDataSourceAdded(const SourcePtr &src)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << src.get();
+
+    auto eventId = src->getEventId();
+    repopulateEventRelatedWidgets(eventId);
+}
+
+void AnalysisWidgetPrivate::onDataSourceRemoved(const SourcePtr &src)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << src.get();
+
+    auto eventId = src->getEventId();
+    repopulateEventRelatedWidgets(eventId);
+}
+
+void AnalysisWidgetPrivate::onOperatorAdded(const OperatorPtr &op)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << op.get();
+
+    auto eventId = op->getEventId();
+    repopulateEventRelatedWidgets(eventId);
+}
+
+void AnalysisWidgetPrivate::onOperatorRemoved(const OperatorPtr &op)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << op.get();
+
+    auto eventId = op->getEventId();
+    repopulateEventRelatedWidgets(eventId);
+}
+
+void AnalysisWidgetPrivate::onDirectoryAdded(const DirectoryPtr &dir)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << dir.get();
+
+    auto eventId = dir->getEventId();
+    repopulateEventRelatedWidgets(eventId);
+}
+
+void AnalysisWidgetPrivate::onDirectoryRemoved(const DirectoryPtr &dir)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+    auto eventId = dir->getEventId();
+    repopulateEventRelatedWidgets(eventId);
+}
+
+void AnalysisWidgetPrivate::onConditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+    assert(op->getEventId() == cl.condition->getEventId());
+    auto eventId = op->getEventId();
+    repopulateEventRelatedWidgets(eventId);
+}
+
+void AnalysisWidgetPrivate::onConditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+    assert(op->getEventId() == cl.condition->getEventId());
+    auto eventId = op->getEventId();
+    repopulateEventRelatedWidgets(eventId);
+}
+
+void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
+{
+    if (auto ew = m_eventWidgetsByEventId.value(eventId))
+    {
+        ew->repopulate();
+    }
+
+    m_conditionWidget->repopulate(eventId);
+}
 
 void AnalysisWidgetPrivate::repopulate()
 {
@@ -5501,6 +5595,11 @@ void AnalysisWidgetPrivate::repopulate()
             m_context, eventId, eventIndex, m_q);
 
         auto condWidget = m_conditionWidget;
+
+        QObject::connect(eventWidget, &EventWidget::objectSelected,
+                         m_q, [this] (const AnalysisObjectPtr &) {
+                             m_conditionWidget->clearTreeSelections();
+        });
 
         QObject::connect(condWidget, &ConditionWidget::applyConditionBegin,
                          eventWidget, &EventWidget::applyConditionBegin);
@@ -6129,20 +6228,14 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     connect(m_d->m_context, &MVMEContext::moduleAboutToBeRemoved, this, do_repopulate_lambda);
 
     // Analysis changes
-    auto on_analysis_changed = [this]()
-    {
-        /* Assuming the old analysis has been deleted, thus no
-         * QObject::disconnect() is needed. */
-        connect(m_d->m_context->getAnalysis(), &Analysis::modifiedChanged, this, [this]() {
-            m_d->updateWindowTitle();
-        });
-        m_d->repopulate();
-    };
+    connect(m_d->m_context, &MVMEContext::analysisChanged,
+            this, [this] (Analysis *analysis) {
+                m_d->onAnalysisChanged(analysis);
+    });
 
-    connect(m_d->m_context, &MVMEContext::analysisChanged, this, on_analysis_changed);
-
-    connect(m_d->m_context, &MVMEContext::analysisConfigFileNameChanged, this, [this](const QString &) {
-        m_d->updateWindowTitle();
+    connect(m_d->m_context, &MVMEContext::analysisConfigFileNameChanged,
+            this, [this](const QString &) {
+                m_d->updateWindowTitle();
     });
 
     // QStackedWidgets for EventWidgets and their toolbars
@@ -6157,14 +6250,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // condition/cut displays
     {
-        //m_d->m_conditionWidget = std::make_unique<ConditionWidget>(m_d->m_context);
         m_d->m_conditionWidget = new ConditionWidget(m_d->m_context);
         auto condWidget = m_d->m_conditionWidget;
-
-        m_d->m_geometrySaver->addAndRestore(
-            condWidget, QSL("WindowGeometries/AnalysisConditionsWidget"));
-
-        add_widget_close_action(condWidget);
 
         connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
                 condWidget, &ConditionWidget::selectEvent);
@@ -6358,13 +6445,50 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
                                 QIcon(QSL(":/info.png")),
                                 QSL("Object Info"));
 
-    auto rightWidget = new QSplitter(Qt::Vertical);
-    rightWidget->addWidget(conditionsTabWidget);
-    rightWidget->addWidget(objectInfoTabWidget);
+    QSettings settings;
 
+    // right splitter with condition tree on top and object info window at the
+    // bottom
+    auto rightSplitter = new QSplitter(Qt::Vertical);
+    rightSplitter->addWidget(conditionsTabWidget);
+    rightSplitter->addWidget(objectInfoTabWidget);
+    rightSplitter->setStretchFactor(0, 2);
+    rightSplitter->setStretchFactor(1, 1);
+
+    static const char *rightSplitterStateKey = "AnalysisWidget/RightSplitterState";
+
+    connect(rightSplitter, &QSplitter::splitterMoved,
+            this, [rightSplitter] (int pos, int index) {
+        QSettings settings;
+        settings.setValue(rightSplitterStateKey, rightSplitter->saveState());
+    });
+
+    if (settings.contains(rightSplitterStateKey))
+    {
+        rightSplitter->restoreState(settings.value(rightSplitterStateKey).toByteArray());
+    }
+
+    // main splitter dividing the ui into userlevel trees (left) and conditions
+    // and object info (right)
     auto mainSplitter = new QSplitter;
     mainSplitter->addWidget(centralWidget);
-    mainSplitter->addWidget(rightWidget);
+    mainSplitter->addWidget(rightSplitter);
+    mainSplitter->setStretchFactor(0, 3);
+    mainSplitter->setStretchFactor(1, 1);
+
+    static const char *mainSplitterStateKey = "AnalysisWidget/MainSplitterState";
+
+    connect(mainSplitter, &QSplitter::splitterMoved,
+            this, [mainSplitter] (int pos, int index) {
+        QSettings settings;
+        settings.setValue(mainSplitterStateKey, mainSplitter->saveState());
+    });
+
+
+    if (settings.contains(mainSplitterStateKey))
+    {
+        mainSplitter->restoreState(settings.value(mainSplitterStateKey).toByteArray());
+    }
 
     // main layout
     auto layout = new QGridLayout(this);
@@ -6375,14 +6499,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     layout->addWidget(mainSplitter,             1, 0);
     layout->addWidget(m_d->m_statusBar,         2, 0);
     layout->setRowStretch(1, 1);
-
-    auto analysis = ctx->getAnalysis();
-
-    analysis->beginRun(ctx->getRunInfo(),
-                       vme_analysis_common::build_id_to_index_mapping(
-                           ctx->getVMEConfig()));
-
-    on_analysis_changed();
 
     // Update the histo storage size in the statusbar
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
@@ -6446,9 +6562,70 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     });
 
     // Run the periodic update
-    connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() { m_d->doPeriodicUpdate(); });
+    connect(m_d->m_periodicUpdateTimer, &QTimer::timeout,
+            this, [this]() { m_d->doPeriodicUpdate(); });
 
+    // Build the analysis to make sure everything is setup properly
+    auto analysis = ctx->getAnalysis();
+
+    analysis->beginRun(ctx->getRunInfo(),
+                       vme_analysis_common::build_id_to_index_mapping(
+                           ctx->getVMEConfig()));
+
+    // React to changes to the analysis but using the local signal wrapper
+    // instead of the analysis directly.
+    auto &wrapper = m_d->m_analysisSignalWrapper;
+    using Wrapper = AnalysisSignalWrapper;
+
+    QObject::connect(&wrapper, &Wrapper::modifiedChanged,
+                     this, [this]() {
+        m_d->updateWindowTitle();
+    });
+
+    QObject::connect(&wrapper, &Wrapper::dataSourceAdded,
+                     this, [this](const SourcePtr &src) {
+        m_d->onDataSourceAdded(src);
+    });
+
+    QObject::connect(&wrapper, &Wrapper::dataSourceRemoved,
+                     this, [this](const SourcePtr &src) {
+        m_d->onDataSourceRemoved(src);
+    });
+
+    QObject::connect(&wrapper, &Wrapper::operatorAdded,
+                     this, [this](const OperatorPtr &op) {
+        m_d->onOperatorAdded(op);
+    });
+
+    QObject::connect(&wrapper, &Wrapper::operatorRemoved,
+                     this, [this](const OperatorPtr &op) {
+        m_d->onOperatorRemoved(op);
+    });
+
+    QObject::connect(&wrapper, &Wrapper::directoryAdded,
+                     this, [this](const DirectoryPtr &dir) {
+        m_d->onDirectoryAdded(dir);
+    });
+
+    QObject::connect(&wrapper, &Wrapper::directoryRemoved,
+                     this, [this](const DirectoryPtr &dir) {
+        m_d->onDirectoryRemoved(dir);
+    });
+
+    QObject::connect(&wrapper, &Wrapper::conditionLinkApplied,
+                     this, [this](const OperatorPtr &op, const ConditionLink &cl) {
+         m_d->onConditionLinkApplied(op, cl);
+    });
+
+    QObject::connect(&wrapper, &Wrapper::conditionLinkCleared,
+                     this, [this](const OperatorPtr &op, const ConditionLink &cl) {
+         m_d->onConditionLinkCleared(op, cl);
+    });
+
+    // Initial update
+    m_d->onAnalysisChanged(analysis);
     m_d->updateActions();
+
     resize(800, 600);
 }
 

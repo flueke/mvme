@@ -97,7 +97,7 @@ struct ConditionTreeWidget::Private
     MVMEContext *m_context;
     QUuid m_eventId;
     int m_eventIndex;
-
+    QSet<void *> m_expandedObjects;
 };
 
 ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
@@ -121,9 +121,32 @@ ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId,
     //setDragDropMode(QAbstractItemView::DragDrop);
 
     // columns: name, condition bit value
-    setColumnCount(2);
+    setColumnCount(1);
     headerItem()->setText(0, QSL("Name"));
-    headerItem()->setText(1, QSL("Bit"));
+    //headerItem()->setText(1, QSL("Bit"));
+
+
+
+    // interactions
+
+    connect(this, &QTreeWidget::itemExpanded,
+            this, [this] (QTreeWidgetItem *node) {
+
+        if (auto obj = get_pointer<void>(node))
+        {
+            m_d->m_expandedObjects.insert(obj);
+        }
+    });
+
+    connect(this, &QTreeWidget::itemCollapsed,
+            this, [this] (QTreeWidgetItem *node) {
+
+        if (auto obj = get_pointer<void>(node))
+        {
+            m_d->m_expandedObjects.remove(obj);
+        }
+    });
+
 
     // init
     repopulate();
@@ -153,6 +176,7 @@ void ConditionTreeWidget::repopulate()
     }
 
     resizeColumnToContents(0);
+    expand_tree_nodes(invisibleRootItem(), m_d->m_expandedObjects);
 }
 
 void ConditionTreeWidget::doPeriodicUpdate()
@@ -285,6 +309,16 @@ void ConditionWidget::repopulate(int eventIndex)
     }
 }
 
+void ConditionWidget::repopulate(const QUuid &eventId)
+{
+    auto widget = m_d->m_treesByEventId.value(eventId);
+
+    if (auto tree = qobject_cast<ConditionTreeWidget *>(widget))
+    {
+        tree->repopulate();
+    }
+}
+
 void ConditionWidget::doPeriodicUpdate()
 {
 }
@@ -306,6 +340,14 @@ void ConditionWidget::selectEventById(const QUuid &eventId)
     if (auto tree = m_d->m_treesByEventId.value(eventId, nullptr))
     {
         m_d->m_treeStack->setCurrentWidget(tree);
+    }
+}
+
+void ConditionWidget::clearTreeSelections()
+{
+    for (auto tree: m_d->m_treesByEventId.values())
+    {
+        tree->clearSelection();
     }
 }
 

@@ -1607,12 +1607,43 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
 
     m_q->replot();
 
+    // Show a dialog to the user asking for a name for the cut and offering the
+    // possibility to cancel cut creation.
+    QString cutName = QSL("NewPolyCut");
+
+    {
+        auto le_cutName = new QLineEdit;
+        le_cutName->setText(cutName);
+
+        auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+        QDialog dialog(m_q);
+        auto layout = new QFormLayout(&dialog);
+        layout->addRow("Cut Name", le_cutName);
+        layout->addRow(buttons);
+
+        QObject::connect(buttons, &QDialogButtonBox::accepted,
+                         &dialog, &QDialog::accept);
+
+        QObject::connect(buttons, &QDialogButtonBox::rejected,
+                         &dialog, &QDialog::reject);
+
+        if (dialog.exec() == QDialog::Rejected)
+        {
+            m_cutShapeItem->setVisible(false);
+            m_q->replot();
+            return;
+        }
+
+        cutName = le_cutName->text();
+    }
+
 
     // create a new cut object and add it to the analysis
 
     auto cond = std::make_shared<analysis::ConditionPolygon>();
     cond->setPolygon(poly);
-    cond->setObjectName(QSL("New Polygon Cut"));
+    cond->setObjectName(cutName);
 
     {
         auto xInput = m_sink->getSlot(0)->inputPipe;

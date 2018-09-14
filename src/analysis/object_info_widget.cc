@@ -25,6 +25,7 @@ ObjectInfoWidget::ObjectInfoWidget(MVMEContext *ctx, QWidget *parent)
     m_d->m_context = ctx;
     m_d->m_infoLabel = new QLabel;
     m_d->m_infoLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    m_d->m_infoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     set_widget_font_pointsize_relative(m_d->m_infoLabel, -2);
 
     auto layout = new QHBoxLayout(this);

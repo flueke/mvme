@@ -422,7 +422,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     , m_mode(GlobalMode::DAQ)
     , m_daqState(DAQState::Idle)
     , m_listFileWorker(new ListFileReader(m_daqStats))
-    , m_analysis(new analysis::Analysis)
+    , m_analysis(std::make_unique<analysis::Analysis>())
 {
     m_d->m_q = this;
     m_d->m_remoteControl = std::make_unique<RemoteControl>(this);
@@ -611,7 +611,6 @@ MVMEContext::~MVMEContext()
                this, &MVMEContext::onMVMEStreamWorkerStateChanged);
 
     delete m_controller;
-    delete m_analysis;
     delete m_readoutWorker;
     delete m_listFileWorker;
     delete m_listFile;
@@ -2059,8 +2058,11 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
             stopAnalysis();
         }
 
-        delete m_analysis;
-        m_analysis = analysis_ng.release();
+        auto oldAnalysis = m_analysis.release();
+        oldAnalysis->deleteLater();
+
+        m_analysis = std::move(analysis_ng);
+
         m_analysis->beginRun(getRunInfo(),
                              vme_analysis_common::build_id_to_index_mapping(getVMEConfig()),
                              [this](const QString &msg) { this->logMessage(msg); });
@@ -2071,10 +2073,10 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
             m_d->m_analysisAutoSaver->start();
         }
 
-        emit analysisChanged();
+        emit analysisChanged(m_analysis.get());
 
         logMessage(QString("Loaded %1 from %2")
-                   .arg(info_string(m_analysis))
+                   .arg(info_string(m_analysis.get()))
                    .arg(inputInfo)
                    );
 
@@ -2085,11 +2087,12 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
     }
     catch (const std::bad_alloc &e)
     {
-        m_analysis->clear();
+        if (m_analysis)
+            m_analysis->clear();
         setAnalysisConfigFileName(QString());
         QMessageBox::critical(m_mainwin, QSL("Error"),
                               QString("Out of memory when creating analysis objects."));
-        emit analysisChanged();
+        emit analysisChanged(m_analysis.get());
 
         return false;
     }
@@ -2192,7 +2195,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId,
 void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
 {
     AnalysisPauser pauser(this);
-    getAnalysis()->operatorEdited(op);
+    getAnalysis()->setOperatorEdited(op);
     getAnalysis()->beginRun(analysis::Analysis::KeepState);
 
     if (m_analysisUi)

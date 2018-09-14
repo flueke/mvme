@@ -62,6 +62,9 @@ class ObjectTree;
 class EventWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void objectSelected(const AnalysisObjectPtr &obj);
+
     public:
 
         using SelectInputCallback = std::function<void (Slot *destSlot,
