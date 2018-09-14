@@ -94,6 +94,43 @@ NamesByMetaObject group_object_names_by_metatype(const AnalysisObjectVector &obj
 
 QString make_clone_name(const QString &currentName, const StringSet &allNames);
 
+/* Helper class forwarding signals originating from a given Analysis instance.
+ * This can be used to locally react to analysis signals but also be able to
+ * block the signals temporarily without affecting other observers of the
+ * analysis instance..
+ */
+class AnalysisSignalWrapper: public QObject
+{
+    Q_OBJECT
+    signals:
+        void modified(bool);
+        void modifiedChanged(bool);
+
+        void dataSourceAdded(const SourcePtr &src);
+        void dataSourceRemoved(const SourcePtr &src);
+        void dataSourceEdited(const SourcePtr &src);
+
+        void operatorAdded(const OperatorPtr &op);
+        void operatorRemoved(const OperatorPtr &op);
+        void operatorEdited(const OperatorPtr &op);
+
+        void directoryAdded(const DirectoryPtr &ptr);
+        void directoryRemoved(const DirectoryPtr &ptr);
+
+        void conditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl);
+        void conditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl);
+
+    public:
+        AnalysisSignalWrapper(QObject *parent = nullptr);
+        AnalysisSignalWrapper(Analysis *analysis, QObject *parent = nullptr);
+
+        void setAnalysis(Analysis *analysis);
+        Analysis *getAnalysis() const { return m_analysis; }
+
+    private:
+        Analysis *m_analysis = nullptr;
+};
+
 } // namespace analysis
 
 #endif /* __ANALYSIS_UTIL_H__ */

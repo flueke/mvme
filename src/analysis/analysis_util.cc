@@ -233,4 +233,52 @@ QString make_clone_name(const QString &currentName, const StringSet &allNames)
     return result;
 }
 
+//
+// AnalysisSignalWrapper
+//
+
+AnalysisSignalWrapper::AnalysisSignalWrapper(QObject *parent)
+    : QObject(parent)
+{ }
+
+AnalysisSignalWrapper::AnalysisSignalWrapper(Analysis *analysis,
+                                                 QObject *parent)
+    : QObject(parent)
+{
+    setAnalysis(analysis);
+}
+
+void AnalysisSignalWrapper::setAnalysis(Analysis *analysis)
+{
+    QObject::connect(analysis, &Analysis::modified,
+                     this, &AnalysisSignalWrapper::modified);
+
+    QObject::connect(analysis, &Analysis::modifiedChanged,
+                     this, &AnalysisSignalWrapper::modifiedChanged);
+
+    QObject::connect(analysis, &Analysis::dataSourceAdded,
+                     this, &AnalysisSignalWrapper::dataSourceAdded);
+
+    QObject::connect(analysis, &Analysis::dataSourceRemoved,
+                     this, &AnalysisSignalWrapper::dataSourceRemoved);
+
+    QObject::connect(analysis, &Analysis::operatorAdded,
+                     this, &AnalysisSignalWrapper::operatorAdded);
+
+    QObject::connect(analysis, &Analysis::operatorRemoved,
+                     this, &AnalysisSignalWrapper::operatorRemoved);
+
+    QObject::connect(analysis, &Analysis::directoryAdded,
+                     this, &AnalysisSignalWrapper::directoryAdded);
+
+    QObject::connect(analysis, &Analysis::directoryRemoved,
+                     this, &AnalysisSignalWrapper::directoryRemoved);
+
+    QObject::connect(analysis, &Analysis::conditionLinkApplied,
+                     this, &AnalysisSignalWrapper::conditionLinkApplied);
+
+    QObject::connect(analysis, &Analysis::conditionLinkCleared,
+                     this, &AnalysisSignalWrapper::conditionLinkCleared);
+}
+
 } // namespace analysis
