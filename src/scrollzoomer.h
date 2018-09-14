@@ -35,7 +35,6 @@ class LIBMVME_EXPORT ScrollZoomer: public QwtPlotZoomer
 {
     Q_OBJECT
 
-
 signals:
     void mouseCursorMovedTo(QPointF);
     void mouseCursorLeftPlot();

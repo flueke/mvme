@@ -76,7 +76,6 @@ bool WidgetGeometrySaver::eventFilter(QObject *obj, QEvent *event)
 
         if (widget && m_widgetKeys.contains(widget))
         {
-            auto closeEvent = static_cast<QCloseEvent *>(event);
             QSettings settings;
             settings.setValue(m_widgetKeys[widget], widget->saveGeometry());
             qDebug() << "saved geometry for" << widget << " key =" << m_widgetKeys[widget];
