@@ -3665,32 +3665,18 @@ void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const Sour
 void Analysis::addSource(const SourcePtr &source)
 {
     m_sources.push_back(source);
-    setModified();
     source->setObjectFlags(ObjectFlags::NeedsRebuild);
-}
-
-void Analysis::sourceEdited(const SourcePtr &source)
-{
     setModified();
-
-    source->setObjectFlags(ObjectFlags::NeedsRebuild);
-
-    for (auto &obj: collect_dependent_objects(source.get()))
-        obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+    emit dataSourceAdded(source);
 }
 
 void Analysis::removeSource(const SourcePtr &source)
-{
-    removeSource(source.get());
-}
-
-void Analysis::removeSource(SourceInterface *source)
 {
     assert(source);
 
     auto it = std::find_if(m_sources.begin(), m_sources.end(),
                            [source](const SourcePtr &src) {
-        return src.get() == source;
+        return src == source;
     });
 
     if (it != m_sources.end())
@@ -3716,7 +3702,25 @@ void Analysis::removeSource(SourceInterface *source)
 
         m_sources.erase(it);
         setModified();
+        emit dataSourceRemoved(source);
     }
+}
+
+void Analysis::removeSource(SourceInterface *source)
+{
+    removeSource(std::dynamic_pointer_cast<SourceInterface>(source->shared_from_this()));
+}
+
+void Analysis::setSourceEdited(const SourcePtr &source)
+{
+    setModified();
+
+    source->setObjectFlags(ObjectFlags::NeedsRebuild);
+
+    for (auto &obj: collect_dependent_objects(source.get()))
+        obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+
+    emit dataSourceEdited(source);
 }
 
 ListFilterExtractorVector Analysis::getListFilterExtractors(const QUuid &eventId,
@@ -3748,6 +3752,9 @@ void Analysis::setListFilterExtractors(const QUuid &eventId,
                 && source->getModuleId() == moduleId);
     });
 
+    QVector<SourcePtr> removedSources;
+    removedSources.reserve(m_sources.end() - it);
+
     // Mark the dependees of the extractors being removed as needing a rebuild.
     for (auto jt = it; jt != m_sources.end(); jt++)
     {
@@ -3755,22 +3762,30 @@ void Analysis::setListFilterExtractors(const QUuid &eventId,
         {
             obj->setObjectFlags(ObjectFlags::NeedsRebuild);
         }
+
+        removedSources.push_back(*it);
     }
 
     m_sources.erase(it, m_sources.end());
+
+    setModified();
+
+    for (auto &src: removedSources)
+    {
+        emit dataSourceRemoved(src);
+    }
 
     // Add the new sources, also setting the rebuild flag.
     for (auto lfe: extractors)
     {
         lfe->setEventId(eventId);
         lfe->setModuleId(moduleId);
-        m_sources.push_back(lfe);
         lfe->setObjectFlags(ObjectFlags::NeedsRebuild);
+        m_sources.push_back(lfe);
+        emit dataSourceAdded(lfe);
     }
 
     qDebug() << __PRETTY_FUNCTION__ << "added" << extractors.size() << "listfilter extractors";
-
-    setModified();
 }
 
 //
@@ -3852,33 +3867,19 @@ void Analysis::addOperator(const QUuid &eventId, s32 userLevel, const OperatorPt
 
 void Analysis::addOperator(const OperatorPtr &op)
 {
+    op->setObjectFlags(ObjectFlags::NeedsRebuild);
     m_operators.push_back(op);
     setModified();
-    op->setObjectFlags(ObjectFlags::NeedsRebuild);
-}
-
-void Analysis::operatorEdited(const OperatorPtr &op)
-{
-    setModified();
-
-    op->setObjectFlags(ObjectFlags::NeedsRebuild);
-
-    for (auto &obj: collect_dependent_objects(op.get()))
-        obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+    emit operatorAdded(op);
 }
 
 void Analysis::removeOperator(const OperatorPtr &op)
-{
-    removeOperator(op.get());
-}
-
-void Analysis::removeOperator(OperatorInterface *op)
 {
     assert(op);
 
     auto it = std::find_if(m_operators.begin(), m_operators.end(),
                            [op](const OperatorPtr &op_) {
-        return op_.get() == op;
+        return op_ == op;
     });
 
     if (it != m_operators.end())
@@ -3910,7 +3911,25 @@ void Analysis::removeOperator(OperatorInterface *op)
 
         m_operators.erase(it);
         setModified();
+        emit operatorRemoved(op);
     }
+}
+
+void Analysis::removeOperator(OperatorInterface *op)
+{
+    removeOperator(std::dynamic_pointer_cast<OperatorInterface>(op->shared_from_this()));
+}
+
+void Analysis::setOperatorEdited(const OperatorPtr &op)
+{
+    setModified();
+
+    op->setObjectFlags(ObjectFlags::NeedsRebuild);
+
+    for (auto &obj: collect_dependent_objects(op.get()))
+        obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+
+    emit operatorEdited(op);
 }
 
 ConditionVector Analysis::getConditions() const
@@ -3978,11 +3997,15 @@ bool Analysis::setConditionLink(const OperatorPtr &op, ConditionInterface *cond,
 
     if (cl != m_conditionLinks.value(op))
     {
-        m_conditionLinks.insert(op, { condPtr, subIndex });
+        auto newCl = ConditionLink{ condPtr, subIndex };
+
+        m_conditionLinks.insert(op, newCl);
 
         // Set rebuild flag to  clear operator state (e.g. histogram contents)
         // after the condition was set or changed.
         op->setObjectFlags(ObjectFlags::NeedsRebuild);
+
+        emit conditionLinkApplied(op, newCl);
 
         return true;
     }
@@ -3999,6 +4022,7 @@ bool Analysis::clearConditionLink(const OperatorPtr &op, ConditionInterface *con
     {
         m_conditionLinks.remove(op);
         op->setObjectFlags(ObjectFlags::NeedsRebuild);
+        emit conditionLinkCleared(op, cl);
         return true;
     }
 
@@ -4007,10 +4031,11 @@ bool Analysis::clearConditionLink(const OperatorPtr &op, ConditionInterface *con
 
 bool Analysis::clearConditionLink(const OperatorPtr &op)
 {
-    if (m_conditionLinks.contains(op))
+    if (auto cl = m_conditionLinks.value(op))
     {
         m_conditionLinks.remove(op);
         op->setObjectFlags(ObjectFlags::NeedsRebuild);
+        emit conditionLinkCleared(op, cl);
         return true;
     }
 
@@ -4077,6 +4102,7 @@ void Analysis::addDirectory(const DirectoryPtr &dir)
     qDebug() << __PRETTY_FUNCTION__;
     m_directories.push_back(dir);
     setModified();
+    emit directoryAdded(dir);
 }
 
 void Analysis::removeDirectory(const DirectoryPtr &dir)
@@ -4088,8 +4114,10 @@ void Analysis::removeDirectory(const DirectoryPtr &dir)
 void Analysis::removeDirectory(int index)
 {
     assert(0 <= index && index < m_directories.size());
+    auto dir = m_directories.value(index);
     m_directories.removeAt(index);
     setModified();
+    emit directoryRemoved(dir);
 }
 
 DirectoryPtr Analysis::getParentDirectory(const AnalysisObjectPtr &obj) const
@@ -4193,6 +4221,9 @@ int Analysis::removeDirectoryRecursively(const DirectoryPtr &dir)
     return removed;
 }
 
+namespace
+{
+
 class IdComparator
 {
     public:
@@ -4209,6 +4240,8 @@ class IdComparator
     private:
         QUuid m_id;
 };
+
+} // end anon namespace
 
 AnalysisObjectPtr Analysis::getObject(const QUuid &id) const
 {

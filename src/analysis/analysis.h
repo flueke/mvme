@@ -1752,6 +1752,21 @@ class LIBMVME_EXPORT Analysis: public QObject
         void modified(bool);
         void modifiedChanged(bool);
 
+        void dataSourceAdded(const SourcePtr &src);
+        void dataSourceRemoved(const SourcePtr &src);
+        void dataSourceEdited(const SourcePtr &src);
+
+        void operatorAdded(const OperatorPtr &op);
+        void operatorRemoved(const OperatorPtr &op);
+        void operatorEdited(const OperatorPtr &op);
+
+        void directoryAdded(const DirectoryPtr &ptr);
+        void directoryRemoved(const DirectoryPtr &ptr);
+
+        void conditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl);
+        void conditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl);
+
+
     public:
         Analysis(QObject *parent = nullptr);
         virtual ~Analysis();
@@ -1768,9 +1783,9 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         void addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source);
         void addSource(const SourcePtr &source);
-        void sourceEdited(const SourcePtr &source);
         void removeSource(const SourcePtr &source);
         void removeSource(SourceInterface *source);
+        void setSourceEdited(const SourcePtr &source);
 
         s32 getNumberOfSources() const { return m_sources.size(); }
 
@@ -1800,9 +1815,9 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         void addOperator(const QUuid &eventId, s32 userLevel, const OperatorPtr &op);
         void addOperator(const OperatorPtr &op);
-        void operatorEdited(const OperatorPtr &op);
         void removeOperator(const OperatorPtr &op);
         void removeOperator(OperatorInterface *op);
+        void setOperatorEdited(const OperatorPtr &op);
 
         s32 getNumberOfOperators() const { return m_operators.size(); }
 
@@ -1863,6 +1878,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         //
         // Untyped Object access
         //
+
         AnalysisObjectPtr getObject(const QUuid &id) const;
         int removeObjectsRecursively(const AnalysisObjectVector &objects);
         AnalysisObjectVector getAllObjects() const;
