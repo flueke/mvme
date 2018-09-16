@@ -3,7 +3,7 @@ TODO list, not at all sorted by priority
 ==================================================
 
 --------------------------------------------------
-BUGFIXES and FEATURES wanted yesterday
+BUGS
 --------------------------------------------------
 * SIS: when not connected and doing an Init Module mvme hangs in recvfrom()
 

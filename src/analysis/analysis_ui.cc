@@ -21,6 +21,8 @@
 #include "analysis_ui.h"
 
 
+#include <map>
+#include <memory>
 #include <QApplication>
 #include <QComboBox>
 #include <QClipboard>
@@ -74,6 +76,73 @@
 #ifdef MVME_ENABLE_HDF5
 #include "analysis_session.h"
 #endif
+
+/* State of the UI and future plans
+ *
+ * Finding nodes for objects
+ * Can use QTreeWidgetItem::treeWidget() to get the containing tree.  Right now
+ * trees are recreated when updating (repopulate) and even with smarter updates
+ * trees and nodes will get added and removed so the mapping has to be updated
+ * constantly.
+ * Can easily visit nodes given a container of analysis objects and create
+ * chains of node handling objects. These objects could be configured by giving
+ * them different sets of trees and modes. Also the responsibility chains could
+ * be modified on the fly.
+ *
+ */
+namespace analysis
+{
+
+// https://en.cppreference.com/w/cpp/memory/owner_less
+// std::map<std::weak_ptr<T>, U, std::owner_less<std::weak_ptr<T>>>
+
+using WeakAnalysisObject = std::weak_ptr<AnalysisObject>;
+
+template <typename MappedType>
+using ObjectMap = std::map<WeakAnalysisObject, MappedType, std::owner_less<WeakAnalysisObject>>;
+
+using Node = QTreeWidgetItem *;
+using NodeSet = QSet<Node>;
+
+using ObjectToNode = ObjectMap<Node>;
+using ObjectToNodes = ObjectMap<NodeSet>;
+
+static const int AnalysisObjectDataRole = 1000;
+
+}
+
+/* UI right now:
+ * 1 AnalysisWidget
+ *   Per event:
+ *     EventWidget
+ *       2 processing trees per userlevel: ops and sinks
+ *
+ *     Toolbar
+ *     ...
+ *   1 ConditionUI
+ *     Per event:
+ *       Condition Tree
+ *
+ * treeCount = 2 * sum(userlevels[event] for all events) + 1 * eventCount
+ *
+ * Modes: Default, InputSelect, ApplyCondition
+ * Default mode globally highlights broken operators. Selecting a node
+ * highlights inputs and outputs. Drag and drop and copy/paste are enabled.
+ * Full context menu allowing creation of new items in the processing trees.
+ *
+ *
+ * Create an interface for input selection with
+ *   highlightInputOf(bool enable) / highlightInputSource()
+ *   selectInputFor()
+ *   endSelectInput()
+ *   getEventId()
+ *   getAnalysis()
+ *   getContext()
+ *
+ * Pass this to the editor dialogs instead of the EventWidget directly.
+ * Split analysis_ui.cc: event_widget_p.{h,cc} and event_widget.h
+ *
+ */
 
 
 
@@ -523,7 +592,7 @@ Qt::DropActions ObjectTree::supportedDropActions() const
 
 DataSourceTree::~DataSourceTree()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 QStringList DataSourceTree::mimeTypes() const
@@ -666,7 +735,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
 
 OperatorTree::~OperatorTree()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 QStringList OperatorTree::mimeTypes() const
@@ -858,7 +927,7 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 
 SinkTree::~SinkTree()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 QStringList SinkTree::mimeTypes() const
@@ -868,7 +937,7 @@ QStringList SinkTree::mimeTypes() const
 
 QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 
     QVector<QByteArray> idData;
 
@@ -5447,7 +5516,7 @@ struct AnalysisWidgetPrivate
     QLabel *m_labelEfficiency;
     QTimer *m_periodicUpdateTimer;
     WidgetGeometrySaver *m_geometrySaver;
-    AnalysisInfoWidget *m_infoWidget = nullptr;
+    AnalysisInfoWidget *m_analysisInfoWidget = nullptr;
     QAction *m_actionPause;
     QAction *m_actionStepNextEvent;
 
@@ -5492,7 +5561,8 @@ struct AnalysisWidgetPrivate
 void AnalysisWidgetPrivate::onAnalysisChanged(Analysis *analysis)
 {
     /* Assuming the old analysis has been (or will be deleted via
-     * deleteLater()), thus signals needs not be disconnected manually here. */
+     * deleteLater()), thus signals connected to the old instance need not be
+     * disconnected manually here. */
 
     m_analysisSignalWrapper.setAnalysis(analysis);
     repopulate();
@@ -6295,9 +6365,9 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
             AnalysisInfoWidget *widget = nullptr;
 
-            if (m_d->m_infoWidget)
+            if (m_d->m_analysisInfoWidget)
             {
-                widget = m_d->m_infoWidget;
+                widget = m_d->m_analysisInfoWidget;
             }
             else
             {
@@ -6307,10 +6377,10 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
                 m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/AnalysisInfo"));
 
                 connect(widget, &QObject::destroyed, this, [this]() {
-                    m_d->m_infoWidget = nullptr;
+                    m_d->m_analysisInfoWidget = nullptr;
                 });
 
-                m_d->m_infoWidget = widget;
+                m_d->m_analysisInfoWidget = widget;
             }
 
             show_and_activate(widget);
@@ -6639,9 +6709,9 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
 AnalysisWidget::~AnalysisWidget()
 {
-    if (m_d->m_infoWidget)
+    if (m_d->m_analysisInfoWidget)
     {
-        m_d->m_infoWidget->close();
+        m_d->m_analysisInfoWidget->close();
     }
 
     delete m_d;
