@@ -6440,10 +6440,18 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
                                 QIcon(QSL(":/scissors.png")),
                                 QSL("Cuts/Conditions"));
 
+    // Object info inside a scrollarea in the bottom right corner
     auto objectInfoTabWidget = new QTabWidget;
-    objectInfoTabWidget->addTab(m_d->m_objectInfoWidget,
-                                QIcon(QSL(":/info.png")),
-                                QSL("Object Info"));
+
+    {
+        auto scrollArea = new QScrollArea;
+        scrollArea->setWidgetResizable(true);
+        scrollArea->setWidget(m_d->m_objectInfoWidget);
+
+        objectInfoTabWidget->addTab(scrollArea,
+                                    QIcon(QSL(":/info.png")),
+                                    QSL("Object Info"));
+    }
 
     QSettings settings;
 
