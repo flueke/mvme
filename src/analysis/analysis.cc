@@ -4451,6 +4451,7 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
     }
 
     op->setRank(newRank);
+    updated.insert(op);
 
 #if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "newRank =" << newRank;
@@ -4459,7 +4460,6 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
     for (s32 oi = 0; oi < op->getNumberOfOutputs(); oi++)
     {
         op->getOutput(oi)->setRank(newRank);
-        updated.insert(op);
 
 #if ENABLE_ANALYSIS_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "output" << oi
