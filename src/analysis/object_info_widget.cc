@@ -20,7 +20,7 @@ ObjectInfoWidget::ObjectInfoWidget(MVMEContext *ctx, QWidget *parent)
     : QFrame(parent)
     , m_d(std::make_unique<Private>())
 {
-    setFrameStyle(QFrame::StyledPanel);
+    setFrameStyle(QFrame::NoFrame);
 
     m_d->m_context = ctx;
     m_d->m_infoLabel = new QLabel;
@@ -29,7 +29,7 @@ ObjectInfoWidget::ObjectInfoWidget(MVMEContext *ctx, QWidget *parent)
     set_widget_font_pointsize_relative(m_d->m_infoLabel, -2);
 
     auto layout = new QHBoxLayout(this);
-    layout->setContentsMargins(2, 2, 2, 2);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
     layout->addWidget(m_d->m_infoLabel);
 }
