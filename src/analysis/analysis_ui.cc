@@ -107,7 +107,11 @@ using NodeSet = QSet<Node>;
 using ObjectToNode = ObjectMap<Node>;
 using ObjectToNodes = ObjectMap<NodeSet>;
 
-static const int AnalysisObjectDataRole = 1000;
+//TODO: use a unified datarole different from the default user role to store
+//the analysis object pointers. this should make it safe to query nodes of any
+//type for analysis object data without doing invalid casts on non-pointer data
+//if a node does not contain an object pointer.
+//static const int AnalysisObjectDataRole = 1000;
 
 }
 
@@ -1120,6 +1124,7 @@ struct EventWidgetPrivate
     AnalysisWidget *m_analysisWidget;
 
     QVector<UserLevelTrees> m_levelTrees;
+    ObjectToNode m_objectMap;
 
     Mode m_mode = Default;
     QWidget *m_uniqueWidget = nullptr;
@@ -1136,13 +1141,7 @@ struct EventWidgetPrivate
 
     InputSelectInfo m_inputSelectInfo;
 
-    struct ApplyConditionInfo // TODO: replace with ConditionLink (analysis.h)
-    {
-        ConditionInterface *cond;
-        s32 bitIndex;
-    };
-
-    ApplyConditionInfo m_applyConditionInfo;
+    ConditionLink m_applyConditionInfo;
 
     QSplitter *m_operatorFrameSplitter;
     QSplitter *m_displayFrameSplitter;
@@ -1205,6 +1204,7 @@ struct EventWidgetPrivate
     void doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
 
     void setMode(Mode mode);
+    Mode getMode() const;
     void modeChanged(Mode oldMode, Mode mode);
     void highlightValidInputNodes(QTreeWidgetItem *node);
     void highlightInputNodes(OperatorInterface *op);
@@ -1212,7 +1212,7 @@ struct EventWidgetPrivate
     void clearToDefaultNodeHighlights(QTreeWidgetItem *node);
     void clearAllToDefaultNodeHighlights();
     void updateNodesForApplyConditionMode();
-    void updateNodesForApplyConditionMode(QTreeWidgetItem *node);
+    void showUsersOfSelectedCondition();
     void onNodeClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeChanged(TreeNode *node, int column, s32 userLevel);
@@ -1414,6 +1414,9 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         {
             auto sourceNode = make_datasource_node(source.get());
             moduleNode->addChild(sourceNode);
+
+            assert(m_objectMap.count(source) == 0);
+            m_objectMap[source] = sourceNode;
         }
     }
 
@@ -1441,6 +1444,9 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
 
             auto sourceNode = make_datasource_node(source.get());
             dataSourceTree->unassignedDataSourcesRoot->addChild(sourceNode);
+
+            assert(m_objectMap.count(source) == 0);
+            m_objectMap[source] = sourceNode;
         }
     }
 
@@ -1478,6 +1484,9 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
                     {
                         moduleNode->addChild(node);
                         sinksAddedBelowModules.insert(sink);
+
+                        assert(m_objectMap.count(op) == 0);
+                        m_objectMap[op] = node;
                     }
 
                 }
@@ -1495,6 +1504,9 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
             {
                 auto histoNode = make_histo1d_node(histoSink);
                 result.sinkTree->addTopLevelItem(histoNode);
+
+                assert(m_objectMap.count(op) == 0);
+                m_objectMap[op] = histoNode;
             }
         }
         else if (auto histoSink = qobject_cast<Histo2DSink *>(op.get()))
@@ -1503,6 +1515,9 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
             {
                 auto histoNode = make_histo2d_node(histoSink);
                 result.sinkTree->addTopLevelItem(histoNode);
+
+                assert(m_objectMap.count(op) == 0);
+                m_objectMap[op] = histoNode;
             }
         }
         else if (auto sink = qobject_cast<SinkInterface *>(op.get()))
@@ -1511,6 +1526,9 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
             {
                 auto sinkNode = make_sink_node(sink);
                 result.sinkTree->addTopLevelItem(sinkNode);
+
+                assert(m_objectMap.count(op) == 0);
+                m_objectMap[op] = sinkNode;
             }
         }
     }
@@ -1581,6 +1599,9 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
 
         std::unique_ptr<TreeNode> opNode(make_operator_node(op.get()));
 
+        assert(m_objectMap.count(op) == 0);
+        m_objectMap[op] = opNode.get();
+
         if (level > 0)
         {
             opNode->setFlags(opNode->flags() | Qt::ItemIsDragEnabled);
@@ -1597,6 +1618,7 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
         {
             result.operatorTree->addTopLevelItem(opNode.release());
         }
+
     }
     result.operatorTree->sortItems(0, Qt::AscendingOrder);
 
@@ -1624,6 +1646,9 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
 
             if (theNode)
             {
+                assert(m_objectMap.count(op) == 0);
+                m_objectMap[op] = theNode.get();
+
                 if (level > 0)
                     theNode->setFlags(theNode->flags() | Qt::ItemIsDragEnabled);
 
@@ -1639,11 +1664,17 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
                     result.sinkTree->addTopLevelItem(theNode.release());
                 }
             }
-
         }
     }
+
     result.sinkTree->sortItems(0, Qt::AscendingOrder);
 
+    for (const auto &dir: dirNodes.keys())
+    {
+        assert(m_objectMap.count(dir) == 0);
+        assert(dirNodes.value(dir));
+        m_objectMap[dir] = dirNodes.value(dir);
+    }
 
     return result;
 }
@@ -1714,6 +1745,14 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
             onNodeChanged(reinterpret_cast<TreeNode *>(item), column, levelIndex);
         });
 
+        QObject::connect(tree->model(), &QAbstractItemModel::dataChanged,
+                         m_q, [this] (const QModelIndex &topLeft,
+                                  const QModelIndex &bottomRight,
+                                  const QVector<int> &roles) {
+             qDebug() << __PRETTY_FUNCTION__ << this
+                 << roles;
+         });
+
         TreeType treeType = (tree == opTree ? TreeType_Operator : TreeType_Sink);
 
         QObject::connect(tree, &QTreeWidget::itemExpanded,
@@ -1773,6 +1812,8 @@ void EventWidgetPrivate::repopulate()
     Q_ASSERT(m_operatorFrameSplitter->count() == 0);
     Q_ASSERT(m_displayFrameSplitter->count() == 0);
 
+    m_objectMap.clear();
+
     // populate
     if (!m_eventId.isNull())
     {
@@ -1817,6 +1858,19 @@ void EventWidgetPrivate::repopulate()
     updateActions();
 
     m_analysisWidget->getConditionWidget()->repopulate(m_eventIndex);
+
+#ifndef NDEBUG
+    qDebug() << __PRETTY_FUNCTION__ << this << "_-_-_-_-_-"
+        << "objectMap contains " << m_objectMap.size() << "mappings";
+
+    for (const auto &p: m_objectMap)
+    {
+        if (auto obj = p.first.lock())
+        {
+            assert(obj->getEventId() == m_eventId);
+        }
+    }
+#endif
 }
 
 void EventWidgetPrivate::addUserLevel()
@@ -3027,6 +3081,11 @@ void EventWidgetPrivate::setMode(Mode mode)
     modeChanged(oldMode, mode);
 }
 
+EventWidgetPrivate::Mode EventWidgetPrivate::getMode() const
+{
+    return m_mode;
+}
+
 void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
 {
     qDebug() << __PRETTY_FUNCTION__
@@ -3064,9 +3123,9 @@ void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
         case ApplyCondition:
             {
                 const auto &condInfo = m_applyConditionInfo;
-                assert(condInfo.cond);
-                assert(condInfo.bitIndex >= 0);
-                assert(condInfo.bitIndex < condInfo.cond->getNumberOfBits());
+                assert(condInfo.condition);
+                assert(condInfo.subIndex >= 0);
+                assert(condInfo.subIndex < condInfo.condition->getNumberOfBits());
 
                 clearAllTreeSelections();
                 clearAllToDefaultNodeHighlights();
@@ -3413,22 +3472,113 @@ void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
 
 void EventWidgetPrivate::updateNodesForApplyConditionMode()
 {
-    for (auto &trees: m_levelTrees)
+    auto &aci = m_applyConditionInfo;
+
+    qDebug() << __PRETTY_FUNCTION__ << this
+        << endl
+        << "  condition is" << aci.condition.get()
+        << endl
+        << "  , with maxInputRank  =" << aci.condition->getMaximumInputRank()
+        << " , with maxOutputRank =" << aci.condition->getMaximumOutputRank()
+        << " , with rank =" << aci.condition->getRank()
+        << endl
+        << "  , objectFlags =" << to_string(aci.condition->getObjectFlags())
+        << endl
+        << "  candiates:"
+        ;
+
+    auto analysis = getAnalysis();
+    auto candidates = get_apply_condition_candidates(aci.condition, analysis);
+
+    for (const auto &op: candidates)
     {
-        for (auto &tree: trees.getObjectTrees())
+        qDebug() << "    " << op.get();
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "end of candiates";
+
+
+    for (const auto &op: candidates)
+    {
+        auto it = m_objectMap.find(op);
+
+        if (it != m_objectMap.end())
         {
-            updateNodesForApplyConditionMode(tree->invisibleRootItem());
+            assert(it->second);
+            auto node = it->second;
+
+            auto opCond  = analysis->getConditionLink(op);
+            auto checked = ((opCond.condition == aci.condition
+                            && opCond.subIndex == aci.subIndex)
+                            ? Qt::Checked
+                            : Qt::Unchecked);
+
+            node->setFlags(node->flags() | Qt::ItemIsUserCheckable);
+            node->setCheckState(0, checked);
         }
     }
 }
 
+void EventWidgetPrivate::showUsersOfSelectedCondition()
+{
+    auto &aci = m_applyConditionInfo;
+
+    qDebug() << __PRETTY_FUNCTION__ << this
+        << endl
+        << "  condition is" << aci.condition.get()
+        << endl
+        << "  , with maxInputRank  =" << aci.condition->getMaximumInputRank()
+        << " , with maxOutputRank =" << aci.condition->getMaximumOutputRank()
+        << " , with rank =" << aci.condition->getRank()
+        << endl
+        << "  , objectFlags =" << to_string(aci.condition->getObjectFlags())
+        << endl
+        << "  candiates:"
+        ;
+
+    auto analysis = getAnalysis();
+    auto candidates = get_apply_condition_candidates(aci.condition, analysis);
+
+    for (const auto &op: candidates)
+    {
+        qDebug() << "    " << op.get();
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "end of candiates";
+
+
+    for (const auto &op: candidates)
+    {
+        if (analysis->getConditionLink(op) != aci)
+            continue;
+
+        auto it = m_objectMap.find(op);
+
+        if (it != m_objectMap.end())
+        {
+            assert(it->second);
+            auto node = it->second;
+
+            auto opCond  = analysis->getConditionLink(op);
+            auto checked = ((opCond.condition == aci.condition
+                            && opCond.subIndex == aci.subIndex)
+                            ? Qt::Checked
+                            : Qt::Unchecked);
+
+            node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
+            node->setCheckState(0, checked);
+        }
+    }
+}
+
+#if 0
 void EventWidgetPrivate::updateNodesForApplyConditionMode(QTreeWidgetItem *node)
 {
     auto &aci = m_applyConditionInfo;
 
-    assert(aci.cond);
-    assert(aci.bitIndex >= 0);
-    assert(aci.bitIndex < aci.cond->getNumberOfBits());
+    assert(aci.condition);
+    assert(aci.subIndex >= 0);
+    assert(aci.subIndex < aci.condition->getNumberOfBits());
 
 
     for (s32 ci = 0; ci < node->childCount(); ci++)
@@ -3458,21 +3608,23 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode(QTreeWidgetItem *node)
 
     assert(op);
 
-    qDebug() << __PRETTY_FUNCTION__
-        << "condRank =" << aci.cond << aci.cond->getRank()
-        << "opRank =" << op.get() << op->getRank();
+    //qDebug() << __PRETTY_FUNCTION__
+    //    << "condRank =" << aci.condition.get() << aci.condition->getRank()
+    //    << "opRank =" << op.get() << op->getRank();
 
+    /* Cannot apply a condition to itself. */
+    bool canApply = (aci.condition != op);
 
-    /* Cannot apply to self or to higher ranks. */
-    // FIXME: think about the +1 :-)
-    bool canApply = (aci.cond != op.get()
-                     && aci.cond->getRank() <= op->getRank());
+    /* Use the operators max input rank instead of the operators calculated
+     * rank directly. The reason is that the rank can be higher due to the
+     * operator currently using a condition. */
+    canApply = canApply && (aci.condition->getRank() <= op->getMaximumInputRank());
 
     /* Test the conditions inputs: the condition cannot be applied to one of
      * its own inputs. */
-    for (s32 si = 0; si < aci.cond->getNumberOfSlots(); si++)
+    for (s32 si = 0; si < aci.condition->getNumberOfSlots(); si++)
     {
-        auto slot = aci.cond->getSlot(si);
+        auto slot = aci.condition->getSlot(si);
         if (slot->isConnected() && slot->inputPipe->getSource() == op.get())
         {
             canApply = false;
@@ -3483,8 +3635,8 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode(QTreeWidgetItem *node)
     if (canApply)
     {
         auto opCond  = m_context->getAnalysis()->getConditionLink(op);
-        auto checked = ((opCond.condition.get() == aci.cond
-                        && opCond.subIndex == aci.bitIndex)
+        auto checked = ((opCond.condition == aci.condition
+                        && opCond.subIndex == aci.subIndex)
                         ? Qt::Checked
                         : Qt::Unchecked);
 
@@ -3492,6 +3644,7 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode(QTreeWidgetItem *node)
         node->setCheckState(0, checked);
     }
 }
+#endif
 
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
@@ -3651,6 +3804,10 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     setMode(Default);
                 }
             } break;
+
+        case ApplyCondition:
+            // TODO: do something here
+            break;
     }
 }
 
@@ -3878,6 +4035,8 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
 void EventWidgetPrivate::onNodeChanged(TreeNode *node, int column, s32 userLevel)
 {
+    qDebug() << __PRETTY_FUNCTION__ << node << column << userLevel << node->text(0);
+
     if (column != 0)
         return;
 
@@ -5281,13 +5440,28 @@ void EventWidget::objectEditorDialogRejected()
     uniqueWidgetCloses();
 }
 
-void EventWidget::applyConditionBegin(ConditionInterface *cond, int bitIndex)
+void EventWidget::conditionLinkSelected(const ConditionLink &cl)
 {
-    if (cond->getEventId() != getEventId()) return;
+    if (m_d->getMode() != EventWidgetPrivate::Default) return;
 
-    qDebug() << __PRETTY_FUNCTION__ << this << getEventId() << cond->getEventId();
+    if (cl.condition->getEventId() != getEventId()) return;
 
-    m_d->m_applyConditionInfo = { cond, bitIndex };
+    qDebug() << __PRETTY_FUNCTION__ << this << getEventId() << cl.condition->getEventId();
+
+    m_d->m_applyConditionInfo = cl;
+
+    m_d->clearAllTreeSelections();
+    m_d->clearAllToDefaultNodeHighlights();
+    m_d->showUsersOfSelectedCondition();
+}
+
+void EventWidget::applyConditionBegin(const ConditionLink &cl)
+{
+    if (cl.condition->getEventId() != getEventId()) return;
+
+    qDebug() << __PRETTY_FUNCTION__ << this << getEventId() << cl.condition->getEventId();
+
+    m_d->m_applyConditionInfo = cl;
     m_d->setMode(EventWidgetPrivate::ApplyCondition);
 }
 
@@ -5330,9 +5504,7 @@ void EventWidget::applyConditionAccept()
         if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
         {
             bool modified = m_d->getAnalysis()->setConditionLink(
-                op,
-                m_d->m_applyConditionInfo.cond,
-                m_d->m_applyConditionInfo.bitIndex);
+                op, m_d->m_applyConditionInfo);
 
             if (modified)
             {
@@ -5347,9 +5519,7 @@ void EventWidget::applyConditionAccept()
         if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
         {
             bool modified = m_d->getAnalysis()->clearConditionLink(
-                op,
-                m_d->m_applyConditionInfo.cond,
-                m_d->m_applyConditionInfo.bitIndex);
+                op, m_d->m_applyConditionInfo);
 
             if (modified)
             {
@@ -5670,6 +5840,9 @@ void AnalysisWidgetPrivate::repopulate()
                          m_q, [this] (const AnalysisObjectPtr &) {
                              m_conditionWidget->clearTreeSelections();
         });
+
+        QObject::connect(condWidget, &ConditionWidget::conditionLinkSelected,
+                         eventWidget, &EventWidget::conditionLinkSelected);
 
         QObject::connect(condWidget, &ConditionWidget::applyConditionBegin,
                          eventWidget, &EventWidget::applyConditionBegin);

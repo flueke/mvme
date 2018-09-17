@@ -34,7 +34,8 @@ class ConditionWidget: public QWidget
 {
     Q_OBJECT
     signals:
-        void applyConditionBegin(ConditionInterface *cond, int bitIndex);
+        void conditionLinkSelected(const ConditionLink &cl);
+        void applyConditionBegin(const ConditionLink &cl);
         void applyConditionAccept();
         void applyConditionReject();
         void objectSelected(const AnalysisObjectPtr &obj);

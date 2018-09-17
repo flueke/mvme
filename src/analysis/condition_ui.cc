@@ -361,6 +361,18 @@ void ConditionWidget::Private::onNodeClicked(QTreeWidgetItem *node)
             {
                 m_actionApplyCondition->setEnabled(cond->getNumberOfBits() == 1);
                 emit m_q->objectSelected(cond->shared_from_this());
+
+                if (cond->getNumberOfBits() == 1)
+                {
+                    auto condPtr = std::dynamic_pointer_cast<ConditionInterface>(
+                        cond->shared_from_this());
+
+                    emit m_q->conditionLinkSelected({ condPtr, 0 });
+                }
+                else
+                {
+                    emit m_q->applyConditionReject();
+                }
             }
             else
             {
@@ -371,9 +383,17 @@ void ConditionWidget::Private::onNodeClicked(QTreeWidgetItem *node)
 
         case NodeType_ConditionBit:
             m_actionApplyCondition->setEnabled(true);
+
             if (auto cond = qobject_cast<ConditionInterface *>(get_qobject(node->parent())))
             {
                 emit m_q->objectSelected(cond->shared_from_this());
+
+                auto condPtr = std::dynamic_pointer_cast<ConditionInterface>(
+                    cond->shared_from_this());
+
+                int subIndex = node->data(0, DataRole_BitIndex).toInt();
+
+                emit m_q->conditionLinkSelected({ condPtr, subIndex });
             }
             break;
 
@@ -423,7 +443,11 @@ void ConditionWidget::Private::onActionApplyConditionClicked()
         pb_applyConditionAccept->setVisible(true);
         pb_applyConditionReject->setVisible(true);
 
-        emit m_q->applyConditionBegin(cond, bitIndex);
+        auto condPtr = std::dynamic_pointer_cast<ConditionInterface>(cond->shared_from_this());
+
+        assert(condPtr);
+
+        emit m_q->applyConditionBegin({ condPtr, bitIndex });
     }
 }
 
