@@ -1723,7 +1723,7 @@ class AnalysisObjectStore;
 struct LIBMVME_EXPORT ConditionLink
 {
     /* The condition referenced by this link. */
-    std::shared_ptr<ConditionInterface> condition;
+    ConditionPtr condition;
 
     /* Subindex into the conditions bits in case the condition has multiple
      * bits. */
@@ -1834,14 +1834,22 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         /* Links the given operator to the given condition and subindex. Any
          * existing condition link will be replaced. */
-        bool setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
+        //bool setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
+        bool setConditionLink(const OperatorPtr &op, const ConditionLink &cl);
 
         /* Clears the condition link of the given operator if it was linked to
          * the given condition and subIndex. */
-        bool clearConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
+        //bool clearConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
+        bool clearConditionLink(const OperatorPtr &op, const ConditionLink &cl);
 
-        /* Clears the condition link of the given operator. */
+        /* Clears the condition link of the given operator no matter which
+         * condition it is using. */
         bool clearConditionLink(const OperatorPtr &op);
+
+        /* Clears all conditions links of any objects using the given
+         * condition.
+         * Returns the number of condition links cleared. */
+        size_t clearConditionLinksUsing(const ConditionInterface *cond);
 
         //
         // Directory Objects

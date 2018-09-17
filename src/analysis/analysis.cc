@@ -3909,6 +3909,23 @@ void Analysis::removeOperator(const OperatorPtr &op)
             assert(outPipe->getDestinations().isEmpty());
         }
 
+        // If a condition is being removed clear all links pointing to it.
+        if (auto cond = std::dynamic_pointer_cast<ConditionInterface>(op))
+        {
+            for (auto it = m_conditionLinks.begin();
+                 it != m_conditionLinks.end();
+                 it++)
+            {
+                const auto &cl = it.value();
+                const auto &op = it.key();
+
+                if (cl.condition == cond)
+                {
+                    clearConditionLink(op, cl);
+                }
+            }
+        }
+
         m_operators.erase(it);
         setModified();
         emit operatorRemoved(op);
@@ -3990,34 +4007,26 @@ bool Analysis::hasActiveCondition(const OperatorPtr &op) const
     return m_conditionLinks.value(op).condition != nullptr;
 }
 
-bool Analysis::setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex)
+bool Analysis::setConditionLink(const OperatorPtr &op, const ConditionLink &cl)
 {
-    auto condPtr = std::dynamic_pointer_cast<ConditionInterface>(cond->shared_from_this());
-    ConditionLink cl{ condPtr, subIndex };
-
     if (cl != m_conditionLinks.value(op))
     {
-        auto newCl = ConditionLink{ condPtr, subIndex };
-
-        m_conditionLinks.insert(op, newCl);
+        m_conditionLinks.insert(op, cl);
 
         // Set rebuild flag to  clear operator state (e.g. histogram contents)
         // after the condition was set or changed.
         op->setObjectFlags(ObjectFlags::NeedsRebuild);
 
-        emit conditionLinkApplied(op, newCl);
+        emit conditionLinkApplied(op, cl);
 
         return true;
     }
 
-    return false;
+    return true;
 }
 
-bool Analysis::clearConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex)
+bool Analysis::clearConditionLink(const OperatorPtr &op, const ConditionLink &cl)
 {
-    auto condPtr = std::dynamic_pointer_cast<ConditionInterface>(cond->shared_from_this());
-    ConditionLink cl{ condPtr, subIndex };
-
     if (m_conditionLinks.value(op) == cl)
     {
         m_conditionLinks.remove(op);
@@ -4040,6 +4049,28 @@ bool Analysis::clearConditionLink(const OperatorPtr &op)
     }
 
     return false;
+}
+
+size_t Analysis::clearConditionLinksUsing(const ConditionInterface *cond)
+{
+    // Iterater over a copy as the call to clearConditionLink() modifies the
+    // m_conditionLinks hash. */
+    ConditionLinks links = m_conditionLinks;
+    size_t result = 0u;
+
+    for (auto it = links.begin(); it != links.end(); it++)
+    {
+        const auto &cl = it.value();
+        const auto &op = it.key();
+
+        if (cl.condition.get() == cond)
+        {
+            clearConditionLink(op, cl);
+            result++;
+        }
+    }
+
+    return result;
 }
 
 //
