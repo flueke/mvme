@@ -361,6 +361,7 @@ if(BUILD_TESTS)
 
     add_mvme_gtest(test_object_visitor analysis/test_object_visitor.cc)
     add_mvme_gtest(test_analysis_util analysis/test_analysis_util.cc)
+    add_mvme_executable(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 
 endif(BUILD_TESTS)
 

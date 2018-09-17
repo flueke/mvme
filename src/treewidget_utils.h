@@ -130,9 +130,6 @@ class CanDisableItemsHtmlDelegate: public HtmlDelegate
  * If specific data for the requested role is available it will be returned, otherwise the
  * other roles data is returned.
  *
- * This subclass also implements custom (numeric) sorting behavior for output pipe
- * parameter and histogram index values in operator<().
- *
  * NOTE: Do not use for the headerview as that requires special handling which needs
  * access to the private QTreeModel class.
  * Link to the Qt code: https://code.woboq.org/qt5/qtbase/src/widgets/itemviews/qtreewidget.cpp.html#_ZN15QTreeWidgetItem7setDataEiiRK8QVariant
