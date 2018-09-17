@@ -281,4 +281,42 @@ void AnalysisSignalWrapper::setAnalysis(Analysis *analysis)
                      this, &AnalysisSignalWrapper::conditionLinkCleared);
 }
 
+OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
+                                              const OperatorVector &operators)
+{
+    OperatorVector result;
+
+    result.reserve(operators.size());
+
+    for (const auto &op: operators)
+    {
+        /* Cannot apply a condition to itself. */
+        if (op == cond)
+            continue;
+
+        /* Both objects have to reside in the same vme event. */
+        if (op->getEventId() != cond->getEventId())
+            continue;
+
+        /* Use input ranks to determine if the condition has been evaluated at
+         * the point the operator will be executed. Input ranks are used
+         * instead of the calculated ranks (getRank()) because the latter will
+         * be adjusted if an operator does currently make use of a condition.
+         * Using the max input rank gives the unadjusted rank as if the
+         * operator did not use a condition.  */
+        if (cond->getMaximumInputRank() > op->getMaximumInputRank())
+            continue;
+
+        result.push_back(op);
+    }
+
+    return result;
+}
+
+OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
+                                              const Analysis *analysis)
+{
+    return get_apply_condition_candidates(cond, analysis->getOperators());
+}
+
 } // namespace analysis

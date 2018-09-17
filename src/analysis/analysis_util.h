@@ -131,6 +131,16 @@ class AnalysisSignalWrapper: public QObject
         Analysis *m_analysis = nullptr;
 };
 
+/* Returns all operators to which the given condition can be applied to and
+ * which are contained in the given OperatorVector. */
+OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
+                                              const OperatorVector &operators);
+
+/* Returns all operators to which the given condition can be applied to. */
+OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
+                                              const Analysis *analysis);
+
+
 } // namespace analysis
 
 #endif /* __ANALYSIS_UTIL_H__ */
