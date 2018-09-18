@@ -67,7 +67,7 @@ class TreeNode: public CheckStateNotifyingNode
                     return thisAddress < otherAddress;
                 }
             }
-            return QTreeWidgetItem::operator<(other);
+            return CheckStateNotifyingNode::operator<(other);
         }
 };
 
@@ -80,6 +80,9 @@ class ObjectTree: public QTreeWidget, public CheckStateObserver
 {
     Q_OBJECT
     public:
+        using CheckStateChangeHandler = std::function<void (
+            ObjectTree *tree, QTreeWidgetItem *node, const QVariant &prev)>;
+
         ObjectTree(QWidget *parent = nullptr)
             : QTreeWidget(parent)
         {}
@@ -100,9 +103,14 @@ class ObjectTree: public QTreeWidget, public CheckStateObserver
         void setUserLevel(s32 userLevel) { m_userLevel = userLevel; }
         QList<QTreeWidgetItem *> getTopLevelSelectedNodes() const;
 
+        void setCheckStateHandler(const CheckStateChangeHandler &csh) { m_csh = csh; }
+
         virtual void checkStateChanged(QTreeWidgetItem *node, const QVariant &prev) override
         {
-            qDebug() << ">>>>>>>>>>>>>>>>>>>>>>> checkstate changed on node" << node << ", tree =" << this;
+            if (m_csh)
+            {
+                m_csh(this, node, prev);
+            }
         }
 
     protected:
@@ -113,6 +121,7 @@ class ObjectTree: public QTreeWidget, public CheckStateObserver
     private:
         EventWidget *m_eventWidget = nullptr;
         s32 m_userLevel = 0;
+        CheckStateChangeHandler m_csh;
 };
 
 class OperatorTree: public ObjectTree
@@ -304,6 +313,7 @@ struct EventWidgetPrivate
     void onNodeClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeChanged(TreeNode *node, int column, s32 userLevel);
+    void onNodeCheckStateChanged(QTreeWidget *tree, QTreeWidgetItem *node, const QVariant &prev);
     void clearAllTreeSelections();
     void clearTreeSelectionsExcept(QTreeWidget *tree);
     void generateDefaultFilters(ModuleConfig *module);

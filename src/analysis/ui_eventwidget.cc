@@ -1421,6 +1421,11 @@ void EventWidget::conditionLinkSelected(const ConditionLink &cl)
     m_d->clearAllTreeSelections();
     m_d->clearAllToDefaultNodeHighlights();
     m_d->showUsersOfSelectedCondition();
+
+    // get the set of candiates for the condition
+    // walk the set: for each op get its node
+    // enable checkstate role and set Qt::Checked if the operator uses the
+    // current condition
 }
 
 void EventWidget::applyConditionBegin(const ConditionLink &cl)
@@ -2143,6 +2148,16 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
         assert(m_objectMap.count(dir) == 0);
         assert(dirNodes.value(dir));
         m_objectMap[dir] = dirNodes.value(dir);
+    }
+
+    auto csh = [this] (ObjectTree *tree, QTreeWidgetItem *node, const QVariant &prev)
+    {
+        this->onNodeCheckStateChanged(tree, node, prev);
+    };
+
+    for (auto &tree: result.getObjectTrees())
+    {
+        tree->setCheckStateHandler(csh);
     }
 
     return result;
@@ -4448,6 +4463,12 @@ void EventWidgetPrivate::onNodeChanged(TreeNode *node, int column, s32 userLevel
             }
         }
     }
+}
+
+void EventWidgetPrivate::onNodeCheckStateChanged(QTreeWidget *tree,
+                                                 QTreeWidgetItem *node, const QVariant &prev)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << tree << node << node->data(0, Qt::CheckStateRole) << prev;
 }
 
 void EventWidgetPrivate::clearAllTreeSelections()
