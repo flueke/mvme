@@ -94,7 +94,6 @@ set(LIBMVME_SOURCES
     analysis/analysis_info_widget.cc
     analysis/analysis_serialization.cc
     analysis/analysis_ui.cc
-    analysis/analysis_ui_lib.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
     analysis/code_editor.cc
@@ -106,6 +105,8 @@ set(LIBMVME_SOURCES
     analysis/object_editor_dialog.cc
     analysis/object_factory.cc
     analysis/object_info_widget.cc
+    analysis/ui_eventwidget.cc
+    analysis/ui_lib.cc
 
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc

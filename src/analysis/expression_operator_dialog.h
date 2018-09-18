@@ -11,8 +11,12 @@ class MVMEContext;
 namespace analysis
 {
 
-class EventWidget;
 class ExpressionOperator;
+
+namespace ui
+{
+
+class EventWidget;
 
 class ExpressionOperatorDialog: public ObjectEditorDialog
 {
@@ -36,6 +40,7 @@ class ExpressionOperatorDialog: public ObjectEditorDialog
         std::unique_ptr<Private> m_d;
 };
 
+} // end namespace ui
 } // end namespace analysis
 
 #endif /* __EXPRESSION_OPERATOR_DIALOG_H__ */

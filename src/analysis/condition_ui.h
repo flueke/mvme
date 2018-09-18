@@ -10,8 +10,8 @@ class MVMEContext;
 
 namespace analysis
 {
-
-class ConditionInterface;
+namespace ui
+{
 
 class ConditionTreeWidget: public QTreeWidget
 {
@@ -19,11 +19,13 @@ class ConditionTreeWidget: public QTreeWidget
     public:
         ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
                             QWidget *parent = nullptr);
-
         virtual ~ConditionTreeWidget() override;
 
         void repopulate();
         void doPeriodicUpdate();
+
+        void highlightConditionLink(const ConditionLink &cl);
+        void clearHighlights();
 
     private:
         struct Private;
@@ -42,7 +44,6 @@ class ConditionWidget: public QWidget
 
     public:
         ConditionWidget(MVMEContext *ctx, QWidget *parent = nullptr);
-
         virtual ~ConditionWidget() override;
 
         void repopulate();
@@ -50,16 +51,20 @@ class ConditionWidget: public QWidget
         void repopulate(const QUuid &eventId);
         void doPeriodicUpdate();
 
+        void highlightConditionLink(const ConditionLink &cl);
+
     public slots:
         void selectEvent(int eventIndex);
         void selectEventById(const QUuid &eventId);
         void clearTreeSelections();
+        void clearTreeHighlights();
 
     private:
         struct Private;
         std::unique_ptr<Private> m_d;
 };
 
-}
+} // ns ui
+} // ns analysis
 
 #endif /* __MVME_CONDITION_UI_H__ */

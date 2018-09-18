@@ -9,6 +9,8 @@
 namespace analysis
 {
 
+class Slot;
+class Pipe;
 class AnalysisObject;
 class ConditionInterface;
 class Directory;

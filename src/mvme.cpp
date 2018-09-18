@@ -1077,7 +1077,7 @@ void MVMEMainWindow::onActionAnalysis_UI_triggered()
 
     if (!analysisUi)
     {
-        analysisUi = new analysis::AnalysisWidget(m_d->m_context);
+        analysisUi = new analysis::ui::AnalysisWidget(m_d->m_context);
         m_d->m_context->setAnalysisUi(analysisUi);
 
         connect(analysisUi, &QObject::destroyed, this, [this] (QObject *) {

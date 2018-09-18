@@ -3,19 +3,50 @@ TODO list, not at all sorted by priority
 ==================================================
 
 --------------------------------------------------
-BUGS
---------------------------------------------------
-* SIS: when not connected and doing an Init Module mvme hangs in recvfrom()
-
-* HtmlDelegate doesn't seem to know how wide the rendered contents are.
-  Resizing the column by double clicking the headerview separator chooses a
-  width that's too small.
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
---------------------------------------------------
 Analysis Conditions (Histogram Cuts and more)
 --------------------------------------------------
+UI right now:
+1 AnalysisWidget
+  Per event:
+    EventWidget
+      2 processing trees per userlevel: ops and sinks
+
+    Toolbar
+    ...
+  1 ConditionUI
+    Per event:
+      Condition Tree
+
+treeCount = 2 * sum(userlevels[event] for all events) + 1 * eventCount
+
+Modes: Default, InputSelect, ApplyCondition
+Default mode globally highlights broken operators. Selecting a node
+highlights inputs and outputs. Drag and drop and copy/paste are enabled.
+Full context menu allowing creation of new items in the processing trees.
+
+
+Create an interface for input selection with
+  highlightInputOf(bool enable) / highlightInputSource()
+  selectInputFor()
+  endSelectInput()
+  getEventId()
+  getAnalysis()
+  getContext()
+
+Pass this to the editor dialogs instead of the EventWidget directly.
+Split analysis_ui.cc: event_widget_p.{h,cc} and event_widget.h
+
+
+Condition/Operator UI interactions:
+Default mode:
+- select an operator and the active condition is highlighted.
+- no changes can be made in this mode
+- select any condition and checkboxes appear in the left trees for operators
+- to which the condition can be applied to.
+
+
+
+
 * Editing a H2D name via 'F2' is not really possible while a run is active. The
   nodes text will be updated periodically which interferes with editing.
 * ExportSink is marked red in the UI. This happens if the optional condition
@@ -136,34 +167,23 @@ Condition/Cut implementation plan and next steps
   show a checkbox which can be used to apply the condition.
 
 ---------------------
-WORKING* 1d range selection, 2d poly selection
-WORKING * drawing of selections into plots (highlight selected area)
-WORKING* High level Cut objects
-WORKING* Low level cut implementation
-  Range / Polygon test -> binary output value
-  For polygon tests boost::geometry seems to do fine.
+* Clean up the histo widgets. Add a real GUI for cut creation, editing and
+  display.
 
-WORKING* Structure to perform quick lookups of active cuts for a given operator and to
-  get the active cut value.
+* Create a condition display widget where a list of conditions is shown. When
+  selecting a normal operator the active cut should be highlighted. On
+  selecting a cut the dependent operators should be highlighted.  Probably
+  should make this a tree as boolean compound conditions could be display as a
+  tree. This would mean that conditions can appear multiple times in different
+  places in the cut tree.
 
-  Add a condition index member variable to the operator structure.
+  Another structuring element are input ranks.
 
-  Number all conditions in the system sequentially. Use an analysis global
-  boost::dynamic_bitset holding one bit for each of the conditions.
+* Add logic to figure out if a certain cut can be graphically displayed in a
+  given histogram. If so allow showing the cut there.
 
-  Unset all bits in a2_begin_event(), then process module data as usual. In
-  a2_end_event check the operators condition index and if it's valid test the
-  corresponding bit.
-  If it's set step the operator, otherwise set all its output parameters to
-  invalid. Special handling might be needed for Operator_KeepPrevious but that
-  could be done directly in a2_end_event().
-
-
-WORKING * A1: BaseCondition object to be able to filter them out when populating the
-  existing UI.
-  The conditions are implemented as operators to seamlessly fit into the
-  existing analysis system (input selection, data flow) but treated specially
-  for display purposes.
+* Add debugging helpers for cuts. During single event stepping the individual
+  bits of the cuts should be inspectable.
 
 * Clean up the histo widgets. Add a real GUI for cut creation, editing and
   display.
@@ -183,55 +203,26 @@ WORKING * A1: BaseCondition object to be able to filter them out when populating
 * Add debugging helpers for cuts. During single event stepping the individual
   bits of the cuts should be inspectable.
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+--------------------------------------------------
+BUGS
+--------------------------------------------------
+* When enlarging the input of a calibration operator now limtis will be set for
+  the newly added indexes. NAN is used for the limits which creates probelms
+  further down the line. On rebulding the Calibration check if the internal
+  calibration array needs to grow and if so copy the first parameters limits
+  over to the new parameters.
 
+* After renaming an object resort the tree it is contained in.
 
-WORKING* 1d range selection, 2d poly selection
-WORKING * drawing of selections into plots (highlight selected area)
-WORKING* High level Cut objects
-WORKING* Low level cut implementation
-  Range / Polygon test -> binary output value
-  For polygon tests boost::geometry seems to do fine.
+* Add a refresh button to the ui. (same a repop right now, just with a nicer icon :)
 
-WORKING* Structure to perform quick lookups of active cuts for a given operator and to
-  get the active cut value.
+* SIS: when not connected and doing an Init Module mvme hangs in recvfrom()
 
-  Add a condition index member variable to the operator structure.
-
-  Number all conditions in the system sequentially. Use an analysis global
-  boost::dynamic_bitset holding one bit for each of the conditions.
-
-  Unset all bits in a2_begin_event(), then process module data as usual. In
-  a2_end_event check the operators condition index and if it's valid test the
-  corresponding bit.
-  If it's set step the operator, otherwise set all its output parameters to
-  invalid. Special handling might be needed for Operator_KeepPrevious but that
-  could be done directly in a2_end_event().
-
-
-WORKING * A1: BaseCondition object to be able to filter them out when populating the
-  existing UI.
-  The conditions are implemented as operators to seamlessly fit into the
-  existing analysis system (input selection, data flow) but treated specially
-  for display purposes.
-
-* Clean up the histo widgets. Add a real GUI for cut creation, editing and
-  display.
-
-* Create a condition display widget where a list of conditions is shown. When
-  selecting a normal operator the active cut should be highlighted. On
-  selecting a cut the dependent operators should be highlighted.  Probably
-  should make this a tree as boolean compound conditions could be display as a
-  tree. This would mean that conditions can appear multiple times in different
-  places in the cut tree.
-
-  Another structuring element are input ranks.
-
-* Add logic to figure out if a certain cut can be graphically displayed in a
-  given histogram. If so allow showing the cut there.
-
-* Add debugging helpers for cuts. During single event stepping the individual
-  bits of the cuts should be inspectable.
+* HtmlDelegate doesn't seem to know how wide the rendered contents are.
+  Resizing the column by double clicking the headerview separator chooses a
+  width that's too small.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

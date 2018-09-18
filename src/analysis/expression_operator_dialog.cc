@@ -1,10 +1,12 @@
 #include "expression_operator_dialog.h"
 #include "expression_operator_dialog_p.h"
 
-#include "a2/a2_impl.h"
-#include "a2_adapter.h"
-#include "analysis_ui_p.h"
-#include "analysis_util.h"
+#include "analysis/a2/a2_impl.h"
+#include "analysis/a2_adapter.h"
+#include "analysis/analysis.h"
+#include "analysis/analysis_ui_p.h"
+#include "analysis/analysis_util.h"
+#include "analysis/ui_eventwidget.h"
 #include "mvme_context_lib.h"
 #include "qt_util.h"
 #include "util/cpp17_algo.h"
@@ -33,6 +35,8 @@
  */
 
 namespace analysis
+{
+namespace ui
 {
 
 //
@@ -2318,4 +2322,5 @@ void ExpressionOperatorSyntaxHighlighter::highlightBlock(const QString &text)
     }
 }
 
+} // end namespace ui
 } // end namespace analysis

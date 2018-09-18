@@ -3,7 +3,9 @@
 #include <QPushButton>
 #include <QStackedWidget>
 
-#include "analysis_ui_lib.h"
+#include "analysis/analysis.h"
+#include "analysis/analysis_util.h"
+#include "analysis/ui_lib.h"
 #include "gui_util.h"
 #include "mvme_context.h"
 #include "qt_util.h"
@@ -11,6 +13,11 @@
 
 namespace analysis
 {
+namespace ui
+{
+
+using ConditionInterface = analysis::ConditionInterface;
+
 namespace
 {
 
@@ -22,11 +29,12 @@ enum NodeType
 
 enum DataRole
 {
-    DataRole_Pointer = Qt::UserRole,
+    DataRole_AnalysisObject = Global_DataRole_AnalysisObject,
+    DataRole_RawPointer,
     DataRole_BitIndex
 };
 
-class Node: public BasicTreeNode
+class TreeNode: public BasicTreeNode
 {
     public:
         using BasicTreeNode::BasicTreeNode;
@@ -48,17 +56,17 @@ class Node: public BasicTreeNode
 };
 
 template<typename T>
-Node *make_node(T *data, int type = QTreeWidgetItem::Type)
+TreeNode *make_node(T *data, int type = QTreeWidgetItem::Type, int dataRole = DataRole_RawPointer)
 {
-    auto ret = new Node(type);
-    ret->setData(0, DataRole_Pointer, QVariant::fromValue(static_cast<void *>(data)));
+    auto ret = new TreeNode(type);
+    ret->setData(0, dataRole, QVariant::fromValue(static_cast<void *>(data)));
     ret->setFlags(ret->flags() & ~(Qt::ItemIsDropEnabled | Qt::ItemIsDragEnabled));
     return ret;
 }
 
-Node *make_condition_node(ConditionInterface *cond)
+TreeNode *make_condition_node(ConditionInterface *cond)
 {
-    auto ret = make_node(cond, NodeType_Condition);
+    auto ret = make_node(cond, NodeType_Condition, DataRole_AnalysisObject);
 
     ret->setData(0, Qt::EditRole, cond->objectName());
     ret->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
@@ -71,7 +79,7 @@ Node *make_condition_node(ConditionInterface *cond)
     {
         for (s32 bi = 0; bi < condi->getNumberOfBits(); bi++)
         {
-            auto child = make_node(condi, NodeType_ConditionBit);
+            auto child = make_node(condi, NodeType_ConditionBit, DataRole_AnalysisObject);
             child->setData(0, DataRole_BitIndex, bi);
             child->setText(0, QString::number(bi));
 
@@ -98,6 +106,7 @@ struct ConditionTreeWidget::Private
     QUuid m_eventId;
     int m_eventIndex;
     QSet<void *> m_expandedObjects;
+    ObjectToNode m_objectMap;
 };
 
 ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
@@ -160,6 +169,7 @@ ConditionTreeWidget::~ConditionTreeWidget()
 void ConditionTreeWidget::repopulate()
 {
     clear();
+    m_d->m_objectMap.clear();
 
     auto analysis = m_d->getAnalysis();
     auto conditions = analysis->getConditions(m_d->getEventId());
@@ -171,16 +181,66 @@ void ConditionTreeWidget::repopulate()
     for (auto cond: conditions)
     {
         auto node = make_condition_node(cond.get());
-
-        this->addTopLevelItem(node);
+        addTopLevelItem(node);
+        m_d->m_objectMap[cond] = node;
     }
 
     resizeColumnToContents(0);
-    expand_tree_nodes(invisibleRootItem(), m_d->m_expandedObjects);
+    expand_tree_nodes(invisibleRootItem(), m_d->m_expandedObjects, 0,
+                      { DataRole_AnalysisObject, DataRole_RawPointer});
 }
 
 void ConditionTreeWidget::doPeriodicUpdate()
 {
+}
+
+static const QColor InputNodeOfColor            = QColor(0x90, 0xEE, 0x90, 255.0/3); // lightgreen but with some alpha
+static const QColor ChildIsInputNodeOfColor     = QColor(0x90, 0xEE, 0x90, 255.0/6);
+
+void ConditionTreeWidget::highlightConditionLink(const ConditionLink &cl)
+{
+    qDebug() << __PRETTY_FUNCTION__ << cl.condition << cl.subIndex;
+
+    clearHighlights();
+
+    if (auto condNode = m_d->m_objectMap[cl.condition])
+    {
+        if (cl.condition->getNumberOfBits() == 1)
+        {
+            condNode->setBackground(0, InputNodeOfColor);
+        }
+        else if (0 <= cl.subIndex && cl.subIndex < condNode->childCount())
+        {
+            if (auto bitNode = condNode->child(cl.subIndex))
+            {
+                condNode->setBackground(0, ChildIsInputNodeOfColor);
+                bitNode->setBackground(0, InputNodeOfColor);
+            }
+            else
+            {
+                InvalidCodePath;
+            }
+        }
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+}
+
+static void clear_highlights(QTreeWidgetItem *root)
+{
+    root->setBackground(0, QColor(0, 0, 0, 0));
+
+    for (auto ci = 0; ci < root->childCount(); ci++)
+    {
+        clear_highlights(root->child(ci));
+    }
+}
+
+void ConditionTreeWidget::clearHighlights()
+{
+    clear_highlights(invisibleRootItem());
 }
 
 //
@@ -357,7 +417,8 @@ void ConditionWidget::Private::onNodeClicked(QTreeWidgetItem *node)
     switch (static_cast<NodeType>(node->type()))
     {
         case NodeType_Condition:
-            if (auto cond = qobject_cast<ConditionInterface *>(get_qobject(node)))
+            if (auto cond = qobject_cast<ConditionInterface *>(get_qobject(node,
+                                                                           DataRole_AnalysisObject)))
             {
                 m_actionApplyCondition->setEnabled(cond->getNumberOfBits() == 1);
                 emit m_q->objectSelected(cond->shared_from_this());
@@ -384,7 +445,8 @@ void ConditionWidget::Private::onNodeClicked(QTreeWidgetItem *node)
         case NodeType_ConditionBit:
             m_actionApplyCondition->setEnabled(true);
 
-            if (auto cond = qobject_cast<ConditionInterface *>(get_qobject(node->parent())))
+            if (auto cond = qobject_cast<ConditionInterface *>(get_qobject(node->parent(),
+                                                                           DataRole_AnalysisObject)))
             {
                 emit m_q->objectSelected(cond->shared_from_this());
 
@@ -418,7 +480,8 @@ void ConditionWidget::Private::onActionApplyConditionClicked()
         switch (selectedNode->type())
         {
             case NodeType_Condition:
-                if ((cond = qobject_cast<ConditionInterface *>(get_qobject(selectedNode))))
+                if ((cond = qobject_cast<ConditionInterface *>(get_qobject(selectedNode,
+                                                                           DataRole_AnalysisObject))))
                 {
                     assert(cond->getNumberOfBits() == 1);
                     bitIndex = 0;
@@ -426,12 +489,16 @@ void ConditionWidget::Private::onActionApplyConditionClicked()
                 break;
 
             case NodeType_ConditionBit:
-                auto parentNode = selectedNode->parent();
-                if (parentNode && parentNode->type() == NodeType_Condition)
                 {
-                    if ((cond = qobject_cast<ConditionInterface *>(get_qobject(parentNode))))
+                    auto parentNode = selectedNode->parent();
+
+                    if (parentNode && parentNode->type() == NodeType_Condition)
                     {
-                        bitIndex = selectedNode->data(0, DataRole_BitIndex).toInt();
+                        if ((cond = qobject_cast<ConditionInterface *>(
+                                    get_qobject(parentNode, DataRole_AnalysisObject))))
+                        {
+                            bitIndex = selectedNode->data(0, DataRole_BitIndex).toInt();
+                        }
                     }
                 }
                 break;
@@ -451,4 +518,28 @@ void ConditionWidget::Private::onActionApplyConditionClicked()
     }
 }
 
+void ConditionWidget::clearTreeHighlights()
+{
+    for (auto tree: m_d->m_treesByEventId.values())
+    {
+        tree->clearHighlights();
+    }
 }
+
+void ConditionWidget::highlightConditionLink(const ConditionLink &cl)
+{
+    clearTreeHighlights();
+
+    if (cl)
+    {
+        auto eventId = cl.condition->getEventId();
+
+        if (auto tree = m_d->m_treesByEventId[eventId])
+        {
+            tree->highlightConditionLink(cl);
+        }
+    }
+}
+
+} // ns ui
+} // ns analysis

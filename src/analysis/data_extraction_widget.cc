@@ -31,6 +31,8 @@
 
 namespace analysis
 {
+namespace ui
+{
 
 static const char *defaultNewFilter = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 
@@ -180,4 +182,5 @@ void DataExtractionEditor::apply()
     }
 }
 
+} // end namespace ui
 } // end namespace analysis

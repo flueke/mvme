@@ -77,6 +77,9 @@ namespace
 
 namespace analysis
 {
+namespace ui
+{
+
 //
 // AddEditExtractorDialog
 //
@@ -2747,4 +2750,5 @@ void ModuleSettingsDialog::accept()
 }
 
 
+} // end namespace ui
 } // end namespace analysis

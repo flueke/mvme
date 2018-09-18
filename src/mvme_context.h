@@ -49,8 +49,11 @@ class QThread;
 
 namespace analysis
 {
+namespace ui
+{
     class AnalysisWidget;
-}
+} // ns ui
+} // ns analysis
 
 struct MVMEContextPrivate;
 
@@ -285,12 +288,12 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void resumeAnalysis(analysis::Analysis::BeginRunOption option);
         QJsonDocument getAnalysisJsonDocument() const;
 
-        void setAnalysisUi(analysis::AnalysisWidget *analysisUi)
+        void setAnalysisUi(analysis::ui::AnalysisWidget *analysisUi)
         {
             m_analysisUi = analysisUi;
         }
 
-        analysis::AnalysisWidget *getAnalysisUi() const
+        analysis::ui::AnalysisWidget *getAnalysisUi() const
         {
             return m_analysisUi;
         }
@@ -382,7 +385,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         ThreadSafeDataBufferQueue m_freeBuffers;
         ThreadSafeDataBufferQueue m_fullBuffers;
 
-        analysis::AnalysisWidget *m_analysisUi = nullptr;
+        analysis::ui::AnalysisWidget *m_analysisUi = nullptr;
 };
 
 struct DAQPauser

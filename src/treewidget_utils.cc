@@ -250,7 +250,7 @@ QVector<QTreeWidgetItem *> get_checked_nodes(QTreeWidgetItem *node,
 }
 
 void expand_tree_nodes(QTreeWidgetItem *root, const SetOfVoidStar &pointers,
-                       int dataColumn, int dataRole)
+                       int dataColumn, const QVector<int> &dataRoles)
 {
     s32 childCount = root->childCount();
 
@@ -259,13 +259,23 @@ void expand_tree_nodes(QTreeWidgetItem *root, const SetOfVoidStar &pointers,
          ++childIndex)
     {
         auto childNode = root->child(childIndex);
-        expand_tree_nodes(childNode, pointers);
+        expand_tree_nodes(childNode, pointers, dataColumn, dataRoles);
     }
 
-    void *voidObj = root->data(dataColumn, dataRole).value<void *>();
-
-    if (voidObj && pointers.contains(voidObj))
+    for (const int &dataRole: dataRoles)
     {
-        root->setExpanded(true);
+        if (auto voidObj = root->data(dataColumn, dataRole).value<void *>())
+        {
+            if (pointers.contains(voidObj))
+            {
+                root->setExpanded(true);
+            }
+        }
     }
+}
+
+void expand_tree_nodes(QTreeWidgetItem *root, const SetOfVoidStar &pointers,
+                       int dataColumn, int dataRole)
+{
+    expand_tree_nodes(root, pointers, dataColumn, { dataRole });
 }

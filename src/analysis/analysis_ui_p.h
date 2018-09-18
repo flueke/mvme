@@ -42,15 +42,19 @@
 #include <QTreeWidget>
 #include <QWidget>
 
-#include "analysis.h"
+#include "analysis/analysis.h"
+#include "analysis/object_editor_dialog.h"
+#include "analysis/ui_eventwidget.h"
+#include "analysis/ui_lib.h"
 #include "data_filter_edit.h"
 #include "histo_util.h"
-#include "object_editor_dialog.h"
 
 class MVMEContext;
 class ModuleConfig;
 
 namespace analysis
+{
+namespace ui
 {
 
 class AnalysisWidget;
@@ -59,73 +63,6 @@ struct EventWidgetPrivate;
 class OperatorConfigurationWidget;
 class ObjectTree;
 
-class EventWidget: public QWidget
-{
-    Q_OBJECT
-    signals:
-        void objectSelected(const AnalysisObjectPtr &obj);
-
-    public:
-
-        using SelectInputCallback = std::function<void (Slot *destSlot,
-                                                        Pipe *sourcePipe,
-                                                        s32 sourceParamIndex)>;
-
-        EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
-                    AnalysisWidget *analysisWidget, QWidget *parent = 0);
-        ~EventWidget();
-
-        void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback,
-                            QSet<PipeSourceInterface *> additionalInvalidSources = {});
-        void endSelectInput();
-        void highlightInputOf(Slot *slot, bool doHighlight);
-
-        void addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration,
-                       const QString &unit = QString(), double unitMin = 0.0, double unitMax = 0.0);
-        void sourceEdited(SourceInterface *src);
-        void removeSource(SourceInterface *src);
-
-        void removeOperator(OperatorInterface *op);
-
-        void uniqueWidgetCloses();
-        void addUserLevel();
-        void removeUserLevel();
-        void toggleSinkEnabled(SinkInterface *sink);
-        void repopulate();
-        QToolBar *getToolBar();
-        QToolBar *getEventSelectAreaToolBar();
-
-        MVMEContext *getContext() const;
-        AnalysisWidget *getAnalysisWidget() const;
-        Analysis *getAnalysis() const;
-        RunInfo getRunInfo() const;
-        VMEConfig *getVMEConfig() const;
-        QTreeWidgetItem *findNode(const AnalysisObjectPtr &obj);
-
-        friend class AnalysisWidget;
-        friend class AnalysisWidgetPrivate;
-
-        QUuid getEventId() const;
-
-        void selectObjects(const AnalysisObjectVector &objects);
-        AnalysisObjectVector getAllSelectedObjects() const;
-        AnalysisObjectVector getTopLevelSelectedObjects() const;
-        void copyToClipboard(const AnalysisObjectVector &objects);
-        void pasteFromClipboard(QTreeWidget *destTree);
-
-    public slots:
-        void objectEditorDialogApplied();
-        void objectEditorDialogAccepted();
-        void objectEditorDialogRejected();
-
-        void conditionLinkSelected(const ConditionLink &cl);
-        void applyConditionBegin(const ConditionLink &cl);
-        void applyConditionAccept();
-        void applyConditionReject();
-
-    private:
-        EventWidgetPrivate *m_d;
-};
 
 class AddEditExtractorDialog: public ObjectEditorDialog
 {
@@ -400,98 +337,6 @@ class CalibrationItemDelegate: public QStyledItemDelegate
                                       const QModelIndex &index) const;
 };
 
-/* Specialized tree for the EventWidget.
- *
- * Note: the declaration is here because of MOC, the implementation is in analysis_ui.cc
- * because of locally defined types.
- */
-class ObjectTree: public QTreeWidget
-{
-    Q_OBJECT
-    public:
-        ObjectTree(QWidget *parent = nullptr)
-            : QTreeWidget(parent)
-        {}
-
-        ObjectTree(EventWidget *eventWidget, s32 userLevel, QWidget *parent = nullptr)
-            : QTreeWidget(parent)
-            , m_eventWidget(eventWidget)
-            , m_userLevel(userLevel)
-        {}
-
-        virtual ~ObjectTree() override;
-
-        EventWidget *getEventWidget() const { return m_eventWidget; }
-        void setEventWidget(EventWidget *widget) { m_eventWidget = widget; }
-        MVMEContext *getContext() const;
-        Analysis *getAnalysis() const;
-        s32 getUserLevel() const { return m_userLevel; }
-        void setUserLevel(s32 userLevel) { m_userLevel = userLevel; }
-        QList<QTreeWidgetItem *> getTopLevelSelectedNodes() const;
-
-    protected:
-        virtual Qt::DropActions supportedDropActions() const override;
-        virtual void dropEvent(QDropEvent *event) override;
-        virtual void keyPressEvent(QKeyEvent *event) override;
-
-    private:
-        EventWidget *m_eventWidget = nullptr;
-        s32 m_userLevel = 0;
-};
-
-class OperatorTree: public ObjectTree
-{
-    Q_OBJECT
-    public:
-        using ObjectTree::ObjectTree;
-
-        virtual ~OperatorTree() override;
-
-    protected:
-        virtual QStringList mimeTypes() const override;
-
-        virtual bool dropMimeData(QTreeWidgetItem *parent, int index,
-                                  const QMimeData *data, Qt::DropAction action) override;
-
-        virtual QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
-};
-
-class DataSourceTree: public OperatorTree
-{
-    Q_OBJECT
-    public:
-        using OperatorTree::OperatorTree;
-
-        virtual ~DataSourceTree() override;
-
-        QTreeWidgetItem *unassignedDataSourcesRoot = nullptr;
-
-    protected:
-        virtual QStringList mimeTypes() const override;
-
-        virtual bool dropMimeData(QTreeWidgetItem *parent, int index,
-                                  const QMimeData *data, Qt::DropAction action) override;
-
-        virtual QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
-};
-
-class SinkTree: public ObjectTree
-{
-    Q_OBJECT
-    public:
-        using ObjectTree::ObjectTree;
-
-        virtual ~SinkTree() override;
-
-    protected:
-        virtual QStringList mimeTypes() const override;
-
-        virtual bool dropMimeData(QTreeWidgetItem *parent, int index,
-                                  const QMimeData *data, Qt::DropAction action) override;
-
-        virtual QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
-};
-
 class SessionErrorDialog: public QDialog
 {
     Q_OBJECT
@@ -561,6 +406,7 @@ class ModuleSettingsDialog: public QDialog
 QString make_input_source_text(Slot *slot);
 QString make_input_source_text(Pipe *inputPipe, s32 paramIndex = Slot::NoParamIndex);
 
-}
+} // ns ui
+} // ns analysis
 
 #endif /* __ANALYSIS_UI_P_H__ */

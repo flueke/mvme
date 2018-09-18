@@ -319,4 +319,11 @@ OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
     return get_apply_condition_candidates(cond, analysis->getOperators());
 }
 
+QDebug &operator<<(QDebug &dbg, const AnalysisObjectPtr &obj)
+{
+    dbg << obj.get() << ", id =" << (obj ? obj->getId() : QSL(""));
+    return dbg;
+}
+
 } // namespace analysis
+

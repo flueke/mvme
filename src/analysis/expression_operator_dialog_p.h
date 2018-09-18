@@ -21,6 +21,10 @@
 #ifndef __EXPRESSION_OPERATOR_DIALOG_P_H__
 #define __EXPRESSION_OPERATOR_DIALOG_P_H__
 
+#include "analysis/a2/a2.h"
+#include "analysis/analysis_fwd.h"
+#include "analysis/code_editor.h"
+
 #include <QComboBox>
 #include <QFrame>
 #include <QGridLayout>
@@ -34,15 +38,12 @@
 #include <QToolBar>
 #include <QToolBox>
 
-#include "a2/a2.h"
-#include "code_editor.h"
-
 namespace analysis
+{
+namespace ui
 {
 
 class EventWidget;
-class Pipe;
-struct Slot;
 
 class InputSelectButton: public QPushButton
 {
@@ -340,6 +341,7 @@ struct ExpressionOperatorSyntaxHighlighter: public QSyntaxHighlighter
 
 };
 
+} // end namespace ui
 } // end namespace analysis
 
 #endif /* __EXPRESSION_OPERATOR_DIALOG_P_H__ */

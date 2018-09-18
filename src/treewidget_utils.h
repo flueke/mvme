@@ -178,6 +178,10 @@ void get_checked_nodes(QVector<QTreeWidgetItem *> &dest,
 using SetOfVoidStar = QSet<void *>;
 
 void expand_tree_nodes(QTreeWidgetItem *root, const SetOfVoidStar &pointers,
+                       int dataColumn = 0, const QVector<int> &dataRoles = { Qt::UserRole });
+
+void expand_tree_nodes(QTreeWidgetItem *root, const SetOfVoidStar &pointers,
                        int dataColumn = 0, int dataRole = Qt::UserRole);
+
 
 #endif /* __TREEWIDGET_UTIL_H__ */

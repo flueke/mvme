@@ -4,6 +4,8 @@
 #include "analysis.h"
 #include "libmvme_export.h"
 
+class QTreeWidgetItem;
+
 namespace analysis
 {
 
@@ -140,7 +142,22 @@ OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
 OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
                                               const Analysis *analysis);
 
+// https://en.cppreference.com/w/cpp/memory/owner_less
+// std::map<std::weak_ptr<T>, U, std::owner_less<std::weak_ptr<T>>>
+using WeakAnalysisObject = std::weak_ptr<AnalysisObject>;
+
+template <typename MappedType>
+using ObjectMap = std::map<WeakAnalysisObject, MappedType, std::owner_less<WeakAnalysisObject>>;
+
+using Node = QTreeWidgetItem *;
+using NodeSet = QSet<Node>;
+
+using ObjectToNode = ObjectMap<Node>;
+using ObjectToNodes = ObjectMap<NodeSet>;
+
+QDebug &operator<<(QDebug &dbg, const AnalysisObjectPtr &obj);
 
 } // namespace analysis
+
 
 #endif /* __ANALYSIS_UTIL_H__ */

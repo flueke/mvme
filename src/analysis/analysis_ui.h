@@ -30,6 +30,8 @@ class MVMEContext;
 
 namespace analysis
 {
+namespace ui
+{
 
 struct AnalysisWidgetPrivate;
 class ConditionWidget;
@@ -57,6 +59,7 @@ class AnalysisWidget: public QWidget
         void eventConfigModified();
 };
 
+} // end namespace ui
 } // end namespace analysis
 
 #endif /* __ANALYSIS_UI_H__ */
