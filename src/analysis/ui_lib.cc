@@ -20,7 +20,7 @@ void CheckStateNotifyingNode::setData(int column, int role, const QVariant &valu
 
             BasicTreeNode::setData(column, role, value);
 
-            if (prev.isValid() && prev != value)
+            if (prev.isValid() && value.isValid() && prev != value)
             {
                 observer->checkStateChanged(this, prev);
             }
