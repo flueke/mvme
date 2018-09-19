@@ -16,6 +16,10 @@ namespace ui
 class ConditionTreeWidget: public QTreeWidget
 {
     Q_OBJECT
+    signals:
+        void applyConditionAccept();
+        void applyConditionReject();
+
     public:
         ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
                             QWidget *parent = nullptr);
@@ -26,6 +30,7 @@ class ConditionTreeWidget: public QTreeWidget
 
         void highlightConditionLink(const ConditionLink &cl);
         void clearHighlights();
+        void setModificationButtonsVisible(const ConditionLink &cl, bool visible);
 
     private:
         struct Private;
@@ -46,18 +51,20 @@ class ConditionWidget: public QWidget
         ConditionWidget(MVMEContext *ctx, QWidget *parent = nullptr);
         virtual ~ConditionWidget() override;
 
+    public slots:
         void repopulate();
         void repopulate(int eventIndex);
         void repopulate(const QUuid &eventId);
         void doPeriodicUpdate();
 
-        void highlightConditionLink(const ConditionLink &cl);
-
-    public slots:
         void selectEvent(int eventIndex);
         void selectEventById(const QUuid &eventId);
         void clearTreeSelections();
         void clearTreeHighlights();
+
+        void highlightConditionLink(const ConditionLink &cl);
+        void setModificationButtonsVisible(const ConditionLink &cl, bool visible);
+
 
     private:
         struct Private;

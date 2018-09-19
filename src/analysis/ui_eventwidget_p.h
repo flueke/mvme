@@ -103,7 +103,7 @@ class ObjectTree: public QTreeWidget, public CheckStateObserver
         void setUserLevel(s32 userLevel) { m_userLevel = userLevel; }
         QList<QTreeWidgetItem *> getTopLevelSelectedNodes() const;
 
-        void setCheckStateHandler(const CheckStateChangeHandler &csh) { m_csh = csh; }
+        void setCheckStateChangeHandler(const CheckStateChangeHandler &csh) { m_csh = csh; }
 
         virtual void checkStateChanged(QTreeWidgetItem *node, const QVariant &prev) override
         {

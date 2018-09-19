@@ -30,6 +30,8 @@ class EventWidget: public QWidget
     Q_OBJECT
     signals:
         void objectSelected(const analysis::AnalysisObjectPtr &obj);
+        void nonObjectNodeSelected(QTreeWidgetItem *node);
+        void conditionLinksModified(const ConditionLink &cl, bool modified);
 
     public:
 
@@ -84,7 +86,7 @@ class EventWidget: public QWidget
         void objectEditorDialogAccepted();
         void objectEditorDialogRejected();
 
-        void conditionLinkSelected(const ConditionLink &cl);
+        void onConditionLinkSelected(const ConditionLink &cl);
         void applyConditionBegin(const ConditionLink &cl);
         void applyConditionAccept();
         void applyConditionReject();

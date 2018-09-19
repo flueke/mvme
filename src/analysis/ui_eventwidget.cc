@@ -13,16 +13,17 @@
 #include "mvme_context_lib.h"
 #include "rate_monitor_widget.h"
 
-#include <QMenu>
-#include <QGuiApplication>
+#include <boost/dynamic_bitset.hpp>
 #include <QClipboard>
+#include <QFileDialog>
+#include <QGuiApplication>
 #include <QListWidget>
 #include <QListWidgetItem>
-#include <QMimeData>
-#include <QTimer>
+#include <QMenu>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QStandardPaths>
-#include <QFileDialog>
+#include <QTimer>
 
 namespace analysis
 {
@@ -1408,7 +1409,7 @@ void EventWidget::objectEditorDialogRejected()
     uniqueWidgetCloses();
 }
 
-void EventWidget::conditionLinkSelected(const ConditionLink &cl)
+void EventWidget::onConditionLinkSelected(const ConditionLink &cl)
 {
     if (m_d->getMode() != EventWidgetPrivate::Default) return;
 
@@ -1418,14 +1419,21 @@ void EventWidget::conditionLinkSelected(const ConditionLink &cl)
 
     m_d->m_applyConditionInfo = cl;
 
+    const auto &condInfo = m_d->m_applyConditionInfo;
+    assert(condInfo.condition);
+    assert(condInfo.subIndex >= 0);
+    assert(condInfo.subIndex < condInfo.condition->getNumberOfBits());
+
     m_d->clearAllTreeSelections();
     m_d->clearAllToDefaultNodeHighlights();
-    m_d->showUsersOfSelectedCondition();
+    //m_d->showUsersOfSelectedCondition();
+    m_d->updateNodesForApplyConditionMode();
 
-    // get the set of candiates for the condition
+    // get the set of candidates for the condition
     // walk the set: for each op get its node
     // enable checkstate role and set Qt::Checked if the operator uses the
     // current condition
+
 }
 
 void EventWidget::applyConditionBegin(const ConditionLink &cl)
@@ -1505,9 +1513,9 @@ void EventWidget::applyConditionAccept()
     AnalysisPauser pauser(getContext());
     analysis->beginRun(Analysis::KeepState);
 
-    m_d->m_applyConditionInfo = { nullptr, -1 };
-    m_d->setMode(EventWidgetPrivate::Default);
-    m_d->repopulate();
+    //m_d->m_applyConditionInfo = { nullptr, -1 };
+    //m_d->setMode(EventWidgetPrivate::Default);
+    //m_d->repopulate();
 }
 
 void EventWidget::applyConditionReject()
@@ -1830,6 +1838,19 @@ void EventWidgetPrivate::createView(const QUuid &eventId)
         auto trees = createTrees(eventId, userLevel);
         m_levelTrees.push_back(trees);
     }
+
+    auto csh = [this] (ObjectTree *tree, QTreeWidgetItem *node, const QVariant &prev)
+    {
+        this->onNodeCheckStateChanged(tree, node, prev);
+    };
+
+    for (auto &trees: m_levelTrees)
+    {
+        for (auto &tree: trees.getObjectTrees())
+        {
+            tree->setCheckStateChangeHandler(csh);
+        }
+    }
 }
 
 namespace
@@ -2148,16 +2169,6 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
         assert(m_objectMap.count(dir) == 0);
         assert(dirNodes.value(dir));
         m_objectMap[dir] = dirNodes.value(dir);
-    }
-
-    auto csh = [this] (ObjectTree *tree, QTreeWidgetItem *node, const QVariant &prev)
-    {
-        this->onNodeCheckStateChanged(tree, node, prev);
-    };
-
-    for (auto &tree: result.getObjectTrees())
-    {
-        tree->setCheckStateHandler(csh);
     }
 
     return result;
@@ -3855,7 +3866,6 @@ void EventWidgetPrivate::clearToDefaultNodeHighlights(QTreeWidgetItem *node)
 {
     node->setBackground(0, QBrush());
     node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
-    //node->setCheckState(0, Qt::Unchecked);
     node->setData(0, Qt::CheckStateRole, QVariant());
 
     for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
@@ -3921,6 +3931,9 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode()
 {
     auto &aci = m_applyConditionInfo;
 
+    if (!aci) return;
+    if (aci.condition->getEventId() != m_eventId) return;
+
     qDebug() << __PRETTY_FUNCTION__ << this
         << endl
         << "  condition is" << aci.condition.get()
@@ -3931,7 +3944,7 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode()
         << endl
         << "  , objectFlags =" << to_string(aci.condition->getObjectFlags())
         << endl
-        << "  candiates:"
+        << "  candidates:"
         ;
 
     auto analysis = getAnalysis();
@@ -3942,7 +3955,7 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode()
         qDebug() << "    " << op.get();
     }
 
-    qDebug() << __PRETTY_FUNCTION__ << "end of candiates";
+    qDebug() << __PRETTY_FUNCTION__ << "end of candidates";
 
 
     for (const auto &op: candidates)
@@ -3951,6 +3964,12 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode()
 
         if (it != m_objectMap.end())
         {
+            if (!it->second)
+            {
+                qDebug() << __PRETTY_FUNCTION__ << op << "op eventId =" << op->getEventId()
+                    << "op userlevel =" << op->getUserLevel();
+                qDebug() << __PRETTY_FUNCTION__ << "this eventId =" << m_eventId;
+            }
             assert(it->second);
             auto node = it->second;
 
@@ -3980,7 +3999,7 @@ void EventWidgetPrivate::showUsersOfSelectedCondition()
         << endl
         << "  , objectFlags =" << to_string(aci.condition->getObjectFlags())
         << endl
-        << "  candiates:"
+        << "  candidates:"
         ;
 
     auto analysis = getAnalysis();
@@ -4033,12 +4052,16 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
         case NodeType_Directory:
             if ((obj = get_analysis_object(node, DataRole_AnalysisObject)))
             {
-                qDebug() << "click on object: id =" << obj->getId()
+                qDebug() << __PRETTY_FUNCTION__ << "click on object: id =" << obj->getId()
                     << ", class =" << obj->metaObject()->className()
                     << ", flags =" << to_string(obj->getObjectFlags())
                     << ", ulvl  =" << obj->getUserLevel()
                     ;
                 emit m_q->objectSelected(obj);
+            }
+            else
+            {
+                emit m_q->nonObjectNodeSelected(node);
             }
             break;
     }
@@ -4056,7 +4079,8 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     clearTreeSelectionsExcept(node->treeWidget());
                 }
 
-                clearAllToDefaultNodeHighlights();
+                //clearAllToDefaultNodeHighlights();
+                //updateNodesForApplyConditionMode();
 
                 switch (node->type())
                 {
@@ -4468,7 +4492,40 @@ void EventWidgetPrivate::onNodeChanged(TreeNode *node, int column, s32 userLevel
 void EventWidgetPrivate::onNodeCheckStateChanged(QTreeWidget *tree,
                                                  QTreeWidgetItem *node, const QVariant &prev)
 {
-    qDebug() << __PRETTY_FUNCTION__ << this << tree << node << node->data(0, Qt::CheckStateRole) << prev;
+    qDebug() << __PRETTY_FUNCTION__ << this << tree
+        << node << ", checkstate =" << node->data(0, Qt::CheckStateRole)
+        << ", prev =" << prev;
+
+    assert(m_applyConditionInfo);
+
+    auto &aci = m_applyConditionInfo;
+    auto analysis = getAnalysis();
+    auto candidates = get_apply_condition_candidates(aci.condition, analysis);
+
+    qSort(candidates);
+
+    /* In the active set a bit is set to 1 if the candidate at the bit index
+     * uses the condition link being edited.
+     * The checked set is the same but contains a 1 if the node representing
+     * the candidate is checked. */
+    boost::dynamic_bitset<> active;
+    boost::dynamic_bitset<> checked;
+
+    active.reserve(candidates.size());
+    checked.reserve(candidates.size());
+
+    for (const auto &candidate: candidates)
+    {
+        auto node = m_objectMap[candidate];
+
+        active.push_back(analysis->getConditionLink(candidate) == aci);
+        checked.push_back(node && node->data(0, Qt::CheckStateRole) == Qt::Checked);
+    }
+
+    assert(candidates.size() == static_cast<int>(active.size()));
+    assert(active.size() == checked.size());
+
+    emit m_q->conditionLinksModified(aci, active != checked);
 }
 
 void EventWidgetPrivate::clearAllTreeSelections()

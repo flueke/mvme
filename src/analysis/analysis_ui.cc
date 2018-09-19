@@ -247,22 +247,27 @@ void AnalysisWidgetPrivate::onDirectoryRemoved(const DirectoryPtr &dir)
 
 void AnalysisWidgetPrivate::onConditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl)
 {
+#if 0
     qDebug() << __PRETTY_FUNCTION__ << this;
     assert(op->getEventId() == cl.condition->getEventId());
     auto eventId = op->getEventId();
     repopulateEventRelatedWidgets(eventId);
+#endif
 }
 
 void AnalysisWidgetPrivate::onConditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl)
 {
+#if 0
     qDebug() << __PRETTY_FUNCTION__ << this;
     assert(op->getEventId() == cl.condition->getEventId());
     auto eventId = op->getEventId();
     repopulateEventRelatedWidgets(eventId);
+#endif
 }
 
 void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
 {
+    qDebug() << __PRETTY_FUNCTION__ << this << eventId;
     if (auto ew = m_eventWidgetsByEventId.value(eventId))
     {
         ew->repopulate();
@@ -297,7 +302,7 @@ void AnalysisWidgetPrivate::repopulate()
         auto condWidget = m_conditionWidget;
 
         QObject::connect(condWidget, &ConditionWidget::conditionLinkSelected,
-                         eventWidget, &EventWidget::conditionLinkSelected);
+                         eventWidget, &EventWidget::onConditionLinkSelected);
 
         QObject::connect(condWidget, &ConditionWidget::applyConditionBegin,
                          eventWidget, &EventWidget::applyConditionBegin);
@@ -310,16 +315,35 @@ void AnalysisWidgetPrivate::repopulate()
 
         QObject::connect(eventWidget, &EventWidget::objectSelected,
                          m_q, [this] (const analysis::AnalysisObjectPtr &obj) {
+#if 0 // XXX COND
              m_conditionWidget->clearTreeSelections();
              m_conditionWidget->clearTreeHighlights();
+#endif
+
+             ConditionLink cl;
+
              if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
              {
-                 if (auto cl = getAnalysis()->getConditionLink(op))
-                 {
-                     m_conditionWidget->highlightConditionLink(cl);
-                 }
+                 cl = getAnalysis()->getConditionLink(op);
+             }
+
+             if (cl)
+             {
+                 m_conditionWidget->highlightConditionLink(cl);
+             }
+             else
+             {
+                 m_conditionWidget->clearTreeHighlights();
              }
         });
+
+        QObject::connect(eventWidget, &EventWidget::nonObjectNodeSelected,
+                         m_q, [this] (const QTreeWidgetItem *) {
+            m_conditionWidget->clearTreeHighlights();
+        });
+
+        QObject::connect(eventWidget, &EventWidget::conditionLinksModified,
+                         m_conditionWidget, &ConditionWidget::setModificationButtonsVisible);
 
         QObject::connect(condWidget, &ConditionWidget::objectSelected,
                          m_objectInfoWidget, &ObjectInfoWidget::setObject);

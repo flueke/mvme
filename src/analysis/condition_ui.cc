@@ -1,4 +1,5 @@
 #include "condition_ui.h"
+#include "condition_ui_p.h"
 
 #include <QPushButton>
 #include <QStackedWidget>
@@ -93,6 +94,33 @@ TreeNode *make_condition_node(ConditionInterface *cond)
 } // end anon namespace
 
 //
+// NodeModificationButtons
+//
+NodeModificationButtons::NodeModificationButtons(QWidget *parent)
+    : QWidget(parent)
+{
+    pb_accept = new QPushButton(QSL("Accept"));
+    pb_reject = new QPushButton(QSL("Cancel"));
+
+    pb_accept->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+    pb_reject->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+
+    set_widget_font_pointsize_relative(pb_accept, -2);
+    set_widget_font_pointsize_relative(pb_reject, -2);
+
+    auto layout = new QHBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(1);
+
+    layout->addStretch(1);
+    layout->addWidget(pb_accept);
+    layout->addWidget(pb_reject);
+
+    connect(pb_accept, &QPushButton::clicked, this, &NodeModificationButtons::accept);
+    connect(pb_reject, &QPushButton::clicked, this, &NodeModificationButtons::reject);
+}
+
+//
 // ConditionTreeWidget
 //
 
@@ -178,14 +206,46 @@ void ConditionTreeWidget::repopulate()
         return c1->objectName() < c2->objectName();
     });
 
-    for (auto cond: conditions)
+    auto make_buttons_helper = [this](QTreeWidgetItem *node) -> NodeModificationButtons *
+    {
+        auto modButtonsWidget = new NodeModificationButtons;
+
+        setItemWidget(node, 0, modButtonsWidget);
+
+        modButtonsWidget->setButtonsVisible(false);
+
+        connect(modButtonsWidget, &NodeModificationButtons::accept,
+                this, &ConditionTreeWidget::applyConditionAccept);
+
+        connect(modButtonsWidget, &NodeModificationButtons::reject,
+                this, &ConditionTreeWidget::applyConditionReject);
+
+        return modButtonsWidget;
+    };
+
+    for (const auto &cond: conditions)
     {
         auto node = make_condition_node(cond.get());
         addTopLevelItem(node);
         m_d->m_objectMap[cond] = node;
+
+        if (cond->getNumberOfBits() == 1)
+        {
+            make_buttons_helper(node);
+        }
+        else
+        {
+            assert(node->childCount() == cond->getNumberOfBits());
+
+            for (auto ci = 0; ci < node->childCount(); ci++)
+            {
+                make_buttons_helper(node->child(ci));
+            }
+        }
     }
 
     resizeColumnToContents(0);
+
     expand_tree_nodes(invisibleRootItem(), m_d->m_expandedObjects, 0,
                       { DataRole_AnalysisObject, DataRole_RawPointer});
 }
@@ -243,6 +303,27 @@ void ConditionTreeWidget::clearHighlights()
     clear_highlights(invisibleRootItem());
 }
 
+void ConditionTreeWidget::setModificationButtonsVisible(const ConditionLink &cl, bool visible)
+{
+    QTreeWidgetItem *node = nullptr;
+
+    if ((node = m_d->m_objectMap[cl.condition]))
+    {
+        if (1 < cl.subIndex && cl.subIndex < node->childCount())
+        {
+            node = node->child(cl.subIndex);
+        }
+    }
+
+    if (node)
+    {
+        if (auto modButtons = qobject_cast<NodeModificationButtons *>(itemWidget(node, 0)))
+        {
+            modButtons->setButtonsVisible(visible);
+        }
+    }
+}
+
 //
 // ConditionWidget
 //
@@ -255,17 +336,13 @@ struct ConditionWidget::Private
     QToolBar *m_toolbar;
     QStackedWidget *m_treeStack;
     QHash<QUuid, ConditionTreeWidget *> m_treesByEventId;
+    ConditionLink m_conditionLinkWithVisibleButtons;
 
-    QAction *m_actionApplyCondition;
-    QPushButton *pb_applyConditionAccept;
-    QPushButton *pb_applyConditionReject;
-
+    explicit Private(ConditionWidget *q): m_q(q) {}
     MVMEContext *getContext() const { return m_context; }
     Analysis *getAnalysis() const { return getContext()->getAnalysis(); }
 
-    explicit Private(ConditionWidget *q): m_q(q) {}
     void onNodeClicked(QTreeWidgetItem *node);
-    void onActionApplyConditionClicked();
 };
 
 ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
@@ -279,42 +356,11 @@ ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
     // populate the toolbar
     {
         auto tb = m_d->m_toolbar;
-
-        m_d->m_actionApplyCondition = tb->addAction(
-            QIcon(QSL(":/scissors_arrow.png")), QSL("Apply Condition"),
-            this, [this] { m_d->onActionApplyConditionClicked(); });
-
-        m_d->m_actionApplyCondition->setEnabled(false);
     }
-
-    m_d->pb_applyConditionAccept = new QPushButton(QSL("Accept"));
-    m_d->pb_applyConditionReject = new QPushButton(QSL("Cancel"));
-
-    m_d->pb_applyConditionAccept->setVisible(false);
-    m_d->pb_applyConditionReject->setVisible(false);
-
-    connect(m_d->pb_applyConditionAccept, &QPushButton::clicked,
-            this, [this] () {
-                m_d->pb_applyConditionAccept->setVisible(false);
-                m_d->pb_applyConditionReject->setVisible(false);
-                emit applyConditionAccept();
-            });
-
-    connect(m_d->pb_applyConditionReject, &QPushButton::clicked,
-            this, [this] () {
-                m_d->pb_applyConditionAccept->setVisible(false);
-                m_d->pb_applyConditionReject->setVisible(false);
-                emit applyConditionReject();
-            });
-
-    auto buttonsLayout = new QHBoxLayout;
-    buttonsLayout->addWidget(m_d->pb_applyConditionAccept);
-    buttonsLayout->addWidget(m_d->pb_applyConditionReject);
 
     // layout
     auto layout = new QVBoxLayout(this);
     layout->addWidget(m_d->m_toolbar);
-    layout->addLayout(buttonsLayout);
     layout->addWidget(m_d->m_treeStack);
     layout->setStretch(2, 1);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -332,6 +378,8 @@ ConditionWidget::~ConditionWidget()
 
 void ConditionWidget::repopulate()
 {
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
     clear_stacked_widget(m_d->m_treeStack);
     m_d->m_treesByEventId.clear();
 
@@ -355,6 +403,12 @@ void ConditionWidget::repopulate()
                 this, [this] (QTreeWidgetItem *node) {
                     m_d->onNodeClicked(node);
                 });
+
+        connect(conditionTree, &ConditionTreeWidget::applyConditionAccept,
+                this, &ConditionWidget::applyConditionAccept);
+
+        connect(conditionTree, &ConditionTreeWidget::applyConditionReject,
+                this, &ConditionWidget::applyConditionReject);
     }
 
     assert(m_d->m_treeStack->count() == eventConfigs.size());
@@ -414,13 +468,20 @@ void ConditionWidget::clearTreeSelections()
 
 void ConditionWidget::Private::onNodeClicked(QTreeWidgetItem *node)
 {
+    if (m_conditionLinkWithVisibleButtons)
+    {
+        auto &cl = m_conditionLinkWithVisibleButtons;
+
+        m_q->setModificationButtonsVisible(cl, false);
+        m_conditionLinkWithVisibleButtons = {};
+    }
+
     switch (static_cast<NodeType>(node->type()))
     {
         case NodeType_Condition:
             if (auto cond = qobject_cast<ConditionInterface *>(get_qobject(node,
                                                                            DataRole_AnalysisObject)))
             {
-                m_actionApplyCondition->setEnabled(cond->getNumberOfBits() == 1);
                 emit m_q->objectSelected(cond->shared_from_this());
 
                 if (cond->getNumberOfBits() == 1)
@@ -443,7 +504,6 @@ void ConditionWidget::Private::onNodeClicked(QTreeWidgetItem *node)
             break;
 
         case NodeType_ConditionBit:
-            m_actionApplyCondition->setEnabled(true);
 
             if (auto cond = qobject_cast<ConditionInterface *>(get_qobject(node->parent(),
                                                                            DataRole_AnalysisObject)))
@@ -460,61 +520,7 @@ void ConditionWidget::Private::onNodeClicked(QTreeWidgetItem *node)
             break;
 
         default:
-            m_actionApplyCondition->setEnabled(false);
             break;
-    }
-
-}
-
-void ConditionWidget::Private::onActionApplyConditionClicked()
-{
-    ConditionInterface *cond = nullptr;
-    int bitIndex = -1;
-
-    if (auto tree = qobject_cast<QTreeWidget *>(m_treeStack->currentWidget()))
-    {
-        auto selectedNode = tree->currentItem();
-
-        if (!selectedNode) return;
-
-        switch (selectedNode->type())
-        {
-            case NodeType_Condition:
-                if ((cond = qobject_cast<ConditionInterface *>(get_qobject(selectedNode,
-                                                                           DataRole_AnalysisObject))))
-                {
-                    assert(cond->getNumberOfBits() == 1);
-                    bitIndex = 0;
-                }
-                break;
-
-            case NodeType_ConditionBit:
-                {
-                    auto parentNode = selectedNode->parent();
-
-                    if (parentNode && parentNode->type() == NodeType_Condition)
-                    {
-                        if ((cond = qobject_cast<ConditionInterface *>(
-                                    get_qobject(parentNode, DataRole_AnalysisObject))))
-                        {
-                            bitIndex = selectedNode->data(0, DataRole_BitIndex).toInt();
-                        }
-                    }
-                }
-                break;
-        }
-    }
-
-    if (cond && bitIndex >= 0)
-    {
-        pb_applyConditionAccept->setVisible(true);
-        pb_applyConditionReject->setVisible(true);
-
-        auto condPtr = std::dynamic_pointer_cast<ConditionInterface>(cond->shared_from_this());
-
-        assert(condPtr);
-
-        emit m_q->applyConditionBegin({ condPtr, bitIndex });
     }
 }
 
@@ -538,6 +544,20 @@ void ConditionWidget::highlightConditionLink(const ConditionLink &cl)
         {
             tree->highlightConditionLink(cl);
         }
+    }
+}
+
+void ConditionWidget::setModificationButtonsVisible(const ConditionLink &cl, bool visible)
+{
+    assert(cl);
+    if (!cl) return;
+
+    auto eventId = cl.condition->getEventId();
+
+    if (auto tree = m_d->m_treesByEventId[eventId])
+    {
+        tree->setModificationButtonsVisible(cl, visible);
+        m_d->m_conditionLinkWithVisibleButtons = cl;
     }
 }
 
