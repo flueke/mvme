@@ -4733,7 +4733,16 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
             m_sources.append(obj);
 
         for (const auto &obj: objectStore.operators)
+        {
+            /* Hack fixing invalid userlevels for non-sinks. Userlevel 0 should
+             * only contain data sources in the top view and sinks for raw data
+             * in the bottom view. */
+            if (!qobject_cast<SinkInterface *>(obj.get()) && obj->getUserLevel() == 0)
+            {
+                obj->setUserLevel(1);
+            }
             m_operators.append(obj);
+        }
 
         for (const auto &obj: objectStore.directories)
             m_directories.append(obj);
