@@ -102,11 +102,12 @@ NodeModificationButtons::NodeModificationButtons(QWidget *parent)
     pb_accept = new QPushButton(QSL("Accept"));
     pb_reject = new QPushButton(QSL("Cancel"));
 
-    pb_accept->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-    pb_reject->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-    set_widget_font_pointsize_relative(pb_accept, -2);
-    set_widget_font_pointsize_relative(pb_reject, -2);
+    for (auto button: { pb_accept, pb_reject })
+    {
+        set_widget_font_pointsize_relative(button, -2);
+        button->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+        button->setMinimumWidth(5);
+    }
 
     auto layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -206,11 +207,11 @@ void ConditionTreeWidget::repopulate()
         return c1->objectName() < c2->objectName();
     });
 
-    auto make_buttons_helper = [this](QTreeWidgetItem *node) -> NodeModificationButtons *
+    auto make_mod_buttons = [this](QTreeWidgetItem *node) -> NodeModificationButtons *
     {
         auto modButtonsWidget = new NodeModificationButtons;
 
-        setItemWidget(node, 0, modButtonsWidget);
+        this->setItemWidget(node, 0, modButtonsWidget);
 
         modButtonsWidget->setButtonsVisible(false);
 
@@ -231,7 +232,7 @@ void ConditionTreeWidget::repopulate()
 
         if (cond->getNumberOfBits() == 1)
         {
-            make_buttons_helper(node);
+            make_mod_buttons(node);
         }
         else
         {
@@ -239,7 +240,7 @@ void ConditionTreeWidget::repopulate()
 
             for (auto ci = 0; ci < node->childCount(); ci++)
             {
-                make_buttons_helper(node->child(ci));
+                make_mod_buttons(node->child(ci));
             }
         }
     }
@@ -307,9 +308,10 @@ void ConditionTreeWidget::setModificationButtonsVisible(const ConditionLink &cl,
 {
     QTreeWidgetItem *node = nullptr;
 
-    if ((node = m_d->m_objectMap[cl.condition]))
+    if (cl && (node = m_d->m_objectMap[cl.condition]))
     {
-        if (1 < cl.subIndex && cl.subIndex < node->childCount())
+        if (cl.condition->getNumberOfBits() > 1
+            && 0 <= cl.subIndex && cl.subIndex < node->childCount())
         {
             node = node->child(cl.subIndex);
         }
