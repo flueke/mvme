@@ -87,7 +87,6 @@ class EventWidget: public QWidget
         void objectEditorDialogRejected();
 
         void onConditionLinkSelected(const ConditionLink &cl);
-        void applyConditionBegin(const ConditionLink &cl);
         void applyConditionAccept();
         void applyConditionReject();
 

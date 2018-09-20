@@ -309,7 +309,6 @@ struct EventWidgetPrivate
     void clearToDefaultNodeHighlights(QTreeWidgetItem *node);
     void clearAllToDefaultNodeHighlights();
     void updateNodesForApplyConditionMode();
-    void showUsersOfSelectedCondition();
     void onNodeClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeChanged(TreeNode *node, int column, s32 userLevel);

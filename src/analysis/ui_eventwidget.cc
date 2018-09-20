@@ -1412,38 +1412,20 @@ void EventWidget::objectEditorDialogRejected()
 void EventWidget::onConditionLinkSelected(const ConditionLink &cl)
 {
     if (m_d->getMode() != EventWidgetPrivate::Default) return;
-
     if (cl.condition->getEventId() != getEventId()) return;
+    if (cl == m_d->m_applyConditionInfo) return;
 
-    qDebug() << __PRETTY_FUNCTION__ << this << getEventId() << cl.condition->getEventId();
+    qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get() << cl.subIndex;
 
-    m_d->m_applyConditionInfo = cl;
-
-    const auto &condInfo = m_d->m_applyConditionInfo;
+    const auto &condInfo = cl;
     assert(condInfo.condition);
-    assert(condInfo.subIndex >= 0);
     assert(condInfo.subIndex < condInfo.condition->getNumberOfBits());
+
+    m_d->m_applyConditionInfo = (cl.subIndex >= 0 ? cl : ConditionLink{});
 
     m_d->clearAllTreeSelections();
     m_d->clearAllToDefaultNodeHighlights();
-    //m_d->showUsersOfSelectedCondition();
     m_d->updateNodesForApplyConditionMode();
-
-    // get the set of candidates for the condition
-    // walk the set: for each op get its node
-    // enable checkstate role and set Qt::Checked if the operator uses the
-    // current condition
-
-}
-
-void EventWidget::applyConditionBegin(const ConditionLink &cl)
-{
-    if (cl.condition->getEventId() != getEventId()) return;
-
-    qDebug() << __PRETTY_FUNCTION__ << this << getEventId() << cl.condition->getEventId();
-
-    m_d->m_applyConditionInfo = cl;
-    m_d->setMode(EventWidgetPrivate::ApplyCondition);
 }
 
 void EventWidget::applyConditionAccept()
@@ -1512,23 +1494,31 @@ void EventWidget::applyConditionAccept()
 
     AnalysisPauser pauser(getContext());
     analysis->beginRun(Analysis::KeepState);
-
-    //m_d->m_applyConditionInfo = { nullptr, -1 };
-    //m_d->setMode(EventWidgetPrivate::Default);
-    //m_d->repopulate();
 }
 
 void EventWidget::applyConditionReject()
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 
-    m_d->m_applyConditionInfo = { nullptr, -1 };
-    m_d->setMode(EventWidgetPrivate::Default);
-}
+    auto &aci = m_d->m_applyConditionInfo;
 
-//
-//
-//
+    if (aci)
+    {
+        auto analysis = getAnalysis();
+        auto candidates = get_apply_condition_candidates(aci.condition, analysis);
+
+        for (const auto &op: candidates)
+        {
+            if (auto node = m_d->m_objectMap[op])
+            {
+                node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
+                node->setData(0, Qt::CheckStateRole, QVariant());
+            }
+        }
+    }
+
+    m_d->updateNodesForApplyConditionMode();
+}
 
 void EventWidget::removeOperator(OperatorInterface *op)
 {
@@ -3985,58 +3975,6 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode()
     }
 }
 
-void EventWidgetPrivate::showUsersOfSelectedCondition()
-{
-    auto &aci = m_applyConditionInfo;
-
-    qDebug() << __PRETTY_FUNCTION__ << this
-        << endl
-        << "  condition is" << aci.condition.get()
-        << endl
-        << "  , with maxInputRank  =" << aci.condition->getMaximumInputRank()
-        << " , with maxOutputRank =" << aci.condition->getMaximumOutputRank()
-        << " , with rank =" << aci.condition->getRank()
-        << endl
-        << "  , objectFlags =" << to_string(aci.condition->getObjectFlags())
-        << endl
-        << "  candidates:"
-        ;
-
-    auto analysis = getAnalysis();
-    auto candidates = get_apply_condition_candidates(aci.condition, analysis);
-
-    for (const auto &op: candidates)
-    {
-        qDebug() << "    " << op.get();
-    }
-
-    qDebug() << __PRETTY_FUNCTION__ << "end of candiates";
-
-
-    for (const auto &op: candidates)
-    {
-        if (analysis->getConditionLink(op) != aci)
-            continue;
-
-        auto it = m_objectMap.find(op);
-
-        if (it != m_objectMap.end())
-        {
-            assert(it->second);
-            auto node = it->second;
-
-            auto opCond  = analysis->getConditionLink(op);
-            auto checked = ((opCond.condition == aci.condition
-                            && opCond.subIndex == aci.subIndex)
-                            ? Qt::Checked
-                            : Qt::Unchecked);
-
-            node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
-            node->setCheckState(0, checked);
-        }
-    }
-}
-
 
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
@@ -4078,9 +4016,6 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                 {
                     clearTreeSelectionsExcept(node->treeWidget());
                 }
-
-                //clearAllToDefaultNodeHighlights();
-                //updateNodesForApplyConditionMode();
 
                 switch (node->type())
                 {
@@ -4226,7 +4161,6 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     if (!widgetInfo.histos[widgetInfo.histoAddress])
                         break;
 
-
                     if (!m_context->hasObjectWidget(widgetInfo.sink.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
@@ -4240,7 +4174,8 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
                         {
                             auto context = m_context;
-                            widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                            widget->setSink(widgetInfo.sink, [context] (
+                                    const std::shared_ptr<Histo1DSink> &sink) {
                                 context->analysisOperatorEdited(sink);
                             });
                         }
@@ -4394,8 +4329,6 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         dialog->setAttribute(Qt::WA_DeleteOnClose);
                         dialog->show();
                         m_uniqueWidget = dialog;
-                        clearAllTreeSelections();
-                        clearAllToDefaultNodeHighlights();
                     }
                 } break;
 
@@ -4426,8 +4359,6 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                             dialog->setAttribute(Qt::WA_DeleteOnClose);
                             dialog->show();
                             m_uniqueWidget = dialog;
-                            clearAllTreeSelections();
-                            clearAllToDefaultNodeHighlights();
                         }
                     }
                 } break;

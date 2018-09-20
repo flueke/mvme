@@ -304,9 +304,6 @@ void AnalysisWidgetPrivate::repopulate()
         QObject::connect(condWidget, &ConditionWidget::conditionLinkSelected,
                          eventWidget, &EventWidget::onConditionLinkSelected);
 
-        QObject::connect(condWidget, &ConditionWidget::applyConditionBegin,
-                         eventWidget, &EventWidget::applyConditionBegin);
-
         QObject::connect(condWidget, &ConditionWidget::applyConditionAccept,
                          eventWidget, &EventWidget::applyConditionAccept);
 

@@ -29,7 +29,6 @@ class NodeModificationButtons: public QWidget
             pb_reject->setVisible(visible);
         }
 
-
     private:
         QPushButton *pb_accept;
         QPushButton *pb_reject;
