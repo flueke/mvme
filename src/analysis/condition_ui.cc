@@ -1,6 +1,7 @@
 #include "condition_ui.h"
 #include "condition_ui_p.h"
 
+#include <QMenu>
 #include <QPushButton>
 #include <QStackedWidget>
 
@@ -9,6 +10,7 @@
 #include "analysis/ui_lib.h"
 #include "gui_util.h"
 #include "mvme_context.h"
+#include "mvme_context_lib.h"
 #include "qt_util.h"
 #include "treewidget_utils.h"
 
@@ -129,10 +131,15 @@ struct ConditionTreeWidget::Private
 {
     static const int ButtonsColumn = 1;
 
-    Analysis *getAnalysis() const { return m_context->getAnalysis(); }
+    Private(ConditionTreeWidget *q): m_q(q) {}
+    MVMEContext *getContext() const { return m_context; }
+    Analysis *getAnalysis() const { return getContext()->getAnalysis(); }
     QUuid getEventId() const { return m_eventId; }
     int getEventIndex() const { return m_eventIndex; }
+    void doContextMenu(const QPoint &pos);
+    void removeObject(const AnalysisObjectPtr &obj);
 
+    ConditionTreeWidget *m_q;
     MVMEContext *m_context;
     QUuid m_eventId;
     int m_eventIndex;
@@ -143,7 +150,7 @@ struct ConditionTreeWidget::Private
 ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
                                          QWidget *parent)
     : QTreeWidget(parent)
-    , m_d(std::make_unique<Private>())
+    , m_d(std::make_unique<Private>(this))
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 
@@ -155,10 +162,7 @@ ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId,
     // QTreeWidget settings
     setExpandsOnDoubleClick(false);
     setItemDelegate(new HtmlDelegate(this));
-    //setDragEnabled(true);
-    //viewport()->setAcceptDrops(true);
-    //setDropIndicatorShown(true);
-    //setDragDropMode(QAbstractItemView::DragDrop);
+    setContextMenuPolicy(Qt::CustomContextMenu);
 
     // columns: 0 -> name,  1 -> accept/reject buttons
     setColumnCount(2);
@@ -166,6 +170,9 @@ ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId,
     headerItem()->setText(1, QSL(""));
 
     // interactions
+
+    QObject::connect(this, &QWidget::customContextMenuRequested,
+                     this, [this] (QPoint pos) { m_d->doContextMenu(pos); });
 
     // FIXME: restoring expanded state doesn't work because the trees are
     // recreated in ConditionWidget::repopulate()
@@ -341,6 +348,75 @@ void ConditionTreeWidget::setModificationButtonsVisible(const ConditionLink &cl,
         };
 
         walk_treewidget_nodes(invisibleRootItem(), walker);
+    }
+}
+
+namespace
+{
+
+AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Qt::UserRole)
+{
+    auto qo = get_qobject(node, dataRole);
+
+    if (auto ao = qobject_cast<AnalysisObject *>(qo))
+        return ao->shared_from_this();
+
+    return AnalysisObjectPtr();
+}
+
+template<typename T>
+std::shared_ptr<T> get_shared_analysis_object(QTreeWidgetItem *node,
+                                              s32 dataRole = Qt::UserRole)
+{
+    auto objPtr = get_analysis_object(node, dataRole);
+    return std::dynamic_pointer_cast<T>(objPtr);
+}
+
+} // end anon ns
+
+void ConditionTreeWidget::Private::doContextMenu(const QPoint &pos)
+{
+    QMenu menu;
+
+    auto activeNode = m_q->itemAt(pos);
+
+    if (activeNode && activeNode->type() == NodeType_Condition)
+    {
+        auto activeCondition = get_shared_analysis_object<ConditionInterface>(
+            activeNode, DataRole_AnalysisObject);
+        assert(activeCondition);
+
+        // rename
+        menu.addAction(QIcon(QSL(":/document-rename.png")),
+                       QSL("Rename"), [activeNode] () {
+
+            if (auto tw = activeNode->treeWidget())
+            {
+                tw->editItem(activeNode);
+            }
+        });
+
+        // remove
+        menu.addSeparator();
+
+        menu.addAction(QIcon::fromTheme("edit-delete"),
+                       QSL("Remove selected"), [this, activeCondition] {
+            removeObject(activeCondition);
+        });
+    }
+
+    if (!menu.isEmpty())
+    {
+        menu.exec(m_q->mapToGlobal(pos));
+    }
+}
+
+void ConditionTreeWidget::Private::removeObject(const AnalysisObjectPtr &obj)
+{
+    if (obj)
+    {
+        AnalysisPauser pauser(getContext());
+        getAnalysis()->removeObjectsRecursively({ obj });
     }
 }
 
