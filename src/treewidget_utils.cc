@@ -277,5 +277,18 @@ void expand_tree_nodes(QTreeWidgetItem *root, const SetOfVoidStar &pointers,
 void expand_tree_nodes(QTreeWidgetItem *root, const SetOfVoidStar &pointers,
                        int dataColumn, int dataRole)
 {
-    expand_tree_nodes(root, pointers, dataColumn, { dataRole });
+    expand_tree_nodes(root, pointers, dataColumn, QVector<int>{ dataRole });
+}
+
+using NodeWalker = std::function<void (QTreeWidgetItem *node)>;
+
+void walk_treewidget_nodes(QTreeWidgetItem *root, NodeWalker walker)
+{
+    assert(root);
+    walker(root);
+
+    for (auto ci = 0; ci < root->childCount(); ci++)
+    {
+        walk_treewidget_nodes(root->child(ci), walker);
+    }
 }
