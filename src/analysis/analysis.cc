@@ -3912,6 +3912,17 @@ void Analysis::removeOperator(const OperatorPtr &op)
         // If a condition is being removed clear all links pointing to it.
         if (auto cond = std::dynamic_pointer_cast<ConditionInterface>(op))
         {
+
+            /* Note: cannot call clearConditionLink while iterating the
+             * condition link hash because that method will modify the hash. */
+            struct OpAndCl
+            {
+                OperatorPtr op;
+                ConditionLink cl;
+            };
+
+            QVector<OpAndCl> linksToClear;
+
             for (auto it = m_conditionLinks.begin();
                  it != m_conditionLinks.end();
                  it++)
@@ -3921,8 +3932,13 @@ void Analysis::removeOperator(const OperatorPtr &op)
 
                 if (cl.condition == cond)
                 {
-                    clearConditionLink(op, cl);
+                    linksToClear.push_back({ op, cl });
                 }
+            }
+
+            for (auto &entry: linksToClear)
+            {
+                clearConditionLink(entry.op, entry.cl);
             }
         }
 
