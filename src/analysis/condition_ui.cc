@@ -480,6 +480,7 @@ void ConditionWidget::repopulate()
 
     clear_stacked_widget(m_d->m_treeStack);
     m_d->m_treesByEventId.clear();
+    m_d->m_conditionLinkWithVisibleButtons = {};
 
     auto eventConfigs = m_d->getContext()->getEventConfigs();
 

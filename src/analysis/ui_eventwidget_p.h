@@ -209,9 +209,6 @@ struct EventWidgetPrivate
         /* An data extractor or operator add/edit dialog is active and waits
          * for input selection by the user. */
         SelectInput,
-
-        /* XXX COND */
-        ApplyCondition,
     };
 
     EventWidget *m_q;
@@ -309,6 +306,8 @@ struct EventWidgetPrivate
     void clearToDefaultNodeHighlights(QTreeWidgetItem *node);
     void clearAllToDefaultNodeHighlights();
     void updateNodesForApplyConditionMode();
+    void addConditionDecorations(const ConditionLink &cl);
+    void removeConditionDecorations(const ConditionLink &cl);
     void onNodeClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeChanged(TreeNode *node, int column, s32 userLevel);

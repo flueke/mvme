@@ -1,11 +1,12 @@
+#include "analysis/ui_eventwidget.h"
+#include "analysis/ui_eventwidget_p.h"
+
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis_serialization.h"
 #include "analysis/analysis_ui.h"
 #include "analysis/condition_ui.h"
 #include "analysis/expression_operator_dialog.h"
 #include "analysis/listfilter_extractor_dialog.h"
-#include "analysis/ui_eventwidget.h"
-#include "analysis/ui_eventwidget_p.h"
 
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
@@ -1421,6 +1422,8 @@ void EventWidget::onConditionLinkSelected(const ConditionLink &cl)
     assert(condInfo.condition);
     assert(condInfo.subIndex < condInfo.condition->getNumberOfBits());
 
+    m_d->removeConditionDecorations(m_d->m_applyConditionInfo);
+
     m_d->m_applyConditionInfo = (cl.subIndex >= 0 ? cl : ConditionLink{});
 
     m_d->clearAllTreeSelections();
@@ -1642,9 +1645,6 @@ QString mode_to_string(EventWidgetPrivate::Mode mode)
 
         case EventWidgetPrivate::SelectInput:
             return QSL("SelectInput");
-
-        case EventWidgetPrivate::ApplyCondition:
-            return QSL("ApplyCondition");
 
         InvalidDefaultCase;
     }
@@ -3565,18 +3565,6 @@ void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
                     }
                 }
             } break;
-
-        case ApplyCondition:
-            {
-                const auto &condInfo = m_applyConditionInfo;
-                assert(condInfo.condition);
-                assert(condInfo.subIndex >= 0);
-                assert(condInfo.subIndex < condInfo.condition->getNumberOfBits());
-
-                clearAllTreeSelections();
-                clearAllToDefaultNodeHighlights();
-                updateNodesForApplyConditionMode();
-            } break;
     }
 
     updateActions();
@@ -3855,8 +3843,8 @@ void EventWidgetPrivate::highlightOutputNodes(PipeSourceInterface *ps)
 void EventWidgetPrivate::clearToDefaultNodeHighlights(QTreeWidgetItem *node)
 {
     node->setBackground(0, QBrush());
-    node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
-    node->setData(0, Qt::CheckStateRole, QVariant());
+    //node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
+    //node->setData(0, Qt::CheckStateRole, QVariant());
 
     for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
     {
@@ -3917,6 +3905,64 @@ void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
     }
 }
 
+/* Adds checkboxes to the candidates of the given ConditionkLink. */
+void EventWidgetPrivate::addConditionDecorations(const ConditionLink &cl)
+{
+    if (!cl || cl.condition->getEventId() != m_eventId) return;
+
+    auto analysis = getAnalysis();
+    auto candidates = get_apply_condition_candidates(cl.condition, analysis);
+
+    for (const auto &op: candidates)
+    {
+        auto it = m_objectMap.find(op);
+
+        if (it != m_objectMap.end())
+        {
+            if (!it->second)
+            {
+                qDebug() << __PRETTY_FUNCTION__ << op << "op eventId =" << op->getEventId()
+                    << "op userlevel =" << op->getUserLevel();
+                qDebug() << __PRETTY_FUNCTION__ << "this eventId =" << m_eventId;
+            }
+            assert(it->second);
+
+            auto node = it->second;
+            auto opCond  = analysis->getConditionLink(op);
+            auto checked = ((opCond.condition == cl.condition
+                            && opCond.subIndex == cl.subIndex)
+                            ? Qt::Checked
+                            : Qt::Unchecked);
+
+            node->setFlags(node->flags() | Qt::ItemIsUserCheckable);
+            node->setCheckState(0, checked);
+        }
+    }
+}
+
+/* Removes checkboxes for the candidates of the given ConditionkLink. */
+void EventWidgetPrivate::removeConditionDecorations(const ConditionLink &cl)
+{
+    if (!cl || cl.condition->getEventId() != m_eventId) return;
+
+    auto analysis = getAnalysis();
+    auto candidates = get_apply_condition_candidates(cl.condition, analysis);
+
+    for (const auto &op: candidates)
+    {
+        auto it = m_objectMap.find(op);
+
+        if (it != m_objectMap.end())
+        {
+            assert(it->second);
+
+            auto node = it->second;
+            node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
+            node->setData(0, Qt::CheckStateRole, QVariant());
+        }
+    }
+}
+
 void EventWidgetPrivate::updateNodesForApplyConditionMode()
 {
     auto &aci = m_applyConditionInfo;
@@ -3937,44 +3983,8 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode()
         << "  candidates:"
         ;
 
-    auto analysis = getAnalysis();
-    auto candidates = get_apply_condition_candidates(aci.condition, analysis);
-
-    for (const auto &op: candidates)
-    {
-        qDebug() << "    " << op.get();
-    }
-
-    qDebug() << __PRETTY_FUNCTION__ << "end of candidates";
-
-
-    for (const auto &op: candidates)
-    {
-        auto it = m_objectMap.find(op);
-
-        if (it != m_objectMap.end())
-        {
-            if (!it->second)
-            {
-                qDebug() << __PRETTY_FUNCTION__ << op << "op eventId =" << op->getEventId()
-                    << "op userlevel =" << op->getUserLevel();
-                qDebug() << __PRETTY_FUNCTION__ << "this eventId =" << m_eventId;
-            }
-            assert(it->second);
-            auto node = it->second;
-
-            auto opCond  = analysis->getConditionLink(op);
-            auto checked = ((opCond.condition == aci.condition
-                            && opCond.subIndex == aci.subIndex)
-                            ? Qt::Checked
-                            : Qt::Unchecked);
-
-            node->setFlags(node->flags() | Qt::ItemIsUserCheckable);
-            node->setCheckState(0, checked);
-        }
-    }
+    addConditionDecorations(aci);
 }
-
 
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
@@ -4016,6 +4026,8 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                 {
                     clearTreeSelectionsExcept(node->treeWidget());
                 }
+
+                clearAllToDefaultNodeHighlights();
 
                 switch (node->type())
                 {
@@ -4137,10 +4149,6 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     setMode(Default);
                 }
             } break;
-
-        case ApplyCondition:
-            // TODO: do something here
-            break;
     }
 }
 
