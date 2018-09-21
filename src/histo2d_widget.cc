@@ -1664,3 +1664,8 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
             cond);
     }
 }
+
+void Histo2DWidget::editCut(const analysis::ConditionLink &cl)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
+}

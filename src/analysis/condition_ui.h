@@ -19,6 +19,7 @@ class ConditionTreeWidget: public QTreeWidget
     signals:
         void applyConditionAccept();
         void applyConditionReject();
+        void editCondition(const ConditionLink &cond);
 
     public:
         ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
@@ -44,6 +45,7 @@ class ConditionWidget: public QWidget
         void conditionLinkSelected(const ConditionLink &cl);
         void applyConditionAccept();
         void applyConditionReject();
+        void editCondition(const ConditionLink &cond);
         void objectSelected(const AnalysisObjectPtr &obj);
 
     public:

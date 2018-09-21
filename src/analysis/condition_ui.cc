@@ -379,30 +379,55 @@ void ConditionTreeWidget::Private::doContextMenu(const QPoint &pos)
     QMenu menu;
 
     auto activeNode = m_q->itemAt(pos);
+    ConditionLink activeCl;
 
     if (activeNode && activeNode->type() == NodeType_Condition)
     {
-        auto activeCondition = get_shared_analysis_object<ConditionInterface>(
+        activeCl.condition = get_shared_analysis_object<ConditionInterface>(
             activeNode, DataRole_AnalysisObject);
-        assert(activeCondition);
+        activeCl.subIndex = 0;
 
-        // rename
-        menu.addAction(QIcon(QSL(":/document-rename.png")),
-                       QSL("Rename"), [activeNode] () {
+        assert(activeCl);
+    }
+    else if (activeNode && activeNode->type() == NodeType_ConditionBit)
+    {
+        if (auto condNode = activeNode->parent())
+        {
+            activeCl.condition = get_shared_analysis_object<ConditionInterface>(
+                condNode, DataRole_AnalysisObject);
 
-            if (auto tw = activeNode->treeWidget())
-            {
-                tw->editItem(activeNode);
-            }
-        });
+            activeCl.subIndex = activeNode->data(0, DataRole_BitIndex).toInt();
 
-        // remove
-        menu.addSeparator();
+            assert(activeCl);
+        }
+    }
 
-        menu.addAction(QIcon::fromTheme("edit-delete"),
-                       QSL("Remove selected"), [this, activeCondition] {
-            removeObject(activeCondition);
-        });
+    if (activeCl)
+    {
+        // edit
+        menu.addAction(QIcon(QSL(":/pencil.png")), QSL("Edit"),
+                       [this, activeCl] { emit m_q->editCondition(activeCl); });
+
+        if (activeNode && activeNode->type() == NodeType_Condition)
+        {
+            // rename
+            menu.addAction(QIcon(QSL(":/document-rename.png")),
+                           QSL("Rename"), [activeNode] () {
+
+                if (auto tw = activeNode->treeWidget())
+                {
+                    tw->editItem(activeNode);
+                }
+            });
+
+            // remove
+            menu.addSeparator();
+
+            menu.addAction(QIcon::fromTheme("edit-delete"),
+                           QSL("Remove selected"), [this, activeCl] {
+                removeObject(activeCl.condition);
+            });
+        }
     }
 
     if (!menu.isEmpty())
@@ -510,10 +535,8 @@ void ConditionWidget::repopulate()
         connect(conditionTree, &ConditionTreeWidget::applyConditionReject,
                 this, [this] { m_d->onModificationsRejected(); });
 
-        connect(conditionTree, &QTreeWidget::itemClicked,
-                this, [] (QTreeWidgetItem *node) {
-            qDebug() << __PRETTY_FUNCTION__ << "node itemFlags =" << node->flags();
-        });
+        connect(conditionTree, &ConditionTreeWidget::editCondition,
+                this, &ConditionWidget::editCondition);
     }
 
     assert(m_d->m_treeStack->count() == eventConfigs.size());

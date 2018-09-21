@@ -105,6 +105,7 @@ set(LIBMVME_SOURCES
     analysis/object_editor_dialog.cc
     analysis/object_factory.cc
     analysis/object_info_widget.cc
+    analysis/sink_widget_factory.cc
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
 

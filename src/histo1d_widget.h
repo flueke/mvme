@@ -21,8 +21,10 @@
 #ifndef __HISTO1D_WIDGET_H__
 #define __HISTO1D_WIDGET_H__
 
+#include "analysis/cut_editor_interface.h"
 #include "histo1d.h"
 #include "libmvme_export.h"
+
 #include <QSpinBox>
 #include <QWidget>
 
@@ -44,9 +46,11 @@ namespace analysis
 
 struct Histo1DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo1DWidget: public QWidget
+class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::CutEditorInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::CutEditorInterface);
+
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo1DSink>;
         using HistoSinkCallback = std::function<void (const SinkPtr &)>;
@@ -74,6 +78,8 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
 
         //QwtPlotCurve *getPlotCurve() { return m_plotCurve; }
 
+        virtual void editCut(const analysis::ConditionLink &cl) override;
+
     public slots:
         void replot();
 
@@ -97,9 +103,11 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         friend struct Histo1DWidgetPrivate;
 };
 
-class Histo1DListWidget: public QWidget
+class Histo1DListWidget: public QWidget, public analysis::CutEditorInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::CutEditorInterface);
+
     public:
         using HistoList = QVector<std::shared_ptr<Histo1D>>;
         using SinkPtr = Histo1DWidget::SinkPtr;
@@ -114,6 +122,8 @@ class Histo1DListWidget: public QWidget
         void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
 
         void selectHistogram(int histoIndex);
+
+        virtual void editCut(const analysis::ConditionLink &cl) override;
 
     private:
         void onHistoSpinBoxValueChanged(int index);

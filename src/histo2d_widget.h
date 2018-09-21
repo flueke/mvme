@@ -21,10 +21,11 @@
 #ifndef __HISTO2D_WIDGET_H__
 #define __HISTO2D_WIDGET_H__
 
+#include "analysis/cut_editor_interface.h"
 #include "histo2d.h"
-#include <QWidget>
-
 #include "libmvme_export.h"
+
+#include <QWidget>
 
 class MVMEContext;
 class QwtPlot;
@@ -38,9 +39,11 @@ namespace analysis
 
 struct Histo2DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo2DWidget: public QWidget
+class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::CutEditorInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::CutEditorInterface);
+
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo2DSink>;
         using HistoSinkCallback = std::function<void (const SinkPtr &)>;
@@ -64,6 +67,8 @@ class LIBMVME_EXPORT Histo2DWidget: public QWidget
 
         void setLinZ();
         void setLogZ();
+
+        virtual void editCut(const analysis::ConditionLink &cl) override;
 
     private slots:
         void replot();

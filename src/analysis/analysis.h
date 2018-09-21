@@ -21,6 +21,7 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
+#include "analysis/analysis_fwd.h"
 #include "a2/a2.h"
 #include "a2/memory.h"
 #include "a2/multiword_datafilter.h"
@@ -446,6 +447,8 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
         virtual s32 getNumberOfSlots() const = 0;
 
         virtual Slot *getSlot(s32 slotIndex) = 0;
+
+        QVector<Slot *> getSlots();
 
         /* If paramIndex is Slot::NoParamIndex the operator should use the whole array. */
         void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex);
@@ -1448,6 +1451,8 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
 
         s32 getNumberOfHistos() const { return m_histos.size(); }
 
+        QVector<std::shared_ptr<Histo1D>> getHistos() { return m_histos; }
+
         // FIXME: move to private vars
         QVector<std::shared_ptr<Histo1D>> m_histos;
         s32 m_bins = 0;
@@ -1496,7 +1501,9 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         Slot m_inputX;
         Slot m_inputY;
 
-        std::shared_ptr<Histo2D> m_histo;
+        Histo2DPtr getHisto() const { return m_histo; }
+
+        std::shared_ptr<Histo2D> m_histo; // FIXME: move to private
         s32 m_xBins = 0;
         s32 m_yBins = 0;
 

@@ -57,6 +57,7 @@
 #include "analysis/data_extraction_widget.h"
 #include "analysis/expression_operator_dialog.h"
 #include "analysis/object_info_widget.h"
+#include "analysis/sink_widget_factory.h"
 #include "analysis/ui_eventwidget_p.h"
 #include "analysis/ui_lib.h"
 #include "gui_util.h"
@@ -183,6 +184,7 @@ struct AnalysisWidgetPrivate
     void onDirectoryRemoved(const DirectoryPtr &dir);
     void onConditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl);
     void onConditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl);
+    void editConditionLinkGraphically(const ConditionLink &cl);
 
     MVMEContext *getContext() const { return m_context; }
     Analysis *getAnalysis() const { return getContext()->getAnalysis(); }
@@ -265,6 +267,97 @@ void AnalysisWidgetPrivate::onConditionLinkCleared(const OperatorPtr &op, const 
 #endif
 }
 
+void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+    if (!cl) return;
+
+    /* Get the input pipes of the conditon
+     * Find a sink displaying all of the pipes and the cl subindex.
+     * Find an active window for the sink or open a new one.
+     * Tell the window that we want to edit the condition.
+     * For now error out if no sink accumulating the pipes can be found. */
+
+    auto condInputSlots = cl.condition->getSlots();
+
+    // Compares slots by their inputPipe and paramIndex
+    auto slot_lessThan = [] (const Slot *slotA, const Slot *slotB) -> bool
+    {
+        if (slotA->inputPipe == slotB->inputPipe)
+            return slotA->paramIndex < slotB->paramIndex;
+
+        return slotA->inputPipe < slotB->inputPipe;
+    };
+
+    auto slot_inputEq = [] (const Slot *slotA, const Slot *slotB) -> bool
+    {
+        return (slotA->inputPipe == slotB->inputPipe
+                && slotA->paramIndex == slotB->paramIndex);
+    };
+
+    qSort(condInputSlots.begin(), condInputSlots.end(), slot_lessThan);
+
+    SinkPtr matchingSink;
+
+    for (const auto &sink: getAnalysis()->getSinkOperators())
+    {
+        if (sink->getEventId() != cl.condition->getEventId())
+            continue;
+
+        if (sink->getNumberOfSlots() != condInputSlots.size())
+            continue;
+
+        auto sinkSlots = sink->getSlots();
+        qSort(sinkSlots.begin(), sinkSlots.end(), slot_lessThan);
+
+        bool allMatched = true;
+
+        for (int si = 0; si < sinkSlots.size(); si++)
+        {
+            Slot *condSlot = condInputSlots[si];
+            Slot *sinkSlot = sinkSlots[si];
+
+            if (!slot_inputEq(condSlot, sinkSlot))
+            {
+                allMatched = false;
+                break;
+            }
+        }
+
+        if (allMatched)
+        {
+            matchingSink = std::dynamic_pointer_cast<SinkInterface>(sink);
+            break;
+        }
+    }
+
+    if (matchingSink)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "found matching sink" << matchingSink.get() << ":-)";
+
+        auto widget = getContext()->getObjectWidget(matchingSink.get());
+
+        if (!widget)
+        {
+            widget = sink_widget_factory(matchingSink, getContext());
+            show_and_activate(widget);
+        }
+
+        if (auto cutEditor = qobject_cast<CutEditorInterface *>(widget))
+        {
+            cutEditor->editCut(cl);
+        }
+        else
+        {
+            InvalidCodePath;
+        }
+    }
+    else
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "could not find a matching sink :(";
+    }
+}
+
 void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << eventId;
@@ -312,10 +405,6 @@ void AnalysisWidgetPrivate::repopulate()
 
         QObject::connect(eventWidget, &EventWidget::objectSelected,
                          m_q, [this] (const analysis::AnalysisObjectPtr &obj) {
-#if 0 // XXX COND
-             m_conditionWidget->clearTreeSelections();
-             m_conditionWidget->clearTreeHighlights();
-#endif
 
              ConditionLink cl;
 
@@ -341,19 +430,6 @@ void AnalysisWidgetPrivate::repopulate()
 
         QObject::connect(eventWidget, &EventWidget::conditionLinksModified,
                          m_conditionWidget, &ConditionWidget::setModificationButtonsVisible);
-
-        QObject::connect(condWidget, &ConditionWidget::objectSelected,
-                         m_objectInfoWidget, &ObjectInfoWidget::setObject);
-
-        QObject::connect(condWidget, &ConditionWidget::objectSelected,
-                         m_q, [this] (const AnalysisObjectPtr &) {
-
-                             auto ei = m_eventSelectCombo->currentIndex();
-                             if (auto ew = m_eventWidgetsByEventIndex.value(ei, nullptr))
-                             {
-                                 ew->m_d->clearAllTreeSelections();
-                             }
-                         });
 
         m_eventWidgetToolBarStack->addWidget(eventWidget->getToolBar());
         m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->getEventSelectAreaToolBar());
@@ -980,6 +1056,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
             m_d->m_eventWidgetEventSelectAreaToolBarStack, &QStackedWidget::setCurrentIndex);
 
+    // object info widget
+    {
+        m_d->m_objectInfoWidget = new ObjectInfoWidget(m_d->m_context);
+    }
+
     // condition/cut displays
     {
         m_d->m_conditionWidget = new ConditionWidget(m_d->m_context);
@@ -988,13 +1069,25 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
                 condWidget, &ConditionWidget::selectEvent);
 
-        condWidget->show();
-        condWidget->raise();
-    }
 
-    // object info widget
-    {
-        m_d->m_objectInfoWidget = new ObjectInfoWidget(m_d->m_context);
+        QObject::connect(condWidget, &ConditionWidget::objectSelected,
+                         this, [this] (const AnalysisObjectPtr &) {
+
+            auto ei = m_d->m_eventSelectCombo->currentIndex();
+
+            if (auto ew = m_d->m_eventWidgetsByEventIndex.value(ei, nullptr))
+            {
+                ew->m_d->clearAllTreeSelections();
+            }
+        });
+
+        QObject::connect(condWidget, &ConditionWidget::editCondition,
+                         this, [this] (const ConditionLink &cl) {
+            m_d->editConditionLinkGraphically(cl);
+        });
+
+        QObject::connect(condWidget, &ConditionWidget::objectSelected,
+                         m_d->m_objectInfoWidget, &ObjectInfoWidget::setObject);
     }
 
     // toolbar

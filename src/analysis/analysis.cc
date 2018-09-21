@@ -291,6 +291,21 @@ void SourceInterface::accept(ObjectVisitor &visitor)
 //
 // OperatorInterface
 //
+
+QVector<Slot *> OperatorInterface::getSlots()
+{
+    QVector<Slot *> result;
+
+    result.reserve(getNumberOfSlots());
+
+    for (auto si = 0; si < getNumberOfSlots(); si++)
+    {
+        result.push_back(getSlot(si));
+    }
+
+    return result;
+}
+
 // FIXME: does not perform acceptedInputTypes validity test atm!
 void OperatorInterface::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
 {

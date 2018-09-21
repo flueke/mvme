@@ -530,19 +530,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         }
     });
 
-    // Resolution Reduction
-    {
-        m_d->m_rrSlider = make_res_reduction_slider();
-        //m_d->m_rrSlider->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Maximum);
-        auto boxStruct = make_vbox_container(QSL("Visible Resolution"), m_d->m_rrSlider, 0, -2);
-        m_d->m_rrLabel = boxStruct.label;
-        tb->addWidget(boxStruct.container.release());
-
-        connect(m_d->m_rrSlider, &QSlider::valueChanged, this, [this] (int sliderValue) {
-            m_d->onRRSliderValueChanged(sliderValue);
-        });
-    }
-
     // XXX Cut toolbar button
     action = tb->addAction("Cut Test");
     action->setCheckable(true);
@@ -556,6 +543,19 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         m_d->m_zoomer->setEnabled(!checked);
         m_d->m_cutPointPicker->setEnabled(checked);
     });
+
+    // Resolution Reduction
+    {
+        m_d->m_rrSlider = make_res_reduction_slider();
+        //m_d->m_rrSlider->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Maximum);
+        auto boxStruct = make_vbox_container(QSL("Visible Resolution"), m_d->m_rrSlider, 0, -2);
+        m_d->m_rrLabel = boxStruct.label;
+        tb->addWidget(boxStruct.container.release());
+
+        connect(m_d->m_rrSlider, &QSlider::valueChanged, this, [this] (int sliderValue) {
+            m_d->onRRSliderValueChanged(sliderValue);
+        });
+    }
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
     // this.
@@ -1796,6 +1796,31 @@ void Histo1DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
     m_q->replot();
 }
 
+using analysis::ConditionInterval;
+
+void Histo1DWidget::editCut(const analysis::ConditionLink &cl)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
+
+    auto cond = std::dynamic_pointer_cast<ConditionInterval>(cl.condition);
+
+    if (!cond || cl.subIndex < 0 || cl.subIndex >= cond->getNumberOfBits()) return;
+
+    if (!m_d->m_cutZoneItem)
+    {
+        m_d->m_cutZoneItem = std::make_unique<QwtPlotZoneItem>();
+        m_d->m_cutZoneItem->attach(m_d->m_plot);
+
+        //QBrush brush(QColor("#d0d78e"), Qt::DiagCrossPattern);
+        QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
+        m_d->m_cutZoneItem->setBrush(brush);
+    }
+
+    auto interval = cond->getInterval(cl.subIndex);
+    qDebug() << __PRETTY_FUNCTION__ << "setting zone item interval to" << interval.min << interval.max;
+    m_d->m_cutZoneItem->setInterval(interval.min, interval.max);
+}
+
 //
 // Histo1DListWidget
 //
@@ -1877,4 +1902,17 @@ void Histo1DListWidget::selectHistogram(int index)
         QSignalBlocker sb(m_histoSpin);
         m_histoSpin->setValue(index);
     }
+}
+
+void Histo1DListWidget::editCut(const analysis::ConditionLink &cl)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
+
+    auto cond = std::dynamic_pointer_cast<ConditionInterval>(cl.condition);
+
+    if (!cond || cl.subIndex < 0 || cl.subIndex >= m_histos.size())
+        return;
+
+    selectHistogram(cl.subIndex);
+    m_histoWidget->editCut(cl);
 }
