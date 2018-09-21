@@ -1474,6 +1474,7 @@ void EventWidget::onConditionLinkSelected(const ConditionLink &cl)
 
     m_d->clearAllTreeSelections();
     m_d->clearAllToDefaultNodeHighlights();
+    m_d->highlightInputNodes(cl.condition.get());
     m_d->updateNodesForApplyConditionMode();
 }
 
