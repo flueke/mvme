@@ -308,6 +308,7 @@ struct EventWidgetPrivate
     void updateNodesForApplyConditionMode();
     void addConditionDecorations(const ConditionLink &cl);
     void removeConditionDecorations(const ConditionLink &cl);
+    bool hasPendingConditionModifications() const;
     void onNodeClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeChanged(TreeNode *node, int column, s32 userLevel);

@@ -109,6 +109,52 @@ QVector<QUuid> decode_id_list(QByteArray data)
     return result;
 }
 
+/* In the active set a bit is set to 1 if the candidate at the bit index
+ * uses the condition link being edited.
+ * The checked set is the same but contains a 1 if the node representing
+ * the candidate is checked. */
+struct ConditionLinkModifications
+{
+    ConditionLink cl;
+    OperatorVector candidates;
+    boost::dynamic_bitset<> active;
+    boost::dynamic_bitset<> checked;
+
+    bool hasModifications() const { return active != checked; }
+};
+
+ConditionLinkModifications get_condition_modifications(const ConditionLink &cl,
+                                                       Analysis *analysis,
+                                                       const ObjectToNode &objectMap)
+{
+    ConditionLinkModifications result;
+
+    result.candidates = get_apply_condition_candidates(cl.condition, analysis);
+
+    qSort(result.candidates);
+
+    result.active.reserve(result.candidates.size());
+    result.checked.reserve(result.candidates.size());
+
+    for (const auto &candidate: result.candidates)
+    {
+        QTreeWidgetItem *node = nullptr;
+        try
+        {
+            node = objectMap.at(candidate);
+        } catch (const std::out_of_range &)
+        {}
+
+        result.active.push_back(analysis->getConditionLink(candidate) == cl);
+        result.checked.push_back(node && node->data(0, Qt::CheckStateRole) == Qt::Checked);
+    }
+
+    assert(result.candidates.size() == static_cast<int>(result.active.size()));
+    assert(result.active.size() == result.checked.size());
+
+    return result;
+}
+
 } // end anon namespace
 
 ObjectTree::~ObjectTree()
@@ -2425,13 +2471,19 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
     //auto activeObject = get_shared_analysis_object<AnalysisObject>(activeNode);
     Q_ASSERT(0 <= userLevel && userLevel < m_levelTrees.size());
 
+    if (m_uniqueWidget) return;
+
+    if (hasPendingConditionModifications())
+    {
+            qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
+            return;
+    }
+
     if (userLevel == 0)
     {
         doDataSourceOperatorTreeContextMenu(tree, pos, userLevel);
         return;
     }
-
-    if (m_uniqueWidget) return;
 
     auto make_menu_new = [this, userLevel](QMenu *parentMenu,
                                            const DirectoryPtr &destDir = DirectoryPtr())
@@ -2830,6 +2882,12 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
     Q_ASSERT(0 <= userLevel && userLevel < m_levelTrees.size());
 
     if (m_uniqueWidget) return;
+
+    if (hasPendingConditionModifications())
+    {
+            qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
+            return;
+    }
 
     if (userLevel == 0)
     {
@@ -3963,6 +4021,20 @@ void EventWidgetPrivate::removeConditionDecorations(const ConditionLink &cl)
     }
 }
 
+bool EventWidgetPrivate::hasPendingConditionModifications() const
+{
+    if (m_applyConditionInfo)
+    {
+        auto &cl  = m_applyConditionInfo;
+        auto analysis = getAnalysis();
+        auto clMods = get_condition_modifications(cl, analysis, m_objectMap);
+
+        return clMods.hasModifications();
+    }
+
+    return false;
+}
+
 void EventWidgetPrivate::updateNodesForApplyConditionMode()
 {
     auto &aci = m_applyConditionInfo;
@@ -4154,6 +4226,12 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
 
 void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel)
 {
+    if (hasPendingConditionModifications())
+    {
+            qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
+            return;
+    }
+
     if (m_mode == Default)
     {
         switch (node->type())
@@ -4437,34 +4515,14 @@ void EventWidgetPrivate::onNodeCheckStateChanged(QTreeWidget *tree,
 
     assert(m_applyConditionInfo);
 
-    auto &aci = m_applyConditionInfo;
-    auto analysis = getAnalysis();
-    auto candidates = get_apply_condition_candidates(aci.condition, analysis);
-
-    qSort(candidates);
-
-    /* In the active set a bit is set to 1 if the candidate at the bit index
-     * uses the condition link being edited.
-     * The checked set is the same but contains a 1 if the node representing
-     * the candidate is checked. */
-    boost::dynamic_bitset<> active;
-    boost::dynamic_bitset<> checked;
-
-    active.reserve(candidates.size());
-    checked.reserve(candidates.size());
-
-    for (const auto &candidate: candidates)
+    if (m_applyConditionInfo)
     {
-        auto node = m_objectMap[candidate];
+        auto &cl  = m_applyConditionInfo;
+        auto analysis = getAnalysis();
+        auto clMods = get_condition_modifications(cl, analysis, m_objectMap);
 
-        active.push_back(analysis->getConditionLink(candidate) == aci);
-        checked.push_back(node && node->data(0, Qt::CheckStateRole) == Qt::Checked);
+        emit m_q->conditionLinksModified(cl, clMods.hasModifications());
     }
-
-    assert(candidates.size() == static_cast<int>(active.size()));
-    assert(active.size() == checked.size());
-
-    emit m_q->conditionLinksModified(aci, active != checked);
 }
 
 void EventWidgetPrivate::clearAllTreeSelections()

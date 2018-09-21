@@ -2,9 +2,27 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+
 --------------------------------------------------
 Analysis Conditions (Histogram Cuts and more)
 --------------------------------------------------
+
+* infinite loop in updateRanks() if a condition uses another condition!!!
+  This can not be setup with the final version of the GUI but should still be detected and avoided
+
+* UI: having pending cond link modifications and then changing the analysis in
+  some other way (edit op, drag and drop, manual repop) leaves the cond ui in a
+  bad state.
+  Double click and context menu are disabled for now while there are pending
+  condition modifcations but dragging objects still works. Disabling that is a
+  pain and also the whole thing is bad and needs a redesign to fix issues like
+  this. (e.g. avoid tree repops and instead to tree updates, also have some
+  Presenter/Manager object which knows the state of the ui and is responsible
+  for keeping everything consistent throughout state changes and repops and
+  other modifications)
+
+
+
 UI right now:
 1 AnalysisWidget
   Per event:
@@ -226,6 +244,9 @@ BUGS
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+* Add new data sources yielding:
+  - the current timetick value (1s granularity, paramvector of size 1)
+  - the current event #
 
 * Doc: add ListFilterExtractor to Data Sources
 * DAQ Start and then immediately pressing "Run script" in the debug window
