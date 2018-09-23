@@ -394,7 +394,8 @@ struct LIBMVME_EXPORT Slot
      * (parentOperator->getSlot(parentSlotIndex) == this)
      */
     s32 parentSlotIndex = -1;
-    /* The name if this Slot in the parentOperator. Set by the parentOperator. */
+
+    /* The name of this Slot in the parentOperator. Set by the parentOperator. */
     QString name;
 
     /* Set to true if it's ok for the slot to be unconnected and still consider
@@ -1820,6 +1821,22 @@ class LIBMVME_EXPORT Analysis: public QObject
         OperatorVector getNonSinkOperators() const;
         OperatorVector getSinkOperators() const;
 
+        template <typename T>
+        QVector<T> getSinkOperators() const
+        {
+            QVector<T> result;
+
+            for (const auto &op: m_operators)
+            {
+                if (qobject_cast<SinkInterface *>(op.get()))
+                {
+                    result.push_back(std::dynamic_pointer_cast<typename T::element_type>(op));
+                }
+            }
+
+            return result;
+        }
+
         void addOperator(const QUuid &eventId, s32 userLevel, const OperatorPtr &op);
         void addOperator(const OperatorPtr &op);
         void removeOperator(const OperatorPtr &op);
@@ -1981,7 +1998,9 @@ class LIBMVME_EXPORT Analysis: public QObject
         static int getCurrentAnalysisVersion();
 
     private:
-        void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
+        void updateRank(OperatorInterface *op,
+                        QSet<OperatorInterface *> &updated,
+                        QSet<OperatorInterface *> &visited);
 
         SourceVector m_sources;
         OperatorVector m_operators;

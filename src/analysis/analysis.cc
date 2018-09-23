@@ -4452,10 +4452,11 @@ void Analysis::updateRanks()
     }
 
     QSet<OperatorInterface *> updated;
+    QSet<OperatorInterface *> visited;
 
     for (auto op: m_operators)
     {
-        updateRank(op.get(), updated);
+        updateRank(op.get(), updated, visited);
     }
 
 #if ENABLE_ANALYSIS_DEBUG
@@ -4463,18 +4464,33 @@ void Analysis::updateRanks()
 #endif
 }
 
-void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated)
+void Analysis::updateRank(OperatorInterface *op,
+                          QSet<OperatorInterface *> &updated,
+                          QSet<OperatorInterface *> &visited)
 {
     assert(op);
 
     if (updated.contains(op))
         return;
 
+    if (visited.contains(op))
+    {
+        // TODO: return error information
+        qDebug() << __PRETTY_FUNCTION__ << ">>>>> ERROR: previously visited"
+            << getClassName(op)
+            << op->objectName();
+        InvalidCodePath;
+        return;
+    }
+
+    visited.insert(op);
+
 #if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << ">>>>> updating rank for"
         << getClassName(op)
         << op->objectName();
 #endif
+
 
     // Walk the inputs of this operator and update their ranks first
     for (s32 si = 0; si < op->getNumberOfSlots(); si++)
@@ -4487,7 +4503,7 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
             // output ranks set to 0 already.
             if (auto inputOperator = qobject_cast<OperatorInterface *>(inputObject))
             {
-                updateRank(inputOperator, updated);
+                updateRank(inputOperator, updated, visited);
             }
         }
     }
@@ -4499,7 +4515,7 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
     // operators input rank.
     if (auto condLink = getConditionLink(op))
     {
-        updateRank(condLink.condition.get(), updated);
+        updateRank(condLink.condition.get(), updated, visited);
 
         const s32 condRank = condLink.condition->getRank();
 
