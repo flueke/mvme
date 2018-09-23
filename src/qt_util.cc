@@ -85,11 +85,32 @@ bool WidgetGeometrySaver::eventFilter(QObject *obj, QEvent *event)
     return QObject::eventFilter(obj, event);
 }
 
+namespace
+{
+
+QAction *get_close_action(const QWidget *widget)
+{
+    for (auto action: widget->actions())
+    {
+        if (action->data().toString() == QSL("WidgetCloseAction"))
+            return action;
+    }
+
+    return nullptr;
+}
+
+}
+
 QAction *add_widget_close_action(QWidget *widget,
                                 const QKeySequence &shortcut,
                                 Qt::ShortcutContext shortcutContext)
 {
+    if (auto action = get_close_action(widget))
+        return action;
+
     auto closeAction = new QAction(QSL("Close"), widget);
+
+    closeAction->setData(QSL("WidgetCloseAction"));
 
     QObject::connect(closeAction, &QAction::triggered, widget, [widget] (bool) {
         widget->close();
