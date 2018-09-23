@@ -66,6 +66,28 @@
 #include "git_sha1.h"
 #endif
 
+
+/* 
+Rate Estimation
+
+Picker with action on point selection
+
+data:
+  isvisible, x1, x2
+  markers for x1, x2
+  plot curve with corresponding curve data (QwtPlotCurve and own subclass of QwtSyntheticPointData)
+
+logic:
+  swap x positions to have x1 < x2
+  decision on number of points picked (nan is used as a special value)
+
+
+Gauss
+  toggle on/off, no picker involved
+  plot curve and data
+  The curve data needs access to the most recently calculated histo stats
+  */
+
 static const s32 ReplotPeriod_ms = 1000;
 static const u32 RRFMin = 2;
 
@@ -279,6 +301,11 @@ struct Histo1DWidgetPrivate
     QwtPlotMarker *m_cutIntervalMarkerX2;
     std::unique_ptr<QwtPlotZoneItem> m_cutZoneItem;
     QwtInterval m_cutInterval;
+
+    QwtPlotPicker *m_activePlotPicker;
+
+    void activatePlotPicker(QwtPlotPicker *picker);
+    QwtPlotPicker *getActivePlotPicker() const;
 
     // text items / stats
     mvme_qwt::TextLabelItem *m_globalStatsTextItem;
@@ -538,15 +565,19 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         if (checked)
         {
             m_d->m_cutInterval = QwtInterval(make_quiet_nan(), make_quiet_nan());
+            m_d->activatePlotPicker(m_d->m_cutPointPicker);
+        }
+        else
+        {
+            m_d->activatePlotPicker(m_d->m_zoomer);
         }
 
-        m_d->m_zoomer->setEnabled(!checked);
-        m_d->m_cutPointPicker->setEnabled(checked);
     });
 
     // Resolution Reduction
     {
         m_d->m_rrSlider = make_res_reduction_slider();
+        set_widget_font_pointsize_relative(m_d->m_rrSlider, -2);
         //m_d->m_rrSlider->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Maximum);
         auto boxStruct = make_vbox_container(QSL("Visible Resolution"), m_d->m_rrSlider, 0, -2);
         m_d->m_rrLabel = boxStruct.label;
@@ -1665,20 +1696,20 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
     if (checked)
     {
         m_d->m_rateEstimationData = RateEstimationData();
-        m_d->m_rateEstimationPointPicker->setEnabled(true);
-        m_d->m_zoomer->setEnabled(false);
+        m_d->activatePlotPicker(m_d->m_rateEstimationPointPicker);
     }
     else
     {
+
         m_d->m_rateEstimationData.visible = false;
-        m_d->m_rateEstimationPointPicker->setEnabled(false);
-        m_d->m_zoomer->setEnabled(true);
         m_d->m_rateEstimationX1Marker->hide();
         m_d->m_rateEstimationX2Marker->hide();
         m_d->m_rateEstimationFormulaMarker->hide();
         m_d->m_rateEstimationCurve->hide();
-        replot();
+        m_d->activatePlotPicker(m_d->m_zoomer);
     }
+
+    replot();
 }
 
 void Histo1DWidget::on_tb_gauss_toggled(bool checked)
@@ -1724,8 +1755,7 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
         }
 
         m_d->m_rateEstimationData.visible = true;
-        m_d->m_rateEstimationPointPicker->setEnabled(false);
-        m_d->m_zoomer->setEnabled(true);
+        m_d->activatePlotPicker(m_d->m_zoomer);
 
         double x1 = m_d->m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1,
                                                         m_d->m_rrf).first;
@@ -1915,4 +1945,23 @@ void Histo1DListWidget::editCut(const analysis::ConditionLink &cl)
 
     selectHistogram(cl.subIndex);
     m_histoWidget->editCut(cl);
+}
+
+void Histo1DWidgetPrivate::activatePlotPicker(QwtPlotPicker *picker)
+{
+    if (m_activePlotPicker)
+    {
+        m_activePlotPicker->setEnabled(false);
+    }
+
+    if ((m_activePlotPicker = picker))
+    {
+        m_activePlotPicker->setEnabled(true);
+    }
+
+}
+
+QwtPlotPicker *Histo1DWidgetPrivate::getActivePlotPicker() const
+{
+    return m_activePlotPicker;
 }
