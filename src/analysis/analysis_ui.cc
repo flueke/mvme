@@ -278,84 +278,43 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl
      * Tell the window that we want to edit the condition.
      * For now error out if no sink accumulating the pipes can be found. */
 
-    auto condInputSlots = cl.condition->getSlots();
+    auto sinks = get_sinks_for_conditionlink(cl, getAnalysis()->getSinkOperators<SinkPtr>());
 
-    // Compares slots by their inputPipe and paramIndex
-    auto slot_lessThan = [] (const Slot *slotA, const Slot *slotB) -> bool
+    // Try to use an existing window to edit the condition
+    for (const auto &sink: sinks)
     {
-        if (slotA->inputPipe == slotB->inputPipe)
-            return slotA->paramIndex < slotB->paramIndex;
-
-        return slotA->inputPipe < slotB->inputPipe;
-    };
-
-    auto slot_inputEq = [] (const Slot *slotA, const Slot *slotB) -> bool
-    {
-        return (slotA->inputPipe == slotB->inputPipe
-                && slotA->paramIndex == slotB->paramIndex);
-    };
-
-    qSort(condInputSlots.begin(), condInputSlots.end(), slot_lessThan);
-
-    SinkPtr matchingSink;
-
-    for (const auto &sink: getAnalysis()->getSinkOperators())
-    {
-        if (sink->getEventId() != cl.condition->getEventId())
-            continue;
-
-        if (sink->getNumberOfSlots() != condInputSlots.size())
-            continue;
-
-        auto sinkSlots = sink->getSlots();
-        qSort(sinkSlots.begin(), sinkSlots.end(), slot_lessThan);
-
-        bool allMatched = true;
-
-        for (int si = 0; si < sinkSlots.size(); si++)
-        {
-            Slot *condSlot = condInputSlots[si];
-            Slot *sinkSlot = sinkSlots[si];
-
-            if (!slot_inputEq(condSlot, sinkSlot))
-            {
-                allMatched = false;
-                break;
-            }
-        }
-
-        if (allMatched)
-        {
-            matchingSink = std::dynamic_pointer_cast<SinkInterface>(sink);
-            break;
-        }
-    }
-
-    if (matchingSink)
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "found matching sink" << matchingSink.get() << ":-)";
-
-        auto widget = getContext()->getObjectWidget(matchingSink.get());
-
-        if (!widget)
-        {
-            widget = sink_widget_factory(matchingSink, getContext());
-            show_and_activate(widget);
-        }
+        auto widget = getContext()->getObjectWidget(sink.get());
 
         if (auto cutEditor = qobject_cast<CutEditorInterface *>(widget))
         {
             cutEditor->editCut(cl);
-        }
-        else
-        {
-            InvalidCodePath;
+            return;
         }
     }
-    else
+
+    // Create a new window
+    for (const auto &sink: sinks)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "could not find a matching sink :(";
+        auto widget = std::unique_ptr<QWidget>(sink_widget_factory(sink, getContext()));
+
+        if (auto cutEditor = qobject_cast<CutEditorInterface *>(widget.get()))
+        {
+            auto raw = widget.get();
+            getContext()->addObjectWidget(widget.release(), sink.get(), sink->getId().toString());
+            cutEditor->editCut(cl);
+            show_and_activate(raw);
+            return;
+        }
     }
+
+    /* Two possible cases:
+     * - no sinks matching the inputs of the condition link where found
+     * - no cut editors could be found or created given the list of possible sinks
+     * TODO: show message about having to create sink and display widget for
+     * the condition inputs or even better: offer to create them.
+     */
+
+    InvalidCodePath;
 }
 
 void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)

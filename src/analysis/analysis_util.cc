@@ -325,5 +325,76 @@ QDebug &operator<<(QDebug &dbg, const AnalysisObjectPtr &obj)
     return dbg;
 }
 
+namespace
+{
+
+bool slots_match(const QVector<Slot *> &slotsA, const QVector<Slot *> &slotsB)
+{
+    assert(slotsA.size() == slotsB.size());
+
+    auto slot_input_equal = [] (const Slot *slotA, const Slot *slotB) -> bool
+    {
+        return (slotA->inputPipe == slotB->inputPipe
+                && slotA->paramIndex == slotB->paramIndex);
+    };
+
+    for (int si = 0; si < slotsA.size(); si++)
+    {
+        if (!slot_input_equal(slotsA[si], slotsB[si]))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+}
+
+/* Filters sinks, returning the ones using all of the inputs that are used by
+ * the ConditionLink. */
+SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector &sinks)
+{
+    /* Get the input slots of the condition and of each sink.
+     * Sort each of the slots vectors by input pipe and param index.
+     * Then compare the pairs of condition and sink slots.
+     * Add the sink to the result if all of the slots compare equal. */
+
+    auto slot_lessThan = [] (const Slot *slotA, const Slot *slotB) -> bool
+    {
+        if (slotA->inputPipe == slotB->inputPipe)
+            return slotA->paramIndex < slotB->paramIndex;
+
+        return slotA->inputPipe < slotB->inputPipe;
+    };
+
+    auto condInputSlots = cl.condition->getSlots();
+
+    qSort(condInputSlots.begin(), condInputSlots.end(), slot_lessThan);
+
+    SinkVector result;
+    result.reserve(sinks.size());
+
+    for (const auto &sink: sinks)
+    {
+        if (sink->getEventId() != cl.condition->getEventId())
+            continue;
+
+        if (sink->getNumberOfSlots() != condInputSlots.size())
+            continue;
+
+        auto sinkSlots = sink->getSlots();
+
+        qSort(sinkSlots.begin(), sinkSlots.end(), slot_lessThan);
+
+        if (slots_match(condInputSlots, sinkSlots))
+        {
+            result.push_back(sink);
+        }
+    }
+
+    return result;
+}
+
 } // namespace analysis
 

@@ -157,6 +157,8 @@ using ObjectToNodes = ObjectMap<NodeSet>;
 
 QDebug &operator<<(QDebug &dbg, const AnalysisObjectPtr &obj);
 
+SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector &sinks);
+
 } // namespace analysis
 
 
