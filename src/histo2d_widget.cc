@@ -332,7 +332,8 @@ struct Histo2DWidgetPrivate
 
     ResolutionReductionFactors m_rrf = {};
 
-    // Cuts
+    // Cuts / Conditions
+    analysis::ConditionLink m_editingCondition;
     QwtPlotPicker *m_cutPolyPicker;
     std::unique_ptr<QwtPlotShapeItem> m_cutShapeItem;
 
@@ -1665,7 +1666,41 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
     }
 }
 
-void Histo2DWidget::editCut(const analysis::ConditionLink &cl)
+bool Histo2DWidget::editCondition(const analysis::ConditionLink &cl)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
+
+    auto condPoly = qobject_cast<analysis::ConditionPolygon *>(cl.condition.get());
+
+    if (!condPoly)
+    {
+        // clear to avoid returning a previous condition that was being edited
+        m_d->m_editingCondition = {};
+        return false;
+    }
+
+    m_d->m_editingCondition = cl;
+
+    if (!m_d->m_cutShapeItem)
+    {
+        // create the shape item for rendering the polygon in the plot
+        m_d->m_cutShapeItem = std::make_unique<QwtPlotShapeItem>(QSL("Cut"));
+        m_d->m_cutShapeItem->attach(m_d->m_plot);
+
+        //QBrush brush(QColor("#d0d78e"), Qt::DiagCrossPattern);
+        QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
+        m_d->m_cutShapeItem->setBrush(brush);
+    }
+
+    assert(m_d->m_cutShapeItem);
+
+    // render the polygon
+    m_d->m_cutShapeItem->setPolygon(condPoly->getPolygon());
+
+    return true;
+}
+
+analysis::ConditionLink Histo2DWidget::getCondition() const
+{
+    return m_d->m_editingCondition;
 }

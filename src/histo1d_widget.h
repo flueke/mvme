@@ -21,7 +21,7 @@
 #ifndef __HISTO1D_WIDGET_H__
 #define __HISTO1D_WIDGET_H__
 
-#include "analysis/cut_editor_interface.h"
+#include "analysis/condition_editor_interface.h"
 #include "histo1d.h"
 #include "libmvme_export.h"
 
@@ -46,10 +46,10 @@ namespace analysis
 
 struct Histo1DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::CutEditorInterface
+class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEditorInterface
 {
     Q_OBJECT
-    Q_INTERFACES(analysis::CutEditorInterface);
+    Q_INTERFACES(analysis::ConditionEditorInterface);
 
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo1DSink>;
@@ -58,7 +58,7 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::CutEditorIn
         // Convenience constructor that enables the widget to keep the histo alive.
         Histo1DWidget(const Histo1DPtr &histo, QWidget *parent = 0);
         Histo1DWidget(Histo1D *histo, QWidget *parent = 0);
-        ~Histo1DWidget();
+        virtual ~Histo1DWidget();
 
         void setHistogram(const Histo1DPtr &histo);
         void setHistogram(Histo1D *histo);
@@ -78,7 +78,8 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::CutEditorIn
 
         //QwtPlotCurve *getPlotCurve() { return m_plotCurve; }
 
-        virtual void editCut(const analysis::ConditionLink &cl) override;
+        virtual bool editCondition(const analysis::ConditionLink &cl) override;
+        virtual analysis::ConditionLink getCondition() const override;
 
     public slots:
         void replot();
@@ -103,10 +104,10 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::CutEditorIn
         friend struct Histo1DWidgetPrivate;
 };
 
-class Histo1DListWidget: public QWidget, public analysis::CutEditorInterface
+class Histo1DListWidget: public QWidget, public analysis::ConditionEditorInterface
 {
     Q_OBJECT
-    Q_INTERFACES(analysis::CutEditorInterface);
+    Q_INTERFACES(analysis::ConditionEditorInterface);
 
     public:
         using HistoList = QVector<std::shared_ptr<Histo1D>>;
@@ -114,29 +115,24 @@ class Histo1DListWidget: public QWidget, public analysis::CutEditorInterface
         using HistoSinkCallback = Histo1DWidget::HistoSinkCallback;
 
         Histo1DListWidget(const HistoList &histos, QWidget *parent = 0);
+        virtual ~Histo1DListWidget();
 
-        HistoList getHistograms() const { return m_histos; }
+        HistoList getHistograms() const;
 
-        void setContext(MVMEContext *context) { m_context = context; }
+        void setContext(MVMEContext *context);
         void setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib);
         void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
-
         void selectHistogram(int histoIndex);
 
-        virtual void editCut(const analysis::ConditionLink &cl) override;
+        // ConditionEditorInterface
+        virtual bool editCondition(const analysis::ConditionLink &cl) override;
+        virtual analysis::ConditionLink getCondition() const override;
 
     private:
+        struct Private;
+        std::unique_ptr<Private> m_d;
         void onHistoSpinBoxValueChanged(int index);
 
-        HistoList m_histos;
-        Histo1DWidget *m_histoWidget;
-        QSpinBox *m_histoSpin;
-        s32 m_currentIndex = 0;
-        std::shared_ptr<analysis::CalibrationMinMax> m_calib;
-        MVMEContext *m_context = nullptr;
-
-        SinkPtr m_sink;
-        HistoSinkCallback m_sinkModifiedCallback;
 };
 
 #endif /* __HISTO1D_WIDGET_H__ */

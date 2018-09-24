@@ -67,7 +67,7 @@
 #endif
 
 
-/* 
+/*
 Rate Estimation
 
 Picker with action on point selection
@@ -275,6 +275,7 @@ struct Histo1DWidgetPrivate
     QLabel *m_labelCursorInfo;
     QLabel *m_labelHistoInfo;
     QWidget *m_infoContainer;
+    analysis::ConditionLink m_editingCondition;
 
     s32 m_labelCursorInfoMaxWidth  = 0;
     s32 m_labelCursorInfoMaxHeight = 0;
@@ -581,6 +582,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         //m_d->m_rrSlider->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Maximum);
         auto boxStruct = make_vbox_container(QSL("Visible Resolution"), m_d->m_rrSlider, 0, -2);
         m_d->m_rrLabel = boxStruct.label;
+        set_widget_font_pointsize_relative(m_d->m_rrLabel, -2);
         tb->addWidget(boxStruct.container.release());
 
         connect(m_d->m_rrSlider, &QSlider::valueChanged, this, [this] (int sliderValue) {
@@ -931,6 +933,7 @@ void Histo1DWidget::setHistogram(Histo1D *histo)
 
     //qDebug() << __PRETTY_FUNCTION__ << "new RRSlider max" << m_d->m_rrSlider->maximum();
 
+    m_d->activatePlotPicker(m_d->m_zoomer);
     m_d->displayChanged();
 }
 
@@ -1828,13 +1831,20 @@ void Histo1DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
 
 using analysis::ConditionInterval;
 
-void Histo1DWidget::editCut(const analysis::ConditionLink &cl)
+bool Histo1DWidget::editCondition(const analysis::ConditionLink &cl)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
 
     auto cond = std::dynamic_pointer_cast<ConditionInterval>(cl.condition);
 
-    if (!cond || cl.subIndex < 0 || cl.subIndex >= cond->getNumberOfBits()) return;
+    if (!cond)
+    {
+        // clear to avoid returning a previous condition that was being edited
+        m_d->m_editingCondition = {};
+        return false;
+    }
+
+    m_d->m_editingCondition = cl;
 
     if (!m_d->m_cutZoneItem)
     {
@@ -1847,104 +1857,17 @@ void Histo1DWidget::editCut(const analysis::ConditionLink &cl)
     }
 
     auto interval = cond->getInterval(cl.subIndex);
-    qDebug() << __PRETTY_FUNCTION__ << "setting zone item interval to" << interval.min << interval.max;
+
+    qDebug() << __PRETTY_FUNCTION__ << "setting zone item interval to"
+        << interval.min << interval.max;
+
     m_d->m_cutZoneItem->setInterval(interval.min, interval.max);
+    return true;
 }
 
-//
-// Histo1DListWidget
-//
-Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
-    : QWidget(parent)
-    , m_histos(histos)
-    , m_histoSpin(new QSpinBox)
-    , m_currentIndex(0)
+analysis::ConditionLink Histo1DWidget::getCondition() const
 {
-    resize(600, 400);
-    Q_ASSERT(histos.size());
-
-    auto histo = histos[0].get();
-    m_histoWidget = new Histo1DWidget(histo, this);
-
-    connect(m_histoWidget, &QWidget::windowTitleChanged, this, &QWidget::setWindowTitle);
-
-    /* Add the histo index spinbox to the Histo1DWidget toolbar. */
-
-    m_histoSpin->setMaximum(histos.size() - 1);
-
-    connect(m_histoSpin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, &Histo1DListWidget::onHistoSpinBoxValueChanged);
-
-    m_histoWidget->m_d->m_toolBar->addWidget(make_vbox_container(QSL("Histogram #"), m_histoSpin)
-                      .container.release());
-
-    auto layout = new QHBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(2);
-    layout->addWidget(m_histoWidget);
-
-    setWindowTitle(m_histoWidget->windowTitle());
-    selectHistogram(0);
-}
-
-void Histo1DListWidget::onHistoSpinBoxValueChanged(int index)
-{
-    selectHistogram(index);
-}
-
-void Histo1DListWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib)
-{
-    m_calib = calib;
-    if (m_calib)
-    {
-        m_histoWidget->setCalibrationInfo(m_calib, m_currentIndex);
-    }
-}
-
-void Histo1DListWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback)
-{
-    Q_ASSERT(sink);
-    m_sink = sink;
-    m_sinkModifiedCallback = sinkModifiedCallback;
-
-    onHistoSpinBoxValueChanged(m_currentIndex);
-}
-
-void Histo1DListWidget::selectHistogram(int index)
-{
-    m_currentIndex = index;
-
-    if (auto histo = m_histos.value(index))
-    {
-        m_histoWidget->setHistogram(histo.get());
-        m_histoWidget->setContext(m_context);
-
-        if (m_calib)
-        {
-            m_histoWidget->setCalibrationInfo(m_calib, index);
-        }
-
-        if (m_sink)
-        {
-            m_histoWidget->setSink(m_sink, m_sinkModifiedCallback);
-        }
-
-        QSignalBlocker sb(m_histoSpin);
-        m_histoSpin->setValue(index);
-    }
-}
-
-void Histo1DListWidget::editCut(const analysis::ConditionLink &cl)
-{
-    qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
-
-    auto cond = std::dynamic_pointer_cast<ConditionInterval>(cl.condition);
-
-    if (!cond || cl.subIndex < 0 || cl.subIndex >= m_histos.size())
-        return;
-
-    selectHistogram(cl.subIndex);
-    m_histoWidget->editCut(cl);
+    return m_d->m_editingCondition;
 }
 
 void Histo1DWidgetPrivate::activatePlotPicker(QwtPlotPicker *picker)
@@ -1959,6 +1882,148 @@ void Histo1DWidgetPrivate::activatePlotPicker(QwtPlotPicker *picker)
         m_activePlotPicker->setEnabled(true);
     }
 
+}
+
+//
+// Histo1DListWidget
+//
+
+using namespace analysis;
+
+struct Histo1DListWidget::Private
+{
+    Private(Histo1DListWidget *q) : m_q(q) {}
+
+    Histo1DListWidget *m_q;
+    HistoList m_histos;
+    Histo1DWidget *m_histoWidget;
+    QSpinBox *m_histoSpin;
+    s32 m_currentIndex = 0;
+    std::shared_ptr<analysis::CalibrationMinMax> m_calib;
+    MVMEContext *m_context = nullptr;
+    SinkPtr m_sink;
+    HistoSinkCallback m_sinkModifiedCallback;
+};
+
+Histo1DListWidget::HistoList Histo1DListWidget::getHistograms() const
+{
+    return m_d->m_histos;
+}
+
+Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
+    : QWidget(parent)
+    , m_d(std::make_unique<Private>(this))
+{
+    m_d->m_histos = histos;
+    m_d->m_histoSpin = new QSpinBox(this);
+    m_d->m_currentIndex = 0;
+
+    resize(600, 400);
+    Q_ASSERT(histos.size());
+
+    auto histo = histos[0].get();
+    m_d->m_histoWidget = new Histo1DWidget(histo, this);
+
+    connect(m_d->m_histoWidget, &QWidget::windowTitleChanged, this, &QWidget::setWindowTitle);
+
+    /* Add the histo index spinbox to the Histo1DWidget toolbar. */
+
+    m_d->m_histoSpin->setMaximum(histos.size() - 1);
+    set_widget_font_pointsize_relative(m_d->m_histoSpin, -2);
+
+    connect(m_d->m_histoSpin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+            this, &Histo1DListWidget::onHistoSpinBoxValueChanged);
+
+    m_d->m_histoWidget->m_d->m_toolBar->addWidget(make_vbox_container(QSL("Histogram #"),
+                                                                 m_d->m_histoSpin, 2, -2)
+                      .container.release());
+
+    auto layout = new QHBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(2);
+    layout->addWidget(m_d->m_histoWidget);
+
+    setWindowTitle(m_d->m_histoWidget->windowTitle());
+    selectHistogram(0);
+}
+
+Histo1DListWidget::~Histo1DListWidget()
+{}
+
+void Histo1DListWidget::setContext(MVMEContext *context)
+{
+    m_d->m_context = context;
+}
+
+void Histo1DListWidget::onHistoSpinBoxValueChanged(int index)
+{
+    selectHistogram(index);
+}
+
+void Histo1DListWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib)
+{
+    m_d->m_calib = calib;
+    if (m_d->m_calib)
+    {
+        m_d->m_histoWidget->setCalibrationInfo(m_d->m_calib, m_d->m_currentIndex);
+    }
+}
+
+void Histo1DListWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback)
+{
+    Q_ASSERT(sink);
+    m_d->m_sink = sink;
+    m_d->m_sinkModifiedCallback = sinkModifiedCallback;
+
+    onHistoSpinBoxValueChanged(m_d->m_currentIndex);
+}
+
+void Histo1DListWidget::selectHistogram(int index)
+{
+    m_d->m_currentIndex = index;
+
+    if (auto histo = m_d->m_histos.value(index))
+    {
+        m_d->m_histoWidget->setHistogram(histo.get());
+        m_d->m_histoWidget->setContext(m_d->m_context);
+
+        if (m_d->m_calib)
+        {
+            m_d->m_histoWidget->setCalibrationInfo(m_d->m_calib, index);
+        }
+
+        if (m_d->m_sink)
+        {
+            m_d->m_histoWidget->setSink(m_d->m_sink, m_d->m_sinkModifiedCallback);
+        }
+
+        if (auto cl = m_d->m_histoWidget->getCondition())
+        {
+            cl.subIndex = index;
+            m_d->m_histoWidget->editCondition(cl);
+        }
+
+        QSignalBlocker sb(m_d->m_histoSpin);
+        m_d->m_histoSpin->setValue(index);
+    }
+}
+
+bool Histo1DListWidget::editCondition(const analysis::ConditionLink &cl)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
+
+    auto cond = std::dynamic_pointer_cast<ConditionInterval>(cl.condition);
+
+    if (!cond || cl.subIndex < 0 || cl.subIndex >= m_d->m_histos.size())
+        return false;
+
+    selectHistogram(cl.subIndex);
+    return m_d->m_histoWidget->editCondition(cl);
+}
+
+analysis::ConditionLink Histo1DListWidget::getCondition() const
+{
+    return m_d->m_histoWidget->getCondition();
 }
 
 QwtPlotPicker *Histo1DWidgetPrivate::getActivePlotPicker() const

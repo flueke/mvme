@@ -21,7 +21,7 @@
 #ifndef __HISTO2D_WIDGET_H__
 #define __HISTO2D_WIDGET_H__
 
-#include "analysis/cut_editor_interface.h"
+#include "analysis/condition_editor_interface.h"
 #include "histo2d.h"
 #include "libmvme_export.h"
 
@@ -39,10 +39,10 @@ namespace analysis
 
 struct Histo2DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::CutEditorInterface
+class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::ConditionEditorInterface
 {
     Q_OBJECT
-    Q_INTERFACES(analysis::CutEditorInterface);
+    Q_INTERFACES(analysis::ConditionEditorInterface);
 
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo2DSink>;
@@ -68,7 +68,8 @@ class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::CutEditorIn
         void setLinZ();
         void setLogZ();
 
-        virtual void editCut(const analysis::ConditionLink &cl) override;
+        virtual bool editCondition(const analysis::ConditionLink &cl) override;
+        virtual analysis::ConditionLink getCondition() const override;
 
     private slots:
         void replot();
