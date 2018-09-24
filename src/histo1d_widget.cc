@@ -37,14 +37,15 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QComboBox>
-#include <QFileInfo>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLabel>
-#include <QMessageBox>
+#include <QLineEdit>
 #include <QMenu>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
@@ -286,7 +287,7 @@ struct Histo1DWidgetPrivate
             *m_actionGaussFit,
             *m_actionCalibUi,
             *m_actionInfo,
-            *m_actionPickCutPoints;
+            *m_actionCreateCut;
 
     // rate estimation
     RateEstimationData m_rateEstimationData;
@@ -303,6 +304,7 @@ struct Histo1DWidgetPrivate
     std::unique_ptr<QwtPlotZoneItem> m_cutZoneItem;
     QwtInterval m_cutInterval;
 
+    // active picker
     QwtPlotPicker *m_activePlotPicker;
 
     void activatePlotPicker(QwtPlotPicker *picker);
@@ -406,6 +408,9 @@ struct Histo1DWidgetPrivate
 
     void onCutPointPickerActivated(bool on);
     void onCutPointPickerPointSelected(const QPointF &point);
+
+    QAction *m_actionOverlayTest;
+    PickerOverlayTest *m_overlayTestPicker;
 };
 
 enum class AxisScaleType
@@ -558,35 +563,62 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         }
     });
 
-    // XXX Cut toolbar button
-    action = tb->addAction("Cut Test");
-    action->setCheckable(true);
-    m_d->m_actionPickCutPoints = action;
-    connect(action, &QAction::toggled, this, [this](bool checked) {
-        if (checked)
-        {
-            m_d->m_cutInterval = QwtInterval(make_quiet_nan(), make_quiet_nan());
-            m_d->activatePlotPicker(m_d->m_cutPointPicker);
-        }
-        else
-        {
-            m_d->activatePlotPicker(m_d->m_zoomer);
-        }
-
-    });
-
     // Resolution Reduction
     {
         m_d->m_rrSlider = make_res_reduction_slider();
         set_widget_font_pointsize_relative(m_d->m_rrSlider, -2);
         //m_d->m_rrSlider->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Maximum);
-        auto boxStruct = make_vbox_container(QSL("Visible Resolution"), m_d->m_rrSlider, 0, -2);
+        auto boxStruct = make_vbox_container(QSL("Res"), m_d->m_rrSlider, 0, -2);
         m_d->m_rrLabel = boxStruct.label;
         set_widget_font_pointsize_relative(m_d->m_rrLabel, -2);
         tb->addWidget(boxStruct.container.release());
 
         connect(m_d->m_rrSlider, &QSlider::valueChanged, this, [this] (int sliderValue) {
             m_d->onRRSliderValueChanged(sliderValue);
+        });
+    }
+
+    //
+    // Cuts
+    //
+    {
+        tb->addSeparator();
+
+        action = tb->addAction(QIcon(QSL(":/scissors_plus.png")), QSL("New Cut"));
+        action->setCheckable(true);
+        action->setEnabled(false);
+        m_d->m_actionCreateCut = action;
+
+        connect(action, &QAction::toggled, this, [this](bool checked) {
+            if (checked)
+            {
+                m_d->m_cutInterval = QwtInterval(make_quiet_nan(), make_quiet_nan());
+                m_d->activatePlotPicker(m_d->m_cutPointPicker);
+            }
+            else
+            {
+                m_d->activatePlotPicker(m_d->m_zoomer);
+            }
+        });
+
+        //
+        // Overlay Test Picker action
+        //
+
+        action = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Dev: Cut Overlay Test"));
+        action->setCheckable(true);
+        action->setEnabled(false);
+        m_d->m_actionOverlayTest = action;
+
+        connect(action, &QAction::toggled, this, [this](bool checked) {
+            if (checked)
+            {
+                m_d->activatePlotPicker(m_d->m_overlayTestPicker);
+            }
+            else
+            {
+                m_d->activatePlotPicker(m_d->m_zoomer);
+            }
         });
     }
 
@@ -817,6 +849,17 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
         m_d->m_cutIntervalMarkerX1 = make_position_marker(m_d->m_plot);
         m_d->m_cutIntervalMarkerX2 = make_position_marker(m_d->m_plot);
+    }
+
+    // PickerOverlayTest
+    {
+
+        m_d->m_overlayTestPicker = new PickerOverlayTest(QwtPlot::xBottom, QwtPlot::yLeft,
+                                                         QwtPicker::VLineRubberBand,
+                                                         QwtPicker::ActiveOnly,
+                                                         m_d->m_plot->canvas());
+        m_d->m_overlayTestPicker->setStateMachine(new QwtPickerDragPointMachine);
+        m_d->m_overlayTestPicker->setEnabled(false);
     }
 
     //
@@ -1476,6 +1519,7 @@ void Histo1DWidgetPrivate::updateCursorInfoLabel(u32 rrf)
 void Histo1DWidget::setContext(MVMEContext *context)
 {
     m_d->m_context = context;
+    m_d->m_actionCreateCut->setEnabled(context != nullptr);
 }
 
 void Histo1DWidget::setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib,
@@ -1596,7 +1640,7 @@ void Histo1DWidgetPrivate::onRRSliderValueChanged(int sliderValue)
     u32 visBins   = 1u << sliderValue;
     m_rrf = physBins / visBins;
 
-    m_rrLabel->setText(QSL("Visible Resolution: %1, %2 bit")
+    m_rrLabel->setText(QSL("Res: %1, %2 bit")
                        .arg(visBins)
                        .arg(std::log2(visBins))
                       );
@@ -1784,6 +1828,9 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
 
 void Histo1DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
 {
+    assert(m_context);
+    assert(m_sink);
+
     qDebug() << __PRETTY_FUNCTION__ << point;
 
     if (std::isnan(m_cutInterval.minValue()))
@@ -1821,9 +1868,71 @@ void Histo1DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
         m_cutIntervalMarkerX2->show();
 
         m_cutZoneItem->setInterval(m_cutInterval);
-        m_actionPickCutPoints->setChecked(false);
+        m_actionCreateCut->setChecked(false);
 
-        // TODO: store the two coordinates in a new 1d cut object
+        // Show a dialog to the user asking for a name for the cut and offering the
+        // possibility to cancel cut creation.
+        QString cutName = QSL("NewIntervalCut");
+
+        {
+            auto le_cutName = new QLineEdit;
+            le_cutName->setText(cutName);
+
+            auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+            QDialog dialog(m_q);
+            auto layout = new QFormLayout(&dialog);
+            layout->addRow("Cut Name", le_cutName);
+            layout->addRow(buttons);
+
+            QObject::connect(buttons, &QDialogButtonBox::accepted,
+                             &dialog, &QDialog::accept);
+
+            QObject::connect(buttons, &QDialogButtonBox::rejected,
+                             &dialog, &QDialog::reject);
+
+            if (dialog.exec() == QDialog::Rejected)
+            {
+                m_cutZoneItem->setVisible(false);
+                m_q->replot();
+                return;
+            }
+
+            cutName = le_cutName->text();
+        }
+
+        // Create a new ConditionInterval object. Initialize all intervals to
+        // the one just created by the user
+
+        QVector<analysis::Interval> intervals;
+        intervals.resize(m_sink->getNumberOfHistos());
+
+        for (s32 ii = 0; ii < intervals.size(); ii++)
+        {
+            intervals[ii] = { m_cutInterval.minValue(), m_cutInterval.maxValue() };
+        }
+
+        auto cond = std::make_shared<analysis::ConditionInterval>();
+        cond->setObjectName(cutName);
+        cond->setIntervals(intervals);
+
+        {
+            auto xInput = m_sink->getSlot(0)->inputPipe;
+            // XXX: ConditionInterval does currently accept InputType::Array
+            // only this means we create a full array condition here
+            auto xIndex = analysis::Slot::NoParamIndex;
+
+            AnalysisPauser pauser(m_context);
+            cond->connectInputSlot(0, xInput, xIndex);
+
+            // FIXME: remove this once conditions do not show up in the event trees anymore
+            const int userLevel = 3;
+
+            m_context->getAnalysis()->addOperator(
+                m_sink->getEventId(),
+                userLevel,
+                cond);
+        }
     }
 
     m_q->replot();
@@ -1841,6 +1950,7 @@ bool Histo1DWidget::editCondition(const analysis::ConditionLink &cl)
     {
         // clear to avoid returning a previous condition that was being edited
         m_d->m_editingCondition = {};
+        m_d->m_actionOverlayTest->setEnabled(true);
         return false;
     }
 
@@ -1862,6 +1972,8 @@ bool Histo1DWidget::editCondition(const analysis::ConditionLink &cl)
         << interval.min << interval.max;
 
     m_d->m_cutZoneItem->setInterval(interval.min, interval.max);
+    m_d->m_actionOverlayTest->setEnabled(true);
+    m_d->m_overlayTestPicker->editCondition(cl);
     return true;
 }
 
@@ -2029,4 +2141,106 @@ analysis::ConditionLink Histo1DListWidget::getCondition() const
 QwtPlotPicker *Histo1DWidgetPrivate::getActivePlotPicker() const
 {
     return m_activePlotPicker;
+}
+
+//
+// PickerOverlayTest
+//
+
+PickerOverlayTest::PickerOverlayTest(QWidget *canvas)
+    : QwtPlotPicker(canvas)
+{
+}
+
+PickerOverlayTest::PickerOverlayTest(int xAxis, int yAxis,
+                                     RubberBand rubberBand,
+                                     DisplayMode trackerMode,
+                                     QWidget *canvas)
+    : QwtPlotPicker(xAxis, yAxis, rubberBand, trackerMode, canvas)
+{
+}
+
+PickerOverlayTest::~PickerOverlayTest()
+{
+}
+
+void PickerOverlayTest::drawRubberBand(QPainter *painter) const
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << painter;
+    QwtPlotPicker::drawRubberBand(painter);
+}
+
+void PickerOverlayTest::drawTracker(QPainter *painter) const
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << painter;
+    QwtPlotPicker::drawTracker(painter);
+}
+
+void PickerOverlayTest::move(const QPoint &p)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << p;
+    QwtPlotPicker::move(p);
+}
+
+void PickerOverlayTest::append(const QPoint &p)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << p;
+    QwtPlotPicker::append(p);
+}
+
+bool PickerOverlayTest::end(bool ok)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << ok;
+    return QwtPlotPicker::end(ok);
+}
+
+void PickerOverlayTest::widgetMousePressEvent(QMouseEvent *e)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << e;
+    QwtPlotPicker::widgetMousePressEvent(e);
+}
+
+void PickerOverlayTest::widgetMouseReleaseEvent(QMouseEvent *e)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << e;
+    QwtPlotPicker::widgetMouseReleaseEvent(e);
+}
+
+static const int CanStartDragDistancePixels = 10;
+
+void PickerOverlayTest::widgetMouseMoveEvent(QMouseEvent *e)
+{
+    auto condInterval = std::dynamic_pointer_cast<ConditionInterval>(m_cl.condition);
+    if (!condInterval) return;
+
+    auto mousePos = e->pos();
+    auto plotPos  = invTransform(mousePos);
+    auto interval = condInterval->getInterval(m_cl.subIndex);
+
+    int iMinPixel = transform({ interval.min, 0.0 }).x();
+    int iMaxPixel = transform({ interval.max, 0.0 }).x();
+
+    if (!m_isDragging)
+    {
+        if (std::abs(mousePos.x() - iMinPixel) < CanStartDragDistancePixels)
+        {
+            canvas()->setCursor(Qt::OpenHandCursor);
+        }
+        else if (std::abs(mousePos.x() - iMaxPixel) < CanStartDragDistancePixels)
+        {
+            canvas()->setCursor(Qt::OpenHandCursor);
+        }
+        else
+        {
+            canvas()->setCursor(Qt::CrossCursor);
+        }
+    }
+    qDebug() << __PRETTY_FUNCTION__ << this << e << "plot pos:" << plotPos;
+
+    QwtPlotPicker::widgetMouseMoveEvent(e);
+}
+
+void PickerOverlayTest::editCondition(const analysis::ConditionLink &cl)
+{
+    m_cl = cl;
 }

@@ -28,6 +28,8 @@
 #include <QSpinBox>
 #include <QWidget>
 
+#include <qwt_plot_picker.h>
+
 class QTextStream;
 class QTimer;
 class QwtPlotCurve;
@@ -133,6 +135,37 @@ class Histo1DListWidget: public QWidget, public analysis::ConditionEditorInterfa
         std::unique_ptr<Private> m_d;
         void onHistoSpinBoxValueChanged(int index);
 
+};
+
+class PickerOverlayTest: public QwtPlotPicker
+{
+    Q_OBJECT
+    public:
+        PickerOverlayTest(QWidget *canvas);
+
+        PickerOverlayTest(int xAxis, int yAxis,
+                          RubberBand rubberBand,
+                          DisplayMode trackerMode,
+                          QWidget *canvas);
+
+        virtual ~PickerOverlayTest() override;
+
+        virtual void drawRubberBand(QPainter *painter) const override;
+        virtual void drawTracker(QPainter *painter) const override;
+
+        void editCondition(const analysis::ConditionLink &cl);
+
+    protected:
+        virtual void move(const QPoint &p) override;
+        virtual void append(const QPoint &p) override;
+        virtual bool end(bool ok = true) override;
+        virtual void widgetMousePressEvent(QMouseEvent *) override;
+        virtual void widgetMouseReleaseEvent(QMouseEvent *) override;
+        virtual void widgetMouseMoveEvent(QMouseEvent *) override;
+
+    private:
+        analysis::ConditionLink m_cl;
+        bool m_isDragging = false;
 };
 
 #endif /* __HISTO1D_WIDGET_H__ */

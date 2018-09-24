@@ -315,7 +315,18 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl
      * the condition inputs or even better: offer to create them.
      */
 
-    InvalidCodePath;
+    if (sinks.isEmpty())
+    {
+        qDebug() << __PRETTY_FUNCTION__
+            << "Error: no sinks found";
+    }
+    else
+    {
+        qDebug() << __PRETTY_FUNCTION__
+            << "Error: no viable editor widget could be found or created";
+    }
+
+    //InvalidCodePath;
 }
 
 void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
