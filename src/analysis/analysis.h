@@ -21,10 +21,11 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
+#include "analysis/a2/a2.h"
+#include "analysis/a2/memory.h"
+#include "analysis/a2/multiword_datafilter.h"
 #include "analysis/analysis_fwd.h"
-#include "a2/a2.h"
-#include "a2/memory.h"
-#include "a2/multiword_datafilter.h"
+#include "analysis/condition_link.h"
 #include "data_filter.h"
 #include "histo1d.h"
 #include "histo2d.h"
@@ -1727,29 +1728,6 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
 };
 
 class AnalysisObjectStore;
-
-struct LIBMVME_EXPORT ConditionLink
-{
-    /* The condition referenced by this link. */
-    ConditionPtr condition;
-
-    /* Subindex into the conditions bits in case the condition has multiple
-     * bits. */
-    s32 subIndex = 0;
-
-    explicit operator bool() const { return condition != nullptr; }
-
-    bool operator==(const ConditionLink &other) const
-    {
-        return (condition == other.condition
-                && subIndex == other.subIndex);
-    }
-
-    bool operator!=(const ConditionLink &other) const
-    {
-        return !(*this == other);
-    }
-};
 
 using ConditionLinks = QHash<OperatorPtr, ConditionLink>;
 

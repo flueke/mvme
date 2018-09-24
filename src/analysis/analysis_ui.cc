@@ -285,9 +285,10 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl
     {
         auto widget = getContext()->getObjectWidget(sink.get());
 
-        if (auto cutEditor = qobject_cast<CutEditorInterface *>(widget))
+        if (auto cutEditor = qobject_cast<ConditionEditorInterface *>(widget))
         {
-            cutEditor->editCut(cl);
+            cutEditor->editCondition(cl);
+            show_and_activate(widget);
             return;
         }
     }
@@ -297,11 +298,11 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl
     {
         auto widget = std::unique_ptr<QWidget>(sink_widget_factory(sink, getContext()));
 
-        if (auto cutEditor = qobject_cast<CutEditorInterface *>(widget.get()))
+        if (auto cutEditor = qobject_cast<ConditionEditorInterface *>(widget.get()))
         {
             auto raw = widget.get();
             getContext()->addObjectWidget(widget.release(), sink.get(), sink->getId().toString());
-            cutEditor->editCut(cl);
+            cutEditor->editCondition(cl);
             show_and_activate(raw);
             return;
         }
