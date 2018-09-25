@@ -101,6 +101,9 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
         void on_tb_test_clicked();
         void on_ratePointerPicker_selected(const QPointF &);
 
+    protected:
+        virtual void paintEvent(QPaintEvent *event) override;
+
     private:
         std::unique_ptr<Histo1DWidgetPrivate> m_d;
         friend struct Histo1DWidgetPrivate;
@@ -166,6 +169,8 @@ class PickerOverlayTest: public QwtPlotPicker
     private:
         analysis::ConditionLink m_cl;
         bool m_isDragging = false;
+        enum IntervalBorderType { None, Min, Max };
+        IntervalBorderType m_borderEditType;
 };
 
 #endif /* __HISTO1D_WIDGET_H__ */

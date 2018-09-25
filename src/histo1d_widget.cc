@@ -21,6 +21,7 @@
 #include "histo1d_widget.h"
 #include "histo1d_widget_p.h"
 
+#include <qwt_painter.h>
 #include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
 #include <qwt_plot_magnifier.h>
@@ -605,7 +606,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         // Overlay Test Picker action
         //
 
-        action = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Dev: Cut Overlay Test"));
+        action = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Dev: Cut Editing Test"));
         action->setCheckable(true);
         action->setEnabled(false);
         m_d->m_actionOverlayTest = action;
@@ -860,6 +861,29 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
                                                          m_d->m_plot->canvas());
         m_d->m_overlayTestPicker->setStateMachine(new QwtPickerDragPointMachine);
         m_d->m_overlayTestPicker->setEnabled(false);
+
+        TRY_ASSERT(connect(
+                m_d->m_overlayTestPicker,
+                static_cast<void (QwtPlotPicker::*) (const QPointF &)>(&QwtPlotPicker::moved),
+                this,
+                [this] (const QPointF &point) {
+                    qDebug() << __PRETTY_FUNCTION__ << this << point;
+                    if (m_d->m_cutZoneItem)
+                    {
+                        auto interval = m_d->m_cutZoneItem->interval();
+                        interval.setMaxValue(point.x());
+                        m_d->m_cutZoneItem->setInterval(interval);
+                    }
+
+                    if (auto cond = std::dynamic_pointer_cast<analysis::ConditionInterval>(
+                            m_d->m_editingCondition.condition))
+                    {
+                        auto subIndex = m_d->m_editingCondition.subIndex;
+                        auto interval = cond->getInterval(subIndex);
+
+                        cond->setInterval(subIndex, { interval.min, point.x() } );
+                    }
+                }));
     }
 
     //
@@ -2164,12 +2188,6 @@ PickerOverlayTest::~PickerOverlayTest()
 {
 }
 
-void PickerOverlayTest::drawRubberBand(QPainter *painter) const
-{
-    qDebug() << __PRETTY_FUNCTION__ << this << painter;
-    QwtPlotPicker::drawRubberBand(painter);
-}
-
 void PickerOverlayTest::drawTracker(QPainter *painter) const
 {
     qDebug() << __PRETTY_FUNCTION__ << this << painter;
@@ -2203,10 +2221,11 @@ void PickerOverlayTest::widgetMousePressEvent(QMouseEvent *e)
 void PickerOverlayTest::widgetMouseReleaseEvent(QMouseEvent *e)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << e;
+    m_borderEditType = None;
     QwtPlotPicker::widgetMouseReleaseEvent(e);
 }
 
-static const int CanStartDragDistancePixels = 10;
+static const int CanStartDragDistancePixels = 5;
 
 void PickerOverlayTest::widgetMouseMoveEvent(QMouseEvent *e)
 {
@@ -2214,7 +2233,6 @@ void PickerOverlayTest::widgetMouseMoveEvent(QMouseEvent *e)
     if (!condInterval) return;
 
     auto mousePos = e->pos();
-    auto plotPos  = invTransform(mousePos);
     auto interval = condInterval->getInterval(m_cl.subIndex);
 
     int iMinPixel = transform({ interval.min, 0.0 }).x();
@@ -2224,23 +2242,87 @@ void PickerOverlayTest::widgetMouseMoveEvent(QMouseEvent *e)
     {
         if (std::abs(mousePos.x() - iMinPixel) < CanStartDragDistancePixels)
         {
-            canvas()->setCursor(Qt::OpenHandCursor);
+            canvas()->setCursor(Qt::SplitHCursor);
+            m_borderEditType = Min;
         }
         else if (std::abs(mousePos.x() - iMaxPixel) < CanStartDragDistancePixels)
         {
-            canvas()->setCursor(Qt::OpenHandCursor);
+            canvas()->setCursor(Qt::SplitHCursor);
+            m_borderEditType = Max;
         }
         else
         {
             canvas()->setCursor(Qt::CrossCursor);
         }
     }
-    qDebug() << __PRETTY_FUNCTION__ << this << e << "plot pos:" << plotPos;
+    qDebug() << __PRETTY_FUNCTION__ << this << e << "mouse pos:" << mousePos;
 
     QwtPlotPicker::widgetMouseMoveEvent(e);
+    //plot()->replot();
+}
+
+void PickerOverlayTest::drawRubberBand(QPainter *painter) const
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << painter;
+
+#if 1
+    auto condInterval = std::dynamic_pointer_cast<ConditionInterval>(m_cl.condition);
+    if (!condInterval) return;
+    auto interval = condInterval->getInterval(m_cl.subIndex);
+
+    auto pRect = pickArea().boundingRect().toRect();
+
+    auto trackerX = trackerPosition().x();
+    auto minX = transform({ interval.min, 0.0 }).x();
+    auto maxX = transform({ interval.max, 0.0 }).x();
+
+    // FIXME: this is not correct when e.g. moving the max to the left until it
+    // is less than the min
+    switch (m_borderEditType)
+    {
+        case Min:
+            // dragging the left border
+            minX = trackerX;
+            break;
+
+        case Max:
+            maxX = trackerX;
+            break;
+        default:
+            return;
+    }
+
+    QRect rect;
+    rect.setTopLeft({ minX, pRect.top() + 50 });
+    rect.setBottomRight({ maxX, pRect.bottom() - 50 });
+
+    qDebug() << __PRETTY_FUNCTION__ << ":) :) :) drawing" << rect << rect.isValid();
+    QBrush brush(Qt::blue, Qt::SolidPattern);
+    QPen pen(brush, 8);
+    painter->setPen(pen);
+    painter->setBrush(brush);
+    painter->setBackgroundMode(Qt::OpaqueMode);
+    //painter->fillRect(pRect, brush);
+    QwtPainter::fillRect(painter, rect, brush);
+    //QwtPainter::drawRect(painter, pRect);
+    //QwtPlotPicker::drawRubberBand(painter);
+#endif
 }
 
 void PickerOverlayTest::editCondition(const analysis::ConditionLink &cl)
 {
     m_cl = cl;
+}
+
+void Histo1DWidget::paintEvent(QPaintEvent *event)
+{
+    QWidget::paintEvent(event);
+
+#if 0
+    QRect rect(20, 20, width(), height());
+    QBrush brush(Qt::blue);
+
+    QPainter painter(this);
+    painter.fillRect(rect, brush);
+#endif
 }
