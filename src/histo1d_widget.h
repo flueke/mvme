@@ -78,10 +78,13 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
         void setResolutionReductionFactor(u32 rrf);
         void setResolutionReductionSliderEnabled(bool b);
 
-        //QwtPlotCurve *getPlotCurve() { return m_plotCurve; }
+        QwtPlot *getPlot() const;
 
         virtual bool editCondition(const analysis::ConditionLink &cl) override;
         virtual analysis::ConditionLink getCondition() const override;
+
+        void activatePlotPicker(QwtPlotPicker *picker);
+        QwtPlotPicker *getActivePlotPicker() const;
 
     public slots:
         void replot();

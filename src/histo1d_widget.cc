@@ -35,6 +35,8 @@
 #include <qwt_scale_widget.h>
 #include <qwt_text.h>
 
+#include <qwt_widget_overlay.h>
+
 #include <QApplication>
 #include <QClipboard>
 #include <QComboBox>
@@ -277,7 +279,6 @@ struct Histo1DWidgetPrivate
     QLabel *m_labelCursorInfo;
     QLabel *m_labelHistoInfo;
     QWidget *m_infoContainer;
-    analysis::ConditionLink m_editingCondition;
 
     s32 m_labelCursorInfoMaxWidth  = 0;
     s32 m_labelCursorInfoMaxHeight = 0;
@@ -288,7 +289,10 @@ struct Histo1DWidgetPrivate
             *m_actionGaussFit,
             *m_actionCalibUi,
             *m_actionInfo,
-            *m_actionCreateCut;
+            *m_actionCreateCut,
+            *m_actionEditCut,
+            *m_actionEditCutAccept,
+            *m_actionEditCutReject;
 
     // rate estimation
     RateEstimationData m_rateEstimationData;
@@ -297,13 +301,6 @@ struct Histo1DWidgetPrivate
     QwtPlotMarker *m_rateEstimationX2Marker;
     QwtPlotMarker *m_rateEstimationFormulaMarker;
     RateEstimationCurveData *m_plotRateEstimationData = nullptr; // owned by qwt
-
-    // cut creation / display
-    QwtPlotPicker *m_cutPointPicker;
-    QwtPlotMarker *m_cutIntervalMarkerX1;
-    QwtPlotMarker *m_cutIntervalMarkerX2;
-    std::unique_ptr<QwtPlotZoneItem> m_cutZoneItem;
-    QwtInterval m_cutInterval;
 
     // active picker
     QwtPlotPicker *m_activePlotPicker;
@@ -332,6 +329,11 @@ struct Histo1DWidgetPrivate
 
     CalibUi m_calibUi;
 
+    // Cut creation / editing
+    IntervalCutEditor *m_intervalCutEditor;
+    analysis::ConditionLink m_editingCondition;
+
+    // Histo and stats
     Histo1D *m_histo;
     Histo1DStatistics m_stats;
 
@@ -410,8 +412,8 @@ struct Histo1DWidgetPrivate
     void onCutPointPickerActivated(bool on);
     void onCutPointPickerPointSelected(const QPointF &point);
 
-    QAction *m_actionOverlayTest;
-    PickerOverlayTest *m_overlayTestPicker;
+    void onActionEditCutAccept();
+    void onActionEditCutReject();
 };
 
 enum class AxisScaleType
@@ -466,6 +468,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_plotHisto = new QwtPlotHistogram;
     m_d->m_replotTimer = new QTimer(this);
     m_d->m_cursorPosition = { make_quiet_nan(), make_quiet_nan() };
+    m_d->m_plot = new QwtPlot;
+    m_d->m_intervalCutEditor = new IntervalCutEditor(this);
 
     resize(600, 400);
 
@@ -593,12 +597,11 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         connect(action, &QAction::toggled, this, [this](bool checked) {
             if (checked)
             {
-                m_d->m_cutInterval = QwtInterval(make_quiet_nan(), make_quiet_nan());
-                m_d->activatePlotPicker(m_d->m_cutPointPicker);
+                m_d->m_intervalCutEditor->newCut();
             }
             else
             {
-                m_d->activatePlotPicker(m_d->m_zoomer);
+                m_d->m_intervalCutEditor->endEdit();
             }
         });
 
@@ -606,20 +609,36 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         // Overlay Test Picker action
         //
 
-        action = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Dev: Cut Editing Test"));
+        action = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Edit Cut"));
         action->setCheckable(true);
         action->setEnabled(false);
-        m_d->m_actionOverlayTest = action;
+        m_d->m_actionEditCut = action;
 
         connect(action, &QAction::toggled, this, [this](bool checked) {
             if (checked)
             {
-                m_d->activatePlotPicker(m_d->m_overlayTestPicker);
+                m_d->m_intervalCutEditor->beginEdit();
             }
             else
             {
-                m_d->activatePlotPicker(m_d->m_zoomer);
+                m_d->m_intervalCutEditor->endEdit();
             }
+        });
+
+        action = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Accept"));
+        action->setEnabled(false);
+        m_d->m_actionEditCutAccept = action;
+
+        connect(action, &QAction::triggered, this, [this] () {
+            m_d->onActionEditCutAccept();
+        });
+
+        action = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Reject"));
+        action->setEnabled(false);
+        m_d->m_actionEditCutReject = action;
+
+        connect(action, &QAction::triggered, this, [this] () {
+            m_d->onActionEditCutReject();
         });
     }
 
@@ -628,7 +647,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     tb->addWidget(make_spacer_widget());
 
     // Setup the plot
-    m_d->m_plot = new QwtPlot;
 
     //m_plotCurve->setStyle(QwtPlotCurve::Steps);
     //m_plotCurve->setCurveAttribute(QwtPlotCurve::Inverted);
@@ -826,6 +844,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     //
     // XXX: cut test
     //
+#if 0
     {
         m_d->m_cutPointPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
                                                   QwtPicker::VLineRubberBand,
@@ -851,8 +870,10 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         m_d->m_cutIntervalMarkerX1 = make_position_marker(m_d->m_plot);
         m_d->m_cutIntervalMarkerX2 = make_position_marker(m_d->m_plot);
     }
+#endif
 
     // PickerOverlayTest
+#if 0
     {
 
         m_d->m_overlayTestPicker = new PickerOverlayTest(QwtPlot::xBottom, QwtPlot::yLeft,
@@ -867,7 +888,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
                 static_cast<void (QwtPlotPicker::*) (const QPointF &)>(&QwtPlotPicker::moved),
                 this,
                 [this] (const QPointF &point) {
-                    qDebug() << __PRETTY_FUNCTION__ << this << point;
+                    qDebug() << __PRETTY_FUNCTION__ << this << "MOVED" << point;
+
                     if (m_d->m_cutZoneItem)
                     {
                         auto interval = m_d->m_cutZoneItem->interval();
@@ -884,7 +906,24 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
                         cond->setInterval(subIndex, { interval.min, point.x() } );
                     }
                 }));
+
+        TRY_ASSERT(connect(
+                m_d->m_overlayTestPicker,
+                static_cast<void (QwtPlotPicker::*) (const QPointF &)>(&QwtPlotPicker::selected),
+                this,
+                [this] (const QPointF &point) {
+                    qDebug() << __PRETTY_FUNCTION__ << this << "SELECTED" << point;
+                }));
+
+        TRY_ASSERT(connect(
+                m_d->m_overlayTestPicker,
+                static_cast<void (QwtPlotPicker::*) (const QPointF &)>(&QwtPlotPicker::appended),
+                this,
+                [this] (const QPointF &point) {
+                    qDebug() << __PRETTY_FUNCTION__ << this << "APPENDED" << point;
+                }));
     }
+#endif
 
     //
     // Gauss Curve
@@ -1850,8 +1889,21 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
     replot();
 }
 
+void Histo1DWidgetPrivate::onActionEditCutAccept()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    m_intervalCutEditor->endEdit();
+}
+
+void Histo1DWidgetPrivate::onActionEditCutReject()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    m_intervalCutEditor->endEdit();
+}
+
 void Histo1DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
 {
+#if 0
     assert(m_context);
     assert(m_sink);
 
@@ -1960,24 +2012,31 @@ void Histo1DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
     }
 
     m_q->replot();
+#endif
 }
 
 using analysis::ConditionInterval;
 
 bool Histo1DWidget::editCondition(const analysis::ConditionLink &cl)
 {
-    qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
-
     auto cond = std::dynamic_pointer_cast<ConditionInterval>(cl.condition);
 
     if (!cond)
     {
-        // clear to avoid returning a previous condition that was being edited
         m_d->m_editingCondition = {};
-        m_d->m_actionOverlayTest->setEnabled(true);
+        m_d->m_intervalCutEditor->endEdit();
+        m_d->m_actionEditCut->setEnabled(false);
         return false;
     }
 
+    m_d->m_editingCondition = cl;
+    auto interval = cond->getInterval(cl.subIndex);
+    m_d->m_intervalCutEditor->setInterval(QwtInterval(interval.min, interval.max));
+    m_d->m_intervalCutEditor->show();
+    m_d->m_actionEditCut->setEnabled(true);
+    return true;
+
+#if 0
     m_d->m_editingCondition = cl;
 
     if (!m_d->m_cutZoneItem)
@@ -1999,11 +2058,27 @@ bool Histo1DWidget::editCondition(const analysis::ConditionLink &cl)
     m_d->m_actionOverlayTest->setEnabled(true);
     m_d->m_overlayTestPicker->editCondition(cl);
     return true;
+#endif
 }
 
 analysis::ConditionLink Histo1DWidget::getCondition() const
 {
     return m_d->m_editingCondition;
+}
+
+void Histo1DWidget::activatePlotPicker(QwtPlotPicker *picker)
+{
+    m_d->activatePlotPicker(picker);
+}
+
+QwtPlotPicker *Histo1DWidget::getActivePlotPicker() const
+{
+    return m_d->getActivePlotPicker();
+}
+
+QwtPlot *Histo1DWidget::getPlot() const
+{
+    return m_d->m_plot;
 }
 
 void Histo1DWidgetPrivate::activatePlotPicker(QwtPlotPicker *picker)

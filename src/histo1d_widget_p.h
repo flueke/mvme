@@ -25,6 +25,8 @@
 
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <qwt_plot_marker.h>
+#include <qwt_plot_zoneitem.h>
 
 class Histo1DSubRangeDialog: public QDialog
 {
@@ -48,6 +50,75 @@ class Histo1DSubRangeDialog: public QDialog
 
         HistoAxisLimitsUI limits_x;
         QDialogButtonBox *buttonBox;
+};
+
+/* ConditionInterval display and editing:
+ *
+ * Display is done using a QwtPlotZoneItem to color the interval and two
+ * QwtPlotMarkers to show the borders and border coordinates.
+ *
+ * Editing:
+ * Initially the normal zoomer interaction is enabled with the interval shown
+ * as described above.  Transition to edit mode is triggered either externally
+ * or by the user using a toolbar button or similar. (The h1d widget calls into
+ * the IntervalCutEditor object and tells it to transition.)
+ *
+ * Invalid intervals are supported for cut creation. In this case the AutoBeginClickPointMachine
+ * is used to pick two initial points.
+ *
+ * Once the interval is valid a QwtPickerDragPointMachine is used to drag one
+ * of the interval border around.
+ *
+ */
+
+class IntervalCutEditorPicker;
+
+class IntervalCutEditor: public QObject
+{
+    Q_OBJECT
+    public:
+        IntervalCutEditor(Histo1DWidget *parent = nullptr);
+
+        void setInterval(const QwtInterval &interval);
+        QwtInterval getInterval() const;
+        void show();
+        void hide();
+        void newCut();
+        void beginEdit();
+        void endEdit();
+
+        Histo1DWidget *getHistoWidget() const;
+        QwtPlot *getPlot() const;
+
+    private:
+        void onPickerPointSelected(const QPointF &point);
+        void onPickerPointMoved(const QPointF &point);
+        void replot();
+
+        Histo1DWidget *m_histoWidget;
+        IntervalCutEditorPicker *m_picker;
+        std::unique_ptr<QwtPlotZoneItem> m_zone;
+        std::unique_ptr<QwtPlotMarker> m_marker1;
+        std::unique_ptr<QwtPlotMarker> m_marker2;
+        QwtPlotPicker *m_prevPicker;
+        QwtInterval m_interval;
+};
+
+class IntervalCutEditorPicker: public QwtPlotPicker
+{
+    public:
+        IntervalCutEditorPicker(IntervalCutEditor *cutEditor);
+
+        void setInterval(const QwtInterval &interval);
+        QwtInterval getInterval() const;
+
+    protected:
+        virtual void widgetMousePressEvent(QMouseEvent *) override;
+        virtual void widgetMouseReleaseEvent(QMouseEvent *) override;
+        virtual void widgetMouseMoveEvent(QMouseEvent *) override;
+
+    private:
+        QwtInterval m_interval;
 };
 
 #endif /* __HISTO1D_WIDGET_P_H__ */
