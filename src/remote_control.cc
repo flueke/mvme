@@ -165,7 +165,8 @@ MVMEContext *RemoteControl::getContext() const
 //
 
 DAQControlService::DAQControlService(MVMEContext *context)
-    : m_context(context)
+    : QObject(context)
+    , m_context(context)
 {
 }
 
@@ -241,7 +242,8 @@ QString DAQControlService::reconnectVMEController()
 //
 
 InfoService::InfoService(MVMEContext *context)
-    : m_context(context)
+    : QObject(context)
+    , m_context(context)
 {
 }
 
