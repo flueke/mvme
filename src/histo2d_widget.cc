@@ -1666,7 +1666,7 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
     }
 }
 
-bool Histo2DWidget::editCondition(const analysis::ConditionLink &cl)
+bool Histo2DWidget::setEditCondition(const analysis::ConditionLink &cl)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
 
@@ -1700,7 +1700,12 @@ bool Histo2DWidget::editCondition(const analysis::ConditionLink &cl)
     return true;
 }
 
-analysis::ConditionLink Histo2DWidget::getCondition() const
+analysis::ConditionLink Histo2DWidget::getEditCondition() const
 {
     return m_d->m_editingCondition;
+}
+
+void Histo2DWidget::beginEditCondition()
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << "not implemented!";
 }

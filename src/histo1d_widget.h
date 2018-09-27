@@ -80,8 +80,10 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
 
         QwtPlot *getPlot() const;
 
-        virtual bool editCondition(const analysis::ConditionLink &cl) override;
-        virtual analysis::ConditionLink getCondition() const override;
+        // ConditionEditorInterface
+        virtual bool setEditCondition(const analysis::ConditionLink &cl) override;
+        virtual analysis::ConditionLink getEditCondition() const override;
+        virtual void beginEditCondition() override;
 
         void activatePlotPicker(QwtPlotPicker *picker);
         QwtPlotPicker *getActivePlotPicker() const;
@@ -133,8 +135,9 @@ class Histo1DListWidget: public QWidget, public analysis::ConditionEditorInterfa
         void selectHistogram(int histoIndex);
 
         // ConditionEditorInterface
-        virtual bool editCondition(const analysis::ConditionLink &cl) override;
-        virtual analysis::ConditionLink getCondition() const override;
+        virtual bool setEditCondition(const analysis::ConditionLink &cl) override;
+        virtual analysis::ConditionLink getEditCondition() const override;
+        virtual void beginEditCondition() override;
 
     private:
         struct Private;

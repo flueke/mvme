@@ -67,16 +67,53 @@ class Histo1DSubRangeDialog: public QDialog
  * is used to pick two initial points.
  *
  * Once the interval is valid a QwtPickerDragPointMachine is used to drag one
- * of the interval border around.
+ * of the interval borders around.
  *
  */
 
-class IntervalCutEditorPicker;
+class IntervalCutEditor;
+
+class IntervalCutEditorPicker: public QwtPlotPicker
+{
+    Q_OBJECT
+    public:
+        enum SelectedPointType
+        {
+            PT_None,
+            PT_Min,
+            PT_Max
+        };
+
+    signals:
+        void pointTypeSelected(SelectedPointType pt);
+
+    public:
+        IntervalCutEditorPicker(IntervalCutEditor *cutEditor);
+
+        void setInterval(const QwtInterval &interval);
+        QwtInterval getInterval() const;
+
+    protected:
+        virtual void widgetMousePressEvent(QMouseEvent *) override;
+        virtual void widgetMouseReleaseEvent(QMouseEvent *) override;
+        virtual void widgetMouseMoveEvent(QMouseEvent *) override;
+
+    private:
+        SelectedPointType getPointForXCoordinate(int pixelX);
+
+        QwtInterval m_interval;
+        bool m_isDragging;
+};
 
 class IntervalCutEditor: public QObject
 {
     Q_OBJECT
+    signals:
+        void intervalModified();
+
     public:
+        using SelectedPointType = IntervalCutEditorPicker::SelectedPointType;
+
         IntervalCutEditor(Histo1DWidget *parent = nullptr);
 
         void setInterval(const QwtInterval &interval);
@@ -93,7 +130,10 @@ class IntervalCutEditor: public QObject
     private:
         void onPickerPointSelected(const QPointF &point);
         void onPickerPointMoved(const QPointF &point);
+        void onPointTypeSelected(IntervalCutEditorPicker::SelectedPointType pt);
         void replot();
+        void setMarker1Value(double x);
+        void setMarker2Value(double x);
 
         Histo1DWidget *m_histoWidget;
         IntervalCutEditorPicker *m_picker;
@@ -102,23 +142,7 @@ class IntervalCutEditor: public QObject
         std::unique_ptr<QwtPlotMarker> m_marker2;
         QwtPlotPicker *m_prevPicker;
         QwtInterval m_interval;
-};
-
-class IntervalCutEditorPicker: public QwtPlotPicker
-{
-    public:
-        IntervalCutEditorPicker(IntervalCutEditor *cutEditor);
-
-        void setInterval(const QwtInterval &interval);
-        QwtInterval getInterval() const;
-
-    protected:
-        virtual void widgetMousePressEvent(QMouseEvent *) override;
-        virtual void widgetMouseReleaseEvent(QMouseEvent *) override;
-        virtual void widgetMouseMoveEvent(QMouseEvent *) override;
-
-    private:
-        QwtInterval m_interval;
+        SelectedPointType m_selectedPointType;
 };
 
 #endif /* __HISTO1D_WIDGET_P_H__ */

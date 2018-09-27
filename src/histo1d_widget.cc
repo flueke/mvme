@@ -409,11 +409,9 @@ struct Histo1DWidgetPrivate
     void exportPlotToClipboard();
     void saveHistogram();
 
-    void onCutPointPickerActivated(bool on);
-    void onCutPointPickerPointSelected(const QPointF &point);
-
-    void onActionEditCutAccept();
-    void onActionEditCutReject();
+    void onActionNewCutTriggered();
+    void onEditCutAccept();
+    void onEditCutReject();
 };
 
 enum class AxisScaleType
@@ -630,7 +628,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         m_d->m_actionEditCutAccept = action;
 
         connect(action, &QAction::triggered, this, [this] () {
-            m_d->onActionEditCutAccept();
+            m_d->onEditCutAccept();
         });
 
         action = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Reject"));
@@ -638,7 +636,13 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         m_d->m_actionEditCutReject = action;
 
         connect(action, &QAction::triggered, this, [this] () {
-            m_d->onActionEditCutReject();
+            m_d->onEditCutReject();
+        });
+
+        connect(m_d->m_intervalCutEditor, &IntervalCutEditor::intervalModified,
+                this, [this] () {
+            m_d->m_actionEditCutAccept->setEnabled(true);
+            m_d->m_actionEditCutReject->setEnabled(true);
         });
     }
 
@@ -840,90 +844,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     };
 
     m_d->m_rateEstimationCurve = make_plot_curve(Qt::red, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
-
-    //
-    // XXX: cut test
-    //
-#if 0
-    {
-        m_d->m_cutPointPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
-                                                  QwtPicker::VLineRubberBand,
-                                                  QwtPicker::ActiveOnly,
-                                                  m_d->m_plot->canvas());
-
-        QPen pickerPen(Qt::red);
-        m_d->m_cutPointPicker->setTrackerPen(pickerPen);
-        m_d->m_cutPointPicker->setRubberBandPen(pickerPen);
-        m_d->m_cutPointPicker->setStateMachine(new AutoBeginClickPointMachine);
-        m_d->m_cutPointPicker->setEnabled(false);
-
-        TRY_ASSERT(connect(
-                m_d->m_cutPointPicker,
-                // so ugly :-(
-                static_cast<void (QwtPlotPicker::*) (const QPointF &)>(
-                    &QwtPlotPicker::selected),
-
-                this, [this] (const QPointF &point) {
-                    m_d->onCutPointPickerPointSelected(point);
-                }));
-
-        m_d->m_cutIntervalMarkerX1 = make_position_marker(m_d->m_plot);
-        m_d->m_cutIntervalMarkerX2 = make_position_marker(m_d->m_plot);
-    }
-#endif
-
-    // PickerOverlayTest
-#if 0
-    {
-
-        m_d->m_overlayTestPicker = new PickerOverlayTest(QwtPlot::xBottom, QwtPlot::yLeft,
-                                                         QwtPicker::VLineRubberBand,
-                                                         QwtPicker::ActiveOnly,
-                                                         m_d->m_plot->canvas());
-        m_d->m_overlayTestPicker->setStateMachine(new QwtPickerDragPointMachine);
-        m_d->m_overlayTestPicker->setEnabled(false);
-
-        TRY_ASSERT(connect(
-                m_d->m_overlayTestPicker,
-                static_cast<void (QwtPlotPicker::*) (const QPointF &)>(&QwtPlotPicker::moved),
-                this,
-                [this] (const QPointF &point) {
-                    qDebug() << __PRETTY_FUNCTION__ << this << "MOVED" << point;
-
-                    if (m_d->m_cutZoneItem)
-                    {
-                        auto interval = m_d->m_cutZoneItem->interval();
-                        interval.setMaxValue(point.x());
-                        m_d->m_cutZoneItem->setInterval(interval);
-                    }
-
-                    if (auto cond = std::dynamic_pointer_cast<analysis::ConditionInterval>(
-                            m_d->m_editingCondition.condition))
-                    {
-                        auto subIndex = m_d->m_editingCondition.subIndex;
-                        auto interval = cond->getInterval(subIndex);
-
-                        cond->setInterval(subIndex, { interval.min, point.x() } );
-                    }
-                }));
-
-        TRY_ASSERT(connect(
-                m_d->m_overlayTestPicker,
-                static_cast<void (QwtPlotPicker::*) (const QPointF &)>(&QwtPlotPicker::selected),
-                this,
-                [this] (const QPointF &point) {
-                    qDebug() << __PRETTY_FUNCTION__ << this << "SELECTED" << point;
-                }));
-
-        TRY_ASSERT(connect(
-                m_d->m_overlayTestPicker,
-                static_cast<void (QwtPlotPicker::*) (const QPointF &)>(&QwtPlotPicker::appended),
-                this,
-                [this] (const QPointF &point) {
-                    qDebug() << __PRETTY_FUNCTION__ << this << "APPENDED" << point;
-                }));
-    }
-#endif
 
     //
     // Gauss Curve
@@ -1889,135 +1809,22 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
     replot();
 }
 
-void Histo1DWidgetPrivate::onActionEditCutAccept()
+void Histo1DWidgetPrivate::onEditCutAccept()
 {
     qDebug() << __PRETTY_FUNCTION__;
     m_intervalCutEditor->endEdit();
+    m_intervalCutEditor->show();
 }
 
-void Histo1DWidgetPrivate::onActionEditCutReject()
+void Histo1DWidgetPrivate::onEditCutReject()
 {
     qDebug() << __PRETTY_FUNCTION__;
     m_intervalCutEditor->endEdit();
-}
-
-void Histo1DWidgetPrivate::onCutPointPickerPointSelected(const QPointF &point)
-{
-#if 0
-    assert(m_context);
-    assert(m_sink);
-
-    qDebug() << __PRETTY_FUNCTION__ << point;
-
-    if (std::isnan(m_cutInterval.minValue()))
-    {
-        m_cutInterval.setMinValue(point.x());
-
-        m_cutIntervalMarkerX1->setXValue(m_cutInterval.minValue());
-        m_cutIntervalMarkerX1->setLabel(QString("    x1=%1").arg(m_cutInterval.minValue()));
-        m_cutIntervalMarkerX1->show();
-    }
-    else if (std::isnan(m_cutInterval.maxValue()))
-    {
-        if (!m_cutZoneItem)
-        {
-            m_cutZoneItem = std::make_unique<QwtPlotZoneItem>();
-            m_cutZoneItem->attach(m_plot);
-
-            //QBrush brush(QColor("#d0d78e"), Qt::DiagCrossPattern);
-            QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
-            m_cutZoneItem->setBrush(brush);
-
-            //m_cutZoneItem->setPen(Qt::black, 1.0, Qt::DashDotLine);
-        }
-
-        double x = point.x();
-        m_cutInterval.setMaxValue(x);
-        m_cutInterval = m_cutInterval.normalized(); // swaps if needed
-
-        m_cutIntervalMarkerX1->setXValue(m_cutInterval.minValue());
-        m_cutIntervalMarkerX1->setLabel(QString("    x1=%1").arg(m_cutInterval.minValue()));
-        m_cutIntervalMarkerX1->show();
-
-        m_cutIntervalMarkerX2->setXValue(m_cutInterval.maxValue());
-        m_cutIntervalMarkerX2->setLabel(QString("    x2=%1").arg(m_cutInterval.maxValue()));
-        m_cutIntervalMarkerX2->show();
-
-        m_cutZoneItem->setInterval(m_cutInterval);
-        m_actionCreateCut->setChecked(false);
-
-        // Show a dialog to the user asking for a name for the cut and offering the
-        // possibility to cancel cut creation.
-        QString cutName = QSL("NewIntervalCut");
-
-        {
-            auto le_cutName = new QLineEdit;
-            le_cutName->setText(cutName);
-
-            auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-
-            QDialog dialog(m_q);
-            auto layout = new QFormLayout(&dialog);
-            layout->addRow("Cut Name", le_cutName);
-            layout->addRow(buttons);
-
-            QObject::connect(buttons, &QDialogButtonBox::accepted,
-                             &dialog, &QDialog::accept);
-
-            QObject::connect(buttons, &QDialogButtonBox::rejected,
-                             &dialog, &QDialog::reject);
-
-            if (dialog.exec() == QDialog::Rejected)
-            {
-                m_cutZoneItem->setVisible(false);
-                m_q->replot();
-                return;
-            }
-
-            cutName = le_cutName->text();
-        }
-
-        // Create a new ConditionInterval object. Initialize all intervals to
-        // the one just created by the user
-
-        QVector<analysis::Interval> intervals;
-        intervals.resize(m_sink->getNumberOfHistos());
-
-        for (s32 ii = 0; ii < intervals.size(); ii++)
-        {
-            intervals[ii] = { m_cutInterval.minValue(), m_cutInterval.maxValue() };
-        }
-
-        auto cond = std::make_shared<analysis::ConditionInterval>();
-        cond->setObjectName(cutName);
-        cond->setIntervals(intervals);
-
-        {
-            auto xInput = m_sink->getSlot(0)->inputPipe;
-            // XXX: ConditionInterval does currently accept InputType::Array
-            // only this means we create a full array condition here
-            auto xIndex = analysis::Slot::NoParamIndex;
-
-            AnalysisPauser pauser(m_context);
-            cond->connectInputSlot(0, xInput, xIndex);
-
-            // FIXME: remove this once conditions do not show up in the event trees anymore
-            const int userLevel = 3;
-
-            m_context->getAnalysis()->addOperator(
-                m_sink->getEventId(),
-                userLevel,
-                cond);
-        }
-    }
-
-    m_q->replot();
-#endif
 }
 
 using analysis::ConditionInterval;
 
-bool Histo1DWidget::editCondition(const analysis::ConditionLink &cl)
+bool Histo1DWidget::setEditCondition(const analysis::ConditionLink &cl)
 {
     auto cond = std::dynamic_pointer_cast<ConditionInterval>(cl.condition);
 
@@ -2035,35 +1842,16 @@ bool Histo1DWidget::editCondition(const analysis::ConditionLink &cl)
     m_d->m_intervalCutEditor->show();
     m_d->m_actionEditCut->setEnabled(true);
     return true;
-
-#if 0
-    m_d->m_editingCondition = cl;
-
-    if (!m_d->m_cutZoneItem)
-    {
-        m_d->m_cutZoneItem = std::make_unique<QwtPlotZoneItem>();
-        m_d->m_cutZoneItem->attach(m_d->m_plot);
-
-        //QBrush brush(QColor("#d0d78e"), Qt::DiagCrossPattern);
-        QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
-        m_d->m_cutZoneItem->setBrush(brush);
-    }
-
-    auto interval = cond->getInterval(cl.subIndex);
-
-    qDebug() << __PRETTY_FUNCTION__ << "setting zone item interval to"
-        << interval.min << interval.max;
-
-    m_d->m_cutZoneItem->setInterval(interval.min, interval.max);
-    m_d->m_actionOverlayTest->setEnabled(true);
-    m_d->m_overlayTestPicker->editCondition(cl);
-    return true;
-#endif
 }
 
-analysis::ConditionLink Histo1DWidget::getCondition() const
+analysis::ConditionLink Histo1DWidget::getEditCondition() const
 {
     return m_d->m_editingCondition;
+}
+
+void Histo1DWidget::beginEditCondition()
+{
+    m_d->m_actionEditCut->setChecked(true);
 }
 
 void Histo1DWidget::activatePlotPicker(QwtPlotPicker *picker)
@@ -2208,10 +1996,10 @@ void Histo1DListWidget::selectHistogram(int index)
             m_d->m_histoWidget->setSink(m_d->m_sink, m_d->m_sinkModifiedCallback);
         }
 
-        if (auto cl = m_d->m_histoWidget->getCondition())
+        if (auto cl = m_d->m_histoWidget->getEditCondition())
         {
             cl.subIndex = index;
-            m_d->m_histoWidget->editCondition(cl);
+            m_d->m_histoWidget->setEditCondition(cl);
         }
 
         QSignalBlocker sb(m_d->m_histoSpin);
@@ -2219,7 +2007,7 @@ void Histo1DListWidget::selectHistogram(int index)
     }
 }
 
-bool Histo1DListWidget::editCondition(const analysis::ConditionLink &cl)
+bool Histo1DListWidget::setEditCondition(const analysis::ConditionLink &cl)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
 
@@ -2229,12 +2017,17 @@ bool Histo1DListWidget::editCondition(const analysis::ConditionLink &cl)
         return false;
 
     selectHistogram(cl.subIndex);
-    return m_d->m_histoWidget->editCondition(cl);
+    return m_d->m_histoWidget->setEditCondition(cl);
 }
 
-analysis::ConditionLink Histo1DListWidget::getCondition() const
+analysis::ConditionLink Histo1DListWidget::getEditCondition() const
 {
-    return m_d->m_histoWidget->getCondition();
+    return m_d->m_histoWidget->getEditCondition();
+}
+
+void Histo1DListWidget::beginEditCondition()
+{
+    m_d->m_histoWidget->beginEditCondition();
 }
 
 QwtPlotPicker *Histo1DWidgetPrivate::getActivePlotPicker() const

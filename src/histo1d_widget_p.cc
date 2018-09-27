@@ -113,6 +113,7 @@ IntervalCutEditorPicker::IntervalCutEditorPicker(IntervalCutEditor *cutEditor)
                     QwtPicker::VLineRubberBand, QwtPicker::ActiveOnly,
                     cutEditor->getPlot()->canvas())
     , m_interval(make_quiet_nan(), make_quiet_nan())
+    , m_isDragging(false)
 {
 }
 
@@ -128,6 +129,7 @@ QwtInterval IntervalCutEditorPicker::getInterval() const
 
 void IntervalCutEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
 {
+    // FIXME: react to left click only
     if (std::isnan(m_interval.minValue()) || std::isnan(m_interval.maxValue()))
     {
         QwtPlotPicker::widgetMousePressEvent(ev);
@@ -135,6 +137,27 @@ void IntervalCutEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
     else
     {
         qDebug() << __PRETTY_FUNCTION__ << "assuming a cut is being edited";
+
+        int iMinPixel = transform({ m_interval.minValue(), 0.0 }).x();
+        int iMaxPixel = transform({ m_interval.maxValue(), 0.0 }).x();
+
+        switch (getPointForXCoordinate(ev->pos().x()))
+        {
+            case PT_None:
+                break;
+
+            case PT_Min:
+                m_isDragging = true;
+                emit pointTypeSelected(PT_Min);
+                QwtPlotPicker::widgetMousePressEvent(ev);
+                break;
+
+            case PT_Max:
+                m_isDragging = true;
+                emit pointTypeSelected(PT_Max);
+                QwtPlotPicker::widgetMousePressEvent(ev);
+                break;
+        }
     }
 }
 
@@ -147,37 +170,66 @@ void IntervalCutEditorPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
     else
     {
         qDebug() << __PRETTY_FUNCTION__ << "assuming a cut is being edited";
+        m_isDragging = false;
+        canvas()->setCursor(Qt::CrossCursor);
+        QwtPlotPicker::widgetMouseReleaseEvent(ev);
     }
 }
+
+/* When dragging min and max may have to be swapped for the zone item to show
+ * the correct area. One point is picked and dragged, the other remains fixed.
+ * The cut editor has to know which point is being moved and which is the fixed one.
+ * It can then make sure they're in the correct order for the zone item.
+ * Implementation: figure out which point is being selected in mouse press
+ *
+ */
 
 void IntervalCutEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
 {
     if (std::isnan(m_interval.minValue()) || std::isnan(m_interval.maxValue()))
     {
-        QwtPlotPicker::widgetMouseMoveEvent(ev);
+        //QwtPlotPicker::widgetMouseMoveEvent(ev);
     }
-    else
+    else if (!m_isDragging)
     {
         int iMinPixel = transform({ m_interval.minValue(), 0.0 }).x();
         int iMaxPixel = transform({ m_interval.maxValue(), 0.0 }).x();
-        auto mousePos = ev->pos();
 
-        //if (!m_isDragging)
+        switch (getPointForXCoordinate(ev->pos().x()))
         {
-            if (std::abs(mousePos.x() - iMinPixel) < CanStartDragDistancePixels)
-            {
-                canvas()->setCursor(Qt::SplitHCursor);
-            }
-            else if (std::abs(mousePos.x() - iMaxPixel) < CanStartDragDistancePixels)
-            {
-                canvas()->setCursor(Qt::SplitHCursor);
-            }
-            else
-            {
+            case PT_None:
                 canvas()->setCursor(Qt::CrossCursor);
-            }
+                break;
+
+            case PT_Min:
+            case PT_Max:
+                canvas()->setCursor(Qt::SplitHCursor);
+                break;
         }
-        QwtPlotPicker::widgetMouseMoveEvent(ev);
+    }
+
+    QwtPlotPicker::widgetMouseMoveEvent(ev);
+}
+
+IntervalCutEditorPicker::SelectedPointType IntervalCutEditorPicker::getPointForXCoordinate(int pixelX)
+{
+    int iMinPixel = transform({ m_interval.minValue(), 0.0 }).x();
+    int iMaxPixel = transform({ m_interval.maxValue(), 0.0 }).x();
+
+    if (std::abs(pixelX - iMinPixel) < CanStartDragDistancePixels)
+    {
+        canvas()->setCursor(Qt::SplitHCursor);
+        return PT_Min;
+    }
+    else if (std::abs(pixelX - iMaxPixel) < CanStartDragDistancePixels)
+    {
+        canvas()->setCursor(Qt::SplitHCursor);
+        return PT_Max;
+    }
+    else
+    {
+        canvas()->setCursor(Qt::CrossCursor);
+        return PT_None;
     }
 }
 
@@ -189,8 +241,12 @@ IntervalCutEditor::IntervalCutEditor(Histo1DWidget *parent)
     , m_marker1(make_position_marker())
     , m_marker2(make_position_marker())
     , m_interval(make_quiet_nan(), make_quiet_nan())
+    , m_selectedPointType(SelectedPointType::PT_None)
 {
     m_picker->setEnabled(false);
+    auto zoneBrush = m_zone->brush();
+    zoneBrush.setStyle(Qt::DiagCrossPattern);
+    m_zone->setBrush(zoneBrush);
     m_zone->attach(parent->getPlot());
     m_marker1->attach(parent->getPlot());
     m_marker2->attach(parent->getPlot());
@@ -210,6 +266,8 @@ IntervalCutEditor::IntervalCutEditor(Histo1DWidget *parent)
 
     connect(m_picker, sigSelected, this, &IntervalCutEditor::onPickerPointSelected);
     connect(m_picker, sigMoved, this, &IntervalCutEditor::onPickerPointMoved);
+    connect(m_picker, &IntervalCutEditorPicker::pointTypeSelected,
+            this, &IntervalCutEditor::onPointTypeSelected);
 }
 
 void IntervalCutEditor::setInterval(const QwtInterval &interval)
@@ -223,11 +281,8 @@ void IntervalCutEditor::setInterval(const QwtInterval &interval)
         // edit a valid interval by dragging one of the borders
         m_picker->setStateMachine(new QwtPickerDragPointMachine);
 
-        m_marker1->setXValue(m_interval.minValue());
-        m_marker1->setLabel(QString("    x1=%1").arg(m_interval.minValue()));
-
-        m_marker2->setXValue(m_interval.maxValue());
-        m_marker2->setLabel(QString("    x2=%1").arg(m_interval.maxValue()));
+        setMarker1Value(m_interval.minValue());
+        setMarker2Value(m_interval.maxValue());
     }
     else
     {
@@ -281,14 +336,21 @@ void IntervalCutEditor::newCut()
 void IntervalCutEditor::beginEdit()
 {
     m_prevPicker = m_histoWidget->getActivePlotPicker();
+    qDebug() << __PRETTY_FUNCTION__ << "setting prev picker to" << m_prevPicker;
     m_histoWidget->activatePlotPicker(m_picker);
     show();
 }
 
 void IntervalCutEditor::endEdit()
 {
-    m_histoWidget->activatePlotPicker(m_prevPicker);
-    m_prevPicker = nullptr;
+    qDebug() << __PRETTY_FUNCTION__;
+
+    if (m_prevPicker)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "restoring prev picker" << m_prevPicker;
+        m_histoWidget->activatePlotPicker(m_prevPicker);
+        m_prevPicker = nullptr;
+    }
     hide();
 }
 
@@ -310,15 +372,14 @@ void IntervalCutEditor::onPickerPointSelected(const QPointF &point)
 
     if (std::isnan(m_interval.minValue()))
     {
+        /* The user selected the first point. */
         assert(std::isnan(m_interval.maxValue()));
 
         qDebug() << __PRETTY_FUNCTION__ << "setting minValue =" << x;
 
         m_interval.setMinValue(x);
 
-        m_marker1->setXValue(m_interval.minValue());
-        m_marker1->setLabel(QString("    x1=%1").arg(m_interval.minValue()));
-        m_marker1->show();
+        setMarker1Value(m_interval.minValue());
 
         m_zone->setInterval(m_interval);
 
@@ -326,34 +387,97 @@ void IntervalCutEditor::onPickerPointSelected(const QPointF &point)
     }
     else if (std::isnan(m_interval.maxValue()))
     {
+        /* The 2nd point has been selected. Update markers and interval and
+         * transition to edit mode. */
         qDebug() << __PRETTY_FUNCTION__ << "setting maxValue =" << x;
 
         m_interval.setMaxValue(x);
         m_interval = m_interval.normalized();
 
-        m_marker1->setXValue(m_interval.minValue());
-        m_marker1->setLabel(QString("    x1=%1").arg(m_interval.minValue()));
-
-        m_marker2->setXValue(m_interval.maxValue());
-        m_marker2->setLabel(QString("    x2=%1").arg(m_interval.maxValue()));
+        setMarker1Value(m_interval.minValue());
+        setMarker2Value(m_interval.maxValue());
 
         m_zone->setInterval(m_interval);
         m_picker->setInterval(m_interval);
 
         m_picker->setStateMachine(new QwtPickerDragPointMachine);
 
+        emit intervalModified();
+
         show();
     }
     else
     {
-        /* Two points have been picked. This means we transitioned to edit mode
-         * using a QwtPickerDragPointMachine. Updates are immediate now and
-         * handled in onPickerPointMoved(). */
+        /* Two points have been picked before. This means we transitioned to
+         * edit mode, the user picked and dragged a point and released the
+         * mouse. */
+
+        using SPT = IntervalCutEditorPicker::SelectedPointType;
+
+        QwtInterval newInterval = m_interval;
+
+        switch (m_selectedPointType)
+        {
+            case SPT::PT_Min:
+                newInterval.setMinValue(x);
+                break;
+
+            case SPT::PT_Max:
+                newInterval.setMaxValue(x);
+                break;
+
+            InvalidDefaultCase;
+        }
+
+        newInterval = newInterval.normalized();
+
+        if (newInterval != m_interval)
+        {
+            emit intervalModified();
+        }
+
+        m_interval = newInterval;
+        m_picker->setInterval(m_interval);
+        m_zone->setInterval(m_interval);
+        setMarker1Value(m_interval.minValue());
+        setMarker2Value(m_interval.maxValue());
+        m_selectedPointType = SPT::PT_None;
+        show();
     }
+}
+
+void IntervalCutEditor::onPointTypeSelected(IntervalCutEditorPicker::SelectedPointType pt)
+{
+    using SPT = IntervalCutEditorPicker::SelectedPointType;
+
+    QString pts;
+
+    switch (pt)
+    {
+        case SPT::PT_None:
+            pts = "None";
+            break;
+
+        case SPT::PT_Min:
+            m_marker1->hide();
+            pts = "Min";
+            break;
+
+        case SPT::PT_Max:
+            m_marker2->hide();
+            pts = "Max";
+            break;
+
+    }
+    qDebug() << __PRETTY_FUNCTION__ << "selected point type:" << pts;
+
+    m_selectedPointType = pt;
 }
 
 void IntervalCutEditor::onPickerPointMoved(const QPointF &point)
 {
+    using SPT = IntervalCutEditorPicker::SelectedPointType;
+
     qDebug() << __PRETTY_FUNCTION__ << point;
 
     double x = point.x();
@@ -371,9 +495,44 @@ void IntervalCutEditor::onPickerPointMoved(const QPointF &point)
         m_zone->show();
         replot();
     }
+    else if (m_selectedPointType != SPT::PT_None)
+    {
+        auto zoneInterval = m_interval;
+
+        switch (m_selectedPointType)
+        {
+            case SPT::PT_Min:
+                zoneInterval.setMinValue(x);
+                break;
+
+            case SPT::PT_Max:
+                zoneInterval.setMaxValue(x);
+                break;
+
+            InvalidDefaultCase;
+        }
+
+        zoneInterval = zoneInterval.normalized();
+        m_zone->setInterval(zoneInterval);
+        replot();
+    }
 }
 
 void IntervalCutEditor::replot()
 {
     m_histoWidget->replot();
+}
+
+void IntervalCutEditor::setMarker1Value(double x)
+{
+    m_marker1->setXValue(x);
+    m_marker1->setLabel(QString("    x1=%1").arg(x));
+    m_marker1->show();
+}
+
+void IntervalCutEditor::setMarker2Value(double x)
+{
+    m_marker2->setXValue(x);
+    m_marker2->setLabel(QString("    x2=%1").arg(x));
+    m_marker2->show();
 }

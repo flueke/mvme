@@ -68,8 +68,10 @@ class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::ConditionEd
         void setLinZ();
         void setLogZ();
 
-        virtual bool editCondition(const analysis::ConditionLink &cl) override;
-        virtual analysis::ConditionLink getCondition() const override;
+        // ConditionEditorInterface
+        virtual bool setEditCondition(const analysis::ConditionLink &cl) override;
+        virtual analysis::ConditionLink getEditCondition() const override;
+        virtual void beginEditCondition() override;
 
     private slots:
         void replot();
