@@ -319,7 +319,7 @@ struct Histo1DWidgetPrivate
     QwtPlotCurve *m_gaussCurve = nullptr;
     QwtPlotCurve *m_rateEstimationCurve = nullptr;
 
-    QwtText *m_waterMarkText;
+    QwtText m_waterMarkText;
     QwtPlotTextLabel *m_waterMarkLabel;
 
     QComboBox *m_yScaleCombo;
@@ -854,20 +854,20 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     // Watermark text when exporting
     //
     {
-        m_d->m_waterMarkText = new QwtText;
-        m_d->m_waterMarkText->setRenderFlags(Qt::AlignRight | Qt::AlignBottom);
-        m_d->m_waterMarkText->setColor(QColor(0x66, 0x66, 0x66, 0x40));
+        m_d->m_waterMarkText = QwtText();
+        m_d->m_waterMarkText.setRenderFlags(Qt::AlignRight | Qt::AlignBottom);
+        m_d->m_waterMarkText.setColor(QColor(0x66, 0x66, 0x66, 0x40));
 
         QFont font;
         font.setPixelSize(16);
         font.setBold(true);
-        m_d->m_waterMarkText->setFont(font);
+        m_d->m_waterMarkText.setFont(font);
 
-        m_d->m_waterMarkText->setText(QString("mvme-%1").arg(GIT_VERSION_TAG));
+        m_d->m_waterMarkText.setText(QString("mvme-%1").arg(GIT_VERSION_TAG));
 
         m_d->m_waterMarkLabel = new QwtPlotTextLabel;
         m_d->m_waterMarkLabel->setMargin(10);
-        m_d->m_waterMarkLabel->setText(*m_d->m_waterMarkText);
+        m_d->m_waterMarkLabel->setText(m_d->m_waterMarkText);
         m_d->m_waterMarkLabel->attach(m_d->m_plot);
         m_d->m_waterMarkLabel->hide();
     }
