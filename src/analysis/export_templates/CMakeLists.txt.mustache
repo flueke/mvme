@@ -1,8 +1,13 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 2.8)
 project({{struct_name}})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 11)
+
+if(CMAKE_VERSION VERSION_LESS 3.0.0)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif()
+
 add_definitions(-Wall)
 
 find_package(ZLIB)
@@ -21,12 +26,13 @@ if (ZLIB_FOUND)
     target_link_libraries(export_dump ${ZLIB_LIBRARIES})
 endif()
 
+# This is the official way to find and use ROOT with CMake. Sadly it does not
+# work with ROOT as packaged by debian/ubuntu.
 list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
 find_package(ROOT COMPONENTS Core RIO Tree Hist)
 
-if (NOT ROOT_FOUND)
-    message("-- Could not find ROOT. Disabling ROOT histogramer.")
-else()
+
+if (ROOT_FOUND AND ZLIB_FOUND)
     message("-- Using ROOT installation from ${ROOT_USE_FILE}")
     include(${ROOT_USE_FILE})
 
@@ -41,6 +47,32 @@ else()
         ${ROOT_Hist_LIBRARY}
         ${ZLIB_LIBRARIES}
         )
+elseif (ZLIB_FOUND)
+    message("-- ROOT not found using the find_package() method. Trying root-config instead.")
+
+    execute_process(COMMAND root-config --version OUTPUT_VARIABLE ROOT_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+    execute_process(COMMAND root-config --prefix OUTPUT_VARIABLE ROOT_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+    if (ROOT_VERSION)
+        message("-- Found ROOT version ${ROOT_VERSION} in ${ROOT_PREFIX}")
+
+        execute_process(COMMAND root-config --libs OUTPUT_VARIABLE ROOT_LIBRARIES
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+        execute_process(COMMAND root-config --cflags OUTPUT_VARIABLE ROOT_CFLAGS
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+        add_definitions(${ROOT_CFLAGS})
+        add_executable(root_generate_histos {{export_impl_file}} root_generate_histos.cpp)
+        target_link_libraries(root_generate_histos ${ROOT_LIBRARIES} ${ZLIB_LIBRARIES})
+    else()
+        message("-- Could not find ROOT. Disabling ROOT histogramer.")
+    endif()
+else()
+    message("-- Could not find ROOT or zlib. Disabling ROOT histogrammer.")
 endif()
 {{!
 vim:ft=cmake
