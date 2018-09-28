@@ -7,8 +7,28 @@ TODO list, not at all sorted by priority
 Analysis Conditions (Histogram Cuts and more)
 --------------------------------------------------
 
-* infinite loop in updateRanks() if a condition uses another condition!!!
-  This can not be setup with the final version of the GUI but should still be detected and avoided
+1D cut creation and editing
+-------------------------------------------
+Creating an interval cut:
+- Open the histo using the data you want the cut to use.
+  Any selected index is ok.
+
+- Click on "New Cut"
+  Zooming is disabled, on mouse move a vertical indicator bar and x-coordinate are shown
+  at the mouse cursor.
+  The first click selectes the first point. Now the zone between the first
+  point and mouseX is highlighted. The second click selects the second point.
+  -> The interval is fully specificed.
+
+- A pop up requesting a name for the Cut is shown. The user can change the predefined name
+  or cancel the whole cut creation.
+  If creation is accepted and a valid name is given the graphically created
+  interval is used for all indexes of the ConditionInterval object. This is the
+  basic, rough initialization. The cut has now been created and added to the
+  analysis. The analysis has been rebuilt and restarted.
+
+  XXX: Should the gui now go into edit mode? Back to zooming?
+  -> Back to zooming, but have the cut that was just created selected and still displayed.
 
 * UI: having pending cond link modifications and then changing the analysis in
   some other way (edit op, drag and drop, manual repop) leaves the cond ui in a
@@ -20,40 +40,7 @@ Analysis Conditions (Histogram Cuts and more)
   Presenter/Manager object which knows the state of the ui and is responsible
   for keeping everything consistent throughout state changes and repops and
   other modifications)
-
-
-
-UI right now:
-1 AnalysisWidget
-  Per event:
-    EventWidget
-      2 processing trees per userlevel: ops and sinks
-
-    Toolbar
-    ...
-  1 ConditionUI
-    Per event:
-      Condition Tree
-
-treeCount = 2 * sum(userlevels[event] for all events) + 1 * eventCount
-
-Modes: Default, InputSelect, ApplyCondition
-Default mode globally highlights broken operators. Selecting a node
-highlights inputs and outputs. Drag and drop and copy/paste are enabled.
-Full context menu allowing creation of new items in the processing trees.
-
-
-Create an interface for input selection with
-  highlightInputOf(bool enable) / highlightInputSource()
-  selectInputFor()
-  endSelectInput()
-  getEventId()
-  getAnalysis()
-  getContext()
-
-Pass this to the editor dialogs instead of the EventWidget directly.
-Split analysis_ui.cc: event_widget_p.{h,cc} and event_widget.h
-
+  -> This last part: Presenter/Manager! The gui still goes into a bad state at times.
 
 Condition/Operator UI interactions:
 Default mode:
@@ -63,15 +50,6 @@ Default mode:
 - to which the condition can be applied to.
 
 
-
-
-* Editing a H2D name via 'F2' is not really possible while a run is active. The
-  nodes text will be updated periodically which interferes with editing.
-* ExportSink is marked red in the UI. This happens if the optional condition
-  input is not connected.
-  Also connecting that input immediately clears the red marker but disconnecting
-  it again doesn't seem to update the display or for some other reason the
-  operator is not colored red again.
 * Add tests for rank calculations and condition candidates. I think for
   candicates I'll have to look and the input ranks not at the newly added rank
   itself. The reason is that prior condition application can have added ranks
@@ -226,11 +204,6 @@ Condition/Cut implementation plan and next steps
 --------------------------------------------------
 BUGS
 --------------------------------------------------
-* When enlarging the input of a calibration operator now limtis will be set for
-  the newly added indexes. NAN is used for the limits which creates probelms
-  further down the line. On rebulding the Calibration check if the internal
-  calibration array needs to grow and if so copy the first parameters limits
-  over to the new parameters.
 
 * After renaming an object resort the tree it is contained in.
 
@@ -238,9 +211,13 @@ BUGS
 
 * SIS: when not connected and doing an Init Module mvme hangs in recvfrom()
 
-* HtmlDelegate doesn't seem to know how wide the rendered contents are.
-  Resizing the column by double clicking the headerview separator chooses a
-  width that's too small.
+* Editing a H2D name via 'F2' is not really possible while a run is active. The
+  nodes text will be updated periodically which interferes with editing.
+* ExportSink is marked red in the UI. This happens if the optional condition
+  input is not connected.
+  Also connecting that input immediately clears the red marker but disconnecting
+  it again doesn't seem to update the display or for some other reason the
+  operator is not colored red again.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
