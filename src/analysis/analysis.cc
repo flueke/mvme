@@ -838,6 +838,15 @@ void CalibrationMinMax::beginRun(const RunInfo &, Logger logger)
             m_calibrations.resize(out.size());
         }
 
+        CalibrationMinMaxParameters firstCalib; // defaults to (nan, nan)
+
+        if (!m_calibrations.isEmpty())
+        {
+            firstCalib = m_calibrations[0];
+        }
+
+        const CalibrationMinMaxParameters oldGlobalCalib{m_oldGlobalUnitMin, m_oldGlobalUnitMax};
+
         s32 outIdx = 0;
         for (s32 idx = idxMin; idx < idxMax; ++idx)
         {
@@ -849,7 +858,10 @@ void CalibrationMinMax::beginRun(const RunInfo &, Logger logger)
             // saved.
             if (idx >= m_calibrations.size())
             {
-                setCalibration(idx, {m_oldGlobalUnitMin, m_oldGlobalUnitMax});
+                if (oldGlobalCalib.isValid())
+                    setCalibration(idx, oldGlobalCalib);
+                else
+                    setCalibration(idx, firstCalib);
             }
 
             // assign output limits
@@ -887,6 +899,7 @@ void CalibrationMinMax::read(const QJsonObject &json)
 
     // Read the old global calbration and use it if an element of the
     // calibration array is invalid.
+    // Note: these values are not written out anymore.
     m_oldGlobalUnitMin = json["globalUnitMin"].toDouble(make_quiet_nan());
     m_oldGlobalUnitMax = json["globalUnitMax"].toDouble(make_quiet_nan());
 
