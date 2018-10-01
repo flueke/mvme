@@ -366,6 +366,15 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             }
             else
             {
+                s16 stackID = m_vmusbStack.getStackID();
+
+                if (stackID < 0)
+                {
+                    auto msg = (QSL("VMUSB configuration error: invalid trigger for event \"%1\"")
+                                .arg(event->objectName()));
+                    throw msg;
+                }
+
                 // for NIM1 and scaler triggers the stack knows the stack number
                 event->stackID = m_vmusbStack.getStackID();
             }
