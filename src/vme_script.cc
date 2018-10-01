@@ -997,8 +997,9 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
         case CommandType::MBLTFifoCount:
             {
                 if (logger)
-                    logger(QSL("Not implemented yet!"));
-                InvalidCodePath;
+                {
+                    logger(QSL("xBLT count read commands are only supported during readout."));
+                }
             } break;
 
 #else
