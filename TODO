@@ -3,10 +3,34 @@ TODO list, not at all sorted by priority
 ==================================================
 
 --------------------------------------------------
+Testing setup for ESS
+--------------------------------------------------
+* Use RPC interface to start/stop the DAQ
+* Enable Jumbo Frames!
+* To this repeatedly with different amounts of on/off time.
+* Check the results of the RPC calls.
+* Poll stats peridocally and make sure they are valid.
+* Try with listfile writing on and off.
+* Cycle 100 times or more
+
+According to Anton things get unstable with Jumbos enabled (he cannot enable
+the pulser which looks like register writes are failing). Also mvme crashes
+sometimes when starting a new DAQ run.
+
+--------------------------------------------------
 BUGS
 --------------------------------------------------
 
-* After renaming an object resort the tree it is contained in.
+* blt count reads do not work properly. This needs fixing for both controllers.
+  Being able to run those commands by uploading a command list and executing
+  that directly would be very helpful for debugging this.
+
+  - VMUSB: data is offset by 16 bits and this looks mangled. The parser code errors out.
+
+  - SIS: figure out what's happening. It looks like the number read from the
+    register is put into the data stream (verify).
+
+* analyis processing trees: After renaming an object resort the tree it is contained in.
 
 * Add a refresh button to the ui. (same a repop right now, just with a nicer icon :)
 
