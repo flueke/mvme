@@ -478,8 +478,6 @@ void IntervalCutEditor::onPickerPointMoved(const QPointF &point)
 {
     using SPT = IntervalCutEditorPicker::SelectedPointType;
 
-    qDebug() << __PRETTY_FUNCTION__ << point;
-
     double x = point.x();
 
     if (std::isnan(m_interval.maxValue()))
