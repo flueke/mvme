@@ -1,0 +1,198 @@
+--------------------------------------------------
+Analysis Conditions (Histogram Cuts and more)
+--------------------------------------------------
+
+1D cut creation and editing
+-------------------------------------------
+Creating an interval cut:
+- Open the histo using the data you want the cut to use.
+  Any selected index is ok.
+
+- Click on "New Cut"
+  Zooming is disabled, on mouse move a vertical indicator bar and x-coordinate are shown
+  at the mouse cursor.
+  The first click selectes the first point. Now the zone between the first
+  point and mouseX is highlighted. The second click selects the second point.
+  -> The interval is fully specificed.
+
+- A pop up requesting a name for the Cut is shown. The user can change the predefined name
+  or cancel the whole cut creation.
+  If creation is accepted and a valid name is given the graphically created
+  interval is used for all indexes of the ConditionInterval object. This is the
+  basic, rough initialization. The cut has now been created and added to the
+  analysis. The analysis has been rebuilt and restarted.
+
+  XXX: Should the gui now go into edit mode? Back to zooming?
+  -> Back to zooming, but have the cut that was just created selected and still displayed.
+
+* UI: having pending cond link modifications and then changing the analysis in
+  some other way (edit op, drag and drop, manual repop) leaves the cond ui in a
+  bad state.
+  Double click and context menu are disabled for now while there are pending
+  condition modifcations but dragging objects still works. Disabling that is a
+  pain and also the whole thing is bad and needs a redesign to fix issues like
+  this. (e.g. avoid tree repops and instead to tree updates, also have some
+  Presenter/Manager object which knows the state of the ui and is responsible
+  for keeping everything consistent throughout state changes and repops and
+  other modifications)
+  -> This last part: Presenter/Manager! The gui still goes into a bad state at times.
+
+Condition/Operator UI interactions:
+Default mode:
+- select an operator and the active condition is highlighted.
+- no changes can be made in this mode
+- select any condition and checkboxes appear in the left trees for operators
+- to which the condition can be applied to.
+
+
+* Add tests for rank calculations and condition candidates. I think for
+  candicates I'll have to look and the input ranks not at the newly added rank
+  itself. The reason is that prior condition application can have added ranks
+  in-between.
+* Make candidate display instant. Detect if changes have been made and only
+  then show the apply and discard buttons.
+* Improve the way node content is set/cleared. The same is true for
+  highlighting.
+* Add good focus handling between the main and condition widgets.
+  Does the widget need some indicator? I think right now it's only recognizable
+  by finding the current tree selection. Also i believe this breaks when using
+  the keyboard to move in a tree.
+* Improve how analysis changes are propagated. The analysis ui has to not only
+  react to changes made by its own dialogs anymore but also to changes made by
+  the h2dwidget.
+* Maybe create a system for qwt plot picker handling and related tasks. The
+  same might be needed for QwtPlotShapeItems to show and modify cuts
+  graphically.
+* Deleting a condition keeps it alive in the condlink. Switch to weak_ptr here?
+  This will involve calls to lock() sometimes on two objects at the same time,
+  e.g. in ConditionLink::operator==()
+
+* Sinks need to be cleared when their condition is applied/removed/modified.
+
+* Add a analysis ui mode description window and indicator somewhere.
+
+* Figure out how compound conditions and the internal dependency ranks work
+  together.
+
+* For H1D: [xmin, xmax) range
+* For H2D: polygon, sepcial cases: ellipses, rectangles
+
+Values have to be inside the range (1d) or the polygon area (2d) to pass
+through the cut. Passing means setting the output or condition flag to true.
+
+-> So far:
+* 1d cuts have a single input pipe of size N and N intervals to test against.
+  The output is a bitset of size N.
+
+* 2d cuts have two indexed inputs and a polygon or a rectangle to test against.
+  The output is a single bit. More geometric shapes (ellipsis) should be added
+  if they have simpler hit tests that speed things up and are convenient to use.
+
+Cuts can only be applied after their inputs are available, the same way as
+operators can only consume inputs produced earlier. This means cuts have a rank
+similar to operators.
+
+Cuts can be applied to anything after they have been processed, not only to the
+cuts inputs themselves. For example a h2d could be accumulated only if two
+other values fall into a cut defined elsewhere, e.g. "accumulate x and y time
+values if x and y energy values are inside this area".
+
+Cut creation: the easiest way is to graphically select two point on a h1d for a
+1d cut or to draw a polygon by clicking into a h2d for a 2d cut. This way the
+inputs and parameters are known.
+
+Knowing the inputs the rank can be calculated. The gui and logic have to ensure
+that only higher ranks can make use of the cut.
+
+Also when viewing any histogram and the cuts parameters are used for the
+axis/axes the cut should be displayed again and should (in the future) be
+modifiable.
+
+How to show the user which cut is applied to which histogram? The action of
+applying a cut could be done via drag and drop or a new kind of input select
+mode where the histograms to apply the cut to are clicked.
+But after the cut has been applied there's no easy way to graphically see which
+cut is active where.
+
+Also: can multiple cuts be applied to the same histo? -> Yes, this could be
+done. The histo inputs have to be higher rank than all of the cuts inputs. This
+way the cuts have been evaluated at the point where the histo data should be
+accumulated. Thus all the cut tests can be performed and ANDed together. One
+could even form logical expressions using cuts.
+
+Condition/Cut implementation plan and next steps
+------------------------------------------------
+* Ability to create/edit interval conditions graphically in a 1d histogram.
+
+  Creating a 1d cut is easy: the user picks two points and they are used to
+  generate the intervals for the complete input array.
+
+  Editing is a bit harder: individual intervals should be adjustable via the UI
+  but it should also be possible to bunch edit all the array values.
+
+  Also editing must be explicitly started either by selecting the cut in the
+  ConditionWidget or having a list of cuts that can be edited inside the
+  Histo1DWidget. The reason is that multiple cuts can be defined using the same
+  input data so there's no 1:1 match between cuts and histograms.
+
+  -> First implementation: make cuts editable by clicking in the
+  ConditionWindow. Figure out which histogram displays the cuts input data and
+  open it. Tell the histo widget to edit the specific cut.
+
+* Ability to create/edit rectangle and polygon ConditionOperators graphically using
+  the histo widgets.
+
+  Creation is the same as for 1d cuts: the user picks points (for polygon) or
+  creates a rectangle/ellipse by dragging/clicking and the cut is created.
+
+  Editing is the same as for 1d cuts: inside the widget a list of possible cuts
+  has to be presented otherwise editing can be started from the ConditionWindow.
+
+* Applying cuts to operators:
+  A cut is selected in the cut window. in case of interval cuts a specific
+  index has to be selected.
+
+  The user now wants to apply the cut and uses the context menu or a button in
+  the condition window. This changes the mode of the eventwidget to
+  "ApplyCondition". In this mode operators that can make use of the condition
+  show a checkbox which can be used to apply the condition.
+
+---------------------
+* Clean up the histo widgets. Add a real GUI for cut creation, editing and
+  display.
+
+* Create a condition display widget where a list of conditions is shown. When
+  selecting a normal operator the active cut should be highlighted. On
+  selecting a cut the dependent operators should be highlighted.  Probably
+  should make this a tree as boolean compound conditions could be display as a
+  tree. This would mean that conditions can appear multiple times in different
+  places in the cut tree.
+
+  Another structuring element are input ranks.
+
+* Add logic to figure out if a certain cut can be graphically displayed in a
+  given histogram. If so allow showing the cut there.
+
+* Add debugging helpers for cuts. During single event stepping the individual
+  bits of the cuts should be inspectable.
+
+* Clean up the histo widgets. Add a real GUI for cut creation, editing and
+  display.
+
+* Create a condition display widget where a list of conditions is shown. When
+  selecting a normal operator the active cut should be highlighted. On
+  selecting a cut the dependent operators should be highlighted.  Probably
+  should make this a tree as boolean compound conditions could be display as a
+  tree. This would mean that conditions can appear multiple times in different
+  places in the cut tree.
+
+  Another structuring element are input ranks.
+
+* Add logic to figure out if a certain cut can be graphically displayed in a
+  given histogram. If so allow showing the cut there.
+
+* Add debugging helpers for cuts. During single event stepping the individual
+  bits of the cuts should be inspectable.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
