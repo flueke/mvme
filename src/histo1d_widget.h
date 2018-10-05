@@ -96,6 +96,8 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
          * Reason: there is/was a bug where qwt signals could only be succesfully
          * connected using the old SIGNAL/SLOT macros. Newer function pointer based
          * connections did not work. */
+        // TODO 10/2018: recheck this. It might have just been an issue with
+        // missing casts of overloaded signals.
         void zoomerZoomed(const QRectF &);
         void mouseCursorMovedToPlotCoord(QPointF);
         void mouseCursorLeftPlot();
@@ -105,9 +107,6 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
         void on_tb_gauss_toggled(bool checked);
         void on_tb_test_clicked();
         void on_ratePointerPicker_selected(const QPointF &);
-
-    protected:
-        virtual void paintEvent(QPaintEvent *event) override;
 
     private:
         std::unique_ptr<Histo1DWidgetPrivate> m_d;
@@ -144,39 +143,6 @@ class Histo1DListWidget: public QWidget, public analysis::ConditionEditorInterfa
         std::unique_ptr<Private> m_d;
         void onHistoSpinBoxValueChanged(int index);
 
-};
-
-class PickerOverlayTest: public QwtPlotPicker
-{
-    Q_OBJECT
-    public:
-        PickerOverlayTest(QWidget *canvas);
-
-        PickerOverlayTest(int xAxis, int yAxis,
-                          RubberBand rubberBand,
-                          DisplayMode trackerMode,
-                          QWidget *canvas);
-
-        virtual ~PickerOverlayTest() override;
-
-        virtual void drawRubberBand(QPainter *painter) const override;
-        virtual void drawTracker(QPainter *painter) const override;
-
-        void editCondition(const analysis::ConditionLink &cl);
-
-    protected:
-        virtual void move(const QPoint &p) override;
-        virtual void append(const QPoint &p) override;
-        virtual bool end(bool ok = true) override;
-        virtual void widgetMousePressEvent(QMouseEvent *) override;
-        virtual void widgetMouseReleaseEvent(QMouseEvent *) override;
-        virtual void widgetMouseMoveEvent(QMouseEvent *) override;
-
-    private:
-        analysis::ConditionLink m_cl;
-        bool m_isDragging = false;
-        enum IntervalBorderType { None, Min, Max };
-        IntervalBorderType m_borderEditType;
 };
 
 #endif /* __HISTO1D_WIDGET_H__ */
