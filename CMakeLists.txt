@@ -86,7 +86,7 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
 
 # HDF5
 set(HDF5_USE_STATIC_LIBRARIES OFF)
-find_package(HDF5 COMPONENTS CXX REQUIRED)
+find_package(HDF5 COMPONENTS CXX)
 
 if (HDF5_FOUND)
     message("-- Found HDF5 - Enabling analysis session save/load support.")

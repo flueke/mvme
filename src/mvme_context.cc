@@ -1791,6 +1791,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
             // Load analysis session auto save
             //
 
+#ifdef MVME_ENABLE_HDF5
             /* Try to load an analysis session auto save. Only loads analysis data, not
              * the analysis itself from the file.
              * Does not have an effect if there's a mismatch between the current analysis
@@ -1807,6 +1808,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
                 //logMessage(QString("Loading analysis session auto save %1").arg(fi.filePath()));
                 load_analysis_session(fi.filePath(), getAnalysis());
             }
+#endif
         }
 
         //
