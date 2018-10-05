@@ -161,7 +161,9 @@ int main(int argc, char *argv[])
 
         if (opt_name == "listfile") { listfileFilename = QString(optarg); }
         if (opt_name == "analysis") { analysisFilename = QString(optarg); }
+#ifdef MVME_ENABLE_HDF5
         if (opt_name == "session-out") { sessionOutFilename = QString(optarg); }
+#endif
         if (opt_name == "help") { showHelp = true; }
     }
 
@@ -255,6 +257,7 @@ int main(int argc, char *argv[])
             }
         }
 
+#ifdef MVME_ENABLE_HDF5
         if (!sessionOutFilename.isEmpty())
         {
             qDebug() << "saving session to" << sessionOutFilename << "...";
@@ -265,6 +268,8 @@ int main(int argc, char *argv[])
                 throw result.second;
             }
         }
+#endif
+
 #if 1
     }
     catch (const std::exception &e)
