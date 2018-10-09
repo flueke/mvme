@@ -129,23 +129,6 @@ void maybe_set_warning(Command &cmd, int lineNumber)
 
     switch (cmd.type)
     {
-        case CommandType::Read:
-        case CommandType::Write:
-        case CommandType::BLT:
-        case CommandType::BLTFifo:
-        case CommandType::MBLT:
-        case CommandType::MBLTFifo:
-        case CommandType::BLTCount:
-        case CommandType::BLTFifoCount:
-        case CommandType::MBLTCount:
-        case CommandType::MBLTFifoCount:
-            {
-                if (cmd.address >= (1 << 16))
-                {
-                    cmd.warning = QSL("Given address exceeds 0xffff");
-                }
-            } break;
-
         case CommandType::SetBase:
             {
                 if ((cmd.address & 0xffff) != 0)
