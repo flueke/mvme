@@ -69,6 +69,8 @@ namespace ListfileSections
          * elapsed second. */
         SectionType_Timetick    = 3,
 
+        SeciontType_Pause       = 4,
+
         /* Max section type possible. */
         SectionType_Max         = 7
     };
@@ -147,7 +149,7 @@ struct listfile_v0
  *
  * t =  3 bit section type
  * e =  4 bit event type (== event number/index) for event sections
- * s = 20 bit size in units of 32 bit words (fillwords added to data if needed) -> 256k section max size
+ * s = 20 bit size in units of 32 bit words (fillwords added to data if needed) -> 4096k section max size
  *
  * Section size is the number of following 32 bit words not including the header word itself.
 
@@ -161,7 +163,7 @@ struct listfile_v0
  * +--------------------------------+
  *
  * m =  8 bit module type (typeId from the module_info.json in the templates directory)
- * s = 10 bit size in units of 32 bit words
+ * s = 20 bit size in units of 32 bit words
  *
  * The last word of each event section is the EndMarker (globals.h)
  *
