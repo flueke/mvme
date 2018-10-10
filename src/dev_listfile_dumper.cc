@@ -57,6 +57,7 @@ static void dump_listfile(ListFile *listfile, VMEConfig *vmeConfig)
              {
                  assert(sectionType == ListfileSections::SectionType_Event);
 
+                 u32 crateIndex = lfc.crate_index(sectionHeader);
                  u32 eventIndex = lfc.event_index(sectionHeader);
 
                  // event section data (either from a full event or from multi event handling
@@ -65,8 +66,9 @@ static void dump_listfile(ListFile *listfile, VMEConfig *vmeConfig)
                      const auto &offsets(result.moduleDataOffsets[mi]);
 
                      qDebug() << __PRETTY_FUNCTION__
-                         << "ei =" << eventIndex
-                         << ", mi =" << mi
+                         << "crateIndex =" << crateIndex
+                         << ", eventIndex =" << eventIndex
+                         << ", moduleIndex =" << mi
                          << ", offsets.sectionHeader" << offsets.sectionHeader
                          << ", offsets.dataBegin" << offsets.dataBegin
                          << ", offsets.dataEnd" << offsets.dataEnd
@@ -81,7 +83,8 @@ static void dump_listfile(ListFile *listfile, VMEConfig *vmeConfig)
                      u32 dataSize   = dataEnd - dataBegin + 1;
                      u32 moduleType = lfc.module_type(moduleSectionHeader);
 
-                     QString str = (QString("ei=%1, mi=%2, type=%3, sectionOffset=%4, moduleOffset=%5, dataBegin=%6, dataEnd=%7, dataSize=%8")
+                     QString str = (QString("crateIndex=%1, eventIndex=%2, moduleIndex=%3, type=%4, sectionOffset=%5, moduleOffset=%6, dataBegin=%7, dataEnd=%8, dataSize=%9")
+                                    .arg(crateIndex)
                                     .arg(eventIndex)
                                     .arg(mi)
                                     .arg(moduleType)

@@ -3,6 +3,6 @@
 
 #include "typedefs.h"
 
-static const u32 CurrentListfileVersion = 1;
+static const u32 CurrentListfileVersion = 2;
 
 #endif /* __LISTFILE_VERSION_H__ */

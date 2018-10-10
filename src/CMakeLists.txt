@@ -126,13 +126,12 @@ set(LIBMVME_SOURCES
     histo_gui_util.cc
     histo_util.cc
     listfile_browser.cc
-    listfile_constants.cc
-    listfile_constants_impl.cc
     mesytec_diagnostics.cc
     mvme_context.cc
     mvme_context_lib.cc
     mvme.cpp
     mvme_listfile.cc
+    mvme_listfile_utils.cc
     mvme_qwt.cc
     mvme_session.cc
     mvme_stream_iter.cc

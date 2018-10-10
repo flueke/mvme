@@ -1,7 +1,7 @@
 #ifndef __MVME_CONTEXT_LIB_H__
 #define __MVME_CONTEXT_LIB_H__
 
-#include "mvme_listfile.h"
+#include "mvme_listfile_utils.h"
 #include "mvme_stream_worker.h"
 
 class MVMEContext;

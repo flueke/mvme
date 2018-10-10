@@ -5,7 +5,7 @@
 #include "databuffer.h"
 #include "globals.h"
 #include "libmvme_export.h"
-#include "listfile_constants.h"
+#include "mvme_listfile_utils.h"
 
 #include <bitset>
 

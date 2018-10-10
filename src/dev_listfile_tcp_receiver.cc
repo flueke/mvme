@@ -9,7 +9,7 @@
 #include <QTcpSocket>
 #include <QtEndian>
 
-#include "mvme_listfile.h"
+#include "mvme_listfile_utils.h"
 
 using std::cout;
 using std::cerr;
