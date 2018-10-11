@@ -1,5 +1,5 @@
 #include <QCoreApplication>
-#include "mvme_listfile.h"
+#include "mvme_listfile_utils.h"
 #include "vme_config.h"
 #include "mvme_root_data_writer.h"
 #include "mvme_stream_processor.h"
@@ -35,7 +35,9 @@ u32 read_listfile_version(std::ifstream &infile)
 
     infile.read(fourCC, bytesToRead);
 
-    if (std::strncmp(fourCC, listfile_v1::FourCC, bytesToRead) == 0)
+    const auto &lfc = listfile_constants();
+
+    if (std::strncmp(fourCC, lfc.FourCC, bytesToRead) == 0)
     {
         infile.read(reinterpret_cast<char *>(&fileVersion), sizeof(fileVersion));
     }

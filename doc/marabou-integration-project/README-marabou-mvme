@@ -1,0 +1,93 @@
+Marabou <-> mvme integration
+===============================================================================
+
+Project motivation and goals
+-------------------------------------------------------------------------------
+The current PPC/MBS based readout is rather slow and complex compared to using
+modern FPGA based VME controllers. A main reason for this is that a realtime
+operating system running on the PPCs has to handle all VME communications in
+software.
+
+Replacing the PPC with an FPGA based controller allows for much faster trigger
+rates and higher data rates (factor 100 and more). Also the complexity of
+having to generate, compile and run code for the PPC side is removed.
+
+The main goal of this integration project is to use the mesytec 'mvme' software
+with a modern VME controller for the readout side, while keeping as much of the
+currently existing Marabou/ROOT based analysis code as possible.
+
+To achieve the above goal a mvme -> Marabou analysis code generator program is
+implemented. This program can be used to create the basic Marabou anaylsis code
+template required to correctly interpret received readout data, map
+channels/paramters to user defined names and call users custom analysis
+functions. This step is basically a mapping of the mvme VME configuration to
+the marabou configuration.
+
+Also a system to start subprocesses and pass raw readout data in mvme listfile
+format to those subprocesses will be added to mvme. One such adapter subprocess
+can then consume mvme readout data and produce Marabou compatible ROOT files or
+supply input to a running M_analyze process.
+
+This design with small processes doing the code generation and data adaptation
+work was chosen to keep the coupling between mvme and the current Marabou/ROOT
+versions to a minimum. When upgrading Marabou/ROOT only these adapter processes
+will have to be recompiled instead of having to rebuild the whole mvme package.
+
+Changes from current marabou based readout
+-------------------------------------------------------------------------------
+The VME configuration now resides on the mvme side. The marabou part is
+generated from the mvme configuration. The reason for this design is that the
+correctness of the readout depends on the mvme vme configuration. Also mvme
+supports more/different triggers depending on the VME controller in use. This
+information is not present in the MBS based marabou config.
+
+Instead of running M_analyze (or the C_analyze frontend) the user now has to
+run mvme and start/stop the DAQ using the GUI or the builtin remote control
+interface. mvme then in turn starts an M_analyze instance or an adapter
+process.
+
+Implementation parts
+-------------------------------------------------------------------------------
+* Implementation of subprocess handling inside mvme and correct and fast data
+  passing between mvme and subprocesses.
+
+* Standalone definitions and utility functions for mvme listfile stream format
+  handling. This part should be used by adapter processes to make data handling
+  easy and unified.
+
+* Standalone parser code for the mvme vme configuration: the plan is to use a
+  header-only c++11 json library to parse the config text into an easy to work
+  with data structure.
+
+* A mapping of mvme VME module types to marabou module classes. This could be a
+  static table stored in the config adapter code.
+
+* Implementation of the data adapter process which either produces a marabou
+  compatible ROOT file or feeds directly into a running M_analyze process
+  depending on what the best solution for the marabou side is.
+
+Limitations and next steps
+-------------------------------------------------------------------------------
+* mvme right now supports only a single VME crate. Multi-crate support needs to
+  be implemented as that's a feature present in MBS.
+  A first step, adding the vme crate index to the listfile format has been
+  done (the crate index is always set to 0 at the moment).
+
+* Not all modules supported by mvme (which is pretty generic) will have a
+  corresponding class implementation in Marabou. Can a generic class be used to
+  represent something like e.g. a mesytec VMMR?
+
+* With the current design the extraction of channels numbers and amplitudes or
+  other data values from the raw readout data is done in two places: once in
+  mvme using the user-configurable data filters and once in the marabou module
+  code. Also if a user decides to start out with the mvme analysis (e.g. for
+  first time debugging and online monitoring) that information cannot be
+  exported.
+  There exists an offline solution which allows to export mvme analysis data
+  arrays to a binary file and generate c++/python code to read and work with
+  these files. This could be changed to work online like the design above. Thus
+  pre-extracted data could be transfered to the marabou side.
+
+
+To be done: milestones and estimated development effort, timeline
+

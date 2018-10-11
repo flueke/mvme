@@ -3,7 +3,7 @@
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
 #include "databuffer.h"
-#include "listfile_constants.h"
+#include "mvme_listfile.h"
 #include "mesytec_diagnostics.h"
 #include "mvme_listfile.h"
 #include "util/leaky_bucket.h"
@@ -259,8 +259,8 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
         while (iter.longwordsLeft())
         {
             u32 sectionHeader = iter.extractU32();
-            u32 sectionType = lf.section_type(sectionHeader);
-            u32 sectionSize = lf.section_size(sectionHeader);
+            u32 sectionType = lf.getSectionType(sectionHeader);
+            u32 sectionSize = lf.getSectionSize(sectionHeader);
 
             if (unlikely(sectionSize > iter.longwordsLeft()))
             {
@@ -355,7 +355,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
     const auto &lf(listfileConstants);
 
     this->counters.eventSections++;
-    const u32 eventIndex = lf.event_index(sectionHeader);
+    const u32 eventIndex = lf.getEventIndex(sectionHeader);
 
     if (unlikely(eventIndex >= this->eventConfigs.size()
                  || !this->eventConfigs[eventIndex]))
@@ -411,7 +411,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
         // moduleHeader now points to the first module header in the event section
 
         u32 moduleDataHeader = eventIter.extractU32();
-        u32 moduleDataSize   = lf.module_data_size(moduleDataHeader);
+        u32 moduleDataSize   = lf.getModuleDataSize(moduleDataHeader);
 #ifdef MVME_STREAM_PROCESSOR_DEBUG
         qDebug("%s   eventIndex=%d, moduleIndex=%d, moduleDataSize=%u",
                __PRETTY_FUNCTION__, eventIndex, moduleIndex, moduleDataSize);
@@ -513,7 +513,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
                 this->counters.moduleCounters[eventIndex][moduleIndex]++;
                 eventCountsByModule[moduleIndex]++;
 
-                u32 moduleDataSize   = lf.module_data_size(*mi.moduleDataHeader);
+                u32 moduleDataSize   = lf.getModuleDataSize(*mi.moduleDataHeader);
 
                 if (this->analysis)
                 {
@@ -753,8 +753,8 @@ MVMEStreamProcessor::singleStepNextStep(ProcessingState &procState)
         if (iter.longwordsLeft())
         {
             u32 sectionHeader = iter.extractU32();
-            u32 sectionType = lf.section_type(sectionHeader);
-            u32 sectionSize = lf.section_size(sectionHeader);
+            u32 sectionType = lf.getSectionType(sectionHeader);
+            u32 sectionSize = lf.getSectionSize(sectionHeader);
 
             procState.lastSectionHeaderOffset = iter.current32BitOffset() - 1;
 
@@ -855,7 +855,7 @@ void MVMEStreamProcessorPrivate::initEventSectionIteration(
     auto &lf(listfileConstants);
 
     this->counters.eventSections++;
-    const u32 eventIndex = lf.event_index(sectionHeader);
+    const u32 eventIndex = lf.getEventIndex(sectionHeader);
 
     if (unlikely(eventIndex >= this->eventConfigs.size()
                  || !this->eventConfigs[eventIndex]))
@@ -914,7 +914,7 @@ void MVMEStreamProcessorPrivate::initEventSectionIteration(
         // moduleHeader now points to the first module header in the event section
 
         u32 moduleDataHeader = eventIter.extractU32();
-        u32 moduleDataSize   = lf.module_data_size(moduleDataHeader);
+        u32 moduleDataSize   = lf.getModuleDataSize(moduleDataHeader);
 #ifdef MVME_STREAM_PROCESSOR_DEBUG
         qDebug("%s   eventIndex=%d, moduleIndex=%d, moduleDataSize=%u",
                __PRETTY_FUNCTION__, eventIndex, moduleIndex, moduleDataSize);
@@ -967,9 +967,9 @@ void MVMEStreamProcessorPrivate::stepNextEvent(ProcessingState &procState)
 
     const auto bufferNumber = procState.buffer->id;
     u32 sectionHeader = *procState.buffer->asU32(procState.lastSectionHeaderOffset * sizeof(u32));
-    u32 sectionType = lf.section_type(sectionHeader);
-    u32 sectionSize = lf.section_size(sectionHeader);
-    const u32 eventIndex = lf.event_index(sectionHeader);
+    u32 sectionType = lf.getSectionType(sectionHeader);
+    u32 sectionSize = lf.getSectionSize(sectionHeader);
+    const u32 eventIndex = lf.getEventIndex(sectionHeader);
 
     Q_ASSERT(sectionType == ListfileSections::SectionType_Event);
 
@@ -1044,7 +1044,7 @@ void MVMEStreamProcessorPrivate::stepNextEvent(ProcessingState &procState)
                 this->counters.moduleCounters[eventIndex][moduleIndex]++;
                 eventCountsByModule[moduleIndex]++;
 
-                u32 moduleDataSize = lf.module_data_size(*mi.moduleDataHeader);
+                u32 moduleDataSize = lf.getModuleDataSize(*mi.moduleDataHeader);
 
                 procState.lastModuleDataBeginOffsets[moduleIndex] =
                     mi.moduleHeader - procState.buffer->asU32(0);

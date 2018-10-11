@@ -5,7 +5,7 @@
 #include "databuffer.h"
 #include "globals.h"
 #include "libmvme_export.h"
-#include "listfile_constants.h"
+#include "mvme_listfile_utils.h"
 
 #include <bitset>
 
@@ -105,12 +105,12 @@ class LIBMVME_EXPORT StreamIterator
 
             u32 lastSectionType() const
             {
-                return lfc.section_type(lastSectionHeader());
+                return lfc.getSectionType(lastSectionHeader());
             }
 
             u32 lastSectionSize() const
             {
-                return lfc.section_size(lastSectionHeader());
+                return lfc.getSectionSize(lastSectionHeader());
             }
         };
 

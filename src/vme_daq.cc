@@ -27,7 +27,7 @@
 #include <quazipfile.h>
 #include <quazip.h>
 
-#include "mvme_listfile.h"
+#include "mvme_listfile_utils.h"
 
 //
 // vme_daq_init

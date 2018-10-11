@@ -241,11 +241,11 @@ static const QMap<ProcessingState::StepResult, QString> StepResult_StringTable =
 };
 
 QTextStream &
-log_processing_step(QTextStream &out, const ProcessingState &procState, const vats::MVMETemplates &vatsTemplates)
+log_processing_step(QTextStream &out, const ProcessingState &procState,
+                    const vats::MVMETemplates &vatsTemplates,
+                    const ListfileConstants &lfc)
 {
     Q_ASSERT(procState.buffer);
-
-    using LF = listfile_v1;
 
     out << "buffer #" << procState.buffer->id
         << ", size=" << (procState.buffer->used / sizeof(u32)) << " words"
@@ -258,8 +258,8 @@ log_processing_step(QTextStream &out, const ProcessingState &procState, const va
             || procState.stepResult == ProcessingState::StepResult_EventComplete)
         {
             u32 eventSectionHeader = *procState.buffer->indexU32(procState.lastSectionHeaderOffset);
-            u32 eventIndex         = (eventSectionHeader & LF::EventTypeMask) >> LF::EventTypeShift;
-            u32 eventSectionSize   = (eventSectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
+            u32 eventIndex         = (eventSectionHeader & lfc.EventIndexMask) >> lfc.EventIndexShift;
+            u32 eventSectionSize   = (eventSectionHeader & lfc.SectionSizeMask) >> lfc.SectionSizeShift;
 
             out << "  "
                 << (QString("eventHeader=0x%1, @offset %2, idx=%3, sz=%4 words")
@@ -290,8 +290,8 @@ log_processing_step(QTextStream &out, const ProcessingState &procState, const va
                         procState.lastModuleDataEndOffsets[moduleIndex]);
 
 
-                    u32 moduleSectionSize = (moduleSectionHeader & LF::SubEventSizeMask) >> LF::SubEventSizeShift;
-                    u32 moduleType = (moduleSectionHeader & LF::ModuleTypeMask) >> LF::ModuleTypeShift;
+                    u32 moduleSectionSize = (moduleSectionHeader & lfc.ModuleDataSizeMask) >> lfc.ModuleDataSizeShift;
+                    u32 moduleType = (moduleSectionHeader & lfc.ModuleTypeMask) >> lfc.ModuleTypeShift;
                     QString moduleTypeString = vats::get_module_meta_by_typeId(vatsTemplates, moduleType).typeName;
 
                     if (endlFlag) out << endl;
@@ -402,6 +402,8 @@ void MVMEStreamWorker::start(bool keepState)
     MVMEStreamProcessor::ProcessingState singleStepProcState;
     auto vatsTemplates = vats::read_templates();
 
+    const auto &lfc = listfile_constants(m_d->m_listFileVersion);
+
     // Timers and timeticks
     auto &counters = m_d->streamProcessor.getCounters();
     counters.startTime = QDateTime::currentDateTime();
@@ -486,7 +488,7 @@ void MVMEStreamWorker::start(bool keepState)
 
                         QString logBuffer;
                         QTextStream logStream(&logBuffer);
-                        log_processing_step(logStream, singleStepProcState, vatsTemplates);
+                        log_processing_step(logStream, singleStepProcState, vatsTemplates, lfc);
                         m_d->context->logMessageRaw(logBuffer);
 
                         if (singleStepProcState.stepResult == ProcessingState::StepResult_AtEnd
