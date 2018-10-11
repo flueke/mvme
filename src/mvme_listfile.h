@@ -21,9 +21,56 @@
 #ifndef __MVME_LISTFILE_H__
 #define __MVME_LISTFILE_H__
 
-
 #include "typedefs.h"
 #include "libmvme_export.h"
+
+/* Definition of the mvme listfile/data stream format.
+ *
+ * This format contains a JSON encoded representation of a MVME VME
+ * configuration (crates, events, modules, module register settings) followed
+ * by raw readout data and additional DAQ run status information.
+ *
+ * This listfile format is used internally by mvme to store and replay readout
+ * data to/from file. Additionally data streams containing this format can be
+ * passed to consumer subprocesses started by mvme.
+ *
+ * The basic structure is a section with a type and a length. The possible
+ * section types are defined below (ListfileSections::SectionType enum).
+ *
+ * For readout data resulting from a specific VME trigger/event a section of
+ * type SectionType_Event is used and further divided into module subsections.
+ * Each of these subsections contains the raw data produced by the readout of
+ * the corresponding module.
+ *
+ * Illustration of the structure:
+ *
+ *   Event section event_idx=0
+ *     Module section, module_idx=0
+ *       Module 0.0 data word 0
+ *       Module 0.0 data word 1
+ *       ...
+ *     Module section, module_idx=1
+ *       Module 0.1 data word 0
+ *       Module 0.1 data word 1
+ *       ...
+ *     EndMarker
+ *   Event section event_idx=1
+ *     Module section, module_idx=0
+ *       Module 1.0 data word 0
+ *       Module 1.0 data word 1
+ *       ...
+ *     Module section, module_idx=1
+ *       Module 1.1 data word 0
+ *       Module 1.1 data word 1
+ *       ...
+ *     EndMarker
+ *
+ * All data is 32-bit aligned, section sizes are counted in units of 32-bit
+ * words. Special EndMarker words are added at the end of Event type sections
+ * and are inserted into the data stream by the readout commands executed by
+ * the VME controller. These EndMarkers can be used for additional consistency
+ * checks.
+ */
 
 namespace ListfileSections
 {
@@ -54,50 +101,71 @@ namespace ListfileSections
     };
 };
 
+/* Basic versioning support. This value specifices the current (latest) version
+ * of the format. Older versions can still be loaded and replayed but are not
+ * produced by mvme anymore. */
 static const u32 CurrentListfileVersion = 2;
 
+/* Constants to be used when interpreting a mvme formatted data stream. A
+ * reference to the correct instance of this structure can be obtained using
+ * the function listfile_constants() and passing the desired version number. */
 struct LIBMVME_EXPORT ListfileConstants
 {
-    u32 Version;
-    char FourCC[4];
+    u32 Version;                // mvme listfile/stream format version
+    char FourCC[4];             // The four Character Code at the start of a listfile: "MVME".
+                                // Written to listfiles since format version 1.
 
-    int FirstSectionOffset;
+    int FirstSectionOffset;     // Offset in bytes to reach the header of the first section in the
+                                // file.
 
     // Applicable for all section headers
-    u32 SectionMaxWords;
-    u32 SectionMaxSize;
-    u32 SectionTypeMask;
-    int SectionTypeShift;
-    u32 SectionSizeMask;
-    int SectionSizeShift;
+    u32 SectionMaxWords;        // Max number of words in a section.
+    u32 SectionMaxSize;         // Max number of bytes in a section.
+    u32 SectionTypeMask;        // Mask to extract the section type from a section header
+    int SectionTypeShift;       // Shift for the section type.
+    u32 SectionSizeMask;        // Section size extraction mask.
+    int SectionSizeShift;       // Section size extraction shift.
 
-    // vme crate index stored in SectionType_Event headers
+    // VME crate index stored in SectionType_Event headers
     int CrateIndexMask;
     int CrateIndexShift;
 
-    // vme event index stored in SectionType_Event headers
+    // VME event index stored in SectionType_Event headers
     int EventIndexMask ;
     int EventIndexShift;
 
-    // module data subsections contained in event sections
+    // Module data subsections contained within event sections
     u32 ModuleDataMaxWords;
     u32 ModuleDataMaxSize;
     u32 ModuleDataSizeMask;
     int ModuleDataSizeShift;
-    u32 ModuleTypeMask;
-    int ModuleTypeShift;
+    u32 ModuleTypeMask;         // Module type: a unique integer specific to a certain VME module.
+    int ModuleTypeShift;        // Concrete values are defined in the mvme module templates contain
+                                // in the 'templates' subdirectory of the mvme installation.
 
-    // Mask and shift operations for section and module data headers
-    u32 section_size(u32 sectionHeader) const;
-    u32 section_type(u32 sectionHeader) const;
-    u32 crate_index(u32 eventSectionHeader) const;
-    u32 event_index(u32 eventSectionHeader) const;
-    u32 module_data_size(u32 moduleDataHeader) const;
-    u32 module_type(u32 moduleDataHeader) const;
+    // EndMarker word used to split readout data from multiple modules and to enable additional
+    // consistency checks. This data word does not collide with any data words produced by mesytec
+    // VME modules.
+    u32 EndMarker = 0x87654321u;
+
+    // Mask and shift operations to extract information from section and
+    // module data header words.
+
+    u32 getSectionType(u32 sectionHeader) const;
+    u32 getSectionSize(u32 sectionHeader) const;
+
+    u32 getCrateIndex(u32 eventSectionHeader) const;
+    u32 getEventIndex(u32 eventSectionHeader) const;
+    u32 getModuleType(u32 moduleDataHeader) const;
+    u32 getModuleDataSize(u32 moduleDataHeader) const;
 };
 
-extern const ListfileConstants ListfileConstantsTable[CurrentListfileVersion + 1];
-
+/* The the correct instance of ListfileConstants for the given version number.
+ * Defaults to the latest format version. */
 LIBMVME_EXPORT const ListfileConstants &listfile_constants(u32 version = CurrentListfileVersion);
+
+/* Static global constants table by format version. Use listfile_constants()
+ * above to get the correct instance. */
+extern const ListfileConstants ListfileConstantsTable[CurrentListfileVersion + 1];
 
 #endif /* __MVME_LISTFILE_H__ */

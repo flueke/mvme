@@ -200,17 +200,17 @@ namespace
     }
 }
 
-u32 ListfileConstants::section_size(u32 sectionHeader) const
-{
-    return mask_and_shift(sectionHeader, SectionSizeMask, SectionSizeShift);
-}
-
-u32 ListfileConstants::section_type(u32 sectionHeader) const
+u32 ListfileConstants::getSectionType(u32 sectionHeader) const
 {
     return mask_and_shift(sectionHeader, SectionTypeMask, SectionTypeShift);
 }
 
-u32 ListfileConstants::crate_index(u32 eventSectionHeader) const
+u32 ListfileConstants::getSectionSize(u32 sectionHeader) const
+{
+    return mask_and_shift(sectionHeader, SectionSizeMask, SectionSizeShift);
+}
+
+u32 ListfileConstants::getCrateIndex(u32 eventSectionHeader) const
 {
     // added in listfile version 2, set to 0 for older versions
     if (CrateIndexMask == 0u)
@@ -219,17 +219,17 @@ u32 ListfileConstants::crate_index(u32 eventSectionHeader) const
     return mask_and_shift(eventSectionHeader, CrateIndexMask, CrateIndexShift);
 }
 
-u32 ListfileConstants::event_index(u32 eventSectionHeader) const
+u32 ListfileConstants::getEventIndex(u32 eventSectionHeader) const
 {
     return mask_and_shift(eventSectionHeader, EventIndexMask, EventIndexShift);
 }
 
-u32 ListfileConstants::module_data_size(u32 moduleDataHeader) const
+u32 ListfileConstants::getModuleDataSize(u32 moduleDataHeader) const
 {
     return mask_and_shift(moduleDataHeader, ModuleDataSizeMask, ModuleDataSizeShift);
 }
 
-u32 ListfileConstants::module_type(u32 moduleDataHeader) const
+u32 ListfileConstants::getModuleType(u32 moduleDataHeader) const
 {
     return mask_and_shift(moduleDataHeader, ModuleTypeMask, ModuleTypeShift);
 }

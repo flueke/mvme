@@ -105,12 +105,12 @@ class LIBMVME_EXPORT StreamIterator
 
             u32 lastSectionType() const
             {
-                return lfc.section_type(lastSectionHeader());
+                return lfc.getSectionType(lastSectionHeader());
             }
 
             u32 lastSectionSize() const
             {
-                return lfc.section_size(lastSectionHeader());
+                return lfc.getSectionSize(lastSectionHeader());
             }
         };
 
