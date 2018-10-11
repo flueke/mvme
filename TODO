@@ -20,6 +20,8 @@ sometimes when starting a new DAQ run.
 --------------------------------------------------
 BUGS
 --------------------------------------------------
+* Analysis single step button can hit an assertion when clicked in quick
+  succession
 
 * blt count reads do not work properly. This needs fixing for both controllers.
   Being able to run those commands by uploading a command list and executing
