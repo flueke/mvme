@@ -7,7 +7,7 @@ Testing setup for ESS
 --------------------------------------------------
 * Use RPC interface to start/stop the DAQ
 * Enable Jumbo Frames!
-* To this repeatedly with different amounts of on/off time.
+* Do this repeatedly with different amounts of on/off time.
 * Check the results of the RPC calls.
 * Poll stats peridocally and make sure they are valid.
 * Try with listfile writing on and off.
