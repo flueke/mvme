@@ -1,4 +1,50 @@
-Marabou <-> mvme integration
+Marabou <-> mvme integration version 0
+===============================================================================
+Stuff present in Patricks raw129.root file:
+  TMrbSubevent_Mesytec
+  TUsrDeadTime
+  TUsrSevtPpdataA
+  TUsrHitBuffer
+  TUsrHit
+  TUsrSevtPpdataB
+  TUsrSevtPpdataC
+  TUsrSevtPpdataD
+  TUsrSevtPptimeAB
+  TUsrSevtPptimeCD
+  TUsrSevtSca
+  TUsrSevtPppos
+  TUsrSevtRbsdata
+  TUsrSevtChargedata
+
+The above are things the ROOT auto loader complains about because it cannot
+find implementations for them. Maybe other classes which can be loaded are
+present but I do not know how to get that information.
+
+The examples I have sadly do not match the objects above exactly due to
+different names in the example Conf.C but translating names it should look like
+this:
+
+  TMrbSubevent_Mesytec: TObject
+    Contains TUsrHitBuffer which stores TUsrHit objects which contain (channel,
+    value) pairs and some additional information (magic timestamp (it's in
+    100usec since starts!), ...).  Generated from Config.C and implemented in
+    Analyze.{h,cxx}
+
+  TUsrSevtDet1: TMrbSubevent_Mesytec
+  TUsrSevtDet2: TMrbSubevent_Mesytec
+    Implementation in Analyze.{h,cxx}. These contain fixed size int arrays for
+    raw module data values.
+
+  TUsrEvtDet1: TUsrEvent
+  TUsrEvtDet2: TUsrEvent
+    Implementation in Analyze.{h,cxx}. Base class TUsrEvent is implemented in
+    Marabou: analyze/inc/TUsrEvent.h
+    Has a TUsrSevtDet1 data member!
+
+
+
+
+Marabou <-> mvme integration version -1 (the not so great way to do it)
 ===============================================================================
 
 Project motivation and goals
@@ -90,4 +136,3 @@ Limitations and next steps
 
 
 To be done: milestones and estimated development effort, timeline
-
