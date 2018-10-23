@@ -83,7 +83,7 @@ struct MVMEStreamWorkerPrivate
 {
     MVMEStreamProcessor streamProcessor;
     MVMEContext *context = nullptr;
-    u32 m_listFileVersion = 1;
+    u32 m_listFileVersion = CurrentListfileVersion;
     bool m_startPaused = false;
 
     std::atomic<InternalState> internalState;
