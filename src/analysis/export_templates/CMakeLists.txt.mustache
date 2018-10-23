@@ -47,6 +47,20 @@ if (ROOT_FOUND AND ZLIB_FOUND)
         ${ROOT_Hist_LIBRARY}
         ${ZLIB_LIBRARIES}
         )
+
+    {{#full?}}
+    add_executable(root_generate_tree {{export_impl_file}} root_generate_tree.cpp)
+
+    target_link_libraries(
+        root_generate_tree
+        ${ROOT_LIBRARIES}
+        ${ROOT_Core_LIBRARY}
+        ${ROOT_RIO_LIBRARY}
+        ${ROOT_Tree_LIBRARY}
+        ${ROOT_Hist_LIBRARY}
+        ${ZLIB_LIBRARIES}
+        )
+    {{/full?}}
 elseif (ZLIB_FOUND)
     message("-- ROOT not found using the find_package() method. Trying root-config instead.")
 
@@ -68,6 +82,11 @@ elseif (ZLIB_FOUND)
         add_definitions(${ROOT_CFLAGS})
         add_executable(root_generate_histos {{export_impl_file}} root_generate_histos.cpp)
         target_link_libraries(root_generate_histos ${ROOT_LIBRARIES} ${ZLIB_LIBRARIES})
+
+        {{#full?}}
+        add_executable(root_generate_tree {{export_impl_file}} root_generate_tree.cpp)
+        target_link_libraries(root_generate_tree ${ROOT_LIBRARIES} ${ZLIB_LIBRARIES})
+        {{/full?}}
     else()
         message("-- Could not find ROOT. Disabling ROOT histogramer.")
     endif()

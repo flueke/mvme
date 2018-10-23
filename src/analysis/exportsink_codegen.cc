@@ -1,6 +1,4 @@
 /* TODO
- * - collect variable names
- * - generate valid and unique identifiers, prefill with something like "array_<idx>".
  * - fail on empty name or when failing to generate an identifier
  * - add version info, export date, etc to the template variables
  * - add info about the condition input to the templates
@@ -309,6 +307,13 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render, ExportSin
 
         render(QSL(":/analysis/export_templates/cpp_root_generate_histos.cpp.mustache"),
                        data, exportDir.filePath("root_generate_histos.cpp"), 0, logger);
+
+        // FIXME: make tree generation code work with the sparse format too!
+        if (sink->getFormat() == ExportSink::Format::Full)
+        {
+            render(QSL(":/analysis/export_templates/cpp_root_generate_tree.cpp.mustache"),
+                           data, exportDir.filePath("root_generate_tree.cpp"), 0, logger);
+        }
 
         // copy c++ libs
         if (sink->getCompressionLevel() != 0)

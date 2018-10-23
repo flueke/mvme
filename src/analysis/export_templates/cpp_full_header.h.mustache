@@ -45,6 +45,11 @@ struct {{struct_name}}
     const double *getArray(size_t index) const;
     double *getArray(size_t index);
 
+    /* Returns a pointer to the local variable of the array with the given
+     * index. This can be used as the object pointer for TTree:Branch().
+     * Returns nullptr if the index is out of range. */
+    double **getArrayAddr(size_t index);
+
     /* Equivalent to getArray(arrayIndex)[paramIndex]. Returns a quiet NaN if
      * any of the indexes is out of range. */
     double getValue(size_t arrayIndex, size_t paramIndex);
