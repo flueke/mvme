@@ -20,6 +20,7 @@
  */
 
 #include "mvme_listfile.h"
+#include <cassert>
 
 const ListfileConstants ListfileConstantsTable[] =
 {
@@ -177,7 +178,7 @@ const ListfileConstants ListfileConstantsTable[] =
 
         .ModuleDataMaxWords  = 0xfffffu,
         .ModuleDataMaxSize   = 0xfffffu * sizeof(u32),
-        .ModuleDataSizeMask  = 0x000fffff,          // 20 bit module data size in 32 bit words
+        .ModuleDataSizeMask  = 0x000fffffu,         // 20 bit module data size in 32 bit words
         .ModuleDataSizeShift = 0,
         .ModuleTypeMask      = 0xff000000u,         // 8 bit module type
         .ModuleTypeShift     = 24,
@@ -212,9 +213,9 @@ u32 ListfileConstants::getSectionSize(u32 sectionHeader) const
 
 u32 ListfileConstants::getCrateIndex(u32 eventSectionHeader) const
 {
-    // added in listfile version 2, set to 0 for older versions
-    if (CrateIndexMask == 0u)
-        return 0;
+    // added in listfile version 2, return 0 for older versions
+    if (!hasCrateIndex())
+        return 0u;
 
     return mask_and_shift(eventSectionHeader, CrateIndexMask, CrateIndexShift);
 }
@@ -232,4 +233,27 @@ u32 ListfileConstants::getModuleDataSize(u32 moduleDataHeader) const
 u32 ListfileConstants::getModuleType(u32 moduleDataHeader) const
 {
     return mask_and_shift(moduleDataHeader, ModuleTypeMask, ModuleTypeShift);
+}
+
+u32 ListfileConstants::makeEventSectionHeader(u32 eventIndex, u32 crateIndex) const
+{
+    u32 result = (ListfileSections::SectionType_Event << SectionTypeShift) & SectionTypeMask;
+
+    result |= (eventIndex << EventIndexShift) & EventIndexMask;
+
+    if (hasCrateIndex())
+    {
+        result |= (crateIndex << CrateIndexShift) & CrateIndexMask;
+    }
+
+    assert(getEventIndex(result) == eventIndex);
+    if (hasCrateIndex())
+        assert(getCrateIndex(result) == crateIndex);
+
+    return result;
+}
+
+bool ListfileConstants::hasCrateIndex() const
+{
+    return CrateIndexMask != 0u;
 }

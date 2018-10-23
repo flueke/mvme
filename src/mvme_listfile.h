@@ -131,7 +131,7 @@ struct LIBMVME_EXPORT ListfileConstants
     int CrateIndexShift;
 
     // VME event index stored in SectionType_Event headers
-    int EventIndexMask ;
+    int EventIndexMask;
     int EventIndexShift;
 
     // Module data subsections contained within event sections
@@ -158,6 +158,10 @@ struct LIBMVME_EXPORT ListfileConstants
     u32 getEventIndex(u32 eventSectionHeader) const;
     u32 getModuleType(u32 moduleDataHeader) const;
     u32 getModuleDataSize(u32 moduleDataHeader) const;
+
+    u32 makeEventSectionHeader(u32 eventIndex, u32 crateIndex = 0) const;
+
+    bool hasCrateIndex() const;
 };
 
 /* The the correct instance of ListfileConstants for the given version number.
