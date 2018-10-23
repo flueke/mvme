@@ -1,0 +1,112 @@
+#include <cmath>
+#include <fstream>
+#include <iostream>
+
+#include <TFile.h>
+#include <TTree.h>
+
+#ifdef MVME_EXPORT_USE_ZSTR
+#include "zstr.hpp"
+#endif
+
+#include "{{export_header_file}}"
+
+using std::cout;
+using std::endl;
+
+int main(int argc, char *argv[])
+{
+    if (argc < 2)
+    {
+        cout << "Usage: " << argv[0] << " <input_file>" << endl;
+        return 1;
+    }
+
+    std::string inputFilename = argv[1];
+    cout << "Reading input from: " << inputFilename << endl;
+
+#ifdef MVME_EXPORT_USE_ZSTR
+    zstr::ifstream input(inputFilename);
+#else
+    std::ifstream input;
+    input.exceptions(std::ios::failbit | std::ios::badbit);
+    input.open(inputFilename, std::ios::in | std::ios::binary);
+#endif
+
+    /* Strip path components from input filename and replace the last part of
+     * the extension with "_tree.root". Use the result as the output
+     * filename. */
+    std::string outputFilename = inputFilename;
+
+    {
+        size_t startIdx = outputFilename.find_last_of("/\\");
+
+        if (startIdx != std::string::npos)
+            outputFilename = outputFilename.substr(startIdx + 1);
+
+        size_t dotIdx = outputFilename.find_last_of('.');
+
+        if (dotIdx != std::string::npos)
+            outputFilename.erase(outputFilename.begin() + dotIdx, outputFilename.end());
+    }
+
+    outputFilename = "root_" + outputFilename + "_tree.root";
+
+    cout << "Opening output file " << outputFilename << endl;
+
+    TFile f(outputFilename.c_str(), "recreate");
+
+    if (!f.IsOpen()) return 1;
+
+    // FIXME: this only works for the full/non-sparse format because we are
+    // using pointers to the full c arrays as the branch addresses.
+
+    cout << "Creating TTree {{struct_name}}" << endl;
+
+    {{struct_name}} event;
+    auto tree = new TTree("{{struct_name}}", "Tree containing data from {{struct_name}}");
+
+    for (size_t arrayIndex = 0;
+         arrayIndex < event.getArrayCount();
+         arrayIndex++)
+    {
+        size_t arraySize = event.getArrayDimension(arrayIndex);
+        std::string arrayName = event.getArrayName(arrayIndex);
+
+        std::ostringstream ssBranchSpec;
+        ssBranchSpec << arrayName << "[" << arraySize << "]/D";
+        std::string branchSpec = ssBranchSpec.str();
+
+        cout << "  Creating branch for array " << arrayIndex << ": " << arrayName
+            << ", " << branchSpec << endl;
+
+        auto branch = tree->Branch(
+            arrayName.c_str(),
+            event.getArrayAddr(arrayIndex),
+            branchSpec.c_str());
+    }
+
+    cout << "Filling tree..." << endl;
+
+    size_t eventsRead = 0;
+
+    while (input.good())
+    {
+        /* Fill the event structure with data from the input file. */
+        read(input, event);
+
+        if (!input.good())
+            break;
+
+        eventsRead++;
+
+        tree->Fill();
+    }
+
+    f.Write();
+
+    cout << "Read " << eventsRead << " events from " << inputFilename << endl;
+}
+{{!
+vim:ft=cpp
+}}

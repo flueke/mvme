@@ -54,6 +54,18 @@ const double *{{struct_name}}::getArray(size_t index) const
     return const_cast<{{struct_name}} *>(this)->getArray(index);
 }
 
+double **{{struct_name}}::getArrayAddr(size_t index)
+{
+    switch (index)
+    {
+{{#array_info}}
+        case {{index}}: return reinterpret_cast<double **>(&{{variable_name}});
+{{/array_info}}
+    };
+
+    return nullptr;
+}
+
 double {{struct_name}}::getValue(size_t arrayIndex, size_t paramIndex)
 {
     if (arrayIndex < getArrayCount() && paramIndex < getArrayDimension(arrayIndex))
