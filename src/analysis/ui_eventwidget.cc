@@ -1783,12 +1783,6 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
             clone->setUserLevel(tree->getUserLevel());
         }
 
-        if (auto dataSource = std::dynamic_pointer_cast<SourceInterface>(clone))
-        {
-            // Remove cloned data sources from their module, making them unassigned.
-            dataSource->setModuleId(QUuid());
-        }
-
         if (auto srcParentDir = analysis->getParentDirectory(src))
         {
             // The source has a parent directory. Put the clone into the equivalent cloned
