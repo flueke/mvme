@@ -37,14 +37,16 @@ struct LIBMVME_EXPORT ObjectSerializerVisitor: public ObjectVisitor
     AnalysisObjectVector visitedObjects;
 };
 
+/* Connection from the output of a PipeSourceInterface object to the input of
+ * an OperatorInterface slot. */
 struct LIBMVME_EXPORT Connection
 {
-    PipeSourcePtr srcObject;
-    s32 srcIndex;
+    PipeSourcePtr srcObject;    // The source object where the output pipe resides
+    s32 srcIndex;               // The index of the output pipe in the source object
 
-    OperatorPtr dstObject;
-    s32 dstIndex;
-    s32 dstParamIndex;
+    OperatorPtr dstObject;      // Destination object containing the destination slot
+    s32 dstIndex;               // Destination slot index
+    s32 dstParamIndex;          // The parameter index used in the connection.
 
     bool operator==(const Connection &other) const
     {
@@ -60,7 +62,8 @@ uint LIBMVME_EXPORT qHash(const Connection &con, uint seed = 0);
 
 QJsonObject LIBMVME_EXPORT serialze_connection(const Connection &con);
 
-QSet<Connection> LIBMVME_EXPORT collect_internal_collections(const AnalysisObjectVector &objects);
+QSet<Connection> LIBMVME_EXPORT collect_internal_connections(const AnalysisObjectVector &objects);
+QSet<Connection> LIBMVME_EXPORT collect_incoming_connections(const AnalysisObjectVector &objects);
 
 QJsonArray LIBMVME_EXPORT serialize_internal_connections(const AnalysisObjectVector &objects);
 

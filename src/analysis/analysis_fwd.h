@@ -9,7 +9,7 @@
 namespace analysis
 {
 
-class Slot;
+struct Slot;
 class Pipe;
 class AnalysisObject;
 class ConditionInterface;

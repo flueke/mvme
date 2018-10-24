@@ -83,7 +83,7 @@ QJsonObject serialize_conditionlink(const OperatorPtr &op, const ConditionLink &
     return result;
 }
 
-QSet<Connection> collect_internal_collections(const AnalysisObjectVector &objects)
+QSet<Connection> collect_internal_connections(const AnalysisObjectVector &objects)
 {
     QSet<Connection> connections;
 
@@ -99,9 +99,19 @@ QSet<Connection> collect_internal_collections(const AnalysisObjectVector &object
 
                 for (Slot *dstSlot: pipe->getDestinations())
                 {
-                    if (auto dstOp = std::dynamic_pointer_cast<OperatorInterface>(
-                            dstSlot->parentOperator->shared_from_this()))
+                    OperatorPtr dstOp;
+
+                    assert(dstSlot->parentOperator);
+
+                    if (dstSlot->parentOperator)
                     {
+                        dstOp = std::dynamic_pointer_cast<OperatorInterface>(
+                            dstSlot->parentOperator->shared_from_this());
+                    }
+
+                    if (dstOp)
+                    {
+                        // slow. let the caller pass an object set instead?
                         if (objects.contains(dstOp))
                         {
                             Connection con =
@@ -124,9 +134,48 @@ QSet<Connection> collect_internal_collections(const AnalysisObjectVector &object
     return connections;
 }
 
+QSet<Connection> collect_incoming_connections(const AnalysisObjectVector &objects)
+{
+    QSet<Connection> connections;
+
+    for (const auto &obj: objects)
+    {
+        auto op = std::dynamic_pointer_cast<OperatorInterface>(obj);
+
+        // Only OperatorInterface subclasses have input slots
+        if (!op) continue;
+
+        auto inputSlots = op->getSlots();
+
+        for (Slot *slot: inputSlots)
+        {
+            if (!slot->isConnected()) continue;
+
+            Connection con;
+
+            con.srcObject = std::dynamic_pointer_cast<PipeSourceInterface>(
+                slot->inputPipe->getSource()->shared_from_this());
+
+            // Skip internal connections
+            if (!objects.contains(con.srcObject))
+            {
+                con.srcIndex = slot->inputPipe->sourceOutputIndex;
+
+                con.dstObject = op;
+                con.dstIndex = slot->parentSlotIndex;
+                con.dstParamIndex = slot->paramIndex;
+
+                connections.insert(con);
+            }
+        }
+    }
+
+    return connections;
+}
+
 QJsonArray serialize_internal_connections(const AnalysisObjectVector &objects)
 {
-    QSet<Connection> connections = collect_internal_collections(objects);
+    QSet<Connection> connections = collect_internal_connections(objects);
 
     QJsonArray result;
 

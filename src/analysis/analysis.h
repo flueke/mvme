@@ -194,7 +194,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
         PipeSourceInterface(QObject *parent = 0)
             : AnalysisObject(parent)
         {
-            //qDebug() << __PRETTY_FUNCTION__ << reinterpret_;
+            //qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
         }
 
         virtual ~PipeSourceInterface()
@@ -2042,12 +2042,19 @@ QString getClassName(T *obj)
     return obj->metaObject()->className();
 }
 
+/* Recursively expands the given object vector to contain all subobjects inside any
+ * directories contained in the original object vector. */
 AnalysisObjectVector expand_objects(const AnalysisObjectVector &vec,
                                     const Analysis *analysis);
 
+/* Returns a vector of the objects contained in the given object set but in the same order as
+ * the objects are stored in the analysis.
+ * Note: directories are not expanded, no recursion is done. */
 AnalysisObjectVector order_objects(const AnalysisObjectSet &objects,
                                    const Analysis *analysis);
 
+/* Same as the overload taking an AnalysisObjectSet but builds the set from the
+ * given vector. */
 AnalysisObjectVector order_objects(const AnalysisObjectVector &objects,
                                    const Analysis *analysis);
 

@@ -5242,8 +5242,6 @@ namespace
 
 } // end anon namespace
 
-/* Recursively expands the given object vector to contain all subobjects inside any
- * directories contained in the original vector. */
 AnalysisObjectVector expand_objects(const AnalysisObjectVector &vec,
                                     const Analysis *analysis)
 {
@@ -5255,9 +5253,6 @@ AnalysisObjectVector expand_objects(const AnalysisObjectVector &vec,
     return result;
 }
 
-/* Returns a vector of the objects contained in the given object set but in the same order as
- * the objects are stored in the analysis.
- * Note: directories are not expanded, no recursion is done. */
 AnalysisObjectVector order_objects(const AnalysisObjectSet &objects,
                                    const Analysis *analysis)
 {

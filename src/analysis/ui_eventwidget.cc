@@ -1812,26 +1812,54 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
     check_cloned_dirs;
     check_directory_consistency(analysis->getDirectories(), analysis);
 
-    // Collect, rewrite and restore internal collections of the cloned objects
-    QSet<Connection> srcConnections = collect_internal_collections(srcObjects);
+    // Collect, rewrite and restore internal connections of the cloned objects
+    QSet<Connection> srcConnections = collect_internal_connections(srcObjects);
     QSet<Connection> dstConnections;
 
+    // Apply the source to clone mapping to the collected connections,
+    // updating the object pointers.
     for (auto con: srcConnections)
     {
-        auto srcClone = std::dynamic_pointer_cast<PipeSourceInterface>(
+        auto cloneSrc = std::dynamic_pointer_cast<PipeSourceInterface>(
             cloneMapping.value(con.srcObject));
 
-        auto dstClone = std::dynamic_pointer_cast<OperatorInterface>(
+        auto cloneDst = std::dynamic_pointer_cast<OperatorInterface>(
             cloneMapping.value(con.dstObject));
 
-        if (srcClone && dstClone)
+        // Change the connection if both the source and destination objects
+        // have been copied.
+        if (cloneSrc && cloneDst)
         {
-            con.srcObject = srcClone;
-            con.dstObject = dstClone;
+            con.srcObject = cloneSrc;
+            con.dstObject = cloneDst;
 
             dstConnections.insert(con);
         }
     }
+
+    establish_connections(dstConnections);
+
+    // Same as above but for incoming connections of the copied objects
+    srcConnections = collect_incoming_connections(srcObjects);
+    dstConnections.clear();
+
+    for (auto con: srcConnections)
+    {
+        auto cloneDst = std::dynamic_pointer_cast<OperatorInterface>(
+            cloneMapping.value(con.dstObject));
+
+        // Update the connection if the destination object has been copied.
+        // Keep the source the same.
+        if (cloneDst)
+        {
+            con.dstObject = cloneDst;
+
+            dstConnections.insert(con);
+        }
+    }
+
+    // TODO: check to make sure no connections have been duplicated. What would
+    // happen in this case? Would the connection just be overwritten?
 
     establish_connections(dstConnections);
 
