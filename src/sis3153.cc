@@ -215,8 +215,7 @@ VMEError SIS3153::open()
     }
 
 
-    /* XXX XXX XXX: Testing code:
-     * Resolve the hostname here using the Qt layer and pass an IPv4 address string to
+    /* Resolve the hostname here using the Qt layer and pass an IPv4 address string to
      * set_UdpSocketSIS3153_IpAddress(). This method internally uses gethostbyname() which
      * when given an IP-address just copies the argument to its result structure. */
 
