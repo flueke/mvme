@@ -58,9 +58,6 @@ int main(int argc, char *argv[])
 
     if (!f.IsOpen()) return 1;
 
-    // FIXME: this only works for the full/non-sparse format because we are
-    // using pointers to the full c arrays as the branch addresses.
-
     cout << "Creating TTree {{struct_name}}" << endl;
 
     {{struct_name}} event;
@@ -80,10 +77,7 @@ int main(int argc, char *argv[])
         cout << "  Creating branch for array " << arrayIndex << ": " << arrayName
             << ", " << branchSpec << endl;
 
-        auto branch = tree->Branch(
-            arrayName.c_str(),
-            event.getArrayAddr(arrayIndex),
-            branchSpec.c_str());
+        tree->Branch(arrayName.c_str(), event.getArrayAddr(arrayIndex), branchSpec.c_str());
     }
 
     cout << "Filling tree..." << endl;
@@ -106,6 +100,12 @@ int main(int argc, char *argv[])
     f.Write();
 
     cout << "Read " << eventsRead << " events from " << inputFilename << endl;
+
+    cout << "Using TTree::MakeClass() to generate a ROOT class implementation"
+        << " for the generated tree:"
+        << endl;
+
+    tree->MakeClass("ROOT_{{struct_name}}");
 }
 {{!
 vim:ft=cpp

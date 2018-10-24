@@ -39,7 +39,7 @@ static QString render_to_string(
         auto msg = QSL("Could not open input template file %1: %2")
             .arg(templateFilename).arg(templateFile.errorString());
 
-        qDebug() << msg;
+        qDebug() << __PRETTY_FUNCTION__ << msg;
         assert(false);
 
         throw std::runtime_error(msg.toStdString());
@@ -311,12 +311,8 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render,
         render(QSL(":/analysis/export_templates/cpp_root_generate_histos.cpp.mustache"),
                        data, exportDir.filePath("root_generate_histos.cpp"), 0, logger);
 
-        // FIXME: make tree generation code work with the sparse format too!
-        if (sink->getFormat() == ExportSink::Format::Full)
-        {
-            render(QSL(":/analysis/export_templates/cpp_root_generate_tree.cpp.mustache"),
-                           data, exportDir.filePath("root_generate_tree.cpp"), 0, logger);
-        }
+        render(QSL(":/analysis/export_templates/cpp_%1_root_generate_tree.cpp.mustache").arg(fmtString),
+                       data, exportDir.filePath("root_generate_tree.cpp"), 0, logger);
 
         // copy c++ libs
         if (sink->getCompressionLevel() != 0)
