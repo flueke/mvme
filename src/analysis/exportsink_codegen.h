@@ -19,8 +19,13 @@ class ExportSinkCodeGenerator
         ExportSinkCodeGenerator(ExportSink *sink);
         ~ExportSinkCodeGenerator();
 
+        /* Instantiates code templates and writes them to the output files. */
         void generateFiles(Logger logger = Logger());
+
+        /* Instantiates code templates and returns a mapping of
+         * (outputFilename -> templateContents). */
         QMap<QString, QString> generateMap() const;
+
         QStringList getOutputFilenames() const;
 
     private:

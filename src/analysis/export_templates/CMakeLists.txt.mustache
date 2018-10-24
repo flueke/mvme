@@ -48,7 +48,6 @@ if (ROOT_FOUND AND ZLIB_FOUND)
         ${ZLIB_LIBRARIES}
         )
 
-    {{#full?}}
     add_executable(root_generate_tree {{export_impl_file}} root_generate_tree.cpp)
 
     target_link_libraries(
@@ -60,8 +59,9 @@ if (ROOT_FOUND AND ZLIB_FOUND)
         ${ROOT_Hist_LIBRARY}
         ${ZLIB_LIBRARIES}
         )
-    {{/full?}}
+
 elseif (ZLIB_FOUND)
+
     message("-- ROOT not found using the find_package() method. Trying root-config instead.")
 
     execute_process(COMMAND root-config --version OUTPUT_VARIABLE ROOT_VERSION

@@ -1,0 +1,170 @@
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include <limits>
+
+#include <TFile.h>
+#include <TTree.h>
+
+#ifdef MVME_EXPORT_USE_ZSTR
+#include "zstr.hpp"
+#endif
+
+#include "{{export_header_file}}"
+
+using std::cout;
+using std::endl;
+
+/* This code is for the "sparse" format of the mvme export operator. In this
+ * format only entries that actually exist in an array a stored on disk instead
+ * of the full, plain arrays.
+ *
+ * To fill a ROOT tree this code creates a std::vector<double> for each of the
+ * exported data arrays. This array is then populated with the data from the
+ * sparse array. Non-existent values are set to a quiet NaN value.
+ *
+ * In other words: the sparse arrays are expanded, each into a
+ * std::vector<double>. The raw data pointer into this vector is then used as
+ * the branch address for the ROOT tree. This works because the vector size is
+ * fixed during runtime, meaning the memory will never be reallocated.
+ */
+
+int main(int argc, char *argv[])
+{
+    if (argc < 2)
+    {
+        cout << "Usage: " << argv[0] << " <input_file>" << endl;
+        return 1;
+    }
+
+    std::string inputFilename = argv[1];
+    cout << "Reading input from: " << inputFilename << endl;
+
+#ifdef MVME_EXPORT_USE_ZSTR
+    zstr::ifstream input(inputFilename);
+#else
+    std::ifstream input;
+    input.exceptions(std::ios::failbit | std::ios::badbit);
+    input.open(inputFilename, std::ios::in | std::ios::binary);
+#endif
+
+    /* Strip path components from input filename and replace the last part of
+     * the extension with "_tree.root". Use the result as the output
+     * filename. */
+    std::string outputFilename = inputFilename;
+
+    {
+        size_t startIdx = outputFilename.find_last_of("/\\");
+
+        if (startIdx != std::string::npos)
+            outputFilename = outputFilename.substr(startIdx + 1);
+
+        size_t dotIdx = outputFilename.find_last_of('.');
+
+        if (dotIdx != std::string::npos)
+            outputFilename.erase(outputFilename.begin() + dotIdx, outputFilename.end());
+    }
+
+    outputFilename = "root_" + outputFilename + "_tree.root";
+
+    cout << "Opening output file " << outputFilename << endl;
+
+    TFile f(outputFilename.c_str(), "recreate");
+
+    if (!f.IsOpen()) return 1;
+
+    cout << "Creating TTree {{struct_name}}" << endl;
+
+    {{struct_name}} event;
+
+    // create storage for the expanded arrays
+    std::vector<std::vector<double>> expandedArrays;
+    expandedArrays.resize(event.getArrayCount());
+
+    for (size_t arrayIndex = 0;
+         arrayIndex < event.getArrayCount();
+         arrayIndex++)
+    {
+        expandedArrays[arrayIndex].resize(event.getArrayDimension(arrayIndex));
+    }
+
+    auto tree = new TTree("{{struct_name}}", "Tree containing data from {{struct_name}}");
+
+    for (size_t arrayIndex = 0;
+         arrayIndex < event.getArrayCount();
+         arrayIndex++)
+    {
+        size_t arraySize = event.getArrayDimension(arrayIndex);
+        std::string arrayName = event.getArrayName(arrayIndex);
+
+        std::ostringstream ssBranchSpec;
+        ssBranchSpec << arrayName << "[" << arraySize << "]/D";
+        std::string branchSpec = ssBranchSpec.str();
+
+        cout << "  Creating branch for array " << arrayIndex << ": " << arrayName
+            << ", " << branchSpec << endl;
+
+        tree->Branch(arrayName.c_str(),
+                     expandedArrays[arrayIndex].data(),
+                     branchSpec.c_str());
+    }
+
+    cout << "Filling tree..." << endl;
+
+    size_t eventsRead = 0;
+
+    while (input.good())
+    {
+        /* Fill the event structure with data from the input file. */
+        read(input, event);
+
+        if (!input.good())
+            break;
+
+        eventsRead++;
+
+        /* Reset the expanded arrays, then copy data from the sparse arrays to
+         * the expanded arrays. After this step the output tree can be filled
+         * because the correct data is now present at the place where
+         * rawArrayPointers[arrayIndex] points to which is used as the branch
+         * object pointer. */
+        for (size_t arrayIndex = 0;
+             arrayIndex < event.getArrayCount();
+             arrayIndex++)
+        {
+            std::vector<double> &expanded = expandedArrays[arrayIndex];
+
+            // Reset by filling with NaN values
+            expanded.assign(expanded.size(), std::numeric_limits<double>::quiet_NaN());
+
+            auto sparseArray = event.getArray(arrayIndex);
+
+            for (size_t entryIndex = 0;
+                 entryIndex < sparseArray->size();
+                 entryIndex++)
+            {
+                uint16_t paramIndex = sparseArray->indexes[entryIndex];
+                double   paramValue = sparseArray->values[entryIndex];
+
+                assert(paramIndex < expanded.size());
+
+                expanded[paramIndex] = paramValue;
+            }
+        }
+
+        tree->Fill();
+    }
+
+    f.Write();
+
+    cout << "Read " << eventsRead << " events from " << inputFilename << endl;
+
+    cout << "Using TTree::MakeClass() to generate a ROOT class implementation"
+        << " for the generated tree:"
+        << endl;
+
+    tree->MakeClass("ROOT_{{struct_name}}");
+}
+{{!
+vim:ft=cpp
+}}
