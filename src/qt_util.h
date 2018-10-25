@@ -47,7 +47,7 @@ class QWidget;
 class WidgetGeometrySaver: public QObject
 {
     public:
-        WidgetGeometrySaver(QObject *parent = 0);
+        explicit WidgetGeometrySaver(QObject *parent = 0);
 
         void addWidget(QWidget *widget, const QString &key);
         void removeWidget(QWidget *widget);
