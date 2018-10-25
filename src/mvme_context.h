@@ -367,7 +367,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         VMEReadoutWorker *m_readoutWorker = nullptr;
 
-        QThread *m_eventThread;
+        QThread *m_analysisThread;
         std::unique_ptr<MVMEStreamWorker> m_streamWorker;
 
         QSet<QObject *> m_objects;

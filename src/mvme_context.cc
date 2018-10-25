@@ -24,6 +24,7 @@
 #include "analysis/analysis.h"
 #include "analysis/analysis_session.h"
 #include "analysis/analysis_ui.h"
+#include "analysis_data_server.h"
 #include "file_autosaver.h"
 #include "mvme_context_lib.h"
 #include "mvme.h"
@@ -86,6 +87,7 @@ static const int VMECtrlConnectMaxRetryCount = 3;
 static const s64 LogBufferMaxEntries = 100 * 1000;
 
 static const int JSON_RPC_DefaultListenPort = 13800;
+static const int AnalysisDataServer_DefaultListenPort = 13801;
 
 class VMEConfigSerializer
 {
@@ -307,7 +309,7 @@ void MVMEContextPrivate::stopDAQReplay()
 
     Q_ASSERT(m_q->m_readoutWorker->getState() == DAQState::Idle);
 
-    m_q->m_streamWorker->setListFileVersion(1);
+    m_q->m_streamWorker->setListFileVersion(CurrentListfileVersion);
     m_q->onDAQStateChanged(DAQState::Idle);
 }
 
@@ -416,7 +418,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     , m_ctrlOpenTimer(new QTimer(this))
     , m_logTimer(new QTimer(this))
     , m_readoutThread(new QThread(this))
-    , m_eventThread(new QThread(this))
+    , m_analysisThread(new QThread(this))
     , m_mainwin(mainwin)
 
     , m_mode(GlobalMode::DAQ)
@@ -431,8 +433,6 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     {
         m_freeBuffers.queue.push_back(new DataBuffer(DataBufferSize));
     }
-
-    m_streamWorker = std::make_unique<MVMEStreamWorker>(this, &m_freeBuffers, &m_fullBuffers);
 
     // TODO: maybe hide these things a bit
     m_listFileWorker->m_freeBuffers = &m_freeBuffers;
@@ -529,20 +529,41 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     m_logTimer->setInterval(PeriodicLoggingInterval_ms);
 
 
+    // Setup the readout side: readout thread and listfile reader.
+    // The vme controller specific readout worker is created and setup in
+    // setVMEController().
     m_readoutThread->setObjectName("mvme ReadoutThread");
     m_listFileWorker->moveToThread(m_readoutThread);
-
     m_readoutThread->start();
 
     connect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
     connect(m_listFileWorker, &ListFileReader::replayStopped, this, &MVMEContext::onReplayDone);
 
+    // Setup the analysis/data processing side.
+    //
+    // FIXME: The startup sequence is horrible. Object creation, setup,
+    // initializtion, thread assignment is not good. I'd like a system to
+    // handle this kind of work and make it easier to understand and
+    // predictable, etc. Changing the order of stuff below just slightly
+    // quickly leads to errors about QObject thread assignment and parent/child
+    // objects, etc.
+    m_analysisThread->setObjectName("mvme AnalysisThread");
 
-    m_eventThread->setObjectName("mvme AnalysisThread");
-    m_streamWorker->moveToThread(m_eventThread);
-    m_eventThread->start();
-    connect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged, this, &MVMEContext::onMVMEStreamWorkerStateChanged);
+    m_streamWorker = std::make_unique<MVMEStreamWorker>(this, &m_freeBuffers, &m_fullBuffers);
 
+    auto analysisDataServer = new AnalysisDataServer(m_streamWorker.get());
+    analysisDataServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
+    analysisDataServer->setListeningInfo(QHostAddress::Any, AnalysisDataServer_DefaultListenPort);
+    m_streamWorker->getStreamProcessor()->attachModuleConsumer(analysisDataServer);
+
+    m_streamWorker->moveToThread(m_analysisThread);
+    analysisDataServer->moveToThread(m_analysisThread);
+    m_analysisThread->start();
+
+    QMetaObject::invokeMethod(analysisDataServer, "startListening", Qt::QueuedConnection);
+
+    connect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged,
+            this, &MVMEContext::onMVMEStreamWorkerStateChanged);
 
     qDebug() << __PRETTY_FUNCTION__ << "startup: setting empty VMEConfig and VMUSB controller";
 
@@ -550,7 +571,8 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     setVMEConfig(new VMEConfig(this));
     setVMEController(VMEControllerType::VMUSB);
 
-    qDebug() << __PRETTY_FUNCTION__ << "startup: done";
+    qDebug() << __PRETTY_FUNCTION__ << "startup done, contents of logbuffer:";
+    qDebug() << getLogBuffer();
 }
 
 MVMEContext::~MVMEContext()
@@ -590,8 +612,8 @@ MVMEContext::~MVMEContext()
 
     m_readoutThread->quit();
     m_readoutThread->wait();
-    m_eventThread->quit();
-    m_eventThread->wait();
+    m_analysisThread->quit();
+    m_analysisThread->wait();
 
     // Wait for possibly active VMEController::open() to return before deleting
     // the controller object.
@@ -1174,7 +1196,7 @@ void MVMEContext::prepareStart()
 
 //#ifdef MVME_ENABLE_ROOT // FIXME: fix SIGPIPE on child process exit
 #if 0
-    m_d->m_rootWriter->moveToThread(m_eventThread);
+    m_d->m_rootWriter->moveToThread(m_analysisThread);
 #endif
 
     m_daqStats = DAQStats();
@@ -1295,7 +1317,8 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
         qDebug() << __PRETTY_FUNCTION__ << "starting mvme stream worker";
 
         QEventLoop localLoop;
-        auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started, &localLoop, &QEventLoop::quit);
+        auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started,
+                                    &localLoop, &QEventLoop::quit);
         QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
         localLoop.exec();
         QObject::disconnect(con);

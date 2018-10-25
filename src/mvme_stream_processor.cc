@@ -350,7 +350,9 @@ void MVMEStreamProcessor::processExternalTimetick()
     }
 }
 
-void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *data, u32 size, u64 bufferNumber)
+void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader,
+                                                     u32 *data, u32 size,
+                                                     u64 bufferNumber)
 {
     const auto &lf(listfileConstants);
 
@@ -513,7 +515,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
                 this->counters.moduleCounters[eventIndex][moduleIndex]++;
                 eventCountsByModule[moduleIndex]++;
 
-                u32 moduleDataSize   = lf.getModuleDataSize(*mi.moduleDataHeader);
+                u32 moduleDataSize = lf.getModuleDataSize(*mi.moduleDataHeader);
 
                 if (this->analysis)
                 {
@@ -619,11 +621,20 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
             }
         }
 
+        /* At this point the data of all the modules in the current event has
+         * been passed to the analysis. The analysis performed the parameter
+         * extraction step. The extracted parameter double values are available
+         * at the output pipes of the data sources attached to each module of
+         * the current event. */
         if (this->analysis)
         {
 #ifdef MVME_STREAM_PROCESSOR_DEBUG
             qDebug("%s analysis::endEvent()", __PRETTY_FUNCTION__);
 #endif
+            /* This call makes the analysis system perform one step of all
+             * operators for the current event index. After the call the output
+             * pipes of the involved operators will contain the data produced
+             * for this event. */
             this->analysis->endEvent(eventIndex);
         }
 
@@ -639,8 +650,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
         }
     }
 
-    // Some final integrity checks
-
+    // Some final integrity checks if multievent splitting was done
     if (this->doMultiEventProcessing[eventIndex])
     {
         bool err = false;

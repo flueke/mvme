@@ -109,6 +109,7 @@ set(LIBMVME_SOURCES
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
 
+    analysis_data_server.cc
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
     daqstats_widget.cc

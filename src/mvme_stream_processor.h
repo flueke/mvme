@@ -35,6 +35,7 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
     std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
 };
 
+/* Interface for consumers of raw module data. */
 class LIBMVME_EXPORT IMVMEStreamModuleConsumer
 {
     public:
@@ -42,15 +43,22 @@ class LIBMVME_EXPORT IMVMEStreamModuleConsumer
 
         virtual ~IMVMEStreamModuleConsumer() {};
 
-        virtual void beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis, Logger logger) = 0;
+        virtual void beginRun(const RunInfo &runInfo,
+                              const VMEConfig *vmeConfig,
+                              const analysis::Analysis *analysis,
+                              Logger logger) = 0;
+
         virtual void endRun(const std::exception *e = nullptr) = 0;
 
         virtual void beginEvent(s32 eventIndex) = 0;
         virtual void endEvent(s32 eventIndex) = 0;
-        virtual void processModuleData(s32 eventIndex, s32 moduleIndex, const u32 *data, u32 size) = 0;
+        virtual void processModuleData(s32 eventIndex,
+                                       s32 moduleIndex,
+                                       const u32 *data, u32 size) = 0;
         virtual void processTimetick() = 0;
 };
 
+/* Interface for consumers of raw mvme stream formatted data buffers. */
 class LIBMVME_EXPORT IMVMEStreamBufferConsumer
 {
     public:
@@ -58,7 +66,11 @@ class LIBMVME_EXPORT IMVMEStreamBufferConsumer
 
         virtual ~IMVMEStreamBufferConsumer() {};
 
-        virtual void beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis, Logger logger) = 0;
+        virtual void beginRun(const RunInfo &runInfo,
+                              const VMEConfig *vmeConfig,
+                              const analysis::Analysis *analysis,
+                              Logger logger) = 0;
+
         virtual void endRun(const std::exception *e = nullptr) = 0;
 
         virtual void processDataBuffer(const DataBuffer *buffer) = 0;
