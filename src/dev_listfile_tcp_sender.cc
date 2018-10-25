@@ -100,6 +100,7 @@ void process_listfile(Context &context, ListFile *listfile)
     u32 zero = 0u;
     send_data(context, reinterpret_cast<const u8 *>(&zero), sizeof(zero));
 
+#if 0
     while (context.socket.bytesAvailable() < static_cast<qint64>(sizeof(zero)))
     {
         if (!context.socket.waitForReadyRead())
@@ -113,9 +114,10 @@ void process_listfile(Context &context, ListFile *listfile)
 
     if (bytesReceived != static_cast<qint64>(sizeof(zero)))
     {
-        throw (QString("final read failed: failed: %1")
+        throw (QString("final read failed: %1")
                .arg(context.socket.errorString()));
     }
+#endif
 }
 
 } // end anon namespace

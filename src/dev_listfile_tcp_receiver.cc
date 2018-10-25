@@ -92,7 +92,7 @@ void receive_and_write_listfile(Context &context)
 
         if (bufferSize == 0)
         {
-            //qDebug() << __PRETTY_FUNCTION__ << "received 0 buffer size => breaking out of receive loop";
+            qDebug() << __PRETTY_FUNCTION__ << "received 0 buffer size => breaking out of receive loop";
             break;
         }
 
@@ -100,7 +100,7 @@ void receive_and_write_listfile(Context &context)
 
         receive_one_buffer(context, bufferSize, mvmeBuffer);
 
-        if (context.outfile->write(
+        if (context.outfile->isOpen() && context.outfile->write(
                 reinterpret_cast<const char *>(mvmeBuffer.data),
                 mvmeBuffer.used) != static_cast<qint64>(mvmeBuffer.used))
         {
@@ -110,6 +110,7 @@ void receive_and_write_listfile(Context &context)
         }
     }
 
+#if 0
     /* Write a single reply containing a zero word (32 bit). This tells the
      * sender that we've received all the data and it may close the connection. */
 
@@ -128,6 +129,7 @@ void receive_and_write_listfile(Context &context)
     {
         throw QString("final socket waitForBytesWritten failed: %1").arg(context.socket->errorString());
     }
+#endif
 }
 
 } // end anon namespace
@@ -166,13 +168,13 @@ int main(int argc, char *argv[])
     }
 
     if (showHelp
-        || listfileFilename.isEmpty()
         || listenHost.isEmpty()
         || listenPort == 0)
     {
-        cout << "Usage: " << argv[0] << " --listfile <filename> --host <listehost> --port <listport>" << endl;
+        cout << "Usage: " << argv[0] << " --listfile <filename> --host <listenhost> --port <listport>" << endl;
         cout << "Example: " << argv[0] << " --listfile outfile.mvmelst --host example.com --port 1234" << endl;
         cout << "The program will listen on the given host and port and write received data to the specified listfile filename." << endl;
+        cout << "If no output listfile filename is given the data will only be received but not written to disk." << endl;
 
         return showHelp ? 0 : 1;
     }
@@ -194,12 +196,18 @@ int main(int argc, char *argv[])
             throw QString("Error waiting for incoming connection");
         }
 
-        QFile outfile(listfileFilename);
-        if (!outfile.open(QIODevice::WriteOnly))
+        QFile outfile;
+
+        if (!listfileFilename.isEmpty())
         {
-            throw (QString("Error opening output listfile %1 for writing: %2")
-                   .arg(listfileFilename)
-                   .arg(outfile.errorString()));
+            outfile.setFileName(listfileFilename);
+
+            if (!outfile.open(QIODevice::WriteOnly))
+            {
+                throw (QString("Error opening output listfile %1 for writing: %2")
+                       .arg(listfileFilename)
+                       .arg(outfile.errorString()));
+            }
         }
 
         Context context;
@@ -215,6 +223,13 @@ int main(int argc, char *argv[])
 
         receive_and_write_listfile(context);
 
+        cout << "closing output file" << endl;
+
+        if (outfile.isOpen())
+            outfile.close();
+
+        cout << "output file closed" << endl;
+
         context.endTime = Context::ClockType::now();
 
         std::chrono::duration<double> secondsElapsed = context.endTime - context.startTime;
@@ -222,7 +237,7 @@ int main(int argc, char *argv[])
         double mbPerSecond = mbRead / secondsElapsed.count();
 
         cout << "Number of socket reads: " << context.readCount << endl;
-        cout << "MB read: " << mbRead << endl;
+        cout << "MB read: " << mbRead << ", " << context.bytesRead << " bytes" << endl;
         cout << "Rate: " << mbPerSecond << " MB/s" << endl;
         cout << "Elapsed seconds: " << secondsElapsed.count() << endl;
     }
