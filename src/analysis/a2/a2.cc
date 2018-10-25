@@ -3711,7 +3711,8 @@ void a2_end_run(A2 *a2)
 }
 
 // step operators for the eventIndex
-// operators must be sorted by rank
+// operators must be sorted by increasing rank otherwise the behavior is
+// undefined
 void a2_end_event(A2 *a2, int eventIndex)
 {
     assert(eventIndex < MaxVMEEvents);
