@@ -27,9 +27,9 @@
 
 struct DataBuffer
 {
-    DataBuffer(size_t size, u64 id = 0u)
+    DataBuffer(size_t sz, u64 id = 0u)
         : data(nullptr)
-        , size(size)
+        , size(sz)
         , used(0)
         , id(id)
     {
