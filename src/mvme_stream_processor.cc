@@ -55,6 +55,8 @@ struct MVMEStreamProcessorPrivate
 
     MVMEStreamProcessorPrivate();
 
+    void consumersBeginRun();
+
     void processEventSection(u32 sectionHeader, u32 *data, u32 size, u64 bufferNumber);
     void logMessage(const QString &msg, bool useThrottle = true);
 
@@ -86,6 +88,32 @@ MVMEStreamProcessor::MVMEStreamProcessor()
 
 MVMEStreamProcessor::~MVMEStreamProcessor()
 {
+}
+
+void MVMEStreamProcessor::startup()
+{
+    for (auto c: m_d->bufferConsumers)
+    {
+        c->startup();
+    }
+
+    for (auto c: m_d->moduleConsumers)
+    {
+        c->startup();
+    }
+}
+
+void MVMEStreamProcessor::shutdown()
+{
+    for (auto c: m_d->bufferConsumers)
+    {
+        c->shutdown();
+    }
+
+    for (auto c: m_d->moduleConsumers)
+    {
+        c->shutdown();
+    }
 }
 
 void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
@@ -187,11 +215,26 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
 
     a2::a2_begin_run(m_d->analysis->getA2AdapterState()->a2, logger_adapter);
 
-    startConsumers();
+    m_d->consumersBeginRun();
 
     if (m_d->diag)
     {
         m_d->diag->beginRun();
+    }
+}
+
+void MVMEStreamProcessorPrivate::consumersBeginRun()
+{
+    qDebug() << __PRETTY_FUNCTION__ << "starting stream consumers";
+
+    for (auto c: bufferConsumers)
+    {
+        c->beginRun(runInfo, vmeConfig, analysis, logger);
+    }
+
+    for (auto c: moduleConsumers)
+    {
+        c->beginRun(runInfo, vmeConfig, analysis, logger);
     }
 }
 
@@ -214,22 +257,6 @@ void MVMEStreamProcessor::endRun()
 
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
-
-void MVMEStreamProcessor::startConsumers()
-{
-    qDebug() << __PRETTY_FUNCTION__ << "starting stream consumers";
-
-    for (auto c: m_d->bufferConsumers)
-    {
-        c->beginRun(m_d->runInfo, m_d->vmeConfig, m_d->analysis, m_d->logger);
-    }
-
-    for (auto c: m_d->moduleConsumers)
-    {
-        c->beginRun(m_d->runInfo, m_d->vmeConfig, m_d->analysis, m_d->logger);
-    }
-}
-
 void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
 {
     Q_ASSERT(!m_d->singleStepState.bufferIter.data);

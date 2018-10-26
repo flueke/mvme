@@ -371,8 +371,18 @@ void single_step_one_event(ProcessingState &procState, MVMEStreamProcessor &stre
 
 } // end anon namespace
 
+void MVMEStreamWorker::startup()
+{
+    m_d->streamProcessor.startup();
+}
+
+void MVMEStreamWorker::shutdown()
+{
+    m_d->streamProcessor.shutdown();
+}
+
 /* The main worker loop. */
-void MVMEStreamWorker::start(bool keepState)
+void MVMEStreamWorker::beginRun(bool keepState)
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 

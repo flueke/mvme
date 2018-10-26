@@ -82,14 +82,16 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
         void singleStep();
 
     public slots:
-        void start(bool keepState = false);
+        void startup();
+        void shutdown();
+
+        void beginRun(bool keepState = false);
 
         /* Is invoked from MVMEMainWindow via QMetaObject::invokeMethod so that
          * it runs in our thread. */
         void removeDiagnostics();
 
     private:
-        void beginRun();
         void setState(MVMEStreamWorkerState newState);
         void logMessage(const QString &msg);
 

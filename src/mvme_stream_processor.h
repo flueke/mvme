@@ -43,6 +43,9 @@ class LIBMVME_EXPORT IMVMEStreamModuleConsumer
 
         virtual ~IMVMEStreamModuleConsumer() {};
 
+        virtual void startup() {}
+        virtual void shutdown() {}
+
         virtual void beginRun(const RunInfo &runInfo,
                               const VMEConfig *vmeConfig,
                               const analysis::Analysis *analysis,
@@ -66,6 +69,9 @@ class LIBMVME_EXPORT IMVMEStreamBufferConsumer
 
         virtual ~IMVMEStreamBufferConsumer() {};
 
+        virtual void startup() {}
+        virtual void shutdown() {}
+
         virtual void beginRun(const RunInfo &runInfo,
                               const VMEConfig *vmeConfig,
                               const analysis::Analysis *analysis,
@@ -86,6 +92,9 @@ class LIBMVME_EXPORT MVMEStreamProcessor
 
         MVMEStreamProcessor();
         ~MVMEStreamProcessor();
+
+        void startup();
+        void shutdown();
 
         //
         // Statistics
@@ -176,7 +185,6 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer);
 
     private:
-        void startConsumers();
         std::unique_ptr<MVMEStreamProcessorPrivate> m_d;
 };
 

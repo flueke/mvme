@@ -4,18 +4,18 @@
 
 struct AnalysisDataServer::Private
 {
-    Private(AnalysisDataServer *q): m_q(q)
-    {
-        m_server.setParent(m_q);
-    }
+    Private(AnalysisDataServer *q)
+        : m_q(q)
+        , m_server(q)
+    { }
 
     AnalysisDataServer *m_q;
+    QTcpServer m_server;
     QHostAddress m_listenAddress;
     quint16 m_listenPort;
-    QTcpServer m_server;
     AnalysisDataServer::Logger m_logger;
 
-    QSet<QTcpSocket *> m_activeClients;
+    QVector<QTcpSocket *> m_activeClients;
 
     struct RunContext
     {
@@ -27,7 +27,24 @@ struct AnalysisDataServer::Private
     RunContext m_runContext;
 
     void handleNewConnection();
+    void logMessage(const QString &msg);
 };
+
+void AnalysisDataServer::Private::handleNewConnection()
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
+    auto clientSocket = m_server.nextPendingConnection();
+    assert(clientSocket);
+}
+
+void AnalysisDataServer::Private::logMessage(const QString &msg)
+{
+    if (m_logger)
+    {
+        m_logger(QSL("AnalysisDataServer: ") + msg);
+    }
+}
 
 AnalysisDataServer::AnalysisDataServer(QObject *parent)
     : QObject(parent)
@@ -46,6 +63,26 @@ AnalysisDataServer::AnalysisDataServer(Logger logger, QObject *parent)
 AnalysisDataServer::~AnalysisDataServer()
 {}
 
+void AnalysisDataServer::startup()
+{
+    if (bool res = m_d->m_server.listen(m_d->m_listenAddress, m_d->m_listenPort))
+    {
+        m_d->logMessage(QSL("Listening on %1:%2")
+                   .arg(m_d->m_listenAddress.toString())
+                   .arg(m_d->m_listenPort));
+    }
+    else
+    {
+        m_d->logMessage(QSL("Error listening on %1:%2")
+                   .arg(m_d->m_listenAddress.toString())
+                   .arg(m_d->m_listenPort));
+    }
+}
+
+void AnalysisDataServer::shutdown()
+{
+}
+
 void AnalysisDataServer::setLogger(Logger logger)
 {
     m_d->m_logger = logger;
@@ -55,22 +92,6 @@ void AnalysisDataServer::setListeningInfo(const QHostAddress &address, quint16 p
 {
     m_d->m_listenAddress = address;
     m_d->m_listenPort = port;
-}
-
-void AnalysisDataServer::startListening()
-{
-    if (bool res = m_d->m_server.listen(m_d->m_listenAddress, m_d->m_listenPort))
-    {
-        logMessage(QSL("Listening on %1:%2")
-                   .arg(m_d->m_listenAddress.toString())
-                   .arg(m_d->m_listenPort));
-    }
-    else
-    {
-        logMessage(QSL("Error listening on %1:%2")
-                   .arg(m_d->m_listenAddress.toString())
-                   .arg(m_d->m_listenPort));
-    }
 }
 
 bool AnalysisDataServer::isListening() const
@@ -113,20 +134,4 @@ void AnalysisDataServer::processModuleData(s32 eventIndex, s32 moduleIndex,
 void AnalysisDataServer::processTimetick()
 {
     // TODO: send timetick info to client
-}
-
-void AnalysisDataServer::logMessage(const QString &msg)
-{
-    if (m_d->m_logger)
-    {
-        m_d->m_logger(QSL("AnalysisDataServer: ") + msg);
-    }
-}
-
-void AnalysisDataServer::Private::handleNewConnection()
-{
-    qDebug() << __PRETTY_FUNCTION__ << this;
-
-    auto clientSocket = m_server.nextPendingConnection();
-    assert(clientSocket);
 }

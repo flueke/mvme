@@ -27,7 +27,9 @@ class AnalysisDataServer: public QObject, public IMVMEStreamModuleConsumer
         AnalysisDataServer(Logger logger, QObject *parent = nullptr);
         virtual ~AnalysisDataServer();
 
-        // IMVMEStreamModuleConsumer interface
+        virtual void startup() override;
+        virtual void shutdown() override;
+
         virtual void beginRun(const RunInfo &runInfo,
                               const VMEConfig *vmeConfig,
                               const analysis::Analysis *analysis,
@@ -46,11 +48,7 @@ class AnalysisDataServer: public QObject, public IMVMEStreamModuleConsumer
         void setListeningInfo(const QHostAddress &address, quint16 port);
         bool isListening() const;
 
-    public slots:
-        void startListening();
-
     private:
-        void logMessage(const QString &msg);
         struct Private;
         std::unique_ptr<Private> m_d;
 };

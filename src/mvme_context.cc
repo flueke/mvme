@@ -543,10 +543,11 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     //
     // FIXME: The startup sequence is horrible. Object creation, setup,
     // initializtion, thread assignment is not good. I'd like a system to
-    // handle this kind of work and make it easier to understand and
-    // predictable, etc. Changing the order of stuff below just slightly
-    // quickly leads to errors about QObject thread assignment and parent/child
-    // objects, etc.
+    // handle this kind of work and make it easier to understand, predictable,
+    // etc. Changing the order of stuff below just slightly leads to errors
+    // about QObject thread assignment and parent/child objects, etc.
+    // Also if a command line version of mvme would start a DAQ immediately
+    // after creating the context object
     m_analysisThread->setObjectName("mvme AnalysisThread");
 
     m_streamWorker = std::make_unique<MVMEStreamWorker>(this, &m_freeBuffers, &m_fullBuffers);
@@ -557,13 +558,17 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     m_streamWorker->getStreamProcessor()->attachModuleConsumer(analysisDataServer);
 
     m_streamWorker->moveToThread(m_analysisThread);
-    analysisDataServer->moveToThread(m_analysisThread);
-    m_analysisThread->start();
-
-    QMetaObject::invokeMethod(analysisDataServer, "startListening", Qt::QueuedConnection);
 
     connect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged,
             this, &MVMEContext::onMVMEStreamWorkerStateChanged);
+
+    analysisDataServer->moveToThread(m_analysisThread);
+    m_analysisThread->start();
+
+    {
+        bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "startup", Qt::QueuedConnection);
+        assert(invoked);
+    }
 
     qDebug() << __PRETTY_FUNCTION__ << "startup: setting empty VMEConfig and VMUSB controller";
 
@@ -1250,7 +1255,7 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
         QEventLoop localLoop;
         auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started,
                                     &localLoop, &QEventLoop::quit);
-        QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_streamWorker.get(), "beginRun", Qt::QueuedConnection);
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -1319,7 +1324,7 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
         QEventLoop localLoop;
         auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started,
                                     &localLoop, &QEventLoop::quit);
-        QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_streamWorker.get(), "beginRun", Qt::QueuedConnection);
         localLoop.exec();
         QObject::disconnect(con);
     }
