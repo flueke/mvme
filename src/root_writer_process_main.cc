@@ -137,7 +137,7 @@ DEF_MESSAGE_HANDLER(timetick)
     return 0u;
 }
 
-static const MessageHandler *
+static MessageHandler *
 MessageHandlerTable[WriterMessageType::Count] =
 {
     begin_run,

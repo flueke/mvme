@@ -5,10 +5,13 @@
 
 namespace mvme
 {
-
-enum MessageType: uint32_t
+namespace data_server
 {
-    InitialInfo,
+
+enum MessageType: int
+{
+    Invalid,
+    Status,
     BeginRun,
     EndRun,
     BeginEvent,
@@ -19,12 +22,16 @@ enum MessageType: uint32_t
     MessageTypeCount
 };
 
-struct MessageHeader
+#if 0
+struct Message
 {
-    uint32_t size;
     MessageType type;
-} __attribute__((packed)); /* No padding wanted. */
+    uint32_t size;
+    unsigned char *data;
+} __attribute__((packed));
+#endif
 
+} // end namespace data_server
 } // end namespace mvme
 
 #endif /* __MVME_DATA_SERVER_PROTOCOL_H__ */

@@ -4,21 +4,6 @@
 #include "mvme_stream_processor.h"
 #include <QHostAddress>
 
-// Server specific stuff
-// NOTE: the interface is not great for this kind of object: The
-// object needs to be created, then configured and then be told to
-// start listening.  At least this last step has to happen in the
-// thread where the server actually should run.
-// Also we want to listen before any run has been started and thus
-// using beginRun() to start listening for connections is too late.
-// Procedure as I think it could work:
-// MVMEContext is created, creates a server object, configures the
-// listening port and interface, moves the object to the analysis
-// thread, starts the analysis thread and then invokes a
-// startListening() method on this object.
-// Additional issue: what about the logger? On every beginRun a logger
-// is passed in but we'd like to have one even before that.
-
 class AnalysisDataServer: public QObject, public IMVMEStreamModuleConsumer
 {
     Q_OBJECT

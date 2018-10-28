@@ -1,6 +1,8 @@
 #ifndef __RUN_INFO_H__
 #define __RUN_INFO_H__
 
+#include <QString>
+
 /* Information about the current DAQ run or the run that's being replayed from
  * a listfile. */
 struct RunInfo

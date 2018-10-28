@@ -63,6 +63,13 @@ struct PipeVectors
     ParamVec data;
     ParamVec lowerLimits;
     ParamVec upperLimits;
+
+    inline ParamVec::size_type size() const
+    {
+        assert(data.size == lowerLimits.size);
+        assert(data.size == upperLimits.size);
+        return data.size;
+    }
 };
 
 /* ===============================================

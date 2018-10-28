@@ -1960,6 +1960,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         void setModified(bool b = true);
 
         A2AdapterState *getA2AdapterState() { return m_a2State.get(); }
+        const A2AdapterState *getA2AdapterState() const { return m_a2State.get(); }
 
         RunInfo getRunInfo() const { return m_runInfo; }
 
