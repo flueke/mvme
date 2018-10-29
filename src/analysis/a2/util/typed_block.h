@@ -10,6 +10,7 @@ struct TypedBlock
 {
     typedef SizeType size_type;
     typedef T value_type;
+
     static constexpr auto size_max = std::numeric_limits<size_type>::max();
     static constexpr size_t element_size = sizeof(value_type);
 

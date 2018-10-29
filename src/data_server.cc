@@ -56,11 +56,10 @@ struct AnalysisDataServer::Private
 namespace
 {
 
-void write_data(QIODevice &out, const char *data, size_t size)
+qint64 write_data(QIODevice &out, const char *data, size_t size)
 {
     const char *curPtr = data;
     const char *endPtr = data + size;
-    qint64 written = 0;
 
     while (curPtr < endPtr)
     {
@@ -73,31 +72,39 @@ void write_data(QIODevice &out, const char *data, size_t size)
 
         curPtr += written;
     }
+
+    assert(curPtr == endPtr);
+
+    return curPtr - data;
 }
 
 /* Write a Plain-Old-Data type to the output device. */
 template<typename T>
-void write_pod(QIODevice &out, const T &t)
+qint64 write_pod(QIODevice &out, const T &t)
 {
-    write_data(out, reinterpret_cast<const char *>(&t), sizeof(T));
+    return write_data(out, reinterpret_cast<const char *>(&t), sizeof(T));
 }
 
 /* Write header and size information, not contents. */
-void write_message_header(QIODevice &out, MessageType type, u32 size)
+qint64 write_message_header(QIODevice &out, MessageType type, u32 size)
 {
-    write_pod(out, type);
-    write_pod(out, size);
+    qint64 result = 0;
+    result += write_pod(out, type);
+    result += write_pod(out, size);
+    return result;
 }
 
-void write_message(QIODevice &out, MessageType type, const char *data, u32 size)
+qint64 write_message(QIODevice &out, MessageType type, const char *data, u32 size)
 {
-    write_message_header(out, type, size);
-    write_data(out, data, size);
+    qint64 result = 0;
+    result += write_message_header(out, type, size);
+    result += write_data(out, data, size);
+    return result;
 }
 
-void write_message(QIODevice &out, MessageType type, const QByteArray &contents)
+qint64 write_message(QIODevice &out, MessageType type, const QByteArray &contents)
 {
-    write_message(out, type, contents.data(), contents.size());
+    return write_message(out, type, contents.data(), contents.size());
 }
 
 } // end anon namespace
@@ -119,7 +126,7 @@ void AnalysisDataServer::Private::handleNewConnection()
         });
 
         // Empty "Hello" message
-        write_message(*clientInfo.socket, MessageType::Hello, {});
+        write_message(*clientInfo.socket, MessageType::Hello, "mvme analysis data server");
 
         m_clients.emplace_back(std::move(clientInfo));
     }
@@ -218,6 +225,8 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
 {
     if (!(analysis->getA2AdapterState() && analysis->getA2AdapterState()->a2))
         return;
+
+    setLogger(logger);
 
     m_d->m_runContext =
     {
@@ -338,6 +347,7 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
 
     if (!dataSourceCount) return;
 
+    // pre calculate the output message size. TODO: this should be cached.
     u32 msgSize = sizeof(u32); // eventIndex
 
     for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
@@ -347,58 +357,85 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
         // data source index, length of the data source output in bytes
         msgSize += sizeof(u32) + sizeof(u32);
         // size of the output * sizeof(double)
-        msgSize += ds->output.size() * sizeof(ds->output.data.element_size);
+        msgSize += ds->output.size() * ds->output.data.element_size;
     }
 
     using namespace mvme::data_server;
 
-    // Write out the message preamble and calculated size, followed by the
+    // Write out the message header and calculated size, followed by the
     // eventindex to each client socket
+
+    // bytes in the preamble counted only once for all clients
+    qint64 preambleBytes = 0;
     for (auto &client: m_d->m_clients)
     {
-        write_message_header(*client.socket, MessageType::EventData, msgSize);
-        write_pod(*client.socket, static_cast<u32>(eventIndex));
+        if (preambleBytes == 0)
+        {
+            preambleBytes += write_message_header(*client.socket, MessageType::EventData, msgSize);
+            preambleBytes += write_pod(*client.socket, static_cast<u32>(eventIndex));
+        }
     }
 
     // Iterate through module data sources and send out the extracted values to
     // each connected client.
-    // type: EventData
-    // crateIndex <- not yet
-    // eventIndex
+    // Format is:
+    // MessageType::EventData
+    // u32 eventIndex
     // for each dataSource:
-    //  dataSourceIndex
-    //  double values from the data pipe
+    //  u32 dataSourceIndex
+    //  u32 data size in bytes
+    //  data values (doubles) from the data pipe
+
+    qint64 totalBytesInMsg = preambleBytes;
+
     for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
     {
-        a2::DataSource *a2_dataSource = a2->dataSources[eventIndex] + dsIndex;
-        const a2::PipeVectors &dataPipe = a2_dataSource->output;
+        a2::DataSource *ds = a2->dataSources[eventIndex] + dsIndex;
+        const a2::PipeVectors &dataPipe = ds->output;
 
-        u32 bytesToWrite = dataPipe.size() * sizeof(dataPipe.data.element_size);
+        bool firstClient = true;
 
         for (auto &client: m_d->m_clients)
         {
+            auto dBegin = reinterpret_cast<const char *>(dataPipe.data.begin());
+            auto dEnd   = reinterpret_cast<const char *>(dataPipe.data.end());
+            const u32 bytesToWrite = dEnd - dBegin;
+            u32 bytesWritten = 0;
+
             // Note: technically the size does not need to be transmitted
             // again. The client got the information about the indiviudal
             // outputs sizes in the BeginRun message. This information is here
             // for consistency checks only.
-            write_pod(*client.socket, dsIndex);
-            write_pod(*client.socket, static_cast<u32>(dataPipe.size()));
+            bytesWritten += write_pod(*client.socket, dsIndex);
+            bytesWritten += write_pod(*client.socket, bytesToWrite);
+            bytesWritten += write_data(*client.socket, dBegin, bytesToWrite);
 
-            auto dBegin = reinterpret_cast<const char *>(dataPipe.data.begin());
-            auto dEnd   = reinterpret_cast<const char *>(dataPipe.data.end());
-
-            assert(dBegin + bytesToWrite == dEnd);
-
-            write_data(*client.socket, dBegin, bytesToWrite);
+            if (firstClient)
+            {
+                firstClient = false;
+                totalBytesInMsg += bytesWritten;
+            }
         }
     }
 
-    qDebug() << __PRETTY_FUNCTION__ << "sent out data for eventIndex =" << eventIndex
-        << ", msgSize=" << msgSize;
+
+    if (!m_d->m_clients.empty())
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "msgSize =" << msgSize
+            << " totalBytesInMsg =" << totalBytesInMsg;
+        assert(totalBytesInMsg == msgSize);
+        qDebug() << __PRETTY_FUNCTION__ << "sent out data for eventIndex =" << eventIndex
+            << ", msgSize=" << msgSize;
+    }
 }
 
 void AnalysisDataServer::endRun(const std::exception *e)
 {
+    for (auto &clientInfo: m_d->m_clients)
+    {
+        write_message(*clientInfo.socket, MessageType::EndRun, {});
+    }
+
     m_d->m_runContext = {};
 }
 
