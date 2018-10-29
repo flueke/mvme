@@ -16,12 +16,11 @@ namespace
 struct ClientInfo
 {
     std::unique_ptr<QTcpSocket> socket;
-    std::unique_ptr<QDataStream> stream;
-
-    QDataStream &out() { return *stream; }
 };
 
 } // end anon namespace
+
+using namespace mvme::data_server;
 
 struct AnalysisDataServer::Private
 {
@@ -54,15 +53,64 @@ struct AnalysisDataServer::Private
     void logMessage(const QString &msg);
 };
 
+namespace
+{
+
+void write_data(QIODevice &out, const char *data, size_t size)
+{
+    const char *curPtr = data;
+    const char *endPtr = data + size;
+    qint64 written = 0;
+
+    while (curPtr < endPtr)
+    {
+        qint64 written = out.write(data, size);
+
+        if (written < 0)
+        {
+            throw std::runtime_error("write_data failed (FIXME: this needs information");
+        }
+
+        curPtr += written;
+    }
+}
+
+/* Write a Plain-Old-Data type to the output device. */
+template<typename T>
+void write_pod(QIODevice &out, const T &t)
+{
+    write_data(out, reinterpret_cast<const char *>(&t), sizeof(T));
+}
+
+/* Write header and size information, not contents. */
+void write_message_header(QIODevice &out, MessageType type, u32 size)
+{
+    write_pod(out, type);
+    write_pod(out, size);
+}
+
+void write_message(QIODevice &out, MessageType type, const char *data, u32 size)
+{
+    write_message_header(out, type, size);
+    write_data(out, data, size);
+}
+
+void write_message(QIODevice &out, MessageType type, const QByteArray &contents)
+{
+    write_message(out, type, contents.data(), contents.size());
+}
+
+} // end anon namespace
+
 void AnalysisDataServer::Private::handleNewConnection()
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 
     if (auto clientSocket = m_server.nextPendingConnection())
     {
-        ClientInfo clientInfo = { std::unique_ptr<QTcpSocket>(clientSocket),
-            std::make_unique<QDataStream>(clientSocket) };
+        ClientInfo clientInfo = { std::unique_ptr<QTcpSocket>(clientSocket) };
 
+        // ugly connect due to overloaded QAbstractSocket::error() method
         connect(clientInfo.socket.get(),
                 static_cast<void (QAbstractSocket::*)(QAbstractSocket::SocketError)>(
                     &QAbstractSocket::error),
@@ -70,7 +118,8 @@ void AnalysisDataServer::Private::handleNewConnection()
                     handleClientSocketError(clientSocket, error);
         });
 
-        clientInfo.out() << "mvme data server\n";
+        // Empty "Hello" message
+        write_message(*clientInfo.socket, MessageType::Hello, {});
 
         m_clients.emplace_back(std::move(clientInfo));
     }
@@ -203,7 +252,6 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
 
         for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
         {
-
             auto a2_dataSource = a2->dataSources[eventIndex] + dsIndex;
             auto a1_dataSource = ctx.adapterState->sourceMap.value(a2_dataSource);
             s32 moduleIndex = a2_dataSource->moduleIndex;
@@ -264,25 +312,21 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
     outputInfo["eventTree"] = eventTree;
 
     QJsonDocument doc(outputInfo);
-    auto json = doc.toJson();
+    QByteArray json = doc.toJson();
+
+    qDebug() << __PRETTY_FUNCTION__ << "beginRunInfo to be sent to clients:" << endl
+        << json;
 
     using namespace mvme::data_server;
 
     for (auto &client: m_d->m_clients)
     {
-        client.out() << MessageType::BeginRun
-            << static_cast<u32>(json.size())
-            << json;
+        write_message(*client.socket, MessageType::BeginRun, json);
     }
 }
 
 void AnalysisDataServer::endEvent(s32 eventIndex)
 {
-    //for (auto &client: m_d->m_clients)
-    //{
-    //    client.out() << QString("data for event %1").arg(eventIndex);
-    //}
-
     if (!m_d->m_runContext.a2 || eventIndex < 0 || eventIndex >= a2::MaxVMEEvents)
     {
         InvalidCodePath;
@@ -290,33 +334,68 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
     }
 
     const a2::A2 *a2 = m_d->m_runContext.a2;
+    const u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
 
-    // TODO: iterate through module data sources and send out the extracted
-    // values to each connected client
-    for (size_t dsIndex = 0; dsIndex < a2->dataSourceCounts[eventIndex]; dsIndex++)
+    if (!dataSourceCount) return;
+
+    u32 msgSize = sizeof(u32); // eventIndex
+
+    for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
     {
-        auto dataSource = a2->dataSources[eventIndex] + dsIndex;
-        auto dataPipe = dataSource->output;
-        u16 crateIndex = 0;
-        u32 moduleIndex = dataSource->moduleIndex;
+        auto ds = a2->dataSources[eventIndex] + dsIndex;
 
-        // TODO: figure out what has to be done to guarantee a fixed data
-        // source order.  Info sent out to the client in beginRun has to match
-        // this here. Can probably use the natural A2 order and lookup config
-        // info using A2AdapterState::sourceMap
-        //
-        // send out message to all clients:
-        // size: sizeof(crateIndex) + sizeof(eventIndex) + sizeof(moduleIndex) + sizeof(dataSourceIndex)
-        //       + dataPipe.data.size() * sizeof(double)
-        // type: EventData
-        // crateIndex
-        // eventIndex
-        // moduleIndex
-        // dataSourceIndex
-        // double values from the data pipe
+        // data source index, length of the data source output in bytes
+        msgSize += sizeof(u32) + sizeof(u32);
+        // size of the output * sizeof(double)
+        msgSize += ds->output.size() * sizeof(ds->output.data.element_size);
     }
-}
 
+    using namespace mvme::data_server;
+
+    // Write out the message preamble and calculated size, followed by the
+    // eventindex to each client socket
+    for (auto &client: m_d->m_clients)
+    {
+        write_message_header(*client.socket, MessageType::EventData, msgSize);
+        write_pod(*client.socket, static_cast<u32>(eventIndex));
+    }
+
+    // Iterate through module data sources and send out the extracted values to
+    // each connected client.
+    // type: EventData
+    // crateIndex <- not yet
+    // eventIndex
+    // for each dataSource:
+    //  dataSourceIndex
+    //  double values from the data pipe
+    for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
+    {
+        a2::DataSource *a2_dataSource = a2->dataSources[eventIndex] + dsIndex;
+        const a2::PipeVectors &dataPipe = a2_dataSource->output;
+
+        u32 bytesToWrite = dataPipe.size() * sizeof(dataPipe.data.element_size);
+
+        for (auto &client: m_d->m_clients)
+        {
+            // Note: technically the size does not need to be transmitted
+            // again. The client got the information about the indiviudal
+            // outputs sizes in the BeginRun message. This information is here
+            // for consistency checks only.
+            write_pod(*client.socket, dsIndex);
+            write_pod(*client.socket, static_cast<u32>(dataPipe.size()));
+
+            auto dBegin = reinterpret_cast<const char *>(dataPipe.data.begin());
+            auto dEnd   = reinterpret_cast<const char *>(dataPipe.data.end());
+
+            assert(dBegin + bytesToWrite == dEnd);
+
+            write_data(*client.socket, dBegin, bytesToWrite);
+        }
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "sent out data for eventIndex =" << eventIndex
+        << ", msgSize=" << msgSize;
+}
 
 void AnalysisDataServer::endRun(const std::exception *e)
 {
@@ -339,11 +418,5 @@ void AnalysisDataServer::processModuleData(s32 eventIndex, s32 moduleIndex,
 
 void AnalysisDataServer::processTimetick()
 {
-    // TODO: what to do about these?
-#if 0
-    for (auto &client: m_d->m_clients)
-    {
-        client.out() << "timetick";
-    }
-#endif
+    // TODO: how to handle timeticks?
 }

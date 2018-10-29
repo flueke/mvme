@@ -10,25 +10,21 @@ namespace data_server
 
 enum MessageType: int
 {
-    Invalid,
-    Status,
+    Invalid = 0,
+    Hello,
     BeginRun,
+    EventData,
     EndRun,
-    BeginEvent,
-    EndEvent,
-    ModuleData,
-    Timetick,
 
     MessageTypeCount
 };
 
 #if 0
-struct Message
+struct MessageHeader
 {
     MessageType type;
     uint32_t size;
-    unsigned char *data;
-} __attribute__((packed));
+}; // __attribute__((packed));
 #endif
 
 } // end namespace data_server
