@@ -170,35 +170,37 @@ struct DataSource
 {
     std::string name;           // Name of the data source.
     int moduleIndex = -1;       // The index of the module this data source is attached to.
-    double lowerLimit = 0.0;    // Lower and upper limits of the parameter values output
-    double upperLimit = 0.0;    // by this data source.
+    double lowerLimit = 0.0;    // Lower and upper limits of the values produced by the datasource.
+    double upperLimit = 0.0;    // 
     uint32_t size = 0u;         // Number of elements in the output of this data source.
     uint32_t bytes = 0u;        // Total number of bytes the output of the data source requires.
 
-    struct Offsets
-    {
-        uint32_t index = 0;
-        uint32_t bytes = 0; // index + 4
-        uint32_t dataBegin = 0;  // bytes + 4
-        uint32_t dataEnd = 0; // dataBegin + size
-    };
 };
 
-struct EventDataSources
+struct EventDataDescription
 {
+    // Offsets for a datasource from the beginning of the message contents in
+    // bytes.
+    struct Offsets
+    {
+        uint32_t index = 0;         // the index value of this datasource (consistency check)
+        uint32_t bytes = 0;         // index + 4 (consistency check with DataSource::bytes)
+        uint32_t dataBegin = 0;     // bytes + 4
+        uint32_t dataEnd = 0;       // dataBegin + DataSource::bytes
+    };
+
     int eventIndex = -1;
 
     // Data sources that are part of the readout of this event.
     std::vector<DataSource> dataSources;
 
-    // Offset to the data for each DataSource in bytes, counted from the start
-    // of message contents. Each entry contains the begin and "one past end" offsets.
-    std::vector<std::pair<uint32_t, uint32_t>> dataOffsets;
+    // Offsets for each data source in this event
+    std::vector<Offsets> dataSourceOffsets;
 };
 
-struct StreamInfo
+struct StreamDataDescription
 {
-    std::vector<EventDataSources> dataSources;
+    std::vector<EventDataDescription> eventData;
 };
 
 struct VMEModule
@@ -220,13 +222,13 @@ struct VMETree
     std::vector<VMEEvent> events;
 };
 
-std::vector<EventDataSources> parse_data_sources(const json &j)
+StreamDataDescription parse_stream_data_description(const json &j)
 {
-    std::vector<EventDataSources> result;
+    std::vector<EventDataDescription> result;
 
     for (const auto &eventJ: j)
     {
-        EventDataSources eds;
+        EventDataDescription eds;
 
         eds.eventIndex = eventJ["eventIndex"];
 
@@ -247,14 +249,36 @@ std::vector<EventDataSources> parse_data_sources(const json &j)
     }
 
     // Calculate buffer offsets for data sources
-    for (auto &eds: result)
+
+    for (auto &edd: result)
     {
-        for (const auto &ds: eds.dataSources)
+        // Start from 0 for each event contained in the description. This is
+        // because a single message of MessageType::EventData contains data for
+        // one specific event only.
+        // The very first elements in the message contents will be the index of
+        // the transmitted data source, followed by the number of bytes used
+        // (both redundant and only used for checks)
+        uint32_t currentOffset = 0;
+        edd.dataSourceOffsets.reserve(edd.dataSources.size());
+
+        for (const auto &ds: edd.dataSources)
         {
+            EventDataDescription::Offsets offsets;
+
+            offsets.index = currentOffset; currentOffset += sizeof(uint32_t);
+            offsets.bytes = currentOffset; currentOffset += sizeof(uint32_t);
+            offsets.dataBegin = currentOffset;
+            offsets.dataEnd = currentOffset + ds.bytes;
+
+            currentOffset = offsets.dataEnd;
+
+            edd.dataSourceOffsets.emplace_back(offsets);
         }
+
+        assert(edd.dataSources.size() == edd.dataSourceOffsets.size());
     }
 
-    return result;
+    return StreamDataDescription { result };
 }
 
 VMETree parse_vme_tree(const json &j)
@@ -289,8 +313,8 @@ struct DataServerClientContext
     {
         std::string runId;
         bool isReplay = false;
+        StreamDataDescription streamInfo;
         VMETree vmeTree;
-        StreamInfo streamInfo;
     };
 
     RunInfo runInfo;
@@ -326,7 +350,7 @@ DEF_MESSAGE_HANDLER(begin_run)
 
     ctx.runInfo.runId = j["runId"];
     ctx.runInfo.vmeTree = parse_vme_tree(j["vmeTree"]);
-    ctx.runInfo.eventDataSources = parse_data_sources(j["eventDataSources"]);
+    ctx.runInfo.streamInfo = parse_stream_data_description(j["eventDataSources"]);
 }
 
 DEF_MESSAGE_HANDLER(event_data)
