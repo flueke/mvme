@@ -1,21 +1,22 @@
 #include <QCoreApplication>
-#include "mvme_listfile_utils.h"
-#include "vme_config.h"
-#include "mvme_root_data_writer.h"
-#include "mvme_stream_processor.h"
-#include "analysis/analysis.h"
-#include "analysis/analysis_session.h"
-#include "util/strings.h"
-#include "util/counters.h"
-
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QThread>
 
 #include <fstream>
 #include <array>
 #include <iostream>
 #include <getopt.h>
 #include <signal.h>
+
+#include "analysis/analysis.h"
+#include "analysis/analysis_session.h"
+#include "data_server.h"
+#include "mvme_listfile_utils.h"
+#include "mvme_stream_processor.h"
+#include "util/counters.h"
+#include "util/strings.h"
+#include "vme_config.h"
 
 using std::cout;
 using std::cerr;
@@ -60,9 +61,7 @@ struct Context
     u32 listfileVersion;
     MVMEStreamProcessor::Logger logger;
     MVMEStreamProcessor streamProcessor;
-#ifdef MVME_ENABLE_ROOT
-    mvme_root::RootDataWriter rootWriter;
-#endif
+    std::unique_ptr<AnalysisDataServer> dataServer;
 };
 
 void process_listfile(Context &context, ListFile *listfile)
@@ -70,10 +69,6 @@ void process_listfile(Context &context, ListFile *listfile)
     assert(listfile);
 
     DataBuffer sectionBuffer(Megabytes(1));
-
-#ifdef MVME_ENABLE_ROOT
-    context.streamProcessor.attachModuleConsumer(&context.rootWriter);
-#endif
 
     context.streamProcessor.beginRun(
         context.runInfo,
@@ -96,6 +91,8 @@ void process_listfile(Context &context, ListFile *listfile)
             break;
 
         context.streamProcessor.processDataBuffer(&sectionBuffer);
+        // This is needed for the sockets used in the analysis data server to work.
+        qApp->processEvents(QEventLoop::AllEvents);
     }
 
     context.streamProcessor.endRun();
@@ -105,6 +102,7 @@ void process_listfile(Context &context, ListFile *listfile)
 
 void load_analysis_config(const QString &filename, Analysis *analysis, VMEConfig *vmeConfig = nullptr)
 {
+    assert(analysis);
     QFile infile(filename);
 
     if (!infile.open(QIODevice::ReadOnly))
@@ -142,6 +140,7 @@ int main(int argc, char *argv[])
     QString analysisFilename;
     QString sessionOutFilename;
     bool showHelp = false;
+    bool enableAnalysisServer = false;
 
     while (true)
     {
@@ -149,6 +148,7 @@ int main(int argc, char *argv[])
             { "listfile",               required_argument,      nullptr,    0 },
             { "analysis",               required_argument,      nullptr,    0 },
             { "session-out",            required_argument,      nullptr,    0 },
+            { "enable-analysis-server", no_argument,            nullptr,    0 },
             { "help",                   no_argument,            nullptr,    0 },
             { nullptr, 0, nullptr, 0 },
         };
@@ -161,18 +161,26 @@ int main(int argc, char *argv[])
 
         QString opt_name(long_options[option_index].name);
 
-        if (opt_name == "listfile") { listfileFilename = QString(optarg); }
-        if (opt_name == "analysis") { analysisFilename = QString(optarg); }
+        if (opt_name == "listfile")                 { listfileFilename = QString(optarg); }
+        if (opt_name == "analysis")                 { analysisFilename = QString(optarg); }
+        if (opt_name == "enable-analysis-server")   { enableAnalysisServer = true; }
+        if (opt_name == "help")                     { showHelp = true; }
 #ifdef MVME_ENABLE_HDF5
-        if (opt_name == "session-out") { sessionOutFilename = QString(optarg); }
+        if (opt_name == "session-out")              { sessionOutFilename = QString(optarg); }
 #endif
-        if (opt_name == "help") { showHelp = true; }
     }
 
     if (showHelp)
     {
-        cout << "Usage: " << argv[0] << " --listfile <filename> [--analysis <filename>] [--session-out <filename>]" << endl;
-        cout << "Example: " << argv[0] << " --listfile myfile.mvmelst --analysis example.analysis --session-out mysession.hdf5" << endl;
+        cout << "Usage: " << argv[0]
+            << " --listfile <filename> [--analysis <filename>]"
+            << " [--session-out <filename>] [--enable-analysis-server]"
+            << endl;
+
+        cout << "Example: " << argv[0]
+            << " --listfile example_listfile.zip --analysis example.analysis"
+            << " --session-out mysession.hdf5"
+            << endl;
 
         return 0;
     }
@@ -209,11 +217,45 @@ int main(int argc, char *argv[])
         context.listfileVersion = openResult.listfile->getFileVersion();
         context.logger = logger;
 
+        if (enableAnalysisServer)
+        {
+            context.dataServer = std::make_unique<AnalysisDataServer>();
+            context.dataServer->setLogger(logger);
+            context.streamProcessor.attachModuleConsumer(context.dataServer.get());
+        }
+
+        context.streamProcessor.startup();
+
+#if 1
+        if (enableAnalysisServer)
+        {
+            assert(context.dataServer->isListening());
+            qDebug() << "waiting for client to connect...";
+
+            while (context.dataServer->getNumberOfClients() == 0)
+            {
+                app.processEvents(QEventLoop::AllEvents | QEventLoop::WaitForMoreEvents);
+            }
+
+        }
+#endif
+
         qDebug() << "processing listfile" << listfileFilename << "...";
 
         process_listfile(context, openResult.listfile.get());
 
         qDebug() << "process_listfile() returned";
+
+        if (enableAnalysisServer && context.dataServer->getNumberOfClients() > 0)
+        {
+            assert(context.dataServer->isListening());
+            qDebug() << "waiting for clients to disconnect...";
+
+            while (context.dataServer->getNumberOfClients() > 0)
+            {
+                app.processEvents(QEventLoop::AllEvents | QEventLoop::WaitForMoreEvents);
+            }
+        }
 
         auto counters = context.streamProcessor.getCounters();
 
