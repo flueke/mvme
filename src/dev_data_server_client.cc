@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-// XXX: datasource datatype ignored for now. only arrays of double can be sent/received at the moment
+// NOTE: datasource datatype ignored for now. only arrays of double can be sent/received at the moment
 
 using namespace mvme::data_server;
 using std::cerr;
@@ -174,6 +174,14 @@ struct DataSource
     double upperLimit = 0.0;    // by this data source.
     uint32_t size = 0u;         // Number of elements in the output of this data source.
     uint32_t bytes = 0u;        // Total number of bytes the output of the data source requires.
+
+    struct Offsets
+    {
+        uint32_t index = 0;
+        uint32_t bytes = 0; // index + 4
+        uint32_t dataBegin = 0;  // bytes + 4
+        uint32_t dataEnd = 0; // dataBegin + size
+    };
 };
 
 struct EventDataSources
@@ -186,6 +194,11 @@ struct EventDataSources
     // Offset to the data for each DataSource in bytes, counted from the start
     // of message contents. Each entry contains the begin and "one past end" offsets.
     std::vector<std::pair<uint32_t, uint32_t>> dataOffsets;
+};
+
+struct StreamInfo
+{
+    std::vector<EventDataSources> dataSources;
 };
 
 struct VMEModule
@@ -277,7 +290,7 @@ struct DataServerClientContext
         std::string runId;
         bool isReplay = false;
         VMETree vmeTree;
-        std::vector<EventDataSources> eventDataSources;
+        StreamInfo streamInfo;
     };
 
     RunInfo runInfo;
