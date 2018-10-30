@@ -93,7 +93,10 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         MVMEStreamProcessor();
         ~MVMEStreamProcessor();
 
+        // Invokes startup() on attached module and buffer consumers.
         void startup();
+
+        // Invokes shutdown() on attached module and buffer consumers.
         void shutdown();
 
         //

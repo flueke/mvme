@@ -31,9 +31,10 @@ struct AnalysisDataServer::Private
 
     AnalysisDataServer *m_q;
     QTcpServer m_server;
-    QHostAddress m_listenAddress;
-    quint16 m_listenPort;
+    QHostAddress m_listenAddress = QHostAddress::Any;
+    quint16 m_listenPort = AnalysisDataServer::Default_ListenPort;
     AnalysisDataServer::Logger m_logger;
+    quint64 m_writeThreshold = AnalysisDataServer::Default_WriteThresholdBytes;
 
     std::vector<ClientInfo> m_clients;
 
@@ -104,7 +105,8 @@ qint64 write_message(QIODevice &out, MessageType type, const char *data, u32 siz
 
 qint64 write_message(QIODevice &out, MessageType type, const QByteArray &contents)
 {
-    return write_message(out, type, contents.data(), contents.size());
+    return write_message(out, type, contents.data(),
+                         static_cast<u32>(contents.size()));
 }
 
 } // end anon namespace
@@ -218,6 +220,21 @@ bool AnalysisDataServer::isListening() const
     return m_d->m_server.isListening();
 }
 
+size_t AnalysisDataServer::getNumberOfClients() const
+{
+    return m_d->m_clients.size();
+}
+
+void AnalysisDataServer::setWriteThresholdBytes(qint64 threshold)
+{
+    m_d->m_writeThreshold = threshold;
+}
+
+qint64 AnalysisDataServer::getWriteThresholdBytes() const
+{
+    return m_d->m_writeThreshold;
+}
+
 void AnalysisDataServer::beginRun(const RunInfo &runInfo,
               const VMEConfig *vmeConfig,
               const analysis::Analysis *analysis,
@@ -249,7 +266,7 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
     auto &ctx = m_d->m_runContext;
     const a2::A2 *a2 = ctx.a2;
 
-    QJsonArray eventOutputStructure;
+    QJsonArray eventDataSources;
 
     for (s32 eventIndex = 0; eventIndex < a2::MaxVMEEvents; eventIndex++)
     {
@@ -269,11 +286,15 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
                 << "a2_ds=" << a2_dataSource << ", a1_dataSource=" << a1_dataSource
                 << "a2_ds_moduleIndex=" << moduleIndex;
 
+            qint64 output_size  = a2_dataSource->output.size();
+            qint64 output_bytes = output_size * a2_dataSource->output.data.element_size;
+
             QJsonObject dsInfo;
             dsInfo["name"] = a1_dataSource->objectName();
             dsInfo["moduleIndex"] = moduleIndex;
             dsInfo["datatype"] = "double";
-            dsInfo["output_size"] = a2_dataSource->output.size();
+            dsInfo["output_size"]  = output_size;
+            dsInfo["output_bytes"] = output_bytes;
             dsInfo["output_lowerLimit"] = a2_dataSource->output.lowerLimits[0];
             dsInfo["output_upperLimit"] = a2_dataSource->output.upperLimits[0];
 
@@ -283,10 +304,10 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
         QJsonObject eventInfo;
         eventInfo["eventIndex"] = eventIndex;
         eventInfo["dataSources"] = dataSourceInfos;
-        eventOutputStructure.append(eventInfo);
+        eventDataSources.append(eventInfo);
     }
 
-    QJsonArray eventTree;
+    QJsonArray vmeTree;
 
     for (s32 eventIndex = 0; eventIndex < a2::MaxVMEEvents; eventIndex++)
     {
@@ -311,14 +332,14 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
         eventInfo["eventIndex"] = eventIndex;
         eventInfo["modules"] = moduleInfos;
         eventInfo["name"] = eventConfig->objectName();
-        eventTree.append(eventInfo);
+        vmeTree.append(eventInfo);
     }
 
     QJsonObject outputInfo;
     outputInfo["runId"] = ctx.runInfo.runId;
     outputInfo["isReplay"] = ctx.runInfo.isReplay;
-    outputInfo["eventOutputs"] = eventOutputStructure;
-    outputInfo["eventTree"] = eventTree;
+    outputInfo["eventDataSources"] = eventDataSources;
+    outputInfo["vmeTree"] = vmeTree;
 
     QJsonDocument doc(outputInfo);
     QByteArray json = doc.toJson();
@@ -345,7 +366,7 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
     const a2::A2 *a2 = m_d->m_runContext.a2;
     const u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
 
-    if (!dataSourceCount) return;
+    if (!dataSourceCount || !getNumberOfClients()) return;
 
     // pre calculate the output message size. TODO: this should be cached.
     u32 msgSize = sizeof(u32); // eventIndex
@@ -365,15 +386,10 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
     // Write out the message header and calculated size, followed by the
     // eventindex to each client socket
 
-    // bytes in the preamble counted only once for all clients
-    qint64 preambleBytes = 0;
     for (auto &client: m_d->m_clients)
     {
-        if (preambleBytes == 0)
-        {
-            preambleBytes += write_message_header(*client.socket, MessageType::EventData, msgSize);
-            preambleBytes += write_pod(*client.socket, static_cast<u32>(eventIndex));
-        }
+        write_message_header(*client.socket, MessageType::EventData, msgSize);
+        write_pod(*client.socket, static_cast<u32>(eventIndex));
     }
 
     // Iterate through module data sources and send out the extracted values to
@@ -386,46 +402,34 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
     //  u32 data size in bytes
     //  data values (doubles) from the data pipe
 
-    qint64 totalBytesInMsg = preambleBytes;
-
     for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
     {
         a2::DataSource *ds = a2->dataSources[eventIndex] + dsIndex;
         const a2::PipeVectors &dataPipe = ds->output;
 
-        bool firstClient = true;
-
         for (auto &client: m_d->m_clients)
         {
             auto dBegin = reinterpret_cast<const char *>(dataPipe.data.begin());
             auto dEnd   = reinterpret_cast<const char *>(dataPipe.data.end());
-            const u32 bytesToWrite = dEnd - dBegin;
-            u32 bytesWritten = 0;
+            const u32 dataBytesToWrite = dEnd - dBegin;
 
             // Note: technically the size does not need to be transmitted
             // again. The client got the information about the indiviudal
             // outputs sizes in the BeginRun message. This information is here
             // for consistency checks only.
-            bytesWritten += write_pod(*client.socket, dsIndex);
-            bytesWritten += write_pod(*client.socket, bytesToWrite);
-            bytesWritten += write_data(*client.socket, dBegin, bytesToWrite);
-
-            if (firstClient)
-            {
-                firstClient = false;
-                totalBytesInMsg += bytesWritten;
-            }
+            write_pod(*client.socket, dsIndex);
+            write_pod(*client.socket, dataBytesToWrite);
+            write_data(*client.socket, dBegin, dataBytesToWrite);
         }
     }
 
-
-    if (!m_d->m_clients.empty())
+    // Check write treshold for each client and block if necessary
+    for (auto &client: m_d->m_clients)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "msgSize =" << msgSize
-            << " totalBytesInMsg =" << totalBytesInMsg;
-        assert(totalBytesInMsg == msgSize);
-        qDebug() << __PRETTY_FUNCTION__ << "sent out data for eventIndex =" << eventIndex
-            << ", msgSize=" << msgSize;
+        if (client.socket->bytesToWrite() > getWriteThresholdBytes())
+        {
+            client.socket->waitForBytesWritten();
+        }
     }
 }
 
