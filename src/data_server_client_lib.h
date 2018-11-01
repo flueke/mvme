@@ -34,6 +34,7 @@ static void read_data(int fd, uint8_t *dest, size_t size)
     while (size > 0)
     {
         ssize_t bytesRead = read(fd, dest, size);
+
         if (bytesRead < 0)
         {
             throw std::system_error(errno, std::generic_category(), "read_data");
@@ -101,7 +102,7 @@ static void read_message(int fd, Message &msg)
 static int connect_to(const char *host, const char *service)
 {
     // Note (flueke): The following code was taken from the example in `man 3
-    // getaddrinfo' on a linux machine and slightly modified.
+    // getaddrinfo' on a linux machine and modified to throw on error.
 
     struct addrinfo hints;
     struct addrinfo *result, *rp;
@@ -158,21 +159,24 @@ static int connect_to(const char *host, uint16_t port)
 }
 
 // Description of a datasource contained in the data stream. Multiple data
-// sources can be part of the same event and multiple data sources can be
+// sources can be part of the same event and multiple datasources can be
 // attached to the same vme module.
+// Currently the only data type a datasource can contain is an array of double
+// values, so no type information is stored here yet.
 struct DataSourceDescription
 {
-    std::string name;           // Name of the data source.
-    int moduleIndex = -1;       // The index of the module this data source is attached to.
+    std::string name;           // Name of the datasource.
+    int moduleIndex = -1;       // The index of the module this datasource is attached to.
     double lowerLimit = 0.0;    // Lower and upper limits of the values produced by the datasource.
     double upperLimit = 0.0;    //
-    uint32_t size = 0u;         // Number of elements in the output of this data source.
-    uint32_t bytes = 0u;        // Total number of bytes the output of the data source requires.
+    uint32_t size = 0u;         // Number of elements in the output array of this datasource.
+    uint32_t bytes = 0u;        // Total number of bytes the output of the datasource requires.
 };
 
 // Description of the data layout for one mvme event. This contains all the
-// datasources attached to the event. Additionally byte offsets to parts of the
-// data are calculated for each datasources.
+// datasources attached to the event.
+// Additionally byte offsets into the contents of an EventData-type message are
+// calculated and stored for each datasource.
 struct EventDataDescription
 {
     // Offsets for a datasource from the beginning of the message contents in
@@ -187,15 +191,15 @@ struct EventDataDescription
 
     int eventIndex = -1;
 
-    // Data sources that are part of the readout of this event.
+    // Datasources that are part of the readout of this event.
     std::vector<DataSourceDescription> dataSources;
 
-    // Offsets for each data source in this event
+    // Offsets for each datasource in this event
     std::vector<Offsets> dataSourceOffsets;
 };
 
 // Per event data layout descriptions
-using StreamDataDescription = std::vector<EventDataDescription>;
+using EventDataDescriptions = std::vector<EventDataDescription>;
 
 // Structures describing the VME tree as configured inside mvme. This contains
 // the hierarchy of events and modules.
@@ -221,15 +225,15 @@ struct VMETree
 
 struct StreamInfo
 {
-    StreamDataDescription dataDescription;
+    EventDataDescriptions eventDescriptions;
     VMETree vmeTree;
     std::string runId;
     bool isReplay = false;
 };
 
-static StreamDataDescription parse_stream_data_description(const json &j)
+static EventDataDescriptions parse_stream_data_description(const json &j)
 {
-    StreamDataDescription result;
+    EventDataDescriptions result;
 
     for (const auto &eventJ: j)
     {
@@ -250,7 +254,7 @@ static StreamDataDescription parse_stream_data_description(const json &j)
         result.emplace_back(eds);
     }
 
-    // Calculate buffer offsets for data sources
+    // Calculate buffer offsets for datasources
     for (auto &edd: result)
     {
         // One Offset structure for each datasource
@@ -306,7 +310,7 @@ static StreamInfo parse_stream_info(const json &j)
     StreamInfo result;
 
     result.runId = j["runId"];
-    result.dataDescription = parse_stream_data_description(j["eventDataSources"]);
+    result.eventDescriptions = parse_stream_data_description(j["eventDataSources"]);
     result.vmeTree = parse_vme_tree(j["vmeTree"]);
 
     return result;
@@ -337,52 +341,42 @@ struct DataSourceContents
     const double *dataEnd = nullptr;
 };
 
-class ClientContext
+class Parser
 {
     public:
-        using BeginRunCallback  = std::function<void (const StreamInfo &streamInfo)>;
-        using EventDataCallback = std::function<void (int eventIndex,
-                                                      const std::vector<DataSourceContents> &contents)>;
-        using EndRunCallback    = std::function<void ()>;
-        using ErrorCallback     = std::function<void (const Message &msg, const std::exception &e)>;
-
-        void setCallbacks(BeginRunCallback beginRun,
-                          EventDataCallback eventData,
-                          EndRunCallback endRun,
-                          ErrorCallback error)
-        {
-            cb_beginRun = beginRun;
-            cb_eventData = eventData;
-            cb_endRun = endRun;
-            cb_error = error;
-        }
-
         void handleMessage(const Message &msg);
+        virtual ~Parser() {}
+
+    protected:
+        virtual void beginRun(const Message &msg, const StreamInfo &streamInfo) = 0;
+
+        virtual void eventData(const Message &msg, int eventIndex,
+                               const std::vector<DataSourceContents> &contents) = 0;
+
+        virtual void endRun(const Message &msg) = 0;
+
+        virtual void error(const Message &msg, const std::exception &e) = 0;
 
     private:
-        void begin_run(const Message &msg);
-        void event_data(const Message &msg);
-        void end_run(const Message &msg);
+        void _beginRun(const Message &msg);
+        void _eventData(const Message &msg);
+        void _endRun(const Message &msg);
 
-        BeginRunCallback cb_beginRun;
-        EventDataCallback cb_eventData;
-        EndRunCallback cb_endRun;
-        ErrorCallback cb_error;
         MessageType m_lastMsgType = MessageType::Invalid;
         StreamInfo m_streamInfo;
         std::vector<DataSourceContents> m_contentsVec;
 };
 
-void ClientContext::handleMessage(const Message &msg)
+void Parser::handleMessage(const Message &msg)
 {
     // TODO: check prev received message type and make sure the sequence is valid
     try
     {
         switch (msg.type)
         {
-            case BeginRun: begin_run(msg); break;
-            case EventData: event_data(msg); break;
-            case EndRun: end_run(msg); break;
+            case BeginRun: _beginRun(msg); break;
+            case EventData: _eventData(msg); break;
+            case EndRun: _endRun(msg); break;
             default: break;
             // TODO: error out on invalid message type
         }
@@ -391,30 +385,30 @@ void ClientContext::handleMessage(const Message &msg)
     catch (const std::exception &e)
     {
         m_lastMsgType = MessageType::Invalid;
-        if (cb_error) cb_error(msg, e);
+        error(msg, e);
     }
 }
 
-void ClientContext::begin_run(const Message &msg)
+void Parser::_beginRun(const Message &msg)
 {
     auto infoJson = json::parse(msg.contents);
     m_streamInfo = parse_stream_info(infoJson);
-    if (cb_beginRun) cb_beginRun(m_streamInfo);
+    beginRun(msg, m_streamInfo);
 }
 
-void ClientContext::event_data(const Message &msg)
+void Parser::_eventData(const Message &msg)
 {
     if (msg.contents.size() == 0u)
-        throw std::out_of_range("empty EventData message");
+        throw std::runtime_error("empty EventData message");
 
     const uint8_t *contentsBegin = msg.contents.data();
     const uint8_t *contentsEnd   = msg.contents.data() + msg.contents.size();
     auto eventIndex = *(reinterpret_cast<const uint32_t *>(contentsBegin));
 
-    if (eventIndex >= m_streamInfo.dataDescription.size())
-        throw std::out_of_range("eventIndex out of range");
+    if (eventIndex >= m_streamInfo.eventDescriptions.size())
+        throw std::runtime_error("eventIndex out of range");
 
-    const EventDataDescription &edd = m_streamInfo.dataDescription[eventIndex];
+    const EventDataDescription &edd = m_streamInfo.eventDescriptions[eventIndex];
     const size_t dataSourceCount = edd.dataSources.size();
 
     m_contentsVec.resize(dataSourceCount);
@@ -423,10 +417,8 @@ void ClientContext::event_data(const Message &msg)
     {
         const auto &ds = edd.dataSources[dsIndex];
         const auto &dsOffsets = edd.dataSourceOffsets[dsIndex];
-        const uint8_t *contentsBegin = msg.contents.data();
-        const uint8_t *contentsEnd   = msg.contents.data() + msg.contents.size();
 
-        // Use precalculated offsets to get pointers into the current message
+        // Use precalculated offsets to setup pointers into the current message
         // buffer.
         auto dsIndexCheck = reinterpret_cast<const uint32_t *>(contentsBegin + dsOffsets.index);
         auto dsBytesCheck = reinterpret_cast<const uint32_t *>(contentsBegin + dsOffsets.bytes);
@@ -442,14 +434,16 @@ void ClientContext::event_data(const Message &msg)
             throw end_of_buffer();
         }
 
+        // Compare the received index number with the one from the data
+        // description.
         if (*dsIndexCheck != dsIndex)
             throw std::runtime_error("dsIndexCheck");
 
+        // Same as above but with the number of bytes in the datasource.
         if (*dsBytesCheck != ds.bytes)
-            throw std::runtime_error("dsIndexCheck");
+            throw std::runtime_error("dsBytesCheck");
 
-        // Setup the contents vector to contain entries for this event, all
-        // pointing into the current message contents buffer.
+        // Store pointers for the datasource
         m_contentsVec[dsIndex] = { dsIndexCheck, dsBytesCheck, dataBegin, dataEnd };
 
 #if 0
@@ -467,11 +461,17 @@ void ClientContext::event_data(const Message &msg)
 #endif
     }
 
-    if (cb_eventData) cb_eventData(eventIndex, m_contentsVec);
+    // Call the virtual data handler
+    eventData(msg, eventIndex, m_contentsVec);
+
+    // This is done as a precaution because the raw pointers are only valid as
+    // long as the caller-owned Message object is alive.
+    m_contentsVec.clear();
 }
 
-void ClientContext::end_run(const Message &msg)
+void Parser::_endRun(const Message &msg)
 {
+    endRun(msg);
 }
 
 } // end namespace data_server

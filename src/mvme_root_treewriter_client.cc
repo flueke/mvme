@@ -1,327 +1,187 @@
-#include "data_server_protocol.h"
+#include "data_server_client_lib.h"
 
-#include <cassert>
-#include <iostream>
-#include <sstream>
-#include <system_error>
-#include <nlohmann/json.hpp>
+#include <TFile.h>
+#include <TNtupleD.h>
+#include <TTree.h>
 
-#include <netdb.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-using std::cout;
 using std::cerr;
+using std::cout;
 using std::endl;
 using namespace mvme::data_server;
-using json = nlohmann::json;
 
 namespace
 {
 
-void read_data(int fd, uint8_t *dest, size_t size)
+struct EventStorage
 {
-    while (size > 0)
+    //TTree *tree = nullptr;
+#if 0
+    std::vector<std::vector<double>> dataSourceBuffers;
+#else
+    std::vector<TNtupleD *> dataSourceTuples;
+#endif
+};
+
+class Context: public mvme::data_server::Parser
+{
+    public:
+        bool doQuit() const { return m_quit; }
+
+    protected:
+        virtual void beginRun(const Message &msg, const StreamInfo &streamInfo) override;
+
+        virtual void eventData(const Message &msg, int eventIndex,
+                                const std::vector<DataSourceContents> &contents) override;
+
+        virtual void endRun(const Message &msg) override;
+
+        virtual void error(const Message &msg, const std::exception &e) override;
+
+    private:
+        std::unique_ptr<TFile> m_outFile;
+        std::vector<std::unique_ptr<EventStorage>> m_trees;
+        bool m_quit = false;
+};
+
+    // TODO: vector index checks
+
+void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
+{
+    cout << __FUNCTION__ << ": runId=" << streamInfo.runId
+        << endl;
+
+    std::string filename;
+
+    if (streamInfo.runId.empty())
+        filename = "unknown_run.root";
+    else
+        filename = streamInfo.runId + ".root";
+
+    m_trees.clear();
+    m_outFile = std::make_unique<TFile>(filename.c_str(), "RECREATE",
+                                        streamInfo.runId.c_str());
+
+
+    for (const EventDataDescription &edd: streamInfo.eventDescriptions)
     {
-        ssize_t bytesRead = read(fd, dest, size);
-        if (bytesRead < 0)
+        VMEEvent event = streamInfo.vmeTree.events[edd.eventIndex];
+
+        auto storage = std::make_unique<EventStorage>();
+
+        //storage->tree = new TTree(event.name.c_str(),  // name
+        //                              event.name.c_str()); // title
+
+        //storage.dataSourceBuffers.resize(edd.dataSources.size());
+
+        for (const DataSourceDescription &dsd: edd.dataSources)
         {
-            throw std::system_error(errno, std::generic_category(), "read_data");
+#if 0
+            storage->dataSourceBuffers.emplace_back(
+                std::vector<double>(dsd.size));
+#else
+            std::ostringstream ss;
+            for (uint32_t var = 0; var < dsd.size; var++)
+            {
+                ss << std::to_string(var);
+                if (var < dsd.size - 1) ss << ":";
+            }
+            std::string varlist = ss.str();
+            cout << varlist << endl;
+
+            storage->dataSourceTuples.emplace_back(
+                new TNtupleD(
+                    dsd.name.c_str(),
+                    dsd.name.c_str(),
+                    varlist.c_str()));
+
+#endif
+
+#if 0 // name[N]/D
+            cout << __PRETTY_FUNCTION__
+                << " buffer=" << storage->dataSourceBuffers.back().data() << endl;
+            std::ostringstream ss;
+            ss << dsd.name.c_str() << "[" << dsd.size << "]/D";
+            std::string branchSpec = ss.str();
+
+            cout << branchSpec << endl;
+
+            auto branch = storage->tree->Branch(
+                dsd.name.c_str(),
+                storage->dataSourceBuffers.back().data(),
+                branchSpec.c_str());
+#elif 0 // STLCollection
+            auto branch = storage->tree->Branch(
+                dsd.name.c_str(),
+                &storage->dataSourceBuffers.back());
+#elif 1
+#endif
+
+            assert(!branch->IsZombie());
         }
 
-        if (bytesRead == 0)
-        {
-            throw std::runtime_error("server closed connection");
-        }
-
-        size -= bytesRead;
-        dest += bytesRead;
+        m_trees.emplace_back(std::move(storage));
     }
-
-    assert(size == 0);
 }
 
-template<typename T>
-T read_pod(int fd)
+void Context::eventData(const Message &msg, int eventIndex,
+                        const std::vector<DataSourceContents> &contents)
 {
-    T result = {};
-    read_data(fd, reinterpret_cast<uint8_t *>(&result), sizeof(result));
-    return result;
-}
+    assert(0 <= eventIndex && eventIndex < m_trees.size());
 
-static const size_t MaxMessageSize = 10 * 1024 * 1024;
+    auto &eventStorage = m_trees[eventIndex];
 
-void read_message(int fd, Message &msg)
-{
-    msg.type = MessageType::Invalid;
-    msg.contents.clear();
+    //assert(eventStorage->tree);
+    assert(eventStorage->dataSourceBuffers.size() == contents.size());
 
-    // Instead of doing two reads for the header like this:
-    // msg.type = read_pod<MessageType>(fd);
-    // size = read_pod<uint32_t>(fd);
-    // ... save one system call by reading the header in one go.
-    uint8_t headerBuffer[sizeof(msg.type) + sizeof(uint32_t)];
-    read_data(fd, headerBuffer, sizeof(headerBuffer));
-
-    uint32_t size = 0;
-
-    memcpy(&msg.type, headerBuffer,                    sizeof(msg.type));
-    memcpy(&size,     headerBuffer + sizeof(msg.type), sizeof(uint32_t));
-
-    if (size > MaxMessageSize)
+    for (size_t dsIndex = 0; dsIndex < contents.size(); dsIndex++)
     {
-        throw std::runtime_error("Message size exceeds "
-                                 + std::to_string(MaxMessageSize) + " bytes");
+        const auto &dsc = contents[dsIndex];
+        
+#if 0
+        std::vector<double> &buffer = eventStorage->dataSourceBuffers[dsIndex];
+
+        //cout << __PRETTY_FUNCTION__
+        //    << " buffer=" << buffer.data() << endl;
+
+        std::copy(dsc.dataBegin, dsc.dataEnd, buffer.begin());
+        //std::cerr << buffer.front() << endl;
+#else
+        auto ntuple = eventStorage->dataSourceTuples[dsIndex];
+        ntuple->Fill(dsc.dataBegin);
+#endif
     }
 
-    if (!msg.isValid())
-    {
-        throw std::runtime_error("Message type out of range: "
-                                 + std::to_string(msg.type));
-    }
-
-    msg.contents.resize(size);
-
-    read_data(fd, msg.contents.data(), size);
-    assert(msg.isValid());
+    //eventStorage->tree->Fill();
 }
 
-int connect_to(const char *host, const char *service)
+void Context::endRun(const Message &msg)
 {
-    // Note (flueke): The following code was taken from the example in `man 3
-    // getaddrinfo' on a linux machine and slightly modified.
+    cerr << __PRETTY_FUNCTION__ << endl;
 
-    struct addrinfo hints;
-    struct addrinfo *result, *rp;
-    int sfd = -1, s, j;
-    size_t len;
-    ssize_t nread;
+    if (m_outFile)
+        m_outFile->Close();
 
-    /* Obtain address(es) matching host/port */
-
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC;     /* Allow IPv4 or IPv6 */
-    hints.ai_socktype = SOCK_STREAM; /* Stream socket (TCP) */
-    hints.ai_flags = 0;
-    hints.ai_protocol = 0;           /* Any protocol */
-
-    s = getaddrinfo(host, service, &hints, &result);
-    if (s != 0) {
-        throw std::runtime_error(gai_strerror(s));
-    }
-
-    /* getaddrinfo() returns a list of address structures.
-       Try each address until we successfully connect(2).
-       If socket(2) (or connect(2)) fails, we (close the socket
-       and) try the next address. */
-
-    for (rp = result; rp != NULL; rp = rp->ai_next) {
-        sfd = socket(rp->ai_family, rp->ai_socktype,
-                     rp->ai_protocol);
-        if (sfd == -1)
-            continue;
-
-        if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
-            break;                  /* Success */
-
-        close(sfd);
-    }
-
-    if (rp == NULL) {               /* No address succeeded */
-        throw std::runtime_error("Could not connect");
-    }
-
-    freeaddrinfo(result);           /* No longer needed */
-
-    return sfd;
+    m_quit = true;
 }
 
-int connect_to(const char *host, uint16_t port)
+void Context::error(const Message &msg, const std::exception &e) 
 {
-    char buffer[128];
-    snprintf(buffer, sizeof(buffer), "%u", static_cast<unsigned>(port));
-    buffer[sizeof(buffer) - 1] = '\0';
-
-    return connect_to(host, buffer);
-}
-
-struct DataSource
-{
-    std::string name;           // Name of the data source.
-    int moduleIndex = -1;       // The index of the module this data source is attached to.
-    double lowerLimit = 0.0;    // Lower and upper limits of the values produced by the datasource.
-    double upperLimit = 0.0;    //
-    uint32_t size = 0u;         // Number of elements in the output of this data source.
-    uint32_t bytes = 0u;        // Total number of bytes the output of the data source requires.
-
-};
-
-struct EventDataDescription
-{
-    // Offsets for a datasource from the beginning of the message contents in
-    // bytes.
-    struct Offsets
-    {
-        uint32_t index = 0;         // the index value of this datasource (consistency check)
-        uint32_t bytes = 0;         // index + 4 (consistency check with DataSource::bytes)
-        uint32_t dataBegin = 0;     // bytes + 4
-        uint32_t dataEnd = 0;       // dataBegin + DataSource::bytes
-    };
-
-    int eventIndex = -1;
-
-    // Data sources that are part of the readout of this event.
-    std::vector<DataSource> dataSources;
-
-    // Offsets for each data source in this event
-    std::vector<Offsets> dataSourceOffsets;
-};
-
-struct StreamDataDescription
-{
-    std::vector<EventDataDescription> eventDataDescriptions;
-};
-
-struct VMEModule
-{
-    int moduleIndex;
-    std::string name;
-    std::string type;
-};
-
-struct VMEEvent
-{
-    int eventIndex = -1;
-    std::string name;
-    std::vector<VMEModule> modules;
-};
-
-struct VMETree
-{
-    std::vector<VMEEvent> events;
-};
-
-StreamDataDescription parse_stream_data_description(const json &j)
-{
-    std::vector<EventDataDescription> result;
-
-    for (const auto &eventJ: j)
-    {
-        EventDataDescription eds;
-
-        eds.eventIndex = eventJ["eventIndex"];
-
-        for (const auto &dsJ: eventJ["dataSources"])
-        {
-            DataSource ds;
-            ds.name = dsJ["name"];
-            ds.moduleIndex = dsJ["moduleIndex"];
-            ds.size  = dsJ["output_size"];
-            ds.bytes = dsJ["output_bytes"];
-            ds.lowerLimit = dsJ["output_lowerLimit"];
-            ds.upperLimit = dsJ["output_upperLimit"];
-
-            eds.dataSources.emplace_back(ds);
-        }
-
-        result.emplace_back(eds);
-    }
-
-    // Calculate buffer offsets for data sources
-
-    for (auto &edd: result)
-    {
-        // One Offset structure for each datasource
-        edd.dataSourceOffsets.reserve(edd.dataSources.size());
-
-        // Each message starts with a 4 byte event index.
-        uint32_t currentOffset = sizeof(uint32_t);
-
-        for (const auto &ds: edd.dataSources)
-        {
-            EventDataDescription::Offsets offsets;
-
-            offsets.index = currentOffset; currentOffset += sizeof(uint32_t);
-            offsets.bytes = currentOffset; currentOffset += sizeof(uint32_t);
-            offsets.dataBegin = currentOffset;
-            offsets.dataEnd = currentOffset + ds.bytes;
-
-            currentOffset = offsets.dataEnd;
-
-            edd.dataSourceOffsets.emplace_back(offsets);
-        }
-
-        assert(edd.dataSources.size() == edd.dataSourceOffsets.size());
-    }
-
-    return StreamDataDescription { result };
-}
-
-VMETree parse_vme_tree(const json &j)
-{
-    VMETree result;
-
-    for (const auto &eventJ: j)
-    {
-        VMEEvent event;
-        event.name = eventJ["name"];
-        event.eventIndex = eventJ["eventIndex"];
-
-        for (const auto &moduleJ: eventJ["modules"])
-        {
-            VMEModule module;
-            module.moduleIndex = moduleJ["moduleIndex"];
-            module.name = moduleJ["name"];
-            module.type = moduleJ["type"];
-
-            event.modules.emplace_back(module);
-        }
-
-        result.events.emplace_back(event);
-    }
-
-    return result;
-}
-
-struct DataServerClientContext
-{
-    struct RunInfo
-    {
-        std::string runId;
-        bool isReplay = false;
-        StreamDataDescription streamInfo;
-        VMETree vmeTree;
-    };
-
-    RunInfo runInfo;
-    json inputInfoJson;
-    size_t contentBytesReceived = 0u;
-    bool quit = false;
-};
-
-class end_of_buffer: public std::exception {};
-
-template<typename T, typename U>
-bool range_check_lt(const T *ptr, const U *end)
-{
-    return (reinterpret_cast<const uint8_t *>(ptr)
-            < reinterpret_cast<const uint8_t *>(end));
-}
-
-template<typename T, typename U>
-bool range_check_le(const T *ptr, const U *end)
-{
-    return (reinterpret_cast<const uint8_t *>(ptr)
-            <= reinterpret_cast<const uint8_t *>(end));
 }
 
 } // end anon namespace
 
 int main(int argc, char *argv[])
 {
+    int sockfd = connect_to("localhost", 13801);
 
+    Message msg;
+    Context ctx;
 
+    while (!ctx.doQuit())
+    {
+        read_message(sockfd, msg);
+        ctx.handleMessage(msg);
+    }
 
     return 0;
 }

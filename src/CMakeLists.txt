@@ -313,7 +313,7 @@ add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
 add_executable(dev_data_server_client dev_data_server_client.cc)
 
 if (ENABLE_ROOT AND ROOT_FOUND)
-    set(mvme_root_LIBS
+    set(root_LIBS
         ${ROOT_LIBRARIES}
         ${ROOT_Core_LIBRARY}
         ${ROOT_RIO_LIBRARY}
@@ -325,7 +325,7 @@ if (ENABLE_ROOT AND ROOT_FOUND)
     ROOT_GENERATE_DICTIONARY(G__mvme_root mvme_root.h LINKDEF mvme_linkdef.h OPTIONS NOINSTALL)
 
     add_library(mvme_root SHARED mvme_root.cc G__mvme_root.cxx)
-    target_link_libraries(mvme_root ${mvme_root_LIBS})
+    target_link_libraries(mvme_root ${root_LIBS})
 
     add_executable(dev_root_test dev_root_test.cc)
     target_link_libraries(dev_root_test mvme_root)
@@ -333,6 +333,9 @@ if (ENABLE_ROOT AND ROOT_FOUND)
     add_executable(mvme-root-writer root_writer_process_main.cc)
     add_dependencies(mvme-root-writer libmvme mvme_root)
     target_link_libraries(mvme-root-writer libmvme mvme_root)
+
+    add_executable(mvme-root-treewriter-client mvme_root_treewriter_client.cc)
+    target_link_libraries(mvme-root-treewriter-client ${root_LIBS})
 endif(ENABLE_ROOT AND ROOT_FOUND)
 
 # Boost

@@ -520,8 +520,8 @@ AnalysisObjectStore deserialize_objects(QJsonObject data,
 
             if (srcObject && dstObject)
             {
-                qDebug() << __PRETTY_FUNCTION__
-                    << "src =" << srcObject.get() << ", dst =" << dstObject.get();
+                //qDebug() << __PRETTY_FUNCTION__
+                //    << "src =" << srcObject.get() << ", dst =" << dstObject.get();
 
                 Slot *dstSlot = dstObject->getSlot(dstIndex);
 
