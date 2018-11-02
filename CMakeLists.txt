@@ -133,7 +133,18 @@ if (ENABLE_ROOT)
         COMPONENTS Core RIO Tree Hist)
 
     if (ROOT_FOUND)
-        include(${ROOT_USE_FILE})
+        #include(${ROOT_USE_FILE})
+        # FIXME: /home/florian/local/root/cmake/ROOTUseFile.cmake does include
+        # a file called "RootNewMacros.cmake" in which ROOT_GENERATE_DICTIONARY
+        # is defined. Do include this single file here.
+        # Basically the only problem I have with including ROOT_USE_FILE
+        # directly is that it changes the CFLAGS an in my case add -DNDEBUG to
+        # the compiler command line which in turn disables assertions. This is
+        # not what I want when doing debug builds...
+        include_directories(${ROOT_INCLUDE_DIRS})
+        link_directories(${ROOT_LIBRARY_DIR})
+        # XXX: This contain -DNDEBUG
+        #add_definitions(${ROOT_DEFINITIONS})
 
         find_program(ROOT_CONFIG_EXECUTABLE root-config
             HINTS $ENV{ROOTSYS}/bin)
@@ -141,6 +152,7 @@ if (ENABLE_ROOT)
         add_definitions(-DMVME_ENABLE_ROOT)
 
         message("-- Found ROOT in ${ROOT_USE_FILE}")
+        message("-- Deliberately ignored ROOT_CXX_FLAGS: ${ROOT_CXX_FLAGS}")
     endif(ROOT_FOUND)
 endif(ENABLE_ROOT)
 

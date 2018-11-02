@@ -322,17 +322,17 @@ if (ENABLE_ROOT AND ROOT_FOUND)
         )
 
     include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-    ROOT_GENERATE_DICTIONARY(G__mvme_root mvme_root.h LINKDEF mvme_linkdef.h OPTIONS NOINSTALL)
+    #ROOT_GENERATE_DICTIONARY(G__mvme_root mvme_root.h LINKDEF mvme_linkdef.h OPTIONS NOINSTALL)
 
-    add_library(mvme_root SHARED mvme_root.cc G__mvme_root.cxx)
-    target_link_libraries(mvme_root ${root_LIBS})
+    #add_library(mvme_root SHARED mvme_root.cc G__mvme_root.cxx)
+    #target_link_libraries(mvme_root ${root_LIBS})
 
-    add_executable(dev_root_test dev_root_test.cc)
-    target_link_libraries(dev_root_test mvme_root)
+    #add_executable(dev_root_test dev_root_test.cc)
+    #target_link_libraries(dev_root_test mvme_root)
 
     add_executable(mvme-root-writer root_writer_process_main.cc)
-    add_dependencies(mvme-root-writer libmvme mvme_root)
-    target_link_libraries(mvme-root-writer libmvme mvme_root)
+    add_dependencies(mvme-root-writer libmvme)
+    target_link_libraries(mvme-root-writer libmvme ${root_LIBS})
 
     add_executable(mvme-root-treewriter-client mvme_root_treewriter_client.cc)
     target_link_libraries(mvme-root-treewriter-client ${root_LIBS})

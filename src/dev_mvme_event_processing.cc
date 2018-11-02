@@ -273,6 +273,15 @@ int main(int argc, char *argv[])
         qDebug() << "bytesPerSecond:" << format_number(bytesPerSecond,
                                                        "B/s", UnitScaling::Binary);
 
+        std::cerr << "startTime:" << counters.startTime.toString().toStdString() << endl;
+        std::cerr << "endTime:" << counters.stopTime.toString().toStdString() << endl;
+        std::cerr << "dt_s:" << dt_s << endl;
+        std::cerr << "bytesProcessed:" << format_number(counters.bytesProcessed,
+                                                       "B", UnitScaling::Binary).toStdString() << endl;
+
+        std::cerr << "bytesPerSecond:" << format_number(bytesPerSecond,
+                                                       "B/s", UnitScaling::Binary).toStdString() << endl;
+
         for (u32 ei = 0; ei < counters.eventCounters.size(); ei++)
         {
             if (counters.eventCounters[ei] > 0.0)
@@ -292,11 +301,14 @@ int main(int argc, char *argv[])
             {
                 if (counters.moduleCounters[ei][mi] > 0.0)
                 {
-                    qDebug() << (QString("ei=%1, mi=%2 count=%3, rate=%4")
-                                 .arg(ei).arg(mi)
-                                 .arg(format_number(counters.moduleCounters[ei][mi], "", UnitScaling::Decimal))
-                                 .arg(format_number(counters.moduleCounters[ei][mi] / dt_s, "Hz", UnitScaling::Decimal))
-                                );
+                    auto msg = (QString("ei=%1, mi=%2 count=%3 (%5), rate=%4")
+                                .arg(ei).arg(mi)
+                                .arg(format_number(counters.moduleCounters[ei][mi], "", UnitScaling::Decimal))
+                                .arg(format_number(counters.moduleCounters[ei][mi] / dt_s, "Hz", UnitScaling::Decimal))
+                                .arg(counters.moduleCounters[ei][mi])
+                               );
+                    qDebug() << msg;
+                    std::cerr << msg.toStdString() << std::endl;
                 }
             }
         }

@@ -1,6 +1,8 @@
 #ifndef __MVME_DATA_SERVER_PROTOCOL_H__
 #define __MVME_DATA_SERVER_PROTOCOL_H__
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -43,7 +45,9 @@ enum MessageType: uint32_t
     MessageTypeCount
 };
 
-// Message frame format is (uint32_t type, uint32_t size in bytes)
+// The Message frame format is (uint32_t type, uint32_t size).
+// type is a MessageType, size specifices the size of the message contents in
+// bytes.
 static const size_t MessageFrameSize = 2 * sizeof(uint32_t);
 
 struct Message
@@ -59,6 +63,34 @@ struct Message
 
     size_t size() const { return contents.size(); }
 };
+
+using AllowedTypes = std::array<MessageType, MessageTypeCount>;
+using TransitionTable = std::array<AllowedTypes, MessageTypeCount>;
+
+static TransitionTable make_transition_table()
+{
+    TransitionTable ret;
+
+    ret[MessageType::Invalid]   = { { MessageType::Hello } };
+    ret[MessageType::Hello]     = { { MessageType::BeginRun } };
+    ret[MessageType::BeginRun]  = { { MessageType::EventData, MessageType::EndRun } };
+    ret[MessageType::EventData] = { { MessageType::EventData, MessageType::EndRun } };
+    ret[MessageType::EndRun]    = { { MessageType::BeginRun } };
+
+    return ret;
+}
+
+static bool is_valid_transition(MessageType prev, MessageType cur)
+{
+    static const TransitionTable transitions = make_transition_table();
+
+    if (prev < transitions.size())
+    {
+        const auto &allowed = transitions[prev];
+        return (std::find(allowed.begin(), allowed.end(), cur) != allowed.end());
+    }
+    return false;
+}
 
 } // end namespace data_server
 } // end namespace mvme

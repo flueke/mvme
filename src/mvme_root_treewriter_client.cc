@@ -14,12 +14,12 @@ namespace
 
 struct EventStorage
 {
-    //TTree *tree = nullptr;
-#if 0
-    std::vector<std::vector<double>> dataSourceBuffers;
-#else
-    std::vector<TNtupleD *> dataSourceTuples;
-#endif
+    // one tree per event
+    TTree *tree = nullptr;
+
+    // one buffer per datasource in the event
+    std::vector<std::vector<float>> buffers;
+    uint32_t hits = 0u;
 };
 
 class Context: public mvme::data_server::Parser
@@ -39,7 +39,7 @@ class Context: public mvme::data_server::Parser
 
     private:
         std::unique_ptr<TFile> m_outFile;
-        std::vector<std::unique_ptr<EventStorage>> m_trees;
+        std::vector<EventStorage> m_trees;
         bool m_quit = false;
 };
 
@@ -61,60 +61,33 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
     m_outFile = std::make_unique<TFile>(filename.c_str(), "RECREATE",
                                         streamInfo.runId.c_str());
 
-
     for (const EventDataDescription &edd: streamInfo.eventDescriptions)
     {
         VMEEvent event = streamInfo.vmeTree.events[edd.eventIndex];
 
-        auto storage = std::make_unique<EventStorage>();
+        EventStorage storage;
 
-        //storage->tree = new TTree(event.name.c_str(),  // name
-        //                              event.name.c_str()); // title
-
-        //storage.dataSourceBuffers.resize(edd.dataSources.size());
+        storage.tree = new TTree(event.name.c_str(),  // name
+                                 event.name.c_str()); // title
 
         for (const DataSourceDescription &dsd: edd.dataSources)
         {
-#if 0
-            storage->dataSourceBuffers.emplace_back(
-                std::vector<double>(dsd.size));
-#else
-            std::ostringstream ss;
-            for (uint32_t var = 0; var < dsd.size; var++)
-            {
-                ss << std::to_string(var);
-                if (var < dsd.size - 1) ss << ":";
-            }
-            std::string varlist = ss.str();
-            cout << varlist << endl;
+            storage.buffers.emplace_back(std::vector<float>(dsd.size));
 
-            storage->dataSourceTuples.emplace_back(
-                new TNtupleD(
-                    dsd.name.c_str(),
-                    dsd.name.c_str(),
-                    varlist.c_str()));
-
-#endif
-
-#if 0 // name[N]/D
+            // branchSpec looks like: "name[Size]/D" for doubles
+            // branchSpec looks like: "name[Size]/F" for floats
             cout << __PRETTY_FUNCTION__
-                << " buffer=" << storage->dataSourceBuffers.back().data() << endl;
+                << " buffer=" << storage.buffers.back().data() << endl;
             std::ostringstream ss;
-            ss << dsd.name.c_str() << "[" << dsd.size << "]/D";
+            ss << dsd.name.c_str() << "[" << dsd.size << "]/F";
             std::string branchSpec = ss.str();
 
             cout << branchSpec << endl;
 
-            auto branch = storage->tree->Branch(
+            auto branch = storage.tree->Branch(
                 dsd.name.c_str(),
-                storage->dataSourceBuffers.back().data(),
+                storage.buffers.back().data(),
                 branchSpec.c_str());
-#elif 0 // STLCollection
-            auto branch = storage->tree->Branch(
-                dsd.name.c_str(),
-                &storage->dataSourceBuffers.back());
-#elif 1
-#endif
 
             assert(!branch->IsZombie());
         }
@@ -126,32 +99,34 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
 void Context::eventData(const Message &msg, int eventIndex,
                         const std::vector<DataSourceContents> &contents)
 {
-    assert(0 <= eventIndex && eventIndex < m_trees.size());
+    assert(0 <= eventIndex && static_cast<size_t>(eventIndex) < m_trees.size());
 
     auto &eventStorage = m_trees[eventIndex];
 
-    //assert(eventStorage->tree);
-    assert(eventStorage->dataSourceBuffers.size() == contents.size());
+    assert(eventStorage.tree);
+    assert(eventStorage.buffers.size() == contents.size());
 
     for (size_t dsIndex = 0; dsIndex < contents.size(); dsIndex++)
     {
         const auto &dsc = contents[dsIndex];
-        
-#if 0
-        std::vector<double> &buffer = eventStorage->dataSourceBuffers[dsIndex];
+
+        std::vector<float> &buffer = eventStorage.buffers[dsIndex];
 
         //cout << __PRETTY_FUNCTION__
         //    << " buffer=" << buffer.data() << endl;
 
-        std::copy(dsc.dataBegin, dsc.dataEnd, buffer.begin());
-        //std::cerr << buffer.front() << endl;
-#else
-        auto ntuple = eventStorage->dataSourceTuples[dsIndex];
-        ntuple->Fill(dsc.dataBegin);
-#endif
+        // Copy, including conversion from double to float
+        //std::copy(dsc.dataBegin, dsc.dataEnd, buffer.begin());
+
+        // Copy, but transform NaN values to 0.0
+        std::transform(dsc.dataBegin, dsc.dataEnd, buffer.begin(),
+                       [] (const double value) -> float {
+                           return std::isnan(value) ? 0.0 : value;
+                       });
     }
 
-    //eventStorage->tree->Fill();
+    eventStorage.tree->Fill();
+    eventStorage.hits++;
 }
 
 void Context::endRun(const Message &msg)
@@ -159,12 +134,26 @@ void Context::endRun(const Message &msg)
     cerr << __PRETTY_FUNCTION__ << endl;
 
     if (m_outFile)
+    {
+        cout << "Closing output file " << m_outFile->GetName() << "..." << endl;
         m_outFile->Close();
+        m_outFile.release();
+    }
+
+    cout << "HitCounts by event:" << endl;
+    for (size_t ei=0; ei < m_trees.size(); ei++)
+    {
+        const auto &es = m_trees[ei];
+
+        cout << "  ei=" << ei << ", hits=" << es.hits << endl;
+    }
+
+    cout << endl;
 
     m_quit = true;
 }
 
-void Context::error(const Message &msg, const std::exception &e) 
+void Context::error(const Message &msg, const std::exception &e)
 {
 }
 

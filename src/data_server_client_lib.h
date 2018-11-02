@@ -23,7 +23,20 @@ namespace mvme
 namespace data_server
 {
 
-using json = nlohmann::json;
+struct connection_closed: public std::runtime_error
+{
+    connection_closed(const std::string &str): std::runtime_error(str) {}
+};
+
+struct protocol_error: public std::runtime_error
+{
+    protocol_error(const std::string &str): std::runtime_error(str) {}
+};
+
+struct consistency_error: public std::runtime_error
+{
+    consistency_error(const std::string &str): std::runtime_error(str) {}
+};
 
 //
 // Utilities for reading messages from a file descriptor
@@ -60,6 +73,10 @@ T read_pod(int fd)
     return result;
 }
 
+// Limit the size of a single incoming message to 10MB. Theoretically 4GB
+// messages are possible but in practice messages will be much, much smaller.
+// Increase this value if your experiment generates EventData messages that are
+// larger or just remove the check in read_message() completely.
 static const size_t MaxMessageSize = 10 * 1024 * 1024;
 
 static void read_message(int fd, Message &msg)
@@ -87,8 +104,8 @@ static void read_message(int fd, Message &msg)
 
     if (!msg.isValid())
     {
-        throw std::runtime_error("Message type out of range: "
-                                 + std::to_string(msg.type));
+        throw std::runtime_error(
+            ("Received an invalid message type: " + std::to_string(msg.type)).c_str());
     }
 
     msg.contents.resize(size);
@@ -231,6 +248,8 @@ struct StreamInfo
     bool isReplay = false;
 };
 
+using json = nlohmann::json;
+
 static EventDataDescriptions parse_stream_data_description(const json &j)
 {
     EventDataDescriptions result;
@@ -362,29 +381,34 @@ class Parser
         void _eventData(const Message &msg);
         void _endRun(const Message &msg);
 
-        MessageType m_lastMsgType = MessageType::Invalid;
+        MessageType m_prevMsgType = MessageType::Invalid;
         StreamInfo m_streamInfo;
         std::vector<DataSourceContents> m_contentsVec;
 };
 
 void Parser::handleMessage(const Message &msg)
 {
-    // TODO: check prev received message type and make sure the sequence is valid
     try
     {
+        if (!is_valid_transition(m_prevMsgType, msg.type))
+        {
+            throw protocol_error("Unexpected message sequence: prev="
+                                 + std::to_string(m_prevMsgType)
+                                 + ", cur=" + std::to_string(msg.type));
+        }
+
         switch (msg.type)
         {
             case BeginRun: _beginRun(msg); break;
             case EventData: _eventData(msg); break;
             case EndRun: _endRun(msg); break;
-            default: break;
-            // TODO: error out on invalid message type
+            default: assert(false); break;
         }
-        m_lastMsgType = msg.type;
+        m_prevMsgType = msg.type;
     }
     catch (const std::exception &e)
     {
-        m_lastMsgType = MessageType::Invalid;
+        m_prevMsgType = MessageType::Invalid;
         error(msg, e);
     }
 }
@@ -399,7 +423,7 @@ void Parser::_beginRun(const Message &msg)
 void Parser::_eventData(const Message &msg)
 {
     if (msg.contents.size() == 0u)
-        throw std::runtime_error("empty EventData message");
+        throw protocol_error("Received empty EventData message");
 
     const uint8_t *contentsBegin = msg.contents.data();
     const uint8_t *contentsEnd   = msg.contents.data() + msg.contents.size();
@@ -409,6 +433,7 @@ void Parser::_eventData(const Message &msg)
         throw std::runtime_error("eventIndex out of range");
 
     const EventDataDescription &edd = m_streamInfo.eventDescriptions[eventIndex];
+    assert(edd.dataSources.size() == edd.dataSourceOffsets.size());
     const size_t dataSourceCount = edd.dataSources.size();
 
     m_contentsVec.resize(dataSourceCount);
