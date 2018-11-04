@@ -14,6 +14,8 @@ class Context: public mvme::data_server::Parser
         bool doQuit() const { return m_quit; }
 
     protected:
+        virtual void serverInfo(const Message &msg, const json &info) override;
+
         virtual void beginRun(const Message &msg, const StreamInfo &streamInfo) override;
 
         virtual void eventData(const Message &msg, int eventIndex,
@@ -26,6 +28,11 @@ class Context: public mvme::data_server::Parser
     private:
         bool m_quit = false;
 };
+
+void Context::serverInfo(const Message &msg, const json &info)
+{
+    cout << __FUNCTION__ << ": serverInfo=" << endl << info.dump(2);
+}
 
 void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
 {

@@ -211,6 +211,7 @@ int main(int argc, char *argv[])
         auto logger = [] (const QString &msg) { qDebug() << msg; };
 
         Context context = {};
+        context.runInfo.runId = QFileInfo(listfileFilename).completeBaseName();
         context.runInfo.isReplay = true;
         context.analysis = analysis.get();
         context.vmeConfig = vmeConfig.get();

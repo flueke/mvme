@@ -13,7 +13,7 @@
 // separate file (data_server_client_lib.h).
 //
 // TODO:
-// - define "Hello" Handshake information. mvme should send its version
+// - define "ServerInfo" Handshake information. mvme should send its version
 //   information and a version number for this protocol.
 // - the client can send an id string which can be used for logging on the
 //   server side.
@@ -29,15 +29,15 @@ namespace data_server
 {
 
 // Valid transitions:
-// initial   -> Hello
-// Hello     -> BeginRun
-// BeginRun  -> EventData | EndRun
-// EventData -> EventData | EndRun
-// EndRun    -> BeginRun
+// initial      -> ServerInfo
+// ServerInfo   -> BeginRun
+// BeginRun     -> EventData | EndRun
+// EventData    -> EventData | EndRun
+// EndRun       -> BeginRun
 enum MessageType: uint32_t
 {
     Invalid = 0,
-    Hello,
+    ServerInfo,
     BeginRun,
     EventData,
     EndRun,
@@ -71,11 +71,11 @@ static TransitionTable make_transition_table()
 {
     TransitionTable ret;
 
-    ret[MessageType::Invalid]   = { { MessageType::Hello } };
-    ret[MessageType::Hello]     = { { MessageType::BeginRun } };
-    ret[MessageType::BeginRun]  = { { MessageType::EventData, MessageType::EndRun } };
-    ret[MessageType::EventData] = { { MessageType::EventData, MessageType::EndRun } };
-    ret[MessageType::EndRun]    = { { MessageType::BeginRun } };
+    ret[MessageType::Invalid]    = { { MessageType::ServerInfo } };
+    ret[MessageType::ServerInfo] = { { MessageType::BeginRun } };
+    ret[MessageType::BeginRun]   = { { MessageType::EventData, MessageType::EndRun } };
+    ret[MessageType::EventData]  = { { MessageType::EventData, MessageType::EndRun } };
+    ret[MessageType::EndRun]     = { { MessageType::BeginRun } };
 
     return ret;
 }

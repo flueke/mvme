@@ -23,20 +23,23 @@ namespace mvme
 namespace data_server
 {
 
-struct connection_closed: public std::runtime_error
+struct connection_error: public std::runtime_error
 {
-    connection_closed(const std::string &str): std::runtime_error(str) {}
+    explicit connection_error(const std::string &str): std::runtime_error(str) {}
 };
 
 struct protocol_error: public std::runtime_error
 {
-    protocol_error(const std::string &str): std::runtime_error(str) {}
+    explicit protocol_error(const std::string &str): std::runtime_error(str) {}
 };
 
 struct consistency_error: public std::runtime_error
 {
-    consistency_error(const std::string &str): std::runtime_error(str) {}
+    explicit consistency_error(const std::string &str): std::runtime_error(str) {}
 };
+
+//class end_of_buffer: public std::exception {};
+//class data_check_failed: public std::runtime_error {};
 
 //
 // Utilities for reading messages from a file descriptor
@@ -55,7 +58,7 @@ static void read_data(int fd, uint8_t *dest, size_t size)
 
         if (bytesRead == 0)
         {
-            throw std::runtime_error("server closed connection");
+            throw connection_error("server closed connection");
         }
 
         size -= bytesRead;
@@ -73,7 +76,7 @@ T read_pod(int fd)
     return result;
 }
 
-// Limit the size of a single incoming message to 10MB. Theoretically 4GB
+// Limits the size of a single incoming message to 10MB. Theoretically 4GB
 // messages are possible but in practice messages will be much, much smaller.
 // Increase this value if your experiment generates EventData messages that are
 // larger or just remove the check in read_message() completely.
@@ -104,8 +107,7 @@ static void read_message(int fd, Message &msg)
 
     if (!msg.isValid())
     {
-        throw std::runtime_error(
-            ("Received an invalid message type: " + std::to_string(msg.type)).c_str());
+        throw protocol_error("Received invalid message type: " + std::to_string(msg.type));
     }
 
     msg.contents.resize(size);
@@ -114,7 +116,7 @@ static void read_message(int fd, Message &msg)
     assert(msg.isValid());
 }
 
-// Connects via TCP to the given host and port (aka service).
+// Connects via TCP to the given host and service (the port in our case).
 // Returns the socket file descriptor on success, throws if an error occured.
 static int connect_to(const char *host, const char *service)
 {
@@ -157,11 +159,11 @@ static int connect_to(const char *host, const char *service)
         close(sfd);
     }
 
-    if (rp == NULL) {               /* No address succeeded */
-        throw std::runtime_error("Could not connect");
-    }
-
     freeaddrinfo(result);           /* No longer needed */
+
+    if (rp == NULL) {               /* No address succeeded */
+        throw connection_error("Could not connect");
+    }
 
     return sfd;
 }
@@ -240,15 +242,16 @@ struct VMETree
     std::vector<VMEEvent> events;
 };
 
+using json = nlohmann::json;
+
 struct StreamInfo
 {
     EventDataDescriptions eventDescriptions;
     VMETree vmeTree;
     std::string runId;
     bool isReplay = false;
+    json infoJson;
 };
-
-using json = nlohmann::json;
 
 static EventDataDescriptions parse_stream_data_description(const json &j)
 {
@@ -328,15 +331,22 @@ static StreamInfo parse_stream_info(const json &j)
 {
     StreamInfo result;
 
+    result.infoJson = j;
     result.runId = j["runId"];
     result.eventDescriptions = parse_stream_data_description(j["eventDataSources"]);
     result.vmeTree = parse_vme_tree(j["vmeTree"]);
 
+    for (const auto &edd: result.eventDescriptions)
+    {
+        if (!(0 <= edd.eventIndex
+              && static_cast<size_t>(edd.eventIndex) < result.vmeTree.events.size()))
+        {
+            throw consistency_error("data description eventIndex out of range");
+        }
+    }
+
     return result;
 }
-
-class end_of_buffer: public std::exception {};
-class data_check_failed: public std::runtime_error {};
 
 template<typename T, typename U>
 bool range_check_lt(const T *ptr, const U *end)
@@ -364,9 +374,12 @@ class Parser
 {
     public:
         void handleMessage(const Message &msg);
+        void reset();
         virtual ~Parser() {}
 
     protected:
+        virtual void serverInfo(const Message &msg, const json &info) = 0;
+
         virtual void beginRun(const Message &msg, const StreamInfo &streamInfo) = 0;
 
         virtual void eventData(const Message &msg, int eventIndex,
@@ -377,6 +390,7 @@ class Parser
         virtual void error(const Message &msg, const std::exception &e) = 0;
 
     private:
+        void _serverInfo(const Message &msg);
         void _beginRun(const Message &msg);
         void _eventData(const Message &msg);
         void _endRun(const Message &msg);
@@ -385,6 +399,13 @@ class Parser
         StreamInfo m_streamInfo;
         std::vector<DataSourceContents> m_contentsVec;
 };
+
+void Parser::reset()
+{
+    m_prevMsgType = MessageType::Invalid;
+    m_streamInfo = {};
+    m_contentsVec.clear();
+}
 
 void Parser::handleMessage(const Message &msg)
 {
@@ -399,6 +420,7 @@ void Parser::handleMessage(const Message &msg)
 
         switch (msg.type)
         {
+            case ServerInfo: _serverInfo(msg); break;
             case BeginRun: _beginRun(msg); break;
             case EventData: _eventData(msg); break;
             case EndRun: _endRun(msg); break;
@@ -408,9 +430,24 @@ void Parser::handleMessage(const Message &msg)
     }
     catch (const std::exception &e)
     {
-        m_prevMsgType = MessageType::Invalid;
-        error(msg, e);
+        try
+        {
+            std::cout << "invoking error handler" << std::endl;
+            error(msg, e);
+            reset();
+        }
+        catch (const std::exception &)
+        {
+            reset();
+            throw;
+        }
     }
+}
+
+void Parser::_serverInfo(const Message &msg)
+{
+    auto infoJson = json::parse(msg.contents);
+    serverInfo(msg, infoJson);
 }
 
 void Parser::_beginRun(const Message &msg)
@@ -430,7 +467,7 @@ void Parser::_eventData(const Message &msg)
     auto eventIndex = *(reinterpret_cast<const uint32_t *>(contentsBegin));
 
     if (eventIndex >= m_streamInfo.eventDescriptions.size())
-        throw std::runtime_error("eventIndex out of range");
+        throw consistency_error("eventIndex out of range");
 
     const EventDataDescription &edd = m_streamInfo.eventDescriptions[eventIndex];
     assert(edd.dataSources.size() == edd.dataSourceOffsets.size());
@@ -456,17 +493,17 @@ void Parser::_eventData(const Message &msg)
             || !range_check_le(dataEnd, contentsEnd)
            )
         {
-            throw end_of_buffer();
+            throw consistency_error("EventData message contents too small");
         }
 
         // Compare the received index number with the one from the data
         // description.
         if (*dsIndexCheck != dsIndex)
-            throw std::runtime_error("dsIndexCheck");
+            throw consistency_error("dsIndexCheck failed");
 
         // Same as above but with the number of bytes in the datasource.
         if (*dsBytesCheck != ds.bytes)
-            throw std::runtime_error("dsBytesCheck");
+            throw consistency_error("dsBytesCheck failed");
 
         // Store pointers for the datasource
         m_contentsVec[dsIndex] = { dsIndexCheck, dsBytesCheck, dataBegin, dataEnd };

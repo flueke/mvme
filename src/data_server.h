@@ -52,6 +52,10 @@ class AnalysisDataServer: public QObject, public IMVMEStreamModuleConsumer
 
         size_t getNumberOfClients() const;
 
+        // This information will be converted to a JSON object and sent out to
+        // each newly connected client.
+        void setServerInfo(const QVariantMap &serverInfo);
+
     private:
         struct Private;
         std::unique_ptr<Private> m_d;

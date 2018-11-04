@@ -9,6 +9,7 @@
 #include "data_server_protocol.h"
 #include "analysis/a2_adapter.h"
 #include "analysis/a2/a2.h"
+#include "git_sha1.h"
 
 namespace
 {
@@ -35,7 +36,7 @@ struct AnalysisDataServer::Private
     quint16 m_listenPort = AnalysisDataServer::Default_ListenPort;
     AnalysisDataServer::Logger m_logger;
     quint64 m_writeThreshold = AnalysisDataServer::Default_WriteThresholdBytes;
-
+    QVariantMap m_serverInfo;
     std::vector<ClientInfo> m_clients;
 
     struct RunContext
@@ -113,10 +114,10 @@ qint64 write_message(QIODevice &out, MessageType type, const QByteArray &content
 
 void AnalysisDataServer::Private::handleNewConnection()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
-
     if (auto clientSocket = m_server.nextPendingConnection())
     {
+        qDebug() << "DataServer: new connection from" << clientSocket->peerAddress();
+
         ClientInfo clientInfo = { std::unique_ptr<QTcpSocket>(clientSocket) };
 
         // ugly connect due to overloaded QAbstractSocket::error() method
@@ -127,8 +128,16 @@ void AnalysisDataServer::Private::handleNewConnection()
                     handleClientSocketError(clientSocket, error);
         });
 
-        // Empty "Hello" message
-        write_message(*clientInfo.socket, MessageType::Hello, "mvme analysis data server");
+        // Initial ServerInfo message
+
+        auto info = QJsonObject::fromVariantMap(m_serverInfo);
+
+        if (!info.contains("mvme_version"))
+            info["mvme_version"] = QString(GIT_VERSION);
+
+        QJsonDocument doc(info);
+        QByteArray json(doc.toJson());
+        write_message(*clientInfo.socket, MessageType::ServerInfo, json);
 
         m_clients.emplace_back(std::move(clientInfo));
     }
@@ -344,8 +353,8 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
     QJsonDocument doc(outputInfo);
     QByteArray json = doc.toJson();
 
-    qDebug() << __PRETTY_FUNCTION__ << "beginRunInfo to be sent to clients:" << endl
-        << json;
+    qDebug() << __PRETTY_FUNCTION__ << "beginRunInfo to be sent to clients:";
+    qDebug().noquote() << json;
 
     using namespace mvme::data_server;
 
@@ -460,4 +469,9 @@ void AnalysisDataServer::processModuleData(s32 eventIndex, s32 moduleIndex,
 void AnalysisDataServer::processTimetick()
 {
     // TODO: how to handle timeticks?
+}
+
+void AnalysisDataServer::setServerInfo(const QVariantMap &info)
+{
+    m_d->m_serverInfo = info;
 }

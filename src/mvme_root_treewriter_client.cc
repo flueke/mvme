@@ -1,5 +1,7 @@
 #include "data_server_client_lib.h"
 
+#include <getopt.h>
+#include <signal.h>
 #include <TFile.h>
 #include <TNtupleD.h>
 #include <TTree.h>
@@ -26,8 +28,10 @@ class Context: public mvme::data_server::Parser
 {
     public:
         bool doQuit() const { return m_quit; }
+        void setConvertNaNsToZero(bool doConvert) { m_convertNaNs = doConvert; }
 
     protected:
+        virtual void serverInfo(const Message &msg, const json &info) override;
         virtual void beginRun(const Message &msg, const StreamInfo &streamInfo) override;
 
         virtual void eventData(const Message &msg, int eventIndex,
@@ -41,9 +45,13 @@ class Context: public mvme::data_server::Parser
         std::unique_ptr<TFile> m_outFile;
         std::vector<EventStorage> m_trees;
         bool m_quit = false;
+        bool m_convertNaNs = false;
 };
 
-    // TODO: vector index checks
+void Context::serverInfo(const Message &msg, const json &info)
+{
+    cout << __FUNCTION__ << ": serverInfo=" << endl << info.dump(2) << endl;
+}
 
 void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
 {
@@ -63,26 +71,26 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
     for (const EventDataDescription &edd: streamInfo.eventDescriptions)
     {
-        VMEEvent event = streamInfo.vmeTree.events[edd.eventIndex];
+        const VMEEvent &event = streamInfo.vmeTree.events[edd.eventIndex];
 
         EventStorage storage;
 
         storage.tree = new TTree(event.name.c_str(),  // name
                                  event.name.c_str()); // title
 
+        cout << "event#" << edd.eventIndex << ", " << event.name << endl;
+
         for (const DataSourceDescription &dsd: edd.dataSources)
         {
             storage.buffers.emplace_back(std::vector<float>(dsd.size));
 
-            // branchSpec looks like: "name[Size]/D" for doubles
-            // branchSpec looks like: "name[Size]/F" for floats
-            cout << __PRETTY_FUNCTION__
-                << " buffer=" << storage.buffers.back().data() << endl;
+            // branchSpec looks like: "name[Size]/D" for doubles,
+            // "name[Size]/F" for floats
             std::ostringstream ss;
             ss << dsd.name.c_str() << "[" << dsd.size << "]/F";
             std::string branchSpec = ss.str();
 
-            cout << branchSpec << endl;
+            cout << "  data branch: " << branchSpec << endl;
 
             auto branch = storage.tree->Branch(
                 dsd.name.c_str(),
@@ -94,6 +102,8 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
         m_trees.emplace_back(std::move(storage));
     }
+
+    cout << "Receiving data..." << endl;
 }
 
 void Context::eventData(const Message &msg, int eventIndex,
@@ -108,21 +118,28 @@ void Context::eventData(const Message &msg, int eventIndex,
 
     for (size_t dsIndex = 0; dsIndex < contents.size(); dsIndex++)
     {
-        const auto &dsc = contents[dsIndex];
+        const DataSourceContents &dsc = contents[dsIndex];
 
         std::vector<float> &buffer = eventStorage.buffers[dsIndex];
+
+        assert(dsc.dataEnd - dsc.dataBegin == static_cast<ptrdiff_t>(buffer.size()));
 
         //cout << __PRETTY_FUNCTION__
         //    << " buffer=" << buffer.data() << endl;
 
-        // Copy, including conversion from double to float
-        //std::copy(dsc.dataBegin, dsc.dataEnd, buffer.begin());
-
-        // Copy, but transform NaN values to 0.0
-        std::transform(dsc.dataBegin, dsc.dataEnd, buffer.begin(),
-                       [] (const double value) -> float {
-                           return std::isnan(value) ? 0.0 : value;
-                       });
+        if (m_convertNaNs)
+        {
+            // Copy, but transform NaN values to 0.0
+            std::transform(dsc.dataBegin, dsc.dataEnd, buffer.begin(),
+                           [] (const double value) -> float {
+                               return std::isnan(value) ? 0.0 : value;
+                           });
+        }
+        else
+        {
+            // Copy, including conversion from double to float
+            std::copy(dsc.dataBegin, dsc.dataEnd, buffer.begin());
+        }
     }
 
     eventStorage.tree->Fill();
@@ -131,7 +148,7 @@ void Context::eventData(const Message &msg, int eventIndex,
 
 void Context::endRun(const Message &msg)
 {
-    cerr << __PRETTY_FUNCTION__ << endl;
+    cerr << __FUNCTION__ << endl;
 
     if (m_outFile)
     {
@@ -149,27 +166,111 @@ void Context::endRun(const Message &msg)
     }
 
     cout << endl;
-
-    m_quit = true;
 }
 
 void Context::error(const Message &msg, const std::exception &e)
 {
+    cout << "An error occured: " << e.what() << endl;
+
+    if (m_outFile)
+    {
+        cout << "Closing output file " << m_outFile->GetName() << "..." << endl;
+        m_outFile->Close();
+        m_outFile.release();
+    }
+
+    m_quit = true;
+}
+
+static bool signal_received = false;
+
+void signal_handler(int signum)
+{
+    cout << "signal " << signum << endl;
+    cout.flush();
+    signal_received = true;
+}
+
+void setup_signal_handler()
+{
+    /* Set up the structure to specify the new action. */
+    struct sigaction new_action;
+    new_action.sa_handler = signal_handler;
+    sigemptyset (&new_action.sa_mask);
+    new_action.sa_flags = 0;
+
+    for (auto signum: { SIGINT, SIGHUP, SIGTERM })
+    {
+        if (sigaction(signum, &new_action, NULL) != 0)
+            throw std::system_error(errno, std::generic_category(), "setup_signal_handler");
+    }
 }
 
 } // end anon namespace
 
 int main(int argc, char *argv[])
 {
-    int sockfd = connect_to("localhost", 13801);
+    // host, port, quit after one run?,
+    // output filename? if not specified is taken from the runId
+    // send out a reply is response to the EndRun message?
+    std::string host = "localhost";
+    std::string port = "13801";
 
+    setup_signal_handler();
+
+    // A single message object, whose buffer is reused for each incoming
+    // message.
     Message msg;
-    Context ctx;
 
-    while (!ctx.doQuit())
+    // Subclass of mvme::data_server::Parser implementing the ROOT tree
+    // creation. This is driven through handleMessage() which then calls our
+    // specialized handlers.
+    Context ctx;
+    int sockfd = -1;
+
+    while (!ctx.doQuit() && !signal_received)
     {
-        read_message(sockfd, msg);
-        ctx.handleMessage(msg);
+        if (sockfd < 0)
+        {
+            cout << "Connecting to " << host << ":" << port << endl;
+        }
+
+        while (sockfd < 0 && !signal_received)
+        {
+            try
+            {
+                sockfd = connect_to(host.c_str(), port.c_str());
+            }
+            catch (const connection_error &e)
+            {
+                sockfd = -1;
+            }
+
+            if (sockfd >= 0)
+            {
+                cout << "Connected to " << host << ":" << port << endl;
+                break;
+            }
+
+            if (usleep(1000 * 1000) != 0 && errno != EINTR)
+            {
+                throw std::system_error(errno, std::generic_category(), "usleep");
+            }
+        }
+
+        if (signal_received) break;
+
+        try
+        {
+            read_message(sockfd, msg);
+            ctx.handleMessage(msg);
+        }
+        catch (const connection_error &e)
+        {
+            cout << "Disconnected from " << host << ":" << port << endl;
+            sockfd = -1;
+            ctx.reset();
+        }
     }
 
     return 0;
