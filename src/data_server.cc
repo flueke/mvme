@@ -38,6 +38,7 @@ struct AnalysisDataServer::Private
     quint64 m_writeThreshold = AnalysisDataServer::Default_WriteThresholdBytes;
     QVariantMap m_serverInfo;
     std::vector<ClientInfo> m_clients;
+    bool m_runInProgress = false;
 
     struct RunContext
     {
@@ -46,6 +47,10 @@ struct AnalysisDataServer::Private
         const analysis::Analysis *analysis = nullptr;
         const analysis::A2AdapterState *adapterState = nullptr;
         const a2::A2 *a2 = nullptr;
+
+        // Copy of the structure generated for clients in beginRun(). Clients
+        // that are connecting during a run will be sent this information.
+        QJsonObject runStructureInfo;
     };
 
     RunContext m_runContext;
@@ -344,13 +349,15 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
         vmeTree.append(eventInfo);
     }
 
-    QJsonObject outputInfo;
-    outputInfo["runId"] = ctx.runInfo.runId;
-    outputInfo["isReplay"] = ctx.runInfo.isReplay;
-    outputInfo["eventDataSources"] = eventDataSources;
-    outputInfo["vmeTree"] = vmeTree;
+    QJsonObject beginRunInfo;
+    beginRunInfo["runId"] = ctx.runInfo.runId;
+    beginRunInfo["isReplay"] = ctx.runInfo.isReplay;
+    beginRunInfo["eventDataSources"] = eventDataSources;
+    beginRunInfo["vmeTree"] = vmeTree;
 
-    QJsonDocument doc(outputInfo);
+    m_d->m_beginRunInfo = beginRunInfo;
+
+    QJsonDocument doc(beginRunInfo);
     QByteArray json = doc.toJson();
 
     qDebug() << __PRETTY_FUNCTION__ << "beginRunInfo to be sent to clients:";

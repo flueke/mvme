@@ -28,6 +28,8 @@ namespace mvme
 namespace data_server
 {
 
+static const int ProtocolVersion = 1;
+
 // Valid transitions:
 // initial      -> ServerInfo
 // ServerInfo   -> BeginRun
