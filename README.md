@@ -19,6 +19,8 @@
 
 The install step is optional, mvme does run directly from the build directory.
 
+See doc/README.build-centos7 for detailed build steps for CentOS7.
+
 ### Windows MSYS2
 
 http://www.msys2.org/
