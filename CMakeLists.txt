@@ -226,10 +226,12 @@ if (WIN32)
 
     set(CPACK_SOURCE_GENERATOR "ZIP")
 else()
-    # Install additional deployment files: shared objects, qt plugins, etc.
-    install(DIRECTORY "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
-        DESTINATION .
-        USE_SOURCE_PERMISSIONS)
+    if (EXISTS "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/")
+        # Install additional deployment files: shared objects, qt plugins, etc.
+        install(DIRECTORY "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
+            DESTINATION .
+            USE_SOURCE_PERMISSIONS)
+    endif()
 
     set(CPACK_GENERATOR "TBZ2")
     set(CPACK_SOURCE_GENERATOR "TBZ2")
