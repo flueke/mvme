@@ -29,7 +29,6 @@
 #include "mvme_context_lib.h"
 #include "mvme.h"
 #include "mvme_listfile.h"
-#include "mvme_root_data_writer.h"
 #include "mvme_stream_worker.h"
 #include "remote_control.h"
 #include "sis3153.h"
@@ -154,10 +153,6 @@ struct MVMEContextPrivate
     MVMEContext::ReplayFileAnalysisInfo m_replayFileAnalysisInfo;
     u32 m_ctrlOpenRetryCount = 0;
     bool m_isFirstConnectionAttempt = true;
-//#ifdef MVME_ENABLE_ROOT // FIXME: fix SIGPIPE on child process exit
-#if 0
-    std::unique_ptr<mvme_root::RootDataWriter> m_rootWriter;
-#endif
 
     std::unique_ptr<FileAutoSaver> m_vmeConfigAutoSaver;
     std::unique_ptr<FileAutoSaver> m_analysisAutoSaver;
@@ -959,11 +954,6 @@ void MVMEContext::onMVMEStreamWorkerStateChanged(MVMEStreamWorkerState state)
     switch (state)
     {
         case MVMEStreamWorkerState::Idle:
-//#ifdef MVME_ENABLE_ROOT // FIXME: fix SIGPIPE on child process exit
-#if 0
-            m_streamWorker->getStreamProcessor()->removeModuleConsumer(m_d->m_rootWriter.get());
-            m_d->m_rootWriter.reset();
-#endif
             break;
 
         default:

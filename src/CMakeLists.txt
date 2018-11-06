@@ -192,12 +192,6 @@ if (HDF5_FOUND)
     list(APPEND LIBMVME_SOURCES analysis/analysis_session.cc)
 endif(HDF5_FOUND)
 
-if (ENABLE_ROOT AND ROOT_FOUND)
-    # The code that's starting and managing the mvme-root-writer. Does not
-    # include/link with ROOT but is part of libmvme.
-    list(APPEND LIBMVME_SOURCES mvme_root_data_writer.cc)
-endif(ENABLE_ROOT AND ROOT_FOUND)
-
 add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
 add_dependencies(libmvme liba2_static)
 generate_export_header(libmvme)
@@ -321,22 +315,23 @@ if (ENABLE_ROOT AND ROOT_FOUND)
         ${ROOT_Hist_LIBRARY}
         )
 
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-    #ROOT_GENERATE_DICTIONARY(G__mvme_root mvme_root.h LINKDEF mvme_linkdef.h OPTIONS NOINSTALL)
-
-    #add_library(mvme_root SHARED mvme_root.cc G__mvme_root.cxx)
-    #target_link_libraries(mvme_root ${root_LIBS})
-
-    #add_executable(dev_root_test dev_root_test.cc)
-    #target_link_libraries(dev_root_test mvme_root)
-
-    add_executable(mvme-root-writer root_writer_process_main.cc)
-    add_dependencies(mvme-root-writer libmvme)
-    target_link_libraries(mvme-root-writer libmvme ${root_LIBS})
-
+    # Build the ROOT TTree writer client. This is a stand-alone, command-line
+    # client speaking the mvme analysis data server protocol.
     add_executable(mvme-root-treewriter-client mvme_root_treewriter_client.cc)
     target_link_libraries(mvme-root-treewriter-client ${root_LIBS})
 endif(ENABLE_ROOT AND ROOT_FOUND)
+
+set(INCLUDES_TO_INSTALL
+    mvme_data_server_proto.h
+    mvme_data_server_lib.h
+    ../3rdparty/nlohmann/json.hpp
+    )
+
+install(FILES ${INCLUDES_TO_INSTALL} DESTINATION include)
+
+#TODO: install a CMakeLists.txt for the treewriter client application. how to
+# find the installed includes from that directory?
+install(FILES mvme_root_treewriter_client.cc DESTINATION extras/treewriter_client/)
 
 # Boost
 #set(Boost_USE_MULTITHREADED ON)

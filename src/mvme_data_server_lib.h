@@ -1,7 +1,7 @@
 #ifndef __MVME_DATA_SERVER_CLIENT_LIB_H__
 #define __MVME_DATA_SERVER_CLIENT_LIB_H__
 
-#include "data_server_protocol.h"
+#include "mvme_data_server_proto.h"
 
 #include <cassert>
 #include <cstring> // memcpy

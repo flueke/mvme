@@ -6,10 +6,10 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 
-#include "data_server_protocol.h"
-#include "analysis/a2_adapter.h"
 #include "analysis/a2/a2.h"
+#include "analysis/a2_adapter.h"
 #include "git_sha1.h"
+#include "mvme_data_server_proto.h"
 
 namespace
 {
