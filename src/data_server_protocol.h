@@ -94,6 +94,28 @@ static bool is_valid_transition(MessageType prev, MessageType cur)
     return false;
 }
 
+using MessageTypeStringTable = std::array<std::string, MessageTypeCount>;
+
+static MessageTypeStringTable make_messagetype_stringtable()
+{
+    MessageTypeStringTable ret;
+
+    ret[MessageType::Invalid]    = "Invalid";
+    ret[MessageType::ServerInfo] = "ServerInfo";
+    ret[MessageType::BeginRun]   = "BeginRun";
+    ret[MessageType::EventData]  = "EventData";
+    ret[MessageType::EndRun]     = "EndRun";
+
+    return ret;
+}
+
+static const std::string &to_string(MessageType t)
+{
+    static const auto stringTable = make_messagetype_stringtable();
+
+    return stringTable[t];
+}
+
 } // end namespace data_server
 } // end namespace mvme
 

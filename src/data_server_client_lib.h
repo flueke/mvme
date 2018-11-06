@@ -23,28 +23,51 @@ namespace mvme
 namespace data_server
 {
 
-struct connection_error: public std::runtime_error
+using json = nlohmann::json;
+
+// Error handling:
+// Most exceptions thrown by the library are a subtype of
+// mvme::data_server::exception.
+//
+// Additionally std::system_error is thrown by the read_*() functions which
+// operator on a file descriptor.
+
+// Base exception class used in this library.
+struct exception: public std::runtime_error
 {
-    explicit connection_error(const std::string &str): std::runtime_error(str) {}
+    explicit exception(const std::string &str)
+        : std::runtime_error(str)
+    {}
 };
 
-struct protocol_error: public std::runtime_error
+// Used for errors related to the internal protocol. These errors should not
+// happen if client and server are correctly implemented.
+struct protocol_error: public exception
 {
-    explicit protocol_error(const std::string &str): std::runtime_error(str) {}
+    using exception::exception;
 };
 
-struct consistency_error: public std::runtime_error
+// Data received during a run does not match the description sent at the start
+// of the run. This should not happen and is a bug in either the server or the
+// client.
+struct data_consistency_error: public exception
 {
-    explicit consistency_error(const std::string &str): std::runtime_error(str) {}
+    using exception::exception;
 };
 
-//class end_of_buffer: public std::exception {};
-//class data_check_failed: public std::runtime_error {};
+struct connection_closed: public exception
+{
+    using exception::exception;
+};
 
 //
 // Utilities for reading messages from a file descriptor
 //
 
+// Reads exactly size bytes from the file descriptor fd into the destination
+// buffer. Interally multiple calls to read() may be performed. If size is 0
+// this is a noop.
+// Throws std::system_error in case a read fails.
 static void read_data(int fd, uint8_t *dest, size_t size)
 {
     while (size > 0)
@@ -53,12 +76,12 @@ static void read_data(int fd, uint8_t *dest, size_t size)
 
         if (bytesRead < 0)
         {
-            throw std::system_error(errno, std::generic_category(), "read_data");
+            throw std::system_error(errno, std::system_category(), "read_data");
         }
 
         if (bytesRead == 0)
         {
-            throw connection_error("server closed connection");
+            throw connection_closed("remote closed the connection");
         }
 
         size -= bytesRead;
@@ -71,17 +94,21 @@ static void read_data(int fd, uint8_t *dest, size_t size)
 template<typename T>
 T read_pod(int fd)
 {
+    static_assert(std::is_trivial<T>::value, "read_pod() works for trivial types only");
+
     T result = {};
     read_data(fd, reinterpret_cast<uint8_t *>(&result), sizeof(result));
     return result;
 }
 
-// Limits the size of a single incoming message to 10MB. Theoretically 4GB
+// Limit the size of a single incoming message to 10MB. Theoretically 4GB
 // messages are possible but in practice messages will be much, much smaller.
 // Increase this value if your experiment generates EventData messages that are
 // larger or just remove the check in read_message() completely.
 static const size_t MaxMessageSize = 10 * 1024 * 1024;
 
+// Read a single Message from the given file descriptor fd into the given msg
+// structure.
 static void read_message(int fd, Message &msg)
 {
     msg.type = MessageType::Invalid;
@@ -99,15 +126,15 @@ static void read_message(int fd, Message &msg)
     memcpy(&msg.type, headerBuffer,                    sizeof(msg.type));
     memcpy(&size,     headerBuffer + sizeof(msg.type), sizeof(uint32_t));
 
-    if (size > MaxMessageSize)
-    {
-        throw std::runtime_error("Message size exceeds "
-                                 + std::to_string(MaxMessageSize) + " bytes");
-    }
-
     if (!msg.isValid())
     {
         throw protocol_error("Received invalid message type: " + std::to_string(msg.type));
+    }
+
+    if (size > MaxMessageSize)
+    {
+        throw protocol_error("Message size exceeds "
+                             + std::to_string(MaxMessageSize) + " bytes");
     }
 
     msg.contents.resize(size);
@@ -139,7 +166,7 @@ static int connect_to(const char *host, const char *service)
 
     s = getaddrinfo(host, service, &hints, &result);
     if (s != 0) {
-        throw std::runtime_error(gai_strerror(s));
+        throw exception(gai_strerror(s));
     }
 
     /* getaddrinfo() returns a list of address structures.
@@ -162,12 +189,13 @@ static int connect_to(const char *host, const char *service)
     freeaddrinfo(result);           /* No longer needed */
 
     if (rp == NULL) {               /* No address succeeded */
-        throw connection_error("Could not connect");
+        throw exception("Could not connect");
     }
 
     return sfd;
 }
 
+// Same as above but taking a port number instead of a string.
 static int connect_to(const char *host, uint16_t port)
 {
     char buffer[128];
@@ -242,8 +270,6 @@ struct VMETree
     std::vector<VMEEvent> events;
 };
 
-using json = nlohmann::json;
-
 struct StreamInfo
 {
     EventDataDescriptions eventDescriptions;
@@ -257,47 +283,54 @@ static EventDataDescriptions parse_stream_data_description(const json &j)
 {
     EventDataDescriptions result;
 
-    for (const auto &eventJ: j)
+    try
     {
-        EventDataDescription eds;
-        eds.eventIndex = eventJ["eventIndex"];
-
-        for (const auto &dsJ: eventJ["dataSources"])
+        for (const auto &eventJ: j)
         {
-            DataSourceDescription ds;
-            ds.name = dsJ["name"];
-            ds.moduleIndex = dsJ["moduleIndex"];
-            ds.size  = dsJ["output_size"];
-            ds.bytes = dsJ["output_bytes"];
-            ds.lowerLimit = dsJ["output_lowerLimit"];
-            ds.upperLimit = dsJ["output_upperLimit"];
-            eds.dataSources.emplace_back(ds);
+            EventDataDescription eds;
+            eds.eventIndex = eventJ["eventIndex"];
+
+            for (const auto &dsJ: eventJ["dataSources"])
+            {
+                DataSourceDescription ds;
+                ds.name = dsJ["name"];
+                ds.moduleIndex = dsJ["moduleIndex"];
+                ds.size  = dsJ["output_size"];
+                ds.bytes = dsJ["output_bytes"];
+                ds.lowerLimit = dsJ["output_lowerLimit"];
+                ds.upperLimit = dsJ["output_upperLimit"];
+                eds.dataSources.emplace_back(ds);
+            }
+            result.emplace_back(eds);
         }
-        result.emplace_back(eds);
+
+        // Calculate buffer offsets for datasources
+        for (auto &edd: result)
+        {
+            // One Offset structure for each datasource
+            edd.dataSourceOffsets.reserve(edd.dataSources.size());
+
+            // Each message starts with a 4 byte event index.
+            uint32_t currentOffset = sizeof(uint32_t);
+
+            for (const auto &ds: edd.dataSources)
+            {
+                EventDataDescription::Offsets offsets;
+
+                offsets.index = currentOffset; currentOffset += sizeof(uint32_t);
+                offsets.bytes = currentOffset; currentOffset += sizeof(uint32_t);
+                offsets.dataBegin = currentOffset;
+                offsets.dataEnd = currentOffset + ds.bytes;
+                currentOffset = offsets.dataEnd;
+                edd.dataSourceOffsets.emplace_back(offsets);
+            }
+
+            assert(edd.dataSources.size() == edd.dataSourceOffsets.size());
+        }
     }
-
-    // Calculate buffer offsets for datasources
-    for (auto &edd: result)
+    catch (const json::exception &e)
     {
-        // One Offset structure for each datasource
-        edd.dataSourceOffsets.reserve(edd.dataSources.size());
-
-        // Each message starts with a 4 byte event index.
-        uint32_t currentOffset = sizeof(uint32_t);
-
-        for (const auto &ds: edd.dataSources)
-        {
-            EventDataDescription::Offsets offsets;
-
-            offsets.index = currentOffset; currentOffset += sizeof(uint32_t);
-            offsets.bytes = currentOffset; currentOffset += sizeof(uint32_t);
-            offsets.dataBegin = currentOffset;
-            offsets.dataEnd = currentOffset + ds.bytes;
-            currentOffset = offsets.dataEnd;
-            edd.dataSourceOffsets.emplace_back(offsets);
-        }
-
-        assert(edd.dataSources.size() == edd.dataSourceOffsets.size());
+        throw protocol_error(e.what());
     }
 
     return result;
@@ -307,21 +340,29 @@ static VMETree parse_vme_tree(const json &j)
 {
     VMETree result;
 
-    for (const auto &eventJ: j)
+    try
     {
-        VMEEvent event;
-        event.name = eventJ["name"];
-        event.eventIndex = eventJ["eventIndex"];
 
-        for (const auto &moduleJ: eventJ["modules"])
+        for (const auto &eventJ: j)
         {
-            VMEModule module;
-            module.moduleIndex = moduleJ["moduleIndex"];
-            module.name = moduleJ["name"];
-            module.type = moduleJ["type"];
-            event.modules.emplace_back(module);
+            VMEEvent event;
+            event.name = eventJ["name"];
+            event.eventIndex = eventJ["eventIndex"];
+
+            for (const auto &moduleJ: eventJ["modules"])
+            {
+                VMEModule module;
+                module.moduleIndex = moduleJ["moduleIndex"];
+                module.name = moduleJ["name"];
+                module.type = moduleJ["type"];
+                event.modules.emplace_back(module);
+            }
+            result.events.emplace_back(event);
         }
-        result.events.emplace_back(event);
+    }
+    catch (const json::exception &e)
+    {
+        throw protocol_error(e.what());
     }
 
     return result;
@@ -331,18 +372,26 @@ static StreamInfo parse_stream_info(const json &j)
 {
     StreamInfo result;
 
-    result.infoJson = j;
-    result.runId = j["runId"];
-    result.eventDescriptions = parse_stream_data_description(j["eventDataSources"]);
-    result.vmeTree = parse_vme_tree(j["vmeTree"]);
-
-    for (const auto &edd: result.eventDescriptions)
+    try
     {
-        if (!(0 <= edd.eventIndex
-              && static_cast<size_t>(edd.eventIndex) < result.vmeTree.events.size()))
+
+        result.infoJson = j;
+        result.runId = j["runId"];
+        result.eventDescriptions = parse_stream_data_description(j["eventDataSources"]);
+        result.vmeTree = parse_vme_tree(j["vmeTree"]);
+
+        for (const auto &edd: result.eventDescriptions)
         {
-            throw consistency_error("data description eventIndex out of range");
+            if (!(0 <= edd.eventIndex
+                  && static_cast<size_t>(edd.eventIndex) < result.vmeTree.events.size()))
+            {
+                throw protocol_error("data description eventIndex out of range");
+            }
         }
+    }
+    catch (const json::exception &e)
+    {
+        throw protocol_error(e.what());
     }
 
     return result;
@@ -413,9 +462,15 @@ void Parser::handleMessage(const Message &msg)
     {
         if (!is_valid_transition(m_prevMsgType, msg.type))
         {
-            throw protocol_error("Unexpected message sequence: prev="
-                                 + std::to_string(m_prevMsgType)
-                                 + ", cur=" + std::to_string(msg.type));
+            //throw protocol_error("Unexpected message sequence: prev="
+            //                     + std::to_string(m_prevMsgType)
+            //                     + ", cur=" + std::to_string(msg.type));
+
+            throw protocol_error("Unexpected message sequence: '"
+                                 + to_string(m_prevMsgType)
+                                 + "' -> '"
+                                 + to_string(msg.type)
+                                 + "'");
         }
 
         switch (msg.type)
@@ -432,12 +487,16 @@ void Parser::handleMessage(const Message &msg)
     {
         try
         {
-            std::cout << "invoking error handler" << std::endl;
+            // Invoke user error handler with the current state
             error(msg, e);
+
+            // Reset to initial, clean state
             reset();
         }
         catch (const std::exception &)
         {
+            // Handle exception thrown by the user error handler code: reset to
+            // clean state and rethrow.
             reset();
             throw;
         }
@@ -467,7 +526,7 @@ void Parser::_eventData(const Message &msg)
     auto eventIndex = *(reinterpret_cast<const uint32_t *>(contentsBegin));
 
     if (eventIndex >= m_streamInfo.eventDescriptions.size())
-        throw consistency_error("eventIndex out of range");
+        throw data_consistency_error("eventIndex out of range");
 
     const EventDataDescription &edd = m_streamInfo.eventDescriptions[eventIndex];
     assert(edd.dataSources.size() == edd.dataSourceOffsets.size());
@@ -493,17 +552,17 @@ void Parser::_eventData(const Message &msg)
             || !range_check_le(dataEnd, contentsEnd)
            )
         {
-            throw consistency_error("EventData message contents too small");
+            throw data_consistency_error("EventData message contents too small");
         }
 
         // Compare the received index number with the one from the data
         // description.
         if (*dsIndexCheck != dsIndex)
-            throw consistency_error("dsIndexCheck failed");
+            throw data_consistency_error("dsIndexCheck failed");
 
         // Same as above but with the number of bytes in the datasource.
         if (*dsBytesCheck != ds.bytes)
-            throw consistency_error("dsBytesCheck failed");
+            throw data_consistency_error("dsBytesCheck failed");
 
         // Store pointers for the datasource
         m_contentsVec[dsIndex] = { dsIndexCheck, dsBytesCheck, dataBegin, dataEnd };

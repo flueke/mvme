@@ -156,6 +156,11 @@ int main(int argc, char *argv[])
         int option_index = 0;
         int c = getopt_long(argc, argv, "", long_options, &option_index);
 
+        if (c == '?') // Unrecognized option
+        {
+            return 1;
+        }
+
         if (c != 0)
             break;
 
@@ -187,7 +192,7 @@ int main(int argc, char *argv[])
 
     if (listfileFilename.isEmpty())
     {
-        qDebug() << "Missing argument --listfile";
+        cerr << "Missing argument --listfile" << endl;
         return 1;
     }
 
@@ -247,6 +252,7 @@ int main(int argc, char *argv[])
 
         qDebug() << "process_listfile() returned";
 
+#if 0
         if (enableAnalysisServer && context.dataServer->getNumberOfClients() > 0)
         {
             assert(context.dataServer->isListening());
@@ -257,6 +263,7 @@ int main(int argc, char *argv[])
                 app.processEvents(QEventLoop::AllEvents | QEventLoop::WaitForMoreEvents);
             }
         }
+#endif
 
         auto counters = context.streamProcessor.getCounters();
 

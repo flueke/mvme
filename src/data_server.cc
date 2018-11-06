@@ -145,6 +145,22 @@ void AnalysisDataServer::Private::handleNewConnection()
         write_message(*clientInfo.socket, MessageType::ServerInfo, json);
 
         m_clients.emplace_back(std::move(clientInfo));
+
+        // If a run is in progress immediately send out a BeginRun message to
+        // the client. This reuses the information built in beginRun().
+        if (m_runInProgress)
+        {
+            qDebug() << "DataServer: client connected during an active run. Sending"
+                " runStructureInfo.";
+
+            auto runStructureInfo = m_runContext.runStructureInfo;
+            runStructureInfo["runInProgress"] = true;
+
+            QJsonDocument doc(runStructureInfo);
+            QByteArray json = doc.toJson();
+
+            write_message(*clientSocket, MessageType::BeginRun, json);
+        }
     }
 }
 
@@ -254,6 +270,8 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
               const analysis::Analysis *analysis,
               Logger logger)
 {
+    assert(!m_d->m_runInProgress);
+
     if (!(analysis->getA2AdapterState() && analysis->getA2AdapterState()->a2))
         return;
 
@@ -349,18 +367,21 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
         vmeTree.append(eventInfo);
     }
 
-    QJsonObject beginRunInfo;
-    beginRunInfo["runId"] = ctx.runInfo.runId;
-    beginRunInfo["isReplay"] = ctx.runInfo.isReplay;
-    beginRunInfo["eventDataSources"] = eventDataSources;
-    beginRunInfo["vmeTree"] = vmeTree;
+    QJsonObject runStructureInfo;
+    runStructureInfo["runId"] = ctx.runInfo.runId;
+    runStructureInfo["isReplay"] = ctx.runInfo.isReplay;
+    runStructureInfo["eventDataSources"] = eventDataSources;
+    runStructureInfo["vmeTree"] = vmeTree;
+    runStructureInfo["runInProgress"] = false;
 
-    m_d->m_beginRunInfo = beginRunInfo;
+    // Store this information so it can be sent out to clients connecting while
+    // the DAQ run is in progress.
+    m_d->m_runContext.runStructureInfo = runStructureInfo;
 
-    QJsonDocument doc(beginRunInfo);
+    QJsonDocument doc(runStructureInfo);
     QByteArray json = doc.toJson();
 
-    qDebug() << __PRETTY_FUNCTION__ << "beginRunInfo to be sent to clients:";
+    qDebug() << __PRETTY_FUNCTION__ << "runStructureInfo to be sent to clients:";
     qDebug().noquote() << json;
 
     using namespace mvme::data_server;
@@ -369,10 +390,14 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
     {
         write_message(*client.socket, MessageType::BeginRun, json);
     }
+
+    m_d->m_runInProgress = true;
 }
 
 void AnalysisDataServer::endEvent(s32 eventIndex)
 {
+    assert(m_d->m_runInProgress);
+
     if (!m_d->m_runContext.a2 || eventIndex < 0 || eventIndex >= a2::MaxVMEEvents)
     {
         InvalidCodePath;
@@ -385,6 +410,8 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
     if (!dataSourceCount || !getNumberOfClients()) return;
 
     // pre calculate the output message size. TODO: this should be cached.
+    // TODO: send out a sequence number so that clients can figure out how many
+    // events they missed so far.
     u32 msgSize = sizeof(u32); // eventIndex
 
     for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
@@ -405,6 +432,7 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
     for (auto &client: m_d->m_clients)
     {
         write_message_header(*client.socket, MessageType::EventData, msgSize);
+        // TODO: write out an event sequence number
         write_pod(*client.socket, static_cast<u32>(eventIndex));
     }
 
@@ -451,17 +479,26 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
 
 void AnalysisDataServer::endRun(const std::exception *e)
 {
-    for (auto &clientInfo: m_d->m_clients)
+    for (auto &client: m_d->m_clients)
     {
-        write_message(*clientInfo.socket, MessageType::EndRun, {});
+        write_message(*client.socket, MessageType::EndRun, {});
+    }
+
+    // "flush" on endrun
+    for (auto &client: m_d->m_clients)
+    {
+        while (client.socket->bytesToWrite() > 0)
+            client.socket->waitForBytesWritten();
     }
 
     m_d->m_runContext = {};
+    m_d->m_runInProgress = false;
 }
 
 void AnalysisDataServer::beginEvent(s32 eventIndex)
 {
     // Noop
+    assert(m_d->m_runInProgress);
 }
 
 void AnalysisDataServer::processModuleData(s32 eventIndex, s32 moduleIndex,
@@ -471,11 +508,13 @@ void AnalysisDataServer::processModuleData(s32 eventIndex, s32 moduleIndex,
     // that point all data from all modules has been processed by the a2
     // analysis system and is available at the output pipes of the data
     // sources.
+    assert(m_d->m_runInProgress);
 }
 
 void AnalysisDataServer::processTimetick()
 {
     // TODO: how to handle timeticks?
+    assert(m_d->m_runInProgress);
 }
 
 void AnalysisDataServer::setServerInfo(const QVariantMap &info)
