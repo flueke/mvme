@@ -317,8 +317,8 @@ if (ENABLE_ROOT AND ROOT_FOUND)
 
     # Build the ROOT TTree writer client. This is a stand-alone, command-line
     # client speaking the mvme analysis data server protocol.
-    add_executable(mvme-root-treewriter-client mvme_root_treewriter_client.cc)
-    target_link_libraries(mvme-root-treewriter-client ${root_LIBS})
+    add_executable(mvme_root_treewriter_client mvme_root_treewriter_client.cc)
+    target_link_libraries(mvme_root_treewriter_client ${root_LIBS})
 endif(ENABLE_ROOT AND ROOT_FOUND)
 
 set(INCLUDES_TO_INSTALL
@@ -331,7 +331,7 @@ install(FILES ${INCLUDES_TO_INSTALL} DESTINATION include)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
-install(FILES mvme_root_treewriter_client.cc DESTINATION extras/treewriter_client/)
+install(FILES mvme_root_treewriter_client.cc DESTINATION extras/root_treewriter_client/)
 
 # Boost
 #set(Boost_USE_MULTITHREADED ON)
