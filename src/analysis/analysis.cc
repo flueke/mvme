@@ -34,7 +34,7 @@
 #include "../vme_config.h"
 #include "object_visitor.h"
 
-#define ENABLE_ANALYSIS_DEBUG 1
+#define ENABLE_ANALYSIS_DEBUG 0
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -4616,8 +4616,8 @@ void Analysis::beginRun(const RunInfo &runInfo,
     qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by rank";
 #endif
 
-    qDebug() << __PRETTY_FUNCTION__ << "analysis::Analysis:"
-        << m_sources.size() << " sources,"
+    qDebug() << __PRETTY_FUNCTION__ << "Analysis contains"
+        << m_sources.size() << " data sources and"
         << m_operators.size() << " operators";
 
     u32 sourcesBuilt = 0;
