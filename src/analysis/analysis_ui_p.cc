@@ -661,7 +661,7 @@ void AddEditOperatorDialog::accept()
 
         case ObjectEditorMode::Edit:
             {
-                analysis->operatorEdited(m_op);
+                analysis->setOperatorEdited(m_op);
             } break;
     }
 

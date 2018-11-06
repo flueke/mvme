@@ -2139,7 +2139,7 @@ void ExpressionOperatorDialog::apply()
 
         case ObjectEditorMode::Edit:
             {
-                analysis->operatorEdited(m_d->m_op);
+                analysis->setOperatorEdited(m_d->m_op);
             } break;
     }
 
