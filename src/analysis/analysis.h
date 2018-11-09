@@ -1452,6 +1452,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
         }
 
         s32 getNumberOfHistos() const { return m_histos.size(); }
+        s32 getHistoBins() const { return m_bins; }
 
         QVector<std::shared_ptr<Histo1D>> getHistos() { return m_histos; }
 
@@ -1543,6 +1544,9 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         {
             return m_rrf;
         }
+
+        s32 getHistoBinsX() const { return m_xBins; }
+        s32 getHistoBinsY() const { return m_yBins; }
 
     private:
         ResolutionReductionFactors m_rrf;
@@ -1963,6 +1967,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         const A2AdapterState *getA2AdapterState() const { return m_a2State.get(); }
 
         RunInfo getRunInfo() const { return m_runInfo; }
+        void setRunInfo(const RunInfo &ri) { m_runInfo = ri; }
 
         /* Additional settings tied to VME objects but stored in the analysis
          * due to logical and convenience reasons.

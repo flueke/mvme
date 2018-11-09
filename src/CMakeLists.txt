@@ -108,6 +108,7 @@ set(LIBMVME_SOURCES
     analysis/sink_widget_factory.cc
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
+    analysis/analysis_session.cc
 
     data_server.cc
 
@@ -186,11 +187,6 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
     )
 
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
-
-if (HDF5_FOUND)
-    list(APPEND LIBMVME_ADDITIONAL_LIBS ${HDF5_CXX_LIBRARIES})
-    list(APPEND LIBMVME_SOURCES analysis/analysis_session.cc)
-endif(HDF5_FOUND)
 
 add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
 add_dependencies(libmvme liba2_static)
@@ -366,6 +362,7 @@ if(BUILD_TESTS)
     add_mvme_gtest(test_object_visitor analysis/test_object_visitor.cc)
     add_mvme_gtest(test_analysis_util analysis/test_analysis_util.cc)
     add_mvme_gtest(test_listfile_constants test_listfile_constants.cc)
+    #add_mvme_gtest(test_analysis_session analysis/test_analysis_session.cc)
 
     add_mvme_executable(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 

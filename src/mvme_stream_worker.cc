@@ -569,13 +569,12 @@ void MVMEStreamWorker::beginRun(bool keepState)
 
     m_d->streamProcessor.endRun();
 
-#ifdef MVME_ENABLE_HDF5
     // analysis session auto save
     auto sessionPath = m_d->context->getWorkspacePath(QSL("SessionDirectory"));
 
     if (!sessionPath.isEmpty())
     {
-        auto filename = sessionPath + "/last_session.hdf5";
+        auto filename = sessionPath + "/last_session" + analysis::SessionFileExtension;
         auto result   = save_analysis_session(filename, m_d->context->getAnalysis());
 
         if (result.first)
@@ -589,7 +588,6 @@ void MVMEStreamWorker::beginRun(bool keepState)
                        .arg(result.second));
         }
     }
-#endif
 
     setState(MVMEStreamWorkerState::Idle);
 

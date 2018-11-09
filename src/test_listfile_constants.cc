@@ -2,7 +2,7 @@
 #include "mvme_listfile.h"
 #include <iostream>
 
-TEST(mvme_listfile, EventIndex)
+TEST(MVMEListfile, EventIndex)
 {
     for (u32 eventIndex = 0; eventIndex < 16; eventIndex++)
     {

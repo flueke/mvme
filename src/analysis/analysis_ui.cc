@@ -51,6 +51,7 @@
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis_info_widget.h"
 #include "analysis/analysis_serialization.h"
+#include "analysis/analysis_session.h"
 #include "analysis/analysis_ui_p.h"
 #include "analysis/analysis_util.h"
 #include "analysis/condition_ui.h"
@@ -73,10 +74,6 @@
 #include "util/strings.h"
 #include "vme_analysis_common.h"
 #include "vme_config_ui.h"
-
-#ifdef MVME_ENABLE_HDF5
-#include "analysis_session.h"
-#endif
 
 /* State of the UI and future plans
  *
@@ -164,10 +161,10 @@ struct AnalysisWidgetPrivate
     QPair<bool, QString> actionSave();
     QPair<bool, QString> actionSaveAs();
     void actionClearHistograms();
-#ifdef MVME_ENABLE_HDF5
+
     void actionSaveSession();
     void actionLoadSession();
-#endif
+
     void actionExploreWorkspace();
     void actionPause(bool isChecked);
     void actionStepNextEvent();
@@ -651,11 +648,6 @@ void AnalysisWidgetPrivate::actionClearHistograms()
     }
 }
 
-#ifdef MVME_ENABLE_HDF5
-
-static const QString SessionFileFilter = QSL("MVME Sessions (*.hdf5);; All Files (*.*)");
-static const QString SessionFileExtension = QSL(".hdf5");
-
 void handle_session_error(const QString &title, const QString &message)
 {
     SessionErrorDialog dialog(title, message);
@@ -704,6 +696,10 @@ void AnalysisWidgetPrivate::actionSaveSession()
     QFutureWatcher<ResultType> watcher;
     QObject::connect(&watcher, &QFutureWatcher<ResultType>::finished,
                      &progressDialog, &QDialog::close);
+
+    auto fn = static_cast<QPair<bool, QString> (*) (const QString &filename,
+                                                    analysis::Analysis *analysis)>(
+                                                        save_analysis_session);
 
     QFuture<ResultType> future = QtConcurrent::run(save_analysis_session, filename,
                                                    m_context->getAnalysis());
@@ -845,7 +841,6 @@ void AnalysisWidgetPrivate::actionLoadSession()
         }
     }
 }
-#endif
 
 void AnalysisWidgetPrivate::updateActions()
 {
@@ -1133,13 +1128,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
             QIcon(":/control_play_stop.png"), QSL("Next Event"),
             this, [this] { m_d->actionStepNextEvent(); });
 
-#ifdef MVME_ENABLE_HDF5
         m_d->m_toolbar->addSeparator();
         m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Load Session"),
                                   this, [this]() { m_d->actionLoadSession(); });
         m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("Save Session"),
                                   this, [this]() { m_d->actionSaveSession(); });
-#endif
 
         m_d->m_toolbar->addSeparator();
 

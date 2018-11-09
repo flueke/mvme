@@ -170,9 +170,7 @@ int main(int argc, char *argv[])
         if (opt_name == "analysis")                 { analysisFilename = QString(optarg); }
         if (opt_name == "enable-analysis-server")   { enableAnalysisServer = true; }
         if (opt_name == "help")                     { showHelp = true; }
-#ifdef MVME_ENABLE_HDF5
         if (opt_name == "session-out")              { sessionOutFilename = QString(optarg); }
-#endif
     }
 
     if (showHelp)
@@ -321,7 +319,6 @@ int main(int argc, char *argv[])
             }
         }
 
-#ifdef MVME_ENABLE_HDF5
         if (!sessionOutFilename.isEmpty())
         {
             qDebug() << "saving session to" << sessionOutFilename << "...";
@@ -332,7 +329,6 @@ int main(int argc, char *argv[])
                 throw result.second;
             }
         }
-#endif
 
 #if 1
     }
