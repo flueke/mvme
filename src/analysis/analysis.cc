@@ -58,7 +58,7 @@ using ArenaPtr = std::unique_ptr<memory::Arena>;
 using analysis::A2AdapterState;
 using analysis::Analysis;
 
-/* Performs a2_adapter_build(), growing the arenas until the build succeeds. */
+/* Performs a2_adapter_build() and prints out arena memory stats. */
 A2AdapterState a2_adapter_build_memory_wrapper(
     ArenaPtr &arena,
     ArenaPtr &workArena,

@@ -35,6 +35,11 @@ std::unique_ptr<Analysis> make_test_analysis()
     rms->connectArrayToInputSlot(0, ds->getOutput(0));
     result->addOperator(std::dynamic_pointer_cast<OperatorInterface>(rms));
 
+    // TODO: call beginRun() on the analysis. needs a vme mapping (afaik used for
+    // operator grouping only)
+    // check that all operators are ok and that the analysis is working
+    //
+
     return result;
 }
 
