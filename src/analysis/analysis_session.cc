@@ -1,8 +1,10 @@
 #include "analysis/analysis_session.h"
 
-#include <QDir>
 #include <QDataStream>
+#include <QDir>
 #include <QFile>
+#include <quazipfile.h>
+#include <quazip.h>
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_session_p.h"
@@ -318,11 +320,34 @@ QPair<bool, QString> save_analysis_session(
 {
     try
     {
-        QFile out(filename);
+        QuaZip archive;
+        archive.setZipName(filename);
+        archive.setZip64Enabled(true);
 
-        if (!out.open(QIODevice::WriteOnly))
+        if (!archive.open(QuaZip::mdCreate))
         {
-            return qMakePair(false, out.errorString());
+            auto m = QString("Error: archive=%1, error=%2")
+                .arg(filename)
+                .arg(archive.getZipError());
+
+            throw std::runtime_error(m.toStdString());
+        }
+
+        QuaZipFile out(&archive);
+        QuaZipNewInfo zipFileInfo("session_data");
+        zipFileInfo.setPermissions(static_cast<QFile::Permissions>(0x6644));
+
+        if (!out.open(QIODevice::WriteOnly, zipFileInfo,
+                      nullptr, 0,   // password, crc
+                      Z_DEFLATED,   // method (Z_DEFLATED or 0 for no compression)
+                      1             // compression level
+                     ))
+        {
+            auto m = QString("Error: archive=%1, error=%2")
+                .arg(filename)
+                .arg(archive.getZipError());
+
+            throw std::runtime_error(m.toStdString());
         }
 
         return save_analysis_session_io(out, analysis);
@@ -338,11 +363,16 @@ QPair<bool, QString> load_analysis_session(
 {
     try
     {
-        QFile in(filename);
+        QuaZipFile in(filename, "session_data");
 
         if (!in.open(QIODevice::ReadOnly))
         {
-            return qMakePair(false, in.errorString());
+            auto m = QString("Error: archive=%1, file=%2, error=%3")
+                .arg(in.getZipName())
+                .arg(in.getFileName())
+                .arg(in.getZipError())
+                ;
+            throw std::runtime_error(m.toStdString());
         }
 
         return load_analysis_session_io(in, analysis);
@@ -358,11 +388,16 @@ QPair<QJsonDocument, QString> load_analysis_config_from_session_file(
 {
     try
     {
-        QFile in(filename);
+        QuaZipFile in(filename, "session_data");
 
         if (!in.open(QIODevice::ReadOnly))
         {
-            return qMakePair(QJsonDocument(), in.errorString());
+            auto m = QString("Error: archive=%1, file=%2, error=%3")
+                .arg(in.getZipName())
+                .arg(in.getFileName())
+                .arg(in.getZipError())
+                ;
+            throw std::runtime_error(m.toStdString());
         }
 
         return load_analysis_config_from_session_file_io(in);
