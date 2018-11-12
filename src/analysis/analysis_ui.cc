@@ -144,6 +144,7 @@ struct AnalysisWidgetPrivate
     AnalysisInfoWidget *m_analysisInfoWidget = nullptr;
     QAction *m_actionPause;
     QAction *m_actionStepNextEvent;
+    bool m_repopEnabled = true;
 
     void onAnalysisChanged(Analysis *analysis);
     void repopulate();
@@ -345,6 +346,8 @@ void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
 
 void AnalysisWidgetPrivate::repopulate()
 {
+    if (!m_repopEnabled) return;
+
     clear_stacked_widget(m_eventWidgetEventSelectAreaToolBarStack);
     clear_stacked_widget(m_eventWidgetToolBarStack);
     clear_stacked_widget(m_eventWidgetStack);
@@ -996,12 +999,27 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
      * EventWidgets are recreated and repopulated more often than is really
      * necessary. Rebuilding everything when the underlying objects change was
      * just the easiest way to implement it.
-     */
+     *
+     * Update (beta 0.9.6): added new MVMEContext::vmeConfigAboutToBeSet()
+     * signal. When this signal arrives we suspend repopulating until the final
+     * emission of the vmeConfigSet() signal. */
+
+    connect(m_d->m_context, &MVMEContext::vmeConfigAboutToBeSet,
+            this, [this] (VMEConfig *oldcfg, VMEConfig *newcfg) {
+                qDebug() << __PRETTY_FUNCTION__ << "disabling repops";
+                m_d->m_repopEnabled = false;
+            });
+
+    connect(m_d->m_context, &MVMEContext::vmeConfigChanged,
+            this, [this] (VMEConfig *newcfg) {
+                qDebug() << __PRETTY_FUNCTION__ << "reenabling repops";
+                m_d->m_repopEnabled = true;
+                m_d->repopulate();
+            });
 
     auto do_repopulate_lambda = [this]() { m_d->repopulate(); };
 
-    // DAQ config changes
-    connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, do_repopulate_lambda);
+    // Individual VME config changes
     connect(m_d->m_context, &MVMEContext::eventAdded, this, do_repopulate_lambda);
     connect(m_d->m_context, &MVMEContext::eventAboutToBeRemoved, this, do_repopulate_lambda);
     connect(m_d->m_context, &MVMEContext::moduleAdded, this, do_repopulate_lambda);

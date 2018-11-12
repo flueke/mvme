@@ -652,6 +652,7 @@ MVMEContext::~MVMEContext()
 
 void MVMEContext::setVMEConfig(VMEConfig *config)
 {
+    emit vmeConfigAboutToBeSet(m_vmeConfig, config);
 
     if (m_vmeConfig)
     {

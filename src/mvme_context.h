@@ -68,6 +68,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void vmeControllerSet(VMEController *controller);
 
+        void vmeConfigAboutToBeSet(VMEConfig *oldConfig, VMEConfig *newConfig);
         void vmeConfigChanged(VMEConfig *config);
         void vmeConfigFilenameChanged(const QString &fileName);
 
