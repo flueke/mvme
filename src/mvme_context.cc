@@ -61,7 +61,7 @@ namespace
  * analysis system has to fully process the last buffer it pulled from the
  * shared queue.
  */
-static const size_t DataBufferCount = 10;
+static const size_t DataBufferCount = 50;
 static const size_t DataBufferSize = Megabytes(1);
 
 static const int TryOpenControllerInterval_ms = 1000;
