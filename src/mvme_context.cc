@@ -363,8 +363,10 @@ void MVMEContextPrivate::resumeAnalysis(analysis::Analysis::BeginRunOption runOp
     {
         bool keepState = runOption != analysis::Analysis::ClearState;
 
-        QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "start",
-                                  Qt::QueuedConnection, Q_ARG(bool, keepState));
+        bool invoked = QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "beginRun",
+                                                 Qt::QueuedConnection, Q_ARG(bool, keepState));
+
+        assert(invoked);
 
         qDebug() << __PRETTY_FUNCTION__ << "analysis resumed";
     }
@@ -1245,7 +1247,9 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
         QEventLoop localLoop;
         auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started,
                                     &localLoop, &QEventLoop::quit);
-        QMetaObject::invokeMethod(m_streamWorker.get(), "beginRun", Qt::QueuedConnection);
+        bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "beginRun",
+                                                 Qt::QueuedConnection);
+        assert(invoked);
         localLoop.exec();
         QObject::disconnect(con);
     }
