@@ -30,13 +30,13 @@ class RpcLogger: public jcon::JsonRpcLogger
 
         virtual void logWarning(const QString& message) override
         {
-            m_context->logMessage("JSON RPC Warning: " + message);
+            //m_context->logMessage("JSON RPC Warning: " + message);
             qDebug().noquote() << "JSON RPC Warning: " + message;
         }
 
         virtual void logError(const QString& message) override
         {
-            m_context->logMessage(message);
+            //m_context->logMessage(message);
             qDebug().noquote() << "JSON RPC Error: " + message;
         }
 
