@@ -652,6 +652,7 @@ MVMEContext::~MVMEContext()
 
 void MVMEContext::setVMEConfig(VMEConfig *config)
 {
+
     if (m_vmeConfig)
     {
         for (auto eventConfig: m_vmeConfig->getEventConfigs())
@@ -698,7 +699,7 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
         m_d->m_vmeConfigAutoSaver->start();
     }
 
-    emit daqConfigChanged(config);
+    emit vmeConfigChanged(config);
 }
 
 bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap &settings)
@@ -1154,7 +1155,7 @@ void MVMEContext::setConfigFileName(QString name, bool updateWorkspace)
             makeWorkspaceSettings()->setValue(
                 QSL("LastVMEConfig"), name.remove(getWorkspaceDirectory() + '/'));
         }
-        emit daqConfigFileNameChanged(name);
+        emit vmeConfigFilenameChanged(name);
     }
 }
 

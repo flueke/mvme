@@ -228,7 +228,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     connect(m_context, &MVMEContext::mvmeStreamWorkerStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::controllerStateChanged, this, &DAQControlWidget::updateWidget);
-    connect(m_context, &MVMEContext::daqConfigChanged, this, &DAQControlWidget::updateWidget);
+    connect(m_context, &MVMEContext::vmeConfigChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::vmeControllerSet, this, &DAQControlWidget::updateWidget);
 
 

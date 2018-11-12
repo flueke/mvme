@@ -286,9 +286,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuBar->addMenu(m_d->menuTools);
     m_d->menuBar->addMenu(m_d->menuHelp);
 
-    connect(m_d->m_context, &MVMEContext::daqConfigFileNameChanged, this, &MVMEMainWindow::updateWindowTitle);
+    connect(m_d->m_context, &MVMEContext::vmeConfigFilenameChanged, this, &MVMEMainWindow::updateWindowTitle);
     connect(m_d->m_context, &MVMEContext::modeChanged, this, &MVMEMainWindow::updateWindowTitle);
-    connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, &MVMEMainWindow::onConfigChanged);
+    connect(m_d->m_context, &MVMEContext::vmeConfigChanged, this, &MVMEMainWindow::onConfigChanged);
     connect(m_d->m_context, &MVMEContext::objectAboutToBeRemoved, this, &MVMEMainWindow::onObjectAboutToBeRemoved);
     connect(m_d->m_context, &MVMEContext::daqAboutToStart, this, &MVMEMainWindow::onDAQAboutToStart);
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::onDAQStateChanged);
@@ -296,7 +296,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::mvmeStreamWorkerStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::modeChanged, this, &MVMEMainWindow::updateActions);
-    connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, &MVMEMainWindow::updateActions);
+    connect(m_d->m_context, &MVMEContext::vmeConfigChanged, this, &MVMEMainWindow::updateActions);
 
     //
     // central widget consisting of DAQControlWidget, DAQConfigTreeWidget and DAQStatsWidget

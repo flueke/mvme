@@ -68,8 +68,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void vmeControllerSet(VMEController *controller);
 
-        void daqConfigChanged(VMEConfig *config);
-        void daqConfigFileNameChanged(const QString &fileName);
+        void vmeConfigChanged(VMEConfig *config);
+        void vmeConfigFilenameChanged(const QString &fileName);
 
         /* Emitted when a new analysis is loaded.
          * Note that a nullptr may be passed in case loading did not succeed. */

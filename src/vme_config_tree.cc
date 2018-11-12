@@ -268,8 +268,8 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     connect(m_tree, &QTreeWidget::itemExpanded, this, &VMEConfigTreeWidget::onItemExpanded);
     connect(m_tree, &QWidget::customContextMenuRequested, this, &VMEConfigTreeWidget::treeContextMenu);
 
-    connect(m_context, &MVMEContext::daqConfigChanged, this, &VMEConfigTreeWidget::setConfig);
-    connect(m_context, &MVMEContext::daqConfigFileNameChanged, this, [this](const QString &) {
+    connect(m_context, &MVMEContext::vmeConfigChanged, this, &VMEConfigTreeWidget::setConfig);
+    connect(m_context, &MVMEContext::vmeConfigFilenameChanged, this, [this](const QString &) {
         updateConfigLabel();
     });
 
