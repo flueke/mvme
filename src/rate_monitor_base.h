@@ -61,14 +61,6 @@ inline std::pair<double, double> get_minmax_values(const a2::RateSampler &sample
     ssize_t maxIndex = sampler.getSampleIndex(timeInterval.maxValue);
     const ssize_t size = sampler.rateHistory.size();
 
-    qDebug() << __PRETTY_FUNCTION__ << "time minValue =" << timeInterval.minValue << " -> index =" << minIndex;
-    qDebug() << __PRETTY_FUNCTION__ << "time maxValue =" << timeInterval.maxValue << " -> index =" << maxIndex;
-
-    //for (ssize_t i = 0; i < size; i++)
-    //{
-    //    qDebug() << "  " << i << sampler.rateHistory.at(i);
-    //}
-
     if (0 <= minIndex && minIndex < size
         && 0 <= maxIndex && maxIndex <= size)
     {
@@ -83,12 +75,8 @@ inline std::pair<double, double> get_minmax_values(const a2::RateSampler &sample
             minmax_iters.first  == f_end ? defaultValues.first  : *minmax_iters.first,
             minmax_iters.second == f_end ? defaultValues.second : *minmax_iters.second);
 
-        qDebug() << __PRETTY_FUNCTION__ << "valid indices, result =" << result;
-
         return result;
     }
-
-    qDebug() << __PRETTY_FUNCTION__ << "invalid indices, returning defaults: =" << defaultValues;
 
     return defaultValues;
 }

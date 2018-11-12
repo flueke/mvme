@@ -251,7 +251,7 @@ IntervalCutEditor::IntervalCutEditor(Histo1DWidget *parent)
     m_marker1->attach(parent->getPlot());
     m_marker2->attach(parent->getPlot());
 
-    // Note: do not call hide() here as that will invoke
+    // Note: do not call this->hide() here as that will invoke
     // Histo1DWidget::replot() where the widget might not have been fully
     // constructed yet.
     m_zone->hide();

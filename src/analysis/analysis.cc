@@ -18,7 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#include "analysis.h"
+#include "analysis/analysis.h"
 
 #include <QFileInfo>
 #include <QJsonArray>
@@ -26,13 +26,13 @@
 #include <random>
 #include <zstr/src/zstr.hpp>
 
-#include "a2_adapter.h"
-#include "a2/multiword_datafilter.h"
-#include "analysis_serialization.h"
-#include "analysis_util.h"
-#include "exportsink_codegen.h"
-#include "../vme_config.h"
-#include "object_visitor.h"
+#include "analysis/a2_adapter.h"
+#include "analysis/a2/multiword_datafilter.h"
+#include "analysis/analysis_serialization.h"
+#include "analysis/analysis_util.h"
+#include "analysis/exportsink_codegen.h"
+#include "analysis/object_visitor.h"
+#include "vme_config.h"
 
 #define ENABLE_ANALYSIS_DEBUG 0
 

@@ -74,7 +74,6 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
     virtual QRectF boundingRect() const override
     {
         auto result = make_bounding_rect(sampler.get());
-        qDebug() << __PRETTY_FUNCTION__ << result;
         return result;
     }
 
@@ -150,10 +149,9 @@ RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
     // zoomer
     m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
 
-    qDebug() << __PRETTY_FUNCTION__ << "zoomRectIndex =" << m_d->m_zoomer->zoomRectIndex();
-
     /* NOTE: using connect with the c++ pointer-to-member syntax with these qwt signals does
      * not work for some reason. */
+    // TODO: use casts to select specific overloads of these signals
     TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
     TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
@@ -319,7 +317,9 @@ void RateMonitorPlotWidget::replot()
         // the min/max values in the visible area.
         if (m_d->m_zoomer->zoomRectIndex() == 0)
         {
-            qDebug() << __PRETTY_FUNCTION__ << "fully zoomed out -> setting x scale to:" << xMin << xMax;
+            //qDebug() << __PRETTY_FUNCTION__
+            //<< "fully zoomed out -> setting x scale to:" << xMin << xMax;
+
             m_d->m_plot->setAxisScale(QwtPlot::xBottom, xMin_ms, xMax_ms);
             AxisInterval visibleXInterval_s = { xMin, xMax };
 
@@ -352,9 +352,8 @@ void RateMonitorPlotWidget::replot()
                 double delta  = std::abs(yMax - yMin);
                 double offset = delta * 0.05;
 
-#if 1
-                qDebug() << __PRETTY_FUNCTION__
-                    << "found y minmax for visible x range. auto scaling y and setting zoomBase";
+                //qDebug() << __PRETTY_FUNCTION__
+                //    << "found y minmax for visible x range. auto scaling y and setting zoomBase";
 
                 switch (getYAxisScale())
                 {
@@ -367,7 +366,6 @@ void RateMonitorPlotWidget::replot()
                         yMax = std::pow(yMax, ScaleFactor);
                         break;
                 }
-#endif
 
                 m_d->m_plot->setAxisScale(QwtPlot::yLeft, yMin, yMax);
                 m_d->m_zoomer->setZoomBase();
@@ -422,7 +420,6 @@ AxisScale RateMonitorPlotWidget::getYAxisScale() const
 
 void RateMonitorPlotWidget::zoomerZoomed(const QRectF &)
 {
-    qDebug() << __PRETTY_FUNCTION__ << m_d->m_zoomer->zoomRectIndex();
     replot();
 }
 
