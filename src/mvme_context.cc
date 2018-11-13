@@ -1975,7 +1975,10 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
 
     if (m_d->m_vmeConfigAutoSaver)
     {
-        // (re)start the autosaver
+        // Config load was successful. If an autosave exists it will contain the
+        // (now obsolete) contents of the previous vme config so we remove it
+        // and then restart the autosaver.
+        m_d->m_vmeConfigAutoSaver->removeOutputFile();
         m_d->m_vmeConfigAutoSaver->start();
     }
 }
@@ -2081,6 +2084,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
         if (m_d->m_analysisAutoSaver)
         {
             // (re)start the autosaver
+            m_d->m_analysisAutoSaver->removeOutputFile();
             m_d->m_analysisAutoSaver->start();
         }
 

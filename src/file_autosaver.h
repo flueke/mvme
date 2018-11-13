@@ -47,12 +47,13 @@ class FileAutoSaver: public QObject
 
         s32 getInterval() const { return m_timer->interval(); }
         QString getOutputFilename() const { return m_outputFilename; }
+        bool isActive() { return m_timer->isActive(); }
+        bool removeOutputFile();
 
     public slots:
         void setInterval(s32 interval_ms) { m_timer->setInterval(interval_ms); }
         void start();
         void stop();
-        bool isActive() { return m_timer->isActive(); }
         void saveNow();
 
     private:

@@ -108,3 +108,12 @@ void FileAutoSaver::saveNow()
 
     emit saved(m_outputFilename);
 }
+
+bool FileAutoSaver::removeOutputFile()
+{
+    if (QFile::exists(m_outputFilename))
+    {
+        return QFile::remove(m_outputFilename);
+    }
+    return true;
+}
