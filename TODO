@@ -6,7 +6,6 @@ TODO list, not at all sorted by priority
 BUGS
 --------------------------------------------------
 * Recheck/Test ConditionFilter
-* Recheck autosave code. silvia thinks it's sometimes loading obsolete stuff.
 * Think about file I/O for the expression operator
 
 * Analysis single step button can hit an assertion when clicked in quick
