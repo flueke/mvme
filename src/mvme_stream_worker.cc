@@ -529,8 +529,8 @@ void MVMEStreamWorker::beginRun(bool keepState)
                         {
                             single_step_one_event(singleStepProcState, m_d->streamProcessor);
 
-                            qDebug() << __PRETTY_FUNCTION__ << "resume after stepping case."
-                                << "stepResult is: " << StepResult_StringTable[singleStepProcState.stepResult];
+                            //qDebug() << __PRETTY_FUNCTION__ << "resume after stepping case."
+                            //    << "stepResult is: " << StepResult_StringTable[singleStepProcState.stepResult];
 
                             if (singleStepProcState.stepResult == ProcessingState::StepResult_AtEnd
                                 || singleStepProcState.stepResult == ProcessingState::StepResult_Error)

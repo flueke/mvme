@@ -159,6 +159,7 @@ ConditionLinkModifications get_condition_modifications(const ConditionLink &cl,
 
 ObjectTree::~ObjectTree()
 {
+    //qDebug() << __PRETTY_FUNCTION__ << this;
     qDebug() << __PRETTY_FUNCTION__ << this;
 }
 

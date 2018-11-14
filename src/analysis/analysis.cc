@@ -4690,10 +4690,11 @@ void Analysis::beginRun(const RunInfo &runInfo,
     // a2 arena swap
     m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
     m_a2Arenas[m_a2ArenaIndex]->reset();
+
     m_a2WorkArena->reset();
 
     qDebug() << __PRETTY_FUNCTION__ << "########## a2 active ##########";
-    qDebug() << __PRETTY_FUNCTION__ << "a2: using a2 arena" << (u32)m_a2ArenaIndex;
+    qDebug() << __PRETTY_FUNCTION__ << "a2: using arena" << (u32)m_a2ArenaIndex;
 
     m_a2State = std::make_unique<A2AdapterState>(
         a2_adapter_build_memory_wrapper(

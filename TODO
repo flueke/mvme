@@ -21,6 +21,8 @@ BUGS
     register is put into the data stream (verify).
 
 * analyis processing trees: After renaming an object resort the tree it is contained in.
+  This will conflict with the planned manual sorting of DataSources. Do not auto sort
+  the data extraction tree.
 
 * Add a refresh button to the ui. (same a repop right now, just with a nicer icon :)
 
@@ -30,8 +32,10 @@ BUGS
   nodes text will be updated periodically which interferes with editing.
 
 * When changing VME event trigger conditions the readout cycle end script can
-* become empty.
-  Figure out when and why this is happening.
+  become empty. How? What's happening?
+
+* Add BlockReadFlags to VMEController::blockRead() and implement support for
+  the controller side wordswap in the sis library.
 
 --------------------------------------------------
 Testing setup for ESS
