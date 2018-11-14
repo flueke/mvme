@@ -382,7 +382,7 @@ VMEError SIS3153::open()
             {
                 result = VMEError(VMEError::DeviceIsOpen,
                                   QSL("SIS3153 is in autonomous DAQ mode (another instance of mvme might be controlling it)."
-                                      " Use \"force reset\" to attempt resetting the controller."));
+                                      " Use \"force reset\" to attempt to reset the controller."));
                 m_d->ctrlState = ControllerState::Disconnected;
                 emit controllerStateChanged(m_d->ctrlState);
                 return result;
@@ -647,6 +647,8 @@ VMEError SIS3153::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 a
 
     dest->resize(wordsRead);
 
+    // TODO: add a BlockReadFlag arg to VMEController::blockRead() and then
+    // remove this hardcoded swap.
     if (isMBLT)
     {
         fix_word_order(*dest);

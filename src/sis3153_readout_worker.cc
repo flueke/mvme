@@ -795,7 +795,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             sis->close();
 
             throw QString("Error starting DAQ: SIS3153 already is in autonomous DAQ mode."
-                          " Use \"force reset\" to attempt resetting the controller.");
+                          " Use \"force reset\" to attempt to reset the controller.");
         }
 
 

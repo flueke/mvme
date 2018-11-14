@@ -160,7 +160,6 @@ ConditionLinkModifications get_condition_modifications(const ConditionLink &cl,
 ObjectTree::~ObjectTree()
 {
     //qDebug() << __PRETTY_FUNCTION__ << this;
-    qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 MVMEContext *ObjectTree::getContext() const
@@ -4905,6 +4904,7 @@ void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
 
 #ifndef NDEBUG
     labelText += QSL("\nMode=%1").arg(mode_to_string(m_mode));
+    labelText += QSL("\npendingCondMod=%1").arg(hasPendingConditionModifications());
 #endif
 
     m_eventRateLabel->setText(labelText);

@@ -1674,7 +1674,7 @@ bool Histo2DWidget::setEditCondition(const analysis::ConditionLink &cl)
 
     if (!condPoly)
     {
-        // clear to avoid returning a previous condition that was being edited
+        // clear to avoid returning the previous condition in getEditCondition()
         m_d->m_editingCondition = {};
         return false;
     }

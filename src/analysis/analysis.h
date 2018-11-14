@@ -41,7 +41,6 @@
 #include <memory>
 #include <pcg_random.hpp>
 #include <QDir>
-#include <QMutex>
 #include <QUuid>
 #include <qwt_interval.h>
 
