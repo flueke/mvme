@@ -201,6 +201,9 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
         m_d->eventConfigs[eventIndex] = eventConfig;
     }
 
+    // TODO: check that the analysis has been built (no object needs a rebuild)
+
+#if 0
     //
     // build and prepare the analysis system
     //
@@ -214,6 +217,7 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
     };
 
     a2::a2_begin_run(m_d->analysis->getA2AdapterState()->a2, logger_adapter);
+#endif
 
     m_d->consumersBeginRun();
 
