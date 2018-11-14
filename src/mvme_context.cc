@@ -20,11 +20,13 @@
  */
 #include "mvme_context.h"
 
+#include "analysis/a2_adapter.h"
 #include "analysis/a2/memory.h"
 #include "analysis/analysis.h"
 #include "analysis/analysis_session.h"
 #include "analysis/analysis_ui.h"
 #include "file_autosaver.h"
+#include "listfile_version.h"
 #include "mvme_context_lib.h"
 #include "mvme.h"
 #include "mvme_listfile.h"
@@ -307,7 +309,7 @@ void MVMEContextPrivate::stopDAQReplay()
 
     Q_ASSERT(m_q->m_readoutWorker->getState() == DAQState::Idle);
 
-    m_q->m_streamWorker->setListFileVersion(1);
+    m_q->m_streamWorker->setListFileVersion(CurrentListfileVersion);
     m_q->onDAQStateChanged(DAQState::Idle);
 }
 
@@ -1167,22 +1169,54 @@ void MVMEContext::prepareStart()
     }
 #endif
 
-//#ifdef MVME_ENABLE_ROOT // FIXME: fix SIGPIPE on child process exit
-#if 0
-    m_d->m_rootWriter = std::make_unique<mvme_root::RootDataWriter>();
-    m_streamWorker->getStreamProcessor()->attachModuleConsumer(m_d->m_rootWriter.get());
-#endif
-
-//#ifdef MVME_ENABLE_ROOT // FIXME: fix SIGPIPE on child process exit
-#if 0
-    m_d->m_rootWriter->moveToThread(m_eventThread);
-#endif
-
     m_daqStats = DAQStats();
 
     qDebug() << __PRETTY_FUNCTION__
         << "free buffers:" << m_freeBuffers.queue.size()
         << "filled buffers:" << m_fullBuffers.queue.size();
+
+    qDebug() << __PRETTY_FUNCTION__ << "building analysis in main thread";
+
+    auto logger_adapter = [this](const std::string &str)
+    {
+        logMessage(QString::fromStdString(str));
+    };
+
+    using ClockType = std::chrono::high_resolution_clock;
+    auto tStart = ClockType::now();
+
+    auto indexMapping = vme_analysis_common::build_id_to_index_mapping(getVMEConfig());
+    auto analysis = getAnalysis();
+    analysis->beginRun(getRunInfo(), indexMapping);
+
+    /* FIXME: a2_end_run() is happening in the worker thread at the moment.
+     * Check if this can and should be moved over. */
+    a2::a2_begin_run(analysis->getA2AdapterState()->a2, logger_adapter);
+
+    auto tEnd = ClockType::now();
+    std::chrono::duration<float> elapsed = tEnd - tStart;
+
+    qDebug() << __PRETTY_FUNCTION__ << "analysis build took"
+        << elapsed.count() << "seconds";
+
+    // start the analysis side and wait for it to be ready.
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "starting mvme stream worker";
+
+        // Use a local event loop to wait here until the stream worker thread
+        // signals that startup is complete.
+        QEventLoop localLoop;
+        auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started,
+                                    &localLoop, &QEventLoop::quit);
+        bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "start",
+                                                 Qt::QueuedConnection);
+        assert(invoked);
+
+        localLoop.exec();
+        QObject::disconnect(con);
+
+        qDebug() << __PRETTY_FUNCTION__ << "starting mvme stream worker";
+    }
 }
 
 void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
@@ -1197,6 +1231,9 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
         return;
     }
 
+    // Can be used for last minute changes before the actual startup. Used in
+    // the GUI to ask the user if modifications to VME scripts should be applied
+    // and used for the run.
     emit daqAboutToStart(nCycles);
 
     // Generate new RunInfo here. Has to happen before prepareStart() calls
@@ -1211,7 +1248,6 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
     // FIXME: we don't actually know the runId before the listfile is successfully opened.
     // E.g. the runNumber might be incremented due to run files already existing.
 
-    prepareStart();
     m_d->clearLog();
     logMessage(QSL("DAQ starting"));
 
@@ -1222,22 +1258,14 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
                .arg(QSysInfo::prettyProductName())
                .arg(QSysInfo::currentCpuArchitecture()));
 
+    prepareStart();
 
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "starting mvme stream worker";
+    qDebug() << __PRETTY_FUNCTION__ << "starting readout worker";
 
-        QEventLoop localLoop;
-        auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started,
-                                    &localLoop, &QEventLoop::quit);
-        QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
-        localLoop.exec();
-        QObject::disconnect(con);
-    }
-
-    qDebug() << __PRETTY_FUNCTION__ << "stream processor running. starting readout worker";
-
-    QMetaObject::invokeMethod(m_readoutWorker, "start",
-                              Qt::QueuedConnection, Q_ARG(quint32, nCycles));
+    bool invoked = QMetaObject::invokeMethod(
+        m_readoutWorker, "start", Qt::QueuedConnection,
+        Q_ARG(quint32, nCycles));
+    assert(invoked);
 }
 
 void MVMEContext::stopDAQ()
@@ -1276,35 +1304,18 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
     qDebug() << __PRETTY_FUNCTION__ << m_listFile->getFileName() << fi.completeBaseName();
 
     auto hack = m_daqStats.listfileFilename; // FIXME: FIXME!
-    prepareStart();
     m_daqStats.listfileFilename = hack;
 
     m_listFileWorker->setEventsToRead(nEvents);
     m_streamWorker->setListFileVersion(m_listFile->getFileVersion());
 
+    prepareStart();
 
-    /* Start both the listfile reader and the stream processor.
-     * There is a race condition here between the listfile reader emitting
-     * replayStopped() and the stream worker starting up: in case the listfile
-     * is very short the reader will have emitted the signal before the stream
-     * processor was fully started. This results in the stream proc remaining
-     * in "running" state forever.
-     * Solution: start the streamworker and react to its started() signal.
-     * Once that arrives start the listfile reader. */
+    qDebug() << __PRETTY_FUNCTION__ << "starting listfile reader";
 
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "starting mvme stream worker";
-
-        QEventLoop localLoop;
-        auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started, &localLoop, &QEventLoop::quit);
-        QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
-        localLoop.exec();
-        QObject::disconnect(con);
-    }
-
-    qDebug() << __PRETTY_FUNCTION__ << "stream processor running. starting listfile reader";
-
-    QMetaObject::invokeMethod(m_listFileWorker, "start", Qt::QueuedConnection);
+    bool invoked = QMetaObject::invokeMethod(
+        m_listFileWorker, "start", Qt::QueuedConnection);
+    assert(invoked);
 
     m_replayTime.restart();
 }
