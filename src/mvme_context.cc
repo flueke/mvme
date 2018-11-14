@@ -61,6 +61,7 @@ namespace
  * analysis system has to fully process the last buffer it pulled from the
  * shared queue.
  */
+static const size_t DataBufferCount = 25;
 static const size_t DataBufferCount = 50;
 static const size_t DataBufferSize = Megabytes(1);
 
