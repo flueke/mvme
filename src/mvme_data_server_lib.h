@@ -462,10 +462,6 @@ void Parser::handleMessage(const Message &msg)
     {
         if (!is_valid_transition(m_prevMsgType, msg.type))
         {
-            //throw protocol_error("Unexpected message sequence: prev="
-            //                     + std::to_string(m_prevMsgType)
-            //                     + ", cur=" + std::to_string(msg.type));
-
             throw protocol_error("Unexpected message sequence: '"
                                  + to_string(m_prevMsgType)
                                  + "' -> '"
