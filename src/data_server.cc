@@ -487,7 +487,7 @@ void AnalysisDataServer::endRun(const std::exception *e)
     // "flush" on endrun
     for (auto &client: m_d->m_clients)
     {
-        while (client.socket->bytesToWrite() > 0)
+        while (client.socket && client.socket->bytesToWrite() > 0)
             client.socket->waitForBytesWritten();
     }
 
