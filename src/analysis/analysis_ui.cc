@@ -1002,7 +1002,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
      *
      * Update (beta 0.9.6): added new MVMEContext::vmeConfigAboutToBeSet()
      * signal. When this signal arrives we suspend repopulating until the final
-     * emission of the vmeConfigSet() signal. */
+     * emission of the vmeConfigChanged() signal. */
 
     connect(m_d->m_context, &MVMEContext::vmeConfigAboutToBeSet,
             this, [this] (VMEConfig *oldcfg, VMEConfig *newcfg) {
@@ -1510,6 +1510,20 @@ bool AnalysisWidget::event(QEvent *e)
     }
 
     return QWidget::event(e);
+}
+
+int AnalysisWidget::removeObjects(const AnalysisObjectVector &objects)
+{
+    qDebug() << __PRETTY_FUNCTION__ << objects.size();
+
+    if (objects.isEmpty()) return 0;
+
+    AnalysisPauser pauser(m_d->getContext());
+    QSignalBlocker blocker(m_d->m_analysisSignalWrapper);
+    auto analysis = m_d->getAnalysis();
+    int result = analysis->removeObjectsRecursively(objects);
+    m_d->repopulate();
+    return result;
 }
 
 } // end namespace ui

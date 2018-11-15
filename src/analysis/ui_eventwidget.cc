@@ -5284,16 +5284,7 @@ void EventWidgetPrivate::removeDirectoryRecursively(const DirectoryPtr &dir)
 
 void EventWidgetPrivate::removeObjects(const AnalysisObjectVector &objects)
 {
-    qDebug() << __PRETTY_FUNCTION__ << objects;
-
-    if (!objects.isEmpty())
-    {
-        AnalysisPauser pauser(m_context);
-        auto analysis = m_context->getAnalysis();
-        analysis->removeObjectsRecursively(objects);
-        m_analysisWidget->updateAddRemoveUserLevelButtons();
-        repopulate();
-    }
+    m_analysisWidget->removeObjects(objects);
 }
 
 static QTreeWidgetItem *find_node(QTreeWidgetItem *root, const AnalysisObjectPtr &obj)

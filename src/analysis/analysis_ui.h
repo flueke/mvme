@@ -52,6 +52,8 @@ class AnalysisWidget: public QWidget
 
         virtual bool event(QEvent *event) override;
 
+        int removeObjects(const AnalysisObjectVector &objects);
+
     private:
         friend struct AnalysisWidgetPrivate;
         AnalysisWidgetPrivate *m_d;
