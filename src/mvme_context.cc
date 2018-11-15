@@ -1179,7 +1179,7 @@ void MVMEContext::setAnalysisConfigFileName(QString name, bool updateWorkspace)
  * Reset DAQ stats. */
 void MVMEContext::prepareStart()
 {
-#if 0
+#if 1
     // Use this to force a crash in case deleted objects remain in the object set.
     for (auto it=m_objects.begin(); it!=m_objects.end(); ++it)
     {
@@ -1196,21 +1196,12 @@ void MVMEContext::prepareStart()
 
     qDebug() << __PRETTY_FUNCTION__ << "building analysis in main thread";
 
-    auto logger_adapter = [this](const std::string &str)
-    {
-        logMessage(QString::fromStdString(str));
-    };
-
     using ClockType = std::chrono::high_resolution_clock;
     auto tStart = ClockType::now();
 
     auto indexMapping = vme_analysis_common::build_id_to_index_mapping(getVMEConfig());
     auto analysis = getAnalysis();
     analysis->beginRun(getRunInfo(), indexMapping);
-
-    /* FIXME: a2_end_run() is happening in the worker thread at the moment.
-     * Check if this can and should be moved over. */
-    a2::a2_begin_run(analysis->getA2AdapterState()->a2, logger_adapter);
 
     auto tEnd = ClockType::now();
     std::chrono::duration<float> elapsed = tEnd - tStart;

@@ -256,7 +256,6 @@ void MVMEStreamProcessor::endRun()
         c->endRun();
     }
 
-    a2::a2_end_run(m_d->analysis->getA2AdapterState()->a2);
     m_d->analysis->endRun();
 
     qDebug() << __PRETTY_FUNCTION__ << "end";

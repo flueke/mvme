@@ -4683,8 +4683,6 @@ void Analysis::beginRun(const RunInfo &runInfo,
     qDebug() << __PRETTY_FUNCTION__ << "built" << sourcesBuilt << "sources"
         " and " << operatorsBuilt << "operators";
 
-#if 1 // FIXME:BEGINRUN
-
     // Build the a2 system
 
     // a2 arena swap
@@ -4706,7 +4704,10 @@ void Analysis::beginRun(const RunInfo &runInfo,
             m_vmeMap,
             runInfo,
             logger));
-#endif
+
+    a2::a2_begin_run(m_a2State->a2, [logger] (const std::string &str) {
+        logger(QString::fromStdString(str));
+    });
 }
 
 void Analysis::beginRun(BeginRunOption option, Logger logger)
@@ -4726,6 +4727,8 @@ void Analysis::beginRun(BeginRunOption option, Logger logger)
 
 void Analysis::endRun()
 {
+    a2::a2_end_run(m_a2State->a2);
+
 #if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__
         << "calling endRun() on" << m_sources.size() << "data sources";
