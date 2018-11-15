@@ -1,6 +1,7 @@
 #include "mvme_data_server_lib.h"
 
 #include <getopt.h>
+#include <regex>
 #include <signal.h>
 #include <TFile.h>
 #include <TNtupleD.h>
@@ -13,6 +14,12 @@ using namespace mvme::data_server;
 
 namespace
 {
+
+std::string make_branch_name(const std::string &input)
+{
+    std::regex re("/|\\|[|]|\\.");
+    return std::regex_replace(input, re, "_");
+}
 
 struct EventStorage
 {
@@ -101,10 +108,10 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
             // branchSpec looks like: "name[Size]/D" for doubles,
             // "name[Size]/F" for floats
             std::ostringstream ss;
-            ss << dsd.name.c_str() << "[" << dsd.size << "]/F";
+            ss << make_branch_name(dsd.name) << "[" << dsd.size << "]/F";
             std::string branchSpec = ss.str();
 
-            cout << "    data branch: " << branchSpec << endl;
+            cout << "    data branch: " << dsd.name << " -> " << branchSpec << endl;
 
             auto branch = storage.tree->Branch(
                 dsd.name.c_str(),
@@ -168,6 +175,7 @@ void Context::endRun(const Message &msg)
     if (m_outFile)
     {
         cout << "  Closing output file " << m_outFile->GetName() << "..." << endl;
+        m_outFile->Write();
         m_outFile->Close();
         m_outFile.release();
     }
