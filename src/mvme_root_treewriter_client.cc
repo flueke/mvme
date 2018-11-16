@@ -137,7 +137,7 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
                 << endl;
 
             // ROOT default is 32000
-            static const int BranchBufferSize = 32000 * 10;
+            static const int BranchBufferSize = 32000 * 1;
 
             auto branch = storage.tree->Branch(
                 branchName.c_str(),

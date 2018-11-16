@@ -53,7 +53,14 @@ struct AnalysisDataServer::Private
         QJsonObject runStructureInfo;
     };
 
+    struct RunStats
+    {
+        size_t dataBytesPerClient = 0;
+    };
+
     RunContext m_runContext;
+    RunStats m_runStats;
+
 
     void handleNewConnection();
     void handleClientSocketError(QTcpSocket *socket, QAbstractSocket::SocketError error);
@@ -284,6 +291,8 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
         analysis->getA2AdapterState()->a2
     };
 
+    m_d->m_runStats = {};
+
     // How the data stream looks:
     // eventIndex (known in endEvent)
     // first data source output
@@ -303,6 +312,7 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
     for (s32 eventIndex = 0; eventIndex < a2::MaxVMEEvents; eventIndex++)
     {
         const u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
+        u32 eventBytes = 0;
 
         if (!dataSourceCount) continue;
 
@@ -331,12 +341,18 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
             dsInfo["output_upperLimit"] = a2_dataSource->output.upperLimits[0];
 
             dataSourceInfos.append(dsInfo);
+
+            eventBytes += output_bytes;
         }
 
         QJsonObject eventInfo;
         eventInfo["eventIndex"] = eventIndex;
         eventInfo["dataSources"] = dataSourceInfos;
         eventDataSources.append(eventInfo);
+
+        qDebug() << "DataServer"
+            << "eventIndex=" << eventIndex
+            << "outputBytes" << eventBytes;
     }
 
     QJsonArray vmeTree;
@@ -422,6 +438,7 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
         msgSize += sizeof(u32) + sizeof(u32);
         // size of the output * sizeof(double)
         msgSize += ds->output.size() * ds->output.data.element_size;
+        m_d->m_runStats.dataBytesPerClient += ds->output.size() * ds->output.data.element_size;
     }
 
     using namespace mvme::data_server;
@@ -493,6 +510,11 @@ void AnalysisDataServer::endRun(const std::exception *e)
 
     m_d->m_runContext = {};
     m_d->m_runInProgress = false;
+
+    qDebug() << __PRETTY_FUNCTION__ << "dataPerClient ="
+        << m_d->m_runStats.dataBytesPerClient
+        << "bytes, " << m_d->m_runStats.dataBytesPerClient / (1024.0 * 1024.0)
+        << "MB";
 }
 
 void AnalysisDataServer::beginEvent(s32 eventIndex)
@@ -513,7 +535,7 @@ void AnalysisDataServer::processModuleData(s32 eventIndex, s32 moduleIndex,
 
 void AnalysisDataServer::processTimetick()
 {
-    // TODO: how to handle timeticks?
+    // TODO: how to handle timeticks? handle them at all?
     assert(m_d->m_runInProgress);
 }
 

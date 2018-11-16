@@ -223,7 +223,9 @@ int main(int argc, char *argv[])
 
         if (enableAnalysisServer)
         {
-            assert(context.dataServer->isListening());
+            if (!context.dataServer->isListening())
+                return 1;
+
             cout << "waiting for client to connect..." << endl;
 
             while (context.dataServer->getNumberOfClients() == 0)
@@ -233,7 +235,7 @@ int main(int argc, char *argv[])
 
         }
 
-        cout << "processing" << listfiles.size() << "listfiles";
+        cout << "processing " << listfiles.size() << " listfiles" << endl;
 
         for (const auto &listfileFilename: listfiles)
         {
@@ -263,11 +265,11 @@ int main(int argc, char *argv[])
             context.analysis->beginRun(context.runInfo, indexMapping);
 
 
-            cout << "processing listfile" << listfileFilename.toStdString() << "...";
+            cout << "processing listfile" << listfileFilename.toStdString() << "..." << endl;
 
             process_listfile(context, openResult.listfile.get());
 
-            cout << "process_listfile() returned";
+            cout << "process_listfile() returned" << endl;
 
             auto counters = context.streamProcessor.getCounters();
 
@@ -294,7 +296,7 @@ int main(int argc, char *argv[])
                              //.arg(counters.eventCounters[ei])
                              .arg(format_number(counters.eventCounters[ei], "", UnitScaling::Decimal))
                              .arg(format_number(counters.eventCounters[ei] / dt_s, "Hz", UnitScaling::Decimal))
-                            ).toStdString();
+                            ).toStdString() << endl;
                 }
             }
 
@@ -329,7 +331,7 @@ int main(int argc, char *argv[])
             filesProcessed++;
         }
 
-        cout << "processed" << filesProcessed << "listfiles";
+        cout << "processed " << filesProcessed << " listfiles" << endl;
 
         if (failedToOpen.size())
         {
