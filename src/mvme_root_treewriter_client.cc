@@ -21,6 +21,19 @@ std::string make_branch_name(const std::string &input)
     return std::regex_replace(input, re, "_");
 }
 
+std::string make_unique_name(const std::string &str, const std::set<std::string> &names)
+{
+    std::string result = str;
+    size_t suffix = 1;
+
+    while (names.count(result) > 0)
+    {
+        result = str + std::to_string(suffix++);
+    }
+
+    return result;
+}
+
 struct EventStorage
 {
     // one tree per event
@@ -88,6 +101,8 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
     m_outFile = std::make_unique<TFile>(filename.c_str(), "RECREATE",
                                         streamInfo.runId.c_str());
 
+    std::set<std::string> branchNames;
+
     // For each incoming event: create a TTree, buffer space and branches
     for (const EventDataDescription &edd: streamInfo.eventDescriptions)
     {
@@ -105,16 +120,27 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
             // The branch will point to this buffer space
             storage.buffers.emplace_back(std::vector<float>(dsd.size));
 
+            std::string branchName = make_branch_name(dsd.name);
+
             // branchSpec looks like: "name[Size]/D" for doubles,
             // "name[Size]/F" for floats
             std::ostringstream ss;
-            ss << make_branch_name(dsd.name) << "[" << dsd.size << "]/F";
+            ss << branchName << "[" << dsd.size << "]/F";
             std::string branchSpec = ss.str();
 
-            cout << "    data branch: " << dsd.name << " -> " << branchSpec << endl;
+            branchName = make_unique_name(branchName, branchNames);
+            branchNames.insert(branchName);
+
+            cout << "    data source: " << dsd.name
+                << " -> branchSpec=" << branchSpec
+                << ", branchName=" << branchName
+                << endl;
+
+            // ROOT default is 32000
+            static const int BranchBufferSize = 32000 * 10;
 
             auto branch = storage.tree->Branch(
-                dsd.name.c_str(),
+                branchName.c_str(),
                 storage.buffers.back().data(),
                 branchSpec.c_str());
 
@@ -145,9 +171,6 @@ void Context::eventData(const Message &msg, int eventIndex,
         std::vector<float> &buffer = eventStorage.buffers[dsIndex];
 
         assert(dsc.dataEnd - dsc.dataBegin == static_cast<ptrdiff_t>(buffer.size()));
-
-        //cout << __PRETTY_FUNCTION__
-        //    << " buffer=" << buffer.data() << endl;
 
         if (m_convertNaNs)
         {
