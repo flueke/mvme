@@ -1518,6 +1518,8 @@ void Histo1DWidgetPrivate::calibApply()
     Q_ASSERT(m_calib);
     Q_ASSERT(m_context);
 
+    using namespace analysis;
+
     double a1 = m_calibUi.actual1->value();
     double a2 = m_calibUi.actual2->value();
     double t1 = m_calibUi.target1->value();
@@ -1547,14 +1549,19 @@ void Histo1DWidgetPrivate::calibApply()
     m_calibUi.actual1->setValue(m_calibUi.target1->value());
     m_calibUi.actual2->setValue(m_calibUi.target2->value());
 
-    // TODO: Refactor to not use do_beginRun_forward
     AnalysisPauser pauser(m_context);
 
     m_calib->setCalibration(address, targetMin, targetMax);
-
-    RunInfo runInfo = {};
-    runInfo.keepAnalysisState = true;
-    analysis::do_beginRun_forward(m_calib.get(), runInfo);
+    m_context->getAnalysis()->setOperatorEdited(m_calib);
+    // FIXME: the AnalysisPauser obviously only calls resumeAnalysis if the
+    // analysis was running. this in turn will then rebuild the system if
+    // needed. In case of being idle the histo sink won't be rebuilt and thus
+    // the calibration changes will only be visible the next time the daq is
+    // started.
+    // the workaround is to manually invoke beginRun() here.
+    m_context->getAnalysis()->beginRun(
+        Analysis::KeepState,
+        [this] (const QString &msg) { m_context->logMessage(msg); });
 
     m_q->on_tb_rate_toggled(m_rateEstimationData.visible);
 }
