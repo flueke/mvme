@@ -249,6 +249,16 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
 
     if (newInput)
     {
+        // If the input is an array of size 1 this turns the connection into a
+        // "value" connection using index 0.
+        // Basically NoParamIndex is rewritten to 0 in case the input is of size 1
+        // and it's ok to use Input::Value.
+        if (newInput->getSize() == 1
+            && acceptedInputTypes & InputType::Value)
+        {
+            newParamIndex = 0;
+        }
+
         inputPipe = newInput;
         paramIndex = newParamIndex;
         inputPipe->addDestination(this);
