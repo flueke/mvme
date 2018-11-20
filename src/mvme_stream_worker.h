@@ -85,7 +85,7 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
         void startup();
         void shutdown();
 
-        void beginRun(bool keepState = false);
+        void beginRun();
 
         /* Is invoked from MVMEMainWindow via QMetaObject::invokeMethod so that
          * it runs in our thread. */

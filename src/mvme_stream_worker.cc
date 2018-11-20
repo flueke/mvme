@@ -382,7 +382,7 @@ void MVMEStreamWorker::shutdown()
 }
 
 /* The main worker loop. */
-void MVMEStreamWorker::beginRun(bool keepState)
+void MVMEStreamWorker::beginRun()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 
@@ -392,10 +392,6 @@ void MVMEStreamWorker::beginRun(bool keepState)
     Q_ASSERT(m_d->context->getAnalysis());
 
     m_d->runInfo = m_d->context->getRunInfo();
-    //m_d->runInfo.generateExportFiles = true;
-
-    // XXX: weird last minute decision here
-    m_d->runInfo.keepAnalysisState = keepState;
 
     m_d->streamProcessor.beginRun(
         m_d->runInfo,

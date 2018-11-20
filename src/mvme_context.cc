@@ -351,7 +351,8 @@ void MVMEContextPrivate::stopAnalysis()
     {
         // Tell the analysis top stop immediately
         m_q->m_streamWorker->stop(false);
-        QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
+        QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
+                         &localLoop, &QEventLoop::quit);
         localLoop.exec();
     }
 
@@ -360,12 +361,16 @@ void MVMEContextPrivate::stopAnalysis()
 
 void MVMEContextPrivate::resumeAnalysis(analysis::Analysis::BeginRunOption runOption)
 {
+    assert(m_q->m_streamWorker->getState() == MVMEStreamWorkerState::Idle);
+
     if (m_q->m_streamWorker->getState() == MVMEStreamWorkerState::Idle)
     {
-        bool keepState = runOption != analysis::Analysis::ClearState;
+        // TODO: merge with the build  code in prepareStart().
+        auto analysis = m_q->getAnalysis();
+        analysis->beginRun(runOption, [this] (const QString &msg) { m_q->logMessage(msg); });
 
         bool invoked = QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "beginRun",
-                                                 Qt::QueuedConnection, Q_ARG(bool, keepState));
+                                                 Qt::QueuedConnection);
 
         assert(invoked);
 
@@ -1175,11 +1180,11 @@ void MVMEContext::setAnalysisConfigFileName(QString name, bool updateWorkspace)
     }
 }
 
-/* Notifies MVMEStreamWorker and the analysis that a new run is going to start.
- * Reset DAQ stats. */
+// Rebuilds the analyis in the main thread and then tells the stream worker that
+// a run is about to start.
 void MVMEContext::prepareStart()
 {
-#if 1
+#ifndef NDEBUG
     // Use this to force a crash in case deleted objects remain in the object set.
     for (auto it=m_objects.begin(); it!=m_objects.end(); ++it)
     {
@@ -1194,23 +1199,26 @@ void MVMEContext::prepareStart()
         << "free buffers:" << m_freeBuffers.queue.size()
         << "filled buffers:" << m_fullBuffers.queue.size();
 
-    qDebug() << __PRETTY_FUNCTION__ << "building analysis in main thread";
+    assert(m_streamWorker->getState() == MVMEStreamWorkerState::Idle);
 
-    using ClockType = std::chrono::high_resolution_clock;
-    auto tStart = ClockType::now();
-
-    auto indexMapping = vme_analysis_common::build_id_to_index_mapping(getVMEConfig());
-    auto analysis = getAnalysis();
-    analysis->beginRun(getRunInfo(), indexMapping);
-
-    auto tEnd = ClockType::now();
-    std::chrono::duration<float> elapsed = tEnd - tStart;
-
-    qDebug() << __PRETTY_FUNCTION__ << "analysis build took"
-        << elapsed.count() << "seconds";
-
-    // start the analysis side and wait for it to be ready.
+    if (m_streamWorker->getState() == MVMEStreamWorkerState::Idle)
     {
+        qDebug() << __PRETTY_FUNCTION__ << "building analysis in main thread";
+
+        using ClockType = std::chrono::high_resolution_clock;
+        auto tStart = ClockType::now();
+
+        auto indexMapping = vme_analysis_common::build_id_to_index_mapping(getVMEConfig());
+        auto analysis = getAnalysis();
+        analysis->beginRun(getRunInfo(), indexMapping,
+                           [this] (const QString &msg) { logMessage(msg); });
+
+        auto tEnd = ClockType::now();
+        std::chrono::duration<float> elapsed = tEnd - tStart;
+
+        qDebug() << __PRETTY_FUNCTION__ << "analysis build took"
+            << elapsed.count() << "seconds";
+
         qDebug() << __PRETTY_FUNCTION__ << "starting mvme stream worker";
 
         // Use a local event loop to wait here until the stream worker thread
@@ -1218,6 +1226,7 @@ void MVMEContext::prepareStart()
         QEventLoop localLoop;
         auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started,
                                     &localLoop, &QEventLoop::quit);
+
         bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "beginRun",
                                                  Qt::QueuedConnection);
         assert(invoked);
