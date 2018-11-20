@@ -2582,6 +2582,8 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
      * all pointers into the histograms. Recreate pointers into arena, clear
      * memory. Update pointers for existing Histo1D instances.
      */
+
+    // Check for invalid inpput
     if (!m_inputSlot.isParamIndexInRange())
     {
         m_histos.resize(0);
@@ -2589,7 +2591,7 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
         return;
     }
 
-    size_t histoCount = 0;
+    s32 histoCount = 0;
     s32 minIdx = 0;
     s32 maxIdx = 0;
 
@@ -2606,22 +2608,59 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
         maxIdx = (s32)histoCount;
     }
 
+    bool histoCountChanged   = m_histos.size() != histoCount;
+    bool binCountChanged = true;
+    if (!m_histos.isEmpty() && m_histos[0]->getNumberOfBins() == static_cast<u32>(m_bins))
+    {
+        binCountChanged = false;
+    }
+    bool structureChanged = histoCountChanged || binCountChanged;
+
     m_histos.resize(histoCount);
 
     // Space for the histos plus space to allow proper alignment
-    size_t requiredMemory = histoCount * m_bins * sizeof(double) + histoCount * HistoMemAlignment;
+    size_t requiredMemory = (histoCount * m_bins * sizeof(double)
+                             + histoCount * HistoMemAlignment);
 
     if (!m_histoArena || m_histoArena->size() < requiredMemory)
     {
+        assert(structureChanged);
+        // Have to (re)alloc as we either have no memory yet or not enough.
         m_histoArena = std::make_shared<memory::Arena>(requiredMemory);
+    }
+    else if (structureChanged)
+    {
+        // clear arena. histo data will be reassigned below
+        m_histoArena->reset();
     }
     else
     {
-        m_histoArena->reset();
+        // structure did not change, leave arena intact.
     }
 
     for (s32 idx = minIdx, histoIndex = 0; idx < maxIdx; idx++, histoIndex++)
     {
+        SharedHistoMem histoMem;
+        auto histo = m_histos[histoIndex];
+
+        if (!structureChanged)
+        {
+            assert(histo);
+            histoMem = histo->getSharedMemory();
+            assert(histoMem.size == m_bins);
+        }
+        else
+        {
+            histoMem =
+            {
+                m_histoArena,
+                m_histoArena->pushArray<double>(m_bins, HistoMemAlignment),
+                m_bins
+            };
+        }
+
+        assert(histoMem.data);
+
         double xMin = m_xLimitMin;
         double xMax = m_xLimitMax;
 
@@ -2636,15 +2675,6 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
         }
 
         AxisBinning binning(m_bins, xMin, xMax);
-        SharedHistoMem histoMem =
-        {
-            m_histoArena,
-            m_histoArena->pushArray<double>(m_bins, HistoMemAlignment)
-        };
-
-        assert(histoMem.data);
-
-        auto histo = m_histos[histoIndex];
 
         if (histo)
         {
