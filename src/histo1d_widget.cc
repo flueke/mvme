@@ -1583,7 +1583,10 @@ void Histo1DWidgetPrivate::calibResetToFilter()
 
 void Histo1DWidgetPrivate::calibFillMax()
 {
-    double maxAt = m_histo->getAxisBinning(Qt::XAxis).getBinLowEdge(m_stats.maxBin);
+    // The values in m_stats are calculated in terms of the current res
+    // reduction factor in replot(). This means m_stats.maxBin can be used
+    // unmodified in the call to getBinLowEdge().
+    double maxAt = m_histo->getBinLowEdge(m_stats.maxBin, m_rrf);
     m_calibUi.lastFocusedActual->setValue(maxAt);
 }
 
