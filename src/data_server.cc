@@ -70,6 +70,14 @@ struct AnalysisDataServer::Private
 namespace
 {
 
+enum class WriteOption
+{
+    None,
+    Flush
+};
+
+static const int FlushTimeout_ms = 1000;
+
 qint64 write_data(QIODevice &out, const char *data, size_t size)
 {
     const char *curPtr = data;
@@ -108,18 +116,23 @@ qint64 write_message_header(QIODevice &out, MessageType type, u32 size)
     return result;
 }
 
-qint64 write_message(QIODevice &out, MessageType type, const char *data, u32 size)
+qint64 write_message(QIODevice &out, MessageType type, const char *data, u32 size,
+                     WriteOption opt = WriteOption::None)
 {
     qint64 result = 0;
     result += write_message_header(out, type, size);
     result += write_data(out, data, size);
+    if (opt == WriteOption::Flush)
+        out.waitForBytesWritten(FlushTimeout_ms);
     return result;
 }
 
-qint64 write_message(QIODevice &out, MessageType type, const QByteArray &contents)
+qint64 write_message(QIODevice &out, MessageType type, const QByteArray &contents,
+                     WriteOption opt = WriteOption::None)
 {
     return write_message(out, type, contents.data(),
-                         static_cast<u32>(contents.size()));
+                         static_cast<u32>(contents.size()),
+                         opt);
 }
 
 } // end anon namespace
@@ -149,7 +162,7 @@ void AnalysisDataServer::Private::handleNewConnection()
 
         QJsonDocument doc(info);
         QByteArray json(doc.toJson());
-        write_message(*clientInfo.socket, MessageType::ServerInfo, json);
+        write_message(*clientInfo.socket, MessageType::ServerInfo, json, WriteOption::Flush);
 
         m_clients.emplace_back(std::move(clientInfo));
 
@@ -166,7 +179,7 @@ void AnalysisDataServer::Private::handleNewConnection()
             QJsonDocument doc(runStructureInfo);
             QByteArray json = doc.toJson();
 
-            write_message(*clientSocket, MessageType::BeginRun, json);
+            write_message(*clientSocket, MessageType::BeginRun, json, WriteOption::Flush);
         }
     }
 }
@@ -404,7 +417,7 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
 
     for (auto &client: m_d->m_clients)
     {
-        write_message(*client.socket, MessageType::BeginRun, json);
+        write_message(*client.socket, MessageType::BeginRun, json, WriteOption::Flush);
     }
 
     m_d->m_runInProgress = true;
