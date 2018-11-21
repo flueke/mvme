@@ -21,6 +21,7 @@
 #ifndef __VME_ANALYSIS_COMMON_H__
 #define __VME_ANALYSIS_COMMON_H__
 
+#include "libmvme_export.h"
 #include "vme_config.h"
 #include <chrono>
 #include <cmath>
@@ -84,7 +85,7 @@ inline bool operator==(const VMEConfigIndex &a, const VMEConfigIndex &b)
 
 using VMEIdToIndex = QHash<QUuid, VMEConfigIndex>;
 
-VMEIdToIndex build_id_to_index_mapping(const VMEConfig *vmeConfig);
+LIBMVME_EXPORT VMEIdToIndex build_id_to_index_mapping(const VMEConfig *vmeConfig);
 
 class TimetickGenerator
 {

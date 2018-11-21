@@ -1,10 +1,11 @@
 #ifndef __MVME_ANALYSIS_DATA_SERVER_H__
 #define __MVME_ANALYSIS_DATA_SERVER_H__
 
+#include "libmvme_export.h"
 #include "mvme_stream_processor.h"
 #include <QHostAddress>
 
-class AnalysisDataServer: public QObject, public IMVMEStreamModuleConsumer
+class LIBMVME_EXPORT AnalysisDataServer: public QObject, public IMVMEStreamModuleConsumer
 {
     Q_OBJECT
     signals:
