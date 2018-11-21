@@ -136,10 +136,21 @@ void Context::error(const Message &msg, const std::exception &e)
 } // end anon namespace
 
 // TODO: setup signal handler for ctrl-c (sigint i think)
-// check if sigpipe needs to be handled aswell
+// same as in mvme_root_treewriter_client.cc
 int main(int argc, char *argv[])
 {
-    int sockfd = connect_to("localhost", 13801);
+    int res = mvme::data_server::lib_init();
+    if (res != 0)
+    {
+        cerr << "lib_init() failed with code " << res << endl;
+        return 1;
+    }
+
+    const char *host = "localhost";
+    const char *port = "13801";
+
+    cerr << "connecting to " << host << ":" << port << endl;
+    int sockfd = connect_to(host, port);
 
     Message msg;
     Context ctx;
@@ -150,5 +161,6 @@ int main(int argc, char *argv[])
         ctx.handleMessage(msg);
     }
 
+    mvme::data_server::lib_shutdown();
     return 0;
 }

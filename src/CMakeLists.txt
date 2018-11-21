@@ -300,6 +300,9 @@ add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
 
 # Minimal standalone test client for the analysis data server.
 add_executable(dev_data_server_client dev_data_server_client.cc)
+if (WIN32)
+target_link_libraries(dev_data_server_client ws2_32)
+endif (WIN32)
 
 if (ENABLE_ROOT AND ROOT_FOUND)
     set(root_LIBS

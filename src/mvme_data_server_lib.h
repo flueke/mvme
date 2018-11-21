@@ -9,10 +9,17 @@
 #include <iostream>
 #include <system_error>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h> // getaddrinfo
+#else
+
 // POSIX socket API
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#endif
+
 #include <unistd.h>
 
 // header-only json parser library
@@ -59,6 +66,31 @@ struct connection_closed: public exception
 {
     using exception::exception;
 };
+
+//
+// Library init/shutdown. Both return 0 on success.
+//
+static int lib_init()
+{
+#ifdef _WIN32
+    WORD wVersionRequested;
+    WSADATA wsaData;
+    wVersionRequested = MAKEWORD(2, 1);
+    return WSAStartup( wVersionRequested, &wsaData );
+#else
+    return 0;
+#endif
+}
+
+static int lib_shutdown()
+{
+#ifdef _WIN32
+    return WSACleanup();
+#else
+    return 0;
+#endif
+}
+
 
 //
 // Utilities for reading messages from a file descriptor
