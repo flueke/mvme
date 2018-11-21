@@ -189,17 +189,17 @@ QSize VerticalLabel::sizeHint() const
     return QSize(s.height(), s.width());
 }
 
-void set_widget_font_pointsize(QWidget *widget, s32 pointSize)
+void set_widget_font_pointsize(QWidget *widget, float pointSize)
 {
     auto font = widget->font();
-    font.setPointSize(pointSize);
+    font.setPointSizeF(pointSize);
     widget->setFont(font);
 }
 
-void set_widget_font_pointsize_relative(QWidget *widget, s32 relPointSize)
+void set_widget_font_pointsize_relative(QWidget *widget, float relPointSize)
 {
     auto font = widget->font();
-    font.setPointSize(font.pointSize() + relPointSize);
+    font.setPointSizeF(font.pointSizeF() + relPointSize);
     widget->setFont(font);
 }
 

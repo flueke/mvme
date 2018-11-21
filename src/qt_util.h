@@ -87,8 +87,8 @@ protected:
     QSize minimumSizeHint() const;
 };
 
-void set_widget_font_pointsize(QWidget *widget, s32 pointSize);
-void set_widget_font_pointsize_relative(QWidget *widget, s32 relPointSize);
+void set_widget_font_pointsize(QWidget *widget, float pointSize);
+void set_widget_font_pointsize_relative(QWidget *widget, float relPointSize);
 
 QToolBar *make_toolbar(QWidget *parent = nullptr);
 QStatusBar *make_statusbar(QWidget *parent = nullptr);
