@@ -111,6 +111,7 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
     private:
         std::unique_ptr<Histo1DWidgetPrivate> m_d;
         friend struct Histo1DWidgetPrivate;
+        friend class Histo1DListWidget;
 };
 
 class Histo1DListWidget: public QWidget, public analysis::ConditionEditorInterface
@@ -139,6 +140,8 @@ class Histo1DListWidget: public QWidget, public analysis::ConditionEditorInterfa
         virtual void beginEditCondition() override;
 
     private:
+        friend class Histo1DWidget;
+        friend struct Histo1DWidgetPrivate;
         struct Private;
         std::unique_ptr<Private> m_d;
         void onHistoSpinBoxValueChanged(int index);

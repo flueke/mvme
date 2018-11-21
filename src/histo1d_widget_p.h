@@ -101,6 +101,11 @@ class IntervalCutEditorPicker: public QwtPlotPicker
     private:
         SelectedPointType getPointForXCoordinate(int pixelX);
 
+        bool hasValidInterval() const
+        {
+            return !std::isnan(m_interval.minValue()) && !std::isnan(m_interval.maxValue());
+        }
+
         QwtInterval m_interval;
         bool m_isDragging;
 };
@@ -109,7 +114,8 @@ class IntervalCutEditor: public QObject
 {
     Q_OBJECT
     signals:
-        void intervalModified();
+        void intervalCreated(const QwtInterval &interval);
+        void intervalModified(const QwtInterval &interval);
 
     public:
         using SelectedPointType = IntervalCutEditorPicker::SelectedPointType;

@@ -270,6 +270,8 @@ static const double PlotAdditionalCurvesLayerZ = 1010.0;
 
 struct Histo1DWidgetPrivate
 {
+    friend struct Histo1DListWidget::Private;
+
     Histo1DWidget *m_q;
 
     QToolBar *m_toolBar;
@@ -410,8 +412,17 @@ struct Histo1DWidgetPrivate
     void saveHistogram();
 
     void onActionNewCutTriggered();
+    void onCutIntervalSelected();
     void onEditCutAccept();
     void onEditCutReject();
+
+    IntervalCutEditor *getIntervalCutEditor() const
+    {
+        return m_intervalCutEditor;
+    }
+
+    void onCutEditorIntervalCreated(const QwtInterval &interval);
+    void onCutEditorIntervalModified(const QwtInterval &interval);
 };
 
 enum class AxisScaleType
@@ -639,11 +650,15 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
             m_d->onEditCutReject();
         });
 
+        connect(m_d->m_intervalCutEditor, &IntervalCutEditor::intervalCreated,
+                this, [this] (const QwtInterval &interval) {
+                    m_d->onCutEditorIntervalCreated(interval);
+                });
+
         connect(m_d->m_intervalCutEditor, &IntervalCutEditor::intervalModified,
-                this, [this] () {
-            m_d->m_actionEditCutAccept->setEnabled(true);
-            m_d->m_actionEditCutReject->setEnabled(true);
-        });
+                this, [this] (const QwtInterval &interval) {
+                    m_d->onCutEditorIntervalModified(interval);
+                });
     }
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
@@ -1864,6 +1879,18 @@ void Histo1DWidget::beginEditCondition()
     m_d->m_actionEditCut->setChecked(true);
 }
 
+void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interval)
+{
+    // TODO: similar to Histo2DWidgetPrivate::onCutPolyPickerActivated()
+    // create
+}
+
+void Histo1DWidgetPrivate::onCutEditorIntervalModified(const QwtInterval &interval)
+{
+    m_actionEditCutAccept->setEnabled(true);
+    m_actionEditCutReject->setEnabled(true);
+}
+
 void Histo1DWidget::activatePlotPicker(QwtPlotPicker *picker)
 {
     m_d->activatePlotPicker(picker);
@@ -2012,6 +2039,9 @@ void Histo1DListWidget::selectHistogram(int index)
             m_d->m_histoWidget->setEditCondition(cl);
         }
 
+        // Update spinbox value to show the current index. Needed in case
+        // selectHistogram() was called from the outside instead of from
+        // the user interacting with the spinbox.
         QSignalBlocker sb(m_d->m_histoSpin);
         m_d->m_histoSpin->setValue(index);
     }

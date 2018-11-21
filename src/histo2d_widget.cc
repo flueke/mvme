@@ -1558,6 +1558,7 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
     assert(m_context);
     assert(m_sink);
 
+    // We're only interested in the deactivate, i.e. completion event
     if (active) return;
 
     auto pixelPoly = m_cutPolyPicker->selection();

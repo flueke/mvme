@@ -96,7 +96,7 @@ static const int CanStartDragDistancePixels = 4;
 QwtPlotMarker *make_position_marker()
 {
     auto marker = new QwtPlotMarker;
-    marker->setLabelAlignment( Qt::AlignLeft | Qt::AlignBottom );
+    marker->setLabelAlignment( Qt::AlignLeft | Qt::AlignTop );
     marker->setLabelOrientation( Qt::Vertical );
     marker->setLineStyle( QwtPlotMarker::VLine );
     marker->setLinePen( Qt::black, 0, Qt::DashDotLine );
@@ -129,8 +129,9 @@ QwtInterval IntervalCutEditorPicker::getInterval() const
 
 void IntervalCutEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
 {
-    // FIXME: react to left click only
-    if (std::isnan(m_interval.minValue()) || std::isnan(m_interval.maxValue()))
+    if (ev->button() != Qt::LeftButton) return;
+
+    if (!hasValidInterval())
     {
         QwtPlotPicker::widgetMousePressEvent(ev);
     }
@@ -163,7 +164,9 @@ void IntervalCutEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
 
 void IntervalCutEditorPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
 {
-    if (std::isnan(m_interval.minValue()) || std::isnan(m_interval.maxValue()))
+    if (ev->button() != Qt::LeftButton) return;
+
+    if (!hasValidInterval())
     {
         QwtPlotPicker::widgetMouseReleaseEvent(ev);
     }
@@ -180,17 +183,10 @@ void IntervalCutEditorPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
  * the correct area. One point is picked and dragged, the other remains fixed.
  * The cut editor has to know which point is being moved and which is the fixed one.
  * It can then make sure they're in the correct order for the zone item.
- * Implementation: figure out which point is being selected in mouse press
- *
  */
-
 void IntervalCutEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
 {
-    if (std::isnan(m_interval.minValue()) || std::isnan(m_interval.maxValue()))
-    {
-        //QwtPlotPicker::widgetMouseMoveEvent(ev);
-    }
-    else if (!m_isDragging)
+    if (hasValidInterval() && !m_isDragging)
     {
         int iMinPixel = transform({ m_interval.minValue(), 0.0 }).x();
         int iMaxPixel = transform({ m_interval.maxValue(), 0.0 }).x();
@@ -218,19 +214,14 @@ IntervalCutEditorPicker::SelectedPointType IntervalCutEditorPicker::getPointForX
 
     if (std::abs(pixelX - iMinPixel) < CanStartDragDistancePixels)
     {
-        canvas()->setCursor(Qt::SplitHCursor);
         return PT_Min;
     }
     else if (std::abs(pixelX - iMaxPixel) < CanStartDragDistancePixels)
     {
-        canvas()->setCursor(Qt::SplitHCursor);
         return PT_Max;
     }
-    else
-    {
-        canvas()->setCursor(Qt::CrossCursor);
-        return PT_None;
-    }
+
+    return PT_None;
 }
 
 IntervalCutEditor::IntervalCutEditor(Histo1DWidget *parent)
@@ -402,7 +393,7 @@ void IntervalCutEditor::onPickerPointSelected(const QPointF &point)
 
         m_picker->setStateMachine(new QwtPickerDragPointMachine);
 
-        emit intervalModified();
+        emit intervalCreated(m_interval);
 
         show();
     }
@@ -433,7 +424,7 @@ void IntervalCutEditor::onPickerPointSelected(const QPointF &point)
 
         if (newInterval != m_interval)
         {
-            emit intervalModified();
+            emit intervalModified(m_interval);
         }
 
         m_interval = newInterval;
