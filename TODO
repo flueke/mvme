@@ -2,11 +2,23 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+/* State of the analysis UI and future plans
+ *
+ * Finding nodes for objects
+ * Can use QTreeWidgetItem::treeWidget() to get the containing tree.  Right now
+ * trees are recreated when updating (repopulate) and even with smarter updates
+ * trees and nodes will get added and removed so the mapping has to be updated
+ * constantly.
+ * Can easily visit nodes given a container of analysis objects and create
+ * chains of node handling objects. These objects could be configured by giving
+ * them different sets of trees and modes. Also the responsibility chains could
+ * be modified on the fly.
+ *
+ */
+
 --------------------------------------------------
 BUGS
 --------------------------------------------------
-* Recheck/Test ConditionFilter
-* Think about file I/O for the expression operator
 
 * Analysis single step button can hit an assertion when clicked in quick
   succession
@@ -32,7 +44,7 @@ BUGS
   nodes text will be updated periodically which interferes with editing.
 
 * When changing VME event trigger conditions the readout cycle end script can
-  become empty. How? What's happening?
+  become empty. How? What's happening? Is this true?
 
 * Add BlockReadFlags to VMEController::blockRead() and implement support for
   the controller side wordswap in the sis library.
@@ -54,6 +66,10 @@ sometimes when starting a new DAQ run.
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------------------
+WISHLIST
+--------------------------------------------------
+* Think about file I/O for the expression operator
 * Add new data sources yielding:
   - the current timetick value (1s granularity, paramvector of size 1)
   - the current event #
@@ -315,9 +331,10 @@ More ideas from Robert:
 * Changing H1D calibration via its widget clears all histograms. This is not
   needed as only the interpretation of the data in the histo changes. Improve
   this case so that it keeps existing histo data.
-  -> Difficult: do_beginRun_forward() is used when applying the calibration
-  change. I tried passing keepAnalysisState = true but the histo still got
-  cleared.
+  -> This needs fixing in Histo1DSink::beginRun(): currently the histo
+  mem is cleared no matter what changed.
+  Also the case where the analysis is not running has to be taken care of: the
+  AnalysisPauser won't invoke reusmeAnalysis() and thus it won't be rebuilt.
 
 * add sis3153 firmware update utility to 'extras' directory. Also package and
   install sis library code (maybe). Ask struck if this is allowed.

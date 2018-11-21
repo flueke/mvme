@@ -88,23 +88,6 @@
  * be modified on the fly.
  *
  */
-namespace analysis
-{
-namespace ui
-{
-
-
-
-
-//TODO: use a unified datarole different from the default user role to store
-//the analysis object pointers. this should make it safer to query nodes of any
-//type for analysis object data without doing invalid casts on non-pointer data
-//if a node does not contain an object pointer.
-//static const int AnalysisObjectDataRole = 1000;
-
-}
-}
-
 
 namespace analysis
 {
