@@ -1,5 +1,6 @@
 #include "data_server.h"
 
+#include <QCoreApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -497,6 +498,7 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
         }
     }
 
+#if 0
     // Check write treshold for each client and block if necessary
     for (auto &client: m_d->m_clients)
     {
@@ -505,6 +507,9 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
             client.socket->waitForBytesWritten();
         }
     }
+#else
+    QCoreApplication::processEvents();
+#endif
 }
 
 void AnalysisDataServer::endRun(const std::exception *e)

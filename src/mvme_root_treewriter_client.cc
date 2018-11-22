@@ -49,7 +49,7 @@ class Context: public mvme::data_server::Parser
     public:
         bool doQuit() const { return m_quit; }
         void setConvertNaNsToZero(bool doConvert) { m_convertNaNs = doConvert; }
-        void setQuitAfterRun(bool b) { m_quitAfterRun = b; }
+        void setSingleRun(bool b) { m_singleRun = b; }
 
     protected:
         virtual void serverInfo(const Message &msg, const json &info) override;
@@ -67,7 +67,7 @@ class Context: public mvme::data_server::Parser
         std::vector<EventStorage> m_trees;
         bool m_quit = false;
         bool m_convertNaNs = false;
-        bool m_quitAfterRun = false;
+        bool m_singleRun = false;
 };
 
 void Context::serverInfo(const Message &msg, const json &info)
@@ -213,7 +213,7 @@ void Context::endRun(const Message &msg)
 
     cout << endl;
 
-    if (m_quitAfterRun) m_quit = true;
+    if (m_singleRun) m_quit = true;
 }
 
 void Context::error(const Message &msg, const std::exception &e)
@@ -319,12 +319,19 @@ int main(int argc, char *argv[])
 
     setup_signal_handlers();
 
+    int res = mvme::data_server::lib_init();
+    if (res != 0)
+    {
+        cerr << "mvme::data_server::lib_init() failed with code " << res << endl;
+        return 1;
+    }
+
     // Subclass of mvme::data_server::Parser implementing the ROOT tree
     // creation. This is driven through handleMessage() which then calls our
     // specialized handlers.
     Context ctx;
     ctx.setConvertNaNsToZero(convertNaNs);
-    ctx.setQuitAfterRun(singleRun);
+    ctx.setSingleRun(singleRun);
 
     // A single message object, whose buffer is reused for each incoming
     // message.
@@ -392,5 +399,6 @@ int main(int argc, char *argv[])
         }
     }
 
+    mvme::data_server::lib_shutdown();
     return retval;
 }
