@@ -14,8 +14,6 @@ class LIBMVME_EXPORT AnalysisDataServer: public QObject, public IMVMEStreamModul
 
     public:
         static const uint16_t Default_ListenPort = 13801;
-        static const qint64 Default_WriteThresholdBytes = Megabytes(25);
-
 
         AnalysisDataServer(QObject *parent = nullptr);
         AnalysisDataServer(Logger logger, QObject *parent = nullptr);
@@ -40,14 +38,6 @@ class LIBMVME_EXPORT AnalysisDataServer: public QObject, public IMVMEStreamModul
         // Server specific settings and info
         void setLogger(Logger logger);
         void setListeningInfo(const QHostAddress &address, quint16 port = Default_ListenPort);
-
-        // Set/get the maximum number of pending bytes allowed in the output
-        // buffer for each client.
-        // If this threshold is exceeded a blocking wait is performed until
-        // data has been transferred from the output buffer to the operating
-        // system.
-        void setWriteThresholdBytes(qint64 threshold);
-        qint64 getWriteThresholdBytes() const;
 
         bool isListening() const;
 

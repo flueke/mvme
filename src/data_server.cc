@@ -12,35 +12,10 @@
 #include "git_sha1.h"
 #include "mvme_data_server_proto.h"
 
-namespace
-{
-
-struct ClientInfo
-{
-    std::unique_ptr<QTcpSocket> socket;
-};
-
-} // end anon namespace
-
 using namespace mvme::data_server;
 
 struct AnalysisDataServer::Private
 {
-    Private(AnalysisDataServer *q)
-        : m_q(q)
-        , m_server(q)
-    { }
-
-    AnalysisDataServer *m_q;
-    QTcpServer m_server;
-    QHostAddress m_listenAddress = QHostAddress::Any;
-    quint16 m_listenPort = AnalysisDataServer::Default_ListenPort;
-    AnalysisDataServer::Logger m_logger;
-    quint64 m_writeThreshold = AnalysisDataServer::Default_WriteThresholdBytes;
-    QVariantMap m_serverInfo;
-    std::vector<ClientInfo> m_clients;
-    bool m_runInProgress = false;
-
     struct RunContext
     {
         RunInfo runInfo;
@@ -59,12 +34,30 @@ struct AnalysisDataServer::Private
         size_t dataBytesPerClient = 0;
     };
 
+    struct ClientInfo
+    {
+        std::unique_ptr<QTcpSocket> socket;
+    };
+
+    Private(AnalysisDataServer *q)
+        : m_q(q)
+        , m_server(q)
+    { }
+
+    AnalysisDataServer *m_q;
+    QTcpServer m_server;
+    QHostAddress m_listenAddress = QHostAddress::Any;
+    quint16 m_listenPort = AnalysisDataServer::Default_ListenPort;
+    AnalysisDataServer::Logger m_logger;
+    QVariantMap m_serverInfo;
+    std::vector<ClientInfo> m_clients;
+    bool m_runInProgress = false;
     RunContext m_runContext;
     RunStats m_runStats;
 
-
     void handleNewConnection();
     void handleClientSocketError(QTcpSocket *socket, QAbstractSocket::SocketError error);
+    void cleanupClients();
     void logMessage(const QString &msg);
 };
 
@@ -90,7 +83,7 @@ qint64 write_data(QIODevice &out, const char *data, size_t size)
 
         if (written < 0)
         {
-            throw std::runtime_error("write_data failed (FIXME: this needs information");
+            return written;
         }
 
         curPtr += written;
@@ -111,20 +104,32 @@ qint64 write_pod(QIODevice &out, const T &t)
 /* Write header and size information, not contents. */
 qint64 write_message_header(QIODevice &out, MessageType type, u32 size)
 {
-    qint64 result = 0;
-    result += write_pod(out, type);
-    result += write_pod(out, size);
+    qint64 result = 0, written = 0;
+
+    if ((written = write_pod(out, type)) < 0) return written; else result += written;
+    if ((written = write_pod(out, size)) < 0) return written; else result += written;
+
     return result;
 }
 
 qint64 write_message(QIODevice &out, MessageType type, const char *data, u32 size,
                      WriteOption opt = WriteOption::None)
 {
-    qint64 result = 0;
-    result += write_message_header(out, type, size);
-    result += write_data(out, data, size);
+    qint64 result = 0, written = 0;
+
+    if ((written = write_message_header(out, type, size)) < 0)
+        return written;
+    else
+        result += written;
+
+    if ((written = write_data(out, data, size)) < 0)
+        return written;
+    else
+        result += written;
+
     if (opt == WriteOption::Flush)
         out.waitForBytesWritten(FlushTimeout_ms);
+
     return result;
 }
 
@@ -166,8 +171,6 @@ void AnalysisDataServer::Private::handleNewConnection()
         QByteArray json(doc.toJson());
         write_message(*clientInfo.socket, MessageType::ServerInfo, json, WriteOption::Flush);
 
-        m_clients.emplace_back(std::move(clientInfo));
-
         // If a run is in progress immediately send out a BeginRun message to
         // the client. This reuses the information built in beginRun().
         if (m_runInProgress)
@@ -183,33 +186,51 @@ void AnalysisDataServer::Private::handleNewConnection()
 
             write_message(*clientSocket, MessageType::BeginRun, json, WriteOption::Flush);
         }
+
+        if (clientInfo.socket->isValid())
+        {
+            m_clients.emplace_back(std::move(clientInfo));
+        }
     }
 }
 
 void AnalysisDataServer::Private::handleClientSocketError(QTcpSocket *socket,
                                                           QAbstractSocket::SocketError error)
 {
-    // Find the client info object and remove the it, thereby closing the
-    // client socket.
-
-    auto socket_match = [socket] (const ClientInfo &clientInfo)
+    if (!m_runInProgress)
     {
-        return clientInfo.socket.get() == socket;
+        qDebug() << __PRETTY_FUNCTION__ << "calling cleanupClients()";
+        cleanupClients();
+    }
+}
+
+// remove invalid clients (error, disconnected, etc)
+void AnalysisDataServer::Private::cleanupClients()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+
+    auto to_be_removed = [] (const Private::ClientInfo &ci) -> bool
+    {
+        if (!ci.socket) return true;
+        if (!ci.socket->isValid()) return true;
+        return ci.socket->state() == QAbstractSocket::UnconnectedState;
     };
 
-    auto it = std::remove_if(m_clients.begin(), m_clients.end(), socket_match);
+    auto it = std::remove_if(m_clients.begin(), m_clients.end(), to_be_removed);
 
-    if (it != m_clients.end())
+    for (auto jt = it; jt != m_clients.end(); jt++)
     {
-        // Have to delete when next entering the event loop. Otherwise pending
-        // signal invocations can lead to a crash.
-        qDebug() << __PRETTY_FUNCTION__ << "peer =" << it->socket->peerAddress()
-            << ", error =" << it->socket->errorString()
-            << ", new client count =" << m_clients.size() - 1;
-        it->socket->deleteLater();
-        it->socket.release();
-        m_clients.erase(it, m_clients.end());
+        if (jt->socket)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "removing client " << jt->socket->peerAddress();
+            jt->socket->deleteLater();
+            jt->socket.release();
+        }
     }
+
+    m_clients.erase(it, m_clients.end());
+
+    qDebug() << __PRETTY_FUNCTION__ << "new number of clients =" << m_clients.size();
 }
 
 void AnalysisDataServer::Private::logMessage(const QString &msg)
@@ -280,22 +301,15 @@ size_t AnalysisDataServer::getNumberOfClients() const
     return m_d->m_clients.size();
 }
 
-void AnalysisDataServer::setWriteThresholdBytes(qint64 threshold)
-{
-    m_d->m_writeThreshold = threshold;
-}
-
-qint64 AnalysisDataServer::getWriteThresholdBytes() const
-{
-    return m_d->m_writeThreshold;
-}
-
 void AnalysisDataServer::beginRun(const RunInfo &runInfo,
               const VMEConfig *vmeConfig,
               const analysis::Analysis *analysis,
               Logger logger)
 {
     assert(!m_d->m_runInProgress);
+
+    qDebug() << __PRETTY_FUNCTION__ << "calling cleanupClients()";
+    m_d->cleanupClients();
 
     if (!(analysis->getA2AdapterState() && analysis->getA2AdapterState()->a2))
         return;
@@ -438,14 +452,18 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
         return;
     }
 
-    // This is bad: without this call we won't event get the
-    // QTcpServer::newConnection() event
-    QCoreApplication::processEvents();
-
     const a2::A2 *a2 = m_d->m_runContext.a2;
     const u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
 
-    if (!dataSourceCount || !getNumberOfClients()) return;
+    if (getNumberOfClients() == 0)
+    {
+        // allow QTcpServer to handle new connections
+        QCoreApplication::processEvents();
+        return;
+    }
+
+    if (!dataSourceCount)
+        return;
 
     // pre calculate the output message size. TODO: this should be cached.
     // TODO: send out a sequence number so that clients can figure out how many
@@ -470,6 +488,8 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
 
     for (auto &client: m_d->m_clients)
     {
+        if (!client.socket->isValid()) continue;
+
         write_message_header(*client.socket, MessageType::EventData, msgSize);
         // TODO: write out an event sequence number
         write_pod(*client.socket, static_cast<u32>(eventIndex));
@@ -490,11 +510,13 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
         a2::DataSource *ds = a2->dataSources[eventIndex] + dsIndex;
         const a2::PipeVectors &dataPipe = ds->output;
 
+        auto dBegin = reinterpret_cast<const char *>(dataPipe.data.begin());
+        auto dEnd   = reinterpret_cast<const char *>(dataPipe.data.end());
+        const u32 dataBytesToWrite = dEnd - dBegin;
+
         for (auto &client: m_d->m_clients)
         {
-            auto dBegin = reinterpret_cast<const char *>(dataPipe.data.begin());
-            auto dEnd   = reinterpret_cast<const char *>(dataPipe.data.end());
-            const u32 dataBytesToWrite = dEnd - dBegin;
+            if (!client.socket->isValid()) continue;
 
             // Note: technically the size does not need to be transmitted
             // again. The client got the information about the indiviudal
@@ -506,30 +528,35 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
         }
     }
 
-#if 0
-    // Check write treshold for each client and block if necessary
+    // block if there's enough pending data
     for (auto &client: m_d->m_clients)
     {
-        if (client.socket->bytesToWrite() > getWriteThresholdBytes())
+        static const qint64 WriteHighWatermark = Kilobytes(128);
+
+        if (client.socket->isValid() && client.socket->bytesToWrite() > WriteHighWatermark)
         {
+            qDebug() << __PRETTY_FUNCTION__ << "begin block";
             client.socket->waitForBytesWritten();
+            qDebug() << __PRETTY_FUNCTION__ << "end block";
         }
     }
-#else
-#endif
+
+    // allow QTcpServer to handle new connections
+    QCoreApplication::processEvents();
 }
 
 void AnalysisDataServer::endRun(const std::exception *e)
 {
     for (auto &client: m_d->m_clients)
     {
+        if (!client.socket->isValid()) continue;
         write_message(*client.socket, MessageType::EndRun, {});
     }
 
-    // "flush" on endrun
+    // flush all data on endrun
     for (auto &client: m_d->m_clients)
     {
-        while (client.socket && client.socket->bytesToWrite() > 0)
+        while (client.socket->isValid() && client.socket->bytesToWrite() > 0)
             client.socket->waitForBytesWritten();
     }
 
@@ -540,6 +567,8 @@ void AnalysisDataServer::endRun(const std::exception *e)
         << m_d->m_runStats.dataBytesPerClient
         << "bytes, " << m_d->m_runStats.dataBytesPerClient / (1024.0 * 1024.0)
         << "MB";
+
+    m_d->cleanupClients();
 }
 
 void AnalysisDataServer::beginEvent(s32 eventIndex)
