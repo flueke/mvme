@@ -127,7 +127,7 @@ void Context::endRun(const Message &msg)
     cout << "eventCounts: ";
     for (size_t ei = 0; ei < m_stats.eventCounts.size(); ei++)
     {
-        cout << "ei=" << ei << ", count=" << m_stats.eventCounts[ei] << ", ";
+        cout << "ei=" << ei << ", count=" << m_stats.eventCounts[ei] << "; ";
     }
     cout << endl;
 

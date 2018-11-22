@@ -142,7 +142,8 @@ void AnalysisDataServer::Private::handleNewConnection()
 {
     if (auto clientSocket = m_server.nextPendingConnection())
     {
-        qDebug() << "DataServer: new connection from" << clientSocket->peerAddress();
+        qDebug() << "DataServer: new connection from" << clientSocket->peerAddress()
+            << ", new client count =" << m_clients.size() + 1;
 
         ClientInfo clientInfo = { std::unique_ptr<QTcpSocket>(clientSocket) };
 
@@ -202,6 +203,9 @@ void AnalysisDataServer::Private::handleClientSocketError(QTcpSocket *socket,
     {
         // Have to delete when next entering the event loop. Otherwise pending
         // signal invocations can lead to a crash.
+        qDebug() << __PRETTY_FUNCTION__ << "peer =" << it->socket->peerAddress()
+            << ", error =" << it->socket->errorString()
+            << ", new client count =" << m_clients.size() - 1;
         it->socket->deleteLater();
         it->socket.release();
         m_clients.erase(it, m_clients.end());
@@ -434,6 +438,10 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
         return;
     }
 
+    // This is bad: without this call we won't event get the
+    // QTcpServer::newConnection() event
+    QCoreApplication::processEvents();
+
     const a2::A2 *a2 = m_d->m_runContext.a2;
     const u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
 
@@ -508,7 +516,6 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
         }
     }
 #else
-    QCoreApplication::processEvents();
 #endif
 }
 
