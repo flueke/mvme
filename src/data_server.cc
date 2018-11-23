@@ -530,13 +530,11 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
     // block if there's enough pending data
     for (auto &client: m_d->m_clients)
     {
-        static const qint64 WriteHighWatermark = Kilobytes(128);
+        static const qint64 WriteFlushTreshold = Kilobytes(128);
 
-        if (client.socket->isValid() && client.socket->bytesToWrite() > WriteHighWatermark)
+        if (client.socket->isValid() && client.socket->bytesToWrite() > WriteFlushTreshold)
         {
-            qDebug() << __PRETTY_FUNCTION__ << "begin block";
             client.socket->waitForBytesWritten();
-            qDebug() << __PRETTY_FUNCTION__ << "end block";
         }
     }
 
