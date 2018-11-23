@@ -215,21 +215,23 @@ void AnalysisDataServer::Private::cleanupClients()
         return ci.socket->state() == QAbstractSocket::UnconnectedState;
     };
 
-    auto it = std::remove_if(m_clients.begin(), m_clients.end(), to_be_removed);
-
-    for (auto jt = it; jt != m_clients.end(); jt++)
+    for (auto &client: m_clients)
     {
-        if (jt->socket)
+        if (to_be_removed(client))
         {
-            qDebug() << __PRETTY_FUNCTION__ << "removing client " << jt->socket->peerAddress();
-            jt->socket->deleteLater();
-            jt->socket.release();
+            if (client.socket)
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "removing client " << client.socket->peerAddress();
+                client.socket->deleteLater();
+                client.socket.release();
+            }
         }
     }
 
-    m_clients.erase(it, m_clients.end());
+    m_clients.erase(std::remove_if(m_clients.begin(), m_clients.end(), to_be_removed),
+                    m_clients.end());
 
-    qDebug() << __PRETTY_FUNCTION__ << "new number of clients =" << m_clients.size();
+    qDebug() << __PRETTY_FUNCTION__ << ", new client count =" << m_clients.size();
 }
 
 void AnalysisDataServer::Private::logMessage(const QString &msg)
