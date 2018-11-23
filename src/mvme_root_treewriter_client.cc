@@ -102,6 +102,7 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
                                         streamInfo.runId.c_str());
 
     std::set<std::string> branchNames;
+    std::vector<size_t> eventByteSizes;
 
     // For each incoming event: create a TTree, buffer space and branches
     for (const EventDataDescription &edd: streamInfo.eventDescriptions)
@@ -115,10 +116,13 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
         cout << "  event#" << edd.eventIndex << ", " << event.name << endl;
 
+        size_t eventBytes = 0u;
+
         for (const DataSourceDescription &dsd: edd.dataSources)
         {
             // The branch will point to this buffer space
             storage.buffers.emplace_back(std::vector<float>(dsd.size));
+            eventBytes += dsd.bytes;
 
             std::string branchName = make_branch_name(dsd.name);
 
@@ -148,8 +152,16 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
         }
 
         m_trees.emplace_back(std::move(storage));
+        eventByteSizes.push_back(eventBytes);
     }
 
+    cout << "Incoming event sizes in bytes:" << endl;
+    for (size_t ei=0; ei < eventByteSizes.size(); ei++)
+    {
+        cout << "  ei=" << ei << ", sz=" << eventByteSizes[ei] << endl;
+    }
+
+    cout << endl;
     cout << "Created output tree structures" << endl;
     cout << "Receiving data..." << endl;
 }
