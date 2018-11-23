@@ -1854,7 +1854,7 @@ bool Histo1DWidget::setEditCondition(const analysis::ConditionLink &cl)
 
     m_d->m_editingCondition = cl;
     auto interval = cond->getInterval(cl.subIndex);
-    m_d->m_intervalCutEditor->setInterval(QwtInterval(interval.min, interval.max));
+    m_d->m_intervalCutEditor->setInterval(QwtInterval(interval.minValue(), interval.maxValue()));
     m_d->m_intervalCutEditor->show();
     m_d->m_actionEditCut->setEnabled(true);
     return true;
@@ -1874,6 +1874,65 @@ void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interva
 {
     // TODO: similar to Histo2DWidgetPrivate::onCutPolyPickerActivated()
     // create
+    assert(m_context);
+    assert(m_sink);
+
+    QString cutName = QSL("New Cut");
+
+    // cut name dialog
+    {
+        auto le_cutName = new QLineEdit;
+        le_cutName->setText(cutName);
+
+        auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+        QDialog dialog(m_q);
+        auto layout = new QFormLayout(&dialog);
+        layout->addRow("Cut Name", le_cutName);
+        layout->addRow(buttons);
+
+        QObject::connect(buttons, &QDialogButtonBox::accepted,
+                         &dialog, &QDialog::accept);
+
+        QObject::connect(buttons, &QDialogButtonBox::rejected,
+                         &dialog, &QDialog::reject);
+
+        if (dialog.exec() == QDialog::Rejected)
+        {
+            m_intervalCutEditor->hide();
+            m_q->replot();
+            return;
+        }
+
+        cutName = le_cutName->text();
+    }
+
+    // Create the ConditionInterval analysis object. The number of intervals will
+    // be the same as the number of histograms in the Histo1DSink belonging to
+    // the histogram currently being displayed. Each interval of the condition
+    // will be set to the current intervals values.
+    QVector<QwtInterval> intervals(m_sink->getNumberOfHistos(), interval);
+    auto cond = std::make_shared<analysis::ConditionInterval>();
+    cond->setIntervals(intervals);
+    cond->setObjectName(cutName);
+
+    {
+        auto xInput = m_sink->getSlot(0)->inputPipe;
+        auto xIndex = m_sink->getSlot(0)->paramIndex;
+
+        AnalysisPauser pauser(m_context);
+        cond->connectInputSlot(0, xInput, xIndex);
+
+        // FIXME: remove this once conditions do not show up in the event trees anymore
+        const int userLevel = 3;
+
+        m_context->getAnalysis()->addOperator(
+            m_sink->getEventId(),
+            userLevel,
+            cond);
+
+        m_q->setEditCondition({ cond, xIndex });
+    }
 }
 
 void Histo1DWidgetPrivate::onCutEditorIntervalModified(const QwtInterval &interval)
