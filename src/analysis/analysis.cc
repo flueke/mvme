@@ -4598,6 +4598,10 @@ void Analysis::beginRun(const RunInfo &runInfo,
                         const vme_analysis_common::VMEIdToIndex &vmeMap,
                         Logger logger)
 {
+    using ClockType = std::chrono::high_resolution_clock;
+    auto tStart = ClockType::now();
+
+
     const bool fullBuild = (
         m_runInfo.runId != runInfo.runId
         || m_runInfo.isReplay != runInfo.isReplay
@@ -4736,6 +4740,12 @@ void Analysis::beginRun(const RunInfo &runInfo,
     a2::a2_begin_run(m_a2State->a2, [logger] (const std::string &str) {
         logger(QString::fromStdString(str));
     });
+
+    auto tEnd = ClockType::now();
+    std::chrono::duration<float> elapsed = tEnd - tStart;
+
+    qDebug() << __PRETTY_FUNCTION__ << "analysis build took"
+        << elapsed.count() << "seconds";
 }
 
 void Analysis::beginRun(BeginRunOption option, Logger logger)
@@ -4964,6 +4974,20 @@ void Analysis::setVMEObjectSettings(const QUuid &objectId, const QVariantMap &se
 QVariantMap Analysis::getVMEObjectSettings(const QUuid &objectId) const
 {
     return m_vmeObjectSettings.value(objectId);
+}
+
+bool Analysis::anyObjectNeedsRebuild() const
+{
+    if (getObjectFlags() & ObjectFlags::NeedsRebuild)
+        return true;
+
+    for (auto &obj: getAllObjects())
+    {
+        if (obj->getObjectFlags() & ObjectFlags::NeedsRebuild)
+            return true;
+    }
+
+    return false;
 }
 
 int Analysis::getCurrentAnalysisVersion()

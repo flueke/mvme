@@ -91,6 +91,18 @@ AnalysisPauser::~AnalysisPauser()
         case MVMEStreamWorkerState::Idle:
         case MVMEStreamWorkerState::Paused:
         case MVMEStreamWorkerState::SingleStepping:
+            {
+                auto analysis = m_context->getAnalysis();
+
+                if (analysis->anyObjectNeedsRebuild())
+                {
+                    qDebug() << __PRETTY_FUNCTION__
+                        << "rebuilding analysis because at least one object needs a rebuild";
+                    analysis->beginRun(analysis::Analysis::KeepState,
+                                       [this] (const QString &msg) { m_context->logMessage(msg); });
+
+                }
+            }
             break;
     }
 }

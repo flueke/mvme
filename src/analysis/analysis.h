@@ -1969,6 +1969,8 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         ObjectFactory &getObjectFactory() { return m_objectFactory; }
 
+        bool anyObjectNeedsRebuild() const;
+
         static int getCurrentAnalysisVersion();
 
     private:

@@ -1568,15 +1568,6 @@ void Histo1DWidgetPrivate::calibApply()
 
     m_calib->setCalibration(address, targetMin, targetMax);
     m_context->getAnalysis()->setOperatorEdited(m_calib);
-    // FIXME: the AnalysisPauser obviously only calls resumeAnalysis if the
-    // analysis was running. this in turn will then rebuild the system if
-    // needed. In case of being idle the histo sink won't be rebuilt and thus
-    // the calibration changes will only be visible the next time the daq is
-    // started.
-    // the workaround is to manually invoke beginRun() here.
-    m_context->getAnalysis()->beginRun(
-        Analysis::KeepState,
-        [this] (const QString &msg) { m_context->logMessage(msg); });
 
     m_q->on_tb_rate_toggled(m_rateEstimationData.visible);
 }
