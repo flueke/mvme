@@ -374,7 +374,6 @@ static VMETree parse_vme_tree(const json &j)
 
     try
     {
-
         for (const auto &eventJ: j)
         {
             VMEEvent event;

@@ -49,7 +49,6 @@ struct AnalysisDataServer::Private
     QHostAddress m_listenAddress = QHostAddress::Any;
     quint16 m_listenPort = AnalysisDataServer::Default_ListenPort;
     AnalysisDataServer::Logger m_logger;
-    QVariantMap m_serverInfo;
     std::vector<ClientInfo> m_clients;
     bool m_runInProgress = false;
     RunContext m_runContext;
@@ -162,12 +161,12 @@ void AnalysisDataServer::Private::handleNewConnection()
 
         // Initial ServerInfo message
 
-        auto info = QJsonObject::fromVariantMap(m_serverInfo);
+        QJsonObject serverInfo;
 
-        if (!info.contains("mvme_version"))
-            info["mvme_version"] = QString(GIT_VERSION);
+        serverInfo["mvme_version"] = QString(GIT_VERSION);
+        serverInfo["protocol_version"] = ProtocolVersion;
 
-        QJsonDocument doc(info);
+        QJsonDocument doc(serverInfo);
         QByteArray json(doc.toJson());
         write_message(*clientInfo.socket, MessageType::ServerInfo, json, WriteOption::Flush);
 
@@ -591,9 +590,4 @@ void AnalysisDataServer::processTimetick()
 {
     // TODO: how to handle timeticks? handle them at all?
     assert(m_d->m_runInProgress);
-}
-
-void AnalysisDataServer::setServerInfo(const QVariantMap &info)
-{
-    m_d->m_serverInfo = info;
 }
