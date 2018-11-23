@@ -3336,41 +3336,29 @@ QString ExportSink::getExportFileBasename() const
 // Condition Support
 //
 
-void Interval::normalize()
-{
-    if (min > max) std::swap(min, max);
-}
-
-Interval Interval::normalized() const
-{
-    auto result = *this;
-    result.normalize();
-    return result;
-}
-
 template<typename It>
 void normalize_intervals(It first, It onePastEnd)
 {
     while (first != onePastEnd)
     {
-        first->normalize();
+        *first = first->normalized();
         first++;
     }
 }
 
-QJsonObject to_json(const Interval &interval)
+QJsonObject to_json(const QwtInterval &interval)
 {
     QJsonObject result;
-    result["min"] = interval.min;
-    result["max"] = interval.max;
+    result["min"] = interval.minValue();
+    result["max"] = interval.maxValue();
     return result;
 }
 
-Interval interval_from_json(const QJsonObject &json)
+QwtInterval interval_from_json(const QJsonObject &json)
 {
-    Interval result;
-    result.min = json["min"].toDouble(make_quiet_nan());
-    result.max = json["max"].toDouble(make_quiet_nan());
+    QwtInterval result;
+    result.setMinValue(json["min"].toDouble(make_quiet_nan()));
+    result.setMaxValue(json["max"].toDouble(make_quiet_nan()));
     return result;
 }
 
@@ -3484,18 +3472,18 @@ Slot *ConditionInterval::getSlot(s32 slotIndex)
     return slotIndex == 0 ? &m_input : nullptr;
 }
 
-void ConditionInterval::setIntervals(const QVector<Interval> &intervals)
+void ConditionInterval::setIntervals(const QVector<QwtInterval> &intervals)
 {
     m_intervals = intervals;
     normalize_intervals(m_intervals.begin(), m_intervals.end());
 }
 
-QVector<Interval> ConditionInterval::getIntervals() const
+QVector<QwtInterval> ConditionInterval::getIntervals() const
 {
     return m_intervals;
 }
 
-void ConditionInterval::setInterval(s32 address, const Interval &interval)
+void ConditionInterval::setInterval(s32 address, const QwtInterval &interval)
 {
     if (address >= 0)
     {
@@ -3507,9 +3495,9 @@ void ConditionInterval::setInterval(s32 address, const Interval &interval)
     }
 }
 
-Interval ConditionInterval::getInterval(s32 address) const
+QwtInterval ConditionInterval::getInterval(s32 address) const
 {
-    return m_intervals.value(address, {});
+    return m_intervals.value(address, { make_quiet_nan(), make_quiet_nan() });
 }
 
 s32 ConditionInterval::getNumberOfBits() const

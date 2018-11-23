@@ -1327,15 +1327,6 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
 // Conditions
 //
 
-struct Interval
-{
-    double min = make_quiet_nan();
-    double max = make_quiet_nan();
-
-    void normalize();
-    Interval normalized() const;
-};
-
 class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
 {
     Q_OBJECT
@@ -1354,17 +1345,17 @@ class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
-        void setIntervals(const QVector<Interval> &intervals);
-        QVector<Interval> getIntervals() const;
+        void setIntervals(const QVector<QwtInterval> &intervals);
+        QVector<QwtInterval> getIntervals() const;
 
-        void setInterval(s32 address, const Interval &interval);
-        Interval getInterval(s32 address) const;
+        void setInterval(s32 address, const QwtInterval &interval);
+        QwtInterval getInterval(s32 address) const;
 
         virtual s32 getNumberOfBits() const override;
 
     private:
         Slot m_input;
-        QVector<Interval> m_intervals;
+        QVector<QwtInterval> m_intervals;
 };
 
 class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
@@ -1779,7 +1770,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         s32 getNumberOfSources() const { return m_sources.size(); }
 
         // Special handling for listfilter extractors as they only make sense when grouped
-        // up as each consumes a certain amount of inputs words and the next filter
+        // up as each consumes a certain amount of input words and the next filter
         // continues with the remaining input data.
 
         /** Returns the ListFilterExtractors attached to the module with the given id. */
@@ -1827,7 +1818,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         s32 getNumberOfOperators() const { return m_operators.size(); }
 
         //
-        // Condition
+        // Conditions
         //
         ConditionVector getConditions() const;
         ConditionVector getConditions(const QUuid &eventId) const;
