@@ -70,6 +70,15 @@
 #include "git_sha1.h"
 #endif
 
+// TODO Mon Nov 26 2018
+// 1) Combine sink, calibration, context, etc. Having those set on the widget
+//    only makes sense in combination. If we have a sink but no context, we can't
+//    get to the analysis and thus cannot react to changes.
+//
+// 2) Find a better way to split up the widget. Isolate core parts that do not
+//    need anything from the analysis and only do basic qwt rendering, axis
+//    scaling, etc.
+// 3) Build a layer using the analysis related parts.
 
 /*
 Rate Estimation
@@ -270,8 +279,6 @@ static const double PlotAdditionalCurvesLayerZ = 1010.0;
 
 struct Histo1DWidgetPrivate
 {
-    friend struct Histo1DListWidget::Private;
-
     Histo1DWidget *m_q;
 
     QToolBar *m_toolBar;
@@ -336,13 +343,13 @@ struct Histo1DWidgetPrivate
     analysis::ConditionLink m_editingCondition;
 
     // Histo and stats
-    Histo1D *m_histo;
     Histo1DStatistics m_stats;
 
-    // Note: this is only used to keep the reference count up if a shared_ptr was
-    // passed in. Otherwise everything is currently done through the raw pointer.
-    Histo1DPtr m_histoPtr;
-    //QwtPlotCurve *m_plotCurve;
+    Histo1DWidget::HistoList m_histos;
+    s32 m_histoIndex = 0;
+
+    QSpinBox *m_histoSpin;
+
     QwtPlotHistogram *m_plotHisto;
 
     ScrollZoomer *m_zoomer;
@@ -350,7 +357,6 @@ struct Histo1DWidgetPrivate
     QPointF m_cursorPosition;
 
     std::shared_ptr<analysis::CalibrationMinMax> m_calib;
-    s32 m_histoAddress;
     MVMEContext *m_context = nullptr;
 
     Histo1DWidget::SinkPtr m_sink;
@@ -391,7 +397,7 @@ struct Histo1DWidgetPrivate
                 m_context->analysisOperatorEdited(m_sink);
 
                 qDebug() << __PRETTY_FUNCTION__ << "setting rrSlider to max";
-                m_rrSlider->setMaximum(std::log2(m_histo->getNumberOfBins()));
+                m_rrSlider->setMaximum(std::log2(getCurrentHisto()->getNumberOfBins()));
                 m_rrSlider->setValue(m_rrSlider->maximum());
             }
         }
@@ -423,6 +429,11 @@ struct Histo1DWidgetPrivate
 
     void onCutEditorIntervalCreated(const QwtInterval &interval);
     void onCutEditorIntervalModified(const QwtInterval &interval);
+
+    Histo1DPtr getCurrentHisto()
+    {
+        return m_histos.value(m_histoIndex, {});
+    }
 };
 
 enum class AxisScaleType
@@ -462,25 +473,27 @@ std::unique_ptr<QwtText> make_text_box(int renderFlags = Qt::AlignRight | Qt::Al
 
 } // end anon namespace
 
-Histo1DWidget::Histo1DWidget(const Histo1DPtr &histoPtr, QWidget *parent)
-    : Histo1DWidget(histoPtr.get(), parent)
+Histo1DWidget::Histo1DWidget(const Histo1DPtr &histo, QWidget *parent)
+    : Histo1DWidget(HistoList{ histo })
 {
-    m_d->m_histoPtr = histoPtr;
 }
 
-Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
+Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     : QWidget(parent)
     , m_d(std::make_unique<Histo1DWidgetPrivate>())
 {
+    assert(!histos.isEmpty());
+
     m_d->m_q = this;
-    m_d->m_histo = histo;
+    m_d->m_histos = histos;
     m_d->m_plotHisto = new QwtPlotHistogram;
     m_d->m_replotTimer = new QTimer(this);
     m_d->m_cursorPosition = { make_quiet_nan(), make_quiet_nan() };
     m_d->m_plot = new QwtPlot;
     m_d->m_intervalCutEditor = new IntervalCutEditor(this);
-
-    resize(600, 400);
+    m_d->m_histoSpin = new QSpinBox(this);
+    m_d->m_histoSpin->setMaximum(histos.size() - 1);
+    set_widget_font_pointsize_relative(m_d->m_histoSpin, -2);
 
     // Toolbar and actions
     m_d->m_toolBar = new QToolBar();
@@ -520,7 +533,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
             this, &Histo1DWidget::on_tb_rate_toggled);
 
     tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
-        m_d->m_histo->clear();
+        m_d->getCurrentHisto()->clear();
         replot();
     });
 
@@ -693,7 +706,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &Histo1DWidget::mouseCursorLeftPlot));
 
-    TRY_ASSERT(connect(m_d->m_histo, &Histo1D::axisBinningChanged, this, [this] (Qt::Axis) {
+    TRY_ASSERT(connect(m_d->getCurrentHisto().get(), &Histo1D::axisBinningChanged,
+                       this, [this] (Qt::Axis) {
         // Handle axis changes by zooming out fully. This will make sure
         // possible axis scale changes are immediately visible and the zoomer
         // is in a clean state.
@@ -888,6 +902,16 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     }
 
     //
+    // Histo selection spinbox
+    //
+    connect(m_d->m_histoSpin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+            this, &Histo1DWidget::onHistoSpinBoxValueChanged);
+
+    m_d->m_toolBar->addWidget(make_vbox_container(QSL("Histogram #"),
+                                                  m_d->m_histoSpin, 2, -2)
+                      .container.release());
+
+    //
     // StatusBar and info widgets
     //
     m_d->m_statusBar = make_statusbar();
@@ -937,7 +961,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     mainLayout->addWidget(m_d->m_statusBar);
     mainLayout->setStretch(1, 1);
 
-    setHistogram(histo);
+    resize(600, 400);
+    selectHistogram(0);
 }
 
 Histo1DWidget::~Histo1DWidget()
@@ -946,36 +971,16 @@ Histo1DWidget::~Histo1DWidget()
     delete m_d->m_plotHisto;
 }
 
-void Histo1DWidget::setHistogram(const Histo1DPtr &histoPtr)
+void Histo1DWidget::setHistogram(const Histo1DPtr &histo)
 {
-    m_d->m_histoPtr = histoPtr;
-
-    setHistogram(histoPtr.get());
-}
-
-void Histo1DWidget::setHistogram(Histo1D *histo)
-{
-    m_d->m_histo = histo;
-
-    m_d->m_plotHistoData = new Histo1DIntervalData(m_d->m_histo);
-    m_d->m_plotHisto->setData(m_d->m_plotHistoData); // ownership goes to qwt
-
-    m_d->m_gaussCurve->setData(new Histo1DGaussCurveData());
-
-    m_d->m_plotRateEstimationData = new RateEstimationCurveData(m_d->m_histo,
-                                                                &m_d->m_rateEstimationData);
-    // ownership goes to qwt
-    m_d->m_rateEstimationCurve->setData(m_d->m_plotRateEstimationData);
-
-    m_d->m_rrSlider->setMaximum(std::log2(m_d->m_histo->getNumberOfBins()));
-
-    if (m_d->m_rrf == Histo1D::NoRR)
-        m_d->m_rrSlider->setValue(m_d->m_rrSlider->maximum());
-
-    //qDebug() << __PRETTY_FUNCTION__ << "new RRSlider max" << m_d->m_rrSlider->maximum();
-
-    m_d->activatePlotPicker(m_d->m_zoomer);
-    m_d->displayChanged();
+    m_d->m_histos = { histo };
+    m_d->m_calib = {};
+    m_d->m_sink = {};
+    m_d->m_sinkModifiedCallback = {};
+    m_d->m_actionSubRange->setEnabled(false);
+    m_d->m_actionChangeRes->setEnabled(false);
+    m_d->m_actionCalibUi->setVisible(false);
+    selectHistogram(0);
 }
 
 void Histo1DWidgetPrivate::updateAxisScales()
@@ -1008,7 +1013,8 @@ void Histo1DWidgetPrivate::updateAxisScales()
     if (m_zoomer->zoomRectIndex() == 0)
     {
         // fully zoomed out -> set to full resolution
-        m_plot->setAxisScale(QwtPlot::xBottom, m_histo->getXMin(), m_histo->getXMax());
+        m_plot->setAxisScale(QwtPlot::xBottom, getCurrentHisto()->getXMin(),
+                             getCurrentHisto()->getXMax());
         m_zoomer->setZoomBase();
     }
 
@@ -1027,7 +1033,7 @@ void Histo1DWidget::replot()
     m_d->m_plotHistoData->setResolutionReductionFactor(rrf);
     m_d->m_plotRateEstimationData->setResolutionReductionFactor(rrf);
 
-    auto xBinning = m_d->m_histo->getAxisBinning(Qt::XAxis);
+    auto xBinning = m_d->getCurrentHisto()->getAxisBinning(Qt::XAxis);
 
     // update histo info label
     auto infoText = QString("Underflow:  %1\n"
@@ -1037,8 +1043,8 @@ void Histo1DWidget::replot()
                             "Bins/Units: %5\n"
                             "PhysBins:   %6\n"
                             )
-        .arg(m_d->m_histo->getUnderflow())
-        .arg(m_d->m_histo->getOverflow())
+        .arg(m_d->getCurrentHisto()->getUnderflow())
+        .arg(m_d->getCurrentHisto()->getOverflow())
         .arg(xBinning.getBins(rrf))
         .arg(xBinning.getBinWidth(rrf))
         .arg(xBinning.getBinsToUnitsRatio(rrf))
@@ -1053,8 +1059,8 @@ void Histo1DWidget::replot()
         /* This code tries to interpolate the exponential function formed by
          * the two selected data points. */
 
-        auto xy1  = m_d->m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1, rrf);
-        auto xy2  = m_d->m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x2, rrf);
+        auto xy1  = m_d->getCurrentHisto()->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1, rrf);
+        auto xy2  = m_d->getCurrentHisto()->getValueAndBinLowEdge(m_d->m_rateEstimationData.x2, rrf);
 
         double x1 = xy1.first;
         double y1 = xy1.second;
@@ -1064,13 +1070,13 @@ void Histo1DWidget::replot()
         double tau      = (x2 - x1) / log(y1 / y2);
         double freeRate = 1.0 / tau; // 1/x-axis unit
 
-        double nom      = m_d->m_histo->calcStatistics(x1, x2, rrf).entryCount;
+        double nom      = m_d->getCurrentHisto()->calcStatistics(x1, x2, rrf).entryCount;
         double denom    = ( (pow(E1, -x1/tau) - pow(E1, -x2/tau)));
         double factor   = (1.0 - pow(E1, -x1/tau));
 
         double norm                 = nom / denom;
         double freeCounts_0_x1      = norm * factor;
-        double histoCounts_0_x1     = m_d->m_histo->calcStatistics(0.0, x1, rrf).entryCount;
+        double histoCounts_0_x1     = m_d->getCurrentHisto()->calcStatistics(0.0, x1, rrf).entryCount;
         double freeCounts_x1_inf    = norm * pow(E1, -x1 / tau);
         double freeCounts_0_inf     = norm;
         double efficiency           = (histoCounts_0_x1 + freeCounts_x1_inf) / freeCounts_0_inf;
@@ -1094,8 +1100,8 @@ void Histo1DWidget::replot()
             << "  freeCounts_0_x1   =" << freeCounts_0_x1 << endl
             << "  histoCounts_0_x1  =" << histoCounts_0_x1 << endl
             << "  histoCounts_total ="
-            << m_d->m_histo->calcStatistics(m_d->m_histo->getXMin(),
-                                            m_d->m_histo->getXMax(),
+            << m_d->getCurrentHisto()->calcStatistics(m_d->getCurrentHisto()->getXMin(),
+                                            m_d->getCurrentHisto()->getXMax(),
                                             rrf).entryCount
             << endl
             << "  efficiency        =" << efficiency << endl
@@ -1130,7 +1136,7 @@ void Histo1DWidget::replot()
 
         if (!std::isnan(tau) && !std::isnan(efficiency))
         {
-            auto unitX = m_d->m_histo->getAxisInfo(Qt::XAxis).unit;
+            auto unitX = m_d->getCurrentHisto()->getAxisInfo(Qt::XAxis).unit;
             if (unitX.isEmpty())
                 unitX = QSL("x");
 
@@ -1172,10 +1178,10 @@ void Histo1DWidget::replot()
     }
 
     // window and axis titles
-    auto name = m_d->m_histo->objectName();
+    auto name = m_d->getCurrentHisto()->objectName();
     setWindowTitle(QString("Histogram %1").arg(name));
 
-    auto axisInfo = m_d->m_histo->getAxisInfo(Qt::XAxis);
+    auto axisInfo = m_d->getCurrentHisto()->getAxisInfo(Qt::XAxis);
     m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
 
     m_d->m_plot->replot();
@@ -1214,7 +1220,7 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
     {
         // fully zoomed out -> set to full resolution
         m_d->m_plot->setAxisScale(QwtPlot::xBottom,
-                                  m_d->m_histo->getXMin(), m_d->m_histo->getXMax());
+                                  m_d->getCurrentHisto()->getXMin(), m_d->getCurrentHisto()->getXMax());
         m_d->m_plot->replot();
         m_d->m_zoomer->setZoomBase();
     }
@@ -1226,26 +1232,26 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
 
     if (lowerBound <= upperBound)
     {
-        if (lowerBound < m_d->m_histo->getXMin())
+        if (lowerBound < m_d->getCurrentHisto()->getXMin())
         {
-            scaleDiv.setLowerBound(m_d->m_histo->getXMin());
+            scaleDiv.setLowerBound(m_d->getCurrentHisto()->getXMin());
         }
 
-        if (upperBound > m_d->m_histo->getXMax())
+        if (upperBound > m_d->getCurrentHisto()->getXMax())
         {
-            scaleDiv.setUpperBound(m_d->m_histo->getXMax());
+            scaleDiv.setUpperBound(m_d->getCurrentHisto()->getXMax());
         }
     }
     else
     {
-        if (lowerBound > m_d->m_histo->getXMin())
+        if (lowerBound > m_d->getCurrentHisto()->getXMin())
         {
-            scaleDiv.setLowerBound(m_d->m_histo->getXMin());
+            scaleDiv.setLowerBound(m_d->getCurrentHisto()->getXMin());
         }
 
-        if (upperBound < m_d->m_histo->getXMax())
+        if (upperBound < m_d->getCurrentHisto()->getXMax())
         {
-            scaleDiv.setUpperBound(m_d->m_histo->getXMax());
+            scaleDiv.setUpperBound(m_d->getCurrentHisto()->getXMax());
         }
     }
 
@@ -1274,7 +1280,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
     //
     // global stats
     //
-    m_stats = m_histo->calcStatistics(lowerBound, upperBound, rrf);
+    m_stats = getCurrentHisto()->calcStatistics(lowerBound, upperBound, rrf);
 
     static const QString globalStatsTemplate = QSL(
         "<table>"
@@ -1287,7 +1293,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
         );
 
     double maxBinCenter = ((m_stats.entryCount > 0)
-                           ? m_histo->getBinCenter(m_stats.maxBin, rrf)
+                           ? getCurrentHisto()->getBinCenter(m_stats.maxBin, rrf)
                            : 0.0);
 
     static const int fieldWidth = 0;
@@ -1313,7 +1319,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
 
     double a = m_stats.maxValue;
     double s = m_stats.fwhm / FWHMSigmaFactor;
-    double scaleFactor = m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio(rrf);
+    double scaleFactor = getCurrentHisto()->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio(rrf);
 
 
     double thingsBelowGauss = a * s * Sqrt2Pi;
@@ -1351,7 +1357,7 @@ bool Histo1DWidgetPrivate::yAxisIsLin()
 
 void Histo1DWidgetPrivate::exportPlot()
 {
-    QString fileName = m_histo->objectName();
+    QString fileName = getCurrentHisto()->objectName();
     fileName.replace("/", "_");
     fileName.replace("\\", "_");
     fileName += QSL(".pdf");
@@ -1363,9 +1369,9 @@ void Histo1DWidgetPrivate::exportPlot()
         fileName = QDir(m_context->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
     }
 
-    m_plot->setTitle(m_histo->getTitle());
+    m_plot->setTitle(getCurrentHisto()->getTitle());
 
-    QString footerString = m_histo->getFooter();
+    QString footerString = getCurrentHisto()->getFooter();
     QwtText footerText(footerString);
     footerText.setRenderFlags(Qt::AlignLeft);
     m_plot->setFooter(footerText);
@@ -1383,9 +1389,9 @@ void Histo1DWidgetPrivate::exportPlot()
 
 void Histo1DWidgetPrivate::exportPlotToClipboard()
 {
-    m_plot->setTitle(m_histo->getTitle());
+    m_plot->setTitle(getCurrentHisto()->getTitle());
 
-    QString footerString = m_histo->getFooter();
+    QString footerString = getCurrentHisto()->getFooter();
     QwtText footerText(footerString);
     footerText.setRenderFlags(Qt::AlignLeft);
     m_plot->setFooter(footerText);
@@ -1417,7 +1423,7 @@ void Histo1DWidgetPrivate::saveHistogram()
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     }
 
-    auto name = m_histo->objectName();
+    auto name = getCurrentHisto()->objectName();
 
     QString fileName = QString("%1/%2.txt")
         .arg(path)
@@ -1445,7 +1451,7 @@ void Histo1DWidgetPrivate::saveHistogram()
     }
 
     QTextStream out(&outFile);
-    writeHisto1D(out, m_histo);
+    writeHisto1D(out, getCurrentHisto().get());
 
     if (out.status() == QTextStream::Ok)
     {
@@ -1458,7 +1464,7 @@ void Histo1DWidgetPrivate::updateCursorInfoLabel(u32 rrf)
 {
     double plotX = m_cursorPosition.x();
     double plotY = m_cursorPosition.y();
-    auto binning = m_histo->getAxisBinning(Qt::XAxis);
+    auto binning = getCurrentHisto()->getAxisBinning(Qt::XAxis);
     s64 binX = binning.getBin(plotX, rrf);
 
     QString text;
@@ -1466,7 +1472,7 @@ void Histo1DWidgetPrivate::updateCursorInfoLabel(u32 rrf)
     if (!qIsNaN(plotX) && !qIsNaN(plotY) && binX >= 0)
     {
         double x = plotX;
-        double y = m_histo->getBinContent(binX, rrf);
+        double y = getCurrentHisto()->getBinContent(binX, rrf);
         double binLowEdge = binning.getBinLowEdge((u32)binX, rrf);
 
         text = QString("x=%1\n"
@@ -1490,8 +1496,8 @@ void Histo1DWidgetPrivate::updateCursorInfoLabel(u32 rrf)
             << QString("binXLow=%1").arg(binning.getBinLowEdge(binX))
             << QString("binXCenter=%1").arg(binning.getBinCenter(binX))
             << QString("binWidth=%1").arg(binning.getBinWidth())
-            << QString("Y=%1").arg(m_histo->getBinContent(binX))
-            << QString("minX=%1, maxX=%2").arg(m_histo->getXMin()).arg(m_histo->getXMax());
+            << QString("Y=%1").arg(getCurrentHisto()->getBinContent(binX))
+            << QString("minX=%1, maxX=%2").arg(getCurrentHisto()->getXMin()).arg(getCurrentHisto()->getXMax());
         ;
 
         QString text = sl.join("\n");
@@ -1520,14 +1526,6 @@ void Histo1DWidget::setContext(MVMEContext *context)
     m_d->m_actionCreateCut->setEnabled(context != nullptr);
 }
 
-void Histo1DWidget::setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib,
-                                       s32 histoAddress)
-{
-    m_d->m_calib = calib;
-    m_d->m_histoAddress = histoAddress;
-    m_d->m_actionCalibUi->setVisible(m_d->m_calib != nullptr);
-}
-
 void Histo1DWidgetPrivate::calibApply()
 {
     Q_ASSERT(m_calib);
@@ -1546,7 +1544,7 @@ void Histo1DWidgetPrivate::calibApply()
     double a = (t1 - t2) / (a1 - a2);
     double b = t1 - a * a1;
 
-    u32 address = m_histoAddress;
+    u32 address = m_histoIndex;
 
     double actualMin = m_calib->getCalibration(address).unitMin;
     double actualMax = m_calib->getCalibration(address).unitMax;
@@ -1582,13 +1580,13 @@ void Histo1DWidgetPrivate::calibResetToFilter()
     Pipe *inputPipe = m_calib->getSlot(0)->inputPipe;
     if (inputPipe)
     {
-        Parameter *inputParam = inputPipe->getParameter(m_histoAddress);
+        Parameter *inputParam = inputPipe->getParameter(m_histoIndex);
         if (inputParam)
         {
             double minValue = inputParam->lowerLimit;
             double maxValue = inputParam->upperLimit;
             AnalysisPauser pauser(m_context);
-            m_calib->setCalibration(m_histoAddress, minValue, maxValue);
+            m_calib->setCalibration(m_histoIndex, minValue, maxValue);
             analysis::do_beginRun_forward(m_calib.get());
         }
     }
@@ -1599,7 +1597,7 @@ void Histo1DWidgetPrivate::calibFillMax()
     // The values in m_stats are calculated in terms of the current res
     // reduction factor in replot(). This means m_stats.maxBin can be used
     // unmodified in the call to getBinLowEdge().
-    double maxAt = m_histo->getBinLowEdge(m_stats.maxBin, m_rrf);
+    double maxAt = getCurrentHisto()->getBinLowEdge(m_stats.maxBin, m_rrf);
     m_calibUi.lastFocusedActual->setValue(maxAt);
 }
 
@@ -1635,7 +1633,7 @@ void Histo1DWidgetPrivate::onRRSliderValueChanged(int sliderValue)
 #endif
 
     // (phys number of bins) / (res reduction number of bins)
-    u32 physBins = m_histo->getNumberOfBins();
+    u32 physBins = getCurrentHisto()->getNumberOfBins();
     u32 visBins   = 1u << sliderValue;
     m_rrf = physBins / visBins;
 
@@ -1699,7 +1697,7 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
     }
     else
     {
-        u32 visBins = m_d->m_histo->getNumberOfBins(rrf);
+        u32 visBins = m_d->getCurrentHisto()->getNumberOfBins(rrf);
         int sliderValue = std::log2(visBins);
 
 #if 0
@@ -1714,7 +1712,7 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
 
 void Histo1DWidget::setResolutionReductionFactor(u32 rrf)
 {
-    u32 physBins = m_d->m_histo->getNumberOfBins();
+    u32 physBins = m_d->getCurrentHisto()->getNumberOfBins();
     u32 visBins  = physBins / rrf;
     int sliderValue = std::log2(visBins);
     m_d->m_rrSlider->setValue(sliderValue);
@@ -1784,7 +1782,7 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
     {
         m_d->m_rateEstimationData.x1 = pos.x();
 
-        double x1 = m_d->m_histo->getValueAndBinLowEdge(
+        double x1 = m_d->getCurrentHisto()->getValueAndBinLowEdge(
             m_d->m_rateEstimationData.x1, m_d->m_rrf).first;
 
         m_d->m_rateEstimationX1Marker->setXValue(m_d->m_rateEstimationData.x1);
@@ -1803,11 +1801,11 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
         m_d->m_rateEstimationData.visible = true;
         m_d->activatePlotPicker(m_d->m_zoomer);
 
-        double x1 = m_d->m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1,
-                                                        m_d->m_rrf).first;
+        double x1 = m_d->getCurrentHisto()->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1,
+                                                                  m_d->m_rrf).first;
 
-        double x2 = m_d->m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x2,
-                                                        m_d->m_rrf).first;
+        double x2 = m_d->getCurrentHisto()->getValueAndBinLowEdge(m_d->m_rateEstimationData.x2,
+                                                                  m_d->m_rrf).first;
 
         // set both x1 and x2 as they might have been swapped above
         m_d->m_rateEstimationX1Marker->setXValue(m_d->m_rateEstimationData.x1);
@@ -1970,12 +1968,97 @@ void Histo1DWidgetPrivate::activatePlotPicker(QwtPlotPicker *picker)
 
 }
 
+// XXX: was listwidget
+void Histo1DWidget::onHistoSpinBoxValueChanged(int index)
+{
+    selectHistogram(index);
+}
+
+void Histo1DWidget::selectHistogram(int index)
+{
+    if (0 <= index && index < m_d->m_histos.size())
+    {
+        m_d->m_histoIndex = index;
+
+        assert(m_d->getCurrentHisto() == m_d->m_histos.value(index));
+
+        m_d->m_plotHistoData = new Histo1DIntervalData(m_d->getCurrentHisto().get());
+        m_d->m_plotHisto->setData(m_d->m_plotHistoData); // ownership goes to qwt
+
+        m_d->m_gaussCurve->setData(new Histo1DGaussCurveData());
+
+        m_d->m_plotRateEstimationData = new RateEstimationCurveData(m_d->getCurrentHisto().get(),
+                                                                    &m_d->m_rateEstimationData);
+        // ownership goes to qwt
+        m_d->m_rateEstimationCurve->setData(m_d->m_plotRateEstimationData);
+
+        m_d->m_rrSlider->setMaximum(std::log2(m_d->getCurrentHisto()->getNumberOfBins()));
+
+        if (m_d->m_rrf == Histo1D::NoRR)
+            m_d->m_rrSlider->setValue(m_d->m_rrSlider->maximum());
+
+        //qDebug() << __PRETTY_FUNCTION__ << "new RRSlider max" << m_d->m_rrSlider->maximum();
+
+        m_d->activatePlotPicker(m_d->m_zoomer);
+        m_d->displayChanged();
+
+        QSignalBlocker sb(m_d->m_histoSpin);
+        m_d->m_histoSpin->setValue(index);
+    }
+
+
+
+
+#if 0
+    if (auto histo = m_d->m_histos.value(index))
+    {
+        m_d->m_histoWidget->setHistogram(histo.get());
+        m_d->m_histoWidget->setContext(m_d->m_context);
+
+        if (m_d->m_calib)
+        {
+            m_d->m_histoWidget->setCalibrationInfo(m_d->m_calib, index);
+        }
+
+        if (m_d->m_sink)
+        {
+            m_d->m_histoWidget->setSink(m_d->m_sink, m_d->m_sinkModifiedCallback);
+        }
+
+        if (auto cl = m_d->m_histoWidget->getEditCondition())
+        {
+            cl.subIndex = index;
+            m_d->m_histoWidget->setEditCondition(cl);
+        }
+
+        // Update spinbox value to show the current index. Needed in case
+        // selectHistogram() was called from the outside instead of from
+        // the user interacting with the spinbox.
+        QSignalBlocker sb(m_d->m_histoSpin);
+        m_d->m_histoSpin->setValue(index);
+    }
+#endif
+}
+
+void Histo1DWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib)
+{
+    m_d->m_calib = calib;
+    m_d->m_actionCalibUi->setVisible(m_d->m_calib != nullptr);
+}
+
+QwtPlotPicker *Histo1DWidgetPrivate::getActivePlotPicker() const
+{
+    return m_activePlotPicker;
+}
+
+
 //
 // Histo1DListWidget
 //
 
 using namespace analysis;
 
+#if 0
 struct Histo1DListWidget::Private
 {
     Private(Histo1DListWidget *q) : m_q(q) {}
@@ -1984,7 +2067,7 @@ struct Histo1DListWidget::Private
     HistoList m_histos;
     Histo1DWidget *m_histoWidget;
     QSpinBox *m_histoSpin;
-    s32 m_currentIndex = 0;
+    s32 m_histoIndex = 0;
     std::shared_ptr<analysis::CalibrationMinMax> m_calib;
     MVMEContext *m_context = nullptr;
     SinkPtr m_sink;
@@ -2002,7 +2085,7 @@ Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
 {
     m_d->m_histos = histos;
     m_d->m_histoSpin = new QSpinBox(this);
-    m_d->m_currentIndex = 0;
+    m_d->m_histoIndex = 0;
 
     resize(600, 400);
     Q_ASSERT(histos.size());
@@ -2041,19 +2124,6 @@ void Histo1DListWidget::setContext(MVMEContext *context)
     m_d->m_context = context;
 }
 
-void Histo1DListWidget::onHistoSpinBoxValueChanged(int index)
-{
-    selectHistogram(index);
-}
-
-void Histo1DListWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib)
-{
-    m_d->m_calib = calib;
-    if (m_d->m_calib)
-    {
-        m_d->m_histoWidget->setCalibrationInfo(m_d->m_calib, m_d->m_currentIndex);
-    }
-}
 
 void Histo1DListWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback)
 {
@@ -2061,12 +2131,12 @@ void Histo1DListWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModif
     m_d->m_sink = sink;
     m_d->m_sinkModifiedCallback = sinkModifiedCallback;
 
-    onHistoSpinBoxValueChanged(m_d->m_currentIndex);
+    onHistoSpinBoxValueChanged(m_d->m_histoIndex);
 }
 
 void Histo1DListWidget::selectHistogram(int index)
 {
-    m_d->m_currentIndex = index;
+    m_d->m_histoIndex = index;
 
     if (auto histo = m_d->m_histos.value(index))
     {
@@ -2120,7 +2190,4 @@ void Histo1DListWidget::beginEditCondition()
     m_d->m_histoWidget->beginEditCondition();
 }
 
-QwtPlotPicker *Histo1DWidgetPrivate::getActivePlotPicker() const
-{
-    return m_activePlotPicker;
-}
+#endif

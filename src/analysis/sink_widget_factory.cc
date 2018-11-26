@@ -14,7 +14,7 @@ QWidget *sink_widget_factory(const SinkPtr &sink, MVMEContext *context, QWidget 
 
     if (auto h1dSink = std::dynamic_pointer_cast<Histo1DSink>(sink))
     {
-        auto w = new Histo1DListWidget(h1dSink->getHistos(), parent);
+        auto w = new Histo1DWidget(h1dSink->getHistos(), parent);
         result = w;
 
         w->setContext(context);

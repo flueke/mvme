@@ -3008,7 +3008,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     if (!m_context->hasObjectWidget(widgetInfo.sink.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        auto widget = new Histo1DListWidget(widgetInfo.histos);
+                        auto widget = new Histo1DWidget(widgetInfo.histos);
                         widget->setContext(m_context);
 
                         if (widgetInfo.calib)
@@ -3029,7 +3029,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         m_context->addObjectWidget(widget, widgetInfo.sink.get(),
                                                    widgetInfo.sink->getId().toString());
                     }
-                    else if (auto widget = qobject_cast<Histo1DListWidget *>(
+                    else if (auto widget = qobject_cast<Histo1DWidget *>(
                             m_context->getObjectWidget(widgetInfo.sink.get())))
                     {
                         widget->selectHistogram(widgetInfo.histoAddress);
@@ -3040,7 +3040,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 menu.addAction(
                     QSL("Open Histogram in new window"), m_q, [this, widgetInfo]() {
 
-                        auto widget = new Histo1DListWidget(widgetInfo.histos);
+                        auto widget = new Histo1DWidget(widgetInfo.histos);
                         widget->setContext(m_context);
 
                         if (widgetInfo.calib)
@@ -3074,7 +3074,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
                 menu.addAction(QSL("Open 1D List View"), m_q, [this, widgetInfo]() {
                     // always creates a new window
-                    auto widget = new Histo1DListWidget(widgetInfo.histos);
+                    auto widget = new Histo1DWidget(widgetInfo.histos);
                     widget->setContext(m_context);
 
                     if (widgetInfo.calib)
@@ -3380,7 +3380,7 @@ void EventWidgetPrivate::doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint 
                 if (!m_context->hasObjectWidget(widgetInfo.sink.get())
                     || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                 {
-                    auto widget = new Histo1DListWidget(widgetInfo.histos);
+                    auto widget = new Histo1DWidget(widgetInfo.histos);
                     widget->setContext(m_context);
 
                     if (widgetInfo.calib)
@@ -3401,7 +3401,7 @@ void EventWidgetPrivate::doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint 
                     m_context->addObjectWidget(widget, widgetInfo.sink.get(),
                                                widgetInfo.sink->getId().toString());
                 }
-                else if (auto widget = qobject_cast<Histo1DListWidget *>(
+                else if (auto widget = qobject_cast<Histo1DWidget *>(
                         m_context->getObjectWidget(widgetInfo.sink.get())))
                 {
                     widget->selectHistogram(widgetInfo.histoAddress);
@@ -3412,7 +3412,7 @@ void EventWidgetPrivate::doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint 
             menu.addAction(
                 QSL("Open Histogram in new window"), m_q, [this, widgetInfo]() {
 
-                    auto widget = new Histo1DListWidget(widgetInfo.histos);
+                    auto widget = new Histo1DWidget(widgetInfo.histos);
                     widget->setContext(m_context);
 
                     if (widgetInfo.calib)
@@ -3445,7 +3445,7 @@ void EventWidgetPrivate::doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint 
 
             menu.addAction(QSL("Open 1D List View"), m_q, [this, widgetInfo]() {
                 // always creates a new window
-                auto widget = new Histo1DListWidget(widgetInfo.histos);
+                auto widget = new Histo1DWidget(widgetInfo.histos);
                 widget->setContext(m_context);
 
                 if (widgetInfo.calib)
@@ -4273,7 +4273,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     if (!m_context->hasObjectWidget(widgetInfo.sink.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        auto widget = new Histo1DListWidget(widgetInfo.histos);
+                        auto widget = new Histo1DWidget(widgetInfo.histos);
                         widget->setContext(m_context);
 
                         if (widgetInfo.calib)
@@ -4294,7 +4294,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         m_context->addObjectWidget(widget, widgetInfo.sink.get(),
                                                    widgetInfo.sink->getId().toString());
                     }
-                    else if (auto widget = qobject_cast<Histo1DListWidget *>(
+                    else if (auto widget = qobject_cast<Histo1DWidget *>(
                             m_context->getObjectWidget(widgetInfo.sink.get())))
                     {
                         widget->selectHistogram(widgetInfo.histoAddress);
@@ -4312,7 +4312,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         if (!m_context->hasObjectWidget(widgetInfo.sink.get())
                             || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                         {
-                            auto widget = new Histo1DListWidget(widgetInfo.histos);
+                            auto widget = new Histo1DWidget(widgetInfo.histos);
                             widget->setContext(m_context);
 
                             if (widgetInfo.calib)
