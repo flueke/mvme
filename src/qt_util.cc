@@ -54,11 +54,9 @@ void WidgetGeometrySaver::removeWidget(QWidget *widget)
 
 void WidgetGeometrySaver::restoreGeometry(QWidget *widget, const QString &key)
 {
-    QSettings settings;
-
-    if (settings.contains(key))
+    if (m_settings.contains(key))
     {
-        widget->restoreGeometry(settings.value(key).toByteArray());
+        widget->restoreGeometry(m_settings.value(key).toByteArray());
     }
 }
 
@@ -76,8 +74,7 @@ bool WidgetGeometrySaver::eventFilter(QObject *obj, QEvent *event)
 
         if (widget && m_widgetKeys.contains(widget))
         {
-            QSettings settings;
-            settings.setValue(m_widgetKeys[widget], widget->saveGeometry());
+            m_settings.setValue(m_widgetKeys[widget], widget->saveGeometry());
             qDebug() << "saved geometry for" << widget << " key =" << m_widgetKeys[widget];
         }
     }
