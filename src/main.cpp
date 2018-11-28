@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
     splash.setFont(font);
     splash.showMessage(QSL(
             "mvme - VME Data Acquisition\n"
-            "© 2015-2017 mesytec GmbH & Co. KG"
+            "© 2015-2018 mesytec GmbH & Co. KG"
             ), Qt::AlignHCenter);
     splash.show();
 
