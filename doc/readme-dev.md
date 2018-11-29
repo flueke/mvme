@@ -66,6 +66,7 @@ successfully compiled the generated latex code using MiKTeX.
 ### Clang/GCC Asan options
 `export ASAN_OPTIONS="detect_leaks=false"`
 
+Important:
 To get line numbers in address sanitizer stack traces make sure libmvme.so can
 be found in LD\_LIBRARY\_PATH. When running from the build directory do something like
 `LD_LIBRARY_PATH=`pwd` gdb -ex r ./mvme`
