@@ -87,6 +87,8 @@ class Histo2D: public QObject
         void axisBinningChanged(Qt::Axis axis);
 
     public:
+        static const u32 NoRR = AxisBinning::NoResolutionReduction;
+
         Histo2D(u32 xBins, double xMin, double xMax,
                 u32 yBins, double yMin, double yMax,
                 QObject *parent = 0);
@@ -193,6 +195,16 @@ class Histo2D: public QObject
 
         AxisBinnings getAxisBinnings() const { return m_axisBinnings; }
         AxisInfos getAxisInfos() const { return m_axisInfos; }
+
+        inline u32 getNumberOfXBins(u32 rrf = NoRR) const
+        {
+            return m_axisBinnings[Qt::XAxis].getBins(rrf);
+        }
+
+        inline u32 getNumberOfYBins(u32 rrf = NoRR) const
+        {
+            return m_axisBinnings[Qt::YAxis].getBins(rrf);
+        }
 
     private:
         AxisBinnings m_axisBinnings;

@@ -58,9 +58,6 @@ struct Context
     u32 listfileVersion;
     MVMEStreamProcessor::Logger logger;
     MVMEStreamProcessor streamProcessor;
-#ifdef MVME_ENABLE_ROOT
-    mvme_root::RootDataWriter rootWriter;
-#endif
 };
 
 void process_listfile(Context &context, ListFile *listfile)
@@ -68,10 +65,6 @@ void process_listfile(Context &context, ListFile *listfile)
     assert(listfile);
 
     DataBuffer sectionBuffer(Megabytes(1));
-
-#ifdef MVME_ENABLE_ROOT
-    context.streamProcessor.attachModuleConsumer(&context.rootWriter);
-#endif
 
     context.streamProcessor.beginRun(
         context.runInfo,
@@ -161,9 +154,7 @@ int main(int argc, char *argv[])
 
         if (opt_name == "listfile") { listfileFilename = QString(optarg); }
         if (opt_name == "analysis") { analysisFilename = QString(optarg); }
-#ifdef MVME_ENABLE_HDF5
         if (opt_name == "session-out") { sessionOutFilename = QString(optarg); }
-#endif
         if (opt_name == "help") { showHelp = true; }
     }
 
@@ -257,7 +248,6 @@ int main(int argc, char *argv[])
             }
         }
 
-#ifdef MVME_ENABLE_HDF5
         if (!sessionOutFilename.isEmpty())
         {
             qDebug() << "saving session to" << sessionOutFilename << "...";
@@ -268,7 +258,6 @@ int main(int argc, char *argv[])
                 throw result.second;
             }
         }
-#endif
 
 #if 1
     }

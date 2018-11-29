@@ -103,6 +103,8 @@ set(LIBMVME_SOURCES
     analysis/listfilter_extractor_dialog.cc
     analysis/object_factory.cc
     analysis/object_editor_dialog.cc
+    analysis/analysis_session.cc
+
 
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
@@ -180,17 +182,6 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
     )
 
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
-
-if (HDF5_FOUND)
-    list(APPEND LIBMVME_ADDITIONAL_LIBS ${HDF5_CXX_LIBRARIES})
-    list(APPEND LIBMVME_SOURCES analysis/analysis_session.cc)
-endif(HDF5_FOUND)
-
-if (ENABLE_ROOT AND ROOT_FOUND)
-    # The code that's starting and managing the mvme-root-writer. Does not
-    # include/link with ROOT but is part of libmvme.
-    list(APPEND LIBMVME_SOURCES mvme_root_data_writer.cc)
-endif(ENABLE_ROOT AND ROOT_FOUND)
 
 add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
 add_dependencies(libmvme liba2_static)
