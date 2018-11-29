@@ -1721,7 +1721,7 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         Format m_format = Format::Sparse;
 };
 
-class AnalysisObjectStore;
+struct AnalysisObjectStore;
 
 using ConditionLinks = QHash<OperatorPtr, ConditionLink>;
 
