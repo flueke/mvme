@@ -112,10 +112,10 @@ QwtPlotMarker *make_position_marker()
 
 } // end anon ns
 
-IntervalPlotPicker::IntervalPlotPicker(IntervalEditor *cutEditor)
+IntervalPlotPicker::IntervalPlotPicker(QWidget *plotCanvas)
     : QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
                     QwtPicker::VLineRubberBand, QwtPicker::ActiveOnly,
-                    cutEditor->getPlot()->canvas())
+                    plotCanvas)
     , m_interval(make_quiet_nan(), make_quiet_nan())
     , m_isDragging(false)
 {
@@ -228,11 +228,11 @@ IntervalPlotPicker::SelectedPointType IntervalPlotPicker::getPointForXCoordinate
     return PT_None;
 }
 
-IntervalEditor::IntervalEditor(Histo1DWidget *parent)
+IntervalEditor::IntervalEditor(Histo1DWidget *histoWidget, QObject *parent)
     : QObject(parent)
-    , m_histoWidget(parent)
-    , m_picker(new IntervalPlotPicker(this))
-    , m_zone(new QwtPlotZoneItem)
+    , m_histoWidget(histoWidget)
+    , m_picker(new IntervalPlotPicker(histoWidget->getPlot()->canvas()))
+    , m_zone(std::make_unique<QwtPlotZoneItem>())
     , m_marker1(make_position_marker())
     , m_marker2(make_position_marker())
     , m_interval(make_quiet_nan(), make_quiet_nan())
@@ -243,10 +243,10 @@ IntervalEditor::IntervalEditor(Histo1DWidget *parent)
     zoneBrush.setStyle(Qt::DiagCrossPattern);
     m_zone->setBrush(zoneBrush);
 
-    // QwtPlot by default deletes any attached item when it is destroyed.
-    m_zone->attach(parent->getPlot());
-    m_marker1->attach(parent->getPlot());
-    m_marker2->attach(parent->getPlot());
+    // QwtPlot by default deletes any attached items when it is destroyed.
+    m_zone->attach(histoWidget->getPlot());
+    m_marker1->attach(histoWidget->getPlot());
+    m_marker2->attach(histoWidget->getPlot());
 
     // Note: do not call this->hide() here as that will invoke
     // Histo1DWidget::replot() where the widget might not have been fully
@@ -269,6 +269,18 @@ IntervalEditor::IntervalEditor(Histo1DWidget *parent)
 
 IntervalEditor::~IntervalEditor()
 {
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
+    if (isEditing())
+    {
+        endEdit();
+    }
+
+    m_zone->detach();
+    m_marker1->detach();
+    m_marker2->detach();
+
+    delete m_picker;
 }
 
 void IntervalEditor::setInterval(const QwtInterval &interval)
@@ -336,9 +348,15 @@ void IntervalEditor::newInterval()
 
 void IntervalEditor::beginEdit()
 {
-    m_prevPicker = m_histoWidget->getActivePlotPicker();
-    qDebug() << __PRETTY_FUNCTION__ << "setting prev picker to" << m_prevPicker;
-    m_histoWidget->activatePlotPicker(m_picker);
+    auto picker = m_histoWidget->getActivePlotPicker();
+
+    if (picker != m_picker)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "setting prev picker to" << picker
+            << "and activating IntervalPlotPicker";
+        m_prevPicker = picker;
+        m_histoWidget->activatePlotPicker(m_picker);
+    }
     show();
 }
 
@@ -547,7 +565,7 @@ IntervalCutDialog::IntervalCutDialog(Histo1DWidget *histoWidget)
     , pb_new(new QPushButton(QIcon(QSL(":/scissors_plus.png")), QSL("New Cut"), this))
     , pb_edit(new QPushButton(QIcon(QSL(":/pencil.png")), QSL("Edit Cut"), this))
     , m_bb(new QDialogButtonBox(this))
-    , m_editor(new IntervalEditor(histoWidget))
+    , m_editor(new IntervalEditor(histoWidget, this))
 {
     auto ss = QSL("font-size: 8pt;");
     qDebug() << __PRETTY_FUNCTION__ << ss;
@@ -587,30 +605,13 @@ IntervalCutDialog::IntervalCutDialog(Histo1DWidget *histoWidget)
     dialogLayout->addStretch(1);
     dialogLayout->addWidget(m_bb);
 
+    //
     // interactions
-    connect(m_bb, &QDialogButtonBox::clicked,
-            this, [this] (QAbstractButton *button) {
-        switch (m_bb->buttonRole(button))
-        {
-            case QDialogButtonBox::AcceptRole:
-                accept();
-                break;
-            case QDialogButtonBox::RejectRole:
-                reject();
-                break;
-            case QDialogButtonBox::ApplyRole:
-                apply();
-                break;
-            InvalidDefaultCase;
-        }
-    });
-
+    //
     auto new_cut = [this] ()
     {
         m_editor->newInterval();
     };
-
-    connect(pb_new, &QPushButton::clicked, this, new_cut);
 
     auto on_interval_created = [this] (const QwtInterval &interval)
     {
@@ -654,6 +655,7 @@ IntervalCutDialog::IntervalCutDialog(Histo1DWidget *histoWidget)
 
         if (!context || !sink)
         {
+            InvalidCodePath;
             // TODO: display an error
             return;
         }
@@ -676,11 +678,33 @@ IntervalCutDialog::IntervalCutDialog(Histo1DWidget *histoWidget)
         context->getAnalysis()->addOperator(sink->getEventId(), 0, cond);
     };
 
+    connect(m_bb, &QDialogButtonBox::clicked,
+            this, [this] (QAbstractButton *button) {
+        switch (m_bb->buttonRole(button))
+        {
+            case QDialogButtonBox::AcceptRole:
+                accept();
+                break;
+            case QDialogButtonBox::RejectRole:
+                reject();
+                break;
+            case QDialogButtonBox::ApplyRole:
+                apply();
+                break;
+            InvalidDefaultCase;
+        }
+    });
+
+    connect(pb_new, &QPushButton::clicked, this, new_cut);
     connect(m_editor, &IntervalEditor::intervalCreated, this, on_interval_created);
+
+    //connect(combo_cuts, static_cast<void (QComboBox::*) (int index)>(
+    //        &QComboBox::currentIndexChanged),
 }
 
 IntervalCutDialog::~IntervalCutDialog()
 {
+    qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 void IntervalCutDialog::accept()

@@ -622,109 +622,22 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
             auto cutDialog = new IntervalCutDialog(this);
 
             connect(cutDialog, &QDialog::accepted,
-                    m_d->m_actionCuts, [this] () { m_d->m_actionCuts->setEnabled(true); });
+                    m_d->m_actionCuts, [this] () {
+                        m_d->m_actionCuts->setEnabled(true);
+                        replot();
+                    });
 
             connect(cutDialog, &QDialog::rejected,
-                    m_d->m_actionCuts, [this] () { m_d->m_actionCuts->setEnabled(true); });
+                    m_d->m_actionCuts, [this] () {
+                        m_d->m_actionCuts->setEnabled(true);
+                        replot();
+                    });
 
             cutDialog->setAttribute(Qt::WA_DeleteOnClose);
             cutDialog->show();
+            // Enabled in setSink()
             m_d->m_actionCuts->setEnabled(false);
         });
-
-#if 0
-        tb->addSeparator();
-
-        auto combo_cuts = new QComboBox(this);
-        combo_cuts->setEditable(false);
-
-        auto item = new QStandardItem;
-        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
-        item->setText("<none>");
-
-        auto model = qobject_cast<QStandardItemModel *>(combo_cuts->model());
-        model->appendRow(item);
-
-        item = new QStandardItem;
-        item->setText("Foobar");
-        item->setFlags(item->flags() | Qt::ItemIsEditable);
-        model->appendRow(item);
-
-
-        set_widget_font_pointsize_relative(combo_cuts, -2);
-        auto box = make_vbox_container(QSL("Cuts"), combo_cuts, 0, -2);
-        tb->addWidget(box.container.release());
-
-        connect(combo_cuts, static_cast<void (QComboBox::*) (int index)>(
-                &QComboBox::currentIndexChanged),
-            this, [] (int index) {
-                qDebug() << "combo_cuts currentIndexChanged" << index;
-            });
-#endif
-
-#if 0
-        action = tb->addAction(QIcon(QSL(":/scissors_plus.png")), QSL("New Cut"));
-        action->setCheckable(true);
-        action->setEnabled(false);
-        m_d->m_actionCreateCut = action;
-
-        connect(action, &QAction::toggled, this, [this](bool checked) {
-            if (checked)
-            {
-                m_d->m_intervalCutEditor->newCut();
-            }
-            else
-            {
-                m_d->m_intervalCutEditor->endEdit();
-            }
-        });
-
-        //
-        // Overlay Test Picker action
-        //
-
-        action = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Edit Cut"));
-        action->setCheckable(true);
-        action->setEnabled(false);
-        m_d->m_actionEditCut = action;
-
-        connect(action, &QAction::toggled, this, [this](bool checked) {
-            if (checked)
-            {
-                m_d->m_intervalCutEditor->beginEdit();
-            }
-            else
-            {
-                m_d->m_intervalCutEditor->endEdit();
-            }
-        });
-
-        action = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Accept"));
-        action->setEnabled(false);
-        m_d->m_actionEditCutAccept = action;
-
-        connect(action, &QAction::triggered, this, [this] () {
-            m_d->onEditCutAccept();
-        });
-
-        action = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Reject"));
-        action->setEnabled(false);
-        m_d->m_actionEditCutReject = action;
-
-        connect(action, &QAction::triggered, this, [this] () {
-            m_d->onEditCutReject();
-        });
-
-        connect(m_d->m_intervalCutEditor, &IntervalEditor::intervalCreated,
-                this, [this] (const QwtInterval &interval) {
-                    m_d->onCutEditorIntervalCreated(interval);
-                });
-
-        connect(m_d->m_intervalCutEditor, &IntervalEditor::intervalModified,
-                this, [this] (const QwtInterval &interval) {
-                    m_d->onCutEditorIntervalModified(interval);
-                });
-#endif
     }
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
@@ -732,10 +645,6 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     tb->addWidget(make_spacer_widget());
 
     // Setup the plot
-
-    //m_plotCurve->setStyle(QwtPlotCurve::Steps);
-    //m_plotCurve->setCurveAttribute(QwtPlotCurve::Inverted);
-    //m_plotCurve->attach(m_d->m_plot);
 
     m_d->m_plotHisto->setStyle(QwtPlotHistogram::Outline);
     m_d->m_plotHisto->attach(m_d->m_plot);
@@ -1020,7 +929,6 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
 Histo1DWidget::~Histo1DWidget()
 {
-    //delete m_plotCurve;
     delete m_d->m_plotHisto;
 }
 
@@ -2012,16 +1920,6 @@ void Histo1DWidget::activatePlotPicker(QwtPlotPicker *picker)
     m_d->activatePlotPicker(picker);
 }
 
-QwtPlotPicker *Histo1DWidget::getActivePlotPicker() const
-{
-    return m_d->getActivePlotPicker();
-}
-
-QwtPlot *Histo1DWidget::getPlot() const
-{
-    return m_d->m_plot;
-}
-
 void Histo1DWidgetPrivate::activatePlotPicker(QwtPlotPicker *picker)
 {
     if (m_activePlotPicker)
@@ -2034,6 +1932,16 @@ void Histo1DWidgetPrivate::activatePlotPicker(QwtPlotPicker *picker)
         m_activePlotPicker->setEnabled(true);
     }
 
+}
+
+QwtPlotPicker *Histo1DWidget::getActivePlotPicker() const
+{
+    return m_d->getActivePlotPicker();
+}
+
+QwtPlot *Histo1DWidget::getPlot() const
+{
+    return m_d->m_plot;
 }
 
 // XXX: was listwidget

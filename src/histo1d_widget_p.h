@@ -71,8 +71,6 @@ class Histo1DSubRangeDialog: public QDialog
  *
  */
 
-class IntervalEditor;
-
 class IntervalPlotPicker: public QwtPlotPicker
 {
     Q_OBJECT
@@ -88,7 +86,7 @@ class IntervalPlotPicker: public QwtPlotPicker
         void pointTypeSelected(SelectedPointType pt);
 
     public:
-        IntervalPlotPicker(IntervalEditor *cutEditor);
+        IntervalPlotPicker(QWidget *plotCanvas);
 
         void setInterval(const QwtInterval &interval);
         QwtInterval getInterval() const;
@@ -123,7 +121,7 @@ class IntervalEditor: public QObject
     public:
         using SelectedPointType = IntervalPlotPicker::SelectedPointType;
 
-        IntervalEditor(Histo1DWidget *parent = nullptr);
+        IntervalEditor(Histo1DWidget *histoWidget, QObject *parent = nullptr);
         ~IntervalEditor();
 
         void setInterval(const QwtInterval &interval);
@@ -151,10 +149,10 @@ class IntervalEditor: public QObject
 
         Histo1DWidget *m_histoWidget;
         IntervalPlotPicker *m_picker;
-        QwtPlotZoneItem *m_zone;
-        QwtPlotMarker *m_marker1;
-        QwtPlotMarker *m_marker2;
-        QwtPlotPicker *m_prevPicker;
+        std::unique_ptr<QwtPlotZoneItem> m_zone;
+        std::unique_ptr<QwtPlotMarker> m_marker1;
+        std::unique_ptr<QwtPlotMarker> m_marker2;
+        QwtPlotPicker *m_prevPicker = nullptr;
         QwtInterval m_interval;
         SelectedPointType m_selectedPointType;
 };
