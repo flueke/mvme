@@ -2151,6 +2151,9 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
         if (qobject_cast<SinkInterface *>(op.get()))
             continue;
 
+        if (qobject_cast<ConditionInterface *>(op.get()))
+            continue;
+
         std::unique_ptr<TreeNode> opNode(make_operator_node(op.get()));
 
         assert(m_objectMap.count(op) == 0);
