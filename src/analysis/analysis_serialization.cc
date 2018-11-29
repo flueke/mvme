@@ -525,6 +525,13 @@ AnalysisObjectStore deserialize_objects(QJsonObject data,
 
                 Slot *dstSlot = dstObject->getSlot(dstIndex);
 
+                if (!dstSlot)
+                {
+                    qDebug() << __PRETTY_FUNCTION__
+                        << "null dstSlot encountered!, dstObject =" << dstObject.get()
+                        << ", dstSlotIndex =" << dstIndex;
+                }
+
                 assert(dstSlot);
 
                 Connection con =
