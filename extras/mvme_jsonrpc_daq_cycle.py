@@ -65,47 +65,34 @@ if __name__ == "__main__":
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((args.host, args.port))
 
+        cycle = 0
+
         while True:
-            # Check Running state
-            send_request(s, "getDAQState")
-            response = receive_response(s)
-            assert response["result"] == "Running"
-
-            print("Stopping DAQ and asserting Idle state")
-            # Stop DAQ
-            send_request(s, "stopDAQ")
-            response = receive_response(s)
-            assert response["result"] == True
-
+            print("Begin cycle %d" % cycle)
             # Check Idle state
+            print("Asserting DAQ Idle state")
             send_request(s, "getDAQState")
             response = receive_response(s)
             assert response["result"] == "Idle"
 
-            # sleep() time in seconds
-            # rangrange(start, stop [, step])
-            sleeptime = random.randrange(0, 6, 1)
-            print("Sleeping %d seconds" % (sleeptime))
-            time.sleep(sleeptime)
-
-            # Check Idle state again
-            send_request(s, "getDAQState")
-            response = receive_response(s)
-            assert response["result"] == "Idle"
-
-            print("Starting DAQ")
             # Start the DAQ
+            print("Starting DAQ")
             send_request(s, "startDAQ")
             response = receive_response(s)
             assert response["result"] == True
 
-            # Check Running state
+            # sleep() time is given in seconds
+            # Assume that startup takes a max of 5 seconds
+            sleeptime = 1
+            time.sleep(sleeptime)
+
+            # Check Running or Starting state
             send_request(s, "getDAQState")
             response = receive_response(s)
             assert response["result"] in ("Starting", "Running")
 
-            # sleep() time in seconds
-            # rangrange(start, stop [, step])
+            # sleep() time is given in seconds
+            # Assume that startup takes a max of 5 seconds
             sleeptime = 5
             print("Waiting %d seconds for startup to complete" % (sleeptime))
             time.sleep(sleeptime)
@@ -115,10 +102,26 @@ if __name__ == "__main__":
             response = receive_response(s)
             assert response["result"] == "Running"
 
-            # sleep() time in seconds
-            # rangrange(start, stop [, step])
-            sleeptime = random.randrange(60, 120, 1)
+            # Run for a while
+            # randrange(start, stop [, step])
+            sleeptime = random.randrange(10, 20, 1)
             print("Running for %d seconds" % (sleeptime))
             time.sleep(sleeptime)
+
+            # Check Running state again
+            send_request(s, "getDAQState")
+            response = receive_response(s)
+            assert response["result"] == "Running"
+
+            print("Stopping DAQ")
+            # Stop DAQ
+            send_request(s, "stopDAQ")
+            response = receive_response(s)
+            assert response["result"] == True
+
+            print("End cycle %d" % cycle)
+            print
+
+            cycle += 1
 
     sys.exit(0)
