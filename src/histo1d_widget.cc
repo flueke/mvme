@@ -298,10 +298,7 @@ struct Histo1DWidgetPrivate
             *m_actionGaussFit,
             *m_actionCalibUi,
             *m_actionInfo,
-            *m_actionCreateCut,
-            *m_actionEditCut,
-            *m_actionEditCutAccept,
-            *m_actionEditCutReject;
+            *m_actionCuts;
 
     // rate estimation
     RateEstimationData m_rateEstimationData;
@@ -339,8 +336,9 @@ struct Histo1DWidgetPrivate
     CalibUi m_calibUi;
 
     // Cut creation / editing
-    IntervalCutEditor *m_intervalCutEditor;
+    IntervalEditor *m_intervalCutEditor;
     analysis::ConditionLink m_editingCondition;
+    QVector<QwtInterval> m_cutIntervals;
 
     // Histo and stats
     Histo1DStatistics m_stats;
@@ -422,7 +420,7 @@ struct Histo1DWidgetPrivate
     void onEditCutAccept();
     void onEditCutReject();
 
-    IntervalCutEditor *getIntervalCutEditor() const
+    IntervalEditor *getIntervalCutEditor() const
     {
         return m_intervalCutEditor;
     }
@@ -433,6 +431,11 @@ struct Histo1DWidgetPrivate
     Histo1DPtr getCurrentHisto()
     {
         return m_histos.value(m_histoIndex, {});
+    }
+
+    ~Histo1DWidgetPrivate()
+    {
+        qDebug() << __PRETTY_FUNCTION__ << this;
     }
 };
 
@@ -490,7 +493,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_replotTimer = new QTimer(this);
     m_d->m_cursorPosition = { make_quiet_nan(), make_quiet_nan() };
     m_d->m_plot = new QwtPlot;
-    m_d->m_intervalCutEditor = new IntervalCutEditor(this);
+    m_d->m_intervalCutEditor = new IntervalEditor(this);
     m_d->m_histoSpin = new QSpinBox(this);
     m_d->m_histoSpin->setMaximum(histos.size() - 1);
     set_widget_font_pointsize_relative(m_d->m_histoSpin, -2);
@@ -610,7 +613,56 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     //
     {
         tb->addSeparator();
+        m_d->m_actionCuts = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Cuts"));
+        m_d->m_actionCuts->setEnabled(false);
 
+        connect(m_d->m_actionCuts, &QAction::triggered,
+                this, [this] () {
+
+            auto cutDialog = new IntervalCutDialog(this);
+
+            connect(cutDialog, &QDialog::accepted,
+                    m_d->m_actionCuts, [this] () { m_d->m_actionCuts->setEnabled(true); });
+
+            connect(cutDialog, &QDialog::rejected,
+                    m_d->m_actionCuts, [this] () { m_d->m_actionCuts->setEnabled(true); });
+
+            cutDialog->setAttribute(Qt::WA_DeleteOnClose);
+            cutDialog->show();
+            m_d->m_actionCuts->setEnabled(false);
+        });
+
+#if 0
+        tb->addSeparator();
+
+        auto combo_cuts = new QComboBox(this);
+        combo_cuts->setEditable(false);
+
+        auto item = new QStandardItem;
+        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+        item->setText("<none>");
+
+        auto model = qobject_cast<QStandardItemModel *>(combo_cuts->model());
+        model->appendRow(item);
+
+        item = new QStandardItem;
+        item->setText("Foobar");
+        item->setFlags(item->flags() | Qt::ItemIsEditable);
+        model->appendRow(item);
+
+
+        set_widget_font_pointsize_relative(combo_cuts, -2);
+        auto box = make_vbox_container(QSL("Cuts"), combo_cuts, 0, -2);
+        tb->addWidget(box.container.release());
+
+        connect(combo_cuts, static_cast<void (QComboBox::*) (int index)>(
+                &QComboBox::currentIndexChanged),
+            this, [] (int index) {
+                qDebug() << "combo_cuts currentIndexChanged" << index;
+            });
+#endif
+
+#if 0
         action = tb->addAction(QIcon(QSL(":/scissors_plus.png")), QSL("New Cut"));
         action->setCheckable(true);
         action->setEnabled(false);
@@ -663,15 +715,16 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
             m_d->onEditCutReject();
         });
 
-        connect(m_d->m_intervalCutEditor, &IntervalCutEditor::intervalCreated,
+        connect(m_d->m_intervalCutEditor, &IntervalEditor::intervalCreated,
                 this, [this] (const QwtInterval &interval) {
                     m_d->onCutEditorIntervalCreated(interval);
                 });
 
-        connect(m_d->m_intervalCutEditor, &IntervalCutEditor::intervalModified,
+        connect(m_d->m_intervalCutEditor, &IntervalEditor::intervalModified,
                 this, [this] (const QwtInterval &interval) {
                     m_d->onCutEditorIntervalModified(interval);
                 });
+#endif
     }
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
@@ -1523,7 +1576,11 @@ void Histo1DWidgetPrivate::updateCursorInfoLabel(u32 rrf)
 void Histo1DWidget::setContext(MVMEContext *context)
 {
     m_d->m_context = context;
-    m_d->m_actionCreateCut->setEnabled(context != nullptr);
+}
+
+MVMEContext *Histo1DWidget::getContext() const
+{
+    return m_d->m_context;
 }
 
 void Histo1DWidgetPrivate::calibApply()
@@ -1683,6 +1740,7 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
     m_d->m_sinkModifiedCallback = sinkModifiedCallback;
     m_d->m_actionSubRange->setEnabled(true);
     m_d->m_actionChangeRes->setEnabled(true);
+    m_d->m_actionCuts->setEnabled(true);
 
     auto rrf = sink->getResolutionReductionFactor();
 
@@ -1710,8 +1768,15 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
     }
 }
 
+Histo1DWidget::SinkPtr Histo1DWidget::getSink() const
+{
+    return m_d->m_sink;
+}
+
 void Histo1DWidget::setResolutionReductionFactor(u32 rrf)
 {
+    if (rrf == 0)
+        rrf = 1;
     u32 physBins = m_d->getCurrentHisto()->getNumberOfBins();
     u32 visBins  = physBins / rrf;
     int sliderValue = std::log2(visBins);
@@ -1827,7 +1892,6 @@ void Histo1DWidgetPrivate::onEditCutAccept()
 {
     qDebug() << __PRETTY_FUNCTION__;
     m_intervalCutEditor->endEdit();
-    m_intervalCutEditor->show();
 }
 
 void Histo1DWidgetPrivate::onEditCutReject()
@@ -1840,21 +1904,29 @@ using analysis::ConditionInterval;
 
 bool Histo1DWidget::setEditCondition(const analysis::ConditionLink &cl)
 {
+    qDebug() << __PRETTY_FUNCTION__ << cl;
+
     auto cond = std::dynamic_pointer_cast<ConditionInterval>(cl.condition);
 
-    if (!cond)
+    if (!cond || cl.subIndex > m_d->m_histos.size())
     {
+        // Error was either the Condition is not an interval cut or it's null.
         m_d->m_editingCondition = {};
         m_d->m_intervalCutEditor->endEdit();
-        m_d->m_actionEditCut->setEnabled(false);
+        qDebug() << __PRETTY_FUNCTION__ << "condlink subindex out of range:"
+            << "histoCount =" << m_d->m_histos.size();
         return false;
     }
 
     m_d->m_editingCondition = cl;
-    auto interval = cond->getInterval(cl.subIndex);
-    m_d->m_intervalCutEditor->setInterval(QwtInterval(interval.minValue(), interval.maxValue()));
+    // create a copy of the intervals. that's the core data we're editing
+    m_d->m_cutIntervals = cond->getIntervals();
+
+    selectHistogram(cl.subIndex);
+
+    auto interval = m_d->m_cutIntervals.value(cl.subIndex);
+    m_d->m_intervalCutEditor->setInterval(interval);
     m_d->m_intervalCutEditor->show();
-    m_d->m_actionEditCut->setEnabled(true);
     return true;
 }
 
@@ -1865,16 +1937,14 @@ analysis::ConditionLink Histo1DWidget::getEditCondition() const
 
 void Histo1DWidget::beginEditCondition()
 {
-    m_d->m_actionEditCut->setChecked(true);
 }
 
 void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interval)
 {
-    // TODO: similar to Histo2DWidgetPrivate::onCutPolyPickerActivated()
-    // create
     assert(m_context);
     assert(m_sink);
 
+    // TODO: make unique name
     QString cutName = QSL("New Cut");
 
     // cut name dialog
@@ -1929,14 +1999,12 @@ void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interva
             userLevel,
             cond);
 
-        m_q->setEditCondition({ cond, xIndex });
+        m_q->setEditCondition({ cond, m_histoIndex });
     }
 }
 
 void Histo1DWidgetPrivate::onCutEditorIntervalModified(const QwtInterval &interval)
 {
-    m_actionEditCutAccept->setEnabled(true);
-    m_actionEditCutReject->setEnabled(true);
 }
 
 void Histo1DWidget::activatePlotPicker(QwtPlotPicker *picker)

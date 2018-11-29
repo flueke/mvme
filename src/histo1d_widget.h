@@ -46,6 +46,9 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
     Q_OBJECT
     Q_INTERFACES(analysis::ConditionEditorInterface);
 
+    signals:
+        void histogramSelected(int histoIndex);
+
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo1DSink>;
         using HistoSinkCallback = std::function<void (const SinkPtr &)>;
@@ -71,8 +74,10 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
         friend class Histo1DListWidget;
 
         void setContext(MVMEContext *context);
+        MVMEContext *getContext() const;
         void setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib);
         void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
+        SinkPtr getSink() const;
         void selectHistogram(int histoIndex);
 
         void setResolutionReductionFactor(u32 rrf);

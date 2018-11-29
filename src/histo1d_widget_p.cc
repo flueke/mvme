@@ -20,15 +20,21 @@
  */
 #include "histo1d_widget_p.h"
 
-#include "analysis/analysis.h"
-#include "histo_gui_util.h"
-
+#include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFontDatabase>
 #include <QGroupBox>
+#include <QLineEdit>
+#include <QPushButton>
 #include <QRadioButton>
 #include <QVBoxLayout>
-#include <qwt_plot.h>
 #include <qwt_picker_machine.h>
+#include <qwt_plot.h>
+
+#include "analysis/analysis.h"
+#include "histo_gui_util.h"
+#include "mvme_context.h"
+#include "mvme_context_lib.h"
 
 using namespace analysis;
 
@@ -101,14 +107,12 @@ QwtPlotMarker *make_position_marker()
     marker->setLineStyle( QwtPlotMarker::VLine );
     marker->setLinePen( Qt::black, 0, Qt::DashDotLine );
     marker->setZ(PlotTextLayerZ);
-    //marker->attach(plot);
-    //marker->hide();
     return marker;
 }
 
 } // end anon ns
 
-IntervalCutEditorPicker::IntervalCutEditorPicker(IntervalCutEditor *cutEditor)
+IntervalPlotPicker::IntervalPlotPicker(IntervalEditor *cutEditor)
     : QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
                     QwtPicker::VLineRubberBand, QwtPicker::ActiveOnly,
                     cutEditor->getPlot()->canvas())
@@ -117,17 +121,17 @@ IntervalCutEditorPicker::IntervalCutEditorPicker(IntervalCutEditor *cutEditor)
 {
 }
 
-void IntervalCutEditorPicker::setInterval(const QwtInterval &interval)
+void IntervalPlotPicker::setInterval(const QwtInterval &interval)
 {
     m_interval = interval;
 }
 
-QwtInterval IntervalCutEditorPicker::getInterval() const
+QwtInterval IntervalPlotPicker::getInterval() const
 {
     return m_interval;
 }
 
-void IntervalCutEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
+void IntervalPlotPicker::widgetMousePressEvent(QMouseEvent *ev)
 {
     if (ev->button() != Qt::LeftButton) return;
 
@@ -137,7 +141,7 @@ void IntervalCutEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
     }
     else
     {
-        qDebug() << __PRETTY_FUNCTION__ << "assuming a cut is being edited";
+        qDebug() << __PRETTY_FUNCTION__ << "have a valid interval -> cut is being edited";
 
         int iMinPixel = transform({ m_interval.minValue(), 0.0 }).x();
         int iMaxPixel = transform({ m_interval.maxValue(), 0.0 }).x();
@@ -162,7 +166,7 @@ void IntervalCutEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
     }
 }
 
-void IntervalCutEditorPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
+void IntervalPlotPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
 {
     if (ev->button() != Qt::LeftButton) return;
 
@@ -172,7 +176,7 @@ void IntervalCutEditorPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
     }
     else
     {
-        qDebug() << __PRETTY_FUNCTION__ << "assuming a cut is being edited";
+        qDebug() << __PRETTY_FUNCTION__ << "have a valid interval -> cut is being edited";
         m_isDragging = false;
         canvas()->setCursor(Qt::CrossCursor);
         QwtPlotPicker::widgetMouseReleaseEvent(ev);
@@ -184,7 +188,7 @@ void IntervalCutEditorPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
  * The cut editor has to know which point is being moved and which is the fixed one.
  * It can then make sure they're in the correct order for the zone item.
  */
-void IntervalCutEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
+void IntervalPlotPicker::widgetMouseMoveEvent(QMouseEvent *ev)
 {
     if (hasValidInterval() && !m_isDragging)
     {
@@ -207,7 +211,7 @@ void IntervalCutEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
     QwtPlotPicker::widgetMouseMoveEvent(ev);
 }
 
-IntervalCutEditorPicker::SelectedPointType IntervalCutEditorPicker::getPointForXCoordinate(int pixelX)
+IntervalPlotPicker::SelectedPointType IntervalPlotPicker::getPointForXCoordinate(int pixelX)
 {
     int iMinPixel = transform({ m_interval.minValue(), 0.0 }).x();
     int iMaxPixel = transform({ m_interval.maxValue(), 0.0 }).x();
@@ -224,11 +228,11 @@ IntervalCutEditorPicker::SelectedPointType IntervalCutEditorPicker::getPointForX
     return PT_None;
 }
 
-IntervalCutEditor::IntervalCutEditor(Histo1DWidget *parent)
+IntervalEditor::IntervalEditor(Histo1DWidget *parent)
     : QObject(parent)
     , m_histoWidget(parent)
-    , m_picker(new IntervalCutEditorPicker(this))
-    , m_zone(std::make_unique<QwtPlotZoneItem>())
+    , m_picker(new IntervalPlotPicker(this))
+    , m_zone(new QwtPlotZoneItem)
     , m_marker1(make_position_marker())
     , m_marker2(make_position_marker())
     , m_interval(make_quiet_nan(), make_quiet_nan())
@@ -238,6 +242,8 @@ IntervalCutEditor::IntervalCutEditor(Histo1DWidget *parent)
     auto zoneBrush = m_zone->brush();
     zoneBrush.setStyle(Qt::DiagCrossPattern);
     m_zone->setBrush(zoneBrush);
+
+    // QwtPlot by default deletes any attached item when it is destroyed.
     m_zone->attach(parent->getPlot());
     m_marker1->attach(parent->getPlot());
     m_marker2->attach(parent->getPlot());
@@ -255,13 +261,17 @@ IntervalCutEditor::IntervalCutEditor(Histo1DWidget *parent)
     auto sigMoved = static_cast<void (QwtPlotPicker::*) (const QPointF &)>(
         &QwtPlotPicker::moved);
 
-    connect(m_picker, sigSelected, this, &IntervalCutEditor::onPickerPointSelected);
-    connect(m_picker, sigMoved, this, &IntervalCutEditor::onPickerPointMoved);
-    connect(m_picker, &IntervalCutEditorPicker::pointTypeSelected,
-            this, &IntervalCutEditor::onPointTypeSelected);
+    connect(m_picker, sigSelected, this, &IntervalEditor::onPickerPointSelected);
+    connect(m_picker, sigMoved, this, &IntervalEditor::onPickerPointMoved);
+    connect(m_picker, &IntervalPlotPicker::pointTypeSelected,
+            this, &IntervalEditor::onPointTypeSelected);
 }
 
-void IntervalCutEditor::setInterval(const QwtInterval &interval)
+IntervalEditor::~IntervalEditor()
+{
+}
+
+void IntervalEditor::setInterval(const QwtInterval &interval)
 {
     qDebug() << __PRETTY_FUNCTION__ << "initial interval validity" << interval.isValid();
     m_interval = interval.normalized();
@@ -289,12 +299,12 @@ void IntervalCutEditor::setInterval(const QwtInterval &interval)
 
 }
 
-QwtInterval IntervalCutEditor::getInterval() const
+QwtInterval IntervalEditor::getInterval() const
 {
     return m_interval;
 }
 
-void IntervalCutEditor::show()
+void IntervalEditor::show()
 {
     if (m_zone->interval().isValid())
         m_zone->show();
@@ -308,7 +318,7 @@ void IntervalCutEditor::show()
     replot();
 }
 
-void IntervalCutEditor::hide()
+void IntervalEditor::hide()
 {
     m_zone->hide();
     m_marker1->hide();
@@ -317,14 +327,14 @@ void IntervalCutEditor::hide()
     replot();
 }
 
-void IntervalCutEditor::newCut()
+void IntervalEditor::newInterval()
 {
     QwtInterval invalid(make_quiet_nan(), make_quiet_nan());
     setInterval(invalid);
     beginEdit();
 }
 
-void IntervalCutEditor::beginEdit()
+void IntervalEditor::beginEdit()
 {
     m_prevPicker = m_histoWidget->getActivePlotPicker();
     qDebug() << __PRETTY_FUNCTION__ << "setting prev picker to" << m_prevPicker;
@@ -332,7 +342,7 @@ void IntervalCutEditor::beginEdit()
     show();
 }
 
-void IntervalCutEditor::endEdit()
+void IntervalEditor::endEdit()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
@@ -342,20 +352,19 @@ void IntervalCutEditor::endEdit()
         m_histoWidget->activatePlotPicker(m_prevPicker);
         m_prevPicker = nullptr;
     }
-    hide();
 }
 
-Histo1DWidget *IntervalCutEditor::getHistoWidget() const
+Histo1DWidget *IntervalEditor::getHistoWidget() const
 {
     return m_histoWidget;
 }
 
-QwtPlot *IntervalCutEditor::getPlot() const
+QwtPlot *IntervalEditor::getPlot() const
 {
     return m_histoWidget->getPlot();
 }
 
-void IntervalCutEditor::onPickerPointSelected(const QPointF &point)
+void IntervalEditor::onPickerPointSelected(const QPointF &point)
 {
     qDebug() << __PRETTY_FUNCTION__ << point;
 
@@ -393,6 +402,7 @@ void IntervalCutEditor::onPickerPointSelected(const QPointF &point)
 
         m_picker->setStateMachine(new QwtPickerDragPointMachine);
 
+        qDebug() << this << "emit intervalCreated";
         emit intervalCreated(m_interval);
 
         show();
@@ -403,7 +413,7 @@ void IntervalCutEditor::onPickerPointSelected(const QPointF &point)
          * edit mode, the user picked and dragged a point and released the
          * mouse. */
 
-        using SPT = IntervalCutEditorPicker::SelectedPointType;
+        using SPT = IntervalPlotPicker::SelectedPointType;
 
         QwtInterval newInterval = m_interval;
 
@@ -424,6 +434,7 @@ void IntervalCutEditor::onPickerPointSelected(const QPointF &point)
 
         if (newInterval != m_interval)
         {
+            qDebug() << this << "emit intervalModified";
             emit intervalModified(m_interval);
         }
 
@@ -437,37 +448,37 @@ void IntervalCutEditor::onPickerPointSelected(const QPointF &point)
     }
 }
 
-void IntervalCutEditor::onPointTypeSelected(IntervalCutEditorPicker::SelectedPointType pt)
+void IntervalEditor::onPointTypeSelected(IntervalPlotPicker::SelectedPointType pt)
 {
-    using SPT = IntervalCutEditorPicker::SelectedPointType;
+    using SPT = IntervalPlotPicker::SelectedPointType;
 
-    QString pts;
+    QString ptstr;
 
     switch (pt)
     {
         case SPT::PT_None:
-            pts = "None";
+            ptstr = "None";
             break;
 
         case SPT::PT_Min:
             m_marker1->hide();
-            pts = "Min";
+            ptstr = "Min";
             break;
 
         case SPT::PT_Max:
             m_marker2->hide();
-            pts = "Max";
+            ptstr = "Max";
             break;
 
     }
-    qDebug() << __PRETTY_FUNCTION__ << "selected point type:" << pts;
+    qDebug() << __PRETTY_FUNCTION__ << "selected point type:" << ptstr;
 
     m_selectedPointType = pt;
 }
 
-void IntervalCutEditor::onPickerPointMoved(const QPointF &point)
+void IntervalEditor::onPickerPointMoved(const QPointF &point)
 {
-    using SPT = IntervalCutEditorPicker::SelectedPointType;
+    using SPT = IntervalPlotPicker::SelectedPointType;
 
     double x = point.x();
 
@@ -507,21 +518,183 @@ void IntervalCutEditor::onPickerPointMoved(const QPointF &point)
     }
 }
 
-void IntervalCutEditor::replot()
+void IntervalEditor::replot()
 {
     m_histoWidget->replot();
 }
 
-void IntervalCutEditor::setMarker1Value(double x)
+void IntervalEditor::setMarker1Value(double x)
 {
     m_marker1->setXValue(x);
     m_marker1->setLabel(QString("    x1=%1").arg(x));
     m_marker1->show();
 }
 
-void IntervalCutEditor::setMarker2Value(double x)
+void IntervalEditor::setMarker2Value(double x)
 {
     m_marker2->setXValue(x);
     m_marker2->setLabel(QString("    x2=%1").arg(x));
     m_marker2->show();
+}
+
+//
+// IntervalCutDialog
+//
+IntervalCutDialog::IntervalCutDialog(Histo1DWidget *histoWidget)
+    : QDialog(histoWidget)
+    , m_histoWidget(histoWidget)
+    , combo_cuts(new QComboBox(this))
+    , pb_new(new QPushButton(QIcon(QSL(":/scissors_plus.png")), QSL("New Cut"), this))
+    , pb_edit(new QPushButton(QIcon(QSL(":/pencil.png")), QSL("Edit Cut"), this))
+    , m_bb(new QDialogButtonBox(this))
+    , m_editor(new IntervalEditor(histoWidget))
+{
+    auto ss = QSL("font-size: 8pt;");
+    qDebug() << __PRETTY_FUNCTION__ << ss;
+    setStyleSheet(ss);
+
+    setWindowTitle("Interval Cuts");
+
+    combo_cuts->setEditable(false);
+
+    m_bb->setStandardButtons(QDialogButtonBox::Ok
+                             | QDialogButtonBox::Cancel
+                             | QDialogButtonBox::Apply);
+
+    auto contentLayout = new QGridLayout;
+
+    // first row: only "Select Cut" label
+    // second row: non-editable combo | edit cut | new cut
+    //
+    // on new cut: histo gets focus, user clicks once, moves mouse, clicks again
+    // and has created an interval. then a popup dialog prompting for the new
+    // cuts name pops up. giving a valid name and accepting the popup dialog
+    // creates the cut object and selects it in the combo. we're now in "cut
+    // display mode". zooming is enabled in the histo widget.
+    //
+    // XXX: would it be more elegant to not have to use a popup menu and instead
+    // use the combo in editable mode somehow to get the new cuts name?
+
+    // first row: label and cut selection combo spanning two columns
+    // second row: New and Edit buttons
+    contentLayout->addWidget(new QLabel("Selected Cut"), 0, 0);
+    contentLayout->addWidget(combo_cuts, 1, 0);
+    contentLayout->addWidget(pb_edit, 1, 1);
+    contentLayout->addWidget(pb_new,  1, 2);
+
+    auto dialogLayout = new QVBoxLayout(this);
+    dialogLayout->addLayout(contentLayout);
+    dialogLayout->addStretch(1);
+    dialogLayout->addWidget(m_bb);
+
+    // interactions
+    connect(m_bb, &QDialogButtonBox::clicked,
+            this, [this] (QAbstractButton *button) {
+        switch (m_bb->buttonRole(button))
+        {
+            case QDialogButtonBox::AcceptRole:
+                accept();
+                break;
+            case QDialogButtonBox::RejectRole:
+                reject();
+                break;
+            case QDialogButtonBox::ApplyRole:
+                apply();
+                break;
+            InvalidDefaultCase;
+        }
+    });
+
+    auto new_cut = [this] ()
+    {
+        m_editor->newInterval();
+    };
+
+    connect(pb_new, &QPushButton::clicked, this, new_cut);
+
+    auto on_interval_created = [this] (const QwtInterval &interval)
+    {
+        QString cutName = QSL("New Cut");
+
+        // cut name dialog
+        {
+            auto le_cutName = new QLineEdit;
+            le_cutName->setText(cutName);
+
+            auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+            QDialog dialog(m_histoWidget);
+            auto layout = new QFormLayout(&dialog);
+            layout->addRow("Cut Name", le_cutName);
+            layout->addRow(buttons);
+
+            QObject::connect(buttons, &QDialogButtonBox::accepted,
+                             &dialog, &QDialog::accept);
+
+            QObject::connect(buttons, &QDialogButtonBox::rejected,
+                             &dialog, &QDialog::reject);
+
+            if (dialog.exec() == QDialog::Rejected)
+            {
+                m_editor->hide();
+                //m_q->replot();
+                return;
+            }
+
+            cutName = le_cutName->text();
+        }
+
+        // FIXME: this should not be here. instead a function like
+        // create_interval_cut_from_histowidget() should be called here.
+        auto context = m_histoWidget->getContext();
+        auto sink = m_histoWidget->getSink();
+
+        assert(context);
+        assert(sink);
+
+        if (!context || !sink)
+        {
+            // TODO: display an error
+            return;
+        }
+
+        // Create the ConditionInterval analysis object. The number of intervals will
+        // be the same as the number of histograms in the Histo1DSink belonging to
+        // the histogram currently being displayed. Each interval of the condition
+        // will be set to the current intervals values.
+        QVector<QwtInterval> intervals(sink->getNumberOfHistos(), interval);
+        auto cond = std::make_shared<analysis::ConditionInterval>();
+        cond->setIntervals(intervals);
+        cond->setObjectName(cutName);
+
+        auto xInput = sink->getSlot(0)->inputPipe;
+        auto xIndex = sink->getSlot(0)->paramIndex;
+
+        AnalysisPauser pauser(context);
+        cond->connectInputSlot(0, xInput, xIndex);
+
+        context->getAnalysis()->addOperator(sink->getEventId(), 0, cond);
+    };
+
+    connect(m_editor, &IntervalEditor::intervalCreated, this, on_interval_created);
+}
+
+IntervalCutDialog::~IntervalCutDialog()
+{
+}
+
+void IntervalCutDialog::accept()
+{
+    QDialog::accept();
+    close();
+}
+
+void IntervalCutDialog::reject()
+{
+    QDialog::reject();
+    close();
+}
+
+void IntervalCutDialog::apply()
+{
 }
