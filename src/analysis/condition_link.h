@@ -4,6 +4,8 @@
 #include "analysis/analysis_fwd.h"
 #include "typedefs.h"
 
+#include <QDebug>
+
 #include "libmvme_export.h"
 
 namespace analysis
@@ -31,6 +33,18 @@ struct LIBMVME_EXPORT ConditionLink
         return !(*this == other);
     }
 };
+
+#ifndef NDEBUG
+static QDebug &operator<<(QDebug& dbg, const ConditionLink &cl)
+{
+    QDebugStateSaver dss(dbg);
+
+    dbg.nospace() << "ConditionLink(" << cl.condition.get() << ", " << cl.subIndex << ")";
+
+    return dbg;
+}
+
+#endif
 
 } // end ns analysis
 
