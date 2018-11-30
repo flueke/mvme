@@ -26,8 +26,10 @@ def send_request(sock, method, params = None):
         'jsonrpc': '2.0',
         'id': str(request_id),
         'method': method,
-        'params': params
     }
+
+    if params is not None:
+        request_object["params"] = params
 
     request_json = json.dumps(request_object, sort_keys=True)
     print("--->", request_json)
