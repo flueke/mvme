@@ -4,7 +4,7 @@
 class MVMEContext;
 
 #include <memory>
-#include <QTreeWidget>
+#include <QWidget>
 
 #include "analysis_fwd.h"
 
@@ -12,31 +12,6 @@ namespace analysis
 {
 namespace ui
 {
-
-class ConditionTreeWidget: public QTreeWidget
-{
-    Q_OBJECT
-    signals:
-        void applyConditionAccept();
-        void applyConditionReject();
-        void editCondition(const ConditionLink &cond);
-
-    public:
-        ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
-                            QWidget *parent = nullptr);
-        virtual ~ConditionTreeWidget() override;
-
-        void repopulate();
-        void doPeriodicUpdate();
-
-        void highlightConditionLink(const ConditionLink &cl);
-        void clearHighlights();
-        void setModificationButtonsVisible(const ConditionLink &cl, bool visible);
-
-    private:
-        struct Private;
-        std::unique_ptr<Private> m_d;
-};
 
 class ConditionWidget: public QWidget
 {

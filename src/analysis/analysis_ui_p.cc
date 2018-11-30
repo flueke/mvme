@@ -96,7 +96,8 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
 
     m_defaultExtractors = get_default_data_extractors(module->getModuleMeta().typeName);
 
-    auto loadTemplateButton = new QPushButton(QIcon(QSL(":/document_import.png")), QSL("Load Filter Template"));
+    auto loadTemplateButton = new QPushButton(QIcon(QSL(":/document_import.png")),
+                                              QSL("Load Filter Template"));
     auto loadTemplateLayout = new QHBoxLayout;
     loadTemplateLayout->setContentsMargins(0, 0, 0, 0);
     loadTemplateLayout->addWidget(loadTemplateButton);

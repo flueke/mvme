@@ -32,6 +32,7 @@
 #include <QKeySequence>
 #include <QLabel>
 #include <QObject>
+#include <QSettings>
 #include <QStatusBar>
 #include <QToolBar>
 #include <QToolButton>
@@ -58,6 +59,7 @@ class WidgetGeometrySaver: public QObject
         bool eventFilter(QObject *obj, QEvent *event);
 
     private:
+        QSettings m_settings;
         QHash<QWidget *, QString> m_widgetKeys;
 };
 

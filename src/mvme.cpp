@@ -1417,7 +1417,7 @@ void MVMEMainWindow::onActionImport_Histo1D_triggered()
     {
         QTextStream inStream(&inFile);
 
-        auto histo = readHisto1D(inStream);
+        std::shared_ptr<Histo1D> histo(readHisto1D(inStream));
 
         if (histo)
         {

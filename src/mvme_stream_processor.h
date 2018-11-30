@@ -12,7 +12,7 @@ namespace analysis
 class Analysis;
 }
 
-class DataBuffer;
+struct DataBuffer;
 class MesytecDiagnostics;
 class VMEConfig;
 

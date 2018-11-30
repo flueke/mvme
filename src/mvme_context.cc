@@ -1205,19 +1205,10 @@ void MVMEContext::prepareStart()
     {
         qDebug() << __PRETTY_FUNCTION__ << "building analysis in main thread";
 
-        using ClockType = std::chrono::high_resolution_clock;
-        auto tStart = ClockType::now();
-
         auto indexMapping = vme_analysis_common::build_id_to_index_mapping(getVMEConfig());
         auto analysis = getAnalysis();
         analysis->beginRun(getRunInfo(), indexMapping,
                            [this] (const QString &msg) { logMessage(msg); });
-
-        auto tEnd = ClockType::now();
-        std::chrono::duration<float> elapsed = tEnd - tStart;
-
-        qDebug() << __PRETTY_FUNCTION__ << "analysis build took"
-            << elapsed.count() << "seconds";
 
         qDebug() << __PRETTY_FUNCTION__ << "starting mvme stream worker";
 

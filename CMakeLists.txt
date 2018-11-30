@@ -167,12 +167,9 @@ if (ENABLE_ROOT)
     endif(ROOT_FOUND)
 endif(ENABLE_ROOT)
 
-# Subdirectories containing build targets
-add_subdirectory(src)
-add_subdirectory(extras)
-
 # To get a 'make test' target. If this is not in the top level CMakeLists.txt
-# no test target is generated :(
+# no test target is generated. Do this before any add_subdirectory() commands
+# as otherwise ctest won't pick up any tests in subprojects.
 option(BUILD_TESTS "Build test binaries" OFF)
 
 if (BUILD_TESTS)
@@ -183,6 +180,10 @@ if (BUILD_TESTS)
     include_directories(${gtest_SOURCE_DIR}/include)
     add_subdirectory(test)
 endif()
+
+# Subdirectories containing build targets
+add_subdirectory(src)
+add_subdirectory(extras)
 
 option(BUILD_DOCS "Build the documentation (if Sphinx is found)" ON)
 

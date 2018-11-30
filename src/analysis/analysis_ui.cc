@@ -128,6 +128,7 @@ struct AnalysisWidgetPrivate
     QAction *m_actionPause;
     QAction *m_actionStepNextEvent;
     bool m_repopEnabled = true;
+    QSettings m_settings;
 
     void onAnalysisChanged(Analysis *analysis);
     void repopulate();
@@ -1249,8 +1250,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
                                     QSL("Object Info"));
     }
 
-    QSettings settings;
-
     // right splitter with condition tree on top and object info window at the
     // bottom
     auto rightSplitter = new QSplitter(Qt::Vertical);
@@ -1262,14 +1261,14 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     static const char *rightSplitterStateKey = "AnalysisWidget/RightSplitterState";
 
     connect(rightSplitter, &QSplitter::splitterMoved,
-            this, [rightSplitter] (int pos, int index) {
-        QSettings settings;
-        settings.setValue(rightSplitterStateKey, rightSplitter->saveState());
+            this, [this, rightSplitter] (int pos, int index) {
+        m_d->m_settings.setValue(rightSplitterStateKey, rightSplitter->saveState());
     });
 
-    if (settings.contains(rightSplitterStateKey))
+
+    if (m_d->m_settings.contains(rightSplitterStateKey))
     {
-        rightSplitter->restoreState(settings.value(rightSplitterStateKey).toByteArray());
+        rightSplitter->restoreState(m_d->m_settings.value(rightSplitterStateKey).toByteArray());
     }
 
     // main splitter dividing the ui into userlevel trees (left) and conditions
@@ -1283,15 +1282,14 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     static const char *mainSplitterStateKey = "AnalysisWidget/MainSplitterState";
 
     connect(mainSplitter, &QSplitter::splitterMoved,
-            this, [mainSplitter] (int pos, int index) {
-        QSettings settings;
-        settings.setValue(mainSplitterStateKey, mainSplitter->saveState());
+            this, [this, mainSplitter] (int pos, int index) {
+        m_d->m_settings.setValue(mainSplitterStateKey, mainSplitter->saveState());
     });
 
 
-    if (settings.contains(mainSplitterStateKey))
+    if (m_d->m_settings.contains(mainSplitterStateKey))
     {
-        mainSplitter->restoreState(settings.value(mainSplitterStateKey).toByteArray());
+        mainSplitter->restoreState(m_d->m_settings.value(mainSplitterStateKey).toByteArray());
     }
 
     // main layout

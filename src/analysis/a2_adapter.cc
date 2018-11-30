@@ -795,7 +795,7 @@ DEF_OP_MAGIC(condition_interval_magic)
 
     for (const auto &interval: cond->getIntervals())
     {
-        a2_intervals.push_back({ interval.min, interval.max });
+        a2_intervals.push_back({ interval.minValue(), interval.maxValue() });
     }
 
     auto a2_input = find_output_pipe(adapterState, inputSlots[0]);

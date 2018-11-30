@@ -93,11 +93,13 @@ set(LIBMVME_SOURCES
     analysis/analysis.cc
     analysis/analysis_info_widget.cc
     analysis/analysis_serialization.cc
+    analysis/analysis_session.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
     analysis/code_editor.cc
     analysis/condition_ui.cc
+    analysis/condition_ui_p.cc
     analysis/data_extraction_widget.cc
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
@@ -108,7 +110,6 @@ set(LIBMVME_SOURCES
     analysis/sink_widget_factory.cc
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
-    analysis/analysis_session.cc
 
     data_server.cc
 

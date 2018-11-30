@@ -71,7 +71,7 @@ class EventWidget: public QWidget
         QTreeWidgetItem *findNode(const AnalysisObjectPtr &obj);
 
         friend class AnalysisWidget;
-        friend class AnalysisWidgetPrivate;
+        friend struct AnalysisWidgetPrivate;
 
         QUuid getEventId() const;
 

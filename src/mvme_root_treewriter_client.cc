@@ -44,6 +44,15 @@ struct EventStorage
     uint32_t hits = 0u;
 };
 
+using ClockType = std::chrono::high_resolution_clock;
+
+struct RunStats
+{
+    ClockType::time_point tStart;
+    ClockType::time_point tEnd;
+    size_t totalDataBytes = 0;
+};
+
 class Context: public mvme::data_server::Parser
 {
     public:
@@ -65,6 +74,7 @@ class Context: public mvme::data_server::Parser
     private:
         std::unique_ptr<TFile> m_outFile;
         std::vector<EventStorage> m_trees;
+        RunStats m_stats;
         bool m_quit = false;
         bool m_convertNaNs = false;
         bool m_singleRun = false;
@@ -164,6 +174,9 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
     cout << endl;
     cout << "Created output tree structures" << endl;
     cout << "Receiving data..." << endl;
+
+    m_stats = {};
+    m_stats.tStart = ClockType::now();
 }
 
 void Context::eventData(const Message &msg, int eventIndex,
@@ -197,6 +210,9 @@ void Context::eventData(const Message &msg, int eventIndex,
             // Copy data, implicitly converting incoming doubles to float
             std::copy(dsc.dataBegin, dsc.dataEnd, buffer.begin());
         }
+
+        size_t bytes = (dsc.dataEnd - dsc.dataBegin) * sizeof(double);
+        m_stats.totalDataBytes += bytes;
     }
 
     eventStorage.tree->Fill();
@@ -224,6 +240,23 @@ void Context::endRun(const Message &msg)
     }
 
     cout << endl;
+
+    m_stats.tEnd = ClockType::now();
+    std::chrono::duration<float> elapsed = m_stats.tEnd - m_stats.tStart;
+    float elapsed_s = elapsed.count();
+    float bytesPerSecond = m_stats.totalDataBytes / elapsed_s;
+    float MBPerSecond = bytesPerSecond / (1024 * 1024);
+
+    cout << "duration: " << elapsed_s << "s" << endl;
+
+    cout << "data: "
+        << m_stats.totalDataBytes << " bytes, "
+        << m_stats.totalDataBytes / (1024 * 1024.0) << " MB"
+        << endl;
+    cout << "rate: "
+        << bytesPerSecond << " B/s, "
+        << MBPerSecond << " MB/s"
+        << endl;
 
     if (m_singleRun) m_quit = true;
 }

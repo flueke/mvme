@@ -405,8 +405,11 @@ void ConditionTreeWidget::Private::doContextMenu(const QPoint &pos)
     if (activeCl)
     {
         // edit
-        menu.addAction(QIcon(QSL(":/pencil.png")), QSL("Edit"),
-                       [this, activeCl] { emit m_q->editCondition(activeCl); });
+        menu.addAction(QIcon(QSL(":/pencil.png")), QSL("Edit in plot"),
+                       [this, activeCl] { emit m_q->editConditionGraphically(activeCl); });
+
+        menu.addAction(QIcon(QSL(":/pencil.png")), QSL("Edit in table"),
+                       [this, activeCl] { emit m_q->editConditionInEditor(activeCl); });
 
         if (activeNode && activeNode->type() == NodeType_Condition)
         {
@@ -464,8 +467,10 @@ struct ConditionWidget::Private
     Analysis *getAnalysis() const { return getContext()->getAnalysis(); }
 
     void onCurrentNodeChanged(QTreeWidgetItem *node);
+    void onNodeChanged(QTreeWidgetItem *node, int column);
     void onModificationsAccepted();
     void onModificationsRejected();
+    void editConditionInEditor(const ConditionLink &cl);
 };
 
 ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
@@ -529,14 +534,22 @@ void ConditionWidget::repopulate()
         connect(conditionTree, &QTreeWidget::currentItemChanged,
                 this, [this] (QTreeWidgetItem *node) { m_d->onCurrentNodeChanged(node); });
 
+        connect(conditionTree, &QTreeWidget::itemChanged,
+                this, [this] (QTreeWidgetItem *node, int col) { m_d->onNodeChanged(node, col); });
+
         connect(conditionTree, &ConditionTreeWidget::applyConditionAccept,
                 this, [this] { m_d->onModificationsAccepted(); });
 
         connect(conditionTree, &ConditionTreeWidget::applyConditionReject,
                 this, [this] { m_d->onModificationsRejected(); });
 
-        connect(conditionTree, &ConditionTreeWidget::editCondition,
+        // pass the graphical edit request on to the outside
+        connect(conditionTree, &ConditionTreeWidget::editConditionGraphically,
                 this, &ConditionWidget::editCondition);
+
+        // handle the "edit in editor" request internally
+        connect(conditionTree, &ConditionTreeWidget::editConditionInEditor,
+                this, [this] (const ConditionLink &cond) { m_d->editConditionInEditor(cond); });
     }
 
     assert(m_d->m_treeStack->count() == eventConfigs.size());
@@ -657,6 +670,38 @@ void ConditionWidget::Private::onCurrentNodeChanged(QTreeWidgetItem *node)
     }
 }
 
+void ConditionWidget::Private::onNodeChanged(QTreeWidgetItem *node, int column)
+{
+    if (column != 0) return;
+
+    if (node->type() == NodeType_Condition)
+    {
+        if (auto cond = get_pointer<ConditionInterface>(node, DataRole_AnalysisObject))
+        {
+            auto value    = node->data(0, Qt::EditRole).toString();
+            bool modified = value != cond->objectName();
+
+            if (modified)
+            {
+                cond->setObjectName(value);
+                getAnalysis()->setModified(true);
+                node->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
+                        cond->getShortName(),
+                        cond->objectName()));
+
+                qDebug() << __PRETTY_FUNCTION__ << cond << cond->objectName();
+
+                if (auto tree = node->treeWidget())
+                {
+                    tree->resizeColumnToContents(0);
+                }
+
+            }
+        }
+    }
+
+}
+
 void ConditionWidget::clearTreeHighlights()
 {
     for (auto tree: m_d->m_treesByEventId.values())
@@ -709,6 +754,19 @@ void ConditionWidget::Private::onModificationsRejected()
     m_q->setModificationButtonsVisible(cl, false);
 
     emit m_q->applyConditionReject();
+}
+
+void ConditionWidget::Private::editConditionInEditor(const ConditionLink &cl)
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    if (auto cond = dynamic_cast<ConditionInterval *>(cl.condition.get()))
+    {
+        ConditionIntervalEditor editor(cond, m_context, m_q);
+        if (editor.exec() == QDialog::Accepted)
+        {
+            m_q->repopulate();
+        }
+    }
 }
 
 } // ns ui
