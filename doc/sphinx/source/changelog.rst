@@ -2,6 +2,21 @@
 Changelog
 ##################################################
 
+Version 0.9.5.2
+---------------
+* Fix a race condition at DAQ/replay startup time
+
+* Remove old config autosave files after successfully loading a different
+  config. This fixes an issue where apparently wrong autosave contents where
+  restored.
+
+* Rewrite the analysis session system to not depend on HDF5 anymore. This was
+  done to avoid potential issues related to HDF5 and multithreading.
+
+.. note::
+  Session files created by previous versions cannot be loaded anymore. They
+  have to be recrated by replaying from the original readout data.
+
 Version 0.9.5.1
 ---------------
 
