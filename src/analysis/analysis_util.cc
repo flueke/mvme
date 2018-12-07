@@ -61,6 +61,8 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
 QSet<OperatorInterface *> collect_dependent_operators(PipeSourceInterface *startObject,
                                                       CollectFlags::Flag flags)
 {
+    assert(startObject);
+
     QSet<OperatorInterface *> result;
 
     collect_dependent_operators(startObject, result, flags);
@@ -114,6 +116,8 @@ void collect_dependent_operators(const PipeSourcePtr &startObject,
 QSet<PipeSourceInterface *> collect_dependent_objects(PipeSourceInterface *startObject,
                                                       CollectFlags::Flag flags)
 {
+    assert(startObject);
+
     QSet<PipeSourceInterface *> result;
 
     for (auto &op: collect_dependent_operators(startObject, flags))
@@ -391,6 +395,25 @@ SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector
         {
             result.push_back(sink);
         }
+    }
+
+    return result;
+}
+
+size_t disconnect_outputs(PipeSourceInterface *pipeSource)
+{
+    size_t result = 0u;
+
+    for (s32 oi = 0; oi < pipeSource->getNumberOfOutputs(); oi++)
+    {
+        Pipe *outPipe = pipeSource->getOutput(oi);
+
+        for (Slot *destSlot: outPipe->getDestinations())
+        {
+            destSlot->disconnectPipe();
+            result++;
+        }
+        assert(outPipe->getDestinations().isEmpty());
     }
 
     return result;

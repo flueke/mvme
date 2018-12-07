@@ -1024,11 +1024,11 @@ void a2_adapter_build_datasources(
         // space for the DataSource pointers
         state->a2->dataSources[ei] = arena->pushArray<a2::DataSource>(sourceInfos[ei].size());
 
-        // analysis::Extractor
         for (auto src: sourceInfos[ei])
         {
             a2::DataSource ds = {};
 
+            // analysis::Extractor
             if (auto ex = qobject_cast<analysis::Extractor *>(src.source.get()))
             {
                 a2::data_filter::MultiWordFilter filter = {};
@@ -1049,6 +1049,7 @@ void a2_adapter_build_datasources(
                     src.moduleIndex,
                     ex->getOptions());
             }
+            // analysis::ListFilterExtractor
             else if (auto ex = qobject_cast<analysis::ListFilterExtractor *>(src.source.get()))
             {
                 ds = a2::make_datasource_listfilter_extractor(

@@ -159,6 +159,10 @@ QDebug &operator<<(QDebug &dbg, const AnalysisObjectPtr &obj);
 
 SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector &sinks);
 
+// Disconnects the Slots connected to the outputs of the given
+// PipeSourceInterface. Returns number of Slots that have been disconnected.
+size_t disconnect_outputs(PipeSourceInterface *pipeSource);
+
 } // namespace analysis
 
 

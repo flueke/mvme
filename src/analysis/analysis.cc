@@ -3795,53 +3795,79 @@ ListFilterExtractorVector Analysis::getListFilterExtractors(const QUuid &eventId
     return result;
 }
 
+template<typename C>
+QSet<typename C::value_type> set_from_container(const C &container)
+{
+    QSet<typename C::value_type> result;
+
+    for (const auto &obj: container)
+    {
+        result.insert(obj);
+    }
+
+    return result;
+}
+
+// Replace the list of ListFilterExtractor attached to the given eventId and
+// moduleId with the given list of extractors.
 void Analysis::setListFilterExtractors(const QUuid &eventId,
                                        const QUuid &moduleId,
                                        const ListFilterExtractorVector &extractors)
 {
-    // remove existing listfilter extractors
-    auto it = std::remove_if(m_sources.begin(), m_sources.end(),
-                             [&eventId, &moduleId] (const SourcePtr &source) {
+    auto currentFilters = set_from_container(getListFilterExtractors(eventId, moduleId));
+    auto givenFilters   = set_from_container(extractors);
+    auto newFilters     = givenFilters - currentFilters;
+    auto remFilters     = currentFilters - givenFilters;
 
+    qDebug() << __PRETTY_FUNCTION__
+        << "counts: current=" << currentFilters.size()
+        << ", given=" << givenFilters.size()
+        << ", new=" << newFilters.size()
+        << ", rem=" << remFilters.size()
+        << endl
+        << "current=" << currentFilters << endl << endl
+        << "given=" << givenFilters << endl << endl
+        << "new=" << newFilters << endl << endl
+        << "rem=" << remFilters << endl << endl
+        ;
+
+    auto listfilter_match = [&eventId, &moduleId] (const SourcePtr &source) -> bool
+    {
         return (qobject_cast<ListFilterExtractor *>(source.get())
                 && source->getEventId() == eventId
                 && source->getModuleId() == moduleId);
-    });
+    };
 
-    QVector<SourcePtr> removedSources;
-    removedSources.reserve(m_sources.end() - it);
+    // remove all existing listfilters from our sources
+    m_sources.erase(std::remove_if(m_sources.begin(), m_sources.end(), listfilter_match),
+                    m_sources.end());
 
-    // Mark the dependees of the extractors being removed as needing a rebuild.
-    for (auto jt = it; jt != m_sources.end(); jt++)
-    {
-        for (auto &obj: collect_dependent_objects(jt->get()))
-        {
-            obj->setObjectFlags(ObjectFlags::NeedsRebuild);
-        }
-
-        removedSources.push_back(*it);
-    }
-
-    m_sources.erase(it, m_sources.end());
-
-    setModified();
-
-    for (auto &src: removedSources)
-    {
-        emit dataSourceRemoved(src);
-    }
-
-    // Add the new sources, also setting the rebuild flag.
+    // add the listfilters passed in
     for (auto lfe: extractors)
     {
         lfe->setEventId(eventId);
         lfe->setModuleId(moduleId);
         lfe->setObjectFlags(ObjectFlags::NeedsRebuild);
         m_sources.push_back(lfe);
-        emit dataSourceAdded(lfe);
     }
 
-    qDebug() << __PRETTY_FUNCTION__ << "added" << extractors.size() << "listfilter extractors";
+    // handle filters that got removed
+    for (auto &lfe: remFilters)
+    {
+        for (auto &obj: collect_dependent_objects(lfe.get()))
+        {
+            obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+        }
+
+        disconnect_outputs(lfe.get());
+        emit dataSourceRemoved(lfe);
+    }
+
+    // handle new filters
+    for (auto &lfe: newFilters)
+    {
+        emit dataSourceAdded(lfe);
+    }
 }
 
 //

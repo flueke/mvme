@@ -30,6 +30,9 @@ class MVMEContext;
 
 namespace analysis
 {
+
+class ObjectInfoWidget;
+
 namespace ui
 {
 
@@ -48,7 +51,7 @@ class AnalysisWidget: public QWidget
 
         void updateAddRemoveUserLevelButtons();
         ConditionWidget *getConditionWidget() const;
-        void showObjectInfo(const AnalysisObjectPtr &obj);
+        ObjectInfoWidget *getObjectInfoWidget() const;
 
         virtual bool event(QEvent *event) override;
 

@@ -7,6 +7,7 @@
 #include "analysis/condition_ui.h"
 #include "analysis/expression_operator_dialog.h"
 #include "analysis/listfilter_extractor_dialog.h"
+#include "analysis/object_info_widget.h"
 
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
@@ -54,7 +55,7 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Qt::
         case NodeType_Directory:
             {
                 auto qo = get_qobject(node, dataRole);
-                qDebug() << qo;
+                qDebug() << __PRETTY_FUNCTION__ << qo;
                 if (auto ao = qobject_cast<AnalysisObject *>(qo))
                     return ao->shared_from_this();
             }
@@ -1701,6 +1702,8 @@ QString mode_to_string(EventWidgetPrivate::Mode mode)
 
 void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 {
+    // FIXME: cross event pasting does not work at all
+
     if (!canPaste()) return;
 
     auto tree = qobject_cast<ObjectTree *>(destTree);
@@ -1763,6 +1766,7 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 
     check_cloned_dirs;
 
+    auto destEventId = tree->getEventWidget()->getEventId();
     auto namesByMetaType = group_object_names_by_metatype(analysis->getAllObjects());
 
     for (auto it = cloneMapping.begin();
@@ -1776,6 +1780,7 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
                                          namesByMetaType[clone->metaObject()]);
         clone->setObjectName(cloneName);
         namesByMetaType[clone->metaObject()].insert(cloneName);
+        //clone->setEventId(destEventId);
 
         if (!(qobject_cast<SinkInterface *>(clone.get()) && clone->getUserLevel() == 0))
         {
@@ -2284,13 +2289,8 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
         QObject::connect(tree, &QTreeWidget::currentItemChanged,
                          m_q, [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous) {
             qDebug() << "currentItemChanged on" << tree;
-#if 0
-            if (current)
-            {
-                clearTreeSelectionsExcept(tree);
-            }
-            updateActions();
-#endif
+            // TODO: show the object info instead of clearing the widget
+            m_analysisWidget->getObjectInfoWidget()->clear();
         });
 
         // inline editing via F2
@@ -4086,7 +4086,8 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode()
 
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
-    AnalysisObjectPtr obj;
+    auto objectInfoWidget = m_analysisWidget->getObjectInfoWidget();
+    objectInfoWidget->clear();
 
     switch (node->type())
     {
@@ -4096,7 +4097,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
         case NodeType_Histo2DSink:
         case NodeType_Sink:
         case NodeType_Directory:
-            if ((obj = get_analysis_object(node, DataRole_AnalysisObject)))
+            if (auto obj = get_analysis_object(node, DataRole_AnalysisObject))
             {
                 qDebug() << __PRETTY_FUNCTION__ << "click on object: id =" << obj->getId()
                     << ", class =" << obj->metaObject()->className()
@@ -4104,15 +4105,23 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     << ", ulvl  =" << obj->getUserLevel()
                     ;
                 emit m_q->objectSelected(obj);
+                objectInfoWidget->setAnalysisObject(obj);
             }
             else
             {
                 emit m_q->nonObjectNodeSelected(node);
             }
             break;
-    }
 
-    m_analysisWidget->showObjectInfo(obj);
+        case NodeType_Module:
+            if (auto configObject = get_pointer<ConfigObject>(node, DataRole_RawPointer))
+            {
+                qDebug() << __PRETTY_FUNCTION__
+                    << "Module" << node << configObject;
+                objectInfoWidget->setVMEConfigObject(configObject);
+            }
+            break;
+    }
 
     switch (m_mode)
     {

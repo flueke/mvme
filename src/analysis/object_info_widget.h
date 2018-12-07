@@ -4,6 +4,7 @@
 #include <QFrame>
 
 #include "analysis_fwd.h"
+#include "vme_config.h"
 
 class MVMEContext;
 
@@ -18,8 +19,10 @@ class ObjectInfoWidget: public QFrame
         ~ObjectInfoWidget();
 
     public slots:
-        void setObject(const AnalysisObjectPtr &obj);
+        void setAnalysisObject(const AnalysisObjectPtr &obj);
+        void setVMEConfigObject(const ConfigObject *obj);
         void refresh();
+        void clear();
 
     private:
         struct Private;

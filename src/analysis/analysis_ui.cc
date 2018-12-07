@@ -1061,7 +1061,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         });
 
         QObject::connect(condWidget, &ConditionWidget::objectSelected,
-                         m_d->m_objectInfoWidget, &ObjectInfoWidget::setObject);
+                         m_d->m_objectInfoWidget, &ObjectInfoWidget::setAnalysisObject);
     }
 
     // toolbar
@@ -1472,9 +1472,9 @@ ConditionWidget *AnalysisWidget::getConditionWidget() const
     return m_d->m_conditionWidget;
 }
 
-void AnalysisWidget::showObjectInfo(const AnalysisObjectPtr &obj)
+ObjectInfoWidget *AnalysisWidget::getObjectInfoWidget() const
 {
-    m_d->m_objectInfoWidget->setObject(obj);
+    return m_d->m_objectInfoWidget;
 }
 
 void AnalysisWidget::eventConfigModified()
