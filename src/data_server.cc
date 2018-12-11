@@ -27,7 +27,7 @@ struct AnalysisDataServer::Private
 
         // Copy of the structure generated for clients in beginRun(). Clients
         // that are connecting during a run will be sent this information.
-        QJsonObject runStructureInfo;
+        QJsonObject outputInfo;
     };
 
     struct RunStats
@@ -176,12 +176,12 @@ void AnalysisDataServer::Private::handleNewConnection()
         if (m_runInProgress)
         {
             qDebug() << "DataServer: client connected during an active run. Sending"
-                " runStructureInfo.";
+                " outputInfo.";
 
-            auto runStructureInfo = m_runContext.runStructureInfo;
-            runStructureInfo["runInProgress"] = true;
+            auto outputInfo = m_runContext.outputInfo;
+            outputInfo["runInProgress"] = true;
 
-            QJsonDocument doc(runStructureInfo);
+            QJsonDocument doc(outputInfo);
             QByteArray json = doc.toJson();
 
             write_message(*clientSocket, MessageType::BeginRun, json, WriteOption::Flush);
@@ -327,22 +327,20 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
 
     auto &ctx = m_d->m_runContext;
 
-    QJsonObject runStructureInfo;
-    runStructureInfo["runId"] = ctx.runInfo.runId;
-    runStructureInfo["isReplay"] = ctx.runInfo.isReplay;
-    runStructureInfo["eventDataSources"] = make_datasource_description(analysis);
-    runStructureInfo["vmeTree"] = make_vme_tree_description(vmeConfig);
-    runStructureInfo["runInProgress"] = false;
+    QJsonObject outputInfo = make_output_data_description(vmeConfig, analysis);
+    outputInfo["runId"] = ctx.runInfo.runId;
+    outputInfo["isReplay"] = ctx.runInfo.isReplay;
+    outputInfo["runInProgress"] = false;
 
     // Store this information so it can be sent out to clients connecting while
     // the DAQ run is in progress.
-    m_d->m_runContext.runStructureInfo = runStructureInfo;
+    m_d->m_runContext.outputInfo = outputInfo;
     m_d->m_runStats = {};
 
-    QJsonDocument doc(runStructureInfo);
+    QJsonDocument doc(outputInfo);
     QByteArray json = doc.toJson();
 
-    qDebug() << __PRETTY_FUNCTION__ << "runStructureInfo to be sent to clients:";
+    qDebug() << __PRETTY_FUNCTION__ << "outputInfo to be sent to clients:";
     qDebug().noquote() << json;
 
     using namespace mvme::data_server;

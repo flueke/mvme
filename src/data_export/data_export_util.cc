@@ -4,7 +4,7 @@
 
 #include "analysis/a2_adapter.h"
 
-QJsonArray make_vme_tree_description(const VMEConfig *vmeConfig)
+QJsonValue make_vme_tree_description(const VMEConfig *vmeConfig)
 {
     QJsonArray vmeTree;
 
@@ -37,7 +37,7 @@ QJsonArray make_vme_tree_description(const VMEConfig *vmeConfig)
     return vmeTree;
 }
 
-QJsonArray make_datasource_description(const analysis::Analysis *analysis)
+QJsonValue make_datasource_description(const analysis::Analysis *analysis)
 {
     // NOTE: The order of data sources in an event is currently determined by
     // the a2 system as it does resort data sources during the build process.
@@ -47,9 +47,9 @@ QJsonArray make_datasource_description(const analysis::Analysis *analysis)
     QJsonArray eventDataSources;
 
     auto a2_adapter = analysis->getA2AdapterState();
-    if (!a2_adapter) return eventDataSources;
+    if (!a2_adapter) return QSL("Error: a2_adapter not built");
     auto a2 = a2_adapter->a2;
-    if (!a2) return eventDataSources;
+    if (!a2) return QSL("Error: a2 structure not present");
 
     for (s32 eventIndex = 0; eventIndex < a2::MaxVMEEvents; eventIndex++)
     {
