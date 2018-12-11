@@ -11,6 +11,7 @@
 #include "analysis/a2_adapter.h"
 #include "git_sha1.h"
 #include "mvme_data_server_proto.h"
+#include "data_export/data_export_util.h"
 
 using namespace mvme::data_server;
 
@@ -324,108 +325,19 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
         analysis->getA2AdapterState()->a2
     };
 
-    m_d->m_runStats = {};
-
-    // How the data stream looks:
-    // eventIndex (known in endEvent)
-    // first data source output
-    // second data source output
-    // ...
-    //
-    // What the receiver has to know
-    // The data sources for each event index.
-    // The modules for each event index.
-    // The relationship of a module and its datasources
-
     auto &ctx = m_d->m_runContext;
-    const a2::A2 *a2 = ctx.a2;
-
-    QJsonArray eventDataSources;
-
-    for (s32 eventIndex = 0; eventIndex < a2::MaxVMEEvents; eventIndex++)
-    {
-        const u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
-        u32 eventBytes = 0;
-
-        if (!dataSourceCount) continue;
-
-        QJsonArray dataSourceInfos;
-
-        for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
-        {
-            auto a2_dataSource = a2->dataSources[eventIndex] + dsIndex;
-            auto a1_dataSource = ctx.adapterState->sourceMap.value(a2_dataSource);
-            s32 moduleIndex = a2_dataSource->moduleIndex;
-
-            qDebug() << "DataServer" << "structure: eventIndex=" << eventIndex << "dsIndex=" << dsIndex
-                << "a2_ds=" << a2_dataSource << ", a1_dataSource=" << a1_dataSource
-                << "a2_ds_moduleIndex=" << moduleIndex;
-
-            qint64 output_size  = a2_dataSource->output.size();
-            qint64 output_bytes = output_size * a2_dataSource->output.data.element_size;
-
-            QJsonObject dsInfo;
-            dsInfo["name"] = a1_dataSource->objectName();
-            dsInfo["moduleIndex"] = moduleIndex;
-            dsInfo["datatype"] = "double";
-            dsInfo["output_size"]  = output_size;
-            dsInfo["output_bytes"] = output_bytes;
-            dsInfo["output_lowerLimit"] = a2_dataSource->output.lowerLimits[0];
-            dsInfo["output_upperLimit"] = a2_dataSource->output.upperLimits[0];
-
-            dataSourceInfos.append(dsInfo);
-
-            eventBytes += output_bytes;
-        }
-
-        QJsonObject eventInfo;
-        eventInfo["eventIndex"] = eventIndex;
-        eventInfo["dataSources"] = dataSourceInfos;
-        eventDataSources.append(eventInfo);
-
-        qDebug() << "DataServer"
-            << "eventIndex=" << eventIndex
-            << "outputBytes" << eventBytes;
-    }
-
-    QJsonArray vmeTree;
-
-    for (s32 eventIndex = 0; eventIndex < a2::MaxVMEEvents; eventIndex++)
-    {
-        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
-        if (!eventConfig) continue;
-
-        auto moduleConfigs = eventConfig->getModuleConfigs();
-
-        QJsonArray moduleInfos;
-
-        for (s32 moduleIndex = 0; moduleIndex < moduleConfigs.size(); moduleIndex++)
-        {
-            auto moduleConfig = moduleConfigs[moduleIndex];
-            QJsonObject moduleInfo;
-            moduleInfo["name"] = moduleConfig->objectName();
-            moduleInfo["type"] = moduleConfig->getModuleMeta().typeName;
-            moduleInfo["moduleIndex"] = moduleIndex;
-            moduleInfos.append(moduleInfo);
-        }
-
-        QJsonObject eventInfo;
-        eventInfo["eventIndex"] = eventIndex;
-        eventInfo["modules"] = moduleInfos;
-        eventInfo["name"] = eventConfig->objectName();
-        vmeTree.append(eventInfo);
-    }
 
     QJsonObject runStructureInfo;
     runStructureInfo["runId"] = ctx.runInfo.runId;
     runStructureInfo["isReplay"] = ctx.runInfo.isReplay;
-    runStructureInfo["eventDataSources"] = eventDataSources;
-    runStructureInfo["vmeTree"] = vmeTree;
+    runStructureInfo["eventDataSources"] = make_datasource_description(analysis);
+    runStructureInfo["vmeTree"] = make_vme_tree_description(vmeConfig);
     runStructureInfo["runInProgress"] = false;
 
     // Store this information so it can be sent out to clients connecting while
     // the DAQ run is in progress.
     m_d->m_runContext.runStructureInfo = runStructureInfo;
+    m_d->m_runStats = {};
 
     QJsonDocument doc(runStructureInfo);
     QByteArray json = doc.toJson();

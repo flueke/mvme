@@ -13,8 +13,6 @@
 // separate file (data_server_client_lib.h).
 //
 // TODO:
-// - define "ServerInfo" Handshake information. mvme should send its version
-//   information and a version number for this protocol.
 // - the client can send an id string which can be used for logging on the
 //   server side.
 // - send information in end run: total number of events processed on the server side,

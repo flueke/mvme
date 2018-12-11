@@ -110,9 +110,8 @@ set(LIBMVME_SOURCES
     analysis/sink_widget_factory.cc
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
-
+    data_export/data_export_util.cc
     data_server.cc
-
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
     daqstats_widget.cc
@@ -316,7 +315,7 @@ if (ENABLE_ROOT AND ROOT_FOUND)
 
     # Build the ROOT TTree writer client. This is a stand-alone, command-line
     # client speaking the mvme analysis data server protocol.
-    add_executable(mvme_root_treewriter_client mvme_root_treewriter_client.cc)
+    add_executable(mvme_root_treewriter_client data_export/mvme_root_treewriter_client.cc)
     target_link_libraries(mvme_root_treewriter_client ${root_LIBS})
 endif(ENABLE_ROOT AND ROOT_FOUND)
 
@@ -330,7 +329,9 @@ install(FILES ${INCLUDES_TO_INSTALL} DESTINATION include)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
-install(FILES mvme_root_treewriter_client.cc DESTINATION extras/root_treewriter_client/)
+install(FILES data_export/mvme_root_treewriter_client.cc DESTINATION extras/root_treewriter_client/)
+
+add_mvme_executable(dev_mvme_root_codegen data_export/mvme_root_codegen.cc)
 
 # Boost
 #set(Boost_USE_MULTITHREADED ON)
