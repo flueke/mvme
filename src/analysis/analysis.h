@@ -1895,6 +1895,11 @@ class LIBMVME_EXPORT Analysis: public QObject
         //
 
         void updateRanks();
+
+        void beginRun(const RunInfo &runInfo,
+                      const VMEConfig *vmeConfig,
+                      Logger logger = {});
+
         void beginRun(const RunInfo &runInfo,
                       const vme_analysis_common::VMEIdToIndex &vmeMap,
                       Logger logger = {});
@@ -1904,6 +1909,10 @@ class LIBMVME_EXPORT Analysis: public QObject
             ClearState,
             KeepState,
         };
+
+        // This overload of beginRun() reuses information that was previously
+        // passed in one of the other beginRun() overloads. Bad design
+        // everywhere.
         void beginRun(BeginRunOption option, Logger logger = {});
         void endRun();
 
@@ -1928,7 +1937,7 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         using ReadResult = ReadResultBase<ReadResultCodes>;
 
-        ReadResult read(const QJsonObject &json, VMEConfig *vmeConfig = nullptr);
+        ReadResult read(const QJsonObject &json, const VMEConfig *vmeConfig = nullptr);
         void write(QJsonObject &json) const;
 
         /* Object flags containing system internal information. */
@@ -2051,10 +2060,25 @@ AnalysisObjectVector expand_objects(const AnalysisObjectVector &vec,
 AnalysisObjectVector order_objects(const AnalysisObjectSet &objects,
                                    const Analysis *analysis);
 
-/* Same as the overload taking an AnalysisObjectSet but builds the set from the
- * given vector. */
+/* Same as the overload taking an AnalysisObjectSet but internally builds the
+ * set from the given object vector. */
 AnalysisObjectVector order_objects(const AnalysisObjectVector &objects,
                                    const Analysis *analysis);
+
+namespace read_options
+{
+    using Opt = u8;
+    static const Opt None = 0u;
+    // If set Analysis::beginRun() is called after successfully reading the
+    // analysis structure. This means the A2 Adapter and the a2 structures will
+    // be available right away.
+    static const Opt BuildAnalysis = 1u;
+};
+
+LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
+    read_analysis_config_from_file(const QString &filename, const VMEConfig *vmeConfig,
+                                   read_options::Opt = read_options::BuildAnalysis,
+                                   Logger logger = {});
 
 } // end namespace analysis
 

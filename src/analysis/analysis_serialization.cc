@@ -252,7 +252,7 @@ namespace
 /* This function converts from analysis config versions prior to V2, which
  * stored eventIndex and moduleIndex instead of eventId and moduleId.
  */
-QJsonObject v1_to_v2(QJsonObject json, VMEConfig *vmeConfig)
+QJsonObject v1_to_v2(QJsonObject json, const VMEConfig *vmeConfig)
 {
     bool couldConvert = true;
 
@@ -318,12 +318,12 @@ QJsonObject v1_to_v2(QJsonObject json, VMEConfig *vmeConfig)
     return json;
 }
 
-QJsonObject noop_converter(QJsonObject json, VMEConfig *)
+QJsonObject noop_converter(QJsonObject json, const VMEConfig *)
 {
     return json;
 }
 
-using VersionConverter = std::function<QJsonObject (QJsonObject, VMEConfig *)>;
+using VersionConverter = std::function<QJsonObject (QJsonObject, const VMEConfig *)>;
 
 QVector<VersionConverter> get_version_converters()
 {
@@ -342,7 +342,7 @@ int get_version(const QJsonObject &json)
     return json[QSL("MVMEAnalysisVersion")].toInt(1);
 };
 
-QJsonObject convert_to_current_version(QJsonObject json, VMEConfig *vmeConfig)
+QJsonObject convert_to_current_version(QJsonObject json, const VMEConfig *vmeConfig)
 {
     int version;
 
@@ -381,7 +381,7 @@ AnalysisObjectVector AnalysisObjectStore::allObjects() const
 }
 
 AnalysisObjectStore deserialize_objects(QJsonObject data,
-                                        VMEConfig *vmeConfig,
+                                        const VMEConfig *vmeConfig,
                                         const ObjectFactory &objectFactory)
 {
     int version = get_version(data);

@@ -302,4 +302,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         QVariantMap m_controllerSettings;
 };
 
+LIBMVME_EXPORT std::pair<std::unique_ptr<VMEConfig>, QString>
+    read_vme_config_from_file(const QString &filename);
+
 #endif

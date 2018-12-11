@@ -842,3 +842,38 @@ QPair<int, int> VMEConfig::getEventAndModuleIndices(ModuleConfig *cfg) const
 
     return qMakePair(-1, -1);
 }
+
+std::pair<std::unique_ptr<VMEConfig>, QString>
+    read_vme_config_from_file(const QString &filename)
+{
+    std::pair<std::unique_ptr<VMEConfig>, QString> result;
+
+    QFile inFile(filename);
+    if (!inFile.open(QIODevice::ReadOnly))
+    {
+        result.second = inFile.errorString();
+        return result;
+    }
+
+    auto data = inFile.readAll();
+    QJsonParseError parseError;
+    QJsonDocument doc(QJsonDocument::fromJson(data, &parseError));
+
+    if (parseError.error != QJsonParseError::NoError)
+    {
+        result.second = parseError.errorString();
+        return result;
+    }
+
+    auto vmeConfig = std::make_unique<VMEConfig>();
+    auto readResult = vmeConfig->readVMEConfig(doc.object()["DAQConfig"].toObject());
+
+    if (!readResult)
+    {
+        result.second = readResult.toPlainText();
+        return result;
+    }
+
+    result.first  = std::move(vmeConfig);
+    return result;
+}

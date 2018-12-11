@@ -84,7 +84,7 @@ struct LIBMVME_EXPORT AnalysisObjectStore
 class ObjectFactory;
 
 AnalysisObjectStore LIBMVME_EXPORT deserialize_objects(QJsonObject data,
-                                                       VMEConfig *vmeConfig,
+                                                       const VMEConfig *vmeConfig,
                                                        const ObjectFactory &objectFactory);
 
 void LIBMVME_EXPORT establish_connections(const QSet<Connection> &connections);

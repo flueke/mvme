@@ -22,6 +22,7 @@
 
 #include <QFileInfo>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <random>
 #include <zstr/src/zstr.hpp>
@@ -4621,6 +4622,15 @@ void Analysis::updateRank(OperatorInterface *op,
 }
 
 void Analysis::beginRun(const RunInfo &runInfo,
+                        const VMEConfig *vmeConfig,
+                        Logger logger)
+{
+    beginRun(runInfo,
+             vme_analysis_common::build_id_to_index_mapping(vmeConfig),
+             logger);
+}
+
+void Analysis::beginRun(const RunInfo &runInfo,
                         const vme_analysis_common::VMEIdToIndex &vmeMap,
                         Logger logger)
 {
@@ -4847,7 +4857,7 @@ double Analysis::getTimetickCount() const
 // Serialization
 //
 
-Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vmeConfig)
+Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, const VMEConfig *vmeConfig)
 {
     ReadResult result = {};
 
@@ -5359,6 +5369,57 @@ AnalysisObjectVector order_objects(const AnalysisObjectVector &objects,
         set.insert(obj);
 
     return order_objects(set, analysis);
+}
+
+std::pair<std::unique_ptr<Analysis>, QString>
+    read_analysis_config_from_file(const QString &filename,
+                                   const VMEConfig *vmeConfig,
+                                   read_options::Opt options,
+                                   Logger logger)
+{
+    std::pair<std::unique_ptr<Analysis>, QString> result;
+
+    QFile inFile(filename);
+    if (!inFile.open(QIODevice::ReadOnly))
+    {
+        result.second = inFile.errorString();
+        return result;
+    }
+
+    auto data = inFile.readAll();
+    QJsonParseError parseError;
+    QJsonDocument doc(QJsonDocument::fromJson(data, &parseError));
+
+    if (parseError.error != QJsonParseError::NoError)
+    {
+        result.second = parseError.errorString();
+        return result;
+    }
+
+    auto json = doc.object();
+
+    if (json.contains("AnalysisNG"))
+    {
+        json = json["AnalysisNG"].toObject();
+    }
+
+    auto analysis = std::make_unique<Analysis>();
+    auto readResult = analysis->read(json, vmeConfig);
+
+    if (!readResult)
+    {
+        result.second = readResult.toPlainText();
+        return result;
+    }
+
+    result.first = std::move(analysis);
+
+    if (options & read_options::BuildAnalysis)
+    {
+        result.first->beginRun({}, vmeConfig, logger);
+    }
+
+    return result;
 }
 
 } // end namespace analysis

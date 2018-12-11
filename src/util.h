@@ -301,6 +301,7 @@ struct LIBMVME_EXPORT ReadResultBase
     QMap<QString, QVariant> errorData;
 
     QString toRichText() const;
+    QString toPlainText() const;
 
     inline operator bool() const { return code == Code::NoError; }
 };
@@ -325,6 +326,27 @@ QString ReadResultBase<Code>::toRichText() const
                 .arg(it.value().toString());
         }
         result += QSL("</table>");
+    }
+
+    return result;
+}
+
+template<typename Code>
+QString ReadResultBase<Code>::toPlainText() const
+{
+    QString result;
+
+    if (code != Code::NoError)
+    {
+        result += QString("Error cause: %1")
+            .arg(ErrorCodeStrings.value(code, "Unknown error"));
+
+        for (auto it = errorData.begin(); it != errorData.end(); ++it)
+        {
+            result += QString(", %1: %2")
+                .arg(it.key())
+                .arg(it.value().toString());
+        }
     }
 
     return result;
