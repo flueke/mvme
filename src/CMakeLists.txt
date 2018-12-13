@@ -317,6 +317,23 @@ if (ENABLE_ROOT AND ROOT_FOUND)
     # client speaking the mvme analysis data server protocol.
     add_executable(mvme_root_treewriter_client data_export/mvme_root_treewriter_client.cc)
     target_link_libraries(mvme_root_treewriter_client ${root_LIBS})
+
+    #include(${ROOT_USE_FILE}) # FIXME: this might change CXXFLAGS globally. verify!
+    #ROOT_GENERATE_DICTIONARY(
+    #    mvme_root_export_objects
+    #    data_export/mvme_root_export_objects.h
+    #    LINKDEF data_export/mvme_root_export_objects_LinkDef.h)
+
+    add_executable(mvme_root_treewriter_client2
+        data_export/mvme_root_treewriter_client2.cc)
+    #${CMAKE_CURRENT_SOURCE_DIR}/G__mvme_root.cxx)
+    target_link_libraries(mvme_root_treewriter_client2 ${root_LIBS})
+
+    add_custom_command(TARGET mvme_root_treewriter_client2
+        PRE_BUILD
+        COMMAND rootcling G__mvme_root_export_objects.cxx
+        ${CMAKE_CURRENT_SOURCE_DIR}/data_export/mvme_root_export_objects.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/data_export/mvme_root_export_objects_LinkDef.h)
 endif(ENABLE_ROOT AND ROOT_FOUND)
 
 set(INCLUDES_TO_INSTALL
