@@ -2,6 +2,42 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+data transfer client lib
+- no libmvme dependency
+- depends on headers shipped with mvme at compile time
+- header only for now
+
+root data transfer client
+- uses data transfer client lib
+
+high level overview:
+- connect to server
+- receive run description
+- generate code for exported objects, Experiment, Events, Modules, data members inside the modules.
+- at this point the base class interfaces are known to the compiler, but not the
+  concrete, newly generated specific classes
+- the generated code is built and loaded using TROOT::ProcessLineSync(".L TheImplFile.cxx+")
+see 1) below!
+- the specific Experiment subclass can be instantiated via
+  auto exp = reinterpret_cast<TheExperimentClassName *>(
+     ProcessLineSync("new TheExperimentClassName()"));
+-> We now have a working Experiment instance that can generate its event trees
+  and that can be queried for events and modules.
+- open output file now and generate the event trees using the virtual exp->MakeTrees()
+
+During the run switch on the incoming event number and fill the corresponding
+event and module data structures. Figure out how to safely fill the arrays
+without crashing in case of size mismatches, etc.
+Then call fill on the event tree to commit the data to ROOT.
+
+1) At this point more code could be loaded, e.g. from a user lib.
+What's needed: begin and end hooks and hooks for specific events.
+Also info on whether this is a replay or an online run.
+
+NOTE: Now there are multiple ways to replay data: from within mvme doing the
+steps outlined above and from an existing output ROOT tree.
+
+
 /* State of the analysis UI and future plans
  *
  * Finding nodes for objects
