@@ -55,6 +55,14 @@ steps outlined above and from an existing output ROOT tree.
 --------------------------------------------------
 BUGS
 --------------------------------------------------
+* runid handling: currently a chicken egg problem:
+  the readout worker thread generates a new run filename and tries to open that file.
+  errors can happen and thus the run cannot proceed properly. also the runid
+  information  cannot be sent to e.g. clients connected to the data server.
+
+  Fix: move output file creation, opening and error handling from the readout worker
+  to the main thread and pass the open file handle to the readout worker.
+
 * When having a single h1d bin filled the calculated and displayed fwhm of the
   gauss is 1, but I was told it should be 0. Figure this out and fix it.
 
@@ -107,6 +115,7 @@ sometimes when starting a new DAQ run.
 --------------------------------------------------
 WISHLIST
 --------------------------------------------------
+* unify runinfo into a single variantmap
 * Think about file I/O for the expression operator
 * Add new data sources yielding:
   - the current timetick value (1s granularity, paramvector of size 1)

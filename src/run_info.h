@@ -2,6 +2,7 @@
 #define __RUN_INFO_H__
 
 #include <QString>
+#include <QVariantMap>
 
 /* Information about the current DAQ run or the run that's being replayed from
  * a listfile. */
@@ -20,6 +21,7 @@ struct RunInfo
     bool isReplay = false;
     //bool generateExportFiles = false;
 
+    QVariantMap infoDict;
 };
 
 inline bool operator==(const RunInfo &a, const RunInfo &b)

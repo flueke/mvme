@@ -328,6 +328,12 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
     auto &ctx = m_d->m_runContext;
 
     QJsonObject outputInfo = make_output_data_description(vmeConfig, analysis);
+
+    for (auto key: runInfo.infoDict.keys())
+    {
+        outputInfo[key] = QJsonValue::fromVariant(runInfo.infoDict[key]);
+    }
+
     outputInfo["runId"] = ctx.runInfo.runId;
     outputInfo["isReplay"] = ctx.runInfo.isReplay;
     outputInfo["runInProgress"] = false;

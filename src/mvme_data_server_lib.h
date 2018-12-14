@@ -250,6 +250,7 @@ struct DataSourceDescription
     double upperLimit = 0.0;    //
     uint32_t size = 0u;         // Number of elements in the output array of this datasource.
     uint32_t bytes = 0u;        // Total number of bytes the output of the datasource requires.
+    std::string dataType;       // C data type: double, float, uint16_t, ...
 };
 
 // Description of the data layout for one mvme event. This contains all the
@@ -331,6 +332,7 @@ static EventDataDescriptions parse_stream_data_description(const json &j)
                 ds.bytes = dsJ["output_bytes"];
                 ds.lowerLimit = dsJ["output_lowerLimit"];
                 ds.upperLimit = dsJ["output_upperLimit"];
+                ds.dataType = dsJ["datatype"];
                 eds.dataSources.emplace_back(ds);
             }
             result.emplace_back(eds);

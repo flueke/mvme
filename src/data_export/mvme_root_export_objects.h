@@ -5,16 +5,16 @@
 #include <TTree.h>
 
 //
-// Event and Subevent base classes
+// Event and Module base classes
 //
-class Subevent: public TNamed
+class Module: public TNamed
 {
     public:
-        Subevent(const char *name, const char *title)
+        Module(const char *name, const char *title)
             : TNamed(name, title)
         {}
 
-    ClassDef(Subevent, 1);
+    ClassDef(Module, 1);
 };
 
 class Event: public TNamed
@@ -25,16 +25,16 @@ class Event: public TNamed
         {}
 
         size_t GetNumberOfSubevents() const { return fSubevents.size(); }
-        std::vector<Subevent *> GetSubevents() const { return fSubevents; }
+        std::vector<Module *> GetSubevents() const { return fSubevents; }
 
     protected:
-        void AddSubevent(Subevent *subevent)
+        void AddSubevent(Module *subevent)
         {
             fSubevents.push_back(subevent);
         }
 
     private:
-        std::vector<Subevent *> fSubevents; // !
+        std::vector<Module *> fSubevents; // !
 
     ClassDef(Event, 1);
 };
@@ -49,9 +49,7 @@ class Experiment: public TNamed
         size_t GetNumberOfEvents() const { return fEvents.size(); }
         std::vector<Event *> GetEvents() const { return fEvents; }
 
-        // The only reason this is a virtual method is for hotloading of the
-        // generated code via TROOT::ProcessLine()
-        virtual std::vector<TTree *> MakeTrees();
+        std::vector<TTree *> MakeTrees();
 
     protected:
         void AddEvent(Event *event)

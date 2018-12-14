@@ -1193,6 +1193,12 @@ void MVMEContext::prepareStart()
     }
 #endif
 
+    // add info from the workspace to the current RunInfo object
+    auto wsSettings = makeWorkspaceSettings();
+    m_d->m_runInfo.infoDict["ProjectName"] = wsSettings->value("Project/Name");
+    m_d->m_runInfo.infoDict["ProjectTitle"] = wsSettings->value("Project/Title");
+    m_d->m_runInfo.infoDict["MVMEWorkspace"] = getWorkspaceDirectory();
+
     m_daqStats = DAQStats();
 
     qDebug() << __PRETTY_FUNCTION__
@@ -1249,6 +1255,10 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
     // Generate new RunInfo here. Has to happen before prepareStart() calls
     // MVMEStreamWorker::beginRun()
     // FIXME: does this still do anything? runId is still used in histo1d_widget?
+    // FIXME: the output filename generation (based on run settings, etc) must
+    // be done before filling this runinfo. Meaning move the output file
+    // creation and error handling from the readout worker into this thread and
+    // pass the open output file descriptor the readout worker instead.
     auto now = QDateTime::currentDateTime();
     m_d->m_runInfo.runId = now.toString("yyMMdd_HHmmss");
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;
