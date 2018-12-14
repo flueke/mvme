@@ -331,7 +331,7 @@ if (ENABLE_ROOT AND ROOT_FOUND)
 
     add_custom_command(TARGET mvme_root_treewriter_client2
         PRE_BUILD
-        COMMAND rootcling G__mvme_root_export_objects.cxx
+        COMMAND rootcling -f G__mvme_root_export_objects.cxx
         ${CMAKE_CURRENT_SOURCE_DIR}/data_export/mvme_root_export_objects.h
         ${CMAKE_CURRENT_SOURCE_DIR}/data_export/mvme_root_export_objects_LinkDef.h)
 endif(ENABLE_ROOT AND ROOT_FOUND)
