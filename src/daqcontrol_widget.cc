@@ -694,6 +694,21 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     , m_bb(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this))
     , m_settings(settings)
 {
+    auto widgetLayout = new QVBoxLayout(this);
+
+    // Groupbox ProjectName and ProjectTitle
+    {
+        auto gb = new QGroupBox(QSL("Project"));
+        le_projectName = new QLineEdit(this);
+        le_projectTitle = new QLineEdit(this);
+        auto l = new QFormLayout(gb);
+        l->addRow(QSL("Project Name"), le_projectName);
+        l->addRow(QSL("Project Title"), le_projectTitle);
+
+        widgetLayout->addWidget(gb);
+    }
+
+    // Groupbox JSONRPC
     gb_jsonRPC->setCheckable(true);
     spin_jsonRPCListenPort->setMinimum(1);
     spin_jsonRPCListenPort->setMaximum((1 << 16) - 1);
@@ -714,7 +729,6 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
         l->addRow(QSL("Listen Port"), spin_jsonRPCListenPort);
     }
 
-    auto widgetLayout = new QVBoxLayout(this);
     widgetLayout->addWidget(gb_jsonRPC);
     widgetLayout->addWidget(m_bb);
 
@@ -729,6 +743,8 @@ void WorkspaceSettingsDialog::populate()
     gb_jsonRPC->setChecked(m_settings->value(QSL("JSON-RPC/Enabled")).toBool());
     le_jsonRPCListenAddress->setText(m_settings->value(QSL("JSON-RPC/ListenAddress")).toString());
     spin_jsonRPCListenPort->setValue(m_settings->value(QSL("JSON-RPC/ListenPort")).toInt());
+    le_projectName->setText(m_settings->value(QSL("Project/Name")).toString());
+    le_projectTitle->setText(m_settings->value(QSL("Project/Title")).toString());
 }
 
 void WorkspaceSettingsDialog::accept()
@@ -736,6 +752,8 @@ void WorkspaceSettingsDialog::accept()
     m_settings->setValue(QSL("JSON-RPC/Enabled"), gb_jsonRPC->isChecked());
     m_settings->setValue(QSL("JSON-RPC/ListenAddress"), le_jsonRPCListenAddress->text());
     m_settings->setValue(QSL("JSON-RPC/ListenPort"), spin_jsonRPCListenPort->value());
+    m_settings->setValue(QSL("Project/Name"), le_projectName->text());
+    m_settings->setValue(QSL("Project/Title"), le_projectTitle->text());
     m_settings->sync();
 
     QDialog::accept();

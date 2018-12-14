@@ -115,7 +115,9 @@ class WorkspaceSettingsDialog: public QDialog
         void populate();
 
         QGroupBox *gb_jsonRPC;
-        QLineEdit *le_jsonRPCListenAddress;
+        QLineEdit *le_jsonRPCListenAddress,
+                  *le_projectName,
+                  *le_projectTitle;
         QSpinBox *spin_jsonRPCListenPort;
         QDialogButtonBox *m_bb;
 

@@ -1510,6 +1510,9 @@ void MVMEContext::newWorkspace(const QString &dirName)
     workspaceSettings->setValue(QSL("JSON-RPC/Enabled"), false);
     workspaceSettings->setValue(QSL("JSON-RPC/ListenAddress"), QString());
     workspaceSettings->setValue(QSL("JSON-RPC/ListenPort"), JSON_RPC_DefaultListenPort);
+    workspaceSettings->setValue(QSL("Project/Name"), destDir.dirName());
+    workspaceSettings->setValue(QSL("Project/Title"), QString());
+
 
     // Force sync to create the mvmeworkspace.ini file
     workspaceSettings->sync();
