@@ -40,9 +40,9 @@ QJsonValue make_vme_tree_description(const VMEConfig *vmeConfig)
 QJsonValue make_datasource_description(const analysis::Analysis *analysis)
 {
     // NOTE: The order of data sources in an event is currently determined by
-    // the a2 system as it does resort data sources during the build process.
-    // I think this is the only reason the a2 system is used here. This is not
-    // great.
+    // the a2 system as it does reorder data sources during the build process.
+    // I think this is the only reason the a2 system is used at all here. This
+    // is not great.
 
     QJsonArray eventDataSources;
 

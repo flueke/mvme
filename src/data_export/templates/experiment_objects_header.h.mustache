@@ -9,10 +9,8 @@ R"(#ifndef __MVME_ROOT_EXPORT_GUARD_{{header_guard}}__
 struct {{struct_name}}: public Module
 {
     {{struct_name}}(): Module("{{name}}", "{{title}}") {}
-
 {{#data_members}}
-    {{type}} {{name}}[{{size}}];
-{{/data_members}}
+    {{type}} {{name}}[{{size}}];{{/data_members}}
 
     ClassDef({{struct_name}}, 1);
 };
@@ -23,15 +21,11 @@ struct {{struct_name}}: public Module
 struct {{struct_name}}: public Event
 {
     {{struct_name}}(): Event("{{name}}", "{{title}}")
-    {
-    {{#modules}}
-        AddModule(&{{var_name}});
-    {{/modules}}
+    { {{#modules}}
+        AddModule(&{{var_name}});{{/modules}}
     }
-
 {{#modules}}
-    {{struct_name}} {{var_name}};
-{{/modules}}
+    {{struct_name}} {{var_name}};{{/modules}}
 
     ClassDef({{struct_name}}, 1);
 };
@@ -41,15 +35,11 @@ struct {{struct_name}}: public Event
 struct {{exp_struct_name}}: public Experiment
 {
     {{exp_struct_name}}(): Experiment("{{exp_name}}", "{{exp_title}}")
-    {
-    {{#vme_events}}
-        AddEvent(&{{var_name}});
-    {{/vme_events}}
+    { {{#vme_events}}
+        AddEvent(&{{var_name}});{{/vme_events}}
     }
-
 {{#vme_events}}
-    {{struct_name}} {{var_name}};
-{{/vme_events}}
+    {{struct_name}} {{var_name}};{{/vme_events}}
 
     ClassDef({{exp_struct_name}}, 1);
 };

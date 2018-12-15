@@ -325,15 +325,17 @@ if (ENABLE_ROOT AND ROOT_FOUND)
     #    LINKDEF data_export/mvme_root_export_objects_LinkDef.h)
 
     add_executable(mvme_root_treewriter_client2
-        data_export/mvme_root_treewriter_client2.cc)
-    #${CMAKE_CURRENT_SOURCE_DIR}/G__mvme_root.cxx)
-    target_link_libraries(mvme_root_treewriter_client2 ${root_LIBS})
+        data_export/mvme_root_treewriter_client2.cc
+        data_export/mvme_root_export_objects_LinkDef.h)
+        #${CMAKE_CURRENT_SOURCE_DIR}/G__mvme_root.cxx)
 
     add_custom_command(TARGET mvme_root_treewriter_client2
         PRE_BUILD
         COMMAND rootcling -f G__mvme_root_export_objects.cxx
         ${CMAKE_CURRENT_SOURCE_DIR}/data_export/mvme_root_export_objects.h
         ${CMAKE_CURRENT_SOURCE_DIR}/data_export/mvme_root_export_objects_LinkDef.h)
+
+    target_link_libraries(mvme_root_treewriter_client2 ${root_LIBS})
 endif(ENABLE_ROOT AND ROOT_FOUND)
 
 set(INCLUDES_TO_INSTALL

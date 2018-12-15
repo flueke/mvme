@@ -11,6 +11,8 @@
 #include <Mustache/mustache.hpp>
 #include "mvme_data_server_lib.h"
 #include "data_export/mvme_root_export_objects.h"
+// include the linkdef file so that cmake includes it in the dependencies
+#include "data_export/mvme_root_export_objects_LinkDef.h"
 
 using std::cerr;
 using std::cout;
@@ -141,8 +143,11 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
         cout << "Writing header file " << headerFilepath << endl;
         std::ofstream out(headerFilepath);
+        out << rendered;
+        out.close();
 
         // XXX: leftoff here
+    }
 
 
 #if 0
@@ -278,9 +283,9 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
 void ClientContext::endRun(const Message &msg)
 {
-#if 0
     cerr << __FUNCTION__ << endl;
 
+#if 0
     if (m_outFile)
     {
         cout << "  Closing output file " << m_outFile->GetName() << "..." << endl;
@@ -371,7 +376,7 @@ int main(int argc, char *argv[])
     // send out a reply is response to the EndRun message?
     std::string host = "localhost";
     std::string port = "13801";
-    std::string outputDirectory = "./";
+    std::string outputDirectory = ".";
     bool singleRun = false;
     bool convertNaNsToZero = false;
     bool showHelp = false;
@@ -436,7 +441,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    setup_signal_handlers();
+    //setup_signal_handlers();
 
     if (int res = mvme::data_server::lib_init() != 0)
     {
@@ -492,6 +497,7 @@ int main(int argc, char *argv[])
 
             if (singleRun && msg.type == MessageType::EndRun)
             {
+                cout << "quit on endRun" << endl;
                 doQuit = true;
             }
         }
