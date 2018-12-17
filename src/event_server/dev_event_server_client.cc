@@ -1,4 +1,4 @@
-#include "mvme_data_server_lib.h"
+#include "event_server/event_server_lib.h"
 
 #include <chrono>
 #include <getopt.h>
@@ -65,14 +65,14 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
     m_stats.messageCount++;
 
     m_stats.eventCounts.clear();
-    m_stats.eventCounts.resize(streamInfo.eventDescriptions.size(), 0u);
+    m_stats.eventCounts.resize(streamInfo.eventDataDescriptions.size(), 0u);
 
     m_stats.eventDataBytes.clear();
-    m_stats.eventDataBytes.resize(streamInfo.eventDescriptions.size(), 0u);
+    m_stats.eventDataBytes.resize(streamInfo.eventDataDescriptions.size(), 0u);
 
     m_stats.eventDSBytes.clear();
 
-    for (auto &edd: streamInfo.eventDescriptions)
+    for (auto &edd: streamInfo.eventDataDescriptions)
     {
         m_stats.eventDSBytes.push_back(std::vector<size_t>(edd.dataSources.size()));
     }

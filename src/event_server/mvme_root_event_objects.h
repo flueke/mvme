@@ -24,17 +24,17 @@ class Event: public TNamed
             : TNamed(name, title)
         {}
 
-        size_t GetNumberOfSubevents() const { return fSubevents.size(); }
-        std::vector<Module *> GetSubevents() const { return fSubevents; }
+        size_t GetNumberOfModules() const { return fModules.size(); }
+        std::vector<Module *> GetModules() const { return fModules; }
 
     protected:
-        void AddSubevent(Module *subevent)
+        void AddModule(Module *module)
         {
-            fSubevents.push_back(subevent);
+            fModules.push_back(module);
         }
 
     private:
-        std::vector<Module *> fSubevents; // !
+        std::vector<Module *> fModules; // !
 
     ClassDef(Event, 1);
 };

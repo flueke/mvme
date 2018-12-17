@@ -5,7 +5,7 @@
 //#pragma link off all functions;
 
 // classes supplied by system
-#pragma link C++ class Subevent;
+#pragma link C++ class Module;
 #pragma link C++ class Event;
 #pragma link C++ class Experiment;
 

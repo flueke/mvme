@@ -1,4 +1,4 @@
-#include "data_server.h"
+#include "event_server/event_server.h"
 
 #include <QCoreApplication>
 #include <QJsonDocument>
@@ -9,13 +9,13 @@
 
 #include "analysis/a2/a2.h"
 #include "analysis/a2_adapter.h"
+#include "event_server/event_server_proto.h"
+#include "event_server/event_server_util.h"
 #include "git_sha1.h"
-#include "mvme_data_server_proto.h"
-#include "data_export/data_export_util.h"
 
 using namespace mvme::data_server;
 
-struct AnalysisDataServer::Private
+struct EventServer::Private
 {
     struct RunContext
     {
@@ -40,16 +40,16 @@ struct AnalysisDataServer::Private
         std::unique_ptr<QTcpSocket> socket;
     };
 
-    Private(AnalysisDataServer *q)
+    Private(EventServer *q)
         : m_q(q)
         , m_server(q)
     { }
 
-    AnalysisDataServer *m_q;
+    EventServer *m_q;
     QTcpServer m_server;
     QHostAddress m_listenAddress = QHostAddress::Any;
-    quint16 m_listenPort = AnalysisDataServer::Default_ListenPort;
-    AnalysisDataServer::Logger m_logger;
+    quint16 m_listenPort = EventServer::Default_ListenPort;
+    EventServer::Logger m_logger;
     std::vector<ClientInfo> m_clients;
     bool m_runInProgress = false;
     RunContext m_runContext;
@@ -143,7 +143,7 @@ qint64 write_message(QIODevice &out, MessageType type, const QByteArray &content
 
 } // end anon namespace
 
-void AnalysisDataServer::Private::handleNewConnection()
+void EventServer::Private::handleNewConnection()
 {
     if (auto clientSocket = m_server.nextPendingConnection())
     {
@@ -194,7 +194,7 @@ void AnalysisDataServer::Private::handleNewConnection()
     }
 }
 
-void AnalysisDataServer::Private::handleClientSocketError(QTcpSocket *socket,
+void EventServer::Private::handleClientSocketError(QTcpSocket *socket,
                                                           QAbstractSocket::SocketError error)
 {
     if (!m_runInProgress)
@@ -205,7 +205,7 @@ void AnalysisDataServer::Private::handleClientSocketError(QTcpSocket *socket,
 }
 
 // remove invalid clients (error, disconnected, etc)
-void AnalysisDataServer::Private::cleanupClients()
+void EventServer::Private::cleanupClients()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
@@ -235,15 +235,15 @@ void AnalysisDataServer::Private::cleanupClients()
     qDebug() << __PRETTY_FUNCTION__ << ", new client count =" << m_clients.size();
 }
 
-void AnalysisDataServer::Private::logMessage(const QString &msg)
+void EventServer::Private::logMessage(const QString &msg)
 {
     if (m_logger)
     {
-        m_logger(QSL("AnalysisDataServer: ") + msg);
+        m_logger(QSL("EventServer: ") + msg);
     }
 }
 
-AnalysisDataServer::AnalysisDataServer(QObject *parent)
+EventServer::EventServer(QObject *parent)
     : QObject(parent)
     , m_d(std::make_unique<Private>(this))
 {
@@ -251,16 +251,16 @@ AnalysisDataServer::AnalysisDataServer(QObject *parent)
             this, [this] { m_d->handleNewConnection(); });
 }
 
-AnalysisDataServer::AnalysisDataServer(Logger logger, QObject *parent)
-    : AnalysisDataServer(parent)
+EventServer::EventServer(Logger logger, QObject *parent)
+    : EventServer(parent)
 {
     setLogger(logger);
 }
 
-AnalysisDataServer::~AnalysisDataServer()
+EventServer::~EventServer()
 {}
 
-void AnalysisDataServer::startup()
+void EventServer::startup()
 {
     if (bool res = m_d->m_server.listen(m_d->m_listenAddress, m_d->m_listenPort))
     {
@@ -276,34 +276,34 @@ void AnalysisDataServer::startup()
     }
 }
 
-void AnalysisDataServer::shutdown()
+void EventServer::shutdown()
 {
     m_d->m_server.close();
     m_d->m_clients.clear();
 }
 
-void AnalysisDataServer::setLogger(Logger logger)
+void EventServer::setLogger(Logger logger)
 {
     m_d->m_logger = logger;
 }
 
-void AnalysisDataServer::setListeningInfo(const QHostAddress &address, quint16 port)
+void EventServer::setListeningInfo(const QHostAddress &address, quint16 port)
 {
     m_d->m_listenAddress = address;
     m_d->m_listenPort = port;
 }
 
-bool AnalysisDataServer::isListening() const
+bool EventServer::isListening() const
 {
     return m_d->m_server.isListening();
 }
 
-size_t AnalysisDataServer::getNumberOfClients() const
+size_t EventServer::getNumberOfClients() const
 {
     return m_d->m_clients.size();
 }
 
-void AnalysisDataServer::beginRun(const RunInfo &runInfo,
+void EventServer::beginRun(const RunInfo &runInfo,
               const VMEConfig *vmeConfig,
               const analysis::Analysis *analysis,
               Logger logger)
@@ -359,7 +359,7 @@ void AnalysisDataServer::beginRun(const RunInfo &runInfo,
     m_d->m_runInProgress = true;
 }
 
-void AnalysisDataServer::endEvent(s32 eventIndex)
+void EventServer::endEvent(s32 eventIndex)
 {
     assert(m_d->m_runInProgress);
 
@@ -460,7 +460,7 @@ void AnalysisDataServer::endEvent(s32 eventIndex)
     QCoreApplication::processEvents();
 }
 
-void AnalysisDataServer::endRun(const std::exception *e)
+void EventServer::endRun(const std::exception *e)
 {
     for (auto &client: m_d->m_clients)
     {
@@ -486,13 +486,13 @@ void AnalysisDataServer::endRun(const std::exception *e)
     m_d->cleanupClients();
 }
 
-void AnalysisDataServer::beginEvent(s32 eventIndex)
+void EventServer::beginEvent(s32 eventIndex)
 {
     // Noop
     assert(m_d->m_runInProgress);
 }
 
-void AnalysisDataServer::processModuleData(s32 eventIndex, s32 moduleIndex,
+void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
                        const u32 *data, u32 size)
 {
     // Noop for this server case. We're interested in the endEvent() call as at
@@ -502,7 +502,7 @@ void AnalysisDataServer::processModuleData(s32 eventIndex, s32 moduleIndex,
     assert(m_d->m_runInProgress);
 }
 
-void AnalysisDataServer::processTimetick()
+void EventServer::processTimetick()
 {
     // TODO: how to handle timeticks? handle them at all?
     assert(m_d->m_runInProgress);

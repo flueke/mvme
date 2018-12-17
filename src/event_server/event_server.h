@@ -1,11 +1,11 @@
-#ifndef __MVME_ANALYSIS_DATA_SERVER_H__
-#define __MVME_ANALYSIS_DATA_SERVER_H__
+#ifndef __MVME_EVENT_SERVER_H__
+#define __MVME_EVENT_SERVER_H__
 
 #include "libmvme_export.h"
 #include "mvme_stream_processor.h"
 #include <QHostAddress>
 
-class LIBMVME_EXPORT AnalysisDataServer: public QObject, public IMVMEStreamModuleConsumer
+class LIBMVME_EXPORT EventServer: public QObject, public IMVMEStreamModuleConsumer
 {
     Q_OBJECT
     signals:
@@ -15,9 +15,9 @@ class LIBMVME_EXPORT AnalysisDataServer: public QObject, public IMVMEStreamModul
     public:
         static const uint16_t Default_ListenPort = 13801;
 
-        AnalysisDataServer(QObject *parent = nullptr);
-        AnalysisDataServer(Logger logger, QObject *parent = nullptr);
-        virtual ~AnalysisDataServer();
+        EventServer(QObject *parent = nullptr);
+        EventServer(Logger logger, QObject *parent = nullptr);
+        virtual ~EventServer();
 
         virtual void startup() override;
         virtual void shutdown() override;
@@ -48,4 +48,4 @@ class LIBMVME_EXPORT AnalysisDataServer: public QObject, public IMVMEStreamModul
         std::unique_ptr<Private> m_d;
 };
 
-#endif /* __MVME_ANALYSIS_DATA_SERVER_H__ */
+#endif /* __MVME_EVENT_SERVER_H__ */

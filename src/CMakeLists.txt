@@ -110,8 +110,8 @@ set(LIBMVME_SOURCES
     analysis/sink_widget_factory.cc
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
-    data_export/data_export_util.cc
-    data_server.cc
+    event_server/event_server_util.cc
+    event_server/event_server.cc
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
     daqstats_widget.cc
@@ -299,9 +299,9 @@ add_mvme_executable(dev_histo1d_testing "dev_histo1d_testing.cc")
 add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
 
 # Minimal standalone test client for the analysis data server.
-add_executable(dev_data_server_client dev_data_server_client.cc)
+add_executable(dev_event_server_client event_server/dev_event_server_client.cc)
 if (WIN32)
-target_link_libraries(dev_data_server_client ws2_32)
+target_link_libraries(dev_event_server_client ws2_32)
 endif (WIN32)
 
 if (ENABLE_ROOT AND ROOT_FOUND)
@@ -313,10 +313,36 @@ if (ENABLE_ROOT AND ROOT_FOUND)
         ${ROOT_Hist_LIBRARY}
         )
 
+    # libmvme_root_event
+    add_custom_command(
+        OUTPUT G__mvme_root_event_objects.cxx
+            G__mvme_root_event_objects_rdict.cxx
+            G__mvme_root_event_objects_rdict.pcm
+        COMMAND rootcling -f G__mvme_root_event_objects.cxx
+            ${CMAKE_CURRENT_SOURCE_DIR}/event_server/mvme_root_event_objects.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/event_server/mvme_root_event_objects_LinkDef.h
+        COMMAND ${CMAKE_COMMAND} -E copy
+                ${CMAKE_CURRENT_BINARY_DIR}/G__mvme_root_event_objects_rdict.pcm
+                ${CMAKE_BINARY_DIR}/
+        DEPENDS
+            event_server/mvme_root_event_objects.h
+            event_server/mvme_root_event_objects_LinkDef.h
+    )
+
+    set_property(SOURCE G__mvme_root_event_objects.cxx PROPERTY SKIP_AUTOMOC ON)
+    set_property(SOURCE G__mvme_root_event_objects_rdict.cxx PROPERTY SKIP_AUTOMOC ON)
+
+    add_library(mvme_root_event SHARED
+        event_server/mvme_root_event_objects.cxx
+        G__mvme_root_event_objects.cxx
+        )
+    target_link_libraries(mvme_root_event ${root_LIBS})
+    install(FILES G__mvme_root_event_objects_rdict.pcm DESTINATION .)
+
     # Build the ROOT TTree writer client. This is a stand-alone, command-line
     # client speaking the mvme analysis data server protocol.
-    add_executable(mvme_root_treewriter_client data_export/mvme_root_treewriter_client.cc)
-    target_link_libraries(mvme_root_treewriter_client ${root_LIBS})
+    #add_executable(mvme_root_treewriter_client event_server/mvme_root_treewriter_client.cc)
+    #target_link_libraries(mvme_root_treewriter_client ${root_LIBS})
 
     #include(${ROOT_USE_FILE}) # FIXME: this might change CXXFLAGS globally. verify!
     #ROOT_GENERATE_DICTIONARY(
@@ -325,20 +351,23 @@ if (ENABLE_ROOT AND ROOT_FOUND)
     #    LINKDEF data_export/mvme_root_export_objects_LinkDef.h)
 
     add_executable(mvme_root_treewriter_client2
-        data_export/mvme_root_treewriter_client2.cc)
+        event_server/mvme_root_treewriter_client2.cc)
     #${CMAKE_CURRENT_SOURCE_DIR}/G__mvme_root.cxx)
-    target_link_libraries(mvme_root_treewriter_client2 ${root_LIBS})
+    target_link_libraries(mvme_root_treewriter_client2 mvme_root_event)
 
-    add_custom_command(TARGET mvme_root_treewriter_client2
-        PRE_BUILD
-        COMMAND rootcling -f G__mvme_root_export_objects.cxx
-        ${CMAKE_CURRENT_SOURCE_DIR}/data_export/mvme_root_export_objects.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/data_export/mvme_root_export_objects_LinkDef.h)
+
+    install(FILES event_server/mvme_root_event_objects.h DESTINATION .)
+    ## copy to buildroot at cmake time
+    configure_file(event_server/mvme_root_event_objects.h
+        ${CMAKE_BINARY_DIR}/mvme_root_event_objects.h
+        COPYONLY)
+
+
 endif(ENABLE_ROOT AND ROOT_FOUND)
 
 set(INCLUDES_TO_INSTALL
-    mvme_data_server_proto.h
-    mvme_data_server_lib.h
+    #mvme_data_server_proto.h
+    #mvme_data_server_lib.h
     ../3rdparty/nlohmann/json.hpp
     )
 
@@ -346,9 +375,7 @@ install(FILES ${INCLUDES_TO_INSTALL} DESTINATION include)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
-install(FILES data_export/mvme_root_treewriter_client.cc DESTINATION extras/root_treewriter_client/)
-
-add_mvme_executable(dev_mvme_root_codegen data_export/mvme_root_codegen.cc)
+#install(FILES data_export/mvme_root_treewriter_client.cc DESTINATION extras/root_treewriter_client/)
 
 # Boost
 #set(Boost_USE_MULTITHREADED ON)
