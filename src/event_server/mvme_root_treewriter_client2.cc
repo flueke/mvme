@@ -161,6 +161,13 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     }
 
 #if 0
+    // Have to figure out the path to the shared object built by mvme!
+    // The first lib contains the base class implementations
+    // .L libmvme_root_event.so
+    // An alternative would be to use gSystem->AddLinkedLibs().
+    // Test to see if this makes the snake lib link directly with the mvme_event lib
+    // or maybe use gSystem->Load("") to load the lib directly without ProcessLine.
+
     // compile and load the generated code
     std::string cmd = ".L " + implFilepath + "+";
     cout << "ROOT command: " << cmd << endl;
