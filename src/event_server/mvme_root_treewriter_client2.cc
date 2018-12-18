@@ -5,7 +5,8 @@
 
 // ROOT
 #include <TFile.h>
-#include <TROOT.h>
+#include <TROOT.h> // gROOT
+#include <TSystem.h> // gSystem
 
 // mvme
 #include <Mustache/mustache.hpp>
@@ -159,6 +160,44 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         std::ofstream out(implFilename);
         out << rendered;
     }
+
+    // Build the project library. This has dependencies on both
+    // mvme_root_event_objects.h and libmvme_root_event.
+    // => Need to have the correct include and library paths set for the compile
+    // and load step to work.
+    // TODO: check return value of the .L command and provide specific error message?
+#if 0
+    {
+        //gSystem->AddIncludePath(" -I$MVME/include ");
+        //gSystem->AddLinkedLibs(" -lmvme_root_event ");
+        //gSystem->AddIncludePath(" -I/home/florian/src/build-mvme2-debug ");
+        //gSystem->AddLinkedLibs(" -L/home/florian/src/build-mvme2-debug -lmvme_root_event ");
+
+        std::string cmd = ".L " + implFilepath + "+v";
+        cout << "Running ROOT command: '" << cmd << "'" << endl;
+        auto res = gROOT->ProcessLineSync(cmd.c_str());
+        cout << endl << "-> result = " << res << endl;
+
+        // Instantiate the project specific Experiment subclass we just
+        // generated and built.
+        cmd = "new " + experimentStructName + "();";
+        cout << "Running ROOT command: " << cmd << endl;
+        auto experiment = reinterpret_cast<Experiment *>(
+            gROOT->ProcessLineSync(cmd.c_str()));
+        assert(experiment);
+    }
+#endif
+
+#if 1
+    {
+        std::string cmd = implFilepath + "+";
+        cout << "LoadMacro " + cmd << endl;
+        int error = 0;
+        auto res = gROOT->LoadMacro(cmd.c_str(), &error);
+        cout << "res=" << res << ", error=" << error << endl;
+        assert(res == 0);
+    }
+#endif
 
 #if 0
     // Have to figure out the path to the shared object built by mvme!

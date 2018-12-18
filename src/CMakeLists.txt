@@ -305,6 +305,7 @@ target_link_libraries(dev_event_server_client ws2_32)
 endif (WIN32)
 
 if (ENABLE_ROOT AND ROOT_FOUND)
+if (False)
     set(root_LIBS
         ${ROOT_LIBRARIES}
         ${ROOT_Core_LIBRARY}
@@ -318,7 +319,7 @@ if (ENABLE_ROOT AND ROOT_FOUND)
         OUTPUT G__mvme_root_event_objects.cxx
             G__mvme_root_event_objects_rdict.cxx
             G__mvme_root_event_objects_rdict.pcm
-        COMMAND rootcling -f G__mvme_root_event_objects.cxx
+        COMMAND rootcling -f mvme_root_event_rdict.cxx
             ${CMAKE_CURRENT_SOURCE_DIR}/event_server/mvme_root_event_objects.h
             ${CMAKE_CURRENT_SOURCE_DIR}/event_server/mvme_root_event_objects_LinkDef.h
         COMMAND ${CMAKE_COMMAND} -E copy
@@ -358,10 +359,31 @@ if (ENABLE_ROOT AND ROOT_FOUND)
 
     install(FILES event_server/mvme_root_event_objects.h DESTINATION .)
     ## copy to buildroot at cmake time
-    configure_file(event_server/mvme_root_event_objects.h
-        ${CMAKE_BINARY_DIR}/mvme_root_event_objects.h
-        COPYONLY)
+    #configure_file(event_server/mvme_root_event_objects.h
+    #    ${CMAKE_BINARY_DIR}/mvme_root_event_objects.h
+    #    COPYONLY)
+endif()
+if (False)
+    # https://cliutils.gitlab.io/modern-cmake/chapters/packages/ROOT.html
+    # FIXME: The next line messes with the global include directories somehow.
+    include("${ROOT_DIR}/modules/RootNewMacros.cmake")
+    #include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+    #root_generate_dictionary(G__mvme_root_event event_server/mvme_root_event_objects.h
+    #    LINKDEF event_server/mvme_root_event_objects_LinkDef.h
+    #    MODULE mvme_root_event
+    #    NOINSTALL)
 
+    #set_property(SOURCE G__mvme_root_event.cxx PROPERTY SKIP_AUTOMOC ON)
+
+    #add_library(mvme_root_event SHARED
+    #    event_server/mvme_root_event_objects.cxx
+    #    G__mvme_root_event.cxx
+    #    )
+    #target_link_libraries(mvme_root_event ${ROOT_LIBRARIES})
+
+    #add_executable(mvme_root_treewriter_client2 event_server/mvme_root_treewriter_client2.cc)
+    #target_link_libraries(mvme_root_treewriter_client2 mvme_root_event)
+endif()
 
 endif(ENABLE_ROOT AND ROOT_FOUND)
 

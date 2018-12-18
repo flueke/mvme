@@ -5,6 +5,31 @@
 
 #include <cassert>
 
+Module::Module(const char *name, const char *title)
+    : TNamed(name, title)
+{}
+
+Module::~Module()
+{}
+
+Event::Event(const char *name, const char *title)
+    : TNamed(name, title)
+{}
+
+void Event::AddModule(Module *module)
+{
+    fModules.push_back(module);
+}
+
+Experiment::Experiment(const char *name, const char *title)
+    : TNamed(name, title)
+{}
+
+void Experiment::AddEvent(Event *event)
+{
+    fEvents.push_back(event);
+}
+
 std::vector<TTree *> Experiment::MakeTrees()
 {
     std::vector<TTree *> result;

@@ -1,5 +1,14 @@
 R"(
 #include "{{header_filename}}"
+
+{{exp_struct_name}}::{{exp_struct_name}}()
+    : Experiment("{{exp_name}}", "{{exp_title}}")
+{
+{{#vme_events}}
+        AddEvent(&{{var_name}});
+{{/vme_events}}
+}
+
 {{!
 vim:ft=cpp
 }})"
