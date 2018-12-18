@@ -10,9 +10,8 @@
 class Module: public TNamed
 {
     public:
-        Module(const char *name, const char *title)
-            : TNamed(name, title)
-        {}
+        Module(const char *name, const char *title);
+        virtual ~Module();
 
     ClassDef(Module, 1);
 };
@@ -20,21 +19,16 @@ class Module: public TNamed
 class Event: public TNamed
 {
     public:
-        Event(const char *name, const char *title)
-            : TNamed(name, title)
-        {}
+        Event(const char *name, const char *title);
 
-        size_t GetNumberOfSubevents() const { return fSubevents.size(); }
-        std::vector<Module *> GetSubevents() const { return fSubevents; }
+        size_t GetNumberOfModules() const { return fModules.size(); }
+        std::vector<Module *> GetModules() const { return fModules; }
 
     protected:
-        void AddSubevent(Module *subevent)
-        {
-            fSubevents.push_back(subevent);
-        }
+        void AddModule(Module *module);
 
     private:
-        std::vector<Module *> fSubevents; // !
+        std::vector<Module *> fModules; // !
 
     ClassDef(Event, 1);
 };
@@ -42,9 +36,7 @@ class Event: public TNamed
 class Experiment: public TNamed
 {
     public:
-        Experiment(const char *name, const char *title)
-            : TNamed(name, title)
-        {}
+        Experiment(const char *name, const char *title);
 
         size_t GetNumberOfEvents() const { return fEvents.size(); }
         std::vector<Event *> GetEvents() const { return fEvents; }
@@ -52,10 +44,7 @@ class Experiment: public TNamed
         std::vector<TTree *> MakeTrees();
 
     protected:
-        void AddEvent(Event *event)
-        {
-            fEvents.push_back(event);
-        }
+        void AddEvent(Event *event);
 
     private:
         std::vector<Event *> fEvents; // !

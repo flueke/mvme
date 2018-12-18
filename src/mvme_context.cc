@@ -25,7 +25,7 @@
 #include "analysis/analysis.h"
 #include "analysis/analysis_session.h"
 #include "analysis/analysis_ui.h"
-#include "data_server.h"
+#include "event_server/event_server.h"
 #include "file_autosaver.h"
 #include "mvme_context_lib.h"
 #include "mvme.h"
@@ -555,17 +555,17 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
 
     m_streamWorker = std::make_unique<MVMEStreamWorker>(this, &m_freeBuffers, &m_fullBuffers);
 
-    auto analysisDataServer = new AnalysisDataServer(m_streamWorker.get());
-    analysisDataServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
-    analysisDataServer->setListeningInfo(QHostAddress::Any, AnalysisDataServer_DefaultListenPort);
-    m_streamWorker->getStreamProcessor()->attachModuleConsumer(analysisDataServer);
+    auto eventServer = new EventServer(m_streamWorker.get());
+    eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
+    eventServer->setListeningInfo(QHostAddress::Any, AnalysisDataServer_DefaultListenPort);
+    m_streamWorker->getStreamProcessor()->attachModuleConsumer(eventServer);
 
     m_streamWorker->moveToThread(m_analysisThread);
 
     connect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged,
             this, &MVMEContext::onMVMEStreamWorkerStateChanged);
 
-    analysisDataServer->moveToThread(m_analysisThread);
+    eventServer->moveToThread(m_analysisThread);
     m_analysisThread->start();
 
     {

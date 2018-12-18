@@ -1,64 +1,48 @@
-#include "mvme_data_server_lib.h"
-
+#include <fstream>
 #include <getopt.h>
-#include <regex>
 #include <signal.h>
+#include <string>
+
+// ROOT
 #include <TFile.h>
-#include <TNtupleD.h>
-#include <TTree.h>
+#include <TROOT.h> // gROOT
+#include <TSystem.h> // gSystem
+
+// mvme
+#include <Mustache/mustache.hpp>
+#include "event_server/event_server_lib.h"
+#include "event_server/mvme_root_event_objects.h"
 
 using std::cerr;
 using std::cout;
 using std::endl;
+
+namespace mu = kainjow::mustache;
 using namespace mvme::data_server;
 
-namespace
-{
 
-std::string make_branch_name(const std::string &input)
-{
-    std::regex re("/|\\|[|]|\\.");
-    return std::regex_replace(input, re, "_");
-}
+// The c++11 way of including text strings into the binary. Uses the new R"()"
+// raw string syntax and the preprocessor to create a static string embedded in
+// the binary.
 
-std::string make_unique_name(const std::string &str, const std::set<std::string> &names)
-{
-    std::string result = str;
-    size_t suffix = 1;
+static const char *exportHeaderTemplate =
+#include "event_server/templates/root_event_objects.h.mustache"
+;
 
-    while (names.count(result) > 0)
-    {
-        result = str + std::to_string(suffix++);
-    }
+static const char *exportImplTemplate =
+#include "event_server/templates/root_event_objects.cxx.mustache"
+;
 
-    return result;
-}
-
-struct EventStorage
-{
-    // one tree per event
-    TTree *tree = nullptr;
-
-    // one buffer per datasource in the event
-    std::vector<std::vector<float>> buffers;
-    uint32_t hits = 0u;
-};
-
-using ClockType = std::chrono::high_resolution_clock;
-
-struct RunStats
-{
-    ClockType::time_point tStart;
-    ClockType::time_point tEnd;
-    size_t totalDataBytes = 0;
-};
-
-class Context: public mvme::data_server::Parser
+//
+// ClientContext
+//
+class ClientContext: public mvme::data_server::Parser
 {
     public:
-        bool doQuit() const { return m_quit; }
-        void setConvertNaNsToZero(bool doConvert) { m_convertNaNs = doConvert; }
-        void setSingleRun(bool b) { m_singleRun = b; }
+        ClientContext(const std::string &outputDirectory, bool convertNaNsToZero)
+            : m_outputDirectory(outputDirectory)
+            , m_convertNansToZero(convertNaNsToZero)
+        { }
 
     protected:
         virtual void serverInfo(const Message &msg, const json &info) override;
@@ -72,20 +56,16 @@ class Context: public mvme::data_server::Parser
         virtual void error(const Message &msg, const std::exception &e) override;
 
     private:
-        std::unique_ptr<TFile> m_outFile;
-        std::vector<EventStorage> m_trees;
-        RunStats m_stats;
-        bool m_quit = false;
-        bool m_convertNaNs = false;
-        bool m_singleRun = false;
+        std::string m_outputDirectory;
+        bool m_convertNansToZero = false;
 };
 
-void Context::serverInfo(const Message &msg, const json &info)
+void ClientContext::serverInfo(const Message &msg, const json &info)
 {
     cout << __FUNCTION__ << ": serverInfo:" << endl << info.dump(2) << endl;
 }
 
-void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
+void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 {
     cout << __FUNCTION__ << ": run information:"
         << endl << streamInfo.infoJson.dump(2) << endl;
@@ -93,7 +73,157 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
     cout << __FUNCTION__ << ": runId=" << streamInfo.runId
         << endl;
 
+    std::string projectName = streamInfo.infoJson["ProjectName"];
+    std::string projectTitle = streamInfo.infoJson["ProjectTitle"];
+
+    cout << __FUNCTION__ << ": generating ROOT classes for Experiment " << projectName << endl;
+
+    mu::data mu_vmeEvents = mu::data::type::list;
+
+    for (const auto &event: streamInfo.vmeTree.events)
+    {
+        mu::data mu_vmeModules = mu::data::type::list;
+
+        for (const auto &module: event.modules)
+        {
+            mu::data mu_moduleDataMembers = mu::data::type::list;
+
+            for (const auto &edd: streamInfo.eventDataDescriptions)
+            {
+                if (edd.eventIndex != event.eventIndex) continue;
+
+                for (const auto &ds: edd.dataSources)
+                {
+                    if (ds.moduleIndex != module.moduleIndex) continue;
+
+                    mu::data mu_dataMember = mu::data::type::object;
+                    mu_dataMember["type"] = ds.dataType;
+                    mu_dataMember["name"] = ds.name;
+                    mu_dataMember["size"] = std::to_string(ds.size);
+
+                    mu_moduleDataMembers.push_back(mu_dataMember);
+                }
+            }
+
+            mu::data mu_module = mu::data::type::object;
+            mu_module["struct_name"] = "Module_" + module.name;
+            mu_module["name"] = module.name;
+            mu_module["title"] = "Data storage for module " + module.name;
+            mu_module["var_name"] = module.name;
+            mu_module["data_members"] = mu::data{mu_moduleDataMembers};
+            mu_module["event_name"] = event.name;
+            mu_vmeModules.push_back(mu_module);
+        }
+
+        mu::data mu_event = mu::data::type::object;
+        mu_event["struct_name"] = "Event_" + event.name;
+        mu_event["title"] = "Storage for event " + event.name;
+        mu_event["name"] = event.name;
+        mu_event["var_name"] = event.name;
+        mu_event["modules"] = mu::data{mu_vmeModules};
+        mu_vmeEvents.push_back(mu_event);
+    }
+
+    // combine template data into one object
+    mu::data mu_data;
+    mu_data["vme_events"] = mu::data{mu_vmeEvents};
+    mu_data["exp_name"] = projectName;
+    std::string experimentStructName = projectName;
+    mu_data["exp_struct_name"] = experimentStructName;
+    mu_data["exp_title"] = projectTitle;
+    mu_data["header_guard"] = projectName;
+
+    std::string headerFilename = projectName + "_mvme.h";
+    std::string headerFilepath = m_outputDirectory + "/" + headerFilename;
+    std::string implFilename = projectName + "_mvme.cxx";
+    std::string implFilepath = m_outputDirectory + "/" + implFilename;
+
+    mu_data["header_filename"] = headerFilename;
+    mu_data["impl_filename"] = implFilename;
+
+    // write header file
+    {
+        mu::mustache tmpl(exportHeaderTemplate);
+        std::string rendered = tmpl.render(mu_data);
+
+        cout << "Writing header file " << headerFilepath << endl;
+        std::ofstream out(headerFilepath);
+        out << rendered;
+    }
+
+    // write impl file
+    {
+        mu::mustache tmpl(exportImplTemplate);
+        std::string rendered = tmpl.render(mu_data);
+
+        cout << "Writing impl file " << implFilepath << endl;
+        std::ofstream out(implFilename);
+        out << rendered;
+    }
+
+    // Build the project library. This has dependencies on both
+    // mvme_root_event_objects.h and libmvme_root_event.
+    // => Need to have the correct include and library paths set for the compile
+    // and load step to work.
+    // TODO: check return value of the .L command and provide specific error message?
+#if 0
+    {
+        //gSystem->AddIncludePath(" -I$MVME/include ");
+        //gSystem->AddLinkedLibs(" -lmvme_root_event ");
+        //gSystem->AddIncludePath(" -I/home/florian/src/build-mvme2-debug ");
+        //gSystem->AddLinkedLibs(" -L/home/florian/src/build-mvme2-debug -lmvme_root_event ");
+
+        std::string cmd = ".L " + implFilepath + "+v";
+        cout << "Running ROOT command: '" << cmd << "'" << endl;
+        auto res = gROOT->ProcessLineSync(cmd.c_str());
+        cout << endl << "-> result = " << res << endl;
+
+        // Instantiate the project specific Experiment subclass we just
+        // generated and built.
+        cmd = "new " + experimentStructName + "();";
+        cout << "Running ROOT command: " << cmd << endl;
+        auto experiment = reinterpret_cast<Experiment *>(
+            gROOT->ProcessLineSync(cmd.c_str()));
+        assert(experiment);
+    }
+#endif
+
+#if 1
+    {
+        std::string cmd = implFilepath + "+";
+        cout << "LoadMacro " + cmd << endl;
+        int error = 0;
+        auto res = gROOT->LoadMacro(cmd.c_str(), &error);
+        cout << "res=" << res << ", error=" << error << endl;
+        assert(res == 0);
+    }
+#endif
+
+#if 0
+    // Have to figure out the path to the shared object built by mvme!
+    // The first lib contains the base class implementations
+    // .L libmvme_root_event.so
+    // An alternative would be to use gSystem->AddLinkedLibs().
+    // Test to see if this makes the snake lib link directly with the mvme_event lib
+    // or maybe use gSystem->Load("") to load the lib directly without ProcessLine.
+
+    // compile and load the generated code
+    std::string cmd = ".L " + implFilepath + "+";
+    cout << "ROOT command: " << cmd << endl;
+    cout << gROOT->ProcessLineSync(cmd.c_str()) << endl;
+
+    // instantiate the project specific Experiment subclass
+    cmd = "new " + experimentStructName + "();";
+    cout << "ROOT command: " << cmd << endl;
+    auto experiment = reinterpret_cast<Experiment *>(
+        gROOT->ProcessLineSync(cmd.c_str()));
+
+    assert(experiment);
+#endif
+
+#if 0
     std::string filename;
+
 
     if (streamInfo.runId.empty())
     {
@@ -115,7 +245,7 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
     std::vector<size_t> eventByteSizes;
 
     // For each incoming event: create a TTree, buffer space and branches
-    for (const EventDataDescription &edd: streamInfo.eventDescriptions)
+    for (const EventDataDescription &edd: streamInfo.eventDataDescriptions)
     {
         const VMEEvent &event = streamInfo.vmeTree.events[edd.eventIndex];
 
@@ -177,11 +307,13 @@ void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
     m_stats = {};
     m_stats.tStart = ClockType::now();
+#endif
 }
 
-void Context::eventData(const Message &msg, int eventIndex,
+void ClientContext::eventData(const Message &msg, int eventIndex,
                         const std::vector<DataSourceContents> &contents)
 {
+#if 0
     assert(0 <= eventIndex && static_cast<size_t>(eventIndex) < m_trees.size());
 
     auto &eventStorage = m_trees[eventIndex];
@@ -217,10 +349,12 @@ void Context::eventData(const Message &msg, int eventIndex,
 
     eventStorage.tree->Fill();
     eventStorage.hits++;
+#endif
 }
 
-void Context::endRun(const Message &msg)
+void ClientContext::endRun(const Message &msg)
 {
+#if 0
     cerr << __FUNCTION__ << endl;
 
     if (m_outFile)
@@ -259,12 +393,14 @@ void Context::endRun(const Message &msg)
         << endl;
 
     if (m_singleRun) m_quit = true;
+#endif
 }
 
-void Context::error(const Message &msg, const std::exception &e)
+void ClientContext::error(const Message &msg, const std::exception &e)
 {
     cout << "An error occured: " << e.what() << endl;
 
+#if 0
     if (m_outFile)
     {
         cout << "Closing output file " << m_outFile->GetName() << "..." << endl;
@@ -273,6 +409,7 @@ void Context::error(const Message &msg, const std::exception &e)
     }
 
     m_quit = true;
+#endif
 }
 
 static bool signal_received = false;
@@ -299,98 +436,107 @@ void setup_signal_handlers()
     }
 }
 
-} // end anon namespace
-
+//
+// main
+//
 int main(int argc, char *argv[])
 {
+#if 1
     // host, port, quit after one run?,
     // output filename? if not specified is taken from the runId
     // send out a reply is response to the EndRun message?
     std::string host = "localhost";
     std::string port = "13801";
+    std::string outputDirectory = ".";
     bool singleRun = false;
-    bool convertNaNs = false;
+    bool convertNaNsToZero = false;
     bool showHelp = false;
 
     while (true)
     {
         static struct option long_options[] =
         {
-            { "single-run",             no_argument, nullptr,    0 },
-            { "convert-nans",           no_argument, nullptr,    0 },
-            { "help",                   no_argument, nullptr,    0 },
+            { "single-run", no_argument, nullptr, 0 },
+            { "convert-nans", no_argument, nullptr, 0 },
+            { "output-directory", required_argument, nullptr, 0 },
+            { "help", no_argument, nullptr, 0 },
             { nullptr, 0, nullptr, 0 },
         };
 
         int option_index = 0;
-        int c = getopt_long(argc, argv, "", long_options, &option_index);
+        int c = getopt_long(argc, argv, "o:", long_options, &option_index);
 
-        if (c == '?') // Unrecognized option
+        if (c == -1) break;
+
+        switch (c)
         {
-            return 1;
+            case '?':
+                // Unrecognized option
+                return 1;
+            case 'o':
+                outputDirectory = optarg;
+                break;
+
+            case 0:
+                // long options
+                {
+                    std::string opt_name(long_options[option_index].name);
+
+                    if (opt_name == "single-run") singleRun = true;
+                    if (opt_name == "convert-nans") convertNaNsToZero = true;
+                    if (opt_name == "output-directory") outputDirectory = optarg;
+                    if (opt_name == "help") showHelp = true;
+                }
         }
-
-        if (c != 0)
-            break;
-
-        std::string opt_name(long_options[option_index].name);
-
-        if (opt_name == "single-run")   singleRun = true;
-        if (opt_name == "convert-nans") convertNaNs = true;
-        if (opt_name == "help")         showHelp = true;
     }
 
     if (showHelp)
     {
         cout << "Usage: " << argv[0]
-            << " [--single-run] [--convert-nans] [host=localhost] [port=13801]"
+            << " [--single-run] [--convert-nans] [--output-directory <dir>=.]"
+               " [host=localhost] [port=13801]"
             << endl << endl
             ;
 
         cout << "  If single-run is set the process will exit after receiving" << endl
              << "  data from one run. Otherwise it will wait for the next run to" << endl
-             << "  start." << endl << endl
-
+             << "  start." << endl
+             << endl
              << "  If convert-nans is set incoming NaN data values will be" << endl
-             << "  converted to 0.0 before they are written to their ROOT TBranch." << endl
+             << "  converted to 0.0 before they are written to their respective ROOT" << endl
+             << "  tree Branch." << endl
              << endl
              ;
 
         return 0;
     }
-
-    if (optind < argc) { host = argv[optind++]; }
-    if (optind < argc) { port = argv[optind++]; }
+#endif
 
     setup_signal_handlers();
 
-    int res = mvme::data_server::lib_init();
-    if (res != 0)
+    if (int res = mvme::data_server::lib_init() != 0)
     {
         cerr << "mvme::data_server::lib_init() failed with code " << res << endl;
         return 1;
     }
 
-    // Subclass of mvme::data_server::Parser implementing the ROOT tree
-    // creation. This is driven through handleMessage() which then calls our
-    // specialized handlers.
-    Context ctx;
-    ctx.setConvertNaNsToZero(convertNaNs);
-    ctx.setSingleRun(singleRun);
+    ClientContext ctx(outputDirectory, convertNaNsToZero);
 
     // A single message object, whose buffer is reused for each incoming
     // message.
     Message msg;
     int sockfd = -1;
     int retval = 0;
+    bool doQuit = false;
 
-    while (!ctx.doQuit() && !signal_received)
+    while (!doQuit && !signal_received)
     {
         if (sockfd < 0)
         {
             cout << "Connecting to " << host << ":" << port << " ..." << endl;
         }
 
+        // auto reconnect loop
         while (sockfd < 0 && !signal_received)
         {
             try
@@ -420,6 +566,11 @@ int main(int argc, char *argv[])
         {
             read_message(sockfd, msg);
             ctx.handleMessage(msg);
+
+            if (singleRun && msg.type == MessageType::EndRun)
+            {
+                doQuit = true;
+            }
         }
         catch (const mvme::data_server::connection_closed &)
         {
@@ -446,4 +597,42 @@ int main(int argc, char *argv[])
 
     mvme::data_server::lib_shutdown();
     return retval;
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if 0
+    // The impl and the header file have to be generated by mvme.
+
+    TFile f("test1.root", "recreate");
+
+    // produces SnakeMVME_cxx.so and loads it immediately
+    cout << gROOT->ProcessLineSync(".L SnakeMVME.cxx+") << endl;
+
+    auto experiment = reinterpret_cast<Experiment *>(
+        gROOT->ProcessLineSync("new SnakeExperiment();"));
+
+    if (!experiment) return 1;
+
+    cout << experiment->ClassName() << endl;
+
+    auto trees = experiment->MakeTrees();
+
+    assert(trees.size() == experiment->GetNumberOfEvents());
+
+    f.Write();
+#endif
+
+
+
+    return 0;
 }

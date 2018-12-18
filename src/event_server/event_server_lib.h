@@ -1,7 +1,7 @@
 #ifndef __MVME_DATA_SERVER_CLIENT_LIB_H__
 #define __MVME_DATA_SERVER_CLIENT_LIB_H__
 
-#include "mvme_data_server_proto.h"
+#include "event_server_proto.h"
 
 #include <cassert>
 #include <cstring> // memcpy
@@ -305,7 +305,7 @@ struct VMETree
 
 struct StreamInfo
 {
-    EventDataDescriptions eventDescriptions;
+    EventDataDescriptions eventDataDescriptions;
     VMETree vmeTree;
     std::string runId;
     bool isReplay = false;
@@ -410,10 +410,10 @@ static StreamInfo parse_stream_info(const json &j)
 
         result.infoJson = j;
         result.runId = j["runId"];
-        result.eventDescriptions = parse_stream_data_description(j["eventDataSources"]);
+        result.eventDataDescriptions = parse_stream_data_description(j["eventDataSources"]);
         result.vmeTree = parse_vme_tree(j["vmeTree"]);
 
-        for (const auto &edd: result.eventDescriptions)
+        for (const auto &edd: result.eventDataDescriptions)
         {
             if (!(0 <= edd.eventIndex
                   && static_cast<size_t>(edd.eventIndex) < result.vmeTree.events.size()))
@@ -554,10 +554,10 @@ void Parser::_eventData(const Message &msg)
     const uint8_t *contentsEnd   = msg.contents.data() + msg.contents.size();
     auto eventIndex = *(reinterpret_cast<const uint32_t *>(contentsBegin));
 
-    if (eventIndex >= m_streamInfo.eventDescriptions.size())
+    if (eventIndex >= m_streamInfo.eventDataDescriptions.size())
         throw data_consistency_error("eventIndex out of range");
 
-    const EventDataDescription &edd = m_streamInfo.eventDescriptions[eventIndex];
+    const EventDataDescription &edd = m_streamInfo.eventDataDescriptions[eventIndex];
     assert(edd.dataSources.size() == edd.dataSourceOffsets.size());
     const size_t dataSourceCount = edd.dataSources.size();
 

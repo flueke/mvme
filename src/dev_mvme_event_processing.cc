@@ -11,7 +11,7 @@
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_session.h"
-#include "data_server.h"
+#include "event_server/event_server.h"
 #include "mvme_listfile_utils.h"
 #include "mvme_stream_processor.h"
 #include "util/counters.h"
@@ -61,7 +61,7 @@ struct Context
     u32 listfileVersion;
     MVMEStreamProcessor::Logger logger;
     MVMEStreamProcessor streamProcessor;
-    std::unique_ptr<AnalysisDataServer> dataServer;
+    std::unique_ptr<EventServer> eventServer;
 };
 
 void process_listfile(Context &context, ListFile *listfile)
@@ -214,21 +214,21 @@ int main(int argc, char *argv[])
 
         if (enableAnalysisServer)
         {
-            context.dataServer = std::make_unique<AnalysisDataServer>();
-            context.dataServer->setLogger(logger);
-            context.streamProcessor.attachModuleConsumer(context.dataServer.get());
+            context.eventServer = std::make_unique<EventServer>();
+            context.eventServer->setLogger(logger);
+            context.streamProcessor.attachModuleConsumer(context.eventServer.get());
         }
 
         context.streamProcessor.startup();
 
         if (enableAnalysisServer)
         {
-            if (!context.dataServer->isListening())
+            if (!context.eventServer->isListening())
                 return 1;
 
             cout << "waiting for client to connect..." << endl;
 
-            while (context.dataServer->getNumberOfClients() == 0)
+            while (context.eventServer->getNumberOfClients() == 0)
             {
                 app.processEvents(QEventLoop::AllEvents | QEventLoop::WaitForMoreEvents);
             }
