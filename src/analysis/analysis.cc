@@ -682,6 +682,12 @@ ListFilterExtractor::ListFilterExtractor(QObject *parent)
     m_rngSeed = dist(StaticRandomDevice);
 }
 
+u32 ListFilterExtractor::getDataBits() const
+{
+    u32 dataBits = get_extract_bits(&m_a2Extractor.listFilter, a2::data_filter::MultiWordFilter::CacheD);
+    return dataBits;
+}
+
 void ListFilterExtractor::beginRun(const RunInfo &runInfo, Logger logger)
 {
     u32 addressCount = get_address_count(&m_a2Extractor);

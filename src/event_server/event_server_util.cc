@@ -37,6 +37,32 @@ QJsonValue make_vme_tree_description(const VMEConfig *vmeConfig)
     return vmeTree;
 }
 
+static QString get_value_type(const analysis::SourceInterface *dataSource)
+{
+    u32 bits = 0;
+
+    if (auto ds = qobject_cast<const analysis::Extractor *>(dataSource))
+    {
+        bits = ds->getFilter().getDataBits();
+    }
+    else if (auto ds = qobject_cast<const analysis::ListFilterExtractor *>(dataSource))
+    {
+        bits = ds->getDataBits();
+    }
+
+    static const std::array<u32, 3> typewidths = {16, 32, 64};
+
+    for (u32 ti = 0; ti < typewidths.size(); ti++)
+    {
+        if (bits <= typewidths[ti])
+        {
+            return QString("uint%1_t").arg(typewidths[ti]);
+        }
+    }
+
+    return QString();
+}
+
 QJsonValue make_datasource_description(const analysis::Analysis *analysis)
 {
     // NOTE: The order of data sources in an event is currently determined by
@@ -66,24 +92,28 @@ QJsonValue make_datasource_description(const analysis::Analysis *analysis)
             auto a1_dataSource = a2_adapter->sourceMap.value(a2_dataSource);
             s32 moduleIndex = a2_dataSource->moduleIndex;
 
+            auto valueType = get_value_type(a1_dataSource);
+
+
             qDebug() << "DataServer" << "structure: eventIndex=" << eventIndex << "dsIndex=" << dsIndex
                 << "a2_ds=" << a2_dataSource << ", a1_dataSource=" << a1_dataSource
                 << "a2_ds_moduleIndex=" << moduleIndex;
 
-            qint64 output_size  = a2_dataSource->output.size();
-            qint64 output_bytes = output_size * a2_dataSource->output.data.element_size;
+            qint64 outputSize = a2_dataSource->output.size();
 
             QJsonObject dsInfo;
             dsInfo["name"] = a1_dataSource->objectName();
             dsInfo["moduleIndex"] = moduleIndex;
-            dsInfo["datatype"] = "double";
-            dsInfo["output_size"]  = output_size;
-            dsInfo["output_bytes"] = output_bytes;
-            dsInfo["output_lowerLimit"] = a2_dataSource->output.lowerLimits[0];
-            dsInfo["output_upperLimit"] = a2_dataSource->output.upperLimits[0];
+            dsInfo["format"] = "SparseArray";
+            dsInfo["indextype"] = "uint16_t";
+            dsInfo["valuetype"] = valueType;
+            dsInfo["size"] = outputSize; // number of elements in the data array
+            dsInfo["lowerLimit"] = a2_dataSource->output.lowerLimits[0];
+            dsInfo["upperLimit"] = a2_dataSource->output.upperLimits[0];
 
             dataSourceInfos.append(dsInfo);
 
+            qint64 output_bytes = outputSize * a2_dataSource->output.data.element_size;
             eventBytes += output_bytes;
         }
 

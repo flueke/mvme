@@ -99,7 +99,7 @@ inline u64 extract(MultiWordFilter *filter, MultiWordFilter::CacheType cacheType
     return result;
 }
 
-inline u16 get_extract_bits(MultiWordFilter *filter, MultiWordFilter::CacheType cacheType)
+inline u16 get_extract_bits(const MultiWordFilter *filter, MultiWordFilter::CacheType cacheType)
 {
     u16 result = 0;
 

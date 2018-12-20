@@ -382,6 +382,12 @@ void EventServer::endEvent(s32 eventIndex)
     if (!dataSourceCount)
         return;
 
+    // XXX: leftoff here. TODO: write out the new indexed format using the
+    // smallest data type possible for the value and always uint16_t for the
+    // index. Create and use a local buffer, fill it, put the final size at the
+    // start and transmit the buffer. This is very similar to listfile
+    // generation.
+
     // pre calculate the output message size. TODO: this should be cached.
     // TODO: send out a sequence number so that clients can figure out how many
     // events they missed so far.
