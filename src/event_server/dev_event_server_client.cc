@@ -59,8 +59,12 @@ void Context::serverInfo(const Message &msg, const json &info)
 
 void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
 {
+    cout << __FUNCTION__ << ": streamInfo JSON data:" << endl
+        << streamInfo.infoJson.dump(2) << endl;
+
     cout << __FUNCTION__ << ": runId=" << streamInfo.runId
         << endl;
+
     m_stats = {};
     m_stats.messageCount++;
 

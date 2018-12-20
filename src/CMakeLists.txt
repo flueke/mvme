@@ -318,19 +318,19 @@ if (True)
     add_custom_command(
         OUTPUT mvme_root_event_rdict.cxx
             G__mvme_root_event_objects_rdict.cxx
-            G__mvme_root_event_objects_rdict.pcm
+            G__mvme_root_event_objects_rdict_rdict.pcm
         COMMAND rootcling -f mvme_root_event_rdict.cxx
             ${CMAKE_CURRENT_SOURCE_DIR}/event_server/mvme_root_event_objects.h
             ${CMAKE_CURRENT_SOURCE_DIR}/event_server/mvme_root_event_objects_LinkDef.h
         COMMAND ${CMAKE_COMMAND} -E copy
-                ${CMAKE_CURRENT_BINARY_DIR}/mvme_root_event_rdict.pcm
+                ${CMAKE_CURRENT_BINARY_DIR}/mvme_root_event_rdict_rdict.pcm
                 ${CMAKE_BINARY_DIR}/
         DEPENDS
             event_server/mvme_root_event_objects.h
             event_server/mvme_root_event_objects_LinkDef.h
     )
 
-    #set_property(SOURCE G__mvme_root_event_objects.cxx PROPERTY SKIP_AUTOMOC ON)
+    set_property(SOURCE  mvme_root_event_rdict.cxx PROPERTY SKIP_AUTOMOC ON)
     #set_property(SOURCE G__mvme_root_event_objects_rdict.cxx PROPERTY SKIP_AUTOMOC ON)
 
     add_library(mvme_root_event SHARED
