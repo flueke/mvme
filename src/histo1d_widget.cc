@@ -1582,6 +1582,7 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
 
 void Histo1DWidget::setResolutionReductionFactor(u32 rrf)
 {
+    if (rrf == 0) rrf = 1;
     u32 physBins = m_d->m_histo->getNumberOfBins();
     u32 visBins  = physBins / rrf;
     int sliderValue = std::log2(visBins);
