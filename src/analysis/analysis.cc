@@ -682,10 +682,18 @@ ListFilterExtractor::ListFilterExtractor(QObject *parent)
     m_rngSeed = dist(StaticRandomDevice);
 }
 
+u32 ListFilterExtractor::getAddressBits() const
+{
+    u32 bits = get_extract_bits(&m_a2Extractor.listFilter,
+                                a2::data_filter::MultiWordFilter::CacheA);
+    return bits;
+}
+
 u32 ListFilterExtractor::getDataBits() const
 {
-    u32 dataBits = get_extract_bits(&m_a2Extractor.listFilter, a2::data_filter::MultiWordFilter::CacheD);
-    return dataBits;
+    u32 bits = get_extract_bits(&m_a2Extractor.listFilter,
+                                a2::data_filter::MultiWordFilter::CacheD);
+    return bits;
 }
 
 void ListFilterExtractor::beginRun(const RunInfo &runInfo, Logger logger)

@@ -60,6 +60,18 @@ else()
     message("-- Using LIBUSB_LIBRARY=${LIBUSB_LIBRARY}")
 endif()
 
+# Boost
+#set(Boost_USE_MULTITHREADED ON)
+#set(Boost_USE_STATIC_LIBS   ON)
+#
+#if (WIN32)
+#    add_definitions(-D_WIN32_WINNT=0x0501)
+#endif(WIN32)
+#
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
+
 # git version information is contained in its own translation unit. Allows for
 # quick build + relink on version change.
 configure_file("git_sha1.cc.in" "git_sha1.cc" @ONLY)
@@ -110,8 +122,8 @@ set(LIBMVME_SOURCES
     analysis/sink_widget_factory.cc
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
-    event_server/event_server_util.cc
-    event_server/event_server.cc
+    event_server/server/event_server_util.cc
+    event_server/server/event_server.cc
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
     daqstats_widget.cc
@@ -298,94 +310,6 @@ add_mvme_executable(dev_data_filter_edit "dev_data_filter_edit.cc")
 add_mvme_executable(dev_histo1d_testing "dev_histo1d_testing.cc")
 add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
 
-# Minimal standalone test client for the analysis data server.
-add_executable(dev_event_server_client event_server/dev_event_server_client.cc)
-if (WIN32)
-target_link_libraries(dev_event_server_client ws2_32)
-endif (WIN32)
-
-if (ENABLE_ROOT AND ROOT_FOUND)
-if (True)
-    set(root_LIBS
-        ${ROOT_LIBRARIES}
-        ${ROOT_Core_LIBRARY}
-        ${ROOT_RIO_LIBRARY}
-        ${ROOT_Tree_LIBRARY}
-        ${ROOT_Hist_LIBRARY}
-        )
-
-    # libmvme_root_event
-    add_custom_command(
-        OUTPUT mvme_root_event_rdict.cxx
-            G__mvme_root_event_objects_rdict.cxx
-            G__mvme_root_event_objects_rdict_rdict.pcm
-        COMMAND rootcling -f mvme_root_event_rdict.cxx
-            ${CMAKE_CURRENT_SOURCE_DIR}/event_server/mvme_root_event_objects.h
-            ${CMAKE_CURRENT_SOURCE_DIR}/event_server/mvme_root_event_objects_LinkDef.h
-        COMMAND ${CMAKE_COMMAND} -E copy
-                ${CMAKE_CURRENT_BINARY_DIR}/mvme_root_event_rdict_rdict.pcm
-                ${CMAKE_BINARY_DIR}/
-        DEPENDS
-            event_server/mvme_root_event_objects.h
-            event_server/mvme_root_event_objects_LinkDef.h
-    )
-
-    set_property(SOURCE  mvme_root_event_rdict.cxx PROPERTY SKIP_AUTOMOC ON)
-    #set_property(SOURCE G__mvme_root_event_objects_rdict.cxx PROPERTY SKIP_AUTOMOC ON)
-
-    add_library(mvme_root_event SHARED
-        event_server/mvme_root_event_objects.cxx
-        mvme_root_event_rdict.cxx
-        )
-    target_link_libraries(mvme_root_event ${root_LIBS})
-    install(FILES G__mvme_root_event_objects_rdict.pcm DESTINATION .)
-
-    # Build the ROOT TTree writer client. This is a stand-alone, command-line
-    # client speaking the mvme analysis data server protocol.
-    #add_executable(mvme_root_treewriter_client event_server/mvme_root_treewriter_client.cc)
-    #target_link_libraries(mvme_root_treewriter_client ${root_LIBS})
-
-    #include(${ROOT_USE_FILE}) # FIXME: this might change CXXFLAGS globally. verify!
-    #ROOT_GENERATE_DICTIONARY(
-    #    mvme_root_export_objects
-    #    data_export/mvme_root_export_objects.h
-    #    LINKDEF data_export/mvme_root_export_objects_LinkDef.h)
-
-    add_executable(mvme_root_treewriter_client2
-        event_server/mvme_root_treewriter_client2.cc)
-    #${CMAKE_CURRENT_SOURCE_DIR}/G__mvme_root.cxx)
-    target_link_libraries(mvme_root_treewriter_client2 mvme_root_event)
-
-
-    install(FILES event_server/mvme_root_event_objects.h DESTINATION .)
-    ## copy to buildroot at cmake time
-    #configure_file(event_server/mvme_root_event_objects.h
-    #    ${CMAKE_BINARY_DIR}/mvme_root_event_objects.h
-    #    COPYONLY)
-endif()
-if (False)
-    # https://cliutils.gitlab.io/modern-cmake/chapters/packages/ROOT.html
-    # FIXME: The next line messes with the global include directories somehow.
-    include("${ROOT_DIR}/modules/RootNewMacros.cmake")
-    #include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-    #root_generate_dictionary(G__mvme_root_event event_server/mvme_root_event_objects.h
-    #    LINKDEF event_server/mvme_root_event_objects_LinkDef.h
-    #    MODULE mvme_root_event
-    #    NOINSTALL)
-
-    #set_property(SOURCE G__mvme_root_event.cxx PROPERTY SKIP_AUTOMOC ON)
-
-    #add_library(mvme_root_event SHARED
-    #    event_server/mvme_root_event_objects.cxx
-    #    G__mvme_root_event.cxx
-    #    )
-    #target_link_libraries(mvme_root_event ${ROOT_LIBRARIES})
-
-    #add_executable(mvme_root_treewriter_client2 event_server/mvme_root_treewriter_client2.cc)
-    #target_link_libraries(mvme_root_treewriter_client2 mvme_root_event)
-endif()
-
-endif(ENABLE_ROOT AND ROOT_FOUND)
 
 set(INCLUDES_TO_INSTALL
     #mvme_data_server_proto.h
@@ -399,17 +323,7 @@ install(FILES ${INCLUDES_TO_INSTALL} DESTINATION include)
 # find the installed includes from that directory?
 #install(FILES data_export/mvme_root_treewriter_client.cc DESTINATION extras/root_treewriter_client/)
 
-# Boost
-#set(Boost_USE_MULTITHREADED ON)
-#set(Boost_USE_STATIC_LIBS   ON)
-#
-#if (WIN32)
-#    add_definitions(-D_WIN32_WINNT=0x0501)
-#endif(WIN32)
-#
-find_package(Boost REQUIRED)
-include_directories(${Boost_INCLUDE_DIRS})
-message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
+add_subdirectory(event_server)
 
 #
 # listfile recovery tool

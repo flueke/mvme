@@ -25,7 +25,7 @@
 #include "analysis/analysis.h"
 #include "analysis/analysis_session.h"
 #include "analysis/analysis_ui.h"
-#include "event_server/event_server.h"
+#include "event_server/server/event_server.h"
 #include "file_autosaver.h"
 #include "mvme_context_lib.h"
 #include "mvme.h"

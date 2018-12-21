@@ -27,14 +27,14 @@
 
 namespace mvme
 {
-namespace data_server
+namespace event_server
 {
 
 using json = nlohmann::json;
 
 // Error handling:
 // Most exceptions thrown by the library are a subtype of
-// mvme::data_server::exception.
+// mvme::event_server::exception.
 //
 // Additionally std::system_error is thrown by the read_*() functions which
 // operator on a file descriptor.
@@ -177,16 +177,14 @@ static void read_message(int fd, Message &msg)
 
 // Connects via TCP to the given host and service (the port in our case).
 // Returns the socket file descriptor on success, throws if an error occured.
-static int connect_to(const char *host, const char *service)
+inline int connect_to(const char *host, const char *service)
 {
     // Note (flueke): The following code was taken from the example in `man 3
     // getaddrinfo' on a linux machine and modified to throw on error.
 
     struct addrinfo hints;
     struct addrinfo *result, *rp;
-    int sfd = -1, s, j;
-    size_t len;
-    ssize_t nread;
+    int sfd = -1, s;
 
     /* Obtain address(es) matching host/port */
 
@@ -228,7 +226,7 @@ static int connect_to(const char *host, const char *service)
 }
 
 // Same as above but taking a port number instead of a string.
-static int connect_to(const char *host, uint16_t port)
+inline int connect_to(const char *host, uint16_t port)
 {
     char buffer[128];
     snprintf(buffer, sizeof(buffer), "%u", static_cast<unsigned>(port));
@@ -237,20 +235,47 @@ static int connect_to(const char *host, uint16_t port)
     return connect_to(host, buffer);
 }
 
+enum class StorageType
+{
+    st_uint16_t,
+    st_uint32_t,
+    st_uint64_t,
+};
+
+static std::string to_string(const StorageType &st)
+{
+    switch (st)
+    {
+        case StorageType::st_uint16_t: return "uint16_t";
+        case StorageType::st_uint32_t: return "uint32_t";
+        case StorageType::st_uint64_t: return "uint64_t";
+    }
+    return {};
+}
+
+static StorageType storage_type_from_string(const std::string &str)
+{
+    auto result = StorageType::st_uint64_t;
+
+    if (str == "uint16_t") result = StorageType::st_uint16_t;
+    else if (str == "uint32_t") result = StorageType::st_uint32_t;
+    else if (str == "uint64_t") result = StorageType::st_uint64_t;
+
+    return result;
+}
+
 // Description of a datasource contained in the data stream. Multiple data
 // sources can be part of the same event and multiple datasources can be
 // attached to the same vme module.
-// Currently the only data type a datasource can contain is an array of double
-// values, so no type information is stored here yet.
 struct DataSourceDescription
 {
     std::string name;           // Name of the datasource.
     int moduleIndex = -1;       // The index of the module this datasource is attached to.
-    double lowerLimit = 0.0;    // Lower and upper limits of the values produced by the datasource.
-    double upperLimit = 0.0;    //
     uint32_t size = 0u;         // Number of elements in the output array of this datasource.
-    uint32_t bytes = 0u;        // Total number of bytes the output of the datasource requires.
-    std::string dataType;       // C data type: double, float, uint16_t, ...
+    double lowerLimit = 0.0;    // Lower and upper limits of the values produced by the datasource.
+    double upperLimit = 0.0;
+    StorageType indexType;      // Data types used to store the index and data value during network
+    StorageType valueType;      // transfer.
 };
 
 // Description of the data layout for one mvme event. This contains all the
@@ -259,23 +284,10 @@ struct DataSourceDescription
 // calculated and stored for each datasource.
 struct EventDataDescription
 {
-    // Offsets for a datasource from the beginning of the message contents in
-    // bytes.
-    struct Offsets
-    {
-        uint32_t index = 0;         // the index value of this datasource (consistency check)
-        uint32_t bytes = 0;         // index + 4 (consistency check with DataSource::bytes)
-        uint32_t dataBegin = 0;     // bytes + 4
-        uint32_t dataEnd = 0;       // dataBegin + DataSource::bytes
-    };
-
     int eventIndex = -1;
 
     // Datasources that are part of the readout of this event.
     std::vector<DataSourceDescription> dataSources;
-
-    // Offsets for each datasource in this event
-    std::vector<Offsets> dataSourceOffsets;
 };
 
 // Per event data layout descriptions
@@ -328,38 +340,14 @@ static EventDataDescriptions parse_stream_data_description(const json &j)
                 DataSourceDescription ds;
                 ds.name = dsJ["name"];
                 ds.moduleIndex = dsJ["moduleIndex"];
-                ds.size  = dsJ["output_size"];
-                ds.bytes = dsJ["output_bytes"];
                 ds.lowerLimit = dsJ["output_lowerLimit"];
                 ds.upperLimit = dsJ["output_upperLimit"];
-                ds.dataType = dsJ["datatype"];
+                ds.size  = dsJ["output_size"];
+                ds.indexType = storage_type_from_string(dsJ["indexType"]);
+                ds.valueType = storage_type_from_string(dsJ["valueType"]);
                 eds.dataSources.emplace_back(ds);
             }
             result.emplace_back(eds);
-        }
-
-        // Calculate buffer offsets for datasources
-        for (auto &edd: result)
-        {
-            // One Offset structure for each datasource
-            edd.dataSourceOffsets.reserve(edd.dataSources.size());
-
-            // Each message starts with a 4 byte event index.
-            uint32_t currentOffset = sizeof(uint32_t);
-
-            for (const auto &ds: edd.dataSources)
-            {
-                EventDataDescription::Offsets offsets;
-
-                offsets.index = currentOffset; currentOffset += sizeof(uint32_t);
-                offsets.bytes = currentOffset; currentOffset += sizeof(uint32_t);
-                offsets.dataBegin = currentOffset;
-                offsets.dataEnd = currentOffset + ds.bytes;
-                currentOffset = offsets.dataEnd;
-                edd.dataSourceOffsets.emplace_back(offsets);
-            }
-
-            assert(edd.dataSources.size() == edd.dataSourceOffsets.size());
         }
     }
     catch (const json::exception &e)
@@ -369,6 +357,60 @@ static EventDataDescriptions parse_stream_data_description(const json &j)
 
     return result;
 }
+
+static json to_json(const EventDataDescriptions &edds)
+{
+    json result;
+
+    for (auto &edd: edds)
+    {
+        json eddj;
+        eddj["eventIndex"] = edd.eventIndex;
+
+        for (auto &dsd: edd.dataSources)
+        {
+            json dsj;
+
+            dsj["name"] = dsd.name;
+            dsj["size"] = dsd.size;
+            dsj["lowerLimit"] = dsd.lowerLimit;
+            dsj["upperLimit"] = dsd.upperLimit;
+            dsj["indexType"]  = to_string(dsd.indexType);
+            dsj["valueType"]  = to_string(dsd.valueType);
+
+            eddj["dataSources"].push_back(dsj);
+        }
+
+        result.push_back(eddj);
+    }
+
+    return result;
+}
+
+static json to_json(const VMETree &vmeTree)
+{
+    json result;
+
+    for (auto &event: vmeTree.events)
+    {
+        json ej;
+        ej["eventIndex"] = event.eventIndex;
+        ej["name"] = event.name;
+
+        for (auto &module: event.modules)
+        {
+            json mj;
+            mj["moduleIndex"] = module.moduleIndex;
+            mj["name"] = module.name;
+            mj["type"] = module.type;
+            ej["modules"].push_back(mj);
+        }
+        result.push_back(ej);
+    }
+
+    return result;
+}
+
 
 static VMETree parse_vme_tree(const json &j)
 {
@@ -457,6 +499,7 @@ class Parser
     public:
         void handleMessage(const Message &msg);
         void reset();
+        const StreamInfo &getStreamInfo() const { return m_streamInfo; }
         virtual ~Parser() {}
 
     protected:
@@ -557,6 +600,8 @@ void Parser::_eventData(const Message &msg)
     if (eventIndex >= m_streamInfo.eventDataDescriptions.size())
         throw data_consistency_error("eventIndex out of range");
 
+#if 0
+
     const EventDataDescription &edd = m_streamInfo.eventDataDescriptions[eventIndex];
     assert(edd.dataSources.size() == edd.dataSourceOffsets.size());
     const size_t dataSourceCount = edd.dataSources.size();
@@ -617,6 +662,7 @@ void Parser::_eventData(const Message &msg)
     // This is done as a precaution because the raw pointers are only valid as
     // long as the caller-owned Message object is alive.
     m_contentsVec.clear();
+#endif
 }
 
 void Parser::_endRun(const Message &msg)
@@ -624,7 +670,7 @@ void Parser::_endRun(const Message &msg)
     endRun(msg);
 }
 
-} // end namespace data_server
+} // end namespace event_server
 } // end namespace mvme
 
 

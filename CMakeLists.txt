@@ -131,41 +131,6 @@ endif()
 message("-- Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
 message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 
-# ROOT
-# https://root.cern.ch/how/integrate-root-my-project-cmake
-
-# FIXME: This interferes with our own CFLAGS and does not use CMAKE_BUILD_TYPE!
-option(ENABLE_ROOT "Enable ROOT support" OFF)
-
-if (ENABLE_ROOT)
-    list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
-
-    find_package(ROOT
-        COMPONENTS Core RIO Tree Hist)
-
-    if (ROOT_FOUND)
-        #include(${ROOT_USE_FILE})
-        # FIXME: /home/florian/local/root/cmake/ROOTUseFile.cmake does include
-        # a file called "RootNewMacros.cmake" in which ROOT_GENERATE_DICTIONARY
-        # is defined. Do include this single file here.
-        # Basically the only problem I have with including ROOT_USE_FILE
-        # directly is that it changes the CFLAGS an in my case add -DNDEBUG to
-        # the compiler command line which in turn disables assertions. This is
-        # not what I want when doing debug builds...
-        include_directories(${ROOT_INCLUDE_DIRS})
-        link_directories(${ROOT_LIBRARY_DIR})
-        # XXX: This contain -DNDEBUG
-        #add_definitions(${ROOT_DEFINITIONS})
-
-        find_program(ROOT_CONFIG_EXECUTABLE root-config
-            HINTS $ENV{ROOTSYS}/bin)
-
-        add_definitions(-DMVME_ENABLE_ROOT)
-
-        message("-- Found ROOT in ${ROOT_USE_FILE}")
-        message("-- Deliberately ignored ROOT_CXX_FLAGS: ${ROOT_CXX_FLAGS}")
-    endif(ROOT_FOUND)
-endif(ENABLE_ROOT)
 
 # To get a 'make test' target. If this is not in the top level CMakeLists.txt
 # no test target is generated. Do this before any add_subdirectory() commands
@@ -190,7 +155,6 @@ option(BUILD_DOCS "Build the documentation (if Sphinx is found)" ON)
 if (BUILD_DOCS)
     add_subdirectory(doc)
 endif()
-
 
 # Log build type and flags. Keep this below the commands that might change the
 # flags.

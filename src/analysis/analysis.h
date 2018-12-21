@@ -708,6 +708,7 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         void setExtractor(const a2::ListFilterExtractor &ex) { m_a2Extractor = ex; }
         u64 getRngSeed() const { return m_rngSeed; }
         void setRngSeed(u64 seed) { m_rngSeed = seed; }
+        u32 getAddressBits() const;
         u32 getDataBits() const;
 
         using Options = a2::DataSourceOptions;

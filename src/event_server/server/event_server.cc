@@ -1,4 +1,4 @@
-#include "event_server/event_server.h"
+#include "event_server/server/event_server.h"
 
 #include <QCoreApplication>
 #include <QJsonDocument>
@@ -9,11 +9,12 @@
 
 #include "analysis/a2/a2.h"
 #include "analysis/a2_adapter.h"
-#include "event_server/event_server_proto.h"
-#include "event_server/event_server_util.h"
+#include "event_server/common/event_server_proto.h"
+#include "event_server/common/event_server_lib.h"
+#include "event_server/server/event_server_util.h"
 #include "git_sha1.h"
 
-using namespace mvme::data_server;
+using namespace mvme::event_server;
 
 struct EventServer::Private
 {
@@ -27,7 +28,7 @@ struct EventServer::Private
 
         // Copy of the structure generated for clients in beginRun(). Clients
         // that are connecting during a run will be sent this information.
-        QJsonObject outputInfo;
+        json outputInfo;
     };
 
     struct RunStats
@@ -162,14 +163,13 @@ void EventServer::Private::handleNewConnection()
 
         // Initial ServerInfo message
 
-        QJsonObject serverInfo;
+        json serverInfo;
 
-        serverInfo["mvme_version"] = QString(GIT_VERSION);
+        serverInfo["mvme_version"] = std::string(GIT_VERSION);
         serverInfo["protocol_version"] = ProtocolVersion;
 
-        QJsonDocument doc(serverInfo);
-        QByteArray json(doc.toJson());
-        write_message(*clientInfo.socket, MessageType::ServerInfo, json, WriteOption::Flush);
+        auto jsonString = QByteArray::fromStdString(serverInfo.dump());
+        write_message(*clientInfo.socket, MessageType::ServerInfo, jsonString, WriteOption::Flush);
 
         // If a run is in progress immediately send out a BeginRun message to
         // the client. This reuses the information built in beginRun().
@@ -181,10 +181,9 @@ void EventServer::Private::handleNewConnection()
             auto outputInfo = m_runContext.outputInfo;
             outputInfo["runInProgress"] = true;
 
-            QJsonDocument doc(outputInfo);
-            QByteArray json = doc.toJson();
+            auto jsonString = QByteArray::fromStdString(outputInfo.dump());
 
-            write_message(*clientSocket, MessageType::BeginRun, json, WriteOption::Flush);
+            write_message(*clientSocket, MessageType::BeginRun, jsonString, WriteOption::Flush);
         }
 
         if (clientInfo.socket->isValid())
@@ -327,14 +326,17 @@ void EventServer::beginRun(const RunInfo &runInfo,
 
     auto &ctx = m_d->m_runContext;
 
-    QJsonObject outputInfo = make_output_data_description(vmeConfig, analysis);
+    auto outputDescr = make_output_data_description(vmeConfig, analysis);
+    json outputInfo;
+    outputInfo["vmeTree"] = to_json(outputDescr.vmeTree);
+    outputInfo["eventDataSources"] = to_json(outputDescr.eventDataDescriptions);
 
     for (auto key: runInfo.infoDict.keys())
     {
-        outputInfo[key] = QJsonValue::fromVariant(runInfo.infoDict[key]);
+        outputInfo[key.toStdString()] = runInfo.infoDict[key].toString().toStdString();
     }
 
-    outputInfo["runId"] = ctx.runInfo.runId;
+    outputInfo["runId"] = ctx.runInfo.runId.toStdString();
     outputInfo["isReplay"] = ctx.runInfo.isReplay;
     outputInfo["runInProgress"] = false;
 
@@ -343,17 +345,14 @@ void EventServer::beginRun(const RunInfo &runInfo,
     m_d->m_runContext.outputInfo = outputInfo;
     m_d->m_runStats = {};
 
-    QJsonDocument doc(outputInfo);
-    QByteArray json = doc.toJson();
-
     qDebug() << __PRETTY_FUNCTION__ << "outputInfo to be sent to clients:";
-    qDebug().noquote() << json;
+    qDebug().noquote() << QString::fromStdString(outputInfo.dump(2));
 
-    using namespace mvme::data_server;
+    auto jsonString = QByteArray::fromStdString(outputInfo.dump());
 
     for (auto &client: m_d->m_clients)
     {
-        write_message(*client.socket, MessageType::BeginRun, json, WriteOption::Flush);
+        write_message(*client.socket, MessageType::BeginRun, jsonString, WriteOption::Flush);
     }
 
     m_d->m_runInProgress = true;
@@ -403,8 +402,6 @@ void EventServer::endEvent(s32 eventIndex)
         msgSize += ds->output.size() * ds->output.data.element_size;
         m_d->m_runStats.dataBytesPerClient += ds->output.size() * ds->output.data.element_size;
     }
-
-    using namespace mvme::data_server;
 
     // Write out the message header and calculated size, followed by the
     // eventindex to each client socket

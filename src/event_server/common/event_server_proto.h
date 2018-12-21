@@ -23,7 +23,7 @@
 
 namespace mvme
 {
-namespace data_server
+namespace event_server
 {
 
 static const int ProtocolVersion = 1;
