@@ -70,6 +70,13 @@ struct BufferIterator
 {
     enum Alignment { Align16, Align32 };
 
+    u8 *data = nullptr;
+    u8 *buffp = nullptr;
+    u8 *endp = nullptr;
+    size_t size = 0;
+    Alignment alignment = Align32;
+
+
     BufferIterator()
     {}
 
@@ -80,12 +87,6 @@ struct BufferIterator
         , size(size)
         , alignment(alignment)
     {}
-
-    u8 *data = nullptr;
-    u8 *buffp = nullptr;
-    u8 *endp = nullptr;
-    size_t size = 0;
-    Alignment alignment = Align32;
 
     inline bool align32() const { return alignment == Align32; }
 
@@ -162,6 +163,23 @@ struct BufferIterator
         return align32() ? peekU32() : peekU16();
     }
 
+    // Pushes a value onto the back of the buffer. Returns a pointer to the
+    // newly pushed value.
+    // Note: this does not take the alignment flag into account.
+    template <typename T>
+    inline u8 *push(T value)
+    {
+        static_assert(std::is_trivial<T>::value, "push<T>() works for trivial types only");
+
+        if (buffp + sizeof(T) > endp)
+            throw end_of_buffer();
+
+        u8 *ret = buffp;
+        *reinterpret_cast<T *>(buffp) = value;
+        buffp += sizeof(T);
+        return ret;
+    }
+
     inline u32 bytesLeft() const
     {
         return endp - buffp;
@@ -211,6 +229,7 @@ struct BufferIterator
     inline void rewind() { buffp = data; }
     inline bool isEmpty() const { return size == 0; }
     inline bool isNull() const { return !data; }
+    inline size_t used() const { return buffp - data; }
 
     inline ptrdiff_t current32BitOffset() const
     {

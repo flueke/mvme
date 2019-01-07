@@ -264,6 +264,18 @@ static StorageType storage_type_from_string(const std::string &str)
     return result;
 }
 
+static size_t get_storage_type_size(const StorageType &st)
+{
+    switch (st)
+    {
+        case StorageType::st_uint16_t: return sizeof(uint16_t);
+        case StorageType::st_uint32_t: return sizeof(uint32_t);
+        case StorageType::st_uint64_t: return sizeof(uint64_t);
+    }
+
+    return 0;
+}
+
 // Description of a datasource contained in the data stream. Multiple data
 // sources can be part of the same event and multiple datasources can be
 // attached to the same vme module.
@@ -274,14 +286,12 @@ struct DataSourceDescription
     uint32_t size = 0u;         // Number of elements in the output array of this datasource.
     double lowerLimit = 0.0;    // Lower and upper limits of the values produced by the datasource.
     double upperLimit = 0.0;
-    StorageType indexType;      // Data types used to store the index and data value during network
+    StorageType indexType;      // Data types used to store the index and data values during network
     StorageType valueType;      // transfer.
 };
 
-// Description of the data layout for one mvme event. This contains all the
-// datasources attached to the event.
-// Additionally byte offsets into the contents of an EventData-type message are
-// calculated and stored for each datasource.
+// Description of the data layout for one mvme event. This contains
+// descriptions for all the datasources attached to the event.
 struct EventDataDescription
 {
     int eventIndex = -1;
@@ -339,12 +349,13 @@ static EventDataDescriptions parse_stream_data_description(const json &j)
             {
                 DataSourceDescription ds;
                 ds.name = dsJ["name"];
-                ds.moduleIndex = dsJ["moduleIndex"];
-                ds.lowerLimit = dsJ["output_lowerLimit"];
-                ds.upperLimit = dsJ["output_upperLimit"];
-                ds.size  = dsJ["output_size"];
+                ds.size = dsJ["size"];
+                ds.lowerLimit = dsJ["lowerLimit"];
+                ds.upperLimit = dsJ["upperLimit"];
                 ds.indexType = storage_type_from_string(dsJ["indexType"]);
                 ds.valueType = storage_type_from_string(dsJ["valueType"]);
+                ds.moduleIndex = dsJ["moduleIndex"];
+
                 eds.dataSources.emplace_back(ds);
             }
             result.emplace_back(eds);
@@ -375,8 +386,9 @@ static json to_json(const EventDataDescriptions &edds)
             dsj["size"] = dsd.size;
             dsj["lowerLimit"] = dsd.lowerLimit;
             dsj["upperLimit"] = dsd.upperLimit;
-            dsj["indexType"]  = to_string(dsd.indexType);
-            dsj["valueType"]  = to_string(dsd.valueType);
+            dsj["indexType"] = to_string(dsd.indexType);
+            dsj["valueType"] = to_string(dsd.valueType);
+            dsj["moduleIndex"] = dsd.moduleIndex;
 
             eddj["dataSources"].push_back(dsj);
         }
@@ -410,7 +422,6 @@ static json to_json(const VMETree &vmeTree)
 
     return result;
 }
-
 
 static VMETree parse_vme_tree(const json &j)
 {
@@ -488,11 +499,17 @@ bool range_check_le(const T *ptr, const U *end)
 
 struct DataSourceContents
 {
-    const uint32_t *index = nullptr;
-    const uint32_t *bytes = nullptr;
-    const double *dataBegin = nullptr;
-    const double *dataEnd = nullptr;
+    StorageType indexType;
+    StorageType valueType;
+    uint32_t count = 0;
+    const uint8_t *firstIndex = nullptr;
 };
+
+static size_t entry_size(const DataSourceContents &dsc)
+{
+    return get_storage_type_size(dsc.indexType)
+        + get_storage_type_size(dsc.valueType);
+}
 
 class Parser
 {
@@ -525,14 +542,14 @@ class Parser
         std::vector<DataSourceContents> m_contentsVec;
 };
 
-void Parser::reset()
+inline void Parser::reset()
 {
     m_prevMsgType = MessageType::Invalid;
     m_streamInfo = {};
     m_contentsVec.clear();
 }
 
-void Parser::handleMessage(const Message &msg)
+inline void Parser::handleMessage(const Message &msg)
 {
     try
     {
@@ -575,30 +592,65 @@ void Parser::handleMessage(const Message &msg)
     }
 }
 
-void Parser::_serverInfo(const Message &msg)
+inline void Parser::_serverInfo(const Message &msg)
 {
     auto infoJson = json::parse(msg.contents);
     serverInfo(msg, infoJson);
 }
 
-void Parser::_beginRun(const Message &msg)
+inline void Parser::_beginRun(const Message &msg)
 {
     auto infoJson = json::parse(msg.contents);
+
+    std::cout << __FUNCTION__ << ": streamInfo JSON data:" << std::endl
+        << infoJson.dump(2) << std::endl;
+
     m_streamInfo = parse_stream_info(infoJson);
     beginRun(msg, m_streamInfo);
 }
 
-void Parser::_eventData(const Message &msg)
+inline void Parser::_eventData(const Message &msg)
 {
     if (msg.contents.size() == 0u)
         throw protocol_error("Received empty EventData message");
 
     const uint8_t *contentsBegin = msg.contents.data();
     const uint8_t *contentsEnd   = msg.contents.data() + msg.contents.size();
-    auto eventIndex = *(reinterpret_cast<const uint32_t *>(contentsBegin));
+    auto eventIndex = *(reinterpret_cast<const uint8_t *>(contentsBegin));
 
     if (eventIndex >= m_streamInfo.eventDataDescriptions.size())
         throw data_consistency_error("eventIndex out of range");
+
+    const auto &edd = m_streamInfo.eventDataDescriptions[eventIndex];
+    m_contentsVec.resize(edd.dataSources.size());
+
+    const uint16_t *dsIndexPtr = reinterpret_cast<const uint16_t *>(contentsBegin + sizeof(uint8_t));
+    const uint16_t *dsCountPtr = dsIndexPtr + 1;
+    // TODO: range check pointers
+
+    for (size_t dsIndex = 0; dsIndex < edd.dataSources.size(); dsIndex++)
+    {
+        if (*dsIndexPtr != dsIndex)
+            throw protocol_error("Unexpected data source index " + std::to_string(*dsIndexPtr)
+                                 + ", expected " + std::to_string(dsIndex));
+
+        const auto &dsd = edd.dataSources[dsIndex];
+        auto &dsc = m_contentsVec[dsIndex];
+        dsc.indexType = dsd.indexType;
+        dsc.valueType = dsd.valueType;
+        dsc.count = *dsCountPtr;
+        dsc.firstIndex = reinterpret_cast<const uint8_t *>(dsCountPtr + 1);
+
+        dsIndexPtr += entry_size(dsc) * dsc.count;
+        dsCountPtr = dsIndexPtr + 1;
+    }
+
+    // Call the virtual data handler
+    eventData(msg, eventIndex, m_contentsVec);
+
+    // This is done as a precaution because the raw pointers are only valid as
+    // long as the caller-owned Message object is alive.
+    m_contentsVec.clear();
 
 #if 0
 
@@ -665,7 +717,7 @@ void Parser::_eventData(const Message &msg)
 #endif
 }
 
-void Parser::_endRun(const Message &msg)
+inline void Parser::_endRun(const Message &msg)
 {
     endRun(msg);
 }

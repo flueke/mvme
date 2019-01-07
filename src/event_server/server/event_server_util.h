@@ -11,13 +11,14 @@ struct OutputDataDescription
     mvme::event_server::VMETree vmeTree;
 };
 
-OutputDataDescription make_output_data_description(const VMEConfig *vmeConfig,
-                                                   const analysis::Analysis *analysis);
+OutputDataDescription
+make_output_data_description(const VMEConfig *vmeConfig,
+                             const analysis::Analysis *analysis);
 
 mvme::event_server::VMETree
-make_vme_tree_description(const VMEConfig *vmeConfig);
+    make_vme_tree_description(const VMEConfig *vmeConfig);
 
 mvme::event_server::EventDataDescriptions
-make_datasource_descriptions(const analysis::Analysis *analysis);
+    make_datasource_descriptions(const analysis::Analysis *analysis);
 
 #endif /* __MVME_DATA_EXPORT_UTIL_H__ */

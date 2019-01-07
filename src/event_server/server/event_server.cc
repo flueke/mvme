@@ -10,7 +10,6 @@
 #include "analysis/a2/a2.h"
 #include "analysis/a2_adapter.h"
 #include "event_server/common/event_server_proto.h"
-#include "event_server/common/event_server_lib.h"
 #include "event_server/server/event_server_util.h"
 #include "git_sha1.h"
 
@@ -26,9 +25,12 @@ struct EventServer::Private
         const analysis::A2AdapterState *adapterState = nullptr;
         const a2::A2 *a2 = nullptr;
 
-        // Copy of the structure generated for clients in beginRun(). Clients
-        // that are connecting during a run will be sent this information.
-        json outputInfo;
+        OutputDataDescription outputDescription;
+
+        // Copy of the json structure generated for clients in beginRun().
+        // Clients that are connecting during a run will be sent this
+        // information.
+        json outputInfoJSON;
     };
 
     struct RunStats
@@ -41,13 +43,17 @@ struct EventServer::Private
         std::unique_ptr<QTcpSocket> socket;
     };
 
+    static const size_t InitialOutBufferSize = Megabytes(1);
+
     Private(EventServer *q)
         : m_q(q)
         , m_server(q)
+        , m_outBuf(InitialOutBufferSize)
     { }
 
     EventServer *m_q;
     QTcpServer m_server;
+    std::vector<u8> m_outBuf;
     QHostAddress m_listenAddress = QHostAddress::Any;
     quint16 m_listenPort = EventServer::Default_ListenPort;
     EventServer::Logger m_logger;
@@ -178,7 +184,7 @@ void EventServer::Private::handleNewConnection()
             qDebug() << "DataServer: client connected during an active run. Sending"
                 " outputInfo.";
 
-            auto outputInfo = m_runContext.outputInfo;
+            auto outputInfo = m_runContext.outputInfoJSON;
             outputInfo["runInProgress"] = true;
 
             auto jsonString = QByteArray::fromStdString(outputInfo.dump());
@@ -326,10 +332,10 @@ void EventServer::beginRun(const RunInfo &runInfo,
 
     auto &ctx = m_d->m_runContext;
 
-    auto outputDescr = make_output_data_description(vmeConfig, analysis);
+    auto outputDescription = make_output_data_description(vmeConfig, analysis);
     json outputInfo;
-    outputInfo["vmeTree"] = to_json(outputDescr.vmeTree);
-    outputInfo["eventDataSources"] = to_json(outputDescr.eventDataDescriptions);
+    outputInfo["vmeTree"] = to_json(outputDescription.vmeTree);
+    outputInfo["eventDataSources"] = to_json(outputDescription.eventDataDescriptions);
 
     for (auto key: runInfo.infoDict.keys())
     {
@@ -342,7 +348,8 @@ void EventServer::beginRun(const RunInfo &runInfo,
 
     // Store this information so it can be sent out to clients connecting while
     // the DAQ run is in progress.
-    m_d->m_runContext.outputInfo = outputInfo;
+    m_d->m_runContext.outputDescription = outputDescription;
+    m_d->m_runContext.outputInfoJSON = outputInfo;
     m_d->m_runStats = {};
 
     qDebug() << __PRETTY_FUNCTION__ << "outputInfo to be sent to clients:";
@@ -362,14 +369,12 @@ void EventServer::endEvent(s32 eventIndex)
 {
     assert(m_d->m_runInProgress);
 
-    if (!m_d->m_runContext.a2 || eventIndex < 0 || eventIndex >= a2::MaxVMEEvents)
+    if (!m_d->m_runInProgress || !m_d->m_runContext.a2
+        || eventIndex < 0 || eventIndex >= a2::MaxVMEEvents)
     {
         InvalidCodePath;
         return;
     }
-
-    const a2::A2 *a2 = m_d->m_runContext.a2;
-    const u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
 
     if (getNumberOfClients() == 0)
     {
@@ -378,73 +383,96 @@ void EventServer::endEvent(s32 eventIndex)
         return;
     }
 
+    const a2::A2 *a2 = m_d->m_runContext.a2;
+    const u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
+    const auto &edd = m_d->m_runContext.outputDescription.eventDataDescriptions[eventIndex];
+
+    assert(dataSourceCount == edd.dataSources.size());
+
     if (!dataSourceCount)
         return;
 
-    // XXX: leftoff here. TODO: write out the new indexed format using the
-    // smallest data type possible for the value and always uint16_t for the
-    // index. Create and use a local buffer, fill it, put the final size at the
-    // start and transmit the buffer. This is very similar to listfile
-    // generation.
-
-    // pre calculate the output message size. TODO: this should be cached.
-    // TODO: send out a sequence number so that clients can figure out how many
-    // events they missed so far.
-    u32 msgSize = sizeof(u32); // eventIndex
-
-    for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
+    while (true)
     {
-        auto ds = a2->dataSources[eventIndex] + dsIndex;
-
-        // data source index, length of the data source output in bytes
-        msgSize += sizeof(u32) + sizeof(u32);
-        // size of the output * sizeof(double)
-        msgSize += ds->output.size() * ds->output.data.element_size;
-        m_d->m_runStats.dataBytesPerClient += ds->output.size() * ds->output.data.element_size;
-    }
-
-    // Write out the message header and calculated size, followed by the
-    // eventindex to each client socket
-
-    for (auto &client: m_d->m_clients)
-    {
-        if (!client.socket->isValid()) continue;
-
-        write_message_header(*client.socket, MessageType::EventData, msgSize);
-        // TODO: write out an event sequence number
-        write_pod(*client.socket, static_cast<u32>(eventIndex));
-    }
-
-    // Iterate through module data sources and send out the extracted values to
-    // each connected client.
-    // Format is:
-    // MessageType::EventData
-    // u32 eventIndex
-    // for each dataSource:
-    //  u32 dataSourceIndex
-    //  u32 data size in bytes
-    //  data values (doubles) from the data pipe
-
-    for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
-    {
-        a2::DataSource *ds = a2->dataSources[eventIndex] + dsIndex;
-        const a2::PipeVectors &dataPipe = ds->output;
-
-        auto dBegin = reinterpret_cast<const char *>(dataPipe.data.begin());
-        auto dEnd   = reinterpret_cast<const char *>(dataPipe.data.end());
-        const u32 dataBytesToWrite = dEnd - dBegin;
-
-        for (auto &client: m_d->m_clients)
+        try
         {
-            if (!client.socket->isValid()) continue;
+            BufferIterator out(m_d->m_outBuf.data(), m_d->m_outBuf.size());
 
-            // Note: technically the size does not need to be transmitted
-            // again. The client got the information about the indiviudal
-            // outputs sizes in the BeginRun message. This information is here
-            // for consistency checks only.
-            write_pod(*client.socket, dsIndex);
-            write_pod(*client.socket, dataBytesToWrite);
-            write_data(*client.socket, dBegin, dataBytesToWrite);
+            // Push message type, space for the message size and the eventIndex
+            // onto the output buffer.
+            out.push(MessageType::EventData);
+            u32 *msgSizePtr = out.asU32(); out.skip(sizeof(u32));
+            out.push(static_cast<u8>(eventIndex));
+
+            for (size_t dsIndex = 0; dsIndex < edd.dataSources.size(); dsIndex++)
+            {
+                // For each data source push its' index and reserve space for
+                // the number of following (index, value) pairs.
+                out.push(static_cast<u16>(dsIndex));
+                u16 *countPtr = out.asU16(); out.skip(sizeof(u16));
+
+                const a2::DataSource *ds = a2->dataSources[eventIndex] + dsIndex;
+                const a2::PipeVectors &dataPipe = ds->output;
+                const auto &dsd = edd.dataSources[dsIndex];
+                u16 validCount = 0;
+
+                // Write out the (index, value) pairs for valid parameters
+                // using the data types specified in the DataSourceDescription.
+                for (s32 paramIndex = 0; paramIndex < dataPipe.size(); paramIndex++)
+                {
+                    double paramValue = dataPipe.data[paramIndex];
+
+                    if (a2::is_param_valid(paramValue))
+                    {
+                        switch (dsd.indexType)
+                        {
+                            case StorageType::st_uint16_t:
+                                out.push(static_cast<u16>(paramIndex));
+                                break;
+                            case StorageType::st_uint32_t:
+                                out.push(static_cast<u32>(paramIndex));
+                                break;
+                            case StorageType::st_uint64_t:
+                                out.push(static_cast<u64>(paramIndex));
+                                break;
+                        }
+
+                        switch (dsd.valueType)
+                        {
+                            case StorageType::st_uint16_t:
+                                out.push(static_cast<u16>(paramValue));
+                                break;
+                            case StorageType::st_uint32_t:
+                                out.push(static_cast<u32>(paramValue));
+                                break;
+                            case StorageType::st_uint64_t:
+                                out.push(static_cast<u64>(paramValue));
+                                break;
+                        }
+
+                        validCount++;
+                    }
+                }
+
+                *countPtr = validCount;
+            }
+
+            u32 contentsBytes = out.asU8() - reinterpret_cast<u8 *>((msgSizePtr + 1));
+            *msgSizePtr = contentsBytes;
+
+            for (auto &client: m_d->m_clients)
+            {
+                if (!client.socket->isValid()) continue;
+                write_data(*client.socket, reinterpret_cast<const char *>(out.data), out.used());
+            }
+
+            m_d->m_runStats.dataBytesPerClient += out.used();
+
+            break;
+        } catch (const end_of_buffer &)
+        {
+            // double the size before trying again
+            m_d->m_outBuf.resize(m_d->m_outBuf.size() * 2);
         }
     }
 

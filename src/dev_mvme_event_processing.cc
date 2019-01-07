@@ -11,7 +11,7 @@
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_session.h"
-#include "event_server/event_server.h"
+#include "event_server/server/event_server.h"
 #include "mvme_listfile_utils.h"
 #include "mvme_stream_processor.h"
 #include "util/counters.h"

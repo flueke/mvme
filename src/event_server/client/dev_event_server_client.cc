@@ -7,7 +7,7 @@
 using std::cerr;
 using std::cout;
 using std::endl;
-using namespace mvme::data_server;
+using namespace mvme::event_server;
 
 namespace
 {
@@ -28,7 +28,7 @@ struct RunStats
     size_t dataMessageSizeSum = 0;
 };
 
-class Context: public mvme::data_server::Parser
+class Context: public Parser
 {
     public:
         bool doQuit() const { return m_quit; }
@@ -92,12 +92,14 @@ void Context::eventData(const Message &msg, int eventIndex,
     m_stats.dataMessageCount++;
     m_stats.dataMessageSizeSum += msg.size();
 
+    size_t dsIndex = 0u;
     for (auto &dsc: contents)
     {
-        size_t bytes = (dsc.dataEnd - dsc.dataBegin) * sizeof(double);
+        size_t bytes = entry_size(dsc) * dsc.count;
         m_stats.totalDataBytes += bytes;
         m_stats.eventDataBytes[eventIndex] += bytes;
-        m_stats.eventDSBytes[eventIndex][*dsc.index] += bytes;
+        m_stats.eventDSBytes[eventIndex][dsIndex] += bytes;
+        dsIndex++;
     }
 }
 
@@ -231,7 +233,7 @@ int main(int argc, char *argv[])
 
     setup_signal_handlers();
 
-    int res = mvme::data_server::lib_init();
+    int res = mvme::event_server::lib_init();
     if (res != 0)
     {
         cerr << "lib_init() failed with code " << res << endl;
@@ -258,7 +260,7 @@ int main(int argc, char *argv[])
             {
                 sockfd = connect_to(host.c_str(), port.c_str());
             }
-            catch (const mvme::data_server::exception &e)
+            catch (const mvme::event_server::exception &e)
             {
                 sockfd = -1;
             }
@@ -282,14 +284,14 @@ int main(int argc, char *argv[])
             read_message(sockfd, msg);
             ctx.handleMessage(msg);
         }
-        catch (const mvme::data_server::connection_closed &)
+        catch (const mvme::event_server::connection_closed &)
         {
             cout << "Error: The remote host closed the connection." << endl;
             sockfd = -1;
             // Reset context state as we're going to attempt to reconnect.
             ctx.reset();
         }
-        catch (const mvme::data_server::exception &e)
+        catch (const mvme::event_server::exception &e)
         {
             cout << "An error occured: " << e.what() << endl;
             retval = 1;
@@ -305,6 +307,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    mvme::data_server::lib_shutdown();
+    mvme::event_server::lib_shutdown();
     return retval;
 }

@@ -6,7 +6,7 @@ using namespace mvme::event_server;
 
 static StorageType get_storage_type(unsigned bits)
 {
-    static const std::array<unsigned, 3> typewidths = {16, 32, 64};
+    static const std::array<unsigned, 3> typewidths = {{16, 32, 64}};
 
     for (size_t i = 0; i < typewidths.size(); i++)
     {
@@ -92,7 +92,9 @@ EventDataDescriptions make_event_data_descriptions(const analysis::Analysis *ana
         EventDataDescription edd;
         edd.eventIndex = eventIndex;
 
-        u32 dataSourceCount = edd.dataSources.size();
+        u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
+
+        if (dataSourceCount == 0) continue;
 
         for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
         {
@@ -100,7 +102,7 @@ EventDataDescriptions make_event_data_descriptions(const analysis::Analysis *ana
             auto a1_dataSource = a2_adapter->sourceMap.value(a2_dataSource);
             s32 moduleIndex = a2_dataSource->moduleIndex;
             u32 outputSize = a2_dataSource->output.size();
-            u32 outputBits = std::log2(outputSize);
+            u32 outputBits = std::ceil(std::log2(outputSize));
 
             DataSourceDescription dsd;
             dsd.name = a1_dataSource->objectName().toStdString();

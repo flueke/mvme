@@ -34,7 +34,7 @@ static const int ProtocolVersion = 1;
 // BeginRun     -> EventData | EndRun
 // EventData    -> EventData | EndRun
 // EndRun       -> BeginRun
-enum MessageType: uint32_t
+enum MessageType: uint8_t
 {
     Invalid = 0,
     ServerInfo,
@@ -45,10 +45,9 @@ enum MessageType: uint32_t
     MessageTypeCount
 };
 
-// The Message frame format is (uint32_t type, uint32_t size).
-// type is a MessageType, size specifices the size of the message contents in
-// bytes.
-static const size_t MessageFrameSize = 2 * sizeof(uint32_t);
+// Size of the frame of each message. The message type is followed by a uin32_t
+// value specifying the size of the message contents in bytes.
+static const size_t MessageFrameSize = sizeof(MessageType) + sizeof(uint32_t);
 
 struct Message
 {
