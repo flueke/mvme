@@ -33,6 +33,7 @@ class Context: public Parser
     public:
         bool doQuit() const { return m_quit; }
         void setSingleRun(bool b) { m_singleRun = b; }
+        void setPrintData(bool b) { m_printData = b; }
 
     protected:
         virtual void serverInfo(const Message &msg, const json &info) override;
@@ -50,6 +51,7 @@ class Context: public Parser
         RunStats m_stats;
         bool m_quit = false;
         bool m_singleRun = false;
+        bool m_printData = false;
 };
 
 void Context::serverInfo(const Message &msg, const json &info)
@@ -92,14 +94,24 @@ void Context::eventData(const Message &msg, int eventIndex,
     m_stats.dataMessageCount++;
     m_stats.dataMessageSizeSum += msg.size();
 
-    size_t dsIndex = 0u;
-    for (auto &dsc: contents)
+    if (m_printData)
     {
+        cout << "EventData, eventIndex=" << eventIndex << endl;
+    }
+
+    for (size_t dsIndex = 0; dsIndex < contents.size(); dsIndex++)
+    {
+        auto &dsc = contents[dsIndex];
         size_t bytes = entry_size(dsc) * dsc.count;
         m_stats.totalDataBytes += bytes;
         m_stats.eventDataBytes[eventIndex] += bytes;
         m_stats.eventDSBytes[eventIndex][dsIndex] += bytes;
-        dsIndex++;
+
+        if (m_printData)
+        {
+            cout << "  dsIndex=" << dsIndex << ": ";
+            print(cout, dsc);
+        }
     }
 }
 
@@ -184,14 +196,25 @@ int main(int argc, char *argv[])
     // send out a reply is response to the EndRun message?
     std::string host = "localhost";
     std::string port = "13801";
-    bool singleRun = false;
     bool showHelp = false;
+
+    setup_signal_handlers();
+
+    int res = mvme::event_server::lib_init();
+    if (res != 0)
+    {
+        cerr << "lib_init() failed with code " << res << endl;
+        return 1;
+    }
+
+    Context ctx;
 
     while (true)
     {
         static struct option long_options[] =
         {
             { "single-run",             no_argument, nullptr,    0 },
+            { "print-data",             no_argument, nullptr,    0 },
             { "help",                   no_argument, nullptr,    0 },
             { nullptr, 0, nullptr, 0 },
         };
@@ -209,14 +232,15 @@ int main(int argc, char *argv[])
 
         std::string opt_name(long_options[option_index].name);
 
-        if (opt_name == "single-run")   singleRun = true;
-        if (opt_name == "help")         showHelp = true;
+        if (opt_name == "single-run") ctx.setSingleRun(true);
+        if (opt_name == "print-data") ctx.setPrintData(true);
+        if (opt_name == "help") showHelp = true;
     }
 
     if (showHelp)
     {
         cout << "Usage: " << argv[0]
-            << " [--single-run] [host=localhost] [port=13801]"
+            << " [--single-run] [--print-data] [host=localhost] [port=13801]"
             << endl << endl
             ;
 
@@ -230,18 +254,6 @@ int main(int argc, char *argv[])
 
     if (optind < argc) { host = argv[optind++]; }
     if (optind < argc) { port = argv[optind++]; }
-
-    setup_signal_handlers();
-
-    int res = mvme::event_server::lib_init();
-    if (res != 0)
-    {
-        cerr << "lib_init() failed with code " << res << endl;
-        return 1;
-    }
-
-    Context ctx;
-    ctx.setSingleRun(singleRun);
 
     Message msg;
     int sockfd = -1;

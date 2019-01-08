@@ -67,6 +67,105 @@ struct connection_closed: public exception
     using exception::exception;
 };
 
+struct end_of_buffer: public std::exception
+{
+    using exception::exception;
+};
+
+//
+// Helper for raw buffer iteration
+//
+struct BufferIterator
+{
+    uint8_t *data = nullptr;
+    uint8_t *buffp = nullptr;
+    uint8_t *endp = nullptr;
+    size_t size = 0;
+
+    BufferIterator()
+    {}
+
+    BufferIterator(uint8_t *data, size_t size)
+        : data(data)
+        , buffp(data)
+        , endp(data + size)
+        , size(size)
+    {}
+
+    template <typename T>
+    inline T extract()
+    {
+        if (buffp + sizeof(T) > endp)
+            throw end_of_buffer();
+
+        T ret = *reinterpret_cast<T *>(buffp);
+        buffp += sizeof(T);
+        return ret;
+    }
+
+    inline uint8_t extractU8() { return extract<uint8_t>(); }
+    inline uint16_t extractU16() { return extract<uint16_t>(); }
+    inline uint32_t extractU32() { return extract<uint32_t>(); }
+
+    template <typename T>
+    inline T peek() const
+    {
+        if (buffp + sizeof(T) > endp)
+            throw end_of_buffer();
+
+        T ret = *reinterpret_cast<T *>(buffp);
+        return ret;
+    }
+
+    inline uint8_t peekU8() const { return peek<uint8_t>(); }
+    inline uint16_t peekU16() const { return peek<uint16_t>(); }
+    inline uint32_t peekU32() const { return peek<uint32_t>(); }
+
+    // Pushes a value onto the back of the buffer. Returns a pointer to the
+    // newly pushed value.
+    template <typename T>
+    inline T *push(T value)
+    {
+        static_assert(std::is_trivial<T>::value, "push<T>() works for trivial types only");
+
+        if (buffp + sizeof(T) > endp)
+            throw end_of_buffer();
+
+        T *ret = reinterpret_cast<T *>(buffp);
+        buffp += sizeof(T);
+        *ret = value;
+        return ret;
+    }
+
+    inline uint32_t bytesLeft() const
+    {
+        return endp - buffp;
+    }
+
+    inline uint8_t  *asU8()  { return reinterpret_cast<uint8_t *>(buffp); }
+    inline uint16_t *asU16() { return reinterpret_cast<uint16_t *>(buffp); }
+    inline uint32_t *asU32() { return reinterpret_cast<uint32_t *>(buffp); }
+
+    inline void skip(size_t bytes)
+    {
+        buffp += bytes;
+        if (buffp > endp)
+            buffp = endp;
+    }
+
+    inline void skip(size_t width, size_t count)
+    {
+        skip(width * count);
+    }
+
+    inline bool atEnd() const { return buffp == endp; }
+
+    inline void rewind() { buffp = data; }
+    inline bool isEmpty() const { return size == 0; }
+    inline bool isNull() const { return !data; }
+    inline size_t used() const { return buffp - data; }
+};
+
 //
 // Library init/shutdown. Both return 0 on success.
 //
@@ -237,6 +336,7 @@ inline int connect_to(const char *host, uint16_t port)
 
 enum class StorageType
 {
+    st_uint8_t,
     st_uint16_t,
     st_uint32_t,
     st_uint64_t,
@@ -246,6 +346,7 @@ static std::string to_string(const StorageType &st)
 {
     switch (st)
     {
+        case StorageType::st_uint8_t: return "uint8_t";
         case StorageType::st_uint16_t: return "uint16_t";
         case StorageType::st_uint32_t: return "uint32_t";
         case StorageType::st_uint64_t: return "uint64_t";
@@ -257,7 +358,8 @@ static StorageType storage_type_from_string(const std::string &str)
 {
     auto result = StorageType::st_uint64_t;
 
-    if (str == "uint16_t") result = StorageType::st_uint16_t;
+    if (str == "uint8_t") result = StorageType::st_uint8_t;
+    else if (str == "uint16_t") result = StorageType::st_uint16_t;
     else if (str == "uint32_t") result = StorageType::st_uint32_t;
     else if (str == "uint64_t") result = StorageType::st_uint64_t;
 
@@ -268,6 +370,7 @@ static size_t get_storage_type_size(const StorageType &st)
 {
     switch (st)
     {
+        case StorageType::st_uint8_t: return sizeof(uint8_t);
         case StorageType::st_uint16_t: return sizeof(uint16_t);
         case StorageType::st_uint32_t: return sizeof(uint32_t);
         case StorageType::st_uint64_t: return sizeof(uint64_t);
@@ -275,6 +378,31 @@ static size_t get_storage_type_size(const StorageType &st)
 
     return 0;
 }
+
+template <typename R>
+R read_storage(StorageType st, const uint8_t *buffer)
+{
+    R result = {};
+
+    switch (st)
+    {
+        case StorageType::st_uint8_t:
+            result = *reinterpret_cast<const uint8_t *>(buffer);
+            break;
+        case StorageType::st_uint16_t:
+            result = *reinterpret_cast<const uint16_t *>(buffer);
+            break;
+        case StorageType::st_uint32_t:
+            result = *reinterpret_cast<const uint32_t *>(buffer);
+            break;
+        case StorageType::st_uint64_t:
+            result = *reinterpret_cast<const uint64_t *>(buffer);
+            break;
+    }
+
+    return result;
+}
+
 
 // Description of a datasource contained in the data stream. Multiple data
 // sources can be part of the same event and multiple datasources can be
@@ -483,25 +611,11 @@ static StreamInfo parse_stream_info(const json &j)
     return result;
 }
 
-template<typename T, typename U>
-bool range_check_lt(const T *ptr, const U *end)
-{
-    return (reinterpret_cast<const uint8_t *>(ptr)
-            < reinterpret_cast<const uint8_t *>(end));
-}
-
-template<typename T, typename U>
-bool range_check_le(const T *ptr, const U *end)
-{
-    return (reinterpret_cast<const uint8_t *>(ptr)
-            <= reinterpret_cast<const uint8_t *>(end));
-}
-
 struct DataSourceContents
 {
     StorageType indexType;
     StorageType valueType;
-    uint32_t count = 0;
+    uint16_t count = 0;
     const uint8_t *firstIndex = nullptr;
 };
 
@@ -510,6 +624,34 @@ static size_t entry_size(const DataSourceContents &dsc)
     return get_storage_type_size(dsc.indexType)
         + get_storage_type_size(dsc.valueType);
 }
+
+template <typename OUT>
+void print(OUT &out, const DataSourceContents &dsc)
+{
+    const auto entrySize = entry_size(dsc);
+
+    if (dsc.count == 0)
+    {
+        out << std::endl;
+        return;
+    }
+
+    for (auto entryIndex = 0; entryIndex < dsc.count; entryIndex++)
+    {
+        const uint8_t *indexPtr = dsc.firstIndex + entryIndex * entrySize;
+        const uint8_t *valuePtr = indexPtr + get_storage_type_size(dsc.indexType);
+
+        uint32_t index = read_storage<uint32_t>(dsc.indexType, indexPtr);
+        uint64_t value = read_storage<uint64_t>(dsc.valueType, valuePtr);
+
+        bool last = (entryIndex == dsc.count - 1);
+
+        out << "(" << index << ", " << value << ")";
+        if (last) out << std::endl;
+        else out << ", ";
+    }
+}
+
 
 class Parser
 {
@@ -614,107 +756,57 @@ inline void Parser::_eventData(const Message &msg)
     if (msg.contents.size() == 0u)
         throw protocol_error("Received empty EventData message");
 
-    const uint8_t *contentsBegin = msg.contents.data();
-    const uint8_t *contentsEnd   = msg.contents.data() + msg.contents.size();
-    auto eventIndex = *(reinterpret_cast<const uint8_t *>(contentsBegin));
-
-    if (eventIndex >= m_streamInfo.eventDataDescriptions.size())
-        throw data_consistency_error("eventIndex out of range");
-
-    const auto &edd = m_streamInfo.eventDataDescriptions[eventIndex];
-    m_contentsVec.resize(edd.dataSources.size());
-
-    const uint16_t *dsIndexPtr = reinterpret_cast<const uint16_t *>(contentsBegin + sizeof(uint8_t));
-    const uint16_t *dsCountPtr = dsIndexPtr + 1;
-    // TODO: range check pointers
-
-    for (size_t dsIndex = 0; dsIndex < edd.dataSources.size(); dsIndex++)
+    try
     {
-        if (*dsIndexPtr != dsIndex)
-            throw protocol_error("Unexpected data source index " + std::to_string(*dsIndexPtr)
-                                 + ", expected " + std::to_string(dsIndex));
+        uint8_t *contentsBegin = const_cast<uint8_t *>(msg.contents.data());
 
-        const auto &dsd = edd.dataSources[dsIndex];
-        auto &dsc = m_contentsVec[dsIndex];
-        dsc.indexType = dsd.indexType;
-        dsc.valueType = dsd.valueType;
-        dsc.count = *dsCountPtr;
-        dsc.firstIndex = reinterpret_cast<const uint8_t *>(dsCountPtr + 1);
+        BufferIterator ci(contentsBegin, msg.contents.size());
+        uint8_t eventIndex = ci.extractU8();
 
-        dsIndexPtr += entry_size(dsc) * dsc.count;
-        dsCountPtr = dsIndexPtr + 1;
-    }
+        if (eventIndex >= m_streamInfo.eventDataDescriptions.size())
+            throw data_consistency_error("eventIndex out of range");
 
-    // Call the virtual data handler
-    eventData(msg, eventIndex, m_contentsVec);
+        const auto &edd = m_streamInfo.eventDataDescriptions[eventIndex];
+        m_contentsVec.resize(edd.dataSources.size());
 
-    // This is done as a precaution because the raw pointers are only valid as
-    // long as the caller-owned Message object is alive.
-    m_contentsVec.clear();
-
-#if 0
-
-    const EventDataDescription &edd = m_streamInfo.eventDataDescriptions[eventIndex];
-    assert(edd.dataSources.size() == edd.dataSourceOffsets.size());
-    const size_t dataSourceCount = edd.dataSources.size();
-
-    m_contentsVec.resize(dataSourceCount);
-
-    for (size_t dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
-    {
-        const auto &ds = edd.dataSources[dsIndex];
-        const auto &dsOffsets = edd.dataSourceOffsets[dsIndex];
-
-        // Use precalculated offsets to setup pointers into the current message
-        // buffer.
-        auto dsIndexCheck = reinterpret_cast<const uint32_t *>(contentsBegin + dsOffsets.index);
-        auto dsBytesCheck = reinterpret_cast<const uint32_t *>(contentsBegin + dsOffsets.bytes);
-        auto dataBegin = reinterpret_cast<const double *>(contentsBegin + dsOffsets.dataBegin);
-        auto dataEnd   = reinterpret_cast<const double *>(contentsBegin + dsOffsets.dataEnd);
-
-        if (!range_check_lt(dsIndexCheck, contentsEnd)
-            || !range_check_lt(dsBytesCheck, contentsEnd)
-            || !range_check_lt(dataBegin, contentsEnd)
-            || !range_check_le(dataEnd, contentsEnd)
-           )
+        for (size_t dsIndex = 0; dsIndex < edd.dataSources.size(); dsIndex++)
         {
-            throw data_consistency_error("EventData message contents too small");
+            uint8_t indexCheck = ci.extractU8();
+
+            if (indexCheck != dsIndex)
+            {
+                throw data_consistency_error(
+                    "Wrong dataSourceIndex in EventData message, expected "
+                    + std::to_string(dsIndex) + ", got " + std::to_string(indexCheck));
+            }
+
+            uint16_t elementCount = ci.extractU16();
+            const auto &dsd = edd.dataSources[dsIndex];
+
+            DataSourceContents dsc;
+            dsc.indexType = dsd.indexType;
+            dsc.valueType = dsd.valueType;
+            dsc.count = elementCount;
+            dsc.firstIndex = ci.buffp;
+            m_contentsVec[dsIndex] = dsc;
+
+            // Skip over the (index, value) pairs to make the iterator point to the
+            // next dataSourceIndex.
+            ci.skip(elementCount * entry_size(dsc));
         }
 
-        // Compare the received index number with the one from the data
-        // description.
-        if (*dsIndexCheck != dsIndex)
-            throw data_consistency_error("dsIndexCheck failed");
+        // Call the virtual data handler
+        eventData(msg, eventIndex, m_contentsVec);
 
-        // Same as above but with the number of bytes in the datasource.
-        if (*dsBytesCheck != ds.bytes)
-            throw data_consistency_error("dsBytesCheck failed");
-
-        // Store pointers for the datasource
-        m_contentsVec[dsIndex] = { dsIndexCheck, dsBytesCheck, dataBegin, dataEnd };
-
-#if 0
-        cout << "eventIndex=" << eventIndex << ", dsIndex=" << dsIndex
-            << ", dsName=" << ds.name << ", dsSize=" << ds.size
-            << ", ds.ll=" << ds.lowerLimit << ", ds.ul=" << ds.upperLimit
-            << ": " << endl << "  ";
-
-        for (const double *it = dataBegin; it < dataEnd; it++)
-        {
-            cout << *it << ", ";
-        }
-
-        cout << endl;
-#endif
+        // This is done as a precaution because the raw pointers are only valid as
+        // long as the caller-owned Message object is alive.
+        m_contentsVec.clear();
     }
-
-    // Call the virtual data handler
-    eventData(msg, eventIndex, m_contentsVec);
-
-    // This is done as a precaution because the raw pointers are only valid as
-    // long as the caller-owned Message object is alive.
-    m_contentsVec.clear();
-#endif
+    catch (const end_of_buffer &)
+    {
+        throw data_consistency_error(
+            "Unexpectedly hit EndOfBuffer while parsing EventData message");
+    }
 }
 
 inline void Parser::_endRun(const Message &msg)

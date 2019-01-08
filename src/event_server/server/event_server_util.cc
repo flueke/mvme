@@ -6,7 +6,7 @@ using namespace mvme::event_server;
 
 static StorageType get_storage_type(unsigned bits)
 {
-    static const std::array<unsigned, 3> typewidths = {{16, 32, 64}};
+    static const std::array<unsigned, 4> typewidths = {{8, 16, 32, 64}};
 
     for (size_t i = 0; i < typewidths.size(); i++)
     {

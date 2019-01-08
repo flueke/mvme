@@ -43,7 +43,7 @@ struct EventServer::Private
         std::unique_ptr<QTcpSocket> socket;
     };
 
-    static const size_t InitialOutBufferSize = Megabytes(1);
+    static const size_t InitialOutBufferSize = Kilobytes(10);
 
     Private(EventServer *q)
         : m_q(q)
@@ -396,25 +396,30 @@ void EventServer::endEvent(s32 eventIndex)
     {
         try
         {
+            using BufferIterator = mvme::event_server::BufferIterator;
             BufferIterator out(m_d->m_outBuf.data(), m_d->m_outBuf.size());
 
             // Push message type, space for the message size and the eventIndex
-            // onto the output buffer.
+            // onto the output buffer:
+            // u8  MessageType   -> Part of the header
+            // u32 ContentsSize  -> Part of the header
+            // u8  eventIndex    -> Part of the contents of an EventData message
             out.push(MessageType::EventData);
-            u32 *msgSizePtr = out.asU32(); out.skip(sizeof(u32));
+            u32 *msgSizePtr = out.push(static_cast<u32>(0u));
             out.push(static_cast<u8>(eventIndex));
 
             for (size_t dsIndex = 0; dsIndex < edd.dataSources.size(); dsIndex++)
             {
-                // For each data source push its' index and reserve space for
-                // the number of following (index, value) pairs.
-                out.push(static_cast<u16>(dsIndex));
-                u16 *countPtr = out.asU16(); out.skip(sizeof(u16));
+                // For each data source push its index and space for the number
+                // of following (index, value) pairs.
+                // u8  dataSourceIndex
+                // u16 elementCount
+                out.push(static_cast<u8>(dsIndex));
+                u16 *countPtr = out.push(static_cast<u16>(0u));
 
                 const a2::DataSource *ds = a2->dataSources[eventIndex] + dsIndex;
                 const a2::PipeVectors &dataPipe = ds->output;
                 const auto &dsd = edd.dataSources[dsIndex];
-                u16 validCount = 0;
 
                 // Write out the (index, value) pairs for valid parameters
                 // using the data types specified in the DataSourceDescription.
@@ -426,6 +431,9 @@ void EventServer::endEvent(s32 eventIndex)
                     {
                         switch (dsd.indexType)
                         {
+                            case StorageType::st_uint8_t:
+                                out.push(static_cast<u8>(paramIndex));
+                                break;
                             case StorageType::st_uint16_t:
                                 out.push(static_cast<u16>(paramIndex));
                                 break;
@@ -439,6 +447,9 @@ void EventServer::endEvent(s32 eventIndex)
 
                         switch (dsd.valueType)
                         {
+                            case StorageType::st_uint8_t:
+                                out.push(static_cast<u8>(paramValue));
+                                break;
                             case StorageType::st_uint16_t:
                                 out.push(static_cast<u16>(paramValue));
                                 break;
@@ -450,11 +461,10 @@ void EventServer::endEvent(s32 eventIndex)
                                 break;
                         }
 
-                        validCount++;
+                        // increment the element count inside the buffer
+                        ++(*countPtr);
                     }
                 }
-
-                *countPtr = validCount;
             }
 
             u32 contentsBytes = out.asU8() - reinterpret_cast<u8 *>((msgSizePtr + 1));
@@ -463,15 +473,19 @@ void EventServer::endEvent(s32 eventIndex)
             for (auto &client: m_d->m_clients)
             {
                 if (!client.socket->isValid()) continue;
-                write_data(*client.socket, reinterpret_cast<const char *>(out.data), out.used());
+                write_data(*client.socket, reinterpret_cast<const char *>(out.data),
+                           out.used());
             }
 
             m_d->m_runStats.dataBytesPerClient += out.used();
 
             break;
-        } catch (const end_of_buffer &)
+        } catch (const mvme::event_server::end_of_buffer &)
         {
-            // double the size before trying again
+            // Ran out of space in the output buffer. Double the buffer size
+            // and retry.
+            qDebug() << __PRETTY_FUNCTION__ << "doubling buffer size from"
+                << m_d->m_outBuf.size() << "to" << m_d->m_outBuf.size() * 2;
             m_d->m_outBuf.resize(m_d->m_outBuf.size() * 2);
         }
     }
