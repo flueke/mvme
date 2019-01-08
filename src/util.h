@@ -167,16 +167,16 @@ struct BufferIterator
     // newly pushed value.
     // Note: this does not take the alignment flag into account.
     template <typename T>
-    inline u8 *push(T value)
+    inline T *push(T value)
     {
         static_assert(std::is_trivial<T>::value, "push<T>() works for trivial types only");
 
         if (buffp + sizeof(T) > endp)
             throw end_of_buffer();
 
-        u8 *ret = buffp;
-        *reinterpret_cast<T *>(buffp) = value;
+        T *ret = reinterpret_cast<T *>(buffp);
         buffp += sizeof(T);
+        *ret = value;
         return ret;
     }
 
