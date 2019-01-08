@@ -33,6 +33,9 @@ ObjectInfoWidget::ObjectInfoWidget(MVMEContext *ctx, QWidget *parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
     layout->addWidget(m_d->m_infoLabel);
+
+    connect(ctx, &MVMEContext::vmeConfigAboutToBeSet,
+            this, &ObjectInfoWidget::clear);
 }
 
 ObjectInfoWidget::~ObjectInfoWidget()
