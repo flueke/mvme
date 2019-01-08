@@ -1,31 +1,50 @@
-#include "event_server/mvme_root_event_objects.h"
-// This include is only here to have cmake create a dependency on the linkdef
-// header file.
-#include "event_server/mvme_root_event_objects_LinkDef.h"
+#include "mvme_root_event_objects.h"
 
 #include <cassert>
 
-Module::Module(const char *name, const char *title)
+//ClassImp(MVMEModule)
+MVMEModule::MVMEModule(const char *name, const char *title)
     : TNamed(name, title)
 {}
 
-Module::~Module()
-{}
+//MVMEModule::~MVMEModule()
+//{}
 
-Event::Event(const char *name, const char *title)
-    : TNamed(name, title)
-{}
-
-void Event::AddModule(Module *module)
+void MVMEModule::RegisterDataStorage(double *ptr, size_t size)
 {
-    fModules.push_back(module);
+    fDataStores.push_back({ptr, size});
 }
 
+//ClassImp(MVMEEvent)
+MVMEEvent::MVMEEvent(const char *name, const char *title)
+    : TNamed(name, title)
+{}
+
+void MVMEEvent::AddModule(MVMEModule *module)
+{
+    fModules.push_back(module);
+
+    for (auto storage: module->GetDataStorages())
+    {
+        // Same order as incoming data during the run (and as declared in the
+        // BeginRun description data)
+        fDataSourceStorages.push_back(storage);
+    }
+}
+
+Storage MVMEEvent::GetDataSourceStorage(int dsIndex) const
+{
+    if (0 <= dsIndex && dsIndex < static_cast<int>(fDataSourceStorages.size()))
+        return fDataSourceStorages.at(dsIndex);
+    return {};
+}
+
+//ClassImp(Experiment)
 Experiment::Experiment(const char *name, const char *title)
     : TNamed(name, title)
 {}
 
-void Experiment::AddEvent(Event *event)
+void Experiment::AddEvent(MVMEEvent *event)
 {
     fEvents.push_back(event);
 }
@@ -47,4 +66,11 @@ std::vector<TTree *> Experiment::MakeTrees()
     }
 
     return result;
+}
+
+MVMEEvent *Experiment::GetEvent(int eventIndex) const
+{
+    if (0 <= eventIndex && eventIndex < static_cast<int>(fEvents.size()))
+        return fEvents.at(eventIndex);
+    return nullptr;
 }

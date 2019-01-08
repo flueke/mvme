@@ -4,33 +4,49 @@
 #include <TNamed.h>
 #include <TTree.h>
 
-//
-// Event and Module base classes
-//
-class Module: public TNamed
+struct Storage
 {
-    public:
-        Module(const char *name, const char *title);
-        virtual ~Module();
-
-    ClassDef(Module, 1);
+    double *ptr;
+    size_t size;
 };
 
-class Event: public TNamed
+//
+// MVMEEvent and MVMEModule base classes
+//
+class MVMEModule: public TNamed
 {
     public:
-        Event(const char *name, const char *title);
+        MVMEModule(const char *name, const char *title);
 
-        size_t GetNumberOfModules() const { return fModules.size(); }
-        std::vector<Module *> GetModules() const { return fModules; }
+        std::vector<Storage> GetDataStorages() const { return fDataStores; }
 
     protected:
-        void AddModule(Module *module);
+        void RegisterDataStorage(double *ptr, size_t size);
 
     private:
-        std::vector<Module *> fModules; // !
+        std::vector<Storage> fDataStores; // !
 
-    ClassDef(Event, 1);
+    ClassDef(MVMEModule, 1);
+};
+
+class MVMEEvent: public TNamed
+{
+    public:
+        MVMEEvent(const char *name, const char *title);
+
+        size_t GetNumberOfModules() const { return fModules.size(); }
+        std::vector<MVMEModule *> GetModules() const { return fModules; }
+        std::vector<Storage> GetDataSourceStorages() const { return fDataSourceStorages; }
+        Storage GetDataSourceStorage(int dsIndex) const;
+
+    protected:
+        void AddModule(MVMEModule *module);
+
+    private:
+        std::vector<MVMEModule *> fModules; // !
+        std::vector<Storage> fDataSourceStorages; // !
+
+    ClassDef(MVMEEvent, 1);
 };
 
 class Experiment: public TNamed
@@ -39,15 +55,16 @@ class Experiment: public TNamed
         Experiment(const char *name, const char *title);
 
         size_t GetNumberOfEvents() const { return fEvents.size(); }
-        std::vector<Event *> GetEvents() const { return fEvents; }
+        std::vector<MVMEEvent *> GetEvents() const { return fEvents; }
+        MVMEEvent *GetEvent(int eventIndex) const;
 
         std::vector<TTree *> MakeTrees();
 
     protected:
-        void AddEvent(Event *event);
+        void AddEvent(MVMEEvent *event);
 
     private:
-        std::vector<Event *> fEvents; // !
+        std::vector<MVMEEvent *> fEvents; // !
 
     ClassDef(Experiment, 1);
 };

@@ -1,31 +1,27 @@
 R"(#ifndef __MVME_ROOT_EXPORT_GUARD_{{header_guard}}__
 #define __MVME_ROOT_EXPORT_GUARD_{{header_guard}}__
 
-// Contains declarations of the Experiment, Event and Module base classes
+// Contains declarations of the Experiment, MVMEEvent and MVMEModule base classes
 #include <mvme_root_event_objects.h>
-
-//R__ADD_INCLUDE_PATH(/home/florian/src/build-mvme2-debug)
-//R__ADD_LIBRARY_PATH(/home/florian/src/build-mvme2-debug)
-//R__LOAD_LIBRARY(/home/florian/src/build-mvme2-debug/libmvme_root_event.so)
 
 {{#vme_events}}
 namespace {{name}}_modules
 {
 {{#modules}}
-    struct {{struct_name}}: public Module
+    struct {{struct_name}}: public MVMEModule
     {
-        {{struct_name}}(): Module("{{name}}", "{{title}}") {}
+        {{struct_name}}();
 {{#data_members}}
-        {{type}} {{name}}[{{size}}];
+        double {{name}}[{{size}}];
 {{/data_members}}
         ClassDef({{struct_name}}, 1);
     };
 {{/modules}}
 } // end namespace {{name}}_modules
 
-struct {{struct_name}}: public Event
+struct {{struct_name}}: public MVMEEvent
 {
-    {{struct_name}}(): Event("{{name}}", "{{title}}")
+    {{struct_name}}(): MVMEEvent("{{name}}", "{{title}}")
     {
 {{#modules}}
         AddModule(&{{var_name}});

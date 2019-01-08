@@ -4,7 +4,6 @@ project(mvme_event_server_clients)
 # ROOT
 # https://root.cern.ch/how/integrate-root-my-project-cmake
 
-# FIXME: This interferes with our own CFLAGS and does not use CMAKE_BUILD_TYPE!
 option(ENABLE_ROOT "Enable ROOT support" OFF)
 
 if (ENABLE_ROOT)

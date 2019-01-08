@@ -4,9 +4,9 @@
 #pragma link off all classes;
 #pragma link off all functions;
 
-#pragma link C++ nestedclasses;
-#pragma link C++ class Module+;
-#pragma link C++ class Event+;
+//#pragma link C++ nestedclasses;
+#pragma link C++ class MVMEModule+;
+#pragma link C++ class MVMEEvent+;
 #pragma link C++ class Experiment+;
 
 #endif

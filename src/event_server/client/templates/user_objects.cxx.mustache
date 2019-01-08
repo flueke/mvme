@@ -1,0 +1,31 @@
+R"(
+#include "{{header_filename}}"
+
+{{#vme_events}}
+namespace {{name}}_modules
+{
+{{#modules}}
+
+{{struct_name}}::{{struct_name}}()
+    : MVMEModule("{{name}}", "{{title}}")
+{
+{{#data_members}}
+    RegisterDataStorage({{name}}, {{size}});
+{{/data_members}}
+}
+
+{{/modules}}
+} // end namespace {{name}}_modules
+{{/vme_events}}
+
+{{exp_struct_name}}::{{exp_struct_name}}()
+    : Experiment("{{exp_name}}", "{{exp_title}}")
+{
+{{#vme_events}}
+        AddEvent(&{{var_name}});
+{{/vme_events}}
+}
+
+{{!
+vim:ft=cpp
+}})"
