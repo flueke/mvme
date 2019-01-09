@@ -8,6 +8,8 @@ struct Storage
 {
     double *ptr;
     size_t size;
+
+    ClassDef(Storage, 0);
 };
 
 //
