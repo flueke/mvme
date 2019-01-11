@@ -1,6 +1,7 @@
 #ifndef __MVME_ROOT_EXPORT_OBJECTS_H__
 #define __MVME_ROOT_EXPORT_OBJECTS_H__
 
+#include <TFile.h>
 #include <TNamed.h>
 #include <TTree.h>
 
@@ -8,8 +9,6 @@ struct Storage
 {
     double *ptr;
     size_t size;
-
-    ClassDef(Storage, 0);
 };
 
 //
@@ -61,6 +60,7 @@ class Experiment: public TNamed
         MVMEEvent *GetEvent(int eventIndex) const;
 
         std::vector<TTree *> MakeTrees();
+        std::vector<TTree *> InitTrees(TFile *inputFile);
 
     protected:
         void AddEvent(MVMEEvent *event);

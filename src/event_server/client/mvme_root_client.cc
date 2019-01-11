@@ -98,9 +98,6 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
             << streamInfo.infoJson.dump(2) << endl;
     }
 
-    //cout << __FUNCTION__ << ": run information:"
-    //    << endl << streamInfo.infoJson.dump(2) << endl;
-
     cout << __FUNCTION__ << ": runId=" << streamInfo.runId
         << endl;
 
@@ -239,7 +236,20 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
         m_codeGeneratedAndLoaded = true;
 
+        std::string filename;
+
+        if (streamInfo.runId.empty())
+        {
+            cout << __FUNCTION__ << ": Warning: got an empty runId!" << endl;
+            filename = "unknown_run.root";
+        }
+        else
+        {
+            filename = streamInfo.runId + ".root";
+        }
+
         cout << "Opening output file last_run.root" << endl;
+        // TODO: make an output filename based on the run id
         m_outFile = std::make_unique<TFile>("last_run.root", "recreate");
         m_eventTrees = m_exp->MakeTrees();
         assert(m_eventTrees.size() == m_exp->GetNumberOfEvents());

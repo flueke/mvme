@@ -62,7 +62,30 @@ std::vector<TTree *> Experiment::MakeTrees()
         {
             auto branch = tree->Branch(module->GetName(), module);
             assert(!branch->IsZombie());
+            (void)branch;
         }
+    }
+
+    return result;
+}
+
+std::vector<TTree *> Experiment::InitTrees(TFile *inputFile)
+{
+    std::vector<TTree *> result;
+
+    for (auto event: GetEvents())
+    {
+        auto tree = dynamic_cast<TTree *>(inputFile->Get(event->GetName()));
+        if (tree)
+        {
+            for (auto module: event->GetModules())
+            {
+                auto branch = tree->GetBranch(module->GetName());
+                if (branch)
+                    branch->SetAddress(module);
+            }
+        }
+        result.push_back(tree);
     }
 
     return result;
