@@ -1,21 +1,33 @@
 #include "mvme_root_event_objects.h"
 
 #include <cassert>
+#include <iostream>
 
-//ClassImp(MVMEModule)
+using std::cout;
+using std::endl;
+
 MVMEModule::MVMEModule(const char *name, const char *title)
     : TNamed(name, title)
+    , fSelf(this)
 {}
-
-//MVMEModule::~MVMEModule()
-//{}
 
 void MVMEModule::RegisterDataStorage(double *ptr, size_t size)
 {
     fDataStores.push_back({ptr, size});
 }
 
-//ClassImp(MVMEEvent)
+void MVMEModule::InitBranch(TBranch *branch)
+{
+    cout << __PRETTY_FUNCTION__
+        << "this=" << this
+        << ", fSelf=" << fSelf
+        << ", &fSelf=" << &fSelf
+        << ", branchName=" << branch->GetName()
+        << endl;
+
+    branch->SetAddress(&fSelf);
+}
+
 MVMEEvent::MVMEEvent(const char *name, const char *title)
     : TNamed(name, title)
 {}
@@ -39,17 +51,16 @@ Storage MVMEEvent::GetDataSourceStorage(int dsIndex) const
     return {};
 }
 
-//ClassImp(Experiment)
-Experiment::Experiment(const char *name, const char *title)
+MVMEExperiment::MVMEExperiment(const char *name, const char *title)
     : TNamed(name, title)
 {}
 
-void Experiment::AddEvent(MVMEEvent *event)
+void MVMEExperiment::AddEvent(MVMEEvent *event)
 {
     fEvents.push_back(event);
 }
 
-std::vector<TTree *> Experiment::MakeTrees()
+std::vector<TTree *> MVMEExperiment::MakeTrees()
 {
     std::vector<TTree *> result;
 
@@ -69,29 +80,43 @@ std::vector<TTree *> Experiment::MakeTrees()
     return result;
 }
 
-std::vector<TTree *> Experiment::InitTrees(TFile *inputFile)
+std::vector<TTree *> MVMEExperiment::InitTrees(TFile *inputFile)
 {
     std::vector<TTree *> result;
 
     for (auto event: GetEvents())
     {
+
         auto tree = dynamic_cast<TTree *>(inputFile->Get(event->GetName()));
+
         if (tree)
         {
+            cout << "Found tree for event " << event->GetName() << endl;
             for (auto module: event->GetModules())
             {
-                auto branch = tree->GetBranch(module->GetName());
-                if (branch)
-                    branch->SetAddress(module);
+                if (auto branch = tree->GetBranch(module->GetName()))
+                {
+                    module->InitBranch(branch);
+                }
+                else
+                {
+                    cout << "Error: Did not find branch for module "
+                        << module->GetName() << endl;
+                }
             }
         }
+        else
+        {
+            cout << "Error: Did not find tree for event " << event->GetName() << endl;
+        }
+
         result.push_back(tree);
     }
 
     return result;
 }
 
-MVMEEvent *Experiment::GetEvent(int eventIndex) const
+MVMEEvent *MVMEExperiment::GetEvent(int eventIndex) const
 {
     if (0 <= eventIndex && eventIndex < static_cast<int>(fEvents.size()))
         return fEvents.at(eventIndex);

@@ -19,7 +19,7 @@ namespace {{name}}_modules
 {{/vme_events}}
 
 {{exp_struct_name}}::{{exp_struct_name}}()
-    : Experiment("{{exp_name}}", "{{exp_title}}")
+    : MVMEExperiment("{{exp_name}}", "{{exp_title}}")
 {
 {{#vme_events}}
         AddEvent(&{{var_name}});

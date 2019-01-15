@@ -7,6 +7,6 @@
 //#pragma link C++ nestedclasses;
 #pragma link C++ class MVMEModule+;
 #pragma link C++ class MVMEEvent+;
-#pragma link C++ class Experiment+;
+#pragma link C++ class MVMEExperiment+;
 
 #endif

@@ -77,7 +77,7 @@ class ClientContext: public mvme::event_server::Parser
     private:
         std::string m_outputDirectory;
         Options::Opt_t m_options;
-        std::unique_ptr<Experiment> m_exp;
+        std::unique_ptr<MVMEExperiment> m_exp;
         std::unique_ptr<TFile> m_outFile;
         std::vector<TTree *> m_eventTrees;
         RunStats m_stats;
@@ -107,12 +107,12 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     if (!m_codeGeneratedAndLoaded)
     {
         cout << __FUNCTION__
-            << ": generating ROOT classes for Experiment " << projectName << endl;
+            << ": generating ROOT classes for MVMEExperiment " << projectName << endl;
     }
     else
     {
         cout << __FUNCTION__
-            << "Reusing previously generated and loaded experiment code." << endl;
+            << ": Reusing previously generated and loaded experiment code." << endl;
     }
 
     mu::data mu_vmeEvents = mu::data::type::list;
@@ -203,7 +203,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     }
 
     // Using TROOT::LoadMacro() to compile and immediately load the generated
-    // code, then create the project specific Experiment subclass.
+    // code, then create the project specific MVMEExperiment subclass.
     {
         std::string cmd = implFilepath + "+";
 
@@ -221,7 +221,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         }
 
         cmd = "new " + experimentStructName + "();";
-        m_exp = std::unique_ptr<Experiment>(reinterpret_cast<Experiment *>(
+        m_exp = std::unique_ptr<MVMEExperiment>(reinterpret_cast<MVMEExperiment *>(
                 gROOT->ProcessLineSync(cmd.c_str())));
 
         if (!m_exp)
@@ -236,6 +236,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
         m_codeGeneratedAndLoaded = true;
 
+        // generate output filename open the file
         std::string filename;
 
         if (streamInfo.runId.empty())
@@ -248,9 +249,9 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
             filename = streamInfo.runId + ".root";
         }
 
-        cout << "Opening output file last_run.root" << endl;
-        // TODO: make an output filename based on the run id
-        m_outFile = std::make_unique<TFile>("last_run.root", "recreate");
+        // open the file and create the event trees
+        cout << "Opening output file " << filename << endl;
+        m_outFile = std::make_unique<TFile>(filename.c_str(), "recreate");
         m_eventTrees = m_exp->MakeTrees();
         assert(m_eventTrees.size() == m_exp->GetNumberOfEvents());
     }
@@ -258,92 +259,6 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     m_stats = {};
     m_stats.eventHits = std::vector<size_t>(streamInfo.eventDataDescriptions.size());
     m_stats.tStart = RunStats::ClockType::now();
-
-#if 0
-    std::string filename;
-
-
-    if (streamInfo.runId.empty())
-    {
-        cout << __FUNCTION__ << ": Warning: got an empty runId!" << endl;
-        filename = "unknown_run.root";
-    }
-    else
-    {
-        filename = streamInfo.runId + ".root";
-    }
-
-    cout << __FUNCTION__ << ": Using output filename '" << filename << "'" << endl;
-
-    m_trees.clear();
-    m_outFile = std::make_unique<TFile>(filename.c_str(), "RECREATE",
-                                        streamInfo.runId.c_str());
-
-    std::set<std::string> branchNames;
-    std::vector<size_t> eventByteSizes;
-
-    // For each incoming event: create a TTree, buffer space and branches
-    for (const EventDataDescription &edd: streamInfo.eventDataDescriptions)
-    {
-        const VMEEvent &event = streamInfo.vmeTree.events[edd.eventIndex];
-
-        EventStorage storage;
-
-        storage.tree = new TTree(event.name.c_str(),  // name
-                                 event.name.c_str()); // title
-
-        cout << "  event#" << edd.eventIndex << ", " << event.name << endl;
-
-        size_t eventBytes = 0u;
-
-        for (const DataSourceDescription &dsd: edd.dataSources)
-        {
-            // The branch will point to this buffer space
-            storage.buffers.emplace_back(std::vector<float>(dsd.size));
-            eventBytes += dsd.bytes;
-
-            std::string branchName = make_branch_name(dsd.name);
-
-            // branchSpec looks like: "name[Size]/D" for doubles,
-            // "name[Size]/F" for floats
-            std::ostringstream ss;
-            ss << branchName << "[" << dsd.size << "]/F";
-            std::string branchSpec = ss.str();
-
-            branchName = make_unique_name(branchName, branchNames);
-            branchNames.insert(branchName);
-
-            cout << "    data source: " << dsd.name
-                << " -> branchSpec=" << branchSpec
-                << ", branchName=" << branchName
-                << endl;
-
-            // ROOT default is 32000
-            static const int BranchBufferSize = 32000 * 1;
-
-            auto branch = storage.tree->Branch(
-                branchName.c_str(),
-                storage.buffers.back().data(),
-                branchSpec.c_str());
-
-            assert(!branch->IsZombie());
-        }
-
-        m_trees.emplace_back(std::move(storage));
-        eventByteSizes.push_back(eventBytes);
-    }
-
-    cout << "Incoming event sizes in bytes:" << endl;
-    for (size_t ei=0; ei < eventByteSizes.size(); ei++)
-    {
-        cout << "  ei=" << ei << ", sz=" << eventByteSizes[ei] << endl;
-    }
-
-    cout << endl;
-    cout << "Created output tree structures" << endl;
-    cout << "Receiving data..." << endl;
-
-#endif
 }
 
 void ClientContext::eventData(const Message &msg, int eventIndex,
@@ -358,7 +273,7 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
     if (!m_exp)
     {
         cout << "Error in " << __FUNCTION__
-            << ": no Experiment instance was created" << endl;
+            << ": no MVMEExperiment instance was created" << endl;
         m_quit = true;
         return;
     }
@@ -418,8 +333,11 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
         m_stats.totalDataBytes += bytes;
     }
 
+    // At this point the event storages have been filled with incoming data.
+    // Now fill the tree for this event and run the analysis code.
     m_eventTrees.at(eventIndex)->Fill();
 
+    // TODO: run user analysis here
 
 #if 0
     auto &eventStorage = m_trees[eventIndex];
@@ -464,6 +382,16 @@ void ClientContext::endRun(const Message &msg)
 
     if (m_outFile)
     {
+        cout << "  Writing additional info to output file..." << endl;
+
+        std::map<std::string, std::string> info;
+
+        info["ExperimentName"] = m_exp->GetName();
+        info["RunID"] = getStreamInfo().runId;
+        // TODO: store analysis efficiency data this needs to be transferred
+        // with the endRun message.
+        m_outFile->WriteObject(&info, "MVMERunInfo");
+
         cout << "  Closing output file " << m_outFile->GetName() << "..." << endl;
         m_outFile->Write();
         m_outFile.release();
@@ -497,7 +425,7 @@ void ClientContext::endRun(const Message &msg)
 
 void ClientContext::error(const Message &msg, const std::exception &e)
 {
-    cout << "An protocol error occured: " << e.what() << endl;
+    cout << "A protocol error occured: " << e.what() << endl;
 
     if (m_outFile)
     {

@@ -4,6 +4,7 @@
 #include <TFile.h>
 #include <TNamed.h>
 #include <TTree.h>
+#include <map>
 
 struct Storage
 {
@@ -21,11 +22,14 @@ class MVMEModule: public TNamed
 
         std::vector<Storage> GetDataStorages() const { return fDataStores; }
 
+        void InitBranch(TBranch *branch);
+
     protected:
         void RegisterDataStorage(double *ptr, size_t size);
 
     private:
         std::vector<Storage> fDataStores; // !
+        MVMEModule *fSelf; // ! Same as 'this'. Used for TBranch::SetAddress().
 
     ClassDef(MVMEModule, 1);
 };
@@ -50,10 +54,10 @@ class MVMEEvent: public TNamed
     ClassDef(MVMEEvent, 1);
 };
 
-class Experiment: public TNamed
+class MVMEExperiment: public TNamed
 {
     public:
-        Experiment(const char *name, const char *title);
+        MVMEExperiment(const char *name, const char *title);
 
         size_t GetNumberOfEvents() const { return fEvents.size(); }
         std::vector<MVMEEvent *> GetEvents() const { return fEvents; }
@@ -68,8 +72,21 @@ class Experiment: public TNamed
     private:
         std::vector<MVMEEvent *> fEvents; // !
 
-    ClassDef(Experiment, 1);
+    ClassDef(MVMEExperiment, 1);
 };
 
+#if 0
+struct AnalysisSetup
+{
+    using InitFunc = void (*)();
+    using FinishFunc = void (*)();
+    using EventFunc = void (*)(MVMEEvent *event, int64_t eventNumber);
+
+    InitFunc init;
+    FinishFunc finish;
+    // Per event analysis function. Same order as MVMEExperiment::GetEvents()
+    std::vector<EventFunc> eventFunctions;
+};
+#endif
 
 #endif /* __MVME_ROOT_EXPORT_OBJECTS_H__ */

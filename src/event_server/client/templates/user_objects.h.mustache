@@ -1,7 +1,8 @@
 R"(#ifndef __MVME_ROOT_EXPORT_GUARD_{{header_guard}}__
 #define __MVME_ROOT_EXPORT_GUARD_{{header_guard}}__
 
-// Contains declarations of the Experiment, MVMEEvent and MVMEModule base classes
+// Contains declarations of the MVMEExperiment, MVMEEvent and MVMEModule base
+// classes
 #include <mvme_root_event_objects.h>
 
 {{#vme_events}}
@@ -34,7 +35,7 @@ struct {{struct_name}}: public MVMEEvent
 };
 {{/vme_events}}
 
-struct {{exp_struct_name}}: public Experiment
+struct {{exp_struct_name}}: public MVMEExperiment
 {
     {{exp_struct_name}}();
 {{#vme_events}}
