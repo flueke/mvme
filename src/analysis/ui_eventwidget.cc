@@ -1766,7 +1766,6 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 
     check_cloned_dirs;
 
-    auto destEventId = tree->getEventWidget()->getEventId();
     auto namesByMetaType = group_object_names_by_metatype(analysis->getAllObjects());
 
     for (auto it = cloneMapping.begin();
@@ -1780,7 +1779,6 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
                                          namesByMetaType[clone->metaObject()]);
         clone->setObjectName(cloneName);
         namesByMetaType[clone->metaObject()].insert(cloneName);
-        //clone->setEventId(destEventId);
 
         if (!(qobject_cast<SinkInterface *>(clone.get()) && clone->getUserLevel() == 0))
         {
