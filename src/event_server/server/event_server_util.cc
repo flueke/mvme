@@ -104,6 +104,13 @@ EventDataDescriptions make_event_data_descriptions(const analysis::Analysis *ana
             u32 outputSize = a2_dataSource->output.size();
             u32 outputBits = std::ceil(std::log2(outputSize));
 
+            QStringList paramNames;
+
+            if (auto ex = qobject_cast<analysis::Extractor *>(a1_dataSource))
+            {
+                paramNames = ex->getParameterNames();
+            }
+
             DataSourceDescription dsd;
             dsd.name = a1_dataSource->objectName().toStdString();
             dsd.moduleIndex = moduleIndex;
@@ -112,6 +119,14 @@ EventDataDescriptions make_event_data_descriptions(const analysis::Analysis *ana
             dsd.upperLimit = a2_dataSource->output.upperLimits[0];
             dsd.indexType  = get_storage_type(outputBits);
             dsd.valueType  = get_data_storage_type(a1_dataSource);
+            size_t paramCount = std::min(static_cast<size_t>(paramNames.size()),
+                                         static_cast<size_t>(dsd.size));
+
+            for (size_t pi=0; pi<paramCount; pi++)
+            {
+                const auto &name = paramNames[pi];
+                dsd.paramNames.emplace_back(name.toStdString());
+            }
 
             edd.dataSources.emplace_back(dsd);
         }

@@ -416,6 +416,8 @@ struct DataSourceDescription
     double upperLimit = 0.0;
     StorageType indexType;      // Data types used to store the index and data values during network
     StorageType valueType;      // transfer.
+    // Optional list of names of individual array elements.
+    std::vector<std::string> paramNames;
 };
 
 // Description of the data layout for one mvme event. This contains
@@ -473,18 +475,21 @@ static EventDataDescriptions parse_stream_data_description(const json &j)
             EventDataDescription eds;
             eds.eventIndex = eventJ["eventIndex"];
 
-            for (const auto &dsJ: eventJ["dataSources"])
+            for (const auto &dsj: eventJ["dataSources"])
             {
-                DataSourceDescription ds;
-                ds.name = dsJ["name"];
-                ds.size = dsJ["size"];
-                ds.lowerLimit = dsJ["lowerLimit"];
-                ds.upperLimit = dsJ["upperLimit"];
-                ds.indexType = storage_type_from_string(dsJ["indexType"]);
-                ds.valueType = storage_type_from_string(dsJ["valueType"]);
-                ds.moduleIndex = dsJ["moduleIndex"];
+                DataSourceDescription dsd;
+                dsd.name = dsj["name"];
+                dsd.size = dsj["size"];
+                dsd.lowerLimit = dsj["lowerLimit"];
+                dsd.upperLimit = dsj["upperLimit"];
+                dsd.indexType = storage_type_from_string(dsj["indexType"]);
+                dsd.valueType = storage_type_from_string(dsj["valueType"]);
+                dsd.moduleIndex = dsj["moduleIndex"];
 
-                eds.dataSources.emplace_back(ds);
+                for (const auto &namej: dsj["paramNames"])
+                    dsd.paramNames.push_back(namej);
+
+                eds.dataSources.emplace_back(dsd);
             }
             result.emplace_back(eds);
         }
@@ -517,6 +522,10 @@ static json to_json(const EventDataDescriptions &edds)
             dsj["indexType"] = to_string(dsd.indexType);
             dsj["valueType"] = to_string(dsd.valueType);
             dsj["moduleIndex"] = dsd.moduleIndex;
+            json namesj;
+            for (auto &name: dsd.paramNames)
+                namesj.push_back(name);
+            dsj["paramNames"] = namesj;
 
             eddj["dataSources"].push_back(dsj);
         }
