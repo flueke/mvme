@@ -1,0 +1,44 @@
+R"(
+
+#include "{{header_filename}}"
+
+extern "C"
+{
+
+// TODO: pass context/args/something to these functions
+
+bool init_analysis(const std::vector<std::string> args)
+{
+    // ===== Custom init code goes here =====
+    return true;
+}
+
+bool finish_analysis()
+{
+    // ===== Custom shutdown code goes here =====
+    return true;
+}
+
+{{#vme_events}}
+bool analyze_{{name}}(MVMEEvent *ev_, int64_t eventNumber)
+{
+    auto event = dynamic_cast<{{struct_name}} *>(ev_);
+
+    if (!event)
+    {
+        cerr << "Error in " << __FUNCTION__ << ": given event could not be converted to "
+        " type '{{struct_name}}'" << endl;
+        return false;
+    }
+
+    // ===== Custom analysis code for event {{struct_name}} goes here =====
+
+    return true;
+}
+
+{{/vme_events}}
+} // end extern "C"
+
+{{!
+vim:ft=cpp
+}})"

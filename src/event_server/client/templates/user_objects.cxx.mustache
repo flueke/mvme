@@ -8,6 +8,9 @@ namespace {{name}}_modules
 
 {{struct_name}}::{{struct_name}}()
     : MVMEModule("{{name}}", "{{title}}")
+{{#ref_members}}
+    , {{name}}({{target}}[{{index}}])
+{{/ref_members}}
 {
 {{#data_members}}
     RegisterDataStorage({{name}}, {{size}});

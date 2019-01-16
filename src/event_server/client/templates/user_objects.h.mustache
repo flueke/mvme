@@ -12,6 +12,9 @@ namespace {{name}}_modules
     struct {{struct_name}}: public MVMEModule
     {
         {{struct_name}}();
+{{#ref_members}}
+        double &{{name}}; // !
+{{/ref_members}}
 {{#data_members}}
         double {{name}}[{{size}}];
 {{/data_members}}

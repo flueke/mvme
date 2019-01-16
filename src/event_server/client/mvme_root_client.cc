@@ -1,3 +1,12 @@
+/* TODO:
+ * - license comment
+ * - description of what this program does
+ * - add return codes to the event handler functions or replace do_exit with a
+ *   return code value. This should be done so that main can exit with a
+ *   non-zero code in case of errors.
+ * - replace the asserts with actual error handling code + messages
+ */
+
 #include <fstream>
 #include <getopt.h>
 #include <signal.h>
@@ -30,6 +39,14 @@ static const char *exportHeaderTemplate =
 
 static const char *exportImplTemplate =
 #include "templates/user_objects.cxx.mustache"
+;
+
+static const char *analysisImplTemplate =
+#include "templates/analysis.cxx.mustache"
+;
+
+static const char *makefileTemplate =
+#include "templates/Makefile.mustache"
 ;
 
 //
@@ -124,6 +141,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         for (const auto &module: event.modules)
         {
             mu::data mu_moduleDataMembers = mu::data::type::list;
+            mu::data mu_moduleRefMembers = mu::data::type::list;
 
             int dsIndex = 0;
             for (const auto &edd: streamInfo.eventDataDescriptions)
@@ -140,6 +158,21 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                     mu_dataMember["dsIndex"] = std::to_string(dsIndex);
 
                     mu_moduleDataMembers.push_back(mu_dataMember);
+
+                    size_t paramCount = std::min(dsd.paramNames.size(),
+                                                 static_cast<size_t>(dsd.size));
+
+                    for (size_t paramIndex = 0;
+                         paramIndex < paramCount;
+                         paramIndex++)
+                    {
+                        mu::data mu_refMember = mu::data::type::object;
+                        mu_refMember["name"] = dsd.paramNames[paramIndex];
+                        mu_refMember["index"] = std::to_string(paramIndex);
+                        mu_refMember["target"] = dsd.name;
+
+                        mu_moduleRefMembers.push_back(mu_refMember);
+                    }
                 }
                 dsIndex++;
             }
@@ -150,6 +183,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
             mu_module["title"] = "Data storage for module " + module.name;
             mu_module["var_name"] = module.name;
             mu_module["data_members"] = mu::data{mu_moduleDataMembers};
+            mu_module["ref_members"] = mu::data{mu_moduleRefMembers};
             mu_module["event_name"] = event.name;
             mu_vmeModules.push_back(mu_module);
         }
@@ -176,31 +210,34 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     std::string headerFilepath = m_outputDirectory + "/" + headerFilename;
     std::string implFilename = projectName + "_mvme.cxx";
     std::string implFilepath = m_outputDirectory + "/" + implFilename;
+    std::string analysisFilename = "analysis.cxx";
+    std::string analysisFilepath = m_outputDirectory + "/" + analysisFilename;
 
     mu_data["header_filename"] = headerFilename;
     mu_data["impl_filename"] = implFilename;
 
-    // write the header file
     if (!m_codeGeneratedAndLoaded)
     {
-        mu::mustache tmpl(exportHeaderTemplate);
-        std::string rendered = tmpl.render(mu_data);
+        auto do_render = [](const mu::data &mu_data,
+                            const std::string &templateFile,
+                            const std::string &outFile)
+        {
+            mu::mustache tmpl(templateFile);
+            std::string rendered = tmpl.render(mu_data);
+            std::ofstream out(outFile);
+            out << rendered;
+        };
 
-        cout << "Writing header file " << headerFilepath << endl;
-        std::ofstream out(headerFilepath);
-        out << rendered;
+        cout << "Writing experiment header file " << headerFilepath << endl;
+        do_render(mu_data, exportHeaderTemplate, headerFilepath);
+
+        cout << "Writing experiment implementation file " << implFilepath << endl;
+        do_render(mu_data, exportImplTemplate, implFilepath);
+
+        cout << "Writing skeleton analysis file " << analysisFilepath << endl;
+        do_render(mu_data, analysisImplTemplate, analysisFilepath);
     }
 
-    // write the implementation file
-    if (!m_codeGeneratedAndLoaded)
-    {
-        mu::mustache tmpl(exportImplTemplate);
-        std::string rendered = tmpl.render(mu_data);
-
-        cout << "Writing impl file " << implFilepath << endl;
-        std::ofstream out(implFilename);
-        out << rendered;
-    }
 
     // Using TROOT::LoadMacro() to compile and immediately load the generated
     // code, then create the project specific MVMEExperiment subclass.
@@ -227,11 +264,41 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         if (!m_exp)
         {
             cout << "Error creating experiment specific class '"
-                << experimentStructName << "'";
+                << experimentStructName << "'" << endl;
             m_outFile = {};
             m_eventTrees = {};
             m_quit = true;
             return;
+        }
+
+        if (streamInfo.eventDataDescriptions.size() != m_exp->GetNumberOfEvents())
+        {
+            cout << "Error: number of events declared in StreamInfo does not equal "
+                "the number of events present in the generated Experiment class."
+                << endl
+                << "Please run `make' and restart the client."
+                << endl;
+            m_quit = true;
+            return;
+        }
+
+        for (size_t eventIndex = 0; eventIndex < m_exp->GetNumberOfEvents(); eventIndex++)
+        {
+            auto &edd = streamInfo.eventDataDescriptions.at(eventIndex);
+            auto event = m_exp->GetEvent(eventIndex);
+
+            if (edd.dataSources.size() != event->GetDataSourceStorages().size())
+            {
+                cout << "Warning: eventIndex=" << eventIndex << ", eventName=" << event->GetName()
+                    << ": number of data sources in the StreamInfo and in the generated Event class "
+                    " differ (streamInfo:" << edd.dataSources.size()
+                    << ", class:" << event->GetDataSourceStorages().size() << ")."
+                    << endl
+                    << "Please run `make' and restart the client."
+                    << endl;
+                m_quit = true;
+                return;
+            }
         }
 
         m_codeGeneratedAndLoaded = true;
@@ -252,6 +319,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         // open the file and create the event trees
         cout << "Opening output file " << filename << endl;
         m_outFile = std::make_unique<TFile>(filename.c_str(), "recreate");
+        cout << "Creating output trees" << endl;
         m_eventTrees = m_exp->MakeTrees();
         assert(m_eventTrees.size() == m_exp->GetNumberOfEvents());
     }
@@ -289,9 +357,15 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
     }
 
     auto &edd = streamInfo.eventDataDescriptions.at(eventIndex);
+#if 0
     assert(edd.eventIndex == eventIndex);
+    cout << eventIndex << endl;
+    cout << edd.dataSources.size() << endl;
+    cout << event->GetDataSourceStorages().size() << endl;
+
     assert(edd.dataSources.size() == event->GetDataSourceStorages().size());
     assert(contents.size() == edd.dataSources.size());
+#endif
 
     m_stats.eventHits[eventIndex]++;
 
@@ -336,44 +410,7 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
     // At this point the event storages have been filled with incoming data.
     // Now fill the tree for this event and run the analysis code.
     m_eventTrees.at(eventIndex)->Fill();
-
     // TODO: run user analysis here
-
-#if 0
-    auto &eventStorage = m_trees[eventIndex];
-
-    assert(eventStorage.tree);
-    assert(eventStorage.buffers.size() == contents.size());
-
-    for (size_t dsIndex = 0; dsIndex < contents.size(); dsIndex++)
-    {
-        const DataSourceContents &dsc = contents[dsIndex];
-
-        std::vector<float> &buffer = eventStorage.buffers[dsIndex];
-
-        assert(dsc.dataEnd - dsc.dataBegin == static_cast<ptrdiff_t>(buffer.size()));
-
-        if (m_convertNaNs)
-        {
-            // Copy, but transform NaN values to 0.0
-            std::transform(dsc.dataBegin, dsc.dataEnd, buffer.begin(),
-                           [] (const double value) -> float {
-                               return std::isnan(value) ? 0.0 : value;
-                           });
-        }
-        else
-        {
-            // Copy data, implicitly converting incoming doubles to float
-            std::copy(dsc.dataBegin, dsc.dataEnd, buffer.begin());
-        }
-
-        size_t bytes = (dsc.dataEnd - dsc.dataBegin) * sizeof(double);
-        m_stats.totalDataBytes += bytes;
-    }
-
-    eventStorage.tree->Fill();
-    eventStorage.hits++;
-#endif
 }
 
 void ClientContext::endRun(const Message &msg)
