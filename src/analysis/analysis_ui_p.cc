@@ -81,6 +81,48 @@ namespace ui
 {
 
 //
+// FilterNameListDialog
+//
+FilterNameListDialog::FilterNameListDialog(const QString &filterName, const QStringList &names,
+                                           QWidget *parent)
+    : QDialog(parent)
+    , m_editor(new CodeEditor(this))
+    , m_bb(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this))
+    , m_names(names)
+{
+    setWindowTitle(QSL("Name List for data exractor '%1'").arg(filterName));
+    auto layout = new QGridLayout(this);
+
+    auto label = new QLabel(
+            QSL("Names can be assigned to individual parameters of a Filter Extractor.\n"
+                "These names will be visible in the analysis user interface and are "
+                "available when using the EventServer to export readout data.\n"
+                "Write one name per line (or separate them by spaces). Names should be "
+                "valid C++ identifiers."
+                ));
+    label->setWordWrap(true);
+
+    layout->addWidget(label, 0, 0);
+    layout->addWidget(m_editor, 1, 0);
+    layout->addWidget(m_bb, 2, 0);
+
+    layout->setRowStretch(1, 1);
+
+    connect(m_bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(m_bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    QString editorText = names.join("\n");
+    m_editor->setPlainText(editorText);
+}
+
+void FilterNameListDialog::accept()
+{
+    QString editorText = m_editor->toPlainText();
+    m_names = editorText.split(QRegExp("\\s+"));
+    QDialog::accept();
+}
+
+//
 // AddEditExtractorDialog
 //
 
@@ -91,6 +133,7 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
     , m_module(module)
     , m_eventWidget(eventWidget)
     , m_mode(mode)
+    , m_parameterNames(ex->getParameterNames())
 {
     add_widget_close_action(this);
 
@@ -125,9 +168,15 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
 
     m_spinCompletionCount->setValue(m_ex->getRequiredCompletionCount());
 
+    pb_editNameList = new QPushButton(QIcon(QSL(":/pencil.png")), QSL("Edit Name List"));
+
     m_optionsLayout = new QFormLayout;
     m_optionsLayout->addRow(QSL("Name"), le_name);
     m_optionsLayout->addRow(QSL("Required Completion Count"), m_spinCompletionCount);
+    m_optionsLayout->addRow(QSL("Parameter Names"), pb_editNameList);
+
+    connect(pb_editNameList, &QPushButton::clicked,
+            this, &AddEditExtractorDialog::editNameList);
 
     if (m_defaultExtractors.size())
     {
@@ -188,7 +237,7 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
                     calibInfoFrame->setEnabled(checked);
                 });
 
-                m_optionsLayout->insertRow(m_optionsLayout->rowCount() - 1, m_gbGenHistograms);
+                m_optionsLayout->insertRow(m_optionsLayout->rowCount(), m_gbGenHistograms);
 
                 // Load data from the first template into the gui
                 applyTemplate(0);
@@ -251,6 +300,17 @@ void AddEditExtractorDialog::applyTemplate(int index)
     }
 }
 
+void AddEditExtractorDialog::editNameList()
+{
+    auto name = le_name->text();
+    if (name.isEmpty()) name = QSL("New Filter");
+    FilterNameListDialog dialog(name, m_parameterNames, this);
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        m_parameterNames = dialog.getNames();
+    }
+}
+
 void AddEditExtractorDialog::accept()
 {
     qDebug() << __PRETTY_FUNCTION__;
@@ -261,6 +321,7 @@ void AddEditExtractorDialog::accept()
     m_filterEditor->apply();
     m_ex->getFilter().setSubFilters(m_filterEditor->m_subFilters);
     m_ex->setRequiredCompletionCount(m_spinCompletionCount->value());
+    m_ex->setParameterNames(m_parameterNames);
 
     auto analysis = m_eventWidget->getContext()->getAnalysis();
 

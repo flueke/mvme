@@ -749,7 +749,7 @@ inline TreeNode *make_datasource_node(SourceInterface *source)
 
     Q_ASSERT_X(source->getNumberOfOutputs() == 1,
                "make_datasource_node",
-               "data sources with multiple output pipes not supported");
+               "data sources with multiple output pipes are not supported by the UI");
 
     if (source->getNumberOfOutputs() == 1)
     {
@@ -4698,11 +4698,25 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
 
             Q_ASSERT(hitCounts.size() == node->childCount());
 
+            QStringList paramNames;
+
+            if (auto ex = qobject_cast<Extractor *>(source))
+            {
+                paramNames = ex->getParameterNames();
+            }
+
             for (s32 addr = 0; addr < node->childCount(); ++addr)
             {
                 Q_ASSERT(node->child(addr)->type() == NodeType_OutputPipeParameter);
 
-                QString addrString = QString("%1").arg(addr, 2).replace(QSL(" "), QSL("&nbsp;"));
+                QString addrString = QSL("%1").arg(addr, 2);
+
+                if (addr < paramNames.size())
+                {
+                    addrString += " " + paramNames[addr];
+                }
+
+                addrString.replace(QSL(" "), QSL("&nbsp;"));
 
                 double hitCount = hitCounts[addr];
                 auto childNode = node->child(addr);

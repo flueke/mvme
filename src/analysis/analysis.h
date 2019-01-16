@@ -666,6 +666,9 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
         virtual QString getDisplayName() const override { return QSL("Filter Extractor"); }
         virtual QString getShortName() const override { return QSL("FExt"); }
 
+        void setParameterNames(const QStringList &names) { m_parameterNames = names; }
+        QStringList getParameterNames() const { return m_parameterNames; }
+
         using Options = a2::DataSourceOptions;
         Options::opt_t getOptions() const { return m_options; }
         void setOptions(Options::opt_t options) { m_options = options; }
@@ -682,6 +685,9 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
     protected:
         virtual void postClone(const AnalysisObject *cloneSource) override;
+
+    private:
+        QStringList m_parameterNames;
 };
 
 class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface

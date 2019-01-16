@@ -637,6 +637,7 @@ void Extractor::read(const QJsonObject &json)
 
     setRequiredCompletionCount(static_cast<u32>(json["requiredCompletionCount"].toInt()));
     m_options = static_cast<Options::opt_t>(json["options"].toInt());
+    m_parameterNames = json["parameterNames"].toVariant().toStringList();
 }
 
 void Extractor::write(QJsonObject &json) const
@@ -656,6 +657,7 @@ void Extractor::write(QJsonObject &json) const
     json["subFilters"] = filterArray;
     json["requiredCompletionCount"] = static_cast<qint64>(m_requiredCompletionCount);
     json["options"] = static_cast<s32>(m_options);
+    json["parameterNames"] = QJsonArray::fromStringList(m_parameterNames);
 }
 
 void Extractor::postClone(const AnalysisObject *cloneSource)

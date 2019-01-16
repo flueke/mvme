@@ -43,6 +43,7 @@
 #include <QWidget>
 
 #include "analysis/analysis.h"
+#include "analysis/code_editor.h"
 #include "analysis/object_editor_dialog.h"
 #include "analysis/ui_eventwidget.h"
 #include "analysis/ui_lib.h"
@@ -63,6 +64,21 @@ struct EventWidgetPrivate;
 class OperatorConfigurationWidget;
 class ObjectTree;
 
+class FilterNameListDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        FilterNameListDialog(const QString &filterName, const QStringList &names,
+                             QWidget *parent = nullptr);
+
+        virtual void accept();
+        QStringList getNames() const { return m_names; }
+
+    private:
+        CodeEditor *m_editor;
+        QDialogButtonBox *m_bb;
+        QStringList m_names;
+};
 
 class AddEditExtractorDialog: public ObjectEditorDialog
 {
@@ -80,12 +96,14 @@ class AddEditExtractorDialog: public ObjectEditorDialog
         ModuleConfig *m_module;
         EventWidget *m_eventWidget;
         ObjectEditorMode m_mode;
+        QStringList m_parameterNames;
 
         QLineEdit *le_name;
         QDialogButtonBox *m_buttonBox;
         DataExtractionEditor *m_filterEditor;
         QFormLayout *m_optionsLayout;
         QSpinBox *m_spinCompletionCount;
+        QPushButton *pb_editNameList;
         QGroupBox *m_gbGenHistograms = nullptr;
         QLineEdit *le_unit = nullptr;
         QDoubleSpinBox *spin_unitMin = nullptr;
@@ -95,6 +113,7 @@ class AddEditExtractorDialog: public ObjectEditorDialog
 
         void runLoadTemplateDialog();
         void applyTemplate(int index);
+        void editNameList();
 };
 
 QWidget *data_source_widget_factory(SourceInterface *ds);
