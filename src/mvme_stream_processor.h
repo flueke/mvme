@@ -48,10 +48,9 @@ class LIBMVME_EXPORT IMVMEStreamModuleConsumer
 
         virtual void beginRun(const RunInfo &runInfo,
                               const VMEConfig *vmeConfig,
-                              const analysis::Analysis *analysis,
-                              Logger logger) = 0;
+                              const analysis::Analysis *analysis) = 0;
 
-        virtual void endRun(const std::exception *e = nullptr) = 0;
+        virtual void endRun(const DAQStats &stats, const std::exception *e = nullptr) = 0;
 
         virtual void beginEvent(s32 eventIndex) = 0;
         virtual void endEvent(s32 eventIndex) = 0;
@@ -59,6 +58,7 @@ class LIBMVME_EXPORT IMVMEStreamModuleConsumer
                                        s32 moduleIndex,
                                        const u32 *data, u32 size) = 0;
         virtual void processTimetick() = 0;
+        virtual void setLogger(Logger logger) = 0;
 };
 
 /* Interface for consumers of raw mvme stream formatted data buffers. */
@@ -111,7 +111,7 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         //
         void beginRun(const RunInfo &runInfo, analysis::Analysis *analysis,
                       VMEConfig *vmeConfig, u32 listfileVersion, Logger logger);
-        void endRun();
+        void endRun(const DAQStats &stats);
         void processDataBuffer(DataBuffer *buffer);
 
         // Used in DAQ Readout mode to generate timeticks for the analysis

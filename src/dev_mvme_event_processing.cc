@@ -95,7 +95,7 @@ void process_listfile(Context &context, ListFile *listfile)
         qApp->processEvents(QEventLoop::AllEvents);
     }
 
-    context.streamProcessor.endRun();
+    context.streamProcessor.endRun({});
 
     counters.stopTime = QDateTime::currentDateTime();
 }

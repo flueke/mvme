@@ -563,7 +563,7 @@ void MVMEStreamWorker::beginRun()
 
     counters.stopTime = QDateTime::currentDateTime();
 
-    m_d->streamProcessor.endRun();
+    m_d->streamProcessor.endRun(m_d->context->getDAQStats());
 
     // analysis session auto save
     auto sessionPath = m_d->context->getWorkspacePath(QSL("SessionDirectory"));

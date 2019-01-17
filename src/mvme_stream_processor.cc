@@ -238,11 +238,11 @@ void MVMEStreamProcessorPrivate::consumersBeginRun()
 
     for (auto c: moduleConsumers)
     {
-        c->beginRun(runInfo, vmeConfig, analysis, logger);
+        c->beginRun(runInfo, vmeConfig, analysis);
     }
 }
 
-void MVMEStreamProcessor::endRun()
+void MVMEStreamProcessor::endRun(const DAQStats &stats)
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 
@@ -253,7 +253,7 @@ void MVMEStreamProcessor::endRun()
 
     for (auto c: m_d->moduleConsumers)
     {
-        c->endRun();
+        c->endRun(stats);
     }
 
     m_d->analysis->endRun();
