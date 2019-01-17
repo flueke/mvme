@@ -1320,11 +1320,9 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
     m_d->m_runInfo.runId = fi.completeBaseName();
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;
     m_d->m_runInfo.isReplay = true;
+    m_d->m_runInfo.infoDict["replaySourceFile"] = m_listFile->getFileName();
 
     qDebug() << __PRETTY_FUNCTION__ << m_listFile->getFileName() << fi.completeBaseName();
-
-    auto hack = m_daqStats.listfileFilename; // FIXME: FIXME!
-    m_daqStats.listfileFilename = hack;
 
     m_listFileWorker->setEventsToRead(nEvents);
     m_streamWorker->setListFileVersion(m_listFile->getFileVersion());
