@@ -8,9 +8,10 @@
  */
 
 #include <fstream>
+#include <string>
+
 #include <getopt.h>
 #include <signal.h>
-#include <string>
 
 // ROOT
 #include <TFile.h>
@@ -28,7 +29,6 @@ using std::endl;
 
 namespace mu = kainjow::mustache;
 using namespace mvme::event_server;
-
 
 // The c++11 way of including text strings into the binary. Uses the new R"()"
 // raw string syntax and the preprocessor to embed string data.
@@ -87,7 +87,7 @@ class ClientContext: public mvme::event_server::Parser
         virtual void eventData(const Message &msg, int eventIndex,
                                 const std::vector<DataSourceContents> &contents) override;
 
-        virtual void endRun(const Message &msg) override;
+        virtual void endRun(const Message &msg, const json &info) override;
 
         virtual void error(const Message &msg, const std::exception &e) override;
 
@@ -124,7 +124,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     if (!m_codeGeneratedAndLoaded)
     {
         cout << __FUNCTION__
-            << ": generating ROOT classes for MVMEExperiment " << projectName << endl;
+            << ": generating ROOT classes for experiment " << projectName << endl;
     }
     else
     {
@@ -212,6 +212,8 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     std::string implFilepath = m_outputDirectory + "/" + implFilename;
     std::string analysisFilename = "analysis.cxx";
     std::string analysisFilepath = m_outputDirectory + "/" + analysisFilename;
+    std::string makefileFilename = "Makefile";
+    std::string makefileFilepath = m_outputDirectory + "/" + makefileFilename;
 
     mu_data["header_filename"] = headerFilename;
     mu_data["impl_filename"] = implFilename;
@@ -236,28 +238,30 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
         cout << "Writing skeleton analysis file " << analysisFilepath << endl;
         do_render(mu_data, analysisImplTemplate, analysisFilepath);
-    }
 
+        cout << "Writing Makefile" << endl;
+        do_render(mu_data, makefileTemplate, makefileFilepath);
+    }
 
     // Using TROOT::LoadMacro() to compile and immediately load the generated
     // code, then create the project specific MVMEExperiment subclass.
     {
-        std::string cmd = implFilepath + "+";
-
-        if (m_options & Options::VerboseMacroLoad)
-        {
-            cmd += "v";
-        }
 
         if (!m_codeGeneratedAndLoaded)
         {
+            std::string cmd = implFilepath + "+";
+
+            if (m_options & Options::VerboseMacroLoad)
+            {
+                cmd += "v";
+            }
             cout << "LoadMacro " + cmd << endl;
             int error = 0;
             auto res = gROOT->LoadMacro(cmd.c_str(), &error);
             cout << "res=" << res << ", error=" << error << endl;
         }
 
-        cmd = "new " + experimentStructName + "();";
+        std::string cmd = "new " + experimentStructName + "();";
         m_exp = std::unique_ptr<MVMEExperiment>(reinterpret_cast<MVMEExperiment *>(
                 gROOT->ProcessLineSync(cmd.c_str())));
 
@@ -413,9 +417,9 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
     // TODO: run user analysis here
 }
 
-void ClientContext::endRun(const Message &msg)
+void ClientContext::endRun(const Message &msg, const json &info)
 {
-    cerr << __FUNCTION__ << endl;
+    cout << __FUNCTION__ << ": endRun info:" << endl << info.dump(2) << endl;
 
     if (m_outFile)
     {
@@ -502,6 +506,18 @@ void setup_signal_handlers()
 //
 int main(int argc, char *argv[])
 {
+/*
+    [--host=localhost]
+    [--port=13801]
+
+    Parse options, if remaining args switch to replay mode and use remaining args
+    as names of root files.
+
+    Pass all args after the separating '--' to the analysis init function.
+    How does the init function know what we're doing? Life run or replay?
+
+*/
+
 #if 1
     // host, port, quit after one run?,
     // output filename? if not specified is taken from the runId

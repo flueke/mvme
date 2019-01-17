@@ -1,33 +1,48 @@
 R"(
 
 #include "{{header_filename}}"
+#include <iostream>
 
 extern "C"
 {
 
-// TODO: pass context/args/something to these functions
-
-bool init_analysis(const std::vector<std::string> args)
+// Called once after loading this library. Additional command line parameters
+// given to mvme_root_client are passed in the args variable.
+void init_analysis(const std::vector<std::string> &args)
 {
-    // ===== Custom init code goes here =====
-    return true;
+    std::cerr << __PRETTY_FUNCTION__ << std::endl;
 }
 
-bool finish_analysis()
+// Called before the mvme_root_client program exits.
+void shutdown_analysis()
 {
-    // ===== Custom shutdown code goes here =====
-    return true;
+    std::cerr << __PRETTY_FUNCTION__ << std::endl;
+}
+
+// Called each time a new run stats.
+void begin_run()
+{
+    std::cerr << __PRETTY_FUNCTION__ << std::endl;
+}
+
+// Called each time a run ends.
+void end_run()
+{
+    std::cerr << __PRETTY_FUNCTION__ << std::endl;
 }
 
 {{#vme_events}}
 bool analyze_{{name}}(MVMEEvent *ev_, int64_t eventNumber)
 {
+    std::cerr << __PRETTY_FUNCTION__ << std::endl;
+
     auto event = dynamic_cast<{{struct_name}} *>(ev_);
 
     if (!event)
     {
-        cerr << "Error in " << __FUNCTION__ << ": given event could not be converted to "
-        " type '{{struct_name}}'" << endl;
+        std::cerr << "Error in " << __FUNCTION__
+        << ": given event could not be converted to type '{{struct_name}}'"
+        << std::endl;
         return false;
     }
 
@@ -35,8 +50,8 @@ bool analyze_{{name}}(MVMEEvent *ev_, int64_t eventNumber)
 
     return true;
 }
-
 {{/vme_events}}
+
 } // end extern "C"
 
 {{!

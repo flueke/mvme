@@ -43,7 +43,7 @@ class Context: public Parser
         virtual void eventData(const Message &msg, int eventIndex,
                                 const std::vector<DataSourceContents> &contents) override;
 
-        virtual void endRun(const Message &msg) override;
+        virtual void endRun(const Message &msg, const json &info) override;
 
         virtual void error(const Message &msg, const std::exception &e) override;
 
@@ -115,12 +115,14 @@ void Context::eventData(const Message &msg, int eventIndex,
     }
 }
 
-void Context::endRun(const Message &msg)
+void Context::endRun(const Message &msg, const json &info)
 {
     m_stats.tEnd = ClockType::now();
     m_stats.messageCount++;
 
-    cout << __FUNCTION__ << " run stats:" << endl;
+    cout << __FUNCTION__ << ": endRun info JSON:" << endl << info.dump(2) << endl << endl;
+
+    cout << __FUNCTION__ << "client run stats:" << endl;
 
     std::chrono::duration<float> elapsed = m_stats.tEnd - m_stats.tStart;
     float elapsed_s = elapsed.count();
