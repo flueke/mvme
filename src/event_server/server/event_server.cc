@@ -234,6 +234,7 @@ void EventServer::Private::cleanupClients()
         }
     }
 
+    // Remove the now stale pointers from the list of clients.
     m_clients.erase(std::remove_if(m_clients.begin(), m_clients.end(), to_be_removed),
                     m_clients.end());
 
@@ -254,12 +255,6 @@ EventServer::EventServer(QObject *parent)
 {
     connect(&m_d->m_server, &QTcpServer::newConnection,
             this, [this] { m_d->handleNewConnection(); });
-}
-
-EventServer::EventServer(Logger logger, QObject *parent)
-    : EventServer(parent)
-{
-    setLogger(logger);
 }
 
 EventServer::~EventServer()
@@ -310,8 +305,7 @@ size_t EventServer::getNumberOfClients() const
 
 void EventServer::beginRun(const RunInfo &runInfo,
               const VMEConfig *vmeConfig,
-              const analysis::Analysis *analysis,
-              Logger logger)
+              const analysis::Analysis *analysis)
 {
     assert(!m_d->m_runInProgress);
 
@@ -321,8 +315,6 @@ void EventServer::beginRun(const RunInfo &runInfo,
     if (!(analysis->getA2AdapterState() && analysis->getA2AdapterState()->a2))
         return;
 
-    setLogger(logger);
-
     m_d->m_runContext =
     {
         runInfo, vmeConfig, analysis,
@@ -331,20 +323,20 @@ void EventServer::beginRun(const RunInfo &runInfo,
     };
 
     auto &ctx = m_d->m_runContext;
-
     auto outputDescription = make_output_data_description(vmeConfig, analysis);
+
     json outputInfo;
     outputInfo["vmeTree"] = to_json(outputDescription.vmeTree);
     outputInfo["eventDataSources"] = to_json(outputDescription.eventDataDescriptions);
+    outputInfo["runId"] = ctx.runInfo.runId.toStdString();
+    outputInfo["isReplay"] = ctx.runInfo.isReplay;
+    outputInfo["runInProgress"] = false;
 
+    // Copy RunInfo::infoDict keys and values into the output info
     for (auto key: runInfo.infoDict.keys())
     {
         outputInfo[key.toStdString()] = runInfo.infoDict[key].toString().toStdString();
     }
-
-    outputInfo["runId"] = ctx.runInfo.runId.toStdString();
-    outputInfo["isReplay"] = ctx.runInfo.isReplay;
-    outputInfo["runInProgress"] = false;
 
     // Store this information so it can be sent out to clients connecting while
     // the DAQ run is in progress.
@@ -352,7 +344,7 @@ void EventServer::beginRun(const RunInfo &runInfo,
     m_d->m_runContext.outputInfoJSON = outputInfo;
     m_d->m_runStats = {};
 
-    qDebug() << __PRETTY_FUNCTION__ << "outputInfo to be sent to clients:";
+    qDebug() << "EventServer::beginRun: outputInfo to be sent to clients:";
     qDebug().noquote() << QString::fromStdString(outputInfo.dump(2));
 
     auto jsonString = QByteArray::fromStdString(outputInfo.dump());
@@ -493,7 +485,7 @@ void EventServer::endEvent(s32 eventIndex)
     // block if there's enough pending data
     for (auto &client: m_d->m_clients)
     {
-        static const qint64 WriteFlushTreshold = Kilobytes(128);
+        static const qint64 WriteFlushTreshold = Megabytes(1);
 
         if (client.socket->isValid() && client.socket->bytesToWrite() > WriteFlushTreshold)
         {
@@ -505,12 +497,27 @@ void EventServer::endEvent(s32 eventIndex)
     QCoreApplication::processEvents();
 }
 
-void EventServer::endRun(const std::exception *e)
+void EventServer::endRun(const DAQStats &daqStats, const std::exception *e)
 {
+    json endRunInfo;
+    endRunInfo["startTime"] = daqStats.startTime.toString(Qt::ISODate).toStdString();
+    endRunInfo["endTime"] = daqStats.endTime.toString(Qt::ISODate).toStdString();
+    endRunInfo["vme_totalBytesRead"] = std::to_string(daqStats.totalBytesRead);
+    endRunInfo["vme_totalBuffersRead"] = std::to_string(daqStats.totalBuffersRead);
+    endRunInfo["vme_buffersWithErrors"] = std::to_string(daqStats.buffersWithErrors);
+    endRunInfo["analysis_droppedBuffers"] = std::to_string(daqStats.droppedBuffers);
+    endRunInfo["analysis_processedBuffers"] = std::to_string(daqStats.getAnalyzedBuffers());
+    endRunInfo["analysis_efficiency"] = std::to_string(daqStats.getAnalysisEfficiency());
+
+    qDebug() << "EventServer::endRun: endRunInfo to be sent to clients:";
+    qDebug().noquote() << QString::fromStdString(endRunInfo.dump(2));
+
+    auto jsonString = QByteArray::fromStdString(endRunInfo.dump());
+
     for (auto &client: m_d->m_clients)
     {
         if (!client.socket->isValid()) continue;
-        write_message(*client.socket, MessageType::EndRun, {});
+        write_message(*client.socket, MessageType::EndRun, jsonString, WriteOption::Flush);
     }
 
     // flush all data on endrun

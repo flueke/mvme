@@ -16,7 +16,6 @@ class LIBMVME_EXPORT EventServer: public QObject, public IMVMEStreamModuleConsum
         static const uint16_t Default_ListenPort = 13801;
 
         EventServer(QObject *parent = nullptr);
-        EventServer(Logger logger, QObject *parent = nullptr);
         virtual ~EventServer();
 
         virtual void startup() override;
@@ -24,23 +23,22 @@ class LIBMVME_EXPORT EventServer: public QObject, public IMVMEStreamModuleConsum
 
         virtual void beginRun(const RunInfo &runInfo,
                               const VMEConfig *vmeConfig,
-                              const analysis::Analysis *analysis,
-                              Logger logger) override;
+                              const analysis::Analysis *analysis) override;
 
-        virtual void endRun(const std::exception *e = nullptr) override;
+        virtual void endRun(const DAQStats &stats, const std::exception *e = nullptr) override;
 
         virtual void beginEvent(s32 eventIndex) override;
         virtual void endEvent(s32 eventIndex) override;
         virtual void processModuleData(s32 eventIndex, s32 moduleIndex,
                                        const u32 *data, u32 size) override;
         virtual void processTimetick() override;
+        virtual void setLogger(Logger logger) override;
 
         // Server specific settings and info
-        void setLogger(Logger logger);
-        void setListeningInfo(const QHostAddress &address, quint16 port = Default_ListenPort);
+        void setListeningInfo(const QHostAddress &address,
+                              quint16 port = Default_ListenPort);
 
         bool isListening() const;
-
         size_t getNumberOfClients() const;
 
     private:
