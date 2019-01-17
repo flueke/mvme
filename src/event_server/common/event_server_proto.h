@@ -11,15 +11,6 @@
 // protocol.
 // Details about message contents and how things can be parsed are in a
 // separate file (data_server_client_lib.h).
-//
-// TODO:
-// - the client can send an id string which can be used for logging on the
-//   server side.
-// - send information in end run: total number of events processed on the server side,
-//   per event counts, per datasource counts
-// - textually describe what the protocol is for and how the information for
-//   each message type looks.
-
 
 namespace mvme
 {

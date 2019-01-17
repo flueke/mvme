@@ -198,7 +198,8 @@ static int lib_shutdown()
 // Reads exactly size bytes from the file descriptor fd into the destination
 // buffer. Interally multiple calls to read() may be performed. If size is 0
 // this is a noop.
-// Throws std::system_error in case a read fails.
+// Throws std::system_error in case a read fails and connect_closed if the
+// file descriptor was closed
 static void read_data(int fd, uint8_t *dest, size_t size)
 {
     while (size > 0)
@@ -245,10 +246,7 @@ static void read_message(int fd, Message &msg)
     msg.type = MessageType::Invalid;
     msg.contents.clear();
 
-    // Instead of doing two reads for the header like this:
-    // msg.type = read_pod<MessageType>(fd);
-    // size = read_pod<uint32_t>(fd);
-    // ... save one system call by reading the header in one go.
+    // Read message type and size.
     uint8_t headerBuffer[sizeof(msg.type) + sizeof(uint32_t)];
     read_data(fd, headerBuffer, sizeof(headerBuffer));
 
@@ -405,8 +403,8 @@ R read_storage(StorageType st, const uint8_t *buffer)
 
 
 // Description of a datasource contained in the data stream. Multiple data
-// sources can be part of the same event and multiple datasources can be
-// attached to the same vme module.
+// Multiple datasources can be attached to the same vme module and thus become
+// a part of the same readout event.
 struct DataSourceDescription
 {
     std::string name;           // Name of the datasource.
@@ -416,7 +414,8 @@ struct DataSourceDescription
     double upperLimit = 0.0;
     StorageType indexType;      // Data types used to store the index and data values during network
     StorageType valueType;      // transfer.
-    // Optional list of names of individual array elements.
+    // Optional list of names of individual array elements. This does not have
+    // to have the same length as the size of this datasource.
     std::vector<std::string> paramNames;
 };
 
@@ -438,7 +437,7 @@ using EventDataDescriptions = std::vector<EventDataDescription>;
 
 struct VMEModule
 {
-    int moduleIndex;
+    int moduleIndex = -1;
     std::string name;
     std::string type;
 };
@@ -502,7 +501,7 @@ static EventDataDescriptions parse_stream_data_description(const json &j)
     return result;
 }
 
-static json to_json(const EventDataDescriptions &edds)
+inline json to_json(const EventDataDescriptions &edds)
 {
     json result;
 
@@ -536,7 +535,7 @@ static json to_json(const EventDataDescriptions &edds)
     return result;
 }
 
-static json to_json(const VMETree &vmeTree)
+inline json to_json(const VMETree &vmeTree)
 {
     json result;
 
@@ -661,7 +660,6 @@ void print(OUT &out, const DataSourceContents &dsc)
     }
 }
 
-
 class Parser
 {
     public:
@@ -678,7 +676,7 @@ class Parser
         virtual void eventData(const Message &msg, int eventIndex,
                                const std::vector<DataSourceContents> &contents) = 0;
 
-        virtual void endRun(const Message &msg) = 0;
+        virtual void endRun(const Message &msg, const json &info) = 0;
 
         virtual void error(const Message &msg, const std::exception &e) = 0;
 
@@ -820,7 +818,8 @@ inline void Parser::_eventData(const Message &msg)
 
 inline void Parser::_endRun(const Message &msg)
 {
-    endRun(msg);
+    auto infoJson = json::parse(msg.contents);
+    endRun(msg, infoJson);
 }
 
 } // end namespace event_server
