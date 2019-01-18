@@ -1,5 +1,5 @@
-R"(#ifndef __MVME_ROOT_EXPORT_GUARD_{{header_guard}}__
-#define __MVME_ROOT_EXPORT_GUARD_{{header_guard}}__
+R"(#ifndef __MVME_EVENT_EXPORT_GUARD_{{header_guard}}__
+#define __MVME_EVENT_EXPORT_GUARD_{{header_guard}}__
 
 // Contains declarations of the MVMEExperiment, MVMEEvent and MVMEModule base
 // classes
@@ -47,7 +47,7 @@ struct {{exp_struct_name}}: public MVMEExperiment
     ClassDef({{exp_struct_name}}, 1);
 };
 
-#endif /* __MVME_ROOT_EXPORT_GUARD_{{header_guard}}__ */
+#endif /* __MVME_EVENT_EXPORT_GUARD_{{header_guard}}__ */
 {{!
 vim:ft=cpp
 }})"

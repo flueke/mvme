@@ -32,20 +32,8 @@ void end_run()
 }
 
 {{#vme_events}}
-bool analyze_{{name}}(MVMEEvent *ev_, int64_t eventNumber)
+bool analyze_{{name}}(Event_{{name}} *event, int64_t eventNumber)
 {
-    std::cerr << __PRETTY_FUNCTION__ << std::endl;
-
-    auto event = dynamic_cast<{{struct_name}} *>(ev_);
-
-    if (!event)
-    {
-        std::cerr << "Error in " << __FUNCTION__
-        << ": given event could not be converted to type '{{struct_name}}'"
-        << std::endl;
-        return false;
-    }
-
     // ===== Custom analysis code for event {{struct_name}} goes here =====
 
     return true;

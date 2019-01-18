@@ -41,8 +41,16 @@ static const char *exportImplTemplate =
 #include "templates/user_objects.cxx.mustache"
 ;
 
+static const char *exportLinkDefTemplate =
+#include "templates/user_objects_LinkDef.h.mustache"
+;
+
 static const char *analysisImplTemplate =
 #include "templates/analysis.cxx.mustache"
+;
+
+static const char *analysisMkTemplate =
+#include "templates/analysis.mk.mustache"
 ;
 
 static const char *makefileTemplate =
@@ -107,31 +115,8 @@ void ClientContext::serverInfo(const Message &msg, const json &info)
     cout << __FUNCTION__ << ": serverInfo:" << endl << info.dump(2) << endl;
 }
 
-void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
+static mu::data build_event_template_data(const StreamInfo &streamInfo)
 {
-    if (m_options & Options::ShowStreamInfo)
-    {
-        cout << "BeginRun Stream Information:" << endl
-            << streamInfo.infoJson.dump(2) << endl;
-    }
-
-    cout << __FUNCTION__ << ": runId=" << streamInfo.runId
-        << endl;
-
-    std::string projectName = streamInfo.infoJson["ProjectName"];
-    std::string projectTitle = streamInfo.infoJson["ProjectTitle"];
-
-    if (!m_codeGeneratedAndLoaded)
-    {
-        cout << __FUNCTION__
-            << ": generating ROOT classes for experiment " << projectName << endl;
-    }
-    else
-    {
-        cout << __FUNCTION__
-            << ": Reusing previously generated and loaded experiment code." << endl;
-    }
-
     mu::data mu_vmeEvents = mu::data::type::list;
 
     for (const auto &event: streamInfo.vmeTree.events)
@@ -197,23 +182,58 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         mu_vmeEvents.push_back(mu_event);
     }
 
-    // combine template data into one object
-    mu::data mu_data;
-    mu_data["vme_events"] = mu::data{mu_vmeEvents};
-    mu_data["exp_name"] = projectName;
-    std::string experimentStructName = projectName;
-    mu_data["exp_struct_name"] = experimentStructName;
-    mu_data["exp_title"] = projectTitle;
-    mu_data["header_guard"] = projectName;
+    return mu_vmeEvents;
+}
 
-    std::string headerFilename = projectName + "_mvme.h";
+void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
+{
+    if (m_options & Options::ShowStreamInfo)
+    {
+        cout << "Incoming BeginRun Stream Information:" << endl
+            << streamInfo.infoJson.dump(2) << endl;
+    }
+
+    cout << __FUNCTION__ << ": runId=" << streamInfo.runId
+        << endl;
+
+    std::string expName = streamInfo.infoJson["ExperimentName"];
+    std::string expTitle = streamInfo.infoJson["ExperimentTitle"];
+
+    if (!m_codeGeneratedAndLoaded)
+    {
+        cout << __FUNCTION__
+            << ": generating ROOT classes for experiment " << expName << endl;
+    }
+    else
+    {
+        cout << __FUNCTION__
+            << ": Reusing previously generated and loaded experiment code." << endl;
+    }
+
+    std::string headerFilename = expName + "_mvme.h";
     std::string headerFilepath = m_outputDirectory + "/" + headerFilename;
-    std::string implFilename = projectName + "_mvme.cxx";
+    std::string implFilename = expName + "_mvme.cxx";
     std::string implFilepath = m_outputDirectory + "/" + implFilename;
+    std::string linkdefFilename = expName + "_mvme_LinkDef.h";
+    std::string linkdefFilepath = m_outputDirectory + "/" + linkdefFilename;
     std::string analysisFilename = "analysis.cxx";
     std::string analysisFilepath = m_outputDirectory + "/" + analysisFilename;
     std::string makefileFilename = "Makefile";
     std::string makefileFilepath = m_outputDirectory + "/" + makefileFilename;
+    std::string analysisMkFilename = "analysis.mk";
+    std::string analysisMkFilepath = m_outputDirectory + "/" + analysisMkFilename;
+
+    mu::data mu_vmeEvents = build_event_template_data(streamInfo);
+
+    // combine template data into one object
+    mu::data mu_data;
+    mu_data["vme_events"] = mu::data{mu_vmeEvents};
+    mu_data["exp_name"] = expName;
+    std::string experimentStructName = expName;
+    mu_data["exp_struct_name"] = experimentStructName;
+    mu_data["exp_title"] = expTitle;
+    mu_data["header_guard"] = expName;
+
 
     mu_data["header_filename"] = headerFilename;
     mu_data["impl_filename"] = implFilename;
@@ -236,8 +256,14 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         cout << "Writing experiment implementation file " << implFilepath << endl;
         do_render(mu_data, exportImplTemplate, implFilepath);
 
+        cout << "Writing experiment linkdef file " << linkdefFilepath << endl;
+        do_render(mu_data, exportLinkDefTemplate, linkdefFilepath);
+
         cout << "Writing skeleton analysis file " << analysisFilepath << endl;
         do_render(mu_data, analysisImplTemplate, analysisFilepath);
+
+        cout << "Writing analysis customization Makefile " << analysisMkFilepath << endl;
+        do_render(mu_data, analysisMkTemplate, analysisMkFilepath);
 
         cout << "Writing Makefile" << endl;
         do_render(mu_data, makefileTemplate, makefileFilepath);

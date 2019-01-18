@@ -1,0 +1,13 @@
+R"( #ifdef __CINT__
+
+{{#vme_events}}
+{{#modules}}
+#pragma link C++ class {{event_name}}_modules::{{struct_name}}+;
+{{/modules}}
+#pragma link C++ class {{struct_name}}+;
+{{/vme_events}}
+
+#endif
+{{!
+vim:ft=cpp
+}})"
