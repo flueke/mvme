@@ -602,6 +602,7 @@ void DAQControlWidget::updateWidget()
     cb_writeListfile->setEnabled(isDAQIdle && !isReplay);
     combo_compression->setEnabled(isDAQIdle && !isReplay);
     pb_runSettings->setEnabled(isDAQIdle && !isReplay);
+    pb_workspaceSettings->setEnabled(isDAQIdle);
 }
 
 DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, QWidget *parent)
@@ -689,26 +690,29 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
                                                  QWidget *parent)
     : QDialog(parent)
     , gb_jsonRPC(new QGroupBox(QSL("Enable JSON-RPC Server")))
+    , gb_eventServer(new QGroupBox(QSL("Enable Event Server")))
     , le_jsonRPCListenAddress(new QLineEdit)
+    , le_eventServerListenAddress(new QLineEdit)
     , spin_jsonRPCListenPort(new QSpinBox)
+    , spin_eventServerListenPort(new QSpinBox)
     , m_bb(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this))
     , m_settings(settings)
 {
     auto widgetLayout = new QVBoxLayout(this);
 
-    // Groupbox ProjectName and ProjectTitle
+    // Groupbox ExperimentName and ExperimentTitle
     {
-        auto gb = new QGroupBox(QSL("Project"));
-        le_projectName = new QLineEdit(this);
-        le_projectTitle = new QLineEdit(this);
+        auto gb = new QGroupBox(QSL("Experiment"));
+        le_expName = new QLineEdit(this);
+        le_expTitle = new QLineEdit(this);
         auto l = new QFormLayout(gb);
-        l->addRow(QSL("Project Name"), le_projectName);
-        l->addRow(QSL("Project Title"), le_projectTitle);
+        l->addRow(QSL("Experiment Name"), le_expName);
+        l->addRow(QSL("Experiment Title"), le_expTitle);
 
         widgetLayout->addWidget(gb);
     }
 
-    // Groupbox JSONRPC
+    // JSONRPC
     gb_jsonRPC->setCheckable(true);
     spin_jsonRPCListenPort->setMinimum(1);
     spin_jsonRPCListenPort->setMaximum((1 << 16) - 1);
@@ -729,7 +733,29 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
         l->addRow(QSL("Listen Port"), spin_jsonRPCListenPort);
     }
 
+    // Event Server
+    gb_eventServer->setCheckable(true);
+    spin_eventServerListenPort->setMinimum(1);
+    spin_eventServerListenPort->setMaximum((1 << 16) - 1);
+
+    {
+        auto label = new QLabel(QSL(
+                "Enables the EventServer component which streams "
+                "extracted Event data over a TCP socket.\n"
+                "The listen address may be a hostname or an IP address. Leave blank to"
+                " bind to all local interfaces."));
+
+        label->setWordWrap(true);
+        set_widget_font_pointsize_relative(label, -1);
+
+        auto l = new QFormLayout(gb_eventServer);
+        l->addRow(label);
+        l->addRow(QSL("Listen Address"), le_eventServerListenAddress);
+        l->addRow(QSL("Listen Port"), spin_eventServerListenPort);
+    }
+
     widgetLayout->addWidget(gb_jsonRPC);
+    widgetLayout->addWidget(gb_eventServer);
     widgetLayout->addWidget(m_bb);
 
     QObject::connect(m_bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -740,20 +766,31 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
 
 void WorkspaceSettingsDialog::populate()
 {
+    le_expName->setText(m_settings->value(QSL("Experiment/Name")).toString());
+    le_expTitle->setText(m_settings->value(QSL("Experiment/Title")).toString());
+
     gb_jsonRPC->setChecked(m_settings->value(QSL("JSON-RPC/Enabled")).toBool());
     le_jsonRPCListenAddress->setText(m_settings->value(QSL("JSON-RPC/ListenAddress")).toString());
     spin_jsonRPCListenPort->setValue(m_settings->value(QSL("JSON-RPC/ListenPort")).toInt());
-    le_projectName->setText(m_settings->value(QSL("Project/Name")).toString());
-    le_projectTitle->setText(m_settings->value(QSL("Project/Title")).toString());
+
+    gb_eventServer->setChecked(m_settings->value(QSL("EventServer/Enabled")).toBool());
+    le_eventServerListenAddress->setText(m_settings->value(QSL("EventServer/ListenAddress")).toString());
+    spin_eventServerListenPort->setValue(m_settings->value(QSL("EventServer/ListenPort")).toInt());
 }
 
 void WorkspaceSettingsDialog::accept()
 {
+    m_settings->setValue(QSL("Experiment/Name"), le_expName->text());
+    m_settings->setValue(QSL("Experiment/Title"), le_expTitle->text());
+
     m_settings->setValue(QSL("JSON-RPC/Enabled"), gb_jsonRPC->isChecked());
     m_settings->setValue(QSL("JSON-RPC/ListenAddress"), le_jsonRPCListenAddress->text());
     m_settings->setValue(QSL("JSON-RPC/ListenPort"), spin_jsonRPCListenPort->value());
-    m_settings->setValue(QSL("Project/Name"), le_projectName->text());
-    m_settings->setValue(QSL("Project/Title"), le_projectTitle->text());
+
+    m_settings->setValue(QSL("EventServer/Enabled"), gb_eventServer->isChecked());
+    m_settings->setValue(QSL("EventServer/ListenAddress"), le_eventServerListenAddress->text());
+    m_settings->setValue(QSL("EventServer/ListenPort"), spin_eventServerListenPort->value());
+
     m_settings->sync();
 
     QDialog::accept();

@@ -41,6 +41,9 @@ class LIBMVME_EXPORT EventServer: public QObject, public IMVMEStreamModuleConsum
         bool isListening() const;
         size_t getNumberOfClients() const;
 
+    public slots:
+        void setEnabled(bool b);
+
     private:
         struct Private;
         std::unique_ptr<Private> m_d;

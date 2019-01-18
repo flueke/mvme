@@ -114,11 +114,16 @@ class WorkspaceSettingsDialog: public QDialog
     private:
         void populate();
 
-        QGroupBox *gb_jsonRPC;
+        QGroupBox *gb_jsonRPC,
+                  *gb_eventServer;
+
         QLineEdit *le_jsonRPCListenAddress,
-                  *le_projectName,
-                  *le_projectTitle;
-        QSpinBox *spin_jsonRPCListenPort;
+                  *le_eventServerListenAddress,
+                  *le_expName,
+                  *le_expTitle;
+
+        QSpinBox *spin_jsonRPCListenPort,
+                 *spin_eventServerListenPort;
         QDialogButtonBox *m_bb;
 
         std::shared_ptr<QSettings> m_settings;

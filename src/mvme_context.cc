@@ -87,7 +87,7 @@ static const int VMECtrlConnectMaxRetryCount = 3;
 static const s64 LogBufferMaxEntries = 100 * 1000;
 
 static const int JSON_RPC_DefaultListenPort = 13800;
-static const int AnalysisDataServer_DefaultListenPort = 13801;
+static const int EventServer_DefaultListenPort = 13801;
 
 class VMEConfigSerializer
 {
@@ -159,6 +159,8 @@ struct MVMEContextPrivate
     std::unique_ptr<FileAutoSaver> m_analysisAutoSaver;
 
     std::unique_ptr<RemoteControl> m_remoteControl;
+    // owned by the MVMEStreamWorker
+    EventServer *m_eventServer = nullptr;
 
     void stopDAQ();
     void pauseDAQ();
@@ -549,15 +551,14 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     // handle this kind of work and make it easier to understand, predictable,
     // etc. Changing the order of stuff below just slightly leads to errors
     // about QObject thread assignment and parent/child objects, etc.
-    // Also if a command line version of mvme would start a DAQ immediately
-    // after creating the context object
     m_analysisThread->setObjectName("mvme AnalysisThread");
 
     m_streamWorker = std::make_unique<MVMEStreamWorker>(this, &m_freeBuffers, &m_fullBuffers);
 
     auto eventServer = new EventServer(m_streamWorker.get());
+    m_d->m_eventServer = eventServer;
     eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
-    eventServer->setListeningInfo(QHostAddress::Any, AnalysisDataServer_DefaultListenPort);
+    eventServer->setEnabled(false);
     m_streamWorker->getStreamProcessor()->attachModuleConsumer(eventServer);
 
     m_streamWorker->moveToThread(m_analysisThread);
@@ -1195,8 +1196,8 @@ void MVMEContext::prepareStart()
 
     // add info from the workspace to the current RunInfo object
     auto wsSettings = makeWorkspaceSettings();
-    m_d->m_runInfo.infoDict["ProjectName"] = wsSettings->value("Project/Name");
-    m_d->m_runInfo.infoDict["ProjectTitle"] = wsSettings->value("Project/Title");
+    m_d->m_runInfo.infoDict["ExperimentName"] = wsSettings->value("Experiment/Name");
+    m_d->m_runInfo.infoDict["ExperimentTitle"] = wsSettings->value("Experiment/Title");
     m_d->m_runInfo.infoDict["MVMEWorkspace"] = getWorkspaceDirectory();
 
     m_daqStats = DAQStats();
@@ -1515,11 +1516,17 @@ void MVMEContext::newWorkspace(const QString &dirName)
     workspaceSettings->setValue(QSL("LastVMEConfig"), DefaultVMEConfigFileName);
     workspaceSettings->setValue(QSL("LastAnalysisConfig"), DefaultAnalysisConfigFileName);
     workspaceSettings->setValue(QSL("WriteListFile"), true);
+
+    workspaceSettings->setValue(QSL("Experiment/Name"), destDir.dirName());
+    workspaceSettings->setValue(QSL("Experiment/Title"), QString());
+
     workspaceSettings->setValue(QSL("JSON-RPC/Enabled"), false);
     workspaceSettings->setValue(QSL("JSON-RPC/ListenAddress"), QString());
     workspaceSettings->setValue(QSL("JSON-RPC/ListenPort"), JSON_RPC_DefaultListenPort);
-    workspaceSettings->setValue(QSL("Project/Name"), destDir.dirName());
-    workspaceSettings->setValue(QSL("Project/Title"), QString());
+
+    workspaceSettings->setValue(QSL("EventServer/Enabled"), false);
+    workspaceSettings->setValue(QSL("EventServer/ListenAddress"), QString());
+    workspaceSettings->setValue(QSL("EventServer/ListenPort"), EventServer_DefaultListenPort);
 
 
     // Force sync to create the mvmeworkspace.ini file
@@ -1602,6 +1609,13 @@ void MVMEContext::openWorkspace(const QString &dirName)
             workspaceSettings->setValue(QSL("JSON-RPC/ListenAddress"), QString());
         if (!workspaceSettings->contains(QSL("JSON-RPC/ListenPort")))
             workspaceSettings->setValue(QSL("JSON-RPC/ListenPort"), JSON_RPC_DefaultListenPort);
+
+        if (!workspaceSettings->contains(QSL("EventServer/Enabled")))
+            workspaceSettings->setValue(QSL("EventServer/Enabled"), false);
+        if (!workspaceSettings->contains(QSL("EventServer/ListenAddress")))
+            workspaceSettings->setValue(QSL("EventServer/ListenAddress"), QString());
+        if (!workspaceSettings->contains(QSL("EventServer/ListenPort")))
+            workspaceSettings->setValue(QSL("EventServer/ListenPort"), EventServer_DefaultListenPort);
 
         // listfile subdir
         {
@@ -1969,6 +1983,45 @@ void MVMEContext::reapplyWorkspaceSettings()
             settings->value(QSL("JSON-RPC/ListenPort")).toInt());
 
         m_d->m_remoteControl->start();
+    }
+
+    // EventServer
+    {
+        auto enabled = settings->value(QSL("EventServer/Enabled")).toBool();
+        auto addressString = settings->value(QSL("EventServer/ListenAddress")).toString();
+        auto port = settings->value(QSL("EventServer/ListenPort")).toInt();
+        QHostAddress address;
+
+        if (enabled && !addressString.isEmpty())
+        {
+            auto hostInfo = QHostInfo::fromName(addressString);
+
+            if (hostInfo.addresses().isEmpty())
+            {
+                logMessage(QSL("EventServer error: could not resolve listening address ")
+                           + addressString);
+                enabled = false;
+            }
+            else
+            {
+                address = hostInfo.addresses().first();
+            }
+        }
+        else if (enabled)
+        {
+            address = QHostAddress::Any;
+        }
+
+        if (enabled)
+        {
+            m_d->m_eventServer->setListeningInfo(address, port);
+        }
+
+        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer,
+                                                 "setEnabled",
+                                                 Qt::QueuedConnection,
+                                                 Q_ARG(bool, enabled));
+        assert(invoked);
     }
 }
 

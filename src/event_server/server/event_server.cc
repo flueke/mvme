@@ -61,6 +61,7 @@ struct EventServer::Private
     bool m_runInProgress = false;
     RunContext m_runContext;
     RunStats m_runStats;
+    bool m_enabled;
 
     void handleNewConnection();
     void handleClientSocketError(QTcpSocket *socket, QAbstractSocket::SocketError error);
@@ -262,17 +263,25 @@ EventServer::~EventServer()
 
 void EventServer::startup()
 {
-    if (bool res = m_d->m_server.listen(m_d->m_listenAddress, m_d->m_listenPort))
+    qDebug() << __PRETTY_FUNCTION__ << m_d->m_enabled;
+    if (m_d->m_enabled)
     {
-        m_d->logMessage(QSL("Listening on %1:%2")
-                   .arg(m_d->m_listenAddress.toString())
-                   .arg(m_d->m_listenPort));
+        if (bool res = m_d->m_server.listen(m_d->m_listenAddress, m_d->m_listenPort))
+        {
+            m_d->logMessage(QSL("Listening on %1:%2")
+                       .arg(m_d->m_listenAddress.toString())
+                       .arg(m_d->m_listenPort));
+        }
+        else
+        {
+            m_d->logMessage(QSL("Error listening on %1:%2")
+                       .arg(m_d->m_listenAddress.toString())
+                       .arg(m_d->m_listenPort));
+        }
     }
     else
     {
-        m_d->logMessage(QSL("Error listening on %1:%2")
-                   .arg(m_d->m_listenAddress.toString())
-                   .arg(m_d->m_listenPort));
+        shutdown();
     }
 }
 
@@ -303,10 +312,19 @@ size_t EventServer::getNumberOfClients() const
     return m_d->m_clients.size();
 }
 
+void EventServer::setEnabled(bool b)
+{
+    shutdown();
+    m_d->m_enabled = b;
+    startup();
+}
+
 void EventServer::beginRun(const RunInfo &runInfo,
               const VMEConfig *vmeConfig,
               const analysis::Analysis *analysis)
 {
+    if (!m_d->m_enabled) return;
+
     assert(!m_d->m_runInProgress);
 
     qDebug() << __PRETTY_FUNCTION__ << "calling cleanupClients()";
@@ -359,6 +377,8 @@ void EventServer::beginRun(const RunInfo &runInfo,
 
 void EventServer::endEvent(s32 eventIndex)
 {
+    if (!m_d->m_enabled) return;
+
     assert(m_d->m_runInProgress);
 
     if (!m_d->m_runInProgress || !m_d->m_runContext.a2
@@ -499,6 +519,8 @@ void EventServer::endEvent(s32 eventIndex)
 
 void EventServer::endRun(const DAQStats &daqStats, const std::exception *e)
 {
+    if (!m_d->m_enabled) return;
+
     json endRunInfo;
     endRunInfo["startTime"] = daqStats.startTime.toString(Qt::ISODate).toStdString();
     endRunInfo["endTime"] = daqStats.endTime.toString(Qt::ISODate).toStdString();
@@ -540,6 +562,7 @@ void EventServer::endRun(const DAQStats &daqStats, const std::exception *e)
 
 void EventServer::beginEvent(s32 eventIndex)
 {
+    if (!m_d->m_enabled) return;
     // Noop
     assert(m_d->m_runInProgress);
 }
@@ -547,6 +570,7 @@ void EventServer::beginEvent(s32 eventIndex)
 void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
                        const u32 *data, u32 size)
 {
+    if (!m_d->m_enabled) return;
     // Noop for this server case. We're interested in the endEvent() call as at
     // that point all data from all modules has been processed by the a2
     // analysis system and is available at the output pipes of the data
@@ -556,6 +580,7 @@ void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
 
 void EventServer::processTimetick()
 {
+    if (!m_d->m_enabled) return;
     // TODO: how to handle timeticks? handle them at all?
     assert(m_d->m_runInProgress);
 }
