@@ -493,3 +493,27 @@ void DAQReadoutListfileHelper::writeTimetickSection()
         m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
     }
 }
+
+void DAQReadoutListfileHelper::writePauseSection()
+{
+    if (m_d->listfileOut && m_d->listfileOut->isOpen())
+    {
+        if (!m_d->listfileWriter->writePauseSection(ListfileSections::Pause))
+        {
+            throw_io_device_error(m_d->listfileOut);
+        }
+        m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+    }
+}
+
+void DAQReadoutListfileHelper::writeResumeSection()
+{
+    if (m_d->listfileOut && m_d->listfileOut->isOpen())
+    {
+        if (!m_d->listfileWriter->writePauseSection(ListfileSections::Resume))
+        {
+            throw_io_device_error(m_d->listfileOut);
+        }
+        m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+    }
+}

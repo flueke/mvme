@@ -524,6 +524,11 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         logError(QSL("VME Script parse error: ") + e.what());
         errorThrown = true;
     }
+    catch (const VMEError &e)
+    {
+        logError(e.toString());
+        errorThrown = true;
+    }
 
     if (errorThrown)
     {
@@ -616,6 +621,7 @@ void VMUSBReadoutWorker::readoutLoop()
                     .arg(error.toString());
             }
 
+            m_bufferProcessor->handlePause();
             setState(DAQState::Paused);
             logMessage(QSL("VMUSB readout paused"));
         }
@@ -627,6 +633,7 @@ void VMUSBReadoutWorker::readoutLoop()
             if (error.isError())
                 throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
 
+            m_bufferProcessor->handleResume();
             setState(DAQState::Running);
             logMessage(QSL("VMUSB readout resumed"));
         }

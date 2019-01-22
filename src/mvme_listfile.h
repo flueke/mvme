@@ -91,13 +91,23 @@ namespace ListfileSections
         SectionType_End         = 2,
 
         /* Marker section written once at the start of a run and then once per
-         * elapsed second. */
+         * elapsed second. Contains the current date and time as an ISO 8601
+         * formatted string padded with zeroes to the next 32-bit boundary. */
         SectionType_Timetick    = 3,
 
+        /* Section marking the beginning and end of a user initiated pause.
+         * Contains a single data word with value 0 for pause and value 1 for
+         * resume. */
         SectionType_Pause       = 4,
 
         /* Max section type possible. */
         SectionType_Max         = 7
+    };
+
+    enum PauseAction
+    {
+        Pause = 0,
+        Resume = 1,
     };
 };
 

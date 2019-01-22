@@ -221,6 +221,16 @@ void VMUSBBufferProcessor::endRun()
     m_d->m_listfileHelper->endRun();
 }
 
+void VMUSBBufferProcessor::handlePause()
+{
+    m_d->m_listfileHelper->writePauseSection();
+}
+
+void VMUSBBufferProcessor::handleResume()
+{
+    m_d->m_listfileHelper->writeResumeSection();
+}
+
 void VMUSBBufferProcessor::resetRunState()
 {
     auto eventConfigs = m_d->m_readoutWorker->getContext().vmeConfig->getEventConfigs();

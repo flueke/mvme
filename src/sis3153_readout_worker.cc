@@ -1461,6 +1461,8 @@ void SIS3153ReadoutWorker::readoutLoop()
         else if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
             leaveDAQMode();
+            m_listfileHelper->writePauseSection();
+
             setState(DAQState::Paused);
             sis_log(QString(QSL("SIS3153 readout paused")));
         }
@@ -1470,6 +1472,8 @@ void SIS3153ReadoutWorker::readoutLoop()
             m_lossCounter.currentFlags = EventLossCounter::Flag_IsStaleData;
 
             enterDAQMode(m_stackListControlRegisterValue);
+            m_listfileHelper->writeResumeSection();
+
             setState(DAQState::Running);
             sis_log(QSL("SIS3153 readout resumed"));
         }

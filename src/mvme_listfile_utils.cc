@@ -873,7 +873,47 @@ bool ListFileWriter::writeEndSection()
 
 bool ListFileWriter::writeTimetickSection()
 {
-    return writeEmptySection(SectionType_Timetick);
+    const auto &lfc = listfile_constants();
+
+    // QByteArray containing the ISO formatted string representation of the
+    // current date and time.
+    auto contents = QDateTime::currentDateTime().toString(Qt::ISODate).toUtf8();
+
+    while (contents.size() % sizeof(u32))
+    {
+        contents.append(' ');
+    }
+
+    u32 sectionWords = contents.size() / sizeof(u32);
+    u32 header = (SectionType_Timetick << lfc.SectionTypeShift) & lfc.SectionTypeMask;
+    header |= (sectionWords << lfc.SectionSizeShift) & lfc.SectionSizeMask;
+
+    if (m_out->write((const char *)&header, sizeof(header)) != sizeof(header))
+        return false;
+
+    if (m_out->write(contents.data(), contents.size()) != contents.size())
+        return false;
+
+    return true;
+}
+
+bool ListFileWriter::writePauseSection(ListfileSections::PauseAction pauseAction)
+{
+    const auto &lfc = listfile_constants();
+
+    u32 sectionWords = 1;
+    u32 header = (SectionType_Pause << lfc.SectionTypeShift) & lfc.SectionTypeMask;
+    header |= (sectionWords << lfc.SectionSizeShift) & lfc.SectionSizeMask;
+
+    u32 content = static_cast<u32>(pauseAction);
+
+    if (m_out->write((const char *)&header, sizeof(header)) != sizeof(header))
+        return false;
+
+    if (m_out->write((const char *)&content, sizeof(content)) != sizeof(content))
+        return false;
+
+    return true;
 }
 
 OpenListfileResult open_listfile(const QString &filename)

@@ -163,10 +163,6 @@ WISHLIST
   info and do not want it to be hidden behind some magic.
 
 
-* Histo2d res reduction/rendering:
-  - Maybe: think about and test the case where the h2d res is larger than the
-    pixels in the display area and possibly use a dynamic rrf in this case.
-
 * New Feature: add pause/resume markers and/or absolute timestamps to the listfile.
   This would allow for example splitting the run on pause/resume if the user
   changed settings in-between.

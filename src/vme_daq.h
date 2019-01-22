@@ -54,6 +54,8 @@ class DAQReadoutListfileHelper
         void writeBuffer(DataBuffer *buffer);
         void writeBuffer(const u8 *buffer, size_t size);
         void writeTimetickSection();
+        void writePauseSection();
+        void writeResumeSection();
 
     private:
         std::unique_ptr<DAQReadoutListfileHelperPrivate> m_d;

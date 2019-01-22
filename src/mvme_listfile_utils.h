@@ -124,6 +124,7 @@ class LIBMVME_EXPORT ListFileWriter: public QObject
         bool writeBuffer(const DataBuffer &buffer);
         bool writeEndSection();
         bool writeTimetickSection();
+        bool writePauseSection(ListfileSections::PauseAction pauseAction);
 
     private:
         bool writeEmptySection(ListfileSections::SectionType sectionType);
