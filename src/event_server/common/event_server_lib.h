@@ -402,7 +402,7 @@ R read_storage(StorageType st, const uint8_t *buffer)
 }
 
 
-// Description of a datasource contained in the data stream. Multiple data
+// Description of a datasource contained in the data stream.
 // Multiple datasources can be attached to the same vme module and thus become
 // a part of the same readout event.
 struct DataSourceDescription
@@ -412,10 +412,13 @@ struct DataSourceDescription
     uint32_t size = 0u;         // Number of elements in the output array of this datasource.
     double lowerLimit = 0.0;    // Lower and upper limits of the values produced by the datasource.
     double upperLimit = 0.0;
+    uint8_t bits = 0u;          // Number of data bits the data source produces.
+
     StorageType indexType;      // Data types used to store the index and data values during network
     StorageType valueType;      // transfer.
     // Optional list of names of individual array elements. This does not have
-    // to have the same length as the size of this datasource.
+    // to have the same length as the size of this datasource as not all
+    // parameters have to be named.
     std::vector<std::string> paramNames;
 };
 
@@ -481,6 +484,7 @@ static EventDataDescriptions parse_stream_data_description(const json &j)
                 dsd.size = dsj["size"];
                 dsd.lowerLimit = dsj["lowerLimit"];
                 dsd.upperLimit = dsj["upperLimit"];
+                dsd.bits = dsj["bits"];
                 dsd.indexType = storage_type_from_string(dsj["indexType"]);
                 dsd.valueType = storage_type_from_string(dsj["valueType"]);
                 dsd.moduleIndex = dsj["moduleIndex"];
@@ -518,6 +522,7 @@ inline json to_json(const EventDataDescriptions &edds)
             dsj["size"] = dsd.size;
             dsj["lowerLimit"] = dsd.lowerLimit;
             dsj["upperLimit"] = dsd.upperLimit;
+            dsj["bits"] = std::to_string(static_cast<uint32_t>(dsd.bits));
             dsj["indexType"] = to_string(dsd.indexType);
             dsj["valueType"] = to_string(dsd.valueType);
             dsj["moduleIndex"] = dsd.moduleIndex;

@@ -21,7 +21,7 @@ static StorageType get_storage_type(unsigned bits)
 
 /* Returns the name of the smallest unsigned type able to store data values
  * produced by the given data source. */
-static StorageType get_data_storage_type(const analysis::SourceInterface *dataSource)
+static unsigned get_data_storage_bits(const analysis::SourceInterface *dataSource)
 {
     unsigned bits = 0;
 
@@ -34,7 +34,12 @@ static StorageType get_data_storage_type(const analysis::SourceInterface *dataSo
         bits = ds->getDataBits();
     }
 
-    return get_storage_type(bits);
+    return bits;
+}
+
+static StorageType get_data_storage_type(const analysis::SourceInterface *dataSource)
+{
+    return get_storage_type(get_data_storage_bits(dataSource));
 }
 
 VMETree make_vme_tree_description(const VMEConfig *vmeConfig)
@@ -117,6 +122,7 @@ EventDataDescriptions make_event_data_descriptions(const analysis::Analysis *ana
             dsd.size = outputSize;
             dsd.lowerLimit = a2_dataSource->output.lowerLimits[0];
             dsd.upperLimit = a2_dataSource->output.upperLimits[0];
+            dsd.bits = get_data_storage_bits(a1_dataSource);
             dsd.indexType  = get_storage_type(outputBits);
             dsd.valueType  = get_data_storage_type(a1_dataSource);
             size_t paramCount = std::min(static_cast<size_t>(paramNames.size()),
