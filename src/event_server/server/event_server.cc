@@ -102,7 +102,7 @@ qint64 write_data(QIODevice &out, const char *data, size_t size)
     return curPtr - data;
 }
 
-/* Write a Plain-Old-Data type to the output device. */
+/* Write a Plain-Old-Datatype to the output device. */
 template<typename T>
 qint64 write_pod(QIODevice &out, const T &t)
 {
@@ -160,7 +160,7 @@ void EventServer::Private::handleNewConnection()
 
         ClientInfo clientInfo = { std::unique_ptr<QTcpSocket>(clientSocket) };
 
-        // ugly connect due to overloaded QAbstractSocket::error() method
+        // ugly cast due to overloaded QAbstractSocket::error() method
         connect(clientInfo.socket.get(),
                 static_cast<void (QAbstractSocket::*)(QAbstractSocket::SocketError)>(
                     &QAbstractSocket::error),
@@ -179,7 +179,8 @@ void EventServer::Private::handleNewConnection()
         write_message(*clientInfo.socket, MessageType::ServerInfo, jsonString, WriteOption::Flush);
 
         // If a run is in progress immediately send out a BeginRun message to
-        // the client. This reuses the information built in beginRun().
+        // the client. This reuses the information built in beginRun() when the
+        // run started.
         if (m_runInProgress)
         {
             qDebug() << "DataServer: client connected during an active run. Sending"
@@ -319,6 +320,8 @@ void EventServer::setEnabled(bool b)
     startup();
 }
 
+// Build a description of the datastream that is going to be produced by the
+// analysis datasources. Send this description out to clients.
 void EventServer::beginRun(const RunInfo &runInfo,
               const VMEConfig *vmeConfig,
               const analysis::Analysis *analysis)
@@ -375,6 +378,8 @@ void EventServer::beginRun(const RunInfo &runInfo,
     m_d->m_runInProgress = true;
 }
 
+// Send out event data to clients. At this point the analysis has processed an
+// event and extracted module data is available at the a2 datasource outputs.
 void EventServer::endEvent(s32 eventIndex)
 {
     if (!m_d->m_enabled) return;
@@ -390,7 +395,7 @@ void EventServer::endEvent(s32 eventIndex)
 
     if (getNumberOfClients() == 0)
     {
-        // allow QTcpServer to handle new connections
+        // Allows QTcpServer to accept new connections
         QCoreApplication::processEvents();
         return;
     }
@@ -432,14 +437,15 @@ void EventServer::endEvent(s32 eventIndex)
                 const a2::DataSource *ds = a2->dataSources[eventIndex] + dsIndex;
                 const a2::PipeVectors &dataPipe = ds->output;
                 const auto &dsd = edd.dataSources[dsIndex];
+                u16 count = 0u; // Count of valid values.
 
                 // Write out the (index, value) pairs for valid parameters
                 // using the data types specified in the DataSourceDescription.
                 for (s32 paramIndex = 0; paramIndex < dataPipe.size(); paramIndex++)
                 {
-                    double paramValue = dataPipe.data[paramIndex];
+                    double dParamValue = dataPipe.data[paramIndex];
 
-                    if (a2::is_param_valid(paramValue))
+                    if (a2::is_param_valid(dParamValue))
                     {
                         switch (dsd.indexType)
                         {
@@ -457,26 +463,33 @@ void EventServer::endEvent(s32 eventIndex)
                                 break;
                         }
 
+                        // Strip the random added by the datasource. Use floor
+                        // to make sure we round down in all cases (datasources
+                        // do add a random in the range [0, 1)).
+                        u64 iParamValue = std::floor(dParamValue);
+
                         switch (dsd.valueType)
                         {
                             case StorageType::st_uint8_t:
-                                out.push(static_cast<u8>(paramValue));
+                                out.push(static_cast<u8>(iParamValue));
                                 break;
                             case StorageType::st_uint16_t:
-                                out.push(static_cast<u16>(paramValue));
+                                out.push(static_cast<u16>(iParamValue));
                                 break;
                             case StorageType::st_uint32_t:
-                                out.push(static_cast<u32>(paramValue));
+                                out.push(static_cast<u32>(iParamValue));
                                 break;
                             case StorageType::st_uint64_t:
-                                out.push(static_cast<u64>(paramValue));
+                                out.push(static_cast<u64>(iParamValue));
                                 break;
                         }
 
-                        // increment the element count inside the buffer
-                        ++(*countPtr);
+                        ++count; // cound this valid parameter
                     }
                 }
+
+                // write the element count to the buffer
+                *countPtr = count;
             }
 
             u32 contentsBytes = out.asU8() - reinterpret_cast<u8 *>((msgSizePtr + 1));
@@ -505,7 +518,7 @@ void EventServer::endEvent(s32 eventIndex)
     // block if there's enough pending data
     for (auto &client: m_d->m_clients)
     {
-        static const qint64 WriteFlushTreshold = Megabytes(1);
+        static const qint64 WriteFlushTreshold = Megabytes(10);
 
         if (client.socket->isValid() && client.socket->bytesToWrite() > WriteFlushTreshold)
         {
@@ -522,8 +535,10 @@ void EventServer::endRun(const DAQStats &daqStats, const std::exception *e)
     if (!m_d->m_enabled) return;
 
     json endRunInfo;
-    endRunInfo["startTime"] = daqStats.startTime.toString(Qt::ISODate).toStdString();
-    endRunInfo["endTime"] = daqStats.endTime.toString(Qt::ISODate).toStdString();
+    // FIXME: I think during a replay these contain the current (real time)
+    // time values instead of the values from the replay
+    //endRunInfo["startTime"] = daqStats.startTime.toString(Qt::ISODate).toStdString();
+    //endRunInfo["endTime"] = daqStats.endTime.toString(Qt::ISODate).toStdString();
     endRunInfo["vme_totalBytesRead"] = std::to_string(daqStats.totalBytesRead);
     endRunInfo["vme_totalBuffersRead"] = std::to_string(daqStats.totalBuffersRead);
     endRunInfo["vme_buffersWithErrors"] = std::to_string(daqStats.buffersWithErrors);
