@@ -1,5 +1,10 @@
 R"(
 
+analysis.so: $(EXP_LIB)
+	$(CXX) $(LDFLAGS) $(ROOTCFLAGS) $(CXXFLAGS) $(ROOTLIBS) $(MVMELIBS) $(ANALYSIS_LIBS) -Wl,-rpath,. -L. -l{{exp_name}}_mvme -shared -fPIC -o $@ $<
+
+ALL_TARGETS += analysis.so
+
 {{!
 vim:ft=cpp
 }})"

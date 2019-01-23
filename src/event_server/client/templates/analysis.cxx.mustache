@@ -7,28 +7,34 @@ extern "C"
 {
 
 // Called once after loading this library. Additional command line parameters
-// given to mvme_root_client are passed in the args variable.
-void init_analysis(const std::vector<std::string> &args)
+// given to mvme_root_client (coming after '--') are passed in the args
+// variable.
+bool init_analysis(const std::vector<std::string> &args)
 {
     std::cerr << __PRETTY_FUNCTION__ << std::endl;
+    return true;
 }
 
 // Called before the mvme_root_client program exits.
-void shutdown_analysis()
+bool shutdown_analysis()
 {
     std::cerr << __PRETTY_FUNCTION__ << std::endl;
+    return true;
 }
 
 // Called each time a new run stats.
-void begin_run()
+bool begin_run(const std::string &inputSource, const std::string &runId,
+               bool isReplay)
 {
     std::cerr << __PRETTY_FUNCTION__ << std::endl;
+    return true;
 }
 
 // Called each time a run ends.
-void end_run()
+bool end_run()
 {
     std::cerr << __PRETTY_FUNCTION__ << std::endl;
+    return true;
 }
 
 {{#vme_events}}

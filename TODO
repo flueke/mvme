@@ -2,6 +2,14 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+* during a replay extract timestamps from timetick text and pass this on to
+  data consumers.
+  think about storing a 64bit seconds-since-epoch value instead to avoid having
+  to parse string data.
+  On the other hand I to like the string data.
+  In any case timezone information is not stored right now but I think
+  durations are more interesting to the user than absolute points in time.
+
 data transfer client lib
 - no libmvme dependency
 - depends on headers shipped with mvme at compile time

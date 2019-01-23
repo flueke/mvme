@@ -75,18 +75,4 @@ class MVMEExperiment: public TNamed
     ClassDef(MVMEExperiment, 1);
 };
 
-#if 0
-struct AnalysisSetup
-{
-    using InitFunc = void (*)();
-    using FinishFunc = void (*)();
-    using EventFunc = void (*)(MVMEEvent *event, int64_t eventNumber);
-
-    InitFunc init;
-    FinishFunc finish;
-    // Per event analysis function. Same order as MVMEExperiment::GetEvents()
-    std::vector<EventFunc> eventFunctions;
-};
-#endif
-
 #endif /* __MVME_ROOT_EXPORT_OBJECTS_H__ */
