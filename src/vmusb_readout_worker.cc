@@ -594,6 +594,7 @@ void VMUSBReadoutWorker::readoutLoop()
     using vme_analysis_common::TimetickGenerator;
 
     TimetickGenerator timetickGen;
+    m_bufferProcessor->timetick(); // immediately write out the very first timetick
 
     while (true)
     {

@@ -1413,6 +1413,7 @@ void SIS3153ReadoutWorker::readoutLoop()
     using vme_analysis_common::TimetickGenerator;
 
     TimetickGenerator timetickGen;
+    timetick(); // immediately write out the very first timetick
 
     while (true)
     {

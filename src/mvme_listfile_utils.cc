@@ -852,49 +852,66 @@ bool ListFileWriter::writeBuffer(const DataBuffer &buffer)
     return writeBuffer(reinterpret_cast<const char *>(buffer.data), buffer.used);
 }
 
-bool ListFileWriter::writeEmptySection(SectionType sectionType)
+// Writes a section with the given sectionType with the given contents. The
+// contents are padded with spaces to the next 32-bit boundary.
+bool ListFileWriter::writeStringSection(SectionType sectionType,
+                                        const QByteArray &contents)
 {
     const auto &lfc = listfile_constants();
 
+    u32 contentsBytes = contents.size();
+    u32 paddingBytes = sizeof(u32) - (contentsBytes % sizeof(u32));
+    assert(paddingBytes <= 3);
+
+    contentsBytes += paddingBytes;
+    assert(contentsBytes % sizeof(u32) == 0);
+
+    u32 sectionWords = contentsBytes / sizeof(u32);
+
+    assert(sectionWords * sizeof(u32) == contentsBytes);
+    assert(contentsBytes <= lfc.SectionMaxSize);
+
+    if (contentsBytes > lfc.SectionMaxSize)
+        return false;
+
     u32 header = (sectionType << lfc.SectionTypeShift) & lfc.SectionTypeMask;
+    header |= (sectionWords << lfc.SectionSizeShift) & lfc.SectionSizeMask;
 
     if (m_out->write((const char *)&header, sizeof(header)) != sizeof(header))
         return false;
 
     m_bytesWritten += sizeof(header);
 
-    return true;
-}
+    if (m_out->write(contents.data(), contents.size()) != contents.size())
+        return false;
 
-bool ListFileWriter::writeEndSection()
-{
-    return writeEmptySection(SectionType_End);
+    m_bytesWritten += contents.size();
+
+    if (paddingBytes > 0)
+    {
+        static const std::array<char, 3> paddingData = {{ ' ', ' ', ' ' }};
+
+        if (m_out->write(paddingData.data(), paddingBytes) != paddingBytes)
+            return false;
+
+        m_bytesWritten += paddingBytes;
+    }
+
+    return true;
 }
 
 bool ListFileWriter::writeTimetickSection()
 {
-    const auto &lfc = listfile_constants();
-
     // QByteArray containing the ISO formatted string representation of the
-    // current date and time.
-    auto contents = QDateTime::currentDateTime().toString(Qt::ISODate).toUtf8();
+    // current date and time encoded using UTF-8.
+    auto timeString = QDateTime::currentDateTime().toString(Qt::ISODate).toUtf8();
+    return writeStringSection(SectionType_Timetick, timeString);
+}
 
-    while (contents.size() % sizeof(u32))
-    {
-        contents.append(' ');
-    }
-
-    u32 sectionWords = contents.size() / sizeof(u32);
-    u32 header = (SectionType_Timetick << lfc.SectionTypeShift) & lfc.SectionTypeMask;
-    header |= (sectionWords << lfc.SectionSizeShift) & lfc.SectionSizeMask;
-
-    if (m_out->write((const char *)&header, sizeof(header)) != sizeof(header))
-        return false;
-
-    if (m_out->write(contents.data(), contents.size()) != contents.size())
-        return false;
-
-    return true;
+bool ListFileWriter::writeEndSection()
+{
+    auto timeString = QDateTime::currentDateTime().toString(Qt::ISODate).toUtf8();
+    return writeStringSection(SectionType_End, timeString);
 }
 
 bool ListFileWriter::writePauseSection(ListfileSections::PauseAction pauseAction)

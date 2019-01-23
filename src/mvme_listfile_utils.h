@@ -127,7 +127,8 @@ class LIBMVME_EXPORT ListFileWriter: public QObject
         bool writePauseSection(ListfileSections::PauseAction pauseAction);
 
     private:
-        bool writeEmptySection(ListfileSections::SectionType sectionType);
+        bool writeStringSection(ListfileSections::SectionType sectionType,
+                                const QByteArray &contents);
 
         QIODevice *m_out = nullptr;
         u64 m_bytesWritten = 0;

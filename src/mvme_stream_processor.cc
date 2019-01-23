@@ -334,8 +334,8 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
                      && m_d->runInfo.isReplay)
             {
                 // If it's a replay pass timetick sections to the analysis.
-                Q_ASSERT(sectionSize == 0);
                 m_d->analysis->processTimetick();
+                iter.skip(sectionSize * sizeof(u32));
             }
             else
             {

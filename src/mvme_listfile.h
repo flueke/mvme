@@ -86,8 +86,11 @@ namespace ListfileSections
          * subsections. */
         SectionType_Event       = 1,
 
-        /* Last section written to a listfile before closing the file. Used for
-         * verification purposes. */
+        /* Last section written to a listfile before closing the file. Contains
+         * the current date and time as an ISO 8601 formatted string padded
+         * with zeroes to the next 32-bit boundary (same as Timetick sections).
+         * Should be used to verify that a file was correctly written and when
+         * reading that all data has been read. */
         SectionType_End         = 2,
 
         /* Marker section written once at the start of a run and then once per
