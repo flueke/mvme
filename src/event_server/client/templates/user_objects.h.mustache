@@ -12,6 +12,7 @@ namespace {{name}}_modules
     struct {{struct_name}}: public MVMEModule
     {
         {{struct_name}}();
+        virtual ~{{struct_name}}();
 {{#ref_members}}
         double &{{name}}; // !
 {{/ref_members}}
@@ -25,12 +26,8 @@ namespace {{name}}_modules
 
 struct {{struct_name}}: public MVMEEvent
 {
-    {{struct_name}}(): MVMEEvent("{{name}}", "{{title}}")
-    {
-{{#modules}}
-        AddModule(&{{var_name}});
-{{/modules}}
-    }
+    {{struct_name}}();
+    virtual ~{{struct_name}}();
 {{#modules}}
     {{event_name}}_modules::{{struct_name}} {{var_name}};
 {{/modules}}
@@ -41,6 +38,7 @@ struct {{struct_name}}: public MVMEEvent
 struct {{exp_struct_name}}: public MVMEExperiment
 {
     {{exp_struct_name}}();
+    ~{{exp_struct_name}}();
 {{#vme_events}}
     {{struct_name}} {{var_name}};
 {{/vme_events}}

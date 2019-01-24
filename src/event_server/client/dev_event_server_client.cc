@@ -102,7 +102,7 @@ void Context::eventData(const Message &msg, int eventIndex,
     for (size_t dsIndex = 0; dsIndex < contents.size(); dsIndex++)
     {
         auto &dsc = contents[dsIndex];
-        size_t bytes = entry_size(dsc) * dsc.count;
+        size_t bytes = get_entry_size(dsc) * dsc.count;
         m_stats.totalDataBytes += bytes;
         m_stats.eventDataBytes[eventIndex] += bytes;
         m_stats.eventDSBytes[eventIndex][dsIndex] += bytes;

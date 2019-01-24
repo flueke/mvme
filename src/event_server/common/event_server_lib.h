@@ -332,6 +332,10 @@ inline int connect_to(const char *host, uint16_t port)
     return connect_to(host, buffer);
 }
 
+//
+// Network data storage utils
+//
+
 enum class StorageType
 {
     st_uint8_t,
@@ -377,6 +381,8 @@ static size_t get_storage_type_size(const StorageType &st)
     return 0;
 }
 
+/* Reads the next value from the Storage buffer according to the given
+ * StorageType and returns the value converted to the result type R. */
 template <typename R>
 R read_storage(StorageType st, const uint8_t *buffer)
 {
@@ -416,6 +422,7 @@ struct DataSourceDescription
 
     StorageType indexType;      // Data types used to store the index and data values during network
     StorageType valueType;      // transfer.
+
     // Optional list of names of individual array elements. This does not have
     // to have the same length as the size of this datasource as not all
     // parameters have to be named.
@@ -522,7 +529,7 @@ inline json to_json(const EventDataDescriptions &edds)
             dsj["size"] = dsd.size;
             dsj["lowerLimit"] = dsd.lowerLimit;
             dsj["upperLimit"] = dsd.upperLimit;
-            dsj["bits"] = std::to_string(static_cast<uint32_t>(dsd.bits));
+            dsj["bits"] = static_cast<uint32_t>(dsd.bits);
             dsj["indexType"] = to_string(dsd.indexType);
             dsj["valueType"] = to_string(dsd.valueType);
             dsj["moduleIndex"] = dsd.moduleIndex;
@@ -624,6 +631,10 @@ static StreamInfo parse_stream_info(const json &j)
     return result;
 }
 
+// Helper to deal with incoming packed, indexed arrays.
+// The firstIndex member points to a buffer containing packed (index, value)
+// pairs with their data types specified in the members indexType and
+// valueType.
 struct DataSourceContents
 {
     StorageType indexType;
@@ -632,16 +643,21 @@ struct DataSourceContents
     const uint8_t *firstIndex = nullptr;
 };
 
-static size_t entry_size(const DataSourceContents &dsc)
+static size_t get_entry_size(const DataSourceContents &dsc)
 {
     return get_storage_type_size(dsc.indexType)
         + get_storage_type_size(dsc.valueType);
 }
 
+inline const uint8_t *get_end_pointer(const DataSourceContents &dsc)
+{
+    return dsc.firstIndex + get_entry_size(dsc) * dsc.count;
+}
+
 template <typename OUT>
 void print(OUT &out, const DataSourceContents &dsc)
 {
-    const auto entrySize = entry_size(dsc);
+    const auto entrySize = get_entry_size(dsc);
 
     if (dsc.count == 0)
     {
@@ -728,6 +744,9 @@ inline void Parser::handleMessage(const Message &msg)
     }
     catch (const std::exception &e)
     {
+#if 1
+        throw;
+#else
         try
         {
             // Invoke user error handler with the current state
@@ -743,6 +762,7 @@ inline void Parser::handleMessage(const Message &msg)
             reset();
             throw;
         }
+#endif
     }
 }
 
@@ -804,7 +824,7 @@ inline void Parser::_eventData(const Message &msg)
 
             // Skip over the (index, value) pairs to make the iterator point to the
             // next dataSourceIndex.
-            ci.skip(elementCount * entry_size(dsc));
+            ci.skip(elementCount * get_entry_size(dsc));
         }
 
         // Call the virtual data handler
@@ -817,7 +837,7 @@ inline void Parser::_eventData(const Message &msg)
     catch (const end_of_buffer &)
     {
         throw data_consistency_error(
-            "Unexpectedly hit EndOfBuffer while parsing EventData message");
+            "Unexpectedly hit end of buffer while parsing EventData message");
     }
 }
 

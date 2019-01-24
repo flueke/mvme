@@ -16,13 +16,17 @@
 * replay handling from file?
 // FIXME: use return code and GetLastErrorString() or something similar in the
 // context message handlers.
-// Maybe change the prototypes to return int so that each user speccific
-// subclass of Parser can decide what to do. (the code is finally returned to the user
+// Maybe change the prototypes to return int so that each user specific
+// subclass of Parser can decide what to do. (control is finally returned to the user
 // when handleMessage returns).
  * - Should the output event tree be filled before or after calling the
  *   analysis event handler function? After could allow the user to modify the
  *   data that's going to be stored...
  * FIXME: eventNumber
+ * randomness: try pcg instead of ROOTs gRandom
+ *
+ * Do not overwrite files that should not be overwritten, diff other files.
+ *
  */
 
 #include <fstream>
@@ -34,6 +38,7 @@
 
 // ROOT
 #include <TFile.h>
+#include <TRandom.h> // gRandom
 #include <TROOT.h> // gROOT
 #include <TSystem.h> // gSystem
 
@@ -84,7 +89,7 @@ struct UserAnalysis
     using BeginRunFunc  = bool (*)(const std::string &inputSource, const std::string &runId,
                                    bool isReplay);
     using EndRunFunc    = bool (*)();
-    using EventFunc     = bool (*)(const MVMEEvent *event, int64_t eventNumber);
+    using EventFunc     = bool (*)(const MVMEEvent *event);
 
     InitFunc init;
     ShutdownFunc shutdown;
@@ -125,6 +130,11 @@ class ClientContext: public mvme::event_server::Parser
 
         RunStats GetRunStats() const { return m_stats; }
         bool ShouldQuit() const { return m_quit; }
+        void setHostAndPort(const std::string &host, const std::string &port)
+        {
+            m_host = host;
+            m_port = port;
+        }
 
     protected:
         virtual void serverInfo(const Message &msg, const json &info) override;
@@ -148,11 +158,13 @@ class ClientContext: public mvme::event_server::Parser
         bool m_codeGeneratedAndLoaded = false;
         void *m_analysisDLHandle = nullptr;
         UserAnalysis m_analysis = {};
+        std::string m_host;
+        std::string m_port;
 };
 
 void ClientContext::serverInfo(const Message &msg, const json &info)
 {
-    cout << __FUNCTION__ << ": serverInfo:" << endl << info.dump(2) << endl;
+    cout << "serverInfo:" << endl << info.dump(2) << endl;
 }
 
 static mu::data build_event_template_data(const StreamInfo &streamInfo)
@@ -205,7 +217,7 @@ static mu::data build_event_template_data(const StreamInfo &streamInfo)
             mu::data mu_module = mu::data::type::object;
             mu_module["struct_name"] = "Module_" + module.name;
             mu_module["name"] = module.name;
-            mu_module["title"] = "Data storage for module " + module.name;
+            mu_module["title"] = "Module " + module.name;
             mu_module["var_name"] = module.name;
             mu_module["data_members"] = mu::data{mu_moduleDataMembers};
             mu_module["ref_members"] = mu::data{mu_moduleRefMembers};
@@ -215,7 +227,7 @@ static mu::data build_event_template_data(const StreamInfo &streamInfo)
 
         mu::data mu_event = mu::data::type::object;
         mu_event["struct_name"] = "Event_" + event.name;
-        mu_event["title"] = "Storage for event " + event.name;
+        mu_event["title"] = "Storage for event '" + event.name + "'";
         mu_event["name"] = event.name;
         mu_event["var_name"] = event.name;
         mu_event["modules"] = mu::data{mu_vmeModules};
@@ -325,6 +337,8 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
             cout << "Loading experiment library " << libName << endl;
             int res = gSystem->Load(libName.c_str());
 
+            cout << "res=" << res << endl;
+
             if (res != 0 && res != 1)
             {
                 cout << "Error loading experiment library " << libName << endl;
@@ -350,10 +364,10 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
         if (streamInfo.eventDataDescriptions.size() != m_exp->GetNumberOfEvents())
         {
-            cout << "Error: number of events declared in StreamInfo does not equal "
-                "the number of events present in the generated Experiment class."
+            cout << "Error: number of Event definitions declared in StreamInfo does not equal "
+                "the number of Event classes present in the generated Experiment code."
                 << endl
-                << "Please run `make' and restart the client."
+                << "Please restart the client to regenerate the code."
                 << endl;
             m_quit = true;
             return;
@@ -438,14 +452,51 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
             << ": Reusing previously loaded experiment and analysis code." << endl;
     }
 
+    // generate output filename for event tree output and open the file
+    std::string filename;
+
+    if (streamInfo.runId.empty())
+    {
+        cout << __FUNCTION__ << ": Warning: got an empty runId!" << endl;
+        filename = "unknown_run.root";
+    }
+    else
+    {
+        filename = streamInfo.runId + ".root";
+    }
+
+    cout << "Opening output file " << filename << endl;
+    m_outFile = std::make_unique<TFile>(filename.c_str(), "recreate");
+
+    if (m_outFile->IsZombie() || !m_outFile->IsOpen())
+    {
+        cout << "Error opening output file " << filename << " for writing: "
+            << strerror(m_outFile->GetErrno()) << endl;
+        m_quit = true;
+        return;
+    }
+
+    cout << "Creating output trees" << endl;
+    m_eventTrees = m_exp->MakeTrees();
+    for (auto &tree: m_eventTrees)
+    {
+        assert(tree);
+        cout << "  " << tree << " " << tree->GetName() << "\t" << tree->GetTitle() << endl;
+    }
+    assert(m_eventTrees.size() == m_exp->GetNumberOfEvents());
+
+    // call custom user analysis code
+    if (m_analysis.beginRun)
+    {
+        m_analysis.beginRun("mvme://" + m_host + ":" + m_port,
+                            streamInfo.runId, streamInfo.isReplay);
+    }
+
     m_stats = {};
     m_stats.eventHits = std::vector<size_t>(streamInfo.eventDataDescriptions.size());
     m_stats.tStart = RunStats::ClockType::now();
 
-    if (m_analysis.beginRun)
-    {
-        m_analysis.beginRun("/dev/null", streamInfo.runId, streamInfo.isReplay);
-    }
+    cout << "BeginRun procedure done, receiving data..." << endl;
 }
 
 void ClientContext::eventData(const Message &msg, int eventIndex,
@@ -488,22 +539,39 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
     m_stats.eventHits[eventIndex]++;
 
-    // copy incoming data into the data members of the generated classes
+    // Copy incoming data into the data members of the generated classes
     for (size_t dsIndex = 0; dsIndex < contents.size(); dsIndex++)
     {
         const DataSourceContents &dsc = contents.at(dsIndex);
-        // Pointer into the generated array member of the module class.
+        const uint8_t *dscEnd = get_end_pointer(dsc);
+
+        // Pointer into the generated array member of the module class. This is
+        // where the incoming data will be written to.
         auto userStorage = event->GetDataSourceStorage(dsIndex);
         assert(userStorage.ptr);
         assert(userStorage.size = edd.dataSources.at(dsIndex).size);
 
         for (auto entryIndex = 0; entryIndex < dsc.count; entryIndex++)
         {
-            const uint8_t *indexPtr = dsc.firstIndex + entryIndex * entry_size(dsc);
+            const uint8_t *indexPtr = dsc.firstIndex + entryIndex * get_entry_size(dsc);
             const uint8_t *valuePtr = indexPtr + get_storage_type_size(dsc.indexType);
 
+            if (indexPtr >= dscEnd || valuePtr >= dscEnd)
+            {
+                cout << "Error: incoming data source contents are inconsistent: buffer size exceeded."
+                    << " eventIndex=" << eventIndex
+                    << ", dataSourceIndex=" << dsIndex
+                    << ", entryIndex=" << entryIndex
+                    << endl;
+                m_quit = true;
+                return;
+            }
+
             uint32_t index = read_storage<uint32_t>(dsc.indexType, indexPtr);
-            uint64_t value = read_storage<uint64_t>(dsc.valueType, valuePtr);
+            double value = read_storage<double>(dsc.valueType, valuePtr);
+
+            // Add a random in (0, 1) to avoid binning issues.
+            //value += gRandom->Uniform();
 
             // Perform the copy
             if (index < userStorage.size)
@@ -512,17 +580,18 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
             }
             else
             {
-                cout << "Error: index value " << index << " out of range"
-                    " for eventIndex=" << eventIndex
+                cout << "Error: index value " << index << " out of range."
+                    << " eventIndex=" << eventIndex
                     << ", dataSourceIndex=" << dsIndex
                     << ", entryIndex=" << entryIndex
                     << ", userStorage.size=" << userStorage.size
                     << endl;
+                m_quit = true;
                 return;
             }
         }
 
-        size_t bytes = entry_size(dsc) * dsc.count;
+        size_t bytes = get_entry_size(dsc) * dsc.count;
         m_stats.totalDataBytes += bytes;
     }
 
@@ -534,7 +603,7 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
     if (eventFunc)
     {
-        eventFunc(event, 42); // FIXME: eventNumber
+        eventFunc(event);
     }
 }
 
@@ -730,6 +799,7 @@ int main(int argc, char *argv[])
         return 0;
 #else
         cout << "TODO: Write a help text!" << endl;
+        return 0;
 #endif
     }
 #endif
@@ -773,6 +843,7 @@ int main(int argc, char *argv[])
             if (sockfd >= 0)
             {
                 cout << "Connected to " << host << ":" << port << endl;
+                ctx.setHostAndPort(host, port);
                 break;
             }
 

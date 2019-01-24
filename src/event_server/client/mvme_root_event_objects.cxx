@@ -66,7 +66,7 @@ std::vector<TTree *> MVMEExperiment::MakeTrees()
 
     for (auto event: GetEvents())
     {
-        auto tree = new TTree(event->GetName(), Form("Tree for event %s", event->GetTitle()));
+        auto tree = new TTree(event->GetName(), Form("Tree for event '%s'", event->GetName()));
         result.push_back(tree);
 
         for (auto module: event->GetModules())
