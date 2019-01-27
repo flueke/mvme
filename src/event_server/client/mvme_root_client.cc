@@ -435,7 +435,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                 "Makefile",
                 makefileTemplate,
                 OverwriteOption::IfDifferent,
-                "",
+                "build",
             },
             CodeGenArgs
             {
@@ -449,7 +449,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                 "analysis.mk",
                 analysisMkTemplate,
                 OverwriteOption::Never,
-                "analysis customization Makefile",
+                "analysis customization make",
             },
             CodeGenArgs
             {
@@ -528,6 +528,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         }
 
         // Run the ROOT pre-make macro
+        cout << "Executing ROOT pre-make macro file mvme_root_premake.C ..." << endl;
         gROOT->ProcessLineSync(".x mvme_root_premake.C");
 
         // Run make
