@@ -71,7 +71,12 @@ std::vector<TTree *> MVMEExperiment::MakeTrees()
 
         for (auto module: event->GetModules())
         {
-            auto branch = tree->Branch(module->GetName(), module);
+            // bufferSize defaults to 32000
+            // Increasing this size leads to a smaller output file and a slight
+            // speed improvement. Larger buffers compress better.
+            static const Int_t bufferSize = 32000 * 1024;
+
+            auto branch = tree->Branch(module->GetName(), module, bufferSize);
             assert(!branch->IsZombie());
             (void)branch;
         }
