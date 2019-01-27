@@ -4,6 +4,9 @@
  * - add return codes to the event handler functions or replace do_exit with a
  *   return code value. This should be done so that main can exit with a
  *   non-zero code in case of errors.
+ *   Maybe better: return true/false. In case of false the event handler should
+ *   set an error string which can then be retrieved and printed in main()
+ *   before exiting.
  * - replace the asserts with actual error handling code + messages
 * user objects:
   generate on each beginRun. compare with on disk verison.
@@ -23,7 +26,6 @@
  *   analysis event handler function? After could allow the user to modify the
  *   data that's going to be stored...
  * FIXME: eventNumber
- * randomness: try pcg instead of ROOTs gRandom
  *
  * Do not overwrite files that should not be overwritten, diff other files.
  *
@@ -32,9 +34,10 @@
 #include <fstream>
 #include <string>
 
+#include <dlfcn.h> // dlopen, dlsym, dlclose
 #include <getopt.h>
 #include <signal.h>
-#include <dlfcn.h> // dlopen, dlsym, dlclose
+#include <sys/stat.h>
 
 // ROOT
 #include <TFile.h>
@@ -43,9 +46,9 @@
 #include <TSystem.h> // gSystem
 
 // mvme
-#include <Mustache/mustache.hpp>
-#include "common/event_server_lib.h"
-#include "mvme_root_event_objects.h"
+#include <Mustache/mustache.hpp> // mustache template engine
+#include "common/event_server_lib.h" // event_server protocol parsing and socket handling
+#include "mvme_root_event_objects.h" // base classes for generated experiment ROOT objects
 
 using std::cerr;
 using std::cout;
@@ -55,8 +58,8 @@ namespace mu = kainjow::mustache;
 using namespace mvme::event_server;
 
 // The c++11 way of including text strings into the binary. Uses the new R"()"
-// raw string syntax and the preprocessor to embed string data.
-
+// raw string syntax and the preprocessor to embed string data into the
+// resulting executable file.
 static const char *exportHeaderTemplate =
 #include "templates/user_objects.h.mustache"
 ;
@@ -79,6 +82,10 @@ static const char *analysisMkTemplate =
 
 static const char *makefileTemplate =
 #include "templates/Makefile.mustache"
+;
+
+static const char *rootPremakeHookTemplate =
+#include "templates/mvme_root_premake.C.mustache"
 ;
 
 // Analysis
@@ -106,9 +113,8 @@ struct UserAnalysis
 struct Options
 {
     using Opt_t = unsigned;
-    static const Opt_t ConvertNaNsToZero = 1u << 0;
     static const Opt_t ShowStreamInfo = 1u << 1;
-    static const Opt_t VerboseMacroLoad = 1u << 2;
+    static const Opt_t NoAddedRandom = 1u << 2;
 };
 
 class ClientContext: public mvme::event_server::Parser
@@ -123,10 +129,7 @@ class ClientContext: public mvme::event_server::Parser
             std::vector<size_t> eventHits;
         };
 
-        ClientContext(const std::string &outputDirectory, const Options::Opt_t &options)
-            : m_outputDirectory(outputDirectory)
-            , m_options(options)
-        { }
+        ClientContext(const Options::Opt_t &options);
 
         RunStats GetRunStats() const { return m_stats; }
         bool ShouldQuit() const { return m_quit; }
@@ -148,7 +151,6 @@ class ClientContext: public mvme::event_server::Parser
         virtual void error(const Message &msg, const std::exception &e) override;
 
     private:
-        std::string m_outputDirectory;
         Options::Opt_t m_options;
         std::unique_ptr<MVMEExperiment> m_exp;
         std::unique_ptr<TFile> m_outFile;
@@ -161,6 +163,11 @@ class ClientContext: public mvme::event_server::Parser
         std::string m_host;
         std::string m_port;
 };
+
+ClientContext::ClientContext(const Options::Opt_t &options)
+    : m_options(options)
+{
+}
 
 void ClientContext::serverInfo(const Message &msg, const json &info)
 {
@@ -243,6 +250,139 @@ T load_sym(void *handle, const char *name)
     return reinterpret_cast<T>(dlsym(handle, name));
 }
 
+enum class OverwriteOption
+{
+    Never,
+    Always,
+    IfDifferent,
+};
+
+enum class CodeGenResult
+{
+    Created,
+    Exists,
+    Overwritten,
+    Unchanged,
+    WriteError,
+};
+
+struct CodeGenArgs
+{
+    std::string outputFilename;
+    const char *templateContents;
+    OverwriteOption overwriteOption;
+    const char *description;
+};
+
+/* TODO: implement the following steps
+
+Generating ROOT code for experiment Snake...
+  Created Snake_mvme.h
+  Updated Snake_mvme.cxx
+  Unchanged Snake_mvme_LinkDef.h
+
+Generating additional files...
+  Unchanged Makefile
+  Not overwriting existing analysis.cxx
+  Not overwriting existing analysis.mk
+  Created root_hook.C
+
+Running ROOT customization file root_hook.C...
+
+Running make to build libSnake_mvme.so and analysis.so ...
+
+<<<<< End of make output. Make succeeded / exited with code 127.
+
+if (expLibLoaded && any_of_exp_lib_files_changed)
+{
+    Warning: ROOT module for experiment Snake was previously loaded but got
+             updated due to changes in the mvme configuration. The client will
+             likely crash when writing the output trees. Please restart to
+             compile and load the updated code.
+
+} else if (!expLibLoaded)
+{
+    Loading ROOT experiment library libSnake_mvme.so
+}
+
+Reload analysis code
+
+*/
+
+CodeGenResult generate_code_file(const CodeGenArgs &args, const mu::data &templateData)
+{
+    auto read_file = [](const std::string &filename)
+    {
+        std::ifstream fin(filename);
+        std::stringstream sstr;
+        sstr << fin.rdbuf();
+        return sstr.str();
+    };
+
+    auto write_file = [](const std::string &contents, const std::string &filename)
+    {
+        std::ofstream out(filename);
+        out << contents;
+        return static_cast<bool>(out);
+    };
+
+    auto render_template = [](const char *contents, const mu::data &data)
+    {
+        mu::mustache tmpl(contents);
+        return tmpl.render(data);
+    };
+
+    auto render_to_file = [&](const char *contents, const mu::data &data,
+                                             const std::string &filename)
+    {
+        return write_file(render_template(contents, data), filename);
+    };
+
+    auto file_exists = [](const std::string &filename)
+    {
+        struct stat buffer;
+        return (stat(filename.c_str(), &buffer) == 0);
+    };
+
+    bool doesExist = file_exists(args.outputFilename);
+
+    if (!doesExist)
+    {
+        bool writeOk = render_to_file(args.templateContents, templateData, args.outputFilename);
+        return (writeOk ? CodeGenResult::Created : CodeGenResult::WriteError);
+    }
+
+    // The output file exists. Check OverwriteOption to figure out what to do.
+
+    switch (args.overwriteOption)
+    {
+        case OverwriteOption::Never:
+            return CodeGenResult::Exists;
+
+        case OverwriteOption::Always:
+            {
+                bool writeOk = render_to_file(args.templateContents, templateData,
+                                              args.outputFilename);
+                return (writeOk ? CodeGenResult::Overwritten : CodeGenResult::WriteError);
+            } break;
+
+        case OverwriteOption::IfDifferent:
+            {
+                auto existingContents = read_file(args.outputFilename);
+                auto newContents = render_template(args.templateContents, templateData);
+
+                if (existingContents == newContents)
+                    return CodeGenResult::Unchanged;
+
+                bool writeOk = write_file(newContents, args.outputFilename);
+                return (writeOk ? CodeGenResult::Overwritten : CodeGenResult::WriteError);
+            } break;
+    };
+
+    // Can not reach this line
+    return CodeGenResult::WriteError;
+}
+
 void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 {
     if (m_options & Options::ShowStreamInfo)
@@ -259,70 +399,142 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
     if (!m_codeGeneratedAndLoaded)
     {
-        cout << __FUNCTION__
-            << ": generating ROOT classes for experiment " << expName << endl;
-
         std::string headerFilename = expName + "_mvme.h";
-        std::string headerFilepath = m_outputDirectory + "/" + headerFilename;
         std::string implFilename = expName + "_mvme.cxx";
-        std::string implFilepath = m_outputDirectory + "/" + implFilename;
-        std::string linkdefFilename = expName + "_mvme_LinkDef.h";
-        std::string linkdefFilepath = m_outputDirectory + "/" + linkdefFilename;
-        std::string analysisFilename = "analysis.cxx";
-        std::string analysisFilepath = m_outputDirectory + "/" + analysisFilename;
-        std::string makefileFilename = "Makefile";
-        std::string makefileFilepath = m_outputDirectory + "/" + makefileFilename;
-        std::string analysisMkFilename = "analysis.mk";
-        std::string analysisMkFilepath = m_outputDirectory + "/" + analysisMkFilename;
 
+        // Tables information about which code files to generate.
+        auto expROOTCodeFiles =
+        {
+            CodeGenArgs
+            {
+                headerFilename,
+                exportHeaderTemplate,
+                OverwriteOption::IfDifferent,
+                "objects header"
+            },
+            CodeGenArgs
+            {
+                implFilename,
+                exportImplTemplate,
+                OverwriteOption::IfDifferent,
+                "objects implementation",
+            },
+            CodeGenArgs
+            {
+                expName + "_mvme_LinkDef.h",
+                exportLinkDefTemplate,
+                OverwriteOption::IfDifferent,
+                "objects linkdef",
+            },
+        };
+
+        auto additionalCodeFiles =
+        {
+            CodeGenArgs
+            {
+                "Makefile",
+                makefileTemplate,
+                OverwriteOption::IfDifferent,
+                "",
+            },
+            CodeGenArgs
+            {
+                "analysis.cxx",
+                analysisImplTemplate,
+                OverwriteOption::Never,
+                "analysis skeleton implementation"
+            },
+            CodeGenArgs
+            {
+                "analysis.mk",
+                analysisMkTemplate,
+                OverwriteOption::Never,
+                "analysis customization Makefile",
+            },
+            CodeGenArgs
+            {
+                "mvme_root_premake.C",
+                rootPremakeHookTemplate,
+                OverwriteOption::Never,
+                "ROOT pre-make macro",
+            },
+        };
+
+        // build the template data object
         mu::data mu_vmeEvents = build_event_template_data(streamInfo);
-
-        // build the final template data object
         mu::data mu_data;
         mu_data["vme_events"] = mu::data{mu_vmeEvents};
         mu_data["exp_name"] = expName;
-        std::string experimentStructName = expName;
-        mu_data["exp_struct_name"] = experimentStructName;
+        std::string expStructName = expName;
+        mu_data["exp_struct_name"] = expStructName;
         mu_data["exp_title"] = expTitle;
         mu_data["header_guard"] = expName;
         mu_data["header_filename"] = headerFilename;
         mu_data["impl_filename"] = implFilename;
 
-        // Create files
+        // Generate the files
+        auto generate_code_files = [](const auto &genArgList, const auto &mu_data) -> bool
         {
-            auto do_render = [](const mu::data &mu_data,
-                                const std::string &templateFile,
-                                const std::string &outFile)
+            bool retval = true;
+
+            for (const auto &genArgs: genArgList)
             {
-                mu::mustache tmpl(templateFile);
-                std::string rendered = tmpl.render(mu_data);
-                std::ofstream out(outFile);
-                out << rendered;
-            };
+                CodeGenResult result = generate_code_file(genArgs, mu_data);
+                std::string statusBegin;
 
-            cout << "Writing experiment header file " << headerFilepath << endl;
-            do_render(mu_data, exportHeaderTemplate, headerFilepath);
+                switch (result)
+                {
+                    case CodeGenResult::Created:
+                        statusBegin = "Created";
+                        break;
+                    case CodeGenResult::Exists:
+                        statusBegin = "Not overwriting existing";
+                        break;
+                    case CodeGenResult::Overwritten:
+                        statusBegin = "Updated";
+                        break;
+                    case CodeGenResult::Unchanged:
+                        statusBegin = "Unchanged";
+                        break;
+                    case CodeGenResult::WriteError:
+                        statusBegin = "!!Error writing";
+                        retval = false;
+                        break;
+                }
 
-            cout << "Writing experiment implementation file " << implFilepath << endl;
-            do_render(mu_data, exportImplTemplate, implFilepath);
+                cout << "  " << statusBegin << " " << genArgs.description
+                    << " file " << genArgs.outputFilename << endl;
+            }
 
-            cout << "Writing experiment linkdef file " << linkdefFilepath << endl;
-            do_render(mu_data, exportLinkDefTemplate, linkdefFilepath);
+            return retval;
+        };
 
-            cout << "Writing skeleton analysis file " << analysisFilepath << endl;
-            do_render(mu_data, analysisImplTemplate, analysisFilepath);
-
-            cout << "Writing analysis customization Makefile " << analysisMkFilepath << endl;
-            do_render(mu_data, analysisMkTemplate, analysisMkFilepath);
-
-            cout << "Writing Makefile" << endl;
-            do_render(mu_data, makefileTemplate, makefileFilepath);
+        {
+            cout << "Generating ROOT code for experiment " << expName << " ..." << endl;
+            if (!generate_code_files(expROOTCodeFiles, mu_data))
+            {
+                m_quit = true;
+                return;
+            }
         }
+
+        {
+            cout << "Generating additional files ..." << endl;
+            if (!generate_code_files(additionalCodeFiles, mu_data))
+            {
+                m_quit = true;
+                return;
+            }
+        }
+
+        // Run the ROOT pre-make macro
+        gROOT->ProcessLineSync(".x mvme_root_premake.C");
 
         // Run make
         {
-            cout << "Running make" << endl;
+            cout << "Running make ..." << endl << endl;
             int res = gSystem->Exec("make");
+            cout << endl << "---------- End of make output ----------" << endl; 
 
             if (res != 0)
             {
@@ -348,14 +560,14 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         }
 
         // Create an instance of the generated experiment class
-        std::string cmd = "new " + experimentStructName + "();";
+        std::string cmd = "new " + expStructName + "();";
         m_exp = std::unique_ptr<MVMEExperiment>(reinterpret_cast<MVMEExperiment *>(
                 gROOT->ProcessLineSync(cmd.c_str())));
 
         if (!m_exp)
         {
-            cout << "Error creating experiment specific class '"
-                << experimentStructName << "'" << endl;
+            cout << "Error creating an instance of the experiment class '"
+                << expStructName << "'" << endl;
             m_outFile = {};
             m_eventTrees = {};
             m_quit = true;
@@ -551,10 +763,19 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
         assert(userStorage.ptr);
         assert(userStorage.size = edd.dataSources.at(dsIndex).size);
 
+        // Zero out the data array.
+        memset(userStorage.ptr, 0, userStorage.size * sizeof(*userStorage.ptr));
+
+        const size_t entrySize = get_entry_size(dsc);
+        const size_t indexSize = get_storage_type_size(dsc.indexType);
+
+        // Walk the incoming packed, indexed array and copy the data.
+        // Note: The code inside the loop is hit very frequently and is thus
+        // critical for performance!
         for (auto entryIndex = 0; entryIndex < dsc.count; entryIndex++)
         {
-            const uint8_t *indexPtr = dsc.firstIndex + entryIndex * get_entry_size(dsc);
-            const uint8_t *valuePtr = indexPtr + get_storage_type_size(dsc.indexType);
+            const uint8_t *indexPtr = dsc.firstIndex + entryIndex * entrySize;
+            const uint8_t *valuePtr = indexPtr + indexSize;
 
             if (indexPtr >= dscEnd || valuePtr >= dscEnd)
             {
@@ -570,12 +791,15 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
             uint32_t index = read_storage<uint32_t>(dsc.indexType, indexPtr);
             double value = read_storage<double>(dsc.valueType, valuePtr);
 
-            // Add a random in (0, 1) to avoid binning issues.
-            //value += gRandom->Uniform();
-
-            // Perform the copy
+            // Perform the copy into the generated raw array
             if (index < userStorage.size)
             {
+                // Add a random in [0, 1) to avoid binning issues.
+                if (!(m_options & Options::NoAddedRandom))
+                {
+                    value += gRandom->Uniform();
+                }
+
                 userStorage.ptr[index] = value;
             }
             else
@@ -720,7 +944,6 @@ int main(int argc, char *argv[])
     // send out a reply is response to the EndRun message?
     std::string host = "localhost";
     std::string port = "13801";
-    std::string outputDirectory = ".";
     bool singleRun = false;
     bool showHelp = false;
 
@@ -732,10 +955,7 @@ int main(int argc, char *argv[])
         static struct option long_options[] =
         {
             { "single-run", no_argument, nullptr, 0 },
-            { "convert-nans", no_argument, nullptr, 0 },
-            { "output-directory", required_argument, nullptr, 0 },
             { "show-stream-info", no_argument, nullptr, 0 },
-            { "verbose-macro-load", no_argument, nullptr, 0 },
             { "host", no_argument, nullptr, 0 },
             { "port", no_argument, nullptr, 0 },
             { "help", no_argument, nullptr, 0 },
@@ -743,7 +963,7 @@ int main(int argc, char *argv[])
         };
 
         int option_index = 0;
-        int c = getopt_long(argc, argv, "o:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "", long_options, &option_index);
 
         if (c == -1) break;
 
@@ -752,9 +972,6 @@ int main(int argc, char *argv[])
             case '?':
                 // Unrecognized option
                 return 1;
-            case 'o':
-                outputDirectory = optarg;
-                break;
 
             case 0:
                 // long options
@@ -762,10 +979,7 @@ int main(int argc, char *argv[])
                     std::string opt_name(long_options[option_index].name);
 
                     if (opt_name == "single-run") singleRun = true;
-                    else if (opt_name == "convert-nans") clientOpts |= Opts::ConvertNaNsToZero;
-                    else if (opt_name == "output-directory") outputDirectory = optarg;
                     else if (opt_name == "show-stream-info") clientOpts |= Opts::ShowStreamInfo;
-                    else if (opt_name == "verbose-macro-load") clientOpts |= Opts::VerboseMacroLoad;
                     else if (opt_name == "host") host = optarg;
                     else if (opt_name == "port") port = optarg;
                     else if (opt_name == "help") showHelp = true;
@@ -812,7 +1026,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    ClientContext ctx(outputDirectory, clientOpts);
+    ClientContext ctx(clientOpts);
 
     // A single message object, whose buffer is reused for each incoming
     // message.
@@ -895,93 +1109,3 @@ int main(int argc, char *argv[])
     mvme::event_server::lib_shutdown();
     return retval;
 }
-
-// Previous code that uses ACLIC to compile and load the generated code
-// on the fly.
-#if 0
-    // Using TROOT::LoadMacro() to compile and immediately load the generated
-    // code, then create the project specific MVMEExperiment subclass.
-    {
-
-        if (!m_codeGeneratedAndLoaded)
-        {
-            std::string cmd = implFilepath + "+";
-
-            if (m_options & Options::VerboseMacroLoad)
-            {
-                cmd += "v";
-            }
-            cout << "LoadMacro " + cmd << endl;
-            int error = 0;
-            auto res = gROOT->LoadMacro(cmd.c_str(), &error);
-            cout << "res=" << res << ", error=" << error << endl;
-        }
-
-        std::string cmd = "new " + experimentStructName + "();";
-        m_exp = std::unique_ptr<MVMEExperiment>(reinterpret_cast<MVMEExperiment *>(
-                gROOT->ProcessLineSync(cmd.c_str())));
-
-        if (!m_exp)
-        {
-            cout << "Error creating experiment specific class '"
-                << experimentStructName << "'" << endl;
-            m_outFile = {};
-            m_eventTrees = {};
-            m_quit = true;
-            return;
-        }
-
-        if (streamInfo.eventDataDescriptions.size() != m_exp->GetNumberOfEvents())
-        {
-            cout << "Error: number of events declared in StreamInfo does not equal "
-                "the number of events present in the generated Experiment class."
-                << endl
-                << "Please run `make' and restart the client."
-                << endl;
-            m_quit = true;
-            return;
-        }
-
-        for (size_t eventIndex = 0; eventIndex < m_exp->GetNumberOfEvents(); eventIndex++)
-        {
-            auto &edd = streamInfo.eventDataDescriptions.at(eventIndex);
-            auto event = m_exp->GetEvent(eventIndex);
-
-            if (edd.dataSources.size() != event->GetDataSourceStorages().size())
-            {
-                cout << "Warning: eventIndex=" << eventIndex << ", eventName=" << event->GetName()
-                    << ": number of data sources in the StreamInfo and in the generated Event class "
-                    " differ (streamInfo:" << edd.dataSources.size()
-                    << ", class:" << event->GetDataSourceStorages().size() << ")."
-                    << endl
-                    << "Please run `make' and restart the client."
-                    << endl;
-                m_quit = true;
-                return;
-            }
-        }
-
-        m_codeGeneratedAndLoaded = true;
-
-        // generate output filename open the file
-        std::string filename;
-
-        if (streamInfo.runId.empty())
-        {
-            cout << __FUNCTION__ << ": Warning: got an empty runId!" << endl;
-            filename = "unknown_run.root";
-        }
-        else
-        {
-            filename = streamInfo.runId + ".root";
-        }
-
-        // open the file and create the event trees
-        cout << "Opening output file " << filename << endl;
-        m_outFile = std::make_unique<TFile>(filename.c_str(), "recreate");
-        cout << "Creating output trees" << endl;
-        m_eventTrees = m_exp->MakeTrees();
-        assert(m_eventTrees.size() == m_exp->GetNumberOfEvents());
-    }
-#endif
-
