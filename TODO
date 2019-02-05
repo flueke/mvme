@@ -1,6 +1,11 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* remote control: issuing a start followed by a stop can crash the application.
+  There are missing checks if the system is transitioning. Set a flag
+  immediately before calling startDAQ and unset it either on error or when the
+  start succeeded. While the flag is set do not allow calls to startDAQ/stopDAQ
+  but return "Starting"/"Stopping", etc
 
 * during a replay extract timestamps from timetick text and pass this on to
   data consumers.
