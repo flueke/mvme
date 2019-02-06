@@ -2,11 +2,31 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+* JSON RPC Remote Control and/or DAQ Start/Stop handling is still buggy!
+  Quickly issuing startDAQ/stopDAQ commands (including multiple starts/stops in
+  sequence) can end up in a broken state and eventually lead to a crash:
+    DAQ: Idle, Analysis State: Running is shown in the gui
+    Crash in the json rpc code but I believe the heap is corrupted before that.
+
+    In MVMEContext::startDAQReadout(): introduce a definitive DAQ/System state
+    inside MVMEContext that is modified from within the GUI thread only and
+    that reflects what the state the system is in.
+    Set this flag to "Starting" right before issuing invokeMethod calls on the
+    workers. This way multiple calls to startDAQ in quick succession would not
+    cause an issue as the 2nd call would immediately see the "Starting" state.
+
+    Also in stopDAQ check that the current state is "Running" only then issue
+    the stop request to the worker threads.
+
+* when trying to open a workspace but the directory does not actually contain a
+  workspace (ini missing is the only hard criteria I think) then ask the user
+  if she wants to create a workspace instead of just creating stuff.
+
 * during a replay extract timestamps from timetick text and pass this on to
   data consumers.
   think about storing a 64bit seconds-since-epoch value instead to avoid having
   to parse string data.
-  On the other hand I to like the string data.
+  On the other hand I do like the string data.
   In any case timezone information is not stored right now but I think
   durations are more interesting to the user than absolute points in time.
 
