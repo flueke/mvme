@@ -332,19 +332,20 @@ Command parseResetBase(const QStringList &args, int lineNumber)
 
 static const QMap<QString, u32> VMUSB_RegisterNameToAddress =
 {
-    { QSL("dev_src"),   DEVSrcRegister },
-    { QSL("dgg_a"),     DGGARegister },
-    { QSL("dgg_b"),     DGGBRegister },
-    { QSL("dgg_ext"),   DGGExtended },
-    { QSL("sclr_a"),    ScalerA },
-    { QSL("sclr_b"),    ScalerB },
+    { QSL("dev_src"),       DEVSrcRegister },
+    { QSL("dgg_a"),         DGGARegister },
+    { QSL("dgg_b"),         DGGBRegister },
+    { QSL("dgg_ext"),       DGGExtended },
+    { QSL("sclr_a"),        ScalerA },
+    { QSL("sclr_b"),        ScalerB },
+    { QSL("daq_settings"),  DAQSetRegister },
 };
 
 Command parse_VMUSB_write_reg(const QStringList &args, int lineNumber)
 {
     auto usage = QString("%1 (%2) <value>")
         .arg(args.value(0))
-        .arg(VMUSB_RegisterNameToAddress.keys().join("|"))
+        .arg(VMUSB_RegisterNameToAddress.keys().join("|") + "|<regAddress>")
         ;
 
     if (args.size() != 3)
@@ -353,13 +354,21 @@ Command parse_VMUSB_write_reg(const QStringList &args, int lineNumber)
     Command result;
     result.type = commandType_from_string(args[0]);
 
-    if (!VMUSB_RegisterNameToAddress.contains(args[1]))
+    bool conversionOk = false;
+    u32 regAddress = args[1].toUInt(&conversionOk, 0);
+
+    if (!conversionOk)
     {
-        throw ParseError(QString("Invalid VMUSB register name given. Usage: %1").arg(usage),
-                         lineNumber);
+        if (!VMUSB_RegisterNameToAddress.contains(args[1]))
+        {
+            throw ParseError(QString("Invalid VMUSB register name or address given given. Usage: %1").arg(usage),
+                             lineNumber);
+        }
+
+        regAddress = VMUSB_RegisterNameToAddress.value(args[1]);
     }
 
-    result.address = VMUSB_RegisterNameToAddress.value(args[1]);
+    result.address = regAddress;
     result.value   = parseValue(args[2]);
 
     return result;
@@ -369,7 +378,7 @@ Command parse_VMUSB_read_reg(const QStringList &args, int lineNumber)
 {
     auto usage = QString("%1 (%2)")
         .arg(args.value(0))
-        .arg(VMUSB_RegisterNameToAddress.keys().join("|"))
+        .arg(VMUSB_RegisterNameToAddress.keys().join("|") + "|<regAddress>")
         ;
 
     if (args.size() != 2)
@@ -380,13 +389,21 @@ Command parse_VMUSB_read_reg(const QStringList &args, int lineNumber)
     Command result;
     result.type = commandType_from_string(args[0]);
 
-    if (!VMUSB_RegisterNameToAddress.contains(args[1]))
+    bool conversionOk = false;
+    u32 regAddress = args[1].toUInt(&conversionOk, 0);
+
+    if (!conversionOk)
     {
-        throw ParseError(QString("Invalid VMUSB register name given. Usage: %1").arg(usage),
-                         lineNumber);
+        if (!VMUSB_RegisterNameToAddress.contains(args[1]))
+        {
+            throw ParseError(QString("Invalid VMUSB register name given. Usage: %1").arg(usage),
+                             lineNumber);
+        }
+
+        regAddress = VMUSB_RegisterNameToAddress.value(args[1]);
     }
 
-    result.address = VMUSB_RegisterNameToAddress.value(args[1]);
+    result.address = regAddress;
 
     return result;
 }
