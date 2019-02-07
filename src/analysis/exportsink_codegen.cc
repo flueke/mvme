@@ -169,7 +169,19 @@ VariableNames ExportSinkCodeGenerator::Private::generateVariableNames()
 
     for (auto slot: sink->getDataInputs())
     {
-        auto arrayNameBase = variablify(slot->inputPipe->getSource()->objectName());
+        assert(slot && slot->inputPipe && slot->inputPipe->getSource());
+
+        auto inputSource = slot->inputPipe->getSource();
+        QString arrayNameBase = variablify(inputSource->objectName());
+
+        // If the pipe has (the possibility to have) multiple outputs, append the output name
+        if (inputSource->hasVariableNumberOfOutputs() || inputSource->getNumberOfOutputs() > 1)
+        {
+            assert(false);
+            arrayNameBase += "_" + variablify(inputSource->getOutputName(
+                    slot->inputPipe->sourceOutputIndex));
+        }
+
         auto arrayName     = arrayNameBase;
         int suffix         = 1;
 
