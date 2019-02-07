@@ -3359,7 +3359,7 @@ void EventWidgetPrivate::clearToDefaultNodeHighlights(QTreeWidgetItem *node)
 
                     Q_ASSERT(slot);
 
-                    if (!slot->isParamIndexInRange())
+                    if (!slot->isParamIndexInRange() && !slot->isOptional)
                     {
                         node->setBackground(0, MissingInputColor);
                         break;
