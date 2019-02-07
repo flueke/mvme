@@ -40,6 +40,8 @@ static QString render_to_string(
             .arg(templateFilename).arg(templateFile.errorString());
 
         qDebug() << __PRETTY_FUNCTION__ << msg;
+        // Should not happen because the template files are stored in the
+        // compiled in qt resources.
         assert(false);
 
         throw std::runtime_error(msg.toStdString());
@@ -177,7 +179,6 @@ VariableNames ExportSinkCodeGenerator::Private::generateVariableNames()
         // If the pipe has (the possibility to have) multiple outputs, append the output name
         if (inputSource->hasVariableNumberOfOutputs() || inputSource->getNumberOfOutputs() > 1)
         {
-            assert(false);
             arrayNameBase += "_" + variablify(inputSource->getOutputName(
                     slot->inputPipe->sourceOutputIndex));
         }
