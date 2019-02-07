@@ -2,6 +2,14 @@
 Changelog
 ##################################################
 
+Version 0.9.5.3
+---------------
+* Allow access to all VMUSB registers via vme_script commands
+  ``vmusb_write_reg`` and ``vmusb_read_reg``
+
+* Fix a crash in Histo1DWidget when resolution reduction factor was set to 0
+
+
 Version 0.9.5.2
 ---------------
 * Fix a race condition at DAQ/replay startup time
