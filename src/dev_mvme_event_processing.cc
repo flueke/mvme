@@ -337,6 +337,7 @@ int main(int argc, char *argv[])
         {
             cout << "failed to open" << failedToOpen.size() << "files";
         }
+
     }
     catch (const std::exception &e)
     {

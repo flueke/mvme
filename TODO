@@ -98,6 +98,7 @@ BUGS
 
 * When having a single h1d bin filled the calculated and displayed fwhm of the
   gauss is 1, but I was told it should be 0. Figure this out and fix it.
+* Recheck/Test ConditionFilter
 
 * Analysis single step button can hit an assertion when clicked in quick
   succession
@@ -145,7 +146,6 @@ sometimes when starting a new DAQ run.
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
---------------------------------------------------
 WISHLIST
 --------------------------------------------------
 * unify runinfo into a single variantmap
