@@ -169,6 +169,40 @@ These commands can be used to temporarily replace the current base address with 
 **setbase** sets a new base address, which will be effective for all following commands. Use
 **resetbase** to restore the original base address.
 
+VMUSB specific
+~~~~~~~~~~~~~~
+.. _vme_command-vmusb-write-reg
+* **vmusb_write_reg** *(<register_address>|<register_name>) <value>*
+* **vmusb_read_reg** *(<register_address>|<register_name>)*
+
+These commands only work when using the WIENER VM-USB controller and allow
+read/write access to its internal registers. For details on the registers see
+the VM-USB manual section *3.4 - Internal Register File*.
+
+Instead of using register addresses some registers are also accessible via
+name. The following name mappings are defined:
+
+.. table:: VMUSB Register Names
+  :name: vmusb-register-names
+
+  +-------------------+-------------+
+  | **Register Name** | **address** |
+  +===================+=============+
+  | dev_src           | 0x10        |
+  +-------------------+-------------+
+  | dgg_a             | 0x14        |
+  +-------------------+-------------+
+  | dgg_b             | 0x18        |
+  +-------------------+-------------+
+  | dgg_ext           | 0x38        |
+  +-------------------+-------------+
+  | sclr_a            | 0x1c        |
+  +-------------------+-------------+
+  | sclr_b            | 0x20        |
+  +-------------------+-------------+
+  | daq_settings      | 0x08        |
+  +-------------------+-------------+
+
 Example
 -------
 ::
