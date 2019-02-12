@@ -884,6 +884,10 @@ void MVMEContext::tryOpenController()
         && !m_ctrlOpenFuture.isRunning()
         && m_d->m_ctrlOpenRetryCount < VMECtrlConnectMaxRetryCount)
     {
+        // Note: Having VMEController emit signals from the thread chosen by
+        // QtConcurrent is ok. It seems the signal emission mechanism does
+        // check thread affinity at runtime and enqueues the slot invocations
+        // on the controller objects thread.
         m_ctrlOpenFuture = QtConcurrent::run(m_controller, &VMEController::open);
         m_ctrlOpenWatcher.setFuture(m_ctrlOpenFuture);
     }
