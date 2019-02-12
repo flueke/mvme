@@ -109,6 +109,19 @@ include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
 
+option(MVME_ENABLE_MVLC "Enable support for the mesytec MVLC controller" ON)
+
+if (MVME_ENABLE_MVLC)
+    # FTDI d3xx driver linux x64
+    # TODO: make this work for linux and windows
+
+    add_library(ftd3xx SHARED IMPORTED)
+    set_target_properties(ftd3xx PROPERTIES
+        IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so)
+    include_directories(${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/)
+    install(FILES ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so DESTINATION .)
+endif (MVME_ENABLE_MVLC)
+
 # qwt
 find_path(QWT_INCLUDE_DIR
     NAMES qwt_plot.h

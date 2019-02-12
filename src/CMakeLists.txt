@@ -353,4 +353,19 @@ if(BUILD_TESTS)
 
 endif(BUILD_TESTS)
 
+# MVLC support
+if(MVME_ENABLE_MVLC)
+    target_sources(libmvme PRIVATE
+        mvlc/mvlc_script.cc
+        mvlc/mvlc_usb.cc
+        mvlc/mvlc_util.cc
+        )
+    target_link_libraries(libmvme ftd3xx)
+
+    if(BUILD_TESTS)
+        add_mvme_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
+    endif(BUILD_TESTS)
+endif(MVME_ENABLE_MVLC)
+
+
 # vim:tw=0
