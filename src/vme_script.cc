@@ -19,9 +19,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_script.h"
-#include "util.h"
-#include "vme_controller.h"
-#include "vmusb.h"
 
 #include <QFile>
 #include <QTextStream>
@@ -31,6 +28,9 @@
 #include <QApplication>
 #include <QThread>
 
+#include "util.h"
+#include "vme_controller.h"
+#include "vmusb.h"
 namespace vme_script
 {
 
@@ -543,6 +543,12 @@ VMEScript parse(const QString &input, uint32_t baseAddress)
     return parse(stream, baseAddress);
 }
 
+VMEScript LIBMVME_EXPORT parse(const std::string &input, uint32_t baseAddress)
+{
+    auto qStr = QString::fromStdString(input);
+    return parse(qStr, baseAddress);
+}
+
 VMEScript parse(QTextStream &input, uint32_t baseAddress)
 {
     VMEScript result;
@@ -736,6 +742,11 @@ QString to_string(const Command &cmd)
                     .arg(format_hex(cmd.blockAddress));
             } break;
 
+        case CommandType::Blk2eSST64:
+            {
+                assert(false);
+            }
+
         case CommandType::SetBase:
             {
                 buffer = QString(QSL("%1 %2"))
@@ -789,6 +800,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::BLTFifo:
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
+        case CommandType::Blk2eSST64:
 
             cmd.address += baseAddress;
             break;
@@ -1002,6 +1014,12 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                 }
             } break;
 
+        case CommandType::Blk2eSST64:
+            if (logger)
+            {
+                logger(QSL("Blk2eSST64 count read command is only supported during readout."));
+            } break;
+
 #else
         case CommandType::BLTCount:
             {
@@ -1182,6 +1200,7 @@ QString format_result(const Result &result)
         case CommandType::BLTFifoCount:
         case CommandType::MBLTCount:
         case CommandType::MBLTFifoCount:
+        case CommandType::Blk2eSST64:
             {
                 ret += "\n";
                 for (int i=0; i<result.valueVector.size(); ++i)

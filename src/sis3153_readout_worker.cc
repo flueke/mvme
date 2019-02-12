@@ -148,6 +148,7 @@ namespace
                 case  CommandType::ResetBase:
                 case  CommandType::VMUSB_ReadRegister:
                 case  CommandType::VMUSB_WriteRegister:
+                case CommandType::Blk2eSST64:
                     break;
 
                 case  CommandType::Invalid:
@@ -443,6 +444,7 @@ namespace
                 case  CommandType::ResetBase:
                 case  CommandType::VMUSB_ReadRegister:
                 case  CommandType::VMUSB_WriteRegister:
+                case  CommandType::Blk2eSST64:
                     break;
 
                 case  CommandType::Invalid:

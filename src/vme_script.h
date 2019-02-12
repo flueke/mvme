@@ -51,6 +51,7 @@ enum class CommandType
     BLTFifo,
     MBLT,
     MBLTFifo,
+    Blk2eSST64,
 
     BLTCount,
     BLTFifoCount,
@@ -77,10 +78,20 @@ enum class DataWidth
     D32
 };
 
+enum Blk2eSSTRate: u8
+{
+    Rate160MB,
+    Rate276MB,
+    Rate300MB,
+};
+
 struct Command
 {
     CommandType type = CommandType::Invalid;
     AddressMode addressMode = AddressMode::A32;
+    u8 addressModeRaw = 0x0D; // a32 priv // XXX: refactor mvme to also carry the raw mode
+                              // and later on get rid of the AddressMode num and all the conversions
+                              // done in different layers.
     DataWidth dataWidth = DataWidth::D16;
     uint32_t address = 0;
     uint32_t value = 0;
@@ -89,6 +100,7 @@ struct Command
     uint32_t countMask = 0;
     AddressMode blockAddressMode = AddressMode::A32;
     uint32_t blockAddress = 0;
+    Blk2eSSTRate blk2eSSTRate = Blk2eSSTRate::Rate160MB;
 
     QString warning;
     s32 lineNumber = 0;
@@ -126,6 +138,7 @@ struct ParseError
 VMEScript LIBMVME_EXPORT parse(QFile *input, uint32_t baseAddress = 0);
 VMEScript LIBMVME_EXPORT parse(const QString &input, uint32_t baseAddress = 0);
 VMEScript LIBMVME_EXPORT parse(QTextStream &input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_EXPORT parse(const std::string &input, uint32_t baseAddress = 0);
 
 class LIBMVME_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
 {

@@ -197,6 +197,10 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
         case CommandType::ResetBase:
             break;
 
+        case CommandType::Blk2eSST64:
+            // FIXME: this needs to report an error
+            break;
+
         case CommandType::Read:
             {
                 switch (cmd.dataWidth)
