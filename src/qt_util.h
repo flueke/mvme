@@ -176,4 +176,13 @@ uint qHash(const std::shared_ptr<T> &ptr, uint seed = 0)
     return qHash(ptr.get());
 }
 
+template<typename LayoutType, int Margin = 2, int Spacing = 2>
+LayoutType *make_layout(QWidget *widget = nullptr)
+{
+    auto ret = new LayoutType(widget);
+    ret->setContentsMargins(Margin, Margin, Margin, Margin);
+    ret->setSpacing(Spacing);
+    return ret;
+};
+
 #endif /* __QT_UTIL_H__ */

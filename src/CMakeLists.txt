@@ -365,6 +365,11 @@ if(MVME_ENABLE_MVLC)
     if(BUILD_TESTS)
         add_mvme_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
     endif(BUILD_TESTS)
+
+    set(MVLC_DEV_GUI_SOURCES
+        mvlc/mvlc_dev_gui.cc
+        )
+    add_mvme_executable(mvlc_dev_gui ${MVLC_DEV_GUI_SOURCES})
 endif(MVME_ENABLE_MVLC)
 
 

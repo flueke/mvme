@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
-#include <mvlc_script.h>
+
+#include "mvlc/mvlc_script.h"
 
 using namespace mesytec::mvlc::script;
 
