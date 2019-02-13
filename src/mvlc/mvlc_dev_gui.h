@@ -78,6 +78,7 @@ class MVLCDataReader: public QObject
 
         // thread safe
         Stats getStats() const;
+        void resetStats();
 
         // not thread safe
         void setImpl(const USB_Impl &impl);
@@ -89,7 +90,10 @@ class MVLCDataReader: public QObject
     private:
         USB_Impl m_impl;
         std::atomic<bool> m_doQuit;
-        QVector<u8> m_readBuffer;
+        // FIXME: when using resize on these, they have to perform value
+        // initializtion and thus are very, very slow
+        //QVector<u8> m_readBuffer;
+        std::vector<u8> m_readBuffer;
         mutable QMutex m_statsMutex;
         Stats m_stats = {};
 };
@@ -102,6 +106,10 @@ namespace Ui
 class MVLCDevGUI: public QMainWindow
 {
     Q_OBJECT
+    signals:
+        // private signal used to enter the readout loop in the readout thread
+        void enterReadoutLoop();
+
     public:
         MVLCDevGUI(QWidget *parent = 0);
         ~MVLCDevGUI();
@@ -116,6 +124,7 @@ class MVLCDevGUI: public QMainWindow
         friend Private;
         std::unique_ptr<Private> m_d;
         Ui::MVLCDevGUI *ui;
+
 };
 
 #endif /* __MVLC_GUI_H__ */

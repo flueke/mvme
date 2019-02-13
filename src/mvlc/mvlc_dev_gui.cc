@@ -121,6 +121,12 @@ MVLCDataReader::Stats MVLCDataReader::getStats() const
     return result;
 }
 
+void MVLCDataReader::resetStats()
+{
+    QMutexLocker guard(&m_statsMutex);
+    m_stats = {};
+}
+
 void MVLCDataReader::setImpl(const USB_Impl &impl)
 {
     m_impl = impl;
@@ -129,10 +135,13 @@ void MVLCDataReader::setImpl(const USB_Impl &impl)
 
 void MVLCDataReader::readoutLoop()
 {
+    m_doQuit = false;
+    resetStats();
+
     emit started();
-    QCoreApplication::processEvents();
 
     qDebug() << __PRETTY_FUNCTION__ << "entering readout loop";
+    qDebug() << __PRETTY_FUNCTION__ << "executing in" << QThread::currentThread();
 
     while (!m_doQuit)
     {
@@ -143,6 +152,7 @@ void MVLCDataReader::readoutLoop()
                                 m_readBuffer.data(), m_readBuffer.size(),
                                 &bytesTransferred);
 
+        // FIXME: this is very, very slow
         m_readBuffer.resize(bytesTransferred);
 
         {
@@ -164,7 +174,6 @@ void MVLCDataReader::readoutLoop()
     qDebug() << __PRETTY_FUNCTION__ << "left readout loop";
 
     emit stopped();
-    QCoreApplication::processEvents();
 }
 
 void MVLCDataReader::stop()
@@ -189,7 +198,7 @@ struct MVLCDevGUI::Private
     //        ;
 
     MVLCObject *mvlc;
-    QThread *readoutThread;
+    QThread readoutThread;
     MVLCDataReader *dataReader;
     // FIXME: use an enum an an array of counter for the stats
     QVector<QLabel *> readerStatLabels;
@@ -399,39 +408,39 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     // MVLCDataReader and readout thread
     //
 
-    m_d->readoutThread = new QThread(this);
-    m_d->readoutThread->setObjectName("Readout");
+    m_d->readoutThread.setObjectName("MVLC Readout");
     m_d->dataReader = new MVLCDataReader();
-    m_d->dataReader->moveToThread(m_d->readoutThread);
+    m_d->dataReader->moveToThread(&m_d->readoutThread);
 
-    connect(m_d->readoutThread, &QThread::started,
+    connect(this, &MVLCDevGUI::enterReadoutLoop,
             m_d->dataReader, &MVLCDataReader::readoutLoop);
 
     connect(m_d->dataReader, &MVLCDataReader::stopped,
-            m_d->readoutThread, &QThread::quit);
+            &m_d->readoutThread, &QThread::quit);
 
     connect(ui->pb_readerStart, &QPushButton::clicked,
             this, [this] ()
     {
-        assert(!m_d->readoutThread->isRunning());
+        assert(!m_d->readoutThread.isRunning());
 
         logMessage("Starting readout");
         // Udpate the readers copy of the usb impl handler thingy
         m_d->dataReader->setImpl(m_d->mvlc->getImpl());
-        m_d->readoutThread->start();
+        m_d->readoutThread.start();
+        emit enterReadoutLoop();
     });
 
     connect(ui->pb_readerStop, &QPushButton::clicked,
             this, [this] ()
     {
-        assert(m_d->readoutThread->isRunning());
+        assert(m_d->readoutThread.isRunning());
 
         logMessage("Stopping readout");
         // sets the atomic flag to make the reader break out of the loop.
         m_d->dataReader->stop();
     });
 
-    connect(m_d->readoutThread, &QThread::started,
+    connect(&m_d->readoutThread, &QThread::started,
             this, [this] ()
     {
         // FIXME: this never gets called
@@ -452,7 +461,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         ui->le_readoutStatus->setText("Running");
     });
 
-    connect(m_d->readoutThread, &QThread::finished,
+    connect(&m_d->readoutThread, &QThread::finished,
             this, [this] ()
     {
         qDebug() << "readout thread finished";
@@ -493,6 +502,9 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
 MVLCDevGUI::~MVLCDevGUI()
 {
+    m_d->dataReader->stop();
+    m_d->readoutThread.quit();
+    m_d->readoutThread.wait();
 }
 
 void MVLCDevGUI::logMessage(const QString &msg)
