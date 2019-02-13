@@ -300,6 +300,8 @@ err_t read_words(USB_Impl *mvlc, u8 pipe, std::vector<u32> &dest)
         dest.data(), dest.size(),
         &wordsTransferred);
 
+    dest.resize(wordsTransferred);
+
     return result;
 }
 
@@ -321,6 +323,8 @@ err_t read_words(USB_Impl *mvlc, u8 pipe, QVector<u32> &dest)
         mvlc, pipe,
         dest.data(), dest.size(),
         &wordsTransferred);
+
+    dest.resize(wordsTransferred);
 
     return result;
 }

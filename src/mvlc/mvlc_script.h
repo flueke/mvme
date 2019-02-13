@@ -32,7 +32,7 @@ namespace script
 // * write_reset
 //   Send the special reset command
 //
-// * stack_start [id=0] [offset=0x00] [output=command]
+// * stack_start [offset=0x00] [output=command]
 //     <vme_script contents>
 //   stack_end
 //

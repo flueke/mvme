@@ -132,6 +132,10 @@ namespace mvlc
             TimerUnderrun,
         };
 
+        // IMPORTANT: The IRQ bits have to be set to (IRQ - 1), e.g. value 0
+        // for IRQ1!
+        // TODO: rename IRQLevel to TriggerBits. I think these have different
+        // meanings depending on the trigger type.
         static const u32 IRQLevelMask       = 0b11111;
         static const u32 IRQLevelShift      = 0;
         static const u32 TriggerTypeMask    = 0b111;

@@ -366,10 +366,12 @@ if(MVME_ENABLE_MVLC)
         add_mvme_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
     endif(BUILD_TESTS)
 
-    set(MVLC_DEV_GUI_SOURCES
-        mvlc/mvlc_dev_gui.cc
-        )
-    add_mvme_executable(mvlc_dev_gui ${MVLC_DEV_GUI_SOURCES})
+    qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
+
+    add_mvme_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
+
+    target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
+
 endif(MVME_ENABLE_MVLC)
 
 
