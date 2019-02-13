@@ -185,4 +185,6 @@ LayoutType *make_layout(QWidget *widget = nullptr)
     return ret;
 };
 
+int calculate_tab_width(const QFont &font, int tabStop = 4);
+
 #endif /* __QT_UTIL_H__ */
