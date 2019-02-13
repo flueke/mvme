@@ -113,7 +113,7 @@ QVector<PreparsedLine> pre_parse(QTextStream &input)
     return result;
 }
 
-static int find_index_of_next_command(const QString &cmd, const QVector<PreparsedLine> splitLines,
+static long find_index_of_next_command(const QString &cmd, const QVector<PreparsedLine> splitLines,
                                       int searchStartOffset)
 {
     auto it_start = splitLines.begin() + searchStartOffset;
@@ -128,7 +128,7 @@ static int find_index_of_next_command(const QString &cmd, const QVector<Preparse
 
     if (it_result != it_end)
     {
-        return it_result - it_start;
+        return it_result - splitLines.begin();
     }
 
     return -1;
@@ -384,7 +384,8 @@ QVector<Command> parse(QTextStream &input)
         if (sl.parts[0] == "stack_start")
         {
             int stackStartIndex = lineIndex;
-            int stackEndIndex   = find_index_of_next_command("stack_end", splitLines, lineIndex);
+            int stackEndIndex   = find_index_of_next_command(
+                        "stack_end", splitLines, stackStartIndex);
 
             if (stackEndIndex < 0)
                 throw ParseError("No matching \"stack_end\" found.", sl.lineNumber);
