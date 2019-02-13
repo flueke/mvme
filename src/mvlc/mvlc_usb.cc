@@ -364,25 +364,24 @@ QString MVLCError::toString() const
     return "Unknonw Error";
 }
 
-static MVLCError make_usb_error(err_t err)
-{
-    if (err != 0)
-        return { MVLCError::USBError, err };
-
-    return { MVLCError::NoError, 0 };
-}
-
-static MVLCError make_ok()
-{
-    return { MVLCError::NoError, 0 };
-}
-
 //
 // Dialog API
 //
 
-// TODO: add argument to specifiy the expected header prefix or a mask and
-// result or something like that.
+MVLCError write_buffer(USB_Impl *mvlc, const QVector<u32> &buffer)
+{
+    size_t wordsTransferred = 0u;
+    auto error = write_words(mvlc, CommandPipe, buffer, &wordsTransferred);
+
+    if (error != 0)
+        return make_usb_error(error);
+
+    if (wordsTransferred < static_cast<size_t>(buffer.size()))
+        return { MVLCError::ShortWrite, 0 };
+
+    return make_success();
+};
+
 MVLCError read_response(USB_Impl *mvlc, u8 requiredBufferType, QVector<u32> &dest)
 {
     u32 header = 0u;
@@ -410,7 +409,7 @@ MVLCError read_response(USB_Impl *mvlc, u8 requiredBufferType, QVector<u32> &des
         if (wordsTransferred < responseLength) return { MVLCError::ShortRead };
     }
 
-    return make_ok();
+    return make_success();
 };
 
 MVLCError check_mirror(const QVector<u32> &request, const QVector<u32> &response)
@@ -442,7 +441,7 @@ MVLCError check_mirror(const QVector<u32> &request, const QVector<u32> &response
             return { MVLCError::MirrorNotEqual };
     }
 
-    return make_ok();
+    return make_success();
 }
 
 MVLCDialog::MVLCDialog(const usb::USB_Impl &impl)
@@ -451,16 +450,7 @@ MVLCDialog::MVLCDialog(const usb::USB_Impl &impl)
 
 MVLCError MVLCDialog::doWrite(const QVector<u32> &buffer)
 {
-    size_t wordsTransferred = 0u;
-    auto error = write_words(&m_impl, CommandPipe, buffer, &wordsTransferred);
-
-    if (error != 0)
-        return make_usb_error(error);
-
-    if (wordsTransferred < static_cast<size_t>(buffer.size()))
-        return { MVLCError::ShortWrite, 0 };
-
-    return make_ok();
+    return write_buffer(&m_impl, buffer);
 };
 
 MVLCError MVLCDialog::readResponse(u8 requiredBufferType, QVector<u32> &dest)
@@ -492,7 +482,7 @@ MVLCError MVLCDialog::readRegister(u32 address, u32 &value)
 
     value = m_responseBuffer[3];
 
-    return make_ok();
+    return make_success();
 }
 
 MVLCError MVLCDialog::writeRegister(u32 address, u32 value)
@@ -517,10 +507,11 @@ MVLCError MVLCDialog::writeRegister(u32 address, u32 value)
     if (m_responseBuffer.size() != 4)
         return { MVLCError::ParseResponseUnexpectedSize };
 
-    return make_ok();
+    return make_success();
 }
 
-MVLCError MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode amod, VMEDataWidth dataWidth)
+MVLCError MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode amod,
+                                    VMEDataWidth dataWidth)
 {
     script::MVLCCommandListBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
@@ -552,10 +543,11 @@ MVLCError MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode amod, V
 
     value = m_responseBuffer[1];
 
-    return make_ok();
+    return make_success();
 }
 
-MVLCError MVLCDialog::vmeSingleWrite(u32 address, u32 value, AddressMode amod, VMEDataWidth dataWidth)
+MVLCError MVLCDialog::vmeSingleWrite(u32 address, u32 value, AddressMode amod,
+                                     VMEDataWidth dataWidth)
 {
     script::MVLCCommandListBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
@@ -585,10 +577,11 @@ MVLCError MVLCDialog::vmeSingleWrite(u32 address, u32 value, AddressMode amod, V
     if (m_responseBuffer.size() != 1)
         return { MVLCError::ParseResponseUnexpectedSize };
 
-    return make_ok();
+    return make_success();
 }
 
-MVLCError MVLCDialog::vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfers, QVector<u32> &dest)
+MVLCError MVLCDialog::vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfers,
+                                   QVector<u32> &dest)
 {
     script::MVLCCommandListBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
@@ -615,7 +608,7 @@ MVLCError MVLCDialog::vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfe
 
     log_buffer(m_responseBuffer, "vme_block_read response");
 
-    return make_ok();
+    return make_success();
 }
 
 } // end namespace usb

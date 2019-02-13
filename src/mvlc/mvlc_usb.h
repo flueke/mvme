@@ -125,7 +125,21 @@ struct MVLCError
     operator bool() const { return type == NoError; }
 };
 
+inline MVLCError make_usb_error(err_t err)
+{
+    if (err != 0)
+        return { MVLCError::USBError, err };
+
+    return { MVLCError::NoError, 0 };
+}
+
+inline MVLCError make_success()
+{
+    return { MVLCError::NoError, 0 };
+}
+
 MVLCError check_mirror(const QVector<u32> &request, const QVector<u32> &response);
+MVLCError write_buffer(USB_Impl *mvlc, const QVector<u32> &buffer);
 MVLCError read_response(USB_Impl *mvlc, u8 requiredBufferType, QVector<u32> &dest);
 
 class MVLCDialog
@@ -136,12 +150,16 @@ class MVLCDialog
         MVLCError readRegister(u32 address, u32 &value);
         MVLCError writeRegister(u32 address, u32 value);
 
-        MVLCError vmeSingleRead(u32 address, u32 &value, AddressMode amod, VMEDataWidth dataWidth);
-        MVLCError vmeSingleWrite(u32 address, u32 value, AddressMode amod, VMEDataWidth dataWidth);
-        MVLCError vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfers, QVector<u32> &dest);
+        MVLCError vmeSingleRead(u32 address, u32 &value, AddressMode amod,
+                                VMEDataWidth dataWidth);
+        MVLCError vmeSingleWrite(u32 address, u32 value, AddressMode amod,
+                                 VMEDataWidth dataWidth);
+        MVLCError vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfers,
+                               QVector<u32> &dest);
+
+        MVLCError doWrite(const QVector<u32> &buffer);
 
     private:
-        MVLCError doWrite(const QVector<u32> &buffer);
         MVLCError readResponse(u8 requiredBufferType, QVector<u32> &dest);
 
         usb::USB_Impl m_impl;
