@@ -65,8 +65,10 @@ err_t read_words(USB_Impl *mvlc, u8 pipe,
 err_t write_words(USB_Impl *mvlc, u8 pipe, const std::vector<u32> &buffer,
                   size_t *wordsTransferred = nullptr);
 
-// Trys to read dest.size() words into dest.  Resizes dest buffer to actual
-// number of words received
+// Trys to read dest.size() words into dest. Resizes dest buffer to actual
+// number of words received.
+// IMPORTANT: the resize operation done to the vector is really slow due to c++
+// value initialization writing to all the memory.
 err_t read_words(USB_Impl *mvlc, u8 pipe, std::vector<u32> &dest);
 
 //
@@ -76,8 +78,10 @@ err_t read_words(USB_Impl *mvlc, u8 pipe, std::vector<u32> &dest);
 err_t write_words(USB_Impl *mvlc, u8 pipe, const QVector<u32> &buffer,
                   size_t *wordsTransferred = nullptr);
 
-// Trys to read dest.size() words into dest.  Resizes dest buffer to actual
-// number of words received
+// Trys to read dest.size() words into dest. Resizes dest buffer to actual
+// number of words received.
+// IMPORTANT: the resize operation done to the vector is really slow due to c++
+// value initialization writing to all the memory.
 err_t read_words(USB_Impl *mvlc, u8 pipe, QVector<u32> &dest);
 
 
@@ -138,9 +142,11 @@ inline MVLCError make_success()
     return { MVLCError::NoError, 0 };
 }
 
+MVLCError get_read_queue_size(USB_Impl *mvlc, u8 pipe, u32 &dest);
 MVLCError check_mirror(const QVector<u32> &request, const QVector<u32> &response);
 MVLCError write_buffer(USB_Impl *mvlc, const QVector<u32> &buffer);
-MVLCError read_response(USB_Impl *mvlc, u8 requiredBufferType, QVector<u32> &dest);
+//MVLCError read_response(USB_Impl *mvlc, u8 requiredBufferType, QVector<u32> &dest);
+MVLCError read_response(USB_Impl *mvlc, QVector<u32> &dest);
 
 class MVLCDialog
 {

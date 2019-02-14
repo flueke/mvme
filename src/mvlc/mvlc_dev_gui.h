@@ -47,6 +47,32 @@ class MVLCObject: public QObject
         State m_state = Disconnected;
 };
 
+struct FixedSizeBuffer
+{
+    std::unique_ptr<u8[]> data;
+    size_t capacity;
+    size_t used;
+};
+
+FixedSizeBuffer make_buffer(size_t capacity);
+
+struct ReaderStats
+{
+    enum CounterEnum
+    {
+        TotalBytesReceived,
+        NumberOfAttemptedReads,
+        NumberOfTimeouts,
+        NumberOfErrors,
+
+        CountersCount,
+    };
+
+    size_t counters[CountersCount];
+};
+
+const char *reader_stat_name(ReaderStats::CounterEnum counter);
+
 class MVLCDataReader: public QObject
 {
     Q_OBJECT
@@ -54,15 +80,6 @@ class MVLCDataReader: public QObject
         using USB_Impl = mesytec::mvlc::usb::USB_Impl;
         using MVLCError = mesytec::mvlc::usb::MVLCError;
 
-        struct Stats
-        {
-            // TODO: enum for counters
-            // array of counter variables
-            size_t totalBytesReceived;
-            size_t numberOfAttemptedReads;
-            size_t numberOfTimeouts;
-            size_t numberOfErrors;
-        };
 
         static const int ReadBufferSize = Megabytes(1);
         static const int ReadTimeout_ms = 250;
@@ -70,6 +87,8 @@ class MVLCDataReader: public QObject
     signals:
         void started();
         void stopped();
+        void bufferReady(const QVector<u8> &buffer);
+        void message(const QString &msg);
 
     public:
         MVLCDataReader(QObject *parent = nullptr);
@@ -77,25 +96,31 @@ class MVLCDataReader: public QObject
         virtual ~MVLCDataReader();
 
         // thread safe
-        Stats getStats() const;
+        ReaderStats getStats() const;
+        ReaderStats getAndResetStats();
         void resetStats();
 
         // not thread safe
         void setImpl(const USB_Impl &impl);
 
     public slots:
+        // Runs until stop() is invoked from the outside.
         void readoutLoop();
+        // Thread safe, sets an atomic flag which makes readoutLoop() return.
         void stop();
+
+        // Thread safe, sets atomic flag which makes readoutLoop() copy the
+        // next buffer it receives and send it out via the bufferReady()
+        // signal.
+        void requestNextBuffer();
 
     private:
         USB_Impl m_impl;
-        std::atomic<bool> m_doQuit;
-        // FIXME: when using resize on these, they have to perform value
-        // initializtion and thus are very, very slow
-        //QVector<u8> m_readBuffer;
-        std::vector<u8> m_readBuffer;
+        std::atomic<bool> m_doQuit,
+                          m_nextBufferRequested;
+        FixedSizeBuffer m_readBuffer;
         mutable QMutex m_statsMutex;
-        Stats m_stats = {};
+        ReaderStats m_stats = {};
 };
 
 namespace Ui

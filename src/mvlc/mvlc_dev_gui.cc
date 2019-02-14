@@ -10,13 +10,17 @@
 #include <QThread>
 #include <QTimer>
 
+#include <ftd3xx.h> // XXX
+
 #include <iostream>
+#include <cmath>
 
 #include "ui_mvlc_dev_ui.h"
 
 #include "mvlc_script.h"
 #include "qt_util.h"
 #include "vme_debug_widget.h"
+#include "util/counters.h"
 
 using namespace mesytec;
 using namespace mesytec::mvlc;
@@ -85,12 +89,46 @@ void MVLCObject::setState(const State &newState)
     }
 };
 
+FixedSizeBuffer make_buffer(size_t capacity)
+{
+    FixedSizeBuffer result
+    {
+        .data = std::make_unique<u8[]>(capacity),
+        .capacity = capacity,
+        .used = 0
+    };
+
+    return result;
+}
+
+const char *reader_stat_name(ReaderStats::CounterEnum counter)
+{
+    switch (counter)
+    {
+        case ReaderStats::TotalBytesReceived:
+            return "TotalBytesReceived";
+        case ReaderStats::NumberOfAttemptedReads:
+            return "NumberOfAttemptedReads";
+        case ReaderStats::NumberOfTimeouts:
+            return "NumberOfTimeouts";
+        case ReaderStats::NumberOfErrors:
+            return "NumberOfErrors";
+
+        case ReaderStats::CountersCount:
+            return "INVALID COUNTER";
+    }
+
+    return "UNKNOWN COUNTER";
+}
+
 //
 // MVLCDataReader
 //
 MVLCDataReader::MVLCDataReader(QObject *parent)
     : QObject(parent)
     , m_doQuit(false)
+    , m_nextBufferRequested(false)
+    , m_readBuffer(make_buffer(USBSingleTransferMaxBytes))
 {
     qDebug() << ">>> created" << this;
 }
@@ -111,12 +149,23 @@ MVLCDataReader::~MVLCDataReader()
     qDebug() << ">>> destroyed" << this;
 }
 
-MVLCDataReader::Stats MVLCDataReader::getStats() const
+ReaderStats MVLCDataReader::getStats() const
 {
-    Stats result;
+    ReaderStats result;
     {
         QMutexLocker guard(&m_statsMutex);
         result = m_stats;
+    }
+    return result;
+}
+
+ReaderStats MVLCDataReader::getAndResetStats()
+{
+    ReaderStats result;
+    {
+        QMutexLocker guard(&m_statsMutex);
+        result = m_stats;
+        m_stats = {};
     }
     return result;
 }
@@ -142,32 +191,49 @@ void MVLCDataReader::readoutLoop()
 
     qDebug() << __PRETTY_FUNCTION__ << "entering readout loop";
     qDebug() << __PRETTY_FUNCTION__ << "executing in" << QThread::currentThread();
+    qDebug() << __PRETTY_FUNCTION__ << "read timeout is "
+        << m_impl.readTimeout_ms << "ms";
 
     while (!m_doQuit)
     {
-        m_readBuffer.resize(ReadBufferSize);
         size_t bytesTransferred = 0u;
 
         auto error = read_bytes(&m_impl, DataPipe,
-                                m_readBuffer.data(), m_readBuffer.size(),
+                                m_readBuffer.data.get(), m_readBuffer.capacity,
                                 &bytesTransferred);
 
-        // FIXME: this is very, very slow
-        m_readBuffer.resize(bytesTransferred);
+        m_readBuffer.used = bytesTransferred;
+
+        if (error == FT_DEVICE_NOT_CONNECTED)
+        {
+            emit message("Lost connection to MVLC. Leaving readout loop.");
+            break;
+        }
 
         {
             QMutexLocker guard(&m_statsMutex);
 
-            ++m_stats.numberOfAttemptedReads;
-            m_stats.totalBytesReceived += bytesTransferred;
+            ++m_stats.counters[ReaderStats::NumberOfAttemptedReads];
+            m_stats.counters[ReaderStats::TotalBytesReceived] += bytesTransferred;
 
             if (error)
             {
                 if (is_timeout(error))
-                    ++m_stats.numberOfTimeouts;
+                    ++m_stats.counters[ReaderStats::NumberOfTimeouts];
                 else
-                    ++m_stats.numberOfErrors;
+                    ++m_stats.counters[ReaderStats::NumberOfErrors];
             }
+        }
+
+        if (m_nextBufferRequested)
+        {
+            QVector<u8> bufferCopy;
+            bufferCopy.reserve(m_readBuffer.used);
+            std::copy(m_readBuffer.data.get(),
+                      m_readBuffer.data.get() + m_readBuffer.used,
+                      std::back_inserter(bufferCopy));
+            emit bufferReady(bufferCopy);
+            m_nextBufferRequested = false;
         }
     }
 
@@ -179,6 +245,11 @@ void MVLCDataReader::readoutLoop()
 void MVLCDataReader::stop()
 {
     m_doQuit = true;
+}
+
+void MVLCDataReader::requestNextBuffer()
+{
+    m_nextBufferRequested = true;
 }
 
 //
@@ -200,8 +271,16 @@ struct MVLCDevGUI::Private
     MVLCObject *mvlc;
     QThread readoutThread;
     MVLCDataReader *dataReader;
-    // FIXME: use an enum an an array of counter for the stats
+
     QVector<QLabel *> readerStatLabels;
+    QLabel *l_statRunDuration,
+           *l_statReadRate;
+
+    QDateTime tReaderStarted,
+              tReaderStopped,
+              tLastUpdate;
+
+    ReaderStats prevReaderStats = {};
 };
 
 MVLCDevGUI::MVLCDevGUI(QWidget *parent)
@@ -239,22 +318,24 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
     // Reader stats ui setup
     {
-        auto l = new QFormLayout(ui->frame_readerStats);
+        auto l = new QFormLayout(ui->gb_readerStats);
 
-        auto statNames =
+        for (int counterType = 0;
+             counterType < ReaderStats::CountersCount;
+             counterType++)
         {
-            "totalBytesReceived",
-            "numberOfAttemptedReads",
-            "numberOfTimeouts",
-            "numberOfErrors",
-        };
-
-        for (auto statName: statNames)
-        {
+            auto name = reader_stat_name(
+                static_cast<ReaderStats::CounterEnum>(counterType));
             auto label = new QLabel();
             m_d->readerStatLabels.push_back(label);
-            l->addRow(statName, label);
+            l->addRow(name, label);
         }
+
+        m_d->l_statRunDuration = new QLabel();
+        l->addRow("Run Duration", m_d->l_statRunDuration);
+
+        m_d->l_statReadRate = new QLabel();
+        l->addRow("Read Rate", m_d->l_statReadRate);
     }
 
     // Interactions
@@ -294,11 +375,14 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     {
         try
         {
+            bool logRequest = ui->cb_scriptLogRequest->isChecked();
+            bool logMirror  = ui->cb_scriptLogMirror->isChecked();
+
             auto scriptText = ui->te_scriptInput->toPlainText();
             auto cmdList = mvlc::script::parse(scriptText);
             auto cmdBuffer = mvlc::script::to_mvlc_command_buffer(cmdList);
 
-            if (ui->cb_scriptLogRequest->isChecked())
+            if (logRequest)
             {
                 logBuffer(cmdBuffer, "Outgoing Request Buffer");
             }
@@ -311,7 +395,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
             }
 
             QVector<u32> responseBuffer;
-            res = read_response(&m_d->mvlc->getImpl(), SuperResponseHeaderType,
+            res = read_response(&m_d->mvlc->getImpl(), //SuperResponseHeaderType,
                                 responseBuffer);
             if (!res)
             {
@@ -319,7 +403,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
                 return;
             }
 
-            if (ui->cb_scriptLogMirror->isChecked())
+            if (logMirror)
             {
                 logBuffer(responseBuffer, "Mirror response from MVLC");
             }
@@ -328,15 +412,24 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
             if (!res)
             {
+                // TODO: display buffers and differences side-by-side
                 logMessage("Error: mirror check failed: " + res.toString());
                 return;
+            }
+
+            if (!logRequest && !logMirror)
+            {
+                // Log a short message if none of the buffers where logged.
+                logMessage(QString("Sent %1 words, received %2 words.")
+                           .arg(cmdBuffer.size())
+                           .arg(responseBuffer.size()));
             }
 
             if (ui->cb_scriptReadStack->isChecked())
             {
                 logMessage("Attempting to read stack response...");
 
-                res = read_response(&m_d->mvlc->getImpl(), StackResponseHeaderType,
+                res = read_response(&m_d->mvlc->getImpl(), //StackResponseHeaderType,
                                     responseBuffer);
 
                 if (!res && !is_timeout(res))
@@ -358,7 +451,11 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         }
         catch (const mvlc::script::ParseError &e)
         {
-            logMessage("Script parse error: " + e.toString());
+            logMessage("MVLC Script parse error: " + e.toString());
+        }
+        catch (const vme_script::ParseError &e)
+        {
+            logMessage("Embedded VME Script parse error: " + e.toString());
         }
     });
 
@@ -443,22 +540,15 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     connect(&m_d->readoutThread, &QThread::started,
             this, [this] ()
     {
-        // FIXME: this never gets called
-        // what does get called in MVLCDataReader::readoutLoop
-        // and it should be running in a different thread.
-        // at least the UI is still responsive.
-        //
-        // What does happen here?
-        // Thread starts, enters qt event loop, emit started,
-        // this causes readoutLoop() to be run probably directly from the event
-        // pump. This then means that no more processing of the emission of the
-        // started signal() is done because the threads event pump is stuck in
-        // our readoutLoop().
-
         qDebug() << "readout thread started";
         ui->pb_readerStart->setEnabled(false);
         ui->pb_readerStop->setEnabled(true);
         ui->le_readoutStatus->setText("Running");
+        ui->pb_usbReconnect->setEnabled(false);
+        ui->pb_readDataPipe->setEnabled(false);
+
+        m_d->tReaderStarted = QDateTime::currentDateTime();
+        m_d->tReaderStopped = {};
     });
 
     connect(&m_d->readoutThread, &QThread::finished,
@@ -468,23 +558,136 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         ui->pb_readerStart->setEnabled(true);
         ui->pb_readerStop->setEnabled(false);
         ui->le_readoutStatus->setText("Stopped");
+        ui->pb_usbReconnect->setEnabled(true);
+        ui->pb_readDataPipe->setEnabled(true);
+        m_d->tReaderStopped = QDateTime::currentDateTime();
     });
 
     ui->pb_readerStop->setEnabled(false);
 
+    // Reset Reader Stats
+    connect(ui->pb_readerResetStats, &QPushButton::clicked,
+            this, [this] ()
+    {
+        auto now = QDateTime::currentDateTime();
+        m_d->tReaderStarted = now;
+        m_d->tReaderStopped = {};
+        m_d->tLastUpdate    = now;
+        m_d->prevReaderStats = {};
+        m_d->dataReader->resetStats();
+    });
+
+    // Request that the reader copies and send out the next buffer it receives.
+    connect(ui->pb_readerRequestBuffer, &QPushButton::clicked,
+            this, [this] ()
+    {
+        m_d->dataReader->requestNextBuffer();
+    });
+
+    connect(m_d->dataReader, &MVLCDataReader::bufferReady,
+            this, [this] (QVector<u8> buffer)
+    {
+        logMessage(QString("Received data buffer containing %1 words (%2 bytes).")
+                   .arg(buffer.size() / sizeof(u32))
+                   .arg(buffer.size()));
+
+        int maxWords = ui->spin_logReaderBufferMaxWords->value();
+        int maxBytes = maxWords > 0 ? maxWords * sizeof(u32) : buffer.size();
+        maxBytes = std::min(maxBytes, buffer.size());
+
+        logMessage(QString(">>> First %1 data words:").arg(maxBytes / sizeof(u32)));
+
+        BufferIterator iter(buffer.data(), maxBytes);
+        ::logBuffer(iter, [this] (const QString &line)
+        {
+            logMessage(line);
+        });
+
+        logMessage(QString("<<< End of buffer log"));
+    });
+
+    connect(m_d->dataReader, &MVLCDataReader::message,
+            this, [this] (const QString &msg)
+    {
+        logMessage("Readout Thread: " + msg);
+    });
+
+    //
+    // Periodic updates
+    //
     auto updateTimer = new QTimer(this);
     updateTimer->setInterval(1000);
 
+    // Pull ReaderStats from MVLCDataReader
     connect(updateTimer, &QTimer::timeout,
             this, [this] ()
     {
         auto stats = m_d->dataReader->getStats();
         auto &labels = m_d->readerStatLabels;
 
-        labels[0]->setText(QString::number(stats.totalBytesReceived));
-        labels[1]->setText(QString::number(stats.numberOfAttemptedReads));
-        labels[2]->setText(QString::number(stats.numberOfTimeouts));
-        labels[3]->setText(QString::number(stats.numberOfErrors));
+        for (int counterType = 0;
+             counterType < ReaderStats::CountersCount;
+             counterType++)
+        {
+            QString text;
+            size_t value = stats.counters[counterType];
+
+            if (counterType == ReaderStats::TotalBytesReceived)
+            {
+                text = (QString("%1 B, %2 MB")
+                        .arg(value)
+                        .arg(value / (double)Megabytes(1)));
+            }
+            else
+            {
+                text = QString::number(stats.counters[counterType]);
+            }
+
+            m_d->readerStatLabels[counterType]->setText(text);
+        }
+
+        auto endTime = (m_d->readoutThread.isRunning()
+                        ?  QDateTime::currentDateTime()
+                        : m_d->tReaderStopped);
+
+        s64 secondsElapsed = m_d->tReaderStarted.msecsTo(endTime) / 1000.0;
+        auto durationString = makeDurationString(secondsElapsed);
+
+        m_d->l_statRunDuration->setText(durationString);
+
+        ReaderStats &prevStats = m_d->prevReaderStats;
+
+        double dt = (m_d->tLastUpdate.isValid()
+                     ? m_d->tLastUpdate.msecsTo(endTime)
+                     : m_d->tReaderStarted.msecsTo(endTime)) / 1000.0;
+
+        u64 deltaBytesRead = calc_delta0(
+            stats.counters[ReaderStats::TotalBytesReceived],
+            prevStats.counters[ReaderStats::TotalBytesReceived]);
+
+        double bytesPerSecond = deltaBytesRead / dt;
+        double mbPerSecond = bytesPerSecond / Megabytes(1);
+        if (std::isnan(mbPerSecond))
+            mbPerSecond = 0.0;
+
+        m_d->l_statReadRate->setText(QString("%1 MB/s").arg(mbPerSecond));
+
+        m_d->prevReaderStats = stats;
+        m_d->tLastUpdate = QDateTime::currentDateTime();
+    });
+
+    // Poll the read queue size for both pipes
+    connect(updateTimer, &QTimer::timeout,
+            this, [this] ()
+    {
+        u32 cmdQueueSize = 0;
+        u32 dataQueueSize = 0;
+
+        get_read_queue_size(&m_d->mvlc->getImpl(), CommandPipe, cmdQueueSize);
+        get_read_queue_size(&m_d->mvlc->getImpl(), DataPipe, dataQueueSize);
+
+        ui->le_usbCmdReadQueueSize->setText(QString::number(cmdQueueSize));
+        ui->le_usbDataReadQueueSize->setText(QString::number(dataQueueSize));
     });
 
     updateTimer->start();
@@ -546,6 +749,8 @@ void MVLCDevGUI::clearLog()
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+
+    qRegisterMetaType<QVector<u8>>("QVector<u8>");
 
     MVLCDevGUI gui;
     gui.show();

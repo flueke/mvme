@@ -386,7 +386,8 @@ MVLCError write_buffer(USB_Impl *mvlc, const QVector<u32> &buffer)
     return make_success();
 };
 
-MVLCError read_response(USB_Impl *mvlc, u8 requiredBufferType, QVector<u32> &dest)
+//MVLCError read_response(USB_Impl *mvlc, u8 requiredBufferType, QVector<u32> &dest)
+MVLCError read_response(USB_Impl *mvlc, QVector<u32> &dest)
 {
     u32 header = 0u;
     size_t wordsTransferred = 0u;
@@ -396,8 +397,8 @@ MVLCError read_response(USB_Impl *mvlc, u8 requiredBufferType, QVector<u32> &des
     if (error != 0) return make_usb_error(error);
     if (wordsTransferred < 1) return { MVLCError::ShortRead };
 
-    if (((header >> 24) & 0xFF) != requiredBufferType)
-        return { MVLCError::ParseUnexpectedBufferType };
+    //if (((header >> 24) & 0xFF) != requiredBufferType)
+    //    return { MVLCError::ParseUnexpectedBufferType };
 
     u16 responseLength = (header & SuperCmdArgMask);
 
@@ -415,6 +416,12 @@ MVLCError read_response(USB_Impl *mvlc, u8 requiredBufferType, QVector<u32> &des
 
     return make_success();
 };
+
+MVLCError get_read_queue_size(USB_Impl *mvlc, u8 pipe, u32 &dest)
+{
+    auto error = FT_GetReadQueueStatus(mvlc->handle, pipe, &dest);
+    return make_usb_error(error);
+}
 
 MVLCError check_mirror(const QVector<u32> &request, const QVector<u32> &response)
 {
@@ -459,7 +466,7 @@ MVLCError MVLCDialog::doWrite(const QVector<u32> &buffer)
 
 MVLCError MVLCDialog::readResponse(u8 requiredBufferType, QVector<u32> &dest)
 {
-    return read_response(&m_impl, requiredBufferType, dest);
+    return read_response(&m_impl, dest);
 }
 
 MVLCError MVLCDialog::readRegister(u32 address, u32 &value)

@@ -81,8 +81,8 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
 {
     std::vector<u32> result;
 
-    u32 value = commands::StackStart << CmdShift | outPipe << CmdArg0Shift;
-    result.push_back(value);
+    u32 firstWord = commands::StackStart << CmdShift | outPipe << CmdArg0Shift;
+    result.push_back(firstWord);
 
     for (auto &cmd: script)
     {
@@ -98,51 +98,58 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::Write:
             case CommandType::WriteAbs:
                 {
-                    value = commands::VMEWrite << CmdShift;
-                    value |= convert_amod(cmd.addressMode) << CmdArg0Shift;
-                    value |= convert_data_width(cmd.dataWidth) << CmdArg1Shift;
-                    result.push_back(value);
+                    firstWord = commands::VMEWrite << CmdShift;
+                    firstWord |= convert_amod(cmd.addressMode) << CmdArg0Shift;
+                    firstWord |= convert_data_width(cmd.dataWidth) << CmdArg1Shift;
+                    result.push_back(firstWord);
                     result.push_back(cmd.address);
-                    result.push_back(cmd.value);
+                    result.push_back(cmd.firstWord);
                 } break;
 
             case CommandType::Read:
                 {
-                    value = commands::VMERead << CmdShift;
-                    value |= convert_amod(cmd.addressMode) << CmdArg0Shift;
-                    value |= convert_data_width(cmd.dataWidth) << CmdArg1Shift;
-                    result.push_back(value);
+                    firstWord = commands::VMERead << CmdShift;
+                    firstWord |= convert_amod(cmd.addressMode) << CmdArg0Shift;
+                    firstWord |= convert_data_width(cmd.dataWidth) << CmdArg1Shift;
+                    result.push_back(firstWord);
                     result.push_back(cmd.address);
                 } break;
 
             case CommandType::BLT:
             case CommandType::BLTFifo:
                 {
-                    value = commands::VMERead << CmdShift;
-                    value |= AddressMode::BLT32 << CmdArg0Shift;
-                    value |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
-                    result.push_back(value);
+                    firstWord = commands::VMERead << CmdShift;
+                    firstWord |= AddressMode::BLT32 << CmdArg0Shift;
+                    firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
+                    result.push_back(firstWord);
                     result.push_back(cmd.address);
                 } break;
 
             case CommandType::MBLT:
             case CommandType::MBLTFifo:
                 {
-                    value = commands::VMERead << CmdShift;
-                    value |= AddressMode::MBLT64 << CmdArg0Shift;
-                    value |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
-                    result.push_back(value);
+                    firstWord = commands::VMERead << CmdShift;
+                    firstWord |= AddressMode::MBLT64 << CmdArg0Shift;
+                    firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
+                    result.push_back(firstWord);
                     result.push_back(cmd.address);
                 } break;
 
             case CommandType::Blk2eSST64:
                 {
-                    value = commands::VMERead << CmdShift;
-                    value |= (AddressMode::Blk2eSST64 | (cmd.blk2eSSTRate << Blk2eSSTRateShift))
+                    firstWord = commands::VMERead << CmdShift;
+                    firstWord |= (AddressMode::Blk2eSST64 | (cmd.blk2eSSTRate << Blk2eSSTRateShift))
                         << CmdArg0Shift;
-                    value |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
-                    result.push_back(value);
+                    firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
+                    result.push_back(firstWord);
                     result.push_back(cmd.address);
+                } break;
+
+            case CommandType::Marker:
+                {
+                    firstWord = commands::Marker << CmdShift;
+                    result.push_back(firstWord);
+                    result.push_back(cmd.value);
                 } break;
 
             default:
@@ -153,8 +160,8 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
         }
     }
 
-    value = commands::StackEnd << CmdShift;
-    result.push_back(value);
+    firstWord = commands::StackEnd << CmdShift;
+    result.push_back(firstWord);
 
     return result;
 }

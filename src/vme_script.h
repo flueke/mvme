@@ -131,6 +131,8 @@ struct ParseError
         return message;
     }
 
+    QString toString() const { return what(); }
+
     QString message;
     int lineNumber;
 };

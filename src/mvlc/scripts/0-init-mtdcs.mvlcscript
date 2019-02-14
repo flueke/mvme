@@ -1,34 +1,26 @@
-stack_start offset=128 output=data
-    # readout first mtdc
-    setbase 0x00000000
-    mbltfifo a32 0x0000 0xfff
-
-    # readout second mtdc
-    #setbase 0x01000000
-    #mbltfifo a32 0x0000 0xfff
-
-    # broadcast write readout reset
-    writeabs a32 d16 0xbb006034      1   # readout reset
-stack_end
-# set stack 1 address index register
-# base is 0x2000, offset is 128 -> 0x2080
-write_local 0x1204 0x2080
+# ####################################################
+# ##### Module Setup - Immediate Stack Execution #####
+# ####################################################
 
 # Note: The stack_start command uses offset=0 and output=command by default.
 stack_start # defaults are: offset=0x0 output=command
     # first mtdc, raising irq1
     setbase 0x00000000
-    0x6010 1        # irq 1
-    0x6036 0xb      # multi event mode
-    0x601A 1        # max transfer data
-    0x6070 3        # enable mtdc pulser
+    0x6020 0x80         # Enable multicast
+    0x6024 0xBB         # Set 8 high bits of MCST address
+    0x6010 1            # irq 1
+    0x6036 0xb          # multi event mode
+    0x601A 100          # max transfer data
+    0x6070 3            # enable mtdc pulser
 
     # second mtdc, no irq
     setbase 0x01000000
-    0x6010 0        # irq 1
-    0x6036 0xb      # multi event mode
-    0x601A 1        # max transfer data
-    0x6070 3        # enable mtdc pulser
+    0x6020 0x80         # Enable multicast
+    0x6024 0xBB         # Set 8 high bits of MCST address
+    0x6010 0            # do not signal an irq
+    0x6036 0xb          # multi event mode
+    0x601A 50          # max transfer data
+    0x6070 3            # enable mtdc pulser
 
     # broadcast startup
     writeabs a32 d16 0xbb00603a      0   # stop acq
@@ -37,12 +29,28 @@ stack_start # defaults are: offset=0x0 output=command
     writeabs a32 d16 0xbb00603a      1   # start acq
     writeabs a32 d16 0xbb006034      1   # readout reset
 stack_end
-write_local 0x1100 0x100 # Immediate exec of stack 0
-
-# set stack 1 trigger register
-write_local 0x1104 0x20
+write_local 0x1200 0x2000   # Set stack address register
+write_local 0x1100 0x100    # Immediate exec of stack 0
 
 
-write_local 0x1300 1 # Activate triggered stack execution
+# ####################################################
+# ##### Readout Stack and Trigger Setup          #####
+# ####################################################
+stack_start offset=0x000 output=data
+    # readout first mtdc
+    setbase 0x00000000
+    mbltfifo a32 0x0000 0xffff
+
+    # readout second mtdc
+    setbase 0x01000000
+    mbltfifo a32 0x0000 0xffff
+
+    # broadcast write readout reset
+    writeabs a32 d16 0xbb006034      1   # readout reset
+stack_end
+write_local 0x1200 0x2000   # Set stack address register
+write_local 0x1100 0x20     # Trigger setup
+
+#write_local 0x1300 1 # Activate triggered stack execution (active by default)
 
 # vim:ft=conf

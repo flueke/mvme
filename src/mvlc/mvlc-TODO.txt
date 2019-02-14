@@ -1,0 +1,11 @@
+* mvlc_dev_gui: /home/florian/src/mvme2/src/mvlc/mvlc_script.cc:231: mesytec::mvlc::script::Command mesytec::mvlc::script::handle_stack_command(const QVector<mesytec::mvlc::script::PreparsedLine>&, int, int): Assertion `cmdLine.parts.at(0) == "stack_start"' failed.
+* add a vme script command for the WriteSpecial stack command
+* test the Marker stack command
+
+* system load seems quite high.
+  - try thread safe mode for the Data pipes input direction.
+  - try a release build.
+  - run with gprof
+  - try other I/O stats tools
+  - MAYBE TRY STOPPING THE WINDOWS VM AND ALL THE OTHER STUFF! :-)
+    Currently the "idle state" load is 0.68...

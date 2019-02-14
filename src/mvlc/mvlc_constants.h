@@ -117,7 +117,7 @@ namespace mvlc
         // not absolute memory addresses.
         static const u32 Stack0OffsetRegister  = 0x1200;
         static const u32 StackMemoryBegin      = 0x2000;
-        static const u32 StackMemoryWords      = 2048;
+        static const u32 StackMemoryWords      = 1024;
         static const u32 StackMemoryBytes      = StackMemoryWords * 4;
 
         static const u32 ImmediateStackID = 0;
