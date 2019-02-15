@@ -103,7 +103,7 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
                     firstWord |= convert_data_width(cmd.dataWidth) << CmdArg1Shift;
                     result.push_back(firstWord);
                     result.push_back(cmd.address);
-                    result.push_back(cmd.firstWord);
+                    result.push_back(cmd.value);
                 } break;
 
             case CommandType::Read:
@@ -147,7 +147,7 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
 
             case CommandType::Marker:
                 {
-                    firstWord = commands::Marker << CmdShift;
+                    firstWord = commands::WriteMarker << CmdShift;
                     result.push_back(firstWord);
                     result.push_back(cmd.value);
                 } break;
