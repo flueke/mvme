@@ -226,7 +226,7 @@ static Command handle_stack_command(const QVector<PreparsedLine> &lines,
         Command result;
         result.type = CommandType::Stack;
 
-        PreparsedLine cmdLine = lines.at(0);
+        PreparsedLine cmdLine = lines.at(stackStartIndex);
 
         assert(cmdLine.parts.at(0) == "stack_start");
 
