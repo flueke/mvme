@@ -189,7 +189,8 @@ static const int PostLeaveDaqModeDelay_ms = 100;
 static const double PauseMaxSleep_ms = 125.0;
 
 static VMEError enter_daq_mode(VMUSB *vmusb, u32 additionalBits = 0,
-                               u32 ledSources = 0)
+                               u32 ledSources = 0,
+                               std::function<void (const QString &)> logger = {})
 {
     qDebug() << __PRETTY_FUNCTION__;
 
@@ -201,6 +202,16 @@ static VMEError enter_daq_mode(VMUSB *vmusb, u32 additionalBits = 0,
 
     result = vmusb->enterDaqMode(additionalBits);
 
+    u32 finalValue = additionalBits | 1u; // set the DAQ mode bit
+
+    if (logger)
+    {
+        logger(QString("VMUSB enter daq mode: writing 0x%1 to Action Register")
+               .arg(finalValue, 4, 16, QLatin1Char('0')));
+    }
+
+    result = vmusb->writeActionRegister(finalValue);
+
     if (!result.isError())
     {
         QThread::msleep(PostEnterDaqModeDelay_ms);
@@ -209,17 +220,32 @@ static VMEError enter_daq_mode(VMUSB *vmusb, u32 additionalBits = 0,
     return result;
 }
 
-static VMEError leave_daq_mode(VMUSB *vmusb, u32 additionalBits = 0)
+static VMEError leave_daq_mode(VMUSB *vmusb, u32 additionalBits = 0,
+                               std::function<void (const QString &)> logger = {})
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    VMEError result;
-
-    result = vmusb->leaveDaqMode(additionalBits);
-    if (!result.isError())
+    auto write_action_register_and_sleep = [&vmusb, &logger] (u32 value) -> VMEError
     {
-        QThread::msleep(PostLeaveDaqModeDelay_ms);
-    }
+        if (logger)
+        {
+            logger(QString("VMUSB leave daq mode: writing 0x%1 to Action Register")
+                   .arg(value, 4, 16, QLatin1Char('0')));
+        }
+
+        VMEError result = vmusb->writeActionRegister(value);
+
+        if (!result.isError())
+        {
+            QThread::msleep(PostLeaveDaqModeDelay_ms);
+        }
+
+        return result;
+    };
+
+    VMEError result = {};
+    u32 finalValue = additionalBits & (~1u); // clear the DAQ mode bit
+    result = write_action_register_and_sleep(finalValue);
 
     return result;
 }
@@ -521,7 +547,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         try
         {
             if (vmusb->isInDaqMode())
-                leave_daq_mode(vmusb);
+                leave_daq_mode(vmusb, 0, [this] (const QString &msg) { logMessage(msg); });
         }
         catch (...)
         {}
@@ -565,7 +591,8 @@ void VMUSBReadoutWorker::readoutLoop()
 {
     auto vmusb = m_vmusb;
     u32 actionRegisterAdditionalBits = 1u << 1; // USB trigger
-    auto error = enter_daq_mode(vmusb, actionRegisterAdditionalBits, m_daqLedSources);
+    auto error = enter_daq_mode(vmusb, actionRegisterAdditionalBits, m_daqLedSources,
+                                [this] (const QString &msg) { logMessage(msg); });
 
     if (error.isError())
         throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
@@ -594,7 +621,7 @@ void VMUSBReadoutWorker::readoutLoop()
         // pause
         if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
-            error = leave_daq_mode(vmusb);
+            error = leave_daq_mode(vmusb, 0, [this] (const QString &msg) { logMessage(msg); });
             if (error.isError())
                 throw QString("Error leaving VMUSB DAQ mode: %1").arg(error.toString());
 
@@ -613,8 +640,8 @@ void VMUSBReadoutWorker::readoutLoop()
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-            error = enter_daq_mode(vmusb, actionRegisterAdditionalBits,
-                                   m_daqLedSources);
+            error = enter_daq_mode(vmusb, actionRegisterAdditionalBits, m_daqLedSources,
+                                   [this] (const QString &msg) { logMessage(msg); });
             if (error.isError())
                 throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
 
@@ -663,15 +690,15 @@ void VMUSBReadoutWorker::readoutLoop()
             if (readResult.error.isTimeout() && readResult.bytesRead <= 0)
             {
                 qDebug() << "begin USE_DAQMODE_HACK";
-                error = leave_daq_mode(vmusb);
+                error = leave_daq_mode(vmusb, 0, [this] (const QString &msg) { logMessage(msg); });
                 if (error.isError())
                     throw QString("Error leaving VMUSB DAQ mode (in timeout handling): %1")
                         .arg(error.toString());
 
                 readResult = readBuffer(daqModeHackTimeout_ms);
 
-                error = enter_daq_mode(vmusb, actionRegisterAdditionalBits,
-                                       m_daqLedSources);
+                error = enter_daq_mode(vmusb, actionRegisterAdditionalBits, m_daqLedSources,
+                                       [this] (const QString &msg) { logMessage(msg); });
                 if (error.isError())
                     throw QString("Error entering VMUSB DAQ mode (in timeout handling): %1")
                         .arg(error.toString());
@@ -725,7 +752,7 @@ void VMUSBReadoutWorker::readoutLoop()
     setState(DAQState::Stopping);
 
     qDebug() << __PRETTY_FUNCTION__ << "left readoutLoop, reading remaining data";
-    error = leave_daq_mode(vmusb);
+    error = leave_daq_mode(vmusb, 0, [this] (const QString &msg) { logMessage(msg); });
     if (error.isError())
         throw QString("Error leaving VMUSB DAQ mode: %1").arg(error.toString());
 
