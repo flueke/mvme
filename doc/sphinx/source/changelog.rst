@@ -2,6 +2,11 @@
 Changelog
 ##################################################
 
+Version 0.9.5.4
+---------------
+* Log values written to the VMUSB ActionRegister when starting / stopping the
+  DAQ
+
 Version 0.9.5.3
 ---------------
 * Allow access to all VMUSB registers via vme_script commands
