@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QTimer>
 #include <memory>
+#include <functional>
 #include "typedefs.h"
 
 /* File auto save feature in mvme:
