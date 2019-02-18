@@ -9,6 +9,7 @@
 #include <QSplitter>
 #include <QThread>
 #include <QTimer>
+#include <QSpinBox>
 
 #include <ftd3xx.h> // XXX
 
@@ -225,7 +226,7 @@ void MVLCDataReader::readoutLoop()
             }
         }
 
-        if (m_nextBufferRequested)
+        if (m_nextBufferRequested && m_readBuffer.used > 0)
         {
             QVector<u8> bufferCopy;
             bufferCopy.reserve(m_readBuffer.used);
@@ -420,7 +421,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
             if (!logRequest && !logMirror)
             {
                 // Log a short message if none of the buffers where logged.
-                logMessage(QString("Sent %1 words, received %2 words.")
+                logMessage(QString("Sent %1 words, received %2 words, mirror check ok.")
                            .arg(cmdBuffer.size())
                            .arg(responseBuffer.size()));
             }
@@ -613,6 +614,14 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     });
 
     //
+    // Register Editor Tab
+    //
+    {
+        auto layout = qobject_cast<QGridLayout *>(ui->tab_mvlcRegisters->layout());
+        layout->addWidget(new MVLCRegisterWidget(m_d->mvlc));
+    }
+
+    //
     // Periodic updates
     //
     auto updateTimer = new QTimer(this);
@@ -744,6 +753,94 @@ void MVLCDevGUI::logBuffer(const QVector<u32> &buffer, const QString &info)
 void MVLCDevGUI::clearLog()
 {
     ui->te_log->clear();
+}
+
+
+//
+// MVLCRegisterWidget
+//
+
+struct RegisterEditorWidgets
+{
+    QSpinBox *spin_address;
+    QLineEdit *le_value;
+    QPushButton *pb_write,
+                *pb_read;
+};
+
+MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
+    : QWidget(parent)
+    , m_mvlc(mvlc)
+{
+    auto layout = new QGridLayout(this);
+    int row = 0;
+
+    layout->addWidget(new QLabel("Address"), row, 0);
+    layout->addWidget(new QLabel("Value"), row, 1);
+    ++row;
+
+    for (int editorIndex = 0; editorIndex < 3; ++editorIndex)
+    {
+        RegisterEditorWidgets widgets;
+        widgets.spin_address = new QSpinBox(this);
+        widgets.spin_address->setMinimumWidth(150);
+        widgets.spin_address->setMinimum(0x0);
+        widgets.spin_address->setMaximum(0xffff);
+        widgets.spin_address->setSingleStep(4);
+        widgets.spin_address->setDisplayIntegerBase(16);
+        widgets.spin_address->setPrefix("0x");
+        widgets.spin_address->setValue(0x1200 + 4 * editorIndex);
+
+        widgets.le_value = new QLineEdit(this);
+        widgets.pb_write = new QPushButton("Write", this);
+        widgets.pb_read = new QPushButton("Read", this);
+
+        layout->addWidget(widgets.spin_address, row, 0);
+        layout->addWidget(widgets.le_value, row, 1);
+
+        auto buttonLayout = make_layout<QVBoxLayout, 0>();
+        buttonLayout->addWidget(widgets.pb_read);
+        buttonLayout->addWidget(widgets.pb_write);
+        layout->addLayout(buttonLayout, row, 2);
+
+        connect(widgets.pb_read, &QPushButton::clicked,
+                this, [this, widgets] ()
+        {
+            bool ok = true;
+            u16 address = widgets.spin_address->value();
+
+            u32 result = readRegister(address);
+            widgets.le_value->setText(QString("0x%1").arg(result, 8, 16, QLatin1Char('0')));
+        });
+
+        connect(widgets.pb_write, &QPushButton::clicked,
+                this, [this, widgets] ()
+        {
+            bool ok = true;
+            u16 address = widgets.spin_address->value();
+            u32 value   = widgets.le_value->text().toUInt(&ok, 0);
+            writeRegister(address, value);
+        });
+
+        ++row;
+    }
+}
+
+MVLCRegisterWidget::~MVLCRegisterWidget()
+{}
+
+void MVLCRegisterWidget::writeRegister(u16 address, u32 value)
+{
+    MVLCDialog dlg(m_mvlc->getImpl());
+    dlg.writeRegister(address, value);
+}
+
+u32 MVLCRegisterWidget::readRegister(u16 address)
+{
+    MVLCDialog dlg(m_mvlc->getImpl());
+    u32 value = 0u;
+    dlg.readRegister(address, value);
+    return value;
 }
 
 int main(int argc, char *argv[])

@@ -10,7 +10,7 @@ stack_start # defaults are: offset=0x0 output=command
     0x6024 0xBB         # Set 8 high bits of MCST address
     0x6010 1            # irq 1
     0x6036 0xb          # multi event mode
-    0x601A 50          # max transfer data
+    0x601A 25          # max transfer data
     0x6070 3            # enable mtdc pulser
 
     # second mtdc, no irq
@@ -19,7 +19,7 @@ stack_start # defaults are: offset=0x0 output=command
     0x6024 0xBB         # Set 8 high bits of MCST address
     0x6010 0            # do not signal an irq
     0x6036 0xb          # multi event mode
-    0x601A 50          # max transfer data
+    0x601A 25          # max transfer data
     0x6070 3            # enable mtdc pulser
 
     # broadcast startup
@@ -48,11 +48,7 @@ stack_start offset=300 output=data
     # broadcast write readout reset
     writeabs a32 d16 0xbb006034      1   # readout reset
 stack_end
-write_local 0x1204 0x300   # Set stack address register
-
-
-
-
+write_local 0x1204 300   # Set stack address register
 write_local 0x1104 0x20     # Trigger setup
 
 #write_local 0x1300 1 # Activate triggered stack execution (active by default)

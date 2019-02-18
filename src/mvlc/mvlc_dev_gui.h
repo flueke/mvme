@@ -6,6 +6,8 @@
 #include <QMainWindow>
 #include <QString>
 #include <QMutex>
+#include <QLineEdit>
+#include <QPushButton>
 
 #include "mvlc/mvlc_usb.h"
 #include "vme_script.h"
@@ -150,6 +152,22 @@ class MVLCDevGUI: public QMainWindow
         std::unique_ptr<Private> m_d;
         Ui::MVLCDevGUI *ui;
 
+};
+
+class MVLCRegisterWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent = nullptr);
+        ~MVLCRegisterWidget();
+
+        void setMVLC(MVLCObject *obj);
+
+    private:
+        MVLCObject *m_mvlc;
+
+        void writeRegister(u16 address, u32 value);
+        u32 readRegister(u16 address);
 };
 
 #endif /* __MVLC_GUI_H__ */
