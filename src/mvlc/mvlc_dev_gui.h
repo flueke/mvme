@@ -9,45 +9,9 @@
 #include <QLineEdit>
 #include <QPushButton>
 
-#include "mvlc/mvlc_usb.h"
+#include "mvlc/mvlc_qt_object.h"
 #include "vme_script.h"
 
-class MVLCObject: public QObject
-{
-    Q_OBJECT
-    public:
-        enum State
-        {
-            Disconnected,
-            Connecting,
-            Connected,
-        };
-
-        using USB_Impl = mesytec::mvlc::usb::USB_Impl;
-        using MVLCError = mesytec::mvlc::usb::MVLCError;
-
-    signals:
-        void stateChanged(const State &oldState, const State &newState);
-        void errorSignal(const QString &msg, const MVLCError &error);
-
-    public:
-        MVLCObject(QObject *parent = nullptr);
-        MVLCObject(const USB_Impl &impl, QObject *parent = nullptr);
-        virtual ~MVLCObject();
-
-        USB_Impl &getImpl() { return m_impl; }
-        bool isConnected() const { return m_state == Connected; }
-
-    public slots:
-        void connect();
-        void disconnect();
-
-    private:
-        void setState(const State &newState);
-
-        mesytec::mvlc::usb::USB_Impl m_impl;
-        State m_state = Disconnected;
-};
 
 struct FixedSizeBuffer
 {
@@ -104,6 +68,7 @@ class MVLCDataReader: public QObject
 
         // not thread safe
         void setImpl(const USB_Impl &impl);
+        void setOutputDevice(std::unique_ptr<QIODevice> &&dev);
 
     public slots:
         // Runs until stop() is invoked from the outside.
@@ -123,6 +88,7 @@ class MVLCDataReader: public QObject
         FixedSizeBuffer m_readBuffer;
         mutable QMutex m_statsMutex;
         ReaderStats m_stats = {};
+        std::unique_ptr<QIODevice> m_outDevice;
 };
 
 namespace Ui
@@ -158,13 +124,11 @@ class MVLCRegisterWidget: public QWidget
 {
     Q_OBJECT
     public:
-        MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent = nullptr);
+        MVLCRegisterWidget(mesytec::mvlc::MVLCObject *mvlc, QWidget *parent = nullptr);
         ~MVLCRegisterWidget();
 
-        void setMVLC(MVLCObject *obj);
-
     private:
-        MVLCObject *m_mvlc;
+        mesytec::mvlc::MVLCObject *m_mvlc;
 
         void writeRegister(u16 address, u32 value);
         u32 readRegister(u16 address);

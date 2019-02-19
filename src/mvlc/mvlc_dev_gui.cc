@@ -18,77 +18,14 @@
 
 #include "ui_mvlc_dev_ui.h"
 
-#include "mvlc_script.h"
+#include "mvlc/mvlc_script.h"
+#include "mvlc/mvlc_vme_debug_widget.h"
 #include "qt_util.h"
-#include "vme_debug_widget.h"
 #include "util/counters.h"
 
 using namespace mesytec;
 using namespace mesytec::mvlc;
 using namespace mesytec::mvlc::usb;
-
-//
-// MVLCObject
-//
-MVLCObject::MVLCObject(QObject *parent)
-    : QObject(parent)
-{
-}
-
-MVLCObject::MVLCObject(const USB_Impl &impl, QObject *parent)
-    : QObject(parent)
-    , m_impl(impl)
-{
-    if (is_open(m_impl))
-        setState(Connected);
-}
-
-MVLCObject::~MVLCObject()
-{
-    //TODO:
-    //Lock the open/close lock so that no one can inc the refcount while we're doing things.
-    //if (refcount of impl would go down to zero)
-    //    close_impl();
-
-}
-
-void MVLCObject::connect()
-{
-    if (isConnected()) return;
-
-    setState(Connecting);
-
-    err_t error;
-    m_impl = open_by_index(0, &error);
-    m_impl.readTimeout_ms = 500;
-
-    if (!is_open(m_impl))
-    {
-        emit errorSignal("Error connecting to MVLC", make_usb_error(error));
-        setState(Disconnected);
-    }
-    else
-    {
-        setState(Connected);
-    }
-}
-
-void MVLCObject::disconnect()
-{
-    if (!isConnected()) return;
-    close(m_impl);
-    setState(Disconnected);
-}
-
-void MVLCObject::setState(const State &newState)
-{
-    if (m_state != newState)
-    {
-        auto prevState = m_state;
-        m_state = newState;
-        emit stateChanged(prevState, newState);
-    }
-};
 
 FixedSizeBuffer make_buffer(size_t capacity)
 {
@@ -183,6 +120,11 @@ void MVLCDataReader::setImpl(const USB_Impl &impl)
     m_impl.readTimeout_ms = ReadTimeout_ms;
 }
 
+void MVLCDataReader::setOutputDevice(std::unique_ptr<QIODevice> &&dev)
+{
+    m_outDevice = std::move(dev);
+}
+
 void MVLCDataReader::readoutLoop()
 {
     m_doQuit = false;
@@ -236,9 +178,17 @@ void MVLCDataReader::readoutLoop()
             emit bufferReady(bufferCopy);
             m_nextBufferRequested = false;
         }
+
+        if (m_readBuffer.used > 0 && m_outDevice)
+        {
+            m_outDevice->write(reinterpret_cast<const char *>(m_readBuffer.data.get()),
+                               m_readBuffer.used);
+        }
     }
 
     qDebug() << __PRETTY_FUNCTION__ << "left readout loop";
+
+    m_outDevice = {};
 
     emit stopped();
 }
@@ -524,6 +474,27 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         logMessage("Starting readout");
         // Udpate the readers copy of the usb impl handler thingy
         m_d->dataReader->setImpl(m_d->mvlc->getImpl());
+
+        if (ui->cb_readerWriteFile->isChecked())
+        {
+            static const char *OutputFilename = "mvlc_dev_data.bin";
+            std::unique_ptr<QIODevice> outFile = std::make_unique<QFile>(OutputFilename);
+
+            if (!outFile->open(QIODevice::WriteOnly))
+            {
+                logMessage(QString("Error opening output file '%1' for writing: %2")
+                           .arg(OutputFilename)
+                           .arg(outFile->errorString()));
+            }
+            else
+            {
+                logMessage(QString("Writing incoming data to file '%1'.")
+                           .arg(OutputFilename));
+
+                m_d->dataReader->setOutputDevice(std::move(outFile));
+            }
+        }
+
         m_d->readoutThread.start();
         emit enterReadoutLoop();
     });
@@ -620,6 +591,14 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         auto layout = qobject_cast<QGridLayout *>(ui->tab_mvlcRegisters->layout());
         layout->addWidget(new MVLCRegisterWidget(m_d->mvlc));
     }
+
+    //
+    // VME Debug Widget Tab
+    {
+        auto layout = qobject_cast<QGridLayout *>(ui->tab_vmeDebug->layout());
+        layout->addWidget(new VMEDebugWidget(m_d->mvlc));
+    }
+
 
     //
     // Periodic updates
@@ -763,7 +742,12 @@ void MVLCDevGUI::clearLog()
 struct RegisterEditorWidgets
 {
     QSpinBox *spin_address;
+
     QLineEdit *le_value;
+
+    QLabel *l_readResult_hex,
+           *l_readResult_dec;
+
     QPushButton *pb_write,
                 *pb_read;
 };
@@ -792,16 +776,24 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
         widgets.spin_address->setValue(0x1200 + 4 * editorIndex);
 
         widgets.le_value = new QLineEdit(this);
+        widgets.l_readResult_hex = new QLabel(this);
+        widgets.l_readResult_dec = new QLabel(this);
+        widgets.l_readResult_hex->setMinimumWidth(60);
         widgets.pb_write = new QPushButton("Write", this);
         widgets.pb_read = new QPushButton("Read", this);
 
-        layout->addWidget(widgets.spin_address, row, 0);
-        layout->addWidget(widgets.le_value, row, 1);
+        auto resultLabelLayout = make_layout<QVBoxLayout, 0>();
+        resultLabelLayout->addWidget(widgets.l_readResult_hex);
+        resultLabelLayout->addWidget(widgets.l_readResult_dec);
 
         auto buttonLayout = make_layout<QVBoxLayout, 0>();
         buttonLayout->addWidget(widgets.pb_read);
         buttonLayout->addWidget(widgets.pb_write);
-        layout->addLayout(buttonLayout, row, 2);
+
+        layout->addWidget(widgets.spin_address, row, 0);
+        layout->addWidget(widgets.le_value, row, 1);
+        layout->addLayout(resultLabelLayout, row, 2);
+        layout->addLayout(buttonLayout, row, 3);
 
         connect(widgets.pb_read, &QPushButton::clicked,
                 this, [this, widgets] ()
@@ -810,7 +802,9 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
             u16 address = widgets.spin_address->value();
 
             u32 result = readRegister(address);
-            widgets.le_value->setText(QString("0x%1").arg(result, 8, 16, QLatin1Char('0')));
+            //widgets.le_value->setText(QString("0x%1").arg(result, 8, 16, QLatin1Char('0')));
+            widgets.l_readResult_hex->setText(QString("0x%1").arg(result, 8, 16, QLatin1Char('0')));
+            widgets.l_readResult_dec->setText(QString::number(result));
         });
 
         connect(widgets.pb_write, &QPushButton::clicked,
@@ -824,6 +818,8 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
 
         ++row;
     }
+
+    layout->setRowStretch(row, 1);
 }
 
 MVLCRegisterWidget::~MVLCRegisterWidget()

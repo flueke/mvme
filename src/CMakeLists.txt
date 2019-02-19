@@ -356,9 +356,11 @@ endif(BUILD_TESTS)
 # MVLC support
 if(MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE
+        mvlc/mvlc_qt_object.cc
         mvlc/mvlc_script.cc
         mvlc/mvlc_usb.cc
         mvlc/mvlc_util.cc
+        mvlc/mvlc_vme_debug_widget.cc
         )
     target_link_libraries(libmvme ftd3xx)
 
