@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1008</width>
-    <height>539</height>
+    <height>556</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -234,7 +234,7 @@
           <property name="childrenCollapsible">
            <bool>false</bool>
           </property>
-          <widget class="QWidget" name="">
+          <widget class="QWidget" name="layoutWidget">
            <layout class="QVBoxLayout" name="verticalLayout_12">
             <property name="spacing">
              <number>3</number>
@@ -521,8 +521,8 @@
                   </property>
                   <property name="sizeHint" stdset="0">
                    <size>
-                    <width>5</width>
-                    <height>5</height>
+                    <width>1</width>
+                    <height>1</height>
                    </size>
                   </property>
                  </spacer>
@@ -549,8 +549,8 @@
                     </property>
                     <property name="sizeHint" stdset="0">
                      <size>
-                      <width>5</width>
-                      <height>5</height>
+                      <width>1</width>
+                      <height>1</height>
                      </size>
                     </property>
                    </spacer>
@@ -564,8 +564,8 @@
                   </property>
                   <property name="sizeHint" stdset="0">
                    <size>
-                    <width>5</width>
-                    <height>5</height>
+                    <width>1</width>
+                    <height>1</height>
                    </size>
                   </property>
                  </spacer>
@@ -589,7 +589,7 @@
             </item>
            </layout>
           </widget>
-          <widget class="QWidget" name="">
+          <widget class="QWidget" name="layoutWidget">
            <layout class="QVBoxLayout" name="verticalLayout_11">
             <property name="spacing">
              <number>3</number>
@@ -750,7 +750,7 @@ p, li { white-space: pre-wrap; }
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="groupBox_4">
+         <widget class="QGroupBox" name="gb_scriptOutput">
           <property name="title">
            <string>Result</string>
           </property>

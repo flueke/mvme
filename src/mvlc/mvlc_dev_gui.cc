@@ -255,11 +255,10 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     addToolBar(m_d->toolbar);
     setStatusBar(m_d->statusbar);
 
-    for (auto te: { ui->te_scriptInput, ui->te_log })
     {
         auto font = make_monospace_font();
         font.setPointSize(8);
-        te->setFont(font);
+        ui->te_scriptInput->setFont(font);
     }
 
     new vme_script::SyntaxHighlighter(ui->te_scriptInput->document());
@@ -409,11 +408,6 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
             logMessage("Embedded VME Script parse error: " + e.toString());
         }
     });
-
-
-    connect(ui->pb_clearLog, &QPushButton::clicked,
-            this, &MVLCDevGUI::clearLog);
-
 
     connect(ui->pb_usbReconnect, &QPushButton::clicked,
             this, [this] ()
@@ -570,7 +564,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         logMessage(QString(">>> First %1 data words:").arg(maxBytes / sizeof(u32)));
 
         BufferIterator iter(buffer.data(), maxBytes);
-        ::logBuffer(iter, [this] (const QString &line)
+        ::logBuffer(iter, [this] (const QString &line) // FIXME: don't call the global logBuffer. it print BerrMarker and EndMarker as strings.
         {
             logMessage(line);
         });
@@ -589,7 +583,11 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     //
     {
         auto layout = qobject_cast<QGridLayout *>(ui->tab_mvlcRegisters->layout());
-        layout->addWidget(new MVLCRegisterWidget(m_d->mvlc));
+        auto regWidget = new MVLCRegisterWidget(m_d->mvlc);
+        layout->addWidget(regWidget);
+
+        connect(regWidget, &MVLCRegisterWidget::sigLogMessage,
+                this, &MVLCDevGUI::logMessage);
     }
 
     //
@@ -680,10 +678,6 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
     updateTimer->start();
 
-    // final init code
-    resize(1000, 860);
-
-
     // Code to run on entering the event loop
     QTimer::singleShot(0, [this]() {
         this->raise(); // Raise this main window
@@ -700,9 +694,7 @@ MVLCDevGUI::~MVLCDevGUI()
 
 void MVLCDevGUI::logMessage(const QString &msg)
 {
-    ui->te_log->appendPlainText(msg);
-    auto bar = ui->te_log->verticalScrollBar();
-    bar->setValue(bar->maximum());
+    emit sigLogMessage(msg);
 }
 
 void MVLCDevGUI::logBuffer(const QVector<u32> &buffer, const QString &info)
@@ -726,14 +718,8 @@ void MVLCDevGUI::logBuffer(const QVector<u32> &buffer, const QString &info)
 
     strBuffer << "<<< " + info;
 
-    ui->te_log->appendPlainText(strBuffer.join("\n"));
+    emit sigLogMessage(strBuffer.join("\n"));
 }
-
-void MVLCDevGUI::clearLog()
-{
-    ui->te_log->clear();
-}
-
 
 //
 // MVLCRegisterWidget
@@ -761,6 +747,7 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
 
     layout->addWidget(new QLabel("Address"), row, 0);
     layout->addWidget(new QLabel("Value"), row, 1);
+    layout->addWidget(new QLabel("Read Result"), row, 2);
     ++row;
 
     for (int editorIndex = 0; editorIndex < 3; ++editorIndex)
@@ -819,7 +806,37 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
         ++row;
     }
 
+    layout->addWidget(make_separator_frame(), row, 0,
+                      1, 4); // row- and colspan
+    ++row;
+
+    {
+        auto spin_stackId = new QSpinBox();
+        spin_stackId->setMinimum(0);
+        spin_stackId->setMaximum(mvlc::stacks::StackCount - 1);
+
+        auto pb_readStackInfo = new QPushButton("Read Info");
+
+        auto l = new QHBoxLayout;
+        l->addWidget(new QLabel("Stack Info"));
+        l->addWidget(spin_stackId);
+        l->addWidget(pb_readStackInfo);
+        l->addStretch(1);
+        layout->addLayout(l, row++, 0, 1, 4);
+
+        connect(pb_readStackInfo, &QPushButton::clicked,
+                this, [this, spin_stackId] ()
+        {
+            u8 stackId = static_cast<u8>(spin_stackId->value());
+            readStackInfo(stackId);
+        });
+
+    }
+
     layout->setRowStretch(row, 1);
+    layout->setColumnStretch(0, 1);
+    layout->setColumnStretch(1, 1);
+    layout->setColumnStretch(2, 1);
 }
 
 MVLCRegisterWidget::~MVLCRegisterWidget()
@@ -827,16 +844,123 @@ MVLCRegisterWidget::~MVLCRegisterWidget()
 
 void MVLCRegisterWidget::writeRegister(u16 address, u32 value)
 {
+    // TODO: error checking
     MVLCDialog dlg(m_mvlc->getImpl());
     dlg.writeRegister(address, value);
 }
 
 u32 MVLCRegisterWidget::readRegister(u16 address)
 {
+    // TODO: error checking
     MVLCDialog dlg(m_mvlc->getImpl());
     u32 value = 0u;
     dlg.readRegister(address, value);
     return value;
+}
+
+void MVLCRegisterWidget::readStackInfo(u8 stackId)
+{
+    assert(stackId < stacks::StackCount);
+    // TODO: error checking
+    u16 offsetRegister = stacks::Stack0OffsetRegister + stackId * AddressIncrement;
+    u16 triggerRegister = stacks::Stack0TriggerRegister + stackId * AddressIncrement;
+
+    u32 stackOffset = readRegister(offsetRegister) & stacks::StackOffsetBitMask;
+    u32 stackTriggers = readRegister(triggerRegister);
+
+    QStringList strings;
+    strings.reserve(1024);
+
+    strings << QString(">>> Info for stack %1").arg(static_cast<int>(stackId));
+    strings << QString("  Offset:   0x%1 = 0x%2, %3 dec")
+        .arg(offsetRegister, 4, 16, QLatin1Char('0'))
+        .arg(stackOffset, 4, 16, QLatin1Char('0'))
+        .arg(stackOffset);
+    strings << QString("  Triggers: 0x%1 = 0x%2, %3 dec")
+        .arg(triggerRegister, 4, 16, QLatin1Char('0'))
+        .arg(stackTriggers, 4, 16, QLatin1Char('0'))
+        .arg(stackTriggers);
+
+    u16 reg = stacks::StackMemoryBegin + stackOffset;
+    u32 stackHeader = readRegister(reg);
+
+    if ((stackHeader & 0xFF000000) != 0xF3000000)
+    {
+        strings << QString("    Invalid stack header @0x%1: 0x%2")
+            .arg(reg, 4, 16, QLatin1Char('0'))
+            .arg(stackHeader, 8, 16, QLatin1Char('0'));
+    }
+    else
+    {
+        strings << "  Stack Contents:";
+
+        static const int StackMaxSize = 128;
+        int stackSize = 0;
+
+        while (stackSize <= StackMaxSize && reg < stacks::StackMemoryEnd)
+        {
+            u32 value = readRegister(reg);
+
+            strings << QString("   [%3] 0x%1: 0x%2")
+                .arg(reg, 4, 16, QLatin1Char('0'))
+                .arg(value, 8, 16, QLatin1Char('0'))
+                .arg(stackSize, 3)
+                ;
+
+            if ((value & 0xFF000000) == 0xF4000000)
+            {
+                break;
+            }
+
+            reg += AddressIncrement;
+            stackSize++;
+        }
+    }
+
+    strings << QString("<<< End stack %1 info").arg(static_cast<int>(stackId));
+
+    emit sigLogMessage(strings.join("\n"));
+}
+
+//
+// LogWidget
+//
+LogWidget::LogWidget(QWidget *parent)
+    : QWidget(parent)
+    , te_log(new QPlainTextEdit(this))
+    , pb_clearLog(new QPushButton("Clear", this))
+{
+    auto font = make_monospace_font();
+    font.setPointSize(8);
+    te_log->setFont(font);
+
+    auto bottomLayout = make_layout<QHBoxLayout>();
+    bottomLayout->addWidget(pb_clearLog);
+    bottomLayout->addStretch(1);
+
+    auto widgetLayout = make_layout<QVBoxLayout>(this);
+    widgetLayout->addWidget(te_log);
+    widgetLayout->addLayout(bottomLayout);
+    widgetLayout->setStretch(0, 1);
+
+    connect(pb_clearLog, &QPushButton::clicked,
+            this, &LogWidget::clearLog);
+}
+
+LogWidget::~LogWidget()
+{
+}
+
+void LogWidget::logMessage(const QString &msg)
+{
+    te_log->appendPlainText(msg);
+    auto bar = te_log->verticalScrollBar();
+    bar->setValue(bar->maximum());
+}
+
+void LogWidget::clearLog()
+{
+    te_log->clear();
 }
 
 int main(int argc, char *argv[])
@@ -846,7 +970,15 @@ int main(int argc, char *argv[])
     qRegisterMetaType<QVector<u8>>("QVector<u8>");
 
     MVLCDevGUI gui;
+    LogWidget logWindow;
+
+    QObject::connect(&gui, &MVLCDevGUI::sigLogMessage,
+                     &logWindow, &LogWidget::logMessage);
+
+    gui.resize(1000, 800);
     gui.show();
+    logWindow.resize(600, 800);
+    logWindow.show();
 
     return app.exec();
 }

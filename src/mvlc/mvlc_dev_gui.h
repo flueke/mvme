@@ -8,6 +8,7 @@
 #include <QMutex>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QPlainTextEdit>
 
 #include "mvlc/mvlc_qt_object.h"
 #include "vme_script.h"
@@ -102,6 +103,7 @@ class MVLCDevGUI: public QMainWindow
     signals:
         // private signal used to enter the readout loop in the readout thread
         void enterReadoutLoop();
+        void sigLogMessage(const QString &msg);
 
     public:
         MVLCDevGUI(QWidget *parent = 0);
@@ -110,19 +112,19 @@ class MVLCDevGUI: public QMainWindow
     public slots:
         void logMessage(const QString &msg);
         void logBuffer(const QVector<u32> &buffer, const QString &info);
-        void clearLog();
 
     private:
         struct Private;
         friend Private;
         std::unique_ptr<Private> m_d;
         Ui::MVLCDevGUI *ui;
-
 };
 
 class MVLCRegisterWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void sigLogMessage(const QString &str);
     public:
         MVLCRegisterWidget(mesytec::mvlc::MVLCObject *mvlc, QWidget *parent = nullptr);
         ~MVLCRegisterWidget();
@@ -132,6 +134,23 @@ class MVLCRegisterWidget: public QWidget
 
         void writeRegister(u16 address, u32 value);
         u32 readRegister(u16 address);
+        void readStackInfo(u8 stackId);
+};
+
+class LogWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        LogWidget(QWidget *parent = nullptr);
+        virtual ~LogWidget();
+
+    public slots:
+        void logMessage(const QString &msg);
+        void clearLog();
+
+    private:
+        QPlainTextEdit *te_log;
+        QPushButton *pb_clearLog;
 };
 
 #endif /* __MVLC_GUI_H__ */

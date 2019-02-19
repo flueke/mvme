@@ -29,14 +29,14 @@ stack_start # defaults are: offset=0x0 output=command
     writeabs a32 d16 0xbb00603a      1   # start acq
     writeabs a32 d16 0xbb006034      1   # readout reset
 stack_end
-write_local 0x1200 0x2000   # Set stack address register
+write_local 0x1200 0x0000   # Set stack offset register
 write_local 0x1100 0x100    # Immediate exec of stack 0
 
 
 # ####################################################
 # ##### Readout Stack and Trigger Setup          #####
 # ####################################################
-stack_start offset=300 output=data
+stack_start offset=0x80 output=data
     # readout first mtdc
     setbase 0x00000000
     mbltfifo a32 0x0000 0xffff
@@ -48,7 +48,7 @@ stack_start offset=300 output=data
     # broadcast write readout reset
     writeabs a32 d16 0xbb006034      1   # readout reset
 stack_end
-write_local 0x1204 300   # Set stack address register
+write_local 0x1204 0x80   # Set stack address register
 write_local 0x1104 0x20     # Trigger setup
 
 #write_local 0x1300 1 # Activate triggered stack execution (active by default)

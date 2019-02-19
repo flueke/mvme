@@ -119,6 +119,10 @@ namespace mvlc
         static const u32 StackMemoryBegin      = 0x2000;
         static const u32 StackMemoryWords      = 1024;
         static const u32 StackMemoryBytes      = StackMemoryWords * 4;
+        static const u32 StackMemoryEnd        = StackMemoryBegin + StackMemoryBytes;
+        // Mask for the number of valid bits in the stack offset register.
+        // Higher order bits outside the mask are ignored by the MVLC.
+        static const u32 StackOffsetBitMask    = 0x03FF;
 
         static const u32 ImmediateStackID = 0;
         static const u32 ImmediateStackWords = 64;

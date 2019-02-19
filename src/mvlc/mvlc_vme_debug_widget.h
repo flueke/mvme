@@ -24,8 +24,9 @@ class VMEDebugWidget: public QWidget
         virtual ~VMEDebugWidget();
 
     private:
+        struct Private;
+        std::unique_ptr<Private> d;
         std::unique_ptr<Ui::VMEDebugWidget> ui;
-        MVLCObject *m_mvlc;
 };
 
 } // end namespace mvlc
