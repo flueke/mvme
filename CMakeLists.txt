@@ -117,7 +117,9 @@ if (MVME_ENABLE_MVLC)
 
     add_library(ftd3xx SHARED IMPORTED)
     set_target_properties(ftd3xx PROPERTIES
-        IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so)
+        IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+        IMPORTED_NO_SONAME TRUE
+        )
     include_directories(${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/)
     install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
         DESTINATION .
