@@ -374,6 +374,8 @@ if(MVME_ENABLE_MVLC)
 
     target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
 
+    install(TARGETS mvlc_dev_gui DESTINATION .)
+
 endif(MVME_ENABLE_MVLC)
 
 
