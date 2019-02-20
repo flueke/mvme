@@ -1,6 +1,7 @@
 #ifndef __MVLC_CONSTANTS_H__
 #define __MVLC_CONSTANTS_H__
 
+#include <cstddef>
 #include "typedefs.h"
 
 namespace mesytec

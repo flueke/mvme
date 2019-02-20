@@ -1,9 +1,8 @@
 #ifndef __MVME_MVLC_UTIL_H__
 #define __MVME_MVLC_UTIL_H__
 
+#include "mvlc/mvlc_constants.h"
 #include "vme_script.h"
-#include "mvlc_constants.h"
-#include <QVector>
 
 namespace mesytec
 {
@@ -27,10 +26,15 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe);
 
 // Returns a Command Buffer List which writes the contents of the given stack
 // or VMEScript to the MVLC stack memory area.
-// The returned list will begin with CmdBufferStart and end with CmdBufferEnd.
 std::vector<u32> build_upload_commands(const vme_script::VMEScript &script, u8 outPipe,
                                        u16 startAddress);
 std::vector<u32> build_upload_commands(const std::vector<u32> &stack, u16 startAddress);
+
+// Same as build_upload_commands but the returned list will be enclosed in
+// CmdBufferStart and CmdBufferEnd. This is a form that can be parsed by the MVLC.
+std::vector<u32> build_upload_command_buffer(const vme_script::VMEScript &script, u8 outPipe,
+                                             u16 startAddress);
+std::vector<u32> build_upload_command_buffer(const std::vector<u32> &stack, u16 startAddress);
 
 void log_buffer(const u32 *buffer, size_t size, const std::string &info = {});
 void log_buffer(const std::vector<u32> &buffer, const std::string &info = {});

@@ -4,6 +4,7 @@
 #include <ftd3xx.h>
 #include <iostream>
 #include <memory>
+#include <QDebug>
 
 #include "mvlc_script.h"
 #include "mvlc_util.h"
@@ -363,6 +364,8 @@ QString MVLCError::toString() const
             return "parsing - unexpected response size";
         case ParseUnexpectedBufferType:
             return "parsing - unexpected response buffer type";
+        case NoVMEResponse:
+            return "no VME response";
     }
 
     return "Unknonw Error";
@@ -386,6 +389,23 @@ MVLCError write_buffer(USB_Impl *mvlc, const QVector<u32> &buffer)
     return make_success();
 };
 
+MVLCError write_buffer(USB_Impl *mvlc, const std::vector<u32> &buffer)
+{
+    size_t wordsTransferred = 0u;
+    auto error = write_words(mvlc, CommandPipe, buffer, &wordsTransferred);
+
+    if (error != 0)
+        return make_usb_error(error);
+
+    if (wordsTransferred < static_cast<size_t>(buffer.size()))
+        return { MVLCError::ShortWrite, 0 };
+
+    return make_success();
+};
+
+
+// TODO: add a way to check if the first word should be interpreted as a buffer header
+// or if it isn't a header and an error should be returned.
 //MVLCError read_response(USB_Impl *mvlc, u8 requiredBufferType, QVector<u32> &dest)
 MVLCError read_response(USB_Impl *mvlc, QVector<u32> &dest)
 {
@@ -395,7 +415,7 @@ MVLCError read_response(USB_Impl *mvlc, QVector<u32> &dest)
     auto error = read_words(mvlc, CommandPipe, &header, 1, &wordsTransferred);
 
     if (error != 0) return make_usb_error(error);
-    if (wordsTransferred < 1) return { MVLCError::ShortRead };
+    if (wordsTransferred != 1) return { MVLCError::ShortRead };
 
     //if (((header >> 24) & 0xFF) != requiredBufferType)
     //    return { MVLCError::ParseUnexpectedBufferType };
@@ -415,7 +435,7 @@ MVLCError read_response(USB_Impl *mvlc, QVector<u32> &dest)
     }
 
     return make_success();
-};
+}
 
 MVLCError get_read_queue_size(USB_Impl *mvlc, u8 pipe, u32 &dest)
 {
@@ -464,6 +484,12 @@ MVLCError MVLCDialog::doWrite(const QVector<u32> &buffer)
     return write_buffer(&m_impl, buffer);
 };
 
+MVLCError MVLCDialog::doWrite(const std::vector<u32> &buffer)
+{
+    return write_buffer(&m_impl, buffer);
+};
+
+// FIXME: requiredBufferType is not used anymore as it has been removed from read_response()
 MVLCError MVLCDialog::readResponse(u8 requiredBufferType, QVector<u32> &dest)
 {
     return read_response(&m_impl, dest);
@@ -521,6 +547,43 @@ MVLCError MVLCDialog::writeRegister(u32 address, u32 value)
     return make_success();
 }
 
+MVLCError MVLCDialog::vmeSingleWrite(u32 address, u32 value, AddressMode amod,
+                                     VMEDataWidth dataWidth)
+{
+    script::MVLCCommandListBuilder cmdList;
+    cmdList.addReferenceWord(m_referenceWord++);
+    cmdList.addVMEWrite(address, value, amod, dataWidth);
+
+    // upload the stack
+    QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    log_buffer(request, "vme_single_write upload >>>");
+
+    MVLCError result = doWrite(request);
+    if (!result) return result;
+    result = readResponse(SuperResponseHeaderType, m_responseBuffer);
+    if (!result) return result;
+
+    log_buffer(m_responseBuffer, "vme_single_write upload response <<<");
+
+    result = check_mirror(request, m_responseBuffer);
+    if (!result) return result;
+
+    // exec the stack
+    writeRegister(stacks::Stack0TriggerRegister, 1u << stacks::ImmediateShift);
+
+    result = readResponse(StackResponseHeaderType, m_responseBuffer);
+
+    log_buffer(m_responseBuffer, "vme_single_write response");
+
+    if (m_responseBuffer.size() == 2 && m_responseBuffer[1] == 0xFFFFFFFF)
+        return { MVLCError::NoVMEResponse };
+
+    if (m_responseBuffer.size() != 1)
+        return { MVLCError::ParseResponseUnexpectedSize };
+
+    return make_success();
+}
+
 MVLCError MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode amod,
                                     VMEDataWidth dataWidth)
 {
@@ -557,40 +620,6 @@ MVLCError MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode amod,
     return make_success();
 }
 
-MVLCError MVLCDialog::vmeSingleWrite(u32 address, u32 value, AddressMode amod,
-                                     VMEDataWidth dataWidth)
-{
-    script::MVLCCommandListBuilder cmdList;
-    cmdList.addReferenceWord(m_referenceWord++);
-    cmdList.addVMEWrite(address, value, amod, dataWidth);
-
-    // upload the stack
-    QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
-    log_buffer(request, "vme_single_write upload >>>");
-
-    MVLCError result = doWrite(request);
-    if (!result) return result;
-    result = readResponse(SuperResponseHeaderType, m_responseBuffer);
-    if (!result) return result;
-
-    log_buffer(m_responseBuffer, "vme_single_write upload response <<<");
-
-    result = check_mirror(request, m_responseBuffer);
-    if (!result) return result;
-
-    // exec the stack
-    writeRegister(stacks::Stack0TriggerRegister, 1u << stacks::ImmediateShift);
-
-    result = readResponse(StackResponseHeaderType, m_responseBuffer);
-
-    log_buffer(m_responseBuffer, "vme_single_write response");
-
-    if (m_responseBuffer.size() != 1)
-        return { MVLCError::ParseResponseUnexpectedSize };
-
-    return make_success();
-}
-
 MVLCError MVLCDialog::vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfers,
                                    QVector<u32> &dest)
 {
@@ -615,9 +644,9 @@ MVLCError MVLCDialog::vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfe
     // exec the stack
     writeRegister(stacks::Stack0TriggerRegister, 1u << stacks::ImmediateShift);
 
-    result = readResponse(StackResponseHeaderType, m_responseBuffer);
+    result = readResponse(StackResponseHeaderType, dest);
 
-    log_buffer(m_responseBuffer, "vme_block_read response");
+    log_buffer(dest, "vme_block_read response");
 
     return make_success();
 }

@@ -237,6 +237,9 @@ struct MVLCDevGUI::Private
               tLastUpdate;
 
     ReaderStats prevReaderStats = {};
+
+    MVLCRegisterWidget *registerWidget;
+    VMEDebugWidget *vmeDebugWidget;
 };
 
 MVLCDevGUI::MVLCDevGUI(QWidget *parent)
@@ -247,6 +250,8 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     assert(m_d->dataReader == nullptr);
     m_d->q = this;
     m_d->mvlc = new MVLCObject(this);
+    m_d->registerWidget = new MVLCRegisterWidget(m_d->mvlc, this);
+    m_d->vmeDebugWidget = new VMEDebugWidget(m_d->mvlc, this);
 
     setObjectName(QSL("MVLC Dev Tool"));
     setWindowTitle(objectName());
@@ -663,19 +668,21 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     //
     {
         auto layout = qobject_cast<QGridLayout *>(ui->tab_mvlcRegisters->layout());
-        auto regWidget = new MVLCRegisterWidget(m_d->mvlc);
-        layout->addWidget(regWidget);
+        layout->addWidget(m_d->registerWidget);
 
-        connect(regWidget, &MVLCRegisterWidget::sigLogMessage,
+        connect(m_d->registerWidget, &MVLCRegisterWidget::sigLogMessage,
                 this, &MVLCDevGUI::logMessage);
     }
 
     //
     // VME Debug Widget Tab
+
     {
         auto layout = qobject_cast<QGridLayout *>(ui->tab_vmeDebug->layout());
-        layout->addWidget(new VMEDebugWidget(m_d->mvlc));
-        ui->tab_vmeDebug->setEnabled(false);
+        layout->addWidget(m_d->vmeDebugWidget);
+
+        connect(m_d->vmeDebugWidget, &VMEDebugWidget::sigLogMessage,
+                this, &MVLCDevGUI::logMessage);
     }
 
 
@@ -935,7 +942,9 @@ void MVLCRegisterWidget::writeRegister(u16 address, u32 value)
 {
     // TODO: error checking
     MVLCDialog dlg(m_mvlc->getImpl());
-    dlg.writeRegister(address, value);
+    auto error = dlg.writeRegister(address, value);
+    if (!error)
+        emit sigLogMessage("Write Register Error: " + error.toString());
 }
 
 u32 MVLCRegisterWidget::readRegister(u16 address)
@@ -943,19 +952,38 @@ u32 MVLCRegisterWidget::readRegister(u16 address)
     // TODO: error checking
     MVLCDialog dlg(m_mvlc->getImpl());
     u32 value = 0u;
-    dlg.readRegister(address, value);
+    auto error = dlg.readRegister(address, value);
+    if (!error)
+        emit sigLogMessage("Read Register Error: " + error.toString());
     return value;
 }
 
 void MVLCRegisterWidget::readStackInfo(u8 stackId)
 {
     assert(stackId < stacks::StackCount);
-    // TODO: error checking
+
     u16 offsetRegister = stacks::Stack0OffsetRegister + stackId * AddressIncrement;
     u16 triggerRegister = stacks::Stack0TriggerRegister + stackId * AddressIncrement;
 
-    u32 stackOffset = readRegister(offsetRegister) & stacks::StackOffsetBitMask;
-    u32 stackTriggers = readRegister(triggerRegister);
+    u32 stackOffset = 0u;
+    u32 stackTriggers = 0u;
+
+    MVLCDialog dlg(m_mvlc->getImpl());
+    auto error = dlg.readRegister(offsetRegister, stackOffset);
+    if (!error)
+    {
+        emit sigLogMessage("Read Stack Info Error: " + error.toString());
+        return;
+    }
+
+    stackOffset &= stacks::StackOffsetBitMask;
+
+    error = dlg.readRegister(triggerRegister, stackTriggers);
+    if (!error)
+    {
+        emit sigLogMessage("Read Stack Info Error: " + error.toString());
+        return;
+    }
 
     QStringList strings;
     strings.reserve(1024);
@@ -971,7 +999,14 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
         .arg(stackTriggers);
 
     u16 reg = stacks::StackMemoryBegin + stackOffset;
-    u32 stackHeader = readRegister(reg);
+    u32 stackHeader = 0u;
+    error = dlg.readRegister(reg, stackHeader);
+
+    if (!error)
+    {
+        emit sigLogMessage("Read Stack Info Error: " + error.toString());
+        return;
+    }
 
     if ((stackHeader & 0xFF000000) != 0xF3000000)
     {
@@ -988,7 +1023,13 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
 
         while (stackSize <= StackMaxSize && reg < stacks::StackMemoryEnd)
         {
-            u32 value = readRegister(reg);
+            u32 value = 0u;
+            error = dlg.readRegister(reg, value);
+            if (!error)
+            {
+                emit sigLogMessage("Read Stack Info Error: " + error.toString());
+                return;
+            }
 
             strings << QString("   [%3] 0x%1: 0x%2")
                 .arg(reg, 4, 16, QLatin1Char('0'))

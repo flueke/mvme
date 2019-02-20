@@ -125,6 +125,7 @@ class MVLCRegisterWidget: public QWidget
     Q_OBJECT
     signals:
         void sigLogMessage(const QString &str);
+
     public:
         MVLCRegisterWidget(mesytec::mvlc::MVLCObject *mvlc, QWidget *parent = nullptr);
         ~MVLCRegisterWidget();

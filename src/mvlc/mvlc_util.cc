@@ -176,24 +176,37 @@ std::vector<u32> build_upload_commands(const vme_script::VMEScript &script, u8 o
 std::vector<u32> build_upload_commands(const std::vector<u32> &stack, u16 startAddress)
 {
     std::vector<u32> result;
-    result.reserve(stack.size() * 2 + 2);
+    result.reserve(stack.size() * 2);
 
-    u32 value = 0u;
-    //u32 value = super_commands::CmdBufferStart << SuperCmdShift;
-    //result.push_back(value);
     u16 address = startAddress;
 
     for (u32 stackValue: stack)
     {
-        value = super_commands::WriteLocal << SuperCmdShift;
-        value |= address;
+        u32 cmdValue = super_commands::WriteLocal << SuperCmdShift;
+        cmdValue |= address;
         address += AddressIncrement;
-        result.push_back(value);
+        result.push_back(cmdValue);
         result.push_back(stackValue);
     }
 
-    //value = super_commands::CmdBufferEnd << SuperCmdShift;
-    //result.push_back(value);
+    return result;
+}
+
+std::vector<u32> build_upload_command_buffer(const vme_script::VMEScript &script, u8 outPipe,
+                                             u16 startAddress)
+{
+    auto stack = build_stack(script, outPipe);
+    return build_upload_command_buffer(stack, startAddress);
+}
+
+std::vector<u32> build_upload_command_buffer(const std::vector<u32> &stack, u16 startAddress)
+{
+    std::vector<u32> result;
+    auto uploadData = build_upload_commands(stack, startAddress);
+    result.reserve(uploadData.size() + 2);
+    result.push_back(super_commands::CmdBufferStart << SuperCmdShift);
+    std::copy(uploadData.begin(), uploadData.end(), std::back_inserter(result));
+    result.push_back(super_commands::CmdBufferEnd << SuperCmdShift);
 
     return result;
 }

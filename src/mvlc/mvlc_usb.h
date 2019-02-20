@@ -7,7 +7,7 @@
 #include <QVector>
 #include <QString>
 
-#include "mvlc_constants.h"
+#include "mvlc/mvlc_constants.h"
 
 namespace mesytec
 {
@@ -116,6 +116,7 @@ struct MVLCError
         MirrorNotEqual,
         ParseResponseUnexpectedSize,
         ParseUnexpectedBufferType,
+        NoVMEResponse,
     };
 
     Type type = NoError;
@@ -145,6 +146,7 @@ inline MVLCError make_success()
 MVLCError get_read_queue_size(USB_Impl *mvlc, u8 pipe, u32 &dest);
 MVLCError check_mirror(const QVector<u32> &request, const QVector<u32> &response);
 MVLCError write_buffer(USB_Impl *mvlc, const QVector<u32> &buffer);
+MVLCError write_buffer(USB_Impl *mvlc, const std::vector<u32> &buffer);
 //MVLCError read_response(USB_Impl *mvlc, u8 requiredBufferType, QVector<u32> &dest);
 MVLCError read_response(USB_Impl *mvlc, QVector<u32> &dest);
 
@@ -164,6 +166,8 @@ class MVLCDialog
                                QVector<u32> &dest);
 
         MVLCError doWrite(const QVector<u32> &buffer);
+        MVLCError doWrite(const std::vector<u32> &buffer);
+        MVLCError readResponse(QVector<u32> &dest);
 
     private:
         MVLCError readResponse(u8 requiredBufferType, QVector<u32> &dest);
