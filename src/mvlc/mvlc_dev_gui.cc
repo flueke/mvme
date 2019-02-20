@@ -3,13 +3,16 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDebug>
+#include <QFileDialog>
 #include <QGridLayout>
+#include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QScrollBar>
+#include <QSpinBox>
 #include <QSplitter>
+#include <QStandardPaths>
 #include <QThread>
 #include <QTimer>
-#include <QSpinBox>
 
 #include <ftd3xx.h> // XXX
 
@@ -58,6 +61,8 @@ const char *reader_stat_name(ReaderStats::CounterEnum counter)
 
     return "UNKNOWN COUNTER";
 }
+
+static const QString Key_LastMVLCScriptDirectory = "Files/LastMVLCScriptDirectory";
 
 //
 // MVLCDataReader
@@ -409,6 +414,81 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         }
     });
 
+    connect(ui->pb_loadScript, &QPushButton::clicked,
+            this, [this] ()
+    {
+        QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+        QSettings settings;
+        if (settings.contains(Key_LastMVLCScriptDirectory))
+        {
+            path = settings.value(Key_LastMVLCScriptDirectory).toString();
+        }
+
+        QString fileName = QFileDialog::getOpenFileName(
+            this, QSL("Load MVLC script file"), path,
+            QSL("MVLC scripts (*.mvlcscript);; All Files (*)"));
+
+        if (!fileName.isEmpty())
+        {
+            QFile file(fileName);
+            if (file.open(QIODevice::ReadOnly))
+            {
+                QTextStream stream(&file);
+                ui->te_scriptInput->setPlainText(stream.readAll());
+                QFileInfo fi(fileName);
+                settings.setValue(Key_LastMVLCScriptDirectory, fi.absolutePath());
+            }
+        }
+    });
+
+    connect(ui->pb_saveScript, &QPushButton::clicked,
+            this, [this] ()
+    {
+        QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+        QSettings settings;
+        if (settings.contains(Key_LastMVLCScriptDirectory))
+        {
+            path = settings.value(Key_LastMVLCScriptDirectory).toString();
+        }
+
+        QString fileName = QFileDialog::getSaveFileName(
+            this, QSL("Save MVLC script"), path,
+            QSL("MVLC scripts (*.mvlcscript);; All Files (*)"));
+
+        if (fileName.isEmpty())
+            return;
+
+        QFileInfo fi(fileName);
+        if (fi.completeSuffix().isEmpty())
+        {
+            fileName += ".mvlcscript";
+        }
+
+        QFile file(fileName);
+        if (!file.open(QIODevice::WriteOnly))
+        {
+            QMessageBox::critical(this, "File error", QString("Error opening \"%1\" for writing").arg(fileName));
+            return;
+        }
+
+        QTextStream stream(&file);
+        stream << ui->te_scriptInput->toPlainText();
+
+        if (stream.status() != QTextStream::Ok)
+        {
+            QMessageBox::critical(this, "File error", QString("Error writing to \"%1\"").arg(fileName));
+            return;
+        }
+
+        settings.setValue(Key_LastMVLCScriptDirectory, fi.absolutePath());
+    });
+
+    connect(ui->pb_clearScript, &QPushButton::clicked,
+            this, [this] ()
+    {
+        ui->te_scriptInput->clear();
+    });
+
     connect(ui->pb_usbReconnect, &QPushButton::clicked,
             this, [this] ()
     {
@@ -595,6 +675,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     {
         auto layout = qobject_cast<QGridLayout *>(ui->tab_vmeDebug->layout());
         layout->addWidget(new VMEDebugWidget(m_d->mvlc));
+        ui->tab_vmeDebug->setEnabled(false);
     }
 
 
@@ -677,6 +758,14 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     });
 
     updateTimer->start();
+
+    // load default mvlcscript from resources
+    {
+        QFile input(":/mvlc/scripts/0-init-mtdcs.mvlcscript");
+        input.open(QIODevice::ReadOnly);
+        QTextStream inputStream(&input);
+        ui->te_scriptInput->setPlainText(inputStream.readAll());
+    }
 
     // Code to run on entering the event loop
     QTimer::singleShot(0, [this]() {
@@ -930,6 +1019,7 @@ LogWidget::LogWidget(QWidget *parent)
     , te_log(new QPlainTextEdit(this))
     , pb_clearLog(new QPushButton("Clear", this))
 {
+    setWindowTitle("MVLC Dev Tool Log Window");
     auto font = make_monospace_font();
     font.setPointSize(8);
     te_log->setFont(font);
@@ -975,9 +1065,9 @@ int main(int argc, char *argv[])
     QObject::connect(&gui, &MVLCDevGUI::sigLogMessage,
                      &logWindow, &LogWidget::logMessage);
 
-    gui.resize(1000, 800);
+    gui.resize(1000, 960);
     gui.show();
-    logWindow.resize(600, 800);
+    logWindow.resize(600, 960);
     logWindow.show();
 
     return app.exec();

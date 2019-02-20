@@ -49,8 +49,4 @@ stack_start offset=0x80 output=data
     writeabs a32 d16 0xbb006034      1   # readout reset
 stack_end
 write_local 0x1204 0x80   # Set stack address register
-write_local 0x1104 0x20     # Trigger setup
-
-#write_local 0x1300 1 # Activate triggered stack execution (active by default)
-
-# vim:ft=conf
+write_local 0x1104 0x20     # Trigger setup: IRQ1, NoAck
