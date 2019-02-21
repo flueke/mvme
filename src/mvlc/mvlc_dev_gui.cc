@@ -153,7 +153,6 @@ void MVLCDataReader::readoutLoop()
         m_readBuffer.used = bytesTransferred;
 
         if (error == FT_DEVICE_NOT_CONNECTED || error == FT_INVALID_HANDLE)
-        if (error == FT_DEVICE_NOT_CONNECTED)
         {
             emit message("Lost connection to MVLC. Leaving readout loop.");
             break;
@@ -164,6 +163,8 @@ void MVLCDataReader::readoutLoop()
 
             ++m_stats.counters[ReaderStats::NumberOfAttemptedReads];
             m_stats.counters[ReaderStats::TotalBytesReceived] += bytesTransferred;
+            if (bytesTransferred > 0)
+                ++m_stats.readBufferSizes[bytesTransferred];
 
             if (error)
             {
@@ -216,9 +217,12 @@ struct MVLCDevGUI::Private
 {
     MVLCDevGUI *q;
 
+    // Widgets
     QWidget *centralWidget;
     QToolBar *toolbar;
     QStatusBar *statusbar;
+    MVLCRegisterWidget *registerWidget;
+    VMEDebugWidget *vmeDebugWidget;
 
     //QAction *act_showLog,
     //        *act_showVMEDebug,
@@ -229,18 +233,17 @@ struct MVLCDevGUI::Private
     QThread readoutThread;
     MVLCDataReader *dataReader;
 
+    // DataReader stats
     QVector<QLabel *> readerStatLabels;
     QLabel *l_statRunDuration,
            *l_statReadRate;
+    QPushButton *pb_printReaderBufferSizes;
 
     QDateTime tReaderStarted,
               tReaderStopped,
               tLastUpdate;
 
     ReaderStats prevReaderStats = {};
-
-    MVLCRegisterWidget *registerWidget;
-    VMEDebugWidget *vmeDebugWidget;
 };
 
 MVLCDevGUI::MVLCDevGUI(QWidget *parent)
@@ -298,6 +301,14 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
         m_d->l_statReadRate = new QLabel();
         l->addRow("Read Rate", m_d->l_statReadRate);
+
+        m_d->pb_printReaderBufferSizes = new QPushButton("Print Incoming Buffer Sizes");
+        {
+            auto bl = make_layout<QHBoxLayout, 0, 0>();
+            bl->addWidget(m_d->pb_printReaderBufferSizes);
+            bl->addStretch();
+            l->addRow(bl);
+        }
     }
 
     // Interactions
@@ -663,6 +674,42 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
             this, [this] (const QString &msg)
     {
         logMessage("Readout Thread: " + msg);
+    });
+
+    connect(m_d->pb_printReaderBufferSizes, &QPushButton::clicked,
+            this, [this] ()
+    {
+        const auto &sizeHash = m_d->prevReaderStats.readBufferSizes;
+
+        if (sizeHash.isEmpty())
+        {
+            logMessage("Reader did not receive any buffers yet.");
+            return;
+        }
+
+
+        auto sizes = sizeHash.keys();
+        std::sort(sizes.begin(), sizes.end());
+
+        QStringList lines;
+        lines.reserve(sizeHash.size() + 4);
+
+        lines << ">>> Reader receive buffer sizes:";
+        lines << "  size (Bytes) | count";
+        lines << "  ------------------------";
+
+        for (size_t size: sizes)
+        {
+            size_t count = sizeHash[size];
+
+            lines << QString("  %1   | %2")
+                .arg(size, 10)
+                .arg(count);
+        }
+
+        lines << "<<< End receive buffer sizes";
+
+        logMessage(lines.join("\n"));
     });
 
     //
@@ -1033,10 +1080,11 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
                 return;
             }
 
-            strings << QString("   [%3] 0x%1: 0x%2")
+            strings << QString("   [0x%4, %3] 0x%1: 0x%2")
                 .arg(reg, 4, 16, QLatin1Char('0'))
                 .arg(value, 8, 16, QLatin1Char('0'))
                 .arg(stackSize, 3)
+                .arg(stackSize, 3, 16, QLatin1Char('0'))
                 ;
 
             if ((value & 0xFF000000) == 0xF4000000)

@@ -3,12 +3,13 @@
 
 #include <functional>
 #include <memory>
-#include <QMainWindow>
-#include <QString>
-#include <QMutex>
+#include <QHash>
 #include <QLineEdit>
-#include <QPushButton>
+#include <QMainWindow>
+#include <QMutex>
 #include <QPlainTextEdit>
+#include <QPushButton>
+#include <QString>
 
 #include "mvlc/mvlc_qt_object.h"
 #include "vme_script.h"
@@ -36,6 +37,8 @@ struct ReaderStats
     };
 
     size_t counters[CountersCount];
+    // Histogram of incoming read size -> number of reads
+    QHash<size_t, size_t> readBufferSizes;
 };
 
 const char *reader_stat_name(ReaderStats::CounterEnum counter);
@@ -74,6 +77,7 @@ class MVLCDataReader: public QObject
     public slots:
         // Runs until stop() is invoked from the outside.
         void readoutLoop();
+
         // Thread safe, sets an atomic flag which makes readoutLoop() return.
         void stop();
 
