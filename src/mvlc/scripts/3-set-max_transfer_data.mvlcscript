@@ -1,0 +1,8 @@
+stack_start
+    setbase 0x00000000
+    0x601A 1          # max transfer data
+    setbase 0x01000000
+    0x601A 1          # max transfer data
+stack_end
+write_local 0x1200 0x0000   # Set stack offset register
+write_local 0x1100 0x100    # Immediate exec of stack 0

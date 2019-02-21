@@ -1,3 +1,4 @@
+/*
 * add a vme script command for the WriteSpecial stack command
 * test the Marker stack command
 
@@ -8,3 +9,31 @@
   - try other I/O stats tools
   - MAYBE TRY STOPPING THE WINDOWS VM AND ALL THE OTHER STUFF! :-)
     Currently the "idle state" load is 0.68...
+*/
+
+#include "typedefs.h"
+
+struct USB
+{
+    // FTDI handle. Access needs to be synchronized.
+    void *handle;
+    // While the handle is not being modified multiple threads can access all pipes
+    // concurrently.
+    // Optionally the fNonThreadSafeTransfer flag can be set per pipe and direction. Then
+    // the software must ensure that only one thread accesses each of the pipes
+    // simultaneously. It's still ok for one thread to use pipe0 and another to use pipe1.
+    //
+    //        / EP0
+    // handle
+    //        \ EP1
+
+    // Pipe read and write timeouts. Under Linux these can be passed on every call to
+    // FT_ReadPipeEx/FT_WritePipeEx.
+    // Under Windows use FT_SetPipeTimeout after opening the device and then call
+    // FT_ReadPipe/FT_WritePipe.
+    u32 readTimeout_ms = 5000;
+    u32 writeTimeout_ms = 5000;
+};
+
+
+// vim:ft=cpp
