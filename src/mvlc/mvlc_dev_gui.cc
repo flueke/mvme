@@ -279,6 +279,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     // Reader stats ui setup
     {
         auto l = new QFormLayout(ui->gb_readerStats);
+        l->setSizeConstraint(QLayout::SetMinimumSize);
 
         for (int counterType = 0;
              counterType < ReaderStats::CountersCount;
