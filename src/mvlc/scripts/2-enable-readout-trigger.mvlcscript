@@ -1,0 +1,2 @@
+write_local 0x1104 0x20     # Trigger setup: IRQ1, NoAck
+
