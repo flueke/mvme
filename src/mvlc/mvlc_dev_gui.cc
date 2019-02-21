@@ -125,7 +125,7 @@ void MVLCDataReader::setImpl(const USB_Impl &impl)
     m_impl.readTimeout_ms = ReadTimeout_ms;
 }
 
-void MVLCDataReader::setOutputDevice(std::unique_ptr<QIODevice> &&dev)
+void MVLCDataReader::setOutputDevice(std::unique_ptr<QIODevice> dev)
 {
     m_outDevice = std::move(dev);
 }

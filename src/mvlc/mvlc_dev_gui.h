@@ -69,7 +69,7 @@ class MVLCDataReader: public QObject
 
         // not thread safe
         void setImpl(const USB_Impl &impl);
-        void setOutputDevice(std::unique_ptr<QIODevice> &&dev);
+        void setOutputDevice(std::unique_ptr<QIODevice> dev);
 
     public slots:
         // Runs until stop() is invoked from the outside.
