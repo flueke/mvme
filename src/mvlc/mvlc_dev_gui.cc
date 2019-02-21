@@ -152,6 +152,7 @@ void MVLCDataReader::readoutLoop()
 
         m_readBuffer.used = bytesTransferred;
 
+        if (error == FT_DEVICE_NOT_CONNECTED || error == FT_INVALID_HANDLE)
         if (error == FT_DEVICE_NOT_CONNECTED)
         {
             emit message("Lost connection to MVLC. Leaving readout loop.");
