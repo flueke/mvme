@@ -276,8 +276,15 @@ err_t read_words(USB_Impl *mvlc, u8 pipe,
                               wordCount * sizeof(u32),
                               &bytesTransferred);
 
+    if (bytesTransferred % sizeof(u32))
+    {
+        cerr << "mvlc::usb::read_words: Warning: "
+            "number of bytes received is not evenly divisible by word size!" << endl;
+    }
+
     if (wordsTransferred)
         *wordsTransferred = bytesTransferred / sizeof(u32);
+
 
     return result;
 }
