@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>947</width>
-    <height>672</height>
+    <width>785</width>
+    <height>690</height>
    </rect>
   </property>
   <property name="font">
@@ -19,6 +19,18 @@
    <string>MVLC Dev UI</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_3">
+   <property name="spacing">
+    <number>2</number>
+   </property>
+   <property name="topMargin">
+    <number>3</number>
+   </property>
+   <property name="rightMargin">
+    <number>3</number>
+   </property>
+   <property name="bottomMargin">
+    <number>3</number>
+   </property>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
@@ -138,7 +150,7 @@
     </layout>
    </item>
    <item>
-    <layout class="QGridLayout" name="gridLayout_4">
+    <layout class="QGridLayout" name="gridLayout_4" columnstretch="1,1">
      <item row="0" column="0">
       <widget class="QGroupBox" name="groupBox_2">
        <property name="title">
@@ -284,51 +296,24 @@
        </property>
       </spacer>
      </item>
-     <item row="0" column="2" rowspan="2">
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>1</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
      <item row="0" column="1" rowspan="2">
       <widget class="QGroupBox" name="groupBox_3">
        <property name="title">
         <string>Data Reader</string>
        </property>
        <layout class="QGridLayout" name="gridLayout_2">
-        <item row="0" column="0">
-         <widget class="QLabel" name="label_4">
-          <property name="text">
-           <string>Status:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="0" colspan="5">
-         <widget class="QGroupBox" name="gb_readerStats">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>10</width>
-            <height>10</height>
-           </size>
-          </property>
-          <property name="title">
-           <string>Stats</string>
-          </property>
-         </widget>
-        </item>
+        <property name="topMargin">
+         <number>3</number>
+        </property>
+        <property name="rightMargin">
+         <number>3</number>
+        </property>
+        <property name="bottomMargin">
+         <number>3</number>
+        </property>
+        <property name="spacing">
+         <number>2</number>
+        </property>
         <item row="0" column="3">
          <widget class="QPushButton" name="pb_readerStart">
           <property name="text">
@@ -336,20 +321,17 @@
           </property>
          </widget>
         </item>
-        <item row="0" column="4">
-         <widget class="QPushButton" name="pb_readerStop">
+        <item row="1" column="1">
+         <widget class="QPushButton" name="pb_readerRequestBuffer">
           <property name="text">
-           <string>Stop</string>
+           <string>Log Next Buffer</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="1" colspan="2">
-         <widget class="QLineEdit" name="le_readoutStatus">
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_4">
           <property name="text">
-           <string>Stopped</string>
-          </property>
-          <property name="readOnly">
-           <bool>true</bool>
+           <string>Status:</string>
           </property>
          </widget>
         </item>
@@ -357,13 +339,6 @@
          <widget class="QPushButton" name="pb_readerResetStats">
           <property name="text">
            <string>Reset Stats</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QPushButton" name="pb_readerRequestBuffer">
-          <property name="text">
-           <string>Log Next Buffer</string>
           </property>
          </widget>
         </item>
@@ -386,12 +361,86 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="0">
-         <widget class="QCheckBox" name="cb_readerWriteFile">
+        <item row="0" column="4">
+         <widget class="QPushButton" name="pb_readerStop">
           <property name="text">
-           <string>Write Data File</string>
+           <string>Stop</string>
           </property>
          </widget>
+        </item>
+        <item row="0" column="1" colspan="2">
+         <widget class="QLineEdit" name="le_readoutStatus">
+          <property name="text">
+           <string>Stopped</string>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0" colspan="5">
+         <widget class="QGroupBox" name="gb_readerStats">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>10</width>
+            <height>10</height>
+           </size>
+          </property>
+          <property name="title">
+           <string>Stats</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0" colspan="5">
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QGroupBox" name="gb_dataOutputFile">
+            <property name="title">
+             <string>Write Data Output File</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_8">
+             <property name="leftMargin">
+              <number>3</number>
+             </property>
+             <property name="topMargin">
+              <number>3</number>
+             </property>
+             <property name="rightMargin">
+              <number>3</number>
+             </property>
+             <property name="bottomMargin">
+              <number>3</number>
+             </property>
+             <property name="spacing">
+              <number>2</number>
+             </property>
+             <item row="0" column="1">
+              <widget class="QPushButton" name="pb_browseOutputFile">
+               <property name="text">
+                <string>Browse</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLineEdit" name="le_dataOutputFilePath">
+               <property name="text">
+                <string>mvlc_dev_data.bin</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </widget>

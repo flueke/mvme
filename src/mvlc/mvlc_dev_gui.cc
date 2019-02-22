@@ -63,6 +63,8 @@ const char *reader_stat_name(ReaderStats::CounterEnum counter)
 }
 
 static const QString Key_LastMVLCScriptDirectory = "Files/LastMVLCScriptDirectory";
+static const QString Key_LastMVLCDataOutputDirectory = "Files/LastMVLCDataOutputDirectory";
+static const QString DefaultOutputFilename = "mvlc_dev_data.bin";
 
 //
 // MVLCDataReader
@@ -485,7 +487,8 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         QFile file(fileName);
         if (!file.open(QIODevice::WriteOnly))
         {
-            QMessageBox::critical(this, "File error", QString("Error opening \"%1\" for writing").arg(fileName));
+            QMessageBox::critical(this, "File error",
+                                  QString("Error opening \"%1\" for writing").arg(fileName));
             return;
         }
 
@@ -494,7 +497,8 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
         if (stream.status() != QTextStream::Ok)
         {
-            QMessageBox::critical(this, "File error", QString("Error writing to \"%1\"").arg(fileName));
+            QMessageBox::critical(this, "File error",
+                                  QString("Error writing to \"%1\"").arg(fileName));
             return;
         }
 
@@ -567,29 +571,90 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         // Udpate the readers copy of the usb impl handler thingy
         m_d->dataReader->setImpl(m_d->mvlc->getImpl());
 
-        if (ui->cb_readerWriteFile->isChecked())
+        if (ui->gb_dataOutputFile->isChecked())
         {
-            static const char *OutputFilename = "mvlc_dev_data.bin";
-            std::unique_ptr<QIODevice> outFile = std::make_unique<QFile>(OutputFilename);
+            QString outputFilePath = ui->le_dataOutputFilePath->text();
 
-            if (!outFile->open(QIODevice::WriteOnly))
+            if (outputFilePath.isEmpty())
             {
-                logMessage(QString("Error opening output file '%1' for writing: %2")
-                           .arg(OutputFilename)
-                           .arg(outFile->errorString()));
+                logMessage("Data Reader Error: output filename is empty");
             }
             else
             {
-                logMessage(QString("Writing incoming data to file '%1'.")
-                           .arg(OutputFilename));
+                std::unique_ptr<QIODevice> outFile = std::make_unique<QFile>(outputFilePath);
 
-                m_d->dataReader->setOutputDevice(std::move(outFile));
+                if (!outFile->open(QIODevice::WriteOnly))
+                {
+                    logMessage(QString("Error opening output file '%1' for writing: %2")
+                               .arg(outputFilePath)
+                               .arg(outFile->errorString()));
+                }
+                else
+                {
+                    logMessage(QString("Writing incoming data to file '%1'.")
+                               .arg(outputFilePath));
+
+                    m_d->dataReader->setOutputDevice(std::move(outFile));
+                }
             }
         }
 
         m_d->readoutThread.start();
         emit enterReadoutLoop();
     });
+
+    connect(ui->pb_browseOutputFile, &QPushButton::clicked,
+            this, [this] ()
+    {
+        QString startDir;
+        QSettings settings;
+
+        if (settings.contains(Key_LastMVLCDataOutputDirectory))
+        {
+            startDir = settings.value(Key_LastMVLCDataOutputDirectory).toString();
+        }
+        else
+        {
+            startDir = QStandardPaths::standardLocations(
+                QStandardPaths::DocumentsLocation).at(0);
+        }
+
+        QString filePath = QFileDialog::getSaveFileName(
+            this,                                       // parent
+            "Select Data Reader Output File",           // caption
+            startDir,                                   // dir
+            QString(),                                  // filter
+            nullptr,                                    // selectedFilter,
+            QFileDialog::Options());                    // options
+
+        qDebug() << __PRETTY_FUNCTION__ << filePath;
+
+        if (!filePath.isEmpty())
+        {
+            ui->le_dataOutputFilePath->setText(filePath);
+            QFileInfo fi(filePath);
+            QSettings settings;
+            settings.setValue(Key_LastMVLCDataOutputDirectory, fi.path());
+        }
+    });
+
+    // Populate initial output filepath using
+    {
+        QString outDir;
+        QSettings settings;
+
+        if (settings.contains(Key_LastMVLCDataOutputDirectory))
+        {
+            outDir = settings.value(Key_LastMVLCDataOutputDirectory).toString();
+        }
+        else
+        {
+            outDir = QStandardPaths::standardLocations(
+                QStandardPaths::DocumentsLocation).at(0);
+        }
+
+        ui->le_dataOutputFilePath->setText(outDir + "/" + DefaultOutputFilename);
+    }
 
     connect(ui->pb_readerStop, &QPushButton::clicked,
             this, [this] ()
