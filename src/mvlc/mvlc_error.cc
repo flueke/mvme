@@ -18,31 +18,42 @@ class MVLCProtocolErrorCategory: public std::error_category
         {
             case MVLCProtocolError::NoError:
                 return "No Error";
+
             case MVLCProtocolError::IsOpen:
                 return "Device is open";
+
             case MVLCProtocolError::IsClosed:
                 return "Device is closed";
+
             case MVLCProtocolError::ShortWrite:
                 return "Short write";
+
             case MVLCProtocolError::ShortRead:
                 return "Short read";
-            case MVLCProtocolError::MirrorShortRequest:
-                return "mirror check - short request";
+
+            case MVLCProtocolError::MirrorEmptyRequest:
+                return "mirror check: empty request";
+
+            case MVLCProtocolError::MirrorEmptyResponse:
+                return "mirror check: empty response";
+
             case MVLCProtocolError::MirrorShortResponse:
-                return "mirror check - short response";
-            case MVLCProtocolError::MirrorResponseTooShort:
-                return "mirror check - response too short";
+                return "mirror check: response too short";
+
             case MVLCProtocolError::MirrorNotEqual:
-                return "mirror check - unequal data words";
-            case MVLCProtocolError::ParseResponseUnexpectedSize:
-                return "parsing - unexpected response size";
-            case MVLCProtocolError::ParseUnexpectedBufferType:
-                return "parsing - unexpected response buffer type";
+                return "mirror check: unequal data words";
+
+            case MVLCProtocolError::InvalidBufferHeader:
+                return "invalid buffer header";
+
+            case MVLCProtocolError::UnexpectedResponseSize:
+                return "unexpected response size";
+
             case MVLCProtocolError::NoVMEResponse:
                 return "no VME response";
         }
 
-        return "Unrecognized Error";
+        return "unrecognized MVLC error";
     }
 };
 

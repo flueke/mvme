@@ -15,12 +15,12 @@ enum class MVLCProtocolError
     IsClosed,
     ShortWrite,
     ShortRead,
-    MirrorShortRequest,  // size < 1
-    MirrorShortResponse, // size < 1
-    MirrorResponseTooShort,
+    MirrorEmptyRequest,  // size < 1
+    MirrorEmptyResponse, // size < 1
+    MirrorShortResponse,
     MirrorNotEqual,
-    ParseResponseUnexpectedSize,
-    ParseUnexpectedBufferType,
+    InvalidBufferHeader,
+    UnexpectedResponseSize, // wanted N words, got M words
     NoVMEResponse,
 };
 
