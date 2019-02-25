@@ -7,7 +7,7 @@
 #include <QStandardPaths>
 #include <QTimer>
 
-#include "mvlc/mvlc_usb.h"
+#include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_util.h"
 #include "vme_script.h"
 
@@ -54,8 +54,6 @@ namespace mesytec
 {
 namespace mvlc
 {
-
-using usb::MVLCDialog;
 
 struct VMEDebugWidget::Private
 {
@@ -309,12 +307,13 @@ void VMEDebugWidget::slt_doRead_clicked(int readerIndex)
     QVector<u32> buffer;
     buffer.reserve(transfers);
 
-    MVLCDialog dlg(d->mvlc->getImpl());
-    auto error = dlg.vmeBlockRead(address, amod, transfers, buffer);
+    MVLCDialog dlg(d->mvlc);
+    auto ec = dlg.vmeBlockRead(address, amod, transfers, buffer);
 
-    if (!error)
+    if (ec)
     {
-        emit sigLogMessage(QString("VMEDebug - error from block read: ") + error.toString());
+        emit sigLogMessage(QString("VMEDebug - error from block read: ")
+                           + QString::fromStdString(ec.message()));
     }
 
     QStringList lines;
@@ -342,28 +341,29 @@ void VMEDebugWidget::slt_doRead_clicked(int readerIndex)
 
 void VMEDebugWidget::doWrite(u32 address, u16 value)
 {
-    MVLCDialog dlg(d->mvlc->getImpl());
-    auto error = dlg.vmeSingleWrite(address, value,
-                                    AddressMode::A32, VMEDataWidth::D16);
+    MVLCDialog dlg(d->mvlc);
+    auto ec = dlg.vmeSingleWrite(address, value, AddressMode::A32, VMEDataWidth::D16);
 
-    if (!error)
+    if (ec)
     {
-        emit sigLogMessage(QString("VMEDebug - error from write: ") + error.toString());
+        emit sigLogMessage(QString("VMEDebug - error from write: ")
+                           + QString::fromStdString(ec.message()));
     }
 }
 
 
 u16 VMEDebugWidget::doSingleRead(u32 address)
 {
-    MVLCDialog dlg(d->mvlc->getImpl());
+    MVLCDialog dlg(d->mvlc);
     u32 value = 0u;
 
-    auto error = dlg.vmeSingleRead(address, value,
+    auto ec = dlg.vmeSingleRead(address, value,
                                    AddressMode::A32, VMEDataWidth::D16);
 
-    if (!error)
+    if (ec)
     {
-        emit sigLogMessage(QString("VMEDebug - error from read: ") + error.toString());
+        emit sigLogMessage(QString("VMEDebug - error from read: ")
+                           + QString::fromStdString(ec.message()));
     }
 
     return static_cast<u16>(value);
@@ -443,6 +443,7 @@ void VMEDebugWidget::slt_loadScript()
 vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd,
                                std::function<void (const QString &)> logger)
 {
+    // XXX: leftoff here
     using namespace vme_script;
     Result result;
     result.command = cmd;
