@@ -1,6 +1,8 @@
 #ifndef __MVME_MVLC_USB_H__
 #define __MVME_MVLC_USB_H__
 
+#if 0
+
 #include <memory>
 #include <vector>
 
@@ -181,4 +183,5 @@ class MVLCDialog
 } // end namespace mvlc
 } // end namespace mesytec
 
+#endif
 #endif /* __MVME_MVLC_USB_H__ */

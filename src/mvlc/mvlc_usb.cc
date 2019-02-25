@@ -1,3 +1,4 @@
+#if 0
 #include "mvlc_usb.h"
 
 #include <cassert>
@@ -661,3 +662,4 @@ MVLCError MVLCDialog::vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfe
 } // end namespace usb
 } // end namespace mvlc
 } // end namespace mesytec
+#endif
