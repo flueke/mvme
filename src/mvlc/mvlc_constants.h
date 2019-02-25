@@ -13,9 +13,7 @@ namespace mvlc
 
 static const u32 AddressIncrement = 4;
 static const u32 ReadLocalBlockMaxWords = 768;
-static const u32 CmdBufferResultSizeMask = 0xFFFF;
-static const u8 SuperResponseHeaderType = 0xF1;
-static const u8 StackResponseHeaderType = 0xF3;
+static const u32 BufferSizeMask = 0xFFFF;
 
 // Super commands are commands that are directly interpreted and executed
 // by the MVLC.
@@ -69,7 +67,7 @@ namespace commands
     };
 };
 
-namespace responses
+namespace buffer_types
 {
     enum BufferTypes: u8
     {
@@ -78,6 +76,8 @@ namespace responses
         BlockRead   = 0xF5,
         StackError  = 0xF7,
     };
+
+    u8 TypeShift = 24;
 }
 
 // These equal the actual VME "private" address modes for the respective
