@@ -113,44 +113,43 @@ std::error_code make_error_code(FT_STATUS st)
 }
 
 //Impl::Impl()
-//    : m_openInfo{OpenInfo::ByIndex}
+//    : m_connectMode{ConnectMode::ByIndex}
 //{
 //}
 
 Impl::Impl(int index)
-    : m_openInfo{OpenInfo::ByIndex, index}
+    : m_connectMode{ConnectMode::ByIndex, index}
 {
 }
 
 //Impl::Impl(const std::string &serial)
-//    : m_openInfo{OpenInfo::BySerial, 0, serial}
+//    : m_connectMode{ConnectMode::BySerial, 0, serial}
 //{
 //}
 
 Impl::~Impl()
 {
-    if (is_open())
-        close();
+    disconnect();
 }
 
-std::error_code Impl::open()
+std::error_code Impl::connect()
 {
-    if (is_open()) return {};
+    if (is_connected()) return {};
 
     FT_STATUS st = FT_OK;
 
-    switch (m_openInfo.mode)
+    switch (m_connectMode.mode)
     {
-        case OpenInfo::First:
+        case ConnectMode::First:
             assert(!"not implemented");
             break;
 
-        case OpenInfo::ByIndex:
-            st = FT_Create(reinterpret_cast<void *>(m_openInfo.index),
+        case ConnectMode::ByIndex:
+            st = FT_Create(reinterpret_cast<void *>(m_connectMode.index),
                            FT_OPEN_BY_INDEX, &m_handle);
             break;
 
-        case OpenInfo::BySerial:
+        case ConnectMode::BySerial:
             assert(!"not implemented");
             break;
     }
@@ -158,16 +157,16 @@ std::error_code Impl::open()
     return make_error_code(st);
 }
 
-std::error_code Impl::close()
+std::error_code Impl::disconnect()
 {
-    if (!is_open()) return make_error_code(FT_DEVICE_NOT_OPENED);
+    if (!is_connected()) return make_error_code(FT_DEVICE_NOT_OPENED);
 
     FT_STATUS st = FT_Close(m_handle);
     m_handle = nullptr;
     return make_error_code(st);
 }
 
-bool Impl::is_open() const
+bool Impl::is_connected() const
 {
     return m_handle != nullptr;
 }

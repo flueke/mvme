@@ -13,9 +13,9 @@ namespace mvlc
 class AbstractImpl
 {
     public:
-        virtual std::error_code open() = 0;
-        virtual std::error_code close() = 0;
-        virtual bool is_open() const = 0;
+        virtual std::error_code connect() = 0;
+        virtual std::error_code disconnect() = 0;
+        virtual bool is_connected() const = 0;
 
         virtual void set_write_timeout(Pipe pipe, unsigned ms) = 0;
         virtual void set_read_timeout(Pipe pipe, unsigned ms) = 0;

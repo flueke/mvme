@@ -39,9 +39,9 @@ class Impl: public AbstractImpl
         // Open the MVLC with the given serial number
         // TODO: explicit Impl(const std::string &serial);
 
-        std::error_code open() override;
-        std::error_code close() override;
-        bool is_open() const override;
+        std::error_code connect() override;
+        std::error_code disconnect() override;
+        bool is_connected() const override;
 
         void set_write_timeout(Pipe pipe, unsigned ms) override;
         void set_read_timeout(Pipe pipe, unsigned ms) override;
@@ -55,7 +55,7 @@ class Impl: public AbstractImpl
         ~Impl();
 
     private:
-        struct OpenInfo
+        struct ConnectMode
         {
             enum Mode
             {
@@ -70,7 +70,7 @@ class Impl: public AbstractImpl
         };
 
         void *m_handle = nullptr;
-        OpenInfo m_openInfo;
+        ConnectMode m_connectMode;
 
         std::array<unsigned, PipeCount> m_writeTimeouts = {
             DefaultWriteTimeout_ms, DefaultWriteTimeout_ms
