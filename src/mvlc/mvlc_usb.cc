@@ -375,7 +375,7 @@ QString MVLCError::toString() const
             return "no VME response";
     }
 
-    return "Unknonw Error";
+    return "Unknown Error";
 }
 
 //

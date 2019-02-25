@@ -13,6 +13,7 @@
 
 #include "mvlc/mvlc_qt_object.h"
 #include "vme_script.h"
+#include "mvlc/mvlc_usb.h"
 
 
 struct FixedSizeBuffer

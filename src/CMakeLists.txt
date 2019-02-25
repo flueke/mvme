@@ -361,6 +361,9 @@ if(MVME_ENABLE_MVLC)
         mvlc/mvlc_usb.cc
         mvlc/mvlc_util.cc
         mvlc/mvlc_vme_debug_widget.cc
+        mvlc/mvlc_usb_impl.cc
+        mvlc/mvlc_impl_factory.cc
+        mvlc/mvlc_error.cc
         )
     target_link_libraries(libmvme ftd3xx)
 
@@ -371,6 +374,7 @@ if(MVME_ENABLE_MVLC)
     qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
 
     add_mvme_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
+    add_mvme_executable(test_mvlc_usb_impl mvlc/test_mvlc_usb_impl.cc)
 
     target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
 

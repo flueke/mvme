@@ -253,6 +253,54 @@ TEST(MVLCScriptTest, StackMultiCommands)
     }
 }
 
+TEST(MVLCScriptTest, StackNotFirstCommand)
+{
+    {
+        const QString input = R"(
+            write_local 0x2000 0x87654321
+            stack_start output=data offset=0x100
+                setbase 0x01000000
+                write a24 d32 0x6070 3
+                mbltfifo a32 0x1234 100 # <amod> <address> <transfer_count>
+            stack_end
+        )";
+
+        auto script = parse(input);
+
+        ASSERT_EQ(script.size(), 2);
+
+        {
+            const auto &cmd = script.at(0);
+            ASSERT_EQ(cmd.type, CommandType::WriteLocal);
+            ASSERT_EQ(cmd.address, 0x2000);
+            ASSERT_EQ(cmd.value, 0x87654321);
+        }
+
+        {
+            const auto &cmd = script.at(1);
+            ASSERT_EQ(cmd.type, CommandType::Stack);
+            ASSERT_EQ(cmd.stack.outputPipe, 1);
+            ASSERT_EQ(cmd.stack.offset, 0x100);
+
+            const auto &vme = cmd.stack.contents;
+
+            ASSERT_EQ(vme.size(), 3);
+
+            ASSERT_EQ(vme.at(0).type, vme_script::CommandType::SetBase);
+            ASSERT_EQ(vme.at(0).address, 0x01000000);
+
+            // Note: base address is added directly
+            ASSERT_EQ(vme.at(1).type, vme_script::CommandType::Write);
+            ASSERT_EQ(vme.at(1).address, 0x01000000 + 0x6070);
+            ASSERT_EQ(vme.at(1).value, 3);
+
+            ASSERT_EQ(vme.at(2).type, vme_script::CommandType::MBLTFifo);
+            ASSERT_EQ(vme.at(2).address, 0x01000000 + 0x1234);
+            ASSERT_EQ(vme.at(2).transfers, 100);
+        }
+    }
+}
+
 #if 0
 TEST(MVLCScriptTest, Basic)
 {

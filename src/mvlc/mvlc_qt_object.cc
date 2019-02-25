@@ -1,4 +1,5 @@
 #include "mvlc/mvlc_qt_object.h"
+#include "mvlc/mvlc_error.h"
 
 namespace mesytec
 {
@@ -8,54 +9,58 @@ namespace mvlc
 //
 // MVLCObject
 //
-MVLCObject::MVLCObject(QObject *parent)
+MVLCObject::MVLCObject(std::unique_ptr<AbstractImpl> impl, QObject *parent)
     : QObject(parent)
+    , m_impl(std::move(impl))
+    , m_state(Disconnected)
 {
-}
-
-MVLCObject::MVLCObject(const USB_Impl &impl, QObject *parent)
-    : QObject(parent)
-    , m_impl(impl)
-{
-    if (is_open(m_impl))
+    if (m_impl->is_open())
         setState(Connected);
 }
 
 MVLCObject::~MVLCObject()
 {
-    //TODO:
-    //Lock the open/close lock so that no one can inc the refcount while we're doing things.
-    //if (refcount of impl would go down to zero)
-    //    close_impl();
-
+    disconnect();
 }
 
-void MVLCObject::connect()
+std::error_code MVLCObject::connect()
 {
-    if (isConnected()) return;
+    if (isConnected()) return make_error_code(MVLCProtocolError::IsOpen);
 
+    std::error_code result = {};
+
+    std::unique_lock<std::mutex> cmdLock(m_cmdMutex, std::defer_lock);
+    std::unique_lock<std::mutex> dataLock(m_dataMutex, std::defer_lock);
+    std::lock(cmdLock, dataLock);
     setState(Connecting);
+    result = m_impl->open();
 
-    usb::err_t error;
-    m_impl = usb::open_by_index(0, &error);
-    m_impl.readTimeout_ms = 500;
-
-    if (!is_open(m_impl))
+    if (result)
     {
-        emit errorSignal("Error connecting to MVLC", usb::make_usb_error(error));
+        emit errorSignal(result);
         setState(Disconnected);
     }
     else
     {
         setState(Connected);
     }
+
+    return result;
 }
 
-void MVLCObject::disconnect()
+std::error_code MVLCObject::disconnect()
 {
-    if (!isConnected()) return;
-    close(m_impl);
+    if (!isConnected()) return make_error_code(MVLCProtocolError::IsClosed);
+    // XXX: leftoff here
+
+    std::error_code result = {};
+
+    std::unique_lock<std::mutex> cmdLock(m_cmdMutex, std::defer_lock);
+    std::unique_lock<std::mutex> dataLock(m_dataMutex, std::defer_lock);
+    std::lock(cmdLock, dataLock);
+    result = m_impl->close();
     setState(Disconnected);
+    return result;
 }
 
 void MVLCObject::setState(const State &newState)

@@ -82,6 +82,8 @@ namespace responses
 
 // These equal the actual VME "private" address modes for the respective
 // transfer. FIXME: The other modes are also supported.
+// It's probably a good idea to pass the modes around as byte values but define
+// classifier functions to distinguish between single and block transfer modes.
 enum AddressMode: u8
 {
     A16         = 0x2D,
@@ -120,6 +122,7 @@ static const u32 InternalRegisterMax = 0x5FFF;
 
 // Setting bit 0 to 1 enables autonomous execution of stacks in
 // reaction to triggers.
+// IMPORTANT: This is always active right now.
 static const u32 DAQModeEnableRegister = 0x1300;
 
 
@@ -150,10 +153,8 @@ namespace stacks
         TimerUnderrun,
     };
 
-    // IMPORTANT: The IRQ bits have to be set to (IRQ - 1), e.g. value 0
+    // IMPORTANT: The trigger bits have to be set to (IRQ - 1), e.g. value 0
     // for IRQ1!
-    // TODO: rename IRQLevel to TriggerBits. I think these have different
-    // meanings depending on the trigger type.
     static const u32 TriggerBitsMask    = 0b11111;
     static const u32 TriggerBitsShift   = 0;
     static const u32 TriggerTypeMask    = 0b111;
@@ -164,15 +165,26 @@ namespace stacks
 
 static const u32 SelfVMEAddress       = 0xFFFF0000u;
 
-static const u8 CommandPipe = 0;
-static const u8 DataPipe = 1;
-
 namespace usb
 {
     // Limit imposed by FT_WritePipeEx and FT_ReadPipeEx under Linux
     static const size_t USBSingleTransferMaxBytes = 1 * 1024 * 1024;
     static const size_t USBSingleTransferMaxWords = USBSingleTransferMaxBytes / sizeof(u32);
 } // end namespace usb
+
+enum class Pipe: u8
+{
+    Command,
+    Data
+};
+
+static const unsigned PipeCount = 2;
+static const u8 CommandPipe = 0;
+static const u8 DataPipe = 1;
+
+static const unsigned DefaultWriteTimeout_ms = 1000;
+static const unsigned DefaultReadTimeout_ms = 1000;
+
 } // end namespace mvlc
 } // end namespace mesytec
 
