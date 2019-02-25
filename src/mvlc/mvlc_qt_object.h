@@ -4,6 +4,7 @@
 #include <memory>
 #include <mutex>
 #include <QObject>
+#include <QVector>
 
 #include "mvlc/mvlc_abstract_impl.h"
 
@@ -25,15 +26,20 @@ class MVLCObject: public QObject
 
     signals:
         void stateChanged(const State &oldState, const State &newState);
-        void errorSignal(const std::error_code &ec);
 
     public:
         MVLCObject(std::unique_ptr<AbstractImpl> impl, QObject *parent = nullptr);
         virtual ~MVLCObject();
 
-        AbstractImpl &getImpl();
-        bool isConnected() const { return m_state == Connected; }
+        bool isConnected() const;
 
+        std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
+                              size_t &bytesTransferred);
+
+        std::error_code read(Pipe pipe, u8 *buffer, size_t size,
+                             size_t &bytesTransferred);
+
+        std::pair<std::error_code, size_t> write(Pipe pipe, const QVector<u32> &buffer);
 
     public slots:
         std::error_code connect();
@@ -43,7 +49,6 @@ class MVLCObject: public QObject
         void setState(const State &newState);
 
         std::unique_ptr<AbstractImpl> m_impl;
-        //std::atomic<State> m_state;
         State m_state;
         std::mutex m_cmdMutex;
         std::mutex m_dataMutex;

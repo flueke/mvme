@@ -14,7 +14,7 @@ MVLCObject::MVLCObject(std::unique_ptr<AbstractImpl> impl, QObject *parent)
     , m_impl(std::move(impl))
     , m_state(Disconnected)
 {
-    if (m_impl->is_open())
+    if (m_impl->is_connected())
         setState(Connected);
 }
 
@@ -23,21 +23,24 @@ MVLCObject::~MVLCObject()
     disconnect();
 }
 
+bool MVLCObject::isConnected() const
+{
+    return m_impl->is_connected();
+}
+
 std::error_code MVLCObject::connect()
 {
     if (isConnected()) return make_error_code(MVLCProtocolError::IsOpen);
 
-    std::error_code result = {};
-
     std::unique_lock<std::mutex> cmdLock(m_cmdMutex, std::defer_lock);
     std::unique_lock<std::mutex> dataLock(m_dataMutex, std::defer_lock);
     std::lock(cmdLock, dataLock);
-    setState(Connecting);
-    result = m_impl->open();
 
-    if (result)
+    setState(Connecting);
+    auto ec = m_impl->connect();
+
+    if (ec)
     {
-        emit errorSignal(result);
         setState(Disconnected);
     }
     else
@@ -45,22 +48,20 @@ std::error_code MVLCObject::connect()
         setState(Connected);
     }
 
-    return result;
+    return ec;
 }
 
 std::error_code MVLCObject::disconnect()
 {
     if (!isConnected()) return make_error_code(MVLCProtocolError::IsClosed);
-    // XXX: leftoff here
-
-    std::error_code result = {};
 
     std::unique_lock<std::mutex> cmdLock(m_cmdMutex, std::defer_lock);
     std::unique_lock<std::mutex> dataLock(m_dataMutex, std::defer_lock);
     std::lock(cmdLock, dataLock);
-    result = m_impl->close();
+
+    auto ec = m_impl->disconnect();
     setState(Disconnected);
-    return result;
+    return ec;
 }
 
 void MVLCObject::setState(const State &newState)
@@ -72,6 +73,37 @@ void MVLCObject::setState(const State &newState)
         emit stateChanged(prevState, newState);
     }
 };
+
+std::error_code MVLCObject::write(Pipe pipe, const u8 *buffer, size_t size,
+                                  size_t &bytesTransferred)
+{
+    auto ec = m_impl->write(pipe, buffer, size, bytesTransferred);
+    return ec;
+}
+
+std::error_code MVLCObject::read(Pipe pipe, u8 *buffer, size_t size,
+                                 size_t &bytesTransferred)
+{
+    auto ec = m_impl->read(pipe, buffer, size, bytesTransferred);
+    return ec;
+}
+
+std::pair<std::error_code, size_t> MVLCObject::write(Pipe pipe, const QVector<u32> &buffer)
+{
+    size_t bytesTransferred = 0u;
+    const size_t bytesToTransfer = buffer.size() * sizeof(u32);
+    auto ec = write(pipe, reinterpret_cast<const u8 *>(buffer.data()),
+                    bytesToTransfer, bytesTransferred);
+
+    if (!ec && bytesToTransfer != bytesTransferred)
+    {
+        return std::make_pair(
+            make_error_code(MVLCProtocolError::ShortWrite),
+            bytesTransferred);
+    }
+
+    return std::make_pair(ec, bytesTransferred);
+}
 
 } // end namespace mvlc
 } // end namespace mesytec
