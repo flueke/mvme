@@ -443,50 +443,22 @@ void VMEDebugWidget::slt_loadScript()
 vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd,
                                std::function<void (const QString &)> logger)
 {
-    // XXX: leftoff here
     using namespace vme_script;
     Result result;
     result.command = cmd;
 
-    try
+    auto uploadData = mvlc::build_upload_command_buffer(
+        { cmd }, mvlc::CommandPipe, mvlc::stacks::StackMemoryBegin);
+
+    log_buffer(uploadData, "run_command upload data");
+
+    MVLCDialog dlg(mvlc);
+
+    if (auto ec = dlg.stackTransaction(uploadData, result.valueVector))
     {
-        auto uploadData = QVector<u32>::fromStdVector(mvlc::build_upload_command_buffer(
-                    { cmd }, mvlc::CommandPipe, mvlc::stacks::StackMemoryBegin));
-
-        log_buffer(uploadData, "run_command upload data");
-
-        usb::MVLCError error = {};
-
-        // -> stack upload
-        error = usb::write_buffer(&mvlc->getImpl(), uploadData);
-        if (!error) throw error;
-
-        QVector<u32> mirrorBuffer;
-        mirrorBuffer.reserve(uploadData.size());
-        // <- stack upload mirror response
-        error = usb::read_response(&mvlc->getImpl(), mirrorBuffer);
-        if (!error) throw error;
-
-        // stack mirror check
-        error = usb::check_mirror(uploadData, mirrorBuffer);
-        if (!error) throw error;
-
-        // exec stack
-        MVLCDialog dlg(mvlc->getImpl());
-        error = dlg.writeRegister(stacks::Stack0OffsetRegister, 0x0);
-        if (!error) throw error;
-
-        error = dlg.writeRegister(stacks::Stack0TriggerRegister, 1u << stacks::ImmediateShift);
-        if (!error) throw error;
-
-        // <- stack response
-        error = usb::read_response(&mvlc->getImpl(), result.valueVector);
-        if (!error) throw error;
-    }
-    catch (const usb::MVLCError &e)
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "caught MVLCError:" << e.toString();
-        result.error = VMEError { VMEError::UnknownError, e.toString() };
+        qDebug() << __PRETTY_FUNCTION__ << "error from MVLCDialog::stackTransaction: "
+            << ec.message().c_str();
+        result.error = VMEError { ec };
         assert(result.error.isError());
     }
 

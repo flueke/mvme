@@ -21,7 +21,10 @@
 
 #include "ui_mvlc_dev_ui.h"
 
+#include "mvlc/mvlc_dialog.h"
+#include "mvlc/mvlc_impl_factory.h"
 #include "mvlc/mvlc_script.h"
+#include "mvlc/mvlc_usb_impl.h"
 #include "mvlc/mvlc_vme_debug_widget.h"
 #include "qt_util.h"
 #include "util/counters.h"
@@ -121,10 +124,10 @@ void MVLCDataReader::resetStats()
     m_stats = {};
 }
 
-void MVLCDataReader::setImpl(const USB_Impl &impl)
+void MVLCDataReader::setMVLC(MVLCObject *mvlc)
 {
-    m_impl = impl;
-    m_impl.readTimeout_ms = ReadTimeout_ms;
+    m_mvlc = mvlc;
+    m_mvlc->getImpl()->set_read_timeout(Pipe::Data, ReadTimeout_ms);
 }
 
 void MVLCDataReader::setOutputDevice(std::unique_ptr<QIODevice> dev)
@@ -141,20 +144,23 @@ void MVLCDataReader::readoutLoop()
 
     qDebug() << __PRETTY_FUNCTION__ << "entering readout loop";
     qDebug() << __PRETTY_FUNCTION__ << "executing in" << QThread::currentThread();
-    qDebug() << __PRETTY_FUNCTION__ << "read timeout is "
-        << m_impl.readTimeout_ms << "ms";
+    qDebug() << __PRETTY_FUNCTION__ << "read timeout is"
+        << m_mvlc->getReadTimeout(Pipe::Data) << "ms";
 
     while (!m_doQuit)
     {
         size_t bytesTransferred = 0u;
 
-        auto error = read_bytes(&m_impl, DataPipe,
-                                m_readBuffer.data.get(), m_readBuffer.capacity,
-                                &bytesTransferred);
+        auto ec = m_mvlc->read(Pipe::Data,
+                               m_readBuffer.data.get(), m_readBuffer.capacity,
+                               bytesTransferred);
 
         m_readBuffer.used = bytesTransferred;
 
-        if (error == FT_DEVICE_NOT_CONNECTED || error == FT_INVALID_HANDLE)
+        // FIXME: use error_category to not depend on usb specific constants
+        // here! We don't know if the impl is USB or UDP.
+        if (ec.value() == FT_DEVICE_NOT_CONNECTED
+            || ec.value() == FT_INVALID_HANDLE)
         {
             emit message("Lost connection to MVLC. Leaving readout loop.");
             break;
@@ -168,9 +174,9 @@ void MVLCDataReader::readoutLoop()
             if (bytesTransferred > 0)
                 ++m_stats.readBufferSizes[bytesTransferred];
 
-            if (error)
+            if (ec)
             {
-                if (is_timeout(error))
+                if (ec.value() == FT_TIMEOUT)
                     ++m_stats.counters[ReaderStats::NumberOfTimeouts];
                 else
                     ++m_stats.counters[ReaderStats::NumberOfErrors];
@@ -255,7 +261,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 {
     assert(m_d->dataReader == nullptr);
     m_d->q = this;
-    m_d->mvlc = new MVLCObject(this);
+    m_d->mvlc = new MVLCObject(make_mvlc_usb(), this);
     m_d->registerWidget = new MVLCRegisterWidget(m_d->mvlc, this);
     m_d->vmeDebugWidget = new VMEDebugWidget(m_d->mvlc, this);
 
@@ -338,11 +344,13 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     });
 
 
+#if 0 // TODO: is this needed? reintroduce it?
     connect(m_d->mvlc, &MVLCObject::errorSignal,
             this, [this] (const QString &msg, const MVLCError &error)
     {
         logMessage(msg + ": " + error.toString());
     });
+#endif
 
 
     connect(ui->pb_runScript, &QPushButton::clicked,
@@ -362,33 +370,13 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
                 logBuffer(cmdBuffer, "Outgoing Request Buffer");
             }
 
-            auto res = write_buffer(&m_d->mvlc->getImpl(), cmdBuffer);
-            if (!res)
-            {
-                logMessage("Error writing to MVLC: " + res.toString());
-                return;
-            }
-
             QVector<u32> responseBuffer;
-            res = read_response(&m_d->mvlc->getImpl(), //SuperResponseHeaderType,
-                                responseBuffer);
-            if (!res)
-            {
-                logMessage("Error reading response from MVLC: " + res.toString());
-                return;
-            }
+            MVLCDialog dlg(m_d->mvlc);
 
-            if (logMirror)
+            if (auto ec = dlg.mirrorTransaction(cmdBuffer, responseBuffer))
             {
-                logBuffer(responseBuffer, "Mirror response from MVLC");
-            }
-
-            res = check_mirror(cmdBuffer, responseBuffer);
-
-            if (!res)
-            {
-                // TODO: display buffers and differences side-by-side
-                logMessage("Error: mirror check failed: " + res.toString());
+                logMessage(QString("Error performing MVLC mirror transaction: %1")
+                           .arg(ec.message().c_str()));
                 return;
             }
 
@@ -404,12 +392,12 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
             {
                 logMessage("Attempting to read stack response...");
 
-                res = read_response(&m_d->mvlc->getImpl(), //StackResponseHeaderType,
-                                    responseBuffer);
+                auto ec = dlg.readResponse(is_stack_buffer, responseBuffer);
 
-                if (!res && !is_timeout(res))
+                if (ec && ec.value() != FT_TIMEOUT)
                 {
-                    logMessage("Error reading from MVLC: " + res.toString());
+                    logMessage(QString("Error reading from MVLC: %1")
+                               .arg(ec.message().c_str()));
                     return;
                 }
                 else if (responseBuffer.isEmpty())
@@ -418,7 +406,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
                     return;
                 }
 
-                if (is_timeout(res))
+                if (ec.value() == FT_TIMEOUT)
                     logMessage("Received response but ran into a read timeout");
 
                 logBuffer(responseBuffer, "Stack response from MVLC");
@@ -514,8 +502,17 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     connect(ui->pb_usbReconnect, &QPushButton::clicked,
             this, [this] ()
     {
-        m_d->mvlc->disconnect();
-        m_d->mvlc->connect();
+        if (auto ec = m_d->mvlc->disconnect())
+        {
+            logMessage(QString("Error from disconnect(): %1")
+                       .arg(ec.message().c_str()));
+        }
+
+        if (auto ec = m_d->mvlc->connect())
+        {
+            logMessage(QString("Error connecting to MVLC: %1")
+                       .arg(ec.message().c_str()));
+        }
     });
 
 
@@ -525,12 +522,22 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         static const int ManualCmdRead_WordCount = 1024;
         QVector<u32> readBuffer;
         readBuffer.resize(ManualCmdRead_WordCount);
+        size_t bytesTransferred;
 
-        auto err = read_words(&m_d->mvlc->getImpl(), CommandPipe, readBuffer);
+        auto ec = m_d->mvlc->read(
+            Pipe::Command,
+            reinterpret_cast<u8 *>(readBuffer.data()),
+            readBuffer.size() * sizeof(u32),
+            bytesTransferred);
+
+        // IMPORTANT: This discards any superfluous bytes.
+        readBuffer.resize(bytesTransferred / sizeof(u32));
+
         if (!readBuffer.isEmpty())
             logBuffer(readBuffer, "Results of manual read from Command Pipe");
-        if (err)
-            logMessage("Read error: " + make_usb_error(err).toString());
+
+        if (ec)
+            logMessage(QString("Read error: %1").arg(ec.message().c_str()));
     });
 
 
@@ -540,12 +547,22 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         static const int ManualDataRead_WordCount = 8192;
         QVector<u32> readBuffer;
         readBuffer.resize(ManualDataRead_WordCount);
+        size_t bytesTransferred;
 
-        auto err = read_words(&m_d->mvlc->getImpl(), DataPipe, readBuffer);
+        auto ec = m_d->mvlc->read(
+            Pipe::Data,
+            reinterpret_cast<u8 *>(readBuffer.data()),
+            readBuffer.size() * sizeof(u32),
+            bytesTransferred);
+
+        // IMPORTANT: This discards any superfluous bytes.
+        readBuffer.resize(bytesTransferred / sizeof(u32));
+
         if (!readBuffer.isEmpty())
             logBuffer(readBuffer, "Results of manual read from Data Pipe");
-        if (err)
-            logMessage("Read error: " + make_usb_error(err).toString());
+
+        if (ec)
+            logMessage(QString("Read error: %1").arg(ec.message().c_str()));
     });
 
     //
@@ -569,7 +586,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
         logMessage("Starting readout");
         // Udpate the readers copy of the usb impl handler thingy
-        m_d->dataReader->setImpl(m_d->mvlc->getImpl());
+        m_d->dataReader->setMVLC(m_d->mvlc);
 
         if (ui->gb_dataOutputFile->isChecked())
         {
@@ -871,8 +888,11 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         u32 cmdQueueSize = 0;
         u32 dataQueueSize = 0;
 
-        get_read_queue_size(&m_d->mvlc->getImpl(), CommandPipe, cmdQueueSize);
-        get_read_queue_size(&m_d->mvlc->getImpl(), DataPipe, dataQueueSize);
+        if (auto usbImpl = dynamic_cast<usb::Impl *>(m_d->mvlc->getImpl()))
+        {
+            usbImpl->get_read_queue_size(Pipe::Command, cmdQueueSize);
+            usbImpl->get_read_queue_size(Pipe::Data, dataQueueSize);
+        }
 
         ui->le_usbCmdReadQueueSize->setText(QString::number(cmdQueueSize));
         ui->le_usbDataReadQueueSize->setText(QString::number(dataQueueSize));
@@ -1055,20 +1075,18 @@ MVLCRegisterWidget::~MVLCRegisterWidget()
 void MVLCRegisterWidget::writeRegister(u16 address, u32 value)
 {
     // TODO: error checking
-    MVLCDialog dlg(m_mvlc->getImpl());
-    auto error = dlg.writeRegister(address, value);
-    if (!error)
-        emit sigLogMessage("Write Register Error: " + error.toString());
+    MVLCDialog dlg(m_mvlc);
+    if (auto ec = dlg.writeRegister(address, value))
+        emit sigLogMessage(QString("Write Register Error: %1").arg(ec.message().c_str()));
 }
 
 u32 MVLCRegisterWidget::readRegister(u16 address)
 {
     // TODO: error checking
-    MVLCDialog dlg(m_mvlc->getImpl());
+    MVLCDialog dlg(m_mvlc);
     u32 value = 0u;
-    auto error = dlg.readRegister(address, value);
-    if (!error)
-        emit sigLogMessage("Read Register Error: " + error.toString());
+    if (auto ec = dlg.readRegister(address, value))
+        emit sigLogMessage(QString("Read Register Error: %1").arg(ec.message().c_str()));
     return value;
 }
 
@@ -1082,20 +1100,19 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
     u32 stackOffset = 0u;
     u32 stackTriggers = 0u;
 
-    MVLCDialog dlg(m_mvlc->getImpl());
-    auto error = dlg.readRegister(offsetRegister, stackOffset);
-    if (!error)
+    MVLCDialog dlg(m_mvlc);
+
+    if (auto ec = dlg.readRegister(offsetRegister, stackOffset))
     {
-        emit sigLogMessage("Read Stack Info Error: " + error.toString());
+        emit sigLogMessage(QString("Read Stack Info Error: %1").arg(ec.message().c_str()));
         return;
     }
 
     stackOffset &= stacks::StackOffsetBitMask;
 
-    error = dlg.readRegister(triggerRegister, stackTriggers);
-    if (!error)
+    if (auto ec = dlg.readRegister(triggerRegister, stackTriggers))
     {
-        emit sigLogMessage("Read Stack Info Error: " + error.toString());
+        emit sigLogMessage(QString("Read Stack Info Error: %1").arg(ec.message().c_str()));
         return;
     }
 
@@ -1114,11 +1131,10 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
 
     u16 reg = stacks::StackMemoryBegin + stackOffset;
     u32 stackHeader = 0u;
-    error = dlg.readRegister(reg, stackHeader);
 
-    if (!error)
+    if (auto ec = dlg.readRegister(reg, stackHeader))
     {
-        emit sigLogMessage("Read Stack Info Error: " + error.toString());
+        emit sigLogMessage(QString("Read Stack Info Error: %1").arg(ec.message().c_str()));
         return;
     }
 
@@ -1138,10 +1154,10 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
         while (stackSize <= StackMaxSize && reg < stacks::StackMemoryEnd)
         {
             u32 value = 0u;
-            error = dlg.readRegister(reg, value);
-            if (!error)
+            if (auto ec = dlg.readRegister(reg, value))
             {
-                emit sigLogMessage("Read Stack Info Error: " + error.toString());
+                emit sigLogMessage(QString("Read Stack Info Error: %1")
+                                   .arg(ec.message().c_str()));
                 return;
             }
 

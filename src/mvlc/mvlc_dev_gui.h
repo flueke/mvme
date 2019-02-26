@@ -48,10 +48,7 @@ class MVLCDataReader: public QObject
 {
     Q_OBJECT
     public:
-        using USB_Impl = mesytec::mvlc::usb::USB_Impl;
-        using MVLCError = mesytec::mvlc::usb::MVLCError;
-
-
+        using MVLCObject = mesytec::mvlc::MVLCObject;
         static const int ReadBufferSize = Megabytes(1);
         static const int ReadTimeout_ms = 250;
 
@@ -72,7 +69,7 @@ class MVLCDataReader: public QObject
         void resetStats();
 
         // not thread safe
-        void setImpl(const USB_Impl &impl);
+        void setMVLC(MVLCObject *mvlc);
         void setOutputDevice(std::unique_ptr<QIODevice> dev);
 
     public slots:
@@ -88,7 +85,7 @@ class MVLCDataReader: public QObject
         void requestNextBuffer();
 
     private:
-        USB_Impl m_impl;
+        MVLCObject *m_mvlc;
         std::atomic<bool> m_doQuit,
                           m_nextBufferRequested;
         FixedSizeBuffer m_readBuffer;

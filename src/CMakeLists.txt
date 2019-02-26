@@ -364,6 +364,7 @@ if(MVME_ENABLE_MVLC)
         mvlc/mvlc_usb_impl.cc
         mvlc/mvlc_impl_factory.cc
         mvlc/mvlc_error.cc
+        mvlc/mvlc_dialog.cc
         )
     target_link_libraries(libmvme ftd3xx)
 

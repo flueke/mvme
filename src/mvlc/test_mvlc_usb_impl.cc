@@ -12,17 +12,17 @@ int main(int argc, char *argv[])
 {
     Impl mvlc(0);
 
-    auto ec = mvlc.open();
+    auto ec = mvlc.connect();
 
     if (ec)
     {
-        assert(!mvlc.is_open());
+        assert(!mvlc.is_connected());
         cerr << ec.category().name() << ": " << ec.message() << endl;
         return 1;
     }
 
-    assert(mvlc.is_open());
+    assert(mvlc.is_connected());
 
-    ec = mvlc.close();
-    assert(!mvlc.is_open());
+    ec = mvlc.disconnect();
+    assert(!mvlc.is_connected());
 }
