@@ -23,6 +23,16 @@ std::error_code make_error_code(FT_STATUS st);
 // MVLCs, etc. Bascially wrappers around FT_CreateDeviceInfoList() and
 // FT_GetDeviceInfoList()
 
+// While the FTDI handle is not being modified multiple threads can access all
+// pipes concurrently.
+// Optionally the fNonThreadSafeTransfer flag can be set per pipe and direction. Then
+// the software must ensure that only one thread accesses each of the pipes
+// simultaneously. It's still ok for one thread to use pipe0 and another to use pipe1.
+//
+//        / Pipe0 / Endpoint 0x02 OUT/0x82 IN - Command Pipe, bidirectional
+// handle
+//        \ Pipe1 / Endpoint 0x83 IN - Data Pipe, read only
+
 class Impl: public AbstractImpl
 {
     public:

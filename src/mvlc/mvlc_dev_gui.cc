@@ -875,7 +875,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         if (std::isnan(mbPerSecond))
             mbPerSecond = 0.0;
 
-        m_d->l_statReadRate->setText(QString("%1 MB/s").arg(mbPerSecond));
+        m_d->l_statReadRate->setText(QString("%1 MB/s").arg(mbPerSecond, 0, 'g', 4));
 
         m_d->prevReaderStats = stats;
         m_d->tLastUpdate = QDateTime::currentDateTime();
