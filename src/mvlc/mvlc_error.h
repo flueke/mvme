@@ -8,7 +8,7 @@ namespace mesytec
 namespace mvlc
 {
 
-enum class MVLCProtocolError
+enum class MVLCErrorCode
 {
     NoError,
     IsOpen,
@@ -24,14 +24,14 @@ enum class MVLCProtocolError
     NoVMEResponse,
 };
 
-std::error_code make_error_code(MVLCProtocolError error);
+std::error_code make_error_code(MVLCErrorCode error);
 
 } // end namespace mvlc
 } // end namespace mesytec
 
 namespace std
 {
-    template<> struct is_error_code_enum<mesytec::mvlc::MVLCProtocolError>: true_type {};
+    template<> struct is_error_code_enum<mesytec::mvlc::MVLCErrorCode>: true_type {};
 } // end namespace std
 
 #endif /* __MVLC_ERROR_H__ */

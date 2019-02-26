@@ -40,7 +40,7 @@ LockPair lock_both(MVLCObject::Mutex &m1, MVLCObject::Mutex &m2)
 
 std::error_code MVLCObject::connect()
 {
-    if (isConnected()) return make_error_code(MVLCProtocolError::IsOpen);
+    if (isConnected()) return make_error_code(MVLCErrorCode::IsOpen);
 
     auto locks = lock_both(cmdMutex(), dataMutex());
 
@@ -54,7 +54,7 @@ std::error_code MVLCObject::connect()
 
 std::error_code MVLCObject::disconnect()
 {
-    if (!isConnected()) return make_error_code(MVLCProtocolError::IsClosed);
+    if (!isConnected()) return make_error_code(MVLCErrorCode::IsClosed);
 
     auto locks = lock_both(cmdMutex(), dataMutex());
 
@@ -99,7 +99,7 @@ std::pair<std::error_code, size_t> MVLCObject::write(Pipe pipe, const QVector<u3
     if (!ec && bytesToTransfer != bytesTransferred)
     {
         return std::make_pair(
-            make_error_code(MVLCProtocolError::ShortWrite),
+            make_error_code(MVLCErrorCode::ShortWrite),
             bytesTransferred);
     }
 

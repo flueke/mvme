@@ -15,17 +15,17 @@ std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &re
 {
     if (request.size()  < 1)
     {
-        return make_error_code(MVLCProtocolError::MirrorEmptyRequest);
+        return make_error_code(MVLCErrorCode::MirrorEmptyRequest);
     }
 
     if (response.size() < 1)
     {
-        return make_error_code(MVLCProtocolError::MirrorEmptyResponse);
+        return make_error_code(MVLCErrorCode::MirrorEmptyResponse);
     }
 
     if (response.size() < request.size() - 1)
     {
-        return make_error_code(MVLCProtocolError::MirrorShortResponse);
+        return make_error_code(MVLCErrorCode::MirrorShortResponse);
     }
 
     int minIndex = 1; // skip buffer header
@@ -34,7 +34,7 @@ std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &re
     for (int i = minIndex; i < maxIndex; i++)
     {
         if (request[i] != response[i])
-            return make_error_code(MVLCProtocolError::MirrorNotEqual);
+            return make_error_code(MVLCErrorCode::MirrorNotEqual);
     }
 
     return {};
@@ -67,10 +67,10 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
         return ec;
 
     if (bytesTransferred != sizeof(header))
-        return make_error_code(MVLCProtocolError::ShortRead);
+        return make_error_code(MVLCErrorCode::ShortRead);
 
     if (!bhv(header))
-        return make_error_code(MVLCProtocolError::InvalidBufferHeader);
+        return make_error_code(MVLCErrorCode::InvalidBufferHeader);
 
     u16 responseLength = (header & BufferSizeMask);
 
@@ -93,7 +93,7 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
             return ec;
 
         if (bytesTransferred != bytesToTransfer)
-            return make_error_code(MVLCProtocolError::ShortRead);
+            return make_error_code(MVLCErrorCode::ShortRead);
     }
 
     return {};
@@ -120,7 +120,7 @@ std::error_code MVLCDialog::readRegister(u32 address, u32 &value)
         return ec;
 
     if (m_responseBuffer.size() < 4)
-        return make_error_code(MVLCProtocolError::UnexpectedResponseSize);
+        return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
 
     value = m_responseBuffer[3];
 
@@ -148,7 +148,7 @@ std::error_code MVLCDialog::writeRegister(u32 address, u32 value)
         return ec;
 
     if (m_responseBuffer.size() != 4)
-        return make_error_code(MVLCProtocolError::UnexpectedResponseSize);
+        return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
 
     return {};
 }
@@ -188,7 +188,7 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
 }
 
 std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, AddressMode amod,
-                                     VMEDataWidth dataWidth)
+                                           VMEDataWidth dataWidth)
 {
     script::MVLCCommandListBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
@@ -204,16 +204,16 @@ std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, AddressMode a
         return ec;
 
     if (m_responseBuffer.size() == 2 && m_responseBuffer[1] == 0xFFFFFFFF)
-        return make_error_code(MVLCProtocolError::NoVMEResponse);
+        return make_error_code(MVLCErrorCode::NoVMEResponse);
 
     if (m_responseBuffer.size() != 1)
-        return make_error_code(MVLCProtocolError::UnexpectedResponseSize);
+        return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
 
     return ec;
 }
 
 std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode amod,
-                                    VMEDataWidth dataWidth)
+                                          VMEDataWidth dataWidth)
 {
     script::MVLCCommandListBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
@@ -229,7 +229,7 @@ std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode a
         return ec;
 
     if (m_responseBuffer.size() != 2)
-        return make_error_code(MVLCProtocolError::UnexpectedResponseSize);
+        return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
 
     value = m_responseBuffer[1];
 
@@ -237,7 +237,7 @@ std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode a
 }
 
 std::error_code MVLCDialog::vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfers,
-                                   QVector<u32> &dest)
+                                         QVector<u32> &dest)
 {
     script::MVLCCommandListBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);

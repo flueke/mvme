@@ -3,7 +3,7 @@
 namespace
 {
 
-class MVLCProtocolErrorCategory: public std::error_category
+class MVLCErrorCategory: public std::error_category
 {
     const char *name() const noexcept
     {
@@ -12,44 +12,44 @@ class MVLCProtocolErrorCategory: public std::error_category
 
     std::string message(int ev) const
     {
-        using mesytec::mvlc::MVLCProtocolError;
+        using mesytec::mvlc::MVLCErrorCode;
 
-        switch (static_cast<MVLCProtocolError>(ev))
+        switch (static_cast<MVLCErrorCode>(ev))
         {
-            case MVLCProtocolError::NoError:
+            case MVLCErrorCode::NoError:
                 return "No Error";
 
-            case MVLCProtocolError::IsOpen:
+            case MVLCErrorCode::IsOpen:
                 return "Device is open";
 
-            case MVLCProtocolError::IsClosed:
+            case MVLCErrorCode::IsClosed:
                 return "Device is closed";
 
-            case MVLCProtocolError::ShortWrite:
+            case MVLCErrorCode::ShortWrite:
                 return "Short write";
 
-            case MVLCProtocolError::ShortRead:
+            case MVLCErrorCode::ShortRead:
                 return "Short read";
 
-            case MVLCProtocolError::MirrorEmptyRequest:
+            case MVLCErrorCode::MirrorEmptyRequest:
                 return "mirror check: empty request";
 
-            case MVLCProtocolError::MirrorEmptyResponse:
+            case MVLCErrorCode::MirrorEmptyResponse:
                 return "mirror check: empty response";
 
-            case MVLCProtocolError::MirrorShortResponse:
+            case MVLCErrorCode::MirrorShortResponse:
                 return "mirror check: response too short";
 
-            case MVLCProtocolError::MirrorNotEqual:
+            case MVLCErrorCode::MirrorNotEqual:
                 return "mirror check: unequal data words";
 
-            case MVLCProtocolError::InvalidBufferHeader:
+            case MVLCErrorCode::InvalidBufferHeader:
                 return "invalid buffer header";
 
-            case MVLCProtocolError::UnexpectedResponseSize:
+            case MVLCErrorCode::UnexpectedResponseSize:
                 return "unexpected response size";
 
-            case MVLCProtocolError::NoVMEResponse:
+            case MVLCErrorCode::NoVMEResponse:
                 return "no VME response";
         }
 
@@ -57,7 +57,7 @@ class MVLCProtocolErrorCategory: public std::error_category
     }
 };
 
-const MVLCProtocolErrorCategory theMVLCProtocolErrorCategory {};
+const MVLCErrorCategory theMVLCErrorCategory {};
 
 } // end anon namespace
 
@@ -66,9 +66,9 @@ namespace mesytec
 namespace mvlc
 {
 
-std::error_code make_error_code(MVLCProtocolError error)
+std::error_code make_error_code(MVLCErrorCode error)
 {
-    return { static_cast<int>(error), theMVLCProtocolErrorCategory };
+    return { static_cast<int>(error), theMVLCErrorCategory };
 }
 
 } // end namespace mvlc
