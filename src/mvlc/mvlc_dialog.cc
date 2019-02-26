@@ -1,8 +1,10 @@
 #include "mvlc/mvlc_dialog.h"
 #include <cassert>
+#include <iostream>
 
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_script.h"
+#include "mvlc/mvlc_util.h"
 
 namespace mesytec
 {
@@ -151,13 +153,11 @@ std::error_code MVLCDialog::writeRegister(u32 address, u32 value)
     return {};
 }
 
-// Upload to Stack0, check upload response, immediate exec the stack and read
-// the response into dest while requiring a StackBuffer response header.
-std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
-                                             QVector<u32> &dest)
+std::error_code MVLCDialog::mirrorTransaction(const QVector<u32> &cmdBuffer,
+                                              QVector<u32> &dest)
 {
     // upload the stack
-    if (auto ec = doWrite(stack))
+    if (auto ec = doWrite(cmdBuffer))
         return ec;
 
     // read the mirror response
@@ -165,7 +165,18 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
         return ec;
 
     // verify the mirror response
-    if (auto ec = check_mirror(stack, dest))
+    return check_mirror(cmdBuffer, dest);
+}
+
+std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
+                                             QVector<u32> &dest)
+{
+    // upload, read mirror, verify mirror
+    if (auto ec = mirrorTransaction(stack, dest))
+        return ec;
+
+    // set the stack offset register
+    if (auto ec = writeRegister(stacks::Stack0OffsetRegister, 0))
         return ec;
 
     // exec the stack
@@ -234,11 +245,16 @@ std::error_code MVLCDialog::vmeBlockRead(u32 address, AddressMode amod, u16 maxT
 
     QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
 
-    auto ec = stackTransaction(request, m_responseBuffer);
+    auto ec = stackTransaction(request, dest);
 
     logBuffer(dest, "vme_block_read response");
 
     return ec;
+}
+
+void MVLCDialog::logBuffer(const QVector<u32> &buffer, const QString &info)
+{
+    log_buffer(std::cerr, buffer.data(), buffer.size(), info.toStdString().c_str());
 }
 
 } // end namespace mvlc
