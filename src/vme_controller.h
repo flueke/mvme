@@ -72,6 +72,7 @@ class LIBMVME_EXPORT VMEError
             UnexpectedAddressMode,
             HostLookupFailed,
             WrongControllerType,
+            StdErrorCode,
         };
 
         VMEError()
@@ -109,6 +110,11 @@ class LIBMVME_EXPORT VMEError
             , m_errorCodeString(codeString)
         {}
 
+        VMEError(const std::error_code &ec)
+            : m_error(StdErrorCode)
+            , m_stdErrorCode(ec)
+        {}
+
         inline bool isError() const { return m_error != NoError; }
         inline bool isTimeout() const { return m_error == Timeout; }
 
@@ -132,6 +138,7 @@ class LIBMVME_EXPORT VMEError
         s32 m_errorCode = 0;
         QString m_message;
         QString m_errorCodeString;
+        std::error_code m_stdErrorCode;
 };
 
 class LIBMVME_EXPORT VMEController: public QObject
