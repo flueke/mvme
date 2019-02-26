@@ -105,5 +105,31 @@ std::pair<std::error_code, size_t> MVLCObject::write(Pipe pipe, const QVector<u3
     return std::make_pair(ec, bytesTransferred);
 }
 
+AbstractImpl *MVLCObject::getImpl()
+{
+    return m_impl.get();
+}
+
+void MVLCObject::setReadTimeout(Pipe pipe, unsigned ms)
+{
+    m_impl->set_read_timeout(pipe, ms);
+}
+
+void MVLCObject::setWriteTimeout(Pipe pipe, unsigned ms)
+{
+    m_impl->set_write_timeout(pipe, ms);
+}
+
+unsigned MVLCObject::getReadTimeout(Pipe pipe) const
+{
+    return m_impl->get_read_timeout(pipe);
+}
+
+unsigned MVLCObject::getWriteTimeout(Pipe pipe) const
+{
+    return m_impl->get_write_timeout(pipe);
+}
+
+
 } // end namespace mvlc
 } // end namespace mesytec

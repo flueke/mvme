@@ -32,6 +32,7 @@ class MVLCObject: public QObject
         virtual ~MVLCObject();
 
         bool isConnected() const;
+        State getState() const { return m_state; }
 
         std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
                               size_t &bytesTransferred);
@@ -40,6 +41,13 @@ class MVLCObject: public QObject
                              size_t &bytesTransferred);
 
         std::pair<std::error_code, size_t> write(Pipe pipe, const QVector<u32> &buffer);
+
+        AbstractImpl *getImpl();
+
+        void setReadTimeout(Pipe pipe, unsigned ms);
+        void setWriteTimeout(Pipe pipe, unsigned ms);
+        unsigned getReadTimeout(Pipe pipe) const;
+        unsigned getWriteTimeout(Pipe pipe) const;
 
     public slots:
         std::error_code connect();
