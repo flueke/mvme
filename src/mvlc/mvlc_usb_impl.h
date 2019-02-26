@@ -39,6 +39,9 @@ class Impl: public AbstractImpl
         // Open the MVLC with the given serial number
         // TODO: explicit Impl(const std::string &serial);
 
+        // Disconnects if connected
+        ~Impl();
+
         std::error_code connect() override;
         std::error_code disconnect() override;
         bool is_connected() const override;
@@ -46,13 +49,16 @@ class Impl: public AbstractImpl
         void set_write_timeout(Pipe pipe, unsigned ms) override;
         void set_read_timeout(Pipe pipe, unsigned ms) override;
 
+        unsigned get_write_timeout(Pipe pipe) const override;
+        unsigned get_read_timeout(Pipe pipe) const override;
+
         std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
                               size_t &bytesTransferred) override;
 
         std::error_code read(Pipe pipe, u8 *buffer, size_t size,
                              size_t &bytesTransferred) override;
 
-        ~Impl();
+        std::error_code get_read_queue_size(Pipe pipe, u32 &dest);
 
     private:
         struct ConnectMode

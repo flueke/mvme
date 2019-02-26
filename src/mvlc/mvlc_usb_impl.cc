@@ -183,6 +183,18 @@ void Impl::set_read_timeout(Pipe pipe, unsigned ms)
     m_readTimeouts[static_cast<unsigned>(pipe)] = ms;
 }
 
+unsigned Impl::get_write_timeout(Pipe pipe) const
+{
+    if (static_cast<unsigned>(pipe) >= PipeCount) return 0u;
+    return m_writeTimeouts[static_cast<unsigned>(pipe)];
+}
+
+unsigned Impl::get_read_timeout(Pipe pipe) const
+{
+    if (static_cast<unsigned>(pipe) >= PipeCount) return 0u;
+    return m_readTimeouts[static_cast<unsigned>(pipe)];
+}
+
 std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
                             size_t &bytesTransferred)
 {
@@ -193,6 +205,9 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     // TODO: do this under windows
     //    FT_SetPipeTimeout(m_handle, get_endpoint(pipe, EndpointDirection::OUT),
     //                      ms);
+#ifdef Q_OS_WIN
+#error "Set timeout here"
+#endif
 
     u8 fifo = get_fifo_id(pipe);
     ULONG transferred = 0; // FT API needs a ULONG*
@@ -223,6 +238,12 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     bytesTransferred = transferred;
 
+    return make_error_code(st);
+}
+
+std::error_code Impl::get_read_queue_size(Pipe pipe, u32 &dest)
+{
+    FT_STATUS st = FT_GetReadQueueStatus(m_handle, get_fifo_id(pipe), &dest);
     return make_error_code(st);
 }
 
