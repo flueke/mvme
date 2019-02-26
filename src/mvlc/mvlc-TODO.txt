@@ -1,14 +1,5 @@
-/*
 * add a vme script command for the WriteSpecial stack command
 * test the Marker stack command
-
-* system load seems quite high.
-  - try thread safe mode for the Data pipes input direction.
-  - try a release build.
-  - run with gprof
-  - try other I/O stats tools
-  - MAYBE TRY STOPPING THE WINDOWS VM AND ALL THE OTHER STUFF! :-)
-    Currently the "idle state" load is 0.68...
 
 * Low Level MVLC Ethernet Debugging:
 
@@ -23,39 +14,3 @@
 
   To delete the arp entry:
     arp -i enp2s0 -d 192.168.42.2
-
-*/
-
-#include "typedefs.h"
-
-struct USB
-{
-    // FTDI handle. Access needs to be synchronized.
-    void *handle;
-    // While the handle is not being modified multiple threads can access all pipes
-    // concurrently.
-    // Optionally the fNonThreadSafeTransfer flag can be set per pipe and direction. Then
-    // the software must ensure that only one thread accesses each of the pipes
-    // simultaneously. It's still ok for one thread to use pipe0 and another to use pipe1.
-    //
-    //        / Pipe0 / Endpoint 0x02 OUT/0x82 IN - Command Pipe, bidirectional
-    // handle
-    //        \ Pipe1 / Endpoint 0x83 IN - Data Pipe, read only
-
-    // Pipe read and write timeouts. Under Linux these have to  be passed on every call to
-    // FT_ReadPipeEx/FT_WritePipeEx.
-    // Under Windows use FT_SetPipeTimeout after opening the device and then call
-    // FT_ReadPipe/FT_WritePipe.
-    u32 readTimeout_ms = 5000;
-    u32 writeTimeout_ms = 5000;
-};
-
-struct UDP
-{
-    int commandSocket;
-    int dataSocket;
-};
-
-
-
-// vim:ft=cpp
