@@ -1,3 +1,17 @@
+* Build a periodic CmdPipe reader using QTimer and QtConcurrent::run.
+  Test this with a small timeout and using the MVLCDialog in parallel. The periodic reader
+  should never receive any of the dialog data.
+  FIXME: the locking as it is done right now does not protect against the periodic reader
+  jumping in between action the dialog code performs. The dialog operations are not atomic
+  at all....
+
+* Build a tool to verify incoming readout data. Check headers and pointers. Test this with
+  different incoming event sizes.
+  For the first pass it's ok to do this offline.
+
+* Refactor VMEConfigTreeWidget to not depend on MVMEContext anymore.
+
+
 * add a vme script command for the WriteSpecial stack command
 * test the Marker stack command
 

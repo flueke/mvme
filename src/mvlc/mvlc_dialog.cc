@@ -70,7 +70,12 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
         return make_error_code(MVLCErrorCode::ShortRead);
 
     if (!bhv(header))
+    {
+        // Store the erroneous header in the dest buffer for inspection.
+        dest.resize(1);
+        dest[0] = header;
         return make_error_code(MVLCErrorCode::InvalidBufferHeader);
+    }
 
     u16 responseLength = (header & BufferSizeMask);
 
@@ -231,7 +236,9 @@ std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode a
     if (m_responseBuffer.size() != 2)
         return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
 
-    value = m_responseBuffer[1];
+    const u32 Mask = (dataWidth == VMEDataWidth::D16 ? 0x0000FFFF : 0xFFFFFFFF);
+
+    value = m_responseBuffer[1] & Mask;
 
     return ec;
 }

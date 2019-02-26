@@ -530,10 +530,12 @@ void MVLCCommandListBuilder::addVMEWrite(u32 address, u32 value, AddressMode amo
     if (is_block_amod(amod))
         throw std::runtime_error("Invalid address modifier for single write operation");
 
+    const u32 Mask = (dataWidth == VMEDataWidth::D16 ? 0x0000FFFF : 0xFFFFFFFF);
+
     vme_script::Command command;
     command.type = vme_script::CommandType::Write;
     command.address = address;
-    command.value = value;
+    command.value = value & Mask;
     command.addressMode = convert_amod(amod);
     command.dataWidth = convert_data_width(dataWidth);
 
@@ -593,12 +595,9 @@ QVector<u32> to_mvlc_buffer(const Command &cmd)
 
                 QVector<u32> result;
                 result.reserve(uploadStack.size());
-                //result.append(commands::StackStart << CmdShift);
 
                 for (u32 word: uploadStack)
                     result.append(word);
-
-                //result.append(commands::StackEnd << CmdShift);
 
                 return result;
             }

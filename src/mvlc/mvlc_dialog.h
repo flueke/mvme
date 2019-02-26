@@ -52,6 +52,10 @@ class MVLCDialog
         std::error_code stackTransaction(const QVector<u32> &stackUploadData,
                                          QVector<u32> &responseDest);
 
+        // Returns the response buffer which will contain the contents of the
+        // last read from the MVLC.
+        QVector<u32> getResponseBuffer() const { return m_responseBuffer; }
+
     private:
         std::error_code doWrite(const QVector<u32> &buffer);
 
