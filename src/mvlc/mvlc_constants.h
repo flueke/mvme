@@ -77,7 +77,7 @@ namespace buffer_types
         StackError  = 0xF7,
     };
 
-    u8 TypeShift = 24;
+    static const u8 TypeShift = 24;
 }
 
 // These equal the actual VME "private" address modes for the respective
