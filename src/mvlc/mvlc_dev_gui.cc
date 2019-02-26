@@ -159,8 +159,14 @@ void MVLCDataReader::readoutLoop()
 
         // FIXME: use error_category to not depend on usb specific constants
         // here! We don't know if the impl is USB or UDP.
+        // The codes in the test can show up if either there's no connection or
+        // the cable is unplugged or the MVLC is powered down or another
+        // program is using the device.
+        // If the loop is not exited here it can lead to 100% CPU usage because
+        // the device read will return immediately.
         if (ec.value() == FT_DEVICE_NOT_CONNECTED
-            || ec.value() == FT_INVALID_HANDLE)
+            || ec.value() == FT_INVALID_HANDLE
+            || ec.value() == FT_IO_ERROR)
         {
             emit message("Lost connection to MVLC. Leaving readout loop.");
             break;
