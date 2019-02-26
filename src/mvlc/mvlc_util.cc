@@ -77,9 +77,9 @@ bool is_block_amod(AddressMode amod)
     return false;
 }
 
-std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
+QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
 {
-    std::vector<u32> result;
+    QVector<u32> result;
 
     u32 firstWord = commands::StackStart << CmdShift | outPipe << CmdArg0Shift;
     result.push_back(firstWord);
@@ -166,16 +166,16 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
     return result;
 }
 
-std::vector<u32> build_upload_commands(const vme_script::VMEScript &script, u8 outPipe,
-                                       u16 startAddress)
+QVector<u32> build_upload_commands(const vme_script::VMEScript &script, u8 outPipe,
+                                   u16 startAddress)
 {
     auto stack = build_stack(script, outPipe);
     return build_upload_commands(stack, startAddress);
 }
 
-std::vector<u32> build_upload_commands(const std::vector<u32> &stack, u16 startAddress)
+QVector<u32> build_upload_commands(const QVector<u32> &stack, u16 startAddress)
 {
-    std::vector<u32> result;
+    QVector<u32> result;
     result.reserve(stack.size() * 2);
 
     u16 address = startAddress;
@@ -192,16 +192,16 @@ std::vector<u32> build_upload_commands(const std::vector<u32> &stack, u16 startA
     return result;
 }
 
-std::vector<u32> build_upload_command_buffer(const vme_script::VMEScript &script, u8 outPipe,
-                                             u16 startAddress)
+QVector<u32> build_upload_command_buffer(const vme_script::VMEScript &script, u8 outPipe,
+                                         u16 startAddress)
 {
     auto stack = build_stack(script, outPipe);
     return build_upload_command_buffer(stack, startAddress);
 }
 
-std::vector<u32> build_upload_command_buffer(const std::vector<u32> &stack, u16 startAddress)
+QVector<u32> build_upload_command_buffer(const QVector<u32> &stack, u16 startAddress)
 {
-    std::vector<u32> result;
+    QVector<u32> result;
     auto uploadData = build_upload_commands(stack, startAddress);
     result.reserve(uploadData.size() + 2);
     result.push_back(super_commands::CmdBufferStart << SuperCmdShift);
