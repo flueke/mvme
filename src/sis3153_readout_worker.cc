@@ -149,6 +149,7 @@ namespace
                 case  CommandType::VMUSB_ReadRegister:
                 case  CommandType::VMUSB_WriteRegister:
                 case CommandType::Blk2eSST64:
+                case CommandType::MVLC_WriteSpecial:
                     break;
 
                 case  CommandType::Invalid:
@@ -445,6 +446,7 @@ namespace
                 case  CommandType::VMUSB_ReadRegister:
                 case  CommandType::VMUSB_WriteRegister:
                 case  CommandType::Blk2eSST64:
+                case  CommandType::MVLC_WriteSpecial:
                     break;
 
                 case  CommandType::Invalid:
