@@ -24,9 +24,6 @@ class MVLCObject: public QObject
             Connected,
         };
 
-        using Mutex = std::mutex;
-        using LockGuard = std::lock_guard<Mutex>;
-        using UniqueLock = std::unique_lock<Mutex>;
 
     signals:
         void stateChanged(const State &oldState, const State &newState);
@@ -53,12 +50,6 @@ class MVLCObject: public QObject
         unsigned getReadTimeout(Pipe pipe) const;
         unsigned getWriteTimeout(Pipe pipe) const;
 
-        Mutex &cmdMutex() { return m_cmdMutex; }
-        Mutex &dataMutex() { return m_dataMutex; }
-        Mutex &getMutex(Pipe pipe)
-        {
-            return pipe == Pipe::Data ? dataMutex() : cmdMutex();
-        }
 
     public slots:
         std::error_code connect();
@@ -69,8 +60,6 @@ class MVLCObject: public QObject
 
         std::unique_ptr<AbstractImpl> m_impl;
         State m_state;
-        mutable Mutex m_cmdMutex;
-        mutable Mutex m_dataMutex;
 };
 
 } // end namespace mvlc

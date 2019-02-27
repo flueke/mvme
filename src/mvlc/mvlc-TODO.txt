@@ -1,9 +1,38 @@
-* Build a periodic CmdPipe reader using QTimer and QtConcurrent::run.
-  Test this with a small timeout and using the MVLCDialog in parallel. The periodic reader
-  should never receive any of the dialog data.
-  FIXME: the locking as it is done right now does not protect against the periodic reader
-  jumping in between action the dialog code performs. The dialog operations are not atomic
-  at all....
+* Change the Dialog code to handle notification buffers. These could either be emitted via
+  signal if it's made a QObject or be stored in a notification buffer and queried by the
+  user after a transaction (implement this first and if needed put a Qt layer on top).
+
+* Where to do the locking? In some higher level layer and make sure that all communication
+  goes through that layer?
+  Or at the very lowest layer, the AbstractImpl? This could carry two locks, be changed to
+  have protected virtuals for the implementation and do the locking in it's concrete
+  public implementation.
+
+  But this would still not solve the problem of having a sort of transaction lock for the
+  dialog part.
+
+  Should the dialog part be called "Session"? Protocol? Request/Response?
+
+  => Do locking on a higher level layer. This way lower level code doesn't need to worry
+  about locks if it's not threaded. Also the use case is not abstract but specific:
+  Main (GUI) Thread
+    MVLC connection
+      - dialog operation for setup and immediate stack exec
+        Users: vme init layer, vme debug widget, direct script exec, any tools actually
+        using the mvlc :-)
+        Can be done blocking in a batch program, should be done using QtConcurrent::run()
+        or similar in a GUI application.
+      - Periodic polling of the Command Pipe to read notifications.
+      => One "Session" lock in the GUI app. Locked when doing Command Pipe transactions.
+
+   Readout Thread:
+     - Read-only operation on the Data Pipe. Long running.
+     => One "Data Lock" in the GUI app.
+
+   Global Operations on the MVLC: connect, disconnect and a combined (reconnect).
+     - Requires that both the cmd and the data lock are held by the thread wanting to
+       modify the underlying handles (one for ftd3xx, two for a UDP socket
+       implementation).
 
 * Build a tool to verify incoming readout data. Check headers and pointers. Test this with
   different incoming event sizes.
