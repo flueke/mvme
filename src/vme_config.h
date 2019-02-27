@@ -305,4 +305,6 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
 LIBMVME_EXPORT std::pair<std::unique_ptr<VMEConfig>, QString>
     read_vme_config_from_file(const QString &filename);
 
+QString make_unique_module_name(const QString &prefix, const VMEConfig *vmeConfig);
+
 #endif

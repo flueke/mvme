@@ -752,7 +752,7 @@ void VMEConfigTreeWidget::addEvent()
 {
     auto config = new EventConfig;
     config->setObjectName(QString("event%1").arg(m_config->getEventConfigs().size()));
-    EventConfigDialog dialog(m_context, m_context->getVMEController(), config, this);
+    EventConfigDialog dialog(m_context->getVMEController(), config, this);
     dialog.setWindowTitle(QSL("Add Event"));
     int result = dialog.exec();
 
@@ -828,7 +828,7 @@ void VMEConfigTreeWidget::editEvent()
     if (node && node->type() == NodeType_Event)
     {
         auto eventConfig = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
-        EventConfigDialog dialog(m_context, m_context->getVMEController(), eventConfig, this);
+        EventConfigDialog dialog(m_context->getVMEController(), eventConfig, this);
         dialog.setWindowTitle(QSL("Edit Event"));
         dialog.exec();
     }
@@ -849,7 +849,7 @@ void VMEConfigTreeWidget::addModule()
         bool doExpand = (event->getModuleConfigs().size() == 0);
 
         auto module = std::make_unique<ModuleConfig>();
-        ModuleConfigDialog dialog(m_context, module.get(), this);
+        ModuleConfigDialog dialog(module.get(), m_config, this);
         dialog.setWindowTitle(QSL("Add Module"));
         int result = dialog.exec();
 
@@ -912,7 +912,7 @@ void VMEConfigTreeWidget::editModule()
     if (node)
     {
         auto moduleConfig = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
-        ModuleConfigDialog dialog(m_context, moduleConfig, this);
+        ModuleConfigDialog dialog(moduleConfig, m_config, this);
         dialog.setWindowTitle(QSL("Edit Module"));
         dialog.exec();
     }

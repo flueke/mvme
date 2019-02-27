@@ -47,8 +47,8 @@ class EventConfigDialog: public QDialog
 {
     Q_OBJECT
     public:
-        EventConfigDialog(MVMEContext *context, VMEController *controller,
-                          EventConfig *config, QWidget *parent = 0);
+        EventConfigDialog(VMEController *controller, EventConfig *config,
+                          QWidget *parent = 0);
         ~EventConfigDialog();
 
         EventConfig *getConfig() const { return m_config; }
@@ -73,7 +73,8 @@ class ModuleConfigDialog: public QDialog
 {
     Q_OBJECT
     public:
-        ModuleConfigDialog(MVMEContext *context, ModuleConfig *module, QWidget *parent = 0);
+        ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vmeConfig,
+                           QWidget *parent = 0);
 
         ModuleConfig *getModule() const { return m_module; }
 
@@ -83,8 +84,8 @@ class ModuleConfigDialog: public QDialog
         QLineEdit *nameEdit;
         QLineEdit *addressEdit;
 
-        MVMEContext *m_context;
         ModuleConfig *m_module;
+        const VMEConfig *m_vmeConfig;
         QVector<vats::VMEModuleMeta> m_moduleMetas;
 };
 

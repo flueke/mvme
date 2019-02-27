@@ -877,3 +877,25 @@ std::pair<std::unique_ptr<VMEConfig>, QString>
     result.first  = std::move(vmeConfig);
     return result;
 }
+
+QString make_unique_module_name(const QString &prefix, const VMEConfig *vmeConfig)
+{
+    auto moduleConfigs = vmeConfig->getAllModuleConfigs();
+    QSet<QString> moduleNames;
+
+    for (auto cfg: moduleConfigs)
+    {
+        if (cfg->objectName().startsWith(prefix))
+        {
+            moduleNames.insert(cfg->objectName());
+        }
+    }
+
+    QString result = prefix;
+    u32 suffix = 0;
+    while (moduleNames.contains(result))
+    {
+        result = QString("%1_%2").arg(prefix).arg(suffix++);
+    }
+    return result;
+}

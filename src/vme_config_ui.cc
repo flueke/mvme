@@ -21,7 +21,6 @@
 #include "vme_config_ui.h"
 #include "analysis/analysis.h"
 #include "data_filter_edit.h"
-#include "mvme_context.h"
 #include "qt-collapsible-section/Section.h"
 #include "vme_config.h"
 #include "vme_script.h"
@@ -71,11 +70,10 @@ struct EventConfigDialogPrivate
                    *spin_sis3153TimerPeriod;
 };
 
-EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *controller,
-                                     EventConfig *config, QWidget *parent)
+EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *config,
+                                     QWidget *parent)
     : QDialog(parent)
     , m_d(new EventConfigDialogPrivate)
-    , m_context(context)
     , m_controller(controller)
     , m_config(config)
 {
@@ -187,17 +185,6 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
     }
 
     loadFromConfig();
-
-    auto handleContextStateChange = [this] {
-        auto daqState = m_context->getDAQState();
-        auto globalMode = m_context->getMode();
-        setReadOnly(daqState != DAQState::Idle || globalMode == GlobalMode::ListFile);
-    };
-
-    connect(context, &MVMEContext::daqStateChanged, this, handleContextStateChange);
-    connect(context, &MVMEContext::modeChanged, this, handleContextStateChange);
-
-    handleContextStateChange();
 }
 
 EventConfigDialog::~EventConfigDialog()
@@ -220,7 +207,7 @@ void EventConfigDialog::loadFromConfig()
     m_d->spin_irqLevel->setValue(config->irqLevel);
     m_d->spin_irqVector->setValue(config->irqVector);
 
-    switch (m_context->getVMEController()->getType())
+    switch (m_controller->getType())
     {
         case VMEControllerType::VMUSB:
             {
@@ -245,7 +232,7 @@ void EventConfigDialog::saveToConfig()
     config->irqLevel = static_cast<uint8_t>(m_d->spin_irqLevel->value());
     config->irqVector = static_cast<uint8_t>(m_d->spin_irqVector->value());
 
-    switch (m_context->getVMEController()->getType())
+    switch (m_controller->getType())
     {
         case VMEControllerType::VMUSB:
             {
@@ -278,10 +265,11 @@ void EventConfigDialog::setReadOnly(bool readOnly)
 //
 // ModuleConfigDialog
 //
-ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *module, QWidget *parent)
+ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vmeConfig,
+                                       QWidget *parent)
     : QDialog(parent)
-    , m_context(context)
     , m_module(module)
+    , m_vmeConfig(vmeConfig)
 {
     setWindowTitle(QSL("Module Config"));
     MVMETemplates templates = read_templates();
@@ -377,7 +365,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 
         if (name.isEmpty())
         {
-            name = m_context->getUniqueModuleName(mm.typeName);
+            name = make_unique_module_name(mm.typeName, m_vmeConfig);
         }
 
         nameEdit->setText(name);
