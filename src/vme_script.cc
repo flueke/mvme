@@ -391,6 +391,41 @@ Command parse_VMUSB_read_reg(const QStringList &args, int lineNumber)
     return result;
 }
 
+Command parse_mvlc_writespecial(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("mvlc_writespecial ('timestamp'|'stack_triggers'|<numeric_special_value>)");
+
+    if (args.size() != 2)
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = commandType_from_string(args[0]);
+
+    if (args[1] == "timestamp")
+    {
+        result.value = static_cast<u32>(MVLCSpecialWord::Timestamp);
+    }
+    else if (args[1] == "stack_triggers")
+    {
+        result.value = static_cast<u32>(MVLCSpecialWord::StackTriggers);
+    }
+    else
+    {
+        // try reading a numeric value and assign it directly
+        try
+        {
+            result.value = parseValue(args[1]);
+        }
+        catch (...)
+        {
+            throw ParseError(QString("Could not parse type argument to mvlc_writespecial"),
+                             lineNumber);
+        }
+    }
+
+    return result;
+}
+
 typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
 
 static const QMap<QString, CommandParser> commandParsers =
@@ -416,6 +451,8 @@ static const QMap<QString, CommandParser> commandParsers =
 
     { QSL("vmusb_write_reg"),    parse_VMUSB_write_reg },
     { QSL("vmusb_read_reg"),     parse_VMUSB_read_reg },
+
+    { QSL("mvlc_writespecial"),     parse_mvlc_writespecial },
 };
 
 static QString handle_multiline_comments(QString line, bool &in_multiline_comment)
@@ -624,6 +661,7 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::ResetBase,           QSL("resetbase") },
     { CommandType::VMUSB_WriteRegister, QSL("vmusb_write_reg") },
     { CommandType::VMUSB_ReadRegister,  QSL("vmusb_read_reg") },
+    { CommandType::MVLC_WriteSpecial,   QSL("mvlc_writespecial") },
 };
 
 QString to_string(CommandType commandType)
@@ -671,6 +709,17 @@ QString to_string(AddressMode addressMode)
 QString to_string(DataWidth dataWidth)
 {
     return dataWidthToString.value(dataWidth, QSL("unknown"));
+}
+
+QString to_string(MVLCSpecialWord sw)
+{
+    switch (sw)
+    {
+        case MVLCSpecialWord::Timestamp: return "Timestamp";
+        case MVLCSpecialWord::StackTriggers: return "StackTriggers";
+    }
+
+    return "Unrecognized MVLC special word";
 }
 
 QString to_string(const Command &cmd)
@@ -770,6 +819,14 @@ QString to_string(const Command &cmd)
                     .arg(format_hex(cmd.address))
                     .arg(getRegisterName(cmd.address));
             } break;
+
+        case CommandType::MVLC_WriteSpecial:
+            {
+                auto specialStr = to_string(static_cast<MVLCSpecialWord>(cmd.value));
+                buffer = QSL("%1 %2")
+                    .arg(cmdStr)
+                    .arg(specialStr);
+            } break;
     }
 
     return buffer;
@@ -792,6 +849,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::ResetBase:
         case CommandType::VMUSB_WriteRegister:
         case CommandType::VMUSB_ReadRegister:
+        case CommandType::MVLC_WriteSpecial:
             break;
 
         case CommandType::Read:
@@ -1152,6 +1210,14 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                 result.error = VMEError(VMEError::WrongControllerType,
                                         QSL("VMUSB controller required"));
             } break;
+
+        case CommandType::MVLC_WriteSpecial:
+            {
+                auto msg = QSL("mvlc_writespecial is not supported by vme_script::run_command().");
+                result.error = VMEError(VMEError::UnsupportedCommand, msg);
+                if (logger) logger(msg);
+            }
+            break;
     }
 
     return result;
@@ -1177,6 +1243,7 @@ QString format_result(const Result &result)
         case CommandType::Marker:
         case CommandType::SetBase:
         case CommandType::ResetBase:
+        case CommandType::MVLC_WriteSpecial:
             break;
 
         case CommandType::Write:

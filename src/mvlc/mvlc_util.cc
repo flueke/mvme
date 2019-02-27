@@ -152,10 +152,22 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
                     result.push_back(cmd.value);
                 } break;
 
-            default:
+            case CommandType::MVLC_WriteSpecial:
+                {
+                    firstWord = commands::WriteSpecial << CmdShift;
+                    firstWord |= cmd.value & 0x00FFFFFFu;
+                    result.push_back(firstWord);
+                } break;
+
+            case CommandType::Wait:
+            case CommandType::BLTCount:
+            case CommandType::BLTFifoCount:
+            case CommandType::MBLTCount:
+            case CommandType::MBLTFifoCount:
+            case CommandType::VMUSB_ReadRegister:
+            case CommandType::VMUSB_WriteRegister:
                 qDebug() << __FUNCTION__ << " unsupported VME Script command:"
                     << to_string(cmd.type);
-                assert(false);
                 break;
         }
     }

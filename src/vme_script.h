@@ -63,6 +63,8 @@ enum class CommandType
 
     VMUSB_WriteRegister,
     VMUSB_ReadRegister,
+
+    MVLC_WriteSpecial, // type is stored in Command.value
 };
 
 enum class AddressMode
@@ -85,12 +87,18 @@ enum Blk2eSSTRate: u8
     Rate300MB,
 };
 
+enum class MVLCSpecialWord: u8
+{
+    Timestamp     = 0x0,
+    StackTriggers = 0x1,
+};
+
 struct Command
 {
     CommandType type = CommandType::Invalid;
     AddressMode addressMode = AddressMode::A32;
     u8 addressModeRaw = 0x0D; // a32 priv // XXX: refactor mvme to also carry the raw mode
-                              // and later on get rid of the AddressMode num and all the conversions
+                              // and later on get rid of the AddressMode enum and all the conversions
                               // done in different layers.
     DataWidth dataWidth = DataWidth::D16;
     uint32_t address = 0;

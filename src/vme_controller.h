@@ -72,7 +72,8 @@ class LIBMVME_EXPORT VMEError
             UnexpectedAddressMode,
             HostLookupFailed,
             WrongControllerType,
-            StdErrorCode,
+            StdErrorCode,       // Used by the MVLC implementation
+            UnsupportedCommand, // Used by vme_script::run_command()
         };
 
         VMEError()
