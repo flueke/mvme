@@ -458,16 +458,26 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
             {
                 logMessage(QString("Error performing MVLC mirror transaction: %1")
                            .arg(ec.message().c_str()));
+
+                if (!logRequest)
+                {
+                    // In case of a mirror check error do log the request
+                    // buffer but only if it hasn not been logged yet.
+                    logBuffer(cmdBuffer, "Outgoing Request Buffer");
+                }
+                logBuffer(responseBuffer, "Incoming Erroneous Mirror Buffer");
                 return;
             }
 
-            if (!logRequest && !logMirror)
+            if (logMirror)
             {
-                // Log a short message if none of the buffers where logged.
-                logMessage(QString("Sent %1 words, received %2 words, mirror check ok.")
-                           .arg(cmdBuffer.size())
-                           .arg(responseBuffer.size()));
+                logBuffer(responseBuffer, "Incoming Mirror Buffer");
             }
+
+            // Log a short message after any buffers have been logged.
+            logMessage(QString("Sent %1 words, received %2 words, mirror check ok.")
+                       .arg(cmdBuffer.size())
+                       .arg(responseBuffer.size()));
 
             if (ui->cb_scriptReadStack->isChecked())
             {
