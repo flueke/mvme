@@ -18,7 +18,7 @@
   <property name="windowTitle">
    <string>MVLC Dev UI</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_3">
+  <layout class="QVBoxLayout" name="verticalLayout_3" stretch="1,0">
    <property name="spacing">
     <number>2</number>
    </property>
