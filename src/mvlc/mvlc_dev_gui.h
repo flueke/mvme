@@ -24,6 +24,23 @@ struct FixedSizeBuffer
 
 FixedSizeBuffer make_buffer(size_t capacity);
 
+enum class FrameCheckResult: u8
+{
+    Ok,
+    NeedMoreData,       // frame crosses buffer boundary
+    HeaderMatchFailed,  // hit something else than F3
+};
+
+struct FrameCheckData
+{
+    size_t nextHeaderOffset;
+    size_t framesChecked;
+    size_t framesWithContinueFlag;
+    std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
+};
+
+FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data);
+
 struct ReaderStats
 {
     enum CounterEnum
@@ -32,6 +49,9 @@ struct ReaderStats
         NumberOfAttemptedReads,
         NumberOfTimeouts,
         NumberOfErrors,
+        FramesSeen,
+        FramesCrossingBuffers,
+        FramesWithContinueFlag,
 
         CountersCount,
     };
@@ -39,6 +59,7 @@ struct ReaderStats
     size_t counters[CountersCount];
     // Histogram of incoming read size -> number of reads
     QHash<size_t, size_t> readBufferSizes;
+    std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
 };
 
 const char *reader_stat_name(ReaderStats::CounterEnum counter);
@@ -48,7 +69,8 @@ class MVLCDataReader: public QObject
     Q_OBJECT
     public:
         using MVLCObject = mesytec::mvlc::MVLCObject;
-        static const int ReadBufferSize = Megabytes(1);
+        //static const int ReadBufferSize = Megabytes(1);
+        static const size_t ReadBufferSize = Kilobytes(64);
         static const int ReadTimeout_ms = 250;
 
     signals:
@@ -59,7 +81,6 @@ class MVLCDataReader: public QObject
 
     public:
         MVLCDataReader(QObject *parent = nullptr);
-        //MVLCDataReader(const USB_Impl &impl, QObject *parent = nullptr);
         virtual ~MVLCDataReader();
 
         // thread safe
@@ -67,12 +88,14 @@ class MVLCDataReader: public QObject
         ReaderStats getAndResetStats();
         void resetStats();
 
-        // not thread safe
+        // not thread safe - must be done before entering readoutLoop
         void setMVLC(MVLCObject *mvlc);
         void setOutputDevice(std::unique_ptr<QIODevice> dev);
+        void setStackFrameCheckEnabled(bool enable);
 
     public slots:
-        // Runs until stop() is invoked from the outside.
+        // Runs until stop() is invoked from the outside. This is a blocking
+        // call.
         void readoutLoop();
 
         // Thread safe, sets an atomic flag which makes readoutLoop() return.
@@ -91,6 +114,7 @@ class MVLCDataReader: public QObject
         mutable QMutex m_statsMutex;
         ReaderStats m_stats = {};
         std::unique_ptr<QIODevice> m_outDevice;
+        FrameCheckData m_frameCheckData = {};
 };
 
 namespace Ui

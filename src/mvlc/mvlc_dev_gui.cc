@@ -57,6 +57,12 @@ const char *reader_stat_name(ReaderStats::CounterEnum counter)
             return "NumberOfTimeouts";
         case ReaderStats::NumberOfErrors:
             return "NumberOfErrors";
+        case ReaderStats::FramesSeen:
+            return "FramesSeen";
+        case ReaderStats::FramesCrossingBuffers:
+            return "FramesCrossingBuffers";
+        case ReaderStats::FramesWithContinueFlag:
+            return "FramesWithContinueFlag";
 
         case ReaderStats::CountersCount:
             return "INVALID COUNTER";
@@ -76,21 +82,10 @@ MVLCDataReader::MVLCDataReader(QObject *parent)
     : QObject(parent)
     , m_doQuit(false)
     , m_nextBufferRequested(false)
-    , m_readBuffer(make_buffer(USBSingleTransferMaxBytes))
+    , m_readBuffer(make_buffer(ReadBufferSize))
 {
     qDebug() << ">>> created" << this;
 }
-
-#if 0
-MVLCDataReader::MVLCDataReader(const USB_Impl &impl, QObject *parent)
-    : QObject(parent)
-    , m_impl(impl)
-{
-    m_readBuffer.reserve(ReadBufferSize);
-    m_impl.readTimeout_ms = ReadTimeout_ms;
-    qDebug() << ">>> created" << this;
-}
-#endif
 
 MVLCDataReader::~MVLCDataReader()
 {
@@ -135,10 +130,59 @@ void MVLCDataReader::setOutputDevice(std::unique_ptr<QIODevice> dev)
     m_outDevice = std::move(dev);
 }
 
+FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data)
+{
+    const u32 *buffp = reinterpret_cast<const u32 *>(buffer.data.get());
+    const u32 *endp  = buffp + buffer.used / sizeof(u32);
+
+    while (true)
+    {
+        const u32 *nextp = buffp + data.nextHeaderOffset;
+
+        if (nextp >= endp)
+        {
+            data.nextHeaderOffset = nextp - endp;
+
+            if (nextp == endp)
+            {
+                ++data.framesChecked;
+                return FrameCheckResult::Ok;
+            }
+
+            return FrameCheckResult::NeedMoreData;
+        }
+
+        const u32 header = *nextp;
+
+        if (!is_stack_buffer(header))
+        {
+            // leave nextHeaderOffset unmodified for inspection
+            return FrameCheckResult::HeaderMatchFailed;
+        }
+
+        const u16 len = header & 0xFFFF;
+        const u8 stackId = (header >> 16) & 0x0F;
+        const u8 flags   = (header >> 20) & 0x0F;
+
+        if (stackId < stacks::StackCount)
+            ++data.stackHits[stackId];
+
+        if (flags & (1u << 3))
+            ++data.framesWithContinueFlag;
+
+        ++data.framesChecked;
+        data.nextHeaderOffset += 1 + len;
+    }
+
+    return {};
+}
+
 void MVLCDataReader::readoutLoop()
 {
     m_doQuit = false;
     resetStats();
+    bool doFrameCheck = true;
+    m_frameCheckData = {};
 
     emit started();
 
@@ -168,7 +212,8 @@ void MVLCDataReader::readoutLoop()
             || ec.value() == FT_INVALID_HANDLE
             || ec.value() == FT_IO_ERROR)
         {
-            emit message("Lost connection to MVLC. Leaving readout loop.");
+            emit message(QSL("Lost connection to MVLC. Leaving readout loop. Reason: %1")
+                         .arg(ec.message().c_str()));
             break;
         }
 
@@ -187,6 +232,33 @@ void MVLCDataReader::readoutLoop()
                 else
                     ++m_stats.counters[ReaderStats::NumberOfErrors];
             }
+        }
+
+        if (m_readBuffer.used > 0 && doFrameCheck)
+        {
+            QMutexLocker guard(&m_statsMutex);
+            auto checkResult = frame_check(m_readBuffer, m_frameCheckData);
+            m_stats.counters[ReaderStats::FramesSeen] = m_frameCheckData.framesChecked;
+            m_stats.counters[ReaderStats::FramesWithContinueFlag] =
+                m_frameCheckData.framesWithContinueFlag;
+            m_stats.stackHits = m_frameCheckData.stackHits;
+
+            if (checkResult == FrameCheckResult::HeaderMatchFailed)
+            {
+                doFrameCheck = false;
+
+                emit message(QSL("Frame Check header match failed! Disabling frame check."));
+                emit message(QSL("  nextHeaderOffset=%1")
+                             .arg(m_frameCheckData.nextHeaderOffset));
+
+                u32 nextHeader = *reinterpret_cast<u32 *>(m_readBuffer.data.get())
+                    + m_frameCheckData.nextHeaderOffset;
+
+                emit message(QSL("  nextHeader=0x%1")
+                             .arg(nextHeader, 8, 16, QLatin1Char('0')));
+            }
+            else if (checkResult == FrameCheckResult::NeedMoreData)
+                ++m_stats.counters[ReaderStats::FramesCrossingBuffers];
         }
 
         if (m_nextBufferRequested && m_readBuffer.used > 0)
@@ -251,7 +323,8 @@ struct MVLCDevGUI::Private
     QVector<QLabel *> readerStatLabels;
     QLabel *l_statRunDuration,
            *l_statReadRate;
-    QPushButton *pb_printReaderBufferSizes;
+    QPushButton *pb_printReaderBufferSizes,
+                *pb_printStackHits;
 
     QDateTime tReaderStarted,
               tReaderStopped,
@@ -317,9 +390,11 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         l->addRow("Read Rate", m_d->l_statReadRate);
 
         m_d->pb_printReaderBufferSizes = new QPushButton("Print Incoming Buffer Sizes");
+        m_d->pb_printStackHits = new QPushButton("Print Stack Hits");
         {
             auto bl = make_layout<QHBoxLayout, 0, 0>();
             bl->addWidget(m_d->pb_printReaderBufferSizes);
+            bl->addWidget(m_d->pb_printStackHits);
             bl->addStretch();
             l->addRow(bl);
         }
@@ -798,6 +873,28 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         lines << "<<< End receive buffer sizes";
 
         logMessage(lines.join("\n"));
+    });
+
+    connect(m_d->pb_printStackHits, &QPushButton::clicked,
+            this, [this] ()
+    {
+        const auto &hits = m_d->prevReaderStats.stackHits;
+
+        bool didPrint = false;
+
+        for (size_t stackId = 0; stackId < hits.size(); stackId++)
+        {
+            if (hits[stackId])
+            {
+                logMessage(QSL("stackId=%1, hits=%2")
+                           .arg(stackId)
+                           .arg(hits[stackId]));
+                didPrint = true;
+            }
+        }
+
+        if (!didPrint)
+            logMessage("No stack hits recorded");
     });
 
     //
