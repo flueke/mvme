@@ -857,24 +857,7 @@ void MVMEContext::reconnectVMEController()
 
 QString MVMEContext::getUniqueModuleName(const QString &prefix) const
 {
-    auto moduleConfigs = m_vmeConfig->getAllModuleConfigs();
-    QSet<QString> moduleNames;
-
-    for (auto cfg: moduleConfigs)
-    {
-        if (cfg->objectName().startsWith(prefix))
-        {
-            moduleNames.insert(cfg->objectName());
-        }
-    }
-
-    QString result = prefix;
-    u32 suffix = 0;
-    while (moduleNames.contains(result))
-    {
-        result = QString("%1_%2").arg(prefix).arg(suffix++);
-    }
-    return result;
+    return make_unique_module_name(prefix, m_vmeConfig);
 }
 
 void MVMEContext::tryOpenController()
