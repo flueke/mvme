@@ -5,6 +5,7 @@
 #include "mvlc/mvlc_util.h"
 #include <cassert>
 #include <iostream>
+#include <thread>
 
 using namespace mesytec::mvlc;
 using namespace mesytec::mvlc::usb;
@@ -15,6 +16,7 @@ using std::endl;
 
 int main(int argc, char *argv[])
 {
+    // connect, disconnect, connect
     {
         Impl mvlcUSB(0);
 
@@ -59,6 +61,7 @@ int main(int argc, char *argv[])
 
     MVLCDialog dlg(&mvlc);
     static const size_t MaxIterations = 100000;
+    static const std::chrono::duration<int, std::milli> WaitInterval(0);
     size_t iteration = 0u;
 
     try
@@ -82,6 +85,11 @@ int main(int argc, char *argv[])
                                              AddressMode::A32, VMEDataWidth::D16))
             {
                 throw ec;
+            }
+
+            if (WaitInterval != std::chrono::duration<int>::zero())
+            {
+                std::this_thread::sleep_for(WaitInterval);
             }
 
             u32 result = 0u;
