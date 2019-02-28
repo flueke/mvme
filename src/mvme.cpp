@@ -303,8 +303,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     //
     {
         m_d->m_daqControlWidget = new DAQControlWidget(m_d->m_context);
-        m_d->m_vmeConfigTreeWidget = new VMEConfigTreeWidget(m_d->m_context);
-
+        m_d->m_vmeConfigTreeWidget = new VMEConfigTreeWidget;
         m_d->m_daqStatsWidget = new DAQStatsWidget(m_d->m_context);
 
         auto centralLayout = m_d->centralLayout;
@@ -340,6 +339,12 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         connect(m_d->m_context, &MVMEContext::daqStateChanged,
                 cw, &VMEConfigTreeWidget::setDAQState);
 
+        connect(m_d->m_context, &MVMEContext::vmeControllerSet,
+                cw, &VMEConfigTreeWidget::setVMEController);
+
+        connect(cw, &VMEConfigTreeWidget::logMessage,
+                m_d->m_context, &MVMEContext::logMessage);
+
         connect(cw, &VMEConfigTreeWidget::showDiagnostics,
                 this, &MVMEMainWindow::onShowDiagnostics);
 
@@ -354,6 +359,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
 
         connect(cw, &VMEConfigTreeWidget::editEvent,
                 this, &MVMEMainWindow::runEditVMEEventDialog);
+
+        connect(cw, &VMEConfigTreeWidget::runScriptConfigs,
+                this, &MVMEMainWindow::doRunScriptConfigs);
     }
 
     updateWindowTitle();
@@ -1761,4 +1769,33 @@ void MVMEMainWindow::runEditVMEEventDialog(EventConfig *eventConfig)
     EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig, this);
     dialog.setWindowTitle(QSL("Edit Event"));
     dialog.exec();
+}
+
+void MVMEMainWindow::doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)
+{
+    for (auto scriptConfig: scriptConfigs)
+    {
+        auto moduleConfig = qobject_cast<ModuleConfig *>(scriptConfig->parent());
+
+        m_d->m_context->logMessage(QSL("Running script ") + scriptConfig->getVerboseTitle());
+
+        try
+        {
+            auto logger = [this](const QString &str)
+            {
+                m_d->m_context->logMessage(QSL("  ") + str);
+            };
+
+            auto results = m_d->m_context->runScript(
+                scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
+                logger);
+
+            for (auto result: results)
+                logger(format_result(result));
+        }
+        catch (const vme_script::ParseError &e)
+        {
+            m_d->m_context->logMessage(QSL("Parse error: ") + e.what());
+        }
+    }
 }

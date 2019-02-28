@@ -24,6 +24,7 @@
 #include <QWidget>
 #include <QMap>
 #include "globals.h"
+#include "vme_controller.h"
 
 class QLineEdit;
 class QTreeWidget;
@@ -49,9 +50,11 @@ class VMEConfigTreeWidget: public QWidget
         void editVMEScript(VMEScriptConfig *vmeScript);
         void addEvent();
         void editEvent(EventConfig *eventConfig);
+        void runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs);
+        void logMessage(const QString &msg);
 
     public:
-        VMEConfigTreeWidget(MVMEContext *context, QWidget *parent = 0);
+        VMEConfigTreeWidget(QWidget *parent = 0);
         // This makes use of the action defined in the MVMEMainWindow class.
         // Call this after the actions have been added to this widget via
         // QWidget::addAction().
@@ -64,6 +67,7 @@ class VMEConfigTreeWidget: public QWidget
         void setConfigFilename(const QString &filename);
         void setWorkspaceDirectory(const QString &dirname);
         void setDAQState(const DAQState &daqState);
+        void setVMEController(VMEController *vmeController);
 
     private slots:
         void editEventImpl();
@@ -108,15 +112,13 @@ class VMEConfigTreeWidget: public QWidget
         void toggleObjectEnabled(QTreeWidgetItem *node, int expectedNodeType);
         bool isObjectEnabled(QTreeWidgetItem *node, int expectedNodeType) const;
 
-        void runScriptConfigs(const QVector<VMEScriptConfig *> &configs);
-
         void updateConfigLabel();
 
-        MVMEContext *m_context = nullptr;
         VMEConfig *m_config = nullptr;
         QString m_configFilename;
         QString m_workspaceDirectory;
-        DAQState m_daqState;
+        DAQState m_daqState = DAQState::Idle;
+        VMEController *m_vmeController = nullptr;
 
         QTreeWidget *m_tree;
         // Maps config objects to tree nodes
@@ -125,7 +127,8 @@ class VMEConfigTreeWidget: public QWidget
         TreeNode *m_nodeEvents, *m_nodeManual, *m_nodeStart, *m_nodeStop,
                  *m_nodeScripts;
 
-        QAction *action_showAdvanced;
+        QAction *action_showAdvanced,
+                *action_dumpVMUSBRegisters;
 
         QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs, *pb_notes;
         QLineEdit *le_fileName;

@@ -21,7 +21,6 @@
 #include "vme_config_tree.h"
 #include "mvme.h"
 #include "vme_config.h"
-#include "mvme_context.h"
 #include "vme_config_ui.h"
 #include "treewidget_utils.h"
 #include "mvme_stream_worker.h"
@@ -151,9 +150,8 @@ class VMEConfigTreeItemDelegate: public QStyledItemDelegate
         }
 };
 
-VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
+VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     : QWidget(parent)
-    , m_context(context)
     , m_tree(new QTreeWidget(this))
     , m_nodeEvents(new TreeNode)
     , m_nodeManual(new TreeNode)
@@ -219,9 +217,10 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
         connect(action_showAdvanced, &QAction::changed, this,
                 &VMEConfigTreeWidget::onActionShowAdvancedChanged);
 
-        auto action_dumpVMUSBRegisters = menu->addAction(QSL("Dump VMUSB Registers"));
+        action_dumpVMUSBRegisters = menu->addAction(QSL("Dump VMUSB Registers"));
         connect(action_dumpVMUSBRegisters, &QAction::triggered,
                 this, &VMEConfigTreeWidget::dumpVMUSBRegisters);
+        action_dumpVMUSBRegisters->setEnabled(false);
 
         auto action_exploreWorkspace = menu->addAction(QIcon(":/folder_orange.png"),
                                                        QSL("Explore Workspace"));
@@ -763,7 +762,7 @@ void VMEConfigTreeWidget::onScriptAboutToBeRemoved(VMEScriptConfig *script)
 }
 
 //
-// context menu action implementations
+// Context menu action implementations
 //
 
 void VMEConfigTreeWidget::removeEvent()
@@ -964,33 +963,6 @@ void VMEConfigTreeWidget::initModule()
     runScriptConfigs(module->getInitScripts());
 }
 
-void VMEConfigTreeWidget::runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)
-{
-    for (auto scriptConfig: scriptConfigs)
-    {
-        auto moduleConfig = qobject_cast<ModuleConfig *>(scriptConfig->parent());
-
-        m_context->logMessage(QSL("Running script ") + scriptConfig->getVerboseTitle());
-
-        try
-        {
-            auto logger = [this](const QString &str) { m_context->logMessage(QSL("  ") + str); };
-
-            auto results = m_context->runScript(
-                scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
-                logger);
-
-            for (auto result: results)
-                logger(format_result(result));
-        }
-        catch (const vme_script::ParseError &e)
-        {
-            m_context->logMessage(QSL("Parse error: ") + e.what());
-        }
-    }
-}
-
-
 void VMEConfigTreeWidget::onActionShowAdvancedChanged()
 {
     auto nodes = findItems(m_nodeEvents, [](QTreeWidgetItem *node) {
@@ -1017,21 +989,24 @@ void VMEConfigTreeWidget::handleShowDiagnostics()
     emit showDiagnostics(module);
 }
 
+// TODO: Make a general "dump controller registers" signal, emit that when the
+// corresponding QAction is activated and move the implementation elsewhere.
 void VMEConfigTreeWidget::dumpVMUSBRegisters()
 {
-    auto vmusb = dynamic_cast<VMUSB *>(m_context->getVMEController());
+    auto vmusb = dynamic_cast<VMUSB *>(m_vmeController);
 
-    if (vmusb && m_context->getDAQState() == DAQState::Idle)
+    if (vmusb && m_daqState == DAQState::Idle)
     {
-        dump_registers(vmusb, [this] (const QString &line) { m_context->logMessage(line); });
+        dump_registers(vmusb, [this] (const QString &line)
+                       {
+                           emit logMessage(line);
+                       });
     }
 }
 
 void VMEConfigTreeWidget::exploreWorkspace()
 {
-    QString path = m_context->getWorkspaceDirectory();
-
-    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    QDesktopServices::openUrl(QUrl::fromLocalFile(m_workspaceDirectory));
 }
 
 void VMEConfigTreeWidget::showEditNotes()
@@ -1053,6 +1028,13 @@ void VMEConfigTreeWidget::setWorkspaceDirectory(const QString &dirname)
 void VMEConfigTreeWidget::setDAQState(const DAQState &daqState)
 {
     m_daqState = daqState;
+}
+
+void VMEConfigTreeWidget::setVMEController(VMEController *vmeController)
+{
+    m_vmeController = vmeController;
+    action_dumpVMUSBRegisters->setEnabled(
+        m_vmeController->getType() == VMEControllerType::VMUSB);
 }
 
 void VMEConfigTreeWidget::updateConfigLabel()
