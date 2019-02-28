@@ -1,6 +1,14 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* Find a better way to access global action than the method used in
+  VMEConfigTreeWidget::setupActions(). Maybe use a global action factory thingy
+  returning QAction "singletons".
+* Doing "Init Module" on a disconnected SIS controller hangs in recvfrom.
+  Have to check if the controller is connected when calling controller methods
+  in vme_script::run_command() or maybe even earlier so that the whole script
+  execution is stopped and returns an error.
+
 * remote control: issuing a start followed by a stop can crash the application.
   There are missing checks if the system is transitioning. Set a flag
   immediately before calling startDAQ and unset it either on error or when the

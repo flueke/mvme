@@ -203,11 +203,10 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     m_tree->resizeColumnToContents(0);
 
     // Toolbar buttons
-    auto mainwin = m_context->getMainWindow();
-    pb_new    = make_action_toolbutton(mainwin->findChild<QAction *>("actionNewVMEConfig"));
-    pb_load   = make_action_toolbutton(mainwin->findChild<QAction *>("actionOpenVMEConfig"));
-    pb_save   = make_action_toolbutton(mainwin->findChild<QAction *>("actionSaveVMEConfig"));
-    pb_saveAs = make_action_toolbutton(mainwin->findChild<QAction *>("actionSaveVMEConfigAs"));
+    pb_new    = make_action_toolbutton();
+    pb_load   = make_action_toolbutton();
+    pb_save   = make_action_toolbutton();
+    pb_saveAs = make_action_toolbutton();
     //pb_notes  = make_toolbutton(QSL(":/text-document.png"), QSL("Notes"));
     //connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
 
@@ -267,13 +266,27 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     connect(m_tree, &QTreeWidget::itemChanged, this, &VMEConfigTreeWidget::onItemChanged);
     connect(m_tree, &QTreeWidget::itemExpanded, this, &VMEConfigTreeWidget::onItemExpanded);
     connect(m_tree, &QWidget::customContextMenuRequested, this, &VMEConfigTreeWidget::treeContextMenu);
+}
 
-    connect(m_context, &MVMEContext::vmeConfigChanged, this, &VMEConfigTreeWidget::setConfig);
-    connect(m_context, &MVMEContext::vmeConfigFilenameChanged, this, [this](const QString &) {
-        updateConfigLabel();
-    });
+void VMEConfigTreeWidget::setupActions()
+{
+    auto actions_ = actions();
 
-    setConfig(m_context->getVMEConfig());
+    auto find_action = [&actions_] (const QString &name) -> QAction *
+    {
+        auto it = std::find_if(
+            std::begin(actions_), std::end(actions_),
+            [&name] (const QAction *action) {
+                return action->objectName() == name;
+            });
+
+        return it != std::end(actions_) ? *it : nullptr;
+    };
+
+    pb_new->setDefaultAction(find_action("actionNewVMEConfig"));
+    pb_load->setDefaultAction(find_action("actionOpenVMEConfig"));
+    pb_save->setDefaultAction(find_action("actionSaveVMEConfig"));
+    pb_saveAs->setDefaultAction(find_action("actionSaveVMEConfigAs"));
 }
 
 void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
@@ -293,9 +306,13 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
                 onScriptAdded(script, category);
 
         for (auto event: cfg->getEventConfigs())
-            onEventAdded(event);
+            onEventAdded(event, false);
 
-        connect(cfg, &VMEConfig::eventAdded, this, &VMEConfigTreeWidget::onEventAdded);
+        connect(cfg, &VMEConfig::eventAdded,
+                this, [this] (EventConfig *eventConfig) {
+                    onEventAdded(eventConfig, true);
+                });
+
         connect(cfg, &VMEConfig::eventAboutToBeRemoved, this, &VMEConfigTreeWidget::onEventAboutToBeRemoved);
         connect(cfg, &VMEConfig::globalScriptAdded, this, &VMEConfigTreeWidget::onScriptAdded);
         connect(cfg, &VMEConfig::globalScriptAboutToBeRemoved, this, &VMEConfigTreeWidget::onScriptAboutToBeRemoved);
@@ -443,7 +460,7 @@ void VMEConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
 
     if (configObject)
     {
-        m_context->activateObjectWidget(configObject);
+        emit activateObjectWidget(configObject);
     }
 }
 
@@ -454,16 +471,7 @@ void VMEConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 
     if (scriptConfig)
     {
-        if (m_context->hasObjectWidget(scriptConfig))
-        {
-            m_context->activateObjectWidget(scriptConfig);
-        }
-        else
-        {
-            auto widget = new VMEScriptEditor(m_context, scriptConfig);
-            widget->setWindowIcon(QIcon(QPixmap(":/vme_script.png")));
-            m_context->addObjectWidget(widget, scriptConfig, scriptConfig->getId().toString());
-        }
+        emit editVMEScript(scriptConfig);
     }
 }
 
@@ -494,7 +502,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     auto node = m_tree->itemAt(pos);
     auto parent = node ? node->parent() : nullptr;
     auto obj = node ? Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer)) : nullptr;
-    bool isIdle = (m_context->getDAQState() == DAQState::Idle);
+    bool isIdle = (m_daqState == DAQState::Idle);
 
     QMenu menu;
 
@@ -521,7 +529,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
         Q_ASSERT(obj);
 
         if (isIdle)
-            menu.addAction(QSL("Edit Event"), this, &VMEConfigTreeWidget::editEvent);
+            menu.addAction(QSL("Edit Event"), this, &VMEConfigTreeWidget::editEventImpl);
 
         if (isIdle)
             menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
@@ -580,8 +588,11 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
            menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
         }
 
-        if (!m_context->getMVMEStreamWorker()->hasDiagnostics() && obj->isEnabled())
-            menu.addAction(QSL("Show Diagnostics"), this, &VMEConfigTreeWidget::handleShowDiagnostics);
+        if (obj->isEnabled())
+        {
+            menu.addAction(QSL("Show Diagnostics"), this,
+                           &VMEConfigTreeWidget::handleShowDiagnostics);
+        }
     }
 
     //
@@ -625,7 +636,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     }
 }
 
-void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
+void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig, bool expandNode)
 {
     addEventNode(m_nodeEvents, eventConfig);
 
@@ -672,6 +683,12 @@ void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
     };
 
     updateEventNode(true);
+
+    if (expandNode)
+    {
+        if (auto node = m_treeMap.value(eventConfig, nullptr))
+            node->setExpanded(true);
+    }
 
     connect(eventConfig, &EventConfig::modified, this, updateEventNode);
     onActionShowAdvancedChanged();
@@ -748,37 +765,6 @@ void VMEConfigTreeWidget::onScriptAboutToBeRemoved(VMEScriptConfig *script)
 //
 // context menu action implementations
 //
-void VMEConfigTreeWidget::addEvent()
-{
-    auto config = new EventConfig;
-    config->setObjectName(QString("event%1").arg(m_config->getEventConfigs().size()));
-    EventConfigDialog dialog(m_context->getVMEController(), config, this);
-    dialog.setWindowTitle(QSL("Add Event"));
-    int result = dialog.exec();
-
-    if (result == QDialog::Accepted)
-    {
-        if (config->triggerCondition != TriggerCondition::Periodic)
-        {
-            auto logger = [this](const QString &msg) { m_context->logMessage(msg); };
-            VMEEventTemplates templates = read_templates(logger).eventTemplates;
-
-            config->vmeScripts["daq_start"]->setScriptContents(templates.daqStart.contents);
-            config->vmeScripts["daq_stop"]->setScriptContents(templates.daqStop.contents);
-            config->vmeScripts["readout_start"]->setScriptContents(templates.readoutCycleStart.contents);
-            config->vmeScripts["readout_end"]->setScriptContents(templates.readoutCycleEnd.contents);
-        }
-
-        m_config->addEventConfig(config);
-
-        if (auto node = m_treeMap.value(config, nullptr))
-            node->setExpanded(true);
-    }
-    else
-    {
-        delete config;
-    }
-}
 
 void VMEConfigTreeWidget::removeEvent()
 {
@@ -821,16 +807,14 @@ bool VMEConfigTreeWidget::isObjectEnabled(QTreeWidgetItem *node, int expectedNod
     return false;
 }
 
-void VMEConfigTreeWidget::editEvent()
+void VMEConfigTreeWidget::editEventImpl()
 {
     auto node = m_tree->currentItem();
 
     if (node && node->type() == NodeType_Event)
     {
         auto eventConfig = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
-        EventConfigDialog dialog(m_context->getVMEController(), eventConfig, this);
-        dialog.setWindowTitle(QSL("Edit Event"));
-        dialog.exec();
+        emit editEvent(eventConfig);
     }
 }
 
@@ -951,9 +935,7 @@ void VMEConfigTreeWidget::runScripts()
 
     QVector<VMEScriptConfig *> scriptConfigs;
 
-    auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj);
-
-    if (scriptConfig)
+    if (auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj))
     {
         scriptConfigs.push_back(scriptConfig);
     }
@@ -962,8 +944,8 @@ void VMEConfigTreeWidget::runScripts()
         for (int i=0; i<node->childCount(); ++i)
         {
             obj = Var2Ptr<ConfigObject>(node->child(i)->data(0, DataRole_Pointer));
-            scriptConfig = qobject_cast<VMEScriptConfig *>(obj);
-            scriptConfigs.push_back(scriptConfig);
+            if (auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj))
+                scriptConfigs.push_back(scriptConfig);
         }
     }
 
@@ -1056,17 +1038,34 @@ void VMEConfigTreeWidget::showEditNotes()
 {
 }
 
+void VMEConfigTreeWidget::setConfigFilename(const QString &filename)
+{
+    m_configFilename = filename;
+    updateConfigLabel();
+}
+
+void VMEConfigTreeWidget::setWorkspaceDirectory(const QString &dirname)
+{
+    m_workspaceDirectory = dirname;
+    updateConfigLabel();
+}
+
+void VMEConfigTreeWidget::setDAQState(const DAQState &daqState)
+{
+    m_daqState = daqState;
+}
+
 void VMEConfigTreeWidget::updateConfigLabel()
 {
-    QString fileName = m_context->getConfigFileName();
+    QString fileName = m_configFilename;
 
     if (fileName.isEmpty())
         fileName = QSL("<not saved>");
 
-    if (m_context->getVMEConfig()->isModified())
+    if (m_config && m_config->isModified())
         fileName += QSL(" *");
 
-    auto wsDir = m_context->getWorkspaceDirectory() + '/';
+    auto wsDir = m_workspaceDirectory + '/';
 
     if (fileName.startsWith(wsDir))
     {

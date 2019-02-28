@@ -132,6 +132,10 @@ private slots:
 
     void updateActions();
 
+    void editVMEScript(VMEScriptConfig *vmeScript);
+    void runAddVMEEventDialog();
+    void runEditVMEEventDialog(EventConfig *eventConfig);
+
 
 private:
     MVMEWindowPrivate *m_d;

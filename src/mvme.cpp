@@ -304,6 +304,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     {
         m_d->m_daqControlWidget = new DAQControlWidget(m_d->m_context);
         m_d->m_vmeConfigTreeWidget = new VMEConfigTreeWidget(m_d->m_context);
+
         m_d->m_daqStatsWidget = new DAQStatsWidget(m_d->m_context);
 
         auto centralLayout = m_d->centralLayout;
@@ -315,8 +316,44 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
 
         centralLayout->setStretch(1, 1);
 
-        connect(m_d->m_vmeConfigTreeWidget, &VMEConfigTreeWidget::showDiagnostics,
+    }
+
+    // Setup the VMEConfig tree widget
+    {
+        auto &cw = m_d->m_vmeConfigTreeWidget;
+        // FIXME: use a global action factory to get the actions
+        cw->addAction(m_d->actionNewVMEConfig);
+        cw->addAction(m_d->actionOpenVMEConfig);
+        cw->addAction(m_d->actionSaveVMEConfig);
+        cw->addAction(m_d->actionSaveVMEConfigAs);
+        cw->setupActions();
+
+        connect(m_d->m_context, &MVMEContext::vmeConfigChanged,
+                cw, &VMEConfigTreeWidget::setConfig);
+
+        connect(m_d->m_context, &MVMEContext::vmeConfigFilenameChanged,
+                cw, &VMEConfigTreeWidget::setConfigFilename);
+
+        connect(m_d->m_context, &MVMEContext::workspaceDirectoryChanged,
+                cw, &VMEConfigTreeWidget::setWorkspaceDirectory);
+
+        connect(m_d->m_context, &MVMEContext::daqStateChanged,
+                cw, &VMEConfigTreeWidget::setDAQState);
+
+        connect(cw, &VMEConfigTreeWidget::showDiagnostics,
                 this, &MVMEMainWindow::onShowDiagnostics);
+
+        connect(cw, &VMEConfigTreeWidget::activateObjectWidget,
+                this, &MVMEMainWindow::activateObjectWidget);
+
+        connect(cw, &VMEConfigTreeWidget::editVMEScript,
+                this, &MVMEMainWindow::editVMEScript);
+
+        connect(cw, &VMEConfigTreeWidget::addEvent,
+                this, &MVMEMainWindow::runAddVMEEventDialog);
+
+        connect(cw, &VMEConfigTreeWidget::editEvent,
+                this, &MVMEMainWindow::runEditVMEEventDialog);
     }
 
     updateWindowTitle();
@@ -1670,4 +1707,58 @@ void MVMEMainWindow::updateActions()
     // Listfiles
     m_d->actionOpenListfile->setEnabled(isDAQIdle);
     m_d->actionCloseListfile->setEnabled(isDAQIdle);
+}
+
+void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig)
+{
+    if (m_d->m_context->hasObjectWidget(scriptConfig))
+    {
+        m_d->m_context->activateObjectWidget(scriptConfig);
+    }
+    else
+    {
+        auto widget = new VMEScriptEditor(m_d->m_context, scriptConfig);
+        widget->setWindowIcon(QIcon(QPixmap(":/vme_script.png")));
+        m_d->m_context->addObjectWidget(widget, scriptConfig, scriptConfig->getId().toString());
+    }
+}
+
+void MVMEMainWindow::runAddVMEEventDialog()
+{
+    auto eventConfig = std::make_unique<EventConfig>();
+    auto vmeConfig = m_d->m_context->getVMEConfig();
+    eventConfig->setObjectName(QString("event%1").arg(vmeConfig->getEventConfigs().size()));
+    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig.get(), this);
+    dialog.setWindowTitle(QSL("Add Event"));
+    int result = dialog.exec();
+
+    if (result == QDialog::Accepted)
+    {
+        if (eventConfig->triggerCondition != TriggerCondition::Periodic)
+        {
+            auto logger = [this](const QString &msg) { m_d->m_context->logMessage(msg); };
+            VMEEventTemplates templates = read_templates(logger).eventTemplates;
+
+            eventConfig->vmeScripts["daq_start"]->setScriptContents(
+                templates.daqStart.contents);
+
+            eventConfig->vmeScripts["daq_stop"]->setScriptContents(
+                templates.daqStop.contents);
+
+            eventConfig->vmeScripts["readout_start"]->setScriptContents(
+                templates.readoutCycleStart.contents);
+
+            eventConfig->vmeScripts["readout_end"]->setScriptContents(
+                templates.readoutCycleEnd.contents);
+        }
+
+        vmeConfig->addEventConfig(eventConfig.release());
+    }
+}
+
+void MVMEMainWindow::runEditVMEEventDialog(EventConfig *eventConfig)
+{
+    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig, this);
+    dialog.setWindowTitle(QSL("Edit Event"));
+    dialog.exec();
 }

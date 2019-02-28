@@ -298,9 +298,9 @@ QToolButton *make_toolbutton(const QString &icon, const QString &text)
 
 QToolButton *make_action_toolbutton(QAction *action)
 {
-    Q_ASSERT(action);
     auto result = new QToolButton;
-    result->setDefaultAction(action);
+    if (action)
+        result->setDefaultAction(action);
     result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     auto font = result->font();
     font.setPointSize(7);

@@ -23,6 +23,7 @@
 
 #include <QWidget>
 #include <QMap>
+#include "globals.h"
 
 class QLineEdit;
 class QTreeWidget;
@@ -43,15 +44,29 @@ class VMEConfigTreeWidget: public QWidget
 {
     Q_OBJECT
     signals:
-        //void configObjectClicked(ConfigObject *object);
-        //void configObjectDoubleClicked(ConfigObject *object);
         void showDiagnostics(ModuleConfig *cfg);
+        void activateObjectWidget(QObject *object);
+        void editVMEScript(VMEScriptConfig *vmeScript);
+        void addEvent();
+        void editEvent(EventConfig *eventConfig);
 
     public:
         VMEConfigTreeWidget(MVMEContext *context, QWidget *parent = 0);
+        // This makes use of the action defined in the MVMEMainWindow class.
+        // Call this after the actions have been added to this widget via
+        // QWidget::addAction().
+        void setupActions();
 
-        void setConfig(VMEConfig *cfg);
         VMEConfig *getConfig() const;
+
+    public slots:
+        void setConfig(VMEConfig *cfg);
+        void setConfigFilename(const QString &filename);
+        void setWorkspaceDirectory(const QString &dirname);
+        void setDAQState(const DAQState &daqState);
+
+    private slots:
+        void editEventImpl();
 
     private:
         TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script);
@@ -64,7 +79,7 @@ class VMEConfigTreeWidget: public QWidget
         void onItemExpanded(QTreeWidgetItem *item);
         void treeContextMenu(const QPoint &pos);
 
-        void onEventAdded(EventConfig *config);
+        void onEventAdded(EventConfig *config, bool expandNode);
         void onEventAboutToBeRemoved(EventConfig *config);
 
         void onModuleAdded(ModuleConfig *config);
@@ -74,9 +89,7 @@ class VMEConfigTreeWidget: public QWidget
         void onScriptAboutToBeRemoved(VMEScriptConfig *script);
 
         // context menu action implementations
-        void addEvent();
         void removeEvent();
-        void editEvent();
 
         void addModule();
         void removeModule();
@@ -101,6 +114,10 @@ class VMEConfigTreeWidget: public QWidget
 
         MVMEContext *m_context = nullptr;
         VMEConfig *m_config = nullptr;
+        QString m_configFilename;
+        QString m_workspaceDirectory;
+        DAQState m_daqState;
+
         QTreeWidget *m_tree;
         // Maps config objects to tree nodes
         QMap<QObject *, TreeNode *> m_treeMap;

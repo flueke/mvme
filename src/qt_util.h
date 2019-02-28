@@ -132,7 +132,7 @@ VBoxContainerWithLabel make_vbox_container(const QString &labelText, QWidget *wi
 
 QWidget *make_spacer_widget(QWidget *parent = nullptr);
 QToolButton *make_toolbutton(const QString &icon, const QString &text);
-QToolButton *make_action_toolbutton(QAction *action);
+QToolButton *make_action_toolbutton(QAction *action = nullptr);
 
 int get_widget_row(QFormLayout *layout, QWidget *widget);
 
