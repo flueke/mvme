@@ -593,10 +593,13 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     connect(ui->pb_usbReconnect, &QPushButton::clicked,
             this, [this] ()
     {
-        if (auto ec = m_d->mvlc->disconnect())
+        if (m_d->mvlc->isConnected())
         {
-            logMessage(QString("Error from disconnect(): %1")
-                       .arg(ec.message().c_str()));
+            if (auto ec = m_d->mvlc->disconnect())
+            {
+                logMessage(QString("Error from disconnect(): %1")
+                           .arg(ec.message().c_str()));
+            }
         }
 
         if (auto ec = m_d->mvlc->connect())
