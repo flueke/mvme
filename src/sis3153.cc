@@ -480,6 +480,10 @@ QString SIS3153::getIdentifyingString() const
 VMEError SIS3153::write32(u32 address, u32 value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
+
     VMEError result;
 
     switch (amod)
@@ -510,6 +514,10 @@ VMEError SIS3153::write32(u32 address, u32 value, u8 amod)
 VMEError SIS3153::write16(u32 address, u16 value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
+
     VMEError result;
 
     switch (amod)
@@ -540,6 +548,10 @@ VMEError SIS3153::write16(u32 address, u16 value, u8 amod)
 VMEError SIS3153::read32(u32 address, u32 *value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
+
     VMEError result;
 
     switch (amod)
@@ -570,6 +582,10 @@ VMEError SIS3153::read32(u32 address, u32 *value, u8 amod)
 VMEError SIS3153::read16(u32 address, u16 *value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
+
     VMEError result;
 
     switch (amod)
@@ -612,6 +628,9 @@ static inline void fix_word_order(QVector<u32> &vec)
 VMEError SIS3153::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amod, bool fifo)
 {
     QMutexLocker locker(&m_d->lock);
+
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
 
     int resultCode = 0;
     bool isMBLT = (amod == VME_AM_A32_PRIV_MBLT || amod == VME_AM_A32_USER_MBLT);
