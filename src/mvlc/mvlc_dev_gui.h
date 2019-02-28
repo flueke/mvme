@@ -87,6 +87,7 @@ class MVLCDataReader: public QObject
         ReaderStats getStats() const;
         ReaderStats getAndResetStats();
         void resetStats();
+        bool isStackFrameCheckEnabled() const;
 
         // not thread safe - must be done before entering readoutLoop
         void setMVLC(MVLCObject *mvlc);
@@ -109,7 +110,8 @@ class MVLCDataReader: public QObject
     private:
         MVLCObject *m_mvlc;
         std::atomic<bool> m_doQuit,
-                          m_nextBufferRequested;
+                          m_nextBufferRequested,
+                          m_stackFrameCheckEnabled;
         FixedSizeBuffer m_readBuffer;
         mutable QMutex m_statsMutex;
         ReaderStats m_stats = {};

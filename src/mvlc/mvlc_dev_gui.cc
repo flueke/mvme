@@ -82,6 +82,7 @@ MVLCDataReader::MVLCDataReader(QObject *parent)
     : QObject(parent)
     , m_doQuit(false)
     , m_nextBufferRequested(false)
+    , m_stackFrameCheckEnabled(true)
     , m_readBuffer(make_buffer(ReadBufferSize))
 {
     qDebug() << ">>> created" << this;
@@ -117,6 +118,11 @@ void MVLCDataReader::resetStats()
 {
     QMutexLocker guard(&m_statsMutex);
     m_stats = {};
+}
+
+bool MVLCDataReader::isStackFrameCheckEnabled() const
+{
+    return m_stackFrameCheckEnabled;
 }
 
 void MVLCDataReader::setMVLC(MVLCObject *mvlc)
@@ -181,7 +187,6 @@ void MVLCDataReader::readoutLoop()
 {
     m_doQuit = false;
     resetStats();
-    bool doFrameCheck = true;
     m_frameCheckData = {};
 
     emit started();
@@ -234,7 +239,7 @@ void MVLCDataReader::readoutLoop()
             }
         }
 
-        if (m_readBuffer.used > 0 && doFrameCheck)
+        if (m_readBuffer.used > 0 && m_stackFrameCheckEnabled)
         {
             QMutexLocker guard(&m_statsMutex);
             auto checkResult = frame_check(m_readBuffer, m_frameCheckData);
@@ -245,8 +250,9 @@ void MVLCDataReader::readoutLoop()
 
             if (checkResult == FrameCheckResult::HeaderMatchFailed)
             {
-                doFrameCheck = false;
+                m_stackFrameCheckEnabled = false;
 
+                emit message(QSL("!!! !!! !!!"));
                 emit message(QSL("Frame Check header match failed! Disabling frame check."));
                 emit message(QSL("  nextHeaderOffset=%1")
                              .arg(m_frameCheckData.nextHeaderOffset));
@@ -256,6 +262,7 @@ void MVLCDataReader::readoutLoop()
 
                 emit message(QSL("  nextHeader=0x%1")
                              .arg(nextHeader, 8, 16, QLatin1Char('0')));
+                emit message(QSL("!!! !!! !!!"));
             }
             else if (checkResult == FrameCheckResult::NeedMoreData)
                 ++m_stats.counters[ReaderStats::FramesCrossingBuffers];
@@ -991,7 +998,18 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         if (std::isnan(mbPerSecond))
             mbPerSecond = 0.0;
 
-        m_d->l_statReadRate->setText(QString("%1 MB/s").arg(mbPerSecond, 0, 'g', 4));
+        u64 deltaFramesSeen = calc_delta0(
+            stats.counters[ReaderStats::FramesSeen],
+            prevStats.counters[ReaderStats::FramesSeen]);
+        double framesPerSecond = deltaFramesSeen / dt;
+        if (std::isnan(framesPerSecond))
+            framesPerSecond = 0.0;
+
+        m_d->l_statReadRate->setText(QString("%1 MB/s, %2 Frames/s, frameCheckEnabled=%3")
+                                     .arg(mbPerSecond, 0, 'g', 4)
+                                     .arg(framesPerSecond, 0, 'g', 4)
+                                     .arg(m_d->dataReader->isStackFrameCheckEnabled())
+                                     );
 
         m_d->prevReaderStats = stats;
         m_d->tLastUpdate = QDateTime::currentDateTime();
