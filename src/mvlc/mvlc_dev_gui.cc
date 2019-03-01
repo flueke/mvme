@@ -15,6 +15,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QUdpSocket>
+#include <QtEndian>
 
 #include <ftd3xx.h> // XXX
 
@@ -938,6 +939,13 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
             auto scriptText = ui->te_udpScriptInput->toPlainText();
             auto cmdList = mvlc::script::parse(scriptText);
             auto cmdBuffer = mvlc::script::to_mvlc_command_buffer(cmdList);
+
+            for (u32 &word: cmdBuffer)
+            {
+                word = qToBigEndian(word);
+            }
+
+
             logBuffer(cmdBuffer, "Outgoing Request Buffer");
 
             QHostAddress destIP(ui->le_udpDestIP->text());
