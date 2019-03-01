@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QFileDialog>
 #include <QGridLayout>
+#include <QHostAddress>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QScrollBar>
@@ -13,6 +14,7 @@
 #include <QStandardPaths>
 #include <QThread>
 #include <QTimer>
+#include <QUdpSocket>
 
 #include <ftd3xx.h> // XXX
 
@@ -367,12 +369,14 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         auto font = make_monospace_font();
         font.setPointSize(8);
         ui->te_scriptInput->setFont(font);
+        ui->te_udpScriptInput->setFont(font);
     }
 
     new vme_script::SyntaxHighlighter(ui->te_scriptInput->document());
     static const int SpacesPerTab = 4;
-    ui->te_scriptInput->setTabStopWidth(calculate_tab_width(
-            ui->te_scriptInput->font(), SpacesPerTab));
+    int tabWidth = calculate_tab_width(ui->te_scriptInput->font(), SpacesPerTab);
+    ui->te_scriptInput->setTabStopWidth(tabWidth);
+    ui->te_udpScriptInput->setTabStopWidth(tabWidth);
 
     // Reader stats ui setup
     {
@@ -508,6 +512,11 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
                     logMessage("Received response but ran into a read timeout");
 
                 logBuffer(responseBuffer, "Stack response from MVLC");
+            }
+
+            for (const auto &notification: dlg.getStackErrorNotifications())
+            {
+                logBuffer(notification, "Error notification from MVLC");
             }
         }
         catch (const mvlc::script::ParseError &e)
@@ -845,7 +854,8 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         logMessage(QString(">>> First %1 data words:").arg(maxBytes / sizeof(u32)));
 
         BufferIterator iter(buffer.data(), maxBytes);
-        ::logBuffer(iter, [this] (const QString &line) // FIXME: don't call the global logBuffer. it print BerrMarker and EndMarker as strings.
+        // FIXME: don't call the global logBuffer. it print BerrMarker and EndMarker as strings.
+        ::logBuffer(iter, [this] (const QString &line)
         {
             logMessage(line);
         });
@@ -918,6 +928,57 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     });
 
     //
+    // UDP Debug Tab Interations
+    //
+    connect(ui->pb_udpSend, &QPushButton::clicked,
+            this, [this] ()
+    {
+        try
+        {
+            auto scriptText = ui->te_udpScriptInput->toPlainText();
+            auto cmdList = mvlc::script::parse(scriptText);
+            auto cmdBuffer = mvlc::script::to_mvlc_command_buffer(cmdList);
+            logBuffer(cmdBuffer, "Outgoing Request Buffer");
+
+            QHostAddress destIP(ui->le_udpDestIP->text());
+            quint16 destPort = ui->spin_udpDestPort->value();
+
+            static const qint64 MaxPacketPayloadSize = 1480;
+
+            qint64 bytesLeft = cmdBuffer.size() * sizeof(u32);
+            const char *dataPtr = reinterpret_cast<char *>(cmdBuffer.data());
+            QUdpSocket sock;
+            size_t packetsSent = 0;
+
+            while (bytesLeft > 0)
+            {
+                qint64 bytesToWrite = std::min(bytesLeft, MaxPacketPayloadSize);
+                quint64 bytesWritten = sock.writeDatagram(dataPtr, bytesToWrite, destIP, destPort);
+
+                if (bytesWritten < 0)
+                {
+                    logMessage(QSL("Error from writeDatagram: %1").arg(sock.errorString()));
+                    return;
+                }
+
+                bytesLeft -= bytesWritten;
+                dataPtr += bytesWritten;
+                packetsSent++;
+            }
+
+            logMessage(QSL("Sent command buffer using %1 UDP packets").arg(packetsSent));
+        }
+        catch (const mvlc::script::ParseError &e)
+        {
+            logMessage("MVLC Script parse error: " + e.toString());
+        }
+        catch (const vme_script::ParseError &e)
+        {
+            logMessage("Embedded VME Script parse error: " + e.toString());
+        }
+    });
+
+    //
     // Register Editor Tab
     //
     {
@@ -930,7 +991,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
     //
     // VME Debug Widget Tab
-
+    //
     {
         auto layout = qobject_cast<QGridLayout *>(ui->tab_vmeDebug->layout());
         layout->addWidget(m_d->vmeDebugWidget);
@@ -938,7 +999,6 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         connect(m_d->vmeDebugWidget, &VMEDebugWidget::sigLogMessage,
                 this, &MVLCDevGUI::logMessage);
     }
-
 
     //
     // Periodic updates
@@ -1208,19 +1268,28 @@ MVLCRegisterWidget::~MVLCRegisterWidget()
 
 void MVLCRegisterWidget::writeRegister(u16 address, u32 value)
 {
-    // TODO: error checking
     MVLCDialog dlg(m_mvlc);
     if (auto ec = dlg.writeRegister(address, value))
         emit sigLogMessage(QString("Write Register Error: %1").arg(ec.message().c_str()));
+
+    for (const auto &notification: dlg.getStackErrorNotifications())
+    {
+        emit sigLogBuffer(notification, "Error notification from MVLC");
+    }
 }
 
 u32 MVLCRegisterWidget::readRegister(u16 address)
 {
-    // TODO: error checking
     MVLCDialog dlg(m_mvlc);
     u32 value = 0u;
     if (auto ec = dlg.readRegister(address, value))
         emit sigLogMessage(QString("Read Register Error: %1").arg(ec.message().c_str()));
+
+    for (const auto &notification: dlg.getStackErrorNotifications())
+    {
+        emit sigLogBuffer(notification, "Error notification from MVLC");
+    }
+
     return value;
 }
 
@@ -1315,6 +1384,11 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
     strings << QString("<<< End stack %1 info").arg(static_cast<int>(stackId));
 
     emit sigLogMessage(strings.join("\n"));
+
+    for (const auto &notification: dlg.getStackErrorNotifications())
+    {
+        emit sigLogBuffer(notification, "Error notification from MVLC");
+    }
 }
 
 //
@@ -1364,6 +1438,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
 
     qRegisterMetaType<QVector<u8>>("QVector<u8>");
+    qRegisterMetaType<QVector<u8>>("QVector<u32>");
 
     MVLCDevGUI gui;
     LogWidget logWindow;

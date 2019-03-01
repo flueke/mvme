@@ -47,7 +47,7 @@
 * Low Level MVLC Ethernet Debugging:
 
     ifconfig enp2s0 192.168.42.1 netmask 255.255.255.0 up
-    arp -i enp2s0 -s 192.168.42.2 0a:0f:0f:0e:12:34
+    arp -i enp2s0 -s 192.168.42.2 ab:cd:12:34:56:78
 
   Start wireshark or tcpdump in a second terminal window
     sudo tcpdump -i enp2s0 -vvXX
