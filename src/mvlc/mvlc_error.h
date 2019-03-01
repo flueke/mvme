@@ -11,8 +11,8 @@ namespace mvlc
 enum class MVLCErrorCode
 {
     NoError,
-    IsOpen,
-    IsClosed,
+    IsConnected,
+    IsDisconnected,
     ShortWrite,
     ShortRead,
     MirrorEmptyRequest,  // size < 1

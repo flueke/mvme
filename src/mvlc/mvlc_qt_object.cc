@@ -30,7 +30,7 @@ bool MVLCObject::isConnected() const
 
 std::error_code MVLCObject::connect()
 {
-    if (isConnected()) return make_error_code(MVLCErrorCode::IsOpen);
+    if (isConnected()) return make_error_code(MVLCErrorCode::IsConnected);
 
     setState(Connecting);
     auto ec = m_impl->connect();
@@ -42,7 +42,7 @@ std::error_code MVLCObject::connect()
 
 std::error_code MVLCObject::disconnect()
 {
-    if (!isConnected()) return make_error_code(MVLCErrorCode::IsClosed);
+    if (!isConnected()) return make_error_code(MVLCErrorCode::IsDisconnected);
 
     auto ec = m_impl->disconnect();
     setState(Disconnected);

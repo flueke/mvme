@@ -27,6 +27,7 @@ class MVLCObject: public QObject
 
     signals:
         void stateChanged(const State &oldState, const State &newState);
+        void stackErrorNotification(const QVector<u32> &notification);
 
     public:
         MVLCObject(std::unique_ptr<AbstractImpl> impl, QObject *parent = nullptr);
@@ -45,15 +46,14 @@ class MVLCObject: public QObject
 
         AbstractImpl *getImpl();
 
-        void setReadTimeout(Pipe pipe, unsigned ms);
-        void setWriteTimeout(Pipe pipe, unsigned ms);
         unsigned getReadTimeout(Pipe pipe) const;
         unsigned getWriteTimeout(Pipe pipe) const;
-
 
     public slots:
         std::error_code connect();
         std::error_code disconnect();
+        void setReadTimeout(Pipe pipe, unsigned ms);
+        void setWriteTimeout(Pipe pipe, unsigned ms);
 
     private:
         void setState(const State &newState);

@@ -19,11 +19,11 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::NoError:
                 return "No Error";
 
-            case MVLCErrorCode::IsOpen:
-                return "Device is open";
+            case MVLCErrorCode::IsConnected:
+                return "Device is connected";
 
-            case MVLCErrorCode::IsClosed:
-                return "Device is closed";
+            case MVLCErrorCode::IsDisconnected:
+                return "Device is disconnected";
 
             case MVLCErrorCode::ShortWrite:
                 return "Short write";
