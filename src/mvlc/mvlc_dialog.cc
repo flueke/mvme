@@ -51,54 +51,90 @@ std::error_code MVLCDialog::doWrite(const QVector<u32> &buffer)
     return m_mvlc->write(Pipe::Command, buffer).first;
 };
 
+// Returns MVLCErrorCode::ShortRead in case less than the desired amount of
+// words could be read.
+std::error_code MVLCDialog::readWords(u32 *dest, size_t count, size_t &wordsTransferred)
+{
+    size_t bytesToTransfer = count * sizeof(u32);
+    size_t bytesTransferred = 0u;
+
+    auto ec = m_mvlc->read(Pipe::Command,
+                           reinterpret_cast<u8 *>(dest),
+                           bytesToTransfer,
+                           bytesTransferred);
+
+    wordsTransferred = bytesTransferred / sizeof(u32);
+
+    if (ec)
+        return ec;
+
+    if (bytesTransferred != bytesToTransfer)
+        return make_error_code(MVLCErrorCode::ShortRead);
+
+    return ec;
+}
+
+std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
+{
+    dest.resize(0);
+
+    u32 header = 0u;
+    size_t wordsTransferred = 0u;
+
+    if (auto ec = readWords(&header, 1, wordsTransferred))
+        return ec;
+
+    if (!is_known_buffer(header))
+        return make_error_code(MVLCErrorCode::InvalidBufferHeader);
+
+    u16 responseLength = (header & BufferSizeMask);
+    dest.resize(1 + responseLength);
+    dest[0] = header;
+
+    auto ec = readWords(dest.data() + 1, responseLength, wordsTransferred);
+
+    if (ec.value() == static_cast<int>(MVLCErrorCode::ShortRead))
+    {
+        // Adjust the destination size to the full number of words transfered.
+        dest.resize(1 + wordsTransferred);
+    }
+
+    return ec;
+}
+
 std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32> &dest)
 {
     assert(bhv);
 
-    dest.resize(0);
+    while (true)
+    {
+        if (auto ec = readKnownBuffer(dest))
+            return ec;
 
-    u32 header = 0u;
-    size_t bytesTransferred = 0u;
+        assert(!dest.isEmpty());
+        if (dest.isEmpty())
+            return make_error_code(MVLCErrorCode::ShortRead);
 
-    auto ec = m_mvlc->read(Pipe::Command,
-                           reinterpret_cast<u8 *>(&header), sizeof(header),
-                           bytesTransferred);
-    if (ec)
-        return ec;
+        u32 header = dest[0];
 
-    if (bytesTransferred != sizeof(header))
+        if (is_stackerror_notification(header))
+            m_stackErrorNotifications.push_back(dest);
+        else
+            break;
+    }
+
+    assert(!dest.isEmpty());
+    if (dest.isEmpty())
         return make_error_code(MVLCErrorCode::ShortRead);
+
+    u32 header = dest[0];
 
     if (!bhv(header))
     {
-        // Store the erroneous header in the dest buffer for inspection.
-        dest.resize(1);
-        dest[0] = header;
+        auto msg = QString("readResponse header validation failed, header=0x%1")
+            .arg(header, 8, 16, QLatin1Char('0'));
+        std::cerr << msg.toStdString() << std::endl;
         return make_error_code(MVLCErrorCode::InvalidBufferHeader);
-    }
-
-    u16 responseLength = (header & BufferSizeMask);
-
-    dest.resize(1 + responseLength);
-    dest[0] = header;
-
-    if (responseLength > 0)
-    {
-        size_t bytesToTransfer = responseLength * sizeof(u32);
-        bytesTransferred = 0u;
-
-        ec = m_mvlc->read(Pipe::Command,
-                          reinterpret_cast<u8 *>(dest.data() + 1),
-                          bytesToTransfer,
-                          bytesTransferred);
-
-        dest.resize(1 + bytesTransferred / sizeof(u32));
-
-        if (ec)
-            return ec;
-
-        if (bytesTransferred != bytesToTransfer)
-            return make_error_code(MVLCErrorCode::ShortRead);
     }
 
     return {};
