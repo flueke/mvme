@@ -24,16 +24,14 @@
 #include <QFormLayout>
 #include <QRegularExpressionValidator>
 #include <QStorageInfo>
-#include <QTimer>
 
 #include "mvme_context.h"
+#include "mvme_workspace.h"
 #include "qt_util.h"
 #include "sis3153.h"
 #include "util.h"
 #include "util/strings.h"
 #include "vme_controller_ui.h"
-
-static const int WidgetUpdateInterval_ms = 500;
 
 // zlib supports [0,9] with 6 being the default.
 //
@@ -64,9 +62,8 @@ static void fill_compression_combo(QComboBox *combo)
     }
 }
 
-DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
+DAQControlWidget::DAQControlWidget(QWidget *parent)
     : QWidget(parent)
-    , m_context(context)
     , pb_start(new QPushButton)
     , pb_stop(new QPushButton)
     , pb_oneCycle(new QPushButton)
@@ -92,144 +89,82 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     bg_daqData->addButton(rb_keepData);
     bg_daqData->addButton(rb_clearData);
     rb_clearData->setChecked(true);
+    fill_compression_combo(combo_compression);
 
-    // start button actions
-    connect(pb_start, &QPushButton::clicked, m_context, [this] {
-        auto globalMode = m_context->getMode();
-        auto daqState = m_context->getDAQState();
-        bool keepHistoContents = rb_keepData->isChecked();
-
-        switch (daqState)
+    auto daq_ctrl = [this] (u32 cycles)
+    {
+        switch (m_daqState)
         {
             case DAQState::Idle:
                 {
-                    switch (globalMode)
-                    {
-                        case GlobalMode::DAQ:
-                            m_context->startDAQReadout(0, keepHistoContents);
-                            break;
-                        case GlobalMode::ListFile:
-                            m_context->startDAQReplay(0, keepHistoContents);
-                            break;
-                    }
-                } break;
+                    bool keepHistoContents = rb_keepData->isChecked();
+                    emit startDAQ(cycles, keepHistoContents);
+                }
+                break;
 
             case DAQState::Running:
-                {
-                    m_context->pauseDAQ();
-                } break;
+                emit pauseDAQ();
+                break;
 
             case DAQState::Paused:
-                {
-                    m_context->resumeDAQ();
-                } break;
+                emit resumeDAQ(cycles);
+                break;
 
             case DAQState::Starting:
             case DAQState::Stopping:
                 break;
         }
+    };
+
+    // start button actions
+    connect(pb_start, &QPushButton::clicked, this, [daq_ctrl] ()
+    {
+        daq_ctrl(0);
     });
 
     // one cycle button
-    connect(pb_oneCycle, &QPushButton::clicked, this, [this] {
-        auto globalMode = m_context->getMode();
-        auto daqState = m_context->getDAQState();
-        bool keepHistoContents = rb_keepData->isChecked();
-
-        switch (daqState)
-        {
-            case DAQState::Idle:
-                {
-                    switch (globalMode)
-                    {
-                        case GlobalMode::DAQ:
-                            m_context->startDAQReadout(1, keepHistoContents);
-                            break;
-                        case GlobalMode::ListFile:
-                            m_context->startDAQReplay(1, keepHistoContents);
-                            break;
-                    }
-                } break;
-
-            case DAQState::Running:
-                {
-                    m_context->pauseDAQ();
-                } break;
-
-            case DAQState::Paused:
-                {
-                    m_context->resumeDAQ(1);
-                } break;
-
-            case DAQState::Starting:
-            case DAQState::Stopping:
-                break;
-        }
+    connect(pb_oneCycle, &QPushButton::clicked, this, [daq_ctrl] ()
+    {
+        daq_ctrl(1);
     });
 
-    connect(pb_stop, &QPushButton::clicked, m_context, &MVMEContext::stopDAQ);
+    connect(pb_stop, &QPushButton::clicked,
+            this, &DAQControlWidget::stopDAQ);
 
-    connect(pb_reconnect, &QPushButton::clicked, this, [this] {
-        /* Do not disconnect the controller directly but do it via the context.
-         * This way the context can reset the connect-retry-count and attempt
-         * to connect again. */
+    connect(pb_reconnect, &QPushButton::clicked,
+            this, &DAQControlWidget::reconnectVMEController);
 
-        m_context->reconnectVMEController();
+    connect(pb_forceReset, &QPushButton::clicked,
+            this, &DAQControlWidget::forceResetVMEController);
 
+    connect(pb_controllerSettings, &QPushButton::clicked,
+            this, &DAQControlWidget::changeVMEControllerSettings);
+
+    connect(pb_runSettings, &QPushButton::clicked,
+            this, &DAQControlWidget::changeDAQRunSettings);
+
+    connect(pb_workspaceSettings, &QPushButton::clicked,
+            this, &DAQControlWidget::changeWorkspaceSettings);
+
+    connect(cb_writeListfile, &QCheckBox::stateChanged,
+            this, [this](int state)
+    {
+        m_listFileOutputInfo.enabled = (state != Qt::Unchecked);
+        emit listFileOutputInfoModified(m_listFileOutputInfo);
     });
 
-    connect(pb_forceReset, &QPushButton::clicked, this, [this] {
-        auto sis = qobject_cast<SIS3153 *>(m_context->getVMEController());
-        assert(sis);
-        sis->setResetOnConnect(true);
-        m_context->reconnectVMEController();
-    });
-
-    connect(pb_controllerSettings, &QPushButton::clicked, this, [this] {
-        VMEControllerSettingsDialog dialog(m_context);
-        dialog.setWindowModality(Qt::ApplicationModal);
-        dialog.exec();
-    });
-
-    connect(cb_writeListfile, &QCheckBox::stateChanged, this, [this](int state) {
-        auto info = m_context->getListFileOutputInfo();
-        info.enabled = (state != Qt::Unchecked);
-        m_context->setListFileOutputInfo(info);
-    });
-
-    connect(pb_runSettings, &QPushButton::clicked, this, [this] {
-        DAQRunSettingsDialog dialog(m_context->getListFileOutputInfo());
-        dialog.setWindowModality(Qt::ApplicationModal);
-        if (dialog.exec() == QDialog::Accepted)
-        {
-            m_context->setListFileOutputInfo(dialog.getSettings());
-        }
-    });
-
-    connect(pb_workspaceSettings, &QPushButton::clicked, this, [this] {
-        WorkspaceSettingsDialog dialog(m_context->makeWorkspaceSettings());
-        dialog.setWindowModality(Qt::ApplicationModal);
-        if (dialog.exec() == QDialog::Accepted)
-        {
-            m_context->reapplyWorkspaceSettings();
-        }
-    });
-
-    fill_compression_combo(combo_compression);
-
-    connect(combo_compression, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged), this, [this] (int index) {
+    connect(combo_compression, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this] (int index)
+    {
         int compression = combo_compression->currentData().toInt();
-        auto info = m_context->getListFileOutputInfo();
-        info.compressionLevel = compression;
-        m_context->setListFileOutputInfo(info);
+        m_listFileOutputInfo.compressionLevel = compression;
+        emit listFileOutputInfoModified(m_listFileOutputInfo);
     });
 
-    connect(m_context, &MVMEContext::daqStateChanged, this, &DAQControlWidget::updateWidget);
-    connect(m_context, &MVMEContext::mvmeStreamWorkerStateChanged, this, &DAQControlWidget::updateWidget);
-    connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);
-    connect(m_context, &MVMEContext::controllerStateChanged, this, &DAQControlWidget::updateWidget);
+
+#if 0 // FIXME: move to the outside
     connect(m_context, &MVMEContext::vmeConfigChanged, this, &DAQControlWidget::updateWidget);
-    connect(m_context, &MVMEContext::vmeControllerSet, this, &DAQControlWidget::updateWidget);
+#endif
 
 
     //
@@ -341,12 +276,6 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     //
     // widget update timer setup
     //
-    auto timer = new QTimer(this);
-    timer->setInterval(WidgetUpdateInterval_ms);
-    timer->start();
-
-    connect(timer, &QTimer::timeout, this, &DAQControlWidget::updateWidget);
-
     updateWidget();
 }
 
@@ -354,25 +283,66 @@ DAQControlWidget::~DAQControlWidget()
 {
 }
 
+void DAQControlWidget::setGlobalMode(const GlobalMode &mode)
+{
+    m_globalMode = mode;
+    updateWidget();
+}
+
+void DAQControlWidget::setDAQState(const DAQState &state)
+{
+    m_daqState = state;
+    updateWidget();
+}
+
+void DAQControlWidget::setVMEControllerState(const ControllerState &state)
+{
+    m_vmeControllerState = state;
+    updateWidget();
+}
+
+void DAQControlWidget::setVMEControllerTypeName(const QString &name)
+{
+    m_vmeControllerTypeName = name;
+    updateWidget();
+}
+
+void DAQControlWidget::setStreamWorkerState(const MVMEStreamWorkerState &state)
+{
+    m_streamWorkerState = state;
+    updateWidget();
+}
+
+void DAQControlWidget::setListFileOutputInfo(const ListFileOutputInfo &info)
+{
+    m_listFileOutputInfo = info;
+    updateWidget();
+}
+
+void DAQControlWidget::setDAQStats(const DAQStats &stats)
+{
+    m_daqStats = stats;
+    // no forced update
+}
+
+void DAQControlWidget::setWorkspaceDirectory(const QString &dir)
+{
+    m_workspaceDirectory = dir;
+    // no forced update
+}
+
 void DAQControlWidget::updateWidget()
 {
-    auto globalMode = m_context->getMode();
-    auto daqState = m_context->getDAQState();
-    auto streamWorkerState = m_context->getMVMEStreamWorkerState();
-    auto controllerState = ControllerState::Disconnected;
-
-    if (auto controller = m_context->getVMEController())
-    {
-        controllerState = m_context->getVMEController()->getState();
-    }
+    auto globalMode = m_globalMode;
+    auto daqState = m_daqState;
+    auto streamWorkerState = m_streamWorkerState;
+    auto controllerState = m_vmeControllerState;
 
     const bool isReplay  = (globalMode == GlobalMode::ListFile);
     const bool isRun     = (globalMode == GlobalMode::DAQ);
     const bool isDAQIdle = (daqState == DAQState::Idle);
     const bool isControllerConnected = (controllerState == ControllerState::Connected);
-
-
-    const auto &stats = m_context->getDAQStats();
+    const auto &stats = m_daqStats;
 
     //
     // start/pause/resume button
@@ -510,25 +480,16 @@ void DAQControlWidget::updateWidget()
             break;
     }
 
-    if (auto controller = m_context->getVMEController())
+    if (!m_vmeControllerTypeName.isEmpty())
     {
-        stateString += " (" + to_string(controller->getType()) + ")";
+        stateString += " (" + m_vmeControllerTypeName + ")";
     }
 
     label_controllerState->setText(stateString);
 
     pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
     pb_controllerSettings->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
-
-    if (auto sis = qobject_cast<SIS3153 *>(m_context->getVMEController()))
-    {
-        pb_forceReset->setVisible(true);
-        pb_forceReset->setEnabled(controllerState == ControllerState::Disconnected);
-    }
-    else
-    {
-        pb_forceReset->setVisible(false);
-    }
+    pb_forceReset->setEnabled(controllerState == ControllerState::Disconnected);
 
     //
     // listfile options
@@ -545,7 +506,7 @@ void DAQControlWidget::updateWidget()
             break;
     };
 
-    auto outputInfo = m_context->getListFileOutputInfo();
+    const auto &outputInfo = m_listFileOutputInfo;
 
     {
         QSignalBlocker b(cb_writeListfile);
@@ -558,7 +519,21 @@ void DAQControlWidget::updateWidget()
     }
 
     auto filename = stats.listfileFilename;
-    filename.remove(m_context->getWorkspacePath(QSL("ListFileDirectory")) + QSL("/"));
+
+    if (auto settings = make_workspace_settings(m_workspaceDirectory))
+    {
+        QDir listfileDir(settings->value(QSL("ListFileDirectory")).toString());
+
+        if (!listfileDir.isAbsolute())
+        {
+            QString prefix = m_workspaceDirectory + "/" + listfileDir.path() + "/";
+
+            if (filename.startsWith(prefix))
+            {
+                filename.remove(prefix);
+            }
+        }
+    }
 
     if (le_listfileFilename->text() != filename)
         le_listfileFilename->setText(filename);
@@ -590,7 +565,7 @@ void DAQControlWidget::updateWidget()
     }
 
     {
-        QStorageInfo si(m_context->getWorkspaceDirectory());
+        QStorageInfo si(m_workspaceDirectory);
         auto freeBytes = si.bytesFree();
         auto str = format_number(freeBytes, QSL("B"), UnitScaling::Binary,
                                  // fieldWidth, format, precision

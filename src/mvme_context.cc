@@ -31,6 +31,7 @@
 #include "mvme.h"
 #include "mvme_listfile.h"
 #include "mvme_stream_worker.h"
+#include "mvme_workspace.h"
 #include "remote_control.h"
 #include "sis3153.h"
 #include "vme_analysis_common.h"
@@ -68,7 +69,6 @@ static const size_t DataBufferSize = Megabytes(1);
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
 
-static const QString WorkspaceIniName = "mvmeworkspace.ini";
 static const ListFileFormat DefaultListFileFormat = ListFileFormat::ZIP;
 static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
@@ -853,6 +853,37 @@ void MVMEContext::reconnectVMEController()
     m_d->m_ctrlOpenRetryCount = 0;
 
     qDebug() << __PRETTY_FUNCTION__ << "after m_controller->close()";
+}
+
+void MVMEContext::forceResetVMEController()
+{
+    // XXX: SIS specific
+    if (auto sis = qobject_cast<SIS3153 *>(getVMEController()))
+    {
+        sis->setResetOnConnect(true);
+    }
+
+    reconnectVMEController();
+}
+
+void MVMEContext::dumpVMEControllerRegisters()
+{
+    // XXX: only VMUSB right now
+    if (auto vmusb = qobject_cast<VMUSB *>(getVMEController()))
+    {
+        if (getDAQState() == DAQState::Idle)
+        {
+            dump_registers(vmusb, [this] (const QString &line)
+                           {
+                               logMessage(line);
+                           });
+        }
+    }
+    else
+    {
+        logMessage("'Dump Registers' not implemented for VME controller type " +
+                   to_string(getVMEController()->getType()));
+    }
 }
 
 QString MVMEContext::getUniqueModuleName(const QString &prefix) const
@@ -1917,13 +1948,7 @@ std::shared_ptr<QSettings> MVMEContext::makeWorkspaceSettings() const
 
 std::shared_ptr<QSettings> MVMEContext::makeWorkspaceSettings(const QString &workspaceDirectory) const
 {
-    if (workspaceDirectory.isEmpty())
-    {
-        return {};
-    }
-
-    QDir dir(workspaceDirectory);
-    return std::make_shared<QSettings>(dir.filePath(WorkspaceIniName), QSettings::IniFormat);
+    return make_workspace_settings(workspaceDirectory);
 }
 
 QString MVMEContext::getWorkspacePath(const QString &settingsKey,
@@ -2202,6 +2227,8 @@ void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)
     auto settings = makeWorkspaceSettings();
 
     writeToSettings(info, *settings);
+
+    emit ListFileOutputInfoChanged(info);
 }
 
 ListFileOutputInfo MVMEContext::getListFileOutputInfo() const

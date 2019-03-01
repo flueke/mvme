@@ -135,6 +135,10 @@ private slots:
     void editVMEScript(VMEScriptConfig *vmeScript);
     void runAddVMEEventDialog();
     void runEditVMEEventDialog(EventConfig *eventConfig);
+    void runVMEControllerSettingsDialog();
+    void runDAQRunSettingsDialog();
+    void runWorkspaceSettingsDialog();
+
     void doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs);
 
 

@@ -37,21 +37,53 @@
 #include <QWidget>
 
 #include "globals.h"
+#include "mvme_stream_worker.h"
 
-class MVMEContext;
 class QFormLayout;
 
 class DAQControlWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void startDAQ(u32 nCycles, bool keepHistoContents);
+        void pauseDAQ();
+        void resumeDAQ(u32 nCycles);
+        void stopDAQ();
+        void reconnectVMEController();
+        void forceResetVMEController();
+        void listFileOutputInfoModified(const ListFileOutputInfo &lfo);
+        // Signalling that the user wants to change the specific settings.
+        void changeVMEControllerSettings();
+        void changeDAQRunSettings();
+        void changeWorkspaceSettings();
+
     public:
-        DAQControlWidget(MVMEContext *context, QWidget *parent = 0);
+        DAQControlWidget(QWidget *parent = 0);
         ~DAQControlWidget();
 
-    private:
+    public slots:
+        void setGlobalMode(const GlobalMode &mode);
+        void setDAQState(const DAQState &state);
+        void setVMEControllerState(const ControllerState &state);
+        void setVMEControllerTypeName(const QString &name);
+        void setStreamWorkerState(const MVMEStreamWorkerState &state);
+        void setListFileOutputInfo(const ListFileOutputInfo &info);
+        void setDAQStats(const DAQStats &stats);
+        void setWorkspaceDirectory(const QString &dir);
+
+        // Call this periodcally after updating the other variables.
         void updateWidget();
 
-        MVMEContext *m_context;
+    private:
+
+        GlobalMode m_globalMode = GlobalMode::DAQ;
+        DAQState m_daqState = DAQState::Idle;
+        ControllerState m_vmeControllerState = ControllerState::Disconnected;
+        QString m_vmeControllerTypeName;
+        MVMEStreamWorkerState m_streamWorkerState = MVMEStreamWorkerState::Idle;
+        ListFileOutputInfo m_listFileOutputInfo;
+        DAQStats m_daqStats = {};
+        QString m_workspaceDirectory;
 
         QPushButton *pb_start,
                     *pb_stop,

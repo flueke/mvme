@@ -32,16 +32,6 @@ enum class VMEControllerType
     SIS3153
 };
 
-enum class ControllerState
-{
-    Disconnected,
-    Connecting,
-    Connected,
-};
-
-Q_DECLARE_METATYPE(ControllerState);
-
-
 /* VME Controller errors and results
  * ---------------------------------
  * - Types of operations:

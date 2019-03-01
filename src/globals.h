@@ -161,4 +161,13 @@ QString generate_output_basename(const ListFileOutputInfo &info);
 // with .zip or .mvmelst extension
 QString generate_output_filename(const ListFileOutputInfo &info);
 
+enum class ControllerState
+{
+    Disconnected,
+    Connecting,
+    Connected,
+};
+
+Q_DECLARE_METATYPE(ControllerState);
+
 #endif

@@ -12,6 +12,7 @@ class DAQControl: public QObject
 
     public slots:
         void startDAQ(u32 nCycles, bool keepHistoContents);
+        void stopDAQ();
         void pauseDAQ();
         void resumeDAQ(u32 nCycles);
 

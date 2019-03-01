@@ -23,6 +23,7 @@
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
 #include "vme_config_ui.h"
+#include "daqcontrol.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
 #include "gui_util.h"
@@ -39,6 +40,7 @@
 #include "sis3153_util.h"
 #include "util_zip.h"
 #include "vme_config_tree.h"
+#include "vme_controller_ui.h"
 #include "vme_debug_widget.h"
 #include "vme_script_editor.h"
 #include "vmusb_firmware_loader.h"
@@ -89,6 +91,8 @@ struct MVMEWindowPrivate
     ListfileBrowser *m_listfileBrowser = nullptr;
     RateMonitorGui *m_rateMonitorGui = nullptr;
 
+    DAQControl *daqControl = nullptr;
+
     QStatusBar *statusBar;
     QMenuBar *menuBar;
 
@@ -127,6 +131,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuBar                = new QMenuBar(this);
     m_d->m_geometrySaver        = new WidgetGeometrySaver(this);
     m_d->m_networkAccessManager = new QNetworkAccessManager(this);
+    m_d->daqControl = new DAQControl(m_d->m_context, this);
 
     setCentralWidget(m_d->centralWidget);
     setStatusBar(m_d->statusBar);
@@ -302,7 +307,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     // central widget consisting of DAQControlWidget, DAQConfigTreeWidget and DAQStatsWidget
     //
     {
-        m_d->m_daqControlWidget = new DAQControlWidget(m_d->m_context);
+        m_d->m_daqControlWidget = new DAQControlWidget;
         m_d->m_vmeConfigTreeWidget = new VMEConfigTreeWidget;
         m_d->m_daqStatsWidget = new DAQStatsWidget(m_d->m_context);
 
@@ -339,8 +344,8 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         connect(m_d->m_context, &MVMEContext::daqStateChanged,
                 cw, &VMEConfigTreeWidget::setDAQState);
 
-        connect(m_d->m_context, &MVMEContext::vmeControllerSet,
-                cw, &VMEConfigTreeWidget::setVMEController);
+        connect(m_d->m_context, &MVMEContext::controllerStateChanged,
+                cw, &VMEConfigTreeWidget::setVMEControllerState);
 
         connect(cw, &VMEConfigTreeWidget::logMessage,
                 m_d->m_context, &MVMEContext::logMessage);
@@ -362,6 +367,77 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
 
         connect(cw, &VMEConfigTreeWidget::runScriptConfigs,
                 this, &MVMEMainWindow::doRunScriptConfigs);
+    }
+
+    // Setup DAQControlWidget
+    {
+        auto &dcw = m_d->m_daqControlWidget;
+
+        // MVMEContext -> DAQControlWidget
+        connect(m_d->m_context, &MVMEContext::modeChanged,
+                dcw, &DAQControlWidget::setGlobalMode);
+
+        connect(m_d->m_context, &MVMEContext::daqStateChanged,
+                dcw, &DAQControlWidget::setDAQState);
+
+        connect(m_d->m_context, &MVMEContext::controllerStateChanged,
+                dcw, &DAQControlWidget::setVMEControllerState);
+
+        connect(m_d->m_context, &MVMEContext::vmeControllerSet,
+                dcw, [dcw] (VMEController *controller)
+        {
+            dcw->setVMEControllerTypeName(
+                controller ? to_string(controller->getType()) : QString());
+
+        });
+
+        connect(m_d->m_context, &MVMEContext::mvmeStreamWorkerStateChanged,
+                dcw, &DAQControlWidget::setStreamWorkerState);
+
+        connect(m_d->m_context, &MVMEContext::ListFileOutputInfoChanged,
+                dcw, &DAQControlWidget::setListFileOutputInfo);
+
+        connect(m_d->m_context, &MVMEContext::workspaceDirectoryChanged,
+                dcw, &DAQControlWidget::setWorkspaceDirectory);
+
+        // DAQControlWidget -> MVMEContext
+        connect(dcw, &DAQControlWidget::reconnectVMEController,
+                m_d->m_context, &MVMEContext::reconnectVMEController);
+
+        connect(dcw, &DAQControlWidget::forceResetVMEController,
+                m_d->m_context, &MVMEContext::reconnectVMEController);
+
+        connect(dcw, &DAQControlWidget::listFileOutputInfoModified,
+                m_d->m_context, &MVMEContext::setListFileOutputInfo);
+
+        // DAQControlWidget -> DAQControl
+        connect(dcw, &DAQControlWidget::startDAQ, m_d->daqControl, &DAQControl::startDAQ);
+        connect(dcw, &DAQControlWidget::stopDAQ, m_d->daqControl, &DAQControl::stopDAQ);
+        connect(dcw, &DAQControlWidget::pauseDAQ, m_d->daqControl, &DAQControl::pauseDAQ);
+        connect(dcw, &DAQControlWidget::resumeDAQ, m_d->daqControl, &DAQControl::resumeDAQ);
+
+        // DAQControlWidget -> The World
+        connect(dcw, &DAQControlWidget::changeVMEControllerSettings,
+                this, &MVMEMainWindow::runVMEControllerSettingsDialog);
+
+        connect(dcw, &DAQControlWidget::changeDAQRunSettings,
+                this, &MVMEMainWindow::runDAQRunSettingsDialog);
+
+        connect(dcw, &DAQControlWidget::changeWorkspaceSettings,
+                this, &MVMEMainWindow::runWorkspaceSettingsDialog);
+
+        static const int DAQControlWidgetUpdateInterval_ms = 500;
+        auto timer = new QTimer(this);
+
+        connect(timer, &QTimer::timeout, this, [this, dcw] ()
+        {
+            dcw->setDAQStats(m_d->m_context->getDAQStats());
+            dcw->setListFileOutputInfo(m_d->m_context->getListFileOutputInfo());
+            dcw->updateWidget();
+        });
+
+        timer->setInterval(DAQControlWidgetUpdateInterval_ms);
+        timer->start();
     }
 
     updateWindowTitle();
@@ -387,7 +463,8 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
 MVMEMainWindow::~MVMEMainWindow()
 {
     // To avoid a crash on exit if replay is running
-    disconnect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::onDAQStateChanged);
+    disconnect(m_d->m_context, &MVMEContext::daqStateChanged,
+               this, &MVMEMainWindow::onDAQStateChanged);
 
     auto workspaceDir = m_d->m_context->getWorkspaceDirectory();
 
@@ -1769,6 +1846,33 @@ void MVMEMainWindow::runEditVMEEventDialog(EventConfig *eventConfig)
     EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig, this);
     dialog.setWindowTitle(QSL("Edit Event"));
     dialog.exec();
+}
+
+void MVMEMainWindow::runVMEControllerSettingsDialog()
+{
+    VMEControllerSettingsDialog dialog(m_d->m_context);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    dialog.exec();
+}
+
+void MVMEMainWindow::runDAQRunSettingsDialog()
+{
+    DAQRunSettingsDialog dialog(m_d->m_context->getListFileOutputInfo());
+    dialog.setWindowModality(Qt::ApplicationModal);
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        m_d->m_context->setListFileOutputInfo(dialog.getSettings());
+    }
+}
+
+void MVMEMainWindow::runWorkspaceSettingsDialog()
+{
+    WorkspaceSettingsDialog dialog(m_d->m_context->makeWorkspaceSettings());
+    dialog.setWindowModality(Qt::ApplicationModal);
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        m_d->m_context->reapplyWorkspaceSettings();
+    }
 }
 
 void MVMEMainWindow::doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)

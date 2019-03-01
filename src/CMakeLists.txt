@@ -125,6 +125,7 @@ set(LIBMVME_SOURCES
     event_server/server/event_server_util.cc
     event_server/server/event_server.cc
     CVMUSBReadoutList.cpp
+    daqcontrol.cc
     daqcontrol_widget.cc
     daqstats_widget.cc
     data_filter.cc

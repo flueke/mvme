@@ -24,7 +24,6 @@
 #include <QWidget>
 #include <QMap>
 #include "globals.h"
-#include "vme_controller.h"
 
 class QLineEdit;
 class QTreeWidget;
@@ -37,7 +36,6 @@ class VMEConfig;
 class EventConfig;
 class ModuleConfig;
 class VMEScriptConfig;
-class MVMEContext;
 
 class EventNode;
 
@@ -52,6 +50,7 @@ class VMEConfigTreeWidget: public QWidget
         void editEvent(EventConfig *eventConfig);
         void runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs);
         void logMessage(const QString &msg);
+        void dumpVMEControllerRegisters();
 
     public:
         VMEConfigTreeWidget(QWidget *parent = 0);
@@ -67,7 +66,7 @@ class VMEConfigTreeWidget: public QWidget
         void setConfigFilename(const QString &filename);
         void setWorkspaceDirectory(const QString &dirname);
         void setDAQState(const DAQState &daqState);
-        void setVMEController(VMEController *vmeController);
+        void setVMEControllerState(const ControllerState &state);
 
     private slots:
         void editEventImpl();
@@ -106,7 +105,6 @@ class VMEConfigTreeWidget: public QWidget
         void initModule();
         void onActionShowAdvancedChanged();
         void handleShowDiagnostics();
-        void dumpVMUSBRegisters();
         void exploreWorkspace();
         void showEditNotes();
         void toggleObjectEnabled(QTreeWidgetItem *node, int expectedNodeType);
@@ -118,7 +116,7 @@ class VMEConfigTreeWidget: public QWidget
         QString m_configFilename;
         QString m_workspaceDirectory;
         DAQState m_daqState = DAQState::Idle;
-        VMEController *m_vmeController = nullptr;
+        ControllerState m_vmeControllerState = ControllerState::Disconnected;
 
         QTreeWidget *m_tree;
         // Maps config objects to tree nodes
@@ -128,7 +126,7 @@ class VMEConfigTreeWidget: public QWidget
                  *m_nodeScripts;
 
         QAction *action_showAdvanced,
-                *action_dumpVMUSBRegisters;
+                *action_dumpVMEControllerRegisters;
 
         QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs, *pb_notes;
         QLineEdit *le_fileName;

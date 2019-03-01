@@ -21,6 +21,14 @@ void DAQControl::startDAQ(u32 nCycles, bool keepHistoContents)
     }
 }
 
+void DAQControl::stopDAQ()
+{
+    if (m_context->getDAQState() == DAQState::Idle)
+        return;
+
+    m_context->stopDAQ();
+}
+
 void DAQControl::pauseDAQ()
 {
     if (m_context->getDAQState() != DAQState::Running)

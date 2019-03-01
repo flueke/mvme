@@ -72,6 +72,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void vmeConfigChanged(VMEConfig *config);
         void vmeConfigFilenameChanged(const QString &fileName);
 
+        void ListFileOutputInfoChanged(const ListFileOutputInfo &info);
+
         /* Emitted when a new analysis is loaded.
          * Note that a nullptr may be passed in case loading did not succeed. */
         void analysisChanged(analysis::Analysis *analysis);
@@ -104,7 +106,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         bool setVMEController(VMEController *controller, const QVariantMap &settings = QVariantMap());
         bool setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
         VMEController *getVMEController() const { return m_controller; }
-        void reconnectVMEController();
 
         ControllerState getControllerState() const;
         VMEReadoutWorker *getReadoutWorker() { return m_readoutWorker; }
@@ -321,6 +322,10 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel);
         void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);
+
+        void reconnectVMEController();
+        void forceResetVMEController();
+        void dumpVMEControllerRegisters();
 
     private slots:
         void tryOpenController();

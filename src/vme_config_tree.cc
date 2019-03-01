@@ -217,10 +217,10 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
         connect(action_showAdvanced, &QAction::changed, this,
                 &VMEConfigTreeWidget::onActionShowAdvancedChanged);
 
-        action_dumpVMUSBRegisters = menu->addAction(QSL("Dump VMUSB Registers"));
-        connect(action_dumpVMUSBRegisters, &QAction::triggered,
-                this, &VMEConfigTreeWidget::dumpVMUSBRegisters);
-        action_dumpVMUSBRegisters->setEnabled(false);
+        action_dumpVMEControllerRegisters = menu->addAction(QSL("Dump VME Controller Registers"));
+        connect(action_dumpVMEControllerRegisters, &QAction::triggered,
+                this, &VMEConfigTreeWidget::dumpVMEControllerRegisters);
+        action_dumpVMEControllerRegisters->setEnabled(false);
 
         auto action_exploreWorkspace = menu->addAction(QIcon(":/folder_orange.png"),
                                                        QSL("Explore Workspace"));
@@ -817,6 +817,8 @@ void VMEConfigTreeWidget::editEventImpl()
     }
 }
 
+// TODO: refactor in the same way as done to addEvent(): make it a signal and
+// move the implementation elsewhere
 void VMEConfigTreeWidget::addModule()
 {
     auto node = m_tree->currentItem();
@@ -989,21 +991,6 @@ void VMEConfigTreeWidget::handleShowDiagnostics()
     emit showDiagnostics(module);
 }
 
-// TODO: Make a general "dump controller registers" signal, emit that when the
-// corresponding QAction is activated and move the implementation elsewhere.
-void VMEConfigTreeWidget::dumpVMUSBRegisters()
-{
-    auto vmusb = dynamic_cast<VMUSB *>(m_vmeController);
-
-    if (vmusb && m_daqState == DAQState::Idle)
-    {
-        dump_registers(vmusb, [this] (const QString &line)
-                       {
-                           emit logMessage(line);
-                       });
-    }
-}
-
 void VMEConfigTreeWidget::exploreWorkspace()
 {
     QDesktopServices::openUrl(QUrl::fromLocalFile(m_workspaceDirectory));
@@ -1030,11 +1017,10 @@ void VMEConfigTreeWidget::setDAQState(const DAQState &daqState)
     m_daqState = daqState;
 }
 
-void VMEConfigTreeWidget::setVMEController(VMEController *vmeController)
+void VMEConfigTreeWidget::setVMEControllerState(const ControllerState &state)
 {
-    m_vmeController = vmeController;
-    action_dumpVMUSBRegisters->setEnabled(
-        m_vmeController->getType() == VMEControllerType::VMUSB);
+    m_vmeControllerState = state;
+    action_dumpVMEControllerRegisters->setEnabled(state == ControllerState::Connected);
 }
 
 void VMEConfigTreeWidget::updateConfigLabel()
