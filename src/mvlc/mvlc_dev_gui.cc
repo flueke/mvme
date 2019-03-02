@@ -436,16 +436,6 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         ui->pb_usbReconnect->setEnabled(newState != MVLCObject::Connecting);
     });
 
-
-#if 0 // TODO: is this needed? reintroduce it?
-    connect(m_d->mvlc, &MVLCObject::errorSignal,
-            this, [this] (const QString &msg, const MVLCError &error)
-    {
-        logMessage(msg + ": " + error.toString());
-    });
-#endif
-
-
     connect(ui->pb_runScript, &QPushButton::clicked,
             this, [this] ()
     {
