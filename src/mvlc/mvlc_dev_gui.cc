@@ -88,12 +88,10 @@ MVLCDataReader::MVLCDataReader(QObject *parent)
     , m_stackFrameCheckEnabled(true)
     , m_readBuffer(make_buffer(ReadBufferSize))
 {
-    qDebug() << ">>> created" << this;
 }
 
 MVLCDataReader::~MVLCDataReader()
 {
-    qDebug() << ">>> destroyed" << this;
 }
 
 ReaderStats MVLCDataReader::getStats() const
