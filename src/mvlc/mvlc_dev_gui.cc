@@ -131,7 +131,6 @@ bool MVLCDataReader::isStackFrameCheckEnabled() const
 void MVLCDataReader::setMVLC(MVLCObject *mvlc)
 {
     m_mvlc = mvlc;
-    m_mvlc->setReadTimeout(Pipe::Data, ReadTimeout_ms);
 }
 
 void MVLCDataReader::setOutputDevice(std::unique_ptr<QIODevice> dev)
@@ -193,6 +192,8 @@ void MVLCDataReader::readoutLoop()
     m_frameCheckData = {};
 
     emit started();
+
+    m_mvlc->setReadTimeout(Pipe::Data, ReadTimeout_ms);
 
     qDebug() << __PRETTY_FUNCTION__ << "entering readout loop";
     qDebug() << __PRETTY_FUNCTION__ << "executing in" << QThread::currentThread();
