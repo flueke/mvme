@@ -13,12 +13,12 @@ namespace mvlc
 
 std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &response)
 {
-    if (request.size()  < 1)
+    if (request.isEmpty())
     {
         return make_error_code(MVLCErrorCode::MirrorEmptyRequest);
     }
 
-    if (response.size() < 1)
+    if (response.isEmpty())
     {
         return make_error_code(MVLCErrorCode::MirrorEmptyResponse);
     }
@@ -28,10 +28,10 @@ std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &re
         return make_error_code(MVLCErrorCode::MirrorShortResponse);
     }
 
-    int minIndex = 1; // skip buffer header
-    int maxIndex = request.size() - 1;
+    const int minIndex = 1; // skip buffer header
+    const int endIndex = request.size() - 1;
 
-    for (int i = minIndex; i < maxIndex; i++)
+    for (int i = minIndex; i < endIndex; i++)
     {
         if (request[i] != response[i])
             return make_error_code(MVLCErrorCode::MirrorNotEqual);
@@ -93,7 +93,7 @@ std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
 
     auto ec = readWords(dest.data() + 1, responseLength, wordsTransferred);
 
-    if (ec.value() == static_cast<int>(MVLCErrorCode::ShortRead))
+    if (ec == make_error_code(MVLCErrorCode::ShortRead))
     {
         // Adjust the destination size to the full number of words transfered.
         dest.resize(1 + wordsTransferred);
