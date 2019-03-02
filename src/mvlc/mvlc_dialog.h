@@ -24,6 +24,8 @@ class MVLCDialog
         std::error_code writeRegister(u32 address, u32 value);
 
         // Higher level VME access
+        // IMPORTANT: Stack0 is used and the stack is written starting from
+        // offset 0 into stack memory.
         std::error_code vmeSingleRead(u32 address, u32 &value, AddressMode amod,
                                       VMEDataWidth dataWidth);
 
@@ -40,7 +42,7 @@ class MVLCDialog
         // If validation fails no more data is read.
         std::error_code readResponse(BufferHeaderValidator bhv, QVector<u32> &dest);
 
-        // Send the given cmdBuffer to the MVLC and read and verify the mirror
+        // Send the given cmdBuffer to the MVLC, reads and verifies the mirror
         // response. The buffer must start with CmdBufferStart and end with
         // CmdBufferEnd, otherwise the MVLC cannot interpret it.
         std::error_code mirrorTransaction(const QVector<u32> &cmdBuffer,
