@@ -357,12 +357,13 @@ endif(BUILD_TESTS)
 # MVLC support
 if(MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE
+        mvlc/mvlc_impl_usb.cc
+        mvlc/mvlc_basic_mvlc.cc
         mvlc/mvlc_dialog.cc
         mvlc/mvlc_error.cc
         mvlc/mvlc_impl_factory.cc
         mvlc/mvlc_qt_object.cc
         mvlc/mvlc_script.cc
-        mvlc/mvlc_usb_impl.cc
         mvlc/mvlc_util.cc
         mvlc/mvlc_vme_debug_widget.cc
         )
