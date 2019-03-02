@@ -6,8 +6,9 @@
 #include <QObject>
 #include <QVector>
 
-#include "mvlc/mvlc_impl_abstract.h"
 #include "mvlc/mvlc_dialog.h"
+#include "mvlc/mvlc_impl_abstract.h"
+#include "mvlc/mvlc_threading.h"
 
 namespace mesytec
 {
@@ -102,8 +103,10 @@ class MVLCObject: public QObject
         QVector<u32> getResponseBuffer() const;
 
         QVector<QVector<u32>> getStackErrorNotifications() const;
-        QVector<QVector<u32>> getAndClearStackErrorNotifications();
         void clearStackErrorNotifications();
+        QVector<QVector<u32>> getAndClearStackErrorNotifications();
+
+        Locks &getLocks() { return m_locks; }
 
     public slots:
         std::error_code connect();
@@ -113,10 +116,12 @@ class MVLCObject: public QObject
 
     private:
         void setState(const State &newState);
+        Locks &getLocks() const { return m_locks; }
 
         std::unique_ptr<AbstractImpl> m_impl;
         MVLCDialog m_dialog;
         State m_state;
+        mutable Locks m_locks;
 };
 
 } // end namespace mvlc

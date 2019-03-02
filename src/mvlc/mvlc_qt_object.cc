@@ -26,18 +26,22 @@ MVLCObject::MVLCObject(std::unique_ptr<AbstractImpl> mvlc, QObject *parent)
 
 MVLCObject::~MVLCObject()
 {
+    auto guards = getLocks().lockBoth();
     disconnect();
 }
 
 bool MVLCObject::isConnected() const
 {
+    auto guards = getLocks().lockBoth();
     return m_impl->isConnected();
 }
 
 std::error_code MVLCObject::connect()
 {
-    if (isConnected()) return make_error_code(MVLCErrorCode::IsConnected);
+    if (isConnected())
+        return make_error_code(MVLCErrorCode::IsConnected);
 
+    auto guards = getLocks().lockBoth();
     setState(Connecting);
     auto ec = m_impl->connect();
 
@@ -48,8 +52,10 @@ std::error_code MVLCObject::connect()
 
 std::error_code MVLCObject::disconnect()
 {
-    if (!isConnected()) return make_error_code(MVLCErrorCode::IsDisconnected);
+    if (!isConnected())
+        return make_error_code(MVLCErrorCode::IsDisconnected);
 
+    auto guards = getLocks().lockBoth();
     auto ec = m_impl->disconnect();
     setState(Disconnected);
     return ec;
@@ -68,6 +74,7 @@ void MVLCObject::setState(const State &newState)
 std::error_code MVLCObject::read(Pipe pipe, u8 *buffer, size_t size,
                                  size_t &bytesTransferred)
 {
+    auto guard = getLocks().lock(pipe);
     auto ec = m_impl->read(pipe, buffer, size, bytesTransferred);
     return ec;
 }
@@ -75,6 +82,7 @@ std::error_code MVLCObject::read(Pipe pipe, u8 *buffer, size_t size,
 std::error_code MVLCObject::write(Pipe pipe, const u8 *buffer, size_t size,
                                   size_t &bytesTransferred)
 {
+    auto guard = getLocks().lock(pipe);
     auto ec = m_impl->write(pipe, buffer, size, bytesTransferred);
     return ec;
 }
@@ -105,89 +113,106 @@ AbstractImpl *MVLCObject::getImpl()
 
 void MVLCObject::setReadTimeout(Pipe pipe, unsigned ms)
 {
+    auto guard = getLocks().lock(pipe);
     m_impl->setReadTimeout(pipe, ms);
 }
 
 void MVLCObject::setWriteTimeout(Pipe pipe, unsigned ms)
 {
+    auto guard = getLocks().lock(pipe);
     m_impl->setWriteTimeout(pipe, ms);
 }
 
 unsigned MVLCObject::getReadTimeout(Pipe pipe) const
 {
+    auto guard = getLocks().lock(pipe);
     return m_impl->getReadTimeout(pipe);
 }
 
 unsigned MVLCObject::getWriteTimeout(Pipe pipe) const
 {
+    auto guard = getLocks().lock(pipe);
     return m_impl->getWriteTimeout(pipe);
 }
 
 std::error_code MVLCObject::vmeSingleRead(u32 address, u32 &value, AddressMode amod,
                               VMEDataWidth dataWidth)
 {
+    auto guard = getLocks().lockCmd();
     return m_dialog.vmeSingleRead(address, value, amod, dataWidth);
 }
 
 std::error_code MVLCObject::vmeSingleWrite(u32 address, u32 value, AddressMode amod,
                                VMEDataWidth dataWidth)
 {
+    auto guard = getLocks().lockCmd();
     return m_dialog.vmeSingleWrite(address, value, amod, dataWidth);
 }
 
 std::error_code MVLCObject::vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfers,
                              QVector<u32> &dest)
 {
+    auto guard = getLocks().lockCmd();
     return m_dialog.vmeBlockRead(address, amod, maxTransfers, dest);
 }
 
 std::error_code MVLCObject::readRegister(u32 address, u32 &value)
 {
+    auto guard = getLocks().lockCmd();
     return m_dialog.readRegister(address, value);
 }
 
 std::error_code MVLCObject::writeRegister(u32 address, u32 value)
 {
+    auto guard = getLocks().lockCmd();
     return m_dialog.writeRegister(address, value);
 }
 
 std::error_code MVLCObject::readResponse(BufferHeaderValidator bhv, QVector<u32> &dest)
 {
+    auto guard = getLocks().lockCmd();
     return m_dialog.readResponse(bhv, dest);
 }
 
 std::error_code MVLCObject::mirrorTransaction(const QVector<u32> &cmdBuffer,
                                   QVector<u32> &responseDest)
 {
+    auto guard = getLocks().lockCmd();
     return m_dialog.mirrorTransaction(cmdBuffer, responseDest);
 }
 
 std::error_code MVLCObject::stackTransaction(const QVector<u32> &stackUploadData,
                                  QVector<u32> &responseDest)
 {
+    auto guard = getLocks().lockCmd();
     return m_dialog.stackTransaction(stackUploadData, responseDest);
 }
 
 QVector<u32> MVLCObject::getResponseBuffer() const
 {
+    auto guard = getLocks().lockCmd();
     return m_dialog.getResponseBuffer();
 }
 
 QVector<QVector<u32>> MVLCObject::getStackErrorNotifications() const
 {
+    auto guard = getLocks().lockCmd();
     return m_dialog.getStackErrorNotifications();
-}
-
-QVector<QVector<u32>> MVLCObject::getAndClearStackErrorNotifications()
-{
-    auto result = getStackErrorNotifications();
-    clearStackErrorNotifications();
-    return result;
 }
 
 void MVLCObject::clearStackErrorNotifications()
 {
+    auto guard = getLocks().lockCmd();
     m_dialog.clearStackErrorNotifications();
+}
+
+QVector<QVector<u32>> MVLCObject::getAndClearStackErrorNotifications()
+{
+    auto guard = getLocks().lockCmd();
+    // Implementation used MVLCDialog directly to avoid deadlocking.
+    auto result = m_dialog.getStackErrorNotifications();
+    m_dialog.clearStackErrorNotifications();
+    return result;
 }
 
 } // end namespace mvlc
