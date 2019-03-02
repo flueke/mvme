@@ -25,7 +25,7 @@ class MVLCDialog
         // TODO: add readBlock
 
         // Higher level VME access
-        // IMPORTANT: Stack0 is used and the stack is written starting from
+        // Note: Stack0 is used and the stack is written starting from
         // offset 0 into stack memory.
         std::error_code vmeSingleRead(u32 address, u32 &value, AddressMode amod,
                                       VMEDataWidth dataWidth);
@@ -51,7 +51,7 @@ class MVLCDialog
 
         // Sends the given stack data (which must include upload commands),
         // reads and verifies the mirror response, and executes the stack.
-        // IMPORTANT: Stack0 is used and offset 0 into stack memory is assumed.
+        // Note: Stack0 is used and offset 0 into stack memory is assumed.
         std::error_code stackTransaction(const QVector<u32> &stackUploadData,
                                          QVector<u32> &responseDest);
 
@@ -70,6 +70,11 @@ class MVLCDialog
         void clearStackErrorNotifications()
         {
             m_stackErrorNotifications.clear();
+        }
+
+        bool hasStackErrorNotifications() const
+        {
+            return !m_stackErrorNotifications.isEmpty();
         }
 
     private:

@@ -135,57 +135,85 @@ unsigned MVLCObject::getWriteTimeout(Pipe pipe) const
     return m_impl->getWriteTimeout(pipe);
 }
 
+void MVLCObject::postDialogOperation()
+{
+    // The Command mutex is locked at this point.
+    if (m_dialog.hasStackErrorNotifications())
+    {
+        auto notifications = m_dialog.getStackErrorNotifications();
+        for (const auto &n: notifications)
+            emit stackErrorNotification(n);
+        m_dialog.clearStackErrorNotifications();
+    }
+}
+
 std::error_code MVLCObject::vmeSingleRead(u32 address, u32 &value, AddressMode amod,
-                              VMEDataWidth dataWidth)
+                                          VMEDataWidth dataWidth)
 {
     auto guard = getLocks().lockCmd();
-    return m_dialog.vmeSingleRead(address, value, amod, dataWidth);
+    auto result = m_dialog.vmeSingleRead(address, value, amod, dataWidth);
+    postDialogOperation();
+    return result;
 }
 
 std::error_code MVLCObject::vmeSingleWrite(u32 address, u32 value, AddressMode amod,
-                               VMEDataWidth dataWidth)
+                                           VMEDataWidth dataWidth)
 {
     auto guard = getLocks().lockCmd();
-    return m_dialog.vmeSingleWrite(address, value, amod, dataWidth);
+    auto result = m_dialog.vmeSingleWrite(address, value, amod, dataWidth);
+    postDialogOperation();
+    return result;
 }
 
 std::error_code MVLCObject::vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfers,
-                             QVector<u32> &dest)
+                                         QVector<u32> &dest)
 {
     auto guard = getLocks().lockCmd();
-    return m_dialog.vmeBlockRead(address, amod, maxTransfers, dest);
+    auto result = m_dialog.vmeBlockRead(address, amod, maxTransfers, dest);
+    postDialogOperation();
+    return result;
 }
 
 std::error_code MVLCObject::readRegister(u32 address, u32 &value)
 {
     auto guard = getLocks().lockCmd();
-    return m_dialog.readRegister(address, value);
+    auto result = m_dialog.readRegister(address, value);
+    postDialogOperation();
+    return result;
 }
 
 std::error_code MVLCObject::writeRegister(u32 address, u32 value)
 {
     auto guard = getLocks().lockCmd();
-    return m_dialog.writeRegister(address, value);
+    auto result = m_dialog.writeRegister(address, value);
+    postDialogOperation();
+    return result;
 }
 
 std::error_code MVLCObject::readResponse(BufferHeaderValidator bhv, QVector<u32> &dest)
 {
     auto guard = getLocks().lockCmd();
-    return m_dialog.readResponse(bhv, dest);
+    auto result = m_dialog.readResponse(bhv, dest);
+    postDialogOperation();
+    return result;
 }
 
 std::error_code MVLCObject::mirrorTransaction(const QVector<u32> &cmdBuffer,
-                                  QVector<u32> &responseDest)
+                                              QVector<u32> &responseDest)
 {
     auto guard = getLocks().lockCmd();
-    return m_dialog.mirrorTransaction(cmdBuffer, responseDest);
+    auto result = m_dialog.mirrorTransaction(cmdBuffer, responseDest);
+    postDialogOperation();
+    return result;
 }
 
 std::error_code MVLCObject::stackTransaction(const QVector<u32> &stackUploadData,
-                                 QVector<u32> &responseDest)
+                                             QVector<u32> &responseDest)
 {
     auto guard = getLocks().lockCmd();
-    return m_dialog.stackTransaction(stackUploadData, responseDest);
+    auto result = m_dialog.stackTransaction(stackUploadData, responseDest);
+    postDialogOperation();
+    return result;
 }
 
 QVector<u32> MVLCObject::getResponseBuffer() const
@@ -198,21 +226,6 @@ QVector<QVector<u32>> MVLCObject::getStackErrorNotifications() const
 {
     auto guard = getLocks().lockCmd();
     return m_dialog.getStackErrorNotifications();
-}
-
-void MVLCObject::clearStackErrorNotifications()
-{
-    auto guard = getLocks().lockCmd();
-    m_dialog.clearStackErrorNotifications();
-}
-
-QVector<QVector<u32>> MVLCObject::getAndClearStackErrorNotifications()
-{
-    auto guard = getLocks().lockCmd();
-    // Implementation used MVLCDialog directly to avoid deadlocking.
-    auto result = m_dialog.getStackErrorNotifications();
-    m_dialog.clearStackErrorNotifications();
-    return result;
 }
 
 } // end namespace mvlc

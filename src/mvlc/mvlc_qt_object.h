@@ -91,7 +91,7 @@ class MVLCObject: public QObject
 
         // Sends the given stack data (which must include upload commands),
         // reads and verifies the mirror response, and executes the stack.
-        // IMPORTANT: Stack0 is used and offset 0 into stack memory is assumed.
+        // Note: Stack0 is used and offset 0 into stack memory is assumed.
         std::error_code stackTransaction(const QVector<u32> &stackUploadData,
                                          QVector<u32> &responseDest);
 
@@ -102,9 +102,12 @@ class MVLCObject: public QObject
         // response from executing the stack.
         QVector<u32> getResponseBuffer() const;
 
+        // Get the stack error notifications that may have resulted from a
+        // previous operation. Performing another operation will clear the
+        // internal buffer.
+        // The data available from this method will also have been emitted via
+        // the stackErrorNotification() signal.
         QVector<QVector<u32>> getStackErrorNotifications() const;
-        void clearStackErrorNotifications();
-        QVector<QVector<u32>> getAndClearStackErrorNotifications();
 
         Locks &getLocks() { return m_locks; }
 
@@ -117,6 +120,7 @@ class MVLCObject: public QObject
     private:
         void setState(const State &newState);
         Locks &getLocks() const { return m_locks; }
+        void postDialogOperation();
 
         std::unique_ptr<AbstractImpl> m_impl;
         MVLCDialog m_dialog;
