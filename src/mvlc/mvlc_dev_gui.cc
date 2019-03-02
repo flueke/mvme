@@ -672,6 +672,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
     m_d->readoutThread.setObjectName("MVLC Readout");
     m_d->dataReader = new MVLCDataReader();
+    m_d->dataReader->setMVLC(m_d->mvlc);
     m_d->dataReader->moveToThread(&m_d->readoutThread);
 
     connect(this, &MVLCDevGUI::enterReadoutLoop,
@@ -686,8 +687,6 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         assert(!m_d->readoutThread.isRunning());
 
         logMessage("Starting readout");
-        // Udpate the readers copy of the usb impl handler thingy
-        m_d->dataReader->setMVLC(m_d->mvlc);
 
         if (ui->gb_dataOutputFile->isChecked())
         {
