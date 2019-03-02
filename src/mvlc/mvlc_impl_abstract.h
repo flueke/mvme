@@ -15,13 +15,13 @@ class AbstractImpl
     public:
         virtual std::error_code connect() = 0;
         virtual std::error_code disconnect() = 0;
-        virtual bool is_connected() const = 0;
+        virtual bool isConnected() const = 0;
 
-        virtual void set_write_timeout(Pipe pipe, unsigned ms) = 0;
-        virtual void set_read_timeout(Pipe pipe, unsigned ms) = 0;
+        virtual void setWriteTimeout(Pipe pipe, unsigned ms) = 0;
+        virtual void setReadTimeout(Pipe pipe, unsigned ms) = 0;
 
-        virtual unsigned get_write_timeout(Pipe pipe) const = 0;
-        virtual unsigned get_read_timeout(Pipe pipe) const = 0;
+        virtual unsigned getWriteTimeout(Pipe pipe) const = 0;
+        virtual unsigned getReadTimeout(Pipe pipe) const = 0;
 
         virtual std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
                                       size_t &bytesTransferred) = 0;

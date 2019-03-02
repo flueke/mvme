@@ -3,7 +3,8 @@
 
 #include <functional>
 #include <QVector>
-#include "mvlc/mvlc_qt_object.h"
+#include "mvlc/mvlc_impl_abstract.h"
+#include "mvlc/mvlc_buffer_validators.h"
 
 namespace mesytec
 {
@@ -15,9 +16,8 @@ std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &re
 class MVLCDialog
 {
     public:
-        using BufferHeaderValidator = std::function<bool (u32 header)>;
 
-        MVLCDialog(MVLCObject *mvlc);
+        MVLCDialog(AbstractImpl *mvlc);
 
         // MVLC register access
         std::error_code readRegister(u32 address, u32 &value);
@@ -79,43 +79,11 @@ class MVLCDialog
 
         void logBuffer(const QVector<u32> &buffer, const QString &info);
 
-        MVLCObject *m_mvlc;
+        AbstractImpl *m_mvlc = nullptr;
         u32 m_referenceWord = 1;
         QVector<u32> m_responseBuffer;
         QVector<QVector<u32>> m_stackErrorNotifications;
 };
-
-// BufferHeaderValidators
-
-inline bool is_super_buffer(u32 header)
-{
-    return (header >> buffer_types::TypeShift) == buffer_types::SuperBuffer;
-}
-
-inline bool is_stack_buffer(u32 header)
-{
-    return (header >> buffer_types::TypeShift) == buffer_types::StackBuffer;
-}
-
-inline bool is_blockread_buffer(u32 header)
-{
-    return (header >> buffer_types::TypeShift) == buffer_types::BlockRead;
-}
-
-inline bool is_stackerror_notification(u32 header)
-{
-    return (header >> buffer_types::TypeShift) == buffer_types::StackError;
-}
-
-inline bool is_known_buffer(u32 header)
-{
-    const u8 type = (header >> buffer_types::TypeShift);
-
-    return (type == buffer_types::SuperBuffer
-            || type == buffer_types::StackBuffer
-            || type == buffer_types::BlockRead
-            || type == buffer_types::StackError);
-}
 
 } // end namespace mvlc
 } // end namespace mesytec

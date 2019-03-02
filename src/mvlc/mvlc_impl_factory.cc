@@ -1,5 +1,5 @@
 #include "mvlc/mvlc_impl_factory.h"
-#include "mvlc/mvlc_usb_impl.h"
+#include "mvlc/mvlc_impl_usb.h"
 
 namespace mesytec
 {

@@ -307,8 +307,7 @@ void VMEDebugWidget::slt_doRead_clicked(int readerIndex)
     QVector<u32> buffer;
     buffer.reserve(transfers);
 
-    MVLCDialog dlg(d->mvlc);
-    auto ec = dlg.vmeBlockRead(address, amod, transfers, buffer);
+    auto ec = d->mvlc->vmeBlockRead(address, amod, transfers, buffer);
 
     if (ec)
     {
@@ -341,8 +340,7 @@ void VMEDebugWidget::slt_doRead_clicked(int readerIndex)
 
 void VMEDebugWidget::doWrite(u32 address, u16 value)
 {
-    MVLCDialog dlg(d->mvlc);
-    auto ec = dlg.vmeSingleWrite(address, value, AddressMode::A32, VMEDataWidth::D16);
+    auto ec = d->mvlc->vmeSingleWrite(address, value, AddressMode::A32, VMEDataWidth::D16);
 
     if (ec)
     {
@@ -354,10 +352,9 @@ void VMEDebugWidget::doWrite(u32 address, u16 value)
 
 u16 VMEDebugWidget::doSingleRead(u32 address)
 {
-    MVLCDialog dlg(d->mvlc);
     u32 value = 0u;
 
-    auto ec = dlg.vmeSingleRead(address, value,
+    auto ec = d->mvlc->vmeSingleRead(address, value,
                                    AddressMode::A32, VMEDataWidth::D16);
 
     if (ec)
@@ -452,9 +449,7 @@ vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd,
 
     log_buffer(uploadData, "run_command upload data");
 
-    MVLCDialog dlg(mvlc);
-
-    if (auto ec = dlg.stackTransaction(uploadData, result.valueVector))
+    if (auto ec = mvlc->stackTransaction(uploadData, result.valueVector))
     {
         qDebug() << __PRETTY_FUNCTION__ << "error from MVLCDialog::stackTransaction: "
             << ec.message().c_str();

@@ -1,7 +1,7 @@
 #include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_impl_factory.h"
 #include "mvlc/mvlc_qt_object.h"
-#include "mvlc/mvlc_usb_impl.h"
+#include "mvlc/mvlc_impl_usb.h"
 #include "mvlc/mvlc_util.h"
 #include <cassert>
 #include <iostream>
@@ -23,28 +23,28 @@ int main(int argc, char *argv[])
         // connect
         if (auto ec = mvlcUSB.connect())
         {
-            assert(!mvlcUSB.is_connected());
+            assert(!mvlcUSB.isConnected());
             cerr << "connect: " << ec.category().name() << ": " << ec.message() << endl;
             return 1;
         }
-        assert(mvlcUSB.is_connected());
+        assert(mvlcUSB.isConnected());
 
         // disconnect
         if (auto ec = mvlcUSB.disconnect())
         {
-            assert(!mvlcUSB.is_connected());
+            assert(!mvlcUSB.isConnected());
             cerr << "disconnect: " << ec.category().name() << ": " << ec.message() << endl;
         }
-        assert(!mvlcUSB.is_connected());
+        assert(!mvlcUSB.isConnected());
 
         // connect again
         if (auto ec = mvlcUSB.connect())
         {
-            assert(!mvlcUSB.is_connected());
+            assert(!mvlcUSB.isConnected());
             cerr << "connect: " << ec.category().name() << ": " << ec.message() << endl;
             return 1;
         }
-        assert(mvlcUSB.is_connected());
+        assert(mvlcUSB.isConnected());
     }
 
     // Use MVLCObject and MVLCDialog to spam requests on the Command Pipe
@@ -59,7 +59,6 @@ int main(int argc, char *argv[])
     }
     assert(mvlc.isConnected());
 
-    MVLCDialog dlg(&mvlc);
     static const size_t MaxIterations = 100000;
     static const std::chrono::duration<int, std::milli> WaitInterval(0);
     size_t iteration = 0u;
@@ -69,11 +68,11 @@ int main(int argc, char *argv[])
         for (iteration = 0; iteration < MaxIterations; iteration++)
         {
 #if 0
-            if (auto ec = dlg.writeRegister(0x2000 + 512, iteration))
+            if (auto ec = mvlc.writeRegister(0x2000 + 512, iteration))
                 throw ec;
 
             u32 regVal = 0u;
-            if (auto ec = dlg.readRegister(0x2000 + 512, regVal))
+            if (auto ec = mvlc.readRegister(0x2000 + 512, regVal))
                 throw ec;
 
             assert(regVal == iteration);
@@ -81,8 +80,8 @@ int main(int argc, char *argv[])
             u32 value = iteration % 0xFFFFu;
             if (value == 0) value = 1;
 
-            if (auto ec = dlg.vmeSingleWrite(0x0000601A, value,
-                                             AddressMode::A32, VMEDataWidth::D16))
+            if (auto ec = mvlc.vmeSingleWrite(0x0000601A, value,
+                                              AddressMode::A32, VMEDataWidth::D16))
             {
                 throw ec;
             }
@@ -94,7 +93,7 @@ int main(int argc, char *argv[])
 
             u32 result = 0u;
 
-            if (auto ec = dlg.vmeSingleRead(0x0000601A, result,
+            if (auto ec = mvlc.vmeSingleRead(0x0000601A, result,
                                              AddressMode::A32, VMEDataWidth::D16))
             {
                 throw ec;
@@ -111,7 +110,7 @@ int main(int argc, char *argv[])
             << " (" << ec.category().name() << ")"
             << endl;
 
-        auto buffer = dlg.getResponseBuffer();
+        auto buffer = mvlc.getResponseBuffer();
         log_buffer(std::cout, buffer.data(), buffer.size(), "last response buffer");
 
         return 1;

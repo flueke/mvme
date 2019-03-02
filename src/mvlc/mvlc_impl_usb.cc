@@ -1,4 +1,4 @@
-#include "mvlc/mvlc_usb_impl.h"
+#include "mvlc/mvlc_impl_usb.h"
 #include <cassert>
 
 namespace
@@ -134,7 +134,7 @@ Impl::~Impl()
 
 std::error_code Impl::connect()
 {
-    if (is_connected()) return {};
+    if (isConnected()) return {};
 
     FT_STATUS st = FT_OK;
 
@@ -159,37 +159,37 @@ std::error_code Impl::connect()
 
 std::error_code Impl::disconnect()
 {
-    if (!is_connected()) return make_error_code(FT_DEVICE_NOT_OPENED);
+    if (!isConnected()) return make_error_code(FT_DEVICE_NOT_OPENED);
 
     FT_STATUS st = FT_Close(m_handle);
     m_handle = nullptr;
     return make_error_code(st);
 }
 
-bool Impl::is_connected() const
+bool Impl::isConnected() const
 {
     return m_handle != nullptr;
 }
 
-void Impl::set_write_timeout(Pipe pipe, unsigned ms)
+void Impl::setWriteTimeout(Pipe pipe, unsigned ms)
 {
     if (static_cast<unsigned>(pipe) >= PipeCount) return;
     m_writeTimeouts[static_cast<unsigned>(pipe)] = ms;
 }
 
-void Impl::set_read_timeout(Pipe pipe, unsigned ms)
+void Impl::setReadTimeout(Pipe pipe, unsigned ms)
 {
     if (static_cast<unsigned>(pipe) >= PipeCount) return;
     m_readTimeouts[static_cast<unsigned>(pipe)] = ms;
 }
 
-unsigned Impl::get_write_timeout(Pipe pipe) const
+unsigned Impl::getWriteTimeout(Pipe pipe) const
 {
     if (static_cast<unsigned>(pipe) >= PipeCount) return 0u;
     return m_writeTimeouts[static_cast<unsigned>(pipe)];
 }
 
-unsigned Impl::get_read_timeout(Pipe pipe) const
+unsigned Impl::getReadTimeout(Pipe pipe) const
 {
     if (static_cast<unsigned>(pipe) >= PipeCount) return 0u;
     return m_readTimeouts[static_cast<unsigned>(pipe)];

@@ -3,7 +3,7 @@
 
 #include <array>
 #include <ftd3xx.h>
-#include "mvlc/mvlc_abstract_impl.h"
+#include "mvlc/mvlc_impl_abstract.h"
 
 namespace std
 {
@@ -43,7 +43,7 @@ class Impl: public AbstractImpl
         // TODO: Impl();
 
         // Absolute index of the USB device to open. Does not check if the
-        // description actually is MVLC.
+        // description actually matches the MVLC.
         explicit Impl(int index);
 
         // Open the MVLC with the given serial number
@@ -54,13 +54,13 @@ class Impl: public AbstractImpl
 
         std::error_code connect() override;
         std::error_code disconnect() override;
-        bool is_connected() const override;
+        bool isConnected() const override;
 
-        void set_write_timeout(Pipe pipe, unsigned ms) override;
-        void set_read_timeout(Pipe pipe, unsigned ms) override;
+        void setWriteTimeout(Pipe pipe, unsigned ms) override;
+        void setReadTimeout(Pipe pipe, unsigned ms) override;
 
-        unsigned get_write_timeout(Pipe pipe) const override;
-        unsigned get_read_timeout(Pipe pipe) const override;
+        unsigned getWriteTimeout(Pipe pipe) const override;
+        unsigned getReadTimeout(Pipe pipe) const override;
 
         std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
                               size_t &bytesTransferred) override;

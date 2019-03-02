@@ -2,7 +2,7 @@
 #define __MVLC_IMPL_FACTORY_H__
 
 #include <memory>
-#include "mvlc/mvlc_abstract_impl.h"
+#include "mvlc/mvlc_impl_abstract.h"
 
 namespace mesytec
 {

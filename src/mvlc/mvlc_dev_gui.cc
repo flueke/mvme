@@ -27,7 +27,7 @@
 #include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_impl_factory.h"
 #include "mvlc/mvlc_script.h"
-#include "mvlc/mvlc_usb_impl.h"
+#include "mvlc/mvlc_impl_usb.h"
 #include "mvlc/mvlc_vme_debug_widget.h"
 #include "qt_util.h"
 #include "util/counters.h"
@@ -131,7 +131,7 @@ bool MVLCDataReader::isStackFrameCheckEnabled() const
 void MVLCDataReader::setMVLC(MVLCObject *mvlc)
 {
     m_mvlc = mvlc;
-    m_mvlc->getImpl()->set_read_timeout(Pipe::Data, ReadTimeout_ms);
+    m_mvlc->setReadTimeout(Pipe::Data, ReadTimeout_ms);
 }
 
 void MVLCDataReader::setOutputDevice(std::unique_ptr<QIODevice> dev)
@@ -454,9 +454,8 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
             }
 
             QVector<u32> responseBuffer;
-            MVLCDialog dlg(m_d->mvlc);
 
-            if (auto ec = dlg.mirrorTransaction(cmdBuffer, responseBuffer))
+            if (auto ec = m_d->mvlc->mirrorTransaction(cmdBuffer, responseBuffer))
             {
                 logMessage(QString("Error performing MVLC mirror transaction: %1")
                            .arg(ec.message().c_str()));
@@ -485,7 +484,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
             {
                 logMessage("Attempting to read stack response...");
 
-                auto ec = dlg.readResponse(is_stack_buffer, responseBuffer);
+                auto ec = m_d->mvlc->readResponse(is_stack_buffer, responseBuffer);
 
                 if (ec && ec.value() != FT_TIMEOUT)
                 {
@@ -505,7 +504,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
                 logBuffer(responseBuffer, "Stack response from MVLC");
             }
 
-            for (const auto &notification: dlg.getStackErrorNotifications())
+            for (const auto &notification: m_d->mvlc->getStackErrorNotifications())
             {
                 logBuffer(notification, "Error notification from MVLC");
             }
@@ -1265,11 +1264,10 @@ MVLCRegisterWidget::~MVLCRegisterWidget()
 
 void MVLCRegisterWidget::writeRegister(u16 address, u32 value)
 {
-    MVLCDialog dlg(m_mvlc);
-    if (auto ec = dlg.writeRegister(address, value))
+    if (auto ec = m_mvlc->writeRegister(address, value))
         emit sigLogMessage(QString("Write Register Error: %1").arg(ec.message().c_str()));
 
-    for (const auto &notification: dlg.getStackErrorNotifications())
+    for (const auto &notification: m_mvlc->getStackErrorNotifications())
     {
         emit sigLogBuffer(notification, "Error notification from MVLC");
     }
@@ -1277,12 +1275,11 @@ void MVLCRegisterWidget::writeRegister(u16 address, u32 value)
 
 u32 MVLCRegisterWidget::readRegister(u16 address)
 {
-    MVLCDialog dlg(m_mvlc);
     u32 value = 0u;
-    if (auto ec = dlg.readRegister(address, value))
+    if (auto ec = m_mvlc->readRegister(address, value))
         emit sigLogMessage(QString("Read Register Error: %1").arg(ec.message().c_str()));
 
-    for (const auto &notification: dlg.getStackErrorNotifications())
+    for (const auto &notification: m_mvlc->getStackErrorNotifications())
     {
         emit sigLogBuffer(notification, "Error notification from MVLC");
     }
@@ -1300,9 +1297,7 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
     u32 stackOffset = 0u;
     u32 stackTriggers = 0u;
 
-    MVLCDialog dlg(m_mvlc);
-
-    if (auto ec = dlg.readRegister(offsetRegister, stackOffset))
+    if (auto ec = m_mvlc->readRegister(offsetRegister, stackOffset))
     {
         emit sigLogMessage(QString("Read Stack Info Error: %1").arg(ec.message().c_str()));
         return;
@@ -1310,7 +1305,7 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
 
     stackOffset &= stacks::StackOffsetBitMask;
 
-    if (auto ec = dlg.readRegister(triggerRegister, stackTriggers))
+    if (auto ec = m_mvlc->readRegister(triggerRegister, stackTriggers))
     {
         emit sigLogMessage(QString("Read Stack Info Error: %1").arg(ec.message().c_str()));
         return;
@@ -1332,7 +1327,7 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
     u16 reg = stacks::StackMemoryBegin + stackOffset;
     u32 stackHeader = 0u;
 
-    if (auto ec = dlg.readRegister(reg, stackHeader))
+    if (auto ec = m_mvlc->readRegister(reg, stackHeader))
     {
         emit sigLogMessage(QString("Read Stack Info Error: %1").arg(ec.message().c_str()));
         return;
@@ -1354,7 +1349,7 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
         while (stackSize <= StackMaxSize && reg < stacks::StackMemoryEnd)
         {
             u32 value = 0u;
-            if (auto ec = dlg.readRegister(reg, value))
+            if (auto ec = m_mvlc->readRegister(reg, value))
             {
                 emit sigLogMessage(QString("Read Stack Info Error: %1")
                                    .arg(ec.message().c_str()));
@@ -1382,7 +1377,7 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
 
     emit sigLogMessage(strings.join("\n"));
 
-    for (const auto &notification: dlg.getStackErrorNotifications())
+    for (const auto &notification: m_mvlc->getStackErrorNotifications())
     {
         emit sigLogBuffer(notification, "Error notification from MVLC");
     }

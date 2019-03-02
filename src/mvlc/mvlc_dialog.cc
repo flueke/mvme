@@ -40,7 +40,7 @@ std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &re
     return {};
 }
 
-MVLCDialog::MVLCDialog(MVLCObject *mvlc)
+MVLCDialog::MVLCDialog(AbstractImpl *mvlc)
     : m_mvlc(mvlc)
 {
     assert(m_mvlc);
@@ -48,7 +48,15 @@ MVLCDialog::MVLCDialog(MVLCObject *mvlc)
 
 std::error_code MVLCDialog::doWrite(const QVector<u32> &buffer)
 {
-    return m_mvlc->write(Pipe::Command, buffer).first;
+    size_t bytesTransferred = 0u;
+    const size_t bytesToTransfer = buffer.size() * sizeof(u32);
+    auto ec = m_mvlc->write(Pipe::Command, reinterpret_cast<const u8 *>(buffer.data()),
+                            bytesToTransfer, bytesTransferred);
+
+    if (!ec && bytesToTransfer != bytesTransferred)
+        return make_error_code(MVLCErrorCode::ShortWrite);
+
+    return ec;
 };
 
 // Returns MVLCErrorCode::ShortRead in case less than the desired amount of
