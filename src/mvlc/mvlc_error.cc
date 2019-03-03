@@ -148,7 +148,7 @@ std::error_code make_error_code(MVLCErrorCode error)
 
 std::error_condition make_error_condition(ErrorType et)
 {
-    return { static_cast<int>(eclass), theErrorConditionCategory };
+    return { static_cast<int>(et), theErrorConditionCategory };
 }
 
 } // end namespace mvlc
