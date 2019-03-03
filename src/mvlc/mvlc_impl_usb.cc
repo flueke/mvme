@@ -1,4 +1,5 @@
 #include "mvlc/mvlc_impl_usb.h"
+#include "mvlc/mvlc_error.h"
 #include <cassert>
 
 namespace
@@ -6,12 +7,12 @@ namespace
 
 class FTErrorCategory: public std::error_category
 {
-    const char *name() const noexcept
+    const char *name() const noexcept override
     {
         return "ftd3xx";
     }
 
-    std::string message(int ev) const
+    std::string message(int ev) const override
     {
         switch (static_cast<_FT_STATUS>(ev))
         {
@@ -53,6 +54,60 @@ class FTErrorCategory: public std::error_category
         }
 
         return "unknown FT error";
+    }
+
+    std::error_condition default_error_condition(int ev) const noexcept override
+    {
+        using mesytec::mvlc::ErrorType;
+
+        switch (static_cast<_FT_STATUS>(ev))
+        {
+            case FT_OK:
+                return ErrorType::Success;
+
+            case FT_INVALID_HANDLE:
+            case FT_DEVICE_NOT_FOUND:
+            case FT_DEVICE_NOT_OPENED:
+                return ErrorType::ConnectionError;
+
+            case FT_IO_ERROR:
+            case FT_INSUFFICIENT_RESOURCES:
+            case FT_INVALID_PARAMETER: /* 6 */
+            case FT_INVALID_BAUD_RATE:
+            case FT_DEVICE_NOT_OPENED_FOR_ERASE:
+            case FT_DEVICE_NOT_OPENED_FOR_WRITE:
+            case FT_FAILED_TO_WRITE_DEVICE: /* 10 */
+            case FT_EEPROM_READ_FAILED:
+            case FT_EEPROM_WRITE_FAILED:
+            case FT_EEPROM_ERASE_FAILED:
+            case FT_EEPROM_NOT_PRESENT:
+            case FT_EEPROM_NOT_PROGRAMMED:
+            case FT_INVALID_ARGS:
+            case FT_NOT_SUPPORTED:
+            case FT_NO_MORE_ITEMS:
+                return ErrorType::IOError;
+
+            case FT_TIMEOUT: /* 19 */
+                return ErrorType::Timeout;
+
+            case FT_OPERATION_ABORTED:
+            case FT_RESERVED_PIPE:
+            case FT_INVALID_CONTROL_REQUEST_DIRECTION:
+            case FT_INVALID_CONTROL_REQUEST_TYPE:
+            case FT_IO_PENDING:
+            case FT_IO_INCOMPLETE:
+            case FT_HANDLE_EOF:
+            case FT_BUSY:
+            case FT_NO_SYSTEM_RESOURCES:
+            case FT_DEVICE_LIST_NOT_READY:
+            case FT_DEVICE_NOT_CONNECTED:
+            case FT_INCORRECT_DEVICE_PATH:
+            case FT_OTHER_ERROR:
+                return ErrorType::IOError;
+        }
+
+        assert(false);
+        return {};
     }
 };
 

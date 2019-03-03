@@ -371,6 +371,7 @@ if(MVME_ENABLE_MVLC)
 
     if(BUILD_TESTS)
         add_mvme_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
+        add_mvme_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
     endif(BUILD_TESTS)
 
     qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
