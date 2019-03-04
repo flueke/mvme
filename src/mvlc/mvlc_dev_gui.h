@@ -129,7 +129,6 @@ class MVLCDevGUI: public QMainWindow
     Q_OBJECT
     signals:
         // private signal used to enter the readout loop in the readout thread
-        void enterReadoutLoop();
         void sigLogMessage(const QString &msg);
 
     public:

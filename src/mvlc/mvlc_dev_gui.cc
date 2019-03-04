@@ -292,6 +292,7 @@ void MVLCDataReader::readoutLoop()
 
     m_outDevice = {};
 
+    qDebug() << __PRETTY_FUNCTION__ << "emitting stopped() signal";
     emit stopped();
 }
 
@@ -365,6 +366,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     addToolBar(m_d->toolbar);
     setStatusBar(m_d->statusbar);
 
+    // MVLC Script Editor
     {
         auto font = make_monospace_font();
         font.setPointSize(8);
@@ -673,7 +675,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
     m_d->dataReader->setMVLC(m_d->mvlc);
     m_d->dataReader->moveToThread(&m_d->readoutThread);
 
-    connect(this, &MVLCDevGUI::enterReadoutLoop,
+    connect(&m_d->readoutThread, &QThread::started,
             m_d->dataReader, &MVLCDataReader::readoutLoop);
 
     connect(m_d->dataReader, &MVLCDataReader::stopped,
@@ -715,42 +717,6 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         }
 
         m_d->readoutThread.start();
-        emit enterReadoutLoop();
-    });
-
-    connect(ui->pb_browseOutputFile, &QPushButton::clicked,
-            this, [this] ()
-    {
-        QString startDir;
-        QSettings settings;
-
-        if (settings.contains(Key_LastMVLCDataOutputDirectory))
-        {
-            startDir = settings.value(Key_LastMVLCDataOutputDirectory).toString();
-        }
-        else
-        {
-            startDir = QStandardPaths::standardLocations(
-                QStandardPaths::DocumentsLocation).at(0);
-        }
-
-        QString filePath = QFileDialog::getSaveFileName(
-            this,                                       // parent
-            "Select Data Reader Output File",           // caption
-            startDir,                                   // dir
-            QString(),                                  // filter
-            nullptr,                                    // selectedFilter,
-            QFileDialog::Options());                    // options
-
-        qDebug() << __PRETTY_FUNCTION__ << filePath;
-
-        if (!filePath.isEmpty())
-        {
-            ui->le_dataOutputFilePath->setText(filePath);
-            QFileInfo fi(filePath);
-            QSettings settings;
-            settings.setValue(Key_LastMVLCDataOutputDirectory, fi.path());
-        }
     });
 
     // Populate initial output filepath using
@@ -781,7 +747,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
         m_d->dataReader->stop();
     });
 
-    connect(&m_d->readoutThread, &QThread::started,
+    connect(m_d->dataReader, &MVLCDataReader::started,
             this, [this] ()
     {
         qDebug() << "readout thread started";
@@ -855,6 +821,41 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
             this, [this] (const QString &msg)
     {
         logMessage("Readout Thread: " + msg);
+    });
+
+    connect(ui->pb_browseOutputFile, &QPushButton::clicked,
+            this, [this] ()
+    {
+        QString startDir;
+        QSettings settings;
+
+        if (settings.contains(Key_LastMVLCDataOutputDirectory))
+        {
+            startDir = settings.value(Key_LastMVLCDataOutputDirectory).toString();
+        }
+        else
+        {
+            startDir = QStandardPaths::standardLocations(
+                QStandardPaths::DocumentsLocation).at(0);
+        }
+
+        QString filePath = QFileDialog::getSaveFileName(
+            this,                                       // parent
+            "Select Data Reader Output File",           // caption
+            startDir,                                   // dir
+            QString(),                                  // filter
+            nullptr,                                    // selectedFilter,
+            QFileDialog::Options());                    // options
+
+        qDebug() << __PRETTY_FUNCTION__ << filePath;
+
+        if (!filePath.isEmpty())
+        {
+            ui->le_dataOutputFilePath->setText(filePath);
+            QFileInfo fi(filePath);
+            QSettings settings;
+            settings.setValue(Key_LastMVLCDataOutputDirectory, fi.path());
+        }
     });
 
     connect(m_d->pb_printReaderBufferSizes, &QPushButton::clicked,
