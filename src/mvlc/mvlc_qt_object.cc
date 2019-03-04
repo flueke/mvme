@@ -26,7 +26,6 @@ MVLCObject::MVLCObject(std::unique_ptr<AbstractImpl> mvlc, QObject *parent)
 
 MVLCObject::~MVLCObject()
 {
-    auto guards = getLocks().lockBoth();
     disconnect();
 }
 
