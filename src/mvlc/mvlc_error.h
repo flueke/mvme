@@ -22,6 +22,7 @@ enum class MVLCErrorCode
     InvalidBufferHeader,
     UnexpectedResponseSize, // wanted N words, got M words
     NoVMEResponse,
+    HostLookupError, // TODO: make an enum and a category for getaddrinfo() instead (mvlc_impl_udp.h)
 };
 
 std::error_code make_error_code(MVLCErrorCode error);

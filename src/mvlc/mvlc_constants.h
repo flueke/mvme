@@ -172,6 +172,12 @@ namespace usb
     static const size_t USBSingleTransferMaxWords = USBSingleTransferMaxBytes / sizeof(u32);
 } // end namespace usb
 
+namespace udp
+{
+    static const u16 CommandPort = 0x8000; // 32768
+    static const u16 DataPort = CommandPort + 1;
+} // end namespace udp
+
 enum class Pipe: u8
 {
     Command,

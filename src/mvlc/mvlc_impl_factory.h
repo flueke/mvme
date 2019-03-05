@@ -3,6 +3,7 @@
 
 #include <memory>
 #include "mvlc/mvlc_impl_abstract.h"
+#include "mvlc/mvlc_constants.h"
 
 namespace mesytec
 {
@@ -17,7 +18,8 @@ namespace mvlc
 //std::unique_ptr<AbstractImpl> make_mvlc(const std::string &uri);
 
 std::unique_ptr<AbstractImpl> make_mvlc_usb();
-//std::unique_ptr<AbstractImpl> make_mvlc_udp(const std::string &host);
+
+std::unique_ptr<AbstractImpl> make_mvlc_udp(const char *host);
 
 } // end namespace mvlc
 } // end namespace mesytec

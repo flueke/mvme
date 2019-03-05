@@ -358,6 +358,7 @@ endif(BUILD_TESTS)
 if(MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE
         mvlc/mvlc_impl_usb.cc
+        mvlc/mvlc_impl_udp.cc
         mvlc/mvlc_basic_mvlc.cc
         mvlc/mvlc_dialog.cc
         mvlc/mvlc_error.cc
@@ -378,6 +379,7 @@ if(MVME_ENABLE_MVLC)
 
     add_mvme_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
     add_mvme_executable(test_mvlc_usb_impl mvlc/test_mvlc_usb_impl.cc)
+    #add_mvme_executable(mvlc_dev_udp_test mvlc/mvlc_dev_udp_test.cc)
 
     target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
 
