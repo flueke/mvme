@@ -189,7 +189,8 @@ Impl::~Impl()
 
 std::error_code Impl::connect()
 {
-    if (isConnected()) return {};
+    if (isConnected())
+        return make_error_code(MVLCErrorCode::IsConnected);
 
     FT_STATUS st = FT_OK;
 
@@ -214,7 +215,8 @@ std::error_code Impl::connect()
 
 std::error_code Impl::disconnect()
 {
-    if (!isConnected()) return make_error_code(FT_DEVICE_NOT_OPENED);
+    if (!isConnected())
+        return make_error_code(MVLCErrorCode::IsDisconnected);
 
     FT_STATUS st = FT_Close(m_handle);
     m_handle = nullptr;
