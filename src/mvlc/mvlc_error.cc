@@ -132,7 +132,7 @@ class ErrorTypeCategory: public std::error_category
     }
 };
 
-const ErrorTypeCategory theErrorConditionCategory;
+const ErrorTypeCategory theErrorTypeCategory;
 
 } // end anon namespace
 
@@ -148,7 +148,7 @@ std::error_code make_error_code(MVLCErrorCode error)
 
 std::error_condition make_error_condition(ErrorType et)
 {
-    return { static_cast<int>(et), theErrorConditionCategory };
+    return { static_cast<int>(et), theErrorTypeCategory };
 }
 
 } // end namespace mvlc
