@@ -5,11 +5,6 @@
 #include <ftd3xx.h>
 #include "mvlc/mvlc_impl_abstract.h"
 
-namespace std
-{
-    template<> struct is_error_code_enum<_FT_STATUS>: true_type {};
-} // end namespace std
-
 namespace mesytec
 {
 namespace mvlc
@@ -17,21 +12,27 @@ namespace mvlc
 namespace usb
 {
 
-std::error_code make_error_code(FT_STATUS st);
-
-// TODO: add helpers to get a list of all device, recreate the list, filter for
+// TODO: add helpers to get a list of all devices, recreate the list, filter for
 // MVLCs, etc. Bascially wrappers around FT_CreateDeviceInfoList() and
 // FT_GetDeviceInfoList()
 
-// While the FTDI handle is not being modified multiple threads can access all
-// pipes concurrently.
-// Optionally the fNonThreadSafeTransfer flag can be set per pipe and direction. Then
-// the software must ensure that only one thread accesses each of the pipes
-// simultaneously. It's still ok for one thread to use pipe0 and another to use pipe1.
+// Structure of how the MVLC is represented when using the FTDI D3XX driver:
 //
-//        / Pipe0 / Endpoint 0x02 OUT/0x82 IN - Command Pipe, bidirectional
+//        / Pipe0: FIFO 0 / Endpoint 0x02 OUT/0x82 IN - Command Pipe, bidirectional
 // handle
-//        \ Pipe1 / Endpoint 0x83 IN - Data Pipe, read only
+//        \ Pipe1: FIFO 1 / Endpoint          0x83 IN - Data Pipe, read only
+//
+// Only the FTDI handle (a void *) exists as a variable in the code. The pipes
+// are addressed by passing numeric FIFO id or Endpoint numbers to the various
+// driver functions.
+//
+// Provided that the FTDI handle itself is not being modified (e.g. by closing
+// the device) multiple threads can access both of the pipes concurrently.
+// Synchronization is done within the D3XX driver layer.
+// Optionally the fNonThreadSafeTransfer flag can be set per pipe and
+// direction. Then the software must ensure that only one thread accesses each
+// of the pipes simultaneously. It's still ok for one thread to use pipe0 and
+// another to use pipe1.
 
 class Impl: public AbstractImpl
 {
@@ -97,8 +98,15 @@ class Impl: public AbstractImpl
         };
 };
 
+std::error_code make_error_code(FT_STATUS st);
+
 } // end namespace usb
 } // end namespace mvlc
 } // end namespace mesytec
+
+namespace std
+{
+    template<> struct is_error_code_enum<_FT_STATUS>: true_type {};
+} // end namespace std
 
 #endif /* __MVLC_USB_IMPL_H__ */
