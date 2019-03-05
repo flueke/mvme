@@ -52,6 +52,12 @@ class MVLCErrorCategory: public std::error_category
 
             case MVLCErrorCode::NoVMEResponse:
                 return "no VME response";
+
+            case MVLCErrorCode::HostLookupError:
+                return "host lookup failed";
+
+            case MVLCErrorCode::BindLocalError:
+                 return "could not bind local sockets";
         }
 
         return "unrecognized MVLC error";
@@ -69,6 +75,8 @@ class MVLCErrorCategory: public std::error_category
 
             case MVLCErrorCode::IsConnected:
             case MVLCErrorCode::IsDisconnected:
+            case MVLCErrorCode::HostLookupError:
+            case MVLCErrorCode::BindLocalError:
                 return ErrorType::ConnectionError;
 
             case MVLCErrorCode::ShortWrite:

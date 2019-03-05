@@ -379,7 +379,7 @@ if(MVME_ENABLE_MVLC)
 
     add_mvme_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
     add_mvme_executable(test_mvlc_usb_impl mvlc/test_mvlc_usb_impl.cc)
-    #add_mvme_executable(mvlc_dev_udp_test mvlc/mvlc_dev_udp_test.cc)
+    add_mvme_executable(test_mvlc_udp_impl mvlc/test_mvlc_udp_impl.cc)
 
     target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
 

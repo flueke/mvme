@@ -1,3 +1,8 @@
+* Think and document how the timeout setters and getters should behave.
+  For usb under linux they become active on the next read/write.
+  For sockets they're set in connect() and in the setters if the connection
+  has been established.
+
 * Change the Dialog code to handle notification buffers. These could either be emitted via
   signal if it's made a QObject or be stored in a notification buffer and queried by the
   user after a transaction (implement this first and if needed put a Qt layer on top).
