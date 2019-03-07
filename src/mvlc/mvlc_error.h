@@ -48,6 +48,7 @@ std::error_condition make_error_condition(ErrorType et);
 namespace std
 {
     template<> struct is_error_code_enum<mesytec::mvlc::MVLCErrorCode>: true_type {};
+
     template<> struct is_error_condition_enum<mesytec::mvlc::ErrorType>: true_type {};
 } // end namespace std
 
