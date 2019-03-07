@@ -378,8 +378,8 @@ if(MVME_ENABLE_MVLC)
     qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
 
     add_mvme_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
-    add_mvme_executable(test_mvlc_usb_impl mvlc/test_mvlc_usb_impl.cc)
-    add_mvme_executable(test_mvlc_udp_impl mvlc/test_mvlc_udp_impl.cc)
+    add_mvme_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
+    add_mvme_executable(dev_test_mvlc_udp_impl mvlc/dev_test_mvlc_udp_impl.cc)
 
     target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
 
