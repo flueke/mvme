@@ -51,6 +51,7 @@ enum class CommandType
     Invalid,
     ReferenceWord,
     ReadLocal,
+    ReadLocalBlock,
     WriteLocal,
     WriteReset,
     Stack,
@@ -111,6 +112,7 @@ class MVLCCommandListBuilder
         // Super Commands
         void addReferenceWord(u16 refValue);
         void addReadLocal(u16 address);
+        void addReadLocalBlock(u16 address, u16 words);
         void addWriteLocal(u16 address, u32 value);
         void addWriteReset();
 

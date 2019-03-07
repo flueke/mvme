@@ -136,7 +136,10 @@ unsigned MVLCObject::getWriteTimeout(Pipe pipe) const
 
 void MVLCObject::postDialogOperation()
 {
-    // The Command mutex is locked at this point.
+    // The Command mutex should be locked at this point which means to avoid
+    // deadlock we have to call the dialog methods directly instead of using
+    // our own methods.
+
     if (m_dialog.hasStackErrorNotifications())
     {
         auto notifications = m_dialog.getStackErrorNotifications();
@@ -173,7 +176,7 @@ std::error_code MVLCObject::vmeBlockRead(u32 address, AddressMode amod, u16 maxT
     return result;
 }
 
-std::error_code MVLCObject::readRegister(u32 address, u32 &value)
+std::error_code MVLCObject::readRegister(u16 address, u32 &value)
 {
     auto guard = getLocks().lockCmd();
     auto result = m_dialog.readRegister(address, value);
@@ -181,7 +184,16 @@ std::error_code MVLCObject::readRegister(u32 address, u32 &value)
     return result;
 }
 
-std::error_code MVLCObject::writeRegister(u32 address, u32 value)
+std::error_code MVLCObject::readRegisterBlock(u16 address, u16 words,
+                                              QVector<u32> &dest)
+{
+    auto guard = getLocks().lockCmd();
+    auto result = m_dialog.readRegisterBlock(address, words, dest);
+    postDialogOperation();
+    return result;
+}
+
+std::error_code MVLCObject::writeRegister(u16 address, u32 value)
 {
     auto guard = getLocks().lockCmd();
     auto result = m_dialog.writeRegister(address, value);

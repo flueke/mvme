@@ -50,6 +50,9 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::UnexpectedResponseSize:
                 return "unexpected response size";
 
+            case MVLCErrorCode::CommandArgOutOfRange:
+                return "command argument out of range";
+
             case MVLCErrorCode::NoVMEResponse:
                 return "no VME response";
 
@@ -89,6 +92,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::MirrorNotEqual:
             case MVLCErrorCode::InvalidBufferHeader:
             case MVLCErrorCode::UnexpectedResponseSize:
+            case MVLCErrorCode::CommandArgOutOfRange:
                 return ErrorType::ProtocolError;
 
             case MVLCErrorCode::NoVMEResponse:

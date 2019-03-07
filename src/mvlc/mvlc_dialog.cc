@@ -148,7 +148,7 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
     return {};
 }
 
-std::error_code MVLCDialog::readRegister(u32 address, u32 &value)
+std::error_code MVLCDialog::readRegister(u16 address, u32 &value)
 {
     script::MVLCCommandListBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
@@ -176,7 +176,44 @@ std::error_code MVLCDialog::readRegister(u32 address, u32 &value)
     return {};
 }
 
-std::error_code MVLCDialog::writeRegister(u32 address, u32 value)
+std::error_code MVLCDialog::readRegisterBlock(u16 address, u16 words,
+                                              QVector<u32> &dest)
+{
+    if (words > ReadLocalBlockMaxWords)
+        return make_error_code(MVLCErrorCode::CommandArgOutOfRange);
+
+    script::MVLCCommandListBuilder cmdList;
+    cmdList.addReferenceWord(m_referenceWord++);
+    cmdList.addReadLocalBlock(address, words);
+
+    QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    logBuffer(request, "read_local_block >>>");
+
+    if (auto ec = doWrite(request))
+        return ec;
+
+    if (auto ec = readResponse(is_super_buffer, m_responseBuffer))
+        return ec;
+
+    logBuffer(m_responseBuffer, "read_local_block <<<");
+
+    if (auto ec = check_mirror(request, m_responseBuffer))
+        return ec;
+
+    // copy resulting words into dest
+    auto mirrorLen = request.size() - 1;
+
+    dest.reserve(m_responseBuffer.size() - mirrorLen);
+    dest.clear();
+
+    std::copy(std::begin(m_responseBuffer) + mirrorLen,
+              std::end(m_responseBuffer),
+              std::back_inserter(dest));
+
+    return {};
+}
+
+std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
 {
     script::MVLCCommandListBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);

@@ -113,7 +113,8 @@ QVector<PreparsedLine> pre_parse(QTextStream &input)
     return result;
 }
 
-static long find_index_of_next_command(const QString &cmd, const QVector<PreparsedLine> splitLines,
+static long find_index_of_next_command(const QString &cmd,
+                                       const QVector<PreparsedLine> splitLines,
                                       int searchStartOffset)
 {
     auto it_start = splitLines.begin() + searchStartOffset;
@@ -338,6 +339,23 @@ static Command handle_single_line_command(const PreparsedLine &line)
             result.address = parseValue<u16>(parts.at(1));
 
         }
+        else if (cmd == "read_local_block")
+        {
+            if (parts.size() != 3)
+                throw "Usage: read_local_block <address> <words>";
+
+            result.type = CommandType::ReadLocalBlock;
+            result.address = parseValue<u16>(parts.at(1));
+            u16 words = parseValue<u16>(parts.at(2));
+
+            if (words > ReadLocalBlockMaxWords)
+            {
+                throw QString("read_local_block max words exceeded (max=%1)")
+                    .arg(ReadLocalBlockMaxWords);
+            }
+
+            result.value = words;
+        }
         else if (cmd == "write_local")
         {
             if (parts.size() != 3)
@@ -445,6 +463,19 @@ void MVLCCommandListBuilder::addReadLocal(u16 address)
     m_commands.push_back(cmd);
 }
 
+void MVLCCommandListBuilder::addReadLocalBlock(u16 address, u16 words)
+{
+    if (words > ReadLocalBlockMaxWords)
+        throw std::runtime_error("ReadLocalBlock max words exceeded");
+
+    Command cmd;
+    cmd.type = CommandType::ReadLocalBlock;
+    cmd.address = address;
+    cmd.value = words;
+
+    m_commands.push_back(cmd);
+}
+
 void MVLCCommandListBuilder::addWriteLocal(u16 address, u32 value)
 {
     Command cmd;
@@ -463,7 +494,8 @@ void MVLCCommandListBuilder::addWriteReset()
     m_commands.push_back(cmd);
 }
 
-void MVLCCommandListBuilder::addStack(u8 outputPipe, u16 offset, const vme_script::VMEScript &contents)
+void MVLCCommandListBuilder::addStack(u8 outputPipe, u16 offset,
+                                      const vme_script::VMEScript &contents)
 {
     Command cmd;
     cmd.type = CommandType::Stack;
@@ -571,6 +603,13 @@ QVector<u32> to_mvlc_buffer(const Command &cmd)
             return QVector<u32>
             {
                 (ReadLocal << SuperCmdShift) | (cmd.address & SuperCmdArgMask),
+            };
+
+        case CommandType::ReadLocalBlock:
+            return QVector<u32>
+            {
+                (ReadLocalBlock << SuperCmdShift) | (cmd.address & SuperCmdArgMask),
+                cmd.value
             };
 
         case CommandType::WriteLocal:
