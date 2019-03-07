@@ -69,8 +69,7 @@ class MVLCDataReader: public QObject
     Q_OBJECT
     public:
         using MVLCObject = mesytec::mvlc::MVLCObject;
-        //static const int ReadBufferSize = Megabytes(1);
-        static const size_t ReadBufferSize = Kilobytes(64);
+        static const int ReadBufferSize = Kilobytes(256);
         static const int ReadTimeout_ms = 250;
 
     signals:

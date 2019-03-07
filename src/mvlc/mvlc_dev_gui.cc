@@ -197,6 +197,7 @@ void MVLCDataReader::readoutLoop()
     qDebug() << __PRETTY_FUNCTION__ << "executing in" << QThread::currentThread();
     qDebug() << __PRETTY_FUNCTION__ << "read timeout is"
         << m_mvlc->getReadTimeout(Pipe::Data) << "ms";
+    qDebug() << __PRETTY_FUNCTION__ << "readbuffer capacity is" << m_readBuffer.capacity;
 
     while (!m_doQuit)
     {

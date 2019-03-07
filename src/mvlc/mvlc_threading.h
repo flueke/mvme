@@ -26,7 +26,10 @@ class Locks
             return pipe == Pipe::Data ? dataMutex() : cmdMutex();
         }
 
-        UniqueLock lock(Pipe pipe) { return UniqueLock(mutex(pipe)); }
+        UniqueLock lock(Pipe pipe)
+        {
+            return UniqueLock(mutex(pipe));
+        }
 
         UniqueLock lockCmd() { return lock(Pipe::Command); }
         UniqueLock lockData() { return lock(Pipe::Data); }
