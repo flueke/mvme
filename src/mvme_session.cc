@@ -22,6 +22,19 @@ void mvme_init(const QString &appName)
     qRegisterMetaType<ControllerState>("ControllerState");
     qRegisterMetaType<Qt::Axis>("Qt::Axis");
 
+#define REG_META_VEC(T) \
+    qRegisterMetaType<QVector<T>>("QVector<"#T">")
+
+    REG_META_VEC(u8);
+    REG_META_VEC(u16);
+    REG_META_VEC(u32);
+
+    REG_META_VEC(s8);
+    REG_META_VEC(s16);
+    REG_META_VEC(s32);
+
+#undef REG_META_VEC
+
     QCoreApplication::setOrganizationDomain("www.mesytec.com");
     QCoreApplication::setOrganizationName("mesytec");
     QCoreApplication::setApplicationName(appName);
@@ -39,6 +52,4 @@ void mvme_init(const QString &appName)
 
 void mvme_shutdown()
 {
-    // This used to contain shutdown code for the old, hdf5-based session
-    // storage system.
 }
