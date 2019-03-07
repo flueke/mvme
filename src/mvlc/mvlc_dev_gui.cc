@@ -17,14 +17,13 @@
 #include <QUdpSocket>
 #include <QtEndian>
 
-#include <ftd3xx.h> // XXX
-
 #include <iostream>
 #include <cmath>
 
 #include "ui_mvlc_dev_ui.h"
 
 #include "mvlc/mvlc_dialog.h"
+#include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_impl_factory.h"
 #include "mvlc/mvlc_script.h"
 #include "mvlc/mvlc_impl_usb.h"
@@ -209,16 +208,7 @@ void MVLCDataReader::readoutLoop()
 
         m_readBuffer.used = bytesTransferred;
 
-        // FIXME: use error_category to not depend on usb specific constants
-        // here! We don't know if the impl is USB or UDP.
-        // The codes in the test can show up if either there's no connection or
-        // the cable is unplugged or the MVLC is powered down or another
-        // program is using the device.
-        // If the loop is not exited here it can lead to 100% CPU usage because
-        // the device read will return immediately.
-        if (ec.value() == FT_DEVICE_NOT_CONNECTED
-            || ec.value() == FT_INVALID_HANDLE
-            || ec.value() == FT_IO_ERROR)
+        if (ec == ErrorType::ConnectionError)
         {
             emit message(QSL("Lost connection to MVLC. Leaving readout loop. Reason: %1")
                          .arg(ec.message().c_str()));
@@ -235,7 +225,7 @@ void MVLCDataReader::readoutLoop()
 
             if (ec)
             {
-                if (ec.value() == FT_TIMEOUT)
+                if (ec == ErrorType::Timeout)
                     ++m_stats.counters[ReaderStats::NumberOfTimeouts];
                 else
                     ++m_stats.counters[ReaderStats::NumberOfErrors];
@@ -1431,7 +1421,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
 
     qRegisterMetaType<QVector<u8>>("QVector<u8>");
-    qRegisterMetaType<QVector<u8>>("QVector<u32>");
+    qRegisterMetaType<QVector<u32>>("QVector<u32>");
 
     MVLCDevGUI gui;
     LogWidget logWindow;
