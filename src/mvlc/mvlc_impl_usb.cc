@@ -127,8 +127,8 @@ constexpr u8 get_fifo_id(mesytec::mvlc::Pipe pipe)
 
 enum class EndpointDirection: u8
 {
-    IN,
-    OUT
+    In,
+    Out
 };
 
 constexpr u8 get_endpoint(mesytec::mvlc::Pipe pipe, EndpointDirection dir)
@@ -146,12 +146,17 @@ constexpr u8 get_endpoint(mesytec::mvlc::Pipe pipe, EndpointDirection dir)
             break;
     }
 
-    if (dir == EndpointDirection::IN)
+    if (dir == EndpointDirection::In)
         result |= 0x80;
 
     return result;
 }
 
+std::error_code set_endpoint_timeout(void *handle, u8 ep, unsigned ms)
+{
+    FT_STATUS st = FT_SetPipeTimeout(handle, ep, ms);
+    return mesytec::mvlc::usb::make_error_code(st);
+}
 
 } // end anon namespace
 
@@ -210,7 +215,20 @@ std::error_code Impl::connect()
             break;
     }
 
-    return make_error_code(st);
+    if (auto ec = make_error_code(st))
+        return ec;
+
+    // Apply the read and write timeouts. Errors are ignored for now.
+    for (auto pipe: { Pipe::Command, Pipe::Data })
+    {
+        set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::Out),
+                             getWriteTimeout(pipe));
+
+        set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::In),
+                             getReadTimeout(pipe));
+    }
+
+    return {};
 }
 
 std::error_code Impl::disconnect()
@@ -232,12 +250,16 @@ void Impl::setWriteTimeout(Pipe pipe, unsigned ms)
 {
     if (static_cast<unsigned>(pipe) >= PipeCount) return;
     m_writeTimeouts[static_cast<unsigned>(pipe)] = ms;
+    if (isConnected())
+        set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::Out), ms);
 }
 
 void Impl::setReadTimeout(Pipe pipe, unsigned ms)
 {
     if (static_cast<unsigned>(pipe) >= PipeCount) return;
     m_readTimeouts[static_cast<unsigned>(pipe)] = ms;
+    if (isConnected())
+        set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::In), ms);
 }
 
 unsigned Impl::getWriteTimeout(Pipe pipe) const
@@ -259,20 +281,20 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     assert(size <= USBSingleTransferMaxBytes);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
-    // TODO: do this under windows
-    //    FT_SetPipeTimeout(m_handle, get_endpoint(pipe, EndpointDirection::OUT),
-    //                      ms);
-#ifdef Q_OS_WIN
-#error "Set timeout here"
-#endif
-
     u8 fifo = get_fifo_id(pipe);
     ULONG transferred = 0; // FT API needs a ULONG*
 
+#ifndef __WIN32
     FT_STATUS st = FT_WritePipeEx(m_handle, get_fifo_id(pipe),
                                   const_cast<u8 *>(buffer), size,
                                   &transferred,
                                   m_writeTimeouts[static_cast<unsigned>(pipe)]);
+#else
+    FT_STATUS st = FT_WritePipeEx(m_handle, get_fifo_id(pipe),
+                                  const_cast<u8 *>(buffer), size,
+                                  &transferred,
+                                  nullptr);
+#endif
 
     bytesTransferred = transferred;
 
@@ -288,10 +310,17 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     ULONG transferred = 0; // FT API needs a ULONG*
 
+#ifndef __WIN32
     FT_STATUS st = FT_ReadPipeEx(m_handle, get_fifo_id(pipe),
-                                  buffer, size,
-                                  &transferred,
-                                  m_readTimeouts[static_cast<unsigned>(pipe)]);
+                                 buffer, size,
+                                 &transferred,
+                                 m_readTimeouts[static_cast<unsigned>(pipe)]);
+#else
+    FT_STATUS st = FT_ReadPipeEx(m_handle, get_fifo_id(pipe),
+                                 buffer, size,
+                                 &transferred,
+                                 nullptr);
+#endif
 
     bytesTransferred = transferred;
 
@@ -300,7 +329,12 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
 std::error_code Impl::get_read_queue_size(Pipe pipe, u32 &dest)
 {
+#ifndef __WIN32
     FT_STATUS st = FT_GetReadQueueStatus(m_handle, get_fifo_id(pipe), &dest);
+#else
+    dest = 0u;
+    FT_STATUS st = FT_NOT_SUPPORTED;
+#endif
     return make_error_code(st);
 }
 

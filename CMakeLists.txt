@@ -15,7 +15,7 @@ set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
 
@@ -112,18 +112,31 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
 option(MVME_ENABLE_MVLC "Enable support for the mesytec MVLC controller" ON)
 
 if (MVME_ENABLE_MVLC)
-    # FTDI d3xx driver linux x64
-    # TODO: make this work for linux and windows
-
+    # FTDI d3xx driver library for x64 linux and windows
     add_library(ftd3xx SHARED IMPORTED)
-    set_target_properties(ftd3xx PROPERTIES
-        IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
-        IMPORTED_NO_SONAME TRUE
-        )
-    include_directories(${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/)
-    install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
-        DESTINATION .
-        )
+
+    # TODO: use target_include_directories
+
+    if (WIN32)
+        set_target_properties(ftd3xx PROPERTIES
+            IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
+            IMPORTED_IMPLIB ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.lib
+            IMPORTED_NO_SONAME TRUE
+            )
+        include_directories(${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/)
+        install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
+            DESTINATION .
+            )
+    else ()
+        set_target_properties(ftd3xx PROPERTIES
+            IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+            IMPORTED_NO_SONAME TRUE
+            )
+        include_directories(${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/)
+        install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+            DESTINATION .
+            )
+    endif()
 endif (MVME_ENABLE_MVLC)
 
 # qwt
