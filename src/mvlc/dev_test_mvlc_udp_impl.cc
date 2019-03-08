@@ -5,7 +5,7 @@
 #include <vector>
 
 using namespace mesytec::mvlc;
-using namespace mesytec::mvlc::usb;
+using namespace mesytec::mvlc::udp;
 
 using std::cout;
 using std::cerr;

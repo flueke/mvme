@@ -4,7 +4,11 @@
 #include <array>
 #include <string>
 
-#include <netinet/ip.h>
+#ifndef __WIN32
+#include <netinet/ip.h> // sockaddr_in
+#else
+#include <winsock2.h>
+#endif
 
 #include "mvlc/mvlc_impl_abstract.h"
 

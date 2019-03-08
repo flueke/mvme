@@ -5,10 +5,16 @@
 #include <cstring>
 #include <limits>
 
+#ifndef __WIN32
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#else
+#include <ws2tcpip.h>
+#include <stdio.h>
+#include <fcntl.h>
+#endif
 
 #include "mvlc/mvlc_error.h"
 
@@ -54,6 +60,7 @@ std::error_code lookup(const std::string &host, u16 port, sockaddr_in &dest)
     return {};
 }
 
+#ifndef __WIN32
 void set_socket_timeout(int optname, int sock, unsigned ms)
 {
     unsigned seconds = ms / 1000;
@@ -66,6 +73,15 @@ void set_socket_timeout(int optname, int sock, unsigned ms)
     int res = setsockopt(sock, SOL_SOCKET, optname, &tv, sizeof(tv));
     assert(res == 0);
 }
+#else
+void set_socket_timeout(int optname, int sock, unsigned ms)
+{
+    DWORD optval = ms;
+    int res = setsockopt(sock, SOL_SOCKET, optname,
+                         reinterpret_cast<const char *>(optval),
+                         sizeof(optval));
+}
+#endif
 
 void set_socket_write_timeout(int sock, unsigned ms)
 {
@@ -245,8 +261,14 @@ std::error_code Impl::connect()
     // Set socket receive buffer size
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
+#ifndef __WIN32
         int res = setsockopt(getSocket(pipe), SOL_SOCKET, SO_RCVBUF,
                              &SocketReceiveBufferSize, sizeof(SocketReceiveBufferSize));
+#else
+        int res = setsockopt(getSocket(pipe), SOL_SOCKET, SO_RCVBUF,
+                             reinterpret_cast<const char *>(&SocketReceiveBufferSize),
+                             sizeof(SocketReceiveBufferSize));
+#endif
         assert(res == 0);
     }
 
@@ -319,7 +341,7 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     if (!isConnected())
         return make_error_code(MVLCErrorCode::IsDisconnected);
 
-    ssize_t res = ::send(getSocket(pipe), buffer, size, 0);
+    ssize_t res = ::send(getSocket(pipe), reinterpret_cast<const char *>(buffer), size, 0);
 
     if (res < 0)
         return std::error_code(errno, std::system_category());
@@ -342,7 +364,7 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     if (!isConnected())
         return make_error_code(MVLCErrorCode::IsDisconnected);
 
-    ssize_t res = ::recv(getSocket(pipe), buffer, size, 0);
+    ssize_t res = ::recv(getSocket(pipe), reinterpret_cast<char *>(buffer), size, 0);
 
     if (res < 0)
         return std::error_code(errno, std::system_category());
