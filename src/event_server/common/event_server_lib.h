@@ -3,12 +3,6 @@
 
 #include "event_server_proto.h"
 
-#include <cassert>
-#include <cstring> // memcpy
-#include <functional>
-#include <iostream>
-#include <system_error>
-
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h> // getaddrinfo
@@ -19,6 +13,13 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #endif
+
+
+#include <cassert>
+#include <cstring> // memcpy
+#include <functional>
+#include <iostream>
+#include <system_error>
 
 #include <unistd.h>
 
@@ -654,8 +655,8 @@ inline const uint8_t *get_end_pointer(const DataSourceContents &dsc)
     return dsc.firstIndex + get_entry_size(dsc) * dsc.count;
 }
 
-template <typename OUT>
-void print(OUT &out, const DataSourceContents &dsc)
+template <typename Out>
+void print(Out &out, const DataSourceContents &dsc)
 {
     const auto entrySize = get_entry_size(dsc);
 
