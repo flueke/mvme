@@ -18,18 +18,17 @@
  */
 
 #include <QApplication>
-
 #include "mvme_session.h"
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setWindowIcon(QIcon(":/window_icon.png"));
-
     mvme_init("mvlc_mvme");
 
-    int ret = app.exec();
+    // TODO: init things here, open a gui
 
+    int ret = app.exec();
     mvme_shutdown();
 
     return ret;
