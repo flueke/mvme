@@ -187,6 +187,7 @@ void MVLCDataReader::readoutLoop()
     m_doQuit = false;
     resetStats();
     m_frameCheckData = {};
+    m_stackFrameCheckEnabled = true;
 
     emit started();
 
@@ -208,19 +209,19 @@ void MVLCDataReader::readoutLoop()
 
         m_readBuffer.used = bytesTransferred;
 
-        if (ec == ErrorType::ConnectionError)
+        if (ec == ErrorType::ConnectionError || ec == ErrorType::IOError)
         {
             emit message(QSL("Lost connection to MVLC. Leaving readout loop. Reason: %1")
                          .arg(ec.message().c_str()));
             break;
         }
-        else if (ec != ErrorType::Timeout)
+        else if (ec && ec != ErrorType::Timeout)
         {
-            // FIXME: This can spam rapidly
             emit message(QSL("Other error from read: %1, %2, %3")
                          .arg(ec.message().c_str())
                          .arg(ec.category().name())
                          .arg(ec.value()));
+            break;
         }
 
 
