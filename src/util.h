@@ -47,8 +47,8 @@ class QTextStream;
 LIBMVME_EXPORT void qDebugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
 LIBMVME_EXPORT QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
 
-QVector<u32> parseStackFile(QTextStream &input);
-QVector<u32> parseStackFile(const QString &input);
+LIBMVME_EXPORT QVector<u32> parseStackFile(QTextStream &input);
+LIBMVME_EXPORT QVector<u32> parseStackFile(const QString &input);
 
 typedef QPair<u32, QVariant> RegisterSetting; // (addr, value)
 typedef QVector<RegisterSetting> RegisterList;
@@ -61,8 +61,8 @@ inline bool isFloat(const QVariant &var)
     return (static_cast<QMetaType::Type>(var.type()) == QMetaType::Float);
 }
 
-QString toString(const RegisterList &registerList);
-QStringList toStringList(const RegisterList &registerList);
+LIBMVME_EXPORT QString toString(const RegisterList &registerList);
+LIBMVME_EXPORT QStringList toStringList(const RegisterList &registerList);
 
 class end_of_buffer: public std::exception {};
 
@@ -257,7 +257,7 @@ QVariant Ptr2Var(T *ptr)
     return QVariant::fromValue(static_cast<void *>(ptr));
 }
 
-QString makeDurationString(qint64 durationSeconds);
+LIBMVME_EXPORT QString makeDurationString(qint64 durationSeconds);
 
 /** Emits aboutToClose() before returning from closeEvent() */
 class MVMEWidget: public QWidget
@@ -295,7 +295,7 @@ QPair<double, QString> byte_unit(size_t bytes);
 
 //QString format_memory_size(size_t bytes);
 
-void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun);
+LIBMVME_EXPORT void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun);
 
 static constexpr double make_quiet_nan()
 {

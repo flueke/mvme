@@ -99,7 +99,7 @@ void show_and_activate(QWidget *widget);
 
 QString get_bitness_string();
 
-QFont make_monospace_font(QFont baseFont = QFont());
+LIBMVME_EXPORT QFont make_monospace_font(QFont baseFont = QFont());
 
 void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
 void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
@@ -185,6 +185,6 @@ LayoutType *make_layout(QWidget *widget = nullptr)
     return ret;
 };
 
-int calculate_tab_width(const QFont &font, int tabStop = 4);
+LIBMVME_EXPORT int calculate_tab_width(const QFont &font, int tabStop = 4);
 
 #endif /* __QT_UTIL_H__ */

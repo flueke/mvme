@@ -214,6 +214,15 @@ void MVLCDataReader::readoutLoop()
                          .arg(ec.message().c_str()));
             break;
         }
+        else if (ec != ErrorType::Timeout)
+        {
+            // FIXME: This can spam rapidly
+            emit message(QSL("Other error from read: %1, %2, %3")
+                         .arg(ec.message().c_str())
+                         .arg(ec.category().name())
+                         .arg(ec.value()));
+        }
+
 
         {
             QMutexLocker guard(&m_statsMutex);

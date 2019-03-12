@@ -1,8 +1,6 @@
 #ifndef __MVME_DATA_SERVER_CLIENT_LIB_H__
 #define __MVME_DATA_SERVER_CLIENT_LIB_H__
 
-#include "event_server_proto.h"
-
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h> // getaddrinfo
@@ -14,7 +12,6 @@
 #include <sys/types.h>
 #endif
 
-
 #include <cassert>
 #include <cstring> // memcpy
 #include <functional>
@@ -25,6 +22,8 @@
 
 // header-only json parser library
 #include <nlohmann/json.hpp>
+
+#include "event_server_proto.h"
 
 namespace mvme
 {

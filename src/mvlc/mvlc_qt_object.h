@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QVector>
 
+#include "libmvme_export.h"
 #include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_impl_abstract.h"
 #include "mvlc/mvlc_threading.h"
@@ -15,7 +16,7 @@ namespace mesytec
 namespace mvlc
 {
 
-class MVLCObject: public QObject
+class LIBMVME_EXPORT MVLCObject: public QObject
 {
     Q_OBJECT
     public:

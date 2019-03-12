@@ -289,8 +289,8 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
                                   const_cast<u8 *>(buffer), size,
                                   &transferred,
                                   m_writeTimeouts[static_cast<unsigned>(pipe)]);
-#else
-    FT_STATUS st = FT_WritePipeEx(m_handle, get_fifo_id(pipe),
+#else // windows
+    FT_STATUS st = FT_WritePipeEx(m_handle, get_endpoint(pipe, EndpointDirection::Out),
                                   const_cast<u8 *>(buffer), size,
                                   &transferred,
                                   nullptr);
@@ -315,8 +315,11 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
                                  buffer, size,
                                  &transferred,
                                  m_readTimeouts[static_cast<unsigned>(pipe)]);
-#else
-    FT_STATUS st = FT_ReadPipeEx(m_handle, get_fifo_id(pipe),
+#else // windows
+    //qDebug("%s: passing 0x%02x to FT_ReadPipeEx",
+    //       __PRETTY_FUNCTION__, get_endpoint(pipe, EndpointDirection::In));
+
+    FT_STATUS st = FT_ReadPipeEx(m_handle,  get_endpoint(pipe, EndpointDirection::In),
                                  buffer, size,
                                  &transferred,
                                  nullptr);

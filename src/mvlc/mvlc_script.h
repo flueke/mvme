@@ -146,12 +146,12 @@ class MVLCCommandListBuilder
 // Transform a single MVLC Command into a list of 32-bit MVLC command words.
 // Note: this does not include the CmdBufferStart and CmdBufferEnd words needed
 // at the start and end to form a full, valid MVLC buffer.
-QVector<u32> to_mvlc_buffer(const Command &cmd);
+QVector<u32> LIBMVME_EXPORT to_mvlc_buffer(const Command &cmd);
 
 // Transform a list of commands into a full MVLC command buffer. The buffer
 // starts with CmdBufferStart and ends with CmdBufferEnd.
 // This form can be directly sent to the MVLC.
-QVector<u32> to_mvlc_command_buffer(const CommandList &cmdList);
+QVector<u32> LIBMVME_EXPORT to_mvlc_command_buffer(const CommandList &cmdList);
 
 } // end namespace script
 } // end namespace mvlc

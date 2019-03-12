@@ -2,6 +2,7 @@
 #define __MVLC_ERROR_H__
 
 #include <system_error>
+#include "libmvme_export.h"
 
 namespace mesytec
 {
@@ -27,7 +28,7 @@ enum class MVLCErrorCode
     BindLocalError,
 };
 
-std::error_code make_error_code(MVLCErrorCode error);
+LIBMVME_EXPORT std::error_code make_error_code(MVLCErrorCode error);
 
 enum class ErrorType
 {
@@ -40,7 +41,7 @@ enum class ErrorType
     VMEError
 };
 
-std::error_condition make_error_condition(ErrorType et);
+LIBMVME_EXPORT std::error_condition make_error_condition(ErrorType et);
 
 } // end namespace mvlc
 } // end namespace mesytec

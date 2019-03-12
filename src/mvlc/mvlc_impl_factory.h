@@ -4,6 +4,7 @@
 #include <memory>
 #include "mvlc/mvlc_impl_abstract.h"
 #include "mvlc/mvlc_constants.h"
+#include "libmvme_export.h"
 
 namespace mesytec
 {
@@ -17,9 +18,9 @@ namespace mvlc
 // udp://<host>
 //std::unique_ptr<AbstractImpl> make_mvlc(const std::string &uri);
 
-std::unique_ptr<AbstractImpl> make_mvlc_usb();
+std::unique_ptr<AbstractImpl> LIBMVME_EXPORT make_mvlc_usb();
 
-std::unique_ptr<AbstractImpl> make_mvlc_udp(const char *host);
+std::unique_ptr<AbstractImpl> LIBMVME_EXPORT make_mvlc_udp(const char *host);
 
 } // end namespace mvlc
 } // end namespace mesytec

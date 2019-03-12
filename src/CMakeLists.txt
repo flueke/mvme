@@ -370,22 +370,21 @@ if(MVME_ENABLE_MVLC)
         )
     target_link_libraries(libmvme ftd3xx)
 
-    if(BUILD_TESTS)
-        add_mvme_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
-        add_mvme_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
-    endif(BUILD_TESTS)
-
     qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
-
     add_mvme_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
+    target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
+
     add_mvme_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
     add_mvme_executable(dev_test_mvlc_udp_impl mvlc/dev_test_mvlc_udp_impl.cc)
     add_mvme_executable(mvlc_mvme mvlc/mvlc_mvme.cc)
 
-    target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
+    install(TARGETS mvlc_dev_gui dev_test_mvlc_usb_impl dev_test_mvlc_udp_impl
+        DESTINATION .)
 
-    install(TARGETS mvlc_dev_gui DESTINATION .)
-
+    if(BUILD_TESTS)
+        add_mvme_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
+        add_mvme_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
+    endif(BUILD_TESTS)
 endif(MVME_ENABLE_MVLC)
 
 
