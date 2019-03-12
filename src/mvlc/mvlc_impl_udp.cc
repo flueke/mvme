@@ -323,8 +323,13 @@ unsigned Impl::getReadTimeout(Pipe pipe) const
     return m_readTimeouts[static_cast<unsigned>(pipe)];
 }
 
-// FIXME: this is wrong and also depends on the Jumbo Frames option
-static const size_t DatagramMaxPayloadSize = 9000;
+// Standard MTU is 1500 bytes
+// Jumbos Frames are usually 9000 bytes
+// IPv4 header is 20 bytes
+// UDP header is 8 bytes
+static const size_t MaxOutgoingPayloadSize = 1500 - 20 - 8;
+static const size_t MaxIncomingPayloadSIze = MaxOutgoingPayloadSize;
+static const size_t JumboMaxIncomingPayloadSIze = 9000 - 20 - 8;
 
 std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
                             size_t &bytesTransferred)
@@ -333,7 +338,7 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     // send() because outgoing MVLC command buffers should be smaller than the
     // maximum ethernet MTU.
     assert(buffer);
-    assert(size <= DatagramMaxPayloadSize);
+    assert(size <= MaxOutgoingPayloadSize);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
     bytesTransferred = 0;
@@ -356,7 +361,7 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     // TODO: split into multiple read calls
 
     assert(buffer);
-    assert(size <= DatagramMaxPayloadSize);
+    assert(size <= MaxOutgoingPayloadSize);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
     bytesTransferred = 0;
