@@ -929,10 +929,10 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
             auto cmdList = mvlc::script::parse(scriptText);
             auto cmdBuffer = mvlc::script::to_mvlc_command_buffer(cmdList);
 
-            for (u32 &word: cmdBuffer)
-            {
-                word = qToBigEndian(word);
-            }
+            //for (u32 &word: cmdBuffer)
+            //{
+            //    word = qToBigEndian(word);
+            //}
 
 
             logBuffer(cmdBuffer, "Outgoing Request Buffer");
