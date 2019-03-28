@@ -1,6 +1,7 @@
 #include "mvlc/mvlc_impl_usb.h"
 #include "mvlc/mvlc_error.h"
 #include <cassert>
+#include <cstdio>
 
 namespace
 {
@@ -228,6 +229,20 @@ std::error_code Impl::connect()
                              getReadTimeout(pipe));
     }
 
+#ifdef __WIN32
+#if 0
+    // FT_SetStreamPipe(handle, allWritePipes, allReadPipes, pipeID, streamSize)
+    st = FT_SetStreamPipe(m_handle, false, true, 0, USBSingleTransferMaxBytes);
+    if (auto ec = make_error_code(st))
+    {
+        fprintf(stderr, "%s: FT_SetStreamPipe failed: %u: %s",
+                __PRETTY_FUNCTION__, static_cast<unsigned>(st),
+                ec.message().c_str());
+        return ec;
+    }
+#endif
+#endif // __WIN32
+
     return {};
 }
 
@@ -248,30 +263,34 @@ bool Impl::isConnected() const
 
 void Impl::setWriteTimeout(Pipe pipe, unsigned ms)
 {
-    if (static_cast<unsigned>(pipe) >= PipeCount) return;
-    m_writeTimeouts[static_cast<unsigned>(pipe)] = ms;
+    auto up = static_cast<unsigned>(pipe);
+    if (up >= PipeCount) return;
+    m_writeTimeouts[up] = ms;
     if (isConnected())
         set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::Out), ms);
 }
 
 void Impl::setReadTimeout(Pipe pipe, unsigned ms)
 {
-    if (static_cast<unsigned>(pipe) >= PipeCount) return;
-    m_readTimeouts[static_cast<unsigned>(pipe)] = ms;
+    auto up = static_cast<unsigned>(pipe);
+    if (up >= PipeCount) return;
+    m_readTimeouts[up] = ms;
     if (isConnected())
         set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::In), ms);
 }
 
 unsigned Impl::getWriteTimeout(Pipe pipe) const
 {
-    if (static_cast<unsigned>(pipe) >= PipeCount) return 0u;
-    return m_writeTimeouts[static_cast<unsigned>(pipe)];
+    auto up = static_cast<unsigned>(pipe);
+    if (up >= PipeCount) return 0u;
+    return m_writeTimeouts[up];
 }
 
 unsigned Impl::getReadTimeout(Pipe pipe) const
 {
-    if (static_cast<unsigned>(pipe) >= PipeCount) return 0u;
-    return m_readTimeouts[static_cast<unsigned>(pipe)];
+    auto up = static_cast<unsigned>(pipe);
+    if (up >= PipeCount) return 0u;
+    return m_readTimeouts[up];
 }
 
 std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
@@ -290,10 +309,17 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
                                   &transferred,
                                   m_writeTimeouts[static_cast<unsigned>(pipe)]);
 #else // windows
+#if 0
     FT_STATUS st = FT_WritePipeEx(m_handle, get_endpoint(pipe, EndpointDirection::Out),
                                   const_cast<u8 *>(buffer), size,
                                   &transferred,
                                   nullptr);
+#else
+    FT_STATUS st = FT_WritePipe(m_handle, get_endpoint(pipe, EndpointDirection::Out),
+                                const_cast<u8 *>(buffer), size,
+                                &transferred,
+                                nullptr);
+#endif
 #endif
 
     bytesTransferred = transferred;
@@ -316,13 +342,17 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
                                  &transferred,
                                  m_readTimeouts[static_cast<unsigned>(pipe)]);
 #else // windows
-    //qDebug("%s: passing 0x%02x to FT_ReadPipeEx",
-    //       __PRETTY_FUNCTION__, get_endpoint(pipe, EndpointDirection::In));
-
+#if 0
     FT_STATUS st = FT_ReadPipeEx(m_handle,  get_endpoint(pipe, EndpointDirection::In),
                                  buffer, size,
                                  &transferred,
                                  nullptr);
+#else
+    FT_STATUS st = FT_ReadPipe(m_handle, get_endpoint(pipe, EndpointDirection::In),
+                               buffer, size,
+                               &transferred,
+                               nullptr);
+#endif
 #endif
 
     bytesTransferred = transferred;
