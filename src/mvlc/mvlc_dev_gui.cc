@@ -1178,7 +1178,7 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
         widgets.spin_address->setMinimumWidth(150);
         widgets.spin_address->setMinimum(0x0);
         widgets.spin_address->setMaximum(0xffff);
-        widgets.spin_address->setSingleStep(4);
+        widgets.spin_address->setSingleStep(2);
         widgets.spin_address->setDisplayIntegerBase(16);
         widgets.spin_address->setPrefix("0x");
         widgets.spin_address->setValue(0x1200 + 4 * editorIndex);
@@ -1187,6 +1187,12 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
         widgets.l_readResult_hex = new QLabel(this);
         widgets.l_readResult_dec = new QLabel(this);
         widgets.l_readResult_hex->setMinimumWidth(60);
+
+        for (auto label: {widgets.l_readResult_hex, widgets.l_readResult_dec})
+        {
+            label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        }
+
         widgets.pb_write = new QPushButton("Write", this);
         widgets.pb_read = new QPushButton("Read", this);
 
