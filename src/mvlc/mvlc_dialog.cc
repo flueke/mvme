@@ -84,6 +84,7 @@ std::error_code MVLCDialog::readWords(u32 *dest, size_t count, size_t &wordsTran
 
 std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
 {
+#if 0
     dest.resize(0);
 
     u32 header = 0u;
@@ -108,6 +109,16 @@ std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
     }
 
     return ec;
+#else
+    size_t bufferSize = 2048 / sizeof(u32);
+    size_t wordsTransferred = 0u;
+    dest.resize(bufferSize);
+    auto ec = readWords(dest.data(), bufferSize, wordsTransferred);
+    dest.resize(wordsTransferred);
+    if (ec == MVLCErrorCode::ShortRead)
+        ec = {};
+    return ec;
+#endif
 }
 
 std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32> &dest)

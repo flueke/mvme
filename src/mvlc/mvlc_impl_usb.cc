@@ -220,6 +220,7 @@ std::error_code Impl::connect()
         return ec;
 
     // Apply the read and write timeouts. Errors are ignored for now.
+#if 0
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
         set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::Out),
@@ -228,20 +229,32 @@ std::error_code Impl::connect()
         set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::In),
                              getReadTimeout(pipe));
     }
+#endif
 
 #ifdef __WIN32
 #if 0
+    // Using the streampipe mode under windows results in a minor read
+    // performance improvement but makes the read call block until it receives
+    // the specified amount of data. This means the readout loop can't be left
+    // in case no data arrives. Figure out how to abort the pending read.
+
     // FT_SetStreamPipe(handle, allWritePipes, allReadPipes, pipeID, streamSize)
-    st = FT_SetStreamPipe(m_handle, false, true, 0, USBSingleTransferMaxBytes);
+
+    unsigned char pipeArg = get_endpoint(Pipe::Data, EndpointDirection::In);
+    st = FT_SetStreamPipe(m_handle, false, false, 
+		    pipeArg,
+		    1024 * 1024);
     if (auto ec = make_error_code(st))
     {
-        fprintf(stderr, "%s: FT_SetStreamPipe failed: %u: %s",
+        fprintf(stderr, "%s: FT_SetStreamPipe failed: %u: %s, pipeArg=%u",
                 __PRETTY_FUNCTION__, static_cast<unsigned>(st),
-                ec.message().c_str());
+                ec.message().c_str(), static_cast<unsigned>(pipeArg));
         return ec;
     }
 #endif
 #endif // __WIN32
+
+    fprintf(stderr, "%s: connected!\n", __PRETTY_FUNCTION__);
 
     return {};
 }
@@ -324,7 +337,15 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
 
     bytesTransferred = transferred;
 
-    return make_error_code(st);
+    auto ec = make_error_code(st);
+
+    fprintf(stderr, "%s: pipe=%u, wrote %lu of %lu bytes, result=%s\n",
+		    __PRETTY_FUNCTION__, 
+		    static_cast<unsigned>(pipe),
+		    bytesTransferred, size, 
+		    ec.message().c_str());
+
+    return ec;
 }
 
 std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
@@ -357,7 +378,17 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     bytesTransferred = transferred;
 
-    return make_error_code(st);
+    auto ec = make_error_code(st);
+
+    /*
+    fprintf(stderr, "%s: pipe=%u, read %lu of %lu bytes, result=%s\n",
+		    __PRETTY_FUNCTION__, 
+		    static_cast<unsigned>(pipe),
+		    bytesTransferred, size, 
+		    ec.message().c_str());
+    */
+
+    return ec;
 }
 
 std::error_code Impl::get_read_queue_size(Pipe pipe, u32 &dest)
