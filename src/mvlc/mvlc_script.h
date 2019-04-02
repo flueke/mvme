@@ -3,6 +3,7 @@
 
 #include "vme_script.h"
 #include "mvlc_constants.h"
+#include "libmvme_mvlc_export.h"
 
 class QTextStream;
 
@@ -76,10 +77,10 @@ struct Command
 using CommandList = QVector<Command>;
 
 // Parsing of script text input and transformation into a list of commands.
-CommandList LIBMVME_EXPORT parse(QFile *input);
-CommandList LIBMVME_EXPORT parse(const QString &input);
-CommandList LIBMVME_EXPORT parse(QTextStream &input);
-CommandList LIBMVME_EXPORT parse(const std::string &input);
+CommandList LIBMVME_MVLC_EXPORT parse(QFile *input);
+CommandList LIBMVME_MVLC_EXPORT parse(const QString &input);
+CommandList LIBMVME_MVLC_EXPORT parse(QTextStream &input);
+CommandList LIBMVME_MVLC_EXPORT parse(const std::string &input);
 
 struct ParseError
 {
@@ -146,12 +147,12 @@ class MVLCCommandListBuilder
 // Transform a single MVLC Command into a list of 32-bit MVLC command words.
 // Note: this does not include the CmdBufferStart and CmdBufferEnd words needed
 // at the start and end to form a full, valid MVLC buffer.
-QVector<u32> LIBMVME_EXPORT to_mvlc_buffer(const Command &cmd);
+QVector<u32> LIBMVME_MVLC_EXPORT to_mvlc_buffer(const Command &cmd);
 
 // Transform a list of commands into a full MVLC command buffer. The buffer
 // starts with CmdBufferStart and ends with CmdBufferEnd.
 // This form can be directly sent to the MVLC.
-QVector<u32> LIBMVME_EXPORT to_mvlc_command_buffer(const CommandList &cmdList);
+QVector<u32> LIBMVME_MVLC_EXPORT to_mvlc_command_buffer(const CommandList &cmdList);
 
 } // end namespace script
 } // end namespace mvlc

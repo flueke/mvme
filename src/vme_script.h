@@ -114,12 +114,12 @@ struct Command
     s32 lineNumber = 0;
 };
 
-QString to_string(CommandType commandType);
-CommandType commandType_from_string(const QString &str);
-QString to_string(AddressMode addressMode);
-QString to_string(DataWidth dataWidth);
-QString to_string(const Command &cmd);
-QString format_hex(uint32_t value);
+LIBMVME_EXPORT QString to_string(CommandType commandType);
+LIBMVME_EXPORT CommandType commandType_from_string(const QString &str);
+LIBMVME_EXPORT QString to_string(AddressMode addressMode);
+LIBMVME_EXPORT QString to_string(DataWidth dataWidth);
+LIBMVME_EXPORT QString to_string(const Command &cmd);
+LIBMVME_EXPORT QString format_hex(uint32_t value);
 
 using VMEScript = QVector<Command>;
 
@@ -179,7 +179,7 @@ LIBMVME_EXPORT Result run_command(VMEController *controller,
                                   const Command &cmd,
                                   LoggerFun logger = LoggerFun());
 
-QString format_result(const Result &result);
+LIBMVME_EXPORT QString format_result(const Result &result);
 
 } // namespace vme_script
 

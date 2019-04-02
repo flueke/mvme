@@ -1,7 +1,7 @@
 #ifndef __MVME_MVLC_VME_DEBUG_WIDGET_H__
 #define __MVME_MVLC_VME_DEBUG_WIDGET_H__
 
-#include "libmvme_export.h"
+#include "libmvme_mvlc_export.h"
 
 #include <QWidget>
 #include <memory>
@@ -17,7 +17,7 @@ namespace mesytec
 namespace mvlc
 {
 
-class LIBMVME_EXPORT VMEDebugWidget: public QWidget
+class LIBMVME_MVLC_EXPORT VMEDebugWidget: public QWidget
 {
     Q_OBJECT
     signals:

@@ -3,7 +3,9 @@
 
 #include <array>
 #include <ftd3xx.h>
-#include "libmvme_export.h"
+#include <thread>
+#include <memory>
+#include "libmvme_mvlc_export.h"
 #include "mvlc/mvlc_impl_abstract.h"
 
 namespace mesytec
@@ -35,7 +37,7 @@ namespace usb
 // of the pipes simultaneously. It's still ok for one thread to use pipe0 and
 // another to use pipe1.
 
-class LIBMVME_EXPORT Impl: public AbstractImpl
+class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 {
     public:
         // The constructors do not call open(). They just setup the information
@@ -97,9 +99,15 @@ class LIBMVME_EXPORT Impl: public AbstractImpl
         std::array<unsigned, PipeCount> m_readTimeouts = {
             DefaultReadTimeout_ms, DefaultReadTimeout_ms
         };
+
+#ifdef __WIN32
+        struct PipeReader;
+        std::array<std::unique_ptr<PipeReader>, PipeCount> m_readers;
+        std::array<std::thread, PipeCount> m_readerThreads;
+#endif
 };
 
-std::error_code LIBMVME_EXPORT make_error_code(FT_STATUS st);
+std::error_code LIBMVME_MVLC_EXPORT make_error_code(FT_STATUS st);
 
 } // end namespace usb
 } // end namespace mvlc

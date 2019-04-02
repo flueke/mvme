@@ -4,14 +4,14 @@
 #include <memory>
 #include <QVector>
 #include "mvlc/mvlc_impl_abstract.h"
-#include "libmvme_export.h"
+#include "libmvme_mvlc_export.h"
 
 namespace mesytec
 {
 namespace mvlc
 {
 
-class LIBMVME_EXPORT BasicMVLC
+class LIBMVME_MVLC_EXPORT BasicMVLC
 {
     public:
         BasicMVLC(std::unique_ptr<AbstractImpl> impl);

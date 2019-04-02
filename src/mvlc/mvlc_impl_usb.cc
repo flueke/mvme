@@ -1,7 +1,10 @@
 #include "mvlc/mvlc_impl_usb.h"
-#include "mvlc/mvlc_error.h"
+#include <atomic>
 #include <cassert>
+#include <condition_variable>
 #include <cstdio>
+#include "mvlc/mvlc_threading.h"
+#include "mvlc/mvlc_error.h"
 
 namespace
 {
@@ -168,6 +171,199 @@ namespace mvlc
 namespace usb
 {
 
+#ifdef __WIN32
+template<size_t Size>
+struct ReadBuffer
+{
+    std::array<u8, Size> data;
+    u8 *first;
+    u8 *last;
+
+    size_t used() const { return last - first; }
+    size_t free() const { return data.size() - used(); }
+    void reset() { first = last = data.data(); }
+    void moveToFront()
+    {
+        const size_t used_ = used();
+
+        if (used_ > 0 && first != data.data())
+        {
+            memcpy(data.data(), first, used_);
+            first = data.data();
+            last  = first + used_;
+
+            assert(used_ == used());
+        }
+    }
+};
+
+struct Impl::PipeReader
+{
+    static const size_t BufferSize = USBSingleTransferMaxBytes;
+    static const size_t BufferCount = 8;
+
+    enum BufferState
+    {
+        Unused,
+        InProgress,
+        Complete
+    };
+
+    void *handle;
+    u8 ep;
+    std::atomic<bool> keepRunning;
+    std::error_code ec;
+    std::condition_variable cv;
+    std::mutex lock;
+
+    std::array<ReadBuffer<BufferSize>, BufferCount> buffers;
+    std::array<BufferState, BufferCount> states;
+    std::array<OVERLAPPED, BufferCount> overlapped;
+    std::array<ULONG, BufferCount> bytesTransferred;
+
+    PipeReader(void *handle_, Pipe pipe)
+        : handle(handle_)
+        , ep(get_endpoint(pipe, EndpointDirection::In))
+    {
+        keepRunning = true;
+    }
+
+    void loop();
+};
+
+void Impl::PipeReader::loop()
+{
+    {
+        UniqueLock guard(lock);
+
+        if (auto st = FT_SetStreamPipe(handle, false, false, ep, BufferSize))
+        {
+            ec = make_error_code(st);
+            return;
+        }
+
+        for (auto &ol: overlapped)
+        {
+            if (auto st = FT_InitializeOverlapped(handle, &ol))
+            {
+                ec = make_error_code(st);
+                return;
+            }
+        }
+
+        // queue initial read requests
+        for (size_t i=0; i<BufferCount; i++)
+        {
+            auto st = FT_ReadPipeEx(handle, ep,
+                                    buffers[i].data.begin(), BufferSize,
+                                    &bytesTransferred[i],
+                                    &overlapped[i]);
+
+            if (st != FT_IO_PENDING)
+            {
+                ec = make_error_code(st);
+                return;
+            }
+
+            states[i] = InProgress;
+        }
+    }
+
+    size_t i = 0;
+
+    fprintf(stderr, "%s, ep=0x%x: queued initial requests, entering loop\n",
+            __PRETTY_FUNCTION__, ep);
+
+    while (keepRunning)
+    {
+        UniqueLock guard(lock);
+
+        fprintf(stderr, "%s, ep=0x%x: waiting on cv\n",
+                __PRETTY_FUNCTION__, ep);
+
+        cv.wait(guard, [&] { return states[i] != Complete || !keepRunning; });
+
+        fprintf(stderr, "%s, ep=0x%x: post cv wait\n",
+                __PRETTY_FUNCTION__, ep);
+
+        if (!keepRunning)
+            break;
+
+        assert(states[i] != Complete);
+
+        if (states[i] == InProgress)
+        {
+            fprintf(stderr, "%s, ep=0x%x: waiting for request %u to complete\n",
+                    __PRETTY_FUNCTION__, ep, i);
+
+            auto st = FT_GetOverlappedResult(handle,
+                                             &overlapped[i],
+                                             &bytesTransferred[i],
+                                             true);
+
+            if (st == FT_IO_INCOMPLETE)
+            {
+                fprintf(stderr, "%s, ep=0x%x: request %u is incomplete, continue\n",
+                        __PRETTY_FUNCTION__, ep, i);
+                continue;
+            }
+            else if (st == FT_TIMEOUT)
+            {
+                fprintf(stderr, "%s, ep=0x%x: request %u timed out\n",
+                        __PRETTY_FUNCTION__, ep, i);
+            }
+            else if (st != FT_OK)
+            {
+                ec = make_error_code(st);
+                fprintf(stderr, "%s, ep=0x%x: request %u is not ok: %s\n",
+                        __PRETTY_FUNCTION__, ep, i, ec.message().c_str());
+                break;
+            }
+
+            fprintf(stderr, "%s, ep=0x%x: setting request %u to complete and waking consumer\n",
+                    __PRETTY_FUNCTION__, ep, i);
+
+            states[i] = Complete;
+            cv.notify_one();
+        }
+
+        if (states[i] == Unused)
+        {
+            fprintf(stderr, "%s, ep=0x%x: queueing new request %u\n",
+                    __PRETTY_FUNCTION__, ep, i);
+
+            auto st = FT_ReadPipeEx(handle, ep,
+                                    buffers[i].data.begin(), BufferSize,
+                                    &bytesTransferred[i],
+                                    &overlapped[i]);
+
+            if (st != FT_IO_PENDING)
+            {
+                ec = make_error_code(st);
+                break;
+            }
+        }
+
+        if (++i == BufferCount)
+            i = 0;
+    }
+
+    fprintf(stderr, "%s, ep=0x%x: left loop\n",
+            __PRETTY_FUNCTION__, ep, i);
+
+    // cleanup
+    UniqueLock guard(lock);
+    for (auto &ol: overlapped)
+    {
+        if (auto st = FT_ReleaseOverlapped(handle, &ol))
+        {
+            ec = make_error_code(st);
+            break;
+        }
+    }
+}
+#endif // __WIN32
+
 std::error_code make_error_code(FT_STATUS st)
 {
     return { static_cast<int>(st), theFTErrorCategory };
@@ -219,15 +415,27 @@ std::error_code Impl::connect()
     if (auto ec = make_error_code(st))
         return ec;
 
-    // Apply the read and write timeouts. Errors are ignored for now.
-#if 0
+    // Apply the read and write timeouts.
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
-        set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::Out),
-                             getWriteTimeout(pipe));
+        if (auto ec = set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::Out),
+                                           getWriteTimeout(pipe)))
+            return ec;
 
-        set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::In),
-                             getReadTimeout(pipe));
+        if (auto ec = set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::In),
+                                           getReadTimeout(pipe)))
+            return ec;
+    }
+
+    fprintf(stderr, "%s: connected!\n", __PRETTY_FUNCTION__);
+#ifdef __WIN32
+
+    fprintf(stderr, "%s: starting PipeReaders...\n", __PRETTY_FUNCTION__);
+
+    for (size_t i=0; i<PipeCount; i++)
+    {
+        m_readers[i] = std::make_unique<PipeReader>(m_handle, static_cast<Pipe>(i));
+        m_readerThreads[i] = std::thread(&PipeReader::loop, m_readers[i].get());
     }
 #endif
 
@@ -263,6 +471,24 @@ std::error_code Impl::disconnect()
 {
     if (!isConnected())
         return make_error_code(MVLCErrorCode::IsDisconnected);
+
+#if __WIN32
+    fprintf(stderr, "%s: stopping PipeReaders!\n", __PRETTY_FUNCTION__);
+
+    for (size_t i=0; i<PipeCount; i++)
+    {
+        m_readers[i]->keepRunning = false;
+        m_readers[i]->cv.notify_one();
+    }
+
+    fprintf(stderr, "%s: joining PipeReaders!\n", __PRETTY_FUNCTION__);
+
+    for (size_t i=0; i<PipeCount; i++)
+    {
+        if (m_readerThreads[i].joinable())
+            m_readerThreads[i].join();
+    }
+#endif
 
     FT_STATUS st = FT_Close(m_handle);
     m_handle = nullptr;
@@ -316,38 +542,35 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     u8 fifo = get_fifo_id(pipe);
     ULONG transferred = 0; // FT API needs a ULONG*
 
-#ifndef __WIN32
-    FT_STATUS st = FT_WritePipeEx(m_handle, get_fifo_id(pipe),
-                                  const_cast<u8 *>(buffer), size,
-                                  &transferred,
-                                  m_writeTimeouts[static_cast<unsigned>(pipe)]);
-#else // windows
-#if 0
+#ifdef __WIN32 // windows
     FT_STATUS st = FT_WritePipeEx(m_handle, get_endpoint(pipe, EndpointDirection::Out),
                                   const_cast<u8 *>(buffer), size,
                                   &transferred,
                                   nullptr);
-#else
-    FT_STATUS st = FT_WritePipe(m_handle, get_endpoint(pipe, EndpointDirection::Out),
-                                const_cast<u8 *>(buffer), size,
-                                &transferred,
-                                nullptr);
-#endif
+#else // linux
+    FT_STATUS st = FT_WritePipeEx(m_handle, get_fifo_id(pipe),
+                                  const_cast<u8 *>(buffer), size,
+                                  &transferred,
+                                  m_writeTimeouts[static_cast<unsigned>(pipe)]);
 #endif
 
     bytesTransferred = transferred;
 
     auto ec = make_error_code(st);
 
-    fprintf(stderr, "%s: pipe=%u, wrote %lu of %lu bytes, result=%s\n",
-		    __PRETTY_FUNCTION__, 
-		    static_cast<unsigned>(pipe),
-		    bytesTransferred, size, 
-		    ec.message().c_str());
+    if (ec)
+    {
+        fprintf(stderr, "%s: pipe=%u, wrote %lu of %lu bytes, result=%s\n",
+                __PRETTY_FUNCTION__, 
+                static_cast<unsigned>(pipe),
+                bytesTransferred, size, 
+                ec.message().c_str());
+    }
 
     return ec;
 }
 
+#ifdef __WIN32 // Impl::read() windows
 std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
                            size_t &bytesTransferred)
 {
@@ -355,41 +578,173 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     assert(size <= USBSingleTransferMaxBytes);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
-    ULONG transferred = 0; // FT API needs a ULONG*
+#if 0
+    //fprintf(stderr, "%s: begin read: pipe=%u, size=%lu bytes\n",
+    //        __PRETTY_FUNCTION__, 
+    //        static_cast<unsigned>(pipe),
+    //        size);
 
-#ifndef __WIN32
+    bytesTransferred = 0u;
+
+    if (size == 0)
+    {
+        fprintf(stderr, "%s: zero size read from pipe %u, nothing to do",
+                __PRETTY_FUNCTION__,
+                static_cast<unsigned>(pipe));
+
+        return {};
+    }
+    else if (pipe == Pipe::Command && m_cmdBuffer.used() >= size)
+    // Have enough data to complete the request.
+    {
+        memcpy(buffer, m_cmdBuffer.begin, size);
+        m_cmdBuffer.begin += size;
+
+        if (m_cmdBuffer.used() == 0)
+            m_cmdBuffer.reset();
+
+        bytesTransferred = size;
+
+        fprintf(stderr, "%s: cmd read completed using buffered data, new buffer size=%lu\n",
+                __PRETTY_FUNCTION__, 
+                m_cmdBuffer.used());
+
+        return {};
+    }
+    else if (pipe == Pipe::Command)
+    // Need to fetch more data
+    {
+        memcpy(buffer, m_cmdBuffer.begin, m_cmdBuffer.used());
+        bytesTransferred = m_cmdBuffer.used();
+        size -= m_cmdBuffer.used();
+        m_cmdBuffer.reset();
+
+        ULONG transferred = 0; // FT API wants a ULONG* parameter
+
+        FT_STATUS st = FT_ReadPipeEx(
+            m_handle, get_endpoint(pipe, EndpointDirection::In),
+            m_cmdBuffer.data.data(), m_cmdBuffer.data.size(),
+            &transferred,
+            nullptr);
+
+        fprintf(stderr, "%s: pipe=%u, transferred %lu bytes from device, result=%s\n",
+                __PRETTY_FUNCTION__,
+                static_cast<unsigned>(pipe),
+                transferred,
+                make_error_code(st).message().c_str());
+
+        m_cmdBuffer.end = m_cmdBuffer.begin + transferred;
+
+        if (auto ec = make_error_code(st))
+            return ec;
+
+        if (m_cmdBuffer.used() >= size)
+        {
+            memcpy(buffer + bytesTransferred, m_cmdBuffer.begin, size);
+            m_cmdBuffer.begin += size;
+            bytesTransferred += size;
+
+            if (m_cmdBuffer.used() == 0)
+                m_cmdBuffer.reset();
+        }
+        else
+        {
+            // FIXME: This part can be reached. Figure out when and why and fix this.
+            assert(false);
+        }
+
+        return {};
+    }
+    else
+    {
+        ULONG transferred = 0; // FT API wants a ULONG* parameter
+
+        FT_STATUS st = FT_ReadPipeEx(m_handle,  get_endpoint(pipe, EndpointDirection::In),
+                                     buffer, size,
+                                     &transferred,
+                                     nullptr);
+
+        bytesTransferred = transferred;
+
+        auto ec = make_error_code(st);
+        if (ec && ec != ErrorType::Timeout)
+        {
+            fprintf(stderr, "%s: pipe=%u, read %lu of %lu bytes, result=%s\n",
+                    __PRETTY_FUNCTION__, 
+                    static_cast<unsigned>(pipe),
+                    bytesTransferred, size, 
+                    ec.message().c_str());
+        }
+        return ec;
+    }
+
+    return {};
+#elif 1
+    const u8 ep = get_endpoint(pipe, EndpointDirection::In);
+    bytesTransferred = 0u;
+    OVERLAPPED overlapped;
+
+    if (auto st = FT_InitializeOverlapped(m_handle, &overlapped))
+        return make_error_code(st);
+
+    ULONG transferred = 0; // FT API wants a ULONG* parameter
+
+    auto st = FT_ReadPipeEx(m_handle, ep, buffer, size, &transferred, &overlapped);
+
+    if (st == FT_IO_PENDING)
+    {
+        do
+        {
+            st = FT_GetOverlappedResult(m_handle, &overlapped, &transferred, false);
+
+            if (st == FT_OK || st != FT_IO_INCOMPLETE)
+                break;
+        }
+        while(true);
+    }
+
+    bytesTransferred = transferred;
+    FT_ReleaseOverlapped(m_handle, &overlapped);
+    return make_error_code(st);
+#else
+#endif
+}
+#else // Impl::read() linux
+std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
+                           size_t &bytesTransferred)
+{
+    assert(buffer);
+    assert(size <= USBSingleTransferMaxBytes);
+    assert(static_cast<unsigned>(pipe) < PipeCount);
+
+    fprintf(stderr, "%s: begin read: pipe=%u, size=%lu bytes\n",
+            __PRETTY_FUNCTION__, 
+            static_cast<unsigned>(pipe),
+            size);
+
+    ULONG transferred = 0; // FT API wants a ULONG* parameter
+
     FT_STATUS st = FT_ReadPipeEx(m_handle, get_fifo_id(pipe),
                                  buffer, size,
                                  &transferred,
                                  m_readTimeouts[static_cast<unsigned>(pipe)]);
-#else // windows
-#if 0
-    FT_STATUS st = FT_ReadPipeEx(m_handle,  get_endpoint(pipe, EndpointDirection::In),
-                                 buffer, size,
-                                 &transferred,
-                                 nullptr);
-#else
-    FT_STATUS st = FT_ReadPipe(m_handle, get_endpoint(pipe, EndpointDirection::In),
-                               buffer, size,
-                               &transferred,
-                               nullptr);
-#endif
-#endif
 
     bytesTransferred = transferred;
 
     auto ec = make_error_code(st);
 
-    /*
-    fprintf(stderr, "%s: pipe=%u, read %lu of %lu bytes, result=%s\n",
-		    __PRETTY_FUNCTION__, 
-		    static_cast<unsigned>(pipe),
-		    bytesTransferred, size, 
-		    ec.message().c_str());
-    */
+    if (true||ec)
+    {
+        fprintf(stderr, "%s: pipe=%u, read %lu of %lu bytes, result=%s\n",
+                __PRETTY_FUNCTION__, 
+                static_cast<unsigned>(pipe),
+                bytesTransferred, size, 
+                ec.message().c_str());
+    }
 
     return ec;
 }
+#endif // Impl::read
 
 std::error_code Impl::get_read_queue_size(Pipe pipe, u32 &dest)
 {

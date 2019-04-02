@@ -24,7 +24,6 @@ class MVLCDialog
         std::error_code writeRegister(u16 address, u32 value);
         std::error_code readRegisterBlock(u16 address, u16 words,
                                           QVector<u32> &dest);
-        // TODO: add readBlock
 
         // Higher level VME access
         // Note: Stack0 is used and the stack is written starting from

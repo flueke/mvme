@@ -6,7 +6,7 @@
 #include <QObject>
 #include <QVector>
 
-#include "libmvme_export.h"
+#include "libmvme_mvlc_export.h"
 #include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_impl_abstract.h"
 #include "mvlc/mvlc_threading.h"
@@ -16,7 +16,7 @@ namespace mesytec
 namespace mvlc
 {
 
-class LIBMVME_EXPORT MVLCObject: public QObject
+class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
 {
     Q_OBJECT
     public:
@@ -97,8 +97,8 @@ class LIBMVME_EXPORT MVLCObject: public QObject
         std::error_code stackTransaction(const QVector<u32> &stackUploadData,
                                          QVector<u32> &responseDest);
 
-        // Returns the response buffer which will contain the contents of the
-        // last read from the MVLC.
+        // Returns the response buffer contains the contents of the last read
+        // operation from the MVLC.
         // After mirrorTransaction() the buffer will contain the mirror
         // response. After stackTransaction() the buffer will contain the
         // response from executing the stack.

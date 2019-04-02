@@ -7,6 +7,7 @@
 #include <QGridLayout>
 #include <QHostAddress>
 #include <QMessageBox>
+#include <QMenuBar>
 #include <QPlainTextEdit>
 #include <QScrollBar>
 #include <QSpinBox>
@@ -1444,6 +1445,15 @@ int main(int argc, char *argv[])
 
     QObject::connect(&gui, &MVLCDevGUI::sigLogMessage,
                      &logWindow, &LogWidget::logMessage);
+
+    auto actionQuit = new QAction("&Quit");
+    actionQuit->setShortcut(QSL("Ctrl+Q"));
+    actionQuit->setShortcutContext(Qt::ApplicationShortcut);
+    gui.menuBar()->addAction(actionQuit);
+
+    QObject::connect(actionQuit, &QAction::triggered,
+                     &app, &QApplication::quit);
+
 
     gui.resize(1000, 960);
     gui.show();
