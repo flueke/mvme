@@ -356,35 +356,45 @@ endif(BUILD_TESTS)
 
 # MVLC support
 if(MVME_ENABLE_MVLC)
-    target_sources(libmvme PRIVATE
-        mvlc/mvlc_impl_usb.cc
-        mvlc/mvlc_impl_udp.cc
+    add_library(libmvme_mvlc SHARED)
+    target_sources(libmvme_mvlc PRIVATE
         mvlc/mvlc_basic_mvlc.cc
         mvlc/mvlc_dialog.cc
         mvlc/mvlc_error.cc
         mvlc/mvlc_impl_factory.cc
+        mvlc/mvlc_impl_udp.cc
+        mvlc/mvlc_impl_usb.cc
         mvlc/mvlc_qt_object.cc
         mvlc/mvlc_script.cc
         mvlc/mvlc_util.cc
         mvlc/mvlc_vme_debug_widget.cc
         )
-    target_link_libraries(libmvme ftd3xx)
+    target_link_libraries(libmvme_mvlc libmvme ftd3xx)
+    generate_export_header(libmvme_mvlc)
+    set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
 
+    #function(add_mvme_executable exe_name exe_sources)
+    #    add_executable(${exe_name} ${exe_sources})
+    #    add_dependencies(${exe_name} libmvme)
+    #    target_link_libraries(${exe_name} libmvme)
+    #endfunction(add_mvme_executable)
+
+    add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
     qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
-    add_mvme_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
     target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
+    target_link_libraries(mvlc_dev_gui libmvme_mvlc)
 
-    add_mvme_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
-    add_mvme_executable(dev_test_mvlc_udp_impl mvlc/dev_test_mvlc_udp_impl.cc)
-    add_mvme_executable(mvlc_mvme mvlc/mvlc_mvme.cc)
-
-    install(TARGETS mvlc_dev_gui dev_test_mvlc_usb_impl dev_test_mvlc_udp_impl
-        DESTINATION .)
-
-    if(BUILD_TESTS)
-        add_mvme_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
-        add_mvme_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
-    endif(BUILD_TESTS)
+#    add_mvme_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
+#    add_mvme_executable(dev_test_mvlc_udp_impl mvlc/dev_test_mvlc_udp_impl.cc)
+#    add_mvme_executable(mvlc_mvme mvlc/mvlc_mvme.cc)
+#
+#    install(TARGETS mvlc_dev_gui dev_test_mvlc_usb_impl dev_test_mvlc_udp_impl
+#        DESTINATION .)
+#
+#    if(BUILD_TESTS)
+#        add_mvme_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
+#        add_mvme_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
+#    endif(BUILD_TESTS)
 endif(MVME_ENABLE_MVLC)
 
 

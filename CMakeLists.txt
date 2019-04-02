@@ -116,7 +116,6 @@ if (MVME_ENABLE_MVLC)
     add_library(ftd3xx SHARED IMPORTED)
 
     # TODO: use target_include_directories
-
     if (WIN32)
         set_target_properties(ftd3xx PROPERTIES
             IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
