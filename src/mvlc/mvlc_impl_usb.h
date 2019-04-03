@@ -100,10 +100,11 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
             DefaultReadTimeout_ms, DefaultReadTimeout_ms
         };
 
+        std::error_code closeHandle();
+
 #ifdef __WIN32
-        struct PipeReader;
-        std::array<std::unique_ptr<PipeReader>, PipeCount> m_readers;
-        std::array<std::thread, PipeCount> m_readerThreads;
+        struct EndpointReader;
+        std::array<std::unique_ptr<EndpointReader>, PipeCount> m_readers;
 #endif
 };
 
