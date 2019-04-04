@@ -451,10 +451,10 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     assert(size <= USBSingleTransferMaxBytes);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
-    fprintf(stderr, "%s: begin read: pipe=%u, size=%lu bytes\n",
-            __PRETTY_FUNCTION__, 
-            static_cast<unsigned>(pipe),
-            size);
+    //fprintf(stderr, "%s: begin read: pipe=%u, size=%lu bytes\n",
+    //        __PRETTY_FUNCTION__, 
+    //        static_cast<unsigned>(pipe),
+    //        size);
 
     ULONG transferred = 0; // FT API wants a ULONG* parameter
 
@@ -469,11 +469,11 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     if (ec)
     {
-        fprintf(stderr, "%s: pipe=%u, read %lu of %lu bytes, result=%s\n",
-                __PRETTY_FUNCTION__, 
-                static_cast<unsigned>(pipe),
-                bytesTransferred, size, 
-                ec.message().c_str());
+        //fprintf(stderr, "%s: pipe=%u, read %lu of %lu bytes, result=%s\n",
+        //        __PRETTY_FUNCTION__, 
+        //        static_cast<unsigned>(pipe),
+        //        bytesTransferred, size, 
+        //        ec.message().c_str());
     }
 
     return ec;
