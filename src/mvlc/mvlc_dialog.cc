@@ -69,13 +69,36 @@ std::error_code MVLCDialog::readWords(u32 *dest, size_t count, size_t &wordsTran
         return {};
     }
 
+    std::error_code ec;
     size_t bytesToTransfer = count * sizeof(u32);
     size_t bytesTransferred = 0u;
 
-    auto ec = m_mvlc->read(Pipe::Command,
-                           reinterpret_cast<u8 *>(dest),
-                           bytesToTransfer,
-                           bytesTransferred);
+    // Note: the loop is a workaround for an issue happening only when
+    // connected via USB2: the read call fails with a timeout despite data
+    // being available at the endpoint. This can be verified by using
+    // get_read_queue_size() directly after the read that timed out.
+    // A 2nd read issued right after the timeout will succeed and yield the
+    // correct data.
+    // I have not encountered this issue when connected via USB3.
+    static const u16 MaxReadAttempts = 2;
+    u16 attempts = 0;
+
+    do
+    {
+        ec = m_mvlc->read(Pipe::Command,
+                          reinterpret_cast<u8 *>(dest),
+                          bytesToTransfer,
+                          bytesTransferred);
+
+        //std::cout << __PRETTY_FUNCTION__
+        //    << " attempt=" << attempts
+        //    << ", ec=" << ec.message()
+        //    << ", bytesTransferred=" << bytesTransferred
+        //    << std::endl;
+
+    } while (ec == ErrorType::Timeout
+             && bytesTransferred == 0
+             && ++attempts < MaxReadAttempts);
 
     wordsTransferred = bytesTransferred / sizeof(u32);
 
@@ -164,10 +187,16 @@ std::error_code MVLCDialog::readRegister(u16 address, u32 &value)
     logBuffer(request, "read_register >>>");
 
     if (auto ec = doWrite(request))
+    {
+        std::cerr << __PRETTY_FUNCTION__ << " write error" << std::endl;
         return ec;
+    }
 
     if (auto ec = readResponse(is_super_buffer, m_responseBuffer))
+    {
+        std::cerr << __PRETTY_FUNCTION__ << " read error" << std::endl;
         return ec;
+    }
 
     logBuffer(m_responseBuffer, "read_register <<<");
 
@@ -229,10 +258,16 @@ std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
     logBuffer(request, "write_register >>>");
 
     if (auto ec = doWrite(request))
+    {
+        std::cerr << __PRETTY_FUNCTION__ << " write error" << std::endl;
         return ec;
+    }
 
     if (auto ec = readResponse(is_super_buffer, m_responseBuffer))
+    {
+        std::cerr << __PRETTY_FUNCTION__ << " read error" << std::endl;
         return ec;
+    }
 
     logBuffer(m_responseBuffer, "write_register <<<");
 

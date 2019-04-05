@@ -86,6 +86,9 @@ int main(int argc, char *argv[])
 
     MVLCObject mvlc(make_mvlc_usb());
 
+    mvlc.setReadTimeout(Pipe::Command, 250);
+    mvlc.setWriteTimeout(Pipe::Command, 250);
+
     if (auto ec = mvlc.connect())
     {
         assert(!mvlc.isConnected());
@@ -98,17 +101,23 @@ int main(int argc, char *argv[])
     static const std::chrono::duration<int, std::milli> WaitInterval(0);
     size_t iteration = 0u;
 
+    struct ErrorWithMessage
+    {
+        std::error_code ec;
+        std::string msg;
+    };
+
     try
     {
         for (iteration = 0; iteration < MaxIterations; iteration++)
         {
 #if 1
             if (auto ec = mvlc.writeRegister(0x2000 + 512, iteration))
-                throw ec;
+                throw ErrorWithMessage{ec, "writeRegister"};
 
             u32 regVal = 0u;
             if (auto ec = mvlc.readRegister(0x2000 + 512, regVal))
-                throw ec;
+                throw ErrorWithMessage{ec, "readRegister"};
 
             assert(regVal == iteration);
 #else
@@ -137,6 +146,50 @@ int main(int argc, char *argv[])
             assert(result == value);
 #endif
         }
+    }
+    catch (const ErrorWithMessage &em)
+    {
+        const auto &ec = em.ec;
+        const auto &msg = em.msg;
+
+        cout << "Error from iteration " << iteration
+            << ": " << ec.message()
+            << " (" << ec.category().name() << ")"
+            << ", extra_msg=" << msg
+            << endl;
+
+        auto buffer = mvlc.getResponseBuffer();
+        log_buffer(std::cout, buffer.data(), buffer.size(), "last response buffer");
+
+        u32 readQueueSize = 0u;
+        auto impl = reinterpret_cast<usb::Impl *>(mvlc.getImpl());
+        impl->get_read_queue_size(Pipe::Command, readQueueSize);
+        cout << "Cmd Pipe Read Queue Size: " << readQueueSize << endl;
+
+        if (readQueueSize > 0)
+        {
+            cout << "Attempting to read from Cmd Pipe...";
+
+            size_t bytesTransferred = 0u;
+            std::vector<u8> buffer(readQueueSize);
+            auto ec = impl->read(Pipe::Command, buffer.data(), buffer.size(),
+                                 bytesTransferred);
+
+            cout << "Cmd read result: " << ec.message()
+                << ", bytesTransferred=" << bytesTransferred
+                << endl;
+
+            for (size_t i=0; i < bytesTransferred / sizeof(u32); i++)
+            {
+                u32 value = reinterpret_cast<u32 *>(buffer.data())[i];
+
+                printf("  0x%08x\n", value);
+            }
+
+            cout << "End of data from manual read attempt" << endl;
+        }
+
+        return 1;
     }
     catch (const std::error_code &ec)
     {
