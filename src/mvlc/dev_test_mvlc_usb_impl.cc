@@ -6,6 +6,7 @@
 #include <cassert>
 #include <iostream>
 #include <thread>
+#include <regex>
 
 using namespace mesytec::mvlc;
 using namespace mesytec::mvlc::usb;
@@ -16,6 +17,40 @@ using std::endl;
 
 int main(int argc, char *argv[])
 {
+    // list devices
+    {
+        auto dil = get_device_info_list();
+
+        cout << "Devices:" << endl;
+
+        for (const auto &di: dil)
+        {
+            static const std::regex reDescr("MVLC");
+            assert(std::regex_search(di.description, reDescr));
+
+            cout << "  index=" << di.index
+                << ", descr=" << di.description
+                << ", serial=" << di.serial
+                << endl;
+        }
+    }
+
+    cout << endl;
+
+    // find by serial
+    {
+        for (unsigned serial = 1; serial <=2; serial++)
+        {
+            auto di = get_device_info_by_serial(serial);
+            if (di)
+                cout << "  Found device for serial " << serial << ", index=" << di.index << endl;
+            else
+                cout << "  Did not find a device for serial " << serial << endl;
+        }
+    }
+
+    cout << endl << "Connect/Disconnect tests using the first device..." << endl;
+
     // connect, disconnect, connect
     {
         Impl mvlcUSB(0);
@@ -59,7 +94,7 @@ int main(int argc, char *argv[])
     }
     assert(mvlc.isConnected());
 
-    static const size_t MaxIterations = 100000;
+    static const size_t MaxIterations = 250000;
     static const std::chrono::duration<int, std::milli> WaitInterval(0);
     size_t iteration = 0u;
 
@@ -67,7 +102,7 @@ int main(int argc, char *argv[])
     {
         for (iteration = 0; iteration < MaxIterations; iteration++)
         {
-#if 0
+#if 1
             if (auto ec = mvlc.writeRegister(0x2000 + 512, iteration))
                 throw ec;
 

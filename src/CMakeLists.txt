@@ -386,20 +386,29 @@ if(MVME_ENABLE_MVLC)
     target_link_libraries(mvlc_dev_gui libmvme_mvlc)
 
     # mvlc_dev_win_usb_debug
-    add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
-    target_link_libraries(mvlc_dev_win_usb_debug libmvme_mvlc)
+    if (WIN32)
+        add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
+        target_link_libraries(mvlc_dev_win_usb_debug libmvme_mvlc)
+    endif (WIN32)
 
-#    add_mvme_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
-#    add_mvme_executable(dev_test_mvlc_udp_impl mvlc/dev_test_mvlc_udp_impl.cc)
+    add_executable(dev_ftdi_list_devices mvlc/dev_ftdi_list_devices)
+    target_link_libraries(dev_ftdi_list_devices ftd3xx)
+
+    add_mvme_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
+    target_link_libraries(dev_test_mvlc_usb_impl libmvme_mvlc)
+
+    add_mvme_executable(dev_test_mvlc_udp_impl mvlc/dev_test_mvlc_udp_impl.cc)
+    target_link_libraries(dev_test_mvlc_udp_impl libmvme_mvlc)
+
+    install(TARGETS mvlc_dev_gui dev_test_mvlc_usb_impl dev_test_mvlc_udp_impl
+        DESTINATION .)
+
 #    add_mvme_executable(mvlc_mvme mvlc/mvlc_mvme.cc)
 #
-#    install(TARGETS mvlc_dev_gui dev_test_mvlc_usb_impl dev_test_mvlc_udp_impl
-#        DESTINATION .)
-#
-#    if(BUILD_TESTS)
-#        add_mvme_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
-#        add_mvme_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
-#    endif(BUILD_TESTS)
+    if(BUILD_TESTS)
+        add_mvme_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
+        add_mvme_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
+    endif(BUILD_TESTS)
 endif(MVME_ENABLE_MVLC)
 
 

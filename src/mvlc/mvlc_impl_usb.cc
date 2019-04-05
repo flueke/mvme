@@ -3,7 +3,9 @@
 #include <atomic>
 #include <cassert>
 #include <cstdio>
+#include <iomanip>
 #include <numeric>
+#include <regex>
 #include <QDebug>
 
 #include "mvlc/mvlc_threading.h"
@@ -165,6 +167,53 @@ std::error_code set_endpoint_timeout(void *handle, u8 ep, unsigned ms)
     return mesytec::mvlc::usb::make_error_code(st);
 }
 
+// Returns an unfiltered list of all connected FT60X devices. */
+mesytec::mvlc::usb::DeviceInfoList make_device_info_list()
+{
+    using mesytec::mvlc::usb::DeviceInfoList;
+    using mesytec::mvlc::usb::DeviceInfo;
+
+    DeviceInfoList result;
+
+    DWORD numDevs = 0;
+    FT_STATUS st = FT_CreateDeviceInfoList(&numDevs);
+
+    if (st == FT_OK && numDevs > 0)
+    {
+        auto ftInfoNodes = std::make_unique<FT_DEVICE_LIST_INFO_NODE[]>(numDevs);
+        st = FT_GetDeviceInfoList(ftInfoNodes.get(), &numDevs);
+
+        if (st == FT_OK)
+        {
+            result.reserve(numDevs);
+
+            for (DWORD ftIndex = 0; ftIndex < numDevs; ftIndex++)
+            {
+                const auto &infoNode = ftInfoNodes[ftIndex];
+                DeviceInfo di = {};
+                di.index = ftIndex;
+                di.serial = infoNode.SerialNumber;
+                di.description = infoNode.Description;
+
+                if (infoNode.Flags & FT_FLAGS_OPENED)
+                    di.flags |= DeviceInfo::Flags::Opened;
+
+                if (infoNode.Flags & FT_FLAGS_HISPEED)
+                    di.flags |= DeviceInfo::Flags::USB2;
+
+                if (infoNode.Flags & FT_FLAGS_SUPERSPEED)
+                    di.flags |= DeviceInfo::Flags::USB3;
+
+                di.handle = infoNode.ftHandle;
+
+                result.emplace_back(di);
+            }
+        }
+    }
+
+    return result;
+}
+
 } // end anon namespace
 
 namespace mesytec
@@ -179,20 +228,67 @@ std::error_code make_error_code(FT_STATUS st)
     return { static_cast<int>(st), theFTErrorCategory };
 }
 
-//Impl::Impl()
-//    : m_connectMode{ConnectMode::ByIndex}
-//{
-//}
+DeviceInfoList get_device_info_list(const ListOptions opts)
+{
+    auto result = make_device_info_list();
+
+    if (opts == ListOptions::MVLCDevices)
+    {
+        // Remove if the description does not contain "MVLC"
+        auto it = std::remove_if(result.begin(), result.end(), [] (const DeviceInfo &di) {
+            static const std::regex reDescr("MVLC");
+            return !(std::regex_search(di.description, reDescr));
+        });
+
+        result.erase(it, result.end());
+    }
+
+    return result;
+}
+
+DeviceInfo get_device_info_by_serial(const std::string &serial)
+{
+    auto infoList = get_device_info_list();
+
+    auto it = std::find_if(infoList.begin(), infoList.end(),
+                           [&serial] (const DeviceInfo &di) {
+        return di.serial == serial;
+    });
+
+    return it != infoList.end() ? *it : DeviceInfo{};
+}
+
+std::string format_serial(unsigned serial)
+{
+    static const unsigned SerialSize = 12;
+
+    std::stringstream ss;
+    ss << std::setw(SerialSize) << std::setfill('0') << serial;
+    return ss.str();
+}
+
+DeviceInfo get_device_info_by_serial(unsigned serial)
+{
+    return get_device_info_by_serial(format_serial(serial));
+}
+
+//
+// Impl
+//
+Impl::Impl()
+    : m_connectMode{ConnectMode::First}
+{
+}
 
 Impl::Impl(int index)
     : m_connectMode{ConnectMode::ByIndex, index}
 {
 }
 
-//Impl::Impl(const std::string &serial)
-//    : m_connectMode{ConnectMode::BySerial, 0, serial}
-//{
-//}
+Impl::Impl(const std::string &serial)
+    : m_connectMode{ConnectMode::BySerial, 0, serial}
+{
+}
 
 Impl::~Impl()
 {
@@ -222,7 +318,17 @@ std::error_code Impl::connect()
     switch (m_connectMode.mode)
     {
         case ConnectMode::First:
-            assert(!"not implemented");
+            {
+                st = FT_DEVICE_NOT_FOUND;
+                auto infoList = get_device_info_list();
+
+                if (!infoList.empty())
+                {
+                    const auto &di = infoList[0];
+                    st = FT_Create(reinterpret_cast<void *>(di.index),
+                                   FT_OPEN_BY_INDEX, &m_handle);
+                }
+            }
             break;
 
         case ConnectMode::ByIndex:
@@ -231,7 +337,16 @@ std::error_code Impl::connect()
             break;
 
         case ConnectMode::BySerial:
-            assert(!"not implemented");
+            {
+                st = FT_DEVICE_NOT_FOUND;
+
+                if (const auto di = get_device_info_by_serial(m_connectMode.serial))
+                {
+
+                    st = FT_Create(reinterpret_cast<void *>(di.index),
+                                   FT_OPEN_BY_INDEX, &m_handle);
+                }
+            }
             break;
     }
 
@@ -273,7 +388,7 @@ std::error_code Impl::connect()
 #endif
 #endif // __WIN32
 
-    fprintf(stderr, "%s: connected!\n", __PRETTY_FUNCTION__);
+    //fprintf(stderr, "%s: connected!\n", __PRETTY_FUNCTION__);
 
     return {};
 }
