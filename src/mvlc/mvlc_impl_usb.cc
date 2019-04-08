@@ -470,9 +470,9 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     if (ec)
     {
         fprintf(stderr, "%s: pipe=%u, wrote %lu of %lu bytes, result=%s\n",
-                __PRETTY_FUNCTION__, 
+                __PRETTY_FUNCTION__,
                 static_cast<unsigned>(pipe),
-                bytesTransferred, size, 
+                bytesTransferred, size,
                 ec.message().c_str());
     }
 
@@ -567,7 +567,7 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
     //fprintf(stderr, "%s: begin read: pipe=%u, size=%lu bytes\n",
-    //        __PRETTY_FUNCTION__, 
+    //        __PRETTY_FUNCTION__,
     //        static_cast<unsigned>(pipe),
     //        size);
 
@@ -585,9 +585,9 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     if (ec)
     {
         //fprintf(stderr, "%s: pipe=%u, read %lu of %lu bytes, result=%s\n",
-        //        __PRETTY_FUNCTION__, 
+        //        __PRETTY_FUNCTION__,
         //        static_cast<unsigned>(pipe),
-        //        bytesTransferred, size, 
+        //        bytesTransferred, size,
         //        ec.message().c_str());
     }
 
