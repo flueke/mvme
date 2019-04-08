@@ -510,17 +510,24 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     auto &readBuffer = m_readBuffers[static_cast<unsigned>(pipe)];
 
+    // Copy from readBuffer into the dest buffer while updating local
+    // variables.
+    auto copy_and_update = [&buffer, &size, &bytesTransferred, &readBuffer] ()
+    {
+        if (size_t toCopy = std::min(readBuffer.size(), size))
+        {
+            memcpy(buffer, readBuffer.first, toCopy);
+            buffer += toCopy;
+            size -= toCopy;
+            readBuffer.first += toCopy;
+            bytesTransferred += toCopy;
+        }
+    };
+
     LOG_TRACE("pipe=%u, size=%u, bufferSize=%u",
               static_cast<unsigned>(pipe), requestedSize, readBuffer.size());
 
-    if (size_t toCopy = std::min(readBuffer.size(), size))
-    {
-        memcpy(buffer, readBuffer.first, toCopy);
-        buffer += toCopy;
-        size -= toCopy;
-        readBuffer.first += toCopy;
-        bytesTransferred += toCopy;
-    }
+    copy_and_update();
 
     if (size == 0)
     {
@@ -553,14 +560,7 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     readBuffer.first = readBuffer.data.data();
     readBuffer.last  = readBuffer.first + transferred;
 
-    if (size_t toCopy = std::min(readBuffer.size(), size))
-    {
-        memcpy(buffer, readBuffer.first, toCopy);
-        buffer += toCopy;
-        size -= toCopy;
-        readBuffer.first += toCopy;
-        bytesTransferred += toCopy;
-    }
+    copy_and_update();
 
     if (ec && ec != ErrorType::Timeout)
         return ec;
