@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
     }
     assert(mvlc.isConnected());
 
-    static const size_t MaxIterations = 250000;
+    static const size_t MaxIterations = 25000;
     static const std::chrono::duration<int, std::milli> WaitInterval(0);
     size_t iteration = 0u;
 
