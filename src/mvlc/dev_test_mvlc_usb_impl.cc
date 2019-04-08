@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
     {
         for (iteration = 0; iteration < MaxIterations; iteration++)
         {
-#if 1
+#if 0
             if (auto ec = mvlc.writeRegister(0x2000 + 512, iteration))
                 throw ErrorWithMessage{ec, "writeRegister"};
 
@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
             if (value == 0) value = 1;
 
             if (auto ec = mvlc.vmeSingleWrite(0x0000601A, value,
-                                              AddressMode::A32, VMEDataWidth::D16))
+                                              vme_address_modes::A32, VMEDataWidth::D16))
             {
                 throw ec;
             }
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
             u32 result = 0u;
 
             if (auto ec = mvlc.vmeSingleRead(0x0000601A, result,
-                                             AddressMode::A32, VMEDataWidth::D16))
+                                             vme_address_modes::A32, VMEDataWidth::D16))
             {
                 throw ec;
             }
