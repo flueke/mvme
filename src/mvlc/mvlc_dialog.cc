@@ -335,7 +335,7 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
     return readResponse(is_stack_buffer, dest);
 }
 
-std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, AddressMode amod,
+std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, u8 amod,
                                            VMEDataWidth dataWidth)
 {
     script::MVLCCommandListBuilder cmdList;
@@ -360,7 +360,7 @@ std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, AddressMode a
     return ec;
 }
 
-std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode amod,
+std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, u8 amod,
                                           VMEDataWidth dataWidth)
 {
     script::MVLCCommandListBuilder cmdList;
@@ -386,7 +386,7 @@ std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode a
     return ec;
 }
 
-std::error_code MVLCDialog::vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfers,
+std::error_code MVLCDialog::vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
                                          QVector<u32> &dest)
 {
     script::MVLCCommandListBuilder cmdList;

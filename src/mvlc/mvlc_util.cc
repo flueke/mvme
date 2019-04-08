@@ -14,18 +14,6 @@ namespace mvlc
 //
 // vme_script -> mvlc
 //
-AddressMode convert_amod(vme_script::AddressMode mode)
-{
-    switch (mode)
-    {
-        case vme_script::AddressMode::A16: return AddressMode::A16;
-        case vme_script::AddressMode::A24: return AddressMode::A24;
-        case vme_script::AddressMode::A32: return AddressMode::A32;
-    }
-
-    return AddressMode::A32;
-}
-
 VMEDataWidth convert_data_width(vme_script::DataWidth width)
 {
     switch (width)
@@ -37,19 +25,6 @@ VMEDataWidth convert_data_width(vme_script::DataWidth width)
     return VMEDataWidth::D16;
 }
 
-vme_script::AddressMode convert_amod(AddressMode amod)
-{
-    switch (amod)
-    {
-        case A16: return vme_script::AddressMode::A16;
-        case A24: return vme_script::AddressMode::A24;
-        case A32: return vme_script::AddressMode::A32;
-        default: break;
-    }
-
-    throw std::runtime_error("cannot convert mvlc::AddressMode to vme_script::AddressMode");
-}
-
 vme_script::DataWidth convert_data_width(VMEDataWidth dataWidth)
 {
     switch (dataWidth)
@@ -59,22 +34,6 @@ vme_script::DataWidth convert_data_width(VMEDataWidth dataWidth)
     }
 
     throw std::runtime_error("invalid mvlc::VMEDataWidth given");
-}
-
-bool is_block_amod(AddressMode amod)
-{
-    switch (amod)
-    {
-        case BLT32:
-        case MBLT64:
-        case Blk2eSST64:
-            return true;
-
-        default:
-            break;
-    }
-
-    return false;
 }
 
 QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
@@ -99,7 +58,7 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::WriteAbs:
                 {
                     firstWord = commands::VMEWrite << CmdShift;
-                    firstWord |= convert_amod(cmd.addressMode) << CmdArg0Shift;
+                    firstWord |= cmd.addressMode << CmdArg0Shift;
                     firstWord |= convert_data_width(cmd.dataWidth) << CmdArg1Shift;
                     result.push_back(firstWord);
                     result.push_back(cmd.address);
@@ -109,7 +68,7 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::Read:
                 {
                     firstWord = commands::VMERead << CmdShift;
-                    firstWord |= convert_amod(cmd.addressMode) << CmdArg0Shift;
+                    firstWord |= cmd.addressMode << CmdArg0Shift;
                     firstWord |= convert_data_width(cmd.dataWidth) << CmdArg1Shift;
                     result.push_back(firstWord);
                     result.push_back(cmd.address);
@@ -119,7 +78,7 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::BLTFifo:
                 {
                     firstWord = commands::VMERead << CmdShift;
-                    firstWord |= AddressMode::BLT32 << CmdArg0Shift;
+                    firstWord |= vme_address_modes::BLT32 << CmdArg0Shift;
                     firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
                     result.push_back(firstWord);
                     result.push_back(cmd.address);
@@ -129,7 +88,7 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::MBLTFifo:
                 {
                     firstWord = commands::VMERead << CmdShift;
-                    firstWord |= AddressMode::MBLT64 << CmdArg0Shift;
+                    firstWord |= vme_address_modes::MBLT64 << CmdArg0Shift;
                     firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
                     result.push_back(firstWord);
                     result.push_back(cmd.address);
@@ -138,7 +97,7 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::Blk2eSST64:
                 {
                     firstWord = commands::VMERead << CmdShift;
-                    firstWord |= (AddressMode::Blk2eSST64 | (cmd.blk2eSSTRate << Blk2eSSTRateShift))
+                    firstWord |= (vme_address_modes::Blk2eSST64 | (cmd.blk2eSSTRate << Blk2eSSTRateShift))
                         << CmdArg0Shift;
                     firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
                     result.push_back(firstWord);

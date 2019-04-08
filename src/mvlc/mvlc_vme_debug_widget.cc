@@ -302,7 +302,7 @@ void VMEDebugWidget::slt_doRead_clicked(int readerIndex)
 
     // block read
 
-    AddressMode amod = reader.rb_blt->isChecked() ? AddressMode::BLT32 : AddressMode::MBLT64;
+    u8 amod = reader.rb_blt->isChecked() ? vme_address_modes::BLT32 : vme_address_modes::MBLT64;
     u16 transfers = static_cast<u16>(reader.spin_blockReadCount->value());
     QVector<u32> buffer;
     buffer.reserve(transfers);
@@ -340,7 +340,7 @@ void VMEDebugWidget::slt_doRead_clicked(int readerIndex)
 
 void VMEDebugWidget::doWrite(u32 address, u16 value)
 {
-    auto ec = d->mvlc->vmeSingleWrite(address, value, AddressMode::A32, VMEDataWidth::D16);
+    auto ec = d->mvlc->vmeSingleWrite(address, value, vme_address_modes::A32, VMEDataWidth::D16);
 
     if (ec)
     {
@@ -354,8 +354,7 @@ u16 VMEDebugWidget::doSingleRead(u32 address)
 {
     u32 value = 0u;
 
-    auto ec = d->mvlc->vmeSingleRead(address, value,
-                                   AddressMode::A32, VMEDataWidth::D16);
+    auto ec = d->mvlc->vmeSingleRead(address, value, vme_address_modes::A32, VMEDataWidth::D16);
 
     if (ec)
     {

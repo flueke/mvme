@@ -67,13 +67,6 @@ enum class CommandType
     MVLC_WriteSpecial, // type is stored in Command.value
 };
 
-enum class AddressMode
-{
-    A16 = 1,
-    A24,
-    A32
-};
-
 enum class DataWidth
 {
     D16 = 1,
@@ -96,17 +89,14 @@ enum class MVLCSpecialWord: u8
 struct Command
 {
     CommandType type = CommandType::Invalid;
-    AddressMode addressMode = AddressMode::A32;
-    u8 addressModeRaw = 0x0D; // a32 priv // XXX: refactor mvme to also carry the raw mode
-                              // and later on get rid of the AddressMode enum and all the conversions
-                              // done in different layers.
+    u8 addressMode = vme_address_modes::A32;
     DataWidth dataWidth = DataWidth::D16;
     uint32_t address = 0;
     uint32_t value = 0;
     uint32_t transfers = 0;
     uint32_t delay_ms = 0;
     uint32_t countMask = 0;
-    AddressMode blockAddressMode = AddressMode::A32;
+    u8 blockAddressMode = vme_address_modes::A32;
     uint32_t blockAddress = 0;
     Blk2eSSTRate blk2eSSTRate = Blk2eSSTRate::Rate160MB;
 
@@ -116,7 +106,7 @@ struct Command
 
 LIBMVME_EXPORT QString to_string(CommandType commandType);
 LIBMVME_EXPORT CommandType commandType_from_string(const QString &str);
-LIBMVME_EXPORT QString to_string(AddressMode addressMode);
+LIBMVME_EXPORT QString to_string(u8 addressMode);
 LIBMVME_EXPORT QString to_string(DataWidth dataWidth);
 LIBMVME_EXPORT QString to_string(const Command &cmd);
 LIBMVME_EXPORT QString format_hex(uint32_t value);
@@ -157,8 +147,6 @@ class LIBMVME_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
     protected:
         virtual void highlightBlock(const QString &text) override;
 };
-
-uint8_t LIBMVME_EXPORT amod_from_AddressMode(AddressMode mode, bool blt=false, bool mblt=false);
 
 struct LIBMVME_EXPORT Result
 {

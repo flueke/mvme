@@ -67,14 +67,11 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         //
         // Note: Stack0 is used and the stack is written starting from
         // offset 0 into stack memory.
-        std::error_code vmeSingleRead(u32 address, u32 &value, AddressMode amod,
-                                      VMEDataWidth dataWidth);
+        std::error_code vmeSingleRead(u32 address, u32 &value, u8 amod, VMEDataWidth dataWidth);
 
-        std::error_code vmeSingleWrite(u32 address, u32 value, AddressMode amod,
-                                       VMEDataWidth dataWidth);
+        std::error_code vmeSingleWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
 
-        std::error_code vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfers,
-                                     QVector<u32> &dest);
+        std::error_code vmeBlockRead(u32 address, u8 amod, u16 maxTransfers, QVector<u32> &dest);
 
         //
         // Lower level utilities

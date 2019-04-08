@@ -210,7 +210,7 @@ void VMEDebugWidget::on_readRead1_clicked()
     {
         Command cmd;
         cmd.type = ui->readModeBLT->isChecked() ? CommandType::BLT : CommandType::MBLT;
-        cmd.addressMode = AddressMode::A32;
+        cmd.addressMode = vme_address_modes::A32;
         cmd.address = address;
         cmd.transfers = static_cast<u32>(ui->blockReadCount->value());
 
@@ -295,7 +295,7 @@ void VMEDebugWidget::doWrite(u32 address, u32 value)
 {
     Command cmd;
     cmd.type = CommandType::Write;
-    cmd.addressMode = AddressMode::A32;
+    cmd.addressMode = vme_address_modes::A32;
     cmd.dataWidth = DataWidth::D16;
     cmd.address = address;
     cmd.value = value;
@@ -331,7 +331,7 @@ u16 VMEDebugWidget::doRead(u32 address)
 {
     Command cmd;
     cmd.type = CommandType::Read;
-    cmd.addressMode = AddressMode::A32;
+    cmd.addressMode = vme_address_modes::A32;
     cmd.dataWidth = DataWidth::D16;
     cmd.address = address;
 

@@ -124,14 +124,14 @@ class MVLCCommandListBuilder
         // outputPipe=CommandPipe(=0) and offset=0
 
         // single value reads
-        void addVMERead(u32 address, AddressMode amod, VMEDataWidth dataWidth);
+        void addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth);
 
         // block reads (BLT, MBLT, 2eSST64)
-        void addVMEBlockRead(u32 address, AddressMode amod, u16 maxTransfers);
+        void addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers);
         void add2eSST64Read(u32 address, u16 maxTransfers, Blk2eSSTRate rate = Rate300MB);
 
         // single value write
-        void addVMEWrite(u32 address, u32 value, AddressMode amod, VMEDataWidth dataWidth);
+        void addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
 
         CommandList getCommandList() const;
 

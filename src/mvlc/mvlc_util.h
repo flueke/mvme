@@ -12,15 +12,10 @@ namespace mvlc
 {
 
 // vme_script -> mvlc constant
-LIBMVME_MVLC_EXPORT AddressMode convert_amod(vme_script::AddressMode mode);
 LIBMVME_MVLC_EXPORT VMEDataWidth convert_data_width(vme_script::DataWidth width);
 
 // mvlc constant -> vme_script
-LIBMVME_MVLC_EXPORT vme_script::AddressMode convert_amod(AddressMode amod);
 LIBMVME_MVLC_EXPORT vme_script::DataWidth convert_data_width(VMEDataWidth dataWidth);
-
-// AddressMode classification
-LIBMVME_MVLC_EXPORT bool is_block_amod(AddressMode amod);
 
 // Returns the raw stack without any interleaved super commands.
 // The stack result will be written to the given output pipe.

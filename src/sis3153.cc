@@ -633,7 +633,7 @@ VMEError SIS3153::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 a
         return VMEError(VMEError::NotOpen);
 
     int resultCode = 0;
-    bool isMBLT = (amod == VME_AM_A32_PRIV_MBLT || amod == VME_AM_A32_USER_MBLT);
+    bool isMBLT = vme_address_modes::is_mblt_mode(amod);
     u32 wordsRead = 0; // sis3153 fills in the number of 32-bit words received
 
     dest->resize(isMBLT ? transfers * 2 : transfers);

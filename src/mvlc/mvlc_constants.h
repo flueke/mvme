@@ -80,20 +80,6 @@ namespace buffer_types
     static const u8 TypeShift = 24;
 }
 
-// These equal the actual VME "private" address modes for the respective
-// transfer. FIXME: The other modes are also supported.
-// It's probably a good idea to pass the modes around as byte values but define
-// classifier functions to distinguish between single and block transfer modes.
-enum AddressMode: u8
-{
-    A16         = 0x2D,
-    A24         = 0x3D,
-    A32         = 0x0D,
-    BLT32       = 0x0F,
-    MBLT64      = 0x0C,
-    Blk2eSST64  = 0x21,
-};
-
 enum VMEDataWidth
 {
     D16 = 0x1,
@@ -189,7 +175,7 @@ static const u8 CommandPipe = 0;
 static const u8 DataPipe = 1;
 
 static const unsigned DefaultWriteTimeout_ms = 1000;
-static const unsigned DefaultReadTimeout_ms = 1000;
+static const unsigned DefaultReadTimeout_ms  = 1000;
 
 } // end namespace mvlc
 } // end namespace mesytec

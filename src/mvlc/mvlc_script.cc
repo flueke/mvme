@@ -12,6 +12,8 @@
 #define QSL(str) QStringLiteral(str)
 #endif
 
+using vme_address_modes::is_block_amod;
+
 namespace mesytec
 {
 namespace mvlc
@@ -509,7 +511,7 @@ void MVLCCommandListBuilder::addStack(u8 outputPipe, u16 offset,
 static const u8 DefaultOutputPipe = mesytec::mvlc::CommandPipe;
 static const u8 DefaultOffset = 0;
 
-void MVLCCommandListBuilder::addVMERead(u32 address, AddressMode amod, VMEDataWidth dataWidth)
+void MVLCCommandListBuilder::addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth)
 {
     if (is_block_amod(amod))
         throw std::runtime_error("Invalid address modifier for single read operation");
@@ -517,13 +519,13 @@ void MVLCCommandListBuilder::addVMERead(u32 address, AddressMode amod, VMEDataWi
     vme_script::Command command;
     command.type = vme_script::CommandType::Read;
     command.address = address;
-    command.addressMode = convert_amod(amod);
+    command.addressMode = amod;
     command.dataWidth = convert_data_width(dataWidth);
 
     addStack(DefaultOutputPipe, DefaultOffset, { command });
 }
 
-void MVLCCommandListBuilder::addVMEBlockRead(u32 address, AddressMode amod, u16 maxTransfers)
+void MVLCCommandListBuilder::addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers)
 {
     if (!is_block_amod(amod))
         throw std::runtime_error("Invalid address modifier for block read operation");
@@ -532,11 +534,11 @@ void MVLCCommandListBuilder::addVMEBlockRead(u32 address, AddressMode amod, u16 
 
     switch (amod)
     {
-        case BLT32:
+        case vme_address_modes::BLT32:
             command.type = vme_script::CommandType::BLTFifo;
             break;
 
-        case MBLT64:
+        case vme_address_modes::MBLT64:
             command.type = vme_script::CommandType::MBLTFifo;
             break;
 
@@ -544,7 +546,7 @@ void MVLCCommandListBuilder::addVMEBlockRead(u32 address, AddressMode amod, u16 
             assert(false);
     }
 
-    command.addressMode = vme_script::AddressMode::A32;
+    command.addressMode = amod;
     command.address = address;
     command.transfers = maxTransfers;
 
@@ -556,7 +558,7 @@ void MVLCCommandListBuilder::add2eSST64Read(u32 address, u16 maxTransfers, Blk2e
     assert(!"not implemented");
 }
 
-void MVLCCommandListBuilder::addVMEWrite(u32 address, u32 value, AddressMode amod,
+void MVLCCommandListBuilder::addVMEWrite(u32 address, u32 value, u8 amod,
                                          VMEDataWidth dataWidth)
 {
     if (is_block_amod(amod))
@@ -568,7 +570,7 @@ void MVLCCommandListBuilder::addVMEWrite(u32 address, u32 value, AddressMode amo
     command.type = vme_script::CommandType::Write;
     command.address = address;
     command.value = value & Mask;
-    command.addressMode = convert_amod(amod);
+    command.addressMode = amod;
     command.dataWidth = convert_data_width(dataWidth);
 
     addStack(DefaultOutputPipe, DefaultOffset, { command });

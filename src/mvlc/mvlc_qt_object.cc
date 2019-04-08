@@ -149,7 +149,7 @@ void MVLCObject::postDialogOperation()
     }
 }
 
-std::error_code MVLCObject::vmeSingleRead(u32 address, u32 &value, AddressMode amod,
+std::error_code MVLCObject::vmeSingleRead(u32 address, u32 &value, u8 amod,
                                           VMEDataWidth dataWidth)
 {
     auto guard = getLocks().lockCmd();
@@ -158,7 +158,7 @@ std::error_code MVLCObject::vmeSingleRead(u32 address, u32 &value, AddressMode a
     return result;
 }
 
-std::error_code MVLCObject::vmeSingleWrite(u32 address, u32 value, AddressMode amod,
+std::error_code MVLCObject::vmeSingleWrite(u32 address, u32 value, u8 amod,
                                            VMEDataWidth dataWidth)
 {
     auto guard = getLocks().lockCmd();
@@ -167,7 +167,7 @@ std::error_code MVLCObject::vmeSingleWrite(u32 address, u32 value, AddressMode a
     return result;
 }
 
-std::error_code MVLCObject::vmeBlockRead(u32 address, AddressMode amod, u16 maxTransfers,
+std::error_code MVLCObject::vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
                                          QVector<u32> &dest)
 {
     auto guard = getLocks().lockCmd();

@@ -34,16 +34,16 @@
 namespace vme_script
 {
 
-AddressMode parseAddressMode(const QString &str)
+u8 parseAddressMode(const QString &str)
 {
     if (str.compare(QSL("a16"), Qt::CaseInsensitive) == 0)
-        return AddressMode::A16;
+        return vme_address_modes::A16;
 
     if (str.compare(QSL("a24"), Qt::CaseInsensitive) == 0)
-        return AddressMode::A24;
+        return vme_address_modes::A24;
 
     if (str.compare(QSL("a32"), Qt::CaseInsensitive) == 0)
-        return AddressMode::A32;
+        return vme_address_modes::A32;
 
     throw "invalid address mode";
 }
@@ -542,7 +542,7 @@ static Command parse_line(QString line, int lineNumber, bool &in_multiline_comme
         }
 
         result.type = CommandType::Write;
-        result.addressMode = AddressMode::A32;
+        result.addressMode = vme_address_modes::A32;
         result.dataWidth = DataWidth::D16;
         result.address = v1;
         result.value = v2;
@@ -688,26 +688,26 @@ CommandType commandType_from_string(const QString &str)
     return stringToCommandType.value(str.toLower(), CommandType::Invalid);
 }
 
-static const QMap<AddressMode, QString> addressModeToString =
+QString to_string(u8 addressMode)
 {
-    { AddressMode::A16,         QSL("a16") },
-    { AddressMode::A24,         QSL("a24") },
-    { AddressMode::A32,         QSL("a32") },
-};
+    static const QMap<u8, QString> addressModeToString =
+    {
+        { vme_address_modes::A16,         QSL("a16") },
+        { vme_address_modes::A24,         QSL("a24") },
+        { vme_address_modes::A32,         QSL("a32") },
+    };
 
-static const QMap<DataWidth, QString> dataWidthToString =
-{
-    { DataWidth::D16,           QSL("d16") },
-    { DataWidth::D32,           QSL("d32") },
-};
-
-QString to_string(AddressMode addressMode)
-{
     return addressModeToString.value(addressMode, QSL("unknown"));
 }
 
 QString to_string(DataWidth dataWidth)
 {
+    static const QMap<DataWidth, QString> dataWidthToString =
+    {
+        { DataWidth::D16,           QSL("d16") },
+        { DataWidth::D32,           QSL("d32") },
+    };
+
     return dataWidthToString.value(dataWidth, QSL("unknown"));
 }
 
@@ -875,28 +875,6 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
     return cmd;
 }
 
-uint8_t amod_from_AddressMode(AddressMode mode, bool blt, bool mblt)
-{
-    using namespace vme_script;
-
-    switch (mode)
-    {
-        case AddressMode::A16:
-            return vme_address_modes::a16User;
-        case AddressMode::A24:
-            if (blt)
-                return vme_address_modes::a24UserBlock;
-            return vme_address_modes::a24UserData;
-        case AddressMode::A32:
-            if (blt)
-                return vme_address_modes::a32UserBlock;
-            if (mblt)
-                return vme_address_modes::a32UserBlock64;
-            return vme_address_modes::a32UserData;
-    }
-    return 0;
-}
-
 /* Adapted from the QSyntaxHighlighter documentation. */
 void SyntaxHighlighter::highlightBlock(const QString &text)
 {
@@ -996,13 +974,13 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                     case DataWidth::D16:
                         {
                             uint16_t value = 0;
-                            result.error = controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            result.error = controller->read16(cmd.address, &value, cmd.addressMode);
                             result.value = value;
                         } break;
                     case DataWidth::D32:
                         {
                             uint32_t value = 0;
-                            result.error = controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            result.error = controller->read32(cmd.address, &value, cmd.addressMode);
                             result.value = value;
                         } break;
                 }
@@ -1014,10 +992,10 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                 switch (cmd.dataWidth)
                 {
                     case DataWidth::D16:
-                        result.error = controller->write16(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
+                        result.error = controller->write16(cmd.address, cmd.value, cmd.addressMode);
                         break;
                     case DataWidth::D32:
-                        result.error = controller->write32(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
+                        result.error = controller->write32(cmd.address, cmd.value, cmd.addressMode);
                         break;
                 }
             } break;
@@ -1035,25 +1013,25 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
         case CommandType::BLT:
             {
                 result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
-                                                  amod_from_AddressMode(cmd.addressMode, true), false);
+                                                  cmd.addressMode, false);
             } break;
 
         case CommandType::BLTFifo:
             {
                 result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
-                                                  amod_from_AddressMode(cmd.addressMode, true), true);
+                                                  cmd.addressMode, true);
             } break;
 
         case CommandType::MBLT:
             {
                 result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
-                                                  amod_from_AddressMode(cmd.addressMode, false, true), false);
+                                                  cmd.addressMode, false);
             } break;
 
         case CommandType::MBLTFifo:
             {
                 result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
-                                                  amod_from_AddressMode(cmd.addressMode, false, true), true);
+                                                  cmd.addressMode, true);
             } break;
 
 #if 1

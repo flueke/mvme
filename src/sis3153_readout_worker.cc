@@ -336,7 +336,7 @@ namespace
             list_ptr, list_buffer,
             cmd.address,
             get_access_size(cmd.dataWidth),
-            vme_script::amod_from_AddressMode(cmd.addressMode));
+            cmd.addressMode);
 
         stackList_add_count_block_read(
             list_ptr, list_buffer,
@@ -385,7 +385,7 @@ namespace
                         &resultOffset, result.data(),
                         command.address,
                         get_access_size(command.dataWidth),
-                        amod_from_AddressMode(command.addressMode));
+                        command.addressMode);
 
                     break;
 
@@ -396,7 +396,7 @@ namespace
                         &resultOffset, result.data(),
                         command.address, command.value,
                         get_access_size(command.dataWidth),
-                        amod_from_AddressMode(command.addressMode));
+                        command.addressMode);
 
                     break;
 
@@ -436,7 +436,7 @@ namespace
                 case  CommandType::MBLTCount:
                 case  CommandType::MBLTFifoCount:
                     {
-                        Q_ASSERT(command.blockAddressMode == AddressMode::A32);
+                        Q_ASSERT(command.blockAddress == vme_address_modes::A32);
                         stackList_add_counted_block_read_command(command, &resultOffset, result.data());
                     }
                     break;
