@@ -48,7 +48,7 @@ TEST(MVLCScriptTest, ReadLocal)
         ASSERT_EQ(cmd.address, 0x2000);
     }
 
-    // parsed value > maxValue (register addresses are uint16_t
+    // parsed value > maxValue (register addresses are uint16_t)
     {
         const QString input = R"(
             read_local 0x1ffff
