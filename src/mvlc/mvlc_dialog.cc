@@ -1,10 +1,33 @@
 #include "mvlc/mvlc_dialog.h"
 #include <cassert>
+#include <cstdio>
 #include <iostream>
 
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_script.h"
 #include "mvlc/mvlc_util.h"
+
+#define LOG_LEVEL_SETTING 400
+
+#define LOG_LEVEL_WARN  100
+#define LOG_LEVEL_INFO  200
+#define LOG_LEVEL_DEBUG 300
+#define LOG_LEVEL_TRACE 400
+
+#define DO_LOG(level, prefix, fmt, ...)\
+do\
+{\
+    if (LOG_LEVEL_SETTING >= level)\
+    {\
+        fprintf(stderr, prefix "%s(): " fmt "\n", __FUNCTION__, ##__VA_ARGS__);\
+    }\
+} while (0);
+
+
+#define LOG_WARN(fmt, ...)  DO_LOG(LOG_LEVEL_WARN,  "WARN - mvlc_dialog ", fmt, ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...)  DO_LOG(LOG_LEVEL_INFO,  "INFO - mvlc_dialog ", fmt, ##__VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) DO_LOG(LOG_LEVEL_DEBUG, "DEBUG - mvlc_dialog ", fmt, ##__VA_ARGS__)
+#define LOG_TRACE(fmt, ...) DO_LOG(LOG_LEVEL_TRACE, "TRACE - mvlc_dialog ", fmt, ##__VA_ARGS__)
 
 namespace mesytec
 {
@@ -168,9 +191,7 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
 
     if (!bhv(header))
     {
-        auto msg = QString("readResponse header validation failed, header=0x%1")
-            .arg(header, 8, 16, QLatin1Char('0'));
-        std::cerr << msg.toStdString() << std::endl;
+        LOG_WARN("readResponse header validation failed, header=0x%08x", header);
         return make_error_code(MVLCErrorCode::InvalidBufferHeader);
     }
 
@@ -184,21 +205,21 @@ std::error_code MVLCDialog::readRegister(u16 address, u32 &value)
     cmdList.addReadLocal(address);
 
     QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
-    logBuffer(request, "read_register >>>");
+    logBuffer(request, "readRegister >>>");
 
     if (auto ec = doWrite(request))
     {
-        std::cerr << __PRETTY_FUNCTION__ << " write error" << std::endl;
+        LOG_WARN("write error: %s", ec.message().c_str());
         return ec;
     }
 
     if (auto ec = readResponse(is_super_buffer, m_responseBuffer))
     {
-        std::cerr << __PRETTY_FUNCTION__ << " read error" << std::endl;
+        LOG_WARN("read error: %s", ec.message().c_str());
         return ec;
     }
 
-    logBuffer(m_responseBuffer, "read_register <<<");
+    logBuffer(m_responseBuffer, "readRegister <<<");
 
     if (auto ec = check_mirror(request, m_responseBuffer))
         return ec;
@@ -222,7 +243,7 @@ std::error_code MVLCDialog::readRegisterBlock(u16 address, u16 words,
     cmdList.addReadLocalBlock(address, words);
 
     QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
-    logBuffer(request, "read_local_block >>>");
+    logBuffer(request, "readRegisterBlock >>>");
 
     if (auto ec = doWrite(request))
         return ec;
@@ -230,7 +251,7 @@ std::error_code MVLCDialog::readRegisterBlock(u16 address, u16 words,
     if (auto ec = readResponse(is_super_buffer, m_responseBuffer))
         return ec;
 
-    logBuffer(m_responseBuffer, "read_local_block <<<");
+    logBuffer(m_responseBuffer, "readRegisterBlock <<<");
 
     if (auto ec = check_mirror(request, m_responseBuffer))
         return ec;
@@ -255,21 +276,21 @@ std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
     cmdList.addWriteLocal(address, value);
 
     QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
-    logBuffer(request, "write_register >>>");
+    logBuffer(request, "writeRegister >>>");
 
     if (auto ec = doWrite(request))
     {
-        std::cerr << __PRETTY_FUNCTION__ << " write error" << std::endl;
+        LOG_WARN("write error: %s", ec.message().c_str());
         return ec;
     }
 
     if (auto ec = readResponse(is_super_buffer, m_responseBuffer))
     {
-        std::cerr << __PRETTY_FUNCTION__ << " read error" << std::endl;
+        LOG_WARN("read error: %s", ec.message().c_str());
         return ec;
     }
 
-    logBuffer(m_responseBuffer, "write_register <<<");
+    logBuffer(m_responseBuffer, "writeRegister <<<");
 
     if (auto ec = check_mirror(request, m_responseBuffer))
         return ec;
@@ -325,7 +346,7 @@ std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, AddressMode a
 
     auto ec = stackTransaction(request, m_responseBuffer);
 
-    logBuffer(m_responseBuffer, "vme_single_write response");
+    logBuffer(m_responseBuffer, "vmeSingleWrite response");
 
     if (ec)
         return ec;
@@ -350,7 +371,7 @@ std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, AddressMode a
 
     auto ec = stackTransaction(request, m_responseBuffer);
 
-    logBuffer(m_responseBuffer, "vme_single_read response");
+    logBuffer(m_responseBuffer, "vmeSingleRead response");
 
     if (ec)
         return ec;
@@ -376,14 +397,18 @@ std::error_code MVLCDialog::vmeBlockRead(u32 address, AddressMode amod, u16 maxT
 
     auto ec = stackTransaction(request, dest);
 
-    logBuffer(dest, "vme_block_read response");
+    logBuffer(dest, "vmeBlockRead response");
 
     return ec;
 }
 
 void MVLCDialog::logBuffer(const QVector<u32> &buffer, const QString &info)
 {
-    log_buffer(std::cerr, buffer.data(), buffer.size(), info.toStdString().c_str());
+    if (LOG_LEVEL_SETTING >= LOG_LEVEL_TRACE)
+    {
+        log_buffer(std::cerr, buffer.data(), buffer.size(),
+                   ("MVLCDialog::" + info).toStdString().c_str());
+    }
 }
 
 } // end namespace mvlc

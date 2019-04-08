@@ -6,6 +6,9 @@
 #include "mvlc/mvlc_impl_abstract.h"
 #include "mvlc/mvlc_buffer_validators.h"
 
+// Higher level MVLC dialog (request/response) layer. Builds on top of the
+// AbstractImpl abstraction.
+
 namespace mesytec
 {
 namespace mvlc
