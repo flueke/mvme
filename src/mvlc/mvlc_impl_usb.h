@@ -16,10 +16,6 @@ namespace mvlc
 namespace usb
 {
 
-// TODO: add helpers to get a list of all devices, recreate the list, filter for
-// MVLCs, etc. Bascially wrappers around FT_CreateDeviceInfoList() and
-// FT_GetDeviceInfoList()
-
 // Structure of how the MVLC is represented when using the FTDI D3XX driver:
 //
 //        / Pipe0: FIFO 0 / Endpoint 0x02 OUT/0x82 IN - Command Pipe, bidirectional
@@ -79,15 +75,16 @@ LIBMVME_MVLC_EXPORT DeviceInfo get_device_info_by_serial(
 class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 {
     public:
-        // The constructors do not call open(). They just setup the information
-        // needed for the open call to do its work.
+        // The constructors do not call connect(). They just setup the
+        // information needed for the connect() call to do its work.
 
         // Uses the first device matching the description "MVLC".
         Impl();
 
         // Absolute index of the USB device to open.
         // This is the index value assigned by the FTDI library and returned in
-        // the DeviceInfo structure.
+        // the DeviceInfo structure. This constructor does not check whether
+        // the USB description entry contains "MVLC".
         explicit Impl(int index);
 
         // Open the MVLC with the given serial number
@@ -112,7 +109,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         std::error_code read(Pipe pipe, u8 *buffer, size_t size,
                              size_t &bytesTransferred) override;
 
-        std::error_code get_read_queue_size(Pipe pipe, u32 &dest);
+        std::error_code getReadQueueSize(Pipe pipe, u32 &dest);
 
     private:
         struct ConnectMode

@@ -1082,8 +1082,8 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
         if (auto usbImpl = dynamic_cast<usb::Impl *>(m_d->mvlc->getImpl()))
         {
-            usbImpl->get_read_queue_size(Pipe::Command, cmdQueueSize);
-            usbImpl->get_read_queue_size(Pipe::Data, dataQueueSize);
+            usbImpl->getReadQueueSize(Pipe::Command, cmdQueueSize);
+            usbImpl->getReadQueueSize(Pipe::Data, dataQueueSize);
         }
 
         ui->le_usbCmdReadQueueSize->setText(QString::number(cmdQueueSize));

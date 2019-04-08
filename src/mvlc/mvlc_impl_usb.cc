@@ -11,6 +11,27 @@
 #include "mvlc/mvlc_threading.h"
 #include "mvlc/mvlc_error.h"
 
+#define LOG_LEVEL_SETTING 400
+
+#define LOG_LEVEL_WARN  100
+#define LOG_LEVEL_INFO  200
+#define LOG_LEVEL_DEBUG 300
+#define LOG_LEVEL_TRACE 400
+
+#define DO_LOG(level, prefix, fmt, ...)\
+do\
+{\
+    if (LOG_LEVEL_SETTING >= level)\
+    {\
+        fprintf(stderr, prefix "%s(): " fmt "\n", __FUNCTION__, ##__VA_ARGS__);\
+    }\
+} while (0);
+
+#define LOG_WARN(fmt, ...)  DO_LOG(LOG_LEVEL_WARN,  "WARN - mvlc_usb ", fmt, ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...)  DO_LOG(LOG_LEVEL_INFO,  "INFO - mvlc_usb ", fmt, ##__VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) DO_LOG(LOG_LEVEL_DEBUG, "DEBUG - mvlc_usb ", fmt, ##__VA_ARGS__)
+#define LOG_TRACE(fmt, ...) DO_LOG(LOG_LEVEL_TRACE, "TRACE - mvlc_usb ", fmt, ##__VA_ARGS__)
+
 namespace
 {
 
@@ -371,7 +392,7 @@ std::error_code Impl::connect()
         }
     }
 
-    fprintf(stderr, "%s: connected!\n", __PRETTY_FUNCTION__);
+    LOG_INFO("connected");
 
 #ifdef __WIN32
 #if 0
@@ -388,8 +409,6 @@ std::error_code Impl::connect()
 #endif
 #endif // __WIN32
 
-    //fprintf(stderr, "%s: connected!\n", __PRETTY_FUNCTION__);
-
     return {};
 }
 
@@ -398,11 +417,11 @@ std::error_code Impl::disconnect()
     if (!isConnected())
         return make_error_code(MVLCErrorCode::IsDisconnected);
 
-    return closeHandle();
+    auto ec = closeHandle();
 
-    FT_STATUS st = FT_Close(m_handle);
-    m_handle = nullptr;
-    return make_error_code(st);
+    LOG_INFO("disconnected");
+
+    return ec;
 }
 
 bool Impl::isConnected() const
@@ -469,11 +488,10 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
 
     if (ec)
     {
-        fprintf(stderr, "%s: pipe=%u, wrote %lu of %lu bytes, result=%s\n",
-                __PRETTY_FUNCTION__,
-                static_cast<unsigned>(pipe),
-                bytesTransferred, size,
-                ec.message().c_str());
+        LOG_WARN("pipe=%u, wrote %lu of %lu bytes, result=%s",
+                 static_cast<unsigned>(pipe),
+                 bytesTransferred, size,
+                 ec.message().c_str());
     }
 
     return ec;
@@ -492,8 +510,8 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     auto &readBuffer = m_readBuffers[static_cast<unsigned>(pipe)];
 
-    //qDebug("%s: pipe=%u, size=%u, bufferSize=%u",
-    //       __PRETTY_FUNCTION__, static_cast<unsigned>(pipe), requestedSize, readBuffer.size());
+    LOG_TRACE("pipe=%u, size=%u, bufferSize=%u",
+              static_cast<unsigned>(pipe), requestedSize, readBuffer.size());
 
     if (size_t toCopy = std::min(readBuffer.size(), size))
     {
@@ -506,15 +524,17 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     if (size == 0)
     {
-        //qDebug("%s: pipe=%u, size=%u, read request satisfied using buffer. new buffer size=%u",
-        //       __PRETTY_FUNCTION__, static_cast<unsigned>(pipe), requestedSize, readBuffer.size());
+        LOG_TRACE("pipe=%u, size=%u, read request satisfied from buffer, new buffer size=%u",
+                  static_cast<unsigned>(pipe), requestedSize, readBuffer.size());
         return {};
     }
 
+    // All data from the read buffer should have been consumed at this point.
+    // It's time to issue an actual read request.
     assert(readBuffer.size() == 0);
 
-    //qDebug("%s: pipe=%u, requestedSize=%u, remainingSize=%u, reading from MVLC...",
-    //       __PRETTY_FUNCTION__, static_cast<unsigned>(pipe), requestedSize, size);
+    LOG_TRACE("pipe=%u, requestedSize=%u, remainingSize=%u, reading from MVLC...",
+              static_cast<unsigned>(pipe), requestedSize, size);
 
     ULONG transferred = 0; // FT API wants a ULONG* parameter
 
@@ -526,9 +546,9 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     auto ec = make_error_code(st);
 
-    //qDebug("%s: pipe=%u, requestedSize=%u, remainingSize=%u, read result: ec=%s, transferred=%u",
-    //       __PRETTY_FUNCTION__, static_cast<unsigned>(pipe), requestedSize, size,
-    //     ec.message().c_str(), transferred);
+    LOG_TRACE("pipe=%u, requestedSize=%u, remainingSize=%u, read result: ec=%s, transferred=%u",
+              static_cast<unsigned>(pipe), requestedSize, size,
+              ec.message().c_str(), transferred);
 
     readBuffer.first = readBuffer.data.data();
     readBuffer.last  = readBuffer.first + transferred;
@@ -547,14 +567,15 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     if (size > 0)
     {
-        //qDebug("%s: pipe=%u, requestedSize=%u, remainingSize=%u after read from MVLC,"
-        //       "returning FT_TIMEOUT",
-        //       __PRETTY_FUNCTION__, static_cast<unsigned>(pipe), requestedSize, size);
+        LOG_DEBUG("pipe=%u, requestedSize=%u, remainingSize=%u after read from MVLC,"
+                  "returning FT_TIMEOUT",
+                  static_cast<unsigned>(pipe), requestedSize, size);
+
         return make_error_code(FT_TIMEOUT);
     }
 
-    //qDebug("%s: pipe=%u, size=%u, read request satisfied after read from MVLC. new buffer size=%u",
-    //       __PRETTY_FUNCTION__, static_cast<unsigned>(pipe), requestedSize, readBuffer.size());
+    LOG_TRACE("pipe=%u, size=%u, read request satisfied after read from MVLC. new buffer size=%u",
+              static_cast<unsigned>(pipe), requestedSize, readBuffer.size());
 
     return {};
 }
@@ -566,10 +587,8 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     assert(size <= USBSingleTransferMaxBytes);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
-    //fprintf(stderr, "%s: begin read: pipe=%u, size=%lu bytes\n",
-    //        __PRETTY_FUNCTION__,
-    //        static_cast<unsigned>(pipe),
-    //        size);
+    LOG_TRACE("begin read: pipe=%u, size=%lu bytes",
+              static_cast<unsigned>(pipe), size);
 
     ULONG transferred = 0; // FT API wants a ULONG* parameter
 
@@ -584,18 +603,17 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     if (ec)
     {
-        //fprintf(stderr, "%s: pipe=%u, read %lu of %lu bytes, result=%s\n",
-        //        __PRETTY_FUNCTION__,
-        //        static_cast<unsigned>(pipe),
-        //        bytesTransferred, size,
-        //        ec.message().c_str());
+        LOG_WARN("pipe=%u, read %lu of %lu bytes, result=%s",
+                 static_cast<unsigned>(pipe),
+                 bytesTransferred, size,
+                 ec.message().c_str());
     }
 
     return ec;
 }
 #endif // Impl::read
 
-std::error_code Impl::get_read_queue_size(Pipe pipe, u32 &dest)
+std::error_code Impl::getReadQueueSize(Pipe pipe, u32 &dest)
 {
     assert(static_cast<unsigned>(pipe) < PipeCount);
 

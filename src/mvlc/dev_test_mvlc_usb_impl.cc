@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
 
         u32 readQueueSize = 0u;
         auto impl = reinterpret_cast<usb::Impl *>(mvlc.getImpl());
-        impl->get_read_queue_size(Pipe::Command, readQueueSize);
+        impl->getReadQueueSize(Pipe::Command, readQueueSize);
         cout << "Cmd Pipe Read Queue Size: " << readQueueSize << endl;
 
         if (readQueueSize > 0)
