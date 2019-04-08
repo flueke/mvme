@@ -1,12 +1,5 @@
-* Think and document how the timeout setters and getters should behave. For
-  usb under linux they become active on the next read/write.
-  For sockets they're set in connect() and in the setters if the connection
-  has been established.
-  -> Try to keep as is: setting the timeouts should keep them and apply them
-  when connecting. Setting them while connected should apply the timeouts
-  immediately.
-
-* Should the dialog part be called "Session"? Protocol? Request/Response?
+* Having libmvme_mvlc link against libmvme will lead to problems in the near future:
+  Code from libmvme/mvme will want to access things provided by libmvme_mvlc...
 
 * Build a tool to verify incoming readout data. Check headers and pointers. Test this with
   different incoming event sizes.

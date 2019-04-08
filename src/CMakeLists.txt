@@ -356,6 +356,7 @@ endif(BUILD_TESTS)
 
 # MVLC support
 if(MVME_ENABLE_MVLC)
+    # libmvme_mvlc
     add_library(libmvme_mvlc SHARED)
     target_sources(libmvme_mvlc PRIVATE
         mvlc/mvlc_basic_mvlc.cc
@@ -369,15 +370,10 @@ if(MVME_ENABLE_MVLC)
         mvlc/mvlc_util.cc
         mvlc/mvlc_vme_debug_widget.cc
         )
+
     target_link_libraries(libmvme_mvlc libmvme ftd3xx)
     generate_export_header(libmvme_mvlc)
     set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
-
-    #function(add_mvme_executable exe_name exe_sources)
-    #    add_executable(${exe_name} ${exe_sources})
-    #    add_dependencies(${exe_name} libmvme)
-    #    target_link_libraries(${exe_name} libmvme)
-    #endfunction(add_mvme_executable)
 
     # mvlc_dev_gui
     add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
