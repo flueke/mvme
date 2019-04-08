@@ -263,7 +263,8 @@ std::error_code Impl::connect()
     {
 #ifndef __WIN32
         int res = setsockopt(getSocket(pipe), SOL_SOCKET, SO_RCVBUF,
-                             &SocketReceiveBufferSize, sizeof(SocketReceiveBufferSize));
+                             &SocketReceiveBufferSize,
+                             sizeof(SocketReceiveBufferSize));
 #else
         int res = setsockopt(getSocket(pipe), SOL_SOCKET, SO_RCVBUF,
                              reinterpret_cast<const char *>(&SocketReceiveBufferSize),

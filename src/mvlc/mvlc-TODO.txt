@@ -1,3 +1,4 @@
+* UDP: make read() use multiple recv() calls internally.
 * Having libmvme_mvlc link against libmvme will lead to problems in the near future:
   Code from libmvme/mvme will want to access things provided by libmvme_mvlc...
 
