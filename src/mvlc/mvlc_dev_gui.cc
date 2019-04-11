@@ -1234,10 +1234,9 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
         ++row;
     }
 
-    layout->addWidget(make_separator_frame(), row, 0,
-                      1, 4); // row- and colspan
-    ++row;
+    layout->addWidget(make_separator_frame(), row++, 0, 1, 4); // row- and colspan
 
+    // Stack Info
     {
         auto spin_stackId = new QSpinBox();
         spin_stackId->setMinimum(0);
@@ -1259,6 +1258,65 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
             readStackInfo(stackId);
         });
 
+    }
+
+    layout->addWidget(make_separator_frame(), row++, 0, 1, 4); // row- and colspan
+    ++row;
+
+    // IP-Address Registers
+    {
+        struct RegAndLabel
+        {
+            u16 reg;
+            const char *label;
+        };
+
+        static const std::vector<RegAndLabel> Data =
+        {
+            { 0x4400, "Own IP"},
+            { 0x4408, "Own IP DHCP" },
+            { 0x440C, "Dest IP Cmd" },
+            { 0x4410, "Dest IP Data" }
+        };
+
+
+        auto gb = new QGroupBox("IP Address Settings (numeric inputs allowed)");
+        auto grid = make_layout<QGridLayout, 2, 4>(gb);
+
+        static const int NumCols = 2;
+        int gridRow = 0, gridCol = 0;
+
+        for (const auto &ral: Data)
+        {
+            auto ipRegWidget = new IPv4RegisterWidget(ral.reg);
+            auto gb_inner = new QGroupBox(ral.label);
+            auto gb_inner_layout = make_layout<QHBoxLayout>(gb_inner);
+            gb_inner_layout->addWidget(ipRegWidget);
+
+            grid->addWidget(gb_inner, gridRow, gridCol++);
+
+            if (gridCol >= NumCols)
+            {
+                gridRow++;
+                gridCol = 0;
+            }
+
+            connect(ipRegWidget, &IPv4RegisterWidget::write,
+                    this, &MVLCRegisterWidget::writeRegister);
+
+            connect(ipRegWidget, &IPv4RegisterWidget::read,
+                    this, [this, ipRegWidget] (u16 reg)
+            {
+                u32 result = readRegister(reg);
+                ipRegWidget->setRegisterValue(reg, result);
+            });
+
+            connect(ipRegWidget, &IPv4RegisterWidget::sigLogMessage,
+                    this, &MVLCRegisterWidget::sigLogMessage);
+
+        }
+
+        layout->addWidget(gb, row++, 0, 1, 4);
     }
 
     layout->setRowStretch(row, 1);
@@ -1431,6 +1489,145 @@ void LogWidget::logMessage(const QString &msg)
 void LogWidget::clearLog()
 {
     te_log->clear();
+}
+
+//
+// IPv4RegisterWidget
+//
+IPv4RegisterWidget::IPv4RegisterWidget(u16 regLo, const QString &regName, QWidget *parent)
+    : IPv4RegisterWidget(regLo, regLo + sizeof(u16), regName, parent)
+{}
+
+IPv4RegisterWidget::IPv4RegisterWidget(u16 regLo, u16 regHi, const QString &regName, QWidget *parent)
+    : QWidget(parent)
+    , m_regLo(regLo)
+    , m_regHi(regHi)
+    , le_valLo(new QLineEdit(this))
+    , le_valHi(new QLineEdit(this))
+    , le_addressInput(new QLineEdit(this))
+{
+    auto l_regLo = new QLabel(QSL("0x%1").arg(m_regLo, 4, 16, QLatin1Char('0')));
+    auto l_regHi = new QLabel(QSL("0x%1").arg(m_regHi, 4, 16, QLatin1Char('0')));
+    auto pb_read = new QPushButton(QSL("Read"));
+    auto pb_write = new QPushButton(QSL("Write"));
+
+    for (auto le: {le_valLo, le_valHi})
+    {
+        auto pal = le->palette();
+        pal.setColor(QPalette::Base, QSL("#efebe7"));
+        le->setPalette(pal);
+        le->setReadOnly(true);
+    }
+
+    auto layout = new QGridLayout(this);
+
+    int col = 0;
+
+    if (!regName.isEmpty())
+        layout->addWidget(new QLabel(regName), 0, col++, 2, 1);
+
+    layout->addWidget(l_regLo, 0, col);
+    layout->addWidget(l_regHi, 1, col++);
+    layout->addWidget(le_valLo, 0, col);
+    layout->addWidget(le_valHi, 1, col++);
+    layout->addWidget(le_addressInput, 0, col, 2, 1);
+    layout->setColumnStretch(col++, 1);
+    layout->addWidget(pb_read, 0, col);
+    layout->addWidget(pb_write, 1, col++);
+
+    layout->setContentsMargins(2, 2, 2, 2);
+    layout->setSpacing(2);
+
+    connect(pb_read, &QPushButton::clicked,
+            this, [this] ()
+    {
+        emit read(m_regLo);
+        emit read(m_regHi);
+    });
+
+    connect(pb_write, &QPushButton::clicked,
+            this, [this] ()
+    {
+        // - take input from le_addressInput
+        // - convert to 32-bit value either by numeric conversion or by parsing
+        //   IPv4 notation
+        // - split into hi and lo parts
+        // - emit write for both parts with the corresponding register address
+
+        static const QRegularExpression re(
+            R"(^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$)");
+        auto input = le_addressInput->text();
+
+        auto match = re.match(input);
+
+        u32 ipAddressValue = 0u;
+
+        if (match.hasMatch())
+        {
+            for (int i=1; i<=4; i++)
+            {
+                u32 part = match.captured(i).toUInt();
+                qDebug() << "i=" << i << "part=" << part;
+                ipAddressValue <<= 8;
+                ipAddressValue |= part;
+            }
+        }
+        else
+        {
+            bool ok = false;
+            ipAddressValue = input.toUInt(&ok, 0);
+
+            if (!ok)
+            {
+                emit sigLogMessage("Invalid IP address entered");
+                return;
+            }
+        }
+
+        u16 loPart = (ipAddressValue >>  0) & 0xffff;
+        u16 hiPart = (ipAddressValue >> 16) & 0xffff;
+
+        emit sigLogMessage(QString("Parsed IP Address: %1, setting hi=0x%2, lo=0x%3")
+                           .arg(format_ipv4(ipAddressValue))
+                           .arg(hiPart, 4, 16, QLatin1Char('0'))
+                           .arg(loPart, 4, 16, QLatin1Char('0'))
+                           );
+
+        le_valLo->clear();
+        le_valHi->clear();
+
+        emit write(m_regLo, loPart);
+        emit write(m_regHi, hiPart);
+    });
+}
+
+void IPv4RegisterWidget::setRegisterValue(u16 reg, u16 value)
+{
+    QLineEdit *le_val = nullptr;
+
+    if (reg == m_regLo)
+        le_val = le_valLo;
+    else if (reg == m_regHi)
+        le_val = le_valHi;
+    else
+        return;
+
+    le_val->setText(QString("0x%1").arg(value, 4, 16, QLatin1Char('0')));
+
+    u32 loPart = le_valLo->text().toUInt(nullptr, 0);
+    u32 hiPart = le_valHi->text().toUInt(nullptr, 0);
+    u32 ipAddressValue = (hiPart << 16) | loPart;
+
+    le_addressInput->setText(format_ipv4(ipAddressValue));
+}
+
+QString format_ipv4(u32 address)
+{
+    return QString("%1.%2.%3.%4")
+        .arg((address >> 24) & 0xFF)
+        .arg((address >> 16) & 0xFF)
+        .arg((address >>  8) & 0xFF)
+        .arg((address >>  0) & 0xFF);
 }
 
 int main(int argc, char *argv[])

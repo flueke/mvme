@@ -180,4 +180,32 @@ class LogWidget: public QWidget
         QPushButton *pb_clearLog;
 };
 
+// Input and display widget for MVLC registers containing IPv4 addresses.
+class IPv4RegisterWidget: public QWidget
+{
+    Q_OBJECT
+    signals:
+        void read(u16 reg);
+        void write(u16 reg, u16 value);
+        void sigLogMessage(const QString &str);
+
+    public:
+        IPv4RegisterWidget(u16 regLo, u16 regHi, const QString &regName = QString(),
+                           QWidget *parent = nullptr);
+        IPv4RegisterWidget(u16 regLo, const QString &regName = QString(),
+                           QWidget *parent = nullptr);
+
+    public slots:
+        void setRegisterValue(u16 reg, u16 value);
+
+    private:
+        u16 m_regLo,
+            m_regHi;
+        QLineEdit *le_valLo,
+                  *le_valHi,
+                  *le_addressInput;
+};
+
+QString format_ipv4(u32 address);
+
 #endif /* __MVLC_GUI_H__ */
