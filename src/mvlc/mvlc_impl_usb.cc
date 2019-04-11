@@ -11,12 +11,13 @@
 #include "mvlc/mvlc_threading.h"
 #include "mvlc/mvlc_error.h"
 
-#define LOG_LEVEL_SETTING 400
 
 #define LOG_LEVEL_WARN  100
 #define LOG_LEVEL_INFO  200
 #define LOG_LEVEL_DEBUG 300
 #define LOG_LEVEL_TRACE 400
+
+#define LOG_LEVEL_SETTING LOG_LEVEL_INFO
 
 #define DO_LOG(level, prefix, fmt, ...)\
 do\
