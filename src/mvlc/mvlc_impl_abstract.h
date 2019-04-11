@@ -29,6 +29,8 @@ class AbstractImpl
         virtual std::error_code read(Pipe pipe, u8 *buffer, size_t size,
                                      size_t &bytesTransferred) = 0;
 
+        virtual ConnectionType connectionType() const = 0;
+
         AbstractImpl() = default;
         AbstractImpl &operator=(const AbstractImpl &) = delete;
         AbstractImpl(const AbstractImpl &) = delete;

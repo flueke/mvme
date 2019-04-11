@@ -23,6 +23,7 @@ std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_usb_using_index(int 
 std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_usb_using_serial(unsigned serial);
 std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_usb_using_serial(const std::string &serial);
 
+std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_udp();
 std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_udp(const char *host);
 
 } // end namespace mvlc

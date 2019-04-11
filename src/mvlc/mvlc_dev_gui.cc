@@ -327,7 +327,7 @@ struct MVLCDevGUI::Private
     //        *act_loadScript
     //        ;
 
-    MVLCObject *mvlc;
+    std::unique_ptr<MVLCObject> mvlc;
     QThread readoutThread;
     MVLCDataReader *dataReader;
 
@@ -345,18 +345,19 @@ struct MVLCDevGUI::Private
     ReaderStats prevReaderStats = {};
 };
 
-MVLCDevGUI::MVLCDevGUI(QWidget *parent)
+MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
     : QMainWindow(parent)
     , m_d(std::make_unique<Private>())
     , ui(new Ui::MVLCDevGUI)
 {
     assert(m_d->dataReader == nullptr);
-    m_d->q = this;
-    m_d->mvlc = new MVLCObject(make_mvlc_usb(), this);
-    m_d->registerWidget = new MVLCRegisterWidget(m_d->mvlc, this);
-    m_d->vmeDebugWidget = new VMEDebugWidget(m_d->mvlc, this);
 
-    setObjectName(QSL("MVLC Dev Tool"));
+    m_d->q = this;
+    m_d->mvlc = std::move(mvlc);
+    m_d->registerWidget = new MVLCRegisterWidget(m_d->mvlc.get(), this);
+    m_d->vmeDebugWidget = new VMEDebugWidget(m_d->mvlc.get(), this);
+
+    setObjectName(QSL("MVLC Dev GUI"));
     setWindowTitle(objectName());
 
     m_d->toolbar = new QToolBar(this);
@@ -417,7 +418,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
     // Interactions
 
-    connect(m_d->mvlc, &MVLCObject::stateChanged,
+    connect(m_d->mvlc.get(), &MVLCObject::stateChanged,
             this, [this] (const MVLCObject::State &oldState,
                           const MVLCObject::State &newState)
     {
@@ -674,7 +675,7 @@ MVLCDevGUI::MVLCDevGUI(QWidget *parent)
 
     m_d->readoutThread.setObjectName("MVLC Readout");
     m_d->dataReader = new MVLCDataReader();
-    m_d->dataReader->setMVLC(m_d->mvlc);
+    m_d->dataReader->setMVLC(m_d->mvlc.get());
     m_d->dataReader->moveToThread(&m_d->readoutThread);
 
     connect(&m_d->readoutThread, &QThread::started,
@@ -1632,28 +1633,39 @@ QString format_ipv4(u32 address)
 
 int main(int argc, char *argv[])
 {
-    QApplication app(argc, argv);
-
     qRegisterMetaType<QVector<u8>>("QVector<u8>");
     qRegisterMetaType<QVector<u32>>("QVector<u32>");
 
-    MVLCDevGUI gui;
-    LogWidget logWindow;
+    QApplication app(argc, argv);
 
-    QObject::connect(&gui, &MVLCDevGUI::sigLogMessage,
-                     &logWindow, &LogWidget::logMessage);
-
+    // actionQuit
     auto actionQuit = new QAction("&Quit");
     actionQuit->setShortcut(QSL("Ctrl+Q"));
     actionQuit->setShortcutContext(Qt::ApplicationShortcut);
-    gui.menuBar()->addAction(actionQuit);
 
     QObject::connect(actionQuit, &QAction::triggered,
                      &app, &QApplication::quit);
 
+    LogWidget logWindow;
+    logWindow.addAction(actionQuit);
 
-    gui.resize(1000, 960);
-    gui.show();
+    MVLCDevGUI devGui_usb(std::make_unique<MVLCObject>(make_mvlc_usb()));
+    devGui_usb.setWindowTitle("MVLC Dev GUI - USB");
+
+    MVLCDevGUI devGui_udp(std::make_unique<MVLCObject>(make_mvlc_udp("192.168.42.2")));
+    devGui_udp.setWindowTitle("MVLC Dev GUI - UDP");
+
+    for (auto devgui: { &devGui_usb, &devGui_udp })
+    {
+        QObject::connect(devgui, &MVLCDevGUI::sigLogMessage,
+                         &logWindow, &LogWidget::logMessage);
+
+        devgui->addAction(actionQuit);
+
+        devgui->resize(1000, 960);
+        devgui->show();
+    }
+
     logWindow.resize(600, 960);
     logWindow.show();
 

@@ -37,6 +37,7 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
 
         bool isConnected() const;
         State getState() const { return m_state; }
+        ConnectionType connectionType() const { return m_impl->connectionType(); }
 
         AbstractImpl *getImpl();
 

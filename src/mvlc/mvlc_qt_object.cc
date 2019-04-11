@@ -1,8 +1,9 @@
 #include "mvlc/mvlc_qt_object.h"
-#include "mvlc/mvlc_error.h"
-#include "mvlc/mvlc_impl_abstract.h"
+
 #include <cassert>
 #include <QDebug>
+
+#include "mvlc/mvlc_error.h"
 
 namespace mesytec
 {

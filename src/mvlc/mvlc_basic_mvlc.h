@@ -20,6 +20,7 @@ class LIBMVME_MVLC_EXPORT BasicMVLC
         std::error_code connect();
         std::error_code disconnect();
         bool isConnected() const;
+        ConnectionType connectionType() const { return m_impl->connectionType(); }
 
         std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
                               size_t &bytesTransferred);

@@ -109,6 +109,8 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         std::error_code read(Pipe pipe, u8 *buffer, size_t size,
                              size_t &bytesTransferred) override;
 
+        ConnectionType connectionType() const override { return ConnectionType::USB; }
+
         std::error_code getReadQueueSize(Pipe pipe, u32 &dest);
 
     private:

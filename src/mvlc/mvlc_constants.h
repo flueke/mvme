@@ -111,7 +111,6 @@ static const u32 InternalRegisterMax = 0x5FFF;
 // IMPORTANT: This is always active right now.
 static const u32 DAQModeEnableRegister = 0x1300;
 
-
 namespace stacks
 {
     static const u32 StackCount = 8;
@@ -176,6 +175,12 @@ static const u8 DataPipe = 1;
 
 static const unsigned DefaultWriteTimeout_ms = 1000;
 static const unsigned DefaultReadTimeout_ms  = 1000;
+
+enum class ConnectionType
+{
+    USB,
+    UDP
+};
 
 } // end namespace mvlc
 } // end namespace mesytec

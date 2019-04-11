@@ -131,7 +131,9 @@ class MVLCDevGUI: public QMainWindow
         void sigLogMessage(const QString &msg);
 
     public:
-        MVLCDevGUI(QWidget *parent = 0);
+        using MVLCObject = mesytec::mvlc::MVLCObject;
+
+        MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent = 0);
         ~MVLCDevGUI();
 
     public slots:

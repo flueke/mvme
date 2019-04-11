@@ -47,7 +47,7 @@ namespace udp
 class Impl: public AbstractImpl
 {
     public:
-        explicit Impl(const std::string &host);
+        explicit Impl(const std::string &host = {});
         ~Impl();
 
         std::error_code connect() override;
@@ -66,13 +66,7 @@ class Impl: public AbstractImpl
         std::error_code read(Pipe pipe, u8 *buffer, size_t size,
                              size_t &bytesTransferred) override;
 
-        std::array<unsigned, PipeCount> m_writeTimeouts = {
-            DefaultWriteTimeout_ms, DefaultWriteTimeout_ms
-        };
-
-        std::array<unsigned, PipeCount> m_readTimeouts = {
-            DefaultReadTimeout_ms, DefaultReadTimeout_ms
-        };
+        ConnectionType connectionType() const override { return ConnectionType::UDP; }
 
     private:
         int getSocket(Pipe pipe) { return pipe == Pipe::Command ? m_cmdSock : m_dataSock; }
@@ -83,6 +77,14 @@ class Impl: public AbstractImpl
         int m_dataSock = -1;
         struct sockaddr_in m_cmdAddr = {};
         struct sockaddr_in m_dataAddr = {};
+
+        std::array<unsigned, PipeCount> m_writeTimeouts = {
+            DefaultWriteTimeout_ms, DefaultWriteTimeout_ms
+        };
+
+        std::array<unsigned, PipeCount> m_readTimeouts = {
+            DefaultReadTimeout_ms, DefaultReadTimeout_ms
+        };
 };
 
 } // end namespace udp
