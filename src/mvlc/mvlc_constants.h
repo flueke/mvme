@@ -161,7 +161,50 @@ namespace udp
 {
     static const u16 CommandPort = 0x8000; // 32768
     static const u16 DataPort = CommandPort + 1;
+    static const u32 HeaderWords = 2;
+    static const u32 HeaderBytes = HeaderWords * sizeof(u32);
+
+    namespace header0
+    {
+        // 12 bit packet number
+        // Pipe specific incrementing packet number.
+        static const u32 PacketNumberMask  = 0xfff;
+        static const u32 PacketNumberShift = 16;
+        // 12 bit number of data words
+        // This is the number of data words following the two header words.
+        static const u32 NumDataWordsMask  = 0xfff;
+        static const u32 NumDataWordsShift = 0;
+    }
+
+    namespace header1
+    {
+        // 20 bit UDP timestamp. Increments in 1ms steps. Wrap after 17.5
+        // minutes.
+        static const u32 TimestampMask      = 0xfffff;
+        static const u32 TimestampShift     = 12;
+        // Points to the next payload header word. The position directly after
+        // this header word is 0.
+        // TODO: verify and possibly reword this
+        // Note that this value can point to an offset that's outside of this
+        // packets range. This means the packet does not contain a payload
+        // header but was the continuation of a data section started previously.
+        static const u32 HeaderPointerMask  = 0xfff;
+        static const u32 HeaderPointerShift = 0;
+    }
+
+    static const size_t JumboFrameMaxSize = 9000;
+    static const size_t UDPSingleTransferMaxBytes = 1 * 1024 * 1024;
+    static const size_t UDPSingleTransferMaxWords = UDPSingleTransferMaxBytes / sizeof(u32);
 } // end namespace udp
+
+namespace eth_registers
+{
+    static const u32 OwnIP_lo           = 0x4400;
+    static const u32 OwnIP_hi           = 0x4402;
+    static const u32 StoreIPInFlash     = 0x4404;
+    // 0 = fixed IP, 1 = DHCP
+    static const u32 IPMode             = 0x4406;
+} // end namespace eth_registers
 
 enum class Pipe: u8
 {

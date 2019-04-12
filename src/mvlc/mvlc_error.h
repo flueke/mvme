@@ -9,6 +9,8 @@ namespace mesytec
 namespace mvlc
 {
 
+/* Lower level MVLC specific error codes. In addition to this the specific
+ * implementations (USB, UDP) use their own detailed error codes. */
 enum class MVLCErrorCode
 {
     NoError,
@@ -16,8 +18,8 @@ enum class MVLCErrorCode
     IsDisconnected,
     ShortWrite,
     ShortRead,
-    MirrorEmptyRequest,  // size < 1
-    MirrorEmptyResponse, // size < 1
+    MirrorEmptyRequest,  // size of the request < 1
+    MirrorEmptyResponse, // size of the mirror response < 1
     MirrorShortResponse,
     MirrorNotEqual,
     InvalidBufferHeader,
@@ -30,6 +32,8 @@ enum class MVLCErrorCode
 
 LIBMVME_MVLC_EXPORT std::error_code make_error_code(MVLCErrorCode error);
 
+/* The higher level error condition used to categorize the errors coming from
+ * the MVLC logic code and the low level implementations. */
 enum class ErrorType
 {
     Success,

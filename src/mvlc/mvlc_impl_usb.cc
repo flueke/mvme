@@ -17,7 +17,7 @@
 #define LOG_LEVEL_DEBUG 300
 #define LOG_LEVEL_TRACE 400
 
-#define LOG_LEVEL_SETTING LOG_LEVEL_INFO
+#define LOG_LEVEL_SETTING LOG_LEVEL_TRACE
 
 #define DO_LOG(level, prefix, fmt, ...)\
 do\
@@ -569,8 +569,9 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     if (size > 0)
     {
         LOG_DEBUG("pipe=%u, requestedSize=%u, remainingSize=%u after read from MVLC,"
-                  "returning FT_TIMEOUT",
-                  static_cast<unsigned>(pipe), requestedSize, size);
+                  "returning FT_TIMEOUT (original ec=%s)",
+                  static_cast<unsigned>(pipe), requestedSize, size,
+                  ec.message().c_str());
 
         return make_error_code(FT_TIMEOUT);
     }

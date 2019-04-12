@@ -11,6 +11,7 @@
 #endif
 
 #include "mvlc/mvlc_impl_abstract.h"
+#include "mvlc/mvlc_impl_support.h"
 
 namespace mesytec
 {
@@ -85,6 +86,9 @@ class Impl: public AbstractImpl
         std::array<unsigned, PipeCount> m_readTimeouts = {
             DefaultReadTimeout_ms, DefaultReadTimeout_ms
         };
+
+        std::array<u32, JumboFrameMaxSize/sizeof(u32)> m_receiveBuffer;
+        std::array<ReadBuffer<UDPSingleTransferMaxBytes>, PipeCount> m_readBuffers;
 };
 
 } // end namespace udp

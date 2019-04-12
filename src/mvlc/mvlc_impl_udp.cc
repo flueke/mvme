@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cerrno>
+#include <cstdio>
 #include <cstring>
 #include <limits>
 
@@ -17,6 +18,27 @@
 #endif
 
 #include "mvlc/mvlc_error.h"
+
+#define LOG_LEVEL_WARN  100
+#define LOG_LEVEL_INFO  200
+#define LOG_LEVEL_DEBUG 300
+#define LOG_LEVEL_TRACE 400
+
+#define LOG_LEVEL_SETTING LOG_LEVEL_TRACE
+
+#define DO_LOG(level, prefix, fmt, ...)\
+do\
+{\
+    if (LOG_LEVEL_SETTING >= level)\
+    {\
+        fprintf(stderr, prefix "%s(): " fmt "\n", __FUNCTION__, ##__VA_ARGS__);\
+    }\
+} while (0);
+
+#define LOG_WARN(fmt, ...)  DO_LOG(LOG_LEVEL_WARN,  "WARN - mvlc_udp ", fmt, ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...)  DO_LOG(LOG_LEVEL_INFO,  "INFO - mvlc_udp ", fmt, ##__VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) DO_LOG(LOG_LEVEL_DEBUG, "DEBUG - mvlc_udp ", fmt, ##__VA_ARGS__)
+#define LOG_TRACE(fmt, ...) DO_LOG(LOG_LEVEL_TRACE, "TRACE - mvlc_udp ", fmt, ##__VA_ARGS__)
 
 namespace
 {
@@ -338,6 +360,8 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     // Note: it should not be necessary to split this into multiple calls to
     // send() because outgoing MVLC command buffers should be smaller than the
     // maximum ethernet MTU.
+    // The send() call should return EMSGSIZE if the payload is too large to be
+    // atomically transmitted.
     assert(buffer);
     assert(size <= MaxOutgoingPayloadSize);
     assert(static_cast<unsigned>(pipe) < PipeCount);
@@ -356,13 +380,37 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     return {};
 }
 
+
+/* initial:
+ *   next_header_pointer = 0
+ *   packet_number = 0
+ *
+ *   - receive one packet
+ *   - make sure there are two header words
+ *   - extract packet_number and number_of_data_words
+ *   - record possible packet loss or ordering problems based on packet number
+ *   - check to make sure timestamp is incrementing (packet ordering)
+ *   -
+ */
+
+std::error_code receive_one_packet(int sockfd, u8 *dest, size_t size,
+                                   size_t &bytesTransferred)
+{
+    bytesTransferred = 0u;
+
+    ssize_t res = ::recv(sockfd, reinterpret_cast<char *>(dest), size, 0);
+
+    if (res < 0)
+        return std::error_code(errno, std::system_category());
+
+    bytesTransferred = res;
+    return {};
+}
+
 std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
                            size_t &bytesTransferred)
 {
-    // TODO: split into multiple read calls
-
     assert(buffer);
-    assert(size <= MaxOutgoingPayloadSize);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
     bytesTransferred = 0;
@@ -370,12 +418,95 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     if (!isConnected())
         return make_error_code(MVLCErrorCode::IsDisconnected);
 
-    ssize_t res = ::recv(getSocket(pipe), reinterpret_cast<char *>(buffer), size, 0);
+    const size_t requestedSize = size;
+    bytesTransferred = 0u;
 
-    if (res < 0)
-        return std::error_code(errno, std::system_category());
+    auto &readBuffer = m_readBuffers[static_cast<unsigned>(pipe)];
 
-    bytesTransferred = res;
+    // Copy from readBuffer into the dest buffer while updating local
+    // variables.
+    auto copy_and_update = [&buffer, &size, &bytesTransferred, &readBuffer] ()
+    {
+        if (size_t toCopy = std::min(readBuffer.size(), size))
+        {
+            memcpy(buffer, readBuffer.first, toCopy);
+            buffer += toCopy;
+            size -= toCopy;
+            readBuffer.first += toCopy;
+            bytesTransferred += toCopy;
+        }
+    };
+
+    LOG_TRACE("pipe=%u, size=%zu, bufferSize=%zu",
+              static_cast<unsigned>(pipe), requestedSize, readBuffer.size());
+
+    copy_and_update();
+
+    if (size == 0)
+    {
+        LOG_TRACE("pipe=%u, size=%zu, read request satisfied from buffer, new buffer size=%zu",
+                  static_cast<unsigned>(pipe), requestedSize, readBuffer.size());
+        return {};
+    }
+
+    // All data from the read buffer should have been consumed at this point.
+    // It's time to issue an actual read request.
+    assert(readBuffer.size() == 0);
+
+    LOG_TRACE("pipe=%u, requestedSize=%zu, remainingSize=%zu, reading from MVLC...",
+              static_cast<unsigned>(pipe), requestedSize, size);
+
+
+    size_t transferred = 0u;
+
+    auto ec = receive_one_packet(getSocket(pipe),
+                                 reinterpret_cast<u8 *>(m_receiveBuffer.data()),
+                                 m_receiveBuffer.size() * sizeof(u32),
+                                 transferred);
+
+    LOG_TRACE("pipe=%u, received %zu bytes, ec=%s",
+              static_cast<unsigned>(pipe), transferred, ec.message().c_str());
+
+    if (ec)
+        return ec;
+
+    if (transferred < HeaderBytes)
+    {
+        LOG_TRACE("pipe=%u, received packet size is less than the header size, returning ShortRead",
+                  static_cast<unsigned>(pipe));
+        return make_error_code(MVLCErrorCode::ShortRead);
+    }
+
+    u32 header0 = m_receiveBuffer[0];
+    u32 header1 = m_receiveBuffer[1];
+
+    u16 packetNumber        = (header0 & header0::PacketNumberMask) >> header0::PacketNumberShift;
+    u16 dataWordCount       = (header0 & header0::NumDataWordsMask) >> header0::NumDataWordsShift;
+    u32 udpTimestamp        = (header1 & header1::TimestampMask) >> header1::TimestampShift;
+    u16 nextHeaderPointer   = (header1 & header1::HeaderPointerMask) >> header1::HeaderPointerShift;
+
+    const u16 availableDataWords = (transferred - HeaderBytes) / sizeof(u32);
+    const u16 remainingBytes = (transferred - HeaderBytes) % sizeof(u32);
+
+    LOG_TRACE("pipe=%u, header0=0x%08x -> packetNumber=%u, wordCount=%u",
+              static_cast<unsigned>(pipe), header0, packetNumber, dataWordCount);
+
+    LOG_TRACE("pipe=%u, header1=0x%08x -> udpTimestamp=%u, nextHeaderPointer=%u",
+              static_cast<unsigned>(pipe), header1, udpTimestamp, nextHeaderPointer);
+
+    LOG_TRACE("pipe=%u, calculated available data words = %u, remaining bytes = %u",
+              static_cast<unsigned>(pipe), availableDataWords, remainingBytes);
+
+    for (size_t wi=0; wi < std::min(dataWordCount, availableDataWords); wi++)
+    {
+        const u32 dataWord = m_receiveBuffer[HeaderWords + wi];
+
+        LOG_TRACE("  pipe=%u, dataWord[%4zu]=0x%08x",
+                  static_cast<unsigned>(pipe), wi, dataWord
+                  );
+    }
+
+
     return {};
 }
 
