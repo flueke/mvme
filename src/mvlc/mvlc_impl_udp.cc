@@ -391,6 +391,9 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     assert(size <= MaxOutgoingPayloadSize);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
+    if (static_cast<unsigned>(pipe) >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
+
     bytesTransferred = 0;
 
     if (!isConnected())
@@ -437,6 +440,9 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 {
     assert(buffer);
     assert(static_cast<unsigned>(pipe) < PipeCount);
+
+    if (static_cast<unsigned>(pipe) >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
 
     bytesTransferred = 0;
 

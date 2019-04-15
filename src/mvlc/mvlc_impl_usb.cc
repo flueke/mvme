@@ -481,6 +481,9 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     assert(size <= USBSingleTransferMaxBytes);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
+    if (static_cast<unsigned>(pipe) >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
+
     ULONG transferred = 0; // FT API needs a ULONG*
 
 #ifdef __WIN32 // windows
@@ -511,12 +514,27 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
 }
 
 #ifdef __WIN32 // Impl::read() windows
+/* Explanation:
+ * When reading from a pipe under windows any available data that was not
+ * retrieved is lost instead of being returned on the next read attempt. This
+ * is different than the behaviour under linux where multiple short reads can
+ * be done without losing data.
+ * Also the windows library does not run into a timeout if less data than
+ * requested is available.
+ * To work around the above issue the windows implementation uses a single read
+ * buffer of size USBSingleTransferMaxBytes and only issues read requests of
+ * that size. Client requests are satisfied from buffered data until the buffer
+ * is empty at which point another full sized read is performed.
+ */
 std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
                            size_t &bytesTransferred)
 {
     assert(buffer);
     assert(size <= USBSingleTransferMaxBytes);
     assert(static_cast<unsigned>(pipe) < PipeCount);
+
+    if (static_cast<unsigned>(pipe) >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
 
     const size_t requestedSize = size;
     bytesTransferred = 0u;
@@ -600,6 +618,9 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     assert(buffer);
     assert(size <= USBSingleTransferMaxBytes);
     assert(static_cast<unsigned>(pipe) < PipeCount);
+
+    if (static_cast<unsigned>(pipe) >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
 
     LOG_TRACE("begin read: pipe=%u, size=%lu bytes",
               static_cast<unsigned>(pipe), size);
