@@ -100,8 +100,8 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         std::error_code disconnect() override;
         bool isConnected() const override;
 
-        void setWriteTimeout(Pipe pipe, unsigned ms) override;
-        void setReadTimeout(Pipe pipe, unsigned ms) override;
+        std::error_code setWriteTimeout(Pipe pipe, unsigned ms) override;
+        std::error_code setReadTimeout(Pipe pipe, unsigned ms) override;
 
         unsigned getWriteTimeout(Pipe pipe) const override;
         unsigned getReadTimeout(Pipe pipe) const override;

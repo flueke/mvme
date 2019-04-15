@@ -83,7 +83,7 @@ std::error_code lookup(const std::string &host, u16 port, sockaddr_in &dest)
 }
 
 #ifndef __WIN32
-void set_socket_timeout(int optname, int sock, unsigned ms)
+std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
 {
     unsigned seconds = ms / 1000;
     ms -= seconds * 1000;
@@ -93,26 +93,33 @@ void set_socket_timeout(int optname, int sock, unsigned ms)
     tv.tv_usec = ms * 1000;
 
     int res = setsockopt(sock, SOL_SOCKET, optname, &tv, sizeof(tv));
-    assert(res == 0);
+
+    if (res != 0)
+        return std::error_code(errno, std::system_category());
+    return {};
 }
 #else
-void set_socket_timeout(int optname, int sock, unsigned ms)
+std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
 {
     DWORD optval = ms;
     int res = setsockopt(sock, SOL_SOCKET, optname,
                          reinterpret_cast<const char *>(optval),
                          sizeof(optval));
+
+    if (res != 0)
+        return std::error_code(errno, std::system_category());
+    return {};
 }
 #endif
 
-void set_socket_write_timeout(int sock, unsigned ms)
+std::error_code set_socket_write_timeout(int sock, unsigned ms)
 {
-    set_socket_timeout(SO_SNDTIMEO, sock, ms);
+    return set_socket_timeout(SO_SNDTIMEO, sock, ms);
 }
 
-void set_socket_read_timeout(int sock, unsigned ms)
+std::error_code set_socket_read_timeout(int sock, unsigned ms)
 {
-    set_socket_timeout(SO_RCVTIMEO, sock, ms);
+    return set_socket_timeout(SO_RCVTIMEO, sock, ms);
 }
 
 const u16 FirstDynamicPort = 49152;
@@ -276,8 +283,11 @@ std::error_code Impl::connect()
     // Set read and write timeouts
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
-        set_socket_write_timeout(getSocket(pipe), getWriteTimeout(pipe));
-        set_socket_read_timeout(getSocket(pipe), getReadTimeout(pipe));
+        if (auto ec = set_socket_write_timeout(getSocket(pipe), getWriteTimeout(pipe)))
+            return ec;
+
+        if (auto ec = set_socket_read_timeout(getSocket(pipe), getReadTimeout(pipe)))
+            return ec;
     }
 
     // Set socket receive buffer size
@@ -295,7 +305,8 @@ std::error_code Impl::connect()
         assert(res == 0);
     }
 
-    // TODO: send the initial request to verify there's an MVLC on the other side
+    // TODO: send some initial request to verify there's an MVLC on the other side
+    // Note: this should not interfere with any other active client.
 
     assert(m_cmdSock >= 0 && m_dataSock >= 0);
     return {};
@@ -318,20 +329,34 @@ bool Impl::isConnected() const
     return m_cmdSock >= 0 && m_dataSock >= 0;
 }
 
-void Impl::setWriteTimeout(Pipe pipe, unsigned ms)
+std::error_code Impl::setWriteTimeout(Pipe pipe, unsigned ms)
 {
-    if (static_cast<unsigned>(pipe) >= PipeCount) return;
-    m_writeTimeouts[static_cast<unsigned>(pipe)] = ms;
+    auto p = static_cast<unsigned>(pipe);
+
+    if (p >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
+
+    m_writeTimeouts[p] = ms;
+
     if (isConnected())
-        set_socket_write_timeout(getSocket(pipe), ms);
+        return set_socket_write_timeout(getSocket(pipe), ms);
+
+    return {};
 }
 
-void Impl::setReadTimeout(Pipe pipe, unsigned ms)
+std::error_code Impl::setReadTimeout(Pipe pipe, unsigned ms)
 {
-    if (static_cast<unsigned>(pipe) >= PipeCount) return;
-    m_readTimeouts[static_cast<unsigned>(pipe)] = ms;
+    auto p = static_cast<unsigned>(pipe);
+
+    if (p >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
+
+    m_readTimeouts[p] = ms;
+
     if (isConnected())
-        set_socket_read_timeout(getSocket(pipe), ms);
+        return set_socket_read_timeout(getSocket(pipe), ms);
+
+    return {};
 }
 
 unsigned Impl::getWriteTimeout(Pipe pipe) const

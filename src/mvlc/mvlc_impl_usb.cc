@@ -430,22 +430,34 @@ bool Impl::isConnected() const
     return m_handle != nullptr;
 }
 
-void Impl::setWriteTimeout(Pipe pipe, unsigned ms)
+std::error_code Impl::setWriteTimeout(Pipe pipe, unsigned ms)
 {
-    auto up = static_cast<unsigned>(pipe);
-    if (up >= PipeCount) return;
-    m_writeTimeouts[up] = ms;
+    auto p = static_cast<unsigned>(pipe);
+
+    if (p >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
+
+    m_writeTimeouts[p] = ms;
+
     if (isConnected())
-        set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::Out), ms);
+        return set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::Out), ms);
+
+    return {};
 }
 
-void Impl::setReadTimeout(Pipe pipe, unsigned ms)
+std::error_code Impl::setReadTimeout(Pipe pipe, unsigned ms)
 {
-    auto up = static_cast<unsigned>(pipe);
-    if (up >= PipeCount) return;
-    m_readTimeouts[up] = ms;
+    auto p = static_cast<unsigned>(pipe);
+
+    if (p >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
+
+    m_readTimeouts[p] = ms;
+
     if (isConnected())
-        set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::In), ms);
+        return set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::In), ms);
+
+    return {};
 }
 
 unsigned Impl::getWriteTimeout(Pipe pipe) const

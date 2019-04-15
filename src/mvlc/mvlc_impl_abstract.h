@@ -17,8 +17,8 @@ class AbstractImpl
         virtual std::error_code disconnect() = 0;
         virtual bool isConnected() const = 0;
 
-        virtual void setWriteTimeout(Pipe pipe, unsigned ms) = 0;
-        virtual void setReadTimeout(Pipe pipe, unsigned ms) = 0;
+        virtual std::error_code setWriteTimeout(Pipe pipe, unsigned ms) = 0;
+        virtual std::error_code setReadTimeout(Pipe pipe, unsigned ms) = 0;
 
         virtual unsigned getWriteTimeout(Pipe pipe) const = 0;
         virtual unsigned getReadTimeout(Pipe pipe) const = 0;

@@ -61,6 +61,9 @@ class MVLCErrorCategory: public std::error_category
 
             case MVLCErrorCode::BindLocalError:
                  return "could not bind local sockets";
+
+            case MVLCErrorCode::InvalidPipe:
+                 return "invalid pipe/endpoint";
         }
 
         return "unrecognized MVLC error";
@@ -93,6 +96,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::InvalidBufferHeader:
             case MVLCErrorCode::UnexpectedResponseSize:
             case MVLCErrorCode::CommandArgOutOfRange:
+            case MVLCErrorCode::InvalidPipe:
                 return ErrorType::ProtocolError;
 
             case MVLCErrorCode::NoVMEResponse:
