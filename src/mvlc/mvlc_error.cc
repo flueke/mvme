@@ -146,6 +146,23 @@ class ErrorTypeCategory: public std::error_category
 
         return "unrecognized error type";
     }
+
+    // Equivalence between local conditions and any error code
+    bool equivalent(const std::error_code &ec, int condition) const noexcept
+    {
+        using mesytec::mvlc::ErrorType;
+
+        switch (static_cast<ErrorType>(condition))
+        {
+            case ErrorType::Timeout:
+                return ec == std::error_code(EAGAIN, std::system_category());
+
+            default:
+                break;
+        }
+
+        return false;
+    }
 };
 
 const ErrorTypeCategory theErrorTypeCategory;

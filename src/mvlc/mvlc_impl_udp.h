@@ -41,9 +41,17 @@ namespace udp
 // prepend any buffered data to the result buffer (up to the max size
 // requested). This is IMPORTANT!
 //
-// Make write() enfore that outgoing packet sizes <= the max datagram size.
+// Make write() enforce that outgoing packet sizes <= the max datagram size.
 // Jumbo Frames don't need to be taken into account here as everything has to
 // work without Jumbos enabled.
+struct Stats
+{
+    s32 lastPacketNumber = -1;
+    u32 lastTimestamp = 0u;
+
+    u32 lostPackets = 0u;
+    u32 unorderedPackets = 0u;
+};
 
 class Impl: public AbstractImpl
 {
@@ -69,6 +77,8 @@ class Impl: public AbstractImpl
 
         ConnectionType connectionType() const override { return ConnectionType::UDP; }
 
+        Stats stats() const { return m_stats; }
+
     private:
         int getSocket(Pipe pipe) { return pipe == Pipe::Command ? m_cmdSock : m_dataSock; }
 
@@ -87,8 +97,22 @@ class Impl: public AbstractImpl
             DefaultReadTimeout_ms, DefaultReadTimeout_ms
         };
 
-        std::array<u32, JumboFrameMaxSize/sizeof(u32)> m_receiveBuffer;
-        std::array<ReadBuffer<UDPSingleTransferMaxBytes>, PipeCount> m_readBuffers;
+        struct ReceiveBuffer
+        {
+            std::array<u8, JumboFrameMaxSize> buffer;
+            u8 *start = nullptr; // start of unconsumed payload data
+            u8 *end = nullptr; // end of packet data
+
+            u32 header0() { return reinterpret_cast<u32 *>(buffer.data())[0]; }
+            u32 header1() { return reinterpret_cast<u32 *>(buffer.data())[1]; }
+
+            // number of bytes available
+            size_t available() { return end - start; }
+            void reset() { start = end = nullptr; }
+        };
+
+        std::array<ReceiveBuffer, PipeCount> m_receiveBuffers;
+        Stats m_stats;
 };
 
 } // end namespace udp
