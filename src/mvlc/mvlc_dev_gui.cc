@@ -1288,7 +1288,6 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
     layout->addWidget(make_separator_frame(), row++, 0, 1, 4); // row- and colspan
     ++row;
 
-    // IP-Address Registers
     {
         struct RegAndLabel
         {
@@ -1296,22 +1295,22 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
             const char *label;
         };
 
-        static const std::vector<RegAndLabel> Data =
+        // IP-Address Registers
+        static const std::vector<RegAndLabel> IPData =
         {
             { 0x4400, "Own IP"},
             { 0x4408, "Own IP DHCP" },
             { 0x440C, "Dest IP Cmd" },
-            { 0x4410, "Dest IP Data" }
+            { 0x4410, "Dest IP Data" },
         };
 
-
-        auto gb = new QGroupBox("IP Address Settings (numeric inputs allowed)");
+        auto gb = new QGroupBox("IP Address Settings");
         auto grid = make_layout<QGridLayout, 2, 4>(gb);
 
         static const int NumCols = 2;
         int gridRow = 0, gridCol = 0;
 
-        for (const auto &ral: Data)
+        for (const auto &ral: IPData)
         {
             auto ipRegWidget = new IPv4RegisterWidget(ral.reg);
             auto gb_inner = new QGroupBox(ral.label);
@@ -1341,6 +1340,51 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
 
         }
 
+        // Dest Port Registers
+        static const std::vector<RegAndLabel> PortData =
+        {
+            { 0x441A,  "Dest Port Cmd" },
+            { 0x441C,  "Dest Port Data" },
+        };
+
+        gridCol = 0;
+
+        for (const auto &ral: PortData)
+        {
+            auto le_input = new QLineEdit(this);
+            auto pb_read = new QPushButton("Read", this);
+            auto pb_write = new QPushButton("Write", this);
+
+            auto gb_inner = new QGroupBox(ral.label, this);
+            auto gb_inner_layout = make_layout<QGridLayout>(gb_inner);
+            auto reg_str = QString("0x%1").arg(ral.reg, 4, 16, QLatin1Char('0'));
+            gb_inner_layout->addWidget(new QLabel(reg_str), 0, 0, 2, 1);
+            gb_inner_layout->addWidget(le_input, 0, 1, 2, 1);
+            gb_inner_layout->addWidget(pb_read, 0, 2);
+            gb_inner_layout->addWidget(pb_write, 1, 2);
+            gb_inner_layout->setColumnStretch(1, 1);
+
+            connect(pb_read, &QPushButton::clicked,
+                    this, [this, ral, le_input] ()
+            {
+                u16 value = readRegister(ral.reg);
+                le_input->setText(QString("%1").arg(value));
+            });
+
+            connect(pb_write, &QPushButton::clicked,
+                    this, [this, ral, le_input] ()
+            {
+                u16 value = le_input->text().toUInt(nullptr, 0);
+                writeRegister(ral.reg, value);
+            });
+
+            grid->addWidget(gb_inner, gridRow, gridCol++);
+        }
+
+        gridRow++;
+        gridCol = 0;
+
+        // Add the groupbox to the outer layout
         layout->addWidget(gb, row++, 0, 1, 4);
     }
 
