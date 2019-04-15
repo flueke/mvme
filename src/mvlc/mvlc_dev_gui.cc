@@ -200,6 +200,30 @@ void MVLCDataReader::readoutLoop()
         << m_mvlc->getReadTimeout(Pipe::Data) << "ms";
     qDebug() << __PRETTY_FUNCTION__ << "readbuffer capacity is" << m_readBuffer.capacity;
 
+    if (m_mvlc->connectionType() == ConnectionType::UDP)
+    {
+        emit message(QSL("Connection type is UDP. Sending empty request"
+                         " using the data socket."));
+
+        size_t bytesTransferred = 0;
+
+        static const std::array<u32, 2> EmptyRequest =
+        {
+            0xF1000000,
+            0xF2000000
+        };
+
+        if (auto ec = m_mvlc->write(Pipe::Data,
+                                    reinterpret_cast<const u8 *>(EmptyRequest.data()),
+                                    EmptyRequest.size() * sizeof(u32),
+                                    bytesTransferred))
+        {
+            emit message(QSL("Error sending initial empty request using the data socket: %s")
+                         .arg(ec.message().c_str()));
+            return;
+        }
+    }
+
     while (!m_doQuit)
     {
         size_t bytesTransferred = 0u;

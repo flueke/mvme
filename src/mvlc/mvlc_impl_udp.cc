@@ -388,7 +388,6 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     // maximum ethernet MTU.
     // The send() call should return EMSGSIZE if the payload is too large to be
     // atomically transmitted.
-    assert(buffer);
     assert(size <= MaxOutgoingPayloadSize);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
