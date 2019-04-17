@@ -213,19 +213,6 @@ std::error_code mvlc_low_level_read(void *handle, Pipe pipe, u8* buffer, size_t 
     return make_error_code(st);
 }
 
-template<size_t Capacity>
-struct ReadBuffer
-{
-    std::array<u8, Capacity> data;
-    u8 *first = nullptr;
-    u8 *last = nullptr;
-
-    size_t size() const { return last - first; }
-    size_t free() const { return Capacity - size(); }
-    size_t capacity() const { return Capacity; }
-    void clear() { first = last = data.data(); }
-};
-
 static const size_t BufferSize  = USBSingleTransferMaxBytes;
 static const size_t BufferCount = 2;
 using ReadBuffers = std::array<ReadBuffer<BufferSize>, BufferCount>;

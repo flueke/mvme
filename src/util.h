@@ -53,8 +53,8 @@ LIBMVME_CORE_EXPORT QVector<u32> parseStackFile(const QString &input);
 typedef QPair<u32, QVariant> RegisterSetting; // (addr, value)
 typedef QVector<RegisterSetting> RegisterList;
 
-RegisterList parseRegisterList(QTextStream &input, u32 baseAddress = 0);
-RegisterList parseRegisterList(const QString &input, u32 baseAddress = 0);
+LIBMVME_CORE_EXPORT RegisterList parseRegisterList(QTextStream &input, u32 baseAddress = 0);
+LIBMVME_CORE_EXPORT RegisterList parseRegisterList(const QString &input, u32 baseAddress = 0);
 
 inline bool isFloat(const QVariant &var)
 {
@@ -64,9 +64,9 @@ inline bool isFloat(const QVariant &var)
 LIBMVME_CORE_EXPORT QString toString(const RegisterList &registerList);
 LIBMVME_CORE_EXPORT QStringList toStringList(const RegisterList &registerList);
 
-class end_of_buffer: public std::exception {};
+class LIBMVME_CORE_EXPORT end_of_buffer: public std::exception {};
 
-struct BufferIterator
+struct LIBMVME_CORE_EXPORT BufferIterator
 {
     enum Alignment { Align16, Align32 };
 
@@ -237,7 +237,7 @@ struct BufferIterator
     }
 };
 
-QString readStringFile(const QString &filename);
+LIBMVME_CORE_EXPORT QString readStringFile(const QString &filename);
 
 template<typename T>
 T *Var2Ptr(const QVariant &variant)
@@ -260,7 +260,7 @@ QVariant Ptr2Var(T *ptr)
 LIBMVME_CORE_EXPORT QString makeDurationString(qint64 durationSeconds);
 
 /** Emits aboutToClose() before returning from closeEvent() */
-class MVMEWidget: public QWidget
+class LIBMVME_CORE_EXPORT MVMEWidget: public QWidget
 {
     Q_OBJECT
     signals:
@@ -273,7 +273,7 @@ class MVMEWidget: public QWidget
         void closeEvent(QCloseEvent *event) override;
 };
 
-class TemplateLoader: public QObject
+class LIBMVME_CORE_EXPORT TemplateLoader: public QObject
 {
     Q_OBJECT
     signals:
@@ -287,11 +287,11 @@ class TemplateLoader: public QObject
         QString m_templatePath;
 };
 
-QJsonDocument gui_read_json(QIODevice *input);
-QJsonDocument gui_read_json_file(const QString &fileName);
-bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc);
+LIBMVME_CORE_EXPORT QJsonDocument gui_read_json(QIODevice *input);
+LIBMVME_CORE_EXPORT QJsonDocument gui_read_json_file(const QString &fileName);
+LIBMVME_CORE_EXPORT bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc);
 
-QPair<double, QString> byte_unit(size_t bytes);
+LIBMVME_CORE_EXPORT QPair<double, QString> byte_unit(size_t bytes);
 
 //QString format_memory_size(size_t bytes);
 
@@ -310,7 +310,7 @@ inline constexpr size_t Gigabytes(size_t x) { return Megabytes(x) * 1024; }
 #define InvalidDefaultCase default: { Q_ASSERT(!"invalid default case"); }
 
 template<typename Code>
-struct LIBMVME_CORE_EXPORT ReadResultBase
+struct ReadResultBase
 {
     typedef Code CodeType;
 

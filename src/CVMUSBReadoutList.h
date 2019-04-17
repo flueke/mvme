@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <iostream>
 #include <QVector>
+#include "libmvme_core_export.h"
 #include "vme_script.h"
 
 /*!
@@ -47,7 +48,7 @@
 
 */
 
-class CVMUSBReadoutList
+class LIBMVME_CORE_EXPORT CVMUSBReadoutList
 {
 private:
   std::vector<uint32_t> m_list; // Stack lines are all 32 bits wide.

@@ -158,6 +158,10 @@ if(MVME_ENABLE_MVLC)
     target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
     target_link_libraries(mvlc_dev_gui libmvme_mvlc)
 
+    if (WIN32)
+        target_link_libraries(libmvme_mvlc ws2_32)
+    endif(WIN32)
+
     # mvlc_dev_win_usb_debug
     if (WIN32)
         add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)

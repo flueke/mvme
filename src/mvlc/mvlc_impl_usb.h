@@ -58,7 +58,7 @@ struct DeviceInfo
 
 using DeviceInfoList = std::vector<DeviceInfo>;
 
-enum class LIBMVME_MVLC_EXPORT ListOptions
+enum class ListOptions
 {
     MVLCDevices,
     AllDevices,
