@@ -250,7 +250,7 @@ void MVLCDataReader::readoutLoop()
             break;
         }
 
-
+        // stats
         {
             QMutexLocker guard(&m_statsMutex);
 

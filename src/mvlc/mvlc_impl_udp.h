@@ -49,8 +49,10 @@ struct Stats
     s32 lastPacketNumber = -1;
     u32 lastTimestamp = 0u;
 
-    u32 lostPackets = 0u;
-    u32 unorderedPackets = 0u;
+    u64 receivedPackets = 0u;
+    u64 shortPackets = 0u;
+    u64 lostPackets = 0u;
+    u64 unorderedPackets = 0u;
 };
 
 class Impl: public AbstractImpl

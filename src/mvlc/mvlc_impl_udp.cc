@@ -443,16 +443,14 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
     assert(buffer);
     assert(pipe < PipeCount);
 
+    const size_t requestedSize = size;
+    bytesTransferred = 0u;
+
     if (pipe >= PipeCount)
         return make_error_code(MVLCErrorCode::InvalidPipe);
 
-    bytesTransferred = 0;
-
     if (!isConnected())
         return make_error_code(MVLCErrorCode::IsDisconnected);
-
-    const size_t requestedSize = size;
-    bytesTransferred = 0u;
 
     auto &receiveBuffer = m_receiveBuffers[pipe];
 
@@ -512,8 +510,11 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         if (ec)
             return ec;
 
+        ++m_stats.receivedPackets;
+
         if (transferred < HeaderBytes)
         {
+            ++m_stats.shortPackets;
             LOG_WARN("pipe=%u, received data is less than the header size", pipe);
 
             // Did receive less than the header size
