@@ -17,7 +17,7 @@ LIBMVME_MVLC_EXPORT VMEDataWidth convert_data_width(vme_script::DataWidth width)
 // mvlc constant -> vme_script
 LIBMVME_MVLC_EXPORT vme_script::DataWidth convert_data_width(VMEDataWidth dataWidth);
 
-// Returns the raw stack without any interleaved super commands.
+// Returns the raw stack without any interleaved super (upload) commands.
 // The stack result will be written to the given output pipe.
 LIBMVME_MVLC_EXPORT QVector<u32> build_stack(const vme_script::VMEScript &script,
                                         u8 outPipe);
@@ -25,11 +25,13 @@ LIBMVME_MVLC_EXPORT QVector<u32> build_stack(const vme_script::VMEScript &script
 // Returns a Command Buffer List which writes the contents of the given stack
 // or VMEScript to the MVLC stack memory area.
 LIBMVME_MVLC_EXPORT QVector<u32> build_upload_commands(
-    const vme_script::VMEScript &script, u8 outPipe,
+    const vme_script::VMEScript &script,
+    u8 outPipe,
     u16 startAddress);
 
-LIBMVME_MVLC_EXPORT QVector<u32> build_upload_commands(const QVector<u32> &stack,
-                                                  u16 startAddress);
+LIBMVME_MVLC_EXPORT QVector<u32> build_upload_commands(
+    const QVector<u32> &stack,
+    u16 startAddress);
 
 // Same as build_upload_commands but the returned list will be enclosed in
 // CmdBufferStart and CmdBufferEnd. This is a form that can be parsed by the MVLC.
@@ -37,15 +39,20 @@ LIBMVME_MVLC_EXPORT QVector<u32> build_upload_command_buffer(
     const vme_script::VMEScript &script, u8 outPipe,
     u16 startAddress);
 
+// Same as build_upload_command_buffer but instead of taking a VMEScript to
+// build the stack data from this overload takes in raw (stack) data to be
+// uploaded.
 LIBMVME_MVLC_EXPORT QVector<u32> build_upload_command_buffer(
     const QVector<u32> &stack, u16 startAddress);
+
+//LIBMVME_MVLC_EXPORT const std::map<u32, std::string> &get_super_command_table();
+//LIBMVME_MVLC_EXPORT const std::map<u32, std::string> &get_stack_command_table();
+
+LIBMVME_MVLC_EXPORT QString decode_response_header(u32 header);
 
 LIBMVME_MVLC_EXPORT void log_buffer(const u32 *buffer, size_t size, const std::string &info = {});
 LIBMVME_MVLC_EXPORT void log_buffer(const std::vector<u32> &buffer, const std::string &info = {});
 LIBMVME_MVLC_EXPORT void log_buffer(const QVector<u32> &buffer, const QString &info = {});
-
-LIBMVME_MVLC_EXPORT const std::map<u32, std::string> &get_super_command_table();
-LIBMVME_MVLC_EXPORT const std::map<u32, std::string> &get_stack_command_table();
 
 template<typename Out>
 void log_buffer(Out &out, const u32 *buffer, size_t size, const char *info)
@@ -66,6 +73,9 @@ void log_buffer(Out &out, const u32 *buffer, size_t size, const char *info)
 
     out << "end " << info << endl;
 }
+
+
+
 
 } // end namespace mvlc
 } // end namespace mesytec

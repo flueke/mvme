@@ -29,6 +29,7 @@
 #include "mvlc/mvlc_script.h"
 #include "mvlc/mvlc_impl_usb.h"
 #include "mvlc/mvlc_vme_debug_widget.h"
+#include "mvlc/mvlc_util.h"
 #include "qt_util.h"
 #include "util/counters.h"
 
@@ -491,7 +492,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
                 if (!logRequest)
                 {
                     // In case of a mirror check error do log the request
-                    // buffer but only if it hasn not been logged yet.
+                    // buffer but only if it has not been logged yet.
                     logBuffer(cmdBuffer, "Outgoing Request Buffer");
                 }
                 logBuffer(responseBuffer, "Incoming Erroneous Mirror Buffer");
@@ -1154,11 +1155,17 @@ void MVLCDevGUI::logBuffer(const QVector<u32> &buffer, const QString &info)
     for (int i = 0; i < buffer.size(); i++)
     {
         u32 value = buffer.at(i);
+
         auto str = QString("%1: 0x%2 (%3 dec)")
             .arg(i, 3)
             .arg(value, 8, 16, QLatin1Char('0'))
             .arg(value)
             ;
+
+        if (is_known_buffer_header(value))
+        {
+            str += " " + decode_response_header(value);
+        }
 
         strBuffer << str;
     }

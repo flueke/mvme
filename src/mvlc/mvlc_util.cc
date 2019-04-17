@@ -182,6 +182,76 @@ QVector<u32> build_upload_command_buffer(const QVector<u32> &stack, u16 startAdd
     return result;
 }
 
+static QString format_buffer_error_bits(u8 errorBits)
+{
+    if (!errorBits)
+        return "none";
+
+    QStringList buffer;
+
+    if (errorBits & buffer_errors::Continue)
+        buffer << "continue";
+
+    if (errorBits & buffer_errors::SyntaxError)
+        buffer << "syntax";
+
+    if (errorBits & buffer_errors::BusError)
+        buffer << "BERR";
+
+    if (errorBits & buffer_errors::Timeout)
+        buffer << "timeout";
+
+    return buffer.join(",");
+}
+
+QString decode_response_header(u32 header)
+{
+    QString result;
+    QTextStream ss(&result);
+    u8 type = (header >> buffer_headers::TypeShift) & buffer_headers::TypeMask;
+    u16 len = header & buffer_headers::LengthMask;
+
+    switch (type)
+    {
+        case buffer_headers::SuperBuffer:
+            ss << "Super Buffer (len=" << len;
+            break;
+
+        case buffer_headers::StackBuffer:
+            ss << "Stack Result Buffer (len=" << len;
+            break;
+
+        case buffer_headers::BlockRead:
+            ss << "Block Read Buffer (len=" << len;
+            break;
+
+        case buffer_headers::StackError:
+            ss << "Stack Error Buffer (len=" << len;
+            break;
+
+        default:
+            return result;
+    }
+
+    switch (type)
+    {
+        case buffer_headers::StackBuffer:
+        case buffer_headers::BlockRead:
+        case buffer_headers::StackError:
+            {
+                u16 stackNum = (header >> buffer_headers::StackNumShift) & buffer_headers::StackNumMask;
+                ss << ", stackNum=" << stackNum;
+            }
+            break;
+    }
+
+    u8 errorBits = (header >> buffer_headers::ErrorShift) & buffer_headers::ErrorMask;
+
+    ss << ", errorBits=" << format_buffer_error_bits(errorBits) << ")";
+
+    return result;
+}
+
 void log_buffer(const u32 *buffer, size_t size, const std::string &info)
 {
     using std::cout;

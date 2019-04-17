@@ -67,7 +67,7 @@ namespace commands
     };
 };
 
-namespace buffer_types
+namespace buffer_headers
 {
     enum BufferTypes: u8
     {
@@ -77,7 +77,27 @@ namespace buffer_types
         StackError  = 0xF7,
     };
 
-    static const u8 TypeShift = 24;
+    // Header: Type[7:0] Error[3:0] StackNum[3:0] Length[15:0]
+
+    static const u32 TypeShift = 24;
+    static const u32 TypeMask  = 0xff;
+
+    static const u8 ErrorMask  = 0xf;
+    static const u8 ErrorShift = 20;
+
+    static const u32 StackNumShift = 16;
+    static const u32 StackNumMask  = 0xf;
+
+    static const u32 LengthShift = 0;
+    static const u32 LengthMask = 0xffff;
+}
+
+namespace buffer_errors
+{
+    static const u8 Timeout     = 1 << 0;
+    static const u8 BusError    = 1 << 1;
+    static const u8 SyntaxError = 1 << 2;
+    static const u8 Continue    = 1 << 3;
 }
 
 enum VMEDataWidth

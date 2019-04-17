@@ -144,7 +144,7 @@ std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
     if (auto ec = readWords(&header, 1, wordsTransferred))
         return ec;
 
-    if (!is_known_buffer(header))
+    if (!is_known_buffer_header(header))
         return make_error_code(MVLCErrorCode::InvalidBufferHeader);
 
     u16 responseLength = (header & BufferSizeMask);

@@ -64,10 +64,10 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         std::error_code readRegisterBlock(u16 address, u16 words,
                                           QVector<u32> &dest);
         //
-        // Higher level direct VME access using Stack0 and immeidate exec.
+        // Higher level direct VME access using Stack0 and immediate exec.
         //
-        // Note: Stack0 is used and the stack is written starting from
-        // offset 0 into stack memory.
+        // Note: Stack0 is used and the stack is written starting from offset 0
+        // into stack memory. The output is sent to pipe 0, the command pipe.
         std::error_code vmeSingleRead(u32 address, u32 &value, u8 amod, VMEDataWidth dataWidth);
 
         std::error_code vmeSingleWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
