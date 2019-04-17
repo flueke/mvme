@@ -21,7 +21,7 @@
 #ifndef VMECONTROLLER_H
 #define VMECONTROLLER_H
 
-#include "libmvme_export.h"
+#include "libmvme_core_export.h"
 #include "vme.h"
 #include "globals.h"
 #include <QObject>
@@ -42,7 +42,7 @@ enum class VMEControllerType
  *
  */
 
-class LIBMVME_EXPORT VMEError
+class LIBMVME_CORE_EXPORT VMEError
 {
     public:
         enum ErrorType
@@ -132,7 +132,7 @@ class LIBMVME_EXPORT VMEError
         std::error_code m_stdErrorCode;
 };
 
-class LIBMVME_EXPORT VMEController: public QObject
+class LIBMVME_CORE_EXPORT VMEController: public QObject
 {
     Q_OBJECT
     signals:
@@ -163,9 +163,9 @@ class LIBMVME_EXPORT VMEController: public QObject
         virtual QString getIdentifyingString() const = 0;
 };
 
-QString LIBMVME_EXPORT to_string(VMEControllerType type);
-VMEControllerType LIBMVME_EXPORT from_string(const QString &str);
+QString LIBMVME_CORE_EXPORT to_string(VMEControllerType type);
+VMEControllerType LIBMVME_CORE_EXPORT from_string(const QString &str);
 
-QString LIBMVME_EXPORT to_string(ControllerState state);
+QString LIBMVME_CORE_EXPORT to_string(ControllerState state);
 
 #endif // VMECONTROLLER_H

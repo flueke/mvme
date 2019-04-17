@@ -21,8 +21,6 @@
 #ifndef __QT_UTIL_H__
 #define __QT_UTIL_H__
 
-#include "typedefs.h"
-
 #include <memory>
 #include <QEventLoop>
 #include <QFormLayout>
@@ -37,7 +35,8 @@
 #include <QToolBar>
 #include <QToolButton>
 
-#include "libmvme_export.h"
+#include "libmvme_core_export.h"
+#include "typedefs.h"
 
 #define QSL(str) QStringLiteral(str)
 
@@ -63,7 +62,7 @@ class WidgetGeometrySaver: public QObject
         QHash<QWidget *, QString> m_widgetKeys;
 };
 
-LIBMVME_EXPORT QAction *
+LIBMVME_CORE_EXPORT QAction *
 add_widget_close_action(QWidget *widget,
                         const QKeySequence &shortcut = QKeySequence(QSL("Ctrl+W")),
                         Qt::ShortcutContext shortcutContext = Qt::WidgetWithChildrenShortcut);
@@ -99,7 +98,7 @@ void show_and_activate(QWidget *widget);
 
 QString get_bitness_string();
 
-LIBMVME_EXPORT QFont make_monospace_font(QFont baseFont = QFont());
+LIBMVME_CORE_EXPORT QFont make_monospace_font(QFont baseFont = QFont());
 
 void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
 void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
@@ -185,6 +184,6 @@ LayoutType *make_layout(QWidget *widget = nullptr)
     return ret;
 };
 
-LIBMVME_EXPORT int calculate_tab_width(const QFont &font, int tabStop = 4);
+LIBMVME_CORE_EXPORT int calculate_tab_width(const QFont &font, int tabStop = 4);
 
 #endif /* __QT_UTIL_H__ */

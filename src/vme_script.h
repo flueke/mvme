@@ -21,7 +21,7 @@
 #ifndef __VME_SCRIPT_QT_H__
 #define __VME_SCRIPT_QT_H__
 
-#include "libmvme_export.h"
+#include "libmvme_core_export.h"
 #include "vme_controller.h"
 
 #include <cstdint>
@@ -104,12 +104,12 @@ struct Command
     s32 lineNumber = 0;
 };
 
-LIBMVME_EXPORT QString to_string(CommandType commandType);
-LIBMVME_EXPORT CommandType commandType_from_string(const QString &str);
-LIBMVME_EXPORT QString to_string(u8 addressMode);
-LIBMVME_EXPORT QString to_string(DataWidth dataWidth);
-LIBMVME_EXPORT QString to_string(const Command &cmd);
-LIBMVME_EXPORT QString format_hex(uint32_t value);
+LIBMVME_CORE_EXPORT QString to_string(CommandType commandType);
+LIBMVME_CORE_EXPORT CommandType commandType_from_string(const QString &str);
+LIBMVME_CORE_EXPORT QString to_string(u8 addressMode);
+LIBMVME_CORE_EXPORT QString to_string(DataWidth dataWidth);
+LIBMVME_CORE_EXPORT QString to_string(const Command &cmd);
+LIBMVME_CORE_EXPORT QString format_hex(uint32_t value);
 
 using VMEScript = QVector<Command>;
 
@@ -135,12 +135,12 @@ struct ParseError
     int lineNumber;
 };
 
-VMEScript LIBMVME_EXPORT parse(QFile *input, uint32_t baseAddress = 0);
-VMEScript LIBMVME_EXPORT parse(const QString &input, uint32_t baseAddress = 0);
-VMEScript LIBMVME_EXPORT parse(QTextStream &input, uint32_t baseAddress = 0);
-VMEScript LIBMVME_EXPORT parse(const std::string &input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_CORE_EXPORT parse(QFile *input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_CORE_EXPORT parse(const QString &input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_CORE_EXPORT parse(QTextStream &input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_CORE_EXPORT parse(const std::string &input, uint32_t baseAddress = 0);
 
-class LIBMVME_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
+class LIBMVME_CORE_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
 {
     using QSyntaxHighlighter::QSyntaxHighlighter;
 
@@ -148,7 +148,7 @@ class LIBMVME_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
         virtual void highlightBlock(const QString &text) override;
 };
 
-struct LIBMVME_EXPORT Result
+struct LIBMVME_CORE_EXPORT Result
 {
     VMEError error;
     uint32_t value;
@@ -159,15 +159,15 @@ struct LIBMVME_EXPORT Result
 typedef QVector<Result> ResultList;
 typedef std::function<void (const QString &)> LoggerFun;
 
-LIBMVME_EXPORT ResultList run_script(VMEController *controller,
+LIBMVME_CORE_EXPORT ResultList run_script(VMEController *controller,
                                      const VMEScript &script,
                                      LoggerFun logger = LoggerFun(), bool logEachResult=false);
 
-LIBMVME_EXPORT Result run_command(VMEController *controller,
+LIBMVME_CORE_EXPORT Result run_command(VMEController *controller,
                                   const Command &cmd,
                                   LoggerFun logger = LoggerFun());
 
-LIBMVME_EXPORT QString format_result(const Result &result);
+LIBMVME_CORE_EXPORT QString format_result(const Result &result);
 
 } // namespace vme_script
 

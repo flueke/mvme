@@ -580,7 +580,7 @@ VMEScript parse(const QString &input, uint32_t baseAddress)
     return parse(stream, baseAddress);
 }
 
-VMEScript LIBMVME_EXPORT parse(const std::string &input, uint32_t baseAddress)
+VMEScript parse(const std::string &input, uint32_t baseAddress)
 {
     auto qStr = QString::fromStdString(input);
     return parse(qStr, baseAddress);

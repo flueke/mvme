@@ -21,11 +21,6 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include "libmvme_export.h"
-#include "typedefs.h"
-#include "qt_util.h"
-#include "util/assert.h"
-
 #include <QMetaType>
 #include <QPair>
 #include <QVariant>
@@ -37,6 +32,11 @@
 #include <memory>
 #include <stdexcept>
 
+#include "libmvme_core_export.h"
+#include "typedefs.h"
+#include "qt_util.h"
+#include "util/assert.h"
+
 #define ArrayCount(a) (sizeof(a) / sizeof((a)[0]))
 
 // Allows storing std::shared_ptr to QObject or derived inside QVariant.
@@ -44,11 +44,11 @@ Q_DECLARE_SMART_POINTER_METATYPE(std::shared_ptr);
 
 class QTextStream;
 
-LIBMVME_EXPORT void qDebugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
-LIBMVME_EXPORT QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
+LIBMVME_CORE_EXPORT void qDebugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
+LIBMVME_CORE_EXPORT QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
 
-LIBMVME_EXPORT QVector<u32> parseStackFile(QTextStream &input);
-LIBMVME_EXPORT QVector<u32> parseStackFile(const QString &input);
+LIBMVME_CORE_EXPORT QVector<u32> parseStackFile(QTextStream &input);
+LIBMVME_CORE_EXPORT QVector<u32> parseStackFile(const QString &input);
 
 typedef QPair<u32, QVariant> RegisterSetting; // (addr, value)
 typedef QVector<RegisterSetting> RegisterList;
@@ -61,8 +61,8 @@ inline bool isFloat(const QVariant &var)
     return (static_cast<QMetaType::Type>(var.type()) == QMetaType::Float);
 }
 
-LIBMVME_EXPORT QString toString(const RegisterList &registerList);
-LIBMVME_EXPORT QStringList toStringList(const RegisterList &registerList);
+LIBMVME_CORE_EXPORT QString toString(const RegisterList &registerList);
+LIBMVME_CORE_EXPORT QStringList toStringList(const RegisterList &registerList);
 
 class end_of_buffer: public std::exception {};
 
@@ -257,7 +257,7 @@ QVariant Ptr2Var(T *ptr)
     return QVariant::fromValue(static_cast<void *>(ptr));
 }
 
-LIBMVME_EXPORT QString makeDurationString(qint64 durationSeconds);
+LIBMVME_CORE_EXPORT QString makeDurationString(qint64 durationSeconds);
 
 /** Emits aboutToClose() before returning from closeEvent() */
 class MVMEWidget: public QWidget
@@ -295,7 +295,7 @@ QPair<double, QString> byte_unit(size_t bytes);
 
 //QString format_memory_size(size_t bytes);
 
-LIBMVME_EXPORT void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun);
+LIBMVME_CORE_EXPORT void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun);
 
 static constexpr double make_quiet_nan()
 {
@@ -310,7 +310,7 @@ inline constexpr size_t Gigabytes(size_t x) { return Megabytes(x) * 1024; }
 #define InvalidDefaultCase default: { Q_ASSERT(!"invalid default case"); }
 
 template<typename Code>
-struct LIBMVME_EXPORT ReadResultBase
+struct LIBMVME_CORE_EXPORT ReadResultBase
 {
     typedef Code CodeType;
 

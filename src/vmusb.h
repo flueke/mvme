@@ -17,9 +17,10 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-#ifndef VMUSB_H
-#define VMUSB_H
+#ifndef MVME_VMUSB_H
+#define MVME_VMUSB_H
 
+#include "libmvme_core_export.h"
 #include "util.h"
 #include "vme_controller.h"
 #include "vmusb_constants.h"
@@ -309,4 +310,4 @@ QList<u32> getRegisterAddresses();
 typedef std::function<void (const QString &)> Dumper;
 void dump_registers(VMUSB *vmusb, Dumper dumper);
 
-#endif
+#endif /* MVME_VMUSB_H */

@@ -35,7 +35,7 @@ QString to_string(VMEControllerType type)
     return QString();
 }
 
-QString LIBMVME_EXPORT to_string(ControllerState state)
+QString to_string(ControllerState state)
 {
     switch (state)
     {

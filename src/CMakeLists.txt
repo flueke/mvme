@@ -86,20 +86,123 @@ endif()
 configure_file("build_info.cc.in" "build_info.cc" @ONLY)
 
 #
-# liba2
+# liba2 - Analysis runtime system
 #
 add_subdirectory(analysis/a2)
 include_directories(analysis/a2)
 
+# Enable WIENER VMUSB support using libusb0. This can be changed to make use of
+# libusb1.
+add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
+
+#
+# libmvme_core
+#
+add_library(libmvme_core SHARED)
+set_target_properties(libmvme_core PROPERTIES OUTPUT_NAME mvme_core)
+
+qt5_use_modules(libmvme_core Concurrent Gui Network Widgets)
+qt5_add_resources(LIBMVME_CORE_RC_OUT resources.qrc)
+
+generate_export_header(libmvme_core)
+
+target_sources(libmvme_core PRIVATE
+    "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
+    "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
+    ${LIBMVME_CORE_RC_OUT}
+    CVMUSBReadoutList.cpp
+    qt_util.cc
+    util.cc
+    vme_controller.cpp
+    vme_script.cc
+    vmusb.cpp
+)
+
+target_include_directories(libmvme_core PRIVATE ${LIBUSB_INCLUDE_PATH})
+target_link_libraries(libmvme_core ${LIBUSB_LIBRARY})
+install(TARGETS libmvme_core DESTINATION .)
+
+#
+# libmvme_mvlc - MVLC support
+#
+if(MVME_ENABLE_MVLC)
+    # libmvme_mvlc
+    add_library(libmvme_mvlc SHARED)
+    set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
+    target_link_libraries(libmvme_mvlc libmvme_core ftd3xx)
+
+    qt5_use_modules(libmvme_mvlc Concurrent Gui Network Widgets)
+    qt5_wrap_ui(LIBMVME_MVLC_UIC_OUT vme_debug_widget.ui)
+
+    generate_export_header(libmvme_mvlc)
+
+    target_sources(libmvme_mvlc PRIVATE
+        mvlc/mvlc_basic_mvlc.cc
+        mvlc/mvlc_dialog.cc
+        mvlc/mvlc_error.cc
+        mvlc/mvlc_impl_factory.cc
+        mvlc/mvlc_impl_udp.cc
+        mvlc/mvlc_impl_usb.cc
+        mvlc/mvlc_qt_object.cc
+        mvlc/mvlc_script.cc
+        mvlc/mvlc_util.cc
+        mvlc/mvlc_vme_debug_widget.cc
+        ${LIBMVME_MVLC_UIC_OUT}
+        )
+
+    install(TARGETS libmvme_mvlc DESTINATION .)
+
+    # mvlc_dev_gui
+    add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
+    qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
+    target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
+    target_link_libraries(mvlc_dev_gui libmvme_mvlc)
+
+    # mvlc_dev_win_usb_debug
+    if (WIN32)
+        add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
+        target_link_libraries(mvlc_dev_win_usb_debug libmvme_mvlc)
+    endif (WIN32)
+
+    add_executable(dev_ftdi_list_devices mvlc/dev_ftdi_list_devices)
+    target_link_libraries(dev_ftdi_list_devices ftd3xx)
+
+    add_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
+    target_link_libraries(dev_test_mvlc_usb_impl libmvme_mvlc)
+
+    add_executable(dev_test_mvlc_udp_impl mvlc/dev_test_mvlc_udp_impl.cc)
+    target_link_libraries(dev_test_mvlc_udp_impl libmvme_mvlc)
+
+    install(TARGETS mvlc_dev_gui dev_test_mvlc_usb_impl dev_test_mvlc_udp_impl
+        DESTINATION .)
+
+    if(BUILD_TESTS)
+        function(add_mvlc_gtest exe_name exe_source)
+            add_executable(${exe_name} ${exe_source})
+            add_dependencies(${exe_name} libmvme_mvlc)
+            target_link_libraries(${exe_name} libmvme_mvlc gtest gtest_main)
+            add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+        endfunction(add_mvlc_gtest)
+        add_mvlc_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
+        add_mvlc_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
+    endif(BUILD_TESTS)
+endif(MVME_ENABLE_MVLC)
+
 #
 # libmvme
 #
-add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
+add_library(libmvme SHARED)
+set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
+generate_export_header(libmvme)
 
-set(LIBMVME_SOURCES
-    "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
-    "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
+qt5_use_modules(libmvme Concurrent Gui Network Widgets)
+qt5_wrap_ui(LIBMVME_UIC_OUT mesytec_diagnostics.ui vme_debug_widget.ui)
+
+target_sources(libmvme PRIVATE
+    #"${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
+    #"${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
     "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
+    ${LIBMVME_UIC_OUT}
 
     analysis/a2_adapter.cc
     analysis/analysis.cc
@@ -124,7 +227,6 @@ set(LIBMVME_SOURCES
     analysis/ui_lib.cc
     event_server/server/event_server_util.cc
     event_server/server/event_server.cc
-    CVMUSBReadoutList.cpp
     daqcontrol.cc
     daqcontrol_widget.cc
     daqstats_widget.cc
@@ -154,7 +256,6 @@ set(LIBMVME_SOURCES
     mvme_stream_processor.cc
     mvme_stream_util.cc
     mvme_stream_worker.cc
-    qt_util.cc
     rate_monitor_base.cc
     rate_monitor_gui.cc
     rate_monitor_plot_widget.cc
@@ -170,23 +271,19 @@ set(LIBMVME_SOURCES
     template_system.cc
     timed_block.cc
     treewidget_utils.cc
-    util.cc
     util/strings.cc
     util_zip.cc
     vme_analysis_common.cc
     vme_config.cc
     vme_config_tree.cc
     vme_config_ui.cc
-    vme_controller.cpp
     vme_controller_factory.cc
     vme_controller_ui.cc
     vme_debug_widget.cc
     vme_daq.cc
     vme_readout_worker.cc
-    vme_script.cc
     vme_script_editor.cc
     vmusb_buffer_processor.cc
-    vmusb.cpp
     vmusb_firmware_loader.cc
     vmusb_readout_worker.cc
     vmusb_skipHeader.cpp
@@ -194,52 +291,28 @@ set(LIBMVME_SOURCES
     vmusb_util.cc
     )
 
-qt5_wrap_ui(LIBMVME_UIC_OUT
-    mesytec_diagnostics.ui
-    vme_debug_widget.ui
-    )
-
-qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
-
-add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
-add_dependencies(libmvme liba2_static)
-generate_export_header(libmvme)
-set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
-
-qt5_use_modules(libmvme
-  Concurrent
-  Gui
-  Network
-  Widgets
-  )
-
-if (WIN32)
-    list(APPEND LIBMVME_ADDITIONAL_LIBS ws2_32)
-endif()
-
-include_directories(${LIBUSB_INCLUDE_PATH})
-
-
 target_link_libraries(libmvme
+    libmvme_core
     ${QUAZIP_QT5}
     ${QWT_LIBRARY}
-    ${LIBUSB_LIBRARY}
-    ${LIBMVME_ADDITIONAL_LIBS}
     liba2_static
     Threads::Threads
     jcon
     )
+
+if (WIN32)
+    target_link_libraries(libmvme ws2_32)
+endif()
+
+if (MVME_ENABLE_MVLC)
+    target_link_libraries(libmvme libmvme_mvlc)
+endif()
 
 install(TARGETS libmvme DESTINATION .)
 
 #
 # mvme - the main GUI binary
 #
-set(MVME_SOURCES
-    main.cpp
-    mvme.rc
-    )
-
 if (CMAKE_BUILD_TYPE MATCHES "^Release$")
     add_executable(mvme WIN32 ${MVME_SOURCES})
 else()
@@ -247,7 +320,7 @@ else()
     add_executable(mvme ${MVME_SOURCES})
 endif()
 
-add_dependencies(mvme libmvme)
+target_sources(mvme PRIVATE main.cpp mvme.rc)
 
 qt5_use_modules(mvme
   Concurrent
@@ -255,16 +328,14 @@ qt5_use_modules(mvme
   Widgets
   )
 
-target_link_libraries(mvme
-    libmvme
-    )
+target_link_libraries(mvme libmvme)
 
 install(TARGETS mvme DESTINATION .)
 
 # Helper for additional utility / debug binaries and alternative launchers.
 function(add_mvme_executable exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
-    add_dependencies(${exe_name} libmvme)
+    #add_dependencies(${exe_name} libmvme)
     target_link_libraries(${exe_name} libmvme)
 endfunction(add_mvme_executable)
 
@@ -354,64 +425,6 @@ if(BUILD_TESTS)
 
 endif(BUILD_TESTS)
 
-# MVLC support
-if(MVME_ENABLE_MVLC)
-    # libmvme_mvlc
-    add_library(libmvme_mvlc SHARED)
-    target_sources(libmvme_mvlc PRIVATE
-        mvlc/mvlc_basic_mvlc.cc
-        mvlc/mvlc_dialog.cc
-        mvlc/mvlc_error.cc
-        mvlc/mvlc_impl_factory.cc
-        mvlc/mvlc_impl_udp.cc
-        mvlc/mvlc_impl_usb.cc
-        mvlc/mvlc_qt_object.cc
-        mvlc/mvlc_script.cc
-        mvlc/mvlc_util.cc
-        mvlc/mvlc_vme_debug_widget.cc
-        )
-
-    target_link_libraries(libmvme_mvlc libmvme ftd3xx)
-    generate_export_header(libmvme_mvlc)
-    set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
-
-    # mvlc_dev_gui
-    add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
-    qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
-    target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
-    target_link_libraries(mvlc_dev_gui libmvme_mvlc)
-
-    # mvlc_dev_win_usb_debug
-    if (WIN32)
-        add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
-        target_link_libraries(mvlc_dev_win_usb_debug libmvme_mvlc)
-    endif (WIN32)
-
-    add_executable(dev_ftdi_list_devices mvlc/dev_ftdi_list_devices)
-    target_link_libraries(dev_ftdi_list_devices ftd3xx)
-
-    add_mvme_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
-    target_link_libraries(dev_test_mvlc_usb_impl libmvme_mvlc)
-
-    add_mvme_executable(dev_test_mvlc_udp_impl mvlc/dev_test_mvlc_udp_impl.cc)
-    target_link_libraries(dev_test_mvlc_udp_impl libmvme_mvlc)
-
-    install(TARGETS mvlc_dev_gui dev_test_mvlc_usb_impl dev_test_mvlc_udp_impl
-        DESTINATION .)
-
-#    add_mvme_executable(mvlc_mvme mvlc/mvlc_mvme.cc)
-#
-    if(BUILD_TESTS)
-        function(add_mvlc_gtest exe_name exe_source)
-            add_executable(${exe_name} ${exe_source})
-            add_dependencies(${exe_name} libmvme_mvlc)
-            target_link_libraries(${exe_name} libmvme_mvlc gtest gtest_main)
-            add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
-        endfunction(add_mvlc_gtest)
-        add_mvlc_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
-        add_mvlc_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
-    endif(BUILD_TESTS)
-endif(MVME_ENABLE_MVLC)
 
 
 # vim:tw=0
