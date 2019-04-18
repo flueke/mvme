@@ -270,8 +270,8 @@ void MVLCDataReader::readoutLoop()
 
         if (m_readBuffer.used > 0 && m_stackFrameCheckEnabled)
         {
-            QMutexLocker guard(&m_statsMutex);
             auto checkResult = frame_check(m_readBuffer, m_frameCheckData);
+            QMutexLocker guard(&m_statsMutex);
             m_stats.counters[ReaderStats::FramesSeen] = m_frameCheckData.framesChecked;
             m_stats.counters[ReaderStats::FramesWithContinueFlag] =
                 m_frameCheckData.framesWithContinueFlag;
@@ -294,7 +294,9 @@ void MVLCDataReader::readoutLoop()
                 emit message(QSL("!!! !!! !!!"));
             }
             else if (checkResult == FrameCheckResult::NeedMoreData)
+            {
                 ++m_stats.counters[ReaderStats::FramesCrossingBuffers];
+            }
         }
 
         if (m_nextBufferRequested && m_readBuffer.used > 0)
@@ -495,7 +497,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
                     // buffer but only if it has not been logged yet.
                     logBuffer(cmdBuffer, "Outgoing Request Buffer");
                 }
-                logBuffer(responseBuffer, "Incoming Erroneous Mirror Buffer");
+                logBuffer(responseBuffer, "Incoming erroneous Mirror Buffer");
                 return;
             }
 
