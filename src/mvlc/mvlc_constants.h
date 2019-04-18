@@ -236,8 +236,8 @@ static const unsigned PipeCount = 2;
 static const u8 CommandPipe = 0;
 static const u8 DataPipe = 1;
 
-static const unsigned DefaultWriteTimeout_ms = 1000;
-static const unsigned DefaultReadTimeout_ms  = 1000;
+static const unsigned DefaultWriteTimeout_ms = 250;
+static const unsigned DefaultReadTimeout_ms  = 250;
 
 enum class ConnectionType
 {
