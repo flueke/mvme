@@ -75,7 +75,6 @@ message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 # git version information is contained in its own translation unit. Allows for
 # quick build + relink on version change.
 configure_file("git_sha1.cc.in" "git_sha1.cc" @ONLY)
-add_definitions(-DMVME_USE_GIT_VERSION_FILE)
 
 # make build info available to the program
 set(BUILD_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -345,7 +344,6 @@ install(TARGETS mvme DESTINATION .)
 # Helper for additional utility / debug binaries and alternative launchers.
 function(add_mvme_executable exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
-    #add_dependencies(${exe_name} libmvme)
     target_link_libraries(${exe_name} libmvme)
 endfunction(add_mvme_executable)
 

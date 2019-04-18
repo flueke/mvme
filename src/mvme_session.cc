@@ -8,9 +8,7 @@
 #include "mvme_stream_worker.h"
 #include "vme_controller.h"
 
-#ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
-#endif
 #include "build_info.h"
 #include "analysis/analysis_session.h"
 

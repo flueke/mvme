@@ -41,9 +41,7 @@
 #include "vmusb.h"
 #include "vmusb_readout_worker.h"
 
-#ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
-#endif
 
 #include <QHostAddress>
 #include <QMessageBox>

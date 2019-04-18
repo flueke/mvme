@@ -48,6 +48,7 @@
 
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
+#include "git_sha1.h"
 #include "histo1d_widget.h"
 #include "histo_gui_util.h"
 #include "mvme_context.h"
@@ -55,11 +56,6 @@
 #include "qt_util.h"
 #include "scrollzoomer.h"
 #include "util.h"
-
-
-#ifdef MVME_USE_GIT_VERSION_FILE
-#include "git_sha1.h"
-#endif
 
 static const s32 ReplotPeriod_ms = 1000;
 

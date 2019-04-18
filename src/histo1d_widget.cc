@@ -66,9 +66,7 @@
 #include "scrollzoomer.h"
 #include "util.h"
 
-#ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
-#endif
 
 // TODO Mon Nov 26 2018
 // 1) Combine sink, calibration, context, etc. Having those set on the widget

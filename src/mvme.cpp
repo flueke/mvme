@@ -45,9 +45,7 @@
 #include "vme_script_editor.h"
 #include "vmusb_firmware_loader.h"
 
-#ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
-#endif
 #include "build_info.h"
 
 #include <QApplication>
