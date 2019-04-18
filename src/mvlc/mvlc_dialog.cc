@@ -166,12 +166,13 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
 {
     assert(bhv);
 
+    // Read buffers until we receive one that is not a stack error notification.
     while (true)
     {
         if (auto ec = readKnownBuffer(dest))
             return ec;
 
-        assert(!dest.isEmpty());
+        assert(!dest.isEmpty()); // readKnownBuffer() should have returned an error
         if (dest.isEmpty())
             return make_error_code(MVLCErrorCode::ShortRead);
 

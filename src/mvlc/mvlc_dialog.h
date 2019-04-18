@@ -29,8 +29,8 @@ class MVLCDialog
                                           QVector<u32> &dest);
 
         // Higher level VME access
-        // Note: Stack0 is used and the stack is written starting from
-        // offset 0 into stack memory.
+        // Note: Stack0 is used for the VME commands and the stack is written
+        // starting from offset 0 into stack memory.
         std::error_code vmeSingleRead(u32 address, u32 &value, u8 amod,
                                       VMEDataWidth dataWidth);
 
@@ -43,8 +43,14 @@ class MVLCDialog
         // Lower level utilities
 
         // Read a full response buffer into dest. The buffer header is passed
-        // to the validator before attempting to read the rest of the response.
-        // If validation fails no more data is read.
+        // to the BufferHeaderValidator and MVLCErrorCode::InvalidBufferHeader
+        // is returned if the validation fails (in this case the data will
+        // still be available in the dest buffer for inspection).
+        //
+        // Note: internally buffers are read from the MVLC until a
+        // non-stack_error_notification type buffer is read. All error
+        // notifications received up to that point are saved and can be queried
+        // using getStackErrorNotifications().
         std::error_code readResponse(BufferHeaderValidator bhv, QVector<u32> &dest);
 
         // Send the given cmdBuffer to the MVLC, reads and verifies the mirror
@@ -59,11 +65,10 @@ class MVLCDialog
         std::error_code stackTransaction(const QVector<u32> &stackUploadData,
                                          QVector<u32> &responseDest);
 
-        // Returns the response buffer which will contain the contents of the
-        // last read from the MVLC.
-        // After mirrorTransaction() the buffer will contain the mirror
-        // response. After stackTransaction() the buffer will contain the
-        // response from executing the stack.
+        // Returns the response buffer used internally by readRegister(),
+        // readRegisterBlock(), writeRegister(), vmeSingleWrite() and
+        // vmeSingleRead().
+        // The buffer will contain the last data received from the MVLC.
         QVector<u32> getResponseBuffer() const { return m_responseBuffer; }
 
         QVector<QVector<u32>> getStackErrorNotifications() const
