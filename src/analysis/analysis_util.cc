@@ -25,9 +25,14 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
          * passed to Analysis::read().  It is assumed that the default filters
          * shipped with mvme are in the latest format (or a format that does
          * not need a VMEConfig to be upconverted). */
-        auto readResult = filterAnalysis.read(doc.object()[QSL("AnalysisNG")].toObject());
 
-        if (readResult)
+        if (auto ec = filterAnalysis.read(doc.object()[QSL("AnalysisNG")].toObject()))
+        {
+            QMessageBox::critical(nullptr,
+                                  QSL("Error loading default filters"),
+                                  ec.message().c_str());
+        }
+        else
         {
             for (auto source: filterAnalysis.getSources())
             {
@@ -41,13 +46,6 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
             qSort(result.begin(), result.end(), [](const auto &a, const auto &b) {
                 return a->objectName() < b->objectName();
             });
-        }
-        else
-        {
-            readResult.errorData["Source file"] = filtersFile.fileName();
-            QMessageBox::critical(nullptr,
-                                  QSL("Error loading default filters"),
-                                  readResult.toRichText());
         }
     }
 

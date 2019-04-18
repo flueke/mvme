@@ -2131,14 +2131,15 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
     }
 
     auto analysis_ng = std::make_unique<Analysis>();
-    auto readResult = analysis_ng->read(json, getVMEConfig());
 
-    if (!readResult)
+    if (auto ec = analysis_ng->read(json, getVMEConfig()))
     {
-        readResult.errorData["Source file"] = inputInfo;
         QMessageBox::critical(nullptr,
                               QSL("Error loading analysis"),
-                              readResult.toRichText());
+                              QSL("Error loading analysis from file %1: %2")
+                              .arg(inputInfo)
+                              .arg(ec.message().c_str()));
+
         return false;
     }
 

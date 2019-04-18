@@ -1733,6 +1733,24 @@ struct AnalysisObjectStore;
 
 using ConditionLinks = QHash<OperatorPtr, ConditionLink>;
 
+enum class AnalysisReadResult
+{
+    NoError,
+    VersionTooNew
+};
+
+LIBMVME_EXPORT std::error_code make_error_code(AnalysisReadResult r);
+
+} // end namespace analysis
+
+namespace std
+{
+    template<> struct is_error_code_enum<analysis::AnalysisReadResult>: true_type {};
+} // end namespace std
+
+namespace analysis
+{
+
 class LIBMVME_EXPORT Analysis: public QObject
 {
     Q_OBJECT
@@ -1937,15 +1955,8 @@ class LIBMVME_EXPORT Analysis: public QObject
         //
         // Serialization
         //
-        enum ReadResultCodes
-        {
-            NoError = 0,
-            VersionTooNew
-        };
 
-        using ReadResult = ReadResultBase<ReadResultCodes>;
-
-        ReadResult read(const QJsonObject &json, const VMEConfig *vmeConfig = nullptr);
+        std::error_code read(const QJsonObject &json, const VMEConfig *vmeConfig = nullptr);
         void write(QJsonObject &json) const;
 
         /* Object flags containing system internal information. */

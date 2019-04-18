@@ -100,7 +100,7 @@ void process_listfile(Context &context, ListFile *listfile)
     counters.stopTime = QDateTime::currentDateTime();
 }
 
-void load_analysis_config(const QString &filename, Analysis *analysis, VMEConfig *vmeConfig = nullptr)
+std::error_code load_analysis_config(const QString &filename, Analysis *analysis, VMEConfig *vmeConfig = nullptr)
 {
     assert(analysis);
     QFile infile(filename);
@@ -117,12 +117,7 @@ void load_analysis_config(const QString &filename, Analysis *analysis, VMEConfig
         json = json["AnalysisNG"].toObject();
     }
 
-    auto readResult = analysis->read(json, vmeConfig);
-
-    if (!readResult)
-    {
-        throw readResult.toRichText();
-    }
+    return analysis->read(json, vmeConfig);
 }
 
 } // end anon namespace
@@ -252,7 +247,10 @@ int main(int argc, char *argv[])
 
             if (!analysisFilename.isEmpty())
             {
-                load_analysis_config(analysisFilename, analysis.get(), vmeConfig.get());
+                if (auto ec = load_analysis_config(analysisFilename, analysis.get(), vmeConfig.get()))
+                {
+                    throw std::system_error(ec);
+                }
             }
 
             context.runInfo.runId = QFileInfo(listfileFilename).completeBaseName();
@@ -338,6 +336,10 @@ int main(int argc, char *argv[])
             cout << "failed to open" << failedToOpen.size() << "files";
         }
 
+    }
+    catch (const std::system_error &e)
+    {
+        cerr << e.code().message() << endl;
     }
     catch (const std::exception &e)
     {
