@@ -252,19 +252,26 @@ static Command handle_stack_command(const QVector<PreparsedLine> &lines,
 
             if (keyword == "output")
             {
-                if (value == "command")
+                if (value == "command" || value == "cmd")
                     result.stack.outputPipe = mesytec::mvlc::CommandPipe;
                 else if (value == "data")
                     result.stack.outputPipe = mesytec::mvlc::DataPipe;
                 else
                 {
-                    u8 outputPipe = parseValue<u8>(value);
+                    try
+                    {
+                        u8 outputPipe = parseValue<u8>(value);
 
-                    if (outputPipe > DataPipe)
-                        throw QString("invalid output pipe specified "
-                                      "(must be 0/1 or 'command'/'data')");
+                        if (outputPipe > DataPipe)
+                            throw QString("invalid output pipe specified "
+                                          "(must be 0/1 or 'command'/'data')");
 
-                    result.stack.outputPipe = outputPipe;
+                        result.stack.outputPipe = outputPipe;
+                    }
+                    catch (const char *) // from parseValue()
+                    {
+                        throw QString("invalid argument to the 'output' option of the 'stack_start' command");
+                    }
                 }
             }
             else if (keyword == "offset")
