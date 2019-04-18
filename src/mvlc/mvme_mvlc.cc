@@ -24,9 +24,14 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setWindowIcon(QIcon(":/window_icon.png"));
-    mvme_init("mvlc_mvme");
+    mvme_init("mvme_mvlc");
 
     // TODO: init things here, open a gui
+
+
+
+
+
 
     int ret = app.exec();
     mvme_shutdown();

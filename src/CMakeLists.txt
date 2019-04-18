@@ -190,6 +190,12 @@ if(MVME_ENABLE_MVLC)
         add_mvlc_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
         add_mvlc_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
     endif(BUILD_TESTS)
+
+    # Standalone mvme-like binary specifically for the mvlc. This is used to
+    # explore how to best integrate the mvlc and improve the mvme codebase as a
+    # whole.
+    add_executable(mvme_mvlc mvlc/mvme_mvlc.cc)
+    target_link_libraries(mvme_mvlc libmvme)
 endif(MVME_ENABLE_MVLC)
 
 #
