@@ -300,7 +300,7 @@ namespace GlobalModeRegister
     static const uint32_t NoIRQHandshake = 0x80000;
 }
 
-uint16_t* LIBMVME_CORE_EXPORT listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
+LIBMVME_CORE_EXPORT uint16_t* listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
                                               size_t* outSize, off_t offset = 0);
 
 QString LIBMVME_CORE_EXPORT getRegisterName(u32 registerAddress);
