@@ -241,6 +241,19 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         QList<ModuleConfig *> modules;
 };
 
+enum class VMEConfigReadResult
+{
+    NoError,
+    VersionTooNew
+};
+
+LIBMVME_EXPORT std::error_code make_error_code(VMEConfigReadResult r);
+
+namespace std
+{
+    template<> struct is_error_code_enum<VMEConfigReadResult>: true_type {};
+} // end namespace std
+
 class LIBMVME_EXPORT VMEConfig: public ConfigObject
 {
     Q_OBJECT
@@ -254,15 +267,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
     public:
         VMEConfig(QObject *parent = 0);
 
-        enum ReadResultCodes
-        {
-            NoError = 0,
-            VersionTooNew
-        };
-
-        using ReadResult = ReadResultBase<ReadResultCodes>;
-
-        ReadResult readVMEConfig(const QJsonObject &json);
+        std::error_code readVMEConfig(const QJsonObject &json);
 
         // events
         void addEventConfig(EventConfig *config);

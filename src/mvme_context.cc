@@ -1046,15 +1046,14 @@ bool MVMEContext::setReplayFile(ListFile *listFile)
 
     auto configJson = listFile->getDAQConfig();
     auto daqConfig = new VMEConfig;
-    auto readResult = daqConfig->readVMEConfig(configJson);
-
-    if (!readResult)
+    if (auto ec = daqConfig->readVMEConfig(configJson))
     {
-        readResult.errorData["Source file"] = listFile->getFullName();
         QMessageBox::critical(nullptr,
                               QSL("Error loading VME config"),
-                              readResult.toRichText());
-        delete listFile;
+                              QSL("Error loading VME config from %1: %2")
+                              .arg(listFile->getFullName())
+                              .arg(ec.message().c_str()));
+        delete listFile; // FIXME: unique_ptr the listfile?
         return false;
     }
 
@@ -2041,14 +2040,13 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
 {
     QJsonDocument doc(gui_read_json_file(fileName));
     auto vmeConfig = new VMEConfig;
-    auto readResult = vmeConfig->readVMEConfig(doc.object()["DAQConfig"].toObject());
-
-    if (!readResult)
+    if (auto ec = vmeConfig->readVMEConfig(doc.object()["DAQConfig"].toObject()))
     {
-        readResult.errorData["Source file"] = fileName;
         QMessageBox::critical(nullptr,
                               QSL("Error loading VME config"),
-                              readResult.toRichText());
+                              QSL("Error loading VME config from file %1: %2")
+                              .arg(fileName)
+                              .arg(ec.message().c_str()));
         return;
     }
 
