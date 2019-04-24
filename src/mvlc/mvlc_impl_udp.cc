@@ -96,6 +96,7 @@ std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
 
     if (res != 0)
         return std::error_code(errno, std::system_category());
+
     return {};
 }
 #else
@@ -108,6 +109,7 @@ std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
 
     if (res != 0)
         return std::error_code(errno, std::system_category());
+
     return {};
 }
 #endif
@@ -171,7 +173,7 @@ std::error_code Impl::connect()
 
     m_cmdSock = -1;
     m_dataSock = -1;
-    m_stats = {};
+    m_pipeStats = {};
 
     // lookup remote host
     // create and bind two UDP sockets on consecutive local ports
@@ -485,6 +487,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
     assert(receiveBuffer.available() == 0);
 
     size_t readCount = 0u;
+    auto &pipeStats = m_pipeStats[pipe];
 
     while (size > 0)
     {
@@ -510,14 +513,13 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         if (ec)
             return ec;
 
-        ++m_stats.receivedPackets;
+        ++pipeStats.receivedPackets;
 
         if (transferred < HeaderBytes)
         {
-            ++m_stats.shortPackets;
-            LOG_WARN("pipe=%u, received data is less than the header size", pipe);
+            ++pipeStats.shortPackets;
+            LOG_WARN("pipe=%u, received data is smaller than the MVLC UDP header size", pipe);
 
-            // Did receive less than the header size
             return make_error_code(MVLCErrorCode::ShortRead);
         }
 
@@ -527,7 +529,6 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         u32 header0 = receiveBuffer.header0();
         u32 header1 = receiveBuffer.header1();
 
-        // TODO: update stats, check packet number for loss, record loss
         u16 packetNumber        = (header0 >> header0::PacketNumberShift)  & header0::PacketNumberMask;
         u16 dataWordCount       = (header0 >> header0::NumDataWordsShift)  & header0::NumDataWordsMask;
         u32 udpTimestamp        = (header1 >> header1::TimestampShift)     & header1::TimestampMask;
@@ -545,29 +546,30 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         LOG_TRACE("pipe=%u, calculated available data words = %u, leftover bytes = %u",
                   pipe, availableDataWords, leftoverBytes);
 
-        m_stats.lastTimestamp = udpTimestamp;
+        pipeStats.lastTimestamp = udpTimestamp;
 
-        if (m_stats.lastPacketNumber < 0)
-        {
-            m_stats.lastPacketNumber = packetNumber;
-        }
-        else
-        {
-            s32 packetDiff = packetNumber - m_stats.lastPacketNumber;
+        LOG_TRACE("pipe=%u, packetNumber=%u, lastPacketNumber=%d",
+                  pipe, packetNumber, pipeStats.lastPacketNumber);
 
-            if (packetDiff == 1)
+        // Initial lastPacketNumber value is -1
+        if (pipeStats.lastPacketNumber >= 0)
+        {
+            s32 packetDiff = packetNumber - pipeStats.lastPacketNumber;
+
+            if (packetDiff >= 1)
             {
-                m_stats.lastPacketNumber = packetNumber;
-            }
-            else if (packetDiff > 1)
-            {
-                m_stats.lostPackets += packetDiff - 1;
-                m_stats.lastPacketNumber = packetNumber;
+                pipeStats.lostPackets += packetDiff - 1;
+                pipeStats.lastPacketNumber = packetNumber;
             }
             else if (packetDiff < 1)
             {
-                m_stats.unorderedPackets++;
+                pipeStats.unorderedPackets++;
+                // keep the higher packet number
             }
+        }
+        else
+        {
+            pipeStats.lastPacketNumber = packetNumber;
         }
 
         copy_and_update();
@@ -577,6 +579,33 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
               pipe, requestedSize, readCount, receiveBuffer.available());
 
     return {};
+}
+
+std::error_code Impl::getReadQueueSize(Pipe pipe_, u32 &dest)
+{
+    auto pipe = static_cast<unsigned>(pipe_);
+    assert(pipe < PipeCount);
+
+    if (pipe < PipeCount)
+        dest = m_receiveBuffers[static_cast<unsigned>(pipe)].available();
+
+    return make_error_code(MVLCErrorCode::InvalidPipe);
+}
+
+PipeStats Impl::getPipeStats(Pipe pipe_) const
+{
+    auto pipe = static_cast<unsigned>(pipe_);
+    assert(pipe < PipeCount);
+
+    if (pipe < PipeCount)
+        return m_pipeStats[pipe];
+
+    return {};
+}
+
+std::array<PipeStats, PipeCount> Impl::getPipeStats() const
+{
+    return m_pipeStats;
 }
 
 } // end namespace udp

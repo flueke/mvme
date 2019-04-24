@@ -34,21 +34,13 @@ namespace udp
 // Do normal error handling on the return value of setsockopt(). Right now it's
 // being asserted.
 //
-// Build a read() that is able to return less data than was received. This
-// means always read into a max MTU sized buffer to make sure a full datagram
-// is received. Then check if the user supplied buffer is shorter than the
-// datagram and if so return only the requested data. In the next read()
-// prepend any buffered data to the result buffer (up to the max size
-// requested). This is IMPORTANT!
-//
-// Make write() enforce that outgoing packet sizes <= the max datagram size.
-// Jumbo Frames don't need to be taken into account here as everything has to
-// work without Jumbos enabled.
-struct Stats
+struct PipeStats
 {
+    // TODO: move to own struct. this is connection/pipe state not stats
     s32 lastPacketNumber = -1;
     u32 lastTimestamp = 0u;
 
+    // actual stats
     u64 receivedPackets = 0u;
     u64 shortPackets = 0u;
     u64 lostPackets = 0u;
@@ -79,7 +71,10 @@ class Impl: public AbstractImpl
 
         ConnectionType connectionType() const override { return ConnectionType::UDP; }
 
-        Stats stats() const { return m_stats; }
+        std::error_code getReadQueueSize(Pipe pipe, u32 &dest) override;
+
+        PipeStats getPipeStats(Pipe pipe) const;
+        std::array<PipeStats, PipeCount> getPipeStats() const;
 
     private:
         int getSocket(Pipe pipe) { return pipe == Pipe::Command ? m_cmdSock : m_dataSock; }
@@ -114,7 +109,7 @@ class Impl: public AbstractImpl
         };
 
         std::array<ReceiveBuffer, PipeCount> m_receiveBuffers;
-        Stats m_stats;
+        std::array<PipeStats, PipeCount> m_pipeStats;
 };
 
 } // end namespace udp

@@ -71,14 +71,6 @@ void MVLCObject::setState(const State &newState)
     }
 };
 
-std::error_code MVLCObject::read(Pipe pipe, u8 *buffer, size_t size,
-                                 size_t &bytesTransferred)
-{
-    auto guard = getLocks().lock(pipe);
-    auto ec = m_impl->read(pipe, buffer, size, bytesTransferred);
-    return ec;
-}
-
 std::error_code MVLCObject::write(Pipe pipe, const u8 *buffer, size_t size,
                                   size_t &bytesTransferred)
 {
@@ -87,24 +79,20 @@ std::error_code MVLCObject::write(Pipe pipe, const u8 *buffer, size_t size,
     return ec;
 }
 
-#if 0
-std::pair<std::error_code, size_t> MVLCObject::write(Pipe pipe, const QVector<u32> &buffer)
+std::error_code MVLCObject::read(Pipe pipe, u8 *buffer, size_t size,
+                                 size_t &bytesTransferred)
 {
-    size_t bytesTransferred = 0u;
-    const size_t bytesToTransfer = buffer.size() * sizeof(u32);
-    auto ec = write(pipe, reinterpret_cast<const u8 *>(buffer.data()),
-                    bytesToTransfer, bytesTransferred);
-
-    if (!ec && bytesToTransfer != bytesTransferred)
-    {
-        return std::make_pair(
-            make_error_code(MVLCErrorCode::ShortWrite),
-            bytesTransferred);
-    }
-
-    return std::make_pair(ec, bytesTransferred);
+    auto guard = getLocks().lock(pipe);
+    auto ec = m_impl->read(pipe, buffer, size, bytesTransferred);
+    return ec;
 }
-#endif
+
+std::error_code MVLCObject::getReadQueueSize(Pipe pipe, u32 &dest)
+{
+    // Note: locking disabled for now due to causing a sort of soft deadlock.
+    //auto guard = getLocks().lock(pipe);
+    return m_impl->getReadQueueSize(pipe, dest);
+}
 
 AbstractImpl *MVLCObject::getImpl()
 {

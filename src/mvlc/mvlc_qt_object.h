@@ -47,13 +47,13 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         //
         // Lowest level read and write operations
         //
-        std::error_code read(Pipe pipe, u8 *buffer, size_t size,
-                             size_t &bytesTransferred);
-
         std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
                               size_t &bytesTransferred);
 
-        //std::pair<std::error_code, size_t> write(Pipe pipe, const QVector<u32> &buffer);
+        std::error_code read(Pipe pipe, u8 *buffer, size_t size,
+                             size_t &bytesTransferred);
+
+        std::error_code getReadQueueSize(Pipe pipe, u32 &dest);
 
         //
         // MVLC register access

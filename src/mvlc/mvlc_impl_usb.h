@@ -114,7 +114,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 
         ConnectionType connectionType() const override { return ConnectionType::USB; }
 
-        std::error_code getReadQueueSize(Pipe pipe, u32 &dest);
+        std::error_code getReadQueueSize(Pipe pipe, u32 &dest) override;
 
     private:
         struct ConnectMode
