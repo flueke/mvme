@@ -29,7 +29,9 @@
 enum class VMEControllerType
 {
     VMUSB,
-    SIS3153
+    SIS3153,
+    MVLC_USB,
+    MVLC_ETH,
 };
 
 /* VME Controller errors and results
