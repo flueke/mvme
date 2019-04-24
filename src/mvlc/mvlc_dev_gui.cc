@@ -17,6 +17,7 @@
 #include <QTimer>
 #include <QUdpSocket>
 #include <QtEndian>
+#include <QTableWidget>
 
 #include <iostream>
 #include <cmath>
@@ -27,6 +28,7 @@
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_impl_factory.h"
 #include "mvlc/mvlc_script.h"
+#include "mvlc/mvlc_impl_udp.h"
 #include "mvlc/mvlc_impl_usb.h"
 #include "mvlc/mvlc_vme_debug_widget.h"
 #include "mvlc/mvlc_util.h"
@@ -203,7 +205,7 @@ void MVLCDataReader::readoutLoop()
 
     if (m_mvlc->connectionType() == ConnectionType::UDP)
     {
-        emit message(QSL("Connection type is UDP. Sending empty request"
+        emit message(QSL("Connection type is UDP. Sending initial empty request"
                          " using the data socket."));
 
         size_t bytesTransferred = 0;
@@ -384,6 +386,9 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
     m_d->registerWidget = new MVLCRegisterWidget(m_d->mvlc.get(), this);
     m_d->vmeDebugWidget = new VMEDebugWidget(m_d->mvlc.get(), this);
 
+    auto updateTimer = new QTimer(this);
+    updateTimer->setInterval(1000);
+
     setObjectName(QSL("MVLC Dev GUI"));
     setWindowTitle(objectName());
 
@@ -443,6 +448,46 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         }
     }
 
+    // UDP receive stats table
+    ui->gb_udpStats->hide();
+    if (m_d->mvlc->connectionType() == ConnectionType::UDP)
+    {
+        ui->gb_udpStats->show();
+        auto tbl = new QTableWidget(this);
+        auto l = new QVBoxLayout(ui->gb_udpStats);
+        l->addWidget(tbl);
+
+        static const QStringList rowTitles = {
+            "rcvdPackets", "lostPackets", "shortPackets", "unorderedPackets"
+        };
+
+        tbl->setColumnCount(2);
+        tbl->setRowCount(rowTitles.size());
+
+        tbl->setHorizontalHeaderLabels({ "Cmd(0)", "Data(1)"});
+        tbl->setVerticalHeaderLabels(rowTitles);
+
+        connect(updateTimer, &QTimer::timeout,
+                this, [this, tbl] ()
+        {
+            auto pipeStats = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl())->getPipeStats();
+
+            for (unsigned pipe = 0; pipe < pipeStats.size(); pipe++)
+            {
+                auto &stats = pipeStats[pipe];
+                int row = 0;
+                using QTWI = QTableWidgetItem;
+
+                tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.receivedPackets)));
+                tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.lostPackets)));
+                tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.shortPackets)));
+                tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.unorderedPackets)));
+                tbl->resizeColumnsToContents();
+                tbl->resizeRowsToContents();
+            }
+        });
+    }
+
     // Interactions
 
     connect(m_d->mvlc.get(), &MVLCObject::stateChanged,
@@ -452,19 +497,19 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         switch (newState)
         {
             case MVLCObject::Disconnected:
-                ui->le_usbStatus->setText("Disconnected");
+                ui->le_connectionStatus->setText("Disconnected");
                 break;
             case MVLCObject::Connecting:
-                ui->le_usbStatus->setText("Connecting...");
+                ui->le_connectionStatus->setText("Connecting...");
                 break;
             case MVLCObject::Connected:
-                ui->le_usbStatus->setText("Connected");
+                ui->le_connectionStatus->setText("Connected");
                 logMessage("Connected to MVLC");
                 break;
         }
 
         ui->pb_runScript->setEnabled(newState == MVLCObject::Connected);
-        ui->pb_usbReconnect->setEnabled(newState != MVLCObject::Connecting);
+        ui->pb_reconnect->setEnabled(newState != MVLCObject::Connecting);
     });
 
     connect(ui->pb_runScript, &QPushButton::clicked,
@@ -627,7 +672,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         ui->te_scriptInput->clear();
     });
 
-    connect(ui->pb_usbReconnect, &QPushButton::clicked,
+    connect(ui->pb_reconnect, &QPushButton::clicked,
             this, [this] ()
     {
         if (m_d->mvlc->isConnected())
@@ -749,7 +794,8 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         m_d->readoutThread.start();
     });
 
-    // Populate initial output filepath using
+    // Populate initial output filepath using a previously saved path if
+    // available
     {
         QString outDir;
         QSettings settings;
@@ -773,7 +819,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         assert(m_d->readoutThread.isRunning());
 
         logMessage("Stopping readout");
-        // sets the atomic flag to make the reader break out of the loop.
+        // Sets the atomic flag to make the reader break out of the loop.
         m_d->dataReader->stop();
     });
 
@@ -784,7 +830,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         ui->pb_readerStart->setEnabled(false);
         ui->pb_readerStop->setEnabled(true);
         ui->le_readoutStatus->setText("Running");
-        ui->pb_usbReconnect->setEnabled(false);
+        ui->pb_reconnect->setEnabled(false);
         ui->pb_readDataPipe->setEnabled(false);
 
         m_d->tReaderStarted = QDateTime::currentDateTime();
@@ -798,7 +844,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         ui->pb_readerStart->setEnabled(true);
         ui->pb_readerStop->setEnabled(false);
         ui->le_readoutStatus->setText("Stopped");
-        ui->pb_usbReconnect->setEnabled(true);
+        ui->pb_reconnect->setEnabled(true);
         ui->pb_readDataPipe->setEnabled(true);
         m_d->tReaderStopped = QDateTime::currentDateTime();
     });
@@ -817,7 +863,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         m_d->dataReader->resetStats();
     });
 
-    // Request that the reader copies and send out the next buffer it receives.
+    // Request that the reader copies and sends out the next buffer it receives.
     connect(ui->pb_readerRequestBuffer, &QPushButton::clicked,
             this, [this] ()
     {
@@ -838,7 +884,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         logMessage(QString(">>> First %1 data words:").arg(maxBytes / sizeof(u32)));
 
         BufferIterator iter(buffer.data(), maxBytes);
-        // FIXME: don't call the global logBuffer. it print BerrMarker and EndMarker as strings.
+        // FIXME: don't call the global logBuffer. it prints BerrMarker and EndMarker as strings.
         ::logBuffer(iter, [this] (const QString &line)
         {
             logMessage(line);
@@ -1029,8 +1075,6 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
     //
     // Periodic updates
     //
-    auto updateTimer = new QTimer(this);
-    updateTimer->setInterval(1000);
 
     // Pull ReaderStats from MVLCDataReader
     connect(updateTimer, &QTimer::timeout,
@@ -1108,11 +1152,8 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         u32 cmdQueueSize = 0;
         u32 dataQueueSize = 0;
 
-        if (auto usbImpl = dynamic_cast<usb::Impl *>(m_d->mvlc->getImpl()))
-        {
-            usbImpl->getReadQueueSize(Pipe::Command, cmdQueueSize);
-            usbImpl->getReadQueueSize(Pipe::Data, dataQueueSize);
-        }
+        m_d->mvlc->getReadQueueSize(Pipe::Command, cmdQueueSize);
+        m_d->mvlc->getReadQueueSize(Pipe::Data, dataQueueSize);
 
         ui->le_usbCmdReadQueueSize->setText(QString::number(cmdQueueSize));
         ui->le_usbDataReadQueueSize->setText(QString::number(dataQueueSize));
