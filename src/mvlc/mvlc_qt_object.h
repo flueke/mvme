@@ -106,8 +106,13 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         // previous operation. Performing another operation will clear the
         // internal buffer.
         // The data available from this method will also have been emitted via
-        // the stackErrorNotification() signal.
+        // the stackErrorNotification() signal at the end of the last stack
+        // operation.
         QVector<QVector<u32>> getStackErrorNotifications() const;
+#if 0
+        void clearStackErrorNotifications();
+        bool hasStackErrorNotifications() const;
+#endif
 
         Locks &getLocks() { return m_locks; }
 
@@ -120,6 +125,7 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
     private:
         void setState(const State &newState);
         Locks &getLocks() const { return m_locks; }
+        void preDialogOperation();
         void postDialogOperation();
 
         std::unique_ptr<AbstractImpl> m_impl;

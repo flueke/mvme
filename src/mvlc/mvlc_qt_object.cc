@@ -30,6 +30,11 @@ MVLCObject::~MVLCObject()
     disconnect();
 }
 
+AbstractImpl *MVLCObject::getImpl()
+{
+    return m_impl.get();
+}
+
 bool MVLCObject::isConnected() const
 {
     auto guards = getLocks().lockBoth();
@@ -117,25 +122,31 @@ unsigned MVLCObject::getWriteTimeout(Pipe pipe) const
     return m_impl->getWriteTimeout(pipe);
 }
 
+// Called before stack operations. Clears the internal stack error notification
+// buffer.
+void MVLCObject::preDialogOperation()
+{
+    m_dialog.clearStackErrorNotifications();
+}
+
+// Called after stack operations. Checks if there are pending stack error
+// notifications and emits the stackErrorNotification() signal for each of
+// them.
 void MVLCObject::postDialogOperation()
 {
     // The Command mutex should be locked at this point which means to avoid
     // deadlock we have to call the dialog methods directly instead of using
-    // our own methods.
+    // our own methods which do take the lock.
 
-    if (m_dialog.hasStackErrorNotifications())
-    {
-        auto notifications = m_dialog.getStackErrorNotifications();
-        for (const auto &n: notifications)
+    for (const auto &n: m_dialog.getStackErrorNotifications())
             emit stackErrorNotification(n);
-        m_dialog.clearStackErrorNotifications();
-    }
 }
 
 std::error_code MVLCObject::vmeSingleRead(u32 address, u32 &value, u8 amod,
                                           VMEDataWidth dataWidth)
 {
     auto guard = getLocks().lockCmd();
+    preDialogOperation();
     auto result = m_dialog.vmeSingleRead(address, value, amod, dataWidth);
     postDialogOperation();
     return result;
@@ -145,6 +156,7 @@ std::error_code MVLCObject::vmeSingleWrite(u32 address, u32 value, u8 amod,
                                            VMEDataWidth dataWidth)
 {
     auto guard = getLocks().lockCmd();
+    preDialogOperation();
     auto result = m_dialog.vmeSingleWrite(address, value, amod, dataWidth);
     postDialogOperation();
     return result;
@@ -154,6 +166,7 @@ std::error_code MVLCObject::vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
                                          QVector<u32> &dest)
 {
     auto guard = getLocks().lockCmd();
+    preDialogOperation();
     auto result = m_dialog.vmeBlockRead(address, amod, maxTransfers, dest);
     postDialogOperation();
     return result;
@@ -162,6 +175,7 @@ std::error_code MVLCObject::vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
 std::error_code MVLCObject::readRegister(u16 address, u32 &value)
 {
     auto guard = getLocks().lockCmd();
+    preDialogOperation();
     auto result = m_dialog.readRegister(address, value);
     postDialogOperation();
     return result;
@@ -171,6 +185,7 @@ std::error_code MVLCObject::readRegisterBlock(u16 address, u16 words,
                                               QVector<u32> &dest)
 {
     auto guard = getLocks().lockCmd();
+    preDialogOperation();
     auto result = m_dialog.readRegisterBlock(address, words, dest);
     postDialogOperation();
     return result;
@@ -179,6 +194,7 @@ std::error_code MVLCObject::readRegisterBlock(u16 address, u16 words,
 std::error_code MVLCObject::writeRegister(u16 address, u32 value)
 {
     auto guard = getLocks().lockCmd();
+    preDialogOperation();
     auto result = m_dialog.writeRegister(address, value);
     postDialogOperation();
     return result;
@@ -187,6 +203,7 @@ std::error_code MVLCObject::writeRegister(u16 address, u32 value)
 std::error_code MVLCObject::readResponse(BufferHeaderValidator bhv, QVector<u32> &dest)
 {
     auto guard = getLocks().lockCmd();
+    preDialogOperation();
     auto result = m_dialog.readResponse(bhv, dest);
     postDialogOperation();
     return result;
@@ -196,6 +213,7 @@ std::error_code MVLCObject::mirrorTransaction(const QVector<u32> &cmdBuffer,
                                               QVector<u32> &responseDest)
 {
     auto guard = getLocks().lockCmd();
+    preDialogOperation();
     auto result = m_dialog.mirrorTransaction(cmdBuffer, responseDest);
     postDialogOperation();
     return result;
@@ -205,6 +223,7 @@ std::error_code MVLCObject::stackTransaction(const QVector<u32> &stackUploadData
                                              QVector<u32> &responseDest)
 {
     auto guard = getLocks().lockCmd();
+    preDialogOperation();
     auto result = m_dialog.stackTransaction(stackUploadData, responseDest);
     postDialogOperation();
     return result;
@@ -221,6 +240,20 @@ QVector<QVector<u32>> MVLCObject::getStackErrorNotifications() const
     auto guard = getLocks().lockCmd();
     return m_dialog.getStackErrorNotifications();
 }
+
+#if 0
+void MVLCObject::clearStackErrorNotifications()
+{
+    auto guard = getLocks().lockCmd();
+    m_dialog.clearStackErrorNotifications();
+}
+
+bool MVLCObject::hasStackErrorNotifications() const
+{
+    auto guard = getLocks().lockCmd();
+    return m_dialog.hasStackErrorNotifications();
+}
+#endif
 
 } // end namespace mvlc
 } // end namespace mesytec
