@@ -24,7 +24,7 @@
 #define LOG_LEVEL_DEBUG 300
 #define LOG_LEVEL_TRACE 400
 
-#define LOG_LEVEL_SETTING LOG_LEVEL_TRACE
+#define LOG_LEVEL_SETTING LOG_LEVEL_DEBUG
 
 #define DO_LOG(level, prefix, fmt, ...)\
 do\
@@ -174,6 +174,7 @@ std::error_code Impl::connect()
     m_cmdSock = -1;
     m_dataSock = -1;
     m_pipeStats = {};
+    m_pipePacketNumbers = { -1, -1 };
 
     // lookup remote host
     // create and bind two UDP sockets on consecutive local ports
@@ -546,31 +547,17 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         LOG_TRACE("pipe=%u, calculated available data words = %u, leftover bytes = %u",
                   pipe, availableDataWords, leftoverBytes);
 
-        pipeStats.lastTimestamp = udpTimestamp;
+        auto &lastPacketNumber = m_pipePacketNumbers[pipe];
 
         LOG_TRACE("pipe=%u, packetNumber=%u, lastPacketNumber=%d",
-                  pipe, packetNumber, pipeStats.lastPacketNumber);
+                  pipe, packetNumber, lastPacketNumber);
 
         // Initial lastPacketNumber value is -1
-        if (pipeStats.lastPacketNumber >= 0)
+        if (lastPacketNumber >= 0)
         {
-            s32 packetDiff = packetNumber - pipeStats.lastPacketNumber;
-
-            if (packetDiff >= 1)
-            {
-                pipeStats.lostPackets += packetDiff - 1;
-                pipeStats.lastPacketNumber = packetNumber;
-            }
-            else if (packetDiff < 1)
-            {
-                pipeStats.unorderedPackets++;
-                // keep the higher packet number
-            }
+            pipeStats.lostPackets += calc_packet_loss(lastPacketNumber, packetNumber);
         }
-        else
-        {
-            pipeStats.lastPacketNumber = packetNumber;
-        }
+        lastPacketNumber = packetNumber;
 
         copy_and_update();
     }
@@ -606,6 +593,21 @@ PipeStats Impl::getPipeStats(Pipe pipe_) const
 std::array<PipeStats, PipeCount> Impl::getPipeStats() const
 {
     return m_pipeStats;
+}
+
+s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber)
+{
+    static const s32 PacketNumberMax = udp::header0::PacketNumberMask;
+
+    s32 diff = packetNumber - lastPacketNumber;
+
+    if (diff < 1)
+    {
+        diff = PacketNumberMax + diff;
+        return diff;
+    }
+
+    return diff - 1;
 }
 
 } // end namespace udp

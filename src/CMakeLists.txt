@@ -188,6 +188,7 @@ if(MVME_ENABLE_MVLC)
         endfunction(add_mvlc_gtest)
         add_mvlc_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
         add_mvlc_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
+        add_mvlc_gtest(test_mvlc_calc_packet_loss mvlc/test/test_mvlc_calc_packet_loss.cc)
     endif(BUILD_TESTS)
 
     # Standalone mvme-like binary specifically for the mvlc. This is used to

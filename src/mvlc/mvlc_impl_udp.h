@@ -34,13 +34,9 @@ namespace udp
 // Do normal error handling on the return value of setsockopt(). Right now it's
 // being asserted.
 //
+
 struct PipeStats
 {
-    // TODO: move to own struct. this is connection/pipe state not stats
-    s32 lastPacketNumber = -1;
-    u32 lastTimestamp = 0u;
-
-    // actual stats
     u64 receivedPackets = 0u;
     u64 shortPackets = 0u;
     u64 lostPackets = 0u;
@@ -110,7 +106,12 @@ class Impl: public AbstractImpl
 
         std::array<ReceiveBuffer, PipeCount> m_receiveBuffers;
         std::array<PipeStats, PipeCount> m_pipeStats;
+        std::array<s32, PipeCount> m_pipePacketNumbers;
 };
+
+// Given the previous and current packet numbers returns the number of lost
+// packets in-between taking overflow into account.
+s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber);
 
 } // end namespace udp
 } // end namespace mvlc
