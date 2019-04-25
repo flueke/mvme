@@ -143,9 +143,11 @@ if(MVME_ENABLE_MVLC)
         mvlc/mvlc_impl_udp.cc
         mvlc/mvlc_impl_usb.cc
         mvlc/mvlc_qt_object.cc
+        mvlc/mvlc_register_names.cc
         mvlc/mvlc_script.cc
         mvlc/mvlc_util.cc
         mvlc/mvlc_vme_debug_widget.cc
+
         ${LIBMVME_MVLC_UIC_OUT}
         )
 
