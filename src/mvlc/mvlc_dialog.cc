@@ -145,7 +145,11 @@ std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
         return ec;
 
     if (!is_known_buffer_header(header))
+    {
+        dest.resize(1);
+        dest[0] = header;
         return make_error_code(MVLCErrorCode::InvalidBufferHeader);
+    }
 
     u16 responseLength = (header & BufferSizeMask);
     dest.resize(1 + responseLength);
