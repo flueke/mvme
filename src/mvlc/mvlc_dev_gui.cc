@@ -458,7 +458,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         l->addWidget(tbl);
 
         static const QStringList rowTitles = {
-            "rcvdPackets", "lostPackets", "shortPackets", "unorderedPackets"
+            "rcvdPackets", "lostPackets", "shortPackets"
         };
 
         tbl->setColumnCount(2);
@@ -481,7 +481,6 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
                 tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.receivedPackets)));
                 tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.lostPackets)));
                 tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.shortPackets)));
-                tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.unorderedPackets)));
                 tbl->resizeColumnsToContents();
                 tbl->resizeRowsToContents();
             }
@@ -562,7 +561,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
 
                 auto ec = m_d->mvlc->readResponse(is_stack_buffer, responseBuffer);
 
-                if (ec && ec.value() != FT_TIMEOUT)
+                if (ec && ec != ErrorType::Timeout)
                 {
                     logMessage(QString("Error reading from MVLC: %1")
                                .arg(ec.message().c_str()));
@@ -574,7 +573,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
                     return;
                 }
 
-                if (ec.value() == FT_TIMEOUT)
+                if (ec == ErrorType::Timeout)
                     logMessage("Received response but ran into a read timeout");
 
                 logBuffer(responseBuffer, "Stack response from MVLC");
