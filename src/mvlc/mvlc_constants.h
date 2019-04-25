@@ -217,14 +217,48 @@ namespace udp
     static const size_t UDPSingleTransferMaxWords = UDPSingleTransferMaxBytes / sizeof(u32);
 } // end namespace udp
 
-namespace eth_registers
+namespace registers
 {
-    static const u32 OwnIP_lo           = 0x4400;
-    static const u32 OwnIP_hi           = 0x4402;
-    static const u32 StoreIPInFlash     = 0x4404;
-    // 0 = fixed IP, 1 = DHCP
-    static const u32 IPMode             = 0x4406;
-} // end namespace eth_registers
+    static const u32 own_ip_lo              = 0x4400;
+    static const u32 own_ip_hi              = 0x4402;
+    static const u32 StoreIPInFlash         = 0x4404;
+
+    static const u32 dhcp_active            = 0x4406; // 0 = fixed IP, 1 = DHCP
+    static const u32 dhcp_ip_lo             = 0x4408;
+    static const u32 dhcp_ip_hi             = 0x440a;
+
+    static const u32 cmd_ip_lo              = 0x440c;
+    static const u32 cmd_ip_hi              = 0x440e;
+
+    static const u32 data_ip_lo             = 0x4410;
+    static const u32 data_ip_hi             = 0x4412;
+
+    static const u32 cmd_mac_0              = 0x4414;
+    static const u32 cmd_mac_1              = 0x4416;
+    static const u32 cmd_mac_2              = 0x4418;
+
+    static const u32 cmd_dest_port          = 0x441a;
+    static const u32 data_dest_port         = 0x441c;
+
+    static const u32 data_mac_0             = 0x441e;
+    static const u32 data_mac_1             = 0x4420;
+    static const u32 data_mac_2             = 0x4422;
+
+    static const u32 crc_good_ctr           = 0x4424;
+    static const u32 crc_bad_ctr            = 0x4426;
+    static const u32 skip_receive_frame_ctr = 0x4428;
+    static const u32 receive_arp_ctr        = 0x442a;
+    static const u32 receive_ping_ctr       = 0x442c;
+    static const u32 receive_datin_ctr      = 0x442e;
+    static const u32 receive_cmdin_ctr      = 0x4430;
+
+    static const u32 arp_sender_mac_rx_0    = 0x4432;
+    static const u32 arp_sender_mac_rx_1    = 0x4434;
+    static const u32 arp_sender_mac_rx_2    = 0x4436;
+
+    static const u32 arp_sender_ip_rx_lo    = 0x4438;
+    static const u32 arp_sender_ip_rx_hi    = 0x443a;
+} // end namespace registers
 
 enum class Pipe: u8
 {
