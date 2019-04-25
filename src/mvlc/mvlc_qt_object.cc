@@ -89,14 +89,8 @@ std::error_code MVLCObject::read(Pipe pipe, u8 *buffer, size_t size,
 
 std::error_code MVLCObject::getReadQueueSize(Pipe pipe, u32 &dest)
 {
-    // Note: locking disabled for now due to causing a sort of soft deadlock.
-    //auto guard = getLocks().lock(pipe);
+    auto guard = getLocks().lock(pipe);
     return m_impl->getReadQueueSize(pipe, dest);
-}
-
-AbstractImpl *MVLCObject::getImpl()
-{
-    return m_impl.get();
 }
 
 void MVLCObject::setReadTimeout(Pipe pipe, unsigned ms)
