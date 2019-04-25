@@ -95,7 +95,7 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         std::error_code stackTransaction(const QVector<u32> &stackUploadData,
                                          QVector<u32> &responseDest);
 
-        // Returns the response buffer contains the contents of the last read
+        // Returns the response buffer containing the contents of the last read
         // operation from the MVLC.
         // After mirrorTransaction() the buffer will contain the mirror
         // response. After stackTransaction() the buffer will contain the
