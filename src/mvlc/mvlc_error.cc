@@ -64,6 +64,12 @@ class MVLCErrorCategory: public std::error_category
 
             case MVLCErrorCode::InvalidPipe:
                  return "invalid pipe/endpoint";
+
+            case MVLCErrorCode::SocketError:
+                 return "generic socket error";
+
+            case MVLCErrorCode::SocketTimeout:
+                 return "socket timeout";
         }
 
         return "unrecognized MVLC error";
@@ -83,6 +89,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::IsDisconnected:
             case MVLCErrorCode::HostLookupError:
             case MVLCErrorCode::BindLocalError:
+            case MVLCErrorCode::SocketError:
                 return ErrorType::ConnectionError;
 
             case MVLCErrorCode::ShortWrite:
@@ -101,6 +108,9 @@ class MVLCErrorCategory: public std::error_category
 
             case MVLCErrorCode::NoVMEResponse:
                 return ErrorType::VMEError;
+
+            case MVLCErrorCode::SocketTimeout:
+                return ErrorType::Timeout;
         }
         assert(false);
         return {};

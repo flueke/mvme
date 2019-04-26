@@ -17,7 +17,7 @@
 #define LOG_LEVEL_DEBUG 300
 #define LOG_LEVEL_TRACE 400
 
-#define LOG_LEVEL_SETTING LOG_LEVEL_TRACE
+#define LOG_LEVEL_SETTING LOG_LEVEL_DEBUG
 
 #define DO_LOG(level, prefix, fmt, ...)\
 do\

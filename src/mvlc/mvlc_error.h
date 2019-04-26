@@ -25,10 +25,12 @@ enum class MVLCErrorCode
     InvalidBufferHeader,
     UnexpectedResponseSize, // wanted N words, got M words
     CommandArgOutOfRange,
+    InvalidPipe,
     NoVMEResponse,
     HostLookupError,
     BindLocalError,
-    InvalidPipe,
+    SocketError,
+    SocketTimeout,
 };
 
 LIBMVME_MVLC_EXPORT std::error_code make_error_code(MVLCErrorCode error);

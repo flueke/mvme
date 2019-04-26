@@ -6,6 +6,8 @@
 #include <cstring>
 #include <limits>
 
+#include <QDebug>
+
 #ifndef __WIN32
 #include <netdb.h>
 #include <sys/socket.h>
@@ -63,7 +65,10 @@ std::error_code lookup(const std::string &host, u16 port, sockaddr_in &dest)
 
     // TODO: check getaddrinfo specific error codes. make and use getaddrinfo error category
     if (rc != 0)
+    {
+        qDebug("%s: HostLookupError, host=%s, error=%s", __PRETTY_FUNCTION__, host.c_str(), gai_strerror(rc));
         return make_error_code(MVLCErrorCode::HostLookupError);
+    }
 
     for (rp = result; rp != NULL; rp = rp->ai_next)
     {
@@ -77,13 +82,15 @@ std::error_code lookup(const std::string &host, u16 port, sockaddr_in &dest)
     freeaddrinfo(result);
 
     if (!rp)
+    {
+        qDebug("%s: HostLookupError, host=%s, no result found", __PRETTY_FUNCTION__, host.c_str());
         return make_error_code(MVLCErrorCode::HostLookupError);
+    }
 
     return {};
 }
 
-#ifndef __WIN32
-std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
+struct timeval ms_to_timeval(unsigned ms)
 {
     unsigned seconds = ms / 1000;
     ms -= seconds * 1000;
@@ -91,6 +98,14 @@ std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
     struct timeval tv;
     tv.tv_sec  = seconds;
     tv.tv_usec = ms * 1000;
+
+    return tv;
+}
+
+#ifndef __WIN32
+std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
+{
+    struct timeval tv = ms_to_timeval(ms);
 
     int res = setsockopt(sock, SOL_SOCKET, optname, &tv, sizeof(tv));
 
@@ -139,11 +154,21 @@ namespace udp
 Impl::Impl(const std::string &host)
     : m_host(host)
 {
+#ifdef __WIN32
+    WORD wVersionRequested;
+    WSADATA wsaData;
+    wVersionRequested = MAKEWORD(2, 1);
+    WSAStartup( wVersionRequested, &wsaData );
+#endif
 }
 
 Impl::~Impl()
 {
     disconnect();
+
+#ifdef __WIN32
+    WSACleanup();
+#endif
 }
 
 // A note about using ::bind() and then ::connect():
@@ -175,14 +200,6 @@ std::error_code Impl::connect()
     m_dataSock = -1;
     m_pipeStats = {};
     m_pipePacketNumbers = { -1, -1 };
-
-    // lookup remote host
-    // create and bind two UDP sockets on consecutive local ports
-    // => cmd and data sockets
-    // send an initial request on the data socket, receive the response or timeout
-    // verify the response
-    // if ok: set connected and return success
-    // else return error
 
     if (auto ec = lookup(m_host, CommandPort, m_cmdAddr))
         return ec;
@@ -247,6 +264,22 @@ std::error_code Impl::connect()
         {
             goto try_again;
         }
+
+#if 0//#ifdef __WIN32
+        {
+            // Make the sockets non-blocking. Errors are considered fatal ->
+            // return immediately.
+
+            u_long iMode = 1;
+            int res = ioctlsocket(m_cmdSock, FIONBIO, &iMode);
+            if (res != 0)
+                return make_error_code(MVLCErrorCode::SocketError);
+
+            res = ioctlsocket(m_dataSock, FIONBIO, &iMode);
+            if (res != 0)
+                return make_error_code(MVLCErrorCode::SocketError);
+        }
+#endif
 
         break;
 
@@ -424,6 +457,34 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
  *   -
  */
 
+#ifdef __WIN32
+// FIXME: use WSAGetLastError here
+static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t size,
+                                                 size_t &bytesTransferred, int timeout_ms)
+{
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(sockfd, &fds);
+
+    struct timeval tv = ms_to_timeval(timeout_ms);
+
+    int sres = ::select(0, &fds, nullptr, nullptr, &tv);
+
+    if (sres == 0)
+        return make_error_code(MVLCErrorCode::SocketTimeout);
+    
+    if (sres == SOCKET_ERROR)
+        return make_error_code(MVLCErrorCode::SocketError);
+
+    ssize_t res = ::recv(sockfd, reinterpret_cast<char *>(dest), size, 0);
+
+    if (res < 0)
+        return make_error_code(MVLCErrorCode::SocketError);
+
+    bytesTransferred = res;
+    return {};
+}
+#else
 static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t size,
                                                  size_t &bytesTransferred)
 {
@@ -437,6 +498,7 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
     bytesTransferred = res;
     return {};
 }
+#endif
 
 std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
                            size_t &bytesTransferred)
@@ -500,11 +562,20 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
 
         size_t transferred = 0;
 
+#ifdef __WIN32
+        auto ec = receive_one_packet(
+            getSocket(pipe_),
+            receiveBuffer.buffer.data(),
+            receiveBuffer.buffer.size(),
+            transferred,
+            getReadTimeout(pipe_));
+#else
         auto ec = receive_one_packet(
             getSocket(pipe_),
             receiveBuffer.buffer.data(),
             receiveBuffer.buffer.size(),
             transferred);
+#endif
 
         ++readCount;
 
