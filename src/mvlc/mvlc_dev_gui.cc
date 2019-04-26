@@ -221,8 +221,9 @@ void MVLCDataReader::readoutLoop()
                                     EmptyRequest.size() * sizeof(u32),
                                     bytesTransferred))
         {
-            emit message(QSL("Error sending initial empty request using the data socket: %s")
+            emit message(QSL("Error sending initial empty request using the data socket: %1")
                          .arg(ec.message().c_str()));
+            emit stopped();
             return;
         }
     }
