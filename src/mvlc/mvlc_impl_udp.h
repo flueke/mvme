@@ -10,8 +10,8 @@
 #include <winsock2.h>
 #endif
 
+#include "libmvme_mvlc_export.h"
 #include "mvlc/mvlc_impl_abstract.h"
-#include "mvlc/mvlc_impl_support.h"
 
 namespace mesytec
 {
@@ -55,7 +55,7 @@ struct PipeStats
     std::array<u64, 256> headerTypes = {};
 };
 
-class Impl: public AbstractImpl
+class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 {
     public:
         explicit Impl(const std::string &host = {});
