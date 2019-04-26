@@ -454,37 +454,98 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
     {
         ui->gb_udpStats->show();
         auto tbl = new QTableWidget(this);
-        auto l = new QVBoxLayout(ui->gb_udpStats);
-        l->addWidget(tbl);
 
-        static const QStringList rowTitles = {
-            "rcvdPackets", "lostPackets", "shortPackets"
+        static const QStringList colTitles = {
+            "Cmd(0)", "Data(1)"
         };
 
-        tbl->setColumnCount(2);
-        tbl->setRowCount(rowTitles.size());
 
-        tbl->setHorizontalHeaderLabels({ "Cmd(0)", "Data(1)"});
-        tbl->setVerticalHeaderLabels(rowTitles);
+        tbl->setColumnCount(colTitles.size());
 
-        connect(updateTimer, &QTimer::timeout,
-                this, [this, tbl] ()
+        tbl->setHorizontalHeaderLabels(colTitles);
+
+        auto update_stats_table = [this, tbl]()
         {
+            static auto lastPipeStats = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl())->getPipeStats();
+            static QDateTime lastUpdateTime;
+            QDateTime now = QDateTime::currentDateTime();
+
+            if (!lastUpdateTime.isValid())
+            {
+                lastUpdateTime = now;
+                return;
+            }
+
+            double secondsElapsed = lastUpdateTime.msecsTo(now) / 1000.0;
             auto pipeStats = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl())->getPipeStats();
+
+            QStringList rowTitles = {
+                "rcvdPackets", "packets/s",
+                "lostPackets", "shortPackets",
+                "receivedBytes", "bytesPerSecond",
+                "noHeader", "headerOutOfRange"
+            };
+
+            for (unsigned ht = 0; ht < 256; ht++)
+            {
+                if (pipeStats[0].headerTypes[ht]
+                    || pipeStats[1].headerTypes[ht])
+                {
+                    rowTitles << QString("headerType 0x%1").arg(ht, 2, 16, QLatin1Char('0'));
+                }
+            }
+
+            tbl->setRowCount(rowTitles.size());
+            tbl->setVerticalHeaderLabels(rowTitles);
+            int firstHeaderTypeRow = 0u;
+            using QTWI = QTableWidgetItem;
 
             for (unsigned pipe = 0; pipe < pipeStats.size(); pipe++)
             {
+                auto &lastStats = lastPipeStats[pipe];
                 auto &stats = pipeStats[pipe];
                 int row = 0;
-                using QTWI = QTableWidgetItem;
+
+                s64 deltaPackets = stats.receivedPackets - lastStats.receivedPackets;
+                double packetsPerSecond = deltaPackets / secondsElapsed;
+                s64 deltaBytes = stats.receivedBytes - lastStats.receivedBytes;
+                double bytesPerSecond = deltaBytes / secondsElapsed;
 
                 tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.receivedPackets)));
+                tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(packetsPerSecond)));
                 tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.lostPackets)));
                 tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.shortPackets)));
-                tbl->resizeColumnsToContents();
-                tbl->resizeRowsToContents();
+                tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.receivedBytes)));
+                tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(bytesPerSecond)));
+                tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.noHeader)));
+                tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.headerOutOfRange)));
+
+                firstHeaderTypeRow = row;
             }
-        });
+
+            for (unsigned ht = 0, row = firstHeaderTypeRow; ht < 256; ht++)
+            {
+                if (pipeStats[0].headerTypes[ht] || pipeStats[1].headerTypes[ht])
+                {
+                    for (unsigned pipe = 0; pipe < pipeStats.size(); pipe++)
+                    {
+                        tbl->setItem(row, pipe, new QTWI(QString::number(pipeStats[pipe].headerTypes[ht])));
+                    }
+                    row++;
+                }
+            }
+
+            tbl->resizeColumnsToContents();
+            tbl->resizeRowsToContents();
+
+            lastPipeStats = pipeStats;
+            lastUpdateTime = now;
+        };
+
+        connect(updateTimer, &QTimer::timeout, this, update_stats_table);
+
+        auto l = new QHBoxLayout(ui->gb_udpStats);
+        l->addWidget(tbl);
     }
 
     // Interactions

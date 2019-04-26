@@ -125,7 +125,7 @@ std::error_code set_socket_read_timeout(int sock, unsigned ms)
 }
 
 const u16 FirstDynamicPort = 49152;
-static const int SocketReceiveBufferSize = 1024 * 1024;
+static const int SocketReceiveBufferSize = 1024 * 1024 * 10;
 
 } // end anon namespace
 
@@ -163,7 +163,7 @@ Impl::~Impl()
 //   command and data ports. This way the sockets will only receive datagrams
 //   originating from the MVLC.
 // * TODO: Send an initial request and read the response. Preferably this
-//   should tells us if another client is currently using the MVLC. It could be
+//   should tell us if another client is currently using the MVLC. It could be
 //   some sort of "DAQ mode register" or a way to check where the MVLC is
 //   currently sending its data output.
 std::error_code Impl::connect()
@@ -515,6 +515,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
             return ec;
 
         ++pipeStats.receivedPackets;
+        pipeStats.receivedBytes += transferred;
 
         if (transferred < HeaderBytes)
         {
@@ -552,13 +553,36 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         LOG_TRACE("pipe=%u, packetNumber=%u, lastPacketNumber=%d",
                   pipe, packetNumber, lastPacketNumber);
 
-        // Initial lastPacketNumber value is -1
+        // Packet loss calculation. Initial lastPacketNumber value is -1
         if (lastPacketNumber >= 0)
         {
             pipeStats.lostPackets += calc_packet_loss(lastPacketNumber, packetNumber);
         }
         lastPacketNumber = packetNumber;
 
+        // Check where nextHeaderPointer is pointing to
+        if (nextHeaderPointer != 0xffff)
+        {
+            u32 *start = reinterpret_cast<u32 *>(receiveBuffer.start);
+            u32 *end   = reinterpret_cast<u32 *>(receiveBuffer.end);
+            u32 *headerp = start + nextHeaderPointer;
+
+            if (headerp >= end)
+                ++pipeStats.headerOutOfRange;
+            else
+            {
+                u32 header = *headerp;
+                LOG_TRACE("pipe=%u, nextHeaderPointer=%u -> header=0x%08x",
+                          pipe, nextHeaderPointer, header);
+                // TODO: check header value and count good/bad/ugly
+                u32 type = (header >> 24) & 0xff;
+                ++pipeStats.headerTypes[type];
+            }
+        }
+        else
+            ++pipeStats.noHeader;
+
+        // Copy to destination buffer
         copy_and_update();
     }
 
