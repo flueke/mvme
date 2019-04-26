@@ -97,7 +97,7 @@ add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
 #
 # libmvme_core
 #
-add_library(libmvme_core SHARED)
+add_library(libmvme_core SHARED util.cc)
 set_target_properties(libmvme_core PROPERTIES OUTPUT_NAME mvme_core)
 
 qt5_use_modules(libmvme_core Concurrent Gui Network Widgets)
@@ -126,7 +126,7 @@ install(TARGETS libmvme_core DESTINATION .)
 #
 if(MVME_ENABLE_MVLC)
     # libmvme_mvlc
-    add_library(libmvme_mvlc SHARED)
+    add_library(libmvme_mvlc SHARED mvlc/mvlc_qt_object.cc)
     set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
     target_link_libraries(libmvme_mvlc libmvme_core ftd3xx)
 
@@ -203,7 +203,7 @@ endif(MVME_ENABLE_MVLC)
 #
 # libmvme
 #
-add_library(libmvme SHARED)
+add_library(libmvme SHARED mvme.cpp)
 set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 generate_export_header(libmvme)
 
@@ -313,7 +313,7 @@ target_link_libraries(libmvme
     )
 
 if (WIN32)
-    target_link_libraries(libmvme ws2_32)
+    target_link_libraries(libmvme_core ws2_32)
 endif()
 
 if (MVME_ENABLE_MVLC)
@@ -326,10 +326,10 @@ install(TARGETS libmvme DESTINATION .)
 # mvme - the main GUI binary
 #
 if (CMAKE_BUILD_TYPE MATCHES "^Release$")
-    add_executable(mvme WIN32 ${MVME_SOURCES})
+    add_executable(mvme WIN32 main.cpp)
 else()
     #add_definitions(-DMVME_ENABLE_TIMED_BLOCKS)
-    add_executable(mvme ${MVME_SOURCES})
+    add_executable(mvme main.cpp)
 endif()
 
 target_sources(mvme PRIVATE main.cpp mvme.rc)
