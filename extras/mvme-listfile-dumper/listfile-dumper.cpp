@@ -258,6 +258,7 @@ void process_listfile(std::ifstream &infile)
 
     bool dumpData = true;
     bool continueReading = true;
+    int64_t currentSecondInRun = -1;
 
     while (continueReading)
     {
@@ -319,8 +320,10 @@ void process_listfile(std::ifstream &infile)
 
             case SectionType_Timetick:
                 {
+                    ++currentSecondInRun;
                     std::string str = read_string_data(infile, sectionBytes);
                     cout << "Timetick section: " << str << endl;
+                    cout << "Second " << currentSecondInRun << " in the DAQ run begins" << endl;
                 } break;
 
             case SectionType_End:
