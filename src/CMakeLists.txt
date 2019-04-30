@@ -146,6 +146,7 @@ if(MVME_ENABLE_MVLC)
         mvlc/mvlc_register_names.cc
         mvlc/mvlc_script.cc
         mvlc/mvlc_util.cc
+        mvlc/mvlc_vme_controller.cc
         mvlc/mvlc_vme_debug_widget.cc
 
         ${LIBMVME_MVLC_UIC_OUT}
@@ -317,6 +318,9 @@ if (WIN32)
 endif()
 
 if (MVME_ENABLE_MVLC)
+    target_sources(libmvme PRIVATE
+        mvlc/mvlc_daq.cc
+    )
     target_link_libraries(libmvme libmvme_mvlc)
 endif()
 
