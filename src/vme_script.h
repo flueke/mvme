@@ -64,7 +64,7 @@ enum class CommandType
     VMUSB_WriteRegister,
     VMUSB_ReadRegister,
 
-    MVLC_WriteSpecial, // type is stored in Command.value
+    MVLC_WriteSpecial, // type is stored in Command.value (of type MVLCSpecialWord)
 };
 
 enum class DataWidth

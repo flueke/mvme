@@ -74,9 +74,6 @@ void log_buffer(Out &out, const u32 *buffer, size_t size, const char *info)
     out << "end " << info << endl;
 }
 
-
-
-
 } // end namespace mvlc
 } // end namespace mesytec
 

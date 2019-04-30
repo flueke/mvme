@@ -25,20 +25,42 @@
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
 
-/* Both functions throw on error:
+/* Both init functions throw on error:
  * QString, std::runtime_error, vme_script::ParseError
  */
 
+/* Runs the following vme scripts from the vme configuration using the given
+ * vme controller:
+ * - global DAQ start scripts
+ * - for each event:
+ *     - for each module:
+ *       - module reset script
+ *       - module init scripts
+ * - for each event:
+ *     - event DAQ start script
+ */
 void vme_daq_init(
     VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger);
 
+/* Counterpart to vme_daq_init. Runs
+ * - for each event
+ *     - event DAQ stop script
+ * - global DAQ stop scripts
+ */
 void vme_daq_shutdown(
     VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger);
 
+/* Builds a vme script containing the readout commands for the given event:
+ * - event readout start ("cycle start" in the GUI)
+ * - for each module:
+ *     - module readout script
+ *     - EndMarker command
+ * - event readout end ("cycle end" in the GUI)
+ */
 vme_script::VMEScript build_event_readout_script(EventConfig *eventConfig);
 
 struct DAQReadoutListfileHelperPrivate;
