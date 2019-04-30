@@ -551,6 +551,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
 
     // Interactions
 
+    // mvlc connection state changes
     connect(m_d->mvlc.get(), &MVLCObject::stateChanged,
             this, [this] (const MVLCObject::State &oldState,
                           const MVLCObject::State &newState)
@@ -572,6 +573,36 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
         ui->pb_runScript->setEnabled(newState == MVLCObject::Connected);
         ui->pb_reconnect->setEnabled(newState != MVLCObject::Connecting);
     });
+
+    // log stack error notifications published by the mvlc object
+    connect(m_d->mvlc.get(), &MVLCObject::stackErrorNotification,
+            this, [this] (const QVector<u32> &buffer)
+    {
+        logBuffer(buffer, "Stack error notification from MVLC");
+    });
+
+    // Periodically poll for available data. This should not interfere with
+    // normal communication but it does block for the read timeout period in
+    // case no notifications are available.
+#if 0
+    connect(updateTimer, &QTimer::timeout,
+            this, [this] ()
+    {
+        QVector<u32> buffer;
+
+        do
+        {
+            auto ec = m_d->mvlc->readKnownBuffer(buffer);
+
+            if (!buffer.isEmpty())
+            {
+                auto title = QString("Async notification from MVLC (read_result=%1)")
+                    .arg(ec.message().c_str());
+                logBuffer(buffer, title);
+            }
+        } while (!buffer.isEmpty());
+    });
+#endif
 
     connect(ui->pb_runScript, &QPushButton::clicked,
             this, [this] ()
@@ -639,6 +670,27 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
                     logMessage("Received response but ran into a read timeout");
 
                 logBuffer(responseBuffer, "Stack response from MVLC");
+
+                // Same as is done in MVLCDialog::stackTransaction(): if error
+                // bist are set read in the error notification (0xF7) buffer
+                // and log it.
+                u32 header = responseBuffer[0];
+                u8 errorBits = (header >> buffer_headers::ErrorShift) & buffer_headers::ErrorMask;
+
+                if (errorBits)
+                {
+                    QVector<u32> tmpBuffer;
+                    m_d->mvlc->readKnownBuffer(tmpBuffer);
+                    if (!tmpBuffer.isEmpty())
+                    {
+                        u32 header = tmpBuffer[0];
+
+                        if (is_stackerror_notification(header))
+                            logBuffer(tmpBuffer, "Stack error notification from MVLC");
+                        else
+                            logBuffer(tmpBuffer, "Unexpected buffer contents (wanted a stack error notification (0xF7)");
+                    }
+                }
             }
 
             for (const auto &notification: m_d->mvlc->getStackErrorNotifications())
@@ -1549,7 +1601,7 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
         return;
     }
 
-    stackOffset &= stacks::StackOffsetBitMask;
+    stackOffset &= stacks::StackOffsetBitMaskWords;
 
     if (auto ec = m_mvlc->readRegister(triggerRegister, stackTriggers))
     {
