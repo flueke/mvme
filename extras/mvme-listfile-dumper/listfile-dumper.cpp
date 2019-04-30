@@ -258,7 +258,7 @@ void process_listfile(std::ifstream &infile)
 
     bool dumpData = true;
     bool continueReading = true;
-    int64_t currentSecondInRun = -1;
+    int64_t currentSecondInRun = 0;
 
     while (continueReading)
     {
