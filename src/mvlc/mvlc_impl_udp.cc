@@ -533,14 +533,14 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         }
     };
 
-    LOG_TRACE("+++ pipe=%u, size=%zu, bufferAvail=%zu",
+    LOG_TRACE("+ pipe=%u, size=%zu, bufferAvail=%zu",
               pipe, requestedSize, receiveBuffer.available());
 
     copy_and_update();
 
     if (size == 0)
     {
-        LOG_TRACE("pipe=%u, size=%zu, read request satisfied from buffer, new buffer size=%zu",
+        LOG_TRACE("  pipe=%u, size=%zu, read request satisfied from buffer, new buffer size=%zu",
                   pipe, requestedSize, receiveBuffer.available());
         return {};
     }
@@ -557,7 +557,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         assert(receiveBuffer.available() == 0);
         receiveBuffer.reset();
 
-        LOG_TRACE("pipe=%u, requestedSize=%zu, remainingSize=%zu, reading from MVLC...",
+        LOG_TRACE("  pipe=%u, requestedSize=%zu, remainingSize=%zu, reading from MVLC...",
                   pipe, requestedSize, size);
 
         size_t transferred = 0;
@@ -579,7 +579,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
 
         ++readCount;
 
-        LOG_TRACE("pipe=%u, received %zu bytes, ec=%s",
+        LOG_TRACE("  pipe=%u, received %zu bytes, ec=%s",
                   pipe, transferred, ec.message().c_str());
 
         if (ec)
@@ -591,7 +591,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         if (transferred < HeaderBytes)
         {
             ++pipeStats.shortPackets;
-            LOG_WARN("pipe=%u, received data is smaller than the MVLC UDP header size", pipe);
+            LOG_WARN("  pipe=%u, received data is smaller than the MVLC UDP header size", pipe);
 
             return make_error_code(MVLCErrorCode::ShortRead);
         }
@@ -607,21 +607,21 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         u32 udpTimestamp        = (header1 >> header1::TimestampShift)     & header1::TimestampMask;
         u16 nextHeaderPointer   = (header1 >> header1::HeaderPointerShift) & header1::HeaderPointerMask;
 
-        LOG_TRACE("pipe=%u, header0=0x%08x -> packetNumber=%u, wordCount=%u",
+        LOG_TRACE("  pipe=%u, header0=0x%08x -> packetNumber=%u, wordCount=%u",
                   pipe, header0, packetNumber, dataWordCount);
 
-        LOG_TRACE("pipe=%u, header1=0x%08x -> udpTimestamp=%u, nextHeaderPointer=%u",
+        LOG_TRACE("  pipe=%u, header1=0x%08x -> udpTimestamp=%u, nextHeaderPointer=%u",
                   pipe, header1, udpTimestamp, nextHeaderPointer);
 
         const u16 availableDataWords = receiveBuffer.available() / sizeof(u32);
         const u16 leftoverBytes = receiveBuffer.available() % sizeof(u32);
 
-        LOG_TRACE("pipe=%u, calculated available data words = %u, leftover bytes = %u",
+        LOG_TRACE("  pipe=%u, calculated available data words = %u, leftover bytes = %u",
                   pipe, availableDataWords, leftoverBytes);
 
         auto &lastPacketNumber = m_pipePacketNumbers[pipe];
 
-        LOG_TRACE("pipe=%u, packetNumber=%u, lastPacketNumber=%d",
+        LOG_TRACE("  pipe=%u, packetNumber=%u, lastPacketNumber=%d",
                   pipe, packetNumber, lastPacketNumber);
 
         // Packet loss calculation. Initial lastPacketNumber value is -1
@@ -643,7 +643,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
             else
             {
                 u32 header = *headerp;
-                LOG_TRACE("pipe=%u, nextHeaderPointer=%u -> header=0x%08x",
+                LOG_TRACE("  pipe=%u, nextHeaderPointer=%u -> header=0x%08x",
                           pipe, nextHeaderPointer, header);
                 // TODO: check header value and count good/bad/ugly
                 u32 type = (header >> 24) & 0xff;
@@ -657,7 +657,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         copy_and_update();
     }
 
-    LOG_TRACE("pipe=%u, read of size=%zu completed using %zu reads, remaining bytes in buffer=%zu",
+    LOG_TRACE("  pipe=%u, read of size=%zu completed using %zu reads, remaining bytes in buffer=%zu",
               pipe, requestedSize, readCount, receiveBuffer.available());
 
     return {};
