@@ -121,14 +121,27 @@ target_include_directories(libmvme_core PRIVATE ${LIBUSB_INCLUDE_PATH})
 target_link_libraries(libmvme_core ${LIBUSB_LIBRARY})
 install(TARGETS libmvme_core DESTINATION .)
 
+if (WIN32)
+    target_link_libraries(libmvme_core ws2_32)
+endif()
+
 #
 # libmvme_mvlc - MVLC support
 #
 if(MVME_ENABLE_MVLC)
+    set(MVLC_USB_DEBUG_LEVEL "LOG_LEVEL_WARN" CACHE STRING
+        "mvlc_usb layer log level LOG_LEVEL_(WARN|INFO|DEBUG|TRACE)")
+
+    set(MVLC_UDP_DEBUG_LEVEL "LOG_LEVEL_WARN" CACHE STRING
+        "mvlc_udp layer log level LOG_LEVEL_(WARN|INFO|DEBUG|TRACE)")
+
     # libmvme_mvlc
     add_library(libmvme_mvlc SHARED mvlc/mvlc_qt_object.cc)
     set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
     target_link_libraries(libmvme_mvlc libmvme_core ftd3xx)
+
+    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_USB_LOG_LEVEL=${MVLC_USB_DEBUG_LEVEL})
+    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_UDP_LOG_LEVEL=${MVLC_UDP_DEBUG_LEVEL})
 
     qt5_use_modules(libmvme_mvlc Concurrent Gui Network Widgets)
     qt5_wrap_ui(LIBMVME_MVLC_UIC_OUT vme_debug_widget.ui)
@@ -160,9 +173,9 @@ if(MVME_ENABLE_MVLC)
     target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
     target_link_libraries(mvlc_dev_gui libmvme_mvlc)
 
-    #if (WIN32)
-    #    target_link_libraries(libmvme_mvlc ws2_32)
-    #endif(WIN32)
+    if (WIN32)
+        target_link_libraries(libmvme_mvlc ws2_32)
+    endif(WIN32)
 
     # mvlc_dev_win_usb_debug
     if (WIN32)
@@ -312,10 +325,6 @@ target_link_libraries(libmvme
     Threads::Threads
     jcon
     )
-
-if (WIN32)
-    target_link_libraries(libmvme_core ws2_32)
-endif()
 
 if (MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE

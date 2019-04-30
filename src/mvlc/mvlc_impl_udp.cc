@@ -26,7 +26,11 @@
 #define LOG_LEVEL_DEBUG 300
 #define LOG_LEVEL_TRACE 400
 
-#define LOG_LEVEL_SETTING LOG_LEVEL_DEBUG
+#ifndef MVLC_UDP_LOG_LEVEL
+#define MVLC_UDP_LOG_LEVEL LOG_LEVEL_WARN
+#endif
+
+#define LOG_LEVEL_SETTING MVLC_UDP_LOG_LEVEL
 
 #define DO_LOG(level, prefix, fmt, ...)\
 do\
@@ -599,19 +603,19 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         receiveBuffer.start = receiveBuffer.buffer.data() + HeaderBytes;
         receiveBuffer.end   = receiveBuffer.buffer.data() + transferred;
 
-        u32 header0 = receiveBuffer.header0();
-        u32 header1 = receiveBuffer.header1();
+        u32 pkt_header0 = receiveBuffer.header0();
+        u32 pkt_header1 = receiveBuffer.header1();
 
-        u16 packetNumber        = (header0 >> header0::PacketNumberShift)  & header0::PacketNumberMask;
-        u16 dataWordCount       = (header0 >> header0::NumDataWordsShift)  & header0::NumDataWordsMask;
-        u32 udpTimestamp        = (header1 >> header1::TimestampShift)     & header1::TimestampMask;
-        u16 nextHeaderPointer   = (header1 >> header1::HeaderPointerShift) & header1::HeaderPointerMask;
+        u16 packetNumber        = (pkt_header0 >> header0::PacketNumberShift)  & header0::PacketNumberMask;
+        u16 dataWordCount       = (pkt_header0 >> header0::NumDataWordsShift)  & header0::NumDataWordsMask;
+        u32 udpTimestamp        = (pkt_header1 >> header1::TimestampShift)     & header1::TimestampMask;
+        u16 nextHeaderPointer   = (pkt_header1 >> header1::HeaderPointerShift) & header1::HeaderPointerMask;
 
         LOG_TRACE("  pipe=%u, header0=0x%08x -> packetNumber=%u, wordCount=%u",
-                  pipe, header0, packetNumber, dataWordCount);
+                  pipe, pkt_header0, packetNumber, dataWordCount);
 
         LOG_TRACE("  pipe=%u, header1=0x%08x -> udpTimestamp=%u, nextHeaderPointer=%u",
-                  pipe, header1, udpTimestamp, nextHeaderPointer);
+                  pipe, pkt_header1, udpTimestamp, nextHeaderPointer);
 
         const u16 availableDataWords = receiveBuffer.available() / sizeof(u32);
         const u16 leftoverBytes = receiveBuffer.available() % sizeof(u32);
@@ -619,6 +623,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         LOG_TRACE("  pipe=%u, calculated available data words = %u, leftover bytes = %u",
                   pipe, availableDataWords, leftoverBytes);
 
+#if 0
         auto &lastPacketNumber = m_pipePacketNumbers[pipe];
 
         LOG_TRACE("  pipe=%u, packetNumber=%u, lastPacketNumber=%d",
@@ -630,6 +635,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
             pipeStats.lostPackets += calc_packet_loss(lastPacketNumber, packetNumber);
         }
         lastPacketNumber = packetNumber;
+#endif
 
         // Check where nextHeaderPointer is pointing to
         if (nextHeaderPointer != 0xffff)

@@ -17,7 +17,11 @@
 #define LOG_LEVEL_DEBUG 300
 #define LOG_LEVEL_TRACE 400
 
-#define LOG_LEVEL_SETTING LOG_LEVEL_DEBUG
+#ifndef MVLC_USB_LOG_LEVEL
+#define MVLC_USB_LOG_LEVEL LOG_LEVEL_WARN
+#endif
+
+#define LOG_LEVEL_SETTING MVLC_USB_LOG_LEVEL
 
 #define DO_LOG(level, prefix, fmt, ...)\
 do\
