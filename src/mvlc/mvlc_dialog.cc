@@ -336,8 +336,41 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
     if (auto ec = writeRegister(stacks::Stack0TriggerRegister, 1u << stacks::ImmediateShift))
         return ec;
 
-    // read the stack response
-    return readResponse(is_stack_buffer, dest);
+    // read the stack response into the supplied buffer
+    if (auto ec = readResponse(is_stack_buffer, dest))
+        return ec;
+
+    assert(!dest.isEmpty()); // guaranteed by readResponse()
+
+    u32 header = dest[0];
+    u8 errorBits = (header >> buffer_headers::ErrorShift) & buffer_headers::ErrorMask;
+
+    if (errorBits)
+    {
+        // Any of the error bits was set. Read in the additional error
+        // notification buffer (header type is 0xF7).
+        QVector<u32> tmpBuffer;
+        readKnownBuffer(tmpBuffer);
+        if (!tmpBuffer.isEmpty())
+        {
+            u32 header = tmpBuffer[0];
+
+            if (is_stackerror_notification(header))
+                m_stackErrorNotifications.push_back(tmpBuffer);
+            else
+                logBuffer(tmpBuffer, "Unexpected buffer contents (wanted a stack error notification (0xF7)");
+        }
+
+        if (errorBits & buffer_errors::Timeout)
+            return MVLCErrorCode::NoVMEResponse;
+
+        if (errorBits & buffer_errors::SyntaxError)
+            return MVLCErrorCode::StackSyntaxError;
+
+        // VME BusError and the Continue bit are not considered errors
+    }
+
+    return {};
 }
 
 std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, u8 amod,
@@ -355,9 +388,6 @@ std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, u8 amod,
 
     if (ec)
         return ec;
-
-    if (m_responseBuffer.size() == 2 && m_responseBuffer[1] == 0xFFFFFFFF)
-        return make_error_code(MVLCErrorCode::NoVMEResponse);
 
     if (m_responseBuffer.size() != 1)
         return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
