@@ -229,6 +229,12 @@ std::error_code MVLCObject::stackTransaction(const QVector<u32> &stackUploadData
     return result;
 }
 
+std::error_code MVLCObject::readKnownBuffer(QVector<u32> &dest)
+{
+    auto guard = getLocks().lockCmd();
+    return m_dialog.readKnownBuffer(dest);
+}
+
 QVector<u32> MVLCObject::getResponseBuffer() const
 {
     auto guard = getLocks().lockCmd();

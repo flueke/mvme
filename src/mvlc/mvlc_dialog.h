@@ -65,6 +65,11 @@ class MVLCDialog
         std::error_code stackTransaction(const QVector<u32> &stackUploadData,
                                          QVector<u32> &responseDest);
 
+        // Low level read accepting any of the known buffer types (see
+        // is_known_buffer_header()). Does not do any special handling for
+        // stack error notification buffers as is done in readResponse().
+        std::error_code readKnownBuffer(QVector<u32> &dest);
+
         // Returns the response buffer used internally by readRegister(),
         // readRegisterBlock(), writeRegister(), vmeSingleWrite() and
         // vmeSingleRead().
@@ -89,7 +94,6 @@ class MVLCDialog
     private:
         std::error_code doWrite(const QVector<u32> &buffer);
         std::error_code readWords(u32 *dest, size_t count, size_t &wordsTransferred);
-        std::error_code readKnownBuffer(QVector<u32> &dest);
 
         void logBuffer(const QVector<u32> &buffer, const QString &info);
 

@@ -81,6 +81,8 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         // Read a full response buffer into dest. The buffer header is passed
         // to the validator before attempting to read the rest of the response.
         // If validation fails no more data is read.
+        // Note: if stack error notification buffers are received they are made
+        // available via getStackErrorNotifications().
         std::error_code readResponse(BufferHeaderValidator bhv, QVector<u32> &dest);
 
         // Send the given cmdBuffer to the MVLC, reads and verifies the mirror
@@ -94,6 +96,11 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         // Note: Stack0 is used and offset 0 into stack memory is assumed.
         std::error_code stackTransaction(const QVector<u32> &stackUploadData,
                                          QVector<u32> &responseDest);
+
+        // Low level read accepting any of the known buffer types (see
+        // is_known_buffer_header()). Does not do any special handling for
+        // stack error notification buffers as is done in readResponse().
+        std::error_code readKnownBuffer(QVector<u32> &dest);
 
         // Returns the response buffer containing the contents of the last read
         // operation from the MVLC.
