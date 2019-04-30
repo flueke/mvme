@@ -592,7 +592,11 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
 
         do
         {
+            static const unsigned PollReadTimeout_ms = 1;
+            unsigned timeout = m_d->mvlc->getReadTimeout(Pipe::Command);
+            m_d->mvlc->setReadTimeout(Pipe::Command, PollReadTimeout_ms);
             auto ec = m_d->mvlc->readKnownBuffer(buffer);
+            m_d->mvlc->setReadTimeout(Pipe::Command, timeout);
 
             if (!buffer.isEmpty())
             {
