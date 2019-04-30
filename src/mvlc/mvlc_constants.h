@@ -27,7 +27,7 @@ static const u32 SuperCmdArgShift = 0;
 
 namespace super_commands
 {
-    enum SuperCommands: u32
+    enum SuperCommands: u16
     {
         CmdBufferStart = 0xF100,
         CmdBufferEnd   = 0xF200,
@@ -54,7 +54,7 @@ static const u32 CmdArg1Shift = 0;
 
 namespace commands
 {
-    enum Commands: u32
+    enum Commands: u16
     {
         StackStart      = 0xF3,
         StackEnd        = 0xF4,
@@ -79,17 +79,17 @@ namespace buffer_headers
 
     // Header: Type[7:0] Error[3:0] StackNum[3:0] Length[15:0]
 
-    static const u32 TypeShift = 24;
-    static const u32 TypeMask  = 0xff;
+    static const u16 TypeShift = 24;
+    static const u16 TypeMask  = 0xff;
 
     static const u8 ErrorMask  = 0xf;
     static const u8 ErrorShift = 20;
 
-    static const u32 StackNumShift = 16;
-    static const u32 StackNumMask  = 0xf;
+    static const u16 StackNumShift = 16;
+    static const u16 StackNumMask  = 0xf;
 
-    static const u32 LengthShift = 0;
-    static const u32 LengthMask = 0xffff;
+    static const u16 LengthShift = 0;
+    static const u16 LengthMask = 0xffff;
 }
 
 namespace buffer_errors
@@ -114,7 +114,7 @@ enum Blk2eSSTRate: u8
 };
 
 // Shift relative to the AddressMode argument of the read.
-static const u32 Blk2eSSTRateShift = 6;
+static const u8 Blk2eSSTRateShift = 6;
 
 // For the WriteSpecial command
 enum SpecialWord: u8
@@ -123,8 +123,8 @@ enum SpecialWord: u8
     StackTriggers
 };
 
-static const u32 InternalRegisterMin = 0x0001;
-static const u32 InternalRegisterMax = 0x5FFF;
+static const u16 InternalRegisterMin = 0x0001;
+static const u16 InternalRegisterMax = 0x5FFF;
 
 // Setting bit 0 to 1 enables autonomous execution of stacks in
 // reaction to triggers.
@@ -133,21 +133,26 @@ static const u32 DAQModeEnableRegister = 0x1300;
 
 namespace stacks
 {
-    static const u32 StackCount = 8;
-    static const u32 Stack0TriggerRegister = 0x1100;
-    // Note: The stack offset registers take offsets from StackMemoryBegin,
-    // not absolute memory addresses.
-    static const u32 Stack0OffsetRegister  = 0x1200;
-    static const u32 StackMemoryBegin      = 0x2000;
-    static const u32 StackMemoryWords      = 1024;
-    static const u32 StackMemoryBytes      = StackMemoryWords * 4;
-    static const u32 StackMemoryEnd        = StackMemoryBegin + StackMemoryBytes;
+    static const u8 StackCount = 8;
+    static const u16 Stack0TriggerRegister = 0x1100;
+
+    // Note: The stack offset registers take offsets from StackMemoryBegin, not
+    // absolute memory addresses. The offsets are counted in bytes, not words.
+    static const u16 Stack0OffsetRegister  = 0x1200;
+
+    static const u16 StackMemoryBegin      = 0x2000;
+    static const u16 StackMemoryWords      = 1024;
+    static const u16 StackMemoryBytes      = StackMemoryWords * 4;
+    static const u16 StackMemoryEnd        = StackMemoryBegin + StackMemoryBytes;
+
     // Mask for the number of valid bits in the stack offset register.
     // Higher order bits outside the mask are ignored by the MVLC.
-    static const u32 StackOffsetBitMask    = 0x03FF;
+    static const u16 StackOffsetBitMaskWords    = 0x03FF;
+    static const u16 StackOffsetBitMaskBytes    = StackOffsetBitMaskWords * 4;
 
-    static const u32 ImmediateStackID = 0;
-    static const u32 ImmediateStackWords = 64;
+    static const u8 ImmediateStackID = 0;
+    static const u16 ImmediateStackReservedWords = 128;
+    static const u16 ImmediateStackReservedBytes = ImmediateStackReservedWords * 4;
 
     enum TriggerType: u8
     {
@@ -158,14 +163,24 @@ namespace stacks
         TimerUnderrun,
     };
 
-    // IMPORTANT: The trigger bits have to be set to (IRQ - 1), e.g. value 0
-    // for IRQ1!
-    static const u32 TriggerBitsMask    = 0b11111;
-    static const u32 TriggerBitsShift   = 0;
-    static const u32 TriggerTypeMask    = 0b111;
-    static const u32 TriggerTypeShift   = 5;
-    static const u32 ImmediateMask      = 0b1;
-    static const u32 ImmediateShift     = 8;
+    // IMPORTANT: For IRQs trigger bits have to be set to (IRQ - 1), e.g. value
+    // 0 for IRQ1!
+    static const u16 TriggerBitsMask    = 0b11111;
+    static const u16 TriggerBitsShift   = 0;
+    static const u16 TriggerTypeMask    = 0b111;
+    static const u16 TriggerTypeShift   = 5;
+    static const u16 ImmediateMask      = 0b1;
+    static const u16 ImmediateShift     = 8;
+
+    inline u16 get_trigger_register(u8 stackId)
+    {
+        return Stack0TriggerRegister + stackId * AddressIncrement;
+    }
+
+    inline u16 get_offset_register(u8 stackId)
+    {
+        return Stack0OffsetRegister + stackId * AddressIncrement;
+    }
 }
 
 static const u32 SelfVMEAddress       = 0xFFFF0000u;
@@ -219,45 +234,45 @@ namespace udp
 
 namespace registers
 {
-    static const u32 own_ip_lo              = 0x4400;
-    static const u32 own_ip_hi              = 0x4402;
-    static const u32 StoreIPInFlash         = 0x4404;
+    static const u16 own_ip_lo              = 0x4400;
+    static const u16 own_ip_hi              = 0x4402;
+    static const u16 StoreIPInFlash         = 0x4404;
 
-    static const u32 dhcp_active            = 0x4406; // 0 = fixed IP, 1 = DHCP
-    static const u32 dhcp_ip_lo             = 0x4408;
-    static const u32 dhcp_ip_hi             = 0x440a;
+    static const u16 dhcp_active            = 0x4406; // 0 = fixed IP, 1 = DHCP
+    static const u16 dhcp_ip_lo             = 0x4408;
+    static const u16 dhcp_ip_hi             = 0x440a;
 
-    static const u32 cmd_ip_lo              = 0x440c;
-    static const u32 cmd_ip_hi              = 0x440e;
+    static const u16 cmd_ip_lo              = 0x440c;
+    static const u16 cmd_ip_hi              = 0x440e;
 
-    static const u32 data_ip_lo             = 0x4410;
-    static const u32 data_ip_hi             = 0x4412;
+    static const u16 data_ip_lo             = 0x4410;
+    static const u16 data_ip_hi             = 0x4412;
 
-    static const u32 cmd_mac_0              = 0x4414;
-    static const u32 cmd_mac_1              = 0x4416;
-    static const u32 cmd_mac_2              = 0x4418;
+    static const u16 cmd_mac_0              = 0x4414;
+    static const u16 cmd_mac_1              = 0x4416;
+    static const u16 cmd_mac_2              = 0x4418;
 
-    static const u32 cmd_dest_port          = 0x441a;
-    static const u32 data_dest_port         = 0x441c;
+    static const u16 cmd_dest_port          = 0x441a;
+    static const u16 data_dest_port         = 0x441c;
 
-    static const u32 data_mac_0             = 0x441e;
-    static const u32 data_mac_1             = 0x4420;
-    static const u32 data_mac_2             = 0x4422;
+    static const u16 data_mac_0             = 0x441e;
+    static const u16 data_mac_1             = 0x4420;
+    static const u16 data_mac_2             = 0x4422;
 
-    static const u32 crc_good_ctr           = 0x4424;
-    static const u32 crc_bad_ctr            = 0x4426;
-    static const u32 skip_receive_frame_ctr = 0x4428;
-    static const u32 receive_arp_ctr        = 0x442a;
-    static const u32 receive_ping_ctr       = 0x442c;
-    static const u32 receive_datin_ctr      = 0x442e;
-    static const u32 receive_cmdin_ctr      = 0x4430;
+    static const u16 crc_good_ctr           = 0x4424;
+    static const u16 crc_bad_ctr            = 0x4426;
+    static const u16 skip_receive_frame_ctr = 0x4428;
+    static const u16 receive_arp_ctr        = 0x442a;
+    static const u16 receive_ping_ctr       = 0x442c;
+    static const u16 receive_datin_ctr      = 0x442e;
+    static const u16 receive_cmdin_ctr      = 0x4430;
 
-    static const u32 arp_sender_mac_rx_0    = 0x4432;
-    static const u32 arp_sender_mac_rx_1    = 0x4434;
-    static const u32 arp_sender_mac_rx_2    = 0x4436;
+    static const u16 arp_sender_mac_rx_0    = 0x4432;
+    static const u16 arp_sender_mac_rx_1    = 0x4434;
+    static const u16 arp_sender_mac_rx_2    = 0x4436;
 
-    static const u32 arp_sender_ip_rx_lo    = 0x4438;
-    static const u32 arp_sender_ip_rx_hi    = 0x443a;
+    static const u16 arp_sender_ip_rx_lo    = 0x4438;
+    static const u16 arp_sender_ip_rx_hi    = 0x443a;
 } // end namespace registers
 
 enum class Pipe: u8
