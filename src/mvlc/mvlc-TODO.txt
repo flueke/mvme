@@ -1,17 +1,14 @@
-* Soft deadlock when doing 'auto guard = getLocks().lock(pipe);' in
-  MVLCObject::getReadQueueSize().
-  What's happening is that the readout thread quickly loops and holds the lock most of the
-  time. In parallel the GUI thread wants to periodically poll the read queue size but gets
-  stuck acquiring the lock. It can take a very long time before the GUI thread gets
-  scheduled at the right time and is able to acquire the lock before the readout.
-  A possible solution is outlined here using a ticket system:
-  https://stackoverflow.com/a/6453925
+* Pulling udp::Impl stats (getLossCounters(), getPacketSizeCounters()) from the GUI is
+  currently not taking the higher-level locks. This means the readout thread or a thread
+  doing periodic polling can update those values concurrently to the GUI reading them.
+  Either implement low level locks in the UDP code or use the higher level ones which
+  currently are in MVLCObject.
 
-* The windows usb::Impl::read() and the udp::Impl::read() calls can take longer than the
-  user specified timeout as they are issuing multiple read/receive calls internally, each
-  using the previously set timeout value. Document this behaviour and/or work around it by
-  taking into account how much time has elapsed between each of the individual
-  read/receive calls.
+* The windows usb::Impl::read() and the udp::Impl::read() calls on both systems can take
+  longer than the user specified timeout as they are issuing multiple read/receive calls
+  internally, each using the previously set timeout value. Document this behaviour and/or
+  work around it by taking into account how much time has elapsed between each of the
+  individual read/receive calls.
 
 * Build a tool to verify incoming readout data. Check headers and pointers. Test this with
   different incoming event sizes.
