@@ -454,6 +454,10 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
     if (m_d->mvlc->connectionType() == ConnectionType::UDP)
     {
         ui->gb_udpStats->show();
+
+        //
+        // UDP pipe stats table
+        //
         auto tbl = new QTableWidget(this);
 
         static const QStringList colTitles = {
@@ -462,7 +466,6 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
 
 
         tbl->setColumnCount(colTitles.size());
-
         tbl->setHorizontalHeaderLabels(colTitles);
 
         auto update_stats_table = [this, tbl]()
@@ -482,7 +485,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
 
             QStringList rowTitles = {
                 "rcvdPackets", "packets/s",
-                "lostPackets", "shortPackets",
+                "shortPackets",
                 "receivedBytes", "bytesPerSecond",
                 "noHeader", "headerOutOfRange"
             };
@@ -514,7 +517,6 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
 
                 tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.receivedPackets)));
                 tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(packetsPerSecond)));
-                tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.lostPackets)));
                 tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.shortPackets)));
                 tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(stats.receivedBytes)));
                 tbl->setItem(row++, pipe, new QTWI(QSL("%1").arg(bytesPerSecond)));
@@ -545,8 +547,65 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
 
         connect(updateTimer, &QTimer::timeout, this, update_stats_table);
 
-        auto l = new QHBoxLayout(ui->gb_udpStats);
-        l->addWidget(tbl);
+        //
+        // UDP packet channel loss counters
+        //
+        QStringList channelNames = { "Command", "Stack", "Data" };
+        std::array<QLabel *, udp::NumPacketChannels> lossLabels;
+        auto l_packetLoss = new QFormLayout();
+        l_packetLoss->addRow(new QLabel("Packet loss counters"));
+        for (u8 chan = 0; chan < udp::NumPacketChannels; chan++)
+        {
+            lossLabels[chan] = new QLabel(this);
+            l_packetLoss->addRow(channelNames[chan], lossLabels[chan]);
+        }
+
+        auto update_loss_labels = [this, lossLabels] ()
+        {
+            auto lossCounters = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl())->getLossCounters();
+
+            for (size_t chan = 0; chan < udp::NumPacketChannels; chan++)
+            {
+                auto label = lossLabels[chan];
+                label->setText(QString::number(lossCounters[chan]));
+            }
+        };
+
+        connect(updateTimer, &QTimer::timeout, this, update_loss_labels);
+
+        auto debug_print_packet_sizes = [this] ()
+        {
+            auto sizeMaps = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl())->getPacketSizeCounters();
+
+            for (u16 pktChan = 0; pktChan < sizeMaps.size(); pktChan++)
+            {
+                const auto &pktSizes = sizeMaps[pktChan];
+
+                if (pktSizes.empty())
+                    continue;
+
+                std::vector<u16> sizeVec;
+                sizeVec.reserve(pktSizes.size());
+
+                for (const auto &kv: pktSizes)
+                    sizeVec.push_back(kv.first);
+
+                std::sort(sizeVec.begin(), sizeVec.end());
+
+                qDebug("Incoming packet sizes for packet channel %u:", pktChan);
+
+                for (u16 pktSize: sizeVec)
+                {
+                    qDebug("  sz=%4u, packets=%lu", pktSize, pktSizes.at(pktSize));
+                }
+            }
+        };
+
+        connect(updateTimer, &QTimer::timeout, this, debug_print_packet_sizes);
+
+        auto udpStatsLayout = new QHBoxLayout(ui->gb_udpStats);
+        udpStatsLayout->addWidget(tbl);
+        udpStatsLayout->addLayout(l_packetLoss);
     }
 
     // Interactions
