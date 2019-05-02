@@ -201,6 +201,10 @@ namespace udp
 
     namespace header0
     {
+        // 4 bit packet channel number
+        static const u32 PacketChannelMask  = 0xf;
+        static const u32 PacketChannelShift = 28;
+
         // 12 bit packet number
         // Pipe specific incrementing packet number.
         static const u32 PacketNumberMask  = 0xfff;
@@ -217,19 +221,33 @@ namespace udp
         // minutes.
         static const u32 TimestampMask      = 0xfffff;
         static const u32 TimestampShift     = 12;
-        // Points to the next payload header word. The position directly after
-        // this header word is 0.
-        // TODO: verify and possibly reword this
-        // Note that this value can point to an offset that's outside of this
-        // packets range. This means the packet does not contain a payload
-        // header but was the continuation of a data section started previously.
+
+        // Points to the next buffer header word in the packet data. The
+        // position directly after this header1 word is 0.
+        // The special value 0xffff indicates that there's no buffer header
+        // present in the packet data. This means the packet contains
+        // continuation data from a previously started buffer.
+        // This header pointer value can be used to resume processing data
+        // packets in case of packet loss.
         static const u32 HeaderPointerMask  = 0xfff;
         static const u32 HeaderPointerShift = 0;
+
+        static const u32 NoHeaderPointerPresent = 0xffff;
     }
 
     static const size_t JumboFrameMaxSize = 9000;
     static const size_t UDPSingleTransferMaxBytes = 1 * 1024 * 1024;
     static const size_t UDPSingleTransferMaxWords = UDPSingleTransferMaxBytes / sizeof(u32);
+
+    enum class PacketChannel: u8
+    {
+        Command, // Command and mirror responses
+        Stack,   // Data produced by stack executions routed to the command pipe
+        Data,    // Readout data produced by stacks routed to the data pipe
+    };
+
+    static const u8 NumPacketChannels = 3;
+
 } // end namespace udp
 
 namespace registers
