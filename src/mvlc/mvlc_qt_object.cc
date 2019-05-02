@@ -124,6 +124,7 @@ unsigned MVLCObject::getWriteTimeout(Pipe pipe) const
 
 // Called before stack operations. Clears the internal stack error notification
 // buffer.
+// The command mutex must be locked when this method is called.
 void MVLCObject::preDialogOperation()
 {
     m_dialog.clearStackErrorNotifications();
@@ -132,6 +133,7 @@ void MVLCObject::preDialogOperation()
 // Called after stack operations. Checks if there are pending stack error
 // notifications and emits the stackErrorNotification() signal for each of
 // them.
+// The command mutex must be locked when this method is called.
 void MVLCObject::postDialogOperation()
 {
     // The Command mutex should be locked at this point which means to avoid

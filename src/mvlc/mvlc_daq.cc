@@ -1,4 +1,5 @@
 #include "mvlc/mvlc_daq.h"
+#include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_util.h"
 #include "vme_daq.h"
 
@@ -22,7 +23,7 @@ std::error_code disable_all_triggers(MVLCObject &mvlc)
 
 // Builds, uploads and sets up the readout stack for each event in the vme
 // config.
-void setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
+std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
 {
     // Stack0 is reserved for immediate exec
     u8 stackId = stacks::ImmediateStackID + 1;
@@ -35,7 +36,7 @@ void setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger l
     for (const auto &event: vmeConfig.getEventConfigs())
     {
         if (stackId >= stacks::StackCount)
-            throw std::runtime_error("number of available stacks exceeded");
+            return make_error_code(MVLCErrorCode::StackCountExceeded);
 
         auto readoutScript = build_event_readout_script(event);
         auto stackContents = build_stack(readoutScript, DataPipe);
@@ -44,25 +45,27 @@ void setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger l
         u16 endAddress    = uploadAddress + stackContents.size() * 4;
 
         if (endAddress >= stacks::StackMemoryEnd)
-            throw std::runtime_error("stack memory exceeded");
+            return make_error_code(MVLCErrorCode::StackMemoryExceeded);
 
         auto uploadCommands = build_upload_command_buffer(stackContents, uploadAddress);
 
         if (auto ec = mvlc.mirrorTransaction(uploadCommands, responseBuffer))
-            throw std::system_error(ec);
+            return ec;
 
         u16 offsetRegister = stacks::get_offset_register(stackId);
 
         if (auto ec = mvlc.writeRegister(offsetRegister, uploadAddress & stacks::StackOffsetBitMaskBytes))
-            throw std::system_error(ec);
+            return ec;
 
         stackId++;
         // again leave a 1 word gap between stacks
         uploadOffset += stackContents.size() + 1;
     }
+
+    return {};
 }
 
-void setup_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig)
+std::error_code setup_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig)
 {
     u8 stackId = stacks::ImmediateStackID + 1;
 
@@ -74,11 +77,11 @@ void setup_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig)
                 {
                     u16 triggerReg = stacks::get_trigger_register(stackId);
 
-                    u32 triggerVal = stacks::IRQ << stacks::TriggerTypeShift;
+                    u32 triggerVal = stacks::IRQNoIACK << stacks::TriggerTypeShift;
                     triggerVal |= (event->irqLevel - 1) & stacks::TriggerBitsMask;
 
                     if (auto ec = mvlc.writeRegister(triggerReg, triggerVal))
-                        throw std::system_error(ec);
+                        return ec;
 
                 } break;
 
@@ -87,15 +90,34 @@ void setup_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig)
 
         stackId++;
     }
+
+    return {};
 }
 
-void setup_mvlc(MVLC_VMEController &mvlc, const VMEConfig &vmeConfig, Logger logger)
+std::error_code setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
 {
-    auto &mvlcObj = *mvlc.getMVLCObject();
+    logger("Disabling readout triggers");
 
-    disable_all_triggers(mvlcObj);
-    setup_readout_stacks(mvlcObj, vmeConfig, logger);
-    setup_triggers(mvlcObj, vmeConfig);
+    if (auto ec = disable_all_triggers(mvlc))
+    {
+        logger(QString("Error disabling readout triggers: %1").arg(ec.message().c_str()));
+        return ec;
+    }
+
+    logger("Setting up readout stacks");
+
+    if (auto ec = setup_readout_stacks(mvlc, vmeConfig, logger))
+    {
+        logger(QString("Error setting up readout stacks: %1").arg(ec.message().c_str()));
+        return ec;
+    }
+
+    logger("Setting up triggers");
+
+    if (auto ec = setup_triggers(mvlc, vmeConfig))
+        return ec;
+
+    return {};
 }
 
 } // end namespace mvlc

@@ -1,3 +1,4 @@
+* Add NoIAck option to VMEConfig and use it in the MVLC setup code
 * Pulling udp::Impl stats (getLossCounters(), getPacketSizeCounters()) from the GUI is
   currently not taking the higher-level locks. This means the readout thread or a thread
   doing periodic polling can update those values concurrently to the GUI reading them.

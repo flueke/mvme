@@ -331,6 +331,9 @@ if (MVME_ENABLE_MVLC)
         mvlc/mvlc_daq.cc
     )
     target_link_libraries(libmvme libmvme_mvlc)
+
+    add_executable(dev_mvlc_daq_init mvlc/dev_mvlc_daq_init.cc)
+    target_link_libraries(dev_mvlc_daq_init libmvme)
 endif()
 
 install(TARGETS libmvme DESTINATION .)
