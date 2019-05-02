@@ -203,7 +203,9 @@ std::error_code Impl::connect()
     m_cmdSock = -1;
     m_dataSock = -1;
     m_pipeStats = {};
-    m_pipePacketNumbers = { -1, -1 };
+    std::fill(m_lastPacketNumbers.begin(), m_lastPacketNumbers.end(), -1);
+    m_packetLossCounters = {};
+    m_channelPacketSizes = {};
 
     if (auto ec = lookup(m_host, CommandPort, m_cmdAddr))
         return ec;
@@ -299,8 +301,8 @@ std::error_code Impl::connect()
     if (m_cmdSock < 0 || m_dataSock < 0)
         return make_error_code(MVLCErrorCode::BindLocalError);
 
-    // Call connect on the sockets so that we receive only datagrams from the
-    // MVLC.
+    // Call connect on the sockets so that we receive only datagrams
+    // originating from the MVLC.
     if (int res = ::connect(m_cmdSock, reinterpret_cast<struct sockaddr *>(&m_cmdAddr),
                             sizeof(m_cmdAddr)))
     {
@@ -457,7 +459,7 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
  *   - make sure there are two header words
  *   - extract packet_number and number_of_data_words
  *   - record possible packet loss or ordering problems based on packet number
- *   - check to make sure timestamp is incrementing (packet ordering)
+ *   - check to make sure timestamp is incrementing (packet ordering) (not implemented yet)
  *   -
  */
 
@@ -476,7 +478,7 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
 
     if (sres == 0)
         return make_error_code(MVLCErrorCode::SocketTimeout);
-    
+
     if (sres == SOCKET_ERROR)
         return make_error_code(MVLCErrorCode::SocketError);
 
@@ -550,7 +552,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
     }
 
     // All data from the read buffer should have been consumed at this point.
-    // It's time to issue actual read requests
+    // It's time to issue actual read requests.
     assert(receiveBuffer.available() == 0);
 
     size_t readCount = 0u;
@@ -589,10 +591,12 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         if (ec)
             return ec;
 
-        ++pipeStats.receivedPackets;
-        pipeStats.receivedBytes += transferred;
+        const u16 packetSize = transferred;
 
-        if (transferred < HeaderBytes)
+        ++pipeStats.receivedPackets;
+        pipeStats.receivedBytes += packetSize;
+
+        if (packetSize < HeaderBytes)
         {
             ++pipeStats.shortPackets;
             LOG_WARN("  pipe=%u, received data is smaller than the MVLC UDP header size", pipe);
@@ -601,18 +605,20 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         }
 
         receiveBuffer.start = receiveBuffer.buffer.data() + HeaderBytes;
-        receiveBuffer.end   = receiveBuffer.buffer.data() + transferred;
+        receiveBuffer.end   = receiveBuffer.buffer.data() + packetSize;
 
         u32 pkt_header0 = receiveBuffer.header0();
         u32 pkt_header1 = receiveBuffer.header1();
 
+        u16 packetChannel       = (pkt_header0 >> header0::PacketChannelShift)  & header0::PacketChannelMask;
         u16 packetNumber        = (pkt_header0 >> header0::PacketNumberShift)  & header0::PacketNumberMask;
         u16 dataWordCount       = (pkt_header0 >> header0::NumDataWordsShift)  & header0::NumDataWordsMask;
+
         u32 udpTimestamp        = (pkt_header1 >> header1::TimestampShift)     & header1::TimestampMask;
         u16 nextHeaderPointer   = (pkt_header1 >> header1::HeaderPointerShift) & header1::HeaderPointerMask;
 
-        LOG_TRACE("  pipe=%u, header0=0x%08x -> packetNumber=%u, wordCount=%u",
-                  pipe, pkt_header0, packetNumber, dataWordCount);
+        LOG_TRACE("  pipe=%u, header0=0x%08x -> packetChannel=%u, packetNumber=%u, wordCount=%u",
+                  pipe, pkt_header0, packetChannel, packetNumber, dataWordCount);
 
         LOG_TRACE("  pipe=%u, header1=0x%08x -> udpTimestamp=%u, nextHeaderPointer=%u",
                   pipe, pkt_header1, udpTimestamp, nextHeaderPointer);
@@ -623,19 +629,41 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         LOG_TRACE("  pipe=%u, calculated available data words = %u, leftover bytes = %u",
                   pipe, availableDataWords, leftoverBytes);
 
-#if 0
-        auto &lastPacketNumber = m_pipePacketNumbers[pipe];
-
-        LOG_TRACE("  pipe=%u, packetNumber=%u, lastPacketNumber=%d",
-                  pipe, packetNumber, lastPacketNumber);
-
-        // Packet loss calculation. Initial lastPacketNumber value is -1
-        if (lastPacketNumber >= 0)
+        if (leftoverBytes > 0)
         {
-            pipeStats.lostPackets += calc_packet_loss(lastPacketNumber, packetNumber);
+            LOG_WARN("  pipe=%u, %u leftover bytes in received packet",
+                     pipe, leftoverBytes);
         }
-        lastPacketNumber = packetNumber;
-#endif
+
+        if (packetChannel >= NumPacketChannels)
+        {
+            LOG_WARN("  pipe=%u, packet channel number out of range: %u", pipe, packetChannel);
+        }
+        else
+        {
+            auto &lastPacketNumber = m_lastPacketNumbers[packetChannel];
+
+            LOG_TRACE("  pipe=%u, packetChannel=%u, packetNumber=%u, lastPacketNumber=%d",
+                      pipe, packetChannel, packetNumber, lastPacketNumber);
+
+            // Packet loss calculation. The initial lastPacketNumber value is -1.
+            if (lastPacketNumber >= 0)
+            {
+                auto loss = calc_packet_loss(lastPacketNumber, packetNumber);
+
+                if (loss > 0)
+                {
+                    LOG_WARN("  pipe=%u, lastPacketNumber=%u, packetNumber=%u, loss=%d",
+                             pipe, lastPacketNumber, packetNumber, loss);
+                }
+
+                m_packetLossCounters[packetChannel] += loss;
+            }
+            lastPacketNumber = packetNumber;
+
+            // record incoming packet sizes on a per packetChannel basis
+            m_channelPacketSizes[packetChannel][packetSize]++;
+        }
 
         // Check where nextHeaderPointer is pointing to
         if (nextHeaderPointer != 0xffff)
@@ -645,13 +673,20 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
             u32 *headerp = start + nextHeaderPointer;
 
             if (headerp >= end)
+            {
                 ++pipeStats.headerOutOfRange;
+
+                LOG_WARN("  pipe=%u, nextHeaderPointer out of range: nHPtr=%u, "
+                         "availDataWords=%u, pktChan=%u, pktNum=%d, pktSize=%u bytes",
+                         pipe, nextHeaderPointer, availableDataWords, packetChannel,
+                         packetNumber, packetSize);
+            }
             else
             {
                 u32 header = *headerp;
                 LOG_TRACE("  pipe=%u, nextHeaderPointer=%u -> header=0x%08x",
                           pipe, nextHeaderPointer, header);
-                // TODO: check header value and count good/bad/ugly
+                // TODO: check header value and count good/bad/ugly/unknown
                 u32 type = (header >> 24) & 0xff;
                 ++pipeStats.headerTypes[type];
             }
@@ -694,6 +729,22 @@ PipeStats Impl::getPipeStats(Pipe pipe_) const
 std::array<PipeStats, PipeCount> Impl::getPipeStats() const
 {
     return m_pipeStats;
+}
+
+LossCounters Impl::getLossCounters() const
+{
+    return m_packetLossCounters;
+}
+
+u64 Impl::getLossCounter(PacketChannel packetChannel)
+{
+    unsigned chan = static_cast<unsigned>(packetChannel);
+    assert(chan < NumPacketChannels);
+
+    if (chan < NumPacketChannels)
+        return m_packetLossCounters[chan];
+
+    return 0u;
 }
 
 s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber)

@@ -3,6 +3,7 @@
 
 #include <array>
 #include <string>
+#include <unordered_map>
 
 #ifndef __WIN32
 #include <netinet/ip.h> // sockaddr_in
@@ -43,17 +44,18 @@ struct PipeStats
     // Packets shorther than the header size (2 * 32 bit).
     u64 shortPackets = 0u;
 
-    // Packet loss based on transmitted packet numbers.
-    u64 lostPackets = 0u;
-
     // Total number of received bytes including MVLC protocol overhead. This is
     // the sum of the payload sizes of the received UDP packets.
     u64 receivedBytes = 0u;
 
     u64 noHeader = 0u;          // Packets where nextHeaderPointer = 0xffff
     u64 headerOutOfRange = 0u;  // Header points outside the packet data
-    std::array<u64, 256> headerTypes = {};
+    std::array<u64, 256> headerTypes = {}; // TODO: possibly remove this once everything is debugged and working
 };
+
+using LossCounters = std::array<u64, NumPacketChannels>;
+using PacketSizeMap = std::unordered_map<u16, u64>;
+using PacketSizeCounters = std::array<PacketSizeMap, NumPacketChannels>;
 
 class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 {
@@ -83,6 +85,10 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 
         PipeStats getPipeStats(Pipe pipe) const;
         std::array<PipeStats, PipeCount> getPipeStats() const;
+
+        LossCounters getLossCounters() const;
+        u64 getLossCounter(PacketChannel packetChannel);
+        PacketSizeCounters getPacketSizeCounters() { return m_channelPacketSizes; }
 
     private:
         int getSocket(Pipe pipe) { return pipe == Pipe::Command ? m_cmdSock : m_dataSock; }
@@ -118,7 +124,9 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 
         std::array<ReceiveBuffer, PipeCount> m_receiveBuffers;
         std::array<PipeStats, PipeCount> m_pipeStats;
-        std::array<s32, PipeCount> m_pipePacketNumbers;
+        std::array<s32, NumPacketChannels> m_lastPacketNumbers;
+        LossCounters m_packetLossCounters;
+        PacketSizeCounters m_channelPacketSizes;
 };
 
 // Given the previous and current packet numbers returns the number of lost
