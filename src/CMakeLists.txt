@@ -172,7 +172,7 @@ if(MVME_ENABLE_MVLC)
     install(TARGETS libmvme_mvlc DESTINATION .)
 
     # mvlc_dev_gui
-    add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc)
+    add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc mvlc/mvlc_dev_gui_main.cc)
     qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
     target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
     target_link_libraries(mvlc_dev_gui libmvme_mvlc)
@@ -210,12 +210,6 @@ if(MVME_ENABLE_MVLC)
         add_mvlc_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
         add_mvlc_gtest(test_mvlc_calc_packet_loss mvlc/test/test_mvlc_calc_packet_loss.cc)
     endif(BUILD_TESTS)
-
-    # Standalone mvme-like binary specifically for the mvlc. This is used to
-    # explore how to best integrate the mvlc and improve the mvme codebase as a
-    # whole.
-    add_executable(mvme_mvlc mvlc/mvme_mvlc.cc)
-    target_link_libraries(mvme_mvlc libmvme)
 endif(MVME_ENABLE_MVLC)
 
 #
@@ -229,8 +223,6 @@ qt5_use_modules(libmvme Concurrent Gui Network Widgets)
 qt5_wrap_ui(LIBMVME_UIC_OUT mesytec_diagnostics.ui vme_debug_widget.ui)
 
 target_sources(libmvme PRIVATE
-    #"${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
-    #"${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
     "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
     ${LIBMVME_UIC_OUT}
 
@@ -338,6 +330,12 @@ if (MVME_ENABLE_MVLC)
 
     add_executable(dev_mvlc_daq_init mvlc/dev_mvlc_daq_init.cc)
     target_link_libraries(dev_mvlc_daq_init libmvme)
+
+    # Standalone mvme-like binary specifically for the mvlc. This is used to
+    # explore how to best integrate the mvlc and improve the mvme codebase as a
+    # whole.
+    add_executable(mvme_mvlc mvlc/mvme_mvlc.cc)
+    target_link_libraries(mvme_mvlc libmvme)
 endif()
 
 install(TARGETS libmvme DESTINATION .)

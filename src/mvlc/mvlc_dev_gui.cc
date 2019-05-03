@@ -1,6 +1,5 @@
 #include "mvlc/mvlc_dev_gui.h"
 
-#include <QApplication>
 #include <QComboBox>
 #include <QDebug>
 #include <QFileDialog>
@@ -26,7 +25,6 @@
 
 #include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_error.h"
-#include "mvlc/mvlc_impl_factory.h"
 #include "mvlc/mvlc_script.h"
 #include "mvlc/mvlc_impl_udp.h"
 #include "mvlc/mvlc_impl_usb.h"
@@ -1923,45 +1921,4 @@ QString format_ipv4(u32 address)
         .arg((address >> 16) & 0xFF)
         .arg((address >>  8) & 0xFF)
         .arg((address >>  0) & 0xFF);
-}
-
-int main(int argc, char *argv[])
-{
-    qRegisterMetaType<QVector<u8>>("QVector<u8>");
-    qRegisterMetaType<QVector<u32>>("QVector<u32>");
-
-    QApplication app(argc, argv);
-
-    // actionQuit
-    auto actionQuit = new QAction("&Quit");
-    actionQuit->setShortcut(QSL("Ctrl+Q"));
-    actionQuit->setShortcutContext(Qt::ApplicationShortcut);
-
-    QObject::connect(actionQuit, &QAction::triggered,
-                     &app, &QApplication::quit);
-
-    LogWidget logWindow;
-    logWindow.addAction(actionQuit);
-
-    MVLCDevGUI devGui_usb(std::make_unique<MVLCObject>(make_mvlc_usb()));
-    devGui_usb.setWindowTitle("MVLC Dev GUI - USB");
-
-    MVLCDevGUI devGui_udp(std::make_unique<MVLCObject>(make_mvlc_udp("192.168.42.2")));
-    devGui_udp.setWindowTitle("MVLC Dev GUI - UDP");
-
-    for (auto devgui: { &devGui_usb, &devGui_udp })
-    {
-        QObject::connect(devgui, &MVLCDevGUI::sigLogMessage,
-                         &logWindow, &LogWidget::logMessage);
-
-        devgui->addAction(actionQuit);
-
-        devgui->resize(1000, 960);
-        devgui->show();
-    }
-
-    logWindow.resize(600, 960);
-    logWindow.show();
-
-    return app.exec();
 }
