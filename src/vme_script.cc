@@ -1209,6 +1209,16 @@ QString format_result(const Result &result)
             .arg(to_string(result.command))
             .arg(result.error.toString());
 
+#if 0 // too verbose
+        if (auto ec = result.error.getStdErrorCode())
+        {
+            ret += QString(" (std::error_code: msg=%1, value=%2, cat=%3)")
+                .arg(ec.message().c_str())
+                .arg(ec.value())
+                .arg(ec.category().name());
+        }
+#endif
+
         return ret;
     }
 
