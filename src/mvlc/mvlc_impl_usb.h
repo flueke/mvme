@@ -84,10 +84,8 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         // Uses the first device matching the description "MVLC".
         Impl();
 
-        // Absolute index of the USB device to open.
-        // This is the index value assigned by the FTDI library and returned in
-        // the DeviceInfo structure. This constructor does not check whether
-        // the USB description entry contains "MVLC".
+        // Open the MVLC with the specified zero based index.
+        // Only devices containing "MVLC" in the description are considered.
         explicit Impl(int index);
 
         // Open the MVLC with the given serial number

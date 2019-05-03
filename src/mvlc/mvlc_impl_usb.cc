@@ -358,8 +358,17 @@ std::error_code Impl::connect()
             break;
 
         case ConnectMode::ByIndex:
-            st = FT_Create(reinterpret_cast<void *>(m_connectMode.index),
-                           FT_OPEN_BY_INDEX, &m_handle);
+            {
+                st = FT_DEVICE_NOT_FOUND;
+                auto infoList = get_device_info_list();
+
+                if (0 <= m_connectMode.index && m_connectMode.index < static_cast<int>(infoList.size()))
+                {
+                    const auto &di = infoList[0];
+                    st = FT_Create(reinterpret_cast<void *>(di.index),
+                                   FT_OPEN_BY_INDEX, &m_handle);
+                }
+            }
             break;
 
         case ConnectMode::BySerial:
