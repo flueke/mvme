@@ -79,6 +79,9 @@ class MVLCErrorCategory: public std::error_category
 
             case MVLCErrorCode::StackSyntaxError:
                  return "Stack syntax error";
+
+            case MVLCErrorCode::InvalidStackHeader:
+                 return "Invalid stack header";
         }
 
         return "unrecognized MVLC error";
@@ -116,6 +119,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::StackCountExceeded:
             case MVLCErrorCode::StackMemoryExceeded:
             case MVLCErrorCode::StackSyntaxError:
+            case MVLCErrorCode::InvalidStackHeader:
                 return ErrorType::ProtocolError;
 
             case MVLCErrorCode::NoVMEResponse:
