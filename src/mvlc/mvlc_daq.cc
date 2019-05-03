@@ -21,6 +21,19 @@ std::error_code disable_all_triggers(MVLCObject &mvlc)
     return {};
 }
 
+std::error_code reset_stack_offsets(MVLCObject &mvlc)
+{
+    for (u8 stackId = 0; stackId < stacks::StackCount; stackId++)
+    {
+        u16 addr = stacks::get_offset_register(stackId);
+
+        if (auto ec = mvlc.writeRegister(addr, 0))
+            return ec;
+    }
+
+    return {};
+}
+
 // Builds, uploads and sets up the readout stack for each event in the vme
 // config.
 std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
@@ -100,8 +113,17 @@ std::error_code setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger 
 
     if (auto ec = disable_all_triggers(mvlc))
     {
-        logger(QString("Error disabling readout triggers: %1").arg(ec.message().c_str()));
+        logger(QString("Error disabling readout triggers: %1")
+               .arg(ec.message().c_str()));
         return ec;
+    }
+
+    logger("Resetting stack offsets");
+
+    if (auto ec = reset_stack_offsets(mvlc))
+    {
+        logger(QString("Error resetting stack offsets: %1")
+               .arg(ec.message().c_str()));
     }
 
     logger("Setting up readout stacks");
