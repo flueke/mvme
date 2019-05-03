@@ -34,6 +34,7 @@ enum class MVLCErrorCode
     StackCountExceeded,
     StackMemoryExceeded,
     StackSyntaxError,
+    InvalidStackHeader,
 };
 
 LIBMVME_MVLC_EXPORT std::error_code make_error_code(MVLCErrorCode error);

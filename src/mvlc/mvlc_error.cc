@@ -71,6 +71,9 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::SocketTimeout:
                  return "socket timeout";
 
+            case MVLCErrorCode::StackCountExceeded:
+                 return "number of stacks exceeded";
+
             case MVLCErrorCode::StackMemoryExceeded:
                  return "MVLC stack memory exceeded";
 
@@ -110,6 +113,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::UnexpectedResponseSize:
             case MVLCErrorCode::CommandArgOutOfRange:
             case MVLCErrorCode::InvalidPipe:
+            case MVLCErrorCode::StackCountExceeded:
             case MVLCErrorCode::StackMemoryExceeded:
             case MVLCErrorCode::StackSyntaxError:
                 return ErrorType::ProtocolError;
