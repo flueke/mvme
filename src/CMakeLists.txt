@@ -325,6 +325,7 @@ target_link_libraries(libmvme
 if (MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE
         mvlc/mvlc_daq.cc
+        mvme_mvlc_readout_worker.cc
     )
     target_link_libraries(libmvme libmvme_mvlc)
 

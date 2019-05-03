@@ -1,5 +1,6 @@
 #include "vme_controller_factory.h"
 
+#include "mvme_mvlc_readout_worker.h"
 #include "sis3153.h"
 #include "sis3153_readout_worker.h"
 #include "vme_controller_ui.h"
@@ -23,11 +24,19 @@ VMEController *VMEControllerFactory::makeController(const QVariantMap &settings)
 {
     auto make_mvlc_ctrl = [](std::unique_ptr<mesytec::mvlc::AbstractImpl> impl)
     {
+        // Dependencies of the MVLC_VMEController object:
+        // MVLC_VMEController -> MVLCObject -> (udp|usb)::Impl
+        //
+        // Note that the ownership transfer is not required by the API itself.
+        // It's only done to have a valid parent for MVLCObject and not leak anything.
+        // Constructing a MVLC_VMEController on the stack using a MVLCObject is
+        // fine without transfering ownership.
+
         auto obj  = std::make_unique<mesytec::mvlc::MVLCObject>(std::move(impl));
         auto ctrl = std::make_unique<mesytec::mvlc::MVLC_VMEController>(obj.get());
 
         // Transfer ownership of the MVLCObject to the newly created
-        // MVLC_VMEController
+        // MVLC_VMEController wrapper
         obj->setParent(ctrl.get());
         obj.release();
 
@@ -50,8 +59,23 @@ VMEController *VMEControllerFactory::makeController(const QVariantMap &settings)
 
         case VMEControllerType::MVLC_USB:
             {
-                // TODO: support index and serial number based mvlc usb connetions
-                auto impl = mesytec::mvlc::make_mvlc_usb();
+                std::unique_ptr<mesytec::mvlc::AbstractImpl> impl;
+
+                auto method = settings["method"].toString();
+
+                if (method == "by_index")
+                {
+                    impl = mesytec::mvlc::make_mvlc_usb(settings["index"].toUInt());
+                }
+                else if (method == "by_serial")
+                {
+                    impl = mesytec::mvlc::make_mvlc_usb_using_serial(settings["serial"].toUInt());
+                }
+                else
+                {
+                    impl = mesytec::mvlc::make_mvlc_usb();
+                }
+
                 return make_mvlc_ctrl(std::move(impl));
 
             } break;
@@ -80,6 +104,12 @@ VMEControllerSettingsWidget *VMEControllerFactory::makeSettingsWidget()
             {
                 return new SIS3153EthSettingsWidget;
             } break;
+
+        case VMEControllerType::MVLC_USB:
+            return new MVLC_USB_SettingsWidget;
+
+        case VMEControllerType::MVLC_ETH:
+            return new MVLC_ETH_SettingsWidget;
     }
 
     return nullptr;
@@ -98,6 +128,10 @@ VMEReadoutWorker *VMEControllerFactory::makeReadoutWorker()
             {
                 return new SIS3153ReadoutWorker;
             } break;
+
+        case VMEControllerType::MVLC_USB:
+        case VMEControllerType::MVLC_ETH:
+            return new MVLCReadoutWorker;
     }
 
     return nullptr;

@@ -16,7 +16,7 @@ std::unique_ptr<AbstractImpl> make_mvlc_usb()
     return std::make_unique<usb::Impl>();
 }
 
-std::unique_ptr<AbstractImpl> make_mvlc_usb_using_index(int index)
+std::unique_ptr<AbstractImpl> make_mvlc_usb(unsigned index)
 {
     return std::make_unique<usb::Impl>(index);
 }

@@ -86,7 +86,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 
         // Open the MVLC with the specified zero based index.
         // Only devices containing "MVLC" in the description are considered.
-        explicit Impl(int index);
+        explicit Impl(unsigned index);
 
         // Open the MVLC with the given serial number
         explicit Impl(const std::string &serial);
@@ -125,7 +125,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
             };
 
             Mode mode = First;
-            int index = 0;
+            unsigned index = 0;
             std::string serial;
         };
 

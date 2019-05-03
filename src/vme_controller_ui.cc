@@ -21,11 +21,11 @@
 
 #include "vme_controller_ui.h"
 
-#include <QAbstractButton>
 #include <QBoxLayout>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QMessageBox>
+#include <QPushButton>
 
 #include "gui_util.h"
 #include "mvme_context.h"
@@ -195,6 +195,157 @@ QVariantMap SIS3153EthSettingsWidget::getSettings()
     return result;
 }
 
+//
+// MVLC_USB_SettingsWidget
+//
+MVLC_USB_SettingsWidget::MVLC_USB_SettingsWidget(QWidget *parent)
+    : VMEControllerSettingsWidget(parent)
+    , rb_first(new QRadioButton("First Device"))
+    , rb_index(new QRadioButton("By Index"))
+    , rb_serial(new QRadioButton("By Serial"))
+    , spin_index(new QSpinBox)
+    , le_serial(new QLineEdit)
+    , pb_listDevices(new QPushButton("List connected devices"))
+{
+    spin_index->setMinimum(0);
+    spin_index->setMaximum(255);
+    le_serial->setText("1");
+
+    auto layout = new QVBoxLayout(this);
+
+    // first device
+    {
+        auto l = make_layout<QHBoxLayout>();
+        l->addWidget(rb_first);
+        layout->addLayout(l);
+    }
+
+    // by index
+    {
+        auto l = make_layout<QHBoxLayout>();
+        l->addWidget(rb_index);
+        l->addWidget(spin_index);
+        layout->addLayout(l);
+    }
+
+    // by serial
+    {
+        auto l = make_layout<QHBoxLayout>();
+        l->addWidget(rb_serial);
+        l->addWidget(le_serial);
+        layout->addLayout(l);
+    }
+
+    layout->addWidget(pb_listDevices);
+    layout->addStretch(1);
+
+    connect(rb_first, &QRadioButton::toggled,
+            [this] (bool en)
+    {
+        if (en)
+        {
+            spin_index->setEnabled(false);
+            le_serial->setEnabled(false);
+        }
+    });
+
+    connect(rb_index, &QRadioButton::toggled,
+            [this] (bool en)
+    {
+        if (en)
+        {
+            spin_index->setEnabled(true);
+            le_serial->setEnabled(false);
+        }
+    });
+
+    connect(rb_serial, &QRadioButton::toggled,
+            [this] (bool en)
+    {
+        if (en)
+        {
+            spin_index->setEnabled(false);
+            le_serial->setEnabled(true);
+        }
+    });
+
+    rb_first->setChecked(true);
+}
+
+void MVLC_USB_SettingsWidget::validate()
+{
+}
+
+void MVLC_USB_SettingsWidget::loadSettings(const QVariantMap &settings)
+{
+    auto method = settings["method"].toString();
+
+    if (method == "by_index")
+    {
+        rb_index->setChecked(true);
+        spin_index->setValue(settings["index"].toUInt());
+    }
+    else if (method == "by_serial")
+    {
+        rb_serial->setChecked(true);
+        le_serial->setText(settings["serial"].toString());
+    }
+    else
+    {
+        rb_first->setChecked(true);
+    }
+}
+
+QVariantMap MVLC_USB_SettingsWidget::getSettings()
+{
+    QVariantMap result;
+
+    if (rb_index->isChecked())
+    {
+        result["method"] = "by_index";
+        result["index"] = spin_index->value();
+    }
+    else if (rb_serial->isChecked())
+    {
+        result["method"] = "by_serial";
+        result["serial"] = le_serial->text();
+    }
+    else
+    {
+        result["method"] = "first";
+    }
+
+    return result;
+}
+
+//
+// MVLC_ETH_SettingsWidget
+//
+MVLC_ETH_SettingsWidget::MVLC_ETH_SettingsWidget(QWidget *parent)
+    : VMEControllerSettingsWidget(parent)
+    , le_address(new QLineEdit)
+{
+    auto layout = new QFormLayout(this);
+    layout->addRow("Hostname / IP Address", le_address);
+}
+
+void MVLC_ETH_SettingsWidget::validate()
+{
+}
+
+void MVLC_ETH_SettingsWidget::loadSettings(const QVariantMap &settings)
+{
+    le_address->setText(settings["hostname"].toString());
+}
+
+QVariantMap MVLC_ETH_SettingsWidget::getSettings()
+{
+    QVariantMap result;
+
+    result["hostname"] = le_address->text();
+
+    return result;
+}
 
 //
 // VMEControllerSettingsDialog
@@ -210,6 +361,8 @@ namespace
 
     static const QVector<LabelAndType> LabelsAndTypes =
     {
+        { "MVLC_USB",       VMEControllerType::MVLC_USB },
+        { "MVLC_ETH",       VMEControllerType::MVLC_ETH },
         { "VM-USB",         VMEControllerType::VMUSB },
         { "SIS3153",        VMEControllerType::SIS3153 }
     };
@@ -268,8 +421,10 @@ VMEControllerSettingsDialog::VMEControllerSettingsDialog(MVMEContext *context, Q
     widgetLayout->addWidget(m_controllerStack);
 
     // buttonbox
-    m_buttonBox->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Apply);
-    connect(m_buttonBox, &QDialogButtonBox::clicked, this, &VMEControllerSettingsDialog::onButtonBoxClicked);
+    m_buttonBox->setStandardButtons(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Apply);
+    connect(m_buttonBox, &QDialogButtonBox::clicked,
+            this, &VMEControllerSettingsDialog::onButtonBoxClicked);
 
     widgetLayout->addWidget(m_buttonBox);
 

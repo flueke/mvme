@@ -19,7 +19,7 @@ namespace mvlc
 //std::unique_ptr<AbstractImpl> make_mvlc(const std::string &uri);
 
 std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_usb();
-std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_usb_using_index(int index);
+std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_usb(unsigned index);
 std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_usb_using_serial(unsigned serial);
 std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_usb_using_serial(const std::string &serial);
 

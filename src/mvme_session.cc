@@ -11,6 +11,7 @@
 #include "git_sha1.h"
 #include "build_info.h"
 #include "analysis/analysis_session.h"
+#include "mvlc/mvlc_qt_object.h"
 
 void mvme_init(const QString &appName)
 {
@@ -19,6 +20,7 @@ void mvme_init(const QString &appName)
     qRegisterMetaType<MVMEStreamWorkerState>("MVMEStreamWorkerState");
     qRegisterMetaType<ControllerState>("ControllerState");
     qRegisterMetaType<Qt::Axis>("Qt::Axis");
+    qRegisterMetaType<mesytec::mvlc::MVLCObject::State>("mesytec::mvlc::MVLCObject::State");
 
 #define REG_META_VEC(T) \
     qRegisterMetaType<QVector<T>>("QVector<"#T">")

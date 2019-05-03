@@ -28,7 +28,9 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         };
 
     signals:
-        void stateChanged(const State &oldState, const State &newState);
+        void stateChanged(const mesytec::mvlc::MVLCObject::State &oldState,
+                          const mesytec::mvlc::MVLCObject::State &newState);
+
         void stackErrorNotification(const QVector<u32> &notification);
 
     public:
