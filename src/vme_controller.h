@@ -108,7 +108,14 @@ class LIBMVME_CORE_EXPORT VMEError
             , m_stdErrorCode(ec)
         {}
 
-        inline bool isError() const { return m_error != NoError; }
+        inline bool isError() const
+        {
+            if (m_error == StdErrorCode)
+                return static_cast<bool>(getStdErrorCode());
+
+            return m_error != NoError;
+        }
+
         inline bool isTimeout() const { return m_error == Timeout; }
 
         // Returns this errors type.
@@ -125,6 +132,8 @@ class LIBMVME_CORE_EXPORT VMEError
 
         QString errorName() const;
         static QString errorName(ErrorType type);
+
+        std::error_code getStdErrorCode() const { return m_stdErrorCode; }
 
     private:
         ErrorType m_error = NoError;
