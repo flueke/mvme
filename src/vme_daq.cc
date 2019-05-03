@@ -32,24 +32,28 @@
 //
 // vme_daq_init
 //
-void vme_daq_init(
+QVector<ScriptWithResult>
+vme_daq_init(
     VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger)
 {
+    QVector<ScriptWithResult> ret;
+
     auto startScripts = config->vmeScriptLists["daq_start"];
     if (!startScripts.isEmpty())
     {
         logger(QSL(""));
         logger(QSL("Global DAQ Start scripts:"));
-        for (auto script: startScripts)
+        for (auto scriptConfig: startScripts)
         {
-            if (!script->isEnabled())
+            if (!scriptConfig->isEnabled())
                 continue;
 
-            logger(QString("  %1").arg(script->objectName()));
+            logger(QString("  %1").arg(scriptConfig->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-            run_script(controller, script->getScript(), indentingLogger, true);
+            auto results = run_script(controller, scriptConfig->getScript(), indentingLogger, true);
+            ret.push_back({ scriptConfig, results });
         }
     }
 
@@ -81,7 +85,9 @@ void vme_daq_init(
             {
                 logger(QSL("    %1").arg(scriptConfig->objectName()));
                 auto indentingLogger = [logger](const QString &str) { logger(QSL("      ") + str); };
-                run_script(controller, scriptConfig->getScript(module->getBaseAddress()), indentingLogger, true);
+                auto results = run_script(controller, scriptConfig->getScript(module->getBaseAddress()),
+                                          indentingLogger, true);
+                ret.push_back({ scriptConfig, results });
             }
         }
     }
@@ -91,40 +97,53 @@ void vme_daq_init(
     {
         logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-        run_script(controller, eventConfig->vmeScripts["daq_start"]->getScript(), indentingLogger, true);
+        auto scriptConfig = eventConfig->vmeScripts["daq_start"];
+        auto results = run_script(controller, scriptConfig->getScript(),
+                                  indentingLogger, true);
+        ret.push_back({ scriptConfig, results });
     }
+
+    return ret;
 }
 
 //
 // vme_daq_shutdown
 //
-void vme_daq_shutdown(
+QVector<ScriptWithResult>
+vme_daq_shutdown(
     VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger)
 {
+    QVector<ScriptWithResult> ret;
+
     logger(QSL("Events DAQ Stop"));
     for (auto eventConfig: config->getEventConfigs())
     {
         logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-        run_script(controller, eventConfig->vmeScripts["daq_stop"]->getScript(), indentingLogger, true);
+        auto scriptConfig = eventConfig->vmeScripts["daq_stop"];
+        auto results = run_script(controller, scriptConfig->getScript(), indentingLogger, true);
+        ret.push_back({ scriptConfig, results });
     }
 
     auto stopScripts = config->vmeScriptLists["daq_stop"];
     if (!stopScripts.isEmpty())
     {
         logger(QSL("Global DAQ Stop scripts:"));
-        for (auto script: stopScripts)
+        for (auto scriptConfig: stopScripts)
         {
-            if (!script->isEnabled())
+            if (!scriptConfig->isEnabled())
                 continue;
 
-            logger(QString("  %1").arg(script->objectName()));
+            logger(QString("  %1").arg(scriptConfig->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-            run_script(controller, script->getScript(), indentingLogger, true);
+            auto results = run_script(controller, scriptConfig->getScript(), indentingLogger, true);
+            ret.push_back({ scriptConfig, results });
         }
     }
+
+    return ret;
 }
 
 //

@@ -39,7 +39,18 @@
  * - for each event:
  *     - event DAQ start script
  */
-void vme_daq_init(
+
+struct ScriptWithResult
+{
+    // Non-owning pointer to the vme script config that produced the result
+    // list.
+    // TODO: change this to a shared_ptr, weak_ptr or use a copy of the script.
+    const VMEScriptConfig *scriptConfig;
+    const vme_script::ResultList results;
+};
+
+QVector<ScriptWithResult>
+vme_daq_init(
     VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger);
@@ -49,7 +60,8 @@ void vme_daq_init(
  *     - event DAQ stop script
  * - global DAQ stop scripts
  */
-void vme_daq_shutdown(
+QVector<ScriptWithResult>
+vme_daq_shutdown(
     VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger);
