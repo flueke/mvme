@@ -1,4 +1,5 @@
 #include "mvlc/mvlc_dialog.h"
+
 #include <cassert>
 #include <cstdio>
 #include <iostream>
@@ -7,12 +8,16 @@
 #include "mvlc/mvlc_script.h"
 #include "mvlc/mvlc_util.h"
 
-#define LOG_LEVEL_SETTING 400
-
 #define LOG_LEVEL_WARN  100
 #define LOG_LEVEL_INFO  200
 #define LOG_LEVEL_DEBUG 300
 #define LOG_LEVEL_TRACE 400
+
+#ifndef MVLC_DIALOG_LOG_LEVEL
+#define MVLC_DIALOG_LOG_LEVEL LOG_LEVEL_WARN
+#endif
+
+#define LOG_LEVEL_SETTING MVLC_DIALOG_LOG_LEVEL
 
 #define DO_LOG(level, prefix, fmt, ...)\
 do\
