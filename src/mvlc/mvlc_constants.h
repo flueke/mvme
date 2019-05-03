@@ -54,7 +54,7 @@ static const u32 CmdArg1Shift = 0;
 
 namespace commands
 {
-    enum Commands: u16
+    enum Commands: u8
     {
         StackStart      = 0xF3,
         StackEnd        = 0xF4,
@@ -153,6 +153,7 @@ namespace stacks
     static const u8 ImmediateStackID = 0;
     static const u16 ImmediateStackReservedWords = 128;
     static const u16 ImmediateStackReservedBytes = ImmediateStackReservedWords * 4;
+    static const u8 FirstReadoutStackID = 1;
 
     enum TriggerType: u8
     {

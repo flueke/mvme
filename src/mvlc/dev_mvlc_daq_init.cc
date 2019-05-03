@@ -1,7 +1,9 @@
 #include <cassert>
 #include <iostream>
+#include <QCoreApplication>
 
 #include "mvlc/mvlc_daq.h"
+#include "mvlc/mvlc_dialog_util.h"
 #include "mvlc/mvlc_impl_factory.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "vme_daq.h"
@@ -20,6 +22,8 @@ using std::endl;
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication app(argc, argv);
+
     if (argc != 3)
     {
         cerr << "Invalid arguments given." << endl;
@@ -53,7 +57,6 @@ int main(int argc, char *argv[])
 
     assert(vmeConfig);
 
-
     auto logger = [](const QString &msg)
     {
         cout << "> " << msg.toStdString() << endl;
@@ -66,6 +69,18 @@ int main(int argc, char *argv[])
     {
         cout << "Error connecting to MVLC: " << ec.message() << endl;
         return 1;
+    }
+
+    {
+        cout << "Running DAQ init sequence..." << endl;
+
+        // does not take ownership. just a wrapper implementing the VMEController interface
+        MVLC_VMEController mvlcCtrl(&mvlc);
+
+        vme_daq_init(vmeConfig.get(), &mvlcCtrl, logger);
+
+        cout << "DAQ init sequence done." << endl;
+        cout << "Setting up MVLC stacks and triggers" << endl;
     }
 
     try
@@ -92,15 +107,48 @@ int main(int argc, char *argv[])
 
     cout << "setup_mvlc() done, no errors" << endl;
 
-    cout << "Running DAQ init sequence..." << endl;
+    cout << "Reading stack info..." << endl;
 
-    // does not take ownership. just a wrapper implementing the VMEController interface
-    MVLC_VMEController mvlcCtrl(&mvlc);
+    u8 stackId = stacks::FirstReadoutStackID;
 
-    vme_daq_init(vmeConfig.get(), &mvlcCtrl, logger);
+    for (const auto &eventConfig: vmeConfig->getEventConfigs())
+    {
+        cout << "* Event " << eventConfig->objectName().toStdString() << endl;
+        auto readResult = read_stack_info(mvlc, stackId);
 
-    cout << "DAQ init sequence done. Sadly there's currently no way to know if things went well or not..." << endl;
-    cout << "Well, apart from looking at the log output that is." << endl;
+        if (readResult.second)
+        {
+            cout << "  Error reading stack info: " << readResult.second.message() << endl;
+            continue;
+        }
+
+        const auto &stackInfo = readResult.first;
+
+        printf("  stackId=%u, offset=0x%04x (@0x%04x), triggers=0x%08x (@0x%04x):\n",
+               stackInfo.id,
+               stackInfo.offset, stackInfo.offsetReg,
+               stackInfo.triggers, stackInfo.triggerReg);
+
+        u16 addr = stackInfo.startAddress;
+        unsigned line = 0u;
+
+        printf("  +-------+--------+------------+\n");
+        printf("  | line  | addr   | value      |\n");
+        printf("  +-------+--------+------------+\n");
+
+        for (const u32 &value: stackInfo.contents)
+        {
+            printf("  |  %4u | 0x%04x | 0x%08x |\n",
+                   line, addr, value);
+
+            addr += mesytec::mvlc::AddressIncrement;
+            line++;
+        }
+
+        printf("  +-------+--------+------------+\n");
+
+        stackId++;
+    }
 
     return 0;
 }
