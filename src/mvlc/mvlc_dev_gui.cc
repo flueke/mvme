@@ -882,7 +882,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
             readBuffer.size() * sizeof(u32),
             bytesTransferred);
 
-        // IMPORTANT: This discards any superfluous bytes.
+        // IMPORTANT: This silently discards any superfluous bytes.
         readBuffer.resize(bytesTransferred / sizeof(u32));
 
         if (!readBuffer.isEmpty())
@@ -907,7 +907,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
             readBuffer.size() * sizeof(u32),
             bytesTransferred);
 
-        // IMPORTANT: This discards any superfluous bytes.
+        // IMPORTANT: This silently discards any superfluous bytes.
         readBuffer.resize(bytesTransferred / sizeof(u32));
 
         if (!readBuffer.isEmpty())
