@@ -1,6 +1,7 @@
 #ifndef __MVME_MVLC_VME_CONTROLLER_H__
 #define __MVME_MVLC_VME_CONTROLLER_H__
 
+#include <QTimer>
 #include "vme_controller.h"
 #include "mvlc/mvlc_qt_object.h"
 
@@ -14,6 +15,9 @@ namespace mvlc
 class MVLC_VMEController: public VMEController
 {
     Q_OBJECT
+    signals:
+        void stackErrorNotification(const QVector<u32> &notification);
+
     public:
         MVLC_VMEController(MVLCObject *mvlc, QObject *parent = nullptr);
 
@@ -41,12 +45,17 @@ class MVLC_VMEController: public VMEController
         //
         MVLCObject *getMVLCObject() { return m_mvlc; }
 
+        void enableNotificationPolling() { m_pollTimer.start(); }
+        void disableNotificationPolling() { m_pollTimer.stop(); }
+
     private slots:
         void onMVLCStateChanged(const MVLCObject::State &oldState,
                                 const MVLCObject::State &newState);
 
     private:
         MVLCObject *m_mvlc;
+        QTimer m_pollTimer;
+        constexpr static const auto m_pollInterval = std::chrono::milliseconds(1000);
 };
 
 } // end namespace mvlc

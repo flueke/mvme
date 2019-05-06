@@ -1,5 +1,7 @@
 #include "mvlc/mvlc_vme_controller.h"
 
+#include <QDebug>
+
 namespace mesytec
 {
 namespace mvlc
@@ -10,7 +12,39 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
     , m_mvlc(mvlc)
 {
     assert(m_mvlc);
-    connect(m_mvlc, &MVLCObject::stateChanged, this, &MVLC_VMEController::onMVLCStateChanged);
+
+    connect(m_mvlc, &MVLCObject::stateChanged,
+            this, &MVLC_VMEController::onMVLCStateChanged);
+
+    connect(m_mvlc, &MVLCObject::stackErrorNotification,
+            this, &MVLC_VMEController::stackErrorNotification);
+
+    m_pollTimer.setInterval(m_pollInterval);
+
+    connect(&m_pollTimer, &QTimer::timeout,
+            this, [this] ()
+    {
+        if (isOpen())
+        {
+            QVector<u32> buffer;
+
+            do
+            {
+                static const unsigned PollReadTimeout_ms = 1;
+                unsigned timeout = m_mvlc->getReadTimeout(Pipe::Command);
+                m_mvlc->setReadTimeout(Pipe::Command, PollReadTimeout_ms);
+                auto ec = m_mvlc->readKnownBuffer(buffer);
+                m_mvlc->setReadTimeout(Pipe::Command, timeout);
+
+                if (!buffer.isEmpty())
+                {
+                    emit stackErrorNotification(buffer);
+                }
+            } while (!buffer.isEmpty());
+        }
+    });
+
+    enableNotificationPolling();
 }
 
 void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &oldState,
