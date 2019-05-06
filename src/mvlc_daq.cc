@@ -1,4 +1,4 @@
-#include "mvlc/mvlc_daq.h"
+#include "mvlc_daq.h"
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_util.h"
 #include "vme_daq.h"
@@ -78,7 +78,7 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
     return {};
 }
 
-std::error_code setup_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig)
+std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig)
 {
     u8 stackId = stacks::ImmediateStackID + 1;
 
@@ -134,9 +134,9 @@ std::error_code setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger 
         return ec;
     }
 
-    logger("Setting up triggers");
+    logger("Enabling triggers");
 
-    if (auto ec = setup_triggers(mvlc, vmeConfig))
+    if (auto ec = enable_triggers(mvlc, vmeConfig))
         return ec;
 
     return {};
