@@ -115,6 +115,7 @@ class VMEReadoutWorker: public QObject
         virtual void stop() = 0;
         virtual void pause() = 0;
         virtual void resume(quint32 cycles = 0) = 0;
+        virtual void logMessage(const QString &msg, bool useThrottle = false);
 
     protected:
         virtual void pre_setContext(VMEReadoutWorkerContext newContext) {}

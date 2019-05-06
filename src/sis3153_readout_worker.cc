@@ -2559,16 +2559,6 @@ void SIS3153ReadoutWorker::logError(const QString &message)
     sis_log(QString("SIS3153 Error: %1").arg(message));
 }
 
-void SIS3153ReadoutWorker::logMessage(const QString &message, bool useThrottle)
-{
-    m_workerContext.logMessage(message, useThrottle);
-}
-
-void SIS3153ReadoutWorker::logMessage(const QString &message)
-{
-    m_workerContext.logMessage(message, false);
-}
-
 DataBuffer *SIS3153ReadoutWorker::getOutputBuffer()
 {
     DataBuffer *outputBuffer = m_outputBuffer;
@@ -2594,9 +2584,9 @@ void SIS3153ReadoutWorker::maybePutBackBuffer()
 {
     if (m_outputBuffer && m_outputBuffer != &m_localEventBuffer)
     {
-        // We still hold onto one of the buffers from obtained from the free
-        // queue. This can happen for the SkipInput case. Put the buffer back
-        // into the free queue.
+        // We still hold onto one of the buffers obtained from the free queue.
+        // This can happen for the SkipInput case. Put the buffer back into the
+        // free queue.
         enqueue(m_workerContext.freeBuffers, m_outputBuffer);
         sis_trace("resetting current output buffer");
     }

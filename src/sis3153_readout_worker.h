@@ -109,8 +109,6 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
     private:
         void setState(DAQState state);
-        void logMessage(const QString &message, bool useThrottle);
-        void logMessage(const QString &message);
         void logError(const QString &);
 
         VMEError uploadStackList(u32 stackLoadAddress, QVector<u32> stackList);
