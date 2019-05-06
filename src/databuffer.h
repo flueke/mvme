@@ -38,8 +38,10 @@ struct DataBuffer
             // Allocate in terms of u32 to get the alignment right for 32-bit access.
             size_t sizeu32 = size/sizeof(u32) + 1;
             data = reinterpret_cast<u8 *>(new u32[sizeu32]);
-            // Size is still stored in bytes.
-            size = sizeu32 * sizeof(u32);
+
+            assert(sizeu32 * sizeof(u32) >= sz);
+
+            size = sz; // Store requested size in member variable
         }
     }
 
