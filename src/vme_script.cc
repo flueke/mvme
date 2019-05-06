@@ -1012,26 +1012,30 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
 
         case CommandType::BLT:
             {
-                result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
-                                                  cmd.addressMode, false);
+                result.error = controller->blockRead(
+                    cmd.address, cmd.transfers, &result.valueVector,
+                    vme_address_modes::BLT32, false);
             } break;
 
         case CommandType::BLTFifo:
             {
-                result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
-                                                  cmd.addressMode, true);
+                result.error = controller->blockRead(
+                    cmd.address, cmd.transfers, &result.valueVector,
+                    vme_address_modes::BLT32, true);
             } break;
 
         case CommandType::MBLT:
             {
-                result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
-                                                  cmd.addressMode, false);
+                result.error = controller->blockRead(
+                    cmd.address, cmd.transfers, &result.valueVector,
+                    vme_address_modes::MBLT64, false);
             } break;
 
         case CommandType::MBLTFifo:
             {
-                result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
-                                                  cmd.addressMode, true);
+                result.error = controller->blockRead(
+                    cmd.address, cmd.transfers, &result.valueVector,
+                    vme_address_modes::MBLT64, true);
             } break;
 
 #if 1
