@@ -39,6 +39,23 @@ QString to_string(VMEControllerType type)
     return QString();
 }
 
+VMEControllerType from_string(const QString &str)
+{
+    if (str == QSL("VMUSB"))
+        return VMEControllerType::VMUSB;
+
+    if (str == QSL("SIS3153"))
+        return VMEControllerType::SIS3153;
+
+    if (str == QSL("MVLC_USB"))
+        return VMEControllerType::MVLC_USB;
+
+    if (str == QSL("MVLC_ETH"))
+        return VMEControllerType::MVLC_ETH;
+
+    return VMEControllerType::MVLC_ETH;
+}
+
 QString to_string(ControllerState state)
 {
     switch (state)
@@ -53,17 +70,6 @@ QString to_string(ControllerState state)
 
     InvalidCodePath;
     return QString();
-}
-
-VMEControllerType from_string(const QString &str)
-{
-    if (str == QSL("VMUSB"))
-        return VMEControllerType::VMUSB;
-
-    if (str == QSL("SIS3153"))
-        return VMEControllerType::SIS3153;
-
-    return VMEControllerType::VMUSB;
 }
 
 static const QMap<VMEError::ErrorType, QString> errorNames =

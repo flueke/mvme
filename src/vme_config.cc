@@ -704,7 +704,14 @@ bool VMEConfig::removeGlobalScript(VMEScriptConfig *config)
 void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &settings)
 {
     m_controllerType = type;
-    m_controllerSettings = settings;
+
+    //m_controllerSettings = settings;
+    // Note: unite() doesn't work because it uses insertMulti() instead of
+    // overwriting the values.
+
+    for (const auto &key: settings.keys())
+        m_controllerSettings[key] = settings.value(key);
+
     setModified();
 }
 

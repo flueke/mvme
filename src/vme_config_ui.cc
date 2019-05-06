@@ -139,7 +139,7 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
                 vmusbTimerLayout->addRow(QSL("Period"), m_d->spin_vmusbTimerPeriod);
                 vmusbTimerLayout->addRow(QSL("Frequency"), m_d->spin_vmusbTimerFrequency);
 
-                conditions = { TriggerCondition:: Interrupt,
+                conditions = { TriggerCondition::Interrupt,
                     TriggerCondition::NIM1, TriggerCondition::Periodic };
 
                 m_d->stack_options->addWidget(irqWidget);
@@ -149,7 +149,7 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
 
         case VMEControllerType::SIS3153:
             {
-                conditions = { TriggerCondition:: Interrupt, TriggerCondition::Periodic,
+                conditions = { TriggerCondition::Interrupt, TriggerCondition::Periodic,
                     TriggerCondition::Input1RisingEdge, TriggerCondition::Input1FallingEdge,
                     TriggerCondition::Input2RisingEdge, TriggerCondition::Input2FallingEdge
                 };
@@ -175,6 +175,17 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
                 {
                     m_d->stack_options->addWidget(new QWidget); // no special gui for external triggers
                 }
+            } break;
+
+        case VMEControllerType::MVLC_USB:
+        case VMEControllerType::MVLC_ETH:
+            {
+                // Hide the IRQ Vector line. The vector is not used by the MVLC.
+                irqLayout->labelForField(m_d->spin_irqVector)->hide();
+                m_d->spin_irqVector->hide();
+
+                conditions = { TriggerCondition::Interrupt };
+                m_d->stack_options->addWidget(irqWidget);
             } break;
     }
 
@@ -220,6 +231,10 @@ void EventConfigDialog::loadFromConfig()
                     config->triggerOptions.value(QSL("sis3153.timer_period"), 0.0).toDouble());
 
             } break;
+
+        case VMEControllerType::MVLC_USB:
+        case VMEControllerType::MVLC_ETH:
+            break;
     }
 }
 
@@ -244,6 +259,10 @@ void EventConfigDialog::saveToConfig()
             {
                 config->triggerOptions[QSL("sis3153.timer_period")] = m_d->spin_sis3153TimerPeriod->value();
             } break;
+
+        case VMEControllerType::MVLC_USB:
+        case VMEControllerType::MVLC_ETH:
+            break;
     }
     config->setModified(true);
 }

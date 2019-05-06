@@ -1,6 +1,6 @@
 #include "vme_controller_factory.h"
 
-#include "mvme_mvlc_readout_worker.h"
+#include "mvlc_readout_worker.h"
 #include "sis3153.h"
 #include "sis3153_readout_worker.h"
 #include "vme_controller_ui.h"

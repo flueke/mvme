@@ -398,15 +398,15 @@ VMEControllerSettingsDialog::VMEControllerSettingsDialog(MVMEContext *context, Q
         VMEControllerFactory f(lt.type);
         auto settingsWidget = f.makeSettingsWidget();
 
+        settingsWidget->loadSettings(m_context->getVMEConfig()->getControllerSettings());
         if (lt.type == currentControllerType)
         {
-            settingsWidget->loadSettings(m_context->getVMEConfig()->getControllerSettings());
             currentControllerIndex = i;
         }
-        else
-        {
-            settingsWidget->loadSettings(QVariantMap());
-        }
+        //else
+        //{
+        //    settingsWidget->loadSettings(QVariantMap());
+        //}
 
         auto gb = new QGroupBox(QSL("Controller Settings"));
         auto l  = new QHBoxLayout(gb);
