@@ -2,7 +2,7 @@
 #include <iostream>
 #include <QCoreApplication>
 
-#include "mvlc/mvlc_daq.h"
+#include "mvlc_daq.h"
 #include "mvlc/mvlc_dialog_util.h"
 #include "mvlc/mvlc_impl_factory.h"
 #include "mvlc/mvlc_vme_controller.h"
@@ -71,20 +71,20 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    {
-        cout << "Running DAQ init sequence..." << endl;
-
-        // does not take ownership. just a wrapper implementing the VMEController interface
-        MVLC_VMEController mvlcCtrl(&mvlc);
-
-        vme_daq_init(vmeConfig.get(), &mvlcCtrl, logger);
-
-        cout << "DAQ init sequence done." << endl;
-        cout << "Setting up MVLC stacks and triggers" << endl;
-    }
-
     try
     {
+        {
+            cout << "Running DAQ init sequence..." << endl;
+
+            // does not take ownership. just a wrapper implementing the VMEController interface
+            MVLC_VMEController mvlcCtrl(&mvlc);
+
+            vme_daq_init(vmeConfig.get(), &mvlcCtrl, logger);
+
+            cout << "DAQ init sequence done." << endl;
+            cout << "Setting up MVLC stacks and triggers" << endl;
+        }
+
         auto ec = setup_mvlc(mvlc, *vmeConfig, logger);
 
         if (ec)

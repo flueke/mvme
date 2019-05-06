@@ -74,6 +74,28 @@ void log_buffer(Out &out, const u32 *buffer, size_t size, const char *info)
     out << "end " << info << endl;
 }
 
+struct HeaderInfo
+{
+    u16 len;
+    u8 type;
+    u8 flags;
+    u8 stack;
+};
+
+inline HeaderInfo extract_header_info(u32 header)
+{
+    using namespace buffer_headers;
+
+    HeaderInfo result;
+
+    result.len   = (header >> LengthShift) & LengthMask;
+    result.type  = (header >> TypeShift) & TypeMask;
+    result.flags = (header >> ErrorShift) & ErrorMask;
+    result.stack = (header >> StackNumShift) & StackNumMask;
+
+    return result;
+}
+
 } // end namespace mvlc
 } // end namespace mesytec
 

@@ -324,12 +324,12 @@ target_link_libraries(libmvme
 
 if (MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE
-        mvlc/mvlc_daq.cc
-        mvme_mvlc_readout_worker.cc
+        mvlc_daq.cc
+        mvlc_readout_worker.cc
     )
     target_link_libraries(libmvme libmvme_mvlc)
 
-    add_executable(dev_mvlc_daq_init mvlc/dev_mvlc_daq_init.cc)
+    add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
     target_link_libraries(dev_mvlc_daq_init libmvme)
 
     # Standalone mvme-like binary specifically for the mvlc. This is used to

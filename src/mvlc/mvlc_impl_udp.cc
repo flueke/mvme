@@ -419,8 +419,7 @@ unsigned Impl::getReadTimeout(Pipe pipe) const
 // IPv4 header is 20 bytes
 // UDP header is 8 bytes
 static const size_t MaxOutgoingPayloadSize = 1500 - 20 - 8;
-static const size_t MaxIncomingPayloadSIze = MaxOutgoingPayloadSize;
-static const size_t JumboMaxIncomingPayloadSize = 9000 - 20 - 8;
+//static const size_t MaxIncomingPayloadSIze = MaxOutgoingPayloadSize;
 
 std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
                             size_t &bytesTransferred)

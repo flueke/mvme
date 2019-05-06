@@ -35,6 +35,11 @@ enum class MVLCErrorCode
     StackMemoryExceeded,
     StackSyntaxError,
     InvalidStackHeader,
+    // TODO: move these into a readout worker error enum. This is not really
+    // MVLC layer stuff
+    StackIndexOutOfRange,
+    UnexpectedBufferHeader,
+    NeedMoreData,
 };
 
 LIBMVME_MVLC_EXPORT std::error_code make_error_code(MVLCErrorCode error);
