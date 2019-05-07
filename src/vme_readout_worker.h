@@ -49,39 +49,43 @@ struct VMEReadoutWorkerContext
         : m_logThrottle(MaxLogMessagesPerSecond, std::chrono::seconds(1))
     {}
 
-    void logMessage(const QString &msg, bool useThrottle = false)
+    // Returns true if the message was logged, false if it was suppressed due
+    // to throttling.
+    bool logMessage(const QString &msg, bool useThrottle = false)
     {
         if (!this->logger)
-            return;
+            return false;
 
         if (!useThrottle)
         {
             qDebug().noquote() << msg;
             this->logger(msg);
+            return true;
         }
-        else
-        {
-            // have to store this before the call to eventOverflows()
-            size_t suppressedMessages = m_logThrottle.overflow();
 
-            if (!m_logThrottle.eventOverflows())
+        // have to store this before the call to eventOverflows()
+        size_t suppressedMessages = m_logThrottle.overflow();
+
+        if (!m_logThrottle.eventOverflows())
+        {
+            if (unlikely(suppressedMessages))
             {
-                if (unlikely(suppressedMessages))
-                {
-                    auto finalMsg(QString("%1 (suppressed %2 earlier messages)")
-                                  .arg(msg)
-                                  .arg(suppressedMessages)
-                                 );
-                    qDebug().noquote() << finalMsg;
-                    this->logger(finalMsg);
-                }
-                else
-                {
-                    qDebug().noquote() << msg;
-                    this->logger(msg);
-                }
+                auto finalMsg(QString("%1 (suppressed %2 earlier messages)")
+                              .arg(msg)
+                              .arg(suppressedMessages)
+                             );
+                qDebug().noquote() << finalMsg;
+                this->logger(finalMsg);
             }
+            else
+            {
+                qDebug().noquote() << msg;
+                this->logger(msg);
+            }
+            return true;
         }
+
+        return false;
     }
 };
 
@@ -115,7 +119,7 @@ class VMEReadoutWorker: public QObject
         virtual void stop() = 0;
         virtual void pause() = 0;
         virtual void resume(quint32 cycles = 0) = 0;
-        virtual void logMessage(const QString &msg, bool useThrottle = false);
+        virtual bool logMessage(const QString &msg, bool useThrottle = false);
 
     protected:
         virtual void pre_setContext(VMEReadoutWorkerContext newContext) {}

@@ -811,11 +811,6 @@ void VMUSBReadoutWorker::logError(const QString &message)
     logMessage(QString("VMUSB Error: %1").arg(message));
 }
 
-void VMUSBReadoutWorker::logMessage(const QString &message, bool useThrottle)
-{
-    m_workerContext.logMessage(message, useThrottle);
-}
-
 VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_ms)
 {
     ReadBufferResult result = {};

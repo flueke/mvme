@@ -49,7 +49,6 @@ class VMUSBReadoutWorker: public VMEReadoutWorker
     private:
         void readoutLoop();
         void setState(DAQState state);
-        void logMessage(const QString &message, bool useThrottle = false);
         void logError(const QString &);
 
         struct ReadBufferResult

@@ -5,7 +5,7 @@ VMEReadoutWorker::VMEReadoutWorker(QObject *parent)
 {
 }
 
-void VMEReadoutWorker::logMessage(const QString &msg, bool useThrottle)
+bool VMEReadoutWorker::logMessage(const QString &msg, bool useThrottle)
 {
-    getContext().logMessage(msg, useThrottle);
+    return getContext().logMessage(msg, useThrottle);
 }
