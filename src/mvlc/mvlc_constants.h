@@ -164,8 +164,8 @@ namespace stacks
         TimerUnderrun,
     };
 
-    // IMPORTANT: For IRQs trigger bits have to be set to (IRQ - 1), e.g. value
-    // 0 for IRQ1!
+    // IMPORTANT: For IRQ triggers the trigger bits have to be set to (IRQ-1),
+    // e.g. value 0 for IRQ1!
     static const u16 TriggerBitsMask    = 0b11111;
     static const u16 TriggerBitsShift   = 0;
     static const u16 TriggerTypeMask    = 0b111;

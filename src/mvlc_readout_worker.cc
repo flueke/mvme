@@ -44,16 +44,19 @@ void MVLCReadoutWorker::start(quint32 cycles)
     connect(mvlc, &MVLC_VMEController::stackErrorNotification,
             this, [this] (const QVector<u32> &notification)
     {
-        logMessage(QSL("Stack Error Notification from MVLC (size=%1):")
-                   .arg(notification.size()), true);
+        bool wasLogged = logMessage(QSL("Stack Error Notification from MVLC (size=%1)")
+                                    .arg(notification.size()), true);
 
-        for (const auto &w: notification)
+        if (!wasLogged)
+            return;
+
+        for (const auto &word: notification)
         {
-            logMessage(QSL("  0x%1").arg(w, 8, 16, QLatin1Char('0')),
-                       true);
+            logMessage(QSL("  0x%1").arg(word, 8, 16, QLatin1Char('0')),
+                       false);
         }
 
-        logMessage("---", true);
+        logMessage(QSL("End of Stack Error Notification"));
     });
 
     setState(DAQState::Starting);
@@ -262,22 +265,22 @@ void MVLCReadoutWorker::readoutLoop()
 }
 
 // TODO MVLCReadoutWorker:
+// - handle frames with the continue flag set
 // - keep track of stats
 // - better error codes for data consistency checks
 // - test performance implications of buffered vs unbuffered reads
 // - support other structures than just block reads. This means inside F3
-//    buffer other contents than F5 sections are allowed.
+//   buffers other contents than F5 sections are allowed.
+//   The data could just be copied over but that does not allow for consistency checks.
 std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred)
 {
     auto mvlc = qobject_cast<MVLC_VMEController *>(getContext().controller)->getMVLCObject();
 
     bytesTransferred = 0u;
-
     m_readBuffer.used = 0u;
 
     if (m_previousData.used)
     {
-        //qDebug() << "copying" << m_previousData.used << "bytes";
         std::memcpy(m_readBuffer.data, m_previousData.data, m_previousData.used);
         m_readBuffer.used = m_previousData.used;
         m_previousData.used = 0u;
@@ -297,15 +300,19 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
     {
         const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
 
-        logMessage(QString(">>> Begin MVLC buffer #%1").arg(bufferNumber));
+        size_t bytesToLog = std::min(m_readBuffer.size, (size_t)10240u);
 
-        logBuffer(BufferIterator(m_readBuffer.data, std::min(m_readBuffer.size, (size_t)10240u)),
-                  [this](const QString &str)
+        logMessage(QString(">>> Begin MVLC buffer #%1 (first %2 bytes)")
+                   .arg(bufferNumber)
+                   .arg(bytesToLog),
+                   false);
+
+        logBuffer(BufferIterator(m_readBuffer.data, bytesToLog), [this](const QString &str)
         {
-            logMessage(str);
+            logMessage(str, false);
         });
 
-        logMessage(QString("<<< End MVLC buffer #%1") .arg(bufferNumber));
+        logMessage(QString("<<< End MVLC buffer #%1").arg(bufferNumber), false);
     }
 
     // update stats
@@ -322,7 +329,6 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
     BufferIterator iter(m_readBuffer.data, m_readBuffer.used);
 
     auto outputBuffer = getOutputBuffer();
-    // FIXME: this is way oversized
     outputBuffer->ensureCapacity(outputBuffer->used + m_readBuffer.used * 2);
     m_rdoState.streamWriter.setOutputBuffer(outputBuffer);
 
@@ -330,11 +336,11 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
     {
         while (!iter.atEnd())
         {
-            // Interpret the buffer header (0xF3)
+            // Interpret the frame header (0xF3)
             u32 frameHeader = iter.peekU32();
-            auto bufInfo = extract_header_info(frameHeader);
+            auto frameInfo = extract_header_info(frameHeader);
 
-            if (bufInfo.type != buffer_headers::StackBuffer)
+            if (frameInfo.type != buffer_headers::StackBuffer)
             {
                 logMessage(QSL("MVLC Readout Warning:"
                                "received unexpected frame header: 0x%1, prevWord=0x%2")
@@ -344,10 +350,10 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
                 return make_error_code(MVLCErrorCode::InvalidBufferHeader);
             }
 
-            //qDebug("bufInfo.len=%u, longwordsLeft=%u, frameHeader=0x%08x",
-            //       bufInfo.len, iter.longwordsLeft() - 1, frameHeader);
+            //qDebug("frameInfo.len=%u, longwordsLeft=%u, frameHeader=0x%08x",
+            //       frameInfo.len, iter.longwordsLeft() - 1, frameHeader);
 
-            if (bufInfo.len > iter.longwordsLeft() - 1)
+            if (frameInfo.len > iter.longwordsLeft() - 1)
             {
                 std::memcpy(m_previousData.data, iter.asU8(), iter.bytesLeft());
                 m_previousData.used = iter.bytesLeft();
@@ -355,6 +361,7 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
                 return make_error_code(MVLCErrorCode::NeedMoreData);
             }
 
+            // eat the frame header
             iter.extractU32();
 
             // The contents of the F3 buffer can be anything produced by the
@@ -363,12 +370,12 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
             // readout stacks arbitrary structures can be created. For now only
             // block reads are supported.
 
-            if (bufInfo.stack == 0 || bufInfo.stack - 1 >= m_events.size())
+            if (frameInfo.stack == 0 || frameInfo.stack - 1 >= m_events.size())
                 return make_error_code(MVLCErrorCode::StackIndexOutOfRange);
 
-            const auto &ewm = m_events[bufInfo.stack - 1];
+            const auto &ewm = m_events[frameInfo.stack - 1];
 
-            m_rdoState.streamWriter.openEventSection(bufInfo.stack - 1);
+            m_rdoState.streamWriter.openEventSection(frameInfo.stack - 1);
 
             for (int mi = 0; mi < ewm.modules.size(); mi++)
             {

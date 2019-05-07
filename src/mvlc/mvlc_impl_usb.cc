@@ -12,6 +12,7 @@
 #include "mvlc/mvlc_error.h"
 
 
+#define LOG_LEVEL_OFF     0
 #define LOG_LEVEL_WARN  100
 #define LOG_LEVEL_INFO  200
 #define LOG_LEVEL_DEBUG 300

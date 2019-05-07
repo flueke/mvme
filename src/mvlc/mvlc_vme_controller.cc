@@ -33,7 +33,7 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
                 static const unsigned PollReadTimeout_ms = 1;
                 unsigned timeout = m_mvlc->getReadTimeout(Pipe::Command);
                 m_mvlc->setReadTimeout(Pipe::Command, PollReadTimeout_ms);
-                auto ec = m_mvlc->readKnownBuffer(buffer);
+                m_mvlc->readKnownBuffer(buffer);
                 m_mvlc->setReadTimeout(Pipe::Command, timeout);
 
                 if (!buffer.isEmpty())
