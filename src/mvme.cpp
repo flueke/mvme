@@ -22,7 +22,6 @@
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
-#include "vme_config_ui.h"
 #include "daqcontrol.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
@@ -31,6 +30,8 @@
 #include "histo2d_widget.h"
 #include "listfile_browser.h"
 #include "mesytec_diagnostics.h"
+#include "mvlc/mvlc_vme_controller.h"
+#include "mvlc/mvlc_dev_gui.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme_listfile.h"
@@ -40,6 +41,7 @@
 #include "sis3153_util.h"
 #include "util_zip.h"
 #include "vme_config_tree.h"
+#include "vme_config_ui.h"
 #include "vme_controller_ui.h"
 #include "vme_debug_widget.h"
 #include "vme_script_editor.h"
@@ -104,7 +106,7 @@ struct MVMEWindowPrivate
 
             // utility/tool windows
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
-            *actionToolTemplateInfo, *actionToolSIS3153Debug,
+            *actionToolTemplateInfo, *actionToolSIS3153Debug, *actionToolMVLCDevGui,
 
             *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt
             ;
@@ -193,6 +195,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionToolVMUSBFirmwareUpdate  = new QAction(QSL("VM-USB Firmware Update"), this);
     m_d->actionToolTemplateInfo         = new QAction(QSL("Template System Info"), this);
     m_d->actionToolSIS3153Debug         = new QAction(QSL("SIS3153 Debug Widget"), this);
+    m_d->actionToolMVLCDevGui           = new QAction(QSL("MVLC Dev GUI"), this);
 
     m_d->actionHelpVMEScript   = new QAction(QIcon(QSL(":/help.png")), QSL("&VME Script Reference"), this);
     m_d->actionHelpVMEScript->setObjectName(QSL("actionVMEScriptRef"));
@@ -230,6 +233,22 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         add_widget_close_action(widget);
         m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/SIS3153DebugWidget"));
         widget->show();
+    });
+
+    connect(m_d->actionToolMVLCDevGui,        &QAction::triggered, this, [this]() {
+        if (auto mvlcCtrl = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(
+                getContext()->getVMEController()))
+        {
+            auto widget = new MVLCDevGUI(mvlcCtrl->getMVLCObject());
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+
+            connect(widget, &MVLCDevGUI::sigLogMessage,
+                    m_d->m_context, &MVMEContext::logMessage);
+
+            add_widget_close_action(widget);
+            m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/MVLCDevGui"));
+            widget->show();
+        }
     });
 
     connect(m_d->actionHelpVMEScript,           &QAction::triggered, this, &MVMEMainWindow::onActionVMEScriptRef_triggered);
@@ -271,6 +290,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuTools->addAction(m_d->actionToolTemplateInfo);
     m_d->menuTools->addAction(m_d->actionToolSIS3153Debug);
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
+    m_d->menuTools->addAction(m_d->actionToolMVLCDevGui);
 
     m_d->menuHelp->addAction(m_d->actionHelpVMEScript);
     m_d->menuHelp->addSeparator();

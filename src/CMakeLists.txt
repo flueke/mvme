@@ -154,6 +154,7 @@ if(MVME_ENABLE_MVLC)
 
     target_sources(libmvme_mvlc PRIVATE
         mvlc/mvlc_basic_mvlc.cc
+        mvlc/mvlc_dev_gui.cc
         mvlc/mvlc_dialog.cc
         mvlc/mvlc_error.cc
         mvlc/mvlc_impl_factory.cc
@@ -169,12 +170,13 @@ if(MVME_ENABLE_MVLC)
         ${LIBMVME_MVLC_UIC_OUT}
         )
 
+    qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
+    target_sources(libmvme_mvlc PRIVATE ${MVLC_DEV_GUI_UIC})
+
     install(TARGETS libmvme_mvlc DESTINATION .)
 
     # mvlc_dev_gui
-    add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui.cc mvlc/mvlc_dev_gui_main.cc)
-    qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
-    target_sources(mvlc_dev_gui PRIVATE ${MVLC_DEV_GUI_UIC})
+    add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
     target_link_libraries(mvlc_dev_gui libmvme_mvlc)
 
     if (WIN32)

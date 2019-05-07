@@ -133,7 +133,7 @@ class MVLCDevGUI: public QMainWindow
     public:
         using MVLCObject = mesytec::mvlc::MVLCObject;
 
-        MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent = 0);
+        MVLCDevGUI(MVLCObject *mvlc, QWidget *parent = nullptr);
         ~MVLCDevGUI();
 
     public slots:

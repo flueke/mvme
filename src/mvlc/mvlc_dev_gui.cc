@@ -355,7 +355,7 @@ struct MVLCDevGUI::Private
     //        *act_loadScript
     //        ;
 
-    std::unique_ptr<MVLCObject> mvlc;
+    MVLCObject *mvlc;
     QThread readoutThread;
     MVLCDataReader *dataReader;
 
@@ -373,7 +373,7 @@ struct MVLCDevGUI::Private
     ReaderStats prevReaderStats = {};
 };
 
-MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
+MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
     : QMainWindow(parent)
     , m_d(std::make_unique<Private>())
     , ui(new Ui::MVLCDevGUI)
@@ -381,9 +381,9 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
     assert(m_d->dataReader == nullptr);
 
     m_d->q = this;
-    m_d->mvlc = std::move(mvlc);
-    m_d->registerWidget = new MVLCRegisterWidget(m_d->mvlc.get(), this);
-    m_d->vmeDebugWidget = new VMEDebugWidget(m_d->mvlc.get(), this);
+    m_d->mvlc = mvlc;
+    m_d->registerWidget = new MVLCRegisterWidget(m_d->mvlc, this);
+    m_d->vmeDebugWidget = new VMEDebugWidget(m_d->mvlc, this);
 
     auto updateTimer = new QTimer(this);
     updateTimer->setInterval(1000);
@@ -609,7 +609,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
     // Interactions
 
     // mvlc connection state changes
-    connect(m_d->mvlc.get(), &MVLCObject::stateChanged,
+    connect(m_d->mvlc, &MVLCObject::stateChanged,
             this, [this] (const MVLCObject::State &oldState,
                           const MVLCObject::State &newState)
     {
@@ -632,7 +632,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
     });
 
     // log stack error notifications published by the mvlc object
-    connect(m_d->mvlc.get(), &MVLCObject::stackErrorNotification,
+    connect(m_d->mvlc, &MVLCObject::stackErrorNotification,
             this, [this] (const QVector<u32> &buffer)
     {
         logBuffer(buffer, "Stack error notification from MVLC");
@@ -921,7 +921,7 @@ MVLCDevGUI::MVLCDevGUI(std::unique_ptr<MVLCObject> mvlc, QWidget *parent)
 
     m_d->readoutThread.setObjectName("MVLC Readout");
     m_d->dataReader = new MVLCDataReader();
-    m_d->dataReader->setMVLC(m_d->mvlc.get());
+    m_d->dataReader->setMVLC(m_d->mvlc);
     m_d->dataReader->moveToThread(&m_d->readoutThread);
 
     connect(&m_d->readoutThread, &QThread::started,

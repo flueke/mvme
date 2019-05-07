@@ -22,10 +22,13 @@ int main(int argc, char *argv[])
     LogWidget logWindow;
     logWindow.addAction(actionQuit);
 
-    MVLCDevGUI devGui_usb(std::make_unique<MVLCObject>(make_mvlc_usb()));
+    auto mvlc_usb = std::make_unique<MVLCObject>(make_mvlc_usb());
+    auto mvlc_eth = std::make_unique<MVLCObject>(make_mvlc_udp("192.168.42.2"));
+
+    MVLCDevGUI devGui_usb(mvlc_usb.get());
     devGui_usb.setWindowTitle("MVLC Dev GUI - USB");
 
-    MVLCDevGUI devGui_udp(std::make_unique<MVLCObject>(make_mvlc_udp("192.168.42.2")));
+    MVLCDevGUI devGui_udp(mvlc_eth.get());
     devGui_udp.setWindowTitle("MVLC Dev GUI - UDP");
 
     for (auto devgui: { &devGui_usb, &devGui_udp })
