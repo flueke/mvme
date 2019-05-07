@@ -92,7 +92,7 @@ namespace buffer_headers
     static const u16 LengthMask = 0xffff;
 }
 
-namespace buffer_errors
+namespace buffer_flags
 {
     static const u8 Timeout     = 1 << 0;
     static const u8 BusError    = 1 << 1;

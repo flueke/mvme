@@ -189,16 +189,16 @@ static QString format_buffer_error_bits(u8 errorBits)
 
     QStringList buffer;
 
-    if (errorBits & buffer_errors::Continue)
+    if (errorBits & buffer_flags::Continue)
         buffer << "continue";
 
-    if (errorBits & buffer_errors::SyntaxError)
+    if (errorBits & buffer_flags::SyntaxError)
         buffer << "syntax";
 
-    if (errorBits & buffer_errors::BusError)
+    if (errorBits & buffer_flags::BusError)
         buffer << "BERR";
 
-    if (errorBits & buffer_errors::Timeout)
+    if (errorBits & buffer_flags::Timeout)
         buffer << "timeout";
 
     return buffer.join(",");

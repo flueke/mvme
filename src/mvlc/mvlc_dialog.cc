@@ -366,10 +366,10 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
                 logBuffer(tmpBuffer, "Unexpected buffer contents (wanted a stack error notification (0xF7)");
         }
 
-        if (errorBits & buffer_errors::Timeout)
+        if (errorBits & buffer_flags::Timeout)
             return MVLCErrorCode::NoVMEResponse;
 
-        if (errorBits & buffer_errors::SyntaxError)
+        if (errorBits & buffer_flags::SyntaxError)
             return MVLCErrorCode::StackSyntaxError;
 
         // VME BusError and the Continue bit are not considered errors
