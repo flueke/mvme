@@ -62,7 +62,6 @@
 #include <QTextBrowser>
 #include <QTextEdit>
 #include <QtGui>
-#include <QtNetwork>
 #include <QToolBar>
 #include <quazipfile.h>
 #include <QVBoxLayout>
@@ -85,7 +84,6 @@ struct MVMEWindowPrivate
     VMEDebugWidget *m_vmeDebugWidget = nullptr;
     QMap<QObject *, QList<QWidget *>> m_objectWindows;
     WidgetGeometrySaver *m_geometrySaver;
-    QNetworkAccessManager *m_networkAccessManager = nullptr;
     ListfileBrowser *m_listfileBrowser = nullptr;
     RateMonitorGui *m_rateMonitorGui = nullptr;
 
@@ -108,7 +106,7 @@ struct MVMEWindowPrivate
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
             *actionToolTemplateInfo, *actionToolSIS3153Debug,
 
-            *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt, *actionHelpUpdateCheck
+            *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt
             ;
 
     QMenu *menuFile, *menuWindow, *menuTools, *menuHelp;
@@ -128,7 +126,6 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->statusBar->setSizeGripEnabled(false);
     m_d->menuBar                = new QMenuBar(this);
     m_d->m_geometrySaver        = new WidgetGeometrySaver(this);
-    m_d->m_networkAccessManager = new QNetworkAccessManager(this);
     m_d->daqControl = new DAQControl(m_d->m_context, this);
 
     setCentralWidget(m_d->centralWidget);
@@ -202,8 +199,6 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionHelpVMEScript->setIconText(QSL("Script Help"));
     m_d->actionHelpAbout       = new QAction(QIcon(QSL("window_icon.png")), QSL("&About mvme"), this);
     m_d->actionHelpAboutQt     = new QAction(QSL("About &Qt"), this);
-    m_d->actionHelpUpdateCheck = new QAction(QSL("Check for updates"), this);
-    m_d->actionHelpUpdateCheck->setVisible(false); // TODO: enable update check at some point
 
     //
     // connect actions
@@ -240,7 +235,6 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->actionHelpVMEScript,           &QAction::triggered, this, &MVMEMainWindow::onActionVMEScriptRef_triggered);
     connect(m_d->actionHelpAbout,               &QAction::triggered, this, &MVMEMainWindow::displayAbout);
     connect(m_d->actionHelpAboutQt,             &QAction::triggered, this, &MVMEMainWindow::displayAboutQt);
-    connect(m_d->actionHelpUpdateCheck,         &QAction::triggered, this, &MVMEMainWindow::onActionCheck_for_updates_triggered);
 
 
     //
@@ -282,7 +276,6 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuHelp->addSeparator();
     m_d->menuHelp->addAction(m_d->actionHelpAbout);
     m_d->menuHelp->addAction(m_d->actionHelpAboutQt);
-    m_d->menuHelp->addAction(m_d->actionHelpUpdateCheck);
 
     m_d->menuBar->addMenu(m_d->menuFile);
     m_d->menuBar->addMenu(m_d->menuWindow);
@@ -1640,87 +1633,6 @@ static u64 extract_package_version(const QString &filename)
     }
 
     return result;
-}
-
-void MVMEMainWindow::onActionCheck_for_updates_triggered()
-{
-#if 1
-    QStringList testFilenames =
-    {
-        "mvme-0.9.exe",
-        "mvme-0.9-42.exe",
-        "mvme-0.9.1.exe",
-        "mvme-0.9.1-42.exe",
-        "mvme-1.1.1-111-Window-x42.zip",
-        "mvme-98.76.54-32-Window-x42.zip",
-        "mvme-987.654.321-666-Window-x42.zip",
-        "mvme-999.999.999-999-Window-x42.zip", // max version possible (except for major which could be larger)
-        "mvme-9999.999.999-999-Window-x42.zip" // exceeding the max with major
-    };
-
-    for (auto name: testFilenames)
-    {
-        u32 version = extract_package_version(name);
-        //qDebug() << __PRETTY_FUNCTION__ << "name =" << name << ", version =" << version;
-    }
-#endif
-
-
-    QNetworkRequest request;
-    request.setUrl(UpdateCheckURL);
-    request.setRawHeader("User-Agent", UpdateCheckUserAgent + GIT_VERSION_TAG);
-
-    auto reply = m_d->m_networkAccessManager->get(request);
-
-
-    connect(reply, &QNetworkReply::finished, [this, reply]() {
-        reply->deleteLater();
-
-        if (reply->error() == QNetworkReply::NoError)
-        {
-            // Both the platform and bitness strings are known at compile time.
-            // A download link entry looks like this:
-            // <a href="mvme-0.9-5-Windows-x32.exe">mvme-0.9-5-Windows-x32.exe</a>   2017-07-24 15:22   28M
-            static const QString pattern = QString("href=\"(mvme-[0-9.-]+-%1-%2\\.exe)\"")
-                .arg(get_package_platform_string())
-                .arg(get_package_bitness_string())
-                ;
-
-            qDebug() << "update search pattern:" << pattern;
-
-            QRegularExpression re(pattern);
-
-            auto contents = QString::fromLatin1(reply->readAll());
-            auto matchIter = re.globalMatch(contents);
-
-            struct PackageInfo
-            {
-                QString filename;
-                u32 version;
-            };
-
-            QVector<PackageInfo> packages;
-
-            while (matchIter.hasNext())
-            {
-                auto match = matchIter.next();
-                qDebug() << match.captured(1);
-                PackageInfo info;
-                info.filename = match.captured(1);
-                info.version  = extract_package_version(info.filename);
-                packages.push_back(info);
-            }
-
-            auto latestPackage = std::accumulate(packages.begin(), packages.end(), PackageInfo{QString(), 0},
-                                               [](const auto &a, const auto &b) {
-                return (a.version > b.version ? a : b);
-            });
-
-            qDebug() << __PRETTY_FUNCTION__ << "latest package version available is" << latestPackage.filename << latestPackage.version;
-
-            // TODO: build version info from the running binary using GIT_VERSION_SHORT
-        }
-    });
 }
 
 bool MVMEMainWindow::createNewOrOpenExistingWorkspace()

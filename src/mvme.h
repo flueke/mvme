@@ -128,7 +128,6 @@ private slots:
     void onActionImport_Histo1D_triggered();
 
     void onActionVMEScriptRef_triggered();
-    void onActionCheck_for_updates_triggered();
 
     void updateActions();
 
