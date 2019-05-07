@@ -2546,9 +2546,11 @@ void SIS3153ReadoutWorker::setState(DAQState state)
             break;
 
         case DAQState::Starting:
-        case DAQState::Running:
         case DAQState::Stopping:
             break;
+
+        case DAQState::Running:
+            emit daqStarted();
     }
 
     QCoreApplication::processEvents();

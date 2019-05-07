@@ -567,9 +567,11 @@ void MVLCReadoutWorker::setState(const DAQState &state)
             break;
 
         case DAQState::Starting:
-        case DAQState::Running:
         case DAQState::Stopping:
             break;
+
+        case DAQState::Running:
+            emit daqStarted();
     }
 
     QCoreApplication::processEvents();

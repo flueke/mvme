@@ -94,6 +94,7 @@ class VMEReadoutWorker: public QObject
     Q_OBJECT
     signals:
         void stateChanged(DAQState);
+        void daqStarted();
         void daqStopped();
         void daqPaused();
 
