@@ -59,9 +59,6 @@ class TicketMutex
         TicketType m_queue_tail = 0; // next ticket number to take
 };
 
-using Mutex = TicketMutex;
-using UniqueLock = std::unique_lock<Mutex>;
-
 } // end namespace a2
 
 #endif /* __MVME_A2_UTIL_THREADING_H__ */
