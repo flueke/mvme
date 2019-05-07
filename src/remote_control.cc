@@ -363,6 +363,8 @@ QVariantMap InfoService::getVMEControllerStats()
     switch (ctrl->getType())
     {
         case VMEControllerType::VMUSB:
+        case VMEControllerType::MVLC_USB:
+        case VMEControllerType::MVLC_ETH:
             {
                 // no specific stats present
             } break;
