@@ -48,6 +48,12 @@ inline std::pair<double, double> get_minmax_values(const RateHistoryBuffer &rh,
     return result;
 }
 
+inline double get_max_value(const a2::RateSampler &sampler, double defaultValue = 0.0)
+{
+    a2::RateSampler::UniqueLock guard(sampler.mutex);
+    return get_max_value(sampler.rateHistory, defaultValue);
+}
+
 inline std::pair<double, double> get_minmax_values(const a2::RateSampler &sampler,
                                                    AxisInterval timeInterval,
                                                    const std::pair<double, double> defaultValues = { 0.0, 0.0 })
@@ -59,6 +65,8 @@ inline std::pair<double, double> get_minmax_values(const a2::RateSampler &sample
 
     ssize_t minIndex = sampler.getSampleIndex(timeInterval.minValue);
     ssize_t maxIndex = sampler.getSampleIndex(timeInterval.maxValue);
+
+    a2::RateSampler::UniqueLock guard(sampler.mutex);
     const ssize_t size = sampler.rateHistory.size();
 
     if (0 <= minIndex && minIndex < size

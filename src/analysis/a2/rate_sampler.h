@@ -11,20 +11,20 @@
  * cause no issues. To implement a "clear history" operation I added a
  * read/writer lock to the RateSampler struct. The lock is used to guard write
  * operations from concurrent accesses, reads are not guarded right now. */
-#define BOOST_CB_DISABLE_DEBUG
+//#define BOOST_CB_DISABLE_DEBUG
 #include <boost/circular_buffer.hpp>
 
 #include <cpp11-on-multicore/common/rwlock.h>
 #include <cmath>
 #include <memory>
 #include "util/counters.h"
+#include "util/util_threading.h"
 
 namespace a2
 {
 
 /* RateHistory - circular buffer for rate values */
 using RateHistoryBuffer = boost::circular_buffer<double>;
-using RateHistoryBufferPtr = std::shared_ptr<RateHistoryBuffer>;
 
 /* RateSampler
  * Setup, storage and sampling logic for rate monitoring.
@@ -51,7 +51,7 @@ struct RateSampler
     // state and data
     //
 
-    /* Pointer to sample storage. */
+    /* Sample storage. */
     RateHistoryBuffer rateHistory;
 
     /* The last value that was sampled if sample() is used. */
@@ -67,17 +67,16 @@ struct RateSampler
      * x-axis scaling once the circular history buffer is full. */
     double totalSamples = 0.0;
 
-    /* Lock and guard to deal with concurrent write accesses. Reads are left
-     * unguarded for performance reasons. */
-    NonRecursiveRWLock rwLock;
-
-    using WriteGuard = WriteLockGuard<NonRecursiveRWLock>;
+    /* Lock and guard to deal with concurrent accesses. */
+    using Mutex = TicketMutex;
+    using UniqueLock = std::unique_lock<Mutex>;
+    mutable TicketMutex mutex;
 
     void sample(double value)
     {
-        WriteGuard guard(rwLock);
-
         std::tie(lastRate, lastDelta) = calcRateAndDelta(value);
+
+        UniqueLock guard(mutex);
 
         if (rateHistory.capacity())
         {
@@ -90,7 +89,7 @@ struct RateSampler
 
     void recordRate(double rate)
     {
-        WriteGuard guard(rwLock);
+        UniqueLock guard(mutex);
 
         lastRate = rate * scale + offset;
 
@@ -103,6 +102,8 @@ struct RateSampler
 
     std::pair<double, double> calcRateAndDelta(double value) const
     {
+        UniqueLock guard(mutex);
+
         double delta = calc_delta0(value, lastValue);
         double rate  = delta * scale + offset;
         return std::make_pair(rate, delta);
@@ -113,13 +114,22 @@ struct RateSampler
         return calcRateAndDelta(value).first;
     }
 
-    size_t historySize() const { return rateHistory.size(); }
-    size_t historyCapacity() const { return rateHistory.capacity(); }
+    size_t historySize() const
+    {
+        UniqueLock guard(mutex);
+        return rateHistory.size();
+    }
+
+    size_t historyCapacity() const
+    {
+        UniqueLock guard(mutex);
+        return rateHistory.capacity();
+    }
 
     // Clears history contents but keeps its capacity
     void clearHistory(bool keepSampleCount = false)
     {
-        WriteGuard guard(rwLock);
+        UniqueLock guard(mutex);
 
         rateHistory.clear();
         assert(rateHistory.empty());
@@ -130,23 +140,25 @@ struct RateSampler
 
     double getSample(size_t sampleIndex) const
     {
+        UniqueLock guard(mutex);
         assert(sampleIndex < rateHistory.size());
         return rateHistory.at(sampleIndex);
     }
 
     double getSampleTime(size_t sampleIndex) const
     {
+        UniqueLock guard(mutex);
         assert(sampleIndex < rateHistory.size());
-
         double result = (totalSamples - rateHistory.size() + sampleIndex) * interval;
         return result;
     }
 
     double getFirstSampleTime() const { return getSampleTime(0); }
-    double getLastSampleTime() const { return getSampleTime(rateHistory.size() - 1); }
+    double getLastSampleTime() const { return getSampleTime(historySize() - 1); }
 
     ssize_t getSampleIndex(double sampleTime) const
     {
+        UniqueLock guard(mutex);
         ssize_t result = std::floor(sampleTime / interval - totalSamples + rateHistory.size());
         return result;
     }
