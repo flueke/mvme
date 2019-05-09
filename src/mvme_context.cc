@@ -744,6 +744,8 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     }
     qDebug() << __PRETTY_FUNCTION__ << "after waitForFinished";
 
+    emit vmeControllerAboutToBeChanged();
+
     // It should be safe to delete these now
     delete m_readoutWorker;
     delete m_controller;

@@ -66,6 +66,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void mvmeStreamWorkerStateChanged(MVMEStreamWorkerState);
         void controllerStateChanged(ControllerState state);
 
+        void vmeControllerAboutToBeChanged();
         void vmeControllerSet(VMEController *controller);
 
         void vmeConfigAboutToBeSet(VMEConfig *oldConfig, VMEConfig *newConfig);
