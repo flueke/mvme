@@ -638,33 +638,6 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         logBuffer(buffer, "Stack error notification from MVLC");
     });
 
-    // Periodically poll for available data. This should not interfere with
-    // normal communication but it does block for the read timeout period in
-    // case no notifications are available.
-#if 0
-    connect(updateTimer, &QTimer::timeout,
-            this, [this] ()
-    {
-        QVector<u32> buffer;
-
-        do
-        {
-            static const unsigned PollReadTimeout_ms = 1;
-            unsigned timeout = m_d->mvlc->getReadTimeout(Pipe::Command);
-            m_d->mvlc->setReadTimeout(Pipe::Command, PollReadTimeout_ms);
-            auto ec = m_d->mvlc->readKnownBuffer(buffer);
-            m_d->mvlc->setReadTimeout(Pipe::Command, timeout);
-
-            if (!buffer.isEmpty())
-            {
-                auto title = QString("Async notification from MVLC (read_result=%1)")
-                    .arg(ec.message().c_str());
-                logBuffer(buffer, title);
-            }
-        } while (!buffer.isEmpty());
-    });
-#endif
-
     connect(ui->pb_runScript, &QPushButton::clicked,
             this, [this] ()
     {

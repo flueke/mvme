@@ -4,6 +4,7 @@
 #include <memory>
 #include <mutex>
 #include <QObject>
+#include <QTimer>
 #include <QVector>
 
 #include "libmvme_mvlc_export.h"
@@ -117,11 +118,8 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         // The data available from this method will also have been emitted via
         // the stackErrorNotification() signal at the end of the last stack
         // operation.
+        // Starting a new stack operation clears the internal buffer.
         QVector<QVector<u32>> getStackErrorNotifications() const;
-#if 0
-        void clearStackErrorNotifications();
-        bool hasStackErrorNotifications() const;
-#endif
 
         Locks &getLocks() { return m_locks; }
 
@@ -141,6 +139,26 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         MVLCDialog m_dialog;
         State m_state;
         mutable Locks m_locks;
+};
+
+class MVLCNotificationPoller: public QObject
+{
+    Q_OBJECT
+    signals:
+        void stackErrorNotification(const QVector<u32> &notification);
+
+    public:
+        static const int Default_PollInterval_ms = 1000;
+
+        MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent = nullptr);
+
+        void enablePolling(int interval_ms = Default_PollInterval_ms);
+        void enablePolling(const std::chrono::milliseconds &interval);
+        void disablePolling();
+
+    private:
+        MVLCObject &m_mvlc;
+        QTimer m_pollTimer;
 };
 
 } // end namespace mvlc

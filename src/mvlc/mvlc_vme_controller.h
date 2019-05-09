@@ -45,8 +45,8 @@ class MVLC_VMEController: public VMEController
         //
         MVLCObject *getMVLCObject() { return m_mvlc; }
 
-        void enableNotificationPolling() { m_pollTimer.start(); }
-        void disableNotificationPolling() { m_pollTimer.stop(); }
+        void enableNotificationPolling() { m_notificationPoller.enablePolling(); }
+        void disableNotificationPolling() { m_notificationPoller.disablePolling(); }
 
     private slots:
         void onMVLCStateChanged(const MVLCObject::State &oldState,
@@ -54,8 +54,7 @@ class MVLC_VMEController: public VMEController
 
     private:
         MVLCObject *m_mvlc;
-        QTimer m_pollTimer;
-        constexpr static const auto m_pollInterval = std::chrono::milliseconds(1000);
+        MVLCNotificationPoller m_notificationPoller;
 };
 
 } // end namespace mvlc

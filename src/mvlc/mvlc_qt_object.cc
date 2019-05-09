@@ -249,19 +249,48 @@ QVector<QVector<u32>> MVLCObject::getStackErrorNotifications() const
     return m_dialog.getStackErrorNotifications();
 }
 
-#if 0
-void MVLCObject::clearStackErrorNotifications()
+MVLCNotificationPoller::MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent)
+    : QObject(parent)
+    , m_mvlc(mvlc)
 {
-    auto guard = getLocks().lockCmd();
-    m_dialog.clearStackErrorNotifications();
+    connect(&m_pollTimer, &QTimer::timeout, this, [this] ()
+    {
+        if (m_mvlc.isConnected())
+        {
+            qDebug() << "polling for stack error notifications";
+            QVector<u32> buffer;
+
+            do
+            {
+                static const unsigned PollReadTimeout_ms = 1;
+                unsigned timeout = m_mvlc.getReadTimeout(Pipe::Command);
+                m_mvlc.setReadTimeout(Pipe::Command, PollReadTimeout_ms);
+                m_mvlc.readKnownBuffer(buffer);
+                m_mvlc.setReadTimeout(Pipe::Command, timeout);
+
+                if (!buffer.isEmpty())
+                {
+                    emit stackErrorNotification(buffer);
+                }
+            } while (!buffer.isEmpty());
+        }
+    });
 }
 
-bool MVLCObject::hasStackErrorNotifications() const
+void MVLCNotificationPoller::enablePolling(int interval_ms)
 {
-    auto guard = getLocks().lockCmd();
-    return m_dialog.hasStackErrorNotifications();
+    m_pollTimer.start(interval_ms);
 }
-#endif
+
+void MVLCNotificationPoller::enablePolling(const std::chrono::milliseconds &interval)
+{
+    m_pollTimer.start(interval);
+}
+
+void MVLCNotificationPoller::disablePolling()
+{
+    m_pollTimer.stop();
+}
 
 } // end namespace mvlc
 } // end namespace mesytec

@@ -25,6 +25,16 @@ int main(int argc, char *argv[])
     auto mvlc_usb = std::make_unique<MVLCObject>(make_mvlc_usb());
     auto mvlc_eth = std::make_unique<MVLCObject>(make_mvlc_udp("192.168.42.2"));
 
+    for (auto mvlc: { mvlc_usb.get(), mvlc_eth.get() })
+    {
+        auto poller = new MVLCNotificationPoller(*mvlc, mvlc);
+
+        QObject::connect(poller, &MVLCNotificationPoller::stackErrorNotification,
+                         mvlc, &MVLCObject::stackErrorNotification);
+
+        poller->enablePolling();
+    }
+
     MVLCDevGUI devGui_usb(mvlc_usb.get());
     devGui_usb.setWindowTitle("MVLC Dev GUI - USB");
 
@@ -35,6 +45,8 @@ int main(int argc, char *argv[])
     {
         QObject::connect(devgui, &MVLCDevGUI::sigLogMessage,
                          &logWindow, &LogWidget::logMessage);
+
+        auto poller = new MVLCNotificationPoller(*mvlc_usb);
 
         devgui->addAction(actionQuit);
 

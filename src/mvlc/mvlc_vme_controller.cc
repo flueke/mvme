@@ -10,6 +10,7 @@ namespace mvlc
 MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
     : VMEController(parent)
     , m_mvlc(mvlc)
+    , m_notificationPoller(*mvlc)
 {
     assert(m_mvlc);
 
@@ -19,30 +20,8 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
     connect(m_mvlc, &MVLCObject::stackErrorNotification,
             this, &MVLC_VMEController::stackErrorNotification);
 
-    m_pollTimer.setInterval(m_pollInterval);
-
-    connect(&m_pollTimer, &QTimer::timeout,
-            this, [this] ()
-    {
-        if (isOpen())
-        {
-            QVector<u32> buffer;
-
-            do
-            {
-                static const unsigned PollReadTimeout_ms = 1;
-                unsigned timeout = m_mvlc->getReadTimeout(Pipe::Command);
-                m_mvlc->setReadTimeout(Pipe::Command, PollReadTimeout_ms);
-                m_mvlc->readKnownBuffer(buffer);
-                m_mvlc->setReadTimeout(Pipe::Command, timeout);
-
-                if (!buffer.isEmpty())
-                {
-                    emit stackErrorNotification(buffer);
-                }
-            } while (!buffer.isEmpty());
-        }
-    });
+    connect(&m_notificationPoller, &MVLCNotificationPoller::stackErrorNotification,
+            this, &MVLC_VMEController::stackErrorNotification);
 
     enableNotificationPolling();
 }
