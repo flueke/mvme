@@ -257,7 +257,6 @@ MVLCNotificationPoller::MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent
     {
         if (m_mvlc.isConnected())
         {
-            qDebug() << "polling for stack error notifications";
             QVector<u32> buffer;
 
             do

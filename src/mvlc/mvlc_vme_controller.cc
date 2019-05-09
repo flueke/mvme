@@ -1,6 +1,43 @@
 #include "mvlc/mvlc_vme_controller.h"
+#include "mvlc/mvlc_error.h"
 
 #include <QDebug>
+
+namespace
+{
+
+using namespace mesytec::mvlc;
+
+// Checks for certain MVLCErrorCode values and returns a VMEError containing
+// additional information if applicable. Otherwise a VMEError object
+// constructed from the given error_code is returned.
+VMEError error_wrap(const MVLCObject &mvlc, const std::error_code &ec)
+{
+    if (ec == MVLCErrorCode::InvalidBufferHeader ||
+        ec == MVLCErrorCode::UnexpectedBufferHeader)
+    {
+        auto buffer = mvlc.getResponseBuffer();
+
+        if (!buffer.isEmpty())
+        {
+            QStringList strings;
+
+            for (u32 word: mvlc.getResponseBuffer())
+            {
+                strings.append(QString("0x%1").arg(word, 8, 16, QLatin1Char('0')));
+            }
+
+            QString msg(ec.message().c_str());
+            msg += ": " + strings.join(", ");
+
+            return VMEError(VMEError::CommError, msg);
+        }
+    }
+
+    return ec;
+}
+
+} // end anon namespace
 
 namespace mesytec
 {
@@ -114,18 +151,21 @@ VMEControllerType MVLC_VMEController::getType() const
 
 VMEError MVLC_VMEController::write32(u32 address, u32 value, u8 amod)
 {
-    return m_mvlc->vmeSingleWrite(address, value, amod, VMEDataWidth::D32);
+    auto ec = m_mvlc->vmeSingleWrite(address, value, amod, VMEDataWidth::D32);
+    return error_wrap(*m_mvlc, ec);
 }
 
 VMEError MVLC_VMEController::write16(u32 address, u16 value, u8 amod)
 {
-    return m_mvlc->vmeSingleWrite(address, value, amod, VMEDataWidth::D16);
+    auto ec = m_mvlc->vmeSingleWrite(address, value, amod, VMEDataWidth::D16);
+    return error_wrap(*m_mvlc, ec);
 }
 
 
 VMEError MVLC_VMEController::read32(u32 address, u32 *value, u8 amod)
 {
-    return m_mvlc->vmeSingleRead(address, *value, amod, VMEDataWidth::D32);
+    auto ec = m_mvlc->vmeSingleRead(address, *value, amod, VMEDataWidth::D32);
+    return error_wrap(*m_mvlc, ec);
 }
 
 VMEError MVLC_VMEController::read16(u32 address, u16 *value, u8 amod)
@@ -133,17 +173,16 @@ VMEError MVLC_VMEController::read16(u32 address, u16 *value, u8 amod)
     u32 tmpVal = 0u;
     auto ec = m_mvlc->vmeSingleRead(address, tmpVal, amod, VMEDataWidth::D16);
     *value = tmpVal;
-    return ec;
+    return error_wrap(*m_mvlc, ec);
 }
 
 
 VMEError MVLC_VMEController::blockRead(u32 address, u32 transfers,
                                        QVector<u32> *dest, u8 amod, bool fifo)
 {
-    // TODO: can FIFO mode really by ignored by the mvlc?
-    return m_mvlc->vmeBlockRead(address, amod, transfers, *dest);
+    auto ec = m_mvlc->vmeBlockRead(address, amod, transfers, *dest);
+    return error_wrap(*m_mvlc, ec);
 }
-
 
 } // end namespace mvlc
 } // end namespace mesytec

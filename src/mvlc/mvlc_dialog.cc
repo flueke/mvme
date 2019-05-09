@@ -202,7 +202,7 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
     if (!bhv(header))
     {
         LOG_WARN("readResponse header validation failed, header=0x%08x", header);
-        return make_error_code(MVLCErrorCode::InvalidBufferHeader);
+        return make_error_code(MVLCErrorCode::UnexpectedBufferHeader);
     }
 
     return {};

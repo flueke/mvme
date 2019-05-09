@@ -82,6 +82,15 @@ class MVLCErrorCategory: public std::error_category
 
             case MVLCErrorCode::InvalidStackHeader:
                  return "Invalid stack header";
+
+            case MVLCErrorCode::StackIndexOutOfRange:
+                 return "Stack index out of range";
+
+            case MVLCErrorCode::UnexpectedBufferHeader:
+                 return "Unexpected buffer header";
+
+            case MVLCErrorCode::NeedMoreData:
+                 return "Need more data";
         }
 
         return "unrecognized MVLC error";
@@ -120,6 +129,9 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::StackMemoryExceeded:
             case MVLCErrorCode::StackSyntaxError:
             case MVLCErrorCode::InvalidStackHeader:
+            case MVLCErrorCode::StackIndexOutOfRange:
+            case MVLCErrorCode::UnexpectedBufferHeader:
+            case MVLCErrorCode::NeedMoreData:
                 return ErrorType::ProtocolError;
 
             case MVLCErrorCode::NoVMEResponse:
