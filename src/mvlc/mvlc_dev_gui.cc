@@ -468,7 +468,11 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
         auto update_stats_table = [this, tbl]()
         {
-            static auto lastPipeStats = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl())->getPipeStats();
+            auto guard = m_d->mvlc->getLocks().lockBoth();
+            auto udp_impl = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl());
+
+            static auto lastPipeStats = udp_impl->getPipeStats();
+
             static QDateTime lastUpdateTime;
             QDateTime now = QDateTime::currentDateTime();
 
@@ -478,9 +482,6 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                 return;
             }
 
-            double secondsElapsed = lastUpdateTime.msecsTo(now) / 1000.0;
-            auto pipeStats = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl())->getPipeStats();
-
             QStringList rowTitles = {
                 "rcvdPackets", "packets/s",
                 "shortPackets",
@@ -488,10 +489,12 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                 "noHeader", "headerOutOfRange"
             };
 
+            double secondsElapsed = lastUpdateTime.msecsTo(now) / 1000.0;
+            auto pipeStats = udp_impl->getPipeStats();
+
             for (unsigned ht = 0; ht < 256; ht++)
             {
-                if (pipeStats[0].headerTypes[ht]
-                    || pipeStats[1].headerTypes[ht])
+                if (pipeStats[0].headerTypes[ht] || pipeStats[1].headerTypes[ht])
                 {
                     rowTitles << QString("headerType 0x%1").arg(ht, 2, 16, QLatin1Char('0'));
                 }
@@ -530,7 +533,8 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                 {
                     for (unsigned pipe = 0; pipe < pipeStats.size(); pipe++)
                     {
-                        tbl->setItem(row, pipe, new QTWI(QString::number(pipeStats[pipe].headerTypes[ht])));
+                        tbl->setItem(row, pipe, new QTWI(
+                                QString::number(pipeStats[pipe].headerTypes[ht])));
                     }
                     row++;
                 }
@@ -560,12 +564,14 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
         auto update_loss_labels = [this, lossLabels] ()
         {
-            auto lossCounters = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl())->getLossCounters();
+            auto guard = m_d->mvlc->getLocks().lockBoth();
+            auto udp_impl = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl());
+            auto channelStats = udp_impl->getPacketChannelStats();
 
-            for (size_t chan = 0; chan < udp::NumPacketChannels; chan++)
+            for (size_t chan = 0; chan < channelStats.size(); chan++)
             {
                 auto label = lossLabels[chan];
-                label->setText(QString::number(lossCounters[chan]));
+                label->setText(QString::number(channelStats[chan].lostPackets));
             }
         };
 
@@ -573,11 +579,13 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
         auto debug_print_packet_sizes = [this] ()
         {
-            auto sizeMaps = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl())->getPacketSizeCounters();
+            auto guard = m_d->mvlc->getLocks().lockBoth();
+            auto udp_impl = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl());
+            auto channelStats = udp_impl->getPacketChannelStats();
 
-            for (u16 pktChan = 0; pktChan < sizeMaps.size(); pktChan++)
+            for (size_t chan = 0; chan < channelStats.size(); chan++)
             {
-                const auto &pktSizes = sizeMaps[pktChan];
+                const auto &pktSizes = channelStats[chan].packetSizes;
 
                 if (pktSizes.empty())
                     continue;
@@ -590,7 +598,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
                 std::sort(sizeVec.begin(), sizeVec.end());
 
-                qDebug("Incoming packet sizes for packet channel %u:", pktChan);
+                qDebug("Incoming packet sizes for packet channel %lu:", chan);
 
                 for (u16 pktSize: sizeVec)
                 {
