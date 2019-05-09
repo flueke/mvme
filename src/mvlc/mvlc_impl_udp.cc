@@ -203,9 +203,8 @@ std::error_code Impl::connect()
     m_cmdSock = -1;
     m_dataSock = -1;
     m_pipeStats = {};
+    m_packetChannelStats = {};
     std::fill(m_lastPacketNumbers.begin(), m_lastPacketNumbers.end(), -1);
-    m_packetLossCounters = {};
-    m_channelPacketSizes = {};
 
     if (auto ec = lookup(m_host, CommandPort, m_cmdAddr))
         return ec;
@@ -424,9 +423,9 @@ static const size_t MaxOutgoingPayloadSize = 1500 - 20 - 8;
 std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
                             size_t &bytesTransferred)
 {
-    // Note: it should not be necessary to split this into multiple calls to
-    // send() because outgoing MVLC command buffers should be smaller than the
-    // maximum ethernet MTU.
+    // Note: it is not necessary to split this into multiple calls to send()
+    // because outgoing MVLC command buffers have to be smaller than the
+    // maximum, non-jumbo ethernet MTU.
     // The send() call should return EMSGSIZE if the payload is too large to be
     // atomically transmitted.
     assert(size <= MaxOutgoingPayloadSize);
@@ -449,21 +448,8 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     return {};
 }
 
-
-/* initial:
- *   next_header_pointer = 0
- *   packet_number = 0
- *
- *   - receive one packet
- *   - make sure there are two header words
- *   - extract packet_number and number_of_data_words
- *   - record possible packet loss or ordering problems based on packet number
- *   - check to make sure timestamp is incrementing (packet ordering) (not implemented yet)
- *   -
- */
-
 #ifdef __WIN32
-// FIXME: use WSAGetLastError here
+// FIXME: use WSAGetLastError here once the std;:error_code infrastructure exists
 static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t size,
                                                  size_t &bytesTransferred, int timeout_ms)
 {
@@ -491,7 +477,7 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
 }
 #else
 static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t size,
-                                                 size_t &bytesTransferred)
+                                                 size_t &bytesTransferred, int)
 {
     bytesTransferred = 0u;
 
@@ -504,6 +490,18 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
     return {};
 }
 #endif
+
+/* initial:
+ *   next_header_pointer = 0
+ *   packet_number = 0
+ *
+ *   - receive one packet
+ *   - make sure there are two header words
+ *   - extract packet_number and number_of_data_words
+ *   - record possible packet loss or ordering problems based on packet number
+ *   - check to make sure timestamp is incrementing (packet ordering) (not implemented yet)
+ *   -
+ */
 
 std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
                            size_t &bytesTransferred)
@@ -567,20 +565,12 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
 
         size_t transferred = 0;
 
-#ifdef __WIN32
         auto ec = receive_one_packet(
             getSocket(pipe_),
             receiveBuffer.buffer.data(),
             receiveBuffer.buffer.size(),
             transferred,
             getReadTimeout(pipe_));
-#else
-        auto ec = receive_one_packet(
-            getSocket(pipe_),
-            receiveBuffer.buffer.data(),
-            receiveBuffer.buffer.size(),
-            transferred);
-#endif
 
         ++readCount;
 
@@ -594,6 +584,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
 
         ++pipeStats.receivedPackets;
         pipeStats.receivedBytes += packetSize;
+        ++pipeStats.packetSizes[packetSize];
 
         if (packetSize < HeaderBytes)
         {
@@ -637,8 +628,15 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         if (packetChannel >= NumPacketChannels)
         {
             LOG_WARN("  pipe=%u, packet channel number out of range: %u", pipe, packetChannel);
+            ++pipeStats.packetChannelOutOfRange;
+            return make_error_code(MVLCErrorCode::UDPPacketChannelOutOfRange);
         }
-        else
+
+        auto &channelStats = m_packetChannelStats[packetChannel];
+
+        ++channelStats.receivedPackets;
+        channelStats.receivedBytes += packetSize;
+
         {
             auto &lastPacketNumber = m_lastPacketNumbers[packetChannel];
 
@@ -656,12 +654,12 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
                              pipe, lastPacketNumber, packetNumber, loss);
                 }
 
-                m_packetLossCounters[packetChannel] += loss;
+                pipeStats.lostPackets += loss;
+                channelStats.lostPackets += loss;
             }
-            lastPacketNumber = packetNumber;
 
-            // record incoming packet sizes on a per packetChannel basis
-            m_channelPacketSizes[packetChannel][packetSize]++;
+            lastPacketNumber = packetNumber;
+            ++channelStats.packetSizes[packetSize];
         }
 
         // Check where nextHeaderPointer is pointing to
@@ -674,6 +672,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
             if (headerp >= end)
             {
                 ++pipeStats.headerOutOfRange;
+                ++channelStats.headerOutOfRange;
 
                 LOG_WARN("  pipe=%u, nextHeaderPointer out of range: nHPtr=%u, "
                          "availDataWords=%u, pktChan=%u, pktNum=%d, pktSize=%u bytes",
@@ -685,13 +684,16 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
                 u32 header = *headerp;
                 LOG_TRACE("  pipe=%u, nextHeaderPointer=%u -> header=0x%08x",
                           pipe, nextHeaderPointer, header);
-                // TODO: check header value and count good/bad/ugly/unknown
                 u32 type = (header >> 24) & 0xff;
                 ++pipeStats.headerTypes[type];
+                ++channelStats.headerTypes[type];
             }
         }
         else
+        {
             ++pipeStats.noHeader;
+            ++channelStats.noHeader;
+        }
 
         // Copy to destination buffer
         copy_and_update();
@@ -714,36 +716,14 @@ std::error_code Impl::getReadQueueSize(Pipe pipe_, u32 &dest)
     return make_error_code(MVLCErrorCode::InvalidPipe);
 }
 
-PipeStats Impl::getPipeStats(Pipe pipe_) const
-{
-    auto pipe = static_cast<unsigned>(pipe_);
-    assert(pipe < PipeCount);
-
-    if (pipe < PipeCount)
-        return m_pipeStats[pipe];
-
-    return {};
-}
-
 std::array<PipeStats, PipeCount> Impl::getPipeStats() const
 {
     return m_pipeStats;
 }
 
-LossCounters Impl::getLossCounters() const
+std::array<PacketChannelStats, NumPacketChannels> Impl::getPacketChannelStats() const
 {
-    return m_packetLossCounters;
-}
-
-u64 Impl::getLossCounter(PacketChannel packetChannel)
-{
-    unsigned chan = static_cast<unsigned>(packetChannel);
-    assert(chan < NumPacketChannels);
-
-    if (chan < NumPacketChannels)
-        return m_packetLossCounters[chan];
-
-    return 0u;
+    return m_packetChannelStats;
 }
 
 s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber)

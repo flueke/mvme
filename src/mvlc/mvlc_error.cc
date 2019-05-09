@@ -71,6 +71,9 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::SocketTimeout:
                  return "socket timeout";
 
+            case MVLCErrorCode::UDPPacketChannelOutOfRange:
+                 return "UDP packet channel out of range";
+
             case MVLCErrorCode::StackCountExceeded:
                  return "number of stacks exceeded";
 
@@ -132,6 +135,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::StackIndexOutOfRange:
             case MVLCErrorCode::UnexpectedBufferHeader:
             case MVLCErrorCode::NeedMoreData:
+            case MVLCErrorCode::UDPPacketChannelOutOfRange:
                 return ErrorType::ProtocolError;
 
             case MVLCErrorCode::NoVMEResponse:

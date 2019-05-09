@@ -31,6 +31,7 @@ enum class MVLCErrorCode
     BindLocalError,
     SocketError,
     SocketTimeout,
+    UDPPacketChannelOutOfRange,
     StackCountExceeded,
     StackMemoryExceeded,
     StackSyntaxError,
