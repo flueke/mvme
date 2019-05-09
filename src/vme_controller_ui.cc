@@ -335,14 +335,14 @@ void MVLC_ETH_SettingsWidget::validate()
 
 void MVLC_ETH_SettingsWidget::loadSettings(const QVariantMap &settings)
 {
-    le_address->setText(settings["hostname"].toString());
+    le_address->setText(settings["mvlc_hostname"].toString());
 }
 
 QVariantMap MVLC_ETH_SettingsWidget::getSettings()
 {
     QVariantMap result;
 
-    result["hostname"] = le_address->text();
+    result["mvlc_hostname"] = le_address->text();
 
     return result;
 }
