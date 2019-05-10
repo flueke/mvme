@@ -403,25 +403,25 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
             {
                 if (m_rdoState.stack != frameInfo.stack)
                 {
-                    qDebug("rdoState.stack != frameInfo.stack (%d != %d)",
-                           m_rdoState.stack, frameInfo.stack);
+                    //qDebug("rdoState.stack != frameInfo.stack (%d != %d)",
+                    //       m_rdoState.stack, frameInfo.stack);
                     return make_error_code(MVLCErrorCode::StackIndexOutOfRange);
                 }
 
                 assert(m_rdoState.streamWriter.hasOpenEventSection());
-                qDebug("data is continuation for stack %d", m_rdoState.stack);
+                //qDebug("data is continuation for stack %d", m_rdoState.stack);
             }
             else
             {
                 assert(!m_rdoState.streamWriter.hasOpenEventSection());
                 m_rdoState.stack = frameInfo.stack;
                 m_rdoState.streamWriter.openEventSection(m_rdoState.stack - 1);
-                qDebug("data starts for stack %d", m_rdoState.stack);
+                //qDebug("data starts for stack %d", m_rdoState.stack);
             }
 
             s16 mi = std::max(m_rdoState.module, (s16)0);
 
-            qDebug("data begins with block for module %d", mi);
+            //qDebug("data begins with block for module %d", mi);
 
             for (; mi < ewm.modules.size(); mi++)
             {
@@ -435,14 +435,19 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
                     return make_error_code(MVLCErrorCode::UnexpectedBufferHeader);
                 }
 
+                if (blkInfo.len == 0)
+                {
+                    logMessage(QSL("MVLC Readout Warning: received block read frame of size 0"));
+                }
+
                 if (!m_rdoState.streamWriter.hasOpenModuleSection())
                 {
-                    qDebug("opening module section for module %d", mi);
+                    //qDebug("opening module section for module %d", mi);
                     m_rdoState.streamWriter.openModuleSection(ewm.moduleTypes[mi]);
                 }
                 else
                 {
-                    qDebug("data is continuation for module %d", mi);
+                    //qDebug("data is continuation for module %d", mi);
                 }
 
                 for (u16 wi = 0; wi < blkInfo.len; wi++)
@@ -454,11 +459,11 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
                 if (blkInfo.flags & buffer_flags::Continue)
                 {
                     m_rdoState.module = mi;
-                    qDebug("data for module %d continues in next buffer", mi);
+                    //qDebug("data for module %d continues in next buffer", mi);
                     break;
                 }
 
-                qDebug("data for module %d done, closing module section", mi);
+                //qDebug("data for module %d done, closing module section", mi);
                 m_rdoState.streamWriter.closeModuleSection();
                 m_rdoState.module++;
 
@@ -477,7 +482,7 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
 
             if (!(frameInfo.flags & buffer_flags::Continue))
             {
-                qDebug("closing event section for stack %d", m_rdoState.stack);
+                //qDebug("closing event section for stack %d", m_rdoState.stack);
                 m_rdoState.streamWriter.writeEventData(EndMarker);
                 m_rdoState.streamWriter.closeEventSection();
                 m_rdoState.module = 0;
@@ -485,7 +490,7 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
             }
             else
             {
-                qDebug("event from stack %d continues in next frame", frameInfo.stack);
+                //qDebug("event from stack %d continues in next frame", frameInfo.stack);
                 m_rdoState.stack = frameInfo.stack;
             }
         } // while (!iter.atEnd())
@@ -505,14 +510,14 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
     if (m_rdoState.stack >= 0)
     {
         assert(m_rdoState.streamWriter.hasOpenEventSection());
-        qDebug("data for stack %d continues in next frame, leaving event section open",
-               m_rdoState.stack);
+        //qDebug("data for stack %d continues in next frame, leaving event section open",
+        //       m_rdoState.stack);
     }
     else
     {
         assert(!m_rdoState.streamWriter.hasOpenEventSection());
-        qDebug("done with input data, stack data does not continue in"
-               " next frame -> flusing output buffer");
+        //qDebug("done with input data, stack data does not continue in"
+        //       " next frame -> flusing output buffer");
         flushCurrentOutputBuffer();
     }
 
