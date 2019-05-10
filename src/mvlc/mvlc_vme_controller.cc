@@ -59,6 +59,8 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
 
     connect(&m_notificationPoller, &MVLCNotificationPoller::stackErrorNotification,
             this, &MVLC_VMEController::stackErrorNotification);
+
+    m_notificationPoller.enablePolling();
 }
 
 void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &oldState,
