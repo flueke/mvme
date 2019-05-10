@@ -44,7 +44,7 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         {
             MVMEStreamWriterHelper streamWriter;
             s16 stack = -1;
-            s16 module = -1;
+            s16 module = 0;
         };
 
         ReadoutState m_rdoState;

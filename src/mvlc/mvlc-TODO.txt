@@ -1,3 +1,5 @@
+* Make a std::error_category for getaddrinfo (enum, category, make_error_code).
+  It's needed for good winsock error reporting.
 * Add NoIAck option to VMEConfig and use it in the MVLC setup code
 * Polling udp::Impl stats (getLossCounters(), getPacketSizeCounters()) from the GUI is
   currently not taking the higher-level locks. This means the readout thread or a thread
@@ -28,3 +30,32 @@
 
   To delete the arp entry:
     arp -i enp2s0 -d 192.168.42.2
+
+---------------------------------------------------
+* Data Format things
+
+// Successful read
+11:57:32: >>> Stack response from MVLC, size=2
+  0: 0xf3000001 (4076863489 dec) Stack Result Buffer (len=1, stackNum=0, errorBits=none)
+  1: 0x00000001 (1 dec)
+<<< Stack response from MVLC
+
+
+// Timeout
+11:58:00: >>> Stack response from MVLC, size=2
+  0: 0xf3100001 (4077912065 dec) Stack Result Buffer (len=1, stackNum=0, errorBits=timeout)
+  1: 0xffffff03 (4294967043 dec)
+
+
+// Two reads, 1st ok, 2nd with timeout
+12:01:47: >>> Stack response from MVLC, size=3
+  0: 0xf3100002 (4077912066 dec) Stack Result Buffer (len=2, stackNum=0, errorBits=timeout)
+  1: 0x00000001 (1 dec)
+  2: 0xffffff05 (4294967045 dec)
+
+
+// Reversed
+  12:03:02: >>> Stack response from MVLC, size=3
+  0: 0xf3100002 (4077912066 dec) Stack Result Buffer (len=2, stackNum=0, errorBits=timeout)
+  1: 0xffffff03 (4294967043 dec)
+  2: 0x00000001 (1 dec)
