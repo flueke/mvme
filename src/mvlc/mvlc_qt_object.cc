@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <QDebug>
+#include <QtConcurrent>
 
 #include "mvlc/mvlc_error.h"
 
@@ -255,24 +256,27 @@ MVLCNotificationPoller::MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent
 {
     connect(&m_pollTimer, &QTimer::timeout, this, [this] ()
     {
-        if (m_mvlc.isConnected())
+        QtConcurrent::run([this] ()
         {
-            QVector<u32> buffer;
-
-            do
+            if (m_mvlc.isConnected())
             {
-                static const unsigned PollReadTimeout_ms = 1;
-                unsigned timeout = m_mvlc.getReadTimeout(Pipe::Command);
-                m_mvlc.setReadTimeout(Pipe::Command, PollReadTimeout_ms);
-                m_mvlc.readKnownBuffer(buffer);
-                m_mvlc.setReadTimeout(Pipe::Command, timeout);
+                QVector<u32> buffer;
 
-                if (!buffer.isEmpty())
+                do
                 {
-                    emit stackErrorNotification(buffer);
-                }
-            } while (!buffer.isEmpty());
-        }
+                    static const unsigned PollReadTimeout_ms = 1;
+                    unsigned timeout = m_mvlc.getReadTimeout(Pipe::Command);
+                    m_mvlc.setReadTimeout(Pipe::Command, PollReadTimeout_ms);
+                    m_mvlc.readKnownBuffer(buffer);
+                    m_mvlc.setReadTimeout(Pipe::Command, timeout);
+
+                    if (!buffer.isEmpty())
+                    {
+                        emit stackErrorNotification(buffer);
+                    }
+                } while (!buffer.isEmpty());
+            }
+        });
     });
 }
 
