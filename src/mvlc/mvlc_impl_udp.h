@@ -21,21 +21,6 @@ namespace mvlc
 namespace udp
 {
 
-// TODO
-// How will the MVLC handle the case where multiple "connections" are made to
-// the command pipe? Anyone attempting to connect should at least be able to
-// read a register to determine whether a DAQ is active. The response to this
-// read request must not interfere in any way with a possibly running DAQ: the
-// response must only be sent to the client socket, no additional data should
-// be sent to any other clients, the data pipe should not send out additional
-// information.
-//
-// Make a std::error_category for getaddrinfo (enum, category, make_error_code).
-//
-// Do normal error handling on the return value of setsockopt(). Right now it's
-// being asserted.
-//
-
 using PacketSizeMap = std::unordered_map<u16, u64>; // size -> count
 using HeaderTypeMap = std::unordered_map<u8, u64>;  // header type byte -> count
 

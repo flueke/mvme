@@ -70,7 +70,8 @@ std::error_code lookup(const std::string &host, u16 port, sockaddr_in &dest)
     // TODO: check getaddrinfo specific error codes. make and use getaddrinfo error category
     if (rc != 0)
     {
-        qDebug("%s: HostLookupError, host=%s, error=%s", __PRETTY_FUNCTION__, host.c_str(), gai_strerror(rc));
+        qDebug("%s: HostLookupError, host=%s, error=%s", __PRETTY_FUNCTION__, host.c_str(),
+               gai_strerror(rc));
         return make_error_code(MVLCErrorCode::HostLookupError);
     }
 
