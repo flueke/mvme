@@ -345,6 +345,9 @@ std::error_code Impl::connect()
                              sizeof(SocketReceiveBufferSize));
 #endif
         assert(res == 0);
+
+        if (res != 0)
+            return std::error_code(errno, std::system_category());
     }
 
     // TODO: send some initial request to verify there's an MVLC on the other side
