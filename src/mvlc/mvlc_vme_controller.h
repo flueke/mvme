@@ -12,7 +12,7 @@ namespace mesytec
 namespace mvlc
 {
 
-class MVLC_VMEController: public VMEController
+class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
 {
     Q_OBJECT
     signals:

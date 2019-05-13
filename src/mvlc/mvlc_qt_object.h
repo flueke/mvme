@@ -141,7 +141,7 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         mutable Locks m_locks;
 };
 
-class MVLCNotificationPoller: public QObject
+class LIBMVME_MVLC_EXPORT MVLCNotificationPoller: public QObject
 {
     Q_OBJECT
     signals:

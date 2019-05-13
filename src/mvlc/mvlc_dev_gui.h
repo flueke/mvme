@@ -11,18 +11,19 @@
 #include <QPushButton>
 #include <QString>
 
+#include "libmvme_mvlc_export.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "vme_script.h"
 
 
-struct FixedSizeBuffer
+struct LIBMVME_MVLC_EXPORT FixedSizeBuffer
 {
     std::unique_ptr<u8[]> data;
     size_t capacity;
     size_t used;
 };
 
-FixedSizeBuffer make_buffer(size_t capacity);
+FixedSizeBuffer LIBMVME_MVLC_EXPORT make_buffer(size_t capacity);
 
 enum class FrameCheckResult: u8
 {
@@ -31,7 +32,7 @@ enum class FrameCheckResult: u8
     HeaderMatchFailed,  // hit something else than F3
 };
 
-struct FrameCheckData
+struct LIBMVME_MVLC_EXPORT FrameCheckData
 {
     size_t nextHeaderOffset;
     size_t framesChecked;
@@ -39,9 +40,9 @@ struct FrameCheckData
     std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
 };
 
-FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data);
+FrameCheckResult LIBMVME_MVLC_EXPORT frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data);
 
-struct ReaderStats
+struct LIBMVME_MVLC_EXPORT ReaderStats
 {
     enum CounterEnum
     {
@@ -62,9 +63,9 @@ struct ReaderStats
     std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
 };
 
-const char *reader_stat_name(ReaderStats::CounterEnum counter);
+const char *LIBMVME_MVLC_EXPORT reader_stat_name(ReaderStats::CounterEnum counter);
 
-class MVLCDataReader: public QObject
+class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
 {
     Q_OBJECT
     public:
@@ -123,7 +124,7 @@ namespace Ui
     class MVLCDevGUI;
 }
 
-class MVLCDevGUI: public QMainWindow
+class LIBMVME_MVLC_EXPORT MVLCDevGUI: public QMainWindow
 {
     Q_OBJECT
     signals:
@@ -166,7 +167,7 @@ class MVLCRegisterWidget: public QWidget
         void readStackInfo(u8 stackId);
 };
 
-class LogWidget: public QWidget
+class LIBMVME_MVLC_EXPORT LogWidget: public QWidget
 {
     Q_OBJECT
     public:

@@ -21,6 +21,7 @@
 #ifndef __VME_DAQ_H__
 #define __VME_DAQ_H__
 
+#include "libmvme_export.h"
 #include "vme_config.h"
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
@@ -49,7 +50,7 @@ struct ScriptWithResult
     const vme_script::ResultList results;
 };
 
-QVector<ScriptWithResult>
+QVector<ScriptWithResult> LIBMVME_EXPORT
 vme_daq_init(
     VMEConfig *vmeConfig,
     VMEController *controller,
