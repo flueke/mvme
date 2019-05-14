@@ -71,25 +71,29 @@ namespace buffer_headers
 {
     enum BufferTypes: u8
     {
-        SuperBuffer = 0xF1,
-        StackBuffer = 0xF3,
-        BlockRead   = 0xF5,
-        StackError  = 0xF7,
+        SuperBuffer       = 0xF1,
+        StackBuffer       = 0xF3,
+        BlockRead         = 0xF5,
+        StackError        = 0xF7,
+        StackContinuation = 0xF9,
     };
 
-    // Header: Type[7:0] Error[3:0] StackNum[3:0] Length[15:0]
+    // Header: Type[7:0] BufferFlags[3:0] StackNum[3:0] Length[15:0]
 
-    static const u16 TypeShift = 24;
-    static const u16 TypeMask  = 0xff;
+    static const u8 TypeShift          = 24;
+    static const u8 TypeMask           = 0xff;
 
-    static const u8 ErrorMask  = 0xf;
-    static const u8 ErrorShift = 20;
+    static const u8 BufferFlagsMask     = 0xf;
+    static const u8 BufferFlagsShift    = 20;
 
-    static const u16 StackNumShift = 16;
-    static const u16 StackNumMask  = 0xf;
+    static const u8 StackNumShift      = 16;
+    static const u8 StackNumMask       = 0xf;
 
-    static const u16 LengthShift = 0;
-    static const u16 LengthMask = 0xffff;
+    static const u8 HeaderFlagsMask    = 0b11;
+    static const u8 HeaderFlagsShift   = 14;
+
+    static const u16 LengthShift        = 0;
+    static const u16 LengthMask         = 0xffff;
 }
 
 namespace buffer_flags
