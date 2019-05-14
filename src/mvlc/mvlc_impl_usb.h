@@ -36,6 +36,15 @@ namespace usb
 // direction. Then the software must ensure that only one thread accesses each
 // of the pipes simultaneously. It's still ok for one thread to use pipe0 and
 // another to use pipe1.
+// Update (Tue 05/14/2019): FT_SetPipeTimeout is not thread-safe under Windows.
+// Using FT_SetPipeTimeout and FT_ReadPipeEx in parallel leads to a deadlock
+// even if operating on different pipes. The FT_SetPipeTimeout call never
+// returns:
+//   ntdll.dll!ZwWaitForSingleObject+0x14
+//   KERNELBASE.dll!DeviceIoControl+0x82
+//   KERNEL32.DLL!DeviceIoControl+0x80
+//   FTD3XX.dll!FT_IoCtl+0x7e
+//   FTD3XX.dll!FT_SetPipeTimeout+0x3e
 
 struct DeviceInfo
 {

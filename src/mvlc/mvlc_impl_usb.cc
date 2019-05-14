@@ -477,6 +477,7 @@ std::error_code Impl::setReadTimeout(Pipe pipe, unsigned ms)
 unsigned Impl::getWriteTimeout(Pipe pipe) const
 {
     auto up = static_cast<unsigned>(pipe);
+    assert(up < PipeCount);
     if (up >= PipeCount) return 0u;
     return m_writeTimeouts[up];
 }
@@ -484,6 +485,7 @@ unsigned Impl::getWriteTimeout(Pipe pipe) const
 unsigned Impl::getReadTimeout(Pipe pipe) const
 {
     auto up = static_cast<unsigned>(pipe);
+    assert(up < PipeCount);
     if (up >= PipeCount) return 0u;
     return m_readTimeouts[up];
 }

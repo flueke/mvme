@@ -89,6 +89,7 @@ MVLCDataReader::MVLCDataReader(QObject *parent)
     , m_doQuit(false)
     , m_nextBufferRequested(false)
     , m_stackFrameCheckEnabled(true)
+    , m_logAllBuffers(false)
     , m_readBuffer(make_buffer(ReadBufferSize))
 {
 }
@@ -232,6 +233,8 @@ void MVLCDataReader::readoutLoop()
         }
     }
 
+    auto tStart = std::chrono::high_resolution_clock::now();
+
     while (!m_doQuit)
     {
         size_t bytesTransferred = 0u;
@@ -346,6 +349,17 @@ void MVLCDataReader::readoutLoop()
         {
             m_outDevice->write(reinterpret_cast<const char *>(m_readBuffer.data.get()),
                                m_readBuffer.used);
+        }
+
+        {
+            auto now = std::chrono::high_resolution_clock::now();
+            auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(now - tStart);
+
+            if (dt.count() > 1000)
+            {
+                tStart = now;
+                qDebug() << "readout is alive!";
+            }
         }
     }
 
@@ -1346,11 +1360,26 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         u32 cmdQueueSize = 0;
         u32 dataQueueSize = 0;
 
+        auto tStart = std::chrono::high_resolution_clock::now();
+
         m_d->mvlc->getReadQueueSize(Pipe::Command, cmdQueueSize);
+        auto tCmd = std::chrono::high_resolution_clock::now();
+
         m_d->mvlc->getReadQueueSize(Pipe::Data, dataQueueSize);
+        auto tData = std::chrono::high_resolution_clock::now();
+
+        auto dtCmd = std::chrono::duration_cast<std::chrono::milliseconds>(tCmd - tStart);
+        auto dtData = std::chrono::duration_cast<std::chrono::milliseconds>(tData - tStart);
 
         ui->le_usbCmdReadQueueSize->setText(QString::number(cmdQueueSize));
         ui->le_usbDataReadQueueSize->setText(QString::number(dataQueueSize));
+
+        ui->label_queueSizePollTime->setText(
+            QString("Cmd: %1ms, Data: %2ms, now=%3")
+            .arg(dtCmd.count())
+            .arg(dtData.count())
+            .arg(QTime::currentTime().toString())
+            );
     });
 
     updateTimer->start();

@@ -71,7 +71,9 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
     Q_OBJECT
     public:
         using MVLCObject = mesytec::mvlc::MVLCObject;
-        static const int ReadBufferSize = Kilobytes(256);
+        static const int USB3PacketSizeMax = 1024;
+        static const int ReadBufferSize = 1536;
+        //static const int ReadBufferSize = Kilobytes(256);
         static const int ReadTimeout_ms = 25;
 
     signals:

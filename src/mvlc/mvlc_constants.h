@@ -298,18 +298,18 @@ namespace registers
     static const u16 arp_sender_ip_rx_hi    = 0x443a;
 } // end namespace registers
 
-enum class Pipe: u8
-{
-    Command,
-    Data
-};
-
-static const unsigned PipeCount = 2;
 static const u8 CommandPipe = 0;
 static const u8 DataPipe = 1;
+static const unsigned PipeCount = 2;
 
-static const unsigned DefaultWriteTimeout_ms = 25;
-static const unsigned DefaultReadTimeout_ms  = 25;
+enum class Pipe: u8
+{
+    Command = CommandPipe,
+    Data = DataPipe,
+};
+
+static const unsigned DefaultWriteTimeout_ms = 10;
+static const unsigned DefaultReadTimeout_ms  = 10;
 
 enum class ConnectionType
 {

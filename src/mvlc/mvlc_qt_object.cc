@@ -253,31 +253,11 @@ QVector<QVector<u32>> MVLCObject::getStackErrorNotifications() const
 MVLCNotificationPoller::MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent)
     : QObject(parent)
     , m_mvlc(mvlc)
+    , m_isPolling(false)
 {
     connect(&m_pollTimer, &QTimer::timeout, this, [this] ()
     {
-        QtConcurrent::run([this] ()
-        {
-            if (m_mvlc.isConnected())
-            {
-                QVector<u32> buffer;
-
-                do
-                {
-                    static const unsigned PollReadTimeout_ms = 1;
-                    unsigned timeout = m_mvlc.getReadTimeout(Pipe::Command);
-                    m_mvlc.setReadTimeout(Pipe::Command, PollReadTimeout_ms);
-                    auto ec = m_mvlc.readKnownBuffer(buffer);
-                    m_mvlc.setReadTimeout(Pipe::Command, timeout);
-
-                    if (ec != MVLCErrorCode::InvalidBufferHeader && !buffer.isEmpty())
-                    {
-                        qDebug("0x%08x", buffer[0]);
-                        emit stackErrorNotification(buffer);
-                    }
-                } while (!buffer.isEmpty());
-            }
-        });
+        QtConcurrent::run(this, &MVLCNotificationPoller::doPoll);
     });
 }
 
@@ -294,6 +274,40 @@ void MVLCNotificationPoller::enablePolling(const std::chrono::milliseconds &inte
 void MVLCNotificationPoller::disablePolling()
 {
     m_pollTimer.stop();
+}
+
+void MVLCNotificationPoller::doPoll()
+{
+    bool f = false;
+
+    if (!m_isPolling.compare_exchange_weak(f, true))
+    {
+        qDebug() << "melady, melady, my lady";
+        return;
+    }
+
+    if (m_mvlc.isConnected())
+    {
+        QVector<u32> buffer;
+
+        do
+        {
+            //static const unsigned PollReadTimeout_ms = 1;
+            //unsigned timeout = m_mvlc.getReadTimeout(Pipe::Command);
+            //assert(timeout > 0);
+            //m_mvlc.setReadTimeout(Pipe::Command, PollReadTimeout_ms);
+            auto ec = m_mvlc.readKnownBuffer(buffer);
+            //m_mvlc.setReadTimeout(Pipe::Command, timeout);
+
+            if (ec != MVLCErrorCode::InvalidBufferHeader && !buffer.isEmpty())
+            {
+                qDebug("0x%08x", buffer[0]);
+                emit stackErrorNotification(buffer);
+            }
+        } while (!buffer.isEmpty());
+    }
+
+    m_isPolling = false;
 }
 
 } // end namespace mvlc

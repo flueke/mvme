@@ -156,9 +156,13 @@ class LIBMVME_MVLC_EXPORT MVLCNotificationPoller: public QObject
         void enablePolling(const std::chrono::milliseconds &interval);
         void disablePolling();
 
+    private slots:
+        void doPoll();
+
     private:
         MVLCObject &m_mvlc;
         QTimer m_pollTimer;
+        std::atomic<bool> m_isPolling;
 };
 
 } // end namespace mvlc
