@@ -24,7 +24,7 @@ namespace udp
 using PacketSizeMap = std::unordered_map<u16, u64>; // size -> count
 using HeaderTypeMap = std::unordered_map<u8, u64>;  // header type byte -> count
 
-struct PipeStats
+struct LIBMVME_MVLC_EXPORT PipeStats
 {
     // Total number of received UDP packets.
     u64 receivedPackets = 0u;
@@ -45,7 +45,7 @@ struct PipeStats
     HeaderTypeMap headerTypes;
 };
 
-struct PacketChannelStats
+struct LIBMVME_MVLC_EXPORT PacketChannelStats
 {
     u64 receivedPackets = 0u;
     u64 receivedBytes = 0u;
@@ -55,6 +55,64 @@ struct PacketChannelStats
 
     PacketSizeMap packetSizes;
     HeaderTypeMap headerTypes;
+};
+
+struct LIBMVME_MVLC_EXPORT PacketReadResult
+{
+    std::error_code ec;
+    u8 *buffer;             // Equal to the dest pointer passed to read_packet()
+    u16 bytesTransferred;
+    s32 lostPackets;        // Loss between the previous and current packets
+
+    inline bool hasHeaders() const { return bytesTransferred >= HeaderBytes; }
+
+    inline u32 header0() const { return reinterpret_cast<u32 *>(buffer)[0]; }
+    inline u32 header1() const { return reinterpret_cast<u32 *>(buffer)[1]; }
+
+    inline u16 packetChannel() const
+    {
+        return (header0() >> header0::PacketChannelShift) & header0::PacketChannelMask;
+    }
+
+    inline u16 packetNumber() const
+    {
+        return (header0() >> header0::PacketNumberShift)  & header0::PacketNumberMask;
+    }
+
+    inline u16 dataWordCount() const
+    {
+        return (header0() >> header0::NumDataWordsShift)  & header0::NumDataWordsMask;
+    }
+
+    inline u16 udpTimestamp() const
+    {
+        return (header1() >> header1::TimestampShift)     & header1::TimestampMask;
+    }
+
+    inline u16 nextHeaderPointer() const
+    {
+        return (header1() >> header1::HeaderPointerShift) & header1::HeaderPointerMask;
+    }
+
+    inline u16 availablePayloadWords() const
+    {
+        return (bytesTransferred - HeaderBytes) / sizeof(u32);
+    }
+
+    inline u16 leftoverBytes() const
+    {
+        return bytesTransferred % sizeof(u32);
+    }
+
+    inline u32 *payloadBegin() const
+    {
+        return reinterpret_cast<u32 *>(buffer + HeaderBytes);
+    }
+
+    inline u32 *payloadEnd() const
+    {
+        return payloadBegin() + availablePayloadWords();
+    }
 };
 
 class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
@@ -78,6 +136,8 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 
         std::error_code read(Pipe pipe, u8 *buffer, size_t size,
                              size_t &bytesTransferred) override;
+
+        PacketReadResult read_packet(Pipe pipe, u8 *buffer, size_t size);
 
         ConnectionType connectionType() const override { return ConnectionType::UDP; }
 

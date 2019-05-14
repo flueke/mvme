@@ -348,7 +348,7 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
     assert(!dest.isEmpty()); // guaranteed by readResponse()
 
     u32 header = dest[0];
-    u8 errorBits = (header >> buffer_headers::ErrorShift) & buffer_headers::ErrorMask;
+    u8 errorBits = (header >> buffer_headers::BufferFlagsShift) & buffer_headers::BufferFlagsMask;
 
     if (errorBits)
     {

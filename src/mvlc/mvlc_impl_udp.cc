@@ -455,7 +455,7 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
 #ifdef __WIN32
 // FIXME: use WSAGetLastError here once the std;:error_code infrastructure exists
 static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t size,
-                                                 size_t &bytesTransferred, int timeout_ms)
+                                                 u16 &bytesTransferred, int timeout_ms)
 {
     fd_set fds;
     FD_ZERO(&fds);
@@ -481,7 +481,7 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
 }
 #else
 static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t size,
-                                                 size_t &bytesTransferred, int)
+                                                 u16 &bytesTransferred, int)
 {
     bytesTransferred = 0u;
 
@@ -494,6 +494,134 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
     return {};
 }
 #endif
+
+PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
+{
+    PacketReadResult res = {};
+
+    unsigned pipe = static_cast<unsigned>(pipe_);
+
+    if (pipe >= PipeCount)
+    {
+        res.ec = make_error_code(MVLCErrorCode::InvalidPipe);
+        return res;
+    }
+
+    if (!isConnected())
+    {
+        res.ec = make_error_code(MVLCErrorCode::IsDisconnected);
+        return res;
+    }
+
+    res.ec = receive_one_packet(getSocket(pipe_), buffer, size,
+                                res.bytesTransferred,
+                                getReadTimeout(pipe_));
+    res.buffer = buffer;
+
+    if (res.ec && res.bytesTransferred == 0)
+        return res;
+
+    auto &pipeStats = m_pipeStats[pipe];
+    ++pipeStats.receivedPackets;
+    pipeStats.receivedBytes += res.bytesTransferred;
+    ++pipeStats.packetSizes[res.bytesTransferred];
+
+    if (!res.hasHeaders())
+    {
+        ++pipeStats.shortPackets;
+        LOG_WARN("  pipe=%u, received data is smaller than the MVLC UDP header size", pipe);
+        res.ec = make_error_code(MVLCErrorCode::ShortRead);
+        return res;
+    }
+
+    LOG_TRACE("  pipe=%u, header0=0x%08x -> packetChannel=%u, packetNumber=%u, wordCount=%u",
+              pipe, res.header0(), res.packetChannel(), res.packetNumber(), res.dataWordCount());
+
+    LOG_TRACE("  pipe=%u, header1=0x%08x -> udpTimestamp=%u, nextHeaderPointer=%u",
+              pipe, res.header1(), res.udpTimestamp(), res.nextHeaderPointer());
+
+    LOG_TRACE("  pipe=%u, calculated available data words = %u, leftover bytes = %u",
+              pipe, res.availablePayloadWords(), res.leftoverBytes());
+
+    if (res.leftoverBytes() > 0)
+    {
+        LOG_WARN("  pipe=%u, %u leftover bytes in received packet",
+                 pipe, res.leftoverBytes());
+    }
+
+    if (res.packetChannel() >= NumPacketChannels)
+    {
+        LOG_WARN("  pipe=%u, packet channel number out of range: %u", pipe, res.packetChannel());
+        ++pipeStats.packetChannelOutOfRange;
+        res.ec = make_error_code(MVLCErrorCode::UDPPacketChannelOutOfRange);
+        return res;
+    }
+
+    auto &channelStats = m_packetChannelStats[res.packetChannel()];
+    ++channelStats.receivedPackets;
+    channelStats.receivedBytes += res.bytesTransferred;
+
+    {
+        auto &lastPacketNumber = m_lastPacketNumbers[res.packetChannel()];
+
+        LOG_TRACE("  pipe=%u, packetChannel=%u, packetNumber=%u, lastPacketNumber=%d",
+                  pipe, res.packetChannel(), res.packetNumber(), lastPacketNumber);
+
+        // Packet loss calculation. The initial lastPacketNumber value is -1.
+        if (lastPacketNumber >= 0)
+        {
+            auto loss = calc_packet_loss(lastPacketNumber, res.packetNumber());
+
+            if (loss > 0)
+            {
+                LOG_WARN("  pipe=%u, lastPacketNumber=%u, packetNumber=%u, loss=%d",
+                         pipe, lastPacketNumber, res.packetNumber(), loss);
+            }
+
+            res.lostPackets = loss;
+            pipeStats.lostPackets += loss;
+            channelStats.lostPackets += loss;
+        }
+
+        lastPacketNumber = res.packetNumber();
+        ++channelStats.packetSizes[res.bytesTransferred];
+    }
+
+    // Check where nextHeaderPointer is pointing to
+    if (res.nextHeaderPointer() != 0xffff)
+    {
+        u32 *start = reinterpret_cast<u32 *>(res.payloadBegin());
+        u32 *end   = reinterpret_cast<u32 *>(res.payloadEnd());
+        u32 *headerp = start + res.nextHeaderPointer();
+
+        if (headerp >= end)
+        {
+            ++pipeStats.headerOutOfRange;
+            ++channelStats.headerOutOfRange;
+
+            LOG_WARN("  pipe=%u, nextHeaderPointer out of range: nHPtr=%u, "
+                     "availDataWords=%u, pktChan=%u, pktNum=%d, pktSize=%u bytes",
+                     pipe, res.nextHeaderPointer(), res.availablePayloadWords(),
+                     res.packetChannel(), res.packetNumber(), res.bytesTransferred);
+        }
+        else
+        {
+            u32 header = *headerp;
+            LOG_TRACE("  pipe=%u, nextHeaderPointer=%u -> header=0x%08x",
+                      pipe, res.nextHeaderPointer(), header);
+            u32 type = (header >> buffer_headers::TypeShift) & buffer_headers::TypeMask;
+            ++pipeStats.headerTypes[type];
+            ++channelStats.headerTypes[type];
+        }
+    }
+    else
+    {
+        ++pipeStats.noHeader;
+        ++channelStats.noHeader;
+    }
+
+    return res;
+}
 
 /* initial:
  *   next_header_pointer = 0
@@ -540,8 +668,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         }
     };
 
-    LOG_TRACE("+ pipe=%u, size=%zu, bufferAvail=%zu",
-              pipe, requestedSize, receiveBuffer.available());
+    LOG_TRACE("+ pipe=%u, size=%zu, bufferAvail=%zu", pipe, requestedSize, receiveBuffer.available());
 
     copy_and_update();
 
@@ -568,143 +695,26 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         LOG_TRACE("  pipe=%u, requestedSize=%zu, remainingSize=%zu, reading from MVLC...",
                   pipe, requestedSize, size);
 
-        size_t transferred = 0;
-
-        auto ec = receive_one_packet(
-            getSocket(pipe_),
-            receiveBuffer.buffer.data(),
-            receiveBuffer.buffer.size(),
-            transferred,
-            getReadTimeout(pipe_));
+        auto rr = read_packet(pipe_, receiveBuffer.buffer.data(), receiveBuffer.buffer.size());
 
         ++readCount;
 
-        LOG_TRACE("  pipe=%u, received %zu bytes, ec=%s",
-                  pipe, transferred, ec.message().c_str());
+        LOG_TRACE("  pipe=%u, received %u bytes, ec=%s",
+                  pipe, rr.bytesTransferred, rr.ec.message().c_str());
 
-        if (ec)
-            return ec;
+        if (rr.ec && rr.bytesTransferred == 0)
+            return rr.ec;
 
-        const u16 packetSize = transferred;
-
-        ++pipeStats.receivedPackets;
-        pipeStats.receivedBytes += packetSize;
-        ++pipeStats.packetSizes[packetSize];
-
-        if (packetSize < HeaderBytes)
-        {
-            ++pipeStats.shortPackets;
-            LOG_WARN("  pipe=%u, received data is smaller than the MVLC UDP header size", pipe);
-
-            return make_error_code(MVLCErrorCode::ShortRead);
-        }
-
-        receiveBuffer.start = receiveBuffer.buffer.data() + HeaderBytes;
-        receiveBuffer.end   = receiveBuffer.buffer.data() + packetSize;
-
-        u32 pkt_header0 = receiveBuffer.header0();
-        u32 pkt_header1 = receiveBuffer.header1();
-
-        u16 packetChannel       = (pkt_header0 >> header0::PacketChannelShift)  & header0::PacketChannelMask;
-        u16 packetNumber        = (pkt_header0 >> header0::PacketNumberShift)  & header0::PacketNumberMask;
-        u16 dataWordCount       = (pkt_header0 >> header0::NumDataWordsShift)  & header0::NumDataWordsMask;
-
-        u32 udpTimestamp        = (pkt_header1 >> header1::TimestampShift)     & header1::TimestampMask;
-        u16 nextHeaderPointer   = (pkt_header1 >> header1::HeaderPointerShift) & header1::HeaderPointerMask;
-
-        LOG_TRACE("  pipe=%u, header0=0x%08x -> packetChannel=%u, packetNumber=%u, wordCount=%u",
-                  pipe, pkt_header0, packetChannel, packetNumber, dataWordCount);
-
-        LOG_TRACE("  pipe=%u, header1=0x%08x -> udpTimestamp=%u, nextHeaderPointer=%u",
-                  pipe, pkt_header1, udpTimestamp, nextHeaderPointer);
-
-        const u16 availableDataWords = receiveBuffer.available() / sizeof(u32);
-        const u16 leftoverBytes = receiveBuffer.available() % sizeof(u32);
-
-        LOG_TRACE("  pipe=%u, calculated available data words = %u, leftover bytes = %u",
-                  pipe, availableDataWords, leftoverBytes);
-
-        if (leftoverBytes > 0)
-        {
-            LOG_WARN("  pipe=%u, %u leftover bytes in received packet",
-                     pipe, leftoverBytes);
-        }
-
-        if (packetChannel >= NumPacketChannels)
-        {
-            LOG_WARN("  pipe=%u, packet channel number out of range: %u", pipe, packetChannel);
-            ++pipeStats.packetChannelOutOfRange;
-            return make_error_code(MVLCErrorCode::UDPPacketChannelOutOfRange);
-        }
-
-        auto &channelStats = m_packetChannelStats[packetChannel];
-
-        ++channelStats.receivedPackets;
-        channelStats.receivedBytes += packetSize;
-
-        {
-            auto &lastPacketNumber = m_lastPacketNumbers[packetChannel];
-
-            LOG_TRACE("  pipe=%u, packetChannel=%u, packetNumber=%u, lastPacketNumber=%d",
-                      pipe, packetChannel, packetNumber, lastPacketNumber);
-
-            // Packet loss calculation. The initial lastPacketNumber value is -1.
-            if (lastPacketNumber >= 0)
-            {
-                auto loss = calc_packet_loss(lastPacketNumber, packetNumber);
-
-                if (loss > 0)
-                {
-                    LOG_WARN("  pipe=%u, lastPacketNumber=%u, packetNumber=%u, loss=%d",
-                             pipe, lastPacketNumber, packetNumber, loss);
-                }
-
-                pipeStats.lostPackets += loss;
-                channelStats.lostPackets += loss;
-            }
-
-            lastPacketNumber = packetNumber;
-            ++channelStats.packetSizes[packetSize];
-        }
-
-        // Check where nextHeaderPointer is pointing to
-        if (nextHeaderPointer != 0xffff)
-        {
-            u32 *start = reinterpret_cast<u32 *>(receiveBuffer.start);
-            u32 *end   = reinterpret_cast<u32 *>(receiveBuffer.end);
-            u32 *headerp = start + nextHeaderPointer;
-
-            if (headerp >= end)
-            {
-                ++pipeStats.headerOutOfRange;
-                ++channelStats.headerOutOfRange;
-
-                LOG_WARN("  pipe=%u, nextHeaderPointer out of range: nHPtr=%u, "
-                         "availDataWords=%u, pktChan=%u, pktNum=%d, pktSize=%u bytes",
-                         pipe, nextHeaderPointer, availableDataWords, packetChannel,
-                         packetNumber, packetSize);
-            }
-            else
-            {
-                u32 header = *headerp;
-                LOG_TRACE("  pipe=%u, nextHeaderPointer=%u -> header=0x%08x",
-                          pipe, nextHeaderPointer, header);
-                u32 type = (header >> 24) & 0xff;
-                ++pipeStats.headerTypes[type];
-                ++channelStats.headerTypes[type];
-            }
-        }
-        else
-        {
-            ++pipeStats.noHeader;
-            ++channelStats.noHeader;
-        }
+        receiveBuffer.start = reinterpret_cast<u8 *>(rr.payloadBegin());
+        receiveBuffer.end   = reinterpret_cast<u8 *>(rr.payloadEnd());
 
         // Copy to destination buffer
         copy_and_update();
 
         auto tEnd = std::chrono::high_resolution_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(tEnd - tStart);
+
+        //qDebug() << elapsed.count() << getReadTimeout(pipe_);
 
         if (elapsed.count() >= getReadTimeout(pipe_))
         {

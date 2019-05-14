@@ -21,6 +21,7 @@ struct LIBMVME_MVLC_EXPORT FixedSizeBuffer
     std::unique_ptr<u8[]> data;
     size_t capacity;
     size_t used;
+    u8 *payloadBegin;
 };
 
 FixedSizeBuffer LIBMVME_MVLC_EXPORT make_buffer(size_t capacity);
@@ -63,7 +64,7 @@ struct LIBMVME_MVLC_EXPORT ReaderStats
     std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
 };
 
-const char *LIBMVME_MVLC_EXPORT reader_stat_name(ReaderStats::CounterEnum counter);
+LIBMVME_MVLC_EXPORT const char *reader_stat_name(ReaderStats::CounterEnum counter);
 
 class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
 {
@@ -71,7 +72,7 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
     public:
         using MVLCObject = mesytec::mvlc::MVLCObject;
         static const int ReadBufferSize = Kilobytes(256);
-        static const int ReadTimeout_ms = 250;
+        static const int ReadTimeout_ms = 25;
 
     signals:
         void started();
@@ -88,6 +89,7 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
         ReaderStats getAndResetStats();
         void resetStats();
         bool isStackFrameCheckEnabled() const;
+        void setLogAllBuffers(bool b) { m_logAllBuffers = b; }
 
         // not thread safe - must be done before entering readoutLoop
         void setMVLC(MVLCObject *mvlc);
@@ -111,7 +113,8 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
         MVLCObject *m_mvlc;
         std::atomic<bool> m_doQuit,
                           m_nextBufferRequested,
-                          m_stackFrameCheckEnabled;
+                          m_stackFrameCheckEnabled,
+                          m_logAllBuffers;
         FixedSizeBuffer m_readBuffer;
         mutable QMutex m_statsMutex;
         ReaderStats m_stats = {};

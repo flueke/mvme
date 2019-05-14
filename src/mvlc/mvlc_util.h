@@ -90,7 +90,7 @@ inline HeaderInfo extract_header_info(u32 header)
 
     result.len   = (header >> LengthShift) & LengthMask;
     result.type  = (header >> TypeShift) & TypeMask;
-    result.flags = (header >> ErrorShift) & ErrorMask;
+    result.flags = (header >> BufferFlagsShift) & BufferFlagsMask;
     result.stack = (header >> StackNumShift) & StackNumMask;
 
     return result;

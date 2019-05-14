@@ -543,6 +543,13 @@
           </item>
          </layout>
         </item>
+        <item row="1" column="4">
+         <widget class="QCheckBox" name="cb_readerLogAll">
+          <property name="text">
+           <string>Log All</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </widget>
      </item>

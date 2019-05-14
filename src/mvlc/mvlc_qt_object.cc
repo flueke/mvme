@@ -267,11 +267,12 @@ MVLCNotificationPoller::MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent
                     static const unsigned PollReadTimeout_ms = 1;
                     unsigned timeout = m_mvlc.getReadTimeout(Pipe::Command);
                     m_mvlc.setReadTimeout(Pipe::Command, PollReadTimeout_ms);
-                    m_mvlc.readKnownBuffer(buffer);
+                    auto ec = m_mvlc.readKnownBuffer(buffer);
                     m_mvlc.setReadTimeout(Pipe::Command, timeout);
 
-                    if (!buffer.isEmpty())
+                    if (ec != MVLCErrorCode::InvalidBufferHeader && !buffer.isEmpty())
                     {
+                        qDebug("0x%08x", buffer[0]);
                         emit stackErrorNotification(buffer);
                     }
                 } while (!buffer.isEmpty());

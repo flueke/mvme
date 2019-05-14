@@ -245,7 +245,7 @@ QString decode_response_header(u32 header)
             break;
     }
 
-    u8 errorBits = (header >> buffer_headers::ErrorShift) & buffer_headers::ErrorMask;
+    u8 errorBits = (header >> buffer_headers::BufferFlagsShift) & buffer_headers::BufferFlagsMask;
 
     ss << ", errorBits=" << format_buffer_error_bits(errorBits) << ")";
 

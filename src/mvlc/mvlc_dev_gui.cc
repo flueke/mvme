@@ -43,8 +43,10 @@ FixedSizeBuffer make_buffer(size_t capacity)
     {
         .data = std::make_unique<u8[]>(capacity),
         .capacity = capacity,
-        .used = 0
+        .used = 0,
     };
+
+    result.payloadBegin = result.data.get();
 
     return result;
 }
@@ -139,8 +141,8 @@ void MVLCDataReader::setOutputDevice(std::unique_ptr<QIODevice> dev)
 
 FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data)
 {
-    const u32 *buffp = reinterpret_cast<const u32 *>(buffer.data.get());
-    const u32 *endp  = buffp + buffer.used / sizeof(u32);
+    const u32 *buffp = reinterpret_cast<const u32 *>(buffer.payloadBegin);
+    const u32 *endp  = reinterpret_cast<const u32 *>(buffer.data.get() + buffer.used);
 
     while (true)
     {
@@ -161,7 +163,7 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
 
         const u32 header = *nextp;
 
-        if (!is_stack_buffer(header))
+        if (!(is_stack_buffer(header) || is_stack_buffer_continuation(header)))
         {
             // leave nextHeaderOffset unmodified for inspection
             return FrameCheckResult::HeaderMatchFailed;
@@ -201,8 +203,12 @@ void MVLCDataReader::readoutLoop()
         << m_mvlc->getReadTimeout(Pipe::Data) << "ms";
     qDebug() << __PRETTY_FUNCTION__ << "readbuffer capacity is" << m_readBuffer.capacity;
 
+    udp::Impl *mvlc_udp = nullptr;
+
     if (m_mvlc->connectionType() == ConnectionType::UDP)
     {
+        mvlc_udp = reinterpret_cast<udp::Impl *>(m_mvlc->getImpl());
+
         emit message(QSL("Connection type is UDP. Sending initial empty request"
                          " using the data socket."));
 
@@ -229,12 +235,27 @@ void MVLCDataReader::readoutLoop()
     while (!m_doQuit)
     {
         size_t bytesTransferred = 0u;
+        std::error_code ec;
+        udp::PacketReadResult udp_rr = {};
 
-        auto ec = m_mvlc->read(Pipe::Data,
-                               m_readBuffer.data.get(), m_readBuffer.capacity,
-                               bytesTransferred);
+        if (mvlc_udp)
+        {
+            // Manual locking. Maybe better to make read_packet() available in a higher layer?
+            auto guard = m_mvlc->getLocks().lockData();
+            auto udp_rr = mvlc_udp->read_packet(Pipe::Data, m_readBuffer.data.get(), m_readBuffer.capacity);
+            ec = udp_rr.ec;
+            bytesTransferred = udp_rr.bytesTransferred;
+            m_readBuffer.payloadBegin = m_readBuffer.data.get() + udp::HeaderBytes;
+        }
+        else
+        {
+            ec = m_mvlc->read(Pipe::Data,
+                              m_readBuffer.data.get(), m_readBuffer.capacity,
+                              bytesTransferred);
+        }
 
         m_readBuffer.used = bytesTransferred;
+
 
         if (ec == ErrorType::ConnectionError || ec == ErrorType::IOError)
         {
@@ -269,6 +290,7 @@ void MVLCDataReader::readoutLoop()
             }
         }
 
+        // FIXME: udp case needs used > udp::HeaderBytes
         if (m_readBuffer.used > 0 && m_stackFrameCheckEnabled)
         {
             auto checkResult = frame_check(m_readBuffer, m_frameCheckData);
@@ -280,19 +302,28 @@ void MVLCDataReader::readoutLoop()
 
             if (checkResult == FrameCheckResult::HeaderMatchFailed)
             {
-                m_stackFrameCheckEnabled = false;
+                if (mvlc_udp && udp_rr.hasHeaders())
+                {
+                    emit message(QSL("Adjusting FrameCheckData.nextHeaderOffset using UDP frame info"));
+                    m_frameCheckData.nextHeaderOffset = udp_rr.nextHeaderPointer();
+                    checkResult = frame_check(m_readBuffer, m_frameCheckData);
+                }
+                else
+                {
+                    m_stackFrameCheckEnabled = false;
 
-                emit message(QSL("!!! !!! !!!"));
-                emit message(QSL("Frame Check header match failed! Disabling frame check."));
-                emit message(QSL("  nextHeaderOffset=%1")
-                             .arg(m_frameCheckData.nextHeaderOffset));
+                    emit message(QSL("!!! !!! !!!"));
+                    emit message(QSL("Frame Check header match failed! Disabling frame check."));
+                    emit message(QSL("  nextHeaderOffset=%1")
+                                 .arg(m_frameCheckData.nextHeaderOffset));
 
-                u32 nextHeader = *reinterpret_cast<u32 *>(m_readBuffer.data.get())
-                    + m_frameCheckData.nextHeaderOffset;
+                    u32 nextHeader = *reinterpret_cast<u32 *>(m_readBuffer.data.get())
+                        + m_frameCheckData.nextHeaderOffset;
 
-                emit message(QSL("  nextHeader=0x%1")
-                             .arg(nextHeader, 8, 16, QLatin1Char('0')));
-                emit message(QSL("!!! !!! !!!"));
+                    emit message(QSL("  nextHeader=0x%1")
+                                 .arg(nextHeader, 8, 16, QLatin1Char('0')));
+                    emit message(QSL("!!! !!! !!!"));
+                }
             }
             else if (checkResult == FrameCheckResult::NeedMoreData)
             {
@@ -300,7 +331,7 @@ void MVLCDataReader::readoutLoop()
             }
         }
 
-        if (m_nextBufferRequested && m_readBuffer.used > 0)
+        if ((m_nextBufferRequested || m_logAllBuffers) && m_readBuffer.used > 0)
         {
             QVector<u8> bufferCopy;
             bufferCopy.reserve(m_readBuffer.used);
@@ -577,6 +608,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
         connect(updateTimer, &QTimer::timeout, this, update_loss_labels);
 
+#if 0
         auto debug_print_packet_sizes = [this] ()
         {
             auto guard = m_d->mvlc->getLocks().lockBoth();
@@ -608,6 +640,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         };
 
         connect(updateTimer, &QTimer::timeout, this, debug_print_packet_sizes);
+#endif
 
         auto udpStatsLayout = new QHBoxLayout(ui->gb_udpStats);
         udpStatsLayout->addWidget(tbl);
@@ -714,10 +747,10 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                 logBuffer(responseBuffer, "Stack response from MVLC");
 
                 // Same as is done in MVLCDialog::stackTransaction(): if error
-                // bist are set read in the error notification (0xF7) buffer
+                // bits are set, read in the error notification (0xF7) buffer
                 // and log it.
                 u32 header = responseBuffer[0];
-                u8 errorBits = (header >> buffer_headers::ErrorShift) & buffer_headers::ErrorMask;
+                u8 errorBits = (header >> buffer_headers::BufferFlagsShift) & buffer_headers::BufferFlagsMask;
 
                 if (errorBits)
                 {
@@ -1023,6 +1056,12 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             this, [this] ()
     {
         m_d->dataReader->requestNextBuffer();
+    });
+
+    connect(ui->cb_readerLogAll, &QCheckBox::toggled,
+            this, [this] (bool b)
+    {
+        m_d->dataReader->setLogAllBuffers(b);
     });
 
     connect(m_d->dataReader, &MVLCDataReader::bufferReady,
