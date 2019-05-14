@@ -19,6 +19,8 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         DAQState getState() const override;
 
     private:
+        void preReadout();
+        void postReadout();
         void readoutLoop();
         void setState(const DAQState &state);
         void logError(const QString &msg);
@@ -57,6 +59,7 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         };
 
         QVector<EventWithModules> m_events;
+        QFile m_rawBufferOut;
 };
 
 #endif /* __MVME_MVLC_READOUT_WORKER_H__ */

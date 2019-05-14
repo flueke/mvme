@@ -119,6 +119,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
             }
         }
 
+
         logMessage("");
         logMessage(QSL("Entering readout loop"));
         m_workerContext.daqStats->start();
@@ -126,7 +127,13 @@ void MVLCReadoutWorker::start(quint32 cycles)
         m_listfileHelper = std::make_unique<DAQReadoutListfileHelper>(m_workerContext);
         m_listfileHelper->beginRun();
 
+        // Keep this after DAQReadoutListfileHelper::beginRun() so that the
+        // real output filename is available.
+        preReadout();
+
         readoutLoop();
+
+        postReadout();
 
         logMessage(QSL("Leaving readout loop"));
         logMessage(QSL(""));
@@ -161,6 +168,58 @@ void MVLCReadoutWorker::start(quint32 cycles)
     }
 
     setState(DAQState::Idle);
+}
+
+void MVLCReadoutWorker::preReadout()
+{
+    QVariantMap controllerSettings = m_workerContext.vmeConfig->getControllerSettings();
+
+    if (controllerSettings.value("WriteRawBufferFile").toBool())
+    {
+        auto mvlc = qobject_cast<MVLC_VMEController *>(getContext().controller);
+        assert(mvlc);
+
+        const char *prefix = nullptr;
+
+        switch (mvlc->getMVLCObject()->connectionType())
+        {
+            case ConnectionType::USB:
+                prefix = "mvlc_usb_";
+                break;
+
+            case ConnectionType::UDP:
+                prefix = "mvlc_eth_";
+                break;
+        }
+
+        QString filename = prefix
+            + generate_output_basename(*m_workerContext.listfileOutputInfo)
+            + ".bin";
+
+        m_rawBufferOut.setFileName(filename);
+        if (!m_rawBufferOut.open(QIODevice::WriteOnly))
+        {
+            auto msg = (QString("Error opening MVLC raw buffers file for writing: %1")
+                        .arg(m_rawBufferOut.errorString()));
+            logMessage(msg);
+        }
+        else
+        {
+            auto msg = (QString("Writing raw MVLC buffers to %1")
+                        .arg(m_rawBufferOut.fileName()));
+            logMessage(msg);
+        }
+    }
+}
+
+void MVLCReadoutWorker::postReadout()
+{
+    if (m_rawBufferOut.isOpen())
+    {
+        logMessage(QString("Closing MVLC raw buffers file %1")
+                    .arg(m_rawBufferOut.fileName()));
+        m_rawBufferOut.close();
+    }
 }
 
 void MVLCReadoutWorker::readoutLoop()
@@ -287,7 +346,6 @@ void MVLCReadoutWorker::readoutLoop()
 }
 
 // TODO MVLCReadoutWorker:
-// - handle frames with the continue flag set
 // - keep track of stats
 // - better error codes for data consistency checks
 // - test performance implications of buffered vs unbuffered reads
@@ -308,12 +366,16 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
         m_previousData.used = 0u;
     }
 
+    // TODO: use lower level (unbuffered) reads
+
     auto ec = mvlc->read(Pipe::Data,
                          m_readBuffer.data + m_readBuffer.used,
                          m_readBuffer.size - m_readBuffer.used,
                          bytesTransferred);
 
     m_readBuffer.used += bytesTransferred;
+
+    // TODO: write raw file contents here
 
     if (bytesTransferred == 0 || ec == ErrorType::ConnectionError)
         return ec;
