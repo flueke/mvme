@@ -51,6 +51,16 @@ FixedSizeBuffer make_buffer(size_t capacity)
     return result;
 }
 
+QVector<u8> copy_data_to_qvector(const FixedSizeBuffer &buffer)
+{
+    QVector<u8> result;
+    result.reserve(buffer.used);
+    std::copy(buffer.data.get(),
+              buffer.data.get() + buffer.used,
+              std::back_inserter(result));
+    return result;
+}
+
 const char *reader_stat_name(ReaderStats::CounterEnum counter)
 {
     switch (counter)
@@ -90,7 +100,8 @@ MVLCDataReader::MVLCDataReader(QObject *parent)
     , m_nextBufferRequested(false)
     , m_stackFrameCheckEnabled(true)
     , m_logAllBuffers(false)
-    , m_readBuffer(make_buffer(ReadBufferSize))
+    , m_requestedReadBufferSize(ReadBufferSize)
+    , m_readBuffer{}
 {
 }
 
@@ -144,6 +155,8 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
 {
     const u32 *buffp = reinterpret_cast<const u32 *>(buffer.payloadBegin);
     const u32 *endp  = reinterpret_cast<const u32 *>(buffer.data.get() + buffer.used);
+
+    ++data.buffersChecked;
 
     while (true)
     {
@@ -202,47 +215,65 @@ void MVLCDataReader::readoutLoop()
     qDebug() << __PRETTY_FUNCTION__ << "executing in" << QThread::currentThread();
     qDebug() << __PRETTY_FUNCTION__ << "read timeout is"
         << m_mvlc->getReadTimeout(Pipe::Data) << "ms";
-    qDebug() << __PRETTY_FUNCTION__ << "readbuffer capacity is" << m_readBuffer.capacity;
 
     udp::Impl *mvlc_udp = nullptr;
+    usb::Impl *mvlc_usb = nullptr;
 
-    if (m_mvlc->connectionType() == ConnectionType::UDP)
+    switch (m_mvlc->connectionType())
     {
-        mvlc_udp = reinterpret_cast<udp::Impl *>(m_mvlc->getImpl());
+        case ConnectionType::UDP:
+            {
+                mvlc_udp = reinterpret_cast<udp::Impl *>(m_mvlc->getImpl());
 
-        emit message(QSL("Connection type is UDP. Sending initial empty request"
-                         " using the data socket."));
+                emit message(QSL("Connection type is UDP. Sending initial empty request"
+                                 " using the data socket."));
 
-        size_t bytesTransferred = 0;
+                size_t bytesTransferred = 0;
 
-        static const std::array<u32, 2> EmptyRequest =
-        {
-            0xF1000000,
-            0xF2000000
-        };
+                static const std::array<u32, 2> EmptyRequest =
+                {
+                    0xF1000000,
+                    0xF2000000
+                };
 
-        if (auto ec = m_mvlc->write(Pipe::Data,
-                                    reinterpret_cast<const u8 *>(EmptyRequest.data()),
-                                    EmptyRequest.size() * sizeof(u32),
-                                    bytesTransferred))
-        {
-            emit message(QSL("Error sending initial empty request using the data socket: %1")
-                         .arg(ec.message().c_str()));
-            emit stopped();
-            return;
-        }
+                if (auto ec = m_mvlc->write(Pipe::Data,
+                                            reinterpret_cast<const u8 *>(EmptyRequest.data()),
+                                            EmptyRequest.size() * sizeof(u32),
+                                            bytesTransferred))
+                {
+                    emit message(QSL("Error sending initial empty request using the data socket: %1")
+                                 .arg(ec.message().c_str()));
+                    emit stopped();
+                    return;
+                }
+            } break;
+
+        case ConnectionType::USB:
+            {
+                mvlc_usb = reinterpret_cast<usb::Impl *>(m_mvlc->getImpl());
+            } break;
     }
 
-    auto tStart = std::chrono::high_resolution_clock::now();
+    auto prevFrameCheckResult = FrameCheckResult::Ok;
 
     while (!m_doQuit)
     {
+        size_t requestedReadBufferSize = m_requestedReadBufferSize;
+
+        if (m_readBuffer.capacity != requestedReadBufferSize)
+        {
+            m_readBuffer = make_buffer(requestedReadBufferSize);
+            emit message(QSL("New read buffer size: %1 bytes").arg(m_readBuffer.capacity));
+        }
+
         size_t bytesTransferred = 0u;
         std::error_code ec;
         udp::PacketReadResult udp_rr = {};
 
         if (mvlc_udp)
         {
+            assert(!mvlc_usb);
+
             // Manual locking. Maybe better to make read_packet() available in a higher layer?
             auto guard = m_mvlc->getLocks().lockData();
             auto udp_rr = mvlc_udp->read_packet(Pipe::Data, m_readBuffer.data.get(), m_readBuffer.capacity);
@@ -250,11 +281,15 @@ void MVLCDataReader::readoutLoop()
             bytesTransferred = udp_rr.bytesTransferred;
             m_readBuffer.payloadBegin = m_readBuffer.data.get() + udp::HeaderBytes;
         }
-        else
+        else if (mvlc_usb)
         {
-            ec = m_mvlc->read(Pipe::Data,
-                              m_readBuffer.data.get(), m_readBuffer.capacity,
-                              bytesTransferred);
+            assert(!mvlc_udp);
+
+            auto guard = m_mvlc->getLocks().lockData();
+            ec = mvlc_usb->read_unbuffered(Pipe::Data,
+                                           m_readBuffer.data.get(),
+                                           m_readBuffer.capacity,
+                                           bytesTransferred);
         }
 
         m_readBuffer.used = bytesTransferred;
@@ -293,7 +328,6 @@ void MVLCDataReader::readoutLoop()
             }
         }
 
-        // FIXME: udp case needs used > udp::HeaderBytes
         if (m_readBuffer.used > 0 && m_stackFrameCheckEnabled)
         {
             auto checkResult = frame_check(m_readBuffer, m_frameCheckData);
@@ -317,8 +351,8 @@ void MVLCDataReader::readoutLoop()
 
                     emit message(QSL("!!! !!! !!!"));
                     emit message(QSL("Frame Check header match failed! Disabling frame check."));
-                    emit message(QSL("  nextHeaderOffset=%1")
-                                 .arg(m_frameCheckData.nextHeaderOffset));
+                    emit message(QSL("  prevFrameCheckResult=%1").arg(static_cast<int>(prevFrameCheckResult)));
+                    emit message(QSL("  nextHeaderOffset=%1").arg(m_frameCheckData.nextHeaderOffset));
 
                     u32 nextHeader = *reinterpret_cast<u32 *>(m_readBuffer.data.get())
                         + m_frameCheckData.nextHeaderOffset;
@@ -326,22 +360,22 @@ void MVLCDataReader::readoutLoop()
                     emit message(QSL("  nextHeader=0x%1")
                                  .arg(nextHeader, 8, 16, QLatin1Char('0')));
                     emit message(QSL("!!! !!! !!!"));
+
+                    emit frameCheckFailed(m_frameCheckData, copy_data_to_qvector(m_readBuffer));
                 }
             }
             else if (checkResult == FrameCheckResult::NeedMoreData)
             {
                 ++m_stats.counters[ReaderStats::FramesCrossingBuffers];
             }
+
+            prevFrameCheckResult = checkResult;
         }
 
         if ((m_nextBufferRequested || m_logAllBuffers) && m_readBuffer.used > 0)
         {
-            QVector<u8> bufferCopy;
-            bufferCopy.reserve(m_readBuffer.used);
-            std::copy(m_readBuffer.data.get(),
-                      m_readBuffer.data.get() + m_readBuffer.used,
-                      std::back_inserter(bufferCopy));
-            emit bufferReady(bufferCopy);
+            emit bufferReady(copy_data_to_qvector(m_readBuffer));
+
             m_nextBufferRequested = false;
         }
 
@@ -349,17 +383,6 @@ void MVLCDataReader::readoutLoop()
         {
             m_outDevice->write(reinterpret_cast<const char *>(m_readBuffer.data.get()),
                                m_readBuffer.used);
-        }
-
-        {
-            auto now = std::chrono::high_resolution_clock::now();
-            auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(now - tStart);
-
-            if (dt.count() > 1000)
-            {
-                tStart = now;
-                qDebug() << "readout is alive!";
-            }
         }
     }
 
@@ -406,8 +429,11 @@ struct MVLCDevGUI::Private
 
     // DataReader stats
     QVector<QLabel *> readerStatLabels;
+
     QLabel *l_statRunDuration,
-           *l_statReadRate;
+           *l_statReadRate,
+           *l_statFrameRate;
+
     QPushButton *pb_printReaderBufferSizes,
                 *pb_printStackHits;
 
@@ -480,6 +506,9 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
         m_d->l_statReadRate = new QLabel();
         l->addRow("Read Rate", m_d->l_statReadRate);
+
+        m_d->l_statFrameRate = new QLabel();
+        l->addRow("Frame Rate", m_d->l_statFrameRate);
 
         m_d->pb_printReaderBufferSizes = new QPushButton("Print Incoming Buffer Sizes");
         m_d->pb_printStackHits = new QPushButton("Print Stack Hits");
@@ -1078,6 +1107,13 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         m_d->dataReader->setLogAllBuffers(b);
     });
 
+    connect(ui->pb_readerApplyReadBufferSize, &QPushButton::clicked,
+            this, [this] ()
+    {
+        m_d->dataReader->setReadBufferSize(static_cast<size_t>(
+                ui->spin_readerReadBufferSize->value()));
+    });
+
     connect(m_d->dataReader, &MVLCDataReader::bufferReady,
             this, [this] (QVector<u8> buffer)
     {
@@ -1099,6 +1135,53 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         });
 
         logMessage(QString("<<< End of buffer log"));
+    });
+
+    connect(m_d->dataReader, &MVLCDataReader::frameCheckFailed,
+            this, [this] (const FrameCheckData &fcd, const QVector<u8> &buffer)
+    {
+        logMessage(QSL("FrameCheckFailed: buffer size=%1, buffersChecked=%2")
+                   .arg(buffer.size())
+                   .arg(fcd.buffersChecked)
+                   );
+
+        size_t wordCount = buffer.size() / sizeof(u32);
+        const u32 *startp = reinterpret_cast<const u32 *>(buffer.data());
+        const u32 *endp   = startp + wordCount;
+
+        const u32 *nextHeader = startp + fcd.nextHeaderOffset;
+        const u32 *firstToLog = std::max(reinterpret_cast<const u32 *>(nextHeader - 256), startp);
+        const u32 *lastToLog  = std::min(nextHeader + 256, endp);
+
+        const u32 *buffp = firstToLog;
+
+        QString strbuf;
+
+        logMessage(QSL("starting logging at word offset %1").arg(firstToLog - startp));
+
+        while (buffp < lastToLog)
+        {
+            strbuf.clear();
+            u32 nWords = std::min((ptrdiff_t)(lastToLog - buffp), (ptrdiff_t)8);
+
+            for (u32 i=0; i<nWords; i++)
+            {
+                if (buffp == nextHeader)
+                {
+                    strbuf += QString("**%1 ").arg(*buffp, 8, 16, QLatin1Char('0'));
+                }
+                else
+                {
+                    strbuf += QString("0x%1 ").arg(*buffp, 8, 16, QLatin1Char('0'));
+                }
+
+                ++buffp;
+            }
+
+            logMessage(strbuf);
+        }
+
+        logMessage("end of frame check log");
     });
 
     connect(m_d->dataReader, &MVLCDataReader::message,
@@ -1343,11 +1426,21 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         if (std::isnan(framesPerSecond))
             framesPerSecond = 0.0;
 
-        m_d->l_statReadRate->setText(QString("%1 MB/s, %2 Frames/s, frameCheckEnabled=%3")
+        u64 deltaReads = calc_delta0(
+            stats.counters[ReaderStats::NumberOfAttemptedReads],
+            prevStats.counters[ReaderStats::NumberOfAttemptedReads]);
+        double readsPerSecond = deltaReads / dt;
+        if (std::isnan(readsPerSecond))
+            readsPerSecond = 0.0;
+
+        m_d->l_statReadRate->setText(QString("%1 MB/s, %2 reads/s")
                                      .arg(mbPerSecond, 0, 'g', 4)
+                                     .arg(readsPerSecond, 0, 'g', 4));
+                                             
+                                             
+        m_d->l_statFrameRate->setText(QString("%1 Frames/s, frameCheckEnabled=%2")
                                      .arg(framesPerSecond, 0, 'g', 4)
-                                     .arg(m_d->dataReader->isStackFrameCheckEnabled())
-                                     );
+                                     .arg(m_d->dataReader->isStackFrameCheckEnabled()));
 
         m_d->prevReaderStats = stats;
         m_d->tLastUpdate = QDateTime::currentDateTime();
@@ -1480,7 +1573,7 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
         widgets.spin_address->setSingleStep(2);
         widgets.spin_address->setDisplayIntegerBase(16);
         widgets.spin_address->setPrefix("0x");
-        widgets.spin_address->setValue(0x1200 + 4 * editorIndex);
+        widgets.spin_address->setValue(0x1100 + 4 * editorIndex);
 
         widgets.le_value = new QLineEdit(this);
         widgets.l_readResult_hex = new QLabel(this);

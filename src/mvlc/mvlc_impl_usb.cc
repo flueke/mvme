@@ -664,6 +664,34 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 }
 #endif // Impl::read
 
+std::error_code Impl::read_unbuffered(Pipe pipe, u8 *buffer, size_t size,
+                                      size_t &bytesTransferred)
+{
+    assert(buffer);
+    assert(static_cast<unsigned>(pipe) < PipeCount);
+
+    if (static_cast<unsigned>(pipe) >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
+
+    LOG_TRACE("begin unbuffered read: pipe=%u, size=%lu bytes",
+              static_cast<unsigned>(pipe), size);
+
+    ULONG transferred = 0; // FT API wants a ULONG* parameter
+
+    FT_STATUS st = FT_ReadPipeEx(m_handle, get_endpoint(pipe, EndpointDirection::In),
+                                 buffer, size, 
+                                 &transferred,
+                                 nullptr);
+
+    bytesTransferred = transferred;
+    auto ec = make_error_code(st);
+
+    LOG_TRACE("end unbuffered read: pipe=%u, size=%lu bytes, transferred=%lu bytes, ec=%s",
+              static_cast<unsigned>(pipe), size);
+
+    return ec;
+}
+
 std::error_code Impl::getReadQueueSize(Pipe pipe, u32 &dest)
 {
     assert(static_cast<unsigned>(pipe) < PipeCount);

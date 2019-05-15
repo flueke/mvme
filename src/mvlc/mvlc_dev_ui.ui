@@ -419,34 +419,6 @@
         <property name="spacing">
          <number>2</number>
         </property>
-        <item row="0" column="3">
-         <widget class="QPushButton" name="pb_readerStart">
-          <property name="text">
-           <string>Start</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QPushButton" name="pb_readerRequestBuffer">
-          <property name="text">
-           <string>Log Next Buffer</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="0">
-         <widget class="QLabel" name="label_4">
-          <property name="text">
-           <string>Status:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QPushButton" name="pb_readerResetStats">
-          <property name="text">
-           <string>Reset Stats</string>
-          </property>
-         </widget>
-        </item>
         <item row="1" column="2" colspan="2">
          <widget class="QSpinBox" name="spin_logReaderBufferMaxWords">
           <property name="specialValueText">
@@ -466,43 +438,7 @@
           </property>
          </widget>
         </item>
-        <item row="0" column="4">
-         <widget class="QPushButton" name="pb_readerStop">
-          <property name="text">
-           <string>Stop</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1" colspan="2">
-         <widget class="QLineEdit" name="le_readoutStatus">
-          <property name="text">
-           <string>Stopped</string>
-          </property>
-          <property name="readOnly">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
         <item row="3" column="0" colspan="5">
-         <widget class="QGroupBox" name="gb_readerStats">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>10</width>
-            <height>10</height>
-           </size>
-          </property>
-          <property name="title">
-           <string>Stats</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0" colspan="5">
          <layout class="QHBoxLayout" name="horizontalLayout">
           <item>
            <widget class="QGroupBox" name="gb_dataOutputFile">
@@ -550,10 +486,104 @@
           </item>
          </layout>
         </item>
+        <item row="1" column="0">
+         <widget class="QPushButton" name="pb_readerResetStats">
+          <property name="text">
+           <string>Reset Stats</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QPushButton" name="pb_readerRequestBuffer">
+          <property name="text">
+           <string>Log Next Buffer</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1" colspan="2">
+         <widget class="QLineEdit" name="le_readoutStatus">
+          <property name="text">
+           <string>Stopped</string>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0" colspan="5">
+         <widget class="QGroupBox" name="gb_readerStats">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>10</width>
+            <height>10</height>
+           </size>
+          </property>
+          <property name="title">
+           <string>Stats</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QPushButton" name="pb_readerStart">
+          <property name="text">
+           <string>Start</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="4">
+         <widget class="QPushButton" name="pb_readerStop">
+          <property name="text">
+           <string>Stop</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>Status:</string>
+          </property>
+         </widget>
+        </item>
         <item row="1" column="4">
          <widget class="QCheckBox" name="cb_readerLogAll">
           <property name="text">
            <string>Log All</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label_9">
+          <property name="text">
+           <string>ReadBufferSize</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1" colspan="3">
+         <widget class="QSpinBox" name="spin_readerReadBufferSize">
+          <property name="suffix">
+           <string> bytes</string>
+          </property>
+          <property name="minimum">
+           <number>1024</number>
+          </property>
+          <property name="maximum">
+           <number>999999999</number>
+          </property>
+          <property name="stepType">
+           <enum>QAbstractSpinBox::AdaptiveDecimalStepType</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="4">
+         <widget class="QPushButton" name="pb_readerApplyReadBufferSize">
+          <property name="text">
+           <string>Apply Size</string>
           </property>
          </widget>
         </item>

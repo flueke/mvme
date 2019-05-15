@@ -1,6 +1,36 @@
+* USB/ETH low level read cleanup
+* USB2 loses data under windows.
+
+USB readout
+-----------
+* Read multiples of 1024 bytes (the USB3 max bulk transfer packet size)
+* USB2: wMaxPacketSize is 512 for the bulk endpoints
+* USB3: wMaxPacketSize is 1024 for the bulkd endpoints
+
+* To maximize USB2 throughput both the read request size and the read timeout matter.
+  Buffers sizes starting from 500k to 1MB seem to be ok. At 45MB/s reading a 1MB/s buffer
+  will take 22 ms, so the timeout should be longer than that.
+  If the timeout is too short readout rate will drop dramatically from 45MB/s down to 32
+  MB/s with short timeouts.
+
+  Very long timeouts will currently stall the GUI but this is just a matter of not doing
+  I/O in the GUI thread. Instead things like QtConcurrent::run should be used to do the
+  operation that requires a MVLC lock on a separate thread.
+
+* A single call to FT_ReadPipeEx is limited to a size of 1MB under both operating systems
+  and with USB2 and 3.
+
+
+
+
+
+
+-----------------------------------------------------------------------------------------
+
 * Vary USB readout buffer sizes and check for data loss. Try multiples of 1024
   (the max USB3 packet size) and non-multiples of 1024. Do verify if all data
   arrives. Wireshark does show packets sizes of 400k bytes, possibly more...
+  -> No data loss so far. Despite a read size of 1536 bytes.
 
 * Make a std::error_category for getaddrinfo (enum, category, make_error_code).
   It's needed for good winsock error reporting.
@@ -35,4 +65,4 @@
     echo "Hello, world!" | netcat -u 192.168.42.2 9000
 
   To delete the arp entry:
-    arp -i enp2s0 -d 192.168.42.2
+    arp -i enp2s0 -d 192.168.42.g

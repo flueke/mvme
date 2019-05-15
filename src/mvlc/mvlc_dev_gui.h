@@ -35,7 +35,13 @@ enum class FrameCheckResult: u8
 
 struct LIBMVME_MVLC_EXPORT FrameCheckData
 {
+    // Initial offset is 0, on error the last offset read by frame_check is
+    // retained. If UDP is used nextHeaderOffset can be set by using the
+    // nextHeaderPointer value found in the UDP header1 data word.
     size_t nextHeaderOffset;
+    size_t buffersChecked;
+
+    // stats. These should be somewhere else...
     size_t framesChecked;
     size_t framesWithContinueFlag;
     std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
@@ -71,16 +77,16 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
     Q_OBJECT
     public:
         using MVLCObject = mesytec::mvlc::MVLCObject;
-        static const int USB3PacketSizeMax = 1024;
-        static const int ReadBufferSize = 1536;
-        //static const int ReadBufferSize = Kilobytes(256);
-        static const int ReadTimeout_ms = 25;
+        //static const int USB3PacketSizeMax = 1024;
+        static const int ReadBufferSize = Megabytes(1);
+        static const int ReadTimeout_ms = 50;
 
     signals:
         void started();
         void stopped();
         void bufferReady(const QVector<u8> &buffer);
         void message(const QString &msg);
+        void frameCheckFailed(const FrameCheckData &fcd, const QVector<u8> &buffer);
 
     public:
         MVLCDataReader(QObject *parent = nullptr);
@@ -92,6 +98,7 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
         void resetStats();
         bool isStackFrameCheckEnabled() const;
         void setLogAllBuffers(bool b) { m_logAllBuffers = b; }
+        void setReadBufferSize(size_t size) { m_requestedReadBufferSize = size; }
 
         // not thread safe - must be done before entering readoutLoop
         void setMVLC(MVLCObject *mvlc);
@@ -117,6 +124,7 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
                           m_nextBufferRequested,
                           m_stackFrameCheckEnabled,
                           m_logAllBuffers;
+        std::atomic<size_t> m_requestedReadBufferSize;
         FixedSizeBuffer m_readBuffer;
         mutable QMutex m_statsMutex;
         ReaderStats m_stats = {};

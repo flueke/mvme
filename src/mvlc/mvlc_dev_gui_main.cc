@@ -8,6 +8,7 @@ int main(int argc, char *argv[])
 {
     qRegisterMetaType<QVector<u8>>("QVector<u8>");
     qRegisterMetaType<QVector<u32>>("QVector<u32>");
+    qRegisterMetaType<FrameCheckData>("FrameCheckData");
 
     QApplication app(argc, argv);
 
