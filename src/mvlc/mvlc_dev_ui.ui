@@ -575,8 +575,8 @@
           <property name="maximum">
            <number>999999999</number>
           </property>
-          <property name="stepType">
-           <enum>QAbstractSpinBox::AdaptiveDecimalStepType</enum>
+          <property name="value">
+           <number>1048576</number>
           </property>
          </widget>
         </item>
