@@ -5,7 +5,8 @@ stack_start
     0x6024 0xBB         # Set 8 high bits of MCST address
     0x6010 1            # irq 1
     0x6036 0xb          # multi event mode
-    0x601A 1          # max transfer data
+    0x601E 50
+    0x601A 50          # max transfer data
     0x6070 7            # enable mtdc pulser
 
     # broadcast startup

@@ -5,7 +5,8 @@ stack_start
     0x6024 0xBB         # Set 8 high bits of MCST address
     0x6010 1            # irq 1
     0x6036 0xb          # multi event mode
-    0x601A 1          # max transfer data
+    0x601E 50
+    0x601A 50          # max transfer data
     0x6070 7            # enable mtdc pulser
 
     # broadcast startup
@@ -26,9 +27,9 @@ stack_start offset=512 output=data
     #setbase 0x00000000
     #mbltfifo a32 0x0000 0xffff
 
-	# internal readout
-	setbase 0xffff0000
-	mbltfifo a32 0x0000 0x30
+    # internal readout
+    setbase 0xffff0000
+    mbltfifo a32 0x0000 0x30
 
     # broadcast write readout reset
     writeabs a32 d16 0xbb006034      1   # readout reset
