@@ -1,0 +1,34 @@
+stack_start
+    # first module, raising irq1
+    setbase 0x00000000
+    0x6020 0x80         # Enable multicast
+    0x6024 0xBB         # Set 8 high bits of MCST address
+    0x6010 1            # irq 1
+    0x6036 0xb          # multi event mode
+    0x601A 1          # max transfer data
+    0x6070 7            # enable mtdc pulser
+
+    # broadcast startup
+    writeabs a32 d16 0xbb00603a      0   # stop acq
+    writeabs a32 d16 0xbb006090      3   # reset CTRA and CTRB
+    writeabs a32 d16 0xbb00603c      1   # FIFO reset
+    writeabs a32 d16 0xbb00603a      1   # start acq
+    writeabs a32 d16 0xbb006034      1   # readout reset
+stack_end
+write_local 0x1200 0x0000   # Set stack offset register
+write_local 0x1100 0x100    # Immediate exec of stack 0
+
+# ####################################################
+# ##### Readout Stack and Trigger Setup          #####
+# ####################################################
+stack_start offset=512 output=data
+    # readout first mtdc
+    setbase 0x00000000
+    mbltfifo a32 0x0000 0xffff
+
+    # broadcast write readout reset
+    writeabs a32 d16 0xbb006034      1   # readout reset
+stack_end
+write_local 0x1204 512   # Set stack address register
+write_local 0x1104 0x40  # Enable trigger
+

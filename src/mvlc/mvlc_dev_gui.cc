@@ -1157,7 +1157,8 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
         QString strbuf;
 
-        logMessage(QSL("starting logging at word offset %1").arg(firstToLog - startp));
+        logMessage(QSL("starting logging at word offset %1").arg(buffp - startp));
+        logMessage(QSL("logging %1 words").arg(lastToLog - buffp));
 
         while (buffp < lastToLog)
         {
