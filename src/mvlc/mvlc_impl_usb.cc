@@ -342,6 +342,27 @@ std::error_code Impl::connect()
 
     FT_STATUS st = FT_OK;
 
+
+#ifndef __WIN32
+    // Initialzing the struct to zero will make the FTD3xx library use default
+    // values for all parameters.
+    FT_TRANSFER_CONF transferConf = {};
+    transferConf.wStructSize = sizeof(FT_TRANSFER_CONF);
+
+    FT_PIPE_TRANSFER_CONF &pipeConf = transferConf.pipe[FT_PIPE_DIR_IN];
+
+    pipeConf.fNonThreadSafeTransfer = false;
+    pipeConf.bURBCount = 8;
+    pipeConf.wURBBufferCount = 32;
+    pipeConf.dwURBBufferSize = 1024 * 1024;
+    // Total allocated buffer size is wURBBufferCount * dwURBBufferSize
+
+    st = FT_SetTransferParams(&transferConf, get_fifo_id(Pipe::Data));
+
+    if (auto ec = make_error_code(st))
+        return ec;
+#endif
+
     switch (m_connectMode.mode)
     {
         case ConnectMode::First:
@@ -678,16 +699,23 @@ std::error_code Impl::read_unbuffered(Pipe pipe, u8 *buffer, size_t size,
 
     ULONG transferred = 0; // FT API wants a ULONG* parameter
 
+#ifdef __WIN32
     FT_STATUS st = FT_ReadPipeEx(m_handle, get_endpoint(pipe, EndpointDirection::In),
-                                 buffer, size, 
+                                 buffer, size,
                                  &transferred,
                                  nullptr);
+#else
+    FT_STATUS st = FT_ReadPipeEx(m_handle, get_fifo_id(pipe),
+                                 buffer, size,
+                                 &transferred,
+                                 m_readTimeouts[static_cast<unsigned>(pipe)]);
+#endif
 
     bytesTransferred = transferred;
     auto ec = make_error_code(st);
 
     LOG_TRACE("end unbuffered read: pipe=%u, size=%lu bytes, transferred=%lu bytes, ec=%s",
-              static_cast<unsigned>(pipe), size);
+              static_cast<unsigned>(pipe), size, bytesTransferred, ec.message().c_str());
 
     return ec;
 }
