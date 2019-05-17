@@ -83,7 +83,7 @@ struct OwningPacketReadResult
 };
 
 using EthDebugBuffer = boost::circular_buffer<OwningPacketReadResult>;
-static const size_t EthDebugPacketCapacity = 4;
+static const size_t EthDebugPacketCapacity = 5;
 
 LIBMVME_MVLC_EXPORT const char *reader_stat_name(ReaderStats::CounterEnum counter);
 
@@ -151,7 +151,18 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
         ReaderStats m_stats = {};
         std::unique_ptr<QIODevice> m_outDevice;
         FrameCheckData m_frameCheckData = {};
+
+        enum EthDebugState
+        {
+            EthNoError,
+            EthErrorSeen
+        };
+
+        EthDebugState m_ethDebugState = EthNoError;
         EthDebugBuffer m_ethDebugBuffer;
+        QString m_ethDebugReason;
+        u32 m_ethPacketsToCollect = 0;
+
 };
 
 namespace Ui

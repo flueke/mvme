@@ -328,35 +328,50 @@ void MVLCDataReader::readoutLoop()
                 QMutexLocker ethDebugGuard(&m_ethDebugMutex);
                 if (m_ethDebugEnabled && udp_rr.hasHeaders())
                 {
-                    // keep the last N packets in the circular buffer
-                    m_ethDebugBuffer.push_back(OwningPacketReadResult(udp_rr));
-
-                    // check header point validity, range and type of pointed to data word
-                    if (udp_rr.nextHeaderPointer() != 0xffff)
+                    if (m_ethDebugState == EthNoError)
                     {
-                        bool isInvalid = false;
-                        QString reason;
+                        // store all packets in the circular buffer
+                        m_ethDebugBuffer.push_back(OwningPacketReadResult(udp_rr));
 
-                        if (udp_rr.payloadBegin() + udp_rr.nextHeaderPointer() >= udp_rr.payloadEnd())
+                        // check header point validity, range and type of pointed to data word
+                        if (udp_rr.nextHeaderPointer() != 0xffff)
                         {
-                            isInvalid = true;
-                            reason = "nextHeaderPointer out of range";
-                        }
-                        else
-                        {
-                            u32 stackFrameHeader = *(udp_rr.payloadBegin() + udp_rr.nextHeaderPointer());
-                            if (!(is_stack_buffer(stackFrameHeader)
-                                  || is_stack_buffer_continuation(stackFrameHeader)))
+                            bool isInvalid = false;
+
+                            if (udp_rr.payloadBegin() + udp_rr.nextHeaderPointer() >= udp_rr.payloadEnd())
                             {
                                 isInvalid = true;
-                                reason = "nextHeaderPointer does not point to a stack header (F3 or F9)";
+                                m_ethDebugReason = "nextHeaderPointer out of range";
+                            }
+                            else
+                            {
+                                u32 stackFrameHeader = *(udp_rr.payloadBegin() + udp_rr.nextHeaderPointer());
+                                if (!(is_stack_buffer(stackFrameHeader)
+                                      || is_stack_buffer_continuation(stackFrameHeader)))
+                                {
+                                    isInvalid = true;
+                                    m_ethDebugReason = "nextHeaderPointer does not point to a stack header (F3 or F9)";
+                                }
+                            }
+
+                            if (isInvalid)
+                            {
+                                m_ethDebugState = EthErrorSeen;
+                                m_ethPacketsToCollect = m_ethDebugBuffer.capacity() / 2;
+                                assert(m_ethPacketsToCollect > 0);
                             }
                         }
+                    }
+                    else if (m_ethDebugState == EthErrorSeen)
+                    {
+                        // store additional packets
+                        m_ethDebugBuffer.push_back(OwningPacketReadResult(udp_rr));
 
-                        if (isInvalid)
+                        if (--m_ethPacketsToCollect == 0)
                         {
-                            emit ethDebugSignal(m_ethDebugBuffer, reason);
+                            m_ethDebugState = EthNoError;
                             m_ethDebugEnabled = false;
+                            emit ethDebugSignal(m_ethDebugBuffer, m_ethDebugReason);
                         }
                     }
                 }
@@ -1688,16 +1703,20 @@ void MVLCDevGUI::handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const Q
     qDebug() << __PRETTY_FUNCTION__ << debugBuffer.capacity();
 
 
-    logMessage(QString(">>> Begin Ethernet Header Debug (%1 packets, reason: %2)\n")
+    logMessage(QString(">>> Begin Ethernet Header Debug (%1 packets, reason: %2, error occured in packet %3)\n")
                .arg(debugBuffer.size())
                .arg(reason)
+               .arg(debugBuffer.capacity() / 2 + 1)
                );
 
+    size_t pktIdx = 0;
     for (const OwningPacketReadResult &rr: debugBuffer)
     {
         const mesytec::mvlc::udp::PacketReadResult &prr = rr.prr;
 
-        logMessage(QString("* pkt size=%1 bytes (%2 words), lossFromPrevious=%3, availablePayloadWords=%4, leftOverBytes=%5")
+        logMessage(QString("* pkt %1/%2 size=%3 bytes (%4 words), lossFromPrevious=%5, availablePayloadWords=%6, leftOverBytes=%7")
+                   .arg(pktIdx + 1)
+                   .arg(debugBuffer.capacity())
                    .arg(prr.bytesTransferred)
                    .arg(prr.bytesTransferred / sizeof(u32))
                    .arg(prr.lostPackets)
@@ -1741,6 +1760,7 @@ void MVLCDevGUI::handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const Q
         }
 
         logMessage("");
+        pktIdx++;
     }
 
     logMessage(QString("<<< End Ethernet Header Debug (%1 packets)").arg(debugBuffer.size()));
