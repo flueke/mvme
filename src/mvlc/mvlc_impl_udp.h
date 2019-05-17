@@ -36,6 +36,10 @@ struct LIBMVME_MVLC_EXPORT PipeStats
     // Packets shorther than the header size (2 * 32 bit).
     u64 shortPackets = 0u;
 
+    // Packets where (len % sizeof(u32) != 0), meaning there are residual bytes
+    // at the end.
+    u64 packetsWithResidue = 0u;
+
     u64 noHeader = 0u;          // Packets where nextHeaderPointer = 0xffff
     u64 headerOutOfRange = 0u;  // Header points outside the packet data
     u64 packetChannelOutOfRange = 0u;
@@ -146,6 +150,15 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         std::array<PipeStats, PipeCount> getPipeStats() const;
         std::array<PacketChannelStats, NumPacketChannels> getPacketChannelStats() const;
 
+        // These methods return the remote IPv4 address used for the command
+        // and data sockets respectively. This is the address resolved from the
+        // host string given to the constructor.
+        u32 getCmdAddress() const;
+        u32 getDataAddress() const;
+
+        sockaddr_in getCmdSockAddress() const { return m_cmdAddr; }
+        sockaddr_in getDataSockAddress() const { return m_dataAddr; }
+
     private:
         int getSocket(Pipe pipe) { return pipe == Pipe::Command ? m_cmdSock : m_dataSock; }
 
@@ -185,7 +198,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 };
 
 // Given the previous and current packet numbers returns the number of lost
-// packets in-between taking overflow into account.
+// packets in-between, taking overflow into account.
 s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber);
 
 } // end namespace udp

@@ -9,6 +9,8 @@ int main(int argc, char *argv[])
     qRegisterMetaType<QVector<u8>>("QVector<u8>");
     qRegisterMetaType<QVector<u32>>("QVector<u32>");
     qRegisterMetaType<FrameCheckData>("FrameCheckData");
+    qRegisterMetaType<OwningPacketReadResult>("OwningPacketReadResult");
+    qRegisterMetaType<EthDebugBuffer>("EthDebugBuffer");
 
     QApplication app(argc, argv);
 

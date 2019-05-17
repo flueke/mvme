@@ -363,6 +363,8 @@ std::error_code Impl::connect()
         return ec;
 #endif
 
+    DeviceInfo devInfo = {};
+
     switch (m_connectMode.mode)
     {
         case ConnectMode::First:
@@ -372,8 +374,8 @@ std::error_code Impl::connect()
 
                 if (!infoList.empty())
                 {
-                    const auto &di = infoList[0];
-                    st = FT_Create(reinterpret_cast<void *>(di.index),
+                    devInfo = infoList[0];
+                    st = FT_Create(reinterpret_cast<void *>(devInfo.index),
                                    FT_OPEN_BY_INDEX, &m_handle);
                 }
             }
@@ -386,8 +388,8 @@ std::error_code Impl::connect()
 
                 if (m_connectMode.index < infoList.size())
                 {
-                    const auto &di = infoList[0];
-                    st = FT_Create(reinterpret_cast<void *>(di.index),
+                    devInfo = infoList[0];
+                    st = FT_Create(reinterpret_cast<void *>(devInfo.index),
                                    FT_OPEN_BY_INDEX, &m_handle);
                 }
             }
@@ -397,10 +399,10 @@ std::error_code Impl::connect()
             {
                 st = FT_DEVICE_NOT_FOUND;
 
-                if (const auto di = get_device_info_by_serial(m_connectMode.serial))
+                if ((devInfo = get_device_info_by_serial(m_connectMode.serial)))
                 {
 
-                    st = FT_Create(reinterpret_cast<void *>(di.index),
+                    st = FT_Create(reinterpret_cast<void *>(devInfo.index),
                                    FT_OPEN_BY_INDEX, &m_handle);
                 }
             }
@@ -409,6 +411,8 @@ std::error_code Impl::connect()
 
     if (auto ec = make_error_code(st))
         return ec;
+
+    m_deviceInfo = devInfo;
 
     // Apply the read and write timeouts.
     for (auto pipe: { Pipe::Command, Pipe::Data })

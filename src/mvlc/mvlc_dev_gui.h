@@ -1,6 +1,7 @@
 #ifndef __MVLC_GUI_H__
 #define __MVLC_GUI_H__
 
+#include <boost/circular_buffer.hpp>
 #include <functional>
 #include <memory>
 #include <QHash>
@@ -12,6 +13,7 @@
 #include <QString>
 
 #include "libmvme_mvlc_export.h"
+#include "mvlc/mvlc_impl_udp.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "vme_script.h"
 
@@ -70,6 +72,19 @@ struct LIBMVME_MVLC_EXPORT ReaderStats
     std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
 };
 
+struct OwningPacketReadResult
+{
+    std::vector<u8> buffer;
+    mesytec::mvlc::udp::PacketReadResult prr;
+
+    OwningPacketReadResult(): buffer{}, prr{} {}
+    OwningPacketReadResult(const mesytec::mvlc::udp::PacketReadResult &prr);
+    OwningPacketReadResult(const OwningPacketReadResult &other);
+};
+
+using EthDebugBuffer = boost::circular_buffer<OwningPacketReadResult>;
+static const size_t EthDebugPacketCapacity = 4;
+
 LIBMVME_MVLC_EXPORT const char *reader_stat_name(ReaderStats::CounterEnum counter);
 
 class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
@@ -87,6 +102,7 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
         void bufferReady(const QVector<u8> &buffer);
         void message(const QString &msg);
         void frameCheckFailed(const FrameCheckData &fcd, const QVector<u8> &buffer);
+        void ethDebugSignal(const EthDebugBuffer &data, const QString &reason);
 
     public:
         MVLCDataReader(QObject *parent = nullptr);
@@ -99,6 +115,9 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
         bool isStackFrameCheckEnabled() const;
         void setLogAllBuffers(bool b) { m_logAllBuffers = b; }
         void setReadBufferSize(size_t size) { m_requestedReadBufferSize = size; }
+        void enableEthHeaderDebug();
+        void disableEthHeaderDebug();
+        bool isEthHeaderDebugEnabled() const;
 
         // not thread safe - must be done before entering readoutLoop
         void setMVLC(MVLCObject *mvlc);
@@ -123,13 +142,16 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
         std::atomic<bool> m_doQuit,
                           m_nextBufferRequested,
                           m_stackFrameCheckEnabled,
-                          m_logAllBuffers;
+                          m_logAllBuffers,
+                          m_ethDebugEnabled;
         std::atomic<size_t> m_requestedReadBufferSize;
         FixedSizeBuffer m_readBuffer;
-        mutable QMutex m_statsMutex;
+        mutable QMutex m_statsMutex,
+                       m_ethDebugMutex;
         ReaderStats m_stats = {};
         std::unique_ptr<QIODevice> m_outDevice;
         FrameCheckData m_frameCheckData = {};
+        EthDebugBuffer m_ethDebugBuffer;
 };
 
 namespace Ui
@@ -153,6 +175,9 @@ class LIBMVME_MVLC_EXPORT MVLCDevGUI: public QMainWindow
     public slots:
         void logMessage(const QString &msg);
         void logBuffer(const QVector<u32> &buffer, const QString &info);
+
+    private slots:
+        void handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const QString &reason);
 
     private:
         struct Private;

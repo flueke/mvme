@@ -50,11 +50,12 @@ struct DeviceInfo
 {
     struct Flags
     {
+        // Set if the device is opened by some process at the time the info
+        // queried.
         static const u8 Opened = 1;
         static const u8 USB2   = 2;
         static const u8 USB3   = 4;
     };
-
 
     int index = -1;             // index value used by the FTDI lib for this device.
     std::string serial;         // usb serial number string
@@ -125,6 +126,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         ConnectionType connectionType() const override { return ConnectionType::USB; }
 
         std::error_code getReadQueueSize(Pipe pipe, u32 &dest) override;
+        DeviceInfo getDeviceInfo() const { return m_deviceInfo; }
 
     private:
         struct ConnectMode
@@ -157,6 +159,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 #ifdef __WIN32
         std::array<ReadBuffer<USBSingleTransferMaxBytes>, PipeCount> m_readBuffers;
 #endif
+        DeviceInfo m_deviceInfo;
 };
 
 LIBMVME_MVLC_EXPORT std::error_code make_error_code(FT_STATUS st);

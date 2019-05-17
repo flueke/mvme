@@ -26,7 +26,6 @@
 #include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_script.h"
-#include "mvlc/mvlc_impl_udp.h"
 #include "mvlc/mvlc_impl_usb.h"
 #include "mvlc/mvlc_vme_debug_widget.h"
 #include "mvlc/mvlc_util.h"
@@ -91,6 +90,22 @@ static const QString Key_LastMVLCScriptDirectory = "Files/LastMVLCScriptDirector
 static const QString Key_LastMVLCDataOutputDirectory = "Files/LastMVLCDataOutputDirectory";
 static const QString DefaultOutputFilename = "mvlc_dev_data.bin";
 
+OwningPacketReadResult::OwningPacketReadResult(const mesytec::mvlc::udp::PacketReadResult &input)
+{
+    buffer.reserve(input.bytesTransferred);
+    std::copy(input.buffer, input.buffer + input.bytesTransferred,
+              std::back_inserter(buffer));
+    prr = input;
+    prr.buffer = buffer.data(); // pointer adjustment
+}
+
+OwningPacketReadResult::OwningPacketReadResult(const OwningPacketReadResult &other)
+{
+    buffer = other.buffer;
+    prr = other.prr;
+    prr.buffer = buffer.data(); // pointer adjustment
+}
+
 //
 // MVLCDataReader
 //
@@ -100,8 +115,10 @@ MVLCDataReader::MVLCDataReader(QObject *parent)
     , m_nextBufferRequested(false)
     , m_stackFrameCheckEnabled(true)
     , m_logAllBuffers(false)
+    , m_ethDebugEnabled(true)
     , m_requestedReadBufferSize(ReadBufferSize)
     , m_readBuffer{}
+    , m_ethDebugBuffer(EthDebugPacketCapacity)
 {
 }
 
@@ -139,6 +156,30 @@ void MVLCDataReader::resetStats()
 bool MVLCDataReader::isStackFrameCheckEnabled() const
 {
     return m_stackFrameCheckEnabled;
+}
+
+void MVLCDataReader::enableEthHeaderDebug()
+{
+    QMutexLocker guard(&m_ethDebugMutex);
+    m_ethDebugEnabled = true;
+    m_ethDebugBuffer.clear();
+    assert(m_ethDebugBuffer.capacity() == EthDebugPacketCapacity);
+    assert(m_ethDebugBuffer.size() == 0);
+}
+
+void MVLCDataReader::disableEthHeaderDebug()
+{
+    QMutexLocker guard(&m_ethDebugMutex);
+    m_ethDebugEnabled = false;
+    m_ethDebugBuffer.clear();
+    assert(m_ethDebugBuffer.capacity() == EthDebugPacketCapacity);
+    assert(m_ethDebugBuffer.size() == 0);
+}
+
+bool MVLCDataReader::isEthHeaderDebugEnabled() const
+{
+    QMutexLocker guard(&m_ethDebugMutex);
+    return m_ethDebugEnabled;
 }
 
 void MVLCDataReader::setMVLC(MVLCObject *mvlc)
@@ -274,12 +315,52 @@ void MVLCDataReader::readoutLoop()
         {
             assert(!mvlc_usb);
 
-            // Manual locking. Maybe better to make read_packet() available in a higher layer?
+            // Manual locking. Might be better to make read_packet() available
+            // in a higher layer?
             auto guard = m_mvlc->getLocks().lockData();
             auto udp_rr = mvlc_udp->read_packet(Pipe::Data, m_readBuffer.data.get(), m_readBuffer.capacity);
             ec = udp_rr.ec;
             bytesTransferred = udp_rr.bytesTransferred;
             m_readBuffer.payloadBegin = m_readBuffer.data.get() + udp::HeaderBytes;
+
+            // ethernet buffer debugging
+            {
+                QMutexLocker ethDebugGuard(&m_ethDebugMutex);
+                if (m_ethDebugEnabled && udp_rr.hasHeaders())
+                {
+                    // keep the last N packets in the circular buffer
+                    m_ethDebugBuffer.push_back(OwningPacketReadResult(udp_rr));
+
+                    // check header point validity, range and type of pointed to data word
+                    if (udp_rr.nextHeaderPointer() != 0xffff)
+                    {
+                        bool isInvalid = false;
+                        QString reason;
+
+                        if (udp_rr.payloadBegin() + udp_rr.nextHeaderPointer() >= udp_rr.payloadEnd())
+                        {
+                            isInvalid = true;
+                            reason = "nextHeaderPointer out of range";
+                        }
+                        else
+                        {
+                            u32 stackFrameHeader = *(udp_rr.payloadBegin() + udp_rr.nextHeaderPointer());
+                            if (!(is_stack_buffer(stackFrameHeader)
+                                  || is_stack_buffer_continuation(stackFrameHeader)))
+                            {
+                                isInvalid = true;
+                                reason = "nextHeaderPointer does not point to a stack header (F3 or F9)";
+                            }
+                        }
+
+                        if (isInvalid)
+                        {
+                            emit ethDebugSignal(m_ethDebugBuffer, reason);
+                            m_ethDebugEnabled = false;
+                        }
+                    }
+                }
+            }
         }
         else if (mvlc_usb)
         {
@@ -328,6 +409,7 @@ void MVLCDataReader::readoutLoop()
             }
         }
 
+        // Stack frame checks (F3, F9)
         if (m_readBuffer.used > 0 && m_stackFrameCheckEnabled)
         {
             auto checkResult = frame_check(m_readBuffer, m_frameCheckData);
@@ -341,6 +423,13 @@ void MVLCDataReader::readoutLoop()
             {
                 if (mvlc_udp && udp_rr.hasHeaders())
                 {
+                    // This is the mechanism allowing to correctly resume data
+                    // processing in case of packet loss without having to rely
+                    // on searching and magic words. The 2nd UDP header word
+                    // contains an offset to the next stack frame header inside
+                    // the packet. The offset is 0xffff is there is no header
+                    // present in the packet data.
+
                     emit message(QSL("Adjusting FrameCheckData.nextHeaderOffset using UDP frame info"));
                     m_frameCheckData.nextHeaderOffset = udp_rr.nextHeaderPointer();
                     checkResult = frame_check(m_readBuffer, m_frameCheckData);
@@ -414,7 +503,7 @@ struct MVLCDevGUI::Private
     // Widgets
     QWidget *centralWidget;
     QToolBar *toolbar;
-    QStatusBar *statusbar;
+    //QStatusBar *statusbar;
     MVLCRegisterWidget *registerWidget;
     VMEDebugWidget *vmeDebugWidget;
 
@@ -435,7 +524,8 @@ struct MVLCDevGUI::Private
            *l_statFrameRate;
 
     QPushButton *pb_printReaderBufferSizes,
-                *pb_printStackHits;
+                *pb_printStackHits,
+                *pb_enableEthDebug;
 
     QDateTime tReaderStarted,
               tReaderStopped,
@@ -463,13 +553,13 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
     setWindowTitle(objectName());
 
     m_d->toolbar = new QToolBar(this);
-    m_d->statusbar = new QStatusBar(this);
+    //m_d->statusbar = new QStatusBar(this);
     m_d->centralWidget = new QWidget(this);
     ui->setupUi(m_d->centralWidget);
 
     setCentralWidget(m_d->centralWidget);
     addToolBar(m_d->toolbar);
-    setStatusBar(m_d->statusbar);
+    //setStatusBar(m_d->statusbar);
 
     // MVLC Script Editor
     {
@@ -685,9 +775,30 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         connect(updateTimer, &QTimer::timeout, this, debug_print_packet_sizes);
 #endif
 
-        auto udpStatsLayout = new QHBoxLayout(ui->gb_udpStats);
-        udpStatsLayout->addWidget(tbl);
-        udpStatsLayout->addLayout(l_packetLoss);
+        m_d->pb_enableEthDebug = new QPushButton("Enable Eth Header Debug");
+        m_d->pb_enableEthDebug->setCheckable(true);
+        m_d->pb_enableEthDebug->setChecked(true);
+
+        connect(m_d->pb_enableEthDebug, &QPushButton::toggled,
+                this, [this] (bool b)
+        {
+            if (b)
+                m_d->dataReader->enableEthHeaderDebug();
+            else
+                m_d->dataReader->disableEthHeaderDebug();
+        });
+
+        connect(updateTimer, &QTimer::timeout, this, [this] ()
+        {
+            bool b = m_d->dataReader->isEthHeaderDebugEnabled();
+            QSignalBlocker blocker(m_d->pb_enableEthDebug);
+            m_d->pb_enableEthDebug->setChecked(b);
+        });
+
+        auto udpStatsLayout = new QGridLayout(ui->gb_udpStats);
+        udpStatsLayout->addWidget(tbl, 0, 0, 2, 1);
+        udpStatsLayout->addLayout(l_packetLoss, 0, 1, 1, 1);
+        udpStatsLayout->addWidget(m_d->pb_enableEthDebug, 1, 1, 1, 1);
     }
 
     // Interactions
@@ -707,8 +818,37 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                 break;
             case MVLCObject::Connected:
                 ui->le_connectionStatus->setText("Connected");
-                logMessage("Connected to MVLC");
-                break;
+        }
+
+        if (newState == MVLCObject::Connected)
+        {
+            QString msg("Connected to MVLC");
+
+            switch (m_d->mvlc->connectionType())
+            {
+                case ConnectionType::USB:
+                    {
+                        auto mvlc_usb = reinterpret_cast<usb::Impl *>(m_d->mvlc->getImpl());
+                        auto devInfo = mvlc_usb->getDeviceInfo();
+
+                        const char *speedstr = ((devInfo.flags & DeviceInfo::Flags::USB2)
+                                                ? "USB2" : "USB3");
+
+                        msg += QString(" (speed=%1, serial=%2)")
+                            .arg(speedstr)
+                            .arg(devInfo.serial.c_str());
+
+                    } break;
+                case ConnectionType::UDP:
+                    {
+                        auto mvlc_udp = reinterpret_cast<udp::Impl *>(m_d->mvlc->getImpl());
+
+                        msg += QString (" (address=%1)")
+                            .arg(QHostAddress(mvlc_udp->getCmdAddress()).toString());
+                    } break;
+            }
+
+            logMessage(msg);
         }
 
         ui->pb_runScript->setEnabled(newState == MVLCObject::Connected);
@@ -1185,6 +1325,9 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         logMessage("end of frame check log");
     });
 
+    connect(m_d->dataReader, &MVLCDataReader::ethDebugSignal,
+            this, &MVLCDevGUI::handleEthDebugSignal);
+
     connect(m_d->dataReader, &MVLCDataReader::message,
             this, [this] (const QString &msg)
     {
@@ -1437,8 +1580,8 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         m_d->l_statReadRate->setText(QString("%1 MB/s, %2 reads/s")
                                      .arg(mbPerSecond, 0, 'g', 4)
                                      .arg(readsPerSecond, 0, 'g', 4));
-                                             
-                                             
+
+
         m_d->l_statFrameRate->setText(QString("%1 Frames/s, frameCheckEnabled=%2")
                                      .arg(framesPerSecond, 0, 'g', 4)
                                      .arg(m_d->dataReader->isStackFrameCheckEnabled()));
@@ -1533,6 +1676,74 @@ void MVLCDevGUI::logBuffer(const QVector<u32> &buffer, const QString &info)
     strBuffer << "<<< " + info;
 
     emit sigLogMessage(strBuffer.join("\n"));
+}
+
+void MVLCDevGUI::handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const QString &reason)
+{
+    {
+        QSignalBlocker blocker(m_d->pb_enableEthDebug);
+        m_d->pb_enableEthDebug->setChecked(false);
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << debugBuffer.capacity();
+
+
+    logMessage(QString(">>> Begin Ethernet Header Debug (%1 packets, reason: %2)\n")
+               .arg(debugBuffer.size())
+               .arg(reason)
+               );
+
+    for (const OwningPacketReadResult &rr: debugBuffer)
+    {
+        const mesytec::mvlc::udp::PacketReadResult &prr = rr.prr;
+
+        logMessage(QString("* pkt size=%1 bytes (%2 words), lossFromPrevious=%3, availablePayloadWords=%4, leftOverBytes=%5")
+                   .arg(prr.bytesTransferred)
+                   .arg(prr.bytesTransferred / sizeof(u32))
+                   .arg(prr.lostPackets)
+                   .arg(prr.availablePayloadWords())
+                   .arg(prr.leftoverBytes())
+                  );
+
+        logMessage(QString("  header0=0x%1, packetChannel=%2, packetNumber=%3, dataWordCount=%4")
+                   .arg(prr.header0(), 8, 16, QLatin1Char('0'))
+                   .arg(prr.packetChannel())
+                   .arg(prr.packetNumber())
+                   .arg(prr.dataWordCount()));
+
+        logMessage(QString("  header1=0x%1, udpTs=%2, nextHeaderPointer=%3\n")
+                   .arg(prr.header1(), 8, 16, QLatin1Char('0'))
+                   .arg(prr.udpTimestamp())
+                   .arg(prr.nextHeaderPointer()));
+
+
+        static const size_t WordsPerRow = 8;
+        u32 *payloadIter = prr.payloadBegin();
+        QString strbuf;
+
+        while (payloadIter < prr.payloadEnd())
+        {
+            size_t wordOffset = payloadIter - prr.payloadBegin();
+            size_t wordsLeft  = prr.payloadEnd() - payloadIter;
+            size_t nWords = std::min(WordsPerRow, wordsLeft);
+
+            strbuf.clear();
+            strbuf += QString("  wOff=%1: ").arg(wordOffset, 4);
+
+            for (u32 i = 0; i < nWords; ++i)
+            {
+                strbuf += QString("0x%1 ").arg(*payloadIter, 8, 16, QLatin1Char('0'));
+
+                ++payloadIter;
+            }
+
+            logMessage(strbuf);
+        }
+
+        logMessage("");
+    }
+
+    logMessage(QString("<<< End Ethernet Header Debug (%1 packets)").arg(debugBuffer.size()));
 }
 
 //

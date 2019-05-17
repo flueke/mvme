@@ -27,6 +27,11 @@ USB readout
 
 -----------------------------------------------------------------------------------------
 
+* refactor UDP to ETH. It's a better name for what the system actually is and it's easier
+  to distinguish between USB/ETH than USB/UDP.
+
+* Add stat for packets that have leftoverBytes (packetLen % 4 != 0).
+
 * Vary USB readout buffer sizes and check for data loss. Try multiples of 1024
   (the max USB3 packet size) and non-multiples of 1024. Do verify if all data
   arrives. Wireshark does show packets sizes of 400k bytes, possibly more...

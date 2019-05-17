@@ -271,22 +271,7 @@ std::error_code Impl::connect()
             goto try_again;
         }
 
-#if 0//#ifdef __WIN32
-        {
-            // Make the sockets non-blocking. Errors are considered fatal ->
-            // return immediately.
-
-            u_long iMode = 1;
-            int res = ioctlsocket(m_cmdSock, FIONBIO, &iMode);
-            if (res != 0)
-                return make_error_code(MVLCErrorCode::SocketError);
-
-            res = ioctlsocket(m_dataSock, FIONBIO, &iMode);
-            if (res != 0)
-                return make_error_code(MVLCErrorCode::SocketError);
-        }
-#endif
-
+        // both socket and bind calls succeeded
         break;
 
         try_again:
@@ -547,6 +532,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     {
         LOG_WARN("  pipe=%u, %u leftover bytes in received packet",
                  pipe, res.leftoverBytes());
+        ++pipeStats.packetsWithResidue;
     }
 
     if (res.packetChannel() >= NumPacketChannels)
@@ -590,8 +576,8 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     // Check where nextHeaderPointer is pointing to
     if (res.nextHeaderPointer() != 0xffff)
     {
-        u32 *start = reinterpret_cast<u32 *>(res.payloadBegin());
-        u32 *end   = reinterpret_cast<u32 *>(res.payloadEnd());
+        u32 *start = res.payloadBegin();
+        u32 *end   = res.payloadEnd();
         u32 *headerp = start + res.nextHeaderPointer();
 
         if (headerp >= end)
@@ -599,7 +585,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
             ++pipeStats.headerOutOfRange;
             ++channelStats.headerOutOfRange;
 
-            LOG_WARN("  pipe=%u, nextHeaderPointer out of range: nHPtr=%u, "
+            LOG_INFO("  pipe=%u, nextHeaderPointer out of range: nHPtr=%u, "
                      "availDataWords=%u, pktChan=%u, pktNum=%d, pktSize=%u bytes",
                      pipe, res.nextHeaderPointer(), res.availablePayloadWords(),
                      res.packetChannel(), res.packetNumber(), res.bytesTransferred);
@@ -752,6 +738,16 @@ std::array<PipeStats, PipeCount> Impl::getPipeStats() const
 std::array<PacketChannelStats, NumPacketChannels> Impl::getPacketChannelStats() const
 {
     return m_packetChannelStats;
+}
+
+u32 Impl::getCmdAddress() const
+{
+    return ::ntohl(m_cmdAddr.sin_addr.s_addr);
+}
+
+u32 Impl::getDataAddress() const
+{
+    return ::ntohl(m_dataAddr.sin_addr.s_addr);
 }
 
 s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber)
