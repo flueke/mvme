@@ -78,22 +78,22 @@ namespace buffer_headers
         StackContinuation = 0xF9,
     };
 
-    // Header: Type[7:0] BufferFlags[3:0] StackNum[3:0] Length[15:0]
+    // Header: Type[7:0] BufferFlags[3:0] StackNum[3:0] CtrlId[2:0] Length[12:0]
 
-    static const u8 TypeShift          = 24;
-    static const u8 TypeMask           = 0xff;
+    static const u8 TypeShift           = 24;
+    static const u8 TypeMask            = 0xff;
 
     static const u8 BufferFlagsMask     = 0xf;
     static const u8 BufferFlagsShift    = 20;
 
-    static const u8 StackNumShift      = 16;
-    static const u8 StackNumMask       = 0xf;
+    static const u8 StackNumShift       = 16;
+    static const u8 StackNumMask        = 0xf;
 
-    static const u8 HeaderFlagsMask    = 0b11;
-    static const u8 HeaderFlagsShift   = 14;
+    static const u8 ControllerIdShift   = 13;
+    static const u8 ControllerIdMask    = 0b111;
 
     static const u16 LengthShift        = 0;
-    static const u16 LengthMask         = 0xffff;
+    static const u16 LengthMask         = 0x1fff;
 }
 
 namespace buffer_flags
@@ -214,9 +214,9 @@ namespace udp
         // Pipe specific incrementing packet number.
         static const u32 PacketNumberMask  = 0xfff;
         static const u32 PacketNumberShift = 16;
-        // 12 bit number of data words
+        // 13 bit number of data words
         // This is the number of data words following the two header words.
-        static const u32 NumDataWordsMask  = 0xfff;
+        static const u32 NumDataWordsMask  = 0x1fff;
         static const u32 NumDataWordsShift = 0;
     }
 
