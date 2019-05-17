@@ -1,16 +1,8 @@
 #ifndef __A2_RATE_SAMPLER_H__
 #define __A2_RATE_SAMPLER_H__
 
-/* Disable circular buffer debugging support. I'm trying to see if concurrent
- * read access from the GUI thread is ok or if the buffer has to be guarded by
- * an RW lock. If buffer debugging is enabled assertions will fire under high
- * load as the analysis thread is pushing values onto the buffer while the GUI
- * plots the buffer contents.
- *
- * Results are good so far: if buffer debugging is disabled concurrent reads
- * cause no issues. To implement a "clear history" operation I added a
- * read/writer lock to the RateSampler struct. The lock is used to guard write
- * operations from concurrent accesses, reads are not guarded right now. */
+/* Disables circular buffer debugging support. Debugging asserts if internal
+ * invariants are violated. */
 //#define BOOST_CB_DISABLE_DEBUG
 #include <boost/circular_buffer.hpp>
 
@@ -29,6 +21,7 @@ using RateHistoryBuffer = boost::circular_buffer<double>;
 /* RateSampler
  * Setup, storage and sampling logic for rate monitoring.
  */
+// TODO; 'class this up' so that access without the mutex is not possible anymore.
 struct RateSampler
 {
     //
