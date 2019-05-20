@@ -182,23 +182,23 @@ QVector<u32> build_upload_command_buffer(const QVector<u32> &stack, u16 startAdd
     return result;
 }
 
-static QString format_buffer_error_bits(u8 errorBits)
+static QString format_buffer_flags(u8 bufferFlags)
 {
-    if (!errorBits)
+    if (!bufferFlags)
         return "none";
 
     QStringList buffer;
 
-    if (errorBits & buffer_flags::Continue)
+    if (bufferFlags & buffer_flags::Continue)
         buffer << "continue";
 
-    if (errorBits & buffer_flags::SyntaxError)
+    if (bufferFlags & buffer_flags::SyntaxError)
         buffer << "syntax";
 
-    if (errorBits & buffer_flags::BusError)
+    if (bufferFlags & buffer_flags::BusError)
         buffer << "BERR";
 
-    if (errorBits & buffer_flags::Timeout)
+    if (bufferFlags & buffer_flags::Timeout)
         buffer << "timeout";
 
     return buffer.join(",");
@@ -208,46 +208,54 @@ QString decode_response_header(u32 header)
 {
     QString result;
     QTextStream ss(&result);
-    u8 type = (header >> buffer_headers::TypeShift) & buffer_headers::TypeMask;
-    u16 len = header & buffer_headers::LengthMask;
 
-    switch (type)
+    auto headerInfo = extract_header_info(header);
+
+    switch (static_cast<buffer_headers::BufferTypes>(headerInfo.type))
     {
         case buffer_headers::SuperBuffer:
-            ss << "Super Buffer (len=" << len;
+            ss << "Super Buffer (len=" << headerInfo.len;
             break;
 
         case buffer_headers::StackBuffer:
-            ss << "Stack Result Buffer (len=" << len;
+            ss << "Stack Result Buffer (len=" << headerInfo.len;
             break;
 
         case buffer_headers::BlockRead:
-            ss << "Block Read Buffer (len=" << len;
+            ss << "Block Read Buffer (len=" << headerInfo.len;
             break;
 
         case buffer_headers::StackError:
-            ss << "Stack Error Buffer (len=" << len;
+            ss << "Stack Error Buffer (len=" << headerInfo.len;
+            break;
+
+        case buffer_headers::StackContinuation:
+            ss << "Stack Result Continuation Buffer (len=" << headerInfo.len;
             break;
 
         default:
             return result;
     }
 
-    switch (type)
+    switch (static_cast<buffer_headers::BufferTypes>(headerInfo.type))
     {
         case buffer_headers::StackBuffer:
         case buffer_headers::BlockRead:
         case buffer_headers::StackError:
+        case buffer_headers::StackContinuation:
             {
                 u16 stackNum = (header >> buffer_headers::StackNumShift) & buffer_headers::StackNumMask;
                 ss << ", stackNum=" << stackNum;
             }
             break;
+
+        case buffer_headers::SuperBuffer:
+            break;
     }
 
-    u8 errorBits = (header >> buffer_headers::BufferFlagsShift) & buffer_headers::BufferFlagsMask;
+    u8 bufferFlags = (header >> buffer_headers::BufferFlagsShift) & buffer_headers::BufferFlagsMask;
 
-    ss << ", errorBits=" << format_buffer_error_bits(errorBits) << ")";
+    ss << ", bufferFlags=" << format_buffer_flags(bufferFlags) << ")";
 
     return result;
 }

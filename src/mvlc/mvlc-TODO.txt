@@ -26,6 +26,9 @@ USB readout
 
 
 -----------------------------------------------------------------------------------------
+* Revisit MVLCDialog::stackTransaction(const QVector<u32> &stack, QVector<u32> &dest)
+  Is this correct in case the Continue bit is set?
+
 
 * refactor UDP to ETH. It's a better name for what the system actually is and it's easier
   to distinguish between USB/ETH than USB/UDP.

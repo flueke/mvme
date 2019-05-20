@@ -10,6 +10,7 @@ namespace mvlc
 {
 // Communication with the MVLC is done using 32-bit wide binary data words.
 // Results from commands and stack executions are also 32-bit aligned.
+// All data is in little-endian byte order.
 
 static const u32 AddressIncrement = 4;
 static const u32 ReadLocalBlockMaxWords = 768;
@@ -78,7 +79,9 @@ namespace buffer_headers
         StackContinuation = 0xF9,
     };
 
-    // Header: Type[7:0] BufferFlags[3:0] StackNum[3:0] CtrlId[2:0] Length[12:0]
+    // Header: Type[7:0] Continue[0:0] ErrorFlags[2:0] StackNum[3:0] CtrlId[2:0] Length[12:0]
+    // The Continue bit and the ErrorFlags are combined into a 4 bit
+    // BufferFlags field.
 
     static const u8 TypeShift           = 24;
     static const u8 TypeMask            = 0xff;
@@ -132,7 +135,8 @@ static const u16 InternalRegisterMax = 0x5FFF;
 
 // Setting bit 0 to 1 enables autonomous execution of stacks in
 // reaction to triggers.
-// IMPORTANT: This is always active right now.
+// IMPORTANT: This is always active right now, meaning as soon as an individual
+// stack trigger register is written the triggers will be processed.
 static const u32 DAQModeEnableRegister = 0x1300;
 
 namespace stacks
@@ -154,6 +158,9 @@ namespace stacks
     static const u16 StackOffsetBitMaskWords    = 0x03FF;
     static const u16 StackOffsetBitMaskBytes    = StackOffsetBitMaskWords * 4;
 
+    // The stack used for immediate execution, e.g for directly writing a VME
+    // device register. This is a software-side convention only, hardware wise
+    // nothing special is going on.
     static const u8 ImmediateStackID = 0;
     static const u16 ImmediateStackReservedWords = 128;
     static const u16 ImmediateStackReservedBytes = ImmediateStackReservedWords * 4;
@@ -168,8 +175,8 @@ namespace stacks
         TimerUnderrun,
     };
 
-    // IMPORTANT: For IRQ triggers the trigger bits have to be set to (IRQ-1),
-    // e.g. value 0 for IRQ1!
+    // IMPORTANT: For IRQ triggers the TriggerBits have to be set to the value
+    // (IRQ-1), e.g. value 0 for IRQ1!
     static const u16 TriggerBitsMask    = 0b11111;
     static const u16 TriggerBitsShift   = 0;
     static const u16 TriggerTypeMask    = 0b111;
@@ -206,14 +213,19 @@ namespace udp
 
     namespace header0
     {
-        // 4 bit packet channel number
-        static const u32 PacketChannelMask  = 0xf;
+        // 2 bit packet channel number. Values represent different streams of
+        // data each with its own packet number counter (see PacketChannel enum
+        // below).
+        static const u32 PacketChannelMask  = 0b11;
         static const u32 PacketChannelShift = 28;
 
         // 12 bit packet number
-        // Pipe specific incrementing packet number.
+        // Packet channel specific incrementing packet number.
         static const u32 PacketNumberMask  = 0xfff;
         static const u32 PacketNumberShift = 16;
+
+        // 3 Reserved Bits
+
         // 13 bit number of data words
         // This is the number of data words following the two header words.
         static const u32 NumDataWordsMask  = 0x1fff;
@@ -222,22 +234,21 @@ namespace udp
 
     namespace header1
     {
-        // 20 bit UDP timestamp. Increments in 1ms steps. Wrap after 17.5
+        // 20 bit UDP timestamp. Increments in 1ms steps. Wraps after 17.5
         // minutes.
         static const u32 TimestampMask      = 0xfffff;
         static const u32 TimestampShift     = 12;
 
         // Points to the next buffer header word in the packet data. The
         // position directly after this header1 word is 0.
-        // The special value 0xffff indicates that there's no buffer header
-        // present in the packet data. This means the packet contains
+        // The maximum value possible indicates that there's no buffer header
+        // present in the packet data. This means the packet must contain
         // continuation data from a previously started buffer.
         // This header pointer value can be used to resume processing data
         // packets in case of packet loss.
         static const u32 HeaderPointerMask  = 0xfff;
         static const u32 HeaderPointerShift = 0;
-
-        static const u32 NoHeaderPointerPresent = 0xffff;
+        static const u32 NoHeaderPointerPresent = HeaderPointerMask;
     }
 
     static const size_t JumboFrameMaxSize = 9000;
