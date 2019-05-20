@@ -574,7 +574,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     }
 
     // Check where nextHeaderPointer is pointing to
-    if (res.nextHeaderPointer() != 0xffff)
+    if (res.nextHeaderPointer() != header1::NoHeaderPointerPresent)
     {
         u32 *start = res.payloadBegin();
         u32 *end   = res.payloadEnd();

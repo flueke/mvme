@@ -334,7 +334,7 @@ void MVLCDataReader::readoutLoop()
                         m_ethDebugBuffer.push_back(OwningPacketReadResult(udp_rr));
 
                         // check header point validity, range and type of pointed to data word
-                        if (udp_rr.nextHeaderPointer() != 0xffff)
+                        if (udp_rr.nextHeaderPointer() != mvlc::udp::header1::NoHeaderPointerPresent)
                         {
                             bool isInvalid = false;
 
@@ -442,7 +442,8 @@ void MVLCDataReader::readoutLoop()
                     // processing in case of packet loss without having to rely
                     // on searching and magic words. The 2nd UDP header word
                     // contains an offset to the next stack frame header inside
-                    // the packet. The offset is 0xffff is there is no header
+                    // the packet. The offset is
+                    // header1::NoHeaderPointerPresent if there is no header
                     // present in the packet data.
 
                     emit message(QSL("Adjusting FrameCheckData.nextHeaderOffset using UDP frame info"));
