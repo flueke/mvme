@@ -480,7 +480,10 @@ void MVLCDataReader::readoutLoop()
                 checkResult = frame_check(m_readBuffer, m_frameCheckData);
 
                 if (!udp_rr.lostPackets)
+                {
                     emit message(QSL("Warning: frame check failed without prior ETH packet loss!"));
+                    emit frameCheckFailed(m_frameCheckData, m_readBuffer);
+                }
             }
 
             if (checkResult == FrameCheckResult::HeaderMatchFailed)
@@ -1335,7 +1338,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         size_t payloadOffsetBytes = buffer.payloadBegin - buffer.data.get();
         size_t payloadSizeBytes   = buffer.used - payloadOffsetBytes;
 
-        logMessage(QSL("FrameCheckFailed: buffer size=%1 bytes, payloadSize=%2 bytes buffersChecked=%2")
+        logMessage(QSL("FrameCheckFailed: buffer size=%1 bytes, payloadSize=%2 bytes buffersChecked=%3")
                    .arg(buffer.used)
                    .arg(payloadSizeBytes)
                    .arg(fcd.buffersChecked)

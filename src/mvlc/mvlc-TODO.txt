@@ -1,34 +1,8 @@
 * USB/ETH low level read cleanup
 * USB2 loses data under windows.
 
-USB readout
------------
-* Read multiples of 1024 bytes (the USB3 max bulk transfer packet size)
-* USB2: wMaxPacketSize is 512 for the bulk endpoints
-* USB3: wMaxPacketSize is 1024 for the bulkd endpoints
-
-* To maximize USB2 throughput both the read request size and the read timeout matter.
-  Buffers sizes starting from 500k to 1MB seem to be ok. At 45MB/s reading a 1MB/s buffer
-  will take 22 ms, so the timeout should be longer than that.
-  If the timeout is too short readout rate will drop dramatically from 45MB/s down to 32
-  MB/s with short timeouts.
-
-  Very long timeouts will currently stall the GUI but this is just a matter of not doing
-  I/O in the GUI thread. Instead things like QtConcurrent::run should be used to do the
-  operation that requires a MVLC lock on a separate thread.
-
-* A single call to FT_ReadPipeEx is limited to a size of 1MB under both operating systems
-  and with USB2 and 3.
-
-
-
-
-
-
------------------------------------------------------------------------------------------
 * Revisit MVLCDialog::stackTransaction(const QVector<u32> &stack, QVector<u32> &dest)
   Is this correct in case the Continue bit is set?
-
 
 * refactor UDP to ETH. It's a better name for what the system actually is and it's easier
   to distinguish between USB/ETH than USB/UDP.
@@ -51,7 +25,7 @@ USB readout
   Either implement low level locks in the UDP code or use the higher level ones which
   currently are in MVLCObject.
 
-* The windows usb::Impl::read() and the udp::Impl::read() calls on both systems can take
+* The usb::Impl::read() on Windows and the udp::Impl::read() calls on both systems can take
   longer than the user specified timeout as they are issuing multiple read/receive calls
   internally, each using the previously set timeout value. Document this behaviour and/or
   work around it by taking into account how much time has elapsed between each of the
@@ -74,3 +48,25 @@ USB readout
 
   To delete the arp entry:
     arp -i enp2s0 -d 192.168.42.g
+
+-----------------------------------------------------------------------------------------
+
+USB readout
+-----------
+* Read multiples of 1024 bytes (the USB3 max bulk transfer packet size)
+* USB2: wMaxPacketSize is 512 for the bulk endpoints
+* USB3: wMaxPacketSize is 1024 for the bulkd endpoints
+
+* To maximize USB2 throughput both the read request size and the read timeout matter.
+  Buffers sizes starting from 500k to 1MB seem to be ok. At 45MB/s reading a 1MB/s buffer
+  will take 22 ms, so the timeout should be longer than that.
+  If the timeout is too short readout rate will drop dramatically from 45MB/s down to 32
+  MB/s with short timeouts.
+
+  Very long timeouts will currently stall the GUI but this is just a matter of not doing
+  I/O in the GUI thread. Instead things like QtConcurrent::run should be used to do the
+  operation that requires a MVLC lock on a separate thread.
+
+* A single call to FT_ReadPipeEx is limited to a size of 1MB under both operating systems
+  and with both USB2 and 3.
+
