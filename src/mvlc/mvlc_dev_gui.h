@@ -72,7 +72,7 @@ struct LIBMVME_MVLC_EXPORT ReaderStats
     std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
 };
 
-struct OwningPacketReadResult
+struct LIBMVME_MVLC_EXPORT OwningPacketReadResult
 {
     std::vector<u8> buffer;
     mesytec::mvlc::udp::PacketReadResult prr;
