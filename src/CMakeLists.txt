@@ -132,8 +132,8 @@ if(MVME_ENABLE_MVLC)
     set(MVLC_USB_LOG_LEVEL "LOG_LEVEL_WARN" CACHE STRING
         "mvlc_usb layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE)")
 
-    set(MVLC_UDP_LOG_LEVEL "LOG_LEVEL_WARN" CACHE STRING
-        "mvlc_udp layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE)")
+    set(MVLC_ETH_LOG_LEVEL "LOG_LEVEL_WARN" CACHE STRING
+        "mvlc_eth layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE)")
 
     set(MVLC_DIALOG_LOG_LEVEL "LOG_LEVEL_WARN" CACHE STRING
         "mvlc_dialog layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE)")
@@ -158,7 +158,7 @@ if(MVME_ENABLE_MVLC)
         mvlc/mvlc_dialog.cc
         mvlc/mvlc_error.cc
         mvlc/mvlc_impl_factory.cc
-        mvlc/mvlc_impl_udp.cc
+        mvlc/mvlc_impl_eth.cc
         mvlc/mvlc_impl_usb.cc
         mvlc/mvlc_qt_object.cc
         mvlc/mvlc_register_names.cc
@@ -195,10 +195,10 @@ if(MVME_ENABLE_MVLC)
     add_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
     target_link_libraries(dev_test_mvlc_usb_impl libmvme_mvlc)
 
-    add_executable(dev_test_mvlc_udp_impl mvlc/dev_test_mvlc_udp_impl.cc)
-    target_link_libraries(dev_test_mvlc_udp_impl libmvme_mvlc)
+    add_executable(dev_test_mvlc_eth_impl mvlc/dev_test_mvlc_eth_impl.cc)
+    target_link_libraries(dev_test_mvlc_eth_impl libmvme_mvlc)
 
-    install(TARGETS mvlc_dev_gui dev_test_mvlc_usb_impl dev_test_mvlc_udp_impl
+    install(TARGETS mvlc_dev_gui dev_test_mvlc_usb_impl dev_test_mvlc_eth_impl
         DESTINATION .)
 
     if(BUILD_TESTS)

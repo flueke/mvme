@@ -1,5 +1,5 @@
 #include "mvlc/mvlc_impl_factory.h"
-#include "mvlc/mvlc_impl_udp.h"
+#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_util.h"
 #include <cassert>
@@ -7,7 +7,7 @@
 #include <vector>
 
 using namespace mesytec::mvlc;
-using namespace mesytec::mvlc::udp;
+using namespace mesytec::mvlc::eth;
 
 using std::cout;
 using std::cerr;
@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
     const size_t iterations = std::atoi(argv[3]);
 
 
-    MVLCObject mvlc(make_mvlc_udp(host));
+    MVLCObject mvlc(make_mvlc_eth(host));
 
     mvlc.setReadTimeout(Pipe::Command, 2000);
     mvlc.setWriteTimeout(Pipe::Command, 2000);

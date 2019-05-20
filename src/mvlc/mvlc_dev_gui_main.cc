@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
     logWindow.addAction(actionQuit);
 
     auto mvlc_usb = std::make_unique<MVLCObject>(make_mvlc_usb());
-    auto mvlc_eth = std::make_unique<MVLCObject>(make_mvlc_udp("192.168.42.2"));
+    auto mvlc_eth = std::make_unique<MVLCObject>(make_mvlc_eth("192.168.42.2"));
 
     for (auto mvlc: { mvlc_usb.get(), mvlc_eth.get() })
     {
@@ -42,10 +42,10 @@ int main(int argc, char *argv[])
     MVLCDevGUI devGui_usb(mvlc_usb.get());
     devGui_usb.setWindowTitle("MVLC Dev GUI - USB");
 
-    MVLCDevGUI devGui_udp(mvlc_eth.get());
-    devGui_udp.setWindowTitle("MVLC Dev GUI - UDP");
+    MVLCDevGUI devGui_eth(mvlc_eth.get());
+    devGui_eth.setWindowTitle("MVLC Dev GUI - ETH");
 
-    for (auto devgui: { &devGui_usb, &devGui_udp })
+    for (auto devgui: { &devGui_usb, &devGui_eth })
     {
         QObject::connect(devgui, &MVLCDevGUI::sigLogMessage,
                          &logWindow, &LogWidget::logMessage);

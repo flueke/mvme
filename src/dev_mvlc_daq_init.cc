@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
     if (argv[1] == std::string("usb"))
         impl = make_mvlc_usb();
     else
-        impl = make_mvlc_udp(argv[1]);
+        impl = make_mvlc_eth(argv[1]);
 
     assert(impl);
 

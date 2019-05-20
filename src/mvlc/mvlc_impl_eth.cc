@@ -1,4 +1,4 @@
-#include "mvlc/mvlc_impl_udp.h"
+#include "mvlc/mvlc_impl_eth.h"
 
 #include <cassert>
 #include <cerrno>
@@ -154,7 +154,7 @@ namespace mesytec
 {
 namespace mvlc
 {
-namespace udp
+namespace eth
 {
 
 Impl::Impl(const std::string &host)
@@ -753,7 +753,7 @@ u32 Impl::getDataAddress() const
 
 s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber)
 {
-    static const s32 PacketNumberMax = udp::header0::PacketNumberMask;
+    static const s32 PacketNumberMax = eth::header0::PacketNumberMask;
 
     s32 diff = packetNumber - lastPacketNumber;
 
@@ -766,6 +766,6 @@ s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber)
     return diff - 1;
 }
 
-} // end namespace udp
+} // end namespace eth
 } // end namespace mvlc
 } // end namespace mesytec

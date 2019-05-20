@@ -204,7 +204,7 @@ namespace usb
     static const size_t USBSingleTransferMaxWords = USBSingleTransferMaxBytes / sizeof(u32);
 } // end namespace usb
 
-namespace udp
+namespace eth
 {
     static const u16 CommandPort = 0x8000; // 32768
     static const u16 DataPort = CommandPort + 1;
@@ -264,7 +264,7 @@ namespace udp
 
     static const u8 NumPacketChannels = 3;
 
-} // end namespace udp
+} // end namespace eth
 
 namespace registers
 {

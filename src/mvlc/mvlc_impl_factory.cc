@@ -1,5 +1,5 @@
 #include "mvlc/mvlc_impl_factory.h"
-#include "mvlc/mvlc_impl_udp.h"
+#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc/mvlc_impl_usb.h"
 #include <cassert>
 
@@ -34,15 +34,15 @@ std::unique_ptr<AbstractImpl> make_mvlc_usb_using_serial(const std::string &seri
 //
 // UDP
 //
-std::unique_ptr<AbstractImpl> make_mvlc_udp()
+std::unique_ptr<AbstractImpl> make_mvlc_eth()
 {
-    return std::make_unique<udp::Impl>();
+    return std::make_unique<eth::Impl>();
 }
 
-std::unique_ptr<AbstractImpl> make_mvlc_udp(const char *host)
+std::unique_ptr<AbstractImpl> make_mvlc_eth(const char *host)
 {
     assert(host);
-    return std::make_unique<udp::Impl>(host);
+    return std::make_unique<eth::Impl>(host);
 }
 
 } // end namespace mvlc

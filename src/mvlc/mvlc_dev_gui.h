@@ -13,7 +13,7 @@
 #include <QString>
 
 #include "libmvme_mvlc_export.h"
-#include "mvlc/mvlc_impl_udp.h"
+#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "vme_script.h"
 
@@ -80,10 +80,10 @@ struct LIBMVME_MVLC_EXPORT ReaderStats
 struct LIBMVME_MVLC_EXPORT OwningPacketReadResult
 {
     std::vector<u8> buffer;
-    mesytec::mvlc::udp::PacketReadResult prr;
+    mesytec::mvlc::eth::PacketReadResult prr;
 
     OwningPacketReadResult(): buffer{}, prr{} {}
-    OwningPacketReadResult(const mesytec::mvlc::udp::PacketReadResult &prr);
+    OwningPacketReadResult(const mesytec::mvlc::eth::PacketReadResult &prr);
     OwningPacketReadResult(const OwningPacketReadResult &other);
 };
 

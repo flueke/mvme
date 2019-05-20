@@ -83,7 +83,7 @@ VMEController *VMEControllerFactory::makeController(const QVariantMap &settings)
         case VMEControllerType::MVLC_ETH:
             {
                 auto hostname = settings["mvlc_hostname"].toString();
-                auto impl = mesytec::mvlc::make_mvlc_udp(hostname.toStdString().c_str());
+                auto impl = mesytec::mvlc::make_mvlc_eth(hostname.toStdString().c_str());
                 return make_mvlc_ctrl(std::move(impl));
             } break;
     }

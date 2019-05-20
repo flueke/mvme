@@ -18,7 +18,7 @@ namespace mesytec
 {
 namespace mvlc
 {
-namespace udp
+namespace eth
 {
 
 using PacketSizeMap = std::unordered_map<u16, u64>; // size -> count
@@ -201,7 +201,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 // packets in-between, taking overflow into account.
 s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber);
 
-} // end namespace udp
+} // end namespace eth
 } // end namespace mvlc
 } // end namespace mesytec
 

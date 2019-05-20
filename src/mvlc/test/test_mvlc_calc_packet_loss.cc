@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include <iostream>
 
-#include "mvlc/mvlc_impl_udp.h"
+#include "mvlc/mvlc_impl_eth.h"
 
-using namespace mesytec::mvlc::udp;
+using namespace mesytec::mvlc::eth;
 
 // Prototype is: s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber);
 
