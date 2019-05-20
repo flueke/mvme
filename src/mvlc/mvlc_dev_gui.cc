@@ -36,18 +36,34 @@ using namespace mesytec;
 using namespace mesytec::mvlc;
 using namespace mesytec::mvlc::usb;
 
-FixedSizeBuffer make_buffer(size_t capacity)
+FixedSizeBuffer::FixedSizeBuffer(size_t capacity_)
+    : data(std::make_unique<u8[]>(capacity_))
+    , capacity(capacity_)
+    , used(0)
+    , payloadBegin(data.get())
 {
-    FixedSizeBuffer result
-    {
-        .data = std::make_unique<u8[]>(capacity),
-        .capacity = capacity,
-        .used = 0,
-    };
+}
 
-    result.payloadBegin = result.data.get();
+FixedSizeBuffer::FixedSizeBuffer(const FixedSizeBuffer &rhs)
+{
+    data = std::make_unique<u8[]>(rhs.capacity);
+    capacity = rhs.capacity;
+    std::copy(rhs.data.get(), rhs.data.get() + rhs.used, data.get());
+    used = rhs.used;
+    auto offset = rhs.payloadBegin - rhs.data.get();
+    payloadBegin = data.get() + offset;
+}
 
-    return result;
+FixedSizeBuffer &FixedSizeBuffer::operator=(const FixedSizeBuffer &rhs)
+{
+    data = std::make_unique<u8[]>(rhs.capacity);
+    capacity = rhs.capacity;
+    std::copy(rhs.data.get(), rhs.data.get() + rhs.used, data.get());
+    used = rhs.used;
+    auto offset = rhs.payloadBegin - rhs.data.get();
+    payloadBegin = data.get() + offset;
+
+    return *this;
 }
 
 QVector<u8> copy_data_to_qvector(const FixedSizeBuffer &buffer)
@@ -192,6 +208,22 @@ void MVLCDataReader::setOutputDevice(std::unique_ptr<QIODevice> dev)
     m_outDevice = std::move(dev);
 }
 
+QString to_string(const FrameCheckResult &fcr)
+{
+    switch (fcr)
+    {
+        case FrameCheckResult::Ok:
+            return "OK";
+        case  FrameCheckResult::NeedMoreData:
+            return "NeedMoreData";
+        case FrameCheckResult::HeaderMatchFailed:
+            return "HeaderMatchFailed";
+    }
+
+    InvalidCodePath;
+    return "invalid FrameCheckResult";
+}
+
 FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data)
 {
     const u32 *buffp = reinterpret_cast<const u32 *>(buffer.payloadBegin);
@@ -224,18 +256,16 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
             return FrameCheckResult::HeaderMatchFailed;
         }
 
-        const u16 len = header & 0xFFFF;
-        const u8 stackId = (header >> 16) & 0x0F;
-        const u8 flags   = (header >> 20) & 0x0F;
+        const auto hdrInfo = extract_header_info(header);
 
-        if (stackId < stacks::StackCount)
-            ++data.stackHits[stackId];
+        if (hdrInfo.stack < stacks::StackCount)
+            ++data.stackHits[hdrInfo.stack];
 
-        if (flags & (1u << 3))
+        if (hdrInfo.flags & buffer_flags::Continue)
             ++data.framesWithContinueFlag;
 
         ++data.framesChecked;
-        data.nextHeaderOffset += 1 + len;
+        data.nextHeaderOffset += 1 + hdrInfo.len;
     }
 
     return {};
@@ -303,7 +333,7 @@ void MVLCDataReader::readoutLoop()
 
         if (m_readBuffer.capacity != requestedReadBufferSize)
         {
-            m_readBuffer = make_buffer(requestedReadBufferSize);
+            m_readBuffer = FixedSizeBuffer(requestedReadBufferSize);
             emit message(QSL("New read buffer size: %1 bytes").arg(m_readBuffer.capacity));
         }
 
@@ -318,7 +348,7 @@ void MVLCDataReader::readoutLoop()
             // Manual locking. Might be better to make read_packet() available
             // in a higher layer?
             auto guard = m_mvlc->getLocks().lockData();
-            auto udp_rr = mvlc_udp->read_packet(Pipe::Data, m_readBuffer.data.get(), m_readBuffer.capacity);
+            udp_rr = mvlc_udp->read_packet(Pipe::Data, m_readBuffer.data.get(), m_readBuffer.capacity);
             ec = udp_rr.ec;
             bytesTransferred = udp_rr.bytesTransferred;
             m_readBuffer.payloadBegin = m_readBuffer.data.get() + udp::HeaderBytes;
@@ -434,40 +464,47 @@ void MVLCDataReader::readoutLoop()
                 m_frameCheckData.framesWithContinueFlag;
             m_stats.stackHits = m_frameCheckData.stackHits;
 
+            if (checkResult == FrameCheckResult::HeaderMatchFailed
+                && mvlc_udp && udp_rr.hasHeaders())
+            {
+                // This is the mechanism allowing to correctly resume data
+                // processing in case of packet loss without having to rely
+                // on searching and magic words. The 2nd UDP header word
+                // contains an offset to the next stack frame header inside
+                // the packet. The offset is
+                // header1::NoHeaderPointerPresent if there is no header
+                // present in the packet data.
+
+                emit message(QSL("Adjusting FrameCheckData.nextHeaderOffset using UDP frame info and rechecking."));
+                m_frameCheckData.nextHeaderOffset = udp_rr.nextHeaderPointer();
+                checkResult = frame_check(m_readBuffer, m_frameCheckData);
+
+                if (!udp_rr.lostPackets)
+                    emit message(QSL("Warning: frame check failed without prior ETH packet loss!"));
+            }
+
             if (checkResult == FrameCheckResult::HeaderMatchFailed)
             {
-                if (mvlc_udp && udp_rr.hasHeaders())
-                {
-                    // This is the mechanism allowing to correctly resume data
-                    // processing in case of packet loss without having to rely
-                    // on searching and magic words. The 2nd UDP header word
-                    // contains an offset to the next stack frame header inside
-                    // the packet. The offset is
-                    // header1::NoHeaderPointerPresent if there is no header
-                    // present in the packet data.
+                m_stackFrameCheckEnabled = false;
 
-                    emit message(QSL("Adjusting FrameCheckData.nextHeaderOffset using UDP frame info"));
-                    m_frameCheckData.nextHeaderOffset = udp_rr.nextHeaderPointer();
-                    checkResult = frame_check(m_readBuffer, m_frameCheckData);
-                }
-                else
-                {
-                    m_stackFrameCheckEnabled = false;
+                emit message(QSL("!!! !!! !!!"));
+                emit message(QSL("Frame Check header match failed! Disabling frame check."));
 
-                    emit message(QSL("!!! !!! !!!"));
-                    emit message(QSL("Frame Check header match failed! Disabling frame check."));
-                    emit message(QSL("  prevFrameCheckResult=%1").arg(static_cast<int>(prevFrameCheckResult)));
-                    emit message(QSL("  nextHeaderOffset=%1").arg(m_frameCheckData.nextHeaderOffset));
+                emit message(QSL("  prevFrameCheckResult=%1 (%2)")
+                             .arg(static_cast<int>(prevFrameCheckResult))
+                             .arg(to_string(prevFrameCheckResult))
+                            );
 
-                    u32 nextHeader = *reinterpret_cast<u32 *>(m_readBuffer.data.get())
-                        + m_frameCheckData.nextHeaderOffset;
+                emit message(QSL("  nextHeaderOffset=%1").arg(m_frameCheckData.nextHeaderOffset));
 
-                    emit message(QSL("  nextHeader=0x%1")
-                                 .arg(nextHeader, 8, 16, QLatin1Char('0')));
-                    emit message(QSL("!!! !!! !!!"));
+                u32 nextHeader = *reinterpret_cast<u32 *>(m_readBuffer.payloadBegin)
+                    + m_frameCheckData.nextHeaderOffset;
 
-                    emit frameCheckFailed(m_frameCheckData, copy_data_to_qvector(m_readBuffer));
-                }
+                emit message(QSL("  nextHeader=0x%1")
+                             .arg(nextHeader, 8, 16, QLatin1Char('0')));
+                emit message(QSL("!!! !!! !!!"));
+
+                emit frameCheckFailed(m_frameCheckData, m_readBuffer);
             }
             else if (checkResult == FrameCheckResult::NeedMoreData)
             {
@@ -1284,7 +1321,6 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         logMessage(QString(">>> First %1 data words:").arg(maxBytes / sizeof(u32)));
 
         BufferIterator iter(buffer.data(), maxBytes);
-        // FIXME: don't call the global logBuffer. it prints BerrMarker and EndMarker as strings.
         ::logBuffer(iter, [this] (const QString &line)
         {
             logMessage(line);
@@ -1294,20 +1330,25 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
     });
 
     connect(m_d->dataReader, &MVLCDataReader::frameCheckFailed,
-            this, [this] (const FrameCheckData &fcd, const QVector<u8> &buffer)
+            this, [this] (const FrameCheckData &fcd, const FixedSizeBuffer &buffer)
     {
-        logMessage(QSL("FrameCheckFailed: buffer size=%1, buffersChecked=%2")
-                   .arg(buffer.size())
+        size_t payloadOffsetBytes = buffer.payloadBegin - buffer.data.get();
+        size_t payloadSizeBytes   = buffer.used - payloadOffsetBytes;
+
+        logMessage(QSL("FrameCheckFailed: buffer size=%1 bytes, payloadSize=%2 bytes buffersChecked=%2")
+                   .arg(buffer.used)
+                   .arg(payloadSizeBytes)
                    .arg(fcd.buffersChecked)
                    );
 
-        size_t wordCount = buffer.size() / sizeof(u32);
-        const u32 *startp = reinterpret_cast<const u32 *>(buffer.data());
+        size_t wordCount = buffer.used / sizeof(u32);
+        const u32 *startp = reinterpret_cast<const u32 *>(buffer.data.get());
         const u32 *endp   = startp + wordCount;
 
-        const u32 *nextHeader = startp + fcd.nextHeaderOffset;
-        const u32 *firstToLog = std::max(reinterpret_cast<const u32 *>(nextHeader - 256), startp);
-        const u32 *lastToLog  = std::min(nextHeader + 256, endp);
+        const u32 *nextHeader = reinterpret_cast<u32 *>(buffer.payloadBegin) + fcd.nextHeaderOffset;
+        const int HalfWindow = 256;
+        const u32 *firstToLog = std::max(reinterpret_cast<const u32 *>(nextHeader - HalfWindow), startp);
+        const u32 *lastToLog  = std::min(nextHeader + HalfWindow, endp);
 
         const u32 *buffp = firstToLog;
 

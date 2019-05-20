@@ -24,9 +24,12 @@ struct LIBMVME_MVLC_EXPORT FixedSizeBuffer
     size_t capacity;
     size_t used;
     u8 *payloadBegin;
-};
 
-FixedSizeBuffer LIBMVME_MVLC_EXPORT make_buffer(size_t capacity);
+    FixedSizeBuffer() = default;
+    explicit FixedSizeBuffer(size_t capacity_);
+    FixedSizeBuffer(const FixedSizeBuffer &rhs);
+    FixedSizeBuffer &operator=(const FixedSizeBuffer &rhs);
+};
 
 enum class FrameCheckResult: u8
 {
@@ -34,6 +37,8 @@ enum class FrameCheckResult: u8
     NeedMoreData,       // frame crosses buffer boundary
     HeaderMatchFailed,  // hit something else than F3
 };
+
+QString LIBMVME_MVLC_EXPORT to_string(const FrameCheckResult &fcr);
 
 struct LIBMVME_MVLC_EXPORT FrameCheckData
 {
@@ -101,7 +106,7 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
         void stopped();
         void bufferReady(const QVector<u8> &buffer);
         void message(const QString &msg);
-        void frameCheckFailed(const FrameCheckData &fcd, const QVector<u8> &buffer);
+        void frameCheckFailed(const FrameCheckData &fcd, const FixedSizeBuffer &buffer);
         void ethDebugSignal(const EthDebugBuffer &data, const QString &reason);
 
     public:

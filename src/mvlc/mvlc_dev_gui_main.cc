@@ -11,6 +11,7 @@ int main(int argc, char *argv[])
     qRegisterMetaType<FrameCheckData>("FrameCheckData");
     qRegisterMetaType<OwningPacketReadResult>("OwningPacketReadResult");
     qRegisterMetaType<EthDebugBuffer>("EthDebugBuffer");
+    qRegisterMetaType<FixedSizeBuffer>("FixedSizeBuffer");
 
     QApplication app(argc, argv);
 
