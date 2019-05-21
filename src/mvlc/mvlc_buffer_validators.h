@@ -11,7 +11,7 @@ namespace mvlc
 
 inline u8 get_buffer_type(u32 header)
 {
-    return (header >> buffer_headers::TypeShift);
+    return (header >> buffer_headers::TypeShift) & buffer_headers::TypeMask;
 }
 
 using BufferHeaderValidator = std::function<bool (u32 header)>;
