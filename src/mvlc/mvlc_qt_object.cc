@@ -278,13 +278,13 @@ void MVLCNotificationPoller::disablePolling()
 
 void MVLCNotificationPoller::doPoll()
 {
+    // This avoids having multiple instances of the polling code run in
+    // parallel.
+    // Can only happen if either the poll interval is very short or the
+    // mvlc read timeouts are longer than the poll timer interval.
     bool f = false;
-
     if (!m_isPolling.compare_exchange_weak(f, true))
-    {
-        qDebug() << "melady, melady, my lady";
         return;
-    }
 
     if (m_mvlc.isConnected())
     {
@@ -292,18 +292,10 @@ void MVLCNotificationPoller::doPoll()
 
         do
         {
-            //static const unsigned PollReadTimeout_ms = 1;
-            //unsigned timeout = m_mvlc.getReadTimeout(Pipe::Command);
-            //assert(timeout > 0);
-            //m_mvlc.setReadTimeout(Pipe::Command, PollReadTimeout_ms);
-            auto ec = m_mvlc.readKnownBuffer(buffer);
-            //m_mvlc.setReadTimeout(Pipe::Command, timeout);
+            m_mvlc.readKnownBuffer(buffer);
 
-            if (ec != MVLCErrorCode::InvalidBufferHeader && !buffer.isEmpty())
-            {
-                qDebug("0x%08x", buffer[0]);
+            if (!buffer.isEmpty())
                 emit stackErrorNotification(buffer);
-            }
         } while (!buffer.isEmpty());
     }
 
