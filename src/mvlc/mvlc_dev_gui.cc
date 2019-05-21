@@ -228,6 +228,7 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
 {
     const u32 *buffp = reinterpret_cast<const u32 *>(buffer.payloadBegin);
     const u32 *endp  = reinterpret_cast<const u32 *>(buffer.data.get() + buffer.used);
+    size_t loopIteration = 0u;
 
     while (true)
     {
@@ -238,6 +239,8 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
         {
             data.nextHeaderOffset = nextp - endp;
 
+            //qDebug("%s -> NeedMoreData", __FUNCTION__);
+
             return FrameCheckResult::NeedMoreData;
         }
 
@@ -245,6 +248,16 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
 
         if (!(is_stack_buffer(header) || is_stack_buffer_continuation(header)))
         {
+            qDebug("%s: loopIteration=%lu, header=0x%08x, is_stack_buffer=%d,"
+                   " is_stack_buffer_continuation=%d => HeaderMatchFailed",
+                   __FUNCTION__, loopIteration,
+                   header, is_stack_buffer(header),
+                   is_stack_buffer_continuation(header));
+
+            qDebug("%s: buffp=0x%p, nextHeaderOffset=%lu",
+                   __FUNCTION__,
+                   buffp, data.nextHeaderOffset);
+
             // leave nextHeaderOffset unmodified for inspection
             return FrameCheckResult::HeaderMatchFailed;
         }
@@ -259,6 +272,7 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
 
         ++data.framesChecked;
         data.nextHeaderOffset += 1 + hdrInfo.len;
+        ++loopIteration;
     }
 
     return {};
@@ -470,15 +484,20 @@ void MVLCDataReader::readoutLoop()
                 // header1::NoHeaderPointerPresent if there is no header
                 // present in the packet data.
 
-                emit message(QSL("Adjusting FrameCheckData.nextHeaderOffset using UDP frame info and rechecking."));
-                m_frameCheckData.nextHeaderOffset = eth_rr.nextHeaderPointer();
-                checkResult = frame_check(m_readBuffer, m_frameCheckData);
-
                 if (!eth_rr.lostPackets)
                 {
                     emit message(QSL("Warning: frame check failed without prior ETH packet loss!"));
                     emit frameCheckFailed(m_frameCheckData, m_readBuffer);
                 }
+
+                emit message(QSL("Adjusting FrameCheckData.nextHeaderOffset using UDP frame info and rechecking."));
+                m_frameCheckData.nextHeaderOffset = eth_rr.nextHeaderPointer();
+                checkResult = frame_check(m_readBuffer, m_frameCheckData);
+
+                emit message(QSL("Result of recheck: %1 (%2)")
+                             .arg(static_cast<int>(checkResult))
+                             .arg(to_string(checkResult))
+                             );
             }
 
             ++m_frameCheckData.buffersChecked;
@@ -1342,11 +1361,12 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                    );
 
         size_t wordCount = buffer.used / sizeof(u32);
-        const u32 *startp = reinterpret_cast<const u32 *>(buffer.data.get());
+        const u32 *startp = reinterpret_cast<const u32 *>(buffer.payloadBegin);
         const u32 *endp   = startp + wordCount;
 
         const u32 *nextHeader = reinterpret_cast<u32 *>(buffer.payloadBegin) + fcd.nextHeaderOffset;
-        const int HalfWindow = 256;
+        const int HalfWindow = 512;
+        // limit the window to be logged to the actual buffer size
         const u32 *firstToLog = std::max(reinterpret_cast<const u32 *>(nextHeader - HalfWindow), startp);
         const u32 *lastToLog  = std::min(nextHeader + HalfWindow, endp);
 

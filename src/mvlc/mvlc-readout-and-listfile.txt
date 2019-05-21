@@ -1,0 +1,64 @@
+Thoughts about the MVLC readout, listfile formats and passing of data to the analysis
+=====================================================================================
+
+Open Questions
+--------------
+
+Answered Questions
+------------------
+What's the maximum length of a single event the MVLC can produce?
+-> There is no maximum length. Data would come in F9 blocks with the Continue bit set
+   until the last F9 where Continue is cleared.
+   For practical reasons event size should be limited for an event based analysis.
+   Streaming data must be handled differently and is not inside the scope of mvme.
+   Limit single event readout size to 1MB (262144 words).
+
+Terminology
+-----------
+* loss / external loss: Ethernet packet loss caused by network congestion or the receiver
+  being too slow.
+
+* internal loss: Caused by the DAQ producing data faster than the analysis can consume.
+  Occurs only during a live DAQ run, never during a replay from file.
+  The granularity of the what's lost is entirely up to mvme. Large buffers containing many
+  events lead to better performance but higher UI latency when pausing/stopping.
+  Smaller buffers lead to worse analysis performance but faster reaction times.
+  Buffers of roughly 1MB do seem to work ok with the existing controlers and mvme formats.
+
+USB
+---------------
+No loss, no packets, no framing.
+Starting point is the start of the first incoming buffer. Must be F3 (StackBuffer). The
+next header after that can be found at (prev_header + prev_size).
+
+To deal with internal loss an offset to the next header is needed. Otherwise the analyis
+side does not have a resume point.
+
+=> Add a HeaderOffset value to each of the internal buffers. This means the readout side
+has to know and follow the buffer structure so that it is able to calculate and set the
+HeaderOffset value.
+  => Need one iteration pass over the incoming data.
+  => Need at least one additional data word per internal buffer.
+  => An open StackBuffer or any open data structure does not have to be terminated within
+  the current internal buffer. Processing can continue without that guaranteee as long as
+  the buffer header pointer is present and correct.
+  But having non-terminated internal buffers can lead to more lost data events than with
+  terminated buffers. The start of a new event can be lost which makes the data in the
+  following non-lost buffer invalid for processing. The end of an event can be lost which
+  in turn means data from the prior buffer has to be discarded once this case is detected.
+  It would be better to guarantee that at least all internal structures 0xF3/F9, etc are
+  terminated within one such internal buffer.
+
+
+Ethernet / UDP
+---------------
+Loss is expected. Data arrives in packets of <= 1500 / < 9k bytes. Each packet has two
+header words, with one containing an offset to the next StackBuffer/StackContinuation
+header (F3 or F9).
+
+External loss is detected via PacketNumbers. Bursts of up to 4095 lost packets can be
+detected.
+
+Internal loss can be mitigated by beginning each internal buffer with a packet. This way a
+pointer to the next stack header will be present at the start of the buffer.
+The guarantee would be that packets are never split across internal buffers.
