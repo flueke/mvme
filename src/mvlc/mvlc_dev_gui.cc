@@ -229,21 +229,14 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
     const u32 *buffp = reinterpret_cast<const u32 *>(buffer.payloadBegin);
     const u32 *endp  = reinterpret_cast<const u32 *>(buffer.data.get() + buffer.used);
 
-    ++data.buffersChecked;
-
     while (true)
     {
         const u32 *nextp = buffp + data.nextHeaderOffset;
 
+        // Wrap to the next buffer
         if (nextp >= endp)
         {
             data.nextHeaderOffset = nextp - endp;
-
-            if (nextp == endp)
-            {
-                ++data.framesChecked;
-                return FrameCheckResult::Ok;
-            }
 
             return FrameCheckResult::NeedMoreData;
         }
@@ -487,6 +480,8 @@ void MVLCDataReader::readoutLoop()
                     emit frameCheckFailed(m_frameCheckData, m_readBuffer);
                 }
             }
+
+            ++m_frameCheckData.buffersChecked;
 
             if (checkResult == FrameCheckResult::HeaderMatchFailed)
             {
