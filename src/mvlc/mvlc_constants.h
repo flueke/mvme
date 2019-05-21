@@ -325,7 +325,7 @@ static const unsigned DefaultReadTimeout_ms  = 10;
 enum class ConnectionType
 {
     USB,
-    UDP
+    ETH
 };
 
 } // end namespace mvlc

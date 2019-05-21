@@ -143,7 +143,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 
         PacketReadResult read_packet(Pipe pipe, u8 *buffer, size_t size);
 
-        ConnectionType connectionType() const override { return ConnectionType::UDP; }
+        ConnectionType connectionType() const override { return ConnectionType::ETH; }
 
         std::error_code getReadQueueSize(Pipe pipe, u32 &dest) override;
 
@@ -177,6 +177,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
             DefaultReadTimeout_ms, DefaultReadTimeout_ms
         };
 
+        // Used internally for buffering in read()
         struct ReceiveBuffer
         {
             std::array<u8, JumboFrameMaxSize> buffer;

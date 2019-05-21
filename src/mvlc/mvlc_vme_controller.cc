@@ -141,7 +141,7 @@ VMEControllerType MVLC_VMEController::getType() const
         case ConnectionType::USB:
             return VMEControllerType::MVLC_USB;
 
-        case ConnectionType::UDP:
+        case ConnectionType::ETH:
             return VMEControllerType::MVLC_ETH;
     }
 

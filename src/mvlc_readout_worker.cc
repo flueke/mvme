@@ -79,7 +79,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         if (auto ec = setup_mvlc(*mvlc->getMVLCObject(), *getContext().vmeConfig, logger))
             throw ec;
 
-        if (mvlc->getMVLCObject()->connectionType() == ConnectionType::UDP)
+        if (mvlc->getMVLCObject()->connectionType() == ConnectionType::ETH)
         {
             logMessage(QSL("Connection type is UDP. Sending initial empty request"
                            " using the data socket."));
@@ -187,7 +187,7 @@ void MVLCReadoutWorker::preReadout()
                 prefix = "mvlc_usb_";
                 break;
 
-            case ConnectionType::UDP:
+            case ConnectionType::ETH:
                 prefix = "mvlc_eth_";
                 break;
         }

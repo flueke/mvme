@@ -292,7 +292,7 @@ void MVLCDataReader::readoutLoop()
 
     switch (m_mvlc->connectionType())
     {
-        case ConnectionType::UDP:
+        case ConnectionType::ETH:
             {
                 mvlc_eth = reinterpret_cast<eth::Impl *>(m_mvlc->getImpl());
 
@@ -324,6 +324,8 @@ void MVLCDataReader::readoutLoop()
                 mvlc_usb = reinterpret_cast<usb::Impl *>(m_mvlc->getImpl());
             } break;
     }
+
+    assert(mvlc_eth || mvlc_usb);
 
     auto prevFrameCheckResult = FrameCheckResult::Ok;
 
@@ -363,7 +365,7 @@ void MVLCDataReader::readoutLoop()
                         // store all packets in the circular buffer
                         m_ethDebugBuffer.push_back(OwningPacketReadResult(eth_rr));
 
-                        // check header point validity, range and type of pointed to data word
+                        // check header pointer validity, range and type of pointed to data word
                         if (eth_rr.nextHeaderPointer() != mvlc::eth::header1::NoHeaderPointerPresent)
                         {
                             bool isInvalid = false;
@@ -394,7 +396,7 @@ void MVLCDataReader::readoutLoop()
                     }
                     else if (m_ethDebugState == EthErrorSeen)
                     {
-                        // store additional packets
+                        // store additional packets received after the error has happened
                         m_ethDebugBuffer.push_back(OwningPacketReadResult(eth_rr));
 
                         if (--m_ethPacketsToCollect == 0)
@@ -669,7 +671,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
     // UDP receive stats table
     ui->gb_udpStats->hide();
-    if (m_d->mvlc->connectionType() == ConnectionType::UDP)
+    if (m_d->mvlc->connectionType() == ConnectionType::ETH)
     {
         ui->gb_udpStats->show();
 
@@ -895,7 +897,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                             .arg(devInfo.serial.c_str());
 
                     } break;
-                case ConnectionType::UDP:
+                case ConnectionType::ETH:
                     {
                         auto mvlc_eth = reinterpret_cast<eth::Impl *>(m_d->mvlc->getImpl());
 
