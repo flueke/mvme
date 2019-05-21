@@ -149,7 +149,9 @@ vme_daq_shutdown(
 //
 // build_event_readout_script
 //
-vme_script::VMEScript build_event_readout_script(EventConfig *eventConfig)
+vme_script::VMEScript build_event_readout_script(
+    EventConfig *eventConfig,
+    u8 flags)
 {
     using namespace vme_script;
 
@@ -163,14 +165,17 @@ vme_script::VMEScript build_event_readout_script(EventConfig *eventConfig)
         {
             result += module->getReadoutScript()->getScript(module->getBaseAddress());
         }
+
         /* If the module is disabled only the EndMarker will be present in the
          * readout data. This looks the same as if the module readout did not
          * yield any data at all. */
-
-        Command marker;
-        marker.type = CommandType::Marker;
-        marker.value = EndMarker;
-        result += marker;
+        if (!(flags & EventReadoutBuildFlags::NoModuleEndMarker))
+        {
+            Command marker;
+            marker.type = CommandType::Marker;
+            marker.value = EndMarker;
+            result += marker;
+        }
     }
 
     result += eventConfig->vmeScripts["readout_end"]->getScript();

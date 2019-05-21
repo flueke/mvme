@@ -67,14 +67,22 @@ vme_daq_shutdown(
     VMEController *controller,
     std::function<void (const QString &)> logger);
 
+struct EventReadoutBuildFlags
+{
+    static const u8 None = 0u;
+    static const u8 NoModuleEndMarker = 1u;
+};
+
 /* Builds a vme script containing the readout commands for the given event:
  * - event readout start ("cycle start" in the GUI)
  * - for each module:
- *     - module readout script
+ *     - module readout script (empty if module is disabled)
  *     - EndMarker command
  * - event readout end ("cycle end" in the GUI)
  */
-vme_script::VMEScript build_event_readout_script(EventConfig *eventConfig);
+vme_script::VMEScript build_event_readout_script(
+    EventConfig *eventConfig,
+    u8 flags = EventReadoutBuildFlags::None);
 
 struct DAQReadoutListfileHelperPrivate;
 
