@@ -541,3 +541,24 @@ void DAQReadoutListfileHelper::writeResumeSection()
         m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
     }
 }
+
+void log_errors(const QVector<ScriptWithResult> &results,
+                std::function<void (const QString &)> logger)
+{
+    for (const auto &swr: results)
+    {
+        const auto &script = swr.scriptConfig;
+
+        for (auto &result: swr.results)
+        {
+            if (result.error.isError())
+            {
+                QString msg = QSL("Error from '%1': %2")
+                    .arg(to_string(result.command))
+                    .arg(result.error.toString())
+                    ;
+                logger(msg);
+            }
+        }
+    }
+}

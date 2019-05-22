@@ -105,4 +105,7 @@ class DAQReadoutListfileHelper
         VMEReadoutWorkerContext m_readoutContext;
 };
 
+void log_errors(const QVector<ScriptWithResult> &results,
+                std::function<void (const QString &)> logger);
+
 #endif /* __VME_DAQ_H__ */
