@@ -234,7 +234,7 @@ namespace eth
 
     namespace header1
     {
-        // 20 bit UDP timestamp. Increments in 1ms steps. Wraps after 17.5
+        // 20 bit ETH timestamp. Increments in 1ms steps. Wraps after 17.5
         // minutes.
         static const u32 TimestampMask      = 0xfffff;
         static const u32 TimestampShift     = 12;
@@ -252,8 +252,6 @@ namespace eth
     }
 
     static const size_t JumboFrameMaxSize = 9000;
-    static const size_t UDPSingleTransferMaxBytes = 1 * 1024 * 1024;
-    static const size_t UDPSingleTransferMaxWords = UDPSingleTransferMaxBytes / sizeof(u32);
 
     enum class PacketChannel: u8
     {

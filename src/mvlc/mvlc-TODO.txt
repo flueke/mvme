@@ -62,3 +62,19 @@ USB readout
 * A single call to FT_ReadPipeEx is limited to a size of 1MB under both operating systems
   and with both USB2 and 3.
 
+
+ETH readout
+-----------
+Setting rmem_max can help a lot. SO_RCVBUF is limited by this kernel setting.
+  net.core.rmem_max=104857600
+
+If the RX dropped counter in `ifconfig` does not increase but there is packet loss at the
+application level then having a large receive buffer can help. What this basically means
+is that the software does not read fast enough from the socket so that the OS side buffer
+fills up and packets are discarded at the OS level. Either make the application faster
+(dedicated reader thread) and use larger application level buffers or increase the value
+of rmem_max and set a large SO_RCVBUF size.
+
+Using SO_RCVBUF short spikes can be handled by the OS. If the user-space application is
+just plain too slow the large buffer will fill up eventually and application level loss
+will occur again.

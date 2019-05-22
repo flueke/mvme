@@ -72,7 +72,8 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
     try
     {
-        vme_daq_init(getContext().vmeConfig, mvlc, logger);
+        auto results = vme_daq_init(getContext().vmeConfig, mvlc, logger);
+        log_errors(results, logger);
 
         logMessage("Initializing MVLC");
 
@@ -424,7 +425,8 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
             u32 frameHeader = iter.peekU32();
             auto frameInfo = extract_header_info(frameHeader);
 
-            if (frameInfo.type != buffer_headers::StackBuffer)
+            if (!(frameInfo.type == buffer_headers::StackBuffer
+                  || frameInfo.type == buffer_headers::StackContinuation))
             {
                 logMessage(QSL("MVLC Readout Warning:"
                                "received unexpected frame header: 0x%1, prevWord=0x%2")

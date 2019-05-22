@@ -49,6 +49,10 @@ HeaderOffset value.
   It would be better to guarantee that at least all internal structures 0xF3/F9, etc are
   terminated within one such internal buffer.
 
+=> Implement the case where it is guaranteed that internal framing structures are terminated
+   within a buffer. This in turn means that no header pointer needs to be present as each
+   new buffer will start with a header (F3/F9).
+
 
 Ethernet / UDP
 ---------------
