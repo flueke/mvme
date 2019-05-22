@@ -144,7 +144,7 @@ if(MVME_ENABLE_MVLC)
     target_link_libraries(libmvme_mvlc libmvme_core ftd3xx)
 
     target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_USB_LOG_LEVEL=${MVLC_USB_LOG_LEVEL})
-    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_UDP_LOG_LEVEL=${MVLC_UDP_LOG_LEVEL})
+    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_ETH_LOG_LEVEL=${MVLC_ETH_LOG_LEVEL})
     target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_DIALOG_LOG_LEVEL=${MVLC_DIALOG_LOG_LEVEL})
 
     qt5_use_modules(libmvme_mvlc Concurrent Gui Network Widgets)

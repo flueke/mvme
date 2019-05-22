@@ -27,11 +27,11 @@
 #define LOG_LEVEL_DEBUG 300
 #define LOG_LEVEL_TRACE 400
 
-#ifndef MVLC_UDP_LOG_LEVEL
-#define MVLC_UDP_LOG_LEVEL LOG_LEVEL_WARN
+#ifndef MVLC_ETH_LOG_LEVEL
+#define MVLC_ETH_LOG_LEVEL LOG_LEVEL_WARN
 #endif
 
-#define LOG_LEVEL_SETTING MVLC_UDP_LOG_LEVEL
+#define LOG_LEVEL_SETTING MVLC_ETH_LOG_LEVEL
 
 #define DO_LOG(level, prefix, fmt, ...)\
 do\
@@ -42,10 +42,10 @@ do\
     }\
 } while (0);
 
-#define LOG_WARN(fmt, ...)  DO_LOG(LOG_LEVEL_WARN,  "WARN - mvlc_udp ", fmt, ##__VA_ARGS__)
-#define LOG_INFO(fmt, ...)  DO_LOG(LOG_LEVEL_INFO,  "INFO - mvlc_udp ", fmt, ##__VA_ARGS__)
-#define LOG_DEBUG(fmt, ...) DO_LOG(LOG_LEVEL_DEBUG, "DEBUG - mvlc_udp ", fmt, ##__VA_ARGS__)
-#define LOG_TRACE(fmt, ...) DO_LOG(LOG_LEVEL_TRACE, "TRACE - mvlc_udp ", fmt, ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...)  DO_LOG(LOG_LEVEL_WARN,  "WARN - mvlc_eth ", fmt, ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...)  DO_LOG(LOG_LEVEL_INFO,  "INFO - mvlc_eth ", fmt, ##__VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) DO_LOG(LOG_LEVEL_DEBUG, "DEBUG - mvlc_eth ", fmt, ##__VA_ARGS__)
+#define LOG_TRACE(fmt, ...) DO_LOG(LOG_LEVEL_TRACE, "TRACE - mvlc_eth ", fmt, ##__VA_ARGS__)
 
 namespace
 {
@@ -146,7 +146,7 @@ std::error_code set_socket_read_timeout(int sock, unsigned ms)
 }
 
 const u16 FirstDynamicPort = 49152;
-static const int SocketReceiveBufferSize = 1024 * 1024 * 10;
+static const int SocketReceiveBufferSize = 1024 * 1024 * 100;
 
 } // end anon namespace
 
@@ -335,6 +335,33 @@ std::error_code Impl::connect()
 
         if (res != 0)
             return std::error_code(errno, std::system_category());
+
+        {
+            int actualBufferSize = 0;
+            socklen_t szLen = sizeof(actualBufferSize);
+
+#ifndef __WIN32
+            res = getsockopt(getSocket(pipe), SOL_SOCKET, SO_RCVBUF,
+                             &actualBufferSize,
+                             &szLen);
+#else
+            res = getsockopt(getSocket(pipe), SOL_SOCKET, SO_RCVBUF,
+                             reinterpret_cast<const char *>(&actualBufferSize),
+                             &szLen);
+#endif
+
+            assert(res == 0);
+            if (res != 0)
+                return std::error_code(errno, std::system_category());
+
+            LOG_INFO("pipe=%u, SO_RCVBUF=%d", static_cast<unsigned>(pipe), actualBufferSize);
+
+            if (actualBufferSize < SocketReceiveBufferSize)
+            {
+                LOG_INFO("pipe=%u, requested SO_RCVBUF of %d bytes, got %d bytes",
+                         static_cast<unsigned>(pipe), SocketReceiveBufferSize, actualBufferSize);
+            }
+        }
     }
 
     // TODO: send some initial request to verify there's an MVLC on the other side
@@ -603,6 +630,8 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     }
     else
     {
+        LOG_TRACE("  pipe=%u, NoHeaderPointerPresent, eth header1=0x%08x",
+                  pipe, res.header1());
         ++pipeStats.noHeader;
         ++channelStats.noHeader;
     }
