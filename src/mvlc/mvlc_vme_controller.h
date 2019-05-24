@@ -5,13 +5,13 @@
 #include "vme_controller.h"
 #include "mvlc/mvlc_qt_object.h"
 
-// Implementation of the VMEController interface for the MVLC.
-
 namespace mesytec
 {
 namespace mvlc
 {
 
+// Implementation of the VMEController interface for the MVLC.
+// Note: MVLC_VMEController does not take ownership of the MVLCObject.
 class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
 {
     Q_OBJECT

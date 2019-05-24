@@ -1,12 +1,20 @@
 Thoughts about the MVLC readout, listfile formats and passing of data to the analysis
 =====================================================================================
 
-Open Questions
+Open Questions / Issues
 --------------
+* If VME errors from stacks routed to the data endpoint occur then the output can not
+  always be parsed accurately.
+  Write commands do not produce any output in case there is no error.
+  If an error occurs a status word is produced on the data output: 0xffff<stackline>.
+  Reads always produce a data word: either the result or 0xffff<stackline> on error.
+  For 32-bit reads the error word cannot be distinguished from an actual read result.
+  In all error cases a F7 error notification is sent to the cmd pipe. This is asynchronous
+  to the data output.
 
 Answered Questions
 ------------------
-What's the maximum length of a single event the MVLC can produce?
+* What's the maximum length of a single event the MVLC can produce?
 -> There is no maximum length. Data would come in F9 blocks with the Continue bit set
    until the last F9 where Continue is cleared.
    For practical reasons event size should be limited for an event based analysis.
@@ -66,3 +74,16 @@ detected.
 Internal loss can be mitigated by beginning each internal buffer with a packet. This way a
 pointer to the next stack header will be present at the start of the buffer.
 The guarantee would be that packets are never split across internal buffers.
+
+Event Framing
+---------------
+0xF3/0xF9
+  0xF5 <- block reads
+  no framing for single reads (and write errors)
+
+0xFA -> System Event
+  0x01 -> software timestamp
+          written once per elapsed second
+  maybe:
+  0x02 -> ctrl switch. stream switches to a different vme controller
+          ctrl id can always be extracted from 0xF5 headers

@@ -292,7 +292,12 @@ void MVLCNotificationPoller::doPoll()
 
         do
         {
-            m_mvlc.readKnownBuffer(buffer);
+            auto ec = m_mvlc.readKnownBuffer(buffer);
+
+            if (ec && ec != ErrorType::Timeout)
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "error from readKnownBuffer: " << ec.message().c_str();
+            }
 
             if (!buffer.isEmpty())
                 emit stackErrorNotification(buffer);

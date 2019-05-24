@@ -677,7 +677,7 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     auto ec = make_error_code(st);
 
-    if (ec)
+    if (ec && ec != ErrorType::Timeout)
     {
         LOG_WARN("pipe=%u, read %lu of %lu bytes, result=%s",
                  static_cast<unsigned>(pipe),

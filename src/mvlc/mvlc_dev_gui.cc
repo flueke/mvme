@@ -601,9 +601,19 @@ struct MVLCDevGUI::Private
 
     QDateTime tReaderStarted,
               tReaderStopped,
-              tLastUpdate;
+              tLastReaderStatUpdate,
+              tLastStackNotificationUpdate;
 
     ReaderStats prevReaderStats = {};
+
+    struct StackNotificationStats
+    {
+        std::array<size_t, mesytec::mvlc::stacks::StackCount> counts = {};
+        size_t nonErrorNotifications = 0;
+    };
+
+    StackNotificationStats stackErrorNotificationStats,
+                           prevStackErrorNotificationStats;
 };
 
 MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
@@ -927,12 +937,9 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         ui->pb_reconnect->setEnabled(newState != MVLCObject::Connecting);
     });
 
-    // log stack error notifications published by the mvlc object
+    // count stack error notifications published by the mvlc object
     connect(m_d->mvlc, &MVLCObject::stackErrorNotification,
-            this, [this] (const QVector<u32> &buffer)
-    {
-        logBuffer(buffer, "Stack error notification from MVLC");
-    });
+            this, &MVLCDevGUI::handleStackErrorNotification);
 
     connect(ui->pb_runScript, &QPushButton::clicked,
             this, [this] ()
@@ -1016,16 +1023,21 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                         u32 header = tmpBuffer[0];
 
                         if (is_stackerror_notification(header))
+                        {
                             logBuffer(tmpBuffer, "Stack error notification from MVLC");
+                            handleStackErrorNotification(tmpBuffer);
+                        }
                         else
+                        {
                             logBuffer(tmpBuffer, "Unexpected buffer contents (wanted a stack error notification (0xF7)");
+                        }
                     }
                 }
             }
 
             for (const auto &notification: m_d->mvlc->getStackErrorNotifications())
             {
-                logBuffer(notification, "Error notification from MVLC");
+                this->handleStackErrorNotification(notification);
             }
         }
         catch (const mvlc::script::ParseError &e)
@@ -1301,7 +1313,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         auto now = QDateTime::currentDateTime();
         m_d->tReaderStarted = now;
         m_d->tReaderStopped = {};
-        m_d->tLastUpdate    = now;
+        m_d->tLastReaderStatUpdate    = now;
         m_d->prevReaderStats = {};
         m_d->dataReader->resetStats();
     });
@@ -1588,7 +1600,8 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
     // Periodic updates
     //
 
-    // Pull ReaderStats from MVLCDataReader
+    // Pull ReaderStats from MVLCDataReader, calculate deltas and rates and
+    // update the stats display.
     connect(updateTimer, &QTimer::timeout,
             this, [this] ()
     {
@@ -1627,8 +1640,8 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
         ReaderStats &prevStats = m_d->prevReaderStats;
 
-        double dt = (m_d->tLastUpdate.isValid()
-                     ? m_d->tLastUpdate.msecsTo(endTime)
+        double dt = (m_d->tLastReaderStatUpdate.isValid()
+                     ? m_d->tLastReaderStatUpdate.msecsTo(endTime)
                      : m_d->tReaderStarted.msecsTo(endTime)) / 1000.0;
 
         u64 deltaBytesRead = calc_delta0(
@@ -1664,7 +1677,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                                      .arg(m_d->dataReader->isStackFrameCheckEnabled()));
 
         m_d->prevReaderStats = stats;
-        m_d->tLastUpdate = QDateTime::currentDateTime();
+        m_d->tLastReaderStatUpdate = QDateTime::currentDateTime();
     });
 
     // Poll the read queue size for both pipes
@@ -1694,6 +1707,60 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             .arg(dtData.count())
             .arg(QTime::currentTime().toString())
             );
+    });
+
+    // update stack error notification couns and rates
+    connect(updateTimer, &QTimer::timeout,
+            this, [this] ()
+    {
+        auto now = QDateTime::currentDateTime();
+
+        if (!m_d->tLastStackNotificationUpdate.isValid())
+        {
+            m_d->tLastStackNotificationUpdate = now;
+            return;
+        }
+
+        double dt = m_d->tLastStackNotificationUpdate.msecsTo(now);
+        auto &curStats  = m_d->stackErrorNotificationStats;
+        auto &prevStats = m_d->prevStackErrorNotificationStats;
+
+        QStringList strParts;
+
+        for (u32 stackId = 0; stackId < curStats.counts.size(); stackId++)
+        {
+            u64 delta = calc_delta0(curStats.counts[stackId],
+                                    prevStats.counts[stackId]);
+
+            if (delta > 0)
+            {
+                double rate = delta / dt;
+                strParts += QString("stack%1: %2").arg(stackId).arg(delta);
+            }
+        }
+
+        QString labelText;
+
+        if (!strParts.isEmpty())
+        {
+            labelText = "Error Rates: " + strParts.join(", ");
+        }
+
+        {
+            u64 delta = prevStats.nonErrorNotifications - curStats.nonErrorNotifications;
+
+            if (delta > 0)
+            {
+                double rate = delta / dt;
+                if (!labelText.isEmpty()) labelText += ", ";
+                labelText += QString("non-stack notifications: %1").arg(delta);
+            }
+        }
+
+        ui->label_notificationStats->setText(labelText);
+
+        m_d->tLastStackNotificationUpdate = now;
+        prevStats = curStats;
     });
 
     updateTimer->start();
@@ -1826,6 +1893,24 @@ void MVLCDevGUI::handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const Q
     }
 
     logMessage(QString("<<< End Ethernet Header Debug (%1 packets)").arg(debugBuffer.size()));
+}
+
+void MVLCDevGUI::handleStackErrorNotification(const QVector<u32> &buffer)
+{
+    if (!buffer.isEmpty())
+    {
+        auto info = extract_header_info(buffer.at(0));
+
+        if (info.type == buffer_headers::StackError
+            && info.stack < mesytec::mvlc::stacks::StackCount)
+        {
+            ++m_d->stackErrorNotificationStats.counts[info.stack];
+        }
+        else
+        {
+            ++m_d->stackErrorNotificationStats.nonErrorNotifications;
+        }
+    }
 }
 
 //
@@ -2061,11 +2146,6 @@ void MVLCRegisterWidget::writeRegister(u16 address, u32 value)
 {
     if (auto ec = m_mvlc->writeRegister(address, value))
         emit sigLogMessage(QString("Write Register Error: %1").arg(ec.message().c_str()));
-
-    for (const auto &notification: m_mvlc->getStackErrorNotifications())
-    {
-        emit sigLogBuffer(notification, "Error notification from MVLC");
-    }
 }
 
 u32 MVLCRegisterWidget::readRegister(u16 address)
@@ -2073,11 +2153,6 @@ u32 MVLCRegisterWidget::readRegister(u16 address)
     u32 value = 0u;
     if (auto ec = m_mvlc->readRegister(address, value))
         emit sigLogMessage(QString("Read Register Error: %1").arg(ec.message().c_str()));
-
-    for (const auto &notification: m_mvlc->getStackErrorNotifications())
-    {
-        emit sigLogBuffer(notification, "Error notification from MVLC");
-    }
 
     return value;
 }
@@ -2174,7 +2249,8 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
 
     for (const auto &notification: m_mvlc->getStackErrorNotifications())
     {
-        emit sigLogBuffer(notification, "Error notification from MVLC");
+        emit stackErrorNotification(notification);
+        //emit sigLogBuffer(notification, "Error notification from MVLC");
     }
 }
 

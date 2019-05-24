@@ -194,6 +194,7 @@ class LIBMVME_MVLC_EXPORT MVLCDevGUI: public QMainWindow
 
     private slots:
         void handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const QString &reason);
+        void handleStackErrorNotification(const QVector<u32> &notification);
 
     private:
         struct Private;
@@ -208,6 +209,7 @@ class MVLCRegisterWidget: public QWidget
     signals:
         void sigLogMessage(const QString &str);
         void sigLogBuffer(const QVector<u32> &buffer, const QString &info);
+        void stackErrorNotification(const QVector<u32> &notification);
 
     public:
         MVLCRegisterWidget(mesytec::mvlc::MVLCObject *mvlc, QWidget *parent = nullptr);
@@ -258,6 +260,7 @@ class IPv4RegisterWidget: public QWidget
     private:
         u16 m_regLo,
             m_regHi;
+
         QLineEdit *le_valLo,
                   *le_valHi,
                   *le_addressInput;
