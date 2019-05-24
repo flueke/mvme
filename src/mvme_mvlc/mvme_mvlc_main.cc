@@ -29,11 +29,8 @@ int main(int argc, char *argv[])
     // TODO: init things here, open a gui
 
 
-
-
-
-
     int ret = app.exec();
+
     mvme_shutdown();
 
     return ret;

@@ -337,7 +337,7 @@ if (MVME_ENABLE_MVLC)
     # Standalone mvme-like binary specifically for the mvlc. This is used to
     # explore how to best integrate the mvlc and improve the mvme codebase as a
     # whole.
-    add_executable(mvme_mvlc mvlc/mvme_mvlc.cc)
+    add_executable(mvme_mvlc mvme_mvlc/mvme_mvlc_main.cc)
     target_link_libraries(mvme_mvlc libmvme)
 endif()
 
