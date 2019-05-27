@@ -199,7 +199,7 @@ static const u32 SelfVMEAddress       = 0xFFFF0000u;
 
 namespace usb
 {
-    // Limit imposed by FT_WritePipeEx and FT_ReadPipeEx under Linux
+    // Limit imposed by FT_WritePipeEx and FT_ReadPipeEx
     static const size_t USBSingleTransferMaxBytes = 1 * 1024 * 1024;
     static const size_t USBSingleTransferMaxWords = USBSingleTransferMaxBytes / sizeof(u32);
 } // end namespace usb

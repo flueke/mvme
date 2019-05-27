@@ -5,11 +5,31 @@
 #include "vme_daq.h"
 #include "mvme_stream_util.h"
 
+namespace mvlc_listfile
+{
+    static const u8 SystemFrame = 0xFA;
+
+    namespace system_frame_subtypes
+    {
+        static const u8 VMEConfig        = 0x10;
+        static const u8 SoftwareTimetick = 0x11;
+        static const u8 Pause            = 0x12;
+        static const u8 Resume           = 0x13;
+        static const u8 EndOfFile        = 0x14;
+    };
+
+    // Magic bytes at the start of the listfile. The terminating zero is not
+    // written.
+    static const char *FileMagic_ETH = "MVLC_ETH";
+    static const char *FileMagic_USB = "MVLC_USB";
+}
+
 class MVLCReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
     public:
         MVLCReadoutWorker(QObject *parent = nullptr);
+        ~MVLCReadoutWorker() override;
 
         void start(quint32 cycles = 0) override;
         void stop() override;
@@ -19,8 +39,10 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         DAQState getState() const override;
 
     private:
-        void preReadout();
-        void postReadout();
+        struct Private;
+        std::unique_ptr<Private> d;
+
+#if 1
         void readoutLoop();
         void setState(const DAQState &state);
         void logError(const QString &msg);
@@ -28,6 +50,9 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         void pauseDAQ();
         void resumeDAQ();
         std::error_code readAndProcessBuffer(size_t &bytesTransferred);
+        std::error_code readout_eth(size_t &bytesTransferred);
+        std::error_code readout_usb(size_t &bytesTransferred);
+
         DataBuffer *getOutputBuffer();
         void maybePutBackBuffer();
         void flushCurrentOutputBuffer();
@@ -40,16 +65,14 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         DataBuffer m_previousData;
         DataBuffer m_localEventBuffer;
         DataBuffer *m_outputBuffer = nullptr;
-        std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
 
         struct ReadoutState
         {
-            MVMEStreamWriterHelper streamWriter;
             s16 stack = -1;
             s16 module = 0;
         };
 
-        ReadoutState m_rdoState;
+        //ReadoutState m_rdoState;
 
         struct EventWithModules
         {
@@ -59,7 +82,7 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         };
 
         QVector<EventWithModules> m_events;
-        QFile m_rawBufferOut;
+#endif
 };
 
 #endif /* __MVME_MVLC_READOUT_WORKER_H__ */

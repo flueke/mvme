@@ -4,44 +4,81 @@
 #include <QtConcurrent>
 #include <QThread>
 
+#include <quazipfile.h>
+#include <quazip.h>
+
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc/mvlc_util.h"
+#include "mvlc/mvlc_impl_usb.h"
+#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc_daq.h"
 #include "vme_analysis_common.h"
 
-using namespace mesytec::mvlc;
+// =========================
+//    MVLC readout outline
+// =========================
+//
+// * Two different formats depending on connection type.
+// * Pass only complete frames around. For readout the detection has to be done
+//   anyways so that system frames can be properly inserted.
+// * Do not try to hit exactly 1s between SoftwareTimeticks. This will
+//   complicate the code a lot and is not really needed if some form of timestamp
+//   and/or duration is stored in the timetick event.
+//
+//
+// ETH
+// -------------------------
+// Small packets of 1500 or 8192 bytes. Two header words for packet loss detection
+// and handling (resume processing after loss).
+//
+// - Strategy
+//
+//   1) start with a fresh buffer
+//
+//   2) while free space in buffer > 8k:
+//     read packet and append to buffer
+//     if (flush timeout elapsed)
+//         flush buffer
+//     if (time for timetick)
+//         insert timetick frame
+//
+//   3) flush buffer
+//
+// => Inserting system frames is allowed at any point.
+//
+// - Replay from file:
+//   Read any amount of data from file into memory. If a word is not a system
+//   frame then it must be header0() of a previously received packet. Follow
+//   the header framing via the header0::NumDataWords value. This way either
+//   end up on the next header0() or at the start of a system frame.
+//   If part of a packet is at the end of the buffer read from disk store the part
+//   temporarily and truncate the buffer. Then when doing the next read add the
+//   partial packet to the front fo the new buffer.
+//   -> Packet boundaries can be restored and it can be guaranteed that only full
+//   packets worth of data are passed internally.
+//
+//
+// USB
+// -------------------------
+// Stream of data. Reads do not coincide with buffer framing. The exception is the
+// very first read which starts with an 0xF3 frame.
+// To be able to insert system frames (e.g. timeticks) and to make the analysis
+// easier to write, internal buffers must contain complete frames only. To make
+// this work the readout code has to follow the 0xF3 data framing. Extract the
+// length to be able to jump to the next frame start. Store partial data at the
+// end and truncate the buffer before flushing it.
+//
+// - Replay:
+//   Starts with a system or a readout frame. Follow frame structure doing
+//   truncation and copy of partial frames.
+//
+// Note: max amount to copy is the max length of a frame. That's 2^13 words
+// (32k bytes) for readout frames.
 
-static const size_t LocalEventBufferSize = Megabytes(1);
-static const size_t ReadBufferSize = Megabytes(1);
-
-MVLCReadoutWorker::MVLCReadoutWorker(QObject *parent)
-    : VMEReadoutWorker(parent)
-    , m_state(DAQState::Idle)
-    , m_desiredState(DAQState::Idle)
-    , m_readBuffer(ReadBufferSize)
-    , m_previousData(ReadBufferSize)
-    , m_localEventBuffer(LocalEventBufferSize)
-{
-}
-
-void MVLCReadoutWorker::start(quint32 cycles)
-{
-    if (m_state != DAQState::Idle)
-    {
-        logMessage("Readout state != Idle, aborting startup");
-        return;
-    }
-
-    auto mvlc = qobject_cast<MVLC_VMEController *>(getContext().controller);
-
-    if (!mvlc)
-    {
-        logMessage("MVLC controller required");
-        InvalidCodePath;
-        return;
-    }
-
+    // TODO: where to handle error notifications? The GUI should display their
+    // rates by stack somewhere.
+#if 0
     connect(mvlc, &MVLC_VMEController::stackErrorNotification,
             this, [this] (const QVector<u32> &notification)
     {
@@ -59,36 +96,193 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         logMessage(QSL("End of Stack Error Notification"), false);
     });
+#endif
 
-    setState(DAQState::Starting);
+
+using namespace mesytec::mvlc;
+
+static const size_t LocalEventBufferSize = Megabytes(1);
+static const size_t ReadBufferSize = Megabytes(1);
+static const std::chrono::milliseconds BufferFlushInterval(1000);
+
+namespace
+{
+
+struct ListfileOutput
+{
+    QString outFilename;
+    std::unique_ptr<QuaZip> archive;
+    std::unique_ptr<QIODevice> outdev;
+};
+
+ListfileOutput open_listfile(ListFileOutputInfo &outinfo,
+                             std::function<void (const QString &)> logger)
+{
+    ListfileOutput result;
+
+    if (!outinfo.enabled)
+        return result;
+
+    if (outinfo.fullDirectory.isEmpty())
+        throw QString("Error: listfile output directory is not set");
+
+    result.outFilename = make_new_listfile_name(&outinfo);
+
+    switch (outinfo.format)
+    {
+        case ListFileFormat::Plain:
+            {
+                result.outdev = std::make_unique<QFile>(result.outFilename);
+                auto outFile = reinterpret_cast<QFile *>(result.outdev.get());
+
+                logger(QString("Writing to listfile %1").arg(result.outFilename));
+
+                if (!outFile->open(QIODevice::WriteOnly))
+                {
+                    throw QString("Error opening listFile %1 for writing: %2")
+                        .arg(outFile->fileName())
+                        .arg(outFile->errorString())
+                        ;
+                }
+
+            } break;
+
+        case ListFileFormat::ZIP:
+            {
+                /* The name of the listfile inside the zip archive. */
+                QFileInfo fi(result.outFilename);
+                QString listfileFilename(QFileInfo(result.outFilename).completeBaseName());
+                listfileFilename += QSL(".mvmelst");
+
+                result.archive = std::make_unique<QuaZip>();
+                result.archive->setZipName(result.outFilename);
+                result.archive->setZip64Enabled(true);
+
+                logger(QString("Writing listfile into %1").arg(result.outFilename));
+
+                if (!result.archive->open(QuaZip::mdCreate))
+                {
+                    throw make_zip_error(result.archive->getZipName(), *result.archive);
+                }
+
+                result.outdev = std::make_unique<QuaZipFile>(result.archive.get());
+                auto outFile = reinterpret_cast<QuaZipFile *>(result.outdev.get());
+
+                QuaZipNewInfo zipFileInfo(listfileFilename);
+                zipFileInfo.setPermissions(static_cast<QFile::Permissions>(0x6644));
+
+                bool res = outFile->open(QIODevice::WriteOnly, zipFileInfo,
+                                         // password, crc
+                                         nullptr, 0,
+                                         // method (Z_DEFLATED or 0 for no compression)
+                                         Z_DEFLATED,
+                                         // level
+                                         outinfo.compressionLevel
+                                        );
+
+                if (!res)
+                {
+                    result.outdev.reset();
+                    throw make_zip_error(result.archive->getZipName(), *result.archive);
+                }
+            } break;
+
+        case ListFileFormat::Invalid:
+            assert(false);
+    }
+
+    return result;
+}
+
+} // end anon namespace
+
+struct MVLCReadoutWorker::Private
+{
+    MVLCReadoutWorker *q;
+
+    // lots of mvlc api layers
+    MVLC_VMEController *mvlcCtrl;
+    MVLCObject *mvlcObj;
+    eth::Impl *mvlc_eth;
+    usb::Impl *mvlc_usb;
+    ListfileOutput listfileOut;
+};
+
+MVLCReadoutWorker::MVLCReadoutWorker(QObject *parent)
+    : VMEReadoutWorker(parent)
+    , d(std::make_unique<Private>())
+    , m_state(DAQState::Idle)
+    , m_desiredState(DAQState::Idle)
+    , m_readBuffer(ReadBufferSize)
+    , m_previousData(ReadBufferSize)
+    , m_localEventBuffer(LocalEventBufferSize)
+{
+    *d = {};
+    d->q = this;
+}
+
+MVLCReadoutWorker::~MVLCReadoutWorker()
+{
+}
+
+void MVLCReadoutWorker::start(quint32 cycles)
+{
+    if (m_state != DAQState::Idle)
+    {
+        logMessage("Readout state != Idle, aborting startup");
+        return;
+    }
+
+    // Setup the Private struct members
+    d->mvlcCtrl = qobject_cast<MVLC_VMEController *>(getContext().controller);
+
+    if (!d->mvlcCtrl)
+    {
+        logMessage("MVLC controller required");
+        InvalidCodePath;
+        return;
+    }
+
+    d->mvlcObj = d->mvlcCtrl->getMVLCObject();
+
+    switch (d->mvlcObj->connectionType())
+    {
+        case ConnectionType::ETH:
+            d->mvlc_eth = reinterpret_cast<eth::Impl *>(d->mvlcObj->getImpl());
+            d->mvlc_usb = nullptr;
+            break;
+
+        case ConnectionType::USB:
+            d->mvlc_eth = nullptr;
+            d->mvlc_usb = reinterpret_cast<usb::Impl *>(d->mvlcObj->getImpl());
+            break;
+    }
 
     m_cyclesToRun = cycles;
     m_logBuffers = (cycles > 0); // log buffers to GUI if number of cycles has been passed in
 
-    auto logger = [this](const QString &msg)
-    {
-        this->logMessage(msg);
-    };
-
     try
     {
-        auto results = vme_daq_init(getContext().vmeConfig, mvlc, logger);
+        auto logger = [this](const QString &msg)
+        {
+            this->logMessage(msg);
+        };
+
+        setState(DAQState::Starting);
+
+        // vme init sequence
+        auto results = vme_daq_init(getContext().vmeConfig, d->mvlcCtrl, logger);
         log_errors(results, logger);
 
-        logMessage("Initializing MVLC");
-
-        if (auto ec = setup_mvlc(*mvlc->getMVLCObject(), *getContext().vmeConfig, logger))
-            throw ec;
-
-        if (mvlc->getMVLCObject()->connectionType() == ConnectionType::ETH)
+        if (d->mvlcObj->connectionType() == ConnectionType::ETH)
         {
-            logMessage(QSL("Connection type is UDP. Sending initial empty request"
-                           " using the data socket."));
+            logMessage(QSL("MVLC connection type is UDP. Sending initial empty request"
+                           " via the data socket."));
 
             static const std::array<u32, 2> EmptyRequest = { 0xF1000000, 0xF2000000 };
             size_t bytesTransferred = 0;
 
-            if (auto ec = mvlc->getMVLCObject()->write(
+            if (auto ec = d->mvlcObj->write(
                     Pipe::Data,
                     reinterpret_cast<const u8 *>(EmptyRequest.data()),
                     EmptyRequest.size() * sizeof(u32),
@@ -98,53 +292,33 @@ void MVLCReadoutWorker::start(quint32 cycles)
             }
         }
 
-        // build a structure for faster access to vme config data
-        {
-            auto lst = m_workerContext.vmeConfig->getEventConfigs();
-            m_events.clear();
-            m_events.reserve(lst.size());
+        logMessage("Initializing MVLC");
 
-            for (const auto &eventConfig: m_workerContext.vmeConfig->getEventConfigs())
-            {
-                EventWithModules ewm;
-                ewm.event = eventConfig;
-                auto modules = eventConfig->getModuleConfigs();
+        // Stack and trigger setup. Triggers are enabled immediately, this
+        // means data will start coming in right away.
+        if (auto ec = setup_mvlc(*d->mvlcObj, *getContext().vmeConfig, logger))
+            throw ec;
 
-                for (const auto &moduleConfig: eventConfig->getModuleConfigs())
-                {
-                    ewm.modules.push_back(moduleConfig);
-                    ewm.moduleTypes.push_back(moduleConfig->getModuleMeta().typeId);
-                }
-
-                m_events.push_back(ewm);
-            }
-        }
-
+        // listfile handling
+        d->listfileOut = open_listfile(*m_workerContext.listfileOutputInfo, logger);
+        m_workerContext.daqStats->listfileFilename = d->listfileOut.outFilename;
+        // TODO: write magic and vme config to listfile.
 
         logMessage("");
         logMessage(QSL("Entering readout loop"));
         m_workerContext.daqStats->start();
-        m_rdoState = {};
-        m_listfileHelper = std::make_unique<DAQReadoutListfileHelper>(m_workerContext);
-        m_listfileHelper->beginRun();
-
-        // Keep this after DAQReadoutListfileHelper::beginRun() so that the
-        // real output filename is available.
-        preReadout();
 
         readoutLoop();
-
-        postReadout();
 
         logMessage(QSL("Leaving readout loop"));
         logMessage(QSL(""));
 
-        vme_daq_shutdown(getContext().vmeConfig, mvlc, logger);
+        vme_daq_shutdown(getContext().vmeConfig, d->mvlcCtrl, logger);
 
         // Note: endRun() collects the log contents, which means it should be one of the
         // last actions happening in here. Log messages generated after this point won't
         // show up in the listfile.
-        m_listfileHelper->endRun();
+        //m_listfileHelper->endRun();
         m_workerContext.daqStats->stop();
     }
     catch (const std::error_code &ec)
@@ -171,58 +345,6 @@ void MVLCReadoutWorker::start(quint32 cycles)
     setState(DAQState::Idle);
 }
 
-void MVLCReadoutWorker::preReadout()
-{
-    QVariantMap controllerSettings = m_workerContext.vmeConfig->getControllerSettings();
-
-    if (controllerSettings.value("WriteRawBufferFile").toBool())
-    {
-        auto mvlc = qobject_cast<MVLC_VMEController *>(getContext().controller);
-        assert(mvlc);
-
-        const char *prefix = nullptr;
-
-        switch (mvlc->getMVLCObject()->connectionType())
-        {
-            case ConnectionType::USB:
-                prefix = "mvlc_usb_";
-                break;
-
-            case ConnectionType::ETH:
-                prefix = "mvlc_eth_";
-                break;
-        }
-
-        QString filename = prefix
-            + generate_output_basename(*m_workerContext.listfileOutputInfo)
-            + ".bin";
-
-        m_rawBufferOut.setFileName(filename);
-        if (!m_rawBufferOut.open(QIODevice::WriteOnly))
-        {
-            auto msg = (QString("Error opening MVLC raw buffers file for writing: %1")
-                        .arg(m_rawBufferOut.errorString()));
-            logMessage(msg);
-        }
-        else
-        {
-            auto msg = (QString("Writing raw MVLC buffers to %1")
-                        .arg(m_rawBufferOut.fileName()));
-            logMessage(msg);
-        }
-    }
-}
-
-void MVLCReadoutWorker::postReadout()
-{
-    if (m_rawBufferOut.isOpen())
-    {
-        logMessage(QString("Closing MVLC raw buffers file %1")
-                    .arg(m_rawBufferOut.fileName()));
-        m_rawBufferOut.close();
-    }
-}
-
 void MVLCReadoutWorker::readoutLoop()
 {
     using vme_analysis_common::TimetickGenerator;
@@ -236,7 +358,7 @@ void MVLCReadoutWorker::readoutLoop()
     setState(DAQState::Running);
 
     TimetickGenerator timetickGen;
-    m_listfileHelper->writeTimetickSection();
+    //m_listfileHelper->writeTimetickSection();
     logReadErrorTimer.start();
 
     while (true)
@@ -245,7 +367,7 @@ void MVLCReadoutWorker::readoutLoop()
 
         while (elapsedSeconds >= 1)
         {
-            m_listfileHelper->writeTimetickSection();
+            //m_listfileHelper->writeTimetickSection();
             elapsedSeconds--;
         }
 
@@ -262,6 +384,7 @@ void MVLCReadoutWorker::readoutLoop()
                 break;
             }
 
+#if 0
             if (ec && ec != MVLCErrorCode::NeedMoreData)
             {
                 maybePutBackBuffer();
@@ -284,6 +407,7 @@ void MVLCReadoutWorker::readoutLoop()
                     readErrorCount = 0;
                 }
             }
+#endif
 
             if (unlikely(m_cyclesToRun > 0))
             {
@@ -330,6 +454,9 @@ void MVLCReadoutWorker::readoutLoop()
     });
 
     size_t bytesTransferred = 0u;
+    // FIXME: the code can hang here forever if disabling the readout triggers
+    // does not work.  Measure total time spent in the loop and break out
+    // after a threshold has been reached.
     do
     {
         readAndProcessBuffer(bytesTransferred);
@@ -346,18 +473,37 @@ void MVLCReadoutWorker::readoutLoop()
     qDebug() << __PRETTY_FUNCTION__ << "at end";
 }
 
-// TODO MVLCReadoutWorker:
-// - keep track of stats
-// - better error codes for data consistency checks
-// - test performance implications of buffered vs unbuffered reads
-// - support other structures than just block reads. This means inside F3
-//   buffers other contents than F5 sections are allowed.
-//   The data could just be copied over but that does not allow for consistency checks.
 std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred)
 {
-    auto mvlc = qobject_cast<MVLC_VMEController *>(getContext().controller)->getMVLCObject();
+    // TODO: rename this once I can come up with a better name. depending on
+    // the connection type and the amount of incoming data, etc. this does
+    // different things.
+
+    // Return ConnectionError if the whole readout should be aborted.
+    // Other error codes do canceling of the run.
+    // If no data was read within some interval that fact should be logged.
+    //
+    // What this should do:
+    // grab a fresh output buffer
+    // read into that buffer until either the buffer is full and can be flushed
+    // or a certain time has passed and we want to flush a buffer to stay
+    // responsive (the low data rate case).
+    // If the format needs it do perform consistency checks on the incoming data.
+    // For usb: follow the F3 framing.
 
     bytesTransferred = 0u;
+
+    if (d->mvlc_eth)
+        return readout_eth(bytesTransferred);
+    else
+        return readout_usb(bytesTransferred);
+
+    return {};
+
+
+#if 0
+    auto mvlc = qobject_cast<MVLC_VMEController *>(getContext().controller)->getMVLCObject();
+
     m_readBuffer.used = 0u;
 
     if (m_previousData.used)
@@ -415,7 +561,7 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
 
     auto outputBuffer = getOutputBuffer();
     outputBuffer->ensureCapacity(outputBuffer->used + m_readBuffer.used * 2);
-    m_rdoState.streamWriter.setOutputBuffer(outputBuffer);
+    //m_rdoState.streamWriter.setOutputBuffer(outputBuffer);
 
     try
     {
@@ -586,6 +732,21 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
     }
 
     return {};
+#endif
+}
+
+std::error_code MVLCReadoutWorker::readout_eth(size_t &bytesTransferred)
+{
+    assert(d->mvlc_eth);
+    assert(!m_outputBuffer);
+
+}
+
+std::error_code MVLCReadoutWorker::readout_usb(size_t &bytesTransferred)
+{
+    assert(d->mvlc_usb);
+    assert(!m_outputBuffer);
+
 }
 
 DataBuffer *MVLCReadoutWorker::getOutputBuffer()
@@ -603,6 +764,9 @@ DataBuffer *MVLCReadoutWorker::getOutputBuffer()
 
         // Reset a fresh buffer
         outputBuffer->used = 0;
+        outputBuffer->tag  = static_cast<int>((d->mvlc_eth
+                                               ? DataBufferFormatTags::MVLC_ETH
+                                               : DataBufferFormatTags::MVLC_USB));
         m_outputBuffer = outputBuffer;
     }
 
@@ -613,9 +777,7 @@ void MVLCReadoutWorker::maybePutBackBuffer()
 {
     if (m_outputBuffer && m_outputBuffer != &m_localEventBuffer)
     {
-        // We still hold onto one of the buffers obtained from the free queue.
-        // This can happen for the SkipInput case. Put the buffer back into the
-        // free queue.
+        // put the buffer back onto the free queue
         enqueue(m_workerContext.freeBuffers, m_outputBuffer);
     }
 
@@ -628,7 +790,18 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
 
     if (outputBuffer)
     {
-        m_listfileHelper->writeBuffer(outputBuffer);
+        if (d->listfileOut.outdev)
+        {
+            // write to listfile
+            qint64 bytesWritten = d->listfileOut.outdev->write(
+                reinterpret_cast<const char *>(outputBuffer->data),
+                outputBuffer->used);
+
+            if (bytesWritten != static_cast<qint64>(outputBuffer->used))
+                throw_io_device_error(d->listfileOut.outdev);
+
+            m_workerContext.daqStats->listFileBytesWritten += bytesWritten;
+        }
 
         if (outputBuffer != &m_localEventBuffer)
         {
@@ -639,7 +812,6 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
             m_workerContext.daqStats->droppedBuffers++;
         }
         m_outputBuffer = nullptr;
-        m_rdoState.streamWriter.setOutputBuffer(nullptr);
     }
 }
 
@@ -658,7 +830,7 @@ void MVLCReadoutWorker::pauseDAQ()
     } while (bytesTransferred > 0);
 
 
-    m_listfileHelper->writePauseSection();
+    //m_listfileHelper->writePauseSection();
 
     setState(DAQState::Paused);
     logMessage(QString(QSL("MVLC readout paused")));
@@ -671,7 +843,7 @@ void MVLCReadoutWorker::resumeDAQ()
 
     enable_triggers(*mvlc->getMVLCObject(), *getContext().vmeConfig);
 
-    m_listfileHelper->writeResumeSection();
+    //m_listfileHelper->writeResumeSection();
 
     setState(DAQState::Running);
     logMessage(QSL("MVLC readout resumed"));

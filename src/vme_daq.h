@@ -108,4 +108,22 @@ class DAQReadoutListfileHelper
 void log_errors(const QVector<ScriptWithResult> &results,
                 std::function<void (const QString &)> logger);
 
+/* Throws if neither UseRunNumber nor UseTimestamp is set and the file already
+ * exists. Otherwise tries until it hits a non-existant filename. In the odd
+ * case where a timestamped filename exists and only UseTimestamp is set this
+ * process will take 1s!
+ *
+ * Also note that the file handling code does not in any way guard against race
+ * conditions when someone else is also creating files.
+ *
+ * Note: Increments the runNumber of outInfo if UseRunNumber is set in the
+ * output flags.
+ */
+QString make_new_listfile_name(ListFileOutputInfo *outInfo);
+
+class QuaZip;
+std::runtime_error make_zip_error(const QString &msg, const QuaZip &zip);
+void throw_io_device_error(QIODevice *device);
+void throw_io_device_error(std::unique_ptr<QIODevice> &device);
+
 #endif /* __VME_DAQ_H__ */

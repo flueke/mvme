@@ -183,42 +183,39 @@ vme_script::VMEScript build_event_readout_script(
     return result;
 }
 
-namespace
+std::runtime_error make_zip_error(const QString &msg, const QuaZip &zip)
 {
-    static std::runtime_error make_zip_error(const QString &msg, const QuaZip &zip)
-    {
-        auto m = QString("Error: archive=%1, error=%2")
-            .arg(msg)
-            .arg(zip.getZipError());
+    auto m = QString("Error: archive=%1, error=%2")
+        .arg(msg)
+        .arg(zip.getZipError());
 
-        return std::runtime_error(m.toStdString());
-    }
+    return std::runtime_error(m.toStdString());
+}
 
-    static void throw_io_device_error(QIODevice *device)
+void throw_io_device_error(QIODevice *device)
+{
+    if (auto zipFile = qobject_cast<QuaZipFile *>(device))
     {
-        if (auto zipFile = qobject_cast<QuaZipFile *>(device))
-        {
-            throw make_zip_error(zipFile->getZip()->getZipName(),
-                                 *(zipFile->getZip()));
-        }
-        else if (auto file = qobject_cast<QFile *>(device))
-        {
-            throw QString("Error: file=%1, error=%2")
-                .arg(file->fileName())
-                .arg(file->errorString())
-                ;
-        }
-        else
-        {
-            throw QString("IO Error: %1")
-                .arg(device->errorString());
-        }
+        throw make_zip_error(zipFile->getZip()->getZipName(),
+                             *(zipFile->getZip()));
     }
+    else if (auto file = qobject_cast<QFile *>(device))
+    {
+        throw QString("Error: file=%1, error=%2")
+            .arg(file->fileName())
+            .arg(file->errorString())
+            ;
+    }
+    else
+    {
+        throw QString("IO Error: %1")
+            .arg(device->errorString());
+    }
+}
 
-    static void throw_io_device_error(std::unique_ptr<QIODevice> &device)
-    {
-        throw_io_device_error(device.get());
-    }
+void throw_io_device_error(std::unique_ptr<QIODevice> &device)
+{
+    throw_io_device_error(device.get());
 }
 
 struct DAQReadoutListfileHelperPrivate
@@ -242,19 +239,6 @@ DAQReadoutListfileHelper::~DAQReadoutListfileHelper()
 {
 }
 
-namespace
-{
-/* Throws if neither UseRunNumber nor UseTimestamp is set and the file already
- * exists. Otherwise tries until it hits a non-existant filename. In the odd
- * case where a timestamped filename exists and only UseTimestamp is set this
- * process will take 1s!
- *
- * Also note that the file handling code does not in any way guard against race
- * conditions when someone else is also creating files.
- *
- * Note: Increments the runNumber of outInfo if UseRunNumber is set in the
- * output flags.
- */
 QString make_new_listfile_name(ListFileOutputInfo *outInfo)
 {
     auto testFlags = (ListFileOutputInfo::UseRunNumber | ListFileOutputInfo::UseTimestamp);
@@ -286,8 +270,6 @@ QString make_new_listfile_name(ListFileOutputInfo *outInfo)
 
     return result;
 }
-
-} // end anon namespace
 
 void DAQReadoutListfileHelper::beginRun()
 {
