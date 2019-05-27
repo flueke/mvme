@@ -19,11 +19,10 @@ Q_DECLARE_METATYPE(MessageSeverity)
 
 // State of the data producing side. Used for actual DAQ readouts and for
 // replays from file.
-// Note: "Ready" state not used for now
 // Valid transitions are:
 //   Idle     -> Starting
 //   Starting -> Ready | Idle
-//   Ready    -> Running | Idle
+//   Ready    -> Running | Stopping
 //   Running  -> Paused | Stopping
 //   Paused   -> Runnning | Stopping
 //   Stopping -> Idle
@@ -32,13 +31,19 @@ enum class ReadoutState
 {
     Idle,
     Starting,
-    //Ready,
+    Ready,
     Running,
     Paused,
     Stopping,
 };
 
-Q_DECLARE_METATYPE(ReaderState)
+Q_DECLARE_METATYPE(ReadoutState)
+
+enum class StartupOption
+{
+    WaitWhenReady,
+    StartImmediately
+};
 
 struct ReadoutContext
 {
@@ -47,19 +52,12 @@ struct ReadoutContext
     const VMEConfig *vmeConfig;
 };
 
-// TODO: use this to have a way to distinguish buffers from MVLC_ETH/USB
-struct TaggedBuffer
-{
-    int tag;
-    QVector<u8> buffer;
-};
-
 class ReadoutInterface: public QObject
 {
     Q_OBJECT
     signals:
-        void started();
-        //void ready();
+        void starting();
+        void ready();
         void running();
         void paused();
         void stopped();
@@ -71,30 +69,38 @@ class ReadoutInterface: public QObject
         ReadoutInterface(QObject *parent = nullptr);
 
     public slots:
-
         // The main entry point to start a readout. This is a blocking call
         // which returns either when a fatal startup error occurs or after
-        // stop() has been invoked from the outisde.
-        void start(const ReadoutContext &ctx);
+        // stop() has been invoked from the outside.
+        void start(StartupOption opt);
 
-        // Thread safe, sets an atomic flag which makes readoutLoop() return.
+        // Use this to transition from Ready state if
+        // StartupOption::WaitWhenReady was used.
+        void continueStartup();
+
+        // Tells the readout to stop. Thread safe.
         void stop();
 
-        // Thread safe, sets atomic flag which makes readoutLoop() copy the
-        // next buffer it receives and send it out via the bufferReady()
-        // signal.
-        void requestNextBuffers(size_t count);
+        // Tells the data reader to make the next count buffers it reads
+        // available via the bufferReady() signal.
+        // Thread safe.
+        void requestNextBuffers(int count)
+        {
+            m_requestedBuffers = count;
+        }
+
+        size_t requestedBufferCount() const
+        {
+            return m_requestedBuffers;
+        }
 
     protected:
-        bool isNextBufferRequested() { return m_isNextBufferRequested; }
-        void requestedBufferReady(const QVector<u8> &buffer);
 
     private:
-        std::atomic<size_t> m_requestedBuffers;
+        std::atomic<int> m_requestedBuffers;
 };
 
 }
 }
-
 
 #endif /* __MVME_MVLC_H__ */
