@@ -27,11 +27,12 @@
 
 struct DataBuffer
 {
-    DataBuffer(size_t sz, u64 id = 0u)
+    DataBuffer(size_t sz, int tag = 0, u64 id = 0u)
         : data(nullptr)
         , size(sz)
         , used(0)
         , id(id)
+        , tag(tag)
     {
         if (size > 0)
         {
@@ -49,6 +50,9 @@ struct DataBuffer
     {
         delete[] data;
     }
+
+    DataBuffer(const DataBuffer &) = delete;
+    DataBuffer &operator=(const DataBuffer &) = delete;
 
     void reserve(size_t newSize)
     {
@@ -98,7 +102,8 @@ struct DataBuffer
 
     DataBuffer *deepcopy(DeepcopyOptions opt = Deepcopy_AllocateFullSize)
     {
-        auto result = new DataBuffer(opt == Deepcopy_AllocateFullSize ? size : used, id);
+        auto result = new DataBuffer(opt == Deepcopy_AllocateFullSize ? size : used,
+                                     tag, id);
 
         if (used)
         {
@@ -113,10 +118,7 @@ struct DataBuffer
     size_t size; // size in bytes
     size_t used; // bytes used
     u64 id = 0u; // id value for external use
-
-    private:
-        DataBuffer(const DataBuffer &);
-        DataBuffer &operator=(const DataBuffer &);
+    int tag = 0; // tag allowing to distinguish buffer types
 };
 
 typedef QQueue<DataBuffer *> DataBufferQueue;
