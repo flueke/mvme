@@ -1,4 +1,5 @@
 #include "mvlc/mvlc_register_names.h"
+#include <mutex>
 
 namespace mesytec
 {
@@ -56,6 +57,9 @@ const std::map<u16, std::string> &get_addr_2_name_map()
 const std::map<std::string, u16> &get_name_2_addr_map()
 {
     static std::map<std::string, u16> reverse_mapping;
+    static std::mutex mux;
+
+    std::lock_guard<std::mutex> guard(mux);
 
     if (reverse_mapping.empty())
     {
@@ -72,6 +76,9 @@ const std::map<std::string, u16> &get_name_2_addr_map()
 const QMap<u16, QString> &get_addr_2_name_qmap()
 {
     static QMap<u16, QString> mapping;
+    static std::mutex mux;
+
+    std::lock_guard<std::mutex> guard(mux);
 
     if (mapping.isEmpty())
     {
@@ -87,6 +94,9 @@ const QMap<u16, QString> &get_addr_2_name_qmap()
 const QMap<QString, u16> &get_name_2_addr_qmap()
 {
     static QMap<QString, u16> mapping;
+    static std::mutex mux;
+
+    std::lock_guard<std::mutex> guard(mux);
 
     if (mapping.isEmpty())
     {
