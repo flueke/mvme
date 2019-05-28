@@ -19,7 +19,7 @@ namespace mvlc_listfile
     };
 
     // Magic bytes at the start of the listfile. The terminating zero is not
-    // written.
+    // written so that the marker uses 8 bytes.
     static const char *FileMagic_ETH = "MVLC_ETH";
     static const char *FileMagic_USB = "MVLC_USB";
 }

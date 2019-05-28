@@ -103,7 +103,6 @@ using namespace mesytec::mvlc;
 
 static const size_t LocalEventBufferSize = Megabytes(1);
 static const size_t ReadBufferSize = Megabytes(1);
-static const std::chrono::milliseconds BufferFlushInterval(1000);
 
 namespace
 {
@@ -198,14 +197,20 @@ ListfileOutput open_listfile(ListFileOutputInfo &outinfo,
 
 struct MVLCReadoutWorker::Private
 {
-    MVLCReadoutWorker *q;
+    MVLCReadoutWorker *q = nullptr;;
 
     // lots of mvlc api layers
-    MVLC_VMEController *mvlcCtrl;
-    MVLCObject *mvlcObj;
-    eth::Impl *mvlc_eth;
-    usb::Impl *mvlc_usb;
+    MVLC_VMEController *mvlcCtrl = nullptr;;
+    MVLCObject *mvlcObj = nullptr;;
+    eth::Impl *mvlc_eth = nullptr;;
+    usb::Impl *mvlc_usb = nullptr;;
     ListfileOutput listfileOut;
+    u64 nextOutputBufferNumber = 0u;;
+
+    void preRunClear()
+    {
+        nextOutputBufferNumber = 0u;
+    }
 };
 
 MVLCReadoutWorker::MVLCReadoutWorker(QObject *parent)
@@ -217,7 +222,6 @@ MVLCReadoutWorker::MVLCReadoutWorker(QObject *parent)
     , m_previousData(ReadBufferSize)
     , m_localEventBuffer(LocalEventBufferSize)
 {
-    *d = {};
     d->q = this;
 }
 
@@ -304,6 +308,8 @@ void MVLCReadoutWorker::start(quint32 cycles)
         m_workerContext.daqStats->listfileFilename = d->listfileOut.outFilename;
         // TODO: write magic and vme config to listfile.
 
+        d->preRunClear();
+
         logMessage("");
         logMessage(QSL("Entering readout loop"));
         m_workerContext.daqStats->start();
@@ -349,17 +355,10 @@ void MVLCReadoutWorker::readoutLoop()
 {
     using vme_analysis_common::TimetickGenerator;
 
-    static const int LogInterval_ReadError_ms = 5000;
-    QTime logReadErrorTimer;
-    u32 readErrorCount = 0;
-    auto mvlc = qobject_cast<MVLC_VMEController *>(getContext().controller);
-    assert(mvlc);
-
     setState(DAQState::Running);
 
     TimetickGenerator timetickGen;
     //m_listfileHelper->writeTimetickSection();
-    logReadErrorTimer.start();
 
     while (true)
     {
@@ -383,31 +382,6 @@ void MVLCReadoutWorker::readoutLoop()
                            .arg(ec.message().c_str()));
                 break;
             }
-
-#if 0
-            if (ec && ec != MVLCErrorCode::NeedMoreData)
-            {
-                maybePutBackBuffer();
-
-                readErrorCount++;
-
-                if (bytesTransferred == 0 && logReadErrorTimer.elapsed() >= LogInterval_ReadError_ms)
-                {
-                    logMessage(QSL("MVLC Readout Warning: received no data"
-                                   " with the past %1 read operations").arg(readErrorCount),
-                               false);
-
-                    if (ec)
-                    {
-                        logMessage(QSL("MVLC Readout Warning: last read error: %1")
-                                   .arg(ec.message().c_str()), false);
-                    }
-
-                    logReadErrorTimer.restart();
-                    readErrorCount = 0;
-                }
-            }
-#endif
 
             if (unlikely(m_cyclesToRun > 0))
             {
@@ -437,8 +411,8 @@ void MVLCReadoutWorker::readoutLoop()
         // paused
         else if (m_state == DAQState::Paused)
         {
-            static const double PauseMaxSleep_ms = 125.0;
-            QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick_ms()));
+            static const unsigned PauseSleepDuration_ms = 100;
+            QThread::msleep(PauseSleepDuration_ms);
         }
         else
         {
@@ -448,9 +422,9 @@ void MVLCReadoutWorker::readoutLoop()
 
     setState(DAQState::Stopping);
 
-    auto f = QtConcurrent::run([&mvlc]()
+    auto f = QtConcurrent::run([this]()
     {
-        return disable_all_triggers(*mvlc->getMVLCObject());
+        return disable_all_triggers(*d->mvlcObj);
     });
 
     size_t bytesTransferred = 0u;
@@ -492,14 +466,30 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
     // For usb: follow the F3 framing.
 
     bytesTransferred = 0u;
+    std::error_code ec;
 
     if (d->mvlc_eth)
-        return readout_eth(bytesTransferred);
+        ec = readout_eth(bytesTransferred);
     else
-        return readout_usb(bytesTransferred);
+        ec = readout_usb(bytesTransferred);
 
-    return {};
+    if (getOutputBuffer()->used > 0)
+        flushCurrentOutputBuffer();
 
+#if 0
+    if (bytesTransferred == 0)
+    {
+        // Reuse the output buffer in the next call.
+        // The side effect is that no buffer will be flushed to the fullQueue.
+        getOutputBuffer()->used = 0;
+    }
+    else
+    {
+        flushCurrentOutputBuffer();
+    }
+#endif
+
+    return ec;
 
 #if 0
     auto mvlc = qobject_cast<MVLC_VMEController *>(getContext().controller)->getMVLCObject();
@@ -735,11 +725,69 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
 #endif
 }
 
-std::error_code MVLCReadoutWorker::readout_eth(size_t &bytesTransferred)
+/* Steps for the ETH readout:
+ * get  buffer
+ * fill  buffer until full or flush timeout elapsed
+ * flush buffer
+ */
+// Tunable. Effects time to stop/pause and analysis buffer fill-level/count.
+// 1000/FlushBufferTimeout is the minimum number of buffers the analysis will
+// get per second assuming that we receive any data at all and that the
+// analysis can keep up.
+// If set too low buffers won't be completely filled even at high data rates
+// and queue load will increase.
+static const std::chrono::milliseconds FlushBufferTimeout(500);
+
+std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
 {
     assert(d->mvlc_eth);
-    assert(!m_outputBuffer);
 
+    auto destBuffer = getOutputBuffer();
+    auto tStart = std::chrono::steady_clock::now();
+    auto &mvlcLocks = d->mvlcObj->getLocks();
+    auto &daqStats = m_workerContext.daqStats;
+
+    while (destBuffer->free() >= eth::JumboFrameMaxSize)
+    {
+        size_t bytesTransferred = 0u;
+
+        auto dataGuard = mvlcLocks.lockData();
+        auto result = d->mvlc_eth->read_packet(
+            Pipe::Data, destBuffer->asU8(), destBuffer->free());
+        dataGuard.unlock();
+
+        daqStats->totalBytesRead += result.bytesTransferred;
+
+        // ShortRead means that the received packet length was non-zero but
+        // shorter than the two ETH header words. Overwrite this short data on
+        // the next iteration so that the framing structure stays intact.
+        // Also do not count these short reads in totalBytesTransferred as that
+        // would suggest we actually did receive valid data.
+        if (result.ec == MVLCErrorCode::ShortRead)
+        {
+            daqStats->buffersWithErrors++;
+            continue;
+        }
+
+        destBuffer->used += result.bytesTransferred;
+        totalBytesTransferred += result.bytesTransferred;
+
+        // A crude way of handling packets with residue bytes at the end. Just
+        // subtract the residue from buffer->used which means the residual
+        // bytes will be overwritten by the next packets data. This will at
+        // least keep the structure somewhat intact assuming that the
+        // dataWordCount in header0 is correct. Note that this case does not
+        // happen, the MVLC never generates packets with residual bytes.
+        if (u16 residue = result.leftoverBytes())
+            destBuffer->used -= residue;
+
+        auto elapsed = std::chrono::steady_clock::now() - tStart;
+
+        if (elapsed >= FlushBufferTimeout)
+            break;
+    }
+
+    return {};
 }
 
 std::error_code MVLCReadoutWorker::readout_usb(size_t &bytesTransferred)
@@ -747,6 +795,7 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &bytesTransferred)
     assert(d->mvlc_usb);
     assert(!m_outputBuffer);
 
+    assert(!"implement me!");
 }
 
 DataBuffer *MVLCReadoutWorker::getOutputBuffer()
@@ -764,6 +813,7 @@ DataBuffer *MVLCReadoutWorker::getOutputBuffer()
 
         // Reset a fresh buffer
         outputBuffer->used = 0;
+        outputBuffer->id   = d->nextOutputBufferNumber++;
         outputBuffer->tag  = static_cast<int>((d->mvlc_eth
                                                ? DataBufferFormatTags::MVLC_ETH
                                                : DataBufferFormatTags::MVLC_USB));
@@ -790,6 +840,8 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
 
     if (outputBuffer)
     {
+        m_workerContext.daqStats->totalBuffersRead++;
+
         if (d->listfileOut.outdev)
         {
             // write to listfile
@@ -817,10 +869,10 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
 
 void MVLCReadoutWorker::pauseDAQ()
 {
-    auto mvlc = qobject_cast<MVLC_VMEController *>(getContext().controller);
-    assert(mvlc);
-
-    disable_all_triggers(*mvlc->getMVLCObject());
+    auto f = QtConcurrent::run([this]()
+    {
+        return disable_all_triggers(*d->mvlcObj);
+    });
 
     size_t bytesTransferred = 0u;
 
