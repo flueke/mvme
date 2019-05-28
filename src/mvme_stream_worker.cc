@@ -122,7 +122,9 @@ DataBuffer *MVMEStreamWorkerPrivate::dequeueNextBuffer()
         }
     }
 
-    if (buffer)
+    // Set increasing buffer number for MVMELST buffers only. MVLC buffers have
+    // a buffer  number assigned by the readout side.
+    if (buffer && buffer->tag == static_cast<int>(DataBufferFormatTags::MVMELST))
     {
         buffer->id = this->nextBufferNumber++;
     }

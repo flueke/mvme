@@ -203,22 +203,6 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
 
     // TODO: check that the analysis has been built (no object needs a rebuild)
 
-#if 0
-    //
-    // build and prepare the analysis system
-    //
-
-    m_d->analysis->beginRun(runInfo, vme_analysis_common::build_id_to_index_mapping(vmeConfig));
-
-    auto logger_adapter = [logger](const std::string &std_str)
-    {
-        if (logger)
-            logger(QString::fromStdString(std_str));
-    };
-
-    a2::a2_begin_run(m_d->analysis->getA2AdapterState()->a2, logger_adapter);
-#endif
-
     m_d->consumersBeginRun();
 
     if (m_d->diag)

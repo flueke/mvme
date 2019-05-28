@@ -278,10 +278,10 @@ void MVLCNotificationPoller::disablePolling()
 
 void MVLCNotificationPoller::doPoll()
 {
-    // This avoids having multiple instances of the polling code run in
+    // This avoids having multiple instances of this polling code run in
     // parallel.
-    // Can only happen if either the poll interval is very short or the
-    // mvlc read timeouts are longer than the poll timer interval.
+    // Can only happen if either the poll interval is very short or the mvlc
+    // read timeouts are longer than the poll timer interval.
     bool f = false;
     if (!m_isPolling.compare_exchange_weak(f, true))
         return;
@@ -296,7 +296,8 @@ void MVLCNotificationPoller::doPoll()
 
             if (ec && ec != ErrorType::Timeout)
             {
-                qDebug() << __PRETTY_FUNCTION__ << "error from readKnownBuffer: " << ec.message().c_str();
+                qDebug() << __PRETTY_FUNCTION__ << "error from readKnownBuffer: "
+                    << ec.message().c_str();
             }
 
             if (!buffer.isEmpty())
