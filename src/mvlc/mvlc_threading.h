@@ -17,6 +17,11 @@ namespace mvlc
 class TicketMutex
 {
     public:
+        TicketMutex() : m_queue_head(0) , m_queue_tail(0) {}
+
+        TicketMutex(const TicketMutex &) = delete;
+        TicketMutex &operator=(const TicketMutex &) = delete;
+
         void lock()
         {
             UniqueLock lock(m_mutex);
@@ -54,11 +59,13 @@ class TicketMutex
     private:
         using UniqueLock = std::unique_lock<std::mutex>;
         using TicketType = u16;
+        //using TicketTypeStore = std::atomic<TicketType>;
+        using TicketTypeStore = TicketType;
 
         std::condition_variable m_cond;
         std::mutex m_mutex;
-        TicketType m_queue_head = 0; // current ticket number
-        TicketType m_queue_tail = 0; // next ticket number to take
+        TicketTypeStore m_queue_head; // current ticket number
+        TicketTypeStore m_queue_tail; // next ticket number to take
 };
 
 using Mutex = TicketMutex;
