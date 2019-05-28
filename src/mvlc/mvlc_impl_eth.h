@@ -26,6 +26,9 @@ using HeaderTypeMap = std::unordered_map<u8, u64>;  // header type byte -> count
 
 struct LIBMVME_MVLC_EXPORT PipeStats
 {
+    // Number of calls to read_packet() for the specified pipe.
+    u64 receiveAttempts = 0u;
+
     // Total number of received UDP packets.
     u64 receivedPackets = 0u;
 

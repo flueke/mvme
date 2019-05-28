@@ -513,6 +513,9 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     PacketReadResult res = {};
 
     unsigned pipe = static_cast<unsigned>(pipe_);
+    auto &pipeStats = m_pipeStats[pipe];
+
+    ++pipeStats.receiveAttempts;
 
     if (pipe >= PipeCount)
     {
@@ -534,7 +537,6 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     if (res.ec && res.bytesTransferred == 0)
         return res;
 
-    auto &pipeStats = m_pipeStats[pipe];
     ++pipeStats.receivedPackets;
     pipeStats.receivedBytes += res.bytesTransferred;
     ++pipeStats.packetSizes[res.bytesTransferred];
