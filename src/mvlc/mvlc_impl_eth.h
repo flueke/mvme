@@ -120,6 +120,16 @@ struct LIBMVME_MVLC_EXPORT PacketReadResult
     {
         return payloadBegin() + availablePayloadWords();
     }
+
+    inline bool isNextHeaderPointerValid() const
+    {
+        const u16 nhp = nextHeaderPointer();
+
+        if (nhp != header1::NoHeaderPointerPresent)
+            return payloadBegin() + nhp < payloadEnd();
+
+        return true;
+    }
 };
 
 class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
