@@ -26,6 +26,7 @@
 #include "libmvme_export.h"
 #include "mvme_stream_processor.h"
 #include "typedefs.h"
+#include "stream_worker_base.h"
 
 #include <QHash>
 #include <QObject>
@@ -36,26 +37,9 @@ class MVMEContext;
 class VMEConfig;
 struct MVMEStreamWorkerPrivate;
 
-enum class MVMEStreamWorkerState
-{
-    Idle,
-    Running,
-    Paused,
-    SingleStepping,
-};
-
-Q_DECLARE_METATYPE(MVMEStreamWorkerState);
-
-QString to_string(const MVMEStreamWorkerState &state);
-
-class LIBMVME_EXPORT MVMEStreamWorker: public QObject
+class LIBMVME_EXPORT MVMEStreamWorker: public StreamWorkerBase
 {
     Q_OBJECT
-    signals:
-        void started();
-        void stopped();
-        void stateChanged(MVMEStreamWorkerState);
-
     public:
         MVMEStreamWorker(MVMEContext *context,
                          ThreadSafeDataBufferQueue *freeBuffers,
@@ -67,25 +51,29 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
 
         void setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag);
         bool hasDiagnostics() const;
-
-        MVMEStreamWorkerState getState() const;
         const MVMEStreamProcessorCounters &getCounters() const;
-
         void setListFileVersion(u32 version);
 
-        void setStartPaused(bool startPaused);
-        bool getStartPaused() const;
+        MVMEStreamWorkerState getState() const override;
 
-        void stop(bool whenQueueEmpty = true);
-        void pause();
-        void resume();
-        void singleStep();
+        void setStartPaused(bool startPaused) override;
+        bool getStartPaused() const override;
+
+        void attachBufferConsumer(IMVMEStreamBufferConsumer *consumer) override;
+        void removeBufferConsumer(IMVMEStreamBufferConsumer *consumer) override;
+
+        void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer) override;
+        void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer) override;
 
     public slots:
-        void startup();
-        void shutdown();
+        void start() override;
+        void stop(bool whenQueueEmpty = true) override;
+        void pause() override;
+        void resume() override;
+        void singleStep() override;
 
-        void beginRun();
+        void startupConsumers() override;
+        void shutdownConsumers() override;
 
         /* Is invoked from MVMEMainWindow via QMetaObject::invokeMethod so that
          * it runs in our thread. */

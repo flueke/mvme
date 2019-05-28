@@ -76,165 +76,177 @@ AnalysisInfoWidget::~AnalysisInfoWidget()
 void AnalysisInfoWidget::update()
 {
     MVMEStreamWorkerState state = m_d->context->getMVMEStreamWorker()->getState();
-    const auto &counters(m_d->context->getMVMEStreamWorker()->getCounters());
 
-    auto startTime = counters.startTime;
-    auto endTime   = state == MVMEStreamWorkerState::Idle ? counters.stopTime : QDateTime::currentDateTime();
-    auto totalDuration_s = startTime.secsTo(endTime);
-    auto totalDurationString = makeDurationString(totalDuration_s);
-
-    double dt;
-
-    if (m_d->lastUpdateTime.isValid())
+    if (auto mvmeStreamWorker = qobject_cast<MVMEStreamWorker *>(m_d->context->getMVMEStreamWorker()))
     {
-        dt = m_d->lastUpdateTime.msecsTo(endTime);
-    }
-    else
-    {
-        dt = startTime.msecsTo(endTime);
-    }
+        // TODO: copy this stuff. also mutex it in MVMEStreamProcessor
+        const auto &counters(mvmeStreamWorker->getCounters());
 
-    dt /= 1000.0;
+        auto startTime = counters.startTime;
+        auto endTime   = state == MVMEStreamWorkerState::Idle ? counters.stopTime : QDateTime::currentDateTime();
+        auto totalDuration_s = startTime.secsTo(endTime);
+        auto totalDurationString = makeDurationString(totalDuration_s);
 
-    u64 deltaBytesProcessed = calc_delta0(counters.bytesProcessed, m_d->prevCounters.bytesProcessed);
-    u64 deltaBuffersProcessed = calc_delta0(counters.buffersProcessed, m_d->prevCounters.buffersProcessed);
+        double dt;
 
-    double bytesPerSecond   = deltaBytesProcessed / dt;
-    double mbPerSecond      = bytesPerSecond / Megabytes(1);
-    double buffersPerSecond = deltaBuffersProcessed / dt;
-    double avgBufferSize    = deltaBytesProcessed / static_cast<double>(deltaBuffersProcessed);
-    if (std::isnan(avgBufferSize)) avgBufferSize = 0.0;
-
-    QString stateString = state == MVMEStreamWorkerState::Idle ? QSL("Idle") : QSL("Running");
-
-    QString ecText;
-    QString mcText;
-
-    // absolute counts per event and per module
-    for (u32 ei = 0; ei < MaxVMEEvents; ei++)
-    {
-        for (u32 mi = 0; mi < MaxVMEModules; mi++)
+        if (m_d->lastUpdateTime.isValid())
         {
-            double count = counters.moduleCounters[ei][mi];
+            dt = m_d->lastUpdateTime.msecsTo(endTime);
+        }
+        else
+        {
+            dt = startTime.msecsTo(endTime);
+        }
 
-            if (count > 0.0)
+        dt /= 1000.0;
+
+        u64 deltaBytesProcessed = calc_delta0(counters.bytesProcessed, m_d->prevCounters.bytesProcessed);
+        u64 deltaBuffersProcessed = calc_delta0(counters.buffersProcessed, m_d->prevCounters.buffersProcessed);
+
+        double bytesPerSecond   = deltaBytesProcessed / dt;
+        double mbPerSecond      = bytesPerSecond / Megabytes(1);
+        double buffersPerSecond = deltaBuffersProcessed / dt;
+        double avgBufferSize    = deltaBytesProcessed / static_cast<double>(deltaBuffersProcessed);
+        if (std::isnan(avgBufferSize)) avgBufferSize = 0.0;
+
+        QString stateString = state == MVMEStreamWorkerState::Idle ? QSL("Idle") : QSL("Running");
+
+        QString ecText;
+        QString mcText;
+
+        // absolute counts per event and per module
+        for (u32 ei = 0; ei < MaxVMEEvents; ei++)
+        {
+            for (u32 mi = 0; mi < MaxVMEModules; mi++)
             {
-                if (!mcText.isEmpty()) mcText += "\n";
-                mcText += (QString("event=%1, module=%2, count=%3")
-                           .arg(ei).arg(mi).arg(count));
+                double count = counters.moduleCounters[ei][mi];
+
+                if (count > 0.0)
+                {
+                    if (!mcText.isEmpty()) mcText += "\n";
+                    mcText += (QString("event=%1, module=%2, count=%3")
+                               .arg(ei).arg(mi).arg(count));
+                }
+            }
+
+            u32 count = counters.eventCounters[ei];
+            if (count)
+            {
+                if (!ecText.isEmpty()) ecText += "\n";
+                ecText += QString("event=%1, count=%2").arg(ei).arg(count);
             }
         }
 
-        u32 count = counters.eventCounters[ei];
-        if (count)
+        // calculate deltas for events and modules
+        std::array<double, MaxVMEEvents> eventRates;
+        std::array<std::array<double, MaxVMEModules>, MaxVMEEvents> moduleRates;
+
+        for (u32 ei = 0; ei < MaxVMEEvents; ei++)
         {
-            if (!ecText.isEmpty()) ecText += "\n";
-            ecText += QString("event=%1, count=%2").arg(ei).arg(count);
+            double eventDelta = calc_delta0(counters.eventCounters[ei], m_d->prevCounters.eventCounters[ei]);
+            eventRates[ei] = eventDelta / dt;
+
+            for (u32 mi = 0; mi < MaxVMEModules; mi++)
+            {
+                double moduleDelta = calc_delta0(counters.moduleCounters[ei][mi],
+                                             m_d->prevCounters.moduleCounters[ei][mi]);
+                moduleRates[ei][mi] = moduleDelta / dt;
+            }
         }
-    }
 
-    // calculate deltas for events and modules
-    std::array<double, MaxVMEEvents> eventRates;
-    std::array<std::array<double, MaxVMEModules>, MaxVMEEvents> moduleRates;
+        // format the deltas
+        QString erText;
+        QString mrText;
 
-    for (u32 ei = 0; ei < MaxVMEEvents; ei++)
-    {
-        double eventDelta = calc_delta0(counters.eventCounters[ei], m_d->prevCounters.eventCounters[ei]);
-        eventRates[ei] = eventDelta / dt;
-
-        for (u32 mi = 0; mi < MaxVMEModules; mi++)
+        for (u32 ei = 0; ei < MaxVMEEvents; ei++)
         {
-            double moduleDelta = calc_delta0(counters.moduleCounters[ei][mi],
-                                         m_d->prevCounters.moduleCounters[ei][mi]);
-            moduleRates[ei][mi] = moduleDelta / dt;
-        }
-    }
+            for (u32 mi = 0; mi < MaxVMEModules; mi++)
+            {
+                double rate = moduleRates[ei][mi];
 
-    // format the deltas
-    QString erText;
-    QString mrText;
+                if (rate > 0.0)
+                {
+                    auto rateString =format_number(rate, QSL("cps"), UnitScaling::Decimal);
 
-    for (u32 ei = 0; ei < MaxVMEEvents; ei++)
-    {
-        for (u32 mi = 0; mi < MaxVMEModules; mi++)
-        {
-            double rate = moduleRates[ei][mi];
+                    if (!mrText.isEmpty()) mrText += "\n";
+
+                    mrText += (QString("event=%1, module=%2, rate=%3")
+                               .arg(ei).arg(mi).arg(rateString));
+                }
+            }
+
+            double rate = eventRates[ei];
 
             if (rate > 0.0)
             {
                 auto rateString =format_number(rate, QSL("cps"), UnitScaling::Decimal);
 
-                if (!mrText.isEmpty()) mrText += "\n";
+                if (!erText.isEmpty()) erText += "\n";
 
-                mrText += (QString("event=%1, module=%2, rate=%3")
-                           .arg(ei).arg(mi).arg(rateString));
+                erText += QString("event=%1, rate=%2").arg(ei).arg(rateString);
             }
         }
 
-        double rate = eventRates[ei];
+        s32 ii = 0;
 
-        if (rate > 0.0)
+        // state
+        m_d->labels[ii++]->setText(stateString);
+        // started
+        m_d->labels[ii++]->setText(startTime.time().toString());
+        // stopped
+        if (state == MVMEStreamWorkerState::Idle)
         {
-            auto rateString =format_number(rate, QSL("cps"), UnitScaling::Decimal);
-
-            if (!erText.isEmpty()) erText += "\n";
-
-            erText += QString("event=%1, rate=%2").arg(ei).arg(rateString);
+            m_d->labels[ii++]->setText(endTime.time().toString());
         }
-    }
+        else
+        {
+            m_d->labels[ii++]->setText(QString());
+        }
 
-    s32 ii = 0;
+        // elapsed
+        m_d->labels[ii++]->setText(totalDurationString);
 
-    // state
-    m_d->labels[ii++]->setText(stateString);
-    // started
-    m_d->labels[ii++]->setText(startTime.time().toString());
-    // stopped
-    if (state == MVMEStreamWorkerState::Idle)
-    {
-        m_d->labels[ii++]->setText(endTime.time().toString());
+        // throughput
+        m_d->labels[ii++]->setText(QString("%1 MB/s").arg(mbPerSecond));
+
+        // bytesProcessed
+        m_d->labels[ii++]->setText(QString("%1 MB")
+                                   .arg((double)counters.bytesProcessed / Megabytes(1), 6, 'f', 2));
+        // buffersProcessed
+        m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersProcessed));
+
+        // buffersWithErrors
+        m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersWithErrors));
+
+        // avgBufferSize
+        m_d->labels[ii++]->setText(QString("%1 bytes").arg(avgBufferSize));
+
+        // eventSections
+        m_d->labels[ii++]->setText(QString("%1 sections").arg(counters.eventSections));
+
+        // invalid event index
+        m_d->labels[ii++]->setText(QString("%1").arg(counters.invalidEventIndices));
+
+        // counts by event
+        m_d->labels[ii++]->setText(ecText);
+
+        // counts by module
+        m_d->labels[ii++]->setText(mcText);
+
+        // rate by event
+        m_d->labels[ii++]->setText(erText);
+
+        // rate by module
+        m_d->labels[ii++]->setText(mrText);
+
+        m_d->prevCounters = counters;
+        m_d->lastUpdateTime = QDateTime::currentDateTime();
     }
     else
     {
-        m_d->labels[ii++]->setText(QString());
+        for (auto label: m_d->labels)
+        {
+            label->setText("implement me for the MVLC controller! :(");
+        }
     }
-
-    // elapsed
-    m_d->labels[ii++]->setText(totalDurationString);
-
-    // throughput
-    m_d->labels[ii++]->setText(QString("%1 MB/s").arg(mbPerSecond));
-
-    // bytesProcessed
-    m_d->labels[ii++]->setText(QString("%1 MB")
-                               .arg((double)counters.bytesProcessed / Megabytes(1), 6, 'f', 2));
-    // buffersProcessed
-    m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersProcessed));
-
-    // buffersWithErrors
-    m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersWithErrors));
-
-    // avgBufferSize
-    m_d->labels[ii++]->setText(QString("%1 bytes").arg(avgBufferSize));
-
-    // eventSections
-    m_d->labels[ii++]->setText(QString("%1 sections").arg(counters.eventSections));
-
-    // invalid event index
-    m_d->labels[ii++]->setText(QString("%1").arg(counters.invalidEventIndices));
-
-    // counts by event
-    m_d->labels[ii++]->setText(ecText);
-
-    // counts by module
-    m_d->labels[ii++]->setText(mcText);
-
-    // rate by event
-    m_d->labels[ii++]->setText(erText);
-
-    // rate by module
-    m_d->labels[ii++]->setText(mrText);
-
-    m_d->prevCounters = counters;
-    m_d->lastUpdateTime = QDateTime::currentDateTime();
 }

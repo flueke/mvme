@@ -101,7 +101,11 @@ void RateMonitorGuiPrivate::createRateMonitorTree(RateMonitorNode &root)
 void RateMonitorGuiPrivate::doInternalSampling()
 {
     m_daqStatsSampler.sample(m_context->getDAQStats());
-    m_streamProcSampler.sample(m_context->getMVMEStreamWorker()->getStreamProcessor()->getCounters());
+
+    if (auto mvmeStreamProc = qobject_cast<MVMEStreamWorker *>(m_context->getMVMEStreamWorker()))
+    {
+        m_streamProcSampler.sample(mvmeStreamProc->getStreamProcessor()->getCounters());
+    }
 
     if (auto sis = qobject_cast<SIS3153ReadoutWorker *>(m_context->getReadoutWorker()))
     {

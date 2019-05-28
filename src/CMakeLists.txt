@@ -292,6 +292,7 @@ target_sources(libmvme PRIVATE
     sis3153_readout_worker.cc
     sis3153/sis3153ETH_vme_class.cpp
     sis3153_util.cc
+    stream_worker_base.cc
     template_system.cc
     timed_block.cc
     treewidget_utils.cc
@@ -328,6 +329,7 @@ if (MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE
         mvlc_daq.cc
         mvlc_readout_worker.cc
+        mvlc_stream_workers.cc
     )
     target_link_libraries(libmvme libmvme_mvlc)
 

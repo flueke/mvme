@@ -135,7 +135,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
-        MVMEStreamWorker *getMVMEStreamWorker() const { return m_streamWorker.get(); }
+        StreamWorkerBase *getMVMEStreamWorker() const { return m_streamWorker.get(); }
 
         //
         // Object registry
@@ -375,7 +375,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         VMEReadoutWorker *m_readoutWorker = nullptr;
 
         QThread *m_analysisThread;
-        std::unique_ptr<MVMEStreamWorker> m_streamWorker;
+        std::unique_ptr<StreamWorkerBase> m_streamWorker;
 
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;

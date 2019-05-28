@@ -1494,8 +1494,12 @@ void MVMEMainWindow::onDAQStateChanged(const DAQState &)
 
 void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 {
-    if (m_d->m_context->getMVMEStreamWorker()->hasDiagnostics())
+    auto mvmeStreamWorker = qobject_cast<MVMEStreamWorker *>(m_d->m_context->getMVMEStreamWorker());
+
+    if (!mvmeStreamWorker || mvmeStreamWorker->hasDiagnostics())
+    {
         return;
+    }
 
     auto diag = std::make_shared<MesytecDiagnostics>();
 
@@ -1512,7 +1516,7 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
         QMetaObject::invokeMethod(m_d->m_context->getMVMEStreamWorker(), "removeDiagnostics", Qt::QueuedConnection);
     });
 
-    connect(m_d->m_context, &MVMEContext::daqStateChanged, widget, [this, widget] (const DAQState &state) {
+    connect(m_d->m_context, &MVMEContext::daqStateChanged, widget, [widget] (const DAQState &state) {
         if (state == DAQState::Running)
         {
             widget->clearResultsDisplay();
@@ -1520,7 +1524,7 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 
     });
 
-    streamWorker->setDiagnostics(diag);
+    mvmeStreamWorker->setDiagnostics(diag);
 
     widget->show();
     widget->raise();

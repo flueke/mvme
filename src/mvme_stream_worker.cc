@@ -373,18 +373,18 @@ void single_step_one_event(ProcessingState &procState, MVMEStreamProcessor &stre
 
 } // end anon namespace
 
-void MVMEStreamWorker::startup()
+void MVMEStreamWorker::startupConsumers()
 {
     m_d->streamProcessor.startup();
 }
 
-void MVMEStreamWorker::shutdown()
+void MVMEStreamWorker::shutdownConsumers()
 {
     m_d->streamProcessor.shutdown();
 }
 
 /* The main worker loop. */
-void MVMEStreamWorker::beginRun()
+void MVMEStreamWorker::start()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 
@@ -674,4 +674,24 @@ bool MVMEStreamWorker::hasDiagnostics() const
 void MVMEStreamWorker::removeDiagnostics()
 {
     m_d->streamProcessor.removeDiagnostics();
+}
+
+void MVMEStreamWorker::attachBufferConsumer(IMVMEStreamBufferConsumer *consumer)
+{
+    m_d->streamProcessor.attachBufferConsumer(consumer);
+}
+
+void MVMEStreamWorker::removeBufferConsumer(IMVMEStreamBufferConsumer *consumer)
+{
+    m_d->streamProcessor.removeBufferConsumer(consumer);
+}
+
+void MVMEStreamWorker::attachModuleConsumer(IMVMEStreamModuleConsumer *consumer)
+{
+    m_d->streamProcessor.attachModuleConsumer(consumer);
+}
+
+void MVMEStreamWorker::removeModuleConsumer(IMVMEStreamModuleConsumer *consumer)
+{
+    m_d->streamProcessor.removeModuleConsumer(consumer);
 }

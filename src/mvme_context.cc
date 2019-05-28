@@ -27,6 +27,7 @@
 #include "analysis/analysis_ui.h"
 #include "event_server/server/event_server.h"
 #include "file_autosaver.h"
+#include "mvlc_stream_workers.h"
 #include "mvme_context_lib.h"
 #include "mvme.h"
 #include "mvme_listfile.h"
@@ -305,7 +306,10 @@ void MVMEContextPrivate::stopDAQReplay()
 
     Q_ASSERT(m_q->m_readoutWorker->getState() == DAQState::Idle);
 
-    m_q->m_streamWorker->setListFileVersion(CurrentListfileVersion);
+    if (auto mvmeStreamWorker = qobject_cast<MVMEStreamWorker *>(m_q->m_streamWorker.get()))
+    {
+        mvmeStreamWorker->setListFileVersion(CurrentListfileVersion);
+    }
     m_q->onDAQStateChanged(DAQState::Idle);
 }
 
@@ -551,26 +555,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     // about QObject thread assignment and parent/child objects, etc.
     m_analysisThread->setObjectName("mvme AnalysisThread");
 
-    m_streamWorker = std::make_unique<MVMEStreamWorker>(this, &m_freeBuffers, &m_fullBuffers);
-
-    auto eventServer = new EventServer(m_streamWorker.get());
-    m_d->m_eventServer = eventServer;
-    eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
-    eventServer->setEnabled(false);
-    m_streamWorker->getStreamProcessor()->attachModuleConsumer(eventServer);
-
-    m_streamWorker->moveToThread(m_analysisThread);
-
-    connect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged,
-            this, &MVMEContext::onMVMEStreamWorkerStateChanged);
-
-    eventServer->moveToThread(m_analysisThread);
     m_analysisThread->start();
-
-    {
-        bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "startup", Qt::QueuedConnection);
-        assert(invoked);
-    }
 
     qDebug() << __PRETTY_FUNCTION__ << "startup: setting empty VMEConfig and VMUSB controller";
 
@@ -758,6 +743,14 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         m_vmeConfig->setVMEController(controller->getType(), settings);
     }
 
+    m_d->m_ctrlOpenRetryCount = 0;
+
+    connect(controller, &VMEController::controllerStateChanged,
+            this, &MVMEContext::controllerStateChanged);
+    connect(controller, &VMEController::controllerStateChanged,
+            this, &MVMEContext::onControllerStateChanged);
+
+    // readout worker (readout side)
     VMEControllerFactory factory(controller->getType());
     m_readoutWorker = factory.makeReadoutWorker();
     m_readoutWorker->moveToThread(m_readoutThread);
@@ -779,12 +772,52 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     readoutWorkerContext.getAnalysisJson    = [this]() { return getAnalysisJsonDocument(); };
 
     m_readoutWorker->setContext(readoutWorkerContext);
-    m_d->m_ctrlOpenRetryCount = 0;
 
-    connect(controller, &VMEController::controllerStateChanged,
-            this, &MVMEContext::controllerStateChanged);
-    connect(controller, &VMEController::controllerStateChanged,
-            this, &MVMEContext::onControllerStateChanged);
+    // stream worker (analysis side)
+    switch (controller->getType())
+    {
+        case VMEControllerType::SIS3153:
+        case VMEControllerType::VMUSB:
+            m_streamWorker = std::make_unique<MVMEStreamWorker>(
+                this, &m_freeBuffers, &m_fullBuffers);
+            break;
+
+        case VMEControllerType::MVLC_ETH:
+            m_streamWorker = std::make_unique<MVLC_ETH_StreamWorker>(
+                this, &m_freeBuffers, &m_fullBuffers);
+
+            break;
+
+        case VMEControllerType::MVLC_USB:
+            m_streamWorker = std::make_unique<MVLC_USB_StreamWorker>(
+                this, &m_freeBuffers, &m_fullBuffers);
+
+            break;
+    }
+
+    auto eventServer = new EventServer(m_streamWorker.get());
+    m_d->m_eventServer = eventServer;
+    eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
+    eventServer->setEnabled(false);
+    m_streamWorker->attachModuleConsumer(eventServer);
+    m_streamWorker->moveToThread(m_analysisThread);
+
+    // Run the StreamWorkerBase::startupConsumers in the worker thread.  This
+    // is used to e.g. get the EventServer to accept client connections while
+    // the system is idle. Starting to accept connections only when a run is
+    // starting does not work as clients would have no time window to connect
+    // to the service.
+    {
+        bool invoked = QMetaObject::invokeMethod(
+            m_streamWorker.get(), "startupConsumers", Qt::QueuedConnection);
+        assert(invoked);
+    }
+
+    connect(m_streamWorker.get(), &StreamWorkerBase::stateChanged,
+            this, &MVMEContext::onMVMEStreamWorkerStateChanged);
+
+    connect(m_streamWorker.get(), &StreamWorkerBase::sigLogMessage,
+            this, &MVMEContext::logMessage);
 
     emit vmeControllerSet(controller);
     return true;
@@ -1343,7 +1376,11 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
     qDebug() << __PRETTY_FUNCTION__ << m_listFile->getFileName() << fi.completeBaseName();
 
     m_listFileWorker->setEventsToRead(nEvents);
-    m_streamWorker->setListFileVersion(m_listFile->getFileVersion());
+
+    if (auto mvmeStreamWorker = qobject_cast<MVMEStreamWorker *>(m_streamWorker.get()))
+    {
+        mvmeStreamWorker->setListFileVersion(m_listFile->getFileVersion());
+    }
 
     prepareStart();
 
