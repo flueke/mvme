@@ -49,6 +49,8 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         virtual void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer) = 0;
         virtual void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer) = 0;
 
+        virtual MVMEStreamProcessorCounters getCounters() const = 0;
+
     public slots:
         // Blocking call. Returns after stop() has been invoked from the outside.
         virtual void start() = 0;
@@ -67,6 +69,21 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         // Returns true if the message was logged, false if it was suppressed due
         // to throttling.
         bool logMessage(const MessageSeverity &sev, const QString &msg, bool useThrottle = false);
+
+        bool logInfo(const QString &msg, bool useThrottle = false)
+        {
+            return logMessage(MessageSeverity::Info, msg, useThrottle);
+        }
+
+        bool logWarn(const QString &msg, bool useThrottle = false)
+        {
+            return logMessage(MessageSeverity::Warning, msg, useThrottle);
+        }
+
+        bool logError(const QString &msg, bool useThrottle = false)
+        {
+            return logMessage(MessageSeverity::Error, msg, useThrottle);
+        }
 
     private:
         static const int MaxLogMessagesPerSecond = 5;

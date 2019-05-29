@@ -230,7 +230,8 @@ void MVMEContextPrivate::stopDAQReadout()
     if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
         m_q->m_streamWorker->stop();
-        auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
+        auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
+                                    &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -299,7 +300,8 @@ void MVMEContextPrivate::stopDAQReplay()
     if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
         m_q->m_streamWorker->stop();
-        auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
+        auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
+                                    &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -373,7 +375,7 @@ void MVMEContextPrivate::resumeAnalysis(analysis::Analysis::BeginRunOption runOp
         auto analysis = m_q->getAnalysis();
         analysis->beginRun(runOption, [this] (const QString &msg) { m_q->logMessage(msg); });
 
-        bool invoked = QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "beginRun",
+        bool invoked = QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "start",
                                                  Qt::QueuedConnection);
 
         assert(invoked);
@@ -795,8 +797,10 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
             break;
     }
 
+    assert(m_streamWorker);
+
     auto eventServer = new EventServer(m_streamWorker.get());
-    m_d->m_eventServer = eventServer;
+    m_d->m_eventServer = eventServer; // non-owning!
     eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
     eventServer->setEnabled(false);
     m_streamWorker->attachModuleConsumer(eventServer);
@@ -1065,9 +1069,10 @@ DAQState MVMEContext::getDAQState() const
 
 MVMEStreamWorkerState MVMEContext::getMVMEStreamWorkerState() const
 {
-    // FIXME: might be better to keep a local copy which is _only_ updated
-    // through the signal/slot mechanism. That way it's thread safe.
-    return m_streamWorker->getState();
+    if (m_streamWorker)
+        return m_streamWorker->getState();
+
+    return MVMEStreamWorkerState::Idle;
 }
 
 bool MVMEContext::setReplayFile(ListFile *listFile)
@@ -1275,7 +1280,7 @@ void MVMEContext::prepareStart()
         auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started,
                                     &localLoop, &QEventLoop::quit);
 
-        bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "beginRun",
+        bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "start",
                                                  Qt::QueuedConnection);
         assert(invoked);
 

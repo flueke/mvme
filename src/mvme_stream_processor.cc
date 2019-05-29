@@ -1258,7 +1258,7 @@ void MVMEStreamProcessorPrivate::logMessage(const QString &msg, bool useThrottle
     }
 }
 
-const MVMEStreamProcessorCounters &MVMEStreamProcessor::getCounters() const
+MVMEStreamProcessorCounters MVMEStreamProcessor::getCounters() const
 {
     return m_d->counters;
 }

@@ -51,7 +51,6 @@ class LIBMVME_EXPORT MVMEStreamWorker: public StreamWorkerBase
 
         void setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag);
         bool hasDiagnostics() const;
-        const MVMEStreamProcessorCounters &getCounters() const;
         void setListFileVersion(u32 version);
 
         MVMEStreamWorkerState getState() const override;
@@ -64,6 +63,8 @@ class LIBMVME_EXPORT MVMEStreamWorker: public StreamWorkerBase
 
         void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer) override;
         void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer) override;
+
+        MVMEStreamProcessorCounters getCounters() const override;
 
     public slots:
         void start() override;

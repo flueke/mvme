@@ -4890,50 +4890,53 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
 void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
 {
-    auto &prevCounters(m_prevStreamProcessorCounters);
-    const auto &counters(m_context->getMVMEStreamWorker()->getCounters());
-    Q_ASSERT(0 <= m_eventIndex && m_eventIndex < (s32)counters.eventCounters.size());
-
-    /* Use the counters of the first module in this event as that represents
-     * the event rate after multi-event splitting. */
-    double deltaEvents = calc_delta0(
-        counters.moduleCounters[m_eventIndex][0],
-        prevCounters.moduleCounters[m_eventIndex][0]);
-
-    double eventCount = counters.moduleCounters[m_eventIndex][0];
-    double eventRate = deltaEvents / dt_s;
-    if (std::isnan(eventRate)) eventRate = 0.0;
-
-    auto labelText = (QString("count=%1\nrate=%2")
-                      .arg(format_number(eventCount, QSL(""), UnitScaling::Decimal))
-                      .arg(format_number(eventRate, QSL("cps"), UnitScaling::Decimal, 0, 'g', 3))
-                     );
-
-    if (m_context->getAnalysis()->getRunInfo().isReplay)
+    if (auto mvmeStreamWorker = qobject_cast<MVMEStreamWorker *>(m_context->getMVMEStreamWorker()))
     {
-        double walltimeRate = deltaEvents / (PeriodicUpdateTimerInterval_ms / 1000.0);
+        auto &prevCounters(m_prevStreamProcessorCounters);
+        const auto counters = mvmeStreamWorker->getCounters();
+        Q_ASSERT(0 <= m_eventIndex && m_eventIndex < (s32)counters.eventCounters.size());
 
-        labelText += (QString("\nreplayRate=%1")
-                      .arg(format_number(walltimeRate, QSL("cps"), UnitScaling::Decimal, 0, 'g', 3))
-                      );
-    }
-    else // not a replay
-    {
-        auto daqStats = m_context->getDAQStats();
-        double efficiency = daqStats.getAnalysisEfficiency();
-        efficiency = std::isnan(efficiency) ? 0.0 : efficiency;
+        /* Use the counters of the first module in this event as that represents
+         * the event rate after multi-event splitting. */
+        double deltaEvents = calc_delta0(
+            counters.moduleCounters[m_eventIndex][0],
+            prevCounters.moduleCounters[m_eventIndex][0]);
 
-        labelText += QSL("\nEfficiency=%1").arg(efficiency, 0, 'f', 2);
-    }
+        double eventCount = counters.moduleCounters[m_eventIndex][0];
+        double eventRate = deltaEvents / dt_s;
+        if (std::isnan(eventRate)) eventRate = 0.0;
+
+        auto labelText = (QString("count=%1\nrate=%2")
+                          .arg(format_number(eventCount, QSL(""), UnitScaling::Decimal))
+                          .arg(format_number(eventRate, QSL("cps"), UnitScaling::Decimal, 0, 'g', 3))
+                         );
+
+        if (m_context->getAnalysis()->getRunInfo().isReplay)
+        {
+            double walltimeRate = deltaEvents / (PeriodicUpdateTimerInterval_ms / 1000.0);
+
+            labelText += (QString("\nreplayRate=%1")
+                          .arg(format_number(walltimeRate, QSL("cps"), UnitScaling::Decimal, 0, 'g', 3))
+                         );
+        }
+        else // not a replay
+        {
+            auto daqStats = m_context->getDAQStats();
+            double efficiency = daqStats.getAnalysisEfficiency();
+            efficiency = std::isnan(efficiency) ? 0.0 : efficiency;
+
+            labelText += QSL("\nEfficiency=%1").arg(efficiency, 0, 'f', 2);
+        }
 
 #ifndef NDEBUG
-    labelText += QSL("\nMode=%1").arg(mode_to_string(m_mode));
-    labelText += QSL("\npendingCondMod=%1").arg(hasPendingConditionModifications());
+        labelText += QSL("\nMode=%1").arg(mode_to_string(m_mode));
+        labelText += QSL("\npendingCondMod=%1").arg(hasPendingConditionModifications());
 #endif
 
-    m_eventRateLabel->setText(labelText);
+        m_eventRateLabel->setText(labelText);
 
-    prevCounters = counters;
+        prevCounters = counters;
+    }
 }
 
 

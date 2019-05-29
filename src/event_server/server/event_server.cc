@@ -264,7 +264,7 @@ EventServer::~EventServer()
 
 void EventServer::startup()
 {
-    qDebug() << __PRETTY_FUNCTION__ << m_d->m_enabled;
+    qDebug() << __PRETTY_FUNCTION__ << this << "enabled =" << m_d->m_enabled;
     if (m_d->m_enabled)
     {
         if (bool res = m_d->m_server.listen(m_d->m_listenAddress, m_d->m_listenPort))

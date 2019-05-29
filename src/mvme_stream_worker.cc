@@ -412,7 +412,6 @@ void MVMEStreamWorker::start()
 
     const auto &lfc = listfile_constants(m_d->m_listFileVersion);
 
-    // Timers and timeticks
     auto &counters = m_d->streamProcessor.getCounters();
     counters.startTime = QDateTime::currentDateTime();
     counters.stopTime  = QDateTime();
@@ -427,9 +426,9 @@ void MVMEStreamWorker::start()
      * and we will overwrite it below with either Pause or KeepRunning.  As the
      * listfile reader already sent its finished signal - which makes the
      * context call our stop() method - we won't get any more calls to stop().
-     * A way to fix this would be to wait for the stream processor to enter
-     * it's loop and only then start the listfile reader. This fix has been
-     * implemented in MVMEContext.
+     * A way to fix this is to wait for the stream processor to enter its loop
+     * and only then start the listfile reader. This fix has been implemented
+     * in MVMEContext.
      */
 
     // Start out in running state unless pause mode was requested.
@@ -635,7 +634,7 @@ MVMEStreamWorkerState MVMEStreamWorker::getState() const
     return m_d->state;
 }
 
-const MVMEStreamProcessorCounters &MVMEStreamWorker::getCounters() const
+MVMEStreamProcessorCounters MVMEStreamWorker::getCounters() const
 {
     return m_d->streamProcessor.getCounters();
 }

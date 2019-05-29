@@ -18,8 +18,6 @@ class VMEConfig;
 
 struct LIBMVME_EXPORT MVMEStreamProcessorCounters
 {
-    static const u32 MaxModulesPerEvent = 20;
-
     QDateTime startTime;
     QDateTime stopTime;
 
@@ -102,9 +100,8 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         //
         // Statistics
         //
-        const MVMEStreamProcessorCounters &getCounters() const;
+        MVMEStreamProcessorCounters getCounters() const;
         MVMEStreamProcessorCounters &getCounters();
-
 
         //
         // Processing
