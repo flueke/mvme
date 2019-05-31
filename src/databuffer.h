@@ -27,6 +27,10 @@
 
 struct DataBuffer
 {
+    DataBuffer()
+        : DataBuffer(0, 0, 0)
+    {}
+
     DataBuffer(size_t sz, int tag = 0, u64 id = 0u)
         : data(nullptr)
         , size(sz)
@@ -34,6 +38,7 @@ struct DataBuffer
         , id(id)
         , tag(tag)
     {
+#if 0
         if (size > 0)
         {
             // Allocate in terms of u32 to get the alignment right for 32-bit access.
@@ -42,8 +47,11 @@ struct DataBuffer
 
             assert(sizeu32 * sizeof(u32) >= sz);
 
-            size = sz; // Store requested size in member variable
+            size = sz; // Store the requested size in member variable
         }
+#else
+        reserve(size);
+#endif
     }
 
     ~DataBuffer()
@@ -54,19 +62,55 @@ struct DataBuffer
     DataBuffer(const DataBuffer &) = delete;
     DataBuffer &operator=(const DataBuffer &) = delete;
 
+    DataBuffer(DataBuffer &&other)
+    {
+        data = other.data;
+        size = other.size;
+        used = other.used;
+        id = other.id;
+        tag = other.tag;
+
+        other.data = nullptr;
+        other.size = 0;
+        other.used = 0;
+        other.id = 0;
+        other.tag = 0;
+    }
+
+    DataBuffer &operator=(DataBuffer &&other)
+    {
+        delete[] data;
+
+        data = other.data;
+        size = other.size;
+        used = other.used;
+        id = other.id;
+        tag = other.tag;
+
+        other.data = nullptr;
+        other.size = 0;
+        other.used = 0;
+        other.id = 0;
+        other.tag = 0;
+
+        return *this;
+    }
+
     void reserve(size_t newSize)
     {
         // never shrink
         if (newSize <= size)
             return;
 
+        // Allocate in terms of u32 to get the alignment right for 32-bit access.
         size_t sizeu32 = newSize/sizeof(u32) + 1;
 
         u8 *newData = reinterpret_cast<u8 *>(new u32[sizeu32]);
-        std::memcpy(newData, data, used);
+        if (used)
+            std::memcpy(newData, data, used);
         delete[] data;
         data = newData;
-        size = sizeu32 * sizeof(u32);
+        size = newSize; // Store the requested size in member variable
     }
 
     size_t free() const { return size - used; }
