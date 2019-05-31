@@ -772,14 +772,14 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
         destBuffer->used += result.bytesTransferred;
         totalBytesTransferred += result.bytesTransferred;
 
-        // A crude way of handling packets with residue bytes at the end. Just
+        // A crude way of handling packets with residual bytes at the end. Just
         // subtract the residue from buffer->used which means the residual
         // bytes will be overwritten by the next packets data. This will at
         // least keep the structure somewhat intact assuming that the
         // dataWordCount in header0 is correct. Note that this case does not
         // happen, the MVLC never generates packets with residual bytes.
-        if (u16 residue = result.leftoverBytes())
-            destBuffer->used -= residue;
+        if (unlikely(result.leftoverBytes()))
+            destBuffer->used -= result.leftoverBytes();
 
         auto elapsed = std::chrono::steady_clock::now() - tStart;
 
