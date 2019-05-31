@@ -4,8 +4,162 @@
 
 #include "mvme_context.h"
 #include "vme_analysis_common.h"
+#include "mvlc/mvlc_impl_eth.h"
+
 
 using namespace vme_analysis_common;
+using namespace mesytec::mvlc;
+
+/* analysis calls:
+ * getVMEObjectSettings(eventConfig | moduleConfig)
+ *  -> multi event processing enabled for an event? module enabled? module header filter.
+ *     Multi-Event processing will move into a second stage after event reassembly (linearization).
+ * processTimetick
+ * beginEvent(eventIndex)
+ *   processModuleData(eventIndex, moduleIndex, data *, size) // needs linear data
+ * endEvent
+ *
+ * to be added: processModulePrefix(ei, mi, data *, size);
+ *              processModuleSuffix(ei, mi, data *, size);
+ *
+ *
+ * Purpose: The readout_proc system is used to parse a possibly lossfull
+ * sequence of MVLC readout buffers, reassemble complete readout events and
+ * make the reassembled data available to a consumer.
+ *
+ * Commands that produce output:
+ *   marker         -> one word
+ *   single_read    -> one word
+ *   block_read     -> dynamic part (0xF5 framed)
+ *
+ * Restrictions per module:
+ * - one fixed part
+ * - one dynamic block part
+ * - one fixed part
+ */
+
+struct Parser_ModuleParts
+{
+    u8 prefixLen; // length in words of the fixed part prefix
+    u8 suffixLen; // length in words of the fixed part suffix
+    bool hasDynamic; // true if a dynamic part (block read) is present
+};
+
+struct SpanInfo
+{
+    u32 offset;
+    u32 size;
+};
+
+struct ModuleReadoutSpan
+{
+    SpanInfo prefixSpan;
+    SpanInfo dynamicSpan;
+    SpanInfo suffixSpan;
+};
+
+struct ReadoutProcCallbacks
+{
+    std::function<void (int ei)> beginEvent;
+    std::function<void (int ei, int mi, u32 *data, u32 size)> moduleData;
+    std::function<void (int ei)> endEvent;
+};
+
+struct ReadoutProcessor
+{
+    using ModuleInfos = std::vector<Parser_ModuleParts>;
+    using EventInfos = std::vector<ModuleInfos>;
+    EventInfos eventInfos;
+    DataBuffer workBuffer;
+};
+
+ReadoutProcessor::EventInfos parse_readout_event_info(const VMEConfig &vmeConfig)
+{
+    auto parse_readout_script = [](const vme_script::VMEScript &rdoScript)
+    {
+        using namespace vme_script;
+        enum State { Prefix, Dynamic, Suffix };
+        State state = Prefix;
+        Parser_ModuleParts modParts = {};
+
+        for (auto &cmd: rdoScript)
+        {
+            if (cmd.type == CommandType::Read
+                || cmd.type == CommandType::Marker)
+            {
+                switch (state)
+                {
+                    case Prefix:
+                        modParts.prefixLen++;
+                        break;
+                    case Dynamic:
+                        modParts.suffixLen++;
+                        state = Suffix;
+                        break;
+                    case Suffix:
+                        modParts.suffixLen++;
+                        break;
+                }
+            }
+            else if (is_block_read_command(cmd.type))
+            {
+                switch (state)
+                {
+                    case Prefix:
+                        modParts.hasDynamic = true;
+                        state = Dynamic;
+                        break;
+                    case Dynamic:
+                        throw std::runtime_error("multiple block reads in module readout");
+                    case Suffix:
+                        throw std::runtime_error("block read after suffix in module readout");
+                }
+            }
+        }
+
+        return modParts;
+    };
+
+    ReadoutProcessor::EventInfos result;
+
+    for (auto &eventConfig: vmeConfig.getEventConfigs())
+    {
+        ReadoutProcessor::ModuleInfos moduleInfos;
+
+        for (auto &moduleConfig: eventConfig->getModuleConfigs())
+        {
+            auto rdoScript = moduleConfig->getReadoutScript()->getScript();
+            auto modParts = parse_readout_script(rdoScript);
+            moduleInfos.emplace_back(modParts);
+        }
+
+        result.emplace_back(moduleInfos);
+    }
+
+    return result;
+}
+
+struct ReadoutProcessor_ETH: public ReadoutProcessor
+{
+    s32 lastPacketNumber;
+    eth::PacketReadResult prr;
+};
+
+void rdo_process_buffer(
+    ReadoutProcessor_ETH &proc, ReadoutProcCallbacks &callbacks,
+    u32 *buffer, size_t bufferSize)
+{
+}
+
+struct ReadoutProcessor_USB: public ReadoutProcessor
+{
+};
+
+void rdo_process_buffer(
+    ReadoutProcessor_USB &proc, ReadoutProcCallbacks &callbacks,
+    u32 *buffer, size_t bufferSize)
+{
+}
 
 //
 // MVLC_StreamWorkerBase
@@ -176,7 +330,7 @@ void MVLC_StreamWorkerBase::resume()
 
 void MVLC_StreamWorkerBase::singleStep()
 {
-    logError("SingleSteppping not yet implemented for the MVLC data processor");
+    logError("SingleSteppping not implemented for the MVLC data processor");
     //m_desiredState = MVMEStreamWorkerState::SingleStepping;
 }
 
@@ -206,16 +360,6 @@ void MVLC_StreamWorkerBase::shutdownConsumers()
     }
 }
 
-/* analysis calls:
- * getVMEObjectSettings(eventConfig | moduleConfig)
- *  -> multi event processing enabled for an event? module enabled? module header filter.
- * processTimetick
- * beginEvent(eventIndex)
- *   processModuleData(eventIndex, moduleIndex, data *, size)
- * endEvent
- */
-
-
 //
 // MVLC_ETH_StreamWorker
 //
@@ -230,6 +374,8 @@ void MVLC_ETH_StreamWorker::beginRun_(
 {
 }
 
+// Input is a sequence of MVLC_ETH formatted buffers as generated by
+// MVLCReadoutWorker::readout_eth().
 bool MVLC_ETH_StreamWorker::processBuffer_(
     DataBuffer *buffer,
     const RunInfo &runInfo,
@@ -239,18 +385,16 @@ bool MVLC_ETH_StreamWorker::processBuffer_(
     if (buffer->tag != static_cast<int>(DataBufferFormatTags::MVLC_ETH))
         return false;
 
-    // Input is a sequence of MVLC_ETH formatted buffers as generated by
-    // MVLCReadoutWorker::readout_eth()
-
     try
     {
-        BufferIterator iter(buffer->data, buffer->used);
     } catch (const end_of_buffer &)
     {
-        return false;
+    }
+    catch (const std::runtime_error &)
+    {
     }
 
-    return true;
+    return false;
 }
 
 //
@@ -267,6 +411,8 @@ void MVLC_USB_StreamWorker::beginRun_(
 {
 }
 
+// Input is a sequence of MVLC_USB formatted buffers as generated by
+// MVLCReadoutWorker::readout_usb()
 bool MVLC_USB_StreamWorker::processBuffer_(
     DataBuffer *buffer,
     const RunInfo &runInfo,
@@ -276,5 +422,17 @@ bool MVLC_USB_StreamWorker::processBuffer_(
     if (buffer->tag != static_cast<int>(DataBufferFormatTags::MVLC_USB))
         return false;
 
-    return true;
+    try
+    {
+        return true;
+    } catch (const end_of_buffer &)
+    {
+        return false;
+    }
+    catch (const std::runtime_error &)
+    {
+        return false;
+    }
+
+    return false;
 }
