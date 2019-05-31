@@ -169,6 +169,25 @@ LIBMVME_CORE_EXPORT Result run_command(VMEController *controller,
 
 LIBMVME_CORE_EXPORT QString format_result(const Result &result);
 
+inline bool is_block_read_command(const CommandType &cmdType)
+{
+    switch (cmdType)
+    {
+        case CommandType::BLT:
+        case CommandType::BLTFifo:
+        case CommandType::MBLT:
+        case CommandType::MBLTFifo:
+        case CommandType::Blk2eSST64:
+        case CommandType::BLTCount:
+        case CommandType::BLTFifoCount:
+        case CommandType::MBLTCount:
+        case CommandType::MBLTFifoCount:
+            return true;
+        default: break;
+    }
+    return false;
+}
+
 } // namespace vme_script
 
 #endif /* __VME_SCRIPT_QT_H__ */
