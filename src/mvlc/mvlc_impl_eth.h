@@ -64,6 +64,42 @@ struct LIBMVME_MVLC_EXPORT PacketChannelStats
     HeaderTypeMap headerTypes;
 };
 
+struct LIBMVME_MVLC_EXPORT PayloadHeaderInfo
+{
+    u32 header0;
+    u32 header1;
+
+    inline u16 packetChannel() const
+    {
+        return (header0 >> header0::PacketChannelShift) & header0::PacketChannelMask;
+    }
+
+    inline u16 packetNumber() const
+    {
+        return (header0 >> header0::PacketNumberShift)  & header0::PacketNumberMask;
+    }
+
+    inline u16 dataWordCount() const
+    {
+        return (header0 >> header0::NumDataWordsShift)  & header0::NumDataWordsMask;
+    }
+
+    inline u16 udpTimestamp() const
+    {
+        return (header1 >> header1::TimestampShift)     & header1::TimestampMask;
+    }
+
+    inline u16 nextHeaderPointer() const
+    {
+        return (header1 >> header1::HeaderPointerShift) & header1::HeaderPointerMask;
+    }
+
+    inline u16 isNextHeaderPointerPresent() const
+    {
+        return nextHeaderPointer() != header1::NoHeaderPointerPresent;
+    }
+};
+
 struct LIBMVME_MVLC_EXPORT PacketReadResult
 {
     std::error_code ec;
@@ -78,27 +114,27 @@ struct LIBMVME_MVLC_EXPORT PacketReadResult
 
     inline u16 packetChannel() const
     {
-        return (header0() >> header0::PacketChannelShift) & header0::PacketChannelMask;
+        return PayloadHeaderInfo{header0(), header1()}.packetChannel();
     }
 
     inline u16 packetNumber() const
     {
-        return (header0() >> header0::PacketNumberShift)  & header0::PacketNumberMask;
+        return PayloadHeaderInfo{header0(), header1()}.packetNumber();
     }
 
     inline u16 dataWordCount() const
     {
-        return (header0() >> header0::NumDataWordsShift)  & header0::NumDataWordsMask;
+        return PayloadHeaderInfo{header0(), header1()}.dataWordCount();
     }
 
     inline u16 udpTimestamp() const
     {
-        return (header1() >> header1::TimestampShift)     & header1::TimestampMask;
+        return PayloadHeaderInfo{header0(), header1()}.udpTimestamp();
     }
 
     inline u16 nextHeaderPointer() const
     {
-        return (header1() >> header1::HeaderPointerShift) & header1::HeaderPointerMask;
+        return PayloadHeaderInfo{header0(), header1()}.nextHeaderPointer();
     }
 
     inline u16 availablePayloadWords() const

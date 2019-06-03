@@ -5,6 +5,7 @@
 
 #include "data_buffer_queue.h"
 #include "mvlc/mvlc_threading.h"
+#include "mvlc/mvlc_readout_parsers.h"
 
 class MVMEContext;
 
@@ -17,6 +18,8 @@ class MVLC_StreamWorkerBase: public StreamWorkerBase
             ThreadSafeDataBufferQueue *freeBuffers,
             ThreadSafeDataBufferQueue *fullBuffers,
             QObject *parent = nullptr);
+
+        ~MVLC_StreamWorkerBase() override;
 
         MVMEStreamWorkerState getState() const override
         {
@@ -121,14 +124,11 @@ class LIBMVME_EXPORT MVLC_ETH_StreamWorker: public MVLC_StreamWorkerBase
 {
     Q_OBJECT
     public:
-        using MVLC_StreamWorkerBase::MVLC_StreamWorkerBase;
-        /*
         MVLC_ETH_StreamWorker(
             MVMEContext *context,
             ThreadSafeDataBufferQueue *freeBuffers,
             ThreadSafeDataBufferQueue *fullBuffers,
             QObject *parent = nullptr);
-            */
 
         ~MVLC_ETH_StreamWorker() override;
 
@@ -143,6 +143,10 @@ class LIBMVME_EXPORT MVLC_ETH_StreamWorker: public MVLC_StreamWorkerBase
             const RunInfo &runInfo,
             const VMEConfig *vmeConfig,
             analysis::Analysis *analysis) override;
+
+    private:
+        std::unique_ptr<mesytec::mvlc::ReadoutParser_ETH> m_parser;
+        mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
 };
 
 class LIBMVME_EXPORT MVLC_USB_StreamWorker: public MVLC_StreamWorkerBase

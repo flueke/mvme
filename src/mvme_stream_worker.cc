@@ -197,7 +197,7 @@ void debug_dump(const ProcessingState &procState)
 
     qDebug() << ">>> begin ProcessingState";
 
-    qDebug("  buffer=%p, buffer.id=%lu, buffer.data=%p, buffer.used=%lu bytes, %lu words",
+    qDebug("  buffer=%p, buffer.id=%u, buffer.data=%p, buffer.used=%lu bytes, %lu words",
            procState.buffer,
            procState.buffer->id,
            procState.buffer->data,

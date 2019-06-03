@@ -166,6 +166,7 @@ if(MVME_ENABLE_MVLC)
         mvlc/mvlc_util.cc
         mvlc/mvlc_vme_controller.cc
         mvlc/mvlc_vme_debug_widget.cc
+        mvlc/mvlc_readout_parsers.cc
 
         ${LIBMVME_MVLC_UIC_OUT}
         )

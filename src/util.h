@@ -149,12 +149,12 @@ struct LIBMVME_CORE_EXPORT BufferIterator
         return ret;
     }
 
-    inline u32 peekU32() const
+    inline u32 peekU32(size_t index = 0) const
     {
-        if (buffp + sizeof(u32) > endp)
+        if (buffp + sizeof(u32) * index > endp)
             throw end_of_buffer();
 
-        u32 ret = *reinterpret_cast<u32 *>(buffp);
+        u32 ret = *reinterpret_cast<u32 *>(buffp) + index;
         return ret;
     }
 

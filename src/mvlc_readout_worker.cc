@@ -205,11 +205,11 @@ struct MVLCReadoutWorker::Private
     eth::Impl *mvlc_eth = nullptr;;
     usb::Impl *mvlc_usb = nullptr;;
     ListfileOutput listfileOut;
-    u64 nextOutputBufferNumber = 0u;;
+    u32 nextOutputBufferNumber = 1u;;
 
     void preRunClear()
     {
-        nextOutputBufferNumber = 0u;
+        nextOutputBufferNumber = 1u;
     }
 };
 
