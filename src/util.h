@@ -154,7 +154,7 @@ struct LIBMVME_CORE_EXPORT BufferIterator
         if (buffp + sizeof(u32) * index > endp)
             throw end_of_buffer();
 
-        u32 ret = *reinterpret_cast<u32 *>(buffp) + index;
+        u32 ret = *(reinterpret_cast<u32 *>(buffp) + index);
         return ret;
     }
 
