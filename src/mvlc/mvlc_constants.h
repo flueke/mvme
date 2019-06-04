@@ -77,6 +77,7 @@ namespace buffer_headers
         BlockRead         = 0xF5,
         StackError        = 0xF7,
         StackContinuation = 0xF9,
+        SystemEvent       = 0xFA,
     };
 
     // Header: Type[7:0] Continue[0:0] ErrorFlags[2:0] StackNum[3:0] CtrlId[2:0] Length[12:0]

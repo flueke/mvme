@@ -233,8 +233,9 @@ QString decode_response_header(u32 header)
             ss << "Stack Result Continuation Buffer (len=" << headerInfo.len;
             break;
 
-        default:
-            return result;
+        case buffer_headers::SystemEvent:
+            ss << "System Event (len=" << headerInfo.len;
+            break;
     }
 
     switch (static_cast<buffer_headers::BufferTypes>(headerInfo.type))
@@ -250,6 +251,7 @@ QString decode_response_header(u32 header)
             break;
 
         case buffer_headers::SuperBuffer:
+        case buffer_headers::SystemEvent:
             break;
     }
 

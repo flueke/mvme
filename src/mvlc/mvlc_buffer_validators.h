@@ -41,6 +41,11 @@ inline bool is_stack_buffer_continuation(u32 header)
     return get_buffer_type(header) == buffer_headers::StackContinuation;
 }
 
+inline bool is_system_event(u32 header)
+{
+    return get_buffer_type(header) == buffer_headers::SystemEvent;
+}
+
 inline bool is_known_buffer_header(u32 header)
 {
     const u8 type = get_buffer_type(header);
@@ -50,6 +55,7 @@ inline bool is_known_buffer_header(u32 header)
             || type == buffer_headers::BlockRead
             || type == buffer_headers::StackError
             || type == buffer_headers::StackContinuation
+            || type == buffer_headers::SystemEvent
             );
 }
 
