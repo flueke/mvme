@@ -262,12 +262,12 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
             return FrameCheckResult::HeaderMatchFailed;
         }
 
-        const auto hdrInfo = extract_header_info(header);
+        const auto hdrInfo = extract_frame_info(header);
 
         if (hdrInfo.stack < stacks::StackCount)
             ++data.stackHits[hdrInfo.stack];
 
-        if (hdrInfo.flags & buffer_flags::Continue)
+        if (hdrInfo.flags & frame_flags::Continue)
             ++data.framesWithContinueFlag;
 
         ++data.framesChecked;
@@ -1012,7 +1012,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                 // bits are set, read in the error notification (0xF7) buffer
                 // and log it.
                 u32 header = responseBuffer[0];
-                u8 errorBits = (header >> buffer_headers::BufferFlagsShift) & buffer_headers::BufferFlagsMask;
+                u8 errorBits = (header >> frame_headers::FrameFlagsShift) & frame_headers::FrameFlagsMask;
 
                 if (errorBits)
                 {
@@ -1809,7 +1809,7 @@ void MVLCDevGUI::logBuffer(const QVector<u32> &buffer, const QString &info)
             .arg(value)
             ;
 
-        if (is_known_buffer_header(value))
+        if (is_known_frame_header(value))
         {
             str += " " + decode_response_header(value);
         }
@@ -1899,9 +1899,9 @@ void MVLCDevGUI::handleStackErrorNotification(const QVector<u32> &buffer)
 {
     if (!buffer.isEmpty())
     {
-        auto info = extract_header_info(buffer.at(0));
+        auto info = extract_frame_info(buffer.at(0));
 
-        if (info.type == buffer_headers::StackError
+        if (info.type == frame_headers::StackError
             && info.stack < mesytec::mvlc::stacks::StackCount)
         {
             ++m_d->stackErrorNotificationStats.counts[info.stack];

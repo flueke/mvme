@@ -21,6 +21,8 @@
 #endif
 
 #include "mvlc/mvlc_error.h"
+#include "mvlc/mvlc_util.h"
+#include "mvlc/mvlc_buffer_validators.h"
 
 #define LOG_LEVEL_WARN  100
 #define LOG_LEVEL_INFO  200
@@ -625,7 +627,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
             u32 header = *headerp;
             LOG_TRACE("  pipe=%u, nextHeaderPointer=%u -> header=0x%08x",
                       pipe, res.nextHeaderPointer(), header);
-            u32 type = (header >> buffer_headers::TypeShift) & buffer_headers::TypeMask;
+            u32 type = get_frame_type(header);
             ++pipeStats.headerTypes[type];
             ++channelStats.headerTypes[type];
         }

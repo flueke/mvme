@@ -14,7 +14,7 @@ namespace mvlc
 
 static const u32 AddressIncrement = 4;
 static const u32 ReadLocalBlockMaxWords = 768;
-static const u32 BufferSizeMask = 0xFFFF;
+static const u32 FrameSizeMask = 0xFFFF;
 
 // Super commands are commands that are directly interpreted and executed
 // by the MVLC.
@@ -68,12 +68,12 @@ namespace commands
     };
 };
 
-namespace buffer_headers
+namespace frame_headers
 {
-    enum BufferTypes: u8
+    enum FrameTypes: u8
     {
-        SuperBuffer       = 0xF1,
-        StackBuffer       = 0xF3,
+        SuperFrame        = 0xF1,
+        StackFrame        = 0xF3,
         BlockRead         = 0xF5,
         StackError        = 0xF7,
         StackContinuation = 0xF9,
@@ -82,13 +82,13 @@ namespace buffer_headers
 
     // Header: Type[7:0] Continue[0:0] ErrorFlags[2:0] StackNum[3:0] CtrlId[2:0] Length[12:0]
     // The Continue bit and the ErrorFlags are combined into a 4 bit
-    // BufferFlags field.
+    // FrameFlags field.
 
     static const u8 TypeShift           = 24;
     static const u8 TypeMask            = 0xff;
 
-    static const u8 BufferFlagsMask     = 0xf;
-    static const u8 BufferFlagsShift    = 20;
+    static const u8 FrameFlagsMask      = 0xf;
+    static const u8 FrameFlagsShift     = 20;
 
     static const u8 StackNumShift       = 16;
     static const u8 StackNumMask        = 0xf;
@@ -100,7 +100,7 @@ namespace buffer_headers
     static const u16 LengthMask         = 0x1fff;
 }
 
-namespace buffer_flags
+namespace frame_flags
 {
     static const u8 Timeout     = 1 << 0;
     static const u8 BusError    = 1 << 1;

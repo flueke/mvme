@@ -88,6 +88,14 @@ struct LIBMVME_CORE_EXPORT BufferIterator
         , alignment(alignment)
     {}
 
+    BufferIterator(u32 *d, size_t sz)
+        : data(reinterpret_cast<u8 *>(d))
+        , buffp(data)
+        , endp(data + sz * sizeof(u32))
+        , size(sz * sizeof(u32))
+        , alignment(Align32)
+    {}
+
     inline bool align32() const { return alignment == Align32; }
 
     inline u8 extractU8()

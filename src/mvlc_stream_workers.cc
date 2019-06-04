@@ -259,17 +259,37 @@ void MVLC_ETH_StreamWorker::beginRun_(
 
     m_parserCallbacks.beginEvent = [analysis](int ei)
     {
+        qDebug() << "beginEvent" << ei;
         analysis->beginEvent(ei);
     };
 
-    m_parserCallbacks.moduleData = [analysis](int ei, int mi, u32 *data, u32 size)
+    m_parserCallbacks.modulePrefix = [analysis](int ei, int mi, u32 *data, u32 size)
     {
+        qDebug() << "  modulePrefix" << ei << mi << data << size;
+        analysis->processModuleData(ei, mi, data, size);
+    };
+
+    m_parserCallbacks.moduleDynamic = [analysis](int ei, int mi, u32 *data, u32 size)
+    {
+        qDebug() << "  moduleDynamic" << ei << mi << data << size;
+        analysis->processModuleData(ei, mi, data, size);
+    };
+
+    m_parserCallbacks.moduleSuffix = [analysis](int ei, int mi, u32 *data, u32 size)
+    {
+        qDebug() << "  moduleSuffix" << ei << mi << data << size;
         analysis->processModuleData(ei, mi, data, size);
     };
 
     m_parserCallbacks.endEvent = [analysis](int ei)
     {
+        qDebug() << "endEvent" << ei;
         analysis->endEvent(ei);
+    };
+
+    m_parserCallbacks.systemEvent = [](u32 *header, u32 size)
+    {
+        qDebug() << "systemEvent" << header << size;
     };
 }
 

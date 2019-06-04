@@ -182,23 +182,23 @@ QVector<u32> build_upload_command_buffer(const QVector<u32> &stack, u16 startAdd
     return result;
 }
 
-static QString format_buffer_flags(u8 bufferFlags)
+static QString format_frame_flags(u8 frameFlags)
 {
-    if (!bufferFlags)
+    if (!frameFlags)
         return "none";
 
     QStringList buffer;
 
-    if (bufferFlags & buffer_flags::Continue)
+    if (frameFlags & frame_flags::Continue)
         buffer << "continue";
 
-    if (bufferFlags & buffer_flags::SyntaxError)
+    if (frameFlags & frame_flags::SyntaxError)
         buffer << "syntax";
 
-    if (bufferFlags & buffer_flags::BusError)
+    if (frameFlags & frame_flags::BusError)
         buffer << "BERR";
 
-    if (bufferFlags & buffer_flags::Timeout)
+    if (frameFlags & frame_flags::Timeout)
         buffer << "timeout";
 
     return buffer.join(",");
@@ -209,55 +209,55 @@ QString decode_response_header(u32 header)
     QString result;
     QTextStream ss(&result);
 
-    auto headerInfo = extract_header_info(header);
+    auto headerInfo = extract_frame_info(header);
 
-    switch (static_cast<buffer_headers::BufferTypes>(headerInfo.type))
+    switch (static_cast<frame_headers::FrameTypes>(headerInfo.type))
     {
-        case buffer_headers::SuperBuffer:
+        case frame_headers::SuperFrame:
             ss << "Super Buffer (len=" << headerInfo.len;
             break;
 
-        case buffer_headers::StackBuffer:
+        case frame_headers::StackFrame:
             ss << "Stack Result Buffer (len=" << headerInfo.len;
             break;
 
-        case buffer_headers::BlockRead:
+        case frame_headers::BlockRead:
             ss << "Block Read Buffer (len=" << headerInfo.len;
             break;
 
-        case buffer_headers::StackError:
+        case frame_headers::StackError:
             ss << "Stack Error Buffer (len=" << headerInfo.len;
             break;
 
-        case buffer_headers::StackContinuation:
+        case frame_headers::StackContinuation:
             ss << "Stack Result Continuation Buffer (len=" << headerInfo.len;
             break;
 
-        case buffer_headers::SystemEvent:
+        case frame_headers::SystemEvent:
             ss << "System Event (len=" << headerInfo.len;
             break;
     }
 
-    switch (static_cast<buffer_headers::BufferTypes>(headerInfo.type))
+    switch (static_cast<frame_headers::FrameTypes>(headerInfo.type))
     {
-        case buffer_headers::StackBuffer:
-        case buffer_headers::BlockRead:
-        case buffer_headers::StackError:
-        case buffer_headers::StackContinuation:
+        case frame_headers::StackFrame:
+        case frame_headers::BlockRead:
+        case frame_headers::StackError:
+        case frame_headers::StackContinuation:
             {
-                u16 stackNum = (header >> buffer_headers::StackNumShift) & buffer_headers::StackNumMask;
+                u16 stackNum = (header >> frame_headers::StackNumShift) & frame_headers::StackNumMask;
                 ss << ", stackNum=" << stackNum;
             }
             break;
 
-        case buffer_headers::SuperBuffer:
-        case buffer_headers::SystemEvent:
+        case frame_headers::SuperFrame:
+        case frame_headers::SystemEvent:
             break;
     }
 
-    u8 bufferFlags = (header >> buffer_headers::BufferFlagsShift) & buffer_headers::BufferFlagsMask;
+    u8 frameFlags = (header >> frame_headers::FrameFlagsShift) & frame_headers::FrameFlagsMask;
 
-    ss << ", bufferFlags=" << format_buffer_flags(bufferFlags) << ")";
+    ss << ", frameFlags=" << format_frame_flags(frameFlags) << ")";
 
     return result;
 }

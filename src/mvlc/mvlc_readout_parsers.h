@@ -82,6 +82,7 @@ struct ReadoutParser_ETH
 
     eth::PayloadHeaderInfo payloadInfo;
     DataBuffer workBuffer;
+    u32 workBufferOffset = 0;
 
     VMEConfReadoutInfo readoutInfo;
     std::vector<ModuleReadoutSpans> readoutDataSpans;
@@ -89,24 +90,30 @@ struct ReadoutParser_ETH
     int moduleIndex = -1;
     enum ModuleParseState { Prefix, Dynamic, Suffix };
     ModuleParseState moduleParseState;
+    // output offset into the work buffer
 };
+
+ReadoutParser_ETH *make_readout_parser_eth(const VMEConfReadoutScripts &readoutScripts);
 
 struct ReadoutParserCallbacks
 {
-#if 0
-    using BeginEvent = void (*) (int ei);
-    using ModuleData = void (*) (int ei, int mi, u32 *data, u32 size);
-    using EndEvent   = void (*) (int ei);
+    std::function<void (int ei)>
+        beginEvent = [] (int) {},
+        endEvent   = [] (int) {};
 
-    BeginEvent beginEvent;
-    ModuleData moduleData;
-    EndEvent endEvent;
-#else
-    std::function<void (int ei)> beginEvent;
-    std::function<void (int ei, int mi, u32 *data, u32 size)> moduleData;
-    std::function<void (int ei)> endEvent;
-#endif
+    std::function<void (int ei, int mi, u32 *data, u32 size)>
+        modulePrefix  = [] (int, int, u32*, u32) {},
+        moduleDynamic = [] (int, int, u32*, u32) {},
+        moduleSuffix  = [] (int, int, u32*, u32) {};
+
+    std::function<void (u32 *header, u32 size)>
+        systemEvent = [] (u32 *, u32) {};
 };
+
+void parse_readout_buffer(
+    ReadoutParser_ETH &state,
+    ReadoutParserCallbacks &callbacks,
+    u32 bufferNumber, u8 *buffer, size_t bufferSize);
 
 } // end namespace mesytec
 } // end namespace mvlc

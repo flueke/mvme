@@ -9,53 +9,53 @@ namespace mesytec
 namespace mvlc
 {
 
-inline u8 get_buffer_type(u32 header)
+inline u8 get_frame_type(u32 header)
 {
-    return (header >> buffer_headers::TypeShift) & buffer_headers::TypeMask;
+    return (header >> frame_headers::TypeShift) & frame_headers::TypeMask;
 }
 
 using BufferHeaderValidator = std::function<bool (u32 header)>;
 
 inline bool is_super_buffer(u32 header)
 {
-    return get_buffer_type(header) == buffer_headers::SuperBuffer;
+    return get_frame_type(header) == frame_headers::SuperFrame;
 }
 
 inline bool is_stack_buffer(u32 header)
 {
-    return get_buffer_type(header) == buffer_headers::StackBuffer;
+    return get_frame_type(header) == frame_headers::StackFrame;
 }
 
 inline bool is_blockread_buffer(u32 header)
 {
-    return get_buffer_type(header) == buffer_headers::BlockRead;
+    return get_frame_type(header) == frame_headers::BlockRead;
 }
 
 inline bool is_stackerror_notification(u32 header)
 {
-    return get_buffer_type(header) == buffer_headers::StackError;
+    return get_frame_type(header) == frame_headers::StackError;
 }
 
 inline bool is_stack_buffer_continuation(u32 header)
 {
-    return get_buffer_type(header) == buffer_headers::StackContinuation;
+    return get_frame_type(header) == frame_headers::StackContinuation;
 }
 
 inline bool is_system_event(u32 header)
 {
-    return get_buffer_type(header) == buffer_headers::SystemEvent;
+    return get_frame_type(header) == frame_headers::SystemEvent;
 }
 
-inline bool is_known_buffer_header(u32 header)
+inline bool is_known_frame_header(u32 header)
 {
-    const u8 type = get_buffer_type(header);
+    const u8 type = get_frame_type(header);
 
-    return (type == buffer_headers::SuperBuffer
-            || type == buffer_headers::StackBuffer
-            || type == buffer_headers::BlockRead
-            || type == buffer_headers::StackError
-            || type == buffer_headers::StackContinuation
-            || type == buffer_headers::SystemEvent
+    return (type == frame_headers::SuperFrame
+            || type == frame_headers::StackFrame
+            || type == frame_headers::BlockRead
+            || type == frame_headers::StackError
+            || type == frame_headers::StackContinuation
+            || type == frame_headers::SystemEvent
             );
 }
 

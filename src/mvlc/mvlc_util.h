@@ -45,7 +45,7 @@ LIBMVME_MVLC_EXPORT QVector<u32> build_upload_command_buffer(
 LIBMVME_MVLC_EXPORT QVector<u32> build_upload_command_buffer(
     const QVector<u32> &stack, u16 startAddress);
 
-struct HeaderInfo
+struct FrameInfo
 {
     u16 len;
     u8 type;
@@ -53,15 +53,15 @@ struct HeaderInfo
     u8 stack;
 };
 
-inline HeaderInfo extract_header_info(u32 header)
+inline FrameInfo extract_frame_info(u32 header)
 {
-    using namespace buffer_headers;
+    using namespace frame_headers;
 
-    HeaderInfo result;
+    FrameInfo result;
 
     result.len   = (header >> LengthShift) & LengthMask;
     result.type  = (header >> TypeShift) & TypeMask;
-    result.flags = (header >> BufferFlagsShift) & BufferFlagsMask;
+    result.flags = (header >> FrameFlagsShift) & FrameFlagsMask;
     result.stack = (header >> StackNumShift) & StackNumMask;
 
     return result;

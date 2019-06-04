@@ -149,14 +149,14 @@ std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
     if (auto ec = readWords(&header, 1, wordsTransferred))
         return ec;
 
-    if (!is_known_buffer_header(header))
+    if (!is_known_frame_header(header))
     {
         dest.resize(1);
         dest[0] = header;
         return make_error_code(MVLCErrorCode::InvalidBufferHeader);
     }
 
-    u16 responseLength = (header & BufferSizeMask);
+    u16 responseLength = (header & FrameSizeMask);
     dest.resize(1 + responseLength);
     dest[0] = header;
 
@@ -348,7 +348,7 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
     assert(!dest.isEmpty()); // guaranteed by readResponse()
 
     u32 header = dest[0];
-    u8 errorBits = (header >> buffer_headers::BufferFlagsShift) & buffer_headers::BufferFlagsMask;
+    u8 errorBits = (header >> frame_headers::FrameFlagsShift) & frame_headers::FrameFlagsMask;
 
     if (errorBits)
     {
@@ -366,10 +366,10 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
                 logBuffer(tmpBuffer, "Unexpected buffer contents (wanted a stack error notification (0xF7)");
         }
 
-        if (errorBits & buffer_flags::Timeout)
+        if (errorBits & frame_flags::Timeout)
             return MVLCErrorCode::NoVMEResponse;
 
-        if (errorBits & buffer_flags::SyntaxError)
+        if (errorBits & frame_flags::SyntaxError)
             return MVLCErrorCode::StackSyntaxError;
 
         // VME BusError and the Continue bit are not considered errors
