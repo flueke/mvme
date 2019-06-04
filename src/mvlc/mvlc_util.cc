@@ -182,7 +182,7 @@ QVector<u32> build_upload_command_buffer(const QVector<u32> &stack, u16 startAdd
     return result;
 }
 
-static QString format_frame_flags(u8 frameFlags)
+QString format_frame_flags(u8 frameFlags)
 {
     if (!frameFlags)
         return "none";

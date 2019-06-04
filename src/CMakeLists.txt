@@ -342,6 +342,9 @@ if (MVME_ENABLE_MVLC)
     # whole.
     add_executable(mvme_mvlc mvme_mvlc/mvme_mvlc_main.cc)
     target_link_libraries(mvme_mvlc libmvme)
+
+    add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
+    target_link_libraries(dev_mvlc_dump_eth_file libmvme)
 endif()
 
 install(TARGETS libmvme DESTINATION .)
