@@ -51,7 +51,9 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
         if (stackId >= stacks::StackCount)
             return make_error_code(MVLCErrorCode::StackCountExceeded);
 
-        auto readoutScript = build_event_readout_script(event);
+        auto readoutScript = build_event_readout_script(
+            event, EventReadoutBuildFlags::NoModuleEndMarker);
+
         auto stackContents = build_stack(readoutScript, DataPipe);
 
         u16 uploadAddress = stacks::StackMemoryBegin + uploadOffset * 4;
