@@ -3,6 +3,7 @@
 
 #include "vme_script.h"
 #include "mvlc/mvlc_impl_eth.h"
+#include "mvlc/mvlc_util.h"
 #include "databuffer.h"
 
 namespace mesytec
@@ -54,7 +55,8 @@ struct ModuleReadoutParts
 using VMEConfReadoutScripts = std::vector<std::vector<vme_script::VMEScript>>;
 using VMEConfReadoutInfo    = std::vector<std::vector<ModuleReadoutParts>>;
 
-VMEConfReadoutInfo parse_event_readout_info(const VMEConfReadoutScripts &rdoScripts);
+ModuleReadoutParts parse_module_readout_script(const vme_script::VMEScript &readoutScript);
+VMEConfReadoutInfo parse_vme_readout_info(const VMEConfReadoutScripts &rdoScripts);
 
 struct Span
 {
@@ -69,28 +71,62 @@ struct ModuleReadoutSpans
     Span suffixSpan;
 };
 
-struct ReadoutParser_ETH
+struct end_of_frame: public std::exception {};
+
+struct ReadoutParserCommon
 {
+    struct FrameParseState
+    {
+        FrameParseState(u32 frameHeader = 0)
+            : header(frameHeader)
+            , wordsLeft(extract_frame_info(frameHeader).len)
+        {}
+
+        inline operator bool() const { return wordsLeft; }
+        inline FrameInfo info() const { return extract_frame_info(header); }
+
+        inline void consumeWord()
+        {
+            if (wordsLeft == 0)
+                throw end_of_frame();
+            --wordsLeft;
+        }
+
+        u32 header;
+        u16 wordsLeft;
+    };
+
+    enum ModuleParseState { Prefix, Dynamic, Suffix };
+
     // The readout workers start with buffer number 1 so buffer 0 can only
-    // occur after wrapping the counter but by using 0 as a starting value the
-    // loss calculation will be correct in all cases.
+    // occur after wrapping the counter. By using 0 as a starting value the
+    // buffer loss calculation will work without special cases.
     u32 lastBufferNumber = 0;
 
+    // Space to assemble linear readout data.
+    DataBuffer workBuffer;
+
+    // Current output offset into the workbuffer
+    u32 workBufferOffset = 0;
+
+    // Per event preparsed module readout info.
+    VMEConfReadoutInfo readoutInfo;
+
+    // Per module offsets and sizes into the workbuffer.
+    std::vector<ModuleReadoutSpans> readoutDataSpans;
+
+    int eventIndex = -1;
+    int moduleIndex = -1;
+    ModuleParseState moduleParseState;
+    FrameParseState curStackFrame = {};
+    FrameParseState curBlockFrame = {};
+};
+
+struct ReadoutParser_ETH: public ReadoutParserCommon
+{
     // The actual packet number is of type u16. Using an s32 here to represent
     // the "no previous packet" case by storing a -1.
     s32 lastPacketNumber = -1;
-
-    eth::PayloadHeaderInfo payloadInfo;
-    DataBuffer workBuffer;
-    u32 workBufferOffset = 0;
-
-    VMEConfReadoutInfo readoutInfo;
-    std::vector<ModuleReadoutSpans> readoutDataSpans;
-    int eventIndex = -1;
-    int moduleIndex = -1;
-    enum ModuleParseState { Prefix, Dynamic, Suffix };
-    ModuleParseState moduleParseState;
-    // output offset into the work buffer
 };
 
 ReadoutParser_ETH *make_readout_parser_eth(const VMEConfReadoutScripts &readoutScripts);

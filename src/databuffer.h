@@ -116,6 +116,18 @@ struct DataBuffer
         return reinterpret_cast<u32 *>(data) + index;
     }
 
+    template<typename T>
+    T *append(const T &value)
+    {
+        if (free() < sizeof(T))
+            throw end_of_buffer();
+
+        auto result = reinterpret_cast<T *>(data + used);
+        *result = value;
+        used += sizeof(T);
+        return result;
+    }
+
     void ensureCapacity(size_t freeSize)
     {
         if (freeSize > free())
