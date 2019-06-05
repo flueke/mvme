@@ -1811,7 +1811,7 @@ void MVLCDevGUI::logBuffer(const QVector<u32> &buffer, const QString &info)
 
         if (is_known_frame_header(value))
         {
-            str += " " + decode_response_header(value);
+            str += " " + decode_frame_header(value);
         }
 
         strBuffer << str;

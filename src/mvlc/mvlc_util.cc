@@ -204,7 +204,7 @@ QString format_frame_flags(u8 frameFlags)
     return buffer.join(",");
 }
 
-QString decode_response_header(u32 header)
+QString decode_frame_header(u32 header)
 {
     QString result;
     QTextStream ss(&result);
@@ -214,23 +214,23 @@ QString decode_response_header(u32 header)
     switch (static_cast<frame_headers::FrameTypes>(headerInfo.type))
     {
         case frame_headers::SuperFrame:
-            ss << "Super Buffer (len=" << headerInfo.len;
+            ss << "Super Frame (len=" << headerInfo.len;
             break;
 
         case frame_headers::StackFrame:
-            ss << "Stack Result Buffer (len=" << headerInfo.len;
+            ss << "Stack Result Frame (len=" << headerInfo.len;
             break;
 
         case frame_headers::BlockRead:
-            ss << "Block Read Buffer (len=" << headerInfo.len;
+            ss << "Block Read Frame (len=" << headerInfo.len;
             break;
 
         case frame_headers::StackError:
-            ss << "Stack Error Buffer (len=" << headerInfo.len;
+            ss << "Stack Error Frame (len=" << headerInfo.len;
             break;
 
         case frame_headers::StackContinuation:
-            ss << "Stack Result Continuation Buffer (len=" << headerInfo.len;
+            ss << "Stack Result Continuation Frame (len=" << headerInfo.len;
             break;
 
         case frame_headers::SystemEvent:

@@ -55,7 +55,7 @@ void process_file(u32 *addr, size_t size)
 
                 auto frameInfo = extract_frame_info(frameHeader);
                 printf("  frameHeader=0x%08x: %s, wordsLeftInPacket=%lu\n",
-                       frameHeader, decode_response_header(frameHeader).toStdString().c_str(),
+                       frameHeader, decode_frame_header(frameHeader).toStdString().c_str(),
                        wordsLeftInPacket);
 
                 const u8* frameEnd = iter.buffp + frameInfo.len * sizeof(u32);
