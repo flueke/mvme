@@ -100,6 +100,11 @@ int main(int argc, char *argv[])
     if (fstat(fd, &fileStat) == -1)
         throw std::system_error(errno, std::system_category());
 
+    if (fileStat.st_size == 0)
+        throw std::runtime_error("empty input file");
+
+    printf("fileStat.st_size=%lu\n", fileStat.st_size);
+
     void *mapping = mmap(nullptr, fileStat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 
     if (mapping == MAP_FAILED)
@@ -108,6 +113,6 @@ int main(int argc, char *argv[])
     process_file(reinterpret_cast<u32 *>(mapping), fileStat.st_size / sizeof(u32));
 
     munmap(mapping, fileStat.st_size);
-    
+
     return 0;
 }
