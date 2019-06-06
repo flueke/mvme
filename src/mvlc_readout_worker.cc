@@ -78,6 +78,8 @@
 
     // TODO: where to handle error notifications? The GUI should display their
     // rates by stack somewhere.
+    // Use the notification poller somewhere outside of this readout worker and
+    // display the counts somewhere during a readout.
 #if 0
     connect(mvlc, &MVLC_VMEController::stackErrorNotification,
             this, [this] (const QVector<u32> &notification)
@@ -112,9 +114,20 @@ struct ListfileOutput
     QString outFilename;
     std::unique_ptr<QuaZip> archive;
     std::unique_ptr<QIODevice> outdev;
+
+    inline bool isOpen()
+    {
+        return outdev && outdev->isOpen();
+    }
 };
 
-ListfileOutput open_listfile(ListFileOutputInfo &outinfo,
+struct listfile_write_error: public std::runtime_error
+{
+    listfile_write_error(const char *arg): std::runtime_error(arg) {}
+    listfile_write_error(): std::runtime_error("listfile_write_error") {}
+};
+
+ListfileOutput listfile_open(ListFileOutputInfo &outinfo,
                              std::function<void (const QString &)> logger)
 {
     ListfileOutput result;
@@ -193,6 +206,122 @@ ListfileOutput open_listfile(ListFileOutputInfo &outinfo,
     return result;
 }
 
+void listfile_close(ListfileOutput &lf_out)
+{
+    if (!lf_out.isOpen())
+        return;
+
+    lf_out.outdev->close();
+
+    if (lf_out.archive)
+    {
+        lf_out.archive->close();
+
+        if (lf_out.archive->getZipError() != UNZ_OK)
+            throw make_zip_error(lf_out.archive->getZipName(), *lf_out.archive.get());
+    }
+}
+
+inline void listfile_write_raw(ListfileOutput &lf_out, const char *buffer, size_t size)
+{
+    if (!lf_out.isOpen())
+        return;
+
+    if (lf_out.outdev->write(buffer, size) != static_cast<qint64>(size))
+        throw listfile_write_error();
+}
+
+inline void listfile_write_raw(ListfileOutput &lf_out, const u8 *buffer, size_t size)
+{
+    listfile_write_raw(lf_out, reinterpret_cast<const char *>(buffer), size);
+}
+
+void listfile_write_magic(ListfileOutput &lf_out, const MVLCObject &mvlc)
+{
+    const char *magic = nullptr;
+
+    switch (mvlc.connectionType())
+    {
+        case ConnectionType::ETH:
+            magic = "MVLC_ETH";
+            break;
+
+        case ConnectionType::USB:
+            magic = "MVLC_USB";
+            break;
+    }
+
+    listfile_write_raw(lf_out, magic, std::strlen(magic));
+}
+
+void listfile_write_system_sections(ListfileOutput &lf_out, u8 subtype, const QByteArray &bytes)
+{
+    if (bytes.isEmpty())
+        return;
+
+    if (bytes.size() % sizeof(u32))
+        throw listfile_write_error("unpadded system section data");
+
+    unsigned totalWords   = bytes.size() / sizeof(u32);
+
+    const u32 *buffp = reinterpret_cast<const u32 *>(bytes.data());
+    const u32 *endp  = buffp + totalWords;
+
+    while (buffp < endp)
+    {
+        unsigned wordsLeft = endp - buffp;
+        unsigned wordsInSection = std::min(
+            wordsLeft, static_cast<unsigned>(system_event::LengthMask));
+
+        bool isLastSection = (wordsInSection == wordsLeft);
+
+        u32 sectionHeader = (frame_headers::SystemEvent << frame_headers::TypeShift)
+            | ((subtype & system_event::SubTypeMask) << system_event::SubTypeShift);
+
+        if (!isLastSection)
+            sectionHeader |= 0b1 << system_event::ContinueShift;
+
+        sectionHeader |= (wordsInSection & system_event::LengthMask) << system_event::LengthShift;
+
+        listfile_write_raw(lf_out, reinterpret_cast<const u8 *>(&sectionHeader),
+                           sizeof(sectionHeader));
+
+        listfile_write_raw(lf_out, reinterpret_cast<const u8 *>(buffp),
+                           wordsInSection * sizeof(u32));
+
+        buffp += wordsInSection;
+    }
+
+    assert(buffp == endp);
+}
+
+void listfile_write_vme_config(ListfileOutput &lf_out, const VMEConfig &vmeConfig)
+{
+    if (!lf_out.isOpen())
+        return;
+
+    QJsonObject json;
+    vmeConfig.write(json);
+    QJsonObject parentJson;
+    parentJson["VMEConfig"] = json;
+    QJsonDocument doc(parentJson);
+    QByteArray bytes(doc.toJson());
+
+    // Pad using spaces. The Qt JSON parser will handle this without error when
+    // reading it back.
+    while (bytes.size() % sizeof(u32))
+        bytes.append(' ');
+
+    listfile_write_system_sections(lf_out, system_event::VMEConfig, bytes);
+}
+
+void listfile_write_preamble(ListfileOutput &lf_out, const MVLCObject &mvlc,
+                             const VMEConfig &vmeConfig)
+{
+    listfile_write_magic(lf_out, mvlc);
+    listfile_write_vme_config(lf_out, vmeConfig);
+}
+
 } // end anon namespace
 
 struct MVLCReadoutWorker::Private
@@ -237,7 +366,10 @@ void MVLCReadoutWorker::start(quint32 cycles)
         return;
     }
 
-    // Setup the Private struct members
+    // Setup the Private struct members. All layers of the MVLC impl are used
+    // in here: MVLC_VMEController to execute vme scripts, MVLCObject to setup
+    // stacks and triggers and the low level implementations for fast
+    // packet(ET)/buffer(USB) reads.
     d->mvlcCtrl = qobject_cast<MVLC_VMEController *>(getContext().controller);
 
     if (!d->mvlcCtrl)
@@ -278,7 +410,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         auto results = vme_daq_init(getContext().vmeConfig, d->mvlcCtrl, logger);
         log_errors(results, logger);
 
-        if (d->mvlcObj->connectionType() == ConnectionType::ETH)
+        if (d->mvlc_eth)
         {
             logMessage(QSL("MVLC connection type is UDP. Sending initial empty request"
                            " via the data socket."));
@@ -304,9 +436,9 @@ void MVLCReadoutWorker::start(quint32 cycles)
             throw ec;
 
         // listfile handling
-        d->listfileOut = open_listfile(*m_workerContext.listfileOutputInfo, logger);
+        d->listfileOut = listfile_open(*m_workerContext.listfileOutputInfo, logger);
+        listfile_write_preamble(d->listfileOut, *d->mvlcObj, *m_workerContext.vmeConfig);
         m_workerContext.daqStats->listfileFilename = d->listfileOut.outFilename;
-        // TODO: write magic and vme config to listfile.
 
         d->preRunClear();
 
@@ -422,6 +554,8 @@ void MVLCReadoutWorker::readoutLoop()
 
     setState(DAQState::Stopping);
 
+    // Do two things in parallel: disable the triggers while also reading and
+    // processing data from the data pipe.
     auto f = QtConcurrent::run([this]()
     {
         return disable_all_triggers(*d->mvlcObj);
@@ -476,253 +610,7 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
     if (getOutputBuffer()->used > 0)
         flushCurrentOutputBuffer();
 
-#if 0
-    if (bytesTransferred == 0)
-    {
-        // Reuse the output buffer in the next call.
-        // The side effect is that no buffer will be flushed to the fullQueue.
-        getOutputBuffer()->used = 0;
-    }
-    else
-    {
-        flushCurrentOutputBuffer();
-    }
-#endif
-
     return ec;
-
-#if 0
-    auto mvlc = qobject_cast<MVLC_VMEController *>(getContext().controller)->getMVLCObject();
-
-    m_readBuffer.used = 0u;
-
-    if (m_previousData.used)
-    {
-        std::memcpy(m_readBuffer.data, m_previousData.data, m_previousData.used);
-        m_readBuffer.used = m_previousData.used;
-        m_previousData.used = 0u;
-    }
-
-    // TODO: use lower level (unbuffered) reads
-
-    auto ec = mvlc->read(Pipe::Data,
-                         m_readBuffer.data + m_readBuffer.used,
-                         m_readBuffer.size - m_readBuffer.used,
-                         bytesTransferred);
-
-    m_readBuffer.used += bytesTransferred;
-
-    // TODO: write raw file contents here
-
-    if (bytesTransferred == 0 || ec == ErrorType::ConnectionError)
-        return ec;
-
-    if (m_logBuffers)
-    {
-        const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
-
-        size_t bytesToLog = std::min(m_readBuffer.size, (size_t)10240u);
-
-        logMessage(QString(">>> Begin MVLC buffer #%1 (first %2 bytes)")
-                   .arg(bufferNumber)
-                   .arg(bytesToLog),
-                   false);
-
-        logBuffer(BufferIterator(m_readBuffer.data, bytesToLog), [this](const QString &str)
-        {
-            logMessage(str, false);
-        });
-
-        logMessage(QString("<<< End MVLC buffer #%1").arg(bufferNumber), false);
-    }
-
-    // update stats
-    getContext().daqStats->totalBytesRead += bytesTransferred;
-    getContext().daqStats->totalBuffersRead++;
-
-    if (bytesTransferred < 1 * sizeof(u32))
-    {
-        logMessage(QSL("MVLC Readout Warning: readout data too short (%1 bytes)")
-                   .arg(bytesTransferred));
-        return make_error_code(MVLCErrorCode::ShortRead);
-    }
-
-    BufferIterator iter(m_readBuffer.data, m_readBuffer.used);
-
-    auto outputBuffer = getOutputBuffer();
-    outputBuffer->ensureCapacity(outputBuffer->used + m_readBuffer.used * 2);
-    //m_rdoState.streamWriter.setOutputBuffer(outputBuffer);
-
-    try
-    {
-        while (!iter.atEnd())
-        {
-            // Interpret the frame header (0xF3)
-            u32 frameHeader = iter.peekU32();
-            auto frameInfo = extract_header_info(frameHeader);
-
-            if (!(frameInfo.type == buffer_headers::StackBuffer
-                  || frameInfo.type == buffer_headers::StackContinuation))
-            {
-                logMessage(QSL("MVLC Readout Warning:"
-                               "received unexpected frame header: 0x%1, prevWord=0x%2")
-                           .arg(frameHeader, 8, 16, QLatin1Char('0'))
-                           .arg(*(iter.asU32() - 1), 8, 16, QLatin1Char('0'))
-                           , true);
-                return make_error_code(MVLCErrorCode::UnexpectedBufferHeader);
-            }
-
-            //qDebug("frameInfo.len=%u, longwordsLeft=%u, frameHeader=0x%08x",
-            //       frameInfo.len, iter.longwordsLeft() - 1, frameHeader);
-
-            if (frameInfo.len > iter.longwordsLeft() - 1)
-            {
-                std::memcpy(m_previousData.data, iter.asU8(), iter.bytesLeft());
-                m_previousData.used = iter.bytesLeft();
-                flushCurrentOutputBuffer();
-                return make_error_code(MVLCErrorCode::NeedMoreData);
-            }
-
-            // eat the frame header
-            iter.extractU32();
-
-            // The contents of the F3 buffer can be anything produced by the
-            // readout stack.  The most common case will be one block read
-            // section (F5) per module that is read out. By building custom
-            // readout stacks arbitrary structures can be created. For now only
-            // block reads are supported by this code.
-            // To support non-block reads mixed with block reads the readout
-            // stack needs to be interpreted.
-
-            if (frameInfo.stack == 0 || frameInfo.stack - 1 >= m_events.size())
-                return make_error_code(MVLCErrorCode::StackIndexOutOfRange);
-
-            const auto &ewm = m_events[frameInfo.stack - 1];
-
-            if (m_rdoState.stack >= 0)
-            {
-                if (m_rdoState.stack != frameInfo.stack)
-                {
-                    //qDebug("rdoState.stack != frameInfo.stack (%d != %d)",
-                    //       m_rdoState.stack, frameInfo.stack);
-                    return make_error_code(MVLCErrorCode::StackIndexOutOfRange);
-                }
-
-                assert(m_rdoState.streamWriter.hasOpenEventSection());
-                //qDebug("data is continuation for stack %d", m_rdoState.stack);
-            }
-            else
-            {
-                assert(!m_rdoState.streamWriter.hasOpenEventSection());
-                m_rdoState.stack = frameInfo.stack;
-                m_rdoState.streamWriter.openEventSection(m_rdoState.stack - 1);
-                //qDebug("data starts for stack %d", m_rdoState.stack);
-            }
-
-            s16 mi = std::max(m_rdoState.module, (s16)0);
-
-            //qDebug("data begins with block for module %d", mi);
-
-            for (; mi < ewm.modules.size(); mi++)
-            {
-                u32 blkHeader = iter.extractU32();
-                auto blkInfo = extract_header_info(blkHeader);
-
-                if (blkInfo.type != buffer_headers::BlockRead)
-                {
-                    logMessage(QSL("MVLC Readout Warning: unexpeceted block header: 0x%1")
-                               .arg(blkHeader, 8, 16, QLatin1Char('0')), true);
-                    return make_error_code(MVLCErrorCode::UnexpectedBufferHeader);
-                }
-
-                if (blkInfo.len == 0)
-                {
-                    logMessage(QSL("MVLC Readout Warning: received block read frame of size 0"));
-                }
-
-                if (!m_rdoState.streamWriter.hasOpenModuleSection())
-                {
-                    //qDebug("opening module section for module %d", mi);
-                    m_rdoState.streamWriter.openModuleSection(ewm.moduleTypes[mi]);
-                }
-                else
-                {
-                    //qDebug("data is continuation for module %d", mi);
-                }
-
-                for (u16 wi = 0; wi < blkInfo.len; wi++)
-                {
-                    u32 data = iter.extractU32();
-                    m_rdoState.streamWriter.writeModuleData(data);
-                }
-
-                if (blkInfo.flags & buffer_flags::Continue)
-                {
-                    m_rdoState.module = mi;
-                    //qDebug("data for module %d continues in next buffer", mi);
-                    break;
-                }
-
-                //qDebug("data for module %d done, closing module section", mi);
-                m_rdoState.streamWriter.closeModuleSection();
-                m_rdoState.module++;
-
-                if (m_rdoState.module >= ewm.modules.size())
-                    m_rdoState.module = 0;
-
-                u32 endMarker = iter.extractU32();
-
-                if (endMarker != EndMarker)
-                {
-                    logMessage(QSL("MVLC Readout Warning: "
-                                   "unexpected end marker at end of module data: 0x%1")
-                               .arg(endMarker, 8, 16, QLatin1Char('0')));
-                }
-            }
-
-            if (!(frameInfo.flags & buffer_flags::Continue))
-            {
-                //qDebug("closing event section for stack %d", m_rdoState.stack);
-                m_rdoState.streamWriter.writeEventData(EndMarker);
-                m_rdoState.streamWriter.closeEventSection();
-                m_rdoState.module = 0;
-                m_rdoState.stack = -1;
-            }
-            else
-            {
-                //qDebug("event from stack %d continues in next frame", frameInfo.stack);
-                m_rdoState.stack = frameInfo.stack;
-            }
-        } // while (!iter.atEnd())
-    }
-    catch (const end_of_buffer &)
-    {
-        if (m_rdoState.streamWriter.hasOpenModuleSection())
-            m_rdoState.streamWriter.closeModuleSection();
-
-        if (m_rdoState.streamWriter.hasOpenEventSection())
-            m_rdoState.streamWriter.closeEventSection();
-
-        logMessage(QSL("MVLC Readout Warning: unexpectedly reached end of readout buffer"));
-        return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
-    }
-
-    if (m_rdoState.stack >= 0)
-    {
-        assert(m_rdoState.streamWriter.hasOpenEventSection());
-        //qDebug("data for stack %d continues in next frame, leaving event section open",
-        //       m_rdoState.stack);
-    }
-    else
-    {
-        assert(!m_rdoState.streamWriter.hasOpenEventSection());
-        //qDebug("done with input data, stack data does not continue in"
-        //       " next frame -> flusing output buffer");
-        flushCurrentOutputBuffer();
-    }
-
-    return {};
-#endif
 }
 
 /* Steps for the ETH readout:
