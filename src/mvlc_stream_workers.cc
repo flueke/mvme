@@ -265,19 +265,19 @@ void MVLC_ETH_StreamWorker::beginRun_(
 
     m_parserCallbacks.modulePrefix = [analysis](int ei, int mi, u32 *data, u32 size)
     {
-        //qDebug() << "  modulePrefix" << ei << mi << data << size;
+        qDebug() << "  modulePrefix" << ei << mi << data << size;
         analysis->processModuleData(ei, mi, data, size);
     };
 
     m_parserCallbacks.moduleDynamic = [analysis](int ei, int mi, u32 *data, u32 size)
     {
-        //qDebug() << "  moduleDynamic" << ei << mi << data << size;
+        qDebug() << "  moduleDynamic" << ei << mi << data << size;
         analysis->processModuleData(ei, mi, data, size);
     };
 
     m_parserCallbacks.moduleSuffix = [analysis](int ei, int mi, u32 *data, u32 size)
     {
-        //qDebug() << "  moduleSuffix" << ei << mi << data << size;
+        qDebug() << "  moduleSuffix" << ei << mi << data << size;
         analysis->processModuleData(ei, mi, data, size);
     };
 
@@ -311,11 +311,13 @@ bool MVLC_ETH_StreamWorker::processBuffer_(
             buffer->id, buffer->data, buffer->used);
 
         return true;
-    } catch (const end_of_buffer &)
+    } catch (const end_of_buffer &e)
     {
+        qDebug() << "exception from parse_readout_buffer: " << e.what() << "buffer->id =" << buffer->id;
     }
-    catch (const std::runtime_error &)
+    catch (const std::runtime_error &e)
     {
+        qDebug() << "exception from parse_readout_buffer: " << e.what() << "buffer->id =" << buffer->id;
     }
 
     return false;

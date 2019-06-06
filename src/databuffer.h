@@ -128,6 +128,11 @@ struct DataBuffer
         return result;
     }
 
+    u8 *endPtr()
+    {
+        return data + used;
+    }
+
     void ensureCapacity(size_t freeSize)
     {
         if (freeSize > free())

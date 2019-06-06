@@ -1,6 +1,8 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* rare crash at startup in the AnalysisThread in EventServer::startup() line
+  285 where shutdown() is called if the server is not enabled.
 * changing the vme controller while MVLCDevGUI is open leads to a crash.
   Use MVMEContext::vmeControllerAboutToBeChanged() to handle this case.
   Remember to stop the dev gui readout thread in case it is running.

@@ -64,7 +64,12 @@ inline bool isFloat(const QVariant &var)
 LIBMVME_CORE_EXPORT QString toString(const RegisterList &registerList);
 LIBMVME_CORE_EXPORT QStringList toStringList(const RegisterList &registerList);
 
-class LIBMVME_CORE_EXPORT end_of_buffer: public std::exception {};
+class LIBMVME_CORE_EXPORT end_of_buffer: public std::runtime_error
+{
+    public:
+        end_of_buffer(const char *arg): std::runtime_error(arg) {}
+        end_of_buffer(): std::runtime_error("end_of_buffer") {}
+};
 
 struct LIBMVME_CORE_EXPORT BufferIterator
 {
