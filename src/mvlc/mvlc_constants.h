@@ -108,6 +108,33 @@ namespace frame_flags
     static const u8 Continue    = 1 << 3;
 }
 
+namespace system_event
+{
+    // TTTT TTTT CSSS SSSS UUUL LLLL LLLL LLLL
+    // Type     [ 7:0] set to 0xFA
+    // Continue [ 0:0] continue bit set for all but the last part
+    // Subtype  [ 6:0] 7 bit system event SubType
+    // Unused   [ 2:0] 3 unused bits
+    // Length   [12:0] 13 bit length counted in 32-bit words
+
+    enum SubType: u8
+    {
+        VMEConfig       = 0x01,
+        AnalysisConfig  = 0x02,
+        UnixTimestamp   = 0x03,
+        EndOfFile       = 0xEE,
+    };
+
+    static const u8 ContinueShift = 23;
+    static const u8 ContinueMask  = 0b1;
+
+    static const u8 SubTypeShift = 16;
+    static const u8 SubTypeMask  = 0x7f;
+
+    static const u16 LengthShift        = 0;
+    static const u16 LengthMask         = 0x1fff;
+}
+
 enum VMEDataWidth
 {
     D16 = 0x1,
