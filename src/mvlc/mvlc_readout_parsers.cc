@@ -132,27 +132,49 @@ inline void parser_clear_event_state(ReadoutParser_ETH &state)
     assert(!event_in_progress(state));
 }
 
-inline void parser_begin_event(ReadoutParser_ETH &state, u32 frameHeader)
+enum class ParseResult
 {
-    // Loss from the previous packet does not matter anymore as we
-    // just started parsing a new event.
-    state.lastPacketNumber = -1; // FIXME: ETH specific
+    Ok,
+    NoHeaderPresent,
+    NoStackFrameFound,
+
+    NotAStackFrame,
+    NotABlockFrame,
+    NotAStackContinuation,
+    StackIndexChanged,
+    EventIndexOutOfRange
+};
+
+
+inline ParseResult parser_begin_event(ReadoutParser_ETH &state, u32 frameHeader)
+{
+    auto frameInfo = extract_frame_info(frameHeader);
+
+    if (frameInfo.type != frame_headers::StackFrame)
+        return ParseResult::NotAStackFrame;
+
+    int eventIndex = frameInfo.stack - 1;
+
+    if (eventIndex < 0 || static_cast<unsigned>(eventIndex) >= state.readoutInfo.size())
+        return ParseResult::EventIndexOutOfRange;
 
     // FIXME: non ETH specific
     state.workBuffer.used = 0;
     state.workBufferOffset = 0;
     clear_readout_data_spans(state.readoutDataSpans);
 
-    auto frameInfo = extract_frame_info(frameHeader);
-    assert(frameInfo.type == frame_headers::StackFrame);
-
-    state.eventIndex = frameInfo.stack - 1;
+    state.eventIndex = eventIndex;
     state.moduleIndex = 0;
     state.moduleParseState = ReadoutParserCommon::Prefix;
     state.curStackFrame = { frameHeader };
     state.curBlockFrame = {};
 
+    // Loss from the previous packet does not matter anymore as we
+    // just started parsing a new event.
+    state.lastPacketNumber = -1; // FIXME: ETH specific
+
     assert(event_in_progress(state));
+    return ParseResult::Ok;
 }
 
 s64 calc_buffer_loss(u32 bufferNumber, u32 lastBufferNumber)
@@ -166,18 +188,7 @@ s64 calc_buffer_loss(u32 bufferNumber, u32 lastBufferNumber)
     return diff - 1;
 }
 
-enum class ParseResult
-{
-    Ok,
-    NoHeaderPresent,
-    NoStackFrameFound,
-
-    NotAStackFrame,
-    NotABlockFrame,
-    NotAStackContinuation,
-
-    StackIndexChanged,
-};
+// TODO: make sure stack index is in range of the number of events
 
 //template<typename ParserState>
 ParseResult parse_readout_contents(
@@ -221,23 +232,48 @@ ParseResult parse_readout_contents(
         const auto &moduleParts = moduleReadoutInfos[state.moduleIndex];
         auto &moduleSpans = state.readoutDataSpans[state.moduleIndex];
 
+        // The module does not have any of the three parts. It's readout is completely empty;
+        if (moduleParts.prefixLen == 0 && !moduleParts.hasDynamic && moduleParts.suffixLen == 0)
+        {
+            ++state.moduleIndex;
+            goto maybe_flush_event;
+        }
+
         switch (state.moduleParseState)
         {
             case ReadoutParser_ETH::Prefix:
                 if (moduleSpans.prefixSpan.size < moduleParts.prefixLen)
                 {
+                    // record the offset of the first word of this span
                     if (moduleSpans.prefixSpan.size == 0)
-                    {
-                        // record the offset of the first word of the prefix
                         moduleSpans.prefixSpan.offset = state.workBufferOffset;
-                    }
 
+#if 1
+                    u16 wordsLeftInSpan = moduleParts.prefixLen - moduleSpans.prefixSpan.size;
+                    u16 wordsToCopy = std::min(wordsLeftInSpan, state.curStackFrame.wordsLeft);
+
+                    if (iter.longwordsLeft() < wordsToCopy)
+                        throw end_of_buffer("ModulePrefixCopy");
+
+                    state.workBuffer.ensureCapacity(wordsToCopy);
+
+                    std::memcpy(state.workBuffer.endPtr(),
+                                iter.buffp,
+                                wordsToCopy * sizeof(u32));
+
+                    iter.buffp += wordsToCopy * sizeof(u32);
+                    state.workBuffer.used += wordsToCopy * sizeof(u32);
+                    state.workBufferOffset += wordsToCopy;
+                    moduleSpans.prefixSpan.size += wordsToCopy;
+                    state.curStackFrame.wordsLeft -= wordsToCopy;
+
+#else
                     u32 dataWord = iter.extractU32();
                     state.workBuffer.append(dataWord);
                     ++state.workBufferOffset;
                     moduleSpans.prefixSpan.size++;
-                    state.workBufferOffset++;
                     state.curStackFrame.consumeWord();
+#endif
                 }
 
                 if (moduleSpans.prefixSpan.size >= moduleParts.prefixLen)
@@ -247,7 +283,11 @@ ParseResult parse_readout_contents(
                     else if (moduleParts.suffixLen != 0)
                         state.moduleParseState = ReadoutParser_ETH::Suffix;
                     else
-                        state.moduleIndex++; // XXX: explain why (iter.atEnd)!!!!!!
+                    {
+                        // We're done with this module as it does have to
+                        // dynamic part and no suffix.
+                        state.moduleIndex++;
+                    }
                 }
 
                 break;
@@ -268,11 +308,27 @@ ParseResult parse_readout_contents(
                         }
                     }
 
+                    // record the offset of the first word of this span
                     if (moduleSpans.dynamicSpan.size == 0)
                         moduleSpans.dynamicSpan.offset = state.workBufferOffset;
 
-                    u16 wordCount = std::min(static_cast<u32>(state.curBlockFrame.wordsLeft),
+#if 1
+                    u32 wordsToCopy = std::min(static_cast<u32>(state.curBlockFrame.wordsLeft),
                                              iter.longwordsLeft());
+
+                    state.workBuffer.ensureCapacity(wordsToCopy);
+
+                    std::memcpy(state.workBuffer.endPtr(),
+                                iter.buffp,
+                                wordsToCopy * sizeof(u32));
+
+                    iter.buffp += wordsToCopy * sizeof(u32);
+                    state.workBuffer.used += wordsToCopy * sizeof(u32);
+                    state.workBufferOffset += wordsToCopy;
+                    moduleSpans.dynamicSpan.size += wordsToCopy;
+                    state.curStackFrame.wordsLeft -= wordsToCopy;
+                    state.curBlockFrame.wordsLeft -= wordsToCopy;
+#else
 
                     for (u16 wi = 0; wi < wordCount; wi++)
                     {
@@ -283,13 +339,17 @@ ParseResult parse_readout_contents(
                         state.curBlockFrame.consumeWord();
                         state.curStackFrame.consumeWord();
                     }
+#endif
 
                     if (state.curBlockFrame.wordsLeft == 0
                         && !(state.curBlockFrame.info().flags & frame_flags::Continue))
                     {
 
                         if (moduleParts.suffixLen == 0)
-                            state.moduleIndex++; // XXX: explain why (iter.atEnd)!!!!!!
+                        {
+                            // No suffix, we're done with the module
+                            state.moduleIndex++;
+                        }
                         else
                             state.moduleParseState = ReadoutParser_ETH::Suffix;
 
@@ -300,22 +360,46 @@ ParseResult parse_readout_contents(
             case ReadoutParser_ETH::Suffix:
                 if (moduleSpans.suffixSpan.size < moduleParts.suffixLen)
                 {
+                    // record the offset of the first word of this span
                     if (moduleSpans.suffixSpan.size == 0)
                         moduleSpans.suffixSpan.offset = state.workBufferOffset;
 
+#if 1
+                    u16 wordsLeftInSpan = moduleParts.suffixLen - moduleSpans.suffixSpan.size;
+                    u16 wordsToCopy = std::min(wordsLeftInSpan, state.curStackFrame.wordsLeft);
+
+                    if (iter.longwordsLeft() < wordsToCopy)
+                        throw end_of_buffer("ModuleSuffixCopy");
+
+                    state.workBuffer.ensureCapacity(wordsToCopy);
+
+                    std::memcpy(state.workBuffer.endPtr(),
+                                iter.buffp,
+                                wordsToCopy * sizeof(u32));
+                    iter.buffp += wordsToCopy * sizeof(u32);
+                    state.workBuffer.used += wordsToCopy * sizeof(u32);
+                    state.workBufferOffset += wordsToCopy;
+                    moduleSpans.suffixSpan.size += wordsToCopy;
+                    state.curStackFrame.wordsLeft -= wordsToCopy;
+#else
                     u32 dataWord = iter.extractU32();
                     state.workBuffer.append(dataWord);
                     ++state.workBufferOffset;
                     moduleSpans.suffixSpan.size++;
-                    state.workBufferOffset++;
                     state.curStackFrame.consumeWord();
+#endif
                 }
 
                 if (moduleSpans.suffixSpan.size >= moduleParts.suffixLen)
+                {
+                    // Done with the module
                     state.moduleIndex++;
+                }
 
                 break;
         }
+
+maybe_flush_event:
 
         if (state.moduleIndex >= static_cast<int>(moduleReadoutInfos.size()))
         {
@@ -456,7 +540,7 @@ void parse_readout_buffer(
     if (bufferLoss != 0)
     {
         // Clear processing state/workBuffer, restart at next 0xF3.
-        // Any data buffered so far is discarded.
+        // Any output data prepared so far is discarded.
         parser_clear_event_state(state);
     }
 
