@@ -117,14 +117,6 @@ namespace system_event
     // Unused   [ 2:0] 3 unused bits
     // Length   [12:0] 13 bit length counted in 32-bit words
 
-    enum SubType: u8
-    {
-        VMEConfig       = 0x01,
-        AnalysisConfig  = 0x02,
-        UnixTimestamp   = 0x03,
-        EndOfFile       = 0xEE,
-    };
-
     static const u8 ContinueShift = 23;
     static const u8 ContinueMask  = 0b1;
 
@@ -133,6 +125,18 @@ namespace system_event
 
     static const u16 LengthShift        = 0;
     static const u16 LengthMask         = 0x1fff;
+
+    enum SubType: u8
+    {
+        EndianCheck     = 0x01,
+        VMEConfig       = 0x02,
+        AnalysisConfig  = 0x03,
+        UnixTimestamp   = 0x04,
+
+        EndOfFile       = 0x77,
+
+        SubTypeMax      = SubTypeMask,
+    };
 }
 
 enum VMEDataWidth

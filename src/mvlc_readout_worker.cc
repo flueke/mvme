@@ -208,10 +208,11 @@ ListfileOutput listfile_open(ListFileOutputInfo &outinfo,
 
 void listfile_close(ListfileOutput &lf_out)
 {
-    if (!lf_out.isOpen())
-        return;
-
-    lf_out.outdev->close();
+    if (lf_out.outdev)
+    {
+        lf_out.outdev->close();
+        assert(!lf_out.outdev->isOpen());
+    }
 
     if (lf_out.archive)
     {
@@ -254,17 +255,36 @@ void listfile_write_magic(ListfileOutput &lf_out, const MVLCObject &mvlc)
     listfile_write_raw(lf_out, magic, std::strlen(magic));
 }
 
-void listfile_write_system_sections(ListfileOutput &lf_out, u8 subtype, const QByteArray &bytes)
+// Writes an empty system section
+void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype)
 {
-    if (bytes.isEmpty())
+    if (subtype > system_event::SubTypeMax)
+        throw listfile_write_error("system event subtype out of range");
+
+    u32 sectionHeader = (frame_headers::SystemEvent << frame_headers::TypeShift)
+        | ((subtype & system_event::SubTypeMask) << system_event::SubTypeShift);
+
+    listfile_write_raw(lf_out, reinterpret_cast<const u8 *>(&sectionHeader),
+                       sizeof(sectionHeader));
+}
+
+// Writes the given buffer into system sections of the given subtype. The data
+// is split into multiple sections if needed.
+// Note: the input data must be padded to 32 bits. Padding is not done inside
+// this function as different data might require different padding strategies.
+
+void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype,
+                                 const u32 *buffp, size_t totalWords)
+{
+    if (totalWords == 0)
+    {
+        listfile_write_system_event(lf_out, subtype);
         return;
+    }
 
-    if (bytes.size() % sizeof(u32))
-        throw listfile_write_error("unpadded system section data");
+    if (subtype > system_event::SubTypeMax)
+        throw listfile_write_error("system event subtype out of range");
 
-    unsigned totalWords   = bytes.size() / sizeof(u32);
-
-    const u32 *buffp = reinterpret_cast<const u32 *>(bytes.data());
     const u32 *endp  = buffp + totalWords;
 
     while (buffp < endp)
@@ -295,6 +315,18 @@ void listfile_write_system_sections(ListfileOutput &lf_out, u8 subtype, const QB
     assert(buffp == endp);
 }
 
+
+void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype, const QByteArray &bytes)
+{
+    if (bytes.size() % sizeof(u32))
+        throw listfile_write_error("unpadded system section data");
+
+    unsigned totalWords = bytes.size() / sizeof(u32);
+    const u32 *buffp = reinterpret_cast<const u32 *>(bytes.data());
+
+    listfile_write_system_event(lf_out, subtype, buffp, totalWords);
+}
+
 void listfile_write_vme_config(ListfileOutput &lf_out, const VMEConfig &vmeConfig)
 {
     if (!lf_out.isOpen())
@@ -312,7 +344,18 @@ void listfile_write_vme_config(ListfileOutput &lf_out, const VMEConfig &vmeConfi
     while (bytes.size() % sizeof(u32))
         bytes.append(' ');
 
-    listfile_write_system_sections(lf_out, system_event::VMEConfig, bytes);
+    listfile_write_system_event(lf_out, system_event::VMEConfig, bytes);
+}
+
+void listfile_write_timestamp(ListfileOutput &lf_out)
+{
+    auto now = std::chrono::system_clock::now();
+    auto epoch = now.time_since_epoch();
+    u64 timestamp = std::chrono::duration_cast<std::chrono::seconds>(epoch).count();
+
+    listfile_write_system_event(lf_out, system_event::UnixTimestamp,
+                                reinterpret_cast<u32 *>(&timestamp),
+                                sizeof(timestamp) / sizeof(u32));
 }
 
 void listfile_write_preamble(ListfileOutput &lf_out, const MVLCObject &mvlc,
@@ -320,6 +363,79 @@ void listfile_write_preamble(ListfileOutput &lf_out, const MVLCObject &mvlc,
 {
     listfile_write_magic(lf_out, mvlc);
     listfile_write_vme_config(lf_out, vmeConfig);
+    listfile_write_timestamp(lf_out);
+}
+
+void listfile_end_run_and_close(ListfileOutput &lf_out,
+                                const QStringList &logBuffer = {},
+                                const QByteArray &analysisConfig = {})
+{
+    if (!lf_out.isOpen())
+        return;
+
+    // Write end of file marker to indicate the file was properly written.
+    listfile_write_system_event(lf_out, system_event::EndOfFile);
+
+    // Can close the listfile output device now. This is required in case it's
+    // a file inside a zip archive as only once file per archive can be open at
+    // a time.
+    lf_out.outdev->close();
+
+    if (lf_out.archive)
+    {
+        // Add additional files to the ZIP archive.
+
+        // Logfile
+        if (!logBuffer.isEmpty())
+        {
+            QuaZipNewInfo info("messages.log");
+            info.setPermissions(static_cast<QFile::Permissions>(0x6644));
+            QuaZipFile outFile(lf_out.archive.get());
+
+            bool res = outFile.open(QIODevice::WriteOnly, info,
+                                    // password, crc
+                                    nullptr, 0,
+                                    // method (Z_DEFLATED or 0 for no compression)
+                                    0,
+                                    // compression level
+                                    1
+                                   );
+
+            if (res)
+            {
+                for (const auto &msg: logBuffer)
+                {
+                    outFile.write(msg.toLocal8Bit());
+                    outFile.write("\n");
+                }
+            }
+        }
+
+        // Analysis
+        if (!analysisConfig.isEmpty())
+        {
+            QuaZipNewInfo info("analysis.analysis");
+            info.setPermissions(static_cast<QFile::Permissions>(0x6644));
+            QuaZipFile outFile(lf_out.archive.get());
+
+            bool res = outFile.open(QIODevice::WriteOnly, info,
+                                    // password, crc
+                                    nullptr, 0,
+                                    // method (Z_DEFLATED or 0 for no compression)
+                                    0,
+                                    // compression level
+                                    1
+                                   );
+
+            if (res)
+            {
+                outFile.write(analysisConfig);
+            }
+        }
+    }
+
+    // Closes the ZIP file and checks for errors.
+    listfile_close(lf_out);
 }
 
 } // end anon namespace
@@ -456,7 +572,10 @@ void MVLCReadoutWorker::start(quint32 cycles)
         // Note: endRun() collects the log contents, which means it should be one of the
         // last actions happening in here. Log messages generated after this point won't
         // show up in the listfile.
-        //m_listfileHelper->endRun();
+        listfile_end_run_and_close(d->listfileOut, m_workerContext.getLogBuffer(),
+                                   m_workerContext.getAnalysisJson().toJson());
+        assert(!d->listfileOut.isOpen());
+
         m_workerContext.daqStats->stop();
     }
     catch (const std::error_code &ec)
@@ -485,22 +604,14 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
 void MVLCReadoutWorker::readoutLoop()
 {
-    using vme_analysis_common::TimetickGenerator;
-
     setState(DAQState::Running);
 
-    TimetickGenerator timetickGen;
-    //m_listfileHelper->writeTimetickSection();
+    vme_analysis_common::TimetickGenerator timetickGen;
 
     while (true)
     {
-        int elapsedSeconds = timetickGen.generateElapsedSeconds();
-
-        while (elapsedSeconds >= 1)
-        {
-            //m_listfileHelper->writeTimetickSection();
-            elapsedSeconds--;
-        }
+        if (timetickGen.generateElapsedSeconds() >= 1)
+            listfile_write_timestamp(d->listfileOut);
 
         // stay in running state
         if (likely(m_state == DAQState::Running && m_desiredState == DAQState::Running))
@@ -583,21 +694,11 @@ void MVLCReadoutWorker::readoutLoop()
 
 std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred)
 {
-    // TODO: rename this once I can come up with a better name. depending on
-    // the connection type and the amount of incoming data, etc. this does
-    // different things.
-
-    // Return ConnectionError if the whole readout should be aborted.
-    // Other error codes do canceling of the run.
-    // If no data was read within some interval that fact should be logged.
+    // Return ConnectionError from this function if the whole readout should be
+    // aborted.
+    // Other error codes are ignored right now.
     //
-    // What this should do:
-    // grab a fresh output buffer
-    // read into that buffer until either the buffer is full and can be flushed
-    // or a certain time has passed and we want to flush a buffer to stay
-    // responsive (the low data rate case).
-    // If the format needs it do perform consistency checks on the incoming data.
-    // For usb: follow the F3 framing.
+    // TODO: If no data was read within some interval that fact should be logged.
 
     bytesTransferred = 0u;
     std::error_code ec;

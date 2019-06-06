@@ -1,8 +1,16 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* should system_event:UnixTimestamp frames be put into the readout buffers
+  directly? This would make the absolute timestamp available to the analysis
+  even during a DAQ run. Right now they're only written to listfile via
+  listfile_write_timestamp(). A place to do this would be in getOutputBuffer():
+  check if at least 1s has elapsed and there's space for at least 3 words in
+  the buffer, then append the UnixTimestamp frame.
+
 * rare crash at startup in the AnalysisThread in EventServer::startup() line
   285 where shutdown() is called if the server is not enabled.
+
 * changing the vme controller while MVLCDevGUI is open leads to a crash.
   Use MVMEContext::vmeControllerAboutToBeChanged() to handle this case.
   Remember to stop the dev gui readout thread in case it is running.
