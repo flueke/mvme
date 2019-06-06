@@ -790,12 +790,103 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
     return {};
 }
 
-std::error_code MVLCReadoutWorker::readout_usb(size_t &bytesTransferred)
+// TODO: perform checks for frame header validity. allow StackFrame,
+// StackContinuation and SystemEvent.
+// If the check fails perform a recovery procedure by trying if the chaining of
+// N (2 to 3?) possible frame headers is ok. In this case assume that we're in
+// a good state again.
+inline void fixup_usb_buffer(DataBuffer &readBuffer, DataBuffer &tempBuffer)
+{
+    BufferIterator iter(readBuffer.data, readBuffer.used);
+
+    auto move_bytes = [] (DataBuffer &sourceBuffer, DataBuffer &destBuffer,
+                          const u8 *sourceBegin, size_t bytes)
+    {
+        assert(sourceBegin >= sourceBuffer.data);
+        assert(sourceBegin + bytes <= sourceBuffer.endPtr());
+
+        destBuffer.ensureCapacity(bytes);
+        std::memcpy(destBuffer.endPtr(), sourceBegin, bytes);
+        destBuffer.used   += bytes;
+        sourceBuffer.used -= bytes;
+    };
+
+    while (!iter.atEnd())
+    {
+        if (iter.longwordsLeft())
+        {
+            // Can extract and check the next frame header
+            u32 frameHeader = iter.peekU32();
+            auto frameInfo = extract_frame_info(frameHeader);
+
+            // Check if the full frame is in the readBuffer. If not move the
+            // trailing data to the tempBuffer.
+            if (frameInfo.len + 1u > iter.longwordsLeft())
+            {
+                auto trailingBytes = iter.bytesLeft();
+                move_bytes(readBuffer, tempBuffer, iter.asU8(), trailingBytes);
+                return;
+            }
+
+            // Skip over the frameHeader and the frame contents.
+            iter.skip(frameInfo.len + 1, sizeof(u32));
+        }
+        else
+        {
+            // Not enough data left to get the next frame header. Move trailing
+            // bytes to the tempBuffer.
+            auto trailingBytes = iter.bytesLeft();
+            move_bytes(readBuffer, tempBuffer, iter.asU8(), trailingBytes);
+            return;
+        }
+    }
+}
+
+static const size_t USBReadMinBytes = Kilobytes(256);
+
+std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
 {
     assert(d->mvlc_usb);
-    assert(!m_outputBuffer);
 
-    assert(!"implement me!");
+    auto destBuffer = getOutputBuffer();
+    auto tStart = std::chrono::steady_clock::now();
+    auto &mvlcLocks = d->mvlcObj->getLocks();
+    auto &daqStats = m_workerContext.daqStats;
+    std::error_code ec;
+
+    if (m_previousData.used)
+    {
+        destBuffer->ensureCapacity(m_previousData.used);
+        std::memcpy(destBuffer->endPtr(), m_previousData.data, m_previousData.used);
+        destBuffer->used += m_previousData.used;
+        m_previousData.used = 0u;
+    }
+
+    while (destBuffer->free() >= USBReadMinBytes)
+    {
+        size_t bytesTransferred = 0u;
+
+        auto dataGuard = mvlcLocks.lockData();
+        ec = d->mvlc_usb->read_unbuffered(
+            Pipe::Data, destBuffer->asU8(), destBuffer->free(), bytesTransferred);
+        dataGuard.unlock();
+
+        if (ec == ErrorType::ConnectionError)
+            break;
+
+        daqStats->totalBytesRead += bytesTransferred;
+        destBuffer->used += bytesTransferred;
+        totalBytesTransferred += bytesTransferred;
+
+        auto elapsed = std::chrono::steady_clock::now() - tStart;
+
+        if (elapsed >= FlushBufferTimeout)
+            break;
+    }
+
+    fixup_usb_buffer(*destBuffer, m_previousData);
+
+    return ec;
 }
 
 DataBuffer *MVLCReadoutWorker::getOutputBuffer()
