@@ -321,7 +321,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void pauseDAQ();
         void resumeDAQ(u32 nCycles = 0);
 
-        void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel);
+        void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
+                                 s32 userLevel);
         void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);
 
         void reconnectVMEController();

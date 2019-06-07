@@ -281,10 +281,12 @@ void MVMEContextPrivate::stopDAQReplay()
     // progress dialog entering its eventloop. (Probably not needed, see the
     // explanation about not having a race condition below.)
 
-    if (m_q->m_listFileWorker->getState() == DAQState::Running || m_q->m_listFileWorker->getState() == DAQState::Paused)
+    if (m_q->m_listFileWorker->getState() == DAQState::Running
+        || m_q->m_listFileWorker->getState() == DAQState::Paused)
     {
         m_q->m_listFileWorker->stop();
-        auto con = QObject::connect(m_q->m_listFileWorker, &ListFileReader::replayStopped, &localLoop, &QEventLoop::quit);
+        auto con = QObject::connect(m_q->m_listFileWorker, &ListFileReader::replayStopped,
+                                    &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -327,7 +329,8 @@ void MVMEContextPrivate::pauseDAQReplay()
     if (m_q->m_listFileWorker->getState() == DAQState::Running)
     {
         m_q->m_listFileWorker->pause();
-        auto con = QObject::connect(m_q->m_listFileWorker, &ListFileReader::replayPaused, &localLoop, &QEventLoop::quit);
+        auto con = QObject::connect(m_q->m_listFileWorker, &ListFileReader::replayPaused,
+                                    &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
 
@@ -559,11 +562,10 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
 
     m_analysisThread->start();
 
-    qDebug() << __PRETTY_FUNCTION__ << "startup: setting empty VMEConfig and VMUSB controller";
+    qDebug() << __PRETTY_FUNCTION__ << "startup: using a default constructed VMEConfig";
 
     setMode(GlobalMode::DAQ);
     setVMEConfig(new VMEConfig(this));
-    setVMEController(VMEControllerType::VMUSB);
 
     qDebug() << __PRETTY_FUNCTION__ << "startup done, contents of logbuffer:";
     qDebug() << getLogBuffer();
@@ -697,7 +699,7 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
 
 bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap &settings)
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    qDebug() << __PRETTY_FUNCTION__ << "begin";
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getMVMEStreamWorkerState() == MVMEStreamWorkerState::Idle);
 
@@ -775,7 +777,19 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     m_readoutWorker->setContext(readoutWorkerContext);
 
-    // stream worker (analysis side)
+    // Create a stream worker (analysis side). The concrete type depends on the
+    // VME controller type.
+    //
+    // Delete the streamWorker in the event loop. This will also delete the
+    // EventServer child.
+    if (m_streamWorker)
+    {
+        auto streamWorker = m_streamWorker.release();
+        streamWorker->deleteLater();
+        m_d->m_eventServer = nullptr; // clear the non-owning pointer
+        processQtEvents();
+    }
+
     switch (controller->getType())
     {
         case VMEControllerType::SIS3153:
@@ -787,30 +801,30 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         case VMEControllerType::MVLC_ETH:
             m_streamWorker = std::make_unique<MVLC_ETH_StreamWorker>(
                 this, &m_freeBuffers, &m_fullBuffers);
-
             break;
 
         case VMEControllerType::MVLC_USB:
             m_streamWorker = std::make_unique<MVLC_USB_StreamWorker>(
                 this, &m_freeBuffers, &m_fullBuffers);
-
             break;
     }
 
     assert(m_streamWorker);
 
     auto eventServer = new EventServer(m_streamWorker.get());
-    m_d->m_eventServer = eventServer; // non-owning!
+    m_d->m_eventServer = eventServer; // set the non-owning pointer
+
     eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
     eventServer->setEnabled(false);
     m_streamWorker->attachModuleConsumer(eventServer);
     m_streamWorker->moveToThread(m_analysisThread);
 
-    // Run the StreamWorkerBase::startupConsumers in the worker thread.  This
-    // is used to e.g. get the EventServer to accept client connections while
-    // the system is idle. Starting to accept connections only when a run is
-    // starting does not work as clients would have no time window to connect
-    // to the service.
+    // Run the StreamWorkerBase::startupConsumers in the worker thread. This is
+    // used to e.g. get the EventServer to accept client connections while the
+    // system is idle. Starting to accept connections at the point when a run
+    // is starting does not work because clients would have no time window to
+    // connect to the service.
+    // TODO: add a way to wait for completion of the startup.
     {
         bool invoked = QMetaObject::invokeMethod(
             m_streamWorker.get(), "startupConsumers", Qt::QueuedConnection);
@@ -824,6 +838,8 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
             this, &MVMEContext::logMessage);
 
     emit vmeControllerSet(controller);
+
+    qDebug() << __PRETTY_FUNCTION__ << "end";
     return true;
 }
 

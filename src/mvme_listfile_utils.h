@@ -64,7 +64,6 @@ class LIBMVME_EXPORT ListFileReader: public QObject
     public:
         using LoggerFun = std::function<void (const QString &)>;
 
-
         ListFileReader(DAQStats &stats, QObject *parent = 0);
         ~ListFileReader();
         void setListFile(ListFile *listFile);
