@@ -123,8 +123,8 @@ namespace system_event
     static const u8 SubTypeShift = 16;
     static const u8 SubTypeMask  = 0x7f;
 
-    static const u16 LengthShift        = 0;
-    static const u16 LengthMask         = 0x1fff;
+    static const u16 LengthShift = 0;
+    static const u16 LengthMask  = 0x1fff;
 
     enum SubType: u8
     {
@@ -137,6 +137,8 @@ namespace system_event
 
         SubTypeMax      = SubTypeMask,
     };
+
+    static const u32 EndianCheckMarker = 0x12345678;
 }
 
 enum VMEDataWidth
