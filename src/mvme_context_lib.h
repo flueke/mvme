@@ -8,10 +8,7 @@ class MVMEContext;
 
 struct ContextOpenListfileResult
 {
-    ListFile *listfile;             // Owned by the MVMEContext object passed to context_open_listfile()
     QByteArray messages;            // messages.log if found
-    QByteArray analysisBlob;        // analysis config contents
-    QString analysisFilename;       // analysis filename inside the archive
 };
 
 struct OpenListfileFlags

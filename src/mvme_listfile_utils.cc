@@ -21,15 +21,12 @@
 #include "mvme_listfile_utils.h"
 #include "globals.h"
 #include "vme_config.h"
-#include "util/perf.h"
 #include "util_zip.h"
 
-#include <QCoreApplication>
 #include <QDebug>
 #include <QJsonDocument>
 #include <QtMath>
 #include <QElapsedTimer>
-#include <QThread>
 
 #include <quazip.h>
 #include <quazipfile.h>
@@ -112,35 +109,13 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer,
     }
 }
 
-ListFile::ListFile(const QString &fileName)
-    : m_input(new QFile(fileName))
+ListFile::ListFile(QIODevice *input)
+    : m_input(input)
 {
-}
-
-ListFile::ListFile(QuaZipFile *inFile)
-    : m_input(inFile)
-{
-}
-
-ListFile::~ListFile()
-{
-    delete m_input;
 }
 
 bool ListFile::open()
 {
-    // For ZIP file input it is assumed that the file has been opened before
-    // being passed to our constructor. QFiles are opened here.
-
-    if (auto inFile = qobject_cast<QFile *>(m_input))
-    {
-        if (!inFile->open(QIODevice::ReadOnly))
-        {
-            return false;
-        }
-    }
-
-
     /* Tries to read the FourCC ("MVME") and the 4-byte version number. The
      * very first listfiles did not have this preamble so it's not an error if
      * the FourCC does not match.
@@ -322,7 +297,7 @@ QJsonObject get_daq_config(QIODevice &m_file, const ListfileConstants &lfc)
     return QJsonObject();
 }
 
-QJsonObject ListFile::getDAQConfig()
+QJsonObject ListFile::getVMEConfigJSON()
 {
     if (m_configJson.isEmpty())
     {
@@ -469,261 +444,6 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
     const auto &lfc = listfile_constants(m_fileVersion);
 
     return read_sections_into_buffer(*m_input, buffer, &m_sectionHeaderBuffer, lfc);
-}
-
-ListFileReader::ListFileReader(DAQStats &stats, QObject *parent)
-    : QObject(parent)
-    , m_stats(stats)
-    , m_state(DAQState::Idle)
-    , m_desiredState(DAQState::Idle)
-{
-}
-
-ListFileReader::~ListFileReader()
-{
-}
-
-void ListFileReader::setListFile(ListFile *listFile)
-{
-    m_listFile = listFile;
-}
-
-void ListFileReader::setEventsToRead(u32 eventsToRead)
-{
-    Q_ASSERT(m_state != DAQState::Running);
-    m_eventsToRead = eventsToRead;
-    m_logBuffers = (eventsToRead == 1);
-}
-
-void ListFileReader::start()
-{
-    Q_ASSERT(m_freeBuffers);
-    Q_ASSERT(m_fullBuffers);
-    Q_ASSERT(m_state == DAQState::Idle);
-
-    if (m_state != DAQState::Idle || !m_listFile)
-        return;
-
-    m_listFile->seekToFirstSection();
-    m_bytesRead = 0;
-    m_totalBytes = m_listFile->size();
-    m_stats.listFileTotalBytes = m_listFile->size();
-    m_stats.start();
-
-    mainLoop();
-}
-
-void ListFileReader::stop()
-{
-    qDebug() << __PRETTY_FUNCTION__ << "current state =" << DAQStateStrings[m_state];
-    m_desiredState = DAQState::Stopping;
-}
-
-void ListFileReader::pause()
-{
-    qDebug() << __PRETTY_FUNCTION__ << "pausing";
-    m_desiredState = DAQState::Paused;
-}
-
-void ListFileReader::resume()
-{
-    qDebug() << __PRETTY_FUNCTION__ << "resuming";
-    m_desiredState = DAQState::Running;
-}
-
-static const u32 FreeBufferWaitTimeout_ms = 250;
-static const double PauseSleep_ms = 250;
-
-void ListFileReader::mainLoop()
-{
-    setState(DAQState::Running);
-
-    logMessage(QString("Starting replay from %1").arg(m_listFile->getFileName()));
-
-    const auto &lfc = listfile_constants(m_listFile->getFileVersion());
-
-    while (true)
-    {
-        // pause
-        if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
-        {
-            setState(DAQState::Paused);
-        }
-        // resume
-        else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
-        {
-            setState(DAQState::Running);
-        }
-        // stop
-        else if (m_desiredState == DAQState::Stopping)
-        {
-            break;
-        }
-        // stay in running state
-        else if (m_state == DAQState::Running)
-        {
-            DataBuffer *buffer = nullptr;
-
-            {
-                QMutexLocker lock(&m_freeBuffers->mutex);
-                while (m_freeBuffers->queue.isEmpty() && m_desiredState == DAQState::Running)
-                {
-                    m_freeBuffers->wc.wait(&m_freeBuffers->mutex, FreeBufferWaitTimeout_ms);
-                }
-
-                if (!m_freeBuffers->queue.isEmpty())
-                {
-                    buffer = m_freeBuffers->queue.dequeue();
-                }
-            }
-            // The mutex is unlocked again at this point
-
-            if (buffer)
-            {
-                buffer->used = 0;
-                bool isBufferValid = false;
-
-                if (unlikely(m_eventsToRead > 0))
-                {
-                    /* Read single events.
-                     * Note: This is the unlikely case! This case only happens if
-                     * the user pressed the "1 cycle / next event" button!
-                     */
-
-                    bool readMore = true;
-
-                    // Skip non event sections
-                    while (readMore)
-                    {
-                        isBufferValid = m_listFile->readNextSection(buffer);
-
-                        if (isBufferValid)
-                        {
-                            m_stats.totalBuffersRead++;
-                            m_stats.totalBytesRead += buffer->used;
-                        }
-
-                        if (isBufferValid && buffer->used >= sizeof(u32))
-                        {
-                            u32 sectionHeader = *reinterpret_cast<u32 *>(buffer->data);
-                            u32 sectionType = (sectionHeader & lfc.SectionTypeMask) >> lfc.SectionTypeShift;
-
-#if 0
-                            u32 sectionWords  = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
-
-                            qDebug() << __PRETTY_FUNCTION__ << "got section of type" << sectionType
-                                << ", words =" << sectionWords
-                                << ", size =" << sectionWords * sizeof(u32)
-                                << ", buffer->used =" << buffer->used;
-                            qDebug("%s sectionHeader=0x%08x", __PRETTY_FUNCTION__, sectionHeader);
-#endif
-
-                            if (sectionType == SectionType_Event)
-                            {
-                                readMore = false;
-                            }
-                        }
-                        else
-                        {
-                            readMore = false;
-                        }
-                    }
-
-                    if (--m_eventsToRead == 0)
-                    {
-                        // When done reading the requested amount of events transition
-                        // to Paused state.
-                        m_desiredState = DAQState::Paused;
-                    }
-                }
-                else
-                {
-                    // Read until buffer is full
-                    s32 sectionsRead = m_listFile->readSectionsIntoBuffer(buffer);
-                    isBufferValid = (sectionsRead > 0);
-
-                    if (isBufferValid)
-                    {
-                        m_stats.totalBuffersRead++;
-                        m_stats.totalBytesRead += buffer->used;
-                    }
-                }
-
-                if (!isBufferValid)
-                {
-                    // Reading did not succeed. Put the previously acquired buffer
-                    // back into the free queue. No need to notfiy the wait
-                    // condition as there's no one else waiting on it.
-                    QMutexLocker lock(&m_freeBuffers->mutex);
-                    m_freeBuffers->queue.enqueue(buffer);
-
-                    setState(DAQState::Stopping);
-                }
-                else
-                {
-                    if (m_logBuffers && m_logger)
-                    {
-                        logMessage(">>> Begin buffer");
-                        BufferIterator bufferIter(buffer->data, buffer->used, BufferIterator::Align32);
-                        logBuffer(bufferIter, [this](const QString &str) { this->logMessage(str); });
-                        logMessage("<<< End buffer");
-                    }
-                    // Push the valid buffer onto the output queue.
-                    m_fullBuffers->mutex.lock();
-                    m_fullBuffers->queue.enqueue(buffer);
-                    m_fullBuffers->mutex.unlock();
-                    m_fullBuffers->wc.wakeOne();
-                }
-            }
-        }
-        // paused
-        else if (m_state == DAQState::Paused)
-        {
-            QThread::msleep(PauseSleep_ms);
-        }
-        else
-        {
-            Q_ASSERT(!"Unhandled case in ListFileReader::mainLoop()!");
-        }
-    }
-
-    m_stats.stop();
-    setState(DAQState::Idle);
-
-    qDebug() << __PRETTY_FUNCTION__ << "exit";
-}
-
-void ListFileReader::setState(DAQState newState)
-{
-    qDebug() << __PRETTY_FUNCTION__ << DAQStateStrings[m_state] << "->" << DAQStateStrings[newState];
-
-    m_state = newState;
-    m_desiredState = newState;
-    emit stateChanged(newState);
-
-    switch (newState)
-    {
-        case DAQState::Idle:
-            emit replayStopped();
-            break;
-
-        case DAQState::Starting:
-        case DAQState::Running:
-        case DAQState::Stopping:
-            break;
-
-        case DAQState::Paused:
-            emit replayPaused();
-            break;
-    }
-
-    QCoreApplication::processEvents();
-}
-
-void ListFileReader::logMessage(const QString &str)
-{
-    if (m_logger)
-        m_logger(str);
 }
 
 //
@@ -985,7 +705,7 @@ OpenListfileResult open_listfile(const QString &filename)
         }
 
         // try reading the VME config from inside the listfile
-        auto json = result.listfile->getDAQConfig();
+        auto json = result.listfile->getVMEConfigJSON();
 
         if (json.isEmpty())
         {
@@ -1025,7 +745,7 @@ OpenListfileResult open_listfile(const QString &filename)
             throw QString("Error opening %1 for reading").arg(filename);
         }
 
-        auto json = result.listfile->getDAQConfig();
+        auto json = result.listfile->getVMEConfigJSON();
 
         if (json.isEmpty())
         {
@@ -1036,11 +756,13 @@ OpenListfileResult open_listfile(const QString &filename)
     return result;
 }
 
-std::unique_ptr<VMEConfig> read_config_from_listfile(ListFile *listfile)
+std::pair<std::unique_ptr<VMEConfig>, std::error_code> read_config_from_listfile(ListFile *listfile)
 {
-    auto configJson = listfile->getDAQConfig();
-    auto result = std::make_unique<VMEConfig>();
-    result->read(configJson);
-    return result;
+    auto configJson = listfile->getVMEConfigJSON();
+    auto vmeConfig = std::make_unique<VMEConfig>();
+    auto ec = vmeConfig->readVMEConfig(configJson);
+
+    return std::pair<std::unique_ptr<VMEConfig>, std::error_code>(
+        std::move(vmeConfig), ec);
 }
 

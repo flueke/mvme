@@ -121,9 +121,4 @@ void log_errors(const QVector<ScriptWithResult> &results,
  */
 QString make_new_listfile_name(ListFileOutputInfo *outInfo);
 
-class QuaZip;
-std::runtime_error make_zip_error(const QString &msg, const QuaZip &zip);
-void throw_io_device_error(QIODevice *device);
-void throw_io_device_error(std::unique_ptr<QIODevice> &device);
-
 #endif /* __VME_DAQ_H__ */

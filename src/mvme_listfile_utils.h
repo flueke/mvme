@@ -21,15 +21,13 @@ class QuaZipFile;
 class LIBMVME_EXPORT ListFile
 {
     public:
-        ListFile(const QString &fileName);
-
-        /* For ZIP file input it is assumed that the file has been opened before
-         * being passed to our constructor. */
-        ListFile(QuaZipFile *inFile);
-        ~ListFile();
+        // It is assumed that the input device is opened for reading when
+        // passed to this constructor. The ListFile does not take ownership of
+        // the input device.
+        ListFile(QIODevice *input);
 
         bool open();
-        QJsonObject getDAQConfig();
+        QJsonObject getVMEConfigJSON();
         bool seekToFirstSection();
         bool readNextSection(DataBuffer *buffer);
         s32 readSectionsIntoBuffer(DataBuffer *buffer);
@@ -53,57 +51,6 @@ class LIBMVME_EXPORT ListFile
         QVector<u8> m_preambleBuffer;
 };
 
-class LIBMVME_EXPORT ListFileReader: public QObject
-{
-    Q_OBJECT
-    signals:
-        void stateChanged(DAQState);
-        void replayStopped();
-        void replayPaused();
-
-    public:
-        using LoggerFun = std::function<void (const QString &)>;
-
-        ListFileReader(DAQStats &stats, QObject *parent = 0);
-        ~ListFileReader();
-        void setListFile(ListFile *listFile);
-        ListFile *getListFile() const { return m_listFile; }
-
-        bool isRunning() const { return m_state != DAQState::Idle; }
-        DAQState getState() const { return m_state; }
-
-        void setEventsToRead(u32 eventsToRead);
-
-        void setLogger(LoggerFun logger) { m_logger = logger; }
-
-        ThreadSafeDataBufferQueue *m_freeBuffers = nullptr;
-        ThreadSafeDataBufferQueue *m_fullBuffers = nullptr;
-
-    public slots:
-        void start();
-        void stop();
-        void pause();
-        void resume();
-
-    private:
-        void mainLoop();
-        void setState(DAQState state);
-        void logMessage(const QString &str);
-
-        DAQStats &m_stats;
-
-        DAQState m_state;
-        std::atomic<DAQState> m_desiredState;
-
-        ListFile *m_listFile = 0;
-
-        qint64 m_bytesRead = 0;
-        qint64 m_totalBytes = 0;
-
-        u32 m_eventsToRead = 0;
-        bool m_logBuffers = false;
-        LoggerFun m_logger;
-};
 
 class LIBMVME_EXPORT ListFileWriter: public QObject
 {
@@ -151,7 +98,8 @@ struct LIBMVME_EXPORT OpenListfileResult
 
 OpenListfileResult LIBMVME_EXPORT open_listfile(const QString &filename);
 
-std::unique_ptr<VMEConfig> LIBMVME_EXPORT read_config_from_listfile(ListFile *listfile);
+std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT
+    read_config_from_listfile(ListFile *listfile);
 
 
 #endif /* __MVME_LISTFILE_UTILS_H__ */

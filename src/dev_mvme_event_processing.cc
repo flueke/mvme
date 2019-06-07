@@ -242,7 +242,11 @@ int main(int argc, char *argv[])
                 continue;
             }
 
-            std::unique_ptr<VMEConfig> vmeConfig(read_config_from_listfile(openResult.listfile.get()));
+            std::unique_ptr<VMEConfig> vmeConfig;
+            std::error_code ec;
+
+            std::tie(vmeConfig, ec) = read_config_from_listfile(openResult.listfile.get());
+
             std::unique_ptr<Analysis> analysis = std::make_unique<Analysis>();
 
             if (!analysisFilename.isEmpty())

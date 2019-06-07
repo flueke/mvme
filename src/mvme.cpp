@@ -1149,13 +1149,18 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     }
 
-    QString fileName = QFileDialog::getOpenFileName(this, "Load Listfile",
-                                                    path,
-                                                    "MVME Listfiles (*.mvmelst *.zip);; All Files (*.*)");
-    if (fileName.isEmpty())
+    static const QStringList filters =
     {
+        "MVME Listfiles (*.mvmelst *.zip)",
+        "MVLC Listfiles (*.mvlclst *.zip)",
+        "All Files (*.*)"
+    };
+
+    QString fileName = QFileDialog::getOpenFileName(
+        this, "Load Listfile", path, filters.join(";;"));
+
+    if (fileName.isEmpty())
         return;
-    }
 
     try
     {
@@ -1179,7 +1184,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
         auto openResult = context_open_listfile(m_d->m_context, fileName, openFlags);
 
-        if (openResult.listfile)
+        if (!openResult.messages.isEmpty())
         {
             appendToLogNoDebugOut(QSL(">>>>> Begin listfile log"));
             appendToLogNoDebugOut(openResult.messages);

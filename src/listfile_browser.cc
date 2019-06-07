@@ -187,7 +187,7 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
     {
         auto openResult = context_open_listfile(m_context, filename, flags);
 
-        if (openResult.listfile && !openResult.messages.isEmpty())
+        if (!openResult.messages.isEmpty())
         {
             m_context->logMessageRaw(QSL(">>>>> Begin listfile log"));
             m_context->logMessageRaw(openResult.messages);

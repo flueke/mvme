@@ -623,7 +623,8 @@ static QJsonObject convert_vmeconfig_to_current_version(QJsonObject json)
         json = converter(json);
         json["properties"] = QJsonObject({{"version", version+1}});
 
-        qDebug() << __PRETTY_FUNCTION__ << "converted VMEConfig from version" << version << "to version" << version+1;
+        qDebug() << __PRETTY_FUNCTION__ << "converted VMEConfig from version"
+            << version << "to version" << version+1;
     }
 
     return json;

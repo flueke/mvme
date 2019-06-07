@@ -41,7 +41,6 @@
 
 class MVMEMainWindow;
 class ListFile;
-class ListFileReader;
 class QJsonObject;
 
 class QTimer;
@@ -120,18 +119,9 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
 
-        struct ReplayFileAnalysisInfo
-        {
-            QString filename;
-            QString analysisFilename;
-            QByteArray analysisConfigData;
-        };
-
         bool setReplayFile(ListFile *listFile);
         void closeReplayFile();
         ListFile *getReplayFile() const { return m_listFile; }
-        void setReplayFileAnalysisInfo(ReplayFileAnalysisInfo info);
-        ReplayFileAnalysisInfo getReplayFileAnalysisInfo() const;
 
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
@@ -385,7 +375,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         ListFile *m_listFile = nullptr;
         GlobalMode m_mode;
         DAQState m_daqState;
-        ListFileReader *m_listFileWorker;
         QTime m_replayTime;
 
         std::unique_ptr<analysis::Analysis> m_analysis;

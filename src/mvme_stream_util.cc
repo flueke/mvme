@@ -49,6 +49,7 @@ mvme_stream::StreamInfo streaminfo_from_vmeconfig(VMEConfig *vmeConfig, u32 list
 
 mvme_stream::StreamInfo streaminfo_from_listfile(ListFile *listfile)
 {
-    return streaminfo_from_vmeconfig(read_config_from_listfile(listfile).get(),
+    auto resultPair = read_config_from_listfile(listfile);
+    return streaminfo_from_vmeconfig(resultPair.first.get(),
                                      listfile->getFileVersion());
 }

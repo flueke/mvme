@@ -174,9 +174,8 @@ int main(int argc, char *argv[])
         if (!openResult.listfile)
             return 1;
 
-        std::unique_ptr<VMEConfig> vmeConfig(read_config_from_listfile(openResult.listfile.get()));
-
-        dump_listfile(openResult.listfile.get(), vmeConfig.get());
+        auto resultPair = read_config_from_listfile(openResult.listfile.get());
+        dump_listfile(openResult.listfile.get(), resultPair.first.get());
     }
     catch (const std::exception &e)
     {

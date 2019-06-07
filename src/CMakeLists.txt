@@ -275,6 +275,7 @@ target_sources(libmvme PRIVATE
     mvme.cpp
     mvme_listfile.cc
     mvme_listfile_utils.cc
+    mvme_listfile_worker.cc
     mvme_qwt.cc
     mvme_session.cc
     mvme_stream_iter.cc
@@ -329,6 +330,7 @@ target_link_libraries(libmvme
 if (MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE
         mvlc_daq.cc
+        mvlc_listfile_worker.cc
         mvlc_readout_worker.cc
         mvlc_stream_workers.cc
     )

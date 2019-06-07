@@ -30,22 +30,11 @@ ContextOpenListfileResult context_open_listfile(MVMEContext *context, const QStr
 
     if (!result.analysisBlob.isEmpty())
     {
-        context->setReplayFileAnalysisInfo(
-            {
-                filename,
-                QSL("analysis.analysis"),
-                result.analysisBlob
-            });
-
         if (flags & OpenListfileFlags::LoadAnalysis)
         {
             context->loadAnalysisConfig(result.analysisBlob, QSL("ZIP Archive"));
             context->setAnalysisConfigFileName(QString());
         }
-    }
-    else
-    {
-        context->setReplayFileAnalysisInfo({});
     }
 
     if (wasReplaying)
