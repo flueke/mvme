@@ -9,6 +9,7 @@
 #include <QtEndian>
 
 #include "mvme_listfile_utils.h"
+#include "listfile_replay.h"
 
 using std::cout;
 using std::cerr;
@@ -68,8 +69,13 @@ void send_mvme_buffer(Context &context, DataBuffer &buffer)
     send_data_with_size_prefix(context, buffer.data, buffer.used);
 }
 
-void process_listfile(Context &context, ListFile *listfile)
+void process_listfile(Context &context, ListfileReplayHandle &input)
 {
+    assert(input.listfile);
+    assert(input.format == ListfileBufferFormat::MVMELST);
+
+    auto listfile = std::make_unique<ListFile>(input.listfile.get());
+
     auto preamble = listfile->getPreambleBuffer();
 
     if (!preamble.isEmpty())
@@ -189,7 +195,7 @@ int main(int argc, char *argv[])
 
         context.startTime = Context::ClockType::now();
 
-        process_listfile(context, openResult.listfile.get());
+        process_listfile(context, openResult);
         context.socket.disconnectFromHost();
 
         context.endTime = Context::ClockType::now();

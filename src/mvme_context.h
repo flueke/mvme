@@ -21,10 +21,12 @@
 #ifndef UUID_9196420f_dd04_4572_8e4b_952039634913
 #define UUID_9196420f_dd04_4572_8e4b_952039634913
 
+#include "libmvme_export.h"
+
 #include "analysis/analysis.h"
 #include "globals.h"
 #include "databuffer.h"
-#include "libmvme_export.h"
+#include "listfile_replay.h"
 #include "mvme_stream_worker.h"
 #include "vme_config.h"
 #include "vme_controller.h"
@@ -119,9 +121,16 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
 
+#if 0
         bool setReplayFile(ListFile *listFile);
         void closeReplayFile();
         ListFile *getReplayFile() const { return m_listFile; }
+#endif
+
+        bool setReplayFileHandle(ListfileReplayHandle listfile);
+        const ListfileReplayHandle &getReplayFileHandle() const;
+        ListfileReplayHandle &getReplayFileHandle();
+        void closeReplayFileHandle();
 
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
@@ -372,7 +381,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
         MVMEMainWindow *m_mainwin;
         DAQStats m_daqStats;
-        ListFile *m_listFile = nullptr;
         GlobalMode m_mode;
         DAQState m_daqState;
         QTime m_replayTime;

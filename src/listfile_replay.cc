@@ -1,19 +1,45 @@
 #include "listfile_replay.h"
 
+#include <cstring>
+#include <QJsonDocument>
+
 #include "qt_util.h"
 #include "util_zip.h"
+#include "mvme_listfile_utils.h"
+#include "mvlc_listfile.h"
 
-ListfileReplayInfo open_listfile(const QString &filename)
+namespace
 {
-    ListfileReplayInfo result;
+
+ListfileBufferFormat detect_listfile_format(QIODevice *listfile)
+{
+    seek_in_file(listfile, 0);
+
+    std::array<char, 8> buffer;
+    ListfileBufferFormat result = ListfileBufferFormat::MVMELST;
+
+    ssize_t bytesRead = listfile->read(buffer.data(), buffer.size());
+
+    if (std::strncmp(buffer.data(), "MVLC_ETH", bytesRead) == 0)
+        return ListfileBufferFormat::MVLC_ETH;
+    else if (std::strncmp(buffer.data(), "MVLC_USB", bytesRead) == 0)
+        return ListfileBufferFormat::MVLC_USB;
+
+    // Note: old MVMELST files did not have a preamble at all, newer versions
+    // do contain 'MVME' as a preamble.
+    return ListfileBufferFormat::MVMELST;
+}
+
+}
+
+ListfileReplayHandle open_listfile(const QString &filename)
+{
+    ListfileReplayHandle result;
     result.inputFilename = filename;
 
     // ZIP
     if (filename.toLower().endsWith(QSL(".zip")))
     {
-        // IMPORTANT: Only one file from inside a ZIP archive can be open at
-        // the same time. This is a limitation of the ZIP API.
-
         // Try reading the analysis config and the messages.log file from the
         // archive and store the contents in the result variables.
         // QuaZipFile creates an internal QuaZip instance and uses that to
@@ -30,7 +56,7 @@ ListfileReplayInfo open_listfile(const QString &filename)
                 result.messages = f.readAll();
         }
 
-        // Now open the archive directly and search for a listfile
+        // Now open the archive manually and search for a listfile
         result.archive = std::make_unique<QuaZip>(filename);
 
         if (!result.archive->open(QuaZip::mdUnzip))
@@ -76,56 +102,36 @@ ListfileReplayInfo open_listfile(const QString &filename)
         }
     }
 
-    // TODO: try to figure out the type of the listfile: mvme or mvlc. Either
-    // use the filename extension or (maybe better) read the magic bytes at the
-    // start of the file. Then instantiate some type specific logic and try to
-    // read the vme config from the listfile. If that fails there's something
-    // wrong with the file.
-    // XXX: Do this here or elsewhere?
+    assert(result.listfile);
+
+    result.format = detect_listfile_format(result.listfile.get());
 
     return result;
+}
 
-#if 0
-
-
-
-
-
-
-
-
-
-        // try reading the VME config from inside the listfile
-        auto json = result.listfile->getVMEConfigJSON();
-
-        if (json.isEmpty())
-        {
-            throw QString("Listfile does not contain a valid VME configuration");
-        }
-
-        /* Check if there's an analysis file inside the zip archive, read it,
-         * store contents in state and decide on whether to directly load it.
-         * */
-        {
-            QuaZipFile inFile(filename, QSL("analysis.analysis"));
-
-            if (inFile.open(QIODevice::ReadOnly))
+std::pair<std::unique_ptr<VMEConfig>, std::error_code>
+    read_vme_config_from_listfile(ListfileReplayHandle &handle)
+{
+    switch (handle.format)
+    {
+        case ListfileBufferFormat::MVMELST:
             {
-                result.analysisBlob = inFile.readAll();
-                result.analysisFilename = QSL("analysis.analysis");
+                ListFile lf(handle.listfile.get());
+                lf.open();
+                return read_config_from_listfile(&lf);
             }
-        }
 
-        // Try to read the logfile from the archive
-        {
-            QuaZipFile inFile(filename, QSL("messages.log"));
-
-            if (inFile.open(QIODevice::ReadOnly))
+        case ListfileBufferFormat::MVLC_ETH:
+        case ListfileBufferFormat::MVLC_USB:
             {
-                result.messages = inFile.readAll();
-            }
-        }
+                auto vmeConfig = std::make_unique<VMEConfig>();
+                auto json = QJsonDocument::fromJson(
+                    mvlc_listfile::read_vme_config_data(*handle.listfile)).object();
+                auto ec = vmeConfig->readVMEConfig(json.value("VMEConfig").toObject());
+                return std::pair<std::unique_ptr<VMEConfig>, std::error_code>(
+                    std::move(vmeConfig), ec);
+            } break;
     }
-#endif
 
+    return {};
 }

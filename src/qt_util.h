@@ -191,8 +191,4 @@ LayoutType *make_layout(QWidget *widget = nullptr)
 
 LIBMVME_CORE_EXPORT int calculate_tab_width(const QFont &font, int tabStop = 4);
 
-std::runtime_error make_zip_error(const QString &msg, const QuaZip &zip);
-void throw_io_device_error(QIODevice *device);
-void throw_io_device_error(std::unique_ptr<QIODevice> &device);
-
 #endif /* __QT_UTIL_H__ */

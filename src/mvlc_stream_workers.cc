@@ -2,6 +2,7 @@
 
 #include <QThread>
 
+#include "databuffer.h"
 #include "mvme_context.h"
 #include "vme_analysis_common.h"
 #include "mvlc/mvlc_impl_eth.h"
@@ -44,6 +45,7 @@ MVLC_StreamWorkerBase::MVLC_StreamWorkerBase(
 , m_fullBuffers(fullBuffers)
 , m_state(MVMEStreamWorkerState::Idle)
 , m_desiredState(MVMEStreamWorkerState::Idle)
+, m_startPaused(false)
 , m_stopFlag(StopWhenQueueEmpty)
 {
 }
@@ -301,7 +303,7 @@ bool MVLC_ETH_StreamWorker::processBuffer_(
     const VMEConfig *vmeConfig,
     analysis::Analysis *analysis)
 {
-    if (buffer->tag != static_cast<int>(DataBufferFormatTags::MVLC_ETH))
+    if (buffer->tag != static_cast<int>(ListfileBufferFormat::MVLC_ETH))
         return false;
 
     try
@@ -345,7 +347,7 @@ bool MVLC_USB_StreamWorker::processBuffer_(
     const VMEConfig *vmeConfig,
     analysis::Analysis *analysis)
 {
-    if (buffer->tag != static_cast<int>(DataBufferFormatTags::MVLC_USB))
+    if (buffer->tag != static_cast<int>(ListfileBufferFormat::MVLC_USB))
         return false;
 
     try

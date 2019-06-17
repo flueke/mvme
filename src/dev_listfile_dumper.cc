@@ -6,6 +6,7 @@
  * Iterate formatting events using multievent processing if available and enabled.
  */
 
+#include "listfile_replay.h"
 #include "mvme_listfile.h"
 #include "mvme_stream_iter.h"
 #include "mvme_stream_util.h"
@@ -174,8 +175,12 @@ int main(int argc, char *argv[])
         if (!openResult.listfile)
             return 1;
 
-        auto resultPair = read_config_from_listfile(openResult.listfile.get());
-        dump_listfile(openResult.listfile.get(), resultPair.first.get());
+        auto resultPair = read_vme_config_from_listfile(openResult);
+        {
+            ListFile lf(openResult.listfile.get());
+            lf.open();
+            dump_listfile(&lf, resultPair.first.get());
+        }
     }
     catch (const std::exception &e)
     {

@@ -129,6 +129,16 @@ bool ListFile::open()
     const size_t bytesToRead = 4;
     char fourCC[bytesToRead + 1] = {};
 
+    if (!m_input->isOpen())
+    {
+        if (!m_input->open(QIODevice::ReadOnly))
+            return false;
+    }
+    else
+    {
+        seek_in_file(m_input, 0);
+    }
+
     qint64 bytesRead = m_input->read(reinterpret_cast<char *>(fourCC), bytesToRead);
 
     if (bytesRead == bytesToRead
@@ -208,43 +218,13 @@ QString ListFile::getFullName() const
     return QString();
 }
 
-/* Note: this is very inefficient for ZIP files and should be used sparingly
- * and only to look for a position near the start of the file. */
-static bool seek_in_listfile(QIODevice *input, qint64 pos)
+namespace
 {
-    if (auto inFile = qobject_cast<QFile *>(input))
-    {
-        return inFile->seek(pos);
-    }
-    else if (auto inZipFile = qobject_cast<QuaZipFile *>(input))
-    {
-        inZipFile->close();
-
-        if (!inZipFile->open(QIODevice::ReadOnly))
-        {
-            return false;
-        }
-
-        while (pos > 0)
-        {
-            char c;
-            inZipFile->read(&c, sizeof(c));
-            --pos;
-        }
-
-        return true;
-    }
-
-    InvalidCodePath;
-
-    return false;
-}
-
-QJsonObject get_daq_config(QIODevice &m_file, const ListfileConstants &lfc)
+QJsonObject read_vme_config(QIODevice &m_file, const ListfileConstants &lfc)
 {
     qint64 savedPos = m_file.pos();
 
-    seek_in_listfile(&m_file, lfc.FirstSectionOffset);
+    seek_in_file(&m_file, lfc.FirstSectionOffset);
 
     QByteArray configData;
 
@@ -272,7 +252,7 @@ QJsonObject get_daq_config(QIODevice &m_file, const ListfileConstants &lfc)
         configData.append(data);
     }
 
-    seek_in_listfile(&m_file, savedPos);
+    seek_in_file(&m_file, savedPos);
 
     QJsonParseError parseError; // TODO: make parse error message available to the user
     auto m_configJson = QJsonDocument::fromJson(configData, &parseError);
@@ -296,12 +276,13 @@ QJsonObject get_daq_config(QIODevice &m_file, const ListfileConstants &lfc)
 
     return QJsonObject();
 }
+}
 
 QJsonObject ListFile::getVMEConfigJSON()
 {
     if (m_configJson.isEmpty())
     {
-        m_configJson = get_daq_config(*m_input, listfile_constants(m_fileVersion));
+        m_configJson = read_vme_config(*m_input, listfile_constants(m_fileVersion));
     }
 
     return m_configJson;
@@ -319,7 +300,7 @@ bool ListFile::seek(qint64 pos)
     qDebug() << m_input << getFileName() << m_input->isOpen();
     // Reset the currently saved sectionHeader on any seek.
     m_sectionHeaderBuffer = 0;
-    return seek_in_listfile(m_input, pos);
+    return seek_in_file(m_input, pos);
 }
 
 bool read_next_section(QIODevice &m_file, DataBuffer *buffer, u32 *savedSectionHeader,
@@ -651,109 +632,6 @@ bool ListFileWriter::writePauseSection(ListfileSections::PauseAction pauseAction
         return false;
 
     return true;
-}
-
-OpenListfileResult open_listfile(const QString &filename)
-{
-    OpenListfileResult result;
-
-    if (filename.isEmpty())
-        return result;
-
-    // ZIP
-    if (filename.toLower().endsWith(QSL(".zip")))
-    {
-        QString listfileFileName;
-
-        // find and use the first .mvmelst file inside the archive
-        {
-            QuaZip archive(filename);
-
-            if (!archive.open(QuaZip::mdUnzip))
-            {
-                throw make_zip_error("Could not open archive", &archive);
-            }
-
-            QStringList fileNames = archive.getFileNameList();
-
-            auto it = std::find_if(fileNames.begin(), fileNames.end(), [](const QString &str) {
-                return str.endsWith(QSL(".mvmelst"));
-            });
-
-            if (it == fileNames.end())
-            {
-                throw QString("No listfile found inside %1").arg(filename);
-            }
-
-            listfileFileName = *it;
-        }
-
-        Q_ASSERT(!listfileFileName.isEmpty());
-
-        auto inFile = std::make_unique<QuaZipFile>(filename, listfileFileName);
-
-        if (!inFile->open(QIODevice::ReadOnly))
-        {
-            throw make_zip_error("Could not open listfile", inFile.get());
-        }
-
-        result.listfile = std::make_unique<ListFile>(inFile.release());
-
-        if (!result.listfile->open())
-        {
-            throw QString("Error opening listfile inside %1 for reading").arg(filename);
-        }
-
-        // try reading the VME config from inside the listfile
-        auto json = result.listfile->getVMEConfigJSON();
-
-        if (json.isEmpty())
-        {
-            throw QString("Listfile does not contain a valid VME configuration");
-        }
-
-        /* Check if there's an analysis file inside the zip archive, read it,
-         * store contents in state and decide on whether to directly load it.
-         * */
-        {
-            QuaZipFile inFile(filename, QSL("analysis.analysis"));
-
-            if (inFile.open(QIODevice::ReadOnly))
-            {
-                result.analysisBlob = inFile.readAll();
-                result.analysisFilename = QSL("analysis.analysis");
-            }
-        }
-
-        // Try to read the logfile from the archive
-        {
-            QuaZipFile inFile(filename, QSL("messages.log"));
-
-            if (inFile.open(QIODevice::ReadOnly))
-            {
-                result.messages = inFile.readAll();
-            }
-        }
-    }
-    // Plain
-    else
-    {
-        result.listfile = std::make_unique<ListFile>(filename);
-
-        if (!result.listfile->open())
-        {
-            throw QString("Error opening %1 for reading").arg(filename);
-        }
-
-        auto json = result.listfile->getVMEConfigJSON();
-
-        if (json.isEmpty())
-        {
-            throw QString("Listfile does not contain a valid VME configuration");
-        }
-    }
-
-    return result;
 }
 
 std::pair<std::unique_ptr<VMEConfig>, std::error_code> read_config_from_listfile(ListFile *listfile)

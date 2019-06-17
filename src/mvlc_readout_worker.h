@@ -5,25 +5,6 @@
 #include "vme_daq.h"
 #include "mvme_stream_util.h"
 
-namespace mvlc_listfile
-{
-    static const u8 SystemFrame = 0xFA;
-
-    namespace system_frame_subtypes
-    {
-        static const u8 VMEConfig        = 0x10;
-        static const u8 SoftwareTimetick = 0x11;
-        static const u8 Pause            = 0x12;
-        static const u8 Resume           = 0x13;
-        static const u8 EndOfFile        = 0x14;
-    };
-
-    // Magic bytes at the start of the listfile. The terminating zero is not
-    // written so that the marker uses 8 bytes.
-    static const char *FileMagic_ETH = "MVLC_ETH";
-    static const char *FileMagic_USB = "MVLC_USB";
-}
-
 class MVLCReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
@@ -42,7 +23,6 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         struct Private;
         std::unique_ptr<Private> d;
 
-#if 1
         void readoutLoop();
         void setState(const DAQState &state);
         void logError(const QString &msg);
@@ -66,14 +46,6 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         DataBuffer m_localEventBuffer;
         DataBuffer *m_outputBuffer = nullptr;
 
-        struct ReadoutState
-        {
-            s16 stack = -1;
-            s16 module = 0;
-        };
-
-        //ReadoutState m_rdoState;
-
         struct EventWithModules
         {
             EventConfig *event;
@@ -82,7 +54,6 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         };
 
         QVector<EventWithModules> m_events;
-#endif
 };
 
 #endif /* __MVME_MVLC_READOUT_WORKER_H__ */

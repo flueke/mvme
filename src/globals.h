@@ -170,10 +170,9 @@ enum class ControllerState
 
 Q_DECLARE_METATYPE(ControllerState);
 
-// Tags specifying the data format a DataBuffer contains.
-enum class DataBufferFormatTags
+enum class ListfileBufferFormat
 {
-    MVMELST = 0,  // .mvmelst style formatted data. Produced by VMUSB and SIS readouts
+    MVMELST,      // .mvmelst style formatted data. Produced by VMUSB and SIS readouts
     MVLC_ETH,     // MVLC_ETH UDP packet data containing including the two sepcial header words
     MVLC_USB,     // MVLC_USB buffers. Do not contain any additional header words.
 };

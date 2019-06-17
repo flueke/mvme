@@ -24,7 +24,7 @@ class LIBMVME_EXPORT ListFile
         // It is assumed that the input device is opened for reading when
         // passed to this constructor. The ListFile does not take ownership of
         // the input device.
-        ListFile(QIODevice *input);
+        ListFile(QIODevice *input = nullptr);
 
         bool open();
         QJsonObject getVMEConfigJSON();
@@ -79,24 +79,6 @@ class LIBMVME_EXPORT ListFileWriter: public QObject
         QIODevice *m_out = nullptr;
         u64 m_bytesWritten = 0;
 };
-
-struct LIBMVME_EXPORT OpenListfileResult
-{
-    std::unique_ptr<ListFile> listfile;
-    QByteArray messages;                    // messages.log if found
-    QByteArray analysisBlob;                // analysis config contents
-    QString analysisFilename;               // analysis filename inside the archive
-
-    OpenListfileResult() = default;
-
-    OpenListfileResult(OpenListfileResult &&) = default;
-    OpenListfileResult &operator=(OpenListfileResult &&) = default;
-
-    OpenListfileResult(const OpenListfileResult &) = delete;
-    OpenListfileResult &operator=(const OpenListfileResult &) = delete;
-};
-
-OpenListfileResult LIBMVME_EXPORT open_listfile(const QString &filename);
 
 std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT
     read_config_from_listfile(ListFile *listfile);

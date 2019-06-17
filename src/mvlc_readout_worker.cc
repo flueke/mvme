@@ -4,15 +4,13 @@
 #include <QtConcurrent>
 #include <QThread>
 
-#include <quazipfile.h>
-#include <quazip.h>
-
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc/mvlc_util.h"
 #include "mvlc/mvlc_impl_usb.h"
 #include "mvlc/mvlc_impl_eth.h"
 #include "mvlc_daq.h"
+#include "util_zip.h"
 #include "vme_analysis_common.h"
 
 // =========================
@@ -258,11 +256,11 @@ void listfile_write_magic(ListfileOutput &lf_out, const MVLCObject &mvlc)
 // Writes an empty system section
 void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype)
 {
-    if (subtype > system_event::SubTypeMax)
+    if (subtype > system_event::subtype::SubtypeMax)
         throw listfile_write_error("system event subtype out of range");
 
     u32 sectionHeader = (frame_headers::SystemEvent << frame_headers::TypeShift)
-        | ((subtype & system_event::SubTypeMask) << system_event::SubTypeShift);
+        | ((subtype & system_event::SubtypeMask) << system_event::SubtypeShift);
 
     listfile_write_raw(lf_out, reinterpret_cast<const u8 *>(&sectionHeader),
                        sizeof(sectionHeader));
@@ -282,7 +280,7 @@ void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype,
         return;
     }
 
-    if (subtype > system_event::SubTypeMax)
+    if (subtype > system_event::subtype::SubtypeMax)
         throw listfile_write_error("system event subtype out of range");
 
     const u32 *endp  = buffp + totalWords;
@@ -296,7 +294,7 @@ void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype,
         bool isLastSection = (wordsInSection == wordsLeft);
 
         u32 sectionHeader = (frame_headers::SystemEvent << frame_headers::TypeShift)
-            | ((subtype & system_event::SubTypeMask) << system_event::SubTypeShift);
+            | ((subtype & system_event::SubtypeMask) << system_event::SubtypeShift);
 
         if (!isLastSection)
             sectionHeader |= 0b1 << system_event::ContinueShift;
@@ -344,7 +342,14 @@ void listfile_write_vme_config(ListfileOutput &lf_out, const VMEConfig &vmeConfi
     while (bytes.size() % sizeof(u32))
         bytes.append(' ');
 
-    listfile_write_system_event(lf_out, system_event::VMEConfig, bytes);
+    listfile_write_system_event(lf_out, system_event::subtype::VMEConfig, bytes);
+}
+
+void listfile_write_endian_marker(ListfileOutput &lf_out)
+{
+    listfile_write_system_event(
+        lf_out, system_event::subtype::EndianMarker,
+        &system_event::EndianMarkerValue, 1);
 }
 
 void listfile_write_timestamp(ListfileOutput &lf_out)
@@ -353,7 +358,7 @@ void listfile_write_timestamp(ListfileOutput &lf_out)
     auto epoch = now.time_since_epoch();
     u64 timestamp = std::chrono::duration_cast<std::chrono::seconds>(epoch).count();
 
-    listfile_write_system_event(lf_out, system_event::UnixTimestamp,
+    listfile_write_system_event(lf_out, system_event::subtype::UnixTimestamp,
                                 reinterpret_cast<u32 *>(&timestamp),
                                 sizeof(timestamp) / sizeof(u32));
 }
@@ -362,6 +367,7 @@ void listfile_write_preamble(ListfileOutput &lf_out, const MVLCObject &mvlc,
                              const VMEConfig &vmeConfig)
 {
     listfile_write_magic(lf_out, mvlc);
+    listfile_write_endian_marker(lf_out);
     listfile_write_vme_config(lf_out, vmeConfig);
     listfile_write_timestamp(lf_out);
 }
@@ -374,7 +380,7 @@ void listfile_end_run_and_close(ListfileOutput &lf_out,
         return;
 
     // Write end of file marker to indicate the file was properly written.
-    listfile_write_system_event(lf_out, system_event::EndOfFile);
+    listfile_write_system_event(lf_out, system_event::subtype::EndOfFile);
 
     // Can close the listfile output device now. This is required in case it's
     // a file inside a zip archive as only once file per archive can be open at
@@ -895,8 +901,8 @@ DataBuffer *MVLCReadoutWorker::getOutputBuffer()
         outputBuffer->used = 0;
         outputBuffer->id   = d->nextOutputBufferNumber++;
         outputBuffer->tag  = static_cast<int>((d->mvlc_eth
-                                               ? DataBufferFormatTags::MVLC_ETH
-                                               : DataBufferFormatTags::MVLC_USB));
+                                               ? ListfileBufferFormat::MVLC_ETH
+                                               : ListfileBufferFormat::MVLC_USB));
         m_outputBuffer = outputBuffer;
     }
 

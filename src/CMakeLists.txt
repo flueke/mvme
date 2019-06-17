@@ -118,7 +118,7 @@ target_sources(libmvme_core PRIVATE
 )
 
 target_include_directories(libmvme_core PRIVATE ${LIBUSB_INCLUDE_PATH})
-target_link_libraries(libmvme_core ${LIBUSB_LIBRARY})
+target_link_libraries(libmvme_core ${LIBUSB_LIBRARY} ${QUAZIP_QT5})
 install(TARGETS libmvme_core DESTINATION .)
 
 if (WIN32)
@@ -269,6 +269,8 @@ target_sources(libmvme PRIVATE
     histo_gui_util.cc
     histo_util.cc
     listfile_browser.cc
+    listfile_replay.cc
+    listfile_replay_worker.cc
     mesytec_diagnostics.cc
     mvme_context.cc
     mvme_context_lib.cc
@@ -320,7 +322,6 @@ target_sources(libmvme PRIVATE
 
 target_link_libraries(libmvme
     libmvme_core
-    ${QUAZIP_QT5}
     ${QWT_LIBRARY}
     liba2_static
     Threads::Threads
@@ -330,6 +331,7 @@ target_link_libraries(libmvme
 if (MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE
         mvlc_daq.cc
+        mvlc_listfile.cc
         mvlc_listfile_worker.cc
         mvlc_readout_worker.cc
         mvlc_stream_workers.cc

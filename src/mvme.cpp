@@ -1182,12 +1182,13 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
             }
         }
 
-        auto openResult = context_open_listfile(m_d->m_context, fileName, openFlags);
+        const auto &replayHandle = context_open_listfile(
+            m_d->m_context, fileName, openFlags);
 
-        if (!openResult.messages.isEmpty())
+        if (!replayHandle.messages.isEmpty())
         {
             appendToLogNoDebugOut(QSL(">>>>> Begin listfile log"));
-            appendToLogNoDebugOut(openResult.messages);
+            appendToLogNoDebugOut(replayHandle.messages);
             appendToLogNoDebugOut(QSL("<<<<< End listfile log"));
         }
     }
@@ -1201,7 +1202,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
 void MVMEMainWindow::onActionCloseListfile_triggered()
 {
-    m_d->m_context->closeReplayFile();
+    m_d->m_context->closeReplayFileHandle();
 }
 
 void MVMEMainWindow::onActionMainWindow_triggered()
@@ -1403,17 +1404,14 @@ void MVMEMainWindow::updateWindowTitle()
 
         case GlobalMode::ListFile:
             {
-                auto listFile = m_d->m_context->getReplayFile();
-                QString fileName(QSL("<no listfile>"));
-                if (listFile)
-                {
-                    QString filePath = listFile->getFileName();
-                    fileName =  QFileInfo(filePath).fileName();
-                }
+                auto filename = m_d->m_context->getReplayFileHandle().inputFilename;
 
-                title = QString("%1 - %2 - [ListFile mode] - mvme")
+                if (filename.isEmpty())
+                    filename = QSL("<no listfile>");
+
+                title = QSL("%1 - %2 - [ListFile mode] - mvme")
                     .arg(workspaceDir)
-                    .arg(fileName);
+                    .arg(filename);
             } break;
     }
 

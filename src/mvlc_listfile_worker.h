@@ -1,33 +1,36 @@
 #ifndef __MVLC_LISTFILE_WORKER_H__
 #define __MVLC_LISTFILE_WORKER_H__
 
-#include "vme_readout_worker.h"
+#include "listfile_replay_worker.h"
 
-class LIBMVME_EXPORT MVLCListfileWorker: public QObject
+class LIBMVME_EXPORT MVLCListfileWorker: public ListfileReplayWorker
 {
     Q_OBJECT
-    signals:
-        void stateChanged(const DAQState &);
-        void replayStopped();
-        void replayPaused();
-
     public:
-        MVLCListfileWorker(QObject *parent = nullptr);
+        using LoggerFun = std::function<void (const QString &)>;
+
+        MVLCListfileWorker(
+            ThreadSafeDataBufferQueue *emptyBufferQueue,
+            ThreadSafeDataBufferQueue *filledBufferQueue,
+            QObject *parent = nullptr);
+
         ~MVLCListfileWorker() override;
 
-        void setListfile(std::unique_ptr<QIODevice> listfile);
-        DAQStats getStats() const;
-        bool isRunning() const;
-        DAQState getState() const;
+        void setListfile(QIODevice *listifle) override;
+
+        DAQStats getStats() const override;
+        bool isRunning() const override;
+        DAQState getState() const override;
+        void setEventsToRead(u32 eventsToRead) override;
 
     public slots:
         // Blocking call which will perform the work
-        void start();
+        void start() override;
 
         // Thread-safe calls, setting internal flags to do the state transition
-        void stop();
-        void pause();
-        void resume();
+        void stop() override;
+        void pause() override;
+        void resume() override;
 
     private:
         void setState(DAQState state);

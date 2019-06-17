@@ -110,35 +110,42 @@ namespace frame_flags
 
 namespace system_event
 {
-    // TTTT TTTT CSSS SSSS UUUL LLLL LLLL LLLL
+    // TTTT TTTT CUUU SSSS SSSL LLLL LLLL LLLL
     // Type     [ 7:0] set to 0xFA
     // Continue [ 0:0] continue bit set for all but the last part
+    // Unused   [ 2:0] 3 unused flag bits
     // Subtype  [ 6:0] 7 bit system event SubType
-    // Unused   [ 2:0] 3 unused bits
     // Length   [12:0] 13 bit length counted in 32-bit words
 
     static const u8 ContinueShift = 23;
     static const u8 ContinueMask  = 0b1;
 
-    static const u8 SubTypeShift = 16;
-    static const u8 SubTypeMask  = 0x7f;
+    static const u8 SubtypeShift  = 13;
+    static const u8 SubtypeMask   = 0x7f;
 
-    static const u16 LengthShift = 0;
-    static const u16 LengthMask  = 0x1fff;
+    static const u16 LengthShift  = 0;
+    static const u16 LengthMask   = 0x1fff;
 
-    enum SubType: u8
+    static const u32 EndianMarkerValue = 0x12345678u;
+
+    namespace subtype
     {
-        EndianCheck     = 0x01,
-        VMEConfig       = 0x02,
-        AnalysisConfig  = 0x03,
-        UnixTimestamp   = 0x04,
+        static const u8 EndianMarker    = 0x01;
 
-        EndOfFile       = 0x77,
+        static const u8 VMEConfig       = 0x10;
+        static const u8 UnixTimestamp   = 0x11;
+        static const u8 Pause           = 0x12;
+        static const u8 Resume          = 0x13;
 
-        SubTypeMax      = SubTypeMask,
+        static const u8 EndOfFile       = 0x77;
+
+        static const u8 SubtypeMax      = SubtypeMask;
     };
 
-    static const u32 EndianCheckMarker = 0x12345678;
+    inline u8 extract_subtype(u32 header)
+    {
+        return (header >> SubtypeShift) & SubtypeMask;
+    }
 }
 
 enum VMEDataWidth

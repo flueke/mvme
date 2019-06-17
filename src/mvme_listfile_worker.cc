@@ -5,11 +5,13 @@
 
 #include "util/perf.h"
 
-MVMEListfileWorker::MVMEListfileWorker(DAQStats &stats, QObject *parent)
-    : QObject(parent)
-    , m_stats(stats)
-    , m_state(DAQState::Idle)
-    , m_desiredState(DAQState::Idle)
+MVMEListfileWorker::MVMEListfileWorker(
+    ThreadSafeDataBufferQueue *emptyBufferQueue,
+    ThreadSafeDataBufferQueue *filledBufferQueue,
+    QObject *parent)
+: ListfileReplayWorker(emptyBufferQueue, filledBufferQueue, parent)
+, m_state(DAQState::Idle)
+, m_desiredState(DAQState::Idle)
 {
 }
 
@@ -17,9 +19,9 @@ MVMEListfileWorker::~MVMEListfileWorker()
 {
 }
 
-void MVMEListfileWorker::setListFile(ListFile *listFile)
+void MVMEListfileWorker::setListfile(QIODevice *input)
 {
-    m_listFile = listFile;
+    m_listfile = ListFile(input);
 }
 
 void MVMEListfileWorker::setEventsToRead(u32 eventsToRead)
@@ -31,17 +33,18 @@ void MVMEListfileWorker::setEventsToRead(u32 eventsToRead)
 
 void MVMEListfileWorker::start()
 {
-    Q_ASSERT(m_freeBuffers);
-    Q_ASSERT(m_fullBuffers);
+    Q_ASSERT(getEmptyQueue());
+    Q_ASSERT(getFilledQueue());
     Q_ASSERT(m_state == DAQState::Idle);
 
-    if (m_state != DAQState::Idle || !m_listFile)
+    if (m_state != DAQState::Idle || !m_listfile.getInputDevice())
         return;
 
-    m_listFile->seekToFirstSection();
+    m_listfile.open();
+    m_listfile.seekToFirstSection();
     m_bytesRead = 0;
-    m_totalBytes = m_listFile->size();
-    m_stats.listFileTotalBytes = m_listFile->size();
+    m_totalBytes = m_listfile.size();
+    m_stats.listFileTotalBytes = m_listfile.size();
     m_stats.start();
 
     mainLoop();
@@ -74,9 +77,9 @@ void MVMEListfileWorker::mainLoop()
 
     setState(DAQState::Running);
 
-    logMessage(QString("Starting replay from %1").arg(m_listFile->getFileName()));
+    logMessage(QString("Starting replay from %1").arg(m_listfile.getFileName()));
 
-    const auto &lfc = listfile_constants(m_listFile->getFileVersion());
+    const auto &lfc = listfile_constants(m_listfile.getFileVersion());
 
     while (true)
     {
@@ -101,15 +104,15 @@ void MVMEListfileWorker::mainLoop()
             DataBuffer *buffer = nullptr;
 
             {
-                QMutexLocker lock(&m_freeBuffers->mutex);
-                while (m_freeBuffers->queue.isEmpty() && m_desiredState == DAQState::Running)
+                QMutexLocker lock(&getEmptyQueue()->mutex);
+                while (getEmptyQueue()->queue.isEmpty() && m_desiredState == DAQState::Running)
                 {
-                    m_freeBuffers->wc.wait(&m_freeBuffers->mutex, FreeBufferWaitTimeout_ms);
+                    getEmptyQueue()->wc.wait(&getEmptyQueue()->mutex, FreeBufferWaitTimeout_ms);
                 }
 
-                if (!m_freeBuffers->queue.isEmpty())
+                if (!getEmptyQueue()->queue.isEmpty())
                 {
-                    buffer = m_freeBuffers->queue.dequeue();
+                    buffer = getEmptyQueue()->queue.dequeue();
                 }
             }
             // The mutex is unlocked again at this point
@@ -131,7 +134,7 @@ void MVMEListfileWorker::mainLoop()
                     // Skip non event sections
                     while (readMore)
                     {
-                        isBufferValid = m_listFile->readNextSection(buffer);
+                        isBufferValid = m_listfile.readNextSection(buffer);
 
                         if (isBufferValid)
                         {
@@ -175,7 +178,7 @@ void MVMEListfileWorker::mainLoop()
                 else
                 {
                     // Read until buffer is full
-                    s32 sectionsRead = m_listFile->readSectionsIntoBuffer(buffer);
+                    s32 sectionsRead = m_listfile.readSectionsIntoBuffer(buffer);
                     isBufferValid = (sectionsRead > 0);
 
                     if (isBufferValid)
@@ -190,14 +193,14 @@ void MVMEListfileWorker::mainLoop()
                     // Reading did not succeed. Put the previously acquired buffer
                     // back into the free queue. No need to notfiy the wait
                     // condition as there's no one else waiting on it.
-                    QMutexLocker lock(&m_freeBuffers->mutex);
-                    m_freeBuffers->queue.enqueue(buffer);
+                    QMutexLocker lock(&getEmptyQueue()->mutex);
+                    getEmptyQueue()->queue.enqueue(buffer);
 
                     setState(DAQState::Stopping);
                 }
                 else
                 {
-                    if (m_logBuffers && m_logger)
+                    if (m_logBuffers && getLogger())
                     {
                         logMessage(">>> Begin buffer");
                         BufferIterator bufferIter(buffer->data, buffer->used, BufferIterator::Align32);
@@ -205,10 +208,10 @@ void MVMEListfileWorker::mainLoop()
                         logMessage("<<< End buffer");
                     }
                     // Push the valid buffer onto the output queue.
-                    m_fullBuffers->mutex.lock();
-                    m_fullBuffers->queue.enqueue(buffer);
-                    m_fullBuffers->mutex.unlock();
-                    m_fullBuffers->wc.wakeOne();
+                    getFilledQueue()->mutex.lock();
+                    getFilledQueue()->queue.enqueue(buffer);
+                    getFilledQueue()->mutex.unlock();
+                    getFilledQueue()->wc.wakeOne();
                 }
             }
         }
@@ -252,14 +255,12 @@ void MVMEListfileWorker::setState(DAQState newState)
             emit replayPaused();
             break;
     }
-
-    QCoreApplication::processEvents();
 }
 
 void MVMEListfileWorker::logMessage(const QString &str)
 {
-    if (m_logger)
-        m_logger(str);
+    if (getLogger())
+        getLogger()(str);
 }
 
 

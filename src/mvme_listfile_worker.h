@@ -1,62 +1,56 @@
 #ifndef __MVME_MVME_LISTFILE_WORKER_H__
 #define __MVME_MVME_LISTFILE_WORKER_H__
 
+#include "listfile_replay_worker.h"
 #include "mvme_listfile_utils.h"
 
-class LIBMVME_EXPORT MVMEListfileWorker: public QObject
+class LIBMVME_EXPORT MVMEListfileWorker: public ListfileReplayWorker
 {
     Q_OBJECT
-    signals:
-        void stateChanged(DAQState);
-        void replayStopped();
-        void replayPaused();
-
     public:
         using LoggerFun = std::function<void (const QString &)>;
 
-        MVMEListfileWorker(DAQStats &stats, QObject *parent = 0);
-        ~MVMEListfileWorker();
+        MVMEListfileWorker(
+            ThreadSafeDataBufferQueue *emptyBufferQueue,
+            ThreadSafeDataBufferQueue *filledBufferQueue,
+            QObject *parent = nullptr);
 
-        void setListFile(ListFile *listFile);
-        ListFile *getListFile() const { return m_listFile; }
+        ~MVMEListfileWorker() override;
 
-        bool isRunning() const { return m_state != DAQState::Idle; }
-        DAQState getState() const { return m_state; }
+        void setListfile(QIODevice *listfile) override;
 
-        void setEventsToRead(u32 eventsToRead);
+        DAQStats getStats() const override { return m_stats; }
+        bool isRunning() const override { return m_state != DAQState::Idle; }
+        DAQState getState() const override { return m_state; }
 
-        void setLogger(LoggerFun logger) { m_logger = logger; }
-
-        ThreadSafeDataBufferQueue *m_freeBuffers = nullptr;
-        ThreadSafeDataBufferQueue *m_fullBuffers = nullptr;
+        void setEventsToRead(u32 eventsToRead) override;
 
     public slots:
         // Blocking call which will perform the work
-        void start();
+        void start() override;
 
         // Thread-safe calls, setting internal flags to do the state transition
-        void stop();
-        void pause();
-        void resume();
+        void stop() override;
+        void pause() override;
+        void resume() override;
 
     private:
         void mainLoop();
         void setState(DAQState state);
         void logMessage(const QString &str);
 
-        DAQStats &m_stats;
+        DAQStats m_stats;
 
-        DAQState m_state;
+        std::atomic<DAQState> m_state;
         std::atomic<DAQState> m_desiredState;
 
-        ListFile *m_listFile = 0;
+        ListFile m_listfile;
 
         qint64 m_bytesRead = 0;
         qint64 m_totalBytes = 0;
 
         u32 m_eventsToRead = 0;
         bool m_logBuffers = false;
-        LoggerFun m_logger;
 };
 
 #endif /* __MVME_MVME_LISTFILE_WORKER_H__ */

@@ -24,10 +24,9 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <quazipfile.h>
-#include <quazip.h>
 
 #include "mvme_listfile_utils.h"
+#include "util_zip.h"
 
 //
 // vme_daq_init
@@ -181,41 +180,6 @@ vme_script::VMEScript build_event_readout_script(
     result += eventConfig->vmeScripts["readout_end"]->getScript();
 
     return result;
-}
-
-std::runtime_error make_zip_error(const QString &msg, const QuaZip &zip)
-{
-    auto m = QString("Error: archive=%1, error=%2")
-        .arg(msg)
-        .arg(zip.getZipError());
-
-    return std::runtime_error(m.toStdString());
-}
-
-void throw_io_device_error(QIODevice *device)
-{
-    if (auto zipFile = qobject_cast<QuaZipFile *>(device))
-    {
-        throw make_zip_error(zipFile->getZip()->getZipName(),
-                             *(zipFile->getZip()));
-    }
-    else if (auto file = qobject_cast<QFile *>(device))
-    {
-        throw QString("Error: file=%1, error=%2")
-            .arg(file->fileName())
-            .arg(file->errorString())
-            ;
-    }
-    else
-    {
-        throw QString("IO Error: %1")
-            .arg(device->errorString());
-    }
-}
-
-void throw_io_device_error(std::unique_ptr<QIODevice> &device)
-{
-    throw_io_device_error(device.get());
 }
 
 struct DAQReadoutListfileHelperPrivate

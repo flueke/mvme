@@ -12,6 +12,7 @@
 #include "analysis/analysis.h"
 #include "analysis/analysis_session.h"
 #include "event_server/server/event_server.h"
+#include "listfile_replay.h"
 #include "mvme_listfile_utils.h"
 #include "mvme_stream_processor.h"
 #include "util/counters.h"
@@ -64,9 +65,13 @@ struct Context
     std::unique_ptr<EventServer> eventServer;
 };
 
-void process_listfile(Context &context, ListFile *listfile)
+void process_listfile(Context &context, ListfileReplayHandle &input)
 {
-    assert(listfile);
+    assert(input.listfile);
+    assert(input.format == ListfileBufferFormat::MVMELST);
+
+    auto listfile = std::make_unique<ListFile>(input.listfile.get());
+    context.listfileVersion = listfile->getFileVersion();
 
     DataBuffer sectionBuffer(Megabytes(1));
 
@@ -245,7 +250,7 @@ int main(int argc, char *argv[])
             std::unique_ptr<VMEConfig> vmeConfig;
             std::error_code ec;
 
-            std::tie(vmeConfig, ec) = read_config_from_listfile(openResult.listfile.get());
+            std::tie(vmeConfig, ec) = read_vme_config_from_listfile(openResult);
 
             std::unique_ptr<Analysis> analysis = std::make_unique<Analysis>();
 
@@ -261,7 +266,6 @@ int main(int argc, char *argv[])
             context.runInfo.isReplay = true;
             context.analysis = analysis.get();
             context.vmeConfig = vmeConfig.get();
-            context.listfileVersion = openResult.listfile->getFileVersion();
 
             auto indexMapping = vme_analysis_common::build_id_to_index_mapping(context.vmeConfig);
             context.analysis->beginRun(context.runInfo, indexMapping);
@@ -269,7 +273,7 @@ int main(int argc, char *argv[])
 
             cout << "processing listfile" << listfileFilename.toStdString() << "..." << endl;
 
-            process_listfile(context, openResult.listfile.get());
+            process_listfile(context, openResult);
 
             cout << "process_listfile() returned" << endl;
 
