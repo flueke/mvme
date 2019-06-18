@@ -38,7 +38,9 @@
     echo "Hello, world!" | netcat -u 192.168.42.2 9000
 
   To delete the arp entry:
-    arp -i enp2s0 -d 192.168.42.g
+    arp -i enp2s0 -d 192.168.42.2
+
+Firmware 105 MAC address is 74:d0:2b:21:23:45
 
 -----------------------------------------------------------------------------------------
 
