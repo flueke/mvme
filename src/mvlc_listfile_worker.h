@@ -16,7 +16,7 @@ class LIBMVME_EXPORT MVLCListfileWorker: public ListfileReplayWorker
 
         ~MVLCListfileWorker() override;
 
-        void setListfile(QIODevice *listifle) override;
+        void setListfile(QIODevice *listifle, ListfileBufferFormat format) override;
 
         DAQStats getStats() const override;
         bool isRunning() const override;

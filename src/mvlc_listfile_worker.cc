@@ -1,6 +1,7 @@
 #include "mvlc_listfile_worker.h"
 
 #include "util_zip.h"
+#include <QDebug>
 
 struct MVLCListfileWorker::Private
 {
@@ -10,6 +11,7 @@ struct MVLCListfileWorker::Private
     u32 eventsToRead = 0;
     bool logBuffers = false;
     QIODevice *input = nullptr;
+    ListfileBufferFormat format;
 };
 
 MVLCListfileWorker::MVLCListfileWorker(
@@ -19,15 +21,20 @@ MVLCListfileWorker::MVLCListfileWorker(
     : ListfileReplayWorker(emptyBufferQueue, filledBufferQueue, parent)
     , d(std::make_unique<Private>())
 {
+    qDebug() << __PRETTY_FUNCTION__;
 }
 
 MVLCListfileWorker::~MVLCListfileWorker()
 {
 }
 
-void MVLCListfileWorker::setListfile(QIODevice *input)
+void MVLCListfileWorker::setListfile(QIODevice *input, ListfileBufferFormat format)
 {
+    assert(format == ListfileBufferFormat::MVLC_ETH
+           || format == ListfileBufferFormat::MVLC_USB);
+
     d->input = input;
+    d->format = format;
 }
 
 DAQStats MVLCListfileWorker::getStats() const

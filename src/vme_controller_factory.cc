@@ -1,6 +1,8 @@
 #include "vme_controller_factory.h"
 
+#include "mvlc_listfile_worker.h"
 #include "mvlc_readout_worker.h"
+#include "mvme_listfile_worker.h"
 #include "sis3153.h"
 #include "sis3153_readout_worker.h"
 #include "vme_controller_ui.h"
@@ -132,6 +134,24 @@ VMEReadoutWorker *VMEControllerFactory::makeReadoutWorker()
         case VMEControllerType::MVLC_USB:
         case VMEControllerType::MVLC_ETH:
             return new MVLCReadoutWorker;
+    }
+
+    return nullptr;
+}
+
+ListfileReplayWorker *VMEControllerFactory::makeReplayWorker(
+    ThreadSafeDataBufferQueue *emptyBuffers,
+    ThreadSafeDataBufferQueue *filledBuffers)
+{
+    switch (m_type)
+    {
+        case VMEControllerType::VMUSB:
+        case VMEControllerType::SIS3153:
+            return new MVMEListfileWorker(emptyBuffers, filledBuffers);
+
+        case VMEControllerType::MVLC_USB:
+        case VMEControllerType::MVLC_ETH:
+            return new MVLCListfileWorker(emptyBuffers, filledBuffers);
     }
 
     return nullptr;

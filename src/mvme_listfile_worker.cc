@@ -13,14 +13,16 @@ MVMEListfileWorker::MVMEListfileWorker(
 , m_state(DAQState::Idle)
 , m_desiredState(DAQState::Idle)
 {
+    qDebug() << __PRETTY_FUNCTION__;
 }
 
 MVMEListfileWorker::~MVMEListfileWorker()
 {
 }
 
-void MVMEListfileWorker::setListfile(QIODevice *input)
+void MVMEListfileWorker::setListfile(QIODevice *input, ListfileBufferFormat format)
 {
+    assert(format == ListfileBufferFormat::MVMELST);
     m_listfile = ListFile(input);
 }
 
@@ -255,6 +257,8 @@ void MVMEListfileWorker::setState(DAQState newState)
             emit replayPaused();
             break;
     }
+
+    //QCoreApplication::processEvents();
 }
 
 void MVMEListfileWorker::logMessage(const QString &str)

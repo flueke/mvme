@@ -118,8 +118,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QString getUniqueModuleName(const QString &prefix) const;
         DAQState getDAQState() const;
         MVMEStreamWorkerState getMVMEStreamWorkerState() const;
-        const DAQStats &getDAQStats() const { return m_daqStats; }
-        DAQStats &getDAQStats() { return m_daqStats; }
+        DAQStats getDAQStats() const;
 
 #if 0
         bool setReplayFile(ListFile *listFile);
@@ -380,7 +379,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
         MVMEMainWindow *m_mainwin;
-        DAQStats m_daqStats;
         GlobalMode m_mode;
         DAQState m_daqState;
         QTime m_replayTime;
