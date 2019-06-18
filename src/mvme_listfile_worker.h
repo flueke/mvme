@@ -37,7 +37,6 @@ class LIBMVME_EXPORT MVMEListfileWorker: public ListfileReplayWorker
     private:
         void mainLoop();
         void setState(DAQState state);
-        void logMessage(const QString &str);
 
         DAQStats m_stats;
 

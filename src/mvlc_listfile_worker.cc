@@ -92,8 +92,40 @@ void MVLCListfileWorker::start()
     if (d->state != DAQState::Idle || !d->input)
         return;
 
+    logMessage(QString("Starting replay from %1").arg(
+            get_filename(d->input)));
+
     seek_in_file(d->input, 0);
+    d->stats.start();
+    d->stats.listFileTotalBytes = d->input->size();
+
+    setState(DAQState::Running);
+
+    switch (d->format)
+    {
+        case ListfileBufferFormat::MVLC_ETH:
+            mainloop_eth();
+            break;
+
+        case ListfileBufferFormat::MVLC_USB:
+            mainloop_usb();
+            break;
+
+        InvalidDefaultCase;
+    }
+
+    d->stats.stop();
+    setState(DAQState::Idle);
 }
+
+void MVLCListfileWorker::mainloop_eth()
+{
+}
+
+void MVLCListfileWorker::mainloop_usb()
+{
+}
+
 
 // Thread-safe calls, setting internal flags to do the state transition
 void MVLCListfileWorker::stop()

@@ -34,6 +34,8 @@ class LIBMVME_EXPORT MVLCListfileWorker: public ListfileReplayWorker
 
     private:
         void setState(DAQState state);
+        void mainloop_eth();
+        void mainloop_usb();
 
         struct Private;
         std::unique_ptr<Private> d;

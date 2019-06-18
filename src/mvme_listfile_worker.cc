@@ -46,8 +46,8 @@ void MVMEListfileWorker::start()
     m_listfile.seekToFirstSection();
     m_bytesRead = 0;
     m_totalBytes = m_listfile.size();
-    m_stats.listFileTotalBytes = m_listfile.size();
     m_stats.start();
+    m_stats.listFileTotalBytes = m_listfile.size();
 
     mainLoop();
 }
@@ -260,11 +260,3 @@ void MVMEListfileWorker::setState(DAQState newState)
 
     //QCoreApplication::processEvents();
 }
-
-void MVMEListfileWorker::logMessage(const QString &str)
-{
-    if (getLogger())
-        getLogger()(str);
-}
-
-

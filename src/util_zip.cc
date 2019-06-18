@@ -58,6 +58,19 @@ bool seek_in_file(QIODevice *input, qint64 pos)
     return input->seek(pos);
 }
 
+QString get_filename(const QIODevice *dev)
+{
+    assert(dev);
+
+    if (auto inFile = qobject_cast<const QFile *>(dev))
+        return inFile->fileName();
+
+    if (auto inZipFile = qobject_cast<const QuaZipFile *>(dev))
+        return inZipFile->getZipName();
+
+    return QString();
+}
+
 void throw_io_device_error(QIODevice *device)
 {
     if (auto zipFile = qobject_cast<QuaZipFile *>(device))

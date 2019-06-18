@@ -44,6 +44,12 @@ class LIBMVME_EXPORT ListfileReplayWorker: public QObject
         inline ThreadSafeDataBufferQueue *getFilledQueue() { return m_filledBufferQueue; }
         inline LoggerFun &getLogger() { return m_logger; }
 
+        inline void logMessage(const QString &msg)
+        {
+            if (getLogger())
+                getLogger()(msg);
+        }
+
     private:
         ThreadSafeDataBufferQueue *m_emptyBufferQueue;
         ThreadSafeDataBufferQueue *m_filledBufferQueue;
