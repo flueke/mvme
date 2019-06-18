@@ -266,7 +266,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
     m_cyclesToRun = cycles;
     setState(DAQState::Starting);
-    DAQStats &stats(*m_workerContext.daqStats);
+    DAQStats &stats(m_workerContext.daqStats);
     bool errorThrown = false;
     auto daqConfig = m_workerContext.vmeConfig;
     VMEError error;
@@ -613,7 +613,7 @@ void VMUSBReadoutWorker::readoutLoop()
 
     setState(DAQState::Running);
 
-    DAQStats &stats(*m_workerContext.daqStats);
+    DAQStats &stats(m_workerContext.daqStats);
     QTime logReadErrorTimer;
     u64 nReadErrors = 0;
     u64 nGoodReads = 0;
@@ -852,7 +852,7 @@ VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_
     if ((!result.error.isError() || result.error.isTimeout()) && result.bytesRead > 0)
     {
         m_readBuffer->used = result.bytesRead;
-        DAQStats &stats(*m_workerContext.daqStats);
+        DAQStats &stats(m_workerContext.daqStats);
         stats.totalBytesRead += result.bytesRead;
         stats.totalBuffersRead++;
 

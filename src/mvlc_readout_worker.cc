@@ -560,13 +560,13 @@ void MVLCReadoutWorker::start(quint32 cycles)
         // listfile handling
         d->listfileOut = listfile_open(*m_workerContext.listfileOutputInfo, logger);
         listfile_write_preamble(d->listfileOut, *d->mvlcObj, *m_workerContext.vmeConfig);
-        m_workerContext.daqStats->listfileFilename = d->listfileOut.outFilename;
+        m_workerContext.daqStats.listfileFilename = d->listfileOut.outFilename;
 
         d->preRunClear();
 
         logMessage("");
         logMessage(QSL("Entering readout loop"));
-        m_workerContext.daqStats->start();
+        m_workerContext.daqStats.start();
 
         readoutLoop();
 
@@ -582,7 +582,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
                                    m_workerContext.getAnalysisJson().toJson());
         assert(!d->listfileOut.isOpen());
 
-        m_workerContext.daqStats->stop();
+        m_workerContext.daqStats.stop();
     }
     catch (const std::error_code &ec)
     {
@@ -751,7 +751,7 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
             Pipe::Data, destBuffer->asU8(), destBuffer->free());
         dataGuard.unlock();
 
-        daqStats->totalBytesRead += result.bytesTransferred;
+        daqStats.totalBytesRead += result.bytesTransferred;
 
         // ShortRead means that the received packet length was non-zero but
         // shorter than the two ETH header words. Overwrite this short data on
@@ -760,7 +760,7 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
         // would suggest we actually did receive valid data.
         if (result.ec == MVLCErrorCode::ShortRead)
         {
-            daqStats->buffersWithErrors++;
+            daqStats.buffersWithErrors++;
             continue;
         }
 
@@ -869,7 +869,7 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
         if (ec == ErrorType::ConnectionError)
             break;
 
-        daqStats->totalBytesRead += bytesTransferred;
+        daqStats.totalBytesRead += bytesTransferred;
         destBuffer->used += bytesTransferred;
         totalBytesTransferred += bytesTransferred;
 
@@ -926,7 +926,7 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
 
     if (outputBuffer)
     {
-        m_workerContext.daqStats->totalBuffersRead++;
+        m_workerContext.daqStats.totalBuffersRead++;
 
         if (d->listfileOut.outdev)
         {
@@ -938,7 +938,7 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
             if (bytesWritten != static_cast<qint64>(outputBuffer->used))
                 throw_io_device_error(d->listfileOut.outdev);
 
-            m_workerContext.daqStats->listFileBytesWritten += bytesWritten;
+            m_workerContext.daqStats.listFileBytesWritten += bytesWritten;
         }
 
         if (outputBuffer != &m_localEventBuffer)
@@ -947,7 +947,7 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
         }
         else
         {
-            m_workerContext.daqStats->droppedBuffers++;
+            m_workerContext.daqStats.droppedBuffers++;
         }
         m_outputBuffer = nullptr;
     }

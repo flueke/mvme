@@ -1343,7 +1343,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         //
         sis_log(QSL(""));
         sis_log(QSL("Entering readout loop"));
-        m_workerContext.daqStats->start();
+        m_workerContext.daqStats.start();
         m_listfileHelper->beginRun();
 
         readoutLoop();
@@ -1377,7 +1377,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         // last actions happening in here. Log messages generated after this point won't
         // show up in the listfile.
         m_listfileHelper->endRun();
-        m_workerContext.daqStats->stop();
+        m_workerContext.daqStats.stop();
     }
     catch (const std::runtime_error &e)
     {
@@ -1402,7 +1402,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 void SIS3153ReadoutWorker::readoutLoop()
 {
     auto sis = m_sis;
-    DAQStats *daqStats = m_workerContext.daqStats;
+    DAQStats *daqStats = &m_workerContext.daqStats;
     VMEError error;
 
     setState(DAQState::Running);
@@ -1752,8 +1752,8 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
         return result;
     }
 
-    m_workerContext.daqStats->totalBytesRead += result.bytesRead;
-    m_workerContext.daqStats->totalBuffersRead++;
+    m_workerContext.daqStats.totalBytesRead += result.bytesRead;
+    m_workerContext.daqStats.totalBuffersRead++;
 
 
     // UDP Datagram Forwarding
@@ -1787,7 +1787,7 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
         qDebug() << __PRETTY_FUNCTION__ << "got < 3 bytes; returning " << result.error.toString()
             << result.bytesRead << std::strerror(errno);
 #endif
-        m_workerContext.daqStats->buffersWithErrors++;
+        m_workerContext.daqStats.buffersWithErrors++;
         return result;
     }
 
@@ -1798,7 +1798,7 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
     packetIdent  = m_readBuffer.data[2];
     packetStatus = m_readBuffer.data[3];
 
-    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+    const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
 
     sis_trace(QString("buffer #%1: ack=0x%2, ident=0x%3, status=0x%4, bytesRead=%5, wordsRead=%6")
               .arg(bufferNumber)
@@ -1821,7 +1821,7 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
 void SIS3153ReadoutWorker::processBuffer(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
-    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+    const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
 
 #if SIS_READOUT_BUFFER_DEBUG_PRINT
     sis_trace(QString("buffer #%1, buffer_size=%2, contents:")
@@ -1902,7 +1902,7 @@ void SIS3153ReadoutWorker::processBuffer(
             {
                 // One of the processing functions gave up and told us to skip
                 // the input buffer.
-                m_workerContext.daqStats->buffersWithErrors++;
+                m_workerContext.daqStats.buffersWithErrors++;
             }
         }
 
@@ -1916,9 +1916,9 @@ void SIS3153ReadoutWorker::processBuffer(
     }
     catch (const end_of_buffer &)
     {
-        m_workerContext.daqStats->buffersWithErrors++;
+        m_workerContext.daqStats.buffersWithErrors++;
         auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) end of input reached unexpectedly! Skipping buffer."))
-            .arg(m_workerContext.daqStats->totalBuffersRead);
+            .arg(m_workerContext.daqStats.totalBuffersRead);
         logMessage(msg, true);
 
         maybePutBackBuffer();
@@ -1936,7 +1936,7 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
 #endif
     Q_ASSERT(packetAck == SIS3153Constants::MultiEventPacketAck);
 
-    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+    const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
 
     if (m_processingState.stackList >= 0)
     {
@@ -2033,7 +2033,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
     int stacklist = packetAck & SIS3153Constants::AckStackListMask;
     m_counters.stackListCounts[stacklist]++;
-    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+    const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
 
     BufferIterator iter(data, size);
 
@@ -2168,7 +2168,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         if (streamWriter.hasOpenModuleSection())
         {
             u32 moduleSectionBytes = streamWriter.closeModuleSection().sectionBytes;
-            m_workerContext.daqStats->totalNetBytesRead += moduleSectionBytes;
+            m_workerContext.daqStats.totalNetBytesRead += moduleSectionBytes;
         }
     }
 
@@ -2204,7 +2204,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 u32 SIS3153ReadoutWorker::processPartialEventData(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
-    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+    const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
 
     sis_trace(QString("sis3153 buffer #%1, packetAck=0x%2, packetIdent=0x%3, packetStatus=0x%4, data@0x%6, size=%7")
               .arg(bufferNumber)
@@ -2416,7 +2416,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                 if (m_processingState.streamWriter.hasOpenModuleSection())
                 {
                     u32 moduleSectionBytes = m_processingState.streamWriter.closeModuleSection().sectionBytes;
-                    m_workerContext.daqStats->totalNetBytesRead += moduleSectionBytes;
+                    m_workerContext.daqStats.totalNetBytesRead += moduleSectionBytes;
                     m_processingState.moduleIndex++;
                 }
                 break;
@@ -2483,7 +2483,7 @@ void SIS3153ReadoutWorker::flushCurrentOutputBuffer()
         }
         else
         {
-            m_workerContext.daqStats->droppedBuffers++;
+            m_workerContext.daqStats.droppedBuffers++;
         }
         sis_trace("resetting current output buffer");
         m_outputBuffer = nullptr;

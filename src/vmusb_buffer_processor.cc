@@ -697,7 +697,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
                 if (state->streamWriter.hasOpenModuleSection())
                 {
                     u32 moduleSectionBytes = state->streamWriter.closeModuleSection().sectionBytes;
-                    m_d->m_readoutWorker->getContext().daqStats->totalNetBytesRead += moduleSectionBytes;
+                    getStats()->totalNetBytesRead += moduleSectionBytes;
                 }
 
                 break;
@@ -846,7 +846,7 @@ DataBuffer* VMUSBBufferProcessor::getFreeBuffer()
 
 DAQStats *VMUSBBufferProcessor::getStats()
 {
-    return m_d->m_readoutWorker->getContext().daqStats;
+    return &m_d->m_readoutWorker->getContext().daqStats;
 }
 
 void VMUSBBufferProcessor::logMessage(const QString &message, bool useThrottle)

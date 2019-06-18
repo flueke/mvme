@@ -31,7 +31,7 @@
 struct VMEReadoutWorkerContext
 {
     VMEController *controller;
-    DAQStats *daqStats;
+    DAQStats daqStats;
     VMEConfig *vmeConfig;
     ThreadSafeDataBufferQueue *freeBuffers,
                               *fullBuffers;
@@ -114,6 +114,8 @@ class VMEReadoutWorker: public QObject
 
         virtual bool isRunning() const = 0;
         virtual DAQState getState() const = 0;
+
+        DAQStats getDAQStats() const { return m_workerContext.daqStats; }
 
     public slots:
         virtual void start(quint32 cycles = 0) = 0;

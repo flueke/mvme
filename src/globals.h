@@ -90,6 +90,7 @@ struct DAQStats
 {
     inline void start()
     {
+        *this = {};
         startTime = QDateTime::currentDateTime();
     }
 

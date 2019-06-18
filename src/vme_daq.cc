@@ -264,7 +264,7 @@ void DAQReadoutListfileHelper::beginRun()
                 }
 
                 m_d->listfileWriter->setOutputDevice(outFile);
-                m_readoutContext.daqStats->listfileFilename = outFilename;
+                m_readoutContext.daqStats.listfileFilename = outFilename;
             } break;
 
         case ListFileFormat::ZIP:
@@ -308,7 +308,7 @@ void DAQReadoutListfileHelper::beginRun()
                 }
 
                 m_d->listfileWriter->setOutputDevice(m_d->listfileOut.get());
-                m_readoutContext.daqStats->listfileFilename = outFilename;
+                m_readoutContext.daqStats.listfileFilename = outFilename;
 
             } break;
 
@@ -326,7 +326,7 @@ void DAQReadoutListfileHelper::beginRun()
         throw_io_device_error(m_d->listfileOut);
     }
 
-    m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+    m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
 }
 
 void DAQReadoutListfileHelper::endRun()
@@ -340,7 +340,7 @@ void DAQReadoutListfileHelper::endRun()
         throw_io_device_error(m_d->listfileOut);
     }
 
-    m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+    m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
 
     m_d->listfileOut->close();
 
@@ -448,7 +448,7 @@ void DAQReadoutListfileHelper::writeBuffer(const u8 *buffer, size_t size)
         {
             throw_io_device_error(m_d->listfileOut);
         }
-        m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+        m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
     }
 }
 
@@ -460,7 +460,7 @@ void DAQReadoutListfileHelper::writeTimetickSection()
         {
             throw_io_device_error(m_d->listfileOut);
         }
-        m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+        m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
     }
 }
 
@@ -472,7 +472,7 @@ void DAQReadoutListfileHelper::writePauseSection()
         {
             throw_io_device_error(m_d->listfileOut);
         }
-        m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+        m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
     }
 }
 
@@ -484,7 +484,7 @@ void DAQReadoutListfileHelper::writeResumeSection()
         {
             throw_io_device_error(m_d->listfileOut);
         }
-        m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+        m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
     }
 }
 
