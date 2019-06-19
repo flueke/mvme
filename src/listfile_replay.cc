@@ -13,7 +13,10 @@ namespace
 
 ListfileBufferFormat detect_listfile_format(QIODevice *listfile)
 {
-    seek_in_file(listfile, 0);
+    {
+        bool seekOk = seek_in_file(listfile, 0);
+        assert(seekOk);
+    }
 
     std::array<char, 8> buffer;
     ListfileBufferFormat result = ListfileBufferFormat::MVMELST;

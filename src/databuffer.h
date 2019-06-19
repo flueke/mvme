@@ -106,6 +106,12 @@ struct DataBuffer
     u16 *asU16() { return reinterpret_cast<u16 *>(data + used); }
     u32 *asU32() { return reinterpret_cast<u32 *>(data + used); }
 
+    s8 *asS8() { return reinterpret_cast<s8 *>(data + used); }
+    s16 *asS16() { return reinterpret_cast<s16 *>(data + used); }
+    s32 *asS32() { return reinterpret_cast<s32 *>(data + used); }
+
+    char *asCharStar() { return reinterpret_cast<char *>(data + used); }
+
     u32 *asU32(size_t offset) { return reinterpret_cast<u32 *>(data + offset); }
 
     u32 *indexU32(size_t index)
@@ -170,5 +176,17 @@ struct DataBuffer
 };
 
 typedef QQueue<DataBuffer *> DataBufferQueue;
+
+inline void move_bytes(DataBuffer &sourceBuffer, DataBuffer &destBuffer,
+                       const u8 *sourceBegin, size_t bytes)
+{
+    assert(sourceBegin >= sourceBuffer.data);
+    assert(sourceBegin + bytes <= sourceBuffer.endPtr());
+
+    destBuffer.ensureCapacity(bytes);
+    std::memcpy(destBuffer.endPtr(), sourceBegin, bytes);
+    destBuffer.used   += bytes;
+    sourceBuffer.used -= bytes;
+}
 
 #endif

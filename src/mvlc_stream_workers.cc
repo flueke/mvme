@@ -176,7 +176,10 @@ void MVLC_StreamWorkerBase::processBuffer(
     const VMEConfig *vmeConfig,
     analysis::Analysis *analysis)
 {
+    // Call into the subclass
     bool ok = processBuffer_(buffer, runInfo, vmeConfig, analysis);
+
+    // Put the buffer back onto the free queue
     enqueue(m_freeBuffers, buffer);
 
     {

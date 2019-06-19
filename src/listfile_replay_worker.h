@@ -24,7 +24,7 @@ class LIBMVME_EXPORT ListfileReplayWorker: public QObject
 
         void setLogger(LoggerFun logger);
 
-        virtual void setListfile(QIODevice *listifle, ListfileBufferFormat format) = 0;
+        virtual void setListfile(QIODevice *listifle) = 0;
         virtual DAQStats getStats() const = 0;
         virtual bool isRunning() const = 0;
         virtual DAQState getState() const = 0;

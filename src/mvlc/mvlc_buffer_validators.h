@@ -9,11 +9,6 @@ namespace mesytec
 namespace mvlc
 {
 
-inline u8 get_frame_type(u32 header)
-{
-    return (header >> frame_headers::TypeShift) & frame_headers::TypeMask;
-}
-
 using BufferHeaderValidator = std::function<bool (u32 header)>;
 
 inline bool is_super_buffer(u32 header)

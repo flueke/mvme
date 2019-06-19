@@ -15,6 +15,7 @@ static const char *FileMagic_ETH = "MVLC_ETH";
 static const char *FileMagic_USB = "MVLC_USB";
 static const size_t FileMagicLen = 8;
 
+QByteArray read_file_magic(QIODevice &listfile);
 QByteArray read_vme_config_data(QIODevice &listfile);
 
 }

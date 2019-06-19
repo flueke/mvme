@@ -24,6 +24,20 @@ namespace
 namespace mvlc_listfile
 {
 
+QByteArray read_file_magic(QIODevice &listfile)
+{
+    if (!seek_in_file(&listfile, 0))
+        return {};
+
+    QByteArray buffer;
+    buffer.resize(FileMagicLen);
+
+    if (listfile.read(buffer.data(), buffer.size()) != buffer.size())
+        return {};
+
+    return buffer;
+}
+
 QByteArray read_vme_config_data(QIODevice &listfile)
 {
     if (!seek_in_file(&listfile, FileMagicLen))

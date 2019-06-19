@@ -20,9 +20,8 @@ MVMEListfileWorker::~MVMEListfileWorker()
 {
 }
 
-void MVMEListfileWorker::setListfile(QIODevice *input, ListfileBufferFormat format)
+void MVMEListfileWorker::setListfile(QIODevice *input)
 {
-    assert(format == ListfileBufferFormat::MVMELST);
     m_listfile = ListFile(input);
 }
 

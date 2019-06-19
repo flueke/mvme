@@ -163,7 +163,7 @@ struct MVMEContextPrivate
     EventServer *m_eventServer = nullptr;
 
     ListfileReplayHandle listfileReplayHandle;
-    std::unique_ptr<ListfileReplayWorker> mvmeListfileWorker;
+    std::unique_ptr<ListfileReplayWorker> listfileReplayWorker;
 
     void stopDAQ();
     void pauseDAQ();
@@ -272,7 +272,6 @@ void MVMEContextPrivate::resumeDAQReadout(u32 nEvents)
     m_q->m_readoutWorker->resume();
 }
 
-// TODO: handle MVLC replays
 void MVMEContextPrivate::stopDAQReplay()
 {
     QProgressDialog progressDialog("Stopping Replay", QString(), 0, 0);
@@ -288,13 +287,13 @@ void MVMEContextPrivate::stopDAQReplay()
     // progress dialog entering its eventloop. (Probably not needed, see the
     // explanation about not having a race condition below.)
 
-    if (mvmeListfileWorker->getState() == DAQState::Running
-        || mvmeListfileWorker->getState() == DAQState::Paused)
+    if (listfileReplayWorker->getState() == DAQState::Running
+        || listfileReplayWorker->getState() == DAQState::Paused)
     {
-        mvmeListfileWorker->stop();
+        listfileReplayWorker->stop();
 
         auto con = QObject::connect(
-            mvmeListfileWorker.get(), &ListfileReplayWorker::replayStopped,
+            listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             &localLoop, &QEventLoop::quit);
 
         localLoop.exec();
@@ -336,18 +335,18 @@ void MVMEContextPrivate::pauseDAQReplay()
 
     QEventLoop localLoop;
 
-    if (mvmeListfileWorker->getState() == DAQState::Running)
+    if (listfileReplayWorker->getState() == DAQState::Running)
     {
-        mvmeListfileWorker->pause();
+        listfileReplayWorker->pause();
 
         auto con = QObject::connect(
-            mvmeListfileWorker.get(), &ListfileReplayWorker::replayPaused,
+            listfileReplayWorker.get(), &ListfileReplayWorker::replayPaused,
             &localLoop, &QEventLoop::quit);
         localLoop.exec();
 
         QObject::disconnect(con);
 
-        Q_ASSERT(mvmeListfileWorker->getState() == DAQState::Paused);
+        Q_ASSERT(listfileReplayWorker->getState() == DAQState::Paused);
     }
 
     Q_ASSERT(m_q->m_readoutWorker->getState() == DAQState::Paused
@@ -356,8 +355,8 @@ void MVMEContextPrivate::pauseDAQReplay()
 
 void MVMEContextPrivate::resumeDAQReplay(u32 nEvents)
 {
-    mvmeListfileWorker->setEventsToRead(nEvents);
-    mvmeListfileWorker->resume();
+    listfileReplayWorker->setEventsToRead(nEvents);
+    listfileReplayWorker->resume();
 }
 
 void MVMEContextPrivate::stopAnalysis()
@@ -586,7 +585,7 @@ MVMEContext::~MVMEContext()
         }
         else if (getMode() == GlobalMode::ListFile)
         {
-            m_d->mvmeListfileWorker->stop();
+            m_d->listfileReplayWorker->stop();
         }
 
         while ((getDAQState() != DAQState::Idle))
@@ -627,7 +626,7 @@ MVMEContext::~MVMEContext()
     disconnect(m_readoutWorker, &VMEReadoutWorker::stateChanged,
                this, &MVMEContext::onDAQStateChanged);
 
-    disconnect(m_d->mvmeListfileWorker.get(), &ListfileReplayWorker::stateChanged,
+    disconnect(m_d->listfileReplayWorker.get(), &ListfileReplayWorker::stateChanged,
                this, &MVMEContext::onDAQStateChanged);
 
     disconnect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged,
@@ -782,16 +781,16 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     m_readoutWorker->setContext(readoutWorkerContext);
 
     // replay worker (running on the readout thread)
-    m_d->mvmeListfileWorker = std::unique_ptr<ListfileReplayWorker>(
+    m_d->listfileReplayWorker = std::unique_ptr<ListfileReplayWorker>(
         factory.makeReplayWorker(&m_freeBuffers, &m_fullBuffers));
 
-    m_d->mvmeListfileWorker->setLogger([this](const QString &msg) { this->logMessage(msg); });
-    m_d->mvmeListfileWorker->moveToThread(m_readoutThread);
+    m_d->listfileReplayWorker->setLogger([this](const QString &msg) { this->logMessage(msg); });
+    m_d->listfileReplayWorker->moveToThread(m_readoutThread);
 
-    connect(m_d->mvmeListfileWorker.get(), &ListfileReplayWorker::stateChanged,
+    connect(m_d->listfileReplayWorker.get(), &ListfileReplayWorker::stateChanged,
             this, &MVMEContext::onDAQStateChanged);
 
-    connect(m_d->mvmeListfileWorker.get(), &ListfileReplayWorker::replayStopped,
+    connect(m_d->listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             this, &MVMEContext::onReplayDone);
 
     // Create a stream worker (analysis side). The concrete type depends on the
@@ -1078,6 +1077,14 @@ void MVMEContext::onReplayDone()
     // Tell the analysis side to stop once the filled buffer queue is empty.
     m_streamWorker->stop();
 
+    auto stats = getDAQStats();
+
+    qDebug() << __PRETTY_FUNCTION__
+        << stats.startTime
+        << stats.endTime
+        << stats.totalBuffersRead
+        << stats.totalBytesRead;
+
     double secondsElapsed = m_replayTime.elapsed() / 1000.0;
     u64 replayBytes = getDAQStats().totalBytesRead;
     double replayMB = (double)replayBytes / (1024.0 * 1024.0);
@@ -1118,7 +1125,7 @@ DAQStats MVMEContext::getDAQStats() const
             return m_readoutWorker->getDAQStats();
 
         case GlobalMode::ListFile:
-            return m_d->mvmeListfileWorker->getStats();
+            return m_d->listfileReplayWorker->getStats();
     }
 
     return {};
@@ -1150,8 +1157,15 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle)
     m_d->m_isFirstConnectionAttempt = true; // FIXME: add a note on why this is done
     setVMEConfig(vmeConfig.release());
 
-    m_d->mvmeListfileWorker->setListfile(handle.listfile.get(), handle.format);
+    qDebug() << "clearing listfileReplayHandle";
+    m_d->listfileReplayHandle = {};
+    qDebug() << "cleared listfileReplayHandle";
+
+    m_d->listfileReplayWorker->setListfile(handle.listfile.get());
+
+    qDebug() << "moving handle";
     m_d->listfileReplayHandle = std::move(handle);
+    qDebug() << "moved handle";
 
     setConfigFileName(QString(), false);
     setMode(GlobalMode::ListFile);
@@ -1426,7 +1440,7 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
     m_d->m_runInfo.isReplay = true;
     m_d->m_runInfo.infoDict["replaySourceFile"] = fi.fileName();
 
-    m_d->mvmeListfileWorker->setEventsToRead(nEvents);
+    m_d->listfileReplayWorker->setEventsToRead(nEvents);
 
     if (auto mvmeStreamWorker = qobject_cast<MVMEStreamWorker *>(m_streamWorker.get()))
     {
@@ -1440,7 +1454,7 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
     qDebug() << __PRETTY_FUNCTION__ << "starting listfile reader";
 
     bool invoked = QMetaObject::invokeMethod(
-        m_d->mvmeListfileWorker.get(), "start", Qt::QueuedConnection);
+        m_d->listfileReplayWorker.get(), "start", Qt::QueuedConnection);
     assert(invoked);
 
     m_replayTime.restart();

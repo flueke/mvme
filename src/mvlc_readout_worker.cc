@@ -752,7 +752,8 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
 // get per second assuming that we receive any data at all and that the
 // analysis can keep up.
 // If set too low buffers won't be completely filled even at high data rates
-// and queue load will increase.
+// and queue load will increase. Set too high and the user will have to wait
+// longer to see data at low rates.
 static const std::chrono::milliseconds FlushBufferTimeout(500);
 
 std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
@@ -807,7 +808,7 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
     return {};
 }
 
-// TODO: perform checks for frame header validity. allow StackFrame,
+// TODO: Perform checks for frame header validity. Allow StackFrame,
 // StackContinuation and SystemEvent.
 // If the check fails perform a recovery procedure by trying if the chaining of
 // N (2 to 3?) possible frame headers is ok. In this case assume that we're in
@@ -815,18 +816,6 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
 inline void fixup_usb_buffer(DataBuffer &readBuffer, DataBuffer &tempBuffer)
 {
     BufferIterator iter(readBuffer.data, readBuffer.used);
-
-    auto move_bytes = [] (DataBuffer &sourceBuffer, DataBuffer &destBuffer,
-                          const u8 *sourceBegin, size_t bytes)
-    {
-        assert(sourceBegin >= sourceBuffer.data);
-        assert(sourceBegin + bytes <= sourceBuffer.endPtr());
-
-        destBuffer.ensureCapacity(bytes);
-        std::memcpy(destBuffer.endPtr(), sourceBegin, bytes);
-        destBuffer.used   += bytes;
-        sourceBuffer.used -= bytes;
-    };
 
     while (!iter.atEnd())
     {

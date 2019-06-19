@@ -100,6 +100,11 @@ namespace frame_headers
     static const u16 LengthMask         = 0x1fff;
 }
 
+inline u8 get_frame_type(u32 header)
+{
+    return (header >> frame_headers::TypeShift) & frame_headers::TypeMask;
+}
+
 namespace frame_flags
 {
     static const u8 Timeout     = 1 << 0;
