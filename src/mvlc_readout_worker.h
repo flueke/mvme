@@ -36,24 +36,6 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         DataBuffer *getOutputBuffer();
         void maybePutBackBuffer();
         void flushCurrentOutputBuffer();
-
-        std::atomic<DAQState> m_state;
-        std::atomic<DAQState> m_desiredState;
-        quint32 m_cyclesToRun = 0;
-        bool m_logBuffers = false;
-        DataBuffer m_readBuffer;
-        DataBuffer m_previousData;
-        DataBuffer m_localEventBuffer;
-        DataBuffer *m_outputBuffer = nullptr;
-
-        struct EventWithModules
-        {
-            EventConfig *event;
-            QVector<ModuleConfig *> modules;
-            QVector<u8> moduleTypes;
-        };
-
-        QVector<EventWithModules> m_events;
 };
 
 #endif /* __MVME_MVLC_READOUT_WORKER_H__ */

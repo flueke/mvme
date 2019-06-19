@@ -455,8 +455,36 @@ struct MVLCReadoutWorker::Private
     MVLCObject *mvlcObj = nullptr;;
     eth::Impl *mvlc_eth = nullptr;;
     usb::Impl *mvlc_usb = nullptr;;
+
     ListfileOutput listfileOut;
     u32 nextOutputBufferNumber = 1u;;
+
+    std::atomic<DAQState> state;
+    std::atomic<DAQState> desiredState;
+    quint32 cyclesToRun = 0;
+    bool logBuffers = false;
+    DataBuffer readBuffer;
+    DataBuffer previousData;
+    DataBuffer localEventBuffer;
+    DataBuffer *outputBuffer = nullptr;
+
+    Private(MVLCReadoutWorker *q_)
+        : q(q_)
+        , state(DAQState::Idle)
+        , desiredState(DAQState::Idle)
+        , readBuffer(ReadBufferSize)
+        , previousData(ReadBufferSize)
+        , localEventBuffer(LocalEventBufferSize)
+    {}
+
+    struct EventWithModules
+    {
+        EventConfig *event;
+        QVector<ModuleConfig *> modules;
+        QVector<u8> moduleTypes;
+    };
+
+    QVector<EventWithModules> events;
 
     void preRunClear()
     {
@@ -466,14 +494,8 @@ struct MVLCReadoutWorker::Private
 
 MVLCReadoutWorker::MVLCReadoutWorker(QObject *parent)
     : VMEReadoutWorker(parent)
-    , d(std::make_unique<Private>())
-    , m_state(DAQState::Idle)
-    , m_desiredState(DAQState::Idle)
-    , m_readBuffer(ReadBufferSize)
-    , m_previousData(ReadBufferSize)
-    , m_localEventBuffer(LocalEventBufferSize)
+    , d(std::make_unique<Private>(this))
 {
-    d->q = this;
 }
 
 MVLCReadoutWorker::~MVLCReadoutWorker()
@@ -482,7 +504,7 @@ MVLCReadoutWorker::~MVLCReadoutWorker()
 
 void MVLCReadoutWorker::start(quint32 cycles)
 {
-    if (m_state != DAQState::Idle)
+    if (d->state != DAQState::Idle)
     {
         logMessage("Readout state != Idle, aborting startup");
         return;
@@ -516,8 +538,8 @@ void MVLCReadoutWorker::start(quint32 cycles)
             break;
     }
 
-    m_cyclesToRun = cycles;
-    m_logBuffers = (cycles > 0); // log buffers to GUI if number of cycles has been passed in
+    d->cyclesToRun = cycles;
+    d->logBuffers = (cycles > 0); // log buffers to GUI if number of cycles has been passed in
 
     try
     {
@@ -620,7 +642,7 @@ void MVLCReadoutWorker::readoutLoop()
             listfile_write_timestamp(d->listfileOut);
 
         // stay in running state
-        if (likely(m_state == DAQState::Running && m_desiredState == DAQState::Running))
+        if (likely(d->state == DAQState::Running && d->desiredState == DAQState::Running))
         {
             size_t bytesTransferred = 0u;
             auto ec = readAndProcessBuffer(bytesTransferred);
@@ -632,33 +654,33 @@ void MVLCReadoutWorker::readoutLoop()
                 break;
             }
 
-            if (unlikely(m_cyclesToRun > 0))
+            if (unlikely(d->cyclesToRun > 0))
             {
-                if (m_cyclesToRun == 1)
+                if (d->cyclesToRun == 1)
                 {
                     break;
                 }
-                m_cyclesToRun--;
+                d->cyclesToRun--;
             }
         }
         // pause
-        else if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
+        else if (d->state == DAQState::Running && d->desiredState == DAQState::Paused)
         {
             pauseDAQ();
         }
         // resume
-        else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
+        else if (d->state == DAQState::Paused && d->desiredState == DAQState::Running)
         {
             resumeDAQ();
         }
         // stop
-        else if (m_desiredState == DAQState::Stopping)
+        else if (d->desiredState == DAQState::Stopping)
         {
             logMessage(QSL("MVLC readout stopping"));
             break;
         }
         // paused
-        else if (m_state == DAQState::Paused)
+        else if (d->state == DAQState::Paused)
         {
             static const unsigned PauseSleepDuration_ms = 100;
             QThread::msleep(PauseSleepDuration_ms);
@@ -849,12 +871,12 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
     auto &daqStats = m_workerContext.daqStats;
     std::error_code ec;
 
-    if (m_previousData.used)
+    if (d->previousData.used)
     {
-        destBuffer->ensureCapacity(m_previousData.used);
-        std::memcpy(destBuffer->endPtr(), m_previousData.data, m_previousData.used);
-        destBuffer->used += m_previousData.used;
-        m_previousData.used = 0u;
+        destBuffer->ensureCapacity(d->previousData.used);
+        std::memcpy(destBuffer->endPtr(), d->previousData.data, d->previousData.used);
+        destBuffer->used += d->previousData.used;
+        d->previousData.used = 0u;
     }
 
     while (destBuffer->free() >= USBReadMinBytes)
@@ -879,14 +901,14 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
             break;
     }
 
-    fixup_usb_buffer(*destBuffer, m_previousData);
+    fixup_usb_buffer(*destBuffer, d->previousData);
 
     return ec;
 }
 
 DataBuffer *MVLCReadoutWorker::getOutputBuffer()
 {
-    DataBuffer *outputBuffer = m_outputBuffer;
+    DataBuffer *outputBuffer = d->outputBuffer;
 
     if (!outputBuffer)
     {
@@ -894,7 +916,7 @@ DataBuffer *MVLCReadoutWorker::getOutputBuffer()
 
         if (!outputBuffer)
         {
-            outputBuffer = &m_localEventBuffer;
+            outputBuffer = &d->localEventBuffer;
         }
 
         // Reset a fresh buffer
@@ -903,7 +925,7 @@ DataBuffer *MVLCReadoutWorker::getOutputBuffer()
         outputBuffer->tag  = static_cast<int>((d->mvlc_eth
                                                ? ListfileBufferFormat::MVLC_ETH
                                                : ListfileBufferFormat::MVLC_USB));
-        m_outputBuffer = outputBuffer;
+        d->outputBuffer = outputBuffer;
     }
 
     return outputBuffer;
@@ -911,18 +933,18 @@ DataBuffer *MVLCReadoutWorker::getOutputBuffer()
 
 void MVLCReadoutWorker::maybePutBackBuffer()
 {
-    if (m_outputBuffer && m_outputBuffer != &m_localEventBuffer)
+    if (d->outputBuffer && d->outputBuffer != &d->localEventBuffer)
     {
         // put the buffer back onto the free queue
-        enqueue(m_workerContext.freeBuffers, m_outputBuffer);
+        enqueue(m_workerContext.freeBuffers, d->outputBuffer);
     }
 
-    m_outputBuffer = nullptr;
+    d->outputBuffer = nullptr;
 }
 
 void MVLCReadoutWorker::flushCurrentOutputBuffer()
 {
-    auto outputBuffer = m_outputBuffer;
+    auto outputBuffer = d->outputBuffer;
 
     if (outputBuffer)
     {
@@ -941,7 +963,7 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
             m_workerContext.daqStats.listFileBytesWritten += bytesWritten;
         }
 
-        if (outputBuffer != &m_localEventBuffer)
+        if (outputBuffer != &d->localEventBuffer)
         {
             enqueue_and_wakeOne(m_workerContext.fullBuffers, outputBuffer);
         }
@@ -949,7 +971,7 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
         {
             m_workerContext.daqStats.droppedBuffers++;
         }
-        m_outputBuffer = nullptr;
+        d->outputBuffer = nullptr;
     }
 }
 
@@ -989,36 +1011,36 @@ void MVLCReadoutWorker::resumeDAQ()
 
 void MVLCReadoutWorker::stop()
 {
-    if (m_state == DAQState::Running || m_state == DAQState::Paused)
-        m_desiredState = DAQState::Stopping;
+    if (d->state == DAQState::Running || d->state == DAQState::Paused)
+        d->desiredState = DAQState::Stopping;
 }
 
 void MVLCReadoutWorker::pause()
 {
-    if (m_state == DAQState::Running)
-        m_desiredState = DAQState::Paused;
+    if (d->state == DAQState::Running)
+        d->desiredState = DAQState::Paused;
 }
 
 void MVLCReadoutWorker::resume(quint32 cycles)
 {
-    if (m_state == DAQState::Paused)
+    if (d->state == DAQState::Paused)
     {
-        m_cyclesToRun = cycles;
-        m_logBuffers = (cycles > 0); // log buffers to GUI if number of cycles has been passed in
-        m_desiredState = DAQState::Running;
+        d->cyclesToRun = cycles;
+        d->logBuffers = (cycles > 0); // log buffers to GUI if number of cycles has been passed in
+        d->desiredState = DAQState::Running;
     }
 }
 
 bool MVLCReadoutWorker::isRunning() const
 {
-    return m_state != DAQState::Idle;
+    return d->state != DAQState::Idle;
 }
 
 void MVLCReadoutWorker::setState(const DAQState &state)
 {
-    qDebug() << __PRETTY_FUNCTION__ << DAQStateStrings[m_state] << "->" << DAQStateStrings[state];
-    m_state = state;
-    m_desiredState = state;
+    qDebug() << __PRETTY_FUNCTION__ << DAQStateStrings[d->state] << "->" << DAQStateStrings[state];
+    d->state = state;
+    d->desiredState = state;
     emit stateChanged(state);
 
     switch (state)
@@ -1044,7 +1066,7 @@ void MVLCReadoutWorker::setState(const DAQState &state)
 
 DAQState MVLCReadoutWorker::getState() const
 {
-    return m_state;
+    return d->state;
 }
 
 void MVLCReadoutWorker::logError(const QString &msg)
