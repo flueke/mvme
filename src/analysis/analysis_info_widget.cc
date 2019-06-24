@@ -75,11 +75,18 @@ AnalysisInfoWidget::~AnalysisInfoWidget()
 
 void AnalysisInfoWidget::update()
 {
-    MVMEStreamWorkerState state = m_d->context->getMVMEStreamWorker()->getState();
-    const auto counters = m_d->context->getMVMEStreamWorker()->getCounters();
+    auto streamWorker = m_d->context->getMVMEStreamWorker();
+
+    if (!streamWorker) return;
+
+    MVMEStreamWorkerState state = streamWorker->getState();
+    const auto counters = streamWorker->getCounters();
 
     auto startTime = counters.startTime;
-    auto endTime   = state == MVMEStreamWorkerState::Idle ? counters.stopTime : QDateTime::currentDateTime();
+    auto endTime   = (state == MVMEStreamWorkerState::Idle
+                      ? counters.stopTime
+                      : QDateTime::currentDateTime());
+
     auto totalDuration_s = startTime.secsTo(endTime);
     auto totalDurationString = makeDurationString(totalDuration_s);
 
