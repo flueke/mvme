@@ -95,10 +95,16 @@ void MVLC_StreamWorkerBase::setupParserCallbacks(analysis::Analysis *analysis)
         analysis->processModuleData(ei, mi, data, size);
     };
 
-    m_parserCallbacks.moduleDynamic = [analysis](int ei, int mi, u32 *data, u32 size)
+    m_parserCallbacks.moduleDynamic = [this, analysis](int ei, int mi, u32 *data, u32 size)
     {
         qDebug() << "  moduleDynamic" << ei << mi << data << size;
         analysis->processModuleData(ei, mi, data, size);
+
+        if (0 <= ei && ei < MaxVMEEvents && 0 <= mi && mi < MaxVMEModules)
+        {
+            CountersLock guard(m_countersMutex);
+            m_counters.moduleCounters[ei][mi]++;
+        }
     };
 
     m_parserCallbacks.moduleSuffix = [analysis](int ei, int mi, u32 *data, u32 size)
@@ -107,10 +113,17 @@ void MVLC_StreamWorkerBase::setupParserCallbacks(analysis::Analysis *analysis)
         analysis->processModuleData(ei, mi, data, size);
     };
 
-    m_parserCallbacks.endEvent = [analysis](int ei)
+    m_parserCallbacks.endEvent = [this, analysis](int ei)
     {
         //qDebug() << "endEvent" << ei;
         analysis->endEvent(ei);
+
+        if (0 <= ei && ei < MaxVMEEvents)
+        {
+            CountersLock guard(m_countersMutex);
+            m_counters.eventSections++;
+            m_counters.eventCounters[ei]++;
+        }
     };
 
     m_parserCallbacks.systemEvent = [](u32 *header, u32 size)

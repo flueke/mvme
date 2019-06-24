@@ -696,8 +696,7 @@ void parse_readout_buffer(
     {
         while (!iter.atEnd())
         {
-            assert(!"implement me!");
-            //parse_readout_contents(state, callbacks, iter);
+            parse_readout_contents(state, callbacks, iter);
         }
     }
     catch (const end_of_buffer &)
