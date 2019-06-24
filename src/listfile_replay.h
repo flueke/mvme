@@ -12,15 +12,15 @@
 
 struct LIBMVME_EXPORT ListfileReplayHandle
 {
-    // The ZIP archive containing the listfile or nullptr if playing directly
-    // from a listfile.
-    std::unique_ptr<QuaZip> archive;
-
     // The actual listfile. This is a file inside the archive if replaying from
     // ZIP. As long as this file is open no other file member of the archive
     // can be opened. This is a restriction of the ZIP library.
     // If replaying from flat file this is a plain QFile instance.
     std::unique_ptr<QIODevice> listfile;
+
+    // The ZIP archive containing the listfile or nullptr if playing directly
+    // from a listfile.
+    std::unique_ptr<QuaZip> archive;
 
     // Format of the data stored in the listfile. Detected by looking at the
     // first 8 bytes of the file. Defaults to the old MVMELST format if none of
@@ -39,15 +39,15 @@ struct LIBMVME_EXPORT ListfileReplayHandle
     QByteArray analysisBlob;    // Analysis config contents if present in the archive
 
     ListfileReplayHandle() = default;
+
     ~ListfileReplayHandle()
     {
-        qDebug() << __PRETTY_FUNCTION__ << this;
-
+        // This needs to be done manually because the default destruction order
+        // will destroy the QuaZIP archive member first which will close any
+        // open file inside the archive. Thus the QuaZipFile data stored in the
+        // listfile member will become invalid.
         if (listfile)
-        {
-            qDebug() << "  " << __PRETTY_FUNCTION__ << "closing" << listfile.get();
             listfile->close();
-        }
     }
 
     ListfileReplayHandle(ListfileReplayHandle &&) = default;

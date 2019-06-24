@@ -1157,15 +1157,8 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle)
     m_d->m_isFirstConnectionAttempt = true; // FIXME: add a note on why this is done
     setVMEConfig(vmeConfig.release());
 
-    qDebug() << "clearing listfileReplayHandle";
-    m_d->listfileReplayHandle = {};
-    qDebug() << "cleared listfileReplayHandle";
-
-    m_d->listfileReplayWorker->setListfile(handle.listfile.get());
-
-    qDebug() << "moving handle";
     m_d->listfileReplayHandle = std::move(handle);
-    qDebug() << "moved handle";
+    m_d->listfileReplayWorker->setListfile(m_d->listfileReplayHandle.listfile.get());
 
     setConfigFileName(QString(), false);
     setMode(GlobalMode::ListFile);
