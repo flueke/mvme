@@ -52,7 +52,10 @@ struct ModuleReadoutParts
     bool hasDynamic; // true if a dynamic part (block read) is present
 };
 
+// vme readout script per event and module
 using VMEConfReadoutScripts = std::vector<std::vector<vme_script::VMEScript>>;
+
+// ModuleReadoutParts per event and module
 using VMEConfReadoutInfo    = std::vector<std::vector<ModuleReadoutParts>>;
 
 ModuleReadoutParts parse_module_readout_script(const vme_script::VMEScript &readoutScript);
@@ -72,6 +75,21 @@ struct ModuleReadoutSpans
 };
 
 struct end_of_frame: public std::exception {};
+
+struct ReadoutParserCallbacks
+{
+    std::function<void (int ei)>
+        beginEvent = [] (int) {},
+        endEvent   = [] (int) {};
+
+    std::function<void (int ei, int mi, u32 *data, u32 size)>
+        modulePrefix  = [] (int, int, u32*, u32) {},
+        moduleDynamic = [] (int, int, u32*, u32) {},
+        moduleSuffix  = [] (int, int, u32*, u32) {};
+
+    std::function<void (u32 *header, u32 size)>
+        systemEvent = [] (u32 *, u32) {};
+};
 
 struct ReadoutParserCommon
 {
@@ -129,25 +147,20 @@ struct ReadoutParser_ETH: public ReadoutParserCommon
     s32 lastPacketNumber = -1;
 };
 
-ReadoutParser_ETH *make_readout_parser_eth(const VMEConfReadoutScripts &readoutScripts);
-
-struct ReadoutParserCallbacks
+struct ReadoutParser_USB: public ReadoutParserCommon
 {
-    std::function<void (int ei)>
-        beginEvent = [] (int) {},
-        endEvent   = [] (int) {};
-
-    std::function<void (int ei, int mi, u32 *data, u32 size)>
-        modulePrefix  = [] (int, int, u32*, u32) {},
-        moduleDynamic = [] (int, int, u32*, u32) {},
-        moduleSuffix  = [] (int, int, u32*, u32) {};
-
-    std::function<void (u32 *header, u32 size)>
-        systemEvent = [] (u32 *, u32) {};
 };
+
+ReadoutParser_ETH *make_readout_parser_eth(const VMEConfReadoutScripts &readoutScripts);
+ReadoutParser_USB *make_readout_parser_usb(const VMEConfReadoutScripts &readoutScripts);
 
 void parse_readout_buffer(
     ReadoutParser_ETH &state,
+    ReadoutParserCallbacks &callbacks,
+    u32 bufferNumber, u8 *buffer, size_t bufferSize);
+
+void parse_readout_buffer(
+    ReadoutParser_USB &state,
     ReadoutParserCallbacks &callbacks,
     u32 bufferNumber, u8 *buffer, size_t bufferSize);
 

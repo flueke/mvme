@@ -92,8 +92,11 @@ class MVLC_StreamWorkerBase: public StreamWorkerBase
         using CountersLock = mesytec::mvlc::UniqueLock;
         mutable mesytec::mvlc::TicketMutex m_countersMutex;
         MVMEStreamProcessorCounters m_counters;
+        mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
 
     private:
+        void setupParserCallbacks(analysis::Analysis *analysis);
+
         void processBuffer(
             DataBuffer *buffer,
             const RunInfo &runInfo,
@@ -146,7 +149,6 @@ class LIBMVME_EXPORT MVLC_ETH_StreamWorker: public MVLC_StreamWorkerBase
 
     private:
         std::unique_ptr<mesytec::mvlc::ReadoutParser_ETH> m_parser;
-        mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
 };
 
 class LIBMVME_EXPORT MVLC_USB_StreamWorker: public MVLC_StreamWorkerBase
@@ -175,6 +177,9 @@ class LIBMVME_EXPORT MVLC_USB_StreamWorker: public MVLC_StreamWorkerBase
             const RunInfo &runInfo,
             const VMEConfig *vmeConfig,
             analysis::Analysis *analysis) override;
+
+    private:
+        std::unique_ptr<mesytec::mvlc::ReadoutParser_USB> m_parser;
 };
 
 #endif /* __MVLC_STREAM_WORKERS_H__ */
