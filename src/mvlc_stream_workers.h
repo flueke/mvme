@@ -91,7 +91,7 @@ class MVLC_StreamWorkerBase: public StreamWorkerBase
 
         using CountersLock = mesytec::mvlc::UniqueLock;
         mutable mesytec::mvlc::TicketMutex m_countersMutex;
-        MVMEStreamProcessorCounters m_counters;
+        MVMEStreamProcessorCounters m_counters = {};
         mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
 
     private:
