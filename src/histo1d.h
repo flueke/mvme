@@ -236,6 +236,9 @@ class LIBMVME_EXPORT Histo1D: public QObject
         double getOverflow() const { return m_overflow; }
         void setOverflow(double value) { m_overflow = value; }
 
+        double *getUnderflowPtr() { return &m_underflow; }
+        double *getOverflowPtr() { return &m_overflow; }
+
         Histo1DStatistics calcStatistics(double minX, double maxX, u32 rrf = NoRR) const;
         Histo1DStatistics calcBinStatistics(u32 startBin, u32 onePastEndBin, u32 rrf = NoRR) const;
 

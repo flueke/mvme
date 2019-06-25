@@ -2676,7 +2676,8 @@ inline void fill_h1d(H1D *histo, double x)
 #endif
 
         assert(get_bin(*histo, x) == Binning::Underflow);
-        histo->underflow++;
+        if (histo->underflow)
+            ++(*histo->underflow);
     }
     else if (x >= histo->binning.min + histo->binning.range)
     {
@@ -2693,7 +2694,8 @@ inline void fill_h1d(H1D *histo, double x)
 #endif
 
         assert(histo->binning.range == 0.0 || get_bin(*histo, x) == Binning::Overflow);
-        histo->overflow++;
+        if (histo->overflow)
+            ++(*histo->overflow);
     }
     else if (std::isnan(x))
     {
@@ -2783,8 +2785,13 @@ void clear_histo(H1D *histo)
 {
     histo->binningFactor = 0.0;
     histo->entryCount = 0.0;
-    histo->underflow = 0.0;
-    histo->overflow = 0.0;
+
+    if (histo->underflow)
+        *histo->underflow = 0.0;
+
+    if (histo->overflow)
+        *histo->overflow = 0.0;
+
     for (s32 i = 0; i < histo->size; i++)
     {
         histo->data[i] = 0.0;

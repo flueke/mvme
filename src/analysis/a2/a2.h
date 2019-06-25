@@ -498,8 +498,8 @@ struct H1D: public ParamVec
     // binningFactor = binCount / binning.range
     double binningFactor;
     double entryCount;
-    double underflow;
-    double overflow;
+    double *underflow;
+    double *overflow;
 };
 
 Operator make_h1d_sink(
