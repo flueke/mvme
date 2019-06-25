@@ -126,9 +126,11 @@ void MVLC_StreamWorkerBase::setupParserCallbacks(analysis::Analysis *analysis)
         }
     };
 
-    m_parserCallbacks.systemEvent = [](u32 *header, u32 size)
+    m_parserCallbacks.systemEvent = [this](u32 *header, u32 size)
     {
-        qDebug() << "systemEvent" << header << size;
+        u8 subtype = system_event::extract_subtype(*header);
+        CountersLock guard(m_countersMutex);
+        m_counters.systemEventTypes[subtype]++;
     };
 }
 

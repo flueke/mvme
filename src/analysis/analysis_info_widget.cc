@@ -34,6 +34,7 @@ static const QVector<const char *> LabelTexts =
     "counts by module",
     "rate by event ",
     "rate by module",
+    "mvlc system event types",
 };
 
 AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
@@ -59,7 +60,8 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     m_d->updateTimer.start();
 
     connect(&m_d->updateTimer, &QTimer::timeout, this, &AnalysisInfoWidget::update);
-    connect(context, &MVMEContext::mvmeStreamWorkerStateChanged, this, [this](MVMEStreamWorkerState state) {
+    connect(context, &MVMEContext::mvmeStreamWorkerStateChanged,
+            this, [this](MVMEStreamWorkerState state) {
         if (state == MVMEStreamWorkerState::Running)
         {
             m_d->prevCounters = {};
@@ -103,8 +105,10 @@ void AnalysisInfoWidget::update()
 
     dt /= 1000.0;
 
-    u64 deltaBytesProcessed = calc_delta0(counters.bytesProcessed, m_d->prevCounters.bytesProcessed);
-    u64 deltaBuffersProcessed = calc_delta0(counters.buffersProcessed, m_d->prevCounters.buffersProcessed);
+    u64 deltaBytesProcessed = calc_delta0(counters.bytesProcessed,
+                                          m_d->prevCounters.bytesProcessed);
+    u64 deltaBuffersProcessed = calc_delta0(counters.buffersProcessed,
+                                            m_d->prevCounters.buffersProcessed);
 
     double bytesPerSecond   = deltaBytesProcessed / dt;
     double mbPerSecond      = bytesPerSecond / Megabytes(1);
@@ -190,6 +194,22 @@ void AnalysisInfoWidget::update()
         }
     }
 
+    // format system event subtype counts
+    QString sysEventCountsText;
+
+    for (size_t i=0; i<counters.systemEventTypes.size(); i++)
+    {
+        if (counters.systemEventTypes[i])
+        {
+            if (!sysEventCountsText.isEmpty())
+                sysEventCountsText += ", ";
+
+            sysEventCountsText += QString("0x%1=%2")
+                .arg(i, 2, 16, QLatin1Char('0'))
+                .arg(counters.systemEventTypes[i]);
+        }
+    }
+
     s32 ii = 0;
 
     // state
@@ -241,6 +261,9 @@ void AnalysisInfoWidget::update()
 
     // rate by module
     m_d->labels[ii++]->setText(mrText);
+
+    // system event types
+    m_d->labels[ii++]->setText(sysEventCountsText);
 
     m_d->prevCounters = counters;
     m_d->lastUpdateTime = QDateTime::currentDateTime();
