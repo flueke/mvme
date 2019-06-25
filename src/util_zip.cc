@@ -1,4 +1,5 @@
 #include "util_zip.h"
+#include <cassert>
 
 QString make_zip_error_string(const QString &message, const QuaZip *zip)
 {
