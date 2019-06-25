@@ -209,8 +209,7 @@ s64 calc_buffer_loss(u32 bufferNumber, u32 lastBufferNumber)
     return diff - 1;
 }
 
-template<typename Parser>
-inline void copy_to_workbuffer(Parser &state, BufferIterator &iter, u32 wordsToCopy)
+inline void copy_to_workbuffer(ReadoutParserCommon &state, BufferIterator &iter, u32 wordsToCopy)
 {
     state.workBuffer.ensureCapacity(wordsToCopy);
 
@@ -220,6 +219,35 @@ inline void copy_to_workbuffer(Parser &state, BufferIterator &iter, u32 wordsToC
     state.workBuffer.used += wordsToCopy * sizeof(u32);
     state.workBufferOffset += wordsToCopy;
     state.curStackFrame.wordsLeft -= wordsToCopy;
+}
+
+// Checks if the input iterator points to a system frame header. If true the
+// systemEvent callback is invoked with the frame header and data and true is
+// returned. Also the iterator will be placed on the next word after the system
+// frame.
+// Otherwise the iterator is left unmodified and false is returned.
+// Throws end_of_buffer() if the system frame exceeeds the input buffer size.
+inline bool try_handle_system_event(
+    ReadoutParserCommon &state,
+    ReadoutParserCallbacks &callbacks,
+    BufferIterator &iter)
+{
+    if (get_frame_type(iter.peekU32(0)) == frame_headers::SystemEvent)
+    {
+        auto frameInfo = extract_frame_info(iter.peekU32(0));
+
+        // It should be guaranteed that the whole frame fits into the buffer.
+        if (iter.longwordsLeft() <= frameInfo.len)
+            throw end_of_buffer("SystemEvent frame exceeds input buffer size.");
+
+        // Pass the frame header itself and the contents to the system event
+        // callback.
+        callbacks.systemEvent(iter.indexU32(0), frameInfo.len + 1);
+        iter.skip(frameInfo.len + 1, sizeof(u32));
+        return true;
+    }
+
+    return false;
 }
 
 template<typename ParserState>
@@ -233,29 +261,16 @@ ParseResult parse_readout_contents(
     {
         if (!state.curStackFrame)
         {
+            // USB buffers can contain system frames alongside readout
+            // generated frames. For ETH buffers the system frames are handled
+            // further up in parse_readout_buffer().
+            if (try_handle_system_event(state, callbacks, iter))
+                continue;
+
             assert(!state.curBlockFrame);
 
             u32 frameHeader = iter.extractU32();
             auto frameInfo = extract_frame_info(frameHeader);
-
-            // Handle system events here. This is only relevant for USB readout
-            // data buffers. For the ETH case system events are handled further
-            // up the call chain where the distinction between system frames or
-            // packet data is made.
-            if (frameInfo.type == frame_headers::SystemEvent)
-            {
-                // It should be guaranteed that the whole frame fits into the
-                // buffer.
-                if (iter.longwordsLeft() <= frameInfo.len)
-                {
-                    assert(!"system frame exceeds buffer");
-                    throw end_of_buffer("SystemEvent exceeds buffer size");
-                }
-
-                callbacks.systemEvent(iter.indexU32(0), frameInfo.len + 1);
-                iter.skip(frameInfo.len + 1, sizeof(u32));
-                continue;
-            }
 
             if (event_in_progress(state))
             {
@@ -580,28 +595,11 @@ void parse_readout_buffer(
     {
         while (!iter.atEnd())
         {
-            // Handle system frames. UDP packet data won't pass the frameInfo.type
-            // check because the upper two bits of the first header word are always
-            // 0.
-            if (get_frame_type(iter.peekU32(0)) == frame_headers::SystemEvent)
-            {
-                auto frameInfo = extract_frame_info(iter.peekU32(0));
-
-                // It should be guaranteed that the whole frame fits into the buffer.
-                if (iter.longwordsLeft() <= frameInfo.len)
-                {
-                    assert(!"system frame exceeds buffer");
-                    throw end_of_buffer();
-                }
-
-                callbacks.systemEvent(iter.indexU32(0), frameInfo.len + 1);
-                iter.skip(frameInfo.len + 1, sizeof(u32));
+            if (try_handle_system_event(state, callbacks, iter))
                 continue;
-            }
 
             // At this point the buffer iterator is positioned on the first of the
             // two ETH payload header words.
-
             eth::PayloadHeaderInfo ethHdrs{ iter.peekU32(0), iter.peekU32(1) };
 
             // Ensure that the extracted packet data length actually fits into the
