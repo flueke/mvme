@@ -206,8 +206,7 @@ std::error_code Impl::connect()
 
     m_cmdSock = -1;
     m_dataSock = -1;
-    m_pipeStats = {};
-    m_packetChannelStats = {};
+    resetPipeAndChannelStats();
     std::fill(m_lastPacketNumbers.begin(), m_lastPacketNumbers.end(), -1);
 
     if (auto ec = lookup(m_host, CommandPort, m_cmdAddr))
@@ -772,6 +771,12 @@ std::array<PipeStats, PipeCount> Impl::getPipeStats() const
 std::array<PacketChannelStats, NumPacketChannels> Impl::getPacketChannelStats() const
 {
     return m_packetChannelStats;
+}
+
+void Impl::resetPipeAndChannelStats()
+{
+    m_pipeStats = {};
+    m_packetChannelStats = {};
 }
 
 u32 Impl::getCmdAddress() const

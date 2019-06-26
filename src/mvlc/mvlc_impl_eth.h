@@ -198,6 +198,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 
         std::array<PipeStats, PipeCount> getPipeStats() const;
         std::array<PacketChannelStats, NumPacketChannels> getPacketChannelStats() const;
+        void resetPipeAndChannelStats();
 
         // These methods return the remote IPv4 address used for the command
         // and data sockets respectively. This is the address resolved from the
