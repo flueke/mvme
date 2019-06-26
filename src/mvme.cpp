@@ -236,7 +236,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         widget->show();
     });
 
-    connect(m_d->actionToolMVLCDevGui,        &QAction::triggered, this, [this]() {
+    connect(m_d->actionToolMVLCDevGui, &QAction::triggered, this, [this]() {
         if (auto mvlcCtrl = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(
                 getContext()->getVMEController()))
         {
@@ -249,7 +249,16 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
             add_widget_close_action(widget);
             m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/MVLCDevGui"));
             widget->show();
+
+            // Close the GUI when the controller object changes.
+            connect(getContext(), &MVMEContext::vmeControllerAboutToBeChanged,
+                    widget, [widget] () { widget->close(); });
         }
+    });
+
+    connect(m_d->m_context, &MVMEContext::vmeControllerSet,
+            this, [this] (VMEController *ctrl) {
+        m_d->actionToolMVLCDevGui->setEnabled(is_mvlc_controller(ctrl->getType()));
     });
 
     connect(m_d->actionHelpVMEScript,           &QAction::triggered, this, &MVMEMainWindow::onActionVMEScriptRef_triggered);

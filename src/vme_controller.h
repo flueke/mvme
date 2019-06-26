@@ -179,4 +179,10 @@ VMEControllerType LIBMVME_CORE_EXPORT from_string(const QString &str);
 
 QString LIBMVME_CORE_EXPORT to_string(ControllerState state);
 
+inline bool is_mvlc_controller(const VMEControllerType &type)
+{
+    return (type == VMEControllerType::MVLC_ETH
+            || type == VMEControllerType::MVLC_USB);
+}
+
 #endif // VMECONTROLLER_H
