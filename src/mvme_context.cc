@@ -738,10 +738,12 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     emit vmeControllerAboutToBeChanged();
 
-    // It should be safe to delete these now
-    delete m_readoutWorker;
-    delete m_controller;
+    // Delete objects in the event loop because Qt events may still be
+    // scheduled which may make use of the objects.
+    m_readoutWorker->deleteLater();
+    m_readoutWorker = nullptr;
 
+    m_controller->deleteLater();
     m_controller = controller;
 
     if (m_vmeConfig->getControllerType() != controller->getType()
