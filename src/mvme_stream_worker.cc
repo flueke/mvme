@@ -109,7 +109,7 @@ DataBuffer *MVMEStreamWorkerPrivate::dequeueNextBuffer()
         {
             if (internalState == StopIfQueueEmpty)
             {
-                internalState = StopImmediately;
+                //internalState = StopImmediately;
                 return buffer;
             }
 
@@ -453,6 +453,9 @@ void MVMEStreamWorker::start()
                         m_d->streamProcessor.processDataBuffer(buffer);
                         enqueue(m_d->freeBuffers, buffer);
                     }
+                    else if (internalState == StopIfQueueEmpty)
+                        m_d->internalState = StopImmediately;
+
                     break;
 
                 case Pause:
@@ -478,16 +481,21 @@ void MVMEStreamWorker::start()
                 case Pause:
                 case PausedAfterSingleStep:
                     // stay paused
+                    //qDebug() << __PRETTY_FUNCTION__ << "Paused: Pause|PausedAfterSingleStep";
                     QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick_ms()));
                     break;
 
                 case SingleStep:
+                    //qDebug() << __PRETTY_FUNCTION__ << "Paused: SingleStep";
+
                     if (!singleStepProcState.buffer)
                     {
                         if (auto buffer = m_d->dequeueNextBuffer())
                         {
                             singleStepProcState = m_d->streamProcessor.singleStepInitState(buffer);
                         }
+                        else if (internalState == StopIfQueueEmpty)
+                            m_d->internalState = StopImmediately;
                     }
 
                     if (singleStepProcState.buffer)
