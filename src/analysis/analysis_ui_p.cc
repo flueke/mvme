@@ -2502,6 +2502,7 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
     : QWidget(parent, Qt::Tool)
     , m_analysis(analysis)
     , m_pipe(pipe)
+    , m_showDecimals(true)
     , m_parameterTable(new QTableWidget)
 {
     auto layout = new QGridLayout(this);
@@ -2516,8 +2517,6 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
 
     layout->setRowStretch(1, 1);
 
-    // columns:
-    // Valid, Value, lower Limit, upper Limit
     m_parameterTable->setColumnCount(4);
     m_parameterTable->setHorizontalHeaderLabels({"Valid", "Value", "Lower Limit", "Upper Limit"});
 
@@ -2534,21 +2533,33 @@ void PipeDisplay::refresh()
 
         m_parameterTable->setRowCount(pipe.data.size);
 
+        QVector<QString> colStrings;
+        colStrings.resize(m_parameterTable->columnCount());
+
         for (s32 pi = 0; pi < pipe.data.size; pi++)
         {
             double param = pipe.data[pi];
             double lowerLimit = pipe.lowerLimits[pi];
             double upperLimit = pipe.upperLimits[pi];
 
-            QStringList columns =
-            {
-                a2::is_param_valid(param) ? QSL("Y") : QSL("N"),
-                a2::is_param_valid(param) ? QString::number(param) : QSL(""),
-                QString::number(lowerLimit),
-                QString::number(upperLimit),
-            };
 
-            for (s32 ci = 0; ci < columns.size(); ci++)
+            QString paramString;
+
+            if (a2::is_param_valid(param))
+            {
+                if (doesShowDecimals())
+                    paramString = QString::number(param);
+                else
+                    paramString = QString::number(static_cast<qlonglong>(param));
+            }
+
+            int col = 0;
+            colStrings[col++] = a2::is_param_valid(param) ? QSL("Y") : QSL("N");
+            colStrings[col++] = paramString;
+            colStrings[col++] = QString::number(lowerLimit);
+            colStrings[col++] = QString::number(upperLimit);
+
+            for (s32 ci = 0; ci < colStrings.size(); ci++)
             {
                 auto item = m_parameterTable->item(pi, ci);
                 if (!item)
@@ -2557,7 +2568,7 @@ void PipeDisplay::refresh()
                     m_parameterTable->setItem(pi, ci, item);
                 }
 
-                item->setText(columns[ci]);
+                item->setText(colStrings[ci]);
                 item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             }
 
