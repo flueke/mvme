@@ -338,11 +338,12 @@ class PipeDisplay: public QWidget
 {
     Q_OBJECT
     public:
-        PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent = nullptr);
+        PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals = true, QWidget *parent = nullptr);
 
         void setShowDecimals(bool showDecimals) { m_showDecimals = showDecimals; }
         bool doesShowDecimals() const { return m_showDecimals; }
 
+    public slots:
         void refresh();
 
     private:

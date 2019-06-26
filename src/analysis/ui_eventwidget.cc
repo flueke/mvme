@@ -4623,8 +4623,7 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
     if (pipe && qobject_cast<SourceInterface *>(pipe->getSource()))
         showDecimals = false;
 
-    auto widget = new PipeDisplay(m_context->getAnalysis(), pipe, m_q);
-    widget->setShowDecimals(showDecimals);
+    auto widget = new PipeDisplay(m_context->getAnalysis(), pipe, showDecimals, m_q);
 
     QObject::connect(m_displayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
     QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);

@@ -2498,11 +2498,11 @@ bool RateMonitorConfigWidget::isValid() const
 // PipeDisplay
 //
 
-PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
+PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals, QWidget *parent)
     : QWidget(parent, Qt::Tool)
     , m_analysis(analysis)
     , m_pipe(pipe)
-    , m_showDecimals(true)
+    , m_showDecimals(showDecimals)
     , m_parameterTable(new QTableWidget)
 {
     auto layout = new QGridLayout(this);
