@@ -1115,9 +1115,19 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
             show_and_activate(widget);
         });
 
-        // pause, resume, step
-        connect(m_d->m_context->getMVMEStreamWorker(), &MVMEStreamWorker::stateChanged,
-                this, [this](MVMEStreamWorkerState) { m_d->updateActions(); });
+        // pause, resume, step actions
+
+        // Have to react to vmeControllerSet as that will change the
+        // StreamWorkerBase instance used in MVMEContext. Thus the connection
+        // to stateChanged() has to be remade.
+        connect(m_d->m_context, &MVMEContext::vmeControllerSet,
+                this, [this] (VMEController *)
+        {
+            connect(m_d->m_context->getMVMEStreamWorker(), &StreamWorkerBase::stateChanged,
+                    this, [this](MVMEStreamWorkerState) {
+                        m_d->updateActions();
+                    });
+        });
 
         m_d->m_toolbar->addSeparator();
         m_d->m_actionPause = m_d->m_toolbar->addAction(
