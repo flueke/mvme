@@ -2329,6 +2329,9 @@ void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)
 
 ListFileOutputInfo MVMEContext::getListFileOutputInfo() const
 {
+    // Tracing an issue on exit where m_d has already been destroyed but
+    // MVMEMainWindow is calling this method.
+    assert(m_d);
     return m_d->m_listfileOutputInfo;
 }
 

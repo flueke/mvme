@@ -81,6 +81,7 @@ struct MVMEWindowPrivate
     QVBoxLayout *centralLayout = nullptr;
     QPlainTextEdit *m_logView = nullptr;
     DAQControlWidget *m_daqControlWidget = nullptr;
+    QTimer *m_daqControlWidgetUpdateTimer = nullptr;
     VMEConfigTreeWidget *m_vmeConfigTreeWidget = nullptr;
     DAQStatsWidget *m_daqStatsWidget = nullptr;
     VMEDebugWidget *m_vmeDebugWidget = nullptr;
@@ -438,17 +439,21 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
                 this, &MVMEMainWindow::runWorkspaceSettingsDialog);
 
         static const int DAQControlWidgetUpdateInterval_ms = 500;
-        auto timer = new QTimer(this);
 
-        connect(timer, &QTimer::timeout, this, [this, dcw] ()
+
+        m_d->m_daqControlWidgetUpdateTimer = new QTimer(this);
+
+        connect(m_d->m_daqControlWidgetUpdateTimer, &QTimer::timeout,
+                this, [this, dcw] ()
         {
             dcw->setDAQStats(m_d->m_context->getDAQStats());
             dcw->setListFileOutputInfo(m_d->m_context->getListFileOutputInfo());
             dcw->updateWidget();
         });
 
-        timer->setInterval(DAQControlWidgetUpdateInterval_ms);
-        timer->start();
+        m_d->m_daqControlWidgetUpdateTimer->setInterval(
+            DAQControlWidgetUpdateInterval_ms);
+        m_d->m_daqControlWidgetUpdateTimer->start();
     }
 
     updateWindowTitle();
@@ -476,6 +481,8 @@ MVMEMainWindow::~MVMEMainWindow()
     // To avoid a crash on exit if replay is running
     disconnect(m_d->m_context, &MVMEContext::daqStateChanged,
                this, &MVMEMainWindow::onDAQStateChanged);
+
+    m_d->m_daqControlWidgetUpdateTimer->stop();
 
     auto workspaceDir = m_d->m_context->getWorkspaceDirectory();
 
