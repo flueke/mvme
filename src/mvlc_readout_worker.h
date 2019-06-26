@@ -5,6 +5,17 @@
 #include "vme_daq.h"
 #include "mvme_stream_util.h"
 
+struct MVLCReadoutCounters
+{
+    // Unexpected frame types encountered. The readout should produce frames of
+    // types StackFrame and StackContinuation only.
+    u64 frameTypeErrors;
+    // Total number of bytes from partial frames. This is the amount of data
+    // moved from the end of incoming read buffers into temp storage and then
+    // reused at the start of the next buffer.
+    u64 partialFrameTotalBytes;
+};
+
 class MVLCReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
@@ -18,6 +29,8 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         void resume(quint32 cycles = 0) override;
         bool isRunning() const override;
         DAQState getState() const override;
+
+        MVLCReadoutCounters getReadoutCounters() const;
 
     private:
         struct Private;

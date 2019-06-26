@@ -270,10 +270,12 @@ void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype)
 // is split into multiple sections if needed.
 // Note: the input data must be padded to 32 bits. Padding is not done inside
 // this function as different data might require different padding strategies.
-
 void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype,
                                  const u32 *buffp, size_t totalWords)
 {
+    if (!lf_out.isOpen())
+        return;
+
     if (totalWords == 0)
     {
         listfile_write_system_event(lf_out, subtype);
@@ -312,7 +314,6 @@ void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype,
 
     assert(buffp == endp);
 }
-
 
 void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype, const QByteArray &bytes)
 {
@@ -354,6 +355,9 @@ void listfile_write_endian_marker(ListfileOutput &lf_out)
 
 void listfile_write_timestamp(ListfileOutput &lf_out)
 {
+    if (!lf_out.isOpen())
+        return;
+
     auto now = std::chrono::system_clock::now();
     auto epoch = now.time_since_epoch();
     u64 timestamp = std::chrono::duration_cast<std::chrono::seconds>(epoch).count();
@@ -468,6 +472,9 @@ struct MVLCReadoutWorker::Private
     DataBuffer localEventBuffer;
     DataBuffer *outputBuffer = nullptr;
 
+    MVLCReadoutCounters counters = {};
+    mutable TicketMutex countersMutex;
+
     Private(MVLCReadoutWorker *q_)
         : q(q_)
         , state(DAQState::Idle)
@@ -489,6 +496,44 @@ struct MVLCReadoutWorker::Private
     void preRunClear()
     {
         nextOutputBufferNumber = 1u;
+
+        UniqueLock guard(countersMutex);
+        counters = {};
+    }
+
+    // Cleanly end a running readout session. The code disables all triggers by
+    // writing to the trigger registers via the command pipe while in parallel
+    // reading and processing data from the data pipe until no more data
+    // arrives. These things have to be done in parallel as otherwise in the
+    // case of USB the data from the data pipe can clog the bus and no replies
+    // can be received on the command pipe.
+    QFuture<std::error_code> shutdownReadout()
+    {
+        assert(q);
+        assert(mvlcObj);
+
+        auto f = QtConcurrent::run([this] ()
+        {
+            return disable_all_triggers(*mvlcObj);
+        });
+
+        size_t bytesTransferred = 0u;
+        // FIXME: the code could hang here forever if disabling the readout triggers
+        // does not work. Measure total time spent in the loop and break out after
+        // a threshold has been reached.
+        // Could also try multiple times to disable the triggers.
+        do
+        {
+            q->readAndProcessBuffer(bytesTransferred);
+        } while (bytesTransferred > 0);
+
+        if (auto ec = f.result())
+        {
+            q->logMessage(QSL("MVLC Readout: Error disabling triggers: %1")
+                          .arg(ec.message().c_str()));
+        }
+
+        return f;
     }
 };
 
@@ -570,6 +615,12 @@ void MVLCReadoutWorker::start(quint32 cycles)
             {
                 throw ec;
             }
+
+            // Reset the per pipe and per packet-channel stats when starting a
+            // new run. By reusing these stats there's no need for an extra
+            // layer of stats for the ETH readout.
+            auto guard = d->mvlcObj->getLocks().lockBoth();
+            d->mvlc_eth->resetPipeAndChannelStats();
         }
 
         logMessage("Initializing MVLC");
@@ -602,6 +653,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         // show up in the listfile.
         listfile_end_run_and_close(d->listfileOut, m_workerContext.getLogBuffer(),
                                    m_workerContext.getAnalysisJson().toJson());
+
         assert(!d->listfileOut.isOpen());
 
         m_workerContext.daqStats.stop();
@@ -638,6 +690,7 @@ void MVLCReadoutWorker::readoutLoop()
 
     while (true)
     {
+        // Write a timestamp system event to the listfile once per second.
         if (timetickGen.generateElapsedSeconds() >= 1)
             listfile_write_timestamp(d->listfileOut);
 
@@ -692,30 +745,8 @@ void MVLCReadoutWorker::readoutLoop()
     }
 
     setState(DAQState::Stopping);
-
-    // Do two things in parallel: disable the triggers while also reading and
-    // processing data from the data pipe.
-    auto f = QtConcurrent::run([this]()
-    {
-        return disable_all_triggers(*d->mvlcObj);
-    });
-
-    size_t bytesTransferred = 0u;
-    // FIXME: the code can hang here forever if disabling the readout triggers
-    // does not work.  Measure total time spent in the loop and break out
-    // after a threshold has been reached.
-    do
-    {
-        readAndProcessBuffer(bytesTransferred);
-    } while (bytesTransferred > 0);
-
+    d->shutdownReadout();
     maybePutBackBuffer();
-
-    if (auto ec = f.result())
-    {
-        logMessage(QSL("MVLC Readout: Error disabling triggers: %1")
-                   .arg(ec.message().c_str()));
-    }
 
     qDebug() << __PRETTY_FUNCTION__ << "at end";
 }
@@ -808,29 +839,68 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
     return {};
 }
 
-// TODO: Perform checks for frame header validity. Allow StackFrame,
-// StackContinuation and SystemEvent.
-// If the check fails perform a recovery procedure by trying if the chaining of
-// N (2 to 3?) possible frame headers is ok. In this case assume that we're in
-// a good state again.
-inline void fixup_usb_buffer(DataBuffer &readBuffer, DataBuffer &tempBuffer)
+inline bool is_valid_readout_frame(const FrameInfo &frameInfo)
+{
+    return (frameInfo.type == frame_headers::StackFrame
+            || frameInfo.type == frame_headers::StackContinuation);
+}
+
+// Ensure that the readBuffer contains only complete frames. In other words: if
+// a frame starts then it should fully fit into the readBuffer. Trailing data
+// is moved to the tempBuffer.
+//
+// Walk through the readBuffer following the frame structure. If a partial
+// frame is found at the end of the buffer move the trailing bytes to the
+// tempBuffer and shrink the readBuffer accordingly.
+//
+// Note that invalid data words (ones that do not pass
+// is_valid_readout_frame()) are just skipped and left in the buffer without
+// modification. This has to be taken into account on the analysis side.
+inline void fixup_usb_buffer(
+    DataBuffer &readBuffer, DataBuffer &tempBuffer,
+    MVLCReadoutCounters &counters)
 {
     BufferIterator iter(readBuffer.data, readBuffer.used);
 
     while (!iter.atEnd())
     {
+        // Need at least 32 bits of data to extract a frame header.
         if (iter.longwordsLeft())
         {
-            // Can extract and check the next frame header
-            u32 frameHeader = iter.peekU32();
-            auto frameInfo = extract_frame_info(frameHeader);
+            FrameInfo frameInfo = {};
 
-            // Check if the full frame is in the readBuffer. If not move the
-            // trailing data to the tempBuffer.
+            while (iter.longwordsLeft())
+            {
+                // Can peek and check the next frame header
+                frameInfo = extract_frame_info(iter.peekU32());
+
+                if (is_valid_readout_frame(frameInfo))
+                    break;
+
+                // Unexpected or invalid frame type. This should not happen
+                // if the incoming MVLC data and the readout code are
+                // correct.
+                // Consume the invalid frame header word and try again with the
+                // next word.
+                iter.extractU32();
+            }
+
+            if (!is_valid_readout_frame(frameInfo))
+            {
+                // The above loop was not able to find a valid readout frame.
+                // Go to the top of the outer loop and let that handle any
+                // possible leftover bytes on the next iteration.
+                ++counters.frameTypeErrors;
+                continue;
+            }
+
+            // Check if the full frame including the header is in the
+            // readBuffer. If not move the trailing data to the tempBuffer.
             if (frameInfo.len + 1u > iter.longwordsLeft())
             {
                 auto trailingBytes = iter.bytesLeft();
                 move_bytes(readBuffer, tempBuffer, iter.asU8(), trailingBytes);
+                counters.partialFrameTotalBytes += trailingBytes;
                 return;
             }
 
@@ -863,10 +933,14 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
     if (d->previousData.used)
     {
         destBuffer->ensureCapacity(d->previousData.used);
-        std::memcpy(destBuffer->endPtr(), d->previousData.data, d->previousData.used);
-        destBuffer->used += d->previousData.used;
-        d->previousData.used = 0u;
+
+        move_bytes(d->previousData, *destBuffer,
+                   d->previousData.data, d->previousData.size);
+
+        assert(d->previousData.size == 0);
     }
+
+    destBuffer->ensureCapacity(USBReadMinBytes);
 
     while (destBuffer->free() >= USBReadMinBytes)
     {
@@ -890,7 +964,11 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
             break;
     }
 
-    fixup_usb_buffer(*destBuffer, d->previousData);
+    UniqueLock countersGuard(d->countersMutex);
+    auto prevFrameTypeErrors = d->counters.frameTypeErrors;
+    fixup_usb_buffer(*destBuffer, d->previousData, d->counters);
+    if (prevFrameTypeErrors != d->counters.frameTypeErrors)
+        ++daqStats.buffersWithErrors;
 
     return ec;
 }
@@ -908,7 +986,7 @@ DataBuffer *MVLCReadoutWorker::getOutputBuffer()
             outputBuffer = &d->localEventBuffer;
         }
 
-        // Reset a fresh buffer
+        // Setup the newly acquired buffer
         outputBuffer->used = 0;
         outputBuffer->id   = d->nextOutputBufferNumber++;
         outputBuffer->tag  = static_cast<int>((d->mvlc_eth
@@ -966,20 +1044,9 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
 
 void MVLCReadoutWorker::pauseDAQ()
 {
-    auto f = QtConcurrent::run([this]()
-    {
-        return disable_all_triggers(*d->mvlcObj);
-    });
+    d->shutdownReadout();
 
-    size_t bytesTransferred = 0u;
-
-    do
-    {
-        readAndProcessBuffer(bytesTransferred);
-    } while (bytesTransferred > 0);
-
-
-    //m_listfileHelper->writePauseSection();
+    listfile_write_system_event(d->listfileOut, system_event::subtype::Pause);
 
     setState(DAQState::Paused);
     logMessage(QString(QSL("MVLC readout paused")));
@@ -987,12 +1054,11 @@ void MVLCReadoutWorker::pauseDAQ()
 
 void MVLCReadoutWorker::resumeDAQ()
 {
-    auto mvlc = qobject_cast<MVLC_VMEController *>(getContext().controller);
-    assert(mvlc);
+    assert(d->mvlcObj);
 
-    enable_triggers(*mvlc->getMVLCObject(), *getContext().vmeConfig);
+    enable_triggers(*d->mvlcObj, *getContext().vmeConfig);
 
-    //m_listfileHelper->writeResumeSection();
+    listfile_write_system_event(d->listfileOut, system_event::subtype::Resume);
 
     setState(DAQState::Running);
     logMessage(QSL("MVLC readout resumed"));
@@ -1056,6 +1122,12 @@ void MVLCReadoutWorker::setState(const DAQState &state)
 DAQState MVLCReadoutWorker::getState() const
 {
     return d->state;
+}
+
+MVLCReadoutCounters MVLCReadoutWorker::getReadoutCounters() const
+{
+    UniqueLock guard(d->countersMutex);
+    return d->counters;
 }
 
 void MVLCReadoutWorker::logError(const QString &msg)
