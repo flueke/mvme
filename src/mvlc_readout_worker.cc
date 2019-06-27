@@ -935,9 +935,9 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
         destBuffer->ensureFreeSpace(d->previousData.used);
 
         move_bytes(d->previousData, *destBuffer,
-                   d->previousData.data, d->previousData.size);
+                   d->previousData.data, d->previousData.used);
 
-        assert(d->previousData.size == 0);
+        assert(d->previousData.used == 0);
     }
 
     destBuffer->ensureFreeSpace(USBReadMinBytes);
