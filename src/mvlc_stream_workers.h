@@ -95,6 +95,13 @@ class MVLC_StreamWorkerBase: public StreamWorkerBase
         mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
 
     private:
+        // Used for the transition from non-Idle state to Idle state.
+        enum StopFlag
+        {
+            StopImmediately,
+            StopWhenQueueEmpty,
+        };
+
         void setupParserCallbacks(analysis::Analysis *analysis);
 
         void processBuffer(
@@ -109,13 +116,6 @@ class MVLC_StreamWorkerBase: public StreamWorkerBase
 
         QVector<IMVMEStreamBufferConsumer *> m_bufferConsumers;
         QVector<IMVMEStreamModuleConsumer *> m_moduleConsumers;
-
-        // Used for the transition from non-Idle state to Idle state.
-        enum StopFlag
-        {
-            StopImmediately,
-            StopWhenQueueEmpty,
-        };
 
         std::atomic<MVMEStreamWorkerState> m_state;
         std::atomic<MVMEStreamWorkerState> m_desiredState;
@@ -143,7 +143,7 @@ class LIBMVME_EXPORT MVLC_ETH_StreamWorker: public MVLC_StreamWorkerBase
             analysis::Analysis *analysis) override;
 
     private:
-        std::unique_ptr<mesytec::mvlc::ReadoutParser_ETH> m_parser;
+        mesytec::mvlc::ReadoutParserState m_parser;
 };
 
 class LIBMVME_EXPORT MVLC_USB_StreamWorker: public MVLC_StreamWorkerBase
@@ -166,7 +166,7 @@ class LIBMVME_EXPORT MVLC_USB_StreamWorker: public MVLC_StreamWorkerBase
             analysis::Analysis *analysis) override;
 
     private:
-        std::unique_ptr<mesytec::mvlc::ReadoutParser_USB> m_parser;
+        mesytec::mvlc::ReadoutParserState m_parser;
 };
 
 #endif /* __MVLC_STREAM_WORKERS_H__ */

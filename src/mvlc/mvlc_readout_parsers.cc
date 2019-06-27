@@ -98,40 +98,29 @@ VMEConfReadoutInfo parse_vme_readout_info(const VMEConfReadoutScripts &rdoScript
     return result;
 }
 
-inline bool event_in_progress(const ReadoutParserCommon &state)
+inline bool event_in_progress(const ReadoutParserState &state)
 {
     return state.eventIndex >= 0;
 }
 
 static const size_t WorkBufferSize = Megabytes(1);
 
-template<typename ParserType>
-ParserType *make_readout_parser(const VMEConfReadoutScripts &readoutScripts)
+ReadoutParserState make_readout_parser(const VMEConfReadoutScripts &readoutScripts)
 {
-    auto result = std::make_unique<ParserType>();
-    result->workBuffer = DataBuffer(WorkBufferSize);
-    result->readoutInfo = parse_vme_readout_info(readoutScripts);
+    ReadoutParserState result;
+    result.workBuffer = DataBuffer(WorkBufferSize);
+    result.readoutInfo = parse_vme_readout_info(readoutScripts);
 
     size_t maxModuleCount = 0;
 
-    for (const auto &eventReadoutParts: result->readoutInfo)
+    for (const auto &eventReadoutParts: result.readoutInfo)
     {
         maxModuleCount = std::max(maxModuleCount, eventReadoutParts.size());
     }
 
-    result->readoutDataSpans.resize(maxModuleCount);
+    result.readoutDataSpans.resize(maxModuleCount);
 
-    return result.release();
-}
-
-ReadoutParser_ETH *make_readout_parser_eth(const VMEConfReadoutScripts &readoutScripts)
-{
-    return make_readout_parser<ReadoutParser_ETH>(readoutScripts);
-}
-
-ReadoutParser_USB *make_readout_parser_usb(const VMEConfReadoutScripts &readoutScripts)
-{
-    return make_readout_parser<ReadoutParser_USB>(readoutScripts);
+    return result;
 }
 
 inline void clear_readout_data_spans(std::vector<ModuleReadoutSpans> &spans)
@@ -139,7 +128,7 @@ inline void clear_readout_data_spans(std::vector<ModuleReadoutSpans> &spans)
     std::fill(spans.begin(), spans.end(), ModuleReadoutSpans{});
 }
 
-inline void parser_clear_event_state(ReadoutParserCommon &state)
+inline void parser_clear_event_state(ReadoutParserState &state)
 {
     state.eventIndex = -1;
     assert(!event_in_progress(state));
@@ -160,7 +149,7 @@ enum class ParseResult
     EndOfBuffer
 };
 
-inline ParseResult parser_begin_event(ReadoutParserCommon &state, u32 frameHeader)
+inline ParseResult parser_begin_event(ReadoutParserState &state, u32 frameHeader)
 {
     assert(!event_in_progress(state));
 
@@ -180,26 +169,16 @@ inline ParseResult parser_begin_event(ReadoutParserCommon &state, u32 frameHeade
 
     state.eventIndex = eventIndex;
     state.moduleIndex = 0;
-    state.moduleParseState = ReadoutParserCommon::Prefix;
+    state.moduleParseState = ReadoutParserState::Prefix;
     state.curStackFrame = { frameHeader };
     state.curBlockFrame = {};
 
+    // Loss from the previous packet does not matter anymore as we
+    // just started parsing a new event.
+    state.lastPacketNumber = -1;
+
     assert(event_in_progress(state));
     return ParseResult::Ok;
-}
-
-inline ParseResult parser_begin_event(ReadoutParser_ETH &state, u32 frameHeader)
-{
-    auto result = parser_begin_event(dynamic_cast<ReadoutParserCommon &>(state), frameHeader);
-
-    if (result == ParseResult::Ok)
-    {
-        // Loss from the previous packet does not matter anymore as we
-        // just started parsing a new event.
-        state.lastPacketNumber = -1;
-    }
-
-    return result;
 }
 
 s64 calc_buffer_loss(u32 bufferNumber, u32 lastBufferNumber)
@@ -214,7 +193,7 @@ s64 calc_buffer_loss(u32 bufferNumber, u32 lastBufferNumber)
     return diff - 1;
 }
 
-inline void copy_to_workbuffer(ReadoutParserCommon &state, BufferIterator &iter, u32 wordsToCopy)
+inline void copy_to_workbuffer(ReadoutParserState &state, BufferIterator &iter, u32 wordsToCopy)
 {
     assert(wordsToCopy <= iter.longwordsLeft());
 
@@ -229,13 +208,13 @@ inline void copy_to_workbuffer(ReadoutParserCommon &state, BufferIterator &iter,
 }
 
 // Checks if the input iterator points to a system frame header. If true the
-// systemEvent callback is invoked with the frame header and data and true is
-// returned. Also the iterator will be placed on the next word after the system
-// frame.
+// systemEvent callback is invoked with the frame header + frame data and true
+// is returned. Also the iterator will be placed on the next word after the
+// system frame.
 // Otherwise the iterator is left unmodified and false is returned.
 // Throws end_of_buffer() if the system frame exceeeds the input buffer size.
 inline bool try_handle_system_event(
-    ReadoutParserCommon &state,
+    ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     BufferIterator &iter)
 {
@@ -258,7 +237,7 @@ inline bool try_handle_system_event(
 }
 
 ParseResult parse_readout_contents(
-    ReadoutParserCommon &state,
+    ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     BufferIterator &iter)
 {
@@ -303,7 +282,6 @@ ParseResult parse_readout_contents(
 
         assert(state.curStackFrame);
         assert(event_in_progress(state));
-        assert(state.curStackFrame);
 
         const auto &moduleReadoutInfos = state.readoutInfo[state.eventIndex];
         const auto &moduleParts = moduleReadoutInfos[state.moduleIndex];
@@ -319,7 +297,7 @@ ParseResult parse_readout_contents(
 
         switch (state.moduleParseState)
         {
-            case ReadoutParserCommon::Prefix:
+            case ReadoutParserState::Prefix:
                 if (moduleSpans.prefixSpan.size < moduleParts.prefixLen)
                 {
                     // record the offset of the first word of this span
@@ -343,9 +321,9 @@ ParseResult parse_readout_contents(
                 if (moduleSpans.prefixSpan.size == moduleParts.prefixLen)
                 {
                     if (moduleParts.hasDynamic)
-                        state.moduleParseState = ReadoutParser_ETH::Dynamic;
+                        state.moduleParseState = ReadoutParserState::Dynamic;
                     else if (moduleParts.suffixLen != 0)
-                        state.moduleParseState = ReadoutParser_ETH::Suffix;
+                        state.moduleParseState = ReadoutParserState::Suffix;
                     else
                     {
                         // We're done with this module as it does have neither
@@ -356,7 +334,7 @@ ParseResult parse_readout_contents(
 
                 break;
 
-            case ReadoutParserCommon::Dynamic:
+            case ReadoutParserState::Dynamic:
                 {
                     assert(moduleParts.hasDynamic);
 
@@ -393,13 +371,13 @@ ParseResult parse_readout_contents(
                             state.moduleIndex++;
                         }
                         else
-                            state.moduleParseState = ReadoutParser_ETH::Suffix;
+                            state.moduleParseState = ReadoutParserState::Suffix;
 
                     }
                 }
                 break;
 
-            case ReadoutParserCommon::Suffix:
+            case ReadoutParserState::Suffix:
                 if (moduleSpans.suffixSpan.size < moduleParts.suffixLen)
                 {
                     // record the offset of the first word of this span
@@ -494,8 +472,8 @@ inline u32 *find_frame_header(u32 *firstFrameHeader, const u32 *endOfData, u8 fr
 
 // IMPORTANT: This function assumes that packet loss is handled on the outside!
 // The iterator must be bounded by the packets data.
-ParseResult parse_packet(
-    ReadoutParser_ETH &state,
+ParseResult parse_eth_packet(
+    ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     BufferIterator iter)
 {
@@ -506,26 +484,23 @@ ParseResult parse_packet(
     LOG_TRACE("begin parsing packet %u, dataWords=%u",
               ethHdrs.packetNumber(), ethHdrs.dataWordCount());
 
-#if 0
-    ::logBuffer(iter, [](const QString &str)
-    {
-        LOG_TRACE(" %s", str.toStdString().c_str());
-    });
-#endif
-
-    // Special case for the ETH readout: find the start of a new event by
-    // interpreting the packets nextHeaderPointer value and searching from
-    // there.
     if (!event_in_progress(state))
     {
+        // Special case for the ETH readout: find the start of a new event by
+        // interpreting the packets nextHeaderPointer value and searching from
+        // there.
+
         if (!ethHdrs.isNextHeaderPointerPresent())
         {
             // Not currently parsing an event and no frame header present
-            // inside the packet data.
+            // inside the packet data which means we cannot start a new event
+            // using this packets data.
             return ParseResult::NoHeaderPresent;
         }
 
-        // Find the next StackFrame header which is the start of the event data
+        // Find the next StackFrame header starting the search from the header
+        // word pointed to by the ETH packet header. This StackFrame header
+        // will mark the beginning of a new event.
         u32 *firstFramePtr = iter.indexU32(eth::HeaderWords + ethHdrs.nextHeaderPointer());
 
         u32 *stackFrame = find_frame_header(
@@ -533,6 +508,9 @@ ParseResult parse_packet(
 
         if (!stackFrame)
             return ParseResult::NoStackFrameFound;
+
+        assert(iter.data <= reinterpret_cast<u8 *>(stackFrame));
+        assert(reinterpret_cast<u8 *>(stackFrame) <= iter.endp);
 
         // Place the iterator right on the stackframe header.
         // parse_readout_contents() will pick this up and use it for
@@ -551,17 +529,19 @@ ParseResult parse_packet(
     {
         auto ret = parse_readout_contents(state, callbacks, iter);
 
-        LOG_TRACE("end parsing packet %u", ethHdrs.packetNumber());
+        LOG_TRACE("end parsing packet %u, dataWords=%u",
+                  ethHdrs.packetNumber(), ethHdrs.dataWordCount());
 
         return ret;
     }
-    catch (const end_of_buffer &e)
+    catch (const std::exception &e)
     {
-        LOG_WARN("parsing  packet %u raised end_of_buffer: %s",
-                 ethHdrs.packetNumber(), e.what());
+        LOG_WARN("end parsing packet %u, dataWords=%u, exception=%s",
+                  ethHdrs.packetNumber(), ethHdrs.dataWordCount(),
+                  e.what());
 
-        ::logBuffer(BufferIterator(iter.data, iter.size),
-                    [] (const QString &str) { qDebug().noquote() << str; });
+        //::logBuffer(BufferIterator(iter.data, iter.size),
+        //            [] (const QString &str) { qDebug().noquote() << str; });
 
         throw;
     }
@@ -569,8 +549,8 @@ ParseResult parse_packet(
     return ParseResult::Ok;
 }
 
-void parse_readout_buffer(
-    ReadoutParser_ETH &state,
+void parse_readout_buffer_eth(
+    ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     u32 bufferNumber, u8 *buffer, size_t bufferSize)
 {
@@ -584,21 +564,18 @@ void parse_readout_buffer(
         // Clear processing state/workBuffer, restart at next 0xF3.
         // Any output data prepared so far is discarded.
         parser_clear_event_state(state);
+        state.counters.interalBufferLoss += bufferLoss;
     }
 
     BufferIterator iter(buffer, bufferSize);
-
-#if 0
-    ::logBuffer(iter, [] (const QString &str)
-    {
-        qDebug() << str;
-    });
-#endif
 
     try
     {
         while (!iter.atEnd())
         {
+            // ETH readout data consists of a mix of SystemEvent frames and raw
+            // packet data starting with ETH header0.
+
             if (try_handle_system_event(state, callbacks, iter))
                 continue;
 
@@ -606,13 +583,10 @@ void parse_readout_buffer(
             // two ETH payload header words.
             eth::PayloadHeaderInfo ethHdrs{ iter.peekU32(0), iter.peekU32(1) };
 
-            // Ensure that the extracted packet data length actually fits into the
-            // input buffer
+            // Ensure that the packet is fully contained in the input buffer.
+            // This is a requirement for the buffer producer.
             if (iter.longwordsLeft() < eth::HeaderWords + ethHdrs.dataWordCount())
-            {
-                assert(!"packet data exceeds buffer");
-                throw end_of_buffer();
-            }
+                throw end_of_buffer("ETH packet data exceeds input buffer size");
 
             if (state.lastPacketNumber >= 0)
             {
@@ -621,47 +595,50 @@ void parse_readout_buffer(
                 if (auto loss = eth::calc_packet_loss(state.lastPacketNumber,
                                                       ethHdrs.packetNumber()))
                 {
-                    // TODO: count loss
                     parser_clear_event_state(state);
+                    state.counters.ethPacketLoss += loss;
                 }
             }
 
             state.lastPacketNumber = ethHdrs.packetNumber();
 
-            ParseResult pr = parse_packet(
-                state, callbacks,
-                BufferIterator(iter.indexU32(0),
-                               eth::HeaderWords + ethHdrs.dataWordCount()));
+            BufferIterator packetIter(
+                iter.indexU32(0),
+                eth::HeaderWords + ethHdrs.dataWordCount());
+
+            ParseResult pr = parse_eth_packet(state, callbacks, packetIter);
+            ++state.counters.ethPacketsProcessed;
 
             LOG_TRACE("parse_packet result: %d\n", (int)pr);
 
-            // Skip over the packet ending up either on the next SystemEvent frame
-            // or on the next packets header0.
+            // Skip over the packet ending up either on the next SystemEvent
+            // frame or on the next packets header0.
             iter.skip(eth::HeaderWords + ethHdrs.dataWordCount(), sizeof(u32));
         }
     }
+    catch (const std::exception &e)
+    {
+        LOG_WARN("end parsing ETH buffer %u, size=%lu bytes, exception=%s",
+                 bufferNumber, bufferSize, e.what());
+
+        parser_clear_event_state(state);
+        throw;
+    }
+
+    ++state.counters.buffersProcessed;
+    LOG_TRACE("end parsing ETH buffer %u, size=%lu bytes", bufferNumber, bufferSize);
+
+#if 0
     catch (const end_of_buffer &e)
     {
         // TODO: count this
         LOG_WARN("parsing buffer %u raised end_of_buffer: %s", bufferNumber, e.what());
-#if 0
-        ::logBuffer(BufferIterator(buffer, bufferSize) , [] (const QString &str)
-        {
-            qDebug().noquote() << str;
-        });
-#endif
         parser_clear_event_state(state);
     }
     catch (const std::runtime_error &e)
     {
         // TODO: count this
         LOG_WARN("parsing buffer %u raised runtime_error: %s", bufferNumber, e.what());
-#if 0
-        ::logBuffer(BufferIterator(buffer, bufferSize) , [] (const QString &str)
-        {
-            qDebug().noquote() << str;
-        });
-#endif
         parser_clear_event_state(state);
     }
 
@@ -671,12 +648,11 @@ void parse_readout_buffer(
         LOG_WARN("buffer %u: %u words left in buffer after parsing!",
                  bufferNumber, iter.longwordsLeft());
     }
-
-    LOG_TRACE("end parsing ETH buffer %u", bufferNumber);
+#endif
 }
 
-void parse_readout_buffer(
-    ReadoutParser_USB &state,
+void parse_readout_buffer_usb(
+    ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     u32 bufferNumber, u8 *buffer, size_t bufferSize)
 {
@@ -690,6 +666,7 @@ void parse_readout_buffer(
         // Clear processing state/workBuffer, restart at next 0xF3.
         // Any output data prepared so far will be discarded.
         parser_clear_event_state(state);
+        state.counters.interalBufferLoss += bufferLoss;
     }
 
     BufferIterator iter(buffer, bufferSize);
@@ -701,25 +678,17 @@ void parse_readout_buffer(
             parse_readout_contents(state, callbacks, iter);
         }
     }
-    catch (const end_of_buffer &)
+    catch (const std::exception &e)
     {
-        // TODO: count this
-        LOG_WARN("parsing buffer %u raised end_of_buffer", bufferNumber);
+        LOG_WARN("end parsing USB buffer %u, size=%lu bytes, exception=%s",
+                 bufferNumber, bufferSize, e.what());
+
         parser_clear_event_state(state);
-    }
-    catch (const std::runtime_error &e)
-    {
-        // TODO: count this
-        LOG_WARN("parsing buffer %u raised runtime_error: %s", bufferNumber, e.what());
-        parser_clear_event_state(state);
+        throw;
     }
 
-    if (!iter.atEnd())
-    {
-        // TODO: count bytes left in the iterator
-    }
-
-    LOG_TRACE("end parsing USB buffer %u", bufferNumber);
+    ++state.counters.buffersProcessed;
+    LOG_TRACE("end parsing USB buffer %u, size=%lu bytes", bufferNumber, bufferSize);
 }
 
 } // end namespace mesytec

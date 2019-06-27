@@ -3,6 +3,7 @@
 
 #include "vme_script.h"
 #include "mvlc/mvlc_impl_eth.h"
+#include "mvlc/mvlc_threading.h"
 #include "mvlc/mvlc_util.h"
 #include "databuffer.h"
 
@@ -91,7 +92,16 @@ struct ReadoutParserCallbacks
         systemEvent = [] (u32 *, u32) {};
 };
 
-struct ReadoutParserCommon
+struct ReadoutParserCounters
+{
+    u32 interalBufferLoss;
+    u32 buffersProcessed;
+
+    u32 ethPacketLoss;
+    u32 ethPacketsProcessed;
+};
+
+struct ReadoutParserState
 {
     // Helper structure keeping track of the number of words left in a MVLC
     // style data frame.
@@ -147,29 +157,23 @@ struct ReadoutParserCommon
     // Parsing state of the current 0xF5 block readout frame. This is only
     // active when parsing the dynamic part of a module readout.
     FrameParseState curBlockFrame = {};
-};
 
-struct ReadoutParser_ETH: public ReadoutParserCommon
-{
-    // The actual packet number is of type u16. Using an s32 here to represent
-    // the "no previous packet" case by storing a -1.
+    // ETH parsing only. The transmitted packet number type is u16. Using an
+    // s32 here to represent the "no previous packet" case by storing a -1.
     s32 lastPacketNumber = -1;
+
+    ReadoutParserCounters counters = {};
 };
 
-struct ReadoutParser_USB: public ReadoutParserCommon
-{
-};
+ReadoutParserState make_readout_parser(const VMEConfReadoutScripts &readoutScripts);
 
-ReadoutParser_ETH *make_readout_parser_eth(const VMEConfReadoutScripts &readoutScripts);
-ReadoutParser_USB *make_readout_parser_usb(const VMEConfReadoutScripts &readoutScripts);
-
-void parse_readout_buffer(
-    ReadoutParser_ETH &state,
+void parse_readout_buffer_eth(
+    ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     u32 bufferNumber, u8 *buffer, size_t bufferSize);
 
-void parse_readout_buffer(
-    ReadoutParser_USB &state,
+void parse_readout_buffer_usb(
+    ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     u32 bufferNumber, u8 *buffer, size_t bufferSize);
 
