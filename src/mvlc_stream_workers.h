@@ -83,7 +83,7 @@ class MVLC_StreamWorkerBase: public StreamWorkerBase
             const VMEConfig *vmeConfig,
             analysis::Analysis *analysis) = 0;
 
-        virtual bool processBuffer_(
+        virtual void processBuffer_(
             DataBuffer *buffer,
             const RunInfo &runInfo,
             const VMEConfig *vmeConfig,
@@ -127,12 +127,7 @@ class LIBMVME_EXPORT MVLC_ETH_StreamWorker: public MVLC_StreamWorkerBase
 {
     Q_OBJECT
     public:
-        MVLC_ETH_StreamWorker(
-            MVMEContext *context,
-            ThreadSafeDataBufferQueue *freeBuffers,
-            ThreadSafeDataBufferQueue *fullBuffers,
-            QObject *parent = nullptr);
-
+        using MVLC_StreamWorkerBase::MVLC_StreamWorkerBase;
         ~MVLC_ETH_StreamWorker() override;
 
     protected:
@@ -141,7 +136,7 @@ class LIBMVME_EXPORT MVLC_ETH_StreamWorker: public MVLC_StreamWorkerBase
             const VMEConfig *vmeConfig,
             analysis::Analysis *analysis) override;
 
-        bool processBuffer_(
+        void processBuffer_(
             DataBuffer *buffer,
             const RunInfo &runInfo,
             const VMEConfig *vmeConfig,
@@ -156,14 +151,6 @@ class LIBMVME_EXPORT MVLC_USB_StreamWorker: public MVLC_StreamWorkerBase
     Q_OBJECT
     public:
         using MVLC_StreamWorkerBase::MVLC_StreamWorkerBase;
-        /*
-        MVLC_USB_StreamWorker(
-            MVMEContext *context,
-            ThreadSafeDataBufferQueue *freeBuffers,
-            ThreadSafeDataBufferQueue *fullBuffers,
-            QObject *parent = nullptr);
-            */
-
         ~MVLC_USB_StreamWorker() override;
 
     protected:
@@ -172,7 +159,7 @@ class LIBMVME_EXPORT MVLC_USB_StreamWorker: public MVLC_StreamWorkerBase
             const VMEConfig *vmeConfig,
             analysis::Analysis *analysis) override;
 
-        bool processBuffer_(
+        void processBuffer_(
             DataBuffer *buffer,
             const RunInfo &runInfo,
             const VMEConfig *vmeConfig,
