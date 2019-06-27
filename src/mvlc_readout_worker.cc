@@ -932,7 +932,7 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
 
     if (d->previousData.used)
     {
-        destBuffer->ensureCapacity(d->previousData.used);
+        destBuffer->ensureFreeSpace(d->previousData.used);
 
         move_bytes(d->previousData, *destBuffer,
                    d->previousData.data, d->previousData.size);
@@ -940,7 +940,7 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
         assert(d->previousData.size == 0);
     }
 
-    destBuffer->ensureCapacity(USBReadMinBytes);
+    destBuffer->ensureFreeSpace(USBReadMinBytes);
 
     while (destBuffer->free() >= USBReadMinBytes)
     {

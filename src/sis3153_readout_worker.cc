@@ -2129,7 +2129,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
     }
 
     DataBuffer *outputBuffer = getOutputBuffer();
-    outputBuffer->ensureCapacity(size * 2);
+    outputBuffer->ensureFreeSpace(size * 2);
     MVMEStreamWriterHelper streamWriter(outputBuffer);
     int writerFlags = 0;
 
@@ -2235,7 +2235,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
     BufferIterator iter(data, size);
 
     DataBuffer *outputBuffer = getOutputBuffer();
-    outputBuffer->ensureCapacity(size * 2);
+    outputBuffer->ensureFreeSpace(size * 2);
     m_processingState.streamWriter.setOutputBuffer(outputBuffer);
 
     if (!partialInProgress)

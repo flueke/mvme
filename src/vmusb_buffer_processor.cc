@@ -556,7 +556,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
     BufferIterator eventIter(iter.buffp, eventLength * sizeof(u16), iter.alignment);
 
     // ensure double the event length is available
-    outputBuffer->ensureCapacity(eventLength * sizeof(u16) * 2);
+    outputBuffer->ensureFreeSpace(eventLength * sizeof(u16) * 2);
 
     auto eventConfig = m_eventConfigByStackID[stackID];
 

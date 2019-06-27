@@ -139,7 +139,7 @@ struct DataBuffer
         return data + used;
     }
 
-    void ensureCapacity(size_t freeSize)
+    void ensureFreeSpace(size_t freeSize)
     {
         if (freeSize > free())
         {
@@ -183,7 +183,7 @@ inline void move_bytes(DataBuffer &sourceBuffer, DataBuffer &destBuffer,
     assert(sourceBegin >= sourceBuffer.data);
     assert(sourceBegin + bytes <= sourceBuffer.endPtr());
 
-    destBuffer.ensureCapacity(bytes);
+    destBuffer.ensureFreeSpace(bytes);
     std::memcpy(destBuffer.endPtr(), sourceBegin, bytes);
     destBuffer.used   += bytes;
     sourceBuffer.used -= bytes;

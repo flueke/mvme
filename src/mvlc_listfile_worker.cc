@@ -113,7 +113,7 @@ DataBuffer *MVLCListfileWorker::getOutputBuffer()
         result->used = 0;
         result->id   = d->nextOutputBufferNumber++;
         result->tag  = static_cast<int>(d->format);
-        result->ensureCapacity(ListfileSingleReadSize);
+        result->ensureFreeSpace(ListfileSingleReadSize);
     }
 
     return result;

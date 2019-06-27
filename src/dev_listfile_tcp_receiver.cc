@@ -33,7 +33,7 @@ struct Context
 
 void receive_one_buffer(Context &context, const u32 size, DataBuffer &destBuffer)
 {
-    destBuffer.ensureCapacity(size);
+    destBuffer.ensureFreeSpace(size);
     destBuffer.used = 0;
 
     while (destBuffer.used < size)
