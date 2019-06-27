@@ -52,10 +52,10 @@ struct ModuleReadoutParts
     bool hasDynamic; // true if a dynamic part (block read) is present
 };
 
-// vme readout script per event and module
+// vme readout scripts indexed by event and module
 using VMEConfReadoutScripts = std::vector<std::vector<vme_script::VMEScript>>;
 
-// ModuleReadoutParts per event and module
+// ModuleReadoutParts indexed by event and module
 using VMEConfReadoutInfo    = std::vector<std::vector<ModuleReadoutParts>>;
 
 ModuleReadoutParts parse_module_readout_script(const vme_script::VMEScript &readoutScript);
@@ -93,6 +93,8 @@ struct ReadoutParserCallbacks
 
 struct ReadoutParserCommon
 {
+    // Helper structure keeping track of the number of words left in a MVLC
+    // style data frame.
     struct FrameParseState
     {
         FrameParseState(u32 frameHeader = 0)
@@ -127,16 +129,23 @@ struct ReadoutParserCommon
     // Current output offset into the workbuffer
     u32 workBufferOffset = 0;
 
+    // Per module offsets and sizes into the workbuffer. This is a map of the
+    // current layout of the workbuffer.
+    std::vector<ModuleReadoutSpans> readoutDataSpans;
+
     // Per event preparsed module readout info.
     VMEConfReadoutInfo readoutInfo;
 
-    // Per module offsets and sizes into the workbuffer.
-    std::vector<ModuleReadoutSpans> readoutDataSpans;
-
     int eventIndex = -1;
     int moduleIndex = -1;
-    ModuleParseState moduleParseState;
+    ModuleParseState moduleParseState = Prefix;
+
+    // Parsing state of the current 0xF3 stack frame. This is always active
+    // when parsing readout data.
     FrameParseState curStackFrame = {};
+
+    // Parsing state of the current 0xF5 block readout frame. This is only
+    // active when parsing the dynamic part of a module readout.
     FrameParseState curBlockFrame = {};
 };
 

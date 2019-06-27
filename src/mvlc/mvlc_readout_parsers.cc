@@ -103,11 +103,13 @@ inline bool event_in_progress(const ReadoutParserCommon &state)
     return state.eventIndex >= 0;
 }
 
+static const size_t WorkBufferSize = Megabytes(1);
+
 template<typename ParserType>
 ParserType *make_readout_parser(const VMEConfReadoutScripts &readoutScripts)
 {
     auto result = std::make_unique<ParserType>();
-    result->workBuffer = DataBuffer(Megabytes(1));
+    result->workBuffer = DataBuffer(WorkBufferSize);
     result->readoutInfo = parse_vme_readout_info(readoutScripts);
 
     size_t maxModuleCount = 0;
@@ -160,6 +162,8 @@ enum class ParseResult
 
 inline ParseResult parser_begin_event(ReadoutParserCommon &state, u32 frameHeader)
 {
+    assert(!event_in_progress(state));
+
     auto frameInfo = extract_frame_info(frameHeader);
 
     if (frameInfo.type != frame_headers::StackFrame)
@@ -201,7 +205,8 @@ inline ParseResult parser_begin_event(ReadoutParser_ETH &state, u32 frameHeader)
 s64 calc_buffer_loss(u32 bufferNumber, u32 lastBufferNumber)
 {
     s64 diff = bufferNumber - lastBufferNumber;
-    if (diff < 1)
+
+    if (diff < 1) // overflow
     {
         diff = std::numeric_limits<u32>::max() + diff;
         return diff;
@@ -211,7 +216,9 @@ s64 calc_buffer_loss(u32 bufferNumber, u32 lastBufferNumber)
 
 inline void copy_to_workbuffer(ReadoutParserCommon &state, BufferIterator &iter, u32 wordsToCopy)
 {
-    state.workBuffer.ensureCapacity(wordsToCopy);
+    assert(wordsToCopy <= iter.longwordsLeft());
+
+    state.workBuffer.ensureFreeSpace(wordsToCopy);
 
     std::memcpy(state.workBuffer.endPtr(), iter.buffp, wordsToCopy * sizeof(u32));
 
@@ -250,10 +257,8 @@ inline bool try_handle_system_event(
     return false;
 }
 
-template<typename ParserState>
 ParseResult parse_readout_contents(
-    ParserState &state,
-    //ReadoutParser_ETH &state,
+    ReadoutParserCommon &state,
     ReadoutParserCallbacks &callbacks,
     BufferIterator &iter)
 {
@@ -530,9 +535,8 @@ ParseResult parse_packet(
             return ParseResult::NoStackFrameFound;
 
         // Place the iterator right on the stackframe header.
-        // parse_readout_contents() will use this to Move the iterator to the
-        // stackframe header just found. parse_readout_contents() will pick
-        // this up and use it for parser_begin_event().
+        // parse_readout_contents() will pick this up and use it for
+        // parser_begin_event().
         iter.buffp = reinterpret_cast<u8 *>(stackFrame);
     }
     else
@@ -684,7 +688,7 @@ void parse_readout_buffer(
     if (bufferLoss != 0)
     {
         // Clear processing state/workBuffer, restart at next 0xF3.
-        // Any output data prepared so far is discarded.
+        // Any output data prepared so far will be discarded.
         parser_clear_event_state(state);
     }
 
