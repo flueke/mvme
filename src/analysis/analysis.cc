@@ -4872,9 +4872,19 @@ void Analysis::beginEvent(int eventIndex)
     a2_begin_event(m_a2State->a2, eventIndex);
 }
 
+void Analysis::processModulePrefix(int eventIndex, int moduleIndex, u32 *data, u32 size)
+{
+    // TODO: implement something here
+}
+
 void Analysis::processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size)
 {
     a2_process_module_data(m_a2State->a2, eventIndex, moduleIndex, data, size);
+}
+
+void Analysis::processModuleSuffix(int eventIndex, int moduleIndex, u32 *data, u32 size)
+{
+    // TODO: implement something here
 }
 
 void Analysis::endEvent(int eventIndex)
