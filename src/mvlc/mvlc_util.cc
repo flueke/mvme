@@ -290,5 +290,33 @@ void log_buffer(const QVector<u32> &buffer, const QString &info)
     log_buffer(vec, info.toStdString());
 }
 
+const char *get_system_event_subtype_name(u8 subtype_)
+{
+    switch (subtype_)
+    {
+        using namespace system_event::subtype;
+
+        case EndianMarker:
+            return "EndianMarker";
+
+        case VMEConfig:
+            return "VMEConfig";
+
+        case UnixTimestamp:
+            return "UnixTimestamp";
+
+        case Pause:
+            return "Pause";
+
+        case Resume:
+            return "Resume";
+
+        case EndOfFile:
+            return "EndOfFile";
+    }
+
+    return "unknown system event subtype";
+}
+
 } // end namespace mvlc
 } // end namespace mesytec
