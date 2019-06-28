@@ -334,7 +334,7 @@ if (MVME_ENABLE_MVLC)
         mvlc_listfile.cc
         mvlc_listfile_worker.cc
         mvlc_readout_worker.cc
-        mvlc_stream_workers.cc
+        mvlc_stream_worker.cc
     )
     target_link_libraries(libmvme libmvme_mvlc)
 

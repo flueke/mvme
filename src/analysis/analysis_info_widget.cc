@@ -2,20 +2,13 @@
 
 #include <cmath>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QTimer>
 
 #include "util/counters.h"
 #include "util/strings.h"
+#include "mvlc_stream_worker.h"
 #include "mvme_stream_worker.h"
-
-struct AnalysisInfoWidgetPrivate
-{
-    MVMEContext *context;
-    MVMEStreamProcessorCounters prevCounters;
-    QDateTime lastUpdateTime;
-    QVector<QLabel *> labels;
-    QTimer updateTimer;
-};
 
 static const QVector<const char *> LabelTexts =
 {
@@ -36,6 +29,32 @@ static const QVector<const char *> LabelTexts =
     "rate by module",
 };
 
+static const QVector<const char *> MVLC_LabelTexts =
+{
+    "buffers",
+    "internalBufferLoss",
+    "ethPacketsProcessed",
+    "ethPacketLoss",
+    "systemEventTypes",
+    "parseResults",
+    "parseResultRates",
+};
+
+struct AnalysisInfoWidgetPrivate
+{
+    MVMEContext *context;
+    MVMEStreamProcessorCounters prevCounters;
+    QDateTime lastUpdateTime;
+    QVector<QLabel *> labels;
+    QTimer updateTimer;
+
+    QWidget *mvlcInfoWidget;
+    QVector<QLabel *> mvlcLabels;
+    mesytec::mvlc::ReadoutParserCounters prevMVLCCounters;
+
+    void updateMVLCWidget(const mesytec::mvlc::ReadoutParserCounters &counters, double dt);
+};
+
 AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_d(new AnalysisInfoWidgetPrivate)
@@ -45,13 +64,31 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
 
     setWindowTitle(QSL("Analysis Info"));
 
-    auto layout = new QFormLayout(this);
+    auto layout = new QFormLayout();
     for (const char *text: LabelTexts)
     {
         auto label = new QLabel;
         layout->addRow(text, label);
         m_d->labels.push_back(label);
     }
+
+    m_d->mvlcInfoWidget = new QGroupBox("MVLC Readout Parser Counters:");
+    {
+        auto mvlcLayout = make_layout<QFormLayout, 0, 2>(m_d->mvlcInfoWidget);
+
+        for (const char *text: MVLC_LabelTexts)
+        {
+            auto label = new QLabel;
+            label->setWordWrap(true);
+            mvlcLayout->addRow(text, label);
+            m_d->mvlcLabels.push_back(label);
+        }
+    }
+
+    auto outerLayout = new QVBoxLayout(this);
+    outerLayout->addLayout(layout);
+    outerLayout->addWidget(m_d->mvlcInfoWidget);
+    outerLayout->addStretch(1);
 
     update();
 
@@ -61,10 +98,12 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     connect(&m_d->updateTimer, &QTimer::timeout, this, &AnalysisInfoWidget::update);
     connect(context, &MVMEContext::mvmeStreamWorkerStateChanged,
             this, [this](MVMEStreamWorkerState state) {
+
         if (state == MVMEStreamWorkerState::Running)
         {
             m_d->prevCounters = {};
             m_d->lastUpdateTime = {};
+            m_d->prevMVLCCounters = {};
         }
     });
 }
@@ -266,6 +305,123 @@ void AnalysisInfoWidget::update()
     // system event types
     //m_d->labels[ii++]->setText(sysEventCountsText);
 
+    if (auto worker = qobject_cast<MVLC_StreamWorker *>(streamWorker))
+    {
+        m_d->mvlcInfoWidget->setVisible(true);
+        auto counters = worker->getReadoutParserCounters();
+        m_d->updateMVLCWidget(counters, dt);
+        m_d->prevMVLCCounters = counters;
+    }
+    else
+    {
+        m_d->mvlcInfoWidget->setVisible(false);
+    }
+
     m_d->prevCounters = counters;
     m_d->lastUpdateTime = QDateTime::currentDateTime();
+}
+
+void AnalysisInfoWidgetPrivate::updateMVLCWidget(
+    const mesytec::mvlc::ReadoutParserCounters &counters, double dt)
+{
+    using namespace mesytec::mvlc;
+
+    auto &prevCounters = prevMVLCCounters;
+
+    u64 deltaBuffers = calc_delta0(counters.buffersProcessed,
+                                   prevCounters.buffersProcessed);
+
+    double bufferRate = deltaBuffers / dt;
+
+    u64 deltaBufferLoss = calc_delta0(counters.internalBufferLoss,
+                                      prevCounters.internalBufferLoss);
+
+    double bufferLossRate = deltaBufferLoss / dt;
+
+    u64 deltaEthPackets = calc_delta0(counters.ethPacketsProcessed,
+                                      prevCounters.ethPacketsProcessed);
+
+    double ethPacketRate = deltaEthPackets / dt;
+
+    u64 deltaEthPacketLoss = calc_delta0(counters.ethPacketLoss,
+                                         prevCounters.ethPacketLoss);
+
+    double ethPacketLossRate = deltaEthPackets / dt;
+
+    ReadoutParserCounters::ParseResultArray deltaParseResults;
+    std::array<double, deltaParseResults.size()> parseResultRates;
+
+    for (size_t i=0; i<deltaParseResults.size(); i++)
+    {
+        deltaParseResults[i] = calc_delta0(counters.parseResults[i],
+                                           prevCounters.parseResults[i]);
+        parseResultRates[i] = deltaParseResults[i] / dt;
+    }
+
+    QStringList texts;
+
+    texts += QString("%1, rate=%2")
+        .arg(format_number(counters.buffersProcessed, "", UnitScaling::Decimal))
+        .arg(format_number(bufferRate, "buffers/s", UnitScaling::Decimal));
+
+    texts += QString("%1, rate=%2")
+        .arg(format_number(counters.internalBufferLoss, "", UnitScaling::Decimal))
+        .arg(format_number(bufferLossRate, "buffers/s", UnitScaling::Decimal));
+
+    texts += QString("%1, rate=%2")
+        .arg(format_number(counters.ethPacketsProcessed, "", UnitScaling::Decimal))
+        .arg(format_number(ethPacketRate, "packets/s", UnitScaling::Decimal));
+
+    texts += QString("%1, rate=%2")
+        .arg(format_number(counters.ethPacketLoss, "", UnitScaling::Decimal))
+        .arg(format_number(ethPacketLossRate, "packets/s", UnitScaling::Decimal));
+
+    // system event subtypes
+    {
+        QString buffer;
+
+        for (size_t subtype=0; subtype<counters.systemEventTypes.size(); subtype++)
+        {
+            if (!counters.systemEventTypes[subtype])
+                continue;
+
+            if (!buffer.isEmpty())
+                buffer += ", ";
+
+            buffer += QString("0x%1 (%2): %3")
+                .arg(subtype, 2, 16, QLatin1Char('0'))
+                .arg(get_system_event_subtype_name(subtype))
+                .arg(format_number(counters.systemEventTypes[subtype],
+                                   "", UnitScaling::Decimal));
+        }
+
+        texts += buffer;
+    }
+
+    // parse result counts
+    {
+        QString buffer;
+
+        for (size_t pr = 0; pr < counters.parseResults.size(); ++pr)
+        {
+            if (!counters.parseResults[pr])
+                continue;
+
+            if (!buffer.isEmpty())
+                buffer += ", ";
+
+            buffer += QString("%1: %2, rate=%3")
+                .arg(get_parse_result_name(static_cast<ParseResult>(pr)))
+                .arg(format_number(counters.parseResults[pr], "", UnitScaling::Decimal))
+                .arg(format_number(parseResultRates[pr], "results/s", UnitScaling::Decimal));
+        }
+
+        texts += buffer;
+    }
+
+    // Assign the stat texts to the labels
+    for (int i = 0; i < std::min(mvlcLabels.size(), texts.size()); ++i)
+    {
+        mvlcLabels[i]->setText(texts[i]);
+    }
 }

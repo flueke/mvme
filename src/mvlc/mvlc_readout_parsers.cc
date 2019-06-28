@@ -10,7 +10,7 @@
 #define LOG_LEVEL_TRACE 400
 
 #ifndef MVLC_READOUT_PARSER_LOG_LEVEL
-#define MVLC_READOUT_PARSER_LOG_LEVEL LOG_LEVEL_TRACE
+#define MVLC_READOUT_PARSER_LOG_LEVEL LOG_LEVEL_WARN
 #endif
 
 #define LOG_LEVEL_SETTING MVLC_READOUT_PARSER_LOG_LEVEL
@@ -96,6 +96,41 @@ VMEConfReadoutInfo parse_vme_readout_info(const VMEConfReadoutScripts &rdoScript
     }
 
     return result;
+}
+
+const char *get_parse_result_name(const ParseResult &pr)
+{
+    switch (pr)
+    {
+        case ParseResult::Ok:
+            return "Ok";
+
+        case ParseResult::NoHeaderPresent:
+            return "NoHeaderPresent";
+
+        case ParseResult::NoStackFrameFound:
+            return "NoStackFrameFound";
+
+        case ParseResult::NotAStackFrame:
+            return "NotAStackFrame";
+
+        case ParseResult::NotABlockFrame:
+            return "NotABlockFrame";
+
+        case ParseResult::NotAStackContinuation:
+            return "NotAStackContinuation";
+
+        case ParseResult::StackIndexChanged:
+            return "StackIndexChanged";
+
+        case ParseResult::EventIndexOutOfRange:
+            return "EventIndexOutOfRange";
+
+        case ParseResult::ParseResultMax:
+            break;
+    }
+
+    return "UnknownParseResult";
 }
 
 static const size_t WorkBufferSize = Megabytes(1);
@@ -451,12 +486,12 @@ maybe_flush_event:
 
                 if (didInvoke)
                 {
-                    ++state.counters.moduleCounters[state.eventIndex][mi];
+                    //++state.counters.moduleCounters[state.eventIndex][mi];
                 }
             }
 
             callbacks.endEvent(state.eventIndex);
-            ++state.counters.eventCounters[state.eventIndex];
+            //++state.counters.eventCounters[state.eventIndex];
             parser_clear_event_state(state);
         }
     }
@@ -494,6 +529,11 @@ inline u32 *find_frame_header(u32 *firstFrameHeader, const u32 *endOfData, u8 wa
         return nullptr;
     }
 };
+
+inline void count_parse_result(ReadoutParserCounters &counters, const ParseResult &pr)
+{
+    ++counters.parseResults[static_cast<size_t>(pr)];
+}
 
 // IMPORTANT: This function assumes that packet loss is handled on the outside!
 // The iterator must be bounded by the packets data.
@@ -558,6 +598,7 @@ ParseResult parse_eth_packet(
         while (!packetIter.atEnd())
         {
             ret = parse_readout_contents(state, callbacks, packetIter);
+            count_parse_result(state.counters, ret);
 
             LOG_TRACE("end parsing packet %u, dataWords=%u",
                       ethHdrs.packetNumber(), ethHdrs.dataWordCount());
@@ -580,11 +621,6 @@ ParseResult parse_eth_packet(
     return ParseResult::Ok;
 }
 
-inline void count_parse_result(ReadoutParserCounters &counters, const ParseResult &pr)
-{
-    ++counters.parseResults[static_cast<size_t>(pr)];
-}
-
 void parse_readout_buffer_eth(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
@@ -600,7 +636,7 @@ void parse_readout_buffer_eth(
         // Clear processing state/workBuffer, restart at next 0xF3.
         // Any output data prepared so far is discarded.
         parser_clear_event_state(state);
-        state.counters.interalBufferLoss += bufferLoss;
+        state.counters.internalBufferLoss += bufferLoss;
     }
 
     BufferIterator iter(buffer, bufferSize);
@@ -643,7 +679,6 @@ void parse_readout_buffer_eth(
                 eth::HeaderWords + ethHdrs.dataWordCount());
 
             ParseResult pr = parse_eth_packet(state, callbacks, packetIter);
-            count_parse_result(state.counters, pr);
 
             // XXX: reparsing of packets after state reset
 #if 0
@@ -729,7 +764,7 @@ void parse_readout_buffer_usb(
         // Clear processing state/workBuffer, restart at next 0xF3.
         // Any output data prepared so far will be discarded.
         parser_clear_event_state(state);
-        state.counters.interalBufferLoss += bufferLoss;
+        state.counters.internalBufferLoss += bufferLoss;
     }
 
     BufferIterator iter(buffer, bufferSize);

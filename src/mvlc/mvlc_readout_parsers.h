@@ -107,9 +107,11 @@ enum class ParseResult
     ParseResultMax
 };
 
+const char *get_parse_result_name(const ParseResult &pr);
+
 struct ReadoutParserCounters
 {
-    u32 interalBufferLoss;
+    u32 internalBufferLoss;
     u32 buffersProcessed;
 
     u32 ethPacketLoss;
@@ -126,7 +128,8 @@ struct ReadoutParserCounters
     //std::array<u32, MaxVMEEvents> eventCounters;
     //std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
 
-    std::array<u32, static_cast<size_t>(ParseResult::ParseResultMax)> parseResults;
+    using ParseResultArray = std::array<u32, static_cast<size_t>(ParseResult::ParseResultMax)>;
+    ParseResultArray parseResults;
 };
 
 struct ReadoutParserState

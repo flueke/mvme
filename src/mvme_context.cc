@@ -28,7 +28,7 @@
 #include "event_server/server/event_server.h"
 #include "file_autosaver.h"
 #include "mvlc_listfile.h"
-#include "mvlc_stream_workers.h"
+#include "mvlc_stream_worker.h"
 #include "mvme_context_lib.h"
 #include "mvme.h"
 #include "mvme_listfile_worker.h"
