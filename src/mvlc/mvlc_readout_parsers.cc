@@ -98,11 +98,6 @@ VMEConfReadoutInfo parse_vme_readout_info(const VMEConfReadoutScripts &rdoScript
     return result;
 }
 
-inline bool event_in_progress(const ReadoutParserState &state)
-{
-    return state.eventIndex >= 0;
-}
-
 static const size_t WorkBufferSize = Megabytes(1);
 
 ReadoutParserState make_readout_parser(const VMEConfReadoutScripts &readoutScripts)
@@ -128,30 +123,24 @@ inline void clear_readout_data_spans(std::vector<ModuleReadoutSpans> &spans)
     std::fill(spans.begin(), spans.end(), ModuleReadoutSpans{});
 }
 
+inline bool is_event_in_progress(const ReadoutParserState &state)
+{
+    return state.eventIndex >= 0;
+}
+
+
 inline void parser_clear_event_state(ReadoutParserState &state)
 {
     state.eventIndex = -1;
-    assert(!event_in_progress(state));
+    state.moduleIndex = -1;
+    state.curStackFrame = {};
+    state.curBlockFrame = {};
+    assert(!is_event_in_progress(state));
 }
-
-enum class ParseResult
-{
-    Ok,
-    NoHeaderPresent,
-    NoStackFrameFound,
-
-    NotAStackFrame,
-    NotABlockFrame,
-    NotAStackContinuation,
-    StackIndexChanged,
-    EventIndexOutOfRange,
-
-    EndOfBuffer
-};
 
 inline ParseResult parser_begin_event(ReadoutParserState &state, u32 frameHeader)
 {
-    assert(!event_in_progress(state));
+    assert(!is_event_in_progress(state));
 
     auto frameInfo = extract_frame_info(frameHeader);
 
@@ -177,11 +166,11 @@ inline ParseResult parser_begin_event(ReadoutParserState &state, u32 frameHeader
     // just started parsing a new event.
     state.lastPacketNumber = -1;
 
-    assert(event_in_progress(state));
+    assert(is_event_in_progress(state));
     return ParseResult::Ok;
 }
 
-s64 calc_buffer_loss(u32 bufferNumber, u32 lastBufferNumber)
+inline s64 calc_buffer_loss(u32 bufferNumber, u32 lastBufferNumber)
 {
     s64 diff = bufferNumber - lastBufferNumber;
 
@@ -220,22 +209,28 @@ inline bool try_handle_system_event(
 {
     if (get_frame_type(iter.peekU32(0)) == frame_headers::SystemEvent)
     {
-        auto frameInfo = extract_frame_info(iter.peekU32(0));
+        u32 frameHeader = iter.peekU32();
+        auto frameInfo = extract_frame_info(frameHeader);
 
         // It should be guaranteed that the whole frame fits into the buffer.
         if (iter.longwordsLeft() <= frameInfo.len)
             throw end_of_buffer("SystemEvent frame exceeds input buffer size.");
 
+        u8 subtype = system_event::extract_subtype(frameHeader);
+        ++state.counters.systemEventTypes[subtype];
+
         // Pass the frame header itself and the contents to the system event
         // callback.
         callbacks.systemEvent(iter.indexU32(0), frameInfo.len + 1);
-        iter.skip(frameInfo.len + 1, sizeof(u32));
+        iter.skipExact(frameInfo.len + 1, sizeof(u32));
         return true;
     }
 
     return false;
 }
 
+// This is called with an iterator over a full USB buffer or with an iterator
+// limited to the payload from a single UDP packet.
 ParseResult parse_readout_contents(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
@@ -243,45 +238,56 @@ ParseResult parse_readout_contents(
 {
     while (!iter.atEnd())
     {
+        // Find a stack frame matching the current parser state. Return if no
+        // matching frame is detected at the current iterator position.
         if (!state.curStackFrame)
         {
+            // If there's no open stack frame there should be no open block
+            // frame either. Als data from any open blocks must've been
+            // consumed previously or the block frame should have been manually
+            // invalidated. XXX: ensure the reset is happening when handling errors
+            assert(!state.curBlockFrame);
+
             // USB buffers can contain system frames alongside readout
             // generated frames. For ETH buffers the system frames are handled
             // further up in parse_readout_buffer().
             if (try_handle_system_event(state, callbacks, iter))
                 continue;
 
-            assert(!state.curBlockFrame);
-
-            u32 frameHeader = iter.extractU32();
-            auto frameInfo = extract_frame_info(frameHeader);
-
-            if (event_in_progress(state))
+            if (is_event_in_progress(state))
             {
+                // Leave the frame header in the buffer for now. In case of an
+                // 'early error return' the caller can modify the state and
+                // retry parsing from the same position.
+                auto frameInfo = extract_frame_info(iter.peekU32());
+
                 if (frameInfo.type != frame_headers::StackContinuation)
                     return ParseResult::NotAStackContinuation;
 
                 if (frameInfo.stack - 1 != state.eventIndex)
                     return ParseResult::StackIndexChanged;
 
-                state.curStackFrame = { frameHeader };
+                // The stack frame is ok and can now be extracted from the
+                // buffer.
+                state.curStackFrame = { iter.extractU32() };
             }
             else
             {
-                if (frameInfo.type != frame_headers::StackFrame)
-                    return ParseResult::NotAStackFrame;
-
-                auto pr = parser_begin_event(state, frameHeader);
+                // No event is in progress. This means the frame header needs
+                // to be extracted from the buffer to ensure progress. It's no
+                // use for the caller to reset the state and retry as that
+                // would lead to the same result.
+                auto pr = parser_begin_event(state, iter.extractU32());
 
                 if (pr != ParseResult::Ok)
                     return pr;
 
-                assert(event_in_progress(state));
+                assert(is_event_in_progress(state));
             }
         }
 
         assert(state.curStackFrame);
-        assert(event_in_progress(state));
+        assert(is_event_in_progress(state));
 
         const auto &moduleReadoutInfos = state.readoutInfo[state.eventIndex];
         const auto &moduleParts = moduleReadoutInfos[state.moduleIndex];
@@ -308,9 +314,6 @@ ParseResult parse_readout_contents(
                     u16 wordsToCopy = std::min({
                         wordsLeftInSpan, state.curStackFrame.wordsLeft,
                         static_cast<u16>(iter.longwordsLeft())});
-
-                    //if (iter.longwordsLeft() < wordsToCopy)
-                    //    throw end_of_buffer("ModulePrefixCopy");
 
                     copy_to_workbuffer(state, iter, wordsToCopy);
                     moduleSpans.prefixSpan.size += wordsToCopy;
@@ -371,8 +374,9 @@ ParseResult parse_readout_contents(
                             state.moduleIndex++;
                         }
                         else
+                        {
                             state.moduleParseState = ReadoutParserState::Suffix;
-
+                        }
                     }
                 }
                 break;
@@ -416,6 +420,7 @@ maybe_flush_event:
             for (int mi = 0; mi < static_cast<int>(moduleReadoutInfos.size()); mi++)
             {
                 const auto &moduleSpans = state.readoutDataSpans[mi];
+                bool didInvoke = false;
 
                 if (moduleSpans.prefixSpan.size)
                 {
@@ -423,6 +428,7 @@ maybe_flush_event:
                         state.eventIndex, mi,
                         state.workBuffer.indexU32(moduleSpans.prefixSpan.offset),
                         moduleSpans.prefixSpan.size);
+                    didInvoke = true;
                 }
 
                 if (moduleSpans.dynamicSpan.size)
@@ -431,6 +437,7 @@ maybe_flush_event:
                         state.eventIndex, mi,
                         state.workBuffer.indexU32(moduleSpans.dynamicSpan.offset),
                         moduleSpans.dynamicSpan.size);
+                    didInvoke = true;
                 }
 
                 if (moduleSpans.suffixSpan.size)
@@ -439,10 +446,17 @@ maybe_flush_event:
                         state.eventIndex, mi,
                         state.workBuffer.indexU32(moduleSpans.suffixSpan.offset),
                         moduleSpans.suffixSpan.size);
+                    didInvoke = true;
+                }
+
+                if (didInvoke)
+                {
+                    ++state.counters.moduleCounters[state.eventIndex][mi];
                 }
             }
 
             callbacks.endEvent(state.eventIndex);
+            ++state.counters.eventCounters[state.eventIndex];
             parser_clear_event_state(state);
         }
     }
@@ -450,18 +464,29 @@ maybe_flush_event:
     return ParseResult::Ok;
 }
 
-inline u32 *find_frame_header(u32 *firstFrameHeader, const u32 *endOfData, u8 frameType)
+inline u32 *find_frame_header(u32 *firstFrameHeader, const u32 *endOfData, u8 wantedFrameType)
 {
+    auto is_accepted_frame_type = [] (u8 frameType) -> bool
+    {
+        return (frameType == frame_headers::StackFrame
+                || frameType == frame_headers::StackContinuation);
+    };
+
     BufferIterator iter(firstFrameHeader, endOfData - firstFrameHeader);
 
     try
     {
         while (!iter.atEnd())
         {
-            if (get_frame_type(iter.peekU32()) == frameType)
+            const u8 frameType = get_frame_type(iter.peekU32());
+
+            if (frameType == wantedFrameType)
                 return iter.indexU32(0);
 
-            iter.skip(extract_frame_info(iter.peekU32()).len + 1, sizeof(u32));
+            if (!is_accepted_frame_type(frameType))
+                return nullptr;
+
+            iter.skipExact(extract_frame_info(iter.peekU32()).len + 1, sizeof(u32));
         }
         return nullptr;
     } catch (const end_of_buffer &)
@@ -475,16 +500,16 @@ inline u32 *find_frame_header(u32 *firstFrameHeader, const u32 *endOfData, u8 fr
 ParseResult parse_eth_packet(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
-    BufferIterator iter)
+    BufferIterator packetIter)
 {
-    eth::PayloadHeaderInfo ethHdrs{ iter.peekU32(0), iter.peekU32(1) };
-    const u32 *packetEndPtr = iter.indexU32(eth::HeaderWords + ethHdrs.dataWordCount());
-    assert(iter.endp == reinterpret_cast<const u8 *>(packetEndPtr));
+    eth::PayloadHeaderInfo ethHdrs{ packetIter.peekU32(0), packetIter.peekU32(1) };
+    const u32 *packetEndPtr = packetIter.indexU32(eth::HeaderWords + ethHdrs.dataWordCount());
+    assert(packetIter.endp == reinterpret_cast<const u8 *>(packetEndPtr));
 
     LOG_TRACE("begin parsing packet %u, dataWords=%u",
               ethHdrs.packetNumber(), ethHdrs.dataWordCount());
 
-    if (!event_in_progress(state))
+    if (!is_event_in_progress(state))
     {
         // Special case for the ETH readout: find the start of a new event by
         // interpreting the packets nextHeaderPointer value and searching from
@@ -501,7 +526,7 @@ ParseResult parse_eth_packet(
         // Find the next StackFrame header starting the search from the header
         // word pointed to by the ETH packet header. This StackFrame header
         // will mark the beginning of a new event.
-        u32 *firstFramePtr = iter.indexU32(eth::HeaderWords + ethHdrs.nextHeaderPointer());
+        u32 *firstFramePtr = packetIter.indexU32(eth::HeaderWords + ethHdrs.nextHeaderPointer());
 
         u32 *stackFrame = find_frame_header(
             firstFramePtr, packetEndPtr, frame_headers::StackFrame);
@@ -509,28 +534,34 @@ ParseResult parse_eth_packet(
         if (!stackFrame)
             return ParseResult::NoStackFrameFound;
 
-        assert(iter.data <= reinterpret_cast<u8 *>(stackFrame));
-        assert(reinterpret_cast<u8 *>(stackFrame) <= iter.endp);
+        // Check postconditions after find_frame_header()
+        assert(packetIter.data <= reinterpret_cast<u8 *>(stackFrame));
+        assert(reinterpret_cast<u8 *>(stackFrame) <= packetIter.endp);
 
         // Place the iterator right on the stackframe header.
         // parse_readout_contents() will pick this up and use it for
         // parser_begin_event().
-        iter.buffp = reinterpret_cast<u8 *>(stackFrame);
+        packetIter.buffp = reinterpret_cast<u8 *>(stackFrame);
     }
     else
     {
         // Skip to the first payload contents word, right after the two ETH
         // headers. This can be trailing data words from an already open stack
         // frame or it can be the next frame continuation header.
-        iter.skip(eth::HeaderWords, sizeof(u32));
+        packetIter.skipExact(eth::HeaderWords, sizeof(u32));
     }
 
     try
     {
-        auto ret = parse_readout_contents(state, callbacks, iter);
+        ParseResult ret = {};
 
-        LOG_TRACE("end parsing packet %u, dataWords=%u",
-                  ethHdrs.packetNumber(), ethHdrs.dataWordCount());
+        while (!packetIter.atEnd())
+        {
+            ret = parse_readout_contents(state, callbacks, packetIter);
+
+            LOG_TRACE("end parsing packet %u, dataWords=%u",
+                      ethHdrs.packetNumber(), ethHdrs.dataWordCount());
+        }
 
         return ret;
     }
@@ -547,6 +578,11 @@ ParseResult parse_eth_packet(
     }
 
     return ParseResult::Ok;
+}
+
+inline void count_parse_result(ReadoutParserCounters &counters, const ParseResult &pr)
+{
+    ++counters.parseResults[static_cast<size_t>(pr)];
 }
 
 void parse_readout_buffer_eth(
@@ -607,13 +643,40 @@ void parse_readout_buffer_eth(
                 eth::HeaderWords + ethHdrs.dataWordCount());
 
             ParseResult pr = parse_eth_packet(state, callbacks, packetIter);
+            count_parse_result(state.counters, pr);
+
+            // XXX: reparsing of packets after state reset
+#if 0
+            if (pr != ParseResult::Ok && pr != ParseResult::NoHeaderPresent)
+            {
+                // Parsing did not succeed. Throw away the current state and
+                // try again. If that still fails the packet will be skipped.
+                packetIter.rewind();
+                parser_clear_event_state(state);
+                pr = parse_eth_packet(state, callbacks, packetIter);
+                ++state.counters.ethPacketsReparsed;
+
+                if (pr != ParseResult::Ok)
+                {
+                    // Again a parse error. The packet will be skipped completely.
+                    ++state.counters.ethPacketsSkipped;
+                }
+
+                // FIXME: Handle the pr values. Counters, etc?
+            }
+#elif 0
+            if (pr != ParseResult::Ok)
+            {
+                ++state.counters.ethPacketsSkipped;
+            }
+#endif
             ++state.counters.ethPacketsProcessed;
 
             LOG_TRACE("parse_packet result: %d\n", (int)pr);
 
             // Skip over the packet ending up either on the next SystemEvent
             // frame or on the next packets header0.
-            iter.skip(eth::HeaderWords + ethHdrs.dataWordCount(), sizeof(u32));
+            iter.skipExact(eth::HeaderWords + ethHdrs.dataWordCount(), sizeof(u32));
         }
     }
     catch (const std::exception &e)
@@ -675,7 +738,14 @@ void parse_readout_buffer_usb(
     {
         while (!iter.atEnd())
         {
-            parse_readout_contents(state, callbacks, iter);
+            auto pr = parse_readout_contents(state, callbacks, iter);
+
+            count_parse_result(state.counters, pr);
+
+            if (pr != ParseResult::Ok)
+            {
+                parser_clear_event_state(state);
+            }
         }
     }
     catch (const std::exception &e)

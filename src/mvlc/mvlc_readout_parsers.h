@@ -92,6 +92,21 @@ struct ReadoutParserCallbacks
         systemEvent = [] (u32 *, u32) {};
 };
 
+enum class ParseResult
+{
+    Ok,
+    NoHeaderPresent,
+    NoStackFrameFound,
+
+    NotAStackFrame,
+    NotABlockFrame,
+    NotAStackContinuation,
+    StackIndexChanged,
+    EventIndexOutOfRange,
+
+    ParseResultMax
+};
+
 struct ReadoutParserCounters
 {
     u32 interalBufferLoss;
@@ -99,6 +114,19 @@ struct ReadoutParserCounters
 
     u32 ethPacketLoss;
     u32 ethPacketsProcessed;
+#if 0
+    u32 ethPacketsReparsed;
+    u32 ethPacketsSkipped;
+#endif
+
+    std::array<u32, system_event::subtype::SubtypeMax + 1> systemEventTypes;
+
+    using ModuleCounters = std::array<u32, MaxVMEModules>;
+
+    //std::array<u32, MaxVMEEvents> eventCounters;
+    //std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
+
+    std::array<u32, static_cast<size_t>(ParseResult::ParseResultMax)> parseResults;
 };
 
 struct ReadoutParserState
