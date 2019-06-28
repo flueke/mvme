@@ -219,12 +219,14 @@ struct LIBMVME_CORE_EXPORT BufferIterator
 
     inline u32 *indexU32(size_t index)
     {
-        if (data + index * sizeof(u32) > endp)
+        if (buffp + index * sizeof(u32) > endp)
             throw end_of_buffer();
 
         return reinterpret_cast<u32 *>(buffp) + index;
     }
 
+    // Skips forward. Truncates to the buffer end if skipping would result in a
+    // position behind the buffer end.
     inline void skip(size_t bytes)
     {
         buffp += bytes;
@@ -235,6 +237,21 @@ struct LIBMVME_CORE_EXPORT BufferIterator
     inline void skip(size_t width, size_t count)
     {
         skip(width * count);
+    }
+
+    // Skips forward. Throws end_of_buffer if skipping would exceed the end of
+    // buffer.
+    inline void skipExact(size_t bytes)
+    {
+        if (buffp + bytes > endp)
+            throw end_of_buffer();
+
+        buffp += bytes;
+    }
+
+    inline void skipExact(size_t width, size_t count)
+    {
+        skipExact(width * count);
     }
 
     inline bool atEnd() const { return buffp == endp; }
