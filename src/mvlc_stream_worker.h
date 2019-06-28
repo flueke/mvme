@@ -9,17 +9,17 @@
 
 class MVMEContext;
 
-class MVLC_StreamWorkerBase: public StreamWorkerBase
+class MVLC_StreamWorker: public StreamWorkerBase
 {
     Q_OBJECT
     public:
-        MVLC_StreamWorkerBase(
+        MVLC_StreamWorker(
             MVMEContext *context,
             ThreadSafeDataBufferQueue *freeBuffers,
             ThreadSafeDataBufferQueue *fullBuffers,
             QObject *parent = nullptr);
 
-        ~MVLC_StreamWorkerBase() override;
+        ~MVLC_StreamWorker() override;
 
         MVMEStreamWorkerState getState() const override
         {
@@ -58,8 +58,14 @@ class MVLC_StreamWorkerBase: public StreamWorkerBase
 
         virtual MVMEStreamProcessorCounters getCounters() const override
         {
-            CountersLock guard(m_countersMutex);
+            UniqueLock guard(m_countersMutex);
             return m_counters;
+        }
+
+        mesytec::mvlc::ReadoutParserCounters getReadoutParserCounters() const
+        {
+            UniqueLock guard(m_parserMutex);
+            return m_parser.counters;
         }
 
     public slots:
@@ -73,28 +79,20 @@ class MVLC_StreamWorkerBase: public StreamWorkerBase
         void resume() override;
         void singleStep() override;
 
-    protected:
+    private:
         ThreadSafeDataBufferQueue *getFreeBuffers() { return m_freeBuffers; }
         ThreadSafeDataBufferQueue *getFullBuffers() { return m_fullBuffers; }
         void setState(MVMEStreamWorkerState newState);
 
-        virtual void beginRun_(
-            const RunInfo &runInfo,
-            const VMEConfig *vmeConfig,
-            analysis::Analysis *analysis) = 0;
+        using UniqueLock = mesytec::mvlc::UniqueLock;
 
-        virtual void processBuffer_(
-            DataBuffer *buffer,
-            const RunInfo &runInfo,
-            const VMEConfig *vmeConfig,
-            analysis::Analysis *analysis) = 0;
-
-        using CountersLock = mesytec::mvlc::UniqueLock;
         mutable mesytec::mvlc::TicketMutex m_countersMutex;
         MVMEStreamProcessorCounters m_counters = {};
-        mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
 
-    private:
+        mutable mesytec::mvlc::TicketMutex m_parserMutex;
+        mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
+        mesytec::mvlc::ReadoutParserState m_parser;
+
         // Used for the transition from non-Idle state to Idle state.
         enum StopFlag
         {
@@ -121,52 +119,6 @@ class MVLC_StreamWorkerBase: public StreamWorkerBase
         std::atomic<MVMEStreamWorkerState> m_desiredState;
         std::atomic<bool> m_startPaused;
         std::atomic<StopFlag> m_stopFlag;
-};
-
-class LIBMVME_EXPORT MVLC_ETH_StreamWorker: public MVLC_StreamWorkerBase
-{
-    Q_OBJECT
-    public:
-        using MVLC_StreamWorkerBase::MVLC_StreamWorkerBase;
-        ~MVLC_ETH_StreamWorker() override;
-
-    protected:
-        void beginRun_(
-            const RunInfo &runInfo,
-            const VMEConfig *vmeConfig,
-            analysis::Analysis *analysis) override;
-
-        void processBuffer_(
-            DataBuffer *buffer,
-            const RunInfo &runInfo,
-            const VMEConfig *vmeConfig,
-            analysis::Analysis *analysis) override;
-
-    private:
-        mesytec::mvlc::ReadoutParserState m_parser;
-};
-
-class LIBMVME_EXPORT MVLC_USB_StreamWorker: public MVLC_StreamWorkerBase
-{
-    Q_OBJECT
-    public:
-        using MVLC_StreamWorkerBase::MVLC_StreamWorkerBase;
-        ~MVLC_USB_StreamWorker() override;
-
-    protected:
-        void beginRun_(
-            const RunInfo &runInfo,
-            const VMEConfig *vmeConfig,
-            analysis::Analysis *analysis) override;
-
-        void processBuffer_(
-            DataBuffer *buffer,
-            const RunInfo &runInfo,
-            const VMEConfig *vmeConfig,
-            analysis::Analysis *analysis) override;
-
-    private:
-        mesytec::mvlc::ReadoutParserState m_parser;
 };
 
 #endif /* __MVLC_STREAM_WORKERS_H__ */

@@ -817,12 +817,8 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
             break;
 
         case VMEControllerType::MVLC_ETH:
-            m_streamWorker = std::make_unique<MVLC_ETH_StreamWorker>(
-                this, &m_freeBuffers, &m_fullBuffers);
-            break;
-
         case VMEControllerType::MVLC_USB:
-            m_streamWorker = std::make_unique<MVLC_USB_StreamWorker>(
+            m_streamWorker = std::make_unique<MVLC_StreamWorker>(
                 this, &m_freeBuffers, &m_fullBuffers);
             break;
     }
