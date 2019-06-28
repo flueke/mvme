@@ -905,7 +905,7 @@ inline void fixup_usb_buffer(
             }
 
             // Skip over the frameHeader and the frame contents.
-            iter.skip(frameInfo.len + 1, sizeof(u32));
+            iter.skipExact(frameInfo.len + 1, sizeof(u32));
         }
         else
         {
