@@ -31,7 +31,6 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
 
     std::array<u32, MaxVMEEvents> eventCounters;
     std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
-    std::array<u32, std::numeric_limits<u8>::max()> systemEventTypes;
 };
 
 /* Interface for consumers of raw module data. */

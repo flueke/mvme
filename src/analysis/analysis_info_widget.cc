@@ -34,7 +34,6 @@ static const QVector<const char *> LabelTexts =
     "counts by module",
     "rate by event ",
     "rate by module",
-    "mvlc system event types",
 };
 
 AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
@@ -194,6 +193,7 @@ void AnalysisInfoWidget::update()
         }
     }
 
+#if 0
     // format system event subtype counts
     QString sysEventCountsText;
 
@@ -209,6 +209,7 @@ void AnalysisInfoWidget::update()
                 .arg(counters.systemEventTypes[i]);
         }
     }
+#endif
 
     s32 ii = 0;
 
@@ -263,7 +264,7 @@ void AnalysisInfoWidget::update()
     m_d->labels[ii++]->setText(mrText);
 
     // system event types
-    m_d->labels[ii++]->setText(sysEventCountsText);
+    //m_d->labels[ii++]->setText(sysEventCountsText);
 
     m_d->prevCounters = counters;
     m_d->lastUpdateTime = QDateTime::currentDateTime();
