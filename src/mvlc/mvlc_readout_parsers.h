@@ -103,6 +103,7 @@ enum class ParseResult
     NotAStackContinuation,
     StackIndexChanged,
     EventIndexOutOfRange,
+    EmptyStackFrame,
 
     ParseResultMax
 };
@@ -198,12 +199,12 @@ struct ReadoutParserState
 
 ReadoutParserState make_readout_parser(const VMEConfReadoutScripts &readoutScripts);
 
-void parse_readout_buffer_eth(
+ParseResult parse_readout_buffer_eth(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     u32 bufferNumber, u8 *buffer, size_t bufferSize);
 
-void parse_readout_buffer_usb(
+ParseResult parse_readout_buffer_usb(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     u32 bufferNumber, u8 *buffer, size_t bufferSize);

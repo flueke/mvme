@@ -21,6 +21,7 @@ void mvme_init(const QString &appName)
     qRegisterMetaType<ControllerState>("ControllerState");
     qRegisterMetaType<Qt::Axis>("Qt::Axis");
     qRegisterMetaType<mesytec::mvlc::MVLCObject::State>("mesytec::mvlc::MVLCObject::State");
+    qRegisterMetaType<DataBuffer>("DataBuffer");
 
 #define REG_META_VEC(T) \
     qRegisterMetaType<QVector<T>>("QVector<"#T">")

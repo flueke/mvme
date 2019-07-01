@@ -25,6 +25,8 @@
 #include <QQueue>
 #include <cstring>
 
+#define DATABUFFER_ENABLE_COPY
+
 struct DataBuffer
 {
     DataBuffer()
@@ -46,9 +48,32 @@ struct DataBuffer
         delete[] data;
     }
 
+#ifdef DATABUFFER_ENABLE_COPY
+    // copy construction
+    DataBuffer(const DataBuffer &other)
+        : DataBuffer()
+    {
+        *this = other;
+    }
+
+    // copy assignment
+    DataBuffer &operator=(const DataBuffer &other)
+    {
+        used = 0u;
+        reserve(other.size);
+        std::memcpy(data, other.data, used);
+        used = other.used;
+        id = other.id;
+        tag = other.tag;
+
+        return *this;
+    }
+#else
     DataBuffer(const DataBuffer &) = delete;
     DataBuffer &operator=(const DataBuffer &) = delete;
+#endif
 
+    // move construction
     DataBuffer(DataBuffer &&other)
     {
         data = other.data;
@@ -64,6 +89,7 @@ struct DataBuffer
         other.tag = 0;
     }
 
+    // move assignment
     DataBuffer &operator=(DataBuffer &&other)
     {
         delete[] data;

@@ -129,6 +129,7 @@ struct AnalysisWidgetPrivate
     QAction *m_actionStepNextEvent;
     bool m_repopEnabled = true;
     QSettings m_settings;
+    MVLCParserDebugHandler *mvlcParserDebugHandler = nullptr;
 
     void onAnalysisChanged(Analysis *analysis);
     void repopulate();
@@ -1115,7 +1116,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
             show_and_activate(widget);
         });
 
-        // pause, resume, step actions
+        // pause, resume, step actions and MVLC parser debugging
+        m_d->mvlcParserDebugHandler = new MVLCParserDebugHandler(this);
 
         // Have to react to vmeControllerSet as that will change the
         // StreamWorkerBase instance used in MVMEContext. Thus the connection
@@ -1127,6 +1129,14 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
                     this, [this](MVMEStreamWorkerState) {
                         m_d->updateActions();
                     });
+
+            // MVLC specific
+            if (auto worker = qobject_cast<MVLC_StreamWorker *>(
+                    m_d->m_context->getMVMEStreamWorker()))
+            {
+                connect(worker, &MVLC_StreamWorker::debugInfoReady,
+                        m_d->mvlcParserDebugHandler, &MVLCParserDebugHandler::handleDebugInfo);
+            }
         });
 
         m_d->m_toolbar->addSeparator();

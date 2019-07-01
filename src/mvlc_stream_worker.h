@@ -12,6 +12,11 @@ class MVMEContext;
 class MVLC_StreamWorker: public StreamWorkerBase
 {
     Q_OBJECT
+    signals:
+        void debugInfoReady(
+            const DataBuffer &buffer,
+            const mesytec::mvlc::ReadoutParserState &parserState);
+
     public:
         MVLC_StreamWorker(
             MVMEContext *context,
@@ -79,6 +84,16 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void resume() override;
         void singleStep() override;
 
+        void requestDebugInfoOnNextBuffer()
+        {
+            m_debugInfoRequest = DebugInfoRequest::OnNextBuffer;
+        }
+
+        void requestDebugInfoOnNextError()
+        {
+            m_debugInfoRequest = DebugInfoRequest::OnNextError;
+        }
+
     private:
         ThreadSafeDataBufferQueue *getFreeBuffers() { return m_freeBuffers; }
         ThreadSafeDataBufferQueue *getFullBuffers() { return m_fullBuffers; }
@@ -100,6 +115,13 @@ class MVLC_StreamWorker: public StreamWorkerBase
             StopWhenQueueEmpty,
         };
 
+        enum class DebugInfoRequest
+        {
+            None,
+            OnNextBuffer,
+            OnNextError,
+        };
+
         void setupParserCallbacks(analysis::Analysis *analysis);
 
         void processBuffer(
@@ -119,6 +141,9 @@ class MVLC_StreamWorker: public StreamWorkerBase
         std::atomic<MVMEStreamWorkerState> m_desiredState;
         std::atomic<bool> m_startPaused;
         std::atomic<StopFlag> m_stopFlag;
+
+
+        std::atomic<DebugInfoRequest> m_debugInfoRequest;
 };
 
 #endif /* __MVLC_STREAM_WORKERS_H__ */

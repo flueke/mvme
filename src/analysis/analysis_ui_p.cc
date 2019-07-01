@@ -2818,6 +2818,28 @@ void ModuleSettingsDialog::accept()
     QDialog::accept();
 }
 
+//
+// MVLCParserDebugHandler
+//
+MVLCParserDebugHandler::MVLCParserDebugHandler(QObject *parent)
+    : QObject(parent)
+{
+}
+
+void MVLCParserDebugHandler::handleDebugInfo(
+    const DataBuffer &buffer,
+    const mesytec::mvlc::ReadoutParserState &parserState)
+{
+    using namespace mesytec::mvlc;
+
+    qDebug() << __PRETTY_FUNCTION__ << buffer.used << parserState.workBuffer.used;
+
+    QFile outFile("mvlc_parser_debug.txt");
+    outFile.open(QIODevice::WriteOnly | QIODevice::Append);
+    QTextStream out(&outFile);
+
+
+}
 
 } // end namespace ui
 } // end namespace analysis

@@ -126,6 +126,9 @@ const char *get_parse_result_name(const ParseResult &pr)
         case ParseResult::EventIndexOutOfRange:
             return "EventIndexOutOfRange";
 
+        case ParseResult::EmptyStackFrame:
+            return "EmptyStackFrame";
+
         case ParseResult::ParseResultMax:
             break;
     }
@@ -186,6 +189,9 @@ inline ParseResult parser_begin_event(ReadoutParserState &state, u32 frameHeader
 
     if (eventIndex < 0 || static_cast<unsigned>(eventIndex) >= state.readoutInfo.size())
         return ParseResult::EventIndexOutOfRange;
+
+    if (frameInfo.len == 0)
+        return ParseResult::EmptyStackFrame;
 
     state.workBuffer.used = 0;
     state.workBufferOffset = 0;
@@ -269,7 +275,8 @@ inline bool try_handle_system_event(
 ParseResult parse_readout_contents(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
-    BufferIterator &iter)
+    BufferIterator &iter,
+    bool is_eth)
 {
     while (!iter.atEnd())
     {
@@ -285,8 +292,11 @@ ParseResult parse_readout_contents(
 
             // USB buffers can contain system frames alongside readout
             // generated frames. For ETH buffers the system frames are handled
-            // further up in parse_readout_buffer().
-            if (try_handle_system_event(state, callbacks, iter))
+            // further up in parse_readout_buffer() and may not be handled here
+            // because the iterator can start with data from the last frame
+            // right away whereas USB buffer iterators always start on a frame
+            // header.
+            if (!is_eth && try_handle_system_event(state, callbacks, iter))
                 continue;
 
             if (is_event_in_progress(state))
@@ -301,6 +311,9 @@ ParseResult parse_readout_contents(
 
                 if (frameInfo.stack - 1 != state.eventIndex)
                     return ParseResult::StackIndexChanged;
+
+                if (frameInfo.len == 0)
+                    return ParseResult::EmptyStackFrame;
 
                 // The stack frame is ok and can now be extracted from the
                 // buffer.
@@ -321,8 +334,8 @@ ParseResult parse_readout_contents(
             }
         }
 
-        assert(state.curStackFrame);
         assert(is_event_in_progress(state));
+        assert(state.curStackFrame);
 
         const auto &moduleReadoutInfos = state.readoutInfo[state.eventIndex];
         const auto &moduleParts = moduleReadoutInfos[state.moduleIndex];
@@ -448,6 +461,7 @@ maybe_flush_event:
 
         if (state.moduleIndex >= static_cast<int>(moduleReadoutInfos.size()))
         {
+            assert(!state.curBlockFrame);
             // All modules have been processed and the event can be flushed.
 
             callbacks.beginEvent(state.eventIndex);
@@ -593,18 +607,24 @@ ParseResult parse_eth_packet(
 
     try
     {
-        ParseResult ret = {};
+        ParseResult retval = {};
 
         while (!packetIter.atEnd())
         {
-            ret = parse_readout_contents(state, callbacks, packetIter);
-            count_parse_result(state.counters, ret);
+            auto pr = parse_readout_contents(
+                state, callbacks, packetIter,
+                true);
+            count_parse_result(state.counters, pr);
+
+            // Keep the last error code in retval to return at the end.
+            if (pr != ParseResult::Ok)
+                retval = pr;
 
             LOG_TRACE("end parsing packet %u, dataWords=%u",
                       ethHdrs.packetNumber(), ethHdrs.dataWordCount());
         }
 
-        return ret;
+        return retval;
     }
     catch (const std::exception &e)
     {
@@ -621,13 +641,14 @@ ParseResult parse_eth_packet(
     return ParseResult::Ok;
 }
 
-void parse_readout_buffer_eth(
+ParseResult parse_readout_buffer_eth(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     u32 bufferNumber, u8 *buffer, size_t bufferSize)
 {
     LOG_TRACE("begin parsing ETH buffer %u, size=%lu bytes", bufferNumber, bufferSize);
 
+    ParseResult retval = {};
     s64 bufferLoss = calc_buffer_loss(bufferNumber, state.lastBufferNumber);
     state.lastBufferNumber = bufferNumber;
 
@@ -680,6 +701,10 @@ void parse_readout_buffer_eth(
 
             ParseResult pr = parse_eth_packet(state, callbacks, packetIter);
 
+            // Keep the last error code in retval to return at the end.
+            if (pr != ParseResult::Ok)
+                retval = pr;
+
             // XXX: reparsing of packets after state reset
 #if 0
             if (pr != ParseResult::Ok && pr != ParseResult::NoHeaderPresent)
@@ -722,6 +747,14 @@ void parse_readout_buffer_eth(
         parser_clear_event_state(state);
         throw;
     }
+    catch (...)
+    {
+        LOG_WARN("end parsing ETH buffer %u, size=%lu bytes, unknown exception",
+                 bufferNumber, bufferSize);
+
+        parser_clear_event_state(state);
+        throw;
+    }
 
     ++state.counters.buffersProcessed;
     LOG_TRACE("end parsing ETH buffer %u, size=%lu bytes", bufferNumber, bufferSize);
@@ -747,15 +780,17 @@ void parse_readout_buffer_eth(
                  bufferNumber, iter.longwordsLeft());
     }
 #endif
+    return retval;
 }
 
-void parse_readout_buffer_usb(
+ParseResult parse_readout_buffer_usb(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     u32 bufferNumber, u8 *buffer, size_t bufferSize)
 {
     LOG_TRACE("begin parsing USB buffer %u, size=%lu bytes", bufferNumber, bufferSize);
 
+    ParseResult retval = {};
     s64 bufferLoss = calc_buffer_loss(bufferNumber, state.lastBufferNumber);
     state.lastBufferNumber = bufferNumber;
 
@@ -773,13 +808,14 @@ void parse_readout_buffer_usb(
     {
         while (!iter.atEnd())
         {
-            auto pr = parse_readout_contents(state, callbacks, iter);
+            auto pr = parse_readout_contents(state, callbacks, iter, false);
 
             count_parse_result(state.counters, pr);
 
             if (pr != ParseResult::Ok)
             {
                 parser_clear_event_state(state);
+                retval = pr;
             }
         }
     }
@@ -791,9 +827,19 @@ void parse_readout_buffer_usb(
         parser_clear_event_state(state);
         throw;
     }
+    catch (...)
+    {
+        LOG_WARN("end parsing USB buffer %u, size=%lu bytes, unknown exception",
+                 bufferNumber, bufferSize);
+
+        parser_clear_event_state(state);
+        throw;
+    }
 
     ++state.counters.buffersProcessed;
     LOG_TRACE("end parsing USB buffer %u, size=%lu bytes", bufferNumber, bufferSize);
+
+    return retval;
 }
 
 } // end namespace mesytec

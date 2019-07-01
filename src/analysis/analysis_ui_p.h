@@ -49,6 +49,7 @@
 #include "analysis/ui_lib.h"
 #include "data_filter_edit.h"
 #include "histo_util.h"
+#include "mvlc_stream_worker.h"
 
 class MVMEContext;
 class ModuleConfig;
@@ -189,7 +190,8 @@ class AbstractOpConfigWidget: public QWidget
         void validityMayHaveChanged();
 
     public:
-        AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, MVMEContext *context, QWidget *parent = nullptr);
+        AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, MVMEContext *context,
+                               QWidget *parent = nullptr);
 
         void setNameEdited(bool b) { m_wasNameEdited = b; }
         bool wasNameEdited() const { return m_wasNameEdited; }
@@ -429,6 +431,18 @@ class ModuleSettingsDialog: public QDialog
 
 QString make_input_source_text(Slot *slot);
 QString make_input_source_text(Pipe *inputPipe, s32 paramIndex = Slot::NoParamIndex);
+
+class MVLCParserDebugHandler: public QObject
+{
+    Q_OBJECT
+    public:
+    MVLCParserDebugHandler(QObject *parent = nullptr);
+
+    public slots:
+        void handleDebugInfo(
+            const DataBuffer &buffer,
+            const mesytec::mvlc::ReadoutParserState &parserState);
+};
 
 } // ns ui
 } // ns analysis

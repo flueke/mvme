@@ -90,6 +90,7 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig)
         {
             case TriggerCondition::Interrupt:
                 {
+                    // TODO: add NoIACK/IACK options to the VMEConfig
                     u16 triggerReg = stacks::get_trigger_register(stackId);
 
                     u32 triggerVal = stacks::IRQNoIACK << stacks::TriggerTypeShift;

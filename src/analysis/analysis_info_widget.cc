@@ -3,6 +3,7 @@
 #include <cmath>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QPushButton>
 #include <QTimer>
 
 #include "util/counters.h"
@@ -47,6 +48,8 @@ struct AnalysisInfoWidgetPrivate
     QDateTime lastUpdateTime;
     QVector<QLabel *> labels;
     QTimer updateTimer;
+    QPushButton *mvlcRequestBufferOnError;
+    QPushButton *mvlcRequestNextBuffer;
 
     QWidget *mvlcInfoWidget;
     QVector<QLabel *> mvlcLabels;
@@ -64,6 +67,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
 
     setWindowTitle(QSL("Analysis Info"));
 
+    // Upper layout for all VME controllers
     auto layout = new QFormLayout();
     for (const char *text: LabelTexts)
     {
@@ -72,6 +76,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
         m_d->labels.push_back(label);
     }
 
+    // MVLC specific widgets
     m_d->mvlcInfoWidget = new QGroupBox("MVLC Readout Parser Counters:");
     {
         auto mvlcLayout = make_layout<QFormLayout, 0, 2>(m_d->mvlcInfoWidget);
@@ -83,8 +88,35 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
             mvlcLayout->addRow(text, label);
             m_d->mvlcLabels.push_back(label);
         }
+
+        m_d->mvlcRequestBufferOnError = new QPushButton("Debug on parse error");
+        m_d->mvlcRequestNextBuffer = new QPushButton("Debug next buffer");
+
+        mvlcLayout->addRow(m_d->mvlcRequestBufferOnError);
+        mvlcLayout->addRow(m_d->mvlcRequestNextBuffer);
+
+        connect(m_d->mvlcRequestBufferOnError, &QPushButton::clicked,
+                this, [this] ()
+        {
+            if (auto worker = qobject_cast<MVLC_StreamWorker *>(
+                    m_d->context->getMVMEStreamWorker()))
+            {
+                worker->requestDebugInfoOnNextError();
+            }
+        });
+
+        connect(m_d->mvlcRequestNextBuffer, &QPushButton::clicked,
+                this, [this] ()
+        {
+            if (auto worker = qobject_cast<MVLC_StreamWorker *>(
+                    m_d->context->getMVMEStreamWorker()))
+            {
+                worker->requestDebugInfoOnNextBuffer();
+            }
+        });
     }
 
+    // outer widget layout
     auto outerLayout = new QVBoxLayout(this);
     outerLayout->addLayout(layout);
     outerLayout->addWidget(m_d->mvlcInfoWidget);
@@ -346,7 +378,7 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
     u64 deltaEthPacketLoss = calc_delta0(counters.ethPacketLoss,
                                          prevCounters.ethPacketLoss);
 
-    double ethPacketLossRate = deltaEthPackets / dt;
+    double ethPacketLossRate = deltaEthPacketLoss / dt;
 
     ReadoutParserCounters::ParseResultArray deltaParseResults;
     std::array<double, deltaParseResults.size()> parseResultRates;
@@ -408,7 +440,7 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
                 continue;
 
             if (!buffer.isEmpty())
-                buffer += ", ";
+                buffer += "\n";
 
             buffer += QString("%1: %2, rate=%3")
                 .arg(get_parse_result_name(static_cast<ParseResult>(pr)))
