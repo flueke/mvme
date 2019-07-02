@@ -101,10 +101,10 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         using UniqueLock = mesytec::mvlc::UniqueLock;
 
-        mutable mesytec::mvlc::TicketMutex m_countersMutex;
+        mutable mesytec::mvme::TicketMutex m_countersMutex;
         MVMEStreamProcessorCounters m_counters = {};
 
-        mutable mesytec::mvlc::TicketMutex m_parserMutex;
+        mutable mesytec::mvme::TicketMutex m_parserMutex;
         mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
         mesytec::mvlc::ReadoutParserState m_parser;
 

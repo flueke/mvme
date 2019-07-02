@@ -473,7 +473,7 @@ struct MVLCReadoutWorker::Private
     DataBuffer *outputBuffer = nullptr;
 
     MVLCReadoutCounters counters = {};
-    mutable TicketMutex countersMutex;
+    mutable mesytec::mvme::TicketMutex countersMutex;
 
     Private(MVLCReadoutWorker *q_)
         : q(q_)
