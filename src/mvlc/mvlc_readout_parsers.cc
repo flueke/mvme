@@ -396,6 +396,7 @@ ParseResult parse_readout_contents(
 
                         if (state.curBlockFrame.info().type != frame_headers::BlockRead)
                         {
+                            state.curBlockFrame = {};
                             parser_clear_event_state(state);
                             return ParseResult::NotABlockFrame;
                         }

@@ -254,7 +254,7 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
                    header, is_stack_buffer(header),
                    is_stack_buffer_continuation(header));
 
-            qDebug("%s: buffp=0x%p, nextHeaderOffset=%lu",
+            qDebug("%s: buffp=%p, nextHeaderOffset=%lu",
                    __FUNCTION__,
                    buffp, data.nextHeaderOffset);
 

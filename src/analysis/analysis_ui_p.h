@@ -50,6 +50,7 @@
 #include "data_filter_edit.h"
 #include "histo_util.h"
 #include "mvlc_stream_worker.h"
+#include "qt_util.h"
 
 class MVMEContext;
 class ModuleConfig;
@@ -436,12 +437,15 @@ class MVLCParserDebugHandler: public QObject
 {
     Q_OBJECT
     public:
-    MVLCParserDebugHandler(QObject *parent = nullptr);
+        MVLCParserDebugHandler(QObject *parent = nullptr);
 
     public slots:
         void handleDebugInfo(
             const DataBuffer &buffer,
             const mesytec::mvlc::ReadoutParserState &parserState);
+
+    private:
+        WidgetGeometrySaver *m_geometrySaver;
 };
 
 } // ns ui

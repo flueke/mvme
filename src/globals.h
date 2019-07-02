@@ -178,4 +178,6 @@ enum class ListfileBufferFormat
     MVLC_USB,     // MVLC_USB buffers. Do not contain any additional header words.
 };
 
+const char *to_string(const ListfileBufferFormat &fmt);
+
 #endif

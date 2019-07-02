@@ -1535,7 +1535,8 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
         QMetaObject::invokeMethod(m_d->m_context->getMVMEStreamWorker(), "removeDiagnostics", Qt::QueuedConnection);
     });
 
-    connect(m_d->m_context, &MVMEContext::daqStateChanged, widget, [widget] (const DAQState &state) {
+    connect(m_d->m_context, &MVMEContext::daqStateChanged,
+            widget, [widget] (const DAQState &state) {
         if (state == DAQState::Running)
         {
             widget->clearResultsDisplay();

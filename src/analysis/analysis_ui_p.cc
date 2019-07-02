@@ -2821,24 +2821,71 @@ void ModuleSettingsDialog::accept()
 //
 // MVLCParserDebugHandler
 //
+using namespace mesytec::mvlc;
+
 MVLCParserDebugHandler::MVLCParserDebugHandler(QObject *parent)
     : QObject(parent)
+    , m_geometrySaver(new WidgetGeometrySaver(this))
 {
+}
+
+inline const char *to_string(const ReadoutParserState::ModuleParseState &mps)
+{
+    switch (mps)
+    {
+        case ReadoutParserState::Prefix:
+            return "Prefix";
+        case ReadoutParserState::Dynamic:
+            return "Dynamic";
+        case ReadoutParserState::Suffix:
+            return "Suffix";
+    }
+
+    return "unknown ModuleParseState";
 }
 
 void MVLCParserDebugHandler::handleDebugInfo(
     const DataBuffer &buffer,
     const mesytec::mvlc::ReadoutParserState &parserState)
 {
-    using namespace mesytec::mvlc;
 
     qDebug() << __PRETTY_FUNCTION__ << buffer.used << parserState.workBuffer.used;
 
-    QFile outFile("mvlc_parser_debug.txt");
-    outFile.open(QIODevice::WriteOnly | QIODevice::Append);
-    QTextStream out(&outFile);
+    QString textBuffer;
+    QTextStream out(&textBuffer);
+
+    out << "buffer number = " << buffer.id
+        << ", last buffer number = " << parserState.lastBufferNumber << endl;
+    out << "buffer size = " << buffer.used / sizeof(u32) << endl;
+    out << "buffer format is " << to_string(static_cast<ListfileBufferFormat>(buffer.tag)) << endl;
+    out << "last ETH packet number = " << parserState.lastPacketNumber << endl;
+
+    out << "ParserState: eventIndex=" << parserState.eventIndex
+        << ", moduleIndex=" << parserState.moduleIndex
+        << ", moduleParseState=" << to_string(parserState.moduleParseState)
+        << endl;
+
+    out << QSL("curStackFrame: 0x%1, wordsLeft=%2\n")
+        .arg(parserState.curStackFrame.header, 8, 16, QLatin1Char('0'));
+
+    out << QSL("curBlockFrame: 0x%1, wordsLeft=%2\n")
+        .arg(parserState.curBlockFrame.header, 8, 16, QLatin1Char('0'));
+
+    out << "----------" << endl;
+
+    ::logBuffer(BufferIterator(buffer.data, buffer.used),
+                [&out] (const QString &str) {
+        out << str << endl;
+    });
 
 
+    auto tb = new QTextBrowser;
+    m_geometrySaver->addAndRestore(tb, QSL("WindowGeometries/MVLCReadoutParserDebug"));
+    tb->setFont(make_monospace_font());
+    tb->setWindowTitle("MVLC Readout Parser Debug");
+    tb->setAttribute(Qt::WA_DeleteOnClose);
+    tb->setText(textBuffer);
+    tb->show();
 }
 
 } // end namespace ui
