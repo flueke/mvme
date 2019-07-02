@@ -9,6 +9,7 @@
 #include <QDebug>
 
 #include "mvlc/mvlc_threading.h"
+#include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_error.h"
 
 
@@ -241,6 +242,75 @@ mesytec::mvlc::usb::DeviceInfoList make_device_info_list()
     return result;
 }
 
+using namespace mesytec::mvlc;
+
+std::error_code disable_all_triggers(MVLCDialog &dlg)
+{
+    for (u8 stackId = 0; stackId < stacks::StackCount; stackId++)
+    {
+        u16 addr = stacks::get_trigger_register(stackId);
+
+        if (auto ec = dlg.writeRegister(addr, stacks::NoTrigger))
+            return ec;
+    }
+
+    return {};
+}
+
+// USB specific post connect routine.
+// - Disable all triggers by writing 0 to the corresponding registers.
+// - Read from the command pipe until no more data arrives.
+// - Read from the data pipe until no more data arrives.
+// - Do a register read to check that communication is ok now.
+std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
+{
+    qDebug() << __PRETTY_FUNCTION__ << "begin";
+
+    static const int RetryCount = 3;
+    static const int DataBufferSize = 10 * 1024;
+
+    mesytec::mvlc::MVLCDialog dlg(&impl);
+    std::error_code ec;
+    size_t totalBytesTransferred = 0u;
+
+    // Disable the triggers. There may be timeouts due to the data pipe being
+    // full and no command responses arriving on the command pipe. Also
+    // notification data can be stuck in the command pipe so that the responses
+    // are not parsed correctly.
+
+    for (int try_ = 0; try_ < RetryCount; try_++)
+    {
+        ec = disable_all_triggers(dlg);
+
+        if (ec == ErrorType::ConnectionError)
+            return ec;
+
+        size_t bytesTransferred = 0u;
+        std::array<u8, DataBufferSize> buffer;
+
+        do
+        {
+            ec = impl.read(Pipe::Data, buffer.data(), buffer.size(), bytesTransferred);
+            totalBytesTransferred += bytesTransferred;
+
+            if (ec == ErrorType::ConnectionError)
+                return ec;
+
+        } while (bytesTransferred > 0);
+
+        u32 regVal = 0u;
+        ec = dlg.readRegister(stacks::get_trigger_register(0), regVal);
+
+        if (!ec)
+            break; // all good, no need to retry
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "end, totalBytesTransferred ="
+        << totalBytesTransferred << ", ec =" << ec.message().c_str();
+
+    return ec;
+}
+
 } // end anon namespace
 
 namespace mesytec
@@ -432,7 +502,17 @@ std::error_code Impl::connect()
         }
     }
 
-    LOG_INFO("connected");
+    LOG_INFO("opened USB device");
+
+    if (auto ec = post_connect_cleanup(*this))
+    {
+        LOG_WARN("error from USB post connect cleanup: %s", ec.message().c_str());
+        return ec;
+    }
+
+    LOG_INFO("connected to MVLC USB");
+
+    return {};
 
 #ifdef __WIN32
 #if 0
@@ -448,8 +528,6 @@ std::error_code Impl::connect()
     }
 #endif
 #endif // __WIN32
-
-    return {};
 }
 
 std::error_code Impl::disconnect()
