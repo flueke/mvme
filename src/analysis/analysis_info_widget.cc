@@ -38,7 +38,6 @@ static const QVector<const char *> MVLC_LabelTexts =
     "ethPacketLoss",
     "systemEventTypes",
     "parseResults",
-    "parseResultRates",
 };
 
 struct AnalysisInfoWidgetPrivate

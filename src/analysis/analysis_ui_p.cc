@@ -2866,10 +2866,14 @@ void MVLCParserDebugHandler::handleDebugInfo(
         << endl;
 
     out << QSL("curStackFrame: 0x%1, wordsLeft=%2\n")
-        .arg(parserState.curStackFrame.header, 8, 16, QLatin1Char('0'));
+        .arg(parserState.curStackFrame.header, 8, 16, QLatin1Char('0'))
+        .arg(parserState.curStackFrame.wordsLeft)
+        ;
 
     out << QSL("curBlockFrame: 0x%1, wordsLeft=%2\n")
-        .arg(parserState.curBlockFrame.header, 8, 16, QLatin1Char('0'));
+        .arg(parserState.curBlockFrame.header, 8, 16, QLatin1Char('0'))
+        .arg(parserState.curBlockFrame.wordsLeft)
+        ;
 
     out << "----------" << endl;
 
