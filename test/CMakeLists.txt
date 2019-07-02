@@ -44,4 +44,15 @@ add_mvme_bench(test_util_tree test_util_tree.cc)
 add_mvme_bench(bench_data_filter bench_data_filter.cc)
 add_mvme_bench(test_misc test_misc.cc)
 
+# gtest tests
+
+function(add_mvme_gtest exe_name exe_source)
+    add_executable(${exe_name} ${exe_source})
+    add_dependencies(${exe_name} libmvme)
+    target_link_libraries(${exe_name} libmvme gtest gtest_main)
+    add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+endfunction(add_mvme_gtest)
+
+add_mvme_gtest(test_util_databuffer "test_util_databuffer.cc")
+
 endif(BUILD_TESTS)
