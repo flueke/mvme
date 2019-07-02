@@ -151,6 +151,22 @@ namespace system_event
     {
         return (header >> SubtypeShift) & SubtypeMask;
     }
+
+    inline bool is_known_subtype(u8 st)
+    {
+        return (st == subtype::EndianMarker
+                || st == subtype::VMEConfig
+                || st == subtype::UnixTimestamp
+                || st == subtype::Pause
+                || st == subtype::Resume
+                || st == subtype::EndOfFile);
+    }
+
+    inline bool is_known_system_event(u32 header)
+    {
+        return get_frame_type(header) == frame_headers::SystemEvent
+            && is_known_subtype(extract_subtype(header));
+    }
 }
 
 enum VMEDataWidth

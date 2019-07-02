@@ -173,6 +173,7 @@ inline void parser_clear_event_state(ReadoutParserState &state)
     state.moduleIndex = -1;
     state.curStackFrame = {};
     state.curBlockFrame = {};
+    state.moduleParseState = ReadoutParserState::Prefix;
     assert(!is_event_in_progress(state));
 }
 
@@ -248,9 +249,10 @@ inline bool try_handle_system_event(
     ReadoutParserCallbacks &callbacks,
     BufferIterator &iter)
 {
-    if (get_frame_type(iter.peekU32(0)) == frame_headers::SystemEvent)
+    u32 frameHeader = iter.peekU32();
+
+    if (system_event::is_known_system_event(frameHeader))
     {
-        u32 frameHeader = iter.peekU32();
         auto frameInfo = extract_frame_info(frameHeader);
 
         // It should be guaranteed that the whole frame fits into the buffer.
