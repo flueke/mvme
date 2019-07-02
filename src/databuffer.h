@@ -25,6 +25,8 @@
 #include <QQueue>
 #include <cstring>
 
+#include <QDebug>
+
 #define DATABUFFER_ENABLE_COPY
 
 struct DataBuffer
@@ -61,7 +63,7 @@ struct DataBuffer
     {
         used = 0u;
         reserve(other.size);
-        std::memcpy(data, other.data, used);
+        std::memcpy(data, other.data, other.used);
         used = other.used;
         id = other.id;
         tag = other.tag;
