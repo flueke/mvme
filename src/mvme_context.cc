@@ -37,6 +37,7 @@
 #include "mvme_workspace.h"
 #include "remote_control.h"
 #include "sis3153.h"
+#include "util/ticketmutex.h"
 #include "vme_analysis_common.h"
 #include "vme_config_ui.h"
 #include "vme_controller_factory.h"
@@ -154,6 +155,7 @@ struct MVMEContextPrivate
     RunInfo m_runInfo;
     u32 m_ctrlOpenRetryCount = 0;
     bool m_isFirstConnectionAttempt = true;
+    mesytec::mvme::TicketMutex tryOpenControllerMutex;
 
     std::unique_ptr<FileAutoSaver> m_vmeConfigAutoSaver;
     std::unique_ptr<FileAutoSaver> m_analysisAutoSaver;
@@ -960,6 +962,8 @@ QString MVMEContext::getUniqueModuleName(const QString &prefix) const
 
 void MVMEContext::tryOpenController()
 {
+    std::unique_lock<mesytec::mvme::TicketMutex> guard(m_d->tryOpenControllerMutex);
+
     if (m_controller
         && !m_controller->isOpen()
         && !m_ctrlOpenFuture.isRunning()
