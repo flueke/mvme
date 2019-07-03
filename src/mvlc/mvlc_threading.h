@@ -2,7 +2,6 @@
 #define __MVLC_THREADING_H__
 
 #include <cassert>
-#include <condition_variable>
 #include <mutex>
 #include "util/ticketmutex.h"
 #include "mvlc/mvlc_constants.h"

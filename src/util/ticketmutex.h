@@ -1,6 +1,10 @@
 #ifndef __MVME_UTIL_TICKETMUTEX_H__
 #define __MVME_UTIL_TICKETMUTEX_H__
 
+#include <mutex>
+#include <condition_variable>
+#include "typedefs.h"
+
 namespace mesytec
 {
 namespace mvme
