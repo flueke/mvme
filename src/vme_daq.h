@@ -67,6 +67,12 @@ vme_daq_shutdown(
     VMEController *controller,
     std::function<void (const QString &)> logger);
 
+bool has_errors(const QVector<ScriptWithResult> &results);
+
+void log_errors(const QVector<ScriptWithResult> &results,
+                std::function<void (const QString &)> logger);
+
+
 struct EventReadoutBuildFlags
 {
     static const u8 None = 0u;
@@ -104,9 +110,6 @@ class DAQReadoutListfileHelper
         std::unique_ptr<DAQReadoutListfileHelperPrivate> m_d;
         VMEReadoutWorkerContext m_readoutContext;
 };
-
-void log_errors(const QVector<ScriptWithResult> &results,
-                std::function<void (const QString &)> logger);
 
 /* Throws if neither UseRunNumber nor UseTimestamp is set and the file already
  * exists. Otherwise tries until it hits a non-existant filename. In the odd

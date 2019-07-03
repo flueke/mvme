@@ -19,6 +19,7 @@ struct RunInfo
     // TODO: replace with flags
     bool keepAnalysisState = false;
     bool isReplay = false;
+    bool ignoreStartupErrors = false;
 
     QVariantMap infoDict;
 };

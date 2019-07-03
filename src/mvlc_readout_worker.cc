@@ -596,8 +596,11 @@ void MVLCReadoutWorker::start(quint32 cycles)
         setState(DAQState::Starting);
 
         // vme init sequence
-        auto results = vme_daq_init(getContext().vmeConfig, d->mvlcCtrl, logger);
-        log_errors(results, logger);
+        if (!do_VME_DAQ_Init(d->mvlcCtrl))
+        {
+            setState(DAQState::Idle);
+            return;
+        }
 
         if (d->mvlc_eth)
         {

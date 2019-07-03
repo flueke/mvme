@@ -454,7 +454,11 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         // DAQ Init
         //
-        vme_daq_init(daqConfig, vmusb, [this] (const QString &msg) { logMessage(msg); });
+        if (!do_VME_DAQ_Init(vmusb))
+        {
+            setState(DAQState::Idle);
+            return;
+        }
 
         //
         // Debug Dump of all VMUSB registers

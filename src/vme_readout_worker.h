@@ -127,6 +127,7 @@ class VMEReadoutWorker: public QObject
     protected:
         virtual void pre_setContext(VMEReadoutWorkerContext newContext) {}
         VMEReadoutWorkerContext m_workerContext;
+        bool do_VME_DAQ_Init(VMEController *ctrl);
 };
 
 #endif /* __VME_READOUT_WORKER_H__ */

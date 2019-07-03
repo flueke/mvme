@@ -488,6 +488,20 @@ void DAQReadoutListfileHelper::writeResumeSection()
     }
 }
 
+bool has_errors(const QVector<ScriptWithResult> &results)
+{
+    for (const auto &swr: results)
+    {
+        for (auto &result: swr.results)
+        {
+            if (result.error.isError())
+                return true;
+        }
+    }
+
+    return false;
+}
+
 void log_errors(const QVector<ScriptWithResult> &results,
                 std::function<void (const QString &)> logger)
 {

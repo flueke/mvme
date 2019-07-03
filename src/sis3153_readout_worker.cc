@@ -1289,7 +1289,11 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         //
         // DAQ Init
         //
-        vme_daq_init(m_workerContext.vmeConfig, sis, [this] (const QString &msg) { sis_log(msg); });
+        if (!do_VME_DAQ_Init(sis))
+        {
+            setState(DAQState::Idle);
+            return;
+        }
 
         //
         // Debug Dump of SIS3153 registers
