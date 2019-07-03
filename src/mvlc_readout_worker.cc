@@ -916,6 +916,7 @@ inline void fixup_usb_buffer(
             // bytes to the tempBuffer.
             auto trailingBytes = iter.bytesLeft();
             move_bytes(readBuffer, tempBuffer, iter.asU8(), trailingBytes);
+            counters.partialFrameTotalBytes += trailingBytes;
             return;
         }
     }

@@ -7,9 +7,13 @@
 
 struct MVLCReadoutCounters
 {
+    // MVLC_USB only (ETH does not perform frame type checks as incoming data
+    // is packetized as is).
     // Unexpected frame types encountered. The readout should produce frames of
     // types StackFrame and StackContinuation only.
     u64 frameTypeErrors;
+
+    // MVLC_USB only.
     // Total number of bytes from partial frames. This is the amount of data
     // moved from the end of incoming read buffers into temp storage and then
     // reused at the start of the next buffer.
