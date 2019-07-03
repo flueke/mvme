@@ -156,6 +156,9 @@ class WorkspaceSettingsDialog: public QDialog
 
         QSpinBox *spin_jsonRPCListenPort,
                  *spin_eventServerListenPort;
+
+        QCheckBox *cb_ignoreStartupErrors;
+
         QDialogButtonBox *m_bb;
 
         std::shared_ptr<QSettings> m_settings;

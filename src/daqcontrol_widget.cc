@@ -670,6 +670,7 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     , le_eventServerListenAddress(new QLineEdit)
     , spin_jsonRPCListenPort(new QSpinBox)
     , spin_eventServerListenPort(new QSpinBox)
+    , cb_ignoreStartupErrors(new QCheckBox("Ignore VME Init Startup Errors"))
     , m_bb(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this))
     , m_settings(settings)
 {
@@ -683,6 +684,7 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
         auto l = new QFormLayout(gb);
         l->addRow(QSL("Experiment Name"), le_expName);
         l->addRow(QSL("Experiment Title"), le_expTitle);
+        l->addRow(cb_ignoreStartupErrors);
 
         widgetLayout->addWidget(gb);
     }
@@ -744,6 +746,9 @@ void WorkspaceSettingsDialog::populate()
     le_expName->setText(m_settings->value(QSL("Experiment/Name")).toString());
     le_expTitle->setText(m_settings->value(QSL("Experiment/Title")).toString());
 
+    cb_ignoreStartupErrors->setChecked(m_settings->value(
+            QSL("Experiment/IgnoreVMEStartupErrors")).toBool());
+
     gb_jsonRPC->setChecked(m_settings->value(QSL("JSON-RPC/Enabled")).toBool());
     le_jsonRPCListenAddress->setText(m_settings->value(QSL("JSON-RPC/ListenAddress")).toString());
     spin_jsonRPCListenPort->setValue(m_settings->value(QSL("JSON-RPC/ListenPort")).toInt());
@@ -757,6 +762,8 @@ void WorkspaceSettingsDialog::accept()
 {
     m_settings->setValue(QSL("Experiment/Name"), le_expName->text());
     m_settings->setValue(QSL("Experiment/Title"), le_expTitle->text());
+    m_settings->setValue(QSL("Experiment/IgnoreVMEStartupErrors"),
+                         cb_ignoreStartupErrors->isChecked());
 
     m_settings->setValue(QSL("JSON-RPC/Enabled"), gb_jsonRPC->isChecked());
     m_settings->setValue(QSL("JSON-RPC/ListenAddress"), le_jsonRPCListenAddress->text());

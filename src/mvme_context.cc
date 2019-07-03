@@ -1313,6 +1313,8 @@ void MVMEContext::prepareStart()
     m_d->m_runInfo.infoDict["ExperimentName"] = wsSettings->value("Experiment/Name");
     m_d->m_runInfo.infoDict["ExperimentTitle"] = wsSettings->value("Experiment/Title");
     m_d->m_runInfo.infoDict["MVMEWorkspace"] = getWorkspaceDirectory();
+    m_d->m_runInfo.ignoreStartupErrors = wsSettings->value(
+        "Experiment/IgnoreVMEStartupErrors").toBool();
 
     qDebug() << __PRETTY_FUNCTION__
         << "free buffers:" << m_freeBuffers.queue.size()
