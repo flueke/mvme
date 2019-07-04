@@ -31,6 +31,7 @@
 #include "mvlc/mvlc_util.h"
 #include "qt_util.h"
 #include "util/counters.h"
+#include "util/strings.h"
 
 using namespace mesytec;
 using namespace mesytec::mvlc;
@@ -962,8 +963,10 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
             if (auto ec = m_d->mvlc->mirrorTransaction(cmdBuffer, responseBuffer))
             {
-                logMessage(QString("Error performing MVLC mirror transaction: %1")
-                           .arg(ec.message().c_str()));
+                logMessage(QString("Error performing MVLC mirror transaction: %1 (%2)")
+                           .arg(ec.message().c_str())
+                           .arg(ec.value())
+                           );
 
                 if (!logRequest)
                 {
@@ -2424,13 +2427,4 @@ void IPv4RegisterWidget::setRegisterValue(u16 reg, u16 value)
     u32 ipAddressValue = (hiPart << 16) | loPart;
 
     le_addressInput->setText(format_ipv4(ipAddressValue));
-}
-
-QString format_ipv4(u32 address)
-{
-    return QString("%1.%2.%3.%4")
-        .arg((address >> 24) & 0xFF)
-        .arg((address >> 16) & 0xFF)
-        .arg((address >>  8) & 0xFF)
-        .arg((address >>  0) & 0xFF);
 }

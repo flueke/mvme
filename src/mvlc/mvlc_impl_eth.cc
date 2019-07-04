@@ -20,9 +20,11 @@
 #include <fcntl.h>
 #endif
 
+#include "mvlc/mvlc_buffer_validators.h"
+#include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_util.h"
-#include "mvlc/mvlc_buffer_validators.h"
+#include "util/strings.h"
 
 #define LOG_LEVEL_WARN  100
 #define LOG_LEVEL_INFO  200
@@ -201,6 +203,16 @@ Impl::~Impl()
 //   currently sending its data output.
 std::error_code Impl::connect()
 {
+    auto close_sockets = [this] ()
+    {
+        if (m_cmdSock >= 0)
+            ::close(m_cmdSock);
+        if (m_dataSock >= 0)
+            ::close(m_dataSock);
+        m_cmdSock = -1;
+        m_dataSock = -1;
+    };
+
     if (isConnected())
         return make_error_code(MVLCErrorCode::IsConnected);
 
@@ -278,10 +290,7 @@ std::error_code Impl::connect()
 
         try_again:
         {
-            ::close(m_cmdSock);
-            ::close(m_dataSock);
-            m_cmdSock = -1;
-            m_dataSock = -1;
+            close_sockets();
         }
     }
 
@@ -293,20 +302,14 @@ std::error_code Impl::connect()
     if (int res = ::connect(m_cmdSock, reinterpret_cast<struct sockaddr *>(&m_cmdAddr),
                             sizeof(m_cmdAddr)))
     {
-        ::close(m_cmdSock);
-        ::close(m_dataSock);
-        m_cmdSock = -1;
-        m_dataSock = -1;
+        close_sockets();
         return std::error_code(errno, std::system_category());
     }
 
     if (int res = ::connect(m_dataSock, reinterpret_cast<struct sockaddr *>(&m_dataAddr),
                             sizeof(m_dataAddr)))
     {
-        ::close(m_cmdSock);
-        ::close(m_dataSock);
-        m_cmdSock = -1;
-        m_dataSock = -1;
+        close_sockets();
         return std::error_code(errno, std::system_category());
     }
 
@@ -365,10 +368,38 @@ std::error_code Impl::connect()
         }
     }
 
+    assert(m_cmdSock >= 0 && m_dataSock >= 0);
+
     // TODO: send some initial request to verify there's an MVLC on the other side
     // Note: this should not interfere with any other active client.
+    //
+    // Try to read the destination Command pipe address from the MVLC. Sending
+    // this command will make the MVLC set the source IP address as the Command
+    // pipes destination address and then send out the reply. This means the
+    // resulting address should be the clients IP address used to connect to
+    // the MVLC.
+    {
+        MVLCDialog dlg(this);
+        u32 cmd_ip_lo = 0;
+        u32 cmd_ip_hi = 0;
 
-    assert(m_cmdSock >= 0 && m_dataSock >= 0);
+        if (auto ec = dlg.readRegister(registers::cmd_ip_lo, cmd_ip_lo))
+        {
+            close_sockets();
+            return ec;
+        }
+
+        if (auto ec = dlg.readRegister(registers::cmd_ip_hi, cmd_ip_hi))
+        {
+            close_sockets();
+            return ec;
+        }
+
+        u32 cmd_ip = (cmd_ip_hi << 16) | cmd_ip_lo;
+
+        LOG_INFO("MVLC destination Command IP-Address: %s", format_ipv4(cmd_ip).toStdString().c_str());
+    }
+
     return {};
 }
 
