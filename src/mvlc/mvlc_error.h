@@ -28,6 +28,7 @@ enum class MVLCErrorCode
     InvalidPipe,
     NoVMEResponse,
     HostLookupError,
+    EmptyHostname,
     BindLocalError,
     SocketError,
     SocketTimeout,

@@ -59,6 +59,9 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::HostLookupError:
                 return "host lookup failed";
 
+            case MVLCErrorCode::EmptyHostname:
+                return "empty hostname/ip given";
+
             case MVLCErrorCode::BindLocalError:
                  return "could not bind local sockets";
 

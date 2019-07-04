@@ -61,6 +61,9 @@ std::error_code lookup(const std::string &host, u16 port, sockaddr_in &dest)
 {
     using namespace mesytec::mvlc;
 
+    if (host.empty())
+        return MVLCErrorCode::EmptyHostname;
+
     dest = {};
     struct addrinfo hints = {};
     hints.ai_family = AF_INET;
