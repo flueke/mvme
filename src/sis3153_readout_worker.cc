@@ -2172,7 +2172,6 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         if (streamWriter.hasOpenModuleSection())
         {
             u32 moduleSectionBytes = streamWriter.closeModuleSection().sectionBytes;
-            m_workerContext.daqStats.totalNetBytesRead += moduleSectionBytes;
         }
     }
 
@@ -2420,7 +2419,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                 if (m_processingState.streamWriter.hasOpenModuleSection())
                 {
                     u32 moduleSectionBytes = m_processingState.streamWriter.closeModuleSection().sectionBytes;
-                    m_workerContext.daqStats.totalNetBytesRead += moduleSectionBytes;
                     m_processingState.moduleIndex++;
                 }
                 break;

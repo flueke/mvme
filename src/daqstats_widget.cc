@@ -25,6 +25,7 @@
 #include <QFormLayout>
 #include <QTimer>
 
+#include "mvlc_readout_worker.h"
 #include "mvme_context.h"
 #include "qt_util.h"
 #include "sis3153_readout_worker.h"
@@ -45,8 +46,6 @@ struct DAQStatsWidgetPrivate
            *label_bufferRates,
            *label_readSize,
            *label_bytesRead,
-           *label_netBytesRead,
-           *label_netRate,
            *label_sisEventLoss
                ;
 };
@@ -65,13 +64,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     m_d->label_bufferRates = new QLabel;
     m_d->label_readSize = new QLabel;
     m_d->label_bytesRead = new QLabel;
-    m_d->label_netBytesRead = new QLabel;
-    m_d->label_netBytesRead->setToolTip(
-        QSL("The number of bytes read excluding protocol overhead.\n"
-            "This is a measure for the amount of data transferred over the VME bus."));
-    m_d->label_netBytesRead->setStatusTip(m_d->label_netBytesRead->toolTip());
 
-    m_d->label_netRate = new QLabel;
     m_d->label_sisEventLoss = new QLabel;
 
     QList<QWidget *> labels = {
@@ -81,8 +74,6 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
         m_d->label_bufferRates,
         m_d->label_readSize,
         m_d->label_bytesRead,
-        m_d->label_netBytesRead,
-        m_d->label_netRate,
         m_d->label_sisEventLoss,
     };
 
@@ -100,8 +91,6 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     formLayout->addRow("Data rates:", m_d->label_bufferRates);
     formLayout->addRow("Avg. read size:", m_d->label_readSize);
     formLayout->addRow("Bytes read:", m_d->label_bytesRead);
-    formLayout->addRow("Net Bytes read:", m_d->label_netBytesRead);
-    formLayout->addRow("Net rate:", m_d->label_netRate);
     formLayout->addRow("Event Loss:", m_d->label_sisEventLoss);
 
     //formLayout->setFieldGrowthPolicy(QFormLayout::FieldsStayAtSizeHint);
@@ -155,21 +144,17 @@ void DAQStatsWidget::updateWidget()
 
     u64 deltaBytesRead = calc_delta0(daqStats.totalBytesRead, m_d->prevStats.totalBytesRead);
     u64 deltaBuffersRead = calc_delta0(daqStats.totalBuffersRead, m_d->prevStats.totalBuffersRead);
-    u64 deltaNetBytesRead = calc_delta0(daqStats.totalNetBytesRead, m_d->prevStats.totalNetBytesRead);
 
     double bytesPerSecond   = deltaBytesRead / dt;
     double mbPerSecond      = bytesPerSecond / Megabytes(1);
     double buffersPerSecond = deltaBuffersRead / dt;
     double avgReadSize      = deltaBytesRead / static_cast<double>(deltaBuffersRead);
-    double netBytesPerSecond = deltaNetBytesRead / dt;
-    double netMbPerSecond   = netBytesPerSecond / Megabytes(1);
 
     u64 bufferProcessingErrors = daqStats.buffersWithErrors;
 
     // Set NaNs to 0 before displaying them.
     if (std::isnan(buffersPerSecond)) buffersPerSecond = 0.0;
     if (std::isnan(mbPerSecond)) mbPerSecond = 0.0;
-    if (std::isnan(netMbPerSecond)) netMbPerSecond = 0.0;
     if (std::isnan(avgReadSize)) avgReadSize = 0.0;
 
     m_d->label_daqDuration->setText(totalDurationString);
@@ -181,12 +166,6 @@ void DAQStatsWidget::updateWidget()
                                     .arg(buffersPerSecond, 6, 'f', 2)
                                     .arg(mbPerSecond, 6, 'f', 2)
                                     );
-
-    m_d->label_netBytesRead->setText(QString("%1 MB").arg(
-            ((double)daqStats.totalNetBytesRead) / Megabytes(1), 6, 'f', 2));
-
-    m_d->label_netRate->setText(QString("%1 MB/s").arg(
-            netMbPerSecond, 6, 'f', 2));
 
     m_d->label_bytesRead->setText(
             QString("%1 MB")

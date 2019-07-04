@@ -289,7 +289,6 @@ QVariantMap InfoService::getDAQStats()
     r["totalBuffersRead"]       = u64_to_var(stats.totalBuffersRead);
     r["buffersWithErrors"]      = u64_to_var(stats.buffersWithErrors);
     r["droppedBuffers"]         = u64_to_var(stats.droppedBuffers);
-    r["totalNetBytesRead"]      = u64_to_var(stats.totalNetBytesRead);
     r["listFileBytesWritten"]   = u64_to_var(stats.listFileBytesWritten);
     r["listFileFilename"]       = stats.listfileFilename;
     r["analyzedBuffers"]        = u64_to_var(stats.getAnalyzedBuffers());

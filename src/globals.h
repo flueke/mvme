@@ -109,10 +109,6 @@ struct DAQStats
                                 // not represent the number of "good" buffers.
     u64 buffersWithErrors = 0;  // buffers for which processing did not succeeed (structure not intact, etc)
     u64 droppedBuffers = 0;     // number of buffers not passed to the analysis due to the queue being full
-    u64 totalNetBytesRead = 0;  // The number of bytes read excluding protocol
-                                // overhead. This should be a measure for the
-                                // amount of data the VME bus transferred.
-
     u64 listFileBytesWritten = 0;
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
     QString listfileFilename; // For replay mode: the current replay filename
