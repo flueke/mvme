@@ -104,6 +104,7 @@ enum class ParseResult
     StackIndexChanged,
     EventIndexOutOfRange,
     EmptyStackFrame,
+    UnexpectedOpenBlockFrame,
 
     ParseResultMax
 };

@@ -291,6 +291,8 @@ ParseResult parse_readout_contents(
             // consumed previously or the block frame should have been manually
             // invalidated. XXX: ensure the reset is happening when handling errors
             assert(!state.curBlockFrame);
+            if (state.curBlockFrame)
+                return ParseResult::UnexpectedOpenBlockFrame;
 
             // USB buffers can contain system frames alongside readout
             // generated frames. For ETH buffers the system frames are handled
