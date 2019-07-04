@@ -129,6 +129,20 @@ const char *get_parse_result_name(const ParseResult &pr)
         case ParseResult::EmptyStackFrame:
             return "EmptyStackFrame";
 
+        case ParseResult::UnexpectedOpenBlockFrame:
+            return "UnexpectedOpenBlockFrame";
+
+
+        case ParseResult::ParseReadoutContentsNotAdvancing:
+            return "ParseReadoutContentsNotAdvancing";
+
+        case ParseResult::ParseEthBufferNotAdvancing:
+            return "ParseEthBufferNotAdvancing";
+
+        case ParseResult::ParseEthPacketNotAdvancing:
+            return "ParseEthPacketNotAdvancing";
+
+
         case ParseResult::ParseResultMax:
             break;
     }
@@ -282,6 +296,8 @@ ParseResult parse_readout_contents(
 {
     while (!iter.atEnd())
     {
+        const u8 *lastIterPosition = iter.buffp;
+
         // Find a stack frame matching the current parser state. Return if no
         // matching frame is detected at the current iterator position.
         if (!state.curStackFrame)
@@ -513,6 +529,9 @@ maybe_flush_event:
             //++state.counters.eventCounters[state.eventIndex];
             parser_clear_event_state(state);
         }
+
+        if (iter.buffp == lastIterPosition)
+            return ParseResult::ParseReadoutContentsNotAdvancing;
     }
 
     return ParseResult::Ok;
@@ -616,6 +635,8 @@ ParseResult parse_eth_packet(
 
         while (!packetIter.atEnd())
         {
+            const u8 *lastIterPosition = packetIter.buffp;
+
             auto pr = parse_readout_contents(
                 state, callbacks, packetIter,
                 true);
@@ -623,10 +644,16 @@ ParseResult parse_eth_packet(
 
             // Keep the last error code in retval to return at the end.
             if (pr != ParseResult::Ok)
+            {
+                //return pr;
                 retval = pr;
+            }
 
             LOG_TRACE("end parsing packet %u, dataWords=%u",
                       ethHdrs.packetNumber(), ethHdrs.dataWordCount());
+
+            if (packetIter.buffp == lastIterPosition)
+                return ParseResult::ParseEthPacketNotAdvancing;
         }
 
         return retval;
@@ -669,8 +696,11 @@ ParseResult parse_readout_buffer_eth(
 
     try
     {
+
         while (!iter.atEnd())
         {
+            const u8 *lastIterPosition = iter.buffp;
+
             // ETH readout data consists of a mix of SystemEvent frames and raw
             // packet data starting with ETH header0.
 
@@ -742,6 +772,9 @@ ParseResult parse_readout_buffer_eth(
             // Skip over the packet ending up either on the next SystemEvent
             // frame or on the next packets header0.
             iter.skipExact(eth::HeaderWords + ethHdrs.dataWordCount(), sizeof(u32));
+
+            if (iter.buffp == lastIterPosition)
+                return ParseResult::ParseEthBufferNotAdvancing;
         }
     }
     catch (const std::exception &e)

@@ -106,6 +106,11 @@ enum class ParseResult
     EmptyStackFrame,
     UnexpectedOpenBlockFrame,
 
+    // XXX: These should be fixed in the code somehow!
+    ParseReadoutContentsNotAdvancing,
+    ParseEthBufferNotAdvancing,
+    ParseEthPacketNotAdvancing,
+
     ParseResultMax
 };
 
