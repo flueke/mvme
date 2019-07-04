@@ -257,10 +257,18 @@ std::error_code disable_all_triggers(MVLCDialog &dlg)
     return {};
 }
 
-// USB specific post connect routine.
+// USB specific post connect routine which tries to disable a potentially
+// running DAQ. This is done to make sure the command communication is working
+// properly and no readout data is clogging the USB.
+// Steps:
 // - Disable all triggers by writing 0 to the corresponding registers.
-// - Read from the command pipe until no more data arrives.
-// - Read from the data pipe until no more data arrives.
+//   Errors are ignored except ErrorType::ConnectionError which indicate that
+//   we could not open the USB device.
+// - Read from the command pipe until no more data arrives. Again only
+//   ConnectionError type errors are considered fatal.
+// - Read from the data pipe until no more data arrives. These can be delayed
+//   responses from writing to the trigger registers or queued up stack error
+//   notifications.
 // - Do a register read to check that communication is ok now.
 std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
 {
