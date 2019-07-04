@@ -44,6 +44,9 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         // MVLC specific methods
         //
         MVLCObject *getMVLCObject() { return m_mvlc; }
+        ConnectionType connectionType() const { return m_mvlc->connectionType(); }
+        AbstractImpl *getImpl() { return m_mvlc->getImpl(); }
+        Locks &getLocks() { return m_mvlc->getLocks(); }
 
         void enableNotificationPolling() { m_notificationPoller.enablePolling(); }
         void disableNotificationPolling() { m_notificationPoller.disablePolling(); }

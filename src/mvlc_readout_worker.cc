@@ -557,8 +557,8 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
     // Setup the Private struct members. All layers of the MVLC impl are used
     // in here: MVLC_VMEController to execute vme scripts, MVLCObject to setup
-    // stacks and triggers and the low level implementations for fast
-    // packet(ET)/buffer(USB) reads.
+    // stacks and triggers and the low level implementations for fast ethernet
+    // and usb reads.
     d->mvlcCtrl = qobject_cast<MVLC_VMEController *>(getContext().controller);
 
     if (!d->mvlcCtrl)
@@ -682,6 +682,10 @@ void MVLCReadoutWorker::start(quint32 cycles)
         logError(QSL("VME Script parse error: ") + e.what());
     }
 
+    d->mvlcCtrl = nullptr;
+    d->mvlcObj = nullptr;
+    d->mvlc_eth = nullptr;
+    d->mvlc_usb = nullptr;
     setState(DAQState::Idle);
 }
 
@@ -1132,6 +1136,11 @@ MVLCReadoutCounters MVLCReadoutWorker::getReadoutCounters() const
 {
     UniqueLock guard(d->countersMutex);
     return d->counters;
+}
+
+MVLC_VMEController *MVLCReadoutWorker::getMVLC()
+{
+    return d->mvlcCtrl;
 }
 
 void MVLCReadoutWorker::logError(const QString &msg)

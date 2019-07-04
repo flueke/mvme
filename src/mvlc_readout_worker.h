@@ -20,6 +20,14 @@ struct MVLCReadoutCounters
     u64 partialFrameTotalBytes;
 };
 
+namespace mesytec
+{
+namespace mvlc
+{
+    class MVLC_VMEController;
+}
+}
+
 class MVLCReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
@@ -35,6 +43,7 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         DAQState getState() const override;
 
         MVLCReadoutCounters getReadoutCounters() const;
+        mesytec::mvlc::MVLC_VMEController *getMVLC();
 
     private:
         struct Private;

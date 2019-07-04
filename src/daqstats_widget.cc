@@ -30,6 +30,8 @@
 #include "qt_util.h"
 #include "sis3153_readout_worker.h"
 #include "util/counters.h"
+#include "mvlc/mvlc_vme_controller.h"
+#include "mvlc/mvlc_impl_eth.h"
 
 static const int UpdateInterval_ms = 1000;
 
@@ -38,6 +40,8 @@ struct DAQStatsWidgetPrivate
     MVMEContext *context;
     DAQStats prevStats;
     SIS3153ReadoutWorker::Counters prevSISCounters;
+    MVLCReadoutCounters prevMVLCCounters;
+    mesytec::mvlc::eth::PipeStats prevDataPipeStats;
     QDateTime lastUpdateTime;
 
     QLabel *label_daqDuration,
@@ -46,8 +50,16 @@ struct DAQStatsWidgetPrivate
            *label_bufferRates,
            *label_readSize,
            *label_bytesRead,
-           *label_sisEventLoss
+           *label_sisEventLoss,
+
+           *label_mvlcFrameTypeErrors,
+           *label_mvlcPartialFrameTotalBytes,
+
+           *label_mvlcReceivedPackets,
+           *label_mvlcLostPackets
                ;
+
+    QFormLayout *formLayout;
 };
 
 DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
@@ -67,6 +79,11 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
 
     m_d->label_sisEventLoss = new QLabel;
 
+    m_d->label_mvlcFrameTypeErrors = new QLabel;
+    m_d->label_mvlcPartialFrameTotalBytes = new QLabel;
+    m_d->label_mvlcReceivedPackets = new QLabel;
+    m_d->label_mvlcLostPackets = new QLabel;
+
     QList<QWidget *> labels = {
         m_d->label_daqDuration,
         m_d->label_buffersRead,
@@ -75,6 +92,10 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
         m_d->label_readSize,
         m_d->label_bytesRead,
         m_d->label_sisEventLoss,
+        m_d->label_mvlcFrameTypeErrors,
+        m_d->label_mvlcPartialFrameTotalBytes,
+        m_d->label_mvlcReceivedPackets,
+        m_d->label_mvlcLostPackets
     };
 
     for (auto label: labels)
@@ -84,6 +105,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     }
 
     auto formLayout = new QFormLayout(this);
+    m_d->formLayout = formLayout;
 
     formLayout->addRow("Running time:", m_d->label_daqDuration);
     formLayout->addRow("Buffers read:", m_d->label_buffersRead);
@@ -92,6 +114,10 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     formLayout->addRow("Avg. read size:", m_d->label_readSize);
     formLayout->addRow("Bytes read:", m_d->label_bytesRead);
     formLayout->addRow("Event Loss:", m_d->label_sisEventLoss);
+    formLayout->addRow("MVLC USB Frame Type Errors:", m_d->label_mvlcFrameTypeErrors);
+    formLayout->addRow("MVLC USB Partial Frame Bytes:", m_d->label_mvlcPartialFrameTotalBytes);
+    formLayout->addRow("MVLC ETH received Packets:", m_d->label_mvlcReceivedPackets);
+    formLayout->addRow("MVLC ETH lost packets:", m_d->label_mvlcLostPackets);
 
     //formLayout->setFieldGrowthPolicy(QFormLayout::FieldsStayAtSizeHint);
     //formLayout->setSizeConstraint(QLayout::SetFixedSize);
@@ -172,12 +198,28 @@ void DAQStatsWidget::updateWidget()
             .arg((double)daqStats.totalBytesRead / (1024.0*1024.0), 6, 'f', 2)
             );
 
-    // SIS3153 specific packet loss count and rate
+    auto update_label_visibility = [this] (auto &labels, bool show)
+    {
+        std::for_each(labels.begin(), labels.end(), [this, show] (QLabel *label) {
+            m_d->formLayout->labelForField(label)->setVisible(show);
+            label->setVisible(show);
+        });
+    };
+
+    //
+    // SIS3153 specific counters
+    //
     SIS3153ReadoutWorker::Counters sisCounters;
 
-    if (auto rdoWorker = qobject_cast<SIS3153ReadoutWorker *>(m_d->context->getReadoutWorker()))
+    auto sisLabels = { m_d->label_sisEventLoss };
+
+    auto rdoWorker = m_d->context->getReadoutWorker();
+    auto sisWorker = qobject_cast<SIS3153ReadoutWorker *>(rdoWorker);
+    update_label_visibility(sisLabels, sisWorker != nullptr);
+
+    if (sisWorker)
     {
-        sisCounters = rdoWorker->getCounters();
+        sisCounters = sisWorker->getCounters();
 
         double totalLostEvents = sisCounters.lostEvents;
         double totalGoodEvents = sisCounters.receivedEventsExcludingWatchdog();
@@ -198,16 +240,89 @@ void DAQStatsWidget::updateWidget()
                             .arg(eventLossRate)
                            );
 
-        m_d->label_sisEventLoss->show();
         m_d->label_sisEventLoss->setText(lossText);
     }
-    else
+
+    //
+    // MVLC specific statistics
+    //
+    auto mvlcUSBLabels = { m_d->label_mvlcFrameTypeErrors, m_d->label_mvlcPartialFrameTotalBytes };
+    auto mvlcETHLabels = { m_d->label_mvlcReceivedPackets, m_d->label_mvlcLostPackets };
+    auto mvlcWorker = qobject_cast<MVLCReadoutWorker *>(rdoWorker);
+
+    bool is_MVLC_USB = (mvlcWorker && mvlcWorker->getMVLC())
+        ? mvlcWorker->getMVLC()->getType() == VMEControllerType::MVLC_USB
+        : false;
+
+    bool is_MVLC_ETH = (mvlcWorker && mvlcWorker->getMVLC())
+        ? mvlcWorker->getMVLC()->getType() == VMEControllerType::MVLC_ETH
+        : false;
+
+    update_label_visibility(mvlcUSBLabels, is_MVLC_USB);
+    update_label_visibility(mvlcETHLabels, is_MVLC_ETH);
+
+    MVLCReadoutCounters mvlcCounters;
+
+    if (is_MVLC_USB)
     {
-        m_d->label_sisEventLoss->hide();
+        assert(mvlcWorker);
+
+        mvlcCounters = mvlcWorker->getReadoutCounters();
+        auto &prevMVLCCounters = m_d->prevMVLCCounters;
+
+        auto frameTypeErrors = format_delta_and_rate(
+            mvlcCounters.frameTypeErrors, prevMVLCCounters.frameTypeErrors, dt,
+            "errors");
+
+        auto partialFrameTotalBytes = format_delta_and_rate(
+            mvlcCounters.partialFrameTotalBytes, prevMVLCCounters.partialFrameTotalBytes, dt,
+            "bytes", UnitScaling::Binary);
+
+        m_d->label_mvlcFrameTypeErrors->setText(
+            (QString("%1, %2")
+             .arg(mvlcCounters.frameTypeErrors)
+             .arg(frameTypeErrors.second)));
+
+        m_d->label_mvlcPartialFrameTotalBytes->setText(
+            (QString("%1, %2")
+             .arg(mvlcCounters.partialFrameTotalBytes)
+             .arg(partialFrameTotalBytes.second)));
+    }
+
+
+    mesytec::mvlc::eth::PipeStats dataPipeStats;
+
+    if (is_MVLC_ETH)
+    {
+        assert(mvlcWorker);
+        {
+            auto mvlc_eth = reinterpret_cast<mesytec::mvlc::eth::Impl *>(
+                mvlcWorker->getMVLC()->getImpl());
+            auto guard = mvlcWorker->getMVLC()->getLocks().lockBoth();
+            dataPipeStats = mvlc_eth->getPipeStats()[mesytec::mvlc::DataPipe];
+        }
+
+        u64 packetRate = calc_rate0(
+            dataPipeStats.receivedPackets, m_d->prevDataPipeStats.receivedPackets, dt);
+
+        u64 packetLossRate = calc_rate0(
+            dataPipeStats.lostPackets, m_d->prevDataPipeStats.lostPackets, dt);
+
+        m_d->label_mvlcReceivedPackets->setText(
+            (QString("%1, %2 packets/s")
+             .arg(dataPipeStats.receivedPackets)
+             .arg(packetRate)));
+
+        m_d->label_mvlcLostPackets->setText(
+            (QString("%1, %2 packets/s")
+             .arg(dataPipeStats.lostPackets)
+             .arg(packetLossRate)));
     }
 
     // Store current counts
     m_d->prevStats = daqStats;
     m_d->prevSISCounters = sisCounters;
+    m_d->prevMVLCCounters = mvlcCounters;
+    m_d->prevDataPipeStats = dataPipeStats;
     m_d->lastUpdateTime = QDateTime::currentDateTime();
 }
