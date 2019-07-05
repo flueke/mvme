@@ -34,6 +34,7 @@ static const QVector<const char *> MVLC_LabelTexts =
 {
     "buffers",
     "internalBufferLoss",
+    "unusedBytes",
     "ethPacketsProcessed",
     "ethPacketLoss",
     "systemEventTypes",
@@ -369,6 +370,11 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
 
     double bufferLossRate = deltaBufferLoss / dt;
 
+    u64 unusedBytesDelta = calc_delta0(counters.unusedBytes,
+                                       prevCounters.unusedBytes);
+
+    double unusedBytesRate = unusedBytesDelta / dt;
+
     u64 deltaEthPackets = calc_delta0(counters.ethPacketsProcessed,
                                       prevCounters.ethPacketsProcessed);
 
@@ -398,6 +404,10 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
     texts += QString("%1, rate=%2")
         .arg(format_number(counters.internalBufferLoss, "", UnitScaling::Decimal))
         .arg(format_number(bufferLossRate, "buffers/s", UnitScaling::Decimal));
+
+    texts += QString("%1, rate=%2")
+        .arg(format_number(counters.unusedBytes, "", UnitScaling::Binary))
+        .arg(format_number(unusedBytesRate, "bytes/s", UnitScaling::Binary));
 
     texts += QString("%1, rate=%2")
         .arg(format_number(counters.ethPacketsProcessed, "", UnitScaling::Decimal))

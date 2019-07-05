@@ -442,7 +442,7 @@ class MVLCParserDebugHandler: public QObject
     public slots:
         void handleDebugInfo(
             const DataBuffer &buffer,
-            const mesytec::mvlc::ReadoutParserState &parserState);
+            mesytec::mvlc::ReadoutParserState parserState);
 
     private:
         WidgetGeometrySaver *m_geometrySaver;

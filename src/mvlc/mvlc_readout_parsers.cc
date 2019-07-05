@@ -198,7 +198,10 @@ inline ParseResult parser_begin_event(ReadoutParserState &state, u32 frameHeader
     auto frameInfo = extract_frame_info(frameHeader);
 
     if (frameInfo.type != frame_headers::StackFrame)
+    {
+        LOG_WARN("NotAStackFrame: 0x%08x", frameHeader);
         return ParseResult::NotAStackFrame;
+    }
 
     int eventIndex = frameInfo.stack - 1;
 
@@ -242,7 +245,7 @@ inline void copy_to_workbuffer(ReadoutParserState &state, BufferIterator &iter, 
 {
     assert(wordsToCopy <= iter.longwordsLeft());
 
-    state.workBuffer.ensureFreeSpace(wordsToCopy);
+    state.workBuffer.ensureFreeSpace(sizeof(u32) * wordsToCopy);
 
     std::memcpy(state.workBuffer.endPtr(), iter.buffp, wordsToCopy * sizeof(u32));
 
@@ -292,7 +295,8 @@ ParseResult parse_readout_contents(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     BufferIterator &iter,
-    bool is_eth)
+    bool is_eth,
+    u32 bufferNumber)
 {
     while (!iter.atEnd())
     {
@@ -345,10 +349,17 @@ ParseResult parse_readout_contents(
                 // to be extracted from the buffer to ensure progress. It's no
                 // use for the caller to reset the state and retry as that
                 // would lead to the same result.
-                auto pr = parser_begin_event(state, iter.extractU32());
+                auto pr = parser_begin_event(state, iter.peekU32());
 
                 if (pr != ParseResult::Ok)
+                {
+                    LOG_WARN("error from parser_begin_event, iter offset=%ld, bufferNumber=%u",
+                             iter.current32BitOffset(),
+                             bufferNumber);
                     return pr;
+                }
+
+                iter.extractU32(); // eat the StackFrame marking the beginning of the event
 
                 assert(is_event_in_progress(state));
             }
@@ -378,10 +389,12 @@ ParseResult parse_readout_contents(
                     if (moduleSpans.prefixSpan.size == 0)
                         moduleSpans.prefixSpan.offset = state.workBufferOffset;
 
-                    u16 wordsLeftInSpan = moduleParts.prefixLen - moduleSpans.prefixSpan.size;
-                    u16 wordsToCopy = std::min({
-                        wordsLeftInSpan, state.curStackFrame.wordsLeft,
-                        static_cast<u16>(iter.longwordsLeft())});
+                    u32 wordsLeftInSpan = moduleParts.prefixLen - moduleSpans.prefixSpan.size;
+                    assert(wordsLeftInSpan);
+                    u32 wordsToCopy = std::min({
+                        wordsLeftInSpan,
+                        static_cast<u32>(state.curStackFrame.wordsLeft),
+                        iter.longwordsLeft()});
 
                     copy_to_workbuffer(state, iter, wordsToCopy);
                     moduleSpans.prefixSpan.size += wordsToCopy;
@@ -411,8 +424,8 @@ ParseResult parse_readout_contents(
 
                     if (!state.curBlockFrame)
                     {
-                        state.curBlockFrame = { iter.extractU32() };
-                        state.curStackFrame.consumeWord();
+                        // Peek the potential block frame header
+                        state.curBlockFrame = { iter.peekU32() };
 
                         if (state.curBlockFrame.info().type != frame_headers::BlockRead)
                         {
@@ -420,6 +433,11 @@ ParseResult parse_readout_contents(
                             parser_clear_event_state(state);
                             return ParseResult::NotABlockFrame;
                         }
+
+                        // Block frame header is ok, consume it taking care of
+                        // the outer stack frame word count as well.
+                        iter.extractU32();
+                        state.curStackFrame.consumeWord();
                     }
 
                     // record the offset of the first word of this span
@@ -457,13 +475,12 @@ ParseResult parse_readout_contents(
                     if (moduleSpans.suffixSpan.size == 0)
                         moduleSpans.suffixSpan.offset = state.workBufferOffset;
 
-                    u16 wordsLeftInSpan = moduleParts.suffixLen - moduleSpans.suffixSpan.size;
-                    u16 wordsToCopy = std::min({
-                        wordsLeftInSpan, state.curStackFrame.wordsLeft,
-                        static_cast<u16>(iter.longwordsLeft())});
-
-                    if (iter.longwordsLeft() < wordsToCopy)
-                        throw end_of_buffer("ModuleSuffixCopy");
+                    u32 wordsLeftInSpan = moduleParts.suffixLen - moduleSpans.suffixSpan.size;
+                    assert(wordsLeftInSpan);
+                    u32 wordsToCopy = std::min({
+                        wordsLeftInSpan,
+                        static_cast<u32>(state.curStackFrame.wordsLeft),
+                        iter.longwordsLeft()});
 
                     copy_to_workbuffer(state, iter, wordsToCopy);
                     moduleSpans.suffixSpan.size += wordsToCopy;
@@ -578,7 +595,8 @@ inline void count_parse_result(ReadoutParserCounters &counters, const ParseResul
 ParseResult parse_eth_packet(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
-    BufferIterator packetIter)
+    BufferIterator packetIter,
+    u32 bufferNumber)
 {
     eth::PayloadHeaderInfo ethHdrs{ packetIter.peekU32(0), packetIter.peekU32(1) };
     const u32 *packetEndPtr = packetIter.indexU32(eth::HeaderWords + ethHdrs.dataWordCount());
@@ -639,12 +657,17 @@ ParseResult parse_eth_packet(
 
             auto pr = parse_readout_contents(
                 state, callbacks, packetIter,
-                true);
+                true, bufferNumber);
             count_parse_result(state.counters, pr);
 
             // Keep the last error code in retval to return at the end.
             if (pr != ParseResult::Ok)
             {
+                if (pr == ParseResult::NotABlockFrame)
+                {
+                    LOG_WARN("NotABlockFrame from parse_readout_contents, bufferNumber=%u, (ETH)",
+                             bufferNumber);
+                }
                 //return pr;
                 retval = pr;
             }
@@ -734,11 +757,16 @@ ParseResult parse_readout_buffer_eth(
                 iter.indexU32(0),
                 eth::HeaderWords + ethHdrs.dataWordCount());
 
-            ParseResult pr = parse_eth_packet(state, callbacks, packetIter);
+            ParseResult pr = parse_eth_packet(state, callbacks, packetIter, bufferNumber);
 
             // Keep the last error code in retval to return at the end.
             if (pr != ParseResult::Ok)
-                retval = pr;
+            {
+                parser_clear_event_state(state);
+                state.counters.unusedBytes += iter.bytesLeft();
+                return pr;
+                //retval = pr;
+            }
 
             // XXX: reparsing of packets after state reset
 #if 0
@@ -783,6 +811,7 @@ ParseResult parse_readout_buffer_eth(
                  bufferNumber, bufferSize, e.what());
 
         parser_clear_event_state(state);
+        state.counters.unusedBytes += iter.bytesLeft();
         throw;
     }
     catch (...)
@@ -791,6 +820,7 @@ ParseResult parse_readout_buffer_eth(
                  bufferNumber, bufferSize);
 
         parser_clear_event_state(state);
+        state.counters.unusedBytes += iter.bytesLeft();
         throw;
     }
 
@@ -846,14 +876,21 @@ ParseResult parse_readout_buffer_usb(
     {
         while (!iter.atEnd())
         {
-            auto pr = parse_readout_contents(state, callbacks, iter, false);
+            auto pr = parse_readout_contents(state, callbacks, iter, false, bufferNumber);
 
             count_parse_result(state.counters, pr);
 
             if (pr != ParseResult::Ok)
             {
+                if (pr == ParseResult::NotABlockFrame) // XXX
+                {
+                    LOG_WARN("NotABlockFrame from parse_readout_contents, offset=%ld, bufferNumber=%u (USB)",
+                             iter.current32BitOffset(), bufferNumber);
+                }
                 parser_clear_event_state(state);
-                retval = pr;
+                state.counters.unusedBytes += iter.bytesLeft();
+                return pr;
+                //retval = pr;
             }
         }
     }
@@ -863,6 +900,7 @@ ParseResult parse_readout_buffer_usb(
                  bufferNumber, bufferSize, e.what());
 
         parser_clear_event_state(state);
+        state.counters.unusedBytes += iter.bytesLeft();
         throw;
     }
     catch (...)
@@ -871,6 +909,7 @@ ParseResult parse_readout_buffer_usb(
                  bufferNumber, bufferSize);
 
         parser_clear_event_state(state);
+        state.counters.unusedBytes += iter.bytesLeft();
         throw;
     }
 
