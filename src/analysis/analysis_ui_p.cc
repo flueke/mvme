@@ -22,6 +22,7 @@
 
 #include <array>
 #include <limits>
+
 #include <QAbstractItemModel>
 #include <QButtonGroup>
 #include <QDesktopServices>
@@ -37,6 +38,7 @@
 #include <QMessageBox>
 #include <QRadioButton>
 #include <QRegularExpressionValidator>
+#include <QShortcut>
 #include <QSignalMapper>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -3008,6 +3010,18 @@ void MVLCParserDebugHandler::handleDebugInfo(
         }
     }
 
+    auto make_searchable_text_widget = [](QTextEdit *te)
+        -> std::pair<QWidget *, TextEditSearchWidget *>
+    {
+        auto resultWidget = new QWidget;
+        auto resultLayout = make_layout<QVBoxLayout, 0, 0>(resultWidget);
+        auto searchWidget = new TextEditSearchWidget(te);
+        resultLayout->addWidget(searchWidget);
+        resultLayout->addWidget(te);
+        resultLayout->setStretch(1, 1);
+
+        return std::make_pair(resultWidget, searchWidget);
+    };
 
     // Display the buffer contents and the parser results side-by-side in two
     // QTextBrowsers.
@@ -3019,14 +3033,19 @@ void MVLCParserDebugHandler::handleDebugInfo(
         m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/MVLCReadoutParserDebug"));
         add_widget_close_action(widget);
 
+        // parser state and buffer contents on the left side
         auto tb_buffer = new QTextBrowser;
         tb_buffer->setText(bufferText);
+        auto bufferWidget = make_searchable_text_widget(tb_buffer).first;
+
+        // parser result on the right side
         auto tb_result = new QTextBrowser;
         tb_result->setText(resultText);
+        auto resultWidget = make_searchable_text_widget(tb_result).first;
 
         auto splitter = new QSplitter;
-        splitter->addWidget(tb_buffer);
-        splitter->addWidget(tb_result);
+        splitter->addWidget(bufferWidget);
+        splitter->addWidget(resultWidget);
 
         auto wl = make_layout<QHBoxLayout, 0, 0>(widget);
         wl->addWidget(splitter);
