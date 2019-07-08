@@ -191,4 +191,32 @@ LayoutType *make_layout(QWidget *widget = nullptr)
 
 LIBMVME_CORE_EXPORT int calculate_tab_width(const QFont &font, int tabStop = 4);
 
+class QTextEdit;
+class QPushButton;
+class QLineEdit;
+
+class LIBMVME_CORE_EXPORT TextEditSearchWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        TextEditSearchWidget(QTextEdit *te, QWidget *parent = nullptr);
+
+        QPushButton *getSearchButton();
+        QLineEdit *getSearchTextEdit();
+
+    public slots:
+        void focusSearchInput();
+        void findNext();
+
+    private slots:
+        void onSearchTextEdited(const QString &text);
+
+    private:
+        void findNext(bool hasWrapped);
+
+        QLineEdit *m_searchInput;
+        QPushButton *m_searchButton;
+        QTextEdit *m_textEdit;
+};
+
 #endif /* __QT_UTIL_H__ */
