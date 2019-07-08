@@ -2880,133 +2880,158 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
     qDebug() << __PRETTY_FUNCTION__ << buffer.used << parserState.workBuffer.used;
 
-    QString textBuffer;
-    QTextStream out(&textBuffer);
+    QString bufferText;
 
-    // Log buffer information and buffer contents
-
-    out << "buffer number = " << buffer.id
-        << ", last buffer number = " << parserState.lastBufferNumber << endl;
-    out << "buffer size = " << buffer.used / sizeof(u32) << endl;
-    out << "buffer format is " << to_string(static_cast<ListfileBufferFormat>(buffer.tag)) << endl;
-    out << "last ETH packet number = " << parserState.lastPacketNumber << endl;
-
-    out << "ParserState: eventIndex=" << parserState.eventIndex
-        << ", moduleIndex=" << parserState.moduleIndex
-        << ", moduleParseState=" << to_string(parserState.moduleParseState)
-        << endl;
-
-    out << QSL("curStackFrame: 0x%1, wordsLeft=%2\n")
-        .arg(parserState.curStackFrame.header, 8, 16, QLatin1Char('0'))
-        .arg(parserState.curStackFrame.wordsLeft)
-        ;
-
-    out << QSL("curBlockFrame: 0x%1, wordsLeft=%2\n")
-        .arg(parserState.curBlockFrame.header, 8, 16, QLatin1Char('0'))
-        .arg(parserState.curBlockFrame.wordsLeft)
-        ;
-
-    out << "----------" << endl;
-
-    mvlc_parser_debug_log_buffer(BufferIterator(buffer.data, buffer.used),
-                [&out] (const QString &str) {
-        out << str << endl;
-    });
-
-    out << endl << "Running readout parser..." << endl;
-
-
-    // Setup parser callbacks and run the parser on the input buffer. This will
-    // be exactly the same state, data and code as was run on the analysis
-    // thread except for different callbacks.
-    ReadoutParserCallbacks callbacks;
-    callbacks.beginEvent = [&out] (int ei)
+    // Log the initial parser state and the raw buffer contents.
     {
-        out << "beginEvent(" << ei << ")" << endl;
-    };
+        QTextStream out(&bufferText);
 
-    callbacks.endEvent = [&out] (int ei)
-    {
-        out << "endEvent(" << ei << ")" << endl;
-    };
+        // Log buffer information and buffer contents
 
-    callbacks.systemEvent = [&out] (u32 *header, u32 size)
-    {
-        out << "systemEvent, size=" << size << ":" << endl;
-        ::logBuffer(BufferIterator(header, size), [&out] (const QString &str)
-                    {
-                        out << "  " << str << endl;
-                    });
-    };
+        out << "buffer number = " << buffer.id
+            << ", last buffer number = " << parserState.lastBufferNumber << endl;
+        out << "buffer size = " << buffer.used / sizeof(u32) << endl;
+        out << "buffer format is " << to_string(static_cast<ListfileBufferFormat>(buffer.tag)) << endl;
+        out << "last ETH packet number = " << parserState.lastPacketNumber << endl;
 
-    // factory function for module callbacks
-    auto make_module_callback = [&out] (const QString &typeString)
+        out << "ParserState: eventIndex=" << parserState.eventIndex
+            << ", moduleIndex=" << parserState.moduleIndex
+            << ", moduleParseState=" << to_string(parserState.moduleParseState)
+            << endl;
+
+        out << QSL("curStackFrame: 0x%1, wordsLeft=%2\n")
+            .arg(parserState.curStackFrame.header, 8, 16, QLatin1Char('0'))
+            .arg(parserState.curStackFrame.wordsLeft)
+            ;
+
+        out << QSL("curBlockFrame: 0x%1, wordsLeft=%2\n")
+            .arg(parserState.curBlockFrame.header, 8, 16, QLatin1Char('0'))
+            .arg(parserState.curBlockFrame.wordsLeft)
+            ;
+
+        out << "----------" << endl;
+
+        mvlc_parser_debug_log_buffer(BufferIterator(buffer.data, buffer.used),
+                    [&out] (const QString &str) {
+            out << str << endl;
+        });
+    }
+
+    QString resultText;
+
+    // Setup callbacks and run the parser. The results are written into resultText.
     {
-        return [&out, typeString] (int ei, int mi, u32 *data, u32 size)
+        QTextStream out(&resultText);
+
+        out << endl << "Running readout parser..." << endl;
+
+
+        // Setup parser callbacks and run the parser on the input buffer. This will
+        // be exactly the same state, data and code as was run on the analysis
+        // thread except for different callbacks.
+        ReadoutParserCallbacks callbacks;
+        callbacks.beginEvent = [&out] (int ei)
         {
-            out << QString("  module%1, ei=%2, mi=%3, size=%4:")
-                .arg(typeString).arg(ei).arg(mi).arg(size)
-                << endl;
+            out << "beginEvent(" << ei << ")" << endl;
+        };
 
-            ::logBuffer(BufferIterator(data, size), [&out] (const QString &str)
+        callbacks.endEvent = [&out] (int ei)
+        {
+            out << "endEvent(" << ei << ")" << endl;
+        };
+
+        callbacks.systemEvent = [&out] (u32 *header, u32 size)
+        {
+            out << "systemEvent, size=" << size << ":" << endl;
+            ::logBuffer(BufferIterator(header, size), [&out] (const QString &str)
                         {
-                            out << "    " << str << endl;
+                            out << "  " << str << endl;
                         });
         };
-    };
 
-    callbacks.modulePrefix = make_module_callback("Prefix");
-    callbacks.moduleDynamic = make_module_callback("Dynamic");
-    callbacks.moduleSuffix = make_module_callback("Suffix");
-
-    ParseResult pr = {};
-
-    try
-    {
-        if (buffer.tag == static_cast<int>(ListfileBufferFormat::MVLC_ETH))
+        // Factory function for module callbacks which log their input data.
+        auto make_module_callback = [&out] (const QString &typeString)
         {
-            // Input buffers are MVLC_ETH formatted buffers as generated by
-            // MVLCReadoutWorker::readout_eth().
-            pr = parse_readout_buffer_eth(
-                parserState, callbacks,
-                buffer.id, buffer.data, buffer.used);
-        }
-        else if (buffer.tag == static_cast<int>(ListfileBufferFormat::MVLC_USB))
+            return [&out, typeString] (int ei, int mi, u32 *data, u32 size)
+            {
+                out << QString("  module%1, ei=%2, mi=%3, size=%4:")
+                    .arg(typeString).arg(ei).arg(mi).arg(size)
+                    << endl;
+
+                ::logBuffer(BufferIterator(data, size), [&out] (const QString &str)
+                            {
+                                out << "    " << str << endl;
+                            });
+            };
+        };
+
+        callbacks.modulePrefix = make_module_callback("Prefix");
+        callbacks.moduleDynamic = make_module_callback("Dynamic");
+        callbacks.moduleSuffix = make_module_callback("Suffix");
+
+        ParseResult pr = {};
+
+        try
         {
-            // Input buffers are MVLC_USB formatted buffers as generated by
-            // MVLCReadoutWorker::readout_usb()
-            pr = parse_readout_buffer_usb(
-                parserState, callbacks,
-                buffer.id, buffer.data, buffer.used);
+            if (buffer.tag == static_cast<int>(ListfileBufferFormat::MVLC_ETH))
+            {
+                // Input buffers are MVLC_ETH formatted buffers as generated by
+                // MVLCReadoutWorker::readout_eth().
+                pr = parse_readout_buffer_eth(
+                    parserState, callbacks,
+                    buffer.id, buffer.data, buffer.used);
+            }
+            else if (buffer.tag == static_cast<int>(ListfileBufferFormat::MVLC_USB))
+            {
+                // Input buffers are MVLC_USB formatted buffers as generated by
+                // MVLCReadoutWorker::readout_usb()
+                pr = parse_readout_buffer_usb(
+                    parserState, callbacks,
+                    buffer.id, buffer.data, buffer.used);
+            }
+            else
+                throw std::runtime_error("unexpected buffer format (expected MVLC_ETH or MVLC_USB)");
+
+            out << "parser returned " << get_parse_result_name(pr) << endl;
         }
-        else
-            throw std::runtime_error("unexpected buffer format (expected MVLC_ETH or MVLC_USB)");
-
-        out << "parser returned " << get_parse_result_name(pr) << endl;
+        catch (const end_of_buffer &e)
+        {
+            out << "end_of_buffer from parser: " << e.what() << endl;
+        }
+        catch (const std::exception &e)
+        {
+            out << "exception from parser: " << e.what() << endl;
+        }
+        catch (...)
+        {
+            out << "unknown exception from parser!" << endl;
+        }
     }
-    catch (const end_of_buffer &e)
+
+
+    // Display the buffer contents and the parser results side-by-side in two
+    // QTextBrowsers.
     {
-        out << "end_of_buffer from parser: " << e.what() << endl;
-    }
-    catch (const std::exception &e)
-    {
-        out << "exception from parser: " << e.what() << endl;
-    }
-    catch (...)
-    {
-        out << "unknown exception from parser!" << endl;
-    }
+        auto widget = new QWidget;
+        widget->setAttribute(Qt::WA_DeleteOnClose);
+        widget->setWindowTitle("MVLC Readout Parser Debug");
+        widget->setFont(make_monospace_font());
+        m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/MVLCReadoutParserDebug"));
+        add_widget_close_action(widget);
 
+        auto tb_buffer = new QTextBrowser;
+        tb_buffer->setText(bufferText);
+        auto tb_result = new QTextBrowser;
+        tb_result->setText(resultText);
 
-    // Display the accumulated text buffer in a new QTextBrowser.
+        auto splitter = new QSplitter;
+        splitter->addWidget(tb_buffer);
+        splitter->addWidget(tb_result);
 
-    auto tb = new QTextBrowser;
-    m_geometrySaver->addAndRestore(tb, QSL("WindowGeometries/MVLCReadoutParserDebug"));
-    tb->setFont(make_monospace_font());
-    tb->setWindowTitle("MVLC Readout Parser Debug");
-    tb->setAttribute(Qt::WA_DeleteOnClose);
-    tb->setText(textBuffer);
-    tb->show();
+        auto wl = make_layout<QHBoxLayout, 0, 0>(widget);
+        wl->addWidget(splitter);
+        widget->show();
+    }
 }
 
 } // end namespace ui

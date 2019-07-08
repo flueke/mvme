@@ -307,9 +307,10 @@ ParseResult parse_readout_contents(
         if (!state.curStackFrame)
         {
             // If there's no open stack frame there should be no open block
-            // frame either. Als data from any open blocks must've been
+            // frame either. Also data from any open blocks must've been
             // consumed previously or the block frame should have been manually
-            // invalidated. XXX: ensure the reset is happening when handling errors
+            // invalidated. XXX: ensure the invalidation is happening when
+            // handling errors in other places.
             assert(!state.curBlockFrame);
             if (state.curBlockFrame)
                 return ParseResult::UnexpectedOpenBlockFrame;
