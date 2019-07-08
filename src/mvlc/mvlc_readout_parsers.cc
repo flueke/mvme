@@ -208,9 +208,6 @@ inline ParseResult parser_begin_event(ReadoutParserState &state, u32 frameHeader
     if (eventIndex < 0 || static_cast<unsigned>(eventIndex) >= state.readoutInfo.size())
         return ParseResult::EventIndexOutOfRange;
 
-    if (frameInfo.len == 0)
-        return ParseResult::EmptyStackFrame;
-
     state.workBuffer.used = 0;
     state.workBufferOffset = 0;
     clear_readout_data_spans(state.readoutDataSpans);
@@ -337,9 +334,6 @@ ParseResult parse_readout_contents(
                 if (frameInfo.stack - 1 != state.eventIndex)
                     return ParseResult::StackIndexChanged;
 
-                if (frameInfo.len == 0)
-                    return ParseResult::EmptyStackFrame;
-
                 // The stack frame is ok and can now be extracted from the
                 // buffer.
                 state.curStackFrame = { iter.extractU32() };
@@ -367,7 +361,6 @@ ParseResult parse_readout_contents(
         }
 
         assert(is_event_in_progress(state));
-        assert(state.curStackFrame);
 
         const auto &moduleReadoutInfos = state.readoutInfo[state.eventIndex];
         const auto &moduleParts = moduleReadoutInfos[state.moduleIndex];
