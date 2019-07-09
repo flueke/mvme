@@ -527,7 +527,11 @@ struct MVLCReadoutWorker::Private
     {
         assert(!notificationPollerThread.joinable());
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
         QMetaObject::invokeMethod(mvlcCtrl, &MVLC_VMEController::disableNotificationPolling);
+#else
+        QMetaObject::invokeMethod(mvlcCtrl, "disableNotificationPolling");
+#endif
 
         notificationPollerKeepRunning = true;
 
@@ -546,7 +550,11 @@ struct MVLCReadoutWorker::Private
         if (notificationPollerThread.joinable())
             notificationPollerThread.join();
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
         QMetaObject::invokeMethod(mvlcCtrl, &MVLC_VMEController::enableNotificationPolling);
+#else
+        QMetaObject::invokeMethod(mvlcCtrl, "enableNotificationPolling");
+#endif
     }
 
     // Cleanly end a running readout session. The code disables all triggers by
