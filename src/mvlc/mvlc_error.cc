@@ -117,6 +117,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::HostLookupError:
             case MVLCErrorCode::BindLocalError:
             case MVLCErrorCode::SocketError:
+            case MVLCErrorCode::EmptyHostname:
                 return ErrorType::ConnectionError;
 
             case MVLCErrorCode::ShortWrite:

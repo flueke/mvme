@@ -373,8 +373,7 @@ std::error_code Impl::connect()
 
     assert(m_cmdSock >= 0 && m_dataSock >= 0);
 
-    // TODO: send some initial request to verify there's an MVLC on the other side
-    // Note: this should not interfere with any other active client.
+    // Send some initial request to verify there's an MVLC on the other side.
     //
     // Try to read the destination Command pipe address from the MVLC. Sending
     // this command will make the MVLC set the source IP address as the Command
@@ -625,8 +624,9 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
 
             if (loss > 0)
             {
-                LOG_WARN("  pipe=%u, lastPacketNumber=%u, packetNumber=%u, loss=%d",
-                         pipe, lastPacketNumber, res.packetNumber(), loss);
+                LOG_WARN("  pipe=%u, packetChannel=%u, lastPacketNumber=%u,"
+                         " packetNumber=%u, loss=%d",
+                         pipe, res.packetChannel(), lastPacketNumber, res.packetNumber(), loss);
             }
 
             res.lostPackets = loss;
