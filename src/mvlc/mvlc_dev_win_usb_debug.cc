@@ -359,7 +359,7 @@ int main(int argc, char *argv[])
 
     // read mirror response contents
     {
-        size_t responseSize = responseHeader & BufferSizeMask;
+        size_t responseSize = responseHeader & FrameSizeMask;
         std::vector<u32> readBuffer(responseSize);
         bytesToTransfer = readBuffer.size() * sizeof(u32);
         bytesTransferred = 0u;

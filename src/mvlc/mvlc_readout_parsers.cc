@@ -1,6 +1,7 @@
 #include "mvlc/mvlc_readout_parsers.h"
 
 #include "mvlc/mvlc_buffer_validators.h"
+#include "mvlc/mvlc_impl_eth.h"
 
 #include <QDebug>
 

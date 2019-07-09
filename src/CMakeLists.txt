@@ -325,8 +325,10 @@ if (MVME_ENABLE_MVLC)
     add_executable(mvme_mvlc mvme_mvlc/mvme_mvlc_main.cc)
     target_link_libraries(mvme_mvlc libmvme)
 
-    add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
-    target_link_libraries(dev_mvlc_dump_eth_file libmvme)
+    if (NOT WIN32)
+        add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
+        target_link_libraries(dev_mvlc_dump_eth_file libmvme)
+    endif(NOT WIN32)
 endif()
 
 install(TARGETS libmvme DESTINATION .)
