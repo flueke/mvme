@@ -1,16 +1,17 @@
 #ifndef __MVME_MVLC_READOUT_WORKER_H__
 #define __MVME_MVLC_READOUT_WORKER_H__
 
-#include "vme_readout_worker.h"
-#include "vme_daq.h"
+#include "mvlc/mvlc_constants.h"
 #include "mvme_stream_util.h"
+#include "vme_daq.h"
+#include "vme_readout_worker.h"
 
 struct MVLCReadoutCounters
 {
-    // MVLC_USB only (ETH does not perform frame type checks as incoming data
-    // is packetized as is).
-    // Unexpected frame types encountered. The readout should produce frames of
-    // types StackFrame and StackContinuation only.
+    // MVLC_USB only (ETH does not perform frame type checks because incoming
+    // data is packetized as is).
+    // The number of unexpected frame types encountered. The readout should
+    // produce outer frames of types StackFrame and StackContinuation only.
     u64 frameTypeErrors;
 
     // MVLC_USB only.
@@ -18,6 +19,22 @@ struct MVLCReadoutCounters
     // moved from the end of incoming read buffers into temp storage and then
     // reused at the start of the next buffer.
     u64 partialFrameTotalBytes;
+
+    // The counters are the same as the mvlc frame_flags except for
+    // NotAStackError which counts the number of non-0xF7 frames received via
+    // the notification channel.
+
+    static const u8 NumErrorCounters = mesytec::mvlc::frame_flags::shifts::SyntaxError + 1;
+    using ErrorCounters = std::array<u64, NumErrorCounters>;
+
+    // Counts the flags set in the 0xF7 stack error notifications sent out on
+    // the command pipe. These notifications are polled by MVLC_VMEController
+    // and handled by the MVLCReadoutWorker.
+    std::array<ErrorCounters, mesytec::mvlc::stacks::StackCount> stackErrors;
+
+    // The number of non 0xF7 frames received via polling. Should be zero at
+    // all times.
+    u64 nonStackErrorNotifications;
 };
 
 namespace mesytec
@@ -62,6 +79,7 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         DataBuffer *getOutputBuffer();
         void maybePutBackBuffer();
         void flushCurrentOutputBuffer();
+        //void handleStackErrorNotification(const QVector<u32> &data);
 };
 
 #endif /* __MVME_MVLC_READOUT_WORKER_H__ */
