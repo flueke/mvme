@@ -107,10 +107,18 @@ inline u8 get_frame_type(u32 header)
 
 namespace frame_flags
 {
-    static const u8 Timeout     = 1 << 0;
-    static const u8 BusError    = 1 << 1;
-    static const u8 SyntaxError = 1 << 2;
-    static const u8 Continue    = 1 << 3;
+    namespace shifts
+    {
+        static const u8 Timeout     = 0;
+        static const u8 BusError    = 1;
+        static const u8 SyntaxError = 2;
+        static const u8 Continue    = 3;
+    }
+
+    static const u8 Timeout     = 1u << shifts::Timeout;
+    static const u8 BusError    = 1u << shifts::BusError;
+    static const u8 SyntaxError = 1u << shifts::SyntaxError;
+    static const u8 Continue    = 1u << shifts::Continue;
 }
 
 namespace system_event

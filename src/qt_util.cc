@@ -25,8 +25,11 @@
 #include <QCloseEvent>
 #include <QCoreApplication>
 #include <QDebug>
+#include <QLineEdit>
 #include <QPainter>
+#include <QPushButton>
 #include <QSettings>
+#include <QTextEdit>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <quazipfile.h>
@@ -332,4 +335,68 @@ int calculate_tab_width(const QFont &font, int tabStop)
 
     QFontMetrics metrics(font);
     return metrics.width(spaces);
+}
+
+// TextEditSearchWidget
+
+TextEditSearchWidget::TextEditSearchWidget(QTextEdit *te, QWidget *parent)
+    : QWidget(parent)
+    , m_searchInput(new QLineEdit)
+    , m_searchButton(new QPushButton("Find"))
+    , m_textEdit(te)
+{
+    assert(te);
+
+    connect(m_searchInput, &QLineEdit::textEdited,
+            this, &TextEditSearchWidget::onSearchTextEdited);
+
+    connect(m_searchInput, &QLineEdit::returnPressed,
+            this, [this]() { findNext(); });
+
+    connect(m_searchButton, &QPushButton::clicked,
+            this, [this]() { findNext(); });
+
+    m_searchInput->setMinimumWidth(80);
+
+    auto layout = make_layout<QHBoxLayout>(this);
+    layout->addWidget(m_searchInput);
+    layout->addWidget(m_searchButton);
+    layout->setStretch(0, 1);
+}
+
+void TextEditSearchWidget::findNext()
+{
+    findNext(false);
+}
+
+void TextEditSearchWidget::findNext(bool hasWrapped)
+{
+    auto searchText = m_searchInput->text();
+    bool found      = m_textEdit->find(searchText);
+
+    if (!found && !hasWrapped)
+    {
+        auto currentCursor = m_textEdit->textCursor();
+        currentCursor.setPosition(0);
+        m_textEdit->setTextCursor(currentCursor);
+        findNext(true);
+    }
+}
+
+void TextEditSearchWidget::onSearchTextEdited(const QString &text)
+{
+    /* Move the cursor to the beginning of the current word, then search
+     * forward from that position. */
+    auto currentCursor = m_textEdit->textCursor();
+    currentCursor.movePosition(QTextCursor::StartOfWord);
+    m_textEdit->setTextCursor(currentCursor);
+    findNext();
+}
+
+void TextEditSearchWidget::focusSearchInput()
+{
+    if (m_searchInput->hasFocus())
+        m_searchInput->selectAll();
+    else
+        m_searchInput->setFocus();
 }

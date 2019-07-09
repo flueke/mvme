@@ -32,6 +32,7 @@
 #include "util/counters.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc/mvlc_impl_eth.h"
+#include "mvlc/mvlc_util.h"
 
 static const int UpdateInterval_ms = 1000;
 
@@ -56,7 +57,8 @@ struct DAQStatsWidgetPrivate
            *label_mvlcPartialFrameTotalBytes,
 
            *label_mvlcReceivedPackets,
-           *label_mvlcLostPackets
+           *label_mvlcLostPackets,
+           *label_mvlcStackErrors
                ;
 
     QFormLayout *formLayout;
@@ -83,6 +85,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     m_d->label_mvlcPartialFrameTotalBytes = new QLabel;
     m_d->label_mvlcReceivedPackets = new QLabel;
     m_d->label_mvlcLostPackets = new QLabel;
+    m_d->label_mvlcStackErrors = new QLabel;
 
     QList<QWidget *> labels = {
         m_d->label_daqDuration,
@@ -95,7 +98,8 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
         m_d->label_mvlcFrameTypeErrors,
         m_d->label_mvlcPartialFrameTotalBytes,
         m_d->label_mvlcReceivedPackets,
-        m_d->label_mvlcLostPackets
+        m_d->label_mvlcLostPackets,
+        m_d->label_mvlcStackErrors,
     };
 
     for (auto label: labels)
@@ -116,8 +120,9 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     formLayout->addRow("Event Loss:", m_d->label_sisEventLoss);
     formLayout->addRow("MVLC USB Frame Type Errors:", m_d->label_mvlcFrameTypeErrors);
     formLayout->addRow("MVLC USB Partial Frame Bytes:", m_d->label_mvlcPartialFrameTotalBytes);
-    formLayout->addRow("MVLC ETH received Packets:", m_d->label_mvlcReceivedPackets);
+    formLayout->addRow("MVLC ETH received packets:", m_d->label_mvlcReceivedPackets);
     formLayout->addRow("MVLC ETH lost packets:", m_d->label_mvlcLostPackets);
+    formLayout->addRow("MVLC Stack Errors:", m_d->label_mvlcStackErrors);
 
     //formLayout->setFieldGrowthPolicy(QFormLayout::FieldsStayAtSizeHint);
     //formLayout->setSizeConstraint(QLayout::SetFixedSize);
@@ -248,6 +253,7 @@ void DAQStatsWidget::updateWidget()
     //
     auto mvlcUSBLabels = { m_d->label_mvlcFrameTypeErrors, m_d->label_mvlcPartialFrameTotalBytes };
     auto mvlcETHLabels = { m_d->label_mvlcReceivedPackets, m_d->label_mvlcLostPackets };
+    auto mvlcGenericLabels = { m_d->label_mvlcStackErrors };
     auto mvlcWorker = qobject_cast<MVLCReadoutWorker *>(rdoWorker);
 
     bool is_MVLC_USB = (mvlcWorker && mvlcWorker->getMVLC())
@@ -260,14 +266,20 @@ void DAQStatsWidget::updateWidget()
 
     update_label_visibility(mvlcUSBLabels, is_MVLC_USB);
     update_label_visibility(mvlcETHLabels, is_MVLC_ETH);
+    update_label_visibility(mvlcGenericLabels, mvlcWorker != nullptr);
 
     MVLCReadoutCounters mvlcCounters;
+
+    if (mvlcWorker)
+    {
+        // Thread-safe copy of the counters
+        mvlcCounters = mvlcWorker->getReadoutCounters();
+    }
 
     if (is_MVLC_USB)
     {
         assert(mvlcWorker);
 
-        mvlcCounters = mvlcWorker->getReadoutCounters();
         auto &prevMVLCCounters = m_d->prevMVLCCounters;
 
         auto frameTypeErrors = format_delta_and_rate(
@@ -318,6 +330,87 @@ void DAQStatsWidget::updateWidget()
              .arg(dataPipeStats.lostPackets)
              .arg(packetLossRate)));
     }
+
+#if 0
+    if (mvlcWorker)
+    {
+        MVLCReadoutCounters::ErrorCounters sumErrorCounts = {};
+
+        // add the errors of all stacks together
+        for (const auto &errorCounters: mvlcCounters.stackErrors)
+        {
+            for (size_t err = 0; err < sumErrorCounts.size(); ++err)
+            {
+                sumErrorCounts[err] += errorCounters[err];
+            }
+        }
+
+        QString errorText;
+
+        for (size_t err = 0; err < sumErrorCounts.size(); ++err)
+        {
+            if (sumErrorCounts[err])
+            {
+                if (!errorText.isEmpty())
+                    errorText += ", ";
+
+                // TODO: add error labels. add a way to see counts for individual stacks
+                errorText += QString("%1: %2")
+                    .arg(err).arg(sumErrorCounts[err]);
+            }
+        }
+
+        m_d->label_mvlcStackErrors->setText(errorText);
+    }
+#else
+    if (mvlcWorker)
+    {
+        QStringList lines;
+
+        for (size_t stack = 0; stack < mvlcCounters.stackErrors.size(); ++stack)
+        {
+            const auto &errorCounts = mvlcCounters.stackErrors[stack];
+            const auto &prevCounts = m_d->prevMVLCCounters.stackErrors[stack];
+
+            // Skip if all the counters are 0
+            if (!std::accumulate(errorCounts.begin(), errorCounts.end(), 0u))
+                continue;
+
+            QString text;
+
+            for (size_t err = 0; err < errorCounts.size(); ++err)
+            {
+
+                if (errorCounts[err])
+                {
+                    if (!text.isEmpty())
+                        text += ", ";
+
+                    double rate = calc_rate0(errorCounts[err], prevCounts[err], dt);
+
+                    text += QString("%1: %2 (%3 1/s)")
+                        .arg(mesytec::mvlc::get_frame_flag_shift_name(err))
+                        .arg(errorCounts[err])
+                        .arg(rate)
+                        ;
+                }
+            }
+
+            if (!text.isEmpty())
+                text = QString("stack%1: ").arg(stack) + text;
+
+            lines.push_back(text);
+        }
+
+        if (mvlcCounters.nonStackErrorNotifications)
+        {
+            lines.push_back(QString("nonStackErrorNotifications: %1")
+                            .arg(mvlcCounters.nonStackErrorNotifications));
+        }
+
+        m_d->label_mvlcStackErrors->setText(lines.join("\n"));
+    }
+#endif
 
     // Store current counts
     m_d->prevStats = daqStats;

@@ -250,6 +250,9 @@ QVector<QVector<u32>> MVLCObject::getStackErrorNotifications() const
     return m_dialog.getStackErrorNotifications();
 }
 
+//
+// MVLCNotificationPoller
+//
 MVLCNotificationPoller::MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent)
     : QObject(parent)
     , m_mvlc(mvlc)
@@ -281,29 +284,28 @@ void MVLCNotificationPoller::doPoll()
     // This avoids having multiple instances of this polling code run in
     // parallel.
     // Can only happen if either the poll interval is very short or the mvlc
-    // read timeouts are longer than the poll timer interval.
+    // read timeouts are longer than the poll timer interval or the read loop
+    // always gets notification data back.
     bool f = false;
     if (!m_isPolling.compare_exchange_weak(f, true))
         return;
 
-    if (m_mvlc.isConnected())
+    //qDebug() << __PRETTY_FUNCTION__ << "entering polling loop";
+
+    QVector<u32> buffer;
+
+    do
     {
-        QVector<u32> buffer;
+        m_mvlc.readKnownBuffer(buffer);
 
-        do
+        if (!buffer.isEmpty())
         {
-            auto ec = m_mvlc.readKnownBuffer(buffer);
+            emit stackErrorNotification(buffer);
+        }
 
-            if (ec && ec != ErrorType::Timeout)
-            {
-                qDebug() << __PRETTY_FUNCTION__ << "error from readKnownBuffer: "
-                    << ec.message().c_str();
-            }
+    } while (!buffer.isEmpty());
 
-            if (!buffer.isEmpty())
-                emit stackErrorNotification(buffer);
-        } while (!buffer.isEmpty());
-    }
+    //qDebug() << __PRETTY_FUNCTION__ << "left polling loop";
 
     m_isPolling = false;
 }

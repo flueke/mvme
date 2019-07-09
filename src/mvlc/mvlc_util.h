@@ -98,6 +98,7 @@ void log_buffer(Out &out, const u32 *buffer, size_t size, const char *info)
 }
 
 LIBMVME_MVLC_EXPORT const char *get_system_event_subtype_name(u8 subtype);
+LIBMVME_MVLC_EXPORT const char *get_frame_flag_shift_name(u8 flag);
 
 } // end namespace mvlc
 } // end namespace mesytec

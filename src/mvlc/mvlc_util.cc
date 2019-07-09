@@ -318,5 +318,22 @@ const char *get_system_event_subtype_name(u8 subtype_)
     return "unknown system event subtype";
 }
 
+const char *get_frame_flag_shift_name(u8 flag_shift)
+{
+    if (flag_shift == frame_flags::shifts::Timeout)
+        return "Timeout";
+
+    if (flag_shift == frame_flags::shifts::BusError)
+        return "BusError";
+
+    if (flag_shift == frame_flags::shifts::SyntaxError)
+        return "SyntaxError";
+
+    if (flag_shift == frame_flags::shifts::Continue)
+        return "Continue";
+
+    return "Unknown";
+}
+
 } // end namespace mvlc
 } // end namespace mesytec

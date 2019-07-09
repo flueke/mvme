@@ -1119,11 +1119,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         // pause, resume, step actions and MVLC parser debugging
         m_d->mvlcParserDebugHandler = new MVLCParserDebugHandler(this);
 
-        // Have to react to vmeControllerSet as that will change the
-        // StreamWorkerBase instance used in MVMEContext. Thus the connection
-        // to stateChanged() has to be remade.
-        connect(m_d->m_context, &MVMEContext::vmeControllerSet,
-                this, [this] (VMEController *)
+        auto setup_parser_debug = [this] ()
         {
             connect(m_d->m_context->getMVMEStreamWorker(), &StreamWorkerBase::stateChanged,
                     this, [this](MVMEStreamWorkerState) {
@@ -1137,7 +1133,16 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
                 connect(worker, &MVLC_StreamWorker::debugInfoReady,
                         m_d->mvlcParserDebugHandler, &MVLCParserDebugHandler::handleDebugInfo);
             }
-        });
+        };
+
+        // Have to react to vmeControllerSet as that will change the
+        // StreamWorkerBase instance used in MVMEContext. Thus the connection
+        // to stateChanged() has to be remade and the test for an
+        // MVLC_StreamWorker instance has to be doen again.
+        connect(m_d->m_context, &MVMEContext::vmeControllerSet,
+                this, setup_parser_debug);
+
+        setup_parser_debug();
 
         m_d->m_toolbar->addSeparator();
         m_d->m_actionPause = m_d->m_toolbar->addAction(

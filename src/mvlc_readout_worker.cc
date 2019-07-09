@@ -74,31 +74,6 @@
 // Note: max amount to copy is the max length of a frame. That's 2^13 words
 // (32k bytes) for readout frames.
 
-    // TODO: where to handle error notifications? The GUI should display their
-    // rates by stack somewhere.
-    // Use the notification poller somewhere outside of this readout worker and
-    // display the counts somewhere during a readout.
-#if 0
-    connect(mvlc, &MVLC_VMEController::stackErrorNotification,
-            this, [this] (const QVector<u32> &notification)
-    {
-        bool wasLogged = logMessage(QSL("Stack Error Notification from MVLC (size=%1)")
-                                    .arg(notification.size()), true);
-
-        if (!wasLogged)
-            return;
-
-        for (const auto &word: notification)
-        {
-            logMessage(QSL("  0x%1").arg(word, 8, 16, QLatin1Char('0')),
-                       false);
-        }
-
-        logMessage(QSL("End of Stack Error Notification"), false);
-    });
-#endif
-
-
 using namespace mesytec::mvlc;
 
 static const size_t LocalEventBufferSize = Megabytes(1);
@@ -448,6 +423,48 @@ void listfile_end_run_and_close(ListfileOutput &lf_out,
     listfile_close(lf_out);
 }
 
+// Function polling the MVLCs command pipe for stack error notifications and
+// updating the stack error counters. This is intended to be run in a separate
+// thread. It will loop until keepRunning becomes false or the mvlc connection
+// is lost.
+void stack_error_notification_poller(
+    MVLCObject *mvlc,
+    MVLCReadoutCounters &counters,
+    mesytec::mvme::TicketMutex &countersMutex,
+    std::atomic<bool> &keepRunning)
+{
+    QVector<u32> buffer;
+
+    while (keepRunning)
+    {
+        auto ec = mvlc->readKnownBuffer(buffer);
+
+        if (ec == ErrorType::ConnectionError)
+            break;
+
+        if (!buffer.isEmpty())
+        {
+            auto frameInfo = extract_frame_info(buffer[0]);
+
+            UniqueLock guard(countersMutex);
+
+            if (frameInfo.type != frame_headers::StackError)
+            {
+                ++counters.nonStackErrorNotifications;
+            }
+            else if (frameInfo.stack < stacks::StackCount)
+            {
+                auto &errorCounters = counters.stackErrors[frameInfo.stack];
+
+                for (unsigned i = 0; i < MVLCReadoutCounters::NumErrorCounters; ++i)
+                {
+                    errorCounters[i] += ((frameInfo.flags >> i) & 1u);
+                }
+            }
+        }
+    }
+}
+
 } // end anon namespace
 
 struct MVLCReadoutWorker::Private
@@ -472,8 +489,13 @@ struct MVLCReadoutWorker::Private
     DataBuffer localEventBuffer;
     DataBuffer *outputBuffer = nullptr;
 
+    // stat counters
     MVLCReadoutCounters counters = {};
     mutable mesytec::mvme::TicketMutex countersMutex;
+
+    // notification polling
+    std::thread notificationPollerThread;
+    std::atomic<bool> notificationPollerKeepRunning;
 
     Private(MVLCReadoutWorker *q_)
         : q(q_)
@@ -501,6 +523,32 @@ struct MVLCReadoutWorker::Private
         counters = {};
     }
 
+    void startNotificationPolling()
+    {
+        assert(!notificationPollerThread.joinable());
+
+        QMetaObject::invokeMethod(mvlcCtrl, &MVLC_VMEController::disableNotificationPolling);
+
+        notificationPollerKeepRunning = true;
+
+        notificationPollerThread = std::thread(
+            stack_error_notification_poller,
+            mvlcObj,
+            std::ref(counters),
+            std::ref(countersMutex),
+            std::ref(notificationPollerKeepRunning));
+    }
+
+    void stopNotificationPolling()
+    {
+        notificationPollerKeepRunning = false;
+
+        if (notificationPollerThread.joinable())
+            notificationPollerThread.join();
+
+        QMetaObject::invokeMethod(mvlcCtrl, &MVLC_VMEController::enableNotificationPolling);
+    }
+
     // Cleanly end a running readout session. The code disables all triggers by
     // writing to the trigger registers via the command pipe while in parallel
     // reading and processing data from the data pipe until no more data
@@ -511,6 +559,8 @@ struct MVLCReadoutWorker::Private
     {
         assert(q);
         assert(mvlcObj);
+
+        stopNotificationPolling();
 
         auto f = QtConcurrent::run([this] ()
         {
@@ -639,6 +689,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         m_workerContext.daqStats.listfileFilename = d->listfileOut.outFilename;
 
         d->preRunClear();
+        d->startNotificationPolling();
 
         logMessage("");
         logMessage(QSL("Entering readout loop"));
@@ -1066,6 +1117,8 @@ void MVLCReadoutWorker::resumeDAQ()
 
     enable_triggers(*d->mvlcObj, *getContext().vmeConfig);
 
+    d->startNotificationPolling();
+
     listfile_write_system_event(d->listfileOut, system_event::subtype::Resume);
 
     setState(DAQState::Running);
@@ -1147,3 +1200,29 @@ void MVLCReadoutWorker::logError(const QString &msg)
 {
     logMessage(QSL("MVLC Readout Error: %1").arg(msg));
 }
+
+#if 0
+void MVLCReadoutWorker::handleStackErrorNotification(const QVector<u32> &data)
+{
+    if (data.isEmpty())
+        return;
+
+    auto frameInfo = extract_frame_info(data[0]);
+
+    UniqueLock guard(d->countersMutex);
+
+    if (frameInfo.type != frame_headers::StackError)
+    {
+        ++d->counters.nonStackErrorNotifications;
+    }
+    else if (frameInfo.stack < stacks::StackCount)
+    {
+        auto &errorCounters = d->counters.stackErrors[frameInfo.stack];
+
+        for (size_t i = 0; i < MVLCReadoutCounters::NumErrorCounters; ++i)
+        {
+            errorCounters[i] += ((frameInfo.flags >> i) & 1u);
+        }
+    }
+}
+#endif

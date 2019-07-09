@@ -119,6 +119,7 @@ struct LIBMVME_MVLC_EXPORT ReadoutParserCounters
 {
     u32 internalBufferLoss;
     u32 buffersProcessed;
+    u64 unusedBytes;
 
     u32 ethPacketLoss;
     u32 ethPacketsProcessed;
