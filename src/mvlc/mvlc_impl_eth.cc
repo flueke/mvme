@@ -353,7 +353,7 @@ std::error_code Impl::connect()
                              &szLen);
 #else
             res = getsockopt(getSocket(pipe), SOL_SOCKET, SO_RCVBUF,
-                             reinterpret_cast<const char *>(&actualBufferSize),
+                             reinterpret_cast<char *>(&actualBufferSize),
                              &szLen);
 #endif
 

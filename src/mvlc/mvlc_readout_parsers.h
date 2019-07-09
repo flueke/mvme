@@ -2,7 +2,6 @@
 #define __MVME_MVLC_READOUT_PARSERS_H__
 
 #include "vme_script.h"
-#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc/mvlc_threading.h"
 #include "mvlc/mvlc_util.h"
 #include "databuffer.h"
@@ -59,8 +58,8 @@ using VMEConfReadoutScripts = std::vector<std::vector<vme_script::VMEScript>>;
 // ModuleReadoutParts indexed by event and module
 using VMEConfReadoutInfo    = std::vector<std::vector<ModuleReadoutParts>>;
 
-ModuleReadoutParts parse_module_readout_script(const vme_script::VMEScript &readoutScript);
-VMEConfReadoutInfo parse_vme_readout_info(const VMEConfReadoutScripts &rdoScripts);
+LIBMVME_MVLC_EXPORT ModuleReadoutParts parse_module_readout_script(const vme_script::VMEScript &readoutScript);
+LIBMVME_MVLC_EXPORT VMEConfReadoutInfo parse_vme_readout_info(const VMEConfReadoutScripts &rdoScripts);
 
 struct Span
 {
@@ -114,9 +113,9 @@ enum class ParseResult
     ParseResultMax
 };
 
-const char *get_parse_result_name(const ParseResult &pr);
+LIBMVME_MVLC_EXPORT const char *get_parse_result_name(const ParseResult &pr);
 
-struct ReadoutParserCounters
+struct LIBMVME_MVLC_EXPORT ReadoutParserCounters
 {
     u32 internalBufferLoss;
     u32 buffersProcessed;
@@ -140,7 +139,7 @@ struct ReadoutParserCounters
     ParseResultArray parseResults;
 };
 
-struct ReadoutParserState
+struct LIBMVME_MVLC_EXPORT ReadoutParserState
 {
     // Helper structure keeping track of the number of words left in a MVLC
     // style data frame.
@@ -204,14 +203,14 @@ struct ReadoutParserState
     ReadoutParserCounters counters = {};
 };
 
-ReadoutParserState make_readout_parser(const VMEConfReadoutScripts &readoutScripts);
+LIBMVME_MVLC_EXPORT ReadoutParserState make_readout_parser(const VMEConfReadoutScripts &readoutScripts);
 
-ParseResult parse_readout_buffer_eth(
+LIBMVME_MVLC_EXPORT ParseResult parse_readout_buffer_eth(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     u32 bufferNumber, u8 *buffer, size_t bufferSize);
 
-ParseResult parse_readout_buffer_usb(
+LIBMVME_MVLC_EXPORT ParseResult parse_readout_buffer_usb(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
     u32 bufferNumber, u8 *buffer, size_t bufferSize);

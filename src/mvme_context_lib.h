@@ -14,7 +14,7 @@ struct OpenListfileFlags
 
 /* IMPORTANT: Does not check if the current analysis is modified before loading
  * one from the listfile. Perform this check before calling this function!. */
-const ListfileReplayHandle &context_open_listfile(
+LIBMVME_EXPORT const ListfileReplayHandle &context_open_listfile(
     MVMEContext *context, const QString &filename, u16 flags = 0);
 
 struct AnalysisPauser
