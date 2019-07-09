@@ -164,7 +164,7 @@ std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
 
     if (ec == make_error_code(MVLCErrorCode::ShortRead))
     {
-        // Adjust the destination size to the full number of words transfered.
+        // Adjust the destination size to the full number of words transferred.
         dest.resize(1 + wordsTransferred);
     }
 
@@ -397,6 +397,9 @@ std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, u8 amod,
     if (m_responseBuffer.size() != 1)
         return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
 
+    if (extract_frame_info(m_responseBuffer[0]).flags & frame_flags::Timeout)
+        return MVLCErrorCode::NoVMEResponse;
+
     return ec;
 }
 
@@ -418,6 +421,9 @@ std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, u8 amod,
 
     if (m_responseBuffer.size() != 2)
         return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
+
+    if (extract_frame_info(m_responseBuffer[0]).flags & frame_flags::Timeout)
+        return MVLCErrorCode::NoVMEResponse;
 
     const u32 Mask = (dataWidth == VMEDataWidth::D16 ? 0x0000FFFF : 0xFFFFFFFF);
 
