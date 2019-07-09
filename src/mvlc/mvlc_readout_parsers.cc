@@ -218,10 +218,6 @@ inline ParseResult parser_begin_event(ReadoutParserState &state, u32 frameHeader
     state.curStackFrame = { frameHeader };
     state.curBlockFrame = {};
 
-    // Loss from the previous packet does not matter anymore as we
-    // just started parsing a new event.
-    state.lastPacketNumber = -1;
-
     assert(is_event_in_progress(state));
     return ParseResult::Ok;
 }
