@@ -52,14 +52,17 @@ struct ModuleReadoutParts
     bool hasDynamic; // true if a dynamic part (block read) is present
 };
 
-// vme readout scripts indexed by event and module
+// VME module readout scripts indexed by event and module
 using VMEConfReadoutScripts = std::vector<std::vector<vme_script::VMEScript>>;
 
 // ModuleReadoutParts indexed by event and module
 using VMEConfReadoutInfo    = std::vector<std::vector<ModuleReadoutParts>>;
 
-LIBMVME_MVLC_EXPORT ModuleReadoutParts parse_module_readout_script(const vme_script::VMEScript &readoutScript);
-LIBMVME_MVLC_EXPORT VMEConfReadoutInfo parse_vme_readout_info(const VMEConfReadoutScripts &rdoScripts);
+LIBMVME_MVLC_EXPORT ModuleReadoutParts parse_module_readout_script(
+    const vme_script::VMEScript &readoutScript);
+
+LIBMVME_MVLC_EXPORT VMEConfReadoutInfo parse_vme_readout_info(
+    const VMEConfReadoutScripts &rdoScripts);
 
 struct Span
 {
@@ -78,15 +81,18 @@ struct end_of_frame: public std::exception {};
 
 struct ReadoutParserCallbacks
 {
+    // functions taking an event index
     std::function<void (int ei)>
         beginEvent = [] (int) {},
         endEvent   = [] (int) {};
 
+    // Parameters: event index, module index, pointer to first word, number of words
     std::function<void (int ei, int mi, u32 *data, u32 size)>
         modulePrefix  = [] (int, int, u32*, u32) {},
         moduleDynamic = [] (int, int, u32*, u32) {},
         moduleSuffix  = [] (int, int, u32*, u32) {};
 
+    // Parameters: pointer to first word of the system event data, number of words
     std::function<void (u32 *header, u32 size)>
         systemEvent = [] (u32 *, u32) {};
 };
@@ -105,7 +111,7 @@ enum class ParseResult
     EmptyStackFrame,
     UnexpectedOpenBlockFrame,
 
-    // XXX: These should be fixed in the code somehow!
+    // XXX: These should be fixed in the code.
     ParseReadoutContentsNotAdvancing,
     ParseEthBufferNotAdvancing,
     ParseEthPacketNotAdvancing,
@@ -123,15 +129,10 @@ struct LIBMVME_MVLC_EXPORT ReadoutParserCounters
 
     u32 ethPacketLoss;
     u32 ethPacketsProcessed;
-#if 0
-    u32 ethPacketsReparsed;
-    u32 ethPacketsSkipped;
-#endif
 
     std::array<u32, system_event::subtype::SubtypeMax + 1> systemEventTypes;
 
-    using ModuleCounters = std::array<u32, MaxVMEModules>;
-
+    //using ModuleCounters = std::array<u32, MaxVMEModules>;
     //std::array<u32, MaxVMEEvents> eventCounters;
     //std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
 
