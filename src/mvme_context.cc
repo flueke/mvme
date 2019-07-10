@@ -1610,6 +1610,9 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 
     // Check for errors indicating connection loss and call disconnect on the
     // VME controller to update its status.
+    static const unsigned TimeoutConnectionLossThreshold = 3;
+    unsigned timeouts = 0;
+
     for (const auto &result: results)
     {
         qDebug() << __PRETTY_FUNCTION__ << result.error.isError()
@@ -1618,12 +1621,23 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
             << result.error.getStdErrorCode().category().name()
             << (result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError);
 
-        if (result.error.isError() &&
-            (result.error.error() == VMEError::NotOpen ||
-             result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError))
+        if (result.error.isError())
         {
-            m_controller->close();
-            break;
+            if (result.error.error() == VMEError::NotOpen ||
+                result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError)
+            {
+                m_controller->close();
+                break;
+            }
+            else if (result.error.isTimeout()
+                     || result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::Timeout)
+            {
+                if (++timeouts >= TimeoutConnectionLossThreshold)
+                {
+                    m_controller->close();
+                    break;
+                }
+            }
         }
     }
 
