@@ -824,6 +824,24 @@ std::error_code Impl::getReadQueueSize(Pipe pipe, u32 &dest)
     return make_error_code(st);
 }
 
+std::string Impl::connectionInfoString() const
+{
+    std::string result = "speed=";
+
+    auto devInfo = getDeviceInfo();
+
+    if (devInfo.flags & DeviceInfo::Flags::USB2)
+        result += "USB2";
+    else if (devInfo.flags & DeviceInfo::Flags::USB3)
+        result += "USB3";
+    else
+        result += "unknown";
+
+    result += ", serial=" + devInfo.serial;
+
+    return result;
+}
+
 } // end namespace usb
 } // end namespace mvlc
 } // end namespace mesytec

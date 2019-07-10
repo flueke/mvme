@@ -823,6 +823,14 @@ u32 Impl::getDataAddress() const
     return ::ntohl(m_dataAddr.sin_addr.s_addr);
 }
 
+std::string Impl::connectionInfoString() const
+{
+    std::string result = "host=" + getHost();
+    result += ", address=" + format_ipv4(getCmdAddress()).toStdString();
+
+    return result;
+}
+
 s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber)
 {
     static const s32 PacketNumberMax = eth::header0::PacketNumberMask;

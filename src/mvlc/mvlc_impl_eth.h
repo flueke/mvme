@@ -193,6 +193,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         PacketReadResult read_packet(Pipe pipe, u8 *buffer, size_t size);
 
         ConnectionType connectionType() const override { return ConnectionType::ETH; }
+        std::string connectionInfoString() const override;
 
         std::error_code getReadQueueSize(Pipe pipe, u32 &dest) override;
 
@@ -205,6 +206,9 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         // host string given to the constructor.
         u32 getCmdAddress() const;
         u32 getDataAddress() const;
+
+        // Returns the host/IP string given to the constructor.
+        std::string getHost() const { return m_host; }
 
         sockaddr_in getCmdSockAddress() const { return m_cmdAddr; }
         sockaddr_in getDataSockAddress() const { return m_dataAddr; }
