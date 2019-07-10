@@ -1608,8 +1608,8 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 
     auto results = vme_script::run_script(m_controller, script, logger, logEachResult);
 
-    // Check for errors indicating connection loss and call disconnect on the
-    // VME controller to update its status.
+    // Check for errors indicating connection loss and call close() on the VME
+    // controller to update its status.
     static const unsigned TimeoutConnectionLossThreshold = 3;
     unsigned timeouts = 0;
 
