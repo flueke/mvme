@@ -28,11 +28,12 @@
 #include "event_server/server/event_server.h"
 #include "file_autosaver.h"
 #include "mvlc_listfile.h"
+#include "mvlc_listfile_worker.h"
+#include "mvlc/mvlc_vme_controller.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_context_lib.h"
 #include "mvme.h"
 #include "mvme_listfile_worker.h"
-#include "mvlc_listfile_worker.h"
 #include "mvme_stream_worker.h"
 #include "mvme_workspace.h"
 #include "remote_control.h"
@@ -516,6 +517,14 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
                                .arg(error.toString())
                               );
                 }
+            }
+            else if (auto mvlc = dynamic_cast<mesytec::mvlc::MVLC_VMEController *>(m_controller))
+            {
+                using namespace mesytec::mvlc;
+
+                logMessage(QString("Opened VME Controller %1 (%2)")
+                           .arg(mvlc->getIdentifyingString())
+                           .arg(mvlc->getMVLCObject()->getConnectionInfo()));
             }
             else // generic case
             {
