@@ -105,6 +105,7 @@ class FTErrorCategory: public std::error_category
             case FT_INVALID_HANDLE:
             case FT_DEVICE_NOT_FOUND:
             case FT_DEVICE_NOT_OPENED:
+            case FT_DEVICE_NOT_CONNECTED:
                 return ErrorType::ConnectionError;
 
             case FT_IO_ERROR:
@@ -137,7 +138,6 @@ class FTErrorCategory: public std::error_category
             case FT_BUSY:
             case FT_NO_SYSTEM_RESOURCES:
             case FT_DEVICE_LIST_NOT_READY:
-            case FT_DEVICE_NOT_CONNECTED:
             case FT_INCORRECT_DEVICE_PATH:
             case FT_OTHER_ERROR:
                 return ErrorType::IOError;
