@@ -250,6 +250,16 @@ QVector<QVector<u32>> MVLCObject::getStackErrorNotifications() const
     return m_dialog.getStackErrorNotifications();
 }
 
+QString MVLCObject::getConnectionInfo() const
+{
+    auto guards = getLocks().lockBoth();
+
+    if (!m_impl->isConnected())
+        return "not connected";
+
+    return QString::fromStdString(m_impl->connectionInfoString());
+}
+
 //
 // MVLCNotificationPoller
 //
