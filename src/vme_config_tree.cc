@@ -950,7 +950,7 @@ void VMEConfigTreeWidget::runScripts()
         }
     }
 
-    runScriptConfigs(scriptConfigs);
+    emit runScriptConfigs(scriptConfigs);
 }
 
 void VMEConfigTreeWidget::editName()
@@ -962,7 +962,7 @@ void VMEConfigTreeWidget::initModule()
 {
     auto node = m_tree->currentItem();
     auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
-    runScriptConfigs(module->getInitScripts());
+    emit runScriptConfigs(module->getInitScripts());
 }
 
 void VMEConfigTreeWidget::onActionShowAdvancedChanged()

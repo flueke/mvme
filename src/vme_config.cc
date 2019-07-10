@@ -241,13 +241,13 @@ QString VMEScriptConfig::getVerboseTitle() const
 
     if (module)
     {
-        title = QString("%1 for %2")
+        title = QString("%1 for module %2")
             .arg(objectName())
             .arg(module->objectName());
     }
     else if (event)
     {
-        title = QString("%1 for %2")
+        title = QString("%1 for event %2")
             .arg(objectName())
             .arg(event->objectName());
     }
