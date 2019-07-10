@@ -360,62 +360,46 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
 
     auto &prevCounters = prevMVLCCounters;
 
-    u64 deltaBuffers = calc_delta0(counters.buffersProcessed,
-                                   prevCounters.buffersProcessed);
+    double bufferRate = calc_rate0<TYPE_AND_VAL(&ReadoutParserCounters::buffersProcessed)>(
+        counters, prevCounters, dt);
 
-    double bufferRate = deltaBuffers / dt;
+    double bufferLossRate = calc_rate0<TYPE_AND_VAL(&ReadoutParserCounters::internalBufferLoss)>(
+        counters, prevCounters, dt);
 
-    u64 deltaBufferLoss = calc_delta0(counters.internalBufferLoss,
-                                      prevCounters.internalBufferLoss);
+    double unusedBytesRate = calc_rate0<TYPE_AND_VAL(&ReadoutParserCounters::unusedBytes)>(
+        counters, prevCounters, dt);
 
-    double bufferLossRate = deltaBufferLoss / dt;
+    double ethPacketRate = calc_rate0<TYPE_AND_VAL(&ReadoutParserCounters::ethPacketsProcessed)>(
+        counters, prevCounters, dt);
 
-    u64 unusedBytesDelta = calc_delta0(counters.unusedBytes,
-                                       prevCounters.unusedBytes);
+    double ethPacketLossRate = calc_rate0<TYPE_AND_VAL(&ReadoutParserCounters::ethPacketLoss)>(
+        counters, prevCounters, dt);
 
-    double unusedBytesRate = unusedBytesDelta / dt;
-
-    u64 deltaEthPackets = calc_delta0(counters.ethPacketsProcessed,
-                                      prevCounters.ethPacketsProcessed);
-
-    double ethPacketRate = deltaEthPackets / dt;
-
-    u64 deltaEthPacketLoss = calc_delta0(counters.ethPacketLoss,
-                                         prevCounters.ethPacketLoss);
-
-    double ethPacketLossRate = deltaEthPacketLoss / dt;
-
-    ReadoutParserCounters::ParseResultArray deltaParseResults;
-    std::array<double, deltaParseResults.size()> parseResultRates;
-
-    for (size_t i=0; i<deltaParseResults.size(); i++)
-    {
-        deltaParseResults[i] = calc_delta0(counters.parseResults[i],
-                                           prevCounters.parseResults[i]);
-        parseResultRates[i] = deltaParseResults[i] / dt;
-    }
+    auto parseResultRates = calc_rates0<std::vector<double>>(
+        counters.parseResults.cbegin(), counters.parseResults.cend(),
+        prevCounters.parseResults.cbegin(), dt);
 
     QStringList texts;
 
-    texts += QString("%1, rate=%2")
-        .arg(format_number(counters.buffersProcessed, "", UnitScaling::Decimal))
-        .arg(format_number(bufferRate, "buffers/s", UnitScaling::Decimal));
+    texts += QString("%1, rate=%2 buffers/s")
+        .arg(format_number(counters.buffersProcessed, "", UnitScaling::Decimal, 0, 'f', 2))
+        .arg(bufferRate, 0, 'f', 0);
+
+    texts += QString("%1, rate=%2 buffers/s")
+        .arg(format_number(counters.internalBufferLoss, "", UnitScaling::Decimal, 0, 'f', 2))
+        .arg(bufferLossRate, 0, 'f', 0);
 
     texts += QString("%1, rate=%2")
-        .arg(format_number(counters.internalBufferLoss, "", UnitScaling::Decimal))
-        .arg(format_number(bufferLossRate, "buffers/s", UnitScaling::Decimal));
+        .arg(format_number(counters.unusedBytes, "bytes", UnitScaling::Binary, 0, 'f', 2))
+        .arg(format_number(unusedBytesRate, "bytes/s", UnitScaling::Binary, 0, 'f', 0));
 
-    texts += QString("%1, rate=%2")
-        .arg(format_number(counters.unusedBytes, "", UnitScaling::Binary))
-        .arg(format_number(unusedBytesRate, "bytes/s", UnitScaling::Binary));
+    texts += QString("%1, rate=%2 packets/s")
+        .arg(format_number(counters.ethPacketsProcessed, "", UnitScaling::Decimal, 0, 'f', 2))
+        .arg(ethPacketRate, 0, 'f', 0);
 
-    texts += QString("%1, rate=%2")
-        .arg(format_number(counters.ethPacketsProcessed, "", UnitScaling::Decimal))
-        .arg(format_number(ethPacketRate, "packets/s", UnitScaling::Decimal));
-
-    texts += QString("%1, rate=%2")
-        .arg(format_number(counters.ethPacketLoss, "", UnitScaling::Decimal))
-        .arg(format_number(ethPacketLossRate, "packets/s", UnitScaling::Decimal));
+    texts += QString("%1, rate=%2 packets/s")
+        .arg(format_number(counters.ethPacketLoss, "", UnitScaling::Decimal, 0, 'f', 2))
+        .arg(ethPacketLossRate, 0, 'f', 0);
 
     // system event subtypes
     {
@@ -429,11 +413,11 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
             if (!buffer.isEmpty())
                 buffer += ", ";
 
-            buffer += QString("0x%1 (%2): %3")
-                .arg(subtype, 2, 16, QLatin1Char('0'))
+            buffer += QString("%1 (0x%2): %3")
                 .arg(get_system_event_subtype_name(subtype))
+                .arg(subtype, 2, 16, QLatin1Char('0'))
                 .arg(format_number(counters.systemEventTypes[subtype],
-                                   "", UnitScaling::Decimal));
+                                   "", UnitScaling::Decimal, 0, 'f', 0));
         }
 
         texts += buffer;
@@ -451,10 +435,10 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
             if (!buffer.isEmpty())
                 buffer += "\n";
 
-            buffer += QString("%1: %2, rate=%3")
+            buffer += QString("%1: %2, rate=%3 results/s")
                 .arg(get_parse_result_name(static_cast<ParseResult>(pr)))
-                .arg(format_number(counters.parseResults[pr], "", UnitScaling::Decimal))
-                .arg(format_number(parseResultRates[pr], "results/s", UnitScaling::Decimal));
+                .arg(format_number(counters.parseResults[pr], "", UnitScaling::Decimal, 0, 'f', 0))
+                .arg(parseResultRates[pr], 0, 'f', 0);
         }
 
         texts += buffer;

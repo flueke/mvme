@@ -282,23 +282,24 @@ void DAQStatsWidget::updateWidget()
 
         auto &prevMVLCCounters = m_d->prevMVLCCounters;
 
-        auto frameTypeErrors = format_delta_and_rate(
-            mvlcCounters.frameTypeErrors, prevMVLCCounters.frameTypeErrors, dt,
-            "errors");
+        u64 frameTypeErrorRate =
+            calc_rate0<TYPE_AND_VAL(&MVLCReadoutCounters::frameTypeErrors)>(
+                mvlcCounters, prevMVLCCounters, dt);
 
-        auto partialFrameTotalBytes = format_delta_and_rate(
-            mvlcCounters.partialFrameTotalBytes, prevMVLCCounters.partialFrameTotalBytes, dt,
-            "bytes", UnitScaling::Binary);
+        u64 partialFrameTotalBytesRate =
+            calc_rate0<TYPE_AND_VAL(&MVLCReadoutCounters::partialFrameTotalBytes)>(
+                mvlcCounters, prevMVLCCounters, dt);
 
         m_d->label_mvlcFrameTypeErrors->setText(
-            (QString("%1, %2")
+            (QString("%1, %2 errors/s")
              .arg(mvlcCounters.frameTypeErrors)
-             .arg(frameTypeErrors.second)));
+             .arg(frameTypeErrorRate)));
 
         m_d->label_mvlcPartialFrameTotalBytes->setText(
             (QString("%1, %2")
              .arg(mvlcCounters.partialFrameTotalBytes)
-             .arg(partialFrameTotalBytes.second)));
+             .arg(format_number(partialFrameTotalBytesRate, "bytes/s", UnitScaling::Binary, 0, 'f', 0))
+             ));
     }
 
 
