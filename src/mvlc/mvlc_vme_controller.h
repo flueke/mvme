@@ -11,7 +11,8 @@ namespace mvlc
 {
 
 // Implementation of the VMEController interface for the MVLC.
-// Note: MVLC_VMEController does not take ownership of the MVLCObject.
+// Note: MVLC_VMEController does not take ownership of the MVLCObject but
+// ownership can be transferred via QObject::setParent() if desired.
 class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
 {
     Q_OBJECT
