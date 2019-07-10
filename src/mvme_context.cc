@@ -29,6 +29,7 @@
 #include "file_autosaver.h"
 #include "mvlc_listfile.h"
 #include "mvlc_listfile_worker.h"
+#include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_context_lib.h"
@@ -1605,9 +1606,28 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 {
     DAQPauser pauser(this);
 
-    auto result = vme_script::run_script(m_controller, script, logger, logEachResult);
+    auto results = vme_script::run_script(m_controller, script, logger, logEachResult);
 
-    return result;
+    // Check for errors indicating connection loss and call disconnect on the
+    // VME controller to update its status.
+    for (const auto &result: results)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << result.error.isError()
+            << result.error.error()
+            << result.error.getStdErrorCode().value()
+            << result.error.getStdErrorCode().category().name()
+            << (result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError);
+
+        if (result.error.isError() &&
+            (result.error.error() == VMEError::NotOpen ||
+             result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError))
+        {
+            m_controller->close();
+            break;
+        }
+    }
+
+    return results;
 }
 
 //
