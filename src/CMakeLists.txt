@@ -262,6 +262,7 @@ target_sources(libmvme PRIVATE
     mvme_stream_processor.cc
     mvme_stream_util.cc
     mvme_stream_worker.cc
+    multi_event_splitter.cc
     rate_monitor_base.cc
     rate_monitor_gui.cc
     rate_monitor_plot_widget.cc
