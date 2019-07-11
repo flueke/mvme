@@ -1,12 +1,13 @@
 #include "mvlc_stream_worker.h"
 
+#include <algorithm>
 #include <QThread>
 
+#include "analysis/analysis_util.h"
 #include "databuffer.h"
+#include "mvlc/mvlc_impl_eth.h"
 #include "mvme_context.h"
 #include "vme_analysis_common.h"
-#include "mvlc/mvlc_impl_eth.h"
-
 
 using namespace vme_analysis_common;
 using namespace mesytec::mvlc;
@@ -84,8 +85,10 @@ void MVLC_StreamWorker::setState(MVMEStreamWorkerState newState)
     }
 }
 
-void MVLC_StreamWorker::setupParserCallbacks(analysis::Analysis *analysis)
+void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysis::Analysis *analysis)
 {
+    m_parserCallbacks = ReadoutParserCallbacks();
+
     m_parserCallbacks.beginEvent = [analysis](int ei)
     {
         //qDebug() << "beginEvent" << ei;
@@ -135,12 +138,63 @@ void MVLC_StreamWorker::setupParserCallbacks(analysis::Analysis *analysis)
 
         // IMPORTANT: This assumes that a timestamp is added to the listfile
         // every 1 second. Jitter is not taken into account and the actual
-        // timestamp value is not used.
+        // timestamp value is not used at the moment.
         if (subtype == system_event::subtype::UnixTimestamp)
         {
             analysis->processTimetick();
         }
     };
+
+    const auto eventConfigs = vmeConfig->getEventConfigs();
+
+    // Setup multi event splitting if needed
+    if (uses_multi_event_splitting(*vmeConfig, *analysis))
+    {
+        using namespace mvme;
+
+        auto filterStrings = collect_multi_event_splitter_filter_strings(
+            *vmeConfig, *analysis);
+
+        m_multiEventSplitter = multi_event_splitter::make_splitter(filterStrings);
+
+        // Copy our callbacks, which are driving the analysis, to the callbacks
+        // for the multi event splitter.
+        auto &splitterCallbacks = m_multiEventSplitterCallbacks;
+        splitterCallbacks.beginEvent = m_parserCallbacks.beginEvent;
+        splitterCallbacks.modulePrefix = m_parserCallbacks.modulePrefix;
+        splitterCallbacks.moduleDynamic = m_parserCallbacks.moduleDynamic;
+        splitterCallbacks.moduleSuffix = m_parserCallbacks.moduleSuffix;
+        splitterCallbacks.endEvent = m_parserCallbacks.endEvent;
+
+        // Now overwrite our own callbacks to drive the splitter instead of the
+        // analysis.
+        // Note: the systemEvent callback is not overwritten as there is no
+        // special handling for it in the multi event splitting logic.
+        m_parserCallbacks.beginEvent = [this] (int ei)
+        {
+            multi_event_splitter::begin_event(m_multiEventSplitter, ei);
+        };
+
+        m_parserCallbacks.modulePrefix = [this](int ei, int mi, u32 *data, u32 size)
+        {
+            multi_event_splitter::module_prefix(m_multiEventSplitter, ei, mi, data, size);
+        };
+
+        m_parserCallbacks.moduleDynamic = [this](int ei, int mi, u32 *data, u32 size)
+        {
+            multi_event_splitter::module_data(m_multiEventSplitter, ei, mi, data, size);
+        };
+
+        m_parserCallbacks.moduleSuffix = [this](int ei, int mi, u32 *data, u32 size)
+        {
+            multi_event_splitter::module_suffix(m_multiEventSplitter, ei, mi, data, size);
+        };
+
+        m_parserCallbacks.endEvent = [this](int ei)
+        {
+            multi_event_splitter::end_event(m_multiEventSplitter, m_multiEventSplitterCallbacks, ei);
+        };
+    }
 }
 
 void MVLC_StreamWorker::start()
@@ -163,7 +217,7 @@ void MVLC_StreamWorker::start()
         m_counters.startTime = QDateTime::currentDateTime();
     }
 
-    setupParserCallbacks(analysis);
+    setupParserCallbacks(vmeConfig, analysis);
 
     try
     {
@@ -319,7 +373,7 @@ void MVLC_StreamWorker::processBuffer(
         || (debugRequest == DebugInfoRequest::OnNextError && !processingOk))
     {
         m_debugInfoRequest = DebugInfoRequest::None;
-        emit debugInfoReady(*buffer, debugSavedParserState);
+        emit debugInfoReady(*buffer, debugSavedParserState, vmeConfig, analysis);
     }
 
     // Put the buffer back onto the free queue

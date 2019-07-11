@@ -6,6 +6,7 @@
 #include "data_buffer_queue.h"
 #include "mvlc/mvlc_threading.h"
 #include "mvlc/mvlc_readout_parsers.h"
+#include "multi_event_splitter.h"
 
 class MVMEContext;
 
@@ -15,7 +16,9 @@ class MVLC_StreamWorker: public StreamWorkerBase
     signals:
         void debugInfoReady(
             const DataBuffer &buffer,
-            const mesytec::mvlc::ReadoutParserState &parserState);
+            const mesytec::mvlc::ReadoutParserState &parserState,
+            const VMEConfig *vmeConfig,
+            const analysis::Analysis *analysis);
 
     public:
         MVLC_StreamWorker(
@@ -101,13 +104,6 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         using UniqueLock = mesytec::mvlc::UniqueLock;
 
-        mutable mesytec::mvme::TicketMutex m_countersMutex;
-        MVMEStreamProcessorCounters m_counters = {};
-
-        mutable mesytec::mvme::TicketMutex m_parserMutex;
-        mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
-        mesytec::mvlc::ReadoutParserState m_parser;
-
         // Used for the transition from non-Idle state to Idle state.
         enum StopFlag
         {
@@ -122,7 +118,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
             OnNextError,
         };
 
-        void setupParserCallbacks(analysis::Analysis *analysis);
+        void setupParserCallbacks(const VMEConfig *vmeConfig, analysis::Analysis *analysis);
 
         void processBuffer(
             DataBuffer *buffer,
@@ -137,13 +133,20 @@ class MVLC_StreamWorker: public StreamWorkerBase
         QVector<IMVMEStreamBufferConsumer *> m_bufferConsumers;
         QVector<IMVMEStreamModuleConsumer *> m_moduleConsumers;
 
+        mutable mesytec::mvme::TicketMutex m_countersMutex;
+        MVMEStreamProcessorCounters m_counters = {};
+
+        mutable mesytec::mvme::TicketMutex m_parserMutex;
+        mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
+        mesytec::mvlc::ReadoutParserState m_parser;
+
         std::atomic<MVMEStreamWorkerState> m_state;
         std::atomic<MVMEStreamWorkerState> m_desiredState;
         std::atomic<bool> m_startPaused;
         std::atomic<StopFlag> m_stopFlag;
-
-
         std::atomic<DebugInfoRequest> m_debugInfoRequest;
+        mvme::multi_event_splitter::State m_multiEventSplitter;
+        mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
 };
 
 #endif /* __MVLC_STREAM_WORKERS_H__ */
