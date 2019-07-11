@@ -417,5 +417,55 @@ size_t disconnect_outputs(PipeSourceInterface *pipeSource)
     return result;
 }
 
+bool uses_multi_event_splitting(const VMEConfig &vmeConfig, const Analysis &analysis)
+{
+    const auto &eventConfigs = vmeConfig.getEventConfigs();
+
+    bool useMultiEventSplitting = std::any_of(
+        eventConfigs.begin(), eventConfigs.end(),
+        [&analysis] (const EventConfig *eventConfig)
+        {
+            auto analysisEventSettings = analysis.getVMEObjectSettings(
+                eventConfig->getId());
+
+            return analysisEventSettings["MultiEventProcessing"].toBool();
+        });
+
+    return useMultiEventSplitting;
+}
+
+std::vector<std::vector<std::string>> collect_multi_event_splitter_filter_strings(
+    const VMEConfig &vmeConfig, const Analysis &analysis)
+{
+    const auto &eventConfigs = vmeConfig.getEventConfigs();
+
+    std::vector<std::vector<std::string>> splitterFilters;
+
+    for (const auto &eventConfig: eventConfigs)
+    {
+        std::vector<std::string> moduleSplitterFilters;
+        auto eventSettings = analysis.getVMEObjectSettings(eventConfig->getId());
+        bool enabledForEvent = eventSettings["MultiEventProcessing"].toBool();
+
+        for (const auto &moduleConfig: eventConfig->getModuleConfigs())
+        {
+            auto moduleSettings = analysis.getVMEObjectSettings(moduleConfig->getId());
+            auto filterString = moduleSettings.value("MultiEventHeaderFilter").toString();
+
+            if (filterString.isEmpty())
+                filterString = moduleConfig->getModuleMeta().eventHeaderFilter;
+
+            if (enabledForEvent)
+                moduleSplitterFilters.emplace_back(filterString.toStdString());
+            else
+                moduleSplitterFilters.emplace_back(std::string{});
+        }
+
+        splitterFilters.emplace_back(moduleSplitterFilters);
+    }
+
+    return splitterFilters;
+}
+
 } // namespace analysis
 

@@ -1,8 +1,11 @@
 #ifndef __ANALYSIS_UTIL_H__
 #define __ANALYSIS_UTIL_H__
 
-#include "analysis.h"
+#include <string>
+#include <vector>
+
 #include "libmvme_export.h"
+#include "analysis.h"
 
 class QTreeWidgetItem;
 
@@ -162,6 +165,11 @@ SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector
 // Disconnects the Slots connected to the outputs of the given
 // PipeSourceInterface. Returns number of Slots that have been disconnected.
 size_t disconnect_outputs(PipeSourceInterface *pipeSource);
+
+bool uses_multi_event_splitting(const VMEConfig &vmeConfig, const Analysis &analysis);
+
+std::vector<std::vector<std::string>> collect_multi_event_splitter_filter_strings(
+    const VMEConfig &vmeConfig, const Analysis &analysis);
 
 } // namespace analysis
 
