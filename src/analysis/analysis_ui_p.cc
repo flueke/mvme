@@ -2877,7 +2877,9 @@ void mvlc_parser_debug_log_buffer(
 
 void MVLCParserDebugHandler::handleDebugInfo(
     const DataBuffer &buffer,
-    mesytec::mvlc::ReadoutParserState parserState)
+    mesytec::mvlc::ReadoutParserState parserState,
+    const VMEConfig *vmeConfig,
+    const analysis::Analysis *analysis)
 {
 
     qDebug() << __PRETTY_FUNCTION__ << buffer.used << parserState.workBuffer.used;
@@ -2919,57 +2921,139 @@ void MVLCParserDebugHandler::handleDebugInfo(
         });
     }
 
-    QString resultText;
+    using namespace mvme;
+    const bool usesMultiEventSplitting = uses_multi_event_splitting(*vmeConfig, *analysis);
+    QString parserText;
+    QString splitterText;
 
-    // Setup callbacks and run the parser. The results are written into resultText.
+    // Messy way to setup parser and splitter callbacks and run them both. They log their outputs
+    // into parserText and splitterText respectively.
     {
-        QTextStream out(&resultText);
+        QTextStream parserOut(&parserText);
+        QTextStream splitterOut(&splitterText);
 
-        out << endl << "Running readout parser..." << endl;
-
+        multi_event_splitter::State multiEventSplitter;
+        multi_event_splitter::Callbacks splitterCallbacks;
+        ReadoutParserCallbacks parserCallbacks;
 
         // Setup parser callbacks and run the parser on the input buffer. This will
         // be exactly the same state, data and code as was run on the analysis
         // thread except for different callbacks.
-        ReadoutParserCallbacks callbacks;
-        callbacks.beginEvent = [&out] (int ei)
-        {
-            out << "beginEvent(" << ei << ")" << endl;
-        };
 
-        callbacks.endEvent = [&out] (int ei)
+        if (usesMultiEventSplitting)
         {
-            out << "endEvent(" << ei << ")" << endl;
-        };
+            auto filterStrings = collect_multi_event_splitter_filter_strings(
+                *vmeConfig, *analysis);
 
-        callbacks.systemEvent = [&out] (u32 *header, u32 size)
-        {
-            out << "systemEvent, size=" << size << ":" << endl;
-            ::logBuffer(BufferIterator(header, size), [&out] (const QString &str)
-                        {
-                            out << "  " << str << endl;
-                        });
-        };
+            multiEventSplitter = multi_event_splitter::make_splitter(filterStrings);
 
-        // Factory function for module callbacks which log their input data.
-        auto make_module_callback = [&out] (const QString &typeString)
-        {
-            return [&out, typeString] (int ei, int mi, u32 *data, u32 size)
+            splitterCallbacks.beginEvent = [&splitterOut] (int ei)
             {
-                out << QString("  module%1, ei=%2, mi=%3, size=%4:")
-                    .arg(typeString).arg(ei).arg(mi).arg(size)
-                    << endl;
-
-                ::logBuffer(BufferIterator(data, size), [&out] (const QString &str)
-                            {
-                                out << "    " << str << endl;
-                            });
+                splitterOut << "beginEvent(ei=" << ei << ")" << endl;
             };
+
+            splitterCallbacks.endEvent = [&splitterOut] (int ei)
+            {
+                splitterOut << "endEvent(ei=" << ei << ")" << endl;
+            };
+
+            // Factory function for module callbacks which log their input data.
+            auto make_module_callback = [&splitterOut] (const QString &typeString)
+            {
+                return [&splitterOut, typeString] (int ei, int mi, u32 *data, u32 size)
+                {
+                    splitterOut << QString("  module%1, ei=%2, mi=%3, size=%4:")
+                        .arg(typeString).arg(ei).arg(mi).arg(size)
+                        << endl;
+
+                    ::logBuffer(BufferIterator(data, size), [&splitterOut] (const QString &str)
+                                {
+                                    splitterOut << "    " << str << endl;
+                                });
+                };
+            };
+
+            splitterCallbacks.modulePrefix = make_module_callback("Prefix");
+            splitterCallbacks.moduleDynamic = make_module_callback("Dynamic");
+            splitterCallbacks.moduleSuffix = make_module_callback("Suffix");
+        }
+
+        //
+        // End of multi event splitter setup. Now setup the readout parser
+        // callbacks. These will receive and log the input data and hand it
+        // down to the splitter code if splitting is enabled
+        //
+
+        parserCallbacks.beginEvent = [&] (int ei)
+        {
+            parserOut << "beginEvent(ei=" << ei << ")" << endl;
+            if (usesMultiEventSplitting)
+                multi_event_splitter::begin_event(multiEventSplitter, ei);
         };
 
-        callbacks.modulePrefix = make_module_callback("Prefix");
-        callbacks.moduleDynamic = make_module_callback("Dynamic");
-        callbacks.moduleSuffix = make_module_callback("Suffix");
+        parserCallbacks.modulePrefix = [&](
+            int ei, int mi, u32 *data, u32 size)
+        {
+            parserOut << QString("  modulePrefix, ei=%1, mi=%2, size=%3:")
+                .arg(ei).arg(mi).arg(size)
+                << endl;
+
+            ::logBuffer(BufferIterator(data, size), [&parserOut] (const QString &str)
+                        {
+                            parserOut << "    " << str << endl;
+                        });
+
+            if (usesMultiEventSplitting)
+                multi_event_splitter::module_prefix(
+                    multiEventSplitter, ei, mi, data, size);
+        };
+
+        parserCallbacks.moduleDynamic = [&](
+            int ei, int mi, u32 *data, u32 size)
+        {
+            parserOut << QString("  moduleDynamic, ei=%1, mi=%2, size=%3:")
+                .arg(ei).arg(mi).arg(size)
+                << endl;
+
+            ::logBuffer(BufferIterator(data, size), [&parserOut] (const QString &str)
+                        {
+                            parserOut << "    " << str << endl;
+                        });
+
+            if (usesMultiEventSplitting)
+                multi_event_splitter::module_data(
+                    multiEventSplitter, ei, mi, data, size);
+        };
+
+        parserCallbacks.moduleSuffix = [&](
+            int ei, int mi, u32 *data, u32 size)
+        {
+            parserOut << QString("  moduleSuffix, ei=%1, mi=%2, size=%3:")
+                .arg(ei).arg(mi).arg(size)
+                << endl;
+
+            ::logBuffer(BufferIterator(data, size), [&parserOut] (const QString &str)
+                        {
+                            parserOut << "    " << str << endl;
+                        });
+
+            if (usesMultiEventSplitting)
+                multi_event_splitter::module_suffix(
+                    multiEventSplitter, ei, mi, data, size);
+        };
+
+        parserCallbacks.endEvent = [&](int ei)
+        {
+            parserOut << "endEvent(ei=" << ei << ")" << endl;
+
+            if (usesMultiEventSplitting)
+            {
+                multi_event_splitter::end_event(multiEventSplitter, splitterCallbacks, ei);
+                splitterOut << "========================================" << endl;
+            }
+        };
+
+        parserOut << "Running readout parser..." << endl;
 
         ParseResult pr = {};
 
@@ -2980,7 +3064,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
                 // Input buffers are MVLC_ETH formatted buffers as generated by
                 // MVLCReadoutWorker::readout_eth().
                 pr = parse_readout_buffer_eth(
-                    parserState, callbacks,
+                    parserState, parserCallbacks,
                     buffer.id, buffer.data, buffer.used);
             }
             else if (buffer.tag == static_cast<int>(ListfileBufferFormat::MVLC_USB))
@@ -2988,39 +3072,39 @@ void MVLCParserDebugHandler::handleDebugInfo(
                 // Input buffers are MVLC_USB formatted buffers as generated by
                 // MVLCReadoutWorker::readout_usb()
                 pr = parse_readout_buffer_usb(
-                    parserState, callbacks,
+                    parserState, parserCallbacks,
                     buffer.id, buffer.data, buffer.used);
             }
             else
                 throw std::runtime_error("unexpected buffer format (expected MVLC_ETH or MVLC_USB)");
 
-            out << "parser returned " << get_parse_result_name(pr) << endl;
+            parserOut << "parser returned " << get_parse_result_name(pr) << endl;
         }
         catch (const end_of_buffer &e)
         {
-            out << "end_of_buffer from parser: " << e.what() << endl;
+            parserOut << "end_of_buffer from parser: " << e.what() << endl;
         }
         catch (const std::exception &e)
         {
-            out << "exception from parser: " << e.what() << endl;
+            parserOut << "exception from parser: " << e.what() << endl;
         }
         catch (...)
         {
-            out << "unknown exception from parser!" << endl;
+            parserOut << "unknown exception from parser!" << endl;
         }
     }
 
     auto make_searchable_text_widget = [](QTextEdit *te)
         -> std::pair<QWidget *, TextEditSearchWidget *>
     {
-        auto resultWidget = new QWidget;
-        auto resultLayout = make_layout<QVBoxLayout, 0, 0>(resultWidget);
+        auto parserResultWidget = new QWidget;
+        auto resultLayout = make_layout<QVBoxLayout, 0, 0>(parserResultWidget);
         auto searchWidget = new TextEditSearchWidget(te);
         resultLayout->addWidget(searchWidget);
         resultLayout->addWidget(te);
         resultLayout->setStretch(1, 1);
 
-        return std::make_pair(resultWidget, searchWidget);
+        return std::make_pair(parserResultWidget, searchWidget);
     };
 
     // Display the buffer contents and the parser results side-by-side in two
@@ -3039,13 +3123,21 @@ void MVLCParserDebugHandler::handleDebugInfo(
         auto bufferWidget = make_searchable_text_widget(tb_buffer).first;
 
         // parser result on the right side
-        auto tb_result = new QTextBrowser;
-        tb_result->setText(resultText);
-        auto resultWidget = make_searchable_text_widget(tb_result).first;
+        auto tb_parserResult = new QTextBrowser;
+        tb_parserResult->setText(parserText);
+        auto parserResultWidget = make_searchable_text_widget(tb_parserResult).first;
 
         auto splitter = new QSplitter;
         splitter->addWidget(bufferWidget);
-        splitter->addWidget(resultWidget);
+        splitter->addWidget(parserResultWidget);
+
+        if (usesMultiEventSplitting)
+        {
+            auto tb_splitterResult = new QTextBrowser;
+            tb_splitterResult->setText(splitterText);
+            auto splitterResultWidget = make_searchable_text_widget(tb_splitterResult).first;
+            splitter->addWidget(splitterResultWidget);
+        }
 
         auto wl = make_layout<QHBoxLayout, 0, 0>(widget);
         wl->addWidget(splitter);
