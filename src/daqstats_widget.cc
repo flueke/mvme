@@ -231,8 +231,8 @@ struct DAQStatsWidgetPrivate
             if (is_MVLC_ETH)
             {
                 auto mvlc_eth = reinterpret_cast<mesytec::mvlc::eth::Impl *>(
-                    mvlcWorker->getMVLC()->getImpl());
-                auto guard = mvlcWorker->getMVLC()->getLocks().lockBoth();
+                    mvlc->getImpl());
+                auto guard = mvlc->getLocks().lockBoth();
                 auto dataPipeStats = mvlc_eth->getPipeStats()[mesytec::mvlc::DataPipe];
 
                 update_MVLC_ETH(dataPipeStats, prevCounters.mvlcDataPipeStats, dt_s);
