@@ -842,10 +842,16 @@ u32 Impl::getDataAddress() const
 
 std::string Impl::connectionInfoString() const
 {
-    std::string result = "host=" + getHost();
-    result += ", address=" + format_ipv4(getCmdAddress()).toStdString();
+    std::string remoteIP = format_ipv4(getCmdAddress()).toStdString();
 
-    return result;
+    if (getHost() != remoteIP)
+    {
+        std::string result = "host=" + getHost();
+        result += ", address=" + remoteIP;
+        return result;
+    }
+
+    return "address=" + remoteIP;
 }
 
 s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber)
