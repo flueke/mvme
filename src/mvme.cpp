@@ -426,7 +426,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
                 m_d->m_context, &MVMEContext::reconnectVMEController);
 
         connect(dcw, &DAQControlWidget::forceResetVMEController,
-                m_d->m_context, &MVMEContext::reconnectVMEController);
+                m_d->m_context, &MVMEContext::forceResetVMEController);
 
         connect(dcw, &DAQControlWidget::listFileOutputInfoModified,
                 m_d->m_context, &MVMEContext::setListFileOutputInfo);
