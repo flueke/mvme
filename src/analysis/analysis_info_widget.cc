@@ -411,7 +411,7 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
                 continue;
 
             if (!buffer.isEmpty())
-                buffer += ", ";
+                buffer += "\n";
 
             buffer += QString("%1 (0x%2): %3")
                 .arg(get_system_event_subtype_name(subtype))

@@ -116,6 +116,7 @@ class VMEReadoutWorker: public QObject
         virtual DAQState getState() const = 0;
 
         DAQStats getDAQStats() const { return m_workerContext.daqStats; }
+        VMEController *getVMEController() { return getContext().controller; }
 
     public slots:
         virtual void start(quint32 cycles = 0) = 0;
