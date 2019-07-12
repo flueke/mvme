@@ -42,6 +42,10 @@ enum class MVLCErrorCode
     StackIndexOutOfRange,
     UnexpectedBufferHeader,
     NeedMoreData,
+
+    // Returned by the ETH implementation on connect if it detects that any of
+    // the triggers is enabled.
+    InUse,
 };
 
 LIBMVME_MVLC_EXPORT std::error_code make_error_code(MVLCErrorCode error);

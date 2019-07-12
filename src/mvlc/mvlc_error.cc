@@ -97,6 +97,9 @@ class MVLCErrorCategory: public std::error_category
 
             case MVLCErrorCode::NeedMoreData:
                  return "Need more data";
+
+            case MVLCErrorCode::InUse:
+                 return "MVLC is in use";
         }
 
         return "unrecognized MVLC error";
@@ -118,6 +121,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::BindLocalError:
             case MVLCErrorCode::SocketError:
             case MVLCErrorCode::EmptyHostname:
+            case MVLCErrorCode::InUse:
                 return ErrorType::ConnectionError;
 
             case MVLCErrorCode::ShortWrite:

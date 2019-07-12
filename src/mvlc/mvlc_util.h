@@ -100,6 +100,20 @@ void log_buffer(Out &out, const u32 *buffer, size_t size, const char *info)
 LIBMVME_MVLC_EXPORT const char *get_system_event_subtype_name(u8 subtype);
 LIBMVME_MVLC_EXPORT const char *get_frame_flag_shift_name(u8 flag);
 
+template<typename MVLCDialogType>
+std::error_code disable_all_triggers(MVLCDialogType &mvlc)
+{
+    for (u8 stackId = 0; stackId < stacks::StackCount; stackId++)
+    {
+        u16 addr = stacks::get_trigger_register(stackId);
+
+        if (auto ec = mvlc.writeRegister(addr, stacks::NoTrigger))
+            return ec;
+    }
+
+    return {};
+}
+
 } // end namespace mvlc
 } // end namespace mesytec
 

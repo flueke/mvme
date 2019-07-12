@@ -10,15 +10,7 @@ namespace mvlc
 
 std::error_code disable_all_triggers(MVLCObject &mvlc)
 {
-    for (u8 stackId = 0; stackId < stacks::StackCount; stackId++)
-    {
-        u16 addr = stacks::get_trigger_register(stackId);
-
-        if (auto ec = mvlc.writeRegister(addr, stacks::NoTrigger))
-            return ec;
-    }
-
-    return {};
+    return disable_all_triggers<MVLCObject>(mvlc);
 }
 
 std::error_code reset_stack_offsets(MVLCObject &mvlc)

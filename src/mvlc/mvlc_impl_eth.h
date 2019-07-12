@@ -213,6 +213,16 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         sockaddr_in getCmdSockAddress() const { return m_cmdAddr; }
         sockaddr_in getDataSockAddress() const { return m_dataAddr; }
 
+        void setDisableTriggersOnConnect(bool b)
+        {
+            m_disableTriggersOnConnect = b;
+        }
+
+        bool disableTriggersOnConnect() const
+        {
+            return m_disableTriggersOnConnect;
+        }
+
     private:
         int getSocket(Pipe pipe) { return pipe == Pipe::Command ? m_cmdSock : m_dataSock; }
 
@@ -250,6 +260,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         std::array<PipeStats, PipeCount> m_pipeStats;
         std::array<PacketChannelStats, NumPacketChannels> m_packetChannelStats;
         std::array<s32, NumPacketChannels> m_lastPacketNumbers;
+        bool m_disableTriggersOnConnect = false;
 };
 
 // Given the previous and current packet numbers returns the number of lost

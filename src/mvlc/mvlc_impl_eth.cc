@@ -200,7 +200,7 @@ Impl::~Impl()
 // * Use ::connect() on both sockets with the MVLC address and the default
 //   command and data ports. This way the sockets will only receive datagrams
 //   originating from the MVLC.
-// * TODO: Send an initial request and read the response. Preferably this
+// * Send an initial request and read the response. Preferably this
 //   should tell us if another client is currently using the MVLC. It could be
 //   some sort of "DAQ mode register" or a way to check where the MVLC is
 //   currently sending its data output.
@@ -375,32 +375,50 @@ std::error_code Impl::connect()
 
     // Send some initial request to verify there's an MVLC on the other side.
     //
-    // Try to read the destination Command pipe address from the MVLC. Sending
-    // this command will make the MVLC set the source IP address as the Command
-    // pipes destination address and then send out the reply. This means the
-    // resulting address should be the clients IP address used to connect to
-    // the MVLC.
+    // Attempt to read the trigger registers. If one has a non-zero value
+    // assume the MVLC is in use by another client. If the
+    // disableTriggersOnConnect flag is set try to disable the triggers,
+    // otherwise return MVLCErrorCode::InUse.
     {
         MVLCDialog dlg(this);
-        u32 cmd_ip_lo = 0;
-        u32 cmd_ip_hi = 0;
+        bool inUse = false;
 
-        if (auto ec = dlg.readRegister(registers::cmd_ip_lo, cmd_ip_lo))
+        for (u8 stackId = 0; stackId < stacks::StackCount; stackId++)
         {
-            close_sockets();
-            return ec;
+            u16 addr = stacks::get_trigger_register(stackId);
+            u32 regVal = 0u;
+
+            if (auto ec = dlg.readRegister(addr, regVal))
+            {
+                close_sockets();
+                return ec;
+            }
+
+            if (regVal != stacks::NoTrigger)
+            {
+                inUse = true;
+                break;
+            }
         }
 
-        if (auto ec = dlg.readRegister(registers::cmd_ip_hi, cmd_ip_hi))
+        if (inUse && !disableTriggersOnConnect())
         {
             close_sockets();
-            return ec;
+            return make_error_code(MVLCErrorCode::InUse);
         }
+        else if (inUse)
+        {
+            assert(disableTriggersOnConnect());
 
-        u32 cmd_ip = (cmd_ip_hi << 16) | cmd_ip_lo;
-
-        LOG_INFO("MVLC destination Command IP-Address: %s", format_ipv4(cmd_ip).toStdString().c_str());
+            if (auto ec = disable_all_triggers(dlg))
+            {
+                close_sockets();
+                return ec;
+            }
+        }
     }
+
+    assert(m_cmdSock >= 0 && m_dataSock >= 0);
 
     return {};
 }
@@ -685,7 +703,6 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
  *   - extract packet_number and number_of_data_words
  *   - record possible packet loss or ordering problems based on packet number
  *   - check to make sure timestamp is incrementing (packet ordering) (not implemented yet)
- *   -
  */
 
 std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
