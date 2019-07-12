@@ -30,6 +30,7 @@
 #include "mvlc_listfile.h"
 #include "mvlc_listfile_worker.h"
 #include "mvlc/mvlc_error.h"
+#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_context_lib.h"
@@ -156,7 +157,7 @@ struct MVMEContextPrivate
     ListFileOutputInfo m_listfileOutputInfo = {};
     RunInfo m_runInfo;
     u32 m_ctrlOpenRetryCount = 0;
-    bool m_isFirstConnectionAttempt = true;
+    bool m_isFirstConnectionAttempt = false;
     mesytec::mvme::TicketMutex tryOpenControllerMutex;
 
     std::unique_ptr<FileAutoSaver> m_vmeConfigAutoSaver;
@@ -475,85 +476,8 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     m_ctrlOpenTimer->setInterval(TryOpenControllerInterval_ms);
     m_ctrlOpenTimer->start();
 
-    connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished, this, [this] {
-        auto result = m_ctrlOpenWatcher.result();
-
-        if (!result.isError())
-        {
-            if (auto vmusb = dynamic_cast<VMUSB *>(m_controller))
-            {
-                vmusb->readAllRegisters();
-
-                u32 fwReg = vmusb->getFirmwareId();
-                u32 fwMajor = (fwReg & 0xFFFF);
-                u32 fwMinor = ((fwReg >> 16) &  0xFFFF);
-
-
-                logMessage(QString("Opened VME controller %1 - Firmware Version %2_%3")
-                           .arg(m_controller->getIdentifyingString())
-                           .arg(fwMajor, 4, 16, QLatin1Char('0'))
-                           .arg(fwMinor, 4, 16, QLatin1Char('0'))
-                           );
-            }
-            else if (auto sis = dynamic_cast<SIS3153 *>(m_controller))
-            {
-                u32 moduleIdAndFirmware;
-                auto error = sis->readRegister(SIS3153Registers::ModuleIdAndFirmware,
-                                               &moduleIdAndFirmware);
-
-                if (!error.isError())
-                {
-                    logMessage(QString("Opened VME controller %1 - Firmware 0x%2")
-                               .arg(m_controller->getIdentifyingString())
-                               .arg(moduleIdAndFirmware & 0xffff, 4, 16, QLatin1Char('0'))
-                               );
-
-                    QSettings appSettings;
-                    appSettings.setValue("VME/LastConnectedSIS3153", sis->getAddress());
-                }
-                else
-                {
-                    logMessage(QString("Error reading firmware from VME controller %1: %2")
-                               .arg(m_controller->getIdentifyingString())
-                               .arg(error.toString())
-                              );
-                }
-            }
-            else if (auto mvlc = dynamic_cast<mesytec::mvlc::MVLC_VMEController *>(m_controller))
-            {
-                using namespace mesytec::mvlc;
-
-                logMessage(QString("Opened VME Controller %1 (%2)")
-                           .arg(mvlc->getIdentifyingString())
-                           .arg(mvlc->getMVLCObject()->getConnectionInfo()));
-            }
-            else // generic case
-            {
-                logMessage(QString("Opened VME controller %1")
-                           .arg(m_controller->getIdentifyingString()));
-            }
-        }
-        else
-        {
-            /* Could not connect. Inc retry count and log a hopefully user
-             * friendly message about what went wrong. */
-
-            m_d->m_ctrlOpenRetryCount++;
-
-            if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
-            {
-
-                if (!m_d->m_isFirstConnectionAttempt)
-                {
-                    logMessage(QString("Could not open VME controller %1: %2")
-                               .arg(m_controller->getIdentifyingString())
-                               .arg(result.toString())
-                              );
-                }
-                m_d->m_isFirstConnectionAttempt = false;
-            }
-        }
-    });
+    connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished,
+            this, &MVMEContext::onControllerOpenFinished);
 
     connect(m_logTimer, &QTimer::timeout, this, &MVMEContext::logModuleCounters);
     m_logTimer->setInterval(PeriodicLoggingInterval_ms);
@@ -566,14 +490,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     m_readoutThread->start();
 
     // Setup the analysis/data processing side.
-    //
-    // FIXME: The startup sequence is horrible. Object creation, setup,
-    // initializtion, thread assignment is not good. I'd like a system to
-    // handle this kind of work and make it easier to understand, predictable,
-    // etc. Changing the order of stuff below just slightly leads to errors
-    // about QObject thread assignment and parent/child objects, etc.
     m_analysisThread->setObjectName("mvme AnalysisThread");
-
     m_analysisThread->start();
 
     qDebug() << __PRETTY_FUNCTION__ << "startup: using a default constructed VMEConfig";
@@ -902,6 +819,108 @@ void MVMEContext::onControllerStateChanged(ControllerState state)
     }
 }
 
+// Slot invoked by QFutureWatcher::finished from the m_ctrlOpenWatcher
+void MVMEContext::onControllerOpenFinished()
+{
+    auto result = m_ctrlOpenWatcher.result();
+
+    if (!result.isError())
+    {
+        if (auto vmusb = dynamic_cast<VMUSB *>(m_controller))
+        {
+            vmusb->readAllRegisters();
+
+            u32 fwReg = vmusb->getFirmwareId();
+            u32 fwMajor = (fwReg & 0xFFFF);
+            u32 fwMinor = ((fwReg >> 16) &  0xFFFF);
+
+
+            logMessage(QString("Opened VME controller %1 - Firmware Version %2_%3")
+                       .arg(m_controller->getIdentifyingString())
+                       .arg(fwMajor, 4, 16, QLatin1Char('0'))
+                       .arg(fwMinor, 4, 16, QLatin1Char('0'))
+                      );
+        }
+        else if (auto sis = dynamic_cast<SIS3153 *>(m_controller))
+        {
+            u32 moduleIdAndFirmware;
+            auto error = sis->readRegister(SIS3153Registers::ModuleIdAndFirmware,
+                                           &moduleIdAndFirmware);
+
+            if (!error.isError())
+            {
+                logMessage(QString("Opened VME controller %1 - Firmware 0x%2")
+                           .arg(m_controller->getIdentifyingString())
+                           .arg(moduleIdAndFirmware & 0xffff, 4, 16, QLatin1Char('0'))
+                          );
+
+                QSettings appSettings;
+                appSettings.setValue("VME/LastConnectedSIS3153", sis->getAddress());
+            }
+            else
+            {
+                logMessage(QString("Error reading firmware from VME controller %1: %2")
+                           .arg(m_controller->getIdentifyingString())
+                           .arg(error.toString())
+                          );
+            }
+        }
+        else if (auto mvlc = dynamic_cast<mesytec::mvlc::MVLC_VMEController *>(m_controller))
+        {
+            using namespace mesytec::mvlc;
+
+            logMessage(QString("Opened VME Controller %1 (%2)")
+                       .arg(mvlc->getIdentifyingString())
+                       .arg(mvlc->getMVLCObject()->getConnectionInfo()));
+        }
+        else // generic case
+        {
+            logMessage(QString("Opened VME controller %1")
+                       .arg(m_controller->getIdentifyingString()));
+        }
+
+        return;
+    }
+
+    assert(result.isError());
+
+    /* Could not connect. Inc retry count and log a hopefully user
+     * friendly message about what went wrong. */
+
+    m_d->m_ctrlOpenRetryCount++;
+
+    // The result indicates an error. First handle the MVLCs "InUse" case.
+    if (result.getStdErrorCode() == mesytec::mvlc::MVLCErrorCode::InUse)
+    {
+        if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
+        {
+            if (!m_d->m_isFirstConnectionAttempt)
+            {
+                auto msg = QSL(
+                    "The MVLC controller seems to be in use (at least one of the"
+                    " triggers is enabled).\n"
+                    "Use the \"Force Reset\" button to disable the triggers on the next"
+                    " connection attempt.");
+
+                logMessage(msg);
+            }
+        }
+    }
+
+    if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
+    {
+
+        if (!m_d->m_isFirstConnectionAttempt)
+        {
+            logMessage(QString("Could not open VME controller %1: %2")
+                       .arg(m_controller->getIdentifyingString())
+                       .arg(result.toString())
+                      );
+        }
+        m_d->m_isFirstConnectionAttempt = false;
+    }
+}
+
 void MVMEContext::reconnectVMEController()
 {
     if (!m_controller)
@@ -924,7 +943,8 @@ void MVMEContext::reconnectVMEController()
         progressDialog.show();
 
         QEventLoop localLoop;
-        connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished, &localLoop, &QEventLoop::quit);
+        connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished,
+                &localLoop, &QEventLoop::quit);
         localLoop.exec();
     }
 
@@ -936,10 +956,17 @@ void MVMEContext::reconnectVMEController()
 
 void MVMEContext::forceResetVMEController()
 {
-    // XXX: SIS specific
     if (auto sis = qobject_cast<SIS3153 *>(getVMEController()))
     {
         sis->setResetOnConnect(true);
+    }
+    else if (auto mvlc = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(getVMEController()))
+    {
+        if (mvlc->connectionType() == mesytec::mvlc::ConnectionType::ETH)
+        {
+            auto mvlc_eth = reinterpret_cast<mesytec::mvlc::eth::Impl *>(mvlc->getImpl());
+            mvlc_eth->setDisableTriggersOnConnect(true);
+        }
     }
 
     reconnectVMEController();

@@ -343,6 +343,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
         void onControllerStateChanged(ControllerState state);
+        void onControllerOpenFinished();
 
         friend struct MVMEContextPrivate;
 
