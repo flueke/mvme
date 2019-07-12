@@ -66,6 +66,7 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         struct Private;
         std::unique_ptr<Private> d;
 
+        void setMVLCObjects();
         void readoutLoop();
         void setState(const DAQState &state);
         void logError(const QString &msg);

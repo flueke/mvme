@@ -605,6 +605,34 @@ MVLCReadoutWorker::~MVLCReadoutWorker()
 {
 }
 
+// Setup the Private struct members. All layers of the MVLC impl are used
+// in here: MVLC_VMEController to execute vme scripts, MVLCObject to setup
+// stacks and triggers and the low level implementations for fast ethernet
+// and usb reads.
+void MVLCReadoutWorker::setMVLCObjects()
+{
+    d->mvlcCtrl = qobject_cast<MVLC_VMEController *>(getContext().controller);
+
+    if (d->mvlcCtrl)
+        d->mvlcObj = d->mvlcCtrl->getMVLCObject();
+
+    if (d->mvlcObj)
+    {
+        switch (d->mvlcObj->connectionType())
+        {
+            case ConnectionType::ETH:
+                d->mvlc_eth = reinterpret_cast<eth::Impl *>(d->mvlcObj->getImpl());
+                d->mvlc_usb = nullptr;
+                break;
+
+            case ConnectionType::USB:
+                d->mvlc_eth = nullptr;
+                d->mvlc_usb = reinterpret_cast<usb::Impl *>(d->mvlcObj->getImpl());
+                break;
+        }
+    }
+}
+
 void MVLCReadoutWorker::start(quint32 cycles)
 {
     if (d->state != DAQState::Idle)
@@ -613,32 +641,13 @@ void MVLCReadoutWorker::start(quint32 cycles)
         return;
     }
 
-    // Setup the Private struct members. All layers of the MVLC impl are used
-    // in here: MVLC_VMEController to execute vme scripts, MVLCObject to setup
-    // stacks and triggers and the low level implementations for fast ethernet
-    // and usb reads.
-    d->mvlcCtrl = qobject_cast<MVLC_VMEController *>(getContext().controller);
+    setMVLCObjects();
 
     if (!d->mvlcCtrl)
     {
         logMessage("MVLC controller required");
         InvalidCodePath;
         return;
-    }
-
-    d->mvlcObj = d->mvlcCtrl->getMVLCObject();
-
-    switch (d->mvlcObj->connectionType())
-    {
-        case ConnectionType::ETH:
-            d->mvlc_eth = reinterpret_cast<eth::Impl *>(d->mvlcObj->getImpl());
-            d->mvlc_usb = nullptr;
-            break;
-
-        case ConnectionType::USB:
-            d->mvlc_eth = nullptr;
-            d->mvlc_usb = reinterpret_cast<usb::Impl *>(d->mvlcObj->getImpl());
-            break;
     }
 
     d->cyclesToRun = cycles;
