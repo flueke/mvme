@@ -38,7 +38,8 @@ TEST(TestMVLCError, FT_STATUS_to_ErrorType)
 {
     ASSERT_EQ(make_error_code(FT_OK), ErrorType::Success);
 
-    for (auto code: { FT_INVALID_HANDLE, FT_DEVICE_NOT_FOUND, FT_DEVICE_NOT_OPENED })
+    for (auto code: { FT_INVALID_HANDLE, FT_DEVICE_NOT_FOUND,
+        FT_DEVICE_NOT_OPENED, FT_DEVICE_NOT_CONNECTED })
         ASSERT_EQ(make_error_code(code), ErrorType::ConnectionError);
 
     for (int code = FT_IO_ERROR; code <= FT_NO_MORE_ITEMS; code++)
@@ -50,7 +51,10 @@ TEST(TestMVLCError, FT_STATUS_to_ErrorType)
 
     for (int code = FT_OPERATION_ABORTED; code <= FT_OTHER_ERROR; code++)
     {
-        ASSERT_EQ(make_error_code(static_cast<_FT_STATUS>(code)), ErrorType::IOError);
+        if (code != FT_DEVICE_NOT_CONNECTED)
+        {
+            ASSERT_EQ(make_error_code(static_cast<_FT_STATUS>(code)), ErrorType::IOError);
+        }
     }
 
     //auto ec = make_error_code(FT_NO_MORE_ITEMS);

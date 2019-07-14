@@ -71,7 +71,6 @@ class FTErrorCategory: public std::error_category
             case FT_EEPROM_NOT_PROGRAMMED:              return "FT_EEPROM_NOT_PROGRAMMED";
             case FT_INVALID_ARGS:                       return "FT_INVALID_ARGS";
             case FT_NOT_SUPPORTED:                      return "FT_NOT_SUPPORTED";
-
             case FT_NO_MORE_ITEMS:                      return "FT_NO_MORE_ITEMS";
             case FT_TIMEOUT: /* 19 */                   return "FT_TIMEOUT";
             case FT_OPERATION_ABORTED:                  return "FT_OPERATION_ABORTED";
@@ -110,11 +109,11 @@ class FTErrorCategory: public std::error_category
 
             case FT_IO_ERROR:
             case FT_INSUFFICIENT_RESOURCES:
-            case FT_INVALID_PARAMETER: /* 6 */
+            case FT_INVALID_PARAMETER:
             case FT_INVALID_BAUD_RATE:
             case FT_DEVICE_NOT_OPENED_FOR_ERASE:
             case FT_DEVICE_NOT_OPENED_FOR_WRITE:
-            case FT_FAILED_TO_WRITE_DEVICE: /* 10 */
+            case FT_FAILED_TO_WRITE_DEVICE:
             case FT_EEPROM_READ_FAILED:
             case FT_EEPROM_WRITE_FAILED:
             case FT_EEPROM_ERASE_FAILED:
@@ -125,7 +124,7 @@ class FTErrorCategory: public std::error_category
             case FT_NO_MORE_ITEMS:
                 return ErrorType::IOError;
 
-            case FT_TIMEOUT: /* 19 */
+            case FT_TIMEOUT:
                 return ErrorType::Timeout;
 
             case FT_OPERATION_ABORTED:
