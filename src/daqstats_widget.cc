@@ -76,7 +76,8 @@ struct DAQStatsWidgetPrivate
             *mvlcETHWidget,
             *mvlcStackErrorsWidget;
 
-    void update_generic(const DAQStats &stats, const DAQStats &prevStats, double dt_s)
+    void update_generic(const DAQStats &stats, const DAQStats &prevStats,
+                        double dt_s, double elapsed_s)
     {
         u64 deltaBytesRead = calc_delta0(stats.totalBytesRead, prevStats.totalBytesRead);
         u64 deltaBuffersRead = calc_delta0(stats.totalBuffersRead, prevStats.totalBuffersRead);
@@ -93,7 +94,7 @@ struct DAQStatsWidgetPrivate
         if (std::isnan(mbPerSecond)) mbPerSecond = 0.0;
         if (std::isnan(avgReadSize)) avgReadSize = 0.0;
 
-        auto totalDurationString = makeDurationString(dt_s);
+        auto totalDurationString = makeDurationString(elapsed_s);
 
         label_daqDuration->setText(totalDurationString);
         label_buffersRead->setText(QString::number(stats.totalBuffersRead));
@@ -207,7 +208,9 @@ struct DAQStatsWidgetPrivate
         else
             dt_s = startTime.msecsTo(endTime) / 1000.0;
 
-        update_generic(daqStats, prevCounters.daqStats, dt_s);
+        double elapsed_s = startTime.msecsTo(endTime) / 1000.0;
+
+        update_generic(daqStats, prevCounters.daqStats, dt_s, elapsed_s);
         prevCounters.daqStats = daqStats;
 
         if (sisWorker)
