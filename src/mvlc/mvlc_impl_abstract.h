@@ -32,7 +32,7 @@ class AbstractImpl
         virtual std::error_code getReadQueueSize(Pipe pipe, u32 &dest) = 0;
 
         virtual ConnectionType connectionType() const = 0;
-        virtual std::string connectionInfoString() const = 0;
+        virtual std::string connectionInfo() const = 0;
 
         AbstractImpl() = default;
         AbstractImpl &operator=(const AbstractImpl &) = delete;

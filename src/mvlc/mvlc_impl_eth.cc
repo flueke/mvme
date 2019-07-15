@@ -840,7 +840,7 @@ u32 Impl::getDataAddress() const
     return ::ntohl(m_dataAddr.sin_addr.s_addr);
 }
 
-std::string Impl::connectionInfoString() const
+std::string Impl::connectionInfo() const
 {
     std::string remoteIP = format_ipv4(getCmdAddress()).toStdString();
 

@@ -193,7 +193,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         PacketReadResult read_packet(Pipe pipe, u8 *buffer, size_t size);
 
         ConnectionType connectionType() const override { return ConnectionType::ETH; }
-        std::string connectionInfoString() const override;
+        std::string connectionInfo() const override;
 
         std::error_code getReadQueueSize(Pipe pipe, u32 &dest) override;
 

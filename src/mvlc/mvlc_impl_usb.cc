@@ -823,7 +823,7 @@ std::error_code Impl::getReadQueueSize(Pipe pipe, u32 &dest)
     return make_error_code(st);
 }
 
-std::string Impl::connectionInfoString() const
+std::string Impl::connectionInfo() const
 {
     std::string result = "speed=";
 

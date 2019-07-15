@@ -257,7 +257,7 @@ QString MVLCObject::getConnectionInfo() const
     if (!m_impl->isConnected())
         return "not connected";
 
-    return QString::fromStdString(m_impl->connectionInfoString());
+    return QString::fromStdString(m_impl->connectionInfo());
 }
 
 //
