@@ -82,10 +82,15 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig)
         {
             case TriggerCondition::Interrupt:
                 {
-                    // TODO: add NoIACK/IACK options to the VMEConfig
+                    bool useIACK = event->triggerOptions["IRQUseIACK"].toBool();
+
                     u16 triggerReg = stacks::get_trigger_register(stackId);
 
-                    u32 triggerVal = stacks::IRQNoIACK << stacks::TriggerTypeShift;
+                    u32 triggerVal = (useIACK
+                                      ? stacks::IRQWithIACK
+                                      : stacks::IRQNoIACK
+                                      ) << stacks::TriggerTypeShift;
+
                     triggerVal |= (event->irqLevel - 1) & stacks::TriggerBitsMask;
 
                     if (auto ec = mvlc.writeRegister(triggerReg, triggerVal))

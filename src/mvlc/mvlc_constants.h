@@ -244,7 +244,7 @@ namespace stacks
     enum TriggerType: u8
     {
         NoTrigger,
-        IRQ,
+        IRQWithIACK,
         IRQNoIACK,
         External,
         TimerUnderrun,

@@ -68,6 +68,8 @@ struct EventConfigDialogPrivate
 
     QDoubleSpinBox *spin_vmusbTimerPeriod,
                    *spin_sis3153TimerPeriod;
+
+    QCheckBox *cb_irqUseIACK;
 };
 
 EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *config,
@@ -88,6 +90,8 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
 
     m_d->spin_irqVector = new QSpinBox(this);
     m_d->spin_irqVector->setMaximum(255);
+
+    m_d->cb_irqUseIACK = new QCheckBox(this);
 
     auto gb_nameAndCond = new QGroupBox;
     auto gb_layout   = new QFormLayout(gb_nameAndCond);
@@ -184,6 +188,16 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
                 irqLayout->labelForField(m_d->spin_irqVector)->hide();
                 m_d->spin_irqVector->hide();
 
+                irqLayout->addRow(QSL("Use Interrupt Acknowledge (IRQUseIACK)"),
+                                  m_d->cb_irqUseIACK);
+
+                auto label = new QLabel(
+                    QSL("Note: enabling the IRQUseIACK option will make IRQ handling"
+                        " slower but some VME modules might require it to work properly."));
+
+                label->setWordWrap(true);
+                irqLayout->addRow(label);
+
                 conditions = { TriggerCondition::Interrupt };
                 m_d->stack_options->addWidget(irqWidget);
             } break;
@@ -217,6 +231,7 @@ void EventConfigDialog::loadFromConfig()
 
     m_d->spin_irqLevel->setValue(config->irqLevel);
     m_d->spin_irqVector->setValue(config->irqVector);
+    m_d->cb_irqUseIACK->setChecked(config->triggerOptions["IRQUseIACK"].toBool());
 
     switch (m_controller->getType())
     {
@@ -262,6 +277,7 @@ void EventConfigDialog::saveToConfig()
 
         case VMEControllerType::MVLC_USB:
         case VMEControllerType::MVLC_ETH:
+            config->triggerOptions["IRQUseIACK"] = m_d->cb_irqUseIACK->isChecked();
             break;
     }
     config->setModified(true);
