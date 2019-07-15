@@ -119,6 +119,11 @@ namespace frame_flags
     static const u8 BusError    = 1u << shifts::BusError;
     static const u8 SyntaxError = 1u << shifts::SyntaxError;
     static const u8 Continue    = 1u << shifts::Continue;
+
+    static const u8 AllErrorFlags = (
+        frame_flags::Timeout |
+        frame_flags::BusError |
+        frame_flags::SyntaxError);
 }
 
 namespace system_event
