@@ -142,7 +142,7 @@ void MVLCObject::postDialogOperation()
     // our own methods which do take the lock.
 
     for (const auto &n: m_dialog.getStackErrorNotifications())
-            emit stackErrorNotification(n);
+        emit stackErrorNotification(n);
 }
 
 std::error_code MVLCObject::vmeSingleRead(u32 address, u32 &value, u8 amod,
@@ -310,6 +310,7 @@ void MVLCNotificationPoller::doPoll()
 
         if (!buffer.isEmpty())
         {
+            //qDebug() << __PRETTY_FUNCTION__ << "emitting stackErrorNotification";
             emit stackErrorNotification(buffer);
         }
 

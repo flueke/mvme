@@ -73,6 +73,11 @@ inline FrameInfo extract_frame_info(u32 header)
 LIBMVME_MVLC_EXPORT QString decode_frame_header(u32 header);
 LIBMVME_MVLC_EXPORT QString format_frame_flags(u8 frameFlags);
 
+inline bool has_error_flag_set(u8 frameFlags)
+{
+    return (frameFlags & frame_flags::AllErrorFlags) != 0u;
+}
+
 LIBMVME_MVLC_EXPORT void log_buffer(const u32 *buffer, size_t size, const std::string &info = {});
 LIBMVME_MVLC_EXPORT void log_buffer(const std::vector<u32> &buffer, const std::string &info = {});
 LIBMVME_MVLC_EXPORT void log_buffer(const QVector<u32> &buffer, const QString &info = {});
