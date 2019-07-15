@@ -1,7 +1,10 @@
 #include "mvlc/mvlc_vme_controller.h"
-#include "mvlc/mvlc_error.h"
 
 #include <QDebug>
+
+#include "mvlc/mvlc_error.h"
+#include "mvlc/mvlc_util.h"
+
 
 namespace
 {
@@ -60,7 +63,18 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
     connect(&m_notificationPoller, &MVLCNotificationPoller::stackErrorNotification,
             this, &MVLC_VMEController::stackErrorNotification);
 
-    m_notificationPoller.enablePolling();
+    // XXX: Debug
+    connect(this, &MVLC_VMEController::stackErrorNotification,
+            [] (const QVector<u32> &data)
+    {
+        if (data.isEmpty())
+            return;
+
+        qDebug("%s - MVLC_VMEController polled a stack error notification: header=0x%08x, len=%u",
+               QDateTime::currentDateTime().toString().toStdString().c_str(),
+               data[0],
+               extract_frame_info(data[0]).len);
+    });
 }
 
 void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &oldState,
@@ -69,11 +83,13 @@ void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &oldState,
     switch (newState)
     {
         case MVLCObject::Disconnected:
+            m_notificationPoller.disablePolling();
             emit controllerClosed();
             emit controllerStateChanged(ControllerState::Disconnected);
             break;
 
         case MVLCObject::Connected:
+            m_notificationPoller.enablePolling();
             emit controllerOpened();
             emit controllerStateChanged(ControllerState::Connected);
             break;
