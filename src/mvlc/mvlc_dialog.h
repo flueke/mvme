@@ -66,7 +66,14 @@ class MVLCDialog
 
         // Sends the given stack data (which must include upload commands),
         // reads and verifies the mirror response, and executes the stack.
-        // Note: Stack0 is used and offset 0 into stack memory is assumed.
+        // Notes:
+        // - Stack0 is used and offset 0 into stack memory is assumed.
+        // - Stack responses consisting of multiple frames (0xF3 followed by
+        //   0xF9 frames) are supported. The stack frames will all be copied to
+        //   the responseDest vector.
+        // - Any stack error notifications read while attempting to read an
+        //   actual stack response are available via
+        //   getStackErrorNotifications().
         std::error_code stackTransaction(const QVector<u32> &stackUploadData,
                                          QVector<u32> &responseDest);
 

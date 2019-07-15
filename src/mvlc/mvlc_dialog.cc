@@ -108,6 +108,8 @@ std::error_code MVLCDialog::readWords(u32 *dest, size_t count, size_t &wordsTran
     // A 2nd read issued right after the timeout will succeed and yield the
     // correct data.
     // I have not encountered this issue when connected via USB3.
+    // This workaround has the side effect of doubling the potential maximum
+    // time spent in this method waiting for a timeout.
     static const u16 MaxReadAttempts = 2;
     u16 attempts = 0;
 
@@ -181,9 +183,8 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
         if (auto ec = readKnownBuffer(dest))
             return ec;
 
-        assert(!dest.isEmpty()); // readKnownBuffer() should have returned an error
-        if (dest.isEmpty())
-            return make_error_code(MVLCErrorCode::ShortRead);
+        // readKnownBuffer() returns an error code if its dest buffer is empty
+        assert(!dest.isEmpty());
 
         u32 header = dest[0];
 
@@ -333,11 +334,11 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
     if (auto ec = mirrorTransaction(stack, dest))
         return ec;
 
-    // set the stack offset register
+    // set the stack 0 offset register
     if (auto ec = writeRegister(stacks::Stack0OffsetRegister, 0))
         return ec;
 
-    // exec the stack
+    // exec stack 0
     if (auto ec = writeRegister(stacks::Stack0TriggerRegister, 1u << stacks::ImmediateShift))
         return ec;
 
@@ -347,33 +348,37 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
 
     assert(!dest.isEmpty()); // guaranteed by readResponse()
 
+    // Test if the Continue bit is set and if so read continuation buffers
+    // (0xF9) until the Continue bit is cleared.
+    // Note: stack error notification buffers (0xF7) as part of the response are
+    // handled in readResponse().
+
     u32 header = dest[0];
-    u8 errorBits = (header >> frame_headers::FrameFlagsShift) & frame_headers::FrameFlagsMask;
+    u8 flags = extract_frame_info(header).flags;
 
-    if (errorBits)
+    if (flags & frame_flags::Continue)
     {
-        // Any of the error bits was set. Read in the additional error
-        // notification buffer (header type is 0xF7).
-        QVector<u32> tmpBuffer;
-        readKnownBuffer(tmpBuffer);
-        if (!tmpBuffer.isEmpty())
+        QVector<u32> localBuffer;
+
+        while (flags & frame_flags::Continue)
         {
-            u32 header = tmpBuffer[0];
+            if (auto ec = readResponse(is_stack_buffer_continuation, localBuffer))
+                return ec;
 
-            if (is_stackerror_notification(header))
-                m_stackErrorNotifications.push_back(tmpBuffer);
-            else
-                logBuffer(tmpBuffer, "Unexpected buffer contents (wanted a stack error notification (0xF7)");
+            std::copy(localBuffer.begin(), localBuffer.end(), std::back_inserter(dest));
+
+            header = localBuffer[0];
+            flags = extract_frame_info(header).flags;
         }
-
-        if (errorBits & frame_flags::Timeout)
-            return MVLCErrorCode::NoVMEResponse;
-
-        if (errorBits & frame_flags::SyntaxError)
-            return MVLCErrorCode::StackSyntaxError;
-
-        // VME BusError and the Continue bit are not considered errors
     }
+
+    // Check the last buffers flag values.
+
+    if (flags & frame_flags::Timeout)
+        return MVLCErrorCode::NoVMEResponse;
+
+    if (flags & frame_flags::SyntaxError)
+        return MVLCErrorCode::StackSyntaxError;
 
     return {};
 }
