@@ -487,7 +487,6 @@ unsigned Impl::getReadTimeout(Pipe pipe) const
 // IPv4 header is 20 bytes
 // UDP header is 8 bytes
 static const size_t MaxOutgoingPayloadSize = 1500 - 20 - 8;
-//static const size_t MaxIncomingPayloadSIze = MaxOutgoingPayloadSize;
 
 std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
                             size_t &bytesTransferred)
@@ -702,7 +701,8 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
  *   - make sure there are two header words
  *   - extract packet_number and number_of_data_words
  *   - record possible packet loss or ordering problems based on packet number
- *   - check to make sure timestamp is incrementing (packet ordering) (not implemented yet)
+ *   - check to make sure timestamp is incrementing (packet ordering) (not
+ *     implemented yet in the MVLC firmware)
  */
 
 std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,

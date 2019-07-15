@@ -2,19 +2,8 @@
 * USB2 loses data under windows. The beginning of the very first buffer of a readout gets
   lost. This means the initial F3 is not seen and we lose track of the buffer structure.
 
-* Revisit MVLCDialog::stackTransaction(const QVector<u32> &stack, QVector<u32> &dest)
-  Is this correct in case the Continue bit is set?
-
 * Make a std::error_category for getaddrinfo (enum, category, make_error_code).
   It's needed for good winsock error reporting.
-
-* Add NoIAck option to VMEConfig and use it in the MVLC setup code
-
-* Polling eth::Impl stats (getLossCounters(), getPacketSizeCounters()) from the GUI is
-  currently not taking the higher-level locks. This means the readout thread or a thread
-  doing periodic polling can update those values concurrently to the GUI reading them.
-  Either implement low level locks in the UDP code or use the higher level ones which
-  currently are in MVLCObject.
 
 * The usb::Impl::read() on Windows and the eth::Impl::read() calls on both systems can take
   longer than the user specified timeout as they are issuing multiple read/receive calls
@@ -63,7 +52,7 @@ USB readout
 
 ETH readout
 -----------
-Setting rmem_max can help a lot. SO_RCVBUF is limited by this kernel setting.
+Setting rmem_max can help a lot. SO_RCVBUF is limited by this kernel setting:
   net.core.rmem_max=104857600
 
 If the RX dropped counter in `ifconfig` does not increase but there is packet loss at the
