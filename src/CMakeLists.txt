@@ -413,6 +413,7 @@ install(FILES ${INCLUDES_TO_INSTALL} DESTINATION include)
 #install(FILES data_export/mvme_root_treewriter_client.cc DESTINATION extras/root_treewriter_client/)
 
 add_subdirectory(event_server)
+add_subdirectory(listfile_reader)
 
 #
 # listfile recovery tool
