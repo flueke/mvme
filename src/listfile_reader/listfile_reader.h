@@ -25,8 +25,8 @@ struct EventReadoutDescription
 struct RunDescription
 {
 
-    const char *listfile_filename;
-    const char *listfile_runid;
+    const char *listfileFilename;
+    const char *listfileRunid;
     EventReadoutDescription *events;
     int eventCount;
 };
@@ -46,8 +46,8 @@ struct ModuleData
     DataBlock suffix;
 };
 
-typedef void (*PluginInfo) (char **plugin_name, char **plugin_description);
-typedef void * (*PluginInit) (const char *plugin_filename, int argc, const char *argv[]);
+typedef void (*PluginInfo) (char **pluginName, char **pluginDescription);
+typedef void * (*PluginInit) (const char *pluginFilename, int argc, const char *argv[]);
 typedef void (*PluginDestroy) (void *userptr);
 
 typedef void (*BeginRun) (void *userptr, const RunDescription *run);
