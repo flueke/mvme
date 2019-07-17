@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -115,6 +116,14 @@ class Arena
             static_assert(std::is_trivial<T>::value, "T must be a trivial type");
 
             return reinterpret_cast<T *>(pushSize(size * sizeof(T), align));
+        }
+
+        char *pushCString(const char *str)
+        {
+            size_t size = std::strlen(str) + 1;
+            void *mem = pushSize(size);
+            std::memcpy(mem, str, size);
+            return reinterpret_cast<char *>(mem);
         }
 
         /** Performs pushStruct<T>() and copies the passed in value into the
