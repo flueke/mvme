@@ -863,9 +863,14 @@ ParseResult parse_readout_buffer_usb(
 
             if (pr != ParseResult::Ok)
             {
-                if (pr == ParseResult::NotABlockFrame) // XXX
+                if (pr == ParseResult::NotABlockFrame) // XXX remove once debugging is done
                 {
                     LOG_WARN("NotABlockFrame from parse_readout_contents, offset=%ld, bufferNumber=%u (USB)",
+                             iter.current32BitOffset(), bufferNumber);
+                }
+                if (pr == ParseResult::NotAStackFrame) // XXX remove once debugging is done
+                {
+                    LOG_WARN("NotAStackFrame from parse_readout_contents, offset=%ld, bufferNumber=%u (USB)",
                              iter.current32BitOffset(), bufferNumber);
                 }
                 parser_clear_event_state(state);
