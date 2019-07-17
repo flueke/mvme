@@ -35,7 +35,7 @@ if (ENABLE_ROOT)
 endif(ENABLE_ROOT)
 
 if (ENABLE_ROOT AND ROOT_FOUND)
-if (False)
+if (False) # TODO: port the mvme_root_treewriter_client2.cc code
     set(root_LIBS
         ${ROOT_LIBRARIES}
         ${ROOT_Core_LIBRARY}
@@ -50,21 +50,21 @@ if (False)
             G__mvme_root_event_objects_rdict.cxx
             G__mvme_root_event_objects_rdict_rdict.pcm
         COMMAND rootcling -f mvme_root_event_rdict.cxx
-            ${CMAKE_CURRENT_SOURCE_DIR}/event_server/mvme_root_event_objects.h
-            ${CMAKE_CURRENT_SOURCE_DIR}/event_server/mvme_root_event_objects_LinkDef.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/mvme_root_event_objects.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/mvme_root_event_objects_LinkDef.h
         COMMAND ${CMAKE_COMMAND} -E copy
                 ${CMAKE_CURRENT_BINARY_DIR}/mvme_root_event_rdict_rdict.pcm
                 ${CMAKE_BINARY_DIR}/
         DEPENDS
-            event_server/mvme_root_event_objects.h
-            event_server/mvme_root_event_objects_LinkDef.h
+            mvme_root_event_objects.h
+            mvme_root_event_objects_LinkDef.h
     )
 
     set_property(SOURCE  mvme_root_event_rdict.cxx PROPERTY SKIP_AUTOMOC ON)
     #set_property(SOURCE G__mvme_root_event_objects_rdict.cxx PROPERTY SKIP_AUTOMOC ON)
 
     add_library(mvme_root_event SHARED
-        event_server/mvme_root_event_objects.cxx
+        mvme_root_event_objects.cxx
         mvme_root_event_rdict.cxx
         )
     target_link_libraries(mvme_root_event ${root_LIBS})
@@ -81,8 +81,7 @@ if (False)
     #    data_export/mvme_root_export_objects.h
     #    LINKDEF data_export/mvme_root_export_objects_LinkDef.h)
 
-    add_executable(mvme_root_treewriter_client2
-        event_server/mvme_root_treewriter_client2.cc)
+    add_executable(mvme_root_treewriter_client2 mvme_root_treewriter_client2.cc)
     #${CMAKE_CURRENT_SOURCE_DIR}/G__mvme_root.cxx)
     target_link_libraries(mvme_root_treewriter_client2 mvme_root_event)
 

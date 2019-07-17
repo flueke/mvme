@@ -396,6 +396,8 @@ void EventServer::endEvent(s32 eventIndex)
     if (getNumberOfClients() == 0)
     {
         // Allows QTcpServer to accept new connections
+        // FIXME: measure performance without this call. I think this can have
+        // a huge impact. If so only perform it based on a timeout.
         QCoreApplication::processEvents();
         return;
     }

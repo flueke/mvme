@@ -10,15 +10,15 @@
 
 // mvme
 #include <Mustache/mustache.hpp>
-#include "event_server/event_server_lib.h"
-#include "event_server/mvme_root_event_objects.h"
+#include "event_server/common/event_server_lib.h"
+#include "event_server/client/mvme_root_event_objects.h"
 
 using std::cerr;
 using std::cout;
 using std::endl;
 
 namespace mu = kainjow::mustache;
-using namespace mvme::data_server;
+using namespace mvme::event_server;
 
 
 // The c++11 way of including text strings into the binary. Uses the new R"()"
@@ -26,17 +26,17 @@ using namespace mvme::data_server;
 // the binary.
 
 static const char *exportHeaderTemplate =
-#include "event_server/templates/root_event_objects.h.mustache"
+#include "event_server/client/templates/user_objects.h.mustache"
 ;
 
 static const char *exportImplTemplate =
-#include "event_server/templates/root_event_objects.cxx.mustache"
+#include "event_server/client/templates/user_objects.cxx.mustache"
 ;
 
 //
 // ClientContext
 //
-class ClientContext: public mvme::data_server::Parser
+class ClientContext: public mvme::event_server::Parser
 {
     public:
         ClientContext(const std::string &outputDirectory, bool convertNaNsToZero)
@@ -51,7 +51,7 @@ class ClientContext: public mvme::data_server::Parser
         virtual void eventData(const Message &msg, int eventIndex,
                                 const std::vector<DataSourceContents> &contents) override;
 
-        virtual void endRun(const Message &msg) override;
+        virtual void endRun(const Message &msg, const json &info) override;
 
         virtual void error(const Message &msg, const std::exception &e) override;
 
@@ -352,7 +352,7 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 #endif
 }
 
-void ClientContext::endRun(const Message &msg)
+void ClientContext::endRun(const Message &msg, const json &info)
 {
 #if 0
     cerr << __FUNCTION__ << endl;
@@ -514,9 +514,9 @@ int main(int argc, char *argv[])
 
     setup_signal_handlers();
 
-    if (int res = mvme::data_server::lib_init() != 0)
+    if (int res = mvme::event_server::lib_init() != 0)
     {
-        cerr << "mvme::data_server::lib_init() failed with code " << res << endl;
+        cerr << "mvme::event_server::lib_init() failed with code " << res << endl;
         return 1;
     }
 
@@ -543,7 +543,7 @@ int main(int argc, char *argv[])
             {
                 sockfd = connect_to(host.c_str(), port.c_str());
             }
-            catch (const mvme::data_server::exception &e)
+            catch (const mvme::event_server::exception &e)
             {
                 sockfd = -1;
             }
@@ -572,14 +572,14 @@ int main(int argc, char *argv[])
                 doQuit = true;
             }
         }
-        catch (const mvme::data_server::connection_closed &)
+        catch (const mvme::event_server::connection_closed &)
         {
             cout << "Error: The remote host closed the connection." << endl;
             sockfd = -1;
             // Reset context state as we're going to attempt to reconnect.
             ctx.reset();
         }
-        catch (const mvme::data_server::exception &e)
+        catch (const mvme::event_server::exception &e)
         {
             cout << "An error occured: " << e.what() << endl;
             retval = 1;
@@ -595,7 +595,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    mvme::data_server::lib_shutdown();
+    mvme::event_server::lib_shutdown();
     return retval;
 
 

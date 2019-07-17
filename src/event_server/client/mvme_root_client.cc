@@ -84,9 +84,11 @@ static const char *makefileTemplate =
 #include "templates/Makefile.mustache"
 ;
 
+#if 0
 static const char *rootPremakeHookTemplate =
 #include "templates/mvme_root_premake.C.mustache"
 ;
+#endif
 
 // Analysis
 struct UserAnalysis
@@ -451,6 +453,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                 OverwriteOption::Never,
                 "analysis customization make",
             },
+#if 0
             CodeGenArgs
             {
                 "mvme_root_premake.C",
@@ -458,6 +461,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                 OverwriteOption::Never,
                 "ROOT pre-make macro",
             },
+#endif
         };
 
         // build the template data object
@@ -527,9 +531,11 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
             }
         }
 
+#if 0
         // Run the ROOT pre-make macro
         cout << "Executing ROOT pre-make macro file mvme_root_premake.C ..." << endl;
         gROOT->ProcessLineSync(".x mvme_root_premake.C");
+#endif
 
         // Run make
         {
