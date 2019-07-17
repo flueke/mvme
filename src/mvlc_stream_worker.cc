@@ -89,22 +89,35 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
 {
     m_parserCallbacks = ReadoutParserCallbacks();
 
-    m_parserCallbacks.beginEvent = [analysis](int ei)
+    m_parserCallbacks.beginEvent = [this, analysis](int ei)
     {
         //qDebug() << "beginEvent" << ei;
         analysis->beginEvent(ei);
+
+        for (auto c: m_moduleConsumers)
+        {
+            c->beginEvent(ei);
+        }
     };
 
     m_parserCallbacks.modulePrefix = [analysis](int ei, int mi, u32 *data, u32 size)
     {
         //qDebug() << "  modulePrefix" << ei << mi << data << size;
         analysis->processModulePrefix(ei, mi, data, size);
+
+        // FIXME: The IMVMEStreamModuleConsumer interface doesn't support
+        // prefix/suffix data right now
     };
 
     m_parserCallbacks.moduleDynamic = [this, analysis](int ei, int mi, u32 *data, u32 size)
     {
         //qDebug() << "  moduleDynamic" << ei << mi << data << size;
         analysis->processModuleData(ei, mi, data, size);
+
+        for (auto c: m_moduleConsumers)
+        {
+            c->processModuleData(ei, mi, data, size);
+        }
 
         if (0 <= ei && ei < MaxVMEEvents && 0 <= mi && mi < MaxVMEModules)
         {
@@ -117,12 +130,20 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
     {
         //qDebug() << "  moduleSuffix" << ei << mi << data << size;
         analysis->processModuleSuffix(ei, mi, data, size);
+
+        // FIXME: The IMVMEStreamModuleConsumer interface doesn't support
+        // prefix/suffix data right now
     };
 
     m_parserCallbacks.endEvent = [this, analysis](int ei)
     {
         //qDebug() << "endEvent" << ei;
         analysis->endEvent(ei);
+
+        for (auto c: m_moduleConsumers)
+        {
+            c->endEvent(ei);
+        }
 
         if (0 <= ei && ei < MaxVMEEvents)
         {
@@ -132,7 +153,7 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         }
     };
 
-    m_parserCallbacks.systemEvent = [analysis](u32 *header, u32 size)
+    m_parserCallbacks.systemEvent = [this, analysis](u32 *header, u32 size)
     {
         u8 subtype = system_event::extract_subtype(*header);
 
@@ -142,6 +163,11 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         if (subtype == system_event::subtype::UnixTimestamp)
         {
             analysis->processTimetick();
+        }
+
+        for (auto c: m_moduleConsumers)
+        {
+            c->processTimetick();
         }
     };
 
@@ -231,6 +257,17 @@ void MVLC_StreamWorker::start()
         return;
     }
 
+    for (auto c: m_bufferConsumers)
+    {
+        c->beginRun(runInfo, vmeConfig, analysis,
+                    [this] (const QString &msg) { m_context->logMessage(msg); });
+    }
+
+    for (auto c: m_moduleConsumers)
+    {
+        c->beginRun(runInfo, vmeConfig, analysis);
+    }
+
     setState(m_startPaused ? WorkerState::Paused : WorkerState::Running);
 
     TimetickGenerator timetickGen;
@@ -286,10 +323,28 @@ void MVLC_StreamWorker::start()
             while (elapsedSeconds >= 1)
             {
                 analysis->processTimetick();
+
+                for (auto c: m_moduleConsumers)
+                {
+                    c->processTimetick();
+                }
+
                 elapsedSeconds--;
             }
         }
     }
+
+    for (auto c: m_bufferConsumers)
+    {
+        c->endRun();
+    }
+
+    for (auto c: m_moduleConsumers)
+    {
+        c->endRun(m_context->getDAQStats());
+    }
+
+    analysis->endRun();
 
     {
         UniqueLock guard(m_countersMutex);
@@ -319,6 +374,11 @@ void MVLC_StreamWorker::processBuffer(
 
     try
     {
+        for (auto c: m_bufferConsumers)
+        {
+            c->processDataBuffer(buffer);
+        }
+
         UniqueLock guard(m_parserMutex);
         ParseResult pr = {};
 
