@@ -412,6 +412,7 @@ install(FILES ${INCLUDES_TO_INSTALL} DESTINATION include)
 #install(FILES data_export/mvme_root_treewriter_client.cc DESTINATION extras/root_treewriter_client/)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(event_server)
 add_subdirectory(listfile_reader)
 

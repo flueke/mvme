@@ -16,7 +16,7 @@ void plugin_info (const char **plugin_name, const char **plugin_description)
     *plugin_description = PluginDescription;
 }
 
-void *plugin_init (int argc, const char *argv[])
+void *plugin_init (const char *pluginFilename, int argc, const char *argv[])
 {
     cout << __PRETTY_FUNCTION__ << " - args:" << endl;
 

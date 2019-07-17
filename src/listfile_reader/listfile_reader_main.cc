@@ -58,9 +58,16 @@ Notes:
 #include <iostream>
 #include <string>
 #include <vector>
-#include <QLibrary>
 
-#include "listfile_reader.h"
+#include <QLibrary>
+#include <QThread>
+
+#include "analysis/a2/memory.h"
+#include "listfile_reader/listfile_reader.h"
+#include "listfile_replay.h"
+#include "mvlc/mvlc_readout_parsers.h"
+#include "mvlc_stream_worker.h" // FIXME: move collect_readout_scripts() elsewhere (a general readout parser file)
+#include "vme_controller_factory.h"
 
 using std::cout;
 using std::endl;
@@ -74,6 +81,7 @@ struct RawDataPlugin
     BeginRun begin_run;
     EventData event_data;
     EndRun end_run;
+    void *userptr;
 };
 
 struct library_load_error: public std::exception {};
@@ -96,7 +104,7 @@ Signature resolve(QLibrary &lib, const char *func)
 //
 RawDataPlugin load_plugin(const QString &name)
 {
-    QLibrary pluginLib("./listfile_reader_print_plugin");
+    QLibrary pluginLib(name);
 
     if (!pluginLib.load())
     {
@@ -127,16 +135,213 @@ RawDataPlugin load_plugin(const QString &name)
             << endl;
     }
 
+    plugin.userptr = plugin.init(plugin.filename.toStdString().c_str(), 0, nullptr);
+
     return plugin;
 }
 
 //
 // process_listfile
 //
-void process_one_listfile(const QString &filename)
-{
-    //auto replayHandle = open_listfile(filename);
+static const size_t DataBufferCount = 2;
+static const size_t DataBufferSize = Megabytes(1);
 
+RunDescription * make_run_description(
+    memory::Arena &arena,
+    const QString &listfileFilename,
+    const VMEConfig &vmeConfig)
+{
+    auto eventConfigs = vmeConfig.getEventConfigs();
+    auto run = arena.push(RunDescription{});
+    run->listfileFilename = arena.pushCString(listfileFilename.toStdString().c_str());
+    run->events = arena.pushArray<EventReadoutDescription>(eventConfigs.size());
+    run->eventCount = eventConfigs.size();
+
+    for (int ei = 0; ei < eventConfigs.size(); ei++)
+    {
+        auto eventConfig = eventConfigs[ei];
+        auto moduleConfigs = eventConfig->getModuleConfigs();
+        auto &event = run->events[ei];
+        event.name = arena.pushCString(eventConfig->objectName().toStdString().c_str());
+        event.modules = arena.pushArray<ModuleReadoutDescription>(moduleConfigs.size());
+        event.moduleCount = moduleConfigs.size();
+
+        for (int mi = 0; mi < moduleConfigs.size(); mi++)
+        {
+            auto moduleConfig = moduleConfigs[ei];
+            auto &module = event.modules[mi];
+
+            module.name = arena.pushCString(
+                moduleConfig->objectName().toStdString().c_str());
+
+            module.type = arena.pushCString(
+                moduleConfig->getModuleMeta().typeName.toStdString().c_str());
+
+            auto moduleReadoutParts = mesytec::mvlc::parse_module_readout_script(
+                moduleConfig->getReadoutScript()->getScript());
+
+            module.prefixLen = moduleReadoutParts.prefixLen;
+            module.suffixLen = moduleReadoutParts.suffixLen;
+            module.hasDynamic = moduleReadoutParts.hasDynamic;
+        }
+    }
+
+    return run;
+}
+
+void process_one_listfile(const QString &filename, const std::vector<RawDataPlugin> &plugins)
+{
+    auto replayHandle = open_listfile(filename);
+
+    std::unique_ptr<VMEConfig> vmeConfig;
+    std::error_code ec;
+
+    std::tie(vmeConfig, ec) = read_vme_config_from_listfile(replayHandle);
+
+    if (ec)
+        throw ec;
+
+    auto controllerType = vmeConfig->getControllerType();
+    VMEControllerFactory ctrlFactory(controllerType);
+
+    ThreadSafeDataBufferQueue emptyBuffers;
+    ThreadSafeDataBufferQueue filledBuffers;
+    // To make sure buffers are deleted when leaving this function
+    std::vector<std::unique_ptr<DataBuffer>> buffers;
+
+    for (size_t i=0; i<DataBufferCount; ++i)
+    {
+        buffers.emplace_back(std::make_unique<DataBuffer>(DataBufferSize));
+        emptyBuffers.queue.push_back(buffers.back().get());
+    }
+
+    auto replayWorker = std::unique_ptr<ListfileReplayWorker>(ctrlFactory.makeReplayWorker(
+            &emptyBuffers, &filledBuffers));
+
+    if (!replayWorker)
+        throw std::runtime_error("could not create replay worker");
+
+    QThread replayThread;
+    replayThread.setObjectName("mvme replay");
+    replayWorker->moveToThread(&replayThread);
+
+    std::atomic<bool> replayDone(false);
+
+    QObject::connect(replayWorker.get(), &ListfileReplayWorker::replayStopped,
+                     [&replayDone] { replayDone = true; });
+
+    QObject::connect(replayWorker.get(), &ListfileReplayWorker::replayStopped,
+                     &replayThread, &QThread::quit);
+
+    using namespace mesytec::mvlc;
+
+    memory::Arena arena(4096);
+    auto runDescription = make_run_description(arena, filename, *vmeConfig);
+
+    if (runDescription->eventCount <= 0)
+        throw std::runtime_error("no event configs found in vme config from listfile");
+
+    int maxModuleCount = std::max_element(
+        runDescription->events, runDescription->events + runDescription->eventCount,
+        [] (const auto &ea, const auto &eb)
+        {
+            return ea.moduleCount < eb.moduleCount;
+        })->moduleCount;
+
+    auto moduleDataList = arena.pushArray<ModuleData>(maxModuleCount);
+
+    ReadoutParserCallbacks callbacks{};
+
+    switch (controllerType)
+    {
+        case VMEControllerType::MVLC_ETH:
+        case VMEControllerType::MVLC_USB:
+            {
+                callbacks.beginEvent = [&] (int ei)
+                {
+                    std::fill(moduleDataList, moduleDataList+maxModuleCount, ModuleData{});
+                };
+                callbacks.modulePrefix = [&] (int ei, int mi, u32 *data, u32 size)
+                {
+                    moduleDataList[mi].prefix = { data, size };
+                };
+                callbacks.moduleDynamic = [&] (int ei, int mi, u32 *data, u32 size)
+                {
+                    moduleDataList[mi].dynamic = { data, size };
+                };
+                callbacks.moduleSuffix = [&] (int ei, int mi, u32 *data, u32 size)
+                {
+                    moduleDataList[mi].suffix = { data, size };
+                };
+
+                callbacks.endEvent = [&] (int ei)
+                {
+                    int moduleCount = runDescription->events[ei].moduleCount;
+
+                    for (auto &plugin: plugins)
+                    {
+                        plugin.event_data(plugin.userptr, ei, moduleDataList, moduleCount);
+                    }
+                };
+            }
+            break;
+
+        case VMEControllerType::SIS3153:
+        case VMEControllerType::VMUSB:
+            break;
+    }
+
+    auto mvlcParser = make_readout_parser(collect_readout_scripts(*vmeConfig));
+
+    replayWorker->setListfile(replayHandle.listfile.get());
+
+    // TODO: check mvlc_dev_gui on how to make use of QThread started to
+    // invoke ListfileReplayWorker::start
+    //QMetaObject::invokeMethod(replayWorker.get(), "start", Qt::QueuedConnection);
+    QObject::connect(&replayThread, &QThread::started,
+                     replayWorker.get(), &ListfileReplayWorker::start);
+
+    replayThread.start();
+
+    for (auto &plugin: plugins)
+        plugin.begin_run(plugin.userptr, runDescription);
+
+    // TODO: start the replay thread then loop until replayDone is true
+    // in the loop get a buffer from the filledBuffers queue and feed it to the
+    // mvlc readout parser. Use a timeout when waiting for a full buffer.
+    // Then put the buffer onto the emptyQueue
+    while (!replayDone)
+    {
+        if (auto buffer = dequeue(&filledBuffers, 250))
+        {
+            ParseResult pr{};
+            switch (controllerType)
+            {
+                case VMEControllerType::MVLC_ETH:
+                    pr = parse_readout_buffer_eth(
+                        mvlcParser, callbacks,
+                        buffer->id, buffer->data, buffer->used);
+                    break;
+
+                case VMEControllerType::MVLC_USB:
+                    pr = parse_readout_buffer_usb(
+                        mvlcParser, callbacks,
+                        buffer->id, buffer->data, buffer->used);
+                    break;
+
+                InvalidDefaultCase;
+            }
+
+            // TODO: use the ParseResult
+            enqueue(&emptyBuffers, buffer);
+        }
+    }
+
+    for (auto &plugin: plugins)
+        plugin.end_run(plugin.userptr);
+
+    replayThread.quit();
+    replayThread.wait();
 
     // One side could be a ListfileReplayWorker which is moved to its own
     // thread. This is the buffer producer side
@@ -194,7 +399,14 @@ int main(int argc, char *argv[])
     {
         try
         {
-            process_one_listfile(listfileFilename);
+            //if (auto ec = process_one_listfile(listfileFilename))
+            //    throw ec;
+            process_one_listfile(listfileFilename, plugins);
+        }
+        catch (const std::error_code &ec)
+        {
+            cout << "Error processing file: " << listfileFilename.toStdString()
+                << ": " << ec.message() << endl;
         }
         catch (const std::exception &e)
         {
@@ -206,6 +418,11 @@ int main(int argc, char *argv[])
             cout << "Error processing file: " << listfileFilename.toStdString()
                 << ": " << msg.toStdString() << endl;
         }
+    }
+
+    for (auto &plugin: plugins)
+    {
+        plugin.destroy(plugin.userptr);
     }
 
     return 0;

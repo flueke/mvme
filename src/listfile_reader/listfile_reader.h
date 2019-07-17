@@ -18,15 +18,13 @@ struct ModuleReadoutDescription
 struct EventReadoutDescription
 {
     const char *name;
-    const ModuleReadoutDescription *modules;
+    ModuleReadoutDescription *modules;
     int moduleCount;
 };
 
 struct RunDescription
 {
-
     const char *listfileFilename;
-    const char *listfileRunid;
     EventReadoutDescription *events;
     int eventCount;
 };
@@ -39,8 +37,6 @@ struct DataBlock
 
 struct ModuleData
 {
-    const char *name;
-
     DataBlock prefix;
     DataBlock dynamic;
     DataBlock suffix;
