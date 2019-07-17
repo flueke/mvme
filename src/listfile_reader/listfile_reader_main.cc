@@ -12,6 +12,7 @@ Purpose of the mvme_listfile_reader program:
 mvme_listfile_reader
     input_listfile_filename0, input_listfile_filename1, ...
 
+    --multi-event-splitting / --no-multi-event-splitting
     --dump-data / --no-dump-data
     --plugin my_c_plugin.so,--foo=bar,-osomething
     --plugin my_qt_plugin.so
@@ -66,6 +67,7 @@ using std::endl;
 
 struct RawDataPlugin
 {
+    QString filename;
     PluginInfo info;
     PluginInit init;
     PluginDestroy destroy;
@@ -74,6 +76,7 @@ struct RawDataPlugin
     EndRun end_run;
 };
 
+struct library_load_error: public std::exception {};
 struct resolve_error: public std::exception {};
 
 template<typename Signature>
@@ -88,45 +91,121 @@ Signature resolve(QLibrary &lib, const char *func)
     throw resolve_error();
 }
 
+//
+// Load a single plugin
+//
+RawDataPlugin load_plugin(const QString &name)
+{
+    QLibrary pluginLib("./listfile_reader_print_plugin");
+
+    if (!pluginLib.load())
+    {
+        cout << "Error loading plugin " << pluginLib.fileName().toStdString()
+            << endl;
+        throw library_load_error();
+    }
+
+    RawDataPlugin plugin = {};
+
+    plugin.filename = pluginLib.fileName();
+    plugin.info = resolve<PluginInfo>(pluginLib, "plugin_info");
+    plugin.init = resolve<PluginInit>(pluginLib, "plugin_init");
+    plugin.destroy = resolve<PluginDestroy>(pluginLib, "plugin_destroy");
+    plugin.begin_run = resolve<BeginRun>(pluginLib, "begin_run");
+    plugin.event_data = resolve<EventData>(pluginLib, "event_data");
+    plugin.end_run = resolve<EndRun>(pluginLib, "end_run");
+
+    {
+        char *plugin_name = {};
+        char *plugin_descr = {};
+
+        plugin.info(&plugin_name, &plugin_descr);
+
+        cout << "Loaded plugin from " << pluginLib.fileName().toStdString()
+            << ": name=" << plugin_name
+            << ", description=" << plugin_descr
+            << endl;
+    }
+
+    return plugin;
+}
+
+//
+// process_listfile
+//
+void process_one_listfile(const QString &filename)
+{
+    //auto replayHandle = open_listfile(filename);
+
+
+    // One side could be a ListfileReplayWorker which is moved to its own
+    // thread. This is the buffer producer side
+
+    // In the middle is a buffer queue of 2 or more buffers.
+
+    // The consumer could be this main thread.
+    //
+    // For MVLC consumer code could look like this:
+    // Setup ReadoutParserCallbacks for the readout parser and optionally setup
+    // a multi event splitter. Get the splitter filter strings from the
+    // VATS.
+    // Create a readout parser using the VMEConfig.
+    // Call the parser for each buffer in the filled queue:
+    //      pr = parse_readout_buffer_eth(
+    //          m_parser, m_parserCallbacks,
+    //          buffer->id, buffer->data, buffer->used);
+    // or
+    //      pr = parse_readout_buffer_usb(
+    //          m_parser, m_parserCallbacks,
+    //          buffer->id, buffer->data, buffer->used);
+    //
+    // MVMELST consumer:
+    // This could be done by implementing a IMVMEStreamModuleConsumer and
+    // attaching this to an instance of MVMEStreamWorker.
+    // This would also work for the MVLC side as the MVLC_StreamWorker supports.
+}
+
 int main(int argc, char *argv[])
 {
-    std::vector<std::string> inputFilenames;
-    std::vector<std::string> pluginSpecs;
+    std::vector<QString> inputFilenames;
+    std::vector<QString> pluginSpecs;
+    std::vector<RawDataPlugin> plugins;
 
     try
     {
-        QLibrary pluginLib("./listfile_reader_print_plugin");
-
-        if (!pluginLib.load())
-        {
-            cout << "Error loading plugin " << pluginLib.fileName().toStdString() << endl;
-            return 1;
-        }
-
-        RawDataPlugin plugin = {};
-
-        plugin.info = resolve<PluginInfo>(pluginLib, "plugin_info");
-        plugin.init = resolve<PluginInit>(pluginLib, "plugin_init");
-        plugin.destroy = resolve<PluginDestroy>(pluginLib, "plugin_destroy");
-        plugin.begin_run = resolve<BeginRun>(pluginLib, "begin_run");
-        plugin.event_data = resolve<EventData>(pluginLib, "event_data");
-        plugin.end_run = resolve<EndRun>(pluginLib, "end_run");
-
-        {
-            char *plugin_name = {};
-            char *plugin_descr = {};
-
-            plugin.info(&plugin_name, &plugin_descr);
-
-            cout << "Plugin Info from " << pluginLib.fileName().toStdString()
-                << ": name=" << plugin_name
-                << ", description=" << plugin_descr
-                << endl;
-        }
+        auto plugin = load_plugin("./listfile_reader_print_plugin");
+        plugins.emplace_back(plugin);
     }
     catch (const resolve_error &)
     {
         return 1;
+    }
+
+    if (plugins.empty())
+    {
+        cout << "Error: no plugins could be loaded" << endl;
+        return 1;
+    }
+
+    // For each listfile:
+    //   open the file for reading (zip/non-zip should work)
+    //   read the vme config from the file, get the vme controller type, create the factory
+    for (const auto &listfileFilename: inputFilenames)
+    {
+        try
+        {
+            process_one_listfile(listfileFilename);
+        }
+        catch (const std::exception &e)
+        {
+            cout << "Error processing file: " << listfileFilename.toStdString()
+                << ": " << e.what() << endl;
+        }
+        catch (const QString &msg)
+        {
+            cout << "Error processing file: " << listfileFilename.toStdString()
+                << ": " << msg.toStdString() << endl;
+        }
     }
 
     return 0;

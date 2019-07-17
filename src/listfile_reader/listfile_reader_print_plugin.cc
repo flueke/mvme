@@ -10,7 +10,7 @@ static const char *PluginDescription = "Prints raw readout module data";
 extern "C"
 {
 
-void (plugin_info) (const char **plugin_name, const char **plugin_description)
+void plugin_info (const char **plugin_name, const char **plugin_description)
 {
     *plugin_name = PluginName;
     *plugin_description = PluginDescription;
