@@ -77,6 +77,7 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
 
         bool logWarn(const QString &msg, bool useThrottle = false)
         {
+            qDebug() << __PRETTY_FUNCTION__ << msg;
             return logMessage(MessageSeverity::Warning, msg, useThrottle);
         }
 

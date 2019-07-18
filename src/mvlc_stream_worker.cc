@@ -371,6 +371,7 @@ void MVLC_StreamWorker::processBuffer(
     }
 
     bool processingOk = false;
+    bool exceptionSeen = false;
 
     try
     {
@@ -407,6 +408,8 @@ void MVLC_StreamWorker::processBuffer(
             // ok.
             processingOk = true;
         }
+        else
+            qDebug() << __PRETTY_FUNCTION__ << (int)pr << get_parse_result_name(pr);
     }
     catch (const end_of_buffer &e)
     {
@@ -414,6 +417,7 @@ void MVLC_StreamWorker::processBuffer(
                 .arg(e.what())
                 .arg(buffer->id),
                 true);
+        exceptionSeen = true;
     }
     catch (const std::exception &e)
     {
@@ -421,13 +425,18 @@ void MVLC_StreamWorker::processBuffer(
                 .arg(e.what())
                 .arg(buffer->id),
                 true);
+        exceptionSeen = true;
     }
     catch (...)
     {
         logWarn(QSL("unknown exception when parsing buffer #%1")
                 .arg(buffer->id),
                 true);
+        exceptionSeen = true;
     }
+
+    if (exceptionSeen)
+        qDebug() << __PRETTY_FUNCTION__ << "exception seen";
 
     if (debugRequest == DebugInfoRequest::OnNextBuffer
         || (debugRequest == DebugInfoRequest::OnNextError && !processingOk))
