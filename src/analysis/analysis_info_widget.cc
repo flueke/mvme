@@ -382,11 +382,11 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
     QStringList texts;
 
     texts += QString("%1, rate=%2 buffers/s")
-        .arg(format_number(counters.buffersProcessed, "", UnitScaling::Decimal, 0, 'f', 2))
+        .arg(counters.buffersProcessed)
         .arg(bufferRate, 0, 'f', 0);
 
     texts += QString("%1, rate=%2 buffers/s")
-        .arg(format_number(counters.internalBufferLoss, "", UnitScaling::Decimal, 0, 'f', 2))
+        .arg(counters.internalBufferLoss)
         .arg(bufferLossRate, 0, 'f', 0);
 
     texts += QString("%1, rate=%2")
@@ -394,11 +394,11 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
         .arg(format_number(unusedBytesRate, "bytes/s", UnitScaling::Binary, 0, 'f', 0));
 
     texts += QString("%1, rate=%2 packets/s")
-        .arg(format_number(counters.ethPacketsProcessed, "", UnitScaling::Decimal, 0, 'f', 2))
+        .arg(counters.ethPacketsProcessed)
         .arg(ethPacketRate, 0, 'f', 0);
 
     texts += QString("%1, rate=%2 packets/s")
-        .arg(format_number(counters.ethPacketLoss, "", UnitScaling::Decimal, 0, 'f', 2))
+        .arg(counters.ethPacketLoss)
         .arg(ethPacketLossRate, 0, 'f', 0);
 
     // system event subtypes
@@ -416,8 +416,9 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
             buffer += QString("%1 (0x%2): %3")
                 .arg(get_system_event_subtype_name(subtype))
                 .arg(subtype, 2, 16, QLatin1Char('0'))
-                .arg(format_number(counters.systemEventTypes[subtype],
-                                   "", UnitScaling::Decimal, 0, 'f', 0));
+                .arg(counters.systemEventTypes[subtype]);
+                //.arg(format_number(counters.systemEventTypes[subtype],
+                //                   "", UnitScaling::Decimal, 0, 'f', 0));
         }
 
         texts += buffer;
@@ -437,7 +438,8 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
 
             buffer += QString("%1: %2, rate=%3 results/s")
                 .arg(get_parse_result_name(static_cast<ParseResult>(pr)))
-                .arg(format_number(counters.parseResults[pr], "", UnitScaling::Decimal, 0, 'f', 0))
+                .arg(counters.parseResults[pr])
+                //.arg(format_number(counters.parseResults[pr], "", UnitScaling::Decimal, 0, 'f', 0))
                 .arg(parseResultRates[pr], 0, 'f', 0);
         }
 
