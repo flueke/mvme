@@ -21,11 +21,6 @@ std::unique_ptr<AbstractImpl> make_mvlc_usb(unsigned index)
     return std::make_unique<usb::Impl>(index);
 }
 
-std::unique_ptr<AbstractImpl> make_mvlc_usb_using_serial(unsigned serial)
-{
-    return make_mvlc_usb_using_serial(usb::format_serial(serial));
-}
-
 std::unique_ptr<AbstractImpl> make_mvlc_usb_using_serial(const std::string &serial)
 {
     return std::make_unique<usb::Impl>(serial);

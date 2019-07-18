@@ -362,15 +362,6 @@ DeviceInfo get_device_info_by_serial(const std::string &serial)
     return it != infoList.end() ? *it : DeviceInfo{};
 }
 
-std::string format_serial(unsigned serial)
-{
-    static const unsigned SerialSize = 12;
-
-    std::stringstream ss;
-    ss << std::setw(SerialSize) << std::setfill('0') << serial;
-    return ss.str();
-}
-
 //
 // Impl
 //

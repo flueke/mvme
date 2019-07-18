@@ -74,8 +74,6 @@ enum class ListOptions
     AllDevices,
 };
 
-LIBMVME_MVLC_EXPORT std::string format_serial(unsigned serial);
-
 LIBMVME_MVLC_EXPORT DeviceInfoList get_device_info_list(
     const ListOptions opts = ListOptions::MVLCDevices);
 

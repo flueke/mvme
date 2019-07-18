@@ -26,8 +26,10 @@
 #include <QGroupBox>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QTextBrowser>
 
 #include "gui_util.h"
+#include "mvlc/mvlc_impl_usb.h"
 #include "mvme_context.h"
 #include "qt_util.h"
 #include "sis3153.h"
@@ -206,6 +208,7 @@ MVLC_USB_SettingsWidget::MVLC_USB_SettingsWidget(QWidget *parent)
     , spin_index(new QSpinBox)
     , le_serial(new QLineEdit)
     , pb_listDevices(new QPushButton("List connected devices"))
+    , tb_devices(new QTextBrowser)
 {
     spin_index->setMinimum(0);
     spin_index->setMaximum(255);
@@ -237,7 +240,7 @@ MVLC_USB_SettingsWidget::MVLC_USB_SettingsWidget(QWidget *parent)
     }
 
     layout->addWidget(pb_listDevices);
-    layout->addStretch(1);
+    layout->addWidget(tb_devices);
 
     connect(rb_first, &QRadioButton::toggled,
             [this] (bool en)
@@ -270,6 +273,28 @@ MVLC_USB_SettingsWidget::MVLC_USB_SettingsWidget(QWidget *parent)
     });
 
     rb_first->setChecked(true);
+
+    connect(pb_listDevices, &QPushButton::clicked,
+            this, &MVLC_USB_SettingsWidget::listDevices);
+}
+
+void MVLC_USB_SettingsWidget::listDevices()
+{
+    using namespace mesytec::mvlc::usb;
+    auto allDevices = get_device_info_list(ListOptions::AllDevices);
+
+    QString textBuffer;
+    QTextStream ss(&textBuffer);
+
+    for (const auto &devInfo: allDevices)
+    {
+        ss << QString("[%1] descr='%3', serial='%4'\n")
+            .arg(devInfo.index)
+            .arg(devInfo.description.c_str())
+            .arg(devInfo.serial.c_str());
+    }
+
+    tb_devices->setPlainText(textBuffer);
 }
 
 void MVLC_USB_SettingsWidget::validate()
