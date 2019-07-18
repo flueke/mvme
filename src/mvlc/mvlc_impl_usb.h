@@ -94,8 +94,9 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         // Uses the first device matching the description "MVLC".
         Impl();
 
-        // Open the MVLC with the specified zero based index.
-        // Only devices containing "MVLC" in the description are considered.
+        // Open the MVLC with the specified index value as used by the FTDI
+        // library. Only devices containing "MVLC" in the description are
+        // considered.
         explicit Impl(unsigned index);
 
         // Open the MVLC with the given serial number

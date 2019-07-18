@@ -371,11 +371,6 @@ std::string format_serial(unsigned serial)
     return ss.str();
 }
 
-DeviceInfo get_device_info_by_serial(unsigned serial)
-{
-    return get_device_info_by_serial(format_serial(serial));
-}
-
 //
 // Impl
 //
@@ -463,11 +458,15 @@ std::error_code Impl::connect()
                 st = FT_DEVICE_NOT_FOUND;
                 auto infoList = get_device_info_list();
 
-                if (m_connectMode.index < infoList.size())
+                for (auto &info: infoList)
                 {
-                    devInfo = infoList[0];
-                    st = FT_Create(reinterpret_cast<void *>(devInfo.index),
-                                   FT_OPEN_BY_INDEX, &m_handle);
+                    if (info.index == static_cast<int>(m_connectMode.index))
+                    {
+                        devInfo = info;
+                        st = FT_Create(reinterpret_cast<void *>(devInfo.index),
+                                       FT_OPEN_BY_INDEX, &m_handle);
+                        break;
+                    }
                 }
             }
             break;
