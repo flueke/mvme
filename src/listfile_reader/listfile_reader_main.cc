@@ -376,6 +376,11 @@ int main(int argc, char *argv[])
     std::vector<QString> pluginSpecs;
     std::vector<RawDataPlugin> plugins;
 
+    for (int i = 1; i < argc; i++)
+    {
+        inputFilenames.emplace_back(QString(argv[i]));
+    }
+
     try
     {
         auto plugin = load_plugin("./listfile_reader_print_plugin");
