@@ -54,7 +54,6 @@ do\
 namespace
 {
 
-
 // Does IPv4 host lookup for a UDP socket. On success the resulting struct
 // sockaddr_in is copied to dest.
 std::error_code lookup(const std::string &host, u16 port, sockaddr_in &dest)
