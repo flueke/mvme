@@ -132,12 +132,9 @@ struct LIBMVME_MVLC_EXPORT ReadoutParserCounters
 
     std::array<u32, system_event::subtype::SubtypeMax + 1> systemEventTypes;
 
-    //using ModuleCounters = std::array<u32, MaxVMEModules>;
-    //std::array<u32, MaxVMEEvents> eventCounters;
-    //std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
-
     using ParseResultArray = std::array<u32, static_cast<size_t>(ParseResult::ParseResultMax)>;
     ParseResultArray parseResults;
+    u32 parserExceptions;
 };
 
 struct LIBMVME_MVLC_EXPORT ReadoutParserState

@@ -39,6 +39,7 @@ static const QVector<const char *> MVLC_LabelTexts =
     "ethPacketLoss",
     "systemEventTypes",
     "parseResults",
+    "parserExceptions",
 };
 
 struct AnalysisInfoWidgetPrivate
@@ -379,6 +380,9 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
         counters.parseResults.cbegin(), counters.parseResults.cend(),
         prevCounters.parseResults.cbegin(), dt);
 
+    auto parserExceptionRate = calc_rate0<TYPE_AND_VAL(&ReadoutParserCounters::parserExceptions)>(
+        counters, prevCounters, dt);
+
     QStringList texts;
 
     texts += QString("%1, rate=%2 buffers/s")
@@ -445,6 +449,11 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
 
         texts += buffer;
     }
+
+    // parser exceptions
+    texts += QString("%1, rate=%2 exceptions/s")
+        .arg(counters.parserExceptions)
+        .arg(parserExceptionRate);
 
     // Assign the stat texts to the labels
     for (int i = 0; i < std::min(mvlcLabels.size(), texts.size()); ++i)
