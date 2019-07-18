@@ -149,6 +149,6 @@ class MVLC_StreamWorker: public StreamWorkerBase
         mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
 };
 
-mesytec::mvlc::VMEConfReadoutScripts collect_readout_scripts(const VMEConfig &vmeConfig);
+mesytec::mvlc::VMEConfReadoutScripts LIBMVME_EXPORT collect_readout_scripts(const VMEConfig &vmeConfig);
 
 #endif /* __MVLC_STREAM_WORKERS_H__ */
