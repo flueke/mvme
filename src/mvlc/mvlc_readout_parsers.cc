@@ -580,8 +580,7 @@ ParseResult parse_eth_packet(
     u32 bufferNumber)
 {
     eth::PayloadHeaderInfo ethHdrs{ packetIter.peekU32(0), packetIter.peekU32(1) };
-    const u32 *packetEndPtr = packetIter.indexU32(eth::HeaderWords + ethHdrs.dataWordCount());
-    assert(packetIter.endp == reinterpret_cast<const u8 *>(packetEndPtr));
+    const u32 *packetEndPtr = reinterpret_cast<const u32 *>(packetIter.endp);
 
     LOG_TRACE("begin parsing packet %u, dataWords=%u",
               ethHdrs.packetNumber(), ethHdrs.dataWordCount());
@@ -694,13 +693,16 @@ ParseResult parse_readout_buffer_eth(
         // Any output data prepared so far is discarded.
         parser_clear_event_state(state);
         state.counters.internalBufferLoss += bufferLoss;
+        // Also clear the last packet number so that we do not end up with huge
+        // packet loss counts on the parsing side which are entirely caused by
+        // internal buffer loss.
+        state.lastPacketNumber = -1;
     }
 
     BufferIterator iter(buffer, bufferSize);
 
     try
     {
-
         while (!iter.atEnd())
         {
             const u8 *lastIterPosition = iter.buffp;
@@ -722,8 +724,8 @@ ParseResult parse_readout_buffer_eth(
 
             if (state.lastPacketNumber >= 0)
             {
-                // Check for packet loss. If there is loss clear the parsing state
-                // and restart parsing at the same iterator position.
+                // Check for packet loss. If there is loss clear the parsing
+                // state before attempting to parse the packet.
                 if (auto loss = eth::calc_packet_loss(state.lastPacketNumber,
                                                       ethHdrs.packetNumber()))
                 {
@@ -732,22 +734,53 @@ ParseResult parse_readout_buffer_eth(
                 }
             }
 
+            // Record the current packet number
             state.lastPacketNumber = ethHdrs.packetNumber();
 
             BufferIterator packetIter(
                 iter.indexU32(0),
                 eth::HeaderWords + ethHdrs.dataWordCount());
 
-            ParseResult pr = parse_eth_packet(state, callbacks, packetIter, bufferNumber);
+            ParseResult pr = {};
+            bool exceptionSeen = false;
 
+            try
+            {
+                pr = parse_eth_packet(state, callbacks, packetIter, bufferNumber);
+            }
+            catch (...)
+            {
+                // FIXME: what to do with the exception?
+                // if it's end_of_buffer the outer loop will deal with it
+                // other are silently discarded here. which others are there?
+                exceptionSeen = true;
+            }
+
+            // Either an error or an exception from parse_eth_packet. Clear the
+            // parsing state and advance the outer buffer iterator past the end
+            // of the current packet, then loop again.
+            if (pr != ParseResult::Ok || exceptionSeen)
+            {
+                parser_clear_event_state(state);
+                count_parse_result(state.counters, pr);
+                ++state.counters.ethPacketsProcessed;
+                state.counters.unusedBytes += packetIter.size;
+                iter.skipExact(packetIter.size);
+                continue;
+            }
+
+#if 0
             // Keep the last error code in retval to return at the end.
             if (pr != ParseResult::Ok)
             {
                 parser_clear_event_state(state);
                 state.counters.unusedBytes += iter.bytesLeft();
+                count_parse_result(state.counters, pr);
+                ++state.counters.ethPacketsProcessed;
                 return pr;
                 //retval = pr;
             }
+#endif
 
             // XXX: reparsing of packets after state reset
 #if 0
@@ -780,7 +813,7 @@ ParseResult parse_readout_buffer_eth(
 
             // Skip over the packet ending up either on the next SystemEvent
             // frame or on the next packets header0.
-            iter.skipExact(eth::HeaderWords + ethHdrs.dataWordCount(), sizeof(u32));
+            iter.skipExact(packetIter.size);
 
             if (iter.buffp == lastIterPosition)
                 return ParseResult::ParseEthBufferNotAdvancing;
