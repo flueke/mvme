@@ -1,6 +1,7 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* The listfile "current size" display does not work when recording.
 * MVLC readout parsers: the USB parser throws away too much data in case of
   internal buffer loss. The example is reading out two MTDCs with a large
   number of events per transfer.  This will yield fast data and lots of stack

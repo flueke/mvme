@@ -390,7 +390,7 @@ ParseResult parse_readout_contents(
             {
                 // No event is in progress either because the last one was
                 // parsed completely or because of internal buffer loss during
-                // a DAQ run.
+                // a DAQ run or because of external network packet loss.
                 // We now need to find the next StackFrame header starting from
                 // the current iterator position and hand that to
                 // parser_begin_event().
@@ -636,6 +636,7 @@ ParseResult parse_eth_packet(
             return ParseResult::NoHeaderPresent;
         }
 
+#if 1
         // Find the next StackFrame header starting the search from the header
         // word pointed to by the ETH packet header. This StackFrame header
         // will mark the beginning of a new event.
@@ -663,6 +664,13 @@ ParseResult parse_eth_packet(
         // parse_readout_contents() to do the correct thing. This means
         // searching for a next frame header is not a special case for eth
         // parsing but instead now moved into parse_readout_contents().
+#else   // TODO: Experimental. Test this out!
+        // Place the iterator on the packets first header word pointed to by
+        // the eth headers.
+        size_t bytesToSkip = ethHdrs.nextHeaderPointer() * sizeof(u32);
+        packetIter.skipExact(bytesToSkip);
+        state.counters.unusedBytes += bytesToSkip;
+#endif
     }
 
     try
