@@ -28,7 +28,7 @@ ListfileBufferFormat detect_listfile_format(QIODevice *listfile)
     else if (std::strncmp(buffer.data(), "MVLC_USB", bytesRead) == 0)
         return ListfileBufferFormat::MVLC_USB;
 
-    // Note: old MVMELST files did not have a preamble at all, newer versions
+    // Note: older MVMELST files did not have a preamble at all, newer versions
     // do contain 'MVME' as a preamble.
     return ListfileBufferFormat::MVMELST;
 }
