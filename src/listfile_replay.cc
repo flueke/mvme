@@ -13,24 +13,24 @@ namespace
 
 ListfileBufferFormat detect_listfile_format(QIODevice *listfile)
 {
-    {
-        bool seekOk = seek_in_file(listfile, 0);
-        assert(seekOk);
-    }
+    seek_in_file(listfile, 0);
 
     std::array<char, 8> buffer;
+
+    // Note: older MVMELST files did not have a preamble at all, newer versions
+    // do contain 'MVME' as a preamble so we default to MVMELST format.
     ListfileBufferFormat result = ListfileBufferFormat::MVMELST;
 
     ssize_t bytesRead = listfile->read(buffer.data(), buffer.size());
 
     if (std::strncmp(buffer.data(), "MVLC_ETH", bytesRead) == 0)
-        return ListfileBufferFormat::MVLC_ETH;
+        result = ListfileBufferFormat::MVLC_ETH;
     else if (std::strncmp(buffer.data(), "MVLC_USB", bytesRead) == 0)
-        return ListfileBufferFormat::MVLC_USB;
+        result = ListfileBufferFormat::MVLC_USB;
 
-    // Note: older MVMELST files did not have a preamble at all, newer versions
-    // do contain 'MVME' as a preamble.
-    return ListfileBufferFormat::MVMELST;
+    seek_in_file(listfile, 0);
+
+    return result;
 }
 
 }
