@@ -26,13 +26,14 @@
 #include "mvlc/mvlc_util.h"
 #include "util/strings.h"
 
+#define LOG_LEVEL_OFF   0
 #define LOG_LEVEL_WARN  100
 #define LOG_LEVEL_INFO  200
 #define LOG_LEVEL_DEBUG 300
 #define LOG_LEVEL_TRACE 400
 
 #ifndef MVLC_ETH_LOG_LEVEL
-#define MVLC_ETH_LOG_LEVEL LOG_LEVEL_WARN
+#define MVLC_ETH_LOG_LEVEL LOG_LEVEL_OFF
 #endif
 
 #define LOG_LEVEL_SETTING MVLC_ETH_LOG_LEVEL
