@@ -805,7 +805,7 @@ ParseResult parse_readout_buffer_eth(
             {
                 parser_clear_event_state(state);
                 ++state.counters.ethPacketsProcessed;
-                state.counters.unusedBytes += packetIter.size;
+                state.counters.unusedBytes += packetIter.bytesLeft();
 
                 if (exceptionSeen)
                     ++state.counters.parserExceptions;
