@@ -353,8 +353,7 @@ ParseResult parse_readout_contents(
             // If there's no open stack frame there should be no open block
             // frame either. Also data from any open blocks must've been
             // consumed previously or the block frame should have been manually
-            // invalidated. XXX: ensure the invalidation is happening when
-            // handling errors in other places.
+            // invalidated.
             assert(!state.curBlockFrame);
             if (state.curBlockFrame)
                 return ParseResult::UnexpectedOpenBlockFrame;
@@ -887,16 +886,6 @@ ParseResult parse_readout_buffer_usb(
 
             if (pr != ParseResult::Ok)
             {
-                if (pr == ParseResult::NotABlockFrame) // XXX remove once debugging is done
-                {
-                    LOG_WARN("NotABlockFrame from parse_readout_contents, offset=%ld, bufferNumber=%u (USB)",
-                             iter.current32BitOffset(), bufferNumber);
-                }
-                if (pr == ParseResult::NotAStackFrame) // XXX remove once debugging is done
-                {
-                    LOG_WARN("NotAStackFrame from parse_readout_contents, offset=%ld, bufferNumber=%u (USB)",
-                             iter.current32BitOffset(), bufferNumber);
-                }
                 parser_clear_event_state(state);
                 state.counters.unusedBytes += iter.bytesLeft();
                 return pr;
