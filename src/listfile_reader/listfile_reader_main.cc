@@ -59,13 +59,16 @@ Notes:
 #include <string>
 #include <vector>
 
+#include <QCoreApplication>
 #include <QLibrary>
 #include <QThread>
 
+#include "analysis/analysis.h"
 #include "analysis/a2/memory.h"
 #include "listfile_reader/listfile_reader.h"
 #include "listfile_replay.h"
 #include "mvlc/mvlc_readout_parsers.h"
+#include "mvme_listfile_utils.h"
 #include "mvlc_stream_worker.h" // FIXME: move collect_readout_scripts() elsewhere (a general readout parser file)
 #include "vme_controller_factory.h"
 
@@ -189,6 +192,68 @@ RunDescription * make_run_description(
     return run;
 }
 
+class MVMEStreamCallbackWrapper: public IMVMEStreamModuleConsumer
+{
+    public:
+        MVMEStreamCallbackWrapper(const mesytec::mvlc::ReadoutParserCallbacks &callbacks)
+            : m_callbacks(callbacks)
+        {
+        }
+
+        void beginRun(const RunInfo &runInfo,
+                              const VMEConfig *vmeConfig,
+                              const analysis::Analysis *analysis) override
+        {
+        }
+
+        void endRun(const DAQStats &stats, const std::exception *e = nullptr) override
+        {
+        }
+
+        void beginEvent(s32 eventIndex) override
+        {
+            m_callbacks.beginEvent(eventIndex);
+        }
+
+        void endEvent(s32 eventIndex) override
+        {
+            m_callbacks.endEvent(eventIndex);
+        }
+
+        void processModulePrefix(s32 eventIndex,
+                                       s32 moduleIndex,
+                                       const u32 *data, u32 size) override
+        {
+            m_callbacks.modulePrefix(eventIndex, moduleIndex, data, size);
+        }
+
+        void processModuleData(s32 eventIndex,
+                                       s32 moduleIndex,
+                                       const u32 *data, u32 size) override
+        {
+            m_callbacks.moduleDynamic(eventIndex, moduleIndex, data, size);
+        }
+
+        void processModuleSuffix(s32 eventIndex,
+                                       s32 moduleIndex,
+                                       const u32 *data, u32 size) override
+        {
+            m_callbacks.moduleSuffix(eventIndex, moduleIndex, data, size);
+        }
+
+        void processTimetick() override
+        {
+        }
+
+        void setLogger(Logger logger) override
+        {
+        }
+
+
+    private:
+        mesytec::mvlc::ReadoutParserCallbacks m_callbacks;
+};
+
 void process_one_listfile(const QString &filename, const std::vector<RawDataPlugin> &plugins)
 {
     auto replayHandle = open_listfile(filename);
@@ -202,6 +267,28 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
         throw ec;
 
     auto controllerType = vmeConfig->getControllerType();
+
+    switch (replayHandle.format)
+    {
+        case ListfileBufferFormat::MVLC_ETH:
+            if (controllerType != VMEControllerType::MVLC_ETH)
+                throw std::runtime_error("listfile format and VME controller type mismatch 1");
+            break;
+
+        case ListfileBufferFormat::MVLC_USB:
+            if (controllerType != VMEControllerType::MVLC_USB)
+                throw std::runtime_error("listfile format and VME controller type mismatch 2");
+            break;
+
+        case ListfileBufferFormat::MVMELST:
+            if (controllerType != VMEControllerType::SIS3153
+                && controllerType != VMEControllerType::VMUSB)
+            {
+                throw std::runtime_error("listfile format and VME controller type mismatch 3");
+            }
+            break;
+    };
+
     VMEControllerFactory ctrlFactory(controllerType);
 
     ThreadSafeDataBufferQueue emptyBuffers;
@@ -252,67 +339,86 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
 
     ReadoutParserCallbacks callbacks{};
 
-    switch (controllerType)
+    callbacks.beginEvent = [&] (int ei)
     {
-        case VMEControllerType::MVLC_ETH:
-        case VMEControllerType::MVLC_USB:
-            {
-                callbacks.beginEvent = [&] (int ei)
-                {
-                    std::fill(moduleDataList, moduleDataList+maxModuleCount, ModuleData{});
-                };
-                callbacks.modulePrefix = [&] (int ei, int mi, u32 *data, u32 size)
-                {
-                    moduleDataList[mi].prefix = { data, size };
-                };
-                callbacks.moduleDynamic = [&] (int ei, int mi, u32 *data, u32 size)
-                {
-                    moduleDataList[mi].dynamic = { data, size };
-                };
-                callbacks.moduleSuffix = [&] (int ei, int mi, u32 *data, u32 size)
-                {
-                    moduleDataList[mi].suffix = { data, size };
-                };
+        std::fill(moduleDataList, moduleDataList+maxModuleCount, ModuleData{});
+    };
+    callbacks.modulePrefix = [&] (int ei, int mi, const u32 *data, u32 size)
+    {
+        moduleDataList[mi].prefix = { data, size };
+    };
+    callbacks.moduleDynamic = [&] (int ei, int mi, const u32 *data, u32 size)
+    {
+        moduleDataList[mi].dynamic = { data, size };
+    };
+    callbacks.moduleSuffix = [&] (int ei, int mi, const u32 *data, u32 size)
+    {
+        moduleDataList[mi].suffix = { data, size };
+    };
 
-                callbacks.endEvent = [&] (int ei)
-                {
-                    int moduleCount = runDescription->events[ei].moduleCount;
+    callbacks.endEvent = [&] (int ei)
+    {
+        int moduleCount = runDescription->events[ei].moduleCount;
 
-                    for (auto &plugin: plugins)
-                    {
-                        plugin.event_data(plugin.userptr, ei, moduleDataList, moduleCount);
-                    }
-                };
-            }
-            break;
+        for (auto &plugin: plugins)
+        {
+            plugin.event_data(plugin.userptr, ei, moduleDataList, moduleCount);
+        }
+    };
 
-        case VMEControllerType::SIS3153:
-        case VMEControllerType::VMUSB:
-            break;
+    MVMEStreamCallbackWrapper cbWrap(callbacks);
+    MVMEStreamProcessor mvmeStreamProc;
+    analysis::Analysis emptyAnalysis;
+    auto logger = [] (const QString &msg) { cout << msg.toStdString() << endl; };
+
+    if (replayHandle.format == ListfileBufferFormat::MVMELST)
+    {
+        mvmeStreamProc.attachModuleConsumer(&cbWrap);
+
+        RunInfo runInfo;
+        runInfo.isReplay = true;
+        runInfo.runId = filename;
+
+        ListFile lf(replayHandle.listfile.get());
+        lf.open();
+
+        emptyAnalysis.beginRun(runInfo, vmeConfig.get(), logger);
+
+        mvmeStreamProc.beginRun(runInfo, &emptyAnalysis, vmeConfig.get(),
+                                lf.getFileVersion(),
+                                logger);
     }
 
     auto mvlcParser = make_readout_parser(collect_readout_scripts(*vmeConfig));
 
     replayWorker->setListfile(replayHandle.listfile.get());
 
-    // TODO: check mvlc_dev_gui on how to make use of QThread started to
-    // invoke ListfileReplayWorker::start
-    //QMetaObject::invokeMethod(replayWorker.get(), "start", Qt::QueuedConnection);
     QObject::connect(&replayThread, &QThread::started,
                      replayWorker.get(), &ListfileReplayWorker::start);
 
     replayThread.start();
 
+
+    if (replayHandle.format == ListfileBufferFormat::MVMELST)
+    {
+    }
+
     for (auto &plugin: plugins)
         plugin.begin_run(plugin.userptr, runDescription);
+
+    size_t buffersProcessed = 0;
 
     // TODO: start the replay thread then loop until replayDone is true
     // in the loop get a buffer from the filledBuffers queue and feed it to the
     // mvlc readout parser. Use a timeout when waiting for a full buffer.
-    // Then put the buffer onto the emptyQueue
-    while (!replayDone)
+    // Finally put the buffer onto the emptyQueue.
+
+    // Loop until the replayWorker signaled that it's done reading and there
+    // are no more buffers left to process.
+    while (!(replayDone && is_empty(&filledBuffers)))
     {
-        if (auto buffer = dequeue(&filledBuffers, 250))
+        // Try to get a buffer from the queue and hand it to processing.
+        while (auto buffer = dequeue(&filledBuffers, 10))
         {
             ParseResult pr{};
             switch (controllerType)
@@ -329,16 +435,31 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
                         buffer->id, buffer->data, buffer->used);
                     break;
 
-                InvalidDefaultCase;
+                case VMEControllerType::VMUSB:
+                case VMEControllerType::SIS3153:
+                    mvmeStreamProc.processDataBuffer(buffer);
+                    break;
             }
 
-            // TODO: use the ParseResult
+            // TODO: count parse results and display stats at the end
+            (void) pr;
+
             enqueue(&emptyBuffers, buffer);
+            ++buffersProcessed;
         }
     }
 
+    // TODO: check that number of read buffers equals number of processed buffers
+
     for (auto &plugin: plugins)
         plugin.end_run(plugin.userptr);
+
+    if (replayHandle.format == ListfileBufferFormat::MVMELST)
+    {
+        mvmeStreamProc.endRun(DAQStats{});
+    }
+
+    cout << "replayDone=" << replayDone << ", buffersProcessed=" << buffersProcessed << endl;
 
     replayThread.quit();
     replayThread.wait();
@@ -372,6 +493,8 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication theQtApp(argc, argv);
+
     std::vector<QString> inputFilenames;
     std::vector<QString> pluginSpecs;
     std::vector<RawDataPlugin> plugins;

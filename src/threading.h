@@ -78,4 +78,11 @@ T dequeue(ThreadSafeQueue<T> *tsq, unsigned  long wait_ms)
     return {};
 }
 
+template<typename T>
+bool is_empty(ThreadSafeQueue<T> *tsq)
+{
+    QMutexLocker lock(&tsq->mutex);
+    return tsq->queue.isEmpty();
+}
+
 #endif /* __THREADING_H__ */

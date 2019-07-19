@@ -31,7 +31,7 @@ struct RunDescription
 
 struct DataBlock
 {
-    uint32_t *data;
+    const uint32_t *data;
     uint32_t size;
 };
 
