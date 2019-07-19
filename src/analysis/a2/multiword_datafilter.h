@@ -1,7 +1,7 @@
 #ifndef __A2_MULTIWORD_DATAFILTER_H__
 #define __A2_MULTIWORD_DATAFILTER_H__
 
-#include "data_filter.h"
+#include "a2_data_filter.h"
 #include <cassert>
 #include <initializer_list>
 

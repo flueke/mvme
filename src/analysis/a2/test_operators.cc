@@ -1,6 +1,6 @@
 #include "a2.h"
 #include "a2_impl.h"
-#include "data_filter.h"
+#include "a2_data_filter.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
 #include "util/nan.h"
