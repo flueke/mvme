@@ -120,7 +120,7 @@ std::error_code begin_event(State &state, int ei)
 // size in the splitters state structure for later use in the end_event
 // function.
 
-std::error_code module_prefix(State &state, int ei, int mi, u32 *data, u32 size)
+std::error_code module_prefix(State &state, int ei, int mi, const u32 *data, u32 size)
 {
     if (ei >= static_cast<int>(state.dataSpans.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
@@ -135,7 +135,7 @@ std::error_code module_prefix(State &state, int ei, int mi, u32 *data, u32 size)
     return {};
 }
 
-std::error_code module_data(State &state, int ei, int mi, u32 *data, u32 size)
+std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 size)
 {
     if (ei >= static_cast<int>(state.dataSpans.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
@@ -150,7 +150,7 @@ std::error_code module_data(State &state, int ei, int mi, u32 *data, u32 size)
     return {};
 }
 
-std::error_code module_suffix(State &state, int ei, int mi, u32 *data, u32 size)
+std::error_code module_suffix(State &state, int ei, int mi, const u32 *data, u32 size)
 {
     if (ei >= static_cast<int>(state.dataSpans.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);

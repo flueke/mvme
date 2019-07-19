@@ -87,14 +87,14 @@ struct ReadoutParserCallbacks
         endEvent   = [] (int) {};
 
     // Parameters: event index, module index, pointer to first word, number of words
-    std::function<void (int ei, int mi, u32 *data, u32 size)>
-        modulePrefix  = [] (int, int, u32*, u32) {},
-        moduleDynamic = [] (int, int, u32*, u32) {},
-        moduleSuffix  = [] (int, int, u32*, u32) {};
+    std::function<void (int ei, int mi, const u32 *data, u32 size)>
+        modulePrefix  = [] (int, int, const u32*, u32) {},
+        moduleDynamic = [] (int, int, const u32*, u32) {},
+        moduleSuffix  = [] (int, int, const u32*, u32) {};
 
     // Parameters: pointer to first word of the system event data, number of words
     std::function<void (u32 *header, u32 size)>
-        systemEvent = [] (u32 *, u32) {};
+        systemEvent = [] (const u32 *, u32) {};
 };
 
 enum class ParseResult

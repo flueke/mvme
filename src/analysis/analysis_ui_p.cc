@@ -2960,13 +2960,13 @@ void MVLCParserDebugHandler::handleDebugInfo(
             // Factory function for module callbacks which log their input data.
             auto make_module_callback = [&splitterOut] (const QString &typeString)
             {
-                return [&splitterOut, typeString] (int ei, int mi, u32 *data, u32 size)
+                return [&splitterOut, typeString] (int ei, int mi, const u32 *data, u32 size)
                 {
                     splitterOut << QString("  module%1, ei=%2, mi=%3, size=%4:")
                         .arg(typeString).arg(ei).arg(mi).arg(size)
                         << endl;
 
-                    ::logBuffer(BufferIterator(data, size), [&splitterOut] (const QString &str)
+                    ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&splitterOut] (const QString &str)
                                 {
                                     splitterOut << "    " << str << endl;
                                 });
@@ -2992,13 +2992,13 @@ void MVLCParserDebugHandler::handleDebugInfo(
         };
 
         parserCallbacks.modulePrefix = [&](
-            int ei, int mi, u32 *data, u32 size)
+            int ei, int mi, const u32 *data, u32 size)
         {
             parserOut << QString("  modulePrefix, ei=%1, mi=%2, size=%3:")
                 .arg(ei).arg(mi).arg(size)
                 << endl;
 
-            ::logBuffer(BufferIterator(data, size), [&parserOut] (const QString &str)
+            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
                         {
                             parserOut << "    " << str << endl;
                         });
@@ -3009,13 +3009,13 @@ void MVLCParserDebugHandler::handleDebugInfo(
         };
 
         parserCallbacks.moduleDynamic = [&](
-            int ei, int mi, u32 *data, u32 size)
+            int ei, int mi, const u32 *data, u32 size)
         {
             parserOut << QString("  moduleDynamic, ei=%1, mi=%2, size=%3:")
                 .arg(ei).arg(mi).arg(size)
                 << endl;
 
-            ::logBuffer(BufferIterator(data, size), [&parserOut] (const QString &str)
+            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
                         {
                             parserOut << "    " << str << endl;
                         });
@@ -3026,13 +3026,13 @@ void MVLCParserDebugHandler::handleDebugInfo(
         };
 
         parserCallbacks.moduleSuffix = [&](
-            int ei, int mi, u32 *data, u32 size)
+            int ei, int mi, const u32 *data, u32 size)
         {
             parserOut << QString("  moduleSuffix, ei=%1, mi=%2, size=%3:")
                 .arg(ei).arg(mi).arg(size)
                 << endl;
 
-            ::logBuffer(BufferIterator(data, size), [&parserOut] (const QString &str)
+            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
                         {
                             parserOut << "    " << str << endl;
                         });

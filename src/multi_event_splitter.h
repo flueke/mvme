@@ -29,10 +29,10 @@ struct Callbacks
         endEvent   = [] (int) {};
 
     // Parameters: event index, module index, pointer to first word, number of words
-    std::function<void (int ei, int mi, u32 *data, u32 size)>
-        modulePrefix = [] (int, int, u32*, u32) {},
-        moduleDynamic = [] (int, int, u32*, u32) {},
-        moduleSuffix = [] (int, int, u32*, u32) {};
+    std::function<void (int ei, int mi, const u32 *data, u32 size)>
+        modulePrefix = [] (int, int, const u32*, u32) {},
+        moduleDynamic = [] (int, int, const u32*, u32) {},
+        moduleSuffix = [] (int, int, const u32*, u32) {};
 };
 
 struct State
@@ -45,8 +45,8 @@ struct State
 
     struct DataSpan
     {
-        u32 *begin;
-        u32 *end;
+        const u32 *begin;
+        const u32 *end;
     };
 
     struct ModuleDataSpans
@@ -91,9 +91,9 @@ enum class ErrorCode: u8
 
 
 std::error_code LIBMVME_EXPORT begin_event(State &state, int ei);
-std::error_code LIBMVME_EXPORT module_prefix(State &state, int ei, int mi, u32 *data, u32 size);
-std::error_code LIBMVME_EXPORT module_data(State &state, int ei, int mi, u32 *data, u32 size);
-std::error_code LIBMVME_EXPORT module_suffix(State &state, int ei, int mi, u32 *data, u32 size);
+std::error_code LIBMVME_EXPORT module_prefix(State &state, int ei, int mi, const u32 *data, u32 size);
+std::error_code LIBMVME_EXPORT module_data(State &state, int ei, int mi, const u32 *data, u32 size);
+std::error_code LIBMVME_EXPORT module_suffix(State &state, int ei, int mi, const u32 *data, u32 size);
 std::error_code LIBMVME_EXPORT end_event(State &state, Callbacks &callbacks, int ei);
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);

@@ -100,7 +100,7 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         }
     };
 
-    m_parserCallbacks.modulePrefix = [analysis](int ei, int mi, u32 *data, u32 size)
+    m_parserCallbacks.modulePrefix = [analysis](int ei, int mi, const u32 *data, u32 size)
     {
         //qDebug() << "  modulePrefix" << ei << mi << data << size;
         analysis->processModulePrefix(ei, mi, data, size);
@@ -109,7 +109,7 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         // prefix/suffix data right now
     };
 
-    m_parserCallbacks.moduleDynamic = [this, analysis](int ei, int mi, u32 *data, u32 size)
+    m_parserCallbacks.moduleDynamic = [this, analysis](int ei, int mi, const u32 *data, u32 size)
     {
         //qDebug() << "  moduleDynamic" << ei << mi << data << size;
         analysis->processModuleData(ei, mi, data, size);
@@ -126,7 +126,7 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         }
     };
 
-    m_parserCallbacks.moduleSuffix = [analysis](int ei, int mi, u32 *data, u32 size)
+    m_parserCallbacks.moduleSuffix = [analysis](int ei, int mi, const u32 *data, u32 size)
     {
         //qDebug() << "  moduleSuffix" << ei << mi << data << size;
         analysis->processModuleSuffix(ei, mi, data, size);
@@ -201,17 +201,17 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
             multi_event_splitter::begin_event(m_multiEventSplitter, ei);
         };
 
-        m_parserCallbacks.modulePrefix = [this](int ei, int mi, u32 *data, u32 size)
+        m_parserCallbacks.modulePrefix = [this](int ei, int mi, const u32 *data, u32 size)
         {
             multi_event_splitter::module_prefix(m_multiEventSplitter, ei, mi, data, size);
         };
 
-        m_parserCallbacks.moduleDynamic = [this](int ei, int mi, u32 *data, u32 size)
+        m_parserCallbacks.moduleDynamic = [this](int ei, int mi, const u32 *data, u32 size)
         {
             multi_event_splitter::module_data(m_multiEventSplitter, ei, mi, data, size);
         };
 
-        m_parserCallbacks.moduleSuffix = [this](int ei, int mi, u32 *data, u32 size)
+        m_parserCallbacks.moduleSuffix = [this](int ei, int mi, const u32 *data, u32 size)
         {
             multi_event_splitter::module_suffix(m_multiEventSplitter, ei, mi, data, size);
         };
