@@ -108,6 +108,7 @@ Signature resolve(QLibrary &lib, const char *func)
 RawDataPlugin load_plugin(const QString &name)
 {
     QLibrary pluginLib(name);
+    pluginLib.setLoadHints(QLibrary::ExportExternalSymbolsHint);
 
     if (!pluginLib.load())
     {
@@ -399,67 +400,75 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
     replayThread.start();
 
 
-    if (replayHandle.format == ListfileBufferFormat::MVMELST)
+    // TODO: try-catch around all call into the plugin
+    try
     {
-    }
+        for (auto &plugin: plugins)
+            plugin.begin_run(plugin.userptr, runDescription);
 
-    for (auto &plugin: plugins)
-        plugin.begin_run(plugin.userptr, runDescription);
+        size_t buffersProcessed = 0;
 
-    size_t buffersProcessed = 0;
+        // TODO: start the replay thread then loop until replayDone is true
+        // in the loop get a buffer from the filledBuffers queue and feed it to the
+        // mvlc readout parser. Use a timeout when waiting for a full buffer.
+        // Finally put the buffer onto the emptyQueue.
 
-    // TODO: start the replay thread then loop until replayDone is true
-    // in the loop get a buffer from the filledBuffers queue and feed it to the
-    // mvlc readout parser. Use a timeout when waiting for a full buffer.
-    // Finally put the buffer onto the emptyQueue.
-
-    // Loop until the replayWorker signaled that it's done reading and there
-    // are no more buffers left to process.
-    while (!(replayDone && is_empty(&filledBuffers)))
-    {
-        // Try to get a buffer from the queue and hand it to processing.
-        while (auto buffer = dequeue(&filledBuffers, 10))
+        // Loop until the replayWorker signaled that it's done reading and there
+        // are no more buffers left to process.
+        while (!(replayDone && is_empty(&filledBuffers)))
         {
-            ParseResult pr{};
-            switch (controllerType)
+            // Try to get a buffer from the queue and hand it to processing.
+            while (auto buffer = dequeue(&filledBuffers, 10))
             {
-                case VMEControllerType::MVLC_ETH:
-                    pr = parse_readout_buffer_eth(
-                        mvlcParser, callbacks,
-                        buffer->id, buffer->data, buffer->used);
-                    break;
+                ParseResult pr{};
+                switch (controllerType)
+                {
+                    case VMEControllerType::MVLC_ETH:
+                        pr = parse_readout_buffer_eth(
+                            mvlcParser, callbacks,
+                            buffer->id, buffer->data, buffer->used);
+                        break;
 
-                case VMEControllerType::MVLC_USB:
-                    pr = parse_readout_buffer_usb(
-                        mvlcParser, callbacks,
-                        buffer->id, buffer->data, buffer->used);
-                    break;
+                    case VMEControllerType::MVLC_USB:
+                        pr = parse_readout_buffer_usb(
+                            mvlcParser, callbacks,
+                            buffer->id, buffer->data, buffer->used);
+                        break;
 
-                case VMEControllerType::VMUSB:
-                case VMEControllerType::SIS3153:
-                    mvmeStreamProc.processDataBuffer(buffer);
-                    break;
+                    case VMEControllerType::VMUSB:
+                    case VMEControllerType::SIS3153:
+                        mvmeStreamProc.processDataBuffer(buffer);
+                        break;
+                }
+
+                // TODO: count parse results and display stats at the end
+                (void) pr;
+
+                enqueue(&emptyBuffers, buffer);
+                ++buffersProcessed;
             }
-
-            // TODO: count parse results and display stats at the end
-            (void) pr;
-
-            enqueue(&emptyBuffers, buffer);
-            ++buffersProcessed;
         }
+
+        // TODO: check that number of read buffers equals number of processed buffers
+
+        for (auto &plugin: plugins)
+            plugin.end_run(plugin.userptr);
+
+        if (replayHandle.format == ListfileBufferFormat::MVMELST)
+        {
+            mvmeStreamProc.endRun(DAQStats{});
+        }
+
+        cout << "replayDone=" << replayDone << ", buffersProcessed=" <<
+            buffersProcessed << endl;
     }
-
-    // TODO: check that number of read buffers equals number of processed buffers
-
-    for (auto &plugin: plugins)
-        plugin.end_run(plugin.userptr);
-
-    if (replayHandle.format == ListfileBufferFormat::MVMELST)
+    catch (const std::exception &e)
     {
-        mvmeStreamProc.endRun(DAQStats{});
+        replayWorker->stop();
+        replayThread.quit();
+        replayThread.wait();
+        throw;
     }
-
-    cout << "replayDone=" << replayDone << ", buffersProcessed=" << buffersProcessed << endl;
 
     replayThread.quit();
     replayThread.wait();
@@ -507,6 +516,16 @@ int main(int argc, char *argv[])
     try
     {
         auto plugin = load_plugin("./listfile_reader_print_plugin");
+        plugins.emplace_back(plugin);
+    }
+    catch (const resolve_error &)
+    {
+        return 1;
+    }
+
+    try
+    {
+        auto plugin = load_plugin("./listfile_reader_python_plugin");
         plugins.emplace_back(plugin);
     }
     catch (const resolve_error &)
