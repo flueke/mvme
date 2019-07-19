@@ -1,20 +1,14 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* mvlc listfiles inside the zip archive still have the mvmelst extension.
+  Change this to mvlc_eth or mvlc_usb.
+* check out 'pigz' by Mark Adler for how to compress data in parallel.
+* Maybe: slow mode for replay so that users can see what's going on.
+* Nicer format for analysis rates (top side): less decimals, monospace font
+* When clearing histos the entry counts in the analysis tree do not reflect the
+  new counts (bottom row of analysis ui).
 * The listfile "current size" display does not work when recording.
-* MVLC readout parsers: the USB parser throws away too much data in case of
-  internal buffer loss. The example is reading out two MTDCs with a large
-  number of events per transfer.  This will yield fast data and lots of stack
-  continuations (0xF9). The analysis will miss buffers due to being too slow
-  and a buffer after a lost one can start with a 0xF9 continuation. The parser
-  knows it doesn't have an open event (state was cleared due to buffer loss)
-  and wants to find a 0xF3 instead of a 0xF9.
-  Instead the next 0xF3 frame should be searched for and used. This is like
-  searching for the next 0xF3 inside eth packets.
-
-* MVLC readout parsers: with ETH readouts the readout side packet loss and the
-  parser packet loss values do not match at all even without internal buffer
-  loss. Also there's always unused data being counted up for ETH packets.
 
 * MVLC readout parsers: cleanup 'retval' and related code
 * MVLC controller settings "list connected usb devices" doesn't do anything! Fix this.
