@@ -80,6 +80,7 @@ set_target_properties(libmvme_core PROPERTIES OUTPUT_NAME mvme_core)
 
 qt5_use_modules(libmvme_core Concurrent Gui Network Widgets)
 qt5_add_resources(LIBMVME_CORE_RC_OUT resources.qrc)
+target_include_directories(libmvme_core PRIVATE ${QUAZIP_INCLUDE_DIR})
 
 generate_export_header(libmvme_core)
 
@@ -306,6 +307,8 @@ target_link_libraries(libmvme
     Threads::Threads
     jcon
     )
+
+target_include_directories(libmvme PUBLIC ${QUAZIP_INCLUDE_DIR})
 
 if (MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE

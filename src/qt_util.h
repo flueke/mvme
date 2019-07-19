@@ -34,7 +34,6 @@
 #include <QStatusBar>
 #include <QToolBar>
 #include <QToolButton>
-#include <quazip.h>
 
 #include "libmvme_core_export.h"
 #include "typedefs.h"

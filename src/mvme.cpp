@@ -65,7 +65,6 @@
 #include <QTextEdit>
 #include <QtGui>
 #include <QToolBar>
-#include <quazipfile.h>
 #include <QVBoxLayout>
 #include <qwt_plot_curve.h>
 #include <QFormLayout>
