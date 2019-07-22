@@ -4620,8 +4620,8 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
     // values but truncate to the raw integer value.
     // This basically truncates down to the extracted value without any added
     // random integer.
-    if (pipe && qobject_cast<SourceInterface *>(pipe->getSource()))
-        showDecimals = false;
+    //if (pipe && qobject_cast<SourceInterface *>(pipe->getSource()))
+    //    showDecimals = false;
 
     auto widget = new PipeDisplay(m_context->getAnalysis(), pipe, showDecimals, m_q);
 
