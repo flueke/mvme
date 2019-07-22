@@ -1,6 +1,32 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* analysis refactoring:
+  - Get rid of most of data_filter.h in ~/src. Implement what's needed in terms
+    of the a2 data filter. I think what's needed is something to contain the
+    original strings and forward everything to the a2 implementation of the
+    filter.
+
+  - Get rid of Parameter::value but add a name field instead.  The high level
+    parameter vector pipes are not needed to hold data and valid/invalid state
+    anymore. Instead a feature for naming individual array elements should be
+    added. The name could be stored directly in the parameter.
+
+  - Get rid of the duplicate implementations of the output size calculations.
+    Try to use the a2 system and adapter logic to automatically build the input
+    operator. Then take the output counts and sizes from the a2 data and use it
+    to size the higher level operators outputs.
+
+  - Rethink the connection logic, who owns things and when they are destroyed.
+    Also redesign how threading and the worker startup logic is done. Try to
+    use a copy of the analysis inside the worker. Make ui access to the runtime
+    data safe.
+
+* histogram data is wrong after zooming and applying a subrange
+
+* change the vme module naming logic to use the suffix 1 for the first name
+  suggestion instead of 0.
+
 * mvlc listfiles inside the zip archive still have the mvmelst extension.
   Change this to mvlc_eth or mvlc_usb.
 * check out 'pigz' by Mark Adler for how to compress data in parallel.

@@ -171,11 +171,14 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
     m_spinCompletionCount->setValue(m_ex->getRequiredCompletionCount());
 
     pb_editNameList = new QPushButton(QIcon(QSL(":/pencil.png")), QSL("Edit Name List"));
+    cb_noAddedRandom = new QCheckBox("Do not add a random in [0.0, 1.0)");
+    cb_noAddedRandom->setChecked(m_ex->getOptions() & Extractor::Options::NoAddedRandom);
 
     m_optionsLayout = new QFormLayout;
     m_optionsLayout->addRow(QSL("Name"), le_name);
     m_optionsLayout->addRow(QSL("Required Completion Count"), m_spinCompletionCount);
     m_optionsLayout->addRow(QSL("Parameter Names"), pb_editNameList);
+    m_optionsLayout->addRow(QSL("No Added Random"), cb_noAddedRandom);
 
     connect(pb_editNameList, &QPushButton::clicked,
             this, &AddEditExtractorDialog::editNameList);
@@ -324,6 +327,9 @@ void AddEditExtractorDialog::accept()
     m_ex->getFilter().setSubFilters(m_filterEditor->m_subFilters);
     m_ex->setRequiredCompletionCount(m_spinCompletionCount->value());
     m_ex->setParameterNames(m_parameterNames);
+    m_ex->setOptions(cb_noAddedRandom->isChecked()
+                     ? Extractor::Options::NoAddedRandom
+                     : Extractor::Options::NoOption);
 
     auto analysis = m_eventWidget->getContext()->getAnalysis();
 

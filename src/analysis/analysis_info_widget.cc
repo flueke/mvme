@@ -49,6 +49,7 @@ struct AnalysisInfoWidgetPrivate
     QDateTime lastUpdateTime;
     QVector<QLabel *> labels;
     QTimer updateTimer;
+    bool updateInProgress;
     QPushButton *mvlcRequestBufferOnError;
     QPushButton *mvlcRequestNextBuffer;
 
@@ -58,6 +59,8 @@ struct AnalysisInfoWidgetPrivate
 
     void updateMVLCWidget(const mesytec::mvlc::ReadoutParserCounters &counters, double dt);
 };
+
+static const std::chrono::milliseconds WidgetUpdatePeriod(1000);
 
 AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
@@ -125,10 +128,11 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
 
     update();
 
-    m_d->updateTimer.setInterval(1000);
-    m_d->updateTimer.start();
+    m_d->updateTimer.setSingleShot(true);
+    m_d->updateTimer.start(WidgetUpdatePeriod);
 
     connect(&m_d->updateTimer, &QTimer::timeout, this, &AnalysisInfoWidget::update);
+
     connect(context, &MVMEContext::mvmeStreamWorkerStateChanged,
             this, [this](MVMEStreamWorkerState state) {
 
@@ -352,6 +356,7 @@ void AnalysisInfoWidget::update()
 
     m_d->prevCounters = counters;
     m_d->lastUpdateTime = QDateTime::currentDateTime();
+    m_d->updateTimer.start(WidgetUpdatePeriod);
 }
 
 void AnalysisInfoWidgetPrivate::updateMVLCWidget(
