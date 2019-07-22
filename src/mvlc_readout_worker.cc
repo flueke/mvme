@@ -952,6 +952,8 @@ inline void fixup_usb_buffer(
                 if (is_valid_readout_frame(frameInfo))
                     break;
 
+                ++counters.frameTypeErrors;
+
                 // Unexpected or invalid frame type. This should not happen
                 // if the incoming MVLC data and the readout code are
                 // correct.
@@ -965,7 +967,6 @@ inline void fixup_usb_buffer(
                 // The above loop was not able to find a valid readout frame.
                 // Go to the top of the outer loop and let that handle any
                 // possible leftover bytes on the next iteration.
-                ++counters.frameTypeErrors;
                 continue;
             }
 
