@@ -137,7 +137,7 @@ ListfileOutput listfile_open(ListFileOutputInfo &outinfo,
                 /* The name of the listfile inside the zip archive. */
                 QFileInfo fi(result.outFilename);
                 QString listfileFilename(QFileInfo(result.outFilename).completeBaseName());
-                listfileFilename += QSL(".mvmelst");
+                listfileFilename += QSL(".mvlclst");
 
                 result.archive = std::make_unique<QuaZip>();
                 result.archive->setZipName(result.outFilename);
