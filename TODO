@@ -24,8 +24,6 @@ TODO list, not at all sorted by priority
 
 * histogram data is wrong after zooming and applying a subrange
 
-* mvlc listfiles inside the zip archive still have the mvmelst extension.
-  Change this to mvlc_eth or mvlc_usb.
 * check out 'pigz' by Mark Adler for how to compress data in parallel.
 * Maybe: slow mode for replay so that users can see what's going on.
 * Nicer format for analysis rates (top side): less decimals, monospace font
