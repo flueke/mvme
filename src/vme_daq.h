@@ -95,7 +95,7 @@ struct DAQReadoutListfileHelperPrivate;
 class DAQReadoutListfileHelper
 {
     public:
-        DAQReadoutListfileHelper(VMEReadoutWorkerContext readoutContext);
+        DAQReadoutListfileHelper(VMEReadoutWorkerContext &readoutContext);
         ~DAQReadoutListfileHelper();
 
         void beginRun();
@@ -108,7 +108,7 @@ class DAQReadoutListfileHelper
 
     private:
         std::unique_ptr<DAQReadoutListfileHelperPrivate> m_d;
-        VMEReadoutWorkerContext m_readoutContext;
+        VMEReadoutWorkerContext &m_readoutContext;
 };
 
 /* Throws if neither UseRunNumber nor UseTimestamp is set and the file already

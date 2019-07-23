@@ -192,7 +192,7 @@ struct DAQReadoutListfileHelperPrivate
 //
 // DAQReadoutListfileHelper
 //
-DAQReadoutListfileHelper::DAQReadoutListfileHelper(VMEReadoutWorkerContext readoutContext)
+DAQReadoutListfileHelper::DAQReadoutListfileHelper(VMEReadoutWorkerContext &readoutContext)
     : m_d(std::make_unique<DAQReadoutListfileHelperPrivate>())
     , m_readoutContext(readoutContext)
 {
