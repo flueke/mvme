@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QTimer>
+#include <functional>
 #include <memory>
 #include "typedefs.h"
 
