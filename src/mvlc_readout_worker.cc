@@ -100,7 +100,7 @@ struct listfile_write_error: public std::runtime_error
     listfile_write_error(): std::runtime_error("listfile_write_error") {}
 };
 
-ListfileOutput listfile_open(ListFileOutputInfo &outinfo,
+ListfileOutput listfile_create(ListFileOutputInfo &outinfo,
                              std::function<void (const QString &)> logger)
 {
     ListfileOutput result;
@@ -701,16 +701,18 @@ void MVLCReadoutWorker::start(quint32 cycles)
             throw ec;
 
         // listfile handling
-        d->listfileOut = listfile_open(*m_workerContext.listfileOutputInfo, logger);
+        d->listfileOut = listfile_create(*m_workerContext.listfileOutputInfo, logger);
         listfile_write_preamble(d->listfileOut, *d->mvlcObj, *m_workerContext.vmeConfig);
-        m_workerContext.daqStats.listfileFilename = d->listfileOut.outFilename;
 
         d->preRunClear();
         d->startNotificationPolling();
 
         logMessage("");
         logMessage(QSL("Entering readout loop"));
+        // XXX: DAQStats::start clears everything so the listfileFilename has
+        // to be assigned afterwards.
         m_workerContext.daqStats.start();
+        m_workerContext.daqStats.listfileFilename = d->listfileOut.outFilename;
 
         readoutLoop();
 

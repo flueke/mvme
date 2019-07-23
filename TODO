@@ -29,10 +29,7 @@ TODO list, not at all sorted by priority
 * Nicer format for analysis rates (top side): less decimals, monospace font
 * When clearing histos the entry counts in the analysis tree do not reflect the
   new counts (bottom row of analysis ui).
-* The listfile "current size" display does not work when recording.
 
-* MVLC readout parsers: cleanup 'retval' and related code
-* MVLC controller settings "list connected usb devices" doesn't do anything! Fix this.
 * revive the event_server client code. treewriter_client2 needs some work.
   Then document the whole thing and the idea behind it.
 
