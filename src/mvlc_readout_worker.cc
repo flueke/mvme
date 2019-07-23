@@ -872,15 +872,17 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
 
     // Lock the data lock once and then read until either the buffer is full or
     // FlushBufferTimeout elapsed.
-    auto dataGuard = mvlcLocks.lockData();
+    //auto dataGuard = mvlcLocks.lockData();
     auto tStart = std::chrono::steady_clock::now();
 
     while (destBuffer->free() >= eth::JumboFrameMaxSize)
     {
         size_t bytesTransferred = 0u;
 
+        auto dataGuard = mvlcLocks.lockData();
         auto result = d->mvlc_eth->read_packet(
             Pipe::Data, destBuffer->asU8(), destBuffer->free());
+        dataGuard.unlock();
 
         daqStats.totalBytesRead += result.bytesTransferred;
 
