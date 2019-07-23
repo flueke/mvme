@@ -24,9 +24,6 @@ TODO list, not at all sorted by priority
 
 * histogram data is wrong after zooming and applying a subrange
 
-* change the vme module naming logic to use the suffix 1 for the first name
-  suggestion instead of 0.
-
 * mvlc listfiles inside the zip archive still have the mvmelst extension.
   Change this to mvlc_eth or mvlc_usb.
 * check out 'pigz' by Mark Adler for how to compress data in parallel.
