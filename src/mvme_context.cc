@@ -459,7 +459,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
 
     for (size_t i=0; i<DataBufferCount; ++i)
     {
-        m_freeBuffers.queue.push_back(new DataBuffer(DataBufferSize));
+        enqueue(&m_freeBuffers, new DataBuffer(DataBufferSize));
     }
 
 #if 0

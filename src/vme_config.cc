@@ -918,7 +918,7 @@ QString make_unique_module_name(const QString &prefix, const VMEConfig *vmeConfi
     }
 
     QString result = prefix;
-    u32 suffix = 0;
+    u32 suffix = 1;
     while (moduleNames.contains(result))
     {
         result = QString("%1_%2").arg(prefix).arg(suffix++);

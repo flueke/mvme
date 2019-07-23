@@ -100,7 +100,7 @@ struct listfile_write_error: public std::runtime_error
     listfile_write_error(): std::runtime_error("listfile_write_error") {}
 };
 
-ListfileOutput listfile_open(ListFileOutputInfo &outinfo,
+ListfileOutput listfile_create(ListFileOutputInfo &outinfo,
                              std::function<void (const QString &)> logger)
 {
     ListfileOutput result;
@@ -137,7 +137,7 @@ ListfileOutput listfile_open(ListFileOutputInfo &outinfo,
                 /* The name of the listfile inside the zip archive. */
                 QFileInfo fi(result.outFilename);
                 QString listfileFilename(QFileInfo(result.outFilename).completeBaseName());
-                listfileFilename += QSL(".mvmelst");
+                listfileFilename += QSL(".mvlclst");
 
                 result.archive = std::make_unique<QuaZip>();
                 result.archive->setZipName(result.outFilename);
@@ -701,16 +701,18 @@ void MVLCReadoutWorker::start(quint32 cycles)
             throw ec;
 
         // listfile handling
-        d->listfileOut = listfile_open(*m_workerContext.listfileOutputInfo, logger);
+        d->listfileOut = listfile_create(*m_workerContext.listfileOutputInfo, logger);
         listfile_write_preamble(d->listfileOut, *d->mvlcObj, *m_workerContext.vmeConfig);
-        m_workerContext.daqStats.listfileFilename = d->listfileOut.outFilename;
 
         d->preRunClear();
         d->startNotificationPolling();
 
         logMessage("");
         logMessage(QSL("Entering readout loop"));
+        // XXX: DAQStats::start clears everything so the listfileFilename has
+        // to be assigned afterwards.
         m_workerContext.daqStats.start();
+        m_workerContext.daqStats.listfileFilename = d->listfileOut.outFilename;
 
         readoutLoop();
 
@@ -872,15 +874,17 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
 
     // Lock the data lock once and then read until either the buffer is full or
     // FlushBufferTimeout elapsed.
-    auto dataGuard = mvlcLocks.lockData();
+    //auto dataGuard = mvlcLocks.lockData();
     auto tStart = std::chrono::steady_clock::now();
 
     while (destBuffer->free() >= eth::JumboFrameMaxSize)
     {
         size_t bytesTransferred = 0u;
 
+        auto dataGuard = mvlcLocks.lockData();
         auto result = d->mvlc_eth->read_packet(
             Pipe::Data, destBuffer->asU8(), destBuffer->free());
+        dataGuard.unlock();
 
         daqStats.totalBytesRead += result.bytesTransferred;
 

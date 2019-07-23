@@ -108,14 +108,14 @@ endif()
 # libmvme_mvlc - MVLC support
 #
 if(MVME_ENABLE_MVLC)
-    set(MVLC_USB_LOG_LEVEL "LOG_LEVEL_WARN" CACHE STRING
-        "mvlc_usb layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE)")
+    set(MVLC_USB_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+        "mvlc_usb layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    set(MVLC_ETH_LOG_LEVEL "LOG_LEVEL_WARN" CACHE STRING
-        "mvlc_eth layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE)")
+    set(MVLC_ETH_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+        "mvlc_eth layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    set(MVLC_DIALOG_LOG_LEVEL "LOG_LEVEL_WARN" CACHE STRING
-        "mvlc_dialog layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE)")
+    set(MVLC_DIALOG_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+        "mvlc_dialog layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
     # libmvme_mvlc
     add_library(libmvme_mvlc SHARED mvlc/mvlc_qt_object.cc)

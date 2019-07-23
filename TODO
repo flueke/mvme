@@ -24,20 +24,12 @@ TODO list, not at all sorted by priority
 
 * histogram data is wrong after zooming and applying a subrange
 
-* change the vme module naming logic to use the suffix 1 for the first name
-  suggestion instead of 0.
-
-* mvlc listfiles inside the zip archive still have the mvmelst extension.
-  Change this to mvlc_eth or mvlc_usb.
 * check out 'pigz' by Mark Adler for how to compress data in parallel.
 * Maybe: slow mode for replay so that users can see what's going on.
 * Nicer format for analysis rates (top side): less decimals, monospace font
 * When clearing histos the entry counts in the analysis tree do not reflect the
   new counts (bottom row of analysis ui).
-* The listfile "current size" display does not work when recording.
 
-* MVLC readout parsers: cleanup 'retval' and related code
-* MVLC controller settings "list connected usb devices" doesn't do anything! Fix this.
 * revive the event_server client code. treewriter_client2 needs some work.
   Then document the whole thing and the idea behind it.
 
@@ -59,6 +51,8 @@ TODO list, not at all sorted by priority
   -> If the readout loop blocks for >= 2s. Otherwise if the time difference is
   >= 1s only one tick will be generated and the remainder is stored for the
   next tick.
+  This is not a problem anymore with the MVLC because 64-bit unix timestamp
+  values are stored in the contents of the timetick system event.
 
 * use TicketMutex in histograms
 
@@ -78,7 +72,6 @@ TODO list, not at all sorted by priority
   immediately before calling startDAQ and unset it either on error or when the
   start succeeded. While the flag is set do not allow calls to startDAQ/stopDAQ
   but return "Starting"/"Stopping", etc
-
 * JSON RPC Remote Control and/or DAQ Start/Stop handling is still buggy!
   Quickly issuing startDAQ/stopDAQ commands (including multiple starts/stops in
   sequence) can end up in a broken state and eventually lead to a crash:

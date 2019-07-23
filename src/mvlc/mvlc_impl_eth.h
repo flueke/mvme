@@ -227,7 +227,6 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         int getSocket(Pipe pipe) { return pipe == Pipe::Command ? m_cmdSock : m_dataSock; }
 
         std::string m_host;
-        bool m_isConnected = false;
         int m_cmdSock = -1;
         int m_dataSock = -1;
         struct sockaddr_in m_cmdAddr = {};
