@@ -187,7 +187,7 @@ void listfile_close(ListfileOutput &lf_out)
         assert(!lf_out.outdev->isOpen());
     }
 
-    if (lf_out.archive)
+    if (lf_out.archive && lf_out.archive->isOpen())
     {
         lf_out.archive->close();
 

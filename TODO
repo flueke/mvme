@@ -1,6 +1,9 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* mvlc_eth under windows: connect/disconnect is not working properly. State
+  stays "disconnected" in the DAQControl widget while the dev_gui thinks it's
+  connected.
 * when reconnecting and the mvlc_eth was doing a readout the "force reset"
   button doesn't get active anymore. Instead we just connect without any
   warning at all.
