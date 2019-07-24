@@ -41,7 +41,8 @@ int main(int argc, char *argv[])
     {
         for (unsigned serial = 1; serial <=2; serial++)
         {
-            auto di = get_device_info_by_serial(serial);
+            auto di = get_device_info_by_serial(std::to_string(serial));
+
             if (di)
                 cout << "  Found device for serial " << serial << ", index=" << di.index << endl;
             else

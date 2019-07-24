@@ -171,11 +171,14 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
     m_spinCompletionCount->setValue(m_ex->getRequiredCompletionCount());
 
     pb_editNameList = new QPushButton(QIcon(QSL(":/pencil.png")), QSL("Edit Name List"));
+    cb_noAddedRandom = new QCheckBox("Do not add a random in [0.0, 1.0)");
+    cb_noAddedRandom->setChecked(m_ex->getOptions() & Extractor::Options::NoAddedRandom);
 
     m_optionsLayout = new QFormLayout;
     m_optionsLayout->addRow(QSL("Name"), le_name);
     m_optionsLayout->addRow(QSL("Required Completion Count"), m_spinCompletionCount);
     m_optionsLayout->addRow(QSL("Parameter Names"), pb_editNameList);
+    m_optionsLayout->addRow(QSL("No Added Random"), cb_noAddedRandom);
 
     connect(pb_editNameList, &QPushButton::clicked,
             this, &AddEditExtractorDialog::editNameList);
@@ -324,6 +327,9 @@ void AddEditExtractorDialog::accept()
     m_ex->getFilter().setSubFilters(m_filterEditor->m_subFilters);
     m_ex->setRequiredCompletionCount(m_spinCompletionCount->value());
     m_ex->setParameterNames(m_parameterNames);
+    m_ex->setOptions(cb_noAddedRandom->isChecked()
+                     ? Extractor::Options::NoAddedRandom
+                     : Extractor::Options::NoOption);
 
     auto analysis = m_eventWidget->getContext()->getAnalysis();
 
@@ -2960,13 +2966,13 @@ void MVLCParserDebugHandler::handleDebugInfo(
             // Factory function for module callbacks which log their input data.
             auto make_module_callback = [&splitterOut] (const QString &typeString)
             {
-                return [&splitterOut, typeString] (int ei, int mi, u32 *data, u32 size)
+                return [&splitterOut, typeString] (int ei, int mi, const u32 *data, u32 size)
                 {
                     splitterOut << QString("  module%1, ei=%2, mi=%3, size=%4:")
                         .arg(typeString).arg(ei).arg(mi).arg(size)
                         << endl;
 
-                    ::logBuffer(BufferIterator(data, size), [&splitterOut] (const QString &str)
+                    ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&splitterOut] (const QString &str)
                                 {
                                     splitterOut << "    " << str << endl;
                                 });
@@ -2992,13 +2998,13 @@ void MVLCParserDebugHandler::handleDebugInfo(
         };
 
         parserCallbacks.modulePrefix = [&](
-            int ei, int mi, u32 *data, u32 size)
+            int ei, int mi, const u32 *data, u32 size)
         {
             parserOut << QString("  modulePrefix, ei=%1, mi=%2, size=%3:")
                 .arg(ei).arg(mi).arg(size)
                 << endl;
 
-            ::logBuffer(BufferIterator(data, size), [&parserOut] (const QString &str)
+            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
                         {
                             parserOut << "    " << str << endl;
                         });
@@ -3009,13 +3015,13 @@ void MVLCParserDebugHandler::handleDebugInfo(
         };
 
         parserCallbacks.moduleDynamic = [&](
-            int ei, int mi, u32 *data, u32 size)
+            int ei, int mi, const u32 *data, u32 size)
         {
             parserOut << QString("  moduleDynamic, ei=%1, mi=%2, size=%3:")
                 .arg(ei).arg(mi).arg(size)
                 << endl;
 
-            ::logBuffer(BufferIterator(data, size), [&parserOut] (const QString &str)
+            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
                         {
                             parserOut << "    " << str << endl;
                         });
@@ -3026,13 +3032,13 @@ void MVLCParserDebugHandler::handleDebugInfo(
         };
 
         parserCallbacks.moduleSuffix = [&](
-            int ei, int mi, u32 *data, u32 size)
+            int ei, int mi, const u32 *data, u32 size)
         {
             parserOut << QString("  moduleSuffix, ei=%1, mi=%2, size=%3:")
                 .arg(ei).arg(mi).arg(size)
                 << endl;
 
-            ::logBuffer(BufferIterator(data, size), [&parserOut] (const QString &str)
+            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
                         {
                             parserOut << "    " << str << endl;
                         });

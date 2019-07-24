@@ -1,7 +1,7 @@
 #ifndef __MVME_STREAM_ITER_H__
 #define __MVME_STREAM_ITER_H__
 
-#include "analysis/a2/data_filter.h"
+#include "analysis/a2/a2_data_filter.h"
 #include "databuffer.h"
 #include "globals.h"
 #include "libmvme_export.h"

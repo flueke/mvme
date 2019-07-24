@@ -114,7 +114,7 @@ find_path(QUAZIP_INCLUDE_DIR
     NAMES quazip.h
     PATH_SUFFIXES quazip quazip-qt5 quazip5)
 
-include_directories(${QUAZIP_INCLUDE_DIR})
+#include_directories(${QUAZIP_INCLUDE_DIR})
 
 find_library(QUAZIP_QT5_RELEASE NAMES quazip quazip-qt5 quazip5)
 find_library(QUAZIP_QT5_DEBUG NAMES quazipd quazip-qt5d quazip5d)

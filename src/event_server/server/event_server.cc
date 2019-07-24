@@ -260,7 +260,9 @@ EventServer::EventServer(QObject *parent)
 }
 
 EventServer::~EventServer()
-{}
+{
+    qDebug() << "<<< >>> <<< >>>" << __PRETTY_FUNCTION__ << "<<< >>> <<< >>>";
+}
 
 void EventServer::startup()
 {
@@ -584,6 +586,10 @@ void EventServer::beginEvent(s32 eventIndex)
     assert(m_d->m_runInProgress);
 }
 
+void EventServer::processModulePrefix(s32 eventIndex, s32 moduleIndex,
+                       const u32 *data, u32 size)
+{}
+
 void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
                        const u32 *data, u32 size)
 {
@@ -594,6 +600,10 @@ void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
     // sources.
     assert(m_d->m_runInProgress);
 }
+
+void EventServer::processModuleSuffix(s32 eventIndex, s32 moduleIndex,
+                       const u32 *data, u32 size)
+{}
 
 void EventServer::processTimetick()
 {

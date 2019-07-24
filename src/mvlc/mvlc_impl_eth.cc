@@ -26,6 +26,7 @@
 #include "mvlc/mvlc_util.h"
 #include "util/strings.h"
 
+#define LOG_LEVEL_OFF   0
 #define LOG_LEVEL_WARN  100
 #define LOG_LEVEL_INFO  200
 #define LOG_LEVEL_DEBUG 300
@@ -53,7 +54,6 @@ do\
 
 namespace
 {
-
 
 // Does IPv4 host lookup for a UDP socket. On success the resulting struct
 // sockaddr_in is copied to dest.

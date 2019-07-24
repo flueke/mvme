@@ -459,7 +459,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
 
     for (size_t i=0; i<DataBufferCount; ++i)
     {
-        m_freeBuffers.queue.push_back(new DataBuffer(DataBufferSize));
+        enqueue(&m_freeBuffers, new DataBuffer(DataBufferSize));
     }
 
 #if 0
@@ -486,11 +486,11 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     // Setup the readout side: readout thread and listfile reader.
     // The vme controller specific readout worker is created and setup in
     // setVMEController().
-    m_readoutThread->setObjectName("mvme ReadoutThread");
+    m_readoutThread->setObjectName("readout");
     m_readoutThread->start();
 
     // Setup the analysis/data processing side.
-    m_analysisThread->setObjectName("mvme AnalysisThread");
+    m_analysisThread->setObjectName("analysis");
     m_analysisThread->start();
 
     qDebug() << __PRETTY_FUNCTION__ << "startup: using a default constructed VMEConfig";

@@ -1,22 +1,48 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
-* MVLC readout parsers: the USB parser throws away too much data in case of
-  internal buffer loss. The example is reading out two MTDCs with a large
-  number of events per transfer.  This will yield fast data and lots of stack
-  continuations (0xF9). The analysis will miss buffers due to being too slow
-  and a buffer after a lost one can start with a 0xF9 continuation. The parser
-  knows it doesn't have an open event (state was cleared due to buffer loss)
-  and wants to find a 0xF3 instead of a 0xF9.
-  Instead the next 0xF3 frame should be searched for and used. This is like
-  searching for the next 0xF3 inside eth packets.
+* mvlc_eth under windows: connect/disconnect is not working properly. State
+  stays "disconnected" in the DAQControl widget while the dev_gui thinks it's
+  connected.
+* when reconnecting and the mvlc_eth was doing a readout the "force reset"
+  button doesn't get active anymore. Instead we just connect without any
+  warning at all.
 
-* MVLC readout parsers: with ETH readouts the readout side packet loss and the
-  parser packet loss values do not match at all even without internal buffer
-  loss. Also there's always unused data being counted up for ETH packets.
+* cleanup thread listfile writing code. Also come up with a way to handle write
+  errors.
 
-* MVLC readout parsers: cleanup 'retval' and related code
-* MVLC controller settings "list connected usb devices" doesn't do anything! Fix this.
+* analysis refactoring:
+  - Get rid of most of data_filter.h in ~/src. Implement what's needed in terms
+    of the a2 data filter. I think what's needed is something to contain the
+    original strings and forward everything to the a2 implementation of the
+    filter.
+
+  - Get rid of Parameter::value but add a name field instead.  The high level
+    parameter vector pipes are not needed to hold data and valid/invalid state
+    anymore. Instead a feature for naming individual array elements should be
+    added. The name could be stored directly in the parameter.
+
+  - Get rid of runtime data from the higher level Analysis layer.  Refactor
+    Analysis to only contain config data and output size calculations where
+    needed. Maybe move runtime information and the a2 adapter into a separate
+    state object. This way Analysis would not be responsible for config
+    storage, connection logic, building and running.
+
+  - Rethink the connection logic, who owns things and when they are destroyed.
+    Also redesign how threading and the worker startup logic is done. Try to
+    use a copy of the analysis inside the worker. Make ui access to the runtime
+    data safe.
+
+* Protect access to the globals DAQStats object with a mutex.
+
+* histogram data is wrong after zooming and applying a subrange
+
+* check out 'pigz' by Mark Adler for how to compress data in parallel.
+* Maybe: slow mode for replay so that users can see what's going on.
+* Nicer format for analysis rates (top side): less decimals, monospace font
+* When clearing histos the entry counts in the analysis tree do not reflect the
+  new counts (bottom row of analysis ui).
+
 * revive the event_server client code. treewriter_client2 needs some work.
   Then document the whole thing and the idea behind it.
 
@@ -38,6 +64,8 @@ TODO list, not at all sorted by priority
   -> If the readout loop blocks for >= 2s. Otherwise if the time difference is
   >= 1s only one tick will be generated and the remainder is stored for the
   next tick.
+  This is not a problem anymore with the MVLC because 64-bit unix timestamp
+  values are stored in the contents of the timetick system event.
 
 * use TicketMutex in histograms
 
@@ -57,7 +85,6 @@ TODO list, not at all sorted by priority
   immediately before calling startDAQ and unset it either on error or when the
   start succeeded. While the flag is set do not allow calls to startDAQ/stopDAQ
   but return "Starting"/"Stopping", etc
-
 * JSON RPC Remote Control and/or DAQ Start/Stop handling is still buggy!
   Quickly issuing startDAQ/stopDAQ commands (including multiple starts/stops in
   sequence) can end up in a broken state and eventually lead to a crash:

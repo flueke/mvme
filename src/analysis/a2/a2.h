@@ -159,9 +159,9 @@ DataSource make_datasource_listfilter_extractor(
 size_t get_address_count(DataSource *ds);
 
 void extractor_begin_event(DataSource *ex);
-void extractor_process_module_data(DataSource *ex, u32 *data, u32 size);
+void extractor_process_module_data(DataSource *ex, const u32 *data, u32 size);
 void listfilter_extractor_begin_event(DataSource *ex);
-u32 *listfilter_extractor_process_module_data(DataSource *ex, u32 *data, u32 dataSize);
+const u32 *listfilter_extractor_process_module_data(DataSource *ex, const u32 *data, u32 dataSize);
 
 
 /* ===============================================
@@ -720,7 +720,7 @@ using Logger = std::function<void (const std::string &msg)>;
 
 void a2_begin_run(A2 *a2, Logger logger);
 void a2_begin_event(A2 *a2, int eventIndex);
-void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize);
+void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize);
 void a2_end_event(A2 *a2, int eventIndex);
 void a2_timetick(A2 *a2);
 void a2_end_run(A2 *a2);

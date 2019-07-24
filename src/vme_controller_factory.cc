@@ -71,7 +71,8 @@ VMEController *VMEControllerFactory::makeController(const QVariantMap &settings)
                 }
                 else if (method == "by_serial")
                 {
-                    impl = mesytec::mvlc::make_mvlc_usb_using_serial(settings["serial"].toUInt());
+                    impl = mesytec::mvlc::make_mvlc_usb_using_serial(
+                        settings["serial"].toString().toStdString());
                 }
                 else
                 {

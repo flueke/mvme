@@ -20,7 +20,7 @@
 #define LOG_LEVEL_TRACE 400
 
 #ifndef MVLC_USB_LOG_LEVEL
-#define MVLC_USB_LOG_LEVEL LOG_LEVEL_OFF
+#define MVLC_USB_LOG_LEVEL LOG_LEVEL_WARN
 #endif
 
 #define LOG_LEVEL_SETTING MVLC_USB_LOG_LEVEL
@@ -362,20 +362,6 @@ DeviceInfo get_device_info_by_serial(const std::string &serial)
     return it != infoList.end() ? *it : DeviceInfo{};
 }
 
-std::string format_serial(unsigned serial)
-{
-    static const unsigned SerialSize = 12;
-
-    std::stringstream ss;
-    ss << std::setw(SerialSize) << std::setfill('0') << serial;
-    return ss.str();
-}
-
-DeviceInfo get_device_info_by_serial(unsigned serial)
-{
-    return get_device_info_by_serial(format_serial(serial));
-}
-
 //
 // Impl
 //
@@ -463,11 +449,15 @@ std::error_code Impl::connect()
                 st = FT_DEVICE_NOT_FOUND;
                 auto infoList = get_device_info_list();
 
-                if (m_connectMode.index < infoList.size())
+                for (auto &info: infoList)
                 {
-                    devInfo = infoList[0];
-                    st = FT_Create(reinterpret_cast<void *>(devInfo.index),
-                                   FT_OPEN_BY_INDEX, &m_handle);
+                    if (info.index == static_cast<int>(m_connectMode.index))
+                    {
+                        devInfo = info;
+                        st = FT_Create(reinterpret_cast<void *>(devInfo.index),
+                                       FT_OPEN_BY_INDEX, &m_handle);
+                        break;
+                    }
                 }
             }
             break;
@@ -724,7 +714,7 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     if (size > 0)
     {
-        LOG_DEBUG("pipe=%u, requestedSize=%u, remainingSize=%u after read from MVLC,"
+        LOG_DEBUG("pipe=%u, requestedSize=%u, remainingSize=%u after read from MVLC, "
                   "returning FT_TIMEOUT (original ec=%s)",
                   static_cast<unsigned>(pipe), requestedSize, size,
                   ec.message().c_str());

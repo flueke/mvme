@@ -30,21 +30,47 @@ void *plugin_init (const char *pluginFilename, int argc, const char *argv[])
 
 void plugin_destroy (void *userptr)
 {
-    cout << __PRETTY_FUNCTION__ << " - userptr=" << userptr;
+    cout << __PRETTY_FUNCTION__ << " - userptr=" << userptr << endl;
 }
 
 void begin_run (void *userptr, const RunDescription *run)
 {
-    cout << __PRETTY_FUNCTION__;
+    cout << __PRETTY_FUNCTION__ << endl;
 }
+
+static size_t g_eventsProcessed = 0;;
+static const size_t EventPrintInterval = 100000;
 
 void event_data (void *userptr, int eventIndex, const ModuleData *modules, int moduleCount)
 {
-    cout << __PRETTY_FUNCTION__;
+    if ((g_eventsProcessed++ % EventPrintInterval) == 0)
+    {
+        cout << __PRETTY_FUNCTION__ << " userptr=" << userptr << ", eventIndex=" <<
+            eventIndex << ", moduleCount=" << moduleCount << endl;
+
+        for (int mi = 0; mi < moduleCount; ++mi)
+        {
+            const ModuleData &md(modules[mi]);
+
+            if (md.prefix.size)
+            {
+            }
+
+            if (md.dynamic.size)
+            {
+                cout << "  moduleIndex=" << mi << ", dynamic.size=" << md.dynamic.size << endl;
+            }
+
+            if (md.prefix.size)
+            {
+            }
+
+        }
+    }
 }
 void end_run (void *userptr)
 {
-    cout << __PRETTY_FUNCTION__;
+    cout << __PRETTY_FUNCTION__ << endl;
 }
 
 }

@@ -1,6 +1,6 @@
 #include "a2.h"
 #include "a2_impl.h"
-#include "data_filter.h"
+#include "a2_data_filter.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
 #include "util/nan.h"
@@ -155,7 +155,7 @@ static void TEST_listfilter_extractor(benchmark::State &state)
 
         listfilter_extractor_begin_event(&ce);
 
-        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+        const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
 
         assert(dataPtr == inputData + inputSize); // all data should have been consumed
         assert(!is_param_valid(ce.output.data[0]));
@@ -216,7 +216,7 @@ static void TEST_listfilter_extractor(benchmark::State &state)
 
         listfilter_extractor_begin_event(&ce);
 
-        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+        const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
 
         assert(dataPtr == inputData + inputSize); // all data should have been consumed
 
@@ -274,7 +274,7 @@ static void TEST_listfilter_extractor(benchmark::State &state)
 
         listfilter_extractor_begin_event(&ce);
 
-        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+        const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
 
         assert(dataPtr == inputData + inputSize);
         assert(is_param_valid(ce.output.data[0]));
@@ -329,7 +329,7 @@ static void BM_listfilter_extractor(benchmark::State &state)
 
     while (state.KeepRunning())
     {
-        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+        const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
         bytesProcessed += sizeof(inputData);
         moduleCounter++;
 

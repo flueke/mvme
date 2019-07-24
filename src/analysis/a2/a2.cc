@@ -263,7 +263,7 @@ void extractor_begin_event(DataSource *ds)
     invalidate_all(ds->output.data);
 }
 
-void extractor_process_module_data(DataSource *ds, u32 *data, u32 size)
+void extractor_process_module_data(DataSource *ds, const u32 *data, u32 size)
 {
     assert(memory::is_aligned(data, ModuleDataAlignment));
     assert(ds->type == DataSource_Extractor);
@@ -362,11 +362,11 @@ void listfilter_extractor_begin_event(DataSource *ds)
     invalidate_all(ds->output.data);
 }
 
-u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dataSize)
+const u32 *listfilter_extractor_process_module_data(DataSource *ds, const u32 *data, u32 dataSize)
 {
     assert(ds->type == DataSource_ListFilterExtractor);
 
-    u32 *curPtr = data;
+    const u32 *curPtr = data;
     u32 curSize = dataSize;
 
     auto ex = reinterpret_cast<ListFilterExtractor *>(ds->d);
@@ -3578,7 +3578,7 @@ void a2_begin_event(A2 *a2, int eventIndex)
 }
 
 // hand module data to all sources for eventIndex and moduleIndex
-void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize)
+void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
 {
     assert(eventIndex < MaxVMEEvents);
     assert(moduleIndex < MaxVMEModules);
@@ -3590,7 +3590,7 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, 
     const int srcCount = a2->dataSourceCounts[eventIndex];
 
     // State for the data consuming ListFilterExtractors
-    u32 *curPtr = data;
+    const u32 *curPtr = data;
     const u32 *endPtr = data + dataSize;
 
     for (int srcIdx = 0; srcIdx < srcCount; srcIdx++)

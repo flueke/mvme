@@ -29,7 +29,11 @@ class LIBMVME_EXPORT EventServer: public QObject, public IMVMEStreamModuleConsum
 
         virtual void beginEvent(s32 eventIndex) override;
         virtual void endEvent(s32 eventIndex) override;
+        virtual void processModulePrefix(s32 eventIndex, s32 moduleIndex,
+                                       const u32 *data, u32 size) override;
         virtual void processModuleData(s32 eventIndex, s32 moduleIndex,
+                                       const u32 *data, u32 size) override;
+        virtual void processModuleSuffix(s32 eventIndex, s32 moduleIndex,
                                        const u32 *data, u32 size) override;
         virtual void processTimetick() override;
         virtual void setLogger(Logger logger) override;

@@ -39,6 +39,7 @@ static const QVector<const char *> MVLC_LabelTexts =
     "ethPacketLoss",
     "systemEventTypes",
     "parseResults",
+    "parserExceptions",
 };
 
 struct AnalysisInfoWidgetPrivate
@@ -48,6 +49,7 @@ struct AnalysisInfoWidgetPrivate
     QDateTime lastUpdateTime;
     QVector<QLabel *> labels;
     QTimer updateTimer;
+    bool updateInProgress;
     QPushButton *mvlcRequestBufferOnError;
     QPushButton *mvlcRequestNextBuffer;
 
@@ -57,6 +59,8 @@ struct AnalysisInfoWidgetPrivate
 
     void updateMVLCWidget(const mesytec::mvlc::ReadoutParserCounters &counters, double dt);
 };
+
+static const std::chrono::milliseconds WidgetUpdatePeriod(1000);
 
 AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
@@ -124,10 +128,11 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
 
     update();
 
-    m_d->updateTimer.setInterval(1000);
-    m_d->updateTimer.start();
+    m_d->updateTimer.setSingleShot(true);
+    m_d->updateTimer.start(WidgetUpdatePeriod);
 
     connect(&m_d->updateTimer, &QTimer::timeout, this, &AnalysisInfoWidget::update);
+
     connect(context, &MVMEContext::mvmeStreamWorkerStateChanged,
             this, [this](MVMEStreamWorkerState state) {
 
@@ -351,6 +356,7 @@ void AnalysisInfoWidget::update()
 
     m_d->prevCounters = counters;
     m_d->lastUpdateTime = QDateTime::currentDateTime();
+    m_d->updateTimer.start(WidgetUpdatePeriod);
 }
 
 void AnalysisInfoWidgetPrivate::updateMVLCWidget(
@@ -378,6 +384,9 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
     auto parseResultRates = calc_rates0<std::vector<double>>(
         counters.parseResults.cbegin(), counters.parseResults.cend(),
         prevCounters.parseResults.cbegin(), dt);
+
+    auto parserExceptionRate = calc_rate0<TYPE_AND_VAL(&ReadoutParserCounters::parserExceptions)>(
+        counters, prevCounters, dt);
 
     QStringList texts;
 
@@ -445,6 +454,11 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
 
         texts += buffer;
     }
+
+    // parser exceptions
+    texts += QString("%1, rate=%2 exceptions/s")
+        .arg(counters.parserExceptions)
+        .arg(parserExceptionRate);
 
     // Assign the stat texts to the labels
     for (int i = 0; i < std::min(mvlcLabels.size(), texts.size()); ++i)

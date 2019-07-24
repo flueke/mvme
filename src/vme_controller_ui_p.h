@@ -22,10 +22,12 @@
 #define __VME_CONTROLLER_UI_P_H__
 
 #include "vme_controller_ui.h"
+
 #include <QCheckBox>
 #include <QGroupBox>
 #include <QRadioButton>
 #include <QSpinBox>
+#include <QTextBrowser>
 
 class VMUSBSettingsWidget: public VMEControllerSettingsWidget
 {
@@ -70,6 +72,9 @@ class MVLC_USB_SettingsWidget: public VMEControllerSettingsWidget
         virtual void loadSettings(const QVariantMap &settings) override;
         virtual QVariantMap getSettings() override;
 
+    private slots:
+        void listDevices();
+
     private:
         QRadioButton *rb_first,
                      *rb_index,
@@ -78,6 +83,7 @@ class MVLC_USB_SettingsWidget: public VMEControllerSettingsWidget
         QSpinBox *spin_index;
         QLineEdit *le_serial;
         QPushButton *pb_listDevices;
+        QTextBrowser *tb_devices;
 };
 
 class MVLC_ETH_SettingsWidget: public VMEControllerSettingsWidget
