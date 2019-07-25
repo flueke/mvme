@@ -523,6 +523,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+#if 0
     try
     {
         auto plugin = load_plugin("./listfile_reader_python_plugin");
@@ -532,6 +533,7 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+#endif
 
     if (plugins.empty())
     {

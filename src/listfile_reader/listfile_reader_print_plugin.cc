@@ -39,7 +39,7 @@ void begin_run (void *userptr, const RunDescription *run)
 }
 
 static size_t g_eventsProcessed = 0;;
-static const size_t EventPrintInterval = 100000;
+static const size_t EventPrintInterval = 1;
 
 void event_data (void *userptr, int eventIndex, const ModuleData *modules, int moduleCount)
 {

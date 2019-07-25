@@ -187,7 +187,7 @@ void listfile_close(ListfileOutput &lf_out)
         assert(!lf_out.outdev->isOpen());
     }
 
-    if (lf_out.archive)
+    if (lf_out.archive && lf_out.archive->isOpen())
     {
         lf_out.archive->close();
 
@@ -465,6 +465,67 @@ void stack_error_notification_poller(
     }
 }
 
+//
+// Listfile writing (and compression) in a separate thread
+//
+struct ListfileWriterThreadContext
+{
+    ListfileWriterThreadContext(size_t bufferCount, size_t bufferSize)
+        : quit(false)
+        , writeErrorCount(0)
+    {
+        for (size_t i=0; i<bufferCount;i++)
+        {
+            bufferStore.emplace_back(std::make_unique<DataBuffer>(bufferSize));
+            enqueue(&emptyBuffers, bufferStore.back().get());
+        }
+    }
+
+    std::atomic<bool> quit;
+    std::vector<std::unique_ptr<DataBuffer>> bufferStore;
+    ThreadSafeDataBufferQueue emptyBuffers;
+    ThreadSafeDataBufferQueue filledBuffers;
+    std::atomic<size_t> writeErrorCount;
+    // Protects access to the listfiles io device. Threads have to take this
+    // lock while they are writing to the file.
+    mesytec::mvme::TicketMutex listfileMutex;
+};
+
+void threaded_listfile_writer(
+    ListfileWriterThreadContext &ctx, QIODevice *outdev, DAQStats &daqStats)
+{
+    qDebug() << __PRETTY_FUNCTION__ << ">>> >>> >>> startup";
+
+    while (!(ctx.quit && is_empty(&ctx.filledBuffers)))
+    {
+        bool quit_ = ctx.quit;
+        bool is_empty_ = is_empty(&ctx.filledBuffers);
+
+        //qDebug() << "quit =" << quit_ << ", is_empty =" << is_empty(&ctx.filledBuffers)
+        //    << ", cond =" << !(quit_ && is_empty_);
+
+
+        if (auto buffer = dequeue(&ctx.filledBuffers, 100))
+        {
+            std::unique_lock<mesytec::mvme::TicketMutex> guard(ctx.listfileMutex);
+
+            if (outdev && outdev->isOpen())
+            {
+                qint64 bytesWritten = outdev->write(
+                    reinterpret_cast<const char *>(buffer->data), buffer->used);
+
+                if (bytesWritten != static_cast<qint64>(buffer->used))
+                    ++ctx.writeErrorCount;
+
+                daqStats.listFileBytesWritten += bytesWritten;
+            }
+
+            enqueue_and_wakeOne(&ctx.emptyBuffers, buffer);
+        }
+    }
+    qDebug() << __PRETTY_FUNCTION__ << "<<< <<< <<< shutdown";
+}
+
 } // end anon namespace
 
 struct MVLCReadoutWorker::Private
@@ -484,7 +545,6 @@ struct MVLCReadoutWorker::Private
     std::atomic<DAQState> desiredState;
     quint32 cyclesToRun = 0;
     bool logBuffers = false;
-    DataBuffer readBuffer;
     DataBuffer previousData;
     DataBuffer localEventBuffer;
     DataBuffer *outputBuffer = nullptr;
@@ -497,13 +557,19 @@ struct MVLCReadoutWorker::Private
     std::thread notificationPollerThread;
     std::atomic<bool> notificationPollerKeepRunning;
 
+    // Threaded listfile writing
+    static const size_t ListfileWriterBufferCount = 16u;
+    static const size_t ListfileWriterBufferSize  = ReadBufferSize;
+    ListfileWriterThreadContext listfileWriterContext;
+    std::thread listfileWriterThread;
+
     Private(MVLCReadoutWorker *q_)
         : q(q_)
         , state(DAQState::Idle)
         , desiredState(DAQState::Idle)
-        , readBuffer(ReadBufferSize)
         , previousData(ReadBufferSize)
         , localEventBuffer(LocalEventBufferSize)
+        , listfileWriterContext(ListfileWriterBufferCount, ListfileWriterBufferSize)
     {}
 
     struct EventWithModules
@@ -541,6 +607,11 @@ struct MVLCReadoutWorker::Private
             std::ref(counters),
             std::ref(countersMutex),
             std::ref(notificationPollerKeepRunning));
+
+#ifdef Q_OS_LINUX
+        pthread_setname_np(notificationPollerThread.native_handle(),
+                           "rdo_notify_poll");
+#endif
     }
 
     void stopNotificationPolling()
@@ -763,13 +834,31 @@ void MVLCReadoutWorker::readoutLoop()
 {
     setState(DAQState::Running);
 
+    assert(!d->listfileWriterThread.joinable());
+
+    d->listfileWriterContext.quit = false;
+
+    d->listfileWriterThread = std::thread(
+        threaded_listfile_writer,
+        std::ref(d->listfileWriterContext),
+        d->listfileOut.outdev.get(),
+        std::ref(m_workerContext.daqStats));
+
+#ifdef Q_OS_LINUX
+        pthread_setname_np(d->listfileWriterThread.native_handle(),
+                           "rdo_file_writer");
+#endif
+
     vme_analysis_common::TimetickGenerator timetickGen;
 
     while (true)
     {
         // Write a timestamp system event to the listfile once per second.
         if (timetickGen.generateElapsedSeconds() >= 1)
+        {
+            std::unique_lock<mesytec::mvme::TicketMutex> guard(d->listfileWriterContext.listfileMutex);
             listfile_write_timestamp(d->listfileOut);
+        }
 
         // stay in running state
         if (likely(d->state == DAQState::Running && d->desiredState == DAQState::Running))
@@ -824,6 +913,10 @@ void MVLCReadoutWorker::readoutLoop()
     setState(DAQState::Stopping);
     d->shutdownReadout();
     maybePutBackBuffer();
+
+    d->listfileWriterContext.quit = true;
+    if (d->listfileWriterThread.joinable())
+        d->listfileWriterThread.join();
 
     qDebug() << __PRETTY_FUNCTION__ << "at end";
 }
@@ -881,6 +974,9 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
     {
         size_t bytesTransferred = 0u;
 
+        // TODO: this would be more efficient if the lock is held for multiple
+        // packets. Using the FlushBufferTimeout is too long though and the GUI
+        // will become sluggish.
         auto dataGuard = mvlcLocks.lockData();
         auto result = d->mvlc_eth->read_packet(
             Pipe::Data, destBuffer->asU8(), destBuffer->free());
@@ -1102,6 +1198,7 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
 
         if (d->listfileOut.outdev)
         {
+#if 0
             // write to listfile
             qint64 bytesWritten = d->listfileOut.outdev->write(
                 reinterpret_cast<const char *>(outputBuffer->data),
@@ -1111,6 +1208,14 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
                 throw_io_device_error(d->listfileOut.outdev);
 
             m_workerContext.daqStats.listFileBytesWritten += bytesWritten;
+#else
+            if (auto listfileWriterBuffer = dequeue(&d->listfileWriterContext.emptyBuffers))
+            {
+                // copy the data and queue it up for the writer thread
+                *listfileWriterBuffer = *outputBuffer;
+                enqueue_and_wakeOne(&d->listfileWriterContext.filledBuffers, listfileWriterBuffer);
+            }
+#endif
         }
 
         if (outputBuffer != &d->localEventBuffer)
@@ -1129,6 +1234,7 @@ void MVLCReadoutWorker::pauseDAQ()
 {
     d->shutdownReadout();
 
+    std::unique_lock<mesytec::mvme::TicketMutex> guard(d->listfileWriterContext.listfileMutex);
     listfile_write_system_event(d->listfileOut, system_event::subtype::Pause);
 
     setState(DAQState::Paused);
@@ -1143,6 +1249,7 @@ void MVLCReadoutWorker::resumeDAQ()
 
     d->startNotificationPolling();
 
+    std::unique_lock<mesytec::mvme::TicketMutex> guard(d->listfileWriterContext.listfileMutex);
     listfile_write_system_event(d->listfileOut, system_event::subtype::Resume);
 
     setState(DAQState::Running);

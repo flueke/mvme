@@ -714,7 +714,7 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     if (size > 0)
     {
-        LOG_DEBUG("pipe=%u, requestedSize=%u, remainingSize=%u after read from MVLC,"
+        LOG_DEBUG("pipe=%u, requestedSize=%u, remainingSize=%u after read from MVLC, "
                   "returning FT_TIMEOUT (original ec=%s)",
                   static_cast<unsigned>(pipe), requestedSize, size,
                   ec.message().c_str());

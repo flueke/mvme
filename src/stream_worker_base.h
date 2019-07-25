@@ -37,6 +37,7 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         };
 
         StreamWorkerBase(QObject *parent = nullptr);
+        virtual ~StreamWorkerBase() override;
 
         virtual MVMEStreamWorkerState getState() const = 0;
 

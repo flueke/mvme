@@ -17,7 +17,7 @@ QString LIBMVME_EXPORT format_number(double value, const QString &unit,  UnitSca
                       QChar fillChar = QLatin1Char(' ')
                      );
 
-inline QString LIBMVME_EXPORT format_ipv4(u32 address)
+inline QString format_ipv4(u32 address)
 {
     return QString("%1.%2.%3.%4")
         .arg((address >> 24) & 0xFF)

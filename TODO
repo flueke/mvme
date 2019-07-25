@@ -1,6 +1,16 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* mvlc_eth under windows: connect/disconnect is not working properly. State
+  stays "disconnected" in the DAQControl widget while the dev_gui thinks it's
+  connected.
+* when reconnecting and the mvlc_eth was doing a readout the "force reset"
+  button doesn't get active anymore. Instead we just connect without any
+  warning at all.
+
+* cleanup thread listfile writing code. Also come up with a way to handle write
+  errors.
+
 * analysis refactoring:
   - Get rid of most of data_filter.h in ~/src. Implement what's needed in terms
     of the a2 data filter. I think what's needed is something to contain the
@@ -12,15 +22,18 @@ TODO list, not at all sorted by priority
     anymore. Instead a feature for naming individual array elements should be
     added. The name could be stored directly in the parameter.
 
-  - Get rid of the duplicate implementations of the output size calculations.
-    Try to use the a2 system and adapter logic to automatically build the input
-    operator. Then take the output counts and sizes from the a2 data and use it
-    to size the higher level operators outputs.
+  - Get rid of runtime data from the higher level Analysis layer.  Refactor
+    Analysis to only contain config data and output size calculations where
+    needed. Maybe move runtime information and the a2 adapter into a separate
+    state object. This way Analysis would not be responsible for config
+    storage, connection logic, building and running.
 
   - Rethink the connection logic, who owns things and when they are destroyed.
     Also redesign how threading and the worker startup logic is done. Try to
     use a copy of the analysis inside the worker. Make ui access to the runtime
     data safe.
+
+* Protect access to the globals DAQStats object with a mutex.
 
 * histogram data is wrong after zooming and applying a subrange
 

@@ -260,7 +260,9 @@ EventServer::EventServer(QObject *parent)
 }
 
 EventServer::~EventServer()
-{}
+{
+    qDebug() << "<<< >>> <<< >>>" << __PRETTY_FUNCTION__ << "<<< >>> <<< >>>";
+}
 
 void EventServer::startup()
 {
