@@ -158,6 +158,7 @@ if(MVME_ENABLE_MVLC)
     # mvlc_dev_gui
     add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
     target_link_libraries(mvlc_dev_gui libmvme_mvlc)
+    install(TARGETS mvlc_dev_gui DESTINATION .)
 
     if (WIN32)
         target_link_libraries(libmvme_mvlc ws2_32)
@@ -177,9 +178,6 @@ if(MVME_ENABLE_MVLC)
 
     add_executable(dev_test_mvlc_eth_impl mvlc/dev_test_mvlc_eth_impl.cc)
     target_link_libraries(dev_test_mvlc_eth_impl libmvme_mvlc)
-
-    install(TARGETS mvlc_dev_gui dev_test_mvlc_usb_impl dev_test_mvlc_eth_impl
-        DESTINATION .)
 
     if(BUILD_TESTS)
         function(add_mvlc_gtest exe_name exe_source)
@@ -229,8 +227,6 @@ target_sources(libmvme PRIVATE
     analysis/sink_widget_factory.cc
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
-    event_server/server/event_server_util.cc
-    event_server/server/event_server.cc
     daqcontrol.cc
     daqcontrol_widget.cc
     daqstats_widget.cc
@@ -400,15 +396,6 @@ add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
 add_mvme_executable(dev_data_filter_edit "dev_data_filter_edit.cc")
 add_mvme_executable(dev_histo1d_testing "dev_histo1d_testing.cc")
 add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
-
-
-set(INCLUDES_TO_INSTALL
-    #mvme_data_server_proto.h
-    #mvme_data_server_lib.h
-    ../3rdparty/nlohmann/json.hpp
-    )
-
-install(FILES ${INCLUDES_TO_INSTALL} DESTINATION include)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?

@@ -1,6 +1,9 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* when writing a zip listfile change the names of the analysis and message log
+  files to contain the run id. this also needs changes to the loading code when
+  searching both of these files.
 * mvlc_eth under windows: connect/disconnect is not working properly. State
   stays "disconnected" in the DAQControl widget while the dev_gui thinks it's
   connected.

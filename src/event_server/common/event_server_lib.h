@@ -5,7 +5,6 @@
 #include <winsock2.h>
 #include <ws2tcpip.h> // getaddrinfo
 #else
-
 // POSIX socket API
 #include <netdb.h>
 #include <sys/socket.h>

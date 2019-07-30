@@ -4,8 +4,8 @@ R"(
 
 ROOTCFLAGS	=	$(shell root-config --cflags)
 ROOTLIBS	=	$(shell root-config --libs)
-MVMELIBS    =   -L$(MVME) -L$(MVME)/lib -lmvme_root_event
-INCLUDES    =	-I$(MVME) -I$(MVME)/include
+MVMELIBS    =   -L. -L$(MVME) -L$(MVME)/lib -lmvme_root_event
+INCLUDES    =	-I$(MVME)/include -I$(MVME)/mvme_root_client
 
 CXXFLAGS   +=	-std=c++14 -fPIC
 CXXFLAGS   +=   $(INCLUDES)

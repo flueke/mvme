@@ -47,7 +47,7 @@
 
 // mvme
 #include <Mustache/mustache.hpp> // mustache template engine
-#include "common/event_server_lib.h" // event_server protocol parsing and socket handling
+#include <event_server/common/event_server_lib.h> // event_server protocol parsing and socket handling
 #include "mvme_root_event_objects.h" // base classes for generated experiment ROOT objects
 
 using std::cerr;
@@ -945,7 +945,6 @@ int main(int argc, char *argv[])
 
 */
 
-#if 1
     // host, port, quit after one run?,
     // output filename? if not specified is taken from the runId
     // send out a reply is response to the EndRun message?
@@ -1023,7 +1022,6 @@ int main(int argc, char *argv[])
         return 0;
 #endif
     }
-#endif
 
     setup_signal_handlers();
 

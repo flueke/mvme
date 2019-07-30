@@ -201,8 +201,9 @@ void EventServer::Private::handleNewConnection()
     }
 }
 
-void EventServer::Private::handleClientSocketError(QTcpSocket *socket,
-                                                          QAbstractSocket::SocketError error)
+void EventServer::Private::handleClientSocketError(
+    QTcpSocket *socket,
+    QAbstractSocket::SocketError error)
 {
     if (!m_runInProgress)
     {

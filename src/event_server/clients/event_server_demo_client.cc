@@ -1,4 +1,5 @@
-#include "event_server_lib.h"
+//#include "event_server_lib.h"
+#include <event_server/common/event_server_lib.h>
 
 #include <chrono>
 #include <getopt.h>
@@ -189,8 +190,6 @@ void setup_signal_handlers()
 
 } // end anon namespace
 
-// TODO: setup signal handler for ctrl-c (sigint i think)
-// same as in mvme_root_treewriter_client.cc
 int main(int argc, char *argv[])
 {
     // host, port, quit after one run?,
