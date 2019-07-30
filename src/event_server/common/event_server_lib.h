@@ -232,11 +232,11 @@ T read_pod(int fd)
     return result;
 }
 
-// Limit the size of a single incoming message to 10MB. Theoretically 4GB
+// Limit the size of a single incoming message to 100MB. Theoretically 4GB
 // messages are possible but in practice messages will be much, much smaller.
 // Increase this value if your experiment generates EventData messages that are
 // larger or just remove the check in read_message() completely.
-static const size_t MaxMessageSize = 10 * 1024 * 1024;
+static const size_t MaxMessageSize = 100 * 1024 * 1024;
 
 // Read a single Message from the given file descriptor fd into the given msg
 // structure.
@@ -261,7 +261,7 @@ static void read_message(int fd, Message &msg)
 
     if (size > MaxMessageSize)
     {
-        throw protocol_error("Message size exceeds "
+        throw protocol_error("Message size exceeds maximum size of "
                              + std::to_string(MaxMessageSize) + " bytes");
     }
 
