@@ -5,7 +5,7 @@ mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 current_dir := $(dir $(mkfile_path))
 
 CXXFLAGS   +=	-I$(current_dir)../include
-CXXFLAGS   +=	-std=c++14
+CXXFLAGS   +=	-std=c++14 -g -O0
 
 .PHONY: all clean
 

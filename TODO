@@ -1,6 +1,33 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* EventServer does not start automatically. This might only happen after
+  loading a listfile. Track this down!
+* void MVMEContext::prepareStart() starting mvme stream worker
+  Qt has caught an exception thrown from an event handler. Throwing
+  exceptions from an event handler is not supported in Qt.
+  You must not let any exception whatsoever propagate through Qt code.
+  If that is not possible, in Qt 5 you must at least reimplement
+  QCoreApplication::notify() and catch all exceptions there.
+
+  terminate called after throwing an instance of 'vme_script::ParseError'
+
+  Thread 6 "analysis" received signal SIGABRT, Aborted.
+  [Switching to Thread 0x7fffe37fe700 (LWP 18067)]
+  __GI_raise (sig=sig@entry=6) at ../sysdeps/unix/sysv/linux/raise.c:50
+  50      ../sysdeps/unix/sysv/linux/raise.c: No such file or directory.
+  (gdb) bt
+  #0  __GI_raise (sig=sig@entry=6) at ../sysdeps/unix/sysv/linux/raise.c:50
+  #1  0x00007ffff55c3535 in __GI_abort () at abort.c:79
+  #2  0x00007ffff5ae24f5 in __gnu_cxx::__verbose_terminate_handler() () from /home/florian/src/mvme2/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+  #3  0x00007ffff5adfc56 in __cxxabiv1::__terminate(void (*)()) () from /home/florian/src/mvme2/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+  #4  0x00007ffff5adfc83 in std::terminate() () from /home/florian/src/mvme2/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+  #5  0x00007ffff6180dd3 in qTerminate() () from /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
+  #6  0x00007ffff6183182 in ?? () from /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
+  #7  0x00007ffff7451fa3 in start_thread (arg=<optimized out>) at pthread_create.c:486
+  #8  0x00007ffff569a4cf in clone () at ../sysdeps/unix/sysv/linux/x86_64/clone.S:95
+
+
 * when writing a zip listfile change the names of the analysis and message log
   files to contain the run id. this also needs changes to the loading code when
   searching both of these files.

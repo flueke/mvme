@@ -404,7 +404,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         std::string headerFilename = expName + "_mvme.h";
         std::string implFilename = expName + "_mvme.cxx";
 
-        // Tables information about which code files to generate.
+        // Tables with information about which code files to generate.
         auto expROOTCodeFiles =
         {
             CodeGenArgs
@@ -541,7 +541,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         {
             cout << "Running make ..." << endl << endl;
             int res = gSystem->Exec("make");
-            cout << endl << "---------- End of make output ----------" << endl; 
+            cout << endl << "---------- End of make output ----------" << endl;
 
             if (res != 0)
             {
@@ -838,6 +838,8 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
     }
 }
 
+using MVMERunInfo = std::map<std::string, std::string>;
+
 void ClientContext::endRun(const Message &msg, const json &info)
 {
     cout << __FUNCTION__ << ": endRun info:" << endl << info.dump(2) << endl;
@@ -849,7 +851,7 @@ void ClientContext::endRun(const Message &msg, const json &info)
     {
         cout << "  Writing additional info to output file..." << endl;
 
-        std::map<std::string, std::string> info;
+        MVMERunInfo info;
 
         info["ExperimentName"] = m_exp->GetName();
         info["RunID"] = getStreamInfo().runId;
@@ -858,6 +860,7 @@ void ClientContext::endRun(const Message &msg, const json &info)
         // TODO: use a TDirectory to hold mvme stuff
         // also try a TMap to hold either TStrings or more TMaps
         // figure out how freeing that memory then works
+        // FIXME: this does have the title "object title" in rootls
         m_outFile->WriteObject(&info, "MVMERunInfo");
 
         cout << "  Closing output file " << m_outFile->GetName() << "..." << endl;
@@ -950,6 +953,7 @@ int main(int argc, char *argv[])
     // send out a reply is response to the EndRun message?
     std::string host = "localhost";
     std::string port = "13801";
+    std::string inputFilename;
     bool singleRun = false;
     bool showHelp = false;
 
@@ -962,9 +966,10 @@ int main(int argc, char *argv[])
         {
             { "single-run", no_argument, nullptr, 0 },
             { "show-stream-info", no_argument, nullptr, 0 },
-            { "host", no_argument, nullptr, 0 },
-            { "port", no_argument, nullptr, 0 },
             { "help", no_argument, nullptr, 0 },
+            { "host", required_argument, nullptr, 0 },
+            { "port", required_argument, nullptr, 0 },
+            { "file", required_argument, nullptr, 0 },
             { nullptr, 0, nullptr, 0 },
         };
 
@@ -988,6 +993,7 @@ int main(int argc, char *argv[])
                     else if (opt_name == "show-stream-info") clientOpts |= Opts::ShowStreamInfo;
                     else if (opt_name == "host") host = optarg;
                     else if (opt_name == "port") port = optarg;
+                    else if (opt_name == "file") inputFilename = optarg;
                     else if (opt_name == "help") showHelp = true;
                     else
                     {
@@ -997,7 +1003,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (showHelp)
+    if (showHelp) // FIXME: write help text
     {
 #if 0
         cout << "Usage: " << argv[0]
@@ -1031,83 +1037,209 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    ClientContext ctx(clientOpts);
-
-    // A single message object, whose buffer is reused for each incoming
-    // message.
-    Message msg;
-    int sockfd = -1;
     int retval = 0;
-    bool doQuit = false;
 
-    while (!doQuit && !signal_received)
+    if (inputFilename.empty())
     {
-        if (sockfd < 0)
-        {
-            cout << "Connecting to " << host << ":" << port << " ..." << endl;
-        }
+        // Act as a client to the mvme event_server. This code tries to connect
+        // to mvme, receive run data and produce ROOT files until canceled via
+        // Ctrl-C.
 
-        // auto reconnect loop until connected or a signal arrived
-        while (sockfd < 0 && !signal_received)
+        ClientContext ctx(clientOpts);
+
+        // A single message object, whose buffer is reused for each incoming
+        // message.
+        Message msg;
+        int sockfd = -1;
+        bool doQuit = false;
+
+        while (!doQuit && !signal_received)
         {
+            if (sockfd < 0)
+            {
+                cout << "Connecting to " << host << ":" << port << " ..." << endl;
+            }
+
+            // auto reconnect loop until connected or a signal arrived
+            while (sockfd < 0 && !signal_received)
+            {
+                try
+                {
+                    sockfd = connect_to(host.c_str(), port.c_str());
+                }
+                catch (const mvme::event_server::exception &e)
+                {
+                    sockfd = -1;
+                }
+
+                if (sockfd >= 0)
+                {
+                    cout << "Connected to " << host << ":" << port << endl;
+                    ctx.setHostAndPort(host, port);
+                    break;
+                }
+
+                if (usleep(1000 * 1000) != 0 && errno != EINTR)
+                {
+                    throw std::system_error(errno, std::generic_category(), "usleep");
+                }
+            }
+
+            if (signal_received) break;
+
             try
             {
-                sockfd = connect_to(host.c_str(), port.c_str());
+                read_message(sockfd, msg);
+                ctx.handleMessage(msg);
+
+                if (singleRun && msg.type == MessageType::EndRun)
+                {
+                    doQuit = true;
+                }
+                else
+                {
+                    doQuit = ctx.ShouldQuit();
+                }
+            }
+            catch (const mvme::event_server::connection_closed &)
+            {
+                cout << "Error: The remote host closed the connection." << endl;
+                sockfd = -1;
+                // Reset context state as we're going to attempt to reconnect.
+                ctx.reset();
             }
             catch (const mvme::event_server::exception &e)
             {
-                sockfd = -1;
-            }
-
-            if (sockfd >= 0)
-            {
-                cout << "Connected to " << host << ":" << port << endl;
-                ctx.setHostAndPort(host, port);
+                cout << "An error occured: " << e.what() << endl;
+                retval = 1;
                 break;
             }
-
-            if (usleep(1000 * 1000) != 0 && errno != EINTR)
+            catch (const std::system_error &e)
             {
-                throw std::system_error(errno, std::generic_category(), "usleep");
+                cout << "Disconnected from " << host << ":" << port
+                    << ", reason: " << e.what() << endl;
+                sockfd = -1;
+                retval = 1;
+                break;
+            }
+        }
+    }
+    else
+    {
+        // Replay from ROOT file.
+        TFile f(inputFilename.c_str(), "read");
+
+        auto runInfoPtr = reinterpret_cast<MVMERunInfo *>(f.Get("MVMERunInfo"));
+
+        if (!runInfoPtr)
+        {
+            cout << "Error: input file " << inputFilename << " does not contain an MVMERunInfo object"
+                << endl;
+            return 1;
+        }
+
+        auto runInfo = *runInfoPtr;
+
+        std::string expName = runInfo["ExperimentName"];
+        std::string expStructName = expName;
+        std::string runId = runInfo["RunID"];
+        std::string libName = "lib" + expName + "_mvme.so";
+
+        // Run make
+        {
+            cout << "Running make ..." << endl << endl;
+            int res = gSystem->Exec("make");
+            cout << endl << "---------- End of make output ----------" << endl;
+
+            if (res != 0)
+            {
+                return 1;
             }
         }
 
-        if (signal_received) break;
-
-        try
+        // Load experiment library
         {
-            read_message(sockfd, msg);
-            ctx.handleMessage(msg);
+            std::string libName = "lib" + expName + "_mvme.so";
+            cout << "Loading experiment library " << libName << endl;
+            int res = gSystem->Load(libName.c_str());
 
-            if (singleRun && msg.type == MessageType::EndRun)
+            cout << "res=" << res << endl;
+
+            if (res != 0 && res != 1)
             {
-                doQuit = true;
-            }
-            else
-            {
-                doQuit = ctx.ShouldQuit();
+                cout << "Error loading experiment library " << libName << endl;
+                return 1;
             }
         }
-        catch (const mvme::event_server::connection_closed &)
+
+        // Create an instance of the generated experiment class
+        std::string cmd = "new " + expStructName + "();";
+        auto exp = std::unique_ptr<MVMEExperiment>(reinterpret_cast<MVMEExperiment *>(
+                gROOT->ProcessLineSync(cmd.c_str())));
+
+        if (!exp)
         {
-            cout << "Error: The remote host closed the connection." << endl;
-            sockfd = -1;
-            // Reset context state as we're going to attempt to reconnect.
-            ctx.reset();
+            cout << "Error creating an instance of the experiment class '"
+                << expStructName << "'" << endl;
+            return 1;
         }
-        catch (const mvme::event_server::exception &e)
+
+        // Setup tree branch addresses to point to the experiment subobjects.
+        auto trees = exp->InitTrees(&f);
+
+        if (trees.size() != exp->GetNumberOfEvents())
         {
-            cout << "An error occured: " << e.what() << endl;
-            retval = 1;
-            break;
+            cout << "Error: could not read experiment trees from input file "
+                << inputFilename << endl;
+            return 1;
         }
-        catch (const std::system_error &e)
+
+        UserAnalysis analysis = {};
+
+        // Load analysis
         {
-            cout << "Disconnected from " << host << ":" << port
-                << ", reason: " << e.what() << endl;
-            sockfd = -1;
-            retval = 1;
-            break;
+            cout << "Loading analysis.so" << endl;
+            void *handle = dlopen("analysis.so", RTLD_NOW | RTLD_GLOBAL);
+            if (!handle)
+            {
+                cout << "Error loading analysis.so: " << dlerror() << endl;
+                return 1;
+            }
+
+            analysis.init = load_sym<UserAnalysis::InitFunc>(handle, "init_analysis");
+            analysis.shutdown = load_sym<UserAnalysis::ShutdownFunc>(handle, "shutdown_analysis");
+            analysis.beginRun = load_sym<UserAnalysis::BeginRunFunc>(handle, "begin_run");
+            analysis.endRun = load_sym<UserAnalysis::EndRunFunc>(handle, "end_run");
+
+            for (auto &event: exp->GetEvents())
+            {
+                auto fname = std::string("analyze_") + event->GetName();
+                auto func = load_sym<UserAnalysis::EventFunc>(handle, fname.c_str());
+                analysis.eventFunctions.push_back(func);
+            }
+        }
+
+        // Replay tree data
+        for (size_t eventIndex = 0; eventIndex < trees.size(); eventIndex++)
+        {
+            auto tree = trees[eventIndex];
+            auto event = exp->GetEvent(eventIndex);
+            auto analyzeFunc = analysis.eventFunctions[eventIndex];
+
+            cout << "Replaying data from tree " << tree->GetName() << "..." << std::flush;
+
+            const auto entryCount = tree->GetEntries();
+
+            for (int64_t entryIndex = 0; entryIndex < entryCount; entryIndex++)
+            {
+                // Fills the experiment subobjects with data read from the tree.
+                tree->GetEntry(entryIndex);
+
+                if (analyzeFunc)
+                    analyzeFunc(event);
+            }
+
+            cout << " read " << entryCount << " entries." << endl;
         }
     }
 

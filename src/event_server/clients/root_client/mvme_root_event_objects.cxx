@@ -67,6 +67,15 @@ std::vector<TTree *> MVMEExperiment::MakeTrees()
     for (auto event: GetEvents())
     {
         auto tree = new TTree(event->GetName(), Form("Tree for event '%s'", event->GetName()));
+
+        // Disables TTree autosaves. This way objects in the output file won't
+        // have a cycle number != 1 and no versions, each with a different
+        // cycle number, will be kept. The drawback is that in case of a crash
+        // all the data is lost.
+        // Another alternative to get rid of the last two cycles in a tree
+        // would be to try to manually delete the 2nd to last cycle from the file.
+        tree->SetAutoSave(0);
+
         result.push_back(tree);
 
         for (auto module: event->GetModules())
