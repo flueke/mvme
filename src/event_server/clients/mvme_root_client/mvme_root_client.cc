@@ -866,7 +866,7 @@ void ClientContext::endRun(const Message &msg, const json &info)
 
         cout << "  Closing output file " << m_outFile->GetName() << "..." << endl;
         m_outFile->Write();
-        m_outFile.release();
+        m_outFile = {};
     }
 
     cout << "  HitCounts by event:" << endl;
@@ -902,7 +902,8 @@ void ClientContext::error(const Message &msg, const std::exception &e)
     if (m_outFile)
     {
         cout << "Closing output file " << m_outFile->GetName() << "..." << endl;
-        m_outFile.release();
+        m_outFile->Write();
+        m_outFile = {};
     }
 
     m_quit = true;
