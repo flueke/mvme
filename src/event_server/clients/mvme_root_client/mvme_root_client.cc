@@ -41,6 +41,7 @@
 
 // ROOT
 #include <TFile.h>
+#include <TH1D.h>
 #include <TRandom.h> // gRandom
 #include <TROOT.h> // gROOT
 #include <TSystem.h> // gSystem
@@ -157,6 +158,16 @@ class ClientContext: public mvme::event_server::Parser
         std::unique_ptr<MVMEExperiment> m_exp;
         std::unique_ptr<TFile> m_outFile;
         std::vector<TTree *> m_eventTrees;
+
+        // Raw histograms by (eventIndex, dataSourceIndex, paramIndex)
+        // flattened out.
+        std::vector<TH1D *> m_rawHistos;
+
+        // Stores the index into m_rawHistos of the first histogram of an
+        // event. The sum of the data source sizes of an event is the number
+        // of histograms for that event.
+        std::vector<size_t> m_rawHistoEventIndexes;
+
         RunStats m_stats;
         bool m_quit = false;
         bool m_codeGeneratedAndLoaded = false;
@@ -656,6 +667,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
         if (m_analysis.init)
         {
+            // FIXME
             bool res = m_analysis.init({ "FIXME", "pass", "some", "args", "here"});
 
             if (!res)
@@ -704,6 +716,47 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         cout << "  " << tree << " " << tree->GetName() << "\t" << tree->GetTitle() << endl;
     }
     assert(m_eventTrees.size() == m_exp->GetNumberOfEvents());
+
+    cout << "Creating raw histograms" << endl;
+    {
+        m_rawHistos.clear();
+        m_rawHistoEventIndexes.clear();
+
+        for (const auto &edd: streamInfo.eventDataDescriptions)
+        {
+            m_rawHistoEventIndexes.emplace_back(m_rawHistos.size());
+
+            for (const auto &dsd: edd.dataSources)
+            {
+                for (int chan = 0; chan < dsd.size; chan++)
+                {
+                    const VMEEvent &event = streamInfo.vmeTree.events[edd.eventIndex];
+                    const VMEModule &module = event.modules[dsd.moduleIndex];
+
+                    std::string name =
+                        event.name + "_" + module.name + "_"
+                        + dsd.name + "[" + std::to_string(chan) + "]";
+
+                    // cap at 16 bits
+                    unsigned bins = 1u << std::min(static_cast<unsigned>(dsd.bits), 16u);
+
+                    //auto histo = std::make_unique<TH1D>();
+                    auto histo = new TH1D(
+                        name.c_str(),
+                        name.c_str(),
+                        bins,
+                        dsd.lowerLimit,
+                        dsd.upperLimit
+                        );
+                    m_rawHistos.emplace_back(std::move(histo));
+                }
+            }
+        }
+    }
+
+    assert(m_rawHistoEventIndexes.size() == streamInfo.eventDataDescriptions.size());
+
+    cout << "Created " << m_rawHistos.size() << " histograms." << endl;
 
     // call custom user analysis code
     if (m_analysis.beginRun)
@@ -759,6 +812,8 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
     m_stats.eventHits[eventIndex]++;
 
+    size_t rawHistoIndex = m_rawHistoEventIndexes[eventIndex];
+
     // Copy incoming data into the data members of the generated classes
     for (size_t dsIndex = 0; dsIndex < contents.size(); dsIndex++)
     {
@@ -809,6 +864,11 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
                 }
 
                 userStorage.ptr[index] = value;
+
+                // FIXME: this does not work because not all indexes into the
+                // userstorage are transmitted. The index value will be off as
+                // soon as a channel doesn't respond.
+                m_rawHistos[rawHistoIndex++]->Fill(value);
             }
             else
             {
@@ -867,6 +927,7 @@ void ClientContext::endRun(const Message &msg, const json &info)
         cout << "  Closing output file " << m_outFile->GetName() << "..." << endl;
         m_outFile->Write();
         m_outFile = {};
+        m_rawHistos.clear();
     }
 
     cout << "  HitCounts by event:" << endl;
@@ -904,6 +965,7 @@ void ClientContext::error(const Message &msg, const std::exception &e)
         cout << "Closing output file " << m_outFile->GetName() << "..." << endl;
         m_outFile->Write();
         m_outFile = {};
+        m_rawHistos.clear();
     }
 
     m_quit = true;
