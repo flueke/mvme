@@ -108,8 +108,8 @@ include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann" DESTINATION include)
-install(FILES "${CMAKE_SOURCE_DIR}/3rdparty/Mustache/mustache.hpp" DESTINATION include/Mustache)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann" DESTINATION include/mvme)
+install(FILES "${CMAKE_SOURCE_DIR}/3rdparty/Mustache/mustache.hpp" DESTINATION include/mvme/Mustache)
 
 # quazip
 find_path(QUAZIP_INCLUDE_DIR

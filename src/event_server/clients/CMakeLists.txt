@@ -7,8 +7,8 @@ endif (WIN32)
 
 install(TARGETS mvme_event_server_example_client DESTINATION .)
 
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/root_client/"
-    DESTINATION mvme_root_client)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/mvme_root_client/"
+    DESTINATION share/mvme_root_client)
 
 # ROOT
 # https://root.cern.ch/how/integrate-root-my-project-cmake

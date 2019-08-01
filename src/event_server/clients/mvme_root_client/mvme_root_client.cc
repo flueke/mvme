@@ -46,8 +46,8 @@
 #include <TSystem.h> // gSystem
 
 // mvme
-#include <Mustache/mustache.hpp> // mustache template engine
-#include <event_server/common/event_server_lib.h> // event_server protocol parsing and socket handling
+#include <mvme/Mustache/mustache.hpp> // mustache template engine
+#include <mvme/event_server/common/event_server_lib.h> // event_server protocol parsing and socket handling
 #include "mvme_root_event_objects.h" // base classes for generated experiment ROOT objects
 
 using std::cerr;
