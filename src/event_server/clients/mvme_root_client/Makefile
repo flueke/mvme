@@ -29,6 +29,8 @@ clean:
 	-rm -f mvme_root_client mvme_root_event.rootmap
 
 install: all
-	mkdir -p $(MVME)/bin $(MVME)/lib
+	mkdir -p $(MVME)/bin $(MVME)/lib $(MVME)/include
 	install -m 755 mvme_root_client $(MVME)/bin/mvme_root_client
 	install -m 755 libmvme_root_event.so $(MVME)/lib/libmvme_root_event.so
+	install -m 644 mvme_root_event_rdict_rdict.pcm $(MVME)/lib/mvme_root_event_rdict_rdict.pcm
+	install -m 644 $(EVENT_OBJECTS_HEADERS) $(MVME)/include/mvme
