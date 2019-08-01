@@ -1,11 +1,11 @@
 # A small standalone test client for the mvme analysis event_server component.
-add_executable(mvme_event_server_demo_client event_server_demo_client.cc)
+add_executable(mvme_event_server_example_client event_server_example_client.cc)
 
 if (WIN32)
-    target_link_libraries(mvme_event_server_demo_client ws2_32)
+    target_link_libraries(mvme_event_server_example_client ws2_32)
 endif (WIN32)
 
-install(TARGETS mvme_event_server_demo_client DESTINATION .)
+install(TARGETS mvme_event_server_example_client DESTINATION .)
 
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/root_client/"
     DESTINATION mvme_root_client)
