@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cassert>
 #include <cstdio>
+#include <future>
 #include <iomanip>
 #include <numeric>
 #include <regex>
@@ -273,7 +274,7 @@ std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 
-    static const int RetryCount = 3;
+    static const int RetryCount = 5;
     static const int DataBufferSize = 10 * 1024;
 
     mesytec::mvlc::MVLCDialog dlg(&impl);
@@ -285,6 +286,45 @@ std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
     // notification data can be stuck in the command pipe so that the responses
     // are not parsed correctly.
 
+#if 1
+    // Try setting the trigger registers in a separate thread. This uses the
+    // command pipe for communication.
+    auto f = std::async([&dlg] () -> std::error_code
+    {
+        for (int try_ = 0; try_ < RetryCount; try_++)
+        {
+            if (auto ec = disable_all_triggers(dlg))
+            {
+                if (ec == ErrorType::ConnectionError)
+                    return ec;
+            }
+            else
+                return ec;
+        }
+
+        return {};
+    });
+
+    // Use this thread to read the data pipe. This needs to happen so that
+    // readout data doesn't clog up the data pipe brining communication to a
+    // halt.
+    {
+        size_t bytesTransferred = 0u;
+        std::array<u8, DataBufferSize> buffer;
+
+        do
+        {
+            ec = impl.read(Pipe::Data, buffer.data(), buffer.size(), bytesTransferred);
+            totalBytesTransferred += bytesTransferred;
+
+            if (ec == ErrorType::ConnectionError)
+                break;
+        } while (bytesTransferred > 0);
+    }
+
+    ec = f.get();
+
+#else
     for (int try_ = 0; try_ < RetryCount; try_++)
     {
         ec = disable_all_triggers(dlg);
@@ -311,6 +351,7 @@ std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
         if (!ec)
             break; // all good, no need to retry
     }
+#endif
 
     qDebug() << __PRETTY_FUNCTION__ << "end, totalBytesTransferred ="
         << totalBytesTransferred << ", ec =" << ec.message().c_str();
