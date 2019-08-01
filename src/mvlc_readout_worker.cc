@@ -870,6 +870,9 @@ void MVLCReadoutWorker::readoutLoop()
             {
                 logMessage(QSL("Lost connection to MVLC. Leaving readout loop. Error=%1")
                            .arg(ec.message().c_str()));
+                // Call close on the MVLC_VMEController so that the
+                // "disconnected" state is reflected in the whole application.
+                d->mvlcCtrl->close();
                 break;
             }
 
