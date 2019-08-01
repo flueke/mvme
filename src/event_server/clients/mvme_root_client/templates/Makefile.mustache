@@ -5,14 +5,14 @@ R"(
 ROOTCFLAGS	=	$(shell root-config --cflags)
 ROOTLIBS	=	$(shell root-config --libs)
 MVMELIBS    =   -L. -L$(MVME) -L$(MVME)/lib -lmvme_root_event
-INCLUDES    =	-I$(MVME)/include -I$(MVME)/mvme_root_client
+INCLUDES    =	-I$(MVME)/include
 
 CXXFLAGS   +=	-std=c++14 -fPIC
 CXXFLAGS   +=   $(INCLUDES)
 
 EXP_LIB		= lib{{exp_name}}_mvme.so
 EXP_DICT	= lib{{exp_name}}_mvme_dict.cxx
-EXP_LINK    = {{exp_name}}_mvme
+EXP_LINK    = -L. -l{{exp_name}}_mvme
 EXP_LINKDEF = {{exp_name}}_mvme_LinkDef.h
 
 ALL_TARGETS	= $(EXP_LIB)

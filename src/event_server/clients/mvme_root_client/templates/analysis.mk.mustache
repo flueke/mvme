@@ -9,7 +9,7 @@ analysis.o: analysis.cxx $(ANALYSIS_DEPS)
 	$(CXX) $(ROOTCFLAGS) $(CXXFLAGS) -c $<
 
 analysis.so: analysis.o
-	$(CXX) $(LDFLAGS) $(ROOTLIBS) $(MVMELIBS) $(ANALYSIS_LIBS) -Wl,-rpath,. -L. -l$(EXP_LINK) -shared -o $@ $<
+	$(CXX) $(LDFLAGS) $(ROOTLIBS) $(MVMELIBS) $(ANALYSIS_LIBS) -Wl,-rpath,. $(EXP_LINK) -shared -o $@ $<
 
 {{!
 vim:ft=make

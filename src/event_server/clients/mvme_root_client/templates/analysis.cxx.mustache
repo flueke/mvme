@@ -23,8 +23,7 @@ bool shutdown_analysis()
 }
 
 // Called each time a new run stats.
-bool begin_run(const std::string &inputSource, const std::string &runId,
-               bool isReplay)
+bool begin_run(const std::string &inputSource, const std::string &runId, bool isReplay)
 {
     std::cerr << __PRETTY_FUNCTION__ << std::endl;
     return true;
@@ -40,7 +39,7 @@ bool end_run()
 {{#vme_events}}
 bool analyze_{{name}}(Event_{{name}} *event)
 {
-    // ===== Custom analysis code for event {{struct_name}} goes here =====
+    // ===== Custom analysis code for {{struct_name}} goes here =====
 
     return true;
 }
