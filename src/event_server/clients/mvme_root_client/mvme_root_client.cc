@@ -310,7 +310,6 @@ if (expLibLoaded && any_of_exp_lib_files_changed)
 Reload analysis code
 
 */
-
 CodeGenResult generate_code_file(const CodeGenArgs &args, const mu::data &templateData)
 {
     auto read_file = [](const std::string &filename)
@@ -330,7 +329,9 @@ CodeGenResult generate_code_file(const CodeGenArgs &args, const mu::data &templa
 
     auto render_template = [](const char *contents, const mu::data &data)
     {
+        auto no_escape = [](const auto &s) { return s; };
         mu::mustache tmpl(contents);
+        tmpl.set_custom_escape(no_escape);
         return tmpl.render(data);
     };
 
