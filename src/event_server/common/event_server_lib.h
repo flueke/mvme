@@ -775,8 +775,8 @@ inline void Parser::_beginRun(const Message &msg)
 {
     auto infoJson = json::parse(msg.contents);
 
-    std::cout << __FUNCTION__ << ": streamInfo JSON data:" << std::endl
-        << infoJson.dump(2) << std::endl;
+    //std::cout << __FUNCTION__ << ": streamInfo JSON data:" << std::endl
+    //    << infoJson.dump(2) << std::endl;
 
     m_streamInfo = parse_stream_info(infoJson);
     beginRun(msg, m_streamInfo);
