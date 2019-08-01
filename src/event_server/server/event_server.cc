@@ -49,6 +49,7 @@ struct EventServer::Private
         : m_q(q)
         , m_server(q)
         , m_outBuf(InitialOutBufferSize)
+        , m_enabled(false)
     { }
 
     EventServer *m_q;

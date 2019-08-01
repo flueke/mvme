@@ -56,6 +56,7 @@
 #include <QtConcurrent>
 #include <QThread>
 #include <QTimer>
+#include <tuple>
 
 namespace
 {
@@ -628,6 +629,23 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
     emit vmeConfigChanged(config);
 }
 
+// Return value is (enabled, listen_hostinfo, listen_port)
+static std::tuple<bool, QHostInfo, int> get_event_server_listen_info(const QSettings &workspaceSettings)
+{
+    if (!workspaceSettings.value(QSL("EventServer/Enabled")).toBool())
+        return std::make_tuple(false, QHostInfo(), 0);
+
+    auto addressString = workspaceSettings.value(QSL("EventServer/ListenAddress")).toString();
+    auto port = workspaceSettings.value(QSL("EventServer/ListenPort")).toInt();
+
+    if (!addressString.isEmpty())
+    {
+        return std::make_tuple(true, QHostInfo::fromName(addressString), port);
+    }
+
+    return std::make_tuple(true, QHostInfo::fromName("127.0.0.1"), port);
+}
+
 bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap &settings)
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
@@ -732,8 +750,8 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     if (m_streamWorker)
     {
         auto streamWorker = m_streamWorker.release();
-        streamWorker->deleteLater();
-        m_d->m_eventServer = nullptr; // clear the non-owning pointer
+        streamWorker->deleteLater(); // Will also delete the current EventServer instance
+        m_d->m_eventServer = nullptr;
         processQtEvents();
     }
 
@@ -754,12 +772,43 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     assert(m_streamWorker);
 
-    auto eventServer = new EventServer(m_streamWorker.get());
-    m_d->m_eventServer = eventServer; // set the non-owning pointer
 
-    eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
-    eventServer->setEnabled(false);
-    m_streamWorker->attachModuleConsumer(eventServer);
+    // EventServer setup
+    {
+        m_d->m_eventServer = new EventServer(m_streamWorker.get());; // Note: this is a non-owning pointer
+        m_streamWorker->attachModuleConsumer(m_d->m_eventServer);
+
+        auto eventServer = m_d->m_eventServer;
+
+        eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
+
+        auto settings = makeWorkspaceSettings();
+        bool enabled = false;
+        QHostInfo hostInfo;
+        int port = 0;
+
+        if (settings)
+            std::tie(enabled, hostInfo, port) = get_event_server_listen_info(*settings);
+
+        if (hostInfo.error() || hostInfo.addresses().isEmpty())
+        {
+            logMessage(QSL("EventServer error: could not resolve listening address ")
+                       + hostInfo.hostName() + ": " + hostInfo.errorString());
+        }
+        else if (!hostInfo.addresses().isEmpty())
+        {
+            eventServer->setListeningInfo(hostInfo.addresses().first(), port);
+        }
+
+        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer,
+                                                 "setEnabled",
+                                                 Qt::QueuedConnection,
+                                                 Q_ARG(bool, enabled));
+        assert(invoked);
+        (void) invoked;
+
+    }
+
     m_streamWorker->moveToThread(m_analysisThread);
 
     // Run the StreamWorkerBase::startupConsumers in the worker thread. This is
@@ -2169,34 +2218,20 @@ void MVMEContext::reapplyWorkspaceSettings()
 
     // EventServer
     {
-        auto enabled = settings->value(QSL("EventServer/Enabled")).toBool();
-        auto addressString = settings->value(QSL("EventServer/ListenAddress")).toString();
-        auto port = settings->value(QSL("EventServer/ListenPort")).toInt();
-        QHostAddress address;
+        bool enabled;
+        QHostInfo hostInfo;
+        int port;
 
-        if (enabled && !addressString.isEmpty())
+        std::tie(enabled, hostInfo, port) = get_event_server_listen_info(*settings);
+
+        if (hostInfo.error() || hostInfo.addresses().isEmpty())
         {
-            auto hostInfo = QHostInfo::fromName(addressString);
-
-            if (hostInfo.addresses().isEmpty())
-            {
-                logMessage(QSL("EventServer error: could not resolve listening address ")
-                           + addressString);
-                enabled = false;
-            }
-            else
-            {
-                address = hostInfo.addresses().first();
-            }
+            logMessage(QSL("EventServer error: could not resolve listening address ")
+                       + hostInfo.hostName() + ": " + hostInfo.errorString());
         }
-        else if (enabled)
+        else if (!hostInfo.addresses().isEmpty())
         {
-            address = QHostAddress::Any;
-        }
-
-        if (enabled)
-        {
-            m_d->m_eventServer->setListeningInfo(address, port);
+            m_d->m_eventServer->setListeningInfo(hostInfo.addresses().first(), port);
         }
 
         bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer,
@@ -2204,6 +2239,7 @@ void MVMEContext::reapplyWorkspaceSettings()
                                                  Qt::QueuedConnection,
                                                  Q_ARG(bool, enabled));
         assert(invoked);
+        (void) invoked;
     }
 }
 
