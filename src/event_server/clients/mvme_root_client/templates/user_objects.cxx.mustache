@@ -13,7 +13,10 @@ namespace {{name}}_modules
 {{/ref_members}}
 {
 {{#data_members}}
-    RegisterDataStorage({{name}}, {{size}});
+    RegisterDataStorage({{name}}, {{size}}, {{bits}}, "{{name}}",
+        { {{#param_names}}
+            "{{.}}",
+        {{/param_names}} });
 {{/data_members}}
 }
 
@@ -33,6 +36,7 @@ namespace {{name}}_modules
 
 {{struct_name}}::~{{struct_name}}()
 {}
+
 {{/vme_events}}
 
 {{exp_struct_name}}::{{exp_struct_name}}()

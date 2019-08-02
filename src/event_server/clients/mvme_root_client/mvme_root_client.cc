@@ -251,9 +251,8 @@ static mu::data build_event_template_data(const StreamInfo &streamInfo)
                     mu::data mu_dataMember = mu::data::type::object;
                     mu_dataMember["name"] = dsd.name;
                     mu_dataMember["size"] = std::to_string(dsd.size);
-                    mu_dataMember["dsIndex"] = std::to_string(dsIndex);
-
-                    mu_moduleDataMembers.push_back(mu_dataMember);
+                    mu_dataMember["bits"] = std::to_string(dsd.bits);
+                    mu::data mu_paramNames = mu::data::type::list;
 
                     size_t paramCount = std::min(dsd.paramNames.size(),
                                                  static_cast<size_t>(dsd.size));
@@ -268,7 +267,12 @@ static mu::data build_event_template_data(const StreamInfo &streamInfo)
                         mu_refMember["target"] = dsd.name;
 
                         mu_moduleRefMembers.push_back(mu_refMember);
+
+                        mu_paramNames.push_back(dsd.paramNames[paramIndex]);
                     }
+
+                    mu_dataMember["param_names"] = mu::data{mu_paramNames};
+                    mu_moduleDataMembers.push_back(mu_dataMember);
                 }
                 dsIndex++;
             }
@@ -782,7 +786,6 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         m_rawHistoEventIndexes.clear();
         size_t rawHistoMemory = 0u;
 
-
         for (const auto &edd: streamInfo.eventDataDescriptions)
         {
             auto dir = m_histoOutFile->mkdir(
@@ -1271,6 +1274,18 @@ int replay_main(
         {
             // Fills the experiment subobjects with data read from the tree.
             tree->GetEntry(entryIndex);
+
+            // Read values from the generated array members of the events
+            // module classes and fill the raw histograms.
+            for (const auto &userStorage: event->GetDataSourceStorages())
+            {
+                for (size_t paramIndex = 0; paramIndex < userStorage.size; paramIndex++)
+                {
+                    double paramValue = userStorage.ptr[paramIndex];
+
+                    //rawHistos[
+                }
+            }
 
             if (analyzeFunc)
                 analyzeFunc(event);

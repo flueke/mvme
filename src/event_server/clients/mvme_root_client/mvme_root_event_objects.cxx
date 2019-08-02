@@ -11,9 +11,12 @@ MVMEModule::MVMEModule(const char *name, const char *title)
     , fSelf(this)
 {}
 
-void MVMEModule::RegisterDataStorage(double *ptr, size_t size)
+void MVMEModule::RegisterDataStorage(
+    double *ptr, size_t size, unsigned bits,
+    const std::string &name,
+    const std::vector<std::string> &paramNames)
 {
-    fDataStores.push_back({ptr, size});
+    fDataStores.emplace_back(Storage({ptr, size, bits, name, paramNames}));
 }
 
 void MVMEModule::InitBranch(TBranch *branch)
@@ -34,13 +37,13 @@ MVMEEvent::MVMEEvent(const char *name, const char *title)
 
 void MVMEEvent::AddModule(MVMEModule *module)
 {
-    fModules.push_back(module);
+    fModules.emplace_back(module);
 
     for (auto storage: module->GetDataStorages())
     {
         // Same order as incoming data during the run (and as declared in the
         // BeginRun description data)
-        fDataSourceStorages.push_back(storage);
+        fDataSourceStorages.emplace_back(storage);
     }
 }
 
@@ -57,7 +60,7 @@ MVMEExperiment::MVMEExperiment(const char *name, const char *title)
 
 void MVMEExperiment::AddEvent(MVMEEvent *event)
 {
-    fEvents.push_back(event);
+    fEvents.emplace_back(event);
 }
 
 std::vector<TTree *> MVMEExperiment::MakeTrees()
@@ -76,7 +79,7 @@ std::vector<TTree *> MVMEExperiment::MakeTrees()
         // would be to try to manually delete the 2nd to last cycle from the file.
         tree->SetAutoSave(0);
 
-        result.push_back(tree);
+        result.emplace_back(tree);
 
         for (auto module: event->GetModules())
         {
@@ -124,7 +127,7 @@ std::vector<TTree *> MVMEExperiment::InitTrees(TFile *inputFile)
             cout << "Error: Did not find tree for event " << event->GetName() << endl;
         }
 
-        result.push_back(tree);
+        result.emplace_back(tree);
     }
 
     return result;

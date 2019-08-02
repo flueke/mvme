@@ -1,6 +1,7 @@
 #ifndef __MVME_ROOT_EXPORT_OBJECTS_H__
 #define __MVME_ROOT_EXPORT_OBJECTS_H__
 
+#include <string>
 #include <TFile.h>
 #include <TNamed.h>
 #include <TTree.h>
@@ -9,6 +10,9 @@ struct Storage
 {
     double *ptr;
     size_t size;
+    unsigned bits;
+    std::string name;
+    std::vector<std::string> paramNames;
 };
 
 //
@@ -24,7 +28,10 @@ class MVMEModule: public TNamed
         void InitBranch(TBranch *branch);
 
     protected:
-        void RegisterDataStorage(double *ptr, size_t size);
+        void RegisterDataStorage(
+            double *ptr, size_t size, unsigned bits,
+            const std::string &name,
+            const std::vector<std::string> &paramNames = {});
 
     private:
         std::vector<Storage> fDataStores; // !
@@ -42,7 +49,8 @@ class MVMEEvent: public TNamed
         std::vector<MVMEModule *> GetModules() const { return fModules; }
 
         size_t GetNumberOfDataSourceStorages() const { return fDataSourceStorages.size(); }
-        std::vector<Storage> GetDataSourceStorages() const { return fDataSourceStorages; }
+        std::vector<Storage> &GetDataSourceStorages() { return fDataSourceStorages; }
+        const std::vector<Storage> &GetDataSourceStorages() const { return fDataSourceStorages; }
         Storage GetDataSourceStorage(int dsIndex) const;
 
     protected:
