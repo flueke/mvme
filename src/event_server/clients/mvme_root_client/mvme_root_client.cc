@@ -156,17 +156,20 @@ class ClientContext: public mvme::event_server::Parser
     private:
         Options::Opt_t m_options;
         std::unique_ptr<MVMEExperiment> m_exp;
-        std::unique_ptr<TFile> m_outFile;
+        std::unique_ptr<TFile> m_treeOutFile;
         std::vector<TTree *> m_eventTrees;
 
         // Raw histograms by (eventIndex, dataSourceIndex, paramIndex)
         // flattened out.
+        // Note: these are owned by the current ROOT directory. Do not delete
+        // them.
         std::vector<TH1D *> m_rawHistos;
 
         // Stores the index into m_rawHistos of the first histogram of an
         // event. The sum of the data source sizes of an event is the number
         // of histograms for that event.
         std::vector<size_t> m_rawHistoEventIndexes;
+        std::unique_ptr<TFile> m_histoOutFile;
 
         RunStats m_stats;
         bool m_quit = false;
@@ -587,7 +590,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         {
             cout << "Error creating an instance of the experiment class '"
                 << expStructName << "'" << endl;
-            m_outFile = {};
+            m_treeOutFile = {};
             m_eventTrees = {};
             m_quit = true;
             return;
@@ -684,7 +687,9 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
             << ": Reusing previously loaded experiment and analysis code." << endl;
     }
 
-    // generate output filename for event tree output and open the file
+    //
+    // Per VME event TTree output.
+    //
     std::string filename;
 
     if (streamInfo.runId.empty())
@@ -698,12 +703,12 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     }
 
     cout << "Opening output file " << filename << endl;
-    m_outFile = std::make_unique<TFile>(filename.c_str(), "recreate");
+    m_treeOutFile = std::make_unique<TFile>(filename.c_str(), "recreate");
 
-    if (m_outFile->IsZombie() || !m_outFile->IsOpen())
+    if (m_treeOutFile->IsZombie() || !m_treeOutFile->IsOpen())
     {
         cout << "Error opening output file " << filename << " for writing: "
-            << strerror(m_outFile->GetErrno()) << endl;
+            << strerror(m_treeOutFile->GetErrno()) << endl;
         m_quit = true;
         return;
     }
@@ -717,19 +722,45 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     }
     assert(m_eventTrees.size() == m_exp->GetNumberOfEvents());
 
-    cout << "Creating raw histograms" << endl;
+
+    //
+    // Raw histogram output
+    //
     {
+        std::string histoOutFilename;
+
+        if (streamInfo.runId.empty())
+            histoOutFilename = "unknown_run_histos.root";
+        else
+            histoOutFilename = streamInfo.runId + "_histos.root";
+
+        cout << "Opening histo output file " << histoOutFilename << endl;
+        m_histoOutFile = std::make_unique<TFile>(histoOutFilename.c_str(), "recreate");
+
+        if (m_histoOutFile->IsZombie() || !m_histoOutFile->IsOpen())
+        {
+            cout << "Error opening histo output file " << filename << " for writing: "
+                << strerror(m_histoOutFile->GetErrno()) << endl;
+            m_quit = true;
+            return;
+        }
+
+        cout << "Creating raw histograms" << endl;
         m_rawHistos.clear();
         m_rawHistoEventIndexes.clear();
+        size_t rawHistoMemory = 0u;
+
 
         for (const auto &edd: streamInfo.eventDataDescriptions)
         {
+            auto dir = m_histoOutFile->mkdir(streamInfo.vmeTree.events[edd.eventIndex].name.c_str());
+            dir->cd();
+
             m_rawHistoEventIndexes.emplace_back(m_rawHistos.size());
 
             for (const auto &dsd: edd.dataSources)
             {
                 for (unsigned chan = 0; chan < dsd.size; chan++)
-                for (int chan = 0; chan < dsd.size; chan++)
                 {
                     const VMEEvent &event = streamInfo.vmeTree.events[edd.eventIndex];
                     const VMEModule &module = event.modules[dsd.moduleIndex];
@@ -741,7 +772,6 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                     // cap at 16 bits
                     unsigned bins = 1u << std::min(static_cast<unsigned>(dsd.bits), 16u);
 
-                    //auto histo = std::make_unique<TH1D>();
                     auto histo = new TH1D(
                         name.c_str(),
                         name.c_str(),
@@ -750,14 +780,19 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                         dsd.upperLimit
                         );
                     m_rawHistos.emplace_back(std::move(histo));
+
+                    rawHistoMemory += bins * sizeof(double);
                 }
             }
+
+            m_histoOutFile->cd();
         }
+
+        assert(m_rawHistoEventIndexes.size() == streamInfo.eventDataDescriptions.size());
+
+        cout << "Created " << m_rawHistos.size() << " histograms."
+            << " Total raw histo memory: " << (rawHistoMemory / (1024.0 * 1024.0)) << " MB" << endl;
     }
-
-    assert(m_rawHistoEventIndexes.size() == streamInfo.eventDataDescriptions.size());
-
-    cout << "Created " << m_rawHistos.size() << " histograms." << endl;
 
     // call custom user analysis code
     if (m_analysis.beginRun)
@@ -916,7 +951,7 @@ void ClientContext::endRun(const Message &msg, const json &info)
     if (m_analysis.endRun)
         m_analysis.endRun();
 
-    if (m_outFile)
+    if (m_treeOutFile)
     {
         cout << "  Writing additional info to output file..." << endl;
 
@@ -930,13 +965,21 @@ void ClientContext::endRun(const Message &msg, const json &info)
         // also try a TMap to hold either TStrings or more TMaps
         // figure out how freeing that memory then works
         // FIXME: this does have the title "object title" in rootls
-        m_outFile->WriteObject(&info, "MVMERunInfo");
+        m_treeOutFile->WriteObject(&info, "MVMERunInfo");
 
-        cout << "  Closing output file " << m_outFile->GetName() << "..." << endl;
-        m_outFile->Write();
-        m_outFile = {};
-        m_rawHistos.clear();
+        cout << "  Closing output file " << m_treeOutFile->GetName() << "..." << endl;
+        m_treeOutFile->Write();
+        m_treeOutFile = {};
     }
+
+    if (m_histoOutFile)
+    {
+        cout << "  Closing histo output file " << m_histoOutFile->GetName() << "..." << endl;
+
+        m_histoOutFile->Write();
+        m_histoOutFile = {};
+    }
+    m_rawHistos.clear();
 
     cout << "  HitCounts by event:" << endl;
     for (size_t ei=0; ei < m_stats.eventHits.size(); ei++)
@@ -968,11 +1011,11 @@ void ClientContext::error(const Message &msg, const std::exception &e)
 {
     cout << "A protocol error occured: " << e.what() << endl;
 
-    if (m_outFile)
+    if (m_treeOutFile)
     {
-        cout << "Closing output file " << m_outFile->GetName() << "..." << endl;
-        m_outFile->Write();
-        m_outFile = {};
+        cout << "Closing output file " << m_treeOutFile->GetName() << "..." << endl;
+        m_treeOutFile->Write();
+        m_treeOutFile = {};
         m_rawHistos.clear();
     }
 
