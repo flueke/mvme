@@ -785,7 +785,8 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
         for (const auto &edd: streamInfo.eventDataDescriptions)
         {
-            auto dir = m_histoOutFile->mkdir(streamInfo.vmeTree.events[edd.eventIndex].name.c_str());
+            auto dir = m_histoOutFile->mkdir(
+                streamInfo.vmeTree.events[edd.eventIndex].name.c_str());
             dir->cd();
 
             m_rawHistoEventIndexes.emplace_back(m_rawHistos.size());
@@ -823,7 +824,8 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         assert(m_rawHistoEventIndexes.size() == streamInfo.eventDataDescriptions.size());
 
         cout << "Created " << m_rawHistos.size() << " histograms."
-            << " Total raw histo memory: " << (rawHistoMemory / (1024.0 * 1024.0)) << " MB" << endl;
+            << " Total raw histo memory: " << (rawHistoMemory / (1024.0 * 1024.0))
+            << " MB" << endl;
     }
 
     // call custom user analysis code
