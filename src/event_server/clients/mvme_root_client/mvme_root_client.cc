@@ -1,6 +1,51 @@
+/* mvme_root_client - A client to MVMEs event_server component producing ROOT files.
+ *
+ * Copyright (C) 2019 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
+
+/*
+ * The program works in two modes:
+ * 1) As a client it connects to an mvme instance and receives incoming DAQ
+ *    data to produce ROOT output files.
+ * 2) The program replays data from a previously created output file.
+ *
+ * In the first case the data description sent by mvme at the beginning of a
+ * run is used to generate ROOT classes. These classes are then compiled and
+ * loaded into the client. Compilation is done using a simple Makefile. The
+ * resulting library is then loaded via TSystem::Load().
+ *
+ * During the run incoming event data is interpreted and used to fill instances
+ * of the generated ROOT classes. At the end of the run the class hierarchy is
+ * written to file in the form of TTrees. Additionally raw histograms are
+ * created, filled and written to a separate output file.
+ *
+ * In the 2nd case the given input file is opened and mvme specific information
+ * is used to locate the previously built ROOT object library. The library is
+ * then loaded like in case 1) and the ROOT objects are filled from the data in
+ * the input file.
+ *
+ * In both cases user-editable analysis code is loaded (via dlopen()/dlsym())
+ * and invoked for each complete event received from mvme or read from the
+ * input file.
+ */
+
 /* TODO:
- * - license comment
- * - description of what this program does
  * - add return codes to the event handler functions or replace do_exit with a
  *   return code value. This should be done so that main can exit with a
  *   non-zero code in case of errors.
@@ -8,27 +53,8 @@
  *   set an error string which can then be retrieved and printed in main()
  *   before exiting.
  * - replace the asserts with actual error handling code + messages
-* user objects:
-  generate on each beginRun. compare with on disk verison.
-  if differences:
-      if not loaded yet: run make and load
-      else: warn and tell user to restart FIXME: exit or continue running?
-
-* filename + output directory + flag about overwriting
-* raw histos?
-* replay handling from file?
-// FIXME: use return code and GetLastErrorString() or something similar in the
-// context message handlers.
-// Maybe change the prototypes to return int so that each user specific
-// subclass of Parser can decide what to do. (control is finally returned to the user
-// when handleMessage returns).
- * - Should the output event tree be filled before or after calling the
- *   analysis event handler function? After could allow the user to modify the
- *   data that's going to be stored...
- * FIXME: eventNumber
- *
- * Do not overwrite files that should not be overwritten, diff other files.
- *
+ * - add or transmit eventNumbers
+ * - the analysis code could be reloaded for each run/file.
  */
 
 #include <fstream>
@@ -48,7 +74,7 @@
 
 // mvme
 #include <mvme/Mustache/mustache.hpp> // mustache template engine
-#include <mvme/event_server/common/event_server_lib.h> // event_server protocol parsing and socket handling
+#include <mvme/event_server/common/event_server_lib.h> // mvme event_server protocol parsing and socket handling
 #include "mvme_root_event_objects.h" // base classes for generated experiment ROOT objects
 
 using std::cerr;
@@ -85,11 +111,9 @@ static const char *makefileTemplate =
 #include "templates/Makefile.mustache"
 ;
 
-#if 0
 static const char *rootPremakeHookTemplate =
-#include "templates/mvme_root_premake.C.mustache"
+#include "templates/mvme_root_premake_hook.C.mustache"
 ;
-#endif
 
 // Analysis
 struct UserAnalysis
@@ -116,8 +140,9 @@ struct UserAnalysis
 struct Options
 {
     using Opt_t = unsigned;
-    static const Opt_t ShowStreamInfo = 1u << 1;
-    static const Opt_t NoAddedRandom = 1u << 2;
+    static const Opt_t ShowStreamInfo   = 1u << 1;
+    static const Opt_t NoAddedRandom    = 1u << 2;
+    static const Opt_t SingleRun        = 1u << 3;
 };
 
 class ClientContext: public mvme::event_server::Parser
@@ -140,6 +165,16 @@ class ClientContext: public mvme::event_server::Parser
         {
             m_host = host;
             m_port = port;
+        }
+
+        void setAnalysisInitArgs(const std::vector<std::string> &args)
+        {
+            m_analysisInitArgs = args;
+        }
+
+        std::vector<std::string> getAnalysisInitArgs() const
+        {
+            return m_analysisInitArgs;
         }
 
     protected:
@@ -174,10 +209,11 @@ class ClientContext: public mvme::event_server::Parser
         RunStats m_stats;
         bool m_quit = false;
         bool m_codeGeneratedAndLoaded = false;
-        void *m_analysisDLHandle = nullptr;
+        void *m_analysisLibHandle = nullptr;
         UserAnalysis m_analysis = {};
         std::string m_host;
         std::string m_port;
+        std::vector<std::string> m_analysisInitArgs;
 };
 
 ClientContext::ClientContext(const Options::Opt_t &options)
@@ -290,40 +326,6 @@ struct CodeGenArgs
     const char *description;
 };
 
-/* TODO: implement the following steps
-
-Generating ROOT code for experiment Snake...
-  Created Snake_mvme.h
-  Updated Snake_mvme.cxx
-  Unchanged Snake_mvme_LinkDef.h
-
-Generating additional files...
-  Unchanged Makefile
-  Not overwriting existing analysis.cxx
-  Not overwriting existing analysis.mk
-  Created root_hook.C
-
-Running ROOT customization file root_hook.C...
-
-Running make to build libSnake_mvme.so and analysis.so ...
-
-<<<<< End of make output. Make succeeded / exited with code 127.
-
-if (expLibLoaded && any_of_exp_lib_files_changed)
-{
-    Warning: ROOT module for experiment Snake was previously loaded but got
-             updated due to changes in the mvme configuration. The client will
-             likely crash when writing the output trees. Please restart to
-             compile and load the updated code.
-
-} else if (!expLibLoaded)
-{
-    Loading ROOT experiment library libSnake_mvme.so
-}
-
-Reload analysis code
-
-*/
 CodeGenResult generate_code_file(const CodeGenArgs &args, const mu::data &templateData)
 {
     auto read_file = [](const std::string &filename)
@@ -400,6 +402,87 @@ CodeGenResult generate_code_file(const CodeGenArgs &args, const mu::data &templa
     return CodeGenResult::WriteError;
 }
 
+std::unique_ptr<MVMEExperiment> build_and_load_experiment_library(
+    const std::string &expName)
+{
+    const std::string expStructName = expName;
+    const std::string libName = "lib" + expName + "_mvme.so";
+
+    // Run the ROOT pre-make macro
+    cout << "Executing ROOT pre-make macro file mvme_root_premake.C ..." << endl;
+    gROOT->ProcessLineSync(".x mvme_root_premake_hook.C");
+
+    // Run make
+    {
+        cout << "Running make ..." << endl << endl;
+        int res = gSystem->Exec("make");
+        cout << endl << "---------- End of make output ----------" << endl << endl;
+
+        if (res)
+            return {};
+    }
+
+    // Load experiment library
+    {
+        cout << "Loading experiment library " << libName << endl;
+        int res = gSystem->Load(libName.c_str());
+
+        if (res != 0 && res != 1)
+        {
+            cout << "Error loading experiment library " << libName << endl;
+            return {};
+        }
+    }
+
+    // Create and return an instance of the generated experiment class cast to
+    // the base class type. (Only the base class type is known to this code
+    // here, not the concrete subclass from the generated code).
+    std::string cmd = "new " + expStructName + "();";
+
+    return std::unique_ptr<MVMEExperiment>(
+        reinterpret_cast<MVMEExperiment *>(
+            gROOT->ProcessLineSync(cmd.c_str())));
+}
+
+std::pair<void *, UserAnalysis> load_user_analysis(const char *filename, const std::vector<std::string> eventNames)
+{
+    void *handle = dlopen("analysis.so", RTLD_NOW | RTLD_GLOBAL);
+    UserAnalysis ua = {};
+
+    if (handle)
+    {
+        ua.init = load_sym<UserAnalysis::InitFunc>(handle, "init_analysis");
+        ua.shutdown = load_sym<UserAnalysis::ShutdownFunc>(handle, "shutdown_analysis");
+        ua.beginRun = load_sym<UserAnalysis::BeginRunFunc>(handle, "begin_run");
+        ua.endRun = load_sym<UserAnalysis::EndRunFunc>(handle, "end_run");
+
+        for (auto &eventName: eventNames)
+        {
+            auto fname = std::string("analyze_") + eventName;
+            auto func = load_sym<UserAnalysis::EventFunc>(handle, fname.c_str());
+            ua.eventFunctions.push_back(func);
+        }
+    }
+
+    return std::make_pair(handle, ua);
+}
+
+std::pair<void *, UserAnalysis> load_user_analysis(const char *filename, const MVMEExperiment *exp)
+{
+    std::vector<std::string> eventNames;
+
+    for (const auto &event: exp->GetEvents())
+        eventNames.emplace_back(event->GetName());
+
+    return load_user_analysis(filename, eventNames);
+}
+
+inline double make_quiet_nan()
+{
+    static const double result = std::numeric_limits<double>::quiet_NaN();
+    return result;
+}
+
 void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 {
     if (m_options & Options::ShowStreamInfo)
@@ -468,15 +551,14 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                 OverwriteOption::Never,
                 "analysis customization make",
             },
-#if 0
+
             CodeGenArgs
             {
-                "mvme_root_premake.C",
+                "mvme_root_premake_hook.C",
                 rootPremakeHookTemplate,
                 OverwriteOption::Never,
                 "ROOT pre-make macro",
             },
-#endif
         };
 
         // build the template data object
@@ -546,45 +628,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
             }
         }
 
-#if 0
-        // Run the ROOT pre-make macro
-        cout << "Executing ROOT pre-make macro file mvme_root_premake.C ..." << endl;
-        gROOT->ProcessLineSync(".x mvme_root_premake.C");
-#endif
-
-        // Run make
-        {
-            cout << "Running make ..." << endl << endl;
-            int res = gSystem->Exec("make");
-            cout << endl << "---------- End of make output ----------" << endl;
-
-            if (res != 0)
-            {
-                m_quit = true;
-                return;
-            }
-        }
-
-        // Load experiment library
-        {
-            std::string libName = "lib" + expName + "_mvme.so";
-            cout << "Loading experiment library " << libName << endl;
-            int res = gSystem->Load(libName.c_str());
-
-            cout << "res=" << res << endl;
-
-            if (res != 0 && res != 1)
-            {
-                cout << "Error loading experiment library " << libName << endl;
-                m_quit = true;
-                return;
-            }
-        }
-
-        // Create an instance of the generated experiment class
-        std::string cmd = "new " + expStructName + "();";
-        m_exp = std::unique_ptr<MVMEExperiment>(reinterpret_cast<MVMEExperiment *>(
-                gROOT->ProcessLineSync(cmd.c_str())));
+        m_exp = build_and_load_experiment_library(expName);
 
         if (!m_exp)
         {
@@ -619,30 +663,37 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                     " differ (streamInfo:" << edd.dataSources.size()
                     << ", class:" << event->GetDataSourceStorages().size() << ")."
                     << endl
-                    << "Please run `make' and restart the client."
+                    << "Please run `make' and start the client again."
                     << endl;
                 m_quit = true;
                 return;
             }
         }
 
-#if 0   // TODO: test unloading
+// TODO: test unloading. Afaik this is not (yet) supported in ROOT 6.16 and
+// earlier versions.
+#if 0
         // Unload analysis
-        if (m_analysisDLHandle)
+        if (m_analysisLibHandle)
         {
             if (m_analysis.shutdown)
                 m_analysis.shutdown();
-            dlclose(m_analysisDLHandle);
-            m_analysisDLHandle = nullptr;
+            dlclose(m_analysisLibHandle);
+            m_analysisLibHandle = nullptr;
             m_analysis = {};
         }
 #endif
 
         // Load analysis
-        if (!m_analysisDLHandle)
+        if (!m_analysisLibHandle)
         {
             cout << "Loading analysis.so" << endl;
-            void *handle = dlopen("analysis.so", RTLD_NOW | RTLD_GLOBAL);
+
+            void *handle = nullptr;
+            m_analysis = {};
+
+            std::tie(handle, m_analysis) = load_user_analysis("analysis.so", m_exp.get());
+
             if (!handle)
             {
                 cout << "Error loading analysis.so: " << dlerror() << endl;
@@ -650,35 +701,16 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                 return;
             }
 
-            m_analysisDLHandle = handle;
-            m_analysis = {};
-
-            m_analysis.init = load_sym<UserAnalysis::InitFunc>(handle, "init_analysis");
-            m_analysis.shutdown = load_sym<UserAnalysis::ShutdownFunc>(handle, "shutdown_analysis");
-            m_analysis.beginRun = load_sym<UserAnalysis::BeginRunFunc>(handle, "begin_run");
-            m_analysis.endRun = load_sym<UserAnalysis::EndRunFunc>(handle, "end_run");
-
-            for (auto &event: m_exp->GetEvents())
-            {
-                auto fname = std::string("analyze_") + event->GetName();
-                auto func = load_sym<UserAnalysis::EventFunc>(handle, fname.c_str());
-                m_analysis.eventFunctions.push_back(func);
-            }
+            m_analysisLibHandle = handle;
         }
 
         m_codeGeneratedAndLoaded = true;
 
-        if (m_analysis.init)
+        if (m_analysis.init && !m_analysis.init(m_analysisInitArgs))
         {
-            // FIXME
-            bool res = m_analysis.init({ "FIXME", "pass", "some", "args", "here"});
-
-            if (!res)
-            {
-                cout << "Analysis init function returned false, aborting" << endl;
-                m_quit = true;
-                return;
-            }
+            cout << "Analysis init function returned false, aborting" << endl;
+            m_quit = true;
+            return;
         }
     }
     else
@@ -862,8 +894,14 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
         assert(userStorage.ptr);
         assert(userStorage.size = edd.dataSources.at(dsIndex).size);
 
+#if 0
         // Zero out the data array.
         memset(userStorage.ptr, 0, userStorage.size * sizeof(*userStorage.ptr));
+#else
+        // Fill the data array with NaN values. This way when replaying we know
+        // if a hit was recorded or not.
+        std::fill(userStorage.ptr, userStorage.ptr + userStorage.size, make_quiet_nan());
+#endif
 
         const size_t entrySize = get_entry_size(dsc);
         const size_t indexSize = get_storage_type_size(dsc.indexType);
@@ -1047,29 +1085,209 @@ void setup_signal_handlers()
 }
 
 //
+// client functionality
+//
+int client_main(
+    const std::string &host,
+    const std::string &port,
+    const Options::Opt_t &clientOpts,
+    const std::vector<std::string> &additionalArgs)
+{
+    // Act as a client to the mvme event_server. This code tries to connect
+    // to mvme, receive run data and produce ROOT files until canceled via
+    // Ctrl-C.
+
+    int retval = 0;
+
+    ClientContext ctx(clientOpts);
+    ctx.setAnalysisInitArgs(additionalArgs);
+
+    // A single message object, whose buffer is reused for each incoming
+    // message.
+    Message msg;
+    int sockfd = -1;
+    bool doQuit = false;
+
+    while (!doQuit && !signal_received)
+    {
+        if (sockfd < 0)
+        {
+            cout << "Connecting to " << host << ":" << port << " ..." << endl;
+        }
+
+        // auto reconnect loop until connected or a signal arrived
+        while (sockfd < 0 && !signal_received)
+        {
+            try
+            {
+                sockfd = connect_to(host.c_str(), port.c_str());
+            }
+            catch (const mvme::event_server::exception &e)
+            {
+                sockfd = -1;
+            }
+
+            if (sockfd >= 0)
+            {
+                cout << "Connected to " << host << ":" << port << endl;
+                ctx.setHostAndPort(host, port);
+                break;
+            }
+
+            if (usleep(1000 * 1000) != 0 && errno != EINTR)
+            {
+                throw std::system_error(errno, std::generic_category(), "usleep");
+            }
+        }
+
+        if (signal_received) break;
+
+        try
+        {
+            // Read messages from the network and let the context object
+            // process them.
+            read_message(sockfd, msg);
+            ctx.handleMessage(msg);
+
+            if ((clientOpts & Options::SingleRun) && msg.type == MessageType::EndRun)
+            {
+                doQuit = true;
+            }
+            else
+            {
+                doQuit = ctx.ShouldQuit();
+            }
+        }
+        catch (const mvme::event_server::connection_closed &)
+        {
+            cout << "Error: The remote host closed the connection." << endl;
+            sockfd = -1;
+            // Reset context state as we're going to attempt to reconnect.
+            ctx.reset();
+        }
+        catch (const mvme::event_server::exception &e)
+        {
+            cout << "An error occured: " << e.what() << endl;
+            retval = 1;
+            break;
+        }
+        catch (const std::system_error &e)
+        {
+            cout << "Disconnected from " << host << ":" << port
+                << ", reason: " << e.what() << endl;
+            sockfd = -1;
+            retval = 1;
+            break;
+        }
+    }
+
+    return retval;
+}
+
+//
+// replay from ROOT file
+//
+int replay_main(
+    const std::string &inputFilename,
+    const std::vector<std::string> &additionalArgs)
+{
+    // Replay from ROOT file.
+    TFile f(inputFilename.c_str(), "read");
+
+    auto runInfoPtr = reinterpret_cast<MVMERunInfo *>(f.Get("MVMERunInfo"));
+
+    if (!runInfoPtr)
+    {
+        cout << "Error: input file " << inputFilename << " does not contain an MVMERunInfo object"
+            << endl;
+        return 1;
+    }
+
+    auto runInfo = *runInfoPtr;
+
+    std::string expName = runInfo["ExperimentName"];
+    std::string expStructName = expName;
+    std::string runId = runInfo["RunID"];
+    std::string libName = "lib" + expName + "_mvme.so";
+
+    auto exp = build_and_load_experiment_library(expName);
+
+    if (!exp)
+    {
+        cout << "Error creating an instance of the experiment class '"
+            << expStructName << "'" << endl;
+        return 1;
+    }
+
+    // Setup tree branch addresses to point to the experiment subobjects.
+    auto trees = exp->InitTrees(&f);
+
+    if (trees.size() != exp->GetNumberOfEvents())
+    {
+        cout << "Error: could not read experiment trees from input file "
+            << inputFilename << endl;
+        return 1;
+    }
+
+    // Load analysis
+    void *handle = nullptr;
+    UserAnalysis analysis = {};
+
+    std::tie(handle, analysis) = load_user_analysis("analysis.so", exp.get());
+
+    if (!handle)
+    {
+        cout << "Error loading analysis.so: " << dlerror() << endl;
+        return 1;
+    }
+
+    if (analysis.init && !analysis.init(additionalArgs))
+    {
+        cout << "Analysis init function returned false, aborting" << endl;
+        return 1;
+    }
+
+
+
+    // Raw histograms per event and data source
+    // TODO: leftoff here. continue the work. the work needs to continue. do the work! :-)
+    //std::vector<TH1D *>
+
+
+    // Replay tree data
+    for (size_t eventIndex = 0; eventIndex < trees.size(); eventIndex++)
+    {
+        auto tree = trees[eventIndex];
+        auto event = exp->GetEvent(eventIndex);
+        auto analyzeFunc = analysis.eventFunctions[eventIndex];
+
+        cout << "Replaying data from tree " << tree->GetName() << "..." << std::flush;
+
+        const auto entryCount = tree->GetEntries();
+
+        for (int64_t entryIndex = 0; entryIndex < entryCount; entryIndex++)
+        {
+            // Fills the experiment subobjects with data read from the tree.
+            tree->GetEntry(entryIndex);
+
+            if (analyzeFunc)
+                analyzeFunc(event);
+        }
+
+        cout << " read " << entryCount << " entries." << endl;
+    }
+
+    return 0;
+}
+
+//
 // main
 //
 int main(int argc, char *argv[])
 {
-/*
-    [--host=localhost]
-    [--port=13801]
-
-    Parse options, if remaining args switch to replay mode and use remaining args
-    as names of root files.
-
-    Pass all args after the separating '--' to the analysis init function.
-    How does the init function know what we're doing? Life run or replay?
-
-*/
-
-    // host, port, quit after one run?,
-    // output filename? if not specified is taken from the runId
-    // send out a reply is response to the EndRun message?
     std::string host = "localhost";
     std::string port = "13801";
     std::string inputFilename;
-    bool singleRun = false;
     bool showHelp = false;
 
     using Opts = Options;
@@ -1104,7 +1322,7 @@ int main(int argc, char *argv[])
                 {
                     std::string opt_name(long_options[option_index].name);
 
-                    if (opt_name == "single-run") singleRun = true;
+                    if (opt_name == "single-run") clientOpts |= Opts::SingleRun;
                     else if (opt_name == "show-stream-info") clientOpts |= Opts::ShowStreamInfo;
                     else if (opt_name == "host") host = optarg;
                     else if (opt_name == "port") port = optarg;
@@ -1144,6 +1362,18 @@ int main(int argc, char *argv[])
 #endif
     }
 
+    // Collect command line arguments. These will be passed to the user
+    // analysis init function.
+    // Note: optind is set by getopt_long().
+    std::vector<std::string> additionalArgs;
+
+    for (int i = optind; i < argc; i++)
+        additionalArgs.emplace_back(argv[i]);
+
+
+    //
+    // More setup and client lib init
+    //
     setup_signal_handlers();
 
     if (int res = mvme::event_server::lib_init() != 0)
@@ -1156,206 +1386,11 @@ int main(int argc, char *argv[])
 
     if (inputFilename.empty())
     {
-        // Act as a client to the mvme event_server. This code tries to connect
-        // to mvme, receive run data and produce ROOT files until canceled via
-        // Ctrl-C.
-
-        ClientContext ctx(clientOpts);
-
-        // A single message object, whose buffer is reused for each incoming
-        // message.
-        Message msg;
-        int sockfd = -1;
-        bool doQuit = false;
-
-        while (!doQuit && !signal_received)
-        {
-            if (sockfd < 0)
-            {
-                cout << "Connecting to " << host << ":" << port << " ..." << endl;
-            }
-
-            // auto reconnect loop until connected or a signal arrived
-            while (sockfd < 0 && !signal_received)
-            {
-                try
-                {
-                    sockfd = connect_to(host.c_str(), port.c_str());
-                }
-                catch (const mvme::event_server::exception &e)
-                {
-                    sockfd = -1;
-                }
-
-                if (sockfd >= 0)
-                {
-                    cout << "Connected to " << host << ":" << port << endl;
-                    ctx.setHostAndPort(host, port);
-                    break;
-                }
-
-                if (usleep(1000 * 1000) != 0 && errno != EINTR)
-                {
-                    throw std::system_error(errno, std::generic_category(), "usleep");
-                }
-            }
-
-            if (signal_received) break;
-
-            try
-            {
-                read_message(sockfd, msg);
-                ctx.handleMessage(msg);
-
-                if (singleRun && msg.type == MessageType::EndRun)
-                {
-                    doQuit = true;
-                }
-                else
-                {
-                    doQuit = ctx.ShouldQuit();
-                }
-            }
-            catch (const mvme::event_server::connection_closed &)
-            {
-                cout << "Error: The remote host closed the connection." << endl;
-                sockfd = -1;
-                // Reset context state as we're going to attempt to reconnect.
-                ctx.reset();
-            }
-            catch (const mvme::event_server::exception &e)
-            {
-                cout << "An error occured: " << e.what() << endl;
-                retval = 1;
-                break;
-            }
-            catch (const std::system_error &e)
-            {
-                cout << "Disconnected from " << host << ":" << port
-                    << ", reason: " << e.what() << endl;
-                sockfd = -1;
-                retval = 1;
-                break;
-            }
-        }
+        retval = client_main(host, port, clientOpts, additionalArgs);
     }
     else
     {
-        // Replay from ROOT file.
-        TFile f(inputFilename.c_str(), "read");
-
-        auto runInfoPtr = reinterpret_cast<MVMERunInfo *>(f.Get("MVMERunInfo"));
-
-        if (!runInfoPtr)
-        {
-            cout << "Error: input file " << inputFilename << " does not contain an MVMERunInfo object"
-                << endl;
-            return 1;
-        }
-
-        auto runInfo = *runInfoPtr;
-
-        std::string expName = runInfo["ExperimentName"];
-        std::string expStructName = expName;
-        std::string runId = runInfo["RunID"];
-        std::string libName = "lib" + expName + "_mvme.so";
-
-        // Run make
-        {
-            cout << "Running make ..." << endl << endl;
-            int res = gSystem->Exec("make");
-            cout << endl << "---------- End of make output ----------" << endl;
-
-            if (res != 0)
-            {
-                return 1;
-            }
-        }
-
-        // Load experiment library
-        {
-            std::string libName = "lib" + expName + "_mvme.so";
-            cout << "Loading experiment library " << libName << endl;
-            int res = gSystem->Load(libName.c_str());
-
-            cout << "res=" << res << endl;
-
-            if (res != 0 && res != 1)
-            {
-                cout << "Error loading experiment library " << libName << endl;
-                return 1;
-            }
-        }
-
-        // Create an instance of the generated experiment class
-        std::string cmd = "new " + expStructName + "();";
-        auto exp = std::unique_ptr<MVMEExperiment>(reinterpret_cast<MVMEExperiment *>(
-                gROOT->ProcessLineSync(cmd.c_str())));
-
-        if (!exp)
-        {
-            cout << "Error creating an instance of the experiment class '"
-                << expStructName << "'" << endl;
-            return 1;
-        }
-
-        // Setup tree branch addresses to point to the experiment subobjects.
-        auto trees = exp->InitTrees(&f);
-
-        if (trees.size() != exp->GetNumberOfEvents())
-        {
-            cout << "Error: could not read experiment trees from input file "
-                << inputFilename << endl;
-            return 1;
-        }
-
-        UserAnalysis analysis = {};
-
-        // Load analysis
-        {
-            cout << "Loading analysis.so" << endl;
-            void *handle = dlopen("analysis.so", RTLD_NOW | RTLD_GLOBAL);
-            if (!handle)
-            {
-                cout << "Error loading analysis.so: " << dlerror() << endl;
-                return 1;
-            }
-
-            analysis.init = load_sym<UserAnalysis::InitFunc>(handle, "init_analysis");
-            analysis.shutdown = load_sym<UserAnalysis::ShutdownFunc>(handle, "shutdown_analysis");
-            analysis.beginRun = load_sym<UserAnalysis::BeginRunFunc>(handle, "begin_run");
-            analysis.endRun = load_sym<UserAnalysis::EndRunFunc>(handle, "end_run");
-
-            for (auto &event: exp->GetEvents())
-            {
-                auto fname = std::string("analyze_") + event->GetName();
-                auto func = load_sym<UserAnalysis::EventFunc>(handle, fname.c_str());
-                analysis.eventFunctions.push_back(func);
-            }
-        }
-
-        // Replay tree data
-        for (size_t eventIndex = 0; eventIndex < trees.size(); eventIndex++)
-        {
-            auto tree = trees[eventIndex];
-            auto event = exp->GetEvent(eventIndex);
-            auto analyzeFunc = analysis.eventFunctions[eventIndex];
-
-            cout << "Replaying data from tree " << tree->GetName() << "..." << std::flush;
-
-            const auto entryCount = tree->GetEntries();
-
-            for (int64_t entryIndex = 0; entryIndex < entryCount; entryIndex++)
-            {
-                // Fills the experiment subobjects with data read from the tree.
-                tree->GetEntry(entryIndex);
-
-                if (analyzeFunc)
-                    analyzeFunc(event);
-            }
-
-            cout << " read " << entryCount << " entries." << endl;
-        }
+        retval = replay_main(inputFilename, additionalArgs);
     }
 
     mvme::event_server::lib_shutdown();
