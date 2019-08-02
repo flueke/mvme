@@ -102,7 +102,7 @@ TEST_CASE("variables") {
         data.set("name", "\"S\"<br>te&v\'e");
         CHECK(tmpl.render(data) == "Hello &quot;S&quot;&lt;br&gt;te&amp;v&apos;e");
     }
-
+    
     SECTION("unescaped1") {
         mustache tmpl("Hello {{{name}}}");
         data data;
@@ -141,7 +141,7 @@ TEST_CASE("variables") {
 }
 
 TEST_CASE("comments") {
-
+    
     SECTION("simple") {
         mustache tmpl("<h1>Today{{! ignore me }}.</h1>");
         data data;
@@ -171,7 +171,7 @@ TEST_CASE("set_delimiter") {
         data.set("n", "s");
         CHECK(tmpl.render(data) == "sss");
     }
-
+    
     SECTION("noreset") {
         mustache tmpl("{{=[ ]=}}[name] [x] + [y] = [sum]");
         data data;
@@ -181,7 +181,7 @@ TEST_CASE("set_delimiter") {
         data.set("sum", "3");
         CHECK(tmpl.render(data) == "Steve 1 + 2 = 3");
     }
-
+    
     SECTION("whitespace") {
         mustache tmpl("|{{= @   @ =}}|");
         data data;
@@ -192,7 +192,7 @@ TEST_CASE("set_delimiter") {
 }
 
 TEST_CASE("sections") {
-
+    
     SECTION("nonexistant") {
         mustache tmpl("{{#var}}not shown{{/var}}");
         data data;
@@ -212,7 +212,7 @@ TEST_CASE("sections") {
         dat.set("var", data(data::type::list));
         CHECK(tmpl.render(dat) == "");
     }
-
+    
     SECTION("nested") {
         mustache tmpl("{{#var1}}hello{{#var2}}world{{/var2}}{{/var1}}");
         data data;
@@ -224,38 +224,38 @@ TEST_CASE("sections") {
 }
 
 TEST_CASE("sections_inverted") {
-
+    
     SECTION("nonexistant") {
         mustache tmpl("{{^var}}shown{{/var}}");
         CHECK(tmpl.render(data()) == "shown");
     }
-
+    
     SECTION("false") {
         mustache tmpl("{{^var}}shown{{/var}}");
         data dat("var", data(data::type::bool_false));
         CHECK(tmpl.render(dat) == "shown");
     }
-
+    
     SECTION("emptylist") {
         mustache tmpl("{{^var}}shown{{/var}}");
         data dat("var", data(data::type::list));
         CHECK(tmpl.render(dat) == "shown");
     }
-
+    
 }
 
 TEST_CASE("section_lists") {
-
+    
     SECTION("list") {
         mustache tmpl("{{#people}}Hello {{name}}, {{/people}}");
         data people = data::type::list;
-        for (auto& name : {"Steve", "Bill", "Tim"}) {
+        for (const auto& name : {"Steve", "Bill", "Tim"}) {
             people.push_back(data("name", name));
         }
         data data("people", people);
         CHECK(tmpl.render(data) == "Hello Steve, Hello Bill, Hello Tim, ");
     }
-
+    
     SECTION("nested") {
         mustache tmpl("{{#families}}surname={{surname}}, members={{#members}}{{given}},{{/members}}|{{/families}}");
         data families = data::type::list;
@@ -277,7 +277,7 @@ TEST_CASE("section_lists") {
         data.set("families", families);
         CHECK(tmpl.render(data) == "surname=Smith, members=Steve,Joe,|surname=Lee, members=Bill,Peter,|");
     }
-
+    
     SECTION("dot") {
         mustache tmpl("{{#names}}Hello {{.}}, {{/names}}");
         data names = data::type::list;
@@ -303,7 +303,7 @@ TEST_CASE("section_lists") {
 }
 
 TEST_CASE("section_object") {
-
+    
     SECTION("basic") {
         mustache tmpl("{{#employee}}name={{name}}, age={{age}}{{/employee}}");
         data person;
@@ -329,7 +329,7 @@ TEST_CASE("section_object") {
 }
 
 TEST_CASE("examples") {
-
+    
     SECTION("one") {
         mustache tmpl{"Hello {{what}}!"};
         std::cout << tmpl.render({"what", "World"}) << std::endl;
@@ -393,6 +393,14 @@ TEST_CASE("data") {
         CHECK(dat["is_dog"].is_false());
         CHECK(dat["is_organic"].is_bool());
         CHECK(dat["is_organic"].is_true());
+
+        data emptyData;
+        CHECK(emptyData.is_empty_object() == true);
+        CHECK(emptyData.is_non_empty_object() == false);
+
+        data nonEmptyData("name", "foo");
+        CHECK(nonEmptyData.is_empty_object() == false);
+        CHECK(nonEmptyData.is_non_empty_object() == true);
     }
 
     SECTION("move_ctor") {
@@ -439,7 +447,7 @@ TEST_CASE("data") {
         CHECK(l1.is_lambda2());
         CHECK(l2.is_lambda2());
     }
-
+    
     SECTION("data_set") {
         data data;
         data.set("var", data::type::bool_true);
@@ -459,7 +467,7 @@ TEST_CASE("errors") {
         CHECK_FALSE(tmpl.is_valid());
         CHECK(tmpl.error_message() == "Unclosed section \"employees\" at 5");
     }
-
+    
     SECTION("unclosed_section_nested") {
         mustache tmpl("{{#var1}}hello{{#var2}}world");
         data data;
@@ -480,18 +488,24 @@ TEST_CASE("errors") {
         CHECK(tmpl.error_message() == "Unclosed section \"var1\" at 0");
     }
 
+    SECTION("unclosed_section_in_section") {
+        mustache tmpl("{{#a}}{{^b}}{{/c}}{{/a}}");
+        CHECK_FALSE(tmpl.is_valid());
+        CHECK(tmpl.error_message() == "Unclosed section \"b\" at 6");
+    }
+
     SECTION("unclosed_tag") {
         mustache tmpl("test {{employees");
         CHECK_FALSE(tmpl.is_valid());
         CHECK(tmpl.error_message() == "Unclosed tag at 5");
     }
-
+    
     SECTION("unopened_section") {
         mustache tmpl("test {{/employees}}");
         CHECK_FALSE(tmpl.is_valid());
         CHECK(tmpl.error_message() == "Unopened section \"employees\" at 5");
     }
-
+    
     SECTION("invalid_set_delimiter") {
         std::vector<std::string> invalids;
         invalids.push_back("test {{=< =}}");  // not 5 characters
@@ -511,7 +525,7 @@ TEST_CASE("errors") {
         CHECK(total == invalids.size());
         CHECK(total == 7);
     }
-
+    
     SECTION("lambda") {
         mustache tmpl{"Hello {{lambda}}!"};
         data dat("lambda", data{lambda{[](const std::string&){
@@ -565,7 +579,7 @@ TEST_CASE("errors") {
         CHECK(tmpl.is_valid() == false);
         CHECK(tmpl.error_message() == "Unclosed section \"blah\" at 0");
     }
-
+    
     SECTION("section_lambda") {
         mustache tmpl{"{{#what}}asdf{{/what}}"};
         data data("what", lambda{[](const std::string&){
@@ -606,7 +620,7 @@ TEST_CASE("partials") {
         dat["name"] = "Steve";
         CHECK(tmpl.render(dat) == "Hello Steve");
     }
-
+    
     SECTION("nested") {
         mustache tmpl{"{{>header}}"};
         partial header{[]() {
@@ -636,7 +650,7 @@ TEST_CASE("partials") {
 }
 
 TEST_CASE("lambdas") {
-
+    
     SECTION("basic") {
         mustache tmpl{"{{lambda}}"};
         data dat("lambda", data{lambda{[](const std::string&){
@@ -685,7 +699,7 @@ TEST_CASE("lambdas") {
         }}});
         CHECK(tmpl.render(dat) == "<&gt;>");
     }
-
+    
     SECTION("section") {
         mustache tmpl{"<{{#lambda}}{{x}}{{/lambda}}>"};
         data dat("lambda", data{lambda{[](const std::string& text){
@@ -732,7 +746,7 @@ TEST_CASE("lambdas") {
 }
 
 TEST_CASE("dotted_names") {
-
+    
     SECTION("basic") {
         mustache tmpl{"\"{{person.name}}\" == \"{{#person}}{{name}}{{/person}}\""};
         data person{"name", "Joe"};
@@ -984,19 +998,8 @@ TEST_CASE("custom_escape") {
         // make sure when using a custom escape that HTML is not escaped
         mustache tmpl("hello {{world}}");
         tmpl.set_custom_escape([](const std::string& s) {
-            std::string ret; ret.reserve(s.size());
-            for (const auto ch: s) {
-                switch (ch) {
-                    case '\"':
-                    case '\n':
-                        ret.append({'\\', ch});
-                        break;
-                    default:
-                        ret.append(1, ch);
-                        break;
-                }
-            }
-            return ret;
+            // doing nothing here
+            return s;
         });
         object data{ { "world", "<world>" } };
         CHECK(tmpl.render(data) == "hello <world>");
@@ -1088,7 +1091,7 @@ TEST_CASE("custom_escape") {
         mustache::escape_handler esc;
         tmpl.set_custom_escape(esc);
         object dat({ {"what", "\"friend\""} });
-        CHECK_THROWS_AS(tmpl.render(dat), std::bad_function_call);
+        CHECK_THROWS_AS(tmpl.render(dat), std::bad_function_call&);
     }
 
 }
@@ -1127,6 +1130,9 @@ TEST_CASE("custom_context") {
     SECTION("basic") {
         my_context<mustache::string_type> ctx;
         mustache tmpl("Hello {{what}}");
+        std::ostream& stream = tmpl.render(ctx, std::cout) << std::endl;
+        CHECK(tmpl.is_valid());
+        CHECK(tmpl.error_message() == "");
         CHECK(tmpl.render(ctx) == "Hello Steve");
     }
 
@@ -1148,24 +1154,18 @@ public:
 
     virtual const basic_data<string_type>* get_partial(const string_type& name) const override {
         const auto cached = cached_files_.find(name);
-        if (cached != cached_files_.end()) {
-            return &cached->second;
-        }
+        REQUIRE(cached == cached_files_.end());
         string_type result;
-        if (read_file(name, result)) {
-            return &cached_files_.insert(std::make_pair(name, basic_data<string_type>(result))).first->second;
-        }
-        return nullptr;
+        REQUIRE(read_file(name, result));
+        return &cached_files_.insert(std::make_pair(name, basic_data<string_type>(result))).first->second;
     }
 
 private:
     bool read_file(const string_type& name, string_type& file_contents) const {
         // read from file [name].mustache (fake the data for the test)
-        if (name == "what") {
-            file_contents = "World";
-            return true;
-        }
-        return false;
+        REQUIRE(name == "what");
+        file_contents = "World";
+        return true;
     }
 
     mutable std::unordered_map<string_type, basic_data<string_type>> cached_files_;
@@ -1179,3 +1179,255 @@ TEST_CASE("file_partial_context") {
     CHECK(tmpl.render(ctx) == "Hello World!");
 
 }
+
+TEST_CASE("standalone_lines") {
+    
+    SECTION("parse_whitespace_basic") {
+        const mustache::string_type input = "\n\r\n\t \n\n\r";
+        component<mustache::string_type> root_component;
+        mustache::string_type error_message;
+        context<mustache::string_type> ctx;
+        context_internal<mustache::string_type> context{ctx};
+        parser<mustache::string_type>{input, context, root_component, error_message};
+        CHECK(error_message.empty());
+        const auto& root_children = root_component.children;
+        const std::vector<mustache::string_type> text_components{"\n", "\r\n", "\t", " ", "\n", "\n", "\r"};
+        REQUIRE(root_component.children.size() == 7);
+        REQUIRE(root_component.children.size() == text_components.size());
+        std::vector<mustache::string_type>::size_type i = 0;
+        for (const auto& child : root_component.children) {
+            CHECK(child.text == text_components[i++]);
+            CHECK(child.tag.type == tag_type::text);
+            CHECK(child.children.empty());
+        }
+        CHECK(root_component.children[0].is_newline());
+        CHECK_FALSE(root_component.children[0].is_non_newline_whitespace());
+        CHECK(root_component.children[1].is_newline());
+        CHECK_FALSE(root_component.children[1].is_non_newline_whitespace());
+        CHECK_FALSE(root_component.children[2].is_newline());
+        CHECK(root_component.children[2].is_non_newline_whitespace());
+        CHECK_FALSE(root_component.children[3].is_newline());
+        CHECK(root_component.children[3].is_non_newline_whitespace());
+        CHECK(root_component.children[4].is_newline());
+        CHECK_FALSE(root_component.children[4].is_non_newline_whitespace());
+        CHECK(root_component.children[5].is_newline());
+        CHECK_FALSE(root_component.children[5].is_non_newline_whitespace());
+        CHECK(root_component.children[6].is_newline());
+        CHECK_FALSE(root_component.children[6].is_non_newline_whitespace());
+    }
+    
+    SECTION("parse_whitespace") {
+        const mustache::string_type input =
+        "|\n"
+        "| This Is\n"
+        "{{#boolean}}\n"
+        "|\n"
+        "{{/boolean}}\n"
+        "| A Line";
+        component<mustache::string_type> root_component;
+        mustache::string_type error_message;
+        context<mustache::string_type> ctx;
+        context_internal<mustache::string_type> context{ctx};
+        parser<mustache::string_type>{input, context, root_component, error_message};
+        CHECK(error_message.empty());
+        const auto& root_children = root_component.children;
+        REQUIRE(root_children.size() == 15);
+        CHECK(root_children[0].text == "|");
+        CHECK(root_children[0].tag.type == tag_type::text);
+        CHECK(root_children[0].children.empty());
+        CHECK(root_children[1].text == "\n");
+        CHECK(root_children[1].tag.type == tag_type::text);
+        CHECK(root_children[1].children.empty());
+        CHECK(root_children[2].text == "|");
+        CHECK(root_children[2].tag.type == tag_type::text);
+        CHECK(root_children[2].children.empty());
+        CHECK(root_children[3].text == " ");
+        CHECK(root_children[3].tag.type == tag_type::text);
+        CHECK(root_children[3].children.empty());
+        CHECK(root_children[4].text == "This");
+        CHECK(root_children[4].tag.type == tag_type::text);
+        CHECK(root_children[4].children.empty());
+        CHECK(root_children[5].text == " ");
+        CHECK(root_children[5].tag.type == tag_type::text);
+        CHECK(root_children[5].children.empty());
+        CHECK(root_children[6].text == "Is");
+        CHECK(root_children[6].tag.type == tag_type::text);
+        CHECK(root_children[6].children.empty());
+        CHECK(root_children[7].text == "\n");
+        CHECK(root_children[7].tag.type == tag_type::text);
+        CHECK(root_children[7].children.empty());
+        CHECK(root_children[8].text.empty());
+        CHECK(root_children[8].tag.type == tag_type::section_begin);
+        REQUIRE(root_children[8].children.size() == 3);
+        CHECK(root_children[8].children[0].text == "\n");
+        CHECK(root_children[8].children[0].tag.type == tag_type::text);
+        CHECK(root_children[8].children[0].children.empty());
+        CHECK(root_children[8].children[1].text == "|");
+        CHECK(root_children[8].children[1].tag.type == tag_type::text);
+        CHECK(root_children[8].children[1].children.empty());
+        CHECK(root_children[8].children[2].text == "\n");
+        CHECK(root_children[8].children[2].tag.type == tag_type::text);
+        CHECK(root_children[8].children[2].children.empty());
+        CHECK(root_children[9].text == "\n");
+        CHECK(root_children[9].tag.type == tag_type::text);
+        CHECK(root_children[9].children.empty());
+        CHECK(root_children[10].text == "|");
+        CHECK(root_children[10].tag.type == tag_type::text);
+        CHECK(root_children[10].children.empty());
+        CHECK(root_children[11].text == " ");
+        CHECK(root_children[11].tag.type == tag_type::text);
+        CHECK(root_children[11].children.empty());
+        CHECK(root_children[12].text == "A");
+        CHECK(root_children[12].tag.type == tag_type::text);
+        CHECK(root_children[12].children.empty());
+        CHECK(root_children[13].text == " ");
+        CHECK(root_children[13].tag.type == tag_type::text);
+        CHECK(root_children[13].children.empty());
+        CHECK(root_children[14].text == "Line");
+        CHECK(root_children[14].tag.type == tag_type::text);
+        CHECK(root_children[14].children.empty());
+    }
+    
+    SECTION("remove_standalone_lines") {
+        mustache tmpl{
+            "|\n"
+            "| This Is\n"
+            "{{#boolean}}\n"
+            "|\n"
+            "{{/boolean}}\n"
+            "| A Line"
+        };
+        data data("boolean", true);
+        CHECK(tmpl.render(data) ==
+            "|\n"
+            "| This Is\n"
+            "|\n"
+            "| A Line"
+        );
+    }
+    
+    SECTION("remove_indented_standalone_lines") {
+        mustache tmpl{
+            "|\n"
+            "| This Is\n"
+            "  {{#boolean}}\n"
+            "|\n"
+            "  {{/boolean}}\n"
+            "| A Line"
+        };
+        data data("boolean", true);
+        CHECK(tmpl.render(data) ==
+            "|\n"
+            "| This Is\n"
+            "|\n"
+            "| A Line"
+        );
+    }
+
+    SECTION("crlf") {
+        mustache tmpl{"|\r\n{{#boolean}}\r\n{{/boolean}}\r\n|"};
+        data data("boolean", true);
+        CHECK(tmpl.render(data) == "|\r\n|");
+    }
+
+    SECTION("without_previous_line") {
+        mustache tmpl{"  {{#boolean}}\n#{{/boolean}}\n/"};
+        data data("boolean", true);
+        CHECK(tmpl.render(data) == "#\n/");
+    }
+
+    SECTION("without_next_newline") {
+        mustache tmpl{"#{{#boolean}}\n/\n  {{/boolean}}"};
+        data data("boolean", true);
+        CHECK(tmpl.render(data) == "#\n/\n");
+    }
+
+    SECTION("section_list") {
+        mustache tmpl{
+            "Text1\n"
+            "{{#section}}\n"
+            "Text2\n"
+            "{{/section}}\n"
+            "Text3\n"
+        };
+        const list section{
+            "Text2",
+            "Text2",
+            "Text2",
+        };
+        CHECK(tmpl.render(data{"section", section}) ==
+            "Text1\n"
+            "Text2\n"
+            "Text2\n"
+            "Text2\n"
+            "Text3\n"
+        );
+    }
+    
+    SECTION("section_list_partial_inline") {
+        mustache tmpl{
+            "Text1\n"
+            "{{#section}}blah\n"
+            "{{/section}}\n"
+            "Text3\n"
+        };
+        const list section{
+            "Text2",
+            "Text2",
+            "Text2",
+        };
+        CHECK(tmpl.render(data{"section", section}) ==
+            "Text1\n"
+            "blah\n"
+            "blah\n"
+            "blah\n"
+            "Text3\n"
+        );
+    }
+    
+    SECTION("section_list_full_inline") {
+        mustache tmpl{
+            "Text1\n"
+            "{{#section}}blah{{/section}}\n"
+            "Text3\n"
+        };
+        const list section{
+            "Text2",
+            "Text2",
+            "Text2",
+        };
+        CHECK(tmpl.render(data{"section", section}) ==
+            "Text1\n"
+            "blahblahblah\n"
+            "Text3\n"
+        );
+    }
+    
+    SECTION("section_list_not_empty_lines") {
+        mustache tmpl{
+            "Text1\n"
+            "{{#section}}a\n"
+            "test {{.}}\n"
+            "{{/section}}b\n"
+            "Text3\n"
+        };
+        const list section{
+            "a",
+            "b",
+            "c",
+        };
+        CHECK(tmpl.render(data{"section", section}) ==
+            "Text1\n"
+            "a\n"
+            "test a\n"
+            "a\n"
+            "test b\n"
+            "a\n"
+            "test c\n"
+            "b\n"
+            "Text3\n"
+        );
+    }
+    
+}
+
