@@ -728,6 +728,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
             for (const auto &dsd: edd.dataSources)
             {
+                for (unsigned chan = 0; chan < dsd.size; chan++)
                 for (int chan = 0; chan < dsd.size; chan++)
                 {
                     const VMEEvent &event = streamInfo.vmeTree.events[edd.eventIndex];
@@ -812,7 +813,7 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
     m_stats.eventHits[eventIndex]++;
 
-    size_t rawHistoIndex = m_rawHistoEventIndexes[eventIndex];
+    size_t histoIndexBase = m_rawHistoEventIndexes[eventIndex];
 
     // Copy incoming data into the data members of the generated classes
     for (size_t dsIndex = 0; dsIndex < contents.size(); dsIndex++)
@@ -865,10 +866,11 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
                 userStorage.ptr[index] = value;
 
-                // FIXME: this does not work because not all indexes into the
-                // userstorage are transmitted. The index value will be off as
-                // soon as a channel doesn't respond.
-                m_rawHistos[rawHistoIndex++]->Fill(value);
+                // Add the transmitted index value to the base index kept in
+                // histoIndex.
+                size_t histoIndex = histoIndexBase + index;
+                assert(histoIndex < m_rawHistos.size());
+                m_rawHistos[histoIndex]->Fill(value);
             }
             else
             {
@@ -885,6 +887,12 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
         size_t bytes = get_entry_size(dsc) * dsc.count;
         m_stats.totalDataBytes += bytes;
+
+
+        // Advance histoIndexBase by this data sources size. This is the full
+        // size of the data sources array, not the size of the entries
+        // transmitted in the incoming, sparse contents vector.
+        histoIndexBase += edd.dataSources.at(dsIndex).size;
     }
 
     // At this point the event storages have been filled with incoming data.
