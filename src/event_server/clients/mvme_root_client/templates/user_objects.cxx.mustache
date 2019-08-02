@@ -27,7 +27,7 @@ namespace {{name}}_modules
     : MVMEEvent("{{name}}", "{{title}}")
 {
 {{#modules}}
-        AddModule(&{{var_name}});
+    AddModule(&{{var_name}});
 {{/modules}}
 }
 
@@ -39,7 +39,7 @@ namespace {{name}}_modules
     : MVMEExperiment("{{exp_name}}", "{{exp_title}}")
 {
 {{#vme_events}}
-        AddEvent(&{{var_name}});
+    AddEvent(&{{var_name}});
 {{/vme_events}}
 }
 
