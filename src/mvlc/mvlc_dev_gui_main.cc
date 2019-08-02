@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <iostream>
 #include "mvlc/mvlc_dev_gui.h"
 #include "mvlc/mvlc_impl_factory.h"
 
@@ -15,6 +16,12 @@ int main(int argc, char *argv[])
 
     QApplication app(argc, argv);
 
+    if (argc < 2 || argv[1] == std::string("--help"))
+    {
+        std::cout << "Usage: " << argv[0] << " <mvlc hostname / ip address>" << std::endl;
+        return 1;
+    }
+
     // actionQuit
     auto actionQuit = new QAction("&Quit");
     actionQuit->setShortcut(QSL("Ctrl+Q"));
@@ -27,7 +34,7 @@ int main(int argc, char *argv[])
     logWindow.addAction(actionQuit);
 
     auto mvlc_usb = std::make_unique<MVLCObject>(make_mvlc_usb());
-    auto mvlc_eth = std::make_unique<MVLCObject>(make_mvlc_eth("192.168.42.2"));
+    auto mvlc_eth = std::make_unique<MVLCObject>(make_mvlc_eth(argv[1]));
 
     for (auto mvlc: { mvlc_usb.get(), mvlc_eth.get() })
     {
