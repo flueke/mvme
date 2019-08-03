@@ -23,7 +23,8 @@ class MVMEModule: public TNamed
     public:
         MVMEModule(const char *name, const char *title);
 
-        std::vector<Storage> GetDataStorages() const { return fDataStores; }
+        std::vector<Storage> &GetDataStorages() { return fDataStores; }
+        const std::vector<Storage> &GetDataStorages() const { return fDataStores; }
 
         void InitBranch(TBranch *branch);
 
@@ -47,6 +48,7 @@ class MVMEEvent: public TNamed
 
         size_t GetNumberOfModules() const { return fModules.size(); }
         std::vector<MVMEModule *> GetModules() const { return fModules; }
+
 
         size_t GetNumberOfDataSourceStorages() const { return fDataSourceStorages.size(); }
         std::vector<Storage> &GetDataSourceStorages() { return fDataSourceStorages; }

@@ -1256,23 +1256,92 @@ int replay_main(
 
     // Raw histograms per event and data source
     // TODO: leftoff here. continue the work. the work needs to continue. do the work! :-)
-    //std::vector<TH1D *>
 
+    std::string histoOutFilename = runId + "_histos.root";
+
+    cout << "Opening histo output file " << histoOutFilename << endl;
+    auto histoOutFile = std::make_unique<TFile>(histoOutFilename.c_str(), "recreate");
+
+    if (histoOutFile->IsZombie() || !histoOutFile->IsOpen())
+    {
+        cout << "Error opening histo output file " << histoOutFilename
+            << " for writing: " << strerror(histoOutFile->GetErrno()) << endl;
+        return 1;
+    }
+
+    cout << "Creating raw histograms" << endl;
+    std::vector<std::vector<TH1D *>> rawHistos;
+    size_t rawHistoMemory = 0u;
+
+    for (const auto &event: exp->GetEvents())
+    {
+        auto dir = histoOutFile->mkdir(event->GetName());
+        dir->cd();
+        std::vector<TH1D *> eventHistos;
+
+        for (const auto &module: event->GetModules())
+        {
+            for (const auto &userStorage: module->GetDataStorages())
+            {
+                for (size_t paramIndex = 0; paramIndex < userStorage.size; paramIndex++)
+                {
+                    std::string name =
+                        std::string(event->GetName()) + "_" + module->GetName() + "_"
+                        + userStorage.name + "[" + std::to_string(paramIndex) + "]";
+
+                    // cap at 16 bits
+                    unsigned bins = 1u << std::min(userStorage.bits, 16u);
+
+                    auto histo = new TH1D(
+                        name.c_str(),
+                        name.c_str(),
+                        bins,
+                        0.0,
+                        std::pow(2.0, userStorage.bits)
+                        );
+
+                    eventHistos.emplace_back(std::move(histo));
+
+                    rawHistoMemory += bins * sizeof(double);
+                }
+            }
+        }
+
+        rawHistos.emplace_back(std::move(eventHistos));
+    }
+
+    auto rawHistoCount = std::accumulate(
+        rawHistos.begin(),
+        rawHistos.end(), static_cast<size_t>(0u),
+        [] (const auto &a, const auto &b) { return a + b.size(); });
+
+    cout << "Created " << rawHistoCount << " histograms."
+        << " Total raw histo memory: " << (rawHistoMemory / (1024.0 * 1024.0))
+        << " MB" << endl;
+
+    // call custom user analysis code
+    if (analysis.beginRun)
+    {
+        bool isReplay = true;
+        analysis.beginRun(inputFilename, runId, isReplay);
+    }
 
     // Replay tree data
-    for (size_t eventIndex = 0; eventIndex < trees.size(); eventIndex++)
+    for (size_t eventIndex = 0; eventIndex < eventTrees.size(); eventIndex++)
     {
-        auto tree = trees[eventIndex];
+        auto tree = eventTrees[eventIndex];
         auto event = exp->GetEvent(eventIndex);
         auto analyzeFunc = analysis.eventFunctions[eventIndex];
 
-        cout << "Replaying data from tree " << tree->GetName() << "..." << std::flush;
+        cout << "Replaying data from tree '" << tree->GetName() << "'..." << std::flush;
 
         const auto entryCount = tree->GetEntries();
 
         for (int64_t entryIndex = 0; entryIndex < entryCount; entryIndex++)
         {
-            // Fills the experiment subobjects with data read from the tree.
+            size_t histoIndex = 0;
+
+            // Fills the event and its submodules with data read from the root tree.
             tree->GetEntry(entryIndex);
 
             // Read values from the generated array members of the events
@@ -1283,8 +1352,10 @@ int replay_main(
                 {
                     double paramValue = userStorage.ptr[paramIndex];
 
-                    //rawHistos[
+                    if (!std::isnan(paramValue))
+                        rawHistos[eventIndex][histoIndex + paramIndex]->Fill(paramValue);
                 }
+                histoIndex += userStorage.size;
             }
 
             if (analyzeFunc)
@@ -1293,6 +1364,21 @@ int replay_main(
 
         cout << " read " << entryCount << " entries." << endl;
     }
+
+    if (analysis.endRun)
+        analysis.endRun();
+
+#if 0
+    for (auto &eventHistos: rawHistos)
+    {
+        for (auto &histo: eventHistos)
+            histo->Write();
+    }
+#endif
+
+    cout << "Closing histo output file " << histoOutFile->GetName() << "..." << endl;
+    histoOutFile->Write();
+    histoOutFile = {};
 
     return 0;
 }
