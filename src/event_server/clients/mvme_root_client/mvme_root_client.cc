@@ -775,8 +775,8 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
         if (m_histoOutFile->IsZombie() || !m_histoOutFile->IsOpen())
         {
-            cout << "Error opening histo output file " << filename << " for writing: "
-                << strerror(m_histoOutFile->GetErrno()) << endl;
+            cout << "Error opening histo output file " << histoOutFilename
+                << " for writing: " << strerror(m_histoOutFile->GetErrno()) << endl;
             m_quit = true;
             return;
         }
@@ -796,14 +796,14 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
             for (const auto &dsd: edd.dataSources)
             {
-                for (unsigned chan = 0; chan < dsd.size; chan++)
+                for (unsigned paramIndex = 0; paramIndex < dsd.size; paramIndex++)
                 {
                     const VMEEvent &event = streamInfo.vmeTree.events[edd.eventIndex];
                     const VMEModule &module = event.modules[dsd.moduleIndex];
 
                     std::string name =
                         event.name + "_" + module.name + "_"
-                        + dsd.name + "[" + std::to_string(chan) + "]";
+                        + dsd.name + "[" + std::to_string(paramIndex) + "]";
 
                     // cap at 16 bits
                     unsigned bins = 1u << std::min(static_cast<unsigned>(dsd.bits), 16u);
@@ -815,7 +815,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                         dsd.lowerLimit,
                         dsd.upperLimit
                         );
-                    m_rawHistos.emplace_back(std::move(histo));
+                    m_rawHistos.emplace_back(histo);
 
                     rawHistoMemory += bins * sizeof(double);
                 }
@@ -1225,11 +1225,11 @@ int replay_main(
     }
 
     // Setup tree branch addresses to point to the experiment subobjects.
-    auto trees = exp->InitTrees(&f);
+    auto eventTrees = exp->InitTrees(&f);
 
-    if (trees.size() != exp->GetNumberOfEvents())
+    if (eventTrees.size() != exp->GetNumberOfEvents())
     {
-        cout << "Error: could not read experiment trees from input file "
+        cout << "Error: could not read experiment eventTrees from input file "
             << inputFilename << endl;
         return 1;
     }
