@@ -279,10 +279,12 @@ void MVLCNotificationPoller::enablePolling(int interval_ms)
     m_pollTimer.start(interval_ms);
 }
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
 void MVLCNotificationPoller::enablePolling(const std::chrono::milliseconds &interval)
 {
     m_pollTimer.start(interval);
 }
+#endif
 
 void MVLCNotificationPoller::disablePolling()
 {

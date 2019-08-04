@@ -154,7 +154,9 @@ class LIBMVME_MVLC_EXPORT MVLCNotificationPoller: public QObject
         MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent = nullptr);
 
         void enablePolling(int interval_ms = Default_PollInterval_ms);
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
         void enablePolling(const std::chrono::milliseconds &interval);
+#endif
         void disablePolling();
 
     private slots:

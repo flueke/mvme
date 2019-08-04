@@ -60,7 +60,11 @@ struct AnalysisInfoWidgetPrivate
     void updateMVLCWidget(const mesytec::mvlc::ReadoutParserCounters &counters, double dt);
 };
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
 static const std::chrono::milliseconds WidgetUpdatePeriod(1000);
+#else
+static const int WidgetUpdatePeriod = 1000;
+#endif
 
 AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
