@@ -21,7 +21,7 @@
 
 /*
  * The program works in two modes:
- * 1) As a client it connects to an mvme instance and receives incoming DAQ
+ * 1) As a client it connects to an mvme instance and receives incoming readout
  *    data to produce ROOT output files.
  * 2) The program replays data from a previously created output file.
  *
@@ -674,8 +674,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
             }
         }
 
-// TODO: test unloading. Afaik this is not (yet) supported in ROOT 6.16 and
-// earlier versions.
+// TODO: test unloading.
 #if 0
         // Unload analysis
         if (m_analysisLibHandle)
