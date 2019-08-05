@@ -1,0 +1,78 @@
+# disable triggers for stack 2
+write_local 0x1108 0b0000000
+
+# timer 0 cell: level[7:0], unit[7:0]
+# This selects the target of the next writes
+write_local 0x0200 0
+# range 1ns, 1us, 1ms, 1s = (0, 1, 2, 3)
+write_local 0x0302 0
+# delay 0
+write_local 0x0304 0
+# period 64ns
+write_local 0x0306 0x0040
+
+# level 3 stack start (again a selection of the target for the next writes)
+write_local 0x0200 0x0300
+# connect to timer 0
+write_local 0x0380 0
+# activate stack output
+write_local 0x0300 1
+# send to stack 2
+write_local 0x0302 2
+
+# ####################################################
+# ##### Readout Stack and Trigger Setup          #####
+# ####################################################
+stack_start offset=800 output=data
+    # internal readout
+    #setbase 0xffff0000
+    #mbltfifo a32 0x2000 1024
+
+	setbase 0x06000000
+    mbltfifo a32 0x0000 65535
+
+    # broadcast write readout reset
+    writeabs a32 d16 0xbb006034      1   # readout reset
+stack_end
+write_local 0x1208 800   # Set stack address register
+write_local 0x1108 0b1100000
+
+
+
+
+### write_local 0x1108 0b0000000
+###
+### # timer 0 cell: level[7:0], unit[7:0]
+### write_local 0x0200 0x0001 # unit = timer 0..3
+### # range 1ns, 1us, 1ms, 1s
+### write_local 0x0302 0
+### # delay 0
+### write_local 0x0304 0
+### # period 64ns
+### write_local 0x0306 0xff40
+###
+### # level 3 stack start
+### write_local 0x0200 0x0300 # unit = connection to stack
+### # connect to timer 0, 1...
+### write_local 0x0380 1
+### # activate stack output
+### write_local 0x0300 1 # flag to activate stack
+### # send to stack 2
+### write_local 0x0302 2
+###
+### # ####################################################
+### # ##### Readout Stack and Trigger Setup          #####
+### # ####################################################
+### stack_start offset=800 output=data
+###     # internal readout
+###     #setbase 0xffff0000
+###     #mbltfifo a32 0x2000 1024
+###
+### 	setbase 0x06000000
+###     mbltfifo a32 0x0000 65535
+###
+###     # broadcast write readout reset
+###     writeabs a32 d16 0xbb006034      1   # readout reset
+### stack_end
+### write_local 0x1208 800   # Set stack address register
+### write_local 0x1108 0b1100000
