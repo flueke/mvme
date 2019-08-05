@@ -243,11 +243,10 @@ namespace stacks
 
     enum TriggerType: u8
     {
-        NoTrigger,
-        IRQWithIACK,
-        IRQNoIACK,
-        External,
-        TimerUnderrun,
+        NoTrigger   = 0,
+        IRQWithIACK = 1,
+        IRQNoIACK   = 2,
+        External    = 3,
     };
 
     // IMPORTANT: For IRQ triggers the TriggerBits have to be set to the value
