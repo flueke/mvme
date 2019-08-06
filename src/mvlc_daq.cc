@@ -72,9 +72,10 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
     return {};
 }
 
-std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig)
+std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
 {
     u8 stackId = stacks::ImmediateStackID + 1;
+    u16 timersInUse = 0u;
 
     for (const auto &event: vmeConfig.getEventConfigs())
     {
@@ -82,6 +83,10 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig)
         {
             case TriggerCondition::Interrupt:
                 {
+                    logger(QSL("  Event %1: Stack %2, IRQ %3")
+                           .arg(event->objectName()).arg(stackId)
+                           .arg(event->irqLevel));
+
                     bool useIACK = event->triggerOptions["IRQUseIACK"].toBool();
 
                     u16 triggerReg = stacks::get_trigger_register(stackId);
@@ -96,6 +101,64 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig)
                     if (auto ec = mvlc.writeRegister(triggerReg, triggerVal))
                         return ec;
 
+                } break;
+
+            case TriggerCondition::Periodic:
+                if (timersInUse >= stacks::TimerCount)
+                {
+                    logger("No more timers available");
+                    return make_error_code(MVLCErrorCode::TimerCountExceeded);
+                }
+                else
+                {
+                    u16 timerId = timersInUse;
+
+                    logger(QSL("  Event %1: Stack %2, Timer %3")
+                           .arg(event->objectName()).arg(stackId).arg(timerId));
+
+                    if (!event->triggerOptions.contains("mvlc.timer_period"))
+                    {
+                        logger("No trigger period given");
+                        return make_error_code(MVLCErrorCode::ReadoutSetupError);
+                    }
+
+                    std::chrono::milliseconds period(
+                        event->triggerOptions["mvlc.timer_period"].toUInt());
+
+                    struct Write { u16 reg; u16 val; };
+
+                    std::vector<Write> writes;
+
+                    // target selection: lvl=0, unit=0..3 (timers)
+                    writes.push_back({ 0x0200, timerId });
+
+                    writes.push_back({ 0x0302, (u16)stacks::TimerUnits::ms }); // timer period base
+                    writes.push_back({ 0x0304, 0 }); // delay
+                    writes.push_back({ 0x0306, (u16)period.count() }); // timer period value
+
+                    // target selection: lvl=3, unit=timerId
+                    writes.push_back({ 0x0200, static_cast<u16>(0x0300 | timerId) });
+                    writes.push_back({ 0x0380, timerId });  // connect to our timer
+                    writes.push_back({ 0x0300, 1 });        // activate stack output
+                    writes.push_back({ 0x0302, stackId });  // send output to our stack
+
+                    // trigger setup
+                    writes.push_back({ stacks::get_trigger_register(stackId),
+                        stacks::External << stacks::TriggerTypeShift });
+
+                    for (const auto w: writes)
+                    {
+#if 0
+                        logger(QString("    0x%1 -> 0x%2")
+                               .arg(w.reg, 4, 16, QLatin1Char('0'))
+                               .arg(w.val, 4, 16, QLatin1Char('0')));
+#endif
+
+                        if (auto ec = mvlc.writeRegister(w.reg, w.val))
+                            return ec;
+                    }
+
+                    ++timersInUse;
                 } break;
 
             InvalidDefaultCase;
@@ -122,6 +185,7 @@ std::error_code setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger 
     {
         logger(QString("Error resetting stack offsets: %1")
                .arg(ec.message().c_str()));
+        return ec;
     }
 
     logger("Setting up readout stacks");
@@ -134,7 +198,7 @@ std::error_code setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger 
 
     logger("Enabling triggers");
 
-    if (auto ec = enable_triggers(mvlc, vmeConfig))
+    if (auto ec = enable_triggers(mvlc, vmeConfig, logger))
         return ec;
 
     return {};

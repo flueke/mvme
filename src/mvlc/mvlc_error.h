@@ -37,6 +37,11 @@ enum class MVLCErrorCode
     StackMemoryExceeded,
     StackSyntaxError,
     InvalidStackHeader,
+
+    // Readout setup releated (e.g. mvlc_daq.cc)
+    TimerCountExceeded,
+    ReadoutSetupError,
+
     // TODO: move these into a readout worker error enum. This is not really
     // MVLC layer stuff
     StackIndexOutOfRange,

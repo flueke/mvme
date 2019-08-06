@@ -89,6 +89,12 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::InvalidStackHeader:
                  return "Invalid stack header";
 
+            case MVLCErrorCode::TimerCountExceeded:
+                 return "Timer count exceeded";
+
+            case MVLCErrorCode::ReadoutSetupError:
+                 return "Generic Readout Setup Error";
+
             case MVLCErrorCode::StackIndexOutOfRange:
                  return "Stack index out of range";
 
@@ -140,6 +146,8 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::StackMemoryExceeded:
             case MVLCErrorCode::StackSyntaxError:
             case MVLCErrorCode::InvalidStackHeader:
+            case MVLCErrorCode::TimerCountExceeded: // FIXME: does not belong here
+            case MVLCErrorCode::ReadoutSetupError:  // FIXME: does not belong here
             case MVLCErrorCode::StackIndexOutOfRange:
             case MVLCErrorCode::UnexpectedBufferHeader:
             case MVLCErrorCode::NeedMoreData:

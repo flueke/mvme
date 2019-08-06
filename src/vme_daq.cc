@@ -94,11 +94,14 @@ vme_daq_init(
     logger(QSL("Events DAQ Start"));
     for (auto eventConfig: config->getEventConfigs())
     {
-        logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
         auto scriptConfig = eventConfig->vmeScripts["daq_start"];
-        auto results = run_script(controller, scriptConfig->getScript(),
-                                  indentingLogger, true);
+        auto script = scriptConfig->getScript();
+
+        if (!script.isEmpty())
+            logger(QString("  %1").arg(eventConfig->objectName()));
+
+        auto results = run_script(controller, script, indentingLogger, true);
         ret.push_back({ scriptConfig, results });
     }
 

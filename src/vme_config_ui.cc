@@ -66,8 +66,7 @@ struct EventConfigDialogPrivate
              *spin_irqVector,
              *spin_vmusbTimerFrequency;
 
-    QDoubleSpinBox *spin_vmusbTimerPeriod,
-                   *spin_sis3153TimerPeriod;
+    QDoubleSpinBox *spin_timerPeriod;
 
     QCheckBox *cb_irqUseIACK;
 };
@@ -125,12 +124,12 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
     {
         case VMEControllerType::VMUSB:
             {
-                m_d->spin_vmusbTimerPeriod = new QDoubleSpinBox;
-                m_d->spin_vmusbTimerPeriod->setPrefix(QSL("Every "));
-                m_d->spin_vmusbTimerPeriod->setSuffix(QSL(" seconds"));
-                m_d->spin_vmusbTimerPeriod->setMaximum(127.5);
-                m_d->spin_vmusbTimerPeriod->setDecimals(1);
-                m_d->spin_vmusbTimerPeriod->setSingleStep(0.5);
+                m_d->spin_timerPeriod = new QDoubleSpinBox;
+                m_d->spin_timerPeriod->setPrefix(QSL("Every "));
+                m_d->spin_timerPeriod->setSuffix(QSL(" seconds"));
+                m_d->spin_timerPeriod->setMaximum(127.5);
+                m_d->spin_timerPeriod->setDecimals(1);
+                m_d->spin_timerPeriod->setSingleStep(0.5);
 
                 m_d->spin_vmusbTimerFrequency = new QSpinBox;
                 m_d->spin_vmusbTimerFrequency->setPrefix(QSL("Every "));
@@ -140,7 +139,7 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
                 // vmusb timer widget
                 auto vmusbTimerWidget = new QWidget;
                 auto vmusbTimerLayout = new QFormLayout(vmusbTimerWidget);
-                vmusbTimerLayout->addRow(QSL("Period"), m_d->spin_vmusbTimerPeriod);
+                vmusbTimerLayout->addRow(QSL("Period"), m_d->spin_timerPeriod);
                 vmusbTimerLayout->addRow(QSL("Frequency"), m_d->spin_vmusbTimerFrequency);
 
                 conditions = { TriggerCondition::Interrupt,
@@ -158,18 +157,18 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
                     TriggerCondition::Input2RisingEdge, TriggerCondition::Input2FallingEdge
                 };
 
-                m_d->spin_sis3153TimerPeriod = new QDoubleSpinBox;
-                m_d->spin_sis3153TimerPeriod->setPrefix(QSL("Every "));
-                m_d->spin_sis3153TimerPeriod->setSuffix(QSL(" seconds"));
-                m_d->spin_sis3153TimerPeriod->setMinimum(0.1);
-                m_d->spin_sis3153TimerPeriod->setMaximum(6.5);
-                m_d->spin_sis3153TimerPeriod->setDecimals(1);
-                m_d->spin_sis3153TimerPeriod->setSingleStep(0.1);
-                m_d->spin_sis3153TimerPeriod->setValue(1.0);
+                m_d->spin_timerPeriod = new QDoubleSpinBox;
+                m_d->spin_timerPeriod->setPrefix(QSL("Every "));
+                m_d->spin_timerPeriod->setSuffix(QSL(" seconds"));
+                m_d->spin_timerPeriod->setMinimum(0.1);
+                m_d->spin_timerPeriod->setMaximum(6.5);
+                m_d->spin_timerPeriod->setDecimals(1);
+                m_d->spin_timerPeriod->setSingleStep(0.1);
+                m_d->spin_timerPeriod->setValue(1.0);
 
                 auto timerWidget = new QWidget;
                 auto timerLayout = new QFormLayout(timerWidget);
-                timerLayout->addRow(QSL("Period"), m_d->spin_sis3153TimerPeriod);
+                timerLayout->addRow(QSL("Period"), m_d->spin_timerPeriod);
 
                 m_d->stack_options->addWidget(irqWidget);
                 m_d->stack_options->addWidget(timerWidget);
@@ -198,8 +197,24 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
                 label->setWordWrap(true);
                 irqLayout->addRow(label);
 
-                conditions = { TriggerCondition::Interrupt };
+                m_d->spin_timerPeriod = new QDoubleSpinBox;
+                m_d->spin_timerPeriod->setPrefix(QSL("Every "));
+                m_d->spin_timerPeriod->setSuffix(QSL(" ms"));
+                m_d->spin_timerPeriod->setMinimum(1);
+                m_d->spin_timerPeriod->setMaximum(65535);
+                m_d->spin_timerPeriod->setDecimals(0);
+                m_d->spin_timerPeriod->setSingleStep(1.0);
+                m_d->spin_timerPeriod->setValue(1000);
+
+                auto timerWidget = new QWidget;
+                auto timerLayout = new QFormLayout(timerWidget);
+                timerLayout->addRow(QSL("Period"), m_d->spin_timerPeriod);
+
+                conditions = { TriggerCondition::Interrupt,
+                    TriggerCondition::Periodic};
+
                 m_d->stack_options->addWidget(irqWidget);
+                m_d->stack_options->addWidget(timerWidget);
             } break;
     }
 
@@ -237,19 +252,22 @@ void EventConfigDialog::loadFromConfig()
     {
         case VMEControllerType::VMUSB:
             {
-                m_d->spin_vmusbTimerPeriod->setValue(config->scalerReadoutPeriod * 0.5);
+                m_d->spin_timerPeriod->setValue(config->scalerReadoutPeriod * 0.5);
                 m_d->spin_vmusbTimerFrequency->setValue(config->scalerReadoutFrequency);
             } break;
         case VMEControllerType::SIS3153:
             {
-                m_d->spin_sis3153TimerPeriod->setValue(
+                m_d->spin_timerPeriod->setValue(
                     config->triggerOptions.value(QSL("sis3153.timer_period"), 0.0).toDouble());
 
             } break;
 
         case VMEControllerType::MVLC_USB:
         case VMEControllerType::MVLC_ETH:
-            break;
+            {
+                m_d->spin_timerPeriod->setValue(
+                    config->triggerOptions.value(QSL("mvlc.timer_period"), 1000u).toUInt());
+            } break;
     }
 }
 
@@ -266,18 +284,19 @@ void EventConfigDialog::saveToConfig()
     {
         case VMEControllerType::VMUSB:
             {
-                config->scalerReadoutPeriod = static_cast<uint8_t>(m_d->spin_vmusbTimerPeriod->value() * 2.0);
+                config->scalerReadoutPeriod = static_cast<uint8_t>(m_d->spin_timerPeriod->value() * 2.0);
                 config->scalerReadoutFrequency = static_cast<uint16_t>(m_d->spin_vmusbTimerFrequency->value());
             } break;
 
         case VMEControllerType::SIS3153:
             {
-                config->triggerOptions[QSL("sis3153.timer_period")] = m_d->spin_sis3153TimerPeriod->value();
+                config->triggerOptions[QSL("sis3153.timer_period")] = m_d->spin_timerPeriod->value();
             } break;
 
         case VMEControllerType::MVLC_USB:
         case VMEControllerType::MVLC_ETH:
             config->triggerOptions["IRQUseIACK"] = m_d->cb_irqUseIACK->isChecked();
+            config->triggerOptions["mvlc.timer_period"] = m_d->spin_timerPeriod->value();
             break;
     }
     config->setModified(true);

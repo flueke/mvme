@@ -1248,7 +1248,12 @@ void MVLCReadoutWorker::resumeDAQ()
 {
     assert(d->mvlcObj);
 
-    enable_triggers(*d->mvlcObj, *getContext().vmeConfig);
+    auto logger = [this](const QString &msg)
+    {
+        this->logMessage(msg);
+    };
+
+    enable_triggers(*d->mvlcObj, *getContext().vmeConfig, logger);
 
     d->startNotificationPolling();
 

@@ -267,6 +267,15 @@ namespace stacks
     {
         return Stack0OffsetRegister + stackId * AddressIncrement;
     }
+
+    static const u16 TimerCount = 4;
+    enum class TimerUnits: u8
+    {
+        ns,
+        us,
+        ms,
+        s
+    };
 }
 
 static const u32 SelfVMEAddress       = 0xFFFF0000u;

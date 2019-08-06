@@ -25,7 +25,7 @@ std::error_code LIBMVME_EXPORT
     setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger);
 
 std::error_code LIBMVME_EXPORT
-    enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig);
+    enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger);
 
 std::error_code LIBMVME_EXPORT
     disable_all_triggers(MVLCObject &mvlc);
