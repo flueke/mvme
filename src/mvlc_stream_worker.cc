@@ -100,13 +100,33 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         }
     };
 
-    m_parserCallbacks.modulePrefix = [analysis](int ei, int mi, const u32 *data, u32 size)
+    m_parserCallbacks.modulePrefix = [this, analysis](int ei, int mi, const u32 *data, u32 size)
     {
         //qDebug() << "  modulePrefix" << ei << mi << data << size;
-        analysis->processModulePrefix(ei, mi, data, size);
 
         // FIXME: The IMVMEStreamModuleConsumer interface doesn't support
-        // prefix/suffix data right now
+        // prefix/suffix data right now. Add this in.
+
+        // FIXME: Hack checking if the module does not have a dynamic part. In
+        // this case the readout data is handed to the analysis via
+        // processModuleData(). This workaround makes the MVLC readout
+        // compatible to readouts with the older controllers.
+        // Once the analysis is updates and proper filter templates for
+        // prefix/suffix have been added this change should be removed!
+        // Note: this works for scripts containing only register reads, e.g.
+        // the standard MesytecCounter script.
+        auto moduleParts = m_parser.readoutInfo[ei][mi];
+
+        if (!moduleParts.hasDynamic)
+        {
+            analysis->processModuleData(ei, mi, data, size);
+            for (auto c: m_moduleConsumers)
+                c->processModuleData(ei, mi, data, size);
+        }
+        else
+        {
+            analysis->processModulePrefix(ei, mi, data, size);
+        }
     };
 
     m_parserCallbacks.moduleDynamic = [this, analysis](int ei, int mi, const u32 *data, u32 size)
