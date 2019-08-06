@@ -1,8 +1,8 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
-* EventServer does not start automatically. This might only happen after
-  loading a listfile. Track this down!
+* 16:45:40: EventServer error: could not resolve listening address : Unknown error
+  Happens when starting mvme
 * void MVMEContext::prepareStart() starting mvme stream worker
   Qt has caught an exception thrown from an event handler. Throwing
   exceptions from an event handler is not supported in Qt.
