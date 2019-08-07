@@ -483,22 +483,25 @@ static EventDataDescriptions parse_stream_data_description(const json &j)
             EventDataDescription eds;
             eds.eventIndex = eventJ["eventIndex"];
 
-            for (const auto &dsj: eventJ["dataSources"])
+            if (eventJ.count("dataSources"))
             {
-                DataSourceDescription dsd;
-                dsd.name = dsj["name"];
-                dsd.size = dsj["size"];
-                dsd.lowerLimit = dsj["lowerLimit"];
-                dsd.upperLimit = dsj["upperLimit"];
-                dsd.bits = dsj["bits"];
-                dsd.indexType = storage_type_from_string(dsj["indexType"]);
-                dsd.valueType = storage_type_from_string(dsj["valueType"]);
-                dsd.moduleIndex = dsj["moduleIndex"];
+                for (const auto &dsj: eventJ["dataSources"])
+                {
+                    DataSourceDescription dsd;
+                    dsd.name = dsj["name"];
+                    dsd.size = dsj["size"];
+                    dsd.lowerLimit = dsj["lowerLimit"];
+                    dsd.upperLimit = dsj["upperLimit"];
+                    dsd.bits = dsj["bits"];
+                    dsd.indexType = storage_type_from_string(dsj["indexType"]);
+                    dsd.valueType = storage_type_from_string(dsj["valueType"]);
+                    dsd.moduleIndex = dsj["moduleIndex"];
 
-                for (const auto &namej: dsj["paramNames"])
-                    dsd.paramNames.push_back(namej);
+                    for (const auto &namej: dsj["paramNames"])
+                        dsd.paramNames.push_back(namej);
 
-                eds.dataSources.emplace_back(dsd);
+                    eds.dataSources.emplace_back(dsd);
+                }
             }
             result.emplace_back(eds);
         }

@@ -74,7 +74,8 @@ VMETree make_vme_tree_description(const VMEConfig *vmeConfig)
     return result;
 }
 
-EventDataDescriptions make_event_data_descriptions(const analysis::Analysis *analysis)
+EventDataDescriptions make_event_data_descriptions(
+    const VMEConfig *vmeConfig, const analysis::Analysis *analysis)
 {
     assert(analysis);
     assert(analysis->getA2AdapterState());
@@ -92,14 +93,14 @@ EventDataDescriptions make_event_data_descriptions(const analysis::Analysis *ana
     if (!a2) return result; // QSL("Error: a2 structure not present");
 
 
-    for (s32 eventIndex = 0; eventIndex < a2::MaxVMEEvents; eventIndex++)
+    const s32 eventCount = vmeConfig->getEventConfigs().size();
+    for (s32 eventIndex = 0; eventIndex < eventCount; eventIndex++)
     {
         EventDataDescription edd;
         edd.eventIndex = eventIndex;
 
-        u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
+        const u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
 
-        if (dataSourceCount == 0) continue;
 
         for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
         {
@@ -148,7 +149,7 @@ OutputDataDescription make_output_data_description(const VMEConfig *vmeConfig,
 {
     return
     {
-        make_event_data_descriptions(analysis),
+        make_event_data_descriptions(vmeConfig, analysis),
         make_vme_tree_description(vmeConfig),
     };
 }
