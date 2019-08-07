@@ -59,6 +59,7 @@
 #include "../data_filter.h"
 #include "../data_filter_edit.h"
 #include "../gui_util.h"
+#include "util/variablify.h"
 
 namespace
 {
