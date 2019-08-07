@@ -413,8 +413,14 @@ std::unique_ptr<MVMEExperiment> build_and_load_experiment_library(
     const std::string libName = "lib" + expName + "_mvme.so";
 
     // Run the ROOT pre-make macro
-    cout << "Executing ROOT pre-make macro file mvme_root_premake.C ..." << endl;
-    gROOT->ProcessLineSync(".x mvme_root_premake_hook.C");
+    {
+        cout << "Executing ROOT pre-make macro file mvme_root_premake_hook.C ..." << endl << endl;
+        auto res = gROOT->ProcessLineSync(".x mvme_root_premake_hook.C");
+        cout << endl << "---------- End of output from ROOT premake hook ----------" << endl << endl;
+
+        if (res)
+            return {};
+    }
 
     // Run make
     {
@@ -631,6 +637,8 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                 return;
             }
         }
+
+        cout << endl;
 
         m_exp = build_and_load_experiment_library(expName);
 
