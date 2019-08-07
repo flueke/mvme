@@ -1,6 +1,7 @@
 #include "event_server/server/event_server_util.h"
 
 #include "analysis/a2_adapter.h"
+#include "util/variablify.h"
 
 using namespace mvme::event_server;
 
@@ -55,14 +56,14 @@ VMETree make_vme_tree_description(const VMEConfig *vmeConfig)
 
         VMEEvent vmeEvent;
         vmeEvent.eventIndex = eventIndex;
-        vmeEvent.name = eventConfig->objectName().toStdString();
+        vmeEvent.name = variablify(eventConfig->objectName()).toStdString();
 
         for (s32 moduleIndex = 0; moduleIndex < moduleConfigs.size(); moduleIndex++)
         {
             auto moduleConfig = moduleConfigs[moduleIndex];
             VMEModule vmeModule;
             vmeModule.moduleIndex = moduleIndex;
-            vmeModule.name = moduleConfig->objectName().toStdString();
+            vmeModule.name = variablify(moduleConfig->objectName()).toStdString();
             vmeModule.type = moduleConfig->getModuleMeta().typeName.toStdString();
 
             vmeEvent.modules.emplace_back(vmeModule);
@@ -94,13 +95,13 @@ EventDataDescriptions make_event_data_descriptions(
 
 
     const s32 eventCount = vmeConfig->getEventConfigs().size();
+
     for (s32 eventIndex = 0; eventIndex < eventCount; eventIndex++)
     {
         EventDataDescription edd;
         edd.eventIndex = eventIndex;
 
         const u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
-
 
         for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
         {
@@ -115,10 +116,14 @@ EventDataDescriptions make_event_data_descriptions(
             if (auto ex = qobject_cast<analysis::Extractor *>(a1_dataSource))
             {
                 paramNames = ex->getParameterNames();
+
+                std::transform(
+                    paramNames.begin(), paramNames.end(),
+                    paramNames.begin(), variablify);
             }
 
             DataSourceDescription dsd;
-            dsd.name = a1_dataSource->objectName().toStdString();
+            dsd.name = variablify(a1_dataSource->objectName()).toStdString();
             dsd.moduleIndex = moduleIndex;
             dsd.size = outputSize;
             dsd.lowerLimit = a2_dataSource->output.lowerLimits[0];
