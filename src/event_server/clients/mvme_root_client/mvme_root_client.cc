@@ -1375,15 +1375,14 @@ int replay_main(
     if (analysis.endRun)
         analysis.endRun();
 
-#if 0
+    cout << "Closing histo output file " << histoOutFile->GetName() << "..." << endl;
+
     for (auto &eventHistos: rawHistos)
     {
         for (auto &histo: eventHistos)
             histo->Write();
     }
-#endif
 
-    cout << "Closing histo output file " << histoOutFile->GetName() << "..." << endl;
     histoOutFile->Write();
     histoOutFile = {};
 
