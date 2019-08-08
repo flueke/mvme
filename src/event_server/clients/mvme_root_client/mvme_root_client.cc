@@ -1317,6 +1317,8 @@ int replay_main(
         rawHistos.emplace_back(std::move(eventHistos));
     }
 
+    histoOutFile->cd();
+
     auto rawHistoCount = std::accumulate(
         rawHistos.begin(),
         rawHistos.end(), static_cast<size_t>(0u),
