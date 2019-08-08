@@ -132,15 +132,25 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                     // target selection: lvl=0, unit=0..3 (timers)
                     writes.push_back({ 0x0200, timerId });
 
-                    writes.push_back({ 0x0302, (u16)stacks::TimerUnits::ms }); // timer period base
+                    writes.push_back({ 0x0302, static_cast<u16>(stacks::TimerUnits::ms) }); // timer period base
                     writes.push_back({ 0x0304, 0 }); // delay
-                    writes.push_back({ 0x0306, (u16)period.count() }); // timer period value
+                    writes.push_back({ 0x0306, static_cast<u16>(period.count()) }); // timer period value
 
                     // target selection: lvl=3, unit=timerId
                     writes.push_back({ 0x0200, static_cast<u16>(0x0300 | timerId) });
                     writes.push_back({ 0x0380, timerId });  // connect to our timer
                     writes.push_back({ 0x0300, 1 });        // activate stack output
                     writes.push_back({ 0x0302, stackId });  // send output to our stack
+
+                    // testing activation of output 0 if any of the configured
+                    // timers activates
+                    // LUT on level 2
+                    u16 level = 2;
+                    u16 unit  = 0;
+                    writes.push_back({ 0x0200, static_cast<u16>(((level << 8) | unit))  });
+                    writes.push_back({ 0x0380, timerId });  // connect to our timer
+
+
 
                     // trigger setup
                     writes.push_back({ stacks::get_trigger_register(stackId),
