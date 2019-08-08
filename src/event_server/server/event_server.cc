@@ -271,17 +271,20 @@ void EventServer::startup()
     qDebug() << __PRETTY_FUNCTION__ << this << "enabled =" << m_d->m_enabled;
     if (m_d->m_enabled)
     {
-        if (bool res = m_d->m_server.listen(m_d->m_listenAddress, m_d->m_listenPort))
+        if (!m_d->m_server.isListening())
         {
-            m_d->logMessage(QSL("Listening on %1:%2")
-                       .arg(m_d->m_listenAddress.toString())
-                       .arg(m_d->m_listenPort));
-        }
-        else
-        {
-            m_d->logMessage(QSL("Error listening on %1:%2")
-                       .arg(m_d->m_listenAddress.toString())
-                       .arg(m_d->m_listenPort));
+            if (bool res = m_d->m_server.listen(m_d->m_listenAddress, m_d->m_listenPort))
+            {
+                m_d->logMessage(QSL("Listening on %1:%2")
+                           .arg(m_d->m_listenAddress.toString())
+                           .arg(m_d->m_listenPort));
+            }
+            else
+            {
+                m_d->logMessage(QSL("Error listening on %1:%2")
+                           .arg(m_d->m_listenAddress.toString())
+                           .arg(m_d->m_listenPort));
+            }
         }
     }
     else
