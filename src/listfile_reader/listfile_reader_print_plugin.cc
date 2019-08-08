@@ -54,6 +54,7 @@ void event_data (void *userptr, int eventIndex, const ModuleData *modules, int m
 
             if (md.prefix.size)
             {
+                cout << "  moduleIndex=" << mi << ", prefix.size=" << md.prefix.size << endl;
             }
 
             if (md.dynamic.size)
@@ -61,8 +62,9 @@ void event_data (void *userptr, int eventIndex, const ModuleData *modules, int m
                 cout << "  moduleIndex=" << mi << ", dynamic.size=" << md.dynamic.size << endl;
             }
 
-            if (md.prefix.size)
+            if (md.suffix.size)
             {
+                cout << "  moduleIndex=" << mi << ", suffix.size=" << md.suffix.size << endl;
             }
 
         }

@@ -400,7 +400,7 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
     replayThread.start();
 
 
-    // TODO: try-catch around all call into the plugin
+    // TODO: try-catch around all calls into the plugins
     try
     {
         for (auto &plugin: plugins)
@@ -515,23 +515,23 @@ int main(int argc, char *argv[])
 
     try
     {
-        auto plugin = load_plugin("./listfile_reader_print_plugin");
+        auto plugin = load_plugin("listfile_reader_print_plugin");
         plugins.emplace_back(plugin);
     }
     catch (const resolve_error &)
     {
-        return 1;
+        //return 1;
     }
 
-#if 0
+#if 1
     try
     {
-        auto plugin = load_plugin("./listfile_reader_python_plugin");
+        auto plugin = load_plugin("listfile_reader_python_plugin");
         plugins.emplace_back(plugin);
     }
     catch (const resolve_error &)
     {
-        return 1;
+        //return 1;
     }
 #endif
 

@@ -4,6 +4,8 @@ import py_listfile_reader as lfr
 import numpy as np
 #import time
 
+prevCounterValue = 0
+
 def begin_run(run):
     print(dir(lfr.ModuleReadoutDescription))
     print(dir(lfr.DataBlock))
@@ -18,9 +20,12 @@ def begin_run(run):
         for module in event.getModules():
             print("    ", module.name)
 
+    global prevCounterValue
+    prevCounterValue = 0
+
     #np_prefix = np.asarray(run.prefix)
     #print(np_prefix)
-    
+
     #print(np_array)
     #print(len(run))
     #raise Exception("foobar")
@@ -30,10 +35,27 @@ def get_module_arrays(m):
     return (np.asarray(m.prefix), np.asarray(m.dynamic), np.asarray(m.suffix))
 
 def event_data(eventIndex, modules):
-    print(eventIndex)
+    #print(eventIndex)
 
-    for mi, m in zip(range(len(modules)), modules):
-        print("  ", mi, m, get_module_arrays(m))
+    #for mi, m in zip(range(len(modules)), modules):
+    #    print("  ", mi, m, get_module_arrays(m))
+
+    counterLo, counterHi = get_module_arrays(modules[0])[0]
+    counterLo = counterLo & 0xffff
+    counterHi = counterHi & 0xffff
+    counterValue = (counterHi << 16) | counterLo;
+
+    global prevCounterValue
+    counterDelta = counterValue - prevCounterValue;
+
+    #print("[lo]: %u, %s" % (counterLo, bin(counterLo)))
+    #print("[hi]: %u, %s" % (counterHi, bin(counterHi)))
+
+    print("counterValue: %u, %s" % (counterValue, bin(counterValue)))
+    print("prevCounterValue: %u, %s" % (prevCounterValue, bin(prevCounterValue)))
+    print("delta=%u" % (counterDelta,))
+
+    prevCounterValue = counterValue
 
     #print(eventIndex, modules)
     pass

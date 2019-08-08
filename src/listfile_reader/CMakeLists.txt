@@ -2,6 +2,9 @@ add_mvme_executable(listfile_reader "listfile_reader_main.cc")
 
 add_library(listfile_reader_print_plugin SHARED listfile_reader_print_plugin.cc)
 
+install(TARGETS listfile_reader DESTINATION bin)
+install(TARGETS listfile_reader_print_plugin DESTINATION lib)
+
 option(MVME_WITH_PYBIND11 "Enable usage of pybind11 in mvme" OFF)
 
 if (MVME_WITH_PYBIND11)
@@ -14,6 +17,9 @@ if (MVME_WITH_PYBIND11)
     target_include_directories(listfile_reader_python_plugin
         PRIVATE ${PYBIND11_INCLUDE_DIR}
         PRIVATE ${PYTHON_INCLUDE_DIRS})
+
+    install(TARGETS listfile_reader_python_plugin DESTINATION lib)
+    install(FILES listfile_reader_python_printer.py DESTINATION lib)
 
 endif(MVME_WITH_PYBIND11)
 

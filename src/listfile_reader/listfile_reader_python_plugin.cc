@@ -94,7 +94,7 @@ void *plugin_init (const char *pluginFilename, int argc, const char *argv[])
     auto ctx = new Context{};
 
     // TODO: catch exceptions
-    ctx->usercode = py::module::import("python_printer");
+    ctx->usercode = py::module::import("listfile_reader_python_printer");
 
     // TODO: check if the retrieved attributes are callable
     ctx->py_begin_run = ctx->usercode.attr("begin_run");
