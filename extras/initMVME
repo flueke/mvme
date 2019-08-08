@@ -2,8 +2,6 @@
 
 export MVME=$(readlink -f $(dirname "${BASH_SOURCE[0]}")/../)
 
-#export MVME=$(dirname $(readlink -f "${BASH_SOURCE[0]}/../"))
-
 echo "Setting up environment for mvme in $MVME"
 
 export PATH="${MVME}:${MVME}/bin:${PATH}"
