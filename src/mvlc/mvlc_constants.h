@@ -269,7 +269,7 @@ namespace stacks
     }
 
     static const u16 TimerCount = 4;
-    enum class TimerUnits: u8
+    enum class TimerUnits: u16
     {
         ns,
         us,
