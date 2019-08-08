@@ -277,6 +277,7 @@ target_sources(libmvme PRIVATE
     timed_block.cc
     treewidget_utils.cc
     util/strings.cc
+    util/variablify.cc
     util_zip.cc
     vme_analysis_common.cc
     vme_config.cc

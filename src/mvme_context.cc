@@ -1396,7 +1396,10 @@ void MVMEContext::prepareStart()
 
     // add info from the workspace to the current RunInfo object
     auto wsSettings = makeWorkspaceSettings();
-    m_d->m_runInfo.infoDict["ExperimentName"] = wsSettings->value("Experiment/Name");
+    auto experimentName = wsSettings->value("Experiment/Name").toString();
+    if (experimentName.isEmpty())
+        experimentName = "Experiment";
+    m_d->m_runInfo.infoDict["ExperimentName"] = experimentName;
     m_d->m_runInfo.infoDict["ExperimentTitle"] = wsSettings->value("Experiment/Title");
     m_d->m_runInfo.infoDict["MVMEWorkspace"] = getWorkspaceDirectory();
     m_d->m_runInfo.ignoreStartupErrors = wsSettings->value(
@@ -1754,7 +1757,7 @@ void MVMEContext::newWorkspace(const QString &dirName)
     workspaceSettings->setValue(QSL("LastAnalysisConfig"), DefaultAnalysisConfigFileName);
     workspaceSettings->setValue(QSL("WriteListFile"), true);
 
-    workspaceSettings->setValue(QSL("Experiment/Name"), destDir.dirName());
+    workspaceSettings->setValue(QSL("Experiment/Name"), "Experiment");
     workspaceSettings->setValue(QSL("Experiment/Title"), QString());
 
     workspaceSettings->setValue(QSL("JSON-RPC/Enabled"), false);

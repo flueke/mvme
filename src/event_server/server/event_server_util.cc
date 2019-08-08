@@ -1,6 +1,7 @@
 #include "event_server/server/event_server_util.h"
 
 #include "analysis/a2_adapter.h"
+#include "util/variablify.h"
 
 using namespace mvme::event_server;
 
@@ -55,14 +56,14 @@ VMETree make_vme_tree_description(const VMEConfig *vmeConfig)
 
         VMEEvent vmeEvent;
         vmeEvent.eventIndex = eventIndex;
-        vmeEvent.name = eventConfig->objectName().toStdString();
+        vmeEvent.name = variablify(eventConfig->objectName()).toStdString();
 
         for (s32 moduleIndex = 0; moduleIndex < moduleConfigs.size(); moduleIndex++)
         {
             auto moduleConfig = moduleConfigs[moduleIndex];
             VMEModule vmeModule;
             vmeModule.moduleIndex = moduleIndex;
-            vmeModule.name = moduleConfig->objectName().toStdString();
+            vmeModule.name = variablify(moduleConfig->objectName()).toStdString();
             vmeModule.type = moduleConfig->getModuleMeta().typeName.toStdString();
 
             vmeEvent.modules.emplace_back(vmeModule);
@@ -74,7 +75,8 @@ VMETree make_vme_tree_description(const VMEConfig *vmeConfig)
     return result;
 }
 
-EventDataDescriptions make_event_data_descriptions(const analysis::Analysis *analysis)
+EventDataDescriptions make_event_data_descriptions(
+    const VMEConfig *vmeConfig, const analysis::Analysis *analysis)
 {
     assert(analysis);
     assert(analysis->getA2AdapterState());
@@ -92,14 +94,14 @@ EventDataDescriptions make_event_data_descriptions(const analysis::Analysis *ana
     if (!a2) return result; // QSL("Error: a2 structure not present");
 
 
-    for (s32 eventIndex = 0; eventIndex < a2::MaxVMEEvents; eventIndex++)
+    const s32 eventCount = vmeConfig->getEventConfigs().size();
+
+    for (s32 eventIndex = 0; eventIndex < eventCount; eventIndex++)
     {
         EventDataDescription edd;
         edd.eventIndex = eventIndex;
 
-        u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
-
-        if (dataSourceCount == 0) continue;
+        const u32 dataSourceCount = a2->dataSourceCounts[eventIndex];
 
         for (u32 dsIndex = 0; dsIndex < dataSourceCount; dsIndex++)
         {
@@ -114,10 +116,14 @@ EventDataDescriptions make_event_data_descriptions(const analysis::Analysis *ana
             if (auto ex = qobject_cast<analysis::Extractor *>(a1_dataSource))
             {
                 paramNames = ex->getParameterNames();
+
+                std::transform(
+                    paramNames.begin(), paramNames.end(),
+                    paramNames.begin(), variablify);
             }
 
             DataSourceDescription dsd;
-            dsd.name = a1_dataSource->objectName().toStdString();
+            dsd.name = variablify(a1_dataSource->objectName()).toStdString();
             dsd.moduleIndex = moduleIndex;
             dsd.size = outputSize;
             dsd.lowerLimit = a2_dataSource->output.lowerLimits[0];
@@ -148,7 +154,7 @@ OutputDataDescription make_output_data_description(const VMEConfig *vmeConfig,
 {
     return
     {
-        make_event_data_descriptions(analysis),
+        make_event_data_descriptions(vmeConfig, analysis),
         make_vme_tree_description(vmeConfig),
     };
 }
