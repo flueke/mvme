@@ -969,12 +969,6 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src, s32 userLeve
 
         auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, analysis, context, eventWidget);
         result = lfe_dialog;
-
-        if (!analysis->getListFilterExtractors(
-                moduleConfig->getEventId(), moduleConfig->getId()).isEmpty())
-        {
-            lfe_dialog->newFilter();
-        }
     }
 
     QObject::connect(result, &ObjectEditorDialog::applied,
