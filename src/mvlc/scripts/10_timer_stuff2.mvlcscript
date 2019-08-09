@@ -1,0 +1,113 @@
+write_local 0x0200 0x0000    # select level=0, unit=0
+write_local 0x0302 0x0002    # timer period base
+write_local 0x0304 0x0000    # timer delay
+write_local 0x0306 2000    # timer period
+
+write_local 0x0200 0x0001    # select level=0, unit=1
+write_local 0x0302 0x0002    # timer period base
+write_local 0x0304 0x0000    # timer delay
+write_local 0x0306 500    # timer period
+
+# stack setup
+#write_local 0x0200 0x0300    # select level=3, unit=0
+#write_local 0x0300 0x0001
+#write_local 0x0302 0x0001
+#write_local 0x0380 0x0001
+
+# LUT
+write_local 0x0200 0x0200    # select level=2, unit=0
+
+write_local 0x0300 0x0000
+write_local 0x0302 0x0000
+write_local 0x0304 0x0000
+write_local 0x0306 0x0000
+
+write_local 0x0308 0x0000
+write_local 0x030A 0x0000
+write_local 0x030C 0x0000
+write_local 0x030E 0x0000
+
+write_local 0x0310 0x0000
+write_local 0x0312 0x0000
+write_local 0x0314 0x0000
+write_local 0x0316 0x0000
+
+write_local 0x0318 0x0000
+write_local 0x031A 0x0000
+write_local 0x031C 0x0000
+write_local 0x031E 0x0000
+
+write_local 0x0380 0x0000
+write_local 0x0382 0x0001
+
+
+write_local 0x0200 0x0310    # select level=3, unit=16
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x0311    # select level=3, unit=17
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x0312    # select level=3, unit=18
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x0313    # select level=3, unit=19
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x0314    # select level=3, unit=20
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x0315    # select level=3, unit=21
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x0316    # select level=3, unit=22
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x0317    # select level=3, unit=23
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x0318    # select level=3, unit=24
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x0319    # select level=3, unit=25
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x031A    # select level=3, unit=26
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x031B    # select level=3, unit=27
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x031C    # select level=3, unit=28
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
+write_local 0x0200 0x031D    # select level=3, unit=29
+write_local 0x030a 0x0001    # dir=output
+write_local 0x0310 0x0001    # activate cell
+write_local 0x0380 0x0001
+
