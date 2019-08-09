@@ -1282,6 +1282,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     rightSplitter->addWidget(objectInfoTabWidget);
     rightSplitter->setStretchFactor(0, 2);
     rightSplitter->setStretchFactor(1, 1);
+    rightSplitter->hide();
 
     static const char *rightSplitterStateKey = "AnalysisWidget/RightSplitterState";
 

@@ -295,8 +295,8 @@ struct Histo1DWidgetPrivate
             *m_actionChangeRes,
             *m_actionGaussFit,
             *m_actionCalibUi,
-            *m_actionInfo,
-            *m_actionCuts;
+            *m_actionInfo;
+            //*m_actionCuts;
 
     // rate estimation
     RateEstimationData m_rateEstimationData;
@@ -606,6 +606,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
         });
     }
 
+#if 0
     //
     // Cuts
     //
@@ -637,6 +638,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
             m_d->m_actionCuts->setEnabled(false);
         });
     }
+#endif
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
     // this.
@@ -1646,7 +1648,9 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
     m_d->m_sinkModifiedCallback = sinkModifiedCallback;
     m_d->m_actionSubRange->setEnabled(true);
     m_d->m_actionChangeRes->setEnabled(true);
+#if 0
     m_d->m_actionCuts->setEnabled(true);
+#endif
 
     auto rrf = sink->getResolutionReductionFactor();
 

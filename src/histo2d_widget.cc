@@ -307,8 +307,8 @@ struct Histo2DWidgetPrivate
     QAction *m_actionClear,
             *m_actionSubRange,
             *m_actionChangeRes,
-            *m_actionInfo,
-            *m_actionCreateCut;
+            *m_actionInfo;
+            //*m_actionCreateCut;
 
     QComboBox *m_zScaleCombo;
 
@@ -534,6 +534,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
             m_d->onCutPolyPickerActivated(on);
         }));
 
+#if 0
         auto action = tb->addAction("Dev: Create cut");
         action->setCheckable(true);
         action->setEnabled(false); // will be enabled in setContext()
@@ -551,6 +552,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
                 m_d->m_cutPolyPicker->setEnabled(false);
             }
         });
+#endif
     }
 
     tb->addWidget(make_spacer_widget());
@@ -738,7 +740,9 @@ Histo2DWidget::~Histo2DWidget()
 void Histo2DWidget::setContext(MVMEContext *context)
 {
     m_d->m_context = context;
+#if 0
     m_d->m_actionCreateCut->setEnabled(context != nullptr);
+#endif
 }
 
 void Histo2DWidget::replot()
@@ -1601,7 +1605,9 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
     m_zoomer->ignoreNextMouseRelease();
     m_zoomer->setEnabled(true);
 
+#if 0
     m_actionCreateCut->setChecked(false);
+#endif
 
     m_q->replot();
 
