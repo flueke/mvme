@@ -4830,7 +4830,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
                         childNode->setText(0, QString("%1 (entries=%2, rate=%3, dt=%4 s)")
                                            .arg(numberString)
-                                           .arg(entryCount, 0, 'g', 3)
+                                           .arg(entryCount)
                                            .arg(rateString)
                                            .arg(dt_s)
                                           );
