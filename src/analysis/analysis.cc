@@ -2762,6 +2762,22 @@ void Histo1DSink::clearState()
     {
         histo->clear();
     }
+
+    if (getAnalysis())
+    {
+        if (auto a2State = getAnalysis()->getA2AdapterState())
+        {
+            if (auto a2Sink = a2State->operatorMap.value(this))
+            {
+                auto sinkData = reinterpret_cast<a2::H1DSinkData *>(a2Sink->d);
+
+                for (auto &histo: sinkData->histos)
+                {
+                    histo.entryCount = 0;
+                }
+            }
+        }
+    }
 }
 
 void Histo1DSink::read(const QJsonObject &json)
@@ -3763,6 +3779,7 @@ void Analysis::addSource(const SourcePtr &source)
 {
     m_sources.push_back(source);
     source->setObjectFlags(ObjectFlags::NeedsRebuild);
+    source->setAnalysis(this);
     setModified();
     emit dataSourceAdded(source);
 }
@@ -3991,6 +4008,7 @@ void Analysis::addOperator(const QUuid &eventId, s32 userLevel, const OperatorPt
 void Analysis::addOperator(const OperatorPtr &op)
 {
     op->setObjectFlags(ObjectFlags::NeedsRebuild);
+    op->setAnalysis(this);
     m_operators.push_back(op);
     setModified();
     emit operatorAdded(op);
@@ -4270,6 +4288,7 @@ void Analysis::setDirectories(const DirectoryVector &dirs)
 void Analysis::addDirectory(const DirectoryPtr &dir)
 {
     qDebug() << __PRETTY_FUNCTION__;
+    dir->setAnalysis(this);
     m_directories.push_back(dir);
     setModified();
     emit directoryAdded(dir);

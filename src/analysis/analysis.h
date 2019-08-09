@@ -167,6 +167,9 @@ class LIBMVME_EXPORT AnalysisObject:
         /* Visitor support */
         virtual void accept(ObjectVisitor &visitor) = 0;
 
+        void setAnalysis(Analysis *analysis) { m_analysis = analysis; }
+        Analysis *getAnalysis() { return m_analysis; }
+
     protected:
         /* Invoked by the clone() method on the cloned object. The source of the clone is
          * passed in cloneSource.
@@ -180,6 +183,7 @@ class LIBMVME_EXPORT AnalysisObject:
         QUuid m_id;
         s32 m_userLevel;
         QUuid m_eventId;
+        Analysis *m_analysis = nullptr;
 };
 
 /* Interface to indicate that something can the be source of a Pipe.
