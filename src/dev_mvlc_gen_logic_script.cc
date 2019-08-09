@@ -5,6 +5,7 @@
 
 #include "typedefs.h"
 #include "mvlc/mvlc_constants.h"
+#include "mvlc/mvlc_trigger_io.h"
 
 using namespace mesytec::mvlc;
 
