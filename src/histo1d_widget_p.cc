@@ -73,16 +73,27 @@ Histo1DSubRangeDialog::Histo1DSubRangeDialog(const SinkPtr &histoSink,
 
 void Histo1DSubRangeDialog::accept()
 {
+    bool doClear = false;
+
     if (limits_x.rb_limited->isChecked())
     {
+        doClear = (m_sink->m_xLimitMin != limits_x.spin_min->value()
+                   || m_sink->m_xLimitMax != limits_x.spin_max->value());
+
         m_sink->m_xLimitMin = limits_x.spin_min->value();
         m_sink->m_xLimitMax = limits_x.spin_max->value();
     }
     else
     {
+        doClear = (!std::isnan(m_sink->m_xLimitMin)
+                   || !std::isnan(m_sink->m_xLimitMax));
+
         m_sink->m_xLimitMin = make_quiet_nan();
         m_sink->m_xLimitMax = make_quiet_nan();
     }
+
+    if (doClear)
+        m_sink->clearState();
 
     m_sinkModifiedCallback(m_sink);
 
