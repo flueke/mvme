@@ -275,9 +275,11 @@ void EventServer::startup()
         {
             if (bool res = m_d->m_server.listen(m_d->m_listenAddress, m_d->m_listenPort))
             {
+#if 0
                 m_d->logMessage(QSL("Listening on %1:%2")
                            .arg(m_d->m_listenAddress.toString())
                            .arg(m_d->m_listenPort));
+#endif
             }
             else
             {
