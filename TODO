@@ -8,12 +8,9 @@ TODO list, not at all sorted by priority
     in previous mvme versions.
     -> Difference: first input connects to an array of size 1. Now the 2nd
        input only accepts values instead of full arrays even if those have size 1.
-  - Go through the dialogs and make "Ok" the default action, not cancel
-  - Condition UI must go. Graphical editing of conditions is still not implemented.
   - Check that histo under/overflow is working with active subranges.
   - Figure out how the entrycount for histos works right now. It does not get
     reset when the histo is reset, only when a new run starts.
-  - Clear histo contents on subrange changes.
 
 * mvme_root_client: on new run detect if the incoming data is compatible in
   case things are already loaded. use streaminfo, maybe generate code in memory
