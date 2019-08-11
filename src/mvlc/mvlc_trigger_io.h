@@ -19,12 +19,15 @@ struct Timer
     u16 period;
 };
 
-struct Output
+struct IO
 {
+    enum class Direction { in, out };
     u16 delay;
     u16 width;
     u16 holdoff;
     bool invert;
+    Direction direction;
+    bool activate;
 };
 
 struct StackBusy
@@ -40,7 +43,7 @@ struct LUT
 {
     LUT_RAM ram;
     u8 strobed; // output to be strobed
-    Output output;
+    IO strobeGG;
 };
 
 struct StackStart
@@ -61,10 +64,11 @@ struct Level0
     std::array<Timer, 4> timers;            // 0..3
                                             // 4, 5     are irq units
                                             // 6, 7     are software triggers
-    std::array<Output, 4> slaveTriggers;    // 8..11
+    std::array<IO, 4> slaveTriggers;    // 8..11
     std::array<StackBusy, 2> stackBusy;     // 12, 13
-    std::array<Output, 14> outputsNIM;      // 16..29
-    std::array<Output, 3> outputsECL;       // 30..32
+                                            // 14, 15 unused
+    std::array<IO, 14> outputsNIM;      // 16..29
+    std::array<IO, 3> outputsECL;       // 30..32
 };
 
 struct Level1
@@ -81,8 +85,8 @@ struct Level3
 {
     std::array<StackStart, 4> stackStart;
     std::array<MasterTrigger, 4> masterTrigger;
-    std::array<Output, 14> outputsNIM;
-    std::array<Output, 3> outputsECL;
+    std::array<IO, 14> outputsNIM;
+    std::array<IO, 3> outputsECL;
 };
 
 struct TriggerIO
