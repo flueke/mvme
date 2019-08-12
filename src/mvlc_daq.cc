@@ -1,5 +1,6 @@
 #include "mvlc_daq.h"
 #include "mvlc/mvlc_error.h"
+#include "mvlc/mvlc_trigger_io.h"
 #include "mvlc/mvlc_util.h"
 #include "vme_daq.h"
 
@@ -67,6 +68,19 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
         stackId++;
         // again leave a 1 word gap between stacks
         uploadOffset += stackContents.size() + 1;
+    }
+
+    return {};
+}
+
+static std::error_code write_lut_ram(MVLCObject &mvlc, const trigger_io::LUT_RAM &lut, u16 address)
+{
+    for (u16 value: lut)
+    {
+        if (auto ec = mvlc.writeRegister(address, value))
+            return ec;
+
+        address += sizeof(u16);
     }
 
     return {};
@@ -147,7 +161,7 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                     writes.push_back({ 0x0304, 0 }); // delay
                     writes.push_back({ 0x0306, static_cast<u16>(period.count()) }); // timer period value
 
-                    // target selection: lvl=3, unit=timerId
+                    // target selection: lvl=3, unit=timerId (stack units 0-3, triggering stacks 1-4
                     writes.push_back({ 0x0200, static_cast<u16>(0x0300 | timerId) });
                     writes.push_back({ 0x0380, timerId });  // connect to our timer
                     writes.push_back({ 0x0300, 1 });        // activate stack output
@@ -191,6 +205,172 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
     return {};
 }
 
+static void write(MVLCObject &mvlc, u16 address, u16 value)
+{
+    if (auto ec = mvlc.writeRegister(address, value))
+        throw ec;
+}
+
+static void select(MVLCObject &mvlc, u8 level, u8 unit)
+{
+    write(mvlc, 0x0200, static_cast<u16>(((level << 8) | unit)));
+}
+
+std::error_code do_base_setup(MVLCObject &mvlc, Logger logger)
+{
+    trigger_io::TriggerIO setup = {};
+
+    // NIM 0-3: busy out
+    for (size_t i = 0; i < 4; i++)
+    {
+#if 0
+        auto &io = setup.l0.ioNIM[i];
+
+        io = {};
+        io.direction = trigger_io::IO::Direction::out;
+        io.activate = true;
+#endif
+
+        int unitoffset = 16;
+        select(mvlc, 0, unitoffset + i);
+        write(mvlc, 0x0300 + 10, 1); // dir: output
+        write(mvlc, 0x0300 + 16, 1); // activate
+    }
+
+    // NIM 4,5: unused
+
+    // NIM 6-9: Trigger inputs
+    for (size_t i = 6; i < 10; i++)
+    {
+#if 0
+        auto &io = setup.l0.ioNIM[i];
+        io = {};
+        io.direction = trigger_io::IO::Direction::in;
+        io.activate = true;
+#endif
+        int unitoffset = 16;
+        select(mvlc, 0, unitoffset + i);
+        write(mvlc, 0x0300 + 10, 0); // dir: inpput
+        write(mvlc, 0x0300 + 16, 1); // activate
+    }
+
+    // NIM 10-13
+    for (size_t i = 10; i < 14; i++)
+    {
+#if 0
+        auto &io = setup.l0.ioNIM[i];
+        io = {};
+        io.direction = trigger_io::IO::Direction::out;
+        io.activate = true;
+#endif
+        int unitoffset = 16;
+        select(mvlc, 0, unitoffset + i);
+        write(mvlc, 0x0300 + 10, 1); // dir: output
+        write(mvlc, 0x0300 + 16, 1); // activate
+    }
+
+    // ECL 2: Trigger 0 out
+    {
+#if 0
+        auto &io = setup.l0.ioECL[2];
+        io = {};
+        io.direction = trigger_io::IO::Direction::out;
+        io.activate = true;
+#endif
+        select(mvlc, 0, 32);
+        write(mvlc, 0x0300 + 16, 1); // activate
+    }
+
+    // These refer to the same hardware devices.
+    setup.l3.ioNIM = setup.l0.ioNIM;
+    setup.l3.ioECL = setup.l0.ioECL;
+
+    // L1.1: OR over inputs 6-9 which are connected to L1.1 pins 0-3
+    //       The OR goes to L1.1 output bit 0
+    {
+        u8 mask = 0b1111u;
+
+        for (u8 addr = 0; addr < 64; addr++)
+        {
+            if (addr & mask)
+            {
+                trigger_io::set(setup.l1.luts[1].ram, addr, 0b1);
+            }
+        }
+
+        select(mvlc, 1, 1);
+        write_lut_ram(mvlc, setup.l1.luts[1].ram, 0x300);
+    }
+
+    // L1.0: OR over inputs 0-3 which are connected to L1.0 pins 0-3
+    //       The OR goes to L1.0 output bit 0
+    {
+        u8 mask = 0b1111u;
+
+        for (u8 addr = 0; addr < 64; addr++)
+        {
+            if (addr & mask)
+            {
+                trigger_io::set(setup.l1.luts[0].ram, addr, 0b1);
+            }
+        }
+
+        select(mvlc, 1, 0);
+        write_lut_ram(mvlc, setup.l1.luts[0].ram, 0x300);
+    }
+
+    // L1.3: pass through of input 0 to L1 output 0
+    //                   and input 3 to L1 output 1
+    {
+        u8 mask = 0b1u;
+        u8 mask1 = 0b1u << 3;
+
+        for (u8 addr = 0; addr < 64; addr++)
+        {
+            if (addr & mask)
+            {
+                trigger_io::set(setup.l1.luts[3].ram, addr, 0b1);
+            }
+
+            if (addr & mask1)
+            {
+                trigger_io::set(setup.l1.luts[3].ram, addr, 0b1 << 1);
+            }
+        }
+
+        select(mvlc, 1, 3);
+        write_lut_ram(mvlc, setup.l1.luts[3].ram, 0x300);
+    }
+
+    // => or of NIM6-9 is available at L1 output bit 0
+    //    or of NIM0-3 is available at L1 output bit 1
+
+    // Setup L2.0.strobeGG and connect Trig In from (L1 out 0) to L2.0.strobeGG.
+    {
+        setup.l2.luts[0].strobed = true;
+        // TODO: connect input_strobe
+        // connect l1.out.1 to L2.0.0 (TrigIn)
+        // connect(l0.out.12 to L2.0.1 (StackBusy)
+        // build an or of L2.0.0 and L2.0.1, negate it and use it for TrigOut 10-13 ECL2 out
+
+        u8 mask = 0b11u;
+        for (u8 addr = 0; addr < 64; addr++)
+        {
+            if (addr & mask)
+            {
+                trigger_io::set(setup.l2.luts[0].ram, addr, 0b1);
+            }
+        }
+
+        select(mvlc, 2, 0);
+        write_lut_ram(mvlc, setup.l2.luts[0].ram, 0x300);
+        //write(mvlc, 0x386,
+        // XXX: leftoff
+    }
+
+    return {};
+}
+
 std::error_code setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
 {
     if (auto ec = disable_all_triggers(mvlc))
@@ -205,6 +385,13 @@ std::error_code setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger 
     if (auto ec = reset_stack_offsets(mvlc))
     {
         logger(QString("Error resetting stack offsets: %1")
+               .arg(ec.message().c_str()));
+        return ec;
+    }
+
+    if (auto ec = do_base_setup(mvlc, logger))
+    {
+        logger(QString("Error doing MVLC base setup: %1")
                .arg(ec.message().c_str()));
         return ec;
     }
