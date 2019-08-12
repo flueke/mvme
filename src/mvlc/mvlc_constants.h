@@ -251,6 +251,7 @@ namespace stacks
 
     // IMPORTANT: For IRQ triggers the TriggerBits have to be set to the value
     // (IRQ-1), e.g. value 0 for IRQ1!
+    // Note: higher IRQ numbers have higher priority.
     static const u16 TriggerBitsMask    = 0b11111;
     static const u16 TriggerBitsShift   = 0;
     static const u16 TriggerTypeMask    = 0b111;
@@ -269,14 +270,17 @@ namespace stacks
     }
 
     static const u16 TimerCount = 4;
-    enum class TimerUnits: u16
+    static const u16 TimerPeriodMin_ns = 16;
+    static const u16 TimerPeriodMax = 0xffff;
+
+    enum class TimerBaseUnit: u16
     {
         ns,
         us,
         ms,
         s
     };
-}
+} // end namespace stacks
 
 static const u32 SelfVMEAddress       = 0xFFFF0000u;
 

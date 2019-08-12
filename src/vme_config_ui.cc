@@ -19,14 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_config_ui.h"
-#include "analysis/analysis.h"
-#include "data_filter_edit.h"
-#include "qt-collapsible-section/Section.h"
-#include "vme_config.h"
-#include "vme_script.h"
 
 #include <cmath>
-
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
@@ -50,6 +44,14 @@
 #include <QStandardPaths>
 #include <QThread>
 
+#include "analysis/analysis.h"
+#include "data_filter_edit.h"
+#include "mvlc/mvlc_constants.h"
+#include "qt-collapsible-section/Section.h"
+#include "vme_config.h"
+#include "vme_script.h"
+
+using namespace mesytec;
 using namespace vats;
 
 //
@@ -66,6 +68,7 @@ struct EventConfigDialogPrivate
              *spin_irqVector,
              *spin_vmusbTimerFrequency;
 
+    QComboBox *combo_mvlcTimerBase;
     QDoubleSpinBox *spin_timerPeriod;
 
     QCheckBox *cb_irqUseIACK;
@@ -196,25 +199,43 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
 
                 label->setWordWrap(true);
                 irqLayout->addRow(label);
+                m_d->stack_options->addWidget(irqWidget);
 
-                m_d->spin_timerPeriod = new QDoubleSpinBox;
-                m_d->spin_timerPeriod->setPrefix(QSL("Every "));
-                m_d->spin_timerPeriod->setSuffix(QSL(" ms"));
-                m_d->spin_timerPeriod->setMinimum(1);
-                m_d->spin_timerPeriod->setMaximum(65535);
-                m_d->spin_timerPeriod->setDecimals(0);
-                m_d->spin_timerPeriod->setSingleStep(1.0);
-                m_d->spin_timerPeriod->setValue(1000);
+                // Timers
+                {
+                    m_d->combo_mvlcTimerBase = new QComboBox;
+                    m_d->combo_mvlcTimerBase->addItem("ns", 0);
+                    m_d->combo_mvlcTimerBase->addItem("us", 1);
+                    m_d->combo_mvlcTimerBase->addItem("ms", 2);
+                    m_d->combo_mvlcTimerBase->addItem("s", 3);
 
-                auto timerWidget = new QWidget;
-                auto timerLayout = new QFormLayout(timerWidget);
-                timerLayout->addRow(QSL("Period"), m_d->spin_timerPeriod);
+                    m_d->spin_timerPeriod = new QDoubleSpinBox;
+                    m_d->spin_timerPeriod->setPrefix(QSL("Every "));
+                    m_d->spin_timerPeriod->setDecimals(0);
+                    m_d->spin_timerPeriod->setSingleStep(1.0);
+                    m_d->spin_timerPeriod->setValue(1000);
+
+                    auto on_timer_base_changed = [this] (const QString &unit)
+                    {
+                        m_d->spin_timerPeriod->setSuffix(QSL(" ") + unit);
+                        m_d->spin_timerPeriod->setMinimum(unit == "ns" ? mvlc::stacks::TimerPeriodMin_ns : 1);
+                        m_d->spin_timerPeriod->setMaximum(mvlc::stacks::TimerPeriodMax);
+                    };
+
+                    on_timer_base_changed("ns");
+
+                    connect(m_d->combo_mvlcTimerBase, qOverload<const QString &>(&QComboBox::currentIndexChanged),
+                            this, on_timer_base_changed);
+
+                    auto timerWidget = new QWidget;
+                    auto timerLayout = new QFormLayout(timerWidget);
+                    timerLayout->addRow(QSL("Timer Base"), m_d->combo_mvlcTimerBase);
+                    timerLayout->addRow(QSL("Period"), m_d->spin_timerPeriod);
+                    m_d->stack_options->addWidget(timerWidget);
+                }
 
                 conditions = { TriggerCondition::Interrupt,
                     TriggerCondition::Periodic};
-
-                m_d->stack_options->addWidget(irqWidget);
-                m_d->stack_options->addWidget(timerWidget);
             } break;
     }
 
@@ -265,6 +286,9 @@ void EventConfigDialog::loadFromConfig()
         case VMEControllerType::MVLC_USB:
         case VMEControllerType::MVLC_ETH:
             {
+                m_d->combo_mvlcTimerBase->setCurrentText(
+                    config->triggerOptions.value(QSL("mvlc.timer_base"), "ms").toString());
+
                 m_d->spin_timerPeriod->setValue(
                     config->triggerOptions.value(QSL("mvlc.timer_period"), 1000u).toUInt());
             } break;
@@ -296,6 +320,7 @@ void EventConfigDialog::saveToConfig()
         case VMEControllerType::MVLC_USB:
         case VMEControllerType::MVLC_ETH:
             config->triggerOptions["IRQUseIACK"] = m_d->cb_irqUseIACK->isChecked();
+            config->triggerOptions["mvlc.timer_base"] = m_d->combo_mvlcTimerBase->currentText();
             config->triggerOptions["mvlc.timer_period"] = m_d->spin_timerPeriod->value();
             break;
     }

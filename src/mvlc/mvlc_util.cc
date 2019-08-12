@@ -335,5 +335,24 @@ const char *get_frame_flag_shift_name(u8 flag_shift)
     return "Unknown";
 }
 
+stacks::TimerBaseUnit timer_base_unit_from_string(const QString &str_)
+{
+    auto str = str_.toLower();
+
+    if (str == "ns")
+        return stacks::TimerBaseUnit::ns;
+
+    if (str == "us" || str == "µs")
+        return stacks::TimerBaseUnit::us;
+
+    if (str == "ms")
+        return stacks::TimerBaseUnit::ms;
+
+    if (str == "s")
+        return stacks::TimerBaseUnit::s;
+
+    return {};
+}
+
 } // end namespace mvlc
 } // end namespace mesytec

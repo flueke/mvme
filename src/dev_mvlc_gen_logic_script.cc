@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
     u8 stackId = 1;
     u8 level = 0; u8 unit = 0; // l0, timer0
     writes.emplace_back(select_unit(level, unit));
-    writes.emplace_back(Write{ 0x0302, static_cast<u16>(stacks::TimerUnits::ms), "timer period base" }); // timer period base
+    writes.emplace_back(Write{ 0x0302, static_cast<u16>(stacks::TimerBaseUnit::ms), "timer period base" }); // timer period base
     writes.emplace_back(Write{ 0x0304, 0, "timer delay" }); // delay
     writes.emplace_back(Write{ 0x0306, static_cast<u16>(period.count()), "timer period" }); // timer period value
 

@@ -119,6 +119,8 @@ std::error_code disable_all_triggers(MVLCDialogType &mvlc)
     return {};
 }
 
+stacks::TimerBaseUnit LIBMVME_MVLC_EXPORT timer_base_unit_from_string(const QString &str);
+
 } // end namespace mvlc
 } // end namespace mesytec
 

@@ -116,11 +116,22 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                     logger(QSL("  Event %1: Stack %2, Timer %3")
                            .arg(event->objectName()).arg(stackId).arg(timerId));
 
-                    if (!event->triggerOptions.contains("mvlc.timer_period"))
+                    if (!event->triggerOptions.contains("mvlc.timer_base"))
                     {
-                        logger("No trigger period given");
+                        logger("No trigger timer base given");
                         return make_error_code(MVLCErrorCode::ReadoutSetupError);
                     }
+
+                    if (!event->triggerOptions.contains("mvlc.timer_period"))
+                    {
+                        logger("No trigger timer period given");
+                        return make_error_code(MVLCErrorCode::ReadoutSetupError);
+                    }
+
+                    stacks::TimerBaseUnit timerBase = timer_base_unit_from_string(
+                        event->triggerOptions["mvlc.timer_base"].toString());
+
+                    unsigned timerValue = event->triggerOptions["mvlc.timer_period"].toUInt();
 
                     std::chrono::milliseconds period(
                         event->triggerOptions["mvlc.timer_period"].toUInt());
@@ -132,7 +143,7 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                     // target selection: lvl=0, unit=0..3 (timers)
                     writes.push_back({ 0x0200, timerId });
 
-                    writes.push_back({ 0x0302, static_cast<u16>(stacks::TimerUnits::ms) }); // timer period base
+                    writes.push_back({ 0x0302, static_cast<u16>(timerBase) }); // timer period base
                     writes.push_back({ 0x0304, 0 }); // delay
                     writes.push_back({ 0x0306, static_cast<u16>(period.count()) }); // timer period value
 
