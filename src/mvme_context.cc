@@ -790,12 +790,12 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         if (settings)
             std::tie(enabled, hostInfo, port) = get_event_server_listen_info(*settings);
 
-        if (hostInfo.error() || hostInfo.addresses().isEmpty())
+        if (enabled && (hostInfo.error() || hostInfo.addresses().isEmpty()))
         {
             logMessage(QSL("EventServer error: could not resolve listening address ")
                        + hostInfo.hostName() + ": " + hostInfo.errorString());
         }
-        else if (!hostInfo.addresses().isEmpty())
+        else if (enabled && !hostInfo.addresses().isEmpty())
         {
             eventServer->setListeningInfo(hostInfo.addresses().first(), port);
         }
@@ -806,7 +806,6 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
                                                  Q_ARG(bool, enabled));
         assert(invoked);
         (void) invoked;
-
     }
 
     m_streamWorker->moveToThread(m_analysisThread);
@@ -2227,12 +2226,12 @@ void MVMEContext::reapplyWorkspaceSettings()
 
         std::tie(enabled, hostInfo, port) = get_event_server_listen_info(*settings);
 
-        if (hostInfo.error() || hostInfo.addresses().isEmpty())
+        if (enabled && (hostInfo.error() || hostInfo.addresses().isEmpty()))
         {
             logMessage(QSL("EventServer error: could not resolve listening address ")
                        + hostInfo.hostName() + ": " + hostInfo.errorString());
         }
-        else if (!hostInfo.addresses().isEmpty())
+        else if (enabled && !hostInfo.addresses().isEmpty())
         {
             m_d->m_eventServer->setListeningInfo(hostInfo.addresses().first(), port);
         }
