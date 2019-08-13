@@ -389,12 +389,14 @@ std::error_code setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger 
         return ec;
     }
 
+#if 0
     if (auto ec = do_base_setup(mvlc, logger))
     {
         logger(QString("Error doing MVLC base setup: %1")
                .arg(ec.message().c_str()));
         return ec;
     }
+#endif
 
     logger("Setting up readout stacks");
 
