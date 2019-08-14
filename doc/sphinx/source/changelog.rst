@@ -2,6 +2,21 @@
 Changelog
 ##################################################
 
+Version 0.9.5.5
+---------------
+* This is the first version with support for the upcoming mesytec MVLC VME
+  controller.
+
+* Added the EventServer component which allows to transmit extracted readout
+  data over a TCP connection.
+
+* Added a client for the EventServer protocol which generates and loads ROOT
+  classes, fills instances of the generated classes with incoming readout data
+  and writes these objects out to a ROOT file. Additionally user defined
+  callbacks are invoked to perform further analysis on the data.
+
+Note: Documentation has not been updated yet!
+
 Version 0.9.5.4
 ---------------
 * Log values written to the VMUSB ActionRegister when starting / stopping the
@@ -13,7 +28,6 @@ Version 0.9.5.3
   ``vmusb_write_reg`` and ``vmusb_read_reg``
 
 * Fix a crash in Histo1DWidget when resolution reduction factor was set to 0
-
 
 Version 0.9.5.2
 ---------------
