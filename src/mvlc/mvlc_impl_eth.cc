@@ -127,7 +127,7 @@ std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
 
     return {};
 }
-#else
+#else // WIN32
 std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
 {
     DWORD optval = ms;
@@ -151,6 +151,24 @@ std::error_code set_socket_read_timeout(int sock, unsigned ms)
 {
     return set_socket_timeout(SO_RCVTIMEO, sock, ms);
 }
+
+#ifndef __WIN32
+std::error_code close_socket(int sock)
+{
+    int res = ::close(sock);
+    if (res != 0)
+        return std::error_code(errno, std::system_category());
+    return {};
+}
+#else // WIN32
+std::error_code close_socket(int sock)
+{
+    int res = ::closesocket(sock);
+    if (res != 0)
+        return std::error_code(errno, std::system_category());
+    return {};
+}
+#endif
 
 const u16 FirstDynamicPort = 49152;
 static const int SocketReceiveBufferSize = 1024 * 1024 * 100;
@@ -209,9 +227,9 @@ std::error_code Impl::connect()
     auto close_sockets = [this] ()
     {
         if (m_cmdSock >= 0)
-            ::close(m_cmdSock);
+            close_socket(m_cmdSock);
         if (m_dataSock >= 0)
-            ::close(m_dataSock);
+            close_socket(m_dataSock);
         m_cmdSock = -1;
         m_dataSock = -1;
     };
@@ -225,7 +243,11 @@ std::error_code Impl::connect()
     std::fill(m_lastPacketNumbers.begin(), m_lastPacketNumbers.end(), -1);
 
     if (auto ec = lookup(m_host, CommandPort, m_cmdAddr))
+    {
+        LOG_TRACE("host lookup failed for host %s: %s",
+                  m_host.c_str(), ec.message().c_str());
         return ec;
+    }
 
     assert(m_cmdAddr.sin_port == htons(CommandPort));
 
@@ -249,17 +271,24 @@ std::error_code Impl::connect()
 
         m_cmdSock = socket(AF_INET, SOCK_DGRAM, 0);
         if (m_cmdSock < 0)
-            return std::error_code(errno, std::system_category());
+        {
+            auto ec = std::error_code(errno, std::system_category());
+            LOG_TRACE("socket() failed for command pipe: %s", ec.message().c_str());
+            return ec;
+        }
 
         m_dataSock = socket(AF_INET, SOCK_DGRAM, 0);
         if (m_dataSock < 0)
         {
+            auto ec = std::error_code(errno, std::system_category());
+            LOG_TRACE("socket() failed for data pipe: %s", ec.message().c_str());
+
             if (m_cmdSock >= 0)
             {
                 ::close(m_cmdSock);
                 m_cmdSock = -1;
             }
-            return std::error_code(errno, std::system_category());
+            return ec;
         }
 
         assert(m_cmdSock >= 0 && m_dataSock >= 0);
@@ -298,32 +327,48 @@ std::error_code Impl::connect()
     }
 
     if (m_cmdSock < 0 || m_dataSock < 0)
-        return make_error_code(MVLCErrorCode::BindLocalError);
+    {
+        auto ec = make_error_code(MVLCErrorCode::BindLocalError);
+        LOG_TRACE("could not bind() both local sockets: %s", ec.message().c_str());
+        return ec;
+    }
 
     // Call connect on the sockets so that we receive only datagrams
     // originating from the MVLC.
     if (int res = ::connect(m_cmdSock, reinterpret_cast<struct sockaddr *>(&m_cmdAddr),
                             sizeof(m_cmdAddr)))
     {
+        auto ec = std::error_code(errno, std::system_category());
+        LOG_TRACE("connect() failed for command socket: %s", ec.message().c_str());
         close_sockets();
-        return std::error_code(errno, std::system_category());
+        return ec;
     }
 
     if (int res = ::connect(m_dataSock, reinterpret_cast<struct sockaddr *>(&m_dataAddr),
                             sizeof(m_dataAddr)))
     {
+        auto ec = std::error_code(errno, std::system_category());
+        LOG_TRACE("connect() failed for data socket: %s", ec.message().c_str());
         close_sockets();
-        return std::error_code(errno, std::system_category());
+        return ec;
     }
 
     // Set read and write timeouts
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
         if (auto ec = set_socket_write_timeout(getSocket(pipe), getWriteTimeout(pipe)))
+        {
+            LOG_TRACE("set_socket_write_timeout failed: %s, socket=%d",
+                      ec.message().c_str(),
+                      getSocket(pipe));
             return ec;
+        }
 
         if (auto ec = set_socket_read_timeout(getSocket(pipe), getReadTimeout(pipe)))
+        {
+            LOG_TRACE("set_socket_read_timeout failed: %s", ec.message().c_str());
             return ec;
+        }
     }
 
     // Set socket receive buffer size
@@ -341,7 +386,11 @@ std::error_code Impl::connect()
         assert(res == 0);
 
         if (res != 0)
-            return std::error_code(errno, std::system_category());
+        {
+            auto ec = std::error_code(errno, std::system_category());
+            LOG_TRACE("setting socket buffer size failed: %s", ec.message().c_str());
+            return ec;
+        }
 
         {
             int actualBufferSize = 0;

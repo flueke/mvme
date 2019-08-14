@@ -872,6 +872,8 @@ void MVMEContext::onControllerOpenFinished()
 {
     auto result = m_ctrlOpenWatcher.result();
 
+    //qDebug() << __PRETTY_FUNCTION__ << "result =" << result.toString();
+
     if (!result.isError())
     {
         if (auto vmusb = dynamic_cast<VMUSB *>(m_controller))
@@ -998,6 +1000,7 @@ void MVMEContext::reconnectVMEController()
 
     m_controller->close();
     m_d->m_ctrlOpenRetryCount = 0;
+    m_d->m_isFirstConnectionAttempt = true; // FIXME: add a note on why this is done
 
     qDebug() << __PRETTY_FUNCTION__ << "after m_controller->close()";
 }
@@ -1058,6 +1061,7 @@ void MVMEContext::tryOpenController()
         // QtConcurrent is ok. It seems the signal emission mechanism does
         // check thread affinity at runtime and enqueues the slot invocations
         // on the controller objects thread.
+        //qDebug() << __PRETTY_FUNCTION__ << "calling open() on" << m_controller;
         m_ctrlOpenFuture = QtConcurrent::run(m_controller, &VMEController::open);
         m_ctrlOpenWatcher.setFuture(m_ctrlOpenFuture);
     }
