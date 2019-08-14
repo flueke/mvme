@@ -3690,9 +3690,11 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerOperator<BinarySumDiff>();
     m_objectFactory.registerOperator<AggregateOps>();
     m_objectFactory.registerOperator<ExpressionOperator>();
+#if 0
     m_objectFactory.registerOperator<ConditionInterval>();
     m_objectFactory.registerOperator<ConditionRectangle>();
     m_objectFactory.registerOperator<ConditionPolygon>();
+#endif
 
     m_objectFactory.registerSink<Histo1DSink>();
     m_objectFactory.registerSink<Histo2DSink>();
