@@ -738,11 +738,11 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     if (streamInfo.runId.empty())
     {
         cout << __FUNCTION__ << ": Warning: got an empty runId!" << endl;
-        filename = "unknown_run.root";
+        filename = "unknown_run_raw.root";
     }
     else
     {
-        filename = streamInfo.runId + ".root";
+        filename = streamInfo.runId + "_raw.root";
     }
 
     cout << "Opening output file " << filename << endl;
