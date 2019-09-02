@@ -1447,30 +1447,23 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (showHelp) // FIXME: write help text
+    if (showHelp)
     {
-#if 0
-        cout << "Usage: " << argv[0]
-            << " [--single-run] [--convert-nans] [-o|--output-directory <dir>]"
-               " [host=localhost] [port=13801]"
-            << endl << endl
-            ;
+        cout << "Usage as a mvme client: " << argv[0] << " [--single-run] [--host=localhost] [--port=13801]" << endl << endl;
 
-        cout << "  If single-run is set the process will exit after receiving" << endl
+        cout << "  In this mode the program connects to and receives data from a mvme process." << endl
+             << endl
+             << "  If 'single-run' is set the program will exit after receiving" << endl
              << "  data from one run. Otherwise it will wait for the next run to" << endl
              << "  start." << endl
-             << endl
-             << "  If convert-nans is set incoming NaN data values will be" << endl
-             << "  converted to 0.0 before they are written to their respective ROOT" << endl
-             << "  tree Branch." << endl
-             << endl
-             ;
+             << endl;
+
+        cout << "Usage when replaying from ROOT file: " << argv[0] << " --file=<input ROOT file>"<< endl << endl;
+
+        cout << "  In this mode data is read from a previously recorded 'raw' ROOT file." << endl
+            << endl;
 
         return 0;
-#else
-        cout << "TODO: Write a help text!" << endl;
-        return 0;
-#endif
     }
 
     // Collect command line arguments. These will be passed to the user
@@ -1480,7 +1473,6 @@ int main(int argc, char *argv[])
 
     for (int i = optind; i < argc; i++)
         additionalArgs.emplace_back(argv[i]);
-
 
     //
     // More setup and client lib init
