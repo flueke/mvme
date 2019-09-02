@@ -683,13 +683,13 @@ void print(Out &out, const DataSourceContents &dsc)
     }
 }
 
-class Parser
+class Client
 {
     public:
         void handleMessage(const Message &msg);
         void reset();
         const StreamInfo &getStreamInfo() const { return m_streamInfo; }
-        virtual ~Parser() {}
+        virtual ~Client() {}
 
     protected:
         virtual void serverInfo(const Message &msg, const json &info) = 0;
@@ -714,14 +714,14 @@ class Parser
         std::vector<DataSourceContents> m_contentsVec;
 };
 
-inline void Parser::reset()
+inline void Client::reset()
 {
     m_prevMsgType = MessageType::Invalid;
     m_streamInfo = {};
     m_contentsVec.clear();
 }
 
-inline void Parser::handleMessage(const Message &msg)
+inline void Client::handleMessage(const Message &msg)
 {
     try
     {
@@ -768,13 +768,13 @@ inline void Parser::handleMessage(const Message &msg)
     }
 }
 
-inline void Parser::_serverInfo(const Message &msg)
+inline void Client::_serverInfo(const Message &msg)
 {
     auto infoJson = json::parse(msg.contents);
     serverInfo(msg, infoJson);
 }
 
-inline void Parser::_beginRun(const Message &msg)
+inline void Client::_beginRun(const Message &msg)
 {
     auto infoJson = json::parse(msg.contents);
 
@@ -785,7 +785,7 @@ inline void Parser::_beginRun(const Message &msg)
     beginRun(msg, m_streamInfo);
 }
 
-inline void Parser::_eventData(const Message &msg)
+inline void Client::_eventData(const Message &msg)
 {
     if (msg.contents.size() == 0u)
         throw protocol_error("Received empty EventData message");
@@ -843,7 +843,7 @@ inline void Parser::_eventData(const Message &msg)
     }
 }
 
-inline void Parser::_endRun(const Message &msg)
+inline void Client::_endRun(const Message &msg)
 {
     auto infoJson = json::parse(msg.contents);
     endRun(msg, infoJson);

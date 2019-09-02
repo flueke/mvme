@@ -29,7 +29,7 @@ struct RunStats
     size_t dataMessageSizeSum = 0;
 };
 
-class Context: public Parser
+class Context: public mvme::event_server::Client
 {
     public:
         bool doQuit() const { return m_quit; }

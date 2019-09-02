@@ -145,7 +145,7 @@ struct Options
     static const Opt_t SingleRun        = 1u << 3;
 };
 
-class ClientContext: public mvme::event_server::Parser
+class ClientContext: public mvme::event_server::Client
 {
     public:
         struct RunStats
