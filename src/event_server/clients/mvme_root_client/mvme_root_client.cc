@@ -197,6 +197,7 @@ class ClientContext: public mvme::event_server::Client
         // flattened out.
         // Note: these are owned by the current ROOT directory. Do not delete
         // them.
+        // TODO: try the same way as in replay_main(). This would make the code easier to read.
         std::vector<TH1D *> m_rawHistos;
 
         // Stores the index into m_rawHistos of the first histogram of an
@@ -792,6 +793,12 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         m_rawHistoEventIndexes.clear();
         size_t rawHistoMemory = 0u;
 
+#if 0
+        // TODO: use the concrete experiment instance to build the histograms
+        // and their names in the same way as is done in replay_main()
+        // This way the datas source description from the server wouldn't have
+        // to be used here.
+#else
         for (const auto &edd: streamInfo.eventDataDescriptions)
         {
             auto dir = m_histoOutFile->mkdir(
@@ -808,16 +815,24 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
                     const VMEEvent &event = streamInfo.vmeTree.events[edd.eventIndex];
                     const VMEModule &module = event.modules[dsd.moduleIndex];
 
-                    std::string name =
-                        event.name + "_" + module.name + "_"
-                        + dsd.name + "[" + std::to_string(paramIndex) + "]";
+                    std::string histoName;
+
+                    if (paramIndex < dsd.paramNames.size())
+                    {
+                        histoName = module.name + "_" + dsd.paramNames[paramIndex];
+                    }
+                    else
+                    {
+                        histoName = module.name + "_" + dsd.name
+                            + "[" + std::to_string(paramIndex) + "]";
+                    }
 
                     // cap at 16 bits
                     unsigned bins = 1u << std::min(static_cast<unsigned>(dsd.bits), 16u);
 
                     auto histo = new TH1D(
-                        name.c_str(),
-                        name.c_str(),
+                        histoName.c_str(),
+                        histoName.c_str(),
                         bins,
                         dsd.lowerLimit,
                         dsd.upperLimit
@@ -830,6 +845,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
             m_histoOutFile->cd();
         }
+#endif
 
         assert(m_rawHistoEventIndexes.size() == streamInfo.eventDataDescriptions.size());
 
@@ -1257,10 +1273,7 @@ int replay_main(
         return 1;
     }
 
-
-
-    // Raw histograms per event and data source
-    // TODO: leftoff here. continue the work. the work needs to continue. do the work! :-)
+    // Create raw histograms in a separate output file
 
     std::string histoOutFilename = runId + "_histos.root";
 
@@ -1291,16 +1304,25 @@ int replay_main(
             {
                 for (size_t paramIndex = 0; paramIndex < userStorage.size; paramIndex++)
                 {
-                    std::string name =
-                        std::string(event->GetName()) + "_" + module->GetName() + "_"
-                        + userStorage.name + "[" + std::to_string(paramIndex) + "]";
+                    std::string histoName;
+
+                    if (paramIndex < userStorage.paramNames.size())
+                    {
+                        histoName = module->GetName() + std::string("_")
+                            + userStorage.paramNames[paramIndex];
+                    }
+                    else
+                    {
+                        histoName = module->GetName() + std::string("_") + userStorage.name
+                            + "[" + std::to_string(paramIndex) + "]";
+                    }
 
                     // cap at 16 bits
                     unsigned bins = 1u << std::min(userStorage.bits, 16u);
 
                     auto histo = new TH1D(
-                        name.c_str(),
-                        name.c_str(),
+                        histoName.c_str(),
+                        histoName.c_str(),
                         bins,
                         0.0,
                         std::pow(2.0, userStorage.bits)
