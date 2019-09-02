@@ -1379,12 +1379,6 @@ int replay_main(
 
     cout << "Closing histo output file " << histoOutFile->GetName() << "..." << endl;
 
-    for (auto &eventHistos: rawHistos)
-    {
-        for (auto &histo: eventHistos)
-            histo->Write();
-    }
-
     histoOutFile->Write();
     histoOutFile = {};
 
