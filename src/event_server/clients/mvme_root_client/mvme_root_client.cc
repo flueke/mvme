@@ -1,4 +1,5 @@
-/* mvme_root_client - A client to MVMEs event_server component producing ROOT files.
+/* mvme_root_client - A client to MVMEs event_server component producing ROOT
+ *                    code and data files.
  *
  * Copyright (C) 2019 mesytec GmbH & Co. KG <info@mesytec.com>
  *
@@ -52,7 +53,6 @@
  *   Maybe better: return true/false. In case of false the event handler should
  *   set an error string which can then be retrieved and printed in main()
  *   before exiting.
- * - replace the asserts with actual error handling code + messages
  * - add or transmit eventNumbers
  * - the analysis code could be reloaded for each run/file.
  */
@@ -69,13 +69,13 @@
 #include <TFile.h>
 #include <TH1D.h>
 #include <TRandom.h> // gRandom
-#include <TROOT.h> // gROOT
+#include <TROOT.h>   // gROOT
 #include <TSystem.h> // gSystem
 
 // mvme
 #include <mvme/Mustache/mustache.hpp> // mustache template engine
 #include <mvme/event_server/common/event_server_lib.h> // mvme event_server protocol parsing and socket handling
-#include "mvme_root_event_objects.h" // base classes for generated experiment ROOT objects
+#include <mvme/mvme_root_event_objects.h> // base classes for generated experiment ROOT objects
 
 using std::cerr;
 using std::cout;
@@ -84,9 +84,8 @@ using std::endl;
 namespace mu = kainjow::mustache;
 using namespace mvme::event_server;
 
-// The c++11 way of including text strings into the binary. Uses the new R"()"
-// raw string syntax and the preprocessor to embed string data into the
-// resulting executable file.
+// Directly include the mustache template contents into the binary. This uses
+// the raw string syntax introduced with c++11.
 static const char *exportHeaderTemplate =
 #include "templates/user_objects.h.mustache"
 ;
@@ -414,9 +413,9 @@ std::unique_ptr<MVMEExperiment> build_and_load_experiment_library(
 
     // Run the ROOT pre-make macro
     {
-        cout << "Executing ROOT pre-make macro file mvme_root_premake_hook.C ..." << endl << endl;
+        cout << ">>> Executing ROOT pre-make macro file mvme_root_premake_hook.C ..." << endl;
         auto res = gROOT->ProcessLineSync(".x mvme_root_premake_hook.C");
-        cout << endl << "---------- End of output from ROOT premake hook ----------" << endl << endl;
+        cout << endl << "<<< End of output from ROOT premake hook" << endl << endl;
 
         if (res)
             return {};
@@ -424,9 +423,9 @@ std::unique_ptr<MVMEExperiment> build_and_load_experiment_library(
 
     // Run make
     {
-        cout << "Running make ..." << endl << endl;
+        cout << ">>> Running make ..." << endl;
         int res = gSystem->Exec("make");
-        cout << endl << "---------- End of make output ----------" << endl << endl;
+        cout << endl << "<<< End of make output" << endl;
 
         if (res)
             return {};
@@ -434,7 +433,7 @@ std::unique_ptr<MVMEExperiment> build_and_load_experiment_library(
 
     // Load experiment library
     {
-        cout << "Loading experiment library " << libName << endl;
+        cout << ">>> Loading experiment library " << libName << endl;
         int res = gSystem->Load(libName.c_str());
 
         if (res != 0 && res != 1)
@@ -907,14 +906,9 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
         assert(userStorage.ptr);
         assert(userStorage.size = edd.dataSources.at(dsIndex).size);
 
-#if 0
-        // Zero out the data array.
-        memset(userStorage.ptr, 0, userStorage.size * sizeof(*userStorage.ptr));
-#else
         // Fill the data array with NaN values. This way when replaying we know
         // if a hit was recorded or not.
         std::fill(userStorage.ptr, userStorage.ptr + userStorage.size, make_quiet_nan());
-#endif
 
         const size_t entrySize = get_entry_size(dsc);
         const size_t indexSize = get_storage_type_size(dsc.indexType);
@@ -972,7 +966,6 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
         size_t bytes = get_entry_size(dsc) * dsc.count;
         m_stats.totalDataBytes += bytes;
-
 
         // Advance histoIndexBase by this data sources size. This is the full
         // size of the data sources array, not the size of the entries
@@ -1206,6 +1199,8 @@ int replay_main(
     // Replay from ROOT file.
     TFile f(inputFilename.c_str(), "read");
 
+    cout << ">>> Reading MVMERunInfo from " << inputFilename << endl;
+
     auto runInfoPtr = reinterpret_cast<MVMERunInfo *>(f.Get("MVMERunInfo"));
 
     if (!runInfoPtr)
@@ -1217,10 +1212,13 @@ int replay_main(
 
     auto runInfo = *runInfoPtr;
 
+
     std::string expName = runInfo["ExperimentName"];
     std::string expStructName = expName;
     std::string runId = runInfo["RunID"];
     std::string libName = "lib" + expName + "_mvme.so";
+
+    cout << ">>> Run info: ExperimentName = " << expName << ", RunID=" << runId << endl;
 
     auto exp = build_and_load_experiment_library(expName);
 

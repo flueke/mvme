@@ -21,12 +21,14 @@ void MVMEModule::RegisterDataStorage(
 
 void MVMEModule::InitBranch(TBranch *branch)
 {
+#if 0
     cout << __PRETTY_FUNCTION__
         << "this=" << this
         << ", fSelf=" << fSelf
         << ", &fSelf=" << &fSelf
         << ", branchName=" << branch->GetName()
         << endl;
+#endif
 
     branch->SetAddress(&fSelf);
 }
@@ -113,6 +115,7 @@ std::vector<TTree *> MVMEExperiment::InitTrees(TFile *inputFile)
             {
                 if (auto branch = tree->GetBranch(module->GetName()))
                 {
+                    cout << "  Found branch for module " << module->GetName() << endl;
                     module->InitBranch(branch);
                 }
                 else
