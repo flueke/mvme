@@ -571,7 +571,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
             },
         };
 
-        // build the template data object
+        // Build the mustache template data object
         mu::data mu_vmeEvents = build_event_template_data(streamInfo);
         mu::data mu_data;
         mu_data["vme_events"] = mu::data{mu_vmeEvents};
@@ -797,6 +797,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         {
             auto dir = m_histoOutFile->mkdir(
                 streamInfo.vmeTree.events[edd.eventIndex].name.c_str());
+            assert(dir);
             dir->cd();
 
             m_rawHistoEventIndexes.emplace_back(m_rawHistos.size());
@@ -951,8 +952,7 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
                 userStorage.ptr[index] = value;
 
-                // Add the transmitted index value to the base index kept in
-                // histoIndex.
+                // Calculate the absolute histo index.
                 size_t histoIndex = histoIndexBase + index;
                 assert(histoIndex < m_rawHistos.size());
                 m_rawHistos[histoIndex]->Fill(value);
@@ -1283,6 +1283,7 @@ int replay_main(
     for (const auto &event: exp->GetEvents())
     {
         auto dir = histoOutFile->mkdir(event->GetName());
+        assert(dir);
         dir->cd();
         std::vector<TH1D *> eventHistos;
 
@@ -1307,7 +1308,7 @@ int replay_main(
                         std::pow(2.0, userStorage.bits)
                         );
 
-                    eventHistos.emplace_back(std::move(histo));
+                    eventHistos.emplace_back(histo);
 
                     rawHistoMemory += bins * sizeof(double);
                 }
@@ -1315,9 +1316,8 @@ int replay_main(
         }
 
         rawHistos.emplace_back(std::move(eventHistos));
+        histoOutFile->cd();
     }
-
-    histoOutFile->cd();
 
     auto rawHistoCount = std::accumulate(
         rawHistos.begin(),
@@ -1380,7 +1380,6 @@ int replay_main(
     cout << "Closing histo output file " << histoOutFile->GetName() << "..." << endl;
 
     histoOutFile->Write();
-    histoOutFile = {};
 
     return 0;
 }
