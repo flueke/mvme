@@ -1,12 +1,12 @@
 write_local 0x0200 0x0000    # select level=0, unit=0
 write_local 0x0302 0x0002    # timer period base
 write_local 0x0304 0x0000    # timer delay
-write_local 0x0306 500    # timer period
+write_local 0x0306 1000    # timer period
 
 write_local 0x0200 0x0001    # select level=0, unit=1
 write_local 0x0302 0x0002    # timer period base
 write_local 0x0304 0x0000    # timer delay
-write_local 0x0306 500    # timer period
+write_local 0x0306 250    # timer period
 
 # stack setup
 #write_local 0x0200 0x0300    # select level=3, unit=0
@@ -37,8 +37,8 @@ write_local 0x031A 0x1010
 write_local 0x031C 0x1010
 write_local 0x031E 0x1010
 
-write_local 0x0380 0x0000
-write_local 0x0382 0x0001
+write_local 0x0380 0x0000  # L2.In0 is connected to L0.Out0 (timer0)
+write_local 0x0382 0x0001  # L2.In1 is connected to L0.Out1 (timer1)
 
 # NIM
 write_local 0x0200 0x0310    # select level=3, unit=16
