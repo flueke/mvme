@@ -114,7 +114,7 @@ static const char *rootPremakeHookTemplate =
 #include "templates/mvme_root_premake_hook.C.mustache"
 ;
 
-// Analysis
+// User analysis callbacks
 struct UserAnalysis
 {
     using InitFunc      = bool (*)(const std::vector<std::string> &args);
@@ -132,6 +132,77 @@ struct UserAnalysis
     // MVMEExperiment::GetEvents())
     std::vector<EventFunc> eventFunctions;
 };
+
+struct MakeRawHistosResult
+{
+    // Histograms indexed by event, then module data storage
+    std::vector<std::vector<TH1D *>> histos;
+    // Total number of histograms
+    size_t histoCount;
+    // Bytes used for histo storage
+    size_t histoMem;
+};
+
+// Creates raw histograms for the given experiment class. For each event in the
+// experiment a directory to hold the histograms is created in the histoOutFile.
+// The returned histograms are owned by the respective directory. Do not delete them.
+static MakeRawHistosResult make_raw_histograms(const MVMEExperiment *exp, TFile *histoOutFile)
+{
+    MakeRawHistosResult result = {};
+
+    for (const auto &event: exp->GetEvents())
+    {
+        auto dir = histoOutFile->mkdir(event->GetName());
+        assert(dir);
+        dir->cd();
+        std::vector<TH1D *> eventHistos;
+
+        for (const auto &module: event->GetModules())
+        {
+            // Iterates through the concrete data arrays defined for the module
+            // and creates a histogram for each array element ("parameter").
+            for (const auto &userStorage: module->GetDataStorages())
+            {
+                // cap the bin count at 16 bits
+                unsigned bins = 1u << std::min(userStorage.bits, 16u);
+
+                for (size_t paramIndex = 0; paramIndex < userStorage.size; paramIndex++)
+                {
+                    std::string histoName;
+
+                    if (paramIndex < userStorage.paramNames.size())
+                    {
+                        histoName = module->GetName() + std::string("_")
+                            + userStorage.paramNames[paramIndex];
+                    }
+                    else
+                    {
+                        histoName = module->GetName() + std::string("_") + userStorage.name
+                            + "[" + std::to_string(paramIndex) + "]";
+                    }
+
+                    auto histo = new TH1D(
+                        histoName.c_str(),
+                        histoName.c_str(),
+                        bins,
+                        0.0,
+                        std::pow(2.0, userStorage.bits)
+                        );
+
+                    eventHistos.emplace_back(histo);
+
+                    result.histoMem += bins * sizeof(double);
+                    ++result.histoCount;
+                }
+            }
+        }
+
+        result.histos.emplace_back(std::move(eventHistos));
+        histoOutFile->cd();
+    }
+
+    return result;
+}
 
 //
 // ClientContext
@@ -190,21 +261,12 @@ class ClientContext: public mvme::event_server::Client
     private:
         Options::Opt_t m_options;
         std::unique_ptr<MVMEExperiment> m_exp;
+
         std::unique_ptr<TFile> m_treeOutFile;
         std::vector<TTree *> m_eventTrees;
 
-        // Raw histograms by (eventIndex, dataSourceIndex, paramIndex)
-        // flattened out.
-        // Note: these are owned by the current ROOT directory. Do not delete
-        // them.
-        // TODO: try the same way as in replay_main(). This would make the code easier to read.
-        std::vector<TH1D *> m_rawHistos;
-
-        // Stores the index into m_rawHistos of the first histogram of an
-        // event. The sum of the data source sizes of an event is the number
-        // of histograms for that event.
-        std::vector<size_t> m_rawHistoEventIndexes;
         std::unique_ptr<TFile> m_histoOutFile;
+        MakeRawHistosResult m_rawHistos;
 
         RunStats m_stats;
         bool m_quit = false;
@@ -406,7 +468,7 @@ CodeGenResult generate_code_file(const CodeGenArgs &args, const mu::data &templa
     return CodeGenResult::WriteError;
 }
 
-std::unique_ptr<MVMEExperiment> build_and_load_experiment_library(
+std::unique_ptr<MVMEExperiment> compile_and_load_experiment_library(
     const std::string &expName)
 {
     const std::string expStructName = expName;
@@ -583,7 +645,8 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         mu_data["header_filename"] = headerFilename;
         mu_data["impl_filename"] = implFilename;
 
-        // Generate the files
+        // Generate output files using the mustache template data. The
+        // genArgList variable must contain CodeGenArgs instances.
         auto generate_code_files = [](const auto &genArgList, const auto &mu_data) -> bool
         {
             bool retval = true;
@@ -640,7 +703,7 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
         cout << endl;
 
-        m_exp = build_and_load_experiment_library(expName);
+        m_exp = compile_and_load_experiment_library(expName);
 
         if (!m_exp)
         {
@@ -788,69 +851,11 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
             return;
         }
 
-        cout << "Creating raw histograms" << endl;
-        m_rawHistos.clear();
-        m_rawHistoEventIndexes.clear();
-        size_t rawHistoMemory = 0u;
+        cout << "Creating raw histograms... ";
+        m_rawHistos = make_raw_histograms(m_exp.get(), m_histoOutFile.get());
 
-#if 0
-        // TODO: use the concrete experiment instance to build the histograms
-        // and their names in the same way as is done in replay_main()
-        // This way the datas source description from the server wouldn't have
-        // to be used here.
-#else
-        for (const auto &edd: streamInfo.eventDataDescriptions)
-        {
-            auto dir = m_histoOutFile->mkdir(
-                streamInfo.vmeTree.events[edd.eventIndex].name.c_str());
-            assert(dir);
-            dir->cd();
-
-            m_rawHistoEventIndexes.emplace_back(m_rawHistos.size());
-
-            for (const auto &dsd: edd.dataSources)
-            {
-                for (unsigned paramIndex = 0; paramIndex < dsd.size; paramIndex++)
-                {
-                    const VMEEvent &event = streamInfo.vmeTree.events[edd.eventIndex];
-                    const VMEModule &module = event.modules[dsd.moduleIndex];
-
-                    std::string histoName;
-
-                    if (paramIndex < dsd.paramNames.size())
-                    {
-                        histoName = module.name + "_" + dsd.paramNames[paramIndex];
-                    }
-                    else
-                    {
-                        histoName = module.name + "_" + dsd.name
-                            + "[" + std::to_string(paramIndex) + "]";
-                    }
-
-                    // cap at 16 bits
-                    unsigned bins = 1u << std::min(static_cast<unsigned>(dsd.bits), 16u);
-
-                    auto histo = new TH1D(
-                        histoName.c_str(),
-                        histoName.c_str(),
-                        bins,
-                        dsd.lowerLimit,
-                        dsd.upperLimit
-                        );
-                    m_rawHistos.emplace_back(histo);
-
-                    rawHistoMemory += bins * sizeof(double);
-                }
-            }
-
-            m_histoOutFile->cd();
-        }
-#endif
-
-        assert(m_rawHistoEventIndexes.size() == streamInfo.eventDataDescriptions.size());
-
-        cout << "Created " << m_rawHistos.size() << " histograms."
-            << " Total raw histo memory: " << (rawHistoMemory / (1024.0 * 1024.0))
+        cout << "created " << m_rawHistos.histoCount << " histograms."
+            << " Total raw histo memory: " << (m_rawHistos.histoMem / (1024.0 * 1024.0))
             << " MB" << endl;
     }
 
@@ -896,6 +901,7 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
     }
 
     auto &edd = streamInfo.eventDataDescriptions.at(eventIndex);
+
 #if 0
     assert(edd.eventIndex == eventIndex);
     cout << eventIndex << endl;
@@ -908,9 +914,8 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
     m_stats.eventHits[eventIndex]++;
 
-    size_t histoIndexBase = m_rawHistoEventIndexes[eventIndex];
-
-    // Copy incoming data into the data members of the generated classes
+    // Copy data from the incoming data sources to the data members of the
+    // generated classes.
     for (size_t dsIndex = 0; dsIndex < contents.size(); dsIndex++)
     {
         const DataSourceContents &dsc = contents.at(dsIndex);
@@ -961,15 +966,10 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
                 }
 
                 userStorage.ptr[index] = value;
-
-                // Calculate the absolute histo index.
-                size_t histoIndex = histoIndexBase + index;
-                assert(histoIndex < m_rawHistos.size());
-                m_rawHistos[histoIndex]->Fill(value);
             }
             else
             {
-                cout << "Error: index value " << index << " out of range."
+                cout << "Error: param index value " << index << " out of range."
                     << " eventIndex=" << eventIndex
                     << ", dataSourceIndex=" << dsIndex
                     << ", entryIndex=" << entryIndex
@@ -982,15 +982,26 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
         size_t bytes = get_entry_size(dsc) * dsc.count;
         m_stats.totalDataBytes += bytes;
-
-        // Advance histoIndexBase by this data sources size. This is the full
-        // size of the data sources array, not the size of the entries
-        // transmitted in the incoming, sparse contents vector.
-        histoIndexBase += edd.dataSources.at(dsIndex).size;
     }
 
-    // At this point the event storages have been filled with incoming data.
-    // Now fill the tree for this event and run the analysis code.
+    // All the data arrays of the event class have been filled at this point.
+
+    // Fill the raw histograms.
+    size_t histoIndex = 0;
+
+    for (const auto &userStorage: event->GetDataSourceStorages())
+    {
+        for (size_t paramIndex = 0; paramIndex < userStorage.size; paramIndex++)
+        {
+            double paramValue = userStorage.ptr[paramIndex];
+
+            if (!std::isnan(paramValue))
+                m_rawHistos.histos[eventIndex][histoIndex + paramIndex]->Fill(paramValue);
+        }
+        histoIndex += userStorage.size;
+    }
+
+    // Fill the ROOT tree for this event and run the user analysis code.
     m_eventTrees.at(eventIndex)->Fill();
 
     auto eventFunc = m_analysis.eventFunctions.at(eventIndex);
@@ -1038,7 +1049,7 @@ void ClientContext::endRun(const Message &msg, const json &info)
         m_histoOutFile->Write();
         m_histoOutFile = {};
     }
-    m_rawHistos.clear();
+    m_rawHistos = {};
 
     cout << "  HitCounts by event:" << endl;
     for (size_t ei=0; ei < m_stats.eventHits.size(); ei++)
@@ -1075,7 +1086,7 @@ void ClientContext::error(const Message &msg, const std::exception &e)
         cout << "Closing output file " << m_treeOutFile->GetName() << "..." << endl;
         m_treeOutFile->Write();
         m_treeOutFile = {};
-        m_rawHistos.clear();
+        m_rawHistos = {};
     }
 
     m_quit = true;
@@ -1236,7 +1247,7 @@ int replay_main(
 
     cout << ">>> Run info: ExperimentName = " << expName << ", RunID=" << runId << endl;
 
-    auto exp = build_and_load_experiment_library(expName);
+    auto exp = compile_and_load_experiment_library(expName);
 
     if (!exp)
     {
@@ -1287,65 +1298,11 @@ int replay_main(
         return 1;
     }
 
-    cout << "Creating raw histograms" << endl;
-    std::vector<std::vector<TH1D *>> rawHistos;
-    size_t rawHistoMemory = 0u;
+    cout << "Creating raw histograms... ";
+    auto rawHistos = make_raw_histograms(exp.get(), histoOutFile.get());
 
-    for (const auto &event: exp->GetEvents())
-    {
-        auto dir = histoOutFile->mkdir(event->GetName());
-        assert(dir);
-        dir->cd();
-        std::vector<TH1D *> eventHistos;
-
-        for (const auto &module: event->GetModules())
-        {
-            for (const auto &userStorage: module->GetDataStorages())
-            {
-                for (size_t paramIndex = 0; paramIndex < userStorage.size; paramIndex++)
-                {
-                    std::string histoName;
-
-                    if (paramIndex < userStorage.paramNames.size())
-                    {
-                        histoName = module->GetName() + std::string("_")
-                            + userStorage.paramNames[paramIndex];
-                    }
-                    else
-                    {
-                        histoName = module->GetName() + std::string("_") + userStorage.name
-                            + "[" + std::to_string(paramIndex) + "]";
-                    }
-
-                    // cap at 16 bits
-                    unsigned bins = 1u << std::min(userStorage.bits, 16u);
-
-                    auto histo = new TH1D(
-                        histoName.c_str(),
-                        histoName.c_str(),
-                        bins,
-                        0.0,
-                        std::pow(2.0, userStorage.bits)
-                        );
-
-                    eventHistos.emplace_back(histo);
-
-                    rawHistoMemory += bins * sizeof(double);
-                }
-            }
-        }
-
-        rawHistos.emplace_back(std::move(eventHistos));
-        histoOutFile->cd();
-    }
-
-    auto rawHistoCount = std::accumulate(
-        rawHistos.begin(),
-        rawHistos.end(), static_cast<size_t>(0u),
-        [] (const auto &a, const auto &b) { return a + b.size(); });
-
-    cout << "Created " << rawHistoCount << " histograms."
-        << " Total raw histo memory: " << (rawHistoMemory / (1024.0 * 1024.0))
+    cout << "created " << rawHistos.histoCount << " histograms."
+        << " Total raw histo memory: " << (rawHistos.histoMem / (1024.0 * 1024.0))
         << " MB" << endl;
 
     // call custom user analysis code
@@ -1370,7 +1327,7 @@ int replay_main(
         {
             size_t histoIndex = 0;
 
-            // Fills the event and its submodules with data read from the root tree.
+            // Fills the event and its submodules with data read from the ROOT tree.
             tree->GetEntry(entryIndex);
 
             // Read values from the generated array members of the events
@@ -1382,7 +1339,7 @@ int replay_main(
                     double paramValue = userStorage.ptr[paramIndex];
 
                     if (!std::isnan(paramValue))
-                        rawHistos[eventIndex][histoIndex + paramIndex]->Fill(paramValue);
+                        rawHistos.histos[eventIndex][histoIndex + paramIndex]->Fill(paramValue);
                 }
                 histoIndex += userStorage.size;
             }
