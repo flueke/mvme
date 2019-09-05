@@ -13,6 +13,10 @@ namespace mvlc
 namespace trigger_io
 {
 
+static const size_t TimerCount = 4;
+static const size_t NIM_IO_Count = 14;
+static const size_t ECL_OUT_Count = 3;
+
 struct Timer
 {
     enum class Range { ns, us, ms, s };
@@ -63,14 +67,14 @@ struct MasterTrigger
 
 struct Level0
 {
-    std::array<Timer, 4> timers;            // 0..3
+    std::array<Timer, TimerCount> timers;   // 0..3
                                             // 4, 5     are irq units
                                             // 6, 7     are software triggers
     std::array<IO, 4> slaveTriggers;        // 8..11
     std::array<StackBusy, 2> stackBusy;     // 12, 13
                                             // 14, 15 unused
-    std::array<IO, 14> ioNIM;               // 16..29
-    std::array<IO, 3> ioECL;                // 30..32
+    std::array<IO, NIM_IO_Count> ioNIM;     // 16..29
+    std::array<IO, ECL_OUT_Count> ioECL;    // 30..32
 };
 
 struct Level1

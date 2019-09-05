@@ -167,13 +167,18 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                     writes.push_back({ 0x0300, 1 });        // activate stack output
                     writes.push_back({ 0x0302, stackId });  // send output to our stack
 
-                    // testing activation of output 0 if any of the configured
-                    // timers activates
-                    // LUT on level 2
-                    u16 level = 2;
-                    u16 unit  = 0;
-                    writes.push_back({ 0x0200, static_cast<u16>(((level << 8) | unit))  });
-                    writes.push_back({ 0x0380, timerId });  // connect to our timer
+                    // Note: the connection from the L0 timer units to the L3
+                    // stack units via L2 is not set explicitly here for now.
+                    // The setup works because the default setup of the L2 LUTs
+                    // is a global OR.
+
+                    //// testing activation of output 0 if any of the configured
+                    //// timers activates
+                    //// LUT on level 2
+                    //u16 level = 2;
+                    //u16 unit  = 0;
+                    //writes.push_back({ 0x0200, static_cast<u16>(((level << 8) | unit))  });
+                    //writes.push_back({ 0x0380, timerId });  // connect to our timer
 
 
 

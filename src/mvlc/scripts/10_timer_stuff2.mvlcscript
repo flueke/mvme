@@ -6,7 +6,7 @@ write_local 0x0306 1000    # timer period
 write_local 0x0200 0x0001    # select level=0, unit=1
 write_local 0x0302 0x0002    # timer period base
 write_local 0x0304 0x0000    # timer delay
-write_local 0x0306 250    # timer period
+write_local 0x0306 0    # timer period
 
 # stack setup
 #write_local 0x0200 0x0300    # select level=3, unit=0
@@ -17,46 +17,52 @@ write_local 0x0306 250    # timer period
 # LUT
 write_local 0x0200 0x0200    # select level=2, unit=0
 
-write_local 0x0300 0x1010
-write_local 0x0302 0x1010
-write_local 0x0304 0x1010
-write_local 0x0306 0x1010
+write_local 0x0300 0x1010    # 0-3
+write_local 0x0302 0x1010    # 4-7
+write_local 0x0304 0x1010    # 8-11
+write_local 0x0306 0x1010    # 12-15
 
-write_local 0x0308 0x1010
-write_local 0x030A 0x1010
-write_local 0x030C 0x1010
-write_local 0x030E 0x1010
+write_local 0x0308 0x1010    # 16-19
+write_local 0x030A 0x1010    # 20-23
+write_local 0x030C 0x1010    # 24-27
+write_local 0x030E 0x1010    # 28-31
 
-write_local 0x0310 0x1010
-write_local 0x0312 0x1010
-write_local 0x0314 0x1010
-write_local 0x0316 0x1010
+write_local 0x0310 0x1010    # 32-35
+write_local 0x0312 0x1010    # 36-39
+write_local 0x0314 0x1010    # 40-43
+write_local 0x0316 0x1010    # 44-47
 
-write_local 0x0318 0x1010
-write_local 0x031A 0x1010
-write_local 0x031C 0x1010
-write_local 0x031E 0x1010
+write_local 0x0318 0x1010    # 48-51
+write_local 0x031A 0x1010    # 52-55
+write_local 0x031C 0x1010    # 56-59
+write_local 0x031E 0x1010    # 60-63
 
 write_local 0x0380 0x0000  # L2.In0 is connected to L0.Out0 (timer0)
 write_local 0x0382 0x0001  # L2.In1 is connected to L0.Out1 (timer1)
 
 # NIM
 write_local 0x0200 0x0310    # select level=3, unit=16
+write_local 0x0300 0x0064    # delay in ns
+write_local 0x0302 0x0064    # width in ns
+write_local 0x0306 0x0000    # invert
 write_local 0x030a 0x0001    # dir=output
 write_local 0x0310 0x0001    # activate cell
 write_local 0x0380 0x0000
 
 write_local 0x0200 0x0311    # select level=3, unit=17
+write_local 0x0302 0x0064    # width in ns
 write_local 0x030a 0x0001    # dir=output
 write_local 0x0310 0x0001    # activate cell
 write_local 0x0380 0x0000
 
 write_local 0x0200 0x0312    # select level=3, unit=18
+write_local 0x0302 0x0064    # width in ns
 write_local 0x030a 0x0001    # dir=output
 write_local 0x0310 0x0001    # activate cell
 write_local 0x0380 0x0000
 
 write_local 0x0200 0x0313    # select level=3, unit=19
+write_local 0x0302 0x0064    # width in ns
 write_local 0x030a 0x0001    # dir=output
 write_local 0x0310 0x0001    # activate cell
 write_local 0x0380 0x0000
