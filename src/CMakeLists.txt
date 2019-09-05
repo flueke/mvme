@@ -323,6 +323,9 @@ if (MVME_ENABLE_MVLC)
     add_executable(dev_mvlc_gen_logic_script dev_mvlc_gen_logic_script.cc)
     target_link_libraries(dev_mvlc_gen_logic_script libmvme)
 
+    add_executable(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
+    target_link_libraries(dev_mvlc_trigger_gui libmvme)
+
     if (NOT WIN32)
         add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
         target_link_libraries(dev_mvlc_dump_eth_file libmvme)
