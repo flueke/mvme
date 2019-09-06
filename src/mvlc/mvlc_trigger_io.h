@@ -3,6 +3,7 @@
 
 #include <array>
 #include <stdexcept>
+#include <vector>
 
 #include "typedefs.h"
 
@@ -41,12 +42,18 @@ struct StackBusy
     u8 stackIndex;
 };
 
-// 6 input bits, 4 output bits, 3 of which are used
-// => 2^6 * 4 bits = 64 * 4 bits = 256 bits needed
+// 6 input bits, 4 output bits, 3 of which are used.
+// => 2^6 * 4 bits = 64 * 4 bits = 256 bits needed.
+// 4  4-bit nibbles are stored in a single 16 bit word in the RAM.
+// => 16 rows of memory needed to store all 64 nibbles.
 using LUT_RAM = std::array<u16, 16>;
 
 struct LUT
 {
+    static const int InputBits = 6;
+    static const int OutputBits = 3;
+    static const size_t InputCombinations = 1u << InputBits;
+
     LUT_RAM ram;
     u8 strobed; // output to be strobed
     IO strobeGG;
@@ -131,6 +138,43 @@ inline void set(LUT_RAM &lut, u8 address, u8 value)
 
     lut[cell] |= (value & 0xf) << shift;
 }
+
+static const std::array<std::string, 33> Level0UnitNames =
+{
+    "timer0",
+    "timer1",
+    "timer2",
+    "timer3",
+    "IRQ0",
+    "IRQ1",
+    "soft_trigger0",
+    "soft_trigger1",
+    "slave_trigger0",
+    "slave_trigger1",
+    "slave_trigger2",
+    "slave_trigger3",
+    "stack_busy0",
+    "stack_busy1",
+    "N/A",
+    "N/A",
+    "NIM0",
+    "NIM1",
+    "NIM2",
+    "NIM3",
+    "NIM4",
+    "NIM5",
+    "NIM6",
+    "NIM7",
+    "NIM8",
+    "NIM9",
+    "NIM10",
+    "NIM11",
+    "NIM12",
+    "NIM13",
+    "ECL0",
+    "ECL1",
+    "ECL2",
+};
 
 } // end namespace trigger_io
 } // end namespace mvlc
