@@ -8,6 +8,11 @@
 
 #include "mvlc/mvlc_trigger_io.h"
 
+namespace mesytec
+{
+namespace mvlc
+{
+
 class TriggerIOView: public QGraphicsView
 {
     Q_OBJECT
@@ -49,7 +54,7 @@ class LUTOutputEditor: public QWidget
 {
     Q_OBJECT
     public:
-        using OutputMapping = std::bitset<mesytec::mvlc::trigger_io::LUT::InputCombinations>;
+        using OutputMapping = std::bitset<trigger_io::LUT::InputCombinations>;
 
         LUTOutputEditor(QWidget *parent = nullptr);
 
@@ -63,7 +68,7 @@ class LUTOutputEditor: public QWidget
 
         QVector<QCheckBox *> m_inputCheckboxes;
         QTableWidget *m_outputTable;
-        QVector<QCheckBox *> m_outputCheckboxes;
+        QVector<QPushButton *> m_outputStateWidgets;
 };
 
 class LUTEditor: public QDialog
@@ -72,5 +77,8 @@ class LUTEditor: public QDialog
     public:
         LUTEditor(QWidget *parent = nullptr);
 };
+
+} // end namespace mvlc
+} // end namespace mesytec
 
 #endif /* __MVME_DEV_MVLC_TRIGGER_GUI_H__ */

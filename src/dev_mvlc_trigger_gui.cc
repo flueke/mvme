@@ -1,3 +1,4 @@
+#include <cassert>
 #include <QtWidgets>
 
 #include "dev_mvlc_trigger_gui.h"
@@ -35,7 +36,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
             2 * (lutRect.width() + 50) + 25,
             3 * (lutRect.height() + 25) + 25);
         result.parent->setPen(Qt::NoPen);
-        result.parent->setBrush(QBrush("#f9f9f9"));
+        result.parent->setBrush(QBrush("#f3f3f3"));
 
         for (size_t lutIdx=0; lutIdx<result.luts.size(); lutIdx++)
         {
@@ -232,20 +233,35 @@ IOSettingsWidget::IOSettingsWidget(QWidget *parent)
 LUTOutputEditor::LUTOutputEditor(QWidget *parent)
     : QWidget(parent)
 {
-    auto table_inputs = new QTableWidget(trigger_io::LUT::InputBits, 2);
-    table_inputs->setHorizontalHeaderLabels({"Use", "Name" });
+    // LUT input bit selection
+    auto table_inputs = new QTableWidget(2, trigger_io::LUT::InputBits);
+    table_inputs->setVerticalHeaderLabels({"Use", "Name" });
 
-    for (int row = 0; row < table_inputs->rowCount(); row++)
+    // FIXME: either reverse column order (right to left) or transpose the
+    // table again so that it goes from top to bottom. In the 2nd case maybe
+    // try to sort in reverse order.
+    for (int col = 0; col < table_inputs->columnCount(); col++)
     {
-        table_inputs->setVerticalHeaderItem(row, new QTableWidgetItem(
-                QString("%1").arg(row)));
+        table_inputs->setHorizontalHeaderItem(col, new QTableWidgetItem(
+                QString("%1").arg(col)));
 
         auto cb = new QCheckBox;
         m_inputCheckboxes.push_back(cb);
 
-        table_inputs->setCellWidget(row, 0, make_centered(cb));
+        table_inputs->setCellWidget(0, col, make_centered(cb));
     }
 
+    table_inputs->setSelectionMode(QAbstractItemView::NoSelection);
+    table_inputs->resizeColumnsToContents();
+    table_inputs->resizeRowsToContents();
+
+    for (auto cb: m_inputCheckboxes)
+    {
+        connect(cb, &QCheckBox::stateChanged,
+                this, &LUTOutputEditor::onInputSelectionChanged);
+    }
+
+    // Initially empty output value table. Populated in onInputSelectionChanged().
     m_outputTable = new QTableWidget(0, 1);
     m_outputTable->setHorizontalHeaderLabels({"State"});
 
@@ -265,14 +281,68 @@ LUTOutputEditor::LUTOutputEditor(QWidget *parent)
 
     auto layout = new QHBoxLayout(this);
     layout->addWidget(splitter);
+}
 
-
-    for (auto cb: m_inputCheckboxes)
+void LUTOutputEditor::onInputSelectionChanged()
+{
+    auto make_bit_string = [](unsigned totalBits, unsigned value)
     {
-        connect(cb, &QCheckBox::stateChanged,
-                this, &LUTOutputEditor::onInputSelectionChanged);
+        QString str(totalBits, '0');
+
+        for (unsigned bit = 0; bit < totalBits; ++bit)
+        {
+            if (static_cast<unsigned>(value) & (1u << bit))
+                str[totalBits - bit - 1] = '1';
+        }
+
+        return str;
+    };
+
+    auto bitMap = getInputBitMapping();
+    unsigned totalBits = static_cast<unsigned>(bitMap.size());
+    unsigned rows = totalBits > 0 ? 1u << totalBits : 0u;
+
+    assert(rows <= 64);
+
+    m_outputTable->setRowCount(0);
+    m_outputTable->setRowCount(rows);
+    m_outputStateWidgets.clear();
+
+    for (int row = 0; row < m_outputTable->rowCount(); ++row)
+    {
+        auto rowHeader = make_bit_string(totalBits, row);
+        m_outputTable->setVerticalHeaderItem(row, new QTableWidgetItem(rowHeader));
+
+        auto button = new QPushButton("0");
+        button->setCheckable(true);
+        m_outputStateWidgets.push_back(button);
+
+        connect(button, &QPushButton::toggled,
+                this, [button] (bool checked) {
+                    button->setText(checked ? "1" : "0");
+                });
+
+        m_outputTable->setCellWidget(row, 0, make_centered(button));
+    }
+
+    // FIXME: debug output only
+    for (auto cb: m_outputStateWidgets)
+    {
+        connect(cb, &QPushButton::toggled,
+                this, [this] ()
+                {
+                    qDebug() << __PRETTY_FUNCTION__ << ">>>";
+                    auto outputMapping = getOutputMapping();
+                    for (size_t i = 0; i < outputMapping.size(); i++)
+                    {
+                        if (outputMapping.test(i))
+                            qDebug() << __PRETTY_FUNCTION__ << i;
+                    }
+                    qDebug() << __PRETTY_FUNCTION__ << "<<<";
+                });
     }
 }
+
 
 QVector<unsigned> LUTOutputEditor::getInputBitMapping() const
 {
@@ -298,9 +368,9 @@ LUTOutputEditor::OutputMapping LUTOutputEditor::getOutputMapping() const
 
     auto bitMap = getInputBitMapping();
 
-    for (int row = 0; row < m_outputCheckboxes.size(); ++row)
+    for (int row = 0; row < m_outputStateWidgets.size(); ++row)
     {
-        if (!m_outputCheckboxes[row]->isChecked())
+        if (!m_outputStateWidgets[row]->isChecked())
             continue;
 
         unsigned inputValue = 0u;
@@ -319,60 +389,6 @@ LUTOutputEditor::OutputMapping LUTOutputEditor::getOutputMapping() const
     }
 
     return result;
-}
-
-
-void LUTOutputEditor::onInputSelectionChanged()
-{
-    auto make_bit_string = [](unsigned totalBits, unsigned value)
-    {
-        QString str(totalBits, '0');
-
-        for (unsigned bit = 0; bit < totalBits; ++bit)
-        {
-            if (static_cast<unsigned>(value) & (1u << bit))
-                str[totalBits - bit - 1] = '1';
-        }
-
-        return str;
-    };
-
-    auto bitMap = getInputBitMapping();
-    unsigned totalBits = static_cast<unsigned>(bitMap.size());
-    unsigned rows = totalBits > 0 ? 1u << totalBits : 0u;
-
-    assert(rows <= 64);
-
-    m_outputTable->setRowCount(0);
-    m_outputTable->setRowCount(rows);
-    m_outputCheckboxes.clear();
-
-    for (int row = 0; row < m_outputTable->rowCount(); ++row)
-    {
-        auto rowHeader = make_bit_string(totalBits, row);
-        m_outputTable->setVerticalHeaderItem(row, new QTableWidgetItem(rowHeader));
-
-        auto cb = new QCheckBox;
-        m_outputCheckboxes.push_back(cb);
-
-        m_outputTable->setCellWidget(row, 0, make_centered(cb));
-    }
-
-    for (auto cb: m_outputCheckboxes)
-    {
-        connect(cb, &QCheckBox::stateChanged,
-                this, [this] ()
-                {
-                    qDebug() << __PRETTY_FUNCTION__ << ">>>";
-                    auto outputMapping = getOutputMapping();
-                    for (size_t i = 0; i < outputMapping.size(); i++)
-                    {
-                        if (outputMapping.test(i))
-                            qDebug() << __PRETTY_FUNCTION__ << i;
-                    }
-                    qDebug() << __PRETTY_FUNCTION__ << "<<<";
-                });
-    }
 }
 
 LUTEditor::LUTEditor(QWidget *parent)
