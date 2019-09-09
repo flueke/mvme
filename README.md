@@ -7,7 +7,6 @@
 * qwt
 * quazip
 * libusb-0.1
-* HDF5
 * boost (header only at the moment)
 * Optional: sphinx and latex for the documentation
 * Optional: NSIS for the windows installer
