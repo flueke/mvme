@@ -4,7 +4,6 @@
 #include "dev_mvlc_trigger_gui.h"
 #include "mvlc/mvlc_trigger_io.h"
 
-using namespace mesytec::mvlc;
 
 namespace
 {
@@ -20,6 +19,93 @@ namespace
         return w;
     }
 }
+
+namespace mesytec
+{
+namespace mvlc
+{
+namespace trigger_io_config
+{
+
+const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultOutputNames =
+{
+    "timer0",
+    "timer1",
+    "timer2",
+    "timer3",
+    "IRQ0",
+    "IRQ1",
+    "soft_trigger0",
+    "soft_trigger1",
+    "slave_trigger0",
+    "slave_trigger1",
+    "slave_trigger2",
+    "slave_trigger3",
+    "stack_busy0",
+    "stack_busy1",
+    "N/A",
+    "N/A",
+    "NIM0",
+    "NIM1",
+    "NIM2",
+    "NIM3",
+    "NIM4",
+    "NIM5",
+    "NIM6",
+    "NIM7",
+    "NIM8",
+    "NIM9",
+    "NIM10",
+    "NIM11",
+    "NIM12",
+    "NIM13",
+    "ECL0",
+    "ECL1",
+    "ECL2",
+};
+
+// Level0 output pin -> address of the unit producing the output
+const std::array<UnitAddress, trigger_io::NIM_IO_Count> Level0::OutputPinMapping
+{
+    {
+        {0, 16}, {0, 17}, {0, 18}, {0, 19}, {0, 20}, {0, 21}, {0, 22},
+        {0, 23}, {0, 24}, {0, 25}, {0, 26}, {0, 27}, {0, 28}, {0, 29},
+    }
+};
+
+Level0::Level0()
+{
+    outputNames.reserve(DefaultOutputNames.size());
+
+    std::copy(DefaultOutputNames.begin(), DefaultOutputNames.end(),
+              std::back_inserter(outputNames));
+}
+
+// Level 1 connections including internal ones between the LUTs.
+const std::array<LUT_Connections, trigger_io::Level1::LUTCount> Level1::StaticConnections =
+{
+    {
+        // L1.LUT0
+        { { {0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5} } },
+        // L1.LUT1
+        { { {0, 4}, {0, 5}, {0, 6}, {0, 7}, {0, 8}, {0, 9} } },
+        // L1.LUT2
+        { { {0,  8}, {0,  9}, {0, 10}, {0, 11}, {0, 12}, {0, 13} }, },
+
+        // L1.LUT3
+        { { {1, 0, 0}, {1, 0, 1}, {1, 0, 2}, {1, 1, 0}, {1, 1, 1}, {1, 1, 2} }, },
+        // L1.LUT4
+        { { {1, 1, 0}, {1, 1, 1}, {1, 1, 2}, {1, 2, 0}, {1, 2, 1}, {1, 2, 2} }, },
+    },
+};
+
+// Level1 output -> address of the unit producing the output
+const std::array<UnitAddress, 2 * trigger_io::LUT::OutputBits> Level1::OutputPinMapping
+{
+    { {1, 3, 0 }, { 1, 3, 1 }, { 1, 3, 2 }, { 1, 4, 0 }, { 1, 4, 1 }, { 1, 4, 2 } }
+};
+
+
 
 TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
     : QGraphicsScene(parent)
@@ -230,16 +316,17 @@ IOSettingsWidget::IOSettingsWidget(QWidget *parent)
     widgetLayout->addWidget(tabWidget);
 }
 
-LUTOutputEditor::LUTOutputEditor(QWidget *parent)
+// TODO: add AND, OR, invert and [min, max] bits setup helpers
+LUTOutputEditor::LUTOutputEditor(
+    int outputNumber,
+    const QStringList &inputNames,
+    QWidget *parent)
     : QWidget(parent)
 {
     // LUT input bit selection
     auto table_inputs = new QTableWidget(2, trigger_io::LUT::InputBits);
     table_inputs->setVerticalHeaderLabels({"Use", "Name" });
 
-    // FIXME: either reverse column order (right to left) or transpose the
-    // table again so that it goes from top to bottom. In the 2nd case maybe
-    // try to sort in reverse order.
     for (int col = 0; col < table_inputs->columnCount(); col++)
     {
         table_inputs->setHorizontalHeaderItem(col, new QTableWidgetItem(
@@ -249,6 +336,21 @@ LUTOutputEditor::LUTOutputEditor(QWidget *parent)
         m_inputCheckboxes.push_back(cb);
 
         table_inputs->setCellWidget(0, col, make_centered(cb));
+
+        qDebug() << __PRETTY_FUNCTION__ << inputNames;
+        auto nameItem = new QTableWidgetItem(inputNames.value(col));
+        nameItem->setFlags(nameItem->flags() & ~Qt::ItemIsEditable);
+
+        table_inputs->setItem(1, col, nameItem);
+    }
+
+    // Reverse the column order by swapping the horizontal header view sections.
+    // This way the bits are ordered the same way as in the rows of the output
+    // state table: bit 0 is the rightmost bit.
+    for (int col = 0; col < table_inputs->columnCount() / 2; col++)
+    {
+        auto hView = table_inputs->horizontalHeader();
+        hView->swapSections(col, table_inputs->columnCount() - 1 - col);
     }
 
     table_inputs->setSelectionMode(QAbstractItemView::NoSelection);
@@ -267,20 +369,17 @@ LUTOutputEditor::LUTOutputEditor(QWidget *parent)
 
     auto widget_inputSelect = new QWidget;
     auto layout_inputSelect = new QVBoxLayout(widget_inputSelect);
-    layout_inputSelect->addWidget(make_centered(new QLabel("Input Selection")));
+    layout_inputSelect->addWidget(new QLabel("Input Selection"));
     layout_inputSelect->addWidget(table_inputs, 1);
 
     auto widget_outputActivation = new QWidget;
     auto layout_outputActivation = new QVBoxLayout(widget_outputActivation);
-    layout_outputActivation->addWidget(make_centered(new QLabel("Output Activation")));
+    layout_outputActivation->addWidget(new QLabel("Output Activation"));
     layout_outputActivation->addWidget(m_outputTable);
 
-    auto splitter = new QSplitter;
-    splitter->addWidget(widget_inputSelect);
-    splitter->addWidget(widget_outputActivation);
-
-    auto layout = new QHBoxLayout(this);
-    layout->addWidget(splitter);
+    auto layout = new QVBoxLayout(this);
+    layout->addWidget(widget_inputSelect, 1);
+    layout->addWidget(widget_outputActivation, 3);
 }
 
 void LUTOutputEditor::onInputSelectionChanged()
@@ -335,8 +434,12 @@ void LUTOutputEditor::onInputSelectionChanged()
                     auto outputMapping = getOutputMapping();
                     for (size_t i = 0; i < outputMapping.size(); i++)
                     {
-                        if (outputMapping.test(i))
-                            qDebug() << __PRETTY_FUNCTION__ << i;
+                        qDebug() << __PRETTY_FUNCTION__
+                            << QString("%1").arg(i, 2)
+                            << QString("%1")
+                            .arg(QString::number(i, 2), 6, QLatin1Char('0'))
+                            << "->" << outputMapping.test(i)
+                            ;
                     }
                     qDebug() << __PRETTY_FUNCTION__ << "<<<";
                 });
@@ -357,51 +460,91 @@ QVector<unsigned> LUTOutputEditor::getInputBitMapping() const
     return bitMap;
 }
 
-// FIXME: this does not yield enough values.  When e.g. bits 4 and 5 are used
-// as input bits and the combination 00 is set to activate the output then all
-// input values where bits 4 and 5 are 00 must be set in the result
-// (00yyy with yyy being all binary permutations).
-// With bits 3 and 5 it would become (0y0yy)
-LUTOutputEditor::OutputMapping LUTOutputEditor::getOutputMapping() const
+// Returns the full 2^6 entry LUT bitset corresponding to the current state of
+// the GUI.
+OutputMapping LUTOutputEditor::getOutputMapping() const
 {
     OutputMapping result;
 
-    auto bitMap = getInputBitMapping();
+    const auto bitMap = getInputBitMapping();
 
-    for (int row = 0; row < m_outputStateWidgets.size(); ++row)
+    // Create a full 6 bit mask from the input mapping.
+    unsigned inputMask  = 0u;
+
+    for (int bitIndex = 0; bitIndex < bitMap.size(); ++bitIndex)
+        inputMask |= 1u << bitMap[bitIndex];
+
+    // Note: this is not efficient. If all input bits are used the output state
+    // table has 64 entries. The inner loop iterates 64 times. In total this
+    // will result in 64 * 64 iterations.
+
+    for (unsigned row = 0; row < static_cast<unsigned>(m_outputStateWidgets.size()); ++row)
     {
-        if (!m_outputStateWidgets[row]->isChecked())
-            continue;
-
+        // Calculate the full input value corresponding to this row.
         unsigned inputValue = 0u;
 
-        for (int mappedBit = 0; mappedBit < bitMap.size(); ++mappedBit)
+        for (int bitIndex = 0; bitIndex < bitMap.size(); ++bitIndex)
         {
-            if (row & (1u << mappedBit))
-            {
-                inputValue |= 1u << bitMap[mappedBit];
-            }
+            if (row & (1u << bitIndex))
+                inputValue |= 1u << bitMap[bitIndex];
         }
 
-        assert(inputValue < result.size());
+        bool outputBit = m_outputStateWidgets[row]->isChecked();
 
-        result.set(inputValue);
+        for (size_t inputCombination = 0;
+             inputCombination < result.size();
+             ++inputCombination)
+        {
+            if (outputBit && ((inputCombination & inputMask) == inputValue))
+                result.set(inputCombination);
+        }
     }
 
     return result;
 }
 
-LUTEditor::LUTEditor(QWidget *parent)
+void LUTOutputEditor::setOutputMapping(const OutputMapping &mapping)
+{
+    for (auto cb: m_inputCheckboxes)
+        cb->setChecked(true);
+
+    int inputMax = std::min(m_outputStateWidgets.size(), static_cast<int>(mapping.size()));
+
+    for (int input = 0; input < inputMax; ++input)
+        m_outputStateWidgets[input]->setChecked(mapping.test(input));
+}
+
+LUTEditor::LUTEditor(
+    const QString &lutName,
+    const QStringList &inputNames,
+    const QStringList &outputNames,
+    QWidget *parent)
     : QDialog(parent)
 {
-    auto tabWidget = new QTabWidget;
+    setWindowTitle(lutName);
+
+    auto editorLayout = new QHBoxLayout;
 
     for (int output = 0; output < trigger_io::LUT::OutputBits; output++)
     {
-        auto page = new QWidget;
-        auto l = new QHBoxLayout(page);
-        l->addWidget(new LUTOutputEditor);
-        tabWidget->addTab(page, QString("Out%1").arg(output));
+        auto lutOutputEditor = new LUTOutputEditor(output, inputNames);
+
+        auto nameEdit = new QLineEdit;
+        nameEdit->setText(outputNames.value(output));
+
+        auto nameEditLayout = new QHBoxLayout;
+        nameEditLayout->addWidget(new QLabel("Name:"));
+        nameEditLayout->addWidget(nameEdit, 1);
+
+        auto gb = new QGroupBox(QString("Out%1").arg(output));
+        auto gbl = new QVBoxLayout(gb);
+        gbl->addLayout(nameEditLayout);
+        gbl->addWidget(lutOutputEditor);
+
+        editorLayout->addWidget(gb);
+
+        m_outputEditors.push_back(lutOutputEditor);
+        m_outputNameEdits.push_back(nameEdit);
     }
 
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -409,6 +552,10 @@ LUTEditor::LUTEditor(QWidget *parent)
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     auto widgetLayout = new QVBoxLayout(this);
-    widgetLayout->addWidget(tabWidget, 1);
+    widgetLayout->addLayout(editorLayout, 1);
     widgetLayout->addWidget(bb);
 }
+
+} // end namespace mvlc
+} // end namespace mesytec
+} // end namespace trigger_io_config

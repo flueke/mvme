@@ -74,6 +74,8 @@ struct MasterTrigger
 
 struct Level0
 {
+    static const int OutputCount = 33;
+
     std::array<Timer, TimerCount> timers;   // 0..3
                                             // 4, 5     are irq units
                                             // 6, 7     are software triggers
@@ -86,12 +88,16 @@ struct Level0
 
 struct Level1
 {
-    std::array<LUT, 5> luts;
+    static const size_t LUTCount = 5;
+    std::array<LUT, LUTCount> luts;
 };
 
 struct Level2
 {
-    std::array<LUT, 2> luts;
+    static const size_t LUTCount = 2;
+    std::array<LUT, LUTCount> luts;
+    std::array<unsigned, LUTCount> strobedOutput;
+    std::array<IO, LUTCount> strobeGGs;
 };
 
 struct Level3
@@ -138,43 +144,6 @@ inline void set(LUT_RAM &lut, u8 address, u8 value)
 
     lut[cell] |= (value & 0xf) << shift;
 }
-
-static const std::array<std::string, 33> Level0UnitNames =
-{
-    "timer0",
-    "timer1",
-    "timer2",
-    "timer3",
-    "IRQ0",
-    "IRQ1",
-    "soft_trigger0",
-    "soft_trigger1",
-    "slave_trigger0",
-    "slave_trigger1",
-    "slave_trigger2",
-    "slave_trigger3",
-    "stack_busy0",
-    "stack_busy1",
-    "N/A",
-    "N/A",
-    "NIM0",
-    "NIM1",
-    "NIM2",
-    "NIM3",
-    "NIM4",
-    "NIM5",
-    "NIM6",
-    "NIM7",
-    "NIM8",
-    "NIM9",
-    "NIM10",
-    "NIM11",
-    "NIM12",
-    "NIM13",
-    "ECL0",
-    "ECL1",
-    "ECL2",
-};
 
 } // end namespace trigger_io
 } // end namespace mvlc

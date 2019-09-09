@@ -14,10 +14,13 @@
 #include "mvlc/mvlc_trigger_io.h"
 
 using namespace mesytec::mvlc;
+using namespace mesytec::mvlc::trigger_io_config;
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+
+    Config ioCfg;
 
     auto logicWidget = new QWidget;
     auto logicLayout = new QHBoxLayout(logicWidget);
@@ -26,9 +29,34 @@ int main(int argc, char *argv[])
         auto scene = new TriggerIOGraphicsScene;
 
         QObject::connect(scene, &TriggerIOGraphicsScene::editLUT,
-                         [] (int level, int unit)
+                         [&ioCfg] (int level, int unit)
         {
-            LUTEditor lutEditor;
+            auto lutName = QString("L%1.LUT%2").arg(level).arg(unit);
+            QStringList inputNames;
+
+            // specific handling for Level1
+            if (level == 1
+                && 0 <= unit
+                && unit < static_cast<int>(Level1::StaticConnections.size()))
+            {
+                const auto &connections = Level1::StaticConnections[unit];
+
+                for (auto address: connections)
+                {
+                    // specific handling for Level0
+                    if (address[0] == 0)
+                    {
+                        unsigned nameIndex = Level0::OutputPinMapping[address[1]][1];
+                        inputNames.push_back(ioCfg.l0.outputNames.value(nameIndex));
+                    }
+                }
+            }
+
+            QStringList outputNames;
+
+            qDebug() << __PRETTY_FUNCTION__ << lutName << inputNames;
+
+            LUTEditor lutEditor(lutName, inputNames, outputNames);
             lutEditor.exec();
         });
 
