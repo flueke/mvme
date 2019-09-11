@@ -72,9 +72,14 @@ struct MasterTrigger
     bool immediate;
 };
 
+struct Counter
+{
+};
+
 struct Level0
 {
     static const int OutputCount = 33;
+    static const int NIM_IO_Offset = 16;
 
     std::array<Timer, TimerCount> timers;   // 0..3
                                             // 4, 5     are irq units
@@ -97,15 +102,21 @@ struct Level2
     static const size_t LUTCount = 2;
     std::array<LUT, LUTCount> luts;
     std::array<unsigned, LUTCount> strobedOutput;
-    std::array<IO, LUTCount> strobeGGs;
+    std::array<IO, LUTCount> strobeGGs; // TODO: maybe move this into the respective LUT
 };
 
 struct Level3
 {
-    std::array<StackStart, 4> stackStart;
-    std::array<MasterTrigger, 4> masterTrigger;
-    std::array<IO, 14> ioNIM;
-    std::array<IO, 3> ioECL;
+    static const size_t StackStartCount = 4;
+    static const size_t MasterTriggerCount = 4;
+    static const size_t CountersCount = 4;
+    static const size_t UnitCount = 33;
+
+    std::array<StackStart, StackStartCount> stackStart;
+    std::array<MasterTrigger, MasterTriggerCount> masterTrigger;
+    std::array<Counter, CountersCount> counters;
+    std::array<IO, NIM_IO_Count> ioNIM;
+    std::array<IO, ECL_OUT_Count> ioECL;
 };
 
 struct TriggerIO

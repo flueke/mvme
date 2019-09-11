@@ -188,6 +188,18 @@ LayoutType *make_layout(QWidget *widget = nullptr)
     return ret;
 };
 
+template<int Margin = 2, int Spacing = 2>
+QHBoxLayout *make_hbox(QWidget *widget = nullptr)
+{
+    return make_layout<QHBoxLayout, Margin, Spacing>(widget);
+}
+
+template<int Margin = 2, int Spacing = 2>
+QVBoxLayout *make_vbox(QWidget *widget = nullptr)
+{
+    return make_layout<QVBoxLayout, Margin, Spacing>(widget);
+}
+
 LIBMVME_CORE_EXPORT int calculate_tab_width(const QFont &font, int tabStop = 4);
 
 class QTextEdit;
