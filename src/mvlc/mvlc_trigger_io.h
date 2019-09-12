@@ -55,13 +55,14 @@ struct LUT
     static const size_t InputCombinations = 1u << InputBits;
 
     LUT_RAM ram;
-    u8 strobed; // output to be strobed
+    u8 strobeBits; // outputs to be strobed
     IO strobeGG;
 };
 
 struct StackStart
 {
     bool activate;
+    bool immediate;
     u8 stackIndex;
     bool storeStrobes;
 };
@@ -74,6 +75,7 @@ struct MasterTrigger
 
 struct Counter
 {
+    bool activate;
 };
 
 struct Level0
@@ -88,7 +90,7 @@ struct Level0
     std::array<StackBusy, 2> stackBusy;     // 12, 13
                                             // 14, 15 unused
     std::array<IO, NIM_IO_Count> ioNIM;     // 16..29
-    std::array<IO, ECL_OUT_Count> ioECL;    // 30..32
+    //std::array<IO, ECL_OUT_Count> ioECL;    // 30..32
 };
 
 struct Level1
@@ -101,8 +103,13 @@ struct Level2
 {
     static const size_t LUTCount = 2;
     std::array<LUT, LUTCount> luts;
-    std::array<unsigned, LUTCount> strobedOutput;
-    std::array<IO, LUTCount> strobeGGs; // TODO: maybe move this into the respective LUT
+    // Per (lut, input) dynamic connection values. Only the first 3 inputs of
+    // each level 2 LUT are dynamic the other 3 are static.
+    std::array<std::array<unsigned, 3>, LUTCount> lutConnections;
+    std::array<unsigned, LUTCount> strobeConnections;
+
+    //std::array<unsigned, LUTCount> strobedOutput;
+    //std::array<IO, LUTCount> strobeGGs; // TODO: maybe move this into the respective LUT
 };
 
 struct Level3
@@ -110,13 +117,18 @@ struct Level3
     static const size_t StackStartCount = 4;
     static const size_t MasterTriggerCount = 4;
     static const size_t CountersCount = 4;
+    static const size_t UtilityUnitCount = StackStartCount + MasterTriggerCount + CountersCount;
     static const size_t UnitCount = 33;
+    static const size_t NIM_IO_Unit_Offset = 16;
+    static const size_t ECL_Unit_Offset = 30;
 
-    std::array<StackStart, StackStartCount> stackStart;
-    std::array<MasterTrigger, MasterTriggerCount> masterTrigger;
-    std::array<Counter, CountersCount> counters;
-    std::array<IO, NIM_IO_Count> ioNIM;
-    std::array<IO, ECL_OUT_Count> ioECL;
+    std::array<StackStart, StackStartCount> stackStart = {};
+    std::array<MasterTrigger, MasterTriggerCount> masterTrigger = {};
+    std::array<Counter, CountersCount> counters = {};
+    std::array<IO, NIM_IO_Count> ioNIM = {};
+    std::array<IO, ECL_OUT_Count> ioECL = {};
+
+    std::array<unsigned, UnitCount> connections = {};
 };
 
 struct TriggerIO

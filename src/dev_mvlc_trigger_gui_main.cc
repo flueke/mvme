@@ -74,6 +74,8 @@ int main(int argc, char *argv[])
                 const auto &connections = Level2::StaticConnections[unit];
                 const auto l2InputChoices = make_level2_input_choices(unit);
 
+                // TODO: get and use connection values here
+
                 for (size_t inputIndex = 0; inputIndex < connections.size(); inputIndex++)
                 {
                     auto &con = connections[inputIndex];
@@ -138,19 +140,23 @@ int main(int argc, char *argv[])
                                         static_cast<size_t>(outputNames.size()));
 
                 std::copy_n(outputNames.begin(), count, lut->outputNames.begin());
+
+                // TODO: get and store connection values to level 2 here
             }
         });
 
         // NIM IO Setup
-        QObject::connect(scene, &TriggerIOGraphicsScene::editNIM_IOs,
+        QObject::connect(scene, &TriggerIOGraphicsScene::editNIM_Inputs,
                          [&ioCfg] ()
-         {
+        {
+            // read names stored in the Level0 structure
              QStringList names;
 
              std::copy_n(ioCfg.l0.outputNames.begin() + ioCfg.l0.NIM_IO_Offset,
                          trigger_io::NIM_IO_Count,
                          std::back_inserter(names));
 
+             // settings stored in Level0
              QVector<trigger_io::IO> settings;
              std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), std::back_inserter(settings));
 
@@ -161,15 +167,151 @@ int main(int argc, char *argv[])
              {
                  names = dialog.getNames();
 
+                 // Copy names to L0
                  std::copy_n(names.begin(),
                              trigger_io::NIM_IO_Count,
                              ioCfg.l0.outputNames.begin() + ioCfg.l0.NIM_IO_Offset);
 
                  settings = dialog.getSettings();
                  size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioNIM.size());
+
+                 // Copy settings to L0 and L3
                  std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
+                 std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
              }
          });
+
+        QObject::connect(scene, &TriggerIOGraphicsScene::editNIM_Outputs,
+                         [&ioCfg] ()
+        {
+            // read names stored in the Level0 structure
+             QStringList names;
+
+             std::copy_n(ioCfg.l0.outputNames.begin() + ioCfg.l0.NIM_IO_Offset,
+                         trigger_io::NIM_IO_Count,
+                         std::back_inserter(names));
+
+             // settings stored in Level3
+             QVector<trigger_io::IO> settings;
+             std::copy(ioCfg.l3.ioNIM.begin(), ioCfg.l3.ioNIM.end(),
+                       std::back_inserter(settings));
+
+             // build a vector of available input names for each NIM IO
+             QVector<QStringList> inputChoiceNameLists;
+
+             for (size_t io = 0; io < trigger_io::NIM_IO_Count; io++)
+             {
+                 int idx = io + trigger_io::Level3::NIM_IO_Unit_Offset;
+                 const auto &choiceList = ioCfg.l3.dynamicInputChoiceLists[idx];
+
+                 QStringList nameList;
+
+                 for (const auto &address: choiceList)
+                     nameList.push_back(lookup_name(ioCfg, address));
+
+                 inputChoiceNameLists.push_back(nameList);
+             }
+
+            // TODO: get and use connection values to level 3 here
+
+             NIM_IO_SettingsDialog dialog(names, settings, inputChoiceNameLists);
+             auto dc = dialog.exec();
+
+             if (dc == QDialog::Accepted)
+             {
+                 names = dialog.getNames();
+
+                 // Copy names to L0
+                 std::copy_n(names.begin(),
+                             trigger_io::NIM_IO_Count,
+                             ioCfg.l0.outputNames.begin() + ioCfg.l0.NIM_IO_Offset);
+
+                 settings = dialog.getSettings();
+                 size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioNIM.size());
+
+                 // Copy settings to L0 and L3
+                 std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
+                 std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
+
+                 // TODO: apply the connections by reading the input choice
+                 // combo indexes and storing the values somewhere
+             }
+        });
+
+        QObject::connect(scene, &TriggerIOGraphicsScene::editECL_Outputs,
+                         [&ioCfg] ()
+        {
+            QStringList names;
+
+            std::copy_n(ioCfg.l3.unitNames.begin() + ioCfg.l3.ECL_Unit_Offset,
+                        trigger_io::ECL_OUT_Count,
+                        std::back_inserter(names));
+
+            // settings stored in Level3
+            QVector<trigger_io::IO> settings;
+            std::copy(ioCfg.l3.ioECL.begin(), ioCfg.l3.ioECL.end(),
+                      std::back_inserter(settings));
+
+            // build a vector of available input names for each ECL IO
+            QVector<QStringList> inputChoiceNameLists;
+
+            for (size_t io = 0; io < trigger_io::ECL_OUT_Count; io++)
+            {
+                int idx = io + trigger_io::Level3::ECL_Unit_Offset;
+                const auto &choiceList = ioCfg.l3.dynamicInputChoiceLists[idx];
+
+                QStringList nameList;
+
+                for (const auto &address: choiceList)
+                    nameList.push_back(lookup_name(ioCfg, address));
+
+                inputChoiceNameLists.push_back(nameList);
+            }
+
+            // TODO: get connections vector from somewhere
+            QVector<int> inputConnections;
+
+            ECL_SettingsDialog dialog(names, settings, inputConnections, inputChoiceNameLists);
+            auto dc = dialog.exec();
+
+            if (dc == QDialog::Accepted)
+            {
+            }
+        });
+
+        QObject::connect(scene, &TriggerIOGraphicsScene::editL3Utils,
+                         [&ioCfg] ()
+        {
+            QStringList unitNames;
+
+            std::copy_n(ioCfg.l3.unitNames.begin(), trigger_io::Level3::UtilityUnitCount,
+                        std::back_inserter(unitNames));
+
+            QVector<QStringList> inputChoiceNameLists;
+
+            for (int unit = 0; unit < unitNames.size(); unit++)
+            {
+                const auto &choiceList = ioCfg.l3.dynamicInputChoiceLists[unit];
+                QStringList nameList;
+
+                for (const auto &address: choiceList)
+                    nameList.push_back(lookup_name(ioCfg, address));
+
+                inputChoiceNameLists.push_back(nameList);
+            }
+
+            QVector<unsigned> inputConnections;
+
+            for (int unit = 0; unit < unitNames.size(); unit++)
+                inputConnections.push_back(ioCfg.l3.connections[unit]);
+
+            Level3UtilsDialog dialog(unitNames, ioCfg.l3, inputConnections, inputChoiceNameLists);
+            auto dc = dialog.exec();
+
+            if (dc == QDialog::Accepted)
+            {
+            }
+        });
 
         auto view = new QGraphicsView(scene);
 

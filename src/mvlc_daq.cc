@@ -288,7 +288,7 @@ std::error_code do_base_setup(MVLCObject &mvlc, Logger logger)
 
     // These refer to the same hardware devices.
     setup.l3.ioNIM = setup.l0.ioNIM;
-    setup.l3.ioECL = setup.l0.ioECL;
+    //setup.l3.ioECL = setup.l0.ioECL;
 
     // L1.1: OR over inputs 6-9 which are connected to L1.1 pins 0-3
     //       The OR goes to L1.1 output bit 0
@@ -352,7 +352,7 @@ std::error_code do_base_setup(MVLCObject &mvlc, Logger logger)
 
     // Setup L2.0.strobeGG and connect Trig In from (L1 out 0) to L2.0.strobeGG.
     {
-        setup.l2.luts[0].strobed = true;
+        setup.l2.luts[0].strobeBits = 0b11;
         // TODO: connect input_strobe
         // connect l1.out.1 to L2.0.0 (TrigIn)
         // connect(l0.out.12 to L2.0.1 (StackBusy)

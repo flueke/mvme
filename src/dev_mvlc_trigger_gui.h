@@ -90,18 +90,24 @@ struct Level2
 
 using UnitAddressVector = std::vector<UnitAddress>;
 
-struct Level2LUTsDynamicInputChoices
+// Input choices for a single lut on level 2
+struct Level2LUTDynamicInputChoices
 {
     std::vector<UnitAddressVector> inputChoices;
     UnitAddressVector strobeInputChoices;
 };
 
-Level2LUTsDynamicInputChoices make_level2_input_choices(unsigned unit);
+Level2LUTDynamicInputChoices make_level2_input_choices(unsigned unit);
 
-struct Level3
+struct Level3: public trigger_io::Level3
 {
-    static const std::array<QString, trigger_io::Level3::UnitCount> UnitNames;
+    static const std::array<QString, trigger_io::Level3::UnitCount> DefaultUnitNames;
+    // A list of possible input addresses for each level 3 input pin.
+    const std::vector<UnitAddressVector> dynamicInputChoiceLists;
 
+    QStringList unitNames;
+
+    Level3();
 };
 
 struct Config
@@ -126,7 +132,10 @@ class TriggerIOGraphicsScene: public QGraphicsScene
     Q_OBJECT
     signals:
         void editLUT(int level, int unit);
-        void editNIM_IOs();
+        void editNIM_Inputs();
+        void editNIM_Outputs();
+        void editECL_Outputs();
+        void editL3Utils();
 
     public:
         TriggerIOGraphicsScene(QObject *parent = nullptr);
@@ -139,8 +148,15 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         {
             QGraphicsRectItem *parent;
             QGraphicsSimpleTextItem *label;
-            QGraphicsRectItem *nim_io_item;
+            QGraphicsRectItem *nimItem;
 
+        };
+
+        struct Level0UtilItems
+        {
+            QGraphicsRectItem *parent;
+            QGraphicsSimpleTextItem *label;
+            QGraphicsRectItem *utilsItem;
         };
 
         struct Level1Items
@@ -161,7 +177,9 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         {
             QGraphicsRectItem *parent;
             QGraphicsSimpleTextItem *label;
-            QGraphicsRectItem *ioItem;
+            QGraphicsRectItem *nimItem;
+            QGraphicsRectItem *eclItem;
+            QGraphicsRectItem *utilsItem;
 
         };
 
@@ -169,6 +187,8 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         Level1Items m_level1Items;
         Level2Items m_level2Items;
         Level3Items m_level3Items;
+
+        Level0UtilItems m_level0UtilItems;
 };
 
 class IOSettingsWidget: public QWidget
@@ -180,33 +200,124 @@ class IOSettingsWidget: public QWidget
 
 struct NIM_IO_Table_UI
 {
-    static const int ColDelay = 2;
-    static const int ColWidth = 3;
-    static const int ColHoldoff = 4;
-    static const int ColName = 6;
+    enum Columns
+    {
+        ColActivate,
+        ColDirection,
+        ColDelay,
+        ColWidth,
+        ColHoldoff,
+        ColInvert,
+        ColName,
+        ColConnection
+    };
 
     QTableWidget *table;
     QVector<QComboBox *> combos_direction;
     QVector<QCheckBox *> checks_activate;
     QVector<QCheckBox *> checks_invert;
+    QVector<QComboBox *> combos_connection;
 };
 
-NIM_IO_Table_UI make_nim_io_settings_table();
+struct ECL_Table_UI
+{
+    enum Columns
+    {
+        ColActivate,
+        ColDelay,
+        ColWidth,
+        ColHoldoff,
+        ColInvert,
+        ColName,
+        ColConnection
+    };
+
+    QTableWidget *table;
+    QVector<QCheckBox *> checks_activate;
+    QVector<QCheckBox *> checks_invert;
+    QVector<QComboBox *> combos_connection;
+};
+
+NIM_IO_Table_UI make_nim_io_settings_table(
+    const trigger_io::IO::Direction dir = trigger_io::IO::Direction::in);
 
 class NIM_IO_SettingsDialog: public QDialog
 {
     Q_OBJECT
     public:
+        // Use this when editing NIMs on Level0
         NIM_IO_SettingsDialog(
             const QStringList &names,
             const QVector<trigger_io::IO> &settings,
             QWidget *parent = nullptr);
 
+        // Use this when editing NIMs on Level3
+        NIM_IO_SettingsDialog(
+            const QStringList &names,
+            const QVector<trigger_io::IO> &settings,
+            const QVector<QStringList> &inputChoiceNameLists,
+            QWidget *parent = nullptr);
+
         QStringList getNames() const;
         QVector<trigger_io::IO> getSettings() const;
+        QVector<unsigned> getConnections() const;
 
     private:
+        NIM_IO_SettingsDialog(
+            const QStringList &names,
+            const QVector<trigger_io::IO> &settings,
+            const trigger_io::IO::Direction &dir,
+            QWidget *parent = nullptr);
+
         NIM_IO_Table_UI m_tableUi;
+};
+
+class ECL_SettingsDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        ECL_SettingsDialog(
+            const QStringList &names,
+            const QVector<trigger_io::IO> &settings,
+            const QVector<int> &inputConnections,
+            const QVector<QStringList> &inputChoiceNameLists,
+            QWidget *parent = nullptr);
+
+        QStringList getNames() const;
+        QVector<trigger_io::IO> getSettings() const;
+        QVector<unsigned> getConnections() const;
+
+    private:
+        ECL_Table_UI m_tableUi;
+};
+
+class Level0UtilsDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        Level0UtilsDialog(
+            const QStringList &names,
+            const Level0 &l0,
+            QWidget *parent = nullptr);
+
+        QStringList getNames() const;
+        Level0 getSettings() const;
+};
+
+class Level3UtilsDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        Level3UtilsDialog(
+            const QStringList &names,
+            const Level3 &l3,
+            const QVector<unsigned> &inputConnections,
+            const QVector<QStringList> &inputChoiceNameLists,
+            QWidget *parent = nullptr);
+
+        QStringList getNames() const;
+        Level3 getSettings() const;
+        QVector<unsigned> getConnections() const;
 };
 
 struct InputSpec

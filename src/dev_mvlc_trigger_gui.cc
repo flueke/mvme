@@ -76,7 +76,6 @@ Level0::Level0()
     slaveTriggers.fill({});
     stackBusy.fill({});
     ioNIM.fill({});
-    ioECL.fill({});
 }
 
 // Level 1 connections including internal ones between the LUTs.
@@ -131,14 +130,14 @@ const std::array<LUT_Connections, trigger_io::Level2::LUTCount> Level2::StaticCo
 };
 
 // Unit is 0/1 for LUT0/1
-Level2LUTsDynamicInputChoices make_level2_input_choices(unsigned unit)
+Level2LUTDynamicInputChoices make_level2_input_choices(unsigned unit)
 {
     std::vector<UnitAddress> common(14);
 
     for (unsigned i = 0; i < common.size(); i++)
         common[i] = { 0, i };
 
-    Level2LUTsDynamicInputChoices ret;
+    Level2LUTDynamicInputChoices ret;
     ret.inputChoices = { common, common, common };
     ret.strobeInputChoices = common;
 
@@ -174,7 +173,7 @@ Level2::Level2()
     }
 }
 
-const std::array<QString, trigger_io::Level3::UnitCount> UnitNames =
+const std::array<QString, trigger_io::Level3::UnitCount> Level3::DefaultUnitNames =
 {
     "StackStart0",
     "StackStart1",
@@ -188,6 +187,10 @@ const std::array<QString, trigger_io::Level3::UnitCount> UnitNames =
     "Counter1",
     "Counter2",
     "Counter3",
+    "N/A",
+    "N/A",
+    "N/A",
+    "N/A",
     "NIM0",
     "NIM1",
     "NIM2",
@@ -207,68 +210,83 @@ const std::array<QString, trigger_io::Level3::UnitCount> UnitNames =
     "ECL2",
 };
 
-// Note: these lists reference the subunits of the respective level, not the output pins.
-static const std::array<UnitConnection, 6> Level3OutputsDynamicInputChoices =
+static std::vector<UnitAddressVector> make_level3_dynamic_input_choice_lists()
 {
+    static const std::vector<UnitAddress> Level2Full =
     {
-        { 2, 0 },
-        { 2, 1 },
-        { 2, 2 },
-        { 2, 3 },
-        { 2, 4 },
-        { 2, 5 },
+        { 2, 0, 0 },
+        { 2, 0, 1 },
+        { 2, 0, 2 },
+        { 2, 1, 0 },
+        { 2, 1, 1 },
+        { 2, 1, 2 },
+    };
+
+    std::vector<UnitAddressVector> result;
+
+    for (size_t i = 0; i < trigger_io::Level3::StackStartCount; i++)
+    {
+        std::vector<UnitAddress> choices = Level2Full;
+
+        // Can connect up to L0.SlaveTriggers[3]
+        for (unsigned unit = 0; unit <= 11; unit++)
+            choices.push_back({0, unit });
+
+        result.emplace_back(choices);
     }
-};
 
-static const std::array<UnitConnection, 18> Level3StackStartDynamicInputChoices =
-{
+    for (size_t i = 0; i < trigger_io::Level3::MasterTriggerCount; i++)
     {
-        { 2, 0 },
-        { 2, 1 },
-        { 2, 2 },
-        { 2, 3 },
-        { 2, 4 },
-        { 2, 5 },
+        std::vector<UnitAddress> choices = Level2Full;
 
-        { 0, 0 },
-        { 0, 1 },
-        { 0, 2 },
-        { 0, 3 },
-        { 0, 4 },
-        { 0, 5 },
-        { 0, 6 },
-        { 0, 7 },
-        { 0, 8 },
-        { 0, 9 },
-        { 0, 10 },
-        { 0, 11 },
-    },
-};
+        // Can connect up to the IRQ units
+        for (unsigned unit = 0; unit <= 5; unit++)
+            choices.push_back({0, unit });
 
-static const std::array<UnitConnection, 18> Level3MasterTriggerDynamicInputChoices =
-{
-    {
-        { 2, 0 },
-        { 2, 1 },
-        { 2, 2 },
-        { 2, 3 },
-        { 2, 4 },
-        { 2, 5 },
-
-        { 0, 0 },
-        { 0, 1 },
-        { 0, 2 },
-        { 0, 3 },
-        { 0, 4 },
-        { 0, 5 },
-        { 0, 6 },
-        { 0, 7 },
-        { 0, 8 },
-        { 0, 9 },
-        { 0, 10 },
-        { 0, 11 },
+        result.emplace_back(choices);
     }
-};
+
+    for (size_t i = 0; i < trigger_io::Level3::CountersCount; i++)
+    {
+        std::vector<UnitAddress> choices = Level2Full;
+
+        // Can connect all L0 utilities up to StackBusy1
+        for (unsigned unit = 0; unit <= 13; unit++)
+            choices.push_back({0, unit });
+
+        result.emplace_back(choices);
+    }
+
+    // 4 unused inputs between the last counter (11) and the first NIM_IO (16)
+    for (size_t i = 0; i < 4; i++)
+    {
+        result.push_back({});
+    }
+
+    // NIM and ECL outputs can connect to Level2 only
+    for (size_t i = 0; i < (trigger_io::NIM_IO_Count + trigger_io::ECL_OUT_Count); i++)
+    {
+        std::vector<UnitAddress> choices = Level2Full;
+        result.emplace_back(choices);
+    }
+
+    return result;
+}
+
+Level3::Level3()
+    : dynamicInputChoiceLists(make_level3_dynamic_input_choice_lists())
+{
+    stackStart.fill({});
+    masterTrigger.fill({});
+    counters.fill({});
+    ioNIM.fill({});
+    ioECL.fill({});
+
+    connections.fill(0);
+
+    std::copy(DefaultUnitNames.begin(), DefaultUnitNames.end(),
+              std::back_inserter(unitNames));
+}
 
 QString lookup_name(const Config &cfg, const UnitAddress &addr)
 {
@@ -356,12 +374,12 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
 
         // NIM+ECL IO Item
         {
-            result.nim_io_item = new QGraphicsRectItem(0, 0, 100, 140, result.parent);
-            result.nim_io_item->setBrush(QBrush("#fffbcc"));
-            result.nim_io_item->moveBy(25, 25);
+            result.nimItem = new QGraphicsRectItem(0, 0, 100, 140, result.parent);
+            result.nimItem->setBrush(QBrush("#fffbcc"));
+            result.nimItem->moveBy(25, 25);
 
-            auto label = new QGraphicsSimpleTextItem(QString("NIM Inputs"), result.nim_io_item);
-            label->moveBy((result.nim_io_item->boundingRect().width()
+            auto label = new QGraphicsSimpleTextItem(QString("NIM Inputs"), result.nimItem);
+            label->moveBy((result.nimItem->boundingRect().width()
                            - label->boundingRect().width()) / 2.0, 0);
         }
 
@@ -422,6 +440,47 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
         return result;
     };
 
+    auto make_level0_util_items = [&] () -> Level0UtilItems
+    {
+        Level0UtilItems result = {};
+
+        QRectF lutRect(0, 0, 80, 140);
+
+        result.parent = new QGraphicsRectItem(
+            0, 0,
+            2 * (lutRect.width() + 50) + 25,
+            1 * (lutRect.height() + 25) + 25);
+        result.parent->setPen(Qt::NoPen);
+        result.parent->setBrush(QBrush("#f3f3f3"));
+
+        // Single box for utils
+        {
+            result.utilsItem = new QGraphicsRectItem(
+                0, 0,
+                result.parent->boundingRect().width() - 2 * 25,
+                result.parent->boundingRect().height() - 2 * 25,
+                result.parent);
+            result.utilsItem->setBrush(QBrush("#fffbcc"));
+            result.utilsItem->moveBy(25, 25);
+
+            auto label = new QGraphicsSimpleTextItem(
+                QString("Timers\nIRQs\nSoft Triggers\nSlave Trigger Input\nStack Busy"),
+                result.utilsItem);
+            label->moveBy(5, 5);
+            //label->moveBy((result.utilsItem->boundingRect().width()
+            //               - label->boundingRect().width()) / 2.0, 0);
+        }
+
+        QFont labelFont;
+        labelFont.setPointSize(labelFont.pointSize() + 5);
+        result.label = new QGraphicsSimpleTextItem("L0 Utilities", result.parent);
+        result.label->setFont(labelFont);
+        result.label->moveBy(result.parent->boundingRect().width()
+                             - result.label->boundingRect().width(), 0);
+
+        return result;
+    };
+
     auto make_level2_items = [&] () -> Level2Items
     {
         Level2Items result = {};
@@ -469,19 +528,48 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
         result.parent = new QGraphicsRectItem(
             0, 0,
             2 * (lutRect.width() + 50) + 25,
-            3 * (lutRect.height() + 25) + 25);
+            4 * (lutRect.height() + 25) + 25);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
-        // NIM+ECL IO Item
+        // NIM IO Item
         {
-            result.ioItem = new QGraphicsRectItem(0, 0, 100, 140, result.parent);
-            result.ioItem->setBrush(QBrush("#fffbcc"));
-            result.ioItem->moveBy(25, 25);
+            result.nimItem = new QGraphicsRectItem(0, 0, 100, 140, result.parent);
+            result.nimItem->setBrush(QBrush("#fffbcc"));
+            result.nimItem->moveBy(25, 25);
 
-            auto label = new QGraphicsSimpleTextItem(QString("NIM/ECL Out"), result.ioItem);
-            label->moveBy((result.ioItem->boundingRect().width()
+            auto label = new QGraphicsSimpleTextItem(QString("NIM Outputs"), result.nimItem);
+            label->moveBy((result.nimItem->boundingRect().width()
                            - label->boundingRect().width()) / 2.0, 0);
+        }
+
+        auto yOffset = result.nimItem->boundingRect().height() + 25;
+
+        // ECL Out
+        {
+            result.eclItem = new QGraphicsRectItem(0, 0, 100, 140, result.parent);
+            result.eclItem->setBrush(QBrush("#fffbcc"));
+            result.eclItem->moveBy(25, 25);
+
+            auto label = new QGraphicsSimpleTextItem(QString("ECL Outputs"), result.eclItem);
+            label->moveBy((result.eclItem->boundingRect().width()
+                           - label->boundingRect().width()) / 2.0, 0);
+
+            result.eclItem->moveBy(0, yOffset);
+        }
+
+        // Utils
+        {
+            result.utilsItem = new QGraphicsRectItem(0, 0, 100, 140, result.parent);
+            result.utilsItem->setBrush(QBrush("#fffbcc"));
+            result.utilsItem->moveBy(25, 25);
+
+            auto label = new QGraphicsSimpleTextItem(
+                QString("L3 Utilities\nStack Start\nMaster trig"), result.utilsItem);
+            label->moveBy((result.utilsItem->boundingRect().width()
+                           - label->boundingRect().width()) / 2.0, 0);
+
+            result.utilsItem->moveBy(0, 2 * yOffset);
         }
 
         QFont labelFont;
@@ -494,6 +582,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
         return result;
     };
 
+    // Top row, side by side gray boxes for each level
     m_level0Items = make_level0_items();
     m_level0Items.parent->moveBy(-300, 0);
     m_level1Items = make_level1_items();
@@ -502,10 +591,15 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
     m_level3Items = make_level3_items();
     m_level3Items.parent->moveBy(600, 0);
 
+    m_level0UtilItems = make_level0_util_items();
+    m_level0UtilItems.parent->moveBy(
+        300, m_level0Items.parent->boundingRect().height() + 15);
+
     this->addItem(m_level0Items.parent);
     this->addItem(m_level1Items.parent);
     this->addItem(m_level2Items.parent);
     this->addItem(m_level3Items.parent);
+    this->addItem(m_level0UtilItems.parent);
 };
 
 void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
@@ -513,10 +607,10 @@ void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
     auto items = this->items(ev->scenePos());
 
     // level0
-    if (items.indexOf(m_level0Items.nim_io_item) >= 0)
+    if (items.indexOf(m_level0Items.nimItem) >= 0)
     {
         ev->accept();
-        emit editNIM_IOs();
+        emit editNIM_Inputs();
         return;
     }
 
@@ -541,6 +635,28 @@ void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
             return;
         }
     }
+
+    // leve3
+    if (items.indexOf(m_level3Items.nimItem) >= 0)
+    {
+        ev->accept();
+        emit editNIM_Outputs();
+        return;
+    }
+
+    if (items.indexOf(m_level3Items.eclItem) >= 0)
+    {
+        ev->accept();
+        emit editECL_Outputs();
+        return;
+    }
+
+    if (items.indexOf(m_level3Items.utilsItem) >= 0)
+    {
+        ev->accept();
+        emit editL3Utils();
+        return;
+    }
 }
 
 static void reverse_rows(QTableWidget *table)
@@ -552,15 +668,22 @@ static void reverse_rows(QTableWidget *table)
     }
 }
 
-NIM_IO_Table_UI make_nim_io_settings_table()
+NIM_IO_Table_UI make_nim_io_settings_table(
+    const trigger_io::IO::Direction dir)
 {
+    QStringList columnTitles = {
+        "Activate", "Direction", "Delay", "Width", "Holdoff", "Invert", "Name"
+    };
+
+    if (dir == trigger_io::IO::Direction::out)
+        columnTitles.push_back("Input");
+
     NIM_IO_Table_UI ret = {};
 
-    auto table = new QTableWidget(trigger_io::NIM_IO_Count, 7);
+    auto table = new QTableWidget(trigger_io::NIM_IO_Count, columnTitles.size());
     ret.table = table;
 
-    table->setHorizontalHeaderLabels(
-        {"Activate", "Direction", "Delay", "Width", "Holdoff", "Invert", "Name"});
+    table->setHorizontalHeaderLabels(columnTitles);
 
     for (int row = 0; row < table->rowCount(); ++row)
     {
@@ -583,9 +706,76 @@ NIM_IO_Table_UI make_nim_io_settings_table()
         table->setCellWidget(row, 5, make_centered(check_invert));
         table->setItem(row, 6, new QTableWidgetItem(
                 QString("NIM%1").arg(row)));
+
+        if (dir == trigger_io::IO::Direction::out)
+        {
+            auto combo_connection = new QComboBox;
+            ret.combos_connection.push_back(combo_connection);
+            combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+
+            table->setCellWidget(row, NIM_IO_Table_UI::ColConnection, combo_connection);
+        }
     }
 
     reverse_rows(table);
+
+    table->horizontalHeader()->moveSection(NIM_IO_Table_UI::ColName, 0);
+
+    if (dir == trigger_io::IO::Direction::out)
+        table->horizontalHeader()->moveSection(NIM_IO_Table_UI::ColConnection, 1);
+
+    table->resizeColumnsToContents();
+    table->resizeRowsToContents();
+
+    return ret;
+}
+
+ECL_Table_UI make_ecl_table_ui(
+    const QStringList &names,
+    const QVector<trigger_io::IO> &settings,
+    const QVector<int> &inputConnections,
+    const QVector<QStringList> &inputChoiceNameLists)
+{
+    ECL_Table_UI ret = {};
+
+    QStringList columnTitles = {
+        "Activate", "Delay", "Width", "Holdoff", "Invert", "Name", "Input"
+    };
+
+    auto table = new QTableWidget(trigger_io::ECL_OUT_Count, columnTitles.size());
+    ret.table = table;
+
+    table->setHorizontalHeaderLabels(columnTitles);
+
+    for (int row = 0; row < table->rowCount(); ++row)
+    {
+        table->setVerticalHeaderItem(row, new QTableWidgetItem(
+                QString("ECL%1").arg(row)));
+
+        auto check_activate = new QCheckBox;
+        auto check_invert = new QCheckBox;
+        auto combo_connection = new QComboBox;
+
+        ret.checks_activate.push_back(check_activate);
+        ret.checks_invert.push_back(check_invert);
+        ret.combos_connection.push_back(combo_connection);
+
+        check_activate->setChecked(settings.value(row).activate);
+        check_invert->setChecked(settings.value(row).invert);
+        combo_connection->addItems(inputChoiceNameLists.value(row));
+        combo_connection->setCurrentIndex(inputConnections.value(row));
+        combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+
+        table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
+        table->setCellWidget(row, ret.ColInvert, make_centered(check_invert));
+        table->setItem(row, ret.ColName, new QTableWidgetItem(names.value(row)));
+        table->setCellWidget(row, ret.ColConnection, combo_connection);
+    }
+
+    reverse_rows(table);
+
+    table->horizontalHeader()->moveSection(ret.ColName, 0);
+    table->horizontalHeader()->moveSection(ret.ColConnection, 1);
 
     table->resizeColumnsToContents();
     table->resizeRowsToContents();
@@ -675,10 +865,11 @@ IOSettingsWidget::IOSettingsWidget(QWidget *parent)
 NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     const QStringList &names,
     const QVector<trigger_io::IO> &settings,
+    const trigger_io::IO::Direction &dir,
     QWidget *parent)
     : QDialog(parent)
 {
-    m_tableUi = make_nim_io_settings_table();
+    m_tableUi = make_nim_io_settings_table(dir);
     auto &ui = m_tableUi;
 
     for (int row = 0; row < ui.table->rowCount(); row++)
@@ -703,8 +894,39 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     auto widgetLayout = make_vbox(this);
     widgetLayout->addWidget(ui.table, 1);
     widgetLayout->addWidget(bb);
+}
 
+NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
+    const QStringList &names,
+    const QVector<trigger_io::IO> &settings,
+    QWidget *parent)
+    : NIM_IO_SettingsDialog(names, settings, trigger_io::IO::Direction::in, parent)
+{
+    assert(m_tableUi.combos_connection.size() == 0);
+
+    m_tableUi.table->resizeColumnsToContents();
+    m_tableUi.table->resizeRowsToContents();
     resize(500, 500);
+}
+
+NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
+    const QStringList &names,
+    const QVector<trigger_io::IO> &settings,
+    const QVector<QStringList> &inputChoiceNameLists,
+    QWidget *parent)
+    : NIM_IO_SettingsDialog(names, settings, trigger_io::IO::Direction::out, parent)
+{
+    assert(m_tableUi.combos_connection.size() == m_tableUi.table->rowCount());
+
+    for (int io = 0; io < m_tableUi.combos_connection.size(); io++)
+    {
+        m_tableUi.combos_connection[io]->addItems(
+            inputChoiceNameLists.value(io));
+    }
+
+    m_tableUi.table->resizeColumnsToContents();
+    m_tableUi.table->resizeRowsToContents();
+    resize(600, 500);
 }
 
 QStringList NIM_IO_SettingsDialog::getNames() const
@@ -740,6 +962,259 @@ QVector<trigger_io::IO> NIM_IO_SettingsDialog::getSettings() const
     }
 
     return ret;
+}
+
+//
+// ECL_SettingsDialog
+//
+ECL_SettingsDialog::ECL_SettingsDialog(
+            const QStringList &names,
+            const QVector<trigger_io::IO> &settings,
+            const QVector<int> &inputConnections,
+            const QVector<QStringList> &inputChoiceNameLists,
+            QWidget *parent)
+    : QDialog(parent)
+{
+    m_tableUi = make_ecl_table_ui(names, settings, inputConnections, inputChoiceNameLists);
+    auto &ui = m_tableUi;
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    auto widgetLayout = make_vbox(this);
+    widgetLayout->addWidget(ui.table, 1);
+    widgetLayout->addWidget(bb);
+}
+
+QGroupBox *make_groupbox(QWidget *mainWidget, const QString &title = {},
+                         QWidget *parent = nullptr)
+{
+    auto *ret = new QGroupBox(title, parent);
+    auto l = make_hbox<0, 0>(ret);
+    l->addWidget(mainWidget);
+    return ret;
+}
+
+//
+// Level0UtilsDialog
+//
+Level0UtilsDialog::Level0UtilsDialog(
+            const QStringList &names,
+            const Level0 &l0,
+            QWidget *parent)
+    : QDialog(parent)
+{
+    // XXX: leftoff here
+}
+
+//
+// Level3UtilsDialog
+//
+Level3UtilsDialog::Level3UtilsDialog(
+    const QStringList &names,
+    const Level3 &l3,
+    const QVector<unsigned> &inputConnections,
+    const QVector<QStringList> &inputChoiceNameLists,
+    QWidget *parent)
+{
+    struct Table_UI_Base
+    {
+        QTableWidget *table;
+        QVector<QCheckBox *> checks_activate;
+        QVector<QComboBox *> combos_connection;
+    };
+
+    struct StackStart_UI: public Table_UI_Base
+    {
+        enum Columns
+        {
+            ColName,
+            ColConnection,
+            ColStack,
+            ColActivate,
+        };
+
+        const int FirstUnitIndex = 0;
+
+        QVector<QSpinBox *> spins_stack;
+    };
+
+    struct MasterTriggers_UI: public Table_UI_Base
+    {
+        enum Columns
+        {
+            ColName,
+            ColConnection,
+            ColActivate,
+        };
+
+        const int FirstUnitIndex = 4;
+    };
+
+    struct Counters_UI: public Table_UI_Base
+    {
+        enum Columns
+        {
+            ColName,
+            ColConnection,
+            ColActivate,
+        };
+
+        const int FirstUnitIndex = 8;
+    };
+
+    auto make_ui_stack_starts = [] (
+        const Level3 &l3,
+        const QVector<unsigned> &inputConnections,
+        const QVector<QStringList> inputChoiceNameLists)
+    {
+        StackStart_UI ret;
+
+        QStringList columnTitles = {
+            "Name", "Input", "Stack#", "Activate",
+        };
+
+        auto table = new QTableWidget(l3.stackStart.size(), columnTitles.size());
+        table->setHorizontalHeaderLabels(columnTitles);
+        ret.table = table;
+
+        for (int row = 0; row < table->rowCount(); ++row)
+        {
+            table->setVerticalHeaderItem(row, new QTableWidgetItem(
+                    QString("StackStart%1").arg(row)));
+
+            auto combo_connection = new QComboBox;
+            auto check_activate = new QCheckBox;
+            auto spin_stack = new QSpinBox;
+
+            ret.combos_connection.push_back(combo_connection);
+            ret.checks_activate.push_back(check_activate);
+            ret.spins_stack.push_back(spin_stack);
+
+            combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
+            combo_connection->setCurrentIndex(inputConnections.value(row + ret.FirstUnitIndex));
+            combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+            check_activate->setChecked(l3.stackStart[row].activate);
+            spin_stack->setMinimum(1);
+            spin_stack->setMaximum(7);
+            spin_stack->setValue(l3.stackStart[row].stackIndex);
+
+            table->setItem(row, ret.ColName, new QTableWidgetItem(
+                    l3.unitNames.value(row + ret.FirstUnitIndex)));
+            table->setCellWidget(row, ret.ColConnection, combo_connection);
+            table->setCellWidget(row, ret.ColStack, spin_stack);
+            table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
+        }
+
+        table->resizeColumnsToContents();
+        table->resizeRowsToContents();
+
+        return ret;
+    };
+
+    auto make_ui_master_triggers = [] (
+        const Level3 &l3,
+        const QVector<unsigned> &inputConnections,
+        const QVector<QStringList> inputChoiceNameLists)
+    {
+        MasterTriggers_UI ret;
+
+        QStringList columnTitles = {
+            "Name", "Input", "Activate",
+        };
+
+        auto table = new QTableWidget(l3.masterTrigger.size(), columnTitles.size());
+        table->setHorizontalHeaderLabels(columnTitles);
+        ret.table = table;
+
+        for (int row = 0; row < table->rowCount(); ++row)
+        {
+            table->setVerticalHeaderItem(row, new QTableWidgetItem(
+                    QString("MasterTrigger%1").arg(row)));
+
+            auto combo_connection = new QComboBox;
+            auto check_activate = new QCheckBox;
+
+            ret.combos_connection.push_back(combo_connection);
+            ret.checks_activate.push_back(check_activate);
+
+            combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
+            combo_connection->setCurrentIndex(inputConnections.value(row + ret.FirstUnitIndex));
+            combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+            check_activate->setChecked(l3.masterTrigger[row].activate);
+
+            table->setItem(row, ret.ColName, new QTableWidgetItem(
+                    l3.unitNames.value(row + ret.FirstUnitIndex)));
+            table->setCellWidget(row, ret.ColConnection, combo_connection);
+            table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
+        }
+
+        table->resizeColumnsToContents();
+        table->resizeRowsToContents();
+
+        return ret;
+    };
+
+    auto make_ui_counters = [] (
+        const Level3 &l3,
+        const QVector<unsigned> &inputConnections,
+        const QVector<QStringList> inputChoiceNameLists)
+    {
+        Counters_UI ret;
+
+        QStringList columnTitles = {
+            "Name", "Input", "Activate",
+        };
+
+        auto table = new QTableWidget(l3.counters.size(), columnTitles.size());
+        table->setHorizontalHeaderLabels(columnTitles);
+        ret.table = table;
+
+        for (int row = 0; row < table->rowCount(); ++row)
+        {
+            table->setVerticalHeaderItem(row, new QTableWidgetItem(
+                    QString("Counter%1").arg(row)));
+
+            auto combo_connection = new QComboBox;
+            auto check_activate = new QCheckBox;
+
+            ret.combos_connection.push_back(combo_connection);
+            ret.checks_activate.push_back(check_activate);
+
+            combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
+            combo_connection->setCurrentIndex(inputConnections.value(row + ret.FirstUnitIndex));
+            combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+            check_activate->setChecked(l3.masterTrigger[row].activate);
+
+            table->setItem(row, ret.ColName, new QTableWidgetItem(
+                    l3.unitNames.value(row + ret.FirstUnitIndex)));
+            table->setCellWidget(row, ret.ColConnection, combo_connection);
+            table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
+        }
+
+        table->resizeColumnsToContents();
+        table->resizeRowsToContents();
+
+        return ret;
+    };
+
+    auto ui_stackStart = make_ui_stack_starts(l3, inputConnections, inputChoiceNameLists);
+    auto ui_masterTriggers = make_ui_master_triggers(l3, inputConnections, inputChoiceNameLists);
+    auto ui_counters = make_ui_counters(l3, inputConnections, inputChoiceNameLists);
+
+    auto grid = new QGridLayout;
+    grid->addWidget(make_groupbox(ui_stackStart.table, "Stack Start"), 0, 0);
+    grid->addWidget(make_groupbox(ui_masterTriggers.table, "Master Triggers"), 0, 1);
+    grid->addWidget(make_groupbox(ui_counters.table, "Counters"), 1, 0);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    auto widgetLayout = make_vbox(this);
+    widgetLayout->addLayout(grid);
+    widgetLayout->addWidget(bb);
 }
 
 // TODO: add AND, OR, invert and [min, max] bits setup helpers
