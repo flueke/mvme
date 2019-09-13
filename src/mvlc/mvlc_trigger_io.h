@@ -2,6 +2,7 @@
 #define __MVME_MVLC_TRIGGER_IO_H__
 
 #include <array>
+#include <bitset>
 #include <stdexcept>
 #include <vector>
 
@@ -42,6 +43,8 @@ struct StackBusy
     u8 stackIndex;
 };
 
+using LUT_OutputMap = std::bitset<64>;
+
 // 6 input bits, 4 output bits, 3 of which are used.
 // => 2^6 * 4 bits = 64 * 4 bits = 256 bits needed.
 // 4  4-bit nibbles are stored in a single 16 bit word in the RAM.
@@ -54,8 +57,15 @@ struct LUT
     static const int OutputBits = 3;
     static const size_t InputCombinations = 1u << InputBits;
 
+    // TODO: remove ram from here. Build conversion functions from outputMappings to ram and vice versa
     LUT_RAM ram;
-    u8 strobeBits; // outputs to be strobed
+
+    std::array<LUT_OutputMap, OutputBits> outputMappings;
+
+    // Bit mask determining which outputs are to be strobed.
+    std::bitset<OutputBits> strobedOutputs;
+
+    // Strobe gate generator settings
     IO strobeGG;
 };
 
@@ -78,16 +88,36 @@ struct Counter
     bool activate;
 };
 
+struct IRQ_Unit
+{
+    // zero-based IRQ index (0 == IRQ1, 6 == IRQ7)
+    u8 irqIndex;
+};
+
 struct Level0
 {
     static const int OutputCount = 33;
     static const int NIM_IO_Offset = 16;
 
+    static const int IRQ_UnitCount = 2;
+    static const int IRQ_UnitOffset = 4;
+
+    static const int SoftTriggerCount = 2;
+    static const int SoftTriggerOffset = 6;
+
+    static const int SlaveTriggerCount = 4;
+    static const int SlaveTriggerOffset = 8;
+
+    static const int StackBusyCount = 2;
+    static const int StackBusyOffset = 12;
+
+    static const size_t UtilityUnitCount = 14;
+
     std::array<Timer, TimerCount> timers;   // 0..3
-                                            // 4, 5     are irq units
+    std::array<IRQ_Unit, IRQ_UnitCount> irqUnits; // 4, 5     are irq units
                                             // 6, 7     are software triggers
-    std::array<IO, 4> slaveTriggers;        // 8..11
-    std::array<StackBusy, 2> stackBusy;     // 12, 13
+    std::array<IO, SlaveTriggerCount> slaveTriggers;        // 8..11
+    std::array<StackBusy, StackBusyCount> stackBusy;     // 12, 13
                                             // 14, 15 unused
     std::array<IO, NIM_IO_Count> ioNIM;     // 16..29
     //std::array<IO, ECL_OUT_Count> ioECL;    // 30..32
@@ -105,8 +135,8 @@ struct Level2
     std::array<LUT, LUTCount> luts;
     // Per (lut, input) dynamic connection values. Only the first 3 inputs of
     // each level 2 LUT are dynamic the other 3 are static.
-    std::array<std::array<unsigned, 3>, LUTCount> lutConnections;
-    std::array<unsigned, LUTCount> strobeConnections;
+    //std::array<std::array<unsigned, 3>, LUTCount> lutConnections;
+    //std::array<unsigned, LUTCount> strobeConnections;
 
     //std::array<unsigned, LUTCount> strobedOutput;
     //std::array<IO, LUTCount> strobeGGs; // TODO: maybe move this into the respective LUT

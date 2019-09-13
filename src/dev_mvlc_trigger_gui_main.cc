@@ -25,6 +25,13 @@ QStringList to_qstrlist(const C &container)
     return result;
 }
 
+template<typename BS>
+void copy_bitset(const BS &in, BS &dest)
+{
+    for (size_t i = 0; i < in.size(); i++)
+        dest.set(i, in.test(i));
+}
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
@@ -36,12 +43,17 @@ int main(int argc, char *argv[])
 
     {
         auto scene = new TriggerIOGraphicsScene;
-      // Edit LUT
+
+        // Edit LUT
         QObject::connect(scene, &TriggerIOGraphicsScene::editLUT,
                          [&ioCfg] (int level, int unit)
         {
             auto lutName = QString("L%1.LUT%2").arg(level).arg(unit);
             QVector<QStringList> inputNameLists;
+            QStringList strobeInputChoiceNames;
+            unsigned strobeConValue = 0u;
+            trigger_io::IO strobeGGSettings = {};
+            std::bitset<trigger_io::LUT::OutputBits> strobedOutputs;
 
             // specific handling for Level1
             if (level == 1
@@ -74,8 +86,6 @@ int main(int argc, char *argv[])
                 const auto &connections = Level2::StaticConnections[unit];
                 const auto l2InputChoices = make_level2_input_choices(unit);
 
-                // TODO: get and use connection values here
-
                 for (size_t inputIndex = 0; inputIndex < connections.size(); inputIndex++)
                 {
                     auto &con = connections[inputIndex];
@@ -99,6 +109,13 @@ int main(int argc, char *argv[])
                         inputNameLists.push_back(choiceNames);
                     }
                 }
+
+                for (const auto &address: l2InputChoices.strobeInputChoices)
+                    strobeInputChoiceNames.push_back(lookup_name(ioCfg, address));
+
+                strobeConValue = ioCfg.l2.strobeDynConValues[unit];
+                strobeGGSettings = ioCfg.l2.luts[unit].strobeGG;
+                copy_bitset(ioCfg.l2.luts[unit].strobedOutputs, strobedOutputs);
             }
 
 
@@ -114,21 +131,41 @@ int main(int argc, char *argv[])
             else if (level == 2
                      && 0 <= unit
                      && unit < static_cast<int>(ioCfg.l2.luts.size()))
-             {
-                 outputNames = to_qstrlist(ioCfg.l2.luts[unit].outputNames);
-             }
+            {
+                outputNames = to_qstrlist(ioCfg.l2.luts[unit].outputNames);
+            }
 
             qDebug() << __PRETTY_FUNCTION__ << lutName << inputNameLists;
 
             // run the editor dialog
-            LUTEditor lutEditor(lutName, inputNameLists, outputNames);
-            lutEditor.resize(850, 650);
-            auto dc = lutEditor.exec();
+            std::unique_ptr<LUTEditor> lutEditor;
+
+            if (level == 1)
+            {
+                lutEditor = std::make_unique<LUTEditor>(
+                    lutName, inputNameLists, outputNames);
+                lutEditor->resize(850, 650);
+            }
+            else if (level == 2)
+            {
+                lutEditor = std::make_unique<LUTEditor>(
+                    lutName,
+                    inputNameLists,
+                    ioCfg.l2.lutDynConValues[unit],
+                    outputNames,
+                    strobeInputChoiceNames,
+                    strobeConValue,
+                    strobeGGSettings,
+                    strobedOutputs);
+                lutEditor->resize(850, 750);
+            }
+
+            auto dc = lutEditor->exec();
 
             // apply changes
             if (dc == QDialog::Accepted)
             {
-                auto outputNames = lutEditor.getOutputNames();
+                auto outputNames = lutEditor->getOutputNames();
                 LUT *lut = nullptr;
 
                 if (level == 1)
@@ -141,7 +178,14 @@ int main(int argc, char *argv[])
 
                 std::copy_n(outputNames.begin(), count, lut->outputNames.begin());
 
-                // TODO: get and store connection values to level 2 here
+                if (level == 2)
+                {
+                    ioCfg.l2.lutDynConValues[unit] = lutEditor->getDynamicConnectionValues();
+                    ioCfg.l2.strobeDynConValues[unit] = lutEditor->getStrobeConnectionValue();
+                    ioCfg.l2.luts[unit].strobeGG = lutEditor->getStrobeSettings();
+                    ioCfg.l2.luts[unit].strobedOutputs = lutEditor->getStrobedOutputMask();
+                }
+
             }
         });
 
@@ -310,6 +354,18 @@ int main(int argc, char *argv[])
 
             if (dc == QDialog::Accepted)
             {
+                // TODO: do something! anything!
+            }
+        });
+
+        QObject::connect(scene, &TriggerIOGraphicsScene::editL0Utils,
+                         [&ioCfg] ()
+        {
+            Level0UtilsDialog dialog(ioCfg.l0);
+            auto dc = dialog.exec();
+            if (dc == QDialog::Accepted)
+            {
+                // TODO: do something! anything!
             }
         });
 

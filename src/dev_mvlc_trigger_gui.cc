@@ -73,6 +73,7 @@ Level0::Level0()
               std::back_inserter(outputNames));
 
     timers.fill({});
+    irqUnits.fill({});
     slaveTriggers.fill({});
     stackBusy.fill({});
     ioNIM.fill({});
@@ -108,14 +109,7 @@ Level1::Level1()
 }
 
 // Level 2 connections. This table includes fixed and dynamic connections.
-// When constructing a new Level2 object a copy of this table is stored in the
-// Level2::connections member variable. The dynamic connections of this table
-// can then be modified.
-// TODO: additionally a rule table is needed which stored the allowed input
-// sources for each of the dynamic onnections.
-// TODO: level 2 strobe GG inputs are still missing
 static const UnitConnection Dynamic = UnitConnection::makeDynamic();
-static const UnitConnection DynamicUnavail = UnitConnection::makeDynamic(false);
 
 // Using level 1 unit + output address values (basically full addresses
 // without the need for a Level1::OutputPinMapping).
@@ -132,7 +126,8 @@ const std::array<LUT_Connections, trigger_io::Level2::LUTCount> Level2::StaticCo
 // Unit is 0/1 for LUT0/1
 Level2LUTDynamicInputChoices make_level2_input_choices(unsigned unit)
 {
-    std::vector<UnitAddress> common(14);
+    // Common to all inputs: can connect to all Level0 utility outputs.
+    std::vector<UnitAddress> common(trigger_io::Level0::UtilityUnitCount);
 
     for (unsigned i = 0; i < common.size(); i++)
         common[i] = { 0, i };
@@ -143,11 +138,13 @@ Level2LUTDynamicInputChoices make_level2_input_choices(unsigned unit)
 
     if (unit == 0)
     {
+        // L2.LUT0 can connect to L1.LUT4
         for (unsigned i = 0; i < 3; i++)
             ret.inputChoices[i].push_back({ 1, 4, i });
     }
     else if (unit == 1)
     {
+        // L2.LUT1 can connecto to L1.LUT3
         for (unsigned i = 0; i < 3; i++)
             ret.inputChoices[i].push_back({ 1, 3, i });
     }
@@ -302,7 +299,7 @@ QString lookup_name(const Config &cfg, const UnitAddress &addr)
             return cfg.l2.luts[addr[1]].outputNames[addr[2]];
 
         case 3:
-            break;
+            return cfg.l3.unitNames.value(addr[1]);
     }
 
     return {};
@@ -611,6 +608,13 @@ void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
     {
         ev->accept();
         emit editNIM_Inputs();
+        return;
+    }
+
+    if (items.indexOf(m_level0UtilItems.utilsItem) >= 0)
+    {
+        ev->accept();
+        emit editL0Utils();
         return;
     }
 
@@ -999,13 +1003,204 @@ QGroupBox *make_groupbox(QWidget *mainWidget, const QString &title = {},
 //
 // Level0UtilsDialog
 //
+TimersTable_UI make_timers_table_ui(const Level0 &l0)
+{
+    static const QString RowTitleFormat = "Timer%1";
+    static const QStringList ColumnTitles = { "Name", "Range", "Period", "Delay" };
+    const size_t rowCount = l0.timers.size();
+
+    TimersTable_UI ret = {};
+    ret.table = new QTableWidget(rowCount, ColumnTitles.size());
+    ret.table->setHorizontalHeaderLabels(ColumnTitles);
+
+    for (int row = 0; row < ret.table->rowCount(); ++row)
+    {
+        ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+
+        auto combo_range = new QComboBox;
+        combo_range->addItem("ns", 0);
+        combo_range->addItem("µs", 1);
+        combo_range->addItem("ms", 2);
+        combo_range->addItem("s",  3);
+
+        combo_range->setCurrentIndex(static_cast<int>(l0.timers[row].range));
+
+        ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
+                l0.outputNames.value(row)));
+
+        ret.table->setCellWidget(row, ret.ColRange, combo_range);
+
+        ret.table->setItem(row, ret.ColPeriod, new QTableWidgetItem(
+                QString::number(l0.timers[row].period)));
+
+        ret.table->setItem(row, ret.ColDelay, new QTableWidgetItem(
+                l0.timers[row].delay_ns));
+
+
+        ret.combos_range.push_back(combo_range);
+    }
+
+    ret.table->resizeColumnsToContents();
+    ret.table->resizeRowsToContents();
+
+    return ret;
+}
+
+IRQUnits_UI make_irq_units_table_ui(const Level0 &l0)
+{
+    static const QString RowTitleFormat = "IRQ%1";
+    static const QStringList ColumnTitles = { "Name", "IRQ Index" };
+    const size_t rowCount = l0.irqUnits.size();
+    const int nameOffset = l0.IRQ_UnitOffset;
+
+    IRQUnits_UI ret = {};
+    ret.table = new QTableWidget(rowCount, ColumnTitles.size());
+    ret.table->setHorizontalHeaderLabels(ColumnTitles);
+
+    for (int row = 0; row < ret.table->rowCount(); ++row)
+    {
+        ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+
+        auto spin_irqIndex = new QSpinBox;
+        spin_irqIndex->setRange(1, 7);
+        spin_irqIndex->setValue(l0.irqUnits[row].irqIndex + 1);
+
+        ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
+                l0.outputNames.value(row + nameOffset)));
+
+        ret.table->setCellWidget(row, ret.ColIRQIndex, spin_irqIndex);
+
+        ret.spins_irqIndex.push_back(spin_irqIndex);
+    }
+
+    ret.table->resizeColumnsToContents();
+    ret.table->resizeRowsToContents();
+
+    return ret;
+}
+
+SoftTriggers_UI make_soft_triggers_table_ui(const Level0 &l0)
+{
+    static const QString RowTitleFormat = "SoftTrigger%1";
+    static const QStringList ColumnTitles = { "Name" };
+    const int rowCount = l0.SoftTriggerCount;
+    const int nameOffset = l0.SoftTriggerOffset;
+
+    SoftTriggers_UI ret = {};
+    ret.table = new QTableWidget(rowCount, ColumnTitles.size());
+    ret.table->setHorizontalHeaderLabels(ColumnTitles);
+
+    for (int row = 0; row < ret.table->rowCount(); ++row)
+    {
+        ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+
+        ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
+                l0.outputNames.value(row + nameOffset)));
+    }
+
+    ret.table->resizeColumnsToContents();
+    ret.table->resizeRowsToContents();
+
+    return ret;
+}
+
+SlaveTriggers_UI make_slave_triggers_table_ui(const Level0 &l0)
+{
+    static const QString RowTitleFormat = "SlaveTrigger%1";
+    static const QStringList ColumnTitles = { "Name", "Delay", "Width", "Holdoff", "Invert" };
+    const size_t rowCount = l0.slaveTriggers.size();
+    const int nameOffset = l0.SlaveTriggerOffset;
+
+    SlaveTriggers_UI ret = {};
+    ret.table = new QTableWidget(rowCount, ColumnTitles.size());
+    ret.table->setHorizontalHeaderLabels(ColumnTitles);
+
+    for (int row = 0; row < ret.table->rowCount(); ++row)
+    {
+        ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+
+        const auto &io = l0.slaveTriggers[row];
+
+        auto check_invert = new QCheckBox;
+        check_invert->setChecked(io.invert);
+
+        ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
+                l0.outputNames.value(row + nameOffset)));
+
+        ret.table->setItem(row, ret.ColDelay, new QTableWidgetItem(QString::number(io.delay)));
+        ret.table->setItem(row, ret.ColWidth, new QTableWidgetItem(QString::number(io.width)));
+        ret.table->setItem(row, ret.ColHoldoff, new QTableWidgetItem(QString::number(io.holdoff)));
+        ret.table->setCellWidget(row, ret.ColInvert, make_centered(check_invert));
+
+        ret.checks_invert.push_back(check_invert);
+    }
+
+    ret.table->resizeColumnsToContents();
+    ret.table->resizeRowsToContents();
+
+    return ret;
+}
+
+StackBusy_UI make_stack_busy_table_ui(const Level0 &l0)
+{
+    static const QString RowTitleFormat = "StackBusy%1";
+    static const QStringList ColumnTitles = { "Name", "Stack#" };
+    const size_t rowCount = l0.stackBusy.size();
+    const int nameOffset = l0.StackBusyOffset;
+
+    StackBusy_UI ret = {};
+    ret.table = new QTableWidget(rowCount, ColumnTitles.size());
+    ret.table->setHorizontalHeaderLabels(ColumnTitles);
+
+    for (int row = 0; row < ret.table->rowCount(); ++row)
+    {
+        ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+
+        const auto &stackBusy = l0.stackBusy[row];
+
+        auto spin_stack = new QSpinBox;
+        spin_stack->setRange(0, 7);
+        spin_stack->setValue(stackBusy.stackIndex);
+
+        ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
+                l0.outputNames.value(row + nameOffset)));
+
+        ret.table->setCellWidget(row, ret.ColStackIndex, spin_stack);
+
+        ret.spins_stackIndex.push_back(spin_stack);
+    }
+
+    ret.table->resizeColumnsToContents();
+    ret.table->resizeRowsToContents();
+
+    return ret;
+}
+
 Level0UtilsDialog::Level0UtilsDialog(
-            const QStringList &names,
             const Level0 &l0,
             QWidget *parent)
     : QDialog(parent)
 {
-    // XXX: leftoff here
+    m_timersUi = make_timers_table_ui(l0);
+    m_irqUnitsUi = make_irq_units_table_ui(l0);
+    m_softTriggersUi = make_soft_triggers_table_ui(l0);
+    m_slaveTriggersUi = make_slave_triggers_table_ui(l0);
+    m_stackBusyUi = make_stack_busy_table_ui(l0);
+
+    auto grid = new QGridLayout;
+    grid->addWidget(make_groupbox(m_timersUi.table, "Timers"), 0, 0);
+    grid->addWidget(make_groupbox(m_irqUnitsUi.table, "IRQ Units"), 0, 1);
+    grid->addWidget(make_groupbox(m_softTriggersUi.table, "SoftTriggers"), 0, 2);
+    grid->addWidget(make_groupbox(m_slaveTriggersUi.table, "SlaveTriggers"), 1, 0);
+    grid->addWidget(make_groupbox(m_stackBusyUi.table, "StackBusy"), 1, 1);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    auto widgetLayout = make_vbox(this);
+    widgetLayout->addLayout(grid);
+    widgetLayout->addWidget(bb);
 }
 
 //
@@ -1221,6 +1416,7 @@ Level3UtilsDialog::Level3UtilsDialog(
 LUTOutputEditor::LUTOutputEditor(
     int outputNumber,
     const QVector<QStringList> &inputNameLists,
+    const std::array<unsigned, 3> &dynamicInputValues,
     QWidget *parent)
     : QWidget(parent)
 {
@@ -1244,6 +1440,10 @@ LUTOutputEditor::LUTOutputEditor(
         {
             auto combo = new QComboBox;
             combo->addItems(inputNames);
+
+            if (row < static_cast<int>(dynamicInputValues.size()))
+                combo->setCurrentIndex(dynamicInputValues[row]);
+
             table_inputs->setCellWidget(row, 1, combo);
 
             connect(combo, qOverload<int>(&QComboBox::currentIndexChanged),
@@ -1296,8 +1496,8 @@ LUTOutputEditor::LUTOutputEditor(
     layout_outputActivation->addWidget(m_outputTable);
 
     auto layout = make_layout<QVBoxLayout>(this);
-    layout->addWidget(widget_inputSelect, 35);
-    layout->addWidget(widget_outputActivation, 65);
+    layout->addWidget(widget_inputSelect, 40);
+    layout->addWidget(widget_outputActivation, 60);
 }
 
 void LUTOutputEditor::onInputUsageChanged()
@@ -1439,10 +1639,34 @@ void LUTOutputEditor::setOutputMapping(const OutputMapping &mapping)
         m_outputStateWidgets[input]->setChecked(mapping.test(input));
 }
 
+LUT_DynConValues LUTOutputEditor::getDynamicConnectionValues() const
+{
+    LUT_DynConValues ret = {};
+
+    for (size_t input = 0; input < ret.size(); input++)
+        ret[input] = m_inputConnectionCombos[input]->currentIndex();
+
+    return ret;
+}
+
 LUTEditor::LUTEditor(
     const QString &lutName,
     const QVector<QStringList> &inputNameLists,
     const QStringList &outputNames,
+    QWidget *parent)
+    : LUTEditor(lutName, inputNameLists, {}, outputNames, {}, 0u, {}, {}, parent)
+{
+}
+
+LUTEditor::LUTEditor(
+    const QString &lutName,
+    const QVector<QStringList> &inputNameLists,
+    const LUT_DynConValues &dynConValues,
+    const QStringList &outputNames,
+    const QStringList &strobeInputNames,
+    unsigned strobeConValue,
+    const trigger_io::IO &strobeSettings,
+    const std::bitset<trigger_io::LUT::OutputBits> strobedOutputs,
     QWidget *parent)
     : QDialog(parent)
 {
@@ -1450,9 +1674,11 @@ LUTEditor::LUTEditor(
 
     auto editorLayout = make_hbox<0, 0>();
 
+    std::array<QVBoxLayout *, trigger_io::LUT::OutputBits> editorGroupBoxLayouts;
+
     for (int output = 0; output < trigger_io::LUT::OutputBits; output++)
     {
-        auto lutOutputEditor = new LUTOutputEditor(output, inputNameLists);
+        auto lutOutputEditor = new LUTOutputEditor(output, inputNameLists, dynConValues);
 
         auto nameEdit = new QLineEdit;
         nameEdit->setText(outputNames.value(output));
@@ -1471,6 +1697,8 @@ LUTEditor::LUTEditor(
         m_outputEditors.push_back(lutOutputEditor);
         m_outputNameEdits.push_back(nameEdit);
 
+        editorGroupBoxLayouts[output] = gbl;
+
         // Propagate input connection changes from each editor to all editors.
         // This keeps the connection combo boxes in sync.
         connect(lutOutputEditor, &LUTOutputEditor::inputConnectionChanged,
@@ -1480,14 +1708,73 @@ LUTEditor::LUTEditor(
                 });
     }
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
-    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    if (!strobeInputNames.isEmpty())
+    {
+        for (int output = 0; output < trigger_io::LUT::OutputBits; output++)
+        {
+            auto cb_useStrobe = new QCheckBox;
+            cb_useStrobe->setChecked(strobedOutputs.test(output));
+            m_strobeCheckboxes.push_back(cb_useStrobe);
+
+            auto useStrobeLayout = make_hbox();
+            useStrobeLayout->addWidget(new QLabel("Strobe Output:"));
+            useStrobeLayout->addWidget(cb_useStrobe);
+            useStrobeLayout->addStretch(1);
+
+            editorGroupBoxLayouts[output]->addLayout(useStrobeLayout);
+        }
+    }
 
     auto scrollWidget = new QWidget;
     auto scrollLayout = make_layout<QVBoxLayout>(scrollWidget);
-    scrollLayout->addLayout(editorLayout, 1);
-    scrollLayout->addWidget(bb);
+    scrollLayout->addLayout(editorLayout, 10);
+
+
+    if (!strobeInputNames.isEmpty())
+    {
+        QStringList columnTitles = {
+            "Input", "Delay", "Width", "Holdoff", "Invert"
+        };
+
+        auto &ui = m_strobeTableUi;
+
+        auto table = new QTableWidget(1, columnTitles.size());
+        table->setHorizontalHeaderLabels(columnTitles);
+        table->verticalHeader()->hide();
+
+        auto check_invert = new QCheckBox;
+        auto combo_connection = new QComboBox;
+
+        ui.table = table;
+        ui.check_invert = check_invert;
+        ui.combo_connection = combo_connection;
+
+        check_invert->setChecked(strobeSettings.invert);
+        combo_connection->addItems(strobeInputNames);
+        combo_connection->setCurrentIndex(strobeConValue);
+        combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+
+        table->setCellWidget(0, ui.ColConnection, combo_connection);
+        table->setItem(0, ui.ColDelay, new QTableWidgetItem(QString::number(strobeSettings.delay)));
+        table->setItem(0, ui.ColWidth, new QTableWidgetItem(QString::number(strobeSettings.width)));
+        table->setItem(0, ui.ColHoldoff, new QTableWidgetItem(QString::number(strobeSettings.holdoff)));
+        table->setCellWidget(0, ui.ColInvert, make_centered(check_invert));
+
+        table->resizeColumnsToContents();
+        table->resizeRowsToContents();
+
+        auto gb_strobe = new QGroupBox("Strobe Gate Generator Settings");
+        auto l_strobe = make_hbox<0, 0>(gb_strobe);
+        l_strobe->addWidget(table, 1);
+        l_strobe->addStretch(1);
+
+        scrollLayout->addWidget(gb_strobe, 2);
+    }
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    scrollLayout->addWidget(bb, 0);
 
     auto scrollArea = new QScrollArea;
     scrollArea->setWidget(scrollWidget);
@@ -1500,8 +1787,53 @@ QStringList LUTEditor::getOutputNames() const
 {
     QStringList ret;
 
-    for (auto le: m_outputNameEdits)
+    for (auto &le: m_outputNameEdits)
         ret.push_back(le->text());
+
+    return ret;
+}
+
+LUT_DynConValues LUTEditor::getDynamicConnectionValues()
+{
+    // The editors are synchronized internally and should all yield the same
+    // values.
+    for (auto editor: m_outputEditors)
+    {
+        assert(m_outputEditors[0]->getDynamicConnectionValues()
+               == editor->getDynamicConnectionValues());
+    }
+
+    return m_outputEditors[0]->getDynamicConnectionValues();
+}
+
+unsigned LUTEditor::getStrobeConnectionValue()
+{
+    return static_cast<unsigned>(m_strobeTableUi.combo_connection->currentIndex());
+}
+
+trigger_io::IO LUTEditor::getStrobeSettings()
+{
+    auto &ui = m_strobeTableUi;
+
+    trigger_io::IO ret = {};
+
+    ret.delay = ui.table->item(0, ui.ColDelay)->data(Qt::DisplayRole).toUInt();
+    ret.width = ui.table->item(0, ui.ColWidth)->data(Qt::DisplayRole).toUInt();
+    ret.holdoff = ui.table->item(0, ui.ColHoldoff)->data(Qt::DisplayRole).toUInt();
+    ret.invert = ui.check_invert->isChecked();
+
+    return ret;
+}
+
+std::bitset<trigger_io::LUT::OutputBits> LUTEditor::getStrobedOutputMask()
+{
+    std::bitset<trigger_io::LUT::OutputBits> ret = {};
+
+    for (size_t out = 0; out < ret.size(); out++)
+    {
+        if (m_strobeCheckboxes[out]->isChecked())
+            ret.set(out);
+    }
 
     return ret;
 }

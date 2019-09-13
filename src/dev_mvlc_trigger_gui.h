@@ -52,10 +52,17 @@ using OutputMapping = std::bitset<trigger_io::LUT::InputCombinations>;
 
 using LUT_Connections = std::array<UnitConnection, trigger_io::LUT::InputBits>;
 
+static const size_t Level2LUT_VariableInputCount = 3;
+using LUT_DynConValues = std::array<unsigned, Level2LUT_VariableInputCount>;
+
 struct LUT
 {
     std::array<OutputMapping, trigger_io::LUT::OutputBits> lutContents;
     std::array<QString, trigger_io::LUT::OutputBits> outputNames;
+
+    // Strobe gate generator settings
+    trigger_io::IO strobeGG;
+    std::bitset<trigger_io::LUT::OutputBits> strobedOutputs;
 };
 
 struct Level0: public trigger_io::Level0
@@ -77,13 +84,18 @@ struct Level1
     Level1();
 };
 
+// TODO: merge with trigger_io::Level2
 struct Level2
 {
     static const std::array<LUT_Connections, trigger_io::Level2::LUTCount> StaticConnections;
     //static const std::array<UnitAddress, 2 * trigger_io::LUT::OutputBits> OutputPinMapping;
 
     std::array<LUT, trigger_io::Level2::LUTCount> luts;
-    //std::array<LUT_Connections, trigger_io::Level2::LUTCount> connections;
+
+    // The first 3 inputs of each LUT have dynamic connections. The selected
+    // value is stored here.
+    std::array<LUT_DynConValues, trigger_io::Level2::LUTCount> lutDynConValues;
+    std::array<unsigned, trigger_io::Level2::LUTCount> strobeDynConValues;
 
     Level2();
 };
@@ -135,6 +147,7 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         void editNIM_Inputs();
         void editNIM_Outputs();
         void editECL_Outputs();
+        void editL0Utils();
         void editL3Utils();
 
     public:
@@ -291,17 +304,85 @@ class ECL_SettingsDialog: public QDialog
         ECL_Table_UI m_tableUi;
 };
 
+struct TimersTable_UI
+{
+    enum Columns
+    {
+        ColName,
+        ColRange,
+        ColPeriod,
+        ColDelay,
+    };
+
+    QTableWidget *table;
+    QVector<QComboBox *> combos_range;
+};
+
+struct IRQUnits_UI
+{
+    enum Columns
+    {
+        ColName,
+        ColIRQIndex,
+    };
+
+    QTableWidget *table;
+    QVector<QSpinBox *> spins_irqIndex;
+};
+
+struct SoftTriggers_UI
+{
+    enum Columns
+    {
+        ColName,
+    };
+
+    QTableWidget *table;
+};
+
+struct SlaveTriggers_UI
+{
+    enum Columns
+    {
+        ColName,
+        ColDelay,
+        ColWidth,
+        ColHoldoff,
+        ColInvert,
+    };
+
+    QTableWidget *table;
+    QVector<QCheckBox *> checks_invert;
+};
+
+struct StackBusy_UI
+{
+    enum Columns
+    {
+        ColName,
+        ColStackIndex,
+    };
+
+    QTableWidget *table;
+    QVector<QSpinBox *> spins_stackIndex;
+};
+
 class Level0UtilsDialog: public QDialog
 {
     Q_OBJECT
     public:
         Level0UtilsDialog(
-            const QStringList &names,
             const Level0 &l0,
             QWidget *parent = nullptr);
 
-        QStringList getNames() const;
         Level0 getSettings() const;
+
+    private:
+        TimersTable_UI m_timersUi;
+        IRQUnits_UI m_irqUnitsUi;
+        SoftTriggers_UI m_softTriggersUi;
+        SlaveTriggers_UI m_slaveTriggersUi;
+        StackBusy_UI m_stackBusyUi;
 };
 
 class Level3UtilsDialog: public QDialog
@@ -338,10 +419,14 @@ class LUTOutputEditor: public QWidget
         LUTOutputEditor(
             int outputNumber,
             const QVector<QStringList> &inputNameLists = {},
+            const LUT_DynConValues &dynConValues = {},
             QWidget *parent = nullptr);
 
+        // LUT mapping for the output bit being edited
         OutputMapping getOutputMapping() const;
         void setOutputMapping(const OutputMapping &mapping);
+
+        LUT_DynConValues getDynamicConnectionValues() const;
 
     public slots:
         void setInputConnection(unsigned input, unsigned value);
@@ -356,24 +441,58 @@ class LUTOutputEditor: public QWidget
         QVector<QComboBox *> m_inputConnectionCombos;
         QTableWidget *m_outputTable;
         QVector<QPushButton *> m_outputStateWidgets;
-        QString m_outputName;
 };
 
 class LUTEditor: public QDialog
 {
     Q_OBJECT
     public:
+        // LUT without strobe inputs
         LUTEditor(
-            const QString &lutName = {},
-            const QVector<QStringList> &inputNameLists = {},
-            const QStringList &outputNames = {},
+            const QString &lutName,
+            const QVector<QStringList> &inputNameLists,
+            const QStringList &outputNames,
+            QWidget *parent = nullptr);
+
+        // LUT with strobe inputs
+        LUTEditor(
+            const QString &lutName,
+            const QVector<QStringList> &inputNameLists,
+            const LUT_DynConValues &dynConValues,
+            const QStringList &outputNames,
+            const QStringList &strobeInputChoiceNames,
+            unsigned strobeConValue,
+            const trigger_io::IO &strobeSettings,
+            const std::bitset<trigger_io::LUT::OutputBits> strobedOutputs,
             QWidget *parent = nullptr);
 
         QStringList getOutputNames() const;
+        LUT_DynConValues getDynamicConnectionValues();
+        unsigned getStrobeConnectionValue();
+        trigger_io::IO getStrobeSettings();
+        std::bitset<trigger_io::LUT::OutputBits> getStrobedOutputMask();
 
     private:
+        struct StrobeTable_UI
+        {
+            enum Columns
+            {
+                ColConnection,
+                ColDelay,
+                ColWidth,
+                ColHoldoff,
+                ColInvert,
+            };
+
+            QTableWidget *table;
+            QComboBox *combo_connection;
+            QCheckBox *check_invert;
+        };
+
         QVector<LUTOutputEditor *> m_outputEditors;
         QVector<QLineEdit *> m_outputNameEdits;
+        QVector<QCheckBox *> m_strobeCheckboxes;
+        StrobeTable_UI m_strobeTableUi;
 };
 
 } // end namespace mvlc

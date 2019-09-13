@@ -352,7 +352,7 @@ std::error_code do_base_setup(MVLCObject &mvlc, Logger logger)
 
     // Setup L2.0.strobeGG and connect Trig In from (L1 out 0) to L2.0.strobeGG.
     {
-        setup.l2.luts[0].strobeBits = 0b11;
+        setup.l2.luts[0].strobedOutputs.set();
         // TODO: connect input_strobe
         // connect l1.out.1 to L2.0.0 (TrigIn)
         // connect(l0.out.12 to L2.0.1 (StackBusy)
