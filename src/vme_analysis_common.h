@@ -40,7 +40,7 @@ using LoggerFun = std::function<void (const QString &)>;
 /** Adds information about each module in the vmeConfig to the analysis.
  * The information is stored as a dynamic QObject property using the name "ModuleProperties".
  */
-void add_vme_properties_to_analysis(VMEConfig *vmeConfig, analysis::Analysis *analysis);
+void add_vme_properties_to_analysis(const VMEConfig *vmeConfig, analysis::Analysis *analysis);
 
 struct ModuleInfo
 {
@@ -50,13 +50,13 @@ struct ModuleInfo
     QUuid eventId; // only set if the object was obtained from the VMEConfig
 };
 
-QVector<ModuleInfo> get_module_infos(VMEConfig *vmeConfig);
+QVector<ModuleInfo> get_module_infos(const VMEConfig *vmeConfig);
 QVector<ModuleInfo> get_module_infos(analysis::Analysis *analysis);
 
-bool auto_assign_vme_modules(VMEConfig *vmeConfig, analysis::Analysis *analysis, LoggerFun logger = LoggerFun());
+bool auto_assign_vme_modules(const VMEConfig *vmeConfig, analysis::Analysis *analysis, LoggerFun logger = LoggerFun());
 bool auto_assign_vme_modules(QVector<ModuleInfo> vmeModuleInfos, analysis::Analysis *analysis, LoggerFun logger = LoggerFun());
 
-bool run_vme_analysis_module_assignment_ui(VMEConfig *vmeConfig, analysis::Analysis *analysis, QWidget *parent = 0);
+bool run_vme_analysis_module_assignment_ui(const VMEConfig *vmeConfig, analysis::Analysis *analysis, QWidget *parent = 0);
 bool run_vme_analysis_module_assignment_ui(QVector<ModuleInfo> vmeModuleInfos, analysis::Analysis *analysis, QWidget *parent = 0);
 
 /** Removes sources and operators that are not attached to the module specified
@@ -69,7 +69,7 @@ void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const
 
 /** Removes sources and operators from the analysis which reference modules and
  * events that do not exist in vmeConfig. */
-void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, VMEConfig *vmeConfig);
+void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const VMEConfig *vmeConfig);
 
 struct VMEConfigIndex
 {

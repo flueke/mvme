@@ -1222,8 +1222,41 @@ DAQStats MVMEContext::getDAQStats() const
     return {};
 }
 
+static bool handle_vme_analysis_assignment(
+    const VMEConfig *vmeConfig,
+    analysis::Analysis *analysis,
+    analysis::ui::AnalysisWidget *analysisUi = nullptr,
+    QWidget *assignmentUiParent = nullptr)
+{
+    using namespace analysis;
+    using namespace vme_analysis_common;
+
+    if (!auto_assign_vme_modules(vmeConfig, analysis))
+    {
+        if (!run_vme_analysis_module_assignment_ui(vmeConfig, analysis, assignmentUiParent))
+            return false;
+    }
+
+    add_vme_properties_to_analysis(vmeConfig, analysis);
+
+    // This is deliberately commented out. It would remove all non-assigned
+    // objects from the analysis and thus potentially free up memory (mostly
+    // from histograms).
+    // Instead of doing this the objects are kept now and the analysis is not
+    // modified. This was done to not confuse users with analysis setups being
+    // magially set to 'modified' all the time.
+    //remove_analysis_objects_unless_matching(analysis, vmeConfig);
+
+    if (analysisUi)
+        analysisUi->repopulate();
+
+    return true;
+}
+
 bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle)
 {
+    using namespace vme_analysis_common;
+
     if (!handle.listfile)
         return false;
 
@@ -1254,7 +1287,11 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle)
     setConfigFileName(QString(), false);
     setMode(GlobalMode::ListFile);
 
-    return true;
+    bool ret = handle_vme_analysis_assignment(
+        getVMEConfig(), getAnalysis(),
+        getAnalysisUi(), getMainWindow());
+
+    return ret;
 }
 
 const ListfileReplayHandle &MVMEContext::getReplayFileHandle() const
@@ -2354,13 +2391,12 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
         return false;
     }
 
-    if (!auto_assign_vme_modules(getVMEConfig(), analysis_ng.get()))
+    if (!handle_vme_analysis_assignment(
+            getVMEConfig(), analysis_ng.get(),
+            nullptr, getMainWindow()))
     {
-        if (!run_vme_analysis_module_assignment_ui(getVMEConfig(), analysis_ng.get(), getMainWindow()))
-            return false;
+        return false;
     }
-
-    remove_analysis_objects_unless_matching(analysis_ng.get(), getVMEConfig());
 
     try
     {

@@ -1533,5 +1533,10 @@ int AnalysisWidget::removeObjects(const AnalysisObjectVector &objects)
     return result;
 }
 
+void AnalysisWidget::repopulate()
+{
+    m_d->repopulate();
+}
+
 } // end namespace ui
 } // end namespace analysis

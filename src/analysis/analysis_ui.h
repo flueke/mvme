@@ -57,6 +57,9 @@ class AnalysisWidget: public QWidget
 
         int removeObjects(const AnalysisObjectVector &objects);
 
+    public slots:
+        void repopulate();
+
     private:
         friend struct AnalysisWidgetPrivate;
         AnalysisWidgetPrivate *m_d;
