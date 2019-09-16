@@ -1166,8 +1166,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
     static const QStringList filters =
     {
-        "MVME Listfiles (*.mvmelst *.zip)",
-        "MVLC Listfiles (*.mvlclst *.zip)",
+        "MVME Listfiles (*.mvmelst *.mvlclst *.zip)",
         "All Files (*.*)"
     };
 
@@ -1373,7 +1372,7 @@ void MVMEMainWindow::onObjectAboutToBeRemoved(QObject *object)
 {
     auto &windowList = m_d->m_objectWindows[object];
 
-    qDebug() << __PRETTY_FUNCTION__ << object << windowList;
+    //qDebug() << __PRETTY_FUNCTION__ << object << windowList;
 
     for (auto subwin: windowList)
         subwin->close();
