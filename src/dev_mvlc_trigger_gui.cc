@@ -1,4 +1,5 @@
 #include <cassert>
+#include <memory>
 #include <QtWidgets>
 
 #include "dev_mvlc_trigger_gui.h"

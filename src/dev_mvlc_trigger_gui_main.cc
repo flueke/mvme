@@ -1,3 +1,4 @@
+#include <memory>
 #include <QApplication>
 #include <QBoxLayout>
 #include <QComboBox>
