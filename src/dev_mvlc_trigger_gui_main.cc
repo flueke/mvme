@@ -441,7 +441,7 @@ int main(int argc, char *argv[])
             }
         });
 
-        auto view = new QGraphicsView(scene);
+        auto view = new TriggerIOView(scene);
 
         view->setRenderHints(
             QPainter::Antialiasing | QPainter::TextAntialiasing |

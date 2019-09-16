@@ -305,6 +305,42 @@ QString lookup_name(const Config &cfg, const UnitAddress &addr)
     return {};
 }
 
+TriggerIOView::TriggerIOView(QGraphicsScene *scene, QWidget *parent)
+    : QGraphicsView(scene, parent)
+{
+    setDragMode(QGraphicsView::ScrollHandDrag);
+    setTransformationAnchor(AnchorUnderMouse);
+    setRenderHints(
+        QPainter::Antialiasing
+        | QPainter::TextAntialiasing
+        | QPainter::SmoothPixmapTransform
+        | QPainter::HighQualityAntialiasing);
+}
+
+void TriggerIOView::scaleView(qreal scaleFactor)
+{
+    double zoomOutLimit = 0.5;
+    double zoomInLimit = 5;
+
+    qreal factor = transform().scale(scaleFactor, scaleFactor).mapRect(QRectF(0, 0, 1, 1)).width();
+    if (factor < zoomOutLimit || factor > zoomInLimit)
+        return;
+
+    scale(scaleFactor, scaleFactor);
+}
+
+void TriggerIOView::wheelEvent(QWheelEvent *event)
+{
+    bool invert = false;
+    auto keyMods = event->modifiers();
+    double divisor = 300.0;
+
+    if (keyMods & Qt::ControlModifier)
+        divisor *= 3.0;
+
+    scaleView(pow((double)2, event->delta() / divisor));
+}
+
 TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
     : QGraphicsScene(parent)
 {

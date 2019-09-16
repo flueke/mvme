@@ -136,7 +136,13 @@ class TriggerIOView: public QGraphicsView
 {
     Q_OBJECT
     public:
+        TriggerIOView(QGraphicsScene *scene, QWidget *parent = nullptr);
 
+    protected:
+        void wheelEvent(QWheelEvent *event);
+
+    private:
+        void scaleView(qreal scaleFactor);
 };
 
 class TriggerIOGraphicsScene: public QGraphicsScene
