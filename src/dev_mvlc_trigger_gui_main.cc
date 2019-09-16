@@ -25,6 +25,31 @@ QStringList to_qstrlist(const C &container)
     return result;
 }
 
+template<typename Container>
+QVector<typename Container::value_type> to_qvector(const Container &c)
+{
+    QVector<typename Container::value_type> result;
+
+    for (const auto &value: c)
+        result.push_back(value);
+
+    return result;
+}
+
+template<typename Iter>
+QVector<typename std::iterator_traits<Iter>::value_type> to_qvector(
+    Iter begin_, const Iter &end_)
+{
+    QVector<typename std::iterator_traits<Iter>::value_type> result;
+
+    while (begin_ != end_)
+    {
+        result.push_back(*begin_++);
+    }
+
+    return result;
+}
+
 template<typename BS>
 void copy_bitset(const BS &in, BS &dest)
 {
@@ -256,9 +281,11 @@ int main(int argc, char *argv[])
                  inputChoiceNameLists.push_back(nameList);
              }
 
-            // TODO: get and use connection values to level 3 here
+             auto connections = to_qvector(
+                 ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset,
+                 ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset + trigger_io::NIM_IO_Count);
 
-             NIM_IO_SettingsDialog dialog(names, settings, inputChoiceNameLists);
+             NIM_IO_SettingsDialog dialog(names, settings, inputChoiceNameLists, connections);
              auto dc = dialog.exec();
 
              if (dc == QDialog::Accepted)
@@ -270,15 +297,29 @@ int main(int argc, char *argv[])
                              trigger_io::NIM_IO_Count,
                              ioCfg.l0.outputNames.begin() + ioCfg.l0.NIM_IO_Offset);
 
+                 // Copy names to L3
+                 std::copy_n(names.begin(),
+                             trigger_io::NIM_IO_Count,
+                             ioCfg.l3.unitNames.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
+
                  settings = dialog.getSettings();
-                 size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioNIM.size());
+                 {
+                     size_t count = std::min(static_cast<size_t>(settings.size()),
+                                             ioCfg.l0.ioNIM.size());
 
-                 // Copy settings to L0 and L3
-                 std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
-                 std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
+                     // Copy settings to L0 and L3
+                     std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
+                     std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
+                 }
 
-                 // TODO: apply the connections by reading the input choice
-                 // combo indexes and storing the values somewhere
+                 {
+                     auto connections = dialog.getConnections();
+                     auto count = std::min(static_cast<size_t>(connections.size()),
+                                           trigger_io::NIM_IO_Count);
+                     std::copy_n(
+                         connections.begin(), count,
+                         ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
+                 }
              }
         });
 
@@ -312,14 +353,45 @@ int main(int argc, char *argv[])
                 inputChoiceNameLists.push_back(nameList);
             }
 
-            // TODO: get connections vector from somewhere
-            QVector<int> inputConnections;
+            auto connections = to_qvector(
+                ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset,
+                ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset + trigger_io::ECL_OUT_Count);
 
-            ECL_SettingsDialog dialog(names, settings, inputConnections, inputChoiceNameLists);
+            ECL_SettingsDialog dialog(names, settings, connections, inputChoiceNameLists);
             auto dc = dialog.exec();
 
             if (dc == QDialog::Accepted)
             {
+                 names = dialog.getNames();
+
+                 // Copy names to L0
+                 std::copy_n(names.begin(),
+                             trigger_io::ECL_OUT_Count,
+                             ioCfg.l0.outputNames.begin() + ioCfg.l0.ECL_Unit_Offset);
+
+                 // Copy names to L3
+                 std::copy_n(names.begin(),
+                             trigger_io::ECL_OUT_Count,
+                             ioCfg.l3.unitNames.begin() + ioCfg.l3.ECL_Unit_Offset);
+
+                 settings = dialog.getSettings();
+                 {
+                     size_t count = std::min(static_cast<size_t>(settings.size()),
+                                             ioCfg.l3.ioECL.size());
+
+                     // Copy settings to L0 and L3
+                     std::copy_n(settings.begin(), count, ioCfg.l0.ioECL.begin());
+                     std::copy(ioCfg.l0.ioECL.begin(), ioCfg.l0.ioECL.end(), ioCfg.l3.ioECL.begin());
+                 }
+
+                 {
+                     auto connections = dialog.getConnections();
+                     auto count = std::min(static_cast<size_t>(connections.size()),
+                                           trigger_io::ECL_OUT_Count);
+                     std::copy_n(
+                         connections.begin(), count,
+                         ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset);
+                 }
             }
         });
 

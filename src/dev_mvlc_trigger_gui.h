@@ -269,6 +269,7 @@ class NIM_IO_SettingsDialog: public QDialog
             const QStringList &names,
             const QVector<trigger_io::IO> &settings,
             const QVector<QStringList> &inputChoiceNameLists,
+            const QVector<unsigned> &connections,
             QWidget *parent = nullptr);
 
         QStringList getNames() const;
@@ -292,7 +293,7 @@ class ECL_SettingsDialog: public QDialog
         ECL_SettingsDialog(
             const QStringList &names,
             const QVector<trigger_io::IO> &settings,
-            const QVector<int> &inputConnections,
+            const QVector<unsigned> &inputConnections,
             const QVector<QStringList> &inputChoiceNameLists,
             QWidget *parent = nullptr);
 

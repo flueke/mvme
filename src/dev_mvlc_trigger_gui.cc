@@ -737,17 +737,17 @@ NIM_IO_Table_UI make_nim_io_settings_table(
 ECL_Table_UI make_ecl_table_ui(
     const QStringList &names,
     const QVector<trigger_io::IO> &settings,
-    const QVector<int> &inputConnections,
+    const QVector<unsigned> &inputConnections,
     const QVector<QStringList> &inputChoiceNameLists)
 {
-    ECL_Table_UI ret = {};
+    ECL_Table_UI ui = {};
 
     QStringList columnTitles = {
         "Activate", "Delay", "Width", "Holdoff", "Invert", "Name", "Input"
     };
 
     auto table = new QTableWidget(trigger_io::ECL_OUT_Count, columnTitles.size());
-    ret.table = table;
+    ui.table = table;
 
     table->setHorizontalHeaderLabels(columnTitles);
 
@@ -760,9 +760,9 @@ ECL_Table_UI make_ecl_table_ui(
         auto check_invert = new QCheckBox;
         auto combo_connection = new QComboBox;
 
-        ret.checks_activate.push_back(check_activate);
-        ret.checks_invert.push_back(check_invert);
-        ret.combos_connection.push_back(combo_connection);
+        ui.checks_activate.push_back(check_activate);
+        ui.checks_invert.push_back(check_invert);
+        ui.combos_connection.push_back(combo_connection);
 
         check_activate->setChecked(settings.value(row).activate);
         check_invert->setChecked(settings.value(row).invert);
@@ -770,21 +770,28 @@ ECL_Table_UI make_ecl_table_ui(
         combo_connection->setCurrentIndex(inputConnections.value(row));
         combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 
-        table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
-        table->setCellWidget(row, ret.ColInvert, make_centered(check_invert));
-        table->setItem(row, ret.ColName, new QTableWidgetItem(names.value(row)));
-        table->setCellWidget(row, ret.ColConnection, combo_connection);
+
+        table->setCellWidget(row, ui.ColActivate, make_centered(check_activate));
+        table->setItem(row, ui.ColDelay, new QTableWidgetItem(QString::number(
+                    settings.value(row).delay)));
+        table->setItem(row, ui.ColWidth, new QTableWidgetItem(QString::number(
+                    settings.value(row).width)));
+        table->setItem(row, ui.ColHoldoff, new QTableWidgetItem(QString::number(
+                    settings.value(row).holdoff)));
+        table->setCellWidget(row, ui.ColInvert, make_centered(check_invert));
+        table->setItem(row, ui.ColName, new QTableWidgetItem(names.value(row)));
+        table->setCellWidget(row, ui.ColConnection, combo_connection);
     }
 
     reverse_rows(table);
 
-    table->horizontalHeader()->moveSection(ret.ColName, 0);
-    table->horizontalHeader()->moveSection(ret.ColConnection, 1);
+    table->horizontalHeader()->moveSection(ui.ColName, 0);
+    table->horizontalHeader()->moveSection(ui.ColConnection, 1);
 
     table->resizeColumnsToContents();
     table->resizeRowsToContents();
 
-    return ret;
+    return ui;
 }
 
 IOSettingsWidget::IOSettingsWidget(QWidget *parent)
@@ -917,6 +924,7 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     const QStringList &names,
     const QVector<trigger_io::IO> &settings,
     const QVector<QStringList> &inputChoiceNameLists,
+    const QVector<unsigned> &connections,
     QWidget *parent)
     : NIM_IO_SettingsDialog(names, settings, trigger_io::IO::Direction::out, parent)
 {
@@ -926,6 +934,7 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     {
         m_tableUi.combos_connection[io]->addItems(
             inputChoiceNameLists.value(io));
+        m_tableUi.combos_connection[io]->setCurrentIndex(connections.value(io));
     }
 
     m_tableUi.table->resizeColumnsToContents();
@@ -968,13 +977,23 @@ QVector<trigger_io::IO> NIM_IO_SettingsDialog::getSettings() const
     return ret;
 }
 
+QVector<unsigned> NIM_IO_SettingsDialog::getConnections() const
+{
+    QVector<unsigned> ret;
+
+    for (auto combo: m_tableUi.combos_connection)
+        ret.push_back(combo->currentIndex());
+
+    return ret;
+}
+
 //
 // ECL_SettingsDialog
 //
 ECL_SettingsDialog::ECL_SettingsDialog(
             const QStringList &names,
             const QVector<trigger_io::IO> &settings,
-            const QVector<int> &inputConnections,
+            const QVector<unsigned> &inputConnections,
             const QVector<QStringList> &inputChoiceNameLists,
             QWidget *parent)
     : QDialog(parent)
@@ -989,6 +1008,51 @@ ECL_SettingsDialog::ECL_SettingsDialog(
     auto widgetLayout = make_vbox(this);
     widgetLayout->addWidget(ui.table, 1);
     widgetLayout->addWidget(bb);
+
+    resize(600, 500);
+}
+
+QStringList ECL_SettingsDialog::getNames() const
+{
+    auto &ui = m_tableUi;
+    QStringList ret;
+
+    for (int row = 0; row < ui.table->rowCount(); row++)
+        ret.push_back(ui.table->item(row, ui.ColName)->text());
+
+    return ret;
+}
+
+QVector<trigger_io::IO> ECL_SettingsDialog::getSettings() const
+{
+    auto &ui = m_tableUi;
+    QVector<trigger_io::IO> ret;
+
+    for (int row = 0; row < ui.table->rowCount(); row++)
+    {
+        trigger_io::IO nim;
+
+        nim.delay = ui.table->item(row, ui.ColDelay)->text().toUInt();
+        nim.width = ui.table->item(row, ui.ColWidth)->text().toUInt();
+        nim.holdoff = ui.table->item(row, ui.ColHoldoff)->text().toUInt();
+
+        nim.invert = ui.checks_invert[row]->isChecked();
+        nim.activate = ui.checks_activate[row]->isChecked();
+
+        ret.push_back(nim);
+    }
+
+    return ret;
+}
+
+QVector<unsigned> ECL_SettingsDialog::getConnections() const
+{
+    QVector<unsigned> ret;
+
+    for (auto combo: m_tableUi.combos_connection)
+        ret.push_back(combo->currentIndex());
+
+    return ret;
 }
 
 QGroupBox *make_groupbox(QWidget *mainWidget, const QString &title = {},
