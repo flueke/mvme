@@ -13,6 +13,7 @@
 
 #include "dev_mvlc_trigger_gui.h"
 #include "mvlc/mvlc_trigger_io.h"
+#include "qt_util.h"
 
 using namespace mesytec::mvlc;
 using namespace mesytec::mvlc::trigger_io_config;
@@ -62,10 +63,10 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    Config ioCfg;
+    TriggerIOConfig ioCfg;
 
     auto logicWidget = new QWidget;
-    auto logicLayout = new QHBoxLayout(logicWidget);
+    auto logicLayout = new QVBoxLayout(logicWidget);
 
     {
         auto scene = new TriggerIOGraphicsScene;
@@ -94,7 +95,7 @@ int main(int argc, char *argv[])
                     if (address[0] == 0)
                     {
                         inputNameLists.push_back(
-                            {ioCfg.l0.outputNames.value(address[1])});
+                            {ioCfg.l0.unitNames.value(address[1])});
                     }
                     // handles internal Level1 connections
                     else if (address[0] == 1)
@@ -139,7 +140,7 @@ int main(int argc, char *argv[])
                 for (const auto &address: l2InputChoices.strobeInputChoices)
                     strobeInputChoiceNames.push_back(lookup_name(ioCfg, address));
 
-                strobeConValue = ioCfg.l2.strobeDynConValues[unit];
+                strobeConValue = ioCfg.l2.strobeConnections[unit];
                 strobeGGSettings = ioCfg.l2.luts[unit].strobeGG;
                 copy_bitset(ioCfg.l2.luts[unit].strobedOutputs, strobedOutputs);
             }
@@ -177,7 +178,7 @@ int main(int argc, char *argv[])
                 lutEditor = std::make_unique<LUTEditor>(
                     lutName,
                     inputNameLists,
-                    ioCfg.l2.lutDynConValues[unit],
+                    ioCfg.l2.lutConnections[unit],
                     outputNames,
                     strobeInputChoiceNames,
                     strobeConValue,
@@ -204,10 +205,12 @@ int main(int argc, char *argv[])
 
                 std::copy_n(outputNames.begin(), count, lut->outputNames.begin());
 
+                lut->lutContents = lutEditor->getLUTContents();
+
                 if (level == 2)
                 {
-                    ioCfg.l2.lutDynConValues[unit] = lutEditor->getDynamicConnectionValues();
-                    ioCfg.l2.strobeDynConValues[unit] = lutEditor->getStrobeConnectionValue();
+                    ioCfg.l2.lutConnections[unit] = lutEditor->getDynamicConnectionValues();
+                    ioCfg.l2.strobeConnections[unit] = lutEditor->getStrobeConnectionValue();
                     ioCfg.l2.luts[unit].strobeGG = lutEditor->getStrobeSettings();
                     ioCfg.l2.luts[unit].strobedOutputs = lutEditor->getStrobedOutputMask();
                 }
@@ -222,7 +225,7 @@ int main(int argc, char *argv[])
             // read names stored in the Level0 structure
              QStringList names;
 
-             std::copy_n(ioCfg.l0.outputNames.begin() + ioCfg.l0.NIM_IO_Offset,
+             std::copy_n(ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset,
                          trigger_io::NIM_IO_Count,
                          std::back_inserter(names));
 
@@ -240,7 +243,7 @@ int main(int argc, char *argv[])
                  // Copy names to L0
                  std::copy_n(names.begin(),
                              trigger_io::NIM_IO_Count,
-                             ioCfg.l0.outputNames.begin() + ioCfg.l0.NIM_IO_Offset);
+                             ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset);
 
                  settings = dialog.getSettings();
                  size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioNIM.size());
@@ -257,7 +260,7 @@ int main(int argc, char *argv[])
             // read names stored in the Level0 structure
              QStringList names;
 
-             std::copy_n(ioCfg.l0.outputNames.begin() + ioCfg.l0.NIM_IO_Offset,
+             std::copy_n(ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset,
                          trigger_io::NIM_IO_Count,
                          std::back_inserter(names));
 
@@ -296,7 +299,7 @@ int main(int argc, char *argv[])
                  // Copy names to L0
                  std::copy_n(names.begin(),
                              trigger_io::NIM_IO_Count,
-                             ioCfg.l0.outputNames.begin() + ioCfg.l0.NIM_IO_Offset);
+                             ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset);
 
                  // Copy names to L3
                  std::copy_n(names.begin(),
@@ -368,7 +371,7 @@ int main(int argc, char *argv[])
                  // Copy names to L0
                  std::copy_n(names.begin(),
                              trigger_io::ECL_OUT_Count,
-                             ioCfg.l0.outputNames.begin() + ioCfg.l0.ECL_Unit_Offset);
+                             ioCfg.l0.unitNames.begin() + ioCfg.l0.ECL_Unit_Offset);
 
                  // Copy names to L3
                  std::copy_n(names.begin(),
@@ -380,9 +383,8 @@ int main(int argc, char *argv[])
                      size_t count = std::min(static_cast<size_t>(settings.size()),
                                              ioCfg.l3.ioECL.size());
 
-                     // Copy settings to L0 and L3
-                     std::copy_n(settings.begin(), count, ioCfg.l0.ioECL.begin());
-                     std::copy(ioCfg.l0.ioECL.begin(), ioCfg.l0.ioECL.end(), ioCfg.l3.ioECL.begin());
+                     // Copy settings to L3
+                     std::copy_n(settings.begin(), count, ioCfg.l3.ioECL.begin());
                  }
 
                  {
@@ -399,14 +401,9 @@ int main(int argc, char *argv[])
         QObject::connect(scene, &TriggerIOGraphicsScene::editL3Utils,
                          [&ioCfg] ()
         {
-            QStringList unitNames;
-
-            std::copy_n(ioCfg.l3.unitNames.begin(), trigger_io::Level3::UtilityUnitCount,
-                        std::back_inserter(unitNames));
-
             QVector<QStringList> inputChoiceNameLists;
 
-            for (int unit = 0; unit < unitNames.size(); unit++)
+            for (int unit = 0; unit < ioCfg.l3.unitNames.size(); unit++)
             {
                 const auto &choiceList = ioCfg.l3.dynamicInputChoiceLists[unit];
                 QStringList nameList;
@@ -417,17 +414,12 @@ int main(int argc, char *argv[])
                 inputChoiceNameLists.push_back(nameList);
             }
 
-            QVector<unsigned> inputConnections;
-
-            for (int unit = 0; unit < unitNames.size(); unit++)
-                inputConnections.push_back(ioCfg.l3.connections[unit]);
-
-            Level3UtilsDialog dialog(unitNames, ioCfg.l3, inputConnections, inputChoiceNameLists);
+            Level3UtilsDialog dialog(ioCfg.l3, inputChoiceNameLists);
             auto dc = dialog.exec();
 
             if (dc == QDialog::Accepted)
             {
-                // TODO: do something! anything!
+                ioCfg.l3 = dialog.getSettings();
             }
         });
 
@@ -438,7 +430,7 @@ int main(int argc, char *argv[])
             auto dc = dialog.exec();
             if (dc == QDialog::Accepted)
             {
-                // TODO: do something! anything!
+                ioCfg.l0 = dialog.getSettings();
             }
         });
 
@@ -449,16 +441,50 @@ int main(int argc, char *argv[])
             QPainter::SmoothPixmapTransform |
             QPainter::HighQualityAntialiasing);
 
-        logicLayout->addWidget(view);
+        auto pb_generateScript = new QPushButton("Generate Script");
+
+        auto bottomLayout = new QHBoxLayout;
+        bottomLayout->addStretch(1);
+        bottomLayout->addWidget(pb_generateScript);
+
+        logicLayout->addWidget(view, 1);
+        logicLayout->addLayout(bottomLayout, 0);
+
+        QTextEdit *te_script = nullptr;
+
+        QObject::connect(pb_generateScript, &QPushButton::clicked,
+                [&ioCfg, &te_script] ()
+        {
+            auto script = generate_trigger_io_script_text(ioCfg);
+
+            if (!te_script)
+            {
+                te_script = new QTextBrowser();
+                te_script->setAttribute(Qt::WA_DeleteOnClose);
+                te_script->resize(500, 900);
+
+                auto font = QFont("Monospace", 8);
+                font.setStyleHint(QFont::Monospace);
+                font.setFixedPitch(true);
+                te_script->setFont(font);
+
+                QObject::connect(te_script, &QObject::destroyed,
+                                 [&te_script] () { te_script = nullptr; });
+            }
+
+            te_script->setText(script);
+            te_script->show();
+            te_script->raise();
+        });
     }
 
-    auto mainLayout = new QHBoxLayout;
+    auto mainLayout = make_hbox<0, 0>();
     mainLayout->addWidget(logicWidget);
 
     auto mainWindow = new QWidget;
     mainWindow->setLayout(mainLayout);
     mainWindow->setAttribute(Qt::WA_DeleteOnClose);
-    mainWindow->resize(1400, 900);
+    mainWindow->resize(1400, 980);
     mainWindow->show();
 
     int ret =  app.exec();

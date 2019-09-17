@@ -57,7 +57,9 @@ using LUT_DynConValues = std::array<unsigned, Level2LUT_VariableInputCount>;
 
 struct LUT
 {
-    std::array<OutputMapping, trigger_io::LUT::OutputBits> lutContents;
+    // one bitset for each output
+    using Contents = std::array<OutputMapping, trigger_io::LUT::OutputBits>;
+    Contents lutContents;
     std::array<QString, trigger_io::LUT::OutputBits> outputNames;
 
     // Strobe gate generator settings
@@ -69,7 +71,7 @@ struct Level0: public trigger_io::Level0
 {
     static const std::array<QString, trigger_io::Level0::OutputCount> DefaultUnitNames;
 
-    QStringList outputNames;
+    QStringList unitNames;
 
     Level0();
 };
@@ -94,8 +96,8 @@ struct Level2
 
     // The first 3 inputs of each LUT have dynamic connections. The selected
     // value is stored here.
-    std::array<LUT_DynConValues, trigger_io::Level2::LUTCount> lutDynConValues;
-    std::array<unsigned, trigger_io::Level2::LUTCount> strobeDynConValues;
+    std::array<LUT_DynConValues, trigger_io::Level2::LUTCount> lutConnections;
+    std::array<unsigned, trigger_io::Level2::LUTCount> strobeConnections;
 
     Level2();
 };
@@ -115,14 +117,18 @@ struct Level3: public trigger_io::Level3
 {
     static const std::array<QString, trigger_io::Level3::UnitCount> DefaultUnitNames;
     // A list of possible input addresses for each level 3 input pin.
-    const std::vector<UnitAddressVector> dynamicInputChoiceLists;
+    std::vector<UnitAddressVector> dynamicInputChoiceLists;
 
     QStringList unitNames;
 
+    std::array<unsigned, trigger_io::Level3::UnitCount> connections = {};
+
     Level3();
+    Level3(const Level3 &) = default;
+    Level3 &operator=(const Level3 &) = default;
 };
 
-struct Config
+struct TriggerIOConfig
 {
     Level0 l0;
     Level1 l1;
@@ -130,7 +136,7 @@ struct Config
     Level3 l3;
 };
 
-QString lookup_name(const Config &cfg, const UnitAddress &addr);
+QString lookup_name(const TriggerIOConfig &cfg, const UnitAddress &addr);
 
 class TriggerIOView: public QGraphicsView
 {
@@ -311,69 +317,6 @@ class ECL_SettingsDialog: public QDialog
         ECL_Table_UI m_tableUi;
 };
 
-struct TimersTable_UI
-{
-    enum Columns
-    {
-        ColName,
-        ColRange,
-        ColPeriod,
-        ColDelay,
-    };
-
-    QTableWidget *table;
-    QVector<QComboBox *> combos_range;
-};
-
-struct IRQUnits_UI
-{
-    enum Columns
-    {
-        ColName,
-        ColIRQIndex,
-    };
-
-    QTableWidget *table;
-    QVector<QSpinBox *> spins_irqIndex;
-};
-
-struct SoftTriggers_UI
-{
-    enum Columns
-    {
-        ColName,
-    };
-
-    QTableWidget *table;
-};
-
-struct SlaveTriggers_UI
-{
-    enum Columns
-    {
-        ColName,
-        ColDelay,
-        ColWidth,
-        ColHoldoff,
-        ColInvert,
-    };
-
-    QTableWidget *table;
-    QVector<QCheckBox *> checks_invert;
-};
-
-struct StackBusy_UI
-{
-    enum Columns
-    {
-        ColName,
-        ColStackIndex,
-    };
-
-    QTableWidget *table;
-    QVector<QSpinBox *> spins_stackIndex;
-};
-
 class Level0UtilsDialog: public QDialog
 {
     Q_OBJECT
@@ -385,27 +328,151 @@ class Level0UtilsDialog: public QDialog
         Level0 getSettings() const;
 
     private:
-        TimersTable_UI m_timersUi;
-        IRQUnits_UI m_irqUnitsUi;
-        SoftTriggers_UI m_softTriggersUi;
-        SlaveTriggers_UI m_slaveTriggersUi;
-        StackBusy_UI m_stackBusyUi;
+        struct Table_UI_Base
+        {
+            QTableWidget *table;
+        };
+
+        struct TimersTable_UI: public Table_UI_Base
+        {
+            enum Columns
+            {
+                ColName,
+                ColRange,
+                ColPeriod,
+                ColDelay,
+            };
+
+            static const int FirstUnitIndex = 0;
+
+            QVector<QComboBox *> combos_range;
+        };
+
+        struct IRQUnits_UI: public Table_UI_Base
+        {
+            enum Columns
+            {
+                ColName,
+                ColIRQIndex,
+            };
+
+            static const int FirstUnitIndex = Level0::IRQ_UnitOffset;
+
+            QVector<QSpinBox *> spins_irqIndex;
+        };
+
+        struct SoftTriggers_UI: public Table_UI_Base
+        {
+            enum Columns
+            {
+                ColName,
+            };
+
+            static const int FirstUnitIndex = Level0::SoftTriggerOffset;
+        };
+
+        struct SlaveTriggers_UI: public Table_UI_Base
+        {
+            enum Columns
+            {
+                ColName,
+                ColDelay,
+                ColWidth,
+                ColHoldoff,
+                ColInvert,
+            };
+
+            static const int FirstUnitIndex = Level0::SlaveTriggerOffset;
+
+            QVector<QCheckBox *> checks_invert;
+        };
+
+        struct StackBusy_UI: public Table_UI_Base
+        {
+            enum Columns
+            {
+                ColName,
+                ColStackIndex,
+            };
+
+            static const int FirstUnitIndex = Level0::StackBusyOffset;
+
+            QVector<QSpinBox *> spins_stackIndex;
+        };
+
+        mutable Level0 m_l0;
+        TimersTable_UI ui_timers;
+        IRQUnits_UI ui_irqUnits;
+        SoftTriggers_UI ui_softTriggers;
+        SlaveTriggers_UI ui_slaveTriggers;
+        StackBusy_UI ui_stackBusy;
 };
 
 class Level3UtilsDialog: public QDialog
 {
     Q_OBJECT
     public:
+        // Note: the Level3 structure is copied, then modified and returned in
+        // getSettings(). This means the NIM and ECL settings are passed
+        // through unmodified.
         Level3UtilsDialog(
-            const QStringList &names,
             const Level3 &l3,
-            const QVector<unsigned> &inputConnections,
             const QVector<QStringList> &inputChoiceNameLists,
             QWidget *parent = nullptr);
 
-        QStringList getNames() const;
         Level3 getSettings() const;
-        QVector<unsigned> getConnections() const;
+
+    private:
+        struct Table_UI_Base
+        {
+            QTableWidget *table;
+            QVector<QCheckBox *> checks_activate;
+            QVector<QComboBox *> combos_connection;
+        };
+
+        struct StackStart_UI: public Table_UI_Base
+        {
+            enum Columns
+            {
+                ColName,
+                ColConnection,
+                ColStack,
+                ColActivate,
+            };
+
+            static const int FirstUnitIndex = 0;
+
+            QVector<QSpinBox *> spins_stack;
+        };
+
+        struct MasterTriggers_UI: public Table_UI_Base
+        {
+            enum Columns
+            {
+                ColName,
+                ColConnection,
+                ColActivate,
+            };
+
+            static const int FirstUnitIndex = 4;
+        };
+
+        struct Counters_UI: public Table_UI_Base
+        {
+            enum Columns
+            {
+                ColName,
+                ColConnection,
+                ColActivate,
+            };
+
+            static const int FirstUnitIndex = 8;
+        };
+
+        mutable Level3 m_l3;
+        StackStart_UI ui_stackStart;
+        MasterTriggers_UI ui_masterTriggers;
+        Counters_UI ui_counters;
 };
 
 struct InputSpec
@@ -473,8 +540,10 @@ class LUTEditor: public QDialog
             const std::bitset<trigger_io::LUT::OutputBits> strobedOutputs,
             QWidget *parent = nullptr);
 
+        LUT::Contents getLUTContents() const;
         QStringList getOutputNames() const;
         LUT_DynConValues getDynamicConnectionValues();
+
         unsigned getStrobeConnectionValue();
         trigger_io::IO getStrobeSettings();
         std::bitset<trigger_io::LUT::OutputBits> getStrobedOutputMask();
@@ -501,6 +570,8 @@ class LUTEditor: public QDialog
         QVector<QCheckBox *> m_strobeCheckboxes;
         StrobeTable_UI m_strobeTableUi;
 };
+
+QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg);
 
 } // end namespace mvlc
 } // end namespace mesytec

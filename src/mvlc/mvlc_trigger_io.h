@@ -72,15 +72,19 @@ struct LUT
 struct StackStart
 {
     bool activate;
-    bool immediate;
     u8 stackIndex;
-    bool storeStrobes;
+    //bool storeStrobes; // not implemented / not used
+    // Note: the immediate flag is used to directly exec the stack which can be
+    // useful for testing. The value is not currently stored in here.
+    //bool immediate;
 };
 
 struct MasterTrigger
 {
     bool activate;
-    bool immediate;
+    // Note: the immediate flag is used to directly exec the stack which can be
+    // useful for testing. The value is not currently stored in here.
+    //bool immediate;
 };
 
 struct Counter
@@ -122,7 +126,7 @@ struct Level0
                                             // 14, 15 unused
     std::array<IO, NIM_IO_Count> ioNIM;     // 16..29
     // FIXME: not really needed here. l3 only
-    std::array<IO, ECL_OUT_Count> ioECL;    // 30..32
+    //std::array<IO, ECL_OUT_Count> ioECL;    // 30..32
 };
 
 struct Level1
@@ -135,13 +139,6 @@ struct Level2
 {
     static const size_t LUTCount = 2;
     std::array<LUT, LUTCount> luts;
-    // Per (lut, input) dynamic connection values. Only the first 3 inputs of
-    // each level 2 LUT are dynamic the other 3 are static.
-    //std::array<std::array<unsigned, 3>, LUTCount> lutConnections;
-    //std::array<unsigned, LUTCount> strobeConnections;
-
-    //std::array<unsigned, LUTCount> strobedOutput;
-    //std::array<IO, LUTCount> strobeGGs; // TODO: maybe move this into the respective LUT
 };
 
 struct Level3
@@ -159,8 +156,6 @@ struct Level3
     std::array<Counter, CountersCount> counters = {};
     std::array<IO, NIM_IO_Count> ioNIM = {};
     std::array<IO, ECL_OUT_Count> ioECL = {};
-
-    std::array<unsigned, UnitCount> connections = {};
 };
 
 struct TriggerIO

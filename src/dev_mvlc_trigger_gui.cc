@@ -1,6 +1,8 @@
 #include <cassert>
 #include <memory>
 #include <QtWidgets>
+#include <boost/variant.hpp>
+#include <boost/range/adaptor/indexed.hpp>
 
 #include "dev_mvlc_trigger_gui.h"
 #include "mvlc/mvlc_trigger_io.h"
@@ -68,10 +70,10 @@ const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNa
 
 Level0::Level0()
 {
-    outputNames.reserve(DefaultUnitNames.size());
+    unitNames.reserve(DefaultUnitNames.size());
 
     std::copy(DefaultUnitNames.begin(), DefaultUnitNames.end(),
-              std::back_inserter(outputNames));
+              std::back_inserter(unitNames));
 
     timers.fill({});
     irqUnits.fill({});
@@ -286,12 +288,12 @@ Level3::Level3()
               std::back_inserter(unitNames));
 }
 
-QString lookup_name(const Config &cfg, const UnitAddress &addr)
+QString lookup_name(const TriggerIOConfig &cfg, const UnitAddress &addr)
 {
     switch (addr[0])
     {
         case 0:
-            return cfg.l0.outputNames.value(addr[1]);
+            return cfg.l0.unitNames.value(addr[1]);
 
         case 1:
             return cfg.l1.luts[addr[1]].outputNames[addr[2]];
@@ -1104,196 +1106,196 @@ QGroupBox *make_groupbox(QWidget *mainWidget, const QString &title = {},
 //
 // Level0UtilsDialog
 //
-TimersTable_UI make_timers_table_ui(const Level0 &l0)
-{
-    static const QString RowTitleFormat = "Timer%1";
-    static const QStringList ColumnTitles = { "Name", "Range", "Period", "Delay" };
-    const size_t rowCount = l0.timers.size();
-
-    TimersTable_UI ret = {};
-    ret.table = new QTableWidget(rowCount, ColumnTitles.size());
-    ret.table->setHorizontalHeaderLabels(ColumnTitles);
-
-    for (int row = 0; row < ret.table->rowCount(); ++row)
-    {
-        ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
-
-        auto combo_range = new QComboBox;
-        combo_range->addItem("ns", 0);
-        combo_range->addItem("µs", 1);
-        combo_range->addItem("ms", 2);
-        combo_range->addItem("s",  3);
-
-        combo_range->setCurrentIndex(static_cast<int>(l0.timers[row].range));
-
-        ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
-                l0.outputNames.value(row)));
-
-        ret.table->setCellWidget(row, ret.ColRange, combo_range);
-
-        ret.table->setItem(row, ret.ColPeriod, new QTableWidgetItem(
-                QString::number(l0.timers[row].period)));
-
-        ret.table->setItem(row, ret.ColDelay, new QTableWidgetItem(
-                l0.timers[row].delay_ns));
-
-
-        ret.combos_range.push_back(combo_range);
-    }
-
-    ret.table->resizeColumnsToContents();
-    ret.table->resizeRowsToContents();
-
-    return ret;
-}
-
-IRQUnits_UI make_irq_units_table_ui(const Level0 &l0)
-{
-    static const QString RowTitleFormat = "IRQ%1";
-    static const QStringList ColumnTitles = { "Name", "IRQ Index" };
-    const size_t rowCount = l0.irqUnits.size();
-    const int nameOffset = l0.IRQ_UnitOffset;
-
-    IRQUnits_UI ret = {};
-    ret.table = new QTableWidget(rowCount, ColumnTitles.size());
-    ret.table->setHorizontalHeaderLabels(ColumnTitles);
-
-    for (int row = 0; row < ret.table->rowCount(); ++row)
-    {
-        ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
-
-        auto spin_irqIndex = new QSpinBox;
-        spin_irqIndex->setRange(1, 7);
-        spin_irqIndex->setValue(l0.irqUnits[row].irqIndex + 1);
-
-        ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
-                l0.outputNames.value(row + nameOffset)));
-
-        ret.table->setCellWidget(row, ret.ColIRQIndex, spin_irqIndex);
-
-        ret.spins_irqIndex.push_back(spin_irqIndex);
-    }
-
-    ret.table->resizeColumnsToContents();
-    ret.table->resizeRowsToContents();
-
-    return ret;
-}
-
-SoftTriggers_UI make_soft_triggers_table_ui(const Level0 &l0)
-{
-    static const QString RowTitleFormat = "SoftTrigger%1";
-    static const QStringList ColumnTitles = { "Name" };
-    const int rowCount = l0.SoftTriggerCount;
-    const int nameOffset = l0.SoftTriggerOffset;
-
-    SoftTriggers_UI ret = {};
-    ret.table = new QTableWidget(rowCount, ColumnTitles.size());
-    ret.table->setHorizontalHeaderLabels(ColumnTitles);
-
-    for (int row = 0; row < ret.table->rowCount(); ++row)
-    {
-        ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
-
-        ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
-                l0.outputNames.value(row + nameOffset)));
-    }
-
-    ret.table->resizeColumnsToContents();
-    ret.table->resizeRowsToContents();
-
-    return ret;
-}
-
-SlaveTriggers_UI make_slave_triggers_table_ui(const Level0 &l0)
-{
-    static const QString RowTitleFormat = "SlaveTrigger%1";
-    static const QStringList ColumnTitles = { "Name", "Delay", "Width", "Holdoff", "Invert" };
-    const size_t rowCount = l0.slaveTriggers.size();
-    const int nameOffset = l0.SlaveTriggerOffset;
-
-    SlaveTriggers_UI ret = {};
-    ret.table = new QTableWidget(rowCount, ColumnTitles.size());
-    ret.table->setHorizontalHeaderLabels(ColumnTitles);
-
-    for (int row = 0; row < ret.table->rowCount(); ++row)
-    {
-        ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
-
-        const auto &io = l0.slaveTriggers[row];
-
-        auto check_invert = new QCheckBox;
-        check_invert->setChecked(io.invert);
-
-        ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
-                l0.outputNames.value(row + nameOffset)));
-
-        ret.table->setItem(row, ret.ColDelay, new QTableWidgetItem(QString::number(io.delay)));
-        ret.table->setItem(row, ret.ColWidth, new QTableWidgetItem(QString::number(io.width)));
-        ret.table->setItem(row, ret.ColHoldoff, new QTableWidgetItem(QString::number(io.holdoff)));
-        ret.table->setCellWidget(row, ret.ColInvert, make_centered(check_invert));
-
-        ret.checks_invert.push_back(check_invert);
-    }
-
-    ret.table->resizeColumnsToContents();
-    ret.table->resizeRowsToContents();
-
-    return ret;
-}
-
-StackBusy_UI make_stack_busy_table_ui(const Level0 &l0)
-{
-    static const QString RowTitleFormat = "StackBusy%1";
-    static const QStringList ColumnTitles = { "Name", "Stack#" };
-    const size_t rowCount = l0.stackBusy.size();
-    const int nameOffset = l0.StackBusyOffset;
-
-    StackBusy_UI ret = {};
-    ret.table = new QTableWidget(rowCount, ColumnTitles.size());
-    ret.table->setHorizontalHeaderLabels(ColumnTitles);
-
-    for (int row = 0; row < ret.table->rowCount(); ++row)
-    {
-        ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
-
-        const auto &stackBusy = l0.stackBusy[row];
-
-        auto spin_stack = new QSpinBox;
-        spin_stack->setRange(0, 7);
-        spin_stack->setValue(stackBusy.stackIndex);
-
-        ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
-                l0.outputNames.value(row + nameOffset)));
-
-        ret.table->setCellWidget(row, ret.ColStackIndex, spin_stack);
-
-        ret.spins_stackIndex.push_back(spin_stack);
-    }
-
-    ret.table->resizeColumnsToContents();
-    ret.table->resizeRowsToContents();
-
-    return ret;
-}
-
 Level0UtilsDialog::Level0UtilsDialog(
             const Level0 &l0,
             QWidget *parent)
     : QDialog(parent)
 {
-    m_timersUi = make_timers_table_ui(l0);
-    m_irqUnitsUi = make_irq_units_table_ui(l0);
-    m_softTriggersUi = make_soft_triggers_table_ui(l0);
-    m_slaveTriggersUi = make_slave_triggers_table_ui(l0);
-    m_stackBusyUi = make_stack_busy_table_ui(l0);
+    auto make_timers_table_ui = [](const Level0 &l0)
+    {
+        static const QString RowTitleFormat = "Timer%1";
+        static const QStringList ColumnTitles = { "Name", "Range", "Period", "Delay" };
+        const size_t rowCount = l0.timers.size();
+
+        TimersTable_UI ret = {};
+        ret.table = new QTableWidget(rowCount, ColumnTitles.size());
+        ret.table->setHorizontalHeaderLabels(ColumnTitles);
+
+        for (int row = 0; row < ret.table->rowCount(); ++row)
+        {
+            ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+
+            auto combo_range = new QComboBox;
+            combo_range->addItem("ns", 0);
+            combo_range->addItem("µs", 1);
+            combo_range->addItem("ms", 2);
+            combo_range->addItem("s",  3);
+
+            combo_range->setCurrentIndex(static_cast<int>(l0.timers[row].range));
+
+            ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
+                    l0.unitNames.value(row)));
+
+            ret.table->setCellWidget(row, ret.ColRange, combo_range);
+
+            ret.table->setItem(row, ret.ColPeriod, new QTableWidgetItem(
+                    QString::number(l0.timers[row].period)));
+
+            ret.table->setItem(row, ret.ColDelay, new QTableWidgetItem(
+                    l0.timers[row].delay_ns));
+
+
+            ret.combos_range.push_back(combo_range);
+        }
+
+        ret.table->resizeColumnsToContents();
+        ret.table->resizeRowsToContents();
+
+        return ret;
+    };
+
+    auto make_irq_units_table_ui = [](const Level0 &l0)
+    {
+        static const QString RowTitleFormat = "IRQ%1";
+        static const QStringList ColumnTitles = { "Name", "IRQ Index" };
+        const size_t rowCount = l0.irqUnits.size();
+        const int nameOffset = l0.IRQ_UnitOffset;
+
+        IRQUnits_UI ret = {};
+        ret.table = new QTableWidget(rowCount, ColumnTitles.size());
+        ret.table->setHorizontalHeaderLabels(ColumnTitles);
+
+        for (int row = 0; row < ret.table->rowCount(); ++row)
+        {
+            ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+
+            auto spin_irqIndex = new QSpinBox;
+            spin_irqIndex->setRange(1, 7);
+            spin_irqIndex->setValue(l0.irqUnits[row].irqIndex + 1);
+
+            ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
+                    l0.unitNames.value(row + nameOffset)));
+
+            ret.table->setCellWidget(row, ret.ColIRQIndex, spin_irqIndex);
+
+            ret.spins_irqIndex.push_back(spin_irqIndex);
+        }
+
+        ret.table->resizeColumnsToContents();
+        ret.table->resizeRowsToContents();
+
+        return ret;
+    };
+
+    auto make_soft_triggers_table_ui = [](const Level0 &l0)
+    {
+        static const QString RowTitleFormat = "SoftTrigger%1";
+        static const QStringList ColumnTitles = { "Name" };
+        const int rowCount = l0.SoftTriggerCount;
+        const int nameOffset = l0.SoftTriggerOffset;
+
+        SoftTriggers_UI ret = {};
+        ret.table = new QTableWidget(rowCount, ColumnTitles.size());
+        ret.table->setHorizontalHeaderLabels(ColumnTitles);
+
+        for (int row = 0; row < ret.table->rowCount(); ++row)
+        {
+            ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+
+            ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
+                    l0.unitNames.value(row + nameOffset)));
+        }
+
+        ret.table->resizeColumnsToContents();
+        ret.table->resizeRowsToContents();
+
+        return ret;
+    };
+
+    auto make_slave_triggers_table_ui = [](const Level0 &l0)
+    {
+        static const QString RowTitleFormat = "SlaveTrigger%1";
+        static const QStringList ColumnTitles = { "Name", "Delay", "Width", "Holdoff", "Invert" };
+        const size_t rowCount = l0.slaveTriggers.size();
+        const int nameOffset = l0.SlaveTriggerOffset;
+
+        SlaveTriggers_UI ret = {};
+        ret.table = new QTableWidget(rowCount, ColumnTitles.size());
+        ret.table->setHorizontalHeaderLabels(ColumnTitles);
+
+        for (int row = 0; row < ret.table->rowCount(); ++row)
+        {
+            ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+
+            const auto &io = l0.slaveTriggers[row];
+
+            auto check_invert = new QCheckBox;
+            check_invert->setChecked(io.invert);
+
+            ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
+                    l0.unitNames.value(row + nameOffset)));
+
+            ret.table->setItem(row, ret.ColDelay, new QTableWidgetItem(QString::number(io.delay)));
+            ret.table->setItem(row, ret.ColWidth, new QTableWidgetItem(QString::number(io.width)));
+            ret.table->setItem(row, ret.ColHoldoff, new QTableWidgetItem(QString::number(io.holdoff)));
+            ret.table->setCellWidget(row, ret.ColInvert, make_centered(check_invert));
+
+            ret.checks_invert.push_back(check_invert);
+        }
+
+        ret.table->resizeColumnsToContents();
+        ret.table->resizeRowsToContents();
+
+        return ret;
+    };
+
+    auto make_stack_busy_table_ui = [](const Level0 &l0)
+    {
+        static const QString RowTitleFormat = "StackBusy%1";
+        static const QStringList ColumnTitles = { "Name", "Stack#" };
+        const size_t rowCount = l0.stackBusy.size();
+        const int nameOffset = l0.StackBusyOffset;
+
+        StackBusy_UI ret = {};
+        ret.table = new QTableWidget(rowCount, ColumnTitles.size());
+        ret.table->setHorizontalHeaderLabels(ColumnTitles);
+
+        for (int row = 0; row < ret.table->rowCount(); ++row)
+        {
+            ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+
+            const auto &stackBusy = l0.stackBusy[row];
+
+            auto spin_stack = new QSpinBox;
+            spin_stack->setRange(0, 7);
+            spin_stack->setValue(stackBusy.stackIndex);
+
+            ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
+                    l0.unitNames.value(row + nameOffset)));
+
+            ret.table->setCellWidget(row, ret.ColStackIndex, spin_stack);
+
+            ret.spins_stackIndex.push_back(spin_stack);
+        }
+
+        ret.table->resizeColumnsToContents();
+        ret.table->resizeRowsToContents();
+
+        return ret;
+    };
+
+    ui_timers = make_timers_table_ui(l0);
+    ui_irqUnits = make_irq_units_table_ui(l0);
+    ui_softTriggers = make_soft_triggers_table_ui(l0);
+    ui_slaveTriggers = make_slave_triggers_table_ui(l0);
+    ui_stackBusy = make_stack_busy_table_ui(l0);
 
     auto grid = new QGridLayout;
-    grid->addWidget(make_groupbox(m_timersUi.table, "Timers"), 0, 0);
-    grid->addWidget(make_groupbox(m_irqUnitsUi.table, "IRQ Units"), 0, 1);
-    grid->addWidget(make_groupbox(m_softTriggersUi.table, "SoftTriggers"), 0, 2);
-    grid->addWidget(make_groupbox(m_slaveTriggersUi.table, "SlaveTriggers"), 1, 0);
-    grid->addWidget(make_groupbox(m_stackBusyUi.table, "StackBusy"), 1, 1);
+    grid->addWidget(make_groupbox(ui_timers.table, "Timers"), 0, 0);
+    grid->addWidget(make_groupbox(ui_irqUnits.table, "IRQ Units"), 0, 1);
+    grid->addWidget(make_groupbox(ui_softTriggers.table, "SoftTriggers"), 0, 2);
+    grid->addWidget(make_groupbox(ui_slaveTriggers.table, "SlaveTriggers"), 1, 0);
+    grid->addWidget(make_groupbox(ui_stackBusy.table, "StackBusy"), 1, 1);
 
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -1304,65 +1306,85 @@ Level0UtilsDialog::Level0UtilsDialog(
     widgetLayout->addWidget(bb);
 }
 
+Level0 Level0UtilsDialog::getSettings() const
+{
+    {
+        auto &ui = ui_timers;
+
+        for (int row = 0; row < ui.table->rowCount(); row++)
+        {
+            m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
+
+            auto &unit = m_l0.timers[row];
+            unit.range = static_cast<trigger_io::Timer::Range>(ui.combos_range[row]->currentIndex());
+            unit.period = ui.table->item(row, ui.ColPeriod)->text().toUInt();
+            unit.delay_ns = ui.table->item(row, ui.ColDelay)->text().toUInt();
+        }
+    }
+
+    {
+        auto &ui = ui_irqUnits;
+
+        for (int row = 0; row < ui.table->rowCount(); row++)
+        {
+            m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
+
+            auto &unit = m_l0.irqUnits[row];
+            unit.irqIndex = ui.spins_irqIndex[row]->value();
+        }
+    }
+
+    {
+        auto &ui = ui_softTriggers;
+
+        for (int row = 0; row < ui.table->rowCount(); row++)
+        {
+            m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
+        }
+    }
+
+    {
+        auto &ui = ui_slaveTriggers;
+
+        for (int row = 0; row < ui.table->rowCount(); row++)
+        {
+            m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
+
+            auto &unit = m_l0.slaveTriggers[row];
+
+            unit.delay = ui.table->item(row, ui.ColDelay)->text().toUInt();
+            unit.width = ui.table->item(row, ui.ColWidth)->text().toUInt();
+            unit.holdoff = ui.table->item(row, ui.ColHoldoff)->text().toUInt();
+            unit.invert = ui.checks_invert[row]->isChecked();
+        }
+    }
+
+    {
+        auto &ui = ui_stackBusy;
+
+        for (int row = 0; row < ui.table->rowCount(); row++)
+        {
+            m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
+
+            auto &unit = m_l0.stackBusy[row];
+            unit.stackIndex = ui.spins_stackIndex[row]->value();
+        }
+    }
+    return m_l0;
+}
+
 //
 // Level3UtilsDialog
 //
 Level3UtilsDialog::Level3UtilsDialog(
-    const QStringList &names,
     const Level3 &l3,
-    const QVector<unsigned> &inputConnections,
     const QVector<QStringList> &inputChoiceNameLists,
     QWidget *parent)
+    : QDialog(parent)
+    , m_l3(l3)
 {
-    struct Table_UI_Base
-    {
-        QTableWidget *table;
-        QVector<QCheckBox *> checks_activate;
-        QVector<QComboBox *> combos_connection;
-    };
-
-    struct StackStart_UI: public Table_UI_Base
-    {
-        enum Columns
-        {
-            ColName,
-            ColConnection,
-            ColStack,
-            ColActivate,
-        };
-
-        const int FirstUnitIndex = 0;
-
-        QVector<QSpinBox *> spins_stack;
-    };
-
-    struct MasterTriggers_UI: public Table_UI_Base
-    {
-        enum Columns
-        {
-            ColName,
-            ColConnection,
-            ColActivate,
-        };
-
-        const int FirstUnitIndex = 4;
-    };
-
-    struct Counters_UI: public Table_UI_Base
-    {
-        enum Columns
-        {
-            ColName,
-            ColConnection,
-            ColActivate,
-        };
-
-        const int FirstUnitIndex = 8;
-    };
-
     auto make_ui_stack_starts = [] (
         const Level3 &l3,
-        const QVector<unsigned> &inputConnections,
         const QVector<QStringList> inputChoiceNameLists)
     {
         StackStart_UI ret;
@@ -1389,7 +1411,7 @@ Level3UtilsDialog::Level3UtilsDialog(
             ret.spins_stack.push_back(spin_stack);
 
             combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
-            combo_connection->setCurrentIndex(inputConnections.value(row + ret.FirstUnitIndex));
+            combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex]);
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
             check_activate->setChecked(l3.stackStart[row].activate);
             spin_stack->setMinimum(1);
@@ -1411,7 +1433,6 @@ Level3UtilsDialog::Level3UtilsDialog(
 
     auto make_ui_master_triggers = [] (
         const Level3 &l3,
-        const QVector<unsigned> &inputConnections,
         const QVector<QStringList> inputChoiceNameLists)
     {
         MasterTriggers_UI ret;
@@ -1436,7 +1457,7 @@ Level3UtilsDialog::Level3UtilsDialog(
             ret.checks_activate.push_back(check_activate);
 
             combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
-            combo_connection->setCurrentIndex(inputConnections.value(row + ret.FirstUnitIndex));
+            combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex]);
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
             check_activate->setChecked(l3.masterTrigger[row].activate);
 
@@ -1454,7 +1475,6 @@ Level3UtilsDialog::Level3UtilsDialog(
 
     auto make_ui_counters = [] (
         const Level3 &l3,
-        const QVector<unsigned> &inputConnections,
         const QVector<QStringList> inputChoiceNameLists)
     {
         Counters_UI ret;
@@ -1479,7 +1499,7 @@ Level3UtilsDialog::Level3UtilsDialog(
             ret.checks_activate.push_back(check_activate);
 
             combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
-            combo_connection->setCurrentIndex(inputConnections.value(row + ret.FirstUnitIndex));
+            combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex]);
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
             check_activate->setChecked(l3.masterTrigger[row].activate);
 
@@ -1495,9 +1515,9 @@ Level3UtilsDialog::Level3UtilsDialog(
         return ret;
     };
 
-    auto ui_stackStart = make_ui_stack_starts(l3, inputConnections, inputChoiceNameLists);
-    auto ui_masterTriggers = make_ui_master_triggers(l3, inputConnections, inputChoiceNameLists);
-    auto ui_counters = make_ui_counters(l3, inputConnections, inputChoiceNameLists);
+    ui_stackStart = make_ui_stack_starts(l3, inputChoiceNameLists);
+    ui_masterTriggers = make_ui_master_triggers(l3, inputChoiceNameLists);
+    ui_counters = make_ui_counters(l3, inputChoiceNameLists);
 
     auto grid = new QGridLayout;
     grid->addWidget(make_groupbox(ui_stackStart.table, "Stack Start"), 0, 0);
@@ -1511,6 +1531,48 @@ Level3UtilsDialog::Level3UtilsDialog(
     auto widgetLayout = make_vbox(this);
     widgetLayout->addLayout(grid);
     widgetLayout->addWidget(bb);
+}
+
+Level3 Level3UtilsDialog::getSettings() const
+{
+    {
+        auto &ui = ui_stackStart;
+
+        for (int row = 0; row < ui.table->rowCount(); row++)
+        {
+            m_l3.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
+            m_l3.connections[row + ui.FirstUnitIndex] = ui.combos_connection[row]->currentIndex();
+            auto &unit = m_l3.stackStart[row];
+            unit.activate = ui.checks_activate[row]->isChecked();
+            unit.stackIndex = ui.spins_stack[row]->value();
+        }
+    }
+
+    {
+        auto &ui = ui_masterTriggers;
+
+        for (int row = 0; row < ui.table->rowCount(); row++)
+        {
+            m_l3.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
+            m_l3.connections[row + ui.FirstUnitIndex] = ui.combos_connection[row]->currentIndex();
+            auto &unit = m_l3.masterTrigger[row];
+            unit.activate = ui.checks_activate[row]->isChecked();
+        }
+    }
+
+    {
+        auto &ui = ui_counters;
+
+        for (int row = 0; row < ui.table->rowCount(); row++)
+        {
+            m_l3.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
+            m_l3.connections[row + ui.FirstUnitIndex] = ui.combos_connection[row]->currentIndex();
+            auto &unit = m_l3.counters[row];
+            unit.activate = ui.checks_activate[row]->isChecked();
+        }
+    }
+
+    return m_l3;
 }
 
 // TODO: add AND, OR, invert and [min, max] bits setup helpers
@@ -1884,6 +1946,18 @@ LUTEditor::LUTEditor(
     widgetLayout->addWidget(scrollArea);
 }
 
+LUT::Contents LUTEditor::getLUTContents() const
+{
+    LUT::Contents ret = {};
+
+    for (int output = 0; output < m_outputEditors.size(); output++)
+    {
+        ret[output] = m_outputEditors[output]->getOutputMapping();
+    }
+
+    return ret;
+}
+
 QStringList LUTEditor::getOutputNames() const
 {
     QStringList ret;
@@ -1918,9 +1992,9 @@ trigger_io::IO LUTEditor::getStrobeSettings()
 
     trigger_io::IO ret = {};
 
-    ret.delay = ui.table->item(0, ui.ColDelay)->data(Qt::DisplayRole).toUInt();
-    ret.width = ui.table->item(0, ui.ColWidth)->data(Qt::DisplayRole).toUInt();
-    ret.holdoff = ui.table->item(0, ui.ColHoldoff)->data(Qt::DisplayRole).toUInt();
+    ret.delay = ui.table->item(0, ui.ColDelay)->text().toUInt();
+    ret.width = ui.table->item(0, ui.ColWidth)->text().toUInt();
+    ret.holdoff = ui.table->item(0, ui.ColHoldoff)->text().toUInt();
     ret.invert = ui.check_invert->isChecked();
 
     return ret;
@@ -1939,6 +2013,255 @@ std::bitset<trigger_io::LUT::OutputBits> LUTEditor::getStrobedOutputMask()
     return ret;
 }
 
+struct Write
+{
+    // Opt_HexValue indicates that the register value should be printed in
+    // hexadecimal instead of decimal.
+    static const unsigned Opt_HexValue = 1u << 0;;
+
+    // Relative register address. Only the low two bytes are stored.
+    u16 address;
+
+    // 16 bit MVLC register value.
+    u16 value;
+
+    // Comment written one the same line as the write.
+    QString comment;
+
+    // OR of the Opt_* constants defined above.
+    unsigned options = 0u;
+
+    Write() = default;
+
+    Write(u16 address_, u16 value_, const QString &comment_ = {}, unsigned options_ = 0u)
+        : address(address_)
+        , value(value_)
+        , comment(comment_)
+        , options(options_)
+    {}
+
+    Write(u16 address_, u16 value_, unsigned options_)
+        : address(address_)
+        , value(value_)
+        , options(options_)
+    {}
+};
+
+// Variant containing either a register write or a block comment. If the 2nd
+// type is set it indicates the start of a new block in the generated script
+// text. The following writes will be preceded by and empty line and a comment
+// containing the string value on a separate line.
+using ScriptPart = boost::variant<Write, QString>;
+using ScriptParts = QVector<ScriptPart>;
+
+ScriptPart select_unit(int level, int unit, const QString &unitName = {})
+{
+    auto ret = Write{ 0x0200,  static_cast<u16>(((level << 8) | unit)), Write::Opt_HexValue };
+
+#if 0
+    ret.comment = QString("select L%1.Unit%2").arg(level).arg(unit);
+
+    if (!unitName.isEmpty())
+        ret.comment += unitName;
+#endif
+
+    return ret;
+};
+
+// Note: the desired unit must be selected prior to calling this function.
+ScriptPart write_unit_reg(u16 reg, u16 value, const QString &comment, unsigned writeOpts = 0u)
+{
+    auto ret = Write { static_cast<u16>(0x0300u + reg), value, comment, writeOpts };
+
+    return ret;
+}
+
+ScriptPart write_unit_reg(u16 reg, u16 value, unsigned writeOpts = 0u)
+{
+    return write_unit_reg(reg, value, {}, writeOpts);
+}
+
+// Note: the desired unit must be selected prior to calling this function.
+ScriptPart write_connection(u16 offset, u16 value, const QString &sourceName = {})
+{
+    auto ret = Write { static_cast<u16>(0x0380u + offset), value };
+
+    if (!sourceName.isEmpty())
+        ret.comment = QString("connect input%1 to '%2'")
+            .arg(offset / 2).arg(sourceName);
+
+    return ret;
+}
+
+ScriptParts generate(const trigger_io::Timer &unit, int index)
+{
+    ScriptParts ret;
+    ret += write_unit_reg(2, static_cast<u16>(unit.range), "range (ns, us, ms, s)");
+    ret += write_unit_reg(4, unit.delay_ns, "delay [ns]");
+    ret += write_unit_reg(6, unit.period, "period");
+    return ret;
+}
+
+ScriptParts generate(const trigger_io::StackStart &unit, int index)
+{
+    ScriptParts ret;
+    ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
+    ret += write_unit_reg(2, unit.stackIndex, "stack index");
+    return ret;
+}
+
+// FIXME: this is not correct or the LUTEditor code is not correct.
+trigger_io::LUT_RAM make_lut_ram(const LUT &lut)
+{
+    trigger_io::LUT_RAM ram = {};
+
+    for (size_t address = 0; address < lut.lutContents[0].size(); address++)
+    {
+        unsigned ramValue = 0u;
+
+        // Combine the three separate output entries into a single value
+        // suitable for the MVLC LUT RAM.
+        for (unsigned output = 0; output < lut.lutContents.size(); output++)
+        {
+            if (lut.lutContents[output].test(address))
+            {
+                ramValue |= 1u << output;
+            }
+        }
+
+        trigger_io::set(ram, address, ramValue);
+    }
+
+    return ram;
+}
+
+ScriptParts write_lut(const LUT &lut)
+{
+    using boost::adaptors::indexed;
+
+    trigger_io::LUT_RAM ram = make_lut_ram(lut);
+
+    ScriptParts ret;
+
+    for (const auto &kv: ram | indexed(0))
+    {
+        ret += write_unit_reg(kv.index(), kv.value(), Write::Opt_HexValue);
+    }
+
+    return ret;
+}
+
+ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
+{
+    using boost::adaptors::indexed;
+
+    ScriptParts ret;
+
+    // Level0
+    for (const auto &kv: ioCfg.l0.timers | indexed(0))
+    {
+        ret += ioCfg.l0.unitNames[kv.index()];
+        ret += select_unit(0, kv.index());
+        ret += generate(kv.value(), kv.index());
+    }
+
+    // TODO: other units from Level0
+
+    // Level1
+    for (const auto &kv: ioCfg.l1.luts | indexed(0))
+    {
+        unsigned unitIndex = kv.index();
+        ret += QString("L1.LUT%1").arg(unitIndex);
+        ret += select_unit(1, unitIndex);
+        ret += write_lut(kv.value());
+    }
+
+    for (const auto &kv: ioCfg.l3.stackStart | indexed(0))
+    {
+        unsigned unitIndex = kv.index();
+
+        ret += ioCfg.l0.unitNames[unitIndex];
+        ret += select_unit(3, unitIndex);
+        ret += generate(kv.value(), unitIndex);
+
+        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+
+        ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+    }
+
+    // TODO: other units from Level0
+
+    return ret;
+}
+
+class ScriptGenPartVisitor: public boost::static_visitor<>
+{
+    public:
+        ScriptGenPartVisitor(QStringList &lineBuffer)
+            : m_lineBuffer(lineBuffer)
+        { }
+
+        void operator()(const Write &write)
+        {
+            QString prefix;
+            int width = 6;
+            int base = 10;
+            char fill = ' ';
+
+            if (write.options & Write::Opt_HexValue)
+            {
+                prefix = "0x";
+                width = 4;
+                base = 16;
+                fill = '0';
+            };
+
+            auto line = QString("0x%1 %2%3")
+                .arg(write.address, 4, 16, QLatin1Char('0'))
+                .arg(prefix)
+                .arg(write.value, width, base, QLatin1Char(fill));
+
+            if (!write.comment.isEmpty())
+                line += "    # " + write.comment;
+
+            m_lineBuffer.push_back(line);
+        }
+
+        void operator() (const QString &blockComment)
+        {
+            if (!blockComment.isEmpty())
+            {
+                m_lineBuffer.push_back({});
+                m_lineBuffer.push_back("# " + blockComment);
+            }
+        }
+
+    private:
+        QStringList &m_lineBuffer;
+};
+
+/* First iteration: generate vme writes to setup all of the IO/trigger units
+ * and the dynamic connections.
+ * Later: come up with a format to write out the user set output names.
+ * Also: create the reverse function which takes a list of VME writes and
+ * recreates the corresponding TriggerIOConfig structure.
+ */
+QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg)
+{
+    QStringList lines;
+    ScriptGenPartVisitor visitor(lines);
+
+    auto parts = generate_trigger_io_script(ioCfg);
+
+    for (const auto &part: parts)
+    {
+        boost::apply_visitor(visitor, part);
+    }
+
+    return lines.join("\n");
+}
+
+} // end namespace trigger_io_config
 } // end namespace mvlc
 } // end namespace mesytec
-} // end namespace trigger_io_config
