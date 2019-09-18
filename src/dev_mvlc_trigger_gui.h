@@ -63,7 +63,7 @@ struct LUT
     std::array<QString, trigger_io::LUT::OutputBits> outputNames;
 
     // Strobe gate generator settings
-    trigger_io::IO strobeGG;
+    trigger_io::IO strobeGG = {};
     std::bitset<trigger_io::LUT::OutputBits> strobedOutputs;
 };
 

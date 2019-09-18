@@ -236,7 +236,7 @@ static std::vector<UnitAddressVector> make_level3_dynamic_input_choice_lists()
         result.emplace_back(choices);
     }
 
-    for (size_t i = 0; i < trigger_io::Level3::MasterTriggerCount; i++)
+    for (size_t i = 0; i < trigger_io::Level3::MasterTriggersCount; i++)
     {
         std::vector<UnitAddress> choices = Level2Full;
 
@@ -278,7 +278,7 @@ Level3::Level3()
     : dynamicInputChoiceLists(make_level3_dynamic_input_choice_lists())
 {
     stackStart.fill({});
-    masterTrigger.fill({});
+    masterTriggers.fill({});
     counters.fill({});
     ioNIM.fill({});
     ioECL.fill({});
@@ -1331,7 +1331,7 @@ Level0 Level0UtilsDialog::getSettings() const
             m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
 
             auto &unit = m_l0.irqUnits[row];
-            unit.irqIndex = ui.spins_irqIndex[row]->value();
+            unit.irqIndex = ui.spins_irqIndex[row]->value() - 1;
         }
     }
 
@@ -1442,7 +1442,7 @@ Level3UtilsDialog::Level3UtilsDialog(
             "Name", "Input", "Activate",
         };
 
-        auto table = new QTableWidget(l3.masterTrigger.size(), columnTitles.size());
+        auto table = new QTableWidget(l3.masterTriggers.size(), columnTitles.size());
         table->setHorizontalHeaderLabels(columnTitles);
         ret.table = table;
 
@@ -1460,7 +1460,7 @@ Level3UtilsDialog::Level3UtilsDialog(
             combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
             combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex]);
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-            check_activate->setChecked(l3.masterTrigger[row].activate);
+            check_activate->setChecked(l3.masterTriggers[row].activate);
 
             table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l3.unitNames.value(row + ret.FirstUnitIndex)));
@@ -1502,7 +1502,7 @@ Level3UtilsDialog::Level3UtilsDialog(
             combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
             combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex]);
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-            check_activate->setChecked(l3.masterTrigger[row].activate);
+            check_activate->setChecked(l3.masterTriggers[row].activate);
 
             table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l3.unitNames.value(row + ret.FirstUnitIndex)));
@@ -1556,7 +1556,7 @@ Level3 Level3UtilsDialog::getSettings() const
         {
             m_l3.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
             m_l3.connections[row + ui.FirstUnitIndex] = ui.combos_connection[row]->currentIndex();
-            auto &unit = m_l3.masterTrigger[row];
+            auto &unit = m_l3.masterTriggers[row];
             unit.activate = ui.checks_activate[row]->isChecked();
         }
     }
@@ -2091,6 +2091,8 @@ ScriptPart write_unit_reg(u16 reg, u16 value, unsigned writeOpts = 0u)
     return write_unit_reg(reg, value, {}, writeOpts);
 }
 
+// FIXME: unify write_connection and write_strobe_connection
+
 // Note: the desired unit must be selected prior to calling this function.
 ScriptPart write_connection(u16 offset, u16 value, const QString &sourceName = {})
 {
@@ -2099,6 +2101,16 @@ ScriptPart write_connection(u16 offset, u16 value, const QString &sourceName = {
     if (!sourceName.isEmpty())
         ret.comment = QString("connect input%1 to '%2'")
             .arg(offset / 2).arg(sourceName);
+
+    return ret;
+}
+
+ScriptPart write_strobe_connection(u16 offset, u16 value, const QString &sourceName = {})
+{
+    auto ret = Write { static_cast<u16>(0x0380u + offset), value };
+
+    if (!sourceName.isEmpty())
+        ret.comment = QString("connect strobe_input to '%1'").arg(sourceName);
 
     return ret;
 }
@@ -2112,11 +2124,58 @@ ScriptParts generate(const trigger_io::Timer &unit, int index)
     return ret;
 }
 
-ScriptParts generate(const trigger_io::StackStart &unit, int index)
+ScriptParts generate(const trigger_io::IRQ_Unit &unit, int index)
 {
     ScriptParts ret;
-    ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
-    ret += write_unit_reg(2, unit.stackIndex, "stack index");
+    ret += write_unit_reg(0, static_cast<u16>(unit.irqIndex), "irq_index");
+    return ret;
+}
+
+namespace io_flags
+{
+    using Flags = u8;
+    static const Flags HasDirection    = 1u << 0;
+    static const Flags HasActivation   = 1u << 1;
+    static const Flags StrobeGGOffsets = 1u << 2;
+
+    static const Flags None             = 0u;
+    static const Flags NIM_IO_Flags     = HasDirection | HasActivation;
+    static const Flags ECL_IO_Flags     = HasActivation;
+    static const Flags StrobeGG_Flags   = StrobeGGOffsets;
+}
+
+/* The IO structure is used for different units sharing IO properties:
+ * NIM I/Os, ECL Outputs, slave triggers, and strobe gate generators.
+ * The common properties are delay, width, holdoff and invert. They start at
+ * register offset 0 except for the strobe GGs where the registers are offset
+ * by one address increment (2 bytes).
+ * The activation and direction registers are at offsets 10 and 16. They are
+ * only written out if the respective io_flags bit is set.
+ */
+ScriptParts generate(const trigger_io::IO &io, io_flags::Flags ioFlags)
+{
+    ScriptParts ret;
+
+    u16 offset = (ioFlags & io_flags::StrobeGGOffsets) ? 0x32u : 0u;
+
+    ret += write_unit_reg(offset + 0, io.delay, "delay");
+    ret += write_unit_reg(offset + 2, io.width, "width");
+    ret += write_unit_reg(offset + 4, io.holdoff, "holdoff");
+    ret += write_unit_reg(offset + 6, static_cast<u16>(io.invert), "invert");
+
+    if (ioFlags & io_flags::HasDirection)
+        ret += write_unit_reg(10, static_cast<u16>(io.direction), "direction (0=in, 1=out)");
+
+    if (ioFlags & io_flags::HasActivation)
+        ret += write_unit_reg(16, static_cast<u16>(io.activate), "activate");
+
+    return ret;
+}
+
+ScriptParts generate(const trigger_io::StackBusy &unit, int index)
+{
+    ScriptParts ret;
+    ret += write_unit_reg(0, unit.stackIndex, "stack_index");
     return ret;
 }
 
@@ -2165,11 +2224,38 @@ ScriptParts write_lut(const LUT &lut)
     return write_lut_ram(make_lut_ram(lut));
 }
 
+ScriptParts generate(const trigger_io::StackStart &unit, int index)
+{
+    ScriptParts ret;
+    ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
+    ret += write_unit_reg(2, unit.stackIndex, "stack index");
+    return ret;
+}
+
+ScriptParts generate(const trigger_io::MasterTrigger &unit, int index)
+{
+    ScriptParts ret;
+    ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
+    return ret;
+}
+
+ScriptParts generate(const trigger_io::Counter &unit, int index)
+{
+    ScriptParts ret;
+    ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
+    return ret;
+}
+
 ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
 {
     ScriptParts ret;
 
+    //
     // Level0
+    //
+
+    ret += "Level0 ##############################";
+
     for (const auto &kv: ioCfg.l0.timers | indexed(0))
     {
         ret += ioCfg.l0.unitNames[kv.index()];
@@ -2177,9 +2263,40 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
         ret += generate(kv.value(), kv.index());
     }
 
-    // TODO: other units from Level0
+    for (const auto &kv: ioCfg.l0.irqUnits | indexed(0))
+    {
+        ret += ioCfg.l0.unitNames[kv.index() + ioCfg.l0.IRQ_UnitOffset];
+        ret += select_unit(0, kv.index() + ioCfg.l0.IRQ_UnitOffset);
+        ret += generate(kv.value(), kv.index());
+    }
 
+    for (const auto &kv: ioCfg.l0.slaveTriggers | indexed(0))
+    {
+        ret += ioCfg.l0.unitNames[kv.index() + ioCfg.l0.SlaveTriggerOffset];
+        ret += select_unit(0, kv.index() + ioCfg.l0.SlaveTriggerOffset);
+        ret += generate(kv.value(), io_flags::None);
+    }
+
+    for (const auto &kv: ioCfg.l0.stackBusy | indexed(0))
+    {
+        ret += ioCfg.l0.unitNames[kv.index() + ioCfg.l0.StackBusyOffset];
+        ret += select_unit(0, kv.index() + ioCfg.l0.StackBusyOffset);
+        ret += generate(kv.value(), kv.index());
+    }
+
+    for (const auto &kv: ioCfg.l0.ioNIM | indexed(0))
+    {
+        ret += ioCfg.l0.unitNames[kv.index() + ioCfg.l0.NIM_IO_Offset];
+        ret += select_unit(0, kv.index() + ioCfg.l0.NIM_IO_Offset);
+        ret += generate(kv.value(), io_flags::NIM_IO_Flags);
+    }
+
+    //
     // Level1
+    //
+
+    ret += "Level1 ##############################";
+
     for (const auto &kv: ioCfg.l1.luts | indexed(0))
     {
         unsigned unitIndex = kv.index();
@@ -2188,11 +2305,56 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
         ret += write_lut(kv.value());
     }
 
+    //
+    // Level2
+    //
+    
+    ret += "Level2 ##############################";
+
+    for (const auto &kv: ioCfg.l2.luts | indexed(0))
+    {
+        unsigned unitIndex = kv.index();
+        ret += QString("L2.LUT%1").arg(unitIndex);
+        ret += select_unit(2, unitIndex);
+        ret += write_lut(kv.value());
+
+
+        const auto l2InputChoices = make_level2_input_choices(unitIndex);
+
+        for (size_t input = 0; input < Level2LUT_VariableInputCount; input++)
+        {
+            unsigned conValue = ioCfg.l2.lutConnections[unitIndex][input];
+            UnitAddress conAddress = l2InputChoices.inputChoices[input][conValue];
+            u16 regOffset = input * 2;
+
+            ret += write_connection(regOffset, conValue, lookup_name(ioCfg, conAddress));
+        }
+
+        // strobe GG
+        ret += QString("L2.LUT%1 strobe gate generator").arg(unitIndex);
+        ret += generate(kv.value().strobeGG, io_flags::StrobeGG_Flags);
+
+        // strobe_input
+        {
+            unsigned conValue = ioCfg.l2.strobeConnections[unitIndex];
+            UnitAddress conAddress = l2InputChoices.strobeInputChoices[conValue];
+            u16 regOffset = 6;
+
+            ret += write_strobe_connection(regOffset, conValue, lookup_name(ioCfg, conAddress));
+        }
+    }
+
+    //
+    // Level3
+    //
+
+    ret += "Level3 ##############################";
+
     for (const auto &kv: ioCfg.l3.stackStart | indexed(0))
     {
         unsigned unitIndex = kv.index();
 
-        ret += ioCfg.l0.unitNames[unitIndex];
+        ret += ioCfg.l3.unitNames[unitIndex];
         ret += select_unit(3, unitIndex);
         ret += generate(kv.value(), unitIndex);
 
@@ -2202,7 +2364,63 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
     }
 
-    // TODO: other units from Level0
+    for (const auto &kv: ioCfg.l3.masterTriggers | indexed(0))
+    {
+        unsigned unitIndex = kv.index() + ioCfg.l3.MasterTriggersOffset;
+
+        ret += ioCfg.l3.unitNames[unitIndex];
+        ret += select_unit(3, unitIndex);
+        ret += generate(kv.value(), unitIndex);
+
+        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+
+        ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+    }
+
+    for (const auto &kv: ioCfg.l3.counters | indexed(0))
+    {
+        unsigned unitIndex = kv.index() + ioCfg.l3.CountersOffset;
+
+        ret += ioCfg.l3.unitNames[unitIndex];
+        ret += select_unit(3, unitIndex);
+        ret += generate(kv.value(), unitIndex);
+
+        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+
+        ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+    }
+
+    // Level3 NIM connections
+    ret += "NIM unit connections (Note: setup is done in the Level0 section)";
+    for (size_t nim = 0; nim < trigger_io::NIM_IO_Count; nim++)
+    {
+        unsigned unitIndex = nim + ioCfg.l3.NIM_IO_Unit_Offset;
+
+        ret += ioCfg.l3.unitNames[unitIndex];
+        ret += select_unit(3, unitIndex);
+
+        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+
+        ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+        
+    }
+
+    for (const auto &kv: ioCfg.l3.ioECL | indexed(0))
+    {
+        unsigned unitIndex = kv.index() + ioCfg.l3.ECL_Unit_Offset;
+
+        ret += ioCfg.l3.unitNames[unitIndex];
+        ret += select_unit(3, unitIndex);
+        ret += generate(kv.value(), io_flags::ECL_IO_Flags);
+
+        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+
+        ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+    }
 
     return ret;
 }

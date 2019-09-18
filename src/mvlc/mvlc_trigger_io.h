@@ -40,7 +40,7 @@ struct IO
 
 struct StackBusy
 {
-    u8 stackIndex;
+    u16 stackIndex;
 };
 
 using LUT_OutputMap = std::bitset<64>;
@@ -144,17 +144,23 @@ struct Level2
 struct Level3
 {
     static const size_t StackStartCount = 4;
-    static const size_t MasterTriggerCount = 4;
+
+    static const size_t MasterTriggersCount = 4;
+    static const size_t MasterTriggersOffset = 4;
+
     static const size_t CountersCount = 4;
-    static const size_t UtilityUnitCount = StackStartCount + MasterTriggerCount + CountersCount;
+    static const size_t CountersOffset = 8;
+
+    static const size_t UtilityUnitCount = StackStartCount + MasterTriggersCount + CountersCount;
     static const size_t UnitCount = 33;
+
     static const size_t NIM_IO_Unit_Offset = 16;
     static const size_t ECL_Unit_Offset = 30;
 
     std::array<StackStart, StackStartCount> stackStart = {};
-    std::array<MasterTrigger, MasterTriggerCount> masterTrigger = {};
+    std::array<MasterTrigger, MasterTriggersCount> masterTriggers = {};
     std::array<Counter, CountersCount> counters = {};
-    std::array<IO, NIM_IO_Count> ioNIM = {};
+    std::array<IO, NIM_IO_Count> ioNIM = {}; // FIXME: get rid of this. it's the same as in level0
     std::array<IO, ECL_OUT_Count> ioECL = {};
 };
 
