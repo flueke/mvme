@@ -448,10 +448,12 @@ int main(int argc, char *argv[])
         QPainter::HighQualityAntialiasing);
 
     auto pb_generateScript = new QPushButton("Generate Script");
+    auto pb_parseScript = new QPushButton("Parse Script");
 
     auto bottomLayout = new QHBoxLayout;
     bottomLayout->addStretch(1);
     bottomLayout->addWidget(pb_generateScript);
+    bottomLayout->addWidget(pb_parseScript);
 
     logicLayout->addWidget(view, 1);
     logicLayout->addLayout(bottomLayout, 0);
@@ -474,6 +476,14 @@ int main(int argc, char *argv[])
         te_script->setText(script);
         te_script->show();
         te_script->raise();
+    });
+
+    QObject::connect(pb_parseScript, &QPushButton::clicked,
+                     view, [&ioCfg, &te_script] ()
+    {
+        auto text = te_script->toPlainText();
+
+        ioCfg = parse_trigger_io_script_text(text);
     });
 
     auto mainLayout = make_hbox<0, 0>();

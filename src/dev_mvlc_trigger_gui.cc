@@ -7,6 +7,7 @@
 #include "dev_mvlc_trigger_gui.h"
 #include "mvlc/mvlc_trigger_io.h"
 #include "qt_util.h"
+#include "vme_script.h"
 
 using boost::adaptors::indexed;
 
@@ -31,6 +32,12 @@ namespace mvlc
 {
 namespace trigger_io_config
 {
+
+LUT::LUT()
+{
+    lutContents.fill({});
+    outputNames.fill({});
+}
 
 const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNames =
 {
@@ -172,6 +179,9 @@ Level2::Level2()
             luts[unit].outputNames[output] = QString("L2.LUT%1.OUT%2").arg(unit).arg(output);
         }
     }
+
+    lutConnections.fill({});
+    strobeConnections.fill({});
 }
 
 const std::array<QString, trigger_io::Level3::UnitCount> Level3::DefaultUnitNames =
@@ -1794,7 +1804,10 @@ OutputMapping LUTOutputEditor::getOutputMapping() const
 
 void LUTOutputEditor::setOutputMapping(const OutputMapping &mapping)
 {
-    // FIXME: This blindly selects all of the 6 input bits, this always
+    if (mapping.none())
+        return;
+
+    // FIXME: This blindly selects all of the 6 input bits, thus always
     // creating a table with 64 entries even if originally only a few of the
     // input bits where selected.
     // TODO: use Quine-McCluskey to minimize the function defined by the
@@ -2490,6 +2503,69 @@ QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg)
     }
 
     return lines.join("\n");
+}
+
+static const size_t LevelCount = 4;
+
+// Maps register address to register value
+using RegisterWrites = QMap<u16, u16>;
+
+// Holds per unit address register writes
+using UnitWrites = QMap<u16, RegisterWrites>;
+
+// Hols per level UnitWrites
+using LevelWrites = std::array<UnitWrites, LevelCount>;
+
+TriggerIOConfig build_config_from_writes(const LevelWrites &levelWrites)
+{
+    TriggerIOConfig ioCfg;
+
+    // level0
+    {
+        const auto &writes = levelWrites[0];
+
+        for (const auto &kv: ioCfg.l0.timers | indexed(0))
+        {
+            unsigned unitIndex = kv.index();
+            auto &unit = kv.value();
+
+            // 0x300: start of register
+            // 0x380: start of connects
+            // Could also subtract 0x300 from cmd.address in the parse function
+            // below. Then start from 0x00 for registers and 0x80 for connects.
+        }
+    }
+
+
+    return ioCfg;
+}
+
+TriggerIOConfig parse_trigger_io_script_text(const QString &text)
+{
+    auto commands = vme_script::parse(text);
+
+    LevelWrites levelWrites;
+
+    u16 level = 0;
+    u16 unit  = 0;
+
+    for (const auto &cmd: commands)
+    {
+        if (!(cmd.type == vme_script::CommandType::Write))
+            continue;
+
+        if (cmd.address == 0x0200) // unit selection command
+        {
+            level = (cmd.value >> 8) & 0b11;
+            unit  = (cmd.value & 0xff);
+        }
+        else // store register write in the map structure
+        {
+            levelWrites[level][unit][cmd.address] = cmd.value;
+        }
+    }
+
+    return build_config_from_writes(levelWrites);
 }
 
 } // end namespace trigger_io_config

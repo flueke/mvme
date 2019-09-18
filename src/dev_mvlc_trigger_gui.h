@@ -65,6 +65,10 @@ struct LUT
     // Strobe gate generator settings
     trigger_io::IO strobeGG = {};
     std::bitset<trigger_io::LUT::OutputBits> strobedOutputs;
+
+    LUT();
+    LUT(const LUT &) = default;
+    LUT &operator=(const LUT &) = default;
 };
 
 struct Level0: public trigger_io::Level0
@@ -79,7 +83,6 @@ struct Level0: public trigger_io::Level0
 struct Level1
 {
     static const std::array<LUT_Connections, trigger_io::Level1::LUTCount> StaticConnections;
-    //static const std::array<UnitAddress, 2 * trigger_io::LUT::OutputBits> OutputPinMapping;
 
     std::array<LUT, trigger_io::Level1::LUTCount> luts;
 
@@ -574,6 +577,7 @@ class LUTEditor: public QDialog
 };
 
 QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg);
+TriggerIOConfig parse_trigger_io_script_text(const QString &text);
 
 } // end namespace mvlc
 } // end namespace mesytec
