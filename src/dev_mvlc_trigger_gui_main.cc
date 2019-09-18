@@ -170,13 +170,16 @@ int main(int argc, char *argv[])
             if (level == 1)
             {
                 lutEditor = std::make_unique<LUTEditor>(
-                    lutName, inputNameLists, outputNames);
+                    lutName,
+                    ioCfg.l1.luts[unit],
+                    inputNameLists, outputNames);
                 lutEditor->resize(850, 650);
             }
             else if (level == 2)
             {
                 lutEditor = std::make_unique<LUTEditor>(
                     lutName,
+                    ioCfg.l2.luts[unit],
                     inputNameLists,
                     ioCfg.l2.lutConnections[unit],
                     outputNames,

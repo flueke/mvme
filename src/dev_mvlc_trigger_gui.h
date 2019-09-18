@@ -524,6 +524,7 @@ class LUTEditor: public QDialog
         // LUT without strobe inputs
         LUTEditor(
             const QString &lutName,
+            const LUT &lut,
             const QVector<QStringList> &inputNameLists,
             const QStringList &outputNames,
             QWidget *parent = nullptr);
@@ -531,6 +532,7 @@ class LUTEditor: public QDialog
         // LUT with strobe inputs
         LUTEditor(
             const QString &lutName,
+            const LUT &lut,
             const QVector<QStringList> &inputNameLists,
             const LUT_DynConValues &dynConValues,
             const QStringList &outputNames,

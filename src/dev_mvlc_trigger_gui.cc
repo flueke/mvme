@@ -1814,15 +1814,17 @@ LUT_DynConValues LUTOutputEditor::getDynamicConnectionValues() const
 
 LUTEditor::LUTEditor(
     const QString &lutName,
+    const LUT &lut,
     const QVector<QStringList> &inputNameLists,
     const QStringList &outputNames,
     QWidget *parent)
-    : LUTEditor(lutName, inputNameLists, {}, outputNames, {}, 0u, {}, {}, parent)
+    : LUTEditor(lutName, lut, inputNameLists, {}, outputNames, {}, 0u, {}, {}, parent)
 {
 }
 
 LUTEditor::LUTEditor(
     const QString &lutName,
+    const LUT &lut,
     const QVector<QStringList> &inputNameLists,
     const LUT_DynConValues &dynConValues,
     const QStringList &outputNames,
@@ -1869,6 +1871,7 @@ LUTEditor::LUTEditor(
                     for (auto &editor: m_outputEditors)
                         editor->setInputConnection(input, value);
                 });
+        lutOutputEditor->setOutputMapping(lut.lutContents[output]);
     }
 
     if (!strobeInputNames.isEmpty())
