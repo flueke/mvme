@@ -8,6 +8,7 @@
 #include "mvlc/mvlc_trigger_io.h"
 #include "qt_util.h"
 
+using boost::adaptors::indexed;
 
 namespace
 {
@@ -1793,6 +1794,11 @@ OutputMapping LUTOutputEditor::getOutputMapping() const
 
 void LUTOutputEditor::setOutputMapping(const OutputMapping &mapping)
 {
+    // FIXME: This blindly selects all of the 6 input bits, this always
+    // creating a table with 64 entries even if originally only a few of the
+    // input bits where selected.
+    // TODO: use Quine-McCluskey to minimize the function defined by the
+    // OutputMapping. Then select only the remaining bits.
     for (auto cb: m_inputCheckboxes)
         cb->setChecked(true);
 
@@ -1871,6 +1877,7 @@ LUTEditor::LUTEditor(
                     for (auto &editor: m_outputEditors)
                         editor->setInputConnection(input, value);
                 });
+
         lutOutputEditor->setOutputMapping(lut.lutContents[output]);
     }
 
@@ -2061,7 +2068,7 @@ ScriptPart select_unit(int level, int unit, const QString &unitName = {})
 {
     auto ret = Write{ 0x0200,  static_cast<u16>(((level << 8) | unit)), Write::Opt_HexValue };
 
-#if 0
+#if 1
     ret.comment = QString("select L%1.Unit%2").arg(level).arg(unit);
 
     if (!unitName.isEmpty())
@@ -2113,7 +2120,6 @@ ScriptParts generate(const trigger_io::StackStart &unit, int index)
     return ret;
 }
 
-// FIXME: this is not correct or the LUTEditor code is not correct.
 trigger_io::LUT_RAM make_lut_ram(const LUT &lut)
 {
     trigger_io::LUT_RAM ram = {};
@@ -2129,6 +2135,7 @@ trigger_io::LUT_RAM make_lut_ram(const LUT &lut)
             if (lut.lutContents[output].test(address))
             {
                 ramValue |= 1u << output;
+                assert(ramValue < (1u << trigger_io::LUT::OutputBits));
             }
         }
 
@@ -2138,26 +2145,28 @@ trigger_io::LUT_RAM make_lut_ram(const LUT &lut)
     return ram;
 }
 
-ScriptParts write_lut(const LUT &lut)
+ScriptParts write_lut_ram(const trigger_io::LUT_RAM &ram)
 {
-    using boost::adaptors::indexed;
-
-    trigger_io::LUT_RAM ram = make_lut_ram(lut);
-
     ScriptParts ret;
 
     for (const auto &kv: ram | indexed(0))
     {
-        ret += write_unit_reg(kv.index(), kv.value(), Write::Opt_HexValue);
+        u16 reg = kv.index() * sizeof(u16); // register address increment is 2 bytes
+        u16 cell = reg * 2;
+        auto comment = QString("cells %1-%2").arg(cell).arg(cell + 3);
+        ret += write_unit_reg(reg, kv.value(), comment, Write::Opt_HexValue);
     }
 
     return ret;
 }
 
+ScriptParts write_lut(const LUT &lut)
+{
+    return write_lut_ram(make_lut_ram(lut));
+}
+
 ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
 {
-    using boost::adaptors::indexed;
-
     ScriptParts ret;
 
     // Level0
