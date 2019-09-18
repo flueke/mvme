@@ -183,10 +183,10 @@ inline u8 lookup(const LUT_RAM &lut, u8 address)
 inline void set(LUT_RAM &lut, u8 address, u8 value)
 {
     if (address > 63)
-        throw std::out_of_range("LUT address > 2^6");
+        throw std::out_of_range("LUT address > 2^6 - 1");
 
     if (value > 8)
-        throw std::out_of_range("LUT value > 2^3");
+        throw std::out_of_range("LUT value > 2^3  - 1");
 
     u8 cell = address >> 2;
     u8 nibble =  address & 0b11;
