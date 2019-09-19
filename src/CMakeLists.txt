@@ -325,6 +325,7 @@ if (MVME_ENABLE_MVLC)
 
     add_executable(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc dev_mvlc_trigger_gui.cc)
     target_link_libraries(dev_mvlc_trigger_gui libmvme)
+    install(TARGETS dev_mvlc_trigger_gui DESTINATION .)
 
     if (NOT WIN32)
         add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
