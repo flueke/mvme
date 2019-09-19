@@ -56,6 +56,7 @@ struct LUT
     static const int InputBits = 6;
     static const int OutputBits = 3;
     static const size_t InputCombinations = 1u << InputBits;
+    static const u16 StrobeGGDefaultWidth = 8;
 
     // TODO: remove ram from here. Build conversion functions from outputMappings to ram and vice versa
     LUT_RAM ram;

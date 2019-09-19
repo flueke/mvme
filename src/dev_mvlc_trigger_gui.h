@@ -63,7 +63,12 @@ struct LUT
     std::array<QString, trigger_io::LUT::OutputBits> outputNames;
 
     // Strobe gate generator settings
-    trigger_io::IO strobeGG = {};
+    trigger_io::IO strobeGG =
+    {
+        .delay = 0,
+        .width = trigger_io::LUT::StrobeGGDefaultWidth,
+    };
+
     std::bitset<trigger_io::LUT::OutputBits> strobedOutputs;
 
     LUT();
@@ -562,12 +567,10 @@ class LUTEditor: public QDialog
                 ColDelay,
                 ColWidth,
                 ColHoldoff,
-                ColInvert,
             };
 
             QTableWidget *table;
             QComboBox *combo_connection;
-            QCheckBox *check_invert;
         };
 
         QVector<LUTOutputEditor *> m_outputEditors;

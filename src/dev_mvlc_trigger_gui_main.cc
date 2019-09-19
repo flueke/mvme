@@ -473,7 +473,9 @@ int main(int argc, char *argv[])
     {
         auto script = generate_trigger_io_script_text(ioCfg);
 
+        int scrollbarPosition = te_script->verticalScrollBar()->sliderPosition();
         te_script->setText(script);
+        te_script->verticalScrollBar()->setSliderPosition(scrollbarPosition);
         te_script->show();
         te_script->raise();
     });

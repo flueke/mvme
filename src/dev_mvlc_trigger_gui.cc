@@ -775,6 +775,11 @@ NIM_IO_Table_UI make_nim_io_settings_table(
 
     table->horizontalHeader()->moveSection(NIM_IO_Table_UI::ColName, 0);
 
+    // Hide the 'activate' column here. The checkboxes will still be there and
+    // populated and the result will contain the correct activation flags so
+    // that we don't mess with level 3 settings when synchronizing both levels.
+    table->horizontalHeader()->hideSection(NIM_IO_Table_UI::ColActivate);
+
     if (dir == trigger_io::IO::Direction::out)
         table->horizontalHeader()->moveSection(NIM_IO_Table_UI::ColConnection, 1);
 
@@ -1919,7 +1924,7 @@ LUTEditor::LUTEditor(
     if (!strobeInputNames.isEmpty())
     {
         QStringList columnTitles = {
-            "Input", "Delay", "Width", "Holdoff", "Invert"
+            "Input", "Delay", "Width", "Holdoff"
         };
 
         auto &ui = m_strobeTableUi;
@@ -1928,14 +1933,11 @@ LUTEditor::LUTEditor(
         table->setHorizontalHeaderLabels(columnTitles);
         table->verticalHeader()->hide();
 
-        auto check_invert = new QCheckBox;
         auto combo_connection = new QComboBox;
 
         ui.table = table;
-        ui.check_invert = check_invert;
         ui.combo_connection = combo_connection;
 
-        check_invert->setChecked(strobeSettings.invert);
         combo_connection->addItems(strobeInputNames);
         combo_connection->setCurrentIndex(strobeConValue);
         combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
@@ -1944,7 +1946,6 @@ LUTEditor::LUTEditor(
         table->setItem(0, ui.ColDelay, new QTableWidgetItem(QString::number(strobeSettings.delay)));
         table->setItem(0, ui.ColWidth, new QTableWidgetItem(QString::number(strobeSettings.width)));
         table->setItem(0, ui.ColHoldoff, new QTableWidgetItem(QString::number(strobeSettings.holdoff)));
-        table->setCellWidget(0, ui.ColInvert, make_centered(check_invert));
 
         table->resizeColumnsToContents();
         table->resizeRowsToContents();
@@ -2018,7 +2019,6 @@ trigger_io::IO LUTEditor::getStrobeSettings()
     ret.delay = ui.table->item(0, ui.ColDelay)->text().toUInt();
     ret.width = ui.table->item(0, ui.ColWidth)->text().toUInt();
     ret.holdoff = ui.table->item(0, ui.ColHoldoff)->text().toUInt();
-    ret.invert = ui.check_invert->isChecked();
 
     return ret;
 }
@@ -2041,6 +2041,11 @@ struct Write
     // Opt_HexValue indicates that the register value should be printed in
     // hexadecimal instead of decimal.
     static const unsigned Opt_HexValue = 1u << 0;;
+    // TODO: support this when generating the script
+
+    // Opt_BinValue indicates that the register value should be printed in
+    // binary (0bxyz literatl) instead of decimal.
+    static const unsigned Opt_BinValue = 1u << 1;
 
     // Relative register address. Only the low two bytes are stored.
     u16 address;
@@ -2165,7 +2170,7 @@ namespace io_flags
  * The activation and direction registers are at offsets 10 and 16. They are
  * only written out if the respective io_flags bit is set.
  */
-ScriptParts generate(const trigger_io::IO &io, io_flags::Flags ioFlags)
+ScriptParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags)
 {
     ScriptParts ret;
 
@@ -2321,7 +2326,7 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
     //
     // Level2
     //
-    
+
     ret += "Level2 ##############################";
 
     for (const auto &kv: ioCfg.l2.luts | indexed(0))
@@ -2330,7 +2335,10 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
         ret += QString("L2.LUT%1").arg(unitIndex);
         ret += select_unit(2, unitIndex);
         ret += write_lut(kv.value());
-
+        // TODO: move this into write_lut() and add a flag on whether the LUT
+        // uses the strobe or not.
+        // TODO: use a binary literal when writing out the strobes. it's a bit mask
+        ret += write_unit_reg(0x20, kv.value().strobedOutputs.to_ulong(), "strobed_outputs");
 
         const auto l2InputChoices = make_level2_input_choices(unitIndex);
 
@@ -2418,7 +2426,7 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
         UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
-        
+
     }
 
     for (const auto &kv: ioCfg.l3.ioECL | indexed(0))
@@ -2484,6 +2492,8 @@ class ScriptGenPartVisitor: public boost::static_visitor<>
         QStringList &m_lineBuffer;
 };
 
+static const u32 MVLC_VME_InterfaceAddress = 0xffff0000u;
+
 /* First iteration: generate vme writes to setup all of the IO/trigger units
  * and the dynamic connections.
  * Later: come up with a format to write out the user set output names.
@@ -2493,6 +2503,10 @@ class ScriptGenPartVisitor: public boost::static_visitor<>
 QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg)
 {
     QStringList lines;
+
+    lines.push_back(QString("setbase 0x%1 # MVLC VME interface address")
+                    .arg(MVLC_VME_InterfaceAddress, 8, 16, QLatin1Char('0')));
+
     ScriptGenPartVisitor visitor(lines);
 
     auto parts = generate_trigger_io_script(ioCfg);
@@ -2506,6 +2520,9 @@ QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg)
 }
 
 static const size_t LevelCount = 4;
+static const u16 UnitSelectRegister = 0x200u;
+static const u16 UnitRegisterBase = 0x300u;
+static const u16 UnitConnectMask = 0x80u;
 
 // Maps register address to register value
 using RegisterWrites = QMap<u16, u16>;
@@ -2513,8 +2530,62 @@ using RegisterWrites = QMap<u16, u16>;
 // Holds per unit address register writes
 using UnitWrites = QMap<u16, RegisterWrites>;
 
-// Hols per level UnitWrites
+// Holds per level UnitWrites
 using LevelWrites = std::array<UnitWrites, LevelCount>;
+
+trigger_io::IO parse_io(const RegisterWrites &writes, const io_flags::Flags &ioFlags)
+{
+    trigger_io::IO io = {};
+
+    u16 offset = (ioFlags & io_flags::StrobeGGOffsets) ? 0x32u : 0u;
+
+    io.delay     = writes[offset + 0];
+    io.width     = writes[offset + 2];
+    io.holdoff   = writes[offset + 4];
+    io.invert    = static_cast<bool>(writes[offset + 6]);
+
+    io.direction = static_cast<trigger_io::IO::Direction>(writes[10]);
+    io.activate  = static_cast<bool>(writes[16]);
+
+    return io;
+}
+
+trigger_io::LUT_RAM parse_lut_ram(const RegisterWrites &writes)
+{
+    trigger_io::LUT_RAM ram = {};
+
+    for (size_t line = 0; line < ram.size(); line++)
+    {
+        u16 regAddress = line * 2;
+        ram[line] = writes[regAddress];
+    }
+
+    return ram;
+}
+
+LUT parse_lut(const RegisterWrites &writes)
+{
+    auto ram = parse_lut_ram(writes);
+
+    LUT lut = {};
+
+    for (size_t address = 0; address < lut.lutContents[0].size(); address++)
+    {
+        u8 ramValue = trigger_io::lookup(ram, address);
+
+        // Distribute the 3 output bits stored in a single RAM cell to the 3
+        // output arrays in lut.lutContents.
+        for (unsigned output = 0; output < lut.lutContents.size(); output++)
+        {
+            lut.lutContents[output][address] = (ramValue >> output) & 0b1;
+        }
+    }
+
+    lut.strobedOutputs = writes[0x20];
+    lut.strobeGG = parse_io(writes, io_flags::StrobeGG_Flags);
+
+    return lut;
+}
 
 TriggerIOConfig build_config_from_writes(const LevelWrites &levelWrites)
 {
@@ -2524,18 +2595,65 @@ TriggerIOConfig build_config_from_writes(const LevelWrites &levelWrites)
     {
         const auto &writes = levelWrites[0];
 
+        qDebug() << __PRETTY_FUNCTION__ << "levelWrites[0]:" << writes;
+
         for (const auto &kv: ioCfg.l0.timers | indexed(0))
         {
             unsigned unitIndex = kv.index();
             auto &unit = kv.value();
 
-            // 0x300: start of register
-            // 0x380: start of connects
-            // Could also subtract 0x300 from cmd.address in the parse function
-            // below. Then start from 0x00 for registers and 0x80 for connects.
+            unit.range = static_cast<trigger_io::Timer::Range>(writes[unitIndex][2]);
+            unit.delay_ns = writes[unitIndex][4];
+            unit.period = writes[unitIndex][6];
+        }
+
+        for (const auto &kv: ioCfg.l0.irqUnits | indexed(0))
+        {
+            unsigned unitIndex = kv.index() + Level0::IRQ_UnitOffset;
+            auto &unit = kv.value();
+
+            unit.irqIndex = writes[unitIndex][0];
+        }
+
+        for (const auto &kv: ioCfg.l0.slaveTriggers | indexed(0))
+        {
+            unsigned unitIndex = kv.index() + Level0::SlaveTriggerOffset;
+            auto &unit = kv.value();
+
+            unit = parse_io(writes[unitIndex], io_flags::None);
+        }
+
+        for (const auto &kv: ioCfg.l0.stackBusy | indexed(0))
+        {
+
+            unsigned unitIndex = kv.index() + Level0::StackBusyOffset;
+            auto &unit = kv.value();
+
+            unit.stackIndex = writes[unitIndex][0];
+        }
+
+        for (const auto &kv: ioCfg.l0.ioNIM | indexed(0))
+        {
+
+            unsigned unitIndex = kv.index() + Level0::NIM_IO_Offset;
+            auto &unit = kv.value();
+
+            unit = parse_io(writes[unitIndex], io_flags::NIM_IO_Flags);
         }
     }
 
+    // level1
+    {
+        const auto &writes = levelWrites[1];
+
+        for (const auto &kv: ioCfg.l1.luts | indexed(0))
+        {
+            unsigned unitIndex = kv.index();
+            auto &unit = kv.value();
+
+            unit = parse_lut(writes[unitIndex]);
+        }
+    }
 
     return ioCfg;
 }
@@ -2554,14 +2672,24 @@ TriggerIOConfig parse_trigger_io_script_text(const QString &text)
         if (!(cmd.type == vme_script::CommandType::Write))
             continue;
 
-        if (cmd.address == 0x0200) // unit selection command
+        u32 address = cmd.address;
+
+        // Clear the uppper 16 bits of the 32 bit address value. In the
+        // generated script these are set by the setbase command on the very first line.
+        address &= ~MVLC_VME_InterfaceAddress;
+
+        if (address == UnitSelectRegister)
         {
             level = (cmd.value >> 8) & 0b11;
             unit  = (cmd.value & 0xff);
         }
-        else // store register write in the map structure
+        else
         {
-            levelWrites[level][unit][cmd.address] = cmd.value;
+            // Store all other writes in the map structure under the current
+            // level and unit. Also subtract the UnitRegisterBase from writes
+            // value.
+            address -= UnitRegisterBase;
+            levelWrites[level][unit][address] = cmd.value;
         }
     }
 
