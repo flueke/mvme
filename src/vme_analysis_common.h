@@ -21,11 +21,12 @@
 #ifndef __VME_ANALYSIS_COMMON_H__
 #define __VME_ANALYSIS_COMMON_H__
 
-#include "libmvme_export.h"
-#include "vme_config.h"
+#include <QDebug>
 #include <chrono>
 #include <cmath>
 
+#include "libmvme_export.h"
+#include "vme_config.h"
 
 namespace analysis
 {
@@ -49,6 +50,8 @@ struct ModuleInfo
     QString name;
     QUuid eventId; // only set if the object was obtained from the VMEConfig
 };
+
+QDebug &operator<<(QDebug &dbg, const ModuleInfo &mi);
 
 QVector<ModuleInfo> get_module_infos(const VMEConfig *vmeConfig);
 QVector<ModuleInfo> get_module_infos(analysis::Analysis *analysis);

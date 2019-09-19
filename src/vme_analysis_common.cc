@@ -56,6 +56,15 @@ void add_vme_properties_to_analysis(const VMEConfig *vmeConfig, analysis::Analys
     analysis->setProperty("ModuleProperties", modulePropertyList);
 }
 
+QDebug &operator<<(QDebug &out, const ModuleInfo &mi)
+{
+    QDebugStateSaver qdss(out);
+    out.nospace().noquote();
+    out << "ModuleInfo(id=" << mi.id << ", eventId=" << mi.eventId
+        << ", typeName=" <<mi.typeName << ", name=" << mi.name;
+    return out;
+}
+
 QVector<ModuleInfo> get_module_infos(const VMEConfig *vmeConfig)
 {
     QVector<ModuleInfo> result;
@@ -243,7 +252,6 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
 {
     auto do_log = [logger] (const QString &msg) { if (logger) logger(msg); };
 
-    auto aModInfos = get_module_infos(analysis);
 
     QSet<std::pair<QUuid, QUuid>> vmeModuleAndEventIds;
 
@@ -252,13 +260,37 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
         vmeModuleAndEventIds.insert(std::make_pair(modInfo.id, modInfo.eventId));
     }
 
+    auto aModInfos = get_module_infos(analysis);
     QSet<std::pair<QUuid, QUuid>> analysisModuleAndEventIds;
     for (auto modInfo: aModInfos)
     {
         analysisModuleAndEventIds.insert(std::make_pair(modInfo.id, modInfo.eventId));
     }
 
+    qDebug() << __PRETTY_FUNCTION__ << "vModInfos:";
+    for (const auto &mi: vModInfos)
+        qDebug() << __PRETTY_FUNCTION__ << "  " << mi;
+
+    qDebug() << __PRETTY_FUNCTION__ << "aModInfos:";
+    for (const auto &mi: aModInfos)
+        qDebug() << __PRETTY_FUNCTION__ << "  " << mi;
+
+
+    //qDebug() << __PRETTY_FUNCTION__ << "analysisModuleAndEventIds:" << analysisModuleAndEventIds;
+    //qDebug() << __PRETTY_FUNCTION__ << "vmeModuleAndEventIds:" << vmeModuleAndEventIds;
+
+
+    // Remove entries that are equal in both module id and event id
     analysisModuleAndEventIds.subtract(vmeModuleAndEventIds);
+
+    // Remove entries where the module ids are equal and the analysis side event id is null.
+    for (const auto &vModIds: vmeModuleAndEventIds)
+    {
+        auto vmeModuleIdAndNullEventId = std::make_pair(vModIds.first, QUuid());
+
+        if (analysisModuleAndEventIds.contains(vmeModuleIdAndNullEventId))
+            analysisModuleAndEventIds.remove(vmeModuleIdAndNullEventId);
+    }
 
     if (analysisModuleAndEventIds.isEmpty()) // True if all analysis modules exist in the vme config
     {
