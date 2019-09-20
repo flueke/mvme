@@ -278,13 +278,13 @@ class NIM_IO_SettingsDialog: public QDialog
 {
     Q_OBJECT
     public:
-        // Use this when editing NIMs on Level0
+        // Use this when editing NIMs on Level0 (to be used as inputs)
         NIM_IO_SettingsDialog(
             const QStringList &names,
             const QVector<trigger_io::IO> &settings,
             QWidget *parent = nullptr);
 
-        // Use this when editing NIMs on Level3
+        // Use this when editing NIMs on Level3 (to be used as outputs)
         NIM_IO_SettingsDialog(
             const QStringList &names,
             const QVector<trigger_io::IO> &settings,

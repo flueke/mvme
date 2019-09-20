@@ -449,11 +449,13 @@ int main(int argc, char *argv[])
 
     auto pb_generateScript = new QPushButton("Generate Script");
     auto pb_parseScript = new QPushButton("Parse Script");
+    auto pb_clearConfig = new QPushButton("Clear Config");
 
     auto bottomLayout = new QHBoxLayout;
     bottomLayout->addStretch(1);
     bottomLayout->addWidget(pb_generateScript);
     bottomLayout->addWidget(pb_parseScript);
+    bottomLayout->addWidget(pb_clearConfig);
 
     logicLayout->addWidget(view, 1);
     logicLayout->addLayout(bottomLayout, 0);
@@ -486,6 +488,12 @@ int main(int argc, char *argv[])
         auto text = te_script->toPlainText();
 
         ioCfg = parse_trigger_io_script_text(text);
+    });
+
+    QObject::connect(pb_clearConfig, &QPushButton::clicked,
+                     view, [&ioCfg] ()
+    {
+        ioCfg = TriggerIOConfig();
     });
 
     auto mainLayout = make_hbox<0, 0>();

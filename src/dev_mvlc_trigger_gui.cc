@@ -775,10 +775,13 @@ NIM_IO_Table_UI make_nim_io_settings_table(
 
     table->horizontalHeader()->moveSection(NIM_IO_Table_UI::ColName, 0);
 
-    // Hide the 'activate' column here. The checkboxes will still be there and
-    // populated and the result will contain the correct activation flags so
-    // that we don't mess with level 3 settings when synchronizing both levels.
-    table->horizontalHeader()->hideSection(NIM_IO_Table_UI::ColActivate);
+    if (dir == trigger_io::IO::Direction::in)
+    {
+        // Hide the 'activate' column here. The checkboxes will still be there and
+        // populated and the result will contain the correct activation flags so
+        // that we don't mess with level 3 settings when synchronizing both levels.
+        table->horizontalHeader()->hideSection(NIM_IO_Table_UI::ColActivate);
+    }
 
     if (dir == trigger_io::IO::Direction::out)
         table->horizontalHeader()->moveSection(NIM_IO_Table_UI::ColConnection, 1);
@@ -1126,6 +1129,7 @@ Level0UtilsDialog::Level0UtilsDialog(
             const Level0 &l0,
             QWidget *parent)
     : QDialog(parent)
+    , m_l0(l0)
 {
     auto make_timers_table_ui = [](const Level0 &l0)
     {
@@ -1158,7 +1162,7 @@ Level0UtilsDialog::Level0UtilsDialog(
                     QString::number(l0.timers[row].period)));
 
             ret.table->setItem(row, ret.ColDelay, new QTableWidgetItem(
-                    l0.timers[row].delay_ns));
+                    QString::number(l0.timers[row].delay_ns)));
 
 
             ret.combos_range.push_back(combo_range);
@@ -2502,10 +2506,17 @@ static const u32 MVLC_VME_InterfaceAddress = 0xffff0000u;
  */
 QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg)
 {
-    QStringList lines;
-
-    lines.push_back(QString("setbase 0x%1 # MVLC VME interface address")
-                    .arg(MVLC_VME_InterfaceAddress, 8, 16, QLatin1Char('0')));
+    QStringList lines =
+    {
+        "########################################",
+        "#       MVLC Trigger I/O  Setup        #",
+        "########################################",
+        "",
+        "",
+        "# Internal MVLC VME interface address",
+        QString("setbase 0x%1 # MVLC VME interface address")
+            .arg(MVLC_VME_InterfaceAddress, 8, 16, QLatin1Char('0'))
+    };
 
     ScriptGenPartVisitor visitor(lines);
 
@@ -2522,7 +2533,8 @@ QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg)
 static const size_t LevelCount = 4;
 static const u16 UnitSelectRegister = 0x200u;
 static const u16 UnitRegisterBase = 0x300u;
-static const u16 UnitConnectMask = 0x80u;
+static const u16 UnitConnectBase = 0x80u;
+static const u16 UnitConnectMask = UnitConnectBase;
 
 // Maps register address to register value
 using RegisterWrites = QMap<u16, u16>;
@@ -2651,7 +2663,87 @@ TriggerIOConfig build_config_from_writes(const LevelWrites &levelWrites)
             unsigned unitIndex = kv.index();
             auto &unit = kv.value();
 
-            unit = parse_lut(writes[unitIndex]);
+            auto parsed = parse_lut(writes[unitIndex]);
+            // FIXME: hack to keep the original output names. can this be done
+            // in a cleaner way?
+            parsed.outputNames = unit.outputNames;
+            unit = parsed;
+        }
+    }
+
+    // level2
+    {
+        const auto &writes = levelWrites[2];
+
+        for (const auto &kv: ioCfg.l2.luts | indexed(0))
+        {
+            unsigned unitIndex = kv.index();
+            auto &unit = kv.value();
+
+            // This parses the LUT and the strobe GG settings
+            auto parsed = parse_lut(writes[unitIndex]);
+            // FIXME: hack to keep the original output names. can this be done
+            // in a cleaner way?
+            parsed.outputNames = unit.outputNames;
+            unit = parsed;
+
+            // dynamic input connections
+            for (size_t input = 0; input < Level2LUT_VariableInputCount; ++input)
+            {
+                ioCfg.l2.lutConnections[unitIndex][input] =
+                    writes[unitIndex][UnitConnectBase + 2 * input];
+            }
+
+            // strobe GG connection
+            ioCfg.l2.strobeConnections[unitIndex] = writes[unitIndex][UnitConnectBase + 6];
+        }
+    }
+
+    // level3
+    {
+        const auto &writes = levelWrites[3];
+
+        for (const auto &kv: ioCfg.l3.stackStart | indexed(0))
+        {
+            unsigned unitIndex = kv.index();
+            auto &unit = kv.value();
+
+            unit.activate = static_cast<bool>(writes[unitIndex][0]);
+            unit.stackIndex = writes[unitIndex][2];
+        }
+
+        for (const auto &kv: ioCfg.l3.masterTriggers | indexed(0))
+        {
+            unsigned unitIndex = kv.index() + Level3::MasterTriggersOffset;
+            auto &unit = kv.value();
+
+            unit.activate = static_cast<bool>(writes[unitIndex][0]);
+        }
+
+        for (const auto &kv: ioCfg.l3.counters | indexed(0))
+        {
+            unsigned unitIndex = kv.index() + Level3::CountersOffset;
+            auto &unit = kv.value();
+
+            unit.activate = static_cast<bool>(writes[unitIndex][0]);
+        }
+
+        for (const auto &kv: ioCfg.l3.ioNIM | indexed(0))
+        {
+            // level3 NIM connections (setup is done in level0)
+            unsigned unitIndex = kv.index() + Level3::NIM_IO_Unit_Offset;
+
+            ioCfg.l3.connections[unitIndex] = writes[unitIndex][0x80];
+        }
+
+        for (const auto &kv: ioCfg.l3.ioECL | indexed(0))
+        {
+            unsigned unitIndex = kv.index() + Level3::ECL_Unit_Offset;
+            auto &unit = kv.value();
+
+            unit = parse_io(writes[unitIndex], io_flags::ECL_IO_Flags);
+
+            ioCfg.l3.connections[unitIndex] = writes[unitIndex][0x80];
         }
     }
 
