@@ -2524,7 +2524,7 @@ QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg)
         "",
         "",
         "# Internal MVLC VME interface address",
-        QString("setbase 0x%1 # MVLC VME interface address")
+        QString("setbase 0x%1")
             .arg(MVLC_VME_InterfaceAddress, 8, 16, QLatin1Char('0'))
     };
 
@@ -2734,7 +2734,6 @@ TriggerIOConfig build_config_from_writes(const LevelWrites &levelWrites)
         {
             unsigned unitIndex = kv.index() + Level3::CountersOffset;
             auto &unit = kv.value();
-
         }
 
         for (const auto &kv: ioCfg.l3.ioNIM | indexed(0))
