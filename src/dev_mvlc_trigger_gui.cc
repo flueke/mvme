@@ -249,8 +249,8 @@ static std::vector<UnitAddressVector> make_level3_dynamic_input_choice_lists()
         for (unsigned unit = 0; unit <= LastL0Unit; unit++)
             choices.push_back({0, unit });
 
-        result.emplace_back(choices);
         std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
+        result.emplace_back(choices);
     }
 
     for (size_t i = 0; i < trigger_io::Level3::MasterTriggersCount; i++)
@@ -263,8 +263,8 @@ static std::vector<UnitAddressVector> make_level3_dynamic_input_choice_lists()
         for (unsigned unit = 0; unit <= LastL0Unit; unit++)
             choices.push_back({0, unit });
 
-        result.emplace_back(choices);
         std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
+        result.emplace_back(choices);
     }
 
     for (size_t i = 0; i < trigger_io::Level3::CountersCount; i++)
@@ -277,8 +277,8 @@ static std::vector<UnitAddressVector> make_level3_dynamic_input_choice_lists()
         for (unsigned unit = 0; unit <= LastL0Unit; unit++)
             choices.push_back({0, unit });
 
-        result.emplace_back(choices);
         std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
+        result.emplace_back(choices);
     }
 
     // 4 unused inputs between the last counter (11) and the first NIM_IO (16)
