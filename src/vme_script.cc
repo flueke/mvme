@@ -107,20 +107,39 @@ T parseBinaryLiteral(const QString &str)
     return result;
 }
 
-uint32_t parseValue(const QString &str)
+// Parse the unsigned numeric type T from the given string.
+// Performs a range check to make sure the parsed value is in range of the data
+// type T
+template<typename T>
+T parseValue(const QString &str)
 {
+    static_assert(std::is_unsigned<T>::value, "parseValue works for unsigned types only");
+
     if (str.toLower().startsWith(QSL("0b")))
     {
-        return parseBinaryLiteral<uint32_t>(str);
+        return parseBinaryLiteral<T>(str);
     }
 
     bool ok;
-    uint32_t ret = str.toUInt(&ok, 0);
+    qulonglong val = str.toULongLong(&ok, 0);
 
     if (!ok)
         throw "invalid data value";
 
-    return ret;
+    constexpr auto maxValue = std::numeric_limits<T>::max();
+
+    if (val > maxValue)
+        throw QString("given numeric value is out or range. max=%1")
+            .arg(maxValue, 0, 16);
+
+    return val;
+}
+
+// Full specialization of parseValue for type QString
+template<>
+QString parseValue(const QString &str)
+{
+    return str;
 }
 
 void maybe_set_warning(Command &cmd, int lineNumber)
@@ -195,7 +214,7 @@ Command parseWrite(const QStringList &args, int lineNumber)
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
     result.address = parseAddress(args[3]);
-    result.value = parseValue(args[4]);
+    result.value = parseValue<u32>(args[4]);
 
     return result;
 }
@@ -242,7 +261,7 @@ Command parseMarker(const QStringList &args, int lineNumber)
 
     Command result;
     result.type = CommandType::Marker;
-    result.value = parseValue(args[1]);
+    result.value = parseValue<u32>(args[1]);
 
     return result;
 }
@@ -258,7 +277,7 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
     result.type = commandType_from_string(args[0]);
     result.addressMode = parseAddressMode(args[1]);
     result.address = parseAddress(args[2]);
-    result.transfers = parseValue(args[3]);
+    result.transfers = parseValue<u32>(args[3]);
 
     return result;
 }
@@ -277,7 +296,7 @@ Command parseBlockTransferCountRead(const QStringList &args, int lineNumber)
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
     result.address = parseAddress(args[3]);
-    result.countMask = parseValue(args[4]);
+    result.countMask = parseValue<u32>(args[4]);
     result.blockAddressMode = parseAddressMode(args[5]);
     result.blockAddress = parseAddress(args[6]);
 
@@ -352,7 +371,7 @@ Command parse_VMUSB_write_reg(const QStringList &args, int lineNumber)
     }
 
     result.address = regAddress;
-    result.value   = parseValue(args[2]);
+    result.value   = parseValue<u32>(args[2]);
 
     return result;
 }
@@ -414,7 +433,7 @@ Command parse_mvlc_writespecial(const QStringList &args, int lineNumber)
         // try reading a numeric value and assign it directly
         try
         {
-            result.value = parseValue(args[1]);
+            result.value = parseValue<u32>(args[1]);
         }
         catch (...)
         {
@@ -455,7 +474,7 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("mvlc_writespecial"),     parse_mvlc_writespecial },
 };
 
-static QString handle_multiline_comments(QString line, bool &in_multiline_comment)
+static QString handle_multiline_comment(QString line, bool &in_multiline_comment)
 {
     QString result;
     result.reserve(line.size());
@@ -496,26 +515,80 @@ static QString handle_multiline_comments(QString line, bool &in_multiline_commen
     return result;
 }
 
-static Command parse_line(QString line, int lineNumber, bool &in_multiline_comment)
+// Get rid of comment parts and empty lines and split each of the remaining
+// lines into space separated parts while keeping track of the correct input
+// line numbers.
+static QVector<PreparsedLine> pre_parse(QTextStream &input)
 {
+    static const QRegularExpression reWordSplit("\\s+");
+
+    QVector<PreparsedLine> result;
+    u32 lineNumber = 0;
+    bool in_multiline_comment = false;
+
+    while (true)
+    {
+        auto line = input.readLine();
+        ++lineNumber;
+
+        if (line.isNull())
+            break;
+
+        line = handle_multiline_comment(line, in_multiline_comment);
+
+        int startOfComment = line.indexOf('#');
+
+        if (startOfComment >= 0)
+            line.resize(startOfComment);
+
+        line = line.trimmed();
+
+        if (line.isEmpty())
+            continue;
+
+        auto parts = line.split(reWordSplit, QString::SkipEmptyParts);
+
+        if (parts.isEmpty())
+            continue;
+
+        parts[0] = parts[0].toLower();
+
+        result.push_back({ line, parts, lineNumber });
+    }
+
+    return result;
+}
+
+static long find_index_of_next_command(
+    const QString &cmd,
+    const QVector<PreparsedLine> splitLines,
+    int searchStartOffset)
+{
+    auto it_start = splitLines.begin() + searchStartOffset;
+    auto it_end   = splitLines.end();
+
+    auto pred = [&cmd](const PreparsedLine &sl)
+    {
+        return sl.parts.at(0) == cmd;
+    };
+
+    auto it_result = std::find_if(it_start, it_end, pred);
+
+    if (it_result != it_end)
+    {
+        return it_result - splitLines.begin();
+    }
+
+    return -1;
+}
+
+static Command handle_single_line_command(const PreparsedLine &line)
+{
+    assert(!line.parts.isEmpty());
+
     Command result;
 
-    line = handle_multiline_comments(line, in_multiline_comment);
-
-    int startOfComment = line.indexOf('#');
-
-    if (startOfComment >= 0)
-        line.resize(startOfComment);
-
-    line = line.trimmed();
-
-    if (line.isEmpty())
-        return result;
-
-    auto parts = line.split(QRegularExpression("\\s+"), QString::SkipEmptyParts);
-
-    if (parts.isEmpty())
-        throw ParseError(QSL("Empty command"), lineNumber);
+    const QStringList &parts = line.parts;
 
     if (parts.at(0).at(0).isDigit() && parts.size() == 2)
     {
@@ -528,17 +601,17 @@ static Command parse_line(QString line, int lineNumber, bool &in_multiline_comme
         if (!ok1)
         {
             throw ParseError(QString(QSL("Invalid short-form address \"%1\""))
-                             .arg(parts[0]), lineNumber);
+                             .arg(parts[0]), line.lineNumber);
         }
 
         try
         {
-            v2 = parseValue(parts[1]);
+            v2 = parseValue<u32>(parts[1]);
         }
         catch (const char *message)
         {
             throw ParseError(QString(QSL("Invalid short-form value \"%1\" (%2)"))
-                             .arg(parts[1], message), lineNumber);
+                             .arg(parts[1], message), line.lineNumber);
         }
 
         result.type = CommandType::Write;
@@ -547,25 +620,44 @@ static Command parse_line(QString line, int lineNumber, bool &in_multiline_comme
         result.address = v1;
         result.value = v2;
 
-        maybe_set_warning(result, lineNumber);
+        maybe_set_warning(result, line.lineNumber);
         return result;
     }
 
     auto parseFun = commandParsers.value(parts[0].toLower(), nullptr);
 
     if (!parseFun)
-        throw ParseError(QString(QSL("No such command \"%1\"")).arg(parts[0]), lineNumber);
+        throw ParseError(QString(QSL("No such command \"%1\"")).arg(parts[0]), line.lineNumber);
 
     try
     {
-        Command result = parseFun(parts, lineNumber);
-        maybe_set_warning(result, lineNumber);
+        Command result = parseFun(parts, line.lineNumber);
+        maybe_set_warning(result, line.lineNumber);
         return result;
     }
     catch (const char *message)
     {
-        throw ParseError(message, lineNumber);
+        throw ParseError(message, line.lineNumber);
     }
+
+    return result;
+}
+
+static Command handle_meta_block_command(
+    const QVector<PreparsedLine> &lines,
+    int blockStartIndex, int blockEndIndex)
+{
+    assert(lines.size() > 1);
+
+    Command result;
+    result.type = CommandType::MetaBlock;
+    result.metaBlock.blockBegin = lines.at(blockStartIndex);
+
+    std::copy(lines.begin() + blockStartIndex + 1,
+              lines.begin() + blockEndIndex,
+              std::back_inserter(result.metaBlock.contents));
+
+    return result;
 }
 
 VMEScript parse(QFile *input, uint32_t baseAddress)
@@ -589,53 +681,83 @@ VMEScript parse(const std::string &input, uint32_t baseAddress)
 VMEScript parse(QTextStream &input, uint32_t baseAddress)
 {
     VMEScript result;
-    int lineNumber = 0;
+
+    QVector<PreparsedLine> splitLines = pre_parse(input);
+
     const u32 originalBaseAddress = baseAddress;
-    bool in_multiline_comment = false;
+    int lineIndex = 0;
 
-    while (true)
+    while (lineIndex < splitLines.size())
     {
-        auto line = input.readLine();
-        ++lineNumber;
+        auto &sl = splitLines.at(lineIndex);
 
-        if (line.isNull())
-            break;
+        assert(!sl.parts.isEmpty());
 
-        auto cmd = parse_line(line, lineNumber, in_multiline_comment);
-
-        /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
-         * here by modifying other commands before they are pushed onto result.
-         * To make warnings generated when parsing any of SetBase/ResetBase
-         * available to the outside I needed to return them in the result
-         * although they have already been handled in here!
-         * This is confusing and will lead to errors...
-         *
-         * An alternative would be to store the original base address inside
-         * VMEScript and implement SetBase/ResetBase in run_script().
-         */
-
-        switch (cmd.type)
+        // Handling of special meta blocks enclosed in MetaBlockBegin and
+        // MetaBlockEnd
+        if (sl.parts[0] == MetaBlockBegin)
         {
-            case CommandType::Invalid:
-                break;
+            int blockStartIndex = lineIndex;
+            int blockEndIndex   = find_index_of_next_command(
+                MetaBlockEnd, splitLines, blockStartIndex);
 
-            case CommandType::SetBase:
-                {
-                    baseAddress = cmd.address;
-                    result.push_back(cmd);
-                } break;
+            if (blockEndIndex < 0)
+            {
+                throw ParseError(
+                    QString("No matching \"%1\" found.").arg(MetaBlockEnd),
+                    sl.lineNumber);
+            }
 
-            case CommandType::ResetBase:
-                {
-                    baseAddress = originalBaseAddress;
-                    result.push_back(cmd);
-                } break;
+            assert(blockEndIndex > blockStartIndex);
+            assert(blockEndIndex < splitLines.size());
 
-            default:
-                {
-                    cmd = add_base_address(cmd, baseAddress);
-                    result.push_back(cmd);
-                } break;
+            auto metaBlockCommand = handle_meta_block_command(
+                splitLines, blockStartIndex, blockEndIndex);
+
+            result.push_back(metaBlockCommand);
+
+            lineIndex = blockEndIndex + 1;
+        }
+        else
+        {
+            auto cmd = handle_single_line_command(sl);
+
+            /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
+             * here by modifying other commands before they are pushed onto result.
+             * To make warnings generated when parsing any of SetBase/ResetBase
+             * available to the outside I needed to return them in the result
+             * although they have already been handled in here!
+             * This is confusing and will lead to errors...
+             *
+             * An alternative would be to store the original base address inside
+             * VMEScript and implement SetBase/ResetBase in run_script().
+             */
+
+            switch (cmd.type)
+            {
+                case CommandType::Invalid:
+                    break;
+
+                case CommandType::SetBase:
+                    {
+                        baseAddress = cmd.address;
+                        result.push_back(cmd);
+                    } break;
+
+                case CommandType::ResetBase:
+                    {
+                        baseAddress = originalBaseAddress;
+                        result.push_back(cmd);
+                    } break;
+
+                default:
+                    {
+                        cmd = add_base_address(cmd, baseAddress);
+                        result.push_back(cmd);
+                    } break;
+            }
+
+            lineIndex++;
         }
     }
 
@@ -827,6 +949,11 @@ QString to_string(const Command &cmd)
                     .arg(cmdStr)
                     .arg(specialStr);
             } break;
+
+        case CommandType::MetaBlock:
+            {
+                buffer = QString("meta_block of size %1").arg(cmd.metaBlock.contents.size());
+            } break;
     }
 
     return buffer;
@@ -850,6 +977,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::VMUSB_WriteRegister:
         case CommandType::VMUSB_ReadRegister:
         case CommandType::MVLC_WriteSpecial:
+        case CommandType::MetaBlock:
             break;
 
         case CommandType::Read:
@@ -1200,6 +1328,9 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                 if (logger) logger(msg);
             }
             break;
+
+        case CommandType::MetaBlock:
+            break;
     }
 
     return result;
@@ -1236,6 +1367,7 @@ QString format_result(const Result &result)
         case CommandType::SetBase:
         case CommandType::ResetBase:
         case CommandType::MVLC_WriteSpecial:
+        case CommandType::MetaBlock:
             break;
 
         case CommandType::Write:

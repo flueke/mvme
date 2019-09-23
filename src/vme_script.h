@@ -38,6 +38,27 @@ class VMEController;
 namespace vme_script
 {
 
+struct PreparsedLine
+{
+    QString trimmed;    // The original line trimmed of whitespace
+    QStringList parts;  // The trimmed line split at word boundaries
+    u32 lineNumber;     // The original line number
+};
+
+static const QString MetaBlockBegin = "meta_block_begin";
+static const QString MetaBlockEnd = "meta_block_end";
+
+struct MetaBlock
+{
+    // The line containing the MetaBlockBegin instruction. May be used to parse
+    // additional arguments if desired.
+    PreparsedLine blockBegin;
+
+    // The contents of the meta block. Does neither contain the MetaBlockBegin
+    // not the MetaBlockEnd lines.
+    QVector<PreparsedLine> contents;
+};
+
 enum class CommandType
 {
     Invalid,
@@ -65,6 +86,8 @@ enum class CommandType
     VMUSB_ReadRegister,
 
     MVLC_WriteSpecial, // type is stored in Command.value (of type MVLCSpecialWord)
+
+    MetaBlock,
 };
 
 enum class DataWidth
@@ -102,6 +125,8 @@ struct Command
 
     QString warning;
     s32 lineNumber = 0;
+
+    MetaBlock metaBlock = {};
 };
 
 LIBMVME_CORE_EXPORT QString to_string(CommandType commandType);

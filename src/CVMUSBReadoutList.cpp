@@ -199,7 +199,7 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
 
         case CommandType::Blk2eSST64:
         case CommandType::MVLC_WriteSpecial:
-            // FIXME: this needs to report an error
+        case CommandType::MetaBlock:
             break;
 
         case CommandType::Read:

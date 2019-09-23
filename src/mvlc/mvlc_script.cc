@@ -115,9 +115,10 @@ QVector<PreparsedLine> pre_parse(QTextStream &input)
     return result;
 }
 
-static long find_index_of_next_command(const QString &cmd,
-                                       const QVector<PreparsedLine> splitLines,
-                                      int searchStartOffset)
+static long find_index_of_next_command(
+    const QString &cmd,
+    const QVector<PreparsedLine> splitLines,
+    int searchStartOffset)
 {
     auto it_start = splitLines.begin() + searchStartOffset;
     auto it_end   = splitLines.end();
