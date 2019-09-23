@@ -235,37 +235,50 @@ static std::vector<UnitAddressVector> make_level3_dynamic_input_choice_lists()
 
     std::vector<UnitAddressVector> result;
 
+    // Note: StackStarts, MasterTriggers and Counters had different connection
+    // choices in early firmware versions., that's the reason they are still
+    // separated below. Now they all can connect to L0 up to unit 13 and the 6
+    // outputs of L2.
+
     for (size_t i = 0; i < trigger_io::Level3::StackStartCount; i++)
     {
-        std::vector<UnitAddress> choices = Level2Full;
+        static const unsigned LastL0Unit = 13;
 
-        // Can connect up to L0.SlaveTriggers[3]
-        for (unsigned unit = 0; unit <= 11; unit++)
+        std::vector<UnitAddress> choices;
+
+        for (unsigned unit = 0; unit <= LastL0Unit; unit++)
             choices.push_back({0, unit });
 
         result.emplace_back(choices);
+        std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
     }
 
     for (size_t i = 0; i < trigger_io::Level3::MasterTriggersCount; i++)
     {
-        std::vector<UnitAddress> choices = Level2Full;
+        static const unsigned LastL0Unit = 13;
+
+        std::vector<UnitAddress> choices;
 
         // Can connect up to the IRQ units
-        for (unsigned unit = 0; unit <= 5; unit++)
+        for (unsigned unit = 0; unit <= LastL0Unit; unit++)
             choices.push_back({0, unit });
 
         result.emplace_back(choices);
+        std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
     }
 
     for (size_t i = 0; i < trigger_io::Level3::CountersCount; i++)
     {
-        std::vector<UnitAddress> choices = Level2Full;
+        static const unsigned LastL0Unit = 13;
+
+        std::vector<UnitAddress> choices;
 
         // Can connect all L0 utilities up to StackBusy1
-        for (unsigned unit = 0; unit <= 13; unit++)
+        for (unsigned unit = 0; unit <= LastL0Unit; unit++)
             choices.push_back({0, unit });
 
         result.emplace_back(choices);
+        std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
     }
 
     // 4 unused inputs between the last counter (11) and the first NIM_IO (16)
