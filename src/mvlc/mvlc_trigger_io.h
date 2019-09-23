@@ -198,7 +198,9 @@ inline void set(LUT_RAM &lut, u8 address, u8 value)
     u8 cell = address >> 2;
     u8 nibble =  address & 0b11;
     u8 shift = nibble * 4;
+    u16 clearNibbleMask = ~(0xfu << shift);
 
+    lut[cell] &= clearNibbleMask;
     lut[cell] |= (value & 0xf) << shift;
 }
 

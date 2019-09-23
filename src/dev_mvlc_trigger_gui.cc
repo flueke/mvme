@@ -2522,7 +2522,6 @@ QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg)
         "#       MVLC Trigger I/O  Setup        #",
         "########################################",
         "",
-        "",
         "# Internal MVLC VME interface address",
         QString("setbase 0x%1")
             .arg(MVLC_VME_InterfaceAddress, 8, 16, QLatin1Char('0'))
