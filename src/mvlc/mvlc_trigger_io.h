@@ -90,7 +90,7 @@ struct MasterTrigger
 
 struct Counter
 {
-    bool activate;
+    // Empty right now. Maybe forever :)
 };
 
 struct IRQ_Unit

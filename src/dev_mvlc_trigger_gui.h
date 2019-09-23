@@ -471,7 +471,6 @@ class Level3UtilsDialog: public QDialog
             {
                 ColName,
                 ColConnection,
-                ColActivate,
             };
 
             static const int FirstUnitIndex = 8;

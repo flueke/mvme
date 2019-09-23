@@ -1513,7 +1513,7 @@ Level3UtilsDialog::Level3UtilsDialog(
         Counters_UI ret;
 
         QStringList columnTitles = {
-            "Name", "Input", "Activate",
+            "Name", "Input",
         };
 
         auto table = new QTableWidget(l3.counters.size(), columnTitles.size());
@@ -1526,20 +1526,16 @@ Level3UtilsDialog::Level3UtilsDialog(
                     QString("Counter%1").arg(row)));
 
             auto combo_connection = new QComboBox;
-            auto check_activate = new QCheckBox;
 
             ret.combos_connection.push_back(combo_connection);
-            ret.checks_activate.push_back(check_activate);
 
             combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
             combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex]);
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-            check_activate->setChecked(l3.masterTriggers[row].activate);
 
             table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l3.unitNames.value(row + ret.FirstUnitIndex)));
             table->setCellWidget(row, ret.ColConnection, combo_connection);
-            table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
         }
 
         table->resizeColumnsToContents();
@@ -1600,8 +1596,6 @@ Level3 Level3UtilsDialog::getSettings() const
         {
             m_l3.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
             m_l3.connections[row + ui.FirstUnitIndex] = ui.combos_connection[row]->currentIndex();
-            auto &unit = m_l3.counters[row];
-            unit.activate = ui.checks_activate[row]->isChecked();
         }
     }
 
@@ -2276,9 +2270,7 @@ ScriptParts generate(const trigger_io::MasterTrigger &unit, int index)
 
 ScriptParts generate(const trigger_io::Counter &unit, int index)
 {
-    ScriptParts ret;
-    ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
-    return ret;
+    return {};
 }
 
 ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
@@ -2738,7 +2730,6 @@ TriggerIOConfig build_config_from_writes(const LevelWrites &levelWrites)
             unsigned unitIndex = kv.index() + Level3::CountersOffset;
             auto &unit = kv.value();
 
-            unit.activate = static_cast<bool>(writes[unitIndex][0]);
         }
 
         for (const auto &kv: ioCfg.l3.ioNIM | indexed(0))
