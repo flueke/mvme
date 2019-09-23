@@ -1723,9 +1723,20 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
                        vme_script::LoggerFun logger,
                        bool logEachResult)
 {
-    DAQPauser pauser(this);
+    vme_script::ResultList results;
 
-    auto results = vme_script::run_script(m_controller, script, logger, logEachResult);
+    // The MVLC can execute commands while the DAQ is running, other controller
+    // cannot so the DAQ has to be paused and resumed if needed.
+    if (is_mvlc_controller(m_controller->getType()))
+    {
+        results = vme_script::run_script(m_controller, script, logger, logEachResult);
+    }
+    else
+    {
+        DAQPauser pauser(this);
+
+        results = vme_script::run_script(m_controller, script, logger, logEachResult);
+    }
 
     // Check for errors indicating connection loss and call close() on the VME
     // controller to update its status.
