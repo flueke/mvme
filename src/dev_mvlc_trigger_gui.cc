@@ -1040,7 +1040,12 @@ QVector<trigger_io::IO> NIM_IO_SettingsDialog::getSettings() const
         nim.invert = ui.checks_invert[row]->isChecked();
         nim.direction = static_cast<trigger_io::IO::Direction>(
             ui.combos_direction[row]->currentIndex());
-        nim.activate = ui.checks_activate[row]->isChecked();
+
+        // NIM inputs do not work if 'activate' is set to 1.
+        if (nim.direction == trigger_io::IO::Direction::in)
+            nim.activate = false;
+        else
+            nim.activate = ui.checks_activate[row]->isChecked();
 
         ret.push_back(nim);
     }
@@ -2196,7 +2201,7 @@ ScriptParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags)
         ret += write_unit_reg(10, static_cast<u16>(io.direction), "direction (0=in, 1=out)");
 
     if (ioFlags & io_flags::HasActivation)
-        ret += write_unit_reg(16, static_cast<u16>(io.activate), "activate");
+        ret += write_unit_reg(16, static_cast<u16>(io.activate), "output activate");
 
     return ret;
 }
