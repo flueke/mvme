@@ -1759,15 +1759,34 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
     else if (metaTag == vme_script::MetaTagMVLCTriggerIO)
     {
         auto widget = new mesytec::MVLCTriggerIOEditor(scriptConfig);
+
         m_d->m_context->addObjectWidget(
             widget, scriptConfig,
             scriptConfig->getId().toString() + "_" + vme_script::MetaTagMVLCTriggerIO);
     }
     else
     {
-        auto widget = new VMEScriptEditor(m_d->m_context, scriptConfig);
+        auto widget = new VMEScriptEditor(scriptConfig);
         widget->setWindowIcon(QIcon(QPixmap(":/vme_script.png")));
         m_d->m_context->addObjectWidget(widget, scriptConfig, scriptConfig->getId().toString());
+
+        connect(widget, &VMEScriptEditor::logMessage, m_d->m_context, &MVMEContext::logMessage);
+
+        connect(widget, &VMEScriptEditor::runScript,
+                this, [this] (const vme_script::VMEScript &script)
+        {
+            auto logger = [this] (const QString &msg) { m_d->m_context->logMessage("  " + msg); };
+            auto results = m_d->m_context->runScript(script, logger);
+
+            for (auto result: results)
+                logger(format_result(result));
+        });
+
+        connect(widget, &VMEScriptEditor::addApplicationWidget,
+                [this] (QWidget *widget)
+        {
+            this->addWidget(widget, widget->objectName());
+        });
     }
 }
 
