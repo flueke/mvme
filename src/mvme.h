@@ -97,6 +97,7 @@ public slots:
     bool createNewOrOpenExistingWorkspace();
 
     void updateWindowTitle();
+    void runScriptConfig(VMEScriptConfig *config);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;

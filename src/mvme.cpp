@@ -1763,6 +1763,9 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
         m_d->m_context->addObjectWidget(
             widget, scriptConfig,
             scriptConfig->getId().toString() + "_" + vme_script::MetaTagMVLCTriggerIO);
+
+        connect(widget, &mesytec::MVLCTriggerIOEditor::runScriptConfig,
+                this, &MVMEMainWindow::runScriptConfig);
     }
     else
     {
@@ -1854,6 +1857,11 @@ void MVMEMainWindow::runWorkspaceSettingsDialog()
     {
         m_d->m_context->reapplyWorkspaceSettings();
     }
+}
+
+void MVMEMainWindow::runScriptConfig(VMEScriptConfig *scriptConfig)
+{
+    doRunScriptConfigs({ scriptConfig });
 }
 
 void MVMEMainWindow::doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)
