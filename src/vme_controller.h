@@ -185,4 +185,9 @@ inline bool is_mvlc_controller(const VMEControllerType &type)
             || type == VMEControllerType::MVLC_USB);
 }
 
+inline bool is_mvlc_controller(const VMEController *ctrl)
+{
+    return ctrl ? is_mvlc_controller(ctrl->getType()) : false;
+}
+
 #endif // VMECONTROLLER_H
