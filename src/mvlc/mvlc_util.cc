@@ -52,6 +52,7 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::Invalid:
             case CommandType::SetBase:
             case CommandType::ResetBase:
+            case CommandType::MetaBlock:
                 break;
 
             case CommandType::Write:

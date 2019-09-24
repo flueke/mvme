@@ -150,6 +150,7 @@ namespace
                 case  CommandType::VMUSB_WriteRegister:
                 case CommandType::Blk2eSST64:
                 case CommandType::MVLC_WriteSpecial:
+                case CommandType::MetaBlock:
                     break;
 
                 case  CommandType::Invalid:
@@ -447,6 +448,7 @@ namespace
                 case  CommandType::VMUSB_WriteRegister:
                 case  CommandType::Blk2eSST64:
                 case  CommandType::MVLC_WriteSpecial:
+                case  CommandType::MetaBlock:
                     break;
 
                 case  CommandType::Invalid:
