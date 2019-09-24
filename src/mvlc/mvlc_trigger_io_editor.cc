@@ -16,14 +16,15 @@ using namespace mvlc::trigger_io_config;
 
 struct MVLCTriggerIOEditor::Private
 {
-    VMEScriptConfig *setupScript;
     TriggerIOConfig ioCfg;
+    VMEScriptConfig *setupScript;
 };
 
 MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
+    d->ioCfg = parse_trigger_io_script_text(setupScript->getScriptContents());
     d->setupScript = setupScript;
 
     auto scene = new TriggerIOGraphicsScene;
@@ -174,6 +175,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
                 ioCfg.l2.luts[unit].strobedOutputs = lutEditor->getStrobedOutputMask();
             }
 
+            regenerate();
         }
     });
 
@@ -212,8 +214,10 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
              // Copy settings to L0 and L3
              std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
              std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
+
+            regenerate();
          }
-     });
+    });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editNIM_Outputs,
                      [this] ()
@@ -287,6 +291,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
                      connections.begin(), count,
                      ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
              }
+
+            regenerate();
          }
     });
 
@@ -360,6 +366,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
                      connections.begin(), count,
                      ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset);
              }
+
+            regenerate();
         }
     });
 
@@ -387,6 +395,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
         if (dc == QDialog::Accepted)
         {
             ioCfg.l3 = dialog.getSettings();
+            regenerate();
         }
     });
 
@@ -400,6 +409,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
         if (dc == QDialog::Accepted)
         {
             ioCfg.l0 = dialog.getSettings();
+            regenerate();
         }
     });
 
@@ -410,13 +420,13 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
         QPainter::SmoothPixmapTransform |
         QPainter::HighQualityAntialiasing);
 
-    auto pb_generateScript = new QPushButton("Generate Script");
+    //auto pb_generateScript = new QPushButton("Generate Script");
     auto pb_parseScript = new QPushButton("Parse Script");
     auto pb_clearConfig = new QPushButton("Clear Config");
 
     auto bottomLayout = make_hbox();
     bottomLayout->addStretch(1);
-    bottomLayout->addWidget(pb_generateScript);
+    //bottomLayout->addWidget(pb_generateScript);
     bottomLayout->addWidget(pb_parseScript);
     bottomLayout->addWidget(pb_clearConfig);
 
@@ -425,6 +435,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
     logicLayout->addWidget(view, 1);
     logicLayout->addLayout(bottomLayout, 0);
 
+#if 0
     // FIXME: leak and also should be removed and replaced with a VMEScriptEditor
     auto te_script = new QTextEdit();
     te_script->resize(500, 900);
@@ -457,6 +468,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
 
         ioCfg = parse_trigger_io_script_text(text);
     });
+#endif
 
     QObject::connect(pb_clearConfig, &QPushButton::clicked,
                      view, [this] ()
@@ -465,11 +477,58 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
         ioCfg = TriggerIOConfig();
     });
 
-    auto mainLayout = make_hbox<2, 2>(this);
+    auto toolbar = make_toolbar();
+    toolbar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+
+    QAction *action = nullptr;
+
+    action = toolbar->addAction(
+        QIcon(":/script-run.png"), QSL("Run"),
+        this,  &MVLCTriggerIOEditor::runScript_);
+
+    action = toolbar->addAction(
+        QIcon(":/vme_script.png"), QSL("View/Edit Script"));
+
+    action = toolbar->addAction(
+        QIcon(":/document-open.png"), QSL("Load from file"));
+    action->setEnabled(false);
+
+    action = toolbar->addAction(
+        QIcon(":/document-save-as.png"), QSL("Save to file"));
+    action->setEnabled(false);
+
+    toolbar->addSeparator();
+
+    action = toolbar->addAction(
+        QIcon(":/document-new.png"), QSL("Clear setup"),
+        this, [this] ()
+        {
+            d->ioCfg = {};
+            regenerate();
+        });
+
+    action = toolbar->addAction(
+        QIcon(":/dialog-close.png"), QSL("Close"),
+        this, &MVLCTriggerIOEditor::close);
+
+    auto mainLayout = make_vbox<2, 2>(this);
+    mainLayout->addWidget(toolbar);
     mainLayout->addWidget(logicWidget);
 }
 
 MVLCTriggerIOEditor::~MVLCTriggerIOEditor() {
+}
+
+void MVLCTriggerIOEditor::runScript_()
+{
+    emit runScriptConfig(d->setupScript);
+}
+
+void MVLCTriggerIOEditor::regenerate()
+{
+    auto &ioCfg = d->ioCfg;
+    auto scriptText = generate_trigger_io_script_text(ioCfg);
+    d->setupScript->setScriptContents(scriptText);
 }
 
 } // end namespace mesytec

@@ -11,11 +11,15 @@ class MVLCTriggerIOEditor: public QWidget
 {
     Q_OBJECT
     signals:
-        void runScript(VMEScriptConfig *setupScript);
+        void runScriptConfig(VMEScriptConfig *setupScript);
 
     public:
         MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *parent = nullptr);
         ~MVLCTriggerIOEditor();
+
+    private slots:
+        void runScript_();
+        void regenerate();
 
     private:
         struct Private;
