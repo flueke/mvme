@@ -2,6 +2,7 @@
 #define __MVME_UTIL_BIHASH_H__
 
 #include <QHash>
+#include "typedefs.h"
 
 template<typename T1, typename T2>
 struct BiHash
