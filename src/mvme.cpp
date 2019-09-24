@@ -30,8 +30,9 @@
 #include "histo2d_widget.h"
 #include "listfile_browser.h"
 #include "mesytec_diagnostics.h"
-#include "mvlc/mvlc_vme_controller.h"
 #include "mvlc/mvlc_dev_gui.h"
+#include "mvlc/mvlc_trigger_io_editor.h"
+#include "mvlc/mvlc_vme_controller.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme_listfile.h"
@@ -366,6 +367,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
 
         connect(m_d->m_context, &MVMEContext::controllerStateChanged,
                 cw, &VMEConfigTreeWidget::setVMEControllerState);
+
+        connect(m_d->m_context, &MVMEContext::vmeControllerSet,
+                cw, &VMEConfigTreeWidget::setVMEController);
 
         connect(cw, &VMEConfigTreeWidget::logMessage,
                 m_d->m_context, &MVMEContext::logMessage);
@@ -1751,6 +1755,13 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
     if (m_d->m_context->hasObjectWidget(scriptConfig))
     {
         m_d->m_context->activateObjectWidget(scriptConfig);
+    }
+    else if (metaTag == vme_script::MetaTagMVLCTriggerIO)
+    {
+        auto widget = new mesytec::MVLCTriggerIOEditor(scriptConfig);
+        m_d->m_context->addObjectWidget(
+            widget, scriptConfig,
+            scriptConfig->getId().toString() + "_" + vme_script::MetaTagMVLCTriggerIO);
     }
     else
     {

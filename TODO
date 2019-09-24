@@ -2,6 +2,19 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+VME Script and Meta Blocks
+--------------------------
+
+* Think the vme script parsing in combination with YAML meta blocks
+  through. Right now empty lines are removed and all lines are trimmed of
+  whitespace. Will this affect YAML contents? Especially the removal of empty
+  lines might cause problems.
+
+* YAML parse errors will report wrong line numbers. These need to be fixed up
+  before being displayed to the user.
+
+--------------------------
+
 * hang at exit after starting DAQ with a bug in VME Script which led to the error message: multiple block reads in module readout commands
 
 Thread 1 "mvme" received signal SIGINT, Interrupt.

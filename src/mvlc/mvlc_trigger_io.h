@@ -161,7 +161,9 @@ struct Level3
     std::array<StackStart, StackStartCount> stackStart = {};
     std::array<MasterTrigger, MasterTriggersCount> masterTriggers = {};
     std::array<Counter, CountersCount> counters = {};
-    std::array<IO, NIM_IO_Count> ioNIM = {}; // FIXME: get rid of this. it's the same as in level0
+    // FIXME: maybe get rid of this. it's the same as in level0. The logic
+    // keeps it in sync.
+    std::array<IO, NIM_IO_Count> ioNIM = {};
     std::array<IO, ECL_OUT_Count> ioECL = {};
 };
 

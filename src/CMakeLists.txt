@@ -314,6 +314,10 @@ if (MVME_ENABLE_MVLC)
         mvlc_listfile_worker.cc
         mvlc_readout_worker.cc
         mvlc_stream_worker.cc
+
+        mvlc/mvlc_trigger_io_editor.cc
+        mvlc/mvlc_trigger_io_editor_p.cc
+        mvlc/mvlc_trigger_io_2.cc
     )
     target_link_libraries(libmvme libmvme_mvlc)
 
@@ -323,7 +327,7 @@ if (MVME_ENABLE_MVLC)
     add_executable(dev_mvlc_gen_logic_script dev_mvlc_gen_logic_script.cc)
     target_link_libraries(dev_mvlc_gen_logic_script libmvme)
 
-    add_executable(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc dev_mvlc_trigger_gui.cc)
+    add_executable(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
     target_link_libraries(dev_mvlc_trigger_gui libmvme)
     install(TARGETS dev_mvlc_trigger_gui DESTINATION .)
 
