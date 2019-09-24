@@ -24,6 +24,7 @@
 #include <QWidget>
 #include <QMap>
 #include "globals.h"
+#include "vme_controller.h"
 
 class QLineEdit;
 class QTreeWidget;
@@ -67,6 +68,7 @@ class VMEConfigTreeWidget: public QWidget
         void setWorkspaceDirectory(const QString &dirname);
         void setDAQState(const DAQState &daqState);
         void setVMEControllerState(const ControllerState &state);
+        void setVMEController(const VMEController *ctrl);
 
     private slots:
         void editEventImpl();
@@ -117,6 +119,7 @@ class VMEConfigTreeWidget: public QWidget
         QString m_workspaceDirectory;
         DAQState m_daqState = DAQState::Idle;
         ControllerState m_vmeControllerState = ControllerState::Disconnected;
+        const VMEController *m_vmeController = nullptr;
 
         QTreeWidget *m_tree;
         // Maps config objects to tree nodes

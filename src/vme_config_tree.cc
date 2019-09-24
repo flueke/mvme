@@ -501,6 +501,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     auto node = m_tree->itemAt(pos);
     auto parent = node ? node->parent() : nullptr;
     auto obj = node ? Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer)) : nullptr;
+    auto vmeScript = qobject_cast<VMEScriptConfig *>(obj);
     bool isIdle = (m_daqState == DAQState::Idle);
 
     QMenu menu;
@@ -508,10 +509,20 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     // Script nodes
     //
-    if (qobject_cast<VMEScriptConfig *>(obj))
+    if (vmeScript)
     {
         if (isIdle)
             menu.addAction(QSL("Run Script"), this, &VMEConfigTreeWidget::runScripts);
+
+        if (is_mvlc_controller(m_vmeController))
+        {
+
+            menu.addAction(
+                QSL("Edit with MVLC Trigger/IO GUI"), this, [this, vmeScript] ()
+                {
+                    emit editVMEScript(vmeScript, vme_script::MetaTagMVLCTriggerIO);
+                });
+        }
     }
 
     //
@@ -1021,6 +1032,11 @@ void VMEConfigTreeWidget::setVMEControllerState(const ControllerState &state)
 {
     m_vmeControllerState = state;
     action_dumpVMEControllerRegisters->setEnabled(state == ControllerState::Connected);
+}
+
+void VMEConfigTreeWidget::setVMEController(const VMEController *ctrl)
+{
+    m_vmeController = ctrl;
 }
 
 void VMEConfigTreeWidget::updateConfigLabel()
