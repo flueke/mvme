@@ -994,6 +994,8 @@ TriggerIOConfig build_config_from_writes(const LevelWrites &levelWrites)
         {
             unsigned unitIndex = kv.index() + Level3::CountersOffset;
             auto &unit = kv.value();
+
+            ioCfg.l3.connections[unitIndex] = writes[unitIndex][0x80];
         }
 
         for (const auto &kv: ioCfg.l3.ioNIM | indexed(0))
