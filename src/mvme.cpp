@@ -1767,7 +1767,6 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
     else
     {
         auto widget = new VMEScriptEditor(scriptConfig);
-        widget->setWindowIcon(QIcon(QPixmap(":/vme_script.png")));
         m_d->m_context->addObjectWidget(widget, scriptConfig, scriptConfig->getId().toString());
 
         connect(widget, &VMEScriptEditor::logMessage, m_d->m_context, &MVMEContext::logMessage);
