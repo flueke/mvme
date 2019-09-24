@@ -1746,7 +1746,7 @@ void MVMEMainWindow::updateActions()
     m_d->actionCloseListfile->setEnabled(isDAQIdle);
 }
 
-void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig)
+void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString &metaTag)
 {
     if (m_d->m_context->hasObjectWidget(scriptConfig))
     {

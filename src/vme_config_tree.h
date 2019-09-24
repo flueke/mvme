@@ -45,7 +45,7 @@ class VMEConfigTreeWidget: public QWidget
     signals:
         void showDiagnostics(ModuleConfig *cfg);
         void activateObjectWidget(QObject *object);
-        void editVMEScript(VMEScriptConfig *vmeScript);
+        void editVMEScript(VMEScriptConfig *vmeScript, const QString &metaTag = {});
         void addEvent();
         void editEvent(EventConfig *eventConfig);
         void runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs);

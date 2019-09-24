@@ -47,6 +47,7 @@ struct PreparsedLine
 
 static const QString MetaBlockBegin = "meta_block_begin";
 static const QString MetaBlockEnd = "meta_block_end";
+static const QString MetaTagMVLCTriggerIO = "mvlc_trigger_io";
 
 struct MetaBlock
 {
@@ -55,8 +56,18 @@ struct MetaBlock
     PreparsedLine blockBegin;
 
     // The contents of the meta block. Does neither contain the MetaBlockBegin
-    // not the MetaBlockEnd lines.
+    // nor the MetaBlockEnd lines.
     QVector<PreparsedLine> contents;
+
+    // Returns the first argument after the MetaBlockBegin keyword. This should
+    // be used as a tag type to identify which kind of meta block this is.
+    // The UI will use this to determine if a specialized editor should be
+    // launched when editing the script. Subsystems will use this to locate
+    // their meta block.
+    QString tag() const
+    {
+        return blockBegin.parts.value(1);
+    }
 };
 
 enum class CommandType

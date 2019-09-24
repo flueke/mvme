@@ -131,7 +131,7 @@ private slots:
 
     void updateActions();
 
-    void editVMEScript(VMEScriptConfig *vmeScript);
+    void editVMEScript(VMEScriptConfig *vmeScript, const QString &metaTag = {});
     void runAddVMEEventDialog();
     void runEditVMEEventDialog(EventConfig *eventConfig);
     void runVMEControllerSettingsDialog();
