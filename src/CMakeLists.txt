@@ -319,8 +319,13 @@ if (MVME_ENABLE_MVLC)
         mvlc/mvlc_trigger_io_editor_p.cc
         mvlc/mvlc_trigger_io_2.cc
     )
+
+    # Note: the BUILD_INTERFACE line does not work on older CMake versions
+    # (tested with 3.7.2).
     target_include_directories(libmvme
-        PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>)
+        PRIVATE ${MVME_YAML_DIR}/include)
+        #PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>)
+
     target_link_libraries(libmvme libmvme_mvlc yaml-cpp)
 
     add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
