@@ -46,6 +46,9 @@ class VMEScriptEditor: public MVMEWidget
 
         virtual bool event(QEvent *event) override;
 
+    public slots:
+        void reloadFromScriptConfig() { revert(); }
+
     private:
         void updateWindowTitle();
 

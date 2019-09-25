@@ -216,6 +216,7 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
         else
         {
             auto widget = make_vme_script_ref_widget();
+            widget->setAttribute(Qt::WA_DeleteOnClose);
             emit addApplicationWidget(widget);
         }
     });

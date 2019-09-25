@@ -7,6 +7,7 @@
 
 #include "util/algo.h"
 #include "util/qt_container.h"
+#include "vme_script_editor.h"
 
 namespace mesytec
 {
@@ -17,15 +18,20 @@ using namespace mvlc::trigger_io_config;
 struct MVLCTriggerIOEditor::Private
 {
     TriggerIOConfig ioCfg;
-    VMEScriptConfig *setupScript;
+    VMEScriptConfig *scriptConfig;
+    QString initialScriptContents;
+    // TODO: use a CodeEditor, not the VMEScriptEditor. The latter is too
+    // specialized and not really what we want in here.
+    VMEScriptEditor *scriptEditor = nullptr;
 };
 
-MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *parent)
+MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
-    d->ioCfg = parse_trigger_io_script_text(setupScript->getScriptContents());
-    d->setupScript = setupScript;
+    d->ioCfg = parse_trigger_io_script_text(scriptConfig->getScriptContents());
+    d->scriptConfig = scriptConfig;
+    d->initialScriptContents = scriptConfig->getScriptContents();
 
     auto scene = new TriggerIOGraphicsScene;
 
@@ -487,9 +493,6 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
         this,  &MVLCTriggerIOEditor::runScript_);
 
     action = toolbar->addAction(
-        QIcon(":/vme_script.png"), QSL("View/Edit Script"));
-
-    action = toolbar->addAction(
         QIcon(":/document-open.png"), QSL("Load from file"));
     action->setEnabled(false);
 
@@ -500,7 +503,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
     toolbar->addSeparator();
 
     action = toolbar->addAction(
-        QIcon(":/document-new.png"), QSL("Clear setup"),
+        QIcon(":/document-new.png"), QSL("Clear Setup"),
         this, [this] ()
         {
             d->ioCfg = {};
@@ -508,12 +511,66 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *
         });
 
     action = toolbar->addAction(
-        QIcon(":/dialog-close.png"), QSL("Close"),
+        QIcon(":/document-revert.png"), QSL("Revert to original state"),
+        this, [this] ()
+        {
+            d->scriptConfig->setScriptContents(d->initialScriptContents);
+            d->scriptConfig->setModified(false);
+            d->ioCfg = parse_trigger_io_script_text(d->scriptConfig->getScriptContents());
+        });
+
+    action = toolbar->addAction(
+        QIcon(":/dialog-close.png"), QSL("Close window"),
         this, &MVLCTriggerIOEditor::close);
+
+    action = toolbar->addAction(
+        QIcon(":/vme_script.png"), QSL("View Script (readonly!)"),
+        this, [this] ()
+        {
+            // FIXME: pending changes from inside the editor are  not
+            // immediately propagated to the VMEScriptConfig! This is also not
+            // possible at all times as the script might be in an unparseable
+            // state while the user is typing a command.
+            // This means we cannot just replace our script text with the one
+            // in the editor.
+            // How best to synchronize?
+
+            auto widget = new VMEScriptEditor(d->scriptConfig);
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+            d->scriptEditor = widget;
+
+            connect(widget, &QObject::destroyed,
+                    this, [this] () { d->scriptEditor = nullptr; });
+
+            connect(widget, &VMEScriptEditor::logMessage,
+                    this, &MVLCTriggerIOEditor::logMessage);
+
+            // Note: VMEScriptEditor has a runScript() signal which passes a
+            // parsed VMEScript. The reason is that the script text in the
+            // editor might be modified but the modifications have not been
+            // applied to the VMEScriptConfig that's being edited.
+            // This design is not great and causes problems in a few places.
+            // In this editor here the VMEScriptConfig is directly modified.
+            // Changes can be reverted by restoring the original script text.
+            // This also means we can just run the VMEScriptConfig instead of
+            // the parsed VMEScript. We ignore the argument the VMEScriptEditor
+            // passes in its runScript() signal.
+            connect(widget, &VMEScriptEditor::runScript,
+                    this, [this] () { emit runScriptConfig(d->scriptConfig); });
+
+            // Update the editors script text on each change.
+            connect(d->scriptConfig, &VMEScriptConfig::modified,
+                    widget, &VMEScriptEditor::reloadFromScriptConfig);
+
+            widget->show();
+        });
 
     auto mainLayout = make_vbox<2, 2>(this);
     mainLayout->addWidget(toolbar);
     mainLayout->addWidget(logicWidget);
+
+    setWindowTitle(QSL("MVLC Trigger & I/O Editor (")
+                   + d->scriptConfig->getVerboseTitle() + ")");
 }
 
 MVLCTriggerIOEditor::~MVLCTriggerIOEditor() {
@@ -521,14 +578,14 @@ MVLCTriggerIOEditor::~MVLCTriggerIOEditor() {
 
 void MVLCTriggerIOEditor::runScript_()
 {
-    emit runScriptConfig(d->setupScript);
+    emit runScriptConfig(d->scriptConfig);
 }
 
 void MVLCTriggerIOEditor::regenerate()
 {
     auto &ioCfg = d->ioCfg;
     auto scriptText = generate_trigger_io_script_text(ioCfg);
-    d->setupScript->setScriptContents(scriptText);
+    d->scriptConfig->setScriptContents(scriptText);
 }
 
 } // end namespace mesytec

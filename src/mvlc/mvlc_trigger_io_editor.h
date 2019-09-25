@@ -11,7 +11,9 @@ class MVLCTriggerIOEditor: public QWidget
 {
     Q_OBJECT
     signals:
+        void logMessage(const QString &msg);
         void runScriptConfig(VMEScriptConfig *setupScript);
+        void addApplicationWidget(QWidget *widget);
 
     public:
         MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *parent = nullptr);
