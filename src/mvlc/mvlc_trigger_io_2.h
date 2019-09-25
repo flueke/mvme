@@ -80,6 +80,9 @@ struct Level0: public trigger_io::Level0
 
     QStringList unitNames;
 
+    // TODO: store default names in here. Otherwise they have to be generated
+    // in multiple places.
+
     Level0();
 };
 
@@ -142,8 +145,19 @@ struct TriggerIOConfig
     Level3 l3;
 };
 
+namespace gen_flags
+{
+    using Flag = u8;
+    static const Flag Default = 0u;
+    static const Flag MetaIncludeDefaultUnitNames = 1u << 0;
+};
+
 QString lookup_name(const TriggerIOConfig &cfg, const UnitAddress &addr);
-QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg);
+
+QString generate_trigger_io_script_text(
+    const TriggerIOConfig &ioCfg,
+    const gen_flags::Flag &flags = gen_flags::MetaIncludeDefaultUnitNames);
+
 TriggerIOConfig parse_trigger_io_script_text(const QString &text);
 
 } // end namespace mvlc

@@ -152,7 +152,9 @@ struct Level3
     static const size_t CountersCount = 4;
     static const size_t CountersOffset = 8;
 
-    static const size_t UtilityUnitCount = StackStartCount + MasterTriggersCount + CountersCount;
+    static const size_t UtilityUnitCount =
+        StackStartCount + MasterTriggersCount + CountersCount;
+
     static const size_t UnitCount = 33;
 
     static const size_t NIM_IO_Unit_Offset = 16;

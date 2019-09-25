@@ -4,6 +4,7 @@
 #include <boost/variant.hpp>
 #include <QMap>
 #include <QVector>
+#include <yaml-cpp/yaml.h>
 
 #include "vme_script.h"
 
@@ -22,6 +23,8 @@ LUT::LUT()
     outputNames.fill({});
 }
 
+static const QString UnitNotAvailable = "N/A";
+
 const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNames =
 {
     "timer0",
@@ -38,8 +41,8 @@ const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNa
     "slave_trigger3",
     "stack_busy0",
     "stack_busy1",
-    "N/A",
-    "N/A",
+    UnitNotAvailable,
+    UnitNotAvailable,
     "NIM0",
     "NIM1",
     "NIM2",
@@ -181,10 +184,10 @@ const std::array<QString, trigger_io::Level3::UnitCount> Level3::DefaultUnitName
     "Counter1",
     "Counter2",
     "Counter3",
-    "N/A",
-    "N/A",
-    "N/A",
-    "N/A",
+    UnitNotAvailable,
+    UnitNotAvailable,
+    UnitNotAvailable,
+    UnitNotAvailable,
     "NIM0",
     "NIM1",
     "NIM2",
@@ -769,6 +772,150 @@ class ScriptGenPartVisitor: public boost::static_visitor<>
         QStringList &m_lineBuffer;
 };
 
+static QString generate_meta_block(
+    const TriggerIOConfig &ioCfg,
+    const gen_flags::Flag &flags)
+{
+    // unit number -> unit name
+    using NameMap = std::map<unsigned, std::string>;
+
+    YAML::Emitter out;
+    out << YAML::BeginMap;
+    out << YAML::Key << "names" << YAML::Value << YAML::BeginMap;
+
+    // Level0 - flat list of unitnames
+    {
+        NameMap m;
+
+        for (const auto &kv: ioCfg.l0.DefaultUnitNames | indexed(0))
+        {
+            const auto &unitIndex = kv.index();
+            const auto &defaultName = kv.value();
+            const auto &unitName = ioCfg.l0.unitNames.value(unitIndex);
+
+            if (defaultName == UnitNotAvailable)
+                continue;
+
+            if (unitName != defaultName ||
+                (flags & gen_flags::MetaIncludeDefaultUnitNames))
+            {
+                m[unitIndex] = unitName.toStdString();
+            }
+        }
+
+        if (!m.empty())
+            out << YAML::Key << "level0" << YAML::Value << m;
+    }
+
+    // Level1 - per lut output names
+    {
+        // Map structure is  [lutIndex][outputIndex] = outputName
+
+        std::map<unsigned, NameMap> lutMaps;
+
+        for (const auto &kv: ioCfg.l1.luts | indexed(0))
+        {
+            const auto &unitIndex = kv.index();
+            const auto &lut = kv.value();
+
+            NameMap m;
+
+            for (const auto &kv2: lut.outputNames | indexed(0))
+            {
+                const auto &outputIndex = kv2.index();
+                const auto &outputName = kv2.value();
+                const auto DefaultOutputName = QString("L1.LUT%1.OUT%2")
+                    .arg(unitIndex).arg(outputIndex);
+
+                if (outputName != DefaultOutputName ||
+                    (flags & gen_flags::MetaIncludeDefaultUnitNames))
+                {
+                    m[outputIndex] = outputName.toStdString();
+                }
+            }
+
+            if (!m.empty())
+                lutMaps[unitIndex] = m;
+        }
+
+        if (!lutMaps.empty())
+            out << YAML::Key << "level1" << YAML::Value << lutMaps;
+    }
+
+    // Level2 - per lut output names
+    {
+        // Map structure is  [lutIndex][outputIndex] = outputName
+
+        std::map<unsigned, NameMap> lutMaps;
+
+        for (const auto &kv: ioCfg.l2.luts | indexed(0))
+        {
+            const auto &unitIndex = kv.index();
+            const auto &lut = kv.value();
+
+            NameMap m;
+
+            for (const auto &kv2: lut.outputNames | indexed(0))
+            {
+                const auto &outputIndex = kv2.index();
+                const auto &outputName = kv2.value();
+                const auto DefaultOutputName = QString("L2.LUT%1.OUT%2")
+                    .arg(unitIndex).arg(outputIndex);
+
+                if (outputName != DefaultOutputName ||
+                    (flags & gen_flags::MetaIncludeDefaultUnitNames))
+                {
+                    m[outputIndex] = outputName.toStdString();
+                }
+            }
+
+            if (!m.empty())
+                lutMaps[unitIndex] = m;
+        }
+
+        if (!lutMaps.empty())
+            out << YAML::Key << "level2" << YAML::Value << lutMaps;
+    }
+
+    // Level3 - flat list of unitnames
+    {
+        NameMap m;
+
+        for (const auto &kv: ioCfg.l3.DefaultUnitNames | indexed(0))
+        {
+            const size_t unitIndex = kv.index();
+
+            // Skip NIM I/Os as these are included in level0
+            if (Level3::NIM_IO_Unit_Offset <= unitIndex
+                && unitIndex < Level3::NIM_IO_Unit_Offset + trigger_io::NIM_IO_Count)
+            {
+                continue;
+            }
+
+            const auto &defaultName = kv.value();
+            const auto &unitName = ioCfg.l3.unitNames.value(unitIndex);
+
+            if (defaultName == UnitNotAvailable)
+                continue;
+
+            if (unitName != defaultName ||
+                (flags & gen_flags::MetaIncludeDefaultUnitNames))
+            {
+                m[unitIndex] = unitName.toStdString();
+            }
+        }
+
+        if (!m.empty())
+            out << YAML::Key << "level3" << YAML::Value << m;
+    }
+
+    out << YAML::EndMap;
+
+    //out << rootMap;
+
+    return QString(out.c_str());
+}
+
 static const u32 MVLC_VME_InterfaceAddress = 0xffff0000u;
 
 /* First iteration: generate vme writes to setup all of the IO/trigger units
@@ -777,7 +924,9 @@ static const u32 MVLC_VME_InterfaceAddress = 0xffff0000u;
  * Also: create the reverse function which takes a list of VME writes and
  * recreates the corresponding TriggerIOConfig structure.
  */
-QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg)
+QString generate_trigger_io_script_text(
+    const TriggerIOConfig &ioCfg,
+    const gen_flags::Flag &flags)
 {
     QStringList lines =
     {
@@ -785,13 +934,25 @@ QString generate_trigger_io_script_text(const TriggerIOConfig &ioCfg)
         "#       MVLC Trigger I/O  Setup        #",
         "########################################",
         "",
+    };
+
+    lines.append(
+    {
+        vme_script::MetaBlockBegin + " " + vme_script::MetaTagMVLCTriggerIO,
+        generate_meta_block(ioCfg, flags),
+        vme_script::MetaBlockEnd
+    });
+
+    lines.append(
+    {
+        "",
         "# Internal MVLC VME interface address",
         QString("setbase 0x%1")
             .arg(MVLC_VME_InterfaceAddress, 8, 16, QLatin1Char('0'))
-    };
+    });
+
 
     ScriptGenPartVisitor visitor(lines);
-
     auto parts = generate_trigger_io_script(ioCfg);
 
     for (const auto &part: parts)
