@@ -1216,7 +1216,26 @@ TriggerIOConfig parse_trigger_io_script_text(const QString &text)
         }
     }
 
-    return build_config_from_writes(levelWrites);
+    auto ioCfg = build_config_from_writes(levelWrites);
+
+    // meta block handling
+    {
+        auto it = std::find_if(
+            commands.begin(), commands.end(),
+            [] (const vme_script::Command &cmd)
+            {
+                return cmd.type == vme_script::CommandType::MetaBlock &&
+                    cmd.metaBlock.tag() == vme_script::MetaTagMVLCTriggerIO;
+            });
+
+        if (it != commands.end())
+        {
+            // XXX: leftoff here
+            //parse_mvlc_meta_block(*it, ioCfg);
+        }
+    }
+
+    return ioCfg;
 }
 
 } // end namespace mvlc
