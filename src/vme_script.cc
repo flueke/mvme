@@ -952,7 +952,8 @@ QString to_string(const Command &cmd)
 
         case CommandType::MetaBlock:
             {
-                buffer = QString("meta_block of size %1").arg(cmd.metaBlock.contents.size());
+                buffer = QString("meta_block with %1 lines")
+                    .arg(cmd.metaBlock.contents.size());
             } break;
     }
 

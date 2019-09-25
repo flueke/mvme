@@ -1870,7 +1870,9 @@ void MVMEMainWindow::doRunScriptConfigs(const QVector<VMEScriptConfig *> &script
     {
         auto moduleConfig = qobject_cast<ModuleConfig *>(scriptConfig->parent());
 
-        m_d->m_context->logMessage(QSL("Running script \"") + scriptConfig->getVerboseTitle() + "\"");
+        m_d->m_context->logMessage(
+            QSL("Running script \"")
+            + scriptConfig->getVerboseTitle() + "\"");
 
         try
         {
