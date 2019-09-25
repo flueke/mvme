@@ -111,6 +111,16 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann" DESTINATION include/mvme)
 install(FILES "${CMAKE_SOURCE_DIR}/3rdparty/Mustache/mustache.hpp" DESTINATION include/mvme/Mustache)
 
+if (MVME_ENABLE_MVLC)
+    option(YAML_CPP_BUILD_TESTS "Enable testing" OFF)
+    option(YAML_CPP_BUILD_TOOLS "Enable parse tools" OFF)
+    option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
+    option(YAML_CPP_INSTALL "Enable generation of install target" ON)
+    option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
+    set(MVME_YAML_CPP_DIR "${CMAKE_SOURCE_DIR}/3rdparty/yaml-cpp")
+    add_subdirectory(${MVME_YAML_CPP_DIR})
+endif(MVME_ENABLE_MVLC)
+
 # quazip
 find_path(QUAZIP_INCLUDE_DIR
     NAMES quazip.h

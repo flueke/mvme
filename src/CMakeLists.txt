@@ -319,7 +319,9 @@ if (MVME_ENABLE_MVLC)
         mvlc/mvlc_trigger_io_editor_p.cc
         mvlc/mvlc_trigger_io_2.cc
     )
-    target_link_libraries(libmvme libmvme_mvlc)
+    target_include_directories(libmvme
+        PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>)
+    target_link_libraries(libmvme libmvme_mvlc yaml-cpp)
 
     add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
     target_link_libraries(dev_mvlc_daq_init libmvme)
