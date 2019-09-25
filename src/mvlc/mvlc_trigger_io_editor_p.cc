@@ -1,5 +1,6 @@
 #include "mvlc/mvlc_trigger_io_editor_p.h"
 
+#include <cassert>
 #include <cmath>
 #include <QBoxLayout>
 #include <QGraphicsRectItem>
