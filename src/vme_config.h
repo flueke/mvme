@@ -293,9 +293,16 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         QMap<QString, QList<VMEScriptConfig *>> vmeScriptLists;
 
         // vme controller
-        void setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
+        void setVMEController(VMEControllerType type,
+                              const QVariantMap &settings = QVariantMap());
         VMEControllerType getControllerType() const { return m_controllerType; }
         QVariantMap getControllerSettings() const { return m_controllerSettings; }
+
+        // Auxiliary devices (e.g. MVLC trigger I/O, ISEG high voltage supply,
+        // mesytec (NIM) RC bus <-> VME module interface, ...)
+        void addAuxDevice(ConfigObject *auxDev);
+        bool removeAuxDevice(ConfigObject *auxDev);
+        QVector<ConfigObject *> getAuxDevices() const;
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
