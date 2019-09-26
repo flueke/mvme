@@ -421,62 +421,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         QPainter::SmoothPixmapTransform |
         QPainter::HighQualityAntialiasing);
 
-    //auto pb_generateScript = new QPushButton("Generate Script");
-    auto pb_parseScript = new QPushButton("Parse Script");
     auto pb_clearConfig = new QPushButton("Clear Config");
-
-    auto bottomLayout = make_hbox();
-    bottomLayout->addStretch(1);
-    //bottomLayout->addWidget(pb_generateScript);
-    bottomLayout->addWidget(pb_parseScript);
-    bottomLayout->addWidget(pb_clearConfig);
 
     auto logicWidget = new QWidget;
     auto logicLayout = make_vbox<0, 0>(logicWidget);
     logicLayout->addWidget(view, 1);
-    logicLayout->addLayout(bottomLayout, 0);
-
-#if 0
-    // FIXME: leak and also should be removed and replaced with a VMEScriptEditor
-    auto te_script = new QTextEdit();
-    te_script->resize(500, 900);
-
-    {
-        auto font = QFont("Monospace", 8);
-        font.setStyleHint(QFont::Monospace);
-        font.setFixedPitch(true);
-        te_script->setFont(font);
-    }
-
-    QObject::connect(pb_generateScript, &QPushButton::clicked,
-                     view, [this, te_script] ()
-    {
-        auto &ioCfg = d->ioCfg;
-        auto script = generate_trigger_io_script_text(ioCfg);
-
-        int scrollbarPosition = te_script->verticalScrollBar()->sliderPosition();
-        te_script->setText(script);
-        te_script->verticalScrollBar()->setSliderPosition(scrollbarPosition);
-        te_script->show();
-        te_script->raise();
-    });
-
-    QObject::connect(pb_parseScript, &QPushButton::clicked,
-                     view, [this, te_script] ()
-    {
-        auto &ioCfg = d->ioCfg;
-        auto text = te_script->toPlainText();
-
-        ioCfg = parse_trigger_io_script_text(text);
-    });
-#endif
-
-    QObject::connect(pb_clearConfig, &QPushButton::clicked,
-                     view, [this] ()
-    {
-        auto &ioCfg = d->ioCfg;
-        ioCfg = TriggerIOConfig();
-    });
 
     auto toolbar = make_toolbar();
     toolbar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
@@ -517,6 +466,15 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
     action = toolbar->addAction(
         QIcon(":/dialog-close.png"), QSL("Close window"),
         this, &MVLCTriggerIOEditor::close);
+
+    toolbar->addSeparator();
+
+    action = toolbar->addAction(
+        QIcon(":/arrow-circle-double.png"), QSL("Reparse from script"),
+        this, [this] ()
+        {
+            d->ioCfg = parse_trigger_io_script_text(d->scriptConfig->getScriptContents());
+        });
 
     action = toolbar->addAction(
         QIcon(":/vme_script.png"), QSL("View Script (readonly!)"),
@@ -568,8 +526,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                    + d->scriptConfig->getVerboseTitle() + ")");
 }
 
-MVLCTriggerIOEditor::~MVLCTriggerIOEditor() {
-}
+MVLCTriggerIOEditor::~MVLCTriggerIOEditor() { }
 
 void MVLCTriggerIOEditor::runScript_()
 {
