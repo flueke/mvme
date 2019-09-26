@@ -448,6 +448,12 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vm
         }
 
         nameEdit->setText(name);
+
+        if (mm.vmeAddress != 0u)
+        {
+            addressEdit->setText(QString("0x%1")
+                                 .arg(mm.vmeAddress, 8, 16, QChar('0')));
+        }
     };
 
     connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
