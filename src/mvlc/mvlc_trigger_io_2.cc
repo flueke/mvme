@@ -1031,6 +1031,100 @@ LUT parse_lut(const RegisterWrites &writes)
     return lut;
 }
 
+void parse_mvlc_meta_block(const vme_script::MetaBlock &meta, TriggerIOConfig &ioCfg)
+{
+    auto y_to_qstr = [](const YAML::Node &y) -> QString
+    {
+        assert(y);
+        return QString::fromStdString(y.as<std::string>());
+    };
+
+    assert(meta.tag() == vme_script::MetaTagMVLCTriggerIO);
+
+    YAML::Node yRoot = YAML::Load(meta.textContents.toStdString());
+
+    if (!yRoot || !yRoot["names"]) return;
+
+    const auto &yLevelNames = yRoot["names"];
+
+    // Level0 - flat list of unitnames
+    if (const auto &yNames = yLevelNames["level0"])
+    {
+        for (const auto &kv: ioCfg.l0.unitNames | indexed(0))
+        {
+            const auto &unitIndex = kv.index();
+            auto &unitName = kv.value();
+
+            if (yNames[unitIndex])
+                unitName = y_to_qstr(yNames[unitIndex]);
+        }
+    }
+
+    // Level1 - per lut output names
+    if (const auto &yUnitMaps = yLevelNames["level1"])
+    {
+        for (const auto &kv: ioCfg.l1.luts | indexed(0))
+        {
+            const auto &unitIndex = kv.index();
+            auto &lut = kv.value();
+
+            if (const auto &yNames = yUnitMaps[unitIndex])
+            {
+                for (const auto &kv2: lut.outputNames | indexed(0))
+                {
+                    const auto &outputIndex = kv2.index();
+                    auto &outputName = kv2.value();
+
+                    if (yNames[outputIndex])
+                        outputName = y_to_qstr(yNames[outputIndex]);
+                }
+            }
+        }
+    }
+
+    // Level2 - per lut output names
+    if (const auto &yUnitMaps = yLevelNames["level2"])
+    {
+        for (const auto &kv: ioCfg.l2.luts | indexed(0))
+        {
+            const auto &unitIndex = kv.index();
+            auto &lut = kv.value();
+
+            if (const auto &yNames = yUnitMaps[unitIndex])
+            {
+                for (const auto &kv2: lut.outputNames | indexed(0))
+                {
+                    const auto &outputIndex = kv2.index();
+                    auto &outputName = kv2.value();
+
+                    if (yNames[outputIndex])
+                        outputName = y_to_qstr(yNames[outputIndex]);
+                }
+            }
+        }
+    }
+
+    // Level3 - flat list of unitnames
+    if (const auto &yNames = yLevelNames["level3"])
+    {
+        for (const auto &kv: ioCfg.l3.unitNames | indexed(0))
+        {
+            const size_t &unitIndex = kv.index();
+            auto &unitName = kv.value();
+
+            // Skip NIM I/Os as these are included in level0
+            if (Level3::NIM_IO_Unit_Offset <= unitIndex
+                && unitIndex < Level3::NIM_IO_Unit_Offset + trigger_io::NIM_IO_Count)
+            {
+                continue;
+            }
+
+            if (yNames[unitIndex])
+                unitName = y_to_qstr(yNames[unitIndex]);
+        }
+    }
+}
+
 TriggerIOConfig build_config_from_writes(const LevelWrites &levelWrites)
 {
     TriggerIOConfig ioCfg;
@@ -1218,21 +1312,10 @@ TriggerIOConfig parse_trigger_io_script_text(const QString &text)
     auto ioCfg = build_config_from_writes(levelWrites);
 
     // meta block handling
-    {
-        auto it = std::find_if(
-            commands.begin(), commands.end(),
-            [] (const vme_script::Command &cmd)
-            {
-                return cmd.type == vme_script::CommandType::MetaBlock &&
-                    cmd.metaBlock.tag() == vme_script::MetaTagMVLCTriggerIO;
-            });
+    auto metaCmd = get_first_meta_block(commands);
 
-        if (it != commands.end())
-        {
-            // XXX: leftoff here
-            //parse_mvlc_meta_block(*it, ioCfg);
-        }
-    }
+    if (metaCmd.metaBlock.tag() == vme_script::MetaTagMVLCTriggerIO)
+        parse_mvlc_meta_block(metaCmd.metaBlock, ioCfg);
 
     return ioCfg;
 }
