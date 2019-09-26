@@ -40,8 +40,8 @@ namespace vme_script
 
 struct PreparsedLine
 {
-    QString trimmed;    // The original line trimmed of whitespace
-    QStringList parts;  // The trimmed line split at word boundaries
+    QString line;       // A copy of the original line
+    QStringList parts;  // The line trimmed of whitespace and split at word boundaries
     u32 lineNumber;     // The original line number
 };
 
@@ -55,9 +55,13 @@ struct MetaBlock
     // additional arguments if desired.
     PreparsedLine blockBegin;
 
-    // The contents of the meta block. Does neither contain the MetaBlockBegin
-    // nor the MetaBlockEnd lines.
-    QVector<PreparsedLine> contents;
+    // The contents of the meta block in the form of PreparsedLine structures.
+    // Does neither contain the MetaBlockBegin nor the MetaBlockEnd lines.
+    QVector<PreparsedLine> preparsedLines;
+
+    // The original block contents as a string.
+    // Note: completely empty lines are not present anymore in this variable.
+    QString textContents;
 
     // Returns the first argument after the MetaBlockBegin keyword. This should
     // be used as a tag type to identify which kind of meta block this is.
@@ -223,6 +227,9 @@ inline bool is_block_read_command(const CommandType &cmdType)
     }
     return false;
 }
+
+Command get_first_meta_block(const VMEScript &vmeScript);
+QString get_first_meta_block_tag(const VMEScript &vmeScript);
 
 } // namespace vme_script
 

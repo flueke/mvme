@@ -541,12 +541,12 @@ static QVector<PreparsedLine> pre_parse(QTextStream &input)
         if (startOfComment >= 0)
             line.resize(startOfComment);
 
-        line = line.trimmed();
+        auto trimmed = line.trimmed();
 
-        if (line.isEmpty())
+        if (trimmed.isEmpty())
             continue;
 
-        auto parts = line.split(reWordSplit, QString::SkipEmptyParts);
+        auto parts = trimmed.split(reWordSplit, QString::SkipEmptyParts);
 
         if (parts.isEmpty())
             continue;
@@ -655,7 +655,17 @@ static Command handle_meta_block_command(
 
     std::copy(lines.begin() + blockStartIndex + 1,
               lines.begin() + blockEndIndex,
-              std::back_inserter(result.metaBlock.contents));
+              std::back_inserter(result.metaBlock.preparsedLines));
+
+    QStringList plainLineBuffer;
+
+    std::transform(
+        result.metaBlock.preparsedLines.begin(),
+        result.metaBlock.preparsedLines.end(),
+        std::back_inserter(plainLineBuffer),
+        [] (const auto &preparsedLine) { return preparsedLine.line; });
+
+    result.metaBlock.textContents = plainLineBuffer.join("\n");
 
     return result;
 }
@@ -953,7 +963,7 @@ QString to_string(const Command &cmd)
         case CommandType::MetaBlock:
             {
                 buffer = QString("meta_block with %1 lines")
-                    .arg(cmd.metaBlock.contents.size());
+                    .arg(cmd.metaBlock.preparsedLines.size());
             } break;
     }
 
@@ -1412,6 +1422,26 @@ QString format_result(const Result &result)
     }
 
     return ret;
+}
+
+Command get_first_meta_block(const VMEScript &commands)
+{
+    auto it = std::find_if(
+        commands.begin(), commands.end(),
+        [] (const vme_script::Command &cmd)
+        {
+            return cmd.type == vme_script::CommandType::MetaBlock;
+        });
+
+    if (it != commands.end())
+        return *it;
+
+    return {}; // return an invalid command by default
+}
+
+QString get_first_meta_block_tag(const VMEScript &commands)
+{
+    return get_first_meta_block(commands).metaBlock.tag();
 }
 
 }
