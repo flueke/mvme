@@ -470,6 +470,16 @@ void VMEConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 
     if (scriptConfig)
     {
+        try
+        {
+            auto metaTag = vme_script::get_first_meta_block_tag(
+                scriptConfig->getScript());
+
+            emit editVMEScript(scriptConfig, metaTag);
+            return;
+        }
+        catch (const vme_script::ParseError &e) { }
+
         emit editVMEScript(scriptConfig);
     }
 }
