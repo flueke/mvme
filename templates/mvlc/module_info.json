@@ -1,0 +1,7 @@
+{
+    "typeId"        : 10,
+    "typeName"      : "mvlc",
+    "displayName"   : "MVLC VME",
+    "vendorName"    : "mesytec",
+    "vmeAddress": "0xffff0000"
+}
