@@ -345,11 +345,6 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         {
              names = dialog.getNames();
 
-             // Copy names to L0
-             std::copy_n(names.begin(),
-                         trigger_io::ECL_OUT_Count,
-                         ioCfg.l0.unitNames.begin() + ioCfg.l0.ECL_Unit_Offset);
-
              // Copy names to L3
              std::copy_n(names.begin(),
                          trigger_io::ECL_OUT_Count,

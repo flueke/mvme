@@ -101,9 +101,8 @@ struct IRQ_Unit
 
 struct Level0
 {
-    static const int OutputCount = 33;
+    static const int OutputCount = 30;
     static const int NIM_IO_Offset = 16;
-    static const size_t ECL_Unit_Offset = 30;
 
     static const int IRQ_UnitCount = 2;
     static const int IRQ_UnitOffset = 4;
@@ -126,8 +125,6 @@ struct Level0
     std::array<StackBusy, StackBusyCount> stackBusy;     // 12, 13
                                             // 14, 15 unused
     std::array<IO, NIM_IO_Count> ioNIM;     // 16..29
-    // FIXME: not really needed here. l3 only
-    //std::array<IO, ECL_OUT_Count> ioECL;    // 30..32
 };
 
 struct Level1

@@ -5,6 +5,7 @@
 #include <QMap>
 #include <QVector>
 #include <yaml-cpp/yaml.h>
+#include <QDebug>
 
 #include "vme_script.h"
 
@@ -25,6 +26,7 @@ LUT::LUT()
 
 static const QString UnitNotAvailable = "N/A";
 
+// Note: ECL units not included here. They are only on level3.
 const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNames =
 {
     "timer0",
@@ -57,9 +59,6 @@ const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNa
     "NIM11",
     "NIM12",
     "NIM13",
-    "ECL0",
-    "ECL1",
-    "ECL2",
 };
 
 Level0::Level0()
