@@ -317,6 +317,29 @@ QString lookup_name(const TriggerIOConfig &cfg, const UnitAddress &addr)
     return {};
 }
 
+QString lookup_default_name(const TriggerIOConfig &cfg, const UnitAddress &addr)
+{
+    switch (addr[0])
+    {
+        case 0:
+            if (addr[1] < cfg.l0.DefaultUnitNames.size())
+                return cfg.l0.DefaultUnitNames[addr[1]];
+            break;
+
+        case 1:
+        case 2:
+            // FIXME: once more the L1 and L2 default output name generation code
+            return QString("L%1.LUT%2.OUT%3").arg(addr[0]).arg(addr[1]).arg(addr[2]);
+
+        case 3:
+            if (addr[1] < cfg.l3.DefaultUnitNames.size())
+                return cfg.l3.DefaultUnitNames[addr[1]];
+            break;
+    }
+
+    return {};
+}
+
 struct Write
 {
     // Opt_HexValue indicates that the register value should be printed in
@@ -417,16 +440,17 @@ ScriptPart write_strobe_connection(u16 offset, u16 value, const QString &sourceN
 ScriptParts generate(const trigger_io::Timer &unit, int index)
 {
     ScriptParts ret;
-    ret += write_unit_reg(2, static_cast<u16>(unit.range), "range (ns, us, ms, s)");
+    ret += write_unit_reg(2, static_cast<u16>(unit.range), "range (0:ns, 1:us, 2:ms, 3:s)");
     ret += write_unit_reg(4, unit.delay_ns, "delay [ns]");
-    ret += write_unit_reg(6, unit.period, "period");
+    ret += write_unit_reg(6, unit.period, "period [in range units]");
     return ret;
 }
 
 ScriptParts generate(const trigger_io::IRQ_Unit &unit, int index)
 {
     ScriptParts ret;
-    ret += write_unit_reg(0, static_cast<u16>(unit.irqIndex), "irq_index");
+    ret += write_unit_reg(0, static_cast<u16>(unit.irqIndex),
+                          "irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)");
     return ret;
 }
 
@@ -457,13 +481,13 @@ ScriptParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags)
 
     u16 offset = (ioFlags & io_flags::StrobeGGOffsets) ? 0x32u : 0u;
 
-    ret += write_unit_reg(offset + 0, io.delay, "delay");
-    ret += write_unit_reg(offset + 2, io.width, "width");
-    ret += write_unit_reg(offset + 4, io.holdoff, "holdoff");
+    ret += write_unit_reg(offset + 0, io.delay, "delay [ns]");
+    ret += write_unit_reg(offset + 2, io.width, "width [ns]");
+    ret += write_unit_reg(offset + 4, io.holdoff, "holdoff [ns]");
     ret += write_unit_reg(offset + 6, static_cast<u16>(io.invert), "invert");
 
     if (ioFlags & io_flags::HasDirection)
-        ret += write_unit_reg(10, static_cast<u16>(io.direction), "direction (0=in, 1=out)");
+        ret += write_unit_reg(10, static_cast<u16>(io.direction), "direction (0:in, 1:out)");
 
     if (ioFlags & io_flags::HasActivation)
         ret += write_unit_reg(16, static_cast<u16>(io.activate), "output activate");
@@ -551,39 +575,39 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
     // Level0
     //
 
-    ret += "Level0 ##############################";
+    ret += "Level0 #####################################################";
 
     for (const auto &kv: ioCfg.l0.timers | indexed(0))
     {
-        ret += ioCfg.l0.unitNames[kv.index()];
+        ret += ioCfg.l0.DefaultUnitNames[kv.index()];
         ret += select_unit(0, kv.index());
         ret += generate(kv.value(), kv.index());
     }
 
     for (const auto &kv: ioCfg.l0.irqUnits | indexed(0))
     {
-        ret += ioCfg.l0.unitNames[kv.index() + ioCfg.l0.IRQ_UnitOffset];
+        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.IRQ_UnitOffset];
         ret += select_unit(0, kv.index() + ioCfg.l0.IRQ_UnitOffset);
         ret += generate(kv.value(), kv.index());
     }
 
     for (const auto &kv: ioCfg.l0.slaveTriggers | indexed(0))
     {
-        ret += ioCfg.l0.unitNames[kv.index() + ioCfg.l0.SlaveTriggerOffset];
+        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.SlaveTriggerOffset];
         ret += select_unit(0, kv.index() + ioCfg.l0.SlaveTriggerOffset);
         ret += generate(kv.value(), io_flags::None);
     }
 
     for (const auto &kv: ioCfg.l0.stackBusy | indexed(0))
     {
-        ret += ioCfg.l0.unitNames[kv.index() + ioCfg.l0.StackBusyOffset];
+        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.StackBusyOffset];
         ret += select_unit(0, kv.index() + ioCfg.l0.StackBusyOffset);
         ret += generate(kv.value(), kv.index());
     }
 
     for (const auto &kv: ioCfg.l0.ioNIM | indexed(0))
     {
-        ret += ioCfg.l0.unitNames[kv.index() + ioCfg.l0.NIM_IO_Offset];
+        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.NIM_IO_Offset];
         ret += select_unit(0, kv.index() + ioCfg.l0.NIM_IO_Offset);
         ret += generate(kv.value(), io_flags::NIM_IO_Flags);
     }
@@ -592,7 +616,7 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
     // Level1
     //
 
-    ret += "Level1 ##############################";
+    ret += "Level1 #####################################################";
 
     for (const auto &kv: ioCfg.l1.luts | indexed(0))
     {
@@ -606,7 +630,7 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
     // Level2
     //
 
-    ret += "Level2 ##############################";
+    ret += "Level2 #####################################################";
 
     for (const auto &kv: ioCfg.l2.luts | indexed(0))
     {
@@ -648,13 +672,13 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
     // Level3
     //
 
-    ret += "Level3 ##############################";
+    ret += "Level3 #####################################################";
 
     for (const auto &kv: ioCfg.l3.stackStart | indexed(0))
     {
         unsigned unitIndex = kv.index();
 
-        ret += ioCfg.l3.unitNames[unitIndex];
+        ret += ioCfg.l3.DefaultUnitNames[unitIndex];
         ret += select_unit(3, unitIndex);
         ret += generate(kv.value(), unitIndex);
 
@@ -668,7 +692,7 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.MasterTriggersOffset;
 
-        ret += ioCfg.l3.unitNames[unitIndex];
+        ret += ioCfg.l3.DefaultUnitNames[unitIndex];
         ret += select_unit(3, unitIndex);
         ret += generate(kv.value(), unitIndex);
 
@@ -682,7 +706,7 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.CountersOffset;
 
-        ret += ioCfg.l3.unitNames[unitIndex];
+        ret += ioCfg.l3.DefaultUnitNames[unitIndex];
         ret += select_unit(3, unitIndex);
         ret += generate(kv.value(), unitIndex);
 
@@ -693,12 +717,12 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
     }
 
     // Level3 NIM connections
-    ret += "NIM unit connections (Note: setup is done in the Level0 section)";
+    ret += "NIM unit connections (Note: NIM setup is done in the Level0 section)";
     for (size_t nim = 0; nim < trigger_io::NIM_IO_Count; nim++)
     {
         unsigned unitIndex = nim + ioCfg.l3.NIM_IO_Unit_Offset;
 
-        ret += ioCfg.l3.unitNames[unitIndex];
+        ret += ioCfg.l3.DefaultUnitNames[unitIndex];
         ret += select_unit(3, unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
@@ -712,7 +736,7 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.ECL_Unit_Offset;
 
-        ret += ioCfg.l3.unitNames[unitIndex];
+        ret += ioCfg.l3.DefaultUnitNames[unitIndex];
         ret += select_unit(3, unitIndex);
         ret += generate(kv.value(), io_flags::ECL_IO_Flags);
 
@@ -771,7 +795,7 @@ class ScriptGenPartVisitor: public boost::static_visitor<>
         QStringList &m_lineBuffer;
 };
 
-static QString generate_meta_block(
+static QString generate_mvlc_meta_block(
     const TriggerIOConfig &ioCfg,
     const gen_flags::Flag &flags)
 {
@@ -779,6 +803,7 @@ static QString generate_meta_block(
     using NameMap = std::map<unsigned, std::string>;
 
     YAML::Emitter out;
+    assert(out.good()); // initial consistency check
     out << YAML::BeginMap;
     out << YAML::Key << "names" << YAML::Value << YAML::BeginMap;
 
@@ -909,8 +934,7 @@ static QString generate_meta_block(
     }
 
     out << YAML::EndMap;
-
-    //out << rootMap;
+    assert(out.good()); // final consistency check
 
     return QString(out.c_str());
 }
@@ -929,27 +953,20 @@ QString generate_trigger_io_script_text(
 {
     QStringList lines =
     {
-        "########################################",
-        "#       MVLC Trigger I/O  Setup        #",
-        "########################################",
+        "############################################################",
+        "# MVLC Trigger I/O  setup via internal VME interface       #",
+        "############################################################",
         "",
-    };
-
-    lines.append(
-    {
-        vme_script::MetaBlockBegin + " " + vme_script::MetaTagMVLCTriggerIO,
-        generate_meta_block(ioCfg, flags),
-        vme_script::MetaBlockEnd
-    });
-
-    lines.append(
-    {
+        "# Note: This file was generated by mvme. Editing existing",
+        "# values is allowed and these changes will used by mvme",
+        "# when next parsing the script. Changes to the basic",
+        "# structure, like adding new write or read commands, are not",
+        "# allowed. These changes will be lost the next time the file",
+        "# is modified by mvme.",
         "",
         "# Internal MVLC VME interface address",
-        QString("setbase 0x%1")
-            .arg(MVLC_VME_InterfaceAddress, 8, 16, QLatin1Char('0'))
-    });
-
+        QString("setbase 0x%1").arg(MVLC_VME_InterfaceAddress, 8, 16, QLatin1Char('0'))
+    };
 
     ScriptGenPartVisitor visitor(lines);
     auto parts = generate_trigger_io_script(ioCfg);
@@ -958,6 +975,17 @@ QString generate_trigger_io_script_text(
     {
         boost::apply_visitor(visitor, part);
     }
+
+    lines.append(
+    {
+        "",
+        "############################################################",
+        "# MVLC Trigger I/O specific meta information               #",
+        "############################################################",
+        vme_script::MetaBlockBegin + " " + vme_script::MetaTagMVLCTriggerIO,
+        generate_mvlc_meta_block(ioCfg, flags),
+        vme_script::MetaBlockEnd
+    });
 
     return lines.join("\n");
 }
