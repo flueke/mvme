@@ -94,6 +94,7 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
     m_d->spin_irqVector->setMaximum(255);
 
     m_d->cb_irqUseIACK = new QCheckBox(this);
+    m_d->cb_irqUseIACK->hide();
 
     auto gb_nameAndCond = new QGroupBox;
     auto gb_layout   = new QFormLayout(gb_nameAndCond);
@@ -192,6 +193,7 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
 
                 irqLayout->addRow(QSL("Use Interrupt Acknowledge (IRQUseIACK)"),
                                   m_d->cb_irqUseIACK);
+                m_d->cb_irqUseIACK->show();
 
                 auto label = new QLabel(
                     QSL("Note: enabling the IRQUseIACK option will make IRQ handling"
