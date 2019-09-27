@@ -20,8 +20,9 @@
  */
 #include "vme_config.h"
 
-#include "qt_util.h"
 #include "CVMUSBReadoutList.h"
+#include "qt_util.h"
+#include "util/qt_metaobject.h"
 #include "vme_controller.h"
 
 #include <cmath>
@@ -145,6 +146,7 @@ void ConfigObject::read(const QJsonObject &json)
 
     setObjectName(json["name"].toString());
     setEnabled(json["enabled"].toBool(true));
+    loadDynamicProperties(json["properties"].toObject(), this);
 
     read_impl(json);
 
@@ -156,6 +158,10 @@ void ConfigObject::write(QJsonObject &json) const
     json["id"]   = m_id.toString();
     json["name"] = objectName();
     json["enabled"] = m_enabled;
+
+    auto props = storeDynamicProperties(this);
+    if (!props.isEmpty())
+        json["properties"] = props;
 
     write_impl(json);
 }
@@ -178,6 +184,53 @@ void ConfigObject::setWatchDynamicProperties(bool doWatch)
     {
         removeEventFilter(this);
         m_eventFilterInstalled = false;
+    }
+}
+
+//
+// ContainerObject
+//
+void ContainerObject::write_impl(QJsonObject &json) const
+{
+    QJsonArray childArray;
+
+    for (auto child: m_children)
+    {
+        QJsonObject childDataJson;
+        child->write(childDataJson);
+
+        QJsonObject childJson;
+        childJson["class"] = getClassName(child);
+        childJson["data"] = childDataJson;
+
+        childArray.append(childJson);
+    }
+
+    json["children"] = childArray;
+}
+
+void ContainerObject::read_impl(const QJsonObject &json)
+{
+    auto childArray = json["children"].toArray();
+
+    for (const auto &jval: childArray)
+    {
+        auto jobj = jval.toObject();
+        // FIXME: verify that this actually works with namespaces and everything
+        auto className = jobj["class"].toString();
+
+        if (auto typeId = QMetaType::type(className.toLocal8Bit().constData()))
+        {
+            if (auto rawChild = QMetaType::create(typeId))
+            {
+                // FIXME: try to use QMetaType::PointerToQObject to make sure
+                // we got a QObject *, then use qobject_cast<> to safely cast
+                // to ConfigObject. Otherwise this will crash if someone
+                // XXX leftoff
+                auto child = reinterpret_cast<ConfigObject *>(rawChild);
+
+            }
+        }
     }
 }
 
@@ -220,15 +273,11 @@ vme_script::VMEScript VMEScriptConfig::getScript(u32 baseAddress) const
 void VMEScriptConfig::read_impl(const QJsonObject &json)
 {
     m_script = json["vme_script"].toString();
-    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void VMEScriptConfig::write_impl(QJsonObject &json) const
 {
     json["vme_script"] = m_script;
-    auto props = storeDynamicProperties(this);
-    if (!props.isEmpty())
-        json["properties"] = props;
 }
 
 QString VMEScriptConfig::getVerboseTitle() const
@@ -348,8 +397,6 @@ void ModuleConfig::read_impl(const QJsonObject &json)
         cfg->read(it->toObject());
         m_initScripts.push_back(cfg);
     }
-
-    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void ModuleConfig::write_impl(QJsonObject &json) const
@@ -382,11 +429,6 @@ void ModuleConfig::write_impl(QJsonObject &json) const
         }
         json["initScripts"] = dstArray;
     }
-
-    auto props = storeDynamicProperties(this);
-
-    if (!props.isEmpty())
-        json["properties"] = props;
 }
 
 EventConfig *ModuleConfig::getEventConfig() const
@@ -473,8 +515,6 @@ void EventConfig::read_impl(const QJsonObject &json)
             vmeScripts[it.key()]->read(it.value().toObject());
         }
     }
-
-    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void EventConfig::write_impl(QJsonObject &json) const
@@ -513,9 +553,6 @@ void EventConfig::write_impl(QJsonObject &json) const
     }
 
     json["vme_scripts"] = scriptsObject;
-    auto props = storeDynamicProperties(this);
-    if (!props.isEmpty())
-        json["properties"] = props;
 }
 
 //
@@ -758,8 +795,6 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
     auto controllerJson = json["vme_controller"].toObject();
     m_controllerType = from_string(controllerJson["type"].toString());
     m_controllerSettings = controllerJson["settings"].toObject().toVariantMap();
-
-    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void VMEConfig::write_impl(QJsonObject &json) const
@@ -802,11 +837,6 @@ void VMEConfig::write_impl(QJsonObject &json) const
     controllerJson["type"] = to_string(m_controllerType);
     controllerJson["settings"] = QJsonObject::fromVariantMap(m_controllerSettings);
     json["vme_controller"] = controllerJson;
-
-
-    auto props = storeDynamicProperties(this);
-    if (!props.isEmpty())
-        json["properties"] = props;
 }
 
 ModuleConfig *VMEConfig::getModuleConfig(int eventIndex, int moduleIndex) const

@@ -105,6 +105,9 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         }
 
     protected:
+        // Note: the watchDynamicProperties flag and
+        // setWatchDynamicProperties() make it so that changes to dynamic
+        // QObject properties mark this object as being modified.
         ConfigObject(QObject *parent, bool watchDynamicProperties);
         bool eventFilter(QObject *obj, QEvent *event) override;
         void setWatchDynamicProperties(bool doWatch);
@@ -117,6 +120,62 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         bool m_modified = false;
         bool m_enabled = true;
         bool m_eventFilterInstalled = false;
+};
+
+// A generic container object used to hold more specific child objects or other
+// containers. This can be used by the UI to structure the object tree.
+//
+// Note: when a child object is deleted it will automatically be removed from
+// the list of children of this object.
+class LIBMVME_EXPORT ContainerObject: public ConfigObject
+{
+    Q_OBJECT
+    public:
+        explicit ContainerObject(QObject *parent = nullptr);
+
+        void addChild(ConfigObject *obj)
+        {
+            m_children.push_back(obj);
+            obj->setParent(this);
+            connect(obj, &QObject::destroyed,
+                    this, &ContainerObject::onChildDestroyed);
+        }
+
+        bool removeChild(ConfigObject *obj)
+        {
+            if (m_children.removeOne(obj))
+            {
+                disconnect(obj, &QObject::destroyed,
+                           this, &ContainerObject::onChildDestroyed);
+                return true;
+            }
+            return false;
+        }
+
+        bool containsChild(ConfigObject *obj)
+        {
+            return m_children.indexOf(obj) >= 0;
+        }
+
+        QVector<ConfigObject *> getChildren() const
+        {
+            return m_children;
+        }
+
+    protected:
+        void read_impl(const QJsonObject &json) override;
+        void write_impl(QJsonObject &json) const override;
+
+    private slots:
+        // This should work even if this QObject had non-ConfigObject children
+        // via setParent(). It's just a pointer comparison after all.
+        void onChildDestroyed(QObject *child)
+        {
+            m_children.removeAll(reinterpret_cast<ConfigObject *>(child));
+        }
+
+    private:
+        QVector<ConfigObject *> m_children;
 };
 
 class LIBMVME_EXPORT VMEScriptConfig: public ConfigObject
@@ -298,11 +357,13 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         VMEControllerType getControllerType() const { return m_controllerType; }
         QVariantMap getControllerSettings() const { return m_controllerSettings; }
 
-        // Auxiliary devices (e.g. MVLC trigger I/O, ISEG high voltage supply,
-        // mesytec (NIM) RC bus <-> VME module interface, ...)
-        void addAuxDevice(ConfigObject *auxDev);
-        bool removeAuxDevice(ConfigObject *auxDev);
-        QVector<ConfigObject *> getAuxDevices() const;
+        // Pretty generic interface to hold global config objects.
+        // Currently these are global vme scripts run at daq start/stop time or
+        // manually and global devices like MVLCs trigger/IO module, mesytec RC
+        // Bus <-> VME interface or ISEGS high voltage power supply.
+        void addGlobalObject(ConfigObject *auxDev);
+        bool removeGlobalObject(ConfigObject *auxDev);
+        QVector<ConfigObject *> getGlobalObjects() const;
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
