@@ -1,7 +1,9 @@
 #include "analysis_serialization.h"
+#include <QHash>
+
 #include "analysis.h"
 #include "object_factory.h"
-#include <QHash>
+#include "util/qt_metaobject.h"
 
 namespace analysis
 {

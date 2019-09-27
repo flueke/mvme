@@ -33,6 +33,7 @@
 #include "analysis/analysis_util.h"
 #include "analysis/exportsink_codegen.h"
 #include "analysis/object_visitor.h"
+#include "util/qt_metaobject.h"
 #include "vme_config.h"
 
 #define ENABLE_ANALYSIS_DEBUG 0

@@ -2068,12 +2068,6 @@ void LIBMVME_EXPORT adjust_userlevel_forward(const OperatorVector &allOperators,
                                              OperatorInterface *operator_,
                                              s32 levelDelta);
 
-template<typename T>
-QString getClassName(T *obj)
-{
-    return obj->metaObject()->className();
-}
-
 /* Recursively expands the given object vector to contain all subobjects inside any
  * directories contained in the original object vector. */
 AnalysisObjectVector expand_objects(const AnalysisObjectVector &vec,
