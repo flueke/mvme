@@ -190,6 +190,11 @@ void ConfigObject::setWatchDynamicProperties(bool doWatch)
 //
 // ContainerObject
 //
+ContainerObject::ContainerObject(QObject *parent)
+    : ConfigObject(parent)
+{
+}
+
 void ContainerObject::write_impl(QJsonObject &json) const
 {
     QJsonArray childArray;
@@ -221,14 +226,18 @@ void ContainerObject::read_impl(const QJsonObject &json)
 
         if (auto typeId = QMetaType::type(className.toLocal8Bit().constData()))
         {
-            if (auto rawChild = QMetaType::create(typeId))
-            {
-                // FIXME: try to use QMetaType::PointerToQObject to make sure
-                // we got a QObject *, then use qobject_cast<> to safely cast
-                // to ConfigObject. Otherwise this will crash if someone
-                // XXX leftoff
-                auto child = reinterpret_cast<ConfigObject *>(rawChild);
+            QMetaType mt(typeId);
 
+            if (mt.flags() & QMetaType::PointerToQObject)
+            {
+                if (auto rawChild = reinterpret_cast<QObject *>(QMetaType::create(typeId)))
+                {
+                    if (auto child = qobject_cast<ConfigObject *>(rawChild))
+                    {
+                        child->read(jobj["data"].toObject());
+                        addChild(child);
+                    }
+                }
             }
         }
     }
@@ -753,6 +762,27 @@ void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &sett
     setModified();
 }
 
+void VMEConfig::addGlobalObject(ContainerObject *obj)
+{
+    m_globalObjects.push_back(obj);
+    obj->setParent(this);
+}
+
+bool VMEConfig::removeGlobalObject(ContainerObject *obj)
+{
+    if (m_globalObjects.removeOne(obj))
+    {
+        setModified();
+        return true;
+    }
+    return false;
+}
+
+QVector<ContainerObject *> VMEConfig::getGlobalObjects() const
+{
+    return m_globalObjects;
+}
+
 void VMEConfig::read_impl(const QJsonObject &inputJson)
 {
     qDeleteAll(eventConfigs);
@@ -771,6 +801,7 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
     }
     qDebug() << __PRETTY_FUNCTION__ << "read" << eventConfigs.size() << "event configs";
 
+    // script objects
     QJsonObject scriptsObject = json["vme_script_lists"].toObject();
 
     for (auto it = scriptsObject.begin();
@@ -791,6 +822,19 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
         }
     }
 
+    // global objects
+    {
+        auto globalsJson = json["global_objects"].toArray();
+
+        for (const auto &jval: globalsJson)
+        {
+            auto jobj = jval.toObject();
+            auto obj = new ContainerObject;
+            obj->read(jobj);
+            addGlobalObject(obj);
+        }
+    }
+
     // vme controller
     auto controllerJson = json["vme_controller"].toObject();
     m_controllerType = from_string(controllerJson["type"].toString());
@@ -808,6 +852,7 @@ void VMEConfig::write_impl(QJsonObject &json) const
     }
     json["events"] = eventArray;
 
+    // script objects
     QJsonObject scriptsObject;
 
     for (auto mapIter = vmeScriptLists.begin();
@@ -831,6 +876,20 @@ void VMEConfig::write_impl(QJsonObject &json) const
     }
 
     json["vme_script_lists"] = scriptsObject;
+
+    // global objects
+    {
+        QJsonArray globalsJson;
+
+        for (const auto &obj: m_globalObjects)
+        {
+            QJsonObject objJson;
+            obj->write(objJson);
+            globalsJson.append(objJson);
+        }
+
+        json["global_objects"] = globalsJson;
+    }
 
     // vme controller
     QJsonObject controllerJson;

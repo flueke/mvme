@@ -139,6 +139,7 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
             obj->setParent(this);
             connect(obj, &QObject::destroyed,
                     this, &ContainerObject::onChildDestroyed);
+            setModified();
         }
 
         bool removeChild(ConfigObject *obj)
@@ -147,6 +148,7 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
             {
                 disconnect(obj, &QObject::destroyed,
                            this, &ContainerObject::onChildDestroyed);
+                setModified();
                 return true;
             }
             return false;
@@ -168,7 +170,8 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
 
     private slots:
         // This should work even if this QObject had non-ConfigObject children
-        // via setParent(). It's just a pointer comparison after all.
+        // via setParent() which get destroyed. It's just a pointer comparison
+        // after all.
         void onChildDestroyed(QObject *child)
         {
             m_children.removeAll(reinterpret_cast<ConfigObject *>(child));
@@ -361,9 +364,9 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         // Currently these are global vme scripts run at daq start/stop time or
         // manually and global devices like MVLCs trigger/IO module, mesytec RC
         // Bus <-> VME interface or ISEGS high voltage power supply.
-        void addGlobalObject(ConfigObject *auxDev);
-        bool removeGlobalObject(ConfigObject *auxDev);
-        QVector<ConfigObject *> getGlobalObjects() const;
+        void addGlobalObject(ContainerObject *obj);
+        bool removeGlobalObject(ContainerObject *obj);
+        QVector<ContainerObject *> getGlobalObjects() const;
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
@@ -373,6 +376,11 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         QList<EventConfig *> eventConfigs;
         VMEControllerType m_controllerType = VMEControllerType::VMUSB;
         QVariantMap m_controllerSettings;
+        // FIXME: This could be done by using a ContainerObject internally and
+        // use that to hold any added children. Then global objects could also
+        // be ConfigObjects instead of ContainerObjects.
+        // -> make use of recursion when possible
+        QVector<ContainerObject *> m_globalObjects;
 };
 
 LIBMVME_EXPORT std::pair<std::unique_ptr<VMEConfig>, QString>
