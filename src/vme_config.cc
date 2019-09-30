@@ -221,25 +221,55 @@ void ContainerObject::read_impl(const QJsonObject &json)
     for (const auto &jval: childArray)
     {
         auto jobj = jval.toObject();
-        // FIXME: verify that this actually works with namespaces and everything
-        auto className = jobj["class"].toString();
+        auto className = jobj["class"].toString() + "*";
 
-        if (auto typeId = QMetaType::type(className.toLocal8Bit().constData()))
+        //qDebug() << __PRETTY_FUNCTION__ << "className =" << className;
+
+        auto typeId = QMetaType::type(className.toLocal8Bit().constData());
+
+        if (typeId == QMetaType::UnknownType)
         {
-            QMetaType mt(typeId);
+            qWarning() << "ContainerObject::read_impl: No QMetaType defined for className ="
+                << className.toLocal8Bit().constData()
+                << ", skipping child entry.";
 
-            if (mt.flags() & QMetaType::PointerToQObject)
-            {
-                if (auto rawChild = reinterpret_cast<QObject *>(QMetaType::create(typeId)))
-                {
-                    if (auto child = qobject_cast<ConfigObject *>(rawChild))
-                    {
-                        child->read(jobj["data"].toObject());
-                        addChild(child);
-                    }
-                }
-            }
+            continue;
         }
+
+        QMetaType mt(typeId);
+
+        if (mt.flags() & QMetaType::PointerToQObject)
+        {
+            auto metaObject = mt.metaObject();
+
+            if (!metaObject)
+            {
+                qWarning() << "No QMetaObject for class" << className;
+                continue;
+            }
+
+            auto rawChild = metaObject->newInstance();
+            std::unique_ptr<QObject> memGuard(rawChild);
+            auto child = qobject_cast<ConfigObject *>(rawChild);
+
+            if (!rawChild)
+            {
+                qWarning() << "Could not create child object of class" << className;
+                continue;
+            }
+
+            if (!child)
+            {
+                qWarning() << "Child object is not a subclass of ConfigObject: "
+                    << rawChild << ", className =" << className;
+                continue;
+            }
+
+            child->read(jobj["data"].toObject());
+            addChild(child);
+            memGuard.release();
+        }
+        // maybe TODO: implement the case for non-qobject metatypes using mt.create()
     }
 }
 
@@ -762,25 +792,79 @@ void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &sett
     setModified();
 }
 
-void VMEConfig::addGlobalObject(ContainerObject *obj)
+void VMEConfig::addGlobalObject(ConfigObject *obj)
 {
-    m_globalObjects.push_back(obj);
-    obj->setParent(this);
+    m_globalObjects.addChild(obj);
 }
 
-bool VMEConfig::removeGlobalObject(ContainerObject *obj)
+bool VMEConfig::removeGlobalObject(ConfigObject *obj)
 {
-    if (m_globalObjects.removeOne(obj))
-    {
-        setModified();
-        return true;
-    }
-    return false;
+    return m_globalObjects.removeChild(obj);
 }
 
-QVector<ContainerObject *> VMEConfig::getGlobalObjects() const
+QVector<ConfigObject *> VMEConfig::getGlobalObjects() const
+{
+    return m_globalObjects.getChildren();
+}
+
+const ContainerObject &VMEConfig::getGlobalObjectRoot() const
 {
     return m_globalObjects;
+}
+
+ContainerObject &VMEConfig::getGlobalObjectRoot()
+{
+    return m_globalObjects;
+}
+
+void VMEConfig::write_impl(QJsonObject &json) const
+{
+    QJsonArray eventArray;
+    for (auto event: eventConfigs)
+    {
+        QJsonObject eventObject;
+        event->write(eventObject);
+        eventArray.append(eventObject);
+    }
+    json["events"] = eventArray;
+
+    // script objects
+    QJsonObject scriptsObject;
+
+    for (auto mapIter = vmeScriptLists.begin();
+         mapIter != vmeScriptLists.end();
+         ++mapIter)
+    {
+        const auto list(mapIter.value());
+
+        QJsonArray scriptsArray;
+
+        for (auto listIter = list.begin();
+             listIter != list.end();
+             ++listIter)
+        {
+            QJsonObject scriptsObject;
+            (*listIter)->write(scriptsObject);
+            scriptsArray.append(scriptsObject);
+        }
+
+        scriptsObject[mapIter.key()] = scriptsArray;
+    }
+
+    json["vme_script_lists"] = scriptsObject;
+
+    // global objects
+    {
+        QJsonObject globalsJson;
+        m_globalObjects.write(globalsJson);
+        json["global_objects"] = globalsJson;
+    }
+
+    // vme controller
+    QJsonObject controllerJson;
+    controllerJson["type"] = to_string(m_controllerType);
+    controllerJson["settings"] = QJsonObject::fromVariantMap(m_controllerSettings);
+    json["vme_controller"] = controllerJson;
 }
 
 void VMEConfig::read_impl(const QJsonObject &inputJson)
@@ -823,79 +907,12 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
     }
 
     // global objects
-    {
-        auto globalsJson = json["global_objects"].toArray();
-
-        for (const auto &jval: globalsJson)
-        {
-            auto jobj = jval.toObject();
-            auto obj = new ContainerObject;
-            obj->read(jobj);
-            addGlobalObject(obj);
-        }
-    }
+    m_globalObjects.read(json["global_objects"].toObject());
 
     // vme controller
     auto controllerJson = json["vme_controller"].toObject();
     m_controllerType = from_string(controllerJson["type"].toString());
     m_controllerSettings = controllerJson["settings"].toObject().toVariantMap();
-}
-
-void VMEConfig::write_impl(QJsonObject &json) const
-{
-    QJsonArray eventArray;
-    for (auto event: eventConfigs)
-    {
-        QJsonObject eventObject;
-        event->write(eventObject);
-        eventArray.append(eventObject);
-    }
-    json["events"] = eventArray;
-
-    // script objects
-    QJsonObject scriptsObject;
-
-    for (auto mapIter = vmeScriptLists.begin();
-         mapIter != vmeScriptLists.end();
-         ++mapIter)
-    {
-        const auto list(mapIter.value());
-
-        QJsonArray scriptsArray;
-
-        for (auto listIter = list.begin();
-             listIter != list.end();
-             ++listIter)
-        {
-            QJsonObject scriptsObject;
-            (*listIter)->write(scriptsObject);
-            scriptsArray.append(scriptsObject);
-        }
-
-        scriptsObject[mapIter.key()] = scriptsArray;
-    }
-
-    json["vme_script_lists"] = scriptsObject;
-
-    // global objects
-    {
-        QJsonArray globalsJson;
-
-        for (const auto &obj: m_globalObjects)
-        {
-            QJsonObject objJson;
-            obj->write(objJson);
-            globalsJson.append(objJson);
-        }
-
-        json["global_objects"] = globalsJson;
-    }
-
-    // vme controller
-    QJsonObject controllerJson;
-    controllerJson["type"] = to_string(m_controllerType);
-    controllerJson["settings"] = QJsonObject::fromVariantMap(m_controllerSettings);
-    json["vme_controller"] = controllerJson;
 }
 
 ModuleConfig *VMEConfig::getModuleConfig(int eventIndex, int moduleIndex) const

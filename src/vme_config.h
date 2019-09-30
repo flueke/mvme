@@ -131,7 +131,7 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
 {
     Q_OBJECT
     public:
-        explicit ContainerObject(QObject *parent = nullptr);
+        Q_INVOKABLE explicit ContainerObject(QObject *parent = nullptr);
 
         void addChild(ConfigObject *obj)
         {
@@ -185,7 +185,7 @@ class LIBMVME_EXPORT VMEScriptConfig: public ConfigObject
 {
     Q_OBJECT
     public:
-        VMEScriptConfig(QObject *parent = 0);
+        Q_INVOKABLE VMEScriptConfig(QObject *parent = 0);
         VMEScriptConfig(const QString &name, const QString &contents, QObject *parent = 0);
 
         QString getScriptContents() const
@@ -212,7 +212,7 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
 {
     Q_OBJECT
     public:
-        ModuleConfig(QObject *parent = 0);
+        Q_INVOKABLE ModuleConfig(QObject *parent = 0);
 
         uint32_t getBaseAddress() const { return m_baseAddress; }
         void setBaseAddress(uint32_t address);
@@ -252,7 +252,7 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         void moduleAboutToBeRemoved(ModuleConfig *module);
 
     public:
-        EventConfig(QObject *parent = nullptr);
+        Q_INVOKABLE EventConfig(QObject *parent = nullptr);
 
         void addModuleConfig(ModuleConfig *config)
         {
@@ -327,7 +327,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         void globalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
     public:
-        VMEConfig(QObject *parent = 0);
+        Q_INVOKABLE VMEConfig(QObject *parent = 0);
 
         std::error_code readVMEConfig(const QJsonObject &json);
 
@@ -364,9 +364,12 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         // Currently these are global vme scripts run at daq start/stop time or
         // manually and global devices like MVLCs trigger/IO module, mesytec RC
         // Bus <-> VME interface or ISEGS high voltage power supply.
-        void addGlobalObject(ContainerObject *obj);
-        bool removeGlobalObject(ContainerObject *obj);
-        QVector<ContainerObject *> getGlobalObjects() const;
+        void addGlobalObject(ConfigObject *obj);
+        bool removeGlobalObject(ConfigObject *obj);
+        QVector<ConfigObject *> getGlobalObjects() const;
+
+        const ContainerObject &getGlobalObjectRoot() const;
+        ContainerObject &getGlobalObjectRoot();
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
@@ -376,12 +379,15 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         QList<EventConfig *> eventConfigs;
         VMEControllerType m_controllerType = VMEControllerType::VMUSB;
         QVariantMap m_controllerSettings;
-        // FIXME: This could be done by using a ContainerObject internally and
-        // use that to hold any added children. Then global objects could also
-        // be ConfigObjects instead of ContainerObjects.
-        // -> make use of recursion when possible
-        QVector<ContainerObject *> m_globalObjects;
+        ContainerObject m_globalObjects;
 };
+
+Q_DECLARE_METATYPE(ConfigObject *);
+Q_DECLARE_METATYPE(ContainerObject *);
+Q_DECLARE_METATYPE(VMEScriptConfig *);
+Q_DECLARE_METATYPE(ModuleConfig *);
+Q_DECLARE_METATYPE(EventConfig *);
+Q_DECLARE_METATYPE(VMEConfig *);
 
 LIBMVME_EXPORT std::pair<std::unique_ptr<VMEConfig>, QString>
     read_vme_config_from_file(const QString &filename);

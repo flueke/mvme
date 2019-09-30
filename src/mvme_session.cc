@@ -5,13 +5,13 @@
 #include <QLibraryInfo>
 #include <QLocale>
 
-#include "mvme_stream_worker.h"
-#include "vme_controller.h"
-
-#include "git_sha1.h"
-#include "build_info.h"
 #include "analysis/analysis_session.h"
+#include "build_info.h"
+#include "git_sha1.h"
 #include "mvlc/mvlc_qt_object.h"
+#include "mvme_stream_worker.h"
+#include "vme_config.h"
+#include "vme_controller.h"
 
 void mvme_init(const QString &appName)
 {
@@ -22,6 +22,12 @@ void mvme_init(const QString &appName)
     qRegisterMetaType<Qt::Axis>("Qt::Axis");
     qRegisterMetaType<mesytec::mvlc::MVLCObject::State>("mesytec::mvlc::MVLCObject::State");
     qRegisterMetaType<DataBuffer>("DataBuffer");
+
+    qRegisterMetaType<ContainerObject *>();
+    qRegisterMetaType<VMEScriptConfig *>();
+    qRegisterMetaType<ModuleConfig *>();
+    qRegisterMetaType<EventConfig *>();
+    qRegisterMetaType<VMEConfig *>();
 
 #define REG_META_VEC(T) \
     qRegisterMetaType<QVector<T>>("QVector<"#T">")

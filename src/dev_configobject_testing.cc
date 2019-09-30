@@ -1,8 +1,9 @@
 #include "vme_config.h"
+#include "mvme_session.h"
 #include <QDebug>
 #include <QJsonDocument>
 
-int main(int argc, char *argv[])
+static void write(QJsonDocument &doc)
 {
     QJsonObject dest;
 
@@ -34,10 +35,39 @@ int main(int argc, char *argv[])
         vmeConfig.addGlobalObject(container0);
     }
 
-    vmeConfig.write(dest);
-    QJsonDocument doc(dest);
+    {
+        auto scriptConfig = new VMEScriptConfig;
+        scriptConfig->setObjectName("Montags-Allergie");
+        vmeConfig.addGlobalObject(scriptConfig);
+    }
 
+    vmeConfig.write(dest);
+    doc.setObject(dest);
     qDebug().noquote() << doc.toJson();
+}
+
+void read(QJsonDocument &doc)
+{
+    auto src = doc.object();
+    VMEConfig vmeConfig;
+
+    vmeConfig.read(src);
+
+    qDebug() << __PRETTY_FUNCTION__ << vmeConfig.getGlobalObjects();
+}
+
+int main(int argc, char *argv[])
+{
+    mvme_init("dev_configobject_testing");
+
+    QJsonDocument doc;
+
+
+    qDebug() << "===== writing";
+    write(doc);
+
+    qDebug() << "===== reading";
+    read(doc);
 
     return 0;
 }
