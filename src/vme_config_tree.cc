@@ -50,6 +50,7 @@ enum NodeType
     NodeType_EventReadoutLoop,
     NodeType_EventStartStop,
     NodeType_VMEScript,
+    NodeType_Container,
 };
 
 enum DataRole
@@ -158,6 +159,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     , m_nodeStart(new TreeNode)
     , m_nodeStop(new TreeNode)
     , m_nodeScripts(new TreeNode)
+    , m_nodeGlobals(nullptr)
 {
     m_tree->setColumnCount(2);
     m_tree->setExpandsOnDoubleClick(true);
@@ -193,6 +195,10 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     m_nodeScripts->addChild(m_nodeStart);
     m_nodeScripts->addChild(m_nodeStop);
     m_nodeScripts->addChild(m_nodeManual);
+
+    //m_nodeGlobals->setText(0, QSL("Global Objects"));
+    //m_nodeGlobals->setIcon(0, QIcon(":/vme_global_scripts.png"));
+    //m_tree->addTopLevelItem(m_nodeGlobals);
 
     auto nodes = QList<TreeNode *>({ m_nodeEvents, m_nodeScripts });
     for (auto node: nodes)
@@ -294,6 +300,9 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
     qDeleteAll(m_nodeStart->takeChildren());
     qDeleteAll(m_nodeStop->takeChildren());
     qDeleteAll(m_nodeEvents->takeChildren());
+    if (m_nodeGlobals)
+        qDeleteAll(m_nodeGlobals->takeChildren());
+    delete m_nodeGlobals;
     m_treeMap.clear();
 
     m_config = cfg;
@@ -307,15 +316,26 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
         for (auto event: cfg->getEventConfigs())
             onEventAdded(event, false);
 
+        m_nodeGlobals = makeObjectNode(&cfg->getGlobalObjectRoot());
+        m_treeMap[&cfg->getGlobalObjectRoot()] = m_nodeGlobals;
+        m_tree->addTopLevelItem(m_nodeGlobals);
+
         connect(cfg, &VMEConfig::eventAdded,
                 this, [this] (EventConfig *eventConfig) {
                     onEventAdded(eventConfig, true);
                 });
 
-        connect(cfg, &VMEConfig::eventAboutToBeRemoved, this, &VMEConfigTreeWidget::onEventAboutToBeRemoved);
-        connect(cfg, &VMEConfig::globalScriptAdded, this, &VMEConfigTreeWidget::onScriptAdded);
-        connect(cfg, &VMEConfig::globalScriptAboutToBeRemoved, this, &VMEConfigTreeWidget::onScriptAboutToBeRemoved);
-        connect(cfg, &VMEConfig::modifiedChanged, this, &VMEConfigTreeWidget::updateConfigLabel);
+        connect(cfg, &VMEConfig::eventAboutToBeRemoved,
+                this, &VMEConfigTreeWidget::onEventAboutToBeRemoved);
+
+        connect(cfg, &VMEConfig::globalScriptAdded,
+                this, &VMEConfigTreeWidget::onScriptAdded);
+
+        connect(cfg, &VMEConfig::globalScriptAboutToBeRemoved,
+                this, &VMEConfigTreeWidget::onScriptAboutToBeRemoved);
+
+        connect(cfg, &VMEConfig::modifiedChanged,
+                this, &VMEConfigTreeWidget::updateConfigLabel);
     }
 
     m_tree->resizeColumnToContents(0);
@@ -449,6 +469,37 @@ TreeNode *VMEConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
     }
 
     return moduleNode;
+}
+
+TreeNode *VMEConfigTreeWidget::makeObjectNode(ConfigObject *obj)
+{
+    auto treeNode = new TreeNode;
+
+    treeNode->setData(0, DataRole_Pointer, Ptr2Var(obj));
+    treeNode->setText(0, obj->objectName());
+
+    if (obj->property("display_name").isValid())
+        treeNode->setText(0, obj->property("display_name").toString());
+
+    if (obj->property("icon").isValid())
+        treeNode->setIcon(0, QIcon(obj->property("icon").toString()));
+
+    if (auto containerObject = qobject_cast<ContainerObject *>(obj))
+    {
+        addContainerNodes(treeNode, containerObject);
+    }
+
+    return treeNode;
+}
+
+void VMEConfigTreeWidget::addContainerNodes(TreeNode *parent, ContainerObject *obj)
+{
+    for (auto child: obj->getChildren())
+    {
+        auto childNode = makeObjectNode(child);
+        parent->addChild(childNode);
+        m_treeMap[obj] = childNode;
+    }
 }
 
 void VMEConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
@@ -663,10 +714,14 @@ void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig, bool expandNode
     for (auto module: eventConfig->getModuleConfigs())
         onModuleAdded(module);
 
-    connect(eventConfig, &EventConfig::moduleAdded, this, &VMEConfigTreeWidget::onModuleAdded);
-    connect(eventConfig, &EventConfig::moduleAboutToBeRemoved, this, &VMEConfigTreeWidget::onModuleAboutToBeRemoved);
+    connect(eventConfig, &EventConfig::moduleAdded,
+            this, &VMEConfigTreeWidget::onModuleAdded);
 
-    auto updateEventNode = [eventConfig, this](bool isModified) {
+    connect(eventConfig, &EventConfig::moduleAboutToBeRemoved,
+            this, &VMEConfigTreeWidget::onModuleAboutToBeRemoved);
+
+    auto updateEventNode = [eventConfig, this](bool isModified)
+    {
         auto node = static_cast<EventNode *>(m_treeMap.value(eventConfig, nullptr));
 
         if (!isModified || !node)
@@ -695,7 +750,8 @@ void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig, bool expandNode
                 } break;
             default:
                 {
-                    infoText = QString("Trigger=%1").arg(TriggerConditionNames.value(eventConfig->triggerCondition));
+                    infoText = QString("Trigger=%1")
+                        .arg(TriggerConditionNames.value(eventConfig->triggerCondition));
                 } break;
         }
 

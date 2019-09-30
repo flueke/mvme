@@ -24,6 +24,7 @@
 #include <QWidget>
 #include <QMap>
 #include "globals.h"
+#include "vme_config.h"
 #include "vme_controller.h"
 
 class QLineEdit;
@@ -32,11 +33,6 @@ class QTreeWidgetItem;
 class QToolButton;
 
 class TreeNode;
-class ConfigObject;
-class VMEConfig;
-class EventConfig;
-class ModuleConfig;
-class VMEScriptConfig;
 
 class EventNode;
 
@@ -77,6 +73,8 @@ class VMEConfigTreeWidget: public QWidget
         TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script);
         TreeNode *addEventNode(TreeNode *parent, EventConfig *event);
         TreeNode *addModuleNodes(EventNode *parent, ModuleConfig *module);
+        TreeNode *makeObjectNode(ConfigObject *obj);
+        void addContainerNodes(TreeNode *parent, ContainerObject *obj);
 
         void onItemClicked(QTreeWidgetItem *item, int column);
         void onItemDoubleClicked(QTreeWidgetItem *item, int column);
@@ -126,7 +124,7 @@ class VMEConfigTreeWidget: public QWidget
         QMap<QObject *, TreeNode *> m_treeMap;
 
         TreeNode *m_nodeEvents, *m_nodeManual, *m_nodeStart, *m_nodeStop,
-                 *m_nodeScripts;
+                 *m_nodeScripts, *m_nodeGlobals;
 
         QAction *action_showAdvanced,
                 *action_dumpVMEControllerRegisters;

@@ -710,6 +710,8 @@ VMEConfig::VMEConfig(QObject *parent)
     : ConfigObject(parent)
 {
     setProperty("version", CurrentDAQConfigVersion);
+    m_globalObjects.setObjectName("Global Objects");
+    m_globalObjects.setProperty("icon", ":/vme_global_scripts.png");
 }
 
 std::error_code VMEConfig::readVMEConfig(const QJsonObject &json)
@@ -782,12 +784,24 @@ void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &sett
 {
     m_controllerType = type;
 
-    //m_controllerSettings = settings;
+    // Merge the controller settings, overwriting existing values.
     // Note: unite() doesn't work because it uses insertMulti() instead of
     // overwriting the values.
-
     for (const auto &key: settings.keys())
         m_controllerSettings[key] = settings.value(key);
+
+    if (!m_globalObjects.findChildByName("mvlc_trigger_io"))
+    {
+        if (is_mvlc_controller(type))
+        {
+            auto mvlcTriggerIO = new ContainerObject;
+            mvlcTriggerIO->setObjectName("mvlc_trigger_io");
+            mvlcTriggerIO->setProperty("display_name", "MVLC Trigger/IO");
+            mvlcTriggerIO->setProperty("icon", ":/vme_module.png");
+
+            m_globalObjects.addChild(mvlcTriggerIO);
+        }
+    }
 
     setModified();
 }
@@ -913,6 +927,8 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
     auto controllerJson = json["vme_controller"].toObject();
     m_controllerType = from_string(controllerJson["type"].toString());
     m_controllerSettings = controllerJson["settings"].toObject().toVariantMap();
+
+    setVMEController(m_controllerType, m_controllerSettings);
 }
 
 ModuleConfig *VMEConfig::getModuleConfig(int eventIndex, int moduleIndex) const
