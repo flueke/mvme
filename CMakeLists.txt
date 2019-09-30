@@ -115,10 +115,11 @@ if (MVME_ENABLE_MVLC)
     option(YAML_CPP_BUILD_TESTS "Enable testing" OFF)
     option(YAML_CPP_BUILD_TOOLS "Enable parse tools" OFF)
     option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
-    option(YAML_CPP_INSTALL "Enable generation of install target" ON)
+    option(YAML_CPP_INSTALL "Enable generation of install target" OFF)
     option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
     set(MVME_YAML_DIR "${CMAKE_SOURCE_DIR}/3rdparty/yaml-cpp")
     add_subdirectory(${MVME_YAML_DIR})
+    install(TARGETS yaml-cpp DESTINATION .)
 endif(MVME_ENABLE_MVLC)
 
 # quazip
