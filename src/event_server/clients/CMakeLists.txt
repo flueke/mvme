@@ -10,6 +10,12 @@ install(TARGETS mvme_event_server_example_client DESTINATION .)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/mvme_root_client/"
     DESTINATION share/mvme_root_client)
 
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/mvme_root_client/mvme_root_event_objects.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/mvme_root_client/mvme_root_event_objects_LinkDef.h"
+    DESTINATION include/mvme
+    )
+
 # ROOT
 # https://root.cern.ch/how/integrate-root-my-project-cmake
 
