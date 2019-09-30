@@ -326,6 +326,10 @@ if (MVME_ENABLE_MVLC)
         PRIVATE ${MVME_YAML_DIR}/include)
         #PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>)
 
+    # The above still did not work under debian9. So the next line add
+    # yaml-cpp to the global include paths.
+    include_directories(${MVME_YAML_DIR}/include)
+
     target_link_libraries(libmvme libmvme_mvlc yaml-cpp)
 
     add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
