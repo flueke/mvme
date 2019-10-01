@@ -1,6 +1,7 @@
 #include "mvlc/mvlc_trigger_io_editor.h"
 #include "mvlc/mvlc_trigger_io_editor_p.h"
 
+#include <QDebug>
 #include <QPushButton>
 #include <QScrollBar>
 #include <QTextEdit>
@@ -153,6 +154,14 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
             lutEditor->resize(850, 750);
         }
 
+        assert(lutEditor);
+
+        connect(lutEditor.get(), &LUTEditor::outputNameEdited,
+                this, [] (int outputIndex, const QString &outputName)
+                {
+                    qDebug() << "LUT output name edited:" << outputIndex << outputName;
+                });
+
         auto dc = lutEditor->exec();
 
         // apply changes
@@ -192,37 +201,37 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         auto &ioCfg = d->ioCfg;
 
         // read names stored in the Level0 structure
-         QStringList names;
+        QStringList names;
 
-         std::copy_n(ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset,
-                     trigger_io::NIM_IO_Count,
-                     std::back_inserter(names));
+        std::copy_n(ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset,
+                    trigger_io::NIM_IO_Count,
+                    std::back_inserter(names));
 
-         // settings stored in Level0
-         QVector<trigger_io::IO> settings;
-         std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), std::back_inserter(settings));
+        // settings stored in Level0
+        QVector<trigger_io::IO> settings;
+        std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), std::back_inserter(settings));
 
-         NIM_IO_SettingsDialog dialog(names, settings);
-         auto dc = dialog.exec();
+        NIM_IO_SettingsDialog dialog(names, settings);
+        auto dc = dialog.exec();
 
-         if (dc == QDialog::Accepted)
-         {
-             names = dialog.getNames();
+        if (dc == QDialog::Accepted)
+        {
+            names = dialog.getNames();
 
-             // Copy names to L0
-             std::copy_n(names.begin(),
-                         trigger_io::NIM_IO_Count,
-                         ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset);
+            // Copy names to L0
+            std::copy_n(names.begin(),
+                        trigger_io::NIM_IO_Count,
+                        ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset);
 
-             settings = dialog.getSettings();
-             size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioNIM.size());
+            settings = dialog.getSettings();
+            size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioNIM.size());
 
-             // Copy settings to L0 and L3
-             std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
-             std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
+            // Copy settings to L0 and L3
+            std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
+            std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
 
             regenerate();
-         }
+        }
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editNIM_Outputs,
