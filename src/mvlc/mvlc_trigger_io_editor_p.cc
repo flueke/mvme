@@ -8,9 +8,11 @@
 #include <QHeaderView>
 #include <QWheelEvent>
 
+#include <minbool.h>
+#include <QDebug>
+#include <QDialogButtonBox>
 #include <QGroupBox>
 #include <QLineEdit>
-#include <QDialogButtonBox>
 #include <QPushButton>
 
 #include "qt_util.h"
@@ -1421,7 +1423,7 @@ void LUTOutputEditor::onInputUsageChanged()
     unsigned totalBits = static_cast<unsigned>(bitMap.size());
     unsigned rows = totalBits > 0 ? 1u << totalBits : 0u;
 
-    assert(rows <= 64);
+    assert(rows <= trigger_io::LUT::InputCombinations);
 
     m_outputTable->setRowCount(0);
     m_outputTable->setRowCount(rows);
@@ -1534,21 +1536,48 @@ OutputMapping LUTOutputEditor::getOutputMapping() const
 
 void LUTOutputEditor::setOutputMapping(const OutputMapping &mapping)
 {
-    if (mapping.none())
-        return;
+    // Use the minbool lib to get the minimal set of input bits affecting the
+    // output.
+    std::vector<u8> minterms;
 
-    // FIXME: This blindly selects all of the 6 input bits, thus always
-    // creating a table with 64 entries even if originally only a few of the
-    // input bits where selected.
-    // TODO: use Quine-McCluskey to minimize the function defined by the
-    // OutputMapping. Then select only the remaining bits.
-    for (auto cb: m_inputCheckboxes)
-        cb->setChecked(true);
+    for (size_t i = 0; i < mapping.size(); i++)
+    {
+        if (mapping[i])
+            minterms.push_back(i);
+    }
 
-    int inputMax = std::min(m_outputStateWidgets.size(), static_cast<int>(mapping.size()));
+    auto solution = minbool::minimize_boolean<trigger_io::LUT::InputBits>(minterms, {});
 
-    for (int input = 0; input < inputMax; ++input)
-        m_outputStateWidgets[input]->setChecked(mapping.test(input));
+    for (const auto &minterm: solution)
+    {
+        for (size_t bit = 0; bit < trigger_io::LUT::InputBits; bit++)
+        {
+            // Check all except the DontCare/Dash input bits
+            if (minterm[bit] != minterm.Dash)
+                m_inputCheckboxes[bit]->setChecked(true);
+        }
+    }
+
+    const auto bitMap = getInputBitMapping();
+
+    for (unsigned row = 0; row < static_cast<unsigned>(m_outputStateWidgets.size()); ++row)
+    {
+        // Calculate the full input value corresponding to this row.
+        unsigned inputValue = 0u;
+
+        for (int bitIndex = 0; bitIndex < bitMap.size(); ++bitIndex)
+        {
+            if (row & (1u << bitIndex))
+                inputValue |= 1u << bitMap[bitIndex];
+        }
+
+        assert(inputValue < mapping.size());
+
+        if (mapping[inputValue])
+        {
+            m_outputStateWidgets[row]->setChecked(true);
+        }
+    }
 }
 
 LUT_DynConValues LUTOutputEditor::getDynamicConnectionValues() const
