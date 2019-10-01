@@ -330,6 +330,8 @@ if (MVME_ENABLE_MVLC)
     # yaml-cpp to the global include paths.
     include_directories(${MVME_YAML_DIR}/include)
 
+    target_include_directories(libmvme PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty/minbool")
+
     target_link_libraries(libmvme libmvme_mvlc yaml-cpp)
 
     add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)

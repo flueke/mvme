@@ -6,3 +6,4 @@ https://github.com/joncol/jcon-cpp      e04cc17ba7d253abdb0136d4342783586189e33e
 https://github.com/nlohmann/json        aafad2be1f3cd259a1e79d2f6fcf267d1ede9ec7
 https://github.com/alex85k/wingetopt    fed839a02eca9abaebb834d3e53c583ff4304e1c
 https://github.com/pybind/pybind11      c6b699d9c2d71d09359b6785cc3d7c50fac0c847
+https://github.com/madmann91/minbool    98dd65d43f57743b5ee88e3c6fdfb218ec9e1c8e
