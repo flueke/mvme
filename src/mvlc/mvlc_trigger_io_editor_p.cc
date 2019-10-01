@@ -86,11 +86,92 @@ void TriggerIOView::wheelEvent(QWheelEvent *event)
     scaleView(pow((double)2, event->delta() / divisor));
 }
 
+namespace gfx
+{
+
+static const QBrush Brush_LUTRect("#fffbcc");
+
+struct LUTItem: public QGraphicsRectItem
+{
+    static const int Inputs = 6;
+    static const int Outputs = 3;
+
+    static const int Width = 80;
+    static const int Height = 140;
+
+    static const int HInputConnectorMargin = 16;
+    static const int HOutputConnectorMargin = 48;
+
+    static const int ConnectorRadius = 4;
+
+
+    LUTItem(int lutIdx, QGraphicsItem *parent = nullptr)
+        : QGraphicsRectItem(0, 0, Width, Height, parent)
+    {
+        setBrush(Brush_LUTRect);
+
+        auto label = new QGraphicsSimpleTextItem(QString("LUT%1").arg(lutIdx), this);
+        label->moveBy((this->boundingRect().width()
+                       - label->boundingRect().width()) / 2.0, 0);
+
+        // input connectors
+        {
+            constexpr int conTotalHeight = Height - 2*HInputConnectorMargin;
+            constexpr int conSpacing = conTotalHeight / (Inputs - 1);
+
+            qDebug() << __PRETTY_FUNCTION__ << "conTotalHeight =" << conTotalHeight
+                << ", conSpacing =" << conSpacing;
+
+            int y = HInputConnectorMargin;
+
+            for (int input = Inputs-1; input >= 0; input--)
+            {
+                double r = ConnectorRadius;
+                auto circle = new QGraphicsEllipseItem(0, 0, 2*r, 2*r, this);
+                circle->setPen(Qt::NoPen);
+                circle->setBrush(Qt::blue);
+                circle->moveBy(-circle->boundingRect().width() * 0.5,
+                               -circle->boundingRect().height() * 0.5);
+
+                circle->moveBy(0, y);
+                y += conSpacing;
+            }
+        }
+
+        // output connectors
+        {
+            constexpr int conTotalHeight = Height - 2*HOutputConnectorMargin;
+            constexpr int conSpacing = conTotalHeight / (Outputs - 1);
+
+            qDebug() << __PRETTY_FUNCTION__ << "conTotalHeight =" << conTotalHeight
+                << ", conSpacing =" << conSpacing;
+
+            int y = HOutputConnectorMargin;
+
+            for (int output = Outputs-1; output >= 0; output--)
+            {
+                double r = ConnectorRadius;
+                auto circle = new QGraphicsEllipseItem(0, 0, 2*r, 2*r, this);
+                circle->setPen(Qt::NoPen);
+                circle->setBrush(Qt::blue);
+                circle->moveBy(Width - circle->boundingRect().width() / 2.0,
+                               -circle->boundingRect().height() / 2.0);
+
+                circle->moveBy(0, y);
+                y += conSpacing;
+            }
+        }
+    }
+};
+
+}
+
 TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
     : QGraphicsScene(parent)
 {
     auto make_lut_item = [] (const QRectF &lutRect, int lutIdx, QGraphicsItem *parent) -> QGraphicsItem *
     {
+#if 0
         auto lutItem = new QGraphicsRectItem(lutRect, parent);
         lutItem->setBrush(QBrush("#fffbcc"));
 
@@ -135,6 +216,9 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
         }
 
         return lutItem;
+#else
+        return new gfx::LUTItem(lutIdx, parent);
+#endif
     };
 
     auto make_level0_items = [&] () -> Level0Items
@@ -574,82 +658,6 @@ ECL_Table_UI make_ecl_table_ui(
     return ui;
 }
 
-IOSettingsWidget::IOSettingsWidget(QWidget *parent)
-    : QWidget(parent)
-{
-    // NIM IO
-    auto page_NIM = new QWidget;
-    {
-        auto table_ui = make_nim_io_settings_table();
-        auto l = new QHBoxLayout(page_NIM);
-        l->addWidget(table_ui.table);
-    }
-
-    // ECL Out
-    auto page_ECL = new QWidget;
-    {
-        auto table = new QTableWidget(trigger_io::ECL_OUT_Count, 6);
-        table->setHorizontalHeaderLabels(
-            {"Activate", "Delay", "Width", "Holdoff", "Invert", "Name"});
-
-        for (int row = 0; row < table->rowCount(); ++row)
-        {
-            table->setVerticalHeaderItem(row, new QTableWidgetItem(
-                    QString("ECL%1").arg(row)));
-
-            table->setCellWidget(row, 0, make_centered(new QCheckBox()));
-            table->setCellWidget(row, 4, make_centered(new QCheckBox()));
-            table->setItem(row, 5, new QTableWidgetItem(
-                    QString("ECL%1").arg(row)));
-        }
-
-        table->resizeColumnsToContents();
-        table->resizeRowsToContents();
-
-        auto l = new QHBoxLayout(page_ECL);
-        l->addWidget(table);
-    }
-
-    // Timers
-    auto page_Timers = new QWidget;
-    {
-        auto table = new QTableWidget(trigger_io::TimerCount, 4);
-        table->setHorizontalHeaderLabels({"Range", "Period", "Delay", "Name"});
-
-        for (int row = 0; row < table->rowCount(); ++row)
-        {
-            table->setVerticalHeaderItem(row, new QTableWidgetItem(QString::number(row)));
-
-            auto combo_range = new QComboBox;
-            combo_range->addItem("ns", 0);
-            combo_range->addItem("µs", 1);
-            combo_range->addItem("ms", 2);
-            combo_range->addItem("s",  3);
-
-            table->setCellWidget(row, 0, combo_range);
-            table->setItem(row, 1, new QTableWidgetItem(QString::number(16)));
-            table->setItem(row, 2, new QTableWidgetItem(QString::number(0)));
-            table->setItem(row, 3, new QTableWidgetItem(
-                    QString("Timer%1").arg(row)));
-        }
-
-        table->resizeColumnsToContents();
-        table->resizeRowsToContents();
-
-        auto l = new QHBoxLayout(page_Timers);
-        l->addWidget(table);
-    }
-
-    auto tabWidget = new QTabWidget;
-
-    tabWidget->addTab(page_NIM, "NIM IO");
-    tabWidget->addTab(page_ECL, "ECL Out");
-    tabWidget->addTab(page_Timers, "Timers");
-
-    auto widgetLayout = new QHBoxLayout(this);
-    widgetLayout->addWidget(tabWidget);
-}
-
 //
 // NIM_IO_SettingsDialog
 //
@@ -660,6 +668,8 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     QWidget *parent)
     : QDialog(parent)
 {
+    setWindowTitle("NIM Input/Output Settings");
+
     m_tableUi = make_nim_io_settings_table(dir);
     auto &ui = m_tableUi;
 
@@ -783,6 +793,8 @@ ECL_SettingsDialog::ECL_SettingsDialog(
             QWidget *parent)
     : QDialog(parent)
 {
+    setWindowTitle("ECL Output Settings");
+
     m_tableUi = make_ecl_table_ui(names, settings, inputConnections, inputChoiceNameLists);
     auto &ui = m_tableUi;
 
@@ -858,6 +870,8 @@ Level0UtilsDialog::Level0UtilsDialog(
     : QDialog(parent)
     , m_l0(l0)
 {
+    setWindowTitle("Level0 Utility Settings");
+
     auto make_timers_table_ui = [](const Level0 &l0)
     {
         static const QString RowTitleFormat = "Timer%1";
@@ -1130,6 +1144,8 @@ Level3UtilsDialog::Level3UtilsDialog(
     : QDialog(parent)
     , m_l3(l3)
 {
+    setWindowTitle("Level3 Utility Settings");
+
     auto make_ui_stack_starts = [] (
         const Level3 &l3,
         const QVector<QStringList> inputChoiceNameLists)
@@ -1320,12 +1336,14 @@ Level3 Level3UtilsDialog::getSettings() const
 LUTOutputEditor::LUTOutputEditor(
     int outputNumber,
     const QVector<QStringList> &inputNameLists,
-    const std::array<unsigned, 3> &dynamicInputValues,
+    const LUT_DynConValues &dynamicInputValues,
     QWidget *parent)
     : QWidget(parent)
+    , m_inputNameLists(inputNameLists)
 {
     // LUT input bit selection
     auto table_inputs = new QTableWidget(trigger_io::LUT::InputBits, 2);
+    m_inputTable = table_inputs;
     table_inputs->setHorizontalHeaderLabels({"Use", "Name" });
 
     for (int row = 0; row < table_inputs->rowCount(); row++)
@@ -1339,34 +1357,20 @@ LUTOutputEditor::LUTOutputEditor(
 
         auto inputNames = inputNameLists.value(row);
 
-        // Multiple names in the list -> use a combobox to select which to use
+        QTableWidgetItem *nameItem = nullptr;
+
+        // Multiple names in the list -> it's a dynamic input
         if (inputNames.size() > 1)
         {
-            auto combo = new QComboBox;
-            combo->addItems(inputNames);
-
-            if (row < static_cast<int>(dynamicInputValues.size()))
-                combo->setCurrentIndex(dynamicInputValues[row]);
-
-            table_inputs->setCellWidget(row, 1, combo);
-
-            connect(combo, qOverload<int>(&QComboBox::currentIndexChanged),
-                    this, [this, row] (int index) {
-                        if (index >= 0)
-                        {
-                            emit inputConnectionChanged(row, index);
-                        }
-                    });
-
-            m_inputConnectionCombos.push_back(combo);
+            nameItem = new QTableWidgetItem(inputNames.value(dynamicInputValues[row]));
         }
         else // Single name -> use a plain table item
         {
-            auto nameItem = new QTableWidgetItem(inputNames.value(0));
-            nameItem->setFlags(nameItem->flags() & ~Qt::ItemIsEditable);
-            table_inputs->setItem(row, 1, nameItem);
-            m_inputConnectionCombos.push_back(nullptr);
+            nameItem = new QTableWidgetItem(inputNames.value(0));
         }
+
+        nameItem->setFlags(nameItem->flags() & ~Qt::ItemIsEditable);
+        table_inputs->setItem(row, 1, nameItem);
     }
 
     // Reverse the row order by swapping the vertical header view sections.
@@ -1385,14 +1389,16 @@ LUTOutputEditor::LUTOutputEditor(
                 this, &LUTOutputEditor::onInputUsageChanged);
     }
 
-    // Initially empty output value table. Populated in onInputUsageChanged().
-    m_outputTable = new QTableWidget(0, 1);
-    m_outputTable->setHorizontalHeaderLabels({"State"});
+    //auto tb_inputSelect = new QToolbar();
 
     auto widget_inputSelect = new QWidget;
     auto layout_inputSelect = make_layout<QVBoxLayout>(widget_inputSelect);
-    layout_inputSelect->addWidget(new QLabel("Input Selection"));
+    layout_inputSelect->addWidget(new QLabel("Input Bit Usage"));
     layout_inputSelect->addWidget(table_inputs, 1);
+
+    // Initially empty output value table. Populated in onInputUsageChanged().
+    m_outputTable = new QTableWidget(0, 1);
+    m_outputTable->setHorizontalHeaderLabels({"State"});
 
     auto widget_outputActivation = new QWidget;
     auto layout_outputActivation = make_layout<QVBoxLayout>(widget_outputActivation);
@@ -1472,10 +1478,9 @@ void LUTOutputEditor::onInputUsageChanged()
 
 void LUTOutputEditor::setInputConnection(unsigned input, unsigned value)
 {
-    if (auto combo = m_inputConnectionCombos.value(input))
-    {
-        combo->setCurrentIndex(value);
-    }
+    m_inputTable->setItem(input, 1, new QTableWidgetItem(
+            m_inputNameLists[input][value]));
+    m_inputTable->resizeColumnsToContents();
 }
 
 QVector<unsigned> LUTOutputEditor::getInputBitMapping() const
@@ -1580,16 +1585,6 @@ void LUTOutputEditor::setOutputMapping(const OutputMapping &mapping)
     }
 }
 
-LUT_DynConValues LUTOutputEditor::getDynamicConnectionValues() const
-{
-    LUT_DynConValues ret = {};
-
-    for (size_t input = 0; input < ret.size(); input++)
-        ret[input] = m_inputConnectionCombos[input]->currentIndex();
-
-    return ret;
-}
-
 LUTEditor::LUTEditor(
     const QString &lutName,
     const LUT &lut,
@@ -1613,8 +1608,64 @@ LUTEditor::LUTEditor(
     QWidget *parent)
     : QDialog(parent)
 {
-    setWindowTitle(lutName);
+    setWindowTitle("Lookup Table " + lutName + " Setup");
 
+    auto scrollWidget = new QWidget;
+    auto scrollLayout = make_layout<QVBoxLayout>(scrollWidget);
+
+    // If there are dynamic inputs show selection combo boxes at the top of the
+    // dialog.
+    if (std::any_of(inputNameLists.begin(), inputNameLists.end(),
+                    [] (const auto &l) { return l.size() > 1; }))
+    {
+        auto gb_inputSelect = new QGroupBox("Dynamic LUT Inputs");
+        auto l_inputSelect = make_vbox(gb_inputSelect);
+
+        // Note: goes from high to low to match the input bit selection table
+        // below.
+        for (int input = inputNameLists.size() - 1; input >= 0; input--)
+        {
+            const auto &inputNames = inputNameLists[input];
+
+            if (inputNames.size() > 1)
+            {
+                auto label = new QLabel(QSL("Input%1").arg(input));
+                auto combo = new QComboBox;
+                combo->addItems(inputNames);
+
+                if (input < static_cast<int>(dynConValues.size()))
+                    combo->setCurrentIndex(dynConValues[input]);
+
+                m_inputSelectCombos.push_back(combo);
+
+                auto l = make_hbox();
+                l->addWidget(label);
+                l->addWidget(combo, 1);
+
+                l_inputSelect->addLayout(l);
+
+                // Notify the 3 output editors of changes to the dynamic inputs.
+                connect(combo, qOverload<int>(&QComboBox::currentIndexChanged),
+                        this, [this, input] (int index)
+                        {
+                            for (auto outputEditor: m_outputEditors)
+                                outputEditor->setInputConnection(input, index);
+                        });
+            }
+        }
+
+        // Undo the index reversal caused by the loop above.
+        std::reverse(m_inputSelectCombos.begin(), m_inputSelectCombos.end());
+
+        auto hl = make_hbox();
+        hl->addWidget(gb_inputSelect);
+        hl->addStretch(1);
+
+        scrollLayout->addLayout(hl);
+    }
+
+    // 3 LUTOutputEditors side by side. Also a QLineEdit to set the
+    // corresponding LUT output name.
     auto editorLayout = make_hbox<0, 0>();
 
     std::array<QVBoxLayout *, trigger_io::LUT::OutputBits> editorGroupBoxLayouts;
@@ -1642,17 +1693,16 @@ LUTEditor::LUTEditor(
 
         editorGroupBoxLayouts[output] = gbl;
 
-        // Propagate input connection changes from each editor to all editors.
-        // This keeps the connection combo boxes in sync.
-        connect(lutOutputEditor, &LUTOutputEditor::inputConnectionChanged,
-                this, [this] (unsigned input, unsigned value) {
-                    for (auto &editor: m_outputEditors)
-                        editor->setInputConnection(input, value);
-                });
-
         lutOutputEditor->setOutputMapping(lut.lutContents[output]);
+
+        connect(nameEdit, &QLineEdit::textEdited,
+                this, [this, output] (const QString &text)
+                {
+                    emit outputNameEdited(output, text);
+                });
     }
 
+    // Optional row to set which output should use the strobe GG.
     if (!strobeInputNames.isEmpty())
     {
         for (int output = 0; output < trigger_io::LUT::OutputBits; output++)
@@ -1670,11 +1720,9 @@ LUTEditor::LUTEditor(
         }
     }
 
-    auto scrollWidget = new QWidget;
-    auto scrollLayout = make_layout<QVBoxLayout>(scrollWidget);
     scrollLayout->addLayout(editorLayout, 10);
 
-
+    // Optional single-row table for the strobe GG settings.
     if (!strobeInputNames.isEmpty())
     {
         QStringList columnTitles = {
@@ -1748,15 +1796,12 @@ QStringList LUTEditor::getOutputNames() const
 
 LUT_DynConValues LUTEditor::getDynamicConnectionValues()
 {
-    // The editors are synchronized internally and should all yield the same
-    // values.
-    for (auto editor: m_outputEditors)
-    {
-        assert(m_outputEditors[0]->getDynamicConnectionValues()
-               == editor->getDynamicConnectionValues());
-    }
+    LUT_DynConValues ret = {};
 
-    return m_outputEditors[0]->getDynamicConnectionValues();
+    for (size_t input = 0; input < ret.size(); input++)
+        ret[input] = m_inputSelectCombos[input]->currentIndex();
+
+    return ret;
 }
 
 unsigned LUTEditor::getStrobeConnectionValue()

@@ -96,13 +96,6 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         Level0UtilItems m_level0UtilItems;
 };
 
-class IOSettingsWidget: public QWidget
-{
-    Q_OBJECT
-    public:
-        IOSettingsWidget(QWidget *parent = nullptr);
-};
-
 struct NIM_IO_Table_UI
 {
     enum Columns
@@ -357,9 +350,6 @@ class Level3UtilsDialog: public QDialog
 class LUTOutputEditor: public QWidget
 {
     Q_OBJECT
-    signals:
-        void inputConnectionChanged(unsigned input, unsigned value);
-
     public:
         LUTOutputEditor(
             int outputNumber,
@@ -371,8 +361,6 @@ class LUTOutputEditor: public QWidget
         OutputMapping getOutputMapping() const;
         void setOutputMapping(const OutputMapping &mapping);
 
-        LUT_DynConValues getDynamicConnectionValues() const;
-
     public slots:
         void setInputConnection(unsigned input, unsigned value);
 
@@ -382,15 +370,19 @@ class LUTOutputEditor: public QWidget
     private:
         QVector<unsigned> getInputBitMapping() const;
 
+        QTableWidget *m_inputTable;
         QVector<QCheckBox *> m_inputCheckboxes;
-        QVector<QComboBox *> m_inputConnectionCombos;
         QTableWidget *m_outputTable;
         QVector<QPushButton *> m_outputStateWidgets;
+        QVector<QStringList> m_inputNameLists;
 };
 
 class LUTEditor: public QDialog
 {
     Q_OBJECT
+    signals:
+        void outputNameEdited(int outIndex, const QString &outName);
+
     public:
         // LUT without strobe inputs
         LUTEditor(
@@ -436,6 +428,7 @@ class LUTEditor: public QDialog
             QComboBox *combo_connection;
         };
 
+        QVector<QComboBox *> m_inputSelectCombos;
         QVector<LUTOutputEditor *> m_outputEditors;
         QVector<QLineEdit *> m_outputNameEdits;
         QVector<QCheckBox *> m_strobeCheckboxes;
