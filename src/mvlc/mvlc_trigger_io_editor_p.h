@@ -8,6 +8,8 @@
 #include <QDialog>
 #include <QSpinBox>
 
+#include <QGraphicsRectItem>
+
 #include "mvlc/mvlc_trigger_io.h"
 #include "mvlc/mvlc_trigger_io_2.h"
 
@@ -31,6 +33,117 @@ class TriggerIOView: public QGraphicsView
         void scaleView(qreal scaleFactor);
 };
 
+namespace gfx
+{
+class ConnectorItem: public QGraphicsEllipseItem
+{
+    public:
+        static const int ConnectorRadius = 4;
+        static constexpr float LabelPixelSize = 8.0f;
+        static const int LabelOffset = 2;
+
+        ConnectorItem(QGraphicsItem *parent = nullptr);
+        ConnectorItem(const QString &label, QGraphicsItem *parent = nullptr);
+
+        void setLabel(const QString &label);
+
+        // label alignment (left, right) if horizontal, (top, bottom) if vertical
+        // TODO: implement top, bottom
+        void setLabelAlignment(const Qt::Alignment &align)
+        {
+            m_labelAlign = align;
+            adjust();
+        }
+
+        // TODO: orientation
+
+    private:
+        void adjust();
+
+        QGraphicsSimpleTextItem *m_label = nullptr;
+        Qt::Alignment m_labelAlign = Qt::AlignLeft;
+};
+
+class ConnectorBase
+{
+    public:
+        QVector<ConnectorItem *> inputConnectors() const
+        { return m_inputConnectors; }
+
+        QVector<ConnectorItem *> outputConnectors() const
+        { return m_outputConnectors; }
+
+        void addInputConnector(ConnectorItem *item)
+        {
+            m_inputConnectors.push_back(item);
+        }
+
+        void addOutputConnector(ConnectorItem *item)
+        {
+            m_outputConnectors.push_back(item);
+        }
+
+    protected:
+        QVector<ConnectorItem *> m_inputConnectors;
+        QVector<ConnectorItem *> m_outputConnectors;
+};
+
+struct BlockItem: public QGraphicsRectItem, public ConnectorBase
+{
+    public:
+        BlockItem(int width, int height,
+                  int inputCount, int outputCount,
+                  int inputConnectorMargin, int outputConnectorMargin,
+                  QGraphicsItem *parent = nullptr);
+
+    protected:
+        void hoverEnterEvent(QGraphicsSceneHoverEvent *ev) override;
+        void hoverLeaveEvent(QGraphicsSceneHoverEvent *ev) override;
+};
+
+struct LUTItem: public BlockItem
+{
+    public:
+        static const int Inputs = 6;
+        static const int Outputs = 3;
+
+        static const int Width = 80;
+        static const int Height = 140;
+
+        static const int HInputConnectorMargin = 16;
+        static const int HOutputConnectorMargin = 48;
+
+        LUTItem(int lutIdx, QGraphicsItem *parent = nullptr);
+};
+
+class Edge: public QGraphicsItem
+{
+    public:
+        Edge(QGraphicsItem *sourceItem, QGraphicsItem *destItem);
+
+        QGraphicsItem *sourceItem() const { return m_source; }
+        QGraphicsItem *destItem() const { return m_dest; }
+
+        void adjust();
+
+    protected:
+        QRectF boundingRect() const override;
+
+        void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+                   QWidget *widget) override;
+
+    private:
+        QGraphicsItem *m_source,
+                      *m_dest;
+
+        QPointF m_sourcePoint,
+                m_destPoint;
+
+        qreal m_arrowSize;
+};
+
+} // end namespace gfx
+
 class TriggerIOGraphicsScene: public QGraphicsScene
 {
     Q_OBJECT
@@ -43,17 +156,19 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         void editL3Utils();
 
     public:
-        TriggerIOGraphicsScene(QObject *parent = nullptr);
+        TriggerIOGraphicsScene(
+            const TriggerIOConfig &ioCfg,
+            QObject *parent = nullptr);
 
     protected:
         virtual void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev) override;
 
     private:
-        struct Level0Items
+        struct Level0NIMItems
         {
             QGraphicsRectItem *parent;
             QGraphicsSimpleTextItem *label;
-            QGraphicsRectItem *nimItem;
+            gfx::BlockItem *nimItem;
 
         };
 
@@ -61,39 +176,46 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         {
             QGraphicsRectItem *parent;
             QGraphicsSimpleTextItem *label;
-            QGraphicsRectItem *utilsItem;
+            gfx::BlockItem *utilsItem;
         };
 
         struct Level1Items
         {
             QGraphicsRectItem *parent;
             QGraphicsSimpleTextItem *label;
-            std::array<QGraphicsItem *, trigger_io::Level1::LUTCount> luts;
+            std::array<gfx::LUTItem *, trigger_io::Level1::LUTCount> luts;
         };
 
         struct Level2Items
         {
             QGraphicsRectItem *parent;
             QGraphicsSimpleTextItem *label;
-            std::array<QGraphicsItem *, trigger_io::Level2::LUTCount> luts;
+            std::array<gfx::LUTItem *, trigger_io::Level2::LUTCount> luts;
         };
 
         struct Level3Items
         {
             QGraphicsRectItem *parent;
             QGraphicsSimpleTextItem *label;
-            QGraphicsRectItem *nimItem;
-            QGraphicsRectItem *eclItem;
-            QGraphicsRectItem *utilsItem;
+            gfx::BlockItem *nimItem;
+            gfx::BlockItem *eclItem;
+            gfx::BlockItem *utilsItem;
 
         };
 
-        Level0Items m_level0Items;
+        QAbstractGraphicsShapeItem *getInputConnector(const UnitAddress &addr) const;
+        QAbstractGraphicsShapeItem *getOutputConnector(const UnitAddress &addr) const;
+
+        TriggerIOConfig m_ioCfg;
+
+        Level0NIMItems m_level0NIMItems;
+        Level0UtilItems m_level0UtilItems;
+
         Level1Items m_level1Items;
         Level2Items m_level2Items;
         Level3Items m_level3Items;
 
-        Level0UtilItems m_level0UtilItems;
+        QVector<gfx::Edge *> m_edges;
 };
 
 struct NIM_IO_Table_UI

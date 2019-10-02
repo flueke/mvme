@@ -3,11 +3,11 @@
 #include <cassert>
 #include <cmath>
 #include <QBoxLayout>
-#include <QGraphicsRectItem>
 #include <QGraphicsSceneMouseEvent>
 #include <QHeaderView>
 #include <QWheelEvent>
 
+#include <boost/range/adaptor/indexed.hpp>
 #include <minbool.h>
 #include <QDebug>
 #include <QDialogButtonBox>
@@ -16,6 +16,8 @@
 #include <QPushButton>
 
 #include "qt_util.h"
+
+using boost::adaptors::indexed;
 
 namespace
 {
@@ -59,13 +61,14 @@ TriggerIOView::TriggerIOView(QGraphicsScene *scene, QWidget *parent)
         QPainter::Antialiasing
         | QPainter::TextAntialiasing
         | QPainter::SmoothPixmapTransform
-        | QPainter::HighQualityAntialiasing);
+        | QPainter::HighQualityAntialiasing
+        );
 }
 
 void TriggerIOView::scaleView(qreal scaleFactor)
 {
-    double zoomOutLimit = 0.5;
-    double zoomInLimit = 5;
+    double zoomOutLimit = 0.25;
+    double zoomInLimit = 10;
 
     qreal factor = transform().scale(scaleFactor, scaleFactor).mapRect(QRectF(0, 0, 1, 1)).width();
     if (factor < zoomOutLimit || factor > zoomInLimit)
@@ -89,155 +92,273 @@ void TriggerIOView::wheelEvent(QWheelEvent *event)
 namespace gfx
 {
 
-static const QBrush Brush_LUTRect("#fffbcc");
+static const QBrush Block_Brush("#fffbcc");
+static const QBrush Block_Hover_Brush("#eeee77");
+static const QBrush Connector_Brush(Qt::blue);
+static const QBrush Connector_Hover_Brush("#5555ff");
 
-struct LUTItem: public QGraphicsRectItem
+//
+// ConnectorItem
+//
+ConnectorItem::ConnectorItem(QGraphicsItem *parent)
+    : ConnectorItem({}, parent)
+{}
+
+ConnectorItem::ConnectorItem(const QString &label, QGraphicsItem *parent)
+    : QGraphicsEllipseItem(0, 0, 2*ConnectorRadius, 2*ConnectorRadius, parent)
 {
-    static const int Inputs = 6;
-    static const int Outputs = 3;
-
-    static const int Width = 80;
-    static const int Height = 140;
-
-    static const int HInputConnectorMargin = 16;
-    static const int HOutputConnectorMargin = 48;
-
-    static const int ConnectorRadius = 4;
-
-
-    LUTItem(int lutIdx, QGraphicsItem *parent = nullptr)
-        : QGraphicsRectItem(0, 0, Width, Height, parent)
-    {
-        setBrush(Brush_LUTRect);
-
-        auto label = new QGraphicsSimpleTextItem(QString("LUT%1").arg(lutIdx), this);
-        label->moveBy((this->boundingRect().width()
-                       - label->boundingRect().width()) / 2.0, 0);
-
-        // input connectors
-        {
-            constexpr int conTotalHeight = Height - 2*HInputConnectorMargin;
-            constexpr int conSpacing = conTotalHeight / (Inputs - 1);
-
-            qDebug() << __PRETTY_FUNCTION__ << "conTotalHeight =" << conTotalHeight
-                << ", conSpacing =" << conSpacing;
-
-            int y = HInputConnectorMargin;
-
-            for (int input = Inputs-1; input >= 0; input--)
-            {
-                double r = ConnectorRadius;
-                auto circle = new QGraphicsEllipseItem(0, 0, 2*r, 2*r, this);
-                circle->setPen(Qt::NoPen);
-                circle->setBrush(Qt::blue);
-                circle->moveBy(-circle->boundingRect().width() * 0.5,
-                               -circle->boundingRect().height() * 0.5);
-
-                circle->moveBy(0, y);
-                y += conSpacing;
-            }
-        }
-
-        // output connectors
-        {
-            constexpr int conTotalHeight = Height - 2*HOutputConnectorMargin;
-            constexpr int conSpacing = conTotalHeight / (Outputs - 1);
-
-            qDebug() << __PRETTY_FUNCTION__ << "conTotalHeight =" << conTotalHeight
-                << ", conSpacing =" << conSpacing;
-
-            int y = HOutputConnectorMargin;
-
-            for (int output = Outputs-1; output >= 0; output--)
-            {
-                double r = ConnectorRadius;
-                auto circle = new QGraphicsEllipseItem(0, 0, 2*r, 2*r, this);
-                circle->setPen(Qt::NoPen);
-                circle->setBrush(Qt::blue);
-                circle->moveBy(Width - circle->boundingRect().width() / 2.0,
-                               -circle->boundingRect().height() / 2.0);
-
-                circle->moveBy(0, y);
-                y += conSpacing;
-            }
-        }
-    }
-};
-
+    setPen(Qt::NoPen);
+    setBrush(Qt::blue);
+    setLabel(label);
 }
 
-TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
-    : QGraphicsScene(parent)
+void ConnectorItem::setLabel(const QString &label)
 {
-    auto make_lut_item = [] (const QRectF &lutRect, int lutIdx, QGraphicsItem *parent) -> QGraphicsItem *
+    if (!m_label)
     {
-#if 0
-        auto lutItem = new QGraphicsRectItem(lutRect, parent);
-        lutItem->setBrush(QBrush("#fffbcc"));
+        m_label = new QGraphicsSimpleTextItem(this);
+        auto font = m_label->font();
+        font.setPixelSize(LabelPixelSize);
+        m_label->setFont(font);
+    }
 
-        auto label = new QGraphicsSimpleTextItem(QString("LUT%1").arg(lutIdx), lutItem);
-        label->moveBy((lutItem->boundingRect().width()
-                       - label->boundingRect().width()) / 2.0, 0);
+    m_label->setText(label);
+    adjust();
+}
 
-        for (int input = 5; input >= 0; input--)
+void ConnectorItem::adjust()
+{
+    m_label->setPos(0, 0);
+
+    switch (m_labelAlign)
+    {
+        case Qt::AlignLeft:
+            m_label->moveBy(-(m_label->boundingRect().width() + LabelOffset),
+                            -1.5); // magic number
+            break;
+
+        case Qt::AlignRight:
+            m_label->moveBy(2*ConnectorRadius + LabelOffset,
+                            -1.5); // magic number
+            break;
+    }
+}
+
+//
+// BlockItem
+//
+BlockItem::BlockItem(
+    int width, int height,
+    int inputCount, int outputCount,
+    int inputConnectorMargin, int outputConnectorMargin,
+    QGraphicsItem *parent)
+    : QGraphicsRectItem(0, 0, width, height, parent)
+{
+    setAcceptHoverEvents(true);
+    setBrush(Block_Brush);
+
+    // input connectors
+    {
+        const int conTotalHeight = height - 2*inputConnectorMargin;
+        const int conSpacing = conTotalHeight / (inputCount - 1);
+
+        //qDebug() << __PRETTY_FUNCTION__ << "input: conTotalHeight =" << conTotalHeight
+        //    << ", conSpacing =" << conSpacing;
+
+        int y = inputConnectorMargin;
+
+        for (int input = inputCount-1; input >= 0; input--)
         {
-            double r = 4;
-            auto circle = new QGraphicsEllipseItem(0, 0, 2*r, 2*r, lutItem);
-            circle->setPen(Qt::NoPen);
-            circle->setBrush(Qt::blue);
-            circle->moveBy(-circle->boundingRect().width() / 2.0,
-                           -circle->boundingRect().height() / 2.0);
+            auto circle = new ConnectorItem(QString::number(input), this);
+            circle->setLabelAlignment(Qt::AlignRight);
+            circle->moveBy(-circle->boundingRect().width() * 0.5,
+                           -circle->boundingRect().height() * 0.5);
 
-            const int Inputs = 6;
-            double margin = 20;
-            double height = lutRect.height() - 2 * margin;
-            double stepHeight = height / Inputs;
-            int topDownIndex = Inputs - 1 - input;
-
-            circle->moveBy(0, margin + topDownIndex * (stepHeight + r));
+            circle->moveBy(0, y);
+            //qDebug() << "  input:" << input << ", dy =" << y << ", y =" << circle->pos().y();
+            y += conSpacing;
+            m_inputConnectors.push_back(circle);
         }
 
-        for (int output = 2; output >= 0; output--)
+        std::reverse(m_inputConnectors.begin(), m_inputConnectors.end());
+    }
+
+    // output connectors
+    {
+        const int conTotalHeight = height - 2*outputConnectorMargin;
+        const int conSpacing = conTotalHeight / (outputCount - 1);
+
+        //qDebug() << __PRETTY_FUNCTION__ << "output: conTotalHeight =" << conTotalHeight
+        //    << ", conSpacing =" << conSpacing;
+
+        int y = outputConnectorMargin;
+
+        for (int output = outputCount-1; output >= 0; output--)
         {
-            double r = 4;
-            auto circle = new QGraphicsEllipseItem(0, 0, 2*r, 2*r, lutItem);
-            circle->setPen(Qt::NoPen);
-            circle->setBrush(Qt::blue);
-            circle->moveBy(lutRect.width() - circle->boundingRect().width() / 2.0,
-                           -circle->boundingRect().height() / 2.0);
+            auto circle = new ConnectorItem(QString::number(output), this);
+            circle->setLabelAlignment(Qt::AlignLeft);
+            circle->moveBy(width - circle->boundingRect().width() * 0.5,
+                           -circle->boundingRect().height() * 0.5);
 
-            const int Outputs = 3;
-            double margin = 40;
-            double height = lutRect.height() - 2 * margin;
-            double stepHeight = height / Outputs;
-            int topDownIndex = Outputs - 1 - output;
-
-            circle->moveBy(0, margin + topDownIndex * (stepHeight + r));
+            circle->moveBy(0, y);
+            //qDebug() << "  output:" << input << ", dy =" << y << ", y =" << circle->pos().y();
+            y += conSpacing;
+            m_outputConnectors.push_back(circle);
         }
 
-        return lutItem;
-#else
-        return new gfx::LUTItem(lutIdx, parent);
-#endif
-    };
+        std::reverse(m_outputConnectors.begin(), m_outputConnectors.end());
+    }
+}
 
-    auto make_level0_items = [&] () -> Level0Items
+void BlockItem::hoverEnterEvent(QGraphicsSceneHoverEvent *ev)
+{
+    setBrush(Block_Hover_Brush);
+    for (auto con: m_inputConnectors)
+        con->setBrush(Connector_Hover_Brush);
+    for (auto con: m_outputConnectors)
+        con->setBrush(Connector_Hover_Brush);
+    QGraphicsRectItem::update();
+}
+
+void BlockItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *ev)
+{
+    setBrush(Block_Brush);
+    for (auto con: m_inputConnectors)
+        con->setBrush(Connector_Brush);
+    for (auto con: m_outputConnectors)
+        con->setBrush(Connector_Brush);
+    QGraphicsRectItem::update();
+}
+
+
+//
+// LUTItem
+//
+LUTItem::LUTItem(int lutIdx, QGraphicsItem *parent)
+    : BlockItem(
+        Width, Height,
+        Inputs, Outputs,
+        HInputConnectorMargin, HOutputConnectorMargin,
+        parent)
+{
+    auto label = new QGraphicsSimpleTextItem(QString("LUT%1").arg(lutIdx), this);
+    label->moveBy((this->boundingRect().width()
+                   - label->boundingRect().width()) / 2.0, 0);
+}
+
+template<typename T>
+QPointF get_center_point(T *item)
+{
+    return item->boundingRect().center();
+}
+
+//
+// Edge
+//
+Edge::Edge(QGraphicsItem *sourceItem, QGraphicsItem *destItem)
+    : m_source(sourceItem)
+    , m_dest(destItem)
+    , m_arrowSize(8)
+{
+    setAcceptedMouseButtons(0);
+    adjust();
+}
+
+void Edge::adjust()
+{
+    if (!m_source || !m_dest)
+        return;
+
+    QLineF line(mapFromItem(m_source, get_center_point(m_source)),
+                mapFromItem(m_dest, get_center_point(m_dest)));
+
+    qreal length = line.length();
+
+    prepareGeometryChange();
+
+    if (length > qreal(20.)) {
+        // Shortens the line to be drawn by 'offset' pixels at the start and
+        // end.
+        qreal offset = 4;
+        qreal offsetPercent = (length - offset) / length;
+        m_sourcePoint = line.pointAt(1.0 - offsetPercent);
+        m_destPoint = line.pointAt(offsetPercent);
+    } else {
+        m_sourcePoint = m_destPoint = line.p1();
+    }
+}
+
+QRectF Edge::boundingRect() const
+{
+    if (!m_source || !m_dest)
+        return QRectF();
+
+    qreal penWidth = 1;
+    qreal extra = (penWidth + m_arrowSize) / 2.0;
+
+    return QRectF(m_sourcePoint, QSizeF(m_destPoint.x() - m_sourcePoint.x(),
+                                        m_destPoint.y() - m_sourcePoint.y()))
+        .normalized()
+        .adjusted(-extra, -extra, extra, extra);
+}
+
+void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+           QWidget *widget)
+{
+    if (!m_source || !m_dest)
+        return;
+
+    QLineF line(m_sourcePoint, m_destPoint);
+    if (qFuzzyCompare(line.length(), qreal(0.)))
+        return;
+
+    // Draw the line itself
+    painter->setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter->drawLine(line);
+
+    // Draw the arrows
+    double angle = std::atan2(-line.dy(), line.dx());
+
+    //QPointF sourceArrowP1 = m_sourcePoint + QPointF(sin(angle + M_PI / 3) * m_arrowSize,
+    //                                                cos(angle + M_PI / 3) * m_arrowSize);
+    //QPointF sourceArrowP2 = m_sourcePoint + QPointF(sin(angle + M_PI - M_PI / 3) * m_arrowSize,
+    //                                                cos(angle + M_PI - M_PI / 3) * m_arrowSize);
+    QPointF destArrowP1 = m_destPoint + QPointF(sin(angle - M_PI / 3) * m_arrowSize,
+                                                cos(angle - M_PI / 3) * m_arrowSize);
+    QPointF destArrowP2 = m_destPoint + QPointF(sin(angle - M_PI + M_PI / 3) * m_arrowSize,
+                                                cos(angle - M_PI + M_PI / 3) * m_arrowSize);
+
+    painter->setBrush(Qt::black);
+    //painter->drawPolygon(QPolygonF() << line.p1() << sourceArrowP1 << sourceArrowP2);
+    painter->drawPolygon(QPolygonF() << line.p2() << destArrowP1 << destArrowP2);
+}
+
+} // end namespace gfx
+
+TriggerIOGraphicsScene::TriggerIOGraphicsScene(
+    const TriggerIOConfig &ioCfg,
+    QObject *parent)
+: QGraphicsScene(parent)
+, m_ioCfg(ioCfg)
+{
+    auto make_level0_nim_items = [&] () -> Level0NIMItems
     {
-        Level0Items result = {};
-
-        QRectF lutRect(0, 0, 80, 140);
+        Level0NIMItems result = {};
 
         result.parent = new QGraphicsRectItem(
             0, 0,
-            2 * (lutRect.width() + 50) + 25,
-            3 * (lutRect.height() + 25) + 25);
+            150, 520);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
         // NIM+ECL IO Item
         {
-            result.nimItem = new QGraphicsRectItem(0, 0, 100, 140, result.parent);
-            result.nimItem->setBrush(QBrush("#fffbcc"));
+            result.nimItem = new gfx::BlockItem(
+                100, 470,
+                0, trigger_io::NIM_IO_Count,
+                0, 48,
+                result.parent);
+
             result.nimItem->moveBy(25, 25);
 
             auto label = new QGraphicsSimpleTextItem(QString("NIM Inputs"), result.nimItem);
@@ -259,21 +380,23 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
     {
         Level1Items result = {};
 
-        QRectF lutRect(0, 0, 80, 140);
-
         // background box containing the 5 LUTs
         result.parent = new QGraphicsRectItem(
             0, 0,
-            2 * (lutRect.width() + 50) + 25,
-            3 * (lutRect.height() + 25) + 25);
+            260, 520);
+
+        qDebug() << __PRETTY_FUNCTION__ << "level1 parent rect: " << result.parent->rect();
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
         for (size_t lutIdx=0; lutIdx<result.luts.size(); lutIdx++)
         {
-            auto lutItem = make_lut_item(lutRect, lutIdx, result.parent);
+            auto lutItem = new gfx::LUTItem(lutIdx, result.parent);
             result.luts[lutIdx] = lutItem;
         }
+
+        QRectF lutRect = result.luts[0]->rect();
+        qDebug() << __PRETTY_FUNCTION__ << "lutRect =" << lutRect;
 
         lutRect.translate(25, 25);
         result.luts[2]->setPos(lutRect.topLeft());
@@ -317,12 +440,12 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
 
         // Single box for utils
         {
-            result.utilsItem = new QGraphicsRectItem(
-                0, 0,
+            result.utilsItem = new gfx::BlockItem(
                 result.parent->boundingRect().width() - 2 * 25,
                 result.parent->boundingRect().height() - 2 * 25,
+                0, trigger_io::Level0::UtilityUnitCount,
+                0, 16,
                 result.parent);
-            result.utilsItem->setBrush(QBrush("#fffbcc"));
             result.utilsItem->moveBy(25, 25);
 
             auto label = new QGraphicsSimpleTextItem(
@@ -359,7 +482,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
 
         for (size_t lutIdx=0; lutIdx<result.luts.size(); lutIdx++)
         {
-            auto lutItem = make_lut_item(lutRect, lutIdx, result.parent);
+            auto lutItem = new gfx::LUTItem(lutIdx, result.parent);
             result.luts[lutIdx] = lutItem;
         }
 
@@ -396,8 +519,12 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
 
         // NIM IO Item
         {
-            result.nimItem = new QGraphicsRectItem(0, 0, 100, 140, result.parent);
-            result.nimItem->setBrush(QBrush("#fffbcc"));
+            result.nimItem = new gfx::BlockItem(
+                100, 470,
+                trigger_io::NIM_IO_Count, 0,
+                48, 0,
+                result.parent);
+
             result.nimItem->moveBy(25, 25);
 
             auto label = new QGraphicsSimpleTextItem(QString("NIM Outputs"), result.nimItem);
@@ -405,12 +532,16 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
                            - label->boundingRect().width()) / 2.0, 0);
         }
 
+#if 1
         auto yOffset = result.nimItem->boundingRect().height() + 25;
 
         // ECL Out
         {
-            result.eclItem = new QGraphicsRectItem(0, 0, 100, 140, result.parent);
-            result.eclItem->setBrush(QBrush("#fffbcc"));
+            result.eclItem = new gfx::BlockItem(
+                100, 140,
+                trigger_io::ECL_OUT_Count, 0,
+                48, 0,
+                result.parent);
             result.eclItem->moveBy(25, 25);
 
             auto label = new QGraphicsSimpleTextItem(QString("ECL Outputs"), result.eclItem);
@@ -422,8 +553,11 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
 
         // Utils
         {
-            result.utilsItem = new QGraphicsRectItem(0, 0, 100, 140, result.parent);
-            result.utilsItem->setBrush(QBrush("#fffbcc"));
+            result.utilsItem = new gfx::BlockItem(
+                100, 140,
+                trigger_io::Level3::UtilityUnitCount, 0,
+                16, 0,
+                result.parent);
             result.utilsItem->moveBy(25, 25);
 
             auto label = new QGraphicsSimpleTextItem(
@@ -431,8 +565,9 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
             label->moveBy((result.utilsItem->boundingRect().width()
                            - label->boundingRect().width()) / 2.0, 0);
 
-            result.utilsItem->moveBy(0, 2 * yOffset);
+            result.utilsItem->moveBy(0, yOffset + result.eclItem->boundingRect().height() + 25);
         }
+#endif
 
         QFont labelFont;
         labelFont.setPointSize(labelFont.pointSize() + 5);
@@ -445,8 +580,8 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
     };
 
     // Top row, side by side gray boxes for each level
-    m_level0Items = make_level0_items();
-    m_level0Items.parent->moveBy(-300, 0);
+    m_level0NIMItems = make_level0_nim_items();
+    m_level0NIMItems.parent->moveBy(-160, 0);
     m_level1Items = make_level1_items();
     m_level2Items = make_level2_items();
     m_level2Items.parent->moveBy(300, 0);
@@ -455,21 +590,246 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(QObject *parent)
 
     m_level0UtilItems = make_level0_util_items();
     m_level0UtilItems.parent->moveBy(
-        300, m_level0Items.parent->boundingRect().height() + 15);
+        300, m_level0NIMItems.parent->boundingRect().height() + 15);
 
-    this->addItem(m_level0Items.parent);
+    this->addItem(m_level0NIMItems.parent);
     this->addItem(m_level1Items.parent);
     this->addItem(m_level2Items.parent);
     this->addItem(m_level3Items.parent);
     this->addItem(m_level0UtilItems.parent);
+
+    // static level 1 connections
+    for (const auto &lutkv: Level1::StaticConnections | indexed(0))
+    {
+        unsigned lutIndex = lutkv.index();
+        auto &lutConnections = lutkv.value();
+
+        for (const auto &conkv: lutConnections | indexed(0))
+        {
+            unsigned inputIndex = conkv.index();
+            UnitConnection con = conkv.value();
+
+            auto sourceConnector = getOutputConnector(con.address);
+            auto destConnector = getInputConnector({1, lutIndex, inputIndex});
+
+            if (sourceConnector && destConnector)
+            {
+                auto edge = new gfx::Edge(sourceConnector, destConnector);
+                m_edges.push_back(edge);
+            }
+        }
+    }
+
+    // static level 2 connections
+    for (const auto &lutkv: Level2::StaticConnections | indexed(0))
+    {
+        unsigned lutIndex = lutkv.index();
+        auto &lutConnections = lutkv.value();
+
+        for (const auto &conkv: lutConnections | indexed(0))
+        {
+            unsigned inputIndex = conkv.index();
+            UnitConnection con = conkv.value();
+
+            if (con.isDynamic)
+                continue;
+
+            auto sourceConnector = getOutputConnector(con.address);
+            auto destConnector = getInputConnector({2, lutIndex, inputIndex});
+
+            if (sourceConnector && destConnector)
+            {
+                auto edge = new gfx::Edge(sourceConnector, destConnector);
+                m_edges.push_back(edge);
+            }
+        }
+    }
+
+    // level2 dynamic connections
+    for (const auto &lutkv: ioCfg.l2.luts | indexed(0))
+    {
+        unsigned unitIndex = lutkv.index();
+        const auto l2InputChoices = make_level2_input_choices(unitIndex);
+
+        for (unsigned input = 0; input < Level2LUT_VariableInputCount; input++)
+        {
+            unsigned conValue = ioCfg.l2.lutConnections[unitIndex][input];
+            UnitAddress conAddress = l2InputChoices.inputChoices[input][conValue];
+
+            auto sourceConnector = getOutputConnector(conAddress);
+            auto destConnector = getInputConnector({2, unitIndex, input});
+
+            if (sourceConnector && destConnector)
+            {
+                auto edge = new gfx::Edge(sourceConnector, destConnector);
+                m_edges.push_back(edge);
+            }
+        }
+    }
+
+    // level3 dynamic connections
+    for (const auto &kv: ioCfg.l3.stackStart | indexed(0))
+    {
+        unsigned unitIndex = kv.index();
+
+        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+
+        auto sourceConnector = getOutputConnector(conAddress);
+        auto destConnector = getInputConnector({3, unitIndex});
+
+        if (sourceConnector && destConnector)
+        {
+            auto edge = new gfx::Edge(sourceConnector, destConnector);
+            m_edges.push_back(edge);
+        }
+    }
+
+    for (const auto &kv: ioCfg.l3.masterTriggers | indexed(0))
+    {
+        unsigned unitIndex = kv.index() + ioCfg.l3.MasterTriggersOffset;
+
+        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+
+        auto sourceConnector = getOutputConnector(conAddress);
+        auto destConnector = getInputConnector({3, unitIndex});
+
+        if (sourceConnector && destConnector)
+        {
+            auto edge = new gfx::Edge(sourceConnector, destConnector);
+            m_edges.push_back(edge);
+        }
+    }
+
+    for (const auto &kv: ioCfg.l3.counters | indexed(0))
+    {
+        unsigned unitIndex = kv.index() + ioCfg.l3.CountersOffset;
+
+        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+
+        auto sourceConnector = getOutputConnector(conAddress);
+        auto destConnector = getInputConnector({3, unitIndex});
+
+        if (sourceConnector && destConnector)
+        {
+            auto edge = new gfx::Edge(sourceConnector, destConnector);
+            m_edges.push_back(edge);
+        }
+    }
+
+    // Level3 NIM connections
+    for (size_t nim = 0; nim < trigger_io::NIM_IO_Count; nim++)
+    {
+        unsigned unitIndex = nim + ioCfg.l3.NIM_IO_Unit_Offset;
+
+        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+
+        auto sourceConnector = getOutputConnector(conAddress);
+        auto destConnector = getInputConnector({3, unitIndex});
+
+        if (sourceConnector && destConnector)
+        {
+            auto edge = new gfx::Edge(sourceConnector, destConnector);
+            m_edges.push_back(edge);
+        }
+    }
+
+    for (const auto &kv: ioCfg.l3.ioECL | indexed(0))
+    {
+        unsigned unitIndex = kv.index() + ioCfg.l3.ECL_Unit_Offset;
+
+        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+
+        auto sourceConnector = getOutputConnector(conAddress);
+        auto destConnector = getInputConnector({3, unitIndex});
+
+        if (sourceConnector && destConnector)
+        {
+            auto edge = new gfx::Edge(sourceConnector, destConnector);
+            m_edges.push_back(edge);
+        }
+    }
+
+    // let the edges adjust themselves and add them to the scene
+    for (auto edge: m_edges)
+    {
+        edge->adjust();
+        this->addItem(edge);
+    }
 };
+
+QAbstractGraphicsShapeItem *
+    TriggerIOGraphicsScene::getInputConnector(const UnitAddress &addr) const
+{
+    switch (addr[0])
+    {
+        case 0:
+            return nullptr;
+        case 1:
+            return m_level1Items.luts[addr[1]]->inputConnectors().value(addr[2]);
+        case 2:
+            return m_level2Items.luts[addr[1]]->inputConnectors().value(addr[2]);
+        case 3:
+            if (trigger_io::Level3::NIM_IO_Unit_Offset <= addr[1]
+                && addr[1] < trigger_io::Level3::NIM_IO_Unit_Offset + trigger_io::NIM_IO_Count)
+            {
+                return m_level3Items.nimItem->inputConnectors().value(
+                    addr[1] - trigger_io::Level3::NIM_IO_Unit_Offset);
+            }
+            else if (trigger_io::Level3::ECL_Unit_Offset <= addr[1]
+                     && addr[1] < trigger_io::Level3::ECL_Unit_Offset + trigger_io::ECL_OUT_Count)
+            {
+                return m_level3Items.eclItem->inputConnectors().value(
+                    addr[1] - trigger_io::Level3::ECL_Unit_Offset);
+            }
+            else
+            {
+                return m_level3Items.utilsItem->inputConnectors().value(addr[1]);
+            }
+            break;
+    }
+
+    return nullptr;
+}
+
+QAbstractGraphicsShapeItem *
+    TriggerIOGraphicsScene::getOutputConnector(const UnitAddress &addr) const
+{
+    switch (addr[0])
+    {
+        case 0:
+            if (trigger_io::Level0::NIM_IO_Offset <= addr[1]
+                && addr[1] < trigger_io::Level0::NIM_IO_Offset + trigger_io::NIM_IO_Count)
+            {
+                return m_level0NIMItems.nimItem->outputConnectors().value(
+                    addr[1] - trigger_io::Level0::NIM_IO_Offset);
+            }
+            else
+            {
+                return m_level0UtilItems.utilsItem->outputConnectors().value(addr[1]);
+            }
+            break;
+        case 1:
+            return m_level1Items.luts[addr[1]]->outputConnectors().value(addr[2]);
+        case 2:
+            return m_level2Items.luts[addr[1]]->outputConnectors().value(addr[2]);
+        case 3:
+            return nullptr;
+    }
+
+    return nullptr;
+}
 
 void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
 {
     auto items = this->items(ev->scenePos());
 
     // level0
-    if (items.indexOf(m_level0Items.nimItem) >= 0)
+    if (items.indexOf(m_level0NIMItems.nimItem) >= 0)
     {
         ev->accept();
         emit editNIM_Inputs();

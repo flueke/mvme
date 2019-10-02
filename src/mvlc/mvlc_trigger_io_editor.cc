@@ -34,7 +34,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
     d->scriptConfig = scriptConfig;
     d->initialScriptContents = scriptConfig->getScriptContents();
 
-    auto scene = new TriggerIOGraphicsScene;
+    auto scene = new TriggerIOGraphicsScene(d->ioCfg);
 
     // Edit LUT
     QObject::connect(scene, &TriggerIOGraphicsScene::editLUT,
