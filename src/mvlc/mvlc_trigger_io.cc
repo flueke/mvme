@@ -232,7 +232,7 @@ const std::array<QString, trigger_io::Level3::UnitCount> Level3::DefaultUnitName
 
 namespace
 {
-std::vector<UnitAddressVector> make_level3_dynamic_input_choice_lists()
+std::vector<UnitAddressVector> make_l3_input_choices()
 {
     static const std::vector<UnitAddress> Level2Full =
     {
@@ -303,8 +303,10 @@ std::vector<UnitAddressVector> make_level3_dynamic_input_choice_lists()
 }
 } // end anon namespace
 
+const std::vector<UnitAddressVector>
+    Level3::DynamicInputChoiceLists = make_l3_input_choices();
+
 Level3::Level3()
-    : dynamicInputChoiceLists(make_level3_dynamic_input_choice_lists())
 {
     stackStart.fill({});
     masterTriggers.fill({});
