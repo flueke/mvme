@@ -336,7 +336,7 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
 } // end namespace gfx
 
 TriggerIOGraphicsScene::TriggerIOGraphicsScene(
-    const TriggerIOConfig &ioCfg,
+    const TriggerIO &ioCfg,
     QObject *parent)
 : QGraphicsScene(parent)
 , m_ioCfg(ioCfg)
@@ -649,12 +649,12 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     for (const auto &lutkv: ioCfg.l2.luts | indexed(0))
     {
         unsigned unitIndex = lutkv.index();
-        const auto l2InputChoices = make_level2_input_choices(unitIndex);
+        const auto &l2InputChoices = Level2::DynamicInputChoices[unitIndex];
 
-        for (unsigned input = 0; input < Level2LUT_VariableInputCount; input++)
+        for (unsigned input = 0; input < Level2::LUT_DynamicInputCount; input++)
         {
             unsigned conValue = ioCfg.l2.lutConnections[unitIndex][input];
-            UnitAddress conAddress = l2InputChoices.inputChoices[input][conValue];
+            UnitAddress conAddress = l2InputChoices.lutChoices[input][conValue];
 
             auto sourceConnector = getOutputConnector(conAddress);
             auto destConnector = getInputConnector({2, unitIndex, input});
@@ -1696,7 +1696,7 @@ Level3 Level3UtilsDialog::getSettings() const
 LUTOutputEditor::LUTOutputEditor(
     int outputNumber,
     const QVector<QStringList> &inputNameLists,
-    const LUT_DynConValues &dynamicInputValues,
+    const Level2::DynamicConnections &dynamicInputValues,
     QWidget *parent)
     : QWidget(parent)
     , m_inputNameLists(inputNameLists)
@@ -1858,9 +1858,9 @@ QVector<unsigned> LUTOutputEditor::getInputBitMapping() const
 
 // Returns the full 2^6 entry LUT bitset corresponding to the current state of
 // the GUI.
-OutputMapping LUTOutputEditor::getOutputMapping() const
+LUT::Bitmap LUTOutputEditor::getOutputMapping() const
 {
-    OutputMapping result;
+    LUT::Bitmap result;
 
     const auto bitMap = getInputBitMapping();
 
@@ -1899,7 +1899,7 @@ OutputMapping LUTOutputEditor::getOutputMapping() const
     return result;
 }
 
-void LUTOutputEditor::setOutputMapping(const OutputMapping &mapping)
+void LUTOutputEditor::setOutputMapping(const LUT::Bitmap &mapping)
 {
     // Use the minbool lib to get the minimal set of input bits affecting the
     // output.
@@ -1959,7 +1959,7 @@ LUTEditor::LUTEditor(
     const QString &lutName,
     const LUT &lut,
     const QVector<QStringList> &inputNameLists,
-    const LUT_DynConValues &dynConValues,
+    const Level2::DynamicConnections &dynConValues,
     const QStringList &outputNames,
     const QStringList &strobeInputNames,
     unsigned strobeConValue,
@@ -2154,9 +2154,9 @@ QStringList LUTEditor::getOutputNames() const
     return ret;
 }
 
-LUT_DynConValues LUTEditor::getDynamicConnectionValues()
+Level2::DynamicConnections LUTEditor::getDynamicConnectionValues()
 {
-    LUT_DynConValues ret = {};
+    Level2::DynamicConnections ret = {};
 
     for (size_t input = 0; input < ret.size(); input++)
         ret[input] = m_inputSelectCombos[input]->currentIndex();

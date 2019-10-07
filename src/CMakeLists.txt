@@ -315,9 +315,10 @@ if (MVME_ENABLE_MVLC)
         mvlc_readout_worker.cc
         mvlc_stream_worker.cc
 
+        mvlc/mvlc_trigger_io.cc
         mvlc/mvlc_trigger_io_editor.cc
         mvlc/mvlc_trigger_io_editor_p.cc
-        mvlc/mvlc_trigger_io_2.cc
+        mvlc/mvlc_trigger_io_script.cc
     )
 
     # Note: the BUILD_INTERFACE line does not work on older CMake versions

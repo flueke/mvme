@@ -6,6 +6,9 @@
 #include <stdexcept>
 #include <vector>
 
+#include <QString>
+#include <QStringList>
+
 #include "typedefs.h"
 
 namespace mesytec
@@ -43,31 +46,33 @@ struct StackBusy
     u16 stackIndex;
 };
 
-using LUT_OutputMap = std::bitset<64>;
-
-// 6 input bits, 4 output bits, 3 of which are used.
-// => 2^6 * 4 bits = 64 * 4 bits = 256 bits needed.
-// 4  4-bit nibbles are stored in a single 16 bit word in the RAM.
-// => 16 rows of memory needed to store all 64 nibbles.
-using LUT_RAM = std::array<u16, 16>;
-
 struct LUT
 {
-    static const int InputBits = 6;
-    static const int OutputBits = 3;
-    static const size_t InputCombinations = 1u << InputBits;
+    static const u16 InputBits = 6;
+    static const u16 OutputBits = 3;
+    static const u16 InputCombinations = 1u << InputBits;
     static const u16 StrobeGGDefaultWidth = 8;
 
-    // TODO: remove ram from here. Build conversion functions from outputMappings to ram and vice versa
-    LUT_RAM ram;
+    // Holds the output state for all 64 input combinations. One of the logic LUTs
+    // is made up for three of these mappings, one for each output bit.
+    using Bitmap = std::bitset<64>;
+    using Contents = std::array<Bitmap, trigger_io::LUT::OutputBits>;
 
-    std::array<LUT_OutputMap, OutputBits> outputMappings;
+
+    LUT();
+    LUT(const LUT &) = default;
+    LUT &operator=(const LUT &) = default;
+
+    Contents lutContents;
 
     // Bit mask determining which outputs are to be strobed.
     std::bitset<OutputBits> strobedOutputs;
 
-    // Strobe gate generator settings
-    IO strobeGG;
+    // Strobe gate generator settings. Each Level2 LUT has one of these.
+    IO strobeGG = { .delay = 0, .width = StrobeGGDefaultWidth };
+
+    std::array<QString, OutputBits> defaultOutputNames;
+    std::array<QString, OutputBits> outputNames;
 };
 
 struct StackStart
@@ -99,6 +104,44 @@ struct IRQ_Unit
     u8 irqIndex;
 };
 
+// Addressing: level, unit [, subunit]
+// subunit used to address LUT outputs in levels 1 and 2
+using UnitAddress = std::array<unsigned, 3>;
+using UnitAddressVector = std::vector<UnitAddress>;
+
+struct UnitConnection
+{
+    static UnitConnection makeDynamic(bool available = true)
+    {
+        UnitConnection res{0, 0, 0};
+        res.isDynamic = true;
+        res.isAvailable = available;
+        return res;
+    }
+
+    UnitConnection(unsigned level, unsigned unit, unsigned subunit = 0)
+        : address({level, unit, subunit})
+    {}
+
+    unsigned level() const { return address[0]; }
+    unsigned unit() const { return address[1]; }
+    unsigned subunit() const { return address[2]; }
+
+    unsigned operator[](size_t index) const { return address[index]; }
+    unsigned &operator[](size_t index) { return address[index]; }
+
+    UnitConnection(const UnitConnection &other) = default;
+    UnitConnection &operator=(const UnitConnection &other) = default;
+
+    bool isDynamic = false;
+    bool isAvailable = true;
+    UnitAddress address = {};
+};
+
+using LUT_Connections = std::array<UnitConnection, trigger_io::LUT::InputBits>;
+
+static const QString UnitNotAvailable = "N/A";
+
 struct Level0
 {
     static const int OutputCount = 30;
@@ -118,25 +161,59 @@ struct Level0
 
     static const size_t UtilityUnitCount = 14;
 
-    std::array<Timer, TimerCount> timers;   // 0..3
-    std::array<IRQ_Unit, IRQ_UnitCount> irqUnits; // 4, 5     are irq units
-                                            // 6, 7     are software triggers
-    std::array<IO, SlaveTriggerCount> slaveTriggers;        // 8..11
-    std::array<StackBusy, StackBusyCount> stackBusy;     // 12, 13
-                                            // 14, 15 unused
-    std::array<IO, NIM_IO_Count> ioNIM;     // 16..29
+    static const std::array<QString, OutputCount> DefaultUnitNames;
+
+    std::array<Timer, TimerCount> timers;               // 0..3
+    std::array<IRQ_Unit, IRQ_UnitCount> irqUnits;       // 4, 5 are irq units
+                                                        // 6, 7 are software triggers
+    std::array<IO, SlaveTriggerCount> slaveTriggers;    // 8..11
+    std::array<StackBusy, StackBusyCount> stackBusy;    // 12, 13
+                                                        // 14, 15 unused
+    std::array<IO, NIM_IO_Count> ioNIM;                 // 16..29
+
+    QStringList unitNames;
+
+    Level0();
 };
 
 struct Level1
 {
     static const size_t LUTCount = 5;
+    static const std::array<LUT_Connections, LUTCount> StaticConnections;
+
     std::array<LUT, LUTCount> luts;
+
+    Level1();
 };
 
 struct Level2
 {
     static const size_t LUTCount = 2;
+    static const std::array<LUT_Connections, LUTCount> StaticConnections;
+    static const size_t LUT_DynamicInputCount = 3;
+
+    using DynamicConnections = std::array<unsigned, LUT_DynamicInputCount>;
+
+    struct LUTDynamicInputChoices
+    {
+        std::vector<UnitAddressVector> lutChoices;
+        UnitAddressVector strobeChoices;
+    };
+
+    // List of possible input connection choices per LUT (including the LUTs
+    // strobe GG input).
+    static const std::array<LUTDynamicInputChoices, LUTCount> DynamicInputChoices;
+
     std::array<LUT, LUTCount> luts;
+
+    // The first 3 inputs of each LUT have dynamic connections. The selected
+    // value is stored here.
+    std::array<DynamicConnections, LUTCount> lutConnections;
+
+    // The strobe GG is also dynamically connected.
+    std::array<unsigned, trigger_io::Level2::LUTCount> strobeConnections;
+
+    Level2();
 };
 
 struct Level3
@@ -146,16 +223,19 @@ struct Level3
     static const size_t MasterTriggersCount = 4;
     static const size_t MasterTriggersOffset = 4;
 
-    static const size_t CountersCount = 4;
+    static const size_t CountersCount = 8;
     static const size_t CountersOffset = 8;
 
     static const size_t UtilityUnitCount =
         StackStartCount + MasterTriggersCount + CountersCount;
 
-    static const size_t UnitCount = 33;
+    static const size_t UnitCount =
+        UtilityUnitCount + NIM_IO_Count + ECL_OUT_Count;
 
     static const size_t NIM_IO_Unit_Offset = 16;
     static const size_t ECL_Unit_Offset = 30;
+
+    static const std::array<QString, trigger_io::Level3::UnitCount> DefaultUnitNames;
 
     std::array<StackStart, StackStartCount> stackStart = {};
     std::array<MasterTrigger, MasterTriggersCount> masterTriggers = {};
@@ -164,6 +244,14 @@ struct Level3
     // keeps it in sync.
     std::array<IO, NIM_IO_Count> ioNIM = {};
     std::array<IO, ECL_OUT_Count> ioECL = {};
+
+    std::vector<UnitAddressVector> dynamicInputChoiceLists;
+    QStringList unitNames;
+    std::array<unsigned, trigger_io::Level3::UnitCount> connections = {};
+
+    Level3();
+    Level3(const Level3 &) = default;
+    Level3 &operator=(const Level3 &) = default;
 };
 
 struct TriggerIO
@@ -173,6 +261,16 @@ struct TriggerIO
     Level2 l2;
     Level3 l3;
 };
+
+QString lookup_name(const TriggerIO &ioCfg, const UnitAddress &addr);
+QString lookup_default_name(const TriggerIO &ioCfg, const UnitAddress &addr);
+
+// This is how the mappings of a single LUT are stored in the MVLC memory.
+// 6 input bits, 4 output bits, 3 of which are used.
+// => 2^6 * 4 bits = 64 * 4 bits = 256 bits needed.
+// 4  4-bit nibbles are stored in a single 16 bit word in the RAM.
+// => 16 rows of memory needed to store all 64 nibbles.
+using LUT_RAM = std::array<u16, 16>;
 
 // 6 bit address -> 4 output bits, 3 of which are used
 inline u8 lookup(const LUT_RAM &lut, u8 address)

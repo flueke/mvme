@@ -11,7 +11,6 @@
 #include <QGraphicsRectItem>
 
 #include "mvlc/mvlc_trigger_io.h"
-#include "mvlc/mvlc_trigger_io_2.h"
 
 namespace mesytec
 {
@@ -19,6 +18,8 @@ namespace mvlc
 {
 namespace trigger_io_config
 {
+
+using namespace trigger_io;
 
 class TriggerIOView: public QGraphicsView
 {
@@ -157,7 +158,7 @@ class TriggerIOGraphicsScene: public QGraphicsScene
 
     public:
         TriggerIOGraphicsScene(
-            const TriggerIOConfig &ioCfg,
+            const TriggerIO &ioCfg,
             QObject *parent = nullptr);
 
     protected:
@@ -206,7 +207,7 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         QAbstractGraphicsShapeItem *getInputConnector(const UnitAddress &addr) const;
         QAbstractGraphicsShapeItem *getOutputConnector(const UnitAddress &addr) const;
 
-        TriggerIOConfig m_ioCfg;
+        TriggerIO m_ioCfg;
 
         Level0NIMItems m_level0NIMItems;
         Level0UtilItems m_level0UtilItems;
@@ -476,12 +477,12 @@ class LUTOutputEditor: public QWidget
         LUTOutputEditor(
             int outputNumber,
             const QVector<QStringList> &inputNameLists = {},
-            const LUT_DynConValues &dynConValues = {},
+            const Level2::DynamicConnections &dynConValues = {},
             QWidget *parent = nullptr);
 
         // LUT mapping for the output bit being edited
-        OutputMapping getOutputMapping() const;
-        void setOutputMapping(const OutputMapping &mapping);
+        LUT::Bitmap getOutputMapping() const;
+        void setOutputMapping(const LUT::Bitmap &mapping);
 
     public slots:
         void setInputConnection(unsigned input, unsigned value);
@@ -519,7 +520,7 @@ class LUTEditor: public QDialog
             const QString &lutName,
             const LUT &lut,
             const QVector<QStringList> &inputNameLists,
-            const LUT_DynConValues &dynConValues,
+            const Level2::DynamicConnections &dynConValues,
             const QStringList &outputNames,
             const QStringList &strobeInputChoiceNames,
             unsigned strobeConValue,
@@ -529,7 +530,7 @@ class LUTEditor: public QDialog
 
         LUT::Contents getLUTContents() const;
         QStringList getOutputNames() const;
-        LUT_DynConValues getDynamicConnectionValues();
+        Level2::DynamicConnections getDynamicConnectionValues();
 
         unsigned getStrobeConnectionValue();
         trigger_io::IO getStrobeSettings();

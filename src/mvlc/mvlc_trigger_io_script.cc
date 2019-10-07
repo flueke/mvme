@@ -1,11 +1,10 @@
-#include "mvlc/mvlc_trigger_io_2.h"
+#include "mvlc/mvlc_trigger_io_script.h"
 
 #include <boost/range/adaptor/indexed.hpp>
 #include <boost/variant.hpp>
 #include <QMap>
 #include <QVector>
 #include <yaml-cpp/yaml.h>
-#include <QDebug>
 
 #include "vme_script.h"
 
@@ -15,330 +14,8 @@ namespace mesytec
 {
 namespace mvlc
 {
-namespace trigger_io_config
+namespace trigger_io
 {
-
-LUT::LUT()
-{
-    lutContents.fill({});
-    outputNames.fill({});
-}
-
-static const QString UnitNotAvailable = "N/A";
-
-// Note: ECL units not included here. They are only on level3.
-const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNames =
-{
-    "timer0",
-    "timer1",
-    "timer2",
-    "timer3",
-    "IRQ0",
-    "IRQ1",
-    "soft_trigger0",
-    "soft_trigger1",
-    "slave_trigger0",
-    "slave_trigger1",
-    "slave_trigger2",
-    "slave_trigger3",
-    "stack_busy0",
-    "stack_busy1",
-    UnitNotAvailable,
-    UnitNotAvailable,
-    "NIM0",
-    "NIM1",
-    "NIM2",
-    "NIM3",
-    "NIM4",
-    "NIM5",
-    "NIM6",
-    "NIM7",
-    "NIM8",
-    "NIM9",
-    "NIM10",
-    "NIM11",
-    "NIM12",
-    "NIM13",
-};
-
-Level0::Level0()
-{
-    unitNames.reserve(DefaultUnitNames.size());
-
-    std::copy(DefaultUnitNames.begin(), DefaultUnitNames.end(),
-              std::back_inserter(unitNames));
-
-    timers.fill({});
-    irqUnits.fill({});
-    slaveTriggers.fill({});
-    stackBusy.fill({});
-    ioNIM.fill({});
-}
-
-// Level 1 connections including internal ones between the LUTs.
-const std::array<LUT_Connections, trigger_io::Level1::LUTCount> Level1::StaticConnections =
-{
-    {
-        // L1.LUT0
-        { { {0, 16}, {0, 17}, {0, 18}, {0, 19}, {0, 20}, {0, 21} } },
-        // L1.LUT1
-        { { {0, 20}, {0, 21}, {0, 22}, {0, 23}, {0, 24}, {0, 25} } },
-        // L1.LUT2
-        { { {0,  24}, {0,  25}, {0, 26}, {0, 27}, {0, 28}, {0, 29} }, },
-
-        // L1.LUT3
-        { { {1, 0, 0}, {1, 0, 1}, {1, 0, 2}, {1, 1, 0}, {1, 1, 1}, {1, 1, 2} }, },
-        // L1.LUT4
-        { { {1, 1, 0}, {1, 1, 1}, {1, 1, 2}, {1, 2, 0}, {1, 2, 1}, {1, 2, 2} }, },
-    },
-};
-
-Level1::Level1()
-{
-    for (size_t unit = 0; unit < luts.size(); unit++)
-    {
-        for (size_t output = 0; output < luts[unit].outputNames.size(); output++)
-        {
-            luts[unit].outputNames[output] = QString("L1.LUT%1.OUT%2").arg(unit).arg(output);
-        }
-    }
-}
-
-// Level 2 connections. This table includes fixed and dynamic connections.
-static const UnitConnection Dynamic = UnitConnection::makeDynamic();
-
-// Using level 1 unit + output address values (basically full addresses
-// without the need for a Level1::OutputPinMapping).
-const std::array<LUT_Connections, trigger_io::Level2::LUTCount> Level2::StaticConnections =
-{
-    {
-        // L2.LUT0
-        { Dynamic, Dynamic, Dynamic , { 1, 3, 0 }, { 1, 3, 1 }, { 1, 3, 2 } },
-        // L2.LUT1
-        { Dynamic, Dynamic, Dynamic , { 1, 4, 0 }, { 1, 4, 1 }, { 1, 4, 2 } },
-    },
-};
-
-// Unit is 0/1 for LUT0/1
-Level2LUTDynamicInputChoices make_level2_input_choices(unsigned unit)
-{
-    // Common to all inputs: can connect to all Level0 utility outputs.
-    std::vector<UnitAddress> common(trigger_io::Level0::UtilityUnitCount);
-
-    for (unsigned i = 0; i < common.size(); i++)
-        common[i] = { 0, i };
-
-    Level2LUTDynamicInputChoices ret;
-    ret.inputChoices = { common, common, common };
-    ret.strobeInputChoices = common;
-
-    if (unit == 0)
-    {
-        // L2.LUT0 can connect to L1.LUT4
-        for (unsigned i = 0; i < 3; i++)
-            ret.inputChoices[i].push_back({ 1, 4, i });
-    }
-    else if (unit == 1)
-    {
-        // L2.LUT1 can connecto to L1.LUT3
-        for (unsigned i = 0; i < 3; i++)
-            ret.inputChoices[i].push_back({ 1, 3, i });
-    }
-
-    // Strobe inputs can connect to all 6 level 1 outputs
-    for (unsigned i = 0; i < 3; i++)
-        ret.strobeInputChoices.push_back({ 1, 3, i });
-
-    for (unsigned i = 0; i < 3; i++)
-        ret.strobeInputChoices.push_back({ 1, 4, i });
-
-    return ret;
-};
-
-Level2::Level2()
-{
-    for (size_t unit = 0; unit < luts.size(); unit++)
-    {
-        for (size_t output = 0; output < luts[unit].outputNames.size(); output++)
-        {
-            luts[unit].outputNames[output] = QString("L2.LUT%1.OUT%2").arg(unit).arg(output);
-        }
-    }
-
-    lutConnections.fill({});
-    strobeConnections.fill({});
-}
-
-const std::array<QString, trigger_io::Level3::UnitCount> Level3::DefaultUnitNames =
-{
-    "StackStart0",
-    "StackStart1",
-    "StackStart2",
-    "StackStart3",
-    "MasterTrigger0",
-    "MasterTrigger1",
-    "MasterTrigger2",
-    "MasterTrigger3",
-    "Counter0",
-    "Counter1",
-    "Counter2",
-    "Counter3",
-    UnitNotAvailable,
-    UnitNotAvailable,
-    UnitNotAvailable,
-    UnitNotAvailable,
-    "NIM0",
-    "NIM1",
-    "NIM2",
-    "NIM3",
-    "NIM4",
-    "NIM5",
-    "NIM6",
-    "NIM7",
-    "NIM8",
-    "NIM9",
-    "NIM10",
-    "NIM11",
-    "NIM12",
-    "NIM13",
-    "ECL0",
-    "ECL1",
-    "ECL2",
-};
-
-static std::vector<UnitAddressVector> make_level3_dynamic_input_choice_lists()
-{
-    static const std::vector<UnitAddress> Level2Full =
-    {
-        { 2, 0, 0 },
-        { 2, 0, 1 },
-        { 2, 0, 2 },
-        { 2, 1, 0 },
-        { 2, 1, 1 },
-        { 2, 1, 2 },
-    };
-
-    std::vector<UnitAddressVector> result;
-
-    // Note: StackStarts, MasterTriggers and Counters had different connection
-    // choices in early firmware versions., that's the reason they are still
-    // separated below. Now they all can connect to L0 up to unit 13 and the 6
-    // outputs of L2.
-
-    for (size_t i = 0; i < trigger_io::Level3::StackStartCount; i++)
-    {
-        static const unsigned LastL0Unit = 13;
-
-        std::vector<UnitAddress> choices;
-
-        for (unsigned unit = 0; unit <= LastL0Unit; unit++)
-            choices.push_back({0, unit });
-
-        std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
-        result.emplace_back(choices);
-    }
-
-    for (size_t i = 0; i < trigger_io::Level3::MasterTriggersCount; i++)
-    {
-        static const unsigned LastL0Unit = 13;
-
-        std::vector<UnitAddress> choices;
-
-        // Can connect up to the IRQ units
-        for (unsigned unit = 0; unit <= LastL0Unit; unit++)
-            choices.push_back({0, unit });
-
-        std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
-        result.emplace_back(choices);
-    }
-
-    for (size_t i = 0; i < trigger_io::Level3::CountersCount; i++)
-    {
-        static const unsigned LastL0Unit = 13;
-
-        std::vector<UnitAddress> choices;
-
-        // Can connect all L0 utilities up to StackBusy1
-        for (unsigned unit = 0; unit <= LastL0Unit; unit++)
-            choices.push_back({0, unit });
-
-        std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
-        result.emplace_back(choices);
-    }
-
-    // 4 unused inputs between the last counter (11) and the first NIM_IO (16)
-    for (size_t i = 0; i < 4; i++)
-    {
-        result.push_back({});
-    }
-
-    // NIM and ECL outputs can connect to Level2 only
-    for (size_t i = 0; i < (trigger_io::NIM_IO_Count + trigger_io::ECL_OUT_Count); i++)
-    {
-        std::vector<UnitAddress> choices = Level2Full;
-        result.emplace_back(choices);
-    }
-
-    return result;
-}
-
-Level3::Level3()
-    : dynamicInputChoiceLists(make_level3_dynamic_input_choice_lists())
-{
-    stackStart.fill({});
-    masterTriggers.fill({});
-    counters.fill({});
-    ioNIM.fill({});
-    ioECL.fill({});
-
-    connections.fill(0);
-
-    std::copy(DefaultUnitNames.begin(), DefaultUnitNames.end(),
-              std::back_inserter(unitNames));
-}
-
-QString lookup_name(const TriggerIOConfig &cfg, const UnitAddress &addr)
-{
-    switch (addr[0])
-    {
-        case 0:
-            return cfg.l0.unitNames.value(addr[1]);
-
-        case 1:
-            return cfg.l1.luts[addr[1]].outputNames[addr[2]];
-
-        case 2:
-            return cfg.l2.luts[addr[1]].outputNames[addr[2]];
-
-        case 3:
-            return cfg.l3.unitNames.value(addr[1]);
-    }
-
-    return {};
-}
-
-QString lookup_default_name(const TriggerIOConfig &cfg, const UnitAddress &addr)
-{
-    switch (addr[0])
-    {
-        case 0:
-            if (addr[1] < cfg.l0.DefaultUnitNames.size())
-                return cfg.l0.DefaultUnitNames[addr[1]];
-            break;
-
-        case 1:
-        case 2:
-            // FIXME: once more the L1 and L2 default output name generation code
-            return QString("L%1.LUT%2.OUT%3").arg(addr[0]).arg(addr[1]).arg(addr[2]);
-
-        case 3:
-            if (addr[1] < cfg.l3.DefaultUnitNames.size())
-                return cfg.l3.DefaultUnitNames[addr[1]];
-            break;
-    }
-
-    return {};
-}
 
 struct Write
 {
@@ -412,8 +89,6 @@ ScriptPart write_unit_reg(u16 reg, u16 value, unsigned writeOpts = 0u)
 {
     return write_unit_reg(reg, value, {}, writeOpts);
 }
-
-// FIXME: unify write_connection and write_strobe_connection
 
 // Note: the desired unit must be selected prior to calling this function.
 ScriptPart write_connection(u16 offset, u16 value, const QString &sourceName = {})
@@ -567,7 +242,7 @@ ScriptParts generate(const trigger_io::Counter &unit, int index)
     return {};
 }
 
-ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
+ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
 {
     ScriptParts ret;
 
@@ -643,12 +318,12 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
         // TODO: use a binary literal when writing out the strobes. it's a bit mask
         ret += write_unit_reg(0x20, kv.value().strobedOutputs.to_ulong(), "strobed_outputs");
 
-        const auto l2InputChoices = make_level2_input_choices(unitIndex);
+        const auto &l2InputChoices = Level2::DynamicInputChoices[unitIndex];
 
-        for (size_t input = 0; input < Level2LUT_VariableInputCount; input++)
+        for (size_t input = 0; input < Level2::LUT_DynamicInputCount; input++)
         {
             unsigned conValue = ioCfg.l2.lutConnections[unitIndex][input];
-            UnitAddress conAddress = l2InputChoices.inputChoices[input][conValue];
+            UnitAddress conAddress = l2InputChoices.lutChoices[input][conValue];
             u16 regOffset = input * 2;
 
             ret += write_connection(regOffset, conValue, lookup_name(ioCfg, conAddress));
@@ -661,7 +336,7 @@ ScriptParts generate_trigger_io_script(const TriggerIOConfig &ioCfg)
         // strobe_input
         {
             unsigned conValue = ioCfg.l2.strobeConnections[unitIndex];
-            UnitAddress conAddress = l2InputChoices.strobeInputChoices[conValue];
+            UnitAddress conAddress = l2InputChoices.strobeChoices[conValue];
             u16 regOffset = 6;
 
             ret += write_strobe_connection(regOffset, conValue, lookup_name(ioCfg, conAddress));
@@ -796,7 +471,7 @@ class ScriptGenPartVisitor: public boost::static_visitor<>
 };
 
 static QString generate_mvlc_meta_block(
-    const TriggerIOConfig &ioCfg,
+    const TriggerIO &ioCfg,
     const gen_flags::Flag &flags)
 {
     // unit number -> unit name
@@ -945,10 +620,10 @@ static const u32 MVLC_VME_InterfaceAddress = 0xffff0000u;
  * and the dynamic connections.
  * Later: come up with a format to write out the user set output names.
  * Also: create the reverse function which takes a list of VME writes and
- * recreates the corresponding TriggerIOConfig structure.
+ * recreates the corresponding TriggerIO structure.
  */
 QString generate_trigger_io_script_text(
-    const TriggerIOConfig &ioCfg,
+    const TriggerIO &ioCfg,
     const gen_flags::Flag &flags)
 {
     QStringList lines =
@@ -1059,7 +734,7 @@ LUT parse_lut(const RegisterWrites &writes)
     return lut;
 }
 
-void parse_mvlc_meta_block(const vme_script::MetaBlock &meta, TriggerIOConfig &ioCfg)
+void parse_mvlc_meta_block(const vme_script::MetaBlock &meta, TriggerIO &ioCfg)
 {
     auto y_to_qstr = [](const YAML::Node &y) -> QString
     {
@@ -1153,9 +828,9 @@ void parse_mvlc_meta_block(const vme_script::MetaBlock &meta, TriggerIOConfig &i
     }
 }
 
-TriggerIOConfig build_config_from_writes(const LevelWrites &levelWrites)
+TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
 {
-    TriggerIOConfig ioCfg;
+    TriggerIO ioCfg;
 
     // level0
     {
@@ -1240,7 +915,7 @@ TriggerIOConfig build_config_from_writes(const LevelWrites &levelWrites)
             unit = parsed;
 
             // dynamic input connections
-            for (size_t input = 0; input < Level2LUT_VariableInputCount; ++input)
+            for (size_t input = 0; input < Level2::LUT_DynamicInputCount; ++input)
             {
                 ioCfg.l2.lutConnections[unitIndex][input] =
                     writes[unitIndex][UnitConnectBase + 2 * input];
@@ -1302,7 +977,7 @@ TriggerIOConfig build_config_from_writes(const LevelWrites &levelWrites)
     return ioCfg;
 }
 
-TriggerIOConfig parse_trigger_io_script_text(const QString &text)
+TriggerIO parse_trigger_io_script_text(const QString &text)
 {
     auto commands = vme_script::parse(text);
 
@@ -1350,4 +1025,4 @@ TriggerIOConfig parse_trigger_io_script_text(const QString &text)
 
 } // end namespace mvlc
 } // end namespace mesytec
-} // end namespace trigger_io_config
+} // end namespace trigger_io

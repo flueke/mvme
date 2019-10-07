@@ -293,40 +293,43 @@ std::error_code do_base_setup(MVLCObject &mvlc, Logger logger)
     // L1.1: OR over inputs 6-9 which are connected to L1.1 pins 0-3
     //       The OR goes to L1.1 output bit 0
     {
+        trigger_io::LUT_RAM ram = {};
         u8 mask = 0b1111u;
 
         for (u8 addr = 0; addr < 64; addr++)
         {
             if (addr & mask)
             {
-                trigger_io::set(setup.l1.luts[1].ram, addr, 0b1);
+                trigger_io::set(ram, addr, 0b1);
             }
         }
 
         select(mvlc, 1, 1);
-        write_lut_ram(mvlc, setup.l1.luts[1].ram, 0x300);
+        write_lut_ram(mvlc, ram, 0x300);
     }
 
     // L1.0: OR over inputs 0-3 which are connected to L1.0 pins 0-3
     //       The OR goes to L1.0 output bit 0
     {
+        trigger_io::LUT_RAM ram = {};
         u8 mask = 0b1111u;
 
         for (u8 addr = 0; addr < 64; addr++)
         {
             if (addr & mask)
             {
-                trigger_io::set(setup.l1.luts[0].ram, addr, 0b1);
+                trigger_io::set(ram, addr, 0b1);
             }
         }
 
         select(mvlc, 1, 0);
-        write_lut_ram(mvlc, setup.l1.luts[0].ram, 0x300);
+        write_lut_ram(mvlc, ram, 0x300);
     }
 
     // L1.3: pass through of input 0 to L1 output 0
     //                   and input 3 to L1 output 1
     {
+        trigger_io::LUT_RAM ram = {};
         u8 mask = 0b1u;
         u8 mask1 = 0b1u << 3;
 
@@ -334,17 +337,17 @@ std::error_code do_base_setup(MVLCObject &mvlc, Logger logger)
         {
             if (addr & mask)
             {
-                trigger_io::set(setup.l1.luts[3].ram, addr, 0b1);
+                trigger_io::set(ram, addr, 0b1);
             }
 
             if (addr & mask1)
             {
-                trigger_io::set(setup.l1.luts[3].ram, addr, 0b1 << 1);
+                trigger_io::set(ram, addr, 0b1 << 1);
             }
         }
 
         select(mvlc, 1, 3);
-        write_lut_ram(mvlc, setup.l1.luts[3].ram, 0x300);
+        write_lut_ram(mvlc, ram, 0x300);
     }
 
     // => or of NIM6-9 is available at L1 output bit 0
@@ -358,17 +361,19 @@ std::error_code do_base_setup(MVLCObject &mvlc, Logger logger)
         // connect(l0.out.12 to L2.0.1 (StackBusy)
         // build an or of L2.0.0 and L2.0.1, negate it and use it for TrigOut 10-13 ECL2 out
 
+        trigger_io::LUT_RAM ram = {};
         u8 mask = 0b11u;
+
         for (u8 addr = 0; addr < 64; addr++)
         {
             if (addr & mask)
             {
-                trigger_io::set(setup.l2.luts[0].ram, addr, 0b1);
+                trigger_io::set(ram, addr, 0b1);
             }
         }
 
         select(mvlc, 2, 0);
-        write_lut_ram(mvlc, setup.l2.luts[0].ram, 0x300);
+        write_lut_ram(mvlc, ram, 0x300);
         //write(mvlc, 0x386,
         // XXX: leftoff
     }

@@ -1,5 +1,6 @@
 #include "mvlc/mvlc_trigger_io_editor.h"
 #include "mvlc/mvlc_trigger_io_editor_p.h"
+#include "mvlc/mvlc_trigger_io_script.h"
 
 #include <QDebug>
 #include <QPushButton>
@@ -14,11 +15,12 @@ namespace mesytec
 {
 
 using namespace mvlc;
+using namespace mvlc::trigger_io;
 using namespace mvlc::trigger_io_config;
 
 struct MVLCTriggerIOEditor::Private
 {
-    TriggerIOConfig ioCfg;
+    TriggerIO ioCfg;
     VMEScriptConfig *scriptConfig;
     QString initialScriptContents;
     // TODO: use a CodeEditor, not the VMEScriptEditor. The latter is too
@@ -77,7 +79,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
             && unit < static_cast<int>(Level2::StaticConnections.size()))
         {
             const auto &connections = Level2::StaticConnections[unit];
-            const auto l2InputChoices = make_level2_input_choices(unit);
+            const auto &l2InputChoices = Level2::DynamicInputChoices[unit];
 
             for (size_t inputIndex = 0; inputIndex < connections.size(); inputIndex++)
             {
@@ -88,9 +90,9 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                     auto name = lookup_name(ioCfg, con.address);
                     inputNameLists.push_back({name});
                 }
-                else if (inputIndex < l2InputChoices.inputChoices.size())
+                else if (inputIndex < l2InputChoices.lutChoices.size())
                 {
-                    auto choices = l2InputChoices.inputChoices[inputIndex];
+                    auto choices = l2InputChoices.lutChoices[inputIndex];
 
                     QStringList choiceNames;
 
@@ -103,7 +105,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                 }
             }
 
-            for (const auto &address: l2InputChoices.strobeInputChoices)
+            for (const auto &address: l2InputChoices.strobeChoices)
                 strobeInputChoiceNames.push_back(lookup_name(ioCfg, address));
 
             strobeConValue = ioCfg.l2.strobeConnections[unit];
