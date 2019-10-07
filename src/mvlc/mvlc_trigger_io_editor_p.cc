@@ -92,19 +92,22 @@ void TriggerIOView::wheelEvent(QWheelEvent *event)
 namespace gfx
 {
 
+ConnectorBase::~ConnectorBase() { }
+
 static const QBrush Block_Brush("#fffbcc");
 static const QBrush Block_Hover_Brush("#eeee77");
 static const QBrush Connector_Brush(Qt::blue);
 static const QBrush Connector_Hover_Brush("#5555ff");
 
+
 //
-// ConnectorItem
+// ConnectorCircleItem
 //
-ConnectorItem::ConnectorItem(QGraphicsItem *parent)
-    : ConnectorItem({}, parent)
+ConnectorCircleItem::ConnectorCircleItem(QGraphicsItem *parent)
+    : ConnectorCircleItem({}, parent)
 {}
 
-ConnectorItem::ConnectorItem(const QString &label, QGraphicsItem *parent)
+ConnectorCircleItem::ConnectorCircleItem(const QString &label, QGraphicsItem *parent)
     : QGraphicsEllipseItem(0, 0, 2*ConnectorRadius, 2*ConnectorRadius, parent)
 {
     setPen(Qt::NoPen);
@@ -112,7 +115,7 @@ ConnectorItem::ConnectorItem(const QString &label, QGraphicsItem *parent)
     setLabel(label);
 }
 
-void ConnectorItem::setLabel(const QString &label)
+void ConnectorCircleItem::labelSet_(const QString &label)
 {
     if (!m_label)
     {
@@ -126,11 +129,17 @@ void ConnectorItem::setLabel(const QString &label)
     adjust();
 }
 
-void ConnectorItem::adjust()
+void ConnectorCircleItem::alignmentSet_(const Qt::Alignment &align)
+{
+    adjust();
+}
+
+// TODO: support top and bottom alignment
+void ConnectorCircleItem::adjust()
 {
     m_label->setPos(0, 0);
 
-    switch (m_labelAlign)
+    switch (getLabelAlignment())
     {
         case Qt::AlignLeft:
             m_label->moveBy(-(m_label->boundingRect().width() + LabelOffset),
@@ -145,31 +154,103 @@ void ConnectorItem::adjust()
 }
 
 //
+// ConnectorDiamondItem
+//
+ConnectorDiamondItem::ConnectorDiamondItem(int sideLength, QGraphicsItem *parent)
+    : QGraphicsRectItem(0, 0, sideLength, sideLength, parent)
+{
+    setPen(Qt::NoPen);
+    setBrush(Qt::blue);
+    setRotation(45.0);
+}
+
+ConnectorDiamondItem::ConnectorDiamondItem(QGraphicsItem *parent)
+    : ConnectorDiamondItem(SideLength, parent)
+{ }
+
+void ConnectorDiamondItem::labelSet_(const QString &label)
+{
+    if (!m_label)
+    {
+        m_label = new QGraphicsSimpleTextItem(this);
+        m_label->setRotation(-45);
+        auto font = m_label->font();
+        font.setPixelSize(LabelPixelSize);
+        m_label->setFont(font);
+    }
+
+    m_label->setText(label);
+    adjust();
+}
+
+void ConnectorDiamondItem::alignmentSet_(const Qt::Alignment &align)
+{
+    adjust();
+}
+
+// TODO: support top and bottom alignment
+void ConnectorDiamondItem::adjust()
+{
+    if (!m_label) return;
+    m_label->setPos(0, 0);
+
+    switch (getLabelAlignment())
+    {
+        case Qt::AlignLeft:
+            m_label->moveBy(-(m_label->boundingRect().width() + LabelOffset),
+                            -5.5); // magic number
+            break;
+
+        case Qt::AlignRight:
+            m_label->moveBy(boundingRect().width() * 0.5 + LabelOffset,
+                            -5.5); // magic number
+            break;
+    }
+}
+
+//
 // BlockItem
 //
 BlockItem::BlockItem(
     int width, int height,
     int inputCount, int outputCount,
-    int inputConnectorMargin, int outputConnectorMargin,
+    int inputConnectorMargin,
+    int outputConnectorMargin,
+    QGraphicsItem *parent)
+    : BlockItem(
+        width, height,
+        inputCount, outputCount,
+        inputConnectorMargin, inputConnectorMargin,
+        outputConnectorMargin, outputConnectorMargin,
+        parent)
+{ }
+
+BlockItem::BlockItem(
+    int width, int height,
+    int inputCount, int outputCount,
+    int inConMarginTop, int inConMarginBottom,
+    int outConMarginTop, int outConMarginBottom,
     QGraphicsItem *parent)
     : QGraphicsRectItem(0, 0, width, height, parent)
+    , m_inConMargins(std::make_pair(inConMarginTop, inConMarginBottom))
+    , m_outConMargins(std::make_pair(outConMarginTop, outConMarginBottom))
 {
     setAcceptHoverEvents(true);
     setBrush(Block_Brush);
 
     // input connectors
     {
-        const int conTotalHeight = height - 2*inputConnectorMargin;
+        const int conTotalHeight = height - (inConMarginTop + inConMarginBottom);
         const int conSpacing = conTotalHeight / (inputCount - 1);
 
         //qDebug() << __PRETTY_FUNCTION__ << "input: conTotalHeight =" << conTotalHeight
         //    << ", conSpacing =" << conSpacing;
 
-        int y = inputConnectorMargin;
+        int y = inConMarginTop;
 
         for (int input = inputCount-1; input >= 0; input--)
         {
-            auto circle = new ConnectorItem(QString::number(input), this);
+            auto circle = new ConnectorCircleItem(QString::number(input), this);
             circle->setLabelAlignment(Qt::AlignRight);
             circle->moveBy(-circle->boundingRect().width() * 0.5,
                            -circle->boundingRect().height() * 0.5);
@@ -185,17 +266,17 @@ BlockItem::BlockItem(
 
     // output connectors
     {
-        const int conTotalHeight = height - 2*outputConnectorMargin;
+        const int conTotalHeight = height - (outConMarginTop + outConMarginBottom);
         const int conSpacing = conTotalHeight / (outputCount - 1);
 
         //qDebug() << __PRETTY_FUNCTION__ << "output: conTotalHeight =" << conTotalHeight
         //    << ", conSpacing =" << conSpacing;
 
-        int y = outputConnectorMargin;
+        int y = outConMarginTop;
 
         for (int output = outputCount-1; output >= 0; output--)
         {
-            auto circle = new ConnectorItem(QString::number(output), this);
+            auto circle = new ConnectorCircleItem(QString::number(output), this);
             circle->setLabelAlignment(Qt::AlignLeft);
             circle->moveBy(width - circle->boundingRect().width() * 0.5,
                            -circle->boundingRect().height() * 0.5);
@@ -234,16 +315,31 @@ void BlockItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *ev)
 //
 // LUTItem
 //
-LUTItem::LUTItem(int lutIdx, QGraphicsItem *parent)
+LUTItem::LUTItem(int lutIdx, bool hasStrobeGG, QGraphicsItem *parent)
     : BlockItem(
         Width, Height,
         Inputs, Outputs,
-        HInputConnectorMargin, HOutputConnectorMargin,
+        hasStrobeGG ? WithStrobeInputConnectorMarginTop : InputConnectorMargin,
+        hasStrobeGG ? WithStrobeInputConnectorMarginBottom : InputConnectorMargin,
+        OutputConnectorMargin, OutputConnectorMargin,
         parent)
 {
     auto label = new QGraphicsSimpleTextItem(QString("LUT%1").arg(lutIdx), this);
     label->moveBy((this->boundingRect().width()
                    - label->boundingRect().width()) / 2.0, 0);
+
+    if (hasStrobeGG)
+    {
+        auto con = new ConnectorDiamondItem(this);
+
+        int dY = this->boundingRect().height() - WithStrobeInputConnectorMarginBottom * 0.5;
+        dY -= con->boundingRect().height() * 0.5;
+
+        con->moveBy(0, dY);
+
+        con->setLabelAlignment(Qt::AlignRight);
+        con->setLabel("strobe");
+    }
 }
 
 template<typename T>
@@ -391,7 +487,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         for (size_t lutIdx=0; lutIdx<result.luts.size(); lutIdx++)
         {
-            auto lutItem = new gfx::LUTItem(lutIdx, result.parent);
+            auto lutItem = new gfx::LUTItem(lutIdx, false, result.parent);
             result.luts[lutIdx] = lutItem;
         }
 
@@ -482,7 +578,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         for (size_t lutIdx=0; lutIdx<result.luts.size(); lutIdx++)
         {
-            auto lutItem = new gfx::LUTItem(lutIdx, result.parent);
+            auto lutItem = new gfx::LUTItem(lutIdx, true, result.parent);
             result.luts[lutIdx] = lutItem;
         }
 

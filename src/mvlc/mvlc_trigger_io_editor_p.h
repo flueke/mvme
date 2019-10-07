@@ -36,70 +36,140 @@ class TriggerIOView: public QGraphicsView
 
 namespace gfx
 {
-class ConnectorItem: public QGraphicsEllipseItem
+
+class ConnectorBase
+{
+    public:
+        virtual ~ConnectorBase();
+
+        void setLabel(const QString &label)
+        {
+            m_label = label;
+            labelSet_(label);
+        }
+
+        QString getLabel() const
+        {
+            return m_label;
+        }
+
+        void setLabelAlignment(const Qt::Alignment &align)
+        {
+            m_labelAlign = align;
+            alignmentSet_(align);
+        }
+
+        Qt::Alignment getLabelAlignment() const
+        {
+            return m_labelAlign;
+        }
+
+    protected:
+        virtual void labelSet_(const QString &label) = 0;
+        virtual void alignmentSet_(const Qt::Alignment &align) = 0;
+
+    private:
+        QString m_label;
+        Qt::Alignment m_labelAlign = Qt::AlignLeft;
+};
+
+class ConnectorCircleItem: public QGraphicsEllipseItem, public ConnectorBase
 {
     public:
         static const int ConnectorRadius = 4;
         static constexpr float LabelPixelSize = 8.0f;
         static const int LabelOffset = 2;
 
-        ConnectorItem(QGraphicsItem *parent = nullptr);
-        ConnectorItem(const QString &label, QGraphicsItem *parent = nullptr);
+        ConnectorCircleItem(QGraphicsItem *parent = nullptr);
+        ConnectorCircleItem(const QString &label, QGraphicsItem *parent = nullptr);
 
-        void setLabel(const QString &label);
-
-        // label alignment (left, right) if horizontal, (top, bottom) if vertical
-        // TODO: implement top, bottom
-        void setLabelAlignment(const Qt::Alignment &align)
-        {
-            m_labelAlign = align;
-            adjust();
-        }
-
-        // TODO: orientation
+    protected:
+        void labelSet_(const QString &label) override;
+        void alignmentSet_(const Qt::Alignment &align) override;
 
     private:
         void adjust();
 
         QGraphicsSimpleTextItem *m_label = nullptr;
-        Qt::Alignment m_labelAlign = Qt::AlignLeft;
 };
 
-class ConnectorBase
+class ConnectorDiamondItem: public QGraphicsRectItem, public ConnectorBase
 {
     public:
-        QVector<ConnectorItem *> inputConnectors() const
+        static const int SideLength = 10;
+        static constexpr float LabelPixelSize = 8.0f;
+        static const int LabelOffset = 2;
+
+        ConnectorDiamondItem(int sideLength, QGraphicsItem *parent = nullptr);
+        ConnectorDiamondItem(QGraphicsItem *parent = nullptr);
+
+    protected:
+        void labelSet_(const QString &label) override;
+        void alignmentSet_(const Qt::Alignment &align) override;
+
+    private:
+        void adjust();
+
+        QGraphicsSimpleTextItem *m_label = nullptr;
+};
+
+class ConnectableBase
+{
+    public:
+        QVector<QAbstractGraphicsShapeItem *> inputConnectors() const
         { return m_inputConnectors; }
 
-        QVector<ConnectorItem *> outputConnectors() const
+        QVector<QAbstractGraphicsShapeItem *> outputConnectors() const
         { return m_outputConnectors; }
 
-        void addInputConnector(ConnectorItem *item)
+        void addInputConnector(QAbstractGraphicsShapeItem *item)
         {
             m_inputConnectors.push_back(item);
         }
 
-        void addOutputConnector(ConnectorItem *item)
+        void addOutputConnector(QAbstractGraphicsShapeItem *item)
         {
             m_outputConnectors.push_back(item);
         }
 
     protected:
-        QVector<ConnectorItem *> m_inputConnectors;
-        QVector<ConnectorItem *> m_outputConnectors;
+        QVector<QAbstractGraphicsShapeItem *> m_inputConnectors;
+        QVector<QAbstractGraphicsShapeItem *> m_outputConnectors;
 };
 
-struct BlockItem: public QGraphicsRectItem, public ConnectorBase
+struct BlockItem: public QGraphicsRectItem, public ConnectableBase
 {
     public:
         BlockItem(int width, int height,
                   int inputCount, int outputCount,
-                  int inputConnectorMargin, int outputConnectorMargin,
+                  int inputConnectorMargin,
+                  int outputConnectorMargin,
                   QGraphicsItem *parent = nullptr);
+
+        BlockItem(int width, int height,
+                  int inputCount, int outputCount,
+                  int inputConnectorMarginTop, int inputConnectorMarginBottom,
+                  int outputConnectorMarginTop, int outputConnectorMarginBottom,
+                  QGraphicsItem *parent = nullptr);
+
+        std::pair<int, int> getInputConnectorMargins() const
+        {
+            return m_inConMargins;
+        }
+
+        std::pair<int, int> getOutputConnectorMargins() const
+        {
+            return m_outConMargins;
+        }
+
 
     protected:
         void hoverEnterEvent(QGraphicsSceneHoverEvent *ev) override;
         void hoverLeaveEvent(QGraphicsSceneHoverEvent *ev) override;
+
+    private:
+        std::pair<int, int> m_inConMargins;
+        std::pair<int, int> m_outConMargins;
 };
 
 struct LUTItem: public BlockItem
@@ -111,10 +181,21 @@ struct LUTItem: public BlockItem
         static const int Width = 80;
         static const int Height = 140;
 
-        static const int HInputConnectorMargin = 16;
-        static const int HOutputConnectorMargin = 48;
+        static const int InputConnectorMargin = 16;
+        static const int OutputConnectorMargin = 48;
 
-        LUTItem(int lutIdx, QGraphicsItem *parent = nullptr);
+        static const int WithStrobeInputConnectorMarginTop = InputConnectorMargin;
+        static const int WithStrobeInputConnectorMarginBottom = 32;
+
+        LUTItem(int lutIdx, bool hasStrobeGG = false, QGraphicsItem *parent = nullptr);
+
+        QAbstractGraphicsShapeItem *getStrobeConnector() const
+        {
+            return m_strobeConnector;
+        }
+
+    private:
+        ConnectorDiamondItem *m_strobeConnector = nullptr;
 };
 
 class Edge: public QGraphicsItem
