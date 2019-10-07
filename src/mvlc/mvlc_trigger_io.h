@@ -236,6 +236,7 @@ struct Level3
     static const size_t ECL_Unit_Offset = 30;
 
     static const std::array<QString, trigger_io::Level3::UnitCount> DefaultUnitNames;
+    static const std::vector<UnitAddressVector> DynamicInputChoiceLists;
 
     std::array<StackStart, StackStartCount> stackStart = {};
     std::array<MasterTrigger, MasterTriggersCount> masterTriggers = {};
@@ -245,7 +246,6 @@ struct Level3
     std::array<IO, NIM_IO_Count> ioNIM = {};
     std::array<IO, ECL_OUT_Count> ioECL = {};
 
-    static const std::vector<UnitAddressVector> DynamicInputChoiceLists;
     QStringList unitNames;
     std::array<unsigned, trigger_io::Level3::UnitCount> connections = {};
 

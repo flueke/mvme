@@ -23,7 +23,6 @@ struct Write
     // hexadecimal instead of decimal.
     static const unsigned Opt_HexValue = 1u << 0;;
 
-    // TODO: support this when generating the script
     // Opt_BinValue indicates that the register value should be printed in
     // binary (0bxyz literatl) instead of decimal.
     static const unsigned Opt_BinValue = 1u << 1;
@@ -896,8 +895,8 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             auto &unit = kv.value();
 
             auto parsed = parse_lut(writes[unitIndex]);
-            // FIXME: hack to keep the original output names. can this be done
-            // in a cleaner way?
+            // Hack to keep the original, default output names that where
+            // generated when the TriggerIO object was created.
             parsed.outputNames = unit.outputNames;
             unit = parsed;
         }
@@ -914,8 +913,8 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
 
             // This parses the LUT and the strobe GG settings
             auto parsed = parse_lut(writes[unitIndex]);
-            // FIXME: hack to keep the original output names. can this be done
-            // in a cleaner way?
+            // Hack to keep the original, default output names that where
+            // generated when the TriggerIO object was created.
             parsed.outputNames = unit.outputNames;
             unit = parsed;
 
