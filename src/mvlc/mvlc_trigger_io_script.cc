@@ -313,10 +313,8 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += QString("L2.LUT%1").arg(unitIndex);
         ret += select_unit(2, unitIndex);
         ret += write_lut(kv.value());
-        // TODO: move this into write_lut() and add a flag on whether the LUT
-        // uses the strobe or not.
-        // TODO: use a binary literal when writing out the strobes. it's a bit mask
-        ret += write_unit_reg(0x20, kv.value().strobedOutputs.to_ulong(), "strobed_outputs");
+        ret += write_unit_reg(0x20, kv.value().strobedOutputs.to_ulong(),
+                              "strobed_outputs", Write::Opt_BinValue);
 
         const auto &l2InputChoices = Level2::DynamicInputChoices[unitIndex];
 
@@ -358,7 +356,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += generate(kv.value(), unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
     }
@@ -372,7 +370,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += generate(kv.value(), unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
     }
@@ -386,7 +384,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += generate(kv.value(), unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
     }
@@ -401,7 +399,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += select_unit(3, unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
 
@@ -416,7 +414,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += generate(kv.value(), io_flags::ECL_IO_Flags);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.dynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
     }
@@ -444,7 +442,14 @@ class ScriptGenPartVisitor: public boost::static_visitor<>
                 width = 4;
                 base = 16;
                 fill = '0';
-            };
+            }
+            else if (write.options & Write::Opt_BinValue)
+            {
+                prefix = "0b";
+                width = 4;
+                base = 2;
+                fill ='0';
+            }
 
             auto line = QString("0x%1 %2%3")
                 .arg(write.address, 4, 16, QLatin1Char('0'))
