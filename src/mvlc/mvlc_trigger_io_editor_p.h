@@ -93,15 +93,20 @@ class ConnectorCircleItem: public QGraphicsEllipseItem, public ConnectorBase
         QGraphicsSimpleTextItem *m_label = nullptr;
 };
 
-class ConnectorDiamondItem: public QGraphicsRectItem, public ConnectorBase
+class ConnectorDiamondItem: public QAbstractGraphicsShapeItem, public ConnectorBase
 {
     public:
-        static const int SideLength = 10;
+        static const int SideLength = 12;
         static constexpr float LabelPixelSize = 8.0f;
         static const int LabelOffset = 2;
 
-        ConnectorDiamondItem(int sideLength, QGraphicsItem *parent = nullptr);
+        ConnectorDiamondItem(int baseLength, QGraphicsItem *parent = nullptr);
         ConnectorDiamondItem(QGraphicsItem *parent = nullptr);
+
+        void paint(QPainter *painter, const QStyleOptionGraphicsItem *opt,
+                   QWidget *widget = nullptr) override;
+
+        QRectF boundingRect() const override;
 
     protected:
         void labelSet_(const QString &label) override;
@@ -111,6 +116,7 @@ class ConnectorDiamondItem: public QGraphicsRectItem, public ConnectorBase
         void adjust();
 
         QGraphicsSimpleTextItem *m_label = nullptr;
+        int m_baseLength = 0;
 };
 
 class ConnectableBase
@@ -208,7 +214,6 @@ class Edge: public QGraphicsItem
 
         void adjust();
 
-    protected:
         QRectF boundingRect() const override;
 
         void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,

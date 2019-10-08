@@ -137,6 +137,8 @@ void ConnectorCircleItem::alignmentSet_(const Qt::Alignment &align)
 // TODO: support top and bottom alignment
 void ConnectorCircleItem::adjust()
 {
+    if (!m_label) return;
+
     m_label->setPos(0, 0);
 
     switch (getLabelAlignment())
@@ -156,24 +158,46 @@ void ConnectorCircleItem::adjust()
 //
 // ConnectorDiamondItem
 //
-ConnectorDiamondItem::ConnectorDiamondItem(int sideLength, QGraphicsItem *parent)
-    : QGraphicsRectItem(0, 0, sideLength, sideLength, parent)
+ConnectorDiamondItem::ConnectorDiamondItem(int baseLength, QGraphicsItem *parent)
+    : QAbstractGraphicsShapeItem(parent)
+    , m_baseLength(baseLength)
 {
     setPen(Qt::NoPen);
     setBrush(Qt::blue);
-    setRotation(45.0);
+    //setRotation(45.0);
 }
 
 ConnectorDiamondItem::ConnectorDiamondItem(QGraphicsItem *parent)
     : ConnectorDiamondItem(SideLength, parent)
 { }
 
+QRectF ConnectorDiamondItem::boundingRect() const
+{
+    return QRectF(0, 0, m_baseLength, m_baseLength);
+}
+
+void ConnectorDiamondItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+           QWidget *widget)
+{
+    auto br = boundingRect();
+
+    auto poly = QPolygonF()
+        << QPointF{ br.width() * 0.5, 0 }
+        << QPointF{ br.width(), br.height() * 0.5 }
+        << QPointF{ br.width() * 0.5, br.height() }
+        << QPointF{ 0, br.height() * 0.5}
+        ;
+
+    painter->setPen(pen());
+    painter->setBrush(brush());
+    painter->drawPolygon(poly);
+}
+
 void ConnectorDiamondItem::labelSet_(const QString &label)
 {
     if (!m_label)
     {
         m_label = new QGraphicsSimpleTextItem(this);
-        m_label->setRotation(-45);
         auto font = m_label->font();
         font.setPixelSize(LabelPixelSize);
         m_label->setFont(font);
@@ -198,12 +222,13 @@ void ConnectorDiamondItem::adjust()
     {
         case Qt::AlignLeft:
             m_label->moveBy(-(m_label->boundingRect().width() + LabelOffset),
-                            -5.5); // magic number
+                            -1.5); // magic number
             break;
 
         case Qt::AlignRight:
-            m_label->moveBy(boundingRect().width() * 0.5 + LabelOffset,
-                            -5.5); // magic number
+            m_label->moveBy(boundingRect().width() + LabelOffset,
+                            0);
+                            //-boundingRect().height() * 0.5);
             break;
     }
 }
@@ -332,10 +357,12 @@ LUTItem::LUTItem(int lutIdx, bool hasStrobeGG, QGraphicsItem *parent)
     {
         auto con = new ConnectorDiamondItem(this);
 
-        int dY = this->boundingRect().height() - WithStrobeInputConnectorMarginBottom * 0.5;
-        dY -= con->boundingRect().height() * 0.5;
+        int dY = this->boundingRect().height()
+            - WithStrobeInputConnectorMarginBottom * 0.5;
 
         con->moveBy(0, dY);
+        con->moveBy(-con->boundingRect().width() * 0.5,
+                    -con->boundingRect().height() * 0.5);
 
         con->setLabelAlignment(Qt::AlignRight);
         con->setLabel("strobe");

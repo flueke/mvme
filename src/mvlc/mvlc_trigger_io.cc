@@ -353,9 +353,10 @@ QString lookup_default_name(const TriggerIO &cfg, const UnitAddress &addr)
             break;
 
         case 1:
+            return cfg.l1.luts[addr[1]].defaultOutputNames[addr[2]];
+
         case 2:
-            // FIXME: once more the L1 and L2 default output name generation code
-            return QString("L%1.LUT%2.OUT%3").arg(addr[0]).arg(addr[1]).arg(addr[2]);
+            return cfg.l2.luts[addr[1]].defaultOutputNames[addr[2]];
 
         case 3:
             if (addr[1] < cfg.l3.DefaultUnitNames.size())
