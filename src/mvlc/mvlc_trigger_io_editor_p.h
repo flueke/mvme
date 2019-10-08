@@ -48,10 +48,7 @@ class ConnectorBase
             labelSet_(label);
         }
 
-        QString getLabel() const
-        {
-            return m_label;
-        }
+        QString getLabel() const { return m_label; }
 
         void setLabelAlignment(const Qt::Alignment &align)
         {
@@ -59,18 +56,25 @@ class ConnectorBase
             alignmentSet_(align);
         }
 
-        Qt::Alignment getLabelAlignment() const
+        Qt::Alignment getLabelAlignment() const { return m_labelAlign; }
+
+        void setEnabled(bool b)
         {
-            return m_labelAlign;
+            m_enabled = b;
+            enabledSet_(b);
         }
+
+        bool isEnabled() const { return m_enabled; }
 
     protected:
         virtual void labelSet_(const QString &label) = 0;
         virtual void alignmentSet_(const Qt::Alignment &align) = 0;
+        virtual void enabledSet_(bool b) = 0;
 
     private:
         QString m_label;
         Qt::Alignment m_labelAlign = Qt::AlignLeft;
+        bool m_enabled = true;
 };
 
 class ConnectorCircleItem: public QGraphicsEllipseItem, public ConnectorBase
@@ -86,6 +90,7 @@ class ConnectorCircleItem: public QGraphicsEllipseItem, public ConnectorBase
     protected:
         void labelSet_(const QString &label) override;
         void alignmentSet_(const Qt::Alignment &align) override;
+        void enabledSet_(bool b) override;
 
     private:
         void adjust();
@@ -111,6 +116,7 @@ class ConnectorDiamondItem: public QAbstractGraphicsShapeItem, public ConnectorB
     protected:
         void labelSet_(const QString &label) override;
         void alignmentSet_(const Qt::Alignment &align) override;
+        void enabledSet_(bool b) override;
 
     private:
         void adjust();
@@ -193,6 +199,13 @@ struct LUTItem: public BlockItem
         static const int WithStrobeInputConnectorMarginTop = InputConnectorMargin;
         static const int WithStrobeInputConnectorMarginBottom = 32;
 
+        static const int StrobeConnectorIndex = LUT::InputBits;
+
+        // If hasStrobeGG is set the item will have an additional diamond
+        // connector for the strobe input added at the end.
+        // This connector can be accessed either directly via
+        // getStrobeConnector() or by using
+        // TriggerIOGraphicsScene::getInputConnector({ level, unit, StrobeConnectorIndex })
         LUTItem(int lutIdx, bool hasStrobeGG = false, QGraphicsItem *parent = nullptr);
 
         QAbstractGraphicsShapeItem *getStrobeConnector() const
@@ -211,6 +224,9 @@ class Edge: public QGraphicsItem
 
         QGraphicsItem *sourceItem() const { return m_source; }
         QGraphicsItem *destItem() const { return m_dest; }
+
+        void setSourceItem(QGraphicsItem *item);
+        void setDestItem(QGraphicsItem *item);
 
         void adjust();
 
@@ -246,6 +262,8 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         TriggerIOGraphicsScene(
             const TriggerIO &ioCfg,
             QObject *parent = nullptr);
+
+        void setTriggerIOConfig(const TriggerIO &ioCfg);
 
     protected:
         virtual void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev) override;
@@ -292,6 +310,14 @@ class TriggerIOGraphicsScene: public QGraphicsScene
 
         QAbstractGraphicsShapeItem *getInputConnector(const UnitAddress &addr) const;
         QAbstractGraphicsShapeItem *getOutputConnector(const UnitAddress &addr) const;
+        gfx::Edge *addEdge(QAbstractGraphicsShapeItem *sourceConnector,
+                           QAbstractGraphicsShapeItem *destConnector);
+
+        QList<gfx::Edge *> getEdgesBySourceConnector(
+            QAbstractGraphicsShapeItem *sourceConnector) const;
+
+        QList<gfx::Edge *> getEdgesByDestConnector(
+            QAbstractGraphicsShapeItem *destConnector) const;
 
         TriggerIO m_ioCfg;
 
@@ -303,6 +329,10 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         Level3Items m_level3Items;
 
         QVector<gfx::Edge *> m_edges;
+        // Input Connector -> Edge
+        QHash<QAbstractGraphicsShapeItem *, gfx::Edge *> m_edgesByDest;
+        // Output Connector -> Edge list
+        QHash<QAbstractGraphicsShapeItem *, gfx::Edge *> m_edgesBySource;
 };
 
 struct NIM_IO_Table_UI

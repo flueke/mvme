@@ -26,6 +26,7 @@ struct MVLCTriggerIOEditor::Private
     // TODO: use a CodeEditor, not the VMEScriptEditor. The latter is too
     // specialized and not really what we want in here.
     VMEScriptEditor *scriptEditor = nullptr;
+    TriggerIOGraphicsScene *scene = nullptr;
 };
 
 MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget *parent)
@@ -37,6 +38,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
     d->initialScriptContents = scriptConfig->getScriptContents();
 
     auto scene = new TriggerIOGraphicsScene(d->ioCfg);
+    d->scene = scene;
 
     // Edit LUT
     QObject::connect(scene, &TriggerIOGraphicsScene::editLUT,
@@ -192,7 +194,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                 ioCfg.l2.luts[unit].strobedOutputs = lutEditor->getStrobedOutputMask();
             }
 
-            regenerate();
+            configModified();
         }
     });
 
@@ -232,7 +234,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
             std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
             std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
 
-            regenerate();
+            configModified();
         }
     });
 
@@ -309,7 +311,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                      ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
              }
 
-            regenerate();
+            configModified();
          }
     });
 
@@ -379,7 +381,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                      ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset);
              }
 
-            regenerate();
+            configModified();
         }
     });
 
@@ -407,7 +409,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         if (dc == QDialog::Accepted)
         {
             ioCfg.l3 = dialog.getSettings();
-            regenerate();
+            configModified();
         }
     });
 
@@ -421,7 +423,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         if (dc == QDialog::Accepted)
         {
             ioCfg.l0 = dialog.getSettings();
-            regenerate();
+            configModified();
         }
     });
 
@@ -462,7 +464,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         this, [this] ()
         {
             d->ioCfg = {};
-            regenerate();
+            configModified();
         });
 
     action = toolbar->addAction(
@@ -544,7 +546,13 @@ void MVLCTriggerIOEditor::runScript_()
     emit runScriptConfig(d->scriptConfig);
 }
 
-void MVLCTriggerIOEditor::regenerate()
+void MVLCTriggerIOEditor::configModified()
+{
+    d->scene->setTriggerIOConfig(d->ioCfg);
+    regenerateScript();
+}
+
+void MVLCTriggerIOEditor::regenerateScript()
 {
     auto &ioCfg = d->ioCfg;
     auto scriptText = generate_trigger_io_script_text(ioCfg);

@@ -1,3 +1,45 @@
+Trigger IO
+============================================================
+Rules for connection edge updating
+
+* Level0:
+- NIM: changes to the input/output direction cause edges to be shown/hidden
+  (Edges need to be found by source)
+- L0 utils do not have a native activation flag. A software only flag could be
+  added and stored in the meta block. Changes to this flag would then lead to
+  edge updates.
+  (Edges need to be found by source)
+
+* Level1:
+- Always show all edges for now.
+
+* Level2:
+- The LUTS can have inputs from L0 and L1. L1 is always shown, L0 would need
+  the artificial activate flag.
+- The strobe input edge can be hidden if none of the LUT outputs is to be
+  strobed.
+- Edges always have to be updated on input selection change: walk through a
+  list of all incoming edges and update their source to reflect the actual
+  input choice.
+
+* Level3:
+- NIM and ECL: changes to the direction and the activation flag cause updates.
+  (Edges need to be found by dest)
+- Timers and MasterTriggers: use the activate flag
+  (Edges by dest)
+- Counters: add software activate flag
+  (Edges by dest)
+  OR
+  For L0 connections: use the software activate flag of L0 to decide if and
+  edge is to be shown.
+  (Edges by source)
+
+Also keep connector label updates in mind!
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+
 * USB/ETH low level read cleanup
 * USB2 loses data under windows. The beginning of the very first buffer of a readout gets
   lost. This means the initial F3 is not seen and we lose track of the buffer structure.

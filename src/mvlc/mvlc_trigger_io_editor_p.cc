@@ -95,10 +95,11 @@ namespace gfx
 ConnectorBase::~ConnectorBase() { }
 
 static const QBrush Block_Brush("#fffbcc");
-static const QBrush Block_Hover_Brush("#eeee77");
-static const QBrush Connector_Brush(Qt::blue);
-static const QBrush Connector_Hover_Brush("#5555ff");
+static const QBrush Block_Brush_Hover("#eeee77");
 
+static const QBrush Connector_Brush(Qt::blue);
+static const QBrush Connector_Brush_Hover("#5555ff");
+static const QBrush Connector_Brush_Disabled(Qt::lightGray);
 
 //
 // ConnectorCircleItem
@@ -132,6 +133,10 @@ void ConnectorCircleItem::labelSet_(const QString &label)
 void ConnectorCircleItem::alignmentSet_(const Qt::Alignment &align)
 {
     adjust();
+}
+
+void ConnectorCircleItem::enabledSet_(bool b)
+{
 }
 
 // TODO: support top and bottom alignment
@@ -210,6 +215,10 @@ void ConnectorDiamondItem::labelSet_(const QString &label)
 void ConnectorDiamondItem::alignmentSet_(const Qt::Alignment &align)
 {
     adjust();
+}
+
+void ConnectorDiamondItem::enabledSet_(bool b)
+{
 }
 
 // TODO: support top and bottom alignment
@@ -318,11 +327,11 @@ BlockItem::BlockItem(
 
 void BlockItem::hoverEnterEvent(QGraphicsSceneHoverEvent *ev)
 {
-    setBrush(Block_Hover_Brush);
+    setBrush(Block_Brush_Hover);
     for (auto con: m_inputConnectors)
-        con->setBrush(Connector_Hover_Brush);
+        con->setBrush(Connector_Brush_Hover);
     for (auto con: m_outputConnectors)
-        con->setBrush(Connector_Hover_Brush);
+        con->setBrush(Connector_Brush_Hover);
     QGraphicsRectItem::update();
 }
 
@@ -365,7 +374,9 @@ LUTItem::LUTItem(int lutIdx, bool hasStrobeGG, QGraphicsItem *parent)
                     -con->boundingRect().height() * 0.5);
 
         con->setLabelAlignment(Qt::AlignRight);
-        con->setLabel("strobe");
+        con->setLabel("strobe GG");
+
+        addInputConnector(con);
     }
 }
 
@@ -387,10 +398,25 @@ Edge::Edge(QGraphicsItem *sourceItem, QGraphicsItem *destItem)
     adjust();
 }
 
+void Edge::setSourceItem(QGraphicsItem *item)
+{
+    m_source = item;
+    adjust();
+}
+
+void Edge::setDestItem(QGraphicsItem *item)
+{
+    m_dest = item;
+    adjust();
+}
+
 void Edge::adjust()
 {
     if (!m_source || !m_dest)
+    {
+        hide();
         return;
+    }
 
     QLineF line(mapFromItem(m_source, get_center_point(m_source)),
                 mapFromItem(m_dest, get_center_point(m_dest)));
@@ -409,6 +435,8 @@ void Edge::adjust()
     } else {
         m_sourcePoint = m_destPoint = line.p1();
     }
+
+    show();
 }
 
 QRectF Edge::boundingRect() const
@@ -655,7 +683,6 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                            - label->boundingRect().width()) / 2.0, 0);
         }
 
-#if 1
         auto yOffset = result.nimItem->boundingRect().height() + 25;
 
         // ECL Out
@@ -690,7 +717,6 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
             result.utilsItem->moveBy(0, yOffset + result.eclItem->boundingRect().height() + 25);
         }
-#endif
 
         QFont labelFont;
         labelFont.setPointSize(labelFont.pointSize() + 5);
@@ -721,6 +747,10 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     this->addItem(m_level3Items.parent);
     this->addItem(m_level0UtilItems.parent);
 
+    // Create all connection edges contained in the trigger io config. The
+    // logic in setTriggerIOConfig then decides if edges should be hidden or
+    // drawn in a different way.
+
     // static level 1 connections
     for (const auto &lutkv: Level1::StaticConnections | indexed(0))
     {
@@ -737,8 +767,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
             if (sourceConnector && destConnector)
             {
-                auto edge = new gfx::Edge(sourceConnector, destConnector);
-                m_edges.push_back(edge);
+                addEdge(sourceConnector, destConnector);
             }
         }
     }
@@ -762,8 +791,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
             if (sourceConnector && destConnector)
             {
-                auto edge = new gfx::Edge(sourceConnector, destConnector);
-                m_edges.push_back(edge);
+                addEdge(sourceConnector, destConnector);
             }
         }
     }
@@ -784,8 +812,23 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
             if (sourceConnector && destConnector)
             {
-                auto edge = new gfx::Edge(sourceConnector, destConnector);
-                m_edges.push_back(edge);
+                addEdge(sourceConnector, destConnector);
+            }
+        }
+
+        // strobe
+        {
+            assert(getInputConnector({2, unitIndex, gfx::LUTItem::StrobeConnectorIndex}));
+            unsigned conValue = ioCfg.l2.strobeConnections[unitIndex];
+            UnitAddress conAddress = l2InputChoices.strobeChoices[conValue];
+
+            auto sourceConnector = getOutputConnector(conAddress);
+            auto destConnector = getInputConnector(
+                {2, unitIndex, gfx::LUTItem::StrobeConnectorIndex});
+
+            if (sourceConnector && destConnector)
+            {
+                addEdge(sourceConnector, destConnector);
             }
         }
     }
@@ -803,8 +846,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         if (sourceConnector && destConnector)
         {
-            auto edge = new gfx::Edge(sourceConnector, destConnector);
-            m_edges.push_back(edge);
+            addEdge(sourceConnector, destConnector);
         }
     }
 
@@ -820,8 +862,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         if (sourceConnector && destConnector)
         {
-            auto edge = new gfx::Edge(sourceConnector, destConnector);
-            m_edges.push_back(edge);
+            addEdge(sourceConnector, destConnector);
         }
     }
 
@@ -837,8 +878,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         if (sourceConnector && destConnector)
         {
-            auto edge = new gfx::Edge(sourceConnector, destConnector);
-            m_edges.push_back(edge);
+            addEdge(sourceConnector, destConnector);
         }
     }
 
@@ -855,8 +895,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         if (sourceConnector && destConnector)
         {
-            auto edge = new gfx::Edge(sourceConnector, destConnector);
-            m_edges.push_back(edge);
+            addEdge(sourceConnector, destConnector);
         }
     }
 
@@ -872,16 +911,8 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         if (sourceConnector && destConnector)
         {
-            auto edge = new gfx::Edge(sourceConnector, destConnector);
-            m_edges.push_back(edge);
+            addEdge(sourceConnector, destConnector);
         }
-    }
-
-    // let the edges adjust themselves and add them to the scene
-    for (auto edge: m_edges)
-    {
-        edge->adjust();
-        this->addItem(edge);
     }
 };
 
@@ -945,6 +976,57 @@ QAbstractGraphicsShapeItem *
     }
 
     return nullptr;
+}
+
+gfx::Edge *TriggerIOGraphicsScene::addEdge(
+    QAbstractGraphicsShapeItem *sourceConnector,
+    QAbstractGraphicsShapeItem *destConnector)
+{
+    auto edge = new gfx::Edge(sourceConnector, destConnector);
+    m_edges.push_back(edge);
+    assert(!m_edgesByDest.contains(destConnector));
+    m_edgesByDest.insert(destConnector, edge);
+    m_edgesBySource.insertMulti(sourceConnector, edge);
+
+    edge->adjust();
+    this->addItem(edge);
+    return edge;
+}
+
+QList<gfx::Edge *> TriggerIOGraphicsScene::getEdgesBySourceConnector(
+    QAbstractGraphicsShapeItem *sourceConnector) const
+{
+    return m_edgesBySource.values(sourceConnector);
+}
+
+QList<gfx::Edge *> TriggerIOGraphicsScene::getEdgesByDestConnector(
+    QAbstractGraphicsShapeItem *sourceConnector) const
+{
+    return m_edgesByDest.values(sourceConnector);
+}
+
+void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
+{
+    using namespace gfx;
+
+    m_ioCfg = ioCfg;
+
+    // level0 NIM IO
+    for (const auto &kv: ioCfg.l0.ioNIM | indexed(Level0::NIM_IO_Offset))
+    {
+        const auto &io = kv.value();
+        const bool isInput = io.direction == IO::Direction::in;
+
+        UnitAddress addr {0, static_cast<unsigned>(kv.index())};
+
+        auto con = getOutputConnector(addr);
+        con->setBrush(isInput ? Connector_Brush : Connector_Brush_Disabled);
+
+        for (auto edge: getEdgesBySourceConnector(con))
+        {
+            edge->setVisible(io.direction == IO::Direction::in);
+        }
+    }
 }
 
 void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)

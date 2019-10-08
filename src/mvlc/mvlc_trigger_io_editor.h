@@ -21,7 +21,8 @@ class MVLCTriggerIOEditor: public QWidget
 
     private slots:
         void runScript_();
-        void regenerate();
+        void configModified();
+        void regenerateScript();
 
     private:
         struct Private;
