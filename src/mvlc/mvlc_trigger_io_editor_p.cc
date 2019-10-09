@@ -2248,46 +2248,73 @@ LUT::Bitmap LUTOutputEditor::getOutputMapping() const
 
 void LUTOutputEditor::setOutputMapping(const LUT::Bitmap &mapping)
 {
-    // Use the minbool lib to get the minimal set of input bits affecting the
-    // output.
-    std::vector<u8> minterms;
+    // Note: changing the checked state of any of the m_inputCheckboxes causes
+    // onInputUsageChanged() to be called which in turn changes the number of
+    // rows in the output state table.
 
-    for (size_t i = 0; i < mapping.size(); i++)
+    if (mapping.all() || mapping.none())
     {
-        if (mapping[i])
-            minterms.push_back(i);
+        for (auto cb: m_inputCheckboxes)
+            cb->setChecked(false);
+        assert(m_outputStateWidgets.size() == 0);
+        assert(m_outputTable->rowCount() == 0);
+
+        m_outputTable->setRowCount(1);
+        m_outputTable->setVerticalHeaderItem(0, new QTableWidgetItem("out"));
+
+        auto button = new QPushButton(mapping.all() ? "Always true" : "Always false");
+        button->setCheckable(true);
+        button->setChecked(mapping.all());
+        connect(button, &QPushButton::toggled,
+                this, [button] (bool checked) {
+                    button->setText(checked ? "Always true" : "Always false");
+                });
+
+        m_outputTable->setCellWidget(0, 0, make_centered(button));
     }
-
-    auto solution = minbool::minimize_boolean<trigger_io::LUT::InputBits>(minterms, {});
-
-    for (const auto &minterm: solution)
+    else
     {
-        for (size_t bit = 0; bit < trigger_io::LUT::InputBits; bit++)
+        // Use the minbool lib to get the minimal set of input bits affecting the
+        // output.
+        std::vector<u8> minterms;
+
+        for (size_t i = 0; i < mapping.size(); i++)
         {
-            // Check all except the DontCare/Dash input bits
-            if (minterm[bit] != minterm.Dash)
-                m_inputCheckboxes[bit]->setChecked(true);
-        }
-    }
-
-    const auto bitMap = getInputBitMapping();
-
-    for (unsigned row = 0; row < static_cast<unsigned>(m_outputStateWidgets.size()); ++row)
-    {
-        // Calculate the full input value corresponding to this row.
-        unsigned inputValue = 0u;
-
-        for (int bitIndex = 0; bitIndex < bitMap.size(); ++bitIndex)
-        {
-            if (row & (1u << bitIndex))
-                inputValue |= 1u << bitMap[bitIndex];
+            if (mapping[i])
+                minterms.push_back(i);
         }
 
-        assert(inputValue < mapping.size());
+        auto solution = minbool::minimize_boolean<trigger_io::LUT::InputBits>(minterms, {});
 
-        if (mapping[inputValue])
+        for (const auto &minterm: solution)
         {
-            m_outputStateWidgets[row]->setChecked(true);
+            for (size_t bit = 0; bit < trigger_io::LUT::InputBits; bit++)
+            {
+                // Check all except the DontCare/Dash input bits
+                if (minterm[bit] != minterm.Dash)
+                    m_inputCheckboxes[bit]->setChecked(true);
+            }
+        }
+
+        const auto bitMap = getInputBitMapping();
+
+        for (unsigned row = 0; row < static_cast<unsigned>(m_outputStateWidgets.size()); ++row)
+        {
+            // Calculate the full input value corresponding to this row.
+            unsigned inputValue = 0u;
+
+            for (int bitIndex = 0; bitIndex < bitMap.size(); ++bitIndex)
+            {
+                if (row & (1u << bitIndex))
+                    inputValue |= 1u << bitMap[bitIndex];
+            }
+
+            assert(inputValue < mapping.size());
+
+            if (mapping[inputValue])
+            {
+                m_outputStateWidgets[row]->setChecked(true);
+            }
         }
     }
 }

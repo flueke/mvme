@@ -474,6 +474,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
             d->scriptConfig->setScriptContents(d->initialScriptContents);
             d->scriptConfig->setModified(false);
             d->ioCfg = parse_trigger_io_script_text(d->scriptConfig->getScriptContents());
+            configModified();
         });
 
     action = toolbar->addAction(
