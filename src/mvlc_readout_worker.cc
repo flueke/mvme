@@ -433,6 +433,8 @@ void stack_error_notification_poller(
     mesytec::mvme::TicketMutex &countersMutex,
     std::atomic<bool> &keepRunning)
 {
+    static const auto NoDataSleepDuration = std::chrono::milliseconds(100);
+
     QVector<u32> buffer;
 
     while (keepRunning)
@@ -461,6 +463,14 @@ void stack_error_notification_poller(
                     errorCounters[i] += ((frameInfo.flags >> i) & 1u);
                 }
             }
+        }
+        else
+        {
+            // No notification data was received. Instad of immediately reading
+            // again sleep here for a while. This enables other threads to make
+            // use of the command pipe without having to wait for our read to
+            // run into a timeout.
+            std::this_thread::sleep_for(NoDataSleepDuration);
         }
     }
 }
