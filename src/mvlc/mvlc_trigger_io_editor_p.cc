@@ -135,10 +135,6 @@ void ConnectorCircleItem::alignmentSet_(const Qt::Alignment &align)
     adjust();
 }
 
-void ConnectorCircleItem::enabledSet_(bool b)
-{
-}
-
 // TODO: support top and bottom alignment
 void ConnectorCircleItem::adjust()
 {
@@ -215,10 +211,6 @@ void ConnectorDiamondItem::labelSet_(const QString &label)
 void ConnectorDiamondItem::alignmentSet_(const Qt::Alignment &align)
 {
     adjust();
-}
-
-void ConnectorDiamondItem::enabledSet_(bool b)
-{
 }
 
 // TODO: support top and bottom alignment
@@ -328,10 +320,23 @@ BlockItem::BlockItem(
 void BlockItem::hoverEnterEvent(QGraphicsSceneHoverEvent *ev)
 {
     setBrush(Block_Brush_Hover);
+
     for (auto con: m_inputConnectors)
-        con->setBrush(Connector_Brush_Hover);
+    {
+        if (con->isEnabled())
+            con->setBrush(Connector_Brush_Hover);
+        else
+            con->setBrush(Connector_Brush_Disabled);
+    }
+
     for (auto con: m_outputConnectors)
-        con->setBrush(Connector_Brush_Hover);
+    {
+        if (con->isEnabled())
+            con->setBrush(Connector_Brush_Hover);
+        else
+            con->setBrush(Connector_Brush_Disabled);
+    }
+
     QGraphicsRectItem::update();
 }
 
@@ -339,9 +344,21 @@ void BlockItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *ev)
 {
     setBrush(Block_Brush);
     for (auto con: m_inputConnectors)
-        con->setBrush(Connector_Brush);
+    {
+        if (con->isEnabled())
+            con->setBrush(Connector_Brush);
+        else
+            con->setBrush(Connector_Brush_Disabled);
+    }
+
     for (auto con: m_outputConnectors)
-        con->setBrush(Connector_Brush);
+    {
+        if (con->isEnabled())
+            con->setBrush(Connector_Brush);
+        else
+            con->setBrush(Connector_Brush_Disabled);
+    }
+
     QGraphicsRectItem::update();
 }
 
@@ -389,22 +406,23 @@ QPointF get_center_point(T *item)
 //
 // Edge
 //
-Edge::Edge(QGraphicsItem *sourceItem, QGraphicsItem *destItem)
+Edge::Edge(QAbstractGraphicsShapeItem *sourceItem, QAbstractGraphicsShapeItem *destItem)
     : m_source(sourceItem)
     , m_dest(destItem)
     , m_arrowSize(8)
 {
     setAcceptedMouseButtons(0);
+    setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     adjust();
 }
 
-void Edge::setSourceItem(QGraphicsItem *item)
+void Edge::setSourceItem(QAbstractGraphicsShapeItem *item)
 {
     m_source = item;
     adjust();
 }
 
-void Edge::setDestItem(QGraphicsItem *item)
+void Edge::setDestItem(QAbstractGraphicsShapeItem *item)
 {
     m_dest = item;
     adjust();
@@ -414,7 +432,6 @@ void Edge::adjust()
 {
     if (!m_source || !m_dest)
     {
-        hide();
         return;
     }
 
@@ -435,8 +452,6 @@ void Edge::adjust()
     } else {
         m_sourcePoint = m_destPoint = line.p1();
     }
-
-    show();
 }
 
 QRectF Edge::boundingRect() const
@@ -464,7 +479,8 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
         return;
 
     // Draw the line itself
-    painter->setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter->setPen(pen());
+    painter->setBrush(brush());
     painter->drawLine(line);
 
     // Draw the arrows
@@ -748,8 +764,8 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     this->addItem(m_level0UtilItems.parent);
 
     // Create all connection edges contained in the trigger io config. The
-    // logic in setTriggerIOConfig then decides if edges should be hidden or
-    // drawn in a different way.
+    // logic in setTriggerIOConfig then decides if edges should be shown/hidden
+    // or drawn in a different way.
 
     // static level 1 connections
     for (const auto &lutkv: Level1::StaticConnections | indexed(0))
@@ -914,6 +930,10 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             addEdge(sourceConnector, destConnector);
         }
     }
+
+    // To trigger initial edge updates
+    setTriggerIOConfig(ioCfg);
+    qDebug() << __PRETTY_FUNCTION__ << "created" << m_edges.size() << " Edges";
 };
 
 QAbstractGraphicsShapeItem *
@@ -999,19 +1019,52 @@ QList<gfx::Edge *> TriggerIOGraphicsScene::getEdgesBySourceConnector(
     return m_edgesBySource.values(sourceConnector);
 }
 
-QList<gfx::Edge *> TriggerIOGraphicsScene::getEdgesByDestConnector(
+gfx::Edge * TriggerIOGraphicsScene::getEdgeByDestConnector(
     QAbstractGraphicsShapeItem *sourceConnector) const
 {
-    return m_edgesByDest.values(sourceConnector);
+    return m_edgesByDest.value(sourceConnector);
 }
 
 void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 {
     using namespace gfx;
 
+    // Helper performing common edge and connector update tasks.
+    //
+    // unit is the actual unit struct that being checked, e.g. IO, ECL,
+    //   MasterTrigger, etc.
+    // addr is the full UnitAddress of the unit being checked
+    // cond is a predicate taking one argument: the unit structure itself.
+    //   The dest connector and the edge are disabled/hidden if the predicate
+    //   returns false.
+    // The source connector is not modified but the edge may be assigned a new
+    // source connector in case the connection value changed.
+    auto update_connectors_and_edge = [this] (
+        const auto &unit, const auto &addr, auto cond)
+    {
+        bool enable = cond(unit);
+
+        auto dstCon = getInputConnector(addr);
+        assert(dstCon);
+        dstCon->setEnabled(enable);
+        dstCon->setBrush(dstCon->isEnabled() ? Connector_Brush : Connector_Brush_Disabled);
+
+        auto edge = getEdgeByDestConnector(dstCon);
+        assert(edge);
+        edge->setVisible(dstCon->isEnabled());
+
+        auto conAddr = get_connection_unit_address(m_ioCfg, addr);
+
+        auto srcCon = getOutputConnector(conAddr);
+        edge->setSourceItem(srcCon);
+    };
+
+
     m_ioCfg = ioCfg;
 
+    //
     // level0 NIM IO
+    //
     for (const auto &kv: ioCfg.l0.ioNIM | indexed(Level0::NIM_IO_Offset))
     {
         const auto &io = kv.value();
@@ -1019,14 +1072,103 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
         UnitAddress addr {0, static_cast<unsigned>(kv.index())};
 
-        auto con = getOutputConnector(addr);
-        con->setBrush(isInput ? Connector_Brush : Connector_Brush_Disabled);
+        auto srcCon = getOutputConnector(addr);
+        srcCon->setEnabled(isInput);
+        srcCon->setBrush(isInput ? Connector_Brush : Connector_Brush_Disabled);
 
-        for (auto edge: getEdgesBySourceConnector(con))
+        for (auto edge: getEdgesBySourceConnector(srcCon))
         {
             edge->setVisible(io.direction == IO::Direction::in);
         }
     }
+
+    // TODO: add utilities once the soft activate flags are in
+
+    //
+    // level1
+    //
+    // TODO: check LUT functions to see which inputs are in use and update
+    // edges and connectors accordingly
+
+    //
+    // level2
+    //
+
+    for (const auto &kv: ioCfg.l2.luts | indexed(0))
+    {
+        for (unsigned input=0; input < LUT::InputBits; input++)
+        {
+            UnitAddress addr {2, static_cast<unsigned>(kv.index()), input};
+
+            update_connectors_and_edge(
+                kv.value(), addr, [] (const auto &lut) { return true; });
+        }
+
+        UnitAddress strobeGGAddress {2, static_cast<unsigned>(kv.index()), LUT::StrobeGGInput};
+
+        update_connectors_and_edge(
+            kv.value(), strobeGGAddress,
+            [] (const LUT &lut)
+            {
+                return lut.strobedOutputs.any();
+            });
+    }
+
+    //
+    // level3
+    //
+
+    // level3 NIM IO
+    for (const auto &kv: ioCfg.l3.ioNIM | indexed(Level3::NIM_IO_Unit_Offset))
+    {
+        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+
+        auto cond = [] (const IO &io)
+        {
+            return io.direction == IO::Direction::out && io.activate;
+        };
+
+        update_connectors_and_edge(kv.value(), addr, cond);
+    }
+
+    // level3 ECL
+    for (const auto &kv: ioCfg.l3.ioECL | indexed(Level3::ECL_Unit_Offset))
+    {
+        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+
+        auto cond = [] (const IO &io)
+        {
+            return io.activate;
+        };
+
+        update_connectors_and_edge(kv.value(), addr, cond);
+    }
+
+    for (const auto &kv: ioCfg.l3.stackStart | indexed(0))
+    {
+        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+
+        auto cond = [] (const StackStart &io)
+        {
+            return io.activate;
+        };
+
+        update_connectors_and_edge(kv.value(), addr, cond);
+    }
+
+    for (const auto &kv: ioCfg.l3.masterTriggers | indexed(Level3::MasterTriggersOffset))
+    {
+        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+
+        auto cond = [] (const MasterTrigger &io)
+        {
+            return io.activate;
+        };
+
+        update_connectors_and_edge(kv.value(), addr, cond);
+    }
+
+    // TODO: add counters once the soft activate flag is in
 }
 
 void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)

@@ -132,13 +132,13 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
         if (unit == 0)
         {
             // L2.LUT0 can connect to L1.LUT4
-            for (unsigned i = 0; i < 3; i++)
+            for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
                 result[unit].lutChoices[i].push_back(UnitAddress{ 1, 4, i });
         }
         else if (unit == 1)
         {
             // L2.LUT1 can connecto to L1.LUT3
-            for (unsigned i = 0; i < 3; i++)
+            for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
                 result[unit].lutChoices[i].push_back(UnitAddress{ 1, 3, i });
         }
 
@@ -367,6 +367,54 @@ QString lookup_default_name(const TriggerIO &cfg, const UnitAddress &addr)
     return {};
 }
 
+unsigned get_connection_value(const TriggerIO &ioCfg, const UnitAddress &addr)
+{
+    switch (addr[0])
+    {
+        case 0:
+        case 1:
+            return 0;
+
+        case 2:
+            if (addr[2] == LUT::InputBits)
+                return ioCfg.l2.strobeConnections[addr[1]];
+            return ioCfg.l2.lutConnections[addr[1]][addr[2]];
+
+        case 3:
+            return ioCfg.l3.connections[addr[1]];
+    }
+
+    return 0;
+}
+
+UnitAddress get_connection_unit_address(const TriggerIO &ioCfg, const UnitAddress &addr)
+{
+    unsigned conValue = get_connection_value(ioCfg, addr);
+
+    switch (addr[0])
+    {
+        case 0:
+        case 1:
+            return {};
+
+        case 2:
+            if (addr[2] == LUT::StrobeGGInput)
+                return ioCfg.l2.DynamicInputChoices[addr[1]].strobeChoices[conValue];
+
+            if (addr[2] < ioCfg.l2.DynamicInputChoices[addr[1]].lutChoices.size())
+                return ioCfg.l2.DynamicInputChoices[addr[1]].lutChoices[addr[2]][conValue];
+
+            if (addr[2] < LUT::InputBits)
+                return ioCfg.l2.StaticConnections[addr[1]][addr[2]].address;
+
+            return {};
+
+        case 3:
+            return ioCfg.l3.DynamicInputChoiceLists[addr[1]][conValue];
+    }
+
+    return {};
+}
 
 } // end namespace trigger_io
 } // end namespace mvlc
