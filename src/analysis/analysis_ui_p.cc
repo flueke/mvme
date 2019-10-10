@@ -45,21 +45,22 @@
 #include <QTextBrowser>
 #include <QTimer>
 
-#include "a2_adapter.h"
 #include "a2/a2_exprtk.h"
+#include "a2_adapter.h"
 #include "analysis_util.h"
 #include "data_extraction_widget.h"
+#include "data_filter_edit.h"
+#include "data_filter.h"
 #include "exportsink_codegen.h"
-#include "../globals.h"
-#include "../histo_util.h"
-#include "../vme_config.h"
-#include "../mvme_context.h"
-#include "../mvme_context_lib.h"
-#include "../qt_util.h"
-#include "../data_filter.h"
-#include "../data_filter_edit.h"
-#include "../gui_util.h"
+#include "globals.h"
+#include "gui_util.h"
+#include "histo_util.h"
+#include "mvme_context.h"
+#include "mvme_context_lib.h"
+#include "qt_util.h"
+#include "util/qt_font.h"
 #include "util/variablify.h"
+#include "vme_config.h"
 
 namespace
 {
