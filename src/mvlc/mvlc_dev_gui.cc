@@ -31,6 +31,7 @@
 #include "mvlc/mvlc_util.h"
 #include "qt_util.h"
 #include "util/counters.h"
+#include "util/qt_font.h"
 #include "util/strings.h"
 
 using namespace mesytec;

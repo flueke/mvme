@@ -10,6 +10,7 @@
 #include "mvme_context_lib.h"
 #include "qt_util.h"
 #include "util/cpp17_algo.h"
+#include "util/qt_font.h"
 
 #include <QApplication>
 #include <QHeaderView>
@@ -570,26 +571,13 @@ void ExpressionErrorWidget::assertConsistency()
 //
 // ExpressionCodeEditor
 //
-int calculate_tabstop_width(const QFont &font, int tabstop)
-{
-    QString spaces;
-    for (int i = 0; i < tabstop; ++i) spaces += " ";
-    QFontMetrics metrics(font);
-    return metrics.width(spaces);
-}
-
 static const int TabStop = 2;
 
 ExpressionCodeEditor::ExpressionCodeEditor(QWidget *parent)
     : QWidget(parent)
     , m_codeEditor(new CodeEditor)
 {
-    auto font = make_monospace_font();
-    font.setPointSize(8);
-    m_codeEditor->setFont(font);
-    m_codeEditor->setTabStopWidth(calculate_tabstop_width(font, TabStop));
-    m_codeEditor->setLineWrapMode(QPlainTextEdit::NoWrap);
-    m_codeEditor->enableCurrentLineHighlight(false);
+    m_codeEditor->setTabStopCharWidth(TabStop);
     new ExpressionOperatorSyntaxHighlighter(m_codeEditor->document());
 
     auto widgetLayout = new QHBoxLayout(this);
