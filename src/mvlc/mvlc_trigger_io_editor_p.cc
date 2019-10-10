@@ -2039,19 +2039,25 @@ Level3 Level3UtilsDialog::getSettings() const
     return m_l3;
 }
 
-// TODO: add AND, OR, invert and [min, max] bits setup helpers
+//
+// LUTOutputEditor - UI for a 6 => 1 bit LUT
+//
+
 LUTOutputEditor::LUTOutputEditor(
     int outputNumber,
     const QVector<QStringList> &inputNameLists,
     const Level2::DynamicConnections &dynamicInputValues,
     QWidget *parent)
     : QWidget(parent)
+    , m_outputFixedValueButton(new QPushButton(this))
+    , m_outputWidgetStack(new QStackedWidget(this))
     , m_inputNameLists(inputNameLists)
 {
     // LUT input bit selection
     auto table_inputs = new QTableWidget(trigger_io::LUT::InputBits, 2);
     m_inputTable = table_inputs;
     table_inputs->setHorizontalHeaderLabels({"Use", "Name" });
+    table_inputs->horizontalHeader()->setStretchLastSection(true);
 
     for (int row = 0; row < table_inputs->rowCount(); row++)
     {
@@ -2103,18 +2109,96 @@ LUTOutputEditor::LUTOutputEditor(
     layout_inputSelect->addWidget(new QLabel("Input Bit Usage"));
     layout_inputSelect->addWidget(table_inputs, 1);
 
-    // Initially empty output value table. Populated in onInputUsageChanged().
-    m_outputTable = new QTableWidget(0, 1);
-    m_outputTable->setHorizontalHeaderLabels({"State"});
+    // Output side (lower side of the widget)
+    {
+        auto set_and = [this] ()
+        {
+            for (const auto &kv: m_outputStateWidgets | indexed(0))
+                kv.value()->setChecked(false);
+
+            if (!m_outputStateWidgets.empty())
+                m_outputStateWidgets.back()->setChecked(true);
+        };
+
+        auto set_or = [this] ()
+        {
+            for (const auto &kv: m_outputStateWidgets | indexed(0))
+            {
+                if (kv.index() == 0 || kv.index() == m_outputStateWidgets.size() - 1)
+                    kv.value()->setChecked(false);
+                else
+                    kv.value()->setChecked(true);
+            }
+        };
+
+        auto do_invert = [this] ()
+        {
+            for (const auto &button: m_outputStateWidgets)
+                button->setChecked(!button->isChecked());
+        };
+
+        auto buttonBar = new QWidget;
+        auto buttonLayout = make_hbox<0, 0>(buttonBar);
+
+        auto buttonAnd = new QPushButton("AND");
+        auto buttonOr = new QPushButton("OR");
+        auto buttonInvert = new QPushButton("INVERT");
+
+        connect(buttonAnd, &QPushButton::clicked, this, set_and);
+        connect(buttonOr, &QPushButton::clicked, this, set_or);
+        connect(buttonInvert, &QPushButton::clicked, this, do_invert);
+
+        buttonLayout->addWidget(buttonAnd);
+        buttonLayout->addWidget(buttonOr);
+        buttonLayout->addWidget(buttonInvert);
+        buttonLayout->addStretch(1);
+
+        // Initially empty output value table. Populated in onInputUsageChanged().
+        m_outputTable = new QTableWidget(0, 1);
+        m_outputTable->setHorizontalHeaderLabels({"State"});
+        m_outputTable->horizontalHeader()->setStretchLastSection(true);
+
+        auto container = new QWidget;
+        auto layout = make_vbox<0, 0>(container);
+        layout->addWidget(buttonBar);
+        layout->addWidget(m_outputTable);
+
+        m_outputWidgetStack->addWidget(container);
+    }
+
+    {
+        m_outputFixedValueButton->setCheckable(true);
+
+        auto on_button_checked = [this] (bool checked)
+        {
+            m_outputFixedValueButton->setText(
+                checked ? "Always 1" : "Always 0");
+        };
+
+        connect(m_outputFixedValueButton, &QPushButton::toggled,
+                this, on_button_checked);
+
+        on_button_checked(false);
+
+        auto hCentered = make_centered(m_outputFixedValueButton);
+        auto container = new QWidget;
+        auto vTop = make_vbox<8, 2>(container);
+        vTop->addWidget(hCentered);
+        vTop->addStretch(1);
+
+        m_outputWidgetStack->addWidget(container);
+    }
 
     auto widget_outputActivation = new QWidget;
     auto layout_outputActivation = make_layout<QVBoxLayout>(widget_outputActivation);
     layout_outputActivation->addWidget(new QLabel("Output Activation"));
-    layout_outputActivation->addWidget(m_outputTable);
+    layout_outputActivation->addWidget(m_outputWidgetStack);
 
     auto layout = make_layout<QVBoxLayout>(this);
     layout->addWidget(widget_inputSelect, 40);
     layout->addWidget(widget_outputActivation, 60);
+
+    onInputUsageChanged();
 }
 
 void LUTOutputEditor::onInputUsageChanged()
@@ -2134,53 +2218,39 @@ void LUTOutputEditor::onInputUsageChanged()
 
     auto bitMap = getInputBitMapping();
     unsigned totalBits = static_cast<unsigned>(bitMap.size());
-    unsigned rows = totalBits > 0 ? 1u << totalBits : 0u;
 
-    assert(rows <= trigger_io::LUT::InputCombinations);
-
-    m_outputTable->setRowCount(0);
-    m_outputTable->setRowCount(rows);
-    m_outputStateWidgets.clear();
-
-    for (int row = 0; row < m_outputTable->rowCount(); ++row)
+    if (totalBits > 0)
     {
-        auto rowHeader = make_bit_string(totalBits, row);
-        m_outputTable->setVerticalHeaderItem(row, new QTableWidgetItem(rowHeader));
+        m_outputWidgetStack->setCurrentIndex(0);
 
-        auto button = new QPushButton("0");
-        button->setCheckable(true);
-        m_outputStateWidgets.push_back(button);
+        unsigned rows = 1u << totalBits;
+        assert(rows <= trigger_io::LUT::InputCombinations);
 
-        connect(button, &QPushButton::toggled,
-                this, [button] (bool checked) {
-                    button->setText(checked ? "1" : "0");
-                });
+        m_outputTable->setRowCount(0);
+        m_outputTable->setRowCount(rows);
+        m_outputStateWidgets.clear();
 
-        m_outputTable->setCellWidget(row, 0, make_centered(button));
+        for (int row = 0; row < m_outputTable->rowCount(); ++row)
+        {
+            auto rowHeader = make_bit_string(totalBits, row);
+            m_outputTable->setVerticalHeaderItem(row, new QTableWidgetItem(rowHeader));
+
+            auto button = new QPushButton("0");
+            button->setCheckable(true);
+            m_outputStateWidgets.push_back(button);
+
+            connect(button, &QPushButton::toggled,
+                    this, [button] (bool checked) {
+                        button->setText(checked ? "1" : "0");
+                    });
+
+            m_outputTable->setCellWidget(row, 0, make_centered(button));
+        }
     }
-
-#if 0
-    // debug output of the full output bitmap
-    for (auto cb: m_outputStateWidgets)
+    else
     {
-        connect(cb, &QPushButton::toggled,
-                this, [this] ()
-                {
-                    qDebug() << __PRETTY_FUNCTION__ << ">>>";
-                    auto outputMapping = getOutputMapping();
-                    for (size_t i = 0; i < outputMapping.size(); i++)
-                    {
-                        qDebug() << __PRETTY_FUNCTION__
-                            << QString("%1").arg(i, 2)
-                            << QString("%1")
-                            .arg(QString::number(i, 2), 6, QLatin1Char('0'))
-                            << "->" << outputMapping.test(i)
-                            ;
-                    }
-                    qDebug() << __PRETTY_FUNCTION__ << "<<<";
-                });
+        m_outputWidgetStack->setCurrentIndex(1);
     }
-#endif
 }
 
 void LUTOutputEditor::setInputConnection(unsigned input, unsigned value)
@@ -2210,6 +2280,18 @@ LUT::Bitmap LUTOutputEditor::getOutputMapping() const
     LUT::Bitmap result;
 
     const auto bitMap = getInputBitMapping();
+
+    if (bitMap.isEmpty())
+    {
+        // None of the input bits are selected. This means the fixed output value
+        // button is shown and determines the result.
+        assert(m_outputWidgetStack->currentIndex() == 1);
+
+        if (m_outputFixedValueButton->isChecked())
+            result.set();
+
+        return result;
+    }
 
     // Create a full 6 bit mask from the input mapping.
     unsigned inputMask  = 0u;
@@ -2259,18 +2341,7 @@ void LUTOutputEditor::setOutputMapping(const LUT::Bitmap &mapping)
         assert(m_outputStateWidgets.size() == 0);
         assert(m_outputTable->rowCount() == 0);
 
-        m_outputTable->setRowCount(1);
-        m_outputTable->setVerticalHeaderItem(0, new QTableWidgetItem("out"));
-
-        auto button = new QPushButton(mapping.all() ? "Always true" : "Always false");
-        button->setCheckable(true);
-        button->setChecked(mapping.all());
-        connect(button, &QPushButton::toggled,
-                this, [button] (bool checked) {
-                    button->setText(checked ? "Always true" : "Always false");
-                });
-
-        m_outputTable->setCellWidget(0, 0, make_centered(button));
+        m_outputFixedValueButton->setChecked(mapping.all());
     }
     else
     {

@@ -1,12 +1,13 @@
 #ifndef __MVME_MVLC_TRIGGER_IO_EDITOR_P_H__
 #define __MVME_MVLC_TRIGGER_IO_EDITOR_P_H__
 
-#include <QGraphicsView>
-#include <QTableWidget>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialog>
+#include <QGraphicsView>
 #include <QSpinBox>
+#include <QStackedWidget>
+#include <QTableWidget>
 
 #include <QGraphicsRectItem>
 
@@ -599,8 +600,11 @@ class LUTOutputEditor: public QWidget
 
         QTableWidget *m_inputTable;
         QVector<QCheckBox *> m_inputCheckboxes;
+
         QTableWidget *m_outputTable;
         QVector<QPushButton *> m_outputStateWidgets;
+        QPushButton *m_outputFixedValueButton;
+        QStackedWidget *m_outputWidgetStack;
         QVector<QStringList> m_inputNameLists;
 };
 
