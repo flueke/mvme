@@ -600,8 +600,8 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         result.parent = new QGraphicsRectItem(
             0, 0,
-            2 * (lutRect.width() + 50) + 25,
-            1 * (lutRect.height() + 25) + 25);
+            260,
+            1.5 * (lutRect.height() + 25) + 25);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
@@ -611,7 +611,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                 result.parent->boundingRect().width() - 2 * 25,
                 result.parent->boundingRect().height() - 2 * 25,
                 0, trigger_io::Level0::UtilityUnitCount,
-                0, 16,
+                0, 8,
                 result.parent);
             result.utilsItem->moveBy(25, 25);
 
@@ -627,8 +627,8 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         labelFont.setPointSize(labelFont.pointSize() + 5);
         result.label = new QGraphicsSimpleTextItem("L0 Utilities", result.parent);
         result.label->setFont(labelFont);
-        result.label->moveBy(result.parent->boundingRect().width()
-                             - result.label->boundingRect().width(), 0);
+        //result.label->moveBy(result.parent->boundingRect().width()
+        //                     - result.label->boundingRect().width(), 0);
 
         return result;
     };
@@ -642,8 +642,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // background box containing the 2 LUTs
         result.parent = new QGraphicsRectItem(
             0, 0,
-            2 * (lutRect.width() + 50) + 25,
-            3 * (lutRect.height() + 25) + 25);
+            260, 520);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
@@ -653,8 +652,11 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             result.luts[lutIdx] = lutItem;
         }
 
-        lutRect.moveTo(lutRect.width() + 50, 0);
-        lutRect.translate(25, 25);
+        int xPos = (result.parent->boundingRect().width() * 0.5
+                    - lutRect.width() * 0.5);
+
+        lutRect.moveTo(xPos, 0);
+        lutRect.translate(0, 25);
         lutRect.translate(0, (lutRect.height() + 25) / 2.0);
         result.luts[1]->setPos(lutRect.topLeft());
 
@@ -679,15 +681,17 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         result.parent = new QGraphicsRectItem(
             0, 0,
-            2 * (lutRect.width() + 50) + 25,
-            4 * (lutRect.height() + 25) + 25);
+            260, 520);
+            //2 * (lutRect.width() + 50) + 25,
+            //4 * (lutRect.height() + 25) + 25);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
         // NIM IO Item
         {
             result.nimItem = new gfx::BlockItem(
-                100, 470,
+                //100, 470,
+                100, 370,
                 trigger_io::NIM_IO_Count, 0,
                 48, 0,
                 result.parent);
@@ -704,9 +708,10 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // ECL Out
         {
             result.eclItem = new gfx::BlockItem(
-                100, 140,
+                //100, 140,
+                100, 80,
                 trigger_io::ECL_OUT_Count, 0,
-                48, 0,
+                24, 0,
                 result.parent);
             result.eclItem->moveBy(25, 25);
 
@@ -715,23 +720,6 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                            - label->boundingRect().width()) / 2.0, 0);
 
             result.eclItem->moveBy(0, yOffset);
-        }
-
-        // Utils
-        {
-            result.utilsItem = new gfx::BlockItem(
-                100, 140,
-                trigger_io::Level3::UtilityUnitCount, 0,
-                16, 0,
-                result.parent);
-            result.utilsItem->moveBy(25, 25);
-
-            auto label = new QGraphicsSimpleTextItem(
-                QString("L3 Utilities\nStack Start\nMaster trig"), result.utilsItem);
-            label->moveBy((result.utilsItem->boundingRect().width()
-                           - label->boundingRect().width()) / 2.0, 0);
-
-            result.utilsItem->moveBy(0, yOffset + result.eclItem->boundingRect().height() + 25);
         }
 
         QFont labelFont;
@@ -744,24 +732,65 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         return result;
     };
 
+    auto make_level3_util_items = [&] () -> Level3UtilItems
+    {
+        Level3UtilItems result = {};
+
+        QRectF lutRect(0, 0, 80, 140);
+
+        result.parent = new QGraphicsRectItem(
+            0, 0,
+            260,
+            1.5 * (lutRect.height() + 25) + 25);
+        result.parent->setPen(Qt::NoPen);
+        result.parent->setBrush(QBrush("#f3f3f3"));
+
+        // Single box for utils
+        {
+            result.utilsItem = new gfx::BlockItem(
+                result.parent->boundingRect().width() - 2 * 25,
+                result.parent->boundingRect().height() - 2 * 25,
+                trigger_io::Level3::UtilityUnitCount, 0,
+                8, 0,
+                result.parent);
+            result.utilsItem->moveBy(25, 25);
+
+            auto label = new QGraphicsSimpleTextItem(
+                QString("Stack Start\nMaster Triggers\nCounters"), result.utilsItem);
+            label->moveBy(30, 5);
+        }
+
+        QFont labelFont;
+        labelFont.setPointSize(labelFont.pointSize() + 5);
+        result.label = new QGraphicsSimpleTextItem("L3 Utilities", result.parent);
+        result.label->setFont(labelFont);
+        result.label->moveBy(result.parent->boundingRect().width()
+                             - result.label->boundingRect().width(), 0);
+
+        return result;
+    };
+
     // Top row, side by side gray boxes for each level
     m_level0NIMItems = make_level0_nim_items();
     m_level0NIMItems.parent->moveBy(-160, 0);
-    m_level1Items = make_level1_items();
-    m_level2Items = make_level2_items();
-    m_level2Items.parent->moveBy(300, 0);
-    m_level3Items = make_level3_items();
-    m_level3Items.parent->moveBy(600, 0);
-
     m_level0UtilItems = make_level0_util_items();
     m_level0UtilItems.parent->moveBy(
-        300, m_level0NIMItems.parent->boundingRect().height() + 15);
+        0, m_level0NIMItems.parent->boundingRect().height() + 15);
+    m_level1Items = make_level1_items();
+    m_level2Items = make_level2_items();
+    m_level2Items.parent->moveBy(270, 0);
+    m_level3Items = make_level3_items();
+    m_level3Items.parent->moveBy(540, 0);
+    m_level3UtilItems = make_level3_util_items();
+    m_level3UtilItems.parent->moveBy(
+        540, m_level3Items.parent->boundingRect().height() + 15);
 
     this->addItem(m_level0NIMItems.parent);
     this->addItem(m_level1Items.parent);
     this->addItem(m_level2Items.parent);
     this->addItem(m_level3Items.parent);
     this->addItem(m_level0UtilItems.parent);
+    this->addItem(m_level3UtilItems.parent);
 
     // Create all connection edges contained in the trigger io config. The
     // logic in setTriggerIOConfig then decides if edges should be shown/hidden
@@ -962,7 +991,7 @@ QAbstractGraphicsShapeItem *
             }
             else
             {
-                return m_level3Items.utilsItem->inputConnectors().value(addr[1]);
+                return m_level3UtilItems.utilsItem->inputConnectors().value(addr[1]);
             }
             break;
     }
@@ -1168,7 +1197,18 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
         update_connectors_and_edge(kv.value(), addr, cond);
     }
 
-    // TODO: add counters once the soft activate flag is in
+    for (const auto &kv: ioCfg.l3.counters | indexed(Level3::CountersOffset))
+    {
+        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+
+        auto cond = [] (const Counter &)
+        {
+            // TODO: soft activate flag
+            return true;
+        };
+
+        update_connectors_and_edge(kv.value(), addr, cond);
+    }
 }
 
 void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
@@ -1227,7 +1267,7 @@ void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
         return;
     }
 
-    if (items.indexOf(m_level3Items.utilsItem) >= 0)
+    if (items.indexOf(m_level3UtilItems.utilsItem) >= 0)
     {
         ev->accept();
         emit editL3Utils();

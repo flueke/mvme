@@ -293,8 +293,13 @@ class TriggerIOGraphicsScene: public QGraphicsScene
             QGraphicsSimpleTextItem *label;
             gfx::BlockItem *nimItem;
             gfx::BlockItem *eclItem;
-            gfx::BlockItem *utilsItem;
+        };
 
+        struct Level3UtilItems
+        {
+            QGraphicsRectItem *parent;
+            QGraphicsSimpleTextItem *label;
+            gfx::BlockItem *utilsItem;
         };
 
         QAbstractGraphicsShapeItem *getInputConnector(const UnitAddress &addr) const;
@@ -312,10 +317,10 @@ class TriggerIOGraphicsScene: public QGraphicsScene
 
         Level0NIMItems m_level0NIMItems;
         Level0UtilItems m_level0UtilItems;
-
         Level1Items m_level1Items;
         Level2Items m_level2Items;
         Level3Items m_level3Items;
+        Level3UtilItems m_level3UtilItems;
 
         QVector<gfx::Edge *> m_edges;
         // Input Connector -> Edge
