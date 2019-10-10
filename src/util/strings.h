@@ -12,10 +12,11 @@ enum class UnitScaling
     Decimal,
 };
 
-QString LIBMVME_EXPORT format_number(double value, const QString &unit,  UnitScaling scaling,
-                      int fieldWidth = 0, char format = 'g', int precision = -1,
-                      QChar fillChar = QLatin1Char(' ')
-                     );
+QString
+LIBMVME_EXPORT format_number(
+    double value, const QString &unit,  UnitScaling scaling,
+    int fieldWidth = 0, char format = 'g', int precision = -1,
+    QChar fillChar = QLatin1Char(' '));
 
 inline QString format_ipv4(u32 address)
 {
