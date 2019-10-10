@@ -52,6 +52,9 @@ struct LUT
     static const u16 OutputBits = 3;
     static const u16 InputCombinations = 1u << InputBits;
     static const u16 StrobeGGDefaultWidth = 8;
+    // This 'fake' value is used to refer to the LUTs strobe gate generator, e.g
+    // UnitAddress {2, 0, StrobeGGInput } for L2.LUT0.StrobeGG
+    static const u16 StrobeGGInput = InputBits;
 
     // Holds the output state for all 64 input combinations. One of the logic LUTs
     // is made up for three of these mappings, one for each output bit.
@@ -264,6 +267,16 @@ struct TriggerIO
 
 QString lookup_name(const TriggerIO &ioCfg, const UnitAddress &addr);
 QString lookup_default_name(const TriggerIO &ioCfg, const UnitAddress &addr);
+
+// Given a unit address looks up the 'connect' value for that unit. These
+// values have different meaning depending on the unit being checked (e.g. L3
+// NIM outputs can only connect to the L2 LUTs).
+unsigned get_connection_value(const TriggerIO &ioCfg, const UnitAddress &addr);
+
+// Given a unit address this function looks up the 'connect' value stored in
+// the TriggerIO setup (get_connection_value()) then resolves this value to the
+// UnitAddress of the source unit of the connection.
+UnitAddress get_connection_unit_address(const TriggerIO &ioCfg, const UnitAddress &addr);
 
 // This is how the mappings of a single LUT are stored in the MVLC memory.
 // 6 input bits, 4 output bits, 3 of which are used.

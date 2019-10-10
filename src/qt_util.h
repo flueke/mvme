@@ -98,8 +98,6 @@ LIBMVME_CORE_EXPORT void show_and_activate(QWidget *widget);
 
 LIBMVME_CORE_EXPORT QString get_bitness_string();
 
-LIBMVME_CORE_EXPORT QFont make_monospace_font(QFont baseFont = QFont());
-
 LIBMVME_CORE_EXPORT
 void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
 

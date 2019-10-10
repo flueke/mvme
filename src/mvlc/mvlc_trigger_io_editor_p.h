@@ -1,12 +1,13 @@
 #ifndef __MVME_MVLC_TRIGGER_IO_EDITOR_P_H__
 #define __MVME_MVLC_TRIGGER_IO_EDITOR_P_H__
 
-#include <QGraphicsView>
-#include <QTableWidget>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialog>
+#include <QGraphicsView>
 #include <QSpinBox>
+#include <QStackedWidget>
+#include <QTableWidget>
 
 #include <QGraphicsRectItem>
 
@@ -58,23 +59,13 @@ class ConnectorBase
 
         Qt::Alignment getLabelAlignment() const { return m_labelAlign; }
 
-        void setEnabled(bool b)
-        {
-            m_enabled = b;
-            enabledSet_(b);
-        }
-
-        bool isEnabled() const { return m_enabled; }
-
     protected:
         virtual void labelSet_(const QString &label) = 0;
         virtual void alignmentSet_(const Qt::Alignment &align) = 0;
-        virtual void enabledSet_(bool b) = 0;
 
     private:
         QString m_label;
         Qt::Alignment m_labelAlign = Qt::AlignLeft;
-        bool m_enabled = true;
 };
 
 class ConnectorCircleItem: public QGraphicsEllipseItem, public ConnectorBase
@@ -90,7 +81,6 @@ class ConnectorCircleItem: public QGraphicsEllipseItem, public ConnectorBase
     protected:
         void labelSet_(const QString &label) override;
         void alignmentSet_(const Qt::Alignment &align) override;
-        void enabledSet_(bool b) override;
 
     private:
         void adjust();
@@ -116,7 +106,6 @@ class ConnectorDiamondItem: public QAbstractGraphicsShapeItem, public ConnectorB
     protected:
         void labelSet_(const QString &label) override;
         void alignmentSet_(const Qt::Alignment &align) override;
-        void enabledSet_(bool b) override;
 
     private:
         void adjust();
@@ -217,16 +206,16 @@ struct LUTItem: public BlockItem
         ConnectorDiamondItem *m_strobeConnector = nullptr;
 };
 
-class Edge: public QGraphicsItem
+class Edge: public QAbstractGraphicsShapeItem
 {
     public:
-        Edge(QGraphicsItem *sourceItem, QGraphicsItem *destItem);
+        Edge(QAbstractGraphicsShapeItem *sourceItem, QAbstractGraphicsShapeItem *destItem);
 
-        QGraphicsItem *sourceItem() const { return m_source; }
-        QGraphicsItem *destItem() const { return m_dest; }
+        QAbstractGraphicsShapeItem *sourceItem() const { return m_source; }
+        QAbstractGraphicsShapeItem *destItem() const { return m_dest; }
 
-        void setSourceItem(QGraphicsItem *item);
-        void setDestItem(QGraphicsItem *item);
+        void setSourceItem(QAbstractGraphicsShapeItem *item);
+        void setDestItem(QAbstractGraphicsShapeItem *item);
 
         void adjust();
 
@@ -236,8 +225,8 @@ class Edge: public QGraphicsItem
                    QWidget *widget) override;
 
     private:
-        QGraphicsItem *m_source,
-                      *m_dest;
+        QAbstractGraphicsShapeItem *m_source,
+                                   *m_dest;
 
         QPointF m_sourcePoint,
                 m_destPoint;
@@ -304,8 +293,13 @@ class TriggerIOGraphicsScene: public QGraphicsScene
             QGraphicsSimpleTextItem *label;
             gfx::BlockItem *nimItem;
             gfx::BlockItem *eclItem;
-            gfx::BlockItem *utilsItem;
+        };
 
+        struct Level3UtilItems
+        {
+            QGraphicsRectItem *parent;
+            QGraphicsSimpleTextItem *label;
+            gfx::BlockItem *utilsItem;
         };
 
         QAbstractGraphicsShapeItem *getInputConnector(const UnitAddress &addr) const;
@@ -316,17 +310,17 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         QList<gfx::Edge *> getEdgesBySourceConnector(
             QAbstractGraphicsShapeItem *sourceConnector) const;
 
-        QList<gfx::Edge *> getEdgesByDestConnector(
+        gfx::Edge * getEdgeByDestConnector(
             QAbstractGraphicsShapeItem *destConnector) const;
 
         TriggerIO m_ioCfg;
 
         Level0NIMItems m_level0NIMItems;
         Level0UtilItems m_level0UtilItems;
-
         Level1Items m_level1Items;
         Level2Items m_level2Items;
         Level3Items m_level3Items;
+        Level3UtilItems m_level3UtilItems;
 
         QVector<gfx::Edge *> m_edges;
         // Input Connector -> Edge
@@ -611,8 +605,11 @@ class LUTOutputEditor: public QWidget
 
         QTableWidget *m_inputTable;
         QVector<QCheckBox *> m_inputCheckboxes;
+
         QTableWidget *m_outputTable;
         QVector<QPushButton *> m_outputStateWidgets;
+        QPushButton *m_outputFixedValueButton;
+        QStackedWidget *m_outputWidgetStack;
         QVector<QStringList> m_inputNameLists;
 };
 

@@ -135,10 +135,6 @@ void ConnectorCircleItem::alignmentSet_(const Qt::Alignment &align)
     adjust();
 }
 
-void ConnectorCircleItem::enabledSet_(bool b)
-{
-}
-
 // TODO: support top and bottom alignment
 void ConnectorCircleItem::adjust()
 {
@@ -215,10 +211,6 @@ void ConnectorDiamondItem::labelSet_(const QString &label)
 void ConnectorDiamondItem::alignmentSet_(const Qt::Alignment &align)
 {
     adjust();
-}
-
-void ConnectorDiamondItem::enabledSet_(bool b)
-{
 }
 
 // TODO: support top and bottom alignment
@@ -328,10 +320,23 @@ BlockItem::BlockItem(
 void BlockItem::hoverEnterEvent(QGraphicsSceneHoverEvent *ev)
 {
     setBrush(Block_Brush_Hover);
+
     for (auto con: m_inputConnectors)
-        con->setBrush(Connector_Brush_Hover);
+    {
+        if (con->isEnabled())
+            con->setBrush(Connector_Brush_Hover);
+        else
+            con->setBrush(Connector_Brush_Disabled);
+    }
+
     for (auto con: m_outputConnectors)
-        con->setBrush(Connector_Brush_Hover);
+    {
+        if (con->isEnabled())
+            con->setBrush(Connector_Brush_Hover);
+        else
+            con->setBrush(Connector_Brush_Disabled);
+    }
+
     QGraphicsRectItem::update();
 }
 
@@ -339,9 +344,21 @@ void BlockItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *ev)
 {
     setBrush(Block_Brush);
     for (auto con: m_inputConnectors)
-        con->setBrush(Connector_Brush);
+    {
+        if (con->isEnabled())
+            con->setBrush(Connector_Brush);
+        else
+            con->setBrush(Connector_Brush_Disabled);
+    }
+
     for (auto con: m_outputConnectors)
-        con->setBrush(Connector_Brush);
+    {
+        if (con->isEnabled())
+            con->setBrush(Connector_Brush);
+        else
+            con->setBrush(Connector_Brush_Disabled);
+    }
+
     QGraphicsRectItem::update();
 }
 
@@ -389,22 +406,23 @@ QPointF get_center_point(T *item)
 //
 // Edge
 //
-Edge::Edge(QGraphicsItem *sourceItem, QGraphicsItem *destItem)
+Edge::Edge(QAbstractGraphicsShapeItem *sourceItem, QAbstractGraphicsShapeItem *destItem)
     : m_source(sourceItem)
     , m_dest(destItem)
     , m_arrowSize(8)
 {
     setAcceptedMouseButtons(0);
+    setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     adjust();
 }
 
-void Edge::setSourceItem(QGraphicsItem *item)
+void Edge::setSourceItem(QAbstractGraphicsShapeItem *item)
 {
     m_source = item;
     adjust();
 }
 
-void Edge::setDestItem(QGraphicsItem *item)
+void Edge::setDestItem(QAbstractGraphicsShapeItem *item)
 {
     m_dest = item;
     adjust();
@@ -414,7 +432,6 @@ void Edge::adjust()
 {
     if (!m_source || !m_dest)
     {
-        hide();
         return;
     }
 
@@ -435,8 +452,6 @@ void Edge::adjust()
     } else {
         m_sourcePoint = m_destPoint = line.p1();
     }
-
-    show();
 }
 
 QRectF Edge::boundingRect() const
@@ -464,7 +479,8 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
         return;
 
     // Draw the line itself
-    painter->setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter->setPen(pen());
+    painter->setBrush(brush());
     painter->drawLine(line);
 
     // Draw the arrows
@@ -584,8 +600,8 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         result.parent = new QGraphicsRectItem(
             0, 0,
-            2 * (lutRect.width() + 50) + 25,
-            1 * (lutRect.height() + 25) + 25);
+            260,
+            1.5 * (lutRect.height() + 25) + 25);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
@@ -595,7 +611,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                 result.parent->boundingRect().width() - 2 * 25,
                 result.parent->boundingRect().height() - 2 * 25,
                 0, trigger_io::Level0::UtilityUnitCount,
-                0, 16,
+                0, 8,
                 result.parent);
             result.utilsItem->moveBy(25, 25);
 
@@ -611,8 +627,8 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         labelFont.setPointSize(labelFont.pointSize() + 5);
         result.label = new QGraphicsSimpleTextItem("L0 Utilities", result.parent);
         result.label->setFont(labelFont);
-        result.label->moveBy(result.parent->boundingRect().width()
-                             - result.label->boundingRect().width(), 0);
+        //result.label->moveBy(result.parent->boundingRect().width()
+        //                     - result.label->boundingRect().width(), 0);
 
         return result;
     };
@@ -626,8 +642,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // background box containing the 2 LUTs
         result.parent = new QGraphicsRectItem(
             0, 0,
-            2 * (lutRect.width() + 50) + 25,
-            3 * (lutRect.height() + 25) + 25);
+            260, 520);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
@@ -637,8 +652,11 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             result.luts[lutIdx] = lutItem;
         }
 
-        lutRect.moveTo(lutRect.width() + 50, 0);
-        lutRect.translate(25, 25);
+        int xPos = (result.parent->boundingRect().width() * 0.5
+                    - lutRect.width() * 0.5);
+
+        lutRect.moveTo(xPos, 0);
+        lutRect.translate(0, 25);
         lutRect.translate(0, (lutRect.height() + 25) / 2.0);
         result.luts[1]->setPos(lutRect.topLeft());
 
@@ -663,15 +681,17 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         result.parent = new QGraphicsRectItem(
             0, 0,
-            2 * (lutRect.width() + 50) + 25,
-            4 * (lutRect.height() + 25) + 25);
+            260, 520);
+            //2 * (lutRect.width() + 50) + 25,
+            //4 * (lutRect.height() + 25) + 25);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
         // NIM IO Item
         {
             result.nimItem = new gfx::BlockItem(
-                100, 470,
+                //100, 470,
+                100, 370,
                 trigger_io::NIM_IO_Count, 0,
                 48, 0,
                 result.parent);
@@ -688,9 +708,10 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // ECL Out
         {
             result.eclItem = new gfx::BlockItem(
-                100, 140,
+                //100, 140,
+                100, 80,
                 trigger_io::ECL_OUT_Count, 0,
-                48, 0,
+                24, 0,
                 result.parent);
             result.eclItem->moveBy(25, 25);
 
@@ -699,23 +720,6 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                            - label->boundingRect().width()) / 2.0, 0);
 
             result.eclItem->moveBy(0, yOffset);
-        }
-
-        // Utils
-        {
-            result.utilsItem = new gfx::BlockItem(
-                100, 140,
-                trigger_io::Level3::UtilityUnitCount, 0,
-                16, 0,
-                result.parent);
-            result.utilsItem->moveBy(25, 25);
-
-            auto label = new QGraphicsSimpleTextItem(
-                QString("L3 Utilities\nStack Start\nMaster trig"), result.utilsItem);
-            label->moveBy((result.utilsItem->boundingRect().width()
-                           - label->boundingRect().width()) / 2.0, 0);
-
-            result.utilsItem->moveBy(0, yOffset + result.eclItem->boundingRect().height() + 25);
         }
 
         QFont labelFont;
@@ -728,28 +732,69 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         return result;
     };
 
+    auto make_level3_util_items = [&] () -> Level3UtilItems
+    {
+        Level3UtilItems result = {};
+
+        QRectF lutRect(0, 0, 80, 140);
+
+        result.parent = new QGraphicsRectItem(
+            0, 0,
+            260,
+            1.5 * (lutRect.height() + 25) + 25);
+        result.parent->setPen(Qt::NoPen);
+        result.parent->setBrush(QBrush("#f3f3f3"));
+
+        // Single box for utils
+        {
+            result.utilsItem = new gfx::BlockItem(
+                result.parent->boundingRect().width() - 2 * 25,
+                result.parent->boundingRect().height() - 2 * 25,
+                trigger_io::Level3::UtilityUnitCount, 0,
+                8, 0,
+                result.parent);
+            result.utilsItem->moveBy(25, 25);
+
+            auto label = new QGraphicsSimpleTextItem(
+                QString("Stack Start\nMaster Triggers\nCounters"), result.utilsItem);
+            label->moveBy(30, 5);
+        }
+
+        QFont labelFont;
+        labelFont.setPointSize(labelFont.pointSize() + 5);
+        result.label = new QGraphicsSimpleTextItem("L3 Utilities", result.parent);
+        result.label->setFont(labelFont);
+        result.label->moveBy(result.parent->boundingRect().width()
+                             - result.label->boundingRect().width(), 0);
+
+        return result;
+    };
+
     // Top row, side by side gray boxes for each level
     m_level0NIMItems = make_level0_nim_items();
     m_level0NIMItems.parent->moveBy(-160, 0);
-    m_level1Items = make_level1_items();
-    m_level2Items = make_level2_items();
-    m_level2Items.parent->moveBy(300, 0);
-    m_level3Items = make_level3_items();
-    m_level3Items.parent->moveBy(600, 0);
-
     m_level0UtilItems = make_level0_util_items();
     m_level0UtilItems.parent->moveBy(
-        300, m_level0NIMItems.parent->boundingRect().height() + 15);
+        0, m_level0NIMItems.parent->boundingRect().height() + 15);
+    m_level1Items = make_level1_items();
+    m_level2Items = make_level2_items();
+    m_level2Items.parent->moveBy(270, 0);
+    m_level3Items = make_level3_items();
+    m_level3Items.parent->moveBy(540, 0);
+    m_level3UtilItems = make_level3_util_items();
+    m_level3UtilItems.parent->moveBy(
+        540, m_level3Items.parent->boundingRect().height() + 15);
 
     this->addItem(m_level0NIMItems.parent);
     this->addItem(m_level1Items.parent);
     this->addItem(m_level2Items.parent);
     this->addItem(m_level3Items.parent);
     this->addItem(m_level0UtilItems.parent);
+    this->addItem(m_level3UtilItems.parent);
 
     // Create all connection edges contained in the trigger io config. The
-    // logic in setTriggerIOConfig then decides if edges should be hidden or
-    // drawn in a different way.
+    // logic in setTriggerIOConfig then decides if edges should be shown/hidden
+    // or drawn in a different way.
 
     // static level 1 connections
     for (const auto &lutkv: Level1::StaticConnections | indexed(0))
@@ -914,6 +959,10 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             addEdge(sourceConnector, destConnector);
         }
     }
+
+    // To trigger initial edge updates
+    setTriggerIOConfig(ioCfg);
+    qDebug() << __PRETTY_FUNCTION__ << "created" << m_edges.size() << " Edges";
 };
 
 QAbstractGraphicsShapeItem *
@@ -942,7 +991,7 @@ QAbstractGraphicsShapeItem *
             }
             else
             {
-                return m_level3Items.utilsItem->inputConnectors().value(addr[1]);
+                return m_level3UtilItems.utilsItem->inputConnectors().value(addr[1]);
             }
             break;
     }
@@ -999,19 +1048,52 @@ QList<gfx::Edge *> TriggerIOGraphicsScene::getEdgesBySourceConnector(
     return m_edgesBySource.values(sourceConnector);
 }
 
-QList<gfx::Edge *> TriggerIOGraphicsScene::getEdgesByDestConnector(
+gfx::Edge * TriggerIOGraphicsScene::getEdgeByDestConnector(
     QAbstractGraphicsShapeItem *sourceConnector) const
 {
-    return m_edgesByDest.values(sourceConnector);
+    return m_edgesByDest.value(sourceConnector);
 }
 
 void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 {
     using namespace gfx;
 
+    // Helper performing common edge and connector update tasks.
+    //
+    // unit is the actual unit struct that being checked, e.g. IO, ECL,
+    //   MasterTrigger, etc.
+    // addr is the full UnitAddress of the unit being checked
+    // cond is a predicate taking one argument: the unit structure itself.
+    //   The dest connector and the edge are disabled/hidden if the predicate
+    //   returns false.
+    // The source connector is not modified but the edge may be assigned a new
+    // source connector in case the connection value changed.
+    auto update_connectors_and_edge = [this] (
+        const auto &unit, const auto &addr, auto cond)
+    {
+        bool enable = cond(unit);
+
+        auto dstCon = getInputConnector(addr);
+        assert(dstCon);
+        dstCon->setEnabled(enable);
+        dstCon->setBrush(dstCon->isEnabled() ? Connector_Brush : Connector_Brush_Disabled);
+
+        auto edge = getEdgeByDestConnector(dstCon);
+        assert(edge);
+        edge->setVisible(dstCon->isEnabled());
+
+        auto conAddr = get_connection_unit_address(m_ioCfg, addr);
+
+        auto srcCon = getOutputConnector(conAddr);
+        edge->setSourceItem(srcCon);
+    };
+
+
     m_ioCfg = ioCfg;
 
+    //
     // level0 NIM IO
+    //
     for (const auto &kv: ioCfg.l0.ioNIM | indexed(Level0::NIM_IO_Offset))
     {
         const auto &io = kv.value();
@@ -1019,13 +1101,113 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
         UnitAddress addr {0, static_cast<unsigned>(kv.index())};
 
-        auto con = getOutputConnector(addr);
-        con->setBrush(isInput ? Connector_Brush : Connector_Brush_Disabled);
+        auto srcCon = getOutputConnector(addr);
+        srcCon->setEnabled(isInput);
+        srcCon->setBrush(isInput ? Connector_Brush : Connector_Brush_Disabled);
 
-        for (auto edge: getEdgesBySourceConnector(con))
+        for (auto edge: getEdgesBySourceConnector(srcCon))
         {
             edge->setVisible(io.direction == IO::Direction::in);
         }
+    }
+
+    // TODO: add utilities once the soft activate flags are in
+
+    //
+    // level1
+    //
+    // TODO: check LUT functions to see which inputs are in use and update
+    // edges and connectors accordingly
+
+    //
+    // level2
+    //
+
+    for (const auto &kv: ioCfg.l2.luts | indexed(0))
+    {
+        for (unsigned input=0; input < LUT::InputBits; input++)
+        {
+            UnitAddress addr {2, static_cast<unsigned>(kv.index()), input};
+
+            update_connectors_and_edge(
+                kv.value(), addr, [] (const auto &lut) { return true; });
+        }
+
+        UnitAddress strobeGGAddress {2, static_cast<unsigned>(kv.index()), LUT::StrobeGGInput};
+
+        update_connectors_and_edge(
+            kv.value(), strobeGGAddress,
+            [] (const LUT &lut)
+            {
+                return lut.strobedOutputs.any();
+            });
+    }
+
+    //
+    // level3
+    //
+
+    // level3 NIM IO
+    for (const auto &kv: ioCfg.l3.ioNIM | indexed(Level3::NIM_IO_Unit_Offset))
+    {
+        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+
+        auto cond = [] (const IO &io)
+        {
+            return io.direction == IO::Direction::out && io.activate;
+        };
+
+        update_connectors_and_edge(kv.value(), addr, cond);
+    }
+
+    // level3 ECL
+    for (const auto &kv: ioCfg.l3.ioECL | indexed(Level3::ECL_Unit_Offset))
+    {
+        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+
+        auto cond = [] (const IO &io)
+        {
+            return io.activate;
+        };
+
+        update_connectors_and_edge(kv.value(), addr, cond);
+    }
+
+    for (const auto &kv: ioCfg.l3.stackStart | indexed(0))
+    {
+        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+
+        auto cond = [] (const StackStart &io)
+        {
+            return io.activate;
+        };
+
+        update_connectors_and_edge(kv.value(), addr, cond);
+    }
+
+    for (const auto &kv: ioCfg.l3.masterTriggers | indexed(Level3::MasterTriggersOffset))
+    {
+        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+
+        auto cond = [] (const MasterTrigger &io)
+        {
+            return io.activate;
+        };
+
+        update_connectors_and_edge(kv.value(), addr, cond);
+    }
+
+    for (const auto &kv: ioCfg.l3.counters | indexed(Level3::CountersOffset))
+    {
+        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+
+        auto cond = [] (const Counter &)
+        {
+            // TODO: soft activate flag
+            return true;
+        };
+
+        update_connectors_and_edge(kv.value(), addr, cond);
     }
 }
 
@@ -1085,7 +1267,7 @@ void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
         return;
     }
 
-    if (items.indexOf(m_level3Items.utilsItem) >= 0)
+    if (items.indexOf(m_level3UtilItems.utilsItem) >= 0)
     {
         ev->accept();
         emit editL3Utils();
@@ -1897,19 +2079,25 @@ Level3 Level3UtilsDialog::getSettings() const
     return m_l3;
 }
 
-// TODO: add AND, OR, invert and [min, max] bits setup helpers
+//
+// LUTOutputEditor - UI for a 6 => 1 bit LUT
+//
+
 LUTOutputEditor::LUTOutputEditor(
     int outputNumber,
     const QVector<QStringList> &inputNameLists,
     const Level2::DynamicConnections &dynamicInputValues,
     QWidget *parent)
     : QWidget(parent)
+    , m_outputFixedValueButton(new QPushButton(this))
+    , m_outputWidgetStack(new QStackedWidget(this))
     , m_inputNameLists(inputNameLists)
 {
     // LUT input bit selection
     auto table_inputs = new QTableWidget(trigger_io::LUT::InputBits, 2);
     m_inputTable = table_inputs;
     table_inputs->setHorizontalHeaderLabels({"Use", "Name" });
+    table_inputs->horizontalHeader()->setStretchLastSection(true);
 
     for (int row = 0; row < table_inputs->rowCount(); row++)
     {
@@ -1961,18 +2149,96 @@ LUTOutputEditor::LUTOutputEditor(
     layout_inputSelect->addWidget(new QLabel("Input Bit Usage"));
     layout_inputSelect->addWidget(table_inputs, 1);
 
-    // Initially empty output value table. Populated in onInputUsageChanged().
-    m_outputTable = new QTableWidget(0, 1);
-    m_outputTable->setHorizontalHeaderLabels({"State"});
+    // Output side (lower side of the widget)
+    {
+        auto set_and = [this] ()
+        {
+            for (const auto &kv: m_outputStateWidgets | indexed(0))
+                kv.value()->setChecked(false);
+
+            if (!m_outputStateWidgets.empty())
+                m_outputStateWidgets.back()->setChecked(true);
+        };
+
+        auto set_or = [this] ()
+        {
+            for (const auto &kv: m_outputStateWidgets | indexed(0))
+            {
+                if (kv.index() == 0 || kv.index() == m_outputStateWidgets.size() - 1)
+                    kv.value()->setChecked(false);
+                else
+                    kv.value()->setChecked(true);
+            }
+        };
+
+        auto do_invert = [this] ()
+        {
+            for (const auto &button: m_outputStateWidgets)
+                button->setChecked(!button->isChecked());
+        };
+
+        auto buttonBar = new QWidget;
+        auto buttonLayout = make_hbox<0, 0>(buttonBar);
+
+        auto buttonAnd = new QPushButton("AND");
+        auto buttonOr = new QPushButton("OR");
+        auto buttonInvert = new QPushButton("INVERT");
+
+        connect(buttonAnd, &QPushButton::clicked, this, set_and);
+        connect(buttonOr, &QPushButton::clicked, this, set_or);
+        connect(buttonInvert, &QPushButton::clicked, this, do_invert);
+
+        buttonLayout->addWidget(buttonAnd);
+        buttonLayout->addWidget(buttonOr);
+        buttonLayout->addWidget(buttonInvert);
+        buttonLayout->addStretch(1);
+
+        // Initially empty output value table. Populated in onInputUsageChanged().
+        m_outputTable = new QTableWidget(0, 1);
+        m_outputTable->setHorizontalHeaderLabels({"State"});
+        m_outputTable->horizontalHeader()->setStretchLastSection(true);
+
+        auto container = new QWidget;
+        auto layout = make_vbox<0, 0>(container);
+        layout->addWidget(buttonBar);
+        layout->addWidget(m_outputTable);
+
+        m_outputWidgetStack->addWidget(container);
+    }
+
+    {
+        m_outputFixedValueButton->setCheckable(true);
+
+        auto on_button_checked = [this] (bool checked)
+        {
+            m_outputFixedValueButton->setText(
+                checked ? "Always 1" : "Always 0");
+        };
+
+        connect(m_outputFixedValueButton, &QPushButton::toggled,
+                this, on_button_checked);
+
+        on_button_checked(false);
+
+        auto hCentered = make_centered(m_outputFixedValueButton);
+        auto container = new QWidget;
+        auto vTop = make_vbox<8, 2>(container);
+        vTop->addWidget(hCentered);
+        vTop->addStretch(1);
+
+        m_outputWidgetStack->addWidget(container);
+    }
 
     auto widget_outputActivation = new QWidget;
     auto layout_outputActivation = make_layout<QVBoxLayout>(widget_outputActivation);
     layout_outputActivation->addWidget(new QLabel("Output Activation"));
-    layout_outputActivation->addWidget(m_outputTable);
+    layout_outputActivation->addWidget(m_outputWidgetStack);
 
     auto layout = make_layout<QVBoxLayout>(this);
     layout->addWidget(widget_inputSelect, 40);
     layout->addWidget(widget_outputActivation, 60);
+
+    onInputUsageChanged();
 }
 
 void LUTOutputEditor::onInputUsageChanged()
@@ -1992,53 +2258,39 @@ void LUTOutputEditor::onInputUsageChanged()
 
     auto bitMap = getInputBitMapping();
     unsigned totalBits = static_cast<unsigned>(bitMap.size());
-    unsigned rows = totalBits > 0 ? 1u << totalBits : 0u;
 
-    assert(rows <= trigger_io::LUT::InputCombinations);
-
-    m_outputTable->setRowCount(0);
-    m_outputTable->setRowCount(rows);
-    m_outputStateWidgets.clear();
-
-    for (int row = 0; row < m_outputTable->rowCount(); ++row)
+    if (totalBits > 0)
     {
-        auto rowHeader = make_bit_string(totalBits, row);
-        m_outputTable->setVerticalHeaderItem(row, new QTableWidgetItem(rowHeader));
+        m_outputWidgetStack->setCurrentIndex(0);
 
-        auto button = new QPushButton("0");
-        button->setCheckable(true);
-        m_outputStateWidgets.push_back(button);
+        unsigned rows = 1u << totalBits;
+        assert(rows <= trigger_io::LUT::InputCombinations);
 
-        connect(button, &QPushButton::toggled,
-                this, [button] (bool checked) {
-                    button->setText(checked ? "1" : "0");
-                });
+        m_outputTable->setRowCount(0);
+        m_outputTable->setRowCount(rows);
+        m_outputStateWidgets.clear();
 
-        m_outputTable->setCellWidget(row, 0, make_centered(button));
+        for (int row = 0; row < m_outputTable->rowCount(); ++row)
+        {
+            auto rowHeader = make_bit_string(totalBits, row);
+            m_outputTable->setVerticalHeaderItem(row, new QTableWidgetItem(rowHeader));
+
+            auto button = new QPushButton("0");
+            button->setCheckable(true);
+            m_outputStateWidgets.push_back(button);
+
+            connect(button, &QPushButton::toggled,
+                    this, [button] (bool checked) {
+                        button->setText(checked ? "1" : "0");
+                    });
+
+            m_outputTable->setCellWidget(row, 0, make_centered(button));
+        }
     }
-
-#if 0
-    // debug output of the full output bitmap
-    for (auto cb: m_outputStateWidgets)
+    else
     {
-        connect(cb, &QPushButton::toggled,
-                this, [this] ()
-                {
-                    qDebug() << __PRETTY_FUNCTION__ << ">>>";
-                    auto outputMapping = getOutputMapping();
-                    for (size_t i = 0; i < outputMapping.size(); i++)
-                    {
-                        qDebug() << __PRETTY_FUNCTION__
-                            << QString("%1").arg(i, 2)
-                            << QString("%1")
-                            .arg(QString::number(i, 2), 6, QLatin1Char('0'))
-                            << "->" << outputMapping.test(i)
-                            ;
-                    }
-                    qDebug() << __PRETTY_FUNCTION__ << "<<<";
-                });
+        m_outputWidgetStack->setCurrentIndex(1);
     }
-#endif
 }
 
 void LUTOutputEditor::setInputConnection(unsigned input, unsigned value)
@@ -2068,6 +2320,18 @@ LUT::Bitmap LUTOutputEditor::getOutputMapping() const
     LUT::Bitmap result;
 
     const auto bitMap = getInputBitMapping();
+
+    if (bitMap.isEmpty())
+    {
+        // None of the input bits are selected. This means the fixed output value
+        // button is shown and determines the result.
+        assert(m_outputWidgetStack->currentIndex() == 1);
+
+        if (m_outputFixedValueButton->isChecked())
+            result.set();
+
+        return result;
+    }
 
     // Create a full 6 bit mask from the input mapping.
     unsigned inputMask  = 0u;
@@ -2106,46 +2370,62 @@ LUT::Bitmap LUTOutputEditor::getOutputMapping() const
 
 void LUTOutputEditor::setOutputMapping(const LUT::Bitmap &mapping)
 {
-    // Use the minbool lib to get the minimal set of input bits affecting the
-    // output.
-    std::vector<u8> minterms;
+    // Note: changing the checked state of any of the m_inputCheckboxes causes
+    // onInputUsageChanged() to be called which in turn changes the number of
+    // rows in the output state table.
 
-    for (size_t i = 0; i < mapping.size(); i++)
+    if (mapping.all() || mapping.none())
     {
-        if (mapping[i])
-            minterms.push_back(i);
+        for (auto cb: m_inputCheckboxes)
+            cb->setChecked(false);
+        assert(m_outputStateWidgets.size() == 0);
+        assert(m_outputTable->rowCount() == 0);
+
+        m_outputFixedValueButton->setChecked(mapping.all());
     }
-
-    auto solution = minbool::minimize_boolean<trigger_io::LUT::InputBits>(minterms, {});
-
-    for (const auto &minterm: solution)
+    else
     {
-        for (size_t bit = 0; bit < trigger_io::LUT::InputBits; bit++)
+        // Use the minbool lib to get the minimal set of input bits affecting the
+        // output.
+        std::vector<u8> minterms;
+
+        for (size_t i = 0; i < mapping.size(); i++)
         {
-            // Check all except the DontCare/Dash input bits
-            if (minterm[bit] != minterm.Dash)
-                m_inputCheckboxes[bit]->setChecked(true);
-        }
-    }
-
-    const auto bitMap = getInputBitMapping();
-
-    for (unsigned row = 0; row < static_cast<unsigned>(m_outputStateWidgets.size()); ++row)
-    {
-        // Calculate the full input value corresponding to this row.
-        unsigned inputValue = 0u;
-
-        for (int bitIndex = 0; bitIndex < bitMap.size(); ++bitIndex)
-        {
-            if (row & (1u << bitIndex))
-                inputValue |= 1u << bitMap[bitIndex];
+            if (mapping[i])
+                minterms.push_back(i);
         }
 
-        assert(inputValue < mapping.size());
+        auto solution = minbool::minimize_boolean<trigger_io::LUT::InputBits>(minterms, {});
 
-        if (mapping[inputValue])
+        for (const auto &minterm: solution)
         {
-            m_outputStateWidgets[row]->setChecked(true);
+            for (size_t bit = 0; bit < trigger_io::LUT::InputBits; bit++)
+            {
+                // Check all except the DontCare/Dash input bits
+                if (minterm[bit] != minterm.Dash)
+                    m_inputCheckboxes[bit]->setChecked(true);
+            }
+        }
+
+        const auto bitMap = getInputBitMapping();
+
+        for (unsigned row = 0; row < static_cast<unsigned>(m_outputStateWidgets.size()); ++row)
+        {
+            // Calculate the full input value corresponding to this row.
+            unsigned inputValue = 0u;
+
+            for (int bitIndex = 0; bitIndex < bitMap.size(); ++bitIndex)
+            {
+                if (row & (1u << bitIndex))
+                    inputValue |= 1u << bitMap[bitIndex];
+            }
+
+            assert(inputValue < mapping.size());
+
+            if (mapping[inputValue])
+            {
+                m_outputStateWidgets[row]->setChecked(true);
+            }
         }
     }
 }

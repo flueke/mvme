@@ -242,14 +242,6 @@ QString get_bitness_string()
 #endif
 }
 
-QFont make_monospace_font(QFont baseFont)
-{
-    baseFont.setFamily(QSL("Monospace"));
-    baseFont.setStyleHint(QFont::Monospace);
-    baseFont.setFixedPitch(true);
-    return baseFont;
-}
-
 void processQtEvents(QEventLoop::ProcessEventsFlags flags)
 {
     QCoreApplication::processEvents(flags);

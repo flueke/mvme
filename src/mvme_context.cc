@@ -1729,12 +1729,45 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
     // cannot so the DAQ has to be paused and resumed if needed.
     if (is_mvlc_controller(m_controller->getType()))
     {
-        results = vme_script::run_script(m_controller, script, logger, logEachResult);
+        // The blow code should be equivalent to
+        // results = vme_script::run_script(m_controller, script, logger, logEachResult);
+        // but moves the run_script call into a different thread and show a
+        // progress dialog during executio.
+
+        using Watcher = QFutureWatcher<vme_script::ResultList>;
+
+        QProgressDialog pd;
+        pd.setLabelText("VME Script execution in progress");
+        pd.setMaximum(0);
+        pd.setCancelButton(nullptr);
+
+        Watcher fw;
+
+        connect(&fw, &Watcher::finished, &pd, &QProgressDialog::accept);
+
+        auto f = QtConcurrent::run(
+            [=] () -> vme_script::ResultList {
+                return vme_script::run_script(m_controller, script, logger, logEachResult);
+            });
+
+        // Note: this call can lead to immediate signal emission from the
+        // watcher.
+        fw.setFuture(f);
+
+        // No qt signal processing can be done between f.isFinished() and
+        // pd.exec() so this should be fine. Either the future is finished and
+        // we never enter the dialog event loop or we do enter the loop and
+        // will get a finished signal from the Watcher.
+        if (!f.isFinished())
+            pd.exec();
+
+        results = f.result();
     }
     else
     {
         DAQPauser pauser(this);
 
+        // TODO: move this into a separate thread like in the MVLC case above.
         results = vme_script::run_script(m_controller, script, logger, logEachResult);
     }
 
@@ -1745,11 +1778,13 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 
     for (const auto &result: results)
     {
+#if 0
         qDebug() << __PRETTY_FUNCTION__ << result.error.isError()
             << result.error.error()
             << result.error.getStdErrorCode().value()
             << result.error.getStdErrorCode().category().name()
             << (result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError);
+#endif
 
         if (result.error.isError())
         {

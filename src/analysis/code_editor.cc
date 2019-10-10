@@ -51,6 +51,7 @@
 #include <QtWidgets>
 
 #include "code_editor.h"
+#include "util/qt_font.h"
 
 
 CodeEditor::CodeEditor(QWidget *parent)
@@ -63,11 +64,15 @@ CodeEditor::CodeEditor(QWidget *parent)
     connect(this, SIGNAL(updateRequest(QRect,int)), this, SLOT(updateLineNumberArea(QRect,int)));
     connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(highlightCurrentLine()));
 
+    auto font = make_monospace_font();
+    font.setPointSize(8);
+    setFont(font);
+    setTabStopCharWidth(DefaultTabStop);
+    setLineWrapMode(QPlainTextEdit::NoWrap);
+    enableCurrentLineHighlight(false);
+
     updateLineNumberAreaWidth(0);
-    highlightCurrentLine();
 }
-
-
 
 int CodeEditor::lineNumberAreaWidth()
 {
@@ -83,14 +88,10 @@ int CodeEditor::lineNumberAreaWidth()
     return space;
 }
 
-
-
 void CodeEditor::updateLineNumberAreaWidth(int /* newBlockCount */)
 {
     setViewportMargins(lineNumberAreaWidth(), 0, 0, 0);
 }
-
-
 
 void CodeEditor::updateLineNumberArea(const QRect &rect, int dy)
 {
@@ -102,8 +103,6 @@ void CodeEditor::updateLineNumberArea(const QRect &rect, int dy)
     if (rect.contains(viewport()->rect()))
         updateLineNumberAreaWidth(0);
 }
-
-
 
 void CodeEditor::resizeEvent(QResizeEvent *e)
 {
@@ -174,4 +173,9 @@ void CodeEditor::enableCurrentLineHighlight(bool b)
         QList<QTextEdit::ExtraSelection> extraSelections;
         setExtraSelections(extraSelections);
     }
+}
+
+void CodeEditor::setTabStopCharWidth(int charWidth)
+{
+    setTabStopWidth(calculate_tabstop_width(font(), charWidth));
 }
