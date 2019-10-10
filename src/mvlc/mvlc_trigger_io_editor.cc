@@ -7,9 +7,9 @@
 #include <QScrollBar>
 #include <QTextEdit>
 
+#include "analysis/code_editor.h"
 #include "util/algo.h"
 #include "util/qt_container.h"
-#include "vme_script_editor.h"
 
 namespace mesytec
 {
@@ -23,19 +23,32 @@ struct MVLCTriggerIOEditor::Private
     TriggerIO ioCfg;
     VMEScriptConfig *scriptConfig;
     QString initialScriptContents;
-    // TODO: use a CodeEditor, not the VMEScriptEditor. The latter is too
-    // specialized and not really what we want in here.
-    VMEScriptEditor *scriptEditor = nullptr;
+    CodeEditor *scriptEditor = nullptr;
     TriggerIOGraphicsScene *scene = nullptr;
+    bool scriptAutorun = false;
+
+    void updateEditorText()
+    {
+        if (scriptEditor)
+        {
+            auto pos = scriptEditor->verticalScrollBar()->sliderPosition();
+            scriptEditor->setPlainText(scriptConfig->getScriptContents());
+            scriptEditor->verticalScrollBar()->setSliderPosition(pos);
+        }
+    }
 };
 
 MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
-    d->ioCfg = parse_trigger_io_script_text(scriptConfig->getScriptContents());
-    d->scriptConfig = scriptConfig;
     d->initialScriptContents = scriptConfig->getScriptContents();
+    d->scriptConfig = scriptConfig;
+
+    if (scriptConfig->getScriptContents().isEmpty())
+        regenerateScript();
+    else
+        d->ioCfg = parse_trigger_io_script_text(scriptConfig->getScriptContents());
 
     auto scene = new TriggerIOGraphicsScene(d->ioCfg);
     d->scene = scene;
@@ -194,7 +207,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                 ioCfg.l2.luts[unit].strobedOutputs = lutEditor->getStrobedOutputMask();
             }
 
-            configModified();
+            setupModified();
         }
     });
 
@@ -234,7 +247,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
             std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
             std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
 
-            configModified();
+            setupModified();
         }
     });
 
@@ -311,7 +324,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                      ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
              }
 
-            configModified();
+            setupModified();
          }
     });
 
@@ -381,7 +394,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                      ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset);
              }
 
-            configModified();
+            setupModified();
         }
     });
 
@@ -409,7 +422,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         if (dc == QDialog::Accepted)
         {
             ioCfg.l3 = dialog.getSettings();
-            configModified();
+            setupModified();
         }
     });
 
@@ -423,7 +436,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         if (dc == QDialog::Accepted)
         {
             ioCfg.l0 = dialog.getSettings();
-            configModified();
+            setupModified();
         }
     });
 
@@ -450,6 +463,13 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         this,  &MVLCTriggerIOEditor::runScript_);
 
     action = toolbar->addAction(
+        QIcon(":/gear--arrow.png"), QSL("Autorun"));
+
+    action->setCheckable(true);
+
+    connect(action, &QAction::toggled, this, [this] (bool b) { d->scriptAutorun = b; });
+
+    action = toolbar->addAction(
         QIcon(":/document-open.png"), QSL("Load from file"));
     action->setEnabled(false);
 
@@ -464,7 +484,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         this, [this] ()
         {
             d->ioCfg = {};
-            configModified();
+            setupModified();
         });
 
     action = toolbar->addAction(
@@ -474,7 +494,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
             d->scriptConfig->setScriptContents(d->initialScriptContents);
             d->scriptConfig->setModified(false);
             d->ioCfg = parse_trigger_io_script_text(d->scriptConfig->getScriptContents());
-            configModified();
+            setupModified();
         });
 
     action = toolbar->addAction(
@@ -487,49 +507,35 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         QIcon(":/arrow-circle-double.png"), QSL("Reparse from script"),
         this, [this] ()
         {
-            d->ioCfg = parse_trigger_io_script_text(d->scriptConfig->getScriptContents());
+            if (d->scriptEditor)
+            {
+                d->ioCfg = parse_trigger_io_script_text(d->scriptEditor->toPlainText());
+            }
         });
 
     action = toolbar->addAction(
         QIcon(":/vme_script.png"), QSL("View Script (readonly!)"),
         this, [this] ()
         {
-            // FIXME: pending changes from inside the editor are  not
-            // immediately propagated to the VMEScriptConfig! This is also not
-            // possible at all times as the script might be in an unparseable
-            // state while the user is typing a command.
-            // This means we cannot just replace our script text with the one
-            // in the editor.
-            // How best to synchronize?
+            if (!d->scriptEditor)
+            {
+                auto editor = new CodeEditor();
+                editor->setAttribute(Qt::WA_DeleteOnClose);
+                d->scriptEditor = editor;
 
-            auto widget = new VMEScriptEditor(d->scriptConfig);
-            widget->setAttribute(Qt::WA_DeleteOnClose);
-            d->scriptEditor = widget;
+                new vme_script::SyntaxHighlighter(editor->document());
 
-            connect(widget, &QObject::destroyed,
-                    this, [this] () { d->scriptEditor = nullptr; });
+                connect(editor, &QObject::destroyed,
+                        this, [this] () { d->scriptEditor = nullptr; });
 
-            connect(widget, &VMEScriptEditor::logMessage,
-                    this, &MVLCTriggerIOEditor::logMessage);
+                // Update the editors script text on each change.
+                connect(d->scriptConfig, &VMEScriptConfig::modified,
+                        this, [this] () { d->updateEditorText(); });
+            }
 
-            // Note: VMEScriptEditor has a runScript() signal which passes a
-            // parsed VMEScript. The reason is that the script text in the
-            // editor might be modified but the modifications have not been
-            // applied to the VMEScriptConfig that's being edited.
-            // This design is not great and causes problems in a few places.
-            // In this editor here the VMEScriptConfig is directly modified.
-            // Changes can be reverted by restoring the original script text.
-            // This also means we can just run the VMEScriptConfig instead of
-            // the parsed VMEScript. We ignore the argument the VMEScriptEditor
-            // passes in its runScript() signal.
-            connect(widget, &VMEScriptEditor::runScript,
-                    this, [this] () { emit runScriptConfig(d->scriptConfig); });
-
-            // Update the editors script text on each change.
-            connect(d->scriptConfig, &VMEScriptConfig::modified,
-                    widget, &VMEScriptEditor::reloadFromScriptConfig);
-
-            widget->show();
+            d->updateEditorText();
+            d->scriptEditor->show();
+            d->scriptEditor->raise();
         });
 
     auto mainLayout = make_vbox<2, 2>(this);
@@ -547,10 +553,14 @@ void MVLCTriggerIOEditor::runScript_()
     emit runScriptConfig(d->scriptConfig);
 }
 
-void MVLCTriggerIOEditor::configModified()
+void MVLCTriggerIOEditor::setupModified()
 {
     d->scene->setTriggerIOConfig(d->ioCfg);
+
     regenerateScript();
+
+    if (d->scriptAutorun)
+        runScript_();
 }
 
 void MVLCTriggerIOEditor::regenerateScript()
