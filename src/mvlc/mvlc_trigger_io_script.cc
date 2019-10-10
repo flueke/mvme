@@ -932,6 +932,13 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
 
     // level3
     {
+        // Copy NIM settings parsed from level0 data to the level3 NIM
+        // structures.
+        std::copy(ioCfg.l0.ioNIM.begin(),
+                  ioCfg.l0.ioNIM.end(),
+                  ioCfg.l3.ioNIM.begin());
+
+
         const auto &writes = levelWrites[3];
 
         for (const auto &kv: ioCfg.l3.stackStart | indexed(0))

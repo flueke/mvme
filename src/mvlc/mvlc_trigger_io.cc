@@ -16,8 +16,6 @@ LUT::LUT()
     outputNames.fill({});
 }
 
-//static const QString UnitNotAvailable = "N/A";
-
 //
 // Level0
 //
