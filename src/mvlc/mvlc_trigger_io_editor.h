@@ -2,12 +2,13 @@
 #define __MVME_MVLC_TRIGGER_IO_EDITOR_H__
 
 #include <memory>
+#include "libmvme_export.h"
 #include "vme_config.h"
 
 namespace mesytec
 {
 
-class MVLCTriggerIOEditor: public QWidget
+class LIBMVME_EXPORT MVLCTriggerIOEditor: public QWidget
 {
     Q_OBJECT
     signals:

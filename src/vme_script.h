@@ -228,8 +228,8 @@ inline bool is_block_read_command(const CommandType &cmdType)
     return false;
 }
 
-Command get_first_meta_block(const VMEScript &vmeScript);
-QString get_first_meta_block_tag(const VMEScript &vmeScript);
+LIBMVME_CORE_EXPORT Command get_first_meta_block(const VMEScript &vmeScript);
+LIBMVME_CORE_EXPORT QString get_first_meta_block_tag(const VMEScript &vmeScript);
 
 } // namespace vme_script
 
