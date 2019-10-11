@@ -46,6 +46,19 @@ struct StackBusy
     u16 stackIndex;
 };
 
+using Names = std::vector<QString>;
+
+using UnitPinNames = std::vector<Names>;
+using LevelUnitPinNames = std::vector<UnitPinNames>;
+
+using LevelUnitNames = std::vector<Names>;
+
+using PinConnectionChoices = std::vector<unsigned>;
+using UnitInputChoices = std::vector<PinConnectionChoices>;
+using LevelUnitInputChoices = std::vector<UnitInputChoices>;
+using UnitConnectionSelection = std::vector<unsigned>;
+using LevelUnitConnectionSelections = std::vector<UnitConnectionSelection>;
+
 struct LUT
 {
     static const u16 InputBits = 6;
@@ -107,9 +120,30 @@ struct IRQ_Unit
     u8 irqIndex;
 };
 
+#if 0
+struct UnitAddress: public std::array<int, 3>
+{
+    static const UnitAddress Invalid;
+    static const UnitAddress Dynamic;
+
+    UnitAddress(int level = -1, int unit = -1, int pin = -1)
+        : std::array<int, 3>{{level, unit, pin}}
+    {
+    }
+
+    int level() const { return (*this)[0]; }
+    int unit() const { return (*this)[1]; }
+    int pin() const { return (*this)[2]; }
+
+    bool isLevelAddress() const { return level() >= 0 && unit() < 0 };
+    bool isUnitAddress() const { return !isLevelAddress() && pin() < 0 };
+    bool isPinAddress() const { return !isLevelAddress && !isUnitAddress(); }
+};
+#else
 // Addressing: level, unit [, subunit]
 // subunit used to address LUT outputs in levels 1 and 2
 using UnitAddress = std::array<unsigned, 3>;
+#endif
 using UnitAddressVector = std::vector<UnitAddress>;
 
 struct UnitConnection
@@ -122,9 +156,15 @@ struct UnitConnection
         return res;
     }
 
+#if 0
+    UnitConnection(int level, int unit, int subunit = 0)
+        : address({level, unit, subunit})
+    {}
+#else
     UnitConnection(unsigned level, unsigned unit, unsigned subunit = 0)
         : address({level, unit, subunit})
     {}
+#endif
 
     unsigned level() const { return address[0]; }
     unsigned unit() const { return address[1]; }
@@ -263,10 +303,23 @@ struct TriggerIO
     Level1 l1;
     Level2 l2;
     Level3 l3;
+
+    // TODO: more generic structure for names and connection choices and
+    // connection selections
+    static const LevelUnitNames DefaultUnitNames;
+    static const LevelUnitPinNames DefaultPinNames;
+    static const LevelUnitInputChoices UnitInputChoices;
+
+    LevelUnitNames unitNames;
+    LevelUnitPinNames pinNames;
+    LevelUnitConnectionSelections connections;
 };
 
 QString lookup_name(const TriggerIO &ioCfg, const UnitAddress &addr);
 QString lookup_default_name(const TriggerIO &ioCfg, const UnitAddress &addr);
+
+QString lookup_name_2(const TriggerIO &ioCfg, const UnitAddress &addr);
+QString lookup_default_name_2(const TriggerIO &ioCfg, const UnitAddress &addr);
 
 // Given a unit address looks up the 'connect' value for that unit. These
 // values have different meaning depending on the unit being checked (e.g. L3
