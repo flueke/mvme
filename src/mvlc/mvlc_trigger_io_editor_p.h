@@ -38,10 +38,12 @@ class TriggerIOView: public QGraphicsView
 namespace gfx
 {
 
-class ConnectorBase
+class ConnectorBase: public QAbstractGraphicsShapeItem
 {
     public:
-        virtual ~ConnectorBase();
+        ConnectorBase(QGraphicsItem *parent = nullptr)
+            : QAbstractGraphicsShapeItem(parent)
+        {}
 
         void setLabel(const QString &label)
         {
@@ -68,7 +70,7 @@ class ConnectorBase
         Qt::Alignment m_labelAlign = Qt::AlignLeft;
 };
 
-class ConnectorCircleItem: public QGraphicsEllipseItem, public ConnectorBase
+class ConnectorCircleItem: public ConnectorBase
 {
     public:
         static const int ConnectorRadius = 4;
@@ -78,6 +80,12 @@ class ConnectorCircleItem: public QGraphicsEllipseItem, public ConnectorBase
         ConnectorCircleItem(QGraphicsItem *parent = nullptr);
         ConnectorCircleItem(const QString &label, QGraphicsItem *parent = nullptr);
 
+
+        QRectF boundingRect() const override;
+
+        void paint(QPainter *painter, const QStyleOptionGraphicsItem *opt,
+                   QWidget *widget = nullptr) override;
+
     protected:
         void labelSet_(const QString &label) override;
         void alignmentSet_(const Qt::Alignment &align) override;
@@ -86,9 +94,10 @@ class ConnectorCircleItem: public QGraphicsEllipseItem, public ConnectorBase
         void adjust();
 
         QGraphicsSimpleTextItem *m_label = nullptr;
+        QGraphicsEllipseItem *m_circle = nullptr;
 };
 
-class ConnectorDiamondItem: public QAbstractGraphicsShapeItem, public ConnectorBase
+class ConnectorDiamondItem: public ConnectorBase
 {
     public:
         static const int SideLength = 12;
@@ -98,10 +107,10 @@ class ConnectorDiamondItem: public QAbstractGraphicsShapeItem, public ConnectorB
         ConnectorDiamondItem(int baseLength, QGraphicsItem *parent = nullptr);
         ConnectorDiamondItem(QGraphicsItem *parent = nullptr);
 
+        QRectF boundingRect() const override;
+
         void paint(QPainter *painter, const QStyleOptionGraphicsItem *opt,
                    QWidget *widget = nullptr) override;
-
-        QRectF boundingRect() const override;
 
     protected:
         void labelSet_(const QString &label) override;
@@ -117,25 +126,39 @@ class ConnectorDiamondItem: public QAbstractGraphicsShapeItem, public ConnectorB
 class ConnectableBase
 {
     public:
-        QVector<QAbstractGraphicsShapeItem *> inputConnectors() const
-        { return m_inputConnectors; }
+        QVector<ConnectorBase *> inputConnectors() const
+        {
+            return m_inputConnectors;
+        }
 
-        QVector<QAbstractGraphicsShapeItem *> outputConnectors() const
-        { return m_outputConnectors; }
+        QVector<ConnectorBase *> outputConnectors() const
+        {
+            return m_outputConnectors;
+        }
 
-        void addInputConnector(QAbstractGraphicsShapeItem *item)
+        void addInputConnector(ConnectorBase *item)
         {
             m_inputConnectors.push_back(item);
         }
 
-        void addOutputConnector(QAbstractGraphicsShapeItem *item)
+        void addOutputConnector(ConnectorBase *item)
         {
             m_outputConnectors.push_back(item);
         }
 
+        ConnectorBase *getInputConnector(int index) const
+        {
+            return m_inputConnectors.value(index);
+        }
+
+        ConnectorBase *getOutputConnector(int index) const
+        {
+            return m_outputConnectors.value(index);
+        }
+
     protected:
-        QVector<QAbstractGraphicsShapeItem *> m_inputConnectors;
-        QVector<QAbstractGraphicsShapeItem *> m_outputConnectors;
+        QVector<ConnectorBase *> m_inputConnectors;
+        QVector<ConnectorBase *> m_outputConnectors;
 };
 
 struct BlockItem: public QGraphicsRectItem, public ConnectableBase
@@ -163,6 +186,8 @@ struct BlockItem: public QGraphicsRectItem, public ConnectableBase
             return m_outConMargins;
         }
 
+        void setInputNames(const QStringList &names);
+        void setOutputNames(const QStringList &names);
 
     protected:
         void hoverEnterEvent(QGraphicsSceneHoverEvent *ev) override;

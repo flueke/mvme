@@ -92,8 +92,6 @@ void TriggerIOView::wheelEvent(QWheelEvent *event)
 namespace gfx
 {
 
-ConnectorBase::~ConnectorBase() { }
-
 static const QBrush Block_Brush("#fffbcc");
 static const QBrush Block_Brush_Hover("#eeee77");
 
@@ -109,11 +107,26 @@ ConnectorCircleItem::ConnectorCircleItem(QGraphicsItem *parent)
 {}
 
 ConnectorCircleItem::ConnectorCircleItem(const QString &label, QGraphicsItem *parent)
-    : QGraphicsEllipseItem(0, 0, 2*ConnectorRadius, 2*ConnectorRadius, parent)
+    : ConnectorBase(parent)
+    , m_circle(new QGraphicsEllipseItem(
+            0, 0, 2*ConnectorRadius, 2*ConnectorRadius, this))
 {
     setPen(Qt::NoPen);
     setBrush(Qt::blue);
     setLabel(label);
+}
+
+QRectF ConnectorCircleItem::boundingRect() const
+{
+    return m_circle->boundingRect();
+}
+
+void ConnectorCircleItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+           QWidget *widget)
+{
+    m_circle->setPen(pen());
+    m_circle->setBrush(brush());
+    m_circle->paint(painter, option, widget);
 }
 
 void ConnectorCircleItem::labelSet_(const QString &label)
@@ -160,12 +173,11 @@ void ConnectorCircleItem::adjust()
 // ConnectorDiamondItem
 //
 ConnectorDiamondItem::ConnectorDiamondItem(int baseLength, QGraphicsItem *parent)
-    : QAbstractGraphicsShapeItem(parent)
+    : ConnectorBase(parent)
     , m_baseLength(baseLength)
 {
     setPen(Qt::NoPen);
     setBrush(Qt::blue);
-    //setRotation(45.0);
 }
 
 ConnectorDiamondItem::ConnectorDiamondItem(QGraphicsItem *parent)
@@ -314,6 +326,30 @@ BlockItem::BlockItem(
         }
 
         std::reverse(m_outputConnectors.begin(), m_outputConnectors.end());
+    }
+}
+
+void BlockItem::setInputNames(const QStringList &names)
+{
+    for (const auto &kv: names | indexed(0))
+    {
+        if (auto connector = getInputConnector(kv.index()))
+        {
+            connector->setLabel(kv.value());
+        }
+    }
+
+    QGraphicsRectItem::update();
+}
+
+void BlockItem::setOutputNames(const QStringList &names)
+{
+    for (const auto &kv: names | indexed(0))
+    {
+        if (auto connector = getOutputConnector(kv.index()))
+        {
+            connector->setLabel(kv.value());
+        }
     }
 }
 
@@ -1209,6 +1245,90 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
         update_connectors_and_edge(kv.value(), addr, cond);
     }
+
+    auto update_names = [this] (const TriggerIO &ioCfg)
+    {
+        // l0 NIM
+        {
+            auto b = ioCfg.l0.unitNames.begin() + Level0::NIM_IO_Offset;
+            auto e = b + NIM_IO_Count;
+            QStringList names;
+
+            std::copy(b, e, std::back_inserter(names));
+
+            m_level0NIMItems.nimItem->setOutputNames(names);
+        }
+
+        // l0 util
+        {
+            auto b = ioCfg.l0.unitNames.begin();
+            auto e = b + Level0::UtilityUnitCount;
+            QStringList names;
+
+            std::copy(b, e, std::back_inserter(names));
+
+            m_level0UtilItems.utilsItem->setOutputNames(names);
+        }
+
+        // l1 lut outputs
+        {
+            for (const auto &kv: ioCfg.l1.luts | indexed(0))
+            {
+                auto b = kv.value().outputNames.begin();
+                auto e = kv.value().outputNames.end();
+                QStringList names;
+                std::copy(b, e, std::back_inserter(names));
+                m_level1Items.luts[kv.index()]->setOutputNames(names);
+            }
+        }
+
+        // l2 lut outputs
+        {
+            for (const auto &kv: ioCfg.l2.luts | indexed(0))
+            {
+                auto b = kv.value().outputNames.begin();
+                auto e = kv.value().outputNames.end();
+                QStringList names;
+                std::copy(b, e, std::back_inserter(names));
+                m_level2Items.luts[kv.index()]->setOutputNames(names);
+            }
+        }
+
+        // l3 NIM
+        {
+            auto b = ioCfg.l3.unitNames.begin() + Level3::NIM_IO_Unit_Offset;
+            auto e = b + NIM_IO_Count;
+            QStringList names;
+
+            std::copy(b, e, std::back_inserter(names));
+
+            m_level3Items.nimItem->setInputNames(names);
+        }
+
+        // l3 ECL
+        {
+            auto b = ioCfg.l3.unitNames.begin() + Level3::ECL_Unit_Offset;
+            auto e = b + ECL_OUT_Count;
+            QStringList names;
+
+            std::copy(b, e, std::back_inserter(names));
+
+            m_level3Items.eclItem->setInputNames(names);
+        }
+
+        // l3 util
+        {
+            auto b = ioCfg.l3.unitNames.begin();
+            auto e = b + Level3::UtilityUnitCount;
+            QStringList names;
+
+            std::copy(b, e, std::back_inserter(names));
+
+            m_level3UtilItems.utilsItem->setInputNames(names);
+        }
+    };
+
+    update_names(ioCfg);
 }
 
 void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
