@@ -318,8 +318,13 @@ struct TriggerIO
 QString lookup_name(const TriggerIO &ioCfg, const UnitAddress &addr);
 QString lookup_default_name(const TriggerIO &ioCfg, const UnitAddress &addr);
 
+// Reset all pin names to their default value
+void reset_names(TriggerIO &ioCfg);
+
+#if 0
 QString lookup_name_2(const TriggerIO &ioCfg, const UnitAddress &addr);
 QString lookup_default_name_2(const TriggerIO &ioCfg, const UnitAddress &addr);
+#endif
 
 // Given a unit address looks up the 'connect' value for that unit. These
 // values have different meaning depending on the unit being checked (e.g. L3

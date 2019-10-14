@@ -346,6 +346,7 @@ QString lookup_name(const TriggerIO &cfg, const UnitAddress &addr)
     return {};
 }
 
+#if 0
 QString lookup_name_2(const TriggerIO &cfg, const UnitAddress &addr)
 {
     try
@@ -362,6 +363,7 @@ QString lookup_name_2(const TriggerIO &cfg, const UnitAddress &addr)
 
     return {};
 }
+#endif
 
 QString lookup_default_name(const TriggerIO &cfg, const UnitAddress &addr)
 {
@@ -385,6 +387,39 @@ QString lookup_default_name(const TriggerIO &cfg, const UnitAddress &addr)
     }
 
     return {};
+}
+
+void reset_names(TriggerIO &ioCfg)
+{
+    // l0
+    ioCfg.l0.unitNames.clear();
+    std::copy(ioCfg.l0.DefaultUnitNames.begin(),
+              ioCfg.l0.DefaultUnitNames.end(),
+              std::back_inserter(ioCfg.l0.unitNames));
+
+    // l1
+    for (const auto &kv: ioCfg.l1.luts | indexed(0))
+    {
+        auto &lut = kv.value();
+
+        std::copy(lut.defaultOutputNames.begin(), lut.defaultOutputNames.end(),
+                  lut.outputNames.begin());
+    }
+
+    // l2
+    for (const auto &kv: ioCfg.l2.luts | indexed(0))
+    {
+        auto &lut = kv.value();
+
+        std::copy(lut.defaultOutputNames.begin(), lut.defaultOutputNames.end(),
+                  lut.outputNames.begin());
+    }
+
+    // l3
+    ioCfg.l3.unitNames.clear();
+    std::copy(ioCfg.l3.DefaultUnitNames.begin(),
+              ioCfg.l3.DefaultUnitNames.end(),
+              std::back_inserter(ioCfg.l3.unitNames));
 }
 
 unsigned get_connection_value(const TriggerIO &ioCfg, const UnitAddress &addr)

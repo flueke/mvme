@@ -488,6 +488,14 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         });
 
     action = toolbar->addAction(
+        QIcon(":/application-rename.png"), QSL("Reset Names"),
+        this, [this] ()
+        {
+            reset_names(d->ioCfg);
+            setupModified();
+        });
+
+    action = toolbar->addAction(
         QIcon(":/document-revert.png"), QSL("Revert to original state"),
         this, [this] ()
         {
