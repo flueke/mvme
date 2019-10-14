@@ -1119,15 +1119,34 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
         auto conAddr = get_connection_unit_address(m_ioCfg, addr);
 
         auto srcCon = getOutputConnector(conAddr);
-        edge->setSourceItem(srcCon);
+
+        // In case the connection value changed we have to update our source ->
+        // dest mapping and then assign the new source to the edge.
+        if (edge->sourceItem() != srcCon)
+        {
+            auto it = m_edgesBySource.find(edge->sourceItem());
+
+            while (it != m_edgesBySource.end() && it.key() == edge->sourceItem())
+            {
+                if (it.value() == edge)
+                    it = m_edgesBySource.erase(it);
+                else
+                    it++;
+            }
+
+            edge->setSourceItem(srcCon);
+            m_edgesBySource.insertMulti(srcCon, edge);
+        }
     };
 
 
     m_ioCfg = ioCfg;
 
     //
-    // level0 NIM IO
+    // level0
     //
+
+    // l0 NIM IO
     for (const auto &kv: ioCfg.l0.ioNIM | indexed(Level0::NIM_IO_Offset))
     {
         const auto &io = kv.value();
