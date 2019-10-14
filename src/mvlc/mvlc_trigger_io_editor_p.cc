@@ -1164,8 +1164,6 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
         }
     }
 
-    // TODO: add utilities once the soft activate flags are in
-
     //
     // level1
     //
@@ -1261,6 +1259,28 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
         };
 
         update_connectors_and_edge(kv.value(), addr, cond);
+    }
+
+    // Post connector and edge update logic.
+    // This needs to happen after the edges sources and destinations have been
+    // adjusted, otherwise the code cannot get the correct edges via
+    // getEdgesBySourceConnector().
+
+    // l0 timers soft_activate
+    for (const auto &kv: ioCfg.l0.timers | indexed(0))
+    {
+        UnitAddress addr {0, static_cast<unsigned>(kv.index())};
+
+        bool softActivate = kv.value().softActivate;
+
+        auto srcCon = getOutputConnector(addr);
+        srcCon->setEnabled(softActivate);
+        srcCon->setBrush(softActivate ? Connector_Brush : Connector_Brush_Disabled);
+
+        for (auto edge: getEdgesBySourceConnector(srcCon))
+        {
+            edge->setVisible(edge->isVisible() && softActivate);
+        }
     }
 
     auto update_names = [this] (const TriggerIO &ioCfg)
@@ -1781,7 +1801,8 @@ Level0UtilsDialog::Level0UtilsDialog(
     auto make_timers_table_ui = [](const Level0 &l0)
     {
         static const QString RowTitleFormat = "Timer%1";
-        static const QStringList ColumnTitles = { "Name", "Range", "Period", "Delay" };
+        static const QStringList ColumnTitles = {
+            "Name", "Range", "Period", "Delay", "Soft Activate" };
         const size_t rowCount = l0.timers.size();
 
         TimersTable_UI ret = {};
@@ -1793,12 +1814,17 @@ Level0UtilsDialog::Level0UtilsDialog(
             ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
 
             auto combo_range = new QComboBox;
+            ret.combos_range.push_back(combo_range);
             combo_range->addItem("ns", 0);
             combo_range->addItem("µs", 1);
             combo_range->addItem("ms", 2);
             combo_range->addItem("s",  3);
 
             combo_range->setCurrentIndex(static_cast<int>(l0.timers[row].range));
+
+            auto cb_softActivate = new QCheckBox;
+            ret.checks_softActivate.push_back(cb_softActivate);
+            cb_softActivate->setChecked(l0.timers[row].softActivate);
 
             ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l0.unitNames.value(row)));
@@ -1811,8 +1837,7 @@ Level0UtilsDialog::Level0UtilsDialog(
             ret.table->setItem(row, ret.ColDelay, new QTableWidgetItem(
                     QString::number(l0.timers[row].delay_ns)));
 
-
-            ret.combos_range.push_back(combo_range);
+            ret.table->setCellWidget(row, ret.ColSoftActivate, make_centered(cb_softActivate));
         }
 
         ret.table->resizeColumnsToContents();
@@ -1967,8 +1992,9 @@ Level0UtilsDialog::Level0UtilsDialog(
     grid->addWidget(make_groupbox(ui_timers.table, "Timers"), 0, 0);
     grid->addWidget(make_groupbox(ui_irqUnits.table, "IRQ Units"), 0, 1);
     grid->addWidget(make_groupbox(ui_softTriggers.table, "Soft Triggers"), 0, 2);
-    grid->addWidget(make_groupbox(ui_slaveTriggers.table, "SlaveTriggers"), 1, 0, 1, 2);
-    grid->addWidget(make_groupbox(ui_stackBusy.table, "StackBusy"), 1, 2);
+
+    grid->addWidget(make_groupbox(ui_slaveTriggers.table, "SlaveTriggers"), 1, 0);
+    grid->addWidget(make_groupbox(ui_stackBusy.table, "StackBusy"), 1, 1);
 
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -1992,6 +2018,7 @@ Level0 Level0UtilsDialog::getSettings() const
             unit.range = static_cast<trigger_io::Timer::Range>(ui.combos_range[row]->currentIndex());
             unit.period = ui.table->item(row, ui.ColPeriod)->text().toUInt();
             unit.delay_ns = ui.table->item(row, ui.ColDelay)->text().toUInt();
+            unit.softActivate = ui.checks_softActivate[row]->isChecked();
         }
     }
 

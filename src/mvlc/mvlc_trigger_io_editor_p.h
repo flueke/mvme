@@ -472,11 +472,13 @@ class Level0UtilsDialog: public QDialog
                 ColRange,
                 ColPeriod,
                 ColDelay,
+                ColSoftActivate,
             };
 
             static const int FirstUnitIndex = 0;
 
             QVector<QComboBox *> combos_range;
+            QVector<QCheckBox *> checks_softActivate;
         };
 
         struct IRQUnits_UI: public Table_UI_Base
