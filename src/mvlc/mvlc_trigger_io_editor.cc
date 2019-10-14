@@ -440,8 +440,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         auto &ioCfg = d->ioCfg;
 
         Level0UtilsDialog dialog(ioCfg.l0);
+        dialog.resize(1200, 600);
         auto dc = dialog.exec();
-        dialog.resize(900, 600);
         if (dc == QDialog::Accepted)
         {
             ioCfg.l0 = dialog.getSettings();
@@ -566,7 +566,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                    + d->scriptConfig->getVerboseTitle() + ")");
 }
 
-MVLCTriggerIOEditor::~MVLCTriggerIOEditor() { }
+MVLCTriggerIOEditor::~MVLCTriggerIOEditor()
+{
+    if (d->scriptEditor)
+        d->scriptEditor->close();
+}
 
 void MVLCTriggerIOEditor::runScript_()
 {
