@@ -173,11 +173,13 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
 
         assert(lutEditor);
 
+#if 0
         connect(lutEditor.get(), &LUTEditor::outputNameEdited,
                 this, [] (int outputIndex, const QString &outputName)
                 {
                     qDebug() << "LUT output name edited:" << outputIndex << outputName;
                 });
+#endif
 
         auto dc = lutEditor->exec();
 
@@ -524,7 +526,10 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         {
             if (d->scriptEditor)
             {
-                d->ioCfg = parse_trigger_io_script_text(d->scriptEditor->toPlainText());
+                auto text = d->scriptEditor->toPlainText();
+                d->ioCfg = parse_trigger_io_script_text(text);
+                d->scriptConfig->setScriptContents(text);
+                setupModified();
             }
         });
 

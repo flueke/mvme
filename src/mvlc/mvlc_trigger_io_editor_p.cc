@@ -1280,9 +1280,13 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
                     // Use short, numeric output pin names if the name equals
                     // the default. Otherwise use the modified name.
                     if (lut.defaultOutputNames[output] == lut.outputNames[output])
+                    {
                         names.push_back(QString::number(output));
+                    }
                     else
+                    {
                         names.push_back(lut.outputNames[output]);
+                    }
                 }
 
                 m_level1Items.luts[kv.index()]->setOutputNames(names);
@@ -1834,7 +1838,7 @@ Level0UtilsDialog::Level0UtilsDialog(
     auto make_soft_triggers_table_ui = [](const Level0 &l0)
     {
         static const QString RowTitleFormat = "SoftTrigger%1";
-        static const QStringList ColumnTitles = { "Name", "Activate" };
+        static const QStringList ColumnTitles = { "Name", "Perma Activate" };
         const int rowCount = l0.SoftTriggerCount;
         const int nameOffset = l0.SoftTriggerOffset;
 
