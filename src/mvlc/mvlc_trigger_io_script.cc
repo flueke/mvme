@@ -2,6 +2,7 @@
 
 #include <boost/range/adaptor/indexed.hpp>
 #include <boost/variant.hpp>
+#include <QDebug>
 #include <QMap>
 #include <QVector>
 #include <yaml-cpp/yaml.h>
@@ -729,7 +730,10 @@ trigger_io::LUT_RAM parse_lut_ram(const RegisterWrites &writes)
     return ram;
 }
 
-LUT parse_lut(const RegisterWrites &writes)
+LUT parse_lut(
+    const RegisterWrites &writes,
+    const std::array<QString, LUT::OutputBits> &outputNames,
+    const std::array<QString, LUT::OutputBits> &defaultOutputNames)
 {
     auto ram = parse_lut_ram(writes);
 
@@ -749,6 +753,12 @@ LUT parse_lut(const RegisterWrites &writes)
 
     lut.strobedOutputs = writes[0x20];
     lut.strobeGG = parse_io(writes, io_flags::StrobeGG_Flags);
+
+    std::copy(outputNames.begin(), outputNames.end(),
+              lut.outputNames.begin());
+
+    std::copy(defaultOutputNames.begin(), defaultOutputNames.end(),
+              lut.defaultOutputNames.begin());
 
     return lut;
 }
@@ -916,12 +926,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
         {
             unsigned unitIndex = kv.index();
             auto &unit = kv.value();
-
-            auto parsed = parse_lut(writes[unitIndex]);
-            // Hack to keep the original, default output names that where
-            // generated when the TriggerIO object was created.
-            parsed.outputNames = unit.outputNames;
-            unit = parsed;
+            unit = parse_lut(writes[unitIndex], unit.outputNames, unit.defaultOutputNames);
         }
     }
 
@@ -933,13 +938,8 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
         {
             unsigned unitIndex = kv.index();
             auto &unit = kv.value();
-
             // This parses the LUT and the strobe GG settings
-            auto parsed = parse_lut(writes[unitIndex]);
-            // Hack to keep the original, default output names that where
-            // generated when the TriggerIO object was created.
-            parsed.outputNames = unit.outputNames;
-            unit = parsed;
+            unit = parse_lut(writes[unitIndex], unit.outputNames, unit.defaultOutputNames);
 
             // dynamic input connections
             for (size_t input = 0; input < Level2::LUT_DynamicInputCount; ++input)
