@@ -240,6 +240,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                         trigger_io::NIM_IO_Count,
                         ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset);
 
+            // Copy names to L3
+            std::copy_n(names.begin(),
+                        trigger_io::NIM_IO_Count,
+                        ioCfg.l3.unitNames.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
+
             settings = dialog.getSettings();
             size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioNIM.size());
 
@@ -324,7 +329,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                      ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
              }
 
-            setupModified();
+             setupModified();
          }
     });
 

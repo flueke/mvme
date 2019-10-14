@@ -793,7 +793,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
             auto label = new QGraphicsSimpleTextItem(
                 QString("Stack Start\nMaster Triggers\nCounters"), result.utilsItem);
-            label->moveBy(30, 5);
+            label->moveBy(90, 5);
         }
 
         QFont labelFont;
@@ -1274,10 +1274,19 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
         {
             for (const auto &kv: ioCfg.l1.luts | indexed(0))
             {
-                auto b = kv.value().outputNames.begin();
-                auto e = kv.value().outputNames.end();
+                const auto &lut = kv.value();
                 QStringList names;
-                std::copy(b, e, std::back_inserter(names));
+
+                for (size_t output = 0; output < lut.outputNames.size(); output++)
+                {
+                    // Use short, numeric output pin names if the name equals
+                    // the default. Otherwise use the modified name.
+                    if (lut.defaultOutputNames[output] == lut.outputNames[output])
+                        names.push_back(QString::number(output));
+                    else
+                        names.push_back(lut.outputNames[output]);
+                }
+
                 m_level1Items.luts[kv.index()]->setOutputNames(names);
             }
         }
@@ -1286,10 +1295,19 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
         {
             for (const auto &kv: ioCfg.l2.luts | indexed(0))
             {
-                auto b = kv.value().outputNames.begin();
-                auto e = kv.value().outputNames.end();
+                const auto &lut = kv.value();
                 QStringList names;
-                std::copy(b, e, std::back_inserter(names));
+
+                for (size_t output = 0; output < lut.outputNames.size(); output++)
+                {
+                    // Use short, numeric output pin names if the name equals
+                    // the default. Otherwise use the modified name.
+                    if (lut.defaultOutputNames[output] == lut.outputNames[output])
+                        names.push_back(QString::number(output));
+                    else
+                        names.push_back(lut.outputNames[output]);
+                }
+
                 m_level2Items.luts[kv.index()]->setOutputNames(names);
             }
         }
