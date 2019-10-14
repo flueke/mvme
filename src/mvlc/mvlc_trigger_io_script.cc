@@ -629,7 +629,32 @@ static QString generate_mvlc_meta_block(
     }
 
     out << YAML::EndMap;
-    assert(out.good()); // final consistency check
+    assert(out.good()); // consistency check
+
+    //
+    // Additional settings stored in the meta block, e.g. soft activate flags.
+    //
+
+    out << YAML::Key << "settings" << YAML::Value << YAML::BeginMap;
+
+    {
+        out << YAML::Key << "level0" << YAML::Value << YAML::BeginMap;
+
+        for (const auto &kv: ioCfg.l0.timers | indexed(0))
+        {
+            auto &unit = kv.value();
+            unsigned unitIndex = kv.index();
+
+            out << YAML::Key << unitIndex << YAML::Value << YAML::BeginMap;
+            out << YAML::Key << "soft_activate" << YAML::Value << unit.softActivate;
+            out << YAML::EndMap;
+        }
+
+        out << YAML::EndMap;
+    }
+
+    out << YAML::EndMap;
+    assert(out.good()); // consistency check
 
     return QString(out.c_str());
 }
@@ -777,6 +802,9 @@ void parse_mvlc_meta_block(const vme_script::MetaBlock &meta, TriggerIO &ioCfg)
 
     if (!yRoot || !yRoot["names"]) return;
 
+    //
+    // Names
+    //
     const auto &yLevelNames = yRoot["names"];
 
     // Level0 - flat list of unitnames
@@ -853,6 +881,30 @@ void parse_mvlc_meta_block(const vme_script::MetaBlock &meta, TriggerIO &ioCfg)
 
             if (yNames[unitIndex])
                 unitName = y_to_qstr(yNames[unitIndex]);
+        }
+    }
+
+    //
+    // Additional settings stored in the meta block, e.g. soft activate flags.
+    //
+
+    if (!yRoot["settings"]) return;
+
+    const auto &ySettings = yRoot["settings"];
+
+    if (const auto &yLevelSettings = ySettings["level0"])
+    {
+        for (const auto &kv: ioCfg.l0.timers | indexed(0))
+        {
+            auto &unit = kv.value();
+            unsigned unitIndex = kv.index();
+
+            try
+            {
+                unit.softActivate = yLevelSettings[unitIndex]["soft_activate"].as<bool>();
+            }
+            catch (const std::runtime_error &)
+            {}
         }
     }
 }

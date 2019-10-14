@@ -28,6 +28,7 @@ struct Timer
     Range range;
     u16 delay_ns;
     u16 period;
+    bool softActivate;
 };
 
 struct IO
