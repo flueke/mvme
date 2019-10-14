@@ -131,7 +131,6 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
             common[i] = { 0, i };
 
         result[unit].lutChoices = { common, common, common };
-        result[unit].strobeChoices = common;
 
         if (unit == 0)
         {
@@ -146,12 +145,21 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
                 result[unit].lutChoices[i].push_back(UnitAddress{ 1, 3, i });
         }
 
+        result[unit].strobeChoices = common;
+
         // Strobe inputs can connect to all 6 level 1 outputs
         for (unsigned i = 0; i < 3; i++)
             result[unit].strobeChoices.push_back({ 1, 3, i });
 
         for (unsigned i = 0; i < 3; i++)
             result[unit].strobeChoices.push_back({ 1, 4, i });
+
+        // Strobe inputs can also connect to all of the L2 outputs
+        for (unsigned i = 0; i < 3; i++)
+            result[unit].strobeChoices.push_back({ 2, 0, i });
+
+        for (unsigned i = 0; i < 3; i++)
+            result[unit].strobeChoices.push_back({ 2, 1, i });
     }
 
     return result;
