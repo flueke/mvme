@@ -1023,6 +1023,8 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
 
             unit.activate = static_cast<bool>(writes[unitIndex][0]);
             unit.stackIndex = writes[unitIndex][2];
+
+            ioCfg.l3.connections[unitIndex] = writes[unitIndex][0x80];
         }
 
         for (const auto &kv: ioCfg.l3.masterTriggers | indexed(0))
@@ -1031,6 +1033,8 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             auto &unit = kv.value();
 
             unit.activate = static_cast<bool>(writes[unitIndex][0]);
+
+            ioCfg.l3.connections[unitIndex] = writes[unitIndex][0x80];
         }
 
         for (const auto &kv: ioCfg.l3.counters | indexed(0))
