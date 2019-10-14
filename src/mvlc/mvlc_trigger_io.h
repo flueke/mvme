@@ -120,6 +120,14 @@ struct IRQ_Unit
     u8 irqIndex;
 };
 
+// Soft triggers. Register 0 can be written to create a 8ns wide pulse on the
+// output. Additionally the permaEnable flag (stored at offset 2) can be used
+// to output a constant level.
+struct SoftTrigger
+{
+    bool permaEnable;
+};
+
 #if 0
 struct UnitAddress: public std::array<int, 3>
 {
@@ -206,13 +214,13 @@ struct Level0
 
     static const std::array<QString, OutputCount> DefaultUnitNames;
 
-    std::array<Timer, TimerCount> timers;               // 0..3
-    std::array<IRQ_Unit, IRQ_UnitCount> irqUnits;       // 4, 5 are irq units
-                                                        // 6, 7 are software triggers
-    std::array<IO, SlaveTriggerCount> slaveTriggers;    // 8..11
-    std::array<StackBusy, StackBusyCount> stackBusy;    // 12, 13
-                                                        // 14, 15 unused
-    std::array<IO, NIM_IO_Count> ioNIM;                 // 16..29
+    std::array<Timer, TimerCount> timers;                       // 0..3
+    std::array<IRQ_Unit, IRQ_UnitCount> irqUnits;               // 4, 5 are irq units
+    std::array<SoftTrigger, SoftTriggerCount> softTriggers;     // 6, 7 are software triggers
+    std::array<IO, SlaveTriggerCount> slaveTriggers;            // 8..11
+    std::array<StackBusy, StackBusyCount> stackBusy;            // 12, 13
+                                                                // 14, 15 unused
+    std::array<IO, NIM_IO_Count> ioNIM;                         // 16..29
 
     QStringList unitNames;
 

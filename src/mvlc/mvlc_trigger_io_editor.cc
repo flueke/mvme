@@ -422,6 +422,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         }
 
         Level3UtilsDialog dialog(ioCfg.l3, inputChoiceNameLists);
+        dialog.resize(900, 600);
         auto dc = dialog.exec();
 
         if (dc == QDialog::Accepted)
@@ -438,6 +439,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
 
         Level0UtilsDialog dialog(ioCfg.l0);
         auto dc = dialog.exec();
+        dialog.resize(900, 600);
         if (dc == QDialog::Accepted)
         {
             ioCfg.l0 = dialog.getSettings();

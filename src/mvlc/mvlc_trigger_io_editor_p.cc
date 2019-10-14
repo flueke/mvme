@@ -588,7 +588,6 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             0, 0,
             260, 520);
 
-        qDebug() << __PRETTY_FUNCTION__ << "level1 parent rect: " << result.parent->rect();
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
@@ -599,7 +598,6 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         }
 
         QRectF lutRect = result.luts[0]->rect();
-        qDebug() << __PRETTY_FUNCTION__ << "lutRect =" << lutRect;
 
         lutRect.translate(25, 25);
         result.luts[2]->setPos(lutRect.topLeft());
@@ -1836,7 +1834,7 @@ Level0UtilsDialog::Level0UtilsDialog(
     auto make_soft_triggers_table_ui = [](const Level0 &l0)
     {
         static const QString RowTitleFormat = "SoftTrigger%1";
-        static const QStringList ColumnTitles = { "Name" };
+        static const QStringList ColumnTitles = { "Name", "Activate" };
         const int rowCount = l0.SoftTriggerCount;
         const int nameOffset = l0.SoftTriggerOffset;
 
@@ -1848,8 +1846,15 @@ Level0UtilsDialog::Level0UtilsDialog(
         {
             ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
 
+            const auto &st = l0.softTriggers[row];
+
+            auto check_permaEnable = new QCheckBox;
+            check_permaEnable->setChecked(st.permaEnable);
+            ret.checks_permaEnable.push_back(check_permaEnable);
+
             ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l0.unitNames.value(row + nameOffset)));
+            ret.table->setCellWidget(row, ret.ColPermaEnable, make_centered(check_permaEnable));
         }
 
         ret.table->resizeColumnsToContents();
@@ -1877,6 +1882,7 @@ Level0UtilsDialog::Level0UtilsDialog(
 
             auto check_invert = new QCheckBox;
             check_invert->setChecked(io.invert);
+            ret.checks_invert.push_back(check_invert);
 
             ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l0.unitNames.value(row + nameOffset)));
@@ -1885,8 +1891,6 @@ Level0UtilsDialog::Level0UtilsDialog(
             ret.table->setItem(row, ret.ColWidth, new QTableWidgetItem(QString::number(io.width)));
             ret.table->setItem(row, ret.ColHoldoff, new QTableWidgetItem(QString::number(io.holdoff)));
             ret.table->setCellWidget(row, ret.ColInvert, make_centered(check_invert));
-
-            ret.checks_invert.push_back(check_invert);
         }
 
         ret.table->resizeColumnsToContents();
@@ -1939,9 +1943,9 @@ Level0UtilsDialog::Level0UtilsDialog(
     auto grid = new QGridLayout;
     grid->addWidget(make_groupbox(ui_timers.table, "Timers"), 0, 0);
     grid->addWidget(make_groupbox(ui_irqUnits.table, "IRQ Units"), 0, 1);
-    grid->addWidget(make_groupbox(ui_softTriggers.table, "SoftTriggers"), 0, 2);
-    grid->addWidget(make_groupbox(ui_slaveTriggers.table, "SlaveTriggers"), 1, 0);
-    grid->addWidget(make_groupbox(ui_stackBusy.table, "StackBusy"), 1, 1);
+    grid->addWidget(make_groupbox(ui_softTriggers.table, "Soft Triggers"), 0, 2);
+    grid->addWidget(make_groupbox(ui_slaveTriggers.table, "SlaveTriggers"), 1, 0, 1, 2);
+    grid->addWidget(make_groupbox(ui_stackBusy.table, "StackBusy"), 1, 2);
 
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -1986,6 +1990,9 @@ Level0 Level0UtilsDialog::getSettings() const
         for (int row = 0; row < ui.table->rowCount(); row++)
         {
             m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
+
+            auto &unit = m_l0.softTriggers[row];
+            unit.permaEnable = ui.checks_permaEnable[row]->isChecked();
         }
     }
 

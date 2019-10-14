@@ -497,9 +497,12 @@ class Level0UtilsDialog: public QDialog
             enum Columns
             {
                 ColName,
+                ColPermaEnable,
             };
 
             static const int FirstUnitIndex = Level0::SoftTriggerOffset;
+
+            QVector<QCheckBox *> checks_permaEnable;
         };
 
         struct SlaveTriggers_UI: public Table_UI_Base

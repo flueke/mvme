@@ -69,6 +69,7 @@ Level0::Level0()
 
     timers.fill({});
     irqUnits.fill({});
+    softTriggers.fill({});
     slaveTriggers.fill({});
     stackBusy.fill({});
     ioNIM.fill({});

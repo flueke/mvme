@@ -128,6 +128,14 @@ ScriptParts generate(const trigger_io::IRQ_Unit &unit, int index)
     return ret;
 }
 
+ScriptParts generate(const trigger_io::SoftTrigger &unit)
+{
+    ScriptParts ret;
+    ret += write_unit_reg(2, static_cast<u16>(unit.permaEnable),
+                          "permanent output enable");
+    return ret;
+}
+
 namespace io_flags
 {
     using Flags = u8;
@@ -263,6 +271,13 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.IRQ_UnitOffset];
         ret += select_unit(0, kv.index() + ioCfg.l0.IRQ_UnitOffset);
         ret += generate(kv.value(), kv.index());
+    }
+
+    for (const auto &kv: ioCfg.l0.softTriggers | indexed(0))
+    {
+        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.SoftTriggerOffset];
+        ret += select_unit(0, kv.index() + ioCfg.l0.SoftTriggerOffset);
+        ret += generate(kv.value());
     }
 
     for (const auto &kv: ioCfg.l0.slaveTriggers | indexed(0))
@@ -856,6 +871,14 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             auto &unit = kv.value();
 
             unit.irqIndex = writes[unitIndex][0];
+        }
+
+        for (const auto &kv: ioCfg.l0.softTriggers | indexed(0))
+        {
+            unsigned unitIndex = kv.index() + Level0::SoftTriggerOffset;
+            auto &unit = kv.value();
+
+            unit.permaEnable = writes[unitIndex][2];
         }
 
         for (const auto &kv: ioCfg.l0.slaveTriggers | indexed(0))
