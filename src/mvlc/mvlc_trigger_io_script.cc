@@ -167,7 +167,8 @@ ScriptParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags)
     ret += write_unit_reg(offset + 0, io.delay, "delay [ns]");
     ret += write_unit_reg(offset + 2, io.width, "width [ns]");
     ret += write_unit_reg(offset + 4, io.holdoff, "holdoff [ns]");
-    ret += write_unit_reg(offset + 6, static_cast<u16>(io.invert), "invert");
+    ret += write_unit_reg(offset + 6, static_cast<u16>(io.invert),
+                          "invert (start on trailing edge of input)");
 
     if (ioFlags & io_flags::HasDirection)
         ret += write_unit_reg(10, static_cast<u16>(io.direction), "direction (0:in, 1:out)");
