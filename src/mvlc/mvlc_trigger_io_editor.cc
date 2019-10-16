@@ -486,9 +486,10 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
     action = toolbar->addAction(
         QIcon(":/gear--arrow.png"), QSL("Autorun"));
 
-    action->setCheckable(true);
-
     connect(action, &QAction::toggled, this, [this] (bool b) { d->scriptAutorun = b; });
+
+    action->setCheckable(true);
+    action->setChecked(true);
 
     action = toolbar->addAction(
         QIcon(":/document-open.png"), QSL("Load from file"));
@@ -546,7 +547,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         });
 
     action = toolbar->addAction(
-        QIcon(":/vme_script.png"), QSL("View Script (readonly!)"),
+        QIcon(":/vme_script.png"), QSL("View Script"),
         this, [this] ()
         {
             if (!d->scriptEditor)
