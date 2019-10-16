@@ -646,9 +646,6 @@ class LUTOutputEditor: public QWidget
 class LUTEditor: public QDialog
 {
     Q_OBJECT
-    signals:
-        void outputNameEdited(int outIndex, const QString &outName);
-
     public:
         // LUT without strobe inputs
         LUTEditor(

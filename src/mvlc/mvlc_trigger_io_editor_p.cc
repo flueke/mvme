@@ -2735,11 +2735,6 @@ LUTEditor::LUTEditor(
 
         lutOutputEditor->setOutputMapping(lut.lutContents[output]);
 
-        connect(nameEdit, &QLineEdit::textEdited,
-                this, [this, output] (const QString &text)
-                {
-                    emit outputNameEdited(output, text);
-                });
     }
 
     // Optional row to set which output should use the strobe GG.
