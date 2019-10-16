@@ -173,11 +173,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
 
         assert(lutEditor);
 
-
-        auto dc = lutEditor->exec();
-
-        // apply changes
-        if (dc == QDialog::Accepted)
+        auto do_apply = [this, &lutEditor, &ioCfg, level, unit]
         {
             auto outputNames = lutEditor->getOutputNames();
             LUT *lut = nullptr;
@@ -203,7 +199,13 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
             }
 
             setupModified();
-        }
+
+            qDebug() << __PRETTY_FUNCTION__;
+        };
+
+        connect(lutEditor.get(), &QDialog::accepted, this, do_apply);
+
+        auto dc = lutEditor->exec();
     });
 
     // NIM IO Setup
@@ -224,11 +226,10 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), std::back_inserter(settings));
 
         NIM_IO_SettingsDialog dialog(names, settings);
-        auto dc = dialog.exec();
 
-        if (dc == QDialog::Accepted)
+        auto do_apply = [this, &dialog, &ioCfg] ()
         {
-            names = dialog.getNames();
+            auto names = dialog.getNames();
 
             // Copy names to L0
             std::copy_n(names.begin(),
@@ -240,7 +241,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
                         trigger_io::NIM_IO_Count,
                         ioCfg.l3.unitNames.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
 
-            settings = dialog.getSettings();
+            auto settings = dialog.getSettings();
             size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioNIM.size());
 
             // Copy settings to L0 and L3
@@ -248,7 +249,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
             std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
 
             setupModified();
-        }
+        };
+
+        connect(&dialog, &QDialog::accepted, this, do_apply);
+
+        auto dc = dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editNIM_Outputs,
@@ -257,75 +262,79 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         auto &ioCfg = d->ioCfg;
 
         // read names stored in the Level0 structure
-         QStringList names;
+        QStringList names;
 
-         std::copy_n(ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset,
-                     trigger_io::NIM_IO_Count,
-                     std::back_inserter(names));
+        std::copy_n(ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset,
+                    trigger_io::NIM_IO_Count,
+                    std::back_inserter(names));
 
-         // settings stored in Level3
-         QVector<trigger_io::IO> settings;
-         std::copy(ioCfg.l3.ioNIM.begin(), ioCfg.l3.ioNIM.end(),
-                   std::back_inserter(settings));
+        // settings stored in Level3
+        QVector<trigger_io::IO> settings;
+        std::copy(ioCfg.l3.ioNIM.begin(), ioCfg.l3.ioNIM.end(),
+                  std::back_inserter(settings));
 
-         // build a vector of available input names for each NIM IO
-         QVector<QStringList> inputChoiceNameLists;
+        // build a vector of available input names for each NIM IO
+        QVector<QStringList> inputChoiceNameLists;
 
-         for (size_t io = 0; io < trigger_io::NIM_IO_Count; io++)
-         {
-             int idx = io + trigger_io::Level3::NIM_IO_Unit_Offset;
-             const auto &choiceList = ioCfg.l3.DynamicInputChoiceLists[idx];
+        for (size_t io = 0; io < trigger_io::NIM_IO_Count; io++)
+        {
+            int idx = io + trigger_io::Level3::NIM_IO_Unit_Offset;
+            const auto &choiceList = ioCfg.l3.DynamicInputChoiceLists[idx];
 
-             QStringList nameList;
+            QStringList nameList;
 
-             for (const auto &address: choiceList)
-                 nameList.push_back(lookup_name(ioCfg, address));
+            for (const auto &address: choiceList)
+                nameList.push_back(lookup_name(ioCfg, address));
 
-             inputChoiceNameLists.push_back(nameList);
-         }
+            inputChoiceNameLists.push_back(nameList);
+        }
 
-         auto connections = to_qvector(
-             ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset,
-             ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset + trigger_io::NIM_IO_Count);
+        auto connections = to_qvector(
+            ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset,
+            ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset + trigger_io::NIM_IO_Count);
 
-         NIM_IO_SettingsDialog dialog(names, settings, inputChoiceNameLists, connections);
-         auto dc = dialog.exec();
+        NIM_IO_SettingsDialog dialog(names, settings, inputChoiceNameLists, connections);
 
-         if (dc == QDialog::Accepted)
-         {
-             names = dialog.getNames();
 
-             // Copy names to L0
-             std::copy_n(names.begin(),
-                         trigger_io::NIM_IO_Count,
-                         ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset);
+        auto do_apply = [this, &dialog, &ioCfg] ()
+        {
+            auto names = dialog.getNames();
 
-             // Copy names to L3
-             std::copy_n(names.begin(),
-                         trigger_io::NIM_IO_Count,
-                         ioCfg.l3.unitNames.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
+            // Copy names to L0
+            std::copy_n(names.begin(),
+                        trigger_io::NIM_IO_Count,
+                        ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset);
 
-             settings = dialog.getSettings();
-             {
-                 size_t count = std::min(static_cast<size_t>(settings.size()),
-                                         ioCfg.l0.ioNIM.size());
+            // Copy names to L3
+            std::copy_n(names.begin(),
+                        trigger_io::NIM_IO_Count,
+                        ioCfg.l3.unitNames.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
 
-                 // Copy settings to L0 and L3
-                 std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
-                 std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
-             }
+            auto settings = dialog.getSettings();
+            {
+                size_t count = std::min(static_cast<size_t>(settings.size()),
+                                        ioCfg.l0.ioNIM.size());
 
-             {
-                 auto connections = dialog.getConnections();
-                 auto count = std::min(static_cast<size_t>(connections.size()),
-                                       trigger_io::NIM_IO_Count);
-                 std::copy_n(
-                     connections.begin(), count,
-                     ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
-             }
+                // Copy settings to L0 and L3
+                std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
+                std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
+            }
 
-             setupModified();
-         }
+            {
+                auto connections = dialog.getConnections();
+                auto count = std::min(static_cast<size_t>(connections.size()),
+                                      trigger_io::NIM_IO_Count);
+                std::copy_n(
+                    connections.begin(), count,
+                    ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
+            }
+
+            setupModified();
+        };
+
+        connect(&dialog, &QDialog::accepted, this, do_apply);
+
+        auto dc = dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editECL_Outputs,
@@ -365,37 +374,40 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
             ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset + trigger_io::ECL_OUT_Count);
 
         ECL_SettingsDialog dialog(names, settings, connections, inputChoiceNameLists);
-        auto dc = dialog.exec();
 
-        if (dc == QDialog::Accepted)
+        auto do_apply = [this, &dialog, &ioCfg] ()
         {
-             names = dialog.getNames();
+            auto names = dialog.getNames();
 
-             // Copy names to L3
-             std::copy_n(names.begin(),
-                         trigger_io::ECL_OUT_Count,
-                         ioCfg.l3.unitNames.begin() + ioCfg.l3.ECL_Unit_Offset);
+            // Copy names to L3
+            std::copy_n(names.begin(),
+                        trigger_io::ECL_OUT_Count,
+                        ioCfg.l3.unitNames.begin() + ioCfg.l3.ECL_Unit_Offset);
 
-             settings = dialog.getSettings();
-             {
-                 size_t count = std::min(static_cast<size_t>(settings.size()),
-                                         ioCfg.l3.ioECL.size());
+            auto settings = dialog.getSettings();
+            {
+                size_t count = std::min(static_cast<size_t>(settings.size()),
+                                        ioCfg.l3.ioECL.size());
 
-                 // Copy settings to L3
-                 std::copy_n(settings.begin(), count, ioCfg.l3.ioECL.begin());
-             }
+                // Copy settings to L3
+                std::copy_n(settings.begin(), count, ioCfg.l3.ioECL.begin());
+            }
 
-             {
-                 auto connections = dialog.getConnections();
-                 auto count = std::min(static_cast<size_t>(connections.size()),
-                                       trigger_io::ECL_OUT_Count);
-                 std::copy_n(
-                     connections.begin(), count,
-                     ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset);
-             }
+            {
+                auto connections = dialog.getConnections();
+                auto count = std::min(static_cast<size_t>(connections.size()),
+                                      trigger_io::ECL_OUT_Count);
+                std::copy_n(
+                    connections.begin(), count,
+                    ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset);
+            }
 
             setupModified();
-        }
+        };
+
+        connect(&dialog, &QDialog::accepted, this, do_apply);
+
+        auto dc = dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editL3Utils,
@@ -418,13 +430,16 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
 
         Level3UtilsDialog dialog(ioCfg.l3, inputChoiceNameLists);
         dialog.resize(900, 600);
-        auto dc = dialog.exec();
 
-        if (dc == QDialog::Accepted)
+        auto do_apply = [this, &dialog, &ioCfg] ()
         {
             ioCfg.l3 = dialog.getSettings();
             setupModified();
-        }
+        };
+
+        connect(&dialog, &QDialog::accepted, this, do_apply);
+
+        auto dc = dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editL0Utils,
@@ -434,12 +449,16 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
 
         Level0UtilsDialog dialog(ioCfg.l0);
         dialog.resize(1200, 600);
-        auto dc = dialog.exec();
-        if (dc == QDialog::Accepted)
+
+        auto do_apply = [this, &dialog, &ioCfg] ()
         {
             ioCfg.l0 = dialog.getSettings();
             setupModified();
-        }
+        };
+
+        connect(&dialog, &QDialog::accepted, this, do_apply);
+
+        auto dc = dialog.exec();
     });
 
     auto view = new TriggerIOView(scene);
