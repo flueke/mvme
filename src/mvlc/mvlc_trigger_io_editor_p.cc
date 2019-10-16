@@ -1094,7 +1094,7 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
     // Helper performing common edge and connector update tasks.
     //
-    // unit is the actual unit struct that being checked, e.g. IO, ECL,
+    // unit is the actual unit struct being checked, e.g. IO, ECL,
     //   MasterTrigger, etc.
     // addr is the full UnitAddress of the unit being checked
     // cond is a predicate taking one argument: the unit structure itself.
@@ -1124,6 +1124,7 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
         // dest mapping and then assign the new source to the edge.
         if (edge->sourceItem() != srcCon)
         {
+            // Remove the edge from the hash
             auto it = m_edgesBySource.find(edge->sourceItem());
 
             while (it != m_edgesBySource.end() && it.key() == edge->sourceItem())
@@ -1134,6 +1135,7 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
                     it++;
             }
 
+            // Set the new source item and re-add the edge to the hash.
             edge->setSourceItem(srcCon);
             m_edgesBySource.insertMulti(srcCon, edge);
         }
@@ -1167,8 +1169,8 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
     //
     // level1
     //
-    // TODO: check LUT functions to see which inputs are in use and update
-    // edges and connectors accordingly
+
+    // nothing to do for now
 
     //
     // level2
@@ -1262,9 +1264,8 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
     }
 
     // Post connector and edge update logic.
-    // This needs to happen after the edges sources and destinations have been
-    // adjusted, otherwise the code cannot get the correct edges via
-    // getEdgesBySourceConnector().
+    // This needs to happen after the edges have been adjusted, otherwise the
+    // code cannot get the correct edges via getEdgesBySourceConnector().
 
     // l0 timers soft_activate
     for (const auto &kv: ioCfg.l0.timers | indexed(0))
@@ -1280,6 +1281,44 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
         for (auto edge: getEdgesBySourceConnector(srcCon))
         {
             edge->setVisible(edge->isVisible() && softActivate);
+        }
+    }
+
+    // l1 LUTs
+    for (const auto &kv: ioCfg.l1.luts | indexed(0))
+    {
+        auto minInputBits = minimize(kv.value());
+
+        for (unsigned input = 0; input < LUT::InputBits; input++)
+        {
+            UnitAddress addr {1, static_cast<unsigned>(kv.index()), input};
+
+            auto dstCon = getInputConnector(addr);
+            assert(dstCon);
+            dstCon->setEnabled(minInputBits.test(input));
+            dstCon->setBrush(dstCon->isEnabled() ? Connector_Brush : Connector_Brush_Disabled);
+
+            auto edge = getEdgeByDestConnector(dstCon);
+            edge->setVisible(minInputBits.test(input) && edge->sourceItem()->isEnabled());
+        }
+    }
+
+    // l2 LUTs
+    for (const auto &kv: ioCfg.l2.luts | indexed(0))
+    {
+        auto minInputBits = minimize(kv.value());
+
+        for (unsigned input = 0; input < LUT::InputBits; input++)
+        {
+            UnitAddress addr {2, static_cast<unsigned>(kv.index()), input};
+
+            auto dstCon = getInputConnector(addr);
+            assert(dstCon);
+            dstCon->setEnabled(minInputBits.test(input));
+            dstCon->setBrush(dstCon->isEnabled() ? Connector_Brush : Connector_Brush_Disabled);
+
+            auto edge = getEdgeByDestConnector(dstCon);
+            edge->setVisible(minInputBits.test(input) && edge->sourceItem()->isEnabled());
         }
     }
 

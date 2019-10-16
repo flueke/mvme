@@ -1,5 +1,6 @@
 #include "mvlc/mvlc_trigger_io.h"
 #include <boost/range/adaptor/indexed.hpp>
+#include <minbool.h>
 
 using boost::adaptors::indexed;
 
@@ -19,6 +20,40 @@ LUT::LUT()
 {
     lutContents.fill({});
     outputNames.fill({});
+}
+
+std::bitset<LUT::InputBits> minimize(const LUT::Bitmap &mapping)
+{
+    std::vector<u8> minterms;
+
+    for (size_t i = 0; i < mapping.size(); i++)
+    {
+        if (mapping[i])
+            minterms.push_back(i);
+    }
+
+    auto solution = minbool::minimize_boolean<trigger_io::LUT::InputBits>(minterms, {});
+
+    std::bitset<LUT::InputBits> result;
+
+    for (const auto &minterm: solution)
+    {
+        for (size_t bit = 0; bit < trigger_io::LUT::InputBits; bit++)
+        {
+            // Check all except the DontCare/Dash input bits
+            if (minterm[bit] != minterm.Dash)
+                result.set(bit);
+        }
+    }
+
+    return result;
+}
+
+std::bitset<LUT::InputBits> minimize(const LUT &lut)
+{
+    return minimize(lut.lutContents[0])
+        | minimize(lut.lutContents[1])
+        | minimize(lut.lutContents[2]);
 }
 
 //

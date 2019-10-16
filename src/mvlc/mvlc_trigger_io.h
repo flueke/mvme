@@ -92,6 +92,15 @@ struct LUT
     std::array<QString, OutputBits> outputNames;
 };
 
+// Minimize the given 6 -> 1 bit boolean function. Return a bitset with the
+// bits affecting the output set, the other bits cleared.
+std::bitset<LUT::InputBits> minimize(const LUT::Bitmap &mapping);
+
+// Minimize each of the 3 6->1 bit functions the LUT implements. Return a
+// bitset with the bits affecting at least one of the outputs set, the other
+// bits cleared.
+std::bitset<LUT::InputBits> minimize(const LUT &lut);
+
 struct StackStart
 {
     bool activate;
