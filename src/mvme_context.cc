@@ -1725,6 +1725,12 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 {
     vme_script::ResultList results;
 
+    if (!m_controller->isOpen())
+    {
+        logger("VME Script Error: VME controller not connected");
+        return results;
+    }
+
     // The MVLC can execute commands while the DAQ is running, other controller
     // cannot so the DAQ has to be paused and resumed if needed.
     if (is_mvlc_controller(m_controller->getType()))
