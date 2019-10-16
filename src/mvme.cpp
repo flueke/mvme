@@ -390,7 +390,10 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
                 this, &MVMEMainWindow::runEditVMEEventDialog);
 
         connect(cw, &VMEConfigTreeWidget::runScriptConfigs,
-                this, &MVMEMainWindow::doRunScriptConfigs);
+                this, [this] (const QVector<VMEScriptConfig *> &scriptConfigs)
+                {
+                    this->doRunScriptConfigs(scriptConfigs);
+                });
     }
 
     // Setup DAQControlWidget
@@ -1765,7 +1768,13 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
             scriptConfig->getId().toString() + "_" + vme_script::MetaTagMVLCTriggerIO);
 
         connect(widget, &mesytec::MVLCTriggerIOEditor::runScriptConfig,
-                this, &MVMEMainWindow::runScriptConfig);
+                this, [this] (VMEScriptConfig *scriptConfig)
+                {
+                    auto ctrl = getContext()->getVMEController();
+
+                    if (ctrl && ctrl->isOpen())
+                        this->runScriptConfig(scriptConfig, RunScriptOptions::AggregateResults);
+                });
     }
     else
     {
@@ -1859,12 +1868,14 @@ void MVMEMainWindow::runWorkspaceSettingsDialog()
     }
 }
 
-void MVMEMainWindow::runScriptConfig(VMEScriptConfig *scriptConfig)
+void MVMEMainWindow::runScriptConfig(VMEScriptConfig *scriptConfig, u16 options)
 {
-    doRunScriptConfigs({ scriptConfig });
+    doRunScriptConfigs({ scriptConfig }, options);
 }
 
-void MVMEMainWindow::doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)
+void MVMEMainWindow::doRunScriptConfigs(
+    const QVector<VMEScriptConfig *> &scriptConfigs,
+    u16 options)
 {
     for (auto scriptConfig: scriptConfigs)
     {
@@ -1885,8 +1896,39 @@ void MVMEMainWindow::doRunScriptConfigs(const QVector<VMEScriptConfig *> &script
                 scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
                 logger);
 
-            for (auto result: results)
-                logger(format_result(result));
+            if (options & RunScriptOptions::AggregateResults)
+            {
+                // TODO: implement some real aggregation here
+
+                size_t errorCount = std::count_if(
+                    results.begin(), results.end(), [] (const auto &r)
+                    {
+                        return r.error.isError();
+                    });
+
+                if (errorCount == 0)
+                {
+                    m_d->m_context->logMessage(
+                        QSL("  Executed %1 commands, no errors").arg(results.size()));
+                }
+                else
+                {
+                    auto it = std::find_if(
+                        results.begin(), results.end(), [] (const auto &r)
+                        {
+                            return r.error.isError();
+                        });
+                    assert(it != results.end());
+
+                    m_d->m_context->logMessage(
+                        QSL("Error: %1").arg(it->error.toString()));
+                }
+            }
+            else
+            {
+                for (auto result: results)
+                    logger(format_result(result));
+            }
         }
         catch (const vme_script::ParseError &e)
         {
