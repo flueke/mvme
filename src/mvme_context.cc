@@ -1729,7 +1729,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
     // cannot so the DAQ has to be paused and resumed if needed.
     if (is_mvlc_controller(m_controller->getType()))
     {
-        // The blow code should be equivalent to
+        // The below code should be equivalent to
         // results = vme_script::run_script(m_controller, script, logger, logEachResult);
         // but moves the run_script call into a different thread and show a
         // progress dialog during executio.

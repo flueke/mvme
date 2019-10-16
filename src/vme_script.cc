@@ -129,7 +129,7 @@ T parseValue(const QString &str)
     constexpr auto maxValue = std::numeric_limits<T>::max();
 
     if (val > maxValue)
-        throw QString("given numeric value is out or range. max=%1")
+        throw QString("given numeric value is out of range. max=%1")
             .arg(maxValue, 0, 16);
 
     return val;
