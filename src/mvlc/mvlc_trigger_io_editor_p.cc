@@ -1614,9 +1614,12 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
         ui.checks_invert[row]->setChecked(io.invert);
     }
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
+                                   | QDialogButtonBox::Apply, this);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+            this, &QDialog::accepted);
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addWidget(ui.table, 1);
@@ -1724,9 +1727,12 @@ ECL_SettingsDialog::ECL_SettingsDialog(
     m_tableUi = make_ecl_table_ui(names, settings, inputConnections, inputChoiceNameLists);
     auto &ui = m_tableUi;
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
+                                   | QDialogButtonBox::Apply, this);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+            this, &QDialog::accepted);
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addWidget(ui.table, 1);
@@ -1996,9 +2002,12 @@ Level0UtilsDialog::Level0UtilsDialog(
     grid->addWidget(make_groupbox(ui_slaveTriggers.table, "SlaveTriggers"), 1, 0);
     grid->addWidget(make_groupbox(ui_stackBusy.table, "StackBusy"), 1, 1);
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
+                                   | QDialogButtonBox::Apply, this);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+            this, &QDialog::accepted);
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addLayout(grid);
@@ -2225,9 +2234,12 @@ Level3UtilsDialog::Level3UtilsDialog(
     grid->addWidget(make_groupbox(ui_masterTriggers.table, "Master Triggers"), 0, 1);
     grid->addWidget(make_groupbox(ui_counters.table, "Counters"), 1, 0);
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
+                                   | QDialogButtonBox::Apply, this);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+            this, &QDialog::accepted);
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addLayout(grid);
@@ -2734,7 +2746,6 @@ LUTEditor::LUTEditor(
         editorGroupBoxLayouts[output] = gbl;
 
         lutOutputEditor->setOutputMapping(lut.lutContents[output]);
-
     }
 
     // Optional row to set which output should use the strobe GG.
@@ -2795,9 +2806,12 @@ LUTEditor::LUTEditor(
         scrollLayout->addWidget(gb_strobe, 2);
     }
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
+                                   | QDialogButtonBox::Apply, this);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+            this, &QDialog::accepted);
     scrollLayout->addWidget(bb, 0);
 
     auto scrollArea = new QScrollArea;
