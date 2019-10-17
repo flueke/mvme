@@ -121,7 +121,7 @@ struct MasterTrigger
 
 struct Counter
 {
-    // Empty right now. Maybe forever :)
+    bool softActivate;
 };
 
 struct IRQ_Unit

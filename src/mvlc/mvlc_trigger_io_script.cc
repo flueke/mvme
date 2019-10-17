@@ -652,6 +652,24 @@ static QString generate_mvlc_meta_block(
         }
 
         out << YAML::EndMap;
+        assert(out.good()); // consistency check
+    }
+
+    {
+        out << YAML::Key << "level3" << YAML::Value << YAML::BeginMap;
+
+        for (const auto &kv: ioCfg.l3.counters | indexed(ioCfg.l3.CountersOffset))
+        {
+            auto &unit = kv.value();
+            unsigned unitIndex = kv.index();
+
+            out << YAML::Key << unitIndex << YAML::Value << YAML::BeginMap;
+            out << YAML::Key << "soft_activate" << YAML::Value << unit.softActivate;
+            out << YAML::EndMap;
+        }
+
+        out << YAML::EndMap;
+        assert(out.good()); // consistency check
     }
 
     out << YAML::EndMap;
@@ -900,6 +918,21 @@ void parse_mvlc_meta_block(const vme_script::MetaBlock &meta, TriggerIO &ioCfg)
             auto &unit = kv.value();
             unsigned unitIndex = kv.index();
 
+            try
+            {
+                unit.softActivate = yLevelSettings[unitIndex]["soft_activate"].as<bool>();
+            }
+            catch (const std::runtime_error &)
+            {}
+        }
+    }
+
+    if (const auto &yLevelSettings = ySettings["level3"])
+    {
+        for (const auto &kv: ioCfg.l3.counters | indexed(ioCfg.l3.CountersOffset))
+        {
+            auto &unit = kv.value();
+            unsigned unitIndex = kv.index();
             try
             {
                 unit.softActivate = yLevelSettings[unitIndex]["soft_activate"].as<bool>();
