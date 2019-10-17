@@ -22,7 +22,7 @@ using Logger = std::function<void (const QString &)>;
 // Exceptions thrown by internal function calls are not caught but passed on to
 // the caller (e.g. vme_script::ParseError).
 std::error_code LIBMVME_EXPORT
-    setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger);
+    setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger);
 
 std::error_code LIBMVME_EXPORT
     enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger);
@@ -36,6 +36,10 @@ std::error_code LIBMVME_EXPORT
 std::error_code LIBMVME_EXPORT
     setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig,
                          Logger logger);
+
+std::error_code LIBMVME_EXPORT
+    setup_trigger_io(MVLCObject &mvlc, VMEConfig &vmeConfig,
+                     Logger logger);
 
 } // end namespace mvlc
 } // end namespace mesytec

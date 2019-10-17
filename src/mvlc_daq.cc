@@ -1,6 +1,6 @@
 #include "mvlc_daq.h"
 #include "mvlc/mvlc_error.h"
-#include "mvlc/mvlc_trigger_io.h"
+#include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_util.h"
 #include "vme_daq.h"
 
@@ -125,77 +125,14 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                 }
                 else
                 {
-                    u16 timerId = timersInUse;
-
-                    logger(QSL("  Event %1: Stack %2, Timer %3")
-                           .arg(event->objectName()).arg(stackId).arg(timerId));
-
-                    if (!event->triggerOptions.contains("mvlc.timer_base"))
+                    // Trigger setup only. The actual setup of the timer and
+                    // the connection between the Timer and StackStart units is
+                    // done via the trigger/IO setup.
+                    if (auto ec = mvlc.writeRegister(
+                            stacks::get_trigger_register(stackId),
+                            stacks::External << stacks::TriggerTypeShift))
                     {
-                        logger("No trigger timer base given");
-                        return make_error_code(MVLCErrorCode::ReadoutSetupError);
-                    }
-
-                    if (!event->triggerOptions.contains("mvlc.timer_period"))
-                    {
-                        logger("No trigger timer period given");
-                        return make_error_code(MVLCErrorCode::ReadoutSetupError);
-                    }
-
-                    stacks::TimerBaseUnit timerBase = timer_base_unit_from_string(
-                        event->triggerOptions["mvlc.timer_base"].toString());
-
-                    unsigned timerValue = event->triggerOptions["mvlc.timer_period"].toUInt();
-
-                    std::chrono::milliseconds period(
-                        event->triggerOptions["mvlc.timer_period"].toUInt());
-
-                    struct Write { u16 reg; u16 val; };
-
-                    std::vector<Write> writes;
-
-                    // target selection: lvl=0, unit=0..3 (timers)
-                    writes.push_back({ 0x0200, timerId });
-
-                    writes.push_back({ 0x0302, static_cast<u16>(timerBase) }); // timer period base
-                    writes.push_back({ 0x0304, 0 }); // delay
-                    writes.push_back({ 0x0306, static_cast<u16>(period.count()) }); // timer period value
-
-                    // target selection: lvl=3, unit=timerId (stack units 0-3, triggering stacks 1-4
-                    writes.push_back({ 0x0200, static_cast<u16>(0x0300 | timerId) });
-                    writes.push_back({ 0x0380, timerId });  // connect to our timer
-                    writes.push_back({ 0x0300, 1 });        // activate stack output
-                    writes.push_back({ 0x0302, stackId });  // send output to our stack
-
-                    // Note: the connection from the L0 timer units to the L3
-                    // stack units via L2 is not set explicitly here for now.
-                    // The setup works because the default setup of the L2 LUTs
-                    // is a global OR.
-
-                    //// testing activation of output 0 if any of the configured
-                    //// timers activates
-                    //// LUT on level 2
-                    //u16 level = 2;
-                    //u16 unit  = 0;
-                    //writes.push_back({ 0x0200, static_cast<u16>(((level << 8) | unit))  });
-                    //writes.push_back({ 0x0380, timerId });  // connect to our timer
-
-
-
-                    // trigger setup
-                    writes.push_back({ stacks::get_trigger_register(stackId),
-                        stacks::External << stacks::TriggerTypeShift });
-
-                    for (const auto w: writes)
-                    {
-#if 0
-                        logger(QString("    0x%1 -> 0x%2")
-                               .arg(w.reg, 4, 16, QLatin1Char('0'))
-                               .arg(w.val, 4, 16, QLatin1Char('0')));
-#endif
-
-                        if (auto ec = mvlc.writeRegister(w.reg, w.val))
-                            return ec;
+                        return ec;
                     }
 
                     ++timersInUse;
@@ -210,178 +147,96 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
     return {};
 }
 
-static void write(MVLCObject &mvlc, u16 address, u16 value)
+std::error_code setup_trigger_io(
+    MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
 {
-    if (auto ec = mvlc.writeRegister(address, value))
-        throw ec;
-}
+    auto scriptConfig = qobject_cast<VMEScriptConfig *>(
+        vmeConfig.getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
 
-static void select(MVLCObject &mvlc, u8 level, u8 unit)
-{
-    write(mvlc, 0x0200, static_cast<u16>(((level << 8) | unit)));
-}
+    assert(scriptConfig);
+    if (!scriptConfig)
+        return make_error_code(MVLCErrorCode::ReadoutSetupError);
 
-std::error_code do_base_setup(MVLCObject &mvlc, Logger logger)
-{
-    trigger_io::TriggerIO setup = {};
+    auto ioCfg = trigger_io::parse_trigger_io_script_text(
+        scriptConfig->getScriptContents());
 
-    // NIM 0-3: busy out
-    for (size_t i = 0; i < 4; i++)
+    u8 stackId = stacks::ImmediateStackID + 1;
+    u16 timersInUse = 0u;
+
+    for (const auto &event: vmeConfig.getEventConfigs())
     {
-#if 0
-        auto &io = setup.l0.ioNIM[i];
-
-        io = {};
-        io.direction = trigger_io::IO::Direction::out;
-        io.activate = true;
-#endif
-
-        int unitoffset = 16;
-        select(mvlc, 0, unitoffset + i);
-        write(mvlc, 0x0300 + 10, 1); // dir: output
-        write(mvlc, 0x0300 + 16, 1); // activate
-    }
-
-    // NIM 4,5: unused
-
-    // NIM 6-9: Trigger inputs
-    for (size_t i = 6; i < 10; i++)
-    {
-#if 0
-        auto &io = setup.l0.ioNIM[i];
-        io = {};
-        io.direction = trigger_io::IO::Direction::in;
-        io.activate = true;
-#endif
-        int unitoffset = 16;
-        select(mvlc, 0, unitoffset + i);
-        write(mvlc, 0x0300 + 10, 0); // dir: inpput
-        write(mvlc, 0x0300 + 16, 1); // activate
-    }
-
-    // NIM 10-13
-    for (size_t i = 10; i < 14; i++)
-    {
-#if 0
-        auto &io = setup.l0.ioNIM[i];
-        io = {};
-        io.direction = trigger_io::IO::Direction::out;
-        io.activate = true;
-#endif
-        int unitoffset = 16;
-        select(mvlc, 0, unitoffset + i);
-        write(mvlc, 0x0300 + 10, 1); // dir: output
-        write(mvlc, 0x0300 + 16, 1); // activate
-    }
-
-    // ECL 2: Trigger 0 out
-    {
-#if 0
-        auto &io = setup.l0.ioECL[2];
-        io = {};
-        io.direction = trigger_io::IO::Direction::out;
-        io.activate = true;
-#endif
-        select(mvlc, 0, 32);
-        write(mvlc, 0x0300 + 16, 1); // activate
-    }
-
-    // These refer to the same hardware devices.
-    setup.l3.ioNIM = setup.l0.ioNIM;
-    //setup.l3.ioECL = setup.l0.ioECL;
-
-    // L1.1: OR over inputs 6-9 which are connected to L1.1 pins 0-3
-    //       The OR goes to L1.1 output bit 0
-    {
-        trigger_io::LUT_RAM ram = {};
-        u8 mask = 0b1111u;
-
-        for (u8 addr = 0; addr < 64; addr++)
+        if (event->triggerCondition == TriggerCondition::Periodic)
         {
-            if (addr & mask)
+            if (timersInUse >= stacks::TimerCount)
             {
-                trigger_io::set(ram, addr, 0b1);
+                logger("No more timers available");
+                return make_error_code(MVLCErrorCode::TimerCountExceeded);
             }
+
+            // Setup the l0 timer unit
+            auto &timer = ioCfg.l0.timers[timersInUse];
+            timer.period = event->triggerOptions["mvlc.timer_period"].toUInt();
+
+            // FIXME: ugly. Get rid of stacks::TimerBaseUnit. Use only trigger_io::Timer::Range
+            timer.range = static_cast<trigger_io::Timer::Range>(timer_base_unit_from_string(
+                    event->triggerOptions["mvlc.timer_base"].toString()));
+
+            timer.softActivate = true;
+
+            ioCfg.l0.unitNames[timersInUse] = QString("t_%1").arg(event->objectName());
+
+            // Setup the l3 StackStart unit
+            auto &ss = ioCfg.l3.stackStart[timersInUse];
+
+            ss.activate = true;
+            ss.stackIndex = stackId;
+
+            ioCfg.l3.unitNames[timersInUse] = QString("ss_%1").arg(event->objectName());
+
+            // Connect StackStart to the Timer
+            auto choices = ioCfg.l3.DynamicInputChoiceLists[timersInUse];
+            auto it = std::find(
+                choices.begin(), choices.end(),
+                trigger_io::UnitAddress{0, timersInUse});
+
+            ioCfg.l3.connections[timersInUse] = it - choices.begin();
+
+            ++timersInUse;
         }
 
-        select(mvlc, 1, 1);
-        write_lut_ram(mvlc, ram, 0x300);
+        ++stackId;
     }
 
-    // L1.0: OR over inputs 0-3 which are connected to L1.0 pins 0-3
-    //       The OR goes to L1.0 output bit 0
+    auto ioCfgText = trigger_io::generate_trigger_io_script_text(ioCfg);
+
+    // Update the trigger io script stored in the VMEConfig in case we modified
+    // it.
+    if (ioCfgText != scriptConfig->getScriptContents())
     {
-        trigger_io::LUT_RAM ram = {};
-        u8 mask = 0b1111u;
-
-        for (u8 addr = 0; addr < 64; addr++)
-        {
-            if (addr & mask)
-            {
-                trigger_io::set(ram, addr, 0b1);
-            }
-        }
-
-        select(mvlc, 1, 0);
-        write_lut_ram(mvlc, ram, 0x300);
+        scriptConfig->setScriptContents(ioCfgText);
     }
 
-    // L1.3: pass through of input 0 to L1 output 0
-    //                   and input 3 to L1 output 1
+    // Parse the trigger io script and run the writes contained within.
+    auto commands = vme_script::parse(ioCfgText);
+
+    for (auto &cmd: commands)
     {
-        trigger_io::LUT_RAM ram = {};
-        u8 mask = 0b1u;
-        u8 mask1 = 0b1u << 3;
+        if (cmd.type != vme_script::CommandType::Write)
+            continue;
 
-        for (u8 addr = 0; addr < 64; addr++)
+        if (auto ec = mvlc.vmeSingleWrite(
+                cmd.address, cmd.value,
+                cmd.addressMode, convert_data_width(cmd.dataWidth)))
         {
-            if (addr & mask)
-            {
-                trigger_io::set(ram, addr, 0b1);
-            }
-
-            if (addr & mask1)
-            {
-                trigger_io::set(ram, addr, 0b1 << 1);
-            }
+            return ec;
         }
 
-        select(mvlc, 1, 3);
-        write_lut_ram(mvlc, ram, 0x300);
-    }
-
-    // => or of NIM6-9 is available at L1 output bit 0
-    //    or of NIM0-3 is available at L1 output bit 1
-
-    // Setup L2.0.strobeGG and connect Trig In from (L1 out 0) to L2.0.strobeGG.
-    {
-        setup.l2.luts[0].strobedOutputs.set();
-        // TODO: connect input_strobe
-        // connect l1.out.1 to L2.0.0 (TrigIn)
-        // connect(l0.out.12 to L2.0.1 (StackBusy)
-        // build an or of L2.0.0 and L2.0.1, negate it and use it for TrigOut 10-13 ECL2 out
-
-        trigger_io::LUT_RAM ram = {};
-        u8 mask = 0b11u;
-
-        for (u8 addr = 0; addr < 64; addr++)
-        {
-            if (addr & mask)
-            {
-                trigger_io::set(ram, addr, 0b1);
-            }
-        }
-
-        select(mvlc, 2, 0);
-        write_lut_ram(mvlc, ram, 0x300);
-        //write(mvlc, 0x386,
-        // XXX: leftoff
     }
 
     return {};
 }
 
-std::error_code setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
+std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
 {
     if (auto ec = disable_all_triggers(mvlc))
     {
@@ -399,20 +254,19 @@ std::error_code setup_mvlc(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger 
         return ec;
     }
 
-#if 0
-    if (auto ec = do_base_setup(mvlc, logger))
-    {
-        logger(QString("Error doing MVLC base setup: %1")
-               .arg(ec.message().c_str()));
-        return ec;
-    }
-#endif
-
     logger("Setting up readout stacks");
 
     if (auto ec = setup_readout_stacks(mvlc, vmeConfig, logger))
     {
         logger(QString("Error setting up readout stacks: %1").arg(ec.message().c_str()));
+        return ec;
+    }
+
+    logger("Applying trigger & I/O setup");
+
+    if (auto ec = setup_trigger_io(mvlc, vmeConfig, logger))
+    {
+        logger(QString("Error applying trigger & I/O setup: %1").arg(ec.message().c_str()));
         return ec;
     }
 
