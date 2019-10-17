@@ -24,6 +24,7 @@ class LIBMVME_EXPORT MVLCTriggerIOEditor: public QWidget
         void runScript_();
         void setupModified();
         void regenerateScript();
+        void reload();
 
     private:
         struct Private;

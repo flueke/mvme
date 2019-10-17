@@ -461,6 +461,9 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
         auto dc = dialog.exec();
     });
 
+    QObject::connect(d->scriptConfig, &VMEScriptConfig::modified,
+                     this, &MVLCTriggerIOEditor::reload);
+
     auto view = new TriggerIOView(scene);
 
     view->setRenderHints(
@@ -605,6 +608,13 @@ void MVLCTriggerIOEditor::regenerateScript()
     auto &ioCfg = d->ioCfg;
     auto scriptText = generate_trigger_io_script_text(ioCfg);
     d->scriptConfig->setScriptContents(scriptText);
+}
+
+void MVLCTriggerIOEditor::reload()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    d->ioCfg = parse_trigger_io_script_text(d->scriptConfig->getScriptContents());
+    d->scene->setTriggerIOConfig(d->ioCfg);
 }
 
 } // end namespace mesytec
