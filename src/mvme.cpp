@@ -1898,7 +1898,7 @@ void MVMEMainWindow::doRunScriptConfigs(
 
             if (options & RunScriptOptions::AggregateResults)
             {
-                // TODO: implement some real aggregation here
+                // TODO: implement some real aggregation somewhere
 
                 size_t errorCount = std::count_if(
                     results.begin(), results.end(), [] (const auto &r)
