@@ -163,6 +163,13 @@ std::error_code setup_trigger_io(
     auto ioCfg = trigger_io::parse_trigger_io_script_text(
         scriptConfig->getScriptContents());
 
+
+    // First disable all of the StackStart units. This is to avoid any side
+    // effects from vme events that have been removed or any other sort of
+    // stack triggering.
+    for (auto &ss: ioCfg.l3.stackStart)
+        ss.activate = false;
+
     u8 stackId = stacks::ImmediateStackID + 1;
     u16 timersInUse = 0u;
 
