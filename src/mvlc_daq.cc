@@ -120,11 +120,14 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
             case TriggerCondition::Periodic:
                 if (timersInUse >= stacks::TimerCount)
                 {
-                    logger("No more timers available");
                     return make_error_code(MVLCErrorCode::TimerCountExceeded);
                 }
                 else
                 {
+                    logger(QSL("  Event %1: Stack %2, periodic")
+                           .arg(event->objectName()).arg(stackId)
+                           .arg(event->irqLevel));
+
                     // Trigger setup only. The actual setup of the timer and
                     // the connection between the Timer and StackStart units is
                     // done via the trigger/IO setup.
