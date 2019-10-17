@@ -196,10 +196,6 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     m_nodeScripts->addChild(m_nodeStop);
     m_nodeScripts->addChild(m_nodeManual);
 
-    //m_nodeGlobals->setText(0, QSL("Global Objects"));
-    //m_nodeGlobals->setIcon(0, QIcon(":/vme_global_scripts.png"));
-    //m_tree->addTopLevelItem(m_nodeGlobals);
-
     auto nodes = QList<TreeNode *>({ m_nodeEvents, m_nodeScripts });
     for (auto node: nodes)
         node->setExpanded(true);
@@ -300,9 +296,6 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
     qDeleteAll(m_nodeStart->takeChildren());
     qDeleteAll(m_nodeStop->takeChildren());
     qDeleteAll(m_nodeEvents->takeChildren());
-    if (m_nodeGlobals)
-        qDeleteAll(m_nodeGlobals->takeChildren());
-    delete m_nodeGlobals;
     m_treeMap.clear();
 
     m_config = cfg;
@@ -316,9 +309,7 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
         for (auto event: cfg->getEventConfigs())
             onEventAdded(event, false);
 
-        m_nodeGlobals = makeObjectNode(&cfg->getGlobalObjectRoot());
-        m_treeMap[&cfg->getGlobalObjectRoot()] = m_nodeGlobals;
-        m_tree->addTopLevelItem(m_nodeGlobals);
+        onVMEControllerTypeSet(cfg->getControllerType());
 
         connect(cfg, &VMEConfig::eventAdded,
                 this, [this] (EventConfig *eventConfig) {
@@ -336,10 +327,31 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 
         connect(cfg, &VMEConfig::modifiedChanged,
                 this, &VMEConfigTreeWidget::updateConfigLabel);
+
+        connect(cfg, &VMEConfig::vmeControllerTypeSet,
+                this, &VMEConfigTreeWidget::onVMEControllerTypeSet);
     }
 
     m_tree->resizeColumnToContents(0);
     updateConfigLabel();
+}
+
+void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
+{
+    qDebug() << __PRETTY_FUNCTION__;
+
+    if (m_nodeGlobals)
+        qDeleteAll(m_nodeGlobals->takeChildren());
+    delete m_nodeGlobals;
+    m_nodeGlobals = nullptr;
+
+    if (is_mvlc_controller(t))
+    {
+        auto &cfg = m_config;
+        m_nodeGlobals = makeObjectNode(&cfg->getGlobalObjectRoot());
+        m_treeMap[&cfg->getGlobalObjectRoot()] = m_nodeGlobals;
+        m_tree->addTopLevelItem(m_nodeGlobals);
+    }
 }
 
 VMEConfig *VMEConfigTreeWidget::getConfig() const
@@ -564,6 +576,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     auto obj = node ? Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer)) : nullptr;
     auto vmeScript = qobject_cast<VMEScriptConfig *>(obj);
     bool isIdle = (m_daqState == DAQState::Idle);
+    bool isMVLC = is_mvlc_controller(m_config->getControllerType());
 
     QMenu menu;
 
@@ -572,18 +585,8 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     if (vmeScript)
     {
-        if (isIdle)
+        if (isIdle || isMVLC)
             menu.addAction(QSL("Run Script"), this, &VMEConfigTreeWidget::runScripts);
-
-        if (is_mvlc_controller(m_vmeController))
-        {
-
-            menu.addAction(
-                QSL("Edit with MVLC Trigger/IO GUI"), this, [this, vmeScript] ()
-                {
-                    emit editVMEScript(vmeScript, vme_script::MetaTagMVLCTriggerIO);
-                });
-        }
     }
 
     //
@@ -671,7 +674,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     if (node == m_nodeStart || node == m_nodeStop || node == m_nodeManual)
     {
-        if (isIdle)
+        if (isIdle || isMVLC)
         {
             if (node->childCount() > 0)
                 menu.addAction(QSL("Run scripts"), this, &VMEConfigTreeWidget::runScripts);

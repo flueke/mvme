@@ -21,6 +21,7 @@
 #include "vme_config.h"
 
 #include "CVMUSBReadoutList.h"
+#include "mvlc/mvlc_trigger_io_script.h"
 #include "qt_util.h"
 #include "util/qt_metaobject.h"
 #include "vme_controller.h"
@@ -711,7 +712,9 @@ VMEConfig::VMEConfig(QObject *parent)
 {
     setProperty("version", CurrentDAQConfigVersion);
     m_globalObjects.setObjectName("Global Objects");
+    m_globalObjects.setProperty("display_name", "Global Objects");
     m_globalObjects.setProperty("icon", ":/vme_global_scripts.png");
+    setVMEController(m_controllerType);
 }
 
 std::error_code VMEConfig::readVMEConfig(const QJsonObject &json)
@@ -790,20 +793,20 @@ void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &sett
     for (const auto &key: settings.keys())
         m_controllerSettings[key] = settings.value(key);
 
-    if (!m_globalObjects.findChildByName("mvlc_trigger_io"))
+    if (is_mvlc_controller(type)
+        && !m_globalObjects.findChildByName("mvlc_trigger_io"))
     {
-        if (is_mvlc_controller(type))
-        {
-            auto mvlcTriggerIO = new ContainerObject;
-            mvlcTriggerIO->setObjectName("mvlc_trigger_io");
-            mvlcTriggerIO->setProperty("display_name", "MVLC Trigger/IO");
-            mvlcTriggerIO->setProperty("icon", ":/vme_module.png");
-
-            m_globalObjects.addChild(mvlcTriggerIO);
-        }
+        auto triggerIOScript = new VMEScriptConfig;
+        triggerIOScript->setObjectName("mvlc_trigger_io");
+        triggerIOScript->setProperty("display_name", "MVLC Trigger/IO");
+        triggerIOScript->setProperty("icon", ":/vme_module.png");
+        triggerIOScript->setScriptContents(
+            mesytec::mvlc::trigger_io::generate_trigger_io_script_text({}));
+        m_globalObjects.addChild(triggerIOScript);
     }
 
     setModified();
+    emit vmeControllerTypeSet(type);
 }
 
 void VMEConfig::addGlobalObject(ConfigObject *obj)

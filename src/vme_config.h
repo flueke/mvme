@@ -344,6 +344,8 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         void globalScriptAdded(VMEScriptConfig *config, const QString &category);
         void globalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
+        void vmeControllerTypeSet(const VMEControllerType &t);
+
     public:
         Q_INVOKABLE VMEConfig(QObject *parent = 0);
 
