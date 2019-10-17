@@ -1322,6 +1322,23 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
         }
     }
 
+    // l3 Counters
+    for (const auto &kv: ioCfg.l3.counters | indexed(ioCfg.l3.CountersOffset))
+    {
+        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+
+        bool softActivate = kv.value().softActivate;
+
+        auto dstCon = getInputConnector(addr);
+        assert(dstCon);
+        dstCon->setEnabled(softActivate);
+        dstCon->setBrush(softActivate ? Connector_Brush : Connector_Brush_Disabled);
+
+        auto edge = getEdgeByDestConnector(dstCon);
+        edge->setVisible(edge->sourceItem()->isEnabled()
+                         && edge->destItem()->isEnabled());
+    }
+
     auto update_names = [this] (const TriggerIO &ioCfg)
     {
         // l0 NIM
@@ -2233,7 +2250,7 @@ Level3UtilsDialog::Level3UtilsDialog(
         Counters_UI ret;
 
         QStringList columnTitles = {
-            "Name", "Input",
+            "Name", "Input", "Soft Activate"
         };
 
         auto table = new QTableWidget(l3.counters.size(), columnTitles.size());
@@ -2253,9 +2270,14 @@ Level3UtilsDialog::Level3UtilsDialog(
             combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex]);
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 
+            auto cb_softActivate = new QCheckBox;
+            ret.checks_softActivate.push_back(cb_softActivate);
+            cb_softActivate->setChecked(l3.counters[row].softActivate);
+
             table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l3.unitNames.value(row + ret.FirstUnitIndex)));
             table->setCellWidget(row, ret.ColConnection, combo_connection);
+            table->setCellWidget(row, ret.ColSoftActivate, make_centered(cb_softActivate));
         }
 
         table->resizeColumnsToContents();
@@ -2319,6 +2341,8 @@ Level3 Level3UtilsDialog::getSettings() const
         {
             m_l3.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
             m_l3.connections[row + ui.FirstUnitIndex] = ui.combos_connection[row]->currentIndex();
+            auto &unit = m_l3.counters[row];
+            unit.softActivate = ui.checks_softActivate[row]->isChecked();
         }
     }
 

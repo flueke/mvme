@@ -599,9 +599,12 @@ class Level3UtilsDialog: public QDialog
             {
                 ColName,
                 ColConnection,
+                ColSoftActivate,
             };
 
             static const int FirstUnitIndex = 8;
+
+            QVector<QCheckBox *> checks_softActivate;
         };
 
         mutable Level3 m_l3;
