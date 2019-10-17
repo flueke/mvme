@@ -351,6 +351,7 @@ void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
         m_nodeGlobals = makeObjectNode(&cfg->getGlobalObjectRoot());
         m_treeMap[&cfg->getGlobalObjectRoot()] = m_nodeGlobals;
         m_tree->addTopLevelItem(m_nodeGlobals);
+        m_nodeGlobals->setExpanded(true);
     }
 }
 
