@@ -370,13 +370,8 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         QPair<int, int> getEventAndModuleIndices(ModuleConfig *cfg) const;
 
         // scripts
-        void addGlobalScript(VMEScriptConfig *config, const QString &category);
+        bool addGlobalScript(VMEScriptConfig *config, const QString &category);
         bool removeGlobalScript(VMEScriptConfig *config);
-
-        /** Known keys for a DAQConfig:
-         * "daq_start", "daq_stop", "manual"
-         */
-        QMap<QString, QList<VMEScriptConfig *>> vmeScriptLists;
 
         // vme controller
         void setVMEController(VMEControllerType type,

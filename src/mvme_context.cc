@@ -585,13 +585,10 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
         for (auto eventConfig: m_vmeConfig->getEventConfigs())
             onEventAboutToBeRemoved(eventConfig);
 
-        for (auto key: m_vmeConfig->vmeScriptLists.keys())
-        {
-            auto scriptList = m_vmeConfig->vmeScriptLists[key];
+        auto scripts = m_vmeConfig->getGlobalObjectRoot().findChildren<VMEScriptConfig *>();
 
-            for (auto vmeScript: scriptList)
-                emit objectAboutToBeRemoved(vmeScript);
-        }
+        for (auto script: scripts)
+            emit objectAboutToBeRemoved(script);
 
         m_vmeConfig->deleteLater();
     }

@@ -39,7 +39,9 @@ vme_daq_init(
 {
     QVector<ScriptWithResult> ret;
 
-    auto startScripts = config->vmeScriptLists["daq_start"];
+    auto startScripts = config->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_start")->findChildren<VMEScriptConfig *>();
+
     if (!startScripts.isEmpty())
     {
         logger(QSL(""));
@@ -129,7 +131,9 @@ vme_daq_shutdown(
         ret.push_back({ scriptConfig, results });
     }
 
-    auto stopScripts = config->vmeScriptLists["daq_stop"];
+    auto stopScripts = config->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_stop")->findChildren<VMEScriptConfig *>();
+
     if (!stopScripts.isEmpty())
     {
         logger(QSL("Global DAQ Stop scripts:"));

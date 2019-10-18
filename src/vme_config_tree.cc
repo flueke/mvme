@@ -155,10 +155,6 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     : QWidget(parent)
     , m_tree(new QTreeWidget(this))
     , m_nodeEvents(new TreeNode)
-    , m_nodeManual(new TreeNode)
-    , m_nodeStart(new TreeNode)
-    , m_nodeStop(new TreeNode)
-    , m_nodeScripts(new TreeNode)
     , m_nodeGlobals(nullptr)
 {
     m_tree->setColumnCount(2);
@@ -173,33 +169,8 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     headerItem->setText(1, QSL("Info"));
 
     m_nodeEvents->setText(0,  QSL("Events"));
-
-    m_nodeScripts->setText(0, QSL("Global Scripts"));
-    m_nodeScripts->setIcon(0, QIcon(":/vme_global_scripts.png"));
-
-    m_nodeStart->setText(0, QSL("DAQ Start"));
-    m_nodeStart->setData(0, DataRole_ScriptCategory, "daq_start");
-    m_nodeStart->setIcon(0, QIcon(":/config_category.png"));
-
-    m_nodeStop->setText(0, QSL("DAQ Stop"));
-    m_nodeStop->setData(0, DataRole_ScriptCategory, "daq_stop");
-    m_nodeStop->setIcon(0, QIcon(":/config_category.png"));
-
-    m_nodeManual->setText(0, QSL("Manual"));
-    m_nodeManual->setData(0, DataRole_ScriptCategory, "manual");
-    m_nodeManual->setIcon(0, QIcon(":/config_category.png"));
-
     m_tree->addTopLevelItem(m_nodeEvents);
-    m_tree->addTopLevelItem(m_nodeScripts);
-
-    m_nodeScripts->addChild(m_nodeStart);
-    m_nodeScripts->addChild(m_nodeStop);
-    m_nodeScripts->addChild(m_nodeManual);
-
-    auto nodes = QList<TreeNode *>({ m_nodeEvents, m_nodeScripts });
-    for (auto node: nodes)
-        node->setExpanded(true);
-
+    m_nodeEvents->setExpanded(true);
     m_tree->resizeColumnToContents(0);
 
     // Toolbar buttons
@@ -292,33 +263,60 @@ void VMEConfigTreeWidget::setupActions()
 
 void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 {
-    qDeleteAll(m_nodeManual->takeChildren());
-    qDeleteAll(m_nodeStart->takeChildren());
-    qDeleteAll(m_nodeStop->takeChildren());
     qDeleteAll(m_nodeEvents->takeChildren());
+    delete m_nodeGlobals;
+    m_nodeGlobals = nullptr;
     m_treeMap.clear();
 
     m_config = cfg;
 
     if (cfg)
     {
-        for (auto category: cfg->vmeScriptLists.keys())
-            for (auto script: cfg->vmeScriptLists[category])
+#if 0
+        for (auto container: cfg->getGlobalObjectRoot().findChildren<ContainerObject *>())
+        {
+            auto category = container->objectName();
+
+            qDebug() << __PRETTY_FUNCTION__ << container << category;
+
+            for (auto script: container->findChildren<VMEScriptConfig *>())
+            {
+                qDebug() << __PRETTY_FUNCTION__ << container << category << script;
                 onScriptAdded(script, category);
+            }
+        }
+#endif
 
         for (auto event: cfg->getEventConfigs())
             onEventAdded(event, false);
 
-        onVMEControllerTypeSet(cfg->getControllerType());
-
-        if (m_nodeGlobals)
-            delete m_nodeGlobals;
-
         auto &cfg = m_config;
-        m_nodeGlobals = makeObjectNode(&cfg->getGlobalObjectRoot());
-        m_treeMap[&cfg->getGlobalObjectRoot()] = m_nodeGlobals;
-        m_tree->addTopLevelItem(m_nodeGlobals);
+        m_nodeGlobals = addObjectNode(m_tree->invisibleRootItem(), &cfg->getGlobalObjectRoot());
+        //m_treeMap[&cfg->getGlobalObjectRoot()] = m_nodeGlobals;
+        //m_tree->addTopLevelItem(m_nodeGlobals);
         m_nodeGlobals->setExpanded(true);
+
+#if 1
+        auto startScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
+            "daq_start");
+        auto stopScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
+            "daq_stop");
+        auto manualScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
+            "manual");
+
+        qDebug() << __PRETTY_FUNCTION__ << "fooooo"
+            << startScriptContainer
+            << stopScriptContainer
+            << manualScriptContainer;
+
+        for (auto obj: m_treeMap.keys())
+        {
+            qDebug() << __PRETTY_FUNCTION__  << "fucking fuck" << obj << m_treeMap[obj]->text(0);
+        }
+
+        assert(startScriptContainer);
+        assert(m_treeMap[startScriptContainer]);
+#endif
 
 
         connect(cfg, &VMEConfig::eventAdded,
@@ -337,34 +335,10 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 
         connect(cfg, &VMEConfig::modifiedChanged,
                 this, &VMEConfigTreeWidget::updateConfigLabel);
-
-        connect(cfg, &VMEConfig::vmeControllerTypeSet,
-                this, &VMEConfigTreeWidget::onVMEControllerTypeSet);
     }
 
     m_tree->resizeColumnToContents(0);
     updateConfigLabel();
-}
-
-void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
-{
-#if 0
-    qDebug() << __PRETTY_FUNCTION__;
-
-    if (m_nodeGlobals)
-        qDeleteAll(m_nodeGlobals->takeChildren());
-    delete m_nodeGlobals;
-    m_nodeGlobals = nullptr;
-
-    if (is_mvlc_controller(t))
-    {
-        auto &cfg = m_config;
-        m_nodeGlobals = makeObjectNode(&cfg->getGlobalObjectRoot());
-        m_treeMap[&cfg->getGlobalObjectRoot()] = m_nodeGlobals;
-        m_tree->addTopLevelItem(m_nodeGlobals);
-        m_nodeGlobals->setExpanded(true);
-    }
-#endif
 }
 
 VMEConfig *VMEConfigTreeWidget::getConfig() const
@@ -496,7 +470,7 @@ TreeNode *VMEConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
     return moduleNode;
 }
 
-TreeNode *VMEConfigTreeWidget::makeObjectNode(ConfigObject *obj)
+TreeNode *VMEConfigTreeWidget::addObjectNode(QTreeWidgetItem *parentNode, ConfigObject *obj)
 {
     auto treeNode = new TreeNode;
 
@@ -514,6 +488,9 @@ TreeNode *VMEConfigTreeWidget::makeObjectNode(ConfigObject *obj)
         addContainerNodes(treeNode, containerObject);
     }
 
+    parentNode->addChild(treeNode);
+    m_treeMap[obj] = treeNode;
+
     return treeNode;
 }
 
@@ -521,9 +498,8 @@ void VMEConfigTreeWidget::addContainerNodes(TreeNode *parent, ContainerObject *o
 {
     for (auto child: obj->getChildren())
     {
-        auto childNode = makeObjectNode(child);
+        auto childNode = addObjectNode(parent, child);
         parent->addChild(childNode);
-        m_treeMap[obj] = childNode;
     }
 }
 
@@ -685,6 +661,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     // Global scripts
     //
+#if 0
     if (node == m_nodeStart || node == m_nodeStop || node == m_nodeManual)
     {
         if (isIdle || isMVLC)
@@ -716,6 +693,38 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             menu.addAction(QSL("Remove Script"), this, &VMEConfigTreeWidget::removeGlobalScript);
         }
     }
+#else
+    if (qobject_cast<ContainerObject *>(obj))
+    {
+        if (isIdle || isMVLC)
+        {
+            if (node->childCount() > 0)
+                menu.addAction(QSL("Run scripts"), this, &VMEConfigTreeWidget::runScripts);
+        }
+
+        menu.addAction(QSL("Add script"), this, &VMEConfigTreeWidget::addGlobalScript);
+    }
+
+    if (qobject_cast<VMEScriptConfig *>(obj))
+    {
+        auto po = obj->parent();
+
+        if (isIdle && po && (po->objectName() == "daq_start"
+                             || po->objectName() == "daq_stop"
+                             || po->objectName() == "manual"))
+        {
+            menu.addSeparator();
+            // disabling manual scripts doesn't make any sense
+            if (po->objectName() != "manual")
+            {
+                menu.addAction(obj->isEnabled() ? QSL("Disable Script") : QSL("Enable Script"),
+                               this, [this, node]() { toggleObjectEnabled(node, NodeType_VMEScript); });
+            }
+
+            menu.addAction(QSL("Remove Script"), this, &VMEConfigTreeWidget::removeGlobalScript);
+        }
+    }
+#endif
 
     if (!menu.isEmpty())
     {
@@ -833,14 +842,9 @@ void VMEConfigTreeWidget::onModuleAboutToBeRemoved(ModuleConfig *module)
 
 void VMEConfigTreeWidget::onScriptAdded(VMEScriptConfig *script, const QString &category)
 {
-    TreeNode *parentNode = nullptr;
+    TreeNode *parentNode = m_treeMap[script->parent()];
 
-    if (category == QSL("daq_start"))
-        parentNode = m_nodeStart;
-    else if (category == QSL("daq_stop"))
-        parentNode = m_nodeStop;
-    else if (category == QSL("manual"))
-        parentNode = m_nodeManual;
+    qDebug() << __PRETTY_FUNCTION__ << script << script->parent() << parentNode;
 
     if (parentNode)
     {
@@ -999,16 +1003,19 @@ void VMEConfigTreeWidget::editModule()
 void VMEConfigTreeWidget::addGlobalScript()
 {
     auto node = m_tree->currentItem();
-    auto category = node->data(0, DataRole_ScriptCategory).toString();
+    auto obj  = Var2Ptr<ContainerObject>(node->data(0, DataRole_Pointer));
+    auto category = obj->objectName();
     auto script = new VMEScriptConfig;
 
     script->setObjectName("new vme script");
     bool doExpand = (node->childCount() == 0);
     m_config->addGlobalScript(script, category);
+
     if (doExpand)
         node->setExpanded(true);
 
     auto scriptNode = m_treeMap.value(script, nullptr);
+    assert(scriptNode);
     if (scriptNode)
     {
         m_tree->editItem(scriptNode, 0);
@@ -1065,8 +1072,6 @@ void VMEConfigTreeWidget::onActionShowAdvancedChanged()
             || node->type() == NodeType_EventStartStop
             || node->type() == NodeType_ModuleReset;
     });
-
-    nodes.push_back(m_nodeScripts);
 
     bool showAdvanced = action_showAdvanced->isChecked();
 

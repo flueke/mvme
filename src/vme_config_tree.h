@@ -68,13 +68,13 @@ class VMEConfigTreeWidget: public QWidget
 
     private slots:
         void editEventImpl();
-        void onVMEControllerTypeSet(const VMEControllerType &t);
 
     private:
         TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script);
         TreeNode *addEventNode(TreeNode *parent, EventConfig *event);
         TreeNode *addModuleNodes(EventNode *parent, ModuleConfig *module);
-        TreeNode *makeObjectNode(ConfigObject *obj);
+
+        TreeNode *addObjectNode(QTreeWidgetItem *parentNode, ConfigObject *obj);
         void addContainerNodes(TreeNode *parent, ContainerObject *obj);
 
         void onItemClicked(QTreeWidgetItem *item, int column);
@@ -124,8 +124,8 @@ class VMEConfigTreeWidget: public QWidget
         // Maps config objects to tree nodes
         QMap<QObject *, TreeNode *> m_treeMap;
 
-        TreeNode *m_nodeEvents, *m_nodeManual, *m_nodeStart, *m_nodeStop,
-                 *m_nodeScripts, *m_nodeGlobals;
+        TreeNode *m_nodeEvents,
+                 *m_nodeGlobals;
 
         QAction *action_showAdvanced,
                 *action_dumpVMEControllerRegisters;

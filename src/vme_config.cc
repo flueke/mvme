@@ -286,7 +286,9 @@ void ContainerObject::read_impl(const QJsonObject &json)
 //
 VMEScriptConfig::VMEScriptConfig(QObject *parent)
     : ConfigObject(parent)
-{}
+{
+    setProperty("icon", ":/vme_script.png");
+}
 
 VMEScriptConfig::VMEScriptConfig(const QString &name, const QString &contents, QObject *parent)
     : ConfigObject(parent)
@@ -729,24 +731,24 @@ VMEConfig::VMEConfig(QObject *parent)
 
 void VMEConfig::createMissingGlobals()
 {
-    if (!m_globalObjects.findChildByName("daq_start_scripts"))
+    if (!m_globalObjects.findChildByName("daq_start"))
     {
         auto daqStartScripts = new ContainerObject(
-            "daq_start_scripts", "DAQ Start Scripts", ":/config_category.png");
+            "daq_start", "DAQ Start", ":/config_category.png");
         m_globalObjects.addChild(daqStartScripts);
     }
 
-    if (!m_globalObjects.findChildByName("daq_stop_scripts"))
+    if (!m_globalObjects.findChildByName("daq_stop"))
     {
         auto daqStopScripts = new ContainerObject(
-            "daq_stop_scripts", "DAQ Stop Scripts", ":/config_category.png");
+            "daq_stop", "DAQ Stop", ":/config_category.png");
         m_globalObjects.addChild(daqStopScripts);
     }
 
-    if (!m_globalObjects.findChildByName("manual_scripts"))
+    if (!m_globalObjects.findChildByName("manual"))
     {
         auto manualScripts = new ContainerObject(
-            "manual_scripts", "Manual Scripts", ":/config_category.png");
+            "manual", "Manual", ":/config_category.png");
         m_globalObjects.addChild(manualScripts);
     }
 }
@@ -793,29 +795,37 @@ bool VMEConfig::contains(EventConfig *config)
     return eventConfigs.indexOf(config) >= 0;
 }
 
-void VMEConfig::addGlobalScript(VMEScriptConfig *config, const QString &category)
+bool VMEConfig::addGlobalScript(VMEScriptConfig *config, const QString &category)
 {
-    config->setParent(this);
-    vmeScriptLists[category].push_back(config);
+    qDebug() << __PRETTY_FUNCTION__ << config << category;
+    auto parent = qobject_cast<ContainerObject *>(m_globalObjects.findChildByName(category));
+
+    if (!parent)
+    {
+        assert(false);
+        return false;
+    }
+
+    parent->addChild(config);
+    config->setParent(parent);
     emit globalScriptAdded(config, category);
     setModified();
+    return true;
 }
 
 bool VMEConfig::removeGlobalScript(VMEScriptConfig *config)
 {
-    for (auto category: vmeScriptLists.keys())
-    {
-        if (vmeScriptLists[category].removeOne(config))
-        {
-            emit globalScriptAboutToBeRemoved(config);
-            config->setParent(nullptr);
-            config->deleteLater();
-            setModified();
-            return true;
-        }
-    }
+    auto parent = qobject_cast<ContainerObject *>(config->parent());
 
-    return false;
+    if (!parent)
+        return false;
+
+    emit globalScriptAboutToBeRemoved(config);
+    parent->removeChild(config);
+    config->setParent(nullptr);
+    config->deleteLater();
+    setModified();
+    return true;
 }
 
 void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &settings)
@@ -838,6 +848,9 @@ void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &sett
         if (auto child = m_globalObjects.findChildByName("mvlc_trigger_io"))
         {
             m_globalObjects.removeChild(child);
+            child->setParent(nullptr);
+            child->deleteLater();
+            assert(!m_globalObjects.findChildByName("mvlc_trigger_io"));
         }
 
         if (!m_globalObjects.findChildByName("mvlc_trigger_io"))
@@ -852,6 +865,11 @@ void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &sett
 
             assert(m_globalObjects.findChildByName("mvlc_trigger_io"));
         }
+    }
+
+    if (is_mvlc_controller(type))
+    {
+        assert(qobject_cast<VMEScriptConfig *>(m_globalObjects.findChildByName("mvlc_trigger_io")));
     }
 
     setModified();
@@ -878,31 +896,6 @@ void VMEConfig::write_impl(QJsonObject &json) const
         eventArray.append(eventObject);
     }
     json["events"] = eventArray;
-
-    // script objects
-    QJsonObject scriptsObject;
-
-    for (auto mapIter = vmeScriptLists.begin();
-         mapIter != vmeScriptLists.end();
-         ++mapIter)
-    {
-        const auto list(mapIter.value());
-
-        QJsonArray scriptsArray;
-
-        for (auto listIter = list.begin();
-             listIter != list.end();
-             ++listIter)
-        {
-            QJsonObject scriptsObject;
-            (*listIter)->write(scriptsObject);
-            scriptsArray.append(scriptsObject);
-        }
-
-        scriptsObject[mapIter.key()] = scriptsArray;
-    }
-
-    json["vme_script_lists"] = scriptsObject;
 
     // global objects
     {
@@ -937,14 +930,24 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
     }
     qDebug() << __PRETTY_FUNCTION__ << "read" << eventConfigs.size() << "event configs";
 
-    // script objects
+    // global objects
+    assert(m_globalObjects.objectName() == "global_objects");
+    m_globalObjects.read(json["global_objects"].toObject());
+    m_globalObjects.setObjectName("global_objects");
+    createMissingGlobals();
+
+    // old script objects. These are now stored as children of m_globalObjects instead
     QJsonObject scriptsObject = json["vme_script_lists"].toObject();
 
     for (auto it = scriptsObject.begin();
          it != scriptsObject.end();
          ++it)
     {
-        auto &list(vmeScriptLists[it.key()]);
+        auto category = it.key();
+        auto parent = m_globalObjects.findChild<ContainerObject *>(category);
+
+        assert(parent);
+        if (!parent) continue;
 
         QJsonArray scriptsArray = it.value().toArray();
 
@@ -954,13 +957,9 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
         {
             VMEScriptConfig *cfg(new VMEScriptConfig(this));
             cfg->read((*arrayIter).toObject());
-            list.push_back(cfg);
+            parent->addChild(cfg);
         }
     }
-
-    // global objects
-    m_globalObjects.read(json["global_objects"].toObject());
-    createMissingGlobals();
 
     // vme controller
     auto controllerJson = json["vme_controller"].toObject();
