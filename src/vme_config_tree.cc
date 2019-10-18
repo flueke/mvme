@@ -311,6 +311,16 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 
         onVMEControllerTypeSet(cfg->getControllerType());
 
+        if (m_nodeGlobals)
+            delete m_nodeGlobals;
+
+        auto &cfg = m_config;
+        m_nodeGlobals = makeObjectNode(&cfg->getGlobalObjectRoot());
+        m_treeMap[&cfg->getGlobalObjectRoot()] = m_nodeGlobals;
+        m_tree->addTopLevelItem(m_nodeGlobals);
+        m_nodeGlobals->setExpanded(true);
+
+
         connect(cfg, &VMEConfig::eventAdded,
                 this, [this] (EventConfig *eventConfig) {
                     onEventAdded(eventConfig, true);
@@ -338,6 +348,7 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 
 void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
 {
+#if 0
     qDebug() << __PRETTY_FUNCTION__;
 
     if (m_nodeGlobals)
@@ -353,6 +364,7 @@ void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
         m_tree->addTopLevelItem(m_nodeGlobals);
         m_nodeGlobals->setExpanded(true);
     }
+#endif
 }
 
 VMEConfig *VMEConfigTreeWidget::getConfig() const

@@ -32,13 +32,15 @@ static void write(QJsonDocument &doc)
 
         c00->addChild(scriptConfig);
 
-        vmeConfig.addGlobalObject(container0);
+        auto &globalRoot = vmeConfig.getGlobalObjectRoot();
+        globalRoot.addChild(container0);
     }
 
     {
         auto scriptConfig = new VMEScriptConfig;
         scriptConfig->setObjectName("Montags-Allergie");
-        vmeConfig.addGlobalObject(scriptConfig);
+        auto &globalRoot = vmeConfig.getGlobalObjectRoot();
+        globalRoot.addChild(scriptConfig);
     }
 
     vmeConfig.write(dest);
@@ -53,7 +55,7 @@ void read(QJsonDocument &doc)
 
     vmeConfig.read(src);
 
-    qDebug() << __PRETTY_FUNCTION__ << vmeConfig.getGlobalObjects();
+    qDebug() << __PRETTY_FUNCTION__ << vmeConfig.getGlobalObjectRoot().getChildren();
 }
 
 int main(int argc, char *argv[])

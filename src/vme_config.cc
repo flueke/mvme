@@ -97,7 +97,6 @@ void ConfigObject::setModified(bool b)
 
     if (m_modified != b)
     {
-        //qDebug() << __PRETTY_FUNCTION__ << this << m_modified << "->" << b;
         m_modified = b;
         emit modifiedChanged(b);
 
@@ -196,6 +195,16 @@ ContainerObject::ContainerObject(QObject *parent)
 {
 }
 
+ContainerObject::ContainerObject(
+    const QString &name, const QString &displayName,
+    const QString &icon, QObject *parent)
+    : ContainerObject(parent)
+{
+    setObjectName(name);
+    setProperty("display_name", displayName);
+    setProperty("icon", icon);
+}
+
 void ContainerObject::write_impl(QJsonObject &json) const
 {
     QJsonArray childArray;
@@ -223,8 +232,6 @@ void ContainerObject::read_impl(const QJsonObject &json)
     {
         auto jobj = jval.toObject();
         auto className = jobj["class"].toString() + "*";
-
-        //qDebug() << __PRETTY_FUNCTION__ << "className =" << className;
 
         auto typeId = QMetaType::type(className.toLocal8Bit().constData());
 
@@ -711,11 +718,39 @@ VMEConfig::VMEConfig(QObject *parent)
     : ConfigObject(parent)
 {
     setProperty("version", CurrentDAQConfigVersion);
-    m_globalObjects.setObjectName("Global Objects");
+    m_globalObjects.setObjectName("global_objects");
     m_globalObjects.setProperty("display_name", "Global Objects");
     m_globalObjects.setProperty("icon", ":/vme_global_scripts.png");
+
+    createMissingGlobals();
+
     setVMEController(m_controllerType);
 }
+
+void VMEConfig::createMissingGlobals()
+{
+    if (!m_globalObjects.findChildByName("daq_start_scripts"))
+    {
+        auto daqStartScripts = new ContainerObject(
+            "daq_start_scripts", "DAQ Start Scripts", ":/config_category.png");
+        m_globalObjects.addChild(daqStartScripts);
+    }
+
+    if (!m_globalObjects.findChildByName("daq_stop_scripts"))
+    {
+        auto daqStopScripts = new ContainerObject(
+            "daq_stop_scripts", "DAQ Stop Scripts", ":/config_category.png");
+        m_globalObjects.addChild(daqStopScripts);
+    }
+
+    if (!m_globalObjects.findChildByName("manual_scripts"))
+    {
+        auto manualScripts = new ContainerObject(
+            "manual_scripts", "Manual Scripts", ":/config_category.png");
+        m_globalObjects.addChild(manualScripts);
+    }
+}
+
 
 std::error_code VMEConfig::readVMEConfig(const QJsonObject &json)
 {
@@ -794,34 +829,33 @@ void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &sett
         m_controllerSettings[key] = settings.value(key);
 
     if (is_mvlc_controller(type)
-        && !m_globalObjects.findChildByName("mvlc_trigger_io"))
+        && !qobject_cast<VMEScriptConfig *>(m_globalObjects.findChildByName("mvlc_trigger_io")))
     {
-        auto triggerIOScript = new VMEScriptConfig;
-        triggerIOScript->setObjectName("mvlc_trigger_io");
-        triggerIOScript->setProperty("display_name", "MVLC Trigger/IO");
-        triggerIOScript->setProperty("icon", ":/vme_module.png");
-        triggerIOScript->setScriptContents(
-            mesytec::mvlc::trigger_io::generate_trigger_io_script_text({}));
-        m_globalObjects.addChild(triggerIOScript);
+        // At some point during development the mvlc_trigger_io object was
+        // created as a ContainerObject instead of as a VMEScriptConfig. This
+        // code removes the ContainerObject and replaces it with a
+        // VMEScriptConfig.
+        if (auto child = m_globalObjects.findChildByName("mvlc_trigger_io"))
+        {
+            m_globalObjects.removeChild(child);
+        }
+
+        if (!m_globalObjects.findChildByName("mvlc_trigger_io"))
+        {
+            auto triggerIOScript = new VMEScriptConfig;
+            triggerIOScript->setObjectName("mvlc_trigger_io");
+            triggerIOScript->setProperty("display_name", "MVLC Trigger/IO");
+            triggerIOScript->setProperty("icon", ":/vme_module.png");
+            triggerIOScript->setScriptContents(
+                mesytec::mvlc::trigger_io::generate_trigger_io_script_text({}));
+            m_globalObjects.addChild(triggerIOScript);
+
+            assert(m_globalObjects.findChildByName("mvlc_trigger_io"));
+        }
     }
 
     setModified();
     emit vmeControllerTypeSet(type);
-}
-
-void VMEConfig::addGlobalObject(ConfigObject *obj)
-{
-    m_globalObjects.addChild(obj);
-}
-
-bool VMEConfig::removeGlobalObject(ConfigObject *obj)
-{
-    return m_globalObjects.removeChild(obj);
-}
-
-QVector<ConfigObject *> VMEConfig::getGlobalObjects() const
-{
-    return m_globalObjects.getChildren();
 }
 
 const ContainerObject &VMEConfig::getGlobalObjectRoot() const
@@ -888,6 +922,7 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
 {
     qDeleteAll(eventConfigs);
     eventConfigs.clear();
+    qDeleteAll(m_globalObjects.getChildren());
 
     QJsonObject json = convert_vmeconfig_to_current_version(inputJson);
 
@@ -925,6 +960,7 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
 
     // global objects
     m_globalObjects.read(json["global_objects"].toObject());
+    createMissingGlobals();
 
     // vme controller
     auto controllerJson = json["vme_controller"].toObject();

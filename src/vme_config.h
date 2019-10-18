@@ -151,6 +151,9 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
     public:
         Q_INVOKABLE explicit ContainerObject(QObject *parent = nullptr);
 
+        ContainerObject(const QString &name, const QString &displayName,
+                        const QString &icon, QObject *parent = nullptr);
+
         void addChild(ConfigObject *obj)
         {
             m_children.push_back(obj);
@@ -160,6 +163,7 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
             setModified();
         }
 
+        // Note: the child is neither deleted nor reparented.
         bool removeChild(ConfigObject *obj)
         {
             if (m_children.removeOne(obj))
@@ -380,6 +384,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         VMEControllerType getControllerType() const { return m_controllerType; }
         QVariantMap getControllerSettings() const { return m_controllerSettings; }
 
+#if 0
         // Pretty generic interface to hold global config objects.
         // Currently these are global vme scripts run at daq start/stop time or
         // manually and global devices like MVLCs trigger/IO module, mesytec RC
@@ -387,6 +392,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         void addGlobalObject(ConfigObject *obj);
         bool removeGlobalObject(ConfigObject *obj);
         QVector<ConfigObject *> getGlobalObjects() const;
+#endif
 
         const ContainerObject &getGlobalObjectRoot() const;
         ContainerObject &getGlobalObjectRoot();
@@ -396,8 +402,10 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
+        void createMissingGlobals();
+
         QList<EventConfig *> eventConfigs;
-        VMEControllerType m_controllerType = VMEControllerType::VMUSB;
+        VMEControllerType m_controllerType = VMEControllerType::MVLC_USB;
         QVariantMap m_controllerSettings;
         ContainerObject m_globalObjects;
 };
