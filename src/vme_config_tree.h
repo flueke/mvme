@@ -68,6 +68,7 @@ class VMEConfigTreeWidget: public QWidget
 
     private slots:
         void editEventImpl();
+        void onVMEControllerTypeSet(const VMEControllerType &t);
 
     private:
         TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script);

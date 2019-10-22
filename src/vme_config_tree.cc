@@ -263,7 +263,7 @@ void VMEConfigTreeWidget::setupActions()
 
 void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 {
-    qDeleteAll(m_nodeEvents->takeChildren());
+    // Clear the tree
     delete m_nodeGlobals;
     m_nodeGlobals = nullptr;
     m_treeMap.clear();
@@ -272,52 +272,11 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 
     if (cfg)
     {
-#if 0
-        for (auto container: cfg->getGlobalObjectRoot().findChildren<ContainerObject *>())
-        {
-            auto category = container->objectName();
-
-            qDebug() << __PRETTY_FUNCTION__ << container << category;
-
-            for (auto script: container->findChildren<VMEScriptConfig *>())
-            {
-                qDebug() << __PRETTY_FUNCTION__ << container << category << script;
-                onScriptAdded(script, category);
-            }
-        }
-#endif
-
+        // Repopulate events
         for (auto event: cfg->getEventConfigs())
             onEventAdded(event, false);
 
         auto &cfg = m_config;
-        m_nodeGlobals = addObjectNode(m_tree->invisibleRootItem(), &cfg->getGlobalObjectRoot());
-        //m_treeMap[&cfg->getGlobalObjectRoot()] = m_nodeGlobals;
-        //m_tree->addTopLevelItem(m_nodeGlobals);
-        m_nodeGlobals->setExpanded(true);
-
-#if 1
-        auto startScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
-            "daq_start");
-        auto stopScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
-            "daq_stop");
-        auto manualScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
-            "manual");
-
-        qDebug() << __PRETTY_FUNCTION__ << "fooooo"
-            << startScriptContainer
-            << stopScriptContainer
-            << manualScriptContainer;
-
-        for (auto obj: m_treeMap.keys())
-        {
-            qDebug() << __PRETTY_FUNCTION__  << "fucking fuck" << obj << m_treeMap[obj]->text(0);
-        }
-
-        assert(startScriptContainer);
-        assert(m_treeMap[startScriptContainer]);
-#endif
-
 
         connect(cfg, &VMEConfig::eventAdded,
                 this, [this] (EventConfig *eventConfig) {
@@ -335,10 +294,53 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 
         connect(cfg, &VMEConfig::modifiedChanged,
                 this, &VMEConfigTreeWidget::updateConfigLabel);
+
+        connect(cfg, &VMEConfig::vmeControllerTypeSet,
+                this, &VMEConfigTreeWidget::onVMEControllerTypeSet);
+
+        // Controller specific setup
+        onVMEControllerTypeSet(cfg->getControllerType());
     }
 
     m_tree->resizeColumnToContents(0);
     updateConfigLabel();
+}
+
+void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
+{
+    if (!m_config) return;
+
+    auto &cfg = m_config;
+
+    // Remove the "global objects" root node, then recreate it. Also make sure
+    // the MVLC Trigger IO object is only shown if the controller is an MVLC.
+
+    delete m_nodeGlobals;
+    m_nodeGlobals = addObjectNode(m_tree->invisibleRootItem(), &cfg->getGlobalObjectRoot());
+    m_nodeGlobals->setExpanded(true);
+
+    auto startScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_start");
+    auto stopScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_stop");
+    auto manualScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "manual");
+
+    assert(startScriptContainer);
+    assert(stopScriptContainer);
+    assert(manualScriptContainer);
+
+    assert(m_treeMap[startScriptContainer]);
+    assert(m_treeMap[stopScriptContainer]);
+    assert(m_treeMap[manualScriptContainer]);
+
+    if (!is_mvlc_controller(t))
+    {
+        auto mvlcTriggerIO = cfg->getGlobalObjectRoot().findChild<VMEScriptConfig *>(
+            "mvlc_trigger_io");
+        auto node = m_treeMap.value(mvlcTriggerIO);
+        delete node;
+    }
 }
 
 VMEConfig *VMEConfigTreeWidget::getConfig() const
