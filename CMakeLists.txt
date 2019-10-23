@@ -111,6 +111,8 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann" DESTINATION include/mvme)
 install(FILES "${CMAKE_SOURCE_DIR}/3rdparty/Mustache/mustache.hpp" DESTINATION include/mvme/Mustache)
 
+option(MVME_ENABLE_MVLC "Enable support for the mesytec MVLC controller" ON)
+
 if (MVME_ENABLE_MVLC)
     option(YAML_CPP_BUILD_TESTS "Enable testing" OFF)
     option(YAML_CPP_BUILD_TOOLS "Enable parse tools" OFF)
@@ -118,6 +120,7 @@ if (MVME_ENABLE_MVLC)
     option(YAML_CPP_INSTALL "Enable generation of install target" ON)
     option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
     set(MVME_YAML_DIR "${CMAKE_SOURCE_DIR}/3rdparty/yaml-cpp")
+    message("MVME_YAML_DIR=${MVME_YAML_DIR}")
     add_subdirectory(${MVME_YAML_DIR})
     # FIXME: installing targets from subdirectories does not work with CMake
     # 3.9.2 (msys build)
@@ -145,9 +148,6 @@ endif()
 
 message("-- Using QUAZIP_INCLUDE_DIR=${QUAZIP_INCLUDE_DIR}")
 message("-- Using QUAZIP_QT5=${QUAZIP_QT5}")
-
-
-option(MVME_ENABLE_MVLC "Enable support for the mesytec MVLC controller" ON)
 
 if (MVME_ENABLE_MVLC)
     # FTDI d3xx driver library for x64 linux and windows
