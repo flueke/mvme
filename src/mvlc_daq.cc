@@ -73,19 +73,6 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
     return {};
 }
 
-static std::error_code write_lut_ram(MVLCObject &mvlc, const trigger_io::LUT_RAM &lut, u16 address)
-{
-    for (u16 value: lut)
-    {
-        if (auto ec = mvlc.writeRegister(address, value))
-            return ec;
-
-        address += sizeof(u16);
-    }
-
-    return {};
-}
-
 std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
 {
     u8 stackId = stacks::ImmediateStackID + 1;
