@@ -92,10 +92,18 @@ if (SPHINX_EXECUTABLE)
     #        ${CMAKE_MAKE_PROGRAM} -C ${SPHINX_LATEX_DIR}
     #    COMMENT "Generating PDF from Sphinx latex output"
     #    )
-    add_custom_target(doc_latex_pdf
-            make -C ${SPHINX_LATEX_DIR}
-        COMMENT "Generating PDF from Sphinx latex output"
-        )
+
+    if (WIN32)
+        add_custom_target(doc_latex_pdf
+                mingw32-make -C ${SPHINX_LATEX_DIR}
+            COMMENT "Generating PDF from Sphinx latex output"
+            )
+    else(WIN32)
+        add_custom_target(doc_latex_pdf
+                make -C ${SPHINX_LATEX_DIR}
+            COMMENT "Generating PDF from Sphinx latex output"
+            )
+    endif(WIN32)
 
     add_dependencies(doc_latex_pdf doc_latex)
 
