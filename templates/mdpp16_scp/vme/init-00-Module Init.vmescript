@@ -3,11 +3,12 @@
 # Trigger Setup
 # ############################################################################
 # win_start
-#0x6050  16368      # Window of interest start time relative to trigger.
+0x6050  16368      # Window of interest start time relative to trigger.
                     # win_start = (time_delay_ns / 1.56) + 0x3FFF
                     # with time_delay_ns in range [-25560 ns, +25560 ns]
                     # < 0 -> window starts before trigger
                     # > 0 -> window is delayed
+                    # 0x3FFF == 16383 in decimal
 
 # win_width (14 bit value)
 0x6054  32          # win_width = (win_width_ns / 1.56 ns)
