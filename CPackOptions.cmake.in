@@ -19,6 +19,7 @@ set(CPACK_PACKAGE_INSTALL_DIRECTORY "mvme")
 
 if (WIN32)
     set(CPACK_OUTPUT_FILE_PREFIX "c:\\src\\mvme-packages")
+    SET(CPACK_CMAKE_GENERATOR "MSYS Makefiles")
 else()
     #set(CPACK_OUTPUT_FILE_PREFIX "$ENV{HOME}/src/mvme-packages")
 endif()
