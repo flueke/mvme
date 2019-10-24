@@ -264,8 +264,11 @@ void VMEConfigTreeWidget::setupActions()
 void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 {
     // Clear the tree
+    qDeleteAll(m_nodeEvents->takeChildren());
+
     delete m_nodeGlobals;
     m_nodeGlobals = nullptr;
+
     m_treeMap.clear();
 
     m_config = cfg;
