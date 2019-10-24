@@ -37,6 +37,7 @@ int main(int argc, char *argv[])
 
     cout << endl;
 
+#if 0
     // find by serial
     {
         for (unsigned serial = 1; serial <=2; serial++)
@@ -49,6 +50,7 @@ int main(int argc, char *argv[])
                 cout << "  Did not find a device for serial " << serial << endl;
         }
     }
+#endif
 
     cout << endl << "Connect/Disconnect tests using the first device..." << endl;
 
@@ -112,7 +114,7 @@ int main(int argc, char *argv[])
     {
         for (iteration = 0; iteration < MaxIterations; iteration++)
         {
-#if 0
+#if 1
             if (auto ec = mvlc.writeRegister(0x2000 + 512, iteration))
                 throw ErrorWithMessage{ec, "writeRegister"};
 
