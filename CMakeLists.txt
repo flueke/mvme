@@ -120,7 +120,6 @@ if (MVME_ENABLE_MVLC)
     option(YAML_CPP_INSTALL "Enable generation of install target" ON)
     option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
     set(MVME_YAML_DIR "${CMAKE_SOURCE_DIR}/3rdparty/yaml-cpp")
-    message("MVME_YAML_DIR=${MVME_YAML_DIR}")
     add_subdirectory(${MVME_YAML_DIR})
     # FIXME: installing targets from subdirectories does not work with CMake
     # 3.9.2 (msys build)
