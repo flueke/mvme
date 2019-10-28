@@ -1734,8 +1734,8 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
     {
         // The below code should be equivalent to
         // results = vme_script::run_script(m_controller, script, logger, logEachResult);
-        // but moves the run_script call into a different thread and show a
-        // progress dialog during executio.
+        // but moves the run_script call into a different thread and shows a
+        // progress dialog during execution.
 
         using Watcher = QFutureWatcher<vme_script::ResultList>;
 

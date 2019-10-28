@@ -158,10 +158,19 @@ std::error_code MVLCObject::vmeSingleRead(u32 address, u32 &value, u8 amod,
 std::error_code MVLCObject::vmeSingleWrite(u32 address, u32 value, u8 amod,
                                            VMEDataWidth dataWidth)
 {
+    auto tStart = QDateTime::currentDateTime();
     auto guard = getLocks().lockCmd();
+    auto tLock = QDateTime::currentDateTime();
     preDialogOperation();
     auto result = m_dialog.vmeSingleWrite(address, value, amod, dataWidth);
     postDialogOperation();
+    auto tEnd = QDateTime::currentDateTime();
+
+    qDebug() << __FUNCTION__
+        << ", lock_ms =" << tStart.msecsTo(tLock)
+        << ", comm_ms =" << tLock.msecsTo(tEnd)
+        << ", total_ms =" << tStart.msecsTo(tEnd)
+        ;
     return result;
 }
 
@@ -240,8 +249,19 @@ std::error_code MVLCObject::readKnownBuffer(QVector<u32> &dest)
 
 std::error_code MVLCObject::readKnownBuffer(QVector<u32> &dest, unsigned timeout_ms)
 {
+    auto tStart = QDateTime::currentDateTime();
     auto guard = getLocks().lockCmd();
-    return m_dialog.readKnownBuffer(dest, timeout_ms);
+    auto tLock = QDateTime::currentDateTime();
+    auto result = m_dialog.readKnownBuffer(dest, timeout_ms);
+    auto tEnd = QDateTime::currentDateTime();
+
+    qDebug() << __FUNCTION__
+        << "timeout_ms =" << timeout_ms
+        << ", lock_ms =" << tStart.msecsTo(tLock)
+        << ", read_ms =" << tLock.msecsTo(tEnd)
+        << ", total_ms =" << tStart.msecsTo(tEnd)
+        ;
+    return result;
 }
 
 QVector<u32> MVLCObject::getResponseBuffer() const
@@ -282,18 +302,21 @@ MVLCNotificationPoller::MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent
 
 void MVLCNotificationPoller::enablePolling(int interval_ms)
 {
+    qDebug() << __PRETTY_FUNCTION__ << "interval =" << interval_ms;
     m_pollTimer.start(interval_ms);
 }
 
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
 void MVLCNotificationPoller::enablePolling(const std::chrono::milliseconds &interval)
 {
+    qDebug() << __PRETTY_FUNCTION__ << "interval =" << interval.count();
     m_pollTimer.start(interval);
 }
 #endif
 
 void MVLCNotificationPoller::disablePolling()
 {
+    qDebug() << __PRETTY_FUNCTION__;
     m_pollTimer.stop();
 }
 
@@ -303,28 +326,39 @@ void MVLCNotificationPoller::doPoll()
     // parallel.
     // Can only happen if either the poll interval is very short or the mvlc
     // read timeouts are longer than the poll timer interval or the read loop
-    // always gets notification data back.
+    // always gets notification data back and thus spends more time in the loop
+    // than the poll interval.
     bool f = false;
     if (!m_isPolling.compare_exchange_weak(f, true))
         return;
 
-    //qDebug() << __PRETTY_FUNCTION__ << "entering polling loop";
+    qDebug() << __FUNCTION__ << "entering polling loop";
 
     QVector<u32> buffer;
+    size_t iterationCount = 0u;
 
     do
     {
+        auto tStart = QDateTime::currentDateTime();
+        qDebug() << __FUNCTION__ << tStart << "  begin read";
+
         auto ec = m_mvlc.readKnownBuffer(buffer, Default_PollReadTimeout_ms);
+
+        auto tEnd = QDateTime::currentDateTime();
+        qDebug() << __FUNCTION__ << tEnd << "  end read: "
+            << ec.message().c_str()
+            << ", duration:" << tStart.msecsTo(tEnd);
 
         if (!buffer.isEmpty())
         {
-            //qDebug() << __PRETTY_FUNCTION__ << "emitting stackErrorNotification";
+            //qDebug() << __FUNCTION__ << "emitting stackErrorNotification";
             emit stackErrorNotification(buffer);
         }
 
+        ++iterationCount;
     } while (!buffer.isEmpty());
 
-    //qDebug() << __PRETTY_FUNCTION__ << "left polling loop";
+    qDebug() << __FUNCTION__ << "left polling loop after" << iterationCount << "iterations";
 
     m_isPolling = false;
 }

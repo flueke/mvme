@@ -20,6 +20,7 @@
  */
 #include "vme_script.h"
 
+#include <QDebug>
 #include <QFile>
 #include <QTextStream>
 #include <QRegExp>
@@ -31,6 +32,10 @@
 #include "util.h"
 #include "vme_controller.h"
 #include "vmusb.h"
+
+#include "mvlc/mvlc_vme_controller.h"
+
+
 namespace vme_script
 {
 
@@ -1061,6 +1066,7 @@ void SyntaxHighlighter::highlightBlock(const QString &text)
 ResultList run_script(VMEController *controller, const VMEScript &script,
                       LoggerFun logger, bool logEachResult)
 {
+    int cmdNumber = 1;
     ResultList results;
 
     for (auto cmd: script)
@@ -1076,12 +1082,37 @@ ResultList run_script(VMEController *controller, const VMEScript &script,
                       );
             }
 
+
+            if (auto mvlc = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(controller))
+            {
+                qDebug() << __FUNCTION__
+                    << "mvlc cmd read timeout="
+                    << mvlc->getMVLCObject()->getReadTimeout(mesytec::mvlc::Pipe::Command)
+                    << "mvlc cmd write timeout="
+                    << mvlc->getMVLCObject()->getWriteTimeout(mesytec::mvlc::Pipe::Command);
+            }
+
+            auto tStart = QDateTime::currentDateTime();
+
+            qDebug() << __FUNCTION__
+                << tStart << "begin run_command" << cmdNumber << "of" << script.size();
+
             auto result = run_command(controller, cmd, logger);
+
+            auto tEnd = QDateTime::currentDateTime();
             results.push_back(result);
+
+            qDebug() << __FUNCTION__
+                << tEnd
+                << "  " << cmdNumber << "of" << script.size() << ":"
+                << format_result(result)
+                << "duration:" << tStart.msecsTo(tEnd) << "ms";
 
             if (logEachResult)
                 logger(format_result(result));
         }
+
+        ++cmdNumber;
     }
 
     return results;
