@@ -314,7 +314,7 @@ void MVLCNotificationPoller::doPoll()
 
     do
     {
-        m_mvlc.readKnownBuffer(buffer);
+        auto ec = m_mvlc.readKnownBuffer(buffer, Default_PollReadTimeout_ms);
 
         if (!buffer.isEmpty())
         {

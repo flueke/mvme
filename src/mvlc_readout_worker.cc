@@ -434,12 +434,13 @@ void stack_error_notification_poller(
     std::atomic<bool> &keepRunning)
 {
     static const auto NoDataSleepDuration = std::chrono::milliseconds(100);
+    static const unsigned PollReadTimeout_ms = 50;
 
     QVector<u32> buffer;
 
     while (keepRunning)
     {
-        auto ec = mvlc->readKnownBuffer(buffer);
+        auto ec = mvlc->readKnownBuffer(buffer, PollReadTimeout_ms);
 
         if (ec == ErrorType::ConnectionError)
             break;

@@ -151,6 +151,7 @@ class LIBMVME_MVLC_EXPORT MVLCNotificationPoller: public QObject
 
     public:
         static const int Default_PollInterval_ms = 1000;
+        static const unsigned Default_PollReadTimeout_ms = 50;
 
         MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent = nullptr);
 
