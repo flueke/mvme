@@ -174,6 +174,15 @@ std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
     return ec;
 }
 
+std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest, unsigned timeout_ms)
+{
+    auto prevTimeout = m_mvlc->getReadTimeout(Pipe::Command);
+    m_mvlc->setReadTimeout(Pipe::Command, timeout_ms);
+    auto result = readKnownBuffer(dest);
+    m_mvlc->setReadTimeout(Pipe::Command, prevTimeout);
+    return result;
+}
+
 std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32> &dest)
 {
     assert(bhv);

@@ -81,6 +81,7 @@ class MVLCDialog
         // is_known_buffer_header()). Does not do any special handling for
         // stack error notification buffers as is done in readResponse().
         std::error_code readKnownBuffer(QVector<u32> &dest);
+        std::error_code readKnownBuffer(QVector<u32> &dest, unsigned timeout_ms);
 
         // Returns the response buffer used internally by readRegister(),
         // readRegisterBlock(), writeRegister(), vmeSingleWrite() and

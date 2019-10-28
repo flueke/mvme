@@ -238,6 +238,12 @@ std::error_code MVLCObject::readKnownBuffer(QVector<u32> &dest)
     return m_dialog.readKnownBuffer(dest);
 }
 
+std::error_code MVLCObject::readKnownBuffer(QVector<u32> &dest, unsigned timeout_ms)
+{
+    auto guard = getLocks().lockCmd();
+    return m_dialog.readKnownBuffer(dest, timeout_ms);
+}
+
 QVector<u32> MVLCObject::getResponseBuffer() const
 {
     auto guard = getLocks().lockCmd();

@@ -105,6 +105,7 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         // is_known_buffer_header()). Does not do any special handling for
         // stack error notification buffers as is done in readResponse().
         std::error_code readKnownBuffer(QVector<u32> &dest);
+        std::error_code readKnownBuffer(QVector<u32> &dest, unsigned timeout_ms);
 
         // Returns the response buffer containing the contents of the last read
         // operation from the MVLC.
