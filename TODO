@@ -3,21 +3,9 @@ TODO list, not at all sorted by priority
 ==================================================
 
 Buttons in a grid. Can do single column and single row layouts.
-Other layout options?
-Feature: Checkable buttons where one script is executed on check and one on un-check.
-         Have different labels for the states.
-         -> Implement this externally from the grid. By passing the bool 'checked' around.
-         Note: passing the checkstate to the outside means that QSignalMapper cannot be used.
-         Or use two mappings, one for the checked and one for the unchecked case.
-
-Feature: Repeat mode
-         Set repeat interval.
-         Add extra checkboxes next to each button. If checked the action will
-         be executed periodically.
-         Checkable buttons will toggle between states as if clicked manually.
-         Note: there's no way to have different intervals for the checked and
-         unchecked states.
-
+Other layout options? No. Just allow having less buttons than (rows * cols).
+Also do not immediately discard data when resizing the grid. Instead use it in
+case the number of buttons increases again.
 
 Edit mode:
   Set Number of rows
@@ -27,6 +15,21 @@ Edit mode:
   Set checked/unchecked icon
   set button label
   Override icon
+
+Feature: Checkable buttons where one script is executed on check and one on un-check.
+         Have different labels for the states.
+         -> Implement this externally from the grid. By passing the bool 'checked' around.
+         Note: passing the checkstate to the outside means that QSignalMapper
+         cannot be directly used.  Instead two mappings, one for the checked
+         and one for the unchecked case can be used.
+
+Feature: Repeat mode
+         Set repeat interval.
+         Add extra checkboxes next to each button. If checked the action will
+         be executed periodically.
+         Checkable buttons will toggle between states as if clicked manually.
+         Note: there's no way to have different intervals for the checked and
+         unchecked states.
 
 * hang at exit after starting DAQ with a bug in VME Script which led to the error message: multiple block reads in module readout commands
 
