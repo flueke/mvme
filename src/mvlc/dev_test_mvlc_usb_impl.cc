@@ -85,12 +85,14 @@ int main(int argc, char *argv[])
         assert(mvlcUSB.isConnected());
     }
 
+    cout << "End of Connect/Disconnect tests" << endl;
+
     // Use MVLCObject and MVLCDialog to spam requests on the Command Pipe
 
     MVLCObject mvlc(make_mvlc_usb());
 
-    mvlc.setReadTimeout(Pipe::Command, 250);
-    mvlc.setWriteTimeout(Pipe::Command, 250);
+    mvlc.setReadTimeout(Pipe::Command, 5000);
+    mvlc.setWriteTimeout(Pipe::Command, 10000);
 
     if (auto ec = mvlc.connect())
     {
@@ -100,7 +102,7 @@ int main(int argc, char *argv[])
     }
     assert(mvlc.isConnected());
 
-    static const size_t MaxIterations = 25000;
+    static const size_t MaxIterations = 25000 * 4;
     static const std::chrono::duration<int, std::milli> WaitInterval(0);
     size_t iteration = 0u;
 
@@ -112,9 +114,11 @@ int main(int argc, char *argv[])
 
     try
     {
+#if 0
+        cout << "Performing " << MaxIterations << " MVLC register writes and reads..." << endl;
+
         for (iteration = 0; iteration < MaxIterations; iteration++)
         {
-#if 1
             if (auto ec = mvlc.writeRegister(0x2000 + 512, iteration))
                 throw ErrorWithMessage{ec, "writeRegister"};
 
@@ -123,7 +127,12 @@ int main(int argc, char *argv[])
                 throw ErrorWithMessage{ec, "readRegister"};
 
             assert(regVal == iteration);
+        }
 #else
+        cout << "Performing " << MaxIterations << " VME register writes and reads..." << endl;
+
+        for (iteration = 0; iteration < MaxIterations; iteration++)
+        {
             u32 value = iteration % 0xFFFFu;
             if (value == 0) value = 1;
 
@@ -147,8 +156,8 @@ int main(int argc, char *argv[])
             }
 
             assert(result == value);
-#endif
         }
+#endif
     }
     catch (const ErrorWithMessage &em)
     {
