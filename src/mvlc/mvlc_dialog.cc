@@ -7,6 +7,7 @@
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_script.h"
 #include "mvlc/mvlc_util.h"
+#include "util/debug_timer.h"
 
 #define LOG_LEVEL_OFF     0
 #define LOG_LEVEL_WARN  100
@@ -325,13 +326,25 @@ std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
 std::error_code MVLCDialog::mirrorTransaction(const QVector<u32> &cmdBuffer,
                                               QVector<u32> &dest)
 {
+    DebugTimer timer;
+
     // upload the stack
     if (auto ec = doWrite(cmdBuffer))
         return ec;
 
+    auto dt_write = timer.restart();
+
     // read the mirror response
     if (auto ec = readResponse(is_super_buffer, dest))
         return ec;
+
+    auto dt_read = timer.restart();
+
+#define ms_(x) std::chrono::duration_cast<std::chrono::milliseconds>(x)
+    LOG_TRACE("dt_write=%ld, dt_read=%ld\n",
+              ms_(dt_write).count(),
+              ms_(dt_read).count());
+#undef ms_
 
     // verify the mirror response
     return check_mirror(cmdBuffer, dest);
@@ -340,9 +353,13 @@ std::error_code MVLCDialog::mirrorTransaction(const QVector<u32> &cmdBuffer,
 std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
                                              QVector<u32> &dest)
 {
+    DebugTimer timer;
+
     // upload, read mirror, verify mirror
     if (auto ec = mirrorTransaction(stack, dest))
         return ec;
+
+    auto dt_mirror = timer.restart();
 
     // set the stack 0 offset register
     if (auto ec = writeRegister(stacks::Stack0OffsetRegister, 0))
@@ -351,6 +368,8 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
     // exec stack 0
     if (auto ec = writeRegister(stacks::Stack0TriggerRegister, 1u << stacks::ImmediateShift))
         return ec;
+
+    auto dt_writeStackRegisters = timer.restart();
 
     // read the stack response into the supplied buffer
     if (auto ec = readResponse(is_stack_buffer, dest))
@@ -381,6 +400,17 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
             flags = extract_frame_info(header).flags;
         }
     }
+
+    auto dt_readResponse = timer.restart();
+
+#define ms_(x) std::chrono::duration_cast<std::chrono::milliseconds>(x)
+
+    LOG_DEBUG("dt_mirror=%ld, dt_writeStackRegisters=%ld, dt_readResponse=%ld\n",
+              ms_(dt_mirror).count(),
+              ms_(dt_writeStackRegisters).count(),
+              ms_(dt_readResponse).count());
+
+#undef ms_
 
     // Check the last buffers flag values.
 
