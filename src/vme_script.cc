@@ -1083,6 +1083,7 @@ ResultList run_script(VMEController *controller, const VMEScript &script,
             }
 
 
+#if 0
             if (auto mvlc = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(controller))
             {
                 qDebug() << __FUNCTION__
@@ -1091,6 +1092,7 @@ ResultList run_script(VMEController *controller, const VMEScript &script,
                     << "mvlc cmd write timeout="
                     << mvlc->getMVLCObject()->getWriteTimeout(mesytec::mvlc::Pipe::Command);
             }
+#endif
 
             auto tStart = QDateTime::currentDateTime();
 
