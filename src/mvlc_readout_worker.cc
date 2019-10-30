@@ -748,9 +748,22 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         setState(DAQState::Starting);
 
+        // Note: disabling polling at this point is not strictly required. It
+        // just speeds up script execution because the poller won't interfere.
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
+        QMetaObject::invokeMethod(d->mvlcCtrl, &MVLC_VMEController::disableNotificationPolling);
+#else
+        QMetaObject::invokeMethod(d->mvlcCtrl, "disableNotificationPolling");
+#endif
+
         // vme init sequence
         if (!do_VME_DAQ_Init(d->mvlcCtrl))
         {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
+        QMetaObject::invokeMethod(d->mvlcCtrl, &MVLC_VMEController::enableNotificationPolling);
+#else
+        QMetaObject::invokeMethod(d->mvlcCtrl, "enableNotificationPolling");
+#endif
             setState(DAQState::Idle);
             return;
         }
@@ -838,10 +851,19 @@ void MVLCReadoutWorker::start(quint32 cycles)
         logError(QSL("VME Script parse error: ") + e.what());
     }
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
+        QMetaObject::invokeMethod(d->mvlcCtrl, &MVLC_VMEController::enableNotificationPolling);
+#else
+        QMetaObject::invokeMethod(d->mvlcCtrl, "enableNotificationPolling");
+#endif
+
+    // Reset object pointers to ensure we don't accidentially work with stale
+    // pointers on next startup.
     d->mvlcCtrl = nullptr;
     d->mvlcObj = nullptr;
     d->mvlc_eth = nullptr;
     d->mvlc_usb = nullptr;
+
     setState(DAQState::Idle);
 }
 

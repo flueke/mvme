@@ -1750,7 +1750,8 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 
         auto f = QtConcurrent::run(
             [=] () -> vme_script::ResultList {
-                return vme_script::run_script(m_controller, script, logger, logEachResult);
+                auto result = vme_script::run_script(m_controller, script, logger, logEachResult);
+                return result;
             });
 
         // Note: this call can lead to immediate signal emission from the

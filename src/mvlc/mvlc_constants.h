@@ -404,8 +404,8 @@ enum class Pipe: u8
     Data = DataPipe,
 };
 
-static const unsigned DefaultWriteTimeout_ms = 500;
-static const unsigned DefaultReadTimeout_ms  = 500;
+static const unsigned DefaultWriteTimeout_ms = 150;
+static const unsigned DefaultReadTimeout_ms  = 150;
 
 enum class ConnectionType
 {
