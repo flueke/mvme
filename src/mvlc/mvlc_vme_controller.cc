@@ -91,7 +91,7 @@ void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &oldState,
             break;
 
         case MVLCObject::Connected:
-            //m_notificationPoller.enablePolling();
+            m_notificationPoller.enablePolling();
             emit controllerOpened();
             emit controllerStateChanged(ControllerState::Connected);
             break;
