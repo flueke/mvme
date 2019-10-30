@@ -63,6 +63,7 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
     connect(&m_notificationPoller, &MVLCNotificationPoller::stackErrorNotification,
             this, &MVLC_VMEController::stackErrorNotification);
 
+#if 0
     // XXX: Debug
     connect(this, &MVLC_VMEController::stackErrorNotification,
             [] (const QVector<u32> &data)
@@ -75,6 +76,7 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
                data[0],
                extract_frame_info(data[0]).len);
     });
+#endif
 }
 
 void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &oldState,
