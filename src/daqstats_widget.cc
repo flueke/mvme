@@ -184,6 +184,10 @@ struct DAQStatsWidgetPrivate
              .arg(packetLossRate)));
     }
 
+    void update_MVLC_common(MVLCReadoutWorker *mvlcWorker)
+    {
+    }
+
     void updateWidget(VMEReadoutWorker *readoutWorker)
     {
         auto controller = readoutWorker->getVMEController();

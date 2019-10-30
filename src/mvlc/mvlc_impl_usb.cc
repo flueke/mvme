@@ -263,7 +263,7 @@ std::error_code disable_all_triggers(MVLCDialog &dlg)
 // Steps:
 // - Disable all triggers by writing 0 to the corresponding registers.
 //   Errors are ignored except ErrorType::ConnectionError which indicate that
-//   we could not open the USB device.
+//   we could not open the USB device or lost the connection.
 // - Read from the command pipe until no more data arrives. Again only
 //   ConnectionError type errors are considered fatal.
 // - Read from the data pipe until no more data arrives. These can be delayed
