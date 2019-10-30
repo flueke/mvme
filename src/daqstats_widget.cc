@@ -64,7 +64,7 @@ struct DAQStatsWidgetPrivate
            *label_sisEventLoss,
 
            *label_mvlcFrameTypeErrors,
-           *label_mvlcPartialFrameTotalBytes,
+           //*label_mvlcPartialFrameTotalBytes,
            *label_mvlcReceivedPackets,
            *label_mvlcLostPackets,
            *label_mvlcStackErrors
@@ -145,20 +145,22 @@ struct DAQStatsWidgetPrivate
             calc_rate0<TYPE_AND_VAL(&MVLCReadoutCounters::frameTypeErrors)>(
                 mvlcCounters, prevMVLCCounters, dt_s);
 
-        u64 partialFrameTotalBytesRate =
-            calc_rate0<TYPE_AND_VAL(&MVLCReadoutCounters::partialFrameTotalBytes)>(
-                mvlcCounters, prevMVLCCounters, dt_s);
-
         label_mvlcFrameTypeErrors->setText(
             (QString("%1, %2 errors/s")
              .arg(mvlcCounters.frameTypeErrors)
              .arg(frameTypeErrorRate)));
+
+#if 0
+        u64 partialFrameTotalBytesRate =
+            calc_rate0<TYPE_AND_VAL(&MVLCReadoutCounters::partialFrameTotalBytes)>(
+                mvlcCounters, prevMVLCCounters, dt_s);
 
         label_mvlcPartialFrameTotalBytes->setText(
             (QString("%1, %2")
              .arg(mvlcCounters.partialFrameTotalBytes)
              .arg(format_number(partialFrameTotalBytesRate, "bytes/s", UnitScaling::Binary, 0, 'f', 0))
              ));
+#endif
     }
 
     void update_MVLC_ETH(const mesytec::mvlc::eth::PipeStats &dataPipeStats,
@@ -267,7 +269,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     m_d->label_sisEventLoss = new QLabel;
 
     m_d->label_mvlcFrameTypeErrors = new QLabel;
-    m_d->label_mvlcPartialFrameTotalBytes = new QLabel;
+    //m_d->label_mvlcPartialFrameTotalBytes = new QLabel;
     m_d->label_mvlcReceivedPackets = new QLabel;
     m_d->label_mvlcLostPackets = new QLabel;
     m_d->label_mvlcStackErrors = new QLabel;
@@ -282,7 +284,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
         m_d->label_bytesRead,
         m_d->label_sisEventLoss,
         m_d->label_mvlcFrameTypeErrors,
-        m_d->label_mvlcPartialFrameTotalBytes,
+        //m_d->label_mvlcPartialFrameTotalBytes,
         m_d->label_mvlcReceivedPackets,
         m_d->label_mvlcLostPackets,
         m_d->label_mvlcStackErrors,
@@ -322,7 +324,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     sisLayout->addRow("Event Loss:", m_d->label_sisEventLoss);
 
     mvlcUSBLayout->addRow("MVLC USB Frame Type Errors:", m_d->label_mvlcFrameTypeErrors);
-    mvlcUSBLayout->addRow("MVLC USB Partial Frame Bytes:", m_d->label_mvlcPartialFrameTotalBytes);
+    //mvlcUSBLayout->addRow("MVLC USB Partial Frame Bytes:", m_d->label_mvlcPartialFrameTotalBytes);
 
     mvlcETHLayout->addRow("MVLC ETH received packets:", m_d->label_mvlcReceivedPackets);
     mvlcETHLayout->addRow("MVLC ETH lost packets:", m_d->label_mvlcLostPackets);
