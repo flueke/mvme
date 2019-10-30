@@ -440,7 +440,11 @@ void stack_error_notification_poller(
 
     while (keepRunning)
     {
+#ifndef __WIN32
         auto ec = mvlc->readKnownBuffer(buffer, PollReadTimeout_ms);
+#else
+        auto ec = mvlc->readKnownBuffer(buffer);
+#endif
 
         if (ec == ErrorType::ConnectionError)
             break;

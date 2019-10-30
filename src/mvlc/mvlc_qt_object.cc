@@ -247,6 +247,7 @@ std::error_code MVLCObject::readKnownBuffer(QVector<u32> &dest)
     return m_dialog.readKnownBuffer(dest);
 }
 
+#ifndef __WIN32
 std::error_code MVLCObject::readKnownBuffer(QVector<u32> &dest, unsigned timeout_ms)
 {
     auto tStart = QDateTime::currentDateTime();
@@ -263,6 +264,7 @@ std::error_code MVLCObject::readKnownBuffer(QVector<u32> &dest, unsigned timeout
         ;
     return result;
 }
+#endif
 
 QVector<u32> MVLCObject::getResponseBuffer() const
 {
@@ -342,7 +344,11 @@ void MVLCNotificationPoller::doPoll()
         auto tStart = QDateTime::currentDateTime();
         qDebug() << __FUNCTION__ << tStart << "  begin read";
 
+#ifndef __WIN32
         auto ec = m_mvlc.readKnownBuffer(buffer, Default_PollReadTimeout_ms);
+#else
+        auto ec = m_mvlc.readKnownBuffer(buffer);
+#endif
 
         auto tEnd = QDateTime::currentDateTime();
         qDebug() << __FUNCTION__ << tEnd << "  end read: "
