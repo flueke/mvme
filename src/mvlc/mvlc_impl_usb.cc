@@ -522,6 +522,24 @@ std::error_code Impl::connect()
 
     m_deviceInfo = devInfo;
 
+    // It's important to clean the pipes! :)
+    for (auto pipe: { Pipe::Command, Pipe::Data })
+    {
+        st = FT_AbortPipe(m_handle, get_endpoint(pipe, EndpointDirection::In));
+        if (auto ec = make_error_code(st))
+        {
+            closeHandle();
+            return ec;
+        }
+
+        st = FT_AbortPipe(m_handle, get_endpoint(pipe, EndpointDirection::Out));
+        if (auto ec = make_error_code(st))
+        {
+            closeHandle();
+            return ec;
+        }
+    }
+
     // Apply the read and write timeouts.
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
