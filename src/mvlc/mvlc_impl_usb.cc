@@ -123,7 +123,7 @@ class FTErrorCategory: public std::error_category
             case FT_INVALID_ARGS:
             case FT_NOT_SUPPORTED:
             case FT_NO_MORE_ITEMS:
-                return ErrorType::IOError;
+                return ErrorType::ConnectionError;
 
             case FT_TIMEOUT:
                 return ErrorType::Timeout;
@@ -140,7 +140,7 @@ class FTErrorCategory: public std::error_category
             case FT_DEVICE_LIST_NOT_READY:
             case FT_INCORRECT_DEVICE_PATH:
             case FT_OTHER_ERROR:
-                return ErrorType::IOError;
+                return ErrorType::ConnectionError;
         }
 
         assert(false);
