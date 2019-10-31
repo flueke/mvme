@@ -605,6 +605,17 @@ struct MVLCReadoutWorker::Private
         counters = {};
     }
 
+    // Use a custom stack error notification poller during readout instead of
+    // letting the poller built into MVLC_VMEController do the work.
+    //
+    // The reason is that the builtin poller uses the Qt signal/slot mechanism
+    // to propagate stack error notifications. The naive approach to handle
+    // these was to react to the signals in the MVLC readout thread but this
+    // required an additional call to Qts processEvents() and took performance
+    // away from the actual readout.
+    //
+    // This new way uses a separate std::thread and a polling loop to read
+    // and interpret notifications and update the counter values.
     void startNotificationPolling()
     {
         assert(!notificationPollerThread.joinable());
