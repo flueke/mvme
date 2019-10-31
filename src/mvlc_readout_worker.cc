@@ -78,6 +78,7 @@ using namespace mesytec::mvlc;
 
 static const size_t LocalEventBufferSize = Megabytes(1);
 static const size_t ReadBufferSize = Megabytes(1);
+static const auto ShutdownReadoutMaxWait = std::chrono::seconds(10);
 
 namespace
 {
@@ -647,8 +648,8 @@ struct MVLCReadoutWorker::Private
     // writing to the trigger registers via the command pipe while in parallel
     // reading and processing data from the data pipe until no more data
     // arrives. These things have to be done in parallel as otherwise in the
-    // case of USB the data from the data pipe can clog the bus and no replies
-    // can be received on the command pipe.
+    // case of USB the data from the data pipe could clog the bus and no
+    // replies could be received on the command pipe.
     QFuture<std::error_code> shutdownReadout()
     {
         assert(q);
@@ -661,14 +662,21 @@ struct MVLCReadoutWorker::Private
             return disable_all_triggers(*mvlcObj);
         });
 
+        using Clock = std::chrono::high_resolution_clock;
+        auto tStart = Clock::now();
         size_t bytesTransferred = 0u;
-        // FIXME: the code could hang here forever if disabling the readout triggers
-        // does not work. Measure total time spent in the loop and break out after
-        // a threshold has been reached.
-        // Could also try multiple times to disable the triggers.
+        // The loop could hang forever if disabling the readout triggers does
+        // not work for some reason. To circumvent this the total time spent in
+        // the loop is limited to ShutdownReadoutMaxWait.
         do
         {
             q->readAndProcessBuffer(bytesTransferred);
+
+            auto elapsed = Clock::now() - tStart;
+
+            if (elapsed > ShutdownReadoutMaxWait)
+                break;
+
         } while (bytesTransferred > 0);
 
         if (auto ec = f.result())
