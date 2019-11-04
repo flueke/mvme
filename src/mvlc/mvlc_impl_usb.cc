@@ -522,6 +522,7 @@ std::error_code Impl::connect()
 
     m_deviceInfo = devInfo;
 
+#ifdef __WIN32
     // It's important to clean the pipes! :)
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
@@ -539,6 +540,7 @@ std::error_code Impl::connect()
             return ec;
         }
     }
+#endif
 
     // Apply the read and write timeouts.
     for (auto pipe: { Pipe::Command, Pipe::Data })
