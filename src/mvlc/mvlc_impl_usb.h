@@ -83,6 +83,12 @@ LIBMVME_MVLC_EXPORT DeviceInfo get_device_info_by_serial(
 LIBMVME_MVLC_EXPORT DeviceInfo get_device_info_by_serial(
     unsigned serial);
 
+enum class EndpointDirection: u8
+{
+    In,
+    Out
+};
+
 class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 {
     public:
@@ -121,6 +127,8 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 
         std::error_code read_unbuffered(Pipe pipe, u8 *buffer, size_t size,
                                         size_t &bytesTransferred);
+
+        std::error_code abortPipe(Pipe pipe, EndpointDirection dir);
 
         ConnectionType connectionType() const override { return ConnectionType::USB; }
         std::string connectionInfo() const override;

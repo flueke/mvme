@@ -40,6 +40,8 @@ do\
 #define LOG_DEBUG(fmt, ...) DO_LOG(LOG_LEVEL_DEBUG, "DEBUG - mvlc_usb ", fmt, ##__VA_ARGS__)
 #define LOG_TRACE(fmt, ...) DO_LOG(LOG_LEVEL_TRACE, "TRACE - mvlc_usb ", fmt, ##__VA_ARGS__)
 
+#define USB_WIN_USE_ASYNC 1
+
 namespace
 {
 
@@ -162,13 +164,7 @@ constexpr u8 get_fifo_id(mesytec::mvlc::Pipe pipe)
     return 0;
 }
 
-enum class EndpointDirection: u8
-{
-    In,
-    Out
-};
-
-constexpr u8 get_endpoint(mesytec::mvlc::Pipe pipe, EndpointDirection dir)
+constexpr u8 get_endpoint(mesytec::mvlc::Pipe pipe, mesytec::mvlc::usb::EndpointDirection dir)
 {
     u8 result = 0;
 
@@ -183,7 +179,7 @@ constexpr u8 get_endpoint(mesytec::mvlc::Pipe pipe, EndpointDirection dir)
             break;
     }
 
-    if (dir == EndpointDirection::In)
+    if (dir == mesytec::mvlc::usb::EndpointDirection::In)
         result |= 0x80;
 
     return result;
@@ -274,8 +270,9 @@ std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 
-    static const int RetryCount = 5;
+    static const int DisableTriggerRetryCount = 5;
     static const int DataBufferSize = 10 * 1024;
+    static const auto ReadDataPipeMaxWait = std::chrono::seconds(10);
 
     mesytec::mvlc::MVLCDialog dlg(&impl);
     std::error_code ec;
@@ -286,12 +283,11 @@ std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
     // notification data can be stuck in the command pipe so that the responses
     // are not parsed correctly.
 
-#if 1
     // Try setting the trigger registers in a separate thread. This uses the
     // command pipe for communication.
     auto f = std::async([&dlg] () -> std::error_code
     {
-        for (int try_ = 0; try_ < RetryCount; try_++)
+        for (int try_ = 0; try_ < DisableTriggerRetryCount; try_++)
         {
             if (auto ec = disable_all_triggers(dlg))
             {
@@ -306,16 +302,23 @@ std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
     });
 
     // Use this thread to read the data pipe. This needs to happen so that
-    // readout data doesn't clog up the data pipe brining communication to a
+    // readout data doesn't clog up the data pipe bringing communication to a
     // halt.
     {
         size_t bytesTransferred = 0u;
         std::array<u8, DataBufferSize> buffer;
+        using Clock = std::chrono::high_resolution_clock;
+        auto tStart = Clock::now();
 
         do
         {
             ec = impl.read(Pipe::Data, buffer.data(), buffer.size(), bytesTransferred);
             totalBytesTransferred += bytesTransferred;
+
+            auto elapsed = Clock::now() - tStart;
+
+            if (elapsed > ReadDataPipeMaxWait)
+                break;
 
             if (ec == ErrorType::ConnectionError)
                 break;
@@ -323,35 +326,6 @@ std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
     }
 
     ec = f.get();
-
-#else
-    for (int try_ = 0; try_ < RetryCount; try_++)
-    {
-        ec = disable_all_triggers(dlg);
-
-        if (ec == ErrorType::ConnectionError)
-            return ec;
-
-        size_t bytesTransferred = 0u;
-        std::array<u8, DataBufferSize> buffer;
-
-        do
-        {
-            ec = impl.read(Pipe::Data, buffer.data(), buffer.size(), bytesTransferred);
-            totalBytesTransferred += bytesTransferred;
-
-            if (ec == ErrorType::ConnectionError)
-                return ec;
-
-        } while (bytesTransferred > 0);
-
-        u32 regVal = 0u;
-        ec = dlg.readRegister(stacks::get_trigger_register(0), regVal);
-
-        if (!ec)
-            break; // all good, no need to retry
-    }
-#endif
 
     qDebug() << __PRETTY_FUNCTION__ << "end, totalBytesTransferred ="
         << totalBytesTransferred << ", ec =" << ec.message().c_str();
@@ -664,10 +638,41 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     ULONG transferred = 0; // FT API needs a ULONG*
 
 #ifdef __WIN32 // windows
+
+#if !USB_WIN_USE_ASYNC
     FT_STATUS st = FT_WritePipeEx(m_handle, get_endpoint(pipe, EndpointDirection::Out),
                                   const_cast<u8 *>(buffer), size,
                                   &transferred,
                                   nullptr);
+#else // USB_WIN_USE_ASYNC
+    FT_STATUS st = FT_OK;
+    {
+        LOG_WARN("async write");
+        OVERLAPPED vOverlapped = {0};
+        st = FT_InitializeOverlapped(m_handle, &vOverlapped);
+
+        if (auto ec = make_error_code(st))
+        {
+            LOG_WARN("pipe=%u, FT_InitializeOverlapped failed: ec=%s",
+                     static_cast<unsigned>(pipe), ec.message().c_str());
+            return ec;
+        }
+
+        st = FT_WritePipeEx(m_handle, get_endpoint(pipe, EndpointDirection::Out),
+                            const_cast<u8 *>(buffer), size,
+                            &transferred,
+                            &vOverlapped);
+
+        if (st == FT_IO_PENDING)
+            st = FT_GetOverlappedResult(m_handle, &vOverlapped, &transferred, true);
+
+        FT_ReleaseOverlapped(m_handle, &vOverlapped);
+    }
+#endif // USB_WIN_USE_ASYNC
+
+    if (st != FT_OK && st != FT_IO_PENDING)
+        abortPipe(pipe, EndpointDirection::Out);
+
 #else // linux
     FT_STATUS st = FT_WritePipeEx(m_handle, get_fifo_id(pipe),
                                   const_cast<u8 *>(buffer), size,
@@ -691,6 +696,11 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
 }
 
 #ifdef __WIN32 // Impl::read() windows
+
+// Update Tue 11/05/2019:
+// The note below was written before trying out overlapped I/O. This might need
+// to be updated.
+
 /* Explanation:
  * When reading from a pipe under windows any available data that was not
  * retrieved is lost instead of being returned on the next read attempt. This
@@ -753,11 +763,41 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
 
     ULONG transferred = 0; // FT API wants a ULONG* parameter
 
+#if !USB_WIN_USE_ASYNC
     FT_STATUS st = FT_ReadPipeEx(m_handle, get_endpoint(pipe, EndpointDirection::In),
                                  readBuffer.data.data(),
                                  readBuffer.capacity(),
                                  &transferred,
                                  nullptr);
+#else // USB_WIN_USE_ASYNC
+    FT_STATUS st = FT_OK;
+    {
+        LOG_WARN("async read");
+        OVERLAPPED vOverlapped = {0};
+        st = FT_InitializeOverlapped(m_handle, &vOverlapped);
+
+        if (auto ec = make_error_code(st))
+        {
+            LOG_WARN("pipe=%u, FT_InitializeOverlapped failed: ec=%s",
+                     static_cast<unsigned>(pipe), ec.message().c_str());
+            return ec;
+        }
+
+        st = FT_ReadPipeEx(m_handle, get_endpoint(pipe, EndpointDirection::In),
+                           readBuffer.data.data(),
+                           readBuffer.capacity(),
+                           &transferred,
+                           &vOverlapped);
+
+        if (st == FT_IO_PENDING)
+            st = FT_GetOverlappedResult(m_handle, &vOverlapped, &transferred, true);
+
+        FT_ReleaseOverlapped(m_handle, &vOverlapped);
+    }
+#endif // USB_WIN_USE_ASYNC
+
+    if (st != FT_OK && st != FT_IO_PENDING)
+        abortPipe(pipe, EndpointDirection::In);
 
     auto ec = make_error_code(st);
 
@@ -769,6 +809,7 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     readBuffer.last  = readBuffer.first + transferred;
 
     copy_and_update();
+
 
     if (ec && ec != ErrorType::Timeout)
         return ec;
@@ -840,11 +881,42 @@ std::error_code Impl::read_unbuffered(Pipe pipe, u8 *buffer, size_t size,
     ULONG transferred = 0; // FT API wants a ULONG* parameter
 
 #ifdef __WIN32
+#if !USB_WIN_USE_ASYNC
     FT_STATUS st = FT_ReadPipeEx(m_handle, get_endpoint(pipe, EndpointDirection::In),
                                  buffer, size,
                                  &transferred,
                                  nullptr);
-#else
+#else // USB_WIN_USE_ASYNC
+    FT_STATUS st = FT_OK;
+    {
+        LOG_WARN("async read_unbuffered");
+        OVERLAPPED vOverlapped = {0};
+        st = FT_InitializeOverlapped(m_handle, &vOverlapped);
+
+        if (auto ec = make_error_code(st))
+        {
+            LOG_WARN("pipe=%u, FT_InitializeOverlapped failed: ec=%s",
+                     static_cast<unsigned>(pipe), ec.message().c_str());
+            return ec;
+        }
+
+        st = FT_ReadPipeEx(m_handle, get_endpoint(pipe, EndpointDirection::In),
+                           buffer, size,
+                           &transferred,
+                           &vOverlapped);
+
+        if (st == FT_IO_PENDING)
+            st = FT_GetOverlappedResult(m_handle, &vOverlapped, &transferred, true);
+
+        FT_ReleaseOverlapped(m_handle, &vOverlapped);
+    }
+
+#endif // USB_WIN_USE_ASYNC
+
+    if (st != FT_OK && st != FT_IO_PENDING)
+        abortPipe(pipe, EndpointDirection::In);
+
+#else // linux
     FT_STATUS st = FT_ReadPipeEx(m_handle, get_fifo_id(pipe),
                                  buffer, size,
                                  &transferred,
@@ -858,6 +930,24 @@ std::error_code Impl::read_unbuffered(Pipe pipe, u8 *buffer, size_t size,
               static_cast<unsigned>(pipe), size, bytesTransferred, ec.message().c_str());
 
     return ec;
+}
+
+std::error_code Impl::abortPipe(Pipe pipe, EndpointDirection dir)
+{
+#ifdef __WIN32
+    #if 0
+        LOG_WARN("FT_AbortPipe on pipe=%u, dir=%u",
+                 static_cast<unsigned>(pipe),
+                 static_cast<unsigned>(dir));
+
+        auto st = FT_AbortPipe(m_handle, get_endpoint(pipe, dir));
+        return make_error_code(st);
+    #else
+        return {};
+    #endif
+#else
+    return {};
+#endif
 }
 
 std::error_code Impl::getReadQueueSize(Pipe pipe, u32 &dest)
