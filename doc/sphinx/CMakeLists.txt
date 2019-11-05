@@ -95,7 +95,7 @@ if (SPHINX_EXECUTABLE)
 
     if (WIN32)
         add_custom_target(doc_latex_pdf
-                mingw32-make -C ${SPHINX_LATEX_DIR}
+                make -C ${SPHINX_LATEX_DIR}
             COMMENT "Generating PDF from Sphinx latex output"
             )
     else(WIN32)
