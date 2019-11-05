@@ -106,13 +106,13 @@ std::error_code MVLCDialog::readWords(u32 *dest, size_t count, size_t &wordsTran
     // Note: the loop is a workaround for an issue happening only when
     // connected via USB2: the read call fails with a timeout despite data
     // being available at the endpoint. This can be verified by using
-    // get_read_queue_size() directly after the read that timed out.
+    // getReadQueueSize() directly after the read that timed out.
     // A 2nd read issued right after the timeout will succeed and yield the
     // correct data.
-    // I have not encountered this issue when connected via USB3.
-    // This workaround has the side effect of doubling the potential maximum
-    // time spent in this method waiting for a timeout.
-    static const u16 MaxReadAttempts = 2;
+    // I have not encountered this issue when connected via USB3.  This
+    // workaround has the side effect of multiplying the potential maximum time
+    // spent waiting for a timeout by MaxReadAttempts.
+    static const u16 MaxReadAttempts = 1;
     u16 attempts = 0;
 
     do
