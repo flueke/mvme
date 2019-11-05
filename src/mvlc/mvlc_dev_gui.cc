@@ -289,7 +289,7 @@ void MVLCDataReader::readoutLoop()
 
     emit started();
 
-    m_mvlc->setReadTimeout(Pipe::Data, ReadTimeout_ms);
+    //m_mvlc->setReadTimeout(Pipe::Data, ReadTimeout_ms);
 
     qDebug() << __PRETTY_FUNCTION__ << "entering readout loop";
     qDebug() << __PRETTY_FUNCTION__ << "executing in" << QThread::currentThread();
