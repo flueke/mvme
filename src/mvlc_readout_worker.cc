@@ -1,3 +1,4 @@
+#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc_readout_worker.h"
 
 #include <QCoreApplication>
@@ -8,7 +9,6 @@
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc/mvlc_util.h"
 #include "mvlc/mvlc_impl_usb.h"
-#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc_daq.h"
 #include "util_zip.h"
 #include "vme_analysis_common.h"
