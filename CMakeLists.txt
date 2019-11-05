@@ -96,6 +96,11 @@ SET(CMAKE_INSTALL_RPATH ".")
 #   SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 #ENDIF("${isSystemDir}" STREQUAL "-1")
 
+#if (WIN32)
+#    string(APPEND CMAKE_CXX_FLAGS " -flto")
+#    string(APPEND CMAKE_C_FLAGS " -flto")
+#    string(APPEND CMAKE_EXE_LINKER_FLAGS " -flto")
+#endif(WIN32)
 
 # External libraries.
 # Note: This was moved up from the src/ subdirectory so that the

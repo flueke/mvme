@@ -37,6 +37,12 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
+#if (WIN32)
+#    string(APPEND CMAKE_CXX_FLAGS " -flto")
+#    string(APPEND CMAKE_C_FLAGS " -flto")
+#    string(APPEND CMAKE_EXE_LINKER_FLAGS " -flto")
+#endif(WIN32)
+
 include_directories(pcg-cpp-0.98/include/)
 
 find_package(Boost REQUIRED)
