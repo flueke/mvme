@@ -345,7 +345,7 @@ void MVLCNotificationPoller::doPoll()
         qDebug() << __FUNCTION__ << tStart << "  begin read";
 
 #ifndef __WIN32
-        auto ec = m_mvlc.readKnownBuffer(buffer, Default_PollReadTimeout_ms);
+        auto ec = m_mvlc.readKnownBuffer(buffer, PollReadTimeout_ms);
 #else
         auto ec = m_mvlc.readKnownBuffer(buffer);
 #endif
