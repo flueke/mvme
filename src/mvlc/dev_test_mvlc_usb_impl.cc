@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
 
     try
     {
-#if 1
+#if 0
         cout << "Performing " << MaxIterations << " MVLC register writes and reads..." << endl;
 
         for (iteration = 0; iteration < MaxIterations; iteration++)

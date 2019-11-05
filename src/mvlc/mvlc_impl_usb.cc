@@ -889,7 +889,7 @@ std::error_code Impl::read_unbuffered(Pipe pipe, u8 *buffer, size_t size,
 #else // USB_WIN_USE_ASYNC
     FT_STATUS st = FT_OK;
     {
-        LOG_WARN("async read_unbuffered");
+        //LOG_WARN("async read_unbuffered");
         OVERLAPPED vOverlapped = {0};
         st = FT_InitializeOverlapped(m_handle, &vOverlapped);
 
