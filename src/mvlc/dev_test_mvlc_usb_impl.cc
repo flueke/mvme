@@ -91,9 +91,6 @@ int main(int argc, char *argv[])
 
     MVLCObject mvlc(make_mvlc_usb());
 
-    mvlc.setReadTimeout(Pipe::Command, 5000);
-    mvlc.setWriteTimeout(Pipe::Command, 10000);
-
     if (auto ec = mvlc.connect())
     {
         assert(!mvlc.isConnected());
@@ -101,6 +98,9 @@ int main(int argc, char *argv[])
         return 1;
     }
     assert(mvlc.isConnected());
+
+    mvlc.setReadTimeout(Pipe::Command, 5000);
+    mvlc.setWriteTimeout(Pipe::Command, 10000);
 
     static const size_t MaxIterations = 25000 * 4;
     static const std::chrono::duration<int, std::milli> WaitInterval(0);
@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
 
     try
     {
-#if 0
+#if 1
         cout << "Performing " << MaxIterations << " MVLC register writes and reads..." << endl;
 
         for (iteration = 0; iteration < MaxIterations; iteration++)
