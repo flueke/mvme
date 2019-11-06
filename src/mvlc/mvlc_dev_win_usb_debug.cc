@@ -86,12 +86,6 @@ static const std::vector<u32> InitData =
     0xf2000000,
 };
 
-enum class EndpointDirection: u8
-{
-    In,
-    Out
-};
-
 constexpr u8 get_endpoint(mesytec::mvlc::Pipe pipe, EndpointDirection dir)
 {
     u8 result = 0;
