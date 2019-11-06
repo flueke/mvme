@@ -7,7 +7,10 @@ project(mvme)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
-#set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-mismatched-tags")
+
+if (WIN32)
+    set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-format")
+endif(WIN32)
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 
