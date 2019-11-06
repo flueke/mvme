@@ -174,10 +174,7 @@ if(MVME_ENABLE_MVLC)
     target_link_libraries(dev_ftdi_list_devices ftd3xx)
 
     add_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
-    target_link_libraries(dev_test_mvlc_usb_impl
-        PRIVATE "-Wl,--stack,10000000"
-        libmvme_mvlc
-        )
+    target_link_libraries(dev_test_mvlc_usb_impl libmvme_mvlc)
 
     add_executable(dev_test_mvlc_eth_impl mvlc/dev_test_mvlc_eth_impl.cc)
     target_link_libraries(dev_test_mvlc_eth_impl libmvme_mvlc)

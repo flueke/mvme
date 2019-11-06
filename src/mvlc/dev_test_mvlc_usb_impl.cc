@@ -56,33 +56,35 @@ int main(int argc, char *argv[])
 
     // connect, disconnect, connect
     {
-        Impl mvlcUSB(0);
+        // Note: this is being created on the heap to avoid overflowing the
+        // stack under msys2 (windows).
+        auto mvlcUSB = std::make_unique<Impl>(0);
 
         // connect
-        if (auto ec = mvlcUSB.connect())
+        if (auto ec = mvlcUSB->connect())
         {
-            assert(!mvlcUSB.isConnected());
+            assert(!mvlcUSB->isConnected());
             cerr << "connect: " << ec.category().name() << ": " << ec.message() << endl;
             return 1;
         }
-        assert(mvlcUSB.isConnected());
+        assert(mvlcUSB->isConnected());
 
         // disconnect
-        if (auto ec = mvlcUSB.disconnect())
+        if (auto ec = mvlcUSB->disconnect())
         {
-            assert(!mvlcUSB.isConnected());
+            assert(!mvlcUSB->isConnected());
             cerr << "disconnect: " << ec.category().name() << ": " << ec.message() << endl;
         }
-        assert(!mvlcUSB.isConnected());
+        assert(!mvlcUSB->isConnected());
 
         // connect again
-        if (auto ec = mvlcUSB.connect())
+        if (auto ec = mvlcUSB->connect())
         {
-            assert(!mvlcUSB.isConnected());
+            assert(!mvlcUSB->isConnected());
             cerr << "connect: " << ec.category().name() << ": " << ec.message() << endl;
             return 1;
         }
-        assert(mvlcUSB.isConnected());
+        assert(mvlcUSB->isConnected());
     }
 
     cout << "End of Connect/Disconnect tests" << endl;
