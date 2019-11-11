@@ -655,9 +655,8 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
     new vme_script::SyntaxHighlighter(ui->te_scriptInput->document());
     static const int SpacesPerTab = 4;
-    int tabWidth = calculate_tab_width(ui->te_scriptInput->font(), SpacesPerTab);
-    ui->te_scriptInput->setTabStopWidth(tabWidth);
-    ui->te_udpScriptInput->setTabStopWidth(tabWidth);
+    set_tabstop_width(ui->te_scriptInput, SpacesPerTab);
+    set_tabstop_width(ui->te_udpScriptInput, SpacesPerTab);
 
     // Reader stats ui setup
     {

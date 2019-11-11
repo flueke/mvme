@@ -22,6 +22,7 @@
 #include "vme_script.h"
 #include "gui_util.h"
 #include "mvme.h"
+#include "util/qt_font.h"
 
 #include <QApplication>
 #include <QFileDialog>
@@ -126,19 +127,12 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
     // Editor area
     new vme_script::SyntaxHighlighter(m_d->m_editor->document());
 
-    auto font = QFont("Monospace", 8);
-    font.setStyleHint(QFont::Monospace);
-    font.setFixedPitch(true);
+    auto font = make_monospace_font();
+    font.setPointSize(8);
     m_d->m_editor->setFont(font);
+    set_tabstop_width(m_d->m_editor, TabStop);
 
-    {
-        // Tab width calculation
-        QString spaces;
-        for (int i = 0; i < TabStop; ++i)
-            spaces += " ";
-        QFontMetrics metrics(font);
-        m_d->m_editor->setTabStopWidth(metrics.width(spaces));
-    }
+    qDebug() << __PRETTY_FUNCTION__ << "editor font key is:" << m_d->m_editor->font().key();
 
     connect(script, &VMEScriptConfig::modified, this, &VMEScriptEditor::onScriptModified);
 

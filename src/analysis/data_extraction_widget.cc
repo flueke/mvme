@@ -27,7 +27,7 @@
 #include <QVBoxLayout>
 
 #include "data_filter_edit.h"
-#include "../qt_util.h"
+#include "qt_util.h"
 
 namespace analysis
 {

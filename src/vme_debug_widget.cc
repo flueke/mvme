@@ -19,15 +19,17 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_debug_widget.h"
-#include "ui_vme_debug_widget.h"
-#include "mvme_context.h"
-#include "vme_controller.h"
 
 #include <QFileDialog>
+#include <QMessageBox>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
-#include <QMessageBox>
+
+#include "mvme_context.h"
+#include "ui_vme_debug_widget.h"
+#include "util/qt_font.h"
+#include "vme_controller.h"
 
 static const int tabStop = 4;
 static const QString scriptFileSetting = QSL("Files/LastDebugScriptDirectory");
@@ -44,13 +46,7 @@ VMEDebugWidget::VMEDebugWidget(MVMEContext *context, QWidget *parent)
     ui->setupUi(this);
 
     new vme_script::SyntaxHighlighter(ui->scriptInput);
-    {
-        QString spaces;
-        for (int i = 0; i < tabStop; ++i)
-            spaces += " ";
-        QFontMetrics metrics(ui->scriptInput->font());
-        ui->scriptInput->setTabStopWidth(metrics.width(spaces));
-    }
+    set_tabstop_width(ui->scriptInput, tabStop);
 
     auto onControllerStateChanged = [this] (ControllerState state)
     {

@@ -9,6 +9,7 @@
 
 #include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_util.h"
+#include "util/qt_font.h"
 #include "vme_script.h"
 
 namespace
@@ -73,13 +74,7 @@ VMEDebugWidget::VMEDebugWidget(MVLCObject *mvlc, QWidget *parent)
     ui->gb_scriptOutput->setVisible(false);
 
     new vme_script::SyntaxHighlighter(ui->scriptInput);
-    {
-        QString spaces;
-        for (int i = 0; i < TabStop; ++i)
-            spaces += " ";
-        QFontMetrics metrics(ui->scriptInput->font());
-        ui->scriptInput->setTabStopWidth(metrics.width(spaces));
-    }
+    set_tabstop_width(ui->scriptInput, TabStop);
 
     // Writer1
     {
