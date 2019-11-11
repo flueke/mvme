@@ -181,5 +181,9 @@ void CodeEditor::enableCurrentLineHighlight(bool b)
 
 void CodeEditor::setTabStopCharCount(int charCount)
 {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
     setTabStopDistance(calculate_tabstop_width(font(), charCount));
+#else
+    setTabStopWidth(calculate_tabstop_width(font(), charCount));
+#endif
 }
