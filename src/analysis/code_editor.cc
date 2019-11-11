@@ -67,7 +67,7 @@ CodeEditor::CodeEditor(QWidget *parent)
     auto font = make_monospace_font();
     font.setPointSize(8);
     setFont(font);
-    setTabStopCharWidth(DefaultTabStop);
+    setTabStopCharCount(DefaultTabStop);
     setLineWrapMode(QPlainTextEdit::NoWrap);
     enableCurrentLineHighlight(false);
 
@@ -83,7 +83,11 @@ int CodeEditor::lineNumberAreaWidth()
         ++digits;
     }
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
+    int space = 3 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
+#else
     int space = 3 + fontMetrics().width(QLatin1Char('9')) * digits;
+#endif
 
     return space;
 }
@@ -175,7 +179,7 @@ void CodeEditor::enableCurrentLineHighlight(bool b)
     }
 }
 
-void CodeEditor::setTabStopCharWidth(int charWidth)
+void CodeEditor::setTabStopCharCount(int charCount)
 {
-    setTabStopWidth(calculate_tabstop_width(font(), charWidth));
+    setTabStopDistance(calculate_tabstop_width(font(), charCount));
 }

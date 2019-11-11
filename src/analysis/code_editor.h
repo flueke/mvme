@@ -81,7 +81,7 @@ class CodeEditor : public QPlainTextEdit
 
         void enableCurrentLineHighlight(bool b);
         bool currentLineHighlightEnabled() const { return m_doHighlightCurrentLine; }
-        void setTabStopCharWidth(int charWidth);
+        void setTabStopCharCount(int charCount);
 
     protected:
         void resizeEvent(QResizeEvent *event) Q_DECL_OVERRIDE;

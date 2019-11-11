@@ -577,7 +577,7 @@ ExpressionCodeEditor::ExpressionCodeEditor(QWidget *parent)
     : QWidget(parent)
     , m_codeEditor(new CodeEditor)
 {
-    m_codeEditor->setTabStopCharWidth(TabStop);
+    m_codeEditor->setTabStopCharCount(TabStop);
     new ExpressionOperatorSyntaxHighlighter(m_codeEditor->document());
 
     auto widgetLayout = new QHBoxLayout(this);
