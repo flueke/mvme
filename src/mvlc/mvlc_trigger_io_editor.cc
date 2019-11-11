@@ -246,7 +246,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
 
             // Copy settings to L0 and L3
             std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
-            std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
+            std::copy_n(settings.begin(), count, ioCfg.l3.ioNIM.begin());
 
             setupModified();
         };
@@ -312,12 +312,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
 
             auto settings = dialog.getSettings();
             {
-                size_t count = std::min(static_cast<size_t>(settings.size()),
-                                        ioCfg.l0.ioNIM.size());
+                size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioNIM.size());
 
                 // Copy settings to L0 and L3
                 std::copy_n(settings.begin(), count, ioCfg.l0.ioNIM.begin());
-                std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), ioCfg.l3.ioNIM.begin());
+                std::copy_n(settings.begin(), count, ioCfg.l3.ioNIM.begin());
             }
 
             {
