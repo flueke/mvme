@@ -836,6 +836,14 @@ void parse_mvlc_meta_block(const vme_script::MetaBlock &meta, TriggerIO &ioCfg)
 
             if (yNames[unitIndex])
                 unitName = y_to_qstr(yNames[unitIndex]);
+
+            // Copy NIM_IO names to the level3 structure.
+            if (Level3::NIM_IO_Unit_Offset <= static_cast<unsigned>(unitIndex)
+                && static_cast<unsigned>(unitIndex) < (Level3::NIM_IO_Unit_Offset +
+                                                       trigger_io::NIM_IO_Count))
+            {
+                ioCfg.l3.unitNames[unitIndex] = unitName;
+            }
         }
     }
 
