@@ -1683,6 +1683,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         m_d->tLastReaderStatUpdate = QDateTime::currentDateTime();
     });
 
+#if 0
     // Poll the read queue size for both pipes
     connect(updateTimer, &QTimer::timeout,
             this, [this] ()
@@ -1711,8 +1712,9 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             .arg(QTime::currentTime().toString())
             );
     });
+#endif
 
-    // update stack error notification couns and rates
+    // update stack error notification counts and rates
     connect(updateTimer, &QTimer::timeout,
             this, [this] ()
     {
@@ -1756,7 +1758,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             {
                 double rate = delta / dt;
                 if (!labelText.isEmpty()) labelText += ", ";
-                labelText += QString("non-stack notifications: %1").arg(delta);
+                labelText += QString("non-stack notifications: %1/s").arg(rate);
             }
         }
 

@@ -101,10 +101,10 @@ int main(int argc, char *argv[])
     }
     assert(mvlc.isConnected());
 
-    mvlc.setReadTimeout(Pipe::Command, 5000);
-    mvlc.setWriteTimeout(Pipe::Command, 10000);
+    mvlc.setReadTimeout(Pipe::Command, 100);
+    mvlc.setWriteTimeout(Pipe::Command, 100);
 
-    static const size_t MaxIterations = 25000 * 4;
+    static const size_t MaxIterations = 100;
     static const std::chrono::duration<int, std::milli> WaitInterval(0);
     size_t iteration = 0u;
 

@@ -40,7 +40,7 @@ do\
 #define LOG_DEBUG(fmt, ...) DO_LOG(LOG_LEVEL_DEBUG, "DEBUG - mvlc_usb ", fmt, ##__VA_ARGS__)
 #define LOG_TRACE(fmt, ...) DO_LOG(LOG_LEVEL_TRACE, "TRACE - mvlc_usb ", fmt, ##__VA_ARGS__)
 
-#define USB_WIN_USE_ASYNC 1
+#define USB_WIN_USE_ASYNC 0
 
 namespace
 {
@@ -496,7 +496,8 @@ std::error_code Impl::connect()
 
     m_deviceInfo = devInfo;
 
-#ifdef __WIN32
+//#ifdef __WIN32
+#if 1
     // It's important to clean the pipes! :)
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
@@ -536,11 +537,13 @@ std::error_code Impl::connect()
 
     LOG_INFO("opened USB device");
 
+#if 0
     if (auto ec = post_connect_cleanup(*this))
     {
         LOG_WARN("error from USB post connect cleanup: %s", ec.message().c_str());
         return ec;
     }
+#endif
 
     LOG_INFO("connected to MVLC USB");
 
@@ -640,33 +643,42 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
 #ifdef __WIN32 // windows
 
 #if !USB_WIN_USE_ASYNC
-    FT_STATUS st = FT_WritePipeEx(m_handle, get_endpoint(pipe, EndpointDirection::Out),
-                                  const_cast<u8 *>(buffer), size,
-                                  &transferred,
-                                  nullptr);
+    LOG_WARN("sync write");
+    FT_STATUS st = FT_WritePipe(
+        m_handle, get_endpoint(pipe, EndpointDirection::Out),
+        const_cast<u8 *>(buffer), size,
+        &transferred,
+        nullptr);
 #else // USB_WIN_USE_ASYNC
     FT_STATUS st = FT_OK;
     {
         LOG_WARN("async write");
         OVERLAPPED vOverlapped = {0};
-        st = FT_InitializeOverlapped(m_handle, &vOverlapped);
+        std::memset(&vOverlapped, 0, sizeof(vOverlapped));
+        vOverlapped.hEvent = CreateEvent(nullptr, false, false, nullptr);
+        //st = FT_InitializeOverlapped(m_handle, &vOverlapped);
 
-        if (auto ec = make_error_code(st))
-        {
-            LOG_WARN("pipe=%u, FT_InitializeOverlapped failed: ec=%s",
-                     static_cast<unsigned>(pipe), ec.message().c_str());
-            return ec;
-        }
+        qDebug("%s: vOverlapped.hEvent after call to FT_InitializeOverlapped: %p",
+               __PRETTY_FUNCTION__, vOverlapped.hEvent);
 
-        st = FT_WritePipeEx(m_handle, get_endpoint(pipe, EndpointDirection::Out),
-                            const_cast<u8 *>(buffer), size,
-                            &transferred,
-                            &vOverlapped);
+        //if (auto ec = make_error_code(st))
+        //{
+        //    LOG_WARN("pipe=%u, FT_InitializeOverlapped failed: ec=%s",
+        //             static_cast<unsigned>(pipe), ec.message().c_str());
+        //    return ec;
+        //}
+
+        st = FT_WritePipe(
+            m_handle, get_endpoint(pipe, EndpointDirection::Out),
+            const_cast<u8 *>(buffer), size,
+            &transferred,
+            &vOverlapped);
 
         if (st == FT_IO_PENDING)
             st = FT_GetOverlappedResult(m_handle, &vOverlapped, &transferred, true);
 
-        FT_ReleaseOverlapped(m_handle, &vOverlapped);
+        CloseHandle(vOverlapped.hEvent);
+        //FT_ReleaseOverlapped(m_handle, &vOverlapped);
     }
 #endif // USB_WIN_USE_ASYNC
 
@@ -764,35 +776,41 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     ULONG transferred = 0; // FT API wants a ULONG* parameter
 
 #if !USB_WIN_USE_ASYNC
-    FT_STATUS st = FT_ReadPipeEx(m_handle, get_endpoint(pipe, EndpointDirection::In),
-                                 readBuffer.data.data(),
-                                 readBuffer.capacity(),
-                                 &transferred,
-                                 nullptr);
+    LOG_WARN("sync read");
+    FT_STATUS st = FT_ReadPipe(
+        m_handle, get_endpoint(pipe, EndpointDirection::In),
+        readBuffer.data.data(),
+        readBuffer.capacity(),
+        &transferred,
+        nullptr);
 #else // USB_WIN_USE_ASYNC
     FT_STATUS st = FT_OK;
     {
         LOG_WARN("async read");
         OVERLAPPED vOverlapped = {0};
-        st = FT_InitializeOverlapped(m_handle, &vOverlapped);
+        std::memset(&vOverlapped, 0, sizeof(vOverlapped));
+        vOverlapped.hEvent = CreateEvent(nullptr, false, false, nullptr);
+        //st = FT_InitializeOverlapped(m_handle, &vOverlapped);
 
-        if (auto ec = make_error_code(st))
-        {
-            LOG_WARN("pipe=%u, FT_InitializeOverlapped failed: ec=%s",
-                     static_cast<unsigned>(pipe), ec.message().c_str());
-            return ec;
-        }
+        //if (auto ec = make_error_code(st))
+        //{
+        //    LOG_WARN("pipe=%u, FT_InitializeOverlapped failed: ec=%s",
+        //             static_cast<unsigned>(pipe), ec.message().c_str());
+        //    return ec;
+        //}
 
-        st = FT_ReadPipeEx(m_handle, get_endpoint(pipe, EndpointDirection::In),
-                           readBuffer.data.data(),
-                           readBuffer.capacity(),
-                           &transferred,
-                           &vOverlapped);
+        st = FT_ReadPipe(
+            m_handle, get_endpoint(pipe, EndpointDirection::In),
+            readBuffer.data.data(),
+            readBuffer.capacity(),
+            &transferred,
+            &vOverlapped);
 
         if (st == FT_IO_PENDING)
             st = FT_GetOverlappedResult(m_handle, &vOverlapped, &transferred, true);
 
-        FT_ReleaseOverlapped(m_handle, &vOverlapped);
+        CloseHandle(vOverlapped.hEvent);
+        //FT_ReleaseOverlapped(m_handle, &vOverlapped);
     }
 #endif // USB_WIN_USE_ASYNC
 
@@ -882,33 +900,38 @@ std::error_code Impl::read_unbuffered(Pipe pipe, u8 *buffer, size_t size,
 
 #ifdef __WIN32
 #if !USB_WIN_USE_ASYNC
-    FT_STATUS st = FT_ReadPipeEx(m_handle, get_endpoint(pipe, EndpointDirection::In),
-                                 buffer, size,
-                                 &transferred,
-                                 nullptr);
+    FT_STATUS st = FT_ReadPipe(
+        m_handle, get_endpoint(pipe, EndpointDirection::In),
+        buffer, size,
+        &transferred,
+        nullptr);
 #else // USB_WIN_USE_ASYNC
     FT_STATUS st = FT_OK;
     {
         //LOG_WARN("async read_unbuffered");
         OVERLAPPED vOverlapped = {0};
-        st = FT_InitializeOverlapped(m_handle, &vOverlapped);
+        std::memset(&vOverlapped, 0, sizeof(vOverlapped));
+        vOverlapped.hEvent = CreateEvent(nullptr, false, false, nullptr);
+        //st = FT_InitializeOverlapped(m_handle, &vOverlapped);
 
-        if (auto ec = make_error_code(st))
-        {
-            LOG_WARN("pipe=%u, FT_InitializeOverlapped failed: ec=%s",
-                     static_cast<unsigned>(pipe), ec.message().c_str());
-            return ec;
-        }
+        //if (auto ec = make_error_code(st))
+        //{
+        //    LOG_WARN("pipe=%u, FT_InitializeOverlapped failed: ec=%s",
+        //             static_cast<unsigned>(pipe), ec.message().c_str());
+        //    return ec;
+        //}
 
-        st = FT_ReadPipeEx(m_handle, get_endpoint(pipe, EndpointDirection::In),
-                           buffer, size,
-                           &transferred,
-                           &vOverlapped);
+        st = FT_ReadPipe(
+            m_handle, get_endpoint(pipe, EndpointDirection::In),
+            buffer, size,
+            &transferred,
+            &vOverlapped);
 
         if (st == FT_IO_PENDING)
             st = FT_GetOverlappedResult(m_handle, &vOverlapped, &transferred, true);
 
-        FT_ReleaseOverlapped(m_handle, &vOverlapped);
+        CloseHandle(vOverlapped.hEvent);
+        //FT_ReleaseOverlapped(m_handle, &vOverlapped);
     }
 
 #endif // USB_WIN_USE_ASYNC

@@ -139,8 +139,9 @@ constexpr u8 get_endpoint(mesytec::mvlc::Pipe pipe, EndpointDirection dir)
  */
 
 #define USE_EX_FUNCTIONS 1
-#define USE_READ_STREAMPIPES 1
+#define USE_READ_STREAMPIPES 0
 #define READ_STREAMPIPE_SIZE 1024 * 1024
+#define USE_BUFFERED_READS 1
 
 std::error_code mvlc_open(void *&handle)
 {
@@ -213,6 +214,7 @@ using ReadBuffers = std::array<ReadBuffer<BufferSize>, BufferCount>;
 
 std::error_code mvlc_read(void *handle, Pipe pipe, u8* dest, size_t size, size_t &bytesTransferred)
 {
+#if USE_BUFFERED_READS
     static ReadBuffers buffers;
     static int lastReadBufferIndex = -1;
 
@@ -230,8 +232,8 @@ std::error_code mvlc_read(void *handle, Pipe pipe, u8* dest, size_t size, size_t
         buffer.last  = buffer.first + transferred;
         lastReadBufferIndex = 0;
 
-        qDebug("%s: initial read into buffer[0]: ec=%s, size=%u",
-               __PRETTY_FUNCTION__, ec.message().c_str(), transferred);
+        qDebug("%s: initial read into buffer[0]: ec=%s, max_size=%u, transferred_size=%u",
+               __PRETTY_FUNCTION__, ec.message().c_str(), buffer.data.size(), transferred);
 
         if (ec && ec != ErrorType::Timeout)
             return ec;
@@ -287,117 +289,163 @@ std::error_code mvlc_read(void *handle, Pipe pipe, u8* dest, size_t size, size_t
     }
 
     return {};
+#else
+    auto ec = mvlc_low_level_read(handle, pipe, dest, size, bytesTransferred);
+    qDebug("%s: pipe=%u, read of size %u: ec=%s, transferred=%u",
+           __PRETTY_FUNCTION__, pipe, size, ec.message().c_str(), bytesTransferred);
+    return ec;
+#endif
 }
 
 int main(int argc, char *argv[])
 {
-    FT_STATUS st = FT_OK;
-    void *handle = nullptr;
-
-    // 
-    // open
-    //
-    if (auto ec = mvlc_open(handle))
-        throw ec;
-
-    qDebug("connected to MVLC");
-
-    //
-    // write init stack data
-    //
-    size_t bytesToTransfer = InitData.size() * sizeof(u32);
-    size_t bytesTransferred = 0u;
-
-    qDebug("writing and executing MTDC init stack, size=%u bytes", bytesToTransfer);
-
-    if (auto ec = mvlc_write(handle, Pipe::Command,
-                             reinterpret_cast<const u8 *>(InitData.data()),
-                             bytesToTransfer,
-                             bytesTransferred))
+    try
     {
-        throw ec;
-    }
+        FT_STATUS st = FT_OK;
+        void *handle = nullptr;
 
-    if (bytesTransferred != bytesToTransfer)
-    {
-        qDebug("error writing data: bytesToTransfer=%u != bytesTransferred=%u",
-               bytesToTransfer, bytesTransferred);
-        throw 42;
-    }
-
-    //
-    // read response data
-    //
-
-    // read mirror response header
-    u32 responseHeader = 0u;
-    {
-        std::vector<u32> readBuffer(1);
-        bytesToTransfer = readBuffer.size() * sizeof(u32);
-        bytesTransferred = 0u;
-
-        qDebug("reading response header, max bytes=%u", bytesToTransfer);
-
-        auto ec = mvlc_read(handle, Pipe::Command,
-                            reinterpret_cast<u8 *>(readBuffer.data()),
-                            bytesToTransfer,
-                            bytesTransferred);
-
-        qDebug("read result=%s, bytesTransferred=%u", ec.message().c_str(), bytesTransferred);
-
-        if (ec && ec != ErrorType::Timeout)
+        // 
+        // open
+        //
+        if (auto ec = mvlc_open(handle))
             throw ec;
 
-        responseHeader = readBuffer[0];
-    }
+        qDebug("connected to MVLC");
 
-    // read mirror response contents
-    {
-        size_t responseSize = responseHeader & FrameSizeMask;
-        std::vector<u32> readBuffer(responseSize);
-        bytesToTransfer = readBuffer.size() * sizeof(u32);
-        bytesTransferred = 0u;
+        auto do_test = [&]()
+        {
+            //
+            // write init stack data
+            //
+            size_t bytesToTransfer = InitData.size() * sizeof(u32);
+            size_t bytesTransferred = 0u;
 
-        qDebug("reading response contents, max bytes=%u", bytesToTransfer);
+            qDebug("writing and executing MTDC init stack, size=%u bytes", bytesToTransfer);
 
-        auto ec = mvlc_read(handle, Pipe::Command,
-                            reinterpret_cast<u8 *>(readBuffer.data()),
-                            bytesToTransfer,
-                            bytesTransferred);
+            if (auto ec = mvlc_write(handle, Pipe::Command,
+                                     reinterpret_cast<const u8 *>(InitData.data()),
+                                     bytesToTransfer,
+                                     bytesTransferred))
+            {
+                throw ec;
+            }
 
-        qDebug("read result=%s, bytesTransferred=%u", ec.message().c_str(), bytesTransferred);
+            if (bytesTransferred != bytesToTransfer)
+            {
+                qDebug("error writing data: bytesToTransfer=%u != bytesTransferred=%u",
+                       bytesToTransfer, bytesTransferred);
+                throw 42;
+            }
 
-        if (ec && ec != ErrorType::Timeout)
+            //
+            // read response data
+            //
+
+            // read mirror response header
+            u32 responseHeader = 0u;
+            {
+                std::vector<u32> readBuffer(1);
+                bytesToTransfer = readBuffer.size() * sizeof(u32);
+                bytesTransferred = 0u;
+
+                qDebug("reading response header, max bytes=%u", bytesToTransfer);
+
+                auto ec = mvlc_read(handle, Pipe::Command,
+                                    reinterpret_cast<u8 *>(readBuffer.data()),
+                                    bytesToTransfer,
+                                    bytesTransferred);
+
+                qDebug("read result=%s, bytesTransferred=%u", ec.message().c_str(), bytesTransferred);
+
+                if (ec && ec != ErrorType::Timeout)
+                    throw ec;
+
+                responseHeader = readBuffer[0];
+            }
+
+            // read mirror response contents
+            {
+                size_t responseSize = responseHeader & FrameSizeMask;
+                std::vector<u32> readBuffer(responseSize);
+                bytesToTransfer = readBuffer.size() * sizeof(u32);
+                bytesTransferred = 0u;
+
+                qDebug("reading response contents, max bytes=%u", bytesToTransfer);
+
+                auto ec = mvlc_read(handle, Pipe::Command,
+                                    reinterpret_cast<u8 *>(readBuffer.data()),
+                                    bytesToTransfer,
+                                    bytesTransferred);
+
+                qDebug("read result=%s, bytesTransferred=%u", ec.message().c_str(), bytesTransferred);
+
+                if (ec && ec != ErrorType::Timeout)
+                    throw ec;
+            }
+
+            // read stack response header
+            {
+                std::vector<u32> readBuffer(1);
+                bytesToTransfer = readBuffer.size() * sizeof(u32);
+                bytesTransferred = 0u;
+
+                qDebug("reading response header, max bytes=%u", bytesToTransfer);
+
+                auto ec = mvlc_read(handle, Pipe::Command,
+                                    reinterpret_cast<u8 *>(readBuffer.data()),
+                                    bytesToTransfer,
+                                    bytesTransferred);
+
+                qDebug("read result=%s, bytesTransferred=%u", ec.message().c_str(), bytesTransferred);
+
+                if (ec && ec != ErrorType::Timeout)
+                    throw ec;
+
+                responseHeader = readBuffer[0];
+            }
+        };
+
+        //do_test();
+        auto t = std::thread(do_test);
+        using Clock = std::chrono::high_resolution_clock;
+        auto tStart = Clock::now();
+
+#if 1
+        while (true)
+        {
+            auto elapsed = Clock::now() - tStart;
+
+            if (elapsed > std::chrono::seconds(10))
+            {
+                qDebug("breaking out of main test loop");
+                break;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+            qDebug("main test loop iteration");
+        }
+#endif
+
+        if (t.joinable())
+            t.join();
+
+        qDebug("test thread is done, closing mvlc handle");
+
+
+        //
+        // close
+        //
+        if (auto ec = mvlc_close(handle))
             throw ec;
-    }
 
-    // read stack response header
+        qDebug("closed connection to MVLC");
+    }
+    catch (const std::error_code &ec)
     {
-        std::vector<u32> readBuffer(1);
-        bytesToTransfer = readBuffer.size() * sizeof(u32);
-        bytesTransferred = 0u;
-
-        qDebug("reading response header, max bytes=%u", bytesToTransfer);
-
-        auto ec = mvlc_read(handle, Pipe::Command,
-                            reinterpret_cast<u8 *>(readBuffer.data()),
-                            bytesToTransfer,
-                            bytesTransferred);
-
-        qDebug("read result=%s, bytesTransferred=%u", ec.message().c_str(), bytesTransferred);
-
-        if (ec && ec != ErrorType::Timeout)
-            throw ec;
-
-        responseHeader = readBuffer[0];
+        qDebug("caught std::error_code: %s", ec.message().c_str());
+        return 1;
     }
 
-
-    //
-    // close
-    //
-    if (auto ec = mvlc_close(handle))
-        throw ec;
-
-    qDebug("closed connection to MVLC");
+    return 0;
 }

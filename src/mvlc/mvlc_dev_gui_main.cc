@@ -57,8 +57,6 @@ int main(int argc, char *argv[])
         QObject::connect(devgui, &MVLCDevGUI::sigLogMessage,
                          &logWindow, &LogWidget::logMessage);
 
-        auto poller = new MVLCNotificationPoller(*mvlc_usb);
-
         devgui->addAction(actionQuit);
 
         devgui->resize(1000, 960);

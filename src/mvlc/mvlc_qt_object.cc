@@ -296,10 +296,26 @@ MVLCNotificationPoller::MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent
     , m_mvlc(mvlc)
     , m_isPolling(false)
 {
+#if 1
     connect(&m_pollTimer, &QTimer::timeout, this, [this] ()
     {
+        //qDebug() << __PRETTY_FUNCTION__ << "pre poller via QtConcurrent::run" << QDateTime::currentDateTime();
         QtConcurrent::run(this, &MVLCNotificationPoller::doPoll);
+        //qDebug() << __PRETTY_FUNCTION__ << "post poller via QtConcurrent::run" << QDateTime::currentDateTime();
     });
+#else
+    connect(&m_pollTimer, &QTimer::timeout, this, [this] ()
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "pre poller via std::thread" << QDateTime::currentDateTime();
+
+        auto t = std::thread([this] () { this->doPoll(); });
+
+        if (t.joinable())
+            t.detach();
+
+        qDebug() << __PRETTY_FUNCTION__ << "post poller via std::thread" << QDateTime::currentDateTime();
+    });
+#endif
 }
 
 void MVLCNotificationPoller::enablePolling(int interval_ms)
@@ -334,15 +350,17 @@ void MVLCNotificationPoller::doPoll()
     if (!m_isPolling.compare_exchange_weak(f, true))
         return;
 
-    qDebug() << __FUNCTION__ << "entering polling loop";
+    qDebug() << __FUNCTION__ << "entering polling loop" << QThread::currentThread();
 
     QVector<u32> buffer;
     size_t iterationCount = 0u;
 
     do
     {
+#if 1
         auto tStart = QDateTime::currentDateTime();
         qDebug() << __FUNCTION__ << tStart << "  begin read";
+
 
 #ifndef __WIN32
         auto ec = m_mvlc.readKnownBuffer(buffer, PollReadTimeout_ms);
@@ -362,6 +380,11 @@ void MVLCNotificationPoller::doPoll()
         }
 
         ++iterationCount;
+#else
+        qDebug() << __PRETTY_FUNCTION__ << "sleep";
+        QThread::msleep(5000);
+        qDebug() << __PRETTY_FUNCTION__ << "sleep end";
+#endif
     } while (!buffer.isEmpty());
 
     qDebug() << __FUNCTION__ << "left polling loop after" << iterationCount << "iterations";
