@@ -628,6 +628,7 @@ unsigned Impl::getReadTimeout(Pipe pipe) const
     return m_readTimeouts[up];
 }
 
+#ifdef __WIN32 // windows
 std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
                             size_t &bytesTransferred)
 {
@@ -639,8 +640,6 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
         return make_error_code(MVLCErrorCode::InvalidPipe);
 
     ULONG transferred = 0; // FT API needs a ULONG*
-
-#ifdef __WIN32 // windows
 
 #if !USB_WIN_USE_ASYNC
     LOG_WARN("sync write");
@@ -685,12 +684,6 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     if (st != FT_OK && st != FT_IO_PENDING)
         abortPipe(pipe, EndpointDirection::Out);
 
-#else // linux
-    FT_STATUS st = FT_WritePipeEx(m_handle, get_fifo_id(pipe),
-                                  const_cast<u8 *>(buffer), size,
-                                  &transferred,
-                                  m_writeTimeouts[static_cast<unsigned>(pipe)]);
-#endif
 
     bytesTransferred = transferred;
 
@@ -706,6 +699,41 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
 
     return ec;
 }
+
+#else // Impl::write() linux
+
+std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
+                            size_t &bytesTransferred)
+{
+    assert(buffer);
+    assert(size <= USBSingleTransferMaxBytes);
+    assert(static_cast<unsigned>(pipe) < PipeCount);
+
+    if (static_cast<unsigned>(pipe) >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
+
+    ULONG transferred = 0; // FT API needs a ULONG*
+
+    FT_STATUS st = FT_WritePipeEx(m_handle, get_fifo_id(pipe),
+                                  const_cast<u8 *>(buffer), size,
+                                  &transferred,
+                                  m_writeTimeouts[static_cast<unsigned>(pipe)]);
+
+    bytesTransferred = transferred;
+
+    auto ec = make_error_code(st);
+
+    if (ec)
+    {
+        LOG_WARN("pipe=%u, wrote %lu of %lu bytes, result=%s",
+                 static_cast<unsigned>(pipe),
+                 bytesTransferred, size,
+                 ec.message().c_str());
+    }
+
+    return ec;
+}
+#endif
 
 #ifdef __WIN32 // Impl::read() windows
 
