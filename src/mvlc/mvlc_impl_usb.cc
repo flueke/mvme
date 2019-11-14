@@ -496,8 +496,7 @@ std::error_code Impl::connect()
 
     m_deviceInfo = devInfo;
 
-//#ifdef __WIN32
-#if 1
+#ifdef __WIN32
     // It's important to clean the pipes! :)
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
