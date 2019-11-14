@@ -17,16 +17,20 @@ Features
 ==================================================
 
 * High-rate, low-latency VME module readout
-* Supports the WIENER VM-USB Controller:
 
-  * Readout rates of up to 15 MB/s
-  * USB2 connection
+* Supports the following VME Controllers:
 
-* Supports the Struck SIS3153 Controller over **GBit/s ethernet**:
+  * Mesytec MVLC
+    * USB3, USB2 and ethernet connectivity
+    * Some models have an SFP cage allowing to use optical fiber based ethernet
+      connections
 
-  * Readout rates of up to 35 MB/s from a single module.
-  * Optimized setups can yield around 52 MB/s.
-  * GBit/s Ethernet connection required
+  * WIENER VM-USB (USB2, readout rates of up to 15 MB/s)
+
+  * Struck SIS3153 (**GBit/s ethernet**)
+     * Readout rates of up to 35 MB/s from a single module.
+     * Optimized setups can yield around 52 MB/s.
+     * GBit/s Ethernet connection required!
 
 * Easy creation and configuration of the VME setup
 

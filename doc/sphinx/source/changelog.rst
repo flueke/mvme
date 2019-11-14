@@ -2,6 +2,17 @@
 Changelog
 ##################################################
 
+Version 0.9.6 (in progress)
+---------------
+* Improved support for the MVLC. Among others VME Scripts can now be directly
+  executed during a DAQ run without having to pause and resume the DAQ.
+
+* New UI for setting up the MVLC Trigger and I/O logic system.
+
+* Updates to the auto-matching of vme and analysis objects on config load.
+
+* Improved the mvlc_root_client
+
 Version 0.9.5.5
 ---------------
 * This is the first version with support for the upcoming mesytec MVLC VME
@@ -14,8 +25,6 @@ Version 0.9.5.5
   classes, fills instances of the generated classes with incoming readout data
   and writes these objects out to a ROOT file. Additionally user defined
   callbacks are invoked to perform further analysis on the data.
-
-Note: Documentation has not been updated yet!
 
 Version 0.9.5.4
 ---------------
