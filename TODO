@@ -2,6 +2,25 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+* Multiple MVLC issues
+======================
+* Running a VMEScript should completely disable any polling being done on the
+  cmd pipe. Failing to do so will slow down script execution dramatically due
+  to the time spent waiting for the lock whenever the polling code is waiting
+  for a read to finish.
+
+* ETH under windows: when running a vme script while a high data rate readout
+  is in progress some of the vmeSingleWrite calls will return a timeout error.
+  Figure out if this happens when reading or writing to the socket or in both
+  cases. This could just be "natural" UDP packet loss and would have to be
+  handled by retrying the operation.
+
+* ETH under windows: after an error like the one above mvme is in an odd state.
+  The controller lost the connection and reconnects, no data is received
+  anymore but the DAQ still has to be stopped via the GUI.
+  Also at least one time this stopping did not work.
+
+
 Buttons in a grid. Can do single column and single row layouts.
 Other layout options? No. Just allow having less buttons than (rows * cols).
 Also do not immediately discard data when resizing the grid. Instead use it in

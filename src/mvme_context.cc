@@ -685,6 +685,8 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     emit vmeControllerAboutToBeChanged();
 
+    qDebug() << __PRETTY_FUNCTION__ << "after emit vmeControllerAboutToBeChanged";
+
     // Delete objects in the event loop because Qt events may still be
     // scheduled which may make use of the objects.
     m_readoutWorker->deleteLater();
