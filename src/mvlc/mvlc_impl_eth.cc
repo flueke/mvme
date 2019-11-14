@@ -132,7 +132,7 @@ std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
 {
     DWORD optval = ms;
     int res = setsockopt(sock, SOL_SOCKET, optname,
-                         reinterpret_cast<const char *>(optval),
+                         reinterpret_cast<const char *>(&optval),
                          sizeof(optval));
 
     if (res != 0)
