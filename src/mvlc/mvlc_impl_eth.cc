@@ -242,6 +242,8 @@ std::error_code Impl::connect()
     resetPipeAndChannelStats();
     std::fill(m_lastPacketNumbers.begin(), m_lastPacketNumbers.end(), -1);
 
+    LOG_TRACE("looking up host %s...", m_host.c_str());
+
     if (auto ec = lookup(m_host, CommandPort, m_cmdAddr))
     {
         LOG_TRACE("host lookup failed for host %s: %s",
@@ -260,6 +262,9 @@ std::error_code Impl::connect()
     //
     // Now create two IPv4 UDP sockets and try to bind them to two consecutive
     // local ports.
+
+    LOG_TRACE("creating sockets...");
+
     for (u16 localCmdPort = FirstDynamicPort;
          // Using 'less than' to leave one spare port for the data pipe
          localCmdPort < std::numeric_limits<u16>::max();
@@ -333,6 +338,8 @@ std::error_code Impl::connect()
         return ec;
     }
 
+    LOG_TRACE("connecting sockets...");
+
     // Call connect on the sockets so that we receive only datagrams
     // originating from the MVLC.
     if (int res = ::connect(m_cmdSock, reinterpret_cast<struct sockaddr *>(&m_cmdAddr),
@@ -354,6 +361,8 @@ std::error_code Impl::connect()
     }
 
     // Set read and write timeouts
+    LOG_TRACE("setting socket timeouts...");
+
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
         if (auto ec = set_socket_write_timeout(getSocket(pipe), getWriteTimeout(pipe)))
@@ -372,6 +381,8 @@ std::error_code Impl::connect()
     }
 
     // Set socket receive buffer size
+    LOG_TRACE("setting socket receive buffer sizes...");
+
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
 #ifndef __WIN32
@@ -429,6 +440,8 @@ std::error_code Impl::connect()
     // disableTriggersOnConnect flag is set try to disable the triggers,
     // otherwise return MVLCErrorCode::InUse.
     {
+        LOG_TRACE("reading MVLC trigger registers...");
+
         MVLCDialog dlg(this);
         bool inUse = false;
 
@@ -452,6 +465,7 @@ std::error_code Impl::connect()
 
         if (inUse && !disableTriggersOnConnect())
         {
+            LOG_WARN("MVLC is in use");
             close_sockets();
             return make_error_code(MVLCErrorCode::InUse);
         }
@@ -461,11 +475,14 @@ std::error_code Impl::connect()
 
             if (auto ec = disable_all_triggers(dlg))
             {
+                LOG_WARN("MVLC is in use and failed to disable triggers: %s", ec.message().c_str());
                 close_sockets();
                 return ec;
             }
         }
     }
+
+    LOG_TRACE("ETH connect sequence finished");
 
     assert(m_cmdSock >= 0 && m_dataSock >= 0);
 
