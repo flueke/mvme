@@ -434,14 +434,14 @@ void stack_error_notification_poller(
     mesytec::mvme::TicketMutex &countersMutex,
     std::atomic<bool> &keepRunning)
 {
-    static const auto NoDataSleepDuration = std::chrono::milliseconds(100);
-    static const unsigned PollReadTimeout_ms = 50;
+    static const auto NoDataSleepDuration = std::chrono::milliseconds(2000);
 
     QVector<u32> buffer;
 
     while (keepRunning)
     {
 #ifndef __WIN32
+        static const unsigned PollReadTimeout_ms = 50;
         auto ec = mvlc->readKnownBuffer(buffer, PollReadTimeout_ms);
 #else
         auto ec = mvlc->readKnownBuffer(buffer);
