@@ -350,7 +350,7 @@ void MVLCNotificationPoller::doPoll()
     if (!m_isPolling.compare_exchange_weak(f, true))
         return;
 
-    qDebug() << __FUNCTION__ << "entering polling loop" << QThread::currentThread();
+    //qDebug() << __FUNCTION__ << "entering polling loop" << QThread::currentThread();
 
     QVector<u32> buffer;
     size_t iterationCount = 0u;
@@ -359,7 +359,7 @@ void MVLCNotificationPoller::doPoll()
     {
 #if 1
         auto tStart = QDateTime::currentDateTime();
-        qDebug() << __FUNCTION__ << tStart << "  begin read";
+        //qDebug() << __FUNCTION__ << tStart << "  begin read";
 
 
 #ifndef __WIN32
@@ -367,15 +367,16 @@ void MVLCNotificationPoller::doPoll()
 #else
         auto ec = m_mvlc.readKnownBuffer(buffer);
 #endif
+        (void)ec;
 
         auto tEnd = QDateTime::currentDateTime();
-        qDebug() << __FUNCTION__ << tEnd << "  end read: "
-            << ec.message().c_str()
-            << ", duration:" << tStart.msecsTo(tEnd);
+        //qDebug() << __FUNCTION__ << tEnd << "  end read: "
+        //    << ec.message().c_str()
+        //    << ", duration:" << tStart.msecsTo(tEnd);
 
         if (!buffer.isEmpty())
         {
-            //qDebug() << __FUNCTION__ << "emitting stackErrorNotification";
+            qDebug() << __FUNCTION__ << "emitting stackErrorNotification";
             emit stackErrorNotification(buffer);
         }
 
@@ -387,7 +388,7 @@ void MVLCNotificationPoller::doPoll()
 #endif
     } while (!buffer.isEmpty());
 
-    qDebug() << __FUNCTION__ << "left polling loop after" << iterationCount << "iterations";
+    //qDebug() << __FUNCTION__ << "left polling loop after" << iterationCount << "iterations";
 
     m_isPolling = false;
 }
