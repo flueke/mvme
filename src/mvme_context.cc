@@ -18,6 +18,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+
+// Includes winsock2.h so it's placed at the top to avoid warnings.
+#include "mvlc/mvlc_impl_eth.h"
+
 #include "mvme_context.h"
 
 #include "analysis/a2_adapter.h"
@@ -30,7 +34,6 @@
 #include "mvlc_listfile.h"
 #include "mvlc_listfile_worker.h"
 #include "mvlc/mvlc_error.h"
-#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_context_lib.h"
