@@ -1,3 +1,4 @@
+#include "mvlc/mvlc_impl_eth.h" // keep on top to avoid a winsock2 warning
 #include "mvlc_stream_worker.h"
 
 #include <algorithm>
@@ -5,7 +6,6 @@
 
 #include "analysis/analysis_util.h"
 #include "databuffer.h"
-#include "mvlc/mvlc_impl_eth.h"
 #include "mvme_context.h"
 #include "vme_analysis_common.h"
 
@@ -243,6 +243,27 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
     }
 }
 
+void dump_parser_info(const ReadoutParserState &parser)
+{
+    auto &readoutInfo = parser.readoutInfo;
+
+    for (size_t eventIndex=0; eventIndex<readoutInfo.size(); eventIndex++)
+    {
+        const auto &modules = readoutInfo[eventIndex];
+
+        for (size_t moduleIndex=0; moduleIndex<modules.size(); moduleIndex++)
+        {
+            const auto &moduleParts = modules[moduleIndex];
+
+            qDebug("mvlc readout info: ei=%u, mi=%u: prefixLen=%u, suffixLen=%u, hasDynamic=%d",
+                   eventIndex, moduleIndex,
+                   moduleParts.prefixLen,
+                   moduleParts.suffixLen,
+                   moduleParts.hasDynamic);
+        }
+    }
+}
+
 void MVLC_StreamWorker::start()
 {
     using WorkerState = MVMEStreamWorkerState;
@@ -269,6 +290,8 @@ void MVLC_StreamWorker::start()
     {
         UniqueLock guard(m_parserMutex);
         m_parser = make_readout_parser(collect_readout_scripts(*vmeConfig));
+        dump_parser_info(m_parser);
+        assert(false);
     }
     catch (const std::exception &e)
     {
