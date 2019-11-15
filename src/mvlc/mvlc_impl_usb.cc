@@ -547,7 +547,7 @@ std::error_code Impl::connect()
 
     LOG_INFO("opened USB device");
 
-#if 0
+#if 1
     if (auto ec = post_connect_cleanup(*this))
     {
         LOG_WARN("error from USB post connect cleanup: %s", ec.message().c_str());
