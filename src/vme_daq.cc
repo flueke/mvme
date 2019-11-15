@@ -35,8 +35,12 @@ QVector<ScriptWithResult>
 vme_daq_init(
     VMEConfig *config,
     VMEController *controller,
-    std::function<void (const QString &)> logger)
+    std::function<void (const QString &)> logger,
+    vme_script::run_script_options::Flag opts
+    )
 {
+    using namespace vme_script::run_script_options;
+
     QVector<ScriptWithResult> ret;
 
     auto startScripts = config->getGlobalObjectRoot().findChild<ContainerObject *>(
@@ -53,8 +57,13 @@ vme_daq_init(
 
             logger(QString("  %1").arg(scriptConfig->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-            auto results = run_script(controller, scriptConfig->getScript(), indentingLogger, true);
+
+            auto results = run_script(
+                controller, scriptConfig->getScript(), indentingLogger,
+                opts | LogEachResult);
             ret.push_back({ scriptConfig, results });
+            if ((opts & AbortOnError) && has_errors(results))
+                return ret;
         }
     }
 
@@ -86,9 +95,12 @@ vme_daq_init(
             {
                 logger(QSL("    %1").arg(scriptConfig->objectName()));
                 auto indentingLogger = [logger](const QString &str) { logger(QSL("      ") + str); };
-                auto results = run_script(controller, scriptConfig->getScript(module->getBaseAddress()),
-                                          indentingLogger, true);
+                auto results = run_script(
+                    controller, scriptConfig->getScript(module->getBaseAddress()),
+                    indentingLogger, opts | LogEachResult);
                 ret.push_back({ scriptConfig, results });
+                if ((opts & AbortOnError) && has_errors(results))
+                    return ret;
             }
         }
     }
@@ -103,8 +115,10 @@ vme_daq_init(
         if (!script.isEmpty())
             logger(QString("  %1").arg(eventConfig->objectName()));
 
-        auto results = run_script(controller, script, indentingLogger, true);
+        auto results = run_script(controller, script, indentingLogger, opts | LogEachResult);
         ret.push_back({ scriptConfig, results });
+        if ((opts & AbortOnError) && has_errors(results))
+            return ret;
     }
 
     return ret;
@@ -117,8 +131,12 @@ QVector<ScriptWithResult>
 vme_daq_shutdown(
     VMEConfig *config,
     VMEController *controller,
-    std::function<void (const QString &)> logger)
+    std::function<void (const QString &)> logger,
+    vme_script::run_script_options::Flag opts
+    )
 {
+    using namespace vme_script::run_script_options;
+
     QVector<ScriptWithResult> ret;
 
     logger(QSL("Events DAQ Stop"));
@@ -127,8 +145,11 @@ vme_daq_shutdown(
         logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
         auto scriptConfig = eventConfig->vmeScripts["daq_stop"];
-        auto results = run_script(controller, scriptConfig->getScript(), indentingLogger, true);
+        auto results = run_script(controller, scriptConfig->getScript(), indentingLogger,
+                                  opts | LogEachResult);
         ret.push_back({ scriptConfig, results });
+        if ((opts & AbortOnError) && has_errors(results))
+            return ret;
     }
 
     auto stopScripts = config->getGlobalObjectRoot().findChild<ContainerObject *>(
@@ -144,8 +165,11 @@ vme_daq_shutdown(
 
             logger(QString("  %1").arg(scriptConfig->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-            auto results = run_script(controller, scriptConfig->getScript(), indentingLogger, true);
+            auto results = run_script(controller, scriptConfig->getScript(), indentingLogger,
+                                      opts | LogEachResult);
             ret.push_back({ scriptConfig, results });
+            if ((opts & AbortOnError) && has_errors(results))
+                return ret;
         }
     }
 
