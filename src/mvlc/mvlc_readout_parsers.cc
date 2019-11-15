@@ -422,7 +422,6 @@ ParseResult parse_readout_contents(
 
         const auto &moduleReadoutInfos = state.readoutInfo[state.eventIndex];
         const auto &moduleParts = moduleReadoutInfos[state.moduleIndex];
-        auto &moduleSpans = state.readoutDataSpans[state.moduleIndex];
 
         if (moduleParts.prefixLen == 0 && !moduleParts.hasDynamic && moduleParts.suffixLen == 0)
         {
@@ -432,6 +431,8 @@ ParseResult parse_readout_contents(
         }
         else
         {
+            auto &moduleSpans = state.readoutDataSpans[state.moduleIndex];
+
             switch (state.moduleParseState)
             {
                 case ReadoutParserState::Prefix:
@@ -465,6 +466,7 @@ ParseResult parse_readout_contents(
                             // We're done with this module as it does have neither
                             // dynamic nor suffix parts.
                             state.moduleIndex++;
+                            state.moduleParseState = ReadoutParserState::Prefix;
                         }
                     }
 
@@ -511,6 +513,7 @@ ParseResult parse_readout_contents(
                             {
                                 // No suffix, we're done with the module
                                 state.moduleIndex++;
+                                state.moduleParseState = ReadoutParserState::Prefix;
                             }
                             else
                             {
@@ -542,6 +545,7 @@ ParseResult parse_readout_contents(
                     {
                         // Done with the module
                         state.moduleIndex++;
+                        state.moduleParseState = ReadoutParserState::Prefix;
                     }
 
                     break;
