@@ -1156,7 +1156,8 @@ inline void fixup_usb_buffer(
     }
 }
 
-static const size_t USBReadMinBytes = Kilobytes(256);
+//static const size_t USBReadMinBytes = Kilobytes(256);
+static const size_t USBReadMinBytes = mesytec::mvlc::usb::USBSingleTransferMaxBytes;
 
 std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
 {
@@ -1185,8 +1186,10 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
         size_t bytesTransferred = 0u;
 
         auto dataGuard = mvlcLocks.lockData();
+        //ec = d->mvlc_usb->read_unbuffered(
+        //    Pipe::Data, destBuffer->asU8(), destBuffer->free(), bytesTransferred);
         ec = d->mvlc_usb->read_unbuffered(
-            Pipe::Data, destBuffer->asU8(), destBuffer->free(), bytesTransferred);
+            Pipe::Data, destBuffer->asU8(), USBReadMinBytes, bytesTransferred);
         dataGuard.unlock();
 
         if (ec == ErrorType::ConnectionError)

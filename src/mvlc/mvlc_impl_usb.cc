@@ -41,6 +41,8 @@ do\
 #define LOG_TRACE(fmt, ...) DO_LOG(LOG_LEVEL_TRACE, "TRACE - mvlc_usb ", fmt, ##__VA_ARGS__)
 
 #define USB_WIN_USE_ASYNC 0
+#define USB_WIN_USE_EX_FUNCTIONS 1 // Currently only implemented for the SYNC case.
+#define USB_WIN_USE_STREAMPIPE 1
 
 namespace
 {
@@ -420,7 +422,6 @@ std::error_code Impl::connect()
 
     FT_STATUS st = FT_OK;
 
-
 #ifndef __WIN32
     // Initialzing the struct to zero will make the FTD3xx library use default
     // values for all parameters.
@@ -497,21 +498,16 @@ std::error_code Impl::connect()
     m_deviceInfo = devInfo;
 
 #ifdef __WIN32
-    // It's important to clean the pipes! :)
+    // clean up the pipes
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
-        st = FT_AbortPipe(m_handle, get_endpoint(pipe, EndpointDirection::In));
-        if (auto ec = make_error_code(st))
+        for (auto dir: { EndpointDirection::In, EndpointDirection::Out })
         {
-            closeHandle();
-            return ec;
-        }
-
-        st = FT_AbortPipe(m_handle, get_endpoint(pipe, EndpointDirection::Out));
-        if (auto ec = make_error_code(st))
-        {
-            closeHandle();
-            return ec;
+            if (auto ec = abortPipe(pipe, dir))
+            {
+                closeHandle();
+                return ec;
+            }
         }
     }
 #endif
@@ -534,6 +530,21 @@ std::error_code Impl::connect()
         }
     }
 
+#ifdef __WIN32
+#if USB_WIN_USE_STREAMPIPE
+    // FT_SetStreamPipe(handle, allWritePipes, allReadPipes, pipeID, streamSize)
+    st = FT_SetStreamPipe(m_handle, false, true, 0, USBSingleTransferMaxBytes);
+
+    if (auto ec = make_error_code(st))
+    {
+        fprintf(stderr, "%s: FT_SetStreamPipe failed: %s",
+                __PRETTY_FUNCTION__, ec.message().c_str());
+        closeHandle();
+        return ec;
+    }
+#endif // USB_WIN_USE_STREAMPIPE
+#endif // __WIN32
+
     LOG_INFO("opened USB device");
 
 #if 0
@@ -548,20 +559,6 @@ std::error_code Impl::connect()
 
     return {};
 
-#ifdef __WIN32
-#if 0
-    // FT_SetStreamPipe(handle, allWritePipes, allReadPipes, pipeID, streamSize)
-    st = FT_SetStreamPipe(m_handle, false, true, 0, USBSingleTransferMaxBytes);
-
-    if (auto ec = make_error_code(st))
-    {
-        fprintf(stderr, "%s: FT_SetStreamPipe failed: %s",
-                __PRETTY_FUNCTION__, ec.message().c_str());
-        closeHandle();
-        return ec;
-    }
-#endif
-#endif // __WIN32
 }
 
 std::error_code Impl::disconnect()
@@ -641,16 +638,28 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     ULONG transferred = 0; // FT API needs a ULONG*
 
 #if !USB_WIN_USE_ASYNC
-    LOG_WARN("sync write");
+
+#if USB_WIN_USE_EX_FUNCTIONS
+    LOG_TRACE("sync write (Ex variant)");
+
+    FT_STATUS st = FT_WritePipeEx(
+        m_handle, get_endpoint(pipe, EndpointDirection::Out),
+        const_cast<u8 *>(buffer), size,
+        &transferred,
+        nullptr);
+#else // !USB_WIN_USE_EX_FUNCTIONS
+    LOG_TRACE("sync write");
     FT_STATUS st = FT_WritePipe(
         m_handle, get_endpoint(pipe, EndpointDirection::Out),
         const_cast<u8 *>(buffer), size,
         &transferred,
         nullptr);
+#endif // USB_WIN_USE_EX_FUNCTIONS
+
 #else // USB_WIN_USE_ASYNC
     FT_STATUS st = FT_OK;
     {
-        LOG_WARN("async write");
+        LOG_TRACE("async write");
         OVERLAPPED vOverlapped = {0};
         std::memset(&vOverlapped, 0, sizeof(vOverlapped));
         vOverlapped.hEvent = CreateEvent(nullptr, false, false, nullptr);
@@ -803,17 +812,30 @@ std::error_code Impl::read(Pipe pipe, u8 *buffer, size_t size,
     ULONG transferred = 0; // FT API wants a ULONG* parameter
 
 #if !USB_WIN_USE_ASYNC
-    LOG_WARN("sync read");
+
+#if USB_WIN_USE_EX_FUNCTIONS
+    LOG_TRACE("sync read (Ex variant)");
+
+    FT_STATUS st = FT_ReadPipeEx(
+        m_handle, get_endpoint(pipe, EndpointDirection::In),
+        readBuffer.data.data(),
+        readBuffer.capacity(),
+        &transferred,
+        nullptr);
+#else // !USB_WIN_USE_EX_FUNCTIONS
+    LOG_TRACE("sync read");
     FT_STATUS st = FT_ReadPipe(
         m_handle, get_endpoint(pipe, EndpointDirection::In),
         readBuffer.data.data(),
         readBuffer.capacity(),
         &transferred,
         nullptr);
+#endif // USB_WIN_USE_EX_FUNCTIONS
+
 #else // USB_WIN_USE_ASYNC
     FT_STATUS st = FT_OK;
     {
-        LOG_WARN("async read");
+        LOG_TRACE("async read");
         OVERLAPPED vOverlapped = {0};
         std::memset(&vOverlapped, 0, sizeof(vOverlapped));
         vOverlapped.hEvent = CreateEvent(nullptr, false, false, nullptr);
@@ -927,11 +949,20 @@ std::error_code Impl::read_unbuffered(Pipe pipe, u8 *buffer, size_t size,
 
 #ifdef __WIN32
 #if !USB_WIN_USE_ASYNC
+#if USB_WIN_USE_EX_FUNCTIONS
+    FT_STATUS st = FT_ReadPipeEx(
+        m_handle, get_endpoint(pipe, EndpointDirection::In),
+        buffer, size,
+        &transferred,
+        nullptr);
+#else // !USB_WIN_USE_EX_FUNCTIONS
     FT_STATUS st = FT_ReadPipe(
         m_handle, get_endpoint(pipe, EndpointDirection::In),
         buffer, size,
         &transferred,
         nullptr);
+#endif
+
 #else // USB_WIN_USE_ASYNC
     FT_STATUS st = FT_OK;
     {
@@ -985,19 +1016,23 @@ std::error_code Impl::read_unbuffered(Pipe pipe, u8 *buffer, size_t size,
 std::error_code Impl::abortPipe(Pipe pipe, EndpointDirection dir)
 {
 #ifdef __WIN32
-    #if 0
-        LOG_WARN("FT_AbortPipe on pipe=%u, dir=%u",
-                 static_cast<unsigned>(pipe),
-                 static_cast<unsigned>(dir));
+    LOG_TRACE("FT_AbortPipe on pipe=%u, dir=%u",
+              static_cast<unsigned>(pipe),
+              static_cast<unsigned>(dir));
 
-        auto st = FT_AbortPipe(m_handle, get_endpoint(pipe, dir));
-        return make_error_code(st);
-    #else
-        return {};
-    #endif
-#else
+    auto st = FT_AbortPipe(m_handle, get_endpoint(pipe, dir));
+
+    if (auto ec = make_error_code(st))
+    {
+        LOG_TRACE("FT_AbortPipe on pipe=%u, dir=%u returned an error: %s",
+                  static_cast<unsigned>(pipe),
+                  static_cast<unsigned>(dir),
+                  ec.message().c_str()
+                  );
+        return ec;
+    }
+#endif // __WIN32
     return {};
-#endif
 }
 
 std::error_code Impl::getReadQueueSize(Pipe pipe, u32 &dest)

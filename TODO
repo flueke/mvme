@@ -18,7 +18,13 @@ TODO list, not at all sorted by priority
 * ETH under windows: after an error like the one above mvme is in an odd state.
   The controller lost the connection and reconnects, no data is received
   anymore but the DAQ still has to be stopped via the GUI.
-  Also at least one time this stopping did not work.
+  Also at least one time stopping the DAQ did not work.
+
+-> When using the ETH MVLC retry (VME) register writes a couple of times if
+they result in a timeout error. Do not immediately disconnect the MVLC.
+
+* USB: read out the chip configuration and abort with a clear warning if it's
+  not correctly setup.
 
 
 Buttons in a grid. Can do single column and single row layouts.

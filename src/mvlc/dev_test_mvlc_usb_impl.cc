@@ -52,10 +52,11 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    cout << endl << "Connect/Disconnect tests using the first device..." << endl;
-
+#if 0
     // connect, disconnect, connect
     {
+        cout << endl << "Connect/Disconnect tests using the first device..." << endl;
+
         // Note: this is being created on the heap to avoid overflowing the
         // stack under msys2 (windows).
         auto mvlcUSB = std::make_unique<Impl>(0);
@@ -85,13 +86,23 @@ int main(int argc, char *argv[])
             return 1;
         }
         assert(mvlcUSB->isConnected());
+        cout << "End of Connect/Disconnect tests" << endl;
     }
-
-    cout << "End of Connect/Disconnect tests" << endl;
+#endif
 
     // Use MVLCObject and MVLCDialog to spam requests on the Command Pipe
+    static const size_t MaxIterations = 10000;
+    static const std::chrono::duration<int, std::milli> WaitInterval(0);
+    static const int ReadTimeout_ms  = 1000;
+    static const int WriteTimeout_ms = 1000;
 
     MVLCObject mvlc(make_mvlc_usb());
+
+    for (const auto &pipe: { Pipe::Command, Pipe::Data })
+    {
+        mvlc.setReadTimeout(pipe, ReadTimeout_ms);
+        mvlc.setWriteTimeout(pipe, WriteTimeout_ms);
+    }
 
     if (auto ec = mvlc.connect())
     {
@@ -101,11 +112,9 @@ int main(int argc, char *argv[])
     }
     assert(mvlc.isConnected());
 
-    mvlc.setReadTimeout(Pipe::Command, 100);
-    mvlc.setWriteTimeout(Pipe::Command, 100);
+    cerr << "Read timeout set to " << mvlc.getReadTimeout(Pipe::Command) << " ms" << endl;
+    cerr << "Write timeout set to " << mvlc.getWriteTimeout(Pipe::Command) << " ms" << endl;
 
-    static const size_t MaxIterations = 100;
-    static const std::chrono::duration<int, std::milli> WaitInterval(0);
     size_t iteration = 0u;
 
     struct ErrorWithMessage
@@ -116,7 +125,7 @@ int main(int argc, char *argv[])
 
     try
     {
-#if 0
+#if 1
         cout << "Performing " << MaxIterations << " MVLC register writes and reads..." << endl;
 
         for (iteration = 0; iteration < MaxIterations; iteration++)
