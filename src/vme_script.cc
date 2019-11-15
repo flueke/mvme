@@ -1063,8 +1063,9 @@ void SyntaxHighlighter::highlightBlock(const QString &text)
     }
 }
 
-ResultList run_script(VMEController *controller, const VMEScript &script,
-                      LoggerFun logger, bool logEachResult)
+ResultList run_script(
+    VMEController *controller, const VMEScript &script,
+    LoggerFun logger, const run_script_options::Flag &options)
 {
     int cmdNumber = 1;
     ResultList results;
@@ -1110,8 +1111,14 @@ ResultList run_script(VMEController *controller, const VMEScript &script,
                 << format_result(result)
                 << "duration:" << tStart.msecsTo(tEnd) << "ms";
 
-            if (logEachResult)
+            if (options & run_script_options::LogEachResult)
                 logger(format_result(result));
+
+            if ((options & run_script_options::AbortOnError)
+                && result.error.isError())
+            {
+                break;
+            }
         }
 
         ++cmdNumber;

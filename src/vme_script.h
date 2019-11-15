@@ -199,10 +199,38 @@ struct LIBMVME_CORE_EXPORT Result
 typedef QVector<Result> ResultList;
 typedef std::function<void (const QString &)> LoggerFun;
 
+namespace run_script_options
+{
+    using Flag = u8;
+    static const Flag LogEachResult = 1u << 0;
+    static const Flag AbortOnError  = 1u << 1;
+}
+
 LIBMVME_CORE_EXPORT ResultList run_script(
     VMEController *controller,
     const VMEScript &script,
-    LoggerFun logger = LoggerFun(), bool logEachResult=false);
+    LoggerFun logger = LoggerFun(),
+    const run_script_options::Flag &options = 0);
+
+#if 0
+inline ResultList run_script(
+    VMEController *controller,
+    const VMEScript &script,
+    LoggerFun logger = LoggerFun(),
+    bool logEachResult=false)
+{
+    run_script_options::Flag opts = (logEachResult ? run_script_options::LogEachResult : 0u);
+
+    return run_script(controller, script, logger, opts);
+}
+#endif
+
+inline bool has_errors(const ResultList &results)
+{
+    return std::any_of(
+        std::begin(results), std::end(results),
+        [] (const Result &r) { return r.error.isError(); });
+}
 
 LIBMVME_CORE_EXPORT Result run_command(VMEController *controller,
                                   const Command &cmd,
