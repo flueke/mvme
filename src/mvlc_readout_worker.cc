@@ -811,6 +811,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
             d->mvlc_eth->resetPipeAndChannelStats();
         }
 
+        logMessage("");
         logMessage("Initializing MVLC");
 
         // Stack and trigger setup. Triggers are enabled immediately, this

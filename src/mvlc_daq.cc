@@ -235,6 +235,8 @@ std::error_code setup_trigger_io(
 
 std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
 {
+    logger("Disabling triggers");
+
     if (auto ec = disable_all_triggers(mvlc))
     {
         logger(QString("Error disabling readout triggers: %1")
