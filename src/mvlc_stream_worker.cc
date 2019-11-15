@@ -243,7 +243,7 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
     }
 }
 
-void dump_parser_info(const ReadoutParserState &parser)
+void MVLC_StreamWorker::logParserInfo(const mesytec::mvlc::ReadoutParserState &parser)
 {
     auto &readoutInfo = parser.readoutInfo;
 
@@ -255,11 +255,12 @@ void dump_parser_info(const ReadoutParserState &parser)
         {
             const auto &moduleParts = modules[moduleIndex];
 
-            qDebug("mvlc readout info: ei=%u, mi=%u: prefixLen=%u, suffixLen=%u, hasDynamic=%d",
-                   eventIndex, moduleIndex,
-                   moduleParts.prefixLen,
-                   moduleParts.suffixLen,
-                   moduleParts.hasDynamic);
+            logInfo(QString("mvlc readout parser info: ei=%1, mi=%2: prefixLen=%3, suffixLen=%4, hasDynamic=%5")
+                    .arg(eventIndex)
+                    .arg(moduleIndex)
+                    .arg(static_cast<unsigned>(moduleParts.prefixLen))
+                    .arg(static_cast<unsigned>(moduleParts.suffixLen))
+                    .arg(moduleParts.hasDynamic));
         }
     }
 }
@@ -290,8 +291,7 @@ void MVLC_StreamWorker::start()
     {
         UniqueLock guard(m_parserMutex);
         m_parser = make_readout_parser(collect_readout_scripts(*vmeConfig));
-        dump_parser_info(m_parser);
-        assert(false);
+        logParserInfo(m_parser);
     }
     catch (const std::exception &e)
     {

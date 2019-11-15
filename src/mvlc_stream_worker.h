@@ -126,6 +126,8 @@ class MVLC_StreamWorker: public StreamWorkerBase
             const VMEConfig *vmeConfig,
             analysis::Analysis *analysis);
 
+        void logParserInfo(const mesytec::mvlc::ReadoutParserState &parser);
+
         MVMEContext *m_context;
         ThreadSafeDataBufferQueue *m_freeBuffers,
                                   *m_fullBuffers;
