@@ -166,11 +166,13 @@ std::error_code MVLCObject::vmeSingleWrite(u32 address, u32 value, u8 amod,
     postDialogOperation();
     auto tEnd = QDateTime::currentDateTime();
 
+#if 0
     qDebug() << __FUNCTION__
         << ", lock_ms =" << tStart.msecsTo(tLock)
         << ", comm_ms =" << tLock.msecsTo(tEnd)
         << ", total_ms =" << tStart.msecsTo(tEnd)
         ;
+#endif
     return result;
 }
 
@@ -256,12 +258,14 @@ std::error_code MVLCObject::readKnownBuffer(QVector<u32> &dest, unsigned timeout
     auto result = m_dialog.readKnownBuffer(dest, timeout_ms);
     auto tEnd = QDateTime::currentDateTime();
 
+#if 0
     qDebug() << __FUNCTION__
         << "timeout_ms =" << timeout_ms
         << ", lock_ms =" << tStart.msecsTo(tLock)
         << ", read_ms =" << tLock.msecsTo(tEnd)
         << ", total_ms =" << tStart.msecsTo(tEnd)
         ;
+#endif
     return result;
 }
 #endif
