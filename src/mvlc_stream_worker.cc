@@ -115,6 +115,7 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         // prefix/suffix have been added this change should be removed!
         // Note: this works for scripts containing only register reads, e.g.
         // the standard MesytecCounter script.
+        // FIXME: Missing counters for module prefix & suffix!
         auto moduleParts = m_parser.readoutInfo[ei][mi];
 
         if (!moduleParts.hasDynamic)
@@ -122,6 +123,8 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
             analysis->processModuleData(ei, mi, data, size);
             for (auto c: m_moduleConsumers)
                 c->processModuleData(ei, mi, data, size);
+            UniqueLock guard(m_countersMutex);
+            m_counters.moduleCounters[ei][mi]++;
         }
         else
         {
