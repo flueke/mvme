@@ -196,32 +196,27 @@ if (MVME_ENABLE_MVLC)
     endif()
 endif (MVME_ENABLE_MVLC)
 
-# qwt
-#if (APPLE)
-#        find_package(Qwt REQUIRED)    
-#else ()
-    find_path(QWT_INCLUDE_DIR
-        NAMES qwt_plot.h
-        PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3 qt5/qwt6
-        PATHS /usr/local/lib/qwt.framework/Headers)
-    
-    include_directories(${QWT_INCLUDE_DIR})
-    
-    find_library(QWT_LIBRARY_RELEASE NAMES qwt qwt-qt5 qwt6)
-    find_library(QWT_LIBRARY_DEBUG   NAMES qwtd qwt-qt5d qwt6d)
-    
-    if (WIN32 OR QWT_LIBRARY_DEBUG)
-        set(QWT_LIBRARY
-            optimized ${QWT_LIBRARY_RELEASE}
-            debug ${QWT_LIBRARY_DEBUG}
-            )
-    else()
-        set(QWT_LIBRARY ${QWT_LIBRARY_RELEASE})
-    endif()
-    
-    message("-- Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
-    message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
-#endif ()
+find_path(QWT_INCLUDE_DIR
+    NAMES qwt_plot.h
+    PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3 qt5/qwt6
+    PATHS /usr/local/lib/qwt.framework/Headers)
+
+include_directories(${QWT_INCLUDE_DIR})
+
+find_library(QWT_LIBRARY_RELEASE NAMES qwt qwt-qt5 qwt6)
+find_library(QWT_LIBRARY_DEBUG   NAMES qwtd qwt-qt5d qwt6d)
+
+if (WIN32 OR QWT_LIBRARY_DEBUG)
+    set(QWT_LIBRARY
+        optimized ${QWT_LIBRARY_RELEASE}
+        debug ${QWT_LIBRARY_DEBUG}
+        )
+else()
+    set(QWT_LIBRARY ${QWT_LIBRARY_RELEASE})
+endif()
+
+message("-- Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
+message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 
 
 # To get a 'make test' target. If this is not in the top level CMakeLists.txt
