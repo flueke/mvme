@@ -17,8 +17,17 @@ class LIBMVME_EXPORT MVLCTriggerIOEditor: public QWidget
         void addApplicationWidget(QWidget *widget);
 
     public:
-        MVLCTriggerIOEditor(VMEScriptConfig *setupScript, QWidget *parent = nullptr);
+        MVLCTriggerIOEditor(
+            VMEScriptConfig *triggerIOScript,
+            QWidget *parent = nullptr);
+
         ~MVLCTriggerIOEditor();
+
+    public slots:
+        // Set the event names from the vme config. This information is
+        // displayed when editing one of the MVLC StackStart or StackBusy
+        // units.
+        void setVMEEventNames(const QStringList &names);
 
     private slots:
         void runScript_();

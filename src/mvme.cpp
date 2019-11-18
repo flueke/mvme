@@ -1775,6 +1775,25 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
                     if (ctrl && ctrl->isOpen())
                         this->runScriptConfig(scriptConfig, RunScriptOptions::AggregateResults);
                 });
+
+        auto vmeConfig = m_d->m_context->getVMEConfig();
+
+        auto update_vme_event_names = [vmeConfig, widget] ()
+        {
+            auto eventConfigs = vmeConfig->getEventConfigs();
+
+            QStringList vmeEventNames;
+
+            std::transform(
+                std::begin(eventConfigs), std::end(eventConfigs),
+                std::back_inserter(vmeEventNames),
+                [] (const EventConfig *eventConfig) { return eventConfig->objectName(); });
+
+            widget->setVMEEventNames(vmeEventNames);
+        };
+
+        connect(vmeConfig, &VMEConfig::modified, widget, update_vme_event_names);
+        update_vme_event_names();
     }
     else
     {

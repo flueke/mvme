@@ -454,6 +454,7 @@ class Level0UtilsDialog: public QDialog
     public:
         Level0UtilsDialog(
             const Level0 &l0,
+            const QStringList &vmeEventNames,
             QWidget *parent = nullptr);
 
         Level0 getSettings() const;
@@ -533,7 +534,7 @@ class Level0UtilsDialog: public QDialog
 
             static const int FirstUnitIndex = Level0::StackBusyOffset;
 
-            QVector<QSpinBox *> spins_stackIndex;
+            QVector<QComboBox *> combos_stack;
         };
 
         mutable Level0 m_l0;
@@ -554,6 +555,7 @@ class Level3UtilsDialog: public QDialog
         Level3UtilsDialog(
             const Level3 &l3,
             const QVector<QStringList> &inputChoiceNameLists,
+            const QStringList &vmeEventNames,
             QWidget *parent = nullptr);
 
         Level3 getSettings() const;
@@ -578,7 +580,7 @@ class Level3UtilsDialog: public QDialog
 
             static const int FirstUnitIndex = 0;
 
-            QVector<QSpinBox *> spins_stack;
+            QVector<QComboBox *> combos_stack;
         };
 
         struct MasterTriggers_UI: public Table_UI_Base

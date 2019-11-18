@@ -26,6 +26,7 @@ struct MVLCTriggerIOEditor::Private
     CodeEditor *scriptEditor = nullptr;
     TriggerIOGraphicsScene *scene = nullptr;
     bool scriptAutorun = false;
+    QStringList vmeEventNames;
 
     void updateEditorText()
     {
@@ -38,7 +39,9 @@ struct MVLCTriggerIOEditor::Private
     }
 };
 
-MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget *parent)
+MVLCTriggerIOEditor::MVLCTriggerIOEditor(
+    VMEScriptConfig *scriptConfig,
+    QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
@@ -427,7 +430,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
             inputChoiceNameLists.push_back(nameList);
         }
 
-        Level3UtilsDialog dialog(ioCfg.l3, inputChoiceNameLists);
+        Level3UtilsDialog dialog(ioCfg.l3, inputChoiceNameLists, d->vmeEventNames);
         dialog.resize(900, 600);
 
         auto do_apply = [this, &dialog, &ioCfg] ()
@@ -446,7 +449,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(VMEScriptConfig *scriptConfig, QWidget 
     {
         auto &ioCfg = d->ioCfg;
 
-        Level0UtilsDialog dialog(ioCfg.l0);
+        Level0UtilsDialog dialog(ioCfg.l0, d->vmeEventNames);
         dialog.resize(1200, 600);
 
         auto do_apply = [this, &dialog, &ioCfg] ()
@@ -585,6 +588,11 @@ MVLCTriggerIOEditor::~MVLCTriggerIOEditor()
 {
     if (d->scriptEditor)
         d->scriptEditor->close();
+}
+
+void MVLCTriggerIOEditor::setVMEEventNames(const QStringList &names)
+{
+    d->vmeEventNames = names;
 }
 
 void MVLCTriggerIOEditor::runScript_()

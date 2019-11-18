@@ -1854,6 +1854,7 @@ QGroupBox *make_groupbox(QWidget *mainWidget, const QString &title = {},
 //
 Level0UtilsDialog::Level0UtilsDialog(
             const Level0 &l0,
+            const QStringList &vmeEventNames,
             QWidget *parent)
     : QDialog(parent)
     , m_l0(l0)
@@ -2009,7 +2010,7 @@ Level0UtilsDialog::Level0UtilsDialog(
         return ret;
     };
 
-    auto make_stack_busy_table_ui = [](const Level0 &l0)
+    auto make_stack_busy_table_ui = [&vmeEventNames](const Level0 &l0)
     {
         static const QString RowTitleFormat = "StackBusy%1";
         static const QStringList ColumnTitles = { "Name", "Stack#" };
@@ -2026,16 +2027,25 @@ Level0UtilsDialog::Level0UtilsDialog(
 
             const auto &stackBusy = l0.stackBusy[row];
 
-            auto spin_stack = new QSpinBox;
-            spin_stack->setRange(0, 7);
-            spin_stack->setValue(stackBusy.stackIndex);
+            auto combo_stack = new QComboBox;
+            ret.combos_stack.push_back(combo_stack);
+
+            for (int stack=0; stack <= 7; ++stack)
+            {
+                auto eventName = (stack == 0) ? "Command Stack" :  vmeEventNames.value(stack-1);
+                auto str = QString::number(stack);
+                if (!eventName.isEmpty())
+                    str += " (" + eventName + ")";
+
+                combo_stack->addItem(str, stack);
+            }
+
+            combo_stack->setCurrentIndex(stackBusy.stackIndex);
 
             ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l0.unitNames.value(row + nameOffset)));
 
-            ret.table->setCellWidget(row, ret.ColStackIndex, spin_stack);
-
-            ret.spins_stackIndex.push_back(spin_stack);
+            ret.table->setCellWidget(row, ret.ColStackIndex, combo_stack);
         }
 
         ret.table->resizeColumnsToContents();
@@ -2135,7 +2145,7 @@ Level0 Level0UtilsDialog::getSettings() const
             m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
 
             auto &unit = m_l0.stackBusy[row];
-            unit.stackIndex = ui.spins_stackIndex[row]->value();
+            unit.stackIndex = ui.combos_stack[row]->currentData().toUInt();
         }
     }
     return m_l0;
@@ -2147,13 +2157,14 @@ Level0 Level0UtilsDialog::getSettings() const
 Level3UtilsDialog::Level3UtilsDialog(
     const Level3 &l3,
     const QVector<QStringList> &inputChoiceNameLists,
+    const QStringList &vmeEventNames,
     QWidget *parent)
     : QDialog(parent)
     , m_l3(l3)
 {
     setWindowTitle("Level3 Utility Settings");
 
-    auto make_ui_stack_starts = [] (
+    auto make_ui_stack_starts = [&vmeEventNames] (
         const Level3 &l3,
         const QVector<QStringList> inputChoiceNameLists)
     {
@@ -2174,24 +2185,33 @@ Level3UtilsDialog::Level3UtilsDialog(
 
             auto combo_connection = new QComboBox;
             auto check_activate = new QCheckBox;
-            auto spin_stack = new QSpinBox;
+            auto combo_stack = new QComboBox;
 
             ret.combos_connection.push_back(combo_connection);
             ret.checks_activate.push_back(check_activate);
-            ret.spins_stack.push_back(spin_stack);
+            ret.combos_stack.push_back(combo_stack);
 
             combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
             combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex]);
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
             check_activate->setChecked(l3.stackStart[row].activate);
-            spin_stack->setMinimum(1);
-            spin_stack->setMaximum(7);
-            spin_stack->setValue(l3.stackStart[row].stackIndex);
+
+            for (int stack=1; stack <= 7; ++stack)
+            {
+                auto eventName = vmeEventNames.value(stack-1);
+                auto str = QString::number(stack);
+                if (!eventName.isEmpty())
+                    str += " (" + eventName + ")";
+
+                combo_stack->addItem(str, stack);
+            }
+
+            combo_stack->setCurrentIndex(l3.stackStart[row].stackIndex - 1);
 
             table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l3.unitNames.value(row + ret.FirstUnitIndex)));
             table->setCellWidget(row, ret.ColConnection, combo_connection);
-            table->setCellWidget(row, ret.ColStack, spin_stack);
+            table->setCellWidget(row, ret.ColStack, combo_stack);
             table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
         }
 
@@ -2318,7 +2338,7 @@ Level3 Level3UtilsDialog::getSettings() const
             m_l3.connections[row + ui.FirstUnitIndex] = ui.combos_connection[row]->currentIndex();
             auto &unit = m_l3.stackStart[row];
             unit.activate = ui.checks_activate[row]->isChecked();
-            unit.stackIndex = ui.spins_stack[row]->value();
+            unit.stackIndex = ui.combos_stack[row]->currentData().toUInt();
         }
     }
 
