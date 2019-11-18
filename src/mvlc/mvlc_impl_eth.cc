@@ -710,9 +710,9 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
 
             if (loss > 0)
             {
-                LOG_WARN("  pipe=%u, packetChannel=%u, lastPacketNumber=%u,"
-                         " packetNumber=%u, loss=%d",
-                         pipe, res.packetChannel(), lastPacketNumber, res.packetNumber(), loss);
+                LOG_DEBUG("  pipe=%u, packetChannel=%u, lastPacketNumber=%u,"
+                          " packetNumber=%u, loss=%d",
+                          pipe, res.packetChannel(), lastPacketNumber, res.packetNumber(), loss);
             }
 
             res.lostPackets = loss;
