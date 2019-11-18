@@ -946,7 +946,7 @@ void MVMEContext::onControllerOpenFinished()
     {
         if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
         {
-            if (!m_d->m_isFirstConnectionAttempt)
+            //if (!m_d->m_isFirstConnectionAttempt)
             {
                 auto msg = QSL(
                     "The MVLC controller seems to be in use (at least one of the"
@@ -962,7 +962,7 @@ void MVMEContext::onControllerOpenFinished()
     if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
     {
 
-        if (!m_d->m_isFirstConnectionAttempt)
+        //if (!m_d->m_isFirstConnectionAttempt)
         {
             logMessage(QString("Could not open VME controller %1: %2")
                        .arg(m_controller->getIdentifyingString())
