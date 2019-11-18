@@ -2206,7 +2206,12 @@ Level3UtilsDialog::Level3UtilsDialog(
                 combo_stack->addItem(str, stack);
             }
 
-            combo_stack->setCurrentIndex(l3.stackStart[row].stackIndex - 1);
+            int comboIndex = 0;
+
+            if (l3.stackStart[row].stackIndex > 0)
+                comboIndex = l3.stackStart[row].stackIndex - 1;
+
+            combo_stack->setCurrentIndex(comboIndex);
 
             table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l3.unitNames.value(row + ret.FirstUnitIndex)));
