@@ -14,6 +14,9 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <arpa/inet.h>
+#endif
 #else
 #include <ws2tcpip.h>
 #include <stdio.h>
@@ -394,13 +397,13 @@ std::error_code Impl::connect()
                              reinterpret_cast<const char *>(&SocketReceiveBufferSize),
                              sizeof(SocketReceiveBufferSize));
 #endif
-        assert(res == 0);
+        //assert(res == 0);
 
         if (res != 0)
         {
             auto ec = std::error_code(errno, std::system_category());
-            LOG_TRACE("setting socket buffer size failed: %s", ec.message().c_str());
-            return ec;
+            LOG_WARN("setting socket buffer size failed: %s", ec.message().c_str());
+            //return ec;
         }
 
         {
@@ -898,12 +901,12 @@ void Impl::resetPipeAndChannelStats()
 
 u32 Impl::getCmdAddress() const
 {
-    return ::ntohl(m_cmdAddr.sin_addr.s_addr);
+    return ntohl(m_cmdAddr.sin_addr.s_addr);
 }
 
 u32 Impl::getDataAddress() const
 {
-    return ::ntohl(m_dataAddr.sin_addr.s_addr);
+    return ntohl(m_dataAddr.sin_addr.s_addr);
 }
 
 std::string Impl::connectionInfo() const

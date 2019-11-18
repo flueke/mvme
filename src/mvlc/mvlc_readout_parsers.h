@@ -5,6 +5,7 @@
 #include "mvlc/mvlc_threading.h"
 #include "mvlc/mvlc_util.h"
 #include "databuffer.h"
+#include <array>
 
 namespace mesytec
 {

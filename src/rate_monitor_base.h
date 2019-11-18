@@ -1,6 +1,7 @@
 #ifndef __RATE_MONITOR_BASE_H__
 #define __RATE_MONITOR_BASE_H__
 
+#include <array>
 #include <boost/iterator/filter_iterator.hpp>
 #include <QDebug>
 #include <QRectF>

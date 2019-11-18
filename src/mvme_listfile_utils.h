@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QJsonObject>
 #include <QTextStream>
+#include <system_error>
 
 #include "globals.h"
 #include "data_buffer_queue.h"

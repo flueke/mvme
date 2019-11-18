@@ -25,6 +25,7 @@
 #include "vme.h"
 #include "globals.h"
 #include <QObject>
+#include <system_error>
 
 enum class VMEControllerType
 {

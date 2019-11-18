@@ -6,6 +6,7 @@
 
 #include <QDateTime>
 #include <QString>
+#include <array>
 
 namespace analysis
 {

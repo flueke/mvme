@@ -1,5 +1,6 @@
 #include "listfile_replay.h"
 
+#include <array>
 #include <cstring>
 #include <QJsonDocument>
 

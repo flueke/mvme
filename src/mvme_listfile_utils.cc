@@ -19,10 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvme_listfile_utils.h"
-#include "globals.h"
-#include "vme_config.h"
-#include "util_zip.h"
 
+#include <array>
 #include <QDebug>
 #include <QJsonDocument>
 #include <QtMath>
@@ -31,7 +29,11 @@
 #include <quazip.h>
 #include <quazipfile.h>
 
+#include "globals.h"
 #include "threading.h"
+#include "util_zip.h"
+#include "vme_config.h"
+
 
 #define LISTFILE_VERBOSE 0
 
