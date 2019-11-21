@@ -220,7 +220,9 @@ struct Level0
     static const int StackBusyCount = 2;
     static const int StackBusyOffset = 12;
 
-    static const size_t UtilityUnitCount = 14;
+    static const int SysClockOffset = 14;
+
+    static const size_t UtilityUnitCount = 15;
 
     static const std::array<QString, OutputCount> DefaultUnitNames;
 
@@ -229,7 +231,8 @@ struct Level0
     std::array<SoftTrigger, SoftTriggerCount> softTriggers;     // 6, 7 are software triggers
     std::array<IO, SlaveTriggerCount> slaveTriggers;            // 8..11
     std::array<StackBusy, StackBusyCount> stackBusy;            // 12, 13
-                                                                // 14, 15 unused
+                                                                // 14 sysclock
+                                                                // 15 unused
     std::array<IO, NIM_IO_Count> ioNIM;                         // 16..29
 
     QStringList unitNames;
@@ -297,7 +300,7 @@ struct Level3
     static const size_t ECL_Unit_Offset = 30;
 
     static const std::array<QString, trigger_io::Level3::UnitCount> DefaultUnitNames;
-    static const std::vector<UnitAddressVector> DynamicInputChoiceLists;
+    static const std::vector<std::vector<UnitAddressVector>> DynamicInputChoiceLists;
 
     std::array<StackStart, StackStartCount> stackStart = {};
     std::array<MasterTrigger, MasterTriggersCount> masterTriggers = {};
@@ -308,6 +311,7 @@ struct Level3
     std::array<IO, ECL_OUT_Count> ioECL = {};
 
     QStringList unitNames;
+    // FIXME: missing latch input for L3 Counters
     std::array<unsigned, trigger_io::Level3::UnitCount> connections = {};
 
     Level3();

@@ -282,7 +282,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         for (size_t io = 0; io < trigger_io::NIM_IO_Count; io++)
         {
             int idx = io + trigger_io::Level3::NIM_IO_Unit_Offset;
-            const auto &choiceList = ioCfg.l3.DynamicInputChoiceLists[idx];
+            const auto &choiceList = ioCfg.l3.DynamicInputChoiceLists[idx][0];
 
             QStringList nameList;
 
@@ -361,7 +361,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         for (size_t io = 0; io < trigger_io::ECL_OUT_Count; io++)
         {
             int idx = io + trigger_io::Level3::ECL_Unit_Offset;
-            const auto &choiceList = ioCfg.l3.DynamicInputChoiceLists[idx];
+            const auto &choiceList = ioCfg.l3.DynamicInputChoiceLists[idx][0];
 
             QStringList nameList;
 
@@ -421,7 +421,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         for (int unit = 0; unit < ioCfg.l3.unitNames.size(); unit++)
         {
-            const auto &choiceList = ioCfg.l3.DynamicInputChoiceLists[unit];
+            const auto &choiceList = ioCfg.l3.DynamicInputChoiceLists[unit][0];
             QStringList nameList;
 
             for (const auto &address: choiceList)

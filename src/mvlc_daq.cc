@@ -191,7 +191,7 @@ std::error_code setup_trigger_io(
             ioCfg.l3.unitNames[timersInUse] = QString("ss_%1").arg(event->objectName());
 
             // Connect StackStart to the Timer
-            auto choices = ioCfg.l3.DynamicInputChoiceLists[timersInUse];
+            auto choices = ioCfg.l3.DynamicInputChoiceLists[timersInUse][0];
             auto it = std::find(
                 choices.begin(), choices.end(),
                 trigger_io::UnitAddress{0, timersInUse});

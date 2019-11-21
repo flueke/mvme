@@ -918,7 +918,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         unsigned unitIndex = kv.index();
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         auto sourceConnector = getOutputConnector(conAddress);
         auto destConnector = getInputConnector({3, unitIndex});
@@ -934,7 +934,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         unsigned unitIndex = kv.index() + ioCfg.l3.MasterTriggersOffset;
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         auto sourceConnector = getOutputConnector(conAddress);
         auto destConnector = getInputConnector({3, unitIndex});
@@ -945,12 +945,13 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         }
     }
 
+    // FIXME: missing connector for the latch input
     for (const auto &kv: ioCfg.l3.counters | indexed(0))
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.CountersOffset;
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         auto sourceConnector = getOutputConnector(conAddress);
         auto destConnector = getInputConnector({3, unitIndex});
@@ -967,7 +968,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         unsigned unitIndex = nim + ioCfg.l3.NIM_IO_Unit_Offset;
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         auto sourceConnector = getOutputConnector(conAddress);
         auto destConnector = getInputConnector({3, unitIndex});
@@ -983,7 +984,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         unsigned unitIndex = kv.index() + ioCfg.l3.ECL_Unit_Offset;
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         auto sourceConnector = getOutputConnector(conAddress);
         auto destConnector = getInputConnector({3, unitIndex});

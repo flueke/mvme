@@ -77,7 +77,7 @@ const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNa
     "slave_trigger3",
     "stack_busy0",
     "stack_busy1",
-    UnitNotAvailable,
+    "sysclk",
     UnitNotAvailable,
     "NIM0",
     "NIM1",
@@ -279,7 +279,7 @@ const std::array<QString, trigger_io::Level3::UnitCount> Level3::DefaultUnitName
 
 namespace
 {
-std::vector<UnitAddressVector> make_l3_input_choices()
+std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
 {
     static const std::vector<UnitAddress> Level2Full =
     {
@@ -291,7 +291,7 @@ std::vector<UnitAddressVector> make_l3_input_choices()
         { 2, 1, 2 },
     };
 
-    std::vector<UnitAddressVector> result;
+    std::vector<std::vector<UnitAddressVector>> result;
 
     // Note: StackStarts, MasterTriggers and Counters had different connection
     // choices in early firmware versions., that's the reason they are still
@@ -308,7 +308,7 @@ std::vector<UnitAddressVector> make_l3_input_choices()
             choices.push_back({0, unit });
 
         std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
-        result.emplace_back(choices);
+        result.push_back({choices});
     }
 
     for (size_t i = 0; i < trigger_io::Level3::MasterTriggersCount; i++)
@@ -322,35 +322,45 @@ std::vector<UnitAddressVector> make_l3_input_choices()
             choices.push_back({0, unit });
 
         std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
-        result.emplace_back(choices);
+        result.push_back({choices});
     }
 
     for (size_t i = 0; i < trigger_io::Level3::CountersCount; i++)
     {
-        static const unsigned LastL0Unit = 13;
+        // For Counters input0 is the counter input, input1 is the latch input.
+        // Both can connect to L0[14], L2[5:0] L0[13:0] (L0[14], the sysclk was
+        // added at a later point, that's why it's separated from the other L0
+        // units.
+        static const unsigned L0EndUnit = Level0::SysClockOffset;
 
         std::vector<UnitAddress> choices;
 
-        // Can connect all L0 utilities up to StackBusy1
-        for (unsigned unit = 0; unit <= LastL0Unit; unit++)
+        // Can connect all L0 utility units
+        for (unsigned unit = 0; unit < L0EndUnit; unit++)
             choices.push_back({0, unit });
 
+        // Full L2 connectivity
         std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
-        result.emplace_back(choices);
+
+        // L0.sysclock
+        choices.push_back({0, Level0::SysClockOffset});
+
+        result.push_back({choices}); // counter input
+        result.push_back({choices}); // latch input
     }
 
     // NIM and ECL outputs can connect to Level2 only
     for (size_t i = 0; i < (trigger_io::NIM_IO_Count + trigger_io::ECL_OUT_Count); i++)
     {
         std::vector<UnitAddress> choices = Level2Full;
-        result.emplace_back(choices);
+        result.push_back({choices});
     }
 
     return result;
 }
 } // end anon namespace
 
-const std::vector<UnitAddressVector>
+const std::vector<std::vector<UnitAddressVector>>
     Level3::DynamicInputChoiceLists = make_l3_input_choices();
 
 Level3::Level3()
@@ -509,7 +519,7 @@ UnitAddress get_connection_unit_address(const TriggerIO &ioCfg, const UnitAddres
             return {};
 
         case 3:
-            return ioCfg.l3.DynamicInputChoiceLists[addr[1]][conValue];
+            return ioCfg.l3.DynamicInputChoiceLists[addr[1]][addr[2]][conValue];
     }
 
     return {};

@@ -372,7 +372,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += generate(kv.value(), unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
     }
@@ -386,11 +386,12 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += generate(kv.value(), unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
     }
 
+    // FIXME: missing latch input
     for (const auto &kv: ioCfg.l3.counters | indexed(0))
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.CountersOffset;
@@ -400,7 +401,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += generate(kv.value(), unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
     }
@@ -415,7 +416,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += select_unit(3, unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
 
@@ -430,7 +431,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += generate(kv.value(), io_flags::ECL_IO_Flags);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex];
-        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][conValue];
+        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
     }
