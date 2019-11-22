@@ -807,7 +807,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                 // inputCount, outputCount
                 trigger_io::Level3::UtilityUnitCount - trigger_io::Level3::CountersCount, 0,
                 // inputConnectorMarginTop, inputConnectorMarginBottom
-                (gfx::CounterItem::Height + 2) * Level3::CountersCount, 12,
+                (gfx::CounterItem::Height + 4) * Level3::CountersCount, 12,
                 // outputConnectorMarginTop, outputConnectorMarginBottom
                 0, 0,
                 // parent
