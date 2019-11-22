@@ -409,10 +409,6 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         conValue = ioCfg.l3.connections[unitIndex][1];
         conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][1][conValue];
 
-        qDebug() << "ooooooooooooooooooooooooo"
-            << "conValue=" << conValue
-            << conAddress[0] << conAddress[1] << conAddress[2];
-
         ret += write_connection(2, conValue, lookup_name(ioCfg, conAddress));
     }
 

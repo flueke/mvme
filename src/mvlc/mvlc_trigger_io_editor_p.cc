@@ -433,6 +433,32 @@ LUTItem::LUTItem(int lutIdx, bool hasStrobeGG, QGraphicsItem *parent)
     }
 }
 
+//
+// CounterItem
+//
+CounterItem::CounterItem(unsigned counterIndex, QGraphicsItem *parent)
+    : BlockItem(
+        Width, Height,
+        Inputs, Outputs,
+        InputConnectorMargin, InputConnectorMargin,
+        OutputConnectorMargin, OutputConnectorMargin,
+        parent)
+{
+    auto label = new QGraphicsSimpleTextItem(QString("Counter%1").arg(counterIndex), this);
+    {
+        auto font = label->font();
+        font.setPixelSize(LabelPixelSize);
+        label->setFont(font);
+    }
+    label->moveBy(
+        (this->boundingRect().width() - label->boundingRect().width()) * .75,
+        (this->boundingRect().height() - label->boundingRect().height()) * 0.5
+        );
+
+    getInputConnector(0)->setLabel("counter");
+    getInputConnector(1)->setLabel("latch");
+}
+
 template<typename T>
 QPointF get_center_point(T *item)
 {
@@ -492,9 +518,6 @@ void Edge::adjust()
 
 QRectF Edge::boundingRect() const
 {
-    if (!m_source || !m_dest)
-        return QRectF();
-
     qreal penWidth = 1;
     qreal extra = (penWidth + m_arrowSize) / 2.0;
 
@@ -507,9 +530,6 @@ QRectF Edge::boundingRect() const
 void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
            QWidget *widget)
 {
-    if (!m_source || !m_dest)
-        return;
-
     QLineF line(m_sourcePoint, m_destPoint);
     if (qFuzzyCompare(line.length(), qreal(0.)))
         return;
@@ -775,23 +795,39 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         result.parent = new QGraphicsRectItem(
             0, 0,
             260,
-            1.5 * (lutRect.height() + 25) + 25);
+            2.5 * (lutRect.height() + 25) + 25);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
-        // Single box for utils
+        // Single box for utils.
         {
             result.utilsItem = new gfx::BlockItem(
-                result.parent->boundingRect().width() - 2 * 25,
-                result.parent->boundingRect().height() - 2 * 25,
-                trigger_io::Level3::UtilityUnitCount, 0,
-                8, 0,
+                result.parent->boundingRect().width() - 2 * 25,     // width
+                result.parent->boundingRect().height() - 2 * 25,    // height
+                // inputCount, outputCount
+                trigger_io::Level3::UtilityUnitCount - trigger_io::Level3::CountersCount, 0,
+                // inputConnectorMarginTop, inputConnectorMarginBottom
+                (gfx::CounterItem::Height + 2) * Level3::CountersCount, 16,
+                // outputConnectorMarginTop, outputConnectorMarginBottom
+                0, 0,
+                // parent
                 result.parent);
             result.utilsItem->moveBy(25, 25);
 
             auto label = new QGraphicsSimpleTextItem(
                 QString("Stack Start\nMaster Triggers\nCounters"), result.utilsItem);
-            label->moveBy(90, 5);
+            label->moveBy(105, 5);
+
+            // Special items for the counters which have two connectors instead of one.
+
+            for (unsigned counter=0; counter<Level3::CountersCount; counter++)
+            {
+                auto counterItem = new gfx::CounterItem(counter, result.utilsItem);
+                counterItem->moveBy(
+                    0,
+                    (counterItem->boundingRect().height() + 2) * (Level3::CountersCount - 1 - counter));
+                result.counterItems.push_back(counterItem);
+            }
         }
 
         QFont labelFont;
@@ -950,15 +986,37 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.CountersOffset;
 
-        unsigned conValue = ioCfg.l3.connections[unitIndex][0];
-        UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
-
-        auto sourceConnector = getOutputConnector(conAddress);
-        auto destConnector = getInputConnector({3, unitIndex});
-
-        if (sourceConnector && destConnector)
+        // counter input
         {
-            addEdge(sourceConnector, destConnector);
+            unsigned conValue = ioCfg.l3.connections[unitIndex][0];
+            UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
+
+            auto sourceConnector = getOutputConnector(conAddress);
+            auto destConnector = getInputConnector({3, unitIndex, 0});
+
+            if (sourceConnector && destConnector)
+            {
+                addEdge(sourceConnector, destConnector);
+            }
+        }
+
+        // latch input
+        // (FIXME: hack with the connection address which is invalid by default (l3.unit33 ("not connected"))
+        {
+            unsigned conValue = ioCfg.l3.connections[unitIndex][1];
+            //UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][1][conValue];
+            UnitAddress conAddress = { 0, Level0::SysClockOffset };
+
+            auto sourceConnector = getOutputConnector(conAddress);
+            auto destConnector = getInputConnector({3, unitIndex, 1});
+
+            qDebug() << conAddress[0] << conAddress[1] << conAddress[2]
+                << sourceConnector << destConnector;
+
+            if (sourceConnector && destConnector)
+            {
+                addEdge(sourceConnector, destConnector);
+            }
         }
     }
 
@@ -1023,6 +1081,15 @@ QAbstractGraphicsShapeItem *
             {
                 return m_level3Items.eclItem->inputConnectors().value(
                     addr[1] - trigger_io::Level3::ECL_Unit_Offset);
+            }
+            else if (trigger_io::Level3::CountersOffset <= addr[1]
+                     && addr[1] < trigger_io::Level3::CountersOffset + trigger_io::Level3::CountersCount)
+            {
+                auto counterItem = m_level3UtilItems.counterItems.value(
+                    addr[1] - trigger_io::Level3::CountersOffset);
+                if (counterItem)
+                    return counterItem->getInputConnector(addr[2]);
+                return nullptr;
             }
             else
             {
@@ -1253,15 +1320,30 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
     for (const auto &kv: ioCfg.l3.counters | indexed(Level3::CountersOffset))
     {
-        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
-
-        auto cond = [] (const Counter &)
+        // counter input
         {
-            // TODO: soft activate flag
-            return true;
-        };
+            UnitAddress addr {3, static_cast<unsigned>(kv.index()), 0};
 
-        update_connectors_and_edge(kv.value(), addr, cond);
+            auto cond = [] (const Counter &counter)
+            {
+                return counter.softActivate;
+            };
+
+            update_connectors_and_edge(kv.value(), addr, cond);
+        }
+
+        // latch input
+        {
+            UnitAddress addr {3, static_cast<unsigned>(kv.index()), 1};
+
+            auto cond = [&ioCfg, &addr] (const Counter &)
+            {
+                qDebug() << addr[1] << ioCfg.l3.connections[addr[1]][1];
+                return ioCfg.l3.connections[addr[1]][1] != Level3::CounterLatchNotConnectedValue;
+            };
+
+            update_connectors_and_edge(kv.value(), addr, cond);
+        }
     }
 
     // Post connector and edge update logic.
@@ -1326,18 +1408,44 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
     // l3 Counters
     for (const auto &kv: ioCfg.l3.counters | indexed(ioCfg.l3.CountersOffset))
     {
-        UnitAddress addr {3, static_cast<unsigned>(kv.index())};
+        // counter input
+        {
+            UnitAddress addr {3, static_cast<unsigned>(kv.index()), 0};
 
-        bool softActivate = kv.value().softActivate;
+            bool softActivate = kv.value().softActivate;
 
-        auto dstCon = getInputConnector(addr);
-        assert(dstCon);
-        dstCon->setEnabled(softActivate);
-        dstCon->setBrush(softActivate ? Connector_Brush : Connector_Brush_Disabled);
+            auto dstCon = getInputConnector(addr);
+            assert(dstCon);
+            dstCon->setEnabled(softActivate);
+            dstCon->setBrush(softActivate ? Connector_Brush : Connector_Brush_Disabled);
 
-        auto edge = getEdgeByDestConnector(dstCon);
-        edge->setVisible(edge->sourceItem()->isEnabled()
-                         && edge->destItem()->isEnabled());
+            auto edge = getEdgeByDestConnector(dstCon);
+            edge->setVisible(edge->sourceItem()->isEnabled()
+                             && edge->destItem()->isEnabled());
+        }
+
+        // latch input
+        {
+            UnitAddress addr {3, static_cast<unsigned>(kv.index()), 1};
+
+            bool isConnected = ioCfg.l3.connections[addr[1]][1] != Level3::CounterLatchNotConnectedValue;
+
+            bool softActivate = kv.value().softActivate;
+
+            auto dstCon = getInputConnector(addr);
+
+            assert(dstCon);
+            dstCon->setEnabled(softActivate && isConnected);
+            dstCon->setBrush(softActivate ? Connector_Brush : Connector_Brush_Disabled);
+
+            auto edge = getEdgeByDestConnector(dstCon);
+            assert(edge);
+
+            bool visible = edge->sourceItem() && edge->sourceItem()->isEnabled()
+                && edge->destItem() && edge->destItem()->isEnabled();
+
+            edge->setVisible(visible);
+        }
     }
 
     auto update_names = [this] (const TriggerIO &ioCfg)

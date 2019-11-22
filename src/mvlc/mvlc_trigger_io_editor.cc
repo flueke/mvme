@@ -451,7 +451,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         }
 
         Level3UtilsDialog dialog(ioCfg.l3, inputChoiceNameLists, d->vmeEventNames);
-        dialog.resize(900, 600);
+        dialog.resize(1100, 600);
 
         auto do_apply = [this, &dialog, &ioCfg] ()
         {

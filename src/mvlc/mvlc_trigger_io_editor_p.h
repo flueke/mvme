@@ -231,6 +231,23 @@ struct LUTItem: public BlockItem
         ConnectorDiamondItem *m_strobeConnector = nullptr;
 };
 
+class CounterItem: public BlockItem
+{
+    public:
+        static const int Inputs = 2;
+        static const int Outputs = 0;
+
+        static const int Width = 100;
+        static const int Height = 20;
+
+        static const int InputConnectorMargin = 6;
+        static const int OutputConnectorMargin = 4;
+
+        static constexpr float LabelPixelSize = 10.0f;
+
+        explicit CounterItem(unsigned counterIndex, QGraphicsItem *parent = nullptr);
+};
+
 class Edge: public QAbstractGraphicsShapeItem
 {
     public:
@@ -325,6 +342,7 @@ class TriggerIOGraphicsScene: public QGraphicsScene
             QGraphicsRectItem *parent;
             QGraphicsSimpleTextItem *label;
             gfx::BlockItem *utilsItem;
+            QVector<gfx::BlockItem *> counterItems;
         };
 
         QAbstractGraphicsShapeItem *getInputConnector(const UnitAddress &addr) const;
