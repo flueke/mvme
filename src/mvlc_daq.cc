@@ -196,7 +196,7 @@ std::error_code setup_trigger_io(
                 choices.begin(), choices.end(),
                 trigger_io::UnitAddress{0, timersInUse});
 
-            ioCfg.l3.connections[timersInUse] = it - choices.begin();
+            ioCfg.l3.connections[timersInUse][0] = it - choices.begin();
 
             ++timersInUse;
         }

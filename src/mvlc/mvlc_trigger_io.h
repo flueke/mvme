@@ -299,7 +299,7 @@ struct Level3
     static const size_t NIM_IO_Unit_Offset = 16;
     static const size_t ECL_Unit_Offset = 30;
 
-    static const std::array<QString, trigger_io::Level3::UnitCount> DefaultUnitNames;
+    static const std::array<QString, trigger_io::Level3::UnitCount+1> DefaultUnitNames;
     static const std::vector<std::vector<UnitAddressVector>> DynamicInputChoiceLists;
 
     std::array<StackStart, StackStartCount> stackStart = {};
@@ -311,8 +311,9 @@ struct Level3
     std::array<IO, ECL_OUT_Count> ioECL = {};
 
     QStringList unitNames;
-    // FIXME: missing latch input for L3 Counters
-    std::array<unsigned, trigger_io::Level3::UnitCount> connections = {};
+
+    // Per {unit, unit-input} connection values.
+    std::array<std::vector<unsigned>, trigger_io::Level3::UnitCount> connections = {};
 
     Level3();
     Level3(const Level3 &) = default;

@@ -371,7 +371,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += select_unit(3, unitIndex);
         ret += generate(kv.value(), unitIndex);
 
-        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
@@ -385,13 +385,12 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += select_unit(3, unitIndex);
         ret += generate(kv.value(), unitIndex);
 
-        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
     }
 
-    // FIXME: missing latch input
     for (const auto &kv: ioCfg.l3.counters | indexed(0))
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.CountersOffset;
@@ -400,10 +399,21 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += select_unit(3, unitIndex);
         ret += generate(kv.value(), unitIndex);
 
-        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        // counter input
+        unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+
+        // latch input
+        conValue = ioCfg.l3.connections[unitIndex][1];
+        conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][1][conValue];
+
+        qDebug() << "ooooooooooooooooooooooooo"
+            << "conValue=" << conValue
+            << conAddress[0] << conAddress[1] << conAddress[2];
+
+        ret += write_connection(2, conValue, lookup_name(ioCfg, conAddress));
     }
 
     // Level3 NIM connections
@@ -415,7 +425,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += ioCfg.l3.DefaultUnitNames[unitIndex];
         ret += select_unit(3, unitIndex);
 
-        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
@@ -430,7 +440,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += select_unit(3, unitIndex);
         ret += generate(kv.value(), io_flags::ECL_IO_Flags);
 
-        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
@@ -1067,7 +1077,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             unit.activate = static_cast<bool>(writes[unitIndex][0]);
             unit.stackIndex = writes[unitIndex][2];
 
-            ioCfg.l3.connections[unitIndex] = writes[unitIndex][0x80];
+            ioCfg.l3.connections[unitIndex] = { writes[unitIndex][0x80] };
         }
 
         for (const auto &kv: ioCfg.l3.masterTriggers | indexed(0))
@@ -1077,7 +1087,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
 
             unit.activate = static_cast<bool>(writes[unitIndex][0]);
 
-            ioCfg.l3.connections[unitIndex] = writes[unitIndex][0x80];
+            ioCfg.l3.connections[unitIndex] = { writes[unitIndex][0x80] };
         }
 
         for (const auto &kv: ioCfg.l3.counters | indexed(0))
@@ -1085,7 +1095,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             unsigned unitIndex = kv.index() + Level3::CountersOffset;
             auto &unit = kv.value();
 
-            ioCfg.l3.connections[unitIndex] = writes[unitIndex][0x80];
+            ioCfg.l3.connections[unitIndex] = { writes[unitIndex][0x80], writes[unitIndex][0x82] };
         }
 
         for (const auto &kv: ioCfg.l3.ioNIM | indexed(0))
@@ -1093,7 +1103,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             // level3 NIM connections (setup is done in level0)
             unsigned unitIndex = kv.index() + Level3::NIM_IO_Unit_Offset;
 
-            ioCfg.l3.connections[unitIndex] = writes[unitIndex][0x80];
+            ioCfg.l3.connections[unitIndex] = { writes[unitIndex][0x80] };
         }
 
         for (const auto &kv: ioCfg.l3.ioECL | indexed(0))
@@ -1103,7 +1113,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
 
             unit = parse_io(writes[unitIndex], io_flags::ECL_IO_Flags);
 
-            ioCfg.l3.connections[unitIndex] = writes[unitIndex][0x80];
+            ioCfg.l3.connections[unitIndex] = { writes[unitIndex][0x80] };
         }
     }
 

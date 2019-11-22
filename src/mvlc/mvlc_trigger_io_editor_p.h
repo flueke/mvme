@@ -412,12 +412,12 @@ class NIM_IO_SettingsDialog: public QDialog
             const QStringList &names,
             const QVector<trigger_io::IO> &settings,
             const QVector<QStringList> &inputChoiceNameLists,
-            const QVector<unsigned> &connections,
+            const QVector<std::vector<unsigned>> &connections,
             QWidget *parent = nullptr);
 
         QStringList getNames() const;
         QVector<trigger_io::IO> getSettings() const;
-        QVector<unsigned> getConnections() const;
+        QVector<std::vector<unsigned>> getConnections() const;
 
     private:
         NIM_IO_SettingsDialog(
@@ -436,13 +436,13 @@ class ECL_SettingsDialog: public QDialog
         ECL_SettingsDialog(
             const QStringList &names,
             const QVector<trigger_io::IO> &settings,
-            const QVector<unsigned> &inputConnections,
+            const QVector<std::vector<unsigned>> &inputConnections,
             const QVector<QStringList> &inputChoiceNameLists,
             QWidget *parent = nullptr);
 
         QStringList getNames() const;
         QVector<trigger_io::IO> getSettings() const;
-        QVector<unsigned> getConnections() const;
+        QVector<std::vector<unsigned>> getConnections() const;
 
     private:
         ECL_Table_UI m_tableUi;
@@ -554,7 +554,7 @@ class Level3UtilsDialog: public QDialog
         // through unmodified.
         Level3UtilsDialog(
             const Level3 &l3,
-            const QVector<QStringList> &inputChoiceNameLists,
+            const QVector<QVector<QStringList>> &inputChoiceNameLists,
             const QStringList &vmeEventNames,
             QWidget *parent = nullptr);
 
@@ -600,13 +600,15 @@ class Level3UtilsDialog: public QDialog
             enum Columns
             {
                 ColName,
-                ColConnection,
+                ColCounterConnection,
+                ColLatchConnection,
                 ColSoftActivate,
             };
 
             static const int FirstUnitIndex = 8;
 
             QVector<QCheckBox *> checks_softActivate;
+            QVector<QComboBox *> combos_latch_connection;
         };
 
         mutable Level3 m_l3;

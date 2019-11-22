@@ -240,7 +240,7 @@ Level2::Level2()
 //
 // Level3
 //
-const std::array<QString, trigger_io::Level3::UnitCount> Level3::DefaultUnitNames =
+const std::array<QString, trigger_io::Level3::UnitCount+1> Level3::DefaultUnitNames =
 {
     "StackStart0",
     "StackStart1",
@@ -275,6 +275,7 @@ const std::array<QString, trigger_io::Level3::UnitCount> Level3::DefaultUnitName
     "ECL0",
     "ECL1",
     "ECL2",
+    "<not connected>",
 };
 
 namespace
@@ -328,9 +329,13 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
     for (size_t i = 0; i < trigger_io::Level3::CountersCount; i++)
     {
         // For Counters input0 is the counter input, input1 is the latch input.
-        // Both can connect to L0[14], L2[5:0] L0[13:0] (L0[14], the sysclk was
-        // added at a later point, that's why it's separated from the other L0
-        // units.
+        // Both can connect to L0[13:0], L2[5:0], L0[14]. The sysclk on L0[14]
+        // was added at a later point, that's why it's separated from the other
+        // L0 units.
+        // The latch input also has a special "not-connected" value which is
+        // one past the last valid connection value but this value is not
+        // stored in here for now.
+
         static const unsigned L0EndUnit = Level0::SysClockOffset;
 
         std::vector<UnitAddress> choices;
@@ -345,8 +350,11 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
         // L0.sysclock
         choices.push_back({0, Level0::SysClockOffset});
 
-        result.push_back({choices}); // counter input
-        result.push_back({choices}); // latch input
+        // FIXME: counter latch hack
+        std::vector<UnitAddress> latchChoices = choices;
+        latchChoices.push_back({3, Level3::UnitCount});
+
+        result.push_back({choices, latchChoices}); // counter input, latch input
     }
 
     // NIM and ECL outputs can connect to Level2 only
@@ -371,7 +379,19 @@ Level3::Level3()
     ioNIM.fill({});
     ioECL.fill({});
 
-    connections.fill(0);
+    connections.fill({{0u}, {0u}});
+
+    // FIXME: latch counter hack
+    for (unsigned unit=Level3::CountersOffset;
+         unit < Level3::CountersOffset + Level3::CountersCount;
+         unit++)
+    {
+        connections[unit].resize(2);
+        connections[unit][0] = 0;
+        // one past the max connection value indicates "not-connected" for the
+        // latch input
+        connections[unit][1] = 21;
+    }
 
     std::copy(DefaultUnitNames.begin(), DefaultUnitNames.end(),
               std::back_inserter(unitNames));
@@ -490,7 +510,7 @@ unsigned get_connection_value(const TriggerIO &ioCfg, const UnitAddress &addr)
             return ioCfg.l2.lutConnections[addr[1]][addr[2]];
 
         case 3:
-            return ioCfg.l3.connections[addr[1]];
+            return ioCfg.l3.connections[addr[1]][addr[2]];
     }
 
     return 0;

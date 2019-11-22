@@ -917,7 +917,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     {
         unsigned unitIndex = kv.index();
 
-        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         auto sourceConnector = getOutputConnector(conAddress);
@@ -933,7 +933,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.MasterTriggersOffset;
 
-        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         auto sourceConnector = getOutputConnector(conAddress);
@@ -950,7 +950,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.CountersOffset;
 
-        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         auto sourceConnector = getOutputConnector(conAddress);
@@ -967,7 +967,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     {
         unsigned unitIndex = nim + ioCfg.l3.NIM_IO_Unit_Offset;
 
-        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         auto sourceConnector = getOutputConnector(conAddress);
@@ -983,7 +983,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.ECL_Unit_Offset;
 
-        unsigned conValue = ioCfg.l3.connections[unitIndex];
+        unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
         auto sourceConnector = getOutputConnector(conAddress);
@@ -1584,7 +1584,7 @@ NIM_IO_Table_UI make_nim_io_settings_table(
 ECL_Table_UI make_ecl_table_ui(
     const QStringList &names,
     const QVector<trigger_io::IO> &settings,
-    const QVector<unsigned> &inputConnections,
+    const QVector<std::vector<unsigned>> &inputConnections,
     const QVector<QStringList> &inputChoiceNameLists)
 {
     ECL_Table_UI ui = {};
@@ -1614,7 +1614,7 @@ ECL_Table_UI make_ecl_table_ui(
         check_activate->setChecked(settings.value(row).activate);
         check_invert->setChecked(settings.value(row).invert);
         combo_connection->addItems(inputChoiceNameLists.value(row));
-        combo_connection->setCurrentIndex(inputConnections.value(row));
+        combo_connection->setCurrentIndex(inputConnections.value(row)[0]);
         combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 
 
@@ -1700,7 +1700,7 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     const QStringList &names,
     const QVector<trigger_io::IO> &settings,
     const QVector<QStringList> &inputChoiceNameLists,
-    const QVector<unsigned> &connections,
+    const QVector<std::vector<unsigned>> &connections,
     QWidget *parent)
     : NIM_IO_SettingsDialog(names, settings, trigger_io::IO::Direction::out, parent)
 {
@@ -1710,7 +1710,7 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     {
         m_tableUi.combos_connection[io]->addItems(
             inputChoiceNameLists.value(io));
-        m_tableUi.combos_connection[io]->setCurrentIndex(connections.value(io));
+        m_tableUi.combos_connection[io]->setCurrentIndex(connections.value(io)[0]);
     }
 
     m_tableUi.table->resizeColumnsToContents();
@@ -1758,12 +1758,12 @@ QVector<trigger_io::IO> NIM_IO_SettingsDialog::getSettings() const
     return ret;
 }
 
-QVector<unsigned> NIM_IO_SettingsDialog::getConnections() const
+QVector<std::vector<unsigned>> NIM_IO_SettingsDialog::getConnections() const
 {
-    QVector<unsigned> ret;
+    QVector<std::vector<unsigned>> ret;
 
     for (auto combo: m_tableUi.combos_connection)
-        ret.push_back(combo->currentIndex());
+        ret.push_back({static_cast<unsigned>(combo->currentIndex())});
 
     return ret;
 }
@@ -1774,7 +1774,7 @@ QVector<unsigned> NIM_IO_SettingsDialog::getConnections() const
 ECL_SettingsDialog::ECL_SettingsDialog(
             const QStringList &names,
             const QVector<trigger_io::IO> &settings,
-            const QVector<unsigned> &inputConnections,
+            const QVector<std::vector<unsigned>> &inputConnections,
             const QVector<QStringList> &inputChoiceNameLists,
             QWidget *parent)
     : QDialog(parent)
@@ -1831,12 +1831,12 @@ QVector<trigger_io::IO> ECL_SettingsDialog::getSettings() const
     return ret;
 }
 
-QVector<unsigned> ECL_SettingsDialog::getConnections() const
+QVector<std::vector<unsigned>> ECL_SettingsDialog::getConnections() const
 {
-    QVector<unsigned> ret;
+    QVector<std::vector<unsigned>> ret;
 
     for (auto combo: m_tableUi.combos_connection)
-        ret.push_back(combo->currentIndex());
+        ret.push_back({static_cast<unsigned>(combo->currentIndex())});
 
     return ret;
 }
@@ -2157,7 +2157,7 @@ Level0 Level0UtilsDialog::getSettings() const
 //
 Level3UtilsDialog::Level3UtilsDialog(
     const Level3 &l3,
-    const QVector<QStringList> &inputChoiceNameLists,
+    const QVector<QVector<QStringList>> &inputChoiceNameLists,
     const QStringList &vmeEventNames,
     QWidget *parent)
     : QDialog(parent)
@@ -2167,7 +2167,7 @@ Level3UtilsDialog::Level3UtilsDialog(
 
     auto make_ui_stack_starts = [&vmeEventNames] (
         const Level3 &l3,
-        const QVector<QStringList> inputChoiceNameLists)
+        const QVector<QVector<QStringList>> inputChoiceNameLists)
     {
         StackStart_UI ret;
 
@@ -2192,8 +2192,8 @@ Level3UtilsDialog::Level3UtilsDialog(
             ret.checks_activate.push_back(check_activate);
             ret.combos_stack.push_back(combo_stack);
 
-            combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
-            combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex]);
+            combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex)[0]);
+            combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex][0]);
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
             check_activate->setChecked(l3.stackStart[row].activate);
 
@@ -2229,7 +2229,7 @@ Level3UtilsDialog::Level3UtilsDialog(
 
     auto make_ui_master_triggers = [] (
         const Level3 &l3,
-        const QVector<QStringList> inputChoiceNameLists)
+        const QVector<QVector<QStringList>> inputChoiceNameLists)
     {
         MasterTriggers_UI ret;
 
@@ -2252,8 +2252,8 @@ Level3UtilsDialog::Level3UtilsDialog(
             ret.combos_connection.push_back(combo_connection);
             ret.checks_activate.push_back(check_activate);
 
-            combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
-            combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex]);
+            combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex)[0]);
+            combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex][0]);
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
             check_activate->setChecked(l3.masterTriggers[row].activate);
 
@@ -2269,14 +2269,15 @@ Level3UtilsDialog::Level3UtilsDialog(
         return ret;
     };
 
+    // FIXME: the input choices for the latch input are missing
     auto make_ui_counters = [] (
         const Level3 &l3,
-        const QVector<QStringList> inputChoiceNameLists)
+        const QVector<QVector<QStringList>> inputChoiceNameLists)
     {
         Counters_UI ret;
 
         QStringList columnTitles = {
-            "Name", "Input", "Soft Activate"
+            "Name", "Counter Input", "Latch Input", "Soft Activate"
         };
 
         auto table = new QTableWidget(l3.counters.size(), columnTitles.size());
@@ -2288,13 +2289,23 @@ Level3UtilsDialog::Level3UtilsDialog(
             table->setVerticalHeaderItem(row, new QTableWidgetItem(
                     QString("Counter%1").arg(row)));
 
-            auto combo_connection = new QComboBox;
+            auto combo_counter_connection = new QComboBox;
 
-            ret.combos_connection.push_back(combo_connection);
+            ret.combos_connection.push_back(combo_counter_connection);
 
-            combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex));
-            combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex]);
-            combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+            combo_counter_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex)[0]);
+            combo_counter_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex][0]);
+            combo_counter_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+
+            auto combo_latch_connection = new QComboBox;
+            ret.combos_latch_connection.push_back(combo_latch_connection);
+
+            auto latchInputChoicesNames = inputChoiceNameLists.value(row + ret.FirstUnitIndex)[1];
+            //latchInputChoicesNames.push_back("<not connected>");
+
+            combo_latch_connection->addItems(latchInputChoicesNames);
+            combo_latch_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex][1]);
+            combo_latch_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 
             auto cb_softActivate = new QCheckBox;
             ret.checks_softActivate.push_back(cb_softActivate);
@@ -2302,7 +2313,8 @@ Level3UtilsDialog::Level3UtilsDialog(
 
             table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l3.unitNames.value(row + ret.FirstUnitIndex)));
-            table->setCellWidget(row, ret.ColConnection, combo_connection);
+            table->setCellWidget(row, ret.ColCounterConnection, combo_counter_connection);
+            table->setCellWidget(row, ret.ColLatchConnection, combo_latch_connection);
             table->setCellWidget(row, ret.ColSoftActivate, make_centered(cb_softActivate));
         }
 
@@ -2341,7 +2353,8 @@ Level3 Level3UtilsDialog::getSettings() const
         for (int row = 0; row < ui.table->rowCount(); row++)
         {
             m_l3.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
-            m_l3.connections[row + ui.FirstUnitIndex] = ui.combos_connection[row]->currentIndex();
+            m_l3.connections[row + ui.FirstUnitIndex] =
+                { static_cast<unsigned>(ui.combos_connection[row]->currentIndex()) };
             auto &unit = m_l3.stackStart[row];
             unit.activate = ui.checks_activate[row]->isChecked();
             unit.stackIndex = ui.combos_stack[row]->currentData().toUInt();
@@ -2354,7 +2367,8 @@ Level3 Level3UtilsDialog::getSettings() const
         for (int row = 0; row < ui.table->rowCount(); row++)
         {
             m_l3.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
-            m_l3.connections[row + ui.FirstUnitIndex] = ui.combos_connection[row]->currentIndex();
+            m_l3.connections[row + ui.FirstUnitIndex] =
+                { static_cast<unsigned>(ui.combos_connection[row]->currentIndex())};
             auto &unit = m_l3.masterTriggers[row];
             unit.activate = ui.checks_activate[row]->isChecked();
         }
@@ -2366,7 +2380,11 @@ Level3 Level3UtilsDialog::getSettings() const
         for (int row = 0; row < ui.table->rowCount(); row++)
         {
             m_l3.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
-            m_l3.connections[row + ui.FirstUnitIndex] = ui.combos_connection[row]->currentIndex();
+            m_l3.connections[row + ui.FirstUnitIndex] =
+                {
+                    static_cast<unsigned>(ui.combos_connection[row]->currentIndex()),
+                    static_cast<unsigned>(ui.combos_latch_connection[row]->currentIndex()),
+                };
             auto &unit = m_l3.counters[row];
             unit.softActivate = ui.checks_softActivate[row]->isChecked();
         }

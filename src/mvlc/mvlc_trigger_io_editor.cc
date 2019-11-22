@@ -417,17 +417,37 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     {
         auto &ioCfg = d->ioCfg;
 
-        QVector<QStringList> inputChoiceNameLists;
+        QVector<QVector<QStringList>> inputChoiceNameLists;
 
-        for (int unit = 0; unit < ioCfg.l3.unitNames.size(); unit++)
+        // FIXME: Counter latch input hacks all the way
+        for (int unit = 0; unit < ioCfg.l3.unitNames.size()-1; unit++)
         {
-            const auto &choiceList = ioCfg.l3.DynamicInputChoiceLists[unit][0];
-            QStringList nameList;
+            if (Level3::CountersOffset <= static_cast<unsigned>(unit)
+                && static_cast<unsigned>(unit) < Level3::CountersOffset + Level3::CountersCount)
+            {
+                QVector<QStringList> foo;
 
-            for (const auto &address: choiceList)
-                nameList.push_back(lookup_name(ioCfg, address));
+                for (unsigned input=0; input<2; input++)
+                {
+                    const auto &choiceList = ioCfg.l3.DynamicInputChoiceLists[unit][input];
+                    QStringList nameList;
+                    for (const auto &address: choiceList)
+                        nameList.push_back(lookup_name(ioCfg, address));
 
-            inputChoiceNameLists.push_back(nameList);
+                    foo.push_back(nameList);
+                }
+
+                inputChoiceNameLists.push_back(foo);
+            }
+            else
+            {
+                const auto &choiceList = ioCfg.l3.DynamicInputChoiceLists[unit][0];
+                QStringList nameList;
+                for (const auto &address: choiceList)
+                    nameList.push_back(lookup_name(ioCfg, address));
+
+                inputChoiceNameLists.push_back({nameList});
+            }
         }
 
         Level3UtilsDialog dialog(ioCfg.l3, inputChoiceNameLists, d->vmeEventNames);
