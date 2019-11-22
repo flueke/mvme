@@ -795,7 +795,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         result.parent = new QGraphicsRectItem(
             0, 0,
             260,
-            2.5 * (lutRect.height() + 25) + 25);
+            2.0 * (lutRect.height() + 25) + 25);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
@@ -807,7 +807,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                 // inputCount, outputCount
                 trigger_io::Level3::UtilityUnitCount - trigger_io::Level3::CountersCount, 0,
                 // inputConnectorMarginTop, inputConnectorMarginBottom
-                (gfx::CounterItem::Height + 2) * Level3::CountersCount, 16,
+                (gfx::CounterItem::Height + 2) * Level3::CountersCount, 12,
                 // outputConnectorMarginTop, outputConnectorMarginBottom
                 0, 0,
                 // parent
@@ -1009,9 +1009,6 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
             auto sourceConnector = getOutputConnector(conAddress);
             auto destConnector = getInputConnector({3, unitIndex, 1});
-
-            qDebug() << conAddress[0] << conAddress[1] << conAddress[2]
-                << sourceConnector << destConnector;
 
             if (sourceConnector && destConnector)
             {
@@ -1338,7 +1335,6 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
             auto cond = [&ioCfg, &addr] (const Counter &)
             {
-                qDebug() << addr[1] << ioCfg.l3.connections[addr[1]][1];
                 return ioCfg.l3.connections[addr[1]][1] != Level3::CounterLatchNotConnectedValue;
             };
 
@@ -1436,7 +1432,7 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
             assert(dstCon);
             dstCon->setEnabled(softActivate && isConnected);
-            dstCon->setBrush(softActivate ? Connector_Brush : Connector_Brush_Disabled);
+            dstCon->setBrush(softActivate && isConnected ? Connector_Brush : Connector_Brush_Disabled);
 
             auto edge = getEdgeByDestConnector(dstCon);
             assert(edge);
@@ -2169,6 +2165,18 @@ Level0UtilsDialog::Level0UtilsDialog(
     ui_slaveTriggers = make_slave_triggers_table_ui(l0);
     ui_stackBusy = make_stack_busy_table_ui(l0);
 
+    std::array<Table_UI_Base *, 5> tableUIs =
+    {
+        &ui_timers,
+        &ui_irqUnits,
+        &ui_softTriggers,
+        &ui_slaveTriggers,
+        &ui_stackBusy,
+    };
+
+    for (auto ui: tableUIs)
+        reverse_rows(ui->table);
+
     auto grid = new QGridLayout;
     grid->addWidget(make_groupbox(ui_timers.table, "Timers"), 0, 0);
     grid->addWidget(make_groupbox(ui_irqUnits.table, "IRQ Units"), 0, 1);
@@ -2435,6 +2443,16 @@ Level3UtilsDialog::Level3UtilsDialog(
     ui_stackStart = make_ui_stack_starts(l3, inputChoiceNameLists);
     ui_masterTriggers = make_ui_master_triggers(l3, inputChoiceNameLists);
     ui_counters = make_ui_counters(l3, inputChoiceNameLists);
+
+    std::array<Table_UI_Base *, 3> tableUIs =
+    {
+        &ui_stackStart,
+        &ui_masterTriggers,
+        &ui_counters
+    };
+
+    for (auto ui: tableUIs)
+        reverse_rows(ui->table);
 
     auto grid = new QGridLayout;
     grid->addWidget(make_groupbox(ui_stackStart.table, "Stack Start"), 0, 0);
