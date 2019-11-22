@@ -443,20 +443,28 @@ CounterItem::CounterItem(unsigned counterIndex, QGraphicsItem *parent)
         InputConnectorMargin, InputConnectorMargin,
         OutputConnectorMargin, OutputConnectorMargin,
         parent)
+    , m_labelItem(new QGraphicsSimpleTextItem(this))
 {
-    auto label = new QGraphicsSimpleTextItem(QString("Counter%1").arg(counterIndex), this);
     {
-        auto font = label->font();
+        auto font = m_labelItem->font();
         font.setPixelSize(LabelPixelSize);
-        label->setFont(font);
+        m_labelItem->setFont(font);
     }
-    label->moveBy(
-        (this->boundingRect().width() - label->boundingRect().width()) * .75,
-        (this->boundingRect().height() - label->boundingRect().height()) * 0.5
-        );
 
     getInputConnector(0)->setLabel("counter");
     getInputConnector(1)->setLabel("latch");
+    setCounterName(QString("Counter%1").arg(counterIndex));
+}
+
+void CounterItem::setCounterName(const QString &name)
+{
+    m_labelItem->setText(name);
+    m_labelItem->setPos({0, 0});
+
+    m_labelItem->moveBy(
+        (this->boundingRect().width() - m_labelItem->boundingRect().width()) * .75,
+        (this->boundingRect().height() - m_labelItem->boundingRect().height()) * 0.5
+        );
 }
 
 template<typename T>
@@ -1538,13 +1546,22 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
         // l3 util
         {
-            auto b = ioCfg.l3.unitNames.begin();
-            auto e = b + Level3::UtilityUnitCount;
-            QStringList names;
+            {
+                auto b = ioCfg.l3.unitNames.begin();
+                auto e = b + Level3::UtilityUnitCount;
+                QStringList names;
 
-            std::copy(b, e, std::back_inserter(names));
+                std::copy(b, e, std::back_inserter(names));
 
-            m_level3UtilItems.utilsItem->setInputNames(names);
+                m_level3UtilItems.utilsItem->setInputNames(names);
+            }
+
+            // FIXME: counters hack
+            for (unsigned counter=0; counter < Level3::CountersCount; ++counter)
+            {
+                QString name = ioCfg.l3.unitNames.value(counter + Level3::CountersOffset);
+                m_level3UtilItems.counterItems[counter]->setCounterName(name);
+            }
         }
     };
 

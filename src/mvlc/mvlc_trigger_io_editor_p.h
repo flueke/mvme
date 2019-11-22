@@ -246,6 +246,11 @@ class CounterItem: public BlockItem
         static constexpr float LabelPixelSize = 10.0f;
 
         explicit CounterItem(unsigned counterIndex, QGraphicsItem *parent = nullptr);
+
+        void setCounterName(const QString &name);
+
+    private:
+        QGraphicsSimpleTextItem *m_labelItem = nullptr;
 };
 
 class Edge: public QAbstractGraphicsShapeItem
@@ -342,7 +347,7 @@ class TriggerIOGraphicsScene: public QGraphicsScene
             QGraphicsRectItem *parent;
             QGraphicsSimpleTextItem *label;
             gfx::BlockItem *utilsItem;
-            QVector<gfx::BlockItem *> counterItems;
+            QVector<gfx::CounterItem *> counterItems;
         };
 
         QAbstractGraphicsShapeItem *getInputConnector(const UnitAddress &addr) const;
