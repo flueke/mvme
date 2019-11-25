@@ -84,7 +84,7 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
         {
             case TriggerCondition::Interrupt:
                 {
-                    logger(QSL("  Event %1: Stack %2, IRQ %3")
+                    logger(QSL("    Event %1: Stack %2, IRQ %3")
                            .arg(event->objectName()).arg(stackId)
                            .arg(event->irqLevel));
 
@@ -111,13 +111,12 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                 }
                 else
                 {
-                    logger(QSL("  Event %1: Stack %2, periodic")
-                           .arg(event->objectName()).arg(stackId)
-                           .arg(event->irqLevel));
+                    logger(QSL("    Event %1: Stack %2, periodic")
+                           .arg(event->objectName()).arg(stackId));
 
-                    // Trigger setup only. The actual setup of the timer and
-                    // the connection between the Timer and StackStart units is
-                    // done via the trigger/IO setup.
+                    // Set the stack trigger to 'External'. The actual setup of
+                    // the timer and the connection between the Timer and
+                    // StackStart units is done via the trigger/IO setup.
                     if (auto ec = mvlc.writeRegister(
                             stacks::get_trigger_register(stackId),
                             stacks::External << stacks::TriggerTypeShift))
@@ -174,9 +173,8 @@ std::error_code setup_trigger_io(
             auto &timer = ioCfg.l0.timers[timersInUse];
             timer.period = event->triggerOptions["mvlc.timer_period"].toUInt();
 
-            // FIXME: ugly. Get rid of stacks::TimerBaseUnit. Use only trigger_io::Timer::Range
-            timer.range = static_cast<trigger_io::Timer::Range>(timer_base_unit_from_string(
-                    event->triggerOptions["mvlc.timer_base"].toString()));
+            timer.range = timer_base_unit_from_string(
+                    event->triggerOptions["mvlc.timer_base"].toString());
 
             timer.softActivate = true;
 
@@ -233,9 +231,59 @@ std::error_code setup_trigger_io(
     return {};
 }
 
-std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
+inline std::error_code read_vme_reg(MVLCObject &mvlc, u16 reg, u32 &dest)
 {
-    logger("Disabling triggers");
+    return mvlc.vmeSingleRead(SelfVMEAddress + reg, dest,
+                              vme_address_modes::a32UserData, VMEDataWidth::D16);
+}
+
+inline std::error_code write_vme_reg(MVLCObject &mvlc, u16 reg, u16 value)
+{
+    return mvlc.vmeSingleWrite(SelfVMEAddress + reg, value,
+                               vme_address_modes::a32UserData, VMEDataWidth::D16);
+}
+
+std::error_code setup_mvlc_stage1(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
+{
+    logger("Initializing MVLC VME Interface");
+
+    {
+        u32 hardwareID = 0u, firmwareRev = 0u;
+
+        if (auto ec = read_vme_reg(mvlc, registers::hardware_id, hardwareID))
+            return ec;
+
+        if (auto ec = read_vme_reg(mvlc, registers::firmware_revision, firmwareRev))
+            return ec;
+
+        logger(QString("  MVLC hardwareId=0x%1, firmware=0x%2")
+               .arg(hardwareID, 4, 16, QLatin1Char('0'))
+               .arg(firmwareRev, 4, 16, QLatin1Char('0')));
+    }
+
+    logger("  Setting MVLC multicast address to 0xbb000000");
+
+    // enable vme multicast
+    if (auto ec = write_vme_reg(mvlc, registers::mcst_enable, 0x80))
+        return ec;
+
+    // set the 8 high bits of the multicast address
+    if (auto ec = write_vme_reg(mvlc, registers::mcst_address, 0xbb))
+        return ec;
+
+    logger("  Setting reset_register_mask to 0xffff");
+
+    if (auto ec = write_vme_reg(mvlc, registers::reset_register_mask, 0xffff))
+        return ec;
+
+    return {};
+}
+
+std::error_code setup_mvlc_stage2(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
+{
+    logger("Initializing MVLC Triggers and I/O");
+
+    logger("  Disabling triggers");
 
     if (auto ec = disable_all_triggers(mvlc))
     {
@@ -244,7 +292,7 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
         return ec;
     }
 
-    logger("Resetting stack offsets");
+    logger("  Resetting stack offsets");
 
     if (auto ec = reset_stack_offsets(mvlc))
     {
@@ -253,7 +301,7 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
         return ec;
     }
 
-    logger("Setting up readout stacks");
+    logger("  Setting up readout stacks");
 
     if (auto ec = setup_readout_stacks(mvlc, vmeConfig, logger))
     {
@@ -261,7 +309,7 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
         return ec;
     }
 
-    logger("Applying trigger & I/O setup");
+    logger("  Applying trigger & I/O setup");
 
     if (auto ec = setup_trigger_io(mvlc, vmeConfig, logger))
     {
@@ -269,7 +317,7 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
         return ec;
     }
 
-    logger("Enabling triggers");
+    logger("  Enabling triggers");
 
     if (auto ec = enable_triggers(mvlc, vmeConfig, logger))
         return ec;

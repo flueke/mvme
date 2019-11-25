@@ -767,6 +767,9 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         setState(DAQState::Starting);
 
+        if (auto ec = setup_mvlc_stage1(*d->mvlcObj, *getContext().vmeConfig, logger))
+            throw ec;
+
         // Note: disabling polling at this point is not strictly required. It
         // just speeds up script execution because the poller won't interfere.
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
@@ -812,11 +815,11 @@ void MVLCReadoutWorker::start(quint32 cycles)
         }
 
         logMessage("");
-        logMessage("Initializing MVLC");
 
-        // Stack and trigger setup. Triggers are enabled immediately, this
-        // means data will start coming in right away.
-        if (auto ec = setup_mvlc(*d->mvlcObj, *getContext().vmeConfig, logger))
+        // Stack, trigger and IO setup.
+        // Note: Currently triggers are enabled immediately, this means data
+        // will start coming in right away.
+        if (auto ec = setup_mvlc_stage2(*d->mvlcObj, *getContext().vmeConfig, logger))
             throw ec;
 
         // listfile handling
