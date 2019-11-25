@@ -106,6 +106,9 @@ class MVLCErrorCategory: public std::error_category
 
             case MVLCErrorCode::InUse:
                  return "MVLC is in use";
+
+            case MVLCErrorCode::USBChipConfigError:
+                 return "Incorrect USB chip configuration (FTDI)";
         }
 
         return "unrecognized MVLC error";
@@ -128,6 +131,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::SocketError:
             case MVLCErrorCode::EmptyHostname:
             case MVLCErrorCode::InUse:
+            case MVLCErrorCode::USBChipConfigError:
                 return ErrorType::ConnectionError;
 
             case MVLCErrorCode::ShortWrite:

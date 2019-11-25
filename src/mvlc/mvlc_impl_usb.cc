@@ -379,6 +379,36 @@ DeviceInfo get_device_info_by_serial(const std::string &serial)
     return it != infoList.end() ? *it : DeviceInfo{};
 }
 
+std::error_code check_chip_configuration(void *handle)
+{
+    FT_60XCONFIGURATION conf = {};
+
+    FT_STATUS st = FT_GetChipConfiguration(handle, &conf);
+
+    if (st != FT_OK)
+        return make_error_code(st);
+
+#if 0
+    qDebug("%s: FIFOClock=%x, ChannelConfig=%x, PowerAttributes=%x"
+           ", OptionalFeatureSupport=%x",
+           __PRETTY_FUNCTION__,
+           conf.FIFOClock, conf.ChannelConfig, conf.PowerAttributes,
+           conf.OptionalFeatureSupport);
+#endif
+
+    if (conf.FIFOClock != CONFIGURATION_FIFO_CLK_100
+        || conf.FIFOMode != CONFIGURATION_FIFO_MODE_600
+        || conf.ChannelConfig != CONFIGURATION_CHANNEL_CONFIG_2
+        || !(conf.PowerAttributes & 0x40) // self powered
+        || !(conf.PowerAttributes & 0x20) // remote wakup
+        || conf.OptionalFeatureSupport != CONFIGURATION_OPTIONAL_FEATURE_DISABLEALL)
+    {
+        return std::error_code(MVLCErrorCode::USBChipConfigError);
+    }
+
+    return {};
+}
+
 //
 // Impl
 //
@@ -511,6 +541,12 @@ std::error_code Impl::connect()
         }
     }
 #endif
+
+    if (auto ec = check_chip_configuration(m_handle))
+    {
+        closeHandle();
+        return ec;
+    }
 
     // Apply the read and write timeouts.
     for (auto pipe: { Pipe::Command, Pipe::Data })
