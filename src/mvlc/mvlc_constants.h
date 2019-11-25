@@ -126,6 +126,8 @@ namespace frame_flags
         frame_flags::SyntaxError);
 }
 
+// Software generated system events which do not collide with the MVLCs framing
+// format.
 namespace system_event
 {
     // TTTT TTTT CUUU SSSS SSSL LLLL LLLL LLLL
@@ -392,6 +394,9 @@ namespace registers
 
     static const u16 arp_sender_ip_rx_lo    = 0x4438;
     static const u16 arp_sender_ip_rx_hi    = 0x443a;
+
+    static const u16 reset_register_mask    = 0x0202;
+    static const u16 reset_register         = 0x6090;
 } // end namespace registers
 
 static const u8 CommandPipe = 0;
