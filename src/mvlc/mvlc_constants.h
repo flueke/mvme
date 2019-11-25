@@ -397,6 +397,10 @@ namespace registers
 
     static const u16 reset_register_mask    = 0x0202;
     static const u16 reset_register         = 0x6090;
+    static const u16 hardware_id            = 0x6008;
+    static const u16 firmware_revision      = 0x600e;
+    static const u16 mcst_enable            = 0x6020;
+    static const u16 mcst_address           = 0x6024;
 } // end namespace registers
 
 static const u8 CommandPipe = 0;
