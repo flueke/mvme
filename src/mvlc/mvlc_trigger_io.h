@@ -9,6 +9,7 @@
 #include <QString>
 #include <QStringList>
 
+#include "mvlc/mvlc_constants.h"
 #include "typedefs.h"
 
 namespace mesytec
@@ -24,7 +25,7 @@ static const size_t ECL_OUT_Count = 3;
 
 struct Timer
 {
-    enum class Range { ns, us, ms, s };
+    using Range = mvlc::stacks::TimerBaseUnit;
     Range range;
     u16 delay_ns;
     u16 period;
