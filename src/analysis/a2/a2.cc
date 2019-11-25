@@ -3510,7 +3510,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
 A2::A2(memory::Arena *arena)
     : conditionBits(BitsetAllocator(arena))
 {
-    fprintf(stderr, "%s@%p\n", __PRETTY_FUNCTION__, this);
+    //fprintf(stderr, "%s@%p\n", __PRETTY_FUNCTION__, this);
 
     dataSourceCounts.fill(0);
     dataSources.fill(nullptr);
@@ -3521,7 +3521,7 @@ A2::A2(memory::Arena *arena)
 
 A2::~A2()
 {
-    fprintf(stderr, "%s@%p\n", __PRETTY_FUNCTION__, this);
+    //fprintf(stderr, "%s@%p\n", __PRETTY_FUNCTION__, this);
 }
 
 A2 *make_a2(

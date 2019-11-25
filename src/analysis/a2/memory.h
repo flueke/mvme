@@ -177,13 +177,13 @@ class Arena
             void *mem = pushSize(sizeof(T), alignof(T));
             T *result = new (mem) T(std::forward<Args>(args)...);
 
-            fprintf(stderr, "%s@%p: constructed result %p from forwarded args\n",
-                    __PRETTY_FUNCTION__, this, result);
+            //fprintf(stderr, "%s@%p: constructed result %p from forwarded args\n",
+            //        __PRETTY_FUNCTION__, this, result);
 
             std::unique_ptr<T, detail::destroy_only_deleter<T>> guard_ptr(result);
 
             m_deleters.emplace_back([result, this] () {
-                fprintf(stderr, "%s deleter for %p (arena=%p)\n", __PRETTY_FUNCTION__, result, this);
+                //fprintf(stderr, "%s deleter for %p (arena=%p)\n", __PRETTY_FUNCTION__, result, this);
                 result->~T();
             });
 
@@ -360,7 +360,7 @@ struct ArenaAllocator
 
         auto result = reinterpret_cast<T *>(arena->pushSize(n * sizeof(T), alignof(T)));
 
-        fprintf(stderr, "%s (%p): n=%lu, result=%p\n", __PRETTY_FUNCTION__, this, n, result);
+        //fprintf(stderr, "%s (%p): n=%lu, result=%p\n", __PRETTY_FUNCTION__, this, n, result);
 
         return result;
     }
@@ -374,7 +374,7 @@ struct ArenaAllocator
          * implemented right now.
          */
 
-        fprintf(stderr, "%s (%p): ptr=%p, n=%lu\n", __PRETTY_FUNCTION__, this, ptr, n);
+        //fprintf(stderr, "%s (%p): ptr=%p, n=%lu\n", __PRETTY_FUNCTION__, this, ptr, n);
     }
 };
 
