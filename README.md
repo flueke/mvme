@@ -40,10 +40,10 @@ http://www.msys2.org/
 
 ## Mac OS X using Homebrew
 * Install Homebrew from https://brew.sh/
-* `brew install git cmake boost qt quazip qwt libusb-compat`
-* Set the following in `~/.bash_profile`:
-  `export PATH="/usr/local/opt/qt/bin:$PATH"`
-  `export CMAKE_PREFIX_PATH="/usr/local"`
+* `brew install git cmake boost qt quazip qwt libusb-compat sphinx-doc`
+* Add the following to `~/.bash_profile`:
+    export PATH="/usr/local/opt/qt/bin:/usr/local/opt/sphinx-doc/bin:$PATH"
+    export CMAKE_PREFIX_PATH="/usr/local"
 * `source ~/.bash_profile`
 * Checkout mvme, create a build directory and run cmake
   `cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/local/mvme ../mvme`
