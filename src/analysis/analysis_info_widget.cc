@@ -93,6 +93,8 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
         {
             auto label = new QLabel;
             label->setWordWrap(true);
+            label->setSizePolicy({
+                QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding});
             mvlcLayout->addRow(text, label);
             m_d->mvlcLabels.push_back(label);
         }
