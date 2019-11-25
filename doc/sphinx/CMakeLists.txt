@@ -9,7 +9,6 @@
 #   depends on the output.
 
 find_package(Sphinx)
-
 find_program(LATEXMK latexmk)
 
 if (SPHINX_EXECUTABLE)
@@ -112,7 +111,7 @@ if (SPHINX_EXECUTABLE)
         endif(WIN32)
 
         add_dependencies(doc_latex_pdf doc_latex)
-    add_dependencies(doc doc_latex_pdf)
+        add_dependencies(doc doc_latex_pdf)
 
         install(FILES "${SPHINX_PDF_OUT}" DESTINATION doc)
     endif(LATEXMK)
