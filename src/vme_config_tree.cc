@@ -154,8 +154,6 @@ class VMEConfigTreeItemDelegate: public QStyledItemDelegate
 VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     : QWidget(parent)
     , m_tree(new QTreeWidget(this))
-    , m_nodeEvents(new TreeNode)
-    , m_nodeGlobals(nullptr)
 {
     m_tree->setColumnCount(2);
     m_tree->setExpandsOnDoubleClick(true);
@@ -167,11 +165,6 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     auto headerItem = m_tree->headerItem();
     headerItem->setText(0, QSL("Object"));
     headerItem->setText(1, QSL("Info"));
-
-    m_nodeEvents->setText(0,  QSL("Events"));
-    m_tree->addTopLevelItem(m_nodeEvents);
-    m_nodeEvents->setExpanded(true);
-    m_tree->resizeColumnToContents(0);
 
     // Toolbar buttons
     pb_new    = make_action_toolbutton();
@@ -263,22 +256,51 @@ void VMEConfigTreeWidget::setupActions()
 
 void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 {
-    // Clear the tree
-    qDeleteAll(m_nodeEvents->takeChildren());
+    // Cleanup
 
-    delete m_nodeGlobals;
-    m_nodeGlobals = nullptr;
+    if (m_config)
+        m_config->disconnect(this);
 
+    // Clear the tree and the lookup mapping
+    qDeleteAll(m_tree->invisibleRootItem()->takeChildren());
     m_treeMap.clear();
 
+    m_nodeMVLCTriggerIO = nullptr;
+    m_nodeDAQStart = nullptr;
+    m_nodeEvents = nullptr;
+    m_nodeDAQStop = nullptr;
+    m_nodeManual = nullptr;
+
+
+    // Recreate objects
     m_config = cfg;
+
+    auto startScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_start");
+    auto stopScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_stop");
+    auto manualScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "manual");
+
+    m_nodeDAQStart = addObjectNode(m_tree->invisibleRootItem(), startScriptContainer);
+
+    m_nodeEvents = new TreeNode;
+    m_nodeEvents->setText(0,  QSL("Events"));
+    m_tree->addTopLevelItem(m_nodeEvents);
+    m_nodeEvents->setExpanded(true);
 
     if (cfg)
     {
         // Repopulate events
         for (auto event: cfg->getEventConfigs())
             onEventAdded(event, false);
+    }
 
+    m_nodeDAQStop = addObjectNode(m_tree->invisibleRootItem(), stopScriptContainer);
+    m_nodeManual = addObjectNode(m_tree->invisibleRootItem(), manualScriptContainer);
+
+    if (cfg)
+    {
         auto &cfg = m_config;
 
         connect(cfg, &VMEConfig::eventAdded,
@@ -315,34 +337,17 @@ void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
 
     auto &cfg = m_config;
 
-    // Remove the "global objects" root node, then recreate it. Also make sure
-    // the MVLC Trigger IO object is only shown if the controller is an MVLC.
+    delete m_nodeMVLCTriggerIO;
+    m_nodeMVLCTriggerIO = nullptr;
 
-    delete m_nodeGlobals;
-    m_nodeGlobals = addObjectNode(m_tree->invisibleRootItem(), &cfg->getGlobalObjectRoot());
-    m_nodeGlobals->setExpanded(true);
-
-    auto startScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
-        "daq_start");
-    auto stopScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
-        "daq_stop");
-    auto manualScriptContainer = cfg->getGlobalObjectRoot().findChild<ContainerObject *>(
-        "manual");
-
-    assert(startScriptContainer);
-    assert(stopScriptContainer);
-    assert(manualScriptContainer);
-
-    assert(m_treeMap[startScriptContainer]);
-    assert(m_treeMap[stopScriptContainer]);
-    assert(m_treeMap[manualScriptContainer]);
-
-    if (!is_mvlc_controller(t))
+    if (is_mvlc_controller(t))
     {
         auto mvlcTriggerIO = cfg->getGlobalObjectRoot().findChild<VMEScriptConfig *>(
             "mvlc_trigger_io");
-        auto node = m_treeMap.value(mvlcTriggerIO);
-        delete node;
+
+        m_nodeMVLCTriggerIO = makeObjectNode(mvlcTriggerIO);
+        m_treeMap[mvlcTriggerIO] = m_nodeMVLCTriggerIO;
+        m_tree->insertTopLevelItem(0, m_nodeMVLCTriggerIO);
     }
 }
 
@@ -475,7 +480,7 @@ TreeNode *VMEConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
     return moduleNode;
 }
 
-TreeNode *VMEConfigTreeWidget::addObjectNode(QTreeWidgetItem *parentNode, ConfigObject *obj)
+TreeNode *VMEConfigTreeWidget::makeObjectNode(ConfigObject *obj)
 {
     auto treeNode = new TreeNode;
 
@@ -492,6 +497,13 @@ TreeNode *VMEConfigTreeWidget::addObjectNode(QTreeWidgetItem *parentNode, Config
     {
         addContainerNodes(treeNode, containerObject);
     }
+
+    return treeNode;
+}
+
+TreeNode *VMEConfigTreeWidget::addObjectNode(QTreeWidgetItem *parentNode, ConfigObject *obj)
+{
+    auto treeNode = makeObjectNode(obj);
 
     parentNode->addChild(treeNode);
     m_treeMap[obj] = treeNode;
@@ -1072,6 +1084,8 @@ void VMEConfigTreeWidget::initModule()
 
 void VMEConfigTreeWidget::onActionShowAdvancedChanged()
 {
+    if (!m_nodeEvents) return;
+
     auto nodes = findItems(m_nodeEvents, [](QTreeWidgetItem *node) {
         return node->type() == NodeType_EventReadoutLoop
             || node->type() == NodeType_EventStartStop

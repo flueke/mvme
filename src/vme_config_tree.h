@@ -75,6 +75,7 @@ class VMEConfigTreeWidget: public QWidget
         TreeNode *addEventNode(TreeNode *parent, EventConfig *event);
         TreeNode *addModuleNodes(EventNode *parent, ModuleConfig *module);
 
+        TreeNode *makeObjectNode(ConfigObject *obj);
         TreeNode *addObjectNode(QTreeWidgetItem *parentNode, ConfigObject *obj);
         void addContainerNodes(TreeNode *parent, ContainerObject *obj);
 
@@ -125,8 +126,11 @@ class VMEConfigTreeWidget: public QWidget
         // Maps config objects to tree nodes
         QMap<QObject *, TreeNode *> m_treeMap;
 
-        TreeNode *m_nodeEvents,
-                 *m_nodeGlobals;
+        TreeNode *m_nodeMVLCTriggerIO = nullptr,
+                 *m_nodeDAQStart = nullptr,
+                 *m_nodeEvents = nullptr,
+                 *m_nodeDAQStop = nullptr,
+                 *m_nodeManual = nullptr;
 
         QAction *action_showAdvanced,
                 *action_dumpVMEControllerRegisters;
