@@ -56,6 +56,7 @@
     <file alias="vme_global_scripts.png">resources/script-globe.png</file>
     <file alias="vme_module.png">resources/audio-card.png</file>
     <file alias="vme_script.png">resources/document-yellow-32x32.png</file>
+    <file alias="mvme_16x16.png">resources/mvme_16x16.png</file>
     <file alias="window_icon.png">resources/mvme_32x32.png</file>
     <file alias="zoom_in.png">resources/zoom-in.png</file>
     <file alias="application-rename.png">resources/application-rename.png</file>
