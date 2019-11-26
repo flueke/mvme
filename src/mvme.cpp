@@ -394,6 +394,8 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
                 {
                     this->doRunScriptConfigs(scriptConfigs);
                 });
+
+        cw->setConfig(m_d->m_context->getVMEConfig());
     }
 
     // Setup DAQControlWidget
