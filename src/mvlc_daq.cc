@@ -243,43 +243,7 @@ inline std::error_code write_vme_reg(MVLCObject &mvlc, u16 reg, u16 value)
                                vme_address_modes::a32UserData, VMEDataWidth::D16);
 }
 
-std::error_code setup_mvlc_stage1(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
-{
-    logger("Initializing MVLC VME Interface");
-
-    {
-        u32 hardwareID = 0u, firmwareRev = 0u;
-
-        if (auto ec = read_vme_reg(mvlc, registers::hardware_id, hardwareID))
-            return ec;
-
-        if (auto ec = read_vme_reg(mvlc, registers::firmware_revision, firmwareRev))
-            return ec;
-
-        logger(QString("  MVLC hardwareId=0x%1, firmware=0x%2")
-               .arg(hardwareID, 4, 16, QLatin1Char('0'))
-               .arg(firmwareRev, 4, 16, QLatin1Char('0')));
-    }
-
-    logger("  Setting MVLC multicast address to 0xbb000000");
-
-    // enable vme multicast
-    if (auto ec = write_vme_reg(mvlc, registers::mcst_enable, 0x80))
-        return ec;
-
-    // set the 8 high bits of the multicast address
-    if (auto ec = write_vme_reg(mvlc, registers::mcst_address, 0xbb))
-        return ec;
-
-    logger("  Setting reset_register_mask to 0xffff");
-
-    if (auto ec = write_vme_reg(mvlc, registers::reset_register_mask, 0xffff))
-        return ec;
-
-    return {};
-}
-
-std::error_code setup_mvlc_stage2(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
+std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
 {
     logger("Initializing MVLC Triggers and I/O");
 

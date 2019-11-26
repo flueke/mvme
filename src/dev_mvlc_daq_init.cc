@@ -73,15 +73,6 @@ int main(int argc, char *argv[])
 
     try
     {
-        cout << "Setting MVLC multicast address" << endl;
-        auto ec = setup_mvlc_stage1(mvlc, *vmeConfig, logger);
-
-        if (ec)
-        {
-            cout << "setup_mvlc_stage1() returned an error code: " << ec.message() << endl;
-            return 1;
-        }
-
         {
             cout << "Running DAQ init sequence..." << endl;
 
@@ -94,11 +85,11 @@ int main(int argc, char *argv[])
             cout << "Setting up MVLC stacks and triggers" << endl;
         }
 
-        ec = setup_mvlc_stage2(mvlc, *vmeConfig, logger);
+        auto ec = setup_mvlc(mvlc, *vmeConfig, logger);
 
         if (ec)
         {
-            cout << "setup_mvlc_stage2() returned an error code: " << ec.message() << endl;
+            cout << "setup_mvlc() returned an error code: " << ec.message() << endl;
             return 1;
         }
     }
