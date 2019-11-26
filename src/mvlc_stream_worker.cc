@@ -300,6 +300,7 @@ void MVLC_StreamWorker::start()
     {
         logError(QSL("Error setting up MVLC stream parser: %1")
                  .arg(e.what()));
+        emit stopped();
         return;
     }
 

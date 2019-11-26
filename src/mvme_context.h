@@ -353,7 +353,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void cleanupWorkspaceAutoSaveFiles();
 
         QString getListFileOutputDirectoryFullPath(const QString &directory) const;
-        void prepareStart();
+        bool prepareStart();
 
         MVMEContextPrivate *m_d;
 

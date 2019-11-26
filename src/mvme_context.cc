@@ -1425,7 +1425,7 @@ void MVMEContext::setAnalysisConfigFileName(QString name, bool updateWorkspace)
 
 // Rebuilds the analyis in the main thread and then tells the stream worker that
 // a run is about to start.
-void MVMEContext::prepareStart()
+bool MVMEContext::prepareStart()
 {
 #ifndef NDEBUG
     // Use this to force a crash in case deleted objects remain in the object set.
@@ -1467,18 +1467,39 @@ void MVMEContext::prepareStart()
         // Use a local event loop to wait here until the stream worker thread
         // signals that startup is complete.
         QEventLoop localLoop;
-        auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started,
-                                    &localLoop, &QEventLoop::quit);
+        auto con_started = QObject::connect(
+            m_streamWorker.get(), &MVMEStreamWorker::started,
+            &localLoop, &QEventLoop::quit);
+
+        auto con_stopped = QObject::connect(
+            m_streamWorker.get(), &MVMEStreamWorker::stopped,
+            &localLoop, &QEventLoop::quit);
 
         bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "start",
                                                  Qt::QueuedConnection);
         assert(invoked);
 
         localLoop.exec();
-        QObject::disconnect(con);
 
-        qDebug() << __PRETTY_FUNCTION__ << "started mvme stream worker";
+        QObject::disconnect(con_started);
+        QObject::disconnect(con_stopped);
+
+        auto workerState = m_streamWorker->getState();
+
+        if (workerState == MVMEStreamWorkerState::Running
+            || workerState == MVMEStreamWorkerState::Paused)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "started mvme stream worker";
+            return true;
+        }
+        else
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "mvme stream worker did not start up correctly";
+            return false;
+        }
     }
+
+    return false;
 }
 
 void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
@@ -1524,7 +1545,11 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
                .arg(QSysInfo::prettyProductName())
                .arg(QSysInfo::currentCpuArchitecture()));
 
-    prepareStart();
+    if (!prepareStart())
+    {
+        logMessage("Failed to start stream worker (analysis side). Aborting startup");
+        return;
+    }
 
     qDebug() << __PRETTY_FUNCTION__ << "starting readout worker";
 
@@ -1577,7 +1602,11 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
         mvmeStreamWorker->setListFileVersion(lf.getFileVersion());
     }
 
-    prepareStart();
+    if (!prepareStart())
+    {
+        logMessage("Failed to start stream worker (analysis side). Aborting startup");
+        return;
+    }
 
     qDebug() << __PRETTY_FUNCTION__ << "starting listfile reader";
 
