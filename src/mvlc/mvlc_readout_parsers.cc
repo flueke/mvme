@@ -467,9 +467,15 @@ ParseResult parse_readout_contents(
                     if (moduleSpans.prefixSpan.size == moduleParts.prefixLen)
                     {
                         if (moduleParts.hasDynamic)
+                        {
                             state.moduleParseState = ReadoutParserState::Dynamic;
+                            continue;
+                        }
                         else if (moduleParts.suffixLen != 0)
+                        {
                             state.moduleParseState = ReadoutParserState::Suffix;
+                            continue;
+                        }
                         else
                         {
                             // We're done with this module as it does have neither
@@ -527,6 +533,7 @@ ParseResult parse_readout_contents(
                             else
                             {
                                 state.moduleParseState = ReadoutParserState::Suffix;
+                                continue;
                             }
                         }
                     }
