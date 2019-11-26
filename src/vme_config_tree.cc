@@ -498,6 +498,9 @@ TreeNode *VMEConfigTreeWidget::makeObjectNode(ConfigObject *obj)
         addContainerNodes(treeNode, containerObject);
     }
 
+    if (auto scriptObject = qobject_cast<VMEScriptConfig *>(obj))
+        treeNode->setFlags(treeNode->flags() | Qt::ItemIsEditable);
+
     return treeNode;
 }
 
