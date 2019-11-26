@@ -127,6 +127,9 @@ const char *get_parse_result_name(const ParseResult &pr)
         case ParseResult::EventIndexOutOfRange:
             return "EventIndexOutOfRange";
 
+        case ParseResult::ModuleIndexOutOfRange:
+            return "ModuleIndexOutOfRange";
+
         case ParseResult::EmptyStackFrame:
             return "EmptyStackFrame";
 
@@ -419,8 +422,14 @@ ParseResult parse_readout_contents(
         }
 
         assert(is_event_in_progress(state));
+        assert(0 <= state.eventIndex && static_cast<size_t>(state.eventIndex) < state.readoutInfo.size());
 
         const auto &moduleReadoutInfos = state.readoutInfo[state.eventIndex];
+
+        if (static_cast<size_t>(state.moduleIndex) >= moduleReadoutInfos.size())
+            return ParseResult::ModuleIndexOutOfRange;
+
+
         const auto &moduleParts = moduleReadoutInfos[state.moduleIndex];
 
         if (moduleParts.prefixLen == 0 && !moduleParts.hasDynamic && moduleParts.suffixLen == 0)

@@ -109,6 +109,7 @@ enum class ParseResult
     NotAStackContinuation,
     StackIndexChanged,
     EventIndexOutOfRange,
+    ModuleIndexOutOfRange,
     EmptyStackFrame,
     UnexpectedOpenBlockFrame,
 
