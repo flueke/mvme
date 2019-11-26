@@ -2,8 +2,10 @@
 TODO list, not at all sorted by priority
 ==================================================
 
-* Multiple MVLC issues
+* MVLC issues
 ======================
+* After a boot the firmware and hardware registers yield 0. Only after starting
+  and stopping a DAQ those registers are populated. Try to narrow this down.
 * Running a VMEScript should completely disable any polling being done on the
   cmd pipe. Failing to do so will slow down script execution dramatically due
   to the time spent waiting for the lock whenever the polling code is waiting
@@ -26,6 +28,29 @@ they result in a timeout error. Do not immediately disconnect the MVLC.
 * USB: read out the chip configuration and abort with a clear warning if it's
   not correctly setup.
 
+* hang at exit after starting DAQ with a bug in VME Script which led to the
+  error message: multiple block reads in module readout commands. (Not sure but
+  it might be the analysis not stopping).
+
+* When having two vme modules in an event and disabling the 2nd module not data
+  for the first will arrive in the analysis.
+
+* Add an MVLC timestamp module
+* Move the broadcast address setup (stage1) into that module.
+* Move MVLC Trigger I/O and DAQ Start to the top
+* DAQ Stop and Manual stay at the bottom
+* Trigger I/O Editor:
+  - Add ability to reserve units. Used for Timer and StackStart units when
+    periodic events are present.
+  - Add ability to generate a script containing only selected/modified units
+
+* NSIS installer: make sure there's no "release" component when packaging the
+  release branch.
+
+* NSIS Installer: make the zadig installer less prominent and annoying.
+
+ Configurable Button Grid for VME Scripts
+------------------------------------------
 
 Buttons in a grid. Can do single column and single row layouts.
 Other layout options? No. Just allow having less buttons than (rows * cols).
@@ -56,7 +81,6 @@ Feature: Repeat mode
          Note: there's no way to have different intervals for the checked and
          unchecked states.
 
-* hang at exit after starting DAQ with a bug in VME Script which led to the error message: multiple block reads in module readout commands
 
 Thread 1 "mvme" received signal SIGINT, Interrupt.
 futex_wait_cancelable (private=0, expected=0, futex_word=0x555555762190) at ../sysdeps/unix/sysv/linux/futex-internal.h:88
