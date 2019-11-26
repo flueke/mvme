@@ -45,6 +45,10 @@ void ObjectInfoWidget::setAnalysisObject(const AnalysisObjectPtr &obj)
 {
     m_d->m_analysisObject = obj;
     m_d->m_configObject = nullptr;
+
+    connect(obj.get(), &QObject::destroyed,
+            this, [this] { m_d->m_analysisObject = nullptr; });
+
     refresh();
 }
 
@@ -52,6 +56,10 @@ void ObjectInfoWidget::setVMEConfigObject(const ConfigObject *obj)
 {
     m_d->m_analysisObject = {};
     m_d->m_configObject = obj;
+
+    connect(obj, &QObject::destroyed,
+            this, [this] { m_d->m_configObject = nullptr; });
+
     refresh();
 }
 
