@@ -1,0 +1,64 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 3,
+        "VMEObjectSettings": {
+            "{8e96a726-881b-4884-ab34-13c00c541a18}": {
+                "MultiEventProcessing": true
+            },
+            "{a45645d8-d847-4de8-80de-34aa7f69b1a0}": {
+                "MultiEventProcessing": false
+            }
+        },
+        "conditionLinks": [
+        ],
+        "connections": [
+        ],
+        "directories": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{9a662c1a-6914-4c5e-8ef4-d62b11bff350}",
+                    "moduleName": "mvlc",
+                    "moduleTypeName": "mvlc"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 1,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "61174358904f121f",
+                    "subFilters": [
+                        {
+                            "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        },
+                        {
+                            "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        },
+                        {
+                            "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        },
+                        {
+                            "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{991a10c4-c6c0-494b-bae2-9cb4fa6bad00}",
+                "id": "{c8f6da8b-cc81-43eb-ae6e-b16db28035bb}",
+                "moduleId": "{9a662c1a-6914-4c5e-8ef4-d62b11bff350}",
+                "name": "timestamp"
+            }
+        ]
+    }
+}
