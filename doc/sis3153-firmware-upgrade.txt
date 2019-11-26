@@ -13,10 +13,7 @@ For the upgrade you need a windows machine and a USB cable (doesn't have to
 be USB3, slower connection types also work).
 
 A ZIP archive containing the USB driver, the firmware loader and firmware image version
-16.a6 (the latest as of March 2018).
-
-I've uploaded a ZIP archive containing the USB driver, the firmware loader and
-firmware 16.a6 to our website:
+16.a6 (the latest as of March 2018) can be found here:
   https://mesytec.com/downloads/sis3153-driver_loader_firmware-16a6.zip
 
 Once plugged in the SIS will show up in the Windows Device Manager under

@@ -40,7 +40,7 @@ using namespace analysis;
 namespace vme_analysis_common
 {
 
-void add_vme_properties_to_analysis(VMEConfig *vmeConfig, analysis::Analysis *analysis)
+void add_vme_properties_to_analysis(const VMEConfig *vmeConfig, analysis::Analysis *analysis)
 {
     QVariantList modulePropertyList;
 
@@ -56,7 +56,16 @@ void add_vme_properties_to_analysis(VMEConfig *vmeConfig, analysis::Analysis *an
     analysis->setProperty("ModuleProperties", modulePropertyList);
 }
 
-QVector<ModuleInfo> get_module_infos(VMEConfig *vmeConfig)
+QDebug &operator<<(QDebug &out, const ModuleInfo &mi)
+{
+    QDebugStateSaver qdss(out);
+    out.nospace().noquote();
+    out << "ModuleInfo(id=" << mi.id << ", eventId=" << mi.eventId
+        << ", typeName=" <<mi.typeName << ", name=" << mi.name;
+    return out;
+}
+
+QVector<ModuleInfo> get_module_infos(const VMEConfig *vmeConfig)
 {
     QVector<ModuleInfo> result;
     for (auto module: vmeConfig->getAllModuleConfigs())
@@ -106,7 +115,7 @@ static void rewrite_module(Analysis *analysis,
                            const QUuid &toModuleId,
                            const QUuid &toEventId)
 {
-    qDebug() << "rewrite_module: fromModuleId =" << fromModuleId
+    qDebug() << __PRETTY_FUNCTION__ << "rewrite_module: fromModuleId =" << fromModuleId
         << ", toModuleId =" << toModuleId
         << ", toEventId =" << toEventId;
 
@@ -116,6 +125,9 @@ static void rewrite_module(Analysis *analysis,
 
     for (auto &source: sources)
     {
+        qDebug() << __PRETTY_FUNCTION__ << "checking dataSource" << source <<
+            ", moduleId=" << source->getModuleId() << ", looking for fromModuleId =" << fromModuleId;
+
         if (source->getModuleId() == fromModuleId)
         {
             // Save the eventId and use it when changing the operator entries
@@ -124,20 +136,24 @@ static void rewrite_module(Analysis *analysis,
             // fromModuleId cannot be a member of different events.
             fromEventId = source->getEventId();
 
+            qDebug() << __PRETTY_FUNCTION__ << "setting fromEventId to" << fromEventId << ", found in dataSource" << source;
+
             // Rewrite the source entry
             source->setModuleId(toModuleId);
             source->setEventId(toEventId);
-            analysis->setModified(true);
         }
     }
 
     auto &operators(analysis->getOperators());
     for (auto &op: operators)
     {
+        qDebug() << __PRETTY_FUNCTION__ << "op =" << op << ", eventId =" << op->getEventId();
+
         if (op->getEventId() == fromEventId)
         {
+
+            qDebug() << __PRETTY_FUNCTION__ << "rewrite op eventId, old =" << op->getEventId() << ", new =" << toEventId;
             op->setEventId(toEventId);
-            analysis->setModified(true);
         }
     }
 }
@@ -226,7 +242,7 @@ static void apply_changes(Analysis *analysis, const QVector<ChangeInfo> &changes
     }
 }
 
-bool auto_assign_vme_modules(VMEConfig *vmeConfig, analysis::Analysis *analysis, LoggerFun logger)
+bool auto_assign_vme_modules(const VMEConfig *vmeConfig, analysis::Analysis *analysis, LoggerFun logger)
 {
     auto vModInfos = get_module_infos(vmeConfig);
     return auto_assign_vme_modules(vModInfos, analysis, logger);
@@ -236,32 +252,59 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
 {
     auto do_log = [logger] (const QString &msg) { if (logger) logger(msg); };
 
-    auto aModInfos = get_module_infos(analysis);
 
-    QSet<QUuid> vModIds;
+    QSet<std::pair<QUuid, QUuid>> vmeModuleAndEventIds;
+
     for (auto modInfo: vModInfos)
     {
-        vModIds.insert(modInfo.id);
+        vmeModuleAndEventIds.insert(std::make_pair(modInfo.id, modInfo.eventId));
     }
 
-    QSet<QUuid> aModIds;
+    auto aModInfos = get_module_infos(analysis);
+    QSet<std::pair<QUuid, QUuid>> analysisModuleAndEventIds;
     for (auto modInfo: aModInfos)
     {
-        aModIds.insert(modInfo.id);
+        analysisModuleAndEventIds.insert(std::make_pair(modInfo.id, modInfo.eventId));
     }
 
-    aModIds.subtract(vModIds);
+    qDebug() << __PRETTY_FUNCTION__ << "vModInfos:";
+    for (const auto &mi: vModInfos)
+        qDebug() << __PRETTY_FUNCTION__ << "  " << mi;
 
-    if (aModIds.isEmpty()) // True if all analysis modules exist in the vme config
+    qDebug() << __PRETTY_FUNCTION__ << "aModInfos:";
+    for (const auto &mi: aModInfos)
+        qDebug() << __PRETTY_FUNCTION__ << "  " << mi;
+
+
+    //qDebug() << __PRETTY_FUNCTION__ << "analysisModuleAndEventIds:" << analysisModuleAndEventIds;
+    //qDebug() << __PRETTY_FUNCTION__ << "vmeModuleAndEventIds:" << vmeModuleAndEventIds;
+
+
+    // Remove entries that are equal in both module id and event id
+    analysisModuleAndEventIds.subtract(vmeModuleAndEventIds);
+
+    // Remove entries where the module ids are equal and the analysis side event id is null.
+    for (const auto &vModIds: vmeModuleAndEventIds)
     {
-        qDebug() << "auto_assign: all modules match";
+        auto vmeModuleIdAndNullEventId = std::make_pair(vModIds.first, QUuid());
+
+        if (analysisModuleAndEventIds.contains(vmeModuleIdAndNullEventId))
+            analysisModuleAndEventIds.remove(vmeModuleIdAndNullEventId);
+    }
+
+    if (analysisModuleAndEventIds.isEmpty()) // True if all analysis modules exist in the vme config
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "auto_assign: all modules match";
         return true;
     }
 
     QVector<ChangeInfo> moduleChangeInfos;
 
-    for (auto moduleId: aModIds)
+    for (auto moduleAndEventId: analysisModuleAndEventIds)
     {
+        auto moduleId = moduleAndEventId.first;
+        auto eventId = moduleAndEventId.second;
+
         ModuleInfo modInfo = *std::find_if(aModInfos.begin(), aModInfos.end(),
                                            [moduleId](const auto &modInfo) { return modInfo.id == moduleId; });
 
@@ -287,13 +330,14 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
             info.toEventId      = targetModInfo.eventId;
             moduleChangeInfos.push_back(info);
 
-            qDebug() << __PRETTY_FUNCTION__ << "pushing rewrite:"
-                << to_string(modInfo) << "->" << to_string(targetModInfo);
+            qDebug() << __PRETTY_FUNCTION__ << "pushing rewrite: modules:"
+                << to_string(modInfo) << "->" << to_string(targetModInfo)
+                << ", event ids =" << eventId << "->" << info.toEventId;
         }
     }
 
     // Not all modules can be auto assigned
-    if (moduleChangeInfos.size() != aModIds.size())
+    if (moduleChangeInfos.size() != analysisModuleAndEventIds.size())
     {
         qDebug() << "auto_assign: could not auto-assign all modules";
         return false;
@@ -304,7 +348,7 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
     return true;
 }
 
-bool run_vme_analysis_module_assignment_ui(VMEConfig *vmeConfig, analysis::Analysis *analysis, QWidget *parent)
+bool run_vme_analysis_module_assignment_ui(const VMEConfig *vmeConfig, analysis::Analysis *analysis, QWidget *parent)
 {
     auto vModInfos = get_module_infos(vmeConfig);
     return run_vme_analysis_module_assignment_ui(vModInfos, analysis, parent);
@@ -564,7 +608,7 @@ void remove_analysis_objects_unless_matching(analysis::Analysis *analysis,
     remove_analysis_objects_unless_matching(analysis, moduleInfo.id, moduleInfo.eventId);
 }
 
-void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, VMEConfig *vmeConfig)
+void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const VMEConfig *vmeConfig)
 {
     QSet<QUuid> vmeEventIds;
     QSet<QUuid> vmeModuleIds;

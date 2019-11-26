@@ -299,7 +299,7 @@ int sis3153eth::set_UdpSocketBindMyOwnPort( char* pc_ip_addr_string){
 
 
     do {
-        return_code = bind(this->udp_socket,  (struct sockaddr *)&this->myPC_sock_addr, sizeof(this->myPC_sock_addr));
+        return_code = ::bind(this->udp_socket,  (struct sockaddr *)&this->myPC_sock_addr, sizeof(this->myPC_sock_addr));
         //printf("bind: \treturn_code = 0x%08X     \n", return_code);
         if (return_code != 0) {
             this->udp_port++;

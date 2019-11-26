@@ -79,6 +79,13 @@ public:
 
     void addWidget(QWidget *widget, const QString &stateKey = QString());
 
+    struct RunScriptOptions
+    {
+        using opt_t = u16;
+        static const opt_t Defaults = 0u;
+        static const opt_t AggregateResults = 1u << 0;
+    };
+
 public slots:
     void displayAbout();
     void displayAboutQt();
@@ -97,6 +104,8 @@ public slots:
     bool createNewOrOpenExistingWorkspace();
 
     void updateWindowTitle();
+    void runScriptConfig(VMEScriptConfig *config,
+                         RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -128,9 +137,18 @@ private slots:
     void onActionImport_Histo1D_triggered();
 
     void onActionVMEScriptRef_triggered();
-    void onActionCheck_for_updates_triggered();
 
     void updateActions();
+
+    void editVMEScript(VMEScriptConfig *vmeScript, const QString &metaTag = {});
+    void runAddVMEEventDialog();
+    void runEditVMEEventDialog(EventConfig *eventConfig);
+    void runVMEControllerSettingsDialog();
+    void runDAQRunSettingsDialog();
+    void runWorkspaceSettingsDialog();
+
+    void doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs,
+                            RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
 
 
 private:

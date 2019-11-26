@@ -266,7 +266,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
     m_cyclesToRun = cycles;
     setState(DAQState::Starting);
-    DAQStats &stats(*m_workerContext.daqStats);
+    DAQStats &stats(m_workerContext.daqStats);
     bool errorThrown = false;
     auto daqConfig = m_workerContext.vmeConfig;
     VMEError error;
@@ -392,6 +392,15 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             }
             else
             {
+                s16 stackID = m_vmusbStack.getStackID();
+
+                if (stackID < 0)
+                {
+                    auto msg = (QSL("VMUSB configuration error: invalid trigger for event \"%1\"")
+                                .arg(event->objectName()));
+                    throw msg;
+                }
+
                 // for NIM1 and scaler triggers the stack knows the stack number
                 event->stackID = m_vmusbStack.getStackID();
             }
@@ -445,7 +454,11 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         // DAQ Init
         //
-        vme_daq_init(daqConfig, vmusb, [this] (const QString &msg) { logMessage(msg); });
+        if (!do_VME_DAQ_Init(vmusb))
+        {
+            setState(DAQState::Idle);
+            return;
+        }
 
         //
         // Debug Dump of all VMUSB registers
@@ -541,6 +554,11 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         logError(QSL("VME Script parse error: ") + e.what());
         errorThrown = true;
     }
+    catch (const VMEError &e)
+    {
+        logError(e.toString());
+        errorThrown = true;
+    }
 
     if (errorThrown)
     {
@@ -599,7 +617,7 @@ void VMUSBReadoutWorker::readoutLoop()
 
     setState(DAQState::Running);
 
-    DAQStats &stats(*m_workerContext.daqStats);
+    DAQStats &stats(m_workerContext.daqStats);
     QTime logReadErrorTimer;
     u64 nReadErrors = 0;
     u64 nGoodReads = 0;
@@ -607,6 +625,7 @@ void VMUSBReadoutWorker::readoutLoop()
     using vme_analysis_common::TimetickGenerator;
 
     TimetickGenerator timetickGen;
+    m_bufferProcessor->timetick(); // immediately write out the very first timetick
 
     while (true)
     {
@@ -634,6 +653,7 @@ void VMUSBReadoutWorker::readoutLoop()
                     .arg(error.toString());
             }
 
+            m_bufferProcessor->handlePause();
             setState(DAQState::Paused);
             logMessage(QSL("VMUSB readout paused"));
         }
@@ -645,6 +665,7 @@ void VMUSBReadoutWorker::readoutLoop()
             if (error.isError())
                 throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
 
+            m_bufferProcessor->handleResume();
             setState(DAQState::Running);
             logMessage(QSL("VMUSB readout resumed"));
         }
@@ -781,9 +802,11 @@ void VMUSBReadoutWorker::setState(DAQState state)
             break;
 
         case DAQState::Starting:
-        case DAQState::Running:
         case DAQState::Stopping:
             break;
+
+        case DAQState::Running:
+            emit daqStarted();
     }
 
     QCoreApplication::processEvents();
@@ -792,11 +815,6 @@ void VMUSBReadoutWorker::setState(DAQState state)
 void VMUSBReadoutWorker::logError(const QString &message)
 {
     logMessage(QString("VMUSB Error: %1").arg(message));
-}
-
-void VMUSBReadoutWorker::logMessage(const QString &message, bool useThrottle)
-{
-    m_workerContext.logMessage(message, useThrottle);
 }
 
 VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_ms)
@@ -838,7 +856,7 @@ VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_
     if ((!result.error.isError() || result.error.isTimeout()) && result.bytesRead > 0)
     {
         m_readBuffer->used = result.bytesRead;
-        DAQStats &stats(*m_workerContext.daqStats);
+        DAQStats &stats(m_workerContext.daqStats);
         stats.totalBytesRead += result.bytesRead;
         stats.totalBuffersRead++;
 

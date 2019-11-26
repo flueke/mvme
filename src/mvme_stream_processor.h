@@ -6,20 +6,19 @@
 
 #include <QDateTime>
 #include <QString>
+#include <array>
 
 namespace analysis
 {
 class Analysis;
 }
 
-class DataBuffer;
+struct DataBuffer;
 class MesytecDiagnostics;
 class VMEConfig;
 
 struct LIBMVME_EXPORT MVMEStreamProcessorCounters
 {
-    static const u32 MaxModulesPerEvent = 20;
-
     QDateTime startTime;
     QDateTime stopTime;
 
@@ -35,6 +34,7 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
     std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
 };
 
+/* Interface for consumers of raw module data. */
 class LIBMVME_EXPORT IMVMEStreamModuleConsumer
 {
     public:
@@ -42,15 +42,31 @@ class LIBMVME_EXPORT IMVMEStreamModuleConsumer
 
         virtual ~IMVMEStreamModuleConsumer() {};
 
-        virtual void beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis, Logger logger) = 0;
-        virtual void endRun(const std::exception *e = nullptr) = 0;
+        virtual void startup() {}
+        virtual void shutdown() {}
+
+        virtual void beginRun(const RunInfo &runInfo,
+                              const VMEConfig *vmeConfig,
+                              const analysis::Analysis *analysis) = 0;
+
+        virtual void endRun(const DAQStats &stats, const std::exception *e = nullptr) = 0;
 
         virtual void beginEvent(s32 eventIndex) = 0;
         virtual void endEvent(s32 eventIndex) = 0;
-        virtual void processModuleData(s32 eventIndex, s32 moduleIndex, const u32 *data, u32 size) = 0;
+        virtual void processModulePrefix(s32 eventIndex,
+                                       s32 moduleIndex,
+                                       const u32 *data, u32 size) = 0;
+        virtual void processModuleData(s32 eventIndex,
+                                       s32 moduleIndex,
+                                       const u32 *data, u32 size) = 0;
+        virtual void processModuleSuffix(s32 eventIndex,
+                                       s32 moduleIndex,
+                                       const u32 *data, u32 size) = 0;
         virtual void processTimetick() = 0;
+        virtual void setLogger(Logger logger) = 0;
 };
 
+/* Interface for consumers of raw mvme stream formatted data buffers. */
 class LIBMVME_EXPORT IMVMEStreamBufferConsumer
 {
     public:
@@ -58,7 +74,14 @@ class LIBMVME_EXPORT IMVMEStreamBufferConsumer
 
         virtual ~IMVMEStreamBufferConsumer() {};
 
-        virtual void beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis, Logger logger) = 0;
+        virtual void startup() {}
+        virtual void shutdown() {}
+
+        virtual void beginRun(const RunInfo &runInfo,
+                              const VMEConfig *vmeConfig,
+                              const analysis::Analysis *analysis,
+                              Logger logger) = 0;
+
         virtual void endRun(const std::exception *e = nullptr) = 0;
 
         virtual void processDataBuffer(const DataBuffer *buffer) = 0;
@@ -75,19 +98,24 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         MVMEStreamProcessor();
         ~MVMEStreamProcessor();
 
+        // Invokes startup() on attached module and buffer consumers.
+        void startup();
+
+        // Invokes shutdown() on attached module and buffer consumers.
+        void shutdown();
+
         //
         // Statistics
         //
-        const MVMEStreamProcessorCounters &getCounters() const;
+        MVMEStreamProcessorCounters getCounters() const;
         MVMEStreamProcessorCounters &getCounters();
-
 
         //
         // Processing
         //
         void beginRun(const RunInfo &runInfo, analysis::Analysis *analysis,
                       VMEConfig *vmeConfig, u32 listfileVersion, Logger logger);
-        void endRun();
+        void endRun(const DAQStats &stats);
         void processDataBuffer(DataBuffer *buffer);
 
         // Used in DAQ Readout mode to generate timeticks for the analysis
@@ -164,7 +192,6 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer);
 
     private:
-        void startConsumers();
         std::unique_ptr<MVMEStreamProcessorPrivate> m_d;
 };
 

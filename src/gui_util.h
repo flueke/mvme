@@ -25,6 +25,7 @@
 #include <QPixmap>
 
 class QWidget;
+class QStackedWidget;
 
 QWidget *make_vme_script_ref_widget();
 
@@ -45,5 +46,9 @@ class FixWordWrapBugLabel: public QLabel
     protected:
         virtual void resizeEvent(QResizeEvent *event) override;
 };
+
+/** Clears the stacked widget and deletes its child widgets using
+ * QObject::deleteLater(). */
+void clear_stacked_widget(QStackedWidget *stackedWidget);
 
 #endif /* __GUI_UTIL_H__ */

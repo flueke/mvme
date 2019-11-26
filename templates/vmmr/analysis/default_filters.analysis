@@ -64,7 +64,7 @@
                 "eventId": "{ee10db9d-aa4b-4b0e-8695-24713fccc773}",
                 "id": "{19817e95-c436-45af-8613-a29873f2d0e5}",
                 "moduleId": "{55b3d47a-42f9-41e1-89b2-695356a8d22e}",
-                "name": "event_counters/ts"
+                "name": "timestamp"
             }
         ]
     }

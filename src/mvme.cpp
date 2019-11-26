@@ -22,7 +22,7 @@
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
-#include "vme_config_ui.h"
+#include "daqcontrol.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
 #include "gui_util.h"
@@ -30,6 +30,9 @@
 #include "histo2d_widget.h"
 #include "listfile_browser.h"
 #include "mesytec_diagnostics.h"
+#include "mvlc/mvlc_dev_gui.h"
+#include "mvlc/mvlc_trigger_io_editor.h"
+#include "mvlc/mvlc_vme_controller.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme_listfile.h"
@@ -39,13 +42,13 @@
 #include "sis3153_util.h"
 #include "util_zip.h"
 #include "vme_config_tree.h"
+#include "vme_config_ui.h"
+#include "vme_controller_ui.h"
 #include "vme_debug_widget.h"
 #include "vme_script_editor.h"
 #include "vmusb_firmware_loader.h"
 
-#ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
-#endif
 #include "build_info.h"
 
 #include <QApplication>
@@ -62,9 +65,7 @@
 #include <QTextBrowser>
 #include <QTextEdit>
 #include <QtGui>
-#include <QtNetwork>
 #include <QToolBar>
-#include <quazipfile.h>
 #include <QVBoxLayout>
 #include <qwt_plot_curve.h>
 #include <QFormLayout>
@@ -80,14 +81,16 @@ struct MVMEWindowPrivate
     QVBoxLayout *centralLayout = nullptr;
     QPlainTextEdit *m_logView = nullptr;
     DAQControlWidget *m_daqControlWidget = nullptr;
+    QTimer *m_daqControlWidgetUpdateTimer = nullptr;
     VMEConfigTreeWidget *m_vmeConfigTreeWidget = nullptr;
     DAQStatsWidget *m_daqStatsWidget = nullptr;
     VMEDebugWidget *m_vmeDebugWidget = nullptr;
     QMap<QObject *, QList<QWidget *>> m_objectWindows;
     WidgetGeometrySaver *m_geometrySaver;
-    QNetworkAccessManager *m_networkAccessManager = nullptr;
     ListfileBrowser *m_listfileBrowser = nullptr;
     RateMonitorGui *m_rateMonitorGui = nullptr;
+
+    DAQControl *daqControl = nullptr;
 
     QStatusBar *statusBar;
     QMenuBar *menuBar;
@@ -104,9 +107,9 @@ struct MVMEWindowPrivate
 
             // utility/tool windows
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
-            *actionToolTemplateInfo, *actionToolSIS3153Debug,
+            *actionToolTemplateInfo, *actionToolSIS3153Debug, *actionToolMVLCDevGui,
 
-            *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt, *actionHelpUpdateCheck
+            *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt
             ;
 
     QMenu *menuFile, *menuWindow, *menuTools, *menuHelp;
@@ -126,7 +129,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->statusBar->setSizeGripEnabled(false);
     m_d->menuBar                = new QMenuBar(this);
     m_d->m_geometrySaver        = new WidgetGeometrySaver(this);
-    m_d->m_networkAccessManager = new QNetworkAccessManager(this);
+    m_d->daqControl = new DAQControl(m_d->m_context, this);
 
     setCentralWidget(m_d->centralWidget);
     setStatusBar(m_d->statusBar);
@@ -193,14 +196,13 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionToolVMUSBFirmwareUpdate  = new QAction(QSL("VM-USB Firmware Update"), this);
     m_d->actionToolTemplateInfo         = new QAction(QSL("Template System Info"), this);
     m_d->actionToolSIS3153Debug         = new QAction(QSL("SIS3153 Debug Widget"), this);
+    m_d->actionToolMVLCDevGui           = new QAction(QSL("MVLC Dev GUI"), this);
 
     m_d->actionHelpVMEScript   = new QAction(QIcon(QSL(":/help.png")), QSL("&VME Script Reference"), this);
     m_d->actionHelpVMEScript->setObjectName(QSL("actionVMEScriptRef"));
     m_d->actionHelpVMEScript->setIconText(QSL("Script Help"));
     m_d->actionHelpAbout       = new QAction(QIcon(QSL("window_icon.png")), QSL("&About mvme"), this);
     m_d->actionHelpAboutQt     = new QAction(QSL("About &Qt"), this);
-    m_d->actionHelpUpdateCheck = new QAction(QSL("Check for updates"), this);
-    m_d->actionHelpUpdateCheck->setVisible(false); // TODO: enable update check at some point
 
     //
     // connect actions
@@ -234,10 +236,34 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         widget->show();
     });
 
+    connect(m_d->actionToolMVLCDevGui, &QAction::triggered, this, [this]() {
+        if (auto mvlcCtrl = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(
+                getContext()->getVMEController()))
+        {
+            auto widget = new MVLCDevGUI(mvlcCtrl->getMVLCObject());
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+
+            connect(widget, &MVLCDevGUI::sigLogMessage,
+                    m_d->m_context, &MVMEContext::logMessage);
+
+            add_widget_close_action(widget);
+            m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/MVLCDevGui"));
+            widget->show();
+
+            // Close the GUI when the controller object changes.
+            connect(getContext(), &MVMEContext::vmeControllerAboutToBeChanged,
+                    widget, [widget] () { widget->close(); });
+        }
+    });
+
+    connect(m_d->m_context, &MVMEContext::vmeControllerSet,
+            this, [this] (VMEController *ctrl) {
+        m_d->actionToolMVLCDevGui->setEnabled(is_mvlc_controller(ctrl->getType()));
+    });
+
     connect(m_d->actionHelpVMEScript,           &QAction::triggered, this, &MVMEMainWindow::onActionVMEScriptRef_triggered);
     connect(m_d->actionHelpAbout,               &QAction::triggered, this, &MVMEMainWindow::displayAbout);
     connect(m_d->actionHelpAboutQt,             &QAction::triggered, this, &MVMEMainWindow::displayAboutQt);
-    connect(m_d->actionHelpUpdateCheck,         &QAction::triggered, this, &MVMEMainWindow::onActionCheck_for_updates_triggered);
 
 
     //
@@ -274,21 +300,21 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuTools->addAction(m_d->actionToolTemplateInfo);
     m_d->menuTools->addAction(m_d->actionToolSIS3153Debug);
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
+    m_d->menuTools->addAction(m_d->actionToolMVLCDevGui);
 
     m_d->menuHelp->addAction(m_d->actionHelpVMEScript);
     m_d->menuHelp->addSeparator();
     m_d->menuHelp->addAction(m_d->actionHelpAbout);
     m_d->menuHelp->addAction(m_d->actionHelpAboutQt);
-    m_d->menuHelp->addAction(m_d->actionHelpUpdateCheck);
 
     m_d->menuBar->addMenu(m_d->menuFile);
     m_d->menuBar->addMenu(m_d->menuWindow);
     m_d->menuBar->addMenu(m_d->menuTools);
     m_d->menuBar->addMenu(m_d->menuHelp);
 
-    connect(m_d->m_context, &MVMEContext::daqConfigFileNameChanged, this, &MVMEMainWindow::updateWindowTitle);
+    connect(m_d->m_context, &MVMEContext::vmeConfigFilenameChanged, this, &MVMEMainWindow::updateWindowTitle);
     connect(m_d->m_context, &MVMEContext::modeChanged, this, &MVMEMainWindow::updateWindowTitle);
-    connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, &MVMEMainWindow::onConfigChanged);
+    connect(m_d->m_context, &MVMEContext::vmeConfigChanged, this, &MVMEMainWindow::onConfigChanged);
     connect(m_d->m_context, &MVMEContext::objectAboutToBeRemoved, this, &MVMEMainWindow::onObjectAboutToBeRemoved);
     connect(m_d->m_context, &MVMEContext::daqAboutToStart, this, &MVMEMainWindow::onDAQAboutToStart);
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::onDAQStateChanged);
@@ -296,14 +322,14 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::mvmeStreamWorkerStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::modeChanged, this, &MVMEMainWindow::updateActions);
-    connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, &MVMEMainWindow::updateActions);
+    connect(m_d->m_context, &MVMEContext::vmeConfigChanged, this, &MVMEMainWindow::updateActions);
 
     //
     // central widget consisting of DAQControlWidget, DAQConfigTreeWidget and DAQStatsWidget
     //
     {
-        m_d->m_daqControlWidget = new DAQControlWidget(m_d->m_context);
-        m_d->m_vmeConfigTreeWidget = new VMEConfigTreeWidget(m_d->m_context);
+        m_d->m_daqControlWidget = new DAQControlWidget;
+        m_d->m_vmeConfigTreeWidget = new VMEConfigTreeWidget;
         m_d->m_daqStatsWidget = new DAQStatsWidget(m_d->m_context);
 
         auto centralLayout = m_d->centralLayout;
@@ -315,8 +341,134 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
 
         centralLayout->setStretch(1, 1);
 
-        connect(m_d->m_vmeConfigTreeWidget, &VMEConfigTreeWidget::showDiagnostics,
+    }
+
+    // Setup the VMEConfig tree widget
+    {
+        auto &cw = m_d->m_vmeConfigTreeWidget;
+        // FIXME: use a global action factory to get the actions
+        cw->addAction(m_d->actionNewVMEConfig);
+        cw->addAction(m_d->actionOpenVMEConfig);
+        cw->addAction(m_d->actionSaveVMEConfig);
+        cw->addAction(m_d->actionSaveVMEConfigAs);
+        cw->setupActions();
+
+        connect(m_d->m_context, &MVMEContext::vmeConfigChanged,
+                cw, &VMEConfigTreeWidget::setConfig);
+
+        connect(m_d->m_context, &MVMEContext::vmeConfigFilenameChanged,
+                cw, &VMEConfigTreeWidget::setConfigFilename);
+
+        connect(m_d->m_context, &MVMEContext::workspaceDirectoryChanged,
+                cw, &VMEConfigTreeWidget::setWorkspaceDirectory);
+
+        connect(m_d->m_context, &MVMEContext::daqStateChanged,
+                cw, &VMEConfigTreeWidget::setDAQState);
+
+        connect(m_d->m_context, &MVMEContext::controllerStateChanged,
+                cw, &VMEConfigTreeWidget::setVMEControllerState);
+
+        connect(m_d->m_context, &MVMEContext::vmeControllerSet,
+                cw, &VMEConfigTreeWidget::setVMEController);
+
+        connect(cw, &VMEConfigTreeWidget::logMessage,
+                m_d->m_context, &MVMEContext::logMessage);
+
+        connect(cw, &VMEConfigTreeWidget::showDiagnostics,
                 this, &MVMEMainWindow::onShowDiagnostics);
+
+        connect(cw, &VMEConfigTreeWidget::activateObjectWidget,
+                this, &MVMEMainWindow::activateObjectWidget);
+
+        connect(cw, &VMEConfigTreeWidget::editVMEScript,
+                this, &MVMEMainWindow::editVMEScript);
+
+        connect(cw, &VMEConfigTreeWidget::addEvent,
+                this, &MVMEMainWindow::runAddVMEEventDialog);
+
+        connect(cw, &VMEConfigTreeWidget::editEvent,
+                this, &MVMEMainWindow::runEditVMEEventDialog);
+
+        connect(cw, &VMEConfigTreeWidget::runScriptConfigs,
+                this, [this] (const QVector<VMEScriptConfig *> &scriptConfigs)
+                {
+                    this->doRunScriptConfigs(scriptConfigs);
+                });
+    }
+
+    // Setup DAQControlWidget
+    {
+        auto &dcw = m_d->m_daqControlWidget;
+
+        // MVMEContext -> DAQControlWidget
+        connect(m_d->m_context, &MVMEContext::modeChanged,
+                dcw, &DAQControlWidget::setGlobalMode);
+
+        connect(m_d->m_context, &MVMEContext::daqStateChanged,
+                dcw, &DAQControlWidget::setDAQState);
+
+        connect(m_d->m_context, &MVMEContext::controllerStateChanged,
+                dcw, &DAQControlWidget::setVMEControllerState);
+
+        connect(m_d->m_context, &MVMEContext::vmeControllerSet,
+                dcw, [dcw] (VMEController *controller)
+        {
+            dcw->setVMEControllerTypeName(
+                controller ? to_string(controller->getType()) : QString());
+
+        });
+
+        connect(m_d->m_context, &MVMEContext::mvmeStreamWorkerStateChanged,
+                dcw, &DAQControlWidget::setStreamWorkerState);
+
+        connect(m_d->m_context, &MVMEContext::ListFileOutputInfoChanged,
+                dcw, &DAQControlWidget::setListFileOutputInfo);
+
+        connect(m_d->m_context, &MVMEContext::workspaceDirectoryChanged,
+                dcw, &DAQControlWidget::setWorkspaceDirectory);
+
+        // DAQControlWidget -> MVMEContext
+        connect(dcw, &DAQControlWidget::reconnectVMEController,
+                m_d->m_context, &MVMEContext::reconnectVMEController);
+
+        connect(dcw, &DAQControlWidget::forceResetVMEController,
+                m_d->m_context, &MVMEContext::forceResetVMEController);
+
+        connect(dcw, &DAQControlWidget::listFileOutputInfoModified,
+                m_d->m_context, &MVMEContext::setListFileOutputInfo);
+
+        // DAQControlWidget -> DAQControl
+        connect(dcw, &DAQControlWidget::startDAQ, m_d->daqControl, &DAQControl::startDAQ);
+        connect(dcw, &DAQControlWidget::stopDAQ, m_d->daqControl, &DAQControl::stopDAQ);
+        connect(dcw, &DAQControlWidget::pauseDAQ, m_d->daqControl, &DAQControl::pauseDAQ);
+        connect(dcw, &DAQControlWidget::resumeDAQ, m_d->daqControl, &DAQControl::resumeDAQ);
+
+        // DAQControlWidget -> The World
+        connect(dcw, &DAQControlWidget::changeVMEControllerSettings,
+                this, &MVMEMainWindow::runVMEControllerSettingsDialog);
+
+        connect(dcw, &DAQControlWidget::changeDAQRunSettings,
+                this, &MVMEMainWindow::runDAQRunSettingsDialog);
+
+        connect(dcw, &DAQControlWidget::changeWorkspaceSettings,
+                this, &MVMEMainWindow::runWorkspaceSettingsDialog);
+
+        static const int DAQControlWidgetUpdateInterval_ms = 500;
+
+
+        m_d->m_daqControlWidgetUpdateTimer = new QTimer(this);
+
+        connect(m_d->m_daqControlWidgetUpdateTimer, &QTimer::timeout,
+                this, [this, dcw] ()
+        {
+            dcw->setDAQStats(m_d->m_context->getDAQStats());
+            dcw->setListFileOutputInfo(m_d->m_context->getListFileOutputInfo());
+            dcw->updateWidget();
+        });
+
+        m_d->m_daqControlWidgetUpdateTimer->setInterval(
+            DAQControlWidgetUpdateInterval_ms);
+        m_d->m_daqControlWidgetUpdateTimer->start();
     }
 
     updateWindowTitle();
@@ -342,7 +494,10 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
 MVMEMainWindow::~MVMEMainWindow()
 {
     // To avoid a crash on exit if replay is running
-    disconnect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::onDAQStateChanged);
+    disconnect(m_d->m_context, &MVMEContext::daqStateChanged,
+               this, &MVMEMainWindow::onDAQStateChanged);
+
+    m_d->m_daqControlWidgetUpdateTimer->stop();
 
     auto workspaceDir = m_d->m_context->getWorkspaceDirectory();
 
@@ -1016,13 +1171,17 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     }
 
-    QString fileName = QFileDialog::getOpenFileName(this, "Load Listfile",
-                                                    path,
-                                                    "MVME Listfiles (*.mvmelst *.zip);; All Files (*.*)");
-    if (fileName.isEmpty())
+    static const QStringList filters =
     {
+        "MVME Listfiles (*.mvmelst *.mvlclst *.zip)",
+        "All Files (*.*)"
+    };
+
+    QString fileName = QFileDialog::getOpenFileName(
+        this, "Load Listfile", path, filters.join(";;"));
+
+    if (fileName.isEmpty())
         return;
-    }
 
     try
     {
@@ -1044,12 +1203,13 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
             }
         }
 
-        auto openResult = context_open_listfile(m_d->m_context, fileName, openFlags);
+        const auto &replayHandle = context_open_listfile(
+            m_d->m_context, fileName, openFlags);
 
-        if (openResult.listfile)
+        if (!replayHandle.messages.isEmpty())
         {
             appendToLogNoDebugOut(QSL(">>>>> Begin listfile log"));
-            appendToLogNoDebugOut(openResult.messages);
+            appendToLogNoDebugOut(replayHandle.messages);
             appendToLogNoDebugOut(QSL("<<<<< End listfile log"));
         }
     }
@@ -1063,7 +1223,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
 void MVMEMainWindow::onActionCloseListfile_triggered()
 {
-    m_d->m_context->closeReplayFile();
+    m_d->m_context->closeReplayFileHandle();
 }
 
 void MVMEMainWindow::onActionMainWindow_triggered()
@@ -1077,7 +1237,7 @@ void MVMEMainWindow::onActionAnalysis_UI_triggered()
 
     if (!analysisUi)
     {
-        analysisUi = new analysis::AnalysisWidget(m_d->m_context);
+        analysisUi = new analysis::ui::AnalysisWidget(m_d->m_context);
         m_d->m_context->setAnalysisUi(analysisUi);
 
         connect(analysisUi, &QObject::destroyed, this, [this] (QObject *) {
@@ -1219,7 +1379,7 @@ void MVMEMainWindow::onObjectAboutToBeRemoved(QObject *object)
 {
     auto &windowList = m_d->m_objectWindows[object];
 
-    qDebug() << __PRETTY_FUNCTION__ << object << windowList;
+    //qDebug() << __PRETTY_FUNCTION__ << object << windowList;
 
     for (auto subwin: windowList)
         subwin->close();
@@ -1265,17 +1425,14 @@ void MVMEMainWindow::updateWindowTitle()
 
         case GlobalMode::ListFile:
             {
-                auto listFile = m_d->m_context->getReplayFile();
-                QString fileName(QSL("<no listfile>"));
-                if (listFile)
-                {
-                    QString filePath = listFile->getFileName();
-                    fileName =  QFileInfo(filePath).fileName();
-                }
+                auto filename = m_d->m_context->getReplayFileHandle().inputFilename;
 
-                title = QString("%1 - %2 - [ListFile mode] - mvme")
+                if (filename.isEmpty())
+                    filename = QSL("<no listfile>");
+
+                title = QSL("%1 - %2 - [ListFile mode] - mvme")
                     .arg(workspaceDir)
-                    .arg(fileName);
+                    .arg(filename);
             } break;
     }
 
@@ -1361,8 +1518,12 @@ void MVMEMainWindow::onDAQStateChanged(const DAQState &)
 
 void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 {
-    if (m_d->m_context->getMVMEStreamWorker()->hasDiagnostics())
+    auto mvmeStreamWorker = qobject_cast<MVMEStreamWorker *>(m_d->m_context->getMVMEStreamWorker());
+
+    if (!mvmeStreamWorker || mvmeStreamWorker->hasDiagnostics())
+    {
         return;
+    }
 
     auto diag = std::make_shared<MesytecDiagnostics>();
 
@@ -1379,7 +1540,8 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
         QMetaObject::invokeMethod(m_d->m_context->getMVMEStreamWorker(), "removeDiagnostics", Qt::QueuedConnection);
     });
 
-    connect(m_d->m_context, &MVMEContext::daqStateChanged, widget, [this, widget] (const DAQState &state) {
+    connect(m_d->m_context, &MVMEContext::daqStateChanged,
+            widget, [widget] (const DAQState &state) {
         if (state == DAQState::Running)
         {
             widget->clearResultsDisplay();
@@ -1387,7 +1549,7 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 
     });
 
-    streamWorker->setDiagnostics(diag);
+    mvmeStreamWorker->setDiagnostics(diag);
 
     widget->show();
     widget->raise();
@@ -1417,7 +1579,7 @@ void MVMEMainWindow::onActionImport_Histo1D_triggered()
     {
         QTextStream inStream(&inFile);
 
-        auto histo = readHisto1D(inStream);
+        std::shared_ptr<Histo1D> histo(readHisto1D(inStream));
 
         if (histo)
         {
@@ -1522,87 +1684,6 @@ static u64 extract_package_version(const QString &filename)
     return result;
 }
 
-void MVMEMainWindow::onActionCheck_for_updates_triggered()
-{
-#if 1
-    QStringList testFilenames =
-    {
-        "mvme-0.9.exe",
-        "mvme-0.9-42.exe",
-        "mvme-0.9.1.exe",
-        "mvme-0.9.1-42.exe",
-        "mvme-1.1.1-111-Window-x42.zip",
-        "mvme-98.76.54-32-Window-x42.zip",
-        "mvme-987.654.321-666-Window-x42.zip",
-        "mvme-999.999.999-999-Window-x42.zip", // max version possible (except for major which could be larger)
-        "mvme-9999.999.999-999-Window-x42.zip" // exceeding the max with major
-    };
-
-    for (auto name: testFilenames)
-    {
-        u32 version = extract_package_version(name);
-        //qDebug() << __PRETTY_FUNCTION__ << "name =" << name << ", version =" << version;
-    }
-#endif
-
-
-    QNetworkRequest request;
-    request.setUrl(UpdateCheckURL);
-    request.setRawHeader("User-Agent", UpdateCheckUserAgent + GIT_VERSION_TAG);
-
-    auto reply = m_d->m_networkAccessManager->get(request);
-
-
-    connect(reply, &QNetworkReply::finished, [this, reply]() {
-        reply->deleteLater();
-
-        if (reply->error() == QNetworkReply::NoError)
-        {
-            // Both the platform and bitness strings are known at compile time.
-            // A download link entry looks like this:
-            // <a href="mvme-0.9-5-Windows-x32.exe">mvme-0.9-5-Windows-x32.exe</a>   2017-07-24 15:22   28M
-            static const QString pattern = QString("href=\"(mvme-[0-9.-]+-%1-%2\\.exe)\"")
-                .arg(get_package_platform_string())
-                .arg(get_package_bitness_string())
-                ;
-
-            qDebug() << "update search pattern:" << pattern;
-
-            QRegularExpression re(pattern);
-
-            auto contents = QString::fromLatin1(reply->readAll());
-            auto matchIter = re.globalMatch(contents);
-
-            struct PackageInfo
-            {
-                QString filename;
-                u32 version;
-            };
-
-            QVector<PackageInfo> packages;
-
-            while (matchIter.hasNext())
-            {
-                auto match = matchIter.next();
-                qDebug() << match.captured(1);
-                PackageInfo info;
-                info.filename = match.captured(1);
-                info.version  = extract_package_version(info.filename);
-                packages.push_back(info);
-            }
-
-            auto latestPackage = std::accumulate(packages.begin(), packages.end(), PackageInfo{QString(), 0},
-                                               [](const auto &a, const auto &b) {
-                return (a.version > b.version ? a : b);
-            });
-
-            qDebug() << __PRETTY_FUNCTION__ << "latest package version available is" << latestPackage.filename << latestPackage.version;
-
-            // TODO: build version info from the running binary using GIT_VERSION_SHORT
-        }
-    });
-}
-
 bool MVMEMainWindow::createNewOrOpenExistingWorkspace()
 {
     do
@@ -1670,4 +1751,207 @@ void MVMEMainWindow::updateActions()
     // Listfiles
     m_d->actionOpenListfile->setEnabled(isDAQIdle);
     m_d->actionCloseListfile->setEnabled(isDAQIdle);
+}
+
+void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString &metaTag)
+{
+    if (m_d->m_context->hasObjectWidget(scriptConfig))
+    {
+        m_d->m_context->activateObjectWidget(scriptConfig);
+    }
+    else if (metaTag == vme_script::MetaTagMVLCTriggerIO)
+    {
+        auto widget = new mesytec::MVLCTriggerIOEditor(scriptConfig);
+
+        m_d->m_context->addObjectWidget(
+            widget, scriptConfig,
+            scriptConfig->getId().toString() + "_" + vme_script::MetaTagMVLCTriggerIO);
+
+        connect(widget, &mesytec::MVLCTriggerIOEditor::runScriptConfig,
+                this, [this] (VMEScriptConfig *scriptConfig)
+                {
+                    auto ctrl = getContext()->getVMEController();
+
+                    if (ctrl && ctrl->isOpen())
+                        this->runScriptConfig(scriptConfig, RunScriptOptions::AggregateResults);
+                });
+
+        auto vmeConfig = m_d->m_context->getVMEConfig();
+
+        auto update_vme_event_names = [vmeConfig, widget] ()
+        {
+            auto eventConfigs = vmeConfig->getEventConfigs();
+
+            QStringList vmeEventNames;
+
+            std::transform(
+                std::begin(eventConfigs), std::end(eventConfigs),
+                std::back_inserter(vmeEventNames),
+                [] (const EventConfig *eventConfig) { return eventConfig->objectName(); });
+
+            widget->setVMEEventNames(vmeEventNames);
+        };
+
+        connect(vmeConfig, &VMEConfig::modified, widget, update_vme_event_names);
+        update_vme_event_names();
+    }
+    else
+    {
+        auto widget = new VMEScriptEditor(scriptConfig);
+        m_d->m_context->addObjectWidget(widget, scriptConfig, scriptConfig->getId().toString());
+
+        connect(widget, &VMEScriptEditor::logMessage, m_d->m_context, &MVMEContext::logMessage);
+
+        connect(widget, &VMEScriptEditor::runScript,
+                this, [this] (const vme_script::VMEScript &script)
+        {
+            auto logger = [this] (const QString &msg) { m_d->m_context->logMessage("  " + msg); };
+            auto results = m_d->m_context->runScript(script, logger);
+
+            for (auto result: results)
+                logger(format_result(result));
+        });
+
+        connect(widget, &VMEScriptEditor::addApplicationWidget,
+                [this] (QWidget *widget)
+        {
+            this->addWidget(widget, widget->objectName());
+        });
+    }
+}
+
+void MVMEMainWindow::runAddVMEEventDialog()
+{
+    auto eventConfig = std::make_unique<EventConfig>();
+    auto vmeConfig = m_d->m_context->getVMEConfig();
+    eventConfig->setObjectName(QString("event%1").arg(vmeConfig->getEventConfigs().size()));
+    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig.get(), this);
+    dialog.setWindowTitle(QSL("Add Event"));
+    int result = dialog.exec();
+
+    if (result == QDialog::Accepted)
+    {
+        if (eventConfig->triggerCondition != TriggerCondition::Periodic)
+        {
+            auto logger = [this](const QString &msg) { m_d->m_context->logMessage(msg); };
+            VMEEventTemplates templates = read_templates(logger).eventTemplates;
+
+            eventConfig->vmeScripts["daq_start"]->setScriptContents(
+                templates.daqStart.contents);
+
+            eventConfig->vmeScripts["daq_stop"]->setScriptContents(
+                templates.daqStop.contents);
+
+            eventConfig->vmeScripts["readout_start"]->setScriptContents(
+                templates.readoutCycleStart.contents);
+
+            eventConfig->vmeScripts["readout_end"]->setScriptContents(
+                templates.readoutCycleEnd.contents);
+        }
+
+        vmeConfig->addEventConfig(eventConfig.release());
+    }
+}
+
+void MVMEMainWindow::runEditVMEEventDialog(EventConfig *eventConfig)
+{
+    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig, this);
+    dialog.setWindowTitle(QSL("Edit Event"));
+    dialog.exec();
+}
+
+void MVMEMainWindow::runVMEControllerSettingsDialog()
+{
+    VMEControllerSettingsDialog dialog(m_d->m_context);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    dialog.exec();
+}
+
+void MVMEMainWindow::runDAQRunSettingsDialog()
+{
+    DAQRunSettingsDialog dialog(m_d->m_context->getListFileOutputInfo());
+    dialog.setWindowModality(Qt::ApplicationModal);
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        m_d->m_context->setListFileOutputInfo(dialog.getSettings());
+    }
+}
+
+void MVMEMainWindow::runWorkspaceSettingsDialog()
+{
+    WorkspaceSettingsDialog dialog(m_d->m_context->makeWorkspaceSettings());
+    dialog.setWindowModality(Qt::ApplicationModal);
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        m_d->m_context->reapplyWorkspaceSettings();
+    }
+}
+
+void MVMEMainWindow::runScriptConfig(VMEScriptConfig *scriptConfig, u16 options)
+{
+    doRunScriptConfigs({ scriptConfig }, options);
+}
+
+void MVMEMainWindow::doRunScriptConfigs(
+    const QVector<VMEScriptConfig *> &scriptConfigs,
+    u16 options)
+{
+    for (auto scriptConfig: scriptConfigs)
+    {
+        auto moduleConfig = qobject_cast<ModuleConfig *>(scriptConfig->parent());
+
+        m_d->m_context->logMessage(
+            QSL("Running script \"")
+            + scriptConfig->getVerboseTitle() + "\"");
+
+        try
+        {
+            auto logger = [this](const QString &str)
+            {
+                m_d->m_context->logMessage(QSL("  ") + str);
+            };
+
+            auto results = m_d->m_context->runScript(
+                scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
+                logger);
+
+            if (options & RunScriptOptions::AggregateResults)
+            {
+                // TODO: implement some real aggregation somewhere
+
+                size_t errorCount = std::count_if(
+                    results.begin(), results.end(), [] (const auto &r)
+                    {
+                        return r.error.isError();
+                    });
+
+                if (errorCount == 0)
+                {
+                    m_d->m_context->logMessage(
+                        QSL("  Executed %1 commands, no errors").arg(results.size()));
+                }
+                else
+                {
+                    auto it = std::find_if(
+                        results.begin(), results.end(), [] (const auto &r)
+                        {
+                            return r.error.isError();
+                        });
+                    assert(it != results.end());
+
+                    m_d->m_context->logMessage(
+                        QSL("Error: %1").arg(it->error.toString()));
+                }
+            }
+            else
+            {
+                for (auto result: results)
+                    logger(format_result(result));
+            }
+        }
+        catch (const vme_script::ParseError &e)
+        {
+            m_d->m_context->logMessage(QSL("Parse error: ") + e.what());
+        }
+    }
 }

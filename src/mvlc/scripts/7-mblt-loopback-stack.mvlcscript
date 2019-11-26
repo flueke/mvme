@@ -1,0 +1,8 @@
+# ####################################################
+# ##### Readout Stack and Trigger Setup          #####
+# ####################################################
+stack_start offset=512 output=data
+	setbase 0xffff0000
+	mbltfifo a32 0x2000 100
+stack_end
+write_local 0x1204 512   # Set stack address register

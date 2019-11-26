@@ -37,6 +37,12 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
+#if (WIN32)
+#    string(APPEND CMAKE_CXX_FLAGS " -flto")
+#    string(APPEND CMAKE_C_FLAGS " -flto")
+#    string(APPEND CMAKE_EXE_LINKER_FLAGS " -flto")
+#endif(WIN32)
+
 include_directories(pcg-cpp-0.98/include/)
 
 find_package(Boost REQUIRED)
@@ -50,7 +56,7 @@ message("-- Found zlib for liba2 in ${ZLIB_INCLUDE_DIRS}")
 set(liba2_SOURCES
     a2.cc
     a2_exprtk.cc
-    data_filter.cc
+    a2_data_filter.cc
     listfilter.cc)
 
 # Pass -mbig-obj to mingw gas on Win64. This works around the "too many
@@ -117,6 +123,7 @@ if(BUILD_TESTS)
     add_a2_bench(test_a2_param test_a2_param.cc)
     add_a2_bench(test_a2_listfilter test_listfilter.cc)
     add_a2_bench(test_a2_arena test_arena.cc)
+    add_a2_bench(bench_poly_within bench_poly_within.cc)
 
     add_executable(test_a2_exprtk a2_exprtk.cc test_a2_exprtk.cc)
     target_link_libraries(test_a2_exprtk gtest gtest_main)

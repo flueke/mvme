@@ -21,9 +21,11 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
-#include "a2/a2.h"
-#include "a2/memory.h"
-#include "a2/multiword_datafilter.h"
+#include "analysis/a2/a2.h"
+#include "analysis/a2/memory.h"
+#include "analysis/a2/multiword_datafilter.h"
+#include "analysis/analysis_fwd.h"
+#include "analysis/condition_link.h"
 #include "data_filter.h"
 #include "histo1d.h"
 #include "histo2d.h"
@@ -39,7 +41,6 @@
 #include <memory>
 #include <pcg_random.hpp>
 #include <QDir>
-#include <QMutex>
 #include <QUuid>
 #include <qwt_interval.h>
 
@@ -166,6 +167,9 @@ class LIBMVME_EXPORT AnalysisObject:
         /* Visitor support */
         virtual void accept(ObjectVisitor &visitor) = 0;
 
+        void setAnalysis(Analysis *analysis) { m_analysis = analysis; }
+        Analysis *getAnalysis() { return m_analysis; }
+
     protected:
         /* Invoked by the clone() method on the cloned object. The source of the clone is
          * passed in cloneSource.
@@ -179,6 +183,7 @@ class LIBMVME_EXPORT AnalysisObject:
         QUuid m_id;
         s32 m_userLevel;
         QUuid m_eventId;
+        Analysis *m_analysis = nullptr;
 };
 
 /* Interface to indicate that something can the be source of a Pipe.
@@ -192,7 +197,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
         PipeSourceInterface(QObject *parent = 0)
             : AnalysisObject(parent)
         {
-            //qDebug() << __PRETTY_FUNCTION__ << reinterpret_;
+            //qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
         }
 
         virtual ~PipeSourceInterface()
@@ -393,7 +398,8 @@ struct LIBMVME_EXPORT Slot
      * (parentOperator->getSlot(parentSlotIndex) == this)
      */
     s32 parentSlotIndex = -1;
-    /* The name if this Slot in the parentOperator. Set by the parentOperator. */
+
+    /* The name of this Slot in the parentOperator. Set by the parentOperator. */
     QString name;
 
     /* Set to true if it's ok for the slot to be unconnected and still consider
@@ -447,6 +453,8 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
 
         virtual Slot *getSlot(s32 slotIndex) = 0;
 
+        QVector<Slot *> getSlots();
+
         /* If paramIndex is Slot::NoParamIndex the operator should use the whole array. */
         void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex);
 
@@ -456,6 +464,9 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
         s32 getMaximumInputRank();
         s32 getMaximumOutputRank();
 
+        void setRank(s32 rank) { m_rank = rank; }
+        s32 getRank() const { return m_rank; }
+
         virtual void slotConnected(Slot *slot) {}
         virtual void slotDisconnected(Slot *slot) {}
 
@@ -464,6 +475,9 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
         virtual bool removeLastSlot() { return false; }
 
         virtual void accept(ObjectVisitor &visitor) override;
+
+    private:
+        s32 m_rank = 0;
 };
 
 } // end namespace analysis
@@ -507,6 +521,22 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
     private:
         bool m_enabled = true;
 };
+
+class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface);
+    public:
+        using OperatorInterface::OperatorInterface;
+
+        // PipeSourceInterface
+        s32 getNumberOfOutputs() const override { return 0; }
+        QString getOutputName(s32 outputIndex) const override { return QString(); }
+        Pipe *getOutput(s32 index) override { return nullptr; }
+
+        virtual s32 getNumberOfBits() const = 0;
+};
+
 
 enum class DisplayLocation
 {
@@ -600,6 +630,9 @@ bool check_directory_consistency(const DirectoryVector &dirs,
 #define SinkInterface_iid "com.mesytec.mvme.analysis.SinkInterface.1"
 Q_DECLARE_INTERFACE(analysis::SinkInterface, SinkInterface_iid);
 
+#define ConditionInterface_iid "com.mesytec.mvme.analysis.ConditionInterface.1"
+Q_DECLARE_INTERFACE(analysis::ConditionInterface, ConditionInterface_iid);
+
 namespace analysis
 {
 
@@ -637,6 +670,9 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
         virtual QString getDisplayName() const override { return QSL("Filter Extractor"); }
         virtual QString getShortName() const override { return QSL("FExt"); }
 
+        void setParameterNames(const QStringList &names) { m_parameterNames = names; }
+        QStringList getParameterNames() const { return m_parameterNames; }
+
         using Options = a2::DataSourceOptions;
         Options::opt_t getOptions() const { return m_options; }
         void setOptions(Options::opt_t options) { m_options = options; }
@@ -653,6 +689,9 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
     protected:
         virtual void postClone(const AnalysisObject *cloneSource) override;
+
+    private:
+        QStringList m_parameterNames;
 };
 
 class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
@@ -679,6 +718,8 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         void setExtractor(const a2::ListFilterExtractor &ex) { m_a2Extractor = ex; }
         u64 getRngSeed() const { return m_rngSeed; }
         void setRngSeed(u64 seed) { m_rngSeed = seed; }
+        u32 getAddressBits() const;
+        u32 getDataBits() const;
 
         using Options = a2::DataSourceOptions;
         Options::opt_t getOptions() const { return m_a2Extractor.options; }
@@ -1295,6 +1336,99 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
 };
 
 //
+// Conditions
+//
+
+class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::ConditionInterface)
+    public:
+        Q_INVOKABLE ConditionInterval(QObject *parent = 0);
+
+        virtual QString getDisplayName() const override { return QSL("Interval Condition"); }
+        virtual QString getShortName() const override { return QSL("CondInter"); }
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        void setIntervals(const QVector<QwtInterval> &intervals);
+        QVector<QwtInterval> getIntervals() const;
+
+        void setInterval(s32 address, const QwtInterval &interval);
+        QwtInterval getInterval(s32 address) const;
+
+        virtual s32 getNumberOfBits() const override;
+
+    private:
+        Slot m_input;
+        QVector<QwtInterval> m_intervals;
+};
+
+class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::ConditionInterface)
+    public:
+        Q_INVOKABLE ConditionRectangle(QObject *parent = 0);
+
+        virtual QString getDisplayName() const override { return QSL("Rectangle Condition"); }
+        virtual QString getShortName() const override { return QSL("CondRect"); }
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        void setRectangle(const QRectF &rect);
+        QRectF getRectangle() const;
+
+        virtual s32 getNumberOfBits() const override { return 1; }
+
+    private:
+        Slot m_inputX;
+        Slot m_inputY;
+        QRectF m_rectangle;
+};
+
+class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::ConditionInterface)
+    public:
+        Q_INVOKABLE ConditionPolygon(QObject *parent = 0);
+
+        virtual QString getDisplayName() const override { return QSL("Polygon Condition"); }
+        virtual QString getShortName() const override { return QSL("CondPoly"); }
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        void setPolygon(const QPolygonF &polygon);
+        QPolygonF getPolygon() const;
+
+        virtual s32 getNumberOfBits() const override { return 1; }
+
+    private:
+        Slot m_inputX;
+        Slot m_inputY;
+        QPolygonF m_polygon;
+};
+
+//
 // Sinks
 //
 class LIBMVME_EXPORT Histo1DSink: public BasicSink
@@ -1321,6 +1455,8 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
 
         s32 getNumberOfHistos() const { return m_histos.size(); }
         s32 getHistoBins() const { return m_bins; }
+
+        QVector<std::shared_ptr<Histo1D>> getHistos() { return m_histos; }
 
         // FIXME: move to private vars
         QVector<std::shared_ptr<Histo1D>> m_histos;
@@ -1372,7 +1508,7 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
 
         Histo2DPtr getHisto() const { return m_histo; }
 
-        std::shared_ptr<Histo2D> m_histo;
+        std::shared_ptr<Histo2D> m_histo; // FIXME: move to private
         s32 m_xBins = 0;
         s32 m_yBins = 0;
 
@@ -1597,7 +1733,27 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         Format m_format = Format::Sparse;
 };
 
-class AnalysisObjectStore;
+struct AnalysisObjectStore;
+
+using ConditionLinks = QHash<OperatorPtr, ConditionLink>;
+
+enum class AnalysisReadResult
+{
+    NoError,
+    VersionTooNew
+};
+
+LIBMVME_EXPORT std::error_code make_error_code(AnalysisReadResult r);
+
+} // end namespace analysis
+
+namespace std
+{
+    template<> struct is_error_code_enum<analysis::AnalysisReadResult>: true_type {};
+} // end namespace std
+
+namespace analysis
+{
 
 class LIBMVME_EXPORT Analysis: public QObject
 {
@@ -1605,6 +1761,21 @@ class LIBMVME_EXPORT Analysis: public QObject
     signals:
         void modified(bool);
         void modifiedChanged(bool);
+
+        void dataSourceAdded(const SourcePtr &src);
+        void dataSourceRemoved(const SourcePtr &src);
+        void dataSourceEdited(const SourcePtr &src);
+
+        void operatorAdded(const OperatorPtr &op);
+        void operatorRemoved(const OperatorPtr &op);
+        void operatorEdited(const OperatorPtr &op);
+
+        void directoryAdded(const DirectoryPtr &ptr);
+        void directoryRemoved(const DirectoryPtr &ptr);
+
+        void conditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl);
+        void conditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl);
+
 
     public:
         Analysis(QObject *parent = nullptr);
@@ -1622,14 +1793,14 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         void addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source);
         void addSource(const SourcePtr &source);
-        void sourceEdited(const SourcePtr &source);
         void removeSource(const SourcePtr &source);
         void removeSource(SourceInterface *source);
+        void setSourceEdited(const SourcePtr &source);
 
         s32 getNumberOfSources() const { return m_sources.size(); }
 
         // Special handling for listfilter extractors as they only make sense when grouped
-        // up as each consumes a certain amount of inputs words and the next filter
+        // up as each consumes a certain amount of input words and the next filter
         // continues with the remaining input data.
 
         /** Returns the ListFilterExtractors attached to the module with the given id. */
@@ -1652,14 +1823,59 @@ class LIBMVME_EXPORT Analysis: public QObject
         OperatorVector getNonSinkOperators() const;
         OperatorVector getSinkOperators() const;
 
+        template <typename T>
+        QVector<T> getSinkOperators() const
+        {
+            QVector<T> result;
+
+            for (const auto &op: m_operators)
+            {
+                if (qobject_cast<SinkInterface *>(op.get()))
+                {
+                    result.push_back(std::dynamic_pointer_cast<typename T::element_type>(op));
+                }
+            }
+
+            return result;
+        }
+
         void addOperator(const QUuid &eventId, s32 userLevel, const OperatorPtr &op);
         void addOperator(const OperatorPtr &op);
-        void operatorEdited(const OperatorPtr &op);
         void removeOperator(const OperatorPtr &op);
         void removeOperator(OperatorInterface *op);
+        void setOperatorEdited(const OperatorPtr &op);
 
         s32 getNumberOfOperators() const { return m_operators.size(); }
 
+        //
+        // Conditions
+        //
+        ConditionVector getConditions() const;
+        ConditionVector getConditions(const QUuid &eventId) const;
+        ConditionPtr getCondition(const OperatorPtr &op) const;
+        ConditionLink getConditionLink(const OperatorPtr &op) const;
+        ConditionLink getConditionLink(const OperatorInterface *op) const;
+        ConditionLinks getConditionLinks() const;
+        bool hasActiveCondition(const OperatorPtr &op) const;
+
+        /* Links the given operator to the given condition and subindex. Any
+         * existing condition link will be replaced. */
+        //bool setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
+        bool setConditionLink(const OperatorPtr &op, const ConditionLink &cl);
+
+        /* Clears the condition link of the given operator if it was linked to
+         * the given condition and subIndex. */
+        //bool clearConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
+        bool clearConditionLink(const OperatorPtr &op, const ConditionLink &cl);
+
+        /* Clears the condition link of the given operator no matter which
+         * condition it is using. */
+        bool clearConditionLink(const OperatorPtr &op);
+
+        /* Clears all conditions links of any objects using the given
+         * condition.
+         * Returns the number of condition links cleared. */
+        size_t clearConditionLinksUsing(const ConditionInterface *cond);
 
         //
         // Directory Objects
@@ -1696,6 +1912,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         //
         // Untyped Object access
         //
+
         AnalysisObjectPtr getObject(const QUuid &id) const;
         int removeObjectsRecursively(const AnalysisObjectVector &objects);
         AnalysisObjectVector getAllObjects() const;
@@ -1708,6 +1925,11 @@ class LIBMVME_EXPORT Analysis: public QObject
         //
 
         void updateRanks();
+
+        void beginRun(const RunInfo &runInfo,
+                      const VMEConfig *vmeConfig,
+                      Logger logger = {});
+
         void beginRun(const RunInfo &runInfo,
                       const vme_analysis_common::VMEIdToIndex &vmeMap,
                       Logger logger = {});
@@ -1717,6 +1939,10 @@ class LIBMVME_EXPORT Analysis: public QObject
             ClearState,
             KeepState,
         };
+
+        // This overload of beginRun() reuses information that was previously
+        // passed in one of the other beginRun() overloads. Bad design
+        // everywhere.
         void beginRun(BeginRunOption option, Logger logger = {});
         void endRun();
 
@@ -1724,7 +1950,9 @@ class LIBMVME_EXPORT Analysis: public QObject
         // Processing
         //
         void beginEvent(int eventIndex);
-        void processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size);
+        void processModulePrefix(int eventIndex, int moduleIndex, const u32 *data, u32 size);
+        void processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size);
+        void processModuleSuffix(int eventIndex, int moduleIndex, const u32 *data, u32 size);
         void endEvent(int eventIndex);
         // Called once for every SectionType_Timetick section
         void processTimetick();
@@ -1733,15 +1961,8 @@ class LIBMVME_EXPORT Analysis: public QObject
         //
         // Serialization
         //
-        enum ReadResultCodes
-        {
-            NoError = 0,
-            VersionTooNew
-        };
 
-        using ReadResult = ReadResultBase<ReadResultCodes>;
-
-        ReadResult read(const QJsonObject &json, VMEConfig *vmeConfig = nullptr);
+        std::error_code read(const QJsonObject &json, const VMEConfig *vmeConfig = nullptr);
         void write(QJsonObject &json) const;
 
         /* Object flags containing system internal information. */
@@ -1767,6 +1988,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         void setModified(bool b = true);
 
         A2AdapterState *getA2AdapterState() { return m_a2State.get(); }
+        const A2AdapterState *getA2AdapterState() const { return m_a2State.get(); }
 
         RunInfo getRunInfo() const { return m_runInfo; }
         void setRunInfo(const RunInfo &ri) { m_runInfo = ri; }
@@ -1781,16 +2003,21 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         ObjectFactory &getObjectFactory() { return m_objectFactory; }
 
+        bool anyObjectNeedsRebuild() const;
+
         static int getCurrentAnalysisVersion();
 
     private:
-        void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
+        void updateRank(OperatorInterface *op,
+                        QSet<OperatorInterface *> &updated,
+                        QSet<OperatorInterface *> &visited);
 
         SourceVector m_sources;
         OperatorVector m_operators;
         DirectoryVector m_directories;
         QHash<QUuid, QVariantMap> m_vmeObjectSettings;
         ObjectFlags::Flags m_flags = ObjectFlags::None;
+        ConditionLinks m_conditionLinks;
 
         ObjectFactory m_objectFactory;
 
@@ -1841,21 +2068,36 @@ void LIBMVME_EXPORT adjust_userlevel_forward(const OperatorVector &allOperators,
                                              OperatorInterface *operator_,
                                              s32 levelDelta);
 
-template<typename T>
-QString getClassName(T *obj)
-{
-    return obj->metaObject()->className();
-}
-
+/* Recursively expands the given object vector to contain all subobjects inside any
+ * directories contained in the original object vector. */
 AnalysisObjectVector expand_objects(const AnalysisObjectVector &vec,
                                     const Analysis *analysis);
 
+/* Returns a vector of the objects contained in the given object set but in the same order as
+ * the objects are stored in the analysis.
+ * Note: directories are not expanded, no recursion is done. */
 AnalysisObjectVector order_objects(const AnalysisObjectSet &objects,
                                    const Analysis *analysis);
 
+/* Same as the overload taking an AnalysisObjectSet but internally builds the
+ * set from the given object vector. */
 AnalysisObjectVector order_objects(const AnalysisObjectVector &objects,
                                    const Analysis *analysis);
 
+namespace read_options
+{
+    using Opt = u8;
+    static const Opt None = 0u;
+    // If set Analysis::beginRun() is called after successfully reading the
+    // analysis structure. This means the A2 Adapter and the a2 structures will
+    // be available right away.
+    static const Opt BuildAnalysis = 1u;
+};
+
+LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
+    read_analysis_config_from_file(const QString &filename, const VMEConfig *vmeConfig,
+                                   read_options::Opt = read_options::BuildAnalysis,
+                                   Logger logger = {});
 
 } // end namespace analysis
 

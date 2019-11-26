@@ -25,9 +25,14 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
          * passed to Analysis::read().  It is assumed that the default filters
          * shipped with mvme are in the latest format (or a format that does
          * not need a VMEConfig to be upconverted). */
-        auto readResult = filterAnalysis.read(doc.object()[QSL("AnalysisNG")].toObject());
 
-        if (readResult)
+        if (auto ec = filterAnalysis.read(doc.object()[QSL("AnalysisNG")].toObject()))
+        {
+            QMessageBox::critical(nullptr,
+                                  QSL("Error loading default filters"),
+                                  ec.message().c_str());
+        }
+        else
         {
             for (auto source: filterAnalysis.getSources())
             {
@@ -42,13 +47,6 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
                 return a->objectName() < b->objectName();
             });
         }
-        else
-        {
-            readResult.errorData["Source file"] = filtersFile.fileName();
-            QMessageBox::critical(nullptr,
-                                  QSL("Error loading default filters"),
-                                  readResult.toRichText());
-        }
     }
 
     return result;
@@ -61,6 +59,8 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
 QSet<OperatorInterface *> collect_dependent_operators(PipeSourceInterface *startObject,
                                                       CollectFlags::Flag flags)
 {
+    assert(startObject);
+
     QSet<OperatorInterface *> result;
 
     collect_dependent_operators(startObject, result, flags);
@@ -114,6 +114,8 @@ void collect_dependent_operators(const PipeSourcePtr &startObject,
 QSet<PipeSourceInterface *> collect_dependent_objects(PipeSourceInterface *startObject,
                                                       CollectFlags::Flag flags)
 {
+    assert(startObject);
+
     QSet<PipeSourceInterface *> result;
 
     for (auto &op: collect_dependent_operators(startObject, flags))
@@ -233,4 +235,237 @@ QString make_clone_name(const QString &currentName, const StringSet &allNames)
     return result;
 }
 
+//
+// AnalysisSignalWrapper
+//
+
+AnalysisSignalWrapper::AnalysisSignalWrapper(QObject *parent)
+    : QObject(parent)
+{ }
+
+AnalysisSignalWrapper::AnalysisSignalWrapper(Analysis *analysis,
+                                                 QObject *parent)
+    : QObject(parent)
+{
+    setAnalysis(analysis);
+}
+
+void AnalysisSignalWrapper::setAnalysis(Analysis *analysis)
+{
+    QObject::connect(analysis, &Analysis::modified,
+                     this, &AnalysisSignalWrapper::modified);
+
+    QObject::connect(analysis, &Analysis::modifiedChanged,
+                     this, &AnalysisSignalWrapper::modifiedChanged);
+
+    QObject::connect(analysis, &Analysis::dataSourceAdded,
+                     this, &AnalysisSignalWrapper::dataSourceAdded);
+
+    QObject::connect(analysis, &Analysis::dataSourceRemoved,
+                     this, &AnalysisSignalWrapper::dataSourceRemoved);
+
+    QObject::connect(analysis, &Analysis::operatorAdded,
+                     this, &AnalysisSignalWrapper::operatorAdded);
+
+    QObject::connect(analysis, &Analysis::operatorRemoved,
+                     this, &AnalysisSignalWrapper::operatorRemoved);
+
+    QObject::connect(analysis, &Analysis::directoryAdded,
+                     this, &AnalysisSignalWrapper::directoryAdded);
+
+    QObject::connect(analysis, &Analysis::directoryRemoved,
+                     this, &AnalysisSignalWrapper::directoryRemoved);
+
+    QObject::connect(analysis, &Analysis::conditionLinkApplied,
+                     this, &AnalysisSignalWrapper::conditionLinkApplied);
+
+    QObject::connect(analysis, &Analysis::conditionLinkCleared,
+                     this, &AnalysisSignalWrapper::conditionLinkCleared);
+}
+
+OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
+                                              const OperatorVector &operators)
+{
+    OperatorVector result;
+
+    result.reserve(operators.size());
+
+    for (const auto &op: operators)
+    {
+        /* Cannot apply a condition to itself. */
+        if (op == cond)
+            continue;
+
+        /* Both objects have to reside in the same vme event. */
+        if (op->getEventId() != cond->getEventId())
+            continue;
+
+        /* Use input ranks to determine if the condition has been evaluated at
+         * the point the operator will be executed. Input ranks are used
+         * instead of the calculated ranks (getRank()) because the latter will
+         * be adjusted if an operator does currently make use of a condition.
+         * Using the max input rank gives the unadjusted rank as if the
+         * operator did not use a condition.  */
+        if (cond->getMaximumInputRank() > op->getMaximumInputRank())
+            continue;
+
+        result.push_back(op);
+    }
+
+    return result;
+}
+
+OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
+                                              const Analysis *analysis)
+{
+    return get_apply_condition_candidates(cond, analysis->getOperators());
+}
+
+QDebug &operator<<(QDebug &dbg, const AnalysisObjectPtr &obj)
+{
+    dbg << obj.get() << ", id =" << (obj ? obj->getId() : QSL(""));
+    return dbg;
+}
+
+namespace
+{
+
+bool slots_match(const QVector<Slot *> &slotsA, const QVector<Slot *> &slotsB)
+{
+    assert(slotsA.size() == slotsB.size());
+
+    auto slot_input_equal = [] (const Slot *slotA, const Slot *slotB) -> bool
+    {
+        return (slotA->inputPipe == slotB->inputPipe
+                && slotA->paramIndex == slotB->paramIndex);
+    };
+
+    for (int si = 0; si < slotsA.size(); si++)
+    {
+        if (!slot_input_equal(slotsA[si], slotsB[si]))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+}
+
+/* Filters sinks, returning the ones using all of the inputs that are used by
+ * the ConditionLink. */
+SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector &sinks)
+{
+    /* Get the input slots of the condition and of each sink.
+     * Sort each of the slots vectors by input pipe and param index.
+     * Then compare the pairs of condition and sink slots.
+     * Add the sink to the result if all of the slots compare equal. */
+
+    auto slot_lessThan = [] (const Slot *slotA, const Slot *slotB) -> bool
+    {
+        if (slotA->inputPipe == slotB->inputPipe)
+            return slotA->paramIndex < slotB->paramIndex;
+
+        return slotA->inputPipe < slotB->inputPipe;
+    };
+
+    auto condInputSlots = cl.condition->getSlots();
+
+    qSort(condInputSlots.begin(), condInputSlots.end(), slot_lessThan);
+
+    SinkVector result;
+    result.reserve(sinks.size());
+
+    for (const auto &sink: sinks)
+    {
+        if (sink->getEventId() != cl.condition->getEventId())
+            continue;
+
+        if (sink->getNumberOfSlots() != condInputSlots.size())
+            continue;
+
+        auto sinkSlots = sink->getSlots();
+
+        qSort(sinkSlots.begin(), sinkSlots.end(), slot_lessThan);
+
+        if (slots_match(condInputSlots, sinkSlots))
+        {
+            result.push_back(sink);
+        }
+    }
+
+    return result;
+}
+
+size_t disconnect_outputs(PipeSourceInterface *pipeSource)
+{
+    size_t result = 0u;
+
+    for (s32 oi = 0; oi < pipeSource->getNumberOfOutputs(); oi++)
+    {
+        Pipe *outPipe = pipeSource->getOutput(oi);
+
+        for (Slot *destSlot: outPipe->getDestinations())
+        {
+            destSlot->disconnectPipe();
+            result++;
+        }
+        assert(outPipe->getDestinations().isEmpty());
+    }
+
+    return result;
+}
+
+bool uses_multi_event_splitting(const VMEConfig &vmeConfig, const Analysis &analysis)
+{
+    const auto &eventConfigs = vmeConfig.getEventConfigs();
+
+    bool useMultiEventSplitting = std::any_of(
+        eventConfigs.begin(), eventConfigs.end(),
+        [&analysis] (const EventConfig *eventConfig)
+        {
+            auto analysisEventSettings = analysis.getVMEObjectSettings(
+                eventConfig->getId());
+
+            return analysisEventSettings["MultiEventProcessing"].toBool();
+        });
+
+    return useMultiEventSplitting;
+}
+
+std::vector<std::vector<std::string>> collect_multi_event_splitter_filter_strings(
+    const VMEConfig &vmeConfig, const Analysis &analysis)
+{
+    const auto &eventConfigs = vmeConfig.getEventConfigs();
+
+    std::vector<std::vector<std::string>> splitterFilters;
+
+    for (const auto &eventConfig: eventConfigs)
+    {
+        std::vector<std::string> moduleSplitterFilters;
+        auto eventSettings = analysis.getVMEObjectSettings(eventConfig->getId());
+        bool enabledForEvent = eventSettings["MultiEventProcessing"].toBool();
+
+        for (const auto &moduleConfig: eventConfig->getModuleConfigs())
+        {
+            auto moduleSettings = analysis.getVMEObjectSettings(moduleConfig->getId());
+            auto filterString = moduleSettings.value("MultiEventHeaderFilter").toString();
+
+            if (filterString.isEmpty())
+                filterString = moduleConfig->getModuleMeta().eventHeaderFilter;
+
+            if (enabledForEvent)
+                moduleSplitterFilters.emplace_back(filterString.toStdString());
+            else
+                moduleSplitterFilters.emplace_back(std::string{});
+        }
+
+        splitterFilters.emplace_back(moduleSplitterFilters);
+    }
+
+    return splitterFilters;
+}
+
 } // namespace analysis
+

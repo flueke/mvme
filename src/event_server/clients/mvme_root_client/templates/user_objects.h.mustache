@@ -1,0 +1,59 @@
+R"(#ifndef __MVME_EVENT_EXPORT_GUARD_{{header_guard}}__
+#define __MVME_EVENT_EXPORT_GUARD_{{header_guard}}__
+
+// Contains declarations of the MVMEExperiment, MVMEEvent and MVMEModule base
+// classes
+#include <mvme/mvme_root_event_objects.h>
+
+{{#vme_events}}
+namespace {{name}}_modules
+{
+{{#modules}}
+    struct {{struct_name}}: public MVMEModule
+    {
+        {{struct_name}}();
+        virtual ~{{struct_name}}();
+
+{{#ref_members}}
+        double &{{name}};       // !
+{{/ref_members}}
+
+{{#data_members}}
+        double {{name}}[{{size}}];
+{{/data_members}}
+
+        ClassDef({{struct_name}}, 1);
+    };
+
+{{/modules}}
+} // end namespace {{name}}_modules
+
+struct {{struct_name}}: public MVMEEvent
+{
+    {{struct_name}}();
+    virtual ~{{struct_name}}();
+
+{{#modules}}
+    {{event_name}}_modules::{{struct_name}} {{var_name}};
+{{/modules}}
+
+    ClassDef({{struct_name}}, 1);
+};
+{{/vme_events}}
+
+struct {{exp_struct_name}}: public MVMEExperiment
+{
+    {{exp_struct_name}}();
+    ~{{exp_struct_name}}();
+
+{{#vme_events}}
+    {{struct_name}} {{var_name}};
+{{/vme_events}}
+
+    ClassDef({{exp_struct_name}}, 1);
+};
+
+#endif /* __MVME_EVENT_EXPORT_GUARD_{{header_guard}}__ */
+{{!
+vim:ft=cpp
+}})"

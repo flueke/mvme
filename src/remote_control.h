@@ -78,6 +78,9 @@ class InfoService: public QObject
         MVMEContext *m_context;
 };
 
+/* The static method QHostInfo::lookupHost only supports callbacks with the old
+ * SLOT syntax. This wrapper class allows passing a std::function object to be
+ * used as the completion callback. */
 class HostInfoWrapper: public QObject
 {
     Q_OBJECT

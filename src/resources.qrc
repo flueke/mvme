@@ -69,6 +69,14 @@
     <file alias="operator_sum.png">resources/sum.png</file>
     <file alias="rate_monitor_sink.png">resources/application-monitor.png</file>
 
+    <file alias="scissors.png">resources/scissors.png</file>
+    <file alias="scissors_arrow.png">resources/scissors--arrow.png</file>
+    <file alias="scissors_blue.png">resources/scissors-blue.png</file>
+    <file alias="scissors_exlamation.png">resources/scissors--exclamation.png</file>
+    <file alias="scissors_minus.png">resources/scissors--minus.png</file>
+    <file alias="scissors_pencil.png">resources/scissors--pencil.png</file>
+    <file alias="scissors_plus.png">resources/scissors--plus.png</file>
+
     <!-- non icon files -->
     <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>
     <file alias="mesytec-logo.png">resources/mesytec-logo.png</file>
@@ -110,6 +118,8 @@
     <file>analysis/expr_data/basic_begin_script.exprtk</file>
     <file>analysis/expr_data/basic_step_script.exprtk</file>
     <file>analysis/expr_data/expr_help.html</file>
+
+    <file>mvlc/scripts/0-init-mtdcs.mvlcscript</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml

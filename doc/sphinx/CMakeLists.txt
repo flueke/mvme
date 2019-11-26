@@ -9,6 +9,7 @@
 #   depends on the output.
 
 find_package(Sphinx)
+find_program(LATEXMK latexmk)
 
 if (SPHINX_EXECUTABLE)
 
@@ -38,6 +39,8 @@ if (SPHINX_EXECUTABLE)
         "${CMAKE_CURRENT_BINARY_DIR}/ext"
         )
 
+    add_custom_target(doc ALL)
+
     # html
     # ==================================================
 
@@ -58,48 +61,60 @@ if (SPHINX_EXECUTABLE)
         )
 
     add_dependencies(doc_html doc_sphinx_copy_ext)
+    add_dependencies(doc doc_html)
 
     install(DIRECTORY "${SPHINX_HTML_DIR}" DESTINATION doc)
 
     # latex
     # ==================================================
-    configure_file(
-        "${SPHINX_SOURCE_DIR}/conf.py.in"
-        "${SPHINX_BUILD_BASE}/latex/conf.py"
-        @ONLY
-        )
+    if (LATEXMK)
+        configure_file(
+            "${SPHINX_SOURCE_DIR}/conf.py.in"
+            "${SPHINX_BUILD_BASE}/latex/conf.py"
+            @ONLY
+            )
 
-    add_custom_target(doc_latex
-        ${SPHINX_EXECUTABLE}
-        -E -b latex
-        -c "${SPHINX_BUILD_BASE}/latex"
-        -d "${SPHINX_CACHE_BASE}/latex"
-        "${SPHINX_SOURCE_DIR}"
-        "${SPHINX_LATEX_DIR}"
-        COMMENT "Building latex documentation with Sphinx"
-        )
-    add_dependencies(doc_latex doc_sphinx_copy_ext)
+        add_custom_target(doc_latex
+            ${SPHINX_EXECUTABLE}
+            -E -b latex
+            -c "${SPHINX_BUILD_BASE}/latex"
+            -d "${SPHINX_CACHE_BASE}/latex"
+            "${SPHINX_SOURCE_DIR}"
+            "${SPHINX_LATEX_DIR}"
+            COMMENT "Building latex documentation with Sphinx"
+            )
+        add_dependencies(doc_latex doc_sphinx_copy_ext)
 
-    # latex -> pdf
-    # Trap here: as I'm using ninja for most builds ${CMAKE_MAKE_PROGRAM} is
-    # set to 'ninja' not 'make' but sphinx generates a Makefile, so the ninja
-    # build will fail here!
-    # I'm now calling 'make' manually to work around this issue. This might
-    # brake under windows as make could be 'mingw32-make' or 'nmake' or
-    # something else.
+        # latex -> pdf
+        # Trap here: as I'm using ninja for most builds ${CMAKE_MAKE_PROGRAM} is
+        # set to 'ninja' not 'make' but sphinx generates a Makefile, so the ninja
+        # build will fail here!
+        # I'm now calling 'make' manually to work around this issue. This might
+        # brake under windows as make could be 'mingw32-make' or 'nmake' or
+        # something else.
 
-    #add_custom_target(doc_latex_pdf
-    #        ${CMAKE_MAKE_PROGRAM} -C ${SPHINX_LATEX_DIR}
-    #    COMMENT "Generating PDF from Sphinx latex output"
-    #    )
-    add_custom_target(doc_latex_pdf
-            make -C ${SPHINX_LATEX_DIR}
-        COMMENT "Generating PDF from Sphinx latex output"
-        )
+        #add_custom_target(doc_latex_pdf
+        #        ${CMAKE_MAKE_PROGRAM} -C ${SPHINX_LATEX_DIR}
+        #    COMMENT "Generating PDF from Sphinx latex output"
+        #    )
 
-    add_dependencies(doc_latex_pdf doc_latex)
+        if (WIN32)
+            add_custom_target(doc_latex_pdf
+                    make -C ${SPHINX_LATEX_DIR}
+                COMMENT "Generating PDF from Sphinx latex output"
+                )
+        else(WIN32)
+            add_custom_target(doc_latex_pdf
+                    make -C ${SPHINX_LATEX_DIR}
+                COMMENT "Generating PDF from Sphinx latex output"
+                )
+        endif(WIN32)
 
-    install(FILES "${SPHINX_PDF_OUT}" DESTINATION doc)
+        add_dependencies(doc_latex_pdf doc_latex)
+        add_dependencies(doc doc_latex_pdf)
+
+        install(FILES "${SPHINX_PDF_OUT}" DESTINATION doc)
+    endif(LATEXMK)
 
     # qthelp
     # ==================================================
@@ -131,14 +146,10 @@ if (SPHINX_EXECUTABLE)
     #    )
 
     #add_dependencies(doc_qthelp_collection doc_qthelp)
+    #add_dependencies(doc doc_qthelp_collection)
 
     #install(FILES "${SPHINX_QCH_OUT}" DESTINATION doc)
 
-    # 'doc' target for all formats
-    # ==================================================
-    add_custom_target(doc ALL)
-    #add_dependencies(doc doc_html doc_latex_pdf doc_qthelp_collection)
-    add_dependencies(doc doc_html doc_latex_pdf)
 
 endif()
 

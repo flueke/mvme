@@ -8,7 +8,8 @@
 #include <QTcpSocket>
 #include <QtEndian>
 
-#include "mvme_listfile.h"
+#include "mvme_listfile_utils.h"
+#include "listfile_replay.h"
 
 using std::cout;
 using std::cerr;
@@ -68,8 +69,13 @@ void send_mvme_buffer(Context &context, DataBuffer &buffer)
     send_data_with_size_prefix(context, buffer.data, buffer.used);
 }
 
-void process_listfile(Context &context, ListFile *listfile)
+void process_listfile(Context &context, ListfileReplayHandle &input)
 {
+    assert(input.listfile);
+    assert(input.format == ListfileBufferFormat::MVMELST);
+
+    auto listfile = std::make_unique<ListFile>(input.listfile.get());
+
     auto preamble = listfile->getPreambleBuffer();
 
     if (!preamble.isEmpty())
@@ -100,6 +106,7 @@ void process_listfile(Context &context, ListFile *listfile)
     u32 zero = 0u;
     send_data(context, reinterpret_cast<const u8 *>(&zero), sizeof(zero));
 
+#if 0
     while (context.socket.bytesAvailable() < static_cast<qint64>(sizeof(zero)))
     {
         if (!context.socket.waitForReadyRead())
@@ -113,9 +120,10 @@ void process_listfile(Context &context, ListFile *listfile)
 
     if (bytesReceived != static_cast<qint64>(sizeof(zero)))
     {
-        throw (QString("final read failed: failed: %1")
+        throw (QString("final read failed: %1")
                .arg(context.socket.errorString()));
     }
+#endif
 }
 
 } // end anon namespace
@@ -187,7 +195,7 @@ int main(int argc, char *argv[])
 
         context.startTime = Context::ClockType::now();
 
-        process_listfile(context, openResult.listfile.get());
+        process_listfile(context, openResult);
         context.socket.disconnectFromHost();
 
         context.endTime = Context::ClockType::now();

@@ -12,10 +12,9 @@ namespace analysis
 
 struct A2AdapterState
 {
-    a2::A2 *a2;
-
     using SourceHash   = BiHash<SourceInterface *, a2::DataSource *>;
     using OperatorHash = BiHash<OperatorInterface *, a2::Operator *>;
+    using ConditionBitIndexes = BiHash<ConditionInterface *, s16>;
 
     struct ErrorInfo
     {
@@ -27,9 +26,13 @@ struct A2AdapterState
 
     using ErrorInfoVector = QVector<ErrorInfo>;
 
+    Analysis *a1;
+    a2::A2 *a2;
+
     SourceHash   sourceMap;
     OperatorHash operatorMap;
     ErrorInfoVector operatorErrors;
+    ConditionBitIndexes conditionBitIndexes;
 };
 
 /*
@@ -43,6 +46,7 @@ struct A2AdapterState
 A2AdapterState a2_adapter_build(
     memory::Arena *arena,
     memory::Arena *workArena,
+    Analysis *analysis,
     const analysis::SourceVector &sources,
     const analysis::OperatorVector &operators,
     const vme_analysis_common::VMEIdToIndex &vmeMap,

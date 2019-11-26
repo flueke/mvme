@@ -18,28 +18,6 @@ endif()
 
 find_package(Threads)
 
-# quazip
-find_path(QUAZIP_INCLUDE_DIR
-    NAMES quazip.h
-    PATH_SUFFIXES quazip quazip-qt5 quazip5)
-
-include_directories(${QUAZIP_INCLUDE_DIR})
-
-find_library(QUAZIP_QT5_RELEASE NAMES quazip quazip-qt5 quazip5)
-find_library(QUAZIP_QT5_DEBUG NAMES quazipd quazip-qt5d quazip5d)
-
-if (WIN32 OR QUAZIP_QT5_DEBUG)
-    set(QUAZIP_QT5
-        optimized ${QUAZIP_QT5_RELEASE}
-        debug ${QUAZIP_QT5_DEBUG}
-        )
-else()
-    set(QUAZIP_QT5 ${QUAZIP_QT5_RELEASE})
-endif()
-
-message("-- Using QUAZIP_INCLUDE_DIR=${QUAZIP_INCLUDE_DIR}")
-message("-- Using QUAZIP_QT5=${QUAZIP_QT5}")
-
 # libusb-0.1
 if (WIN32)
     find_path(LIBUSB_INCLUDE_PATH lusb0_usb.h
@@ -60,10 +38,21 @@ else()
     message("-- Using LIBUSB_LIBRARY=${LIBUSB_LIBRARY}")
 endif()
 
+# Boost
+#set(Boost_USE_MULTITHREADED ON)
+#set(Boost_USE_STATIC_LIBS   ON)
+#
+#if (WIN32)
+#    add_definitions(-D_WIN32_WINNT=0x0501)
+#endif(WIN32)
+#
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
+
 # git version information is contained in its own translation unit. Allows for
 # quick build + relink on version change.
 configure_file("git_sha1.cc.in" "git_sha1.cc" @ONLY)
-add_definitions(-DMVME_USE_GIT_VERSION_FILE)
 
 # make build info available to the program
 set(BUILD_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -74,39 +63,171 @@ endif()
 configure_file("build_info.cc.in" "build_info.cc" @ONLY)
 
 #
-# liba2
+# liba2 - Analysis runtime system
 #
 add_subdirectory(analysis/a2)
 include_directories(analysis/a2)
 
+# Enable WIENER VMUSB support using libusb0. This can be changed to make use of
+# libusb1.
+add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
+
+#
+# libmvme_core
+#
+add_library(libmvme_core SHARED util.cc)
+set_target_properties(libmvme_core PROPERTIES OUTPUT_NAME mvme_core)
+
+qt5_use_modules(libmvme_core Concurrent Gui Network Widgets)
+qt5_add_resources(LIBMVME_CORE_RC_OUT resources.qrc)
+target_include_directories(libmvme_core PRIVATE ${QUAZIP_INCLUDE_DIR})
+
+generate_export_header(libmvme_core)
+
+target_sources(libmvme_core PRIVATE
+    "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
+    "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
+    ${LIBMVME_CORE_RC_OUT}
+    CVMUSBReadoutList.cpp
+    qt_util.cc
+    util.cc
+    vme_controller.cpp
+    vme_script.cc
+    vmusb.cpp
+)
+
+target_include_directories(libmvme_core PRIVATE ${LIBUSB_INCLUDE_PATH})
+target_link_libraries(libmvme_core ${LIBUSB_LIBRARY} ${QUAZIP_QT5})
+install(TARGETS libmvme_core DESTINATION .)
+
+if (WIN32)
+    target_link_libraries(libmvme_core ws2_32)
+endif()
+
+#
+# libmvme_mvlc - MVLC support
+#
+if(MVME_ENABLE_MVLC)
+    set(MVLC_USB_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+        "mvlc_usb layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+
+    set(MVLC_ETH_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+        "mvlc_eth layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+
+    set(MVLC_DIALOG_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+        "mvlc_dialog layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+
+    # libmvme_mvlc
+    add_library(libmvme_mvlc SHARED mvlc/mvlc_qt_object.cc)
+    set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
+    target_link_libraries(libmvme_mvlc libmvme_core ftd3xx)
+
+    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_USB_LOG_LEVEL=${MVLC_USB_LOG_LEVEL})
+    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_ETH_LOG_LEVEL=${MVLC_ETH_LOG_LEVEL})
+    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_DIALOG_LOG_LEVEL=${MVLC_DIALOG_LOG_LEVEL})
+
+    qt5_use_modules(libmvme_mvlc Concurrent Gui Network Widgets)
+    qt5_wrap_ui(LIBMVME_MVLC_UIC_OUT vme_debug_widget.ui)
+
+    generate_export_header(libmvme_mvlc)
+
+    target_sources(libmvme_mvlc PRIVATE
+        mvlc/mvlc_basic_mvlc.cc
+        mvlc/mvlc_dev_gui.cc
+        mvlc/mvlc_dialog.cc
+        mvlc/mvlc_error.cc
+        mvlc/mvlc_impl_factory.cc
+        mvlc/mvlc_impl_eth.cc
+        mvlc/mvlc_impl_usb.cc
+        mvlc/mvlc_qt_object.cc
+        mvlc/mvlc_register_names.cc
+        mvlc/mvlc_script.cc
+        mvlc/mvlc_util.cc
+        mvlc/mvlc_vme_controller.cc
+        mvlc/mvlc_vme_debug_widget.cc
+        mvlc/mvlc_readout_parsers.cc
+
+        ${LIBMVME_MVLC_UIC_OUT}
+        )
+
+    qt5_wrap_ui(MVLC_DEV_GUI_UIC mvlc/mvlc_dev_ui.ui)
+    target_sources(libmvme_mvlc PRIVATE ${MVLC_DEV_GUI_UIC})
+
+    install(TARGETS libmvme_mvlc DESTINATION .)
+
+    # mvlc_dev_gui
+    add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
+    target_link_libraries(mvlc_dev_gui libmvme_mvlc)
+    install(TARGETS mvlc_dev_gui DESTINATION .)
+
+    if (WIN32)
+        target_link_libraries(libmvme_mvlc ws2_32)
+    endif(WIN32)
+
+    # mvlc_dev_win_usb_debug
+    if (WIN32)
+        add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
+        target_link_libraries(mvlc_dev_win_usb_debug libmvme_mvlc)
+    endif (WIN32)
+
+    add_executable(dev_ftdi_list_devices mvlc/dev_ftdi_list_devices)
+    target_link_libraries(dev_ftdi_list_devices ftd3xx)
+
+    add_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
+    target_link_libraries(dev_test_mvlc_usb_impl libmvme_mvlc)
+
+    add_executable(dev_test_mvlc_eth_impl mvlc/dev_test_mvlc_eth_impl.cc)
+    target_link_libraries(dev_test_mvlc_eth_impl libmvme_mvlc)
+
+    if(BUILD_TESTS)
+        function(add_mvlc_gtest exe_name exe_source)
+            add_executable(${exe_name} ${exe_source})
+            add_dependencies(${exe_name} libmvme_mvlc)
+            target_link_libraries(${exe_name} libmvme_mvlc gtest gtest_main)
+            add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+        endfunction(add_mvlc_gtest)
+        add_mvlc_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
+        add_mvlc_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
+        add_mvlc_gtest(test_mvlc_calc_packet_loss mvlc/test/test_mvlc_calc_packet_loss.cc)
+    endif(BUILD_TESTS)
+endif(MVME_ENABLE_MVLC)
+
 #
 # libmvme
 #
-add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
+add_library(libmvme SHARED mvme.cpp)
+set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
+generate_export_header(libmvme)
 
-set(LIBMVME_SOURCES
-    "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
-    "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
+qt5_use_modules(libmvme Concurrent Gui Network Widgets)
+qt5_wrap_ui(LIBMVME_UIC_OUT mesytec_diagnostics.ui vme_debug_widget.ui)
+
+target_sources(libmvme PRIVATE
     "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
+    ${LIBMVME_UIC_OUT}
 
     analysis/a2_adapter.cc
     analysis/analysis.cc
     analysis/analysis_info_widget.cc
     analysis/analysis_serialization.cc
+    analysis/analysis_session.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
     analysis/code_editor.cc
+    analysis/condition_ui.cc
+    analysis/condition_ui_p.cc
     analysis/data_extraction_widget.cc
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
     analysis/listfilter_extractor_dialog.cc
-    analysis/object_factory.cc
     analysis/object_editor_dialog.cc
-    analysis/analysis_session.cc
-
-
-    CVMUSBReadoutList.cpp
+    analysis/object_factory.cc
+    analysis/object_info_widget.cc
+    analysis/sink_widget_factory.cc
+    analysis/ui_eventwidget.cc
+    analysis/ui_lib.cc
+    daqcontrol.cc
     daqcontrol_widget.cc
     daqstats_widget.cc
     data_filter.cc
@@ -123,20 +244,22 @@ set(LIBMVME_SOURCES
     histo_gui_util.cc
     histo_util.cc
     listfile_browser.cc
-    listfile_constants.cc
-    listfile_constants_impl.cc
+    listfile_replay.cc
+    listfile_replay_worker.cc
     mesytec_diagnostics.cc
     mvme_context.cc
     mvme_context_lib.cc
     mvme.cpp
     mvme_listfile.cc
+    mvme_listfile_utils.cc
+    mvme_listfile_worker.cc
     mvme_qwt.cc
     mvme_session.cc
     mvme_stream_iter.cc
     mvme_stream_processor.cc
     mvme_stream_util.cc
     mvme_stream_worker.cc
-    qt_util.cc
+    multi_event_splitter.cc
     rate_monitor_base.cc
     rate_monitor_gui.cc
     rate_monitor_plot_widget.cc
@@ -149,26 +272,24 @@ set(LIBMVME_SOURCES
     sis3153_readout_worker.cc
     sis3153/sis3153ETH_vme_class.cpp
     sis3153_util.cc
+    stream_worker_base.cc
     template_system.cc
     timed_block.cc
     treewidget_utils.cc
-    util.cc
     util/strings.cc
+    util/variablify.cc
     util_zip.cc
     vme_analysis_common.cc
     vme_config.cc
     vme_config_tree.cc
     vme_config_ui.cc
-    vme_controller.cpp
     vme_controller_factory.cc
     vme_controller_ui.cc
     vme_debug_widget.cc
     vme_daq.cc
     vme_readout_worker.cc
-    vme_script.cc
     vme_script_editor.cc
     vmusb_buffer_processor.cc
-    vmusb.cpp
     vmusb_firmware_loader.cc
     vmusb_readout_worker.cc
     vmusb_skipHeader.cpp
@@ -176,60 +297,73 @@ set(LIBMVME_SOURCES
     vmusb_util.cc
     )
 
-qt5_wrap_ui(LIBMVME_UIC_OUT
-    mesytec_diagnostics.ui
-    vme_debug_widget.ui
-    )
-
-qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
-
-add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
-add_dependencies(libmvme liba2_static)
-generate_export_header(libmvme)
-set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
-
-qt5_use_modules(libmvme
-  Concurrent
-  Gui
-  Network
-  Widgets
-  )
-
-if (WIN32)
-    list(APPEND LIBMVME_ADDITIONAL_LIBS ws2_32)
-endif()
-
-include_directories(${LIBUSB_INCLUDE_PATH})
-
-
 target_link_libraries(libmvme
-    ${QUAZIP_QT5}
+    libmvme_core
     ${QWT_LIBRARY}
-    ${LIBUSB_LIBRARY}
-    ${LIBMVME_ADDITIONAL_LIBS}
     liba2_static
     Threads::Threads
     jcon
     )
+
+target_include_directories(libmvme PUBLIC ${QUAZIP_INCLUDE_DIR})
+
+if (MVME_ENABLE_MVLC)
+    target_sources(libmvme PRIVATE
+        mvlc_daq.cc
+        mvlc_listfile.cc
+        mvlc_listfile_worker.cc
+        mvlc_readout_worker.cc
+        mvlc_stream_worker.cc
+
+        mvlc/mvlc_trigger_io.cc
+        mvlc/mvlc_trigger_io_editor.cc
+        mvlc/mvlc_trigger_io_editor_p.cc
+        mvlc/mvlc_trigger_io_script.cc
+    )
+
+    # Note: the BUILD_INTERFACE line does not work on older CMake versions
+    # (tested with 3.7.2).
+    target_include_directories(libmvme
+        PRIVATE ${MVME_YAML_DIR}/include)
+        #PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>)
+
+    # The above still did not work under debian9. So the next line add
+    # yaml-cpp to the global include paths.
+    include_directories(${MVME_YAML_DIR}/include)
+
+    target_include_directories(libmvme PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty/minbool")
+
+    target_link_libraries(libmvme libmvme_mvlc yaml-cpp)
+
+    add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
+    target_link_libraries(dev_mvlc_daq_init libmvme)
+
+    add_executable(dev_mvlc_gen_logic_script dev_mvlc_gen_logic_script.cc)
+    target_link_libraries(dev_mvlc_gen_logic_script libmvme)
+
+    add_executable(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
+    target_link_libraries(dev_mvlc_trigger_gui libmvme)
+    install(TARGETS dev_mvlc_trigger_gui DESTINATION .)
+
+    if (NOT WIN32)
+        add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
+        target_link_libraries(dev_mvlc_dump_eth_file libmvme)
+    endif(NOT WIN32)
+endif()
 
 install(TARGETS libmvme DESTINATION .)
 
 #
 # mvme - the main GUI binary
 #
-set(MVME_SOURCES
-    main.cpp
-    mvme.rc
-    )
-
 if (CMAKE_BUILD_TYPE MATCHES "^Release$")
-    add_executable(mvme WIN32 ${MVME_SOURCES})
+    add_executable(mvme WIN32 main.cpp)
 else()
     #add_definitions(-DMVME_ENABLE_TIMED_BLOCKS)
-    add_executable(mvme ${MVME_SOURCES})
+    add_executable(mvme main.cpp)
 endif()
 
-add_dependencies(mvme libmvme)
+target_sources(mvme PRIVATE main.cpp mvme.rc)
 
 qt5_use_modules(mvme
   Concurrent
@@ -237,16 +371,13 @@ qt5_use_modules(mvme
   Widgets
   )
 
-target_link_libraries(mvme
-    libmvme
-    )
+target_link_libraries(mvme libmvme)
 
 install(TARGETS mvme DESTINATION .)
 
 # Helper for additional utility / debug binaries and alternative launchers.
 function(add_mvme_executable exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
-    add_dependencies(${exe_name} libmvme)
     target_link_libraries(${exe_name} libmvme)
 endfunction(add_mvme_executable)
 
@@ -275,7 +406,6 @@ add_mvme_executable(test_launcher_module_template "test_launcher_module_template
 #
 add_mvme_executable(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
 
-add_mvme_executable(mvme-listfile-dumper-multievent "listfile-multievent-dumper.cpp")
 add_mvme_executable(dev_datagen "dev_datagen.cc")
 add_mvme_executable(dev_data_filter_runner "dev_data_filter_runner.cc")
 add_mvme_executable(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buffers_file.cc")
@@ -291,41 +421,17 @@ add_mvme_executable(dev_rate_monitor_widget "dev_rate_monitor_widget.cc")
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
 add_mvme_executable(dev_data_filter_edit "dev_data_filter_edit.cc")
 add_mvme_executable(dev_histo1d_testing "dev_histo1d_testing.cc")
+add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
+add_mvme_executable(dev_configobject_testing "dev_configobject_testing.cc")
 
-if (ENABLE_ROOT AND ROOT_FOUND)
-    set(mvme_root_LIBS
-        ${ROOT_LIBRARIES}
-        ${ROOT_Core_LIBRARY}
-        ${ROOT_RIO_LIBRARY}
-        ${ROOT_Tree_LIBRARY}
-        ${ROOT_Hist_LIBRARY}
-        )
+#TODO: install a CMakeLists.txt for the treewriter client application. how to
+# find the installed includes from that directory?
+#install(FILES data_export/mvme_root_treewriter_client.cc DESTINATION extras/root_treewriter_client/)
 
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-    ROOT_GENERATE_DICTIONARY(G__mvme_root mvme_root.h LINKDEF mvme_linkdef.h OPTIONS NOINSTALL)
-
-    add_library(mvme_root SHARED mvme_root.cc G__mvme_root.cxx)
-    target_link_libraries(mvme_root ${mvme_root_LIBS})
-
-    add_executable(dev_root_test dev_root_test.cc)
-    target_link_libraries(dev_root_test mvme_root)
-
-    add_executable(mvme-root-writer root_writer_process_main.cc)
-    add_dependencies(mvme-root-writer libmvme mvme_root)
-    target_link_libraries(mvme-root-writer libmvme mvme_root)
-endif(ENABLE_ROOT AND ROOT_FOUND)
-
-# Boost
-#set(Boost_USE_MULTITHREADED ON)
-#set(Boost_USE_STATIC_LIBS   ON)
-#
-#if (WIN32)
-#    add_definitions(-D_WIN32_WINNT=0x0501)
-#endif(WIN32)
-#
-find_package(Boost REQUIRED)
-include_directories(${Boost_INCLUDE_DIRS})
-message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+add_subdirectory(event_server)
+add_subdirectory(listfile_reader)
 
 #
 # listfile recovery tool
@@ -348,7 +454,13 @@ if(BUILD_TESTS)
 
     add_mvme_gtest(test_object_visitor analysis/test_object_visitor.cc)
     add_mvme_gtest(test_analysis_util analysis/test_analysis_util.cc)
+    add_mvme_gtest(test_listfile_constants test_listfile_constants.cc)
+    #add_mvme_gtest(test_analysis_session analysis/test_analysis_session.cc)
+
+    add_mvme_executable(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 
 endif(BUILD_TESTS)
+
+
 
 # vim:tw=0

@@ -27,9 +27,11 @@
 #include <QVBoxLayout>
 
 #include "data_filter_edit.h"
-#include "../qt_util.h"
+#include "qt_util.h"
 
 namespace analysis
+{
+namespace ui
 {
 
 static const char *defaultNewFilter = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
@@ -180,4 +182,5 @@ void DataExtractionEditor::apply()
     }
 }
 
+} // end namespace ui
 } // end namespace analysis

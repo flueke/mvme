@@ -38,7 +38,6 @@ int main(int argc, char *argv[])
     Histo1DWidget histoWidget(histo);
     histoWidget.show();
 
-
 #if 0
     QFrame settingsWidget;
     auto settingsLayout = new QFormLayout(&settingsWidget);

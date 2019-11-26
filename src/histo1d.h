@@ -49,13 +49,16 @@ struct HistoLogicError: public std::runtime_error
     HistoLogicError(const char *s): std::runtime_error(s) {}
 };
 
+// Histo memory segment inside an arena.
 struct SharedHistoMem
 {
-    // Shared pointer to arena to keep the memory alive.
+    // Shared pointer to the containing arena to keep the memory alive.
     std::shared_ptr<memory::Arena> arena;
 
     // Pointer into the arena where this Histograms data starts.
     double *data = nullptr;
+
+    s32 size = 0;
 };
 
 class LIBMVME_EXPORT Histo1D: public QObject
@@ -90,6 +93,9 @@ class LIBMVME_EXPORT Histo1D: public QObject
          * deallocate and switch to being a histo with external memory but it
          * doesn't right now. */
         void setData(const SharedHistoMem &mem, AxisBinning newBinning);
+
+        /* Throws HistoLogicError if internal memory is used. */
+        SharedHistoMem getSharedMemory() const;
 
         // Returns the bin number that was filled or -1 in case of under/overflow.
         // Note: No Resolution Reduction for the fill operation.
@@ -186,8 +192,9 @@ class LIBMVME_EXPORT Histo1D: public QObject
         {
             if (axis == Qt::XAxis && binning != m_xAxisBinning)
             {
+                bool doClear = m_xAxisBinning.getBinCount() != binning.getBinCount();
                 m_xAxisBinning = binning;
-                clear();
+                if (doClear) clear();
                 emit axisBinningChanged(axis);
             }
         }
@@ -228,6 +235,9 @@ class LIBMVME_EXPORT Histo1D: public QObject
 
         double getOverflow() const { return m_overflow; }
         void setOverflow(double value) { m_overflow = value; }
+
+        double *getUnderflowPtr() { return &m_underflow; }
+        double *getOverflowPtr() { return &m_overflow; }
 
         Histo1DStatistics calcStatistics(double minX, double maxX, u32 rrf = NoRR) const;
         Histo1DStatistics calcBinStatistics(u32 startBin, u32 onePastEndBin, u32 rrf = NoRR) const;

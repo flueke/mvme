@@ -89,3 +89,18 @@ double DAQStats::getAnalysisEfficiency() const
     double efficiency = getAnalyzedBuffers() / static_cast<double>(totalBuffersRead);
     return efficiency;
 }
+
+const char *to_string(const ListfileBufferFormat &fmt)
+{
+    switch (fmt)
+    {
+        case ListfileBufferFormat::MVMELST:
+            return "MVMELST";
+        case ListfileBufferFormat::MVLC_ETH:
+            return "MVLC_ETH";
+        case ListfileBufferFormat::MVLC_USB:
+            return "MVLC_USB";
+    }
+
+    return "unknown ListfileBufferFormat";
+}

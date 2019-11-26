@@ -52,6 +52,8 @@ class VMUSBBufferProcessor: public QObject
         void setLogBuffers(bool b) { m_logBuffers = b; }
         void beginRun();
         void endRun();
+        void handlePause();
+        void handleResume();
 
     private:
         DataBuffer *getFreeBuffer();

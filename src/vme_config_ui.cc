@@ -19,15 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_config_ui.h"
-#include "analysis/analysis.h"
-#include "data_filter_edit.h"
-#include "mvme_context.h"
-#include "qt-collapsible-section/Section.h"
-#include "vme_config.h"
-#include "vme_script.h"
 
 #include <cmath>
-
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
@@ -51,6 +44,14 @@
 #include <QStandardPaths>
 #include <QThread>
 
+#include "analysis/analysis.h"
+#include "data_filter_edit.h"
+#include "mvlc/mvlc_constants.h"
+#include "qt-collapsible-section/Section.h"
+#include "vme_config.h"
+#include "vme_script.h"
+
+using namespace mesytec;
 using namespace vats;
 
 //
@@ -67,15 +68,16 @@ struct EventConfigDialogPrivate
              *spin_irqVector,
              *spin_vmusbTimerFrequency;
 
-    QDoubleSpinBox *spin_vmusbTimerPeriod,
-                   *spin_sis3153TimerPeriod;
+    QComboBox *combo_mvlcTimerBase;
+    QDoubleSpinBox *spin_timerPeriod;
+
+    QCheckBox *cb_irqUseIACK;
 };
 
-EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *controller,
-                                     EventConfig *config, QWidget *parent)
+EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *config,
+                                     QWidget *parent)
     : QDialog(parent)
     , m_d(new EventConfigDialogPrivate)
-    , m_context(context)
     , m_controller(controller)
     , m_config(config)
 {
@@ -90,6 +92,9 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
 
     m_d->spin_irqVector = new QSpinBox(this);
     m_d->spin_irqVector->setMaximum(255);
+
+    m_d->cb_irqUseIACK = new QCheckBox(this);
+    m_d->cb_irqUseIACK->hide();
 
     auto gb_nameAndCond = new QGroupBox;
     auto gb_layout   = new QFormLayout(gb_nameAndCond);
@@ -123,12 +128,12 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
     {
         case VMEControllerType::VMUSB:
             {
-                m_d->spin_vmusbTimerPeriod = new QDoubleSpinBox;
-                m_d->spin_vmusbTimerPeriod->setPrefix(QSL("Every "));
-                m_d->spin_vmusbTimerPeriod->setSuffix(QSL(" seconds"));
-                m_d->spin_vmusbTimerPeriod->setMaximum(127.5);
-                m_d->spin_vmusbTimerPeriod->setDecimals(1);
-                m_d->spin_vmusbTimerPeriod->setSingleStep(0.5);
+                m_d->spin_timerPeriod = new QDoubleSpinBox;
+                m_d->spin_timerPeriod->setPrefix(QSL("Every "));
+                m_d->spin_timerPeriod->setSuffix(QSL(" seconds"));
+                m_d->spin_timerPeriod->setMaximum(127.5);
+                m_d->spin_timerPeriod->setDecimals(1);
+                m_d->spin_timerPeriod->setSingleStep(0.5);
 
                 m_d->spin_vmusbTimerFrequency = new QSpinBox;
                 m_d->spin_vmusbTimerFrequency->setPrefix(QSL("Every "));
@@ -138,10 +143,10 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
                 // vmusb timer widget
                 auto vmusbTimerWidget = new QWidget;
                 auto vmusbTimerLayout = new QFormLayout(vmusbTimerWidget);
-                vmusbTimerLayout->addRow(QSL("Period"), m_d->spin_vmusbTimerPeriod);
+                vmusbTimerLayout->addRow(QSL("Period"), m_d->spin_timerPeriod);
                 vmusbTimerLayout->addRow(QSL("Frequency"), m_d->spin_vmusbTimerFrequency);
 
-                conditions = { TriggerCondition:: Interrupt,
+                conditions = { TriggerCondition::Interrupt,
                     TriggerCondition::NIM1, TriggerCondition::Periodic };
 
                 m_d->stack_options->addWidget(irqWidget);
@@ -151,23 +156,23 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
 
         case VMEControllerType::SIS3153:
             {
-                conditions = { TriggerCondition:: Interrupt, TriggerCondition::Periodic,
+                conditions = { TriggerCondition::Interrupt, TriggerCondition::Periodic,
                     TriggerCondition::Input1RisingEdge, TriggerCondition::Input1FallingEdge,
                     TriggerCondition::Input2RisingEdge, TriggerCondition::Input2FallingEdge
                 };
 
-                m_d->spin_sis3153TimerPeriod = new QDoubleSpinBox;
-                m_d->spin_sis3153TimerPeriod->setPrefix(QSL("Every "));
-                m_d->spin_sis3153TimerPeriod->setSuffix(QSL(" seconds"));
-                m_d->spin_sis3153TimerPeriod->setMinimum(0.1);
-                m_d->spin_sis3153TimerPeriod->setMaximum(6.5);
-                m_d->spin_sis3153TimerPeriod->setDecimals(1);
-                m_d->spin_sis3153TimerPeriod->setSingleStep(0.1);
-                m_d->spin_sis3153TimerPeriod->setValue(1.0);
+                m_d->spin_timerPeriod = new QDoubleSpinBox;
+                m_d->spin_timerPeriod->setPrefix(QSL("Every "));
+                m_d->spin_timerPeriod->setSuffix(QSL(" seconds"));
+                m_d->spin_timerPeriod->setMinimum(0.1);
+                m_d->spin_timerPeriod->setMaximum(6.5);
+                m_d->spin_timerPeriod->setDecimals(1);
+                m_d->spin_timerPeriod->setSingleStep(0.1);
+                m_d->spin_timerPeriod->setValue(1.0);
 
                 auto timerWidget = new QWidget;
                 auto timerLayout = new QFormLayout(timerWidget);
-                timerLayout->addRow(QSL("Period"), m_d->spin_sis3153TimerPeriod);
+                timerLayout->addRow(QSL("Period"), m_d->spin_timerPeriod);
 
                 m_d->stack_options->addWidget(irqWidget);
                 m_d->stack_options->addWidget(timerWidget);
@@ -178,6 +183,62 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
                     m_d->stack_options->addWidget(new QWidget); // no special gui for external triggers
                 }
             } break;
+
+        case VMEControllerType::MVLC_USB:
+        case VMEControllerType::MVLC_ETH:
+            {
+                // Hide the IRQ Vector line. The vector is not used by the MVLC.
+                irqLayout->labelForField(m_d->spin_irqVector)->hide();
+                m_d->spin_irqVector->hide();
+
+                irqLayout->addRow(QSL("Use Interrupt Acknowledge (IRQUseIACK)"),
+                                  m_d->cb_irqUseIACK);
+                m_d->cb_irqUseIACK->show();
+
+                auto label = new QLabel(
+                    QSL("Note: enabling the IRQUseIACK option will make IRQ handling"
+                        " slower but some VME modules might require it to work properly."));
+
+                label->setWordWrap(true);
+                irqLayout->addRow(label);
+                m_d->stack_options->addWidget(irqWidget);
+
+                // Timers
+                {
+                    m_d->combo_mvlcTimerBase = new QComboBox;
+                    m_d->combo_mvlcTimerBase->addItem("ns", 0);
+                    m_d->combo_mvlcTimerBase->addItem("us", 1);
+                    m_d->combo_mvlcTimerBase->addItem("ms", 2);
+                    m_d->combo_mvlcTimerBase->addItem("s", 3);
+
+                    m_d->spin_timerPeriod = new QDoubleSpinBox;
+                    m_d->spin_timerPeriod->setPrefix(QSL("Every "));
+                    m_d->spin_timerPeriod->setDecimals(0);
+                    m_d->spin_timerPeriod->setSingleStep(1.0);
+                    m_d->spin_timerPeriod->setValue(1000);
+
+                    auto on_timer_base_changed = [this] (const QString &unit)
+                    {
+                        m_d->spin_timerPeriod->setSuffix(QSL(" ") + unit);
+                        m_d->spin_timerPeriod->setMinimum(unit == "ns" ? mvlc::stacks::TimerPeriodMin_ns : 1);
+                        m_d->spin_timerPeriod->setMaximum(mvlc::stacks::TimerPeriodMax);
+                    };
+
+                    on_timer_base_changed("ns");
+
+                    connect(m_d->combo_mvlcTimerBase, qOverload<const QString &>(&QComboBox::currentIndexChanged),
+                            this, on_timer_base_changed);
+
+                    auto timerWidget = new QWidget;
+                    auto timerLayout = new QFormLayout(timerWidget);
+                    timerLayout->addRow(QSL("Timer Base"), m_d->combo_mvlcTimerBase);
+                    timerLayout->addRow(QSL("Period"), m_d->spin_timerPeriod);
+                    m_d->stack_options->addWidget(timerWidget);
+                }
+
+                conditions = { TriggerCondition::Interrupt,
+                    TriggerCondition::Periodic};
+            } break;
     }
 
     for (auto cond: conditions)
@@ -187,17 +248,6 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
     }
 
     loadFromConfig();
-
-    auto handleContextStateChange = [this] {
-        auto daqState = m_context->getDAQState();
-        auto globalMode = m_context->getMode();
-        setReadOnly(daqState != DAQState::Idle || globalMode == GlobalMode::ListFile);
-    };
-
-    connect(context, &MVMEContext::daqStateChanged, this, handleContextStateChange);
-    connect(context, &MVMEContext::modeChanged, this, handleContextStateChange);
-
-    handleContextStateChange();
 }
 
 EventConfigDialog::~EventConfigDialog()
@@ -219,19 +269,30 @@ void EventConfigDialog::loadFromConfig()
 
     m_d->spin_irqLevel->setValue(config->irqLevel);
     m_d->spin_irqVector->setValue(config->irqVector);
+    m_d->cb_irqUseIACK->setChecked(config->triggerOptions["IRQUseIACK"].toBool());
 
-    switch (m_context->getVMEController()->getType())
+    switch (m_controller->getType())
     {
         case VMEControllerType::VMUSB:
             {
-                m_d->spin_vmusbTimerPeriod->setValue(config->scalerReadoutPeriod * 0.5);
+                m_d->spin_timerPeriod->setValue(config->scalerReadoutPeriod * 0.5);
                 m_d->spin_vmusbTimerFrequency->setValue(config->scalerReadoutFrequency);
             } break;
         case VMEControllerType::SIS3153:
             {
-                m_d->spin_sis3153TimerPeriod->setValue(
+                m_d->spin_timerPeriod->setValue(
                     config->triggerOptions.value(QSL("sis3153.timer_period"), 0.0).toDouble());
 
+            } break;
+
+        case VMEControllerType::MVLC_USB:
+        case VMEControllerType::MVLC_ETH:
+            {
+                m_d->combo_mvlcTimerBase->setCurrentText(
+                    config->triggerOptions.value(QSL("mvlc.timer_base"), "ms").toString());
+
+                m_d->spin_timerPeriod->setValue(
+                    config->triggerOptions.value(QSL("mvlc.timer_period"), 1000u).toUInt());
             } break;
     }
 }
@@ -245,18 +306,25 @@ void EventConfigDialog::saveToConfig()
     config->irqLevel = static_cast<uint8_t>(m_d->spin_irqLevel->value());
     config->irqVector = static_cast<uint8_t>(m_d->spin_irqVector->value());
 
-    switch (m_context->getVMEController()->getType())
+    switch (m_controller->getType())
     {
         case VMEControllerType::VMUSB:
             {
-                config->scalerReadoutPeriod = static_cast<uint8_t>(m_d->spin_vmusbTimerPeriod->value() * 2.0);
+                config->scalerReadoutPeriod = static_cast<uint8_t>(m_d->spin_timerPeriod->value() * 2.0);
                 config->scalerReadoutFrequency = static_cast<uint16_t>(m_d->spin_vmusbTimerFrequency->value());
             } break;
 
         case VMEControllerType::SIS3153:
             {
-                config->triggerOptions[QSL("sis3153.timer_period")] = m_d->spin_sis3153TimerPeriod->value();
+                config->triggerOptions[QSL("sis3153.timer_period")] = m_d->spin_timerPeriod->value();
             } break;
+
+        case VMEControllerType::MVLC_USB:
+        case VMEControllerType::MVLC_ETH:
+            config->triggerOptions["IRQUseIACK"] = m_d->cb_irqUseIACK->isChecked();
+            config->triggerOptions["mvlc.timer_base"] = m_d->combo_mvlcTimerBase->currentText();
+            config->triggerOptions["mvlc.timer_period"] = m_d->spin_timerPeriod->value();
+            break;
     }
     config->setModified(true);
 }
@@ -278,10 +346,11 @@ void EventConfigDialog::setReadOnly(bool readOnly)
 //
 // ModuleConfigDialog
 //
-ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *module, QWidget *parent)
+ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vmeConfig,
+                                       QWidget *parent)
     : QDialog(parent)
-    , m_context(context)
     , m_module(module)
+    , m_vmeConfig(vmeConfig)
 {
     setWindowTitle(QSL("Module Config"));
     MVMETemplates templates = read_templates();
@@ -377,10 +446,16 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 
         if (name.isEmpty())
         {
-            name = m_context->getUniqueModuleName(mm.typeName);
+            name = make_unique_module_name(mm.typeName, m_vmeConfig);
         }
 
         nameEdit->setText(name);
+
+        if (mm.vmeAddress != 0u)
+        {
+            addressEdit->setText(QString("0x%1")
+                                 .arg(mm.vmeAddress, 8, 16, QChar('0')));
+        }
     };
 
     connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),

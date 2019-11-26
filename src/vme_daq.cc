@@ -24,32 +24,46 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <quazipfile.h>
-#include <quazip.h>
 
-#include "mvme_listfile.h"
+#include "mvme_listfile_utils.h"
+#include "util_zip.h"
 
 //
 // vme_daq_init
 //
-void vme_daq_init(
+QVector<ScriptWithResult>
+vme_daq_init(
     VMEConfig *config,
     VMEController *controller,
-    std::function<void (const QString &)> logger)
+    std::function<void (const QString &)> logger,
+    vme_script::run_script_options::Flag opts
+    )
 {
-    auto startScripts = config->vmeScriptLists["daq_start"];
+    using namespace vme_script::run_script_options;
+
+    QVector<ScriptWithResult> ret;
+
+    auto startScripts = config->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_start")->findChildren<VMEScriptConfig *>();
+
     if (!startScripts.isEmpty())
     {
         logger(QSL(""));
         logger(QSL("Global DAQ Start scripts:"));
-        for (auto script: startScripts)
+        for (auto scriptConfig: startScripts)
         {
-            if (!script->isEnabled())
+            if (!scriptConfig->isEnabled())
                 continue;
 
-            logger(QString("  %1").arg(script->objectName()));
+            logger(QString("  %1").arg(scriptConfig->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-            run_script(controller, script->getScript(), indentingLogger, true);
+
+            auto results = run_script(
+                controller, scriptConfig->getScript(), indentingLogger,
+                opts | LogEachResult);
+            ret.push_back({ scriptConfig, results });
+            if ((opts & AbortOnError) && has_errors(results))
+                return ret;
         }
     }
 
@@ -81,7 +95,12 @@ void vme_daq_init(
             {
                 logger(QSL("    %1").arg(scriptConfig->objectName()));
                 auto indentingLogger = [logger](const QString &str) { logger(QSL("      ") + str); };
-                run_script(controller, scriptConfig->getScript(module->getBaseAddress()), indentingLogger, true);
+                auto results = run_script(
+                    controller, scriptConfig->getScript(module->getBaseAddress()),
+                    indentingLogger, opts | LogEachResult);
+                ret.push_back({ scriptConfig, results });
+                if ((opts & AbortOnError) && has_errors(results))
+                    return ret;
             }
         }
     }
@@ -89,48 +108,80 @@ void vme_daq_init(
     logger(QSL("Events DAQ Start"));
     for (auto eventConfig: config->getEventConfigs())
     {
-        logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-        run_script(controller, eventConfig->vmeScripts["daq_start"]->getScript(), indentingLogger, true);
+        auto scriptConfig = eventConfig->vmeScripts["daq_start"];
+        auto script = scriptConfig->getScript();
+
+        if (!script.isEmpty())
+            logger(QString("  %1").arg(eventConfig->objectName()));
+
+        auto results = run_script(controller, script, indentingLogger, opts | LogEachResult);
+        ret.push_back({ scriptConfig, results });
+        if ((opts & AbortOnError) && has_errors(results))
+            return ret;
     }
+
+    return ret;
 }
 
 //
 // vme_daq_shutdown
 //
-void vme_daq_shutdown(
+QVector<ScriptWithResult>
+vme_daq_shutdown(
     VMEConfig *config,
     VMEController *controller,
-    std::function<void (const QString &)> logger)
+    std::function<void (const QString &)> logger,
+    vme_script::run_script_options::Flag opts
+    )
 {
+    using namespace vme_script::run_script_options;
+
+    QVector<ScriptWithResult> ret;
+
     logger(QSL("Events DAQ Stop"));
     for (auto eventConfig: config->getEventConfigs())
     {
         logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-        run_script(controller, eventConfig->vmeScripts["daq_stop"]->getScript(), indentingLogger, true);
+        auto scriptConfig = eventConfig->vmeScripts["daq_stop"];
+        auto results = run_script(controller, scriptConfig->getScript(), indentingLogger,
+                                  opts | LogEachResult);
+        ret.push_back({ scriptConfig, results });
+        if ((opts & AbortOnError) && has_errors(results))
+            return ret;
     }
 
-    auto stopScripts = config->vmeScriptLists["daq_stop"];
+    auto stopScripts = config->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_stop")->findChildren<VMEScriptConfig *>();
+
     if (!stopScripts.isEmpty())
     {
         logger(QSL("Global DAQ Stop scripts:"));
-        for (auto script: stopScripts)
+        for (auto scriptConfig: stopScripts)
         {
-            if (!script->isEnabled())
+            if (!scriptConfig->isEnabled())
                 continue;
 
-            logger(QString("  %1").arg(script->objectName()));
+            logger(QString("  %1").arg(scriptConfig->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-            run_script(controller, script->getScript(), indentingLogger, true);
+            auto results = run_script(controller, scriptConfig->getScript(), indentingLogger,
+                                      opts | LogEachResult);
+            ret.push_back({ scriptConfig, results });
+            if ((opts & AbortOnError) && has_errors(results))
+                return ret;
         }
     }
+
+    return ret;
 }
 
 //
 // build_event_readout_script
 //
-vme_script::VMEScript build_event_readout_script(EventConfig *eventConfig)
+vme_script::VMEScript build_event_readout_script(
+    EventConfig *eventConfig,
+    u8 flags)
 {
     using namespace vme_script;
 
@@ -144,57 +195,22 @@ vme_script::VMEScript build_event_readout_script(EventConfig *eventConfig)
         {
             result += module->getReadoutScript()->getScript(module->getBaseAddress());
         }
+
         /* If the module is disabled only the EndMarker will be present in the
          * readout data. This looks the same as if the module readout did not
          * yield any data at all. */
-
-        Command marker;
-        marker.type = CommandType::Marker;
-        marker.value = EndMarker;
-        result += marker;
+        if (!(flags & EventReadoutBuildFlags::NoModuleEndMarker))
+        {
+            Command marker;
+            marker.type = CommandType::Marker;
+            marker.value = EndMarker;
+            result += marker;
+        }
     }
 
     result += eventConfig->vmeScripts["readout_end"]->getScript();
 
     return result;
-}
-
-namespace
-{
-    static std::runtime_error make_zip_error(const QString &msg, const QuaZip &zip)
-    {
-        auto m = QString("Error: archive=%1, error=%2")
-            .arg(msg)
-            .arg(zip.getZipError());
-
-        return std::runtime_error(m.toStdString());
-    }
-
-    static void throw_io_device_error(QIODevice *device)
-    {
-        if (auto zipFile = qobject_cast<QuaZipFile *>(device))
-        {
-            throw make_zip_error(zipFile->getZip()->getZipName(),
-                                 *(zipFile->getZip()));
-        }
-        else if (auto file = qobject_cast<QFile *>(device))
-        {
-            throw QString("Error: file=%1, error=%2")
-                .arg(file->fileName())
-                .arg(file->errorString())
-                ;
-        }
-        else
-        {
-            throw QString("IO Error: %1")
-                .arg(device->errorString());
-        }
-    }
-
-    static void throw_io_device_error(std::unique_ptr<QIODevice> &device)
-    {
-        throw_io_device_error(device.get());
-    }
 }
 
 struct DAQReadoutListfileHelperPrivate
@@ -207,7 +223,7 @@ struct DAQReadoutListfileHelperPrivate
 //
 // DAQReadoutListfileHelper
 //
-DAQReadoutListfileHelper::DAQReadoutListfileHelper(VMEReadoutWorkerContext readoutContext)
+DAQReadoutListfileHelper::DAQReadoutListfileHelper(VMEReadoutWorkerContext &readoutContext)
     : m_d(std::make_unique<DAQReadoutListfileHelperPrivate>())
     , m_readoutContext(readoutContext)
 {
@@ -218,19 +234,6 @@ DAQReadoutListfileHelper::~DAQReadoutListfileHelper()
 {
 }
 
-namespace
-{
-/* Throws if neither UseRunNumber nor UseTimestamp is set and the file already
- * exists. Otherwise tries until it hits a non-existant filename. In the odd
- * case where a timestamped filename exists and only UseTimestamp is set this
- * process will take 1s!
- *
- * Also note that the file handling code does not in any way guard against race
- * conditions when someone else is also creating files.
- *
- * Note: Increments the runNumber of outInfo if UseRunNumber is set in the
- * output flags.
- */
 QString make_new_listfile_name(ListFileOutputInfo *outInfo)
 {
     auto testFlags = (ListFileOutputInfo::UseRunNumber | ListFileOutputInfo::UseTimestamp);
@@ -263,8 +266,6 @@ QString make_new_listfile_name(ListFileOutputInfo *outInfo)
     return result;
 }
 
-} // end anon namespace
-
 void DAQReadoutListfileHelper::beginRun()
 {
     if (!m_readoutContext.listfileOutputInfo->enabled)
@@ -294,7 +295,7 @@ void DAQReadoutListfileHelper::beginRun()
                 }
 
                 m_d->listfileWriter->setOutputDevice(outFile);
-                m_readoutContext.daqStats->listfileFilename = outFilename;
+                m_readoutContext.daqStats.listfileFilename = outFilename;
             } break;
 
         case ListFileFormat::ZIP:
@@ -338,7 +339,7 @@ void DAQReadoutListfileHelper::beginRun()
                 }
 
                 m_d->listfileWriter->setOutputDevice(m_d->listfileOut.get());
-                m_readoutContext.daqStats->listfileFilename = outFilename;
+                m_readoutContext.daqStats.listfileFilename = outFilename;
 
             } break;
 
@@ -356,7 +357,7 @@ void DAQReadoutListfileHelper::beginRun()
         throw_io_device_error(m_d->listfileOut);
     }
 
-    m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+    m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
 }
 
 void DAQReadoutListfileHelper::endRun()
@@ -370,7 +371,7 @@ void DAQReadoutListfileHelper::endRun()
         throw_io_device_error(m_d->listfileOut);
     }
 
-    m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+    m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
 
     m_d->listfileOut->close();
 
@@ -478,7 +479,7 @@ void DAQReadoutListfileHelper::writeBuffer(const u8 *buffer, size_t size)
         {
             throw_io_device_error(m_d->listfileOut);
         }
-        m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+        m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
     }
 }
 
@@ -490,6 +491,65 @@ void DAQReadoutListfileHelper::writeTimetickSection()
         {
             throw_io_device_error(m_d->listfileOut);
         }
-        m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+        m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+    }
+}
+
+void DAQReadoutListfileHelper::writePauseSection()
+{
+    if (m_d->listfileOut && m_d->listfileOut->isOpen())
+    {
+        if (!m_d->listfileWriter->writePauseSection(ListfileSections::Pause))
+        {
+            throw_io_device_error(m_d->listfileOut);
+        }
+        m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+    }
+}
+
+void DAQReadoutListfileHelper::writeResumeSection()
+{
+    if (m_d->listfileOut && m_d->listfileOut->isOpen())
+    {
+        if (!m_d->listfileWriter->writePauseSection(ListfileSections::Resume))
+        {
+            throw_io_device_error(m_d->listfileOut);
+        }
+        m_readoutContext.daqStats.listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+    }
+}
+
+bool has_errors(const QVector<ScriptWithResult> &results)
+{
+    for (const auto &swr: results)
+    {
+        for (auto &result: swr.results)
+        {
+            if (result.error.isError())
+                return true;
+        }
+    }
+
+    return false;
+}
+
+void log_errors(const QVector<ScriptWithResult> &results,
+                std::function<void (const QString &)> logger)
+{
+    for (const auto &swr: results)
+    {
+        const auto &script = swr.scriptConfig;
+
+        for (auto &result: swr.results)
+        {
+            if (result.error.isError())
+            {
+                QString msg = QSL("Error from '%1': %2")
+                    .arg(to_string(result.command))
+                    .arg(result.error.toString())
+                    ;
+                logger(msg);
+            }
+        }
     }
 }

@@ -1,0 +1,62 @@
+// template parameters: point type, clockwise, closed
+using Polygon = bg::model::polygon<Point, true, true>;
+
+2018-08-20 12:24:42
+***WARNING*** CPU scaling is enabled, the benchmark real time measurements may be noisy and will incur extra overhead.
+-------------------------------------------------------------------------------------
+Benchmark                              Time           CPU Iterations UserCounters...
+-------------------------------------------------------------------------------------
+BM_pip_test/0                          8 ns          8 ns   87956801 PiP_count=703.654M Pip_rate=1016.38M/s poly_outer_points=3
+BM_pip_test/1                        330 ns        330 ns    2120376 PiP_count=16.963M Pip_rate=24.2389M/s poly_outer_points=5
+BM_pip_test/2                        313 ns        313 ns    2232682 PiP_count=17.8615M Pip_rate=25.54M/s poly_outer_points=4
+BM_pip_test/3                        515 ns        515 ns    1360671 PiP_count=13.6067M Pip_rate=19.4011M/s poly_outer_points=7
+BM_pip_test/4                        934 ns        934 ns     745503 PiP_count=11.1825M Pip_rate=16.0682M/s poly_outer_points=9
+BM_pip_test/5                        798 ns        798 ns     875661 PiP_count=13.1349M Pip_rate=18.8027M/s poly_outer_points=7
+BM_pip_test/6                       2479 ns       2479 ns     281144 PiP_count=5.62288M Pip_rate=8.06739M/s poly_outer_points=15
+BM_pip_test/7                       1286 ns       1286 ns     536338 PiP_count=6.97239M Pip_rate=10.1114M/s poly_outer_points=15
+BM_pip_test/8                        576 ns        576 ns    1211670 PiP_count=16.9634M Pip_rate=24.3015M/s poly_outer_points=5
+BM_pip_test/9                       6060 ns       6060 ns     115628 PiP_count=3.35321M Pip_rate=4.78557M/s poly_outer_points=33
+BM_pip_test_with_correction/0          7 ns          7 ns  105377968 PiP_count=843.024M Pip_rate=1.19796G/s poly_outer_points=3
+BM_pip_test_with_correction/1        333 ns        333 ns    2105566 PiP_count=16.8445M Pip_rate=24.0554M/s poly_outer_points=5
+BM_pip_test_with_correction/2        315 ns        315 ns    2228492 PiP_count=17.8279M Pip_rate=25.373M/s poly_outer_points=4
+BM_pip_test_with_correction/3        531 ns        531 ns    1312325 PiP_count=13.1233M Pip_rate=18.8161M/s poly_outer_points=7
+BM_pip_test_with_correction/4        926 ns        927 ns     750806 PiP_count=11.2621M Pip_rate=16.1899M/s poly_outer_points=9
+BM_pip_test_with_correction/5        806 ns        806 ns     859170 PiP_count=12.8875M Pip_rate=18.6052M/s poly_outer_points=7
+BM_pip_test_with_correction/6       2488 ns       2488 ns     281401 PiP_count=5.62802M Pip_rate=8.03945M/s poly_outer_points=15
+BM_pip_test_with_correction/7       1269 ns       1269 ns     551094 PiP_count=7.16422M Pip_rate=10.2417M/s poly_outer_points=15
+BM_pip_test_with_correction/8        577 ns        577 ns    1213015 PiP_count=16.9822M Pip_rate=24.2775M/s poly_outer_points=5
+BM_pip_test_with_correction/9       6134 ns       6134 ns     112855 PiP_count=3.27279M Pip_rate=4.72745M/s poly_outer_points=33
+
+
+
+
+// template parameters: point type, clockwise, closed
+using Polygon = bg::model::polygon<Point, true, false>;
+
+2018-08-20 12:27:20
+***WARNING*** CPU scaling is enabled, the benchmark real time measurements may be noisy and will incur extra overhead.
+-------------------------------------------------------------------------------------
+Benchmark                              Time           CPU Iterations UserCounters...
+-------------------------------------------------------------------------------------
+BM_pip_test/0                          6 ns          6 ns  110601510 PiP_count=884.812M Pip_rate=1.28122G/s poly_outer_points=2
+BM_pip_test/1                        518 ns        518 ns    1347083 PiP_count=10.7767M Pip_rate=15.4561M/s poly_outer_points=4
+BM_pip_test/2                        503 ns        502 ns    1390331 PiP_count=11.1226M Pip_rate=15.9372M/s poly_outer_points=3
+BM_pip_test/3                        753 ns        752 ns     927059 PiP_count=9.27059M Pip_rate=13.2958M/s poly_outer_points=6
+BM_pip_test/4                       1278 ns       1276 ns     548239 PiP_count=8.22358M Pip_rate=11.7519M/s poly_outer_points=8
+BM_pip_test/5                       1182 ns       1181 ns     590662 PiP_count=8.85993M Pip_rate=12.7016M/s poly_outer_points=6
+BM_pip_test/6                       2967 ns       2962 ns     235629 PiP_count=4.71258M Pip_rate=6.75163M/s poly_outer_points=14
+BM_pip_test/7                       1534 ns       1532 ns     456849 PiP_count=5.93904M Pip_rate=8.48321M/s poly_outer_points=14
+BM_pip_test/8                        896 ns        895 ns     779975 PiP_count=10.9196M Pip_rate=15.6397M/s poly_outer_points=4
+BM_pip_test/9                       6717 ns       6708 ns     104348 PiP_count=3.02609M Pip_rate=4.32303M/s poly_outer_points=31
+BM_pip_test_with_correction/0          6 ns          6 ns  112751971 PiP_count=902.016M Pip_rate=1.30483G/s poly_outer_points=2
+BM_pip_test_with_correction/1        518 ns        518 ns    1343530 PiP_count=10.7482M Pip_rate=15.4516M/s poly_outer_points=4
+BM_pip_test_with_correction/2        504 ns        504 ns    1385447 PiP_count=11.0836M Pip_rate=15.8882M/s poly_outer_points=3
+BM_pip_test_with_correction/3        751 ns        750 ns     923178 PiP_count=9.23178M Pip_rate=13.3307M/s poly_outer_points=6
+BM_pip_test_with_correction/4       1262 ns       1261 ns     553034 PiP_count=8.29551M Pip_rate=11.8967M/s poly_outer_points=8
+BM_pip_test_with_correction/5       1179 ns       1177 ns     595057 PiP_count=8.92586M Pip_rate=12.7454M/s poly_outer_points=6
+BM_pip_test_with_correction/6       2963 ns       2959 ns     237359 PiP_count=4.74718M Pip_rate=6.75978M/s poly_outer_points=14
+BM_pip_test_with_correction/7       1540 ns       1538 ns     454907 PiP_count=5.91379M Pip_rate=8.45118M/s poly_outer_points=14
+BM_pip_test_with_correction/8        897 ns        896 ns     777998 PiP_count=10.892M Pip_rate=15.6276M/s poly_outer_points=4
+BM_pip_test_with_correction/9       6730 ns       6722 ns     103997 PiP_count=3.01591M Pip_rate=4.31425M/s poly_outer_points=31
+
+=> Open polygons perform worse in all relevant cases.

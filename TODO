@@ -2,11 +2,309 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+* Multiple MVLC issues
+======================
+* Running a VMEScript should completely disable any polling being done on the
+  cmd pipe. Failing to do so will slow down script execution dramatically due
+  to the time spent waiting for the lock whenever the polling code is waiting
+  for a read to finish.
+
+* ETH under windows: when running a vme script while a high data rate readout
+  is in progress some of the vmeSingleWrite calls will return a timeout error.
+  Figure out if this happens when reading or writing to the socket or in both
+  cases. This could just be "natural" UDP packet loss and would have to be
+  handled by retrying the operation.
+
+* ETH under windows: after an error like the one above mvme is in an odd state.
+  The controller lost the connection and reconnects, no data is received
+  anymore but the DAQ still has to be stopped via the GUI.
+  Also at least one time stopping the DAQ did not work.
+
+-> When using the ETH MVLC retry (VME) register writes a couple of times if
+they result in a timeout error. Do not immediately disconnect the MVLC.
+
+* USB: read out the chip configuration and abort with a clear warning if it's
+  not correctly setup.
+
+
+Buttons in a grid. Can do single column and single row layouts.
+Other layout options? No. Just allow having less buttons than (rows * cols).
+Also do not immediately discard data when resizing the grid. Instead use it in
+case the number of buttons increases again.
+
+Edit mode:
+  Set Number of rows
+  Set Number of columns
+  assign objects or actions to buttons
+  Set checked/unchecked action/object
+  Set checked/unchecked icon
+  set button label
+  Override icon
+
+Feature: Checkable buttons where one script is executed on check and one on un-check.
+         Have different labels for the states.
+         -> Implement this externally from the grid. By passing the bool 'checked' around.
+         Note: passing the checkstate to the outside means that QSignalMapper
+         cannot be directly used.  Instead two mappings, one for the checked
+         and one for the unchecked case can be used.
+
+Feature: Repeat mode
+         Set repeat interval.
+         Add extra checkboxes next to each button. If checked the action will
+         be executed periodically.
+         Checkable buttons will toggle between states as if clicked manually.
+         Note: there's no way to have different intervals for the checked and
+         unchecked states.
+
+* hang at exit after starting DAQ with a bug in VME Script which led to the error message: multiple block reads in module readout commands
+
+Thread 1 "mvme" received signal SIGINT, Interrupt.
+futex_wait_cancelable (private=0, expected=0, futex_word=0x555555762190) at ../sysdeps/unix/sysv/linux/futex-internal.h:88
+88      ../sysdeps/unix/sysv/linux/futex-internal.h: No such file or directory.
+(gdb) bt
+#0  futex_wait_cancelable (private=0, expected=0, futex_word=0x555555762190) at ../sysdeps/unix/sysv/linux/futex-internal.h:88
+#1  __pthread_cond_wait_common (abstime=0x0, mutex=0x555555762140, cond=0x555555762168) at pthread_cond_wait.c:502
+#2  __pthread_cond_wait (cond=0x555555762168, mutex=0x555555762140) at pthread_cond_wait.c:655
+#3  0x00007ffff5a3225b in QWaitCondition::wait(QMutex*, unsigned long) () from /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
+#4  0x00007ffff5a3170e in QThread::wait(unsigned long) () from /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
+#5  0x00007ffff79e44a6 in MVMEContext::~MVMEContext (this=0x55555568d830, __in_chrg=<optimized out>) at /home/florian/src/mvme2/src/mvme_context.cc:542
+#6  0x00007ffff79e496e in MVMEContext::~MVMEContext (this=0x55555568d830, __in_chrg=<optimized out>) at /home/florian/src/mvme2/src/mvme_context.cc:577
+#7  0x00007ffff5c0086b in QObjectPrivate::deleteChildren() () from /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
+#8  0x00007ffff658deb6 in QWidget::~QWidget() () from /usr/lib/x86_64-linux-gnu/libQt5Widgets.so.5
+#9  0x00007ffff77e0459 in MVMEMainWindow::~MVMEMainWindow (this=0x7fffffffd190, __in_chrg=<optimized out>) at /home/florian/src/mvme2/src/mvme.cpp:487
+#10 0x0000555555559bd3 in main (argc=1, argv=0x7fffffffd2f8) at /home/florian/src/mvme2/src/main.cpp:56
+(gdb) info threads
+  Id   Target Id                                           Frame 
+* 1    Thread 0x7ffff1fc3780 (LWP 20748) "mvme"            futex_wait_cancelable (private=0, expected=0, futex_word=0x555555762190) at ../sysdeps/unix/sysv/linux/futex-internal.h:88
+  2    Thread 0x7ffff0895700 (LWP 20752) "QXcbEventReader" 0x00007ffff4d83819 in __GI___poll (fds=0x7ffff0894d38, nfds=1, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
+  3    Thread 0x7fffea7d0700 (LWP 20753) "gmain"           0x00007ffff4d83819 in __GI___poll (fds=0x5555556a9b40, nfds=1, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
+  4    Thread 0x7fffe9fcf700 (LWP 20754) "gdbus"           0x00007ffff4d83819 in __GI___poll (fds=0x5555556baee0, nfds=2, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
+  5    Thread 0x7fffe39f9700 (LWP 20755) "readout"         __libc_recv (flags=0, len=1048576, buf=0x7fffe83dd010, fd=28) at ../sysdeps/unix/sysv/linux/recv.c:28
+  6    Thread 0x7fffe31f8700 (LWP 20756) "analysis"        0x00007ffff4d83819 in __GI___poll (fds=0x555555b9d200, nfds=2, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
+  7    Thread 0x7fffe2870700 (LWP 20757) "QDBusConnection" 0x00007ffff4d83819 in __GI___poll (fds=0x7fffd4003110, nfds=3, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
+  8    Thread 0x7fffe0ae7700 (LWP 20758) "mvme:disk$0"     futex_wait_cancelable (private=0, expected=0, futex_word=0x555555769da8) at ../sysdeps/unix/sysv/linux/futex-internal.h:88
+  10   Thread 0x7fffc7fff700 (LWP 20802) "Thread (pooled)" futex_reltimed_wait_cancelable (private=0, reltime=0x7fffc7ffecd0, expected=0, futex_word=0x555556e5a880) at ../sysdeps/unix/sysv/linux/futex-internal.h:142
+  11   Thread 0x7fffc70e4700 (LWP 20814) "rdo_notify_poll" __libc_recv (flags=0, len=9000, buf=0x555555bf4de0, fd=27) at ../sysdeps/unix/sysv/linux/recv.c:28
+  12   Thread 0x7fffc68e3700 (LWP 20815) "rdo_file_writer" futex_reltimed_wait_cancelable (private=0, reltime=0x7fffc68e2b20, expected=0, futex_word=0x555555bc1ca0) at ../sysdeps/unix/sysv/linux/futex-internal.h:142
+
+* mvlc readout parser does not like disabled modules. The failing test setup
+  had a disabled module after one that got read out.
+* Analysis:
+  - Connecting to arrays of size 1 is not great: the index[0] is always used
+    when generating names for objects
+  - Play around with connecting to things. Some cases are worse than they where
+    in previous mvme versions.
+    -> Difference: first input connects to an array of size 1. Now the 2nd
+       input only accepts values instead of full arrays even if those have size 1.
+  - Check that histo under/overflow is working with active subranges.
+  - Figure out how the entrycount for histos works right now. It does not get
+    reset when the histo is reset, only when a new run starts.
+
+* mvme_root_client: on new run detect if the incoming data is compatible in
+  case things are already loaded. use streaminfo, maybe generate code in memory
+  and compare to on disk versions
+* fix the EventServer "disconnect on listfile" load issue
+  -> Managing Qt thread affinity and parent/child things are the real problems
+  here. Maybe a non-qt rewrite of the server component would be a good idea?
+* how to get run completion info when interrupting a replay in mvme?
+  buffers_processed can be equal to buffers_read. The issue is that not all of
+  the listfile was read. Maybe use a SystemEvent::End
+* void MVMEContext::prepareStart() starting mvme stream worker
+  Qt has caught an exception thrown from an event handler. Throwing
+  exceptions from an event handler is not supported in Qt.
+  You must not let any exception whatsoever propagate through Qt code.
+  If that is not possible, in Qt 5 you must at least reimplement
+  QCoreApplication::notify() and catch all exceptions there.
+
+  terminate called after throwing an instance of 'vme_script::ParseError'
+
+  Thread 6 "analysis" received signal SIGABRT, Aborted.
+  [Switching to Thread 0x7fffe37fe700 (LWP 18067)]
+  __GI_raise (sig=sig@entry=6) at ../sysdeps/unix/sysv/linux/raise.c:50
+  50      ../sysdeps/unix/sysv/linux/raise.c: No such file or directory.
+  (gdb) bt
+  #0  __GI_raise (sig=sig@entry=6) at ../sysdeps/unix/sysv/linux/raise.c:50
+  #1  0x00007ffff55c3535 in __GI_abort () at abort.c:79
+  #2  0x00007ffff5ae24f5 in __gnu_cxx::__verbose_terminate_handler() () from /home/florian/src/mvme2/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+  #3  0x00007ffff5adfc56 in __cxxabiv1::__terminate(void (*)()) () from /home/florian/src/mvme2/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+  #4  0x00007ffff5adfc83 in std::terminate() () from /home/florian/src/mvme2/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+  #5  0x00007ffff6180dd3 in qTerminate() () from /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
+  #6  0x00007ffff6183182 in ?? () from /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
+  #7  0x00007ffff7451fa3 in start_thread (arg=<optimized out>) at pthread_create.c:486
+  #8  0x00007ffff569a4cf in clone () at ../sysdeps/unix/sysv/linux/x86_64/clone.S:95
+
+
+* when writing a zip listfile change the names of the analysis and message log
+  files to contain the run id. this also needs changes to the loading code when
+  searching both of these files.
+* cleanup thread listfile writing code. Also come up with a way to handle write
+  errors.
+
+* analysis refactoring:
+  - Get rid of most of data_filter.h in ~/src. Implement what's needed in terms
+    of the a2 data filter. I think what's needed is something to contain the
+    original strings and forward everything to the a2 implementation of the
+    filter.
+
+  - Get rid of Parameter::value but add a name field instead.  The high level
+    parameter vector pipes are not needed to hold data and valid/invalid state
+    anymore. Instead a feature for naming individual array elements should be
+    added. The name could be stored directly in the parameter.
+
+  - Get rid of runtime data from the higher level Analysis layer.  Refactor
+    Analysis to only contain config data and output size calculations where
+    needed. Maybe move runtime information and the a2 adapter into a separate
+    state object. This way Analysis would not be responsible for config
+    storage, connection logic, building and running.
+
+  - Rethink the connection logic, who owns things and when they are destroyed.
+    Also redesign how threading and the worker startup logic is done. Try to
+    use a copy of the analysis inside the worker. Make ui access to the runtime
+    data safe.
+
+* Protect access to the globals DAQStats object with a mutex.
+
+* histogram data is wrong after zooming and applying a subrange
+
+* check out 'pigz' by Mark Adler for how to compress data in parallel.
+* Maybe: slow mode for replay so that users can see what's going on.
+* Nicer format for analysis rates (top side): less decimals, monospace font
+* When clearing histos the entry counts in the analysis tree do not reflect the
+  new counts (bottom row of analysis ui).
+
+* revive the event_server client code. treewriter_client2 needs some work.
+  Then document the whole thing and the idea behind it.
+
+
+* fix the windows warning about winsock2.h before windows.h include order warning somehow
+* MVLC_ReadoutWorker: If no data was read within some interval that fact should be logged.
+
+* readout code and timetick sections in the listfile:
+  if multiple timeticks are generated by
+  TimetickGenerator::generateElapsedSeconds() in one of the readout workers
+  and then written to the listfile using via
+  m_listfileHelper->writeTimetickSection() then the text contents of the
+  timetick sections in the listfile will all contain the formatted datetime
+  value of the point in time where writeTimetickSection() is called. This means
+  multiple timeticks will have the same formatted time string instead of each
+  being different by rougly 1s.
+  When does timetick gen generate more than one second?
+  -> If the readout loop blocks for >= 2s. Otherwise if the time difference is
+  >= 1s only one tick will be generated and the remainder is stored for the
+  next tick.
+  This is not a problem anymore with the MVLC because 64-bit unix timestamp
+  values are stored in the contents of the timetick system event.
+
+* use TicketMutex in histograms
+
+* Design and implement an interface to make VMEScript extendable. This way
+  controller specific functions do not need to be implemented directly in the
+  VMEScript implementation but could be added dynamically when switching VME
+  controllers.
+  Also and probably more important is that libmvme_core would not have to
+  depend on VMUSB anymore.
+
+* Find a better way to access global actions than the method used in
+  VMEConfigTreeWidget::setupActions(). Maybe use a global action factory thingy
+  returning QAction "singletons".
+
+* remote control: issuing a start followed by a stop can crash the application.
+  There are missing checks if the system is transitioning. Set a flag
+  immediately before calling startDAQ and unset it either on error or when the
+  start succeeded. While the flag is set do not allow calls to startDAQ/stopDAQ
+  but return "Starting"/"Stopping", etc
+* JSON RPC Remote Control and/or DAQ Start/Stop handling is still buggy!
+  Quickly issuing startDAQ/stopDAQ commands (including multiple starts/stops in
+  sequence) can end up in a broken state and eventually lead to a crash:
+    DAQ: Idle, Analysis State: Running is shown in the gui
+    Crash in the json rpc code but I believe the heap is corrupted before that.
+
+    In MVMEContext::startDAQReadout(): introduce a definitive DAQ/System state
+    inside MVMEContext that is modified from within the GUI thread only and
+    that reflects what the state the system is in.
+    Set this flag to "Starting" right before issuing invokeMethod calls on the
+    workers. This way multiple calls to startDAQ in quick succession would not
+    cause an issue as the 2nd call would immediately see the "Starting" state.
+
+    Also in stopDAQ check that the current state is "Running" only then issue
+    the stop request to the worker threads.
+
+* when trying to open a workspace but the directory does not actually contain a
+  workspace (ini missing is the only hard criteria I think) then ask the user
+  if she wants to create a workspace instead of just creating stuff.
+
+* during a replay extract timestamps from timetick text and pass this on to
+  data consumers.
+  think about storing a 64bit seconds-since-epoch value instead to avoid having
+  to parse string data.
+  On the other hand I do like the string data.
+  In any case timezone information is not stored right now but I think
+  durations are more interesting to the user than absolute points in time.
+
+data transfer client lib
+- no libmvme dependency
+- depends on headers shipped with mvme at compile time
+- header only for now
+
+root data transfer client
+- uses data transfer client lib
+
+high level overview:
+- connect to server
+- receive run description
+- generate code for exported objects, Experiment, Events, Modules, data members inside the modules.
+- at this point the base class interfaces are known to the compiler, but not the
+  concrete, newly generated specific classes
+- the generated code is built and loaded using TSystem::Load()
+
+- the specific Experiment subclass can be instantiated via
+  auto exp = reinterpret_cast<TheExperimentClassName *>(
+     ProcessLineSync("new TheExperimentClassName()"));
+-> We now have a working Experiment instance that can generate its event trees
+  and that can be queried for events and modules.
+- open output file now and generate the event trees using the virtual exp->MakeTrees()
+
+During the run switch on the incoming event number and fill the corresponding
+event and module data structures. Figure out how to safely fill the arrays
+without crashing in case of size mismatches, etc.
+Then call fill on the event tree to commit the data to ROOT.
+
+1) At this point more code could be loaded, e.g. from a user lib.
+What's needed: begin and end hooks and hooks for specific events.
+Also info on whether this is a replay or an online run.
+
+NOTE: Now there are multiple ways to replay data: from within mvme doing the
+steps outlined above and from an existing output ROOT tree.
+
+
+/* State of the analysis UI and future plans
+ *
+ * Finding nodes for objects
+ * Can use QTreeWidgetItem::treeWidget() to get the containing tree.  Right now
+ * trees are recreated when updating (repopulate) and even with smarter updates
+ * trees and nodes will get added and removed so the mapping has to be updated
+ * constantly.
+ * Can easily visit nodes given a container of analysis objects and create
+ * chains of node handling objects. These objects could be configured by giving
+ * them different sets of trees and modes. Also the responsibility chains could
+ * be modified on the fly.
+ *
+ */
+
 --------------------------------------------------
 BUGS
 --------------------------------------------------
+* runid handling: currently a chicken egg problem:
+  the readout worker thread generates a new run filename and tries to open that file.
+  errors can happen and thus the run cannot proceed properly. also the runid
+  information  cannot be sent to e.g. clients connected to the data server.
+
+  Fix: move output file creation, opening and error handling from the readout worker
+  to the main thread and pass the open file handle to the readout worker.
+
+* When having a single h1d bin filled the calculated and displayed fwhm of the
+  gauss is 1, but I was told it should be 0. Figure this out and fix it.
 * Recheck/Test ConditionFilter
-* Think about file I/O for the expression operator
 
 * Analysis single step button can hit an assertion when clicked in quick
   succession
@@ -21,6 +319,8 @@ BUGS
     register is put into the data stream (verify).
 
 * analyis processing trees: After renaming an object resort the tree it is contained in.
+  This will conflict with the planned manual sorting of DataSources. Do not auto sort
+  the data extraction tree.
 
 * Add a refresh button to the ui. (same a repop right now, just with a nicer icon :)
 
@@ -30,8 +330,10 @@ BUGS
   nodes text will be updated periodically which interferes with editing.
 
 * When changing VME event trigger conditions the readout cycle end script can
-* become empty.
-  Figure out when and why this is happening.
+  become empty. How? What's happening? Is this true?
+
+* Add BlockReadFlags to VMEController::blockRead() and implement support for
+  the controller side wordswap in the sis library.
 
 --------------------------------------------------
 Testing setup for ESS
@@ -50,6 +352,10 @@ sometimes when starting a new DAQ run.
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+WISHLIST
+--------------------------------------------------
+* unify runinfo into a single variantmap
+* Think about file I/O for the expression operator
 * Add new data sources yielding:
   - the current timetick value (1s granularity, paramvector of size 1)
   - the current event #
@@ -95,10 +401,6 @@ sometimes when starting a new DAQ run.
   jumbo frames, additional controller settings. I sometimes really need this
   info and do not want it to be hidden behind some magic.
 
-
-* Histo2d res reduction/rendering:
-  - Maybe: think about and test the case where the h2d res is larger than the
-    pixels in the display area and possibly use a dynamic rrf in this case.
 
 * New Feature: add pause/resume markers and/or absolute timestamps to the listfile.
   This would allow for example splitting the run on pause/resume if the user
@@ -311,9 +613,10 @@ More ideas from Robert:
 * Changing H1D calibration via its widget clears all histograms. This is not
   needed as only the interpretation of the data in the histo changes. Improve
   this case so that it keeps existing histo data.
-  -> Difficult: do_beginRun_forward() is used when applying the calibration
-  change. I tried passing keepAnalysisState = true but the histo still got
-  cleared.
+  -> This needs fixing in Histo1DSink::beginRun(): currently the histo
+  mem is cleared no matter what changed.
+  Also the case where the analysis is not running has to be taken care of: the
+  AnalysisPauser won't invoke reusmeAnalysis() and thus it won't be rebuilt.
 
 * add sis3153 firmware update utility to 'extras' directory. Also package and
   install sis library code (maybe). Ask struck if this is allowed.

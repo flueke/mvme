@@ -54,7 +54,10 @@
 /* Modifications by flueke for mvme:
  * - Make highlighting the current line optional as that's not really needed
  *   for our use case and additional logic would be needed to work together
- *   with error highlighting. */
+ *   with error highlighting.
+ * - Tabstop width can now be set in units of characters. This assumes a
+ *   monospace font is being used.
+ */
 
 #include <QPlainTextEdit>
 #include <QObject>
@@ -64,14 +67,13 @@ class QResizeEvent;
 class QSize;
 class QWidget;
 
-class LineNumberArea;
-
-
 class CodeEditor : public QPlainTextEdit
 {
     Q_OBJECT
 
     public:
+        static const int DefaultTabStop = 4;
+
         CodeEditor(QWidget *parent = 0);
 
         void lineNumberAreaPaintEvent(QPaintEvent *event);
@@ -79,6 +81,7 @@ class CodeEditor : public QPlainTextEdit
 
         void enableCurrentLineHighlight(bool b);
         bool currentLineHighlightEnabled() const { return m_doHighlightCurrentLine; }
+        void setTabStopCharCount(int charCount);
 
     protected:
         void resizeEvent(QResizeEvent *event) Q_DECL_OVERRIDE;

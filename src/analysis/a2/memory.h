@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -117,6 +118,14 @@ class Arena
             return reinterpret_cast<T *>(pushSize(size * sizeof(T), align));
         }
 
+        char *pushCString(const char *str)
+        {
+            size_t size = std::strlen(str) + 1;
+            void *mem = pushSize(size);
+            std::memcpy(mem, str, size);
+            return reinterpret_cast<char *>(mem);
+        }
+
         /** Performs pushStruct<T>() and copies the passed in value into the
          * arena. */
         template<typename T>
@@ -150,6 +159,31 @@ class Arena
 
             m_deleters.emplace_back([result] () {
                 //fprintf(stderr, "%s %p\n", __PRETTY_FUNCTION__, result);
+                result->~T();
+            });
+
+            /* emplace_back() did not throw. It's safe to release the guard now. */
+            guard_ptr.release();
+
+            return result;
+        }
+
+        /* Construct an object of type T using the forwarded Args inside the arena. The
+         * object will be properly deconstructed on resetting or destroying the arena. */
+        template<typename T, typename... Args>
+        T *pushObject(Args &&... args)
+        {
+            /* Get memory and construct the object using placement new. */
+            void *mem = pushSize(sizeof(T), alignof(T));
+            T *result = new (mem) T(std::forward<Args>(args)...);
+
+            //fprintf(stderr, "%s@%p: constructed result %p from forwarded args\n",
+            //        __PRETTY_FUNCTION__, this, result);
+
+            std::unique_ptr<T, detail::destroy_only_deleter<T>> guard_ptr(result);
+
+            m_deleters.emplace_back([result, this] () {
+                //fprintf(stderr, "%s deleter for %p (arena=%p)\n", __PRETTY_FUNCTION__, result, this);
                 result->~T();
             });
 
@@ -295,6 +329,66 @@ class Arena
         size_t m_segmentSize;
         size_t m_currentSegmentIndex;
 };
+
+/* Minimal Allocator requirements implementation using an Arena for allocation.
+ * https://en.cppreference.com/w/cpp/named_req/Allocator
+ *
+ * Does not perform any actual deallocation. This means having containers realloc
+ * internally will lead to holes in the arena memory segments. This for example happens if
+ * you push elements onto a vector without having reserved memory upfront: the vector
+ * implementation will usually allocate space for N initial elements and on realloc double
+ * that amount moving any existing elements into the new memory.
+ */
+
+template<typename T>
+struct ArenaAllocator
+{
+    using value_type = T;
+
+    Arena *arena;
+
+    ArenaAllocator(Arena *arena)
+        : arena(arena)
+    {}
+
+    template<typename U> ArenaAllocator(const ArenaAllocator<U> &other) noexcept
+        : arena(other.arena)
+    {}
+
+    T *allocate(std::size_t n)
+    {
+
+        auto result = reinterpret_cast<T *>(arena->pushSize(n * sizeof(T), alignof(T)));
+
+        //fprintf(stderr, "%s (%p): n=%lu, result=%p\n", __PRETTY_FUNCTION__, this, n, result);
+
+        return result;
+    }
+
+    void deallocate(T* ptr, std::size_t n) noexcept
+    {
+        /* noop
+         *
+         * Note: deallocate() could handle the case where the memory block to be
+         * deallocated is at the end of the current memory segment but that's not
+         * implemented right now.
+         */
+
+        //fprintf(stderr, "%s (%p): ptr=%p, n=%lu\n", __PRETTY_FUNCTION__, this, ptr, n);
+    }
+};
+
+template<typename T, typename U>
+bool operator==(const ArenaAllocator<T> &a, const ArenaAllocator<U> &b)
+{
+    return a.arena == b.arena;
+}
+
+template<typename T, typename U>
+bool operator!=(const ArenaAllocator<T> &a, const ArenaAllocator<U> &b)
+{
+    return !(a == b);
+}
 
 } // namespace memory
 

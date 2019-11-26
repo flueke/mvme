@@ -25,27 +25,90 @@
 #include <QQueue>
 #include <cstring>
 
+#include <QDebug>
+
+#define DATABUFFER_ENABLE_COPY
+
 struct DataBuffer
 {
-    DataBuffer(size_t size, u64 id = 0u)
+    DataBuffer()
+        : DataBuffer(0, 0, 0)
+    {}
+
+    DataBuffer(size_t sz, int tag = 0, u32 id = 0u)
         : data(nullptr)
-        , size(size)
+        , size(0)
         , used(0)
         , id(id)
+        , tag(tag)
     {
-        if (size > 0)
-        {
-            // Allocate in terms of u32 to get the alignment right for 32-bit access.
-            size_t sizeu32 = size/sizeof(u32) + 1;
-            data = reinterpret_cast<u8 *>(new u32[sizeu32]);
-            // Size is still stored in bytes.
-            size = sizeu32 * sizeof(u32);
-        }
+        reserve(sz);
     }
 
     ~DataBuffer()
     {
         delete[] data;
+    }
+
+#ifdef DATABUFFER_ENABLE_COPY
+    // copy construction
+    DataBuffer(const DataBuffer &other)
+        : DataBuffer()
+    {
+        *this = other;
+    }
+
+    // copy assignment
+    DataBuffer &operator=(const DataBuffer &other)
+    {
+        used = 0u;
+        reserve(other.size);
+        std::memcpy(data, other.data, other.used);
+        used = other.used;
+        id = other.id;
+        tag = other.tag;
+
+        return *this;
+    }
+#else
+    DataBuffer(const DataBuffer &) = delete;
+    DataBuffer &operator=(const DataBuffer &) = delete;
+#endif
+
+    // move construction
+    DataBuffer(DataBuffer &&other)
+    {
+        data = other.data;
+        size = other.size;
+        used = other.used;
+        id = other.id;
+        tag = other.tag;
+
+        other.data = nullptr;
+        other.size = 0;
+        other.used = 0;
+        other.id = 0;
+        other.tag = 0;
+    }
+
+    // move assignment
+    DataBuffer &operator=(DataBuffer &&other)
+    {
+        delete[] data;
+
+        data = other.data;
+        size = other.size;
+        used = other.used;
+        id = other.id;
+        tag = other.tag;
+
+        other.data = nullptr;
+        other.size = 0;
+        other.used = 0;
+        other.id = 0;
+        other.tag = 0;
+
+        return *this;
     }
 
     void reserve(size_t newSize)
@@ -54,13 +117,15 @@ struct DataBuffer
         if (newSize <= size)
             return;
 
+        // Allocate in terms of u32 to get the alignment right for 32-bit access.
         size_t sizeu32 = newSize/sizeof(u32) + 1;
 
         u8 *newData = reinterpret_cast<u8 *>(new u32[sizeu32]);
-        std::memcpy(newData, data, used);
+        if (used)
+            std::memcpy(newData, data, used);
         delete[] data;
         data = newData;
-        size = sizeu32 * sizeof(u32);
+        size = newSize; // Store the requested size in member variable
     }
 
     size_t free() const { return size - used; }
@@ -68,6 +133,12 @@ struct DataBuffer
     u8 *asU8() { return data + used; }
     u16 *asU16() { return reinterpret_cast<u16 *>(data + used); }
     u32 *asU32() { return reinterpret_cast<u32 *>(data + used); }
+
+    s8 *asS8() { return reinterpret_cast<s8 *>(data + used); }
+    s16 *asS16() { return reinterpret_cast<s16 *>(data + used); }
+    s32 *asS32() { return reinterpret_cast<s32 *>(data + used); }
+
+    char *asCharStar() { return reinterpret_cast<char *>(data + used); }
 
     u32 *asU32(size_t offset) { return reinterpret_cast<u32 *>(data + offset); }
 
@@ -79,7 +150,24 @@ struct DataBuffer
         return reinterpret_cast<u32 *>(data) + index;
     }
 
-    void ensureCapacity(size_t freeSize)
+    template<typename T>
+    T *append(const T &value)
+    {
+        if (free() < sizeof(T))
+            throw end_of_buffer();
+
+        auto result = reinterpret_cast<T *>(data + used);
+        *result = value;
+        used += sizeof(T);
+        return result;
+    }
+
+    u8 *endPtr()
+    {
+        return data + used;
+    }
+
+    void ensureFreeSpace(size_t freeSize)
     {
         if (freeSize > free())
         {
@@ -96,7 +184,8 @@ struct DataBuffer
 
     DataBuffer *deepcopy(DeepcopyOptions opt = Deepcopy_AllocateFullSize)
     {
-        auto result = new DataBuffer(opt == Deepcopy_AllocateFullSize ? size : used, id);
+        auto result = new DataBuffer(opt == Deepcopy_AllocateFullSize ? size : used,
+                                     tag, id);
 
         if (used)
         {
@@ -110,13 +199,22 @@ struct DataBuffer
     u8 *data;
     size_t size; // size in bytes
     size_t used; // bytes used
-    u64 id = 0u; // id value for external use
-
-    private:
-        DataBuffer(const DataBuffer &);
-        DataBuffer &operator=(const DataBuffer &);
+    u32 id = 0u; // id value for external use
+    int tag = 0; // tag allowing to distinguish buffer types
 };
 
 typedef QQueue<DataBuffer *> DataBufferQueue;
+
+inline void move_bytes(DataBuffer &sourceBuffer, DataBuffer &destBuffer,
+                       const u8 *sourceBegin, size_t bytes)
+{
+    assert(sourceBegin >= sourceBuffer.data);
+    assert(sourceBegin + bytes <= sourceBuffer.endPtr());
+
+    destBuffer.ensureFreeSpace(bytes);
+    std::memcpy(destBuffer.endPtr(), sourceBegin, bytes);
+    destBuffer.used   += bytes;
+    sourceBuffer.used -= bytes;
+}
 
 #endif

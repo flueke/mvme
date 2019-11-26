@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
             if (bytesToRead > 0)
             {
                 readBuffer.used = 0;
-                readBuffer.ensureCapacity(bytesToRead);
+                readBuffer.ensureFreeSpace(bytesToRead);
                 readBuffer.used = checked_read(&inFile, reinterpret_cast<char *>(readBuffer.data), bytesToRead);
                 nDataBytesRead += readBuffer.used;
 

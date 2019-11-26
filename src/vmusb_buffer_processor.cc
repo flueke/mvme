@@ -39,36 +39,6 @@ using namespace vmusb_constants;
 //#define BPDEBUG
 //#define WRITE_BUFFER_LOG
 
-static std::runtime_error make_zip_error(const QString &msg, const QuaZip &zip)
-{
-  auto m = QString("Error: archive=%1, error=%2")
-    .arg(msg)
-    .arg(zip.getZipError());
-
-  return std::runtime_error(m.toStdString());
-}
-
-static void throw_io_device_error(QIODevice *device)
-{
-    if (auto zipFile = qobject_cast<QuaZipFile *>(device))
-    {
-        throw make_zip_error(zipFile->getZip()->getZipName(),
-                             *(zipFile->getZip()));
-    }
-    else if (auto file = qobject_cast<QFile *>(device))
-    {
-        throw QString("Error: file=%1, error=%2")
-            .arg(file->fileName())
-            .arg(file->errorString())
-            ;
-    }
-    else
-    {
-        throw QString("IO Error: %1")
-            .arg(device->errorString());
-    }
-}
-
 /* +=========================================================================+
  * |             Buffer Processing - What this code tries to do              |
  * +=========================================================================+
@@ -219,6 +189,16 @@ void VMUSBBufferProcessor::endRun()
 #endif
 
     m_d->m_listfileHelper->endRun();
+}
+
+void VMUSBBufferProcessor::handlePause()
+{
+    m_d->m_listfileHelper->writePauseSection();
+}
+
+void VMUSBBufferProcessor::handleResume()
+{
+    m_d->m_listfileHelper->writeResumeSection();
 }
 
 void VMUSBBufferProcessor::resetRunState()
@@ -576,7 +556,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
     BufferIterator eventIter(iter.buffp, eventLength * sizeof(u16), iter.alignment);
 
     // ensure double the event length is available
-    outputBuffer->ensureCapacity(eventLength * sizeof(u16) * 2);
+    outputBuffer->ensureFreeSpace(eventLength * sizeof(u16) * 2);
 
     auto eventConfig = m_eventConfigByStackID[stackID];
 
@@ -717,7 +697,6 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
                 if (state->streamWriter.hasOpenModuleSection())
                 {
                     u32 moduleSectionBytes = state->streamWriter.closeModuleSection().sectionBytes;
-                    m_d->m_readoutWorker->getContext().daqStats->totalNetBytesRead += moduleSectionBytes;
                 }
 
                 break;
@@ -866,7 +845,7 @@ DataBuffer* VMUSBBufferProcessor::getFreeBuffer()
 
 DAQStats *VMUSBBufferProcessor::getStats()
 {
-    return m_d->m_readoutWorker->getContext().daqStats;
+    return &m_d->m_readoutWorker->getContext().daqStats;
 }
 
 void VMUSBBufferProcessor::logMessage(const QString &message, bool useThrottle)

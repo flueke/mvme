@@ -161,6 +161,7 @@ bool operator==(const VMEModuleMeta &mma, const VMEModuleMeta &mmb)
             && mma.vendorName == mmb.vendorName
             && mma.templates == mmb.templates
             && mma.eventHeaderFilter == mmb.eventHeaderFilter
+            && mma.vmeAddress == mmb.vmeAddress
             && mma.templatePath == mmb.templatePath
            );
 }
@@ -256,6 +257,7 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
         mm.displayName = json["displayName"].toString();
         mm.vendorName = json["vendorName"].toString();
         mm.eventHeaderFilter = json["eventHeaderFilter"].toString().toLocal8Bit();
+        mm.vmeAddress = json["vmeAddress"].toString().toUInt(nullptr, 0);
         mm.templates = read_module_templates(moduleDir.filePath(QSL("vme")), logger, baseDir);
         mm.templatePath = moduleDir.path();
 
@@ -302,6 +304,8 @@ static QTextStream &print(QTextStream &out, const VMEModuleMeta &module, int ind
     do_indent(out, indent) << "displayName=" << module.displayName << endl;
     do_indent(out, indent) << "eventHeaderFilter="
         << QString::fromLocal8Bit(module.eventHeaderFilter) << endl;
+    do_indent(out, indent) << (QString("0x%1")
+                               .arg(module.vmeAddress, 8, 16, QLatin1Char('0')));
 
     do_indent(out, indent) << "templates:" << endl;
 

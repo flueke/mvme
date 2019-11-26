@@ -148,6 +148,9 @@ namespace
                 case  CommandType::ResetBase:
                 case  CommandType::VMUSB_ReadRegister:
                 case  CommandType::VMUSB_WriteRegister:
+                case CommandType::Blk2eSST64:
+                case CommandType::MVLC_WriteSpecial:
+                case CommandType::MetaBlock:
                     break;
 
                 case  CommandType::Invalid:
@@ -334,7 +337,7 @@ namespace
             list_ptr, list_buffer,
             cmd.address,
             get_access_size(cmd.dataWidth),
-            vme_script::amod_from_AddressMode(cmd.addressMode));
+            cmd.addressMode);
 
         stackList_add_count_block_read(
             list_ptr, list_buffer,
@@ -383,7 +386,7 @@ namespace
                         &resultOffset, result.data(),
                         command.address,
                         get_access_size(command.dataWidth),
-                        amod_from_AddressMode(command.addressMode));
+                        command.addressMode);
 
                     break;
 
@@ -394,7 +397,7 @@ namespace
                         &resultOffset, result.data(),
                         command.address, command.value,
                         get_access_size(command.dataWidth),
-                        amod_from_AddressMode(command.addressMode));
+                        command.addressMode);
 
                     break;
 
@@ -434,7 +437,7 @@ namespace
                 case  CommandType::MBLTCount:
                 case  CommandType::MBLTFifoCount:
                     {
-                        Q_ASSERT(command.blockAddressMode == AddressMode::A32);
+                        Q_ASSERT(command.blockAddress == vme_address_modes::A32);
                         stackList_add_counted_block_read_command(command, &resultOffset, result.data());
                     }
                     break;
@@ -443,6 +446,9 @@ namespace
                 case  CommandType::ResetBase:
                 case  CommandType::VMUSB_ReadRegister:
                 case  CommandType::VMUSB_WriteRegister:
+                case  CommandType::Blk2eSST64:
+                case  CommandType::MVLC_WriteSpecial:
+                case  CommandType::MetaBlock:
                     break;
 
                 case  CommandType::Invalid:
@@ -795,7 +801,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             sis->close();
 
             throw QString("Error starting DAQ: SIS3153 already is in autonomous DAQ mode."
-                          " Use \"force reset\" to attempt resetting the controller.");
+                          " Use \"force reset\" to attempt to reset the controller.");
         }
 
 
@@ -1285,7 +1291,11 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         //
         // DAQ Init
         //
-        vme_daq_init(m_workerContext.vmeConfig, sis, [this] (const QString &msg) { sis_log(msg); });
+        if (!do_VME_DAQ_Init(sis))
+        {
+            setState(DAQState::Idle);
+            return;
+        }
 
         //
         // Debug Dump of SIS3153 registers
@@ -1339,7 +1349,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         //
         sis_log(QSL(""));
         sis_log(QSL("Entering readout loop"));
-        m_workerContext.daqStats->start();
+        m_workerContext.daqStats.start();
         m_listfileHelper->beginRun();
 
         readoutLoop();
@@ -1373,7 +1383,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         // last actions happening in here. Log messages generated after this point won't
         // show up in the listfile.
         m_listfileHelper->endRun();
-        m_workerContext.daqStats->stop();
+        m_workerContext.daqStats.stop();
     }
     catch (const std::runtime_error &e)
     {
@@ -1398,7 +1408,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 void SIS3153ReadoutWorker::readoutLoop()
 {
     auto sis = m_sis;
-    DAQStats *daqStats = m_workerContext.daqStats;
+    DAQStats *daqStats = &m_workerContext.daqStats;
     VMEError error;
 
     setState(DAQState::Running);
@@ -1413,6 +1423,7 @@ void SIS3153ReadoutWorker::readoutLoop()
     using vme_analysis_common::TimetickGenerator;
 
     TimetickGenerator timetickGen;
+    timetick(); // immediately write out the very first timetick
 
     while (true)
     {
@@ -1461,6 +1472,8 @@ void SIS3153ReadoutWorker::readoutLoop()
         else if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
             leaveDAQMode();
+            m_listfileHelper->writePauseSection();
+
             setState(DAQState::Paused);
             sis_log(QString(QSL("SIS3153 readout paused")));
         }
@@ -1470,6 +1483,8 @@ void SIS3153ReadoutWorker::readoutLoop()
             m_lossCounter.currentFlags = EventLossCounter::Flag_IsStaleData;
 
             enterDAQMode(m_stackListControlRegisterValue);
+            m_listfileHelper->writeResumeSection();
+
             setState(DAQState::Running);
             sis_log(QSL("SIS3153 readout resumed"));
         }
@@ -1743,8 +1758,8 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
         return result;
     }
 
-    m_workerContext.daqStats->totalBytesRead += result.bytesRead;
-    m_workerContext.daqStats->totalBuffersRead++;
+    m_workerContext.daqStats.totalBytesRead += result.bytesRead;
+    m_workerContext.daqStats.totalBuffersRead++;
 
 
     // UDP Datagram Forwarding
@@ -1778,7 +1793,7 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
         qDebug() << __PRETTY_FUNCTION__ << "got < 3 bytes; returning " << result.error.toString()
             << result.bytesRead << std::strerror(errno);
 #endif
-        m_workerContext.daqStats->buffersWithErrors++;
+        m_workerContext.daqStats.buffersWithErrors++;
         return result;
     }
 
@@ -1789,7 +1804,7 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
     packetIdent  = m_readBuffer.data[2];
     packetStatus = m_readBuffer.data[3];
 
-    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+    const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
 
     sis_trace(QString("buffer #%1: ack=0x%2, ident=0x%3, status=0x%4, bytesRead=%5, wordsRead=%6")
               .arg(bufferNumber)
@@ -1812,7 +1827,7 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
 void SIS3153ReadoutWorker::processBuffer(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
-    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+    const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
 
 #if SIS_READOUT_BUFFER_DEBUG_PRINT
     sis_trace(QString("buffer #%1, buffer_size=%2, contents:")
@@ -1893,7 +1908,7 @@ void SIS3153ReadoutWorker::processBuffer(
             {
                 // One of the processing functions gave up and told us to skip
                 // the input buffer.
-                m_workerContext.daqStats->buffersWithErrors++;
+                m_workerContext.daqStats.buffersWithErrors++;
             }
         }
 
@@ -1907,9 +1922,9 @@ void SIS3153ReadoutWorker::processBuffer(
     }
     catch (const end_of_buffer &)
     {
-        m_workerContext.daqStats->buffersWithErrors++;
+        m_workerContext.daqStats.buffersWithErrors++;
         auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) end of input reached unexpectedly! Skipping buffer."))
-            .arg(m_workerContext.daqStats->totalBuffersRead);
+            .arg(m_workerContext.daqStats.totalBuffersRead);
         logMessage(msg, true);
 
         maybePutBackBuffer();
@@ -1927,7 +1942,7 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
 #endif
     Q_ASSERT(packetAck == SIS3153Constants::MultiEventPacketAck);
 
-    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+    const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
 
     if (m_processingState.stackList >= 0)
     {
@@ -2024,7 +2039,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
     int stacklist = packetAck & SIS3153Constants::AckStackListMask;
     m_counters.stackListCounts[stacklist]++;
-    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+    const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
 
     BufferIterator iter(data, size);
 
@@ -2120,7 +2135,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
     }
 
     DataBuffer *outputBuffer = getOutputBuffer();
-    outputBuffer->ensureCapacity(size * 2);
+    outputBuffer->ensureFreeSpace(size * 2);
     MVMEStreamWriterHelper streamWriter(outputBuffer);
     int writerFlags = 0;
 
@@ -2159,7 +2174,6 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         if (streamWriter.hasOpenModuleSection())
         {
             u32 moduleSectionBytes = streamWriter.closeModuleSection().sectionBytes;
-            m_workerContext.daqStats->totalNetBytesRead += moduleSectionBytes;
         }
     }
 
@@ -2195,7 +2209,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 u32 SIS3153ReadoutWorker::processPartialEventData(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
-    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+    const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
 
     sis_trace(QString("sis3153 buffer #%1, packetAck=0x%2, packetIdent=0x%3, packetStatus=0x%4, data@0x%6, size=%7")
               .arg(bufferNumber)
@@ -2226,7 +2240,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
     BufferIterator iter(data, size);
 
     DataBuffer *outputBuffer = getOutputBuffer();
-    outputBuffer->ensureCapacity(size * 2);
+    outputBuffer->ensureFreeSpace(size * 2);
     m_processingState.streamWriter.setOutputBuffer(outputBuffer);
 
     if (!partialInProgress)
@@ -2407,7 +2421,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                 if (m_processingState.streamWriter.hasOpenModuleSection())
                 {
                     u32 moduleSectionBytes = m_processingState.streamWriter.closeModuleSection().sectionBytes;
-                    m_workerContext.daqStats->totalNetBytesRead += moduleSectionBytes;
                     m_processingState.moduleIndex++;
                 }
                 break;
@@ -2474,7 +2487,7 @@ void SIS3153ReadoutWorker::flushCurrentOutputBuffer()
         }
         else
         {
-            m_workerContext.daqStats->droppedBuffers++;
+            m_workerContext.daqStats.droppedBuffers++;
         }
         sis_trace("resetting current output buffer");
         m_outputBuffer = nullptr;
@@ -2537,9 +2550,11 @@ void SIS3153ReadoutWorker::setState(DAQState state)
             break;
 
         case DAQState::Starting:
-        case DAQState::Running:
         case DAQState::Stopping:
             break;
+
+        case DAQState::Running:
+            emit daqStarted();
     }
 
     QCoreApplication::processEvents();
@@ -2548,16 +2563,6 @@ void SIS3153ReadoutWorker::setState(DAQState state)
 void SIS3153ReadoutWorker::logError(const QString &message)
 {
     sis_log(QString("SIS3153 Error: %1").arg(message));
-}
-
-void SIS3153ReadoutWorker::logMessage(const QString &message, bool useThrottle)
-{
-    m_workerContext.logMessage(message, useThrottle);
-}
-
-void SIS3153ReadoutWorker::logMessage(const QString &message)
-{
-    m_workerContext.logMessage(message, false);
 }
 
 DataBuffer *SIS3153ReadoutWorker::getOutputBuffer()
@@ -2585,9 +2590,9 @@ void SIS3153ReadoutWorker::maybePutBackBuffer()
 {
     if (m_outputBuffer && m_outputBuffer != &m_localEventBuffer)
     {
-        // We still hold onto one of the buffers from obtained from the free
-        // queue. This can happen for the SkipInput case. Put the buffer back
-        // into the free queue.
+        // We still hold onto one of the buffers obtained from the free queue.
+        // This can happen for the SkipInput case. Put the buffer back into the
+        // free queue.
         enqueue(m_workerContext.freeBuffers, m_outputBuffer);
         sis_trace("resetting current output buffer");
     }

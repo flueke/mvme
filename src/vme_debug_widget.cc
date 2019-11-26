@@ -19,15 +19,17 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_debug_widget.h"
-#include "ui_vme_debug_widget.h"
-#include "mvme_context.h"
-#include "vme_controller.h"
 
 #include <QFileDialog>
+#include <QMessageBox>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
-#include <QMessageBox>
+
+#include "mvme_context.h"
+#include "ui_vme_debug_widget.h"
+#include "util/qt_font.h"
+#include "vme_controller.h"
 
 static const int tabStop = 4;
 static const QString scriptFileSetting = QSL("Files/LastDebugScriptDirectory");
@@ -44,13 +46,7 @@ VMEDebugWidget::VMEDebugWidget(MVMEContext *context, QWidget *parent)
     ui->setupUi(this);
 
     new vme_script::SyntaxHighlighter(ui->scriptInput);
-    {
-        QString spaces;
-        for (int i = 0; i < tabStop; ++i)
-            spaces += " ";
-        QFontMetrics metrics(ui->scriptInput->font());
-        ui->scriptInput->setTabStopWidth(metrics.width(spaces));
-    }
+    set_tabstop_width(ui->scriptInput, tabStop);
 
     auto onControllerStateChanged = [this] (ControllerState state)
     {
@@ -210,7 +206,7 @@ void VMEDebugWidget::on_readRead1_clicked()
     {
         Command cmd;
         cmd.type = ui->readModeBLT->isChecked() ? CommandType::BLT : CommandType::MBLT;
-        cmd.addressMode = AddressMode::A32;
+        cmd.addressMode = vme_address_modes::A32;
         cmd.address = address;
         cmd.transfers = static_cast<u32>(ui->blockReadCount->value());
 
@@ -295,7 +291,7 @@ void VMEDebugWidget::doWrite(u32 address, u32 value)
 {
     Command cmd;
     cmd.type = CommandType::Write;
-    cmd.addressMode = AddressMode::A32;
+    cmd.addressMode = vme_address_modes::A32;
     cmd.dataWidth = DataWidth::D16;
     cmd.address = address;
     cmd.value = value;
@@ -331,7 +327,7 @@ u16 VMEDebugWidget::doRead(u32 address)
 {
     Command cmd;
     cmd.type = CommandType::Read;
-    cmd.addressMode = AddressMode::A32;
+    cmd.addressMode = vme_address_modes::A32;
     cmd.dataWidth = DataWidth::D16;
     cmd.address = address;
 

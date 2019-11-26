@@ -2,6 +2,30 @@
 Changelog
 ##################################################
 
+Version 0.9.6 (in progress)
+---------------
+* Improved support for the MVLC. Among others VME Scripts can now be directly
+  executed during a DAQ run without having to pause and resume the DAQ.
+
+* New UI for setting up the MVLC Trigger and I/O logic system.
+
+* Updates to the auto-matching of vme and analysis objects on config load.
+
+* Improved the mvlc_root_client
+
+Version 0.9.5.5
+---------------
+* This is the first version with support for the upcoming mesytec MVLC VME
+  controller.
+
+* Added the EventServer component which allows to transmit extracted readout
+  data over a TCP connection.
+
+* Added a client for the EventServer protocol which generates and loads ROOT
+  classes, fills instances of the generated classes with incoming readout data
+  and writes these objects out to a ROOT file. Additionally user defined
+  callbacks are invoked to perform further analysis on the data.
+
 Version 0.9.5.4
 ---------------
 * Log values written to the VMUSB ActionRegister when starting / stopping the
@@ -13,7 +37,6 @@ Version 0.9.5.3
   ``vmusb_write_reg`` and ``vmusb_read_reg``
 
 * Fix a crash in Histo1DWidget when resolution reduction factor was set to 0
-
 
 Version 0.9.5.2
 ---------------

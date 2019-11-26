@@ -66,13 +66,22 @@ successfully compiled the generated latex code using MiKTeX.
 ### Clang/GCC Asan options
 `export ASAN_OPTIONS="detect_leaks=false"`
 
+Important:
 To get line numbers in address sanitizer stack traces make sure libmvme.so can
-be found in LD_LIBRARY_PATH. When running from the build directory do something like
+be found in LD\_LIBRARY\_PATH. When running from the build directory do something like
 `LD_LIBRARY_PATH=`pwd` gdb -ex r ./mvme`
 
 I've also found these mentioned on some blog. They might be useful when using ASAN with gcc.
+```
 export ASAN_SYMBOLIZER=`which llvm-symbolizer`
 export ASAN_OPTIONS="symbolize=1"
+```
+
+asan\_mvme.supp is a suppression file containing rules for libfontconfig and
+libdbus-1. Usage:
+```
+  LSAN_OPTIONS=suppressions=../mvme2/asan_mvme.supp ./mvme
+```
 
 
 ### Can be used for changelog creation

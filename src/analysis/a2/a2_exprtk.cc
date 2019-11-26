@@ -61,7 +61,7 @@ static const size_t CompileOptions = ParserSettings::e_replacer          +
  * will result in an "Invalid assignment operation error". The correct way to
  * write this would be to add a semicolon after the for-loop body.  Disabling
  * the commutative check makes the above code work, while at the same time
- * being for "C-like".
+ * being more "C-like".
  */
 
 

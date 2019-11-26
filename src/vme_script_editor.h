@@ -22,18 +22,23 @@
 #define __VME_SCRIPT_EDITOR_H__
 
 #include "util.h"
+#include "vme_config.h"
+#include "vme_script.h"
 
 class QCloseEvent;
 
-class MVMEContext;
-class VMEScriptConfig;
 struct VMEScriptEditorPrivate;
 
 class VMEScriptEditor: public MVMEWidget
 {
     Q_OBJECT
+    signals:
+        void logMessage(const QString &msg);
+        void runScript(const vme_script::VMEScript &script);
+        void addApplicationWidget(QWidget *widget);
+
     public:
-        VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, QWidget *parent = 0);
+        VMEScriptEditor(VMEScriptConfig *script, QWidget *parent = 0);
         ~VMEScriptEditor();
 
         bool isModified() const;
@@ -41,13 +46,16 @@ class VMEScriptEditor: public MVMEWidget
 
         virtual bool event(QEvent *event) override;
 
+    public slots:
+        void reloadFromScriptConfig() { revert(); }
+
     private:
         void updateWindowTitle();
 
         void onEditorTextChanged();
         void onScriptModified(bool isModified);
 
-        void runScript();
+        void runScript_();
         void loadFromFile();
         void loadFromTemplate();
         void saveToFile();

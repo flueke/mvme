@@ -22,6 +22,7 @@
 
 #include <array>
 #include <limits>
+
 #include <QAbstractItemModel>
 #include <QButtonGroup>
 #include <QDesktopServices>
@@ -37,26 +38,29 @@
 #include <QMessageBox>
 #include <QRadioButton>
 #include <QRegularExpressionValidator>
+#include <QShortcut>
 #include <QSignalMapper>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTextBrowser>
 #include <QTimer>
 
-#include "a2_adapter.h"
 #include "a2/a2_exprtk.h"
+#include "a2_adapter.h"
 #include "analysis_util.h"
 #include "data_extraction_widget.h"
+#include "data_filter_edit.h"
+#include "data_filter.h"
 #include "exportsink_codegen.h"
-#include "../globals.h"
-#include "../histo_util.h"
-#include "../vme_config.h"
-#include "../mvme_context.h"
-#include "../mvme_context_lib.h"
-#include "../qt_util.h"
-#include "../data_filter.h"
-#include "../data_filter_edit.h"
-#include "../gui_util.h"
+#include "globals.h"
+#include "gui_util.h"
+#include "histo_util.h"
+#include "mvme_context.h"
+#include "mvme_context_lib.h"
+#include "qt_util.h"
+#include "util/qt_font.h"
+#include "util/variablify.h"
+#include "vme_config.h"
 
 namespace
 {
@@ -77,6 +81,51 @@ namespace
 
 namespace analysis
 {
+namespace ui
+{
+
+//
+// FilterNameListDialog
+//
+FilterNameListDialog::FilterNameListDialog(const QString &filterName, const QStringList &names,
+                                           QWidget *parent)
+    : QDialog(parent)
+    , m_editor(new CodeEditor(this))
+    , m_bb(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this))
+    , m_names(names)
+{
+    setWindowTitle(QSL("Name List for data exractor '%1'").arg(filterName));
+    auto layout = new QGridLayout(this);
+
+    auto label = new QLabel(
+            QSL("Names can be assigned to individual parameters of a Filter Extractor.\n"
+                "These names will be visible in the analysis user interface and are "
+                "available when using the EventServer to export readout data.\n"
+                "Write one name per line (or separate them by spaces). Names should be "
+                "valid C++ identifiers."
+                ));
+    label->setWordWrap(true);
+
+    layout->addWidget(label, 0, 0);
+    layout->addWidget(m_editor, 1, 0);
+    layout->addWidget(m_bb, 2, 0);
+
+    layout->setRowStretch(1, 1);
+
+    connect(m_bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(m_bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    QString editorText = names.join("\n");
+    m_editor->setPlainText(editorText);
+}
+
+void FilterNameListDialog::accept()
+{
+    QString editorText = m_editor->toPlainText();
+    m_names = editorText.split(QRegExp("\\s+"));
+    QDialog::accept();
+}
+
 //
 // AddEditExtractorDialog
 //
@@ -88,12 +137,14 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
     , m_module(module)
     , m_eventWidget(eventWidget)
     , m_mode(mode)
+    , m_parameterNames(ex->getParameterNames())
 {
     add_widget_close_action(this);
 
     m_defaultExtractors = get_default_data_extractors(module->getModuleMeta().typeName);
 
-    auto loadTemplateButton = new QPushButton(QIcon(QSL(":/document_import.png")), QSL("Load Filter Template"));
+    auto loadTemplateButton = new QPushButton(QIcon(QSL(":/document_import.png")),
+                                              QSL("Load Filter Template"));
     auto loadTemplateLayout = new QHBoxLayout;
     loadTemplateLayout->setContentsMargins(0, 0, 0, 0);
     loadTemplateLayout->addWidget(loadTemplateButton);
@@ -121,9 +172,18 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
 
     m_spinCompletionCount->setValue(m_ex->getRequiredCompletionCount());
 
+    pb_editNameList = new QPushButton(QIcon(QSL(":/pencil.png")), QSL("Edit Name List"));
+    cb_noAddedRandom = new QCheckBox("Do not add a random in [0.0, 1.0)");
+    cb_noAddedRandom->setChecked(m_ex->getOptions() & Extractor::Options::NoAddedRandom);
+
     m_optionsLayout = new QFormLayout;
     m_optionsLayout->addRow(QSL("Name"), le_name);
     m_optionsLayout->addRow(QSL("Required Completion Count"), m_spinCompletionCount);
+    m_optionsLayout->addRow(QSL("Parameter Names"), pb_editNameList);
+    m_optionsLayout->addRow(QSL("No Added Random"), cb_noAddedRandom);
+
+    connect(pb_editNameList, &QPushButton::clicked,
+            this, &AddEditExtractorDialog::editNameList);
 
     if (m_defaultExtractors.size())
     {
@@ -184,7 +244,7 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
                     calibInfoFrame->setEnabled(checked);
                 });
 
-                m_optionsLayout->insertRow(m_optionsLayout->rowCount() - 1, m_gbGenHistograms);
+                m_optionsLayout->insertRow(m_optionsLayout->rowCount(), m_gbGenHistograms);
 
                 // Load data from the first template into the gui
                 applyTemplate(0);
@@ -247,6 +307,17 @@ void AddEditExtractorDialog::applyTemplate(int index)
     }
 }
 
+void AddEditExtractorDialog::editNameList()
+{
+    auto name = le_name->text();
+    if (name.isEmpty()) name = QSL("New Filter");
+    FilterNameListDialog dialog(name, m_parameterNames, this);
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        m_parameterNames = dialog.getNames();
+    }
+}
+
 void AddEditExtractorDialog::accept()
 {
     qDebug() << __PRETTY_FUNCTION__;
@@ -257,6 +328,10 @@ void AddEditExtractorDialog::accept()
     m_filterEditor->apply();
     m_ex->getFilter().setSubFilters(m_filterEditor->m_subFilters);
     m_ex->setRequiredCompletionCount(m_spinCompletionCount->value());
+    m_ex->setParameterNames(m_parameterNames);
+    m_ex->setOptions(cb_noAddedRandom->isChecked()
+                     ? Extractor::Options::NoAddedRandom
+                     : Extractor::Options::NoOption);
 
     auto analysis = m_eventWidget->getContext()->getAnalysis();
 
@@ -285,7 +360,7 @@ void AddEditExtractorDialog::accept()
 
         case ObjectEditorMode::Edit:
             {
-                analysis->sourceEdited(m_ex);
+                analysis->setSourceEdited(m_ex);
             } break;
     }
 
@@ -423,8 +498,6 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
     }
 
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
-    m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
     connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorDialog::accept);
     connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorDialog::reject);
     auto buttonBoxLayout = new QVBoxLayout;
@@ -658,7 +731,7 @@ void AddEditOperatorDialog::accept()
 
         case ObjectEditorMode::Edit:
             {
-                analysis->operatorEdited(m_op);
+                analysis->setOperatorEdited(m_op);
             } break;
     }
 
@@ -1795,9 +1868,16 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             && slot == histoSink->getSlot(0)
             && std::isnan(histoSink->m_xLimitMin))
         {
-            s32 paramIndex = slot->isParameterConnection() ? slot->paramIndex : 0;
-            limits_x.spin_min->setValue(slot->inputPipe->parameters[paramIndex].lowerLimit);
-            limits_x.spin_max->setValue(slot->inputPipe->parameters[paramIndex].upperLimit);
+            s32 paramIndex = slot->paramIndex;
+
+            if (paramIndex == Slot::NoParamIndex && slot->inputPipe->getSize() > 0)
+                paramIndex = 0;
+
+            if (0 <= paramIndex && paramIndex < slot->inputPipe->getSize())
+            {
+                limits_x.spin_min->setValue(slot->inputPipe->parameters[paramIndex].lowerLimit);
+                limits_x.spin_max->setValue(slot->inputPipe->parameters[paramIndex].upperLimit);
+            }
         }
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
@@ -2042,20 +2122,16 @@ void OperatorConfigurationWidget::configureOperator()
     else if (auto arrayMap = qobject_cast<ArrayMap *>(op))
     {
         /* Remove mappings that got invalidated due to removing slots from the
-         * ArrayMap, then copy the mappings over. */
+         * ArrayMap, then copy the mappings over into the ArrayMap operator. */
         s32 nSlots = arrayMap->getNumberOfSlots();
 
-        qDebug() << __PRETTY_FUNCTION__ << "local mappings before erase" << m_arrayMappings.size();
-
         m_arrayMappings.erase(
-            std::remove_if(m_arrayMappings.begin(), m_arrayMappings.end(), [nSlots](const ArrayMap::IndexPair &ip) {
+            std::remove_if(m_arrayMappings.begin(), m_arrayMappings.end(),
+                           [nSlots](const ArrayMap::IndexPair &ip) {
                 bool result = ip.slotIndex >= nSlots;
-                qDebug() << __PRETTY_FUNCTION__ << "nSlots =" << nSlots << "ip.slotIndex =" << ip.slotIndex << "result =" << result;
                 return result;
             }),
             m_arrayMappings.end());
-
-        qDebug() << __PRETTY_FUNCTION__ << "local mappings after erase" << m_arrayMappings.size();
 
         arrayMap->m_mappings = m_arrayMappings;
     }
@@ -2430,10 +2506,11 @@ bool RateMonitorConfigWidget::isValid() const
 // PipeDisplay
 //
 
-PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
+PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals, QWidget *parent)
     : QWidget(parent, Qt::Tool)
     , m_analysis(analysis)
     , m_pipe(pipe)
+    , m_showDecimals(showDecimals)
     , m_parameterTable(new QTableWidget)
 {
     auto layout = new QGridLayout(this);
@@ -2448,8 +2525,6 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
 
     layout->setRowStretch(1, 1);
 
-    // columns:
-    // Valid, Value, lower Limit, upper Limit
     m_parameterTable->setColumnCount(4);
     m_parameterTable->setHorizontalHeaderLabels({"Valid", "Value", "Lower Limit", "Upper Limit"});
 
@@ -2466,21 +2541,33 @@ void PipeDisplay::refresh()
 
         m_parameterTable->setRowCount(pipe.data.size);
 
+        QVector<QString> colStrings;
+        colStrings.resize(m_parameterTable->columnCount());
+
         for (s32 pi = 0; pi < pipe.data.size; pi++)
         {
             double param = pipe.data[pi];
             double lowerLimit = pipe.lowerLimits[pi];
             double upperLimit = pipe.upperLimits[pi];
 
-            QStringList columns =
-            {
-                a2::is_param_valid(param) ? QSL("Y") : QSL("N"),
-                a2::is_param_valid(param) ? QString::number(param) : QSL(""),
-                QString::number(lowerLimit),
-                QString::number(upperLimit),
-            };
 
-            for (s32 ci = 0; ci < columns.size(); ci++)
+            QString paramString;
+
+            if (a2::is_param_valid(param))
+            {
+                if (doesShowDecimals())
+                    paramString = QString::number(param);
+                else
+                    paramString = QString::number(static_cast<qlonglong>(param));
+            }
+
+            int col = 0;
+            colStrings[col++] = a2::is_param_valid(param) ? QSL("Y") : QSL("N");
+            colStrings[col++] = paramString;
+            colStrings[col++] = QString::number(lowerLimit);
+            colStrings[col++] = QString::number(upperLimit);
+
+            for (s32 ci = 0; ci < colStrings.size(); ci++)
             {
                 auto item = m_parameterTable->item(pi, ci);
                 if (!item)
@@ -2489,7 +2576,7 @@ void PipeDisplay::refresh()
                     m_parameterTable->setItem(pi, ci, item);
                 }
 
-                item->setText(columns[ci]);
+                item->setText(colStrings[ci]);
                 item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             }
 
@@ -2739,5 +2826,330 @@ void ModuleSettingsDialog::accept()
     QDialog::accept();
 }
 
+//
+// MVLCParserDebugHandler
+//
+using namespace mesytec::mvlc;
 
+MVLCParserDebugHandler::MVLCParserDebugHandler(QObject *parent)
+    : QObject(parent)
+    , m_geometrySaver(new WidgetGeometrySaver(this))
+{
+}
+
+inline const char *to_string(const ReadoutParserState::ModuleParseState &mps)
+{
+    switch (mps)
+    {
+        case ReadoutParserState::Prefix:
+            return "Prefix";
+        case ReadoutParserState::Dynamic:
+            return "Dynamic";
+        case ReadoutParserState::Suffix:
+            return "Suffix";
+    }
+
+    return "unknown ModuleParseState";
+}
+
+namespace
+{
+void mvlc_parser_debug_log_buffer(
+    BufferIterator iter,
+    std::function<void (const QString &)> logger)
+{
+    static const u32 wordsPerRow = 8;
+
+    QString strbuf;
+
+    while (iter.longwordsLeft())
+    {
+        strbuf.clear();
+        u32 nWords = std::min(wordsPerRow, iter.longwordsLeft());
+
+        strbuf += QString("%1: ").arg(iter.current32BitOffset(), 10);
+
+        for (u32 i=0; i<nWords; ++i)
+        {
+            u32 currentWord = iter.extractU32();
+
+            strbuf += QString("0x%1 ").arg(currentWord, 8, 16, QLatin1Char('0'));
+        }
+
+        logger(strbuf);
+    }
+}
+}
+
+void MVLCParserDebugHandler::handleDebugInfo(
+    const DataBuffer &buffer,
+    mesytec::mvlc::ReadoutParserState parserState,
+    const VMEConfig *vmeConfig,
+    const analysis::Analysis *analysis)
+{
+
+    qDebug() << __PRETTY_FUNCTION__ << buffer.used << parserState.workBuffer.used;
+
+    QString bufferText;
+
+    // Log the initial parser state and the raw buffer contents.
+    {
+        QTextStream out(&bufferText);
+
+        // Log buffer information and buffer contents
+
+        out << "buffer number = " << buffer.id
+            << ", last buffer number = " << parserState.lastBufferNumber << endl;
+        out << "buffer size = " << buffer.used / sizeof(u32) << endl;
+        out << "buffer format is " << to_string(static_cast<ListfileBufferFormat>(buffer.tag)) << endl;
+        out << "last ETH packet number = " << parserState.lastPacketNumber << endl;
+
+        out << "ParserState: eventIndex=" << parserState.eventIndex
+            << ", moduleIndex=" << parserState.moduleIndex
+            << ", moduleParseState=" << to_string(parserState.moduleParseState)
+            << endl;
+
+        out << QSL("curStackFrame: 0x%1, wordsLeft=%2\n")
+            .arg(parserState.curStackFrame.header, 8, 16, QLatin1Char('0'))
+            .arg(parserState.curStackFrame.wordsLeft)
+            ;
+
+        out << QSL("curBlockFrame: 0x%1, wordsLeft=%2\n")
+            .arg(parserState.curBlockFrame.header, 8, 16, QLatin1Char('0'))
+            .arg(parserState.curBlockFrame.wordsLeft)
+            ;
+
+        out << "----------" << endl;
+
+        mvlc_parser_debug_log_buffer(BufferIterator(buffer.data, buffer.used),
+                    [&out] (const QString &str) {
+            out << str << endl;
+        });
+    }
+
+    using namespace mvme;
+    const bool usesMultiEventSplitting = uses_multi_event_splitting(*vmeConfig, *analysis);
+    QString parserText;
+    QString splitterText;
+
+    // Messy way to setup parser and splitter callbacks and run them both. They log their outputs
+    // into parserText and splitterText respectively.
+    {
+        QTextStream parserOut(&parserText);
+        QTextStream splitterOut(&splitterText);
+
+        multi_event_splitter::State multiEventSplitter;
+        multi_event_splitter::Callbacks splitterCallbacks;
+        ReadoutParserCallbacks parserCallbacks;
+
+        // Setup parser callbacks and run the parser on the input buffer. This will
+        // be exactly the same state, data and code as was run on the analysis
+        // thread except for different callbacks.
+
+        if (usesMultiEventSplitting)
+        {
+            auto filterStrings = collect_multi_event_splitter_filter_strings(
+                *vmeConfig, *analysis);
+
+            multiEventSplitter = multi_event_splitter::make_splitter(filterStrings);
+
+            splitterCallbacks.beginEvent = [&splitterOut] (int ei)
+            {
+                splitterOut << "beginEvent(ei=" << ei << ")" << endl;
+            };
+
+            splitterCallbacks.endEvent = [&splitterOut] (int ei)
+            {
+                splitterOut << "endEvent(ei=" << ei << ")" << endl;
+            };
+
+            // Factory function for module callbacks which log their input data.
+            auto make_module_callback = [&splitterOut] (const QString &typeString)
+            {
+                return [&splitterOut, typeString] (int ei, int mi, const u32 *data, u32 size)
+                {
+                    splitterOut << QString("  module%1, ei=%2, mi=%3, size=%4:")
+                        .arg(typeString).arg(ei).arg(mi).arg(size)
+                        << endl;
+
+                    ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&splitterOut] (const QString &str)
+                                {
+                                    splitterOut << "    " << str << endl;
+                                });
+                };
+            };
+
+            splitterCallbacks.modulePrefix = make_module_callback("Prefix");
+            splitterCallbacks.moduleDynamic = make_module_callback("Dynamic");
+            splitterCallbacks.moduleSuffix = make_module_callback("Suffix");
+        }
+
+        //
+        // End of multi event splitter setup. Now setup the readout parser
+        // callbacks. These will receive and log the input data and hand it
+        // down to the splitter code if splitting is enabled
+        //
+
+        parserCallbacks.beginEvent = [&] (int ei)
+        {
+            parserOut << "beginEvent(ei=" << ei << ")" << endl;
+            if (usesMultiEventSplitting)
+                multi_event_splitter::begin_event(multiEventSplitter, ei);
+        };
+
+        parserCallbacks.modulePrefix = [&](
+            int ei, int mi, const u32 *data, u32 size)
+        {
+            parserOut << QString("  modulePrefix, ei=%1, mi=%2, size=%3:")
+                .arg(ei).arg(mi).arg(size)
+                << endl;
+
+            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
+                        {
+                            parserOut << "    " << str << endl;
+                        });
+
+            if (usesMultiEventSplitting)
+                multi_event_splitter::module_prefix(
+                    multiEventSplitter, ei, mi, data, size);
+        };
+
+        parserCallbacks.moduleDynamic = [&](
+            int ei, int mi, const u32 *data, u32 size)
+        {
+            parserOut << QString("  moduleDynamic, ei=%1, mi=%2, size=%3:")
+                .arg(ei).arg(mi).arg(size)
+                << endl;
+
+            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
+                        {
+                            parserOut << "    " << str << endl;
+                        });
+
+            if (usesMultiEventSplitting)
+                multi_event_splitter::module_data(
+                    multiEventSplitter, ei, mi, data, size);
+        };
+
+        parserCallbacks.moduleSuffix = [&](
+            int ei, int mi, const u32 *data, u32 size)
+        {
+            parserOut << QString("  moduleSuffix, ei=%1, mi=%2, size=%3:")
+                .arg(ei).arg(mi).arg(size)
+                << endl;
+
+            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
+                        {
+                            parserOut << "    " << str << endl;
+                        });
+
+            if (usesMultiEventSplitting)
+                multi_event_splitter::module_suffix(
+                    multiEventSplitter, ei, mi, data, size);
+        };
+
+        parserCallbacks.endEvent = [&](int ei)
+        {
+            parserOut << "endEvent(ei=" << ei << ")" << endl;
+
+            if (usesMultiEventSplitting)
+            {
+                multi_event_splitter::end_event(multiEventSplitter, splitterCallbacks, ei);
+                splitterOut << "========================================" << endl;
+            }
+        };
+
+        parserOut << "Running readout parser..." << endl;
+
+        ParseResult pr = {};
+
+        try
+        {
+            if (buffer.tag == static_cast<int>(ListfileBufferFormat::MVLC_ETH))
+            {
+                // Input buffers are MVLC_ETH formatted buffers as generated by
+                // MVLCReadoutWorker::readout_eth().
+                pr = parse_readout_buffer_eth(
+                    parserState, parserCallbacks,
+                    buffer.id, buffer.data, buffer.used);
+            }
+            else if (buffer.tag == static_cast<int>(ListfileBufferFormat::MVLC_USB))
+            {
+                // Input buffers are MVLC_USB formatted buffers as generated by
+                // MVLCReadoutWorker::readout_usb()
+                pr = parse_readout_buffer_usb(
+                    parserState, parserCallbacks,
+                    buffer.id, buffer.data, buffer.used);
+            }
+            else
+                throw std::runtime_error("unexpected buffer format (expected MVLC_ETH or MVLC_USB)");
+
+            parserOut << "parser returned " << get_parse_result_name(pr) << endl;
+        }
+        catch (const end_of_buffer &e)
+        {
+            parserOut << "end_of_buffer from parser: " << e.what() << endl;
+        }
+        catch (const std::exception &e)
+        {
+            parserOut << "exception from parser: " << e.what() << endl;
+        }
+        catch (...)
+        {
+            parserOut << "unknown exception from parser!" << endl;
+        }
+    }
+
+    auto make_searchable_text_widget = [](QTextEdit *te)
+        -> std::pair<QWidget *, TextEditSearchWidget *>
+    {
+        auto parserResultWidget = new QWidget;
+        auto resultLayout = make_layout<QVBoxLayout, 0, 0>(parserResultWidget);
+        auto searchWidget = new TextEditSearchWidget(te);
+        resultLayout->addWidget(searchWidget);
+        resultLayout->addWidget(te);
+        resultLayout->setStretch(1, 1);
+
+        return std::make_pair(parserResultWidget, searchWidget);
+    };
+
+    // Display the buffer contents and the parser results side-by-side in two
+    // QTextBrowsers.
+    {
+        auto widget = new QWidget;
+        widget->setAttribute(Qt::WA_DeleteOnClose);
+        widget->setWindowTitle("MVLC Readout Parser Debug");
+        widget->setFont(make_monospace_font());
+        m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/MVLCReadoutParserDebug"));
+        add_widget_close_action(widget);
+
+        // parser state and buffer contents on the left side
+        auto tb_buffer = new QTextBrowser;
+        tb_buffer->setText(bufferText);
+        auto bufferWidget = make_searchable_text_widget(tb_buffer).first;
+
+        // parser result on the right side
+        auto tb_parserResult = new QTextBrowser;
+        tb_parserResult->setText(parserText);
+        auto parserResultWidget = make_searchable_text_widget(tb_parserResult).first;
+
+        auto splitter = new QSplitter;
+        splitter->addWidget(bufferWidget);
+        splitter->addWidget(parserResultWidget);
+
+        if (usesMultiEventSplitting)
+        {
+            auto tb_splitterResult = new QTextBrowser;
+            tb_splitterResult->setText(splitterText);
+            auto splitterResultWidget = make_searchable_text_widget(tb_splitterResult).first;
+            splitter->addWidget(splitterResultWidget);
+        }
+
+        auto wl = make_layout<QHBoxLayout, 0, 0>(widget);
+        wl->addWidget(splitter);
+        widget->show();
+    }
+}
+
+} // end namespace ui
 } // end namespace analysis

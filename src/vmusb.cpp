@@ -1134,7 +1134,7 @@ VMEError VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackM
    This means that a usb_bulk_write will be done followed by a
    usb_bulk_read to return the results/status of the operation requested
    by the write.
-   Parametrers:
+   Parameters:
    void*   writePacket   - Pointer to the packet to write.
    size_t  writeSize     - Number of bytes to write from writePacket.
 

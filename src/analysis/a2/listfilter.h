@@ -126,7 +126,7 @@ struct ListFilterResult
 ListFilterResult extract_address_and_value_from_combined(ListFilter *cf,
                                                          const u64 combinedData);
 
-inline size_t get_extract_bits(ListFilter *cf, MultiWordFilter::CacheType cacheType)
+inline size_t get_extract_bits(const ListFilter *cf, MultiWordFilter::CacheType cacheType)
 {
     return get_extract_bits(&cf->extractionFilter, cacheType);
 }

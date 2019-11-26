@@ -185,12 +185,12 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
 
     try
     {
-        auto openResult = context_open_listfile(m_context, filename, flags);
+        const auto &replayHandle = context_open_listfile(m_context, filename, flags);
 
-        if (openResult.listfile && !openResult.messages.isEmpty())
+        if (!replayHandle.messages.isEmpty())
         {
             m_context->logMessageRaw(QSL(">>>>> Begin listfile log"));
-            m_context->logMessageRaw(openResult.messages);
+            m_context->logMessageRaw(replayHandle.messages);
             m_context->logMessageRaw(QSL("<<<<< End listfile log"));
         }
         m_mainWindow->updateWindowTitle();

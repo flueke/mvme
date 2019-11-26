@@ -67,13 +67,13 @@ const StreamIterator::Result &StreamIterator::next()
         if (iter.longwordsLeft())
         {
             u32 sectionHeader = iter.extractU32();
-            u32 sectionType = lfc.section_type(sectionHeader);
-            u32 sectionSize = lfc.section_size(sectionHeader);
+            u32 sectionType = lfc.getSectionType(sectionHeader);
+            u32 sectionSize = lfc.getSectionSize(sectionHeader);
 
             m_result.sectionOffset = iter.current32BitOffset() - 1;
 
             s32 eventIndex = (sectionType == ListfileSections::SectionType_Event)
-                ? lfc.event_index(sectionHeader)
+                ? lfc.getEventIndex(sectionHeader)
                 : -1;
 
             qDebug() << (QString("%6: got sectionHeader=0x%1, type=%2, size=%3, eventIndex=%4, sectionOffset=%5")
@@ -155,7 +155,7 @@ StreamIterator::Result &StreamIterator::startEventSectionIteration(u32 sectionHe
     //
     auto &lfc(m_result.lfc);
 
-    const u32 eventIndex = lfc.event_index(sectionHeader);
+    const u32 eventIndex = lfc.getEventIndex(sectionHeader);
     BufferIterator localEventIter(reinterpret_cast<u8 *>(data), size * sizeof(u32));
     m_result.resetModuleDataOffsets();
 
@@ -173,8 +173,8 @@ StreamIterator::Result &StreamIterator::startEventSectionIteration(u32 sectionHe
 
         // skip to the next subevent
         u32 moduleSectionHeader = localEventIter.extractU32();
-        u32 moduleSectionSize   = lfc.module_data_size(moduleSectionHeader);
-        u32 moduleType          = lfc.module_type(moduleSectionHeader);
+        u32 moduleSectionSize   = lfc.getModuleDataSize(moduleSectionHeader);
+        u32 moduleType          = lfc.getModuleType(moduleSectionHeader);
         localEventIter.skip(sizeof(u32), moduleSectionSize);
 
         qDebug() << (QString("%1: moduleIndex=%2, offsets.sectionHeader=%3, moduleSectionHeader=0x%4"
@@ -200,8 +200,8 @@ StreamIterator::Result &StreamIterator::nextEvent()
 
     auto &lfc(m_result.lfc);
     const u32 sectionHeader = *streamBuffer()->indexU32(m_result.sectionOffset);
-    const u32 sectionType   = lfc.section_type(sectionHeader);
-    const u32 eventIndex    = lfc.event_index(sectionHeader);
+    const u32 sectionType   = lfc.getSectionType(sectionHeader);
+    const u32 eventIndex    = lfc.getEventIndex(sectionHeader);
     const u32 *ptrToLastWord = reinterpret_cast<const u32 *>(m_eventIter.data + m_eventIter.size);
 
     assert(sectionType == ListfileSections::SectionType_Event);
@@ -217,7 +217,7 @@ StreamIterator::Result &StreamIterator::nextEvent()
             assert(offsets.dataEnd < 0);
 
             u32 moduleSectionHeader = *streamBuffer()->indexU32(offsets.sectionHeader);
-            u32 moduleDataSize      = lfc.module_data_size(moduleSectionHeader);
+            u32 moduleDataSize      = lfc.getModuleDataSize(moduleSectionHeader);
 
             // includes adjustment for EndMarker
             offsets.dataEnd = offsets.dataBegin + moduleDataSize - 2;
@@ -318,8 +318,8 @@ StreamIterator::Result &StreamIterator::nextEvent()
     auto &lfc(m_result.lfc);
 
     const u32 sectionHeader = *m_result.buffer->indexU32(m_result.sectionOffset);
-    const u32 sectionType = lfc.section_type(sectionHeader);
-    const u32 eventIndex  = lfc.event_index(sectionHeader);
+    const u32 sectionType = lfc.getSectionType(sectionHeader);
+    const u32 eventIndex  = lfc.getEventIndex(sectionHeader);
 
     const u32 *ptrToLastWord = reinterpret_cast<const u32 *>(m_eventIter.data + m_eventIter.size);
 
@@ -363,7 +363,7 @@ StreamIterator::Result &StreamIterator::nextEvent()
         // Single event processing as multievent is not enabled
         if (!m_streamInfo.multiEventEnabled.test(eventIndex))
         {
-            u32 moduleDataSize = lfc.module_data_size(
+            u32 moduleDataSize = lfc.getModuleDataSize(
                 *streamBuffer()->indexU32(offsets.sectionHeader));
 
             offsets.dataEnd = offsets.dataBegin + moduleDataSize;

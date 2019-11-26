@@ -9,7 +9,10 @@ template<typename T, typename SizeType = size_t>
 struct TypedBlock
 {
     typedef SizeType size_type;
-    static constexpr auto size_max = std::numeric_limits<SizeType>::max();
+    typedef T value_type;
+
+    static constexpr auto size_max = std::numeric_limits<size_type>::max();
+    static constexpr size_t element_size = sizeof(value_type);
 
     T *data;
     size_type size;
@@ -26,15 +29,11 @@ struct TypedBlock
         return data[index];
     }
 
-    inline T *begin()
-    {
-        return data;
-    }
+    inline T *begin() { return data; }
+    inline const T *begin() const { return data; }
 
-    inline T *end()
-    {
-        return data + size;
-    }
+    inline T *end() { return data + size; }
+    inline const T *end() const { return data + size; }
 
 #if 0
     TypedBlock<T, SizeType>()
@@ -90,6 +89,22 @@ TypedBlock<T, SizeType> push_copy_typed_block(
     auto result = push_typed_block<T, SizeType>(arena, source.size, align);
 
     for (SizeType i = 0; i < source.size; i++)
+    {
+        result[i] = source[i];
+    }
+
+    return result;
+}
+
+template<typename T, typename SizeType = size_t>
+TypedBlock<T, SizeType> push_copy_typed_block(
+    memory::Arena *arena,
+    const std::vector<T> &source,
+    size_t align = alignof(T))
+{
+    auto result = push_typed_block<T, SizeType>(arena, static_cast<SizeType>(source.size()), align);
+
+    for (SizeType i = 0; i < static_cast<SizeType>(source.size()); i++)
     {
         result[i] = source[i];
     }

@@ -21,18 +21,15 @@
 #ifndef __HISTO2D_WIDGET_H__
 #define __HISTO2D_WIDGET_H__
 
+#include "analysis/condition_editor_interface.h"
 #include "histo2d.h"
+#include "libmvme_export.h"
+
 #include <QWidget>
 
-class QTimer;
-class QwtPlotSpectrogram;
-class QwtLinearColorMap;
-class QwtPlotHistogram;
-class QwtPlot;
-class ScrollZoomer;
 class MVMEContext;
-class Histo1DWidget;
-class WidgetGeometrySaver;
+class QwtPlot;
+class QwtLinearColorMap;
 
 namespace analysis
 {
@@ -42,9 +39,11 @@ namespace analysis
 
 struct Histo2DWidgetPrivate;
 
-class Histo2DWidget: public QWidget
+class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::ConditionEditorInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::ConditionEditorInterface);
+
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo2DSink>;
         using HistoSinkCallback = std::function<void (const SinkPtr &)>;
@@ -56,7 +55,7 @@ class Histo2DWidget: public QWidget
         Histo2DWidget(const Histo1DSinkPtr &histo1DSink, MVMEContext *context, QWidget *parent = 0);
         ~Histo2DWidget();
 
-        void setContext(MVMEContext *context) { m_context = context; }
+        void setContext(MVMEContext *context);
         void setSink(const SinkPtr &sink,
                      HistoSinkCallback addSinkCallback,
                      HistoSinkCallback sinkModifiedCallback,
@@ -68,6 +67,11 @@ class Histo2DWidget: public QWidget
 
         void setLinZ();
         void setLogZ();
+
+        // ConditionEditorInterface
+        virtual bool setEditCondition(const analysis::ConditionLink &cl) override;
+        virtual analysis::ConditionLink getEditCondition() const override;
+        virtual void beginEditCondition() override;
 
     private slots:
         void replot();
@@ -92,28 +96,8 @@ class Histo2DWidget: public QWidget
         void doXProjection();
         void doYProjection();
 
-        Histo2DWidgetPrivate *m_d;
+        std::unique_ptr<Histo2DWidgetPrivate> m_d;
         friend struct Histo2DWidgetPrivate;
-
-        Histo2D *m_histo = nullptr;
-        Histo2DPtr m_histoPtr;
-        Histo1DSinkPtr m_histo1DSink;
-        QwtPlotSpectrogram *m_plotItem;
-        ScrollZoomer *m_zoomer;
-        QTimer *m_replotTimer;
-        QPointF m_cursorPosition;
-        int m_labelCursorInfoWidth;
-
-        std::shared_ptr<analysis::Histo2DSink> m_sink;
-        HistoSinkCallback m_addSinkCallback;
-        HistoSinkCallback m_sinkModifiedCallback;
-        MakeUniqueOperatorNameFunction m_makeUniqueOperatorNameFunction;
-
-        Histo1DWidget *m_xProjWidget = nullptr;
-        Histo1DWidget *m_yProjWidget = nullptr;
-
-        WidgetGeometrySaver *m_geometrySaver;
-        MVMEContext *m_context = nullptr;
 };
 
 #endif /* __HISTO2D_WIDGET_H__ */

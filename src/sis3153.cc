@@ -215,8 +215,7 @@ VMEError SIS3153::open()
     }
 
 
-    /* XXX XXX XXX: Testing code:
-     * Resolve the hostname here using the Qt layer and pass an IPv4 address string to
+    /* Resolve the hostname here using the Qt layer and pass an IPv4 address string to
      * set_UdpSocketSIS3153_IpAddress(). This method internally uses gethostbyname() which
      * when given an IP-address just copies the argument to its result structure. */
 
@@ -383,7 +382,7 @@ VMEError SIS3153::open()
             {
                 result = VMEError(VMEError::DeviceIsOpen,
                                   QSL("SIS3153 is in autonomous DAQ mode (another instance of mvme might be controlling it)."
-                                      " Use \"force reset\" to attempt resetting the controller."));
+                                      " Use \"force reset\" to attempt to reset the controller."));
                 m_d->ctrlState = ControllerState::Disconnected;
                 emit controllerStateChanged(m_d->ctrlState);
                 return result;
@@ -481,6 +480,10 @@ QString SIS3153::getIdentifyingString() const
 VMEError SIS3153::write32(u32 address, u32 value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
+
     VMEError result;
 
     switch (amod)
@@ -511,6 +514,10 @@ VMEError SIS3153::write32(u32 address, u32 value, u8 amod)
 VMEError SIS3153::write16(u32 address, u16 value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
+
     VMEError result;
 
     switch (amod)
@@ -541,6 +548,10 @@ VMEError SIS3153::write16(u32 address, u16 value, u8 amod)
 VMEError SIS3153::read32(u32 address, u32 *value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
+
     VMEError result;
 
     switch (amod)
@@ -571,6 +582,10 @@ VMEError SIS3153::read32(u32 address, u32 *value, u8 amod)
 VMEError SIS3153::read16(u32 address, u16 *value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
+
     VMEError result;
 
     switch (amod)
@@ -614,8 +629,11 @@ VMEError SIS3153::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 a
 {
     QMutexLocker locker(&m_d->lock);
 
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
+
     int resultCode = 0;
-    bool isMBLT = (amod == VME_AM_A32_PRIV_MBLT || amod == VME_AM_A32_USER_MBLT);
+    bool isMBLT = vme_address_modes::is_mblt_mode(amod);
     u32 wordsRead = 0; // sis3153 fills in the number of 32-bit words received
 
     dest->resize(isMBLT ? transfers * 2 : transfers);
@@ -648,6 +666,8 @@ VMEError SIS3153::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 a
 
     dest->resize(wordsRead);
 
+    // TODO: add a BlockReadFlag arg to VMEController::blockRead() and then
+    // remove this hardcoded swap.
     if (isMBLT)
     {
         fix_word_order(*dest);

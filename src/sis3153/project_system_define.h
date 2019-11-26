@@ -8,6 +8,7 @@
     #define WINDOWS
 #elif defined Q_OS_OSX
     #define LINUX
+    #define MAC_OSX
 #endif
 
 /*

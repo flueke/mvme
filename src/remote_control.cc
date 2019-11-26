@@ -36,7 +36,7 @@ class RpcLogger: public jcon::JsonRpcLogger
 
         virtual void logError(const QString& message) override
         {
-            //m_context->logMessage("JSON RPC Error: " + message);
+            //m_context->logMessage(message);
             qDebug().noquote() << "JSON RPC Error: " + message;
         }
 
@@ -104,7 +104,7 @@ void RemoteControl::start()
     }
     else
     {
-        auto lookedUp = [this] (const QHostInfo &hi)
+        auto on_lookup_done = [this] (const QHostInfo &hi)
         {
             auto addresses = hi.addresses();
 
@@ -115,13 +115,22 @@ void RemoteControl::start()
             {
                 m_d->m_server->listen(addresses.first(), m_d->m_listenPort);
 
-                m_d->m_context->logMessage(QSL("JSON RPC server listening on port %1:%2.")
-                                           .arg(addresses.first().toString())
-                                           .arg(m_d->m_listenPort));
+                if (m_d->m_server->isListening())
+                {
+                    m_d->m_context->logMessage(QSL("JSON RPC server listening on port %1:%2.")
+                                               .arg(addresses.first().toString())
+                                               .arg(m_d->m_listenPort));
+                }
+            }
+            else
+            {
+                m_d->m_context->logMessage(
+                    QSL("Error: JSON RPC server could not find a listening address for \"%1\".")
+                    .arg(hi.hostName()));
             }
         };
 
-        m_d->m_hostInfoWrapper = std::make_unique<HostInfoWrapper>(lookedUp);
+        m_d->m_hostInfoWrapper = std::make_unique<HostInfoWrapper>(on_lookup_done);
         m_d->m_hostInfoWrapper->lookupHost(m_d->m_listenAddress);
     }
 }
@@ -165,7 +174,8 @@ MVMEContext *RemoteControl::getContext() const
 //
 
 DAQControlService::DAQControlService(MVMEContext *context)
-    : m_context(context)
+    : QObject(context)
+    , m_context(context)
 {
 }
 
@@ -241,7 +251,8 @@ QString DAQControlService::reconnectVMEController()
 //
 
 InfoService::InfoService(MVMEContext *context)
-    : m_context(context)
+    : QObject(context)
+    , m_context(context)
 {
 }
 
@@ -278,7 +289,6 @@ QVariantMap InfoService::getDAQStats()
     r["totalBuffersRead"]       = u64_to_var(stats.totalBuffersRead);
     r["buffersWithErrors"]      = u64_to_var(stats.buffersWithErrors);
     r["droppedBuffers"]         = u64_to_var(stats.droppedBuffers);
-    r["totalNetBytesRead"]      = u64_to_var(stats.totalNetBytesRead);
     r["listFileBytesWritten"]   = u64_to_var(stats.listFileBytesWritten);
     r["listFileFilename"]       = stats.listfileFilename;
     r["analyzedBuffers"]        = u64_to_var(stats.getAnalyzedBuffers());
@@ -352,6 +362,8 @@ QVariantMap InfoService::getVMEControllerStats()
     switch (ctrl->getType())
     {
         case VMEControllerType::VMUSB:
+        case VMEControllerType::MVLC_USB:
+        case VMEControllerType::MVLC_ETH:
             {
                 // no specific stats present
             } break;

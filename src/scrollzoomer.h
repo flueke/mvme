@@ -35,7 +35,6 @@ class LIBMVME_EXPORT ScrollZoomer: public QwtPlotZoomer
 {
     Q_OBJECT
 
-
 signals:
     void mouseCursorMovedTo(QPointF);
     void mouseCursorLeftPlot();
@@ -68,19 +67,22 @@ public:
     QWidget* cornerWidget() const;
     virtual void setCornerWidget( QWidget * );
 
-    virtual bool eventFilter( QObject *, QEvent * );
+    virtual bool eventFilter( QObject *, QEvent * ) override;
 
-    virtual void rescale();
+    virtual void rescale() override;
     quint32 getLowborder();
     quint32 getHiborder();
+
+    void ignoreNextMouseRelease();
 
 protected:
     virtual ScrollBar *scrollBar( Qt::Orientation );
     virtual void updateScrollBars();
     virtual void layoutScrollBars( const QRect & );
 
-    virtual void widgetMouseMoveEvent(QMouseEvent *event);
-    virtual void widgetLeaveEvent( QEvent * );
+    virtual void widgetMouseMoveEvent(QMouseEvent *event) override;
+    virtual void widgetLeaveEvent( QEvent * ) override;
+    virtual void widgetMouseReleaseEvent(QMouseEvent *me) override;
 
     // from QwtPlotPicker
     virtual QwtText trackerTextF( const QPointF & ) const override;
@@ -99,6 +101,7 @@ private:
 
     bool d_inZoom;
     bool d_alignCanvasToScales[ QwtPlot::axisCnt ];
+    bool m_ignoreNextMouseRelease = false;
 };
 
 #endif

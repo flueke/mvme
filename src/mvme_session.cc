@@ -5,14 +5,13 @@
 #include <QLibraryInfo>
 #include <QLocale>
 
-#include "mvme_stream_worker.h"
-#include "vme_controller.h"
-
-#ifdef MVME_USE_GIT_VERSION_FILE
-#include "git_sha1.h"
-#endif
-#include "build_info.h"
 #include "analysis/analysis_session.h"
+#include "build_info.h"
+#include "git_sha1.h"
+#include "mvlc/mvlc_qt_object.h"
+#include "mvme_stream_worker.h"
+#include "vme_config.h"
+#include "vme_controller.h"
 
 void mvme_init(const QString &appName)
 {
@@ -21,6 +20,27 @@ void mvme_init(const QString &appName)
     qRegisterMetaType<MVMEStreamWorkerState>("MVMEStreamWorkerState");
     qRegisterMetaType<ControllerState>("ControllerState");
     qRegisterMetaType<Qt::Axis>("Qt::Axis");
+    qRegisterMetaType<mesytec::mvlc::MVLCObject::State>("mesytec::mvlc::MVLCObject::State");
+    qRegisterMetaType<DataBuffer>("DataBuffer");
+
+    qRegisterMetaType<ContainerObject *>();
+    qRegisterMetaType<VMEScriptConfig *>();
+    qRegisterMetaType<ModuleConfig *>();
+    qRegisterMetaType<EventConfig *>();
+    qRegisterMetaType<VMEConfig *>();
+
+#define REG_META_VEC(T) \
+    qRegisterMetaType<QVector<T>>("QVector<"#T">")
+
+    REG_META_VEC(u8);
+    REG_META_VEC(u16);
+    REG_META_VEC(u32);
+
+    REG_META_VEC(s8);
+    REG_META_VEC(s16);
+    REG_META_VEC(s32);
+
+#undef REG_META_VEC
 
     QCoreApplication::setOrganizationDomain("www.mesytec.com");
     QCoreApplication::setOrganizationName("mesytec");
@@ -39,6 +59,4 @@ void mvme_init(const QString &appName)
 
 void mvme_shutdown()
 {
-    // This used to contain shutdown code for the old, hdf5-based session
-    // storage system.
 }

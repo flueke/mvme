@@ -42,22 +42,28 @@ Other subdirectories represent VME modules. The layout is:
 Description of the per module files and directories:
 
 * module_info.json
-    - typeId:
+    - typeId (required):
       The _unique_ module identifier used in the listfile event header (8 bit
       ModuleTypeMask).
 
-    - typeName:
+    - typeName (required):
       The _unique_ module type name used in VME and analysis configuration
       files.
-    - displayName:
+
+    - displayName (required):
       User visible name of the module.
-    - eventHeaderFilter:
+
+    - eventHeaderFilter (optional):
       A DataFilter string used to split multievent readout data from the module
       into single events.
       The placeholder 'S' in the filter word is used to extract the number of
       data words following the module header.
       The optional placeholder 'M' is used to extract a module id from the
       header word as a consistency check.
+
+    - vmeBaseAddress (optional):
+      A string(!) that is parseable as a unsigned 32 bit value which is used as
+      the suggested VME module address when creating a new module of this type.
 
   Important: typeIds and typeNames must not be changed once they're in use for a module. Doing so
   would break listfile and config file compatibility!

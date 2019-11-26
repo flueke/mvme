@@ -21,11 +21,6 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include "libmvme_export.h"
-#include "typedefs.h"
-#include "qt_util.h"
-#include "util/assert.h"
-
 #include <QMetaType>
 #include <QPair>
 #include <QVariant>
@@ -37,6 +32,11 @@
 #include <memory>
 #include <stdexcept>
 
+#include "libmvme_core_export.h"
+#include "typedefs.h"
+#include "qt_util.h"
+#include "util/assert.h"
+
 #define ArrayCount(a) (sizeof(a) / sizeof((a)[0]))
 
 // Allows storing std::shared_ptr to QObject or derived inside QVariant.
@@ -44,31 +44,43 @@ Q_DECLARE_SMART_POINTER_METATYPE(std::shared_ptr);
 
 class QTextStream;
 
-LIBMVME_EXPORT void qDebugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
-LIBMVME_EXPORT QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
+LIBMVME_CORE_EXPORT void qDebugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
+LIBMVME_CORE_EXPORT QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
 
-QVector<u32> parseStackFile(QTextStream &input);
-QVector<u32> parseStackFile(const QString &input);
+LIBMVME_CORE_EXPORT QVector<u32> parseStackFile(QTextStream &input);
+LIBMVME_CORE_EXPORT QVector<u32> parseStackFile(const QString &input);
 
 typedef QPair<u32, QVariant> RegisterSetting; // (addr, value)
 typedef QVector<RegisterSetting> RegisterList;
 
-RegisterList parseRegisterList(QTextStream &input, u32 baseAddress = 0);
-RegisterList parseRegisterList(const QString &input, u32 baseAddress = 0);
+LIBMVME_CORE_EXPORT RegisterList parseRegisterList(QTextStream &input, u32 baseAddress = 0);
+LIBMVME_CORE_EXPORT RegisterList parseRegisterList(const QString &input, u32 baseAddress = 0);
 
 inline bool isFloat(const QVariant &var)
 {
     return (static_cast<QMetaType::Type>(var.type()) == QMetaType::Float);
 }
 
-QString toString(const RegisterList &registerList);
-QStringList toStringList(const RegisterList &registerList);
+LIBMVME_CORE_EXPORT QString toString(const RegisterList &registerList);
+LIBMVME_CORE_EXPORT QStringList toStringList(const RegisterList &registerList);
 
-class end_of_buffer: public std::exception {};
+class LIBMVME_CORE_EXPORT end_of_buffer: public std::runtime_error
+{
+    public:
+        end_of_buffer(const char *arg): std::runtime_error(arg) {}
+        end_of_buffer(): std::runtime_error("end_of_buffer") {}
+};
 
-struct BufferIterator
+struct LIBMVME_CORE_EXPORT BufferIterator
 {
     enum Alignment { Align16, Align32 };
+
+    u8 *data = nullptr;
+    u8 *buffp = nullptr;
+    u8 *endp = nullptr;
+    size_t size = 0;
+    Alignment alignment = Align32;
+
 
     BufferIterator()
     {}
@@ -81,11 +93,13 @@ struct BufferIterator
         , alignment(alignment)
     {}
 
-    u8 *data = nullptr;
-    u8 *buffp = nullptr;
-    u8 *endp = nullptr;
-    size_t size = 0;
-    Alignment alignment = Align32;
+    BufferIterator(u32 *d, size_t sz)
+        : data(reinterpret_cast<u8 *>(d))
+        , buffp(data)
+        , endp(data + sz * sizeof(u32))
+        , size(sz * sizeof(u32))
+        , alignment(Align32)
+    {}
 
     inline bool align32() const { return alignment == Align32; }
 
@@ -148,18 +162,35 @@ struct BufferIterator
         return ret;
     }
 
-    inline u32 peekU32() const
+    inline u32 peekU32(size_t index = 0) const
     {
-        if (buffp + sizeof(u32) > endp)
+        if (buffp + sizeof(u32) * index > endp)
             throw end_of_buffer();
 
-        u32 ret = *reinterpret_cast<u32 *>(buffp);
+        u32 ret = *(reinterpret_cast<u32 *>(buffp) + index);
         return ret;
     }
 
     inline u32 peekWord() const
     {
         return align32() ? peekU32() : peekU16();
+    }
+
+    // Pushes a value onto the back of the buffer. Returns a pointer to the
+    // newly pushed value.
+    // Note: this does not take the alignment flag into account.
+    template <typename T>
+    inline T *push(T value)
+    {
+        static_assert(std::is_trivial<T>::value, "push<T>() works for trivial types only");
+
+        if (buffp + sizeof(T) > endp)
+            throw end_of_buffer();
+
+        T *ret = reinterpret_cast<T *>(buffp);
+        buffp += sizeof(T);
+        *ret = value;
+        return ret;
     }
 
     inline u32 bytesLeft() const
@@ -188,12 +219,14 @@ struct BufferIterator
 
     inline u32 *indexU32(size_t index)
     {
-        if (data + index * sizeof(u32) > endp)
+        if (buffp + index * sizeof(u32) > endp)
             throw end_of_buffer();
 
         return reinterpret_cast<u32 *>(buffp) + index;
     }
 
+    // Skips forward. Truncates to the buffer end if skipping would result in a
+    // position behind the buffer end.
     inline void skip(size_t bytes)
     {
         buffp += bytes;
@@ -206,11 +239,27 @@ struct BufferIterator
         skip(width * count);
     }
 
+    // Skips forward. Throws end_of_buffer if skipping would exceed the end of
+    // buffer.
+    inline void skipExact(size_t bytes)
+    {
+        if (buffp + bytes > endp)
+            throw end_of_buffer();
+
+        buffp += bytes;
+    }
+
+    inline void skipExact(size_t width, size_t count)
+    {
+        skipExact(width * count);
+    }
+
     inline bool atEnd() const { return buffp == endp; }
 
     inline void rewind() { buffp = data; }
     inline bool isEmpty() const { return size == 0; }
     inline bool isNull() const { return !data; }
+    inline size_t used() const { return buffp - data; }
 
     inline ptrdiff_t current32BitOffset() const
     {
@@ -218,7 +267,7 @@ struct BufferIterator
     }
 };
 
-QString readStringFile(const QString &filename);
+LIBMVME_CORE_EXPORT QString readStringFile(const QString &filename);
 
 template<typename T>
 T *Var2Ptr(const QVariant &variant)
@@ -238,10 +287,10 @@ QVariant Ptr2Var(T *ptr)
     return QVariant::fromValue(static_cast<void *>(ptr));
 }
 
-QString makeDurationString(qint64 durationSeconds);
+LIBMVME_CORE_EXPORT QString makeDurationString(qint64 durationSeconds);
 
 /** Emits aboutToClose() before returning from closeEvent() */
-class MVMEWidget: public QWidget
+class LIBMVME_CORE_EXPORT MVMEWidget: public QWidget
 {
     Q_OBJECT
     signals:
@@ -254,7 +303,7 @@ class MVMEWidget: public QWidget
         void closeEvent(QCloseEvent *event) override;
 };
 
-class TemplateLoader: public QObject
+class LIBMVME_CORE_EXPORT TemplateLoader: public QObject
 {
     Q_OBJECT
     signals:
@@ -268,15 +317,15 @@ class TemplateLoader: public QObject
         QString m_templatePath;
 };
 
-QJsonDocument gui_read_json(QIODevice *input);
-QJsonDocument gui_read_json_file(const QString &fileName);
-bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc);
+LIBMVME_CORE_EXPORT QJsonDocument gui_read_json(QIODevice *input);
+LIBMVME_CORE_EXPORT QJsonDocument gui_read_json_file(const QString &fileName);
+LIBMVME_CORE_EXPORT bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc);
 
-QPair<double, QString> byte_unit(size_t bytes);
+LIBMVME_CORE_EXPORT QPair<double, QString> byte_unit(size_t bytes);
 
 //QString format_memory_size(size_t bytes);
 
-void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun);
+LIBMVME_CORE_EXPORT void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun);
 
 static constexpr double make_quiet_nan()
 {
@@ -289,45 +338,5 @@ inline constexpr size_t Gigabytes(size_t x) { return Megabytes(x) * 1024; }
 
 #define InvalidCodePath Q_ASSERT(!"invalid code path")
 #define InvalidDefaultCase default: { Q_ASSERT(!"invalid default case"); }
-
-template<typename Code>
-struct LIBMVME_EXPORT ReadResultBase
-{
-    typedef Code CodeType;
-
-    static const QMap<Code, const char *> ErrorCodeStrings;
-
-    Code code;
-    QMap<QString, QVariant> errorData;
-
-    QString toRichText() const;
-
-    inline operator bool() const { return code == Code::NoError; }
-};
-
-
-template<typename Code>
-QString ReadResultBase<Code>::toRichText() const
-{
-    QString result;
-
-    if (code != Code::NoError)
-    {
-        //result += ErrorCodeStrings.value(code, "Unknown error");
-        result += QSL("<table>");
-        result += QString("<tr><td>Error cause:</td><td>%1</td>")
-            .arg(ErrorCodeStrings.value(code, "Unknown error"));
-
-        for (auto it = errorData.begin(); it != errorData.end(); ++it)
-        {
-            result += QString("<tr><td>%1:</td><td>%2</td></tr>")
-                .arg(it.key())
-                .arg(it.value().toString());
-        }
-        result += QSL("</table>");
-    }
-
-    return result;
-}
 
 #endif // UTIL_H

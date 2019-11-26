@@ -1,0 +1,28 @@
+stack_start
+    # first mtdc, raising irq1
+    setbase 0x00000000
+    0x6020 0x80         # Enable multicast
+    0x6024 0xBB         # Set 8 high bits of MCST address
+    0x6010 1            # irq 1
+    0x6036 0xb          # multi event mode
+    0x601A 1          # max transfer data
+    0x6070 7            # enable mtdc pulser
+
+    # second mtdc, no irq
+    setbase 0x01000000
+    0x6020 0x80         # Enable multicast
+    0x6024 0xBB         # Set 8 high bits of MCST address
+    0x6010 0            # do not signal an irq
+    0x6036 0xb          # multi event mode
+    0x601A 1          # max transfer data
+    0x6070 7            # enable mtdc pulser
+
+    # broadcast startup
+    writeabs a32 d16 0xbb00603a      0   # stop acq
+    writeabs a32 d16 0xbb006090      3   # reset CTRA and CTRB
+    writeabs a32 d16 0xbb00603c      1   # FIFO reset
+    writeabs a32 d16 0xbb00603a      1   # start acq
+    writeabs a32 d16 0xbb006034      1   # readout reset
+stack_end
+write_local 0x1200 0x0000   # Set stack offset register
+write_local 0x1100 0x100    # Immediate exec of stack 0

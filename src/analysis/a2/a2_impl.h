@@ -72,25 +72,29 @@ enum OperatorType
 
     Operator_Expression,
 
+    Operator_ConditionInterval,
+    Operator_ConditionRectangle,
+    Operator_ConditionPolygon,
+    //Operator_ConditionLogic,
+
     OperatorTypeCount
 };
 
-void calibration_step(Operator *op);
-void calibration_sse_step(Operator *op);
-void calibration_step_idx(Operator *op);
-void keep_previous_step(Operator *op);
-void difference_step(Operator *op);
-void array_map_step(Operator *op);
-void binary_equation_step(Operator *op);
-void aggregate_sum_step(Operator *op);
-void aggregate_multiplicity_step(Operator *op);
-void aggregate_max_step(Operator *op);
-void expression_operator_step(Operator *op);
+void calibration_step(Operator *op, A2 *a2 = nullptr);
+void calibration_sse_step(Operator *op, A2 *a2 = nullptr);
+void calibration_step_idx(Operator *op, A2 *a2 = nullptr);
+void keep_previous_step(Operator *op, A2 *a2 = nullptr);
+void difference_step(Operator *op, A2 *a2 = nullptr);
+void array_map_step(Operator *op, A2 *a2 = nullptr);
+void binary_equation_step(Operator *op, A2 *a2 = nullptr);
+void aggregate_sum_step(Operator *op, A2 *a2 = nullptr);
+void aggregate_multiplicity_step(Operator *op, A2 *a2 = nullptr);
+void aggregate_max_step(Operator *op, A2 *a2 = nullptr);
 
-void h1d_sink_step(Operator *op);
-void h1d_sink_step_idx(Operator *op);
-void h2d_sink_step(Operator *op);
-void rate_monitor_step(Operator *op);
+void h1d_sink_step(Operator *op, A2 *a2 = nullptr);
+void h1d_sink_step_idx(Operator *op, A2 *a2 = nullptr);
+void h2d_sink_step(Operator *op, A2 *a2 = nullptr);
+void rate_monitor_step(Operator *op, A2 *a2 = nullptr);
 void rate_monitor_sample_flow(Operator *op);
 
 } // namespace a2

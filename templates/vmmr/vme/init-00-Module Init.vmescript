@@ -129,18 +129,19 @@
 
 # ******* SET REGISTERS OF FRONTEND MODULES ***********
 0x6100  16      # for all frontends
+
 0x6110  0xC     # address pulser register
 0x6112  0       # switch local pulser off; Suggestion: only use 0x6070 pulser register
 
 # usually set the two threshold registers to the same value:
 # thresholds are adjusted to give a low or no trigger rate with no particles
-0x6010  0x9     # threshold register for lower 32 channels of one bank
+0x6110  0x9     # threshold register for lower 32 channels of one bank
 0x6112  35      # (35 =about 10%)max value 255 = 70% full range
-0x6010  0xA     # threshold register for higher 32 channels of one bank
+0x6110  0xA     # threshold register for higher 32 channels of one bank
 0x6112  35      # max value 255 = 70% full range
 
 # the data threshold is adjusted to reduce data by eliminating non responding channels
-0x6010  0x10    # data threshold register
+0x6110  0x10    # data threshold register
 0x6112  200     # = 5% full range; Directly works on ADC-range; Max value 4095
 
 
