@@ -244,7 +244,8 @@ void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype)
 
 // Writes the given buffer into system sections of the given subtype. The data
 // is split into multiple sections if needed.
-// Note: the input data must be padded to 32 bits. Padding is not done inside
+// Note: the input data is passed as a pointer to u32. This means when using
+// this function data has to be padded to 32 bits. Padding is not done inside
 // this function as different data might require different padding strategies.
 void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype,
                                  const u32 *buffp, size_t totalWords)
@@ -363,7 +364,7 @@ void listfile_end_run_and_close(ListfileOutput &lf_out,
     listfile_write_system_event(lf_out, system_event::subtype::EndOfFile);
 
     // Can close the listfile output device now. This is required in case it's
-    // a file inside a zip archive as only once file per archive can be open at
+    // a file inside a zip archive as only one file per archive can be open at
     // a time.
     lf_out.outdev->close();
 
