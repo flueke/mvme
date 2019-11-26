@@ -286,6 +286,7 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 
     m_nodeEvents = new TreeNode;
     m_nodeEvents->setText(0,  QSL("Events"));
+    m_nodeEvents->setIcon(0, QIcon(":/mvme_16x16.png"));
     m_tree->addTopLevelItem(m_nodeEvents);
     m_nodeEvents->setExpanded(true);
 
@@ -346,6 +347,7 @@ void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
             "mvlc_trigger_io");
 
         m_nodeMVLCTriggerIO = makeObjectNode(mvlcTriggerIO);
+        m_nodeMVLCTriggerIO->setFlags(m_nodeMVLCTriggerIO->flags() & ~Qt::ItemIsEditable);
         m_treeMap[mvlcTriggerIO] = m_nodeMVLCTriggerIO;
         m_tree->insertTopLevelItem(0, m_nodeMVLCTriggerIO);
     }
