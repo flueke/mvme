@@ -571,8 +571,10 @@ struct MVLCReadoutWorker::Private
     mutable mesytec::mvme::TicketMutex countersMutex;
 
     // notification polling
+#if 0
     std::thread notificationPollerThread;
     std::atomic<bool> notificationPollerKeepRunning;
+#endif
 
     // Threaded listfile writing
     static const size_t ListfileWriterBufferCount = 16u;
@@ -606,6 +608,7 @@ struct MVLCReadoutWorker::Private
         counters = {};
     }
 
+#if 0
     // Use a custom stack error notification poller during readout instead of
     // letting the poller built into MVLC_VMEController do the work.
     //
@@ -655,6 +658,7 @@ struct MVLCReadoutWorker::Private
         QMetaObject::invokeMethod(mvlcCtrl, "enableNotificationPolling");
 #endif
     }
+#endif
 
     // Cleanly end a running readout session. The code disables all triggers by
     // writing to the trigger registers via the command pipe while in parallel
@@ -667,7 +671,9 @@ struct MVLCReadoutWorker::Private
         assert(q);
         assert(mvlcObj);
 
+#if 0
         stopNotificationPolling();
+#endif
 
         auto f = QtConcurrent::run([this] ()
         {
@@ -768,6 +774,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         setState(DAQState::Starting);
 
+#if 0
         // Note: disabling polling at this point is not strictly required. It
         // just speeds up script execution because the poller won't interfere.
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
@@ -775,14 +782,17 @@ void MVLCReadoutWorker::start(quint32 cycles)
 #else
         QMetaObject::invokeMethod(d->mvlcCtrl, "disableNotificationPolling");
 #endif
+#endif
 
         // vme init sequence
         if (!do_VME_DAQ_Init(d->mvlcCtrl))
         {
+#if 0
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
         QMetaObject::invokeMethod(d->mvlcCtrl, &MVLC_VMEController::enableNotificationPolling);
 #else
         QMetaObject::invokeMethod(d->mvlcCtrl, "enableNotificationPolling");
+#endif
 #endif
             setState(DAQState::Idle);
             return;
@@ -825,7 +835,9 @@ void MVLCReadoutWorker::start(quint32 cycles)
         listfile_write_preamble(d->listfileOut, *d->mvlcObj, *m_workerContext.vmeConfig);
 
         d->preRunClear();
+#if 0
         d->startNotificationPolling();
+#endif
 
         logMessage("");
         logMessage(QSL("Entering readout loop"));
@@ -1316,7 +1328,9 @@ void MVLCReadoutWorker::resumeDAQ()
 
     enable_triggers(*d->mvlcObj, *getContext().vmeConfig, logger);
 
+#if 0
     d->startNotificationPolling();
+#endif
 
     std::unique_lock<mesytec::mvme::TicketMutex> guard(d->listfileWriterContext.listfileMutex);
     listfile_write_system_event(d->listfileOut, system_event::subtype::Resume);

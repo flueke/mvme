@@ -939,9 +939,6 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
     });
 
     // count stack error notifications published by the mvlc object
-    connect(m_d->mvlc, &MVLCObject::stackErrorNotification,
-            this, &MVLCDevGUI::handleStackErrorNotification);
-
     connect(ui->pb_runScript, &QPushButton::clicked,
             this, [this] ()
     {

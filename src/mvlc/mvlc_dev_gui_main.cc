@@ -40,9 +40,6 @@ int main(int argc, char *argv[])
     {
         auto poller = new MVLCNotificationPoller(*mvlc, mvlc);
 
-        QObject::connect(poller, &MVLCNotificationPoller::stackErrorNotification,
-                         mvlc, &MVLCObject::stackErrorNotification);
-
         poller->enablePolling();
     }
 

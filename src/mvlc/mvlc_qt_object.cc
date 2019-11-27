@@ -139,10 +139,20 @@ void MVLCObject::postDialogOperation()
 {
     // The Command mutex should be locked at this point which means to avoid
     // deadlock we have to call the dialog methods directly instead of using
-    // our own methods which do take the lock.
+    // our own methods which do take the lock themselves.
 
-    for (const auto &n: m_dialog.getStackErrorNotifications())
-        emit stackErrorNotification(n);
+    auto errorFrames = m_dialog.getStackErrorNotifications();
+
+    if (errorFrames.isEmpty())
+        return;
+
+    auto lock = m_stackErrors.lock();
+
+    for (const auto &errorFrame: errorFrames)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "updating stack error counters";
+        update_stack_error_counters(m_stackErrors.counters, errorFrame);
+    }
 }
 
 std::error_code MVLCObject::vmeSingleRead(u32 address, u32 &value, u8 amod,
@@ -300,26 +310,12 @@ MVLCNotificationPoller::MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent
     , m_mvlc(mvlc)
     , m_isPolling(false)
 {
-#if 1
     connect(&m_pollTimer, &QTimer::timeout, this, [this] ()
     {
         //qDebug() << __PRETTY_FUNCTION__ << "pre poller via QtConcurrent::run" << QDateTime::currentDateTime();
         QtConcurrent::run(this, &MVLCNotificationPoller::doPoll);
         //qDebug() << __PRETTY_FUNCTION__ << "post poller via QtConcurrent::run" << QDateTime::currentDateTime();
     });
-#else
-    connect(&m_pollTimer, &QTimer::timeout, this, [this] ()
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "pre poller via std::thread" << QDateTime::currentDateTime();
-
-        auto t = std::thread([this] () { this->doPoll(); });
-
-        if (t.joinable())
-            t.detach();
-
-        qDebug() << __PRETTY_FUNCTION__ << "post poller via std::thread" << QDateTime::currentDateTime();
-    });
-#endif
 }
 
 void MVLCNotificationPoller::enablePolling(int interval_ms)
@@ -361,7 +357,6 @@ void MVLCNotificationPoller::doPoll()
 
     do
     {
-#if 1
         auto tStart = QDateTime::currentDateTime();
         //qDebug() << __FUNCTION__ << tStart << "  begin read";
 
@@ -374,22 +369,18 @@ void MVLCNotificationPoller::doPoll()
         (void)ec;
 
         auto tEnd = QDateTime::currentDateTime();
-        //qDebug() << __FUNCTION__ << tEnd << "  end read: "
-        //    << ec.message().c_str()
-        //    << ", duration:" << tStart.msecsTo(tEnd);
+        qDebug() << __FUNCTION__ << tEnd << "  end read: "
+            << ec.message().c_str()
+            << ", duration:" << tStart.msecsTo(tEnd);
 
         if (!buffer.isEmpty())
         {
-            qDebug() << __FUNCTION__ << "emitting stackErrorNotification";
-            emit stackErrorNotification(buffer);
+            auto &errorCounters = m_mvlc.getGuardedStackErrorCounters();
+            auto lock = errorCounters.lock();
+            update_stack_error_counters(errorCounters.counters, buffer);
         }
 
         ++iterationCount;
-#else
-        qDebug() << __PRETTY_FUNCTION__ << "sleep";
-        QThread::msleep(5000);
-        qDebug() << __PRETTY_FUNCTION__ << "sleep end";
-#endif
     } while (!buffer.isEmpty());
 
     //qDebug() << __FUNCTION__ << "left polling loop after" << iterationCount << "iterations";

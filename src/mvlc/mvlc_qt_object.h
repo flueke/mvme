@@ -10,6 +10,7 @@
 #include "libmvme_mvlc_export.h"
 #include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_impl_abstract.h"
+#include "mvlc/mvlc_stack_errors.h"
 #include "mvlc/mvlc_threading.h"
 
 namespace mesytec
@@ -31,8 +32,6 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
     signals:
         void stateChanged(const mesytec::mvlc::MVLCObject::State &oldState,
                           const mesytec::mvlc::MVLCObject::State &newState);
-
-        void stackErrorNotification(const QVector<u32> &notification);
 
     public:
         explicit MVLCObject(std::unique_ptr<AbstractImpl> impl, QObject *parent = nullptr);
@@ -116,16 +115,33 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         // response from executing the stack.
         QVector<u32> getResponseBuffer() const;
 
-        // Get the stack error notifications that may have resulted from a
-        // previous operation. Performing another operation will clear the
-        // internal buffer.
+        // Get the stack error notifications that may have resulted from the
+        // previous stack operation. Performing another stack operation will
+        // clear the internal buffer.
+        //
+        // FIXME: not correct anymore
         // The data available from this method will also have been emitted via
         // the stackErrorNotification() signal at the end of the last stack
         // operation.
-        // Starting a new stack operation clears the internal buffer.
         QVector<QVector<u32>> getStackErrorNotifications() const;
 
-        Locks &getLocks() { return m_locks; }
+        // Direct access to the per-pipe locks.
+        inline Locks &getLocks() { return m_locks; }
+
+        // Returns a copy of the stack error counts structure. This is
+        // thread-safe.
+        inline StackErrorCounters getStackErrorCounters() const
+        {
+            auto lock = m_stackErrors.lock();
+            return m_stackErrors.counters;
+        }
+
+        // Returns a reference to the GuardedStackErrorCounters structure used
+        // by this MVLCObject.
+        inline GuardedStackErrorCounters &getGuardedStackErrorCounters()
+        {
+            return m_stackErrors;
+        }
 
     public slots:
         std::error_code connect();
@@ -143,14 +159,12 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         MVLCDialog m_dialog;
         State m_state;
         mutable Locks m_locks;
+        GuardedStackErrorCounters m_stackErrors = {};
 };
 
 class LIBMVME_MVLC_EXPORT MVLCNotificationPoller: public QObject
 {
     Q_OBJECT
-    signals:
-        void stackErrorNotification(const QVector<u32> &notification);
-
     public:
         static const int Default_PollInterval_ms = 1000;
         static const unsigned PollReadTimeout_ms = 50;

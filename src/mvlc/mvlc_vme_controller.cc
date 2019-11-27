@@ -57,26 +57,72 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
     connect(m_mvlc, &MVLCObject::stateChanged,
             this, &MVLC_VMEController::onMVLCStateChanged);
 
-    connect(m_mvlc, &MVLCObject::stackErrorNotification,
-            this, &MVLC_VMEController::stackErrorNotification);
-
-    connect(&m_notificationPoller, &MVLCNotificationPoller::stackErrorNotification,
-            this, &MVLC_VMEController::stackErrorNotification);
-
-#if 1
+#if 0
     // XXX: Debug
     connect(this, &MVLC_VMEController::stackErrorNotification,
             [] (const QVector<u32> &data)
     {
         if (data.isEmpty())
+        {
+            qDebug("%s - Empty notification!", __PRETTY_FUNCTION__);
+            assert(false);
             return;
+        }
 
-        qDebug("%s - MVLC_VMEController polled a stack error notification: header=0x%08x, len=%u",
+        if (data.size() != 2)
+        {
+            qDebug("%s - Notification size != 2: %d",
+                   __PRETTY_FUNCTION__, data.size());
+        }
+
+        auto frameInfo = extract_frame_info(data[0]);
+
+        qDebug("%s - MVLC_VMEController polled a stack error notification:"
+               "header=0x%08x, data[1]=0x%08x, len=%u, stack=%u, flags=0x%02x",
                QDateTime::currentDateTime().toString().toStdString().c_str(),
                data[0],
-               extract_frame_info(data[0]).len);
+               data[1],
+               frameInfo.len,
+               frameInfo.stack,
+               frameInfo.flags);
     });
 #endif
+
+    auto debug_print_stack_error_counters = [this] ()
+    {
+        qDebug("Stack Error Info Dump:");
+
+        auto errorCounters = m_mvlc->getStackErrorCounters();
+
+        for (size_t stackId = 0; stackId < errorCounters.stackErrors.size(); ++stackId)
+        {
+            const auto &errorInfoCounts = errorCounters.stackErrors[stackId];
+
+            if (errorInfoCounts.empty())
+                continue;
+
+
+            for (auto it = errorInfoCounts.begin();
+                 it != errorInfoCounts.end();
+                 it++)
+            {
+                const auto &errorInfo = it->first;
+                const auto &count = it->second;
+
+                qDebug("  stackId=%lu, line=%u, flags=0x%02x, count=%lu",
+                       stackId,
+                       errorInfo.line,
+                       errorInfo.flags,
+                       count
+                       );
+            }
+        }
+    };
+
+    auto dumpTimer = new QTimer(this);
+    connect(dumpTimer, &QTimer::timeout, this, debug_print_stack_error_counters);
+    dumpTimer->setInterval(1000);
+    dumpTimer->start();
 }
 
 void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &oldState,
