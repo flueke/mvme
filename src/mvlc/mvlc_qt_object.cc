@@ -73,6 +73,13 @@ void MVLCObject::setState(const State &newState)
     {
         auto prevState = m_state;
         m_state = newState;
+
+        if (newState == Connected)
+        {
+            auto guard = m_stackErrors.lock();
+            m_stackErrors.counters = {};
+        }
+
         emit stateChanged(prevState, newState);
     }
 };

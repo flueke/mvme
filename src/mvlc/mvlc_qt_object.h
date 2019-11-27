@@ -118,11 +118,6 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         // Get the stack error notifications that may have resulted from the
         // previous stack operation. Performing another stack operation will
         // clear the internal buffer.
-        //
-        // FIXME: not correct anymore
-        // The data available from this method will also have been emitted via
-        // the stackErrorNotification() signal at the end of the last stack
-        // operation.
         QVector<QVector<u32>> getStackErrorNotifications() const;
 
         // Direct access to the per-pipe locks.
