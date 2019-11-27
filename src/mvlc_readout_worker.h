@@ -19,22 +19,6 @@ struct MVLCReadoutCounters
     // moved from the end of incoming read buffers into temp storage and then
     // reused at the start of the next buffer.
     u64 partialFrameTotalBytes;
-
-    // The counters are the same as the mvlc frame_flags except for
-    // NotAStackError which counts the number of non-0xF7 frames received via
-    // the notification channel.
-
-    static const u8 NumErrorCounters = mesytec::mvlc::frame_flags::shifts::SyntaxError + 1;
-    using ErrorCounters = std::array<u64, NumErrorCounters>;
-
-    // Counts the flags set in the 0xF7 stack error notifications sent out on
-    // the command pipe. These notifications are polled by MVLC_VMEController
-    // and handled by the MVLCReadoutWorker.
-    std::array<ErrorCounters, mesytec::mvlc::stacks::StackCount> stackErrors;
-
-    // The number of non 0xF7 frames received via polling. Should be zero at
-    // all times.
-    u64 nonStackErrorNotifications;
 };
 
 namespace mesytec

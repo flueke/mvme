@@ -425,63 +425,6 @@ void listfile_end_run_and_close(ListfileOutput &lf_out,
     listfile_close(lf_out);
 }
 
-// Function polling the MVLCs command pipe for stack error notifications and
-// updating the stack error counters. This is intended to be run in a separate
-// thread. It will loop until keepRunning becomes false or the mvlc connection
-// is lost.
-void stack_error_notification_poller(
-    MVLCObject *mvlc,
-    MVLCReadoutCounters &counters,
-    mesytec::mvme::TicketMutex &countersMutex,
-    std::atomic<bool> &keepRunning)
-{
-    static const auto NoDataSleepDuration = std::chrono::milliseconds(2000);
-
-    QVector<u32> buffer;
-
-    while (keepRunning)
-    {
-#ifndef __WIN32
-        static const unsigned PollReadTimeout_ms = 50;
-        auto ec = mvlc->readKnownBuffer(buffer, PollReadTimeout_ms);
-#else
-        auto ec = mvlc->readKnownBuffer(buffer);
-#endif
-
-        if (ec == ErrorType::ConnectionError)
-            break;
-
-        if (!buffer.isEmpty())
-        {
-            auto frameInfo = extract_frame_info(buffer[0]);
-
-            UniqueLock guard(countersMutex);
-
-            if (frameInfo.type != frame_headers::StackError)
-            {
-                ++counters.nonStackErrorNotifications;
-            }
-            else if (frameInfo.stack < stacks::StackCount)
-            {
-                auto &errorCounters = counters.stackErrors[frameInfo.stack];
-
-                for (unsigned i = 0; i < MVLCReadoutCounters::NumErrorCounters; ++i)
-                {
-                    errorCounters[i] += ((frameInfo.flags >> i) & 1u);
-                }
-            }
-        }
-        else
-        {
-            // No notification data was received. Instad of immediately reading
-            // again sleep here for a while. This enables other threads to make
-            // use of the command pipe without having to wait for our read to
-            // run into a timeout.
-            std::this_thread::sleep_for(NoDataSleepDuration);
-        }
-    }
-}
-
 //
 // Listfile writing (and compression) in a separate thread
 //
