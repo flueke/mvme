@@ -284,7 +284,7 @@ namespace stacks
     };
 } // end namespace stacks
 
-static const u32 SelfVMEAddress       = 0xFFFF0000u;
+static const u32 SelfVMEAddress = 0xFFFF0000u;
 
 namespace usb
 {
@@ -421,6 +421,14 @@ enum class ConnectionType
     USB,
     ETH
 };
+
+namespace stack_error_info
+{
+    static const unsigned StackLineMask = 0xffffu;
+    static const unsigned StackLineShift = 0u;
+    static const unsigned StackNumberMask = 0xffffu;
+    static const unsigned StackNumberShift = 16u;
+}
 
 } // end namespace mvlc
 } // end namespace mesytec
