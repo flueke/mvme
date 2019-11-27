@@ -717,6 +717,13 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         setState(DAQState::Starting);
 
+        // Clear the error counts when starting a new run.
+        {
+            auto &counters = d->mvlcObj->getGuardedStackErrorCounters();
+            auto guard = counters.lock();
+            counters.counters = {};
+        }
+
 #if 0
         // Note: disabling polling at this point is not strictly required. It
         // just speeds up script execution because the poller won't interfere.
