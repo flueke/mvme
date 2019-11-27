@@ -376,9 +376,10 @@ void MVLCNotificationPoller::doPoll()
         (void)ec;
 
         auto tEnd = QDateTime::currentDateTime();
-        qDebug() << __FUNCTION__ << tEnd << "  end read: "
-            << ec.message().c_str()
-            << ", duration:" << tStart.msecsTo(tEnd);
+
+        //qDebug() << __FUNCTION__ << tEnd << "  end read: "
+        //    << ec.message().c_str()
+        //    << ", duration:" << tStart.msecsTo(tEnd);
 
         if (!buffer.isEmpty())
         {

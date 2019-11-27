@@ -54,12 +54,14 @@ struct StackErrorCounters
 {
     std::array<ErrorInfoCounts, stacks::StackCount> stackErrors;
     size_t nonErrorFrames;
+    std::unordered_map<u32, size_t> nonErrorHeaderCounts;
+    QVector<QVector<u32>> framesCopies;
 };
 
 struct GuardedStackErrorCounters
 {
     mutable Mutex guardMutex;
-    StackErrorCounters counters;
+    StackErrorCounters counters = {};
 
     inline UniqueLock lock() const
     {
@@ -82,14 +84,17 @@ StackErrorInfo stack_error_info_from_buffer(const C &errorFrame)
 }
 #endif
 
-// This function expect C to be a container of u32 values holding a sinlge mvlc
-// stack error frame.
+// This function expects C to be a container of u32 values holding a single
+// mvlc stack error frame.
 template<typename C>
 void update_stack_error_counters(StackErrorCounters &counters, const C &errorFrame)
 {
     if (errorFrame.size() != 2)
     {
         ++counters.nonErrorFrames;
+        QVector<u32> frameCopy;
+        std::copy(errorFrame.begin(), errorFrame.end(), std::back_inserter(frameCopy));
+        counters.framesCopies.push_back(frameCopy);
         return;
     }
 
@@ -105,6 +110,10 @@ void update_stack_error_counters(StackErrorCounters &counters, const C &errorFra
     else
     {
         ++counters.nonErrorFrames;
+        ++counters.nonErrorHeaderCounts[errorFrame[0]];
+        QVector<u32> frameCopy;
+        std::copy(errorFrame.begin(), errorFrame.end(), std::back_inserter(frameCopy));
+        counters.framesCopies.push_back(frameCopy);
     }
 }
 

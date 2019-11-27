@@ -117,6 +117,29 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
                        );
             }
         }
+
+        if (errorCounters.nonErrorFrames)
+            qDebug("nonErrorFrames=%lu", errorCounters.nonErrorFrames);
+
+        for (auto it=errorCounters.nonErrorHeaderCounts.begin();
+             it!=errorCounters.nonErrorHeaderCounts.end();
+             ++it)
+        {
+            u32 header = it->first;
+            size_t count = it->second;
+
+            qDebug("  0x%08x: %lu", header, count);
+        }
+
+        for (const auto &frameCopy: errorCounters.framesCopies)
+        {
+            qDebug("copy of a frame recevied via polling:");
+            for (u32 word: frameCopy)
+            {
+                qDebug("  0x%08x", word);
+            }
+            qDebug("----");
+        }
     };
 
     auto dumpTimer = new QTimer(this);
