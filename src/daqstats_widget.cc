@@ -18,8 +18,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+#include "mvlc/mvlc_impl_eth.h"
 #include "daqstats_widget.h"
 
+#include <boost/range/adaptor/indexed.hpp>
 #include <cmath>
 #include <QLabel>
 #include <QFormLayout>
@@ -31,8 +33,9 @@
 #include "sis3153_readout_worker.h"
 #include "util/counters.h"
 #include "mvlc/mvlc_vme_controller.h"
-#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc/mvlc_util.h"
+
+using boost::adaptors::indexed;
 
 static const int UpdateInterval_ms = 1000;
 
@@ -184,8 +187,41 @@ struct DAQStatsWidgetPrivate
              .arg(packetLossRate)));
     }
 
-    void update_MVLC_common(MVLCReadoutWorker *mvlcWorker)
+    void update_MVLC_common(mesytec::mvlc::MVLC_VMEController *mvlcCtrl)
     {
+        auto mvlc = mvlcCtrl->getMVLCObject();
+        auto counters = mvlc->getStackErrorCounters();
+
+        QString text;
+
+        for (const auto &kv: counters.stackErrors | indexed(0))
+        {
+            unsigned stackId = kv.index();
+            const auto &counts = kv.value();
+
+            if (counts.empty())
+                continue;
+
+            for (auto it=counts.begin(); it!=counts.end(); it++)
+            {
+                const auto &errorInfo = it->first;
+                const auto &count = it->second;
+
+                text += QString("stack=%1, line=%2, flags=0x%3, count=%4\n")
+                    .arg(stackId)
+                    .arg(errorInfo.line)
+                    .arg(errorInfo.flags, 2, 16, QLatin1Char('0'))
+                    .arg(count)
+                    ;
+            }
+        }
+
+        if (counters.nonErrorFrames)
+        {
+            text += QString("non-error frames: %1").arg(counters.nonErrorFrames);
+        }
+
+        label_mvlcStackErrors->setText(text);
     }
 
     void updateWidget(VMEReadoutWorker *readoutWorker)
@@ -247,6 +283,8 @@ struct DAQStatsWidgetPrivate
                 update_MVLC_ETH(dataPipeStats, prevCounters.mvlcDataPipeStats, dt_s);
                 prevCounters.mvlcDataPipeStats = dataPipeStats;
             }
+
+            update_MVLC_common(mvlc);
         }
 
         lastUpdateTime = QDateTime::currentDateTime();
