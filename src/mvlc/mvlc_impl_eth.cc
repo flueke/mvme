@@ -478,7 +478,7 @@ std::error_code Impl::connect()
 
             if (auto ec = disable_all_triggers(dlg))
             {
-                LOG_WARN("MVLC is in use and failed to disable triggers: %s", ec.message().c_str());
+                LOG_WARN("MVLC is in use and mvme failed to disable triggers: %s", ec.message().c_str());
                 close_sockets();
                 return ec;
             }
