@@ -513,12 +513,6 @@ struct MVLCReadoutWorker::Private
     MVLCReadoutCounters counters = {};
     mutable mesytec::mvme::TicketMutex countersMutex;
 
-    // notification polling
-#if 0
-    std::thread notificationPollerThread;
-    std::atomic<bool> notificationPollerKeepRunning;
-#endif
-
     // Threaded listfile writing
     static const size_t ListfileWriterBufferCount = 16u;
     static const size_t ListfileWriterBufferSize  = ReadBufferSize;
@@ -551,58 +545,6 @@ struct MVLCReadoutWorker::Private
         counters = {};
     }
 
-#if 0
-    // Use a custom stack error notification poller during readout instead of
-    // letting the poller built into MVLC_VMEController do the work.
-    //
-    // The reason is that the builtin poller uses the Qt signal/slot mechanism
-    // to propagate stack error notifications. The naive approach to handle
-    // these was to react to the signals in the MVLC readout thread but this
-    // required an additional call to Qts processEvents() and took performance
-    // away from the actual readout.
-    //
-    // This new way uses a separate std::thread and a polling loop to read
-    // and interpret notifications and update the counter values.
-    void startNotificationPolling()
-    {
-        assert(!notificationPollerThread.joinable());
-
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
-        QMetaObject::invokeMethod(mvlcCtrl, &MVLC_VMEController::disableNotificationPolling);
-#else
-        QMetaObject::invokeMethod(mvlcCtrl, "disableNotificationPolling");
-#endif
-
-        notificationPollerKeepRunning = true;
-
-        notificationPollerThread = std::thread(
-            stack_error_notification_poller,
-            mvlcObj,
-            std::ref(counters),
-            std::ref(countersMutex),
-            std::ref(notificationPollerKeepRunning));
-
-#ifdef Q_OS_LINUX
-        pthread_setname_np(notificationPollerThread.native_handle(),
-                           "rdo_notify_poll");
-#endif
-    }
-
-    void stopNotificationPolling()
-    {
-        notificationPollerKeepRunning = false;
-
-        if (notificationPollerThread.joinable())
-            notificationPollerThread.join();
-
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
-        QMetaObject::invokeMethod(mvlcCtrl, &MVLC_VMEController::enableNotificationPolling);
-#else
-        QMetaObject::invokeMethod(mvlcCtrl, "enableNotificationPolling");
-#endif
-    }
-#endif
-
     // Cleanly end a running readout session. The code disables all triggers by
     // writing to the trigger registers via the command pipe while in parallel
     // reading and processing data from the data pipe until no more data
@@ -613,10 +555,6 @@ struct MVLCReadoutWorker::Private
     {
         assert(q);
         assert(mvlcObj);
-
-#if 0
-        stopNotificationPolling();
-#endif
 
         auto f = QtConcurrent::run([this] ()
         {
@@ -735,16 +673,6 @@ void MVLCReadoutWorker::start(quint32 cycles)
             auto guard = counters.lock();
             counters.counters = {};
         }
-
-#if 0
-        // Note: disabling polling at this point is not strictly required. It
-        // just speeds up script execution because the poller won't interfere.
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
-        QMetaObject::invokeMethod(d->mvlcCtrl, &MVLC_VMEController::disableNotificationPolling);
-#else
-        QMetaObject::invokeMethod(d->mvlcCtrl, "disableNotificationPolling");
-#endif
-#endif
 
         // vme init sequence
         if (!do_VME_DAQ_Init(d->mvlcCtrl))
@@ -1238,24 +1166,12 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
 
         if (d->listfileOut.outdev)
         {
-#if 0
-            // write to listfile
-            qint64 bytesWritten = d->listfileOut.outdev->write(
-                reinterpret_cast<const char *>(outputBuffer->data),
-                outputBuffer->used);
-
-            if (bytesWritten != static_cast<qint64>(outputBuffer->used))
-                throw_io_device_error(d->listfileOut.outdev);
-
-            m_workerContext.daqStats.listFileBytesWritten += bytesWritten;
-#else
             if (auto listfileWriterBuffer = dequeue(&d->listfileWriterContext.emptyBuffers))
             {
                 // copy the data and queue it up for the writer thread
                 *listfileWriterBuffer = *outputBuffer;
                 enqueue_and_wakeOne(&d->listfileWriterContext.filledBuffers, listfileWriterBuffer);
             }
-#endif
         }
 
         if (outputBuffer != &d->localEventBuffer)
@@ -1378,29 +1294,3 @@ void MVLCReadoutWorker::logError(const QString &msg)
 {
     logMessage(QSL("MVLC Readout Error: %1").arg(msg));
 }
-
-#if 0
-void MVLCReadoutWorker::handleStackErrorNotification(const QVector<u32> &data)
-{
-    if (data.isEmpty())
-        return;
-
-    auto frameInfo = extract_frame_info(data[0]);
-
-    UniqueLock guard(d->countersMutex);
-
-    if (frameInfo.type != frame_headers::StackError)
-    {
-        ++d->counters.nonStackErrorNotifications;
-    }
-    else if (frameInfo.stack < stacks::StackCount)
-    {
-        auto &errorCounters = d->counters.stackErrors[frameInfo.stack];
-
-        for (size_t i = 0; i < MVLCReadoutCounters::NumErrorCounters; ++i)
-        {
-            errorCounters[i] += ((frameInfo.flags >> i) & 1u);
-        }
-    }
-}
-#endif
