@@ -284,8 +284,7 @@ std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
                 if (ec == ErrorType::ConnectionError)
                     return ec;
             }
-            else
-                return ec;
+            else break;
         }
 
         return {};
