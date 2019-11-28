@@ -620,7 +620,19 @@ struct MVLCReadoutWorker::Private
 
         auto f = QtConcurrent::run([this] ()
         {
-            return disable_all_triggers(*mvlcObj);
+            static const int DisableTriggerRetryCount = 5;
+
+            for (int try_ = 0; try_ < DisableTriggerRetryCount; try_++)
+            {
+                if (auto ec = disable_all_triggers(*mvlcObj))
+                {
+                    if (ec == ErrorType::ConnectionError)
+                        return ec;
+                }
+                else break;
+            }
+
+            return std::error_code{};
         });
 
         using Clock = std::chrono::high_resolution_clock;
@@ -834,10 +846,12 @@ void MVLCReadoutWorker::start(quint32 cycles)
         logError(QSL("VME Script parse error: ") + e.what());
     }
 
+#if 0
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
         QMetaObject::invokeMethod(d->mvlcCtrl, &MVLC_VMEController::enableNotificationPolling);
 #else
         QMetaObject::invokeMethod(d->mvlcCtrl, "enableNotificationPolling");
+#endif
 #endif
 
     // Reset object pointers to ensure we don't accidentially work with stale
