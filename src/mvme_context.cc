@@ -1770,6 +1770,11 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
     // cannot so the DAQ has to be paused and resumed if needed.
     if (is_mvlc_controller(m_controller->getType()))
     {
+        auto mvlc = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(m_controller);
+        assert(mvlc);
+
+        mvlc->disableNotificationPolling();
+
         // The below code should be equivalent to
         // results = vme_script::run_script(m_controller, script, logger, logEachResult);
         // but moves the run_script call into a different thread and shows a
@@ -1804,6 +1809,8 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
             pd.exec();
 
         results = f.result();
+
+        mvlc->enableNotificationPolling();
     }
     else
     {
