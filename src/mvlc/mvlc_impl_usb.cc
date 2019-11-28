@@ -9,9 +9,10 @@
 #include <regex>
 #include <QDebug>
 
-#include "mvlc/mvlc_threading.h"
 #include "mvlc/mvlc_dialog.h"
 #include "mvlc/mvlc_error.h"
+#include "mvlc/mvlc_threading.h"
+#include "mvlc/mvlc_util.h"
 
 
 #define LOG_LEVEL_OFF     0
@@ -241,19 +242,6 @@ mesytec::mvlc::usb::DeviceInfoList make_device_info_list()
 }
 
 using namespace mesytec::mvlc;
-
-std::error_code disable_all_triggers(MVLCDialog &dlg)
-{
-    for (u8 stackId = 0; stackId < stacks::StackCount; stackId++)
-    {
-        u16 addr = stacks::get_trigger_register(stackId);
-
-        if (auto ec = dlg.writeRegister(addr, stacks::NoTrigger))
-            return ec;
-    }
-
-    return {};
-}
 
 // USB specific post connect routine which tries to disable a potentially
 // running DAQ. This is done to make sure the command communication is working
