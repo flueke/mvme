@@ -343,7 +343,12 @@ void MVLC_StreamWorker::start()
         else if (m_desiredState == WorkerState::Idle)
         {
             if (m_stopFlag == StopImmediately)
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "immediate stop, buffers left in queue:" <<
+                    queue_size(m_fullBuffers);
+
                 break;
+            }
 
             // The StopWhenQueueEmpty case
             if (auto buffer = dequeue(m_fullBuffers))
