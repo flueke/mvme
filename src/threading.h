@@ -85,4 +85,11 @@ bool is_empty(ThreadSafeQueue<T> *tsq)
     return tsq->queue.isEmpty();
 }
 
+template<typename T>
+int queue_size(ThreadSafeQueue<T> *tsq)
+{
+    QMutexLocker lock(&tsq->mutex);
+    return tsq->queue.size();
+}
+
 #endif /* __THREADING_H__ */
