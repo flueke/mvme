@@ -241,14 +241,18 @@ void MVMEContextPrivate::stopDAQReadout()
         QObject::disconnect(con);
     }
 
+    qDebug() << __PRETTY_FUNCTION__ << "readout worker stopped";
+
     if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
-        m_q->m_streamWorker->stop();
+        m_q->m_streamWorker->stop(false);
         auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                                     &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
     }
+
+    qDebug() << __PRETTY_FUNCTION__ << "stream worker stopped";
 
     Q_ASSERT(m_q->m_readoutWorker->getState() == DAQState::Idle);
     m_q->onDAQStateChanged(DAQState::Idle);
