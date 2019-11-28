@@ -352,6 +352,12 @@ MVLC_ETH_SettingsWidget::MVLC_ETH_SettingsWidget(QWidget *parent)
 {
     auto layout = new QFormLayout(this);
     layout->addRow("Hostname / IP Address", le_address);
+    layout->addRow(make_framed_description_label(QSL(
+                "When using DHCP the MVLC will request a hostname of the form "
+                "<i>MVLC-NNNN</i> where NNNN is the serial number.<br/>"
+                "This value is  also displayed on the MVLCs front panel close to "
+                "the ethernet plug."
+                )));
 }
 
 void MVLC_ETH_SettingsWidget::validate()
@@ -360,7 +366,10 @@ void MVLC_ETH_SettingsWidget::validate()
 
 void MVLC_ETH_SettingsWidget::loadSettings(const QVariantMap &settings)
 {
-    le_address->setText(settings["mvlc_hostname"].toString());
+    auto hostname = settings["mvlc_hostname"].toString();
+    if (hostname.isEmpty())
+        hostname = "MVLC-0001";
+    le_address->setText(hostname);
 }
 
 QVariantMap MVLC_ETH_SettingsWidget::getSettings()
