@@ -674,16 +674,30 @@ void MVLCReadoutWorker::start(quint32 cycles)
             counters.counters = {};
         }
 
-        // vme init sequence
-        if (!do_VME_DAQ_Init(d->mvlcCtrl))
-        {
-#if 0
+#if 1
+        // Note: disabling polling at this point is not strictly required. It
+        // just speeds up script execution because the poller won't interfere.
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
+        QMetaObject::invokeMethod(d->mvlcCtrl, &MVLC_VMEController::disableNotificationPolling);
+#else
+        QMetaObject::invokeMethod(d->mvlcCtrl, "disableNotificationPolling");
+#endif
+#endif
+
+        // Run the standard VME DAQ init sequence
+        bool initOk = this->do_VME_DAQ_Init(d->mvlcCtrl);
+
+#if 1
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
         QMetaObject::invokeMethod(d->mvlcCtrl, &MVLC_VMEController::enableNotificationPolling);
 #else
         QMetaObject::invokeMethod(d->mvlcCtrl, "enableNotificationPolling");
 #endif
 #endif
+
+        // vme init sequence
+        if (!initOk)
+        {
             setState(DAQState::Idle);
             return;
         }
@@ -725,9 +739,6 @@ void MVLCReadoutWorker::start(quint32 cycles)
         listfile_write_preamble(d->listfileOut, *d->mvlcObj, *m_workerContext.vmeConfig);
 
         d->preRunClear();
-#if 0
-        d->startNotificationPolling();
-#endif
 
         logMessage("");
         logMessage(QSL("Entering readout loop"));
@@ -773,14 +784,6 @@ void MVLCReadoutWorker::start(quint32 cycles)
     {
         logError(QSL("VME Script parse error: ") + e.what());
     }
-
-#if 0
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
-        QMetaObject::invokeMethod(d->mvlcCtrl, &MVLC_VMEController::enableNotificationPolling);
-#else
-        QMetaObject::invokeMethod(d->mvlcCtrl, "enableNotificationPolling");
-#endif
-#endif
 
     // Reset object pointers to ensure we don't accidentially work with stale
     // pointers on next startup.
