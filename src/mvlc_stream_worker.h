@@ -20,6 +20,9 @@ class MVLC_StreamWorker: public StreamWorkerBase
             const VMEConfig *vmeConfig,
             const analysis::Analysis *analysis);
 
+        void singleStepResultReady(
+            const mesytec::mvlc::ReadoutParserState &parserState);
+
     public:
         MVLC_StreamWorker(
             MVMEContext *context,
@@ -31,6 +34,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         MVMEStreamWorkerState getState() const override
         {
+            std::unique_lock<std::mutex> guard(m_stateMutex);
             return m_state;
         }
 
@@ -72,8 +76,8 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         mesytec::mvlc::ReadoutParserCounters getReadoutParserCounters() const
         {
-            UniqueLock guard(m_parserMutex);
-            return m_parser.counters;
+            UniqueLock guard(m_parserCountersMutex);
+            return m_parserCountersCopy;
         }
 
     public slots:
@@ -126,6 +130,9 @@ class MVLC_StreamWorker: public StreamWorkerBase
             const VMEConfig *vmeConfig,
             analysis::Analysis *analysis);
 
+        void blockIfPaused();
+        void publishStateIfSingleStepping();
+
         void logParserInfo(const mesytec::mvlc::ReadoutParserState &parser);
 
         MVMEContext *m_context;
@@ -138,14 +145,24 @@ class MVLC_StreamWorker: public StreamWorkerBase
         mutable mesytec::mvme::TicketMutex m_countersMutex;
         MVMEStreamProcessorCounters m_counters = {};
 
-        mutable mesytec::mvme::TicketMutex m_parserMutex;
         mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
         mesytec::mvlc::ReadoutParserState m_parser;
+        mutable mesytec::mvme::TicketMutex m_parserCountersMutex;
+        mesytec::mvlc::ReadoutParserCounters m_parserCountersCopy = {};
 
+        // Note: std::condition_variable requires an std::mutex, that's why a
+        // TicketMutex is not used here.
+        // Note2: despite being atomic variables when using a
+        // condition_variable the shared resource has to be protected by a
+        // std::mutex.
+        mutable std::mutex m_stateMutex;
+        std::condition_variable m_stateCondVar;
         std::atomic<MVMEStreamWorkerState> m_state;
         std::atomic<MVMEStreamWorkerState> m_desiredState;
+
         std::atomic<bool> m_startPaused;
         std::atomic<StopFlag> m_stopFlag;
+
         std::atomic<DebugInfoRequest> m_debugInfoRequest;
         mvme::multi_event_splitter::State m_multiEventSplitter;
         mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
