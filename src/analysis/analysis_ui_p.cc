@@ -3181,41 +3181,42 @@ void MVLCSingleStepHandler::handleSingleStepResult(
             continue;
         }
 
-        m_logger(QString("SingleStep: moduleIndex=%1:").arg(moduleIndex));
+        m_logger(QString("SingleStep: eventIndex=%1, moduleIndex=%2:")
+                 .arg(parserState.eventIndex)
+                 .arg(moduleIndex));
 
         auto bufferLogger = [this] (const QString &msg)
         {
             m_logger("    " + msg);
         };
 
-        if (moduleSpans.prefixSpan.size > 0)
+        auto handle_span = [&](const Span &span, const QString &typeString)
         {
             BufferIterator bufIter(
-                parserState.workBuffer.indexU32(moduleSpans.prefixSpan.offset),
-                moduleSpans.prefixSpan.size);
+                parserState.workBuffer.indexU32(span.offset),
+                span.size);
 
-            m_logger("  modulePrefix:");
+            m_logger(QString("  %1 (words=%2, bytes=%3):")
+                     .arg(typeString)
+                     .arg(span.size)
+                     .arg(span.size * sizeof(u32)));
+
             ::logBuffer(bufIter, bufferLogger);
+        };
+
+        if (moduleSpans.prefixSpan.size > 0)
+        {
+            handle_span(moduleSpans.prefixSpan, "modulePrefix");
         }
 
         if (moduleSpans.dynamicSpan.size > 0)
         {
-            BufferIterator bufIter(
-                parserState.workBuffer.indexU32(moduleSpans.dynamicSpan.offset),
-                moduleSpans.dynamicSpan.size);
-
-            m_logger("  moduleDynamic:");
-            ::logBuffer(bufIter, bufferLogger);
+            handle_span(moduleSpans.dynamicSpan, "moduleDynamic");
         }
 
         if (moduleSpans.suffixSpan.size > 0)
         {
-            BufferIterator bufIter(
-                parserState.workBuffer.indexU32(moduleSpans.suffixSpan.offset),
-                moduleSpans.suffixSpan.size);
-
-            m_logger("  moduleSuffix:");
-            ::logBuffer(bufIter, bufferLogger);
+            handle_span(moduleSpans.suffixSpan, "moduleSuffix");
         }
     }
 
