@@ -654,8 +654,8 @@ ParseResult parse_eth_packet(
             // using this packets data.
             return ParseResult::NoHeaderPresent;
         }
+
         // Place the iterator on the packets first header word pointed to by
-        //
         // the eth headers. parse_readout_contents() will be called with this
         // iterator position and will be able to find a StackFrame from there.
         size_t bytesToSkip = ethHdrs.nextHeaderPointer() * sizeof(u32);

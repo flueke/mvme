@@ -78,6 +78,13 @@ struct ModuleReadoutSpans
     Span suffixSpan;
 };
 
+inline bool is_empty(const ModuleReadoutSpans &spans)
+{
+    return (spans.prefixSpan.size == 0
+            && spans.dynamicSpan.size == 0
+            && spans.suffixSpan.size == 0);
+}
+
 struct end_of_frame: public std::exception {};
 
 struct ReadoutParserCallbacks
@@ -113,7 +120,9 @@ enum class ParseResult
     EmptyStackFrame,
     UnexpectedOpenBlockFrame,
 
-    // XXX: These should be fixed in the code.
+    // IMPORTANT: These should not happen and be fixed in the code if they
+    // happen. They indicate that the parser algorithm did not advance through
+    // the buffer but is stuck in place, parsing the same data again.
     ParseReadoutContentsNotAdvancing,
     ParseEthBufferNotAdvancing,
     ParseEthPacketNotAdvancing,
