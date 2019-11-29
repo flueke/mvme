@@ -90,9 +90,18 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
 
     auto debug_print_stack_error_counters = [this] ()
     {
-        qDebug("Stack Error Info Dump:");
-
         auto errorCounters = m_mvlc->getStackErrorCounters();
+
+        for (size_t stackId = 0; stackId < errorCounters.stackErrors.size(); ++stackId)
+        {
+            const auto &errorInfoCounts = errorCounters.stackErrors[stackId];
+
+            if (!errorInfoCounts.empty() || errorCounters.nonErrorFrames > 0)
+            {
+                qDebug("Stack Error Info Dump:");
+                break;
+            }
+        }
 
         for (size_t stackId = 0; stackId < errorCounters.stackErrors.size(); ++stackId)
         {
@@ -100,7 +109,6 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
 
             if (errorInfoCounts.empty())
                 continue;
-
 
             for (auto it = errorInfoCounts.begin();
                  it != errorInfoCounts.end();
