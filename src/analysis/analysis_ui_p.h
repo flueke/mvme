@@ -451,6 +451,20 @@ class MVLCParserDebugHandler: public QObject
         WidgetGeometrySaver *m_geometrySaver;
 };
 
+class MVLCSingleStepHandler: public QObject
+{
+    Q_OBJECT
+    public:
+        using Logger = std::function<void (const QString &)>;
+        MVLCSingleStepHandler(Logger logger, QObject *parent = nullptr);
+
+    public slots:
+        void handleSingleStepResult(mesytec::mvlc::ReadoutParserState parserState);
+
+    private:
+        Logger m_logger;
+};
+
 } // ns ui
 } // ns analysis
 

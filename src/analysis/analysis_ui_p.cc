@@ -22,6 +22,7 @@
 
 #include <array>
 #include <limits>
+#include <boost/range/adaptor/indexed.hpp>
 
 #include <QAbstractItemModel>
 #include <QButtonGroup>
@@ -61,6 +62,8 @@
 #include "util/qt_font.h"
 #include "util/variablify.h"
 #include "vme_config.h"
+
+using boost::adaptors::indexed;
 
 namespace
 {
@@ -3149,6 +3152,74 @@ void MVLCParserDebugHandler::handleDebugInfo(
         wl->addWidget(splitter);
         widget->show();
     }
+}
+
+MVLCSingleStepHandler::MVLCSingleStepHandler(
+    Logger logger, QObject *parent)
+    : QObject(parent)
+    , m_logger(logger)
+{
+}
+
+void MVLCSingleStepHandler::handleSingleStepResult(
+    mesytec::mvlc::ReadoutParserState parserState)
+{
+    qDebug() << __PRETTY_FUNCTION__
+        << "state.eventIndex=" << parserState.eventIndex
+        << "state.moduleIndex=" << parserState.moduleIndex
+        << "state.readoutDataSpans.size()=" << parserState.readoutDataSpans.size();
+
+    for (const auto &kv: parserState.readoutDataSpans | indexed(0))
+    {
+        const auto &moduleIndex = kv.index();
+        const auto &moduleSpans = kv.value();
+
+        if (is_empty(moduleSpans))
+        {
+            m_logger(QString("SingleStep: moduleIndex=%1: empty module data")
+                     .arg(moduleIndex));
+            continue;
+        }
+
+        m_logger(QString("SingleStep: moduleIndex=%1:").arg(moduleIndex));
+
+        auto bufferLogger = [this] (const QString &msg)
+        {
+            m_logger("    " + msg);
+        };
+
+        if (moduleSpans.prefixSpan.size > 0)
+        {
+            BufferIterator bufIter(
+                parserState.workBuffer.indexU32(moduleSpans.prefixSpan.offset),
+                moduleSpans.prefixSpan.size);
+
+            m_logger("  modulePrefix:");
+            ::logBuffer(bufIter, bufferLogger);
+        }
+
+        if (moduleSpans.dynamicSpan.size > 0)
+        {
+            BufferIterator bufIter(
+                parserState.workBuffer.indexU32(moduleSpans.dynamicSpan.offset),
+                moduleSpans.dynamicSpan.size);
+
+            m_logger("  moduleDynamic:");
+            ::logBuffer(bufIter, bufferLogger);
+        }
+
+        if (moduleSpans.suffixSpan.size > 0)
+        {
+            BufferIterator bufIter(
+                parserState.workBuffer.indexU32(moduleSpans.suffixSpan.offset),
+                moduleSpans.suffixSpan.size);
+
+            m_logger("  moduleSuffix:");
+            ::logBuffer(bufIter, bufferLogger);
+        }
+    }
+
+    m_logger("---");
 }
 
 } // end namespace ui
