@@ -459,7 +459,7 @@ class MVLCSingleStepHandler: public QObject
         MVLCSingleStepHandler(Logger logger, QObject *parent = nullptr);
 
     public slots:
-        void handleSingleStepResult(mesytec::mvlc::ReadoutParserState parserState);
+        void handleSingleStepResult(const EventRecord &eventRecord);
 
     private:
         Logger m_logger;

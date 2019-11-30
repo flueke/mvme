@@ -396,3 +396,8 @@ void logBuffer(BufferIterator iter, std::function<void (const QString &)> logger
         loggerFun(strbuf);
     }
 }
+
+void logBuffer(const QVector<u32> &data, std::function<void (const QString &)> loggerFun)
+{
+    logBuffer(BufferIterator(const_cast<u32 *>(data.data()), data.size()), loggerFun);
+}

@@ -326,6 +326,7 @@ LIBMVME_CORE_EXPORT QPair<double, QString> byte_unit(size_t bytes);
 //QString format_memory_size(size_t bytes);
 
 LIBMVME_CORE_EXPORT void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun);
+LIBMVME_CORE_EXPORT void logBuffer(const QVector<u32> &data, std::function<void (const QString &)> loggerFun);
 
 static constexpr double make_quiet_nan()
 {

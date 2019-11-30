@@ -10,6 +10,35 @@
 
 class MVMEContext;
 
+struct EventRecord
+{
+    enum RecordModulePart
+    {
+        Prefix,
+        Dynamic,
+        Suffix,
+    };
+
+    struct ModuleData
+    {
+        QVector<u32> prefix;
+        QVector<u32> dynamic;
+        QVector<u32> suffix;
+    };
+
+    int eventIndex;
+    QVector<ModuleData> modulesData;
+};
+
+void begin_event_record(
+    EventRecord &record, int eventIndex);
+
+void record_module_part(
+    EventRecord &record, EventRecord::RecordModulePart part,
+    int moduleIndex, const u32 *data, u32 size);
+
+bool is_empty(const EventRecord::ModuleData &moduleData);
+
 class MVLC_StreamWorker: public StreamWorkerBase
 {
     Q_OBJECT
@@ -20,8 +49,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
             const VMEConfig *vmeConfig,
             const analysis::Analysis *analysis);
 
-        void singleStepResultReady(
-            const mesytec::mvlc::ReadoutParserState &parserState);
+        void singleStepResultReady(const EventRecord &eventRecord);
 
     public:
         MVLC_StreamWorker(
@@ -166,6 +194,8 @@ class MVLC_StreamWorker: public StreamWorkerBase
         std::atomic<DebugInfoRequest> m_debugInfoRequest;
         mvme::multi_event_splitter::State m_multiEventSplitter;
         mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
+
+        EventRecord m_singleStepEventRecord = {};
 };
 
 mesytec::mvlc::VMEConfReadoutScripts LIBMVME_EXPORT

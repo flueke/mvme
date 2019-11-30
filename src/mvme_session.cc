@@ -10,6 +10,7 @@
 #include "git_sha1.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "mvme_stream_worker.h"
+#include "mvlc_stream_worker.h"
 #include "vme_config.h"
 #include "vme_controller.h"
 
@@ -22,11 +23,13 @@ void mvme_init(const QString &appName)
     qRegisterMetaType<Qt::Axis>("Qt::Axis");
     qRegisterMetaType<mesytec::mvlc::MVLCObject::State>("mesytec::mvlc::MVLCObject::State");
     qRegisterMetaType<DataBuffer>("DataBuffer");
+    qRegisterMetaType<EventRecord>("EventRecord");
 
     qRegisterMetaType<ContainerObject *>();
     qRegisterMetaType<VMEScriptConfig *>();
     qRegisterMetaType<ModuleConfig *>();
     qRegisterMetaType<EventConfig *>();
+    qRegisterMetaType<VMEConfig *>();
     qRegisterMetaType<VMEConfig *>();
 
 #define REG_META_VEC(T) \

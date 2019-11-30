@@ -35,6 +35,49 @@ VMEConfReadoutScripts collect_readout_scripts(const VMEConfig &vmeConfig)
     return readoutScripts;
 }
 
+void begin_event_record(
+    EventRecord &record, int eventIndex)
+{
+    record.eventIndex = eventIndex;
+    record.modulesData.clear();
+}
+
+void record_module_part(
+    EventRecord &record, EventRecord::RecordModulePart part,
+    int moduleIndex, const u32 *data, u32 size)
+{
+    if (record.modulesData.size() <= moduleIndex)
+        record.modulesData.resize(moduleIndex + 1);
+
+    QVector<u32> *dest = nullptr;
+
+    switch (part)
+    {
+        case EventRecord::Prefix:
+            dest = &record.modulesData[moduleIndex].prefix;
+            break;
+
+        case EventRecord::Dynamic:
+            dest = &record.modulesData[moduleIndex].dynamic;
+            break;
+
+        case EventRecord::Suffix:
+            dest = &record.modulesData[moduleIndex].suffix;
+            break;
+    }
+
+    assert(dest);
+
+    std::copy(data, data + size, std::back_inserter(*dest));
+}
+
+bool is_empty(const EventRecord::ModuleData &moduleData)
+{
+    return moduleData.prefix.isEmpty()
+        && moduleData.dynamic.isEmpty()
+        && moduleData.suffix.isEmpty();
+}
+
 //
 // MVLC_StreamWorker
 //
@@ -109,9 +152,10 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         analysis->beginEvent(ei);
 
         for (auto c: m_moduleConsumers)
-        {
             c->beginEvent(ei);
-        }
+
+        if (m_state == WorkerState::SingleStepping)
+            begin_event_record(m_singleStepEventRecord, ei);
     };
 
     m_parserCallbacks.modulePrefix = [this, analysis](int ei, int mi, const u32 *data, u32 size)
@@ -137,12 +181,19 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
             analysis->processModuleData(ei, mi, data, size);
             for (auto c: m_moduleConsumers)
                 c->processModuleData(ei, mi, data, size);
+
             UniqueLock guard(m_countersMutex);
             m_counters.moduleCounters[ei][mi]++;
         }
         else
         {
             analysis->processModulePrefix(ei, mi, data, size);
+        }
+
+        if (m_state == WorkerState::SingleStepping)
+        {
+            record_module_part(m_singleStepEventRecord, EventRecord::Prefix,
+                               mi, data, size);
         }
     };
 
@@ -161,15 +212,27 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
             UniqueLock guard(m_countersMutex);
             m_counters.moduleCounters[ei][mi]++;
         }
+
+        if (m_state == WorkerState::SingleStepping)
+        {
+            record_module_part(m_singleStepEventRecord, EventRecord::Dynamic,
+                               mi, data, size);
+        }
     };
 
-    m_parserCallbacks.moduleSuffix = [analysis](int ei, int mi, const u32 *data, u32 size)
+    m_parserCallbacks.moduleSuffix = [this, analysis](int ei, int mi, const u32 *data, u32 size)
     {
         //qDebug() << "  moduleSuffix" << ei << mi << data << size;
         analysis->processModuleSuffix(ei, mi, data, size);
 
         // FIXME: The IMVMEStreamModuleConsumer interface doesn't support
         // prefix/suffix data right now
+
+        if (m_state == WorkerState::SingleStepping)
+        {
+            record_module_part(m_singleStepEventRecord, EventRecord::Suffix,
+                               mi, data, size);
+        }
     };
 
     m_parserCallbacks.endEvent = [this, analysis](int ei)
@@ -474,7 +537,7 @@ void MVLC_StreamWorker::publishStateIfSingleStepping()
     std::unique_lock<std::mutex> guard(m_stateMutex);
     if (m_state == WorkerState::SingleStepping)
     {
-        emit singleStepResultReady(m_parser);
+        emit singleStepResultReady(m_singleStepEventRecord);
     }
 }
 

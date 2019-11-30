@@ -3162,27 +3162,27 @@ MVLCSingleStepHandler::MVLCSingleStepHandler(
 }
 
 void MVLCSingleStepHandler::handleSingleStepResult(
-    mesytec::mvlc::ReadoutParserState parserState)
+    const EventRecord &record)
 {
     qDebug() << __PRETTY_FUNCTION__
-        << "state.eventIndex=" << parserState.eventIndex
-        << "state.moduleIndex=" << parserState.moduleIndex
-        << "state.readoutDataSpans.size()=" << parserState.readoutDataSpans.size();
+        << "record.eventIndex=" << record.eventIndex
+        << "record.modulesData.size() =" << record.modulesData.size();
 
-    for (const auto &kv: parserState.readoutDataSpans | indexed(0))
+    for (const auto &kv: record.modulesData | indexed(0))
     {
-        const auto &moduleIndex = kv.index();
-        const auto &moduleSpans = kv.value();
+        int moduleIndex = kv.index();
+        const auto &moduleData = kv.value();
 
-        if (is_empty(moduleSpans))
+        if (is_empty(moduleData))
         {
-            m_logger(QString("SingleStep: moduleIndex=%1: empty module data")
+            m_logger(QString("SingleStep: eventIndex=%1, moduleIndex=%2: empty module data")
+                     .arg(record.eventIndex)
                      .arg(moduleIndex));
             continue;
         }
 
         m_logger(QString("SingleStep: eventIndex=%1, moduleIndex=%2:")
-                 .arg(parserState.eventIndex)
+                 .arg(record.eventIndex)
                  .arg(moduleIndex));
 
         auto bufferLogger = [this] (const QString &msg)
@@ -3190,34 +3190,24 @@ void MVLCSingleStepHandler::handleSingleStepResult(
             m_logger("    " + msg);
         };
 
-        auto handle_span = [&](const Span &span, const QString &typeString)
+        auto handle_part = [&](const QVector<u32> &data, const QString &typeString)
         {
-            BufferIterator bufIter(
-                parserState.workBuffer.indexU32(span.offset),
-                span.size);
-
             m_logger(QString("  %1 (words=%2, bytes=%3):")
                      .arg(typeString)
-                     .arg(span.size)
-                     .arg(span.size * sizeof(u32)));
+                     .arg(data.size())
+                     .arg(data.size() * sizeof(u32)));
 
-            ::logBuffer(bufIter, bufferLogger);
+            ::logBuffer(data, bufferLogger);
         };
 
-        if (moduleSpans.prefixSpan.size > 0)
-        {
-            handle_span(moduleSpans.prefixSpan, "modulePrefix");
-        }
+        if (moduleData.prefix.size() > 0)
+            handle_part(moduleData.prefix, "modulePrefix");
 
-        if (moduleSpans.dynamicSpan.size > 0)
-        {
-            handle_span(moduleSpans.dynamicSpan, "moduleDynamic");
-        }
+        if (moduleData.dynamic.size() > 0)
+            handle_part(moduleData.dynamic, "moduleDynamic");
 
-        if (moduleSpans.suffixSpan.size > 0)
-        {
-            handle_span(moduleSpans.suffixSpan, "moduleSuffix");
-        }
+        if (moduleData.suffix.size() > 0)
+            handle_part(moduleData.suffix, "moduleSuffix");
     }
 
     m_logger("---");
