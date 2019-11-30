@@ -2202,7 +2202,7 @@ Operator make_expression_operator(
     ExpressionOperatorBuildOptions options)
 {
     assert(inputs.size() > 0);
-    assert(inputs.size() < std::numeric_limits<s32>::max());
+    assert(inputs.size() < static_cast<size_t>(std::numeric_limits<s32>::max()));
     assert(inputs.size() == input_prefixes.size());
     assert(inputs.size() == input_units.size());
 
@@ -2276,7 +2276,7 @@ Operator make_expression_operator(
 
     const size_t outputCount = begin_results.size() / ElementsPerOutput;
 
-    assert(outputCount < std::numeric_limits<s32>::max());
+    assert(outputCount < static_cast<size_t>(std::numeric_limits<s32>::max()));
 
     auto result = make_operator(arena, Operator_Expression, inputs.size(), outputCount);
     result.d = d;
