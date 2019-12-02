@@ -4,10 +4,8 @@ TODO list, not at all sorted by priority
 
 * MVLC issues
 ======================
-* readout parser hang when using an MTDC with pulser 7 and max_tranfer_data=25 via ETH
-  -> This seems to happen only when multi event splitting is enabled in the analysis
-* multi event splitting is not applied when doing analysis single steps
-* print part sizes (in words and bytes) when single stepping
+* failing host lookups block the gui. espcially noticeable when loading a
+  replay and starting it. the gui will feel unresponsive.
 * 'QuaZipFile::close(): file isn't open' warnings when recording with the MVLC_ETH
 
 * Add pause/resume/singlestep feature the the mvlc analysis
