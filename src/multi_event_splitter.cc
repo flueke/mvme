@@ -261,7 +261,11 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
                 if (moduleEventSize > words_in_span(spans.dynamicSpan))
                 {
-                    // extracted event size exceeds the data left in the dynamic span
+                    // The extracted event size exceeds the amount of data left
+                    // in the dynamic span. Move the span begin pointer forward
+                    // so that the span has size 0 and the module filter test
+                    // above will fail on the next iteration.
+                    spans.dynamicSpan.begin = spans.dynamicSpan.end;
                     continue;
                 }
 
