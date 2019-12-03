@@ -2,13 +2,12 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+* when removing an analysis object the eventwidgets are recreated and thus lose
+  their node expansions state. fix this at some point
+* make all name input dialogs only accept valid C identifiers
+
 * MVLC issues
 ======================
-* failing host lookups block the gui. espcially noticeable when loading a
-  replay and starting it. the gui will feel unresponsive.
-* 'QuaZipFile::close(): file isn't open' warnings when recording with the MVLC_ETH
-
-* Add pause/resume/singlestep feature the the mvlc analysis
 * Check the whole UI for things that are dead/obsolete when using the mvlc
 * Documentation needs updates
 
@@ -18,6 +17,7 @@ TODO list, not at all sorted by priority
   cmd pipe. Failing to do so will slow down script execution dramatically due
   to the time spent waiting for the lock whenever the polling code is waiting
   for a read to finish.
+  -> RAII polling inhibitor
 
 * ETH under windows: when running a vme script while a high data rate readout
   is in progress some of the vmeSingleWrite calls will return a timeout error.
@@ -46,6 +46,11 @@ they result in a timeout error. Do not immediately disconnect the MVLC.
   builds.
 
 * NSIS Installer: make the zadig installer less prominent and annoying.
+
+* failing host lookups block the gui. espcially noticeable when loading a
+  replay and starting it. the gui will feel unresponsive.
+* 'QuaZipFile::close(): file isn't open' warnings when recording with the MVLC_ETH
+
 
  Configurable Button Grid for VME Scripts
 ------------------------------------------
