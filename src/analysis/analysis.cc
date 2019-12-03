@@ -5106,6 +5106,52 @@ int Analysis::getCurrentAnalysisVersion()
     return CurrentAnalysisVersion;
 }
 
+template<typename C>
+QVariantList to_qvariantlist(const C &container)
+{
+    QVariantList ret;
+    for (const auto &element: container)
+        ret.append(QVariant::fromValue(element));
+    return ret;
+}
+
+template<typename C>
+auto from_qvariantlist(const QVariantList &lst)
+{
+    C ret;
+
+    for (const QVariant &var: lst)
+        ret.push_back(var.value<typename C::value_type>());
+
+    return ret;
+}
+
+void Analysis::setUserLevelsHidden(const QUuid &eventId, const QVector<bool> &hidden)
+{
+    auto settings = property("PerEventHiddenUserLevels").toMap();
+
+    auto currentHidden = getUserLevelsHidden(eventId);
+
+    if (currentHidden != hidden)
+    {
+        auto lst = to_qvariantlist(hidden);
+        settings[eventId.toString()] = lst;
+        setProperty("PerEventHiddenUserLevels", settings);
+        setModified();
+    }
+
+    assert(getUserLevelsHidden(eventId) == hidden);
+}
+
+QVector<bool> Analysis::getUserLevelsHidden(const QUuid &eventId) const
+{
+    auto settings = property("PerEventHiddenUserLevels").toMap();
+    auto lst = settings.value(eventId.toString()).value<QVariantList>();
+    auto ret = from_qvariantlist<QVector<bool>>(lst);
+
+    return ret;
+}
+
 static const double maxRawHistoBins = (1 << 16);
 
 RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor,

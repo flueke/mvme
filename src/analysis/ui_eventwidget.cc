@@ -1047,7 +1047,7 @@ bool may_move_into(const AnalysisObjectPtr &obj, const DirectoryPtr &destDir)
     return may_move_into(obj.get(), destDir.get());
 }
 
-void run_userlevel_visibility_dialog(QVector<bool> &hiddenLevels, QWidget *parent = 0)
+QDialog::DialogCode run_userlevel_visibility_dialog(QVector<bool> &hiddenLevels, QWidget *parent = 0)
 {
     auto listWidget = new QListWidget;
 
@@ -1081,7 +1081,11 @@ void run_userlevel_visibility_dialog(QVector<bool> &hiddenLevels, QWidget *paren
             auto item = listWidget->item(idx);
             hiddenLevels[idx] = (item->checkState() == Qt::Unchecked);
         }
+
+        return QDialog::Accepted;
     }
+
+    return QDialog::Rejected;
 }
 
 struct Histo1DWidgetInfo
@@ -1226,12 +1230,18 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
 
         m_d->m_hiddenUserLevels.resize(m_d->m_levelTrees.size());
 
-        run_userlevel_visibility_dialog(m_d->m_hiddenUserLevels, this);
+        auto res = run_userlevel_visibility_dialog(m_d->m_hiddenUserLevels, this);
 
-        for (s32 idx = 0; idx < m_d->m_hiddenUserLevels.size(); ++idx)
+        if (res == QDialog::Accepted)
         {
-            m_d->m_levelTrees[idx].operatorTree->setVisible(!m_d->m_hiddenUserLevels[idx]);
-            m_d->m_levelTrees[idx].sinkTree->setVisible(!m_d->m_hiddenUserLevels[idx]);
+            for (s32 idx = 0; idx < m_d->m_hiddenUserLevels.size(); ++idx)
+            {
+                m_d->m_levelTrees[idx].operatorTree->setVisible(!m_d->m_hiddenUserLevels[idx]);
+                m_d->m_levelTrees[idx].sinkTree->setVisible(!m_d->m_hiddenUserLevels[idx]);
+            }
+
+            auto analysis = m_d->m_context->getAnalysis();
+            analysis->setUserLevelsHidden(m_d->m_eventId, m_d->m_hiddenUserLevels);
         }
     });
 
@@ -2399,6 +2409,7 @@ void EventWidgetPrivate::repopulate()
         m_displayFrameSplitter->setSizes(splitterSizes);
     }
 
+    m_hiddenUserLevels = getAnalysis()->getUserLevelsHidden(m_eventId);
     m_hiddenUserLevels.resize(m_levelTrees.size());
 
     for (s32 idx = 0; idx < m_hiddenUserLevels.size(); ++idx)

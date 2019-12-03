@@ -2007,6 +2007,9 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         static int getCurrentAnalysisVersion();
 
+        void setUserLevelsHidden(const QUuid &eventId, const QVector<bool> &hidden);
+        QVector<bool> getUserLevelsHidden(const QUuid &eventId) const;
+
     private:
         void updateRank(OperatorInterface *op,
                         QSet<OperatorInterface *> &updated,
