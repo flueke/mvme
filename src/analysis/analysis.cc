@@ -4284,6 +4284,24 @@ DirectoryPtr Analysis::getDirectory(const QUuid &id) const
     return nullptr;
 }
 
+DirectoryPtr Analysis::getDirectory(
+    const QUuid &eventId,
+    const DisplayLocation &loc,
+    const QString &name) const
+{
+    for (const auto &dir: m_directories)
+    {
+        if (dir->getEventId() == eventId
+            && (DisplayLocation::Any == loc || dir->getDisplayLocation() == loc)
+            && dir->objectName() == name)
+        {
+            return dir;
+        }
+    }
+
+    return nullptr;
+}
+
 void Analysis::setDirectories(const DirectoryVector &dirs)
 {
     m_directories = dirs;

@@ -4594,19 +4594,57 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
         AnalysisPauser pauser(m_context);
 
         auto defaultFilters = get_default_data_extractors(module->getModuleMeta().typeName);
+        auto analysis = m_context->getAnalysis();
+
+        // Directory for calibration operators for this module
+        auto calDirName = "Cal " + module->objectName();
+        auto dirCalOperators = analysis->getDirectory(
+            module->getEventId(),
+            DisplayLocation::Operator,
+            calDirName);
+
+        if (!dirCalOperators)
+        {
+            dirCalOperators = std::make_shared<Directory>();
+            dirCalOperators->setEventId(module->getEventId());
+            dirCalOperators->setDisplayLocation(DisplayLocation::Operator);
+            dirCalOperators->setObjectName(calDirName);
+            dirCalOperators->setUserLevel(1);
+            analysis->addDirectory(dirCalOperators);
+        }
+
+        // Directory for calibrated data histograms
+        calDirName = "Cal Histos " + module->objectName();
+        auto dirCalHistos = analysis->getDirectory(
+            module->getEventId(),
+            DisplayLocation::Sink,
+            calDirName);
+
+        if (!dirCalHistos)
+        {
+            dirCalHistos = std::make_shared<Directory>();
+            dirCalHistos->setEventId(module->getEventId());
+            dirCalHistos->setDisplayLocation(DisplayLocation::Sink);
+            dirCalHistos->setObjectName(calDirName);
+            dirCalHistos->setUserLevel(1);
+            analysis->addDirectory(dirCalHistos);
+        }
 
         for (auto &ex: defaultFilters)
         {
             auto dataFilter = ex->getFilter();
             double unitMin = 0.0;
             double unitMax = std::pow(2.0, dataFilter.getDataBits());
-            QString name = module->getModuleMeta().typeName + QSL(".")
-                + ex->objectName().section('.', 0, -1);
+            QString name = ex->objectName().section('.', 0, -1);
 
-            RawDataDisplay rawDataDisplay = make_raw_data_display(dataFilter, unitMin, unitMax,
-                                                                  name,
-                                                                  ex->objectName().section('.', 0, -1),
-                                                                  QString());
+            RawDataDisplay rawDataDisplay = make_raw_data_display(
+                dataFilter, unitMin, unitMax,
+                name,
+                ex->objectName().section('.', 0, -1),
+                QString());
+
+            dirCalOperators->push_back(rawDataDisplay.calibration);
+            dirCalHistos->push_back(rawDataDisplay.calibratedHistoSink);
 
             add_raw_data_display(m_context->getAnalysis(), m_eventId, module->getId(), rawDataDisplay);
             m_context->getAnalysis()->beginRun(Analysis::KeepState);

@@ -1891,6 +1891,10 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         DirectoryPtr getDirectory(const QUuid &id) const;
 
+        // Matches on (eventId, displayLocation and directoryName). The first match is returned.
+        DirectoryPtr getDirectory(
+            const QUuid &eventId, const DisplayLocation &loc, const QString &name) const;
+
         void setDirectories(const DirectoryVector &dirs);
         void addDirectory(const DirectoryPtr &dir);
         void removeDirectory(const DirectoryPtr &dir);
