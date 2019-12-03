@@ -1306,6 +1306,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
 
         tb->addSeparator();
 
+#ifndef QT_NO_DEBUG
         tb->addAction(QSL("Conditions/Cuts"), this, [this]() {
             if (auto w = getAnalysisWidget()->getConditionWidget())
             {
@@ -1313,6 +1314,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
                 w->raise();
             }
         });
+#endif
 
 #ifndef QT_NO_DEBUG
         tb->addSeparator();
@@ -2308,11 +2310,13 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
 
             if (void *voidObj = get_pointer<void>(node, DataRole_AnalysisObject))
             {
+                qDebug() << "expanded analysisobject" << voidObj;
                 m_expandedObjects[treeType].insert(voidObj);
             }
 
             if (void *voidObj = get_pointer<void>(node, DataRole_RawPointer))
             {
+                qDebug() << "expanded raw pointer" << voidObj;
                 m_expandedObjects[treeType].insert(voidObj);
             }
         });
@@ -2322,11 +2326,13 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
 
             if (void *voidObj = get_pointer<void>(node, DataRole_AnalysisObject))
             {
+                qDebug() << "collapsed analysisobject" << voidObj;
                 m_expandedObjects[treeType].remove(voidObj);
             }
 
             if (void *voidObj = get_pointer<void>(node, DataRole_RawPointer))
             {
+                qDebug() << "collapsed raw pointer" << voidObj;
                 m_expandedObjects[treeType].remove(voidObj);
             }
         });
