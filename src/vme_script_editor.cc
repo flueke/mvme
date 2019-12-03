@@ -241,7 +241,7 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
     m_d->m_editor->setFocus();
     m_d->updateCursorPositionLabel();
     setWindowIcon(QIcon(QPixmap(":/vme_script.png")));
-    resize(650, 400);
+    resize(800, 600);
 }
 
 VMEScriptEditor::~VMEScriptEditor()
