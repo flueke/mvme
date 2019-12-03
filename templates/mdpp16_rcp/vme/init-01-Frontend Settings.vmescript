@@ -14,16 +14,27 @@
                 # range 1..250
                 # 100   -> gain = 1
                 # 25000 -> gain = 250
-                #
+
 # threshold0 (even channel)
-0x611C  0x00ff  # 0..64k, 64k corresponds to full range
+0x611C  256  	# 256 = 0.4% full range
+				# 0..64k, 64k corresponds to full range
+
 # threshold1 (odd channel)
-0x611E  0x00ff  # same as threshold0
+0x611E  256  	# 256 = 0.4% full range
+				# same as threshold0
 
 # shaping_time (common for both selected channels)
 0x6124  200     # FWHM-width in multiples of 12.5ns (200 == 2.5 us)
                 # range 8..2000 (100 ns to 25 us)
 
+# signal_rise_time, determines the flat top of trapezoidal shaper (common for both selected channels)
+0x612A  0       # multiple of 12.5 ns (7 bit value)
+                # 0 -> For Si-detectors, constant rise time detectors: shorted dead time.
+                # For germanium detectors with position dependent rise time set
+                # to largest possible signal rise time.
+                # This results in highest resolution and ballistic loss correction.
+
+##### Expert settings, usually the default settings are fine #######
 # BLR - base line restorer (common for both selected channels)
 0x6126  2       # 0 -> off
                 # 1 -> strict (int. time = 4 shaping times)
@@ -32,12 +43,7 @@
 # reset_time (common for both selected channels)
 0x6128  16      # multiple of 12.5 ns, min = 16 (== 200ns)
 
-# signal_rise_time (common for both selected channels)
-0x612A  0       # multiple of 12.5 ns (7 bit value)
-                # 0 -> For Si-detectors, constant rise time detectors: shorted dead time.
-                # For germanium detectors with position dependent rise time set
-                # to largest possible signal rise time.
-                # This results in highest resolution and ballistic loss correction.
+
 
 
 # Channel / Channel Pair Front end settings

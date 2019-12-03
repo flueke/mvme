@@ -15,8 +15,9 @@
 # 0x6116 read_address:  requested data: Frontend: Address[7:0]
 # 0x6118 read_data:     requested data: Frontend: Data[15:0]
 
-
- 0x611A 135    # at present do not touch; bus delay + bus latencies
+# Longest connected bus (POF fiber)
+0x611A 50    	# 50 = 10m of fiber bus length
+				# required for window of interest coincidence
 
 # ******* SET REGISTERS OF FRONTEND MODULES ***********
 0x6100  16      # for all frontends

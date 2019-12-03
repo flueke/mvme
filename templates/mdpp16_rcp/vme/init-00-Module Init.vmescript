@@ -3,20 +3,13 @@
 # Operation Mode
 # ############################################################################
 # tdc_resolution
-0x6042  5           # 0 ->  24 ps = 25 ns / 1024
+0x6042  2           # 0 ->  24 ps = 25 ns / 1024
                     # 1 ->  49 ps = 25 ns / 512
                     # 2 ->  98 ps = 25 ns / 256
                     # 3 -> 195 ps = 25 ns / 128
                     # 4 -> 391 ps = 25 ns / 64
                     # 5 -> 781 ps = 25 ns / 32
 
-# adc_resolution
-0x6046  0           # number of valid output bits for maximum amplitude
-                    # 0 -> 16 bits
-                    # 1 -> 15 bits
-                    # 2 -> 14 bits
-                    # 3 -> 13 bits
-                    # 4 -> 12 bits
 
 # first_hit
 0x605C  1           # 0 -> transmit all hits per channel in the window
@@ -25,15 +18,20 @@
 # Trigger Setup
 # ############################################################################
 # win_start
-#0x6050  16368      # Window of interest start time relative to trigger.
-                    # win_start = (time_delay_ns / 1.56) + 0x3FFF
-                    # with time_delay_ns in range [-25560 ns, +25560 ns]
+0x6050  16256       # 16256 = -200ns
+					# Window of interest start time relative to trigger.
+					# Window start   = 16384  + delay[ns]/25[ns]*16;
+					#  Hex notation: = 0x3FFF + delay[ns]/25[ns]*16;
+					# Delay can be negative to register hits before the trigger
+                    # Delay may be in the range [-25560 ns, +25560 ns]
                     # < 0 -> window starts before trigger
                     # > 0 -> window is delayed
 
 # win_width (14 bit value)
-0x6054  32          # win_width = (win_width_ns / 1.56 ns)
-                    # Unit: ns, Range: [0, 25560 ns]
+0x6054  256         # 256 = 400ns
+					# win_width = (win_width[ns] / 25ns * 16)
+					# max value 16383; (Hex notation: 0x3FFF)
+                    # Range: [0, 25560 ns]
 
 # trig_source
 # Defines the trigger which creates the window of interest.
@@ -45,17 +43,25 @@
                     # +-------------+--------------------+---------+
                     # | Whole bank  |     16_channels    |  trig   |
                     # |   2 bits    |       6 bits       | 2 bits  |
-                    # +=============+====================+=========+
-                    # | resets | B0 | active | 0 | Chan  | T1 | T0 |
+                    # +============================================|
+                    # |      0 | B0 | active | 0 | Chan  | T1 | T0 |
                     # |        |    |        |   | [3:0] |    |    |
                     # +--------+----+--------+---+-------+----+----+
-                    # Bit 9 allows reset events to trigger
+
 
 # trigger_output
 # NIM1 trigger output
 0x605E  0x100       # 0x100 -> whole bank (OR of all channels)
                     # single channel: trigger_output = 128 + (chan * 4)
                     #                 with channel in 0..15
+                    # +-------------+--------------------+---------+
+                    # | Whole bank  |     16_channels    |  trig   |
+                    # |   2 bits    |       6 bits       | 2 bits  |
+                    # +============================================|
+                    # |      0 | B0 | active | 0 | Chan  | X  | X  |
+                    # |        |    |        |   | [3:0] |    |    |
+                    # +--------+----+--------+---+-------+----+----+
+
 
 # I/O
 # ############################################################################
@@ -108,7 +114,7 @@
 
 # Internal Test Pulser
 # ############################################################################
-# Note: window of Interest has to include 0±3 ns
+# Note: window of Interest has to include 0Â±3 ns
 # pulser_status
 0x6070  0           # 0 -> off, 1 -> on
 

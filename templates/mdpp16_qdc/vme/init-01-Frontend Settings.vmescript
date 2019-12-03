@@ -10,19 +10,16 @@
 0x6110  30      # FWHM in ns
 
 # input_amplitude (16 bit value)
-0x6112  1000    # input amplitude 0 to peak in mV
+0x6112  1000    # maximum required input amplitude: 0 to peak in mV
 
 # jumper_range
 0x6114  3000    # range printed on jumper top in mV
-
-# qdc_jumper
-0x6116  0       # 0 -> no, 1 -> yes
 
 # integration_long
 0x6118  10      # 2..128 in multiples of 12.5 ns
 
 # integration_short
-0x611A  1       # 2..31 in multiples of 12.5 ns,
+0x611A  1       # 1..31 in multiples of 12.5 ns,
                 # must be < integration_long.
 
 # threshold0 (15 bit value for the even channel)
@@ -31,21 +28,25 @@
 # threshold1 (15 bit value for the odd channel)
 0x611E  0x4FF   # 1..0xFFFF, example: 0x200 -> 0.8%
 
+
+### Expert settings, usually the default settings are fine ####
+# qdc_jumper
+#0x6116  0      # 0 -> no, 1 -> yes
 # reset_time (common for both selected channels)
-0x6128  20      # multiple of 12.5 ns
+#0x6128  20     # multiple of 12.5 ns
 
 # long_gain_correction
-0x612A  1024    #  256 -> divide by 4
+#0x612A  1024   #  256 -> divide by 4
                 # 4096 -> multiply by 4
                 # 1024 -> neutral
 
 # tf_gain_correction
-0x612C  1024    #  256 -> divide by 4
+#0x612C  1024   #  256 -> divide by 4
                 # 4096 -> multiply by 4
                 # 1024 -> neutral
 
 # short_gain_correction
-0x612E  1024    #  256 -> divide by 4
+#0x612E  1024   #  256 -> divide by 4
                 # 4096 -> multiply by 4
                 # 1024 -> neutral
 
