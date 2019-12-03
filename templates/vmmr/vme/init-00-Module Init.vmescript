@@ -16,15 +16,16 @@
 # Trigger Setup
 # ############################################################################
 # win_start
-0x6050  4064        # Unit: 5ns, Default: 0x1000 - 32 = 4064
+0x6050  4064        # win_start = 4096 + delay[ns] / 5;
+					# Unit: 5ns, Default: 0x1000 - 32 = 4064
                     # 0x0000 -> start at -20.48 us
                     # 0x1FFF -> start at +20.48 us
-                    # 0x1000 -> 4k, no delay
+                    # 0x1000 -> 4k = 4096, no delay
                     # < 4k (0x1000) -> window starts before trigger
                     # > 4k (0x1000) -> window is delayed
 
 # win_width (12 bit value)
-0x6054  64          # Unit: 5 ns, max 4k -> 20.48 us
+0x6054  64          # win_width = width[ns] / 5; Unit: 5 ns, max 4k -> 20.48 us
 
 # ext_trig_source
 0x6058  0b11        # trig1/trig0 to trigger gate
@@ -39,11 +40,11 @@
 0x605C  0           # 0 -> free trigger to trig output
                     # 1 -> accepted trigger to trig output
 
-# trigger_output
+# trigger_output (at NIM1 output)
 # If 0x605C (out_trigger_source) = 0:
 # Bit 0 corresponds to channel 0, bit 15 to channel 15.
 # A '1' value means the channel is a source for output trigger.
-0x605E  0x100
+0x605E  0xFF	# FF all buses create output trigger
 
 
 # I/O
