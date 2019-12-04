@@ -568,6 +568,14 @@ ParseResult parse_readout_contents(
             }
         }
 
+        // Skip over modules that do not have any readout data.
+        // Note: modules that are disabled in the vme config are handled this way.
+        while (state.moduleIndex < static_cast<int>(moduleReadoutInfos.size())
+               && is_empty(moduleReadoutInfos[state.moduleIndex]))
+        {
+            ++state.moduleIndex;
+        }
+
         if (state.moduleIndex >= static_cast<int>(moduleReadoutInfos.size()))
         {
             assert(!state.curBlockFrame);

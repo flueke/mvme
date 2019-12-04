@@ -53,6 +53,11 @@ struct ModuleReadoutParts
     bool hasDynamic; // true if a dynamic part (block read) is present
 };
 
+inline bool is_empty(const ModuleReadoutParts &mrp)
+{
+    return mrp.prefixLen == 0 && mrp.suffixLen == 0 && !mrp.hasDynamic;
+}
+
 // VME module readout scripts indexed by event and module
 using VMEConfReadoutScripts = std::vector<std::vector<vme_script::VMEScript>>;
 
