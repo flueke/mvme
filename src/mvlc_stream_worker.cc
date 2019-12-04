@@ -25,8 +25,13 @@ VMEConfReadoutScripts collect_readout_scripts(const VMEConfig &vmeConfig)
 
         for (const auto &moduleConfig: eventConfig->getModuleConfigs())
         {
-            auto rdoScript = moduleConfig->getReadoutScript()->getScript();
-            moduleReadoutScripts.emplace_back(rdoScript);
+            if (moduleConfig->isEnabled())
+            {
+                auto rdoScript = moduleConfig->getReadoutScript()->getScript();
+                moduleReadoutScripts.emplace_back(rdoScript);
+            }
+            else
+                moduleReadoutScripts.emplace_back(vme_script::VMEScript{});
         }
 
         readoutScripts.emplace_back(moduleReadoutScripts);
