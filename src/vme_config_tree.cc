@@ -43,13 +43,13 @@ using namespace vats;
 
 enum NodeType
 {
-    NodeType_Event = QTreeWidgetItem::UserType,
-    NodeType_Module,
-    NodeType_ModuleReset,
+    NodeType_Event = QTreeWidgetItem::UserType,     // 1000
+    NodeType_Module,                                // 1001
+    NodeType_ModuleReset,                           // 1002
     NodeType_EventModulesInit,
     NodeType_EventReadoutLoop,
     NodeType_EventStartStop,
-    NodeType_VMEScript,
+    NodeType_VMEScript,                             // 1006
     NodeType_Container,
 };
 
@@ -484,7 +484,18 @@ TreeNode *VMEConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
 
 TreeNode *VMEConfigTreeWidget::makeObjectNode(ConfigObject *obj)
 {
-    auto treeNode = new TreeNode;
+    int nodeType = 0;
+
+    if (qobject_cast<EventConfig *>(obj))
+        nodeType = NodeType_Event;
+    if (qobject_cast<ModuleConfig *>(obj))
+        nodeType = NodeType_Module;
+    if (qobject_cast<VMEScriptConfig *>(obj))
+        nodeType = NodeType_VMEScript;
+    if (qobject_cast<ContainerObject *>(obj))
+        nodeType = NodeType_Container;
+
+    auto treeNode = new TreeNode(nodeType);
 
     treeNode->setData(0, DataRole_Pointer, Ptr2Var(obj));
     treeNode->setText(0, obj->objectName());
@@ -529,7 +540,7 @@ void VMEConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
 {
     auto configObject = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
 
-    qDebug() << "clicked" << item << configObject;
+    qDebug() << "clicked" << item << configObject << "node->type()=" << item->type();
 
     if (configObject)
     {
@@ -900,6 +911,8 @@ void VMEConfigTreeWidget::toggleObjectEnabled(QTreeWidgetItem *node, int expecte
 {
     if (node)
     {
+        qDebug() << __PRETTY_FUNCTION__ << node << node->type() << expectedNodeType
+            << node->text(0);
         Q_ASSERT(node->type() == expectedNodeType);
     }
 
