@@ -2912,6 +2912,25 @@ void MVLCParserDebugHandler::handleDebugInfo(
             << ", moduleParseState=" << to_string(parserState.moduleParseState)
             << endl;
 
+        out << "Parser readoutInfo:" << endl;
+
+        for (const auto &eventIter: parserState.readoutInfo | indexed(0))
+        {
+            int eventIndex = eventIter.index();
+            for (const auto &moduleIter: eventIter.value() | indexed(0))
+            {
+                int moduleIndex = moduleIter.index();
+                const auto &moduleParts = moduleIter.value();
+
+                out << "  ei=" << eventIndex
+                    << ", mi=" << moduleIndex
+                    << ": prefixLen=" << static_cast<unsigned>(moduleParts.prefixLen)
+                    << ", hasDynamic=" << moduleParts.hasDynamic
+                    << ", suffixLen=" << static_cast<unsigned>(moduleParts.suffixLen)
+                    << endl;
+            }
+        }
+
         out << QSL("curStackFrame: 0x%1, wordsLeft=%2\n")
             .arg(parserState.curStackFrame.header, 8, 16, QLatin1Char('0'))
             .arg(parserState.curStackFrame.wordsLeft)
