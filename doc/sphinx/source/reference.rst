@@ -18,9 +18,9 @@ JSON-RPC remote control support
 
 .. _jsonrpc: http://www.jsonrpc.org/specification
 
-MVME uses the :ref:`JSON-RPC<jsonrpc>` specification to implement basic remote
-control functionality. To enable/disable the RPC-Server use the "Workspace
-Settings" button in the DAQ Controls Window and follow the instructions there.
+MVME uses the `jsonrpc`_ specification to implement basic remote control
+functionality. To enable/disable the RPC-Server use the "Workspace Settings"
+button in the DAQ Controls Window and follow the instructions there.
 
 If the RPC-Server is enabled mvme will open a TCP listening socket and accept
 incoming connections. By default mvme binds to all interfaces and listens on

@@ -3,7 +3,7 @@ Changelog
 ##################################################
 
 Version 0.9.6 (in progress)
----------------
+---------------------------
 * Improved support for the MVLC. Among others VME Scripts can now be directly
   executed during a DAQ run without having to pause and resume the DAQ.
 

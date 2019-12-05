@@ -171,7 +171,8 @@ These commands can be used to temporarily replace the current base address with 
 
 VMUSB specific
 ~~~~~~~~~~~~~~
-.. _vme_command-vmusb-write-reg
+.. _vme_command-vmusb-write-reg:
+
 * **vmusb_write_reg** *(<register_address>|<register_name>) <value>*
 * **vmusb_read_reg** *(<register_address>|<register_name>)*
 
