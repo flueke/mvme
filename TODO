@@ -1,6 +1,7 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+* vme scripts cannot be renamed while they're being edited
 
 * when removing an analysis object the eventwidgets are recreated and thus lose
   their node expansions state. fix this at some point
@@ -32,9 +33,6 @@ TODO list, not at all sorted by priority
 
 -> When using the ETH MVLC retry (VME) register writes a couple of times if
 they result in a timeout error. Do not immediately disconnect the MVLC.
-
-* When having two vme modules in an event and disabling the 2nd module not data
-  for the first will arrive in the analysis.
 
 * Trigger I/O Editor:
   - Add ability to reserve units. Used for Timer and StackStart units when
@@ -114,8 +112,6 @@ futex_wait_cancelable (private=0, expected=0, futex_word=0x555555762190) at ../s
   11   Thread 0x7fffc70e4700 (LWP 20814) "rdo_notify_poll" __libc_recv (flags=0, len=9000, buf=0x555555bf4de0, fd=27) at ../sysdeps/unix/sysv/linux/recv.c:28
   12   Thread 0x7fffc68e3700 (LWP 20815) "rdo_file_writer" futex_reltimed_wait_cancelable (private=0, reltime=0x7fffc68e2b20, expected=0, futex_word=0x555555bc1ca0) at ../sysdeps/unix/sysv/linux/futex-internal.h:142
 
-* mvlc readout parser does not like disabled modules. The failing test setup
-  had a disabled module after one that got read out.
 * Analysis:
   - Connecting to arrays of size 1 is not great: the index[0] is always used
     when generating names for objects
