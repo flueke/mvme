@@ -759,6 +759,10 @@ ParseResult parse_readout_buffer_eth(
                 {
                     parser_clear_event_state(state);
                     state.counters.ethPacketLoss += loss;
+                    LOG_WARN("packet loss detected: lastPacketNumber=%d, packetNumber=%d, loss=%d",
+                             state.lastPacketNumber,
+                             ethHdrs.packetNumber(),
+                             loss);
                 }
             }
 

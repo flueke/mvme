@@ -159,7 +159,11 @@ void AnalysisInfoWidget::update()
 {
     auto streamWorker = m_d->context->getMVMEStreamWorker();
 
-    if (!streamWorker) return;
+    if (!streamWorker)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "early return because streamWorker is nullptr";
+        return;
+    }
 
     MVMEStreamWorkerState state = streamWorker->getState();
     const auto counters = streamWorker->getCounters();

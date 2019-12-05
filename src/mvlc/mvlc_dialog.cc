@@ -84,7 +84,11 @@ std::error_code MVLCDialog::doWrite(const QVector<u32> &buffer)
                             bytesToTransfer, bytesTransferred);
 
     if (!ec && bytesToTransfer != bytesTransferred)
+    {
+        LOG_WARN("tried to write %lu bytes, wrote %lu bytes",
+                 bytesToTransfer, bytesTransferred);
         return make_error_code(MVLCErrorCode::ShortWrite);
+    }
 
     return ec;
 };
