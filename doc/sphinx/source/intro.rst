@@ -21,13 +21,13 @@ Features
 * Supports the following VME Controllers:
 
   * Mesytec MVLC
-    * USB3, USB2 and ethernet connectivity
-    * Some models have an SFP cage allowing to use optical fiber based ethernet
-      connections
+
+    * USB3, USB2 and Ethernet connectivity
+    * The models with SFP cage allow using optical fiber based Ethernet connections.
 
   * WIENER VM-USB (USB2, readout rates of up to 15 MB/s)
 
-  * Struck SIS3153 (**GBit/s ethernet**)
+  * Struck SIS3153 (**GBit/s Ethernet**)
      * Readout rates of up to 35 MB/s from a single module.
      * Optimized setups can yield around 52 MB/s.
      * GBit/s Ethernet connection required!
