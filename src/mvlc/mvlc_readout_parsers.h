@@ -164,7 +164,7 @@ struct LIBMVME_MVLC_EXPORT ReadoutParserState
             , wordsLeft(extract_frame_info(frameHeader).len)
         {}
 
-        inline operator bool() const { return wordsLeft; }
+        inline explicit operator bool() const { return wordsLeft; }
         inline FrameInfo info() const { return extract_frame_info(header); }
 
         inline void consumeWord()

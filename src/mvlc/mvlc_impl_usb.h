@@ -63,7 +63,7 @@ struct DeviceInfo
     u8 flags = 0;               // Flags bits
     void *handle = nullptr;     // FTDI handle if opened
 
-    operator bool() const { return index >= 0; }
+    inline explicit operator bool() const { return index >= 0; }
 };
 
 using DeviceInfoList = std::vector<DeviceInfo>;
