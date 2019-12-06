@@ -2023,6 +2023,26 @@ Level0UtilsDialog::Level0UtilsDialog(
                     QString::number(l0.timers[row].delay_ns)));
 
             ret.table->setCellWidget(row, ret.ColSoftActivate, make_centered(cb_softActivate));
+
+
+            // Hack to mark some of the units as reserved by greying them out.
+            if (row < ReservedTimerUnits)
+            {
+                if (auto headerItem = ret.table->verticalHeaderItem(row))
+                {
+                    headerItem->setFlags(
+                        headerItem->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsSelectable));
+                }
+
+                for (int col = 0; col < ColumnTitles.size(); col++)
+                {
+                    if (auto item = ret.table->item(row, col))
+                        item->setFlags(item->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsSelectable));
+
+                    if (auto widget = ret.table->cellWidget(row, col))
+                        widget->setEnabled(false);
+                }
+            }
         }
 
         ret.table->resizeColumnsToContents();
@@ -2352,6 +2372,27 @@ Level3UtilsDialog::Level3UtilsDialog(
             table->setCellWidget(row, ret.ColConnection, combo_connection);
             table->setCellWidget(row, ret.ColStack, combo_stack);
             table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
+
+
+            // Hack to mark some of the units as reserved by greying them out.
+            if (row < ReservedStackStartUnits)
+            {
+                if (auto headerItem = ret.table->verticalHeaderItem(row))
+                {
+                    headerItem->setFlags(
+                        headerItem->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsSelectable));
+                }
+
+                for (int col = 0; col < columnTitles.size(); col++)
+                {
+                    if (auto item = ret.table->item(row, col))
+                        item->setFlags(item->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsSelectable));
+
+                    if (auto widget = ret.table->cellWidget(row, col))
+                        widget->setEnabled(false);
+                }
+            }
+
         }
 
         table->resizeColumnsToContents();

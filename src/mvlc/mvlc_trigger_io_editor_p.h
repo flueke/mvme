@@ -730,6 +730,12 @@ class LUTEditor: public QDialog
 
 QWidget *make_centered(QWidget *widget);
 
+// How many timer/stack start units are marked as reserved in the UI. This is a
+// quick hack to indicate to the user that these units are used internally by
+// mvme to setup periodic stacks.
+static const int ReservedTimerUnits = 2;
+static const int ReservedStackStartUnits = 2;
+
 } // end namespace mvlc
 } // end namespace mesytec
 } // end namespace trigger_io_config
