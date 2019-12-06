@@ -423,9 +423,28 @@ ParseResult parse_readout_contents(
         }
 
         assert(is_event_in_progress(state));
-        assert(0 <= state.eventIndex && static_cast<size_t>(state.eventIndex) < state.readoutInfo.size());
+        assert(0 <= state.eventIndex
+               && static_cast<size_t>(state.eventIndex) < state.readoutInfo.size());
 
         const auto &moduleReadoutInfos = state.readoutInfo[state.eventIndex];
+
+        // Check for the case where a stack frame for an event is produced but
+        // the event does not contain any modules. This can happen for example
+        // when a periodic event is added without any modules.
+        // The frame header for the event should have length 0.
+        if (moduleReadoutInfos.empty())
+        {
+            auto fi = extract_frame_info(state.curStackFrame.header);
+            if (fi.len != 0u)
+            {
+                LOG_WARN("No modules in event %d but got a non-empty "
+                         "stack frame of len %u (header=0x%08x)",
+                         state.eventIndex, fi.len, state.curStackFrame.header);
+            }
+
+            parser_clear_event_state(state);
+            return ParseResult::Ok;
+        }
 
         if (static_cast<size_t>(state.moduleIndex) >= moduleReadoutInfos.size())
             return ParseResult::ModuleIndexOutOfRange;
