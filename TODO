@@ -82,36 +82,6 @@ Feature: Repeat mode
          Note: there's no way to have different intervals for the checked and
          unchecked states.
 
-
-Thread 1 "mvme" received signal SIGINT, Interrupt.
-futex_wait_cancelable (private=0, expected=0, futex_word=0x555555762190) at ../sysdeps/unix/sysv/linux/futex-internal.h:88
-88      ../sysdeps/unix/sysv/linux/futex-internal.h: No such file or directory.
-(gdb) bt
-#0  futex_wait_cancelable (private=0, expected=0, futex_word=0x555555762190) at ../sysdeps/unix/sysv/linux/futex-internal.h:88
-#1  __pthread_cond_wait_common (abstime=0x0, mutex=0x555555762140, cond=0x555555762168) at pthread_cond_wait.c:502
-#2  __pthread_cond_wait (cond=0x555555762168, mutex=0x555555762140) at pthread_cond_wait.c:655
-#3  0x00007ffff5a3225b in QWaitCondition::wait(QMutex*, unsigned long) () from /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
-#4  0x00007ffff5a3170e in QThread::wait(unsigned long) () from /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
-#5  0x00007ffff79e44a6 in MVMEContext::~MVMEContext (this=0x55555568d830, __in_chrg=<optimized out>) at /home/florian/src/mvme2/src/mvme_context.cc:542
-#6  0x00007ffff79e496e in MVMEContext::~MVMEContext (this=0x55555568d830, __in_chrg=<optimized out>) at /home/florian/src/mvme2/src/mvme_context.cc:577
-#7  0x00007ffff5c0086b in QObjectPrivate::deleteChildren() () from /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
-#8  0x00007ffff658deb6 in QWidget::~QWidget() () from /usr/lib/x86_64-linux-gnu/libQt5Widgets.so.5
-#9  0x00007ffff77e0459 in MVMEMainWindow::~MVMEMainWindow (this=0x7fffffffd190, __in_chrg=<optimized out>) at /home/florian/src/mvme2/src/mvme.cpp:487
-#10 0x0000555555559bd3 in main (argc=1, argv=0x7fffffffd2f8) at /home/florian/src/mvme2/src/main.cpp:56
-(gdb) info threads
-  Id   Target Id                                           Frame 
-* 1    Thread 0x7ffff1fc3780 (LWP 20748) "mvme"            futex_wait_cancelable (private=0, expected=0, futex_word=0x555555762190) at ../sysdeps/unix/sysv/linux/futex-internal.h:88
-  2    Thread 0x7ffff0895700 (LWP 20752) "QXcbEventReader" 0x00007ffff4d83819 in __GI___poll (fds=0x7ffff0894d38, nfds=1, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
-  3    Thread 0x7fffea7d0700 (LWP 20753) "gmain"           0x00007ffff4d83819 in __GI___poll (fds=0x5555556a9b40, nfds=1, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
-  4    Thread 0x7fffe9fcf700 (LWP 20754) "gdbus"           0x00007ffff4d83819 in __GI___poll (fds=0x5555556baee0, nfds=2, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
-  5    Thread 0x7fffe39f9700 (LWP 20755) "readout"         __libc_recv (flags=0, len=1048576, buf=0x7fffe83dd010, fd=28) at ../sysdeps/unix/sysv/linux/recv.c:28
-  6    Thread 0x7fffe31f8700 (LWP 20756) "analysis"        0x00007ffff4d83819 in __GI___poll (fds=0x555555b9d200, nfds=2, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
-  7    Thread 0x7fffe2870700 (LWP 20757) "QDBusConnection" 0x00007ffff4d83819 in __GI___poll (fds=0x7fffd4003110, nfds=3, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
-  8    Thread 0x7fffe0ae7700 (LWP 20758) "mvme:disk$0"     futex_wait_cancelable (private=0, expected=0, futex_word=0x555555769da8) at ../sysdeps/unix/sysv/linux/futex-internal.h:88
-  10   Thread 0x7fffc7fff700 (LWP 20802) "Thread (pooled)" futex_reltimed_wait_cancelable (private=0, reltime=0x7fffc7ffecd0, expected=0, futex_word=0x555556e5a880) at ../sysdeps/unix/sysv/linux/futex-internal.h:142
-  11   Thread 0x7fffc70e4700 (LWP 20814) "rdo_notify_poll" __libc_recv (flags=0, len=9000, buf=0x555555bf4de0, fd=27) at ../sysdeps/unix/sysv/linux/recv.c:28
-  12   Thread 0x7fffc68e3700 (LWP 20815) "rdo_file_writer" futex_reltimed_wait_cancelable (private=0, reltime=0x7fffc68e2b20, expected=0, futex_word=0x555555bc1ca0) at ../sysdeps/unix/sysv/linux/futex-internal.h:142
-
 * Analysis:
   - Connecting to arrays of size 1 is not great: the index[0] is always used
     when generating names for objects
@@ -160,7 +130,7 @@ futex_wait_cancelable (private=0, expected=0, futex_word=0x555555762190) at ../s
 * when writing a zip listfile change the names of the analysis and message log
   files to contain the run id. this also needs changes to the loading code when
   searching both of these files.
-* cleanup thread listfile writing code. Also come up with a way to handle write
+* cleanup threaded listfile writing code. Also come up with a way to handle write
   errors.
 
 * analysis refactoring:
