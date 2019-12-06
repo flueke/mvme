@@ -794,9 +794,8 @@ void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig, bool expandNode
         {
             case TriggerCondition::Interrupt:
                 {
-                    infoText = QString("Trigger=IRQ, lvl=%2, vec=%3")
-                        .arg(eventConfig->irqLevel)
-                        .arg(eventConfig->irqVector);
+                    infoText = QString("Trigger=IRQ%1")
+                        .arg(eventConfig->irqLevel);
                 } break;
             case TriggerCondition::NIM1:
                 {
