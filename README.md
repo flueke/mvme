@@ -39,6 +39,10 @@ http://www.msys2.org/
 `make -j4`
 
 ## Mac OS X using Homebrew
+* Note that the OS X port has only been tested with our MVLC VME Controller via
+  Ethernet. USB support has not been tested. There are also some ugly fonts and
+  broken layouts which might get fixed at some point.
+
 * Install Homebrew from https://brew.sh/
 * `brew install git cmake boost qt quazip qwt libusb-compat sphinx-doc`
 * Add the following to `~/.bash_profile`:
@@ -48,9 +52,14 @@ http://www.msys2.org/
     ```
 
 * `source ~/.bash_profile`
-* Checkout mvme, create a build directory and run cmake
-  `cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/local/mvme ../mvme`
-  `make -j6`
+* Checkout mvme, create a build directory and run cmake:
+    ```
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/local/mvme ../mvme
+    make -j6
+    ```
+
+* You should now be able to start mvme directly from the build directory or run
+  `make install` and run from the installation directory.
 
 ## Libraries and 3rd-party code used in mvme
 * http://qwt.sourceforge.net/
