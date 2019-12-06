@@ -42,9 +42,10 @@ http://www.msys2.org/
 * Install Homebrew from https://brew.sh/
 * `brew install git cmake boost qt quazip qwt libusb-compat sphinx-doc`
 * Add the following to `~/.bash_profile`:
-
+    ```
     export PATH="/usr/local/opt/qt/bin:/usr/local/opt/sphinx-doc/bin:$PATH"
     export CMAKE_PREFIX_PATH="/usr/local"
+    ```
 
 * `source ~/.bash_profile`
 * Checkout mvme, create a build directory and run cmake
