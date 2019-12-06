@@ -7,7 +7,10 @@ System Requirements
 ==================================================
 
 * Any recent 64-bit Linux distribution or a 64-bit version of Windows 7 or
-  later.
+  later. Build instructions for Mac OS X can be found on github:
+  https://github.com/flueke/mvme/blob/dev/README.md
+
+.. TODO: mvlc
 
 * If using the `WIENER`_ VM-USB VME Controller:
 
