@@ -701,8 +701,6 @@ ParseResult parse_eth_packet(
                 state, callbacks, packetIter,
                 true, bufferNumber);
 
-            count_parse_result(state.counters, pr);
-
             if (pr != ParseResult::Ok)
                 return pr;
 
@@ -888,8 +886,6 @@ ParseResult parse_readout_buffer_usb(
         while (!iter.atEnd())
         {
             auto pr = parse_readout_contents(state, callbacks, iter, false, bufferNumber);
-
-            count_parse_result(state.counters, pr);
 
             if (pr != ParseResult::Ok)
             {
