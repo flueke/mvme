@@ -240,22 +240,9 @@ std::error_code MVLCDialog::readRegister(u16 address, u32 &value)
     QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
     logBuffer(request, "readRegister >>>");
 
-    if (auto ec = doWrite(request))
-    {
-        LOG_WARN("write error: %s", ec.message().c_str());
-        return ec;
-    }
-
-    if (auto ec = readResponse(is_super_buffer, m_responseBuffer))
-    {
-        LOG_WARN("read error: %s", ec.message().c_str());
-        return ec;
-    }
-
+    auto ec = mirrorTransaction(request, m_responseBuffer);
     logBuffer(m_responseBuffer, "readRegister <<<");
-
-    if (auto ec = check_mirror(request, m_responseBuffer))
-        return ec;
+    if (ec) return ec;
 
     if (m_responseBuffer.size() < 4)
         return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
@@ -265,6 +252,7 @@ std::error_code MVLCDialog::readRegister(u16 address, u32 &value)
     return {};
 }
 
+#if 0
 std::error_code MVLCDialog::readRegisterBlock(u16 address, u16 words,
                                               QVector<u32> &dest)
 {
@@ -301,6 +289,7 @@ std::error_code MVLCDialog::readRegisterBlock(u16 address, u16 words,
 
     return {};
 }
+#endif
 
 std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
 {
@@ -311,22 +300,9 @@ std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
     QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
     logBuffer(request, "writeRegister >>>");
 
-    if (auto ec = doWrite(request))
-    {
-        LOG_WARN("write error: %s", ec.message().c_str());
-        return ec;
-    }
-
-    if (auto ec = readResponse(is_super_buffer, m_responseBuffer))
-    {
-        LOG_WARN("read error: %s", ec.message().c_str());
-        return ec;
-    }
-
+    auto ec = mirrorTransaction(request, m_responseBuffer);
     logBuffer(m_responseBuffer, "writeRegister <<<");
-
-    if (auto ec = check_mirror(request, m_responseBuffer))
-        return ec;
+    if (ec) return ec;
 
     if (m_responseBuffer.size() != 4)
         return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
@@ -341,13 +317,19 @@ std::error_code MVLCDialog::mirrorTransaction(const QVector<u32> &cmdBuffer,
 
     // upload the stack
     if (auto ec = doWrite(cmdBuffer))
+    {
+        LOG_WARN("write error: %s", ec.message().c_str());
         return ec;
+    }
 
     auto dt_write = timer.restart();
 
     // read the mirror response
     if (auto ec = readResponse(is_super_buffer, dest))
+    {
+        LOG_WARN("read error: %s", ec.message().c_str());
         return ec;
+    }
 
     auto dt_read = timer.restart();
 

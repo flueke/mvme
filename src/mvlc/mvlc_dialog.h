@@ -25,8 +25,10 @@ class MVLCDialog
         // MVLC register access
         std::error_code readRegister(u16 address, u32 &value);
         std::error_code writeRegister(u16 address, u32 value);
+#if 0 // disabled for now. need to test if this is implemented in the firmware and working.
         std::error_code readRegisterBlock(u16 address, u16 words,
                                           QVector<u32> &dest);
+#endif
 
         // Higher level VME access
         // Note: Stack0 is used for the VME commands and the stack is written
