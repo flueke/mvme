@@ -599,7 +599,7 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
     int sres = ::select(0, &fds, nullptr, nullptr, &tv);
 
     if (sres == 0)
-        return make_error_code(MVLCErrorCode::SocketTimeout);
+        return make_error_code(MVLCErrorCode::SocketReadTimeout);
 
     if (sres == SOCKET_ERROR)
         return make_error_code(MVLCErrorCode::SocketError);
@@ -862,7 +862,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
                       pipe, requestedSize, bytesTransferred, readCount,
                       receiveBuffer.available());
 
-            return make_error_code(MVLCErrorCode::SocketTimeout);
+            return make_error_code(MVLCErrorCode::SocketReadTimeout);
         }
     }
 

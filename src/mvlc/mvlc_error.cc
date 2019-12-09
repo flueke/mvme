@@ -71,8 +71,11 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::SocketError:
                  return "generic socket error";
 
-            case MVLCErrorCode::SocketTimeout:
-                 return "socket timeout";
+            case MVLCErrorCode::SocketReadTimeout:
+                 return "socket read timeout";
+
+            case MVLCErrorCode::SocketWriteTimeout:
+                 return "socket write timeout";
 
             case MVLCErrorCode::UDPPacketChannelOutOfRange:
                  return "UDP packet channel out of range";
@@ -161,7 +164,8 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::NoVMEResponse:
                 return ErrorType::VMEError;
 
-            case MVLCErrorCode::SocketTimeout:
+            case MVLCErrorCode::SocketReadTimeout:
+            case MVLCErrorCode::SocketWriteTimeout:
                 return ErrorType::Timeout;
         }
         assert(false);
