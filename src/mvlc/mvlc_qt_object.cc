@@ -212,6 +212,7 @@ std::error_code MVLCObject::readRegister(u16 address, u32 &value)
     return result;
 }
 
+#if 0
 std::error_code MVLCObject::readRegisterBlock(u16 address, u16 words,
                                               QVector<u32> &dest)
 {
@@ -221,6 +222,7 @@ std::error_code MVLCObject::readRegisterBlock(u16 address, u16 words,
     postDialogOperation();
     return result;
 }
+#endif
 
 std::error_code MVLCObject::writeRegister(u16 address, u32 value)
 {

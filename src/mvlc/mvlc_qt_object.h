@@ -64,8 +64,10 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         std::error_code readRegister(u16 address, u32 &value);
         std::error_code writeRegister(u16 address, u32 value);
 
+#if 0 // disabled for now. need to test if this is implemented in the firmware and working.
         std::error_code readRegisterBlock(u16 address, u16 words,
                                           QVector<u32> &dest);
+#endif
         //
         // Higher level direct VME access using Stack0 and immediate exec.
         //
