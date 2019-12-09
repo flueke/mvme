@@ -95,6 +95,8 @@ int main(int argc, char *argv[])
         << ", write=" << mvlcObj.getWriteTimeout(mvlc::Pipe::Command)
         << endl;
 
+    //mvlcCtrl.disableNotificationPolling();
+
     const int commandCount = vmeScript.size();
     std::chrono::milliseconds minElapsed = std::chrono::milliseconds::max();
     std::chrono::milliseconds maxElapsed = {};
