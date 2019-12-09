@@ -136,6 +136,12 @@ class LIBMVME_CORE_EXPORT VMEError
 
         std::error_code getStdErrorCode() const { return m_stdErrorCode; }
 
+        // Returns true if this represents an error.
+        explicit inline operator bool() const
+        {
+            return isError();
+        }
+
     private:
         ErrorType m_error = NoError;
         s32 m_errorCode = 0;
