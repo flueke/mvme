@@ -116,7 +116,7 @@ std::error_code MVLCDialog::readWords(u32 *dest, size_t count, size_t &wordsTran
     // I have not encountered this issue when connected via USB3.  This
     // workaround has the side effect of multiplying the potential maximum time
     // spent waiting for a timeout by MaxReadAttempts.
-    static const u16 MaxReadAttempts = 1; // TODO/FIXME: test values 1 and 2!
+    static const u16 MaxReadAttempts = 2;
     u16 attempts = 0;
 
     do
@@ -135,6 +135,11 @@ std::error_code MVLCDialog::readWords(u32 *dest, size_t count, size_t &wordsTran
     } while (ec == ErrorType::Timeout
              && bytesTransferred == 0
              && ++attempts < MaxReadAttempts);
+
+    if (bytesTransferred > 0 && attempts > 0)
+    {
+        LOG_DEBUG("Needed %u reads to receive incoming data.", attempts+1);
+    }
 
     wordsTransferred = bytesTransferred / sizeof(u32);
 

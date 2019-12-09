@@ -1766,7 +1766,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
         return results;
     }
 
-    // The MVLC can execute commands while the DAQ is running, other controller
+    // The MVLC can execute commands while the DAQ is running, other controllers
     // cannot so the DAQ has to be paused and resumed if needed.
     if (is_mvlc_controller(m_controller->getType()))
     {

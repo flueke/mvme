@@ -183,6 +183,9 @@ if(MVME_ENABLE_MVLC)
     add_executable(dev_test_mvlc_eth_impl mvlc/dev_test_mvlc_eth_impl.cc)
     target_link_libraries(dev_test_mvlc_eth_impl libmvme_mvlc)
 
+    add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
+    target_link_libraries(dev_mvlc_vmescript_runner libmvme_mvlc)
+
     if(BUILD_TESTS)
         function(add_mvlc_gtest exe_name exe_source)
             add_executable(${exe_name} ${exe_source})
