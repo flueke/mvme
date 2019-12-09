@@ -165,6 +165,11 @@ class LIBMVME_MVLC_EXPORT MVLCNotificationPoller: public QObject
     public:
         static const int Default_PollInterval_ms = 1000;
         static const unsigned PollReadTimeout_ms = 50;
+        // Limit the max number of individual reads done in single invocation
+        // of doPoll(). This only has an effect if there is a constant stream
+        // of error notification data being available on the read pipe in which
+        // case doPoll() will be left after that many iterations.
+        static const unsigned SinglePollMaxIterations = 100;
 
         MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent = nullptr);
 

@@ -390,10 +390,12 @@ void MVLCNotificationPoller::doPoll()
             update_stack_error_counters(errorCounters.counters, buffer);
         }
 
-        ++iterationCount;
+        if (++iterationCount >= SinglePollMaxIterations)
+            break;
+
     } while (!buffer.isEmpty());
 
-    //qDebug() << __FUNCTION__ << "left polling loop after" << iterationCount << "iterations";
+    qDebug() << __FUNCTION__ << "left polling loop after" << iterationCount << "iterations";
 
     m_isPolling = false;
 }

@@ -1211,10 +1211,6 @@ void MVLCReadoutWorker::resumeDAQ()
 
     enable_triggers(*d->mvlcObj, *getContext().vmeConfig, logger);
 
-#if 0
-    d->startNotificationPolling();
-#endif
-
     std::unique_lock<mesytec::mvme::TicketMutex> guard(d->listfileWriterContext.listfileMutex);
     listfile_write_system_event(d->listfileOut, system_event::subtype::Resume);
 
