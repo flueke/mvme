@@ -1,16 +1,17 @@
-##################################################
 Installation
 ##################################################
 
-==================================================
 System Requirements
 ==================================================
 
-* Any recent 64-bit Linux distribution or a 64-bit version of Windows 7 or
-  later. Build instructions for Mac OS X can be found on github:
-  https://github.com/flueke/mvme/blob/dev/README.md
+* A recent 64-bit Linux distribution or a 64-bit version of Windows 7 or
+  later.
+  
+* One of the supported VME Controllers:
 
-.. TODO: mvlc
+  * `mesytec`_ MVLC (USB3/2, GBit/s Ethernet)
+  * `WIENER`_ VM-USB (USB2)
+  * `Struck`_ SIS3153 (GBit/s Ethernet)
 
 * If using the `WIENER`_ VM-USB VME Controller:
 
@@ -31,76 +32,62 @@ System Requirements
     The windows installer can optionally run `Zadig`_ to handle the driver
     installation.
 
-* No additional drivers are required when using the `Struck`_ SIS3153
-  Controller. Just make sure you are using a **GBit/s** ethernet connection to
-  the controller.
-
 * At least 4 GB RAM is recommended.
 
 * A multicore processor is recommended as mvme itself can make use of multiple
-  cores: readout, analysis and GUI (which includes histogram rendering) run in
+  cores: readout, data compression, analysis and the user interface run in
   separate threads.
 
+.. _mesytec: http://www.mesytec.com/
 .. _WIENER: http://www.wiener-d.com/
 .. _Struck: http://www.struck.de/
 
 .. _libusb wiki: https://github.com/libusb/libusb/wiki/Windows
 
+
+Installation Steps
 ==================================================
+
 Linux
-==================================================
+--------------------------------------------------
 
 The mvme archives for Linux include all required libraries. The only
 external dependency is the GNU C Library glibc. When using a modern Linux
 distribution no glibc version errors should occur.
 
-Installation is simple: unpack the supplied archive and execute the *mvme*
-startup script::
+To install mvme unpack the archive and execute the mvme startup script::
 
     $ tar xf mvme-x64-1.0.tar.bz2
     $ ./mvme-x64-1.0/mvme.sh
 
-VM-USB Device Permissions
---------------------------------------------------
+MVLC_USB and VM-USB Device Permissions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To be able to use the VM-USB controller as a non-root user a udev rule to
-adjust the device permissions needs to be added to the system.
+To be able to use the MVLC_USB or the VM-USB VME Controllers as a non-root user
+a udev rule to adjust the device permissions needs to be added to the system.
 
-Create a file called ``/etc/udev/rules.d/999-wiener-vm_usb.rules`` with the
-following contents: ::
+For the MVLC a udev rules file is contained in the installation directory under
+``extras/51-ftd3xx.rules``. Copy this file to your udev rules directory
+(usually ``/etc/udev/rules.d/``).
 
-    # WIENER VM_USB
-    SUBSYSTEM=="usb", ATTRS{idVendor}=="16dc", ATTRS{idProduct}=="000b", MODE="0666"
+The rules file for the VMUSB can be found under
+``extras/vm-usb/999-wiener-vm_usb.rules``.
 
-This will make the VM-USB usable by *any* user of the system. A more secure
-version would be: ::
-
-    # WIENER VM_USB
-    SUBSYSTEM=="usb", ATTRS{idVendor}=="16dc", ATTRS{idProduct}=="000b", MODE="0660", GROUP="usb"
-
-which requires the user to be a member of the *usb* group.
-
-Reload udev using ``service udev reload`` or ``/etc/init.d/udev reload`` or
-``service systemd-udev reload`` depending on your distribution or simply reboot
-the machine.
+After copying the file reload udev using ``service udev reload`` or
+``/etc/init.d/udev reload`` or ``service systemd-udev reload`` depending on
+your distribution or simply reboot the machine.
 
 
-==================================================
 Windows
-==================================================
+--------------------------------------------------
 
 Run the supplied installer and follow the on screen instructions to install
 mvme.
 
-At the end of the installation process you are given the option to run `Zadig`_
-to install the driver required for VM-USB support to work. Refer to the
-description text in the installer and :ref:`inst-windows-vmusb-driver` for
-details.
-
 .. _inst-windows-vmusb-driver:
 
-VM-USB Driver Installation
---------------------------------------------------
+VM-USB only: Driver Installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To be able to use the VM-USB VME Controller the *libusb-win32* driver needs to
 be installed and registered with the device. An easy way to install the driver
@@ -135,18 +122,44 @@ here: `libusb-win32`_.
 
 .. _libusb-win32: https://sourceforge.net/projects/libusb-win32/files/libusb-win32-releases/1.2.6.0/
 
-
-==================================================
-SIS3153 Hostname/IP-Address configuration
+Ethernet DHCP/ARP setup
 ==================================================
 
-Using DHCP
---------------------------------------------------
-On powerup the SIS3153 tries to get an IP address and a hostname via DHCP. The
-requested hostname is of the form ``sis3153-0DDD`` where ``DDD`` is the decimal
-serial number as printed on the board. For example my controller with S/N 042
-will ask for the hostname ``sis3153-0042``. During this phase the L-LED will
-flash quickly and turn off once the DHCP assignment succeeded.
+When using the MVLC via Ethernet or the SIS3153 controller some network setup
+has to be done.
+
+The easiest way is if you are running a DHCP server on your network. Both
+controllers will request an IPv4-Address and a hostname via DHCP after powerup.
+
+The MVLC will request the hostname ``mvlc-NNNN`` where ``NNNN`` is the serial
+number shown on the front-panel near the Ethernet port.
+
+The SIS3153 requests a hostname of the form ``sis3153-0DDD`` where ``DDD`` is
+the decimal serial number as printed on the board.
+
+After the DHCP phase the two controllers should be reachable via their
+hostnames. You can verify this by opening a command prompt and running
+
+    ``ping mvlc-0010``
+
+for the MVLC with serial number 10.
+
+
+.. ==================================================
+.. SIS3153 Hostname/IP-Address configuration
+.. ==================================================
+.. 
+.. Using DHCP
+.. --------------------------------------------------
+.. On powerup the SIS3153 tries to get an IP address and a hostname via DHCP. The
+.. requested hostname is of the form ``sis3153-0DDD`` where ``DDD`` is the decimal
+.. serial number as printed on the board. For example my controller with S/N 042
+.. will ask for the hostname ``sis3153-0042``. During this phase the L-LED will
+.. flash quickly and turn off once the DHCP assignment succeeded.
+
+.. TODO: add short description of the network layers below
+.. TODO: add MVLC MAC address scheme here
+
 
 Using a static ARP entry
 --------------------------------------------------
