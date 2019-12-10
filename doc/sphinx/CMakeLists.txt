@@ -103,19 +103,19 @@ if (SPHINX_EXECUTABLE)
         if (WIN32)
             add_custom_target(doc_latex_pdf
                     make -C ${SPHINX_LATEX_DIR}
-                COMMENT "Generating PDF from Sphinx latex output"
-                )
+                    COMMENT "Generating PDF from Sphinx latex output")
         else(WIN32)
             add_custom_target(doc_latex_pdf
                     make -C ${SPHINX_LATEX_DIR}
-                COMMENT "Generating PDF from Sphinx latex output"
-                )
+                    COMMENT "Generating PDF from Sphinx latex output")
         endif(WIN32)
 
         add_dependencies(doc_latex_pdf doc_latex)
         add_dependencies(doc doc_latex_pdf)
 
         install(FILES "${SPHINX_PDF_OUT}" DESTINATION doc)
+    else(LATEXMK)
+        message("-- The latexmk program was not found on your system. Will not generate PDF documentation.")
     endif(LATEXMK)
 
     # qthelp
@@ -163,6 +163,8 @@ if (SPHINX_EXECUTABLE)
 
         install(FILES "${SPHINX_QHC_OUT}" DESTINATION doc)
     endif(QCOLLECTIONGENERATOR)
+else(SPHINX_EXECUTABLE)
+    message("-- sphinx-build was not found on your system. Will not generate documentation.")
 endif()
 
 # vim:tw=0
