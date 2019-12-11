@@ -1,6 +1,17 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
+
+MVLC mac address for 0007: 04:85:46:d2:00:07
+
+Mon 09 Dec 2019 04:21:00 PM CET Performance Tests with the MVLC
+---------------------------------------------------------------
+* Linux, USB3, MTDC, Pulser 7 (event len 26-30), 100 max_xfer     -> 127 MB/s
+TODO: vary max_xfer for the above test
+* Linux, USB2                                                   -> 38 MB/s (USB2 limit)
+* Linux, ETH, MTDC, Pulser 7 (event len 26-30), 10 max_xfer     -> TODO
+
+
 * vme scripts cannot be renamed while they're being edited
 
 * when removing an analysis object the eventwidgets are recreated and thus lose
@@ -9,6 +20,7 @@ TODO list, not at all sorted by priority
 
 * MVLC issues
 ======================
+* still deadlocks and short blocking of the ui especially when having the dev gui open.
 * Check the whole UI for things that are dead/obsolete when using the mvlc
 * Documentation needs updates
 
