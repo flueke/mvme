@@ -10,7 +10,7 @@ System Requirements
 * One of the supported VME Controllers:
 
   * `mesytec`_ MVLC (USB3/2, GBit/s Ethernet)
-  * `WIENER`_ VM-USB (USB2)
+  * `WIENER`_ `VM-USB <http://www.wiener-d.com/sc/modules/vme--modules/vm-usb.html>`_ (USB2)
   * `Struck`_ SIS3153 (GBit/s Ethernet)
 
 * If using the `WIENER`_ VM-USB VME Controller:
@@ -38,7 +38,7 @@ System Requirements
   cores: readout, data compression, analysis and the user interface run in
   separate threads.
 
-.. _mesytec: http://www.mesytec.com/
+.. _mesytec: https://www.mesytec.com/
 .. _WIENER: http://www.wiener-d.com/
 .. _Struck: http://www.struck.de/
 
@@ -67,7 +67,7 @@ To be able to use the MVLC_USB or the VM-USB VME Controllers as a non-root user
 a udev rule to adjust the device permissions needs to be added to the system.
 
 For the MVLC a udev rules file is contained in the installation directory under
-``extras/51-ftd3xx.rules``. Copy this file to your udev rules directory
+``extras/mvlc/51-ftd3xx.rules``. Copy this file to your udev rules directory
 (usually ``/etc/udev/rules.d/``).
 
 The rules file for the VMUSB can be found under
@@ -75,8 +75,8 @@ The rules file for the VMUSB can be found under
 
 After copying the file reload udev using ``service udev reload`` or
 ``/etc/init.d/udev reload`` or ``service systemd-udev reload`` depending on
-your distribution or simply reboot the machine.
-
+your distribution or simply reboot the machine. The controller also has to be
+reconnected to your PC for the device permissions to update.
 
 Windows
 --------------------------------------------------
@@ -128,8 +128,9 @@ Ethernet DHCP/ARP setup
 When using the MVLC via Ethernet or the SIS3153 controller some network setup
 has to be done.
 
-The easiest way is if you are running a DHCP server on your network. Both
-controllers will request an IPv4-Address and a hostname via DHCP after powerup.
+The easiest way to get things running is if you are running a DHCP server on
+your network. Both controllers will request an IPv4-Address and a hostname via
+DHCP after powerup.
 
 The MVLC will request the hostname ``mvlc-NNNN`` where ``NNNN`` is the serial
 number shown on the front-panel near the Ethernet port.
@@ -161,21 +162,39 @@ for the MVLC with serial number 10.
 .. TODO: add MVLC MAC address scheme here
 
 
-Using a static ARP entry
+Using a manual ARP entry
 --------------------------------------------------
 In case DHCP with hostname assignment should not or cannot be used an
 alternative approach is to manually associate the MAC-address of the controller
 with an IP-address.
 
-The MAC-address of the SIS3153 is ``00:00:56:15:3x:xx`` where ``x:xx`` is the
-serial number in hexadecimal. So for my development controller with S/N 42 the
-serial becomes ``0x2a`` and the resulting MAC-address is ``00:00:56:15:30:2a``.
+* Obtaining the controllers MAC-address
+
+  The first step is to figure out the controllers MAC-address. This is the
+  serial-number dependent Ethernet address of the controller.
+
+  For the MVLC the MAC-address is ``04:85:46:d2:NN:NN`` where the `NN:NN` is the
+  serial number of the MVLC. So for MVLC-0007 the full MAC-address is
+  ``04:85:46:d2:00:07``.
+
+  The MAC-address of the SIS3153 is ``00:00:56:15:3x:xx`` where ``x:xx`` is the
+  serial number in hexadecimal. So for my development controller with S/N 42 the
+  serial becomes ``0x2a`` and the resulting MAC-address is ``00:00:56:15:30:2a``.
+
+With the MAC-address at hand we can now create an IPv4-address to MAC-address
+mapping in the operating systems ARP table.
+
+This step is specific to the operating system and will require root/admin
+permissions. The below examples associate the IP-address ``192.168.100.42``
+with the controllers MAC. You have to change the IP-address to match your local
+network setup, otherwise the operating system does not know how to reach the
+controller.
 
 * Creating the ARP entry under linux:
 
   With root permissions an ARP entry can be addded this way:
 
-    ``# arp -s  192.168.100.42 00:00:56:15:30:2a``
+    ``# arp -s 192.168.100.42 00:00:56:15:30:2a``
 
   To make the entry permanent (at least on debian and ubuntu systems) the file
   /etc/ethers can be used. Add a line like this to the file:
@@ -190,10 +209,14 @@ serial becomes ``0x2a`` and the resulting MAC-address is ``00:00:56:15:30:2a``.
   Open a ``cmd.exe`` prompt with **administrator** permissions and use the
   following command to create the ARP entry:
 
-    ``arp -s  192.168.100.42 00-00-56-15-30-2a``
+    ``arp -s 192.168.100.42 00-00-56-15-30-2a``
 
 
-To verify that the connection is working you can ping the controller. It will
-send out ICMP replies and for each received packet the L-LED will flash briefly.
+To verify that the connection is working you can ping the controller:
+
+  ``ping 192.168.100.42``
+
+If everything is setup correctly the controller should answer the ping
+requests.
 
 .. vim:ft=rst

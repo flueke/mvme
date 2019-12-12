@@ -1,5 +1,8 @@
 .. _vme-script-reference:
 
+.. TODO: difference between uploading script to the controller and running them.
+.. TODO: where do reads go? how is waiting handled. MVLC does not support waiting!
+
 ==================================================
 VME Scripts
 ==================================================
@@ -8,6 +11,8 @@ Overview
 --------
 VME Scripts are plain text files with one command per line. Comments may be
 started using the ``#`` character. They extend to the end of the line.
+Alternatively blocks can be commented out starting with ``/*`` and ending with
+``*/``.
 
 Scripts belonging to a module (**Module Init**, **VME Interface Settings**,
 **Module Reset** and the readout code) will have the **module base address**

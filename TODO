@@ -2,6 +2,25 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+
+* LUT editor minimize might not be correct. Test this more.
+
+* LUT editor: make the top section smaller when resizing the window. ideally it
+  would only just show all 6 input bits and nothing more. the bottom area can
+  then be used for the output bits.
+  https://stackoverflow.com/questions/8766633/how-to-determine-the-correct-size-of-a-qtablewidget
+
+* remove the 1 cycle/next event button. it's mostly useless. instead add a
+  mechanism to sniff incoming readout buffer similar to how the mvlc analysis
+  buffer debug is done.
+* after finishing a run/replay with pause enabled the next run will always
+  start paused even after having toggled pause/resume
+* analysis pause does not work when replaying from mvlc(_usb) listfile
+
+* when creating a new counter difference rate monitor the x-axis label says
+  'not set'. also the y-axis label has no effect. toggling the top-right
+  'combined' checkbox fixes this.
+
 MVLC mac address for 0007: 04:85:46:d2:00:07
 
 Mon 09 Dec 2019 04:21:00 PM CET Performance Tests with the MVLC
@@ -20,6 +39,10 @@ TODO: vary max_xfer for the above test
 
 * MVLC issues
 ======================
+* the controller stays 'connected' even tought the command or data pipe
+  operations lead to connection error. for example when turning off the
+  mvlc_usb the error poller will get FT_DEVICE_NOT_CONNECTED but the
+  MVLC_VMEController will not be set to disconnected.
 * still deadlocks and short blocking of the ui especially when having the dev gui open.
 * Check the whole UI for things that are dead/obsolete when using the mvlc
 * Documentation needs updates
