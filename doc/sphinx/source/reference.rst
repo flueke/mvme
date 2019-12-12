@@ -11,6 +11,7 @@ Reference
     daq_and_replay
     vme_config
     vme_script
+    mvlc_trigger_io
     analysis
     json_rpc
 
