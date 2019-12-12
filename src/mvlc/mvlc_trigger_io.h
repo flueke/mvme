@@ -94,7 +94,7 @@ struct LUT
 };
 
 // Minimize the given 6 -> 1 bit boolean function. Return a bitset with the
-// bits affecting the output set, the other bits cleared.
+// input bits affecting the output set, the other bits cleared.
 std::bitset<LUT::InputBits> minimize(const LUT::Bitmap &mapping);
 
 // Minimize each of the 3 6->1 bit functions the LUT implements. Return a

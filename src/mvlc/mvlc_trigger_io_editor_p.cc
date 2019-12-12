@@ -678,7 +678,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             result.utilsItem->moveBy(25, 25);
 
             auto label = new QGraphicsSimpleTextItem(
-                QString("Timers\nIRQs\nSoft Triggers\nSlave Trigger Input\nStack Busy"),
+                QString("Timers\nIRQs\nSoft Triggers\nSlave Trigger Input\nStack Busy\nVME System Clock"),
                 result.utilsItem);
             label->moveBy(5, 5);
             //label->moveBy((result.utilsItem->boundingRect().width()
