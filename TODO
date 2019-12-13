@@ -2,8 +2,33 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+http://www.sympnp.org/proceedings/57/G29.pdf
 
-* LUT editor minimize might not be correct. Test this more.
+* Direct connection between SoftTriggers and Counters/StackStarts is not possible. When
+  routing through an L2.LUT everything works as expected.
+  What does work is connect Timers to StackStarts.
+
+* add a vme script library for manual scripts and display the available script
+  in the 'add script' context menu. populate this with mvlc counter readouts
+  and soft trigger actication scripts.
+
+* Fix the mvlc_daq setup_trigger_io reset stuff
+  Without doing a reset the stack will still be executed after having removed
+  the corresponding event from the vme config.  What happens is that the daq
+  init code resets all stack offsets which means stack number two points to the
+  same data as the direct exec stack0. This then means that everytime the
+  trigger for the now removed event is activated, for example via a manually
+  setup timer, the current command stack will be executed.  What's weird is
+  that I do not see any errors or stat counts confirming this in the GUI at
+  all. Probably the data is polled and maybe even counted somewhere but not
+  shown.
+
+* Not possible to create a VME Event that is triggered by the trigger i/o
+  system.
+
+* LUT editor minimize might not be correct. Test this more. Mostly I confuse
+  myself when creating functions. Input bit order also is not documented (LSBit
+  is the rightmost).
 
 * LUT editor: make the top section smaller when resizing the window. ideally it
   would only just show all 6 input bits and nothing more. the bottom area can
