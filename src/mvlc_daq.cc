@@ -116,7 +116,7 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
 
                     // Set the stack trigger to 'External'. The actual setup of
                     // the timer and the connection between the Timer and
-                    // StackStart units is done via the trigger/IO setup.
+                    // StackStart units is done in setup_trigger_io().
                     if (auto ec = mvlc.writeRegister(
                             stacks::get_trigger_register(stackId),
                             stacks::External << stacks::TriggerTypeShift))
@@ -126,6 +126,20 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
 
                     ++timersInUse;
                 } break;
+
+            case TriggerCondition::TriggerIO:
+                    logger(QSL("    Event %1: Stack %2, via MVLC Trigger I/O")
+                           .arg(event->objectName()).arg(stackId));
+
+                    // Set the stack trigger to 'External'. The actual trigger
+                    // setup is done by the user via the trigger io gui.
+                    if (auto ec = mvlc.writeRegister(
+                            stacks::get_trigger_register(stackId),
+                            stacks::External << stacks::TriggerTypeShift))
+                    {
+                        return ec;
+                    }
+                break;
 
             InvalidDefaultCase;
         }
@@ -153,8 +167,18 @@ std::error_code setup_trigger_io(
     // First disable all of the StackStart units. This is to avoid any side
     // effects from vme events that have been removed or any other sort of
     // stack triggering.
+#if 0
+    // FIXME
+    // Disabled for now as it conflicts with user-defined StackStart
+    // configurations. It basically disables them and undoes the changes done
+    // in the GUI. A fix would be to regnerate and execute the trigger io
+    // script at this point so that the units are disabled but the
+    // modifications are not written back to the trigger io config.
+    // Even better would be a way to create a snippet containing only the units
+    // that should be reset and execute that.
     for (auto &ss: ioCfg.l3.stackStart)
         ss.activate = false;
+#endif
 
     u8 stackId = stacks::ImmediateStackID + 1;
     u16 timersInUse = 0u;

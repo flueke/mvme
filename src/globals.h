@@ -36,12 +36,13 @@
 enum class TriggerCondition
 {
     NIM1,               // VMUSB
-    Periodic,           // VMUSB and SIS3153
-    Interrupt,          // VMUSB and SIS3153
+    Periodic,           // MVLC, VMUSB and SIS3153
+    Interrupt,          // MVLC, VMUSB and SIS3153
     Input1RisingEdge,   // SIS3153
     Input1FallingEdge,  // SIS3153
     Input2RisingEdge,   // SIS3153
-    Input2FallingEdge   // SIS3153
+    Input2FallingEdge,  // SIS3153
+    TriggerIO,          // MVLC via the Trigger I/O logic
 };
 
 enum class DAQState
@@ -72,6 +73,7 @@ static const QMap<TriggerCondition, QString> TriggerConditionNames =
     { TriggerCondition::Input1FallingEdge,  "Input 1 Falling Edge" },
     { TriggerCondition::Input2RisingEdge,   "Input 2 Rising Edge" },
     { TriggerCondition::Input2FallingEdge,  "Input 2 Falling Edge" },
+    { TriggerCondition::TriggerIO,          "MVLC Trigger I/O" },
 };
 
 static const QMap<DAQState, QString> DAQStateStrings =
