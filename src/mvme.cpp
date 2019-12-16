@@ -194,9 +194,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionToolVMEDebug             = new QAction(QSL("VME Debug"), this);
     m_d->actionToolImportHisto1D        = new QAction(QSL("Import Histo1D"), this);
     m_d->actionToolVMUSBFirmwareUpdate  = new QAction(QSL("VM-USB Firmware Update"), this);
-    m_d->actionToolTemplateInfo         = new QAction(QSL("Template System Info"), this);
+    m_d->actionToolTemplateInfo         = new QAction(QSL("VME Module Template Info"), this);
     m_d->actionToolSIS3153Debug         = new QAction(QSL("SIS3153 Debug Widget"), this);
-    m_d->actionToolMVLCDevGui           = new QAction(QSL("MVLC Dev GUI"), this);
+    m_d->actionToolMVLCDevGui           = new QAction(QSL("MVLC Debug GUI"), this);
 
     m_d->actionHelpVMEScript   = new QAction(QIcon(QSL(":/help.png")), QSL("&VME Script Reference"), this);
     m_d->actionHelpVMEScript->setObjectName(QSL("actionVMEScriptRef"));

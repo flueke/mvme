@@ -302,10 +302,12 @@ static QTextStream &print(QTextStream &out, const VMEModuleMeta &module, int ind
     do_indent(out, indent) << "typeId=" << static_cast<u32>(module.typeId) << endl;
     do_indent(out, indent) << "typeName=" << module.typeName << endl;
     do_indent(out, indent) << "displayName=" << module.displayName << endl;
+
     do_indent(out, indent) << "eventHeaderFilter="
         << QString::fromLocal8Bit(module.eventHeaderFilter) << endl;
-    do_indent(out, indent) << (QString("0x%1")
-                               .arg(module.vmeAddress, 8, 16, QLatin1Char('0')));
+
+    do_indent(out, indent) << "vmeBaseAddress="
+        << (QString("0x%1").arg(module.vmeAddress, 8, 16, QLatin1Char('0'))) << endl;
 
     do_indent(out, indent) << "templates:" << endl;
 

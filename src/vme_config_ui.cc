@@ -239,10 +239,10 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
 
                     label = new QLabel(QSL(
                             "The event should be triggered via the MVLC Trigger I/O module.\n\n"
-                            "Use the Trigger I/O Editor to setup one of the"
-                            "StackStart units to trigger execution of this"
-                            "events readout stack. Then connect the unit to the"
-                            "desired signals."
+                            "Use the Trigger I/O Editor to setup one of the "
+                            "StackStart units to trigger execution of this "
+                            "events readout stack. Then connect the StackStart unit to the "
+                            "desired activation signals."
                             ));
                     label->setWordWrap(true);
                     m_d->stack_options->addWidget(label);
