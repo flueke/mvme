@@ -2,41 +2,98 @@
 #
 # The MVLC provides 8 64-bit counters available via the internal VME interface.
 # The value of each counter is split across 4 16-bit registers.
-# Counter unit addresses go from 0x0308 to 0x0310. To read out a counter first
-# the corresponding unit has to be selected, then the counter has to be latched
-# and finally the 4 registers can be read out.
-# Note that latching can also be done via the Trigger I/O Logic (e.g. by
-# connecting a StackStart unit to the counters latch input) in which case
-# latching should not be done inside this script.
+# Counter unit addresses go from 0x0308 to 0x0310. To read out a counter the
+# corresponding unit has to be selected first, then the counter has to be
+# latched and finally the 4 16-bit registers can be read out.
+#
+# Note that latching can also be done via the Trigger I/O Logic to synchronize
+# the latch with for example the signal used to trigger a readout. In this case
+# remove the lines writing to the latch register.
 
 # counter0
 0x0200 0x0308           # counter select
-0x030a 1                # latch the counter
+0x030a 1                # latch the counter (only needed if not done in the trigger_io module)
 read a32 d16 0x0300     # counter readout
 read a32 d16 0x0302
 read a32 d16 0x0304
 read a32 d16 0x0306
 
 # counter1
-#0x0200 0x0309           # counter select
-#0x030a 1                # latch the counter
-#read a32 d16 0x0300     # counter readout
-#read a32 d16 0x0302
-#read a32 d16 0x0304
-#read a32 d16 0x0306
+/*
+0x0200 0x0309           # counter select
+0x030a 1                # latch the counter (only needed if not done in the trigger_io module)
+read a32 d16 0x0300     # counter readout
+read a32 d16 0x0302
+read a32 d16 0x0304
+read a32 d16 0x0306
+*/
 
 # counter2
-#0x0200 0x030a           # counter select
-#0x030a 1                # latch the counter
-#read a32 d16 0x0300     # counter readout
-#read a32 d16 0x0302
-#read a32 d16 0x0304
-#read a32 d16 0x0306
+/*
+0x0200 0x030a           # counter select
+0x030a 1                # latch the counter (only needed if not done in the trigger_io module)
+read a32 d16 0x0300     # counter readout
+read a32 d16 0x0302
+read a32 d16 0x0304
+read a32 d16 0x0306
+*/
 
 # counter3
-#0x0200 0x030b           # counter select
-#0x030a 1                # latch the counter
-#read a32 d16 0x0300     # counter readout
-#read a32 d16 0x0302
-#read a32 d16 0x0304
-#read a32 d16 0x0306
+/*
+0x0200 0x030b           # counter select
+0x030a 1                # latch the counter (only needed if not done in the trigger_io module)
+read a32 d16 0x0300     # counter readout
+read a32 d16 0x0302
+read a32 d16 0x0304
+read a32 d16 0x0306
+*/
+
+# counter4
+/*
+0x0200 0x030c           # counter select
+0x030a 1                # latch the counter (only needed if not done in the trigger_io module)
+read a32 d16 0x0300     # counter readout
+read a32 d16 0x0302
+read a32 d16 0x0304
+read a32 d16 0x0306
+*/
+
+# counter5
+/*
+0x0200 0x030d           # counter select
+0x030a 1                # latch the counter (only needed if not done in the trigger_io module)
+read a32 d16 0x0300     # counter readout
+read a32 d16 0x0302
+read a32 d16 0x0304
+read a32 d16 0x0306
+*/
+
+# counter6
+/*
+0x0200 0x030e           # counter select
+0x030a 1                # latch the counter (only needed if not done in the trigger_io module)
+read a32 d16 0x0300     # counter readout
+read a32 d16 0x0302
+read a32 d16 0x0304
+read a32 d16 0x0306
+*/
+
+# counter7
+/*
+0x0200 0x030f           # counter select
+0x030a 1                # latch the counter (only needed if not done in the trigger_io module)
+read a32 d16 0x0300     # counter readout
+read a32 d16 0x0302
+read a32 d16 0x0304
+read a32 d16 0x0306
+*/
+
+# counter8
+/*
+0x0200 0x0310           # counter select
+0x030a 1                # latch the counter (only needed if not done in the trigger_io module)
+read a32 d16 0x0300     # counter readout
+read a32 d16 0x0302
+read a32 d16 0x0304
+read a32 d16 0x0306
+*/
