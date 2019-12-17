@@ -1056,19 +1056,27 @@ QString MVMEContext::getUniqueModuleName(const QString &prefix) const
 
 void MVMEContext::tryOpenController()
 {
+    // Mutex to avoid entering and possibly starting the opening code multiple
+    // times.
     std::unique_lock<mesytec::mvme::TicketMutex> guard(m_d->tryOpenControllerMutex);
 
     if (m_controller
-        && !m_controller->isOpen()
         && !m_ctrlOpenFuture.isRunning()
         && m_d->m_ctrlOpenRetryCount < VMECtrlConnectMaxRetryCount)
     {
-        // Note: Having VMEController emit signals from the thread chosen by
-        // QtConcurrent is ok. It seems the signal emission mechanism does
-        // check thread affinity at runtime and enqueues the slot invocations
-        // on the controller objects thread.
-        //qDebug() << __PRETTY_FUNCTION__ << "calling open() on" << m_controller;
-        m_ctrlOpenFuture = QtConcurrent::run(m_controller, &VMEController::open);
+        auto try_open = [] (VMEController *ctrl)
+        {
+            if (!ctrl->isOpen())
+            {
+                //qDebug() << "tryOpenController" << QThread::currentThread() << "calling open()";
+                return ctrl->open();
+            }
+
+            //qDebug() << "tryOpenController" << QThread::currentThread() << "ctrl is open, returning";
+            return VMEError(VMEError::DeviceIsOpen);
+        };
+
+        m_ctrlOpenFuture = QtConcurrent::run(try_open, m_controller);
         m_ctrlOpenWatcher.setFuture(m_ctrlOpenFuture);
     }
 }
