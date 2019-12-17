@@ -355,7 +355,7 @@ MVLC_ETH_SettingsWidget::MVLC_ETH_SettingsWidget(QWidget *parent)
     layout->addRow(make_framed_description_label(QSL(
                 "When using DHCP the MVLC will request a hostname of the form "
                 "<i>MVLC-NNNN</i> where NNNN is the serial number.<br/>"
-                "This value is  also displayed on the MVLCs front panel close to "
+                "This value is  also printed on the MVLCs front panel close to "
                 "the ethernet plug."
                 )));
 }
