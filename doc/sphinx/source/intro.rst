@@ -24,7 +24,7 @@ Features
 
     * USB3, USB2 and Ethernet connectivity
     * Lowest-latency readout with practically no deadtime.
-    * Flexible Trigger and I/O setup
+    * Flexible Trigger and I/O logic module
     * Possibility to use optical fiber based Ethernet via onboard SFP cage
     * GBit/s Ethernet connection required if using Ethernet!
 

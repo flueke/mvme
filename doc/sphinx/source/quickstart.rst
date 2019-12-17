@@ -78,7 +78,7 @@ The VME Config should now look like similar to :ref:`quickstart-vme-tree01`.
 .. autofigure:: images/intro_vme_tree01.png
    :scale-latex: 60%
 
-   VME Config Tree
+   VME Config tree
 
 * Double-click the *Module Init* entry to open a VME Script Editor window.
   Scroll to the bottom of the editor window or use the search bar to search for

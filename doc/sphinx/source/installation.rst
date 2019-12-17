@@ -124,13 +124,12 @@ here: `libusb-win32`_.
 
 Ethernet DHCP/ARP setup
 ==================================================
-
 When using the MVLC via Ethernet or the SIS3153 controller some network setup
 has to be done.
 
-The easiest way to get things running is if you are running a DHCP server on
-your network. Both controllers will request an IPv4-Address and a hostname via
-DHCP after powerup.
+The easiest way to get a working setup is if you are running a DHCP server on
+your network. Both of the controllers will request an IPv4-Address and a
+hostname via DHCP after powerup.
 
 The MVLC will request the hostname ``mvlc-NNNN`` where ``NNNN`` is the serial
 number shown on the front-panel near the Ethernet port.
@@ -145,25 +144,9 @@ hostnames. You can verify this by opening a command prompt and running
 
 for the MVLC with serial number 10.
 
-
-.. ==================================================
-.. SIS3153 Hostname/IP-Address configuration
-.. ==================================================
-.. 
-.. Using DHCP
-.. --------------------------------------------------
-.. On powerup the SIS3153 tries to get an IP address and a hostname via DHCP. The
-.. requested hostname is of the form ``sis3153-0DDD`` where ``DDD`` is the decimal
-.. serial number as printed on the board. For example my controller with S/N 042
-.. will ask for the hostname ``sis3153-0042``. During this phase the L-LED will
-.. flash quickly and turn off once the DHCP assignment succeeded.
-
-.. TODO: add short description of the network layers below
-.. TODO: add MVLC MAC address scheme here
-
-
 Using a manual ARP entry
 --------------------------------------------------
+.. TODO: add short description of the network layers below
 In case DHCP with hostname assignment should not or cannot be used an
 alternative approach is to manually associate the MAC-address of the controller
 with an IP-address.
@@ -173,9 +156,9 @@ with an IP-address.
   The first step is to figure out the controllers MAC-address. This is the
   serial-number dependent Ethernet address of the controller.
 
-  For the MVLC the MAC-address is ``04:85:46:d2:NN:NN`` where the `NN:NN` is the
-  serial number of the MVLC. So for MVLC-0007 the full MAC-address is
-  ``04:85:46:d2:00:07``.
+  For the MVLC the MAC-address is ``04:85:46:d2:NN:NN`` where the ``NN:NN`` is
+  the serial number of the MVLC in decimal. So for MVLC-0015 the full
+  MAC-address is ``04:85:46:d2:00:15``.
 
   The MAC-address of the SIS3153 is ``00:00:56:15:3x:xx`` where ``x:xx`` is the
   serial number in hexadecimal. So for my development controller with S/N 42 the
@@ -186,20 +169,20 @@ mapping in the operating systems ARP table.
 
 This step is specific to the operating system and will require root/admin
 permissions. The below examples associate the IP-address ``192.168.100.42``
-with the controllers MAC. You have to change the IP-address to match your local
-network setup, otherwise the operating system does not know how to reach the
-controller.
+with the controllers MAC-address. You have to change the IP-address to match
+your local network setup, otherwise the operating system does not know how to
+reach the controller.
 
 * Creating the ARP entry under linux:
 
   With root permissions an ARP entry can be addded this way:
 
-    ``# arp -s 192.168.100.42 00:00:56:15:30:2a``
+    ``arp -s 192.168.100.42 04:85:46:d2:00:15``
 
   To make the entry permanent (at least on debian and ubuntu systems) the file
   /etc/ethers can be used. Add a line like this to the file:
 
-    ``00:00:56:15:30:2a 192.168.100.42``
+    ``04:85:46:d2:00:15 192.168.100.42``
 
   This will take effect on the next reboot (or when restarting the networking
   services I think).
@@ -209,14 +192,15 @@ controller.
   Open a ``cmd.exe`` prompt with **administrator** permissions and use the
   following command to create the ARP entry:
 
-    ``arp -s 192.168.100.42 00-00-56-15-30-2a``
+    ``arp -s 192.168.100.42 04-85-46-d2-00-15``
 
-
-To verify that the connection is working you can ping the controller:
+To verify that the connection is working you can try to ping the controller:
 
   ``ping 192.168.100.42``
 
 If everything is setup correctly the controller should answer the ping
 requests.
+
+.. TODO: add some troubleshooting hints
 
 .. vim:ft=rst
