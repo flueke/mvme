@@ -691,8 +691,8 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     qDebug() << __PRETTY_FUNCTION__ << "after emit vmeControllerAboutToBeChanged";
 
-    // Delete objects in the event loop because Qt events may still be
-    // scheduled which may make use of the objects.
+    // Delete objects inside the event loop via deleteLater() because Qt events
+    // may still be scheduled which may make use of the objects.
     m_readoutWorker->deleteLater();
     m_readoutWorker = nullptr;
 
@@ -937,43 +937,45 @@ void MVMEContext::onControllerOpenFinished()
 
         return;
     }
-
-    assert(result.isError());
-
-    /* Could not connect. Inc retry count and log a hopefully user
-     * friendly message about what went wrong. */
-
-    m_d->m_ctrlOpenRetryCount++;
-
-    // The result indicates an error. First handle the MVLCs "InUse" case.
-    if (result.getStdErrorCode() == mesytec::mvlc::MVLCErrorCode::InUse)
+    else if (result.error() != VMEError::DeviceIsOpen)
     {
-        if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
-        {
-            //if (!m_d->m_isFirstConnectionAttempt)
-            {
-                auto msg = QSL(
-                    "The MVLC controller seems to be in use (at least one of the"
-                    " triggers is enabled).\n"
-                    "Use the \"Force Reset\" button to disable the triggers on the next"
-                    " connection attempt.");
+        assert(result.isError());
 
-                logMessage(msg);
+        /* Could not connect. Inc retry count and log a hopefully user
+         * friendly message about what went wrong. */
+
+        m_d->m_ctrlOpenRetryCount++;
+
+        // The result indicates an error. First handle the MVLCs "InUse" case.
+        if (result.getStdErrorCode() == mesytec::mvlc::MVLCErrorCode::InUse)
+        {
+            if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
+            {
+                //if (!m_d->m_isFirstConnectionAttempt)
+                {
+                    auto msg = QSL(
+                        "The MVLC controller seems to be in use (at least one of the"
+                        " triggers is enabled).\n"
+                        "Use the \"Force Reset\" button to disable the triggers on the next"
+                        " connection attempt.");
+
+                    logMessage(msg);
+                }
             }
         }
-    }
 
-    if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
-    {
-
-        //if (!m_d->m_isFirstConnectionAttempt)
+        if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
         {
-            logMessage(QString("Could not open VME controller %1: %2")
-                       .arg(m_controller->getIdentifyingString())
-                       .arg(result.toString())
-                      );
+
+            //if (!m_d->m_isFirstConnectionAttempt)
+            {
+                logMessage(QString("Could not open VME controller %1: %2")
+                           .arg(m_controller->getIdentifyingString())
+                           .arg(result.toString())
+                          );
+            }
+            m_d->m_isFirstConnectionAttempt = false;
         }
-        m_d->m_isFirstConnectionAttempt = false;
     }
 }
 
