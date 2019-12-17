@@ -520,6 +520,8 @@ void DAQControlWidget::updateWidget()
 
     auto filename = stats.listfileFilename;
 
+    qDebug() << __PRETTY_FUNCTION__ << "filename=" << filename;
+
     if (auto settings = make_workspace_settings(m_workspaceDirectory))
     {
         QDir listfileDir(settings->value(QSL("ListFileDirectory")).toString());

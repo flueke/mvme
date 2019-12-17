@@ -4,6 +4,10 @@ TODO list, not at all sorted by priority
 
 http://www.sympnp.org/proceedings/57/G29.pdf
 
+* daqcontrol listfile filename is not updated when using the vmusb
+* Event Server component only mentioned in the daq_control section of the docs.
+  This needs to have its own section once it performs better.
+
 * Docs: info about basic controls. right-click context menus, shift and control
   click selections, double clicks :D
 

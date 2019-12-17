@@ -127,7 +127,7 @@ std::error_code MVLCDialog::readWords(u32 *dest, size_t count, size_t &wordsTran
                           bytesTransferred);
 
         //std::cout << __PRETTY_FUNCTION__
-        //    << " attempt=" << attempts
+        //    << " attempt=" << attempts + 1
         //    << ", ec=" << ec.message()
         //    << ", bytesTransferred=" << bytesTransferred
         //    << std::endl;
