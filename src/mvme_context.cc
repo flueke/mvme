@@ -1465,6 +1465,15 @@ bool MVMEContext::prepareStart()
         << "free buffers:" << m_freeBuffers.queue.size()
         << "filled buffers:" << m_fullBuffers.queue.size();
 
+    // Discard any filled buffers from a previous run, moving them back to the
+    // free queue. This way the analysis side won't get stale data in case it
+    // previously quit without consuming all enqueued buffers.
+    while (auto buffer = dequeue(&m_fullBuffers))
+        enqueue(&m_freeBuffers, buffer);
+
+    assert(queue_size(&m_freeBuffers) == DataBufferCount);
+    assert(queue_size(&m_fullBuffers) == 0);
+
     assert(m_streamWorker->getState() == MVMEStreamWorkerState::Idle);
 
     if (m_streamWorker->getState() == MVMEStreamWorkerState::Idle)
