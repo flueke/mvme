@@ -76,7 +76,7 @@ and panned by holding down the left mouse button and moving the cursor.
 
 Each of the blocks can be double-clicked to open an editor window specific to
 the unit or groups of units. Input and output pins are represented by small
-circles near the edges of each block. Connection between pins are drawn as
+circles near the edges of each block. Connections between pins are drawn as
 arrows from source to destination.
 
 The user interface only draws arrows for connections it considers *active*.
@@ -93,15 +93,15 @@ By default changes made in any of the editor windows are applied immediately
 upon closing the editor or pressing the ``Apply`` button as long as mvme is
 connected to an MVLC. This means the software representation of the Trigger I/O
 module is converted to a list of VME write commands targeting the MVLC and then
-this list is directly executed. Use the ``Autorun`` button from the top toolbar
-to toggle this behaviour.
+this command list is directly executed. Use the ``Autorun`` button from the top
+toolbar to toggle this behaviour.
 
 If you want to view or edit the VME write commands directly use the ``View
 Script`` button, make your changes inside the text editor that opens up and
 then press the ``Reparse from script`` button to update the user interface.
 
 Descriptions of the available units and their corresponding GUI editors can be
-found in :ref:`the next section <mvlc_trigger_io_units>`.
+found in :ref:`mvlc_trigger_io_units`.
 
 When starting a new DAQ run the initialization procedure will apply the current
 logic setup to the MVLC before further initializing any modules and setting up
@@ -129,6 +129,42 @@ error at startup.
    ``counter_readout``.
 
 
+.. _mvlc_trigger_io_gate_generators:
+
+Gate Generators
+---------------
+Some of the Trigger I/O units have builtin gate generators to influence the
+signals they produce. These units are the NIM I/Os, ECL outputs, LUT strobe
+inputs and the SlaveTrigger inputs. The gate generators share a common set of
+properties:
+
+* Delay
+
+  Delays generation of the output pulse by the specified time in nanoseconds.
+
+  Minimum: 0 - no delay, maximum: 65535 ns
+
+.. TODO: what is the minimum pulse width?
+
+* Width
+
+  The width of the generated pulse in nanoseconds. Values from 0 to the minimum
+  will generate a minimum-width pulse.
+
+  Minimum: 8 ns, maximum: 65535 ns.
+
+* Holdoff
+
+  Holdoff sets the minimum time that must elapse before the next change to the
+  output may occur.
+
+  Minimum: 0 ns, maximum: 65535 ns.
+
+* Invert
+
+  By default output pulses are generated at the leading edge of the input
+  signal. Setting the invert flag changes this to the trailing edge.
+
 .. _mvlc_trigger_io_units:
 
 I/O and logic units
@@ -140,19 +176,17 @@ The front panel NIM connectors can be configured as either input or output.
 This means they are available both on the level0 input side and on the level3
 output side.
 
-.. TODO: minmax values and units everywhere.
+.. FIXME: improve the explanation
 
-Settings
-^^^^^^^^
-* Delay
-* Width
-* Holdoff
-* Invert
+Each of the NIM I/Os is driven by a :ref:`gate generator
+<mvlc_trigger_io_gate_generators>`. When using a NIM connector as an input (the
+left side in the UI) the gate generator is used to generate the *internal*
+signal. If the NIM is configured as an output the gate generator effects the
+output signal of the NIM.
 
-   Inverts the signal. If the NIM is used as an output it will be
-   permanently active while its input is *false*.
+Note that it is possible to use a NIM as both input and output at the same
+time. In this case the gate generator acts on the output signal only.
 
-.. TODO: what does invert do when the NIM is an input?
 
 ECL outputs
 ~~~~~~~~~~~
@@ -164,7 +198,6 @@ Timers
 Generate logic pulses with a set frequency.
 
 .. TODO: minmax values
-.. TODO: explain how to reset them
 
 
 Settings
@@ -182,12 +215,12 @@ Settings
 IRQ Units
 ~~~~~~~~~
 Generates a signal when one of the 7 available VME IRQs triggers. The only
-setting is the IRQ number (1-7) this unit should react to.
+setting is the number of the IRQ (1-7) this unit should react to.
 
 Soft Triggers
 ~~~~~~~~~~~~~
-Software triggers which can be permanently activated via the GUI or by
-executing one of the folowing VME Scripts:
+Software triggers which can either be permanently activated via the GUI editor
+or pulsed by executing one of the folowing VME Scripts:
 
 ::
 
