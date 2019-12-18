@@ -475,8 +475,8 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     bufferQueueDebugTimer->start(5000);
     connect(bufferQueueDebugTimer, &QTimer::timeout, this, [this] () {
         qDebug() << "MVMEContext:"
-            << "free buffers:" << m_freeBuffers.queue.size()
-            << "filled buffers:" << m_fullBuffers.queue.size();
+            << "free buffers:" << queue_size(&m_freeBuffers)
+            << "filled buffers:" << queue_size(&m_fullBuffers);
     });
 #endif
 
@@ -572,7 +572,7 @@ MVMEContext::~MVMEContext()
     delete m_controller;
     delete m_readoutWorker;
 
-    Q_ASSERT(m_freeBuffers.queue.size() + m_fullBuffers.queue.size() == DataBufferCount);
+    Q_ASSERT(queue_size(&m_freeBuffers) + queue_size(&m_fullBuffers) == DataBufferCount);
     qDeleteAll(m_freeBuffers.queue);
     qDeleteAll(m_fullBuffers.queue);
 
@@ -1462,8 +1462,8 @@ bool MVMEContext::prepareStart()
         "Experiment/IgnoreVMEStartupErrors").toBool();
 
     qDebug() << __PRETTY_FUNCTION__
-        << "free buffers:" << m_freeBuffers.queue.size()
-        << "filled buffers:" << m_fullBuffers.queue.size();
+        << "free buffers:" << queue_size(&m_freeBuffers)
+        << "filled buffers:" << queue_size(&m_fullBuffers);
 
     // Discard any filled buffers from a previous run, moving them back to the
     // free queue. This way the analysis side won't get stale data in case it
