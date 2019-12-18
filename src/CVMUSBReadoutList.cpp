@@ -244,19 +244,54 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
             } break;
 
         case CommandType::BLT:
-            addBlockRead32(cmd.address, cmd.addressMode, cmd.transfers);
+            {
+                u8 amod = cmd.addressMode;
+
+                if (amod == vme_address_modes::A32)
+                    amod = vme_address_modes::BLT32;
+
+                if (amod == vme_address_modes::A24)
+                    amod = vme_address_modes::a24PrivBlock;
+
+                addBlockRead32(cmd.address, amod, cmd.transfers);
+            }
             break;
 
         case CommandType::BLTFifo:
-            addFifoRead32(cmd.address, cmd.addressMode, cmd.transfers);
+            {
+                u8 amod = cmd.addressMode;
+
+                if (amod == vme_address_modes::A32)
+                    amod = vme_address_modes::BLT32;
+
+                if (amod == vme_address_modes::A24)
+                    amod = vme_address_modes::a24PrivBlock;
+
+                addFifoRead32(cmd.address, amod, cmd.transfers);
+            }
             break;
 
+
         case CommandType::MBLT:
-            addBlockRead32(cmd.address, cmd.addressMode, cmd.transfers);
+            {
+                u8 amod = cmd.addressMode;
+
+                if (amod == vme_address_modes::A32)
+                    amod = vme_address_modes::MBLT64;
+
+                addBlockRead32(cmd.address, amod, cmd.transfers);
+            }
             break;
 
         case CommandType::MBLTFifo:
-            addFifoRead32(cmd.address, cmd.addressMode, cmd.transfers);
+            {
+                u8 amod = cmd.addressMode;
+
+                if (amod == vme_address_modes::A32)
+                    amod = vme_address_modes::MBLT64;
+
+                addFifoRead32(cmd.address, amod, cmd.transfers);
+            }
             break;
 
         case CommandType::BLTCount:
@@ -660,6 +695,8 @@ CVMUSBReadoutList::dataStrobes(uint32_t address)
 void
 CVMUSBReadoutList::addBlockRead(uint32_t base, size_t transfers, uint32_t startingMode)
 {
+    assert(vme_address_modes::is_block_amod(startingMode));
+
     uint8_t amod = (startingMode >> modeAMShift) & modeAMMask;
 
     bool isMblt = (amod == a32UserBlock64 || amod == a32PrivBlock64);
