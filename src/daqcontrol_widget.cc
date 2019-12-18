@@ -337,6 +337,7 @@ void DAQControlWidget::updateWidget()
     auto daqState = m_daqState;
     auto streamWorkerState = m_streamWorkerState;
     auto controllerState = m_vmeControllerState;
+    bool isMVLC = is_mvlc_controller(m_vmeControllerTypeName);
 
     const bool isReplay  = (globalMode == GlobalMode::ListFile);
     const bool isRun     = (globalMode == GlobalMode::DAQ);
@@ -390,6 +391,7 @@ void DAQControlWidget::updateWidget()
     // one cycle button
     //
     bool enableOneCycleButton = false;
+    bool showOneCycleButton = !isMVLC;
 
     if (globalMode == GlobalMode::DAQ
         && controllerState == ControllerState::Connected
@@ -404,6 +406,7 @@ void DAQControlWidget::updateWidget()
     }
 
     pb_oneCycle->setEnabled(enableOneCycleButton);
+    pb_oneCycle->setVisible(showOneCycleButton);
 
 
     //
@@ -520,7 +523,7 @@ void DAQControlWidget::updateWidget()
 
     auto filename = stats.listfileFilename;
 
-    qDebug() << __PRETTY_FUNCTION__ << "filename=" << filename;
+    //qDebug() << __PRETTY_FUNCTION__ << "filename=" << filename;
 
     if (auto settings = make_workspace_settings(m_workspaceDirectory))
     {

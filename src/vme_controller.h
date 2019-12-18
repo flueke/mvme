@@ -197,4 +197,9 @@ inline bool is_mvlc_controller(const VMEController *ctrl)
     return ctrl ? is_mvlc_controller(ctrl->getType()) : false;
 }
 
+inline bool is_mvlc_controller(const QString &ctrlTypeName)
+{
+    return is_mvlc_controller(from_string(ctrlTypeName));
+}
+
 #endif // VMECONTROLLER_H
