@@ -29,7 +29,7 @@ set(MTUNE_FLAG "core2")
 #set(MARCH_FLAG "skylake")
 #set(MTUNE_FLAG "skylake")
 
-set(CMAKE_CXX_FLAGS_DEBUG   "-ggdb -O0")
+set(CMAKE_CXX_FLAGS_DEBUG   "-ggdb -Og")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG}")
 set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG} -pg -fno-omit-frame-pointer")
 # Explicitly set the required c++ standard (CMake >= 3.1)
