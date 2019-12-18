@@ -395,7 +395,7 @@ void MVLCNotificationPoller::doPoll()
 
     } while (!buffer.isEmpty());
 
-    qDebug() << __FUNCTION__ << "left polling loop after" << iterationCount << "iterations";
+    //qDebug() << __FUNCTION__ << "left polling loop after" << iterationCount << "iterations";
 
     m_isPolling = false;
 }
