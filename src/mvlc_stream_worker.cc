@@ -685,6 +685,7 @@ void MVLC_StreamWorker::resume()
     {
         std::unique_lock<std::mutex> guard(m_stateMutex);
         m_desiredState = MVMEStreamWorkerState::Running;
+        m_startPaused = false;
     }
     m_stateCondVar.notify_one();
     qDebug() << __PRETTY_FUNCTION__ << "leave";
