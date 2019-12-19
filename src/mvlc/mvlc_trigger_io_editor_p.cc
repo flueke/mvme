@@ -2662,10 +2662,7 @@ LUTOutputEditor::LUTOutputEditor(
         {
             for (const auto &kv: m_outputStateWidgets | indexed(0))
             {
-                if (kv.index() == 0 || kv.index() == m_outputStateWidgets.size() - 1)
-                    kv.value()->setChecked(false);
-                else
-                    kv.value()->setChecked(true);
+                kv.value()->setChecked(kv.index() != 0);
             }
         };
 
