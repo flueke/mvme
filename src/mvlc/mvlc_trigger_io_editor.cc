@@ -516,6 +516,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     action->setCheckable(true);
     action->setChecked(true);
 
+#if 0
     action = toolbar->addAction(
         QIcon(":/document-open.png"), QSL("Load from file"));
     action->setEnabled(false);
@@ -523,6 +524,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     action = toolbar->addAction(
         QIcon(":/document-save-as.png"), QSL("Save to file"));
     action->setEnabled(false);
+#endif
 
     toolbar->addSeparator();
 
