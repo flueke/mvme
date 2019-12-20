@@ -25,9 +25,6 @@ current state of the system:
     | Pause        | * Leave DAQ mode                  | Pause replay                           |
     |              | * No special procedures are run   |                                        |
     +--------------+-----------------------------------+----------------------------------------+
-    | 1 Cycle      | * Start DAQ for one cycle         | * Replay the next event from the file  |
-    | / Next Event | * Dump received data to log view  | * Dump event data to log view          |
-    +--------------+-----------------------------------+----------------------------------------+
 
 The *Start* and *1 Cycle / Next Event* buttons allow to choose what should
 happen with existing histogram data. Selecting *Clear* will clear all

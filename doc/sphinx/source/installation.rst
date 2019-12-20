@@ -6,16 +6,16 @@ System Requirements
 
 * A recent 64-bit Linux distribution or a 64-bit version of Windows 7 or
   later.
-  
+
 * One of the supported VME Controllers:
 
   * `mesytec`_ MVLC (USB3/2, GBit/s Ethernet)
   * `WIENER`_ `VM-USB <http://www.wiener-d.com/sc/modules/vme--modules/vm-usb.html>`_ (USB2)
   * `Struck`_ SIS3153 (GBit/s Ethernet)
 
-* If using the `WIENER`_ VM-USB VME Controller:
+* If using the WIENER VM-USB VME Controller:
 
-  * `WIENER`_ VM-USB VME Controller with a recent firmware
+  * WIENER VM-USB VME Controller with a recent firmware
 
     The VM-USB firmware can be updated from within mvme. See
     :ref:`howto-vmusb-firmware-update` for a guide.
@@ -35,7 +35,7 @@ System Requirements
 * At least 4 GB RAM is recommended.
 
 * A multicore processor is recommended as mvme itself can make use of multiple
-  cores: readout, data compression, analysis and the user interface run in
+  cores: readout, data compression, analysis and the user interface all run in
   separate threads.
 
 .. _mesytec: https://www.mesytec.com/
@@ -53,7 +53,7 @@ Linux
 
 The mvme archives for Linux include all required libraries. The only
 external dependency is the GNU C Library glibc. When using a modern Linux
-distribution no glibc version errors should occur.
+distribution no glibc versioning errors should occur.
 
 To install mvme unpack the archive and execute the mvme startup script::
 
@@ -122,6 +122,13 @@ here: `libusb-win32`_.
 
 .. _libusb-win32: https://sourceforge.net/projects/libusb-win32/files/libusb-win32-releases/1.2.6.0/
 
+Installation from source
+--------------------------------------------------
+The mvme sources are available on github: https://github.com/flueke/mvme
+
+Refer to the README file for a list of required dependencies and build
+instructions for Linux, Windows and Mac OS X.
+
 Ethernet DHCP/ARP setup
 ==================================================
 When using the MVLC via Ethernet or the SIS3153 controller some network setup
@@ -147,6 +154,7 @@ for the MVLC with serial number 10.
 Using a manual ARP entry
 --------------------------------------------------
 .. TODO: add short description of the network layers below
+
 In case DHCP with hostname assignment should not or cannot be used an
 alternative approach is to manually associate the MAC-address of the controller
 with an IP-address.

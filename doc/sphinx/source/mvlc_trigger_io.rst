@@ -395,6 +395,10 @@ except for the one that should be read out.
 Examples
 --------
 
+.. note::
+   More examples will be added in the future.
+
+
 Sysclk timestamp readout
 ~~~~~~~~~~~~~~~~~~~~~~~~
 This example shows how to create a counter that increments with the VME system
@@ -408,32 +412,30 @@ Only an MVLC is required for this setup to work.
   succesfully establish the connection.
 
 * In the VME Config tree right click the ``Events`` node and choose ``Add
-  Event``. Select ``MVLC Trigger I/O`` as the condition and accept the dialog.
+  Event``. Select ``Periodic`` as the condition and accept the dialog.
 
-.. TODO: explain why the vme addresses have to be adjusted in the multicast scripts.
+  .. autofigure:: mvlc_examples/01-sysclk-readout/add_vme_event.png
 
-* Locate the ``Multicast DAQ Start/Stop`` node under the newly created event.
-  Edit the ``DAQ Start`` script replacing the address prefix ``0xbb00`` with
-  ``0xffff``.
+  Creating the VME readout event
 
-  The script should look like this:
+* Right-click the newly created event and select ``Add Module``. Use the type
+  drop-down and select ``MVLC Timestamp/Counter``. Accept the dialog to create a
+  module which will read out Counter0 of Trigger I/O module.
+
+  .. autofigure:: mvlc_examples/01-sysclk-readout/vme_tree.png
+
+    VME Config Tree after creating the event and adding the mvlc timestamp module
+
+
+* Locate the ``Multicast DAQ Start/Stop`` node under the newly created event
+  and double-click the ``DAQ Start`` script it to open an editor window.
+
+  Add the following line to the script.
+
   ::
-      writeabs a32 d16 0xffff603a      0   # stop acq
-      writeabs a32 d16 0xffff6090      3   # reset CTRA and CTRB
-      writeabs a32 d16 0xffff603c      1   # FIFO reset
-      writeabs a32 d16 0xffff603a      1   # start acq
-      writeabs a32 d16 0xffff6034      1   # readout reset
+      writeabs a32 d16 0xffff6090 1 # reset counters
 
-  Now do the same for the ``DAQ Stop`` script.
-
-  Usually these two scripts use the broadcast address ``0xbb00`` which by
-  default is setup for all mesytec modules when newly adding them. This means
-  as long as a module is present and setup correctly by the mvme scripts the
-  writes will succeed. In our case with no module present there won't be any
-  acknowledge on the VME bus as a response to the write commands. mvme thus
-  assumes that a module is missing or incorrectly configured and refuses to
-  start a DAQ run. By editing the addresses we target the internal VME
-  interface of the MVLC and the writes will succeed.
+  This will make sure the counters are reset when starting a DAQ run.
 
 * Double-click the ``MVLC Trigger/IO`` object in the VME Config tree to open the
   graphical editor.
@@ -442,23 +444,49 @@ Only an MVLC is required for this setup to work.
   for Counter0 and set it to ``sysclk``. Also check the ``Soft Activate``
   checkbox.
 
-.. TODO: leftoff here
+  .. autofigure:: mvlc_examples/01-sysclk-readout/l3_counter_setup.png
 
-Busy signals
-~~~~~~~~~~~~
+  Counter connected to sysclk and activated
 
-3 NIM inputs, each a busy signal from some hardware.
-NIM GGs have to be disabled to let the DC-level busy signal through.
-Use a level1 LUT, create the OR over the inputs and negate it. This is the 'not busy' signal
+* Now locate the ``Analysis UI`` window in mvme (Shortcut is *Ctrl-2*). event0
+  should show up in the Event drop-down and the mvlc_ts module should be
+  visible. In the top area right-click the mvlc_ts module and select ``Generate
+  default filters``. Press ok to generate data extraction filters and
+  histograms for the counter readout data.
+
+* Use the Start button in the top-left area of the main window to start a DAQ
+  run. If everything is setup correctly the DAQ should start successfully (*DAQ
+  State: Running*) and an event rate of 1 count/s should be displayed in the
+  Analysis window for the ``mvlc_ts.timestamp`` data source.
+
+  .. autofigure:: mvlc_examples/01-sysclk-readout/daq_running.png
+
+  DAQ and analysis stats during a run
+
+* You can reopen the ``MVLC Trigger/IO`` object again and verify that mvme used
+  the first timer together with the first StackStart unit to implement the
+  periodic readout for the event.
+
+  .. autofigure:: mvlc_examples/01-sysclk-readout/trigger_io_final_state.png
+
+  Internal Timer and StackStart usage by mvme
 
 
-
-
-
-
-
-* NIM input to stack start/counter + counter readout
-* Timer/sysclk to counter + counter readout
-* Timer to stackstart for periodic events
-* SoftTrigger to NIM output
-* Some LUT setups
+.. Busy signals
+.. ~~~~~~~~~~~~
+.. 
+.. 3 NIM inputs, each a busy signal from some hardware.
+.. NIM GGs have to be disabled to let the DC-level busy signal through.
+.. Use a level1 LUT, create the OR over the inputs and negate it. This is the 'not busy' signal
+.. 
+.. 
+.. 
+.. 
+.. 
+.. 
+.. 
+.. * NIM input to stack start/counter + counter readout
+.. * Timer/sysclk to counter + counter readout
+.. * Timer to stackstart for periodic events
+.. * SoftTrigger to NIM output
+.. * Some LUT setups

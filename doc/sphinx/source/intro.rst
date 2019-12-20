@@ -6,7 +6,7 @@ physics experiments involving a single VME controller. The goal of this project
 is to provide an easy to setup, easy to use, cross-platform data acquisition
 system with basic data visualization and analysis capabilities.
 
-.. _mesytec: http://mesytec.com/
+.. _mesytec: https://www.mesytec.com/
 
 .. figure:: images/mvme_architecure.png
 
@@ -23,7 +23,7 @@ Features
   * **Mesytec MVLC**
 
     * USB3, USB2 and Ethernet connectivity
-    * Lowest-latency readout with practically no deadtime.
+    * Lowest-latency readout, lowest deadtime
     * Flexible Trigger and I/O logic module
     * Possibility to use optical fiber based Ethernet via onboard SFP cage
     * GBit/s Ethernet connection required if using Ethernet!
@@ -113,7 +113,7 @@ as it flows through the system.
 
 The structure defined by the VME configuration is also present in the analysis:
 modules which are read out as a result of the same trigger condition are
-grouped together.
+grouped together in an event.
 
 The system itself models dataflow from **sources**, through **operators**, into
 **sinks**. Data is transported in the form of **parameter arrays** with each
@@ -149,7 +149,7 @@ steps:
 
 * Initialize the VME controller using information from the VME configuration
 * Setup modules using the module VME scripts
-* Switch the controller into DAQ mode
+* Switch the controller into autonomous DAQ mode
 * Repeat until DAQ is stopped:
 
   * Read a data buffer from the VME controller
