@@ -1,8 +1,3 @@
 ## Get Module ids for log file
 read a32 d16 0x6008	# hardware ID
 read a32 d16 0x600E # firmware revision
-
-# Set the reset_register_mask to only reset the counters (8 low bits), not the
-# timers when the reset register 0x6090 is written to. This is important as
-# timers have already been configured when the MVLC Trigger/IO script was run.
-write a32 d16 0x0202 0xff
