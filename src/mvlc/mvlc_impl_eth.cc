@@ -635,7 +635,10 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     unsigned pipe = static_cast<unsigned>(pipe_);
     auto &pipeStats = m_pipeStats[pipe];
 
-    ++pipeStats.receiveAttempts;
+    {
+        UniqueLock guard(m_statsMutex);
+        ++pipeStats.receiveAttempts;
+    }
 
     if (pipe >= PipeCount)
     {
@@ -657,12 +660,16 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     if (res.ec && res.bytesTransferred == 0)
         return res;
 
-    ++pipeStats.receivedPackets;
-    pipeStats.receivedBytes += res.bytesTransferred;
-    ++pipeStats.packetSizes[res.bytesTransferred];
+    {
+        UniqueLock guard(m_statsMutex);
+        ++pipeStats.receivedPackets;
+        pipeStats.receivedBytes += res.bytesTransferred;
+        ++pipeStats.packetSizes[res.bytesTransferred];
+    }
 
     if (!res.hasHeaders())
     {
+        UniqueLock guard(m_statsMutex);
         ++pipeStats.shortPackets;
         LOG_WARN("  pipe=%u, received data is smaller than the MVLC UDP header size", pipe);
         res.ec = make_error_code(MVLCErrorCode::ShortRead);
@@ -682,20 +689,25 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     {
         LOG_WARN("  pipe=%u, %u leftover bytes in received packet",
                  pipe, res.leftoverBytes());
+        UniqueLock guard(m_statsMutex);
         ++pipeStats.packetsWithResidue;
     }
 
     if (res.packetChannel() >= NumPacketChannels)
     {
         LOG_WARN("  pipe=%u, packet channel number out of range: %u", pipe, res.packetChannel());
+        UniqueLock guard(m_statsMutex);
         ++pipeStats.packetChannelOutOfRange;
         res.ec = make_error_code(MVLCErrorCode::UDPPacketChannelOutOfRange);
         return res;
     }
 
     auto &channelStats = m_packetChannelStats[res.packetChannel()];
-    ++channelStats.receivedPackets;
-    channelStats.receivedBytes += res.bytesTransferred;
+    {
+        UniqueLock guard(m_statsMutex);
+        ++channelStats.receivedPackets;
+        channelStats.receivedBytes += res.bytesTransferred;
+    }
 
     {
         auto &lastPacketNumber = m_lastPacketNumbers[res.packetChannel()];
@@ -716,12 +728,16 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
             }
 
             res.lostPackets = loss;
+            UniqueLock guard(m_statsMutex);
             pipeStats.lostPackets += loss;
             channelStats.lostPackets += loss;
         }
 
         lastPacketNumber = res.packetNumber();
-        ++channelStats.packetSizes[res.bytesTransferred];
+        {
+            UniqueLock guard(m_statsMutex);
+            ++channelStats.packetSizes[res.bytesTransferred];
+        }
     }
 
     // Check where nextHeaderPointer is pointing to
@@ -733,6 +749,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
 
         if (headerp >= end)
         {
+            UniqueLock guard(m_statsMutex);
             ++pipeStats.headerOutOfRange;
             ++channelStats.headerOutOfRange;
 
@@ -747,6 +764,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
             LOG_TRACE("  pipe=%u, nextHeaderPointer=%u -> header=0x%08x",
                       pipe, res.nextHeaderPointer(), header);
             u32 type = get_frame_type(header);
+            UniqueLock guard(m_statsMutex);
             ++pipeStats.headerTypes[type];
             ++channelStats.headerTypes[type];
         }
@@ -755,6 +773,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     {
         LOG_TRACE("  pipe=%u, NoHeaderPointerPresent, eth header1=0x%08x",
                   pipe, res.header1());
+        UniqueLock guard(m_statsMutex);
         ++pipeStats.noHeader;
         ++channelStats.noHeader;
     }
@@ -823,7 +842,6 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
     assert(receiveBuffer.available() == 0);
 
     size_t readCount = 0u;
-    auto &pipeStats = m_pipeStats[pipe];
     const auto tStart = std::chrono::high_resolution_clock::now();
 
     while (size > 0)
@@ -885,16 +903,19 @@ std::error_code Impl::getReadQueueSize(Pipe pipe_, u32 &dest)
 
 std::array<PipeStats, PipeCount> Impl::getPipeStats() const
 {
+    UniqueLock guard(m_statsMutex);
     return m_pipeStats;
 }
 
 std::array<PacketChannelStats, NumPacketChannels> Impl::getPacketChannelStats() const
 {
+    UniqueLock guard(m_statsMutex);
     return m_packetChannelStats;
 }
 
 void Impl::resetPipeAndChannelStats()
 {
+    UniqueLock guard(m_statsMutex);
     m_pipeStats = {};
     m_packetChannelStats = {};
 }

@@ -13,6 +13,7 @@
 
 #include "libmvme_mvlc_export.h"
 #include "mvlc/mvlc_impl_abstract.h"
+#include "mvlc/mvlc_threading.h"
 
 namespace mesytec
 {
@@ -260,6 +261,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         std::array<PacketChannelStats, NumPacketChannels> m_packetChannelStats;
         std::array<s32, NumPacketChannels> m_lastPacketNumbers;
         bool m_disableTriggersOnConnect = false;
+        mutable Mutex m_statsMutex;
 };
 
 // Given the previous and current packet numbers returns the number of lost
