@@ -2,6 +2,19 @@
 TODO list, not at all sorted by priority
 ==================================================
 
+VME Script variables:
+  set foo "bar"
+  set broadcast 0xbb
+  set win "16384 + 12"
+  set winbase 16384
+  set win_test "${winbase} + 42"   // -> 16384 + 42, to use as a command arg must use (${win_test})
+  set sentence "Hello World"
+  set sentence2 "Hello ${sentence}"
+
+  0x6070 (${win_test}) // -> 0x6070 (${winbase} + 42) -> 0x6070 (16384 + 42) // !! Error with multi arg command cause of spaces
+  oder
+  0x6070 "${win_test}" // -> 0x6070 "${winbase} + 42" -> 0x6070 "16384 + 42" // Have to parse quoted strings for calculations.
+
 * doc: mvlc and jumbo frames
 
 * trigger_io gui
@@ -12,11 +25,6 @@ TODO list, not at all sorted by priority
   - maybe allow inline editing of names.
   - ellide long names. maybe add logic to make the block wider when longer
     names are used or increase the width in general.
-
-* mvlc locking: use a separate lock for pipe stats. this should fix gui stalls
-  at low rates because the stats lock would only be taken for the short time
-  the stats update requires, not for the length of the read operation (which
-  might take the full timeout interval).
 
 http://www.sympnp.org/proceedings/57/G29.pdf
 
@@ -33,6 +41,8 @@ http://www.sympnp.org/proceedings/57/G29.pdf
   thread will read till timeout so the lock is held for the timeout period.
   I think the lock might be taken to get the pipe receive stats shown in the
   daqstats widget.
+  -> move the getStats code into its own thread. ensure only one instance of
+  the code runs at a time. once done update the GUI
 
 * when modifying the mvlc trigger io via the gui the vme config is not marked
   as modified. I'm not sure why because the underlying script does get
@@ -103,12 +113,10 @@ TODO: vary max_xfer for the above test
   operations lead to connection error. for example when turning off the
   mvlc_usb the error poller will get FT_DEVICE_NOT_CONNECTED but the
   MVLC_VMEController will not be set to disconnected.
-* still deadlocks and short blocking of the ui especially when having the dev gui open.
-* Check the whole UI for things that are dead/obsolete when using the mvlc
-* Documentation needs updates
 
 * After a boot the firmware and hardware registers yield 0. Only after starting
   and stopping a DAQ those registers are populated. Try to narrow this down.
+  -> Test this again with the latest MVLC firmware
 * Running a VMEScript should completely disable any polling being done on the
   cmd pipe. Failing to do so will slow down script execution dramatically due
   to the time spent waiting for the lock whenever the polling code is waiting

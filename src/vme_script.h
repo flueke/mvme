@@ -47,6 +47,7 @@ struct PreparsedLine
 
 static const QString MetaBlockBegin = "meta_block_begin";
 static const QString MetaBlockEnd = "meta_block_end";
+static const QString SetVariable = "set";
 static const QString MetaTagMVLCTriggerIO = "mvlc_trigger_io";
 
 struct MetaBlock
@@ -103,6 +104,8 @@ enum class CommandType
     MVLC_WriteSpecial, // type is stored in Command.value (of type MVLCSpecialWord)
 
     MetaBlock,
+
+    SetVariable,
 };
 
 enum class DataWidth
@@ -173,6 +176,19 @@ struct ParseError
 
     QString message;
     int lineNumber;
+};
+
+struct Symbol
+{
+    QString name;
+    QString value;
+    QString scriptName;
+    s32 lineNumber;
+};
+
+struct SymbolTable
+{
+    void registerSymbol(const QString &name, const QString &value);
 };
 
 VMEScript LIBMVME_CORE_EXPORT parse(QFile *input, uint32_t baseAddress = 0);
