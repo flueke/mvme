@@ -199,8 +199,10 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
 {
     assert(bhv);
 
+    unsigned attempt = 0;
+
     // Read buffers until we receive one that is not a stack error notification.
-    while (true)
+    while (attempt++ < ReadResponseMaxAttempts)
     {
         if (auto ec = readKnownBuffer(dest))
             return ec;
@@ -221,6 +223,9 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
         return make_error_code(MVLCErrorCode::ShortRead);
 
     u32 header = dest[0];
+
+    if (attempt >= ReadResponseMaxAttempts && is_stackerror_notification(header))
+        return make_error_code(MVLCErrorCode::NoResponseReceived);
 
     if (!bhv(header))
     {

@@ -19,6 +19,7 @@ std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &re
 class MVLCDialog
 {
     public:
+        static const unsigned ReadResponseMaxAttempts = 1000;
 
         MVLCDialog(AbstractImpl *mvlc);
 

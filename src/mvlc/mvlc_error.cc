@@ -47,6 +47,9 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::InvalidBufferHeader:
                 return "invalid buffer header";
 
+            case MVLCErrorCode::NoResponseReceived:
+                return "no command response received from MVLC";
+
             case MVLCErrorCode::UnexpectedResponseSize:
                 return "unexpected response size";
 
@@ -146,6 +149,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::MirrorShortResponse:
             case MVLCErrorCode::MirrorNotEqual:
             case MVLCErrorCode::InvalidBufferHeader:
+            case MVLCErrorCode::NoResponseReceived:
             case MVLCErrorCode::UnexpectedResponseSize:
             case MVLCErrorCode::CommandArgOutOfRange:
             case MVLCErrorCode::InvalidPipe:
