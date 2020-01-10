@@ -4,6 +4,7 @@
 
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_util.h"
+#include "util/counters.h"
 
 
 namespace
@@ -120,8 +121,70 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
         }
     };
 
+    auto debug_print_eth_stats = [this] ()
+    {
+        if (this->connectionType() != ConnectionType::ETH)
+            return;
+
+        auto implEth = reinterpret_cast<eth::Impl *>(this->getImpl());
+
+        auto pipeStats = implEth->getPipeStats();
+        auto packetChannelStats = implEth->getPacketChannelStats();
+        double dt_s = 0.0;
+
+        auto now = QDateTime::currentDateTime();
+
+        if (lastUpdateTime.isValid())
+            dt_s = lastUpdateTime.msecsTo(now) / 1000.0;
+
+        lastUpdateTime = now;
+
+        qDebug("ETH per pipe counters:");
+
+        for (size_t pipeIndex = 0; pipeIndex < pipeStats.size(); pipeIndex++)
+        {
+            const auto &stats = pipeStats[pipeIndex];
+            const auto &prevStats = prevPipeStats[pipeIndex];
+
+            u64 packetRate = calc_rate0(
+                stats.receivedPackets, prevStats.receivedPackets, dt_s);
+
+            u64 lossRate = calc_rate0(
+                stats.lostPackets, prevStats.lostPackets, dt_s);
+
+            u64 sumRate = calc_rate0(
+                stats.receivedPackets + stats.lostPackets,
+                prevStats.receivedPackets + prevStats.lostPackets,
+                dt_s);
+
+            qDebug("  pipe=%lu, receiveAttempts=%lu, receivedPackets=%lu, receivedBytes=%lu\n"
+                   "    shortPackets=%lu, packetsWithResidue=%lu, noHeader=%lu\n"
+                   "    headerOutOfRange=%lu, packetChannelOutOfRange=%lu, lostPackets=%lu\n"
+                   "    packetRate=%lu pkts/s, lossRate=%lu pkts/s, sumRate=%lu pkts/s",
+                   pipeIndex,
+                   stats.receiveAttempts,
+                   stats.receivedPackets,
+                   stats.receivedBytes,
+                   stats.shortPackets,
+                   stats.packetsWithResidue,
+                   stats.noHeader,
+                   stats.headerOutOfRange,
+                   stats.packetChannelOutOfRange,
+                   stats.lostPackets,
+                   packetRate,
+                   lossRate,
+                   sumRate
+                   );
+        }
+
+        prevPipeStats = pipeStats;
+
+        qDebug(" ");
+    };
+
     auto dumpTimer = new QTimer(this);
     connect(dumpTimer, &QTimer::timeout, this, debug_print_stack_error_counters);
+    connect(dumpTimer, &QTimer::timeout, this, debug_print_eth_stats);
     dumpTimer->setInterval(1000);
     dumpTimer->start();
 }

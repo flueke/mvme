@@ -4,6 +4,7 @@
 #include <QTimer>
 #include "vme_controller.h"
 #include "mvlc/mvlc_qt_object.h"
+#include "mvlc/mvlc_impl_eth.h"
 
 namespace mesytec
 {
@@ -60,6 +61,10 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
     private:
         MVLCObject *m_mvlc;
         MVLCNotificationPoller m_notificationPoller;
+
+        // FIXME: move the eth stats debug printing somewhere else. It does not belong here.
+        std::array<eth::PipeStats, PipeCount> prevPipeStats = {{{},{}}};
+        QDateTime lastUpdateTime;
 };
 
 } // end namespace mvlc
