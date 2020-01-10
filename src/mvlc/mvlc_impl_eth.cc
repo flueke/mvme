@@ -368,6 +368,7 @@ std::error_code Impl::connect()
 
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
+#if 0
         if (auto ec = set_socket_write_timeout(getSocket(pipe), getWriteTimeout(pipe)))
         {
             LOG_TRACE("set_socket_write_timeout failed: %s, socket=%d",
@@ -375,6 +376,7 @@ std::error_code Impl::connect()
                       getSocket(pipe));
             return ec;
         }
+#endif
 
         if (auto ec = set_socket_read_timeout(getSocket(pipe), getReadTimeout(pipe)))
         {
@@ -511,6 +513,7 @@ bool Impl::isConnected() const
 
 std::error_code Impl::setWriteTimeout(Pipe pipe, unsigned ms)
 {
+#if 0
     auto p = static_cast<unsigned>(pipe);
 
     if (p >= PipeCount)
@@ -520,6 +523,7 @@ std::error_code Impl::setWriteTimeout(Pipe pipe, unsigned ms)
 
     if (isConnected())
         return set_socket_write_timeout(getSocket(pipe), ms);
+#endif
 
     return {};
 }
@@ -577,6 +581,9 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
         return make_error_code(MVLCErrorCode::IsDisconnected);
 
     ssize_t res = ::send(getSocket(pipe), reinterpret_cast<const char *>(buffer), size, 0);
+
+    if (res == EAGAIN || res == EWOULDBLOCK)
+        assert(!"send timeout on blocking socket!");
 
     if (res < 0)
         return std::error_code(errno, std::system_category());
@@ -734,6 +741,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
         }
 
         lastPacketNumber = res.packetNumber();
+
         {
             UniqueLock guard(m_statsMutex);
             ++channelStats.packetSizes[res.bytesTransferred];
