@@ -54,7 +54,7 @@ struct StackErrorCounters
 {
     std::array<ErrorInfoCounts, stacks::StackCount> stackErrors;
     size_t nonErrorFrames;
-    std::unordered_map<u32, size_t> nonErrorHeaderCounts;
+    std::unordered_map<u32, size_t> nonErrorHeaderCounts; // headerValue -> count
     QVector<QVector<u32>> framesCopies;
 };
 
@@ -89,25 +89,32 @@ StackErrorInfo stack_error_info_from_buffer(const C &errorFrame)
 template<typename C>
 void update_stack_error_counters(StackErrorCounters &counters, const C &errorFrame)
 {
-    if (errorFrame.size() != 2)
+    assert(errorFrame.size() > 0);
+
+    bool isErrorFrame = false;
+    FrameInfo frameInfo = {};
+
+    // Error frames consist of the frame header and a second word containing
+    // the stack number and the stack line number where the error occured.
+    if (errorFrame.size() == 2)
     {
-        ++counters.nonErrorFrames;
-        QVector<u32> frameCopy;
-        std::copy(errorFrame.begin(), errorFrame.end(), std::back_inserter(frameCopy));
-        counters.framesCopies.push_back(frameCopy);
-        return;
+        frameInfo = extract_frame_info(errorFrame[0]);
+
+        if (frameInfo.type == frame_headers::StackError
+            && frameInfo.stack < stacks::StackCount)
+        {
+            isErrorFrame = true;
+        }
     }
 
-    auto frameInfo = extract_frame_info(errorFrame[0]);
-
-    if (frameInfo.type == frame_headers::StackError
-        && frameInfo.stack < stacks::StackCount)
+    if (isErrorFrame)
     {
+        assert(errorFrame.size() == 2);
         u16 stackLine = errorFrame[1] & stack_error_info::StackLineMask;
         StackErrorInfo ei = { stackLine, frameInfo.flags };
         ++counters.stackErrors[frameInfo.stack][ei];
     }
-    else
+    else if (errorFrame.size() > 0)
     {
         ++counters.nonErrorFrames;
         ++counters.nonErrorHeaderCounts[errorFrame[0]];
