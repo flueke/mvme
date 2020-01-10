@@ -1864,15 +1864,6 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
                 m_controller->close();
                 break;
             }
-            else if (result.error.isTimeout()
-                     || result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::Timeout)
-            {
-                if (++timeouts >= TimeoutConnectionLossThreshold)
-                {
-                    m_controller->close();
-                    break;
-                }
-            }
         }
     }
 
