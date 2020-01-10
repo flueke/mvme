@@ -78,6 +78,7 @@ void MVLCObject::setState(const State &newState)
         {
             auto guard = m_stackErrors.lock();
             m_stackErrors.counters = {};
+            m_dialog.clearStackErrorNotifications();
         }
 
         emit stateChanged(prevState, newState);
@@ -139,9 +140,10 @@ void MVLCObject::preDialogOperation()
 }
 
 // Called after stack operations. Checks if there are pending stack error
-// notifications and emits the stackErrorNotification() signal for each of
-// them.
-// The command mutex must be locked when this method is called.
+// notifications available from the MVLCDialog object and updates the stack
+// error counters accordingly.
+//
+// The command mutex must be locked when this method is called!
 void MVLCObject::postDialogOperation()
 {
     // The Command mutex should be locked at this point which means to avoid
@@ -181,9 +183,11 @@ std::error_code MVLCObject::vmeSingleWrite(u32 address, u32 value, u8 amod,
     auto tStart = QDateTime::currentDateTime();
     auto guard = getLocks().lockCmd();
     auto tLock = QDateTime::currentDateTime();
+
     preDialogOperation();
     auto result = m_dialog.vmeSingleWrite(address, value, amod, dataWidth);
     postDialogOperation();
+
     auto tEnd = QDateTime::currentDateTime();
 
 #if 0
@@ -362,7 +366,7 @@ void MVLCNotificationPoller::doPoll()
     if (!m_isPolling.compare_exchange_weak(f, true))
         return;
 
-    qDebug() << __FUNCTION__ << "entering polling loop" << QThread::currentThread();
+    qDebug() << __FUNCTION__ << "entering notification polling loop" << QThread::currentThread();
 
     QVector<u32> buffer;
     size_t iterationCount = 0u;
