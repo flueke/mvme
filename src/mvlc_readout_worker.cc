@@ -952,6 +952,9 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
 
         daqStats.totalBytesRead += result.bytesTransferred;
 
+        if (result.ec == ErrorType::ConnectionError)
+            return result.ec;
+
         // ShortRead means that the received packet length was non-zero but
         // shorter than the two ETH header words. Overwrite this short data on
         // the next iteration so that the framing structure stays intact.
