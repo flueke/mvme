@@ -177,7 +177,8 @@ std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
 
     if (ec == make_error_code(MVLCErrorCode::ShortRead))
     {
-        // Adjust the destination size to the full number of words transferred.
+        // Got less words than requested. Adjust the destination size to the
+        // number of words actually received.
         dest.resize(1 + wordsTransferred);
     }
 
@@ -201,7 +202,8 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
 
     unsigned attempt = 0;
 
-    // Read buffers until we receive one that is not a stack error notification.
+    // Read buffers until we receive one that is not a stack error notification
+    // or a maximum number of attempts has been exceeded.
     while (attempt++ < ReadResponseMaxAttempts)
     {
         if (auto ec = readKnownBuffer(dest))
