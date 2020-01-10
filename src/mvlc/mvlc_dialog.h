@@ -1,6 +1,7 @@
 #ifndef __MVLC_DIALOG_H__
 #define __MVLC_DIALOG_H__
 
+#include <chrono>
 #include <functional>
 #include <QVector>
 #include "mvlc/mvlc_impl_abstract.h"
@@ -19,7 +20,7 @@ std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &re
 class MVLCDialog
 {
     public:
-        static const unsigned ReadResponseMaxAttempts = 1000;
+        constexpr static auto ReadResponseMaxWait = std::chrono::milliseconds(60000);
 
         MVLCDialog(AbstractImpl *mvlc);
 
@@ -55,17 +56,20 @@ class MVLCDialog
         // is returned if the validation fails (in this case the data will
         // still be available in the dest buffer for inspection).
         //
+        // If no non-error buffer is received within ReadResponseMaxWait the
+        // method returns MVLCErrorCode::UnexpectedBufferHeader
+        //
         // Note: internally buffers are read from the MVLC until a
         // non-stack_error_notification type buffer is read. All error
         // notifications received up to that point are saved and can be queried
         // using getStackErrorNotifications().
         std::error_code readResponse(BufferHeaderValidator bhv, QVector<u32> &dest);
 
-        // Send the given cmdBuffer to the MVLC, reads and verifies the mirror
-        // response. The buffer must start with CmdBufferStart and end with
-        // CmdBufferEnd, otherwise the MVLC cannot interpret it.
-        std::error_code mirrorTransaction(const QVector<u32> &cmdBuffer,
-                                          QVector<u32> &responseDest);
+        // Sends the given cmdBuffer to the MVLC then reads and verifies the
+        // mirror response. The buffer must start with CmdBufferStart and end
+        // with CmdBufferEnd, otherwise the MVLC cannot interpret it.
+        std::error_code mirrorTransaction(
+            const QVector<u32> &cmdBuffer, QVector<u32> &responseDest);
 
         // Sends the given stack data (which must include upload commands),
         // reads and verifies the mirror response, and executes the stack.

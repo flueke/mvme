@@ -200,16 +200,17 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
 {
     assert(bhv);
 
+    using Clock = std::chrono::high_resolution_clock;
+
+    auto tStart = Clock::now();
     unsigned attempt = 0;
 
-    // Read buffers until we receive one that is not a stack error notification
-    // or a maximum number of attempts has been exceeded.
-    while (attempt++ < ReadResponseMaxAttempts)
+    while (true)
     {
         if (auto ec = readKnownBuffer(dest))
             return ec;
 
-        // readKnownBuffer() returns an error code if its dest buffer is empty
+        // readKnownBuffer() should return an error code if its dest buffer is empty
         assert(!dest.isEmpty());
 
         u32 header = dest[0];
@@ -218,6 +219,11 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
             m_stackErrorNotifications.push_back(dest);
         else
             break;
+
+        auto elapsed = Clock::now() - tStart;
+
+        if (elapsed >= ReadResponseMaxWait)
+            return make_error_code(MVLCErrorCode::NoResponseReceived);
     }
 
     assert(!dest.isEmpty());
@@ -225,9 +231,6 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
         return make_error_code(MVLCErrorCode::ShortRead);
 
     u32 header = dest[0];
-
-    if (attempt >= ReadResponseMaxAttempts && is_stackerror_notification(header))
-        return make_error_code(MVLCErrorCode::NoResponseReceived);
 
     if (!bhv(header))
     {
