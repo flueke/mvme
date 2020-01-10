@@ -1859,6 +1859,8 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
             if (result.error.error() == VMEError::NotOpen ||
                 result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError)
             {
+                emit logMessage("ConnectionError during VME script execution,"
+                                " closing connection to VME Controller");
                 m_controller->close();
                 break;
             }
