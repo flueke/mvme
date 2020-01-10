@@ -57,37 +57,6 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
     connect(m_mvlc, &MVLCObject::stateChanged,
             this, &MVLC_VMEController::onMVLCStateChanged);
 
-#if 0
-    // XXX: Debug
-    connect(this, &MVLC_VMEController::stackErrorNotification,
-            [] (const QVector<u32> &data)
-    {
-        if (data.isEmpty())
-        {
-            qDebug("%s - Empty notification!", __PRETTY_FUNCTION__);
-            assert(false);
-            return;
-        }
-
-        if (data.size() != 2)
-        {
-            qDebug("%s - Notification size != 2: %d",
-                   __PRETTY_FUNCTION__, data.size());
-        }
-
-        auto frameInfo = extract_frame_info(data[0]);
-
-        qDebug("%s - MVLC_VMEController polled a stack error notification:"
-               "header=0x%08x, data[1]=0x%08x, len=%u, stack=%u, flags=0x%02x",
-               QDateTime::currentDateTime().toString().toStdString().c_str(),
-               data[0],
-               data[1],
-               frameInfo.len,
-               frameInfo.stack,
-               frameInfo.flags);
-    });
-#endif
-
     auto debug_print_stack_error_counters = [this] ()
     {
         auto errorCounters = m_mvlc->getStackErrorCounters();
@@ -139,9 +108,10 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
             qDebug("  0x%08x: %lu", header, count);
         }
 
+        int frameIndex = 0;
         for (const auto &frameCopy: errorCounters.framesCopies)
         {
-            qDebug("copy of a frame recevied via polling:");
+            qDebug("copy of erroneous error frame %d recevied via polling:", frameIndex++);
             for (u32 word: frameCopy)
             {
                 qDebug("  0x%08x", word);
