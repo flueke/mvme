@@ -129,7 +129,7 @@ T parseValue(const QString &str)
     qulonglong val = str.toULongLong(&ok, 0);
 
     if (!ok)
-        throw "invalid data value";
+        throw "invalid numeric value";
 
     constexpr auto maxValue = std::numeric_limits<T>::max();
 
@@ -499,7 +499,7 @@ static QString handle_multiline_comment(QString line, bool &in_multiline_comment
             }
             else
             {
-                ++i;
+                ++i; // skip over characters inside a comment block
             }
         }
         else
@@ -511,6 +511,7 @@ static QString handle_multiline_comment(QString line, bool &in_multiline_comment
             }
             else
             {
+                // append characters outside of a comment block to the result
                 result.append(line.at(i));
                 ++i;
             }
@@ -804,6 +805,7 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
 
             lineIndex = blockEndIndex + 1;
         }
+#if 0
         else if (sl.parts[0] == SetVariable)
         {
             if (sl.parts.size() != 3)
@@ -819,6 +821,7 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
 
 
         }
+#endif
         else
         {
             auto cmd = handle_single_line_command(sl);
@@ -839,9 +842,11 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
                 case CommandType::Invalid:
                     break;
 
+#if 0
                 case CommandType::SetVariable:
                     {
                     } break;
+#endif
 
                 case CommandType::SetBase:
                     {
