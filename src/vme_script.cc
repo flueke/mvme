@@ -521,84 +521,28 @@ static QString handle_multiline_comment(QString line, bool &in_multiline_comment
     return result;
 }
 
-#if 0
-/* https://stackoverflow.com/questions/27318631/parsing-through-a-csv-file-in-qt */
-bool readCSVRow (QTextStream &in, QStringList *row)
+/* Also see
+ * https://stackoverflow.com/questions/27318631/parsing-through-a-csv-file-in-qt
+ * for a nice implementation without using std::quoted(). */
+QStringList parse_quoted_parts(const QString &line)
 {
-    static const int delta[][5] = {
-        //  ,    "   \n    ?  eof
-        {   1,   2,  -1,   0,  -1  }, // 0: parsing (store char)
-        {   1,   2,  -1,   0,  -1  }, // 1: parsing (store column)
-        {   3,   4,   3,   3,  -2  }, // 2: quote entered (no-op)
-        {   3,   4,   3,   3,  -2  }, // 3: parsing inside quotes (store char)
-        {   1,   3,  -1,   0,  -1  }, // 4: quote exited (no-op)
-        // -1: end of row, store column, success
-        // -2: eof inside quotes
-    };
+    QStringList result;
 
-    row->clear();
+    auto stlLine = line.toStdString();
+    std::istringstream in(stlLine);
+    std::string inStr;
 
-    if (in.atEnd())
-        return false;
+    while (in >> std::quoted(inStr))
+        result.push_back(QString::fromStdString(inStr));
 
-    int state = 0, t;
-    char ch;
-    QString cell;
-
-    while (state >= 0) {
-
-        if (in.atEnd())
-            t = 4;
-        else {
-            in >> ch;
-            if (ch == ',') t = 0;
-            else if (ch == '\"') t = 1;
-            else if (ch == '\n') t = 2;
-            else if (ch == '\r') continue;
-            else t = 3;
-        }
-
-        state = delta[state][t];
-
-        switch (state) {
-            case 0:
-            case 3:
-                cell += ch;
-                break;
-            case -1:
-            case 1:
-                row->append(cell);
-                cell = "";
-                break;
-        }
-
-    }
-
-    if (state == -2)
-        throw runtime_error("End-of-file found while inside quotes.");
-
-    return true;
+    return result;
 }
-
-QStringList parse_parts(QString line)
-{
-    QTextStream in(&line, QIODevice::ReadOnly);
-    QChar c = {};
-
-    if (in.atEnd()) return {};
-
-    int state = 0;
-
-}
-#endif
 
 // Get rid of comment parts and empty lines and split each of the remaining
 // lines into space separated parts while keeping track of the correct input
 // line numbers.
 static QVector<PreparsedLine> pre_parse(QTextStream &input)
 {
-    static const QRegularExpression reWordSplit("\\s+");
-
     QVector<PreparsedLine> result;
     u32 lineNumber = 0;
     bool in_multiline_comment = false;
@@ -623,11 +567,13 @@ static QVector<PreparsedLine> pre_parse(QTextStream &input)
         if (trimmed.isEmpty())
             continue;
 
-        auto parts = trimmed.split(reWordSplit, QString::SkipEmptyParts);
+        auto parts = parse_quoted_parts(trimmed);
 
         if (parts.isEmpty())
             continue;
 
+        // Lowercase the first part (the command name or for the shortcut form
+        // of the write command the address value).
         parts[0] = parts[0].toLower();
 
         result.push_back({ line, parts, lineNumber });
@@ -767,6 +713,18 @@ VMEScript parse(const std::string &input, uint32_t baseAddress)
 
 VMEScript parse(QTextStream &input, uint32_t baseAddress)
 {
+    SymbolTables symtabs;
+    return parse(input, symtabs, baseAddress);
+}
+
+VMEScript parse(
+    QTextStream &input,
+    SymbolTables &symtabs,
+    uint32_t baseAddress)
+{
+    if (symtabs.isEmpty())
+        symtabs.push_back(SymbolTable{});
+
     VMEScript result;
 
     QVector<PreparsedLine> splitLines = pre_parse(input);
@@ -781,7 +739,8 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
         assert(!sl.parts.isEmpty());
 
         // Handling of special meta blocks enclosed in MetaBlockBegin and
-        // MetaBlockEnd
+        // MetaBlockEnd. These can span over serveral lines. References to
+        // variables are not allowed within a meta block.
         if (sl.parts[0] == MetaBlockBegin)
         {
             int blockStartIndex = lineIndex;
@@ -805,69 +764,90 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
 
             lineIndex = blockEndIndex + 1;
         }
-#if 0
-        else if (sl.parts[0] == SetVariable)
-        {
-            if (sl.parts.size() != 3)
-            {
-                throw ParseError(
-                    QString("Missing arguments to 'set' command. Usage: set <var> <value>."),
-                    sl.lineNumber);
-            }
-
-            QString varName  = sl.parts[1];
-            QString varValue = sl.parts[2];
-
-
-
-        }
-#endif
         else
         {
-            auto cmd = handle_single_line_command(sl);
+            // XXX: leftoff here maybe better to manually parse through each of
+            // the parts and do the replacement on the fly while copying
+            // character sequences outside of ${}
+            QRegularExpression reVar(R"(\$\{([a-zA-Z_]+[a-zA-Z0-9_]*)\})");
 
-            /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
-             * here by modifying other commands before they are pushed onto result.
-             * To make warnings generated when parsing any of SetBase/ResetBase
-             * available to the outside I needed to return them in the result
-             * although they have already been handled in here!
-             * This is confusing and will lead to errors...
-             *
-             * An alternative would be to store the original base address inside
-             * VMEScript and implement SetBase/ResetBase in run_script().
-             */
-
-            switch (cmd.type)
+            for (int partIndex = 0; partIndex < sl.parts.size(); partIndex++)
             {
-                case CommandType::Invalid:
-                    break;
+                int offset = 0;
 
-#if 0
-                case CommandType::SetVariable:
-                    {
-                    } break;
-#endif
+                while (true)
+                {
+                    auto match = reVar.match( sl.parts[partIndex], offset);
 
-                case CommandType::SetBase:
-                    {
-                        baseAddress = cmd.address;
-                        result.push_back(cmd);
-                    } break;
+                    if (!match.hasMatch())
+                        break;
 
-                case CommandType::ResetBase:
-                    {
-                        baseAddress = originalBaseAddress;
-                        result.push_back(cmd);
-                    } break;
-
-                default:
-                    {
-                        cmd = add_base_address(cmd, baseAddress);
-                        result.push_back(cmd);
-                    } break;
+                    offset += match.capturedLength();
+                }
             }
 
-            lineIndex++;
+            if (sl.parts[0] == "set")
+            {
+                if (sl.parts.size() != 3)
+                {
+                    throw ParseError(
+                        QString("Missing arguments to 'set' command. Usage: set <var> <value>."),
+                        sl.lineNumber);
+                }
+
+                const auto &varName  = sl.parts[1];
+                const auto &varValue = sl.parts[2];
+
+                // Set the variable in the first/innermost symbol table.
+                symtabs[0][varName] = Variable{ varValue, static_cast<s32>(sl.lineNumber) };
+            }
+            else
+            {
+                auto cmd = handle_single_line_command(sl);
+
+                /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
+                 * here by modifying other commands before they are pushed onto result.
+                 * To make warnings generated when parsing any of SetBase/ResetBase
+                 * available to the outside I needed to return them in the result
+                 * although they have already been handled in here!
+                 * This is confusing and will lead to errors...
+                 *
+                 * An alternative would be to store the original base address inside
+                 * VMEScript and implement SetBase/ResetBase in run_script().
+                 */
+
+                switch (cmd.type)
+                {
+                    case CommandType::Invalid:
+                        break;
+
+#if 0
+                    case CommandType::SetVariable:
+                        {
+                        } break;
+#endif
+
+                    case CommandType::SetBase:
+                        {
+                            baseAddress = cmd.address;
+                            result.push_back(cmd);
+                        } break;
+
+                    case CommandType::ResetBase:
+                        {
+                            baseAddress = originalBaseAddress;
+                            result.push_back(cmd);
+                        } break;
+
+                    default:
+                        {
+                            cmd = add_base_address(cmd, baseAddress);
+                            result.push_back(cmd);
+                        } break;
+                }
+
+                lineIndex++;
+            }
         }
     }
 
@@ -1064,6 +1044,10 @@ QString to_string(const Command &cmd)
             {
                 buffer = QString("meta_block with %1 lines")
                     .arg(cmd.metaBlock.preparsedLines.size());
+            } break;
+
+        case CommandType::SetVariable:
+            {
             } break;
     }
 

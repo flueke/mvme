@@ -103,8 +103,7 @@ enum class CommandType
     MVLC_WriteSpecial, // type is stored in Command.value (of type MVLCSpecialWord)
 
     MetaBlock,
-
-    //SetVariable,
+    SetVariable,
 };
 
 enum class DataWidth
@@ -177,25 +176,36 @@ struct ParseError
     int lineNumber;
 };
 
-#if 0
-struct Symbol
+struct Variable
 {
-    QString name;
     QString value;
-    QString scriptName;
     s32 lineNumber;
 };
 
-struct SymbolTable
-{
-    void registerSymbol(const QString &name, const QString &value);
-};
-#endif
+using SymbolTable = QMap<QString, Variable>;
+using SymbolTables = QVector<SymbolTable>;
 
+// These versions of the parse function use an internal symbol table. Access to
+// variables defined via the 'set' command is not possible.
 VMEScript LIBMVME_CORE_EXPORT parse(QFile *input, uint32_t baseAddress = 0);
 VMEScript LIBMVME_CORE_EXPORT parse(const QString &input, uint32_t baseAddress = 0);
 VMEScript LIBMVME_CORE_EXPORT parse(QTextStream &input, uint32_t baseAddress = 0);
 VMEScript LIBMVME_CORE_EXPORT parse(const std::string &input, uint32_t baseAddress = 0);
+
+// Versions of the parse function taking a list of SymbolTables by reference.
+// The first table in the list is used as the 'script local' symbolt able. If
+// the list is empty a single SymbolTable instance will be created and added.
+VMEScript LIBMVME_CORE_EXPORT parse(QFile *input, SymbolTables &symtabs,
+                                    uint32_t baseAddress = 0);
+
+VMEScript LIBMVME_CORE_EXPORT parse(const QString &input, SymbolTables &symtabs,
+                                    uint32_t baseAddress = 0);
+
+VMEScript LIBMVME_CORE_EXPORT parse(QTextStream &input, SymbolTables &symtabs,
+                                    uint32_t baseAddress = 0);
+
+VMEScript LIBMVME_CORE_EXPORT parse(const std::string &input, SymbolTables &symtabs,
+                                    uint32_t baseAddress = 0);
 
 class LIBMVME_CORE_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
 {

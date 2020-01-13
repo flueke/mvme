@@ -21,6 +21,8 @@ Use cases:
   For CAEN this would also work as they use a register to setup the IRQ level.
   For Struck something special would be needed: They use 3 bits for the IRQ
   level and a fourth to enable/disable the IRQ.
+  -> For struck the user would have to set their own variable and use that in
+  their scripts or just hardcode the value.
 
 - Use a different multicast address for each event.
   Note: the variable MCST part is always 8 bits according to the VME standard.
@@ -45,13 +47,15 @@ Use cases:
   set broadcast 0xbb
   set win "16384 + 12"
   set winbase 16384
-  set win_test "${winbase} + 42"   // -> 16384 + 42, to use as a command arg must use (${win_test})
+  set win_test $(${winbase} + 42)   // -> $(16384 + 42)
   set sentence "Hello World"
   set sentence2 "Hello ${sentence}"
 
   0x6070 (${win_test}) // -> 0x6070 (${winbase} + 42) -> 0x6070 (16384 + 42) // !! Error with multi arg command cause of spaces
   oder
   0x6070 "${win_test}" // -> 0x6070 "${winbase} + 42" -> 0x6070 "16384 + 42" // Have to parse quoted strings for calculations.
+
+  0x6050 $(16384  + ${delay_ns}/25*16)
 
 * doc: mvlc and jumbo frames
 
