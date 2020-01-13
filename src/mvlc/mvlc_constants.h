@@ -357,6 +357,7 @@ namespace registers
 {
     // Send gap for USB in 0.415us. Defaults to 20000 == 8.3ms
     static const u16 usb_send_gap           = 0x0400;
+
     static const u16 own_ip_lo              = 0x4400;
     static const u16 own_ip_hi              = 0x4402;
     static const u16 StoreIPInFlash         = 0x4404;
