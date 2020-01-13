@@ -728,7 +728,7 @@ QString generate_trigger_io_script_text(
         "############################################################",
         "# MVLC Trigger I/O specific meta information               #",
         "############################################################",
-        vme_script::MetaBlockBegin + " " + vme_script::MetaTagMVLCTriggerIO,
+        vme_script::MetaBlockBegin + " " + MetaTagMVLCTriggerIO,
         generate_mvlc_meta_block(ioCfg, flags),
         vme_script::MetaBlockEnd
     });
@@ -822,7 +822,7 @@ void parse_mvlc_meta_block(const vme_script::MetaBlock &meta, TriggerIO &ioCfg)
         return QString::fromStdString(y.as<std::string>());
     };
 
-    assert(meta.tag() == vme_script::MetaTagMVLCTriggerIO);
+    assert(meta.tag() == MetaTagMVLCTriggerIO);
 
     YAML::Node yRoot = YAML::Load(meta.textContents.toStdString());
 
@@ -1156,7 +1156,7 @@ TriggerIO parse_trigger_io_script_text(const QString &text)
     // meta block handling
     auto metaCmd = get_first_meta_block(commands);
 
-    if (metaCmd.metaBlock.tag() == vme_script::MetaTagMVLCTriggerIO)
+    if (metaCmd.metaBlock.tag() == MetaTagMVLCTriggerIO)
         parse_mvlc_meta_block(metaCmd.metaBlock, ioCfg);
 
     return ioCfg;

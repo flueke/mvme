@@ -48,7 +48,6 @@ struct PreparsedLine
 static const QString MetaBlockBegin = "meta_block_begin";
 static const QString MetaBlockEnd = "meta_block_end";
 //static const QString SetVariable = "set";
-static const QString MetaTagMVLCTriggerIO = "mvlc_trigger_io";
 
 struct MetaBlock
 {

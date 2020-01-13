@@ -10,6 +10,8 @@ namespace mvlc
 namespace trigger_io
 {
 
+static const QString MetaTagMVLCTriggerIO = "mvlc_trigger_io";
+
 namespace gen_flags
 {
     using Flag = u8;

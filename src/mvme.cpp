@@ -33,6 +33,7 @@
 #include "mvlc/mvlc_dev_gui.h"
 #include "mvlc/mvlc_trigger_io_editor.h"
 #include "mvlc/mvlc_vme_controller.h"
+#include "mvlc/mvlc_trigger_io_script.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme_listfile.h"
@@ -1757,17 +1758,19 @@ void MVMEMainWindow::updateActions()
 
 void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString &metaTag)
 {
+    auto &MetaTagMVLCTriggerIO = mesytec::mvlc::trigger_io::MetaTagMVLCTriggerIO;
+
     if (m_d->m_context->hasObjectWidget(scriptConfig))
     {
         m_d->m_context->activateObjectWidget(scriptConfig);
     }
-    else if (metaTag == vme_script::MetaTagMVLCTriggerIO)
+    else if (metaTag == MetaTagMVLCTriggerIO)
     {
         auto widget = new mesytec::MVLCTriggerIOEditor(scriptConfig);
 
         m_d->m_context->addObjectWidget(
             widget, scriptConfig,
-            scriptConfig->getId().toString() + "_" + vme_script::MetaTagMVLCTriggerIO);
+            scriptConfig->getId().toString() + "_" + MetaTagMVLCTriggerIO);
 
         connect(widget, &mesytec::MVLCTriggerIOEditor::runScriptConfig,
                 this, [this] (VMEScriptConfig *scriptConfig)
