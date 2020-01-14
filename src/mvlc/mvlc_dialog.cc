@@ -70,6 +70,8 @@ std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &re
     return {};
 }
 
+constexpr std::chrono::milliseconds MVLCDialog::ReadResponseMaxWait;
+
 MVLCDialog::MVLCDialog(AbstractImpl *mvlc)
     : m_mvlc(mvlc)
 {
