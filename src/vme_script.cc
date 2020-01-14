@@ -20,6 +20,7 @@
  */
 #include "vme_script.h"
 
+#include <cmath>
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
@@ -34,6 +35,7 @@
 #include "vmusb.h"
 
 #include "mvlc/mvlc_vme_controller.h"
+#include "analysis/a2/a2_exprtk.h"
 
 
 namespace vme_script
@@ -539,8 +541,8 @@ QStringList parse_quoted_parts(const QString &line)
 }
 
 // Get rid of comment parts and empty lines and split each of the remaining
-// lines into space separated parts while keeping track of the correct input
-// line numbers.
+// lines into space separated (quoted string) parts while keeping track of the
+// correct input line numbers.
 static QVector<PreparsedLine> pre_parse(QTextStream &input)
 {
     QVector<PreparsedLine> result;
@@ -693,28 +695,206 @@ static Command handle_meta_block_command(
     return result;
 }
 
+Variable lookup_variable(const QString &varName, const SymbolTables &symtabs)
+{
+    for (const auto &symtab: symtabs)
+        if (symtab.contains(varName))
+            return symtab.value(varName);
+
+    return {};
+}
+
+QString expand_variables(const QString &qline, const SymbolTables &symtabs, s32 lineNumber)
+{
+    QString result;
+    auto line = qline.toStdString();
+    std::istringstream in(line);
+    in.unsetf(std::ios_base::skipws);
+    char c;
+    enum State { OutsideVar, InsideVar };
+    State state = OutsideVar;
+    QString varName;
+
+    while (in >> c)
+    {
+        switch (state)
+        {
+            case OutsideVar:
+                if (c == '$' && in.peek() == '{')
+                {
+                    in.get();
+                    state = InsideVar;
+                }
+                else
+                    result.push_back(c);
+
+                break;
+
+            case InsideVar:
+                if (c == '}')
+                {
+                    if (auto var = lookup_variable(varName, symtabs))
+                        result += var.value;
+                    else
+                        throw ParseError(QSL("Undefined variable '%1'")
+                                         .arg(varName), lineNumber);
+                    state = OutsideVar;
+                    varName.clear();
+                }
+                else
+                    varName.push_back(c);
+
+                break;
+        }
+    }
+
+    if (state == InsideVar)
+    {
+        throw ParseError(QSL("Unterminated variable reference '${%1'")
+                         .arg(varName), lineNumber);
+    }
+
+    return result;
+}
+
+void expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs)
+{
+    for (auto &part: preparsed.parts)
+        part = expand_variables(part, symtabs, preparsed.lineNumber);
+}
+
+QString evaluate_expressions(const QString &qline, s32 lineNumber)
+{
+    QString result;
+    auto line = qline.toStdString();
+    std::istringstream in(line);
+    in.unsetf(std::ios_base::skipws);
+    char c;
+    enum State { OutsideExpr, InsideExpr };
+    State state = OutsideExpr;
+    std::string exprString;
+    unsigned nParens = 0;
+
+    qDebug() << qline;
+
+    while (in >> c)
+    {
+        switch (state)
+        {
+            case OutsideExpr:
+                if (c == '$' && in.peek() == '(')
+                {
+                    // copy the first opening paren and count it
+                    exprString += in.get();
+                    ++nParens;
+                    state = InsideExpr;
+                }
+                else
+                    result.push_back(c);
+
+                break;
+
+            case InsideExpr:
+                if (c == ')')
+                {
+                    exprString.push_back(')');
+
+                    if (--nParens == 0)
+                    {
+                        try
+                        {
+                            a2::a2_exprtk::Expression expr(exprString);
+                            expr.compile();
+                            double d = expr.eval();
+                            u32 exprResult = d < 0.0 ? 0 : std::round(d);
+                            qDebug() << __PRETTY_FUNCTION__ << exprResult;
+                            result += QString::number(exprResult);
+                            state = OutsideExpr;
+                            exprString.clear();
+                        }
+                        catch (const a2::a2_exprtk::ParserErrorList &el)
+                        {
+                            throw ParseError("TODO: exprtk::ParserErrorList", lineNumber);
+                        }
+                        catch (const a2::a2_exprtk::SymbolError &e)
+                        {
+                            throw ParseError("TODO: exprtk::SymbolError", lineNumber);
+                        }
+                    }
+                }
+                else
+                {
+                    if (c == '(') ++nParens;
+                    exprString.push_back(c);
+                }
+
+                break;
+        }
+    }
+
+    if (state == InsideExpr)
+    {
+        throw ParseError(QSL("Unterminated expression string '$(%1'")
+                         .arg(exprString.c_str()), lineNumber);
+    }
+
+    return result;
+}
+
+void evaluate_expressions(PreparsedLine &preparsed)
+{
+    for (auto &part: preparsed.parts)
+        evaluate_expressions(part, preparsed.lineNumber);
+}
+
+// Overloads without SymbolTables arguments. These will create a single symbol
+// table for internal use. Symbols set from within the script are not
+// accessible from the outside.
 VMEScript parse(QFile *input, uint32_t baseAddress)
 {
-    QTextStream stream(input);
-    return parse(stream, baseAddress);
+    SymbolTables symtabs;
+    return parse(input, symtabs, baseAddress);
 }
 
 VMEScript parse(const QString &input, uint32_t baseAddress)
 {
-    QTextStream stream(const_cast<QString *>(&input), QIODevice::ReadOnly);
-    return parse(stream, baseAddress);
+    SymbolTables symtabs;
+    return parse(input, symtabs, baseAddress);
 }
 
 VMEScript parse(const std::string &input, uint32_t baseAddress)
 {
-    auto qStr = QString::fromStdString(input);
-    return parse(qStr, baseAddress);
+    SymbolTables symtabs;
+    return parse(input, symtabs, baseAddress);
 }
 
 VMEScript parse(QTextStream &input, uint32_t baseAddress)
 {
     SymbolTables symtabs;
     return parse(input, symtabs, baseAddress);
+}
+
+// Overloads taking a SymbolTables instances.
+// Variables set from within the script are written to the first symbol table
+// symtabs[0]. If symtabs is empty a single fresh SymbolTable will be created
+// and added to symtabs.
+
+VMEScript parse(QFile *input, SymbolTables &symtabs, uint32_t baseAddress)
+{
+    QTextStream stream(input);
+    return parse(stream, symtabs, baseAddress);
+}
+
+VMEScript parse(const QString &input, SymbolTables &symtabs, uint32_t baseAddress)
+{
+    QTextStream stream(const_cast<QString *>(&input), QIODevice::ReadOnly);
+    return parse(stream, symtabs, baseAddress);
+}
+
+VMEScript parse(const std::string &input, SymbolTables &symtabs, uint32_t baseAddress)
+{
+    auto qStr = QString::fromStdString(input);
+    return parse(qStr, symtabs, baseAddress);
 }
 
 VMEScript parse(
@@ -734,14 +914,14 @@ VMEScript parse(
 
     while (lineIndex < splitLines.size())
     {
-        auto &sl = splitLines.at(lineIndex);
+        auto &preparsed = splitLines[lineIndex];
 
-        assert(!sl.parts.isEmpty());
+        assert(!preparsed.parts.isEmpty());
 
         // Handling of special meta blocks enclosed in MetaBlockBegin and
-        // MetaBlockEnd. These can span over serveral lines. References to
-        // variables are not allowed within a meta block.
-        if (sl.parts[0] == MetaBlockBegin)
+        // MetaBlockEnd. These can span multiple lines.
+        // Variable references are not replaced within meta blocks.
+        if (preparsed.parts[0] == MetaBlockBegin)
         {
             int blockStartIndex = lineIndex;
             int blockEndIndex   = find_index_of_next_command(
@@ -751,7 +931,7 @@ VMEScript parse(
             {
                 throw ParseError(
                     QString("No matching \"%1\" found.").arg(MetaBlockEnd),
-                    sl.lineNumber);
+                    preparsed.lineNumber);
             }
 
             assert(blockEndIndex > blockStartIndex);
@@ -764,46 +944,29 @@ VMEScript parse(
 
             lineIndex = blockEndIndex + 1;
         }
-        else
+        else // Not a meta block
         {
-            // XXX: leftoff here maybe better to manually parse through each of
-            // the parts and do the replacement on the fly while copying
-            // character sequences outside of ${}
-            QRegularExpression reVar(R"(\$\{([a-zA-Z_]+[a-zA-Z0-9_]*)\})");
+            expand_variables(preparsed, symtabs);
+            evaluate_expressions(preparsed);
 
-            for (int partIndex = 0; partIndex < sl.parts.size(); partIndex++)
+            if (preparsed.parts[0] == "set")
             {
-                int offset = 0;
-
-                while (true)
-                {
-                    auto match = reVar.match( sl.parts[partIndex], offset);
-
-                    if (!match.hasMatch())
-                        break;
-
-                    offset += match.capturedLength();
-                }
-            }
-
-            if (sl.parts[0] == "set")
-            {
-                if (sl.parts.size() != 3)
+                if (preparsed.parts.size() != 3)
                 {
                     throw ParseError(
-                        QString("Missing arguments to 'set' command. Usage: set <var> <value>."),
-                        sl.lineNumber);
+                        QString("Invalid arguments to 'set' command. Usage: set <var> <value>."),
+                        preparsed.lineNumber);
                 }
 
-                const auto &varName  = sl.parts[1];
-                const auto &varValue = sl.parts[2];
+                const auto &varName  = preparsed.parts[1];
+                const auto &varValue = preparsed.parts[2];
 
                 // Set the variable in the first/innermost symbol table.
-                symtabs[0][varName] = Variable{ varValue, static_cast<s32>(sl.lineNumber) };
+                symtabs[0][varName] = Variable{ varValue, static_cast<s32>(preparsed.lineNumber) };
             }
             else
             {
-                auto cmd = handle_single_line_command(sl);
+                auto cmd = handle_single_line_command(preparsed);
 
                 /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
                  * here by modifying other commands before they are pushed onto result.
@@ -820,12 +983,6 @@ VMEScript parse(
                 {
                     case CommandType::Invalid:
                         break;
-
-#if 0
-                    case CommandType::SetVariable:
-                        {
-                        } break;
-#endif
 
                     case CommandType::SetBase:
                         {
@@ -845,9 +1002,9 @@ VMEScript parse(
                             result.push_back(cmd);
                         } break;
                 }
-
-                lineIndex++;
             }
+
+            lineIndex++;
         }
     }
 
@@ -1073,6 +1230,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::VMUSB_ReadRegister:
         case CommandType::MVLC_WriteSpecial:
         case CommandType::MetaBlock:
+        case CommandType::SetVariable:
             break;
 
         case CommandType::Read:
@@ -1223,6 +1381,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             /* Note: SetBase and ResetBase have already been handled at parse time. */
         case CommandType::SetBase:
         case CommandType::ResetBase:
+        case CommandType::SetVariable:
             break;
 
         case CommandType::Read:
@@ -1498,6 +1657,7 @@ QString format_result(const Result &result)
         case CommandType::ResetBase:
         case CommandType::MVLC_WriteSpecial:
         case CommandType::MetaBlock:
+        case CommandType::SetVariable:
             break;
 
         case CommandType::Write:

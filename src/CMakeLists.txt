@@ -97,7 +97,10 @@ target_sources(libmvme_core PRIVATE
 )
 
 target_include_directories(libmvme_core PRIVATE ${LIBUSB_INCLUDE_PATH})
-target_link_libraries(libmvme_core ${LIBUSB_LIBRARY} ${QUAZIP_QT5})
+target_link_libraries(libmvme_core
+    liba2_static
+    ${LIBUSB_LIBRARY}
+    ${QUAZIP_QT5})
 install(TARGETS libmvme_core DESTINATION .)
 
 if (WIN32)

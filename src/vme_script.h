@@ -180,10 +180,27 @@ struct Variable
 {
     QString value;
     s32 lineNumber;
+
+    Variable()
+    {}
+
+    Variable(const QString &v, s32 lineNumber = 0)
+        : value(v)
+        , lineNumber(lineNumber)
+    { }
+
+    explicit operator bool() const { return !value.isEmpty(); }
 };
 
 using SymbolTable = QMap<QString, Variable>;
 using SymbolTables = QVector<SymbolTable>;
+
+Variable lookup_variable(const QString &varName, const SymbolTables &symtabs);
+QString expand_variables(const QString &line, const SymbolTables &symtabs, s32 lineNumber);
+void expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs);
+
+QString evaluate_expressions(const QString &qline, s32 lineNumber);
+void evaluate_expressions(PreparsedLine &preparsed);
 
 // These versions of the parse function use an internal symbol table. Access to
 // variables defined via the 'set' command is not possible.
