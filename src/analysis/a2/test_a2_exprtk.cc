@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 #include "a2_exprtk.h"
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
