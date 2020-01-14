@@ -151,6 +151,7 @@ namespace
                 case CommandType::Blk2eSST64:
                 case CommandType::MVLC_WriteSpecial:
                 case CommandType::MetaBlock:
+                case CommandType::SetVariable:
                     break;
 
                 case  CommandType::Invalid:
@@ -449,6 +450,7 @@ namespace
                 case  CommandType::Blk2eSST64:
                 case  CommandType::MVLC_WriteSpecial:
                 case  CommandType::MetaBlock:
+                case  CommandType::SetVariable:
                     break;
 
                 case  CommandType::Invalid:
