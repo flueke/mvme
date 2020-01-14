@@ -775,8 +775,6 @@ QString evaluate_expressions(const QString &qline, s32 lineNumber)
     std::string exprString;
     unsigned nParens = 0;
 
-    qDebug() << qline;
-
     while (in >> c)
     {
         switch (state)
@@ -814,10 +812,12 @@ QString evaluate_expressions(const QString &qline, s32 lineNumber)
                         }
                         catch (const a2::a2_exprtk::ParserErrorList &el)
                         {
+                            // FIXME
                             throw ParseError("TODO: exprtk::ParserErrorList", lineNumber);
                         }
                         catch (const a2::a2_exprtk::SymbolError &e)
                         {
+                            // FIXME
                             throw ParseError("TODO: exprtk::SymbolError", lineNumber);
                         }
                     }
@@ -844,7 +844,7 @@ QString evaluate_expressions(const QString &qline, s32 lineNumber)
 void evaluate_expressions(PreparsedLine &preparsed)
 {
     for (auto &part: preparsed.parts)
-        evaluate_expressions(part, preparsed.lineNumber);
+        part = evaluate_expressions(part, preparsed.lineNumber);
 }
 
 // Overloads without SymbolTables arguments. These will create a single symbol
