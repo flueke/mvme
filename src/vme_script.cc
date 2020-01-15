@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_script.h"
+#include "vme_script_p.h"
 
 #include <cmath>
 #include <QDebug>
@@ -31,9 +32,11 @@
 #include <QThread>
 
 #include "util.h"
+#include "util/qt_container.h"
 #include "vme_controller.h"
 #include "vmusb.h"
 
+// FIXME: these should be restructed
 #include "mvlc/mvlc_vme_controller.h"
 #include "analysis/a2/a2_exprtk.h"
 
@@ -523,19 +526,176 @@ static QString handle_multiline_comment(QString line, bool &in_multiline_comment
     return result;
 }
 
-/* Also see
- * https://stackoverflow.com/questions/27318631/parsing-through-a-csv-file-in-qt
- * for a nice implementation without using std::quoted(). */
-QStringList parse_quoted_parts(const QString &line)
+// Also see
+// https://stackoverflow.com/questions/27318631/parsing-through-a-csv-file-in-qt
+// for a nice implementation of quoted string parsing.
+
+std::pair<std::string, bool> read_atomic_variable_reference(std::istringstream &in)
 {
-    QStringList result;
+    assert(in.peek() == '{');
 
-    auto stlLine = line.toStdString();
-    std::istringstream in(stlLine);
-    std::string inStr;
+    in.unsetf(std::ios_base::skipws);
 
-    while (in >> std::quoted(inStr))
-        result.push_back(QString::fromStdString(inStr));
+    std::string result;
+    char c;
+
+    while (in >> c)
+    {
+        result.push_back(c);
+
+        if (c == '}')
+            return std::make_pair(result, true);
+    }
+
+    // Unterminated variable reference
+    return std::make_pair(result, false);
+}
+
+std::pair<std::string, bool> read_atomic_variable_reference(const std::string &str)
+{
+    std::istringstream in(str);
+    return read_atomic_variable_reference(in);
+}
+
+std::pair<std::string, bool> read_atomic_expression(std::istringstream &in)
+{
+    assert(in.peek() == '(');
+
+    in.unsetf(std::ios_base::skipws);
+
+    std::string result;
+    char c;
+    unsigned nParens = 0;
+
+    while (in >> c)
+    {
+        result.push_back(c);
+
+        switch (c)
+        {
+            case '(':
+                ++nParens;
+                break;
+
+            case ')':
+                if (--nParens == 0)
+                    return std::make_pair(result, true);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    // Mismatched number of opening and closing parens.
+    return std::make_pair(result, false);
+}
+
+std::pair<std::string, bool> read_atomic_expression(const std::string &str)
+{
+    std::istringstream in(str);
+    return read_atomic_expression(in);
+}
+
+// Split the input line into atomic parts according to the following rules:
+// - ${...} style variable references are considered parts
+// - $(...) style math expressions are considered parts
+// - Quoted strings are considered parts
+// - Concatenations of the above form parts. The following input line is
+//   considered to be a single part:
+//   some"things"${that}slumber" should never be awoken"$(6 * 7)
+// - If non of the above applies whitespace is used to separate parts.
+std::vector<std::string> split_into_atomic_parts(const std::string &line, int lineNumber)
+{
+    std::vector<std::string> result;
+    std::string part;
+    std::istringstream in(line);
+    in.unsetf(std::ios_base::skipws);
+
+
+    while (!in.eof())
+    {
+        switch (in.peek())
+        {
+            case ' ':
+            case '\t':
+                in.get();
+
+                if (!part.empty())
+                {
+                    result.push_back(part);
+                    part.clear();
+                }
+                break;
+
+            case '"':
+                {
+                    std::string quotedPart;
+                    in >> std::quoted(quotedPart);
+                    part.append(quotedPart);
+
+                    // Extra handling to allow concatenating quoted and
+                    // non-quoted parts if they are not separated by
+                    // whitespace.
+                    auto c = in.peek();
+                    if (c == ' ' || c == '\t')
+                    {
+                        result.push_back(part);
+                        part.clear();
+                    }
+                }
+                break;
+
+            case '$':
+                {
+                    part.push_back(in.get());
+
+                    switch (in.peek())
+                    {
+                        case '(':
+                            {
+                                auto rr = read_atomic_expression(in);
+                                part += rr.first;
+                                if (!rr.second)
+                                    throw ParseError(
+                                        QSL("Unterminated expression string '%1'")
+                                        .arg(part.c_str()), lineNumber);
+                            }
+                            break;
+
+                        case '{':
+                            {
+                                auto rr = read_atomic_variable_reference(in);
+                                part += rr.first;
+                                if (!rr.second)
+                                    throw ParseError(
+                                        QSL("Unterminated variable reference '%1'")
+                                        .arg(part.c_str()), lineNumber);
+                            }
+                            break;
+
+                        default:
+                            // Neither variable nor expression. Do nothing and
+                            // let the default case handle it on the next
+                            // iteration.
+                            continue;
+                    }
+
+
+                }
+                break;
+
+            default:
+                {
+                    auto c = in.get();
+                    if (c != std::istringstream::traits_type::eof())
+                        part.push_back(c);
+                }
+        }
+    }
+
+    if (!part.empty())
+        result.push_back(part);
 
     return result;
 }
@@ -546,7 +706,7 @@ QStringList parse_quoted_parts(const QString &line)
 static QVector<PreparsedLine> pre_parse(QTextStream &input)
 {
     QVector<PreparsedLine> result;
-    u32 lineNumber = 0;
+    int lineNumber = 0;
     bool in_multiline_comment = false;
 
     while (true)
@@ -569,10 +729,12 @@ static QVector<PreparsedLine> pre_parse(QTextStream &input)
         if (trimmed.isEmpty())
             continue;
 
-        auto parts = parse_quoted_parts(trimmed);
+        auto stlParts = split_into_atomic_parts(trimmed.toStdString(), lineNumber);
 
-        if (parts.isEmpty())
+        if (stlParts.empty())
             continue;
+
+        auto parts = to_qstrlist_from_std(stlParts);
 
         // Lowercase the first part (the command name or for the shortcut form
         // of the write command the address value).
@@ -805,26 +967,34 @@ QString evaluate_expressions(const QString &qline, s32 lineNumber)
                             expr.compile();
                             double d = expr.eval();
                             u32 exprResult = d < 0.0 ? 0 : std::round(d);
-                            qDebug() << __PRETTY_FUNCTION__ << exprResult;
                             result += QString::number(exprResult);
                             state = OutsideExpr;
                             exprString.clear();
                         }
                         catch (const a2::a2_exprtk::ParserErrorList &el)
                         {
-                            // FIXME
-                            throw ParseError("TODO: exprtk::ParserErrorList", lineNumber);
+                            a2::a2_exprtk::ParserError pe = {};
+                            if (!el.errors.empty())
+                                pe = *el.errors.begin();
+
+                            throw ParseError(
+                                QSL("Embedded math expression parser error: %1")
+                                .arg(pe.diagnostic.c_str()),
+                                lineNumber);
                         }
                         catch (const a2::a2_exprtk::SymbolError &e)
                         {
-                            // FIXME
-                            throw ParseError("TODO: exprtk::SymbolError", lineNumber);
+                            throw ParseError(
+                                QSL("Embedded math expression symbol error (symbol name: %1)")
+                                .arg(e.symbolName.c_str()),
+                                lineNumber);
                         }
                     }
                 }
                 else
                 {
-                    if (c == '(') ++nParens;
+                    if (c == '(')
+                        ++nParens;
                     exprString.push_back(c);
                 }
 

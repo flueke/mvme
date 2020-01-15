@@ -42,7 +42,7 @@ struct PreparsedLine
 {
     QString line;       // A copy of the original line
     QStringList parts;  // The line trimmed of whitespace and split at word boundaries
-    u32 lineNumber;     // The original line number
+    int lineNumber;     // The original line number
 };
 
 static const QString MetaBlockBegin = "meta_block_begin";

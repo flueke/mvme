@@ -1,10 +1,11 @@
 #include "gtest/gtest.h"
 #include "vme_script.h"
+#include "vme_script_p.h"
 #include <QDebug>
 
 using namespace vme_script;
 
-TEST(vme_script_parsing, VariableToBool)
+TEST(vme_script_variables, VariableToBool)
 {
     {
         Variable v { "value", 42 };
@@ -27,7 +28,7 @@ TEST(vme_script_parsing, VariableToBool)
     }
 }
 
-TEST(vme_script_parsing, LookupVariable)
+TEST(vme_script_variables, LookupVariable)
 {
     SymbolTables symtabs =
     {
@@ -54,7 +55,7 @@ TEST(vme_script_parsing, LookupVariable)
     }
 }
 
-TEST(vme_script_parsing, ExpandSingleVariable)
+TEST(vme_script_variables, ExpandSingleVariable)
 {
     //try
     //{
@@ -156,7 +157,7 @@ TEST(vme_script_parsing, ExpandSingleVariable)
     //}
 }
 
-TEST(vme_script_parsing, ExpandMultipleVariables)
+TEST(vme_script_variables, ExpandMultipleVariables)
 {
     SymbolTables symtabs =
     {
@@ -199,7 +200,7 @@ TEST(vme_script_parsing, ExpandMultipleVariables)
     //}
 }
 
-TEST(vme_script_parsing, ExpandVariablesErrors)
+TEST(vme_script_variables, ExpandVariablesErrors)
 {
     SymbolTables symtabs =
     {
@@ -234,7 +235,7 @@ TEST(vme_script_parsing, ExpandVariablesErrors)
 }
 
 
-TEST(vme_script_parsing, EvaluateExpression)
+TEST(vme_script_expressions, EvaluateExpression)
 {
     ASSERT_EQ(evaluate_expressions("$(1)", 0), QSL("1"));
     ASSERT_EQ(evaluate_expressions("$(3.14)", 0), QSL("3"));
@@ -249,18 +250,207 @@ TEST(vme_script_parsing, EvaluateExpression)
     ASSERT_EQ(evaluate_expressions("$(-(3*4+8))", 0), QSL("0")); // negative results should be set to 0
 }
 
-TEST(vme_script_parsing, ParseExpression)
+TEST(vme_script_expressions, ParseExpression)
 {
     try
     {
-        QString input = R"_(write a32 d16 0x6070 "$(1 + 3 + 5)")_";
-        auto script = parse(input);
-        ASSERT_EQ(script.size(), 1);
+        {
+            // long form of the write command, quoted
+            QString input = "write a32 d16 0x6070 \"$(1 + 3 + 5)\"";
+            auto script = parse(input);
+            ASSERT_EQ(script.size(), 1);
+            ASSERT_EQ(script[0].type, CommandType::Write);
+            ASSERT_EQ(script[0].address, 0x6070);
+            ASSERT_EQ(script[0].value, 1+3+5);
+        }
+
+        {
+            // long form of the write command, unquoted
+            QString input = "write a32 d16 0x6070 $(1 + 3 + 5)";
+            auto script = parse(input);
+            ASSERT_EQ(script.size(), 1);
+        }
+
+        {
+            // short form of the write command, quoted
+            QString input = "0x6070 \"$(1 + 3 + 5)\"";
+            auto script = parse(input);
+            ASSERT_EQ(script.size(), 1);
+        }
+
+        {
+            // short form of the write command
+            QString input = "0x6070 $(1 + 3 + 5)";
+            auto script = parse(input);
+            ASSERT_EQ(script.size(), 1);
+        }
 
     } catch (ParseError &e)
     {
         std::cout << e.what().toStdString() << std::endl;
         ASSERT_TRUE(false);
+    }
+}
+
+TEST(vme_script_atomics, ReadVariableReference)
+{
+    {
+        auto rr = read_atomic_variable_reference("{foo}");
+        ASSERT_EQ(rr.first, "{foo}");
+        ASSERT_TRUE(rr.second);
+    }
+
+    {
+        auto rr = read_atomic_variable_reference("{foo} a  ");
+        ASSERT_EQ(rr.first, "{foo}");
+        ASSERT_TRUE(rr.second);
+    }
+
+    {
+        auto rr = read_atomic_variable_reference("{ f o o }aa  ");
+        ASSERT_EQ(rr.first, "{ f o o }");
+        ASSERT_TRUE(rr.second);
+    }
+
+    {
+        auto rr = read_atomic_variable_reference("{ f o o aa");
+        ASSERT_EQ(rr.first, "{ f o o aa");
+        ASSERT_FALSE(rr.second);
+    }
+}
+
+TEST(vme_script_atomics, ReadExpression)
+{
+    {
+        auto rr = read_atomic_expression("(foo)");
+        ASSERT_EQ(rr.first, "(foo)");
+        ASSERT_TRUE(rr.second);
+    }
+
+    {
+        auto rr = read_atomic_expression("(foo))");
+        ASSERT_EQ(rr.first, "(foo)");
+        ASSERT_TRUE(rr.second);
+    }
+
+    {
+        auto rr = read_atomic_expression("(foo) a");
+        ASSERT_EQ(rr.first, "(foo)");
+        ASSERT_TRUE(rr.second);
+    }
+
+    {
+        auto rr = read_atomic_expression("(f o o)aa");
+        ASSERT_EQ(rr.first, "(f o o)");
+        ASSERT_TRUE(rr.second);
+    }
+
+    {
+        auto rr = read_atomic_expression("((f o o)aa");
+        ASSERT_EQ(rr.first, "((f o o)aa");
+        ASSERT_FALSE(rr.second);
+    }
+
+    {
+        auto rr = read_atomic_expression("((())) ");
+        ASSERT_EQ(rr.first, "((()))");
+        ASSERT_TRUE(rr.second);
+    }
+}
+
+TEST(vme_script_atomics, SplitIntoParts)
+{
+    {
+        auto parts = split_into_atomic_parts("a b c", 0);
+        ASSERT_EQ(parts.size(), 3);
+        ASSERT_EQ(parts[0], "a");
+        ASSERT_EQ(parts[1], "b");
+        ASSERT_EQ(parts[2], "c");
+    }
+
+    {
+        auto parts = split_into_atomic_parts(" a b c ", 0);
+        ASSERT_EQ(parts.size(), 3);
+        ASSERT_EQ(parts[0], "a");
+        ASSERT_EQ(parts[1], "b");
+        ASSERT_EQ(parts[2], "c");
+    }
+
+    {
+        auto parts = split_into_atomic_parts(" a \"foo bar\" c ", 0);
+        ASSERT_EQ(parts.size(), 3);
+        ASSERT_EQ(parts[0], "a");
+        ASSERT_EQ(parts[1], "foo bar");
+        ASSERT_EQ(parts[2], "c");
+    }
+
+    {
+        auto parts = split_into_atomic_parts(" a \"foo bar\"blob c ", 0);
+        ASSERT_EQ(parts.size(), 3);
+        ASSERT_EQ(parts[0], "a");
+        ASSERT_EQ(parts[1], "foo barblob");
+        ASSERT_EQ(parts[2], "c");
+    }
+
+    {
+        auto parts = split_into_atomic_parts(" a blob\"foo bar\" c ", 0);
+        ASSERT_EQ(parts.size(), 3);
+        ASSERT_EQ(parts[0], "a");
+        ASSERT_EQ(parts[1], "blobfoo bar");
+        ASSERT_EQ(parts[2], "c");
+    }
+
+    {
+        auto str = R"_(some"things"${that}slumber" should never be awoken"$(6 * 7)"one""two")_";
+        auto parts = split_into_atomic_parts(str, 0);
+        ASSERT_EQ(parts.size(), 1);
+        ASSERT_EQ(parts[0], "somethings${that}slumber should never be awoken$(6 * 7)onetwo");
+    }
+
+    {
+        auto str = "a $(1 * (2 + 3)) b";
+        auto parts = split_into_atomic_parts(str, 0);
+        ASSERT_EQ(parts.size(), 3);
+        ASSERT_EQ(parts[0], "a");
+        ASSERT_EQ(parts[1], "$(1 * (2 + 3))");
+        ASSERT_EQ(parts[2], "b");
+    }
+
+    {
+        auto str = "a $(1 * (2 + ${myvar})) b";
+        auto parts = split_into_atomic_parts(str, 0);
+        ASSERT_EQ(parts.size(), 3);
+        ASSERT_EQ(parts[0], "a");
+        ASSERT_EQ(parts[1], "$(1 * (2 + ${myvar}))");
+        ASSERT_EQ(parts[2], "b");
+    }
+
+    {
+        auto str = "a $(1 * (2 + ${my var})) b";
+        auto parts = split_into_atomic_parts(str, 0);
+        ASSERT_EQ(parts.size(), 3);
+        ASSERT_EQ(parts[0], "a");
+        ASSERT_EQ(parts[1], "$(1 * (2 + ${my var}))");
+        ASSERT_EQ(parts[2], "b");
+    }
+
+    {
+        auto str = "a $(1 * (2 + $(6 * 7))) b";
+        auto parts = split_into_atomic_parts(str, 0);
+        ASSERT_EQ(parts.size(), 3);
+        ASSERT_EQ(parts[0], "a");
+        ASSERT_EQ(parts[1], "$(1 * (2 + $(6 * 7)))");
+        ASSERT_EQ(parts[2], "b");
+    }
+
+    {
+        auto str = "a $(1 + 2) $(3 * 4)$(5+6) b";
+        auto parts = split_into_atomic_parts(str, 0);
+        ASSERT_EQ(parts.size(), 4);
+        ASSERT_EQ(parts[0], "a");
+        ASSERT_EQ(parts[1], "$(1 + 2)");
+        ASSERT_EQ(parts[2], "$(3 * 4)$(5+6)");
+        ASSERT_EQ(parts[3], "b");
     }
 }
 
@@ -308,21 +498,29 @@ TEST(vme_script_parsing, SetVariableCommand)
     }
 }
 
-#if 0
-TEST(vme_script_parsing, QuotedExpressions)
+TEST(vme_script_parsing, SetWithExpressions)
 {
-    SymbolTables symtabs;
-    symtabs.resize(1);
-    SymbolTable &symtab0 = symtabs[0];
+    {
+        SymbolTables symtabs;
+        symtabs.resize(1);
+        SymbolTable &symtab0 = symtabs[0];
 
-    QString input = "set foo \"$( 7 * 6 )\"\nset \"the var\" ${foo}";
-    auto script = parse(input, symtabs);
+        QString input = "set foo \"$( 7 * 6 )\"\nset \"the var\" ${foo}";
+        auto script = parse(input, symtabs);
 
-    qDebug() << symtab0.value("foo").value;
+        ASSERT_EQ(symtab0.value("foo").value, QSL("42"));
+        ASSERT_EQ(symtab0.value("the var").value, QSL("42"));
+    }
 
-    ASSERT_EQ(symtab0.value("foo").value, QSL("42"));
-    ASSERT_EQ(symtab0.value("the var").value, QSL("42"));
+    {
+        SymbolTables symtabs;
+        symtabs.resize(1);
+        SymbolTable &symtab0 = symtabs[0];
 
+        QString input = "set foo $( 7 * 6 )\nset \"the var\" ${foo}";
+        auto script = parse(input, symtabs);
+
+        ASSERT_EQ(symtab0.value("foo").value, QSL("42"));
+        ASSERT_EQ(symtab0.value("the var").value, QSL("42"));
+    }
 }
-#endif
-

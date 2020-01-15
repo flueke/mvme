@@ -5,11 +5,30 @@
 #include <QVector>
 
 template<typename C>
-QStringList to_qstrlist(const C &container)
+QStringList to_qstrlist(
+    const C &container)
 {
+    static_assert(std::is_same<typename C::value_type, QString>::value, "");
+
     QStringList result;
     result.reserve(container.size());
     std::copy(container.begin(), container.end(), std::back_inserter(result));
+    return result;
+}
+
+template<typename C>
+QStringList to_qstrlist_from_std(
+    const C &container)
+{
+    static_assert(std::is_same<typename C::value_type, std::string>::value, "");
+
+    QStringList result;
+    result.reserve(container.size());
+
+    std::transform(
+        container.begin(), container.end(), std::back_inserter(result),
+        [] (const std::string &str) { return QString::fromStdString(str); });
+
     return result;
 }
 
