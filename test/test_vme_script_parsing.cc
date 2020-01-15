@@ -237,17 +237,26 @@ TEST(vme_script_variables, ExpandVariablesErrors)
 
 TEST(vme_script_expressions, EvaluateExpression)
 {
-    ASSERT_EQ(evaluate_expressions("$(1)", 0), QSL("1"));
-    ASSERT_EQ(evaluate_expressions("$(3.14)", 0), QSL("3"));
-    ASSERT_EQ(evaluate_expressions("$(7.4)", 0), QSL("7"));
-    ASSERT_EQ(evaluate_expressions("$(7.5)", 0), QSL("8"));
+    try
+    {
+        ASSERT_EQ(evaluate_expressions("$(1)", 0), QSL("1"));
+        ASSERT_EQ(evaluate_expressions("$(3.14)", 0), QSL("3"));
+        ASSERT_EQ(evaluate_expressions("$(7.4)", 0), QSL("7"));
+        ASSERT_EQ(evaluate_expressions("$(7.5)", 0), QSL("8"));
 
-    ASSERT_EQ(evaluate_expressions("$(1+1)", 0), QSL("2"));
-    ASSERT_EQ(evaluate_expressions("$(1 + 1)", 0), QSL("2"));
-    ASSERT_EQ(evaluate_expressions("$( 1+1 )", 0), QSL("2"));
+        ASSERT_EQ(evaluate_expressions("$(1+1)", 0), QSL("2"));
+        ASSERT_EQ(evaluate_expressions("$(1 + 1)", 0), QSL("2"));
+        ASSERT_EQ(evaluate_expressions("$( 1+1 )", 0), QSL("2"));
 
-    ASSERT_EQ(evaluate_expressions("$(3*4+8)", 0), QSL("20"));
-    ASSERT_EQ(evaluate_expressions("$(-(3*4+8))", 0), QSL("0")); // negative results should be set to 0
+        ASSERT_EQ(evaluate_expressions("$(3*4+8)", 0), QSL("20"));
+        //ASSERT_EQ(evaluate_expressions("$(-(3*4+8))", 0), QSL("0"));
+        ASSERT_THROW(evaluate_expressions("$(-(3*4+8))", 0), ParseError);
+
+    } catch (ParseError &e)
+    {
+        std::cout << e.what().toStdString() << std::endl;
+        ASSERT_TRUE(false);
+    }
 }
 
 TEST(vme_script_expressions, ParseExpression)

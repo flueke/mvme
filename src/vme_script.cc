@@ -687,6 +687,11 @@ std::vector<std::string> split_into_atomic_parts(const std::string &line, int li
 
             default:
                 {
+                    // Need to do an explicit check for the EOF condition as
+                    // both peek() and get() can return an EOF even if in.eof()
+                    // is not true. The reason is that for some stream types
+                    // the EOF condition can only be determined when actually
+                    // performing the read.
                     auto c = in.get();
                     if (c != std::istringstream::traits_type::eof())
                         part.push_back(c);
@@ -925,11 +930,11 @@ void expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs)
         part = expand_variables(part, symtabs, preparsed.lineNumber);
 }
 
-QString evaluate_expressions(const QString &qline, s32 lineNumber)
+QString evaluate_expressions(const QString &qstrPart, s32 lineNumber)
 {
     QString result;
-    auto line = qline.toStdString();
-    std::istringstream in(line);
+    auto part = qstrPart.toStdString();
+    std::istringstream in(part);
     in.unsetf(std::ios_base::skipws);
     char c;
     enum State { OutsideExpr, InsideExpr };
@@ -966,7 +971,17 @@ QString evaluate_expressions(const QString &qline, s32 lineNumber)
                             a2::a2_exprtk::Expression expr(exprString);
                             expr.compile();
                             double d = expr.eval();
-                            u32 exprResult = d < 0.0 ? 0 : std::round(d);
+
+                            if (d < 0.0)
+                            {
+                                throw ParseError(
+                                    QSL("Embedded math expression yields a negative result: %1 -> %2")
+                                    .arg(exprString.c_str())
+                                    .arg(d),
+                                    lineNumber);
+                            }
+
+                            u32 exprResult = std::round(d);
                             result += QString::number(exprResult);
                             state = OutsideExpr;
                             exprString.clear();
@@ -1013,8 +1028,12 @@ QString evaluate_expressions(const QString &qline, s32 lineNumber)
 
 void evaluate_expressions(PreparsedLine &preparsed)
 {
-    for (auto &part: preparsed.parts)
+    auto eval = [&preparsed] (QString &part)
+    {
         part = evaluate_expressions(part, preparsed.lineNumber);
+    };
+
+    std::for_each(preparsed.parts.begin(), preparsed.parts.end(), eval);
 }
 
 // Overloads without SymbolTables arguments. These will create a single symbol
