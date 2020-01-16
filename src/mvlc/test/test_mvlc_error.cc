@@ -44,7 +44,7 @@ TEST(TestMVLCError, FT_STATUS_to_ErrorType)
 
     for (int code = FT_IO_ERROR; code <= FT_NO_MORE_ITEMS; code++)
     {
-        ASSERT_EQ(make_error_code(static_cast<_FT_STATUS>(code)), ErrorType::IOError);
+        ASSERT_EQ(make_error_code(static_cast<_FT_STATUS>(code)), ErrorType::ConnectionError);
     }
 
     ASSERT_EQ(make_error_code(FT_TIMEOUT), ErrorType::Timeout);
@@ -53,7 +53,7 @@ TEST(TestMVLCError, FT_STATUS_to_ErrorType)
     {
         if (code != FT_DEVICE_NOT_CONNECTED)
         {
-            ASSERT_EQ(make_error_code(static_cast<_FT_STATUS>(code)), ErrorType::IOError);
+            ASSERT_EQ(make_error_code(static_cast<_FT_STATUS>(code)), ErrorType::ConnectionError);
         }
     }
 
