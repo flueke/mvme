@@ -198,9 +198,6 @@ class ErrorTypeCategory: public std::error_category
             case ErrorType::ConnectionError:
                 return "Connection Error";
 
-            case ErrorType::IOError:
-                return "I/O Error";
-
             case ErrorType::Timeout:
                 return "Timeout";
 

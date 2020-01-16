@@ -432,7 +432,7 @@ void MVLCDataReader::readoutLoop()
         m_readBuffer.used = bytesTransferred;
 
 
-        if (ec == ErrorType::ConnectionError || ec == ErrorType::IOError)
+        if (ec == ErrorType::ConnectionError)
         {
             emit message(QSL("Lost connection to MVLC. Leaving readout loop. Reason: %1")
                          .arg(ec.message().c_str()));

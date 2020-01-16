@@ -67,7 +67,6 @@ enum class ErrorType
 {
     Success,
     ConnectionError,
-    IOError,
     Timeout,
     ShortTransfer,
     ProtocolError,
