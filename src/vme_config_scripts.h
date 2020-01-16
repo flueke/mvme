@@ -22,6 +22,9 @@ VMEScriptAndVars LIBMVME_EXPORT parse_return_symbols(
     const VMEScriptConfig *scriptConfig,
     u32 baseAddress = 0);
 
+// Note: there's no way to specify additional symbol tables and thus inject
+// variables prior to parsing. This will be added if needed.
+
 // Gathering symbol tables
 // -----------------------
 // - superglobal scripts: symbols from DAQGlobal config (this level does not exist yet)

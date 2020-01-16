@@ -43,8 +43,7 @@ void build_symbol_tables(const ConfigObject *co, vme_script::SymbolTables symtab
             irq = event->irqLevel;
 
         symtab["irq"] = QString::number(irq);
-
-        // TODO: set mcst to multicast address once this is a thing in EventConfig
+        symtab["mcst"] = QString::number(event->getMulticastByte(), 16);
 
         symtabs.push_back(symtab);
     }
@@ -53,8 +52,18 @@ void build_symbol_tables(const ConfigObject *co, vme_script::SymbolTables symtab
     {
         symtab.name = QSL("Module '%1'").arg(module->objectName());
 
-        // TODO: set the "irq" variable to 0 if the parent event is triggered
-        // by an irq and this module should not raise the irq.
+        // Set the "irq" variable to 0 if the parent event is triggered by an
+        // irq and this module should not raise the irq.
+        // This will override the "irq" variable set by the event except for
+        // the module that should raise the irq.
+        if (auto event = module->getEventConfig())
+        {
+            if (event->triggerCondition == TriggerCondition::Interrupt
+                && !module->raisesIRQ())
+            {
+                symtab["irq"] = QSL("0");
+            }
+        }
 
         symtabs.push_back(symtab);
     }
