@@ -25,6 +25,7 @@
 #include "treewidget_utils.h"
 #include "mvme_stream_worker.h"
 #include "vmusb.h"
+#include "vme_config_utility.h"
 #include "vme_script_editor.h"
 
 #include <QDebug>
@@ -558,7 +559,7 @@ void VMEConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
         try
         {
             auto metaTag = vme_script::get_first_meta_block_tag(
-                scriptConfig->getScript());
+                mesytec::mvme::parse(scriptConfig));
 
             emit editVMEScript(scriptConfig, metaTag);
             return;

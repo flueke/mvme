@@ -21,6 +21,7 @@
 #ifndef UUID_29c99c43_ffae_4ead_8003_c89c87696c15
 #define UUID_29c99c43_ffae_4ead_8003_c89c87696c15
 
+#include <QFile>
 #include "vme_readout_worker.h"
 #include "vmusb_stack.h"
 

@@ -8,6 +8,7 @@
 #include "analysis/analysis_util.h"
 #include "databuffer.h"
 #include "mvme_context.h"
+#include "vme_config_utility.h"
 #include "vme_analysis_common.h"
 
 using namespace vme_analysis_common;
@@ -27,7 +28,7 @@ VMEConfReadoutScripts collect_readout_scripts(const VMEConfig &vmeConfig)
         {
             if (moduleConfig->isEnabled())
             {
-                auto rdoScript = moduleConfig->getReadoutScript()->getScript();
+                auto rdoScript = mesytec::mvme::parse(moduleConfig->getReadoutScript());
                 moduleReadoutScripts.emplace_back(rdoScript);
             }
             else

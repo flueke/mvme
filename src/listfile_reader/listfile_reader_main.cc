@@ -71,6 +71,7 @@ Notes:
 #include "mvme_listfile_utils.h"
 #include "mvlc_stream_worker.h" // FIXME: move collect_readout_scripts() elsewhere (a general readout parser file)
 #include "vme_controller_factory.h"
+#include "vme_config_utility.h"
 
 using std::cout;
 using std::endl;
@@ -182,7 +183,7 @@ RunDescription * make_run_description(
                 moduleConfig->getModuleMeta().typeName.toStdString().c_str());
 
             auto moduleReadoutParts = mesytec::mvlc::parse_module_readout_script(
-                moduleConfig->getReadoutScript()->getScript());
+                mesytec::mvme::parse(moduleConfig->getReadoutScript()));
 
             module.prefixLen = moduleReadoutParts.prefixLen;
             module.suffixLen = moduleReadoutParts.suffixLen;

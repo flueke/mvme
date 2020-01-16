@@ -31,6 +31,8 @@
 #include "vme_config.h"
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
+#include "vme_script.h"
+
 #include <memory>
 
 #include <QFuture>

@@ -44,6 +44,7 @@
 #include "util_zip.h"
 #include "vme_config_tree.h"
 #include "vme_config_ui.h"
+#include "vme_config_utility.h"
 #include "vme_controller_ui.h"
 #include "vme_debug_widget.h"
 #include "vme_script_editor.h"
@@ -1916,9 +1917,11 @@ void MVMEMainWindow::doRunScriptConfigs(
                 m_d->m_context->logMessage(QSL("  ") + str);
             };
 
-            auto results = m_d->m_context->runScript(
-                scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
-                logger);
+            auto script = mesytec::mvme::parse(
+                scriptConfig,
+                moduleConfig ? moduleConfig->getBaseAddress() : 0);
+
+            auto results = m_d->m_context->runScript(script, logger);
 
             if (options & RunScriptOptions::AggregateResults)
             {

@@ -10,6 +10,7 @@
 #include "analysis/code_editor.h"
 #include "util/algo.h"
 #include "util/qt_container.h"
+#include "vme_script.h"
 
 namespace mesytec
 {
