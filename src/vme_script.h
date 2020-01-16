@@ -47,7 +47,6 @@ struct PreparsedLine
 
 static const QString MetaBlockBegin = "meta_block_begin";
 static const QString MetaBlockEnd = "meta_block_end";
-//static const QString SetVariable = "set";
 
 struct MetaBlock
 {
@@ -193,6 +192,9 @@ struct Variable
 };
 
 using SymbolTable = QMap<QString, Variable>;
+
+// Vector of SymbolTables. The first table in the vector is the innermost
+// scope and is written to by the 'set' command.
 using SymbolTables = QVector<SymbolTable>;
 
 Variable lookup_variable(const QString &varName, const SymbolTables &symtabs);

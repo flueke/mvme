@@ -313,7 +313,7 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         /* Set by the readout worker and then used by the buffer
          * processor to map from stack ids to event configs. */
         // Maybe should move this elsewhere as it is vmusb specific
-        uint8_t stackID;
+        uint8_t stackID; // FIXME: vmusb only
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
