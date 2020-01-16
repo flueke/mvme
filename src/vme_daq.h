@@ -48,6 +48,11 @@ struct ScriptWithResult
     // list.
     // TODO: change this to a shared_ptr, weak_ptr or use a copy of the script.
     const VMEScriptConfig *scriptConfig;
+
+    // The symbol tables used when evaluating the script.
+    //const vme_script::SymbolTables symbols;
+
+    // List of results of running the script.
     const vme_script::ResultList results;
 };
 
