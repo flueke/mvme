@@ -435,6 +435,7 @@ void ModuleConfig::read_impl(const QJsonObject &json)
     // IMPORTANT: using json["baseAddress"].toInt() directly does not support
     // the full range of 32-bit unsigned integers!
     m_baseAddress = static_cast<u32>(json["baseAddress"].toDouble());
+    m_raisesIRQ = json["raisesIRQ"].toBool();
 
     m_resetScript->read(json["vmeReset"].toObject());
     m_readoutScript->read(json["vmeReadout"].toObject());
@@ -455,6 +456,7 @@ void ModuleConfig::write_impl(QJsonObject &json) const
 {
     json["type"] = m_meta.typeName;
     json["baseAddress"] = static_cast<qint64>(m_baseAddress);
+    json["raisesIRQ"] = m_raisesIRQ;
 
     // readout script
     {
@@ -483,7 +485,12 @@ void ModuleConfig::write_impl(QJsonObject &json) const
     }
 }
 
-EventConfig *ModuleConfig::getEventConfig() const
+const EventConfig *ModuleConfig::getEventConfig() const
+{
+    return qobject_cast<const EventConfig *>(parent());
+}
+
+EventConfig *ModuleConfig::getEventConfig()
 {
     return qobject_cast<EventConfig *>(parent());
 }
@@ -520,6 +527,25 @@ EventConfig::EventConfig(QObject *parent)
     triggerOptions[QSL("sis3153.timer_period")] = 1.0;
 }
 
+void EventConfig::setMulticastByte(u8 mcst)
+{
+    if (m_mcst != mcst)
+    {
+        m_mcst = mcst;
+        setModified();
+    }
+}
+
+const VMEConfig *EventConfig::getVMEConfig() const
+{
+    return qobject_cast<const VMEConfig *>(parent());
+}
+
+VMEConfig *EventConfig::getVMEConfig()
+{
+    return qobject_cast<VMEConfig *>(parent());
+}
+
 void EventConfig::read_impl(const QJsonObject &json)
 {
     qDeleteAll(modules);
@@ -541,6 +567,7 @@ void EventConfig::read_impl(const QJsonObject &json)
     irqVector = json["irqVector"].toInt();
     scalerReadoutPeriod = json["scalerReadoutPeriod"].toInt();
     scalerReadoutFrequency = json["scalerReadoutFrequency"].toInt();
+    m_mcst = json["mcst"].toInt();
 
     QJsonArray moduleArray = json["modules"].toArray();
     for (int i=0; i<moduleArray.size(); ++i)
@@ -577,6 +604,7 @@ void EventConfig::write_impl(QJsonObject &json) const
     json["irqVector"] = irqVector;
     json["scalerReadoutPeriod"] = scalerReadoutPeriod;
     json["scalerReadoutFrequency"] = scalerReadoutFrequency;
+    json["mcst"] = m_mcst;
 
 
 

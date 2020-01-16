@@ -269,6 +269,8 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         bool m_raisesIRQ = false;
 };
 
+class VMEConfig;
+
 class LIBMVME_EXPORT EventConfig: public ConfigObject
 {
     Q_OBJECT
@@ -310,6 +312,10 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         // Maximum number of events between scaler stack executions
         uint16_t scalerReadoutFrequency = 0;
 
+        // The most significant byte of the events VME multicast address.
+        u8 getMulticastByte() const { return m_mcst; }
+        void setMulticastByte(u8 mcst);
+
         /** Known keys for an event:
          * "daq_start", "daq_stop", "readout_start", "readout_end"
          */
@@ -320,12 +326,16 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         // Maybe should move this elsewhere as it is vmusb specific
         uint8_t stackID; // FIXME: vmusb only
 
+        const VMEConfig *getVMEConfig() const;
+        VMEConfig *getVMEConfig();
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
         QList<ModuleConfig *> modules;
+        u8 m_mcst = 0;
 };
 
 enum class VMEConfigReadResult
