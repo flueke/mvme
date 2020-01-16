@@ -862,15 +862,6 @@ static Command handle_meta_block_command(
     return result;
 }
 
-Variable lookup_variable(const QString &varName, const SymbolTables &symtabs)
-{
-    for (const auto &symtab: symtabs)
-        if (symtab.contains(varName))
-            return symtab.value(varName);
-
-    return {};
-}
-
 QString expand_variables(const QString &qline, const SymbolTables &symtabs, s32 lineNumber)
 {
     QString result;
@@ -1151,7 +1142,7 @@ VMEScript parse(
                 const auto &varValue = preparsed.parts[2];
 
                 // Set the variable in the first/innermost symbol table.
-                symtabs[0][varName] = Variable{ varValue, static_cast<s32>(preparsed.lineNumber) };
+                symtabs[0][varName] = Variable{ varValue, preparsed.lineNumber };
             }
             else
             {

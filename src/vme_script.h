@@ -21,13 +21,14 @@
 #ifndef __VME_SCRIPT_QT_H__
 #define __VME_SCRIPT_QT_H__
 
+#include <cstdint>
+#include <functional>
+#include <QSyntaxHighlighter>
+#include <QVector>
+
 #include "libmvme_core_export.h"
 #include "vme_controller.h"
-
-#include <cstdint>
-#include <QVector>
-#include <QSyntaxHighlighter>
-#include <functional>
+#include "vme_script_variables.h"
 
 class QFile;
 class QTextStream;
@@ -175,29 +176,6 @@ struct ParseError
     int lineNumber;
 };
 
-struct Variable
-{
-    QString value;
-    s32 lineNumber;
-
-    Variable()
-    {}
-
-    Variable(const QString &v, s32 lineNumber = 0)
-        : value(v)
-        , lineNumber(lineNumber)
-    { }
-
-    explicit operator bool() const { return !value.isEmpty(); }
-};
-
-using SymbolTable = QMap<QString, Variable>;
-
-// Vector of SymbolTables. The first table in the vector is the innermost
-// scope and is written to by the 'set' command.
-using SymbolTables = QVector<SymbolTable>;
-
-Variable lookup_variable(const QString &varName, const SymbolTables &symtabs);
 QString expand_variables(const QString &line, const SymbolTables &symtabs, s32 lineNumber);
 void expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs);
 

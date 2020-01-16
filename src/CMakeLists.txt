@@ -93,6 +93,7 @@ target_sources(libmvme_core PRIVATE
     util.cc
     vme_controller.cpp
     vme_script.cc
+    vme_script_variables.cc
     vmusb.cpp
 )
 

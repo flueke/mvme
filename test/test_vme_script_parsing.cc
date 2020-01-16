@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 #include "vme_script.h"
 #include "vme_script_p.h"
+#include "vme_script_variables.h"
 #include <QDebug>
 
 using namespace vme_script;
