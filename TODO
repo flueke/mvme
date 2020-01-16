@@ -2,6 +2,11 @@
 TODO list
 ==================================================
 
+* create tests for build_symbol_tables (vme_config_scripts.cc)
+* think about moving the buisness logic in vme_config_ui into factory functions
+  for new EventConfig and ModuleConfig instances. Also factor out things like
+  getting the next available mcst address.
+
 VME Script variables:
 ---------------------
 Use cases:
