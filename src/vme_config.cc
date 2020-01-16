@@ -385,6 +385,15 @@ void ModuleConfig::setModuleMeta(const vats::VMEModuleMeta &meta)
     }
 }
 
+void ModuleConfig::setRaisesIRQ(bool b)
+{
+    if (m_raisesIRQ != b)
+    {
+        m_raisesIRQ = b;
+        setModified();
+    }
+}
+
 void ModuleConfig::addInitScript(VMEScriptConfig *script)
 {
     Q_ASSERT(script);

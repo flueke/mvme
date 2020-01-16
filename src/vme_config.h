@@ -240,6 +240,9 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         const vats::VMEModuleMeta getModuleMeta() const { return m_meta; }
         void setModuleMeta(const vats::VMEModuleMeta &meta);
 
+        bool raisesIRQ() const { return m_raisesIRQ; }
+        void setRaisesIRQ(bool b);
+
         VMEScriptConfig *getResetScript() const { return m_resetScript; }
         VMEScriptConfig *getReadoutScript() const { return m_readoutScript; }
 
@@ -249,7 +252,8 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
 
         void addInitScript(VMEScriptConfig *script);
 
-        EventConfig *getEventConfig() const;
+        const EventConfig *getEventConfig() const;
+        EventConfig *getEventConfig();
         QUuid getEventId() const;
 
     protected:
@@ -262,6 +266,7 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         VMEScriptConfig *m_readoutScript;
         QVector<VMEScriptConfig *> m_initScripts;
         vats::VMEModuleMeta m_meta;
+        bool m_raisesIRQ = false;
 };
 
 class LIBMVME_EXPORT EventConfig: public ConfigObject
