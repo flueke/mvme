@@ -27,7 +27,7 @@
 
 #include "mvme_listfile_utils.h"
 #include "util_zip.h"
-#include "vme_config_utility.h"
+#include "vme_config_scripts.h"
 
 using namespace mesytec::mvme;
 

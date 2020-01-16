@@ -25,7 +25,7 @@
 #include "treewidget_utils.h"
 #include "mvme_stream_worker.h"
 #include "vmusb.h"
-#include "vme_config_utility.h"
+#include "vme_config_scripts.h"
 #include "vme_script_editor.h"
 
 #include <QDebug>

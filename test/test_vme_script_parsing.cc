@@ -20,7 +20,7 @@ TEST(vme_script_variables, VariableToBool)
 
     {
         Variable v { "", 42 };
-        ASSERT_FALSE(v);
+        ASSERT_TRUE(v);
     }
 
     {
@@ -33,9 +33,9 @@ TEST(vme_script_variables, LookupVariable)
 {
     SymbolTables symtabs =
     {
-        { { QSL("aa"), Variable("firstValue") } },
-        { { QSL("bb"), Variable("secondValue") } },
-        { { QSL("aa"), Variable("thirdValue") } },
+        { "first",  { { QSL("aa"), Variable("firstValue") } } },
+        { "second", { { QSL("bb"), Variable("secondValue") } } },
+        { "third",  { { QSL("aa"), Variable("thirdValue") } } },
     };
 
     {
@@ -63,8 +63,8 @@ TEST(vme_script_variables, ExpandSingleVariable)
 
     SymbolTables symtabs =
     {
-        {{ QSL("foo"), Variable("bar") }},
-        {{ QSL("truth"), Variable("42") }},
+        { "first", {{ QSL("foo"), Variable("bar") }}},
+        { "second", {{ QSL("truth"), Variable("42") }}},
     };
 
     {
@@ -129,7 +129,7 @@ TEST(vme_script_variables, ExpandSingleVariable)
 
     {
         SymbolTables symtabs2 = symtabs;
-        symtabs2.push_back({{ QSL("${weird"), Variable("odd") }});
+        symtabs2.push_back({"first", {{ QSL("${weird"), Variable("odd") }}});
 
         QString input = "${${weird}";
         ASSERT_EQ(expand_variables(input, symtabs2, 0), QSL("odd"));
@@ -137,7 +137,7 @@ TEST(vme_script_variables, ExpandSingleVariable)
 
     {
         SymbolTables symtabs2 = symtabs;
-        symtabs2.push_back({{ QSL("dollars"), Variable("${euros}") }});
+        symtabs2.push_back({"first", {{ QSL("dollars"), Variable("${euros}") }}});
 
         QString input = "${dollars}";
         ASSERT_EQ(expand_variables(input, symtabs2, 0), QSL("${euros}"));
@@ -145,7 +145,7 @@ TEST(vme_script_variables, ExpandSingleVariable)
 
     {
         SymbolTables symtabs2 = symtabs;
-        symtabs2.push_back({{ QSL("broken\nthings"), Variable("are interesting") }});
+        symtabs2.push_back({"first", {{ QSL("broken\nthings"), Variable("are interesting") }}});
 
         QString input = "${broken\nthings}";
         ASSERT_EQ(expand_variables(input, symtabs2, 0), QSL("are interesting"));
@@ -162,8 +162,8 @@ TEST(vme_script_variables, ExpandMultipleVariables)
 {
     SymbolTables symtabs =
     {
-        {{ QSL("foo"), Variable("bar") }},
-        {{ QSL("truth"), Variable("42") }},
+        {"first", {{ QSL("foo"), Variable("bar") }}},
+        {"second", {{ QSL("truth"), Variable("42") }}},
     };
 
     //try
@@ -205,8 +205,8 @@ TEST(vme_script_variables, ExpandVariablesErrors)
 {
     SymbolTables symtabs =
     {
-        {{ QSL("foo"), Variable("bar") }},
-        {{ QSL("truth"), Variable("42") }},
+        {"first", {{ QSL("foo"), Variable("bar") }}},
+        {"second", {{ QSL("truth"), Variable("42") }}},
     };
 
     {

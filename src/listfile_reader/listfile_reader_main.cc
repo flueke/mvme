@@ -71,7 +71,7 @@ Notes:
 #include "mvme_listfile_utils.h"
 #include "mvlc_stream_worker.h" // FIXME: move collect_readout_scripts() elsewhere (a general readout parser file)
 #include "vme_controller_factory.h"
-#include "vme_config_utility.h"
+#include "vme_config_scripts.h"
 
 using std::cout;
 using std::endl;

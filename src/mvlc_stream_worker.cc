@@ -8,7 +8,7 @@
 #include "analysis/analysis_util.h"
 #include "databuffer.h"
 #include "mvme_context.h"
-#include "vme_config_utility.h"
+#include "vme_config_scripts.h"
 #include "vme_analysis_common.h"
 
 using namespace vme_analysis_common;

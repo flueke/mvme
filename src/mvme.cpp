@@ -44,7 +44,7 @@
 #include "util_zip.h"
 #include "vme_config_tree.h"
 #include "vme_config_ui.h"
-#include "vme_config_utility.h"
+#include "vme_config_scripts.h"
 #include "vme_controller_ui.h"
 #include "vme_debug_widget.h"
 #include "vme_script_editor.h"

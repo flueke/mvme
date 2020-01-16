@@ -190,7 +190,7 @@ VMEScript LIBMVME_CORE_EXPORT parse(QTextStream &input, uint32_t baseAddress = 0
 VMEScript LIBMVME_CORE_EXPORT parse(const std::string &input, uint32_t baseAddress = 0);
 
 // Versions of the parse function taking a list of SymbolTables by reference.
-// The first table in the list is used as the 'script local' symbolt able. If
+// The first table in the list is used as the 'script local' symbol table. If
 // the list is empty a single SymbolTable instance will be created and added.
 VMEScript LIBMVME_CORE_EXPORT parse(QFile *input, SymbolTables &symtabs,
                                     uint32_t baseAddress = 0);
