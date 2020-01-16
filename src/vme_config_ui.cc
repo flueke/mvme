@@ -60,6 +60,7 @@ using namespace vats;
 struct EventConfigDialogPrivate
 {
     QLineEdit *le_name;
+    QSpinBox *spin_mcst;
     QComboBox *combo_condition;
     QStackedWidget *stack_options;
     QDialogButtonBox *buttonBox;
@@ -72,16 +73,29 @@ struct EventConfigDialogPrivate
     QDoubleSpinBox *spin_timerPeriod;
 
     QCheckBox *cb_irqUseIACK;
+
+    const VMEConfig *vmeConfig;
 };
 
-EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *config,
-                                     QWidget *parent)
+EventConfigDialog::EventConfigDialog(
+    VMEController *controller,
+    EventConfig *config,
+    const VMEConfig *vmeConfig,
+    QWidget *parent)
     : QDialog(parent)
-    , m_d(new EventConfigDialogPrivate)
+    , m_d(new EventConfigDialogPrivate{})
     , m_controller(controller)
     , m_config(config)
 {
+    m_d->vmeConfig = vmeConfig;
+
     m_d->le_name = new QLineEdit;
+    m_d->spin_mcst = new QSpinBox;
+    m_d->spin_mcst->setDisplayIntegerBase(16);
+    m_d->spin_mcst->setPrefix("0x");
+    m_d->spin_mcst->setMinimum(0xbb);
+    m_d->spin_mcst->setMaximum(0xff);
+
     m_d->combo_condition = new QComboBox;
     m_d->stack_options = new QStackedWidget;
     m_d->buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
@@ -100,6 +114,7 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
     auto gb_layout   = new QFormLayout(gb_nameAndCond);
     gb_layout->setContentsMargins(2, 2, 2, 2);
     gb_layout->addRow(QSL("Name"), m_d->le_name);
+    gb_layout->addRow(QSL("Multicast Address"), m_d->spin_mcst);
     gb_layout->addRow(QSL("Condition"), m_d->combo_condition);
 
 
@@ -273,9 +288,28 @@ EventConfigDialog::~EventConfigDialog()
 
 void EventConfigDialog::loadFromConfig()
 {
+    assert(m_d->vmeConfig);
+
     auto config = m_config;
 
     m_d->le_name->setText(config->objectName());
+
+    // Multicast handling. If mcst is 0 the EventConfig was default constructed
+    // and is thus being added to the VMEConfig. In this case we default to the
+    // last events mcst plus one starting at 0xbb.
+    u8 mcst = config->getMulticastByte();
+
+    if (mcst == 0u)
+    {
+        auto existingEvents = m_d->vmeConfig->getEventConfigs();
+
+        if (existingEvents.isEmpty())
+            mcst = 0xbb;
+        else
+            mcst = existingEvents.back()->getMulticastByte() + 1u;
+    }
+
+    m_d->spin_mcst->setValue(mcst);
 
     int condIndex = m_d->combo_condition->findData(static_cast<s32>(config->triggerCondition));
     if (condIndex >= 0)
@@ -283,6 +317,8 @@ void EventConfigDialog::loadFromConfig()
         m_d->combo_condition->setCurrentIndex(condIndex);
     }
 
+    // FIXME: for new events adjust the IRQ value to be one plus the current
+    // highest IRQ value used.
     m_d->spin_irqLevel->setValue(config->irqLevel);
     m_d->spin_irqVector->setValue(config->irqVector);
     m_d->cb_irqUseIACK->setChecked(config->triggerOptions["IRQUseIACK"].toBool());
@@ -318,6 +354,7 @@ void EventConfigDialog::saveToConfig()
     auto config = m_config;
 
     config->setObjectName(m_d->le_name->text());
+    config->setMulticastByte(static_cast<u8>(m_d->spin_mcst->value()));
     config->triggerCondition = static_cast<TriggerCondition>(m_d->combo_condition->currentData().toInt());
     config->irqLevel = static_cast<uint8_t>(m_d->spin_irqLevel->value());
     config->irqVector = static_cast<uint8_t>(m_d->spin_irqVector->value());
@@ -359,15 +396,28 @@ void EventConfigDialog::setReadOnly(bool readOnly)
     m_d->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!readOnly);
 }
 
+struct ModuleConfigDialog::Private
+{
+    QCheckBox *cb_raisesIRQ = nullptr;
+};
+
 //
 // ModuleConfigDialog
 //
-ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vmeConfig,
-                                       QWidget *parent)
-    : QDialog(parent)
-    , m_module(module)
-    , m_vmeConfig(vmeConfig)
+ModuleConfigDialog::ModuleConfigDialog(
+    ModuleConfig *module,
+    const EventConfig *parentEvent,
+    const VMEConfig *vmeConfig,
+    QWidget *parent)
+: QDialog(parent)
+, m_module(module)
+, m_vmeConfig(vmeConfig)
+, m_d(std::make_unique<Private>())
 {
+    assert(module);
+    assert(parentEvent);
+    assert(vmeConfig);
+
     setWindowTitle(QSL("Module Config"));
     MVMETemplates templates = read_templates();
     m_moduleMetas = templates.moduleMetas;
@@ -426,14 +476,34 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vm
     addressEdit->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
     addressEdit->setText(QString("0x%1").arg(module->getBaseAddress(), 8, 16, QChar('0')));
 
+    const bool isNewModule = (module->getModuleMeta().typeId
+                              == vats::VMEModuleMeta::InvalidTypeId);
+
+    const bool isFirstModuleInEvent = (parentEvent->getModuleConfigs().size() == 0);
+
+    m_d->cb_raisesIRQ = new QCheckBox(this);
+    m_d->cb_raisesIRQ->setChecked(module->raisesIRQ());
+
+    if (isNewModule
+        && parentEvent->triggerCondition == TriggerCondition::Interrupt)
+    {
+        auto otherModules = parentEvent->getModuleConfigs();
+
+        bool anyModuleRaisesIRQ = std::any_of(
+            otherModules.begin(), otherModules.end(),
+            [] (const ModuleConfig *m) { return m->raisesIRQ(); });
+
+        if (!anyModuleRaisesIRQ)
+        {
+            m_d->cb_raisesIRQ->setChecked(true);
+        }
+    }
+
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     auto layout = new QFormLayout(this);
-
-    const bool isNewModule = (module->getModuleMeta().typeId
-                              == vats::VMEModuleMeta::InvalidTypeId);
 
     if (!isNewModule)
     {
@@ -443,6 +513,7 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vm
     layout->addRow("Type", typeCombo);
     layout->addRow("Name", nameEdit);
     layout->addRow("Address", addressEdit);
+    layout->addRow("Should raise IRQ", m_d->cb_raisesIRQ);
     layout->addRow(bb);
 
     auto onTypeComboIndexChanged = [this](int index)
@@ -493,6 +564,10 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vm
     updateOkButton();
 }
 
+ModuleConfigDialog::~ModuleConfigDialog()
+{
+}
+
 void ModuleConfigDialog::accept()
 {
     bool ok;
@@ -510,6 +585,7 @@ void ModuleConfigDialog::accept()
     m_module->setModuleMeta(mm);
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
+    m_module->setRaisesIRQ(m_d->cb_raisesIRQ->isChecked());
 
     QDialog::accept();
 }

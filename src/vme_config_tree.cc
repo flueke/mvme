@@ -966,7 +966,7 @@ void VMEConfigTreeWidget::addModule()
         bool doExpand = (event->getModuleConfigs().size() == 0);
 
         auto module = std::make_unique<ModuleConfig>();
-        ModuleConfigDialog dialog(module.get(), m_config, this);
+        ModuleConfigDialog dialog(module.get(), event, m_config, this);
         dialog.setWindowTitle(QSL("Add Module"));
         int result = dialog.exec();
 
@@ -1029,7 +1029,7 @@ void VMEConfigTreeWidget::editModule()
     if (node)
     {
         auto moduleConfig = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
-        ModuleConfigDialog dialog(moduleConfig, m_config, this);
+        ModuleConfigDialog dialog(moduleConfig, moduleConfig->getEventConfig(), m_config, this);
         dialog.setWindowTitle(QSL("Edit Module"));
         dialog.exec();
     }

@@ -25,6 +25,7 @@
 //#include "util.h"
 //#include "template_system.h"
 #include <QDialog>
+#include <memory>
 
 
 class EventConfig;
@@ -47,8 +48,11 @@ class EventConfigDialog: public QDialog
 {
     Q_OBJECT
     public:
-        EventConfigDialog(VMEController *controller, EventConfig *config,
-                          QWidget *parent = 0);
+        EventConfigDialog(
+            VMEController *controller,
+            EventConfig *config,
+            const VMEConfig *vmeConfig,
+            QWidget *parent = 0);
         ~EventConfigDialog();
 
         EventConfig *getConfig() const { return m_config; }
@@ -69,12 +73,17 @@ class EventConfigDialog: public QDialog
 class QComboBox;
 class QLineEdit;
 
+// TODO: make members private and mode them into the Private struct
 class ModuleConfigDialog: public QDialog
 {
     Q_OBJECT
     public:
-        ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vmeConfig,
-                           QWidget *parent = 0);
+        ModuleConfigDialog(
+            ModuleConfig *module,
+            const EventConfig *parentEvent,
+            const VMEConfig *vmeConfig,
+            QWidget *parent = 0);
+        ~ModuleConfigDialog() override;
 
         ModuleConfig *getModule() const { return m_module; }
 
@@ -87,6 +96,10 @@ class ModuleConfigDialog: public QDialog
         ModuleConfig *m_module;
         const VMEConfig *m_vmeConfig;
         QVector<vats::VMEModuleMeta> m_moduleMetas;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> m_d;
 };
 
 QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,

@@ -1831,7 +1831,7 @@ void MVMEMainWindow::runAddVMEEventDialog()
     auto eventConfig = std::make_unique<EventConfig>();
     auto vmeConfig = m_d->m_context->getVMEConfig();
     eventConfig->setObjectName(QString("event%1").arg(vmeConfig->getEventConfigs().size()));
-    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig.get(), this);
+    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig.get(), vmeConfig, this);
     dialog.setWindowTitle(QSL("Add Event"));
     int result = dialog.exec();
 
@@ -1861,7 +1861,7 @@ void MVMEMainWindow::runAddVMEEventDialog()
 
 void MVMEMainWindow::runEditVMEEventDialog(EventConfig *eventConfig)
 {
-    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig, this);
+    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig, eventConfig->getVMEConfig(), this);
     dialog.setWindowTitle(QSL("Edit Event"));
     dialog.exec();
 }
