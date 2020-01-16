@@ -24,7 +24,7 @@
 #include "globals.h"
 #include "libmvme_export.h"
 #include "template_system.h"
-#include "vme_script.h"
+#include "vme_controller.h"
 
 #include <QObject>
 #include <QUuid>
@@ -215,8 +215,6 @@ class LIBMVME_EXPORT VMEScriptConfig: public ConfigObject
 
         void setScriptContents(const QString &);
         void addToScript(const QString &str);
-
-        vme_script::VMEScript getScript(u32 baseAddress = 0) const;
 
         QString getVerboseTitle() const;
 

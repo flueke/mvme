@@ -313,12 +313,6 @@ void VMEScriptConfig::addToScript(const QString &str)
     setModified(true);
 }
 
-vme_script::VMEScript VMEScriptConfig::getScript(u32 baseAddress) const
-{
-    auto script = vme_script::parse(m_script, baseAddress);
-    return script;
-}
-
 void VMEScriptConfig::read_impl(const QJsonObject &json)
 {
     m_script = json["vme_script"].toString();
