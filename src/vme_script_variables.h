@@ -33,7 +33,9 @@ struct LIBMVME_CORE_EXPORT Variable
         : Variable(v, QString::number(lineNumber))
     { }
 
-    explicit operator bool() const { return !value.isEmpty(); }
+    // Variables with a null (default constructed) value are considered invalid.
+    // Empty values and non-empty values are considered valid.
+    explicit operator bool() const { return !value.isNull(); }
 };
 
 using SymbolTable = QMap<QString, Variable>;
