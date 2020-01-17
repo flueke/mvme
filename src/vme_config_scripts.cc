@@ -11,10 +11,10 @@ vme_script::VMEScript parse(
     const VMEScriptConfig *scriptConfig,
     u32 baseAddress)
 {
-    return parse_return_symbols(scriptConfig, baseAddress).first;
+    return parse_and_return_symbols(scriptConfig, baseAddress).first;
 }
 
-VMEScriptAndVars parse_return_symbols(
+VMEScriptAndVars parse_and_return_symbols(
     const VMEScriptConfig *scriptConfig,
     u32 baseAddress)
 {
@@ -27,7 +27,7 @@ VMEScriptAndVars parse_return_symbols(
 namespace
 {
 
-void build_symbol_tables(const ConfigObject *co, vme_script::SymbolTables symtabs)
+void build_symbol_tables(const ConfigObject *co, vme_script::SymbolTables &symtabs)
 {
     assert(co);
 

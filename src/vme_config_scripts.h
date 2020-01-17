@@ -18,7 +18,7 @@ vme_script::VMEScript parse(
 
 using VMEScriptAndVars = std::pair<vme_script::VMEScript, vme_script::SymbolTables>;
 
-VMEScriptAndVars LIBMVME_EXPORT parse_return_symbols(
+VMEScriptAndVars LIBMVME_EXPORT parse_and_return_symbols(
     const VMEScriptConfig *scriptConfig,
     u32 baseAddress = 0);
 

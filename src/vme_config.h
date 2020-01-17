@@ -163,7 +163,8 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
             setModified();
         }
 
-        // Note: the child is neither deleted nor reparented.
+        // Note: the child is neither deleted nor reparented. It is only
+        // removed from this objects list of children.
         bool removeChild(ConfigObject *obj)
         {
             if (m_children.removeOne(obj))

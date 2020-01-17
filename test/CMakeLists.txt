@@ -46,6 +46,7 @@ add_mvme_bench(test_misc test_misc.cc)
 
 # gtest tests
 
+# For tests depending on libmvme_core
 function(add_mvme_core_gtest exe_name exe_source)
     add_executable(${exe_name} ${exe_source})
     add_dependencies(${exe_name} libmvme_core)
@@ -53,8 +54,17 @@ function(add_mvme_core_gtest exe_name exe_source)
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_mvme_core_gtest)
 
+# For tests depending on libmvme
+function(add_mvme_gtest exe_name exe_source)
+    add_executable(${exe_name} ${exe_source})
+    add_dependencies(${exe_name} libmvme)
+    target_link_libraries(${exe_name} libmvme gtest gtest_main)
+    add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+endfunction(add_mvme_gtest)
+
 add_mvme_core_gtest(test_util_databuffer "test_util_databuffer.cc")
 add_mvme_core_gtest(test_util_ticketmutex "test_util_ticketmutex.cc")
 add_mvme_core_gtest(test_vme_script_parsing "test_vme_script_parsing.cc")
+add_mvme_gtest(test_vme_config_scripts "test_vme_config_scripts.cc")
 
 endif(BUILD_TESTS)
