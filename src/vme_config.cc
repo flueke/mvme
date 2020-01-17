@@ -569,6 +569,9 @@ void EventConfig::read_impl(const QJsonObject &json)
     scalerReadoutFrequency = json["scalerReadoutFrequency"].toInt();
     m_mcst = json["mcst"].toInt();
 
+    if (m_mcst == 0)
+        m_mcst = 0xbb;
+
     QJsonArray moduleArray = json["modules"].toArray();
     for (int i=0; i<moduleArray.size(); ++i)
     {
