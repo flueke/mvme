@@ -12,7 +12,7 @@ namespace mesytec
 namespace mvme
 {
 
-vme_script::VMEScript parse(
+vme_script::VMEScript LIBMVME_EXPORT parse(
     const VMEScriptConfig *scriptConfig,
     u32 baseAddress = 0);
 
