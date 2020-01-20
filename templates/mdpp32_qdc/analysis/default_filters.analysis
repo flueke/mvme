@@ -1,0 +1,105 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 2,
+        "connections": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                    "moduleName": "mdpp32_qdc",
+                    "moduleTypeName": "mdpp32_qdc"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "d091bb5c22ae9ef6",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXX01AAAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{b1c292a9-8329-4f0b-b81f-cf4377948fed}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "channel_time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "d091bb5c22ae9ef6",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXX00AAAAA0000DDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{889d0aa3-69d0-4e96-9cdd-7b2828e589f4}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "integration_long"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "d091bb5c22ae9ef6",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXX11AAAAA0000DDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{cb0ccaee-1095-4bb0-806f-bd47831856ca}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "integration_short"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "d091bb5c22ae9ef6",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXX100000ADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{ecf007f7-a00c-4fc8-9a97-d8339c8e0d8d}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "trigger_time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "d091bb5c22ae9ef6",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{578bb69a-4545-453f-94a7-7eb886f73328}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "timestamp"
+            }
+        ]
+    }
+}

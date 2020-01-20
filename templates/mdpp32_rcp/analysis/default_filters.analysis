@@ -1,0 +1,83 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 2,
+        "connections": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{ef0ec715-e16b-449d-b3d2-d0e89eea87eb}",
+                    "moduleTypeName": "mdpp32_rcp"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "f357ab2ce04b8eda",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXPO00AAAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "moduleId": "{ef0ec715-e16b-449d-b3d2-d0e89eea87eb}",
+                "name": "amplitude"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "fa4f901b87706e8f",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXPO01AAAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "moduleId": "{ef0ec715-e16b-449d-b3d2-d0e89eea87eb}",
+                "name": "time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "1091f0bae0ad11cb",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXX100000ADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "moduleId": "{ef0ec715-e16b-449d-b3d2-d0e89eea87eb}",
+                "name": "trigger_time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "93af3c99a9486092",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "moduleId": "{ef0ec715-e16b-449d-b3d2-d0e89eea87eb}",
+                "name": "timestamp"
+            }
+        ]
+    }
+}
