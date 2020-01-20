@@ -44,6 +44,7 @@ void build_symbol_tables(const ConfigObject *co, vme_script::SymbolTables &symta
 
         symtab["irq"] = QString::number(irq);
         symtab["mcst"] = QString::number(event->getMulticastByte(), 16);
+        symtab["readout_num_events"] = QString::number(event->getReadoutNumEvents());
 
         symtabs.push_back(symtab);
     }

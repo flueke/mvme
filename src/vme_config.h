@@ -314,8 +314,18 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         uint16_t scalerReadoutFrequency = 0;
 
         // The most significant byte of the events VME multicast address.
+        // Available as '${mcst}' is event and module vme scripts.
         u8 getMulticastByte() const { return m_mcst; }
         void setMulticastByte(u8 mcst);
+
+        // The number of events to read out in one readout cycle.
+        //
+        // This is made available as an event-wide variable
+        // ('readout_num_events') and is used by the mesytec module init
+        // scripts to set the 'IRQ-FIFO-threshold' and 'max_transfer_data'
+        // registers.
+        u16 getReadoutNumEvents() const { return m_readoutNumEvents; }
+        void setReadoutNumEvents(u16 numEvents);
 
         /** Known keys for an event:
          * "daq_start", "daq_stop", "readout_start", "readout_end"
@@ -337,6 +347,7 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
     private:
         QList<ModuleConfig *> modules;
         u8 m_mcst = 0;
+        u16 m_readoutNumEvents = 1;
 };
 
 enum class VMEConfigReadResult

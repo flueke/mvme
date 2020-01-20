@@ -41,10 +41,16 @@ VMEScriptAndVars LIBMVME_EXPORT parse_and_return_symbols(
 //
 // from VMEScriptConfig perspective:
 // SymbolTables = { localTable } + parent->getScriptSymbols()
+//
 // VMEConfig: return empty table for now
+//
 // EventConfig: populate table with:
 // - irq: zero if not using irq, otherwise the irq value
 // - mcst: the mcst byte in hex without the 0x prefix, e.g. "bb" for mcst 0xbb000000
+// - readout_num_events: number of events to transfer per readout cycle
+//
+// ModuleConfig:
+// - override 'irq' if the module should not raise the irq
 vme_script::SymbolTables build_symbol_tables(const VMEScriptConfig *scriptConfig);
 
 } // end namespace mvme

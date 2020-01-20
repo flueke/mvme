@@ -16,11 +16,13 @@ TEST(vme_config_scripts, EventSymbolTable)
     event->triggerCondition = TriggerCondition::Interrupt;
     event->irqLevel = 1;
     event->setMulticastByte(0xdd);
+    event->setReadoutNumEvents(42);
 
     {
         auto symtabs = parse_and_return_symbols(eventScript).second;
         ASSERT_EQ(lookup_variable("irq", symtabs).value, "1");
         ASSERT_EQ(lookup_variable("mcst", symtabs).value, "dd");
+        ASSERT_EQ(lookup_variable("readout_num_events", symtabs).value, "42");
     }
 
     // Not IRQ triggered -> IRQ var must be "0"
@@ -30,10 +32,11 @@ TEST(vme_config_scripts, EventSymbolTable)
         auto symtabs = parse_and_return_symbols(eventScript).second;
         ASSERT_EQ(lookup_variable("irq", symtabs).value, "0");
         ASSERT_EQ(lookup_variable("mcst", symtabs).value, "dd");
+        ASSERT_EQ(lookup_variable("readout_num_events", symtabs).value, "42");
     }
 }
 
-TEST(vme_config_scripts, SymbolTableBasic)
+TEST(vme_config_scripts, ModuleSymbolTable)
 {
     auto vme = std::make_unique<VMEConfig>();
     auto event = new EventConfig;
@@ -51,6 +54,7 @@ TEST(vme_config_scripts, SymbolTableBasic)
     event->triggerCondition = TriggerCondition::Interrupt;
     event->irqLevel = 1;
     event->setMulticastByte(0xdd);
+    event->setReadoutNumEvents(42);
 
     module1->setRaisesIRQ(false);
     module1->setRaisesIRQ(false);
@@ -59,12 +63,15 @@ TEST(vme_config_scripts, SymbolTableBasic)
         auto symtabs = parse_and_return_symbols(eventScript).second;
         ASSERT_EQ(lookup_variable("irq", symtabs).value, "1");
         ASSERT_EQ(lookup_variable("mcst", symtabs).value, "dd");
+        ASSERT_EQ(lookup_variable("readout_num_events", symtabs).value, "42");
 
         symtabs = parse_and_return_symbols(module1Script).second;
         ASSERT_EQ(lookup_variable("irq", symtabs).value, "0");
+        ASSERT_EQ(lookup_variable("readout_num_events", symtabs).value, "42");
 
         symtabs = parse_and_return_symbols(module2Script).second;
         ASSERT_EQ(lookup_variable("irq", symtabs).value, "0");
+        ASSERT_EQ(lookup_variable("readout_num_events", symtabs).value, "42");
     }
 
     module1->setRaisesIRQ(true);

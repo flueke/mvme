@@ -63,6 +63,7 @@ struct EventConfigDialogPrivate
     QSpinBox *spin_mcst;
     QComboBox *combo_condition;
     QStackedWidget *stack_options;
+    QSpinBox *spin_readoutNumEvents;
     QDialogButtonBox *buttonBox;
 
     QSpinBox *spin_irqLevel,
@@ -110,18 +111,31 @@ EventConfigDialog::EventConfigDialog(
     m_d->cb_irqUseIACK = new QCheckBox(this);
     m_d->cb_irqUseIACK->hide();
 
-    auto gb_nameAndCond = new QGroupBox;
-    auto gb_layout   = new QFormLayout(gb_nameAndCond);
-    gb_layout->setContentsMargins(2, 2, 2, 2);
-    gb_layout->addRow(QSL("Name"), m_d->le_name);
-    gb_layout->addRow(QSL("Multicast Address"), m_d->spin_mcst);
-    gb_layout->addRow(QSL("Condition"), m_d->combo_condition);
+    m_d->spin_readoutNumEvents = new QSpinBox(this);
+    m_d->spin_readoutNumEvents->setMinimum(1);
+    m_d->spin_readoutNumEvents->setMaximum(10 * 1000);
 
+    auto gb_topOptions = new QGroupBox;
+    {
+        auto gb_layout   = new QFormLayout(gb_topOptions);
+        gb_layout->setContentsMargins(2, 2, 2, 2);
+        gb_layout->addRow(QSL("Name"), m_d->le_name);
+        gb_layout->addRow(QSL("Multicast Address"), m_d->spin_mcst);
+        gb_layout->addRow(QSL("Condition"), m_d->combo_condition);
+    }
+
+    auto gb_bottomOptions = new QGroupBox;
+    {
+        auto gb_layout   = new QFormLayout(gb_bottomOptions);
+        gb_layout->setContentsMargins(2, 2, 2, 2);
+        gb_layout->addRow(QSL("Events to read per cycle"), m_d->spin_readoutNumEvents);
+    }
 
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
-    layout->addWidget(gb_nameAndCond);
+    layout->addWidget(gb_topOptions);
     layout->addWidget(m_d->stack_options);
+    layout->addWidget(gb_bottomOptions);
     layout->addWidget(m_d->buttonBox);
 
     connect(m_d->combo_condition,
@@ -322,6 +336,7 @@ void EventConfigDialog::loadFromConfig()
     m_d->spin_irqLevel->setValue(config->irqLevel);
     m_d->spin_irqVector->setValue(config->irqVector);
     m_d->cb_irqUseIACK->setChecked(config->triggerOptions["IRQUseIACK"].toBool());
+    m_d->spin_readoutNumEvents->setValue(config->getReadoutNumEvents());
 
     switch (m_controller->getType())
     {
@@ -358,6 +373,7 @@ void EventConfigDialog::saveToConfig()
     config->triggerCondition = static_cast<TriggerCondition>(m_d->combo_condition->currentData().toInt());
     config->irqLevel = static_cast<uint8_t>(m_d->spin_irqLevel->value());
     config->irqVector = static_cast<uint8_t>(m_d->spin_irqVector->value());
+    config->setReadoutNumEvents(static_cast<u16>(m_d->spin_readoutNumEvents->value()));
 
     switch (m_controller->getType())
     {

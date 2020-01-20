@@ -536,6 +536,15 @@ void EventConfig::setMulticastByte(u8 mcst)
     }
 }
 
+void EventConfig::setReadoutNumEvents(u16 numEvents)
+{
+    if (m_readoutNumEvents != numEvents)
+    {
+        m_readoutNumEvents = numEvents;
+        setModified();
+    }
+}
+
 const VMEConfig *EventConfig::getVMEConfig() const
 {
     return qobject_cast<const VMEConfig *>(parent());
@@ -571,6 +580,8 @@ void EventConfig::read_impl(const QJsonObject &json)
 
     if (m_mcst == 0)
         m_mcst = 0xbb;
+
+    m_readoutNumEvents = json["readoutNumEvents"].toInt(1);
 
     QJsonArray moduleArray = json["modules"].toArray();
     for (int i=0; i<moduleArray.size(); ++i)
@@ -608,9 +619,9 @@ void EventConfig::write_impl(QJsonObject &json) const
     json["scalerReadoutPeriod"] = scalerReadoutPeriod;
     json["scalerReadoutFrequency"] = scalerReadoutFrequency;
     json["mcst"] = m_mcst;
+    json["readoutNumEvents"] = m_readoutNumEvents;
 
-
-
+    // modules
     QJsonArray moduleArray;
 
     for (auto module: modules)
@@ -621,6 +632,7 @@ void EventConfig::write_impl(QJsonObject &json) const
     }
     json["modules"] = moduleArray;
 
+    // scripts
     QJsonObject scriptsObject;
 
     for (auto it = vmeScripts.begin();
