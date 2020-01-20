@@ -1,31 +1,31 @@
 # Settings related to the readout loop
 # #####################################
-0x6010  ${irq}      # irq level
+0x6010  ${irq}                          # irq level
 
 # IRQ_source and thresholds
-#0x601C 1           # 1 -> specifies number of words
-#0x6018  100        # IRQ-FIFO threshold, words
-0x601C 0            # 0 -> the following register specifies the number of events
-0x601E 1            # IRQ-FIFO threshold, events
+#0x601C 1                               # 1 -> specifies number of words
+#0x6018  100                            # IRQ-FIFO threshold, words
+0x601C 0                                # 0 -> the following register specifies the number of events
+0x601E $(${readout_num_events} + 1)     # IRQ-FIFO threshold, events
 
 # marking_type
-0x6038 0x1          # End Of Event marking
-                    # 0 -> event counter
-                    # 1 -> time stamp
-                    # 3 -> extended time stamp
+0x6038 0x1                              # End Of Event marking
+                                        # 0 -> event counter
+                                        # 1 -> time stamp
+                                        # 3 -> extended time stamp
 
 # multi event mode:
-0x6036  0xb         # 0x0 -> single event
-                    # 0x3 -> multi event, number of words
-                    # 0xb -> multievent, transmits number of events specified
+0x6036 0xb                              # 0x0 -> single event
+                                        # 0x3 -> multi event, number of words
+                                        # 0xb -> multievent, transmits number of events specified
 
 # max_transfer_data
-0x601A  1           # multi event mode == 0x3 -> Berr is emitted when more or equal the
-                    #   specified number of words have been sent and "End Of Event" is detected.
-                    # multi event mode == 0xb -> Berr is emitted when the specified number
-                    #   of events has been transmitted.
+0x601A ${readout_num_events}            # multi event mode == 0x3 -> Berr is emitted when more or equal the
+                                        #   specified number of words have been sent and "End Of Event" is detected.
+                                        # multi event mode == 0xb -> Berr is emitted when the specified number
+                                        #   of events has been transmitted.
 
 # MCST - Multicast Setup
 # #####################################
-0x6020 0x80         # Enable multicast
-0x6024 0x${mcst}    # Set 8 high bits of MCST address
+0x6020 0x80                             # Enable multicast
+0x6024 0x${mcst}                        # Set 8 high bits of MCST address
