@@ -1,6 +1,7 @@
 #include "mvlc/mvlc_impl_eth.h"
 #include "mvlc_readout_worker.h"
 
+#include <cassert>
 #include <QCoreApplication>
 #include <QtConcurrent>
 #include <QThread>
@@ -52,7 +53,7 @@
 //   end up on the next header0() or at the start of a system frame.
 //   If part of a packet is at the end of the buffer read from disk store the part
 //   temporarily and truncate the buffer. Then when doing the next read add the
-//   partial packet to the front fo the new buffer.
+//   partial packet to the front of the new buffer.
 //   -> Packet boundaries can be restored and it can be guaranteed that only full
 //   packets worth of data are passed internally.
 //
@@ -503,8 +504,6 @@ struct MVLCReadoutWorker::Private
 
     std::atomic<DAQState> state;
     std::atomic<DAQState> desiredState;
-    quint32 cyclesToRun = 0;
-    bool logBuffers = false;
     DataBuffer previousData;
     DataBuffer localEventBuffer;
     DataBuffer *outputBuffer = nullptr;
@@ -655,8 +654,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         return;
     }
 
-    d->cyclesToRun = cycles;
-    d->logBuffers = (cycles > 0); // log buffers to GUI if number of cycles has been passed in
+    assert(cycles == 0 || !"mvlc_readout_worker does not support running a limited number of cycles");
 
     try
     {
@@ -839,15 +837,6 @@ void MVLCReadoutWorker::readoutLoop()
                 // "disconnected" state is reflected in the whole application.
                 d->mvlcCtrl->close();
                 break;
-            }
-
-            if (unlikely(d->cyclesToRun > 0))
-            {
-                if (d->cyclesToRun == 1)
-                {
-                    break;
-                }
-                d->cyclesToRun--;
             }
         }
         // pause
@@ -1235,10 +1224,10 @@ void MVLCReadoutWorker::pause()
 
 void MVLCReadoutWorker::resume(quint32 cycles)
 {
+    assert(cycles == 0 || !"mvlc_readout_worker does not support running a limited number of cycles");
+
     if (d->state == DAQState::Paused)
     {
-        d->cyclesToRun = cycles;
-        d->logBuffers = (cycles > 0); // log buffers to GUI if number of cycles has been passed in
         d->desiredState = DAQState::Running;
     }
 }
