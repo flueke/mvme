@@ -184,7 +184,8 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
 
     auto dumpTimer = new QTimer(this);
     connect(dumpTimer, &QTimer::timeout, this, debug_print_stack_error_counters);
-    connect(dumpTimer, &QTimer::timeout, this, debug_print_eth_stats);
+    //connect(dumpTimer, &QTimer::timeout, this, debug_print_eth_stats);
+    (void)debug_print_eth_stats;
     dumpTimer->setInterval(1000);
     dumpTimer->start();
 }

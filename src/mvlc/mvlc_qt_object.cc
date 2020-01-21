@@ -366,7 +366,7 @@ void MVLCNotificationPoller::doPoll()
     if (!m_isPolling.compare_exchange_weak(f, true))
         return;
 
-    qDebug() << __FUNCTION__ << "entering notification polling loop" << QThread::currentThread();
+    //qDebug() << __FUNCTION__ << "entering notification polling loop" << QThread::currentThread();
 
     QVector<u32> buffer;
     size_t iterationCount = 0u;
@@ -402,7 +402,7 @@ void MVLCNotificationPoller::doPoll()
 
     } while (!buffer.isEmpty());
 
-    qDebug() << __FUNCTION__ << "left polling loop after" << iterationCount << "iterations";
+    //qDebug() << __FUNCTION__ << "left polling loop after" << iterationCount << "iterations";
 
     m_isPolling = false;
 }

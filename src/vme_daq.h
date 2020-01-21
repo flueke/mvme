@@ -22,6 +22,7 @@
 #define __VME_DAQ_H__
 
 #include "libmvme_export.h"
+
 #include "vme_config.h"
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
