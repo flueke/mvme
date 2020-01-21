@@ -2,65 +2,9 @@
 TODO list
 ==================================================
 
-* create tests for build_symbol_tables (vme_config_scripts.cc)
 * think about moving the buisness logic in vme_config_ui into factory functions
   for new EventConfig and ModuleConfig instances. Also factor out things like
   getting the next available mcst address.
-
-VME Script variables:
----------------------
-Use cases:
-- Set the modules IRQ value to the IRQ value configured for the VME Event. If
-  the event is not IRQ triggered the value should be set to 0.
-
-  This would work for the case where the event contains only a single module.
-  If there are multiple modules only one of them should raise the IRQ,
-  otherwise the readout will yield unexpected results. This decision has to be
-  made by the user as it is experiment specific. This could be GUI supported
-  though by having an additional boolean flag enabling/disabling the IRQ. Logic
-  would then either set the IRQ variable to the events IRQ or set it to 0
-
-  Affects the 'VME Interface Settings' script.
-  0x6010  1           # irq level
-
-  For CAEN this would also work as they use a register to setup the IRQ level.
-  For Struck something special would be needed: They use 3 bits for the IRQ
-  level and a fourth to enable/disable the IRQ.
-  -> For struck the user would have to set their own variable and use that in
-  their scripts or just hardcode the value.
-
-- Use a different multicast address for each event.
-  Note: the variable MCST part is always 8 bits according to the VME standard.
-
-  There are two parts to this
-  1) Module setup: tell the module to use a certain MCST address.
-  In the case of mesytec modules this is a single byte value specifying the 8
-  high-bits of the 32-bit MCST address:
-  set 0x6024 to 0xbb => MCST address is 0xbb000000
-
-  2) Event Multicast DAQ Start/Stop scripts
-  E.g. writeabs a32 d16 0xbb006034      1   # readout reset
-
-  Here the full 32-bit address is needed. The MCST byte is part of this.
-  Simple textual replacement would work if the multicast address variable is
-  set to the string "bb":
-
-  writeabs a32 d16 0x${mcst}000000 -> 0xbb000000
-
-
-  set foo "bar"
-  set broadcast 0xbb
-  set win "16384 + 12"
-  set winbase 16384
-  set win_test $(${winbase} + 42)   // -> $(16384 + 42)
-  set sentence "Hello World"
-  set sentence2 "Hello ${sentence}"
-
-  0x6070 (${win_test}) // -> 0x6070 (${winbase} + 42) -> 0x6070 (16384 + 42) // !! Error with multi arg command cause of spaces
-  oder
-  0x6070 "${win_test}" // -> 0x6070 "${winbase} + 42" -> 0x6070 "16384 + 42" // Have to parse quoted strings for calculations.
-
-  0x6050 $(16384  + ${delay_ns}/25*16)
 
 * doc: mvlc and jumbo frames
 
