@@ -85,6 +85,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     , rb_keepData(new QRadioButton("Keep"))
     , rb_clearData(new QRadioButton("Clear"))
     , bg_daqData(new QButtonGroup(this))
+    , spin_runDuration(new QSpinBox(this))
 {
     bg_daqData->addButton(rb_keepData);
     bg_daqData->addButton(rb_clearData);
@@ -98,7 +99,8 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
             case DAQState::Idle:
                 {
                     bool keepHistoContents = rb_keepData->isChecked();
-                    emit startDAQ(cycles, keepHistoContents);
+                    std::chrono::seconds runDuration(spin_runDuration->value());
+                    emit startDAQ(cycles, keepHistoContents, runDuration);
                 }
                 break;
 
@@ -212,6 +214,18 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
         stateFrameLayout->addRow(QSL("Histo data:"), rb_layout);
     }
 
+    // run duration
+    {
+        spin_runDuration->setMinimum(0);
+        spin_runDuration->setMaximum(std::numeric_limits<int>::max());
+        spin_runDuration->setSpecialValueText(QSL("unlimited"));
+        spin_runDuration->setSuffix(QSL(" s"));
+        auto l = make_hbox<0, 2>();
+        l->addWidget(spin_runDuration);
+        l->addStretch(1);
+        stateFrameLayout->addRow(QSL("Run duration:"), l);
+    }
+
     // vme controller
     {
         auto ctrlLayout = new QGridLayout;
@@ -231,7 +245,6 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     // listfile groupbox
     {
         gb_listfile->setTitle(QSL("Listfile Output:"));
-
 
         auto gbLayout = new QFormLayout(gb_listfile);
         gb_listfileLayout = gbLayout;
@@ -465,6 +478,7 @@ void DAQControlWidget::updateWidget()
 
     rb_keepData->setEnabled(daqState == DAQState::Idle);
     rb_clearData->setEnabled(daqState == DAQState::Idle);
+    spin_runDuration->setEnabled(daqState == DAQState::Idle && globalMode == GlobalMode::DAQ);
 
     QString stateString;
 

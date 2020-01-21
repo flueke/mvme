@@ -45,7 +45,8 @@ class DAQControlWidget: public QWidget
 {
     Q_OBJECT
     signals:
-        void startDAQ(u32 nCycles, bool keepHistoContents);
+        void startDAQ(u32 nCycles, bool keepHistoContents,
+                      const std::chrono::milliseconds &runDuration);
         void pauseDAQ();
         void resumeDAQ(u32 nCycles);
         void stopDAQ();
@@ -111,6 +112,7 @@ class DAQControlWidget: public QWidget
 
         QRadioButton *rb_keepData, *rb_clearData;
         QButtonGroup *bg_daqData;
+        QSpinBox *spin_runDuration;
 };
 
 class DAQRunSettingsDialog: public QDialog
