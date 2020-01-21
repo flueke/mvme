@@ -2,6 +2,26 @@
 Changelog
 ##################################################
 
+Version 0.9.7 (wip)
+-------------------
+* Add ability to run the data acquisition for a limited amount of time before
+  automatically stopping the run.
+
+* Add VME templates for the MDPP-32 (SCP, RCP and QDC variants).
+
+* Updates to the mesytec module templates and the internal config logic to make
+  use of the new VME script features.
+
+  These changes make IRQ and MCST handling with multiple modules and events
+  much simpler. When using only mesytec modules no manual editing of scripts is
+  required anymore.
+
+* VME scripts now support variables and embedded mathematical expressions.
+
+* Improve UI responsiveness with the MVLC at low data rates.
+
+* Multiple MVLC fixes and improvements.
+
 Version 0.9.6
 -------------
 * Improved support for the MVLC. Among others VME Scripts can now be directly
