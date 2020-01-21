@@ -1540,7 +1540,7 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
     // Can be used for last minute changes before the actual startup. Used in
     // the GUI to ask the user if modifications to VME scripts should be applied
     // and used for the run.
-    emit daqAboutToStart(nCycles);
+    emit daqAboutToStart();
 
     // Generate new RunInfo here. Has to happen before prepareStart() calls
     // MVMEStreamWorker::beginRun()

@@ -1467,7 +1467,7 @@ void MVMEMainWindow::resizeEvent(QResizeEvent *event)
     QMainWindow::resizeEvent(event);
 }
 
-void MVMEMainWindow::onDAQAboutToStart(quint32 nCycles)
+void MVMEMainWindow::onDAQAboutToStart()
 {
     QList<VMEScriptEditor *> scriptEditors;
 

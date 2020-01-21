@@ -130,7 +130,7 @@ private slots:
     void appendToLogNoDebugOut(const QString &);
     void onConfigChanged(VMEConfig *config);
 
-    void onDAQAboutToStart(quint32 nCycles);
+    void onDAQAboutToStart();
     void onDAQStateChanged(const DAQState &);
 
     void onShowDiagnostics(ModuleConfig *config);

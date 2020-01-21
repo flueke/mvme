@@ -93,7 +93,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void sigLogMessage(const QString &);
 
-        void daqAboutToStart(quint32 nCycles);
+        void daqAboutToStart();
 
         void workspaceDirectoryChanged(const QString &);
 
