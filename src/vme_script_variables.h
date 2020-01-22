@@ -29,8 +29,9 @@ struct LIBMVME_CORE_EXPORT Variable
 
     // Constructor taking the variable value and an optional definition
     // location string.
-    Variable(const QString &v, const QString &definitionLocation_ = {}, const QString &comment_ = {})
-        : value(v)
+    Variable(const QString &value_, const QString &definitionLocation_ = {},
+             const QString &comment_ = {})
+        : value(value_)
         , definitionLocation(definitionLocation_)
         , comment(comment_)
     { }
@@ -77,6 +78,16 @@ struct LIBMVME_CORE_EXPORT SymbolTable
     const Variable operator[](const QString &varName) const
     {
         return symbols[varName];
+    }
+
+    int size() const
+    {
+        return symbols.size();
+    }
+
+    QStringList symbolNames() const
+    {
+        return symbols.keys();
     }
 };
 

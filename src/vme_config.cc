@@ -147,7 +147,7 @@ void ConfigObject::read(const QJsonObject &json)
     setObjectName(json["name"].toString());
     setEnabled(json["enabled"].toBool(true));
     loadDynamicProperties(json["properties"].toObject(), this);
-    setVariables(vme_script::symboltable_from_json(json["variables"].toObject()));
+    setVariables(vme_script::symboltable_from_json(json["variable_table"].toObject()));
 
     read_impl(json);
 
@@ -164,7 +164,7 @@ void ConfigObject::write(QJsonObject &json) const
     if (!props.isEmpty())
         json["properties"] = props;
 
-    json["variables"] = vme_script::to_json(m_variables);
+    json["variable_table"] = vme_script::to_json(m_variables);
 
     write_impl(json);
 }
