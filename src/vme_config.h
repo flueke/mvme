@@ -55,35 +55,6 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
 
-#if 0
-        ConfigObject *findChildById(const QUuid &id, bool recurse=true) const
-        {
-            return findChildById<ConfigObject *>(id, recurse);
-        }
-
-        template<typename T> T findChildById(const QUuid &id, bool recurse=true) const
-        {
-            for (auto child: children())
-            {
-                auto configObject = qobject_cast<ConfigObject *>(child);
-
-                if (configObject)
-                {
-                    if (configObject->getId() == id)
-                        return qobject_cast<T>(configObject);
-                }
-
-                if (recurse)
-                {
-                    if (auto obj = configObject->findChildById<T>(id, recurse))
-                        return obj;
-                }
-            }
-
-            return {};
-        }
-#endif
-
         template<typename T, typename Predicate>
         T findChildByPredicate(Predicate p, bool recurse=true) const
         {
