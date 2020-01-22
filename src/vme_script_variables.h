@@ -4,9 +4,9 @@
 #include <QMap>
 #include <QString>
 #include <QVector>
+#include <QJsonObject>
 
 #include "libmvme_core_export.h"
-
 
 namespace vme_script
 {
@@ -17,24 +17,28 @@ struct LIBMVME_CORE_EXPORT Variable
     // means simple text replacement.
     QString value;
 
-    // Free form string containing information about where the variable was
+    // Optional free form string containing information about where the variable was
     // defined. Could simply be a line number.
     QString definitionLocation;
+
+    // Optional free form comment or description of the variable.
+    QString comment;
 
     Variable()
     {}
 
     // Constructor taking the variable value and an optional definition
     // location string.
-    Variable(const QString &v, const QString &definitionLocation_ = {})
+    Variable(const QString &v, const QString &definitionLocation_ = {}, const QString &comment_ = {})
         : value(v)
         , definitionLocation(definitionLocation_)
+        , comment(comment_)
     { }
 
     // This constructor takes a lineNumber, converts it to a string and uses it
     // as the definition location.
     Variable(const QString &v, int lineNumber)
-        : Variable(v, QString::number(lineNumber))
+        : Variable(v, QString::number(lineNumber), {})
     { }
 
     // Variables with a null (default constructed) value are considered invalid.
@@ -42,7 +46,10 @@ struct LIBMVME_CORE_EXPORT Variable
     explicit operator bool() const { return !value.isNull(); }
 };
 
-struct SymbolTable
+bool LIBMVME_CORE_EXPORT operator==(const Variable &va, const Variable &vb);
+bool LIBMVME_CORE_EXPORT operator!=(const Variable &va, const Variable &vb);
+
+struct LIBMVME_CORE_EXPORT SymbolTable
 {
     QString name;
     QMap<QString, Variable> symbols;
@@ -73,6 +80,9 @@ struct SymbolTable
     }
 };
 
+bool LIBMVME_CORE_EXPORT operator==(const SymbolTable &sta, const SymbolTable &stb);
+bool LIBMVME_CORE_EXPORT operator!=(const SymbolTable &sta, const SymbolTable &stb);
+
 // Vector of SymbolTables. The first table in the vector is the innermost
 // scope and is written to by the 'set' command.
 using SymbolTables = QVector<SymbolTable>;
@@ -81,6 +91,13 @@ using SymbolTables = QVector<SymbolTable>;
 // Visits symbol tables in order and returns the first Variable stored under
 // varName.
 LIBMVME_CORE_EXPORT Variable lookup_variable(const QString &varName, const SymbolTables &symtabs);
+
+// JSON Serialization
+QJsonObject LIBMVME_CORE_EXPORT to_json(const Variable &var);
+Variable LIBMVME_CORE_EXPORT variable_from_json(const QJsonObject &json);
+
+QJsonObject LIBMVME_CORE_EXPORT to_json(const SymbolTable &symtab);
+SymbolTable LIBMVME_CORE_EXPORT symboltable_from_json(const QJsonObject &tableJson);
 
 } // end namespace vme_script
 
