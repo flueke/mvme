@@ -406,15 +406,6 @@ void ModuleConfig::setModuleMeta(const vats::VMEModuleMeta &meta)
     }
 }
 
-void ModuleConfig::setRaisesIRQ(bool b)
-{
-    if (m_raisesIRQ != b)
-    {
-        m_raisesIRQ = b;
-        setModified();
-    }
-}
-
 void ModuleConfig::addInitScript(VMEScriptConfig *script)
 {
     Q_ASSERT(script);
@@ -456,7 +447,6 @@ void ModuleConfig::read_impl(const QJsonObject &json)
     // IMPORTANT: using json["baseAddress"].toInt() directly does not support
     // the full range of 32-bit unsigned integers!
     m_baseAddress = static_cast<u32>(json["baseAddress"].toDouble());
-    m_raisesIRQ = json["raisesIRQ"].toBool();
 
     m_resetScript->read(json["vmeReset"].toObject());
     m_readoutScript->read(json["vmeReadout"].toObject());
@@ -477,7 +467,6 @@ void ModuleConfig::write_impl(QJsonObject &json) const
 {
     json["type"] = m_meta.typeName;
     json["baseAddress"] = static_cast<qint64>(m_baseAddress);
-    json["raisesIRQ"] = m_raisesIRQ;
 
     // readout script
     {
@@ -548,24 +537,6 @@ EventConfig::EventConfig(QObject *parent)
     triggerOptions[QSL("sis3153.timer_period")] = 1.0;
 }
 
-void EventConfig::setMulticastByte(u8 mcst)
-{
-    if (m_mcst != mcst)
-    {
-        m_mcst = mcst;
-        setModified();
-    }
-}
-
-void EventConfig::setReadoutNumEvents(u16 numEvents)
-{
-    if (m_readoutNumEvents != numEvents)
-    {
-        m_readoutNumEvents = numEvents;
-        setModified();
-    }
-}
-
 const VMEConfig *EventConfig::getVMEConfig() const
 {
     return qobject_cast<const VMEConfig *>(parent());
@@ -597,12 +568,6 @@ void EventConfig::read_impl(const QJsonObject &json)
     irqVector = json["irqVector"].toInt();
     scalerReadoutPeriod = json["scalerReadoutPeriod"].toInt();
     scalerReadoutFrequency = json["scalerReadoutFrequency"].toInt();
-    m_mcst = json["mcst"].toInt();
-
-    if (m_mcst == 0)
-        m_mcst = 0xbb;
-
-    m_readoutNumEvents = json["readoutNumEvents"].toInt(1);
 
     QJsonArray moduleArray = json["modules"].toArray();
     for (int i=0; i<moduleArray.size(); ++i)
@@ -639,8 +604,6 @@ void EventConfig::write_impl(QJsonObject &json) const
     json["irqVector"] = irqVector;
     json["scalerReadoutPeriod"] = scalerReadoutPeriod;
     json["scalerReadoutFrequency"] = scalerReadoutFrequency;
-    json["mcst"] = m_mcst;
-    json["readoutNumEvents"] = m_readoutNumEvents;
 
     // modules
     QJsonArray moduleArray;

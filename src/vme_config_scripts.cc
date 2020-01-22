@@ -18,7 +18,7 @@ VMEScriptAndVars parse_and_return_symbols(
     const VMEScriptConfig *scriptConfig,
     u32 baseAddress)
 {
-    auto symtabs = build_symbol_tables(scriptConfig);
+    auto symtabs = collect_symbol_tables(scriptConfig);
     auto script = vme_script::parse(scriptConfig->getScriptContents(), symtabs, baseAddress);
 
     return std::make_pair(script, symtabs);
@@ -27,65 +27,40 @@ VMEScriptAndVars parse_and_return_symbols(
 namespace
 {
 
-void build_symbol_tables(const ConfigObject *co, vme_script::SymbolTables &symtabs)
+void collect_symbol_tables(const ConfigObject *co, vme_script::SymbolTables &symtabs)
 {
     assert(co);
 
-    vme_script::SymbolTable symtab;
+    symtabs.push_back(co->getVariables());
 
-    if (auto event = qobject_cast<const EventConfig *>(co))
-    {
-        symtab.name = QSL("Event '%1'").arg(event->objectName());
-
-        int irq = 0;
-
-        if (event->triggerCondition == TriggerCondition::Interrupt)
-            irq = event->irqLevel;
-
-        symtab["irq"] = QString::number(irq);
-        symtab["mcst"] = QString::number(event->getMulticastByte(), 16);
-        symtab["readout_num_events"] = QString::number(event->getReadoutNumEvents());
-
-        symtabs.push_back(symtab);
-    }
-
-    if (auto module = qobject_cast<const ModuleConfig *>(co))
-    {
-        symtab.name = QSL("Module '%1'").arg(module->objectName());
-
-        // Set the "irq" variable to 0 if the parent event is triggered by an
-        // irq and this module should not raise the irq.
-        // This will override the "irq" variable set by the event except for
-        // the module that should raise the irq.
-        if (auto event = module->getEventConfig())
-        {
-            if (event->triggerCondition == TriggerCondition::Interrupt
-                && !module->raisesIRQ())
-            {
-                symtab["irq"] = QSL("0");
-            }
-        }
-
-        symtabs.push_back(symtab);
-    }
-
-    if (auto child = qobject_cast<const ConfigObject *>(co->parent()))
-        build_symbol_tables(child, symtabs);
+    if (auto parentObject = qobject_cast<ConfigObject *>(co->parent()))
+        collect_symbol_tables(parentObject, symtabs);
 }
 
 }
 
-vme_script::SymbolTables build_symbol_tables(const VMEScriptConfig *scriptConfig)
+vme_script::SymbolTables collect_symbol_tables(const ConfigObject *co)
 {
-    assert(scriptConfig);
+    assert(co);
 
-    vme_script::SymbolTables result = { {"local", {}} };
+    vme_script::SymbolTables result;
 
-    if (auto co = qobject_cast<const ConfigObject *>(scriptConfig->parent()))
-        build_symbol_tables(co, result);
+    collect_symbol_tables(co, result);
 
     return result;
 }
+
+vme_script::SymbolTables collect_symbol_tables(const VMEScriptConfig *scriptConfig)
+{
+    assert(scriptConfig);
+
+    auto result = collect_symbol_tables(qobject_cast<const ConfigObject *>(scriptConfig));
+
+    result.push_front({"local", {}});
+
+    return result;
+}
+
 
 } // end namespace mvme
 } // end namespace mesytec

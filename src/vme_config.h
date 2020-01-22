@@ -221,9 +221,6 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         const vats::VMEModuleMeta getModuleMeta() const { return m_meta; }
         void setModuleMeta(const vats::VMEModuleMeta &meta);
 
-        bool raisesIRQ() const { return m_raisesIRQ; }
-        void setRaisesIRQ(bool b);
-
         VMEScriptConfig *getResetScript() const { return m_resetScript; }
         VMEScriptConfig *getReadoutScript() const { return m_readoutScript; }
 
@@ -247,7 +244,6 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         VMEScriptConfig *m_readoutScript;
         QVector<VMEScriptConfig *> m_initScripts;
         vats::VMEModuleMeta m_meta;
-        bool m_raisesIRQ = false;
 };
 
 class VMEConfig;
@@ -293,20 +289,6 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         // Maximum number of events between scaler stack executions
         uint16_t scalerReadoutFrequency = 0;
 
-        // The most significant byte of the events VME multicast address.
-        // Available as '${mcst}' is event and module vme scripts.
-        u8 getMulticastByte() const { return m_mcst; }
-        void setMulticastByte(u8 mcst);
-
-        // The number of events to read out in one readout cycle.
-        //
-        // This is made available as an event-wide variable
-        // ('readout_num_events') and is used by the mesytec module init
-        // scripts to set the 'IRQ-FIFO-threshold' and 'max_transfer_data'
-        // registers.
-        u16 getReadoutNumEvents() const { return m_readoutNumEvents; }
-        void setReadoutNumEvents(u16 numEvents);
-
         /** Known keys for an event:
          * "daq_start", "daq_stop", "readout_start", "readout_end"
          */
@@ -326,8 +308,6 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
 
     private:
         QList<ModuleConfig *> modules;
-        u8 m_mcst = 0;
-        u16 m_readoutNumEvents = 1;
 };
 
 enum class VMEConfigReadResult

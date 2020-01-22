@@ -60,10 +60,8 @@ using namespace vats;
 struct EventConfigDialogPrivate
 {
     QLineEdit *le_name;
-    QSpinBox *spin_mcst;
     QComboBox *combo_condition;
     QStackedWidget *stack_options;
-    QSpinBox *spin_readoutNumEvents;
     QDialogButtonBox *buttonBox;
 
     QSpinBox *spin_irqLevel,
@@ -91,11 +89,6 @@ EventConfigDialog::EventConfigDialog(
     m_d->vmeConfig = vmeConfig;
 
     m_d->le_name = new QLineEdit;
-    m_d->spin_mcst = new QSpinBox;
-    m_d->spin_mcst->setDisplayIntegerBase(16);
-    m_d->spin_mcst->setPrefix("0x");
-    m_d->spin_mcst->setMinimum(0xbb);
-    m_d->spin_mcst->setMaximum(0xff);
 
     m_d->combo_condition = new QComboBox;
     m_d->stack_options = new QStackedWidget;
@@ -111,31 +104,22 @@ EventConfigDialog::EventConfigDialog(
     m_d->cb_irqUseIACK = new QCheckBox(this);
     m_d->cb_irqUseIACK->hide();
 
-    m_d->spin_readoutNumEvents = new QSpinBox(this);
-    m_d->spin_readoutNumEvents->setMinimum(1);
-    m_d->spin_readoutNumEvents->setMaximum(10 * 1000);
 
     auto gb_topOptions = new QGroupBox;
     {
         auto gb_layout   = new QFormLayout(gb_topOptions);
         gb_layout->setContentsMargins(2, 2, 2, 2);
         gb_layout->addRow(QSL("Name"), m_d->le_name);
-        gb_layout->addRow(QSL("Multicast Address"), m_d->spin_mcst);
         gb_layout->addRow(QSL("Condition"), m_d->combo_condition);
     }
 
-    auto gb_bottomOptions = new QGroupBox;
     {
-        auto gb_layout   = new QFormLayout(gb_bottomOptions);
-        gb_layout->setContentsMargins(2, 2, 2, 2);
-        gb_layout->addRow(QSL("Events to read per cycle"), m_d->spin_readoutNumEvents);
     }
 
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
     layout->addWidget(gb_topOptions);
     layout->addWidget(m_d->stack_options);
-    layout->addWidget(gb_bottomOptions);
     layout->addWidget(m_d->buttonBox);
 
     connect(m_d->combo_condition,
@@ -308,23 +292,6 @@ void EventConfigDialog::loadFromConfig()
 
     m_d->le_name->setText(config->objectName());
 
-    // Multicast handling. If mcst is 0 the EventConfig was default constructed
-    // and is thus being added to the VMEConfig. In this case we default to the
-    // last events mcst plus one starting at 0xbb.
-    u8 mcst = config->getMulticastByte();
-
-    if (mcst == 0u)
-    {
-        auto existingEvents = m_d->vmeConfig->getEventConfigs();
-
-        if (existingEvents.isEmpty())
-            mcst = 0xbb;
-        else
-            mcst = existingEvents.back()->getMulticastByte() + 1u;
-    }
-
-    m_d->spin_mcst->setValue(mcst);
-
     int condIndex = m_d->combo_condition->findData(static_cast<s32>(config->triggerCondition));
     if (condIndex >= 0)
     {
@@ -336,7 +303,6 @@ void EventConfigDialog::loadFromConfig()
     m_d->spin_irqLevel->setValue(config->irqLevel);
     m_d->spin_irqVector->setValue(config->irqVector);
     m_d->cb_irqUseIACK->setChecked(config->triggerOptions["IRQUseIACK"].toBool());
-    m_d->spin_readoutNumEvents->setValue(config->getReadoutNumEvents());
 
     switch (m_controller->getType())
     {
@@ -369,11 +335,9 @@ void EventConfigDialog::saveToConfig()
     auto config = m_config;
 
     config->setObjectName(m_d->le_name->text());
-    config->setMulticastByte(static_cast<u8>(m_d->spin_mcst->value()));
     config->triggerCondition = static_cast<TriggerCondition>(m_d->combo_condition->currentData().toInt());
     config->irqLevel = static_cast<uint8_t>(m_d->spin_irqLevel->value());
     config->irqVector = static_cast<uint8_t>(m_d->spin_irqVector->value());
-    config->setReadoutNumEvents(static_cast<u16>(m_d->spin_readoutNumEvents->value()));
 
     switch (m_controller->getType())
     {
@@ -414,7 +378,6 @@ void EventConfigDialog::setReadOnly(bool readOnly)
 
 struct ModuleConfigDialog::Private
 {
-    QCheckBox *cb_raisesIRQ = nullptr;
 };
 
 //
@@ -497,24 +460,6 @@ ModuleConfigDialog::ModuleConfigDialog(
 
     const bool isFirstModuleInEvent = (parentEvent->getModuleConfigs().size() == 0);
 
-    m_d->cb_raisesIRQ = new QCheckBox(this);
-    m_d->cb_raisesIRQ->setChecked(module->raisesIRQ());
-
-    if (isNewModule
-        && parentEvent->triggerCondition == TriggerCondition::Interrupt)
-    {
-        auto otherModules = parentEvent->getModuleConfigs();
-
-        bool anyModuleRaisesIRQ = std::any_of(
-            otherModules.begin(), otherModules.end(),
-            [] (const ModuleConfig *m) { return m->raisesIRQ(); });
-
-        if (!anyModuleRaisesIRQ)
-        {
-            m_d->cb_raisesIRQ->setChecked(true);
-        }
-    }
-
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -529,7 +474,6 @@ ModuleConfigDialog::ModuleConfigDialog(
     layout->addRow("Type", typeCombo);
     layout->addRow("Name", nameEdit);
     layout->addRow("Address", addressEdit);
-    layout->addRow("Should raise IRQ", m_d->cb_raisesIRQ);
     layout->addRow(bb);
 
     auto onTypeComboIndexChanged = [this](int index)
@@ -601,7 +545,6 @@ void ModuleConfigDialog::accept()
     m_module->setModuleMeta(mm);
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
-    m_module->setRaisesIRQ(m_d->cb_raisesIRQ->isChecked());
 
     QDialog::accept();
 }

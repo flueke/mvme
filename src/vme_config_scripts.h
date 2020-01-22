@@ -25,33 +25,14 @@ VMEScriptAndVars LIBMVME_EXPORT parse_and_return_symbols(
 // Note: there's no way to specify additional symbol tables and thus inject
 // variables prior to parsing. This will be added if needed.
 
-// Gathering symbol tables
-// -----------------------
-// - superglobal scripts: symbols from DAQGlobal config (this level does not exist yet)
-//
-// - VMEConfig scripts: symbols from DAQGlobal config and VMEConfig
-// - Event scripts: symbols from DAQGlobal and VMEConfig
-//
-// - Module scripts: symbols from event, vmeconfig and superglobals
-//
-// -> 3 levels to implement right now
-// get symbols from vmeconfig
-// get symbols from eventconfig
-// get symbols from moduleconfig
-//
-// from VMEScriptConfig perspective:
-// SymbolTables = { localTable } + parent->getScriptSymbols()
-//
-// VMEConfig: return empty table for now
-//
-// EventConfig: populate table with:
-// - irq: zero if not using irq, otherwise the irq value
-// - mcst: the mcst byte in hex without the 0x prefix, e.g. "bb" for mcst 0xbb000000
-// - readout_num_events: number of events to transfer per readout cycle
-//
-// ModuleConfig:
-// - override 'irq' if the module should not raise the irq
-vme_script::SymbolTables build_symbol_tables(const VMEScriptConfig *scriptConfig);
+// Collects the symbol tables from the given ConfigObject and all parent
+// ConfigObjects. The first table in the return value is the one belonging to
+// the given ConfigObject (the most local one).
+vme_script::SymbolTables collect_symbol_tables(const ConfigObject *co);
+
+// Same as collect_symbol_tables for a ConfigObject except that a script-local
+// symbol table is prepended to the result.
+vme_script::SymbolTables collect_symbol_tables(const VMEScriptConfig *scriptConfig);
 
 } // end namespace mvme
 } // end namespace mesytec
