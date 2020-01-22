@@ -24,6 +24,7 @@
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QDebug>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFile>
@@ -50,6 +51,7 @@
 #include "qt-collapsible-section/Section.h"
 #include "vme_config.h"
 #include "vme_script.h"
+#include "vme_config_ui_variable_editor.h"
 
 using namespace mesytec;
 using namespace vats;
@@ -72,6 +74,8 @@ struct EventConfigDialogPrivate
     QDoubleSpinBox *spin_timerPeriod;
 
     QCheckBox *cb_irqUseIACK;
+
+    VariableEditorWidget *variableEditor;
 
     const VMEConfig *vmeConfig;
 };
@@ -104,6 +108,7 @@ EventConfigDialog::EventConfigDialog(
     m_d->cb_irqUseIACK = new QCheckBox(this);
     m_d->cb_irqUseIACK->hide();
 
+    m_d->variableEditor = new VariableEditorWidget(this);
 
     auto gb_topOptions = new QGroupBox;
     {
@@ -113,13 +118,18 @@ EventConfigDialog::EventConfigDialog(
         gb_layout->addRow(QSL("Condition"), m_d->combo_condition);
     }
 
+    auto gb_variables = new QGroupBox("VME Script Variables");
     {
+        auto layout = make_vbox<0, 0>(gb_variables);
+        layout->addWidget(m_d->variableEditor);
     }
+
 
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
     layout->addWidget(gb_topOptions);
     layout->addWidget(m_d->stack_options);
+    layout->addWidget(gb_variables);
     layout->addWidget(m_d->buttonBox);
 
     connect(m_d->combo_condition,
@@ -303,6 +313,7 @@ void EventConfigDialog::loadFromConfig()
     m_d->spin_irqLevel->setValue(config->irqLevel);
     m_d->spin_irqVector->setValue(config->irqVector);
     m_d->cb_irqUseIACK->setChecked(config->triggerOptions["IRQUseIACK"].toBool());
+    m_d->variableEditor->setVariables(config->getVariables());
 
     switch (m_controller->getType())
     {
@@ -338,6 +349,7 @@ void EventConfigDialog::saveToConfig()
     config->triggerCondition = static_cast<TriggerCondition>(m_d->combo_condition->currentData().toInt());
     config->irqLevel = static_cast<uint8_t>(m_d->spin_irqLevel->value());
     config->irqVector = static_cast<uint8_t>(m_d->spin_irqVector->value());
+    config->setVariables(m_d->variableEditor->getVariables());
 
     switch (m_controller->getType())
     {
@@ -378,6 +390,7 @@ void EventConfigDialog::setReadOnly(bool readOnly)
 
 struct ModuleConfigDialog::Private
 {
+    VariableEditorWidget *variableEditor;
 };
 
 //
@@ -396,6 +409,8 @@ ModuleConfigDialog::ModuleConfigDialog(
     assert(module);
     assert(parentEvent);
     assert(vmeConfig);
+
+    m_d->variableEditor = new VariableEditorWidget;
 
     setWindowTitle(QSL("Module Config"));
     MVMETemplates templates = read_templates();
@@ -471,9 +486,18 @@ ModuleConfigDialog::ModuleConfigDialog(
         typeCombo->setEnabled(false);
     }
 
+    auto gb_variables = new QGroupBox("VME Script Variables");
+    {
+        auto layout = make_vbox<0, 0>(gb_variables);
+        layout->addWidget(m_d->variableEditor);
+
+        m_d->variableEditor->setVariables(m_module->getVariables());
+    }
+
     layout->addRow("Type", typeCombo);
     layout->addRow("Name", nameEdit);
     layout->addRow("Address", addressEdit);
+    layout->addRow(gb_variables);
     layout->addRow(bb);
 
     auto onTypeComboIndexChanged = [this](int index)
@@ -545,6 +569,7 @@ void ModuleConfigDialog::accept()
     m_module->setModuleMeta(mm);
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
+    m_module->setVariables(m_d->variableEditor->getVariables());
 
     QDialog::accept();
 }
