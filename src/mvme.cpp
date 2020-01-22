@@ -1831,6 +1831,16 @@ void MVMEMainWindow::runAddVMEEventDialog()
     auto eventConfig = std::make_unique<EventConfig>();
     auto vmeConfig = m_d->m_context->getVMEConfig();
     eventConfig->setObjectName(QString("event%1").arg(vmeConfig->getEventConfigs().size()));
+
+    // FIXME: move this into a separate function
+    // FIXME: get highest mcst used so far from any existing events, convert it
+    // to hex, add one, convert to string and set the variable accordingly
+    auto vars = eventConfig->getVariables();
+    vars["irq"] = vme_script::Variable("1", {}, "IRQ value used in module init scripts.");
+    vars["mcst"] = vme_script::Variable("bb", {}, "The most significant byte of the 32-bit multicast address used by this event.");
+    vars["readout_num_events"] = vme_script::Variable("1", {}, "Number of events to read out in each cycle.");
+    eventConfig->setVariables(vars);
+
     EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig.get(), vmeConfig, this);
     dialog.setWindowTitle(QSL("Add Event"));
     int result = dialog.exec();
