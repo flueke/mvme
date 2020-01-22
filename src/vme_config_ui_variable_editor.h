@@ -27,15 +27,15 @@
 //   - varN2 valN2
 
 
-class SymbolTableEditorWidget: public QWidget
+class VariableEditorWidget: public QWidget
 {
     Q_OBJECT
     public:
-        SymbolTableEditorWidget(QWidget *parent = nullptr);
-        ~SymbolTableEditorWidget() override;
+        VariableEditorWidget(QWidget *parent = nullptr);
+        ~VariableEditorWidget() override;
 
-        void setSymbolTable(const vme_script::SymbolTable &symtab);
-        vme_script::SymbolTable getSymbolTable() const;
+        void setVariables(const vme_script::SymbolTable &symtab);
+        vme_script::SymbolTable getVariables() const;
 
     private:
         struct Private;

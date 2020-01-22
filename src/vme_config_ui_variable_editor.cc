@@ -19,7 +19,7 @@ void populate_model(QStandardItemModel &model, const vme_script::SymbolTable &sy
 {
     model.clear();
     model.setColumnCount(3);
-    model.setHorizontalHeaderLabels({"Name", "Value", "Comment"});
+    model.setHorizontalHeaderLabels({"Variable Name", "Variable Value", "Comment"});
 
     model.setRowCount(symtab.size());
 
@@ -63,7 +63,7 @@ void save_to_symboltable(const QStandardItemModel &model, vme_script::SymbolTabl
 
 } // end anon namespace
 
-struct SymbolTableEditorWidget::Private
+struct VariableEditorWidget::Private
 {
     QTableView *tableView;
     std::unique_ptr<QStandardItemModel> model;
@@ -73,7 +73,7 @@ struct SymbolTableEditorWidget::Private
                 *pb_delVariable;
 };
 
-SymbolTableEditorWidget::SymbolTableEditorWidget(
+VariableEditorWidget::VariableEditorWidget(
     QWidget *parent)
 : QWidget(parent)
 , d(std::make_unique<Private>())
@@ -82,6 +82,7 @@ SymbolTableEditorWidget::SymbolTableEditorWidget(
     d->tableView = new QTableView(this);
     d->tableView->verticalHeader()->hide();
     d->tableView->setSelectionMode(QAbstractItemView::SingleSelection);
+    d->tableView->setAlternatingRowColors(true);
 
     d->pb_addVariable = new QPushButton(QIcon(":/list_add.png"), "Add new variable");
     d->pb_delVariable = new QPushButton(QIcon(":/list_remove.png"), "Delete selected variable");
@@ -124,11 +125,11 @@ SymbolTableEditorWidget::SymbolTableEditorWidget(
             this, delete_selected_variable);
 }
 
-SymbolTableEditorWidget::~SymbolTableEditorWidget()
+VariableEditorWidget::~VariableEditorWidget()
 {
 }
 
-void SymbolTableEditorWidget::setSymbolTable(const vme_script::SymbolTable &symtab)
+void VariableEditorWidget::setVariables(const vme_script::SymbolTable &symtab)
 {
     populate_model(*d->model, symtab);
     if (auto sm = d->tableView->selectionModel())
@@ -145,7 +146,7 @@ void SymbolTableEditorWidget::setSymbolTable(const vme_script::SymbolTable &symt
     });
 }
 
-vme_script::SymbolTable SymbolTableEditorWidget::getSymbolTable() const
+vme_script::SymbolTable VariableEditorWidget::getVariables() const
 {
     vme_script::SymbolTable symtab;
     save_to_symboltable(*d->model, symtab);
