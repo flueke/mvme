@@ -9,6 +9,9 @@
 namespace vme_script
 {
 
+// Internal vme_script parser support functions.
+// Kept in a separate header to make them available for automatic tests.
+
 std::pair<std::string, bool> read_atomic_variable_reference(std::istringstream &in);
 std::pair<std::string, bool> read_atomic_variable_reference(const std::string &str);
 
