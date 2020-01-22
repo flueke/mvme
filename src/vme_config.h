@@ -21,10 +21,12 @@
 #ifndef UUID_364b82ee_241c_4c09_acbf_f7e36698fb74
 #define UUID_364b82ee_241c_4c09_acbf_f7e36698fb74
 
-#include "globals.h"
 #include "libmvme_export.h"
+
+#include "globals.h"
 #include "template_system.h"
 #include "vme_controller.h"
+#include "vme_script_variables.h"
 
 #include <QObject>
 #include <QUuid>
@@ -54,6 +56,10 @@ class LIBMVME_EXPORT ConfigObject: public QObject
 
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
+
+        vme_script::SymbolTable getVariables() const { return m_variables; }
+        void setVariables(const vme_script::SymbolTable &variables);
+        void setVariable(const QString &name, const vme_script::Variable &var);
 
         template<typename T, typename Predicate>
         T findChildByPredicate(Predicate p, bool recurse=true) const
@@ -109,6 +115,9 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         bool m_modified = false;
         bool m_enabled = true;
         bool m_eventFilterInstalled = false;
+
+    private:
+        vme_script::SymbolTable m_variables;
 };
 
 // A generic container object used to hold more specific child objects or other
