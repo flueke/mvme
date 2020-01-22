@@ -6,7 +6,7 @@
 
 using namespace vme_script;
 
-TEST(vme_script_variables, VariableToBool)
+TEST(vme_script_parsing, VariableToBool)
 {
     {
         Variable v { "value", 42 };
@@ -29,7 +29,7 @@ TEST(vme_script_variables, VariableToBool)
     }
 }
 
-TEST(vme_script_variables, LookupVariable)
+TEST(vme_script_parsing, LookupVariable)
 {
     SymbolTables symtabs =
     {
@@ -56,7 +56,7 @@ TEST(vme_script_variables, LookupVariable)
     }
 }
 
-TEST(vme_script_variables, ExpandSingleVariable)
+TEST(vme_script_parsing, ExpandSingleVariable)
 {
     //try
     //{
@@ -158,7 +158,7 @@ TEST(vme_script_variables, ExpandSingleVariable)
     //}
 }
 
-TEST(vme_script_variables, ExpandMultipleVariables)
+TEST(vme_script_parsing, ExpandMultipleVariables)
 {
     SymbolTables symtabs =
     {
@@ -201,7 +201,7 @@ TEST(vme_script_variables, ExpandMultipleVariables)
     //}
 }
 
-TEST(vme_script_variables, ExpandVariablesErrors)
+TEST(vme_script_parsing, ExpandVariablesErrors)
 {
     SymbolTables symtabs =
     {
