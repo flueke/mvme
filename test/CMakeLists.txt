@@ -66,6 +66,5 @@ add_mvme_core_gtest(test_util_databuffer "test_util_databuffer.cc")
 add_mvme_core_gtest(test_util_ticketmutex "test_util_ticketmutex.cc")
 add_mvme_core_gtest(test_vme_script_parsing "test_vme_script_parsing.cc")
 add_mvme_core_gtest(test_vme_script_variables "test_vme_script_variables.cc")
-add_mvme_gtest(test_vme_config_scripts "test_vme_config_scripts.cc")
 
 endif(BUILD_TESTS)
