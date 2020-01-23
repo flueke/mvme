@@ -9,7 +9,7 @@
 0x601E $(${mesy_readout_num_events} + 1)     # IRQ-FIFO threshold, events
 
 # marking_type
-0x6038 0x1                              # End Of Event marking
+0x6038 ${mesy_eoe_marker}                              # End Of Event marking
                                         # 0 -> event counter
                                         # 1 -> time stamp
                                         # 3 -> extended time stamp
