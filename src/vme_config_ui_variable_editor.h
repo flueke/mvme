@@ -4,6 +4,7 @@
 #include <memory>
 #include <QWidget>
 
+#include "libmvme_export.h"
 #include "vme_script_variables.h"
 
 // User interface to create, read, update and delete vme_script SymbolTables
@@ -27,7 +28,7 @@
 //   - varN2 valN2
 
 
-class VariableEditorWidget: public QWidget
+class LIBMVME_EXPORT VariableEditorWidget: public QWidget
 {
     Q_OBJECT
     public:
