@@ -106,6 +106,8 @@ VariableEditorWidget::VariableEditorWidget(
         items[0]->setText("new_var");
         d->model->appendRow(items);
         d->tableView->resizeColumnsToContents();
+        auto newIndex = d->model->index(d->model->rowCount() - 1, 0);
+        d->tableView->edit(newIndex);
     };
 
     auto delete_selected_variable = [this] ()
