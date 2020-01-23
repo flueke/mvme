@@ -1836,9 +1836,19 @@ void MVMEMainWindow::runAddVMEEventDialog()
     // FIXME: get highest mcst used so far from any existing events, convert it
     // to hex, add one, convert to string and set the variable accordingly
     auto vars = eventConfig->getVariables();
-    vars["irq"] = vme_script::Variable("1", {}, "IRQ value used in module init scripts.");
-    vars["mcst"] = vme_script::Variable("bb", {}, "The most significant byte of the 32-bit multicast address used by this event.");
-    vars["readout_num_events"] = vme_script::Variable("1", {}, "Number of events to read out in each cycle.");
+
+    vars["sys_irq"] = vme_script::Variable(
+        "1", {}, "IRQ value used in module init scripts.");
+
+    vars["mesy_mcst"] = vme_script::Variable(
+        "bb", {}, "The most significant byte of the 32-bit multicast address used by this event.");
+
+    vars["mesy_readout_num_events"] = vme_script::Variable(
+        "1", {}, "Number of events to read out in each cycle.");
+
+    vars["mesy_eoe_marker"] = vme_script::Variable(
+        "1", {}, "EndOfEvent marker for mesytec modules. 0: eventcounter, 1: timestamp, 3: extended_ts");
+
     eventConfig->setVariables(vars);
 
     EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig.get(), vmeConfig, this);
