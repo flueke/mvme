@@ -87,4 +87,10 @@ namespace vme_address_modes
     }
 }
 
+namespace vme
+{
+    static const unsigned MinIRQ = 1;
+    static const unsigned MaxIRQ = 7;
+}
+
 #endif

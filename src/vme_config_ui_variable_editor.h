@@ -10,9 +10,9 @@
 // stored in vme_config objects.
 //
 // In the final form the editor should be able to display variables from
-// multiple ConfigObjects hierarchically: the topmost nodes each represent
-// represent a SymbolTable. Their children display the tables variable names,
-// values and the optional comment attached to each variable.
+// multiple ConfigObjects hierarchically: the topmost nodes each represent a
+// SymbolTable. Their children display the tables variable names, values and
+// the optional comment attached to each variable.
 //
 // Symtab0 (outermost symbol table, level0)
 //   - var1 val1

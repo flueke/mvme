@@ -78,6 +78,28 @@ struct EventConfigDialogPrivate
     VariableEditorWidget *variableEditor;
 
     const VMEConfig *vmeConfig;
+
+    void on_trigger_condition_changed()
+    {
+        auto tc = static_cast<TriggerCondition>(combo_condition->currentData().toInt());
+
+        u8 irqValue = 0u;
+
+        if (tc == TriggerCondition::Interrupt)
+            irqValue = static_cast<u8>(spin_irqLevel->value());
+
+        auto vars = variableEditor->getVariables();
+        vars["sys_irq"].value = QString::number(irqValue);
+        variableEditor->setVariables(vars);
+    }
+
+    void on_irq_level_changed()
+    {
+        u8 irqValue = static_cast<u8>(spin_irqLevel->value());
+        auto vars = variableEditor->getVariables();
+        vars["sys_irq"].value = QString::number(irqValue);
+        variableEditor->setVariables(vars);
+    }
 };
 
 EventConfigDialog::EventConfigDialog(
@@ -124,17 +146,21 @@ EventConfigDialog::EventConfigDialog(
         layout->addWidget(m_d->variableEditor);
     }
 
-
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
     layout->addWidget(gb_topOptions);
     layout->addWidget(m_d->stack_options);
-    layout->addWidget(gb_variables);
+    layout->addWidget(gb_variables, 1);
     layout->addWidget(m_d->buttonBox);
 
-    connect(m_d->combo_condition,
-            static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+    connect(m_d->combo_condition, qOverload<int>(&QComboBox::currentIndexChanged),
             m_d->stack_options, &QStackedWidget::setCurrentIndex);
+
+    connect(m_d->combo_condition, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this] (int index) { m_d->on_trigger_condition_changed(); });
+
+    connect(m_d->spin_irqLevel, qOverload<int>(&QSpinBox::valueChanged),
+            this, [this] () { m_d->on_irq_level_changed(); });
 
     connect(m_d->buttonBox, &QDialogButtonBox::accepted, this, &EventConfigDialog::accept);
     connect(m_d->buttonBox, &QDialogButtonBox::rejected, this, &EventConfigDialog::reject);

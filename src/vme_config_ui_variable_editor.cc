@@ -62,10 +62,10 @@ void populate_model(QStandardItemModel &model, const vme_script::SymbolTable &sy
 
 void save_to_symboltable(const QStandardItemModel &model, vme_script::SymbolTable &symtab)
 {
-    assert(model.columnCount() == 3);
 
     for (int row = 0; row < model.rowCount(); row++)
     {
+        assert(model.columnCount() == 3);
         auto name = model.item(row, 0)->text();
         auto value = model.item(row, 1)->text();
         auto comment = model.item(row, 2)->text();
@@ -192,7 +192,6 @@ VariableEditorWidget::VariableEditorWidget(
     d->tableView = new QTableView(this);
     d->tableView->verticalHeader()->hide();
     d->tableView->setSelectionMode(QAbstractItemView::SingleSelection);
-    d->tableView->setAlternatingRowColors(true);
     auto nameDelegate = new VariableNameEditorDelegate(d->model.get(), this);
     d->tableView->setItemDelegateForColumn(0, nameDelegate);
 
