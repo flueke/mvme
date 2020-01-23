@@ -24,21 +24,34 @@ void populate_model(QStandardItemModel &model, const vme_script::SymbolTable &sy
     model.setRowCount(symtab.size());
 
     auto symbolNames = symtab.symbolNames();
-    std::sort(symbolNames.begin(), symbolNames.end());
+    std::sort(symbolNames.begin(), symbolNames.end(), vme_script::variable_name_cmp_sys_first);
 
     for (const auto &nameAndIndex: symbolNames | indexed(0))
     {
         auto row = nameAndIndex.index();
         const auto &name = nameAndIndex.value();
         const auto &var = symtab[name];
+        const bool isSysVar = vme_script::is_system_variable_name(name);
 
-        auto sti = std::make_unique<QStandardItem>(name);
+        auto make_item = [&isSysVar] (const QString &text)
+        {
+            auto sti = std::make_unique<QStandardItem>(text);
+            if (isSysVar)
+            {
+                sti->setFlags(sti->flags() & ~Qt::ItemIsEditable);
+                sti->setBackground(QBrush(Qt::lightGray, Qt::BDiagPattern));
+            }
+
+            return sti;
+        };
+
+        auto sti = make_item(name);
         model.setItem(row, 0, sti.release());
 
-        sti = std::make_unique<QStandardItem>(var.value);
+        sti = make_item(var.value);
         model.setItem(row, 1, sti.release());
 
-        sti = std::make_unique<QStandardItem>(var.comment);
+        sti = make_item(var.comment);
         model.setItem(row, 2, sti.release());
     }
 }

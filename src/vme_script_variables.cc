@@ -76,11 +76,10 @@ QJsonObject to_json(const vme_script::SymbolTable &symtab)
 
 vme_script::SymbolTable symboltable_from_json(const QJsonObject &tableJson)
 {
-
     vme_script::SymbolTable symtab;
 
     symtab.name = tableJson["name"].toString();
-    
+
     auto varsJson = tableJson["variables"].toObject();
 
     for (auto &varName: varsJson.keys())

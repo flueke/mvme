@@ -11,6 +11,8 @@
 namespace vme_script
 {
 
+static const QString SystemVariablePrefix = "sys_";
+
 struct LIBMVME_CORE_EXPORT Variable
 {
     // The variables value. No special handling is done. Variable expansion
@@ -109,6 +111,26 @@ Variable LIBMVME_CORE_EXPORT variable_from_json(const QJsonObject &json);
 
 QJsonObject LIBMVME_CORE_EXPORT to_json(const SymbolTable &symtab);
 SymbolTable LIBMVME_CORE_EXPORT symboltable_from_json(const QJsonObject &tableJson);
+
+inline bool is_system_variable_name(const QString &varName)
+{
+    return varName.startsWith(SystemVariablePrefix);
+}
+
+// Comparator for sorting names of variables.
+// Variables names starting with SystemVariablePrefix are grouped before
+// non-system variables.
+inline bool variable_name_cmp_sys_first(const QString &na, const QString &nb)
+{
+    if (is_system_variable_name(na) && is_system_variable_name(nb))
+        return na < nb;
+    else if (is_system_variable_name(na))
+        return true;
+    else if (is_system_variable_name(nb))
+        return false;
+
+    return na < nb;
+}
 
 } // end namespace vme_script
 
