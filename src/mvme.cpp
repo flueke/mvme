@@ -44,6 +44,7 @@
 #include "util_zip.h"
 #include "vme_config_tree.h"
 #include "vme_config_ui.h"
+#include "vme_config_util.h"
 #include "vme_config_scripts.h"
 #include "vme_controller_ui.h"
 #include "vme_debug_widget.h"
@@ -1828,28 +1829,8 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
 
 void MVMEMainWindow::runAddVMEEventDialog()
 {
-    auto eventConfig = std::make_unique<EventConfig>();
     auto vmeConfig = m_d->m_context->getVMEConfig();
-    eventConfig->setObjectName(QString("event%1").arg(vmeConfig->getEventConfigs().size()));
-
-    // FIXME: move this into a separate function
-    // FIXME: get highest mcst used so far from any existing events, convert it
-    // to hex, add one, convert to string and set the variable accordingly
-    auto vars = eventConfig->getVariables();
-
-    vars["sys_irq"] = vme_script::Variable(
-        "1", {}, "IRQ value used in module init scripts.");
-
-    vars["mesy_mcst"] = vme_script::Variable(
-        "bb", {}, "The most significant byte of the 32-bit multicast address used by this event.");
-
-    vars["mesy_readout_num_events"] = vme_script::Variable(
-        "1", {}, "Number of events to read out in each cycle.");
-
-    vars["mesy_eoe_marker"] = vme_script::Variable(
-        "1", {}, "EndOfEvent marker for mesytec modules. 0: eventcounter, 1: timestamp, 3: extended_ts");
-
-    eventConfig->setVariables(vars);
+    auto eventConfig = make_new_event_config(vmeConfig);
 
     EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig.get(), vmeConfig, this);
     dialog.setWindowTitle(QSL("Add Event"));
