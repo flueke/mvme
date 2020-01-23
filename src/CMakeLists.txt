@@ -296,6 +296,7 @@ target_sources(libmvme PRIVATE
     vme_config_tree.cc
     vme_config_ui.cc
     vme_config_ui_variable_editor.cc
+    vme_config_util.cc
     vme_controller_factory.cc
     vme_controller_ui.cc
     vme_debug_widget.cc
