@@ -31,7 +31,7 @@ struct LIBMVME_CORE_EXPORT Variable
 
     // Constructor taking the variable value and an optional definition
     // location string.
-    Variable(const QString &value_, const QString &definitionLocation_ = {},
+    explicit Variable(const QString &value_, const QString &definitionLocation_ = {},
              const QString &comment_ = {})
         : value(value_)
         , definitionLocation(definitionLocation_)
