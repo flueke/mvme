@@ -1,4 +1,4 @@
-# Start acquisition sequence using the default multicast address 0xbb
+# Start the acquisition sequence for all modules via the events multicast address.
 writeabs a32 d16 0x${mesy_mcst}00603a      0   # stop acq
 writeabs a32 d16 0x${mesy_mcst}006090      3   # reset CTRA and CTRB
 writeabs a32 d16 0x${mesy_mcst}00603c      1   # FIFO reset
