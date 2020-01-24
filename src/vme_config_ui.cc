@@ -96,9 +96,7 @@ struct EventConfigDialogPrivate
     void on_irq_level_changed()
     {
         u8 irqValue = static_cast<u8>(spin_irqLevel->value());
-        auto vars = variableEditor->getVariables();
-        vars["sys_irq"].value = QString::number(irqValue);
-        variableEditor->setVariables(vars);
+        variableEditor->setVariableValue("sys_irq", QString::number(irqValue));
     }
 };
 
