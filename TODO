@@ -26,18 +26,9 @@ http://www.sympnp.org/proceedings/57/G29.pdf
 * generate text file of input and output names used in the setup. this could be
   printed and used at experiment time to figure out what's what.
 
-* when no data arrives from the mvlc_eth while the debug gui is open the ui
-  thread gets very sluggish. this is because the debug gui polls the pipe queue
-  sizes which means it has to acquire the locks. at the same time the readout
-  thread will read till timeout so the lock is held for the timeout period.
-  I think the lock might be taken to get the pipe receive stats shown in the
-  daqstats widget.
-  -> move the getStats code into its own thread. ensure only one instance of
-  the code runs at a time. once done update the GUI
-
 * when modifying the mvlc trigger io via the gui the vme config is not marked
   as modified. I'm not sure why because the underlying script does get
-  modified. maybe i'm ignoring the modification on purpose?
+  modified. Maybe i'm ignoring the modification on purpose?
 
 * daqcontrol listfile filename is not updated when using the vmusb
 * Event Server component only mentioned in the daq_control section of the docs.
@@ -51,7 +42,7 @@ http://www.sympnp.org/proceedings/57/G29.pdf
 
 * add a vme script library for manual scripts and display the available script
   in the 'add script' context menu. populate this with mvlc counter readouts
-  and soft trigger actication scripts.
+  and soft trigger activation scripts.
 
 * Fix the mvlc_daq setup_trigger_io reset stuff
   Without doing a reset the stack will still be executed after having removed
