@@ -24,6 +24,7 @@
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "qt_util.h"
 #include "util/qt_metaobject.h"
+#include "vme_config_util.h"
 #include "vme_controller.h"
 
 #include <cmath>
@@ -686,8 +687,8 @@ static QJsonObject v1_to_v2(QJsonObject json)
     return json;
 }
 
-/* Instead of numeric TriggerCondition values string representations are stored
- * now. */
+/* Instead of numeric TriggerCondition values string representations are now
+ * stored. */
 static QJsonObject v2_to_v3(QJsonObject json)
 {
     qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
@@ -711,6 +712,23 @@ static QJsonObject v2_to_v3(QJsonObject json)
     return json;
 }
 
+// Changes between format versions 3 and 4.
+// - mdpp16 typename was changed to mdpp16_scp in the summer of 2019. This
+//   conversion updates the type name.
+// - The variable system was introduced and the vme templates have been updated
+//   to make use of the standard variables.
+//   Without any changes an existing setup will continue to work as before.
+//   Problems arise when adding a new VME module to an existing VME event.
+//   Things will break because the new module templates will reference
+//   variables that should have been set at event scope but do not exist in the
+//   older config version.
+//   To fix this a set of default variables is going to be added to each
+//   EventConfig in the setup.
+// - TODO: A non-breaking but tedious issue is that existing module scripts
+//   will not make use of the newly added variables whereas newly added modules
+//   will. To the user this will look very inconsistent because changes to
+//   variables will have an effect on some modules but not on others.
+//
 static QJsonObject v3_to_v4(QJsonObject json)
 {
     auto fix_mdpp16_module_typename = [] (QJsonObject json) -> QJsonObject
@@ -759,8 +777,43 @@ static QJsonObject v3_to_v4(QJsonObject json)
 
         return json;
     };
+
+    auto add_event_variables = [] (QJsonObject json)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "adding default event variables";
+
+        auto eventsArray = json["events"].toArray();
+
+        for (int eventIndex = 0;
+             eventIndex < eventsArray.size();
+             ++eventIndex)
+        {
+            QJsonObject eventJson = eventsArray[eventIndex].toObject();
+
+            auto eventConfig = std::make_unique<EventConfig>();
+            eventConfig->read(eventJson);
+            eventConfig->setVariables(make_default_event_variables(eventConfig->irqLevel));
+
+            eventJson = {};
+            eventConfig->write(eventJson);
+
+            eventsArray[eventIndex] = eventJson;
+        }
+
+        json["events"] = eventsArray;
+
+        return json;
+    };
+
+    qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
+
     json = fix_mdpp16_module_typename(json);
+
+    json = add_event_variables(json);
+
     return json;
+}
+
 using VMEConfigConverter = std::function<QJsonObject (QJsonObject)>;
 
 static QVector<VMEConfigConverter> VMEConfigConverters =
