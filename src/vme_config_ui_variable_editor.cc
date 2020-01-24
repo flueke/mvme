@@ -19,6 +19,19 @@ using boost::adaptors::indexed;
 namespace
 {
 
+std::unique_ptr<QStandardItem> make_item(const QString &text, bool isSysVar)
+{
+    auto sti = std::make_unique<QStandardItem>(text);
+
+    if (isSysVar)
+    {
+        sti->setFlags(sti->flags() & ~Qt::ItemIsEditable);
+        sti->setBackground(QBrush(Qt::lightGray, Qt::BDiagPattern));
+    }
+
+    return sti;
+}
+
 void populate_model(QStandardItemModel &model, const vme_script::SymbolTable &symtab)
 {
     model.clear();
@@ -37,32 +50,19 @@ void populate_model(QStandardItemModel &model, const vme_script::SymbolTable &sy
         const auto &var = symtab[name];
         const bool isSysVar = vme_script::is_system_variable_name(name);
 
-        auto make_item = [&isSysVar] (const QString &text)
-        {
-            auto sti = std::make_unique<QStandardItem>(text);
-            if (isSysVar)
-            {
-                sti->setFlags(sti->flags() & ~Qt::ItemIsEditable);
-                sti->setBackground(QBrush(Qt::lightGray, Qt::BDiagPattern));
-            }
-
-            return sti;
-        };
-
-        auto sti = make_item(name);
+        auto sti = make_item(name, isSysVar);
         model.setItem(row, 0, sti.release());
 
-        sti = make_item(var.value);
+        sti = make_item(var.value, isSysVar);
         model.setItem(row, 1, sti.release());
 
-        sti = make_item(var.comment);
+        sti = make_item(var.comment, isSysVar);
         model.setItem(row, 2, sti.release());
     }
 }
 
 void save_to_symboltable(const QStandardItemModel &model, vme_script::SymbolTable &symtab)
 {
-
     for (int row = 0; row < model.rowCount(); row++)
     {
         assert(model.columnCount() == 3);
@@ -76,6 +76,29 @@ void save_to_symboltable(const QStandardItemModel &model, vme_script::SymbolTabl
 
         symtab[name] = var;
     }
+}
+
+void set_variable_value(QStandardItemModel &model, const QString &varName, const QString &varValue)
+{
+    for (int row = 0; row < model.rowCount(); row++)
+    {
+        assert(model.columnCount() == 3);
+        auto name = model.item(row, 0)->text();
+
+        if (varName == name)
+        {
+            model.item(row, 1)->setText(varValue);
+            return;
+        }
+    }
+
+    const bool isSysVar = vme_script::is_system_variable_name(varName);
+
+    QList<QStandardItem *> items;
+    items.push_back(make_item(varName, isSysVar).release());
+    items.push_back(make_item(varValue, isSysVar).release());
+    items.push_back(make_item({}, isSysVar).release());
+    model.appendRow(items);
 }
 
 QStringList get_symbol_names(const QStandardItemModel &model)
@@ -167,7 +190,6 @@ struct VariableNameEditorDelegate: public QStyledItemDelegate
         QStandardItemModel *m_model;
 };
 
-
 } // end anon namespace
 
 struct VariableEditorWidget::Private
@@ -189,9 +211,11 @@ VariableEditorWidget::VariableEditorWidget(
 , d(std::make_unique<Private>())
 {
     d->model = std::make_unique<QStandardItemModel>();
+    d->model->setColumnCount(3);
     d->tableView = new QTableView(this);
     d->tableView->verticalHeader()->hide();
     d->tableView->setSelectionMode(QAbstractItemView::SingleSelection);
+    d->tableView->setWordWrap(true);
     auto nameDelegate = new VariableNameEditorDelegate(d->model.get(), this);
     d->tableView->setItemDelegateForColumn(0, nameDelegate);
 
@@ -274,4 +298,9 @@ vme_script::SymbolTable VariableEditorWidget::getVariables() const
     vme_script::SymbolTable symtab;
     save_to_symboltable(*d->model, symtab);
     return symtab;
+}
+
+void VariableEditorWidget::setVariableValue(const QString &varName, const QString &varValue)
+{
+    set_variable_value(*d->model, varName, varValue);
 }

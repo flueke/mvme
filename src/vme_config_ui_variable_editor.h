@@ -37,6 +37,7 @@ class LIBMVME_EXPORT VariableEditorWidget: public QWidget
 
         void setVariables(const vme_script::SymbolTable &symtab);
         vme_script::SymbolTable getVariables() const;
+        void setVariableValue(const QString &varName, const QString &varValue);
 
     private:
         struct Private;
