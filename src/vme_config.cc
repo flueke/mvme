@@ -561,7 +561,7 @@ void EventConfig::read_impl(const QJsonObject &json)
         });
 
         // FIXME: report error on unknown trigger condition
-        triggerCondition = (it != TriggerConditionNames.end()) ? it.key() : TriggerCondition::NIM1;
+        triggerCondition = (it != TriggerConditionNames.end()) ? it.key() : TriggerCondition::Interrupt;
         triggerOptions = json["triggerOptions"].toObject().toVariantMap();
     }
     irqLevel = json["irqLevel"].toInt();
