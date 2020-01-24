@@ -639,7 +639,7 @@ void EventConfig::write_impl(QJsonObject &json) const
 //
 
 // Versioning of the DAQ config in case incompatible changes need to be made.
-static const int CurrentDAQConfigVersion = 3;
+static const int CurrentDAQConfigVersion = 4;
 
 /* Module script storage changed:
  * vme_scripts.readout              -> vmeReadout
@@ -711,13 +711,64 @@ static QJsonObject v2_to_v3(QJsonObject json)
     return json;
 }
 
+static QJsonObject v3_to_v4(QJsonObject json)
+{
+    auto fix_mdpp16_module_typename = [] (QJsonObject json) -> QJsonObject
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "changing 'mdpp16' module type name to 'mdpp16_scp'";
+
+        auto eventsArray = json["events"].toArray();
+
+        for (int eventIndex = 0;
+             eventIndex < eventsArray.size();
+             ++eventIndex)
+        {
+            QJsonObject eventJson = eventsArray[eventIndex].toObject();
+            auto modulesArray = eventJson["modules"].toArray();
+
+            for (int moduleIndex = 0;
+                 moduleIndex < modulesArray.size();
+                 ++moduleIndex)
+            {
+                QJsonObject moduleJson = modulesArray[moduleIndex].toObject();
+
+                // Case1: old mdpp16 type name
+                if (moduleJson["type"].toString() == "mdpp16")
+                {
+                    moduleJson["type"] = QString("mdpp16_scp");
+                }
+                // Case2: type name is empty. This happened when loading a
+                // setup before the conversion and resaving it. mvme wasn't
+                // able to find module meta information, thus
+                // ModuleConfig.m_meta was empty and when writing the config
+                // back out the typename was set to an empty string.
+                else if (moduleJson["type"].toString().isEmpty()
+                         && moduleJson["name"].toString().startsWith("mdpp16"))
+                {
+                    moduleJson["type"] = QString("mdpp16_scp");
+                }
+
+                modulesArray[moduleIndex] = moduleJson;
+            }
+
+            eventJson["modules"] = modulesArray;
+            eventsArray[eventIndex] = eventJson;
+        }
+
+        json["events"] = eventsArray;
+
+        return json;
+    };
+    json = fix_mdpp16_module_typename(json);
+    return json;
 using VMEConfigConverter = std::function<QJsonObject (QJsonObject)>;
 
 static QVector<VMEConfigConverter> VMEConfigConverters =
 {
     nullptr,
     v1_to_v2,
-    v2_to_v3
+    v2_to_v3,
+    v3_to_v4
 };
 
 static int get_version(const QJsonObject &json)
