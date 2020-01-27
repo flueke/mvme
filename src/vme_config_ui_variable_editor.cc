@@ -212,10 +212,13 @@ VariableEditorWidget::VariableEditorWidget(
 {
     d->model = std::make_unique<QStandardItemModel>();
     d->model->setColumnCount(3);
+
     d->tableView = new QTableView(this);
     d->tableView->verticalHeader()->hide();
+    d->tableView->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    d->tableView->horizontalHeader()->setStretchLastSection(true);
     d->tableView->setSelectionMode(QAbstractItemView::SingleSelection);
-    d->tableView->setWordWrap(true);
+
     auto nameDelegate = new VariableNameEditorDelegate(d->model.get(), this);
     d->tableView->setItemDelegateForColumn(0, nameDelegate);
 
@@ -240,7 +243,8 @@ VariableEditorWidget::VariableEditorWidget(
         assert(items.size() == 3);
         items[0]->setText("new_var");
         d->model->appendRow(items);
-        d->tableView->resizeColumnsToContents();
+        for (int col = 0; col < 2; col++)
+            d->tableView->resizeColumnToContents(col);
         auto newIndex = d->model->index(d->model->rowCount() - 1, 0);
         d->tableView->setCurrentIndex(newIndex);
         d->tableView->selectionModel()->select(
@@ -275,7 +279,10 @@ void VariableEditorWidget::setVariables(const vme_script::SymbolTable &symtab)
     if (auto sm = d->tableView->selectionModel())
         sm->deleteLater();
     d->tableView->setModel(d->model.get());
-    d->tableView->resizeColumnsToContents();
+    d->tableView->setTextElideMode(Qt::ElideNone);
+    d->tableView->setWordWrap(true);
+    for (int col = 0; col < 2; col++)
+        d->tableView->resizeColumnToContents(col);
 
     // This has to happen after every call to setModel() because a new
     // QItemSelectionModel will have been created internally by the view.
