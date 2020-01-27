@@ -290,7 +290,8 @@ static QJsonObject v3_to_v4(QJsonObject json)
                 // ModuleConfig.m_meta was empty and when writing the config
                 // back out the typename was set to an empty string.
                 else if (moduleJson["type"].toString().isEmpty()
-                         && moduleJson["name"].toString().startsWith("mdpp16"))
+                         && moduleJson["name"].toString().contains(
+                             "mdpp16", Qt::CaseInsensitive))
                 {
                     moduleJson["type"] = QString("mdpp16_scp");
                 }
