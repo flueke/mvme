@@ -237,7 +237,14 @@ static const QVector<ReplacementRule> ModuleRules =
 
 // Changes between format versions 3 and 4.
 // - mdpp16 typename was changed to mdpp16_scp in the summer of 2019. This
-//   conversion updates the type name.
+//   conversion updates the type name. This makes it so that the vme/analysis
+//   template system recogizes the module again and thus things like creating
+//   analysis filters and multi-event-splitting will work again.
+//   In the case a config was saved with the unknown module type the module
+//   type in the JSON data became an empty string. To fix this if the module
+//   type is empty and the module name contains the string "mdpp16" the module
+//   type is also set to 'mdpp16_scp'
+//
 // - The variable system was introduced and the vme templates have been updated
 //   to make use of the standard variables.
 //   Without any changes an existing setup will continue to work as before.
@@ -245,19 +252,29 @@ static const QVector<ReplacementRule> ModuleRules =
 //   Things will break because the new module templates will reference
 //   variables that should have been set at event scope but do not exist in the
 //   older config version.
-//   To fix this a set of standard variables is going to be added to each
-//   EventConfig in the setup:
+//   To fix this a set of standard variables is added to each EventConfig in
+//   the setup:
 //   * sys_irq is taken from the events TriggerCondition and irqLevel.
-//   * mesy_mcst is guessed by taking a look at the 'daq_start' script. The
-//     guessed value or the default of 0xbb is set.
+//   * mesy_mcst is guessed by taking a look at the 'daq_start' script,
+//     specifically a write to module register 0x603a (start/stop acq). The
+//     guessed value or a default value of 0xbb is set.
 //   * mesy_readout_num_events is set to 1
 //   * mesy_eoe_marker is set to 1 (timestamp mode)
-// - Old vme scripts do not reference any of the variables
-// - TODO: A non-breaking but tedious issue is that existing module scripts
-//   will not make use of the newly added variables whereas newly added modules
-//   will. To the user this will look very inconsistent because changes to
-//   variables will have an effect on some modules but not on others.
 //
+// - Existing vme scripts do not reference any of the variables yet.
+//   This means changes to e.g. an events irq value or to any of the mesy_*
+//   variables will have an effect on newly created events and modules but not
+//   on existing ones.
+//   To remedy this issue event and module scripts are updated to reference the
+//   current set of variables.
+//   The update is performed by matching expected lines from the old template
+//   files against regular expressions. If a match is found the old line is
+//   kept as a comment and the updated version is inserted below.
+//   All the write commands that have been in the module and event templates
+//   for a while will be updated. Non-standard writes which do not match the
+//   regular expression won't be touched and the containing setup will have to
+//   be updated manually by the user.
+
 static QJsonObject v3_to_v4(QJsonObject json)
 {
     auto fix_mdpp16_module_typename = [] (QJsonObject json) -> QJsonObject
