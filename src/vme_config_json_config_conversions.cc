@@ -122,10 +122,13 @@ struct ReplacementRule
     uint16_t options = Options::KeepOriginalAsComment;
 };
 
+static const QString DefaultReplacementCommentPrefix = QSL(
+    "next line auto updated by mvme, previous version: ");
+
 QString apply_replacement_rules(
     const QVector<ReplacementRule> &rules,
     const QString &input,
-    const QString &commentPrefix = "next line auto updated by mvme, previous version: ")
+    const QString &commentPrefix = DefaultReplacementCommentPrefix)
 {
     using RO = ReplacementRule::Options;
 
@@ -155,7 +158,7 @@ QString apply_replacement_rules(
 void apply_replacement_rules(
     const QVector<ReplacementRule> &rules,
     VMEScriptConfig *scriptConfig,
-    const QString &commentPrefix = "next line auto updated by mvme - ")
+    const QString &commentPrefix = DefaultReplacementCommentPrefix)
 {
     auto scriptContents = scriptConfig->getScriptContents();
     QString updated = apply_replacement_rules(rules, scriptContents, commentPrefix);
