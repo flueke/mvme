@@ -436,6 +436,8 @@ ModuleConfigDialog::ModuleConfigDialog(
     assert(parentEvent);
     assert(vmeConfig);
 
+    resize(500, 400);
+
     m_d->variableEditor = new VariableEditorWidget;
 
     setWindowTitle(QSL("Module Config"));
@@ -518,6 +520,10 @@ ModuleConfigDialog::ModuleConfigDialog(
         layout->addWidget(m_d->variableEditor);
 
         m_d->variableEditor->setVariables(m_module->getVariables());
+
+        auto sizePol = gb_variables->sizePolicy();
+        sizePol.setVerticalStretch(1);
+        gb_variables->setSizePolicy(sizePol);
     }
 
     layout->addRow("Type", typeCombo);
