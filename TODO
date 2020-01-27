@@ -2,6 +2,13 @@
 TODO list
 ==================================================
 
+* config update from version 3 to 4 (introduction of vme_script variables):
+  - could guess readout_num_events from writes to 0x601A
+  - could guess mesy_eoe_marker from writes to 0x6038
+  - logging of what's changed
+  - user visible prompt (modal warning box) about the schema and script update.
+    also set the config to modified.
+
 * think about moving the buisness logic in vme_config_ui into factory functions
   for new EventConfig and ModuleConfig instances. Also factor out things like
   getting the next available mcst address.
@@ -23,6 +30,7 @@ http://www.sympnp.org/proceedings/57/G29.pdf
   implement the functionality!
   what should happen if the script is not a trigger io script? meaning the
   correct meta block doesn't exist in it?
+  -> display error message, leave existing script untouched
 * generate text file of input and output names used in the setup. this could be
   printed and used at experiment time to figure out what's what.
 
