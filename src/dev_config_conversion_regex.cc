@@ -1,5 +1,6 @@
 #include <QRegularExpression>
 #include <QDebug>
+#include "typedefs.h"
 
 const QString eventSample = R"-(
 # Start acquisition sequence using the default multicast address 0xbb
@@ -58,7 +59,7 @@ struct ReplacementRule
     uint16_t options = Options::KeepOriginalAsComment;
 };
 
-QString apply_replacements(
+QString apply_replacement_rules(
     const QVector<ReplacementRule> &rules,
     const QString &input,
     const QString &commentPrefix = {})
@@ -88,8 +89,35 @@ QString apply_replacements(
     return result;
 }
 
+// Guess the high-byte of the event mcst.
+// The input script must be one of the event daq start/stop scripts containing
+// a write to the 'start/stop acq register' (0x603a).
+u8 guess_event_mcst(const QString &eventScript)
+{
+    static const QRegularExpression re(
+        R"-(^\s*writeabs\s+a32\s+d16\s+(0x[0-9a-fA-F]{2})00603a\s+.*$)-",
+        QRegularExpression::MultilineOption);
+
+    auto match = re.match(eventScript);
+
+    if (match.hasMatch())
+    {
+        //qDebug() << "re has match" << match.captured(0) << match.captured(1);
+        u8 mcst = static_cast<u8>(match.captured(1).toUInt(nullptr, 0));
+        return mcst;
+    }
+
+    return 0u;
+}
+
+
 int main(int argc, char *argv[])
 {
+    {
+        u8 guessedMCST = guess_event_mcst(eventSample);
+        qDebug() << "guessed event mcst =" <<  static_cast<unsigned>(guessedMCST);
+    }
+
     {
         // For event level scripts event_daq_start, event_daq_stop,
         // readout_cylce_start, readout_cycle_end.
@@ -97,7 +125,7 @@ int main(int argc, char *argv[])
         {
             {
                 R"-(^# Start acquisition sequence using the default multicast address 0xbb\s*$)-",
-                "# Start the acquisition sequence for all modules via the events multicast address.",
+                "# Run the start-acquisition-sequence for all modules via the events multicast address.",
                 ReplacementRule::Options::ReplaceOnly,
             },
             {
@@ -122,7 +150,7 @@ int main(int argc, char *argv[])
             },
         };
 
-        QString updated = apply_replacements(eventRules, eventSample, "next line auto updated by mvme -");
+        QString updated = apply_replacement_rules(eventRules, eventSample, "next line auto updated by mvme -");
 
         qDebug().noquote() << "\neventSample after updating with eventRules:\n" << updated;
     }
@@ -168,7 +196,7 @@ int main(int argc, char *argv[])
             },
         };
 
-        QString updated = apply_replacements(moduleRules, moduleSample, "next line auto updated by mvme -");
+        QString updated = apply_replacement_rules(moduleRules, moduleSample, "next line auto updated by mvme -");
 
         qDebug().noquote() << "\nmoduleSample after updating with eventRules:\n" << updated;
     }
