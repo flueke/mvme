@@ -196,9 +196,11 @@ static const QVector<ReplacementRule> EventRules =
 static const QVector<ReplacementRule> ModuleRules =
 {
     // irq level
+    // Note: irq 0 is _not_ replaced. The assumption is that the user enabled
+    // the irq for a specific module only and disabled it for others.
     {
         R"-(^(\s*0x6010\s+[1-7]{1}.*)$)-",
-        "0x6010  ${sys_irq}                                 # irq level",
+        "0x6010 ${sys_irq}                                  # irq level",
     },
 
     // remove the irq vector line
@@ -228,7 +230,7 @@ static const QVector<ReplacementRule> ModuleRules =
 
     // set mcst
     {
-        R"-(^(\s*0x6024\s+0x[0-9a-fA-F]{2})$)-",
+        R"-(^(\s*0x6024\s+0x[0-9a-fA-F]{2}).*$)-",
         "0x6024 0x${mesy_mcst}                              # Set 8 high bits of MCST address",
     },
 };
