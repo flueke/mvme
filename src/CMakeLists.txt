@@ -292,15 +292,17 @@ target_sources(libmvme PRIVATE
     util_zip.cc
     vme_analysis_common.cc
     vme_config.cc
+    vme_config_json_config_conversions.cc
     vme_config_scripts.cc
     vme_config_tree.cc
     vme_config_ui.cc
     vme_config_ui_variable_editor.cc
     vme_config_util.cc
+    vme_config_version.cc
     vme_controller_factory.cc
     vme_controller_ui.cc
-    vme_debug_widget.cc
     vme_daq.cc
+    vme_debug_widget.cc
     vme_readout_worker.cc
     vme_script_editor.cc
     vmusb_buffer_processor.cc
