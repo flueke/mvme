@@ -491,6 +491,13 @@ void threaded_listfile_writer(
 
 struct MVLCReadoutWorker::Private
 {
+    enum class DebugInfoRequest
+    {
+        None,
+        OnNextBuffer,
+        OnNextError,
+    };
+
     MVLCReadoutWorker *q = nullptr;;
 
     // lots of mvlc api layers
@@ -517,6 +524,7 @@ struct MVLCReadoutWorker::Private
     static const size_t ListfileWriterBufferSize  = ReadBufferSize;
     ListfileWriterThreadContext listfileWriterContext;
     std::thread listfileWriterThread;
+    std::atomic<DebugInfoRequest> debugInfoRequest;
 
     Private(MVLCReadoutWorker *q_)
         : q(q_)
@@ -525,6 +533,7 @@ struct MVLCReadoutWorker::Private
         , previousData(ReadBufferSize)
         , localEventBuffer(LocalEventBufferSize)
         , listfileWriterContext(ListfileWriterBufferCount, ListfileWriterBufferSize)
+        , debugInfoRequest(DebugInfoRequest::None)
     {}
 
     struct EventWithModules
@@ -894,8 +903,19 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
     else
         ec = readout_usb(bytesTransferred);
 
-    if (getOutputBuffer()->used > 0)
+    auto outputBuffer = getOutputBuffer();
+
+    // TODO: handle the DebugInfoRequest::OnNextError case
+    if (outputBuffer->used > 0)
+    {
+        if (d->debugInfoRequest == Private::DebugInfoRequest::OnNextBuffer)
+        {
+            d->debugInfoRequest = Private::DebugInfoRequest::None;
+            emit debugInfoReady(*outputBuffer);
+        }
+
         flushCurrentOutputBuffer();
+    }
 
     return ec;
 }
@@ -931,9 +951,11 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
     {
         size_t bytesTransferred = 0u;
 
-        // TODO: this would be more efficient if the lock is held for multiple
+        // FIXME: this would be more efficient if the lock is held for multiple
         // packets. Using the FlushBufferTimeout is too long though and the GUI
         // will become sluggish.
+        // Update january 2020: the GUI should not be affected anymore because
+        // it can now pull stats without having to take the pipe lock anymore.
         auto dataGuard = mvlcLocks.lockData();
         auto result = d->mvlc_eth->read_packet(
             Pipe::Data, destBuffer->asU8(), destBuffer->free());
@@ -1279,6 +1301,16 @@ MVLCReadoutCounters MVLCReadoutWorker::getReadoutCounters() const
 MVLC_VMEController *MVLCReadoutWorker::getMVLC()
 {
     return d->mvlcCtrl;
+}
+
+void MVLCReadoutWorker::requestDebugInfoOnNextBuffer()
+{
+    d->debugInfoRequest = Private::DebugInfoRequest::OnNextBuffer;
+}
+
+void MVLCReadoutWorker::requestDebugInfoOnNextError()
+{
+    d->debugInfoRequest = Private::DebugInfoRequest::OnNextError;
 }
 
 void MVLCReadoutWorker::logError(const QString &msg)

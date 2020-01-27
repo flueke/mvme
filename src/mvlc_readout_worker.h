@@ -32,6 +32,9 @@ namespace mvlc
 class MVLCReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
+    signals:
+        void debugInfoReady(const DataBuffer &buffer);
+
     public:
         MVLCReadoutWorker(QObject *parent = nullptr);
         ~MVLCReadoutWorker() override;
@@ -45,6 +48,10 @@ class MVLCReadoutWorker: public VMEReadoutWorker
 
         MVLCReadoutCounters getReadoutCounters() const;
         mesytec::mvlc::MVLC_VMEController *getMVLC();
+
+    public slots:
+        void requestDebugInfoOnNextBuffer();
+        void requestDebugInfoOnNextError();
 
     private:
         struct Private;

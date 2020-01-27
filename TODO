@@ -12,6 +12,7 @@ TODO list
 * think about moving the buisness logic in vme_config_ui into factory functions
   for new EventConfig and ModuleConfig instances. Also factor out things like
   getting the next available mcst address.
+  -> done for EventConfig (vme_config_util.h)
 
 * doc: mvlc and jumbo frames
 
@@ -66,11 +67,6 @@ http://www.sympnp.org/proceedings/57/G29.pdf
 * LUT editor minimize might not be correct. Test this more. Mostly I confuse
   myself when creating functions. Input bit order also is not documented (LSBit
   is the rightmost).
-
-* LUT editor: make the top section smaller when resizing the window. ideally it
-  would only just show all 6 input bits and nothing more. the bottom area can
-  then be used for the output bits.
-  https://stackoverflow.com/questions/8766633/how-to-determine-the-correct-size-of-a-qtablewidget
 
 * add readout side buffer sniffing similar to what's done on the analysis side.
 * after finishing a run/replay with pause enabled the next run will always
