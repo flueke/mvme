@@ -2730,8 +2730,8 @@ LUTOutputEditor::LUTOutputEditor(
     layout_outputActivation->addWidget(m_outputWidgetStack);
 
     auto layout = make_layout<QVBoxLayout>(this);
-    layout->addWidget(widget_inputSelect, 40);
-    layout->addWidget(widget_outputActivation, 60);
+    layout->addWidget(widget_inputSelect, 0);
+    layout->addWidget(widget_outputActivation, 1);
 
     onInputUsageChanged();
 }
