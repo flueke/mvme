@@ -1,4 +1,4 @@
-#include "vme_config_json_config_conversions.h"
+#include "vme_config_json_schema_updates.h"
 
 #include <QDebug>
 #include <QJsonArray>
@@ -6,7 +6,7 @@
 
 #include "globals.h"
 #include "vme_config.h"
-#include "vme_config_json_config_conversions_p.h"
+#include "vme_config_json_schema_updates_p.h"
 #include "vme_config_util.h"
 #include "vme_config_version.h"
 #include "vme_script_variables.h"

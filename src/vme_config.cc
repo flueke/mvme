@@ -33,7 +33,7 @@
 #include "vme_config_util.h"
 #include "vme_controller.h"
 #include "vme_config_version.h"
-#include "vme_config_json_config_conversions.h"
+#include "vme_config_json_schema_updates.h"
 
 using namespace vats;
 

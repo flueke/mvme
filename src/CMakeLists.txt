@@ -292,7 +292,7 @@ target_sources(libmvme PRIVATE
     util_zip.cc
     vme_analysis_common.cc
     vme_config.cc
-    vme_config_json_config_conversions.cc
+    vme_config_json_schema_updates.cc
     vme_config_scripts.cc
     vme_config_tree.cc
     vme_config_ui.cc
