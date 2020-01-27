@@ -45,21 +45,25 @@ u8 get_next_free_irq(const VMEConfig *vmeConfig)
     return 0u;
 }
 
-vme_script::SymbolTable make_default_event_variables(u8 irq, u8 mcst)
+vme_script::SymbolTable make_standard_event_variables(u8 irq, u8 mcst)
 {
     vme_script::SymbolTable vars;
 
     vars["sys_irq"] = vme_script::Variable(
-        QString::number(irq), {}, "IRQ value set for the VME Controller for this event.");
+        QString::number(irq), {},
+        "IRQ value set for the VME Controller for this event.");
 
     vars["mesy_mcst"] = vme_script::Variable(
-        QString::number(mcst, 16), {}, "The most significant byte of the 32-bit multicast address to be used by this event.");
+        QString::number(mcst, 16), {},
+        "The most significant byte of the 32-bit multicast address to be used by this event.");
 
     vars["mesy_readout_num_events"] = vme_script::Variable(
-        "1", {}, "Number of events to read out in each cycle.");
+        "1", {},
+        "Number of events to read out in each cycle.");
 
     vars["mesy_eoe_marker"] = vme_script::Variable(
-        "1", {}, "EndOfEvent marker for mesytec modules (0: eventcounter, 1: timestamp, 3: extended_ts).");
+        "1", {},
+        "EndOfEvent marker for mesytec modules (0: eventcounter, 1: timestamp, 3: extended_ts).");
 
     return vars;
 }
@@ -78,7 +82,7 @@ std::unique_ptr<EventConfig> make_new_event_config(const VMEConfig *vmeConfig)
     eventConfig->triggerCondition = TriggerCondition::Interrupt;
     eventConfig->irqLevel = irq;
 
-    auto vars = make_default_event_variables(irq, mcst);
+    auto vars = make_standard_event_variables(irq, mcst);
     eventConfig->setVariables(vars);
 
     return eventConfig;

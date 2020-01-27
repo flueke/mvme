@@ -6,7 +6,7 @@
 #include "libmvme_export.h"
 #include "vme_config.h"
 
-vme_script::SymbolTable make_default_event_variables(u8 irq = 1, u8 mcst = 0xbb);
+vme_script::SymbolTable make_standard_event_variables(u8 irq = 1, u8 mcst = 0xbb);
 
 // Factory funcion to setup a new EventConfig instance which is to be added to
 // the given VMEConfig.
