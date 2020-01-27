@@ -231,7 +231,7 @@ static const QVector<ReplacementRule> ModuleRules =
     // set mcst
     {
         R"-(^(\s*0x6024\s+0x[0-9a-fA-F]{2}).*$)-",
-        "0x6024 0x${mesy_mcst}                              # Set 8 high bits of MCST address",
+        "0x6024 0x${mesy_mcst}                              # Set the 8 high-order bits of the MCST address",
     },
 };
 
