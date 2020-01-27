@@ -110,6 +110,8 @@ EventConfigDialog::EventConfigDialog(
     , m_controller(controller)
     , m_config(config)
 {
+    resize(600, 500);
+
     m_d->vmeConfig = vmeConfig;
 
     m_d->le_name = new QLineEdit;
