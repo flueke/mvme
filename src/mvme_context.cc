@@ -2396,6 +2396,21 @@ void MVMEContext::reapplyWorkspaceSettings()
 void MVMEContext::loadVMEConfig(const QString &fileName)
 {
     QJsonDocument doc(gui_read_json_file(fileName));
+
+    auto jsonRoot = doc.object();
+
+    if (!jsonRoot.contains("DAQConfig"))
+    {
+        QMessageBox::critical(
+            nullptr,
+            QSL("Error loading VME config"),
+            QSL("The file '%1' does not contain an MVME VME Config object.")
+            .arg(fileName)
+            );
+
+        return;
+    }
+
     auto vmeConfig = std::make_unique<VMEConfig>();
     if (auto ec = vmeConfig->readVMEConfig(doc.object()["DAQConfig"].toObject()))
     {
