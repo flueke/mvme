@@ -77,7 +77,7 @@ class VMEConfigTreeWidget: public QWidget
 
         TreeNode *makeObjectNode(ConfigObject *obj);
         TreeNode *addObjectNode(QTreeWidgetItem *parentNode, ConfigObject *obj);
-        void addContainerNodes(TreeNode *parent, ContainerObject *obj);
+        void addContainerNodes(QTreeWidgetItem *parent, ContainerObject *obj);
 
         void onItemClicked(QTreeWidgetItem *item, int column);
         void onItemDoubleClicked(QTreeWidgetItem *item, int column);
@@ -114,6 +114,11 @@ class VMEConfigTreeWidget: public QWidget
         bool isObjectEnabled(QTreeWidgetItem *node, int expectedNodeType) const;
 
         void updateConfigLabel();
+
+        void copyToClipboard(const ConfigObject *obj);
+        void pasteFromClipboard();
+        bool canCopy(const ConfigObject *obj) const;
+        bool canPaste() const;
 
         VMEConfig *m_config = nullptr;
         QString m_configFilename;
