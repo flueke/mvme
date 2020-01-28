@@ -440,7 +440,6 @@ add_mvme_executable(dev_histo1d_testing "dev_histo1d_testing.cc")
 add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
 add_mvme_executable(dev_configobject_testing "dev_configobject_testing.cc")
 add_mvme_executable(dev_vme_config_ui_variable_editor "dev_vme_config_variable_editor.cc")
-add_mvme_executable(dev_config_conversion_regex "dev_config_conversion_regex.cc")
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
