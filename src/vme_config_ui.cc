@@ -110,7 +110,7 @@ EventConfigDialog::EventConfigDialog(
     , m_controller(controller)
     , m_config(config)
 {
-    resize(600, 500);
+    resize(700, 600);
 
     m_d->vmeConfig = vmeConfig;
 
