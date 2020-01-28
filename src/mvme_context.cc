@@ -2396,7 +2396,7 @@ void MVMEContext::reapplyWorkspaceSettings()
 void MVMEContext::loadVMEConfig(const QString &fileName)
 {
     QJsonDocument doc(gui_read_json_file(fileName));
-    auto vmeConfig = new VMEConfig;
+    auto vmeConfig = std::make_unique<VMEConfig>();
     if (auto ec = vmeConfig->readVMEConfig(doc.object()["DAQConfig"].toObject()))
     {
         QMessageBox::critical(nullptr,
@@ -2407,7 +2407,7 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
         return;
     }
 
-    setVMEConfig(vmeConfig);
+    setVMEConfig(vmeConfig.release());
     setConfigFileName(fileName);
     setMode(GlobalMode::DAQ);
     setVMEController(vmeConfig->getControllerType(), vmeConfig->getControllerSettings());
