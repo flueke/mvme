@@ -190,6 +190,15 @@ void ConfigObject::setVariable(const QString &name, const vme_script::Variable &
     }
 }
 
+void ConfigObject::setVariableValue(const QString &name, const QString &value)
+{
+    if (m_variables.value(name).value != value)
+    {
+        m_variables[name].value = value;
+        setModified();
+    }
+}
+
 bool ConfigObject::eventFilter(QObject *obj, QEvent *event)
 {
     if (obj == this && event->type() == QEvent::DynamicPropertyChange)

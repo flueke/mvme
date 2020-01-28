@@ -58,8 +58,16 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         void write(QJsonObject &json) const;
 
         vme_script::SymbolTable getVariables() const { return m_variables; }
+
+        // Replaces the objects symboltable.
         void setVariables(const vme_script::SymbolTable &variables);
+
+        // Adds a new or overwrites an existing variable.
         void setVariable(const QString &name, const vme_script::Variable &var);
+
+        // Udpates the named variables value. This leaves an existing comment and
+        // other variable attributes intact.
+        void setVariableValue(const QString &name, const QString &value);
 
         template<typename T, typename Predicate>
         T findChildByPredicate(Predicate p, bool recurse=true) const

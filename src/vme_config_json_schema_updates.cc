@@ -9,7 +9,38 @@
 #include "vme_config_json_schema_updates_p.h"
 #include "vme_config_util.h"
 #include "vme_config_version.h"
+#include "vme_script_util.h"
 #include "vme_script_variables.h"
+
+namespace
+{
+
+u32 get_register_value(u32 address, const QString &vmeScript, u32 defaultValue = 0u)
+{
+    try
+    {
+        auto writes = vme_script::collect_writes(vmeScript);
+        return writes.value(address, defaultValue);
+    }
+    catch (const vme_script::ParseError &e)
+    {}
+
+    return defaultValue;
+}
+
+// defaults to 1: timestamp
+u32 guess_module_mesy_eoe_marker(const QString &vmeSettingsScript)
+{
+    return get_register_value(0x6038, vmeSettingsScript, 1u);
+}
+
+// defaults to 1
+u32 guess_module_readout_num_events(const QString &vmeSettingsScript)
+{
+    return get_register_value(0x601A, vmeSettingsScript, 1u);
+}
+
+} // end anon namespace
 
 namespace mvme
 {
@@ -32,6 +63,7 @@ u8 guess_event_mcst(const QString &eventScript)
 
     return 0u;
 }
+
 
 } // end namespace vme_config_json
 } // end namespace mvme
@@ -123,7 +155,7 @@ struct ReplacementRule
 };
 
 static const QString DefaultReplacementCommentPrefix = QSL(
-    "next line auto updated by mvme, previous version: ");
+    "the next line was auto updated by mvme, previous version: ");
 
 QString apply_replacement_rules(
     const QVector<ReplacementRule> &rules,
@@ -355,6 +387,25 @@ static QJsonObject v3_to_v4(QJsonObject json)
                       : 0u);
 
             eventConfig->setVariables(make_standard_event_variables(irq, mcst));
+
+            // Look at the first module in the event and use its 'VME Interface
+            // Settings' script to guess values for 'mesy_eoe_marker' and
+            // 'mesy_reaodut_num_events'.
+            if (!eventConfig->getModuleConfigs().isEmpty())
+            {
+                auto firstModule = eventConfig->getModuleConfigs().first();
+                auto vmeSettings = firstModule->findChildByName<VMEScriptConfig *>(
+                    QSL("VME Interface Settings"), false);
+
+                if (vmeSettings)
+                {
+                    u32 eoe_marker = guess_module_mesy_eoe_marker(vmeSettings->getScriptContents());
+                    u32 num_events = guess_module_readout_num_events(vmeSettings->getScriptContents());
+
+                    eventConfig->setVariableValue("mesy_eoe_marker", QString::number(eoe_marker));
+                    eventConfig->setVariableValue("mesy_readout_num_events", QString::number(num_events));
+                }
+            }
 
             eventJson = {};
             eventConfig->write(eventJson);
