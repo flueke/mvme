@@ -2422,10 +2422,11 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
         return;
     }
 
-    setVMEConfig(vmeConfig.release());
+    setVMEConfig(vmeConfig.get());
     setConfigFileName(fileName);
     setMode(GlobalMode::DAQ);
     setVMEController(vmeConfig->getControllerType(), vmeConfig->getControllerSettings());
+    vmeConfig.release();
 
     if (m_d->m_vmeConfigAutoSaver)
     {
