@@ -663,12 +663,6 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
 
         menu.addAction(QSL("Rename Event"), this, &VMEConfigTreeWidget::editName);
-
-        if (isIdle)
-        {
-            menu.addSeparator();
-            menu.addAction(QSL("Remove Event"), this, &VMEConfigTreeWidget::removeEvent);
-        }
     }
 
     if (node && node->type() == NodeType_EventModulesInit)
@@ -712,8 +706,6 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
                     toggleObjectEnabled(node, NodeType_Module);
                 });
-
-           menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
         }
 
         if (obj->isEnabled())
@@ -726,39 +718,6 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     // Global scripts
     //
-#if 0
-    if (node == m_nodeStart || node == m_nodeStop || node == m_nodeManual)
-    {
-        if (isIdle || isMVLC)
-        {
-            if (node->childCount() > 0)
-                menu.addAction(QSL("Run scripts"), this, &VMEConfigTreeWidget::runScripts);
-        }
-
-        menu.addAction(QSL("Add script"), this, &VMEConfigTreeWidget::addGlobalScript);
-
-    }
-
-    if (parent == m_nodeStart || parent == m_nodeStop || parent == m_nodeManual)
-    {
-        Q_ASSERT(obj);
-
-        menu.addAction(QSL("Rename Script"), this, &VMEConfigTreeWidget::editName);
-
-        if (isIdle)
-        {
-            menu.addSeparator();
-            // disabling manual scripts doesn't make any sense
-            if (parent == m_nodeStart || parent == m_nodeStop)
-            {
-                menu.addAction(obj->isEnabled() ? QSL("Disable Script") : QSL("Enable Script"),
-                               this, [this, node]() { toggleObjectEnabled(node, NodeType_VMEScript); });
-            }
-
-            menu.addAction(QSL("Remove Script"), this, &VMEConfigTreeWidget::removeGlobalScript);
-        }
-    }
-#else
     if (qobject_cast<ContainerObject *>(obj))
     {
         if (isIdle || isMVLC)
@@ -785,29 +744,89 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                 menu.addAction(obj->isEnabled() ? QSL("Disable Script") : QSL("Enable Script"),
                                this, [this, node]() { toggleObjectEnabled(node, NodeType_VMEScript); });
             }
-
-            menu.addAction(QSL("Remove Script"), this, &VMEConfigTreeWidget::removeGlobalScript);
         }
     }
-#endif
+
+    auto make_object_type_string = [](const ConfigObject *obj)
+    {
+        if (qobject_cast<const EventConfig *>(obj))
+            return QSL("Event");
+        if (qobject_cast<const ModuleConfig *>(obj))
+            return QSL("Module");
+        if (qobject_cast<const VMEScriptConfig *>(obj))
+            return QSL("VME Script");
+        return QString{};
+    };
 
     // copy and paste
     {
         menu.addSeparator();
 
         auto action = menu.addAction(
-            QIcon::fromTheme("edit-copy"), "Copy",
+            QIcon::fromTheme("edit-copy"), "Copy " + make_object_type_string(obj),
             [this, obj] { copyToClipboard(obj); },
             QKeySequence::Copy);
 
         action->setEnabled(canCopy(obj));
 
+        QString pasteObjectTypeString;
+
+        if (canPaste())
+        {
+            auto objFromClipboard = make_object_from_mime_data(
+                QGuiApplication::clipboard()->mimeData());
+
+            pasteObjectTypeString = make_object_type_string(objFromClipboard.get());
+        }
+
         action = menu.addAction(
-            QIcon::fromTheme("edit-paste"), "Paste",
+            QIcon::fromTheme("edit-paste"), "Paste " + pasteObjectTypeString,
             [this] { pasteFromClipboard(); },
             QKeySequence::Paste);
 
         action->setEnabled(canPaste());
+    }
+
+    // remove selected object
+    if (isIdle)
+    {
+        QString objectTypeString;
+        std::function<void ()> removeFunc;
+
+        if (node && node->type() == NodeType_Event)
+        {
+            objectTypeString = "Event";
+            removeFunc = [this] () { removeEvent(); };
+        }
+
+        if (node && node->type() == NodeType_Module)
+        {
+            objectTypeString = "Module";
+            removeFunc = [this] () { removeModule(); };
+        }
+
+        if (qobject_cast<VMEScriptConfig *>(obj) && obj->parent())
+        {
+            auto parentName = obj->parent()->objectName();
+
+            if (parentName == "daq_start"
+                || parentName == "daq_stop"
+                || parentName == "manual")
+            {
+                objectTypeString = "VME Script";
+                removeFunc = [this] () { removeGlobalScript(); };
+            }
+        }
+
+        if (removeFunc)
+        {
+            menu.addSeparator();
+
+            menu.addAction(
+                QIcon::fromTheme("edit-delete"),
+                "Remove " + objectTypeString,
+                removeFunc);
+        }
     }
 
     if (!menu.isEmpty())
