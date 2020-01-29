@@ -45,6 +45,9 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         ConfigObject(QObject *parent = 0);
 
         QUuid getId() const { return m_id; }
+        // Generates a new Uuid for the object.
+        // Note: this method does not set the objects modified flag!
+        void generateNewId();
 
         virtual void setModified(bool b = true);
         bool isModified() const { return m_modified; }
@@ -139,6 +142,7 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
     signals:
         void childAdded(ConfigObject *co);
         void childAboutToBeRemoved(ConfigObject *co);
+
     public:
         Q_INVOKABLE explicit ContainerObject(QObject *parent = nullptr);
 
@@ -371,6 +375,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         // scripts
         bool addGlobalScript(VMEScriptConfig *config, const QString &category);
         bool removeGlobalScript(VMEScriptConfig *config);
+        QStringList getGlobalScriptCategories() const;
 
         // vme controller
         void setVMEController(VMEControllerType type,
@@ -414,6 +419,9 @@ Q_DECLARE_METATYPE(VMEConfig *);
 LIBMVME_EXPORT std::pair<std::unique_ptr<VMEConfig>, QString>
     read_vme_config_from_file(const QString &filename);
 
+QString make_unique_event_name(const QString &prefix, const VMEConfig *vmeConfig);
+QString make_unique_event_name(const VMEConfig *vmeConfig);
 QString make_unique_module_name(const QString &prefix, const VMEConfig *vmeConfig);
+QString make_unique_name(const ConfigObject *co, const ContainerObject *destContainer);
 
 #endif

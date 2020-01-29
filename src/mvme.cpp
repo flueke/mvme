@@ -1830,7 +1830,7 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
 void MVMEMainWindow::runAddVMEEventDialog()
 {
     auto vmeConfig = m_d->m_context->getVMEConfig();
-    auto eventConfig = make_new_event_config(vmeConfig);
+    auto eventConfig = mvme::vme_config::make_new_event_config(vmeConfig);
 
     EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig.get(), vmeConfig, this);
     dialog.setWindowTitle(QSL("Add Event"));

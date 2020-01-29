@@ -25,6 +25,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDebug>
+#include <QRegularExpression>
 
 #include "CVMUSBReadoutList.h"
 #include "mvlc/mvlc_trigger_io_script.h"
@@ -92,6 +93,11 @@ ConfigObject::ConfigObject(QObject *parent)
     connect(this, &ConfigObject::enabledChanged, this, [this] {
         setModified(true);
     });
+}
+
+void ConfigObject::generateNewId()
+{
+    m_id = QUuid::createUuid();
 }
 
 void ConfigObject::setModified(bool b)
@@ -692,7 +698,7 @@ void VMEConfig::createMissingGlobals()
 
 std::error_code VMEConfig::readVMEConfig(const QJsonObject &json)
 {
-    using namespace mvme::vme_config_json;
+    using namespace mvme::vme_config::json_schema;
 
     int version = get_vmeconfig_version(json);
 
@@ -764,6 +770,15 @@ bool VMEConfig::removeGlobalScript(VMEScriptConfig *config)
     config->deleteLater();
     setModified();
     return true;
+}
+
+QStringList VMEConfig::getGlobalScriptCategories() const
+{
+    QStringList result;
+
+    for (auto child: m_globalObjects.getChildren())
+        result.push_back(child->objectName());
+    return result;
 }
 
 void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &settings)
@@ -855,7 +870,7 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
     eventConfigs.clear();
     qDeleteAll(m_globalObjects.getChildren());
 
-    QJsonObject json = mvme::vme_config_json::convert_vmeconfig_to_current_version(inputJson);
+    QJsonObject json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(inputJson);
 
     QJsonArray eventArray = json["events"].toArray();
 
@@ -1002,6 +1017,29 @@ std::pair<std::unique_ptr<VMEConfig>, QString>
     return result;
 }
 
+QString make_unique_event_name(const QString &prefix, const VMEConfig *vmeConfig)
+{
+    auto eventConfigs = vmeConfig->getEventConfigs();
+    QSet<QString> eventNames;
+
+    for (auto cfg: eventConfigs)
+    {
+        if (cfg->objectName().startsWith(prefix))
+        {
+            eventNames.insert(cfg->objectName());
+        }
+    }
+
+    u32 suffix = 0;
+    QString result = QString("%1%2").arg(prefix).arg(suffix++);
+
+    while (eventNames.contains(result))
+    {
+        result = QString("%1%2").arg(prefix).arg(suffix++);
+    }
+    return result;
+}
+
 QString make_unique_module_name(const QString &prefix, const VMEConfig *vmeConfig)
 {
     auto moduleConfigs = vmeConfig->getAllModuleConfigs();
@@ -1021,5 +1059,24 @@ QString make_unique_module_name(const QString &prefix, const VMEConfig *vmeConfi
     {
         result = QString("%1_%2").arg(prefix).arg(suffix++);
     }
+    return result;
+}
+
+QString make_unique_name(const ConfigObject *co, const ContainerObject *destContainer)
+{
+    QSet<QString> destNames;
+    for (auto child: destContainer->getChildren())
+        destNames.insert(child->objectName());
+
+    auto prefix = co->objectName();
+    prefix.remove(QRegularExpression("\\d+$", QRegularExpression::MultilineOption));
+
+    QString result = prefix;
+    u32 suffix = 1;
+    while (destNames.contains(result))
+    {
+        result = QString("%1%2").arg(prefix).arg(suffix++);
+    }
+
     return result;
 }

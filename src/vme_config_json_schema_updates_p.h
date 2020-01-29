@@ -6,7 +6,9 @@
 
 namespace mvme
 {
-namespace vme_config_json
+namespace vme_config
+{
+namespace json_schema
 {
 
 // Guess the high-byte of an events mcst.
@@ -14,7 +16,8 @@ namespace vme_config_json
 // a write to the 'start/stop acq register' (0x603a).
 u8 guess_event_mcst(const QString &eventScript);
 
-} // end namespace vme_config_json
+} // end namespace json_schema
+} // end namespace vme_config
 } // end namespace mvme
 
 #endif /* __MVME_VME_CONFIG_JSON_CONFIG_CONVERSIONS_P_H__ */

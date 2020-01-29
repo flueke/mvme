@@ -26,6 +26,7 @@
 #include "mvme_stream_worker.h"
 #include "vmusb.h"
 #include "vme_config_scripts.h"
+#include "vme_config_util.h"
 #include "vme_script_editor.h"
 
 #include <QClipboard>
@@ -44,6 +45,7 @@
 
 using namespace std::placeholders;
 using namespace vats;
+using namespace mvme::vme_config;
 
 enum NodeType
 {
@@ -93,10 +95,6 @@ class ModuleNode: public TreeNode
         TreeNode *readoutNode = nullptr;
 };
 
-static const QString MIMEType_JSON_ContainerObject = QSL("application/x-mvme-vmeconf-container");
-static const QString MIMEType_JSON_VMEEventConfig  = QSL("application/x-mvme-vmeconf-event");
-static const QString MIMEType_JSON_VMEModuleConfig = QSL("application/x-mvme-vmeconf-module");
-static const QString MIMEType_JSON_VMEScriptConfig = QSL("application/x-mvme-vmeconf-script");
 
 bool is_parent_disabled(ConfigObject *obj)
 {
@@ -1211,40 +1209,16 @@ void VMEConfigTreeWidget::updateConfigLabel()
 }
 
 
-namespace
-{
-    const QString get_mime_type(const ConfigObject *obj)
-    {
-        const bool isContainer = qobject_cast<const ContainerObject *>(obj);
-        const bool isEvent = qobject_cast<const EventConfig *>(obj);
-        const bool isModule = qobject_cast<const ModuleConfig *>(obj);
-        const bool isScript = qobject_cast<const VMEScriptConfig *>(obj);
 
-        if (isScript)
-            return MIMEType_JSON_VMEScriptConfig;
-
-        if (isModule)
-            return MIMEType_JSON_VMEModuleConfig;
-
-        if (isEvent)
-            return MIMEType_JSON_VMEEventConfig;
-
-        if (isContainer)
-            return MIMEType_JSON_ContainerObject;
-
-        assert(false);
-        return {};
-    }
-}
+// Note: Explicitly disallow copy/paste of ContainerObject instances for now
+// until the desired semantics are clear.
 
 bool VMEConfigTreeWidget::canCopy(const ConfigObject *obj) const
 {
-    const bool isContainer = qobject_cast<const ContainerObject *>(obj);
-    const bool isEvent = qobject_cast<const EventConfig *>(obj);
-    const bool isModule = qobject_cast<const ModuleConfig *>(obj);
-    const bool isScript = qobject_cast<const VMEScriptConfig *>(obj);
+    if (qobject_cast<const ContainerObject *>(obj))
+        return false;
 
-    return isContainer || isEvent || isModule || isScript;
+    return can_mime_copy_object(obj);
 }
 
 bool VMEConfigTreeWidget::canPaste() const
@@ -1254,10 +1228,10 @@ bool VMEConfigTreeWidget::canPaste() const
     auto nt = node ? node->type() : 0u;
     bool result = false;
 
-    if (clipboardData->hasFormat(MIMEType_JSON_ContainerObject))
-    {
-        result |= nt == NodeType_Container;
-    }
+    //if (clipboardData->hasFormat(MIMEType_JSON_ContainerObject))
+    //{
+    //    result |= nt == NodeType_Container;
+    //}
 
     if (clipboardData->hasFormat(MIMEType_JSON_VMEEventConfig))
     {
@@ -1266,7 +1240,8 @@ bool VMEConfigTreeWidget::canPaste() const
 
     if (clipboardData->hasFormat(MIMEType_JSON_VMEModuleConfig))
     {
-        result |= nt == NodeType_Event;
+        result |= (nt == NodeType_Event
+                   || nt == NodeType_EventModulesInit);
     }
 
     if (clipboardData->hasFormat(MIMEType_JSON_VMEScriptConfig))
@@ -1283,21 +1258,13 @@ void VMEConfigTreeWidget::copyToClipboard(const ConfigObject *obj)
 {
     assert(canCopy(obj));
 
-    if (!obj) return;
+    if (!obj || !can_mime_copy_object(obj))
+        return;
 
-    QJsonObject json;
-    obj->write(json);
-    auto buffer = QJsonDocument(json).toJson();
-
-    auto mimeData = new QMimeData;
-    mimeData->setData(get_mime_type(obj), buffer);
-    mimeData->setText(buffer);
-
-    QGuiApplication::clipboard()->setMimeData(mimeData);
+    if (auto mimeData = make_mime_data(obj))
+        QGuiApplication::clipboard()->setMimeData(mimeData.release());
 }
 
-// FIXME: figure out why more and more and more objects get pasted when copying
-// ContainerObjects. Do they get added to the MIME data?
 void VMEConfigTreeWidget::pasteFromClipboard()
 {
     if (!canPaste())
@@ -1308,48 +1275,67 @@ void VMEConfigTreeWidget::pasteFromClipboard()
     auto nt = node ? node->type() : 0u;
     auto destObj = node ? Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer)) : nullptr;
 
-    if (clipboardData->hasFormat(MIMEType_JSON_ContainerObject))
+    auto obj = make_object_from_mime_data(clipboardData);
+
+    if (!obj)
+        return;
+
+    qDebug() << __PRETTY_FUNCTION__ << "got an object from the clipboard:" << obj.get();
+
+    generate_new_object_ids(obj.get());
+
+    auto vmeConfig = getConfig();
+
+    if (auto eventConfig = qobject_cast<EventConfig *>(obj.get()))
     {
-        if (auto dest = qobject_cast<ContainerObject *>(destObj))
+        if (node != m_nodeEvents)
+            return;
+
+        eventConfig->setObjectName(make_unique_event_name("event", vmeConfig));
+
+        // Tree is notified via VMEConfig::eventAdded()
+        vmeConfig->addEventConfig(eventConfig);
+        obj.release();
+    }
+
+    if (auto moduleConfig = qobject_cast<ModuleConfig *>(obj.get()))
+    {
+        // Direct paste onto an event node
+        EventConfig *destEvent = qobject_cast<EventConfig *>(destObj);
+
+        // Check for paste onto the "Modules Init" node of an event
+        if (!destEvent
+            && nt == NodeType_EventModulesInit
+            && node->parent()
+            && node->parent()->type() == NodeType_Event)
         {
-            // FIXME: object name
-            auto data = clipboardData->data(MIMEType_JSON_ContainerObject);
-            auto jsonObj = QJsonDocument::fromJson(data).object();
-            auto co = std::make_unique<ContainerObject>();
-            co->read(jsonObj);
+            destEvent = Var2Ptr<EventConfig>(node->parent()->data(0, DataRole_Pointer));
+        }
 
-            dest->addChild(co.get()); // add to the parent container
+        if (destEvent)
+        {
+            moduleConfig->setObjectName(
+                make_unique_module_name(moduleConfig->getModuleMeta().typeName, vmeConfig));
 
-            addContainerNodes(node, co.get()); // add the tree nodes
-            co.release();
+            // Tree is notified via EventConfig::moduleAdded()
+            destEvent->addModuleConfig(moduleConfig);
+            obj.release();
         }
     }
 
-    if (clipboardData->hasFormat(MIMEType_JSON_VMEEventConfig))
+    if (auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj.get()))
     {
-        if (node == m_nodeEvents)
+        if (auto destContainer = qobject_cast<ContainerObject *>(destObj))
         {
-            auto data = clipboardData->data(MIMEType_JSON_VMEEventConfig);
-            auto jsonObj = QJsonDocument::fromJson(data).object();
-            auto cfg = std::make_unique<EventConfig>();
-            cfg->read(jsonObj);
-            cfg->setObjectName(cfg->objectName()+"_copy");
+            scriptConfig->setObjectName(
+                make_unique_name(scriptConfig, destContainer));
 
-            // FIXME: update object name
-            getConfig()->addEventConfig(cfg.release());
+            destContainer->addChild(scriptConfig);
+            onScriptAdded(scriptConfig, {});
+            obj.release();
         }
     }
 
-    if (clipboardData->hasFormat(MIMEType_JSON_VMEModuleConfig))
-    {
-        if (auto destEvent = qobject_cast<EventConfig *>(destObj))
-        {
-            auto data = clipboardData->data(MIMEType_JSON_VMEModuleConfig);
-            auto jsonObj = QJsonDocument::fromJson(data).object();
-            auto cfg = std::make_unique<ModuleConfig>();
-            cfg->read(jsonObj);
-            cfg->setObjectName(cfg->objectName()+"_copy");
-            destEvent->addModuleConfig(cfg.release());
-        }
-    }
+
+    qDebug() << __PRETTY_FUNCTION__ << vmeConfig->getGlobalScriptCategories();
 }

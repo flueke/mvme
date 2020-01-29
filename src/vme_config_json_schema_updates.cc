@@ -12,6 +12,8 @@
 #include "vme_script_util.h"
 #include "vme_script_variables.h"
 
+using namespace mvme::vme_config;
+
 namespace
 {
 
@@ -44,7 +46,9 @@ u32 guess_module_readout_num_events(const QString &vmeSettingsScript)
 
 namespace mvme
 {
-namespace vme_config_json
+namespace vme_config
+{
+namespace json_schema
 {
 
 u8 guess_event_mcst(const QString &eventScript)
@@ -64,8 +68,8 @@ u8 guess_event_mcst(const QString &eventScript)
     return 0u;
 }
 
-
-} // end namespace vme_config_json
+} // end namespace json_schema
+} // end namespace vme_config
 } // end namespace mvme
 
 namespace
@@ -379,7 +383,7 @@ static QJsonObject v3_to_v4(QJsonObject json)
             u8 mcst = 0u;
 
             if (auto daqStart = eventConfig->vmeScripts["daq_start"])
-                mcst = mvme::vme_config_json::guess_event_mcst(daqStart->getScriptContents());
+                mcst = mvme::vme_config::json_schema::guess_event_mcst(daqStart->getScriptContents());
 
             // Set the proper irq value depending on triggerCondition and irqLevel.
             u8 irq = (eventConfig->triggerCondition == TriggerCondition::Interrupt
@@ -507,7 +511,9 @@ static QVector<VMEConfigConverter> VMEConfigConverters =
 
 namespace mvme
 {
-namespace vme_config_json
+namespace vme_config
+{
+namespace json_schema
 {
 
 int get_vmeconfig_version(const QJsonObject &json)
@@ -539,5 +545,6 @@ QJsonObject convert_vmeconfig_to_current_version(QJsonObject json)
     return json;
 }
 
+} // end namespace json_schema
 } // end namespace vme_config_json
 } // end namespace mvme
