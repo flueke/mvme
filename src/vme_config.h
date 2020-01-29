@@ -136,6 +136,9 @@ class LIBMVME_EXPORT ConfigObject: public QObject
 class LIBMVME_EXPORT ContainerObject: public ConfigObject
 {
     Q_OBJECT
+    signals:
+        void childAdded(ConfigObject *co);
+        void childAboutToBeRemoved(ConfigObject *co);
     public:
         Q_INVOKABLE explicit ContainerObject(QObject *parent = nullptr);
 
@@ -148,6 +151,7 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
             obj->setParent(this);
             connect(obj, &QObject::destroyed,
                     this, &ContainerObject::onChildDestroyed);
+            emit childAdded(obj);
             setModified();
         }
 
@@ -155,8 +159,10 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
         // removed from this objects list of children.
         bool removeChild(ConfigObject *obj)
         {
-            if (m_children.removeOne(obj))
+            if (m_children.contains(obj))
             {
+                emit childAboutToBeRemoved(obj);
+                m_children.removeOne(obj);
                 disconnect(obj, &QObject::destroyed,
                            this, &ContainerObject::onChildDestroyed);
                 setModified();
