@@ -1388,6 +1388,9 @@ void VMEConfigTreeWidget::pasteFromClipboard()
             destContainer->addChild(scriptConfig);
             onScriptAdded(scriptConfig, {});
             obj.release();
+
+            if (node)
+                node->setExpanded(true);
         }
     }
 
