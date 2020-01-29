@@ -79,7 +79,6 @@ class VMEConfigTreeWidget: public QWidget
         TreeNode *addObjectNode(QTreeWidgetItem *parentNode, ConfigObject *obj);
         void addContainerNodes(QTreeWidgetItem *parent, ContainerObject *obj);
 
-        void onItemClicked(QTreeWidgetItem *item, int column);
         void onItemDoubleClicked(QTreeWidgetItem *item, int column);
         void onItemChanged(QTreeWidgetItem *item, int column);
         void onItemExpanded(QTreeWidgetItem *item);

@@ -259,7 +259,6 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     layout->addWidget(le_fileName);
     layout->addWidget(m_tree);
 
-    connect(m_tree, &QTreeWidget::itemClicked, this, &VMEConfigTreeWidget::onItemClicked);
     connect(m_tree, &QTreeWidget::itemDoubleClicked, this, &VMEConfigTreeWidget::onItemDoubleClicked);
     connect(m_tree, &QTreeWidget::itemChanged, this, &VMEConfigTreeWidget::onItemChanged);
     connect(m_tree, &QTreeWidget::itemExpanded, this, &VMEConfigTreeWidget::onItemExpanded);
@@ -566,18 +565,6 @@ void VMEConfigTreeWidget::addContainerNodes(QTreeWidgetItem *parent, ContainerOb
     {
         auto childNode = addObjectNode(parent, child);
         parent->addChild(childNode);
-    }
-}
-
-void VMEConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
-{
-    auto configObject = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
-
-    qDebug() << "clicked" << item << configObject << "node->type()=" << item->type();
-
-    if (configObject)
-    {
-        emit activateObjectWidget(configObject);
     }
 }
 
