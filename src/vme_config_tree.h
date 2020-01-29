@@ -115,6 +115,7 @@ class VMEConfigTreeWidget: public QWidget
 
         void updateConfigLabel();
 
+        ConfigObject *getCurrentConfigObject() const;
         void copyToClipboard(const ConfigObject *obj);
         void pasteFromClipboard();
         bool canCopy(const ConfigObject *obj) const;

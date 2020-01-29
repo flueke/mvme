@@ -40,6 +40,7 @@
 #include <QMimeData>
 #include <QPushButton>
 #include <QSettings>
+#include <QShortcut>
 #include <QToolButton>
 #include <QTreeWidget>
 
@@ -168,6 +169,31 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     m_tree->setIndentation(10);
     m_tree->setItemDelegate(new VMEConfigTreeItemDelegate(this));
     m_tree->setEditTriggers(QAbstractItemView::EditKeyPressed);
+
+    {
+        auto copyShortcut = new QShortcut(QKeySequence::Copy, m_tree);
+        copyShortcut->setContext(Qt::WidgetShortcut);
+
+        connect(copyShortcut, &QShortcut::activated,
+                m_tree, [this] ()
+                {
+                    if (auto co = getCurrentConfigObject())
+                        if (canCopy(co))
+                            copyToClipboard(co);
+                });
+    }
+
+    {
+        auto pasteShortcut = new QShortcut(QKeySequence::Paste, m_tree);
+        pasteShortcut->setContext(Qt::WidgetShortcut);
+
+        connect(pasteShortcut, &QShortcut::activated,
+                m_tree, [this] ()
+                {
+                    if (canPaste())
+                        pasteFromClipboard();
+                });
+    }
 
     auto headerItem = m_tree->headerItem();
     headerItem->setText(0, QSL("Object"));
@@ -601,7 +627,6 @@ void VMEConfigTreeWidget::onItemExpanded(QTreeWidgetItem *item)
 void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 {
     auto node = m_tree->itemAt(pos);
-    auto parent = node ? node->parent() : nullptr;
     auto obj = node ? Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer)) : nullptr;
     auto vmeScript = qobject_cast<VMEScriptConfig *>(obj);
     bool isIdle = (m_daqState == DAQState::Idle);
@@ -1252,6 +1277,17 @@ bool VMEConfigTreeWidget::canPaste() const
     }
 
     return result;
+}
+
+ConfigObject *VMEConfigTreeWidget::getCurrentConfigObject() const
+{
+    if (auto node = m_tree->currentItem())
+    {
+        auto qobj = Var2Ptr<QObject>(node->data(0, DataRole_Pointer));
+        return qobject_cast<ConfigObject *>(qobj);
+    }
+
+    return nullptr;
 }
 
 void VMEConfigTreeWidget::copyToClipboard(const ConfigObject *obj)
