@@ -2,6 +2,7 @@
 
 #include <QJsonDocument>
 #include <QSet>
+
 #include "vme.h"
 
 namespace
@@ -196,6 +197,56 @@ std::unique_ptr<ConfigObject> make_object_from_mime_data(const QMimeData *mimeDa
 
     if (auto obj = make_object<VMEScriptConfig>(MIMEType_JSON_VMEScriptConfig, mimeData))
         return obj;
+
+    return {};
+}
+
+std::unique_ptr<ConfigObject> make_object_from_json_text(const QByteArray &jsonText)
+{
+    auto jsonDoc = QJsonDocument::fromJson(jsonText);
+
+    if (jsonDoc.isNull())
+        return {};
+
+    auto rootObj = jsonDoc.object();
+
+    if (rootObj.contains(MIMEType_JSON_VMEEventConfig))
+    {
+        auto obj = std::make_unique<EventConfig>();
+        obj->read(rootObj.value(MIMEType_JSON_VMEEventConfig).toObject());
+        return obj;
+    }
+
+    if (rootObj.contains(MIMEType_JSON_VMEModuleConfig))
+    {
+        auto obj = std::make_unique<ModuleConfig>();
+        obj->read(rootObj.value(MIMEType_JSON_VMEModuleConfig).toObject());
+        return obj;
+    }
+
+    if (rootObj.contains(MIMEType_JSON_VMEScriptConfig))
+    {
+        auto obj = std::make_unique<VMEScriptConfig>();
+        obj->read(rootObj.value(MIMEType_JSON_VMEScriptConfig).toObject());
+        return obj;
+    }
+
+    return {};
+}
+
+std::unique_ptr<ConfigObject> make_object_from_mime_data_or_json_text(
+    const QMimeData *mimeData)
+{
+    if (auto obj = make_object_from_mime_data(mimeData))
+        return obj;
+
+    if (mimeData->hasFormat("application/json"))
+        if (auto obj = make_object_from_json_text(mimeData->data("application/json")))
+            return obj;
+
+    if (mimeData->hasFormat("text/plain"))
+        if (auto obj = make_object_from_json_text(mimeData->data("text/plain")))
+            return obj;
 
     return {};
 }

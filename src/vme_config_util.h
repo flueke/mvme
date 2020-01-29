@@ -44,6 +44,13 @@ bool can_mime_copy_object(const ConfigObject *obj);
 bool contains_object_mime_type(const QMimeData *mimeData);
 std::unique_ptr<QMimeData> make_mime_data(const ConfigObject *obj);
 std::unique_ptr<ConfigObject> make_object_from_mime_data(const QMimeData *mimeData);
+std::unique_ptr<ConfigObject> make_object_from_json_text(const QByteArray &jsonText);
+
+// Combines the two above: the known MIME types are checked first, then
+// "application/json" and finally "text/plain".
+std::unique_ptr<ConfigObject> make_object_from_mime_data_or_json_text(
+    const QMimeData *mimeData);
+
 void generate_new_object_ids(ConfigObject *root);
 
 } // end namespace vme_config
