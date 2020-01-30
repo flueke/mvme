@@ -606,6 +606,7 @@ void MVMEMainWindow::onActionNewWorkspace_triggered()
 
     try
     {
+        closeAllHistogramWidgets();
         m_d->m_context->newWorkspace(dirName);
     } catch (const QString &e)
     {
@@ -690,6 +691,7 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
 
     try
     {
+        closeAllHistogramWidgets();
         m_d->m_context->openWorkspace(dirName);
     } catch (const QString &e)
     {
@@ -932,7 +934,7 @@ void MVMEMainWindow::restoreSettings()
 void MVMEMainWindow::addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey)
 {
     connect(widget, &QObject::destroyed, this, [this, object, widget] (QObject *) {
-        m_d->m_objectWindows[object].removeOne(widget);
+        m_d->m_objectWindows[object].removeAll(widget);
     });
 
     widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -972,6 +974,21 @@ void MVMEMainWindow::activateObjectWidget(QObject *object)
     {
         show_and_activate(widget);
     }
+}
+
+QMultiMap<QObject *, QWidget *> MVMEMainWindow::getAllObjectWidgets() const
+{
+    QMultiMap<QObject *, QWidget *> result;
+
+    for (auto obj: m_d->m_objectWindows.keys())
+    {
+        for (auto widget: m_d->m_objectWindows.value(obj))
+        {
+            result.insertMulti(obj, widget);
+        }
+    }
+
+    return result;
 }
 
 void MVMEMainWindow::addWidget(QWidget *widget, const QString &stateKey)
@@ -1961,6 +1978,23 @@ void MVMEMainWindow::doRunScriptConfigs(
         catch (const vme_script::ParseError &e)
         {
             m_d->m_context->logMessage(QSL("Parse error: ") + e.what());
+        }
+    }
+}
+
+void MVMEMainWindow::closeAllHistogramWidgets()
+{
+    auto objectWidgets = getAllObjectWidgets();
+
+    for (auto obj: objectWidgets.keys())
+    {
+        for (auto widget: objectWidgets.values(obj))
+        {
+            if (qobject_cast<Histo1DWidget *>(widget))
+                widget->close();
+
+            if (qobject_cast<Histo2DWidget *>(widget))
+                widget->close();
         }
     }
 }

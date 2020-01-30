@@ -76,6 +76,7 @@ public:
     QWidget *getObjectWidget(QObject *object) const;
     QList<QWidget *> getObjectWidgets(QObject *object) const;
     void activateObjectWidget(QObject *object);
+    QMultiMap<QObject *, QWidget *> getAllObjectWidgets() const;
 
     void addWidget(QWidget *widget, const QString &stateKey = QString());
 
@@ -106,6 +107,8 @@ public slots:
     void updateWindowTitle();
     void runScriptConfig(VMEScriptConfig *config,
                          RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
+
+    void closeAllHistogramWidgets();
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
