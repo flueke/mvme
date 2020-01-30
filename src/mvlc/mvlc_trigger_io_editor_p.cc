@@ -1834,6 +1834,20 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
         m_tableUi.combos_connection[io]->setCurrentIndex(connections.value(io)[0]);
     }
 
+    for (int io = 0; io < m_tableUi.checks_activate.size(); io++)
+    {
+        auto cb_state = m_tableUi.checks_activate[io];
+        auto combo_dir = m_tableUi.combos_direction[io];
+
+        // Force the direction to 'out' if the user checks the 'activate' checkbox.
+        connect(cb_state, &QCheckBox::stateChanged,
+                this, [combo_dir] (int state)
+                {
+                    if (state == Qt::Checked)
+                        combo_dir->setCurrentIndex(static_cast<int>(trigger_io::IO::Direction::out));
+                });
+    }
+
     m_tableUi.table->resizeColumnsToContents();
     m_tableUi.table->resizeRowsToContents();
     resize(600, 500);
