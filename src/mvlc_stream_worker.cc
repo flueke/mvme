@@ -6,6 +6,7 @@
 #include <QThread>
 
 #include "analysis/analysis_util.h"
+#include "analysis/analysis_session.h"
 #include "databuffer.h"
 #include "mvme_context.h"
 #include "vme_config_scripts.h"
@@ -491,6 +492,26 @@ void MVLC_StreamWorker::start()
     {
         UniqueLock guard(m_countersMutex);
         m_counters.stopTime = QDateTime::currentDateTime();
+    }
+
+    // analysis session auto save
+    auto sessionPath = m_context->getWorkspacePath(QSL("SessionDirectory"));
+
+    if (!sessionPath.isEmpty())
+    {
+        auto filename = sessionPath + "/last_session" + analysis::SessionFileExtension;
+        auto result   = save_analysis_session(filename, m_context->getAnalysis());
+
+        if (result.first)
+        {
+            //logInfo(QString("Auto saved analysis session to %1").arg(filename));
+        }
+        else
+        {
+            logInfo(QString("Error saving analysis session to %1: %2")
+                       .arg(filename)
+                       .arg(result.second));
+        }
     }
 
     setState(WorkerState::Idle);
