@@ -72,7 +72,7 @@ vme_script::SymbolTable make_standard_event_variables(u8 irq, u8 mcst)
 
     vars["mesy_eoe_marker"] = vme_script::Variable(
         "1", {},
-        "EndOfEvent marker for mesytec modules (0: eventcounter, 1: timestamp, 3: extended_ts).");
+        "EndOfEvent marker for mesytec modules (0: eventcounter, 1: timestamp, 3: extended_timestamp).");
 
     return vars;
 }
