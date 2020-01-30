@@ -516,6 +516,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
 
     // XXX: cut test
     {
+#if 0
         QPen pickerPen(Qt::red);
 
 
@@ -533,6 +534,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         TRY_ASSERT(connect(m_d->m_cutPolyPicker, &QwtPicker::activated, this, [this](bool on) {
             m_d->onCutPolyPickerActivated(on);
         }));
+#endif
 
 #if 0
         auto action = tb->addAction("Dev: Create cut");
@@ -1029,8 +1031,12 @@ void Histo2DWidget::exportPlotToClipboard()
     image.fill(Qt::transparent);
 
     QwtPlotRenderer renderer;
+#ifndef Q_OS_WIN
+    // Enabling this leads to black pixels when pasting the image into windows
+    // paint.
     renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground
                              | QwtPlotRenderer::DiscardCanvasBackground);
+#endif
     renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
     renderer.renderTo(m_d->m_plot, image);
 
@@ -1038,7 +1044,9 @@ void Histo2DWidget::exportPlotToClipboard()
     m_d->m_plot->setFooter(QString());
     m_d->m_waterMarkLabel->hide();
 
-    QApplication::clipboard()->setImage(image);
+    auto clipboard = QApplication::clipboard();
+    clipboard->clear();
+    clipboard->setImage(image);
 }
 
 bool Histo2DWidget::zAxisIsLog() const

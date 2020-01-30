@@ -1363,8 +1363,12 @@ void Histo1DWidgetPrivate::exportPlotToClipboard()
     image.fill(Qt::transparent);
 
     QwtPlotRenderer renderer;
+#ifndef Q_OS_WIN
+    // Enabling this leads to black pixels when pasting the image into windows
+    // paint.
     renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground
                              | QwtPlotRenderer::DiscardCanvasBackground);
+#endif
     renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
     renderer.renderTo(m_plot, image);
 
@@ -1372,7 +1376,9 @@ void Histo1DWidgetPrivate::exportPlotToClipboard()
     m_plot->setFooter(QString());
     m_waterMarkLabel->hide();
 
-    QApplication::clipboard()->setImage(image);
+    auto clipboard = QApplication::clipboard();
+    clipboard->clear();
+    clipboard->setImage(image);
 }
 
 void Histo1DWidgetPrivate::saveHistogram()
