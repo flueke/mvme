@@ -1026,7 +1026,7 @@ void Histo2DWidget::exportPlotToClipboard()
 
     QSize size(1024, 768);
     QImage image(size, QImage::Format_ARGB32_Premultiplied);
-    image.fill(0);
+    image.fill(Qt::transparent);
 
     QwtPlotRenderer renderer;
     renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground
