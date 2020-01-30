@@ -2399,12 +2399,12 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
 
     auto jsonRoot = doc.object();
 
-    if (!jsonRoot.contains("DAQConfig"))
+    if (!doc.isNull() && !jsonRoot.contains("DAQConfig"))
     {
         QMessageBox::critical(
             nullptr,
             QSL("Error loading VME config"),
-            QSL("The file '%1' does not contain an MVME VME Config object.")
+            QSL("The file '%1' does not contain an mvme VMEConfig object.")
             .arg(fileName)
             );
 
