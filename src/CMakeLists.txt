@@ -10,6 +10,9 @@ find_package(Qt5Concurrent REQUIRED)
 find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
+if(MVME_ENABLE_MVLC)
+    find_package(Qt5Svg REQUIRED)
+endif(MVME_ENABLE_MVLC)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
     #add_definitions(-DQT_NO_DEBUG)
@@ -336,6 +339,8 @@ if (MVME_ENABLE_MVLC)
         mvlc/mvlc_trigger_io_editor_p.cc
         mvlc/mvlc_trigger_io_script.cc
     )
+
+    qt5_use_modules(libmvme Svg)
 
     # Note: the BUILD_INTERFACE line does not work on older CMake versions
     # (tested with 3.7.2).

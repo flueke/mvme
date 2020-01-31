@@ -9,8 +9,10 @@
 
 #include <boost/range/adaptor/indexed.hpp>
 #include <minbool.h>
+
 #include <QDebug>
 #include <QDialogButtonBox>
+#include <QGraphicsSvgItem>
 #include <QGroupBox>
 #include <QLineEdit>
 #include <QPushButton>
@@ -430,6 +432,7 @@ LUTItem::LUTItem(int lutIdx, bool hasStrobeGG, QGraphicsItem *parent)
         con->setLabel("strobe GG");
 
         addInputConnector(con);
+        m_strobeConnector = con;
     }
 }
 
@@ -613,7 +616,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                              - result.label->boundingRect().width(), 0);
 
         auto frontPanelInputsText = new QGraphicsSimpleTextItem(
-            QSL("Front Panel NIMs with gate generators"),
+            QSL("Front Panel NIM/TTL inputs"),
             result.parent);
         frontPanelInputsText->setRotation(-90);
         frontPanelInputsText->moveBy(0, result.parent->boundingRect().height() * 0.5);
@@ -769,7 +772,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             result.nimItem = new gfx::BlockItem(
                 100, 370, // width, height
                 trigger_io::NIM_IO_Count, // inputCount: internal connectors
-                trigger_io::NIM_IO_Count, // outputCount: symbolizing front panel NIM connectors
+                trigger_io::NIM_IO_Count, // outputCount: symbolizing front panel LEMO connectors
                 48, 48, // in and out connector margins
                 result.parent);
 
@@ -820,7 +823,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                              - result.label->boundingRect().width(), 0);
 
         auto frontPanelInputsText = new QGraphicsSimpleTextItem(
-            QSL("Front Panel NIMs and ECL with gate generators"),
+            QSL("Front Panel NIM/TTL outputs and LVDS outputs"),
             result.parent);
         frontPanelInputsText->setRotation(-90);
 
@@ -906,6 +909,34 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     this->addItem(m_level3Items.parent);
     this->addItem(m_level0UtilItems.parent);
     this->addItem(m_level3UtilItems.parent);
+
+#if 0 // pixmap item test
+    auto busBars = new QGraphicsPixmapItem(
+        QPixmap(QSL(":/mvlc/trigio_connectivity_bus_bars_only.png")));
+
+#endif
+#if 0 // svg test
+    auto busBars = new QGraphicsSvgItem(
+        QSL(":/mvlc/trigio_connectivity_bus_bars_inkscape_test.svg"));
+    //busBars->setElementId(QSL("layer2"));
+    busBars->moveBy(-0, -108);
+
+    this->addItem(busBars);
+#endif
+#if 1
+    // manually drawing the busbar objects and their texts
+    {
+        auto busBar = new QGraphicsRectItem(0, 0, 50, 8);
+        //busBar->setTransformOriginPoint(50, 4);
+        busBar->setBrush(QBrush("#3465a4"));
+        busBar->setPen(Qt::NoPen);
+        this->addItem(busBar);
+
+        auto pos = m_level2Items.luts[0]->getStrobeConnector()->mapToScene(0, 0);
+
+        busBar->setPos(pos);
+    }
+#endif
 
     // Create all connection edges contained in the trigger io config. The
     // logic in setTriggerIOConfig then decides if edges should be shown/hidden
@@ -1098,6 +1129,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     // To trigger initial edge updates
     setTriggerIOConfig(ioCfg);
     qDebug() << __PRETTY_FUNCTION__ << "created" << m_edges.size() << " Edges";
+    qDebug() << __PRETTY_FUNCTION__ << "sceneRect=" << this->sceneRect();
 };
 
 QAbstractGraphicsShapeItem *

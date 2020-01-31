@@ -120,7 +120,10 @@
     <file>analysis/expr_data/basic_step_script.exprtk</file>
     <file>analysis/expr_data/expr_help.html</file>
 
+    <!-- mvlc related files -->
     <file>mvlc/scripts/0-init-mtdcs.mvlcscript</file>
+    <file>mvlc/trigio_connectivity_bus_bars_only.png</file>
+    <file>mvlc/trigio_connectivity_bus_bars_inkscape_test.svg</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml
