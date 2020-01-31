@@ -585,10 +585,18 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // NIM+ECL IO Item
         {
             result.nimItem = new gfx::BlockItem(
-                100, 470,
-                0, trigger_io::NIM_IO_Count,
-                0, 48,
+                100, 470, // width, height
+                trigger_io::NIM_IO_Count, // inputCount: connectors symbolizing the pyhsical NIM inputs
+                trigger_io::NIM_IO_Count, // outputCount: NIM connectors towards L1
+                48, // inputConnectorMargin
+                48, // outputConnectorMargin
                 result.parent);
+
+            for (auto c: result.nimItem->inputConnectors())
+            {
+                c->setEnabled(false);
+                c->setBrush(gfx::Connector_Brush_Disabled);
+            }
 
             result.nimItem->moveBy(25, 25);
 
@@ -603,6 +611,13 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         result.label->setFont(labelFont);
         result.label->moveBy(result.parent->boundingRect().width()
                              - result.label->boundingRect().width(), 0);
+
+        auto frontPanelInputsText = new QGraphicsSimpleTextItem(
+            QSL("Front Panel NIMs with gate generators"),
+            result.parent);
+        frontPanelInputsText->setRotation(-90);
+        frontPanelInputsText->moveBy(0, result.parent->boundingRect().height() * 0.5);
+        frontPanelInputsText->moveBy(0, frontPanelInputsText->boundingRect().width() * 0.5);
 
         return result;
     };
@@ -752,11 +767,17 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // NIM IO Item
         {
             result.nimItem = new gfx::BlockItem(
-                //100, 470,
-                100, 370,
-                trigger_io::NIM_IO_Count, 0,
-                48, 0,
+                100, 370, // width, height
+                trigger_io::NIM_IO_Count, // inputCount: internal connectors
+                trigger_io::NIM_IO_Count, // outputCount: symbolizing front panel NIM connectors
+                48, 48, // in and out connector margins
                 result.parent);
+
+            for (auto c: result.nimItem->outputConnectors())
+            {
+                c->setEnabled(false);
+                c->setBrush(gfx::Connector_Brush_Disabled);
+            }
 
             result.nimItem->moveBy(25, 25);
 
@@ -770,11 +791,18 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // ECL Out
         {
             result.eclItem = new gfx::BlockItem(
-                //100, 140,
-                100, 80,
-                trigger_io::ECL_OUT_Count, 0,
-                24, 0,
+                100, 80, // width, height
+                trigger_io::ECL_OUT_Count, // inputCount: internal connectors
+                trigger_io::ECL_OUT_Count, // outputCount: symbolizing front panel ECL outputs
+                24, 24,
                 result.parent);
+
+            for (auto c: result.eclItem->outputConnectors())
+            {
+                c->setEnabled(false);
+                c->setBrush(gfx::Connector_Brush_Disabled);
+            }
+
             result.eclItem->moveBy(25, 25);
 
             auto label = new QGraphicsSimpleTextItem(QString("ECL Outputs"), result.eclItem);
@@ -790,6 +818,15 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         result.label->setFont(labelFont);
         result.label->moveBy(result.parent->boundingRect().width()
                              - result.label->boundingRect().width(), 0);
+
+        auto frontPanelInputsText = new QGraphicsSimpleTextItem(
+            QSL("Front Panel NIMs and ECL with gate generators"),
+            result.parent);
+        frontPanelInputsText->setRotation(-90);
+
+        frontPanelInputsText->moveBy(25+100+frontPanelInputsText->boundingRect().height(), 0);
+        frontPanelInputsText->moveBy(0, result.parent->boundingRect().height() * 0.5);
+        frontPanelInputsText->moveBy(0, frontPanelInputsText->boundingRect().width() * 0.5);
 
         return result;
     };
