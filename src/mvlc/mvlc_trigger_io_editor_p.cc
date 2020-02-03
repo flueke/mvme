@@ -16,6 +16,7 @@
 #include <QGroupBox>
 #include <QLineEdit>
 #include <QPushButton>
+#include <qnamespace.h>
 
 #include "qt_util.h"
 
@@ -477,6 +478,154 @@ QPointF get_center_point(T *item)
 }
 
 //
+// LineAndArrow
+//
+LineAndArrow::LineAndArrow(const QPointF &start, const QPointF &end, QGraphicsItem *parent)
+    : QAbstractGraphicsShapeItem(parent)
+    , m_start(start)
+    , m_end(end)
+{
+    setBrush(Qt::black);
+    setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    adjust();
+}
+
+void LineAndArrow::setArrowSize(qreal arrowSize)
+{
+    m_arrowSize = arrowSize;
+    adjust();
+}
+
+void LineAndArrow::setStart(const QPointF &p)
+{
+    m_start = mapFromScene(p);
+    adjust();
+}
+
+void LineAndArrow::setEnd(const QPointF &p)
+{
+    m_end = p;
+    qDebug() << __PRETTY_FUNCTION__ <<  "given endPoint = " << p << ", mapFromScene =" << mapFromScene(p);
+    adjust();
+}
+
+void LineAndArrow::adjust()
+{
+    prepareGeometryChange();
+
+    QLineF line(m_start, m_end);
+    qreal length = line.length();
+
+    if (length > qreal(20.)) {
+        // Shortens the line by 'offset' pixels at the end.
+        qreal offset = 6;
+        qreal offsetPercent = (length - offset) / length;
+        //m_adjustedStart = line.pointAt(1.0 - offsetPercent);
+        m_adjustedStart = m_start;
+        m_adjustedEnd = line.pointAt(offsetPercent);
+    } else {
+        m_adjustedStart = m_adjustedEnd = line.p1();
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "adjustedStart = " << m_adjustedStart
+        << "adjustedEnd =" << m_adjustedEnd;
+}
+
+QRectF LineAndArrow::boundingRect() const
+{
+    qreal penWidth = 1;
+    qreal extra = (penWidth + m_arrowSize) / 2.0;
+
+    return QRectF(m_adjustedStart,
+                  QSizeF(m_adjustedEnd.x() - m_adjustedStart.x(),
+                         m_adjustedEnd.y() - m_adjustedStart.y()))
+        .normalized()
+        .adjusted(-extra, -extra, extra, extra);
+}
+
+void LineAndArrow::paint(
+    QPainter *painter,
+    const QStyleOptionGraphicsItem *option,
+    QWidget *widget)
+{
+    QLineF line(m_adjustedStart, m_adjustedEnd);
+    if (qFuzzyCompare(line.length(), qreal(0.)))
+        return;
+
+    // Draw the line itself
+    painter->setPen(pen());
+    painter->setBrush(brush());
+    painter->drawLine(line);
+
+    // Draw the arrows
+    double angle = std::atan2(-line.dy(), line.dx());
+
+    //QPointF sourceArrowP1 = m_sourcePoint + QPointF(sin(angle + M_PI / 3) * m_arrowSize,
+    //                                                cos(angle + M_PI / 3) * m_arrowSize);
+    //QPointF sourceArrowP2 = m_sourcePoint + QPointF(sin(angle + M_PI - M_PI / 3) * m_arrowSize,
+    //                                                cos(angle + M_PI - M_PI / 3) * m_arrowSize);
+    QPointF destArrowP1 = m_adjustedEnd + QPointF(sin(angle - M_PI / 3) * m_arrowSize,
+                                                  cos(angle - M_PI / 3) * m_arrowSize);
+    QPointF destArrowP2 = m_adjustedEnd + QPointF(sin(angle - M_PI + M_PI / 3) * m_arrowSize,
+                                                  cos(angle - M_PI + M_PI / 3) * m_arrowSize);
+
+    painter->setBrush(Qt::black);
+    //painter->drawPolygon(QPolygonF() << line.p1() << sourceArrowP1 << sourceArrowP2);
+    painter->drawPolygon(QPolygonF() << line.p2() << destArrowP1 << destArrowP2);
+}
+
+//
+// HorizontalBusBar
+//
+HorizontalBusBar::HorizontalBusBar(const QString &labelText, QGraphicsItem *parent)
+    : QGraphicsItem(parent)
+{
+    // the bar
+    m_bar = new QGraphicsRectItem(0, 0, 75, 8, this);
+    m_bar->setBrush(QBrush("#3465a4"));
+    m_bar->setPen(Qt::NoPen);
+
+    // right side arrow
+    m_arrow = new LineAndArrow(
+        QPointF{ m_bar->boundingRect().right(), m_bar->boundingRect().center().y() },
+        m_dest,
+        this);
+
+    m_arrow->setEnd(mapToItem(m_arrow, m_dest));
+    
+    // label centered in the bar
+    if (!labelText.isEmpty())
+    {
+        m_label = new QGraphicsSimpleTextItem(labelText, this);
+        m_label->setPos(get_center_point(m_bar));
+    }
+
+    //setTransformOriginPoint({m_bar->boundingRect().right(), m_bar->boundingRect().center().y()});
+}
+
+void HorizontalBusBar::setDestPoint(const QPointF &p)
+{
+    //m_arrow->setEnd(mapToItem(m_arrow, m_dest));
+    m_arrow->setEnd(p);
+}
+
+QRectF HorizontalBusBar::boundingRect() const
+{
+    auto result = m_bar->boundingRect().united(m_arrow->boundingRect());
+    //qDebug() << __PRETTY_FUNCTION__ << result;
+    return result;
+}
+
+void HorizontalBusBar::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+           QWidget *widget)
+{
+    m_bar->paint(painter, option, widget);
+    m_arrow->paint(painter, option, widget);
+    if (m_label)
+        m_label->paint(painter, option, widget);
+}
+
+//
 // Edge
 //
 Edge::Edge(QAbstractGraphicsShapeItem *sourceItem, QAbstractGraphicsShapeItem *destItem)
@@ -516,7 +665,7 @@ void Edge::adjust()
     prepareGeometryChange();
 
     if (length > qreal(20.)) {
-        // Shortens the line to be drawn by 'offset' pixels at the start and
+        // Shortens the line by 'offset' pixels at the start and
         // end.
         qreal offset = 4;
         qreal offsetPercent = (length - offset) / length;
@@ -918,13 +1067,12 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 #if 0 // svg test
     auto busBars = new QGraphicsSvgItem(
         QSL(":/mvlc/trigio_connectivity_bus_bars_inkscape_test.svg"));
-    //busBars->setElementId(QSL("layer2"));
-    busBars->moveBy(-0, -108);
+    busBars->setElementId(QSL("layer2"));
+    busBars->moveBy(265, 165);
 
     this->addItem(busBars);
 #endif
-#if 1
-    // manually drawing the busbar objects and their texts
+#if 0 // manually drawing the busbar objects and their texts
     {
         auto busBar = new QGraphicsRectItem(0, 0, 50, 8);
         //busBar->setTransformOriginPoint(50, 4);
@@ -935,6 +1083,21 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         auto pos = m_level2Items.luts[0]->getStrobeConnector()->mapToScene(0, 0);
 
         busBar->setPos(pos);
+    }
+#endif
+#if 0 // testing HorizontalBusBar
+    {
+        auto strobeConnector = m_level2Items.luts[0]->getStrobeConnector();
+        auto strobeCenter = gfx::get_center_point(strobeConnector);
+        auto busBarDest = strobeConnector->mapToScene(strobeCenter);
+        auto busBar = new gfx::HorizontalBusBar();
+        this->addItem(busBar);
+        QPointF busBarPos = strobeConnector->mapToItem(busBar, strobeCenter);
+        busBarPos.setX(busBarPos.x() - busBar->boundingRect().width() - 10);
+        busBar->setPos(busBarPos);
+        busBar->setDestPoint(busBarDest);
+        //busBar->setDestPoint({100, 100});
+        qDebug() << __PRETTY_FUNCTION__ << "busBarPos =" << busBarPos << ", busBarDest =" << busBarDest;
     }
 #endif
 
@@ -1057,7 +1220,6 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         }
     }
 
-    // FIXME: missing connector for the latch input
     for (const auto &kv: ioCfg.l3.counters | indexed(0))
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.CountersOffset;

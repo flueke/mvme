@@ -253,6 +253,57 @@ class CounterItem: public BlockItem
         QGraphicsSimpleTextItem *m_labelItem = nullptr;
 };
 
+class LineAndArrow: public QAbstractGraphicsShapeItem
+{
+    public:
+        constexpr static const qreal DefaultArrowSize = 8;
+
+        LineAndArrow(const QPointF &start, const QPointF &end,
+                     QGraphicsItem *parent = nullptr);
+
+        void setArrowSize(qreal arrowSize);
+        void setStart(const QPointF &p);
+        void setEnd(const QPointF &p);
+
+        QRectF boundingRect() const override;
+        void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+                   QWidget *widget) override;
+
+    private:
+        void adjust();
+
+        qreal m_arrowSize = DefaultArrowSize;
+
+        QPointF m_start,
+                m_end;
+        QPointF m_adjustedStart,
+                m_adjustedEnd;
+};
+
+// Horizontal rectangle with a connection arrow on the right side.
+class HorizontalBusBar: public QGraphicsItem
+{
+    public:
+        HorizontalBusBar(const QString &label, QGraphicsItem *parent = nullptr);
+
+        HorizontalBusBar(QGraphicsItem *parent = nullptr)
+            : HorizontalBusBar({}, parent)
+        { }
+
+        void setDestPoint(const QPointF &p);
+
+        QRectF boundingRect() const override;
+
+        void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+                   QWidget *widget) override;
+
+    private:
+        QPointF m_dest;
+        QGraphicsRectItem *m_bar = nullptr;
+        LineAndArrow *m_arrow = nullptr;
+        QGraphicsSimpleTextItem *m_label = nullptr;
+};
+
 class Edge: public QAbstractGraphicsShapeItem
 {
     public:
