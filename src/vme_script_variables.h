@@ -45,7 +45,7 @@ struct LIBMVME_CORE_EXPORT Variable
     { }
 
     // Variables with a null (default constructed) value are considered invalid.
-    // Empty values and non-empty values are considered valid.
+    // Empty and non-empty values are considered valid.
     explicit operator bool() const { return !value.isNull(); }
 };
 

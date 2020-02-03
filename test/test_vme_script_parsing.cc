@@ -70,61 +70,108 @@ TEST(vme_script_parsing, ExpandSingleVariable)
     {
         QString input;
         ASSERT_TRUE(expand_variables(input, symtabs, 0).isEmpty());
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 0);
     }
 
     {
         QString input = "${foo}";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("bar"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = " ${foo} ";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL(" bar "));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = "${foo} sss";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("bar sss"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = " ${foo} sss";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL(" bar sss"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = "ppp ${foo} sss";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("ppp bar sss"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = " ppp  ${foo}  sss ";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL(" ppp  bar  sss "));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = "ppp ${foo}";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("ppp bar"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = "ppp ${foo} ";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("ppp bar "));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = "$${foo}";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("$bar"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = "${foo}$";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("bar$"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = "{${foo}}";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("{bar}"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
@@ -133,6 +180,10 @@ TEST(vme_script_parsing, ExpandSingleVariable)
 
         QString input = "${${weird}";
         ASSERT_EQ(expand_variables(input, symtabs2, 0), QSL("odd"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("${weird") });
     }
 
     {
@@ -141,6 +192,10 @@ TEST(vme_script_parsing, ExpandSingleVariable)
 
         QString input = "${dollars}";
         ASSERT_EQ(expand_variables(input, symtabs2, 0), QSL("${euros}"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("dollars") });
     }
 
     {
@@ -149,6 +204,9 @@ TEST(vme_script_parsing, ExpandSingleVariable)
 
         QString input = "${broken\nthings}";
         ASSERT_EQ(expand_variables(input, symtabs2, 0), QSL("are interesting"));
+
+        // Note: this does not work with pre_parse() because it will split the
+        // input string into two separate lines.
     }
 
     //} catch (ParseError &e)
@@ -177,21 +235,38 @@ TEST(vme_script_parsing, ExpandMultipleVariables)
     {
         QString input = "${foo}${foo}";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("barbar"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = "${foo} ${foo}";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("bar bar"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("foo") });
     }
 
     {
         QString input = "${truth}";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("42"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        ASSERT_EQ(pp[0].varRefs, QSet<QString>{ QSL("truth") });
     }
 
     {
         QString input = "p${truth}${foo}s";
         ASSERT_EQ(expand_variables(input, symtabs, 0), QSL("p42bars"));
+
+        auto pp = pre_parse(input);
+        ASSERT_EQ(pp.size(), 1);
+        QSet<QString> expected{ QSL("truth"), QSL("foo") };
+        ASSERT_EQ(pp[0].varRefs, expected);
     }
 
     //} catch (ParseError &e)
@@ -232,6 +307,21 @@ TEST(vme_script_parsing, ExpandVariablesErrors)
     {
         QString input = "ppp ${foo sss";
         ASSERT_THROW(expand_variables(input, symtabs, 0), ParseError);
+    }
+}
+
+TEST(vme_script_parsing, CollectVarRefs)
+{
+    {
+        QString input = "${foo}\n${bar} ${fourtytwo}";
+        QSet<QString> expected = { "foo", "bar", "fourtytwo" };
+        ASSERT_EQ(collect_variable_references(input), expected);
+    }
+
+    {
+        // unterminated variable reference
+        QString input = "${foo}\n${bar} ${fourtytwo";
+        ASSERT_THROW(collect_variable_references(input), ParseError);
     }
 }
 

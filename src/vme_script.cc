@@ -604,7 +604,7 @@ std::pair<std::string, bool> read_atomic_expression(const std::string &str)
 // - Concatenations of the above form parts. The following input line is
 //   considered to be a single part:
 //   some"things"${that}slumber" should never be awoken"$(6 * 7)
-// - If non of the above applies whitespace is used to separate parts.
+// - If none of the above applies whitespace is used to separate parts.
 std::vector<std::string> split_into_atomic_parts(const std::string &line, int lineNumber)
 {
     std::vector<std::string> result;
@@ -705,10 +705,152 @@ std::vector<std::string> split_into_atomic_parts(const std::string &line, int li
     return result;
 }
 
+QString expand_variables(const QString &qline, const SymbolTables &symtabs, s32 lineNumber)
+{
+    QString result;
+    auto line = qline.toStdString();
+    std::istringstream in(line);
+    in.unsetf(std::ios_base::skipws);
+    char c;
+    enum State { OutsideVar, InsideVar };
+    State state = OutsideVar;
+    QString varName;
+
+    while (in >> c)
+    {
+        switch (state)
+        {
+            case OutsideVar:
+                if (c == '$' && in.peek() == '{')
+                {
+                    in.get();
+                    state = InsideVar;
+                }
+                else
+                    result.push_back(c);
+
+                break;
+
+            case InsideVar:
+                if (c == '}')
+                {
+                    if (auto var = lookup_variable(varName, symtabs))
+                        result += var.value;
+                    else
+                        throw ParseError(QSL("Undefined variable '%1'")
+                                         .arg(varName), lineNumber);
+                    state = OutsideVar;
+                    varName.clear();
+                }
+                else
+                    varName.push_back(c);
+
+                break;
+        }
+    }
+
+    if (state == InsideVar)
+    {
+        throw ParseError(QSL("Unterminated variable reference '${%1'")
+                         .arg(varName), lineNumber);
+    }
+
+    return result;
+}
+
+void expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs)
+{
+    for (auto &part: preparsed.parts)
+        part = expand_variables(part, symtabs, preparsed.lineNumber);
+}
+
+QSet<QString> collect_variable_references(const QString &qline, s32 lineNumber)
+{
+    QSet<QString> result;
+    auto line = qline.toStdString();
+    std::istringstream in(line);
+    in.unsetf(std::ios_base::skipws);
+    char c;
+    enum State { OutsideVar, InsideVar };
+    State state = OutsideVar;
+    QString varName;
+
+    while (in >> c)
+    {
+        switch (state)
+        {
+            case OutsideVar:
+                if (c == '$' && in.peek() == '{')
+                {
+                    in.get();
+                    state = InsideVar;
+                }
+
+                break;
+
+            case InsideVar:
+                if (c == '}')
+                {
+                    result.insert(varName);
+                    state = OutsideVar;
+                    varName.clear();
+                }
+                else
+                    varName.push_back(c);
+
+                break;
+        }
+    }
+
+    if (state == InsideVar)
+    {
+        throw ParseError(QSL("Unterminated variable reference '${%1'")
+                         .arg(varName), lineNumber);
+    }
+
+    return result;
+}
+
+void collect_variable_references(PreparsedLine &preparsed)
+{
+    preparsed.varRefs = {};
+
+    for (auto &part: preparsed.parts)
+        preparsed.varRefs.unite(collect_variable_references(part, preparsed.lineNumber));
+}
+
+QSet<QString> collect_variable_references(const QString &input)
+{
+    QSet<QString> result;
+
+    auto pp = pre_parse(input);
+    for (const auto &preparsed: pp)
+        result.unite(preparsed.varRefs);
+
+    return result;
+}
+
+QSet<QString> collect_variable_references(QTextStream &input)
+{
+    QSet<QString> result;
+
+    auto pp = pre_parse(input);
+    for (const auto &preparsed: pp)
+        result.unite(preparsed.varRefs);
+
+    return result;
+}
+
+QVector<PreparsedLine> pre_parse(const QString &input)
+{
+    QTextStream stream(const_cast<QString *>(&input), QIODevice::ReadOnly);
+    return pre_parse(stream);
+}
+
 // Get rid of comment parts and empty lines and split each of the remaining
 // lines into space separated (quoted string) parts while keeping track of the
 // correct input line numbers.
-static QVector<PreparsedLine> pre_parse(QTextStream &input)
+QVector<PreparsedLine> pre_parse(QTextStream &input)
 {
     QVector<PreparsedLine> result;
     int lineNumber = 0;
@@ -745,7 +887,10 @@ static QVector<PreparsedLine> pre_parse(QTextStream &input)
         // of the write command the address value).
         parts[0] = parts[0].toLower();
 
-        result.push_back({ line, parts, lineNumber });
+        PreparsedLine ppl{line, parts, lineNumber };
+        collect_variable_references(ppl);
+
+        result.push_back(ppl);
     }
 
     return result;
@@ -860,65 +1005,6 @@ static Command handle_meta_block_command(
     result.metaBlock.textContents = plainLineBuffer.join("\n");
 
     return result;
-}
-
-QString expand_variables(const QString &qline, const SymbolTables &symtabs, s32 lineNumber)
-{
-    QString result;
-    auto line = qline.toStdString();
-    std::istringstream in(line);
-    in.unsetf(std::ios_base::skipws);
-    char c;
-    enum State { OutsideVar, InsideVar };
-    State state = OutsideVar;
-    QString varName;
-
-    while (in >> c)
-    {
-        switch (state)
-        {
-            case OutsideVar:
-                if (c == '$' && in.peek() == '{')
-                {
-                    in.get();
-                    state = InsideVar;
-                }
-                else
-                    result.push_back(c);
-
-                break;
-
-            case InsideVar:
-                if (c == '}')
-                {
-                    if (auto var = lookup_variable(varName, symtabs))
-                        result += var.value;
-                    else
-                        throw ParseError(QSL("Undefined variable '%1'")
-                                         .arg(varName), lineNumber);
-                    state = OutsideVar;
-                    varName.clear();
-                }
-                else
-                    varName.push_back(c);
-
-                break;
-        }
-    }
-
-    if (state == InsideVar)
-    {
-        throw ParseError(QSL("Unterminated variable reference '${%1'")
-                         .arg(varName), lineNumber);
-    }
-
-    return result;
-}
-
-void expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs)
-{
-    for (auto &part: preparsed.parts)
-        part = expand_variables(part, symtabs, preparsed.lineNumber);
 }
 
 QString evaluate_expressions(const QString &qstrPart, s32 lineNumber)

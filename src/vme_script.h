@@ -41,9 +41,10 @@ namespace vme_script
 
 struct PreparsedLine
 {
-    QString line;       // A copy of the original line
-    QStringList parts;  // The line trimmed of whitespace and split at word boundaries
-    int lineNumber;     // The original line number
+    QString line;               // A copy of the original line
+    QStringList parts;          // The line trimmed of whitespace and split at word boundaries.
+    int lineNumber;             // The original line number
+    QSet<QString> varRefs;      // The names of the variables referenced by this line.
 };
 
 static const QString MetaBlockBegin = "meta_block_begin";
@@ -203,6 +204,20 @@ VMEScript LIBMVME_CORE_EXPORT parse(QTextStream &input, SymbolTables &symtabs,
 
 VMEScript LIBMVME_CORE_EXPORT parse(const std::string &input, SymbolTables &symtabs,
                                     uint32_t baseAddress = 0);
+
+// Run a pre parse step on the input.
+// This splits the input into lines, removing comments and leading and trailing
+// whitespace. The line is then further split into atomic parts and the
+// variable names referenced whithin the line are collected.
+QVector<PreparsedLine> LIBMVME_CORE_EXPORT pre_parse(const QString &input);
+
+QVector<PreparsedLine> LIBMVME_CORE_EXPORT pre_parse(QTextStream &input);
+
+QSet<QString> LIBMVME_CORE_EXPORT collect_variable_references(
+    const QString &input);
+
+QSet<QString> LIBMVME_CORE_EXPORT collect_variable_references(
+    QTextStream &input);
 
 class LIBMVME_CORE_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
 {
