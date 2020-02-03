@@ -61,20 +61,47 @@ void populate_model(QStandardItemModel &model, const vme_script::SymbolTable &sy
     }
 }
 
+namespace
+{
+
+std::pair<QString, vme_script::Variable> get_variable_and_name(const QStandardItemModel &model, int row)
+{
+    assert(model.columnCount() == 3);
+
+    if (0 > row || row >= model.rowCount())
+        return {};
+
+    auto name = model.item(row, 0)->text();
+    auto value = model.item(row, 1)->text();
+    auto comment = model.item(row, 2)->text();
+
+    vme_script::Variable var;
+    var.value = value;
+    var.comment = comment;
+
+    return std::make_pair(name, var);
+}
+
+int find_row_by_varname(const QStandardItemModel &model, const QString &varName)
+{
+    for (int row = 0; row < model.rowCount(); row++)
+    {
+        if (model.item(row, 0)->text() == varName)
+            return row;
+    }
+
+    return -1;
+}
+
+} // end anon namespace
+
 void save_to_symboltable(const QStandardItemModel &model, vme_script::SymbolTable &symtab)
 {
     for (int row = 0; row < model.rowCount(); row++)
     {
-        assert(model.columnCount() == 3);
-        auto name = model.item(row, 0)->text();
-        auto value = model.item(row, 1)->text();
-        auto comment = model.item(row, 2)->text();
+        auto varAndName = get_variable_and_name(model, row);
 
-        vme_script::Variable var;
-        var.value = value;
-        var.comment = comment;
-
-        symtab[name] = var;
+        symtab[varAndName.first] = varAndName.second;
     }
 }
 
@@ -196,20 +223,30 @@ struct VariableEditorWidget::Private
 {
     QTableView *tableView;
     std::unique_ptr<QStandardItemModel> model;
-    vme_script::SymbolTable symtab;
+
+    // The symbol table last set via setVariables(). Used to detect
+    // modifications done to the model.
+    vme_script::SymbolTable lastSetSymtab;
 
     QPushButton *pb_addVariable,
                 *pb_delVariable;
+
+    // Used to suppress signal emission during certain modifications to the
+    // model like repopulating and adding/removing variables.
+    bool isModifying;
 };
 
 // FIXME: VariableEditorWidget: by pressing ESC or clicking anywhere in the
 // table duplicate variables can still be created.
+// FIXME: adding multiple variables with the same name is also possible by just
+// clicking the add button multiple times.
 
 VariableEditorWidget::VariableEditorWidget(
     QWidget *parent)
 : QWidget(parent)
 , d(std::make_unique<Private>())
 {
+    *d = {};
     d->model = std::make_unique<QStandardItemModel>();
     d->model->setColumnCount(3);
 
@@ -237,6 +274,8 @@ VariableEditorWidget::VariableEditorWidget(
 
     auto add_new_variable = [this] ()
     {
+        d->isModifying = true;
+
         QList<QStandardItem *> items;
         for (int col = 0; col < d->model->columnCount(); col++)
             items.push_back(new QStandardItem);
@@ -250,23 +289,73 @@ VariableEditorWidget::VariableEditorWidget(
         d->tableView->selectionModel()->select(
             newIndex, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Current);
         d->tableView->edit(newIndex);
+
+        emit variabledAdded(items[0]->text(), {});
+
+        d->isModifying = false;
     };
 
     auto delete_selected_variable = [this] ()
     {
+        d->isModifying = true;
+
         auto sm = d->tableView->selectionModel();
 
         qDebug() << __PRETTY_FUNCTION__ << "selectedIndexes" << sm->selectedIndexes();
 
         for (const auto &idx: sm->selectedIndexes())
+        {
+            auto name = d->model->item(idx.row(), 0)->text();
             d->model->removeRow(idx.row());
+            emit variableDeleted(name);
+        }
+
+        d->isModifying = false;
     };
 
+    // add/delete button clicks
     connect(d->pb_addVariable, &QPushButton::clicked,
             this, add_new_variable);
 
     connect(d->pb_delVariable, &QPushButton::clicked,
             this, delete_selected_variable);
+
+    // react to model change notifications (currently only variable value
+    // changes are handled)
+    // Note: this assumes that only a single cell is edited.
+    auto on_model_data_changed = [this] (
+        const QModelIndex &topLeft,
+        const QModelIndex &bottomRight,
+        const QVector<int> &roles = QVector<int>())
+    {
+        //qDebug() << __PRETTY_FUNCTION__ << topLeft << bottomRight << roles << d->isModifying;
+
+        if (d->isModifying)
+            return;
+
+        auto row = topLeft.row();
+        QString varName;
+        vme_script::Variable var;
+
+        std::tie(varName, var) = get_variable_and_name(*d->model, row);
+        emit variableValueChanged(varName, var);
+
+#if 0
+        qDebug() << static_cast<bool>(var);
+        qDebug() << d->lastSetSymtab.contains(varName);
+        qDebug() << var.value << d->lastSetSymtab[varName].value;
+
+        if (var && d->lastSetSymtab.contains(varName))
+        {
+            //emit variableEdited(varName, var);
+
+            if (var.value != d->lastSetSymtab[varName].value)
+        }
+#endif
+    };
+
+    connect(d->model.get(), &QAbstractItemModel::dataChanged,
+            this, on_model_data_changed);
 }
 
 VariableEditorWidget::~VariableEditorWidget()
@@ -275,6 +364,8 @@ VariableEditorWidget::~VariableEditorWidget()
 
 void VariableEditorWidget::setVariables(const vme_script::SymbolTable &symtab)
 {
+    d->isModifying = true;
+
     populate_model(*d->model, symtab);
     if (auto sm = d->tableView->selectionModel())
         sm->deleteLater();
@@ -298,6 +389,9 @@ void VariableEditorWidget::setVariables(const vme_script::SymbolTable &symtab)
         else
             d->pb_delVariable->setEnabled(false);
     });
+
+    d->lastSetSymtab = symtab;
+    d->isModifying = false;
 }
 
 vme_script::SymbolTable VariableEditorWidget::getVariables() const
@@ -309,5 +403,9 @@ vme_script::SymbolTable VariableEditorWidget::getVariables() const
 
 void VariableEditorWidget::setVariableValue(const QString &varName, const QString &varValue)
 {
+    d->isModifying = true;
+
     set_variable_value(*d->model, varName, varValue);
+
+    d->isModifying = false;
 }

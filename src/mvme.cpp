@@ -41,10 +41,12 @@
 #include "qt_util.h"
 #include "rate_monitor_gui.h"
 #include "sis3153_util.h"
+#include "util/qt_logview.h"
 #include "util_zip.h"
 #include "vme_config_tree.h"
 #include "vme_config_ui.h"
 #include "vme_config_util.h"
+#include "vme_config_ui_event_variable_editor.h"
 #include "vme_config_scripts.h"
 #include "vme_controller_ui.h"
 #include "vme_debug_widget.h"
@@ -70,6 +72,7 @@
 #include <QtGui>
 #include <QToolBar>
 #include <QVBoxLayout>
+#include <qnamespace.h>
 #include <qwt_plot_curve.h>
 #include <QFormLayout>
 
@@ -397,6 +400,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
                 {
                     this->doRunScriptConfigs(scriptConfigs);
                 });
+
+        connect(cw, &VMEConfigTreeWidget::editEventVariables,
+                this, &MVMEMainWindow::runEditVMEEventVariables);
 
         cw->setConfig(m_d->m_context->getVMEConfig());
     }
@@ -1866,6 +1872,17 @@ void MVMEMainWindow::runEditVMEEventDialog(EventConfig *eventConfig)
     EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig, eventConfig->getVMEConfig(), this);
     dialog.setWindowTitle(QSL("Edit Event"));
     dialog.exec();
+}
+
+void MVMEMainWindow::runEditVMEEventVariables(EventConfig *eventConfig)
+{
+    auto editor = new EventVariableEditor(eventConfig);
+    editor->setAttribute(Qt::WA_DeleteOnClose);
+    editor->show();
+
+    // TODO: close dialog on event deletion and vme config new,open and workspace open
+    // TODO: register widget somewhere so that it can be raised if one already exists
+    // TODO: save geometry
 }
 
 void MVMEMainWindow::runVMEControllerSettingsDialog()

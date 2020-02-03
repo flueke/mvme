@@ -48,6 +48,7 @@ class VMEConfigTreeWidget: public QWidget
         void runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs);
         void logMessage(const QString &msg);
         void dumpVMEControllerRegisters();
+        void editEventVariables(EventConfig *eventConfig);
 
     public:
         VMEConfigTreeWidget(QWidget *parent = 0);

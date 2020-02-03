@@ -650,6 +650,20 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
 
         menu.addAction(QSL("Rename Event"), this, &VMEConfigTreeWidget::editName);
+
+        menu.addSeparator();
+        menu.addAction(
+            QIcon(QSL(":/pencil.png")), QSL("Edit Event Variables"),
+            this, [this] ()
+            {
+                auto node = m_tree->currentItem();
+
+                if (node && node->type() == NodeType_Event)
+                {
+                    auto eventConfig = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
+                    emit editEventVariables(eventConfig);
+                }
+            });
     }
 
     if (node && node->type() == NodeType_EventModulesInit)
