@@ -24,32 +24,16 @@ VMEScriptAndVars parse_and_return_symbols(
     return std::make_pair(script, symtabs);
 }
 
-namespace
-{
-
-void collect_symbol_tables(const ConfigObject *co, vme_script::SymbolTables &symtabs)
-{
-    assert(co);
-
-    symtabs.push_back(co->getVariables());
-
-    if (auto parentObject = qobject_cast<ConfigObject *>(co->parent()))
-        collect_symbol_tables(parentObject, symtabs);
-}
-
-}
-
 vme_script::SymbolTables collect_symbol_tables(const ConfigObject *co)
 {
     assert(co);
 
-    vme_script::SymbolTables result;
+    auto symbolsWithSources = collect_symbol_tables_with_source(co);
 
-    collect_symbol_tables(co, result);
-
-    return result;
+    return convert_to_symboltables(symbolsWithSources);
 }
 
+#if 0
 vme_script::SymbolTables collect_symbol_tables(const VMEScriptConfig *scriptConfig)
 {
     assert(scriptConfig);
@@ -60,7 +44,46 @@ vme_script::SymbolTables collect_symbol_tables(const VMEScriptConfig *scriptConf
 
     return result;
 }
+#endif
 
+namespace
+{
+
+void collect_symbol_tables_with_source(
+    const ConfigObject *co,
+    QVector<SymbolTableWithSourceObject> &dest)
+{
+    assert(co);
+    dest.push_back({co->getVariables(), co});
+
+    if (auto parentObject = qobject_cast<ConfigObject *>(co->parent()))
+        collect_symbol_tables_with_source(parentObject, dest);
+}
+
+} // end anon namespace
+
+QVector<SymbolTableWithSourceObject> collect_symbol_tables_with_source(
+    const ConfigObject *co)
+{
+    QVector<SymbolTableWithSourceObject> result;
+
+    collect_symbol_tables_with_source(co, result);
+
+    return result;
+}
+
+vme_script::SymbolTables LIBMVME_EXPORT convert_to_symboltables(
+    const QVector<SymbolTableWithSourceObject> &input)
+{
+    vme_script::SymbolTables result;
+
+    std::transform(
+        std::begin(input), std::end(input),
+        std::back_inserter(result),
+        [] (const SymbolTableWithSourceObject &stso) { return stso.first; });
+
+    return result;
+}
 
 } // end namespace mvme
 } // end namespace mesytec
