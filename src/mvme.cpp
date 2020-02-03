@@ -1292,38 +1292,22 @@ void MVMEMainWindow::onActionVME_Debug_triggered()
     show_and_activate(m_d->m_vmeDebugWidget);
 }
 
-static const size_t LogViewMaximumBlockCount = 10 * 1000u;
-
 void MVMEMainWindow::onActionLog_Window_triggered()
 {
     if (!m_d->m_logView)
     {
-        m_d->m_logView = new QPlainTextEdit;
-        m_d->m_logView->setAttribute(Qt::WA_DeleteOnClose);
-        m_d->m_logView->setReadOnly(true);
-        m_d->m_logView->setWindowTitle("Log View");
-        QFont font("MonoSpace");
-        font.setStyleHint(QFont::Monospace);
-        m_d->m_logView->setFont(font);
-        m_d->m_logView->setTabChangesFocus(true);
-        m_d->m_logView->document()->setMaximumBlockCount(LogViewMaximumBlockCount);
-        m_d->m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
-        m_d->m_logView->setStyleSheet("background-color: rgb(225, 225, 225);");
+        m_d->m_logView = make_logview().release();
+
         add_widget_close_action(m_d->m_logView);
 
-        connect(m_d->m_logView, &QWidget::customContextMenuRequested, this, [=](const QPoint &pos) {
-            auto menu = m_d->m_logView->createStandardContextMenu(pos);
-            auto action = menu->addAction("Clear");
-            connect(action, &QAction::triggered, m_d->m_logView, &QPlainTextEdit::clear);
-            menu->exec(m_d->m_logView->mapToGlobal(pos));
-            menu->deleteLater();
-        });
         connect(m_d->m_logView, &QObject::destroyed, this, [this] (QObject *) {
             this->m_d->m_logView = nullptr;
         });
 
         m_d->m_logView->resize(600, 800);
         m_d->m_geometrySaver->addAndRestore(m_d->m_logView, QSL("WindowGeometries/LogView"));
+
+        assert(m_d->m_logView);
     }
 
     show_and_activate(m_d->m_logView);

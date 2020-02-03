@@ -290,6 +290,7 @@ target_sources(libmvme PRIVATE
     template_system.cc
     timed_block.cc
     treewidget_utils.cc
+    util/qt_logview.cc
     util/strings.cc
     util/variablify.cc
     util_zip.cc
