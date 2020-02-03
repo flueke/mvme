@@ -516,6 +516,11 @@ namespace vme_config
 namespace json_schema
 {
 
+void set_vmeconfig_version(QJsonObject &json, int version)
+{
+    json["properties"] = QJsonObject({{"version", version}});
+}
+
 int get_vmeconfig_version(const QJsonObject &json)
 {
     return json["properties"].toObject()["version"].toInt(1);
@@ -534,7 +539,7 @@ QJsonObject convert_vmeconfig_to_current_version(QJsonObject json)
             break;
 
         json = converter(json);
-        json["properties"] = QJsonObject({{"version", version+1}});
+        set_vmeconfig_version(json, version + 1);
 
         qDebug() << __PRETTY_FUNCTION__ << "converted VMEConfig from version"
             << version << "to version" << version+1;

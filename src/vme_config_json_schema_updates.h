@@ -10,6 +10,7 @@ namespace vme_config
 namespace json_schema
 {
 
+void set_vmeconfig_version(QJsonObject &json, int version);
 int get_vmeconfig_version(const QJsonObject &json);
 
 // Conversion from older VMEConfig JSON formats to the latest version.

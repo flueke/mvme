@@ -150,12 +150,14 @@ QString ConfigObject::getObjectPath() const
 void ConfigObject::read(const QJsonObject &json)
 {
     m_id = QUuid(json["id"].toString());
+
     if (m_id.isNull())
         m_id = QUuid::createUuid();
 
     setObjectName(json["name"].toString());
     setEnabled(json["enabled"].toBool(true));
     loadDynamicProperties(json["properties"].toObject(), this);
+
     setVariables(vme_script::symboltable_from_json(json["variable_table"].toObject()));
 
     read_impl(json);
@@ -661,7 +663,6 @@ void EventConfig::write_impl(QJsonObject &json) const
 VMEConfig::VMEConfig(QObject *parent)
     : ConfigObject(parent)
 {
-    setProperty("version", GetCurrentVMEConfigVersion());
     m_globalObjects.setObjectName("global_objects");
     m_globalObjects.setProperty("display_name", "Global Objects");
     m_globalObjects.setProperty("icon", ":/vme_global_scripts.png");
@@ -862,6 +863,7 @@ void VMEConfig::write_impl(QJsonObject &json) const
     controllerJson["type"] = to_string(m_controllerType);
     controllerJson["settings"] = QJsonObject::fromVariantMap(m_controllerSettings);
     json["vme_controller"] = controllerJson;
+    mvme::vme_config::json_schema::set_vmeconfig_version(json, GetCurrentVMEConfigVersion());
 }
 
 void VMEConfig::read_impl(const QJsonObject &inputJson)
