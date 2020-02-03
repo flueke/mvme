@@ -213,6 +213,8 @@ QVector<PreparsedLine> LIBMVME_CORE_EXPORT pre_parse(const QString &input);
 
 QVector<PreparsedLine> LIBMVME_CORE_EXPORT pre_parse(QTextStream &input);
 
+// These functions return the set of variable names references in the given vme
+// script text.
 QSet<QString> LIBMVME_CORE_EXPORT collect_variable_references(
     const QString &input);
 
