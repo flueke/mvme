@@ -1,10 +1,11 @@
 #ifndef __MVME_VME_SCRIPT_VARIABLES_H__
 #define __MVME_VME_SCRIPT_VARIABLES_H__
 
+#include <QJsonObject>
 #include <QMap>
+#include <QSet>
 #include <QString>
 #include <QVector>
-#include <QJsonObject>
 
 #include "libmvme_core_export.h"
 
@@ -90,6 +91,11 @@ struct LIBMVME_CORE_EXPORT SymbolTable
     QStringList symbolNames() const
     {
         return symbols.keys();
+    }
+
+    QSet<QString> symbolNameSet() const
+    {
+        return QSet<QString>::fromList(symbolNames());
     }
 };
 

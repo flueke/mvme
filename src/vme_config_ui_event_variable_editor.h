@@ -6,12 +6,22 @@
 
 #include "libmvme_export.h"
 #include "vme_config.h"
+#include "vme_script.h"
 
 class LIBMVME_EXPORT EventVariableEditor: public QWidget
 {
     Q_OBJECT
     public:
-        explicit EventVariableEditor(EventConfig *eventConfig, QWidget *parent = nullptr);
+        using RunScriptCallback = std::function<
+            vme_script::ResultList (
+                const vme_script::VMEScript &,
+                vme_script::LoggerFun)>;
+
+        explicit EventVariableEditor(
+            EventConfig *eventConfig,
+            RunScriptCallback runScriptCallback,
+            QWidget *parent = nullptr);
+
         ~EventVariableEditor();
 
     private:

@@ -1876,13 +1876,27 @@ void MVMEMainWindow::runEditVMEEventDialog(EventConfig *eventConfig)
 
 void MVMEMainWindow::runEditVMEEventVariables(EventConfig *eventConfig)
 {
-    auto editor = new EventVariableEditor(eventConfig);
+    auto runScriptCallback = [this] (
+        const vme_script::VMEScript &script,
+        vme_script::LoggerFun logger)
+    {
+        auto logger_wrapper = [this, logger] (const QString &str)
+        {
+            logger(str);
+            m_d->m_context->logMessage(str);
+        };
+
+        return m_d->m_context->runScript(script, logger_wrapper);
+    };
+
+    auto editor = new EventVariableEditor(eventConfig, runScriptCallback);
     editor->setAttribute(Qt::WA_DeleteOnClose);
     editor->show();
 
+    m_d->m_geometrySaver->addAndRestore(editor , QSL("WindowGeometries/EventVariableEditor"));
+
     // TODO: close dialog on event deletion and vme config new,open and workspace open
     // TODO: register widget somewhere so that it can be raised if one already exists
-    // TODO: save geometry
 }
 
 void MVMEMainWindow::runVMEControllerSettingsDialog()
