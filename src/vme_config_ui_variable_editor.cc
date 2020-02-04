@@ -268,7 +268,7 @@ VariableEditorWidget::VariableEditorWidget(
     actionButtonsLayout->addWidget(d->pb_delVariable);
     actionButtonsLayout->addStretch(1);
 
-    auto layout = make_vbox(this);
+    auto layout = make_vbox<0, 0>(this);
     layout->addWidget(d->tableView);
     layout->addLayout(actionButtonsLayout);
 
