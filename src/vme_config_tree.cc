@@ -618,6 +618,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     auto vmeScript = qobject_cast<VMEScriptConfig *>(obj);
     bool isIdle = (m_daqState == DAQState::Idle);
     bool isMVLC = is_mvlc_controller(m_config->getControllerType());
+    QAction *action = nullptr;
 
     QMenu menu;
 
@@ -628,6 +629,8 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     {
         if (isIdle || isMVLC)
             menu.addAction(QSL("Run Script"), this, &VMEConfigTreeWidget::runScripts);
+        menu.addAction(QIcon(QSL(":/pencil.png")), QSL("Edit Script"),
+                       this, &VMEConfigTreeWidget::editScript);
     }
 
     //
@@ -643,15 +646,10 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     {
         Q_ASSERT(obj);
 
-        if (isIdle)
-            menu.addAction(QSL("Edit Event"), this, &VMEConfigTreeWidget::editEventImpl);
+        action = menu.addAction(QIcon(QSL(":/gear.png")), QSL("Edit Event Settings"),
+                                this, &VMEConfigTreeWidget::editEventImpl);
+        action->setEnabled(isIdle);
 
-        if (isIdle)
-            menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
-
-        menu.addAction(QSL("Rename Event"), this, &VMEConfigTreeWidget::editName);
-
-        menu.addSeparator();
         menu.addAction(
             QIcon(QSL(":/pencil.png")), QSL("Edit Event Variables"),
             this, [this] ()
@@ -664,6 +662,14 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                     emit editEventVariables(eventConfig);
                 }
             });
+
+        //menu.addAction(QSL("Rename Event"), this, &VMEConfigTreeWidget::editName);
+        menu.addSeparator();
+
+        action = menu.addAction(QIcon(QSL(":/list-add.png")), QSL("Add Module"),
+                                this, &VMEConfigTreeWidget::addModule);
+        action->setEnabled(isIdle);
+
     }
 
     if (node && node->type() == NodeType_EventModulesInit)
@@ -676,16 +682,15 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     {
         Q_ASSERT(obj);
 
-        if (isIdle)
+        if ((isIdle || isMVLC) && obj->isEnabled())
         {
-            if (obj->isEnabled())
-            {
-                menu.addAction(QSL("Init Module"), this, &VMEConfigTreeWidget::initModule);
-                menu.addAction(QSL("Edit Module"), this, &VMEConfigTreeWidget::editModule);
-            }
+            menu.addAction(QSL("Init Module"), this, &VMEConfigTreeWidget::initModule);
+            menu.addSeparator();
+            menu.addAction(QIcon(QSL(":/gear.png")), QSL("Edit Module Settings"),
+                           this, &VMEConfigTreeWidget::editModule);
         }
 
-        menu.addAction(QSL("Rename Module"), this, &VMEConfigTreeWidget::editName);
+        //menu.addAction(QSL("Rename Module"), this, &VMEConfigTreeWidget::editName);
 
         if (isIdle)
         {
@@ -1154,6 +1159,28 @@ void VMEConfigTreeWidget::runScripts()
     }
 
     emit runScriptConfigs(scriptConfigs);
+}
+
+void VMEConfigTreeWidget::editScript()
+{
+    auto node = m_tree->currentItem();
+
+    auto obj  = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer));
+
+    if (auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj))
+    {
+        try
+        {
+            auto metaTag = vme_script::get_first_meta_block_tag(
+                mesytec::mvme::parse(scriptConfig));
+
+            emit editVMEScript(scriptConfig, metaTag);
+            return;
+        }
+        catch (const vme_script::ParseError &e) { }
+
+        emit editVMEScript(scriptConfig);
+    }
 }
 
 void VMEConfigTreeWidget::editName()
