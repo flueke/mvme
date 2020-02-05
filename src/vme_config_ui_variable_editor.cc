@@ -18,6 +18,7 @@ using boost::adaptors::indexed;
 
 namespace
 {
+constexpr int OriginalVariableNameRole = Qt::UserRole+1;
 
 std::unique_ptr<QStandardItem> make_item(const QString &text, bool isSysVar)
 {
@@ -51,6 +52,7 @@ void populate_model(QStandardItemModel &model, const vme_script::SymbolTable &sy
         const bool isSysVar = vme_script::is_system_variable_name(name);
 
         auto sti = make_item(name, isSysVar);
+        sti->setData(name, OriginalVariableNameRole);
         model.setItem(row, 0, sti.release());
 
         sti = make_item(var.value, isSysVar);
@@ -64,7 +66,14 @@ void populate_model(QStandardItemModel &model, const vme_script::SymbolTable &sy
 namespace
 {
 
-std::pair<QString, vme_script::Variable> get_variable_and_name(const QStandardItemModel &model, int row)
+struct VarModelInfo
+{
+    QString name;
+    QString originalName;
+    vme_script::Variable var;
+};
+
+VarModelInfo get_variable_model_info(const QStandardItemModel &model, int row)
 {
     assert(model.columnCount() == 3);
 
@@ -74,12 +83,13 @@ std::pair<QString, vme_script::Variable> get_variable_and_name(const QStandardIt
     auto name = model.item(row, 0)->text();
     auto value = model.item(row, 1)->text();
     auto comment = model.item(row, 2)->text();
+    auto originalName = model.item(row, 0)->data(OriginalVariableNameRole).toString();
 
     vme_script::Variable var;
     var.value = value;
     var.comment = comment;
 
-    return std::make_pair(name, var);
+    return { name, originalName, var };
 }
 
 int find_row_by_varname(const QStandardItemModel &model, const QString &varName)
@@ -99,9 +109,9 @@ void save_to_symboltable(const QStandardItemModel &model, vme_script::SymbolTabl
 {
     for (int row = 0; row < model.rowCount(); row++)
     {
-        auto varAndName = get_variable_and_name(model, row);
+        auto varInfo = get_variable_model_info(model, row);
 
-        symtab[varAndName.first] = varAndName.second;
+        symtab[varInfo.name] = varInfo.var;
     }
 }
 
@@ -334,24 +344,26 @@ VariableEditorWidget::VariableEditorWidget(
             return;
 
         auto row = topLeft.row();
-        QString varName;
-        vme_script::Variable var;
 
-        std::tie(varName, var) = get_variable_and_name(*d->model, row);
-        emit variableValueChanged(varName, var);
+        auto varInfo = get_variable_model_info(*d->model, row);
 
-#if 0
-        qDebug() << static_cast<bool>(var);
-        qDebug() << d->lastSetSymtab.contains(varName);
-        qDebug() << var.value << d->lastSetSymtab[varName].value;
-
-        if (var && d->lastSetSymtab.contains(varName))
+        if (varInfo.name != varInfo.originalName)
         {
-            //emit variableEdited(varName, var);
-
-            if (var.value != d->lastSetSymtab[varName].value)
+            d->modelSymtab.remove(varInfo.originalName);
+            emit variableDeleted(varInfo.originalName);
+            emit variabledAdded(varInfo.name, varInfo.var);
         }
-#endif
+        else
+        {
+            if (d->modelSymtab.value(varInfo.name).value != varInfo.var.value)
+                emit variableValueChanged(varInfo.name, varInfo.var);
+
+            if (d->modelSymtab.value(varInfo.name) != varInfo.var)
+                emit variableModified(varInfo.name, varInfo.var);
+        }
+
+        // Update the symtab representation of the model to reflect the change.
+        d->modelSymtab[varInfo.name] = varInfo.var;
     };
 
     connect(d->model.get(), &QAbstractItemModel::dataChanged,
@@ -367,30 +379,37 @@ void VariableEditorWidget::setVariables(const vme_script::SymbolTable &symtab)
     d->isModifying = true;
 
     populate_model(*d->model, symtab);
-    if (auto sm = d->tableView->selectionModel())
-        sm->deleteLater();
-    d->tableView->setModel(d->model.get());
-    d->tableView->setTextElideMode(Qt::ElideNone);
-    d->tableView->setWordWrap(true);
+    d->modelSymtab = symtab;
+
+    if (d->tableView->model() != d->model.get())
+    {
+        if (auto sm = d->tableView->selectionModel())
+            sm->deleteLater();
+
+        d->tableView->setModel(d->model.get());
+        d->tableView->setTextElideMode(Qt::ElideNone);
+        d->tableView->setWordWrap(true);
+
+        // This has to happen after every call to setModel() because a new
+        // QItemSelectionModel will have been created internally by the view.
+        connect(d->tableView->selectionModel(), &QItemSelectionModel::selectionChanged,
+                this, [this] (const QItemSelection &selected, const QItemSelection &deselected)
+        {
+            qDebug() << __PRETTY_FUNCTION__;
+            if (!selected.isEmpty())
+            {
+                auto index = selected.indexes().first();
+                auto name = d->model->item(index.row(), 0)->text();
+                d->pb_delVariable->setEnabled(!vme_script::is_system_variable_name(name));
+            }
+            else
+                d->pb_delVariable->setEnabled(false);
+        });
+    }
+
     for (int col = 0; col < 2; col++)
         d->tableView->resizeColumnToContents(col);
 
-    // This has to happen after every call to setModel() because a new
-    // QItemSelectionModel will have been created internally by the view.
-    connect(d->tableView->selectionModel(), &QItemSelectionModel::selectionChanged,
-            this, [this] (const QItemSelection &selected, const QItemSelection &deselected)
-    {
-        if (!selected.isEmpty())
-        {
-            auto index = selected.indexes().first();
-            auto name = d->model->item(index.row(), 0)->text();
-            d->pb_delVariable->setEnabled(!vme_script::is_system_variable_name(name));
-        }
-        else
-            d->pb_delVariable->setEnabled(false);
-    });
-
-    d->lastSetSymtab = symtab;
     d->isModifying = false;
 }
 

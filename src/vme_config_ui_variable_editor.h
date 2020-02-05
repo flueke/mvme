@@ -35,7 +35,7 @@ class LIBMVME_EXPORT VariableEditorWidget: public QWidget
         void variabledAdded(const QString &varName, const vme_script::Variable &newVar);
 
         // Any edit to the variable (value or comment)
-        //void variableEdited(const QString &varName, const vme_script::Variable &updatedVar);
+        void variableModified(const QString &varName, const vme_script::Variable &updatedVar);
 
         // The variables value was modified by the user
         void variableValueChanged(const QString &varName, const vme_script::Variable &updatedVar);

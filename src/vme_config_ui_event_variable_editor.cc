@@ -45,17 +45,32 @@ struct EventVariableEditor::Private
     VariableEditorWidget *varEditor;
     QPlainTextEdit *logView;
     QCheckBox *cb_autoRun;
+    QCheckBox *cb_showInternalVariables;
     QPushButton *pb_runScripts;
     QDialogButtonBox *bb;
 
     QSet<QString> changedVariableNames;
+    QSet<QString> deletedVariableNames;
 
     QVector<InitScriptCandidate> getAffectedScriptCandidates() const;
     void logAffectedScripts();
     void runAffectedScripts();
     void loadFromEvent();
+    void save();
     void saveAndClose();
 };
+
+// Note about why focus policy is manually set for some of the Widgets:
+//
+// When modifying a variables value in the table widget and there are module
+// init scripts depending on the variable and the auto-run option is checked,
+// then the object actually executing the init scripts displays a
+// QProgressDialog for each of the scripts.
+// This means the variable editor loses and regains focus. Some of the time
+// changing the same variable value again by typing on the keyboard works but
+// at other times keyboard focus was taken away from the table widget.
+// Setting most of the other widgets focus policy to Qt::NoFocus seems to fix
+// this.
 
 EventVariableEditor::EventVariableEditor(
     EventConfig *eventConfig,
@@ -71,7 +86,6 @@ EventVariableEditor::EventVariableEditor(
     d->runScriptCallback = runScriptCallback;
     d->eventConfig = eventConfig;
     d->varEditor = new VariableEditorWidget;
-    d->varEditor->setFocusPolicy(Qt::StrongFocus);
     d->logView = make_logview().release();
 
     d->le_eventName = new QLineEdit;
@@ -83,20 +97,26 @@ EventVariableEditor::EventVariableEditor(
         d->le_eventName->setPalette(pal);
     }
 
-    d->cb_autoRun = new QCheckBox("Auto-run dependent module init scripts on modification");
+    d->cb_autoRun = new QCheckBox(QSL("Auto-run dependent module init scripts on modification"));
     d->cb_autoRun->setChecked(true);
-    d->cb_autoRun->setFocusPolicy(Qt::ClickFocus);
+    d->cb_autoRun->setFocusPolicy(Qt::NoFocus);
+
+    d->cb_showInternalVariables = new QCheckBox(QSL("Show system and internal variables"));
+    d->cb_showInternalVariables->setChecked(false);
+    d->cb_showInternalVariables->setFocusPolicy(Qt::NoFocus);
 
     d->pb_runScripts = new QPushButton(QIcon(":/script-run.png"), "&Run Module Init Scripts");
-    d->pb_runScripts->setFocusPolicy(Qt::ClickFocus);
+    d->pb_runScripts->setFocusPolicy(Qt::NoFocus);
     auto pb_runScriptsLayout = make_hbox<0, 0>();
     pb_runScriptsLayout->addWidget(d->pb_runScripts);
     pb_runScriptsLayout->addStretch(1);
 
     auto topGroupBox = new QGroupBox;
     auto topFormLayout = new QFormLayout(topGroupBox);
+    topFormLayout->setContentsMargins(2, 2, 2, 2);
     topFormLayout->addRow("Event", d->le_eventName);
     topFormLayout->addRow(d->cb_autoRun);
+    topFormLayout->addRow(d->cb_showInternalVariables);
     topFormLayout->addRow(pb_runScriptsLayout);
 
     auto leftGroupBox = new QGroupBox(QSL("Event Variables"));
@@ -112,16 +132,11 @@ EventVariableEditor::EventVariableEditor(
     splitter->addWidget(leftGroupBox);
     splitter->addWidget(rightGroupBox);
 
-    d->bb = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
-    d->bb->button(QDialogButtonBox::Save)->setText("Save and Close");
-
-    // Disabled due to the undesirable interaction with QProgressDialog created
-    // by MVMEContext::runScript(): upon regaining control the focus was taken
-    // away from the variable editor table and instead placed on the Save
-    // button.  This prevents the user from editing the same variable multiple
-    // times by just typing the new value.
-    //d->bb->button(QDialogButtonBox::Save)->setDefault(false);
-    //d->bb->button(QDialogButtonBox::Save)->setAutoDefault(false);
+    d->bb = new QDialogButtonBox(QDialogButtonBox::Apply |
+                                 QDialogButtonBox::Ok |
+                                 QDialogButtonBox::Cancel);
+    //d->bb->button(QDialogButtonBox::Apply)->setText(QSL("Save"));
+    //d->bb->button(QDialogButtonBox::Save)->setText(QSL("Save and Close"));
 
     auto widgetLayout = make_vbox<4, 4>(this);
     widgetLayout->addWidget(topGroupBox);
@@ -135,6 +150,7 @@ EventVariableEditor::EventVariableEditor(
                 qDebug() << __PRETTY_FUNCTION__ << "variableAdded:" << varName << var.value;
                 if (var)
                 {
+                    setWindowModified(true);
                     d->changedVariableNames.insert(varName);
                     d->logAffectedScripts();
                     if (d->cb_autoRun->isChecked())
@@ -147,6 +163,7 @@ EventVariableEditor::EventVariableEditor(
             {
                 qDebug() << __PRETTY_FUNCTION__ << "variableValueChanged:" << varName << var.value;
 
+                setWindowModified(true);
                 d->changedVariableNames.insert(varName);
                 d->logAffectedScripts();
                 if (d->cb_autoRun->isChecked())
@@ -170,12 +187,21 @@ EventVariableEditor::EventVariableEditor(
     connect(d->bb, &QDialogButtonBox::clicked,
             this, [this] (QAbstractButton *button)
             {
-                if (button == d->bb->button(QDialogButtonBox::Save))
+                if (button == d->bb->button(QDialogButtonBox::Apply))
+                    d->save();
+                else if (button == d->bb->button(QDialogButtonBox::Ok))
                     d->saveAndClose();
                 else if (button == d->bb->button(QDialogButtonBox::Cancel))
                     this->close();
                 else
                     assert(false);
+            });
+
+    // show/hide interal variables
+    connect(d->cb_showInternalVariables, &QCheckBox::stateChanged,
+            this, [this] (int state)
+            {
+                d->varEditor->setHideInternalVariables(!(state == Qt::Checked));
             });
 
     resize(1000, 800);
@@ -381,17 +407,25 @@ void EventVariableEditor::Private::runAffectedScripts()
 
 void EventVariableEditor::Private::loadFromEvent()
 {
-    q->setWindowTitle(QSL("Variable Editor for Event '%1'")
+    q->setWindowTitle(QSL("Variable Editor for Event '%1' [*]")
                       .arg(eventConfig->objectName()));
 
     le_eventName->setText(eventConfig->objectName());
     varEditor->setVariables(eventConfig->getVariables());
+    varEditor->setHideInternalVariables(
+        !(cb_showInternalVariables->checkState() == Qt::Checked));
     changedVariableNames.clear();
     logView->clear();
 }
 
-void EventVariableEditor::Private::saveAndClose()
+void EventVariableEditor::Private::save()
 {
     eventConfig->setVariables(varEditor->getVariables());
+    q->setWindowModified(false);
+}
+
+void EventVariableEditor::Private::saveAndClose()
+{
+    save();
     q->close();
 }
