@@ -1886,7 +1886,7 @@ void MVMEMainWindow::runEditVMEEventVariables(EventConfig *eventConfig)
             m_d->m_context->logMessage(str);
         };
 
-        return m_d->m_context->runScript(script, logger_wrapper);
+        return m_d->m_context->runScript(script, logger_wrapper, false);
     };
 
     auto editor = new EventVariableEditor(eventConfig, runScriptCallback);

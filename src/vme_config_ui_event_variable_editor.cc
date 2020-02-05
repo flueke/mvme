@@ -16,6 +16,7 @@
 #include <QPlainTextEdit>
 #include <QSplitter>
 #include <QPushButton>
+#include <qnamespace.h>
 
 struct InitScriptCandidate
 {
@@ -70,10 +71,12 @@ EventVariableEditor::EventVariableEditor(
     d->runScriptCallback = runScriptCallback;
     d->eventConfig = eventConfig;
     d->varEditor = new VariableEditorWidget;
+    d->varEditor->setFocusPolicy(Qt::StrongFocus);
     d->logView = make_logview().release();
 
     d->le_eventName = new QLineEdit;
     d->le_eventName->setReadOnly(true);
+    d->le_eventName->setFocusPolicy(Qt::NoFocus);
     {
         auto pal = d->le_eventName->palette();
         pal.setBrush(QPalette::Base, QColor(239, 235, 231));
@@ -82,7 +85,10 @@ EventVariableEditor::EventVariableEditor(
 
     d->cb_autoRun = new QCheckBox("Auto-run dependent module init scripts on modification");
     d->cb_autoRun->setChecked(true);
+    d->cb_autoRun->setFocusPolicy(Qt::ClickFocus);
+
     d->pb_runScripts = new QPushButton(QIcon(":/script-run.png"), "&Run Module Init Scripts");
+    d->pb_runScripts->setFocusPolicy(Qt::ClickFocus);
     auto pb_runScriptsLayout = make_hbox<0, 0>();
     pb_runScriptsLayout->addWidget(d->pb_runScripts);
     pb_runScriptsLayout->addStretch(1);
@@ -108,6 +114,14 @@ EventVariableEditor::EventVariableEditor(
 
     d->bb = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
     d->bb->button(QDialogButtonBox::Save)->setText("Save and Close");
+
+    // Disabled due to the undesirable interaction with QProgressDialog created
+    // by MVMEContext::runScript(): upon regaining control the focus was taken
+    // away from the variable editor table and instead placed on the Save
+    // button.  This prevents the user from editing the same variable multiple
+    // times by just typing the new value.
+    //d->bb->button(QDialogButtonBox::Save)->setDefault(false);
+    //d->bb->button(QDialogButtonBox::Save)->setAutoDefault(false);
 
     auto widgetLayout = make_vbox<4, 4>(this);
     widgetLayout->addWidget(topGroupBox);
@@ -265,7 +279,7 @@ void EventVariableEditor::Private::logAffectedScripts()
                          return !c.scriptOverrides.isEmpty() || !c.moduleOverrides.isEmpty();
                      }) != std::end(candidates))
     {
-        logView->appendPlainText("\nUnaffected init scripts:");
+        logView->appendPlainText("Unaffected init scripts:");
 
         for (const auto &c: candidates)
         {
@@ -340,12 +354,13 @@ void EventVariableEditor::Private::runAffectedScripts()
 
             logger(QSL("Running script \"%1\"").arg(c.initScript->getObjectPath()));
 
-            auto results = runScriptCallback(parsedScript, logger);
+            auto indented_logger = [logger] (const QString &str) { logger(QSL("  ") + str); };
+            auto results = runScriptCallback(parsedScript, indented_logger);
 
             for (auto result: results)
             {
                 if (results.size() > 1 && results[0].error.error() != VMEError::NotOpen)
-                    logger(format_result(result));
+                    indented_logger(format_result(result));
 
                 if (result.error.isError())
                     seenScriptError = true;
