@@ -224,9 +224,9 @@ struct VariableEditorWidget::Private
     QTableView *tableView;
     std::unique_ptr<QStandardItemModel> model;
 
-    // The symbol table last set via setVariables(). Used to detect
-    // modifications done to the model.
-    vme_script::SymbolTable lastSetSymtab;
+    // The symbol table currently stored in the model. Used to detect when
+    // variable values are modified by the user.
+    vme_script::SymbolTable modelSymtab;
 
     QPushButton *pb_addVariable,
                 *pb_delVariable;
@@ -408,4 +408,18 @@ void VariableEditorWidget::setVariableValue(const QString &varName, const QStrin
     set_variable_value(*d->model, varName, varValue);
 
     d->isModifying = false;
+}
+
+void VariableEditorWidget::setHideInternalVariables(bool hide)
+{
+    QString varName;
+    vme_script::Variable var;
+
+    for (int row = 0; row < d->model->rowCount(); row++)
+    {
+        auto varInfo = get_variable_model_info(*d->model, row);
+
+        if (vme_script::is_internal_variable_name(varInfo.name))
+            d->tableView->setRowHidden(row, hide);
+    }
 }

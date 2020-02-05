@@ -13,6 +13,7 @@ namespace vme_script
 {
 
 static const QString SystemVariablePrefix = "sys_";
+static const QString MesytecVariablePrefix = "mesy_";
 
 struct LIBMVME_CORE_EXPORT Variable
 {
@@ -97,6 +98,11 @@ struct LIBMVME_CORE_EXPORT SymbolTable
     {
         return QSet<QString>::fromList(symbolNames());
     }
+
+    bool remove(const QString &varName)
+    {
+        return symbols.remove(varName);
+    }
 };
 
 bool LIBMVME_CORE_EXPORT operator==(const SymbolTable &sta, const SymbolTable &stb);
@@ -121,6 +127,17 @@ SymbolTable LIBMVME_CORE_EXPORT symboltable_from_json(const QJsonObject &tableJs
 inline bool is_system_variable_name(const QString &varName)
 {
     return varName.startsWith(SystemVariablePrefix);
+}
+
+inline bool is_mesytec_variable_name(const QString &varName)
+{
+    return varName.startsWith(MesytecVariablePrefix);
+}
+
+inline bool is_internal_variable_name(const QString &varName)
+{
+    return is_system_variable_name(varName)
+        || is_mesytec_variable_name(varName);
 }
 
 // Comparator for sorting names of variables.

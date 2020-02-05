@@ -50,6 +50,9 @@ class LIBMVME_EXPORT VariableEditorWidget: public QWidget
         vme_script::SymbolTable getVariables() const;
         void setVariableValue(const QString &varName, const QString &varValue);
 
+        // If set to true variables starting with sys_ and mesy_ are hidden.
+        void setHideInternalVariables(bool b);
+
     private:
         struct Private;
         std::unique_ptr<Private> d;
