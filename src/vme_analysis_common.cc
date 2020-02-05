@@ -152,8 +152,24 @@ static void rewrite_module(Analysis *analysis,
         if (op->getEventId() == fromEventId)
         {
 
-            qDebug() << __PRETTY_FUNCTION__ << "rewrite op eventId, old =" << op->getEventId() << ", new =" << toEventId;
+            qDebug() << __PRETTY_FUNCTION__ << "rewrite op eventId, old =" <<
+                op->getEventId() << ", new =" << toEventId;
+
             op->setEventId(toEventId);
+        }
+    }
+
+    auto &directories(analysis->getDirectories());
+    for (auto &dir: directories)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "checking dir =" << dir << ", eventId =" << dir->getEventId();
+
+        if (dir->getEventId() == fromEventId)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "rewrite dir eventId, old =" <<
+                dir->getEventId() << ", new =" << toEventId;
+
+            dir->setEventId(toEventId);
         }
     }
 }

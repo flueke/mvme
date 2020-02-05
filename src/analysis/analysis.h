@@ -1881,6 +1881,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         // Directory Objects
         //
         const DirectoryVector &getDirectories() const { return m_directories; }
+        DirectoryVector &getDirectories() { return m_directories; }
 
         const DirectoryVector getDirectories(const QUuid &eventId,
                                              const DisplayLocation &loc = DisplayLocation::Any) const;
