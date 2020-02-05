@@ -652,7 +652,7 @@ static std::tuple<bool, QHostInfo, int> get_event_server_listen_info(const QSett
 
 bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap &settings)
 {
-    qDebug() << __PRETTY_FUNCTION__ << "begin";
+    //qDebug() << __PRETTY_FUNCTION__ << "begin";
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getMVMEStreamWorkerState() == MVMEStreamWorkerState::Idle);
 
@@ -672,7 +672,8 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
      * performed when trying to open the current controller. This is the reason
      * for using an event loop instead of directly calling
      * m_ctrlOpenFuture.waitForFinished(). */
-    qDebug() << __PRETTY_FUNCTION__ << "before waitForFinished";
+    //qDebug() << __PRETTY_FUNCTION__ << "before waitForFinished";
+
     if (m_ctrlOpenFuture.isRunning())
     {
         QProgressDialog progressDialog("Changing VME Controller", QString(), 0, 0);
@@ -685,11 +686,11 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
                 &localLoop, &QEventLoop::quit);
         localLoop.exec();
     }
-    qDebug() << __PRETTY_FUNCTION__ << "after waitForFinished";
+    //qDebug() << __PRETTY_FUNCTION__ << "after waitForFinished";
 
     emit vmeControllerAboutToBeChanged();
 
-    qDebug() << __PRETTY_FUNCTION__ << "after emit vmeControllerAboutToBeChanged";
+    //qDebug() << __PRETTY_FUNCTION__ << "after emit vmeControllerAboutToBeChanged";
 
     // Delete objects inside the event loop via deleteLater() because Qt events
     // may still be scheduled which may make use of the objects.
@@ -836,7 +837,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     emit vmeControllerSet(controller);
 
-    qDebug() << __PRETTY_FUNCTION__ << "end";
+    //qDebug() << __PRETTY_FUNCTION__ << "end";
     return true;
 }
 
