@@ -92,6 +92,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void objectMappingRemoved(QObject *key, QObject *value, const QString &category);
 
         void sigLogMessage(const QString &);
+        void sigLogError(const QString &);
 
         void daqAboutToStart();
 
@@ -232,6 +233,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void logMessageRaw(const QString &msg);
         // Prepends the current time to the given msg.
         void logMessage(const QString &msg);
+        void logError(const QString &errMsg);
+
         QStringList getLogBuffer() const;
 
         friend class MVMEMainWindow;

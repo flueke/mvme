@@ -325,6 +325,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->m_context, &MVMEContext::daqAboutToStart, this, &MVMEMainWindow::onDAQAboutToStart);
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::onDAQStateChanged);
     connect(m_d->m_context, &MVMEContext::sigLogMessage, this, &MVMEMainWindow::appendToLog);
+    connect(m_d->m_context, &MVMEContext::sigLogError, this, &MVMEMainWindow::appendErrorToLog);
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::mvmeStreamWorkerStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::modeChanged, this, &MVMEMainWindow::updateActions);
@@ -1421,6 +1422,18 @@ void MVMEMainWindow::appendToLog(const QString &str)
     }
 }
 
+void MVMEMainWindow::appendErrorToLog(const QString &str)
+{
+    if (m_d->m_logView)
+    {
+        auto escaped = str.toHtmlEscaped();
+        auto html = QSL("<font color=\"red\"><pre>%1</pre></font>").arg(escaped);
+        m_d->m_logView->appendHtml(html);
+        auto bar = m_d->m_logView->verticalScrollBar();
+        bar->setValue(bar->maximum());
+    }
+}
+
 void MVMEMainWindow::updateWindowTitle()
 {
     QDir wsDir(m_d->m_context->getWorkspaceDirectory());
@@ -1945,16 +1958,16 @@ void MVMEMainWindow::doRunScriptConfigs(
 
         try
         {
+            auto script = mesytec::mvme::parse(
+                scriptConfig,
+                moduleConfig ? moduleConfig->getBaseAddress() : 0);
+
             auto logger = [this](const QString &str)
             {
                 m_d->m_context->logMessage(QSL("  ") + str);
             };
 
-            auto script = mesytec::mvme::parse(
-                scriptConfig,
-                moduleConfig ? moduleConfig->getBaseAddress() : 0);
-
-            auto results = m_d->m_context->runScript(script, logger);
+            auto results = m_d->m_context->runScript(script, logger, false);
 
             if (options & RunScriptOptions::AggregateResults)
             {
@@ -1980,19 +1993,25 @@ void MVMEMainWindow::doRunScriptConfigs(
                         });
                     assert(it != results.end());
 
-                    m_d->m_context->logMessage(
-                        QSL("Error: %1").arg(it->error.toString()));
+                    m_d->m_context->logError(
+                        QSL("  Error: %1").arg(it->error.toString()));
                 }
             }
             else
             {
                 for (auto result: results)
-                    logger(format_result(result));
+                {
+                    if (result.error.isError())
+                        m_d->m_context->logError(QSL("  ") + format_result(result));
+                    else
+                        m_d->m_context->logMessage(QSL("  ") + format_result(result));
+                    //logger(format_result(result));
+                }
             }
         }
         catch (const vme_script::ParseError &e)
         {
-            m_d->m_context->logMessage(QSL("Parse error: ") + e.what());
+            m_d->m_context->logError(QSL("  Parse error: ") + e.what());
         }
     }
 }

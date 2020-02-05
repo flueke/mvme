@@ -1721,6 +1721,24 @@ void MVMEContext::logMessage(const QString &msg)
     logMessageRaw(fullMessage);
 }
 
+void MVMEContext::logError(const QString &msg)
+{
+    QString fullMessage(QString("%1: %2")
+             .arg(QDateTime::currentDateTime().toString("HH:mm:ss"))
+             .arg(msg));
+
+    {
+        QMutexLocker lock(&m_d->m_logBufferMutex);
+
+        if (m_d->m_logBuffer.size() >= LogBufferMaxEntries)
+            m_d->m_logBuffer.pop_front();
+
+        m_d->m_logBuffer.append(msg);
+    }
+
+    emit sigLogError(fullMessage);
+}
+
 QStringList MVMEContext::getLogBuffer() const
 {
     QMutexLocker lock(&m_d->m_logBufferMutex);
