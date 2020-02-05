@@ -170,6 +170,8 @@ EventVariableEditor::EventVariableEditor(
                     d->runAffectedScripts();
             });
 
+ // TODO: react to variable deletion: mark the scripts that used the variable
+ // as being affected by modifications
 #if 0
     connect(d->varEditor, &VariableEditorWidget::variableDeleted,
             this, [this] (const QString &varName)
@@ -372,6 +374,9 @@ void EventVariableEditor::Private::runAffectedScripts()
         if (auto moduleConfig = qobject_cast<ModuleConfig *>(c.initScript->parent()))
             moduleBaseAddress = moduleConfig->getBaseAddress();
 
+        // TODO: use the same error logging code as in MVMEContext::logError()
+        // Also pass the messages to the context object via a signal or maybe
+        // use the runScriptCallback for error logging or something.
         try
         {
             // Parse using the modified symbol tables.
