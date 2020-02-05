@@ -957,7 +957,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
             result.eclItem->moveBy(25, 25);
 
-            auto label = new QGraphicsSimpleTextItem(QString("ECL Outputs"), result.eclItem);
+            auto label = new QGraphicsSimpleTextItem(QString("LVDS Outputs"), result.eclItem);
             label->moveBy((result.eclItem->boundingRect().width()
                            - label->boundingRect().width()) / 2.0, 0);
 

@@ -272,9 +272,9 @@ const std::array<QString, trigger_io::Level3::UnitCount+1> Level3::DefaultUnitNa
     "NIM11",
     "NIM12",
     "NIM13",
-    "ECL0",
-    "ECL1",
-    "ECL2",
+    "LVDS0",
+    "LVDS1",
+    "LVDS2",
     "<not connected>",
 };
 
