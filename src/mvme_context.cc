@@ -1818,10 +1818,10 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
         // but moves the run_script call into a different thread and shows a
         // progress dialog during execution.
         //
-        // IMPORTANT: if logEachResult is true the logger will be invoked from
-        // within the thread chosen by QtConcurrent::run(). This means direct
-        // modification of GUI elements from within the logger code is not
-        // allowed and will most likely lead to a crash!
+        // IMPORTANT: if logEachResult is true, then the logger will be invoked
+        // from within the thread chosen by QtConcurrent::run(). This means
+        // direct modification of GUI elements from within the logger code is
+        // not allowed and will most likely lead to a crash!
 
         using Watcher = QFutureWatcher<vme_script::ResultList>;
 

@@ -2,49 +2,26 @@
 TODO list
 ==================================================
 
-Live variable editing and dependent module init script execution
-----------------------------------------------------------------
-
-* Add a context menu entry to vme config event nodes which opens up an editor window.
-  The editor should be non-modal. It must be closed in case the event is deleted.
-  Also reactivating the context menu action should raise the window.
-
-* In the editor use a VariableEditorWidget to display the events variables.
-  Allow adding, removing and modfifying variables.
-
-* Add a button to run the module init scripts affected by the modified variables.
-  List the affected scripts.
-
--> Done: Need a way to find the variables referenced in a vme script.
-
-Widget layout:
-event name
-VariableEditorWidget (includes buttons to add/remove variables and allow inline editing
-ok -> apply changes to the event and close the window. modifies vme config
-apply -> same as ok but do not close
-run affected scripts -> executes the vme script referencing any of the modified variables using their new values
- -> need to replace the EventConfigs SymbolTable with the one created from the gui table.
-    No, just push_front() the SymbolTable created from the widget. This will
-    override the EventConfigs symbol table.
-    XXX: It will not have any effect on deleted variables. So it might still be
-    better to locate and delete the events symbol table. How?
-
-
-----------------------------------------------------------------
-
 * change the analysis default filters generation to allow including custom
   calibration operators and other things in the default_filters.analysis for
   each module. The use case is to set calibrate the module_timestamp to us by
   default and to allow custom calibrations for some of the mdpp32_qdc time data.
   Think about how this should be implemented. Some partial analysis or analyis
   object library or something.
+  -> object rewrite code is already in place. When creating default filters the
+  source module is known, thus the object graph can be rewritten to connect to
+  that module. A problem is still the naming of things. Since the introduction
+  of directories for the default calibrations and histograms the indvidual
+  operator names can be pretty generic but the directory names should contain
+  the module name they're connected to. Use placeholders in the template names?
+  %m to be replaced by the actual module name?
 
 * config update from version 3 to 4 (introduction of vme_script variables):
   - logging of what's changed
   - user visible prompt (modal warning box) about the schema and script update.
     also set the config to modified.
 
-* think about moving the buisness logic in vme_config_ui into factory functions
+* think about moving the business logic in vme_config_ui into factory functions
   for new EventConfig and ModuleConfig instances. Also factor out things like
   getting the next available mcst address.
   -> done for EventConfig (vme_config_util.h)
