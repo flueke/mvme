@@ -1821,7 +1821,11 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
         // IMPORTANT: if logEachResult is true, then the logger will be invoked
         // from within the thread chosen by QtConcurrent::run(). This means
         // direct modification of GUI elements from within the logger code is
-        // not allowed and will most likely lead to a crash!
+        // not allowed and will most likely lead to a crash!  A workaround is
+        // to emit a signal from within the logger (via a lambda for example)
+        // to deliver the message to the destination. Then the usual Qt
+        // signal/slot thread handling will apply and the slot will be invoked
+        // in the destinations thread.
 
         using Watcher = QFutureWatcher<vme_script::ResultList>;
 

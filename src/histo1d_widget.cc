@@ -1271,7 +1271,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
     m_globalStatsTextItem->setText(*m_globalStatsText);
 
     //
-    // gauss peak stats
+    // set updated histo stats on the gauss curve object
     //
     auto gaussCurveData = reinterpret_cast<Histo1DGaussCurveData *>(m_gaussCurve->data());
     gaussCurveData->setStats(m_stats);

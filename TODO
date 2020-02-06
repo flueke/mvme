@@ -2,6 +2,21 @@
 TODO list
 ==================================================
 
+Feature: Histo array stats to text
+----------------------------------
+* Add button to histo1d widget called "histo stats to text" or something similar
+* On click open a new text window
+* walk through all histograms in the array
+* use the currently visible  lower and upper bounds and the current rrf to
+  calculate the stats for each histo
+* print a header and the stats for each histo to the text window
+
+* stats: fwhm, fwhm center, total counts, ...? all Histo1DStatistics values?
+
+----------------------------------
+
+* add "Reset Module" action to the vme tree context menu. I want it!
+
 * change the analysis default filters generation to allow including custom
   calibration operators and other things in the default_filters.analysis for
   each module. The use case is to set calibrate the module_timestamp to us by
