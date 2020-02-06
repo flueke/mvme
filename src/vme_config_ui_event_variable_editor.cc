@@ -105,7 +105,7 @@ EventVariableEditor::EventVariableEditor(
     d->cb_showInternalVariables->setChecked(false);
     d->cb_showInternalVariables->setFocusPolicy(Qt::NoFocus);
 
-    d->pb_runScripts = new QPushButton(QIcon(":/script-run.png"), "&Run Module Init Scripts");
+    d->pb_runScripts = new QPushButton(QIcon(":/script-run.png"), "&Run dependent module init scripts");
     d->pb_runScripts->setFocusPolicy(Qt::NoFocus);
     auto pb_runScriptsLayout = make_hbox<0, 0>();
     pb_runScriptsLayout->addWidget(d->pb_runScripts);
@@ -338,10 +338,33 @@ void EventVariableEditor::Private::runAffectedScripts()
         return;
     }
 
+    // FIXME: logging is horrible here. Do use boost::log at some point and get
+    // rid of this mess.
+
     auto logger = [this](const QString &str)
     {
         logView->appendPlainText(str);
+        emit q->logMessage(str);
     };
+
+    auto error_logger = [this](const QString &str)
+    {
+        auto escaped = str.toHtmlEscaped();
+        auto html = QSL("<font color=\"red\"><pre>%1</pre></font>").arg(escaped);
+        logView->appendHtml(html);
+        emit q->logError(str);
+    };
+
+    auto make_indented_logger = [](vme_script::LoggerFun originalLogger)
+    {
+        return [originalLogger] (const QString &msg)
+        {
+            originalLogger(QSL("  ") + msg);
+        };
+    };
+
+    auto indented_logger = make_indented_logger(logger);
+    auto indented_error_logger = make_indented_logger(error_logger);
 
     logger("");
 
@@ -374,9 +397,6 @@ void EventVariableEditor::Private::runAffectedScripts()
         if (auto moduleConfig = qobject_cast<ModuleConfig *>(c.initScript->parent()))
             moduleBaseAddress = moduleConfig->getBaseAddress();
 
-        // TODO: use the same error logging code as in MVMEContext::logError()
-        // Also pass the messages to the context object via a signal or maybe
-        // use the runScriptCallback for error logging or something.
         try
         {
             // Parse using the modified symbol tables.
@@ -385,21 +405,33 @@ void EventVariableEditor::Private::runAffectedScripts()
 
             logger(QSL("Running script \"%1\"").arg(c.initScript->getObjectPath()));
 
-            auto indented_logger = [logger] (const QString &str) { logger(QSL("  ") + str); };
             auto results = runScriptCallback(parsedScript, indented_logger);
 
-            for (auto result: results)
-            {
-                if (results.size() > 1 && results[0].error.error() != VMEError::NotOpen)
-                    indented_logger(format_result(result));
+            // Detect controller disconnect and treat it as an error.
+            if (results.size() > 0 && results[0].error.error() == VMEError::NotOpen)
+                seenScriptError = true;
 
-                if (result.error.isError())
-                    seenScriptError = true;
+            if (results.size() > 1 && results[0].error.error() != VMEError::NotOpen)
+            {
+                for (auto result: results)
+                {
+                    auto msg = format_result(result);
+
+                    if (!result.error.isError())
+                    {
+                        indented_logger(msg);
+                    }
+                    else
+                    {
+                        indented_error_logger(msg);
+                        seenScriptError = true;
+                    }
+                }
             }
         }
         catch (const vme_script::ParseError &e)
         {
-            logger(QSL("Error parsing script \"%1\": %2")
+            error_logger(QSL("Error parsing script \"%1\": %2")
                    .arg(c.initScript->getObjectPath())
                    .arg(e.toString()));
             seenScriptError = true;
@@ -407,7 +439,11 @@ void EventVariableEditor::Private::runAffectedScripts()
     }
 
     if (!seenScriptError)
+    {
+        // All scripts where executed successfully so we can clear the
+        // modification state.
         changedVariableNames.clear();
+    }
 }
 
 void EventVariableEditor::Private::loadFromEvent()

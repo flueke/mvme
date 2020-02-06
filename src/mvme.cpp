@@ -1900,18 +1900,17 @@ void MVMEMainWindow::runEditVMEEventVariables(EventConfig *eventConfig)
         const vme_script::VMEScript &script,
         vme_script::LoggerFun logger)
     {
-        auto logger_wrapper = [this, logger] (const QString &str)
-        {
-            logger(str);
-            m_d->m_context->logMessage(str);
-        };
-
-        return m_d->m_context->runScript(script, logger_wrapper, false);
+        return m_d->m_context->runScript(script, logger, false);
     };
 
     auto editor = new EventVariableEditor(eventConfig, runScriptCallback);
     editor->setAttribute(Qt::WA_DeleteOnClose);
-    editor->show();
+
+    connect(editor, &EventVariableEditor::logMessage,
+            m_d->m_context, &MVMEContext::logMessage);
+
+    connect(editor, &EventVariableEditor::logError,
+            m_d->m_context, &MVMEContext::logError);
 
     m_d->m_context->addObjectWidget(
         editor,
@@ -1919,6 +1918,8 @@ void MVMEMainWindow::runEditVMEEventVariables(EventConfig *eventConfig)
         eventConfig->getId().toString() + "_" + "EventVariableEditor");
 
     m_d->m_geometrySaver->addAndRestore(editor , QSL("WindowGeometries/EventVariableEditor"));
+
+    editor->show();
 }
 
 void MVMEMainWindow::runVMEControllerSettingsDialog()
