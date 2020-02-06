@@ -4300,6 +4300,12 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
 
 void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel)
 {
+    if (node->type() == NodeType_Directory)
+    {
+        node->setExpanded(!node->isExpanded());
+        return;
+    }
+
     if (hasPendingConditionModifications())
     {
             qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
