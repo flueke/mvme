@@ -49,6 +49,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
@@ -59,6 +60,7 @@
 #include <QToolBar>
 
 #include "analysis/analysis.h"
+#include "histo1d_util.h"
 #include "histo_gui_util.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
@@ -295,7 +297,9 @@ struct Histo1DWidgetPrivate
             *m_actionChangeRes,
             *m_actionGaussFit,
             *m_actionCalibUi,
-            *m_actionInfo;
+            *m_actionInfo,
+            *m_actionHistoListStats
+            ;
             //*m_actionCuts;
 
     // rate estimation
@@ -412,6 +416,7 @@ struct Histo1DWidgetPrivate
     void exportPlot();
     void exportPlotToClipboard();
     void saveHistogram();
+    void onActionHistoListStats();
 
     void onActionNewCutTriggered();
     void onCutIntervalSelected();
@@ -639,6 +644,13 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
         });
     }
 #endif
+
+    m_d->m_actionHistoListStats = tb->addAction(
+        QIcon(QSL(":/document-text.png")),
+        QSL("Print Stats"));
+
+    connect(m_d->m_actionHistoListStats, &QAction::triggered,
+            this, [this] () { m_d->onActionHistoListStats(); });
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
     // this.
@@ -1802,6 +1814,29 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
     }
 
     replot();
+}
+
+void Histo1DWidgetPrivate::onActionHistoListStats()
+{
+    if (m_histos.isEmpty() || !getCurrentHisto())
+        return;
+
+    QString title = m_sink ? m_sink->objectName() : getCurrentHisto()->objectName();
+
+    QString buffer;
+    QTextStream stream(&buffer);
+    mvme::print_histolist_stats(stream, m_histos, m_rrf, title);
+
+    auto te = new QPlainTextEdit;
+    te->setWindowTitle(QSL("Stats for %1").arg(title));
+    te->setAttribute(Qt::WA_DeleteOnClose);
+    QFont font("MonoSpace");
+    font.setStyleHint(QFont::Monospace);
+    te->setFont(font);
+    te->resize(1000, 800);
+    te->setPlainText(buffer);
+    te->show();
+    te->raise();
 }
 
 void Histo1DWidgetPrivate::onEditCutAccept()

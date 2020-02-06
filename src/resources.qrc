@@ -21,6 +21,7 @@
     <file alias="document-open.png">resources/document-open.png</file>
     <file alias="document-pdf.png">resources/document-pdf.png</file>
     <file alias="document-revert.png">resources/document-revert.png</file>
+    <file alias="document-text.png">resources/document-text.png</file>
     <file alias="document-save-as.png">resources/document-save-as.png</file>
     <file alias="document-save.png">resources/document-save.png</file>
     <file alias="exclamation-circle.png">resources/exclamation-circle.png</file>
