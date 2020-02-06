@@ -16,6 +16,7 @@
 #include "rate_monitor_widget.h"
 
 #include <boost/dynamic_bitset.hpp>
+#include <QCollator>
 #include <QClipboard>
 #include <QFileDialog>
 #include <QGuiApplication>
@@ -1924,6 +1925,29 @@ void EventWidgetPrivate::createView(const QUuid &eventId)
 namespace
 {
 
+QCollator make_natural_order_collator()
+{
+    QCollator result;
+
+    result.setCaseSensitivity(Qt::CaseSensitive);
+    result.setIgnorePunctuation(false);
+    result.setNumericMode(true);
+
+    return result;
+}
+
+bool qobj_natural_compare(const QObject *a, const QObject *b)
+{
+    static const auto collator = make_natural_order_collator();
+    return collator.compare(a->objectName(), b->objectName()) < 0;
+}
+
+bool qobj_ptr_natural_compare(const std::shared_ptr<QObject> &a, const std::shared_ptr<QObject> &b)
+{
+    static const auto collator = make_natural_order_collator();
+    return collator.compare(a->objectName(), b->objectName()) < 0;
+}
+
 UserLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &dispTitle, s32 level)
 {
     const auto editTriggers = QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed;
@@ -1980,6 +2004,8 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
     auto eventConfig = vmeConfig->getEventConfig(eventId);
     auto modules = eventConfig->getModuleConfigs();
 
+    std::sort(std::begin(modules), std::end(modules), qobj_natural_compare);
+
     UserLevelTrees result = make_displaylevel_trees(
         QSL("L0 Parameter Extraction"),
         QSL("L0 Raw Data Display"),
@@ -1995,6 +2021,7 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         moduleNode->setExpanded(true);
 
         auto sources = analysis->getSources(eventId, mod->getId());
+        std::sort(std::begin(sources), std::end(sources), qobj_ptr_natural_compare);
 
 #if 0
 //#ifndef QT_NO_DEBUG
@@ -2050,6 +2077,7 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
     // Create module nodes and nodes for the raw histograms for each data source for the module.
     QSet<QObject *> sinksAddedBelowModules;
     auto operators = analysis->getOperators(eventId, 0);
+    std::sort(std::begin(operators), std::end(operators), qobj_ptr_natural_compare);
 
     for (const auto &mod: modules)
     {
@@ -2057,7 +2085,10 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         result.sinkTree->addTopLevelItem(moduleNode);
         moduleNode->setExpanded(true);
 
-        for (const auto &source: analysis->getSources(eventId, mod->getId()))
+        auto sources = analysis->getSources(eventId, mod->getId());
+        std::sort(std::begin(sources), std::end(sources), qobj_ptr_natural_compare);
+
+        for (const auto &source: sources)
         {
             for (const auto &op: operators)
             {
@@ -2129,8 +2160,6 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         }
     }
 
-    result.sinkTree->sortItems(0, Qt::AscendingOrder);
-
     return result;
 }
 
@@ -2147,6 +2176,9 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
     auto opDirs = analysis->getDirectories(eventId, level, DisplayLocation::Operator);
     auto sinkDirs = analysis->getDirectories(eventId, level, DisplayLocation::Sink);
 
+    std::sort(std::begin(opDirs), std::end(opDirs), qobj_ptr_natural_compare);
+    std::sort(std::begin(sinkDirs), std::end(sinkDirs), qobj_ptr_natural_compare);
+
     QHash<DirectoryPtr, TreeNode *> dirNodes;
 
     // Populate the OperatorTree
@@ -2154,6 +2186,7 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
     add_directory_nodes(result.operatorTree, opDirs, dirNodes, analysis);
 
     auto operators = analysis->getOperators(eventId, level);
+    std::sort(std::begin(operators), std::end(operators), qobj_ptr_natural_compare);
 
     for (auto op: operators)
     {
@@ -2186,7 +2219,6 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
         }
 
     }
-    result.operatorTree->sortItems(0, Qt::AscendingOrder);
 
     // Populate the SinkTree
 
@@ -2232,8 +2264,6 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
             }
         }
     }
-
-    result.sinkTree->sortItems(0, Qt::AscendingOrder);
 
     for (const auto &dir: dirNodes.keys())
     {
