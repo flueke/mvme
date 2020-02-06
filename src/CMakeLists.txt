@@ -250,6 +250,7 @@ target_sources(libmvme PRIVATE
     globals.cc
     gui_util.cc
     histo1d.cc
+    histo1d_util.cc
     histo1d_widget.cc
     histo1d_widget_p.cc
     histo2d.cc

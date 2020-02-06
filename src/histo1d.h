@@ -158,6 +158,7 @@ class LIBMVME_EXPORT Histo1D: public QObject
         // Note: No Resolution Reduction for the fill operation.
         bool setBinContent(u32 bin, double value);
 
+        inline u32 getBinCount() const { return m_xAxisBinning.getBinCount(); }
         inline double getXMin() const { return m_xAxisBinning.getMin(); }
         inline double getXMax() const { return m_xAxisBinning.getMax(); }
         inline double getWidth() const { return m_xAxisBinning.getWidth(); }
