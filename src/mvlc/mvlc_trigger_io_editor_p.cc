@@ -1100,6 +1100,18 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         qDebug() << __PRETTY_FUNCTION__ << "busBarPos =" << busBarPos << ", busBarDest =" << busBarDest;
     }
 #endif
+#if 0 // LineAndArrow test
+    {
+        auto strobeConnector = m_level2Items.luts[0]->getStrobeConnector();
+        auto strobeCenter = gfx::get_center_point(strobeConnector);
+        auto laa1 = new gfx::LineAndArrow({0, 0}, {100, 100});
+        auto laa2 = new gfx::LineAndArrow({0, 0}, {100, 100});
+        laa2->setStart({0, 100});
+
+        this->addItem(laa1);
+        this->addItem(laa2);
+    }
+#endif
 
     // Create all connection edges contained in the trigger io config. The
     // logic in setTriggerIOConfig then decides if edges should be shown/hidden
