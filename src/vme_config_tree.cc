@@ -736,10 +736,11 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
         if ((isIdle || isMVLC) && obj->isEnabled())
         {
-            menu.addAction(QSL("Init Module"), this, &VMEConfigTreeWidget::initModule);
-            menu.addSeparator();
             menu.addAction(QIcon(QSL(":/gear.png")), QSL("Edit Module Settings"),
                            this, &VMEConfigTreeWidget::editModule);
+            menu.addSeparator();
+            menu.addAction(QSL("Init Module"), this, &VMEConfigTreeWidget::initModule);
+            menu.addAction(QSL("Reset Module"), this, &VMEConfigTreeWidget::resetModule);
         }
 
         //menu.addAction(QSL("Rename Module"), this, &VMEConfigTreeWidget::editName);
@@ -1245,6 +1246,13 @@ void VMEConfigTreeWidget::initModule()
     auto node = m_tree->currentItem();
     auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
     emit runScriptConfigs(module->getInitScripts());
+}
+
+void VMEConfigTreeWidget::resetModule()
+{
+    auto node = m_tree->currentItem();
+    auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
+    emit runScriptConfigs({ module->getResetScript() });
 }
 
 void VMEConfigTreeWidget::onActionShowAdvancedChanged()

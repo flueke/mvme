@@ -110,6 +110,7 @@ class VMEConfigTreeWidget: public QWidget
         void runScripts();
         void editName();
         void initModule();
+        void resetModule();
         void onActionShowAdvancedChanged();
         void handleShowDiagnostics();
         void exploreWorkspace();
