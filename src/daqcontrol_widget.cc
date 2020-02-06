@@ -67,6 +67,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     , pb_start(new QPushButton)
     , pb_stop(new QPushButton)
     , pb_oneCycle(new QPushButton)
+    , pb_sniffBuffer(new QPushButton)
     , pb_reconnect(new QPushButton)
     , pb_controllerSettings(new QPushButton)
     , pb_runSettings(new QPushButton)
@@ -130,6 +131,9 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
         daq_ctrl(1);
     });
 
+    connect(pb_sniffBuffer, &QPushButton::clicked,
+            this, &DAQControlWidget::sniffNextInputBuffer);
+
     connect(pb_stop, &QPushButton::clicked,
             this, &DAQControlWidget::stopDAQ);
 
@@ -176,6 +180,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     pb_start->setText(QSL("Start"));
     pb_stop->setText(QSL("Stop"));
     pb_oneCycle->setText(QSL("1 Cycle"));
+    pb_sniffBuffer->setText(QSL("Sniff next buffer"));
     pb_reconnect->setText(QSL("Reconnect"));
     pb_forceReset->setText(QSL("Force Reset"));
     pb_controllerSettings->setText(QSL("Settings"));
@@ -196,6 +201,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     daqButtonLayout->addWidget(pb_start);
     daqButtonLayout->addWidget(pb_stop);
     daqButtonLayout->addWidget(pb_oneCycle);
+    daqButtonLayout->addWidget(pb_sniffBuffer);
 
     // state frame
     auto stateFrame = new QFrame;
@@ -403,24 +409,42 @@ void DAQControlWidget::updateWidget()
     //
     // one cycle button
     //
-    bool enableOneCycleButton = false;
-    bool showOneCycleButton = !isMVLC;
-
-    if (globalMode == GlobalMode::DAQ
-        && controllerState == ControllerState::Connected
-        && daqState == DAQState::Idle)
     {
-        enableOneCycleButton = true;
+        bool enableOneCycleButton = false;
+        bool showOneCycleButton = !isMVLC;
+
+        if (globalMode == GlobalMode::DAQ
+            && controllerState == ControllerState::Connected
+            && daqState == DAQState::Idle)
+        {
+            enableOneCycleButton = true;
+        }
+        else if (globalMode == GlobalMode::ListFile
+                 && (daqState == DAQState::Idle || daqState == DAQState::Paused))
+        {
+            enableOneCycleButton = true;
+        }
+
+        pb_oneCycle->setEnabled(enableOneCycleButton);
+        pb_oneCycle->setVisible(showOneCycleButton);
     }
-    else if (globalMode == GlobalMode::ListFile
-             && (daqState == DAQState::Idle || daqState == DAQState::Paused))
+
+    // sniff buffer button
     {
-        enableOneCycleButton = true;
+        bool enable = false;
+        bool show = isMVLC;;
+
+        // TODO: also enable for listfile mode once the mvlc replay worker
+        // supports buffer sniffing
+        if (globalMode == GlobalMode::DAQ
+            && controllerState == ControllerState::Connected)
+        {
+            enable = true;
+        }
+
+        pb_sniffBuffer->setEnabled(enable);
+        pb_sniffBuffer->setVisible(show);
     }
-
-    pb_oneCycle->setEnabled(enableOneCycleButton);
-    pb_oneCycle->setVisible(showOneCycleButton);
-
 
     //
     // button labels and actions

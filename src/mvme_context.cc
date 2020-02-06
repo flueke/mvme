@@ -35,6 +35,7 @@
 #include "mvlc_listfile_worker.h"
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_vme_controller.h"
+#include "mvlc_readout_worker.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_context_lib.h"
 #include "mvme.h"
@@ -736,6 +737,12 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     m_readoutWorker->setContext(readoutWorkerContext);
 
+    if (auto mvlcReadoutWorker = qobject_cast<MVLCReadoutWorker *>(m_readoutWorker))
+    {
+        connect(mvlcReadoutWorker, &MVLCReadoutWorker::debugInfoReady,
+                this, &MVMEContext::sniffedInputBufferReady);
+    }
+
     // replay worker (running on the readout thread)
     m_d->listfileReplayWorker = std::unique_ptr<ListfileReplayWorker>(
         factory.makeReplayWorker(&m_freeBuffers, &m_fullBuffers));
@@ -748,6 +755,9 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     connect(m_d->listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             this, &MVMEContext::onReplayDone);
+
+    // TODO: Add the buffer sniffing connection for the MVLCListfileWorker once
+    // the support is there.
 
     // Create a stream worker (analysis side). The concrete type depends on the
     // VME controller type.
@@ -1049,6 +1059,16 @@ void MVMEContext::dumpVMEControllerRegisters()
     {
         logMessage("'Dump Registers' not implemented for VME controller type " +
                    to_string(getVMEController()->getType()));
+    }
+}
+
+void MVMEContext::sniffNextInputBuffer()
+{
+    assert(is_mvlc_controller(getVMEController()));
+
+    if (auto rdoWorker = qobject_cast<MVLCReadoutWorker *>(m_readoutWorker))
+    {
+        rdoWorker->requestDebugInfoOnNextBuffer();
     }
 }
 

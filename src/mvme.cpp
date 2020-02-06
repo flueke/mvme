@@ -449,6 +449,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         connect(dcw, &DAQControlWidget::listFileOutputInfoModified,
                 m_d->m_context, &MVMEContext::setListFileOutputInfo);
 
+        connect(dcw, &DAQControlWidget::sniffNextInputBuffer,
+                m_d->m_context, &MVMEContext::sniffNextInputBuffer);
+
         // DAQControlWidget -> DAQControl
         connect(dcw, &DAQControlWidget::startDAQ, m_d->daqControl, &DAQControl::startDAQ);
         connect(dcw, &DAQControlWidget::stopDAQ, m_d->daqControl, &DAQControl::stopDAQ);
@@ -464,6 +467,10 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
 
         connect(dcw, &DAQControlWidget::changeWorkspaceSettings,
                 this, &MVMEMainWindow::runWorkspaceSettingsDialog);
+
+        // MVMEContext -> The World
+        connect(m_d->m_context, &MVMEContext::sniffedInputBufferReady,
+                this, &MVMEMainWindow::handleSniffedInputBuffer);
 
         static const int DAQControlWidgetUpdateInterval_ms = 500;
 
@@ -2041,4 +2048,10 @@ void MVMEMainWindow::closeAllHistogramWidgets()
                 widget->close();
         }
     }
+}
+
+void MVMEMainWindow::handleSniffedInputBuffer(const DataBuffer &buffer)
+{
+    // TODO: Add an MVLCInputBufferDebugHandler similar to
+    // MVLCParserDebugHandler. Let
 }

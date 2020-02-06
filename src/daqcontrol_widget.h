@@ -50,6 +50,7 @@ class DAQControlWidget: public QWidget
         void pauseDAQ();
         void resumeDAQ(u32 nCycles);
         void stopDAQ();
+        void sniffNextInputBuffer();
         void reconnectVMEController();
         void forceResetVMEController();
         void listFileOutputInfoModified(const ListFileOutputInfo &lfo);
@@ -89,6 +90,7 @@ class DAQControlWidget: public QWidget
         QPushButton *pb_start,
                     *pb_stop,
                     *pb_oneCycle,
+                    *pb_sniffBuffer,
                     *pb_reconnect,
                     *pb_controllerSettings,
                     *pb_runSettings,

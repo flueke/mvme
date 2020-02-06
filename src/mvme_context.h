@@ -104,6 +104,9 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void moduleAdded(ModuleConfig *module);
         void moduleAboutToBeRemoved(ModuleConfig *module);
 
+        // MVLC readout buffer sniffing
+        void sniffedInputBufferReady(const DataBuffer &buffer);
+
     public:
         MVMEContext(MVMEMainWindow *mainwin, QObject *parent = 0);
         ~MVMEContext();
@@ -331,6 +334,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void reconnectVMEController();
         void forceResetVMEController();
         void dumpVMEControllerRegisters();
+        void sniffNextInputBuffer();
 
     private slots:
         void tryOpenController();

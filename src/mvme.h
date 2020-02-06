@@ -155,6 +155,8 @@ private slots:
     void doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs,
                             RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
 
+    void handleSniffedInputBuffer(const DataBuffer &buffer);
+
 
 private:
     MVMEWindowPrivate *m_d;
