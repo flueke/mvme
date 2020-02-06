@@ -55,7 +55,7 @@ class VMEConfigTreeWidget: public QWidget
         // This makes use of the action defined in the MVMEMainWindow class.
         // Call this after the actions have been added to this widget via
         // QWidget::addAction().
-        void setupActions();
+        void setupActionButtons();
 
         VMEConfig *getConfig() const;
 
@@ -81,6 +81,9 @@ class VMEConfigTreeWidget: public QWidget
         TreeNode *addObjectNode(QTreeWidgetItem *parentNode, ConfigObject *obj);
         void addContainerNodes(QTreeWidgetItem *parent, ContainerObject *obj);
 
+        void onCurrentItemChanged(QTreeWidgetItem *item, QTreeWidgetItem *prev);
+        void onItemClicked(QTreeWidgetItem *item, int column);
+        void onItemActivated(QTreeWidgetItem *item, int column);
         void onItemDoubleClicked(QTreeWidgetItem *item, int column);
         void onItemChanged(QTreeWidgetItem *item, int column);
         void onItemExpanded(QTreeWidgetItem *item);
@@ -140,9 +143,10 @@ class VMEConfigTreeWidget: public QWidget
                  *m_nodeManual = nullptr;
 
         QAction *action_showAdvanced,
-                *action_dumpVMEControllerRegisters;
+                *action_dumpVMEControllerRegisters,
+                *action_editVariables;
 
-        QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs, *pb_notes;
+        QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs, *pb_notes, *pb_editVariables;
         QLineEdit *le_fileName;
 };
 

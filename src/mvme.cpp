@@ -358,7 +358,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         cw->addAction(m_d->actionOpenVMEConfig);
         cw->addAction(m_d->actionSaveVMEConfig);
         cw->addAction(m_d->actionSaveVMEConfigAs);
-        cw->setupActions();
+        cw->setupActionButtons();
 
         connect(m_d->m_context, &MVMEContext::vmeConfigChanged,
                 cw, &VMEConfigTreeWidget::setConfig);

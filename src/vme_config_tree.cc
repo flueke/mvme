@@ -170,6 +170,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     m_tree->setItemDelegate(new VMEConfigTreeItemDelegate(this));
     m_tree->setEditTriggers(QAbstractItemView::EditKeyPressed);
 
+    // copy keyboard shortcut
     {
         auto copyShortcut = new QShortcut(QKeySequence::Copy, m_tree);
         copyShortcut->setContext(Qt::WidgetShortcut);
@@ -183,6 +184,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
                 });
     }
 
+    // paste keyboard shortcut
     {
         auto pasteShortcut = new QShortcut(QKeySequence::Paste, m_tree);
         pasteShortcut->setContext(Qt::WidgetShortcut);
@@ -204,6 +206,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     pb_load   = make_action_toolbutton();
     pb_save   = make_action_toolbutton();
     pb_saveAs = make_action_toolbutton();
+    pb_editVariables = make_action_toolbutton();
     //pb_notes  = make_toolbutton(QSL(":/text-document.png"), QSL("Notes"));
     //connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
 
@@ -242,6 +245,17 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     buttonLayout->addWidget(pb_load);
     buttonLayout->addWidget(pb_save);
     buttonLayout->addWidget(pb_saveAs);
+    {
+        auto sep = make_separator_frame(Qt::Vertical);
+        sep->setFrameShadow(QFrame::Sunken);
+        buttonLayout->addWidget(sep);
+    }
+    buttonLayout->addWidget(pb_editVariables);
+    {
+        auto sep = make_separator_frame(Qt::Vertical);
+        sep->setFrameShadow(QFrame::Sunken);
+        buttonLayout->addWidget(sep);
+    }
     buttonLayout->addWidget(pb_moreMenu);
     //buttonLayout->addWidget(pb_notes); TODO: implement this
     buttonLayout->addStretch(1);
@@ -259,13 +273,34 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     layout->addWidget(le_fileName);
     layout->addWidget(m_tree);
 
+    connect(m_tree, &QTreeWidget::currentItemChanged, this, &VMEConfigTreeWidget::onCurrentItemChanged);
+    connect(m_tree, &QTreeWidget::itemClicked, this, &VMEConfigTreeWidget::onItemClicked);
+    connect(m_tree, &QTreeWidget::itemActivated, this, &VMEConfigTreeWidget::onItemActivated);
     connect(m_tree, &QTreeWidget::itemDoubleClicked, this, &VMEConfigTreeWidget::onItemDoubleClicked);
     connect(m_tree, &QTreeWidget::itemChanged, this, &VMEConfigTreeWidget::onItemChanged);
     connect(m_tree, &QTreeWidget::itemExpanded, this, &VMEConfigTreeWidget::onItemExpanded);
     connect(m_tree, &QWidget::customContextMenuRequested, this, &VMEConfigTreeWidget::treeContextMenu);
+
+    action_editVariables = new QAction(
+        QIcon(QSL(":/pencil.png")), QSL("Edit Variables"), this);
+    action_editVariables->setEnabled(false);
+
+    connect(action_editVariables, &QAction::triggered,
+            this, [this] ()
+            {
+                auto node = m_tree->currentItem();
+
+                if (node && node->type() == NodeType_Event)
+                {
+                    auto eventConfig = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
+                    emit editEventVariables(eventConfig);
+                }
+            });
+
+    pb_editVariables->setDefaultAction(action_editVariables);
 }
 
-void VMEConfigTreeWidget::setupActions()
+void VMEConfigTreeWidget::setupActionButtons()
 {
     auto actions_ = actions();
 
@@ -566,6 +601,23 @@ void VMEConfigTreeWidget::addContainerNodes(QTreeWidgetItem *parent, ContainerOb
         auto childNode = addObjectNode(parent, child);
         parent->addChild(childNode);
     }
+}
+
+void VMEConfigTreeWidget::onCurrentItemChanged(
+    QTreeWidgetItem *node, QTreeWidgetItem *prev)
+{
+    action_editVariables->setEnabled(node && node->type() == NodeType_Event);
+    //qDebug() << __PRETTY_FUNCTION__ << item << prev;
+}
+
+void VMEConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
+{
+    //qDebug() << __PRETTY_FUNCTION__ << item << column;
+}
+
+void VMEConfigTreeWidget::onItemActivated(QTreeWidgetItem *item, int column)
+{
+    //qDebug() << __PRETTY_FUNCTION__ << item << column;
 }
 
 void VMEConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
