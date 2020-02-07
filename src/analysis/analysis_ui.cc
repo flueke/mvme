@@ -1093,6 +1093,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
         // info window
         m_d->m_toolbar->addSeparator();
+        m_d->m_toolbar->addAction(QIcon(":/info.png"), QSL("Debug && Stats"), this, [this]() {
         m_d->m_toolbar->addAction(QIcon(":/info.png"), QSL("Info && Stats"), this, [this]() {
 
             AnalysisInfoWidget *widget = nullptr;
