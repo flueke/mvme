@@ -2,6 +2,13 @@
 TODO list
 ==================================================
 
+* analysis ui: initially expand everything now that expansion state handling is
+  different
+
+* do add in per pipe and per packet channel stats displays for the mvlc!
+* further debug the mvlc_eth mtdc pulser=7, multi_event>10 timeout problems.
+  how do the broken command buffers look exactly?
+
 * change the analysis default filters generation to allow including custom
   calibration operators and other things in the default_filters.analysis for
   each module. The use case is to set calibrate the module_timestamp to us by
