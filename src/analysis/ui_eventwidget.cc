@@ -4300,7 +4300,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
 
 void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel)
 {
-    if (node->type() == NodeType_Directory)
+    if (node->type() == NodeType_Directory || node->type() == NodeType_Module)
     {
         node->setExpanded(!node->isExpanded());
         return;
