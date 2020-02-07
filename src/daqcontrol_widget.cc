@@ -431,6 +431,10 @@ void DAQControlWidget::updateWidget()
 
     // sniff buffer button
     {
+        // NOTE: can reenable this at some point and implement a UI for it.
+        // right now it is hidden because the feature is not really needed and
+        // for mesytec internal debugging only.
+#if 0
         bool enable = false;
         bool show = isMVLC;;
 
@@ -444,6 +448,10 @@ void DAQControlWidget::updateWidget()
 
         pb_sniffBuffer->setEnabled(enable);
         pb_sniffBuffer->setVisible(show);
+#else
+        pb_sniffBuffer->setEnabled(false);
+        pb_sniffBuffer->setVisible(false);
+#endif
     }
 
     //
