@@ -65,6 +65,45 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Qt::
     return AnalysisObjectPtr();
 }
 
+static QTreeWidgetItem *find_node(QTreeWidgetItem *root, const AnalysisObjectPtr &obj)
+{
+    if (root)
+    {
+        if (get_pointer<void>(root, DataRole_AnalysisObject) == obj.get())
+            return root;
+
+        const s32 childCount = root->childCount();
+
+        for (s32 ci = 0; ci < childCount; ci++)
+        {
+            if (auto result = find_node(root->child(ci), obj))
+                return result;
+        }
+    }
+
+    return nullptr;
+}
+
+static QTreeWidgetItem *find_node(QTreeWidgetItem *root, const void *rawPtr)
+{
+    if (root)
+    {
+        if (get_pointer<void>(root, DataRole_RawPointer) == rawPtr)
+            return root;
+
+        const s32 childCount = root->childCount();
+
+        for (s32 ci = 0; ci < childCount; ci++)
+        {
+            if (auto result = find_node(root->child(ci), rawPtr))
+                return result;
+        }
+    }
+
+    return nullptr;
+}
+
+
 template<typename T>
 std::shared_ptr<T> get_shared_analysis_object(QTreeWidgetItem *node,
                                               s32 dataRole = Qt::UserRole)
@@ -2011,14 +2050,14 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         QSL("L0 Raw Data Display"),
         0);
 
-    // Populate the OperatorTree (top left)
+    // Populate the OperatorTree (top left) with module nodes and extractor children
     for (const auto &mod: modules)
     {
         QObject::disconnect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
         QObject::connect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
         auto moduleNode = make_module_node(mod);
         result.operatorTree->addTopLevelItem(moduleNode);
-        moduleNode->setExpanded(true);
+        moduleNode->setExpanded(m_expandedObjects[TreeType_Operator].contains(mod));
 
         auto sources = analysis->getSources(eventId, mod->getId());
         std::sort(std::begin(sources), std::end(sources), qobj_ptr_natural_compare);
@@ -2049,7 +2088,8 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
     // Add unassigned data sources below a special root node
     for (const auto &source: analysis->getSourcesByEvent(eventId))
     {
-        if (source->getModuleId().isNull())
+        if (source->getModuleId().isNull()
+            || (m_objectMap.find(source) == m_objectMap.end()))
         {
             if (!dataSourceTree->unassignedDataSourcesRoot)
             {
@@ -2083,7 +2123,7 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
     {
         auto moduleNode = make_module_node(mod);
         result.sinkTree->addTopLevelItem(moduleNode);
-        moduleNode->setExpanded(true);
+        moduleNode->setExpanded(m_expandedObjects[TreeType_Sink].contains(mod));
 
         auto sources = analysis->getSources(eventId, mod->getId());
         std::sort(std::begin(sources), std::end(sources), qobj_ptr_natural_compare);
@@ -4693,7 +4733,18 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
         }
     }
 
-    repopulate();
+#if 0
+    // This expands the module nodes where new objects where added. Not sure if
+    // this is of much use or just plaing annoying.
+    if (!m_levelTrees.isEmpty())
+    {
+        if (auto node = find_node(m_levelTrees[0].operatorTree->invisibleRootItem(), module))
+            node->setExpanded(true);
+
+        if (auto node = find_node(m_levelTrees[0].sinkTree->invisibleRootItem(), module))
+            node->setExpanded(true);
+    }
+#endif
 }
 
 PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
@@ -5410,25 +5461,6 @@ void EventWidgetPrivate::removeObjects(const AnalysisObjectVector &objects)
     m_analysisWidget->removeObjects(objects);
 }
 
-static QTreeWidgetItem *find_node(QTreeWidgetItem *root, const AnalysisObjectPtr &obj)
-{
-    if (root)
-    {
-        if (get_pointer<void>(root, DataRole_AnalysisObject) == obj.get())
-            return root;
-
-        const s32 childCount = root->childCount();
-
-        for (s32 ci = 0; ci < childCount; ci++)
-        {
-            if (auto result = find_node(root->child(ci), obj))
-                return result;
-        }
-    }
-
-    return nullptr;
-}
-
 QTreeWidgetItem *EventWidgetPrivate::findNode(const AnalysisObjectPtr &obj)
 {
     for (auto &trees: m_levelTrees)
@@ -5442,6 +5474,21 @@ QTreeWidgetItem *EventWidgetPrivate::findNode(const AnalysisObjectPtr &obj)
 
     return nullptr;
 }
+
+QTreeWidgetItem *EventWidgetPrivate::findNode(const void *rawPtr)
+{
+    for (auto &trees: m_levelTrees)
+    {
+        if (auto node = find_node(trees.operatorTree->invisibleRootItem(), rawPtr))
+            return node;
+
+        if (auto node = find_node(trees.sinkTree->invisibleRootItem(), rawPtr))
+            return node;
+    }
+
+    return nullptr;
+}
+
 
 void EventWidgetPrivate::copyToClipboard(const AnalysisObjectVector &objects)
 {

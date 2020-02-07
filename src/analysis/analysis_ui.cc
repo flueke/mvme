@@ -1094,7 +1094,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         // info window
         m_d->m_toolbar->addSeparator();
         m_d->m_toolbar->addAction(QIcon(":/info.png"), QSL("Debug && Stats"), this, [this]() {
-        m_d->m_toolbar->addAction(QIcon(":/info.png"), QSL("Info && Stats"), this, [this]() {
 
             AnalysisInfoWidget *widget = nullptr;
 
@@ -1538,7 +1537,11 @@ int AnalysisWidget::removeObjects(const AnalysisObjectVector &objects)
     QSignalBlocker blocker(m_d->m_analysisSignalWrapper);
     auto analysis = m_d->getAnalysis();
     int result = analysis->removeObjectsRecursively(objects);
-    m_d->repopulate();
+
+    for (auto eventWidget: m_d->m_eventWidgetsByEventIndex)
+    {
+        eventWidget->repopulate();
+    }
     return result;
 }
 

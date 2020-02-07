@@ -357,6 +357,7 @@ struct EventWidgetPrivate
     void removeObjects(const AnalysisObjectVector &objects);
 
     QTreeWidgetItem *findNode(const AnalysisObjectPtr &obj);
+    QTreeWidgetItem *findNode(const void *rawPtr);
 
     void copyToClipboard(const AnalysisObjectVector &objects);
     bool canPaste();
