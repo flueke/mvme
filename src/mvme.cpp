@@ -1423,7 +1423,10 @@ void MVMEMainWindow::appendToLog(const QString &str)
 
     if (m_d->m_logView)
     {
-        m_d->m_logView->appendPlainText(str);
+        //m_d->m_logView->appendPlainText(str);
+        auto escaped = str.toHtmlEscaped();
+        auto html = QSL("<font color=\"black\"><pre>%1</pre></font>").arg(escaped);
+        m_d->m_logView->appendHtml(html);
         auto bar = m_d->m_logView->verticalScrollBar();
         bar->setValue(bar->maximum());
     }
