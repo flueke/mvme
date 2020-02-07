@@ -2582,7 +2582,7 @@ Level3UtilsDialog::Level3UtilsDialog(
         StackStart_UI ret;
 
         QStringList columnTitles = {
-            "Name", "Input", "Stack#", "Activate",
+            "Name", "Input", "Stack#", "Start Delay", "Activate",
         };
 
         auto table = new QTableWidget(l3.stackStart.size(), columnTitles.size());
@@ -2628,6 +2628,10 @@ Level3UtilsDialog::Level3UtilsDialog(
                     l3.unitNames.value(row + ret.FirstUnitIndex)));
             table->setCellWidget(row, ret.ColConnection, combo_connection);
             table->setCellWidget(row, ret.ColStack, combo_stack);
+
+            ret.table->setItem(row, ret.ColStartDelay, new QTableWidgetItem(
+                    QString::number(l3.stackStart[row].delay_ns)));
+
             table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
 
 
@@ -2799,6 +2803,7 @@ Level3 Level3UtilsDialog::getSettings() const
             auto &unit = m_l3.stackStart[row];
             unit.activate = ui.checks_activate[row]->isChecked();
             unit.stackIndex = ui.combos_stack[row]->currentData().toUInt();
+            unit.delay_ns = ui.table->item(row, ui.ColStartDelay)->text().toUInt();
         }
     }
 

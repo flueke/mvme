@@ -649,6 +649,7 @@ class Level3UtilsDialog: public QDialog
                 ColName,
                 ColConnection,
                 ColStack,
+                ColStartDelay,
                 ColActivate,
             };
 

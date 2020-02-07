@@ -236,6 +236,7 @@ ScriptParts generate(const trigger_io::StackStart &unit, int index)
     ScriptParts ret;
     ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
     ret += write_unit_reg(2, unit.stackIndex, "stack index");
+    ret += write_unit_reg(4, unit.delay_ns, "delay [ns]");
     return ret;
 }
 
@@ -1072,6 +1073,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
 
             unit.activate = static_cast<bool>(writes[unitIndex][0]);
             unit.stackIndex = writes[unitIndex][2];
+            unit.delay_ns = writes[unitIndex][4];
 
             ioCfg.l3.connections[unitIndex] = { writes[unitIndex][0x80] };
         }

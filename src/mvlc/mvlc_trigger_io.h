@@ -106,6 +106,7 @@ struct StackStart
 {
     bool activate;
     u8 stackIndex;
+    u16 delay_ns;
     //bool storeStrobes; // not implemented / not used
     // Note: the immediate flag is used to directly exec the stack which can be
     // useful for testing. The value is not currently stored in here.
