@@ -9,4 +9,6 @@
     #define TRY_ASSERT(x) assert(x)
 #endif
 
+#define UNUSED_IF_ASSERT_DISABLED(x) ((void)(x))
+
 #endif /* __MVME_UTIL_ASSERT_H__ */
