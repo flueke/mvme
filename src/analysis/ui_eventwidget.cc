@@ -2408,7 +2408,7 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
         });
 
         QObject::connect(tree, &QTreeWidget::itemSelectionChanged,
-                         m_q, [this, tree] () {
+                         m_q, [this] () {
             //qDebug() << "itemSelectionChanged on" << tree
             //    << ", new selected item count =" << tree->selectedItems().size();
             updateActions();
