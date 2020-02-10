@@ -972,7 +972,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                              - result.label->boundingRect().width(), 0);
 
         auto frontPanelInputsText = new QGraphicsSimpleTextItem(
-            QSL("Front Panel NIM/TTL outputs and LVDS outputs"),
+            QSL("Front Panel NIM/TTL and LVDS outputs"),
             result.parent);
         frontPanelInputsText->setRotation(-90);
 
