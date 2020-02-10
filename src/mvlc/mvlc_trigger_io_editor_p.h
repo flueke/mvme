@@ -253,31 +253,31 @@ class CounterItem: public BlockItem
         QGraphicsSimpleTextItem *m_labelItem = nullptr;
 };
 
+// Draw a line with an arrow at the end from the items position ({0, 0} in item
+// coordinates to the endpoint in scene coordinates.
 class LineAndArrow: public QAbstractGraphicsShapeItem
 {
     public:
         constexpr static const qreal DefaultArrowSize = 8;
 
-        LineAndArrow(const QPointF &start, const QPointF &end,
-                     QGraphicsItem *parent = nullptr);
+        LineAndArrow(const QPointF &scenePos, QGraphicsItem *parent = nullptr);
 
         void setArrowSize(qreal arrowSize);
-        void setStart(const QPointF &p);
-        void setEnd(const QPointF &p);
+        void setEnd(const QPointF &scenePos);
 
         QRectF boundingRect() const override;
         void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
                    QWidget *widget) override;
 
+    protected:
+        QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+
     private:
+        QPointF getAdjustedEnd() const;
         void adjust();
 
         qreal m_arrowSize = DefaultArrowSize;
-
-        QPointF m_start,
-                m_end;
-        QPointF m_adjustedStart,
-                m_adjustedEnd;
+        QPointF m_sceneEnd;
 };
 
 // Horizontal rectangle with a connection arrow on the right side.
@@ -290,7 +290,7 @@ class HorizontalBusBar: public QGraphicsItem
             : HorizontalBusBar({}, parent)
         { }
 
-        void setDestPoint(const QPointF &p);
+        void setDestPoint(const QPointF &scenePoint);
 
         QRectF boundingRect() const override;
 
@@ -351,6 +351,8 @@ class TriggerIOGraphicsScene: public QGraphicsScene
             QObject *parent = nullptr);
 
         void setTriggerIOConfig(const TriggerIO &ioCfg);
+        void setStaticConnectionsVisible(bool visible);
+        void setConnectionBarsVisible(bool visible);
 
     protected:
         virtual void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev) override;
