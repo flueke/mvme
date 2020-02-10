@@ -2435,6 +2435,12 @@ static void expandObjectNodes(const QVector<UserLevelTrees> &treeVector, const T
 
 void EventWidgetPrivate::repopulate()
 {
+    if (!repopEnabled)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << m_q << "repop not enabled -> return";
+        return;
+    }
+
     qDebug() << __PRETTY_FUNCTION__ << m_q;
 
     auto splitterSizes = m_operatorFrameSplitter->sizes();
@@ -4672,6 +4678,8 @@ void EventWidgetPrivate::clearTreeSelectionsExcept(QTreeWidget *treeNotToClear)
 
 void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 {
+    repopEnabled = false;
+
     {
         AnalysisPauser pauser(m_context);
 
@@ -4733,7 +4741,10 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
         }
     }
 
-#if 0
+    repopEnabled = true;
+    repopulate();
+
+#if 1
     // This expands the module nodes where new objects where added. Not sure if
     // this is of much use or just plaing annoying.
     if (!m_levelTrees.isEmpty())

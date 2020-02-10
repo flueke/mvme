@@ -282,6 +282,10 @@ struct EventWidgetPrivate
 
     double m_prevAnalysisTimeticks = 0.0;;
 
+    // Set to false to temporarily disable repopulating the widget. Should be
+    // used prior to making a bunch of changes to the underyling analysis.
+    bool repopEnabled = true;
+
     void createView(const QUuid &eventId);
     UserLevelTrees createTrees(const QUuid &eventId, s32 level);
     UserLevelTrees createSourceTrees(const QUuid &eventId);
