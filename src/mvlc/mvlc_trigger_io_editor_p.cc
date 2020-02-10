@@ -12,7 +12,7 @@
 
 #include <QDebug>
 #include <QDialogButtonBox>
-#include <QGraphicsSvgItem>
+#include <QGraphicsPolygonItem>
 #include <QGroupBox>
 #include <QLineEdit>
 #include <QPushButton>
@@ -497,6 +497,7 @@ LineAndArrow::LineAndArrow(const QPointF &sceneEnd, QGraphicsItem *parent)
 
 QVariant LineAndArrow::itemChange(GraphicsItemChange change, const QVariant &value)
 {
+#if 0
     qDebug() << __PRETTY_FUNCTION__ << this << change << value;
 
     if (change == GraphicsItemChange::ItemSceneChange
@@ -506,6 +507,7 @@ QVariant LineAndArrow::itemChange(GraphicsItemChange change, const QVariant &val
         qDebug() << __PRETTY_FUNCTION__ << this << change << value << "calling adjust()";
         adjust();
     }
+#endif
 
     return QAbstractGraphicsShapeItem::itemChange(change, value);
 }
@@ -584,18 +586,17 @@ void LineAndArrow::paint(
     // Draw the arrows
     double angle = std::atan2(-line.dy(), line.dx());
 
-    //QPointF sourceArrowP1 = m_sourcePoint + QPointF(sin(angle + M_PI / 3) * m_arrowSize,
-    //                                                cos(angle + M_PI / 3) * m_arrowSize);
-    //QPointF sourceArrowP2 = m_sourcePoint + QPointF(sin(angle + M_PI - M_PI / 3) * m_arrowSize,
-    //                                                cos(angle + M_PI - M_PI / 3) * m_arrowSize);
     QPointF destArrowP1 = lineEnd + QPointF(sin(angle - M_PI / 3) * m_arrowSize,
                                             cos(angle - M_PI / 3) * m_arrowSize);
 
     QPointF destArrowP2 = lineEnd + QPointF(sin(angle - M_PI + M_PI / 3) * m_arrowSize,
                                             cos(angle - M_PI + M_PI / 3) * m_arrowSize);
 
-    painter->setBrush(Qt::black);
-    //painter->drawPolygon(QPolygonF() << line.p1() << sourceArrowP1 << sourceArrowP2);
+    // Note: the alphas of the brush and the pen seem to get composed. This
+    // leads to the pen outline being very visible. I didn't get it to work as
+    // I wanted when playing with different composition modes so I decided not
+    // to use any alpha for the line and arrow.
+
     painter->drawPolygon(QPolygonF() << line.p2() << destArrowP1 << destArrowP2);
 }
 
@@ -606,9 +607,9 @@ HorizontalBusBar::HorizontalBusBar(const QString &labelText, QGraphicsItem *pare
     : QGraphicsItem(parent)
 {
     // the bar
-    m_bar = new QGraphicsRectItem(0, 0, 75, 8, this);
-    m_bar->setBrush(QBrush("#3465a4"));
+    m_bar = new QGraphicsRectItem(0, 0, 75, 10, this);
     m_bar->setPen(Qt::NoPen);
+    setBarBrush(QBrush("#3465a4"));
 
     // right side arrow
     m_arrow = new LineAndArrow(m_dest, this);
@@ -636,8 +637,23 @@ HorizontalBusBar::HorizontalBusBar(const QString &labelText, QGraphicsItem *pare
 
 void HorizontalBusBar::setDestPoint(const QPointF &p)
 {
-    //m_arrow->setEnd(mapToItem(m_arrow, m_dest));
     m_arrow->setEnd(p);
+}
+
+void HorizontalBusBar::setBarBrush(const QBrush &brush)
+{
+    m_bar->setBrush(brush);
+}
+
+void HorizontalBusBar::setLabelBrush(const QBrush &brush)
+{
+    if (m_label)
+        m_label->setBrush(brush);
+}
+
+LineAndArrow *HorizontalBusBar::getLineAndArrow() const
+{
+    return m_arrow;
 }
 
 QRectF HorizontalBusBar::boundingRect() const
@@ -653,6 +669,23 @@ QRectF HorizontalBusBar::boundingRect() const
 void HorizontalBusBar::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
            QWidget *widget)
 {
+}
+
+//
+// MoveableRect
+//
+MovableRect::MovableRect(int w, int h, QGraphicsItem *parent)
+    : QGraphicsRectItem(0, 0, w, h, this)
+{
+    setFlags(QGraphicsItem::ItemIsMovable | QGraphicsItem::ItemSendsGeometryChanges);
+}
+
+QVariant MovableRect::itemChange(GraphicsItemChange change, const QVariant &value)
+{
+    if (change == GraphicsItemChange::ItemPositionChange)
+        qDebug() << __PRETTY_FUNCTION__ << this << change << value;
+
+    return QAbstractGraphicsShapeItem::itemChange(change, value);
 }
 
 //
@@ -1089,9 +1122,183 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     this->addItem(m_level0UtilItems.parent);
     this->addItem(m_level3UtilItems.parent);
 
+    // Add bus bar items serving as a kind of map of the connection
+    // possibilities.
+    // This is purposely done before the connection edges are created so that
+    // the busbars naturally stack behind the edges (no z-value fiddling
+    // needed).
+    QColor barColor("#3465a4");
+    barColor.setAlphaF(0.65);
+    QBrush barBrush(barColor);
+
+    QColor labelColor(Qt::black);
+    labelColor.setAlphaF(0.65);
+    QBrush labelBrush(labelColor);
+
+    auto add_h_busbar = [this, barBrush, labelBrush] (const QGraphicsItem *dest, QString label = {})
+    {
+        auto busBar = new gfx::HorizontalBusBar(label);
+        busBar->setBarBrush(barBrush);
+        busBar->setLabelBrush(labelBrush);
+
+        auto destCenter = gfx::get_scene_center_point(dest);
+        busBar->setDestPoint(destCenter);
+        busBar->setPos(destCenter);
+        busBar->moveBy(-(busBar->boundingRect().width() + 20), -(busBar->boundingRect().height() * 0.5));
+
+        this->addItem(busBar);
+        m_connectionBars.push_back(busBar);
+    };
+
+    auto make_big_arrow_bar = [barBrush] (const QRectF barRect, qreal arrowWidthFactor, qreal arrowHeightFactor)
+        -> QGraphicsRectItem *
+    {
+        auto bar = new QGraphicsRectItem(barRect);
+        //bar->setFlags(QGraphicsItem::ItemIsMovable);
+        bar->setPen(Qt::NoPen);
+        bar->setBrush(barBrush);
+
+        auto rect = QRectF(0, 0, arrowWidthFactor*barRect.width(), arrowHeightFactor*barRect.width());
+        auto p1 = rect.bottomLeft();
+        auto p2 = rect.bottomRight();
+        auto p3 = QPointF{ rect.center().x(), rect.top() };
+
+        auto fatArrow = new QGraphicsPolygonItem(bar);
+        fatArrow->setPen(Qt::NoPen);
+        fatArrow->setBrush(barBrush);
+        fatArrow->setPolygon(QPolygonF() << p1 << p2 << p3);
+        fatArrow->moveBy(-((rect.width() - barRect.width()) * 0.5), -(rect.height()));
+
+        QPointF newOriginPoint = { barRect.width() * 0.5, barRect.height() };
+        bar->setTransformOriginPoint(newOriginPoint);
+
+        return bar;
+    };
+
+    auto set_big_arrow_bar_pos = [](QGraphicsRectItem *bar, QPointF scenePos)
+    {
+        bar->setPos(scenePos);
+        auto barOrigin = bar->mapToScene(bar->transformOriginPoint());
+        bar->moveBy(-fabs(scenePos.x() - barOrigin.x()), -fabs(scenePos.y() - barOrigin.y()));
+    };
+
+    // l2 lut busbars
+    {
+        // l2.lut0
+        add_h_busbar(m_level2Items.luts[0]->getStrobeConnector(), QSL("L0 Util, L1.LUT3/4"));
+        for (int i=0; i<3; i++)
+            add_h_busbar(m_level2Items.luts[0]->getInputConnector(i), QSL("L0, L1.LUT4.%1").arg(i));
+
+        // l2.lut1
+        add_h_busbar(m_level2Items.luts[1]->getStrobeConnector(), QSL("L0 Util, L1.LUT3/4"));
+        for (int i=0; i<3; i++)
+            add_h_busbar(m_level2Items.luts[1]->getInputConnector(i), QSL("L0, L1.LUT3.%1").arg(i));
+    }
+
+    // busbars to l3 utils
+    {
+        // vertical bus bar for connections going into l3 utils
+        {
+            auto bar = new QGraphicsRectItem(465, 107, 18, 760);
+            bar->setBrush(barBrush);
+            bar->setPen(Qt::NoPen);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // l2.lut0 -> vertical bus bar to l3 utils
+        {
+            auto bar = make_big_arrow_bar({ 0, 0, 34, 10 }, 1.5, 0.3);
+            auto barPos = get_scene_center_point(m_level2Items.luts[0]->getOutputConnector(1));
+            barPos.setX(barPos.x() + 4.5);
+            barPos.setY(barPos.y() - 0.33 * m_level2Items.luts[0]->boundingRect().height());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // l2.lut1 -> vertical bus bar to l3 utils
+        {
+            auto bar = make_big_arrow_bar({ 0, 0, 34, 10 }, 1.5, 0.3);
+            auto barPos = get_scene_center_point(m_level2Items.luts[1]->getOutputConnector(1));
+            barPos.setX(barPos.x() + 4.5);
+            barPos.setY(barPos.y() - 0.33 * m_level2Items.luts[1]->boundingRect().height());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // vertical bar -> l3 utils
+        {
+            auto bar = make_big_arrow_bar({0, 0, 34, 60}, 1.5, 0.3);
+            auto py = m_level3UtilItems.parent->mapToScene(m_level3UtilItems.parent->rect().center()).y();
+            set_big_arrow_bar_pos(bar, { 465 + 19, py });
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // l0 utils -> vertical bar to l3 utils
+        {
+            auto bar = make_big_arrow_bar({0, 0, 34, 200}, 1.5, 0.3);
+            auto py = m_level3UtilItems.parent->mapToScene(m_level0UtilItems.parent->rect().center()).y();
+            set_big_arrow_bar_pos(bar, { 250, py });
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+    }
+
+    // busbars to l3 outputs
+    {
+        // vertical bus bar for connections going into NIM/LVDS outputs
+        {
+            auto bar = new QGraphicsRectItem(520, 25, 18, 475);
+            bar->setBrush(barBrush);
+            bar->setPen(Qt::NoPen);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // l2.lut0 -> vertical bus bar to outputs
+        {
+            auto bar = make_big_arrow_bar({ 0, 0, 34, 64 }, 1.5, 0.3);
+            auto barPos = get_scene_center_point(m_level2Items.luts[0]->getOutputConnector(1));
+            barPos.setX(barPos.x() + 4.5);
+            barPos.setY(barPos.y() + 0.33 * m_level2Items.luts[0]->boundingRect().height());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // l2.lut1 -> vertical bus bar to outputs
+        {
+            auto bar = make_big_arrow_bar({ 0, 0, 34, 64 }, 1.5, 0.3);
+            auto barPos = get_scene_center_point(m_level2Items.luts[1]->getOutputConnector(1));
+            barPos.setX(barPos.x() + 4.5);
+            barPos.setY(barPos.y() + 0.33 * m_level2Items.luts[1]->boundingRect().height());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+    }
+
+    // testbar
+    //{
+    //    auto bar = new gfx::MovableRect(18, 760);
+    //    this->addItem(bar);
+    //}
+
     // Create all connection edges contained in the trigger io config. The
     // logic in setTriggerIOConfig then decides if edges should be shown/hidden
     // or drawn in a different way.
+    // Additionally edges for static connections are added.
 
     // static level 1 connections
     for (const auto &lutkv: Level1::StaticConnections | indexed(0))
@@ -1110,6 +1317,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             if (sourceConnector && destConnector)
             {
                 addEdge(sourceConnector, destConnector);
+                addStaticConnectionEdge(sourceConnector, destConnector);
             }
         }
     }
@@ -1134,6 +1342,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             if (sourceConnector && destConnector)
             {
                 addEdge(sourceConnector, destConnector);
+                addStaticConnectionEdge(sourceConnector, destConnector);
             }
         }
     }
@@ -1276,8 +1485,9 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         }
     }
 
-    // To trigger initial edge updates
+    // Set the config. This triggers the initial edge updates.
     setTriggerIOConfig(ioCfg);
+
     qDebug() << __PRETTY_FUNCTION__ << "created" << m_edges.size() << " Edges";
     qDebug() << __PRETTY_FUNCTION__ << "sceneRect=" << this->sceneRect();
 };
@@ -1378,6 +1588,17 @@ gfx::Edge * TriggerIOGraphicsScene::getEdgeByDestConnector(
     QAbstractGraphicsShapeItem *sourceConnector) const
 {
     return m_edgesByDest.value(sourceConnector);
+}
+
+gfx::Edge *TriggerIOGraphicsScene::addStaticConnectionEdge(
+    QAbstractGraphicsShapeItem *sourceConnector,
+    QAbstractGraphicsShapeItem *destConnector)
+{
+    auto edge = new gfx::Edge(sourceConnector, destConnector);
+    m_staticEdges.push_back(edge);
+    edge->adjust();
+    this->addItem(edge);
+    return edge;
 }
 
 void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
@@ -1785,6 +2006,24 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
     };
 
     update_names(ioCfg);
+}
+
+void TriggerIOGraphicsScene::setStaticConnectionsVisible(bool visible)
+{
+#if 0
+    std::for_each(std::begin(m_staticEdges), std::end(m_staticEdges),
+                  [visible] (auto edge) { edge->setVisible(visible); });
+#else
+// beautiful, smelly code
+    for (auto edge: m_staticEdges)
+        edge->setVisible(visible);
+#endif
+}
+
+void TriggerIOGraphicsScene::setConnectionBarsVisible(bool visible)
+{
+    for (auto bar: m_connectionBars)
+        bar->setVisible(visible);
 }
 
 void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)

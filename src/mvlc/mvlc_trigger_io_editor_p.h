@@ -291,6 +291,9 @@ class HorizontalBusBar: public QGraphicsItem
         { }
 
         void setDestPoint(const QPointF &scenePoint);
+        void setBarBrush(const QBrush &brush);
+        void setLabelBrush(const QBrush &brush);
+        LineAndArrow *getLineAndArrow() const;
 
         QRectF boundingRect() const override;
 
@@ -302,6 +305,15 @@ class HorizontalBusBar: public QGraphicsItem
         QGraphicsRectItem *m_bar = nullptr;
         LineAndArrow *m_arrow = nullptr;
         QGraphicsSimpleTextItem *m_label = nullptr;
+};
+
+class MovableRect: public QGraphicsRectItem
+{
+    public:
+        MovableRect(int w, int h, QGraphicsItem *parent = nullptr);
+
+    protected:
+        QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 };
 
 class Edge: public QAbstractGraphicsShapeItem
@@ -405,6 +417,7 @@ class TriggerIOGraphicsScene: public QGraphicsScene
 
         QAbstractGraphicsShapeItem *getInputConnector(const UnitAddress &addr) const;
         QAbstractGraphicsShapeItem *getOutputConnector(const UnitAddress &addr) const;
+
         gfx::Edge *addEdge(QAbstractGraphicsShapeItem *sourceConnector,
                            QAbstractGraphicsShapeItem *destConnector);
 
@@ -413,6 +426,9 @@ class TriggerIOGraphicsScene: public QGraphicsScene
 
         gfx::Edge * getEdgeByDestConnector(
             QAbstractGraphicsShapeItem *destConnector) const;
+
+        gfx::Edge *addStaticConnectionEdge(QAbstractGraphicsShapeItem *sourceConnector,
+                                           QAbstractGraphicsShapeItem *destConnector);
 
         TriggerIO m_ioCfg;
 
@@ -423,11 +439,25 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         Level3Items m_level3Items;
         Level3UtilItems m_level3UtilItems;
 
+        // Flat list of all connection edges. This includes edges from dynamic
+        // and static connections. By default the edges are hidden unless the
+        // logic determines that the particular edge is considered to be in
+        // use.
+        // Note: this does not contain the edges added via
+        // addStaticConnectionEdge(). Those are used for the purpose of drawing
+        // all hardwired and possible connections when the user wants to see
+        // them.
         QVector<gfx::Edge *> m_edges;
         // Input Connector -> Edge
         QHash<QAbstractGraphicsShapeItem *, gfx::Edge *> m_edgesByDest;
         // Output Connector -> Edge list
         QHash<QAbstractGraphicsShapeItem *, gfx::Edge *> m_edgesBySource;
+
+        // Used to show all hardwired connections to matter if they are
+        // considered to be in use or not.
+        QVector<gfx::Edge *> m_staticEdges;
+
+        QVector<QGraphicsItem *> m_connectionBars;
 };
 
 struct NIM_IO_Table_UI

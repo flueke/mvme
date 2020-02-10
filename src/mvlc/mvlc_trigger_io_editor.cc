@@ -56,6 +56,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
     auto scene = new TriggerIOGraphicsScene(d->ioCfg);
     d->scene = scene;
+    d->scene->setStaticConnectionsVisible(false);
+    d->scene->setConnectionBarsVisible(true);
 
     // Edit LUT
     QObject::connect(scene, &TriggerIOGraphicsScene::editLUT,
@@ -555,10 +557,6 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             setupModified();
         });
 
-    action = toolbar->addAction(
-        QIcon(":/dialog-close.png"), QSL("Close window"),
-        this, &MVLCTriggerIOEditor::close);
-
     toolbar->addSeparator();
 
     action = toolbar->addAction(
@@ -598,6 +596,33 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             d->scriptEditor->show();
             d->scriptEditor->raise();
         });
+
+
+    action = toolbar->addAction(
+        QSL("Show/Hide static connections"),
+        this, [this] (bool checked)
+        {
+            d->scene->setStaticConnectionsVisible(checked);
+        });
+    action->setCheckable(true);
+    action->setChecked(false);
+
+    action = toolbar->addAction(
+        QSL("Show/Hide connection bars"),
+        this, [this] (bool checked)
+        {
+            d->scene->setConnectionBarsVisible(checked);
+        });
+    action->setCheckable(true);
+    action->setChecked(false);
+
+    toolbar->addSeparator();
+
+    action = toolbar->addAction(
+        QIcon(":/dialog-close.png"), QSL("Close window"),
+        this, &MVLCTriggerIOEditor::close);
+
+
 
     auto mainLayout = make_vbox<2, 2>(this);
     mainLayout->addWidget(toolbar);
