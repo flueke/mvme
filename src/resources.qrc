@@ -63,6 +63,9 @@
     <file alias="application-rename.png">resources/application-rename.png</file>
     <file alias="document-rename.png">resources/document-rename.png</file>
 
+    <file>resources/layer-visible-off.png</file>
+    <file>resources/layer-visible-on.png</file>
+
 
     <file alias="operator_calibration.png">resources/measure.png</file>
     <file alias="operator_difference.png">resources/minus-white.png</file>

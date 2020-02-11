@@ -559,6 +559,29 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
     toolbar->addSeparator();
 
+    // connection map: shows/hides static connection edges and the big bus-like bars
+    action = toolbar->addAction(QSL("Toggle connection map"));
+    action->setCheckable(true);
+    action->setChecked(true);
+    action->setToolTip(QSL("Shows/hides fixed connection lines and"
+                           " bars and arrows representing connection possibilities."));
+    action->setStatusTip(action->toolTip());
+
+    auto show_connect_help = [this, action](bool show)
+    {
+        d->scene->setStaticConnectionsVisible(show);
+        d->scene->setConnectionBarsVisible(show);
+
+        action->setIcon(show
+                        ? QIcon(":/resources/layer-visible-on.png")
+                        : QIcon(":/resources/layer-visible-off.png"));
+    };
+
+    connect(action, &QAction::triggered, this, show_connect_help);
+    show_connect_help(true);
+
+    toolbar->addSeparator();
+
     action = toolbar->addAction(
         QIcon(":/arrow-circle-double.png"), QSL("Reparse from script"),
         this, [this] ()
@@ -597,32 +620,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             d->scriptEditor->raise();
         });
 
-
-    action = toolbar->addAction(
-        QSL("Show/Hide static connections"),
-        this, [this] (bool checked)
-        {
-            d->scene->setStaticConnectionsVisible(checked);
-        });
-    action->setCheckable(true);
-    action->setChecked(false);
-
-    action = toolbar->addAction(
-        QSL("Show/Hide connection bars"),
-        this, [this] (bool checked)
-        {
-            d->scene->setConnectionBarsVisible(checked);
-        });
-    action->setCheckable(true);
-    action->setChecked(false);
-
     toolbar->addSeparator();
 
     action = toolbar->addAction(
         QIcon(":/dialog-close.png"), QSL("Close window"),
         this, &MVLCTriggerIOEditor::close);
-
-
 
     auto mainLayout = make_vbox<2, 2>(this);
     mainLayout->addWidget(toolbar);
