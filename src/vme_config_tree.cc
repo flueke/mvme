@@ -715,7 +715,8 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                 }
             });
 
-        menu.addAction(QSL("Rename Event"), this, &VMEConfigTreeWidget::editName);
+        menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename Event"),
+                       this, &VMEConfigTreeWidget::editName);
         menu.addSeparator();
 
         action = menu.addAction(QIcon(QSL(":/list-add.png")), QSL("Add Module"),
@@ -765,7 +766,8 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                 });
         }
 
-        menu.addAction(QSL("Rename Module"), this, &VMEConfigTreeWidget::editName);
+        menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename Module"),
+                       this, &VMEConfigTreeWidget::editName);
 
         if (obj->isEnabled())
         {
@@ -796,7 +798,8 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                              || po->objectName() == "daq_stop"
                              || po->objectName() == "manual"))
         {
-            menu.addAction(QSL("Rename Script"), this, &VMEConfigTreeWidget::editName);
+            menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename Script"),
+                           this, &VMEConfigTreeWidget::editName);
             menu.addSeparator();
             // disabling manual scripts doesn't make any sense
             if (po->objectName() != "manual")
