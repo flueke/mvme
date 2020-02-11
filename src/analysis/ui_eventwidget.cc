@@ -2981,6 +2981,34 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
             });
     }
 
+    if (auto sourceTree = qobject_cast<DataSourceTree *>(tree))
+    {
+        // Allow deleting all objects below the "Unassigned" node in the
+        // top left tree. This is where data sources that belonging to this
+        // event but that have not been assigned to any module are shown.
+        if (activeNode == sourceTree->unassignedDataSourcesRoot)
+        {
+            QVector<QTreeWidgetItem *> children;
+            for (int i=0; i<activeNode->childCount(); i++)
+                children.push_back(activeNode->child(i));
+
+            auto unassigned = objects_from_nodes(children);
+
+            auto remove_unassigned_objects = [this, unassigned] ()
+            {
+                removeObjects(unassigned);
+            };
+
+            if (!unassigned.isEmpty())
+            {
+                auto action = menu.addAction(
+                    QIcon::fromTheme(QSL("edit-delete")),
+                    QSL("Remove unassigned data sources"),
+                    remove_unassigned_objects);
+            }
+        }
+    }
+
     if (!menu.isEmpty())
     {
         menu.exec(tree->mapToGlobal(pos));
