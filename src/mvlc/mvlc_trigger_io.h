@@ -333,6 +333,7 @@ struct TriggerIO
 
     // TODO: more generic structure for names and connection choices and
     // connection selections
+#if 0
     static const LevelUnitNames DefaultUnitNames;
     static const LevelUnitPinNames DefaultPinNames;
     static const LevelUnitInputChoices UnitInputChoices;
@@ -340,6 +341,7 @@ struct TriggerIO
     LevelUnitNames unitNames;
     LevelUnitPinNames pinNames;
     LevelUnitConnectionSelections connections;
+#endif
 };
 
 QString lookup_name(const TriggerIO &ioCfg, const UnitAddress &addr);
