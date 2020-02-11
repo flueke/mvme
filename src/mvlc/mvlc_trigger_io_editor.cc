@@ -1,6 +1,5 @@
 #include "mvlc/mvlc_trigger_io_editor.h"
 #include "mvlc/mvlc_trigger_io_editor_p.h"
-#include "mvlc/mvlc_trigger_io_script.h"
 
 #include <QDebug>
 #include <QPushButton>
@@ -8,6 +7,8 @@
 #include <QTextEdit>
 
 #include "analysis/code_editor.h"
+#include "mvlc/mvlc_trigger_io_script.h"
+#include "mvlc/mvlc_trigger_io_util.h"
 #include "util/algo.h"
 #include "util/qt_container.h"
 #include "vme_script.h"
@@ -21,6 +22,7 @@ using namespace mvlc::trigger_io_config;
 
 struct MVLCTriggerIOEditor::Private
 {
+    MVLCTriggerIOEditor *q;
     TriggerIO ioCfg;
     VMEScriptConfig *scriptConfig;
     QString initialScriptContents;
@@ -38,7 +40,28 @@ struct MVLCTriggerIOEditor::Private
             scriptEditor->verticalScrollBar()->setSliderPosition(pos);
         }
     }
+
+    void onActionPrintFrontPanelSetup();
 };
+
+void MVLCTriggerIOEditor::Private::onActionPrintFrontPanelSetup()
+{
+    QString buffer;
+    QTextStream stream(&buffer);
+    print_front_panel_io_table(stream, ioCfg);
+
+    auto te = new QPlainTextEdit;
+    te->setWindowTitle(QSL("MVLC Front Panel IO Setup"));
+    te->setAttribute(Qt::WA_DeleteOnClose);
+    QFont font("MonoSpace");
+    font.setStyleHint(QFont::Monospace);
+    te->setFont(font);
+    te->setLineWrapMode(QPlainTextEdit::NoWrap);
+    te->resize(600, 600);
+    te->setPlainText(buffer);
+    te->show();
+    te->raise();
+}
 
 MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     VMEScriptConfig *scriptConfig,
@@ -46,6 +69,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
+    *d = {};
+    d->q = this;
     d->initialScriptContents = scriptConfig->getScriptContents();
     d->scriptConfig = scriptConfig;
 
@@ -579,6 +604,14 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
     connect(action, &QAction::triggered, this, show_connect_help);
     show_connect_help(true);
+
+    // Print a list of the front panel io configuration and names. Could be
+    // printed on a piece of paper and used as a cheatsheet when working on the
+    // crate.
+    action = toolbar->addAction(
+        QIcon(QSL(":/document-text.png")),
+        QSL("Print Front Panel Setup"),
+        this, [this] () { d->onActionPrintFrontPanelSetup(); });
 
     toolbar->addSeparator();
 
