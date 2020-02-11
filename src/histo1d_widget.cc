@@ -1828,12 +1828,14 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
     mvme::print_histolist_stats(stream, m_histos, m_rrf, title);
 
     auto te = new QPlainTextEdit;
-    te->setWindowTitle(QSL("Stats for %1").arg(title));
+    te->setWindowTitle(QSL("Stats for histogram array '%1'").arg(title));
     te->setAttribute(Qt::WA_DeleteOnClose);
     QFont font("MonoSpace");
     font.setStyleHint(QFont::Monospace);
+    font.setPointSize(font.pointSize() - 4);
     te->setFont(font);
-    te->resize(1000, 800);
+    te->setLineWrapMode(QPlainTextEdit::NoWrap);
+    te->resize(1000, 600);
     te->setPlainText(buffer);
     te->show();
     te->raise();
