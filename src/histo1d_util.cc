@@ -31,30 +31,36 @@ QTextStream &print_histolist_stats(
     out << "# Stats for histogram array '" << title << "'" << endl;
     out << "# Number of histos: " << histos.size()
         << ", bins: " << first->getAxisBinning(Qt::XAxis).getBinCount(rrf)
-        << ", binWidth: " << first->getBinWidth(rrf)
-        << ", xMin: " << first->getXMin()
-        << ", xMax: " << first->getXMax()
         << endl;
 
     out << endl;
 
-    static const int FieldWidth = 16;
+    static const int FieldWidth = 14;
     out.setFieldAlignment(QTextStream::AlignLeft);
 
     out << qSetFieldWidth(FieldWidth)
-        << "# Histo Index" << "Entry Count" << "Mean" << "Max" << "Max position" << "FWHM" << "FWHM position"
+        << "# HistoIndex" << "EntryCount" << "Mean"
+        << "Max" << "MaxPos"
+        << "FWHM" << "FWHMPos"
+        << "XMin" << "XMax" << "BinWidth"
         << qSetFieldWidth(0) << endl;
 
     for (const auto &is: stats | indexed(0))
     {
         const auto &index = is.index();
         const auto &stats = is.value();
+        const auto &histo = histos[index];
+
+        double maxPos = (stats.entryCount > 0
+                         ? histo->getBinCenter(stats.maxBin, rrf)
+                         : 0.0);
 
         out << qSetFieldWidth(FieldWidth)
             << index << stats.entryCount
-            << stats.mean << stats.maxValue
-            << histos[index]->getBinCenter(stats.maxBin, rrf)
+            << stats.mean
+            << stats.maxValue << maxPos
             << stats.fwhm << stats.fwhmCenter
+            << histo->getXMin() << histo->getXMax() << histo->getBinWidth(rrf)
             << qSetFieldWidth(0) << endl;
     }
 
