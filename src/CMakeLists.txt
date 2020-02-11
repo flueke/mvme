@@ -341,6 +341,7 @@ if (MVME_ENABLE_MVLC)
         mvlc/mvlc_trigger_io_editor.cc
         mvlc/mvlc_trigger_io_editor_p.cc
         mvlc/mvlc_trigger_io_script.cc
+        mvlc/mvlc_trigger_io_util.cc
     )
 
     qt5_use_modules(libmvme Svg)

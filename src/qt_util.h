@@ -37,8 +37,7 @@
 
 #include "libmvme_core_export.h"
 #include "typedefs.h"
-
-#define QSL(str) QStringLiteral(str)
+#include "util/qt_str.h"
 
 class QAction;
 class QEvent;
