@@ -22,6 +22,7 @@
 #include "vme_script_p.h"
 
 #include <cmath>
+#include <cstring>
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
@@ -455,6 +456,59 @@ Command parse_mvlc_writespecial(const QStringList &args, int lineNumber)
     return result;
 }
 
+Command parse_write_float_word(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("write_float_word <address_mode> <address> <part> <value>");
+
+    if (args.size() != 5)
+        throw ParseError(QSL("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = CommandType::Write;
+    result.addressMode = parseAddressMode(args[1]);
+    result.address = parseAddress(args[2]);
+    result.dataWidth = DataWidth::D16;
+
+    unsigned part = 0;
+
+    {
+        const QString &partStr = args[3].toLower();
+
+        if (partStr == "lower" || partStr == "0")
+            part = 0;
+        else if (partStr == "upper" || partStr == "1")
+            part = 1;
+        else
+        {
+            throw ParseError(
+                QSL("Invalid float part specification '%1'."
+                    " Valid values: 'lower', 'upper', '0', '1'").arg(partStr),
+                lineNumber);
+        }
+    }
+    assert(part == 0 || part == 1);
+
+    const QString &floatStr = args[4];
+    float floatValue = 0.0;
+    bool floatOk = false;
+    floatValue = floatStr.toFloat(&floatOk);
+
+    if (!floatOk)
+        throw ParseError(QSL("Could not parse '%1' as a float.").arg(floatStr),
+                         lineNumber);
+
+    u32 regValue = 0u;
+    std::memcpy(&regValue, &floatValue, sizeof(regValue));
+
+    if (part == 1)
+        regValue >>= 16;
+    regValue &= 0xffff;
+
+    result.value = regValue;
+
+    return result;
+}
+
 typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
 
 static const QMap<QString, CommandParser> commandParsers =
@@ -482,6 +536,8 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("vmusb_read_reg"),     parse_VMUSB_read_reg },
 
     { QSL("mvlc_writespecial"),     parse_mvlc_writespecial },
+
+    { QSL("write_float_word"),      parse_write_float_word },
 };
 
 static QString handle_multiline_comment(QString line, bool &in_multiline_comment)
