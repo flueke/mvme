@@ -1,0 +1,6 @@
+# Shutdown script for the ISEG VHS4030 high voltage module.
+
+write a16 d16 0x0062 0      # Ch0 ChannelControl
+write a16 d16 0x0092 0      # Ch1 ChannelControl
+write a16 d16 0x00C2 0      # Ch2 ChannelControl
+write a16 d16 0x00F2 0      # Ch3 ChannelControl
