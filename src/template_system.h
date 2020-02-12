@@ -21,15 +21,17 @@
 #ifndef __TEMPLATE_SYSTEM_H__
 #define __TEMPLATE_SYSTEM_H__
 
-#include "libmvme_export.h"
-#include "typedefs.h"
+#include <functional>
+#include <QJsonObject>
 #include <QString>
 #include <QTextStream>
 #include <QVector>
-#include <functional>
 
-// VME/Analysis Template System (not Vault-Tec Assisted Targeting System,
-// that would be V.A.T.S. :-)
+#include "libmvme_export.h"
+#include "typedefs.h"
+
+// VME/Analysis Template System - VATS (not related to the Vault-Tec Assisted
+// Targeting System, that would be V.A.T.S. :-)
 
 namespace vats
 {
@@ -40,6 +42,9 @@ struct LIBMVME_EXPORT VMETemplate
     QString name;
     QString sourceFileName;
 };
+
+bool operator==(const VMETemplate &ta, const VMETemplate &tb);
+bool operator!=(const VMETemplate &ta, const VMETemplate &tb);
 
 struct LIBMVME_EXPORT VMEEventTemplates
 {
@@ -56,6 +61,9 @@ struct LIBMVME_EXPORT VMEModuleTemplates
     QVector<VMETemplate> init;
 };
 
+bool operator==(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb);
+bool operator!=(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb);
+
 struct LIBMVME_EXPORT VMEModuleMeta
 {
     static const u8 InvalidTypeId = 0;
@@ -71,12 +79,7 @@ struct LIBMVME_EXPORT VMEModuleMeta
     QString templatePath;
 };
 
-bool operator==(const VMETemplate &ta, const VMETemplate &tb);
-bool operator==(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb);
 bool operator==(const VMEModuleMeta &mma, const VMEModuleMeta &mmb);
-
-bool operator!=(const VMETemplate &ta, const VMETemplate &tb);
-bool operator!=(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb);
 bool operator!=(const VMEModuleMeta &mma, const VMEModuleMeta &mmb);
 
 struct LIBMVME_EXPORT MVMETemplates
@@ -105,6 +108,18 @@ VMEModuleMeta LIBMVME_EXPORT get_module_meta_by_typename(const MVMETemplates &te
 
 VMEModuleMeta LIBMVME_EXPORT get_module_meta_by_typeId(const MVMETemplates &templates,
                                                        u8 typeId);
+
+struct LIBMVME_EXPORT AuxiliaryVMEScriptInfo
+{
+    QJsonObject info;
+    QString contents;
+};
+
+QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(
+    TemplateLogger logger = TemplateLogger());
+
+QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(
+    const QString &path, TemplateLogger logger = TemplateLogger());
 
 }  // namespace vats
 

@@ -26,8 +26,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
-#include <QJsonObject>
 #include <QRegularExpression>
 #include <QTextStream>
 
@@ -412,6 +412,55 @@ VMEModuleMeta get_module_meta_by_typeId(const MVMETemplates &templates, u8 typeI
             return mm;
     }
     return {};
+}
+
+QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(
+    TemplateLogger logger)
+{
+    QString templatePath = get_template_path() + QSL("/auxiliary_scripts");
+    do_log(QString("Reading auxiliary scripts from %1").arg(templatePath), logger);
+    return read_auxiliary_scripts(templatePath, logger);
+}
+
+QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(
+    const QString &path, TemplateLogger logger)
+{
+    QVector<AuxiliaryVMEScriptInfo> result;
+
+    QDir auxDir(path);
+
+    auto jsonFiles = auxDir.entryList({ QSL("*.json") }, QDir::Files | QDir::Readable);
+
+    for (auto jsonFile: jsonFiles)
+    {
+        auto json = read_json_file(auxDir.filePath(jsonFile), logger).object();
+
+        if (!json.contains("auxiliary_vme_scripts")
+            || !json["auxiliary_vme_scripts"].isArray())
+            continue;
+
+        auto scriptInfoArray = json["auxiliary_vme_scripts"].toArray();
+
+        for (const auto &scriptInfoRef: scriptInfoArray)
+        {
+            auto scriptInfo = scriptInfoRef.toObject();
+
+            if (!scriptInfo.contains("fileName"))
+                continue;
+
+            QString scriptContents = read_file(auxDir.filePath(
+                    scriptInfo["fileName"].toString()), logger);
+
+            if (scriptContents.isEmpty())
+                continue;
+
+            AuxiliaryVMEScriptInfo auxInfo{ scriptInfo, scriptContents };
+
+            result.push_back(auxInfo);
+        }
+    }
+
+    return result;
 }
 
 } // namespace vats

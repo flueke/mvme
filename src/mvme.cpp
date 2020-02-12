@@ -1373,12 +1373,26 @@ void MVMEMainWindow::onActionTemplate_Info_triggered()
     QString buffer;
     QTextStream logStream(&buffer);
 
-    logStream << "Reading templates..." << endl;
-    MVMETemplates templates = read_templates([&logStream](const QString &msg) {
+    auto logger = [&logStream] (const QString &msg)
+    {
         logStream << msg << endl;
-    });
+    };
 
-    logStream << endl << templates;
+    logStream << "Reading templates..." << endl;
+    MVMETemplates templates = read_templates(logger);
+    logStream << endl << templates << endl;
+
+    auto auxScriptInfos = read_auxiliary_scripts(logger);
+
+    for (auto aux: auxScriptInfos)
+    {
+        logger(QSL("vendorName: %1, moduleName: %2, displayName: %3, scriptSize=%4")
+               .arg(aux.info["vendorName"].toString())
+               .arg(aux.info["moduleName"].toString())
+               .arg(aux.info["displayName"].toString())
+               .arg(aux.contents.size())
+              );
+    }
 
     auto textEdit = new QPlainTextEdit;
     textEdit->setAttribute(Qt::WA_DeleteOnClose);
