@@ -78,32 +78,52 @@ struct MetaBlock
 enum class CommandType
 {
     Invalid,
+
+    // VME reads and writes.
     Read,
     Write,
     WriteAbs,
+
+    // Delay when directly executing a script.
     Wait,
+
+    // Marker word to be inserted into the data stream by the controller.
     Marker,
 
+    // VME block transfers
     BLT,
     BLTFifo,
     MBLT,
     MBLTFifo,
     Blk2eSST64,
 
+    // Counted block transfers. TODO: phase these out at some point. It's rarely
+    // used and MVLC does not support it.
     BLTCount,
     BLTFifoCount,
     MBLTCount,
     MBLTFifoCount,
 
+    // Meta commands to temporarily use a different base address for the
+    // following commands and then reset back to the default base address.
     SetBase,
     ResetBase,
 
+    // Low-level VMUSB specific register write and read commands.
     VMUSB_WriteRegister,
     VMUSB_ReadRegister,
 
-    MVLC_WriteSpecial, // type is stored in Command.value (of type MVLCSpecialWord)
+    // Low-level MVLC instruction to insert a special word into the data
+    // stream. Currently 'timestamp' and 'stack_triggers' are implemented. The
+    // special word code can also be given as a numeric value.
+    // The type of the special word is stored in Command.value.
+    MVLC_WriteSpecial,
 
+    // A meta block enclosed in meta_block_begin and meta_block_end.
     MetaBlock,
+
+    // Meta command to set a variable value. The variable is inserted into the
+    // first (most local) symbol table given to the parser.
     SetVariable,
 };
 
