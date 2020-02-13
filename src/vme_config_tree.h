@@ -97,9 +97,6 @@ class VMEConfigTreeWidget: public QWidget
         void onModuleAdded(ModuleConfig *config);
         void onModuleAboutToBeRemoved(ModuleConfig *config);
 
-        void onScriptAdded(VMEScriptConfig *script, const QString &category);
-        void onScriptAboutToBeRemoved(VMEScriptConfig *script);
-
         // context menu action implementations
         void removeEvent();
 

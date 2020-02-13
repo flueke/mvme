@@ -324,7 +324,6 @@ void VMEConfigTreeWidget::setupActionButtons()
 void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 {
     // Cleanup
-
     if (m_config)
         m_config->disconnect(this);
 
@@ -379,12 +378,6 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
         connect(cfg, &VMEConfig::eventAboutToBeRemoved,
                 this, &VMEConfigTreeWidget::onEventAboutToBeRemoved);
 
-        connect(cfg, &VMEConfig::globalScriptAdded,
-                this, &VMEConfigTreeWidget::onScriptAdded);
-
-        connect(cfg, &VMEConfig::globalScriptAboutToBeRemoved,
-                this, &VMEConfigTreeWidget::onScriptAboutToBeRemoved);
-
         connect(cfg, &VMEConfig::modifiedChanged,
                 this, &VMEConfigTreeWidget::updateConfigLabel);
 
@@ -428,8 +421,6 @@ void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
 
 void VMEConfigTreeWidget::onGlobalChildAdded(ConfigObject *globalChild)
 {
-    qDebug() << __PRETTY_FUNCTION__ << globalChild;
-
     // Check if a node for this child already exists.
     if (auto node = m_treeMap.value(globalChild))
         return;
@@ -445,10 +436,7 @@ void VMEConfigTreeWidget::onGlobalChildAdded(ConfigObject *globalChild)
 
 void VMEConfigTreeWidget::onGlobalChildAboutToBeRemoved(ConfigObject *globalChild)
 {
-    qDebug() << __PRETTY_FUNCTION__ << globalChild;
-
-    delete m_treeMap.value(globalChild);
-    m_treeMap.remove(globalChild);
+    delete m_treeMap.take(globalChild);
 }
 
 VMEConfig *VMEConfigTreeWidget::getConfig() const
@@ -608,9 +596,8 @@ TreeNode *VMEConfigTreeWidget::makeObjectNode(ConfigObject *obj)
     {
         auto cp = qobject_cast<ContainerObject *>(containerObject->parent());
 
-        // FIXME: maybe simplify the logic here? embedd this into the ContainerObject?
         // Containers that are not directly below the 'global object root' of
-        // the vme config are user-created directories. The can be renamed.
+        // the vme config are user-created directories. These can be renamed.
         if (cp != &m_config->getGlobalObjectRoot())
             treeNode->setFlags(treeNode->flags() | Qt::ItemIsEditable);
 
@@ -862,6 +849,8 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             return QSL("Module");
         if (qobject_cast<const VMEScriptConfig *>(obj))
             return QSL("VME Script");
+        if (qobject_cast<const ContainerObject *>(obj))
+            return QSL("Directory");
         return QString{};
     };
 
@@ -1053,24 +1042,6 @@ void VMEConfigTreeWidget::onModuleAboutToBeRemoved(ModuleConfig *module)
     delete m_treeMap.take(module);
 }
 
-void VMEConfigTreeWidget::onScriptAdded(VMEScriptConfig *script, const QString &category)
-{
-    TreeNode *parentNode = m_treeMap[script->parent()];
-
-    qDebug() << __PRETTY_FUNCTION__ << script << script->parent() << parentNode;
-
-    if (parentNode)
-    {
-        addScriptNode(parentNode, script);
-        m_tree->resizeColumnToContents(0);
-    }
-}
-
-void VMEConfigTreeWidget::onScriptAboutToBeRemoved(VMEScriptConfig *script)
-{
-    delete m_treeMap.take(script);
-}
-
 //
 // Context menu action implementations
 //
@@ -1226,6 +1197,7 @@ void VMEConfigTreeWidget::addGlobalScript()
     auto script = new VMEScriptConfig;
 
     script->setObjectName("new vme script");
+    script->setObjectName(make_unique_name(script, obj));
     obj->addChild(script);
 
     node->setExpanded(true);
@@ -1245,7 +1217,8 @@ void VMEConfigTreeWidget::addScriptDirectory()
     auto obj  = Var2Ptr<ContainerObject>(node->data(0, DataRole_Pointer));
     if (!obj) return;
 
-    auto dir = make_folder_container(QSL("new directory")).release();
+    auto dir = make_directory_container(QSL("new directory")).release();
+    dir->setObjectName(make_unique_name(dir, obj));
     qDebug() << __PRETTY_FUNCTION__ << ">> adding new" << dir << "to parent" << obj;
     obj->addChild(dir);
     qDebug() << __PRETTY_FUNCTION__ << "<< done add new dir";
@@ -1283,7 +1256,7 @@ void VMEConfigTreeWidget::removeDirectoryRecursively()
 
     if (pc->removeChild(obj))
     {
-        delete m_treeMap.value(obj);
+        delete m_treeMap.take(obj);
     }
 }
 
@@ -1291,7 +1264,11 @@ void VMEConfigTreeWidget::removeGlobalScript()
 {
     auto node = m_tree->currentItem();
     auto script = Var2Ptr<VMEScriptConfig>(node->data(0, DataRole_Pointer));
-    m_config->removeGlobalScript(script);
+    if (script && m_config->removeGlobalScript(script))
+    {
+        assert(node == m_treeMap.value(script));
+        delete m_treeMap.take(script);
+    }
 }
 
 // TODO: handle directory trees
@@ -1445,15 +1422,13 @@ void VMEConfigTreeWidget::updateConfigLabel()
     le_fileName->setStatusTip(fileName);
 }
 
-
-
-// Note: Explicitly disallow copy/paste of ContainerObject instances for now
-// until the desired semantics are clear.
-
 bool VMEConfigTreeWidget::canCopy(const ConfigObject *obj) const
 {
-    if (qobject_cast<const ContainerObject *>(obj))
+    if (qobject_cast<const ContainerObject *>(obj)
+        && obj->parent() == &m_config->getGlobalObjectRoot())
+    {
         return false;
+    }
 
     return can_mime_copy_object(obj);
 }
@@ -1480,9 +1455,12 @@ bool VMEConfigTreeWidget::canPaste() const
 
     if (clipboardData->hasFormat(MIMEType_JSON_VMEScriptConfig))
     {
-        result |= (node == m_nodeDAQStart
-                   || node == m_nodeDAQStop
-                   || node == m_nodeManual);
+        result |= (node->type() == NodeType_Container);
+    }
+
+    if (clipboardData->hasFormat(MIMEType_JSON_ContainerObject))
+    {
+        result |= (node->type() == NodeType_Container);
     }
 
     // Early return in case we already got a positive answer. Skips the more
@@ -1504,9 +1482,7 @@ bool VMEConfigTreeWidget::canPaste() const
                 || nt == NodeType_EventModulesInit)
                && qobject_cast<ModuleConfig *>(obj.get()));
 
-    result |= ((node == m_nodeDAQStart
-                || node == m_nodeDAQStop
-                || node == m_nodeManual)
+    result |= ((node->type() == NodeType_Container)
                && qobject_cast<VMEScriptConfig *>(obj.get()));
 
     return result;
@@ -1566,8 +1542,7 @@ void VMEConfigTreeWidget::pasteFromClipboard()
         vmeConfig->addEventConfig(eventConfig);
         obj.release();
     }
-
-    if (auto moduleConfig = qobject_cast<ModuleConfig *>(obj.get()))
+    else if (auto moduleConfig = qobject_cast<ModuleConfig *>(obj.get()))
     {
         // Direct paste onto an event node
         EventConfig *destEvent = qobject_cast<EventConfig *>(destObj);
@@ -1591,23 +1566,19 @@ void VMEConfigTreeWidget::pasteFromClipboard()
             obj.release();
         }
     }
-
-    if (auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj.get()))
+    else
     {
         if (auto destContainer = qobject_cast<ContainerObject *>(destObj))
         {
-            scriptConfig->setObjectName(
-                make_unique_name(scriptConfig, destContainer));
+            obj->setObjectName(make_unique_name(obj.get(), destContainer));
 
-            destContainer->addChild(scriptConfig);
-            onScriptAdded(scriptConfig, {});
+            destContainer->addChild(obj.get());
             obj.release();
 
             if (node)
                 node->setExpanded(true);
         }
     }
-
 
     qDebug() << __PRETTY_FUNCTION__ << vmeConfig->getGlobalScriptCategories();
 }
