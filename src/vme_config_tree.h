@@ -70,6 +70,8 @@ class VMEConfigTreeWidget: public QWidget
     private slots:
         void editEventImpl();
         void onVMEControllerTypeSet(const VMEControllerType &t);
+        void onGlobalChildAdded(ConfigObject *globalChild);
+        void onGlobalChildAboutToBeRemoved(ConfigObject *globalChild);
         void editScript();
 
     private:
@@ -106,6 +108,7 @@ class VMEConfigTreeWidget: public QWidget
         void editModule();
 
         void addGlobalScript();
+        void addScriptDirectory();
         void removeGlobalScript();
         void runScripts();
         void editName();

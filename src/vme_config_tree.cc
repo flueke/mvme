@@ -391,6 +391,12 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
         connect(cfg, &VMEConfig::vmeControllerTypeSet,
                 this, &VMEConfigTreeWidget::onVMEControllerTypeSet);
 
+        connect(cfg, &VMEConfig::globalChildAdded,
+                this, &VMEConfigTreeWidget::onGlobalChildAdded);
+
+        connect(cfg, &VMEConfig::globalChildAboutToBeRemoved,
+                this, &VMEConfigTreeWidget::onGlobalChildAboutToBeRemoved);
+
         // Controller specific setup
         onVMEControllerTypeSet(cfg->getControllerType());
     }
@@ -418,6 +424,31 @@ void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
         m_treeMap[mvlcTriggerIO] = m_nodeMVLCTriggerIO;
         m_tree->insertTopLevelItem(0, m_nodeMVLCTriggerIO);
     }
+}
+
+void VMEConfigTreeWidget::onGlobalChildAdded(ConfigObject *globalChild)
+{
+    qDebug() << __PRETTY_FUNCTION__ << globalChild;
+
+    // Check if a node for this child already exists.
+    if (auto node = m_treeMap.value(globalChild))
+        return;
+
+    if (auto parentObject = qobject_cast<ConfigObject *>(globalChild->parent()))
+    {
+        if (auto parentNode = m_treeMap.value(parentObject))
+        {
+            addObjectNode(parentNode, globalChild);
+        }
+    }
+}
+
+void VMEConfigTreeWidget::onGlobalChildAboutToBeRemoved(ConfigObject *globalChild)
+{
+    qDebug() << __PRETTY_FUNCTION__ << globalChild;
+
+    delete m_treeMap.value(globalChild);
+    m_treeMap.remove(globalChild);
 }
 
 VMEConfig *VMEConfigTreeWidget::getConfig() const
@@ -575,6 +606,15 @@ TreeNode *VMEConfigTreeWidget::makeObjectNode(ConfigObject *obj)
 
     if (auto containerObject = qobject_cast<ContainerObject *>(obj))
     {
+        auto cp = qobject_cast<ContainerObject *>(containerObject->parent());
+
+        // FIXME: maybe simplify the logic here? embedd this into the ContainerObject?
+        // Containers that are not directly below the 'global object root' of
+        // the vme config are user-created directories. The can be renamed.
+        if (cp != &m_config->getGlobalObjectRoot())
+            treeNode->setFlags(treeNode->flags() | Qt::ItemIsEditable);
+
+        // handle the containers children
         addContainerNodes(treeNode, containerObject);
     }
 
@@ -779,6 +819,9 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     // Global scripts
     //
+
+    // TODO: add entries for adding scripts from the auxiliary script list
+
     if (qobject_cast<ContainerObject *>(obj))
     {
         if (isIdle || isMVLC)
@@ -788,6 +831,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
         }
 
         menu.addAction(QSL("Add script"), this, &VMEConfigTreeWidget::addGlobalScript);
+        menu.addAction(QSL("Add directory"), this, &VMEConfigTreeWidget::addScriptDirectory);
     }
 
     if (qobject_cast<VMEScriptConfig *>(obj))
@@ -868,6 +912,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             removeFunc = [this] () { removeModule(); };
         }
 
+        // TODO: add remove code for directories
         if (qobject_cast<VMEScriptConfig *>(obj) && obj->parent())
         {
             auto parentName = obj->parent()->objectName();
@@ -1168,22 +1213,47 @@ void VMEConfigTreeWidget::editModule()
 void VMEConfigTreeWidget::addGlobalScript()
 {
     auto node = m_tree->currentItem();
+    if (!node) return;
+
     auto obj  = Var2Ptr<ContainerObject>(node->data(0, DataRole_Pointer));
-    auto category = obj->objectName();
+    if (!obj) return;
+
     auto script = new VMEScriptConfig;
 
     script->setObjectName("new vme script");
-    bool doExpand = (node->childCount() == 0);
-    m_config->addGlobalScript(script, category);
+    obj->addChild(script);
 
-    if (doExpand)
-        node->setExpanded(true);
+    node->setExpanded(true);
 
     auto scriptNode = m_treeMap.value(script, nullptr);
     assert(scriptNode);
+
     if (scriptNode)
-    {
         m_tree->editItem(scriptNode, 0);
+}
+
+void VMEConfigTreeWidget::addScriptDirectory()
+{
+    auto node = m_tree->currentItem();
+    if (!node) return;
+
+    auto obj  = Var2Ptr<ContainerObject>(node->data(0, DataRole_Pointer));
+    if (!obj) return;
+
+    auto dir = make_folder_container(QSL("new directory")).release();
+    qDebug() << __PRETTY_FUNCTION__ << ">> adding new" << dir << "to parent" << obj;
+    obj->addChild(dir);
+    qDebug() << __PRETTY_FUNCTION__ << "<< done add new dir";
+
+    node->setExpanded(true);
+
+    auto dirNode = m_treeMap.value(dir, nullptr);
+    assert(dirNode);
+    if (dirNode)
+    {
+        m_tree->clearSelection();
+        dirNode->setSelected(true);
+        m_tree->editItem(dirNode, 0);
     }
 }
 
