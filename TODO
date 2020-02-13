@@ -2,12 +2,28 @@
 TODO list
 ==================================================
 
-* analysis ui: initially expand everything now that expansion state handling is
-  different
+* MVLC release work
+  - mvlc trigger io doku aus der mvme doku rausziehen um das als reine mvlc doku zu verwenden
+  - lib design: (+ are things we want and that are mostly clear, ? are unclear things)
+    + direct mvlc com, direct vme com, stack upload, stack exec, irq setup,
+    + readout_worker, queued communication, lossless or lossfull queueing strategies
+    + blocking consumer channel (listfile) and non-blocking consumer channel (queue)
+    + stack -> readout parsing, readout reassembly
+    + stats, logging, python wrapper
+    ? trigger_io setup, automatic periodic stack setup
+
+  - multicreate: merging of the data stream. different strategies, one true way?
+
+* mvlc_eth: split socket timeout errors into write and read
+
+analysis_ui: no small toolbar stats display with mvlc (rate, replayRate, etc)
 
 * do add in per pipe and per packet channel stats displays for the mvlc!
+* mvlc parser debugging
 * further debug the mvlc_eth mtdc pulser=7, multi_event>10 timeout problems.
   how do the broken command buffers look exactly?
+* pausing and stopping an MVLC eth DAQ can still take forever
+  -> this is almost always caused by the mvlc error notifications going wild.
 
 * change the analysis default filters generation to allow including custom
   calibration operators and other things in the default_filters.analysis for
@@ -33,9 +49,9 @@ TODO list
   getting the next available mcst address.
   -> done for EventConfig (vme_config_util.h)
 
-* doc: mvlc and jumbo frames
+* doc: mvlc and jumbo frames. also test this
 
-* trigger_io gui
+* trigger_io gui [maybe]
   - show static connections when hovering over units.
   - highlight possible connections when hovering a pin
   - allow making connections by dragging from pin to pin or by clicking two
@@ -106,10 +122,6 @@ TODO: vary max_xfer for the above test
 * Linux, ETH, MTDC, Pulser 7 (event len 26-30), 10 max_xfer     -> TODO
 
 
-* vme scripts cannot be renamed while they're being edited
-
-* when removing an analysis object the eventwidgets are recreated and thus lose
-  their node expansions state. fix this at some point
 * make all name input dialogs only accept valid C identifiers
 
 * MVLC issues
@@ -152,6 +164,8 @@ they result in a timeout error. Do not immediately disconnect the MVLC.
   builds.
 
 * NSIS Installer: make the zadig installer less prominent and annoying.
+  -> Add a page asking if you're using the VMUSB. If true go to zadig page,
+  else skip it.
 
 * failing host lookups block the gui. espcially noticeable when loading a
   replay and starting it. the gui will feel unresponsive.

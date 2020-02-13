@@ -2590,6 +2590,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             return;
     }
 
+    // Handle the top-left tree containing the modules and data extractors.
     if (userLevel == 0)
     {
         doDataSourceOperatorTreeContextMenu(tree, pos, userLevel);

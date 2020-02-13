@@ -647,17 +647,17 @@ void VMEConfigTreeWidget::onCurrentItemChanged(
     QTreeWidgetItem *node, QTreeWidgetItem *prev)
 {
     action_editVariables->setEnabled(node && node->type() == NodeType_Event);
-    //qDebug() << __PRETTY_FUNCTION__ << item << prev;
+    qDebug() << __PRETTY_FUNCTION__ << node << prev;
 }
 
 void VMEConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
 {
-    //qDebug() << __PRETTY_FUNCTION__ << item << column;
+    qDebug() << __PRETTY_FUNCTION__ << item << column;
 }
 
 void VMEConfigTreeWidget::onItemActivated(QTreeWidgetItem *item, int column)
 {
-    //qDebug() << __PRETTY_FUNCTION__ << item << column;
+    qDebug() << __PRETTY_FUNCTION__ << item << column;
 }
 
 void VMEConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
@@ -827,11 +827,11 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
         if (isIdle || isMVLC)
         {
             if (node->childCount() > 0)
-                menu.addAction(QSL("Run scripts"), this, &VMEConfigTreeWidget::runScripts);
+                menu.addAction(QSL("Run Scripts"), this, &VMEConfigTreeWidget::runScripts);
         }
 
-        menu.addAction(QSL("Add script"), this, &VMEConfigTreeWidget::addGlobalScript);
-        menu.addAction(QSL("Add directory"), this, &VMEConfigTreeWidget::addScriptDirectory);
+        menu.addAction(QSL("Add Script"), this, &VMEConfigTreeWidget::addGlobalScript);
+        menu.addAction(QSL("Add Directory"), this, &VMEConfigTreeWidget::addScriptDirectory);
     }
 
     if (qobject_cast<VMEScriptConfig *>(obj))
@@ -912,17 +912,22 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             removeFunc = [this] () { removeModule(); };
         }
 
-        // TODO: add remove code for directories
         if (qobject_cast<VMEScriptConfig *>(obj) && obj->parent())
         {
-            auto parentName = obj->parent()->objectName();
-
-            if (parentName == "daq_start"
-                || parentName == "daq_stop"
-                || parentName == "manual")
+            if (auto parentContainer = qobject_cast<ContainerObject *>(obj->parent()))
             {
                 objectTypeString = "VME Script";
                 removeFunc = [this] () { removeGlobalScript(); };
+            }
+        }
+
+        if (auto co = qobject_cast<ContainerObject *>(obj))
+        {
+            // Cannot remove the daq_start, daq_stop and manual nodes
+            if (obj->parent() != &m_config->getGlobalObjectRoot())
+            {
+                objectTypeString = "Directory";
+                removeFunc = [this] () { removeDirectoryRecursively(); };
             }
         }
 
@@ -1257,6 +1262,31 @@ void VMEConfigTreeWidget::addScriptDirectory()
     }
 }
 
+void VMEConfigTreeWidget::removeDirectoryRecursively()
+{
+    auto node = m_tree->currentItem();
+    if (!node) return;
+
+    auto obj  = Var2Ptr<ContainerObject>(node->data(0, DataRole_Pointer));
+    if (!obj) return;
+
+    assert(m_treeMap.value(obj) == node);
+
+    auto pc = qobject_cast<ContainerObject *>(obj->parent());
+    assert(pc);
+    if (!pc) return;
+
+    // Cannot remove the daq_start, daq_stop and manual nodes which are the
+    // direct children of the global root.
+    if (pc == &m_config->getGlobalObjectRoot())
+        return;
+
+    if (pc->removeChild(obj))
+    {
+        delete m_treeMap.value(obj);
+    }
+}
+
 void VMEConfigTreeWidget::removeGlobalScript()
 {
     auto node = m_tree->currentItem();
@@ -1264,6 +1294,7 @@ void VMEConfigTreeWidget::removeGlobalScript()
     m_config->removeGlobalScript(script);
 }
 
+// TODO: handle directory trees
 void VMEConfigTreeWidget::runScripts()
 {
     auto node = m_tree->currentItem();

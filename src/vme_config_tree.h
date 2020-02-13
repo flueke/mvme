@@ -109,6 +109,7 @@ class VMEConfigTreeWidget: public QWidget
 
         void addGlobalScript();
         void addScriptDirectory();
+        void removeDirectoryRecursively();
         void removeGlobalScript();
         void runScripts();
         void editName();
