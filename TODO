@@ -2,8 +2,16 @@
 TODO list
 ==================================================
 
+* vme config tree
+--------------------------------------------------
+  - run scripts for container objects (depth first)
+  - move/reorder via drag and drop
+  - context menu for auxiliary scripts
+  - enable/disable for object trees under daq_start and daq_stop?
+
 * MVLC release work
-  - mvlc trigger io doku aus der mvme doku rausziehen um das als reine mvlc doku zu verwenden
+--------------------------------------------------
+  - use mvlc trigger io docs for the standalone mvlc doc
   - lib design: (+ are things we want and that are mostly clear, ? are unclear things)
     + direct mvlc com, direct vme com, stack upload, stack exec, irq setup,
     + readout_worker, queued communication, lossless or lossfull queueing strategies
