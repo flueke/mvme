@@ -111,8 +111,20 @@ VMEModuleMeta LIBMVME_EXPORT get_module_meta_by_typeId(const MVMETemplates &temp
 
 struct LIBMVME_EXPORT AuxiliaryVMEScriptInfo
 {
+    // JSON info object associated with this script. Contains data like fileName,
+    // scriptName, vendorName, moduleName and variables.
     QJsonObject info;
+
+    // The contents of the script file.
     QString contents;
+
+    // The name of the JSON file that contained the 'info' object.
+    QString auxInfoFileName;
+
+    QString fileName() const { return info["fileName"].toString(); }
+    QString scriptName() const { return info["scriptName"].toString(); }
+    QString vendorName() const { return info["vendorName"].toString(); }
+    QString moduleName() const { return info["moduleName"].toString(); }
 };
 
 QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(

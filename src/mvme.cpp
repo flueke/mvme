@@ -1386,11 +1386,14 @@ void MVMEMainWindow::onActionTemplate_Info_triggered()
 
     for (auto aux: auxScriptInfos)
     {
-        logger(QSL("vendorName: %1, moduleName: %2, displayName: %3, scriptSize=%4")
-               .arg(aux.info["vendorName"].toString())
-               .arg(aux.info["moduleName"].toString())
-               .arg(aux.info["displayName"].toString())
+        logger(QSL("* scriptFile=%1 vendorName: %2, moduleName: %3"
+                   ", scriptName: %4, scriptSize=%5, infoFile=%6")
+               .arg(aux.fileName())
+               .arg(aux.vendorName())
+               .arg(aux.moduleName())
+               .arg(aux.scriptName())
                .arg(aux.contents.size())
+               .arg(aux.auxInfoFileName)
               );
     }
 

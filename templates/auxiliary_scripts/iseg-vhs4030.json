@@ -2,19 +2,19 @@
     "auxiliary_vme_scripts": [
         {
             "fileName": "iseg-vhs4030-init.vmescript",
-            "displayName": "VHS4030 Init",
+            "scriptName": "VHS4030 Init",
             "vendorName": "ISEG",
             "moduleName": "VHS4030"
         },
         {
             "fileName": "iseg-vhs4030-shutdown.vmescript",
-            "displayName": "VHS4030 Shutdown",
+            "scriptName": "VHS4030 Shutdown",
             "vendorName": "ISEG",
             "moduleName": "VHS4030"
         },
         {
             "fileName": "iseg-vhs4030-set-address.vmescript",
-            "displayName": "VHS4030 Set VME address",
+            "scriptName": "VHS4030 Set VME address",
             "vendorName": "ISEG",
             "moduleName": "VHS4030"
         }

@@ -454,7 +454,10 @@ QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(
             if (scriptContents.isEmpty())
                 continue;
 
-            AuxiliaryVMEScriptInfo auxInfo{ scriptInfo, scriptContents };
+            AuxiliaryVMEScriptInfo auxInfo = {};
+            auxInfo.info=scriptInfo;
+            auxInfo.contents=scriptContents;
+            auxInfo.auxInfoFileName=jsonFile;
 
             result.push_back(auxInfo);
         }
