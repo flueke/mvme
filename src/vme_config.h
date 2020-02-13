@@ -135,7 +135,9 @@ class LIBMVME_EXPORT ConfigObject: public QObject
 // containers. This can be used by the UI to structure the object tree.
 //
 // Note: when a child object is deleted it will automatically be removed from
-// the list of children of this object.
+// the list of children of this object but the childAboutToBeRemoved() signal
+// will not be emitted (because at that point the child has already been
+// destroyed and only the QObject* part still exists).
 class LIBMVME_EXPORT ContainerObject: public ConfigObject
 {
     Q_OBJECT
@@ -175,14 +177,29 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
             return false;
         }
 
-        bool containsChild(ConfigObject *obj)
+        // Returns the list of direct child objects.
+        QVector<ConfigObject *> getChildren() const
+        {
+            return m_children;
+        }
+
+        // Returns the direct child with the supplied name.
+        ConfigObject *getChild(const QString &name) const
+        {
+            return findChildByName(name, false);
+        }
+
+        // Returns true if obj is a direct child of this container.
+        bool contains(ConfigObject *obj) const
         {
             return m_children.indexOf(obj) >= 0;
         }
 
-        QVector<ConfigObject *> getChildren() const
+        // Returns true if the container has a direct child with the supplied
+        // name.
+        bool contains(const QString &name) const
         {
-            return m_children;
+            return getChild(name) != nullptr;
         }
 
     protected:
@@ -201,6 +218,13 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
     private:
         QVector<ConfigObject *> m_children;
 };
+
+inline std::unique_ptr<ContainerObject> make_folder_container(
+    const QString &name)
+{
+    return std::make_unique<ContainerObject>(
+        name, QString{}, ":/folder_orange.png");
+}
 
 class LIBMVME_EXPORT VMEScriptConfig: public ConfigObject
 {
@@ -353,6 +377,15 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
 
         void vmeControllerTypeSet(const VMEControllerType &t);
 
+        // Emitted on adding a global child at any hierarchy level (not only
+        // direct children are considered).
+        void globalChildAdded(ConfigObject *child);
+
+        // Emitted for a global child at any hierarchy level. Only emitted if
+        // the child is removed via ContainerObject::removeChild(), not if the
+        // child is manually deleted.
+        void globalChildAboutToBeRemoved(ConfigObject *child);
+
     public:
         Q_INVOKABLE VMEConfig(QObject *parent = 0);
 
@@ -401,6 +434,8 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
+        void onChildObjectAdded(ConfigObject *child);
+        void onChildObjectAboutToBeRemoved(ConfigObject *child);
         void createMissingGlobals();
 
         QList<EventConfig *> eventConfigs;

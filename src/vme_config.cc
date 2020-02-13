@@ -242,7 +242,8 @@ ContainerObject::ContainerObject(
     : ContainerObject(parent)
 {
     setObjectName(name);
-    setProperty("display_name", displayName);
+    if (!displayName.isNull())
+        setProperty("display_name", displayName);
     setProperty("icon", icon);
 }
 
@@ -667,9 +668,43 @@ VMEConfig::VMEConfig(QObject *parent)
     m_globalObjects.setProperty("display_name", "Global Objects");
     m_globalObjects.setProperty("icon", ":/vme_global_scripts.png");
 
+    connect(&m_globalObjects, &ContainerObject::childAdded,
+            this, &VMEConfig::onChildObjectAdded);
+
+    connect(&m_globalObjects, &ContainerObject::childAboutToBeRemoved,
+            this, &VMEConfig::onChildObjectAboutToBeRemoved);
+
     createMissingGlobals();
 
     setVMEController(m_controllerType);
+}
+
+void VMEConfig::onChildObjectAdded(ConfigObject *child)
+{
+    assert(child);
+
+    qDebug() << __PRETTY_FUNCTION__ << child;
+
+    emit globalChildAdded(child);
+
+    if (auto co = qobject_cast<ContainerObject *>(child))
+    {
+        connect(co, &ContainerObject::childAdded,
+                this, &VMEConfig::onChildObjectAdded);
+
+        // Handle existing children of the newly added ContainerObject.
+        for (auto subChild: co->getChildren())
+            onChildObjectAdded(subChild);
+    }
+}
+
+void VMEConfig::onChildObjectAboutToBeRemoved(ConfigObject *child)
+{
+    assert(child);
+
+    qDebug() << __PRETTY_FUNCTION__ << child;
+
+    emit globalChildAboutToBeRemoved(child);
 }
 
 void VMEConfig::createMissingGlobals()
@@ -677,25 +712,24 @@ void VMEConfig::createMissingGlobals()
     if (!m_globalObjects.findChildByName("daq_start"))
     {
         auto daqStartScripts = new ContainerObject(
-            "daq_start", "DAQ Start", ":/config_category.png");
+            "daq_start", "DAQ Start", ":/folder_orange.png");
         m_globalObjects.addChild(daqStartScripts);
     }
 
     if (!m_globalObjects.findChildByName("daq_stop"))
     {
         auto daqStopScripts = new ContainerObject(
-            "daq_stop", "DAQ Stop", ":/config_category.png");
+            "daq_stop", "DAQ Stop", ":/folder_orange.png");
         m_globalObjects.addChild(daqStopScripts);
     }
 
     if (!m_globalObjects.findChildByName("manual"))
     {
         auto manualScripts = new ContainerObject(
-            "manual", "Manual", ":/config_category.png");
+            "manual", "Manual", ":/folder_orange.png");
         m_globalObjects.addChild(manualScripts);
     }
 }
-
 
 std::error_code VMEConfig::readVMEConfig(const QJsonObject &json)
 {
