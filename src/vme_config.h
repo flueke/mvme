@@ -49,10 +49,7 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         // Note: this method does not set the objects modified flag!
         void generateNewId();
 
-        virtual void setModified(bool b = true);
         bool isModified() const { return m_modified; }
-
-        void setEnabled(bool b);
         bool isEnabled() const { return m_enabled; }
 
         QString getObjectPath() const;
@@ -109,6 +106,10 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         {
             return findChildByName<ConfigObject *>(name, recurse);
         }
+
+    public slots:
+        void setModified(bool b = true);
+        void setEnabled(bool b);
 
     protected:
         // Note: the watchDynamicProperties flag and

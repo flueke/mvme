@@ -108,7 +108,6 @@ void ConfigObject::setModified(bool b)
     {
         m_modified = b;
         emit modifiedChanged(b);
-
     }
 
     if (b)
@@ -683,10 +682,14 @@ void VMEConfig::onChildObjectAdded(ConfigObject *child)
 {
     assert(child);
 
-    qDebug() << __PRETTY_FUNCTION__ << child;
-
     emit globalChildAdded(child);
 
+    // React to the childs modified signal
+    connect(child, &ConfigObject::modified,
+            this, [this] () { setModified(); });
+
+    // Handle a container object by subscribing to its childAdded() signal and
+    // then recursing to its children.
     if (auto co = qobject_cast<ContainerObject *>(child))
     {
         connect(co, &ContainerObject::childAdded,
@@ -696,15 +699,15 @@ void VMEConfig::onChildObjectAdded(ConfigObject *child)
         for (auto subChild: co->getChildren())
             onChildObjectAdded(subChild);
     }
+
+    setModified();
 }
 
 void VMEConfig::onChildObjectAboutToBeRemoved(ConfigObject *child)
 {
     assert(child);
-
-    qDebug() << __PRETTY_FUNCTION__ << child;
-
     emit globalChildAboutToBeRemoved(child);
+    setModified();
 }
 
 void VMEConfig::createMissingGlobals()
@@ -902,12 +905,22 @@ void VMEConfig::write_impl(QJsonObject &json) const
 
 void VMEConfig::read_impl(const QJsonObject &inputJson)
 {
+    // Delete existing events
     qDeleteAll(eventConfigs);
     eventConfigs.clear();
-    qDeleteAll(m_globalObjects.getChildren());
+
+    // Delete global objects, this includes the daq_start, daq_stop and manual
+    // containers.
+    for (auto child: m_globalObjects.getChildren())
+    {
+        m_globalObjects.removeChild(child);
+        child->setParent(nullptr);
+        child->deleteLater();
+    }
 
     QJsonObject json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(inputJson);
 
+    // Create the EventConfig instances
     QJsonArray eventArray = json["events"].toArray();
 
     for (int eventIndex=0; eventIndex<eventArray.size(); ++eventIndex)
@@ -919,7 +932,7 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
     }
     qDebug() << __PRETTY_FUNCTION__ << "read" << eventConfigs.size() << "event configs";
 
-    // global objects
+    // read global objects, create missing objects afterwards
     assert(m_globalObjects.objectName() == "global_objects");
     m_globalObjects.read(json["global_objects"].toObject());
     m_globalObjects.setObjectName("global_objects");
