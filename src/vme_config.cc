@@ -779,7 +779,6 @@ bool VMEConfig::contains(EventConfig *config)
 
 bool VMEConfig::addGlobalScript(VMEScriptConfig *config, const QString &category)
 {
-    qDebug() << __PRETTY_FUNCTION__ << config << category;
     auto parent = qobject_cast<ContainerObject *>(m_globalObjects.findChildByName(category));
 
     if (!parent)
@@ -790,7 +789,6 @@ bool VMEConfig::addGlobalScript(VMEScriptConfig *config, const QString &category
 
     parent->addChild(config);
     config->setParent(parent);
-    emit globalScriptAdded(config, category);
     setModified();
     return true;
 }
@@ -802,7 +800,6 @@ bool VMEConfig::removeGlobalScript(VMEScriptConfig *config)
     if (!parent)
         return false;
 
-    emit globalScriptAboutToBeRemoved(config);
     parent->removeChild(config);
     config->setParent(nullptr);
     config->deleteLater();

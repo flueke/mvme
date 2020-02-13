@@ -220,7 +220,7 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
         QVector<ConfigObject *> m_children;
 };
 
-inline std::unique_ptr<ContainerObject> make_folder_container(
+inline std::unique_ptr<ContainerObject> make_directory_container(
     const QString &name)
 {
     return std::make_unique<ContainerObject>(
@@ -372,9 +372,6 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
     signals:
         void eventAdded(EventConfig *config);
         void eventAboutToBeRemoved(EventConfig *config);
-
-        void globalScriptAdded(VMEScriptConfig *config, const QString &category);
-        void globalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
         void vmeControllerTypeSet(const VMEControllerType &t);
 

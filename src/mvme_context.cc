@@ -613,8 +613,8 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
     connect(m_vmeConfig, &VMEConfig::eventAboutToBeRemoved,
             this, &MVMEContext::onEventAboutToBeRemoved);
 
-    connect(m_vmeConfig, &VMEConfig::globalScriptAboutToBeRemoved,
-            this, &MVMEContext::onGlobalScriptAboutToBeRemoved);
+    connect(m_vmeConfig, &VMEConfig::globalChildAboutToBeRemoved,
+            this, &MVMEContext::onGlobalChildAboutToBeRemoved);
 
     if (m_readoutWorker)
     {
@@ -1790,7 +1790,7 @@ void MVMEContext::onEventAboutToBeRemoved(EventConfig *config)
     emit eventAboutToBeRemoved(config);
 }
 
-void MVMEContext::onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config)
+void MVMEContext::onGlobalChildAboutToBeRemoved(ConfigObject *config)
 {
     emit objectAboutToBeRemoved(config);
 }

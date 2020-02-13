@@ -349,7 +349,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void onEventAboutToBeRemoved(EventConfig *config);
         void onModuleAdded(ModuleConfig *module);
         void onModuleAboutToBeRemoved(ModuleConfig *config);
-        void onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config);
+        void onGlobalChildAboutToBeRemoved(ConfigObject *config);
 
         void onControllerStateChanged(ControllerState state);
         void onControllerOpenFinished();
