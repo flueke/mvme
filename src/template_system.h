@@ -121,9 +121,16 @@ struct LIBMVME_EXPORT AuxiliaryVMEScriptInfo
     // The name of the JSON file that contained the 'info' object.
     QString auxInfoFileName;
 
+    // VME Script filename
     QString fileName() const { return info["fileName"].toString(); }
+
+    // Verbose name of the VME script
     QString scriptName() const { return info["scriptName"].toString(); }
+
+    // Vendor name for grouping
     QString vendorName() const { return info["vendorName"].toString(); }
+
+    // Module name for grouping
     QString moduleName() const { return info["moduleName"].toString(); }
 };
 
@@ -132,6 +139,12 @@ QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(
 
 QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(
     const QString &path, TemplateLogger logger = TemplateLogger());
+
+// Comparator for std::sort() comparing AuxiliaryVMEScriptInfo objects by
+// (vendorName, moduleName, scriptName) in order . 'mesytec' devices are first
+// in the sort order.
+bool auxinfo_default_compare(
+    const AuxiliaryVMEScriptInfo &a, const AuxiliaryVMEScriptInfo &b);
 
 }  // namespace vats
 

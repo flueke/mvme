@@ -463,7 +463,29 @@ QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(
         }
     }
 
+    std::sort(std::begin(result), std::end(result), auxinfo_default_compare);
+
     return result;
+}
+
+bool auxinfo_default_compare(
+    const AuxiliaryVMEScriptInfo &a, const AuxiliaryVMEScriptInfo &b)
+{
+    if (a.vendorName() == b.vendorName())
+    {
+        if (a.moduleName() == b.moduleName())
+            return a.scriptName() < b.scriptName();
+
+        return a.moduleName() < b.moduleName();
+    }
+
+    if (a.vendorName() == QSL("mesytec"))
+        return true;
+
+    if (b.vendorName() == QSL("mesytec"))
+        return false;
+
+    return a.vendorName() < b.vendorName();
 }
 
 } // namespace vats
