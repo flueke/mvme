@@ -19,15 +19,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_config_tree.h"
-#include "mvme.h"
-#include "vme_config.h"
-#include "vme_config_ui.h"
-#include "treewidget_utils.h"
-#include "mvme_stream_worker.h"
-#include "vmusb.h"
-#include "vme_config_scripts.h"
-#include "vme_config_util.h"
-#include "vme_script_editor.h"
 
 #include <QClipboard>
 #include <QDebug>
@@ -43,6 +34,17 @@
 #include <QShortcut>
 #include <QToolButton>
 #include <QTreeWidget>
+
+#include "mvme.h"
+#include "mvme_stream_worker.h"
+#include "template_system.h"
+#include "treewidget_utils.h"
+#include "vme_config.h"
+#include "vme_config_scripts.h"
+#include "vme_config_ui.h"
+#include "vme_config_util.h"
+#include "vme_script_editor.h"
+#include "vmusb.h"
 
 using namespace std::placeholders;
 using namespace vats;
@@ -158,6 +160,36 @@ class VMEConfigTreeItemDelegate: public QStyledItemDelegate
             }
         }
 };
+
+// TODO: i do want a callback to select the newly created node
+// using onGlobalChildAdded() is not good because it interferes with pasting
+// multiple times (the selected destination node is lost)
+// Instead the callback should be given the newly added script. It can then
+// lookup the node in m_treeMap and do the selection handling.
+std::unique_ptr<QMenu> make_menu_new_aux_script(
+    ContainerObject *destContainer,
+    QWidget *parentWidget = nullptr)
+{
+    assert(destContainer);
+
+    auto result = std::make_unique<QMenu>(parentWidget);
+    auto auxInfos = vats::read_auxiliary_scripts();
+
+    for (const auto &auxInfo: auxInfos)
+    {
+        auto action_triggered = [destContainer, auxInfo] ()
+        {
+            auto scriptConfig = std::make_unique<VMEScriptConfig>();
+            scriptConfig->setObjectName(auxInfo.scriptName());
+            scriptConfig->setScriptContents(auxInfo.contents);
+            destContainer->addChild(scriptConfig.release());
+        };
+
+        result->addAction(auxInfo.scriptName(), destContainer, action_triggered);
+    }
+
+    return result;
+}
 
 VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     : QWidget(parent)
@@ -421,7 +453,14 @@ void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
 
 void VMEConfigTreeWidget::onGlobalChildAdded(ConfigObject *globalChild)
 {
-    // Check if a node for this child already exists.
+    // Do nothing if a node for this child already exists.
+    //
+    // This can happen for example if a container hierarchy is pasted. This
+    // method will be called with globalChild set to the root container. Below
+    // addObjectNode() will be invoked for that root container which in turn
+    // calls makeObjectNode() which recurses to the containers children.  Next
+    // this slot will be invoked for the first child of the root for which a
+    // node will just have been created.
     if (auto node = m_treeMap.value(globalChild))
         return;
 
@@ -430,6 +469,7 @@ void VMEConfigTreeWidget::onGlobalChildAdded(ConfigObject *globalChild)
         if (auto parentNode = m_treeMap.value(parentObject))
         {
             addObjectNode(parentNode, globalChild);
+            parentNode->setExpanded(true);
         }
     }
 }
@@ -707,7 +747,11 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     if (vmeScript)
     {
         if (isIdle || isMVLC)
-            menu.addAction(QSL("Run Script"), this, &VMEConfigTreeWidget::runScripts);
+        {
+            menu.addAction(QIcon(":/script-run.png"), QSL("Run Script"),
+                           this, &VMEConfigTreeWidget::runScripts);
+        }
+
         menu.addAction(QIcon(QSL(":/pencil.png")), QSL("Edit Script"),
                        this, &VMEConfigTreeWidget::editScript);
     }
@@ -807,18 +851,34 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     // Global scripts
     //
 
-    // TODO: add entries for adding scripts from the auxiliary script list
-
-    if (qobject_cast<ContainerObject *>(obj))
+    if (auto parentContainer = qobject_cast<ContainerObject *>(obj))
     {
         if (isIdle || isMVLC)
         {
             if (node->childCount() > 0)
-                menu.addAction(QSL("Run Scripts"), this, &VMEConfigTreeWidget::runScripts);
+            {
+                menu.addAction(QIcon(":/script-run.png"), QSL("Run Scripts"),
+                               this, &VMEConfigTreeWidget::runScripts);
+                menu.addSeparator();
+            }
         }
 
-        menu.addAction(QSL("Add Script"), this, &VMEConfigTreeWidget::addGlobalScript);
-        menu.addAction(QSL("Add Directory"), this, &VMEConfigTreeWidget::addScriptDirectory);
+        menu.addAction(QIcon(":/vme_script.png"), QSL("Add Script"),
+                       this, &VMEConfigTreeWidget::addGlobalScript);
+
+        {
+            auto menuAuxScripts = make_menu_new_aux_script(parentContainer, &menu);
+
+            if (!menuAuxScripts->isEmpty())
+            {
+                auto actionAddAuxScript = menu.addAction(
+                    QIcon(":/vme_script.png"), QSL("Add Script from library"));
+                actionAddAuxScript->setMenu(menuAuxScripts.release());
+            }
+        }
+
+        menu.addAction(QIcon(":/folder_orange.png"), QSL("Add Directory"),
+                       this, &VMEConfigTreeWidget::addScriptDirectory);
     }
 
     if (qobject_cast<VMEScriptConfig *>(obj))
