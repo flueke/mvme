@@ -161,13 +161,11 @@ class VMEConfigTreeItemDelegate: public QStyledItemDelegate
         }
 };
 
-// TODO: i do want a callback to select the newly created node
-// using onGlobalChildAdded() is not good because it interferes with pasting
-// multiple times (the selected destination node is lost)
-// Instead the callback should be given the newly added script. It can then
-// lookup the node in m_treeMap and do the selection handling.
+using NewAuxScriptCallback = std::function<void (VMEScriptConfig *newScript)>;
+
 std::unique_ptr<QMenu> make_menu_new_aux_script(
     ContainerObject *destContainer,
+    NewAuxScriptCallback callback = {},
     QWidget *parentWidget = nullptr)
 {
     assert(destContainer);
@@ -177,12 +175,15 @@ std::unique_ptr<QMenu> make_menu_new_aux_script(
 
     for (const auto &auxInfo: auxInfos)
     {
-        auto action_triggered = [destContainer, auxInfo] ()
+        auto action_triggered = [destContainer, callback, auxInfo] ()
         {
             auto scriptConfig = std::make_unique<VMEScriptConfig>();
             scriptConfig->setObjectName(auxInfo.scriptName());
             scriptConfig->setScriptContents(auxInfo.contents);
-            destContainer->addChild(scriptConfig.release());
+            auto raw = scriptConfig.release();
+            destContainer->addChild(raw);
+            if (callback)
+                callback(raw);
         };
 
         result->addAction(auxInfo.scriptName(), destContainer, action_triggered);
@@ -867,7 +868,20 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                        this, &VMEConfigTreeWidget::addGlobalScript);
 
         {
-            auto menuAuxScripts = make_menu_new_aux_script(parentContainer, &menu);
+            // Callback invoked after an auxiliary script has been added via
+            // the menu. Selects the newly created node.
+            auto callback = [this] (VMEScriptConfig *newScript)
+            {
+                if (auto node = m_treeMap.value(newScript))
+                {
+                    m_tree->resizeColumnToContents(0);
+                    m_tree->clearSelection();
+                    m_tree->setCurrentItem(node);
+                    node->setSelected(true);
+                }
+            };
+
+            auto menuAuxScripts = make_menu_new_aux_script(parentContainer, callback, &menu);
 
             if (!menuAuxScripts->isEmpty())
             {
