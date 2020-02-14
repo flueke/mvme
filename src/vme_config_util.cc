@@ -257,7 +257,7 @@ void generate_new_object_ids(ConfigObject *root)
     root->generateNewId();
     auto children = root->findChildren<ConfigObject *>();
     std::for_each(children.begin(), children.end(),
-                  [] (ConfigObject *child) { child->generateNewId(); });
+                  [] (ConfigObject *child) { generate_new_object_ids(child);; });
 }
 
 } // end namespace vme_config
