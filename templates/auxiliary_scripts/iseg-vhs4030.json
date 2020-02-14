@@ -13,7 +13,7 @@
             "moduleName": "VHS4030"
         },
         {
-            "fileName": "iseg-vhs4030-set-address.vmescript",
+            "fileName": "iseg-vhs4030-set-base-address.vmescript",
             "scriptName": "VHS4030 Set VME address",
             "vendorName": "ISEG",
             "moduleName": "VHS4030"
