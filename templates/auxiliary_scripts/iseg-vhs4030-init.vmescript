@@ -55,6 +55,6 @@ write_float_word a16 0x00C8 upper ${VoltageSet2}            # Ch2 VoltageSet upp
 write_float_word a16 0x00CA lower ${VoltageSet2}            # Ch2 VoltageSet lower 16 bits
 
 # Channel3
-write a16 d16 0x00F2 ${ChannelControl4}                     # Ch3 ChannelControl: setON
+write a16 d16 0x00F2 ${ChannelControl3}                     # Ch3 ChannelControl: setON
 write_float_word a16 0x00F8 upper ${VoltageSet3}            # Ch3 VoltageSet upper 16 bits
 write_float_word a16 0x00FA lower ${VoltageSet3}            # Ch3 VoltageSet lower 16 bits
