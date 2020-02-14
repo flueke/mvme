@@ -2,11 +2,14 @@
 TODO list
 ==================================================
 
+* heisencrash when deleting vme scripts? might have been due to changing
+  compile flags. not sure.
+* vme script: log decimal in addition to hex value
+
 * vme config tree
 --------------------------------------------------
   - run scripts for container objects (depth first)
   - move/reorder via drag and drop
-  - context menu for auxiliary scripts
   - enable/disable for object trees under daq_start and daq_stop?
 
 * MVLC release work
