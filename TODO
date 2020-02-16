@@ -4,7 +4,6 @@ TODO list
 
 * heisencrash when deleting vme scripts? might have been due to changing
   compile flags. not sure.
-* vme script: log decimal in addition to hex value
 
 * vme config tree
 --------------------------------------------------
@@ -25,8 +24,6 @@ TODO list
 
   - multicreate: merging of the data stream. different strategies, one true way?
 
-* mvlc_eth: split socket timeout errors into write and read
-
 analysis_ui: no small toolbar stats display with mvlc (rate, replayRate, etc)
 
 * do add in per pipe and per packet channel stats displays for the mvlc!
@@ -35,11 +32,13 @@ analysis_ui: no small toolbar stats display with mvlc (rate, replayRate, etc)
   how do the broken command buffers look exactly?
 * pausing and stopping an MVLC eth DAQ can still take forever
   -> this is almost always caused by the mvlc error notifications going wild.
+  The MVLCObject code is stuck in the loop where the error buffers are handled.
 
 * change the analysis default filters generation to allow including custom
   calibration operators and other things in the default_filters.analysis for
-  each module. The use case is to set calibrate the module_timestamp to us by
-  default and to allow custom calibrations for some of the mdpp32_qdc time data.
+  each module. The use case is to calibrate the module_timestamp to
+  microseconds by default and to allow custom calibrations for some of the
+  mdpp32_qdc time data.
   Think about how this should be implemented. Some partial analysis or analyis
   object library or something.
   -> object rewrite code is already in place. When creating default filters the
@@ -106,10 +105,6 @@ http://www.sympnp.org/proceedings/57/G29.pdf
 
 * Help overlay for the analysis. Big fat arrows indicating data flow and arrows
   pointing at histograms.
-
-* add a vme script library for manual scripts and display the available script
-  in the 'add script' context menu. populate this with mvlc counter readouts
-  and soft trigger activation scripts.
 
 * Fix the mvlc_daq setup_trigger_io reset stuff
   Without doing a reset the stack will still be executed after having removed
