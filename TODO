@@ -2,6 +2,15 @@
 TODO list
 ==================================================
 
+* VMEConfig::readVMEConfig is bad. The public ConfigObject::read() must not be
+  called, instead this special method which handles the schema update has to be
+  used.
+
+  Probably the schema update should happen outside of readVMEConfig() which can
+  then go away and read() can be used. This calls VMEConfig::read_impl which
+  could then do a final version check and error out if needed (read_impl()
+  currently doesn't even return an error code, it's all bad).
+
 * heisencrash when deleting vme scripts? might have been due to changing
   compile flags. not sure.
 
