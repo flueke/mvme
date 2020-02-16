@@ -11,6 +11,12 @@
             "scriptName": "MVLC SoftTrigger1",
             "vendorName": "mesytec",
             "moduleName": "MVLC"
+        },
+        {
+            "fileName": "mvlc-counter_readout.vmescript",
+            "scriptName": "MVLC Counter Readout",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
         }
     ]
 }
