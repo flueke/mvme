@@ -206,6 +206,7 @@ void apply_replacement_rules(
 static const QVector<ReplacementRule> EventRules =
 {
     {
+        // Replace the comment at the top of the script.
         R"-(^# Start acquisition sequence using the default multicast address 0xbb\s*$)-",
         "# Run the start-acquisition-sequence for all modules via the events multicast address.",
         ReplacementRule::Options::ReplaceOnly,
@@ -275,10 +276,11 @@ static const QVector<ReplacementRule> ModuleRules =
 };
 
 // Changes between format versions 3 and 4.
-// - mdpp16 typename was changed to mdpp16_scp in the summer of 2019. This
-//   conversion updates the type name. This makes it so that the vme/analysis
-//   template system recogizes the module again and thus things like creating
-//   analysis filters and multi-event-splitting will work again.
+// - mdpp16 typename was changed to mdpp16_scp in the summer of 2019. I missed
+//   the negative effect this had.
+//   This conversion updates the type name. This makes it so that the
+//   vme/analysis template system recogizes the module again and thus things
+//   like creating analysis filters and multi-event-splitting will work again.
 //   In the case a config was saved with the unknown module type the module
 //   type in the JSON data became an empty string. To fix this if the module
 //   type is empty and the module name contains the string "mdpp16" the module
@@ -297,8 +299,8 @@ static const QVector<ReplacementRule> ModuleRules =
 //   * mesy_mcst is guessed by taking a look at the 'daq_start' script,
 //     specifically a write to module register 0x603a (start/stop acq). The
 //     guessed value or a default value of 0xbb is set.
-//   * mesy_readout_num_events is set to 1
-//   * mesy_eoe_marker is set to 1 (timestamp mode)
+//   * mesy_readout_num_events and mesy_eoe_marker are guessed by looking at
+//     the respective register writes of the first vme module in the event.
 //
 // - Existing vme scripts do not reference any of the variables yet.
 //   This means changes to e.g. an events irq value or to any of the mesy_*
@@ -339,6 +341,7 @@ static QJsonObject v3_to_v4(QJsonObject json)
                 if (moduleJson["type"].toString() == "mdpp16")
                 {
                     moduleJson["type"] = QString("mdpp16_scp");
+                    // TODO: logging
                 }
                 // Case2: type name is empty. This happened when loading a
                 // setup before this conversion was introduced and resaving it.
@@ -350,6 +353,7 @@ static QJsonObject v3_to_v4(QJsonObject json)
                              "mdpp16", Qt::CaseInsensitive))
                 {
                     moduleJson["type"] = QString("mdpp16_scp");
+                    // TODO: logging
                 }
 
                 modulesArray[moduleIndex] = moduleJson;
@@ -391,6 +395,7 @@ static QJsonObject v3_to_v4(QJsonObject json)
                       : 0u);
 
             eventConfig->setVariables(make_standard_event_variables(irq, mcst));
+            // TODO: logging
 
             // Look at the first module in the event and use its 'VME Interface
             // Settings' script to guess values for 'mesy_eoe_marker' and
@@ -408,6 +413,7 @@ static QJsonObject v3_to_v4(QJsonObject json)
 
                     eventConfig->setVariableValue("mesy_eoe_marker", QString::number(eoe_marker));
                     eventConfig->setVariableValue("mesy_readout_num_events", QString::number(num_events));
+                    // TODO: logging
                 }
             }
 
@@ -440,6 +446,7 @@ static QJsonObject v3_to_v4(QJsonObject json)
             for (auto scriptConfig: eventConfig->vmeScripts.values())
             {
                 apply_replacement_rules(EventRules, scriptConfig);
+                // TODO: maybe log replacements? or just log that the script has been modified
             }
 
             eventJson = {};
@@ -466,6 +473,7 @@ static QJsonObject v3_to_v4(QJsonObject json)
             auto eventConfig = std::make_unique<EventConfig>();
             eventConfig->read(eventJson);
 
+            // TODO: maybe log replacements? or just log that the script has been modified
             for (auto moduleConfig: eventConfig->getModuleConfigs())
             {
                 apply_replacement_rules(ModuleRules, moduleConfig->getResetScript());

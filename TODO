@@ -51,6 +51,18 @@ analysis_ui: no small toolbar stats display with mvlc (rate, replayRate, etc)
   %m to be replaced by the actual module name?
 
 * config update from version 3 to 4 (introduction of vme_script variables):
+  What's done:
+  - marked the places where logging should be done
+
+  What's missing:
+  - use boost::log with a custom attribute or category or something to capture
+    the log output. or as a quick fix just pass in a loggger to the config
+    conversion routine.
+  - on the outside when loading a vme config and we do have a gui: detect if
+    config conversion from 3 to X is about to happen. If so pass a logger in
+    when converting and display the output in a new window. tell the user
+    what's going on and that they should check the config and save it if things
+    look ok.
   - logging of what's changed
   - user visible prompt (modal warning box) about the schema and script update.
     also set the config to modified.
