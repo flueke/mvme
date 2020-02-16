@@ -556,7 +556,6 @@ unsigned Impl::getReadTimeout(Pipe pipe) const
 }
 
 // Standard MTU is 1500 bytes
-// Jumbos Frames are usually 9000 bytes
 // IPv4 header is 20 bytes
 // UDP header is 8 bytes
 static const size_t MaxOutgoingPayloadSize = 1500 - 20 - 8;
@@ -582,18 +581,22 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
 
     ssize_t res = ::send(getSocket(pipe), reinterpret_cast<const char *>(buffer), size, 0);
 
-    if (res == EAGAIN || res == EWOULDBLOCK)
-        assert(!"send timeout on blocking socket!");
-
     if (res < 0)
+    {
+        if (res == EAGAIN || res == EWOULDBLOCK)
+            return make_error_code(MVLCErrorCode::SocketWriteTimeout);
+
         return std::error_code(errno, std::system_category());
+    }
 
     bytesTransferred = res;
     return {};
 }
 
 #ifdef __WIN32
-// FIXME: use WSAGetLastError here once the std;:error_code infrastructure exists
+// FIXME: use WSAGetLastError or here once the std::error_code infrastructure
+// exists.
+// https://gist.github.com/bbolli/710010adb309d5063111889530237d6d
 static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t size,
                                                  u16 &bytesTransferred, int timeout_ms)
 {
@@ -614,7 +617,12 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
     ssize_t res = ::recv(sockfd, reinterpret_cast<char *>(dest), size, 0);
 
     if (res < 0)
+    {
+        if (res == EAGAIN || res == EWOULDBLOCK)
+            return make_error_code(MVLCErrorCode::SocketReadTimeout);
+
         return make_error_code(MVLCErrorCode::SocketError);
+    }
 
     bytesTransferred = res;
     return {};
@@ -628,7 +636,12 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
     ssize_t res = ::recv(sockfd, reinterpret_cast<char *>(dest), size, 0);
 
     if (res < 0)
+    {
+        if (res == EAGAIN || res == EWOULDBLOCK)
+            return make_error_code(MVLCErrorCode::SocketReadTimeout);
+
         return std::error_code(errno, std::system_category());
+    }
 
     bytesTransferred = res;
     return {};
