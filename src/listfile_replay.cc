@@ -8,6 +8,7 @@
 #include "util_zip.h"
 #include "mvme_listfile_utils.h"
 #include "mvlc_listfile.h"
+#include "vme_config_json_schema_updates.h"
 
 namespace
 {
@@ -131,10 +132,15 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
         case ListfileBufferFormat::MVLC_ETH:
         case ListfileBufferFormat::MVLC_USB:
             {
-                auto vmeConfig = std::make_unique<VMEConfig>();
                 auto json = QJsonDocument::fromJson(
                     mvlc_listfile::read_vme_config_data(*handle.listfile)).object();
-                auto ec = vmeConfig->readVMEConfig(json.value("VMEConfig").toObject());
+
+                json = json.value("VMEConfig").toObject();
+                json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json);
+
+                auto vmeConfig = std::make_unique<VMEConfig>();
+                auto ec = vmeConfig->read(json);
+
                 return std::pair<std::unique_ptr<VMEConfig>, std::error_code>(
                     std::move(vmeConfig), ec);
             } break;

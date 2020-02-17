@@ -54,8 +54,8 @@ class LIBMVME_EXPORT ConfigObject: public QObject
 
         QString getObjectPath() const;
 
-        void read(const QJsonObject &json);
-        void write(QJsonObject &json) const;
+        std::error_code read(const QJsonObject &json);
+        std::error_code write(QJsonObject &json) const;
 
         vme_script::SymbolTable getVariables() const { return m_variables; }
 
@@ -119,8 +119,8 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         bool eventFilter(QObject *obj, QEvent *event) override;
         void setWatchDynamicProperties(bool doWatch);
 
-        virtual void read_impl(const QJsonObject &json) = 0;
-        virtual void write_impl(QJsonObject &json) const = 0;
+        virtual std::error_code read_impl(const QJsonObject &json) = 0;
+        virtual std::error_code write_impl(QJsonObject &json) const = 0;
 
 
         QUuid m_id;
@@ -204,8 +204,8 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
         }
 
     protected:
-        void read_impl(const QJsonObject &json) override;
-        void write_impl(QJsonObject &json) const override;
+        std::error_code read_impl(const QJsonObject &json) override;
+        std::error_code write_impl(QJsonObject &json) const override;
 
     private slots:
         // This should work even if this QObject had non-ConfigObject children
@@ -243,8 +243,8 @@ class LIBMVME_EXPORT VMEScriptConfig: public ConfigObject
         QString getVerboseTitle() const;
 
     protected:
-        virtual void read_impl(const QJsonObject &json) override;
-        virtual void write_impl(QJsonObject &json) const override;
+        std::error_code read_impl(const QJsonObject &json) override;
+        std::error_code write_impl(QJsonObject &json) const override;
 
     private:
         QString m_script;
@@ -278,8 +278,8 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         QUuid getEventId() const;
 
     protected:
-        virtual void read_impl(const QJsonObject &json) override;
-        virtual void write_impl(QJsonObject &json) const override;
+        std::error_code read_impl(const QJsonObject &json) override;
+        std::error_code write_impl(QJsonObject &json) const override;
 
     private:
         uint32_t m_baseAddress = 0;
@@ -346,8 +346,8 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         VMEConfig *getVMEConfig();
 
     protected:
-        virtual void read_impl(const QJsonObject &json) override;
-        virtual void write_impl(QJsonObject &json) const override;
+        std::error_code read_impl(const QJsonObject &json) override;
+        std::error_code write_impl(QJsonObject &json) const override;
 
     private:
         QList<ModuleConfig *> modules;
@@ -356,7 +356,8 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
 enum class VMEConfigReadResult
 {
     NoError,
-    VersionTooNew
+    VersionTooOld, // User should never see this as we do schema updates.
+    VersionTooNew  // User can see this and needs to ugprade mvme.
 };
 
 LIBMVME_EXPORT std::error_code make_error_code(VMEConfigReadResult r);
@@ -386,8 +387,6 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
 
     public:
         Q_INVOKABLE VMEConfig(QObject *parent = 0);
-
-        std::error_code readVMEConfig(const QJsonObject &json);
 
         // events
         void addEventConfig(EventConfig *config);
@@ -428,8 +427,8 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         ContainerObject &getGlobalObjectRoot();
 
     protected:
-        virtual void read_impl(const QJsonObject &json) override;
-        virtual void write_impl(QJsonObject &json) const override;
+        std::error_code read_impl(const QJsonObject &json) override;
+        std::error_code write_impl(QJsonObject &json) const override;
 
     private:
         void onChildObjectAdded(ConfigObject *child);

@@ -33,6 +33,7 @@
 #include "threading.h"
 #include "util_zip.h"
 #include "vme_config.h"
+#include "vme_config_json_schema_updates.h"
 
 
 #define LISTFILE_VERBOSE 0
@@ -638,11 +639,12 @@ bool ListFileWriter::writePauseSection(ListfileSections::PauseAction pauseAction
 
 std::pair<std::unique_ptr<VMEConfig>, std::error_code> read_config_from_listfile(ListFile *listfile)
 {
-    auto configJson = listfile->getVMEConfigJSON();
+    auto json = listfile->getVMEConfigJSON();
+    json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json);
+
     auto vmeConfig = std::make_unique<VMEConfig>();
-    auto ec = vmeConfig->readVMEConfig(configJson);
+    auto ec = vmeConfig->read(json);
 
     return std::pair<std::unique_ptr<VMEConfig>, std::error_code>(
         std::move(vmeConfig), ec);
 }
-
