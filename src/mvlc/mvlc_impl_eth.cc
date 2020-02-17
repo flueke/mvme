@@ -260,7 +260,7 @@ std::error_code Impl::connect()
     m_dataAddr = m_cmdAddr;
     m_dataAddr.sin_port = htons(DataPort);
 
-    // Lookup succeeded and we have now have two remote addresses, one for the
+    // Lookup succeeded and we now have two remote addresses, one for the
     // command and one for the data pipe.
     //
     // Now create two IPv4 UDP sockets and try to bind them to two consecutive
@@ -560,14 +560,47 @@ unsigned Impl::getReadTimeout(Pipe pipe) const
 // UDP header is 8 bytes
 static const size_t MaxOutgoingPayloadSize = 1500 - 20 - 8;
 
+// Note: it is not necessary to split writes into multiple calls to send()
+// because outgoing MVLC command buffers have to be smaller than the maximum,
+// non-jumbo ethernet MTU.
+// The send() call should return EMSGSIZE if the payload is too large to be
+// atomically transmitted.
+#ifdef _WIN32
 std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
                             size_t &bytesTransferred)
 {
-    // Note: it is not necessary to split this into multiple calls to send()
-    // because outgoing MVLC command buffers have to be smaller than the
-    // maximum, non-jumbo ethernet MTU.
-    // The send() call should return EMSGSIZE if the payload is too large to be
-    // atomically transmitted.
+    assert(size <= MaxOutgoingPayloadSize);
+    assert(static_cast<unsigned>(pipe) < PipeCount);
+
+    if (static_cast<unsigned>(pipe) >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
+
+    bytesTransferred = 0;
+
+    if (!isConnected())
+        return make_error_code(MVLCErrorCode::IsDisconnected);
+
+    ssize_t res = ::send(getSocket(pipe), reinterpret_cast<const char *>(buffer), size, 0);
+
+    if (res == SOCKET_ERROR)
+    {
+        int err = WSAGetLastError();
+
+        if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK)
+            return make_error_code(MVLCErrorCode::SocketWriteTimeout);
+
+        // Maybe TODO: use WSAGetLastError here with a WSA specific error
+        // category like this: https://gist.github.com/bbolli/710010adb309d5063111889530237d6d
+        return make_error_code(MVLCErrorCode::SocketError);
+    }
+
+    bytesTransferred = res;
+    return {};
+}
+#else
+std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
+                            size_t &bytesTransferred)
+{
     assert(size <= MaxOutgoingPayloadSize);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
@@ -583,7 +616,7 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
 
     if (res < 0)
     {
-        if (res == EAGAIN || res == EWOULDBLOCK)
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
             return make_error_code(MVLCErrorCode::SocketWriteTimeout);
 
         return std::error_code(errno, std::system_category());
@@ -592,11 +625,9 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     bytesTransferred = res;
     return {};
 }
+#endif
 
 #ifdef __WIN32
-// FIXME: use WSAGetLastError or here once the std::error_code infrastructure
-// exists.
-// https://gist.github.com/bbolli/710010adb309d5063111889530237d6d
 static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t size,
                                                  u16 &bytesTransferred, int timeout_ms)
 {
@@ -616,9 +647,11 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
 
     ssize_t res = ::recv(sockfd, reinterpret_cast<char *>(dest), size, 0);
 
-    if (res < 0)
+    if (res == SOCKET_ERROR)
     {
-        if (res == EAGAIN || res == EWOULDBLOCK)
+        int err = WSAGetLastError();
+
+        if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK)
             return make_error_code(MVLCErrorCode::SocketReadTimeout);
 
         return make_error_code(MVLCErrorCode::SocketError);
@@ -637,7 +670,7 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
 
     if (res < 0)
     {
-        if (res == EAGAIN || res == EWOULDBLOCK)
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
             return make_error_code(MVLCErrorCode::SocketReadTimeout);
 
         return std::error_code(errno, std::system_category());
