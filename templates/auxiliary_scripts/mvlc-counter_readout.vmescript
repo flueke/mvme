@@ -10,6 +10,8 @@
 # the latch with for example the signal used to trigger the readout of vme
 # modules. In this case remove the lines writing to the latch register.
 
+setbase 0xffff0000      # use the mvlc vme interface as the base address
+
 # counter0
 0x0200 0x0308           # counter select
 0x030a 1                # latch the counter (only needed if not done in the trigger_io module)
