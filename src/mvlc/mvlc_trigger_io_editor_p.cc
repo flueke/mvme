@@ -34,7 +34,7 @@ void reverse_rows(QTableWidget *table)
     }
 }
 
-}
+} // end anon namespace
 
 namespace mesytec
 {
@@ -826,12 +826,24 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         result.label->moveBy(result.parent->boundingRect().width()
                              - result.label->boundingRect().width(), 0);
 
-        auto frontPanelInputsText = new QGraphicsSimpleTextItem(
-            QSL("Front Panel NIM/TTL inputs"),
-            result.parent);
-        frontPanelInputsText->setRotation(-90);
-        frontPanelInputsText->moveBy(0, result.parent->boundingRect().height() * 0.5);
-        frontPanelInputsText->moveBy(0, frontPanelInputsText->boundingRect().width() * 0.5);
+        {
+            auto frontPanelInputsText = new QGraphicsSimpleTextItem(
+                QSL("Front Panel NIM/TTL inputs"),
+                result.parent);
+            frontPanelInputsText->setRotation(-90);
+            frontPanelInputsText->moveBy(0, result.parent->boundingRect().height() * 0.5);
+            frontPanelInputsText->moveBy(0, frontPanelInputsText->boundingRect().width() * 0.5);
+        }
+
+        {
+            auto ggText = new QGraphicsSimpleTextItem(
+                QSL("Gate Generators"),
+                result.nimItem);
+            ggText->setRotation(-90);
+            ggText->setPos(ggText->parentItem()->boundingRect().center());
+            ggText->moveBy(-ggText->boundingRect().height() * 0.5,
+                           +ggText->boundingRect().width() * 0.5);
+        }
 
         return result;
     };
@@ -998,6 +1010,16 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             auto label = new QGraphicsSimpleTextItem(QString("NIM Outputs"), result.nimItem);
             label->moveBy((result.nimItem->boundingRect().width()
                            - label->boundingRect().width()) / 2.0, 0);
+
+            {
+                auto ggText = new QGraphicsSimpleTextItem(
+                    QSL("Gate Generators"),
+                    result.nimItem);
+                ggText->setRotation(-90);
+                ggText->setPos(ggText->parentItem()->boundingRect().center());
+                ggText->moveBy(-ggText->boundingRect().height() * 0.5,
+                               +ggText->boundingRect().width() * 0.5);
+            }
         }
 
         auto yOffset = result.nimItem->boundingRect().height() + 25;
@@ -1019,11 +1041,23 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
             result.eclItem->moveBy(25, 25);
 
-            auto label = new QGraphicsSimpleTextItem(QString("LVDS Outputs"), result.eclItem);
-            label->moveBy((result.eclItem->boundingRect().width()
-                           - label->boundingRect().width()) / 2.0, 0);
+            {
+                auto label = new QGraphicsSimpleTextItem(QString("LVDS Outputs"), result.eclItem);
+                label->moveBy((result.eclItem->boundingRect().width()
+                               - label->boundingRect().width()) / 2.0, 0);
 
-            result.eclItem->moveBy(0, yOffset);
+                result.eclItem->moveBy(0, yOffset);
+
+                {
+                    auto ggText = new QGraphicsSimpleTextItem(
+                        QSL("GGs"),
+                        result.eclItem);
+                    ggText->setRotation(-90);
+                    ggText->setPos(ggText->parentItem()->boundingRect().center());
+                    ggText->moveBy(-ggText->boundingRect().height() * 0.5,
+                                   +ggText->boundingRect().width() * 0.5);
+                }
+            }
         }
 
         QFont labelFont;
