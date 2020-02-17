@@ -19,10 +19,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_script_editor.h"
-#include "vme_script.h"
-#include "gui_util.h"
-#include "mvme.h"
-#include "util/qt_font.h"
 
 #include <QApplication>
 #include <QFileDialog>
@@ -39,6 +35,12 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+#include "gui_util.h"
+#include "mvme.h"
+#include "util/qt_font.h"
+#include "vme_config_scripts.h"
+#include "vme_script.h"
 
 static const int TabStop = 4;
 
@@ -296,9 +298,18 @@ void VMEScriptEditor::runScript_()
 {
     try
     {
+        // We want to execute the text that's currently in the editor window
+        // using the variable symbols visible to the underlying VMEScriptConfig
+        // object. So first collect then symbol tables, then get the text and
+        // finally parse the text, passing in the list of symbol tables.
+
+        auto symtabs = mesytec::mvme::collect_symbol_tables(m_d->m_script);
+
         auto moduleConfig = qobject_cast<ModuleConfig *>(m_d->m_script->parent());
-        auto script = vme_script::parse(m_d->m_editor->toPlainText(),
-                                        moduleConfig ? moduleConfig->getBaseAddress() : 0);
+        u32 baseAddress = moduleConfig ? moduleConfig->getBaseAddress() : 0u;
+        auto scriptText = m_d->m_editor->toPlainText();
+
+        auto script = vme_script::parse(scriptText, symtabs, baseAddress);
 
         emit logMessage(QString("Running script '%1':").arg(m_d->m_script->objectName()));
         emit runScript(script);
