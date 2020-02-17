@@ -1011,6 +1011,12 @@ void MVMEContext::reconnectVMEController()
         progressDialog.setCancelButton(nullptr);
         progressDialog.show();
 
+        // XXX: Qt under windows warns that this connect likely leads to a
+        // race. I think it's ok because between the isRunning() test above and
+        // the connect no signal processing can happen because we do not enter
+        // an event loop. Even if the future finishes between isRunning() and
+        // loop.exec() below the finished() signal will still be queued up and
+        // delivered immediately upon entering the loop.
         QEventLoop localLoop;
         connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished,
                 &localLoop, &QEventLoop::quit);
