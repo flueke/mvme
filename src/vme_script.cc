@@ -1987,11 +1987,11 @@ QString format_result(const Result &result)
         case CommandType::VMUSB_WriteRegister:
             // Append the decimal form of the written value and a message that
             // the write was ok.
-            ret += QSL(" (%1), write ok").arg(result.command.value);
+            ret += QSL(" (%1 dec), write ok").arg(result.command.value);
             break;
 
         case CommandType::Read:
-            ret += QString(" -> 0x%1, %2")
+            ret += QString(" -> 0x%1 (%2 dec)")
                 .arg(result.value, 8, 16, QChar('0'))
                 .arg(result.value)
                 ;
