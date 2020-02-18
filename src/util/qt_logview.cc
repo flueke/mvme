@@ -1,16 +1,14 @@
 #include "util/qt_logview.h"
+#include "util/qt_monospace_textedit.h"
 #include <QMenu>
 
 std::unique_ptr<QPlainTextEdit> make_logview(size_t maxBlockCount)
 {
-    auto result = std::make_unique<QPlainTextEdit>();
+    auto result = mvme::util::make_monospace_plain_textedit();
 
     result->setAttribute(Qt::WA_DeleteOnClose);
     result->setReadOnly(true);
     result->setWindowTitle("Log View");
-    QFont font("MonoSpace");
-    font.setStyleHint(QFont::Monospace);
-    result->setFont(font);
     result->setTabChangesFocus(true);
     result->document()->setMaximumBlockCount(maxBlockCount);
     result->setContextMenuPolicy(Qt::CustomContextMenu);

@@ -197,8 +197,6 @@ QVBoxLayout *make_vbox(QWidget *widget = nullptr)
     return make_layout<QVBoxLayout, Margin, Spacing>(widget);
 }
 
-LIBMVME_CORE_EXPORT int calculate_tab_width(const QFont &font, int tabStop = 4);
-
 class QTextEdit;
 class QPushButton;
 class QLineEdit;

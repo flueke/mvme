@@ -67,6 +67,7 @@
 #include "mvme_qwt.h"
 #include "scrollzoomer.h"
 #include "util.h"
+#include "util/qt_monospace_textedit.h"
 
 #include "git_sha1.h"
 
@@ -1827,14 +1828,9 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
     QTextStream stream(&buffer);
     mvme::print_histolist_stats(stream, m_histos, m_rrf, title);
 
-    auto te = new QPlainTextEdit;
+    auto te = mvme::util::make_monospace_plain_textedit().release();
     te->setWindowTitle(QSL("Stats for histogram array '%1'").arg(title));
     te->setAttribute(Qt::WA_DeleteOnClose);
-    QFont font("MonoSpace");
-    font.setStyleHint(QFont::Monospace);
-    font.setPointSize(font.pointSize() - 4);
-    te->setFont(font);
-    te->setLineWrapMode(QPlainTextEdit::NoWrap);
     te->resize(1000, 600);
     te->setPlainText(buffer);
     te->show();

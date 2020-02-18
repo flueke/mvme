@@ -8,15 +8,17 @@
 #include <QString>
 #include <QTextEdit>
 
-inline int calculate_tabstop_width(const QFont &font, int tabstop)
+inline qreal calculate_tabstop_width(const QFont &font, int tabstop)
 {
     QFontMetricsF metrics(font);
+
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
     auto stopWidth = tabstop * metrics.horizontalAdvance(' ');
 #else
     auto stopWidth = tabstop * metrics.width(' ');
 #endif
-    return std::ceil(stopWidth);
+
+    return stopWidth;
 }
 
 template<typename TextEdit>
@@ -27,7 +29,7 @@ inline void set_tabstop_width(TextEdit *textEdit, int tabstop)
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
     textEdit->setTabStopDistance(pixelWidth);
 #else
-    textEdit->setTabStopWidth(pixelWidth);
+    textEdit->setTabStopWidth(std::ceil(pixelWidth));
 #endif
 }
 

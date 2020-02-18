@@ -292,6 +292,7 @@ target_sources(libmvme PRIVATE
     timed_block.cc
     treewidget_utils.cc
     util/qt_logview.cc
+    util/qt_monospace_textedit.cc
     util/strings.cc
     util/variablify.cc
     util_zip.cc

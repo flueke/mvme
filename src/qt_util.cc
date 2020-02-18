@@ -317,18 +317,6 @@ int get_widget_row(QFormLayout *layout, QWidget *widget)
     return row;
 }
 
-int calculate_tab_width(const QFont &font, int tabStop)
-{
-    QString spaces;
-    spaces.reserve(tabStop);
-
-    for (int i = 0; i < tabStop; ++i)
-        spaces += " ";
-
-    QFontMetrics metrics(font);
-    return metrics.width(spaces);
-}
-
 // TextEditSearchWidget
 
 TextEditSearchWidget::TextEditSearchWidget(QTextEdit *te, QWidget *parent)
