@@ -1,5 +1,31 @@
 #include "multi_event_splitter.h"
 
+#define LOG_LEVEL_OFF     0
+#define LOG_LEVEL_WARN  100
+#define LOG_LEVEL_INFO  200
+#define LOG_LEVEL_DEBUG 300
+#define LOG_LEVEL_TRACE 400
+
+#ifndef MULTI_EVENT_SPLITTER_LOG_LEVEL
+#define MULTI_EVENT_SPLITTER_LOG_LEVEL LOG_LEVEL_OFF
+#endif
+
+#define LOG_LEVEL_SETTING MULTI_EVENT_SPLITTER_LOG_LEVEL
+
+#define DO_LOG(level, prefix, fmt, ...)\
+do\
+{\
+    if (LOG_LEVEL_SETTING >= level)\
+    {\
+        fprintf(stderr, prefix "%s(): " fmt "\n", __FUNCTION__, ##__VA_ARGS__);\
+    }\
+} while (0);
+
+#define LOG_WARN(fmt, ...)  DO_LOG(LOG_LEVEL_WARN,  "WARN - multi_event_splitter ", fmt, ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...)  DO_LOG(LOG_LEVEL_INFO,  "INFO - multi_event_splitter ", fmt, ##__VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) DO_LOG(LOG_LEVEL_DEBUG, "DEBUG - multi_event_splitter ", fmt, ##__VA_ARGS__)
+#define LOG_TRACE(fmt, ...) DO_LOG(LOG_LEVEL_TRACE, "TRACE - multi_event_splitter ", fmt, ##__VA_ARGS__)
+
 namespace
 {
 
@@ -106,6 +132,8 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
 
 std::error_code begin_event(State &state, int ei)
 {
+    LOG_TRACE("state=%p, ei=%d", &state, ei);
+
     if (ei >= static_cast<int>(state.dataSpans.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
 
@@ -132,6 +160,9 @@ std::error_code module_prefix(State &state, int ei, int mi, const u32 *data, u32
 
     spans[mi].prefixSpan = { data, data + size };
 
+    LOG_TRACE("state=%p, ei=%d, mi=%d, data=%p, dataSize=%u",
+              &state, ei, mi, data, size);
+
     return {};
 }
 
@@ -146,6 +177,9 @@ std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 s
         return make_error_code(ErrorCode::ModuleIndexOutOfRange);
 
     spans[mi].dynamicSpan = { data, data + size };
+
+    LOG_TRACE("state=%p, ei=%d, mi=%d, data=%p, dataSize=%u",
+              &state, ei, mi, data, size);
 
     return {};
 }
@@ -162,6 +196,9 @@ std::error_code module_suffix(State &state, int ei, int mi, const u32 *data, u32
 
     spans[mi].suffixSpan = { data, data + size };
 
+    LOG_TRACE("state=%p, ei=%d, mi=%d, data=%p, dataSize=%u",
+              &state, ei, mi, data, size);
+
     return {};
 }
 
@@ -177,6 +214,8 @@ inline size_t words_in_span(const State::DataSpan &span)
 
 std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 {
+    LOG_TRACE("state=%p, ei=%d", &state, ei);
+
     if (ei >= static_cast<int>(state.dataSpans.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
 
@@ -186,6 +225,8 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
     auto &moduleSpans = state.dataSpans[ei];
     const size_t moduleCount = moduleSpans.size();
 
+    LOG_TRACE("state=%p, ei=%d, moduleCount=%lu", &state, ei, moduleCount);
+
     assert(moduleFilters.size() == moduleSpans.size());
     assert(state.moduleFilterMatches.size() >= moduleCount);
 
@@ -193,6 +234,9 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
     // one go.
     if (!state.enabledForEvent[ei])
     {
+        LOG_TRACE("state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
+                  &state, ei);
+
         callbacks.beginEvent(ei);
 
         for (size_t mi = 0; mi < moduleCount; ++mi)
@@ -233,6 +277,9 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
                     moduleFilters[mi].filter, *dynamicSpan.begin);
 
                 state.moduleFilterMatches[mi] = hasMatch;
+
+                LOG_TRACE("state=%p, ei=%d, mi=%lu, checked header '0x%08x', match=%s",
+                          &state, ei, mi, *dynamicSpan.begin, hasMatch ? "true" : "false")
             }
         }
 
@@ -241,6 +288,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
         if (state.moduleFilterMatches.none())
             break;
 
+        LOG_TRACE("state=%p, callbacks.beginEvent(%d)", &state, ei);
         callbacks.beginEvent(ei);
 
         for (size_t mi = 0; mi < moduleCount; ++mi)
@@ -259,6 +307,10 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
                 u32 moduleEventSize = 1 + a2::data_filter::extract(
                     moduleFilters[mi].cache, *spans.dynamicSpan.begin);
 
+                LOG_TRACE("state=%p, ei=%d, mi=%lu, words in dynamicSpan=%lu, moduleEventSize=%u, header=0x%08x",
+                          &state, ei, mi, words_in_span(spans.dynamicSpan), moduleEventSize,
+                          *spans.dynamicSpan.begin);
+
                 if (moduleEventSize > words_in_span(spans.dynamicSpan))
                 {
                     // The extracted event size exceeds the amount of data left
@@ -271,21 +323,41 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
                 // Use the same prefix data each time we yield module data.
                 if (auto size = words_in_span(spans.prefixSpan))
+                {
+                    LOG_TRACE("state=%p, callbacks.modulePrefx(ei=%d, mi=%lu, data=%p, size=%lu",
+                              &state, ei, mi, spans.prefixSpan.begin, size);
+
                     callbacks.modulePrefix(ei, mi, spans.prefixSpan.begin, size);
+                }
 
                 // Invoke the dynamic data callback with the current dynamic
                 // spans begin pointer and the extracted event size.
+                LOG_TRACE("state=%p, callbacks.moduleDynamic(ei=%d, mi=%lu, data=%p, size=%u",
+                          &state, ei, mi, spans.dynamicSpan.begin, moduleEventSize)
+
                 callbacks.moduleDynamic(ei, mi, spans.dynamicSpan.begin, moduleEventSize);
 
                 // Move the spans begin pointer forward by the amount of data used.
                 spans.dynamicSpan.begin += moduleEventSize;
 
+                if (words_in_span(spans.dynamicSpan))
+                {
+                    LOG_TRACE("state=%p, next dynamicSpan.begin=0x%08x",
+                              &state, *spans.dynamicSpan.begin);
+                }
+
                 // Use the same suffix data each time we yield module data.
                 if (auto size = words_in_span(spans.suffixSpan))
+                {
+                    LOG_TRACE("state=%p, callbacks.moduleSuffix(ei=%d, mi=%lu, data=%p, size=%lu",
+                              &state, ei, mi, spans.suffixSpan.begin, size);
+
                     callbacks.moduleSuffix(ei, mi, spans.suffixSpan.begin, size);
+                }
             }
         }
 
+        LOG_TRACE("state=%p, callbacks.endEvent(%d)", &state, ei);
         callbacks.endEvent(ei);
     }
 
