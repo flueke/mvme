@@ -290,6 +290,8 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         auto filterStrings = collect_multi_event_splitter_filter_strings(
             *vmeConfig, *analysis);
 
+        logInfo("enabling multi_event_splitter");
+
         m_multiEventSplitter = multi_event_splitter::make_splitter(filterStrings);
 
         // Copy our callbacks, which are driving the analysis, to the callbacks
