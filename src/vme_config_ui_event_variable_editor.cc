@@ -14,9 +14,12 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
+#include <QSettings>
 #include <QSplitter>
 #include <QPushButton>
-#include <qnamespace.h>
+
+namespace
+{
 
 struct InitScriptCandidate
 {
@@ -36,6 +39,13 @@ struct InitScriptCandidate
     bool isAffected() const { return !affectedVarNames.isEmpty(); }
 };
 
+// SettingsKeys
+static const QString SK_AutoRunDependents           = QSL("VMEVariableEditor/AutoApply");
+static const QString SK_AutoApply                   = QSL("VMEVariableEditor/AutoRunDependents");
+static const QString SK_ShowInternalVariables       = QSL("VMEVariableEditor/ShowInternalVariables");
+
+} // end anon namespace
+
 struct EventVariableEditor::Private
 {
     EventVariableEditor *q;
@@ -45,6 +55,7 @@ struct EventVariableEditor::Private
     VariableEditorWidget *varEditor;
     QPlainTextEdit *logView;
     QCheckBox *cb_autoRun;
+    QCheckBox *cb_autoApply;
     QCheckBox *cb_showInternalVariables;
     QPushButton *pb_runScripts;
     QDialogButtonBox *bb;
@@ -101,6 +112,10 @@ EventVariableEditor::EventVariableEditor(
     d->cb_autoRun->setChecked(true);
     d->cb_autoRun->setFocusPolicy(Qt::NoFocus);
 
+    d->cb_autoApply = new QCheckBox(QSL("Auto-apply modifications to event config"));
+    d->cb_autoApply->setChecked(true);
+    d->cb_autoApply->setFocusPolicy(Qt::NoFocus);
+
     d->cb_showInternalVariables = new QCheckBox(QSL("Show system and internal variables"));
     d->cb_showInternalVariables->setChecked(false);
     d->cb_showInternalVariables->setFocusPolicy(Qt::NoFocus);
@@ -116,6 +131,7 @@ EventVariableEditor::EventVariableEditor(
     topFormLayout->setContentsMargins(2, 2, 2, 2);
     topFormLayout->addRow("Event", d->le_eventName);
     topFormLayout->addRow(d->cb_autoRun);
+    topFormLayout->addRow(d->cb_autoApply);
     topFormLayout->addRow(d->cb_showInternalVariables);
     topFormLayout->addRow(pb_runScriptsLayout);
 
@@ -155,6 +171,8 @@ EventVariableEditor::EventVariableEditor(
                     d->logAffectedScripts();
                     if (d->cb_autoRun->isChecked())
                         d->runAffectedScripts();
+                    if (d->cb_autoApply->isChecked())
+                        d->save();
                 }
             });
 
@@ -168,6 +186,8 @@ EventVariableEditor::EventVariableEditor(
                 d->logAffectedScripts();
                 if (d->cb_autoRun->isChecked())
                     d->runAffectedScripts();
+                if (d->cb_autoApply->isChecked())
+                    d->save();
             });
 
  // TODO: react to variable deletion: mark the scripts that used the variable
@@ -199,12 +219,39 @@ EventVariableEditor::EventVariableEditor(
                     assert(false);
             });
 
+    // autoRun setting
+    if (QSettings().contains(SK_AutoRunDependents))
+        d->cb_autoRun->setChecked(QSettings().value(SK_AutoRunDependents).toBool());
+
+    connect(d->cb_autoRun, &QCheckBox::stateChanged,
+            this, [] (int state)
+            {
+                QSettings().setValue(SK_AutoRunDependents, (state == Qt::Checked));
+            });
+
+    // autoApply settings
+    if (QSettings().contains(SK_AutoApply))
+        d->cb_autoApply->setChecked(QSettings().value(SK_AutoApply).toBool());
+
+    connect(d->cb_autoApply, &QCheckBox::stateChanged,
+            this, [] (int state)
+            {
+                QSettings().setValue(SK_AutoApply, (state == Qt::Checked));
+            });
+
     // show/hide interal variables
+    if (QSettings().contains(SK_ShowInternalVariables))
+        d->cb_showInternalVariables->setChecked(
+            QSettings().value(SK_ShowInternalVariables).toBool());
+
     connect(d->cb_showInternalVariables, &QCheckBox::stateChanged,
             this, [this] (int state)
             {
                 d->varEditor->setHideInternalVariables(!(state == Qt::Checked));
+
+                QSettings().setValue(SK_ShowInternalVariables, (state == Qt::Checked));
             });
+
 
     resize(1000, 800);
     d->loadFromEvent();
