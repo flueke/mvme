@@ -1,14 +1,30 @@
 #include "histo1d_util.h"
+
 #include <boost/range/adaptor/indexed.hpp>
+#include "util/math.h"
 
 using boost::adaptors::indexed;
 
 namespace mvme
 {
 
+using util::make_quiet_nan;
+
 QTextStream &print_histolist_stats(
     QTextStream &out,
     const QVector<std::shared_ptr<Histo1D>> &histos,
+    u32 rrf,
+    const QString &title)
+{
+    return print_histolist_stats(
+        out, histos, make_quiet_nan(), make_quiet_nan(), rrf, title);
+}
+
+// TODO: actually use xMin and xMax
+QTextStream &print_histolist_stats(
+    QTextStream &out,
+    const QVector<std::shared_ptr<Histo1D>> &histos,
+    double xMin, double xMax,
     u32 rrf,
     const QString &title)
 {
@@ -20,6 +36,7 @@ QTextStream &print_histolist_stats(
 
     for (const auto &histo: histos)
     {
+        //u32 minBin = !std::isnan(xMin) ? histo->getBin
         stats.push_back(histo->calcBinStatistics(
                 0, histo->getBinCount(), rrf));
     }
@@ -41,7 +58,7 @@ QTextStream &print_histolist_stats(
     out << qSetFieldWidth(0) << "# " << qSetFieldWidth(FieldWidth)
         << "HistoIndex" << "EntryCount" << "Max" << "Mean"
         << "RMS" << "Gauss Mean" << "FWHM"
-        << "Range X1" << "Range X2" << "Bin Width"
+        << "Hist x1" << "Hist x2" << "Bin Width"
         << qSetFieldWidth(0) << endl;
 
     using ValueAndIndex = std::pair<double, size_t>;
