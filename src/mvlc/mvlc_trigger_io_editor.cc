@@ -11,6 +11,7 @@
 #include "mvlc/mvlc_trigger_io_util.h"
 #include "util/algo.h"
 #include "util/qt_container.h"
+#include "util/qt_monospace_textedit.h"
 #include "vme_script.h"
 
 namespace mesytec
@@ -50,13 +51,9 @@ void MVLCTriggerIOEditor::Private::onActionPrintFrontPanelSetup()
     QTextStream stream(&buffer);
     print_front_panel_io_table(stream, ioCfg);
 
-    auto te = new QPlainTextEdit;
+    auto te = mvme::util::make_monospace_plain_textedit().release();
     te->setWindowTitle(QSL("MVLC Front Panel IO Setup"));
     te->setAttribute(Qt::WA_DeleteOnClose);
-    QFont font("MonoSpace");
-    font.setStyleHint(QFont::Monospace);
-    te->setFont(font);
-    te->setLineWrapMode(QPlainTextEdit::NoWrap);
     te->resize(600, 600);
     te->setPlainText(buffer);
     te->show();
