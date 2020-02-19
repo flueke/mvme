@@ -1831,10 +1831,14 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
     auto te = mvme::util::make_monospace_plain_textedit().release();
     te->setWindowTitle(QSL("Stats for histogram array '%1'").arg(title));
     te->setAttribute(Qt::WA_DeleteOnClose);
-    te->resize(1000, 600);
+    te->resize(1100, 600);
     te->setPlainText(buffer);
     te->show();
     te->raise();
+
+    add_widget_close_action(te);
+    auto geometrySaver = new WidgetGeometrySaver(te);
+    geometrySaver->addAndRestore(te, QSL("WindowGeometries/HistoListStats"));
 }
 
 void Histo1DWidgetPrivate::onEditCutAccept()
