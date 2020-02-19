@@ -404,6 +404,8 @@ ParseResult parse_readout_contents(
                 if (!nextStackFrame)
                     return ParseResult::NoStackFrameFound;
 
+                LOG_TRACE("found next StackFrame: @%p 0x%08x", nextStackFrame, *nextStackFrame);
+
                 state.counters.unusedBytes += (iter.buffp - prevIterPtr);
 
                 auto pr = parser_begin_event(state, iter.peekU32());
@@ -664,8 +666,8 @@ ParseResult parse_eth_packet(
 {
     eth::PayloadHeaderInfo ethHdrs{ packetIter.peekU32(0), packetIter.peekU32(1) };
 
-    LOG_TRACE("begin parsing packet %u, dataWords=%u",
-              ethHdrs.packetNumber(), ethHdrs.dataWordCount());
+    LOG_TRACE("begin parsing packet %u, dataWords=%u, packetLen=%u bytes",
+              ethHdrs.packetNumber(), ethHdrs.dataWordCount(), packetIter.bytesLeft());
 
     const u32 *packetEndPtr = reinterpret_cast<const u32 *>(packetIter.endp);
 
