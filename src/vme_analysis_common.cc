@@ -90,6 +90,15 @@ QVector<ModuleInfo> get_module_infos(Analysis *analysis)
         info.id = QUuid(props.value("moduleId").toString());
         info.typeName = props.value("moduleTypeName").toString();
         info.name = props.value("moduleName").toString();
+
+        // Hack to fix the issues that the module type name change from mdpp16
+        // to mdpp16_scp brought with it :(
+        if (info.typeName == QSL("mdpp16")
+            || (info.typeName.isEmpty() && info.name.contains("mdpp16")))
+        {
+            info.typeName = QSL("mdpp16_scp");
+        }
+
         result.push_back(info);
     }
     return result;
