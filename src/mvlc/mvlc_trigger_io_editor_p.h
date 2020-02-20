@@ -687,6 +687,7 @@ class Level3UtilsDialog: public QDialog
 
             static const int FirstUnitIndex = 0;
 
+            QWidget *parentWidget;
             QVector<QComboBox *> combos_stack;
         };
 

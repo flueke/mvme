@@ -2966,6 +2966,16 @@ Level3UtilsDialog::Level3UtilsDialog(
         table->resizeColumnsToContents();
         table->resizeRowsToContents();
 
+        auto noticeLabel = new QLabel(QSL(
+                "<b>Note</b>: The VME Events trigger condition has to be set to '<i>MVLC Trigger I/O</i>'"
+                " for the StackStart units to have an effect."));
+        noticeLabel->setWordWrap(true);
+
+        ret.parentWidget = new QWidget;
+        auto parentLayout = make_vbox<0, 4>(ret.parentWidget);
+        parentLayout->addWidget(noticeLabel);
+        parentLayout->addWidget(ret.table);
+
         return ret;
     };
 
@@ -3011,7 +3021,6 @@ Level3UtilsDialog::Level3UtilsDialog(
         return ret;
     };
 
-    // FIXME: the input choices for the latch input are missing
     auto make_ui_counters = [] (
         const Level3 &l3,
         const QVector<QVector<QStringList>> inputChoiceNameLists)
@@ -3081,7 +3090,7 @@ Level3UtilsDialog::Level3UtilsDialog(
         reverse_rows(ui->table);
 
     auto grid = new QGridLayout;
-    grid->addWidget(make_groupbox(ui_stackStart.table, "Stack Start"), 0, 0);
+    grid->addWidget(make_groupbox(ui_stackStart.parentWidget, "Stack Start"), 0, 0);
     grid->addWidget(make_groupbox(ui_masterTriggers.table, "Master Triggers"), 0, 1);
     grid->addWidget(make_groupbox(ui_counters.table, "Counters"), 1, 0);
 
