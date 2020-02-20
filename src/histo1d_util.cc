@@ -20,7 +20,6 @@ QTextStream &print_histolist_stats(
         out, histos, make_quiet_nan(), make_quiet_nan(), rrf, title);
 }
 
-// TODO: actually use xMin and xMax
 QTextStream &print_histolist_stats(
     QTextStream &out,
     const QVector<std::shared_ptr<Histo1D>> &histos,
@@ -36,9 +35,10 @@ QTextStream &print_histolist_stats(
 
     for (const auto &histo: histos)
     {
-        //u32 minBin = !std::isnan(xMin) ? histo->getBin
-        stats.push_back(histo->calcBinStatistics(
-                0, histo->getBinCount(), rrf));
+        double hMin = std::isnan(xMin) ? histo->getXMin() : xMin;
+        double hMax = std::isnan(xMax) ? histo->getXMax() : xMax;
+
+        stats.push_back(histo->calcStatistics(hMin, hMax, rrf));
     }
 
     out.setFieldWidth(0);
@@ -58,7 +58,7 @@ QTextStream &print_histolist_stats(
     out << qSetFieldWidth(0) << "# " << qSetFieldWidth(FieldWidth)
         << "HistoIndex" << "EntryCount" << "Max" << "Mean"
         << "RMS" << "Gauss Mean" << "FWHM"
-        << "Hist x1" << "Hist x2" << "Bin Width"
+        << "Histo x1" << "Histo x2" << "Bin Width"
         << qSetFieldWidth(0) << endl;
 
     using ValueAndIndex = std::pair<double, size_t>;
@@ -97,7 +97,8 @@ QTextStream &print_histolist_stats(
         out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
             << index << stats.entryCount << stats.maxValue << stats.mean
             << stats.sigma << stats.fwhmCenter << stats.fwhm
-            << histo->getXMin() << histo->getXMax() << histo->getBinWidth(rrf)
+            << stats.statsRange.first << stats.statsRange.second << histo->getBinWidth(rrf)
+            //<< histo->getXMin() << histo->getXMax() << histo->getBinWidth(rrf)
             << qSetFieldWidth(0) << endl;
     }
 
