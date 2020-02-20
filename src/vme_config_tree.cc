@@ -821,21 +821,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             menu.addSeparator();
             menu.addAction(
                 obj->isEnabled() ? QSL("Disable Module") : QSL("Enable Module"),
-                this, [this, node]() {
-
-                    if (isObjectEnabled(node, NodeType_Module))
-                    {
-                        QMessageBox::warning(
-                            this,
-                            QSL("Disable Module Warning"),
-                            QSL("Warning: disabling the VME module that is generating the trigger"
-                                " can lead to unexpected readout behavior.<br/>"
-                               )
-                            );
-                    }
-
-                    toggleObjectEnabled(node, NodeType_Module);
-                });
+                this, [this, node]() { toggleObjectEnabled(node, NodeType_Module); });
         }
 
         menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename Module"),
