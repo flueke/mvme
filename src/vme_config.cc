@@ -1066,6 +1066,10 @@ std::pair<std::unique_ptr<VMEConfig>, QString>
     }
 
     auto data = inFile.readAll();
+
+    if (data.isEmpty())
+        return std::make_pair(std::make_unique<VMEConfig>(), QString{});
+
     QJsonParseError parseError;
     QJsonDocument doc(QJsonDocument::fromJson(data, &parseError));
 
