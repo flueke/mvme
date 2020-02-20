@@ -1118,11 +1118,6 @@ bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
 
     auto config = m_d->m_context->getConfig();
     config->setModified(false);
-    auto configObjects = config->findChildren<ConfigObject *>();
-    for (auto obj: configObjects)
-    {
-        obj->setModified(false);
-    }
 
     m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
