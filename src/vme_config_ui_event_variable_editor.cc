@@ -267,6 +267,9 @@ QVector<InitScriptCandidate> EventVariableEditor::Private::getAffectedScriptCand
 
     for (auto moduleConfig: eventConfig->getModuleConfigs())
     {
+        if (!moduleConfig->isEnabled())
+            continue;
+
         auto moduleDefinedNames = moduleConfig->getVariables().symbolNameSet();
         moduleDefinedNames.intersect(changedVariableNames);
 
