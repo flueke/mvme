@@ -58,7 +58,7 @@ QTextStream &print_histolist_stats(
     out << qSetFieldWidth(0) << "# " << qSetFieldWidth(FieldWidth)
         << "HistoIndex" << "EntryCount" << "Max" << "Mean"
         << "RMS" << "Gauss Mean" << "FWHM"
-        << "Histo x1" << "Histo x2" << "Bin Width"
+        << "Histo_x1" << "Histo_x2" << "Bin Width"
         << qSetFieldWidth(0) << endl;
 
     using ValueAndIndex = std::pair<double, size_t>;
