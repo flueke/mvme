@@ -4960,7 +4960,10 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
         establish_connections(objectStore);
 
         for (const auto &obj: objectStore.sources)
+        {
             m_sources.append(obj);
+            obj->setAnalysis(this);
+        }
 
         for (const auto &obj: objectStore.operators)
         {
@@ -4972,10 +4975,14 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
                 obj->setUserLevel(1);
             }
             m_operators.append(obj);
+            obj->setAnalysis(this);
         }
 
         for (const auto &obj: objectStore.directories)
+        {
             m_directories.append(obj);
+            obj->setAnalysis(this);
+        }
 
         m_vmeObjectSettings = objectStore.objectSettingsById;
         m_conditionLinks = objectStore.conditionLinks;
