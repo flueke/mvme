@@ -637,10 +637,13 @@ bool ListFileWriter::writePauseSection(ListfileSections::PauseAction pauseAction
     return true;
 }
 
-std::pair<std::unique_ptr<VMEConfig>, std::error_code> read_config_from_listfile(ListFile *listfile)
+std::pair<std::unique_ptr<VMEConfig>, std::error_code>
+read_config_from_listfile(
+    ListFile *listfile,
+    std::function<void (const QString &msg)> logger)
 {
     auto json = listfile->getVMEConfigJSON();
-    json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json);
+    json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger);
 
     auto vmeConfig = std::make_unique<VMEConfig>();
     auto ec = vmeConfig->read(json);

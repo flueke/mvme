@@ -81,8 +81,9 @@ class LIBMVME_EXPORT ListFileWriter: public QObject
         u64 m_bytesWritten = 0;
 };
 
-std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT
-    read_config_from_listfile(ListFile *listfile);
-
+std::pair<std::unique_ptr<VMEConfig>, std::error_code>
+LIBMVME_EXPORT read_config_from_listfile(
+    ListFile *listfile,
+    std::function<void (const QString &msg)> logger = {});
 
 #endif /* __MVME_LISTFILE_UTILS_H__ */

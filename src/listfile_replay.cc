@@ -118,7 +118,9 @@ ListfileReplayHandle open_listfile(const QString &filename)
 }
 
 std::pair<std::unique_ptr<VMEConfig>, std::error_code>
-    read_vme_config_from_listfile(ListfileReplayHandle &handle)
+    read_vme_config_from_listfile(
+        ListfileReplayHandle &handle,
+        std::function<void (const QString &msg)> logger)
 {
     switch (handle.format)
     {
@@ -126,7 +128,7 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
             {
                 ListFile lf(handle.listfile.get());
                 lf.open();
-                return read_config_from_listfile(&lf);
+                return read_config_from_listfile(&lf, logger);
             }
 
         case ListfileBufferFormat::MVLC_ETH:
@@ -136,7 +138,7 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
                     mvlc_listfile::read_vme_config_data(*handle.listfile)).object();
 
                 json = json.value("VMEConfig").toObject();
-                json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json);
+                json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger);
 
                 auto vmeConfig = std::make_unique<VMEConfig>();
                 auto ec = vmeConfig->read(json);

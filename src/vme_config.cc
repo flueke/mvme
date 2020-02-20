@@ -26,6 +26,7 @@
 #include <QJsonArray>
 #include <QDebug>
 #include <QRegularExpression>
+#include <memory>
 
 #include "CVMUSBReadoutList.h"
 #include "mvlc/mvlc_trigger_io_script.h"
@@ -1054,7 +1055,9 @@ QPair<int, int> VMEConfig::getEventAndModuleIndices(ModuleConfig *cfg) const
 }
 
 std::pair<std::unique_ptr<VMEConfig>, QString>
-    read_vme_config_from_file(const QString &filename)
+    read_vme_config_from_file(
+        const QString &filename,
+        std::function<void (const QString &msg)> logger)
 {
     std::pair<std::unique_ptr<VMEConfig>, QString> result;
 
@@ -1083,14 +1086,12 @@ std::pair<std::unique_ptr<VMEConfig>, QString>
 
     if (!doc.isNull() && !doc.object().contains("DAQConfig"))
     {
-        result.second = QSL("The file '%1' does not contain an mvme VMEConfig object.")
-            .arg(filename);
+        result.second = QSL("The file does not contain an mvme VMEConfig object.");
         return result;
     }
 
-    // TODO: logger here
     QJsonObject json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(
-        doc.object()["DAQConfig"].toObject());
+        doc.object()["DAQConfig"].toObject(), logger);
 
     auto vmeConfig = std::make_unique<VMEConfig>();
 

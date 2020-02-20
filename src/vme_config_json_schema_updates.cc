@@ -74,6 +74,9 @@ u8 guess_event_mcst(const QString &eventScript)
 
 namespace
 {
+    using namespace mvme::vme_config::json_schema;
+
+using VMEConfigConverter = std::function<QJsonObject (QJsonObject oldJson, Logger logger)>;
 
 /* Module script storage changed:
  * vme_scripts.readout              -> vmeReadout
@@ -81,7 +84,7 @@ namespace
  * vme_scripts.parameters           -> initScripts[0]
  * vme_scripts.readout_settings     -> initScripts[1]
  */
-static QJsonObject v1_to_v2(QJsonObject json)
+static QJsonObject v1_to_v2(QJsonObject json, Logger logger)
 {
     qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
 
@@ -122,7 +125,7 @@ static QJsonObject v1_to_v2(QJsonObject json)
 
 /* Instead of numeric TriggerCondition values string representations are now
  * stored. */
-static QJsonObject v2_to_v3(QJsonObject json)
+static QJsonObject v2_to_v3(QJsonObject json, Logger logger)
 {
     qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
 
@@ -161,7 +164,8 @@ struct ReplacementRule
 static const QString DefaultReplacementCommentPrefix = QSL(
     "the next line was auto updated by mvme, previous version: ");
 
-QString apply_replacement_rules(
+std::pair<QString, size_t>
+apply_replacement_rules(
     const QVector<ReplacementRule> &rules,
     const QString &input,
     const QString &commentPrefix = DefaultReplacementCommentPrefix)
@@ -169,6 +173,7 @@ QString apply_replacement_rules(
     using RO = ReplacementRule::Options;
 
     QString result = input;
+    size_t replaceCount = 0u;
 
     for (const auto &rule: rules)
     {
@@ -185,20 +190,27 @@ QString apply_replacement_rules(
             replacement = "# " + commentPrefix + "\\1\n" + rule.replacement;
         }
 
+        replaceCount += result.count(re);
         result.replace(re, replacement);
     }
 
-    return result;
+    return std::make_pair(result, replaceCount);
 }
 
-void apply_replacement_rules(
+size_t apply_replacement_rules(
     const QVector<ReplacementRule> &rules,
     VMEScriptConfig *scriptConfig,
     const QString &commentPrefix = DefaultReplacementCommentPrefix)
 {
+    QString updated;
+    size_t replaceCount = 0u;
     auto scriptContents = scriptConfig->getScriptContents();
-    QString updated = apply_replacement_rules(rules, scriptContents, commentPrefix);
+
+    std::tie(updated, replaceCount) = apply_replacement_rules(rules, scriptContents, commentPrefix);
+
     scriptConfig->setScriptContents(updated);
+
+    return replaceCount;
 }
 
 // For event level scripts event_daq_start, event_daq_stop,
@@ -316,9 +328,9 @@ static const QVector<ReplacementRule> ModuleRules =
 //   regular expression won't be touched and the containing setup will have to
 //   be updated manually by the user.
 
-static QJsonObject v3_to_v4(QJsonObject json)
+static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
 {
-    auto fix_mdpp16_module_typename = [] (QJsonObject json) -> QJsonObject
+    auto fix_mdpp16_module_typename = [logger] (QJsonObject json) -> QJsonObject
     {
         qDebug() << __PRETTY_FUNCTION__ << "changing 'mdpp16' module type name to 'mdpp16_scp'";
 
@@ -331,17 +343,22 @@ static QJsonObject v3_to_v4(QJsonObject json)
             QJsonObject eventJson = eventsArray[eventIndex].toObject();
             auto modulesArray = eventJson["modules"].toArray();
 
+            auto eventName = eventJson["name"].toString();
+
             for (int moduleIndex = 0;
                  moduleIndex < modulesArray.size();
                  ++moduleIndex)
             {
                 QJsonObject moduleJson = modulesArray[moduleIndex].toObject();
+                auto moduleName = moduleJson["name"].toString();
 
                 // Case1: old mdpp16 type name
                 if (moduleJson["type"].toString() == "mdpp16")
                 {
                     moduleJson["type"] = QString("mdpp16_scp");
-                    // TODO: logging
+
+                    logger(QSL("Module '%1': updating typename from 'mdpp16' to 'mdpp16_scp'")
+                           .arg(eventName + "/" + moduleName));
                 }
                 // Case2: type name is empty. This happened when loading a
                 // setup before this conversion was introduced and resaving it.
@@ -353,7 +370,9 @@ static QJsonObject v3_to_v4(QJsonObject json)
                              "mdpp16", Qt::CaseInsensitive))
                 {
                     moduleJson["type"] = QString("mdpp16_scp");
-                    // TODO: logging
+
+                    logger(QSL("Module '%1': setting typename to 'mdpp16_scp'")
+                           .arg(eventName + "." + moduleName));
                 }
 
                 modulesArray[moduleIndex] = moduleJson;
@@ -368,9 +387,9 @@ static QJsonObject v3_to_v4(QJsonObject json)
         return json;
     };
 
-    auto add_event_variables = [] (QJsonObject json)
+    auto add_event_variables = [logger] (QJsonObject json)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "adding default event variables";
+        qDebug() << __PRETTY_FUNCTION__ << "adding event variables";
 
         auto eventsArray = json["events"].toArray();
 
@@ -379,6 +398,7 @@ static QJsonObject v3_to_v4(QJsonObject json)
              ++eventIndex)
         {
             QJsonObject eventJson = eventsArray[eventIndex].toObject();
+            auto eventName = eventJson["name"].toString();
 
             auto eventConfig = std::make_unique<EventConfig>();
             eventConfig->read(eventJson);
@@ -395,7 +415,6 @@ static QJsonObject v3_to_v4(QJsonObject json)
                       : 0u);
 
             eventConfig->setVariables(make_standard_event_variables(irq, mcst));
-            // TODO: logging
 
             // Look at the first module in the event and use its 'VME Interface
             // Settings' script to guess values for 'mesy_eoe_marker' and
@@ -413,9 +432,11 @@ static QJsonObject v3_to_v4(QJsonObject json)
 
                     eventConfig->setVariableValue("mesy_eoe_marker", QString::number(eoe_marker));
                     eventConfig->setVariableValue("mesy_readout_num_events", QString::number(num_events));
-                    // TODO: logging
                 }
             }
+
+            logger(QSL("Adding standard variables to event '%1': %2")
+                   .arg(eventName).arg(eventConfig->getVariables().symbolNames().join(", ")));
 
             eventJson = {};
             eventConfig->write(eventJson);
@@ -428,7 +449,7 @@ static QJsonObject v3_to_v4(QJsonObject json)
         return json;
     };
 
-    auto update_event_scripts = [] (QJsonObject json)
+    auto update_event_scripts = [logger] (QJsonObject json)
     {
         qDebug() << __PRETTY_FUNCTION__ << "updating vme event scripts";
 
@@ -445,8 +466,14 @@ static QJsonObject v3_to_v4(QJsonObject json)
 
             for (auto scriptConfig: eventConfig->vmeScripts.values())
             {
-                apply_replacement_rules(EventRules, scriptConfig);
-                // TODO: maybe log replacements? or just log that the script has been modified
+                size_t replaceCount = apply_replacement_rules(EventRules, scriptConfig);
+
+                if (replaceCount)
+                {
+                    logger(QSL("Updating event script '%1': %2 changes")
+                           .arg(scriptConfig->getObjectPath())
+                           .arg(replaceCount));
+                }
             }
 
             eventJson = {};
@@ -458,7 +485,7 @@ static QJsonObject v3_to_v4(QJsonObject json)
         return json;
     };
 
-    auto update_module_scripts = [] (QJsonObject json)
+    auto update_module_scripts = [logger] (QJsonObject json)
     {
         qDebug() << __PRETTY_FUNCTION__ << "updating vme module scripts";
 
@@ -473,14 +500,23 @@ static QJsonObject v3_to_v4(QJsonObject json)
             auto eventConfig = std::make_unique<EventConfig>();
             eventConfig->read(eventJson);
 
-            // TODO: maybe log replacements? or just log that the script has been modified
             for (auto moduleConfig: eventConfig->getModuleConfigs())
             {
-                apply_replacement_rules(ModuleRules, moduleConfig->getResetScript());
-                apply_replacement_rules(ModuleRules, moduleConfig->getReadoutScript());
+                auto scripts = moduleConfig->getInitScripts();
+                scripts.push_back(moduleConfig->getResetScript());
+                scripts.push_back(moduleConfig->getReadoutScript());
 
-                for (auto initScript: moduleConfig->getInitScripts())
-                    apply_replacement_rules(ModuleRules, initScript);
+                for (auto script: scripts)
+                {
+                    size_t replaceCount = apply_replacement_rules(ModuleRules, script);
+
+                    if (replaceCount)
+                    {
+                        logger(QSL("Updating module script '%1': %2 changes")
+                               .arg(script->getObjectPath())
+                               .arg(replaceCount));
+                    }
+                }
             }
 
             eventJson = {};
@@ -504,8 +540,6 @@ static QJsonObject v3_to_v4(QJsonObject json)
 
     return json;
 }
-
-using VMEConfigConverter = std::function<QJsonObject (QJsonObject)>;
 
 static QVector<VMEConfigConverter> VMEConfigConverters =
 {
@@ -534,9 +568,13 @@ int get_vmeconfig_version(const QJsonObject &json)
     return json["properties"].toObject()["version"].toInt(1);
 };
 
-QJsonObject convert_vmeconfig_to_current_version(QJsonObject json)
+QJsonObject convert_vmeconfig_to_current_version(QJsonObject json, Logger logger)
 {
     qDebug() << "<<<<<<<<<<<<< begin vme config json conversion <<<<<<<<<<<<<<<<<";
+
+    if (!logger)
+        logger = [] (const QString &) {};
+
     int version;
 
     while ((version = get_vmeconfig_version(json)) < GetCurrentVMEConfigVersion())
@@ -546,7 +584,7 @@ QJsonObject convert_vmeconfig_to_current_version(QJsonObject json)
         if (!converter)
             break;
 
-        json = converter(json);
+        json = converter(json, logger);
         set_vmeconfig_version(json, version + 1);
 
         qDebug() << __PRETTY_FUNCTION__ << "converted VMEConfig from version"

@@ -60,7 +60,9 @@ struct LIBMVME_EXPORT ListfileReplayHandle
 // IMPORTANT: throws QString on error :-(
 ListfileReplayHandle LIBMVME_EXPORT open_listfile(const QString &filename);
 
-std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT
-    read_vme_config_from_listfile(ListfileReplayHandle &handle);
+std::pair<std::unique_ptr<VMEConfig>, std::error_code>
+LIBMVME_EXPORT read_vme_config_from_listfile(
+        ListfileReplayHandle &handle,
+        std::function<void (const QString &msg)> logger = {});
 
 #endif /* __MVME_LISTFILE_REPLAY_H__ */

@@ -448,8 +448,10 @@ Q_DECLARE_METATYPE(ModuleConfig *);
 Q_DECLARE_METATYPE(EventConfig *);
 Q_DECLARE_METATYPE(VMEConfig *);
 
-LIBMVME_EXPORT std::pair<std::unique_ptr<VMEConfig>, QString>
-    read_vme_config_from_file(const QString &filename);
+std::pair<std::unique_ptr<VMEConfig>, QString>
+LIBMVME_EXPORT read_vme_config_from_file(
+    const QString &filename,
+    std::function<void (const QString &msg)> logger = {});
 
 QString make_unique_event_name(const QString &prefix, const VMEConfig *vmeConfig);
 QString make_unique_event_name(const VMEConfig *vmeConfig);

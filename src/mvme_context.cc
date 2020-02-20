@@ -2452,7 +2452,14 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
     std::unique_ptr<VMEConfig> vmeConfig;
     QString errString;
 
-    std::tie(vmeConfig, errString) = read_vme_config_from_file(fileName);
+    logMessage(QSL("Loading VME Config from '%1'").arg(fileName));
+
+    auto logger = [this] (const QString &msg)
+    {
+        this->logMessage("VME config load: " + msg);
+    };
+
+    std::tie(vmeConfig, errString) = read_vme_config_from_file(fileName, logger);
 
     if (!errString.isEmpty())
     {
