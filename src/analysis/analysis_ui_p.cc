@@ -907,8 +907,18 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
 
     const s32 slotCount = arrayMap->getNumberOfSlots();
 
-    auto make_table_item = [](const QString &name, s32 slotIndex, s32 paramIndex)
+    auto make_table_item = [](const AnalysisObjectPtr &source, s32 slotIndex, s32 paramIndex)
     {
+        auto name = source->objectName();
+
+        qDebug() << __PRETTY_FUNCTION__ << source.get() << source->getAnalysis();
+
+        if (auto analysis = source->getAnalysis())
+        {
+            if (auto parentDir = analysis->getParentDirectory(source->shared_from_this()))
+                name = parentDir->objectName() + '/' + name;
+        }
+
         auto item = new QTableWidgetItem;
 
         item->setData(Qt::DisplayRole, QString("%1[%2]")
@@ -942,7 +952,8 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
             if (mappings.contains({slotIndex, paramIndex}))
                 continue;
 
-            auto item = make_table_item(slot->inputPipe->source->objectName(), slotIndex, paramIndex);
+            auto item = make_table_item(slot->inputPipe->source->shared_from_this(),
+                                        slotIndex, paramIndex);
 
             tw_input->setRowCount(tw_input->rowCount() + 1);
             tw_input->setItem(tw_input->rowCount() - 1, 0, item);
@@ -957,7 +968,7 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
         if (!slot || !slot->isConnected())
             continue;
 
-        auto item = make_table_item(slot->inputPipe->source->objectName(),
+        auto item = make_table_item(slot->inputPipe->source->shared_from_this(),
                                     mapping.slotIndex, mapping.paramIndex);
 
         tw_output->setRowCount(tw_output->rowCount() + 1);
