@@ -295,7 +295,6 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
 
     ThreadSafeDataBufferQueue emptyBuffers;
     ThreadSafeDataBufferQueue filledBuffers;
-    // To make sure buffers are deleted when leaving this function
     std::vector<std::unique_ptr<DataBuffer>> buffers;
 
     for (size_t i=0; i<DataBufferCount; ++i)
@@ -524,12 +523,13 @@ int main(int argc, char *argv[])
         //return 1;
     }
 
-#if 1
+#if 0
     try
     {
         auto plugin = load_plugin("listfile_reader_python_plugin");
         plugins.emplace_back(plugin);
     }
+    // FIXME: this didn't catch some library_load error.
     catch (const resolve_error &)
     {
         //return 1;

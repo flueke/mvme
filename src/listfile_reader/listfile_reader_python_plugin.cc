@@ -112,7 +112,7 @@ void plugin_destroy (Context *ctx)
 void begin_run (Context *ctx, const RunDescription *run)
 {
     cout << __PRETTY_FUNCTION__ << endl;
-    
+
     ctx->usercode.reload();
     // TODO: check if the retrieved attributes are callable
     ctx->py_begin_run = ctx->usercode.attr("begin_run");
