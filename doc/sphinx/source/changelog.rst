@@ -7,20 +7,31 @@ Version 0.9.7 (wip)
 * Add ability to run the data acquisition for a limited amount of time before
   automatically stopping the run.
 
-* Add VME templates for the MDPP-32 (SCP, RCP and QDC variants).
+* Add VME templates for the MDPP-32 (SCP and QDC variants).
 
-* Updates to the mesytec module templates and the internal config logic to make
-  use of the new VME script features.
+* [vme_script] Drop support for the 'counted block read` commands. They are
+  rarely used and the MVLC does not currently support them.
+
+* [vme_script] VME scripts now support variables and embedded mathematical expressions.
+
+* [vme_config] Updates to the mesytec module templates and the internal config
+  logic to make use of the new VME script variables.
 
   These changes make IRQ and MCST handling with multiple modules and events
   much simpler. When using only mesytec modules no manual editing of scripts is
   required anymore.
 
-* VME scripts now support variables and embedded mathematical expressions.
+  When loading a config file from a previous mvme version all module and event
+  scripts will be updated to make use of the standard set of variables added to
+  each VME event.
 
 * Improve UI responsiveness with the MVLC at low data rates.
 
 * Multiple MVLC fixes and improvements.
+
+* Various bugfixes and UI improvements.
+
+* Upgrade Qt to version 5.14.1 on the build servers.
 
 Version 0.9.6
 -------------
