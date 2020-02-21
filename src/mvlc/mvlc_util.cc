@@ -121,10 +121,6 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
                 } break;
 
             case CommandType::Wait:
-            case CommandType::BLTCount:
-            case CommandType::BLTFifoCount:
-            case CommandType::MBLTCount:
-            case CommandType::MBLTFifoCount:
             case CommandType::VMUSB_ReadRegister:
             case CommandType::VMUSB_WriteRegister:
                 qDebug() << __FUNCTION__ << " unsupported VME Script command:"

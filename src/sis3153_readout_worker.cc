@@ -134,16 +134,6 @@ namespace
                     InvalidCodePath;
                     break;
 
-                case  CommandType::BLTCount:
-                case  CommandType::BLTFifoCount:
-                case  CommandType::MBLTCount:
-                case  CommandType::MBLTFifoCount:
-                    // write DYN_BLK_SIZING_CONFIG
-                    // + read register and save length
-                    // + blt read using saved length
-                    size += 4 + 3 + 3;
-                    break;
-
                 case  CommandType::SetBase:
                 case  CommandType::ResetBase:
                 case  CommandType::VMUSB_ReadRegister:
@@ -298,54 +288,6 @@ namespace
                  );
     }
 
-    /* Note: SIS3153 does not support the Command.countMask masking operation
-     * when doing dynamically sized block reads! */
-    void stackList_add_counted_block_read_command(vme_script::Command cmd, u32 *list_ptr, u32 *list_buffer)
-    {
-        sis_trace(QString("cmd=%1")
-                  .arg(to_string(cmd));
-                 );
-
-        u8 flags = 0;
-
-        switch (cmd.type)
-        {
-            case  CommandType::BLTCount:
-                flags = 0;
-                break;
-
-            case  CommandType::BLTFifoCount:
-                flags = BlockFlags::FIFO;
-                break;
-
-            case  CommandType::MBLTCount:
-                flags = (BlockFlags::MBLT | BlockFlags::MBLTWordSwap);
-                break;
-
-            case  CommandType::MBLTFifoCount:
-                flags = (BlockFlags::FIFO | BlockFlags::MBLT | BlockFlags::MBLTWordSwap);
-                break;
-
-            InvalidDefaultCase;
-        }
-
-        stackList_add_register_write(
-            list_ptr, list_buffer,
-            SIS3153Registers::StackListDynSizedBlockRead,
-            cmd.countMask);
-
-        stackList_add_save_count_read(
-            list_ptr, list_buffer,
-            cmd.address,
-            get_access_size(cmd.dataWidth),
-            cmd.addressMode);
-
-        stackList_add_count_block_read(
-            list_ptr, list_buffer,
-            cmd.blockAddress,
-            flags);
-    }
-
     /* Note: if lemoIOControlBaseValue is non-negative this functions adds writes to the
      * LemoIOControl register at the beginning and end of the stacklist. The first write
      * enables OUT2, the second at the end of the list disables OUT2. */
@@ -431,16 +373,6 @@ namespace
 
                 case  CommandType::Wait:
                     InvalidCodePath;
-                    break;
-
-                case  CommandType::BLTCount:
-                case  CommandType::BLTFifoCount:
-                case  CommandType::MBLTCount:
-                case  CommandType::MBLTFifoCount:
-                    {
-                        Q_ASSERT(command.blockAddress == vme_address_modes::A32);
-                        stackList_add_counted_block_read_command(command, &resultOffset, result.data());
-                    }
                     break;
 
                 case  CommandType::SetBase:

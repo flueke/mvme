@@ -153,31 +153,6 @@ QString parseValue(const QString &str)
     return str;
 }
 
-void maybe_set_warning(Command &cmd, int lineNumber)
-{
-    cmd.lineNumber = lineNumber;
-
-    if (cmd.warning.isEmpty())
-    {
-        switch (cmd.type)
-        {
-            case CommandType::BLTCount:
-            case CommandType::BLTFifoCount:
-            case CommandType::MBLTCount:
-            case CommandType::MBLTFifoCount:
-                {
-                    if (cmd.address >= (1 << 16))
-                    {
-                        cmd.warning = QSL("Given block_address exceeds 0xffff");
-                    }
-                } break;
-
-            default:
-                break;
-        }
-    }
-}
-
 Command parseRead(const QStringList &args, int lineNumber)
 {
     auto usage = QSL("read <address_mode> <data_width> <address>");
@@ -275,27 +250,6 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
     result.addressMode = parseAddressMode(args[1]);
     result.address = parseAddress(args[2]);
     result.transfers = parseValue<u32>(args[3]);
-
-    return result;
-}
-
-Command parseBlockTransferCountRead(const QStringList &args, int lineNumber)
-{
-    auto usage = (QString("%1 <register_address_mode> <register_data_width> <register_address>"
-                         "<count_mask> <block_address_mode> <block_address>")
-                  .arg(args[0]));
-
-    if (args.size() != 7)
-        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
-
-    Command result;
-    result.type = commandType_from_string(args[0]);
-    result.addressMode = parseAddressMode(args[1]);
-    result.dataWidth = parseDataWidth(args[2]);
-    result.address = parseAddress(args[3]);
-    result.countMask = parseValue<u32>(args[4]);
-    result.blockAddressMode = parseAddressMode(args[5]);
-    result.blockAddress = parseAddress(args[6]);
 
     return result;
 }
@@ -509,11 +463,6 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("bltfifo"),           parseBlockTransfer },
     { QSL("mblt"),              parseBlockTransfer },
     { QSL("mbltfifo"),          parseBlockTransfer },
-
-    { QSL("bltcount"),          parseBlockTransferCountRead },
-    { QSL("bltfifocount"),      parseBlockTransferCountRead },
-    { QSL("mbltcount"),         parseBlockTransferCountRead },
-    { QSL("mbltfifocount"),     parseBlockTransferCountRead },
 
     { QSL("setbase"),           parseSetBase },
     { QSL("resetbase"),         parseResetBase },
@@ -999,7 +948,6 @@ static Command handle_single_line_command(const PreparsedLine &line)
         result.address = v1;
         result.value = v2;
 
-        maybe_set_warning(result, line.lineNumber);
         return result;
     }
 
@@ -1011,7 +959,6 @@ static Command handle_single_line_command(const PreparsedLine &line)
     try
     {
         Command result = parseFun(parts, line.lineNumber);
-        maybe_set_warning(result, line.lineNumber);
         return result;
     }
     catch (const char *message)
@@ -1330,10 +1277,6 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::BLTFifo,             QSL("bltfifo") },
     { CommandType::MBLT,                QSL("mblt") },
     { CommandType::MBLTFifo,            QSL("mbltfifo") },
-    { CommandType::BLTCount,            QSL("bltcount") },
-    { CommandType::BLTFifoCount,        QSL("bltfifocount") },
-    { CommandType::MBLTCount,           QSL("mbltcount") },
-    { CommandType::MBLTFifoCount,       QSL("mbltfifocount") },
     { CommandType::SetBase,             QSL("setbase") },
     { CommandType::ResetBase,           QSL("resetbase") },
     { CommandType::VMUSB_WriteRegister, QSL("vmusb_write_reg") },
@@ -1453,21 +1396,6 @@ QString to_string(const Command &cmd)
                     .arg(cmd.transfers);
             } break;
 
-        case CommandType::BLTCount:
-        case CommandType::BLTFifoCount:
-        case CommandType::MBLTCount:
-        case CommandType::MBLTFifoCount:
-            {
-                buffer = QString(QSL("%1 %2 %3 %4 %5 %6 %7"))
-                    .arg(cmdStr)
-                    .arg(to_string(cmd.addressMode))
-                    .arg(to_string(cmd.dataWidth))
-                    .arg(format_hex(cmd.address))
-                    .arg(format_hex(cmd.countMask))
-                    .arg(to_string(cmd.blockAddressMode))
-                    .arg(format_hex(cmd.blockAddress));
-            } break;
-
         case CommandType::Blk2eSST64:
             {
                 assert(false);
@@ -1550,15 +1478,6 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::Blk2eSST64:
 
             cmd.address += baseAddress;
-            break;
-
-        case CommandType::BLTCount:
-        case CommandType::BLTFifoCount:
-        case CommandType::MBLTCount:
-        case CommandType::MBLTFifoCount:
-
-            cmd.address += baseAddress;
-            cmd.blockAddress += baseAddress;
             break;
     }
     return cmd;
@@ -1763,138 +1682,6 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                     vme_address_modes::MBLT64, true);
             } break;
 
-#if 1
-        /* There was no need to implement these in a generic way using the
-         * VMEController interface yet. VMUSB does have direct support for
-         * these types of commands (see CVMUSBReadoutList::addScriptCommand()).
-         */
-        case CommandType::BLTCount:
-        case CommandType::BLTFifoCount:
-        case CommandType::MBLTCount:
-        case CommandType::MBLTFifoCount:
-            {
-                if (logger)
-                {
-                    logger(QSL("xBLT count read commands are only supported during readout."));
-                }
-            } break;
-
-        case CommandType::Blk2eSST64:
-            if (logger)
-            {
-                logger(QSL("Blk2eSST64 count read command is only supported during readout."));
-            } break;
-
-#else
-        case CommandType::BLTCount:
-            {
-                u32 transfers = 0;
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        {
-                            uint16_t value = 0;
-                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                    case DataWidth::D32:
-                        {
-                            uint32_t value = 0;
-                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                }
-
-                transfers &= cmd.countMask;
-                transfers >>= trailing_zeroes(cmd.countMask);
-
-                QVector<u32> dest;
-                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, true), false);
-
-            } break;
-
-        case CommandType::BLTFifoCount:
-            {
-                u32 transfers = 0;
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        {
-                            uint16_t value = 0;
-                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                    case DataWidth::D32:
-                        {
-                            uint32_t value = 0;
-                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                }
-
-                transfers &= cmd.countMask;
-                transfers >>= trailing_zeroes(cmd.countMask);
-
-                QVector<u32> dest;
-                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, true), true);
-
-            } break;
-
-        case CommandType::MBLTCount:
-            {
-                u32 transfers = 0;
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        {
-                            uint16_t value = 0;
-                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                    case DataWidth::D32:
-                        {
-                            uint32_t value = 0;
-                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                }
-
-                transfers &= cmd.countMask;
-                transfers >>= trailing_zeroes(cmd.countMask);
-
-                QVector<u32> dest;
-                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, false, true), false);
-
-            } break;
-
-        case CommandType::MBLTFifoCount:
-            {
-                u32 transfers = 0;
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        {
-                            uint16_t value = 0;
-                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                    case DataWidth::D32:
-                        {
-                            uint32_t value = 0;
-                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                }
-
-                transfers &= cmd.countMask;
-                transfers >>= trailing_zeroes(cmd.countMask);
-
-                QVector<u32> dest;
-                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, false, true), true);
-
-            } break;
-#endif
-
         case CommandType::VMUSB_WriteRegister:
             if (auto vmusb = qobject_cast<VMUSB *>(controller))
             {
@@ -1987,10 +1774,6 @@ QString format_result(const Result &result)
         case CommandType::BLTFifo:
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
-        case CommandType::BLTCount:
-        case CommandType::BLTFifoCount:
-        case CommandType::MBLTCount:
-        case CommandType::MBLTFifoCount:
         case CommandType::Blk2eSST64:
             {
                 ret += "\n";

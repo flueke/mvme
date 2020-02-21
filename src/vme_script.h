@@ -97,13 +97,6 @@ enum class CommandType
     MBLTFifo,
     Blk2eSST64,
 
-    // Counted block transfers. TODO: phase these out at some point. It's rarely
-    // used and MVLC does not support it.
-    BLTCount,
-    BLTFifoCount,
-    MBLTCount,
-    MBLTFifoCount,
-
     // Meta commands to temporarily use a different base address for the
     // following commands and then reset back to the default base address.
     SetBase,
@@ -308,10 +301,6 @@ inline bool is_block_read_command(const CommandType &cmdType)
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
         case CommandType::Blk2eSST64:
-        case CommandType::BLTCount:
-        case CommandType::BLTFifoCount:
-        case CommandType::MBLTCount:
-        case CommandType::MBLTFifoCount:
             return true;
         default: break;
     }
