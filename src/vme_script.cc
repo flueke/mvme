@@ -157,20 +157,6 @@ void maybe_set_warning(Command &cmd, int lineNumber)
 {
     cmd.lineNumber = lineNumber;
 
-    switch (cmd.type)
-    {
-        case CommandType::SetBase:
-            {
-                if ((cmd.address & 0xffff) != 0)
-                {
-                    cmd.warning = QSL("Given base address has some of the low 16-bits set");
-                }
-            } break;
-
-        default:
-            break;
-    }
-
     if (cmd.warning.isEmpty())
     {
         switch (cmd.type)
