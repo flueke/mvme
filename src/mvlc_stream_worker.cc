@@ -346,12 +346,14 @@ void MVLC_StreamWorker::logParserInfo(const mesytec::mvlc::ReadoutParserState &p
         {
             const auto &moduleParts = modules[moduleIndex];
 
+#if 0
             logInfo(QString("mvlc readout parser info: ei=%1, mi=%2: prefixLen=%3, suffixLen=%4, hasDynamic=%5")
                     .arg(eventIndex)
                     .arg(moduleIndex)
                     .arg(static_cast<unsigned>(moduleParts.prefixLen))
                     .arg(static_cast<unsigned>(moduleParts.suffixLen))
                     .arg(moduleParts.hasDynamic));
+#endif
         }
     }
 }
