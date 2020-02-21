@@ -11,10 +11,10 @@ To get started download the workspace, which includes pre-recorded listfiles, an
 software from the mesytec website.
 
 - workspace: https://mesytec.com/kundendaten/MLL/snake-mvme-workspace.tar.bz2
-- mvme: https://mesytec.com/downloads/mvme/beta/mvme-0.9.5.5-85-Linux-x64-feat_mvlc.tar.bz2
+- mvme: https://mesytec.com/downloads/mvme/mvme-0.9.6-Linux-x64.tar.bz2
 
 Alternatively instead of using prebuilt binaries the mvme sourcecode can be found on
-github: https://github.com/flueke/mvme/tree/feat/mvlc
+github: https://github.com/flueke/mvme/tree/dev
 
 * Unpack and install
 ------------------------------------------------------------------------------------------
@@ -41,6 +41,10 @@ In another terminal start mvme. Use the 'File -> Open Workspace' menu entry and 
 the snake-mvme-workspace directory. After opening the workspace you should see a tree of
 events and modules which resemble the SNAKE setup. Also the mvme analysis will have data
 extraction filters setup similar to what the SNAKE analysis is using.
+
+Important: In the main DAQ Control/VME Config window click on "Workspace Settings" and set
+your "Experiment Name" and make sure the "Enable Event Server" box is checked.
+
 The `event_server' component of mvme will listen on localhost and the root client should
 be able to connect immediately.
 
