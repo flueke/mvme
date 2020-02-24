@@ -331,17 +331,16 @@ TEST(vme_script_expressions, EvaluateExpression)
     try
     {
         ASSERT_EQ(evaluate_expressions("$(1)", 0), QSL("1"));
-        ASSERT_EQ(evaluate_expressions("$(3.14)", 0), QSL("3"));
-        ASSERT_EQ(evaluate_expressions("$(7.4)", 0), QSL("7"));
-        ASSERT_EQ(evaluate_expressions("$(7.5)", 0), QSL("8"));
+        ASSERT_EQ(evaluate_expressions("$(3.14)", 0), QSL("3.14"));
+        ASSERT_EQ(evaluate_expressions("$(7.4)", 0), QSL("7.4"));
+        ASSERT_EQ(evaluate_expressions("$(7.5)", 0), QSL("7.5"));
 
         ASSERT_EQ(evaluate_expressions("$(1+1)", 0), QSL("2"));
         ASSERT_EQ(evaluate_expressions("$(1 + 1)", 0), QSL("2"));
         ASSERT_EQ(evaluate_expressions("$( 1+1 )", 0), QSL("2"));
 
         ASSERT_EQ(evaluate_expressions("$(3*4+8)", 0), QSL("20"));
-        //ASSERT_EQ(evaluate_expressions("$(-(3*4+8))", 0), QSL("0"));
-        ASSERT_THROW(evaluate_expressions("$(-(3*4+8))", 0), ParseError);
+        ASSERT_EQ(evaluate_expressions("$(-(3*4+8))", 0), QSL("-20"));
 
     } catch (ParseError &e)
     {
@@ -383,6 +382,26 @@ TEST(vme_script_expressions, ParseExpression)
             QString input = "0x6070 $(1 + 3 + 5)";
             auto script = parse(input);
             ASSERT_EQ(script.size(), 1);
+        }
+
+        // negative results
+
+        {
+            // long form of the write command, quoted, yielding a negative result
+            QString input = "write a32 d16 0x6070 \"$(-1 - 3 - 5)\"";
+            ASSERT_THROW(parse(input), ParseError);
+        }
+
+        {
+            // long form of the write command, unquoted
+            QString input = "write a32 d16 0x6070 $(-1 - 3 - 5)";
+            ASSERT_THROW(parse(input), ParseError);
+        }
+
+        {
+            // short form of the write command
+            QString input = "0x6070 $(-1 - 3 - 5)";
+            ASSERT_THROW(parse(input), ParseError);
         }
 
     } catch (ParseError &e)
