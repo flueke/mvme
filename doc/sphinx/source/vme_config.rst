@@ -94,7 +94,7 @@ DAQ startup procedure
   * For each Module:
 
     * Add Module readout script
-    * Add "Write EndMarker" command
+    * Add "Write EndMarker" command (0x87654321, not needed for the MVLC)
 
   * Add *Cycle End* script
 
