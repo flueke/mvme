@@ -934,19 +934,33 @@ static Command handle_single_line_command(const PreparsedLine &line)
     {
         /* Try to parse an address followed by a value. This is the short form
          * of a write command. */
-        bool ok1;
-        uint32_t v1 = parts[0].toUInt(&ok1, 0);
-        uint32_t v2 = 0;
+        uint32_t addr = 0u, val = 0u;
 
-        if (!ok1)
-        {
-            throw ParseError(QString(QSL("Invalid short-form address \"%1\""))
-                             .arg(parts[0]), line.lineNumber);
-        }
-
+        // address
         try
         {
-            v2 = parseValue<u32>(parts[1]);
+            addr = parseValue<u32>(parts[0]);
+        }
+        catch (const QString &message)
+        {
+            throw ParseError(QString(QSL("Invalid short-form address \"%1\" (%2)"))
+                             .arg(parts[1], message), line.lineNumber);
+        }
+        catch (const char *message)
+        {
+            throw ParseError(QString(QSL("Invalid short-form address \"%1\" (%2)"))
+                             .arg(parts[1], message), line.lineNumber);
+        }
+
+        // value
+        try
+        {
+            val = parseValue<u32>(parts[1]);
+        }
+        catch (const QString &message)
+        {
+            throw ParseError(QString(QSL("Invalid short-form value \"%1\" (%2)"))
+                             .arg(parts[1], message), line.lineNumber);
         }
         catch (const char *message)
         {
@@ -957,8 +971,8 @@ static Command handle_single_line_command(const PreparsedLine &line)
         result.type = CommandType::Write;
         result.addressMode = vme_address_modes::A32;
         result.dataWidth = DataWidth::D16;
-        result.address = v1;
-        result.value = v2;
+        result.address = addr;
+        result.value = val;
 
         return result;
     }
