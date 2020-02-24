@@ -14,16 +14,16 @@ started using the ``#`` character. They extend to the end of the line.
 Alternatively blocks can be commented out starting with ``/*`` and ending with
 ``*/``.
 
-Scripts belonging to a module (**Module Init**, **VME Interface Settings**,
-**Module Reset** and the readout code) will have the **module base address**
-added to most of the commands. This allows writing scripts containing
+Scripts belonging to a module (**Module Init Scripts**, **VME Interface
+Settings**, **Module Reset** and the readout code) will have the **module base
+address** added to most of the commands. This allows writing scripts containing
 module-relative addresses only. An exception is the :ref:`writeabs
 <vme-command-writeabs>` command which does not modify its address argument. The
 base address can also be temporarily replaced with a different value by using
 the :ref:`setbase <vme-command-setbase>` and :ref:`resetbase
 <vme-command-resetbase>` commands.
 
-The commands below use the following values for address modifiers and data widths:
+The commands below accept the following values for address modifiers and data widths:
 
 .. table:: VME Address Modes
   :name: vme-address-modes
@@ -129,35 +129,32 @@ The **\*fifo** variants do not increment the given starting address.
 .. _vme-command-mbltcount:
 .. _vme-command-mbltfifocount:
 
-Variable sized Block Transfers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-* **bltcount** *<reg_amode> <reg_dwidth> <reg_addr> <reg_count_mask> <block_amode> <block_addr>*
-* **bltfifocount** *<reg_amode> <reg_dwidth> <reg_addr> <reg_count_mask> <block_amode> <block_addr>*
-* **mbltcount** *<reg_amode> <reg_dwidth> <reg_addr> <reg_count_mask> <block_amode> <block_addr>*
-* **mbltfifocount** *<reg_amode> <reg_dwidth> <reg_addr> <reg_count_mask> <block_amode> <block_addr>*
-
-These commands read the number of transfers to perform from the register at *<reg_addr>*, using the
-given *<reg_amode>* and *<reg_dwidth>* as access modifiers. The value read is then AND'ed with
-*<reg_count_mask>*. The resulting value is the number of block transfers to perform, starting at
-*<block_addr>*.
-
-
 Miscellaneous
 ~~~~~~~~~~~~~
-.. _vme-command-wait:
 
+.. _vme-command-wait:
+wait
+^^^^
 * **wait** *<waitspec>*
 
 Delays script execution for the given amount of time. *<waitspec>* is a number followed by one of
 ``ns``, ``ms`` or ``s`` for nanoseconds, milliseconds and seconds respectively. If no suffix is
 given milliseconds are assumed.
 
-Note: When creating a command stack to be executed by the VMUSB Controller in DAQ Mode the
-resolution of the waitspec is **200 ns** and the maximum value is **51000 ns**.
+.. note::
+  The wait command is only available when directly executing a script from
+  within mvme. It is not supported in command stacks for the MVLC and SIS3153
+  controllers.
+
+  The VMUSB has limited support for the wait command in command stacks with a
+  waitspec resolution of **200 ns** and the maximum possible delay being
+  **51000 ns**.
 
 Example: ``wait 500ms # Delay script execution for 500ms``
 
 .. _vme-command-marker:
+marker
+^^^^^^
 
 * **marker** *<marker_word>*
 
@@ -166,6 +163,8 @@ from different modules.
 
 .. _vme-command-setbase:
 .. _vme-command-resetbase:
+setbase/resetbase
+^^^^^^^^^^^^^^^^^
 
 * **setbase** *<address>*
 * **resetbase**
@@ -173,6 +172,44 @@ from different modules.
 These commands can be used to temporarily replace the current base address with a different value.
 **setbase** sets a new base address, which will be effective for all following commands. Use
 **resetbase** to restore the original base address.
+
+.. _vme-command-write-float-word:
+write_float_word
+^^^^^^^^^^^^^^^^
+
+* **write_float_word** *<address_mode>* *<address>* *<part>* *<value>*
+
+The write_float_word command is a helper function for dealing with VME modules
+using IEEE-754 floating point numbers internally (e.g. the ISEG VHS4030). The
+command writes a 16-bit part of a 32-bit float into the given register without
+performing any integer conversions.
+
+Arguments:
+
+* *address_mode*
+
+  The VME address mode: a16, a24 or a32
+
+* *address*
+
+  Address of the register to write to.
+
+* *part*
+
+  One of **upper** / **1** and  **lower** / **0**. The upper part contains the
+  16 most significant bits of the float, the lower part the 16 least
+  significant bits.
+
+* *value*
+
+  The floating point value using a *.* as the decimal separator.
+
+Example:::
+
+  write_float_word a16 0x0014 upper 3.14
+  write_float_word a16 0x0016 lower 3.14
+
+Writes the 32-bit float value *3.14* to the two 16-bit registers 0x14 and 0x16.
 
 VMUSB specific
 ~~~~~~~~~~~~~~
@@ -208,6 +245,32 @@ name. The following name mappings are defined:
   +-------------------+-------------+
   | daq_settings      | 0x08        |
   +-------------------+-------------+
+
+Mathematical Expressions and Variables
+--------------------------------------
+Since mvme 0.9.7 VME scripts support evaluation of numerical expressions and
+can contain references to variables.
+
+Expressions
+~~~~~~~~~~~
+
+.. _exprtk: http://www.partow.net/programming/exprtk/index.html
+
+A mathematical expression in VME scripts is enclosed between ``$(`` and ``)``.
+The enclosed string (including the outermost parentheses) is passed to the
+`exprtk`_ library for evaluation and the resulting value replaces the
+expression string before further parsing is done.
+
+exprtk internally uses floating point arithmetic but most of the values inside
+VME scripts are unsigned 16 or 32 bit values. For this reason the result of the
+expression evaluation is rounded to the nearest integer value and converted to
+a 32-bit unsigned. If the evaluation yields a negative number the parser yields
+an error and stops further processing of the script.
+
+Variables
+~~~~~~~~~
+
+
 
 Example
 -------

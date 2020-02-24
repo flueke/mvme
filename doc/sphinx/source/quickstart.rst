@@ -93,20 +93,6 @@ The VME Config should now look like similar to :ref:`quickstart-vme-tree01`.
 * Click the *Apply* button on the editors toolbar to commit your changes to the
   VME configuration. Close the editor window.
 
-* Start editing the *VME Interface Settings* VME Script. Near the top of the
-  script set the *irq level* to 1:
-
-  ``0x6010 1``
-
-  This makes the module send IRQ 1 if it has data to be read in its internal
-  buffer. The other parameters can be left at their default values. Click
-  *Apply* and close the editor window.
-
-.. autofigure:: images/quickstart_edit_vme_interface_settings.png
-   :scale-latex: 60%
-
-   VME Interface Settings with IRQ Level set to 1
-
 ==================================================
 Analysis Setup
 ==================================================

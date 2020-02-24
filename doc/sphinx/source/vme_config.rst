@@ -80,6 +80,59 @@ The event level distinguishes between the following phases:
   default both scripts again use the multicast address of the corresponding
   event.
 
+
+Event and Module Variables
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Since mvme-0.9.7 both event and module configs can contain a set of variables
+whose values can be used inside `VME scripts <vme-script-reference`.
+
+Variables from the event scope are available inside the event scripts and all
+child module scripts. Variables defined at module scope are available to the
+module init and readout scripts. Module variables override variables defined at
+event scope.
+
+When adding a new VME event a set of standard variables is created:
+
+* sys_irq
+
+  A system variable which is automatically set to the IRQ value used to trigger
+  the event or 0 if the event is not IRQ triggered.
+
+* mesy_mcst
+
+  Contains the highest 8-bits of the VME multicast (MCST) address setup for the
+  event. This is used to initialize the events member modules and to
+  simultaneously write each of the modules *readout_reset* register at the end
+  of each readout cycle.
+
+* mesy_eoe_marker
+
+  EndOfEvent marker for mesytec modules (register 0x6038).
+
+* mesy_readout_num_events
+
+  Number of events to read out from each module per readout cycle. This is used
+  to set the values of the ``irq_fifo_threshold (0x601E)`` and
+  ``max_transfer_data (0x601A)`` of mesytec module. By default
+  ``irq_fifo_threshold`` is set to ``mesy_readout_num_events + 1``.
+
+The default VME templates shipped with mvme assume that the above variables are
+defined and contain valid values for mesytec modules.
+
+In the GUI variables can be viewed, added and modified by editing the
+respective object (**Edit Event Settings** for events, **Edit Module Settings**
+for modules).
+
+For event configs there is also a special variable editor available via the
+**Edit Variables** action button or context menu entry. This editor allows to
+edit variables during a DAQ run and automatically executes VME scripts that are
+affected by changes to variable values.
+
+.. autofigure:: images/vme_config_event_variable_editor.png
+
+   Event Variable Editor with system and custom variables
+
 .. _vme-config-daq-start:
 
 DAQ startup procedure
@@ -99,7 +152,7 @@ DAQ startup procedure
   * Add *Cycle End* script
 
 * Upload the readout code to the controller and activate triggers
-* Execute global *DAQ Start* scripts
+* Execute global *DAQ Start* scripts, including the MVLC Trigger/IO script
 * Initialize Modules
 
   For each Event do:
@@ -128,6 +181,15 @@ DAQ stop procedure
 
 VME Controller specifics
 ------------------------
+
+Mesytec MVLC
+~~~~~~~~~~~~
+To implement periodic events on the MVLC the global MVLC Trigger/IO script is
+modified by mvme when starting a DAQ run: A StackStart unit is connected to a
+Timer unit which is setup with the parameters from the coressponding periodic
+event. The StackStart unit is then setup to start the command stack for the
+respective event. These changes are visible in the MVLC Trigger/IO gui
+immediately after starting the DAQ.
 
 SIS3153
 ~~~~~~~

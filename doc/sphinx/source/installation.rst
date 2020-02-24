@@ -13,6 +13,9 @@ System Requirements
   * `WIENER`_ `VM-USB <http://www.wiener-d.com/sc/modules/vme--modules/vm-usb.html>`_ (USB2)
   * `Struck`_ SIS3153 (GBit/s Ethernet)
 
+* Firmware updates for the MVLC can be found here:
+  `<https://mesytec.com/downloads/firmware%20updates/MVLC/>`_
+
 * If using the WIENER VM-USB VME Controller:
 
   * WIENER VM-USB VME Controller with a recent firmware
