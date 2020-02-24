@@ -987,6 +987,10 @@ static Command handle_single_line_command(const PreparsedLine &line)
         Command result = parseFun(parts, line.lineNumber);
         return result;
     }
+    catch (const QString &message)
+    {
+        throw ParseError(message, line.lineNumber);
+    }
     catch (const char *message)
     {
         throw ParseError(message, line.lineNumber);
