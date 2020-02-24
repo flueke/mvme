@@ -131,17 +131,29 @@ T parseValue(const QString &str)
         return parseBinaryLiteral<T>(str);
     }
 
-    bool ok;
+    // Accepts dec, hex and octal values. Leaves 'ok' set to false when
+    // encountering a negative or a float value.
+    bool ok = false;
     qulonglong val = str.toULongLong(&ok, 0);
 
+    // Try parsing as a floating point value.
     if (!ok)
-        throw "invalid numeric value";
+    {
+        auto fval = std::round(str.toFloat(&ok));
+
+        if (!ok)
+            throw QSL("invalid numeric value");
+
+        if (fval < 0.0)
+            throw QSL("given numeric value is negative");
+
+        val = fval;
+    }
 
     constexpr auto maxValue = std::numeric_limits<T>::max();
 
     if (val > maxValue)
-        throw QString("given numeric value is out of range. max=%1")
-            .arg(maxValue, 0, 16);
+        throw QSL("given numeric value is out of range. max=%1").arg(maxValue, 0, 16);
 
     return val;
 }
@@ -1038,17 +1050,8 @@ QString evaluate_expressions(const QString &qstrPart, s32 lineNumber)
                             expr.compile();
                             double d = expr.eval();
 
-                            if (d < 0.0)
-                            {
-                                throw ParseError(
-                                    QSL("Embedded math expression yields a negative result: %1 -> %2")
-                                    .arg(exprString.c_str())
-                                    .arg(d),
-                                    lineNumber);
-                            }
+                            result += QString::number(d);
 
-                            u32 exprResult = std::round(d);
-                            result += QString::number(exprResult);
                             state = OutsideExpr;
                             exprString.clear();
                         }
