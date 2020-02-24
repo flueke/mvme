@@ -342,7 +342,8 @@ These units start the execution of one of the 7 MVLC command stacks.
 
 Settings
 ^^^^^^^^
-* Number of the command stack to execute
+* Index of the command stack to execute
+* Delay: the delay in ns until the stack execution is started
 * Activation flag
 
 In the mvme user interface the command stack numbers are augmented with the
