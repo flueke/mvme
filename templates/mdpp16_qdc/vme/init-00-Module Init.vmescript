@@ -3,7 +3,7 @@
 # Operation Mode
 # ############################################################################
 # tdc_resolution
-0x6042  5           # 0 ->  24 ps = 25 ns / 1024
+0x6042  2           # 0 ->  24 ps = 25 ns / 1024
                     # 1 ->  49 ps = 25 ns / 512
                     # 2 ->  98 ps = 25 ns / 256
                     # 3 -> 195 ps = 25 ns / 128
@@ -16,9 +16,6 @@
                     # 2 -> time only (TDC mode)
                     # 3 -> long integral, short integral and time
 
-# adc_resolution
-#0x6046             # always 4k
-
 # first_hit
 0x605C  1           # 0 -> transmit all hits per channel in the window
                     # 1 -> only transmit first hit per channel in the window
@@ -26,15 +23,20 @@
 # Trigger Setup
 # ############################################################################
 # win_start
-#0x6050  16368      # Window of interest start time relative to trigger.
-                    # win_start = (time_delay_ns / 1.56) + 0x3FFF
-                    # with time_delay_ns in range [-25560 ns, +25560 ns]
+0x6050  16320       # 16320 = -100ns
+					# Window of interest start time relative to trigger.
+					# Window start   = 16384  + delay[ns]/25[ns]*16;
+					#  Hex notation: = 0x3FFF + delay[ns]/25[ns]*16;
+					# Delay can be negative to register hits before the trigger
+                    # Delay may be in the range [-25560 ns, +25560 ns]
                     # < 0 -> window starts before trigger
                     # > 0 -> window is delayed
 
 # win_width (14 bit value)
-0x6054  32          # win_width = (win_width_ns / 1.56 ns)
-                    # Unit: ns, Range: [0, 25560 ns]
+0x6054  128         # 128 = 200ns
+					# win_width = (win_width[ns] / 25ns * 16)
+					# max value 16383; (Hex notation: 0x3FFF)
+                    # Range: [0, 25560 ns]
 
 # trig_source
 # Defines the trigger which creates the window of interest.
@@ -62,7 +64,13 @@
 0x605E  0x100       # 0x100 -> whole bank (OR of all channels)
                     # single channel: trigger_output = 128 + (chan * 4)
                     #                 with channel in 0..15
-
+                    # +-------------+--------------------+---------+
+                    # | Whole bank  |     16_channels    |  trig   |
+                    # |   2 bits    |       6 bits       | 2 bits  |
+                    # +============================================|
+                    # |      0 | B0 | active | 0 | Chan  | X  | X  |
+                    # |        |    |        |   | [3:0] |    |    |
+                    # +--------+----+--------+---+-------+----+----+
 # I/O
 # ############################################################################
 # Sorted from top to bottom, as on the front panel.
@@ -134,172 +142,3 @@
 #0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
                     # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
                     # with 0 -> run, 1 -> stop counter
-
-# Front end settings
-# ############################################################################
-# select_chan_pair
-0x6100  8       # 0 -> channel 0, 1
-                # 1 -> channel 2, 3
-                # ...
-                # 8 -> all channels (set to common values)
-
-# signal_width (10 bit value)
-0x6110  30      # FWHM in ns
-
-# input_amplitude (16 bit value)
-0x6112  1000    # input amplitude 0 to peak in mV
-
-# jumper_range
-0x6114  3000    # range printed on jumper top in mV
-
-# qdc_jumper
-0x6116  0       # 0 -> no, 1 -> yes
-
-# integration_long
-0x6118  10      # 2..128 in multiples of 12.5 ns
-
-# integration_short
-0x611A  1       # 2..31 in multiples of 12.5 ns,
-                # must be < integration_long.
-
-# threshold0 (15 bit value for the even channel)
-0x611C  0x4FF   # 1..0xFFFF, example: 0x200 -> 0.8%
-
-# threshold1 (15 bit value for the odd channel)
-0x611E  0x4FF   # 1..0xFFFF, example: 0x200 -> 0.8%
-
-# reset_time (common for both selected channels)
-0x6128  20      # multiple of 12.5 ns
-
-# long_gain_correction
-0x612A  1024    #  256 -> divide by 4
-                # 4096 -> multiply by 4
-                # 1024 -> neutral
-
-# tf_gain_correction
-0x612C  1024    #  256 -> divide by 4
-                # 4096 -> multiply by 4
-                # 1024 -> neutral
-
-# short_gain_correction
-0x612E  1024    #  256 -> divide by 4
-                # 4096 -> multiply by 4
-                # 1024 -> neutral
-
-# Channel / Channel Pair Front end settings
-# ############################################################################
-
-/*
-# channels (0, 1)
-0x6100       0
-0x6110      16    # signal_width
-0x6112    1024    # input_amplitude
-0x6114    3072    # jumper_range
-0x6116       0    # qdc_jumper
-0x6118      16    # integration_long
-0x611A       2    # integration_short
-0x611C  0x00ff    # threshold0
-0x611E  0x00ff    # threshold1
-0x6128      32    # reset_time
-0x612A    1024    # long_gain_correction
-0x612C    1024    # tf_gain_correction
-0x612E    1024    # short_gain_correction
-# channels (2, 3)
-0x6100       1
-0x6110      16    # signal_width
-0x6112    1024    # input_amplitude
-0x6114    3072    # jumper_range
-0x6116       0    # qdc_jumper
-0x6118      16    # integration_long
-0x611A       2    # integration_short
-0x611C  0x00ff    # threshold0
-0x611E  0x00ff    # threshold1
-0x6128      32    # reset_time
-0x612A    1024    # long_gain_correction
-0x612C    1024    # tf_gain_correction
-0x612E    1024    # short_gain_correction
-# channels (4, 5)
-0x6100       2
-0x6110      16    # signal_width
-0x6112    1024    # input_amplitude
-0x6114    3072    # jumper_range
-0x6116       0    # qdc_jumper
-0x6118      16    # integration_long
-0x611A       2    # integration_short
-0x611C  0x00ff    # threshold0
-0x611E  0x00ff    # threshold1
-0x6128      32    # reset_time
-0x612A    1024    # long_gain_correction
-0x612C    1024    # tf_gain_correction
-0x612E    1024    # short_gain_correction
-# channels (6, 7)
-0x6100       3
-0x6110      16    # signal_width
-0x6112    1024    # input_amplitude
-0x6114    3072    # jumper_range
-0x6116       0    # qdc_jumper
-0x6118      16    # integration_long
-0x611A       2    # integration_short
-0x611C  0x00ff    # threshold0
-0x611E  0x00ff    # threshold1
-0x6128      32    # reset_time
-0x612A    1024    # long_gain_correction
-0x612C    1024    # tf_gain_correction
-0x612E    1024    # short_gain_correction
-# channels (8, 9)
-0x6100       4
-0x6110      16    # signal_width
-0x6112    1024    # input_amplitude
-0x6114    3072    # jumper_range
-0x6116       0    # qdc_jumper
-0x6118      16    # integration_long
-0x611A       2    # integration_short
-0x611C  0x00ff    # threshold0
-0x611E  0x00ff    # threshold1
-0x6128      32    # reset_time
-0x612A    1024    # long_gain_correction
-0x612C    1024    # tf_gain_correction
-0x612E    1024    # short_gain_correction
-# channels (10, 11)
-0x6100       5
-0x6110      16    # signal_width
-0x6112    1024    # input_amplitude
-0x6114    3072    # jumper_range
-0x6116       0    # qdc_jumper
-0x6118      16    # integration_long
-0x611A       2    # integration_short
-0x611C  0x00ff    # threshold0
-0x611E  0x00ff    # threshold1
-0x6128      32    # reset_time
-0x612A    1024    # long_gain_correction
-0x612C    1024    # tf_gain_correction
-0x612E    1024    # short_gain_correction
-# channels (12, 13)
-0x6100       6
-0x6110      16    # signal_width
-0x6112    1024    # input_amplitude
-0x6114    3072    # jumper_range
-0x6116       0    # qdc_jumper
-0x6118      16    # integration_long
-0x611A       2    # integration_short
-0x611C  0x00ff    # threshold0
-0x611E  0x00ff    # threshold1
-0x6128      32    # reset_time
-0x612A    1024    # long_gain_correction
-0x612C    1024    # tf_gain_correction
-0x612E    1024    # short_gain_correction
-# channels (14, 15)
-0x6100       7
-0x6110      16    # signal_width
-0x6112    1024    # input_amplitude
-0x6114    3072    # jumper_range
-0x6116       0    # qdc_jumper
-0x6118      16    # integration_long
-0x611A       2    # integration_short
-0x611C  0x00ff    # threshold0
-0x611E  0x00ff    # threshold1
-0x6128      32    # reset_time
-0x612A    1024    # long_gain_correction
-0x612C    1024    # tf_gain_correction
-0x612E    1024    # short_gain_correction
-*/

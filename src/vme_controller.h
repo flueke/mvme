@@ -21,26 +21,19 @@
 #ifndef VMECONTROLLER_H
 #define VMECONTROLLER_H
 
-#include "libmvme_export.h"
+#include "libmvme_core_export.h"
 #include "vme.h"
 #include "globals.h"
 #include <QObject>
+#include <system_error>
 
 enum class VMEControllerType
 {
     VMUSB,
-    SIS3153
+    SIS3153,
+    MVLC_USB,
+    MVLC_ETH,
 };
-
-enum class ControllerState
-{
-    Disconnected,
-    Connecting,
-    Connected,
-};
-
-Q_DECLARE_METATYPE(ControllerState);
-
 
 /* VME Controller errors and results
  * ---------------------------------
@@ -52,7 +45,7 @@ Q_DECLARE_METATYPE(ControllerState);
  *
  */
 
-class LIBMVME_EXPORT VMEError
+class LIBMVME_CORE_EXPORT VMEError
 {
     public:
         enum ErrorType
@@ -72,6 +65,8 @@ class LIBMVME_EXPORT VMEError
             UnexpectedAddressMode,
             HostLookupFailed,
             WrongControllerType,
+            StdErrorCode,       // Used by the MVLC implementation
+            UnsupportedCommand, // Used by vme_script::run_command()
         };
 
         VMEError()
@@ -109,7 +104,19 @@ class LIBMVME_EXPORT VMEError
             , m_errorCodeString(codeString)
         {}
 
-        inline bool isError() const { return m_error != NoError; }
+        VMEError(const std::error_code &ec)
+            : m_error(StdErrorCode)
+            , m_stdErrorCode(ec)
+        {}
+
+        inline bool isError() const
+        {
+            if (m_error == StdErrorCode)
+                return static_cast<bool>(getStdErrorCode());
+
+            return m_error != NoError;
+        }
+
         inline bool isTimeout() const { return m_error == Timeout; }
 
         // Returns this errors type.
@@ -127,14 +134,23 @@ class LIBMVME_EXPORT VMEError
         QString errorName() const;
         static QString errorName(ErrorType type);
 
+        std::error_code getStdErrorCode() const { return m_stdErrorCode; }
+
+        // Returns true if this represents an error.
+        explicit inline operator bool() const
+        {
+            return isError();
+        }
+
     private:
         ErrorType m_error = NoError;
         s32 m_errorCode = 0;
         QString m_message;
         QString m_errorCodeString;
+        std::error_code m_stdErrorCode;
 };
 
-class LIBMVME_EXPORT VMEController: public QObject
+class LIBMVME_CORE_EXPORT VMEController: public QObject
 {
     Q_OBJECT
     signals:
@@ -165,9 +181,25 @@ class LIBMVME_EXPORT VMEController: public QObject
         virtual QString getIdentifyingString() const = 0;
 };
 
-QString LIBMVME_EXPORT to_string(VMEControllerType type);
-VMEControllerType LIBMVME_EXPORT from_string(const QString &str);
+QString LIBMVME_CORE_EXPORT to_string(VMEControllerType type);
+VMEControllerType LIBMVME_CORE_EXPORT from_string(const QString &str);
 
-QString LIBMVME_EXPORT to_string(ControllerState state);
+QString LIBMVME_CORE_EXPORT to_string(ControllerState state);
+
+inline bool is_mvlc_controller(const VMEControllerType &type)
+{
+    return (type == VMEControllerType::MVLC_ETH
+            || type == VMEControllerType::MVLC_USB);
+}
+
+inline bool is_mvlc_controller(const VMEController *ctrl)
+{
+    return ctrl ? is_mvlc_controller(ctrl->getType()) : false;
+}
+
+inline bool is_mvlc_controller(const QString &ctrlTypeName)
+{
+    return is_mvlc_controller(from_string(ctrlTypeName));
+}
 
 #endif // VMECONTROLLER_H

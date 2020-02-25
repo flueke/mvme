@@ -1,6 +1,7 @@
 #ifndef __RATE_MONITOR_BASE_H__
 #define __RATE_MONITOR_BASE_H__
 
+#include <array>
 #include <boost/iterator/filter_iterator.hpp>
 #include <QDebug>
 #include <QRectF>
@@ -48,6 +49,12 @@ inline std::pair<double, double> get_minmax_values(const RateHistoryBuffer &rh,
     return result;
 }
 
+inline double get_max_value(const a2::RateSampler &sampler, double defaultValue = 0.0)
+{
+    a2::RateSampler::UniqueLock guard(sampler.mutex);
+    return get_max_value(sampler.rateHistory, defaultValue);
+}
+
 inline std::pair<double, double> get_minmax_values(const a2::RateSampler &sampler,
                                                    AxisInterval timeInterval,
                                                    const std::pair<double, double> defaultValues = { 0.0, 0.0 })
@@ -59,15 +66,9 @@ inline std::pair<double, double> get_minmax_values(const a2::RateSampler &sample
 
     ssize_t minIndex = sampler.getSampleIndex(timeInterval.minValue);
     ssize_t maxIndex = sampler.getSampleIndex(timeInterval.maxValue);
+
+    a2::RateSampler::UniqueLock guard(sampler.mutex);
     const ssize_t size = sampler.rateHistory.size();
-
-    qDebug() << __PRETTY_FUNCTION__ << "time minValue =" << timeInterval.minValue << " -> index =" << minIndex;
-    qDebug() << __PRETTY_FUNCTION__ << "time maxValue =" << timeInterval.maxValue << " -> index =" << maxIndex;
-
-    //for (ssize_t i = 0; i < size; i++)
-    //{
-    //    qDebug() << "  " << i << sampler.rateHistory.at(i);
-    //}
 
     if (0 <= minIndex && minIndex < size
         && 0 <= maxIndex && maxIndex <= size)
@@ -83,12 +84,8 @@ inline std::pair<double, double> get_minmax_values(const a2::RateSampler &sample
             minmax_iters.first  == f_end ? defaultValues.first  : *minmax_iters.first,
             minmax_iters.second == f_end ? defaultValues.second : *minmax_iters.second);
 
-        qDebug() << __PRETTY_FUNCTION__ << "valid indices, result =" << result;
-
         return result;
     }
-
-    qDebug() << __PRETTY_FUNCTION__ << "invalid indices, returning defaults: =" << defaultValues;
 
     return defaultValues;
 }

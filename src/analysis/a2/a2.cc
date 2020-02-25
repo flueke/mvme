@@ -13,8 +13,16 @@
 #include <mutex>
 #include <queue>
 #include <random>
-#include <thread>
+#include <vector>
 #include <zstr/src/zstr.hpp>
+
+/* Circumvent compile errors related to the 'Q' numeric literal suffix.
+ * See https://svn.boost.org/trac10/ticket/9240 and
+ * https://www.boost.org/doc/libs/1_68_0/libs/math/doc/html/math_toolkit/config_macros.html
+ * for details. */
+#define BOOST_MATH_DISABLE_FLOAT128
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
@@ -34,9 +42,12 @@ do\
 {\
     fprintf(stderr, fmt, ##__VA_ARGS__);\
 } while (0);
+
 #else
+
 #define a2_trace(...)
 #define a2_trace_np(...)
+
 #endif
 
 #include <iostream>
@@ -78,9 +89,6 @@ static const size_t ParamVecAlignment = 64;
 
 /* Asserted in extractor_process_module_data(). */
 static const size_t ModuleDataAlignment = alignof(u32);
-
-static const int A2AdditionalThreads = 0;
-static const int OperatorsPerThreadTask = 6;
 
 void print_param_vector(ParamVec pv)
 {
@@ -128,6 +136,14 @@ void assign_input(Operator *op, PipeVectors input, s32 inputIndex)
     op->inputs[inputIndex] = input.data;
     op->inputLowerLimits[inputIndex] = input.lowerLimits;
     op->inputUpperLimits[inputIndex] = input.upperLimits;
+}
+
+void invalidate_outputs(Operator *op)
+{
+    for (u8 outIdx = 0; outIdx < op->outputCount; outIdx++)
+    {
+        invalidate_all(op->outputs[outIdx]);
+    }
 }
 
 /* ===============================================
@@ -247,7 +263,7 @@ void extractor_begin_event(DataSource *ds)
     invalidate_all(ds->output.data);
 }
 
-void extractor_process_module_data(DataSource *ds, u32 *data, u32 size)
+void extractor_process_module_data(DataSource *ds, const u32 *data, u32 size)
 {
     assert(memory::is_aligned(data, ModuleDataAlignment));
     assert(ds->type == DataSource_Extractor);
@@ -346,11 +362,11 @@ void listfilter_extractor_begin_event(DataSource *ds)
     invalidate_all(ds->output.data);
 }
 
-u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dataSize)
+const u32 *listfilter_extractor_process_module_data(DataSource *ds, const u32 *data, u32 dataSize)
 {
     assert(ds->type == DataSource_ListFilterExtractor);
 
-    u32 *curPtr = data;
+    const u32 *curPtr = data;
     u32 curSize = dataSize;
 
     auto ex = reinterpret_cast<ListFilterExtractor *>(ds->d);
@@ -430,6 +446,7 @@ Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
     result.type = type;
     result.inputCount = inputCount;
     result.outputCount = outputCount;
+    result.conditionIndex = Operator::NoCondition;
     result.d = nullptr;
 
     return  result;
@@ -463,7 +480,7 @@ struct CalibrationData
     ParamVec calibFactors;
 };
 
-void calibration_step(Operator *op)
+void calibration_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     assert(op->inputCount == 1);
@@ -487,7 +504,7 @@ void calibration_step(Operator *op)
     }
 }
 
-void calibration_sse_step(Operator *op)
+void calibration_sse_step(Operator *op, A2 *a2)
 {
     /* Note: The partially transformed code below is slower than
      * calibration_step(). With the right compiler flags gcc seems to auto
@@ -665,7 +682,7 @@ Operator make_calibration_idx(
     return result;
 }
 
-void calibration_step_idx(Operator *op)
+void calibration_step_idx(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     assert(op->inputCount == 1);
@@ -698,7 +715,7 @@ struct KeepPreviousData_idx: public KeepPreviousData
     s32 inputIndex;
 };
 
-void keep_previous_step(Operator *op)
+void keep_previous_step(Operator *op, A2 *a2)
 {
     assert(op->inputCount == 1);
     assert(op->outputCount == 1);
@@ -725,7 +742,7 @@ void keep_previous_step(Operator *op)
     }
 }
 
-void keep_previous_step_idx(Operator *op)
+void keep_previous_step_idx(Operator *op, A2 *a2)
 {
     assert(op->inputCount == 1);
     assert(op->outputCount == 1);
@@ -832,7 +849,7 @@ Operator make_difference_idx(
     return result;
 }
 
-void difference_step(Operator *op)
+void difference_step(Operator *op, A2 *a2)
 {
     assert(op->inputCount == 2);
     assert(op->outputCount == 1);
@@ -858,7 +875,7 @@ void difference_step(Operator *op)
     }
 }
 
-void difference_step_idx(Operator *op)
+void difference_step_idx(Operator *op, A2 *a2)
 {
     assert(op->inputCount == 2);
     assert(op->outputCount == 1);
@@ -886,7 +903,7 @@ void difference_step_idx(Operator *op)
  * members.
  */
 
-void array_map_step(Operator *op)
+void array_map_step(Operator *op, A2 *a2)
 {
     auto d = reinterpret_cast<ArrayMapData *>(op->d);
 
@@ -1022,7 +1039,7 @@ static const size_t BinaryEquationCount_idx = ArrayCount(BinaryEquationTable_idx
 
 static_assert(BinaryEquationCount == BinaryEquationCount_idx, "Expected same number of equations for non-index and index cases.");
 
-void binary_equation_step(Operator *op)
+void binary_equation_step(Operator *op, A2 *a2)
 {
     // The equationIndex is stored directly in the d pointer.
     u32 equationIndex = (uintptr_t)op->d;
@@ -1092,7 +1109,7 @@ Operator make_binary_equation_idx(
     return result;
 }
 
-void binary_equation_step_idx(Operator *op)
+void binary_equation_step_idx(Operator *op, A2 *a2)
 {
     auto d = reinterpret_cast<BinaryEquationIdxData *>(op->d);
 
@@ -1176,7 +1193,7 @@ Operator make_aggregate_sum(
     return result;
 }
 
-void aggregate_sum_step(Operator *op)
+void aggregate_sum_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1218,7 +1235,7 @@ Operator make_aggregate_multiplicity(
     return result;
 }
 
-void aggregate_multiplicity_step(Operator *op)
+void aggregate_multiplicity_step(Operator *op, A2 *a2)
 {
     auto input = op->inputs[0];
     auto output = op->outputs[0];
@@ -1261,7 +1278,7 @@ Operator make_aggregate_min(
     return result;
 }
 
-void aggregate_min_step(Operator *op)
+void aggregate_min_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1311,7 +1328,7 @@ Operator make_aggregate_max(
     return result;
 }
 
-void aggregate_max_step(Operator *op)
+void aggregate_max_step(Operator *op, A2 *a2)
 {
     auto input = op->inputs[0];
     auto output = op->outputs[0];
@@ -1395,7 +1412,7 @@ Operator make_aggregate_mean(
     return result;
 }
 
-void aggregate_mean_step(Operator *op)
+void aggregate_mean_step(Operator *op, A2 *a2)
 {
     auto input = op->inputs[0];
     auto output = op->outputs[0];
@@ -1433,7 +1450,7 @@ Operator make_aggregate_sigma(
     return result;
 }
 
-void aggregate_sigma_step(Operator *op)
+void aggregate_sigma_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1482,7 +1499,7 @@ Operator make_aggregate_minx(
     return result;
 }
 
-void aggregate_minx_step(Operator *op)
+void aggregate_minx_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1525,7 +1542,7 @@ Operator make_aggregate_maxx(
     return result;
 }
 
-void aggregate_maxx_step(Operator *op)
+void aggregate_maxx_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1612,7 +1629,7 @@ inline MeanXResult calculate_meanx(ParamVec input, Thresholds thresholds)
     return result;
 }
 
-void aggregate_meanx_step(Operator *op)
+void aggregate_meanx_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1640,7 +1657,7 @@ Operator make_aggregate_sigmax(
     return result;
 }
 
-void aggregate_sigmax_step(Operator *op)
+void aggregate_sigmax_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1759,7 +1776,7 @@ Operator make_range_filter_idx(
     return result;
 }
 
-void range_filter_step(Operator *op)
+void range_filter_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     assert(op->inputCount == 1);
@@ -1802,7 +1819,7 @@ void range_filter_step(Operator *op)
     }
 }
 
-void range_filter_step_idx(Operator *op)
+void range_filter_step_idx(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     assert(op->inputCount == 1);
@@ -1877,7 +1894,7 @@ Operator make_rect_filter(
     return result;
 }
 
-void rect_filter_step(Operator *op)
+void rect_filter_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     assert(op->inputCount == 2);
@@ -1967,7 +1984,7 @@ Operator make_condition_filter(
     return result;
 }
 
-void condition_filter_step(Operator *op)
+void condition_filter_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     assert(op->inputCount == 2);
@@ -2044,9 +2061,9 @@ void condition_filter_step(Operator *op)
     }
 }
 
-/* ===============================================
- * Expression Operator
- * =============================================== */
+//
+// ExpressionOperator
+//
 
 a2_exprtk::SymbolTable make_expression_operator_runtime_library()
 {
@@ -2185,7 +2202,7 @@ Operator make_expression_operator(
     ExpressionOperatorBuildOptions options)
 {
     assert(inputs.size() > 0);
-    assert(inputs.size() < std::numeric_limits<s32>::max());
+    assert(inputs.size() < static_cast<size_t>(std::numeric_limits<s32>::max()));
     assert(inputs.size() == input_prefixes.size());
     assert(inputs.size() == input_units.size());
 
@@ -2259,7 +2276,7 @@ Operator make_expression_operator(
 
     const size_t outputCount = begin_results.size() / ElementsPerOutput;
 
-    assert(outputCount < std::numeric_limits<s32>::max());
+    assert(outputCount < static_cast<size_t>(std::numeric_limits<s32>::max()));
 
     auto result = make_operator(arena, Operator_Expression, inputs.size(), outputCount);
     result.d = d;
@@ -2372,7 +2389,7 @@ void expression_operator_compile_step_expression(Operator *op)
     d->expr_step.compile();
 }
 
-void expression_operator_step(Operator *op)
+void expression_operator_step(Operator *op, A2 *a2)
 {
     assert(op->type == Operator_Expression);
 
@@ -2385,7 +2402,232 @@ void expression_operator_step(Operator *op)
 }
 
 /* ===============================================
- * Histograms
+ * Conditions
+ * =============================================== */
+
+struct ConditionIntervalData: public ConditionBaseData
+{
+    TypedBlock<Interval, s32> intervals;
+};
+
+struct ConditionRectangleData: public ConditionBaseData
+{
+    Interval xInterval;
+    Interval yInterval;
+    s32 xIndex;
+    s32 yIndex;
+};
+
+namespace bg = boost::geometry;
+
+using Point = bg::model::d2::point_xy<double>;
+
+/* Note: I would have liked to use arena allocation for the polygon ring
+ * storage but the boost polygon implementation does not support passing in
+ * instances of stateful allocators (yet?). */
+#if 0
+using Polygon = bg::model::polygon<
+    Point, true, true,              // Point, ClockWise, Closed
+    std::vector, std::vector,       // PointList, RingList
+    memory::ArenaAllocator,         // PointAlloc
+    memory::ArenaAllocator>;        // RingAlloc
+#else
+using Polygon = bg::model::polygon<
+    Point, true, true>;             // Point, ClockWise, Closed
+#endif
+
+struct ConditionPolygonData: public ConditionBaseData
+{
+    Polygon polygon;
+    s32 xIndex;
+    s32 yIndex;
+};
+
+bool is_condition_operator(const Operator &op)
+{
+    switch (op.type)
+    {
+        case Operator_ConditionInterval:
+        case Operator_ConditionRectangle:
+        case Operator_ConditionPolygon:
+            return true;
+
+        default:
+            break;
+    }
+
+    return false;
+}
+
+u32 get_number_of_condition_bits_used(const Operator &op)
+{
+    assert(op.inputCount >= 1);
+
+    switch (op.type)
+    {
+        case Operator_ConditionInterval:
+            return op.inputs[0].size;
+
+        case Operator_ConditionRectangle:
+        case Operator_ConditionPolygon:
+            return 1;
+
+        default:
+            break;
+    }
+
+    return 0;
+}
+
+Operator make_condition_interval(
+    memory::Arena *arena,
+    PipeVectors input,
+    const std::vector<Interval> &intervals)
+{
+    auto result = make_operator(arena, Operator_ConditionInterval, 1, 0);
+
+    assign_input(&result, input, 0);
+
+    auto d = arena->pushStruct<ConditionIntervalData>();
+    result.d = d;
+
+    d->firstBitIndex = ConditionBaseData::InvalidIndex;
+    d->intervals = push_copy_typed_block<Interval, s32>(arena, intervals);
+
+    return result;
+}
+
+Operator make_condition_rectangle(
+    memory::Arena *arena,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
+    Interval xInterval,
+    Interval yInterval)
+{
+    auto result = make_operator(arena, Operator_ConditionRectangle, 2, 0);
+
+    assign_input(&result, xInput, 0);
+    assign_input(&result, yInput, 1);
+
+    auto d = arena->pushStruct<ConditionRectangleData>();
+    result.d = d;
+
+    d->firstBitIndex = ConditionBaseData::InvalidIndex;
+    d->xIndex = xIndex;
+    d->yIndex = yIndex;
+    d->xInterval = xInterval;
+    d->yInterval = yInterval;
+
+    return result;
+}
+
+Operator make_condition_polygon(
+    memory::Arena *arena,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
+    const std::vector<std::pair<double, double>> &polygon)
+{
+    auto result = make_operator(arena, Operator_ConditionPolygon, 2, 0);
+
+    assign_input(&result, xInput, 0);
+    assign_input(&result, yInput, 1);
+
+    // Note: pushObject because ConditionPolygonData is non-trivial
+    auto d = arena->pushObject<ConditionPolygonData>();
+    result.d = d;
+
+    d->firstBitIndex = ConditionBaseData::InvalidIndex;
+    d->xIndex = xIndex;
+    d->yIndex = yIndex;
+
+    d->polygon.outer().reserve(polygon.size());
+
+    for (const auto &p: polygon)
+    {
+        bg::append(d->polygon, Point{p.first, p.second});
+    }
+
+    return result;
+
+}
+
+void condition_interval_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 0);
+    assert(op->type == Operator_ConditionInterval);
+
+    auto d = reinterpret_cast<ConditionIntervalData *>(op->d);
+
+    assert(op->inputs[0].size == d->intervals.size);
+    assert(0 <= d->firstBitIndex);
+    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
+    assert(static_cast<size_t>(d->firstBitIndex) + d->intervals.size <= a2->conditionBits.size());
+
+    const s32 maxIdx = op->inputs[0].size;
+
+    for (s32 idx = 0; idx < maxIdx; idx++)
+    {
+        bool condResult = in_range(d->intervals[idx], op->inputs[0][idx]);
+
+        a2->conditionBits.set(d->firstBitIndex + idx, condResult);
+    }
+}
+
+void condition_rectangle_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 2);
+    assert(op->outputCount == 0);
+    assert(op->type == Operator_ConditionRectangle);
+
+    auto d = reinterpret_cast<ConditionRectangleData *>(op->d);
+
+    assert(0 <= d->firstBitIndex);
+    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
+    assert(d->xIndex < op->inputs[0].size);
+    assert(d->yIndex < op->inputs[1].size);
+
+    bool xInside = in_range(d->xInterval, op->inputs[0][d->xIndex]);
+    bool yInside = in_range(d->yInterval, op->inputs[1][d->yIndex]);
+
+    a2->conditionBits.set(d->firstBitIndex, xInside && yInside);
+}
+
+void condition_polygon_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 2);
+    assert(op->outputCount == 0);
+    assert(op->type == Operator_ConditionPolygon);
+
+    auto d = reinterpret_cast<ConditionPolygonData *>(op->d);
+
+    assert(0 <= d->firstBitIndex);
+    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
+    assert(d->xIndex < op->inputs[0].size);
+    assert(d->yIndex < op->inputs[1].size);
+
+    Point p = { op->inputs[0][d->xIndex], op->inputs[1][d->yIndex] };
+
+    bool condResult = bg::within(p, d->polygon);
+
+    a2->conditionBits.set(d->firstBitIndex, condResult);
+}
+
+/*
+struct ConditionLogicData
+{
+};
+*/
+
+/* ===============================================
+ * Sinks: Histograms/RateMonitor/ExportSink
  * =============================================== */
 
 inline double get_bin_unchecked(Binning binning, s32 binCount, double x)
@@ -2434,7 +2676,8 @@ inline void fill_h1d(H1D *histo, double x)
 #endif
 
         assert(get_bin(*histo, x) == Binning::Underflow);
-        histo->underflow++;
+        if (histo->underflow)
+            ++(*histo->underflow);
     }
     else if (x >= histo->binning.min + histo->binning.range)
     {
@@ -2451,7 +2694,8 @@ inline void fill_h1d(H1D *histo, double x)
 #endif
 
         assert(histo->binning.range == 0.0 || get_bin(*histo, x) == Binning::Overflow);
-        histo->overflow++;
+        if (histo->overflow)
+            ++(*histo->overflow);
     }
     else if (std::isnan(x))
     {
@@ -2541,17 +2785,23 @@ void clear_histo(H1D *histo)
 {
     histo->binningFactor = 0.0;
     histo->entryCount = 0.0;
-    histo->underflow = 0.0;
-    histo->overflow = 0.0;
+
+    if (histo->underflow)
+        *histo->underflow = 0.0;
+
+    if (histo->overflow)
+        *histo->overflow = 0.0;
+
     for (s32 i = 0; i < histo->size; i++)
     {
         histo->data[i] = 0.0;
     }
 }
 
-/* Note: Histos are copied. This means during runtime only the H1D structures
- * inside H1DSinkData are updated. Histogram storage itself is not copied. It
- * is assumed that this storage is handled separately.
+/* Note: The H1D instances in the 'histos' variable are copied. This means
+ * during runtime only the H1D structures inside H1DSinkData are updated.
+ * Histogram storage itself is not copied. It is assumed that this storage is
+ * handled separately.
  * The implementation could be changed to store an array of pointers to H1D.
  * Then the caller would have to keep the H1D instances around too.
  */
@@ -2577,7 +2827,7 @@ Operator make_h1d_sink(
     return result;
 }
 
-void h1d_sink_step(Operator *op)
+void h1d_sink_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     auto d = reinterpret_cast<H1DSinkData *>(op->d);
@@ -2589,7 +2839,7 @@ void h1d_sink_step(Operator *op)
     }
 }
 
-void h1d_sink_step_idx(Operator *op)
+void h1d_sink_step_idx(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     auto d = reinterpret_cast<H1DSinkData_idx *>(op->d);
@@ -2648,7 +2898,7 @@ Operator make_h2d_sink(
     return result;
 };
 
-void h2d_sink_step(Operator *op)
+void h2d_sink_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
 
@@ -2769,7 +3019,7 @@ Operator make_rate_monitor(
     return result;
 }
 
-void rate_monitor_step(Operator *op)
+void rate_monitor_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
 
@@ -3027,7 +3277,7 @@ void export_sink_begin_run(Operator *op, Logger logger)
     }
 }
 
-void export_sink_full_step(Operator *op)
+void export_sink_full_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     assert(op->type == Operator_ExportSinkFull);
@@ -3125,7 +3375,7 @@ static size_t write_indexed_parameter_vector(std::ostream &out, const ParamVec &
     return bytesWritten;
 }
 
-void export_sink_sparse_step(Operator *op)
+void export_sink_sparse_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     assert(op->type == Operator_ExportSinkSparse);
@@ -3197,7 +3447,7 @@ void export_sink_end_run(Operator *op)
 
 struct OperatorFunctions
 {
-    using StepFunction      = void (*)(Operator *op);
+    using StepFunction      = void (*)(Operator *op, A2 *a2);
     using BeginRunFunction  = void (*)(Operator *op, Logger logger);
     using EndRunFunction    = void (*)(Operator *op);
 
@@ -3251,14 +3501,30 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
 
     [Operator_Expression] = { expression_operator_step },
+
+    [Operator_ConditionInterval] = { condition_interval_step },
+    [Operator_ConditionRectangle] = { condition_rectangle_step },
+    [Operator_ConditionPolygon] = { condition_polygon_step },
 };
 
-inline void step_operator(Operator *op)
+A2::A2(memory::Arena *arena)
+    : conditionBits(BitsetAllocator(arena))
 {
-    OperatorTable[op->type].step(op);
+    //fprintf(stderr, "%s@%p\n", __PRETTY_FUNCTION__, this);
+
+    dataSourceCounts.fill(0);
+    dataSources.fill(nullptr);
+    operatorCounts.fill(0);
+    operators.fill(nullptr);
+    operatorRanks.fill(0);
 }
 
-A2 make_a2(
+A2::~A2()
+{
+    //fprintf(stderr, "%s@%p\n", __PRETTY_FUNCTION__, this);
+}
+
+A2 *make_a2(
     Arena *arena,
     std::initializer_list<u8> dataSourceCounts,
     std::initializer_list<u8> operatorCounts)
@@ -3266,26 +3532,20 @@ A2 make_a2(
     assert(dataSourceCounts.size() < MaxVMEEvents);
     assert(operatorCounts.size() < MaxVMEEvents);
 
-    A2 result = {};
-
-    result.dataSourceCounts.fill(0);
-    result.dataSources.fill(nullptr);
-    result.operatorCounts.fill(0);
-    result.operators.fill(nullptr);
-    result.operatorRanks.fill(0);
+    auto result = arena->pushObject<A2>(arena);
 
     const u8 *ec = dataSourceCounts.begin();
 
     for (size_t ei = 0; ei < dataSourceCounts.size(); ++ei, ++ec)
     {
         //printf("%s: %lu -> %u\n", __PRETTY_FUNCTION__, ei, (u32)*ec);
-        result.dataSources[ei] = arena->pushArray<DataSource>(*ec);
+        result->dataSources[ei] = arena->pushArray<DataSource>(*ec);
     }
 
     for (size_t ei = 0; ei < operatorCounts.size(); ++ei)
     {
-        result.operators[ei] = arena->pushArray<Operator>(operatorCounts.begin()[ei]);
-        result.operatorRanks[ei] = arena->pushArray<u8>(operatorCounts.begin()[ei]);
+        result->operators[ei] = arena->pushArray<Operator>(operatorCounts.begin()[ei]);
+        result->operatorRanks[ei] = arena->pushArray<u8>(operatorCounts.begin()[ei]);
     }
 
     return result;
@@ -3318,7 +3578,7 @@ void a2_begin_event(A2 *a2, int eventIndex)
 }
 
 // hand module data to all sources for eventIndex and moduleIndex
-void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize)
+void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
 {
     assert(eventIndex < MaxVMEEvents);
     assert(moduleIndex < MaxVMEModules);
@@ -3330,7 +3590,7 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, 
     const int srcCount = a2->dataSourceCounts[eventIndex];
 
     // State for the data consuming ListFilterExtractors
-    u32 *curPtr = data;
+    const u32 *curPtr = data;
     const u32 *endPtr = data + dataSize;
 
     for (int srcIdx = 0; srcIdx < srcCount; srcIdx++)
@@ -3364,7 +3624,7 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, 
 #endif
 }
 
-inline u32 step_operator_range(Operator *first, Operator *last)
+inline u32 step_operator_range(Operator *first, Operator *last, A2 *a2)
 {
     u32 opSteppedCount = 0;
 
@@ -3379,7 +3639,7 @@ inline u32 step_operator_range(Operator *first, Operator *last)
         {
             assert(OperatorTable[op->type].step);
 
-            OperatorTable[op->type].step(op);
+            OperatorTable[op->type].step(op, a2);
             opSteppedCount++;
         }
     }
@@ -3410,222 +3670,8 @@ struct OperatorRangeWorkQueue
     {}
 };
 
-struct ThreadInfo
-{
-    int id = 0;
-};
-
-OperatorRangeWork dequeue(OperatorRangeWorkQueue *queue, ThreadInfo threadInfo)
-{
-#if 0
-    std::unique_lock<std::mutex> lock(queue->mutex);
-
-    while (queue->queue.empty())
-    {
-        queue->cv_notEmpty.wait(lock);
-    }
-
-    OperatorRangeWork result = queue->queue.front();
-    queue->queue.pop();
-#else
-    OperatorRangeWork result = {};
-
-    for (;;)
-    {
-        a2_trace("a2 worker %d waiting for taskSem\n",
-                 threadInfo.id);
-
-        // block here and try the queue until we get an item
-        queue->taskSem.wait();
-
-        a2_trace("a2 worker %d taking the lock\n",
-                 threadInfo.id);
-
-        //OperatorRangeWorkQueue::Guard guard(queue->mutex);
-        if (queue->queue.dequeue(result))
-        {
-            break;
-        }
-
-        //if (!queue->queue.empty())
-        //{
-        //    result = queue->queue.front();
-        //    queue->queue.pop();
-        //    break;
-        //}
-    }
-
-    a2_trace("a2 worker %d got a task\n",
-             threadInfo.id);
-#endif
-
-    return result;
-}
-
-void a2_worker_loop(OperatorRangeWorkQueue *queue, ThreadInfo threadInfo)
-{
-    a2_trace("worker %d starting up\n", threadInfo.id);
-
-    for (;;)
-    {
-        // the deqeue() call blocks until we get an item
-        auto work = dequeue(queue, threadInfo);
-
-        if (work.begin)
-        {
-            a2_trace("worker %d got %d operators to step\n",
-                     threadInfo.id,
-                     (s32)(work.end - work.begin));
-
-            step_operator_range(work.begin, work.end);
-            //queue->tasksDone++;
-            queue->tasksDoneSem.signal();
-        }
-        else // nullptr is the "quit message"
-        {
-            a2_trace("worker %d got nullptr work\n",
-                     threadInfo.id);
-            //queue->tasksDone++;
-            queue->tasksDoneSem.signal();
-            break;
-        }
-    }
-
-    a2_trace("worker %d about to quit\n",
-             threadInfo.id);
-}
-
-u32 step_operator_range_threaded(OperatorRangeWorkQueue *queue, Operator *first, Operator *last)
-{
-
-    const s32 opCount = (s32)(last - first);
-    s32 tasksQueued = 0;
-    s32 opsQueued = 0;
-
-    a2_trace("about to step %d operators\n", opCount);
-
-    {
-        // Workers should spin or wait in queue->taskSem.wait() so the rwLock
-        // should always be uncontested.
-        a2_trace("main a2 worker taking lock before enqueueing work\n");
-        //OperatorRangeWorkQueue::Guard guard(queue->mutex);
-
-        //queue->tasksDone = 0;
-        assert(queue->tasksDoneSem.count() == 0);
-
-        auto op = first;
-
-        while (op < last)
-        {
-            s32 opsToQueue = std::min(OperatorsPerThreadTask, (s32)(last - op));
-
-            a2_trace("about to enqueue a task of %d operators\n",
-                     opsToQueue);
-
-            //queue->queue.push({ op, op + opsToQueue});
-            if (queue->queue.enqueue({ op, op + opsToQueue }))
-            {
-                op += opsToQueue;
-                tasksQueued++;
-                opsQueued += opsToQueue;
-            }
-        }
-
-        // workers are still in queue->taskSem.wait()
-    }
-
-    assert(opsQueued == opCount);
-
-    a2_trace("work prepared, notifying workers: taskSem.signal(%d)\n",
-             tasksQueued);
-    queue->taskSem.signal(tasksQueued);
-
-    // Workers should wake up and hit the rwLock now
-
-    a2_trace("main a2 worker starting work\n");
-
-    // This must atomically fetch queue->tasksDone every time through the loop.
-    //while (queue->tasksDone.load() < tasksQueued)
-    while (true)
-    {
-        OperatorRangeWork task = {};
-        {
-            a2_trace("main a2 worker taking the lock\n");
-            // Contend with the workers for the rwLock
-            //OperatorRangeWorkQueue::Guard guard(queue->mutex);
-
-            a2_trace("main a2 worker got the lock, tasksQueued=%d, tasksDone=%d", //, queue.size()=%u\n|",
-                     tasksQueued,
-                     queue->tasksDoneSem.count());
-                     //queue->tasksDone.load());
-                     //(u32)queue->queue.size());
-
-            if (!queue->queue.dequeue(task))
-            {
-                break;
-            }
-
-            //if (!queue->queue.empty())
-            //{
-            //    task = queue->queue.front();
-            //    queue->queue.pop();
-            //}
-        }
-
-        if (task.begin)
-        {
-            a2_trace("main a2 worker got %d operators to step\n",
-                     (s32)(task.end - task.begin));
-
-            step_operator_range(task.begin, task.end);
-
-            //queue->tasksDone++;
-            queue->tasksDoneSem.signal();
-        }
-    }
-
-    //while (queue->tasksDone < tasksQueued);
-
-    a2_trace("tasksQueued=%d, tasksDone=%d\n",
-             tasksQueued,
-             queue->tasksDoneSem.count());
-             //queue->tasksDone.load());
-
-    for (s32 i = 0; i < tasksQueued; i++)
-    {
-        queue->tasksDoneSem.wait();
-    }
-
-    //assert(queue->tasksDone == tasksQueued);
-    assert(queue->tasksDoneSem.count() == 0);
-
-    a2_trace("main a2 worker done\n");
-
-    a2_trace("work was done on %d operators in %d tasks\n",
-             opCount,
-             tasksQueued);
-
-    return opCount;
-}
-
-static OperatorRangeWorkQueue A2WorkQueue(WorkQueueSize);
-
-static std::vector<std::thread> A2Threads = {};
-
 void a2_begin_run(A2 *a2, Logger logger)
 {
-    if (A2AdditionalThreads > 0)
-    {
-        A2Threads.clear();
-
-        a2_trace("starting %d workers\n", A2AdditionalThreads);
-
-        for (int threadId = 0; threadId < A2AdditionalThreads; threadId++)
-        {
-            A2Threads.emplace_back(a2_worker_loop, &A2WorkQueue, ThreadInfo{ threadId });
-        }
-    }
-
     // call begin_run functions stored in the OperatorTable
     for (s32 ei = 0; ei < MaxVMEEvents; ei++)
     {
@@ -3648,57 +3694,6 @@ void a2_begin_run(A2 *a2, Logger logger)
 
 void a2_end_run(A2 *a2)
 {
-    if (A2AdditionalThreads > 0)
-    {
-        a2_trace("about to queue nullptr work\n");
-
-        auto queue = &A2WorkQueue;
-        const s32 threadCount = (s32)A2Threads.size();
-
-        {
-            //OperatorRangeWorkQueue::Guard guard(queue->mutex);
-            //queue->tasksDone = 0;
-            assert(queue->tasksDoneSem.count() == 0);
-
-            for (s32 i = 0; i < threadCount; i++)
-            {
-                //queue->queue.push({ nullptr, nullptr });
-                queue->queue.enqueue({ nullptr, nullptr });
-            }
-        }
-
-        a2_trace("notifying workers: taskSem.signal(%d)\n",
-                 threadCount);
-
-        queue->taskSem.signal(threadCount);
-
-        a2_trace("waiting for workers to quit\n");
-
-        //while (queue->tasksDone.load() < threadCount) /* spin */;
-
-        for (s32 i = 0; i < threadCount; i++)
-        {
-            queue->tasksDoneSem.wait();
-        }
-
-        a2_trace("workers have quit, joining threads\n");
-
-        for (s32 threadId = 0; threadId < threadCount; threadId++)
-        {
-            if (A2Threads[threadId].joinable())
-            {
-                a2_trace("thread %d is joinable\n", threadId);
-                A2Threads[threadId].join();
-            }
-            else
-            {
-                a2_trace("thread %d was not joinable\n", threadId);
-            }
-        }
-    }
-
-    a2_trace("done joining threads\n");
-
     // call end_run functions stored in the OperatorTable
     for (s32 ei = 0; ei < MaxVMEEvents; ei++)
     {
@@ -3723,7 +3718,8 @@ void a2_end_run(A2 *a2)
 }
 
 // step operators for the eventIndex
-// operators must be sorted by rank
+// operators must be sorted by increasing rank otherwise the behavior is
+// undefined
 void a2_end_event(A2 *a2, int eventIndex)
 {
     assert(eventIndex < MaxVMEEvents);
@@ -3732,86 +3728,77 @@ void a2_end_event(A2 *a2, int eventIndex)
     Operator *operators = a2->operators[eventIndex];
     u8 *ranks = a2->operatorRanks[eventIndex];
     s32 opSteppedCount = 0;
+    s32 opCondSkipped  = 0;
 
     a2_trace("ei=%d, stepping %d operators\n", eventIndex, opCount);
 
-    if (opCount)
+    for (int opIdx = 0; opIdx < opCount; opIdx++)
     {
-        // No threads
-        if (A2AdditionalThreads == 0)
+        Operator *op = operators + opIdx;
+
+        a2_trace("  op@%p\n", op);
+
+        assert(op);
+        assert(op->type < ArrayCount(OperatorTable));
+
+        if (likely(op->type != Invalid_OperatorType))
         {
-            for (int opIdx = 0; opIdx < opCount; opIdx++)
+            assert(OperatorTable[op->type].step);
+
+            if (op->conditionIndex >= 0)
             {
-                Operator *op = operators + opIdx;
+                assert(static_cast<size_t>(op->conditionIndex) < a2->conditionBits.size());
+            }
 
-                a2_trace("  op@%p\n", op);
-
-                assert(op);
-                assert(op->type < ArrayCount(OperatorTable));
-
-                if (likely(op->type != Invalid_OperatorType))
-                {
-                    assert(OperatorTable[op->type].step);
-
-                    OperatorTable[op->type].step(op);
-                    opSteppedCount++;
-                }
-                else
-                {
-                    InvalidCodePath;
-                }
+            if (op->conditionIndex < 0
+                || a2->conditionBits.test(op->conditionIndex))
+            {
+                // no active condition or the condition is true
+                OperatorTable[op->type].step(op, a2);
+                opSteppedCount++;
+            }
+            else
+            {
+                // condition is false -> invalidate all outputs
+                invalidate_outputs(op);
+                opCondSkipped++;
             }
         }
-        // Threaded
         else
         {
-            if (opCount)
-            {
-                const Operator *opEnd = operators + opCount;
-
-                u8* rankBegin = ranks;
-                Operator *opRankBegin = operators;
-
-                while (opRankBegin < opEnd)
-                {
-                    u8* rankEnd = rankBegin;
-                    Operator *opRankEnd = opRankBegin;
-
-                    while (opRankEnd < opEnd)
-                    {
-                        if (*rankEnd > *rankBegin)
-                        {
-                            break;
-                        }
-
-                        rankEnd++;
-                        opRankEnd++;
-                    }
-
-                    a2_trace("  stepping rank %d, %u operators\n",
-                             (s32)*rankBegin,
-                             (u32)(opRankEnd - opRankBegin));
-
-                    auto prevCount = opSteppedCount;
-
-                    // step the operators in [opRankBegin, opRankEnd)
-                    opSteppedCount += step_operator_range_threaded(&A2WorkQueue, opRankBegin, opRankEnd);
-
-                    a2_trace("  stepped rank %d, %u operators\n",
-                             (s32)*rankBegin,
-                             opSteppedCount - prevCount);
-
-                    // advance
-                    rankBegin = rankEnd;
-                    opRankBegin = opRankEnd;
-                }
-            }
+            InvalidCodePath;
         }
     }
 
-    assert(opSteppedCount == opCount);
+    assert(opSteppedCount + opCondSkipped == opCount);
 
-    a2_trace("ei=%d, %d operators stepped\n", eventIndex, opSteppedCount);
+    a2_trace("ei=%d, operators stepped=%d, condSkipped=%d\n",
+             eventIndex, opSteppedCount, opCondSkipped);
+
+    for (int opIdx = 0; opIdx < opCount; opIdx++)
+    {
+        Operator *op = operators + opIdx;
+
+        if (is_condition_operator(*op))
+        {
+            auto d = reinterpret_cast<ConditionBaseData *>(op->d);
+            u32 bitCount = get_number_of_condition_bits_used(*op);
+
+            assert(d->firstBitIndex >= 0);
+
+            a2_trace("ei=%d, condOp@%p, condType=%u, firstBit=%d, bitCount=%u:\n  ",
+                     eventIndex, op, op->type, d->firstBitIndex, bitCount);
+
+
+            for (u32 pos = d->firstBitIndex; pos < d->firstBitIndex + bitCount; pos++)
+            {
+                assert(pos < a2->conditionBits.size());
+                a2_trace_np("%d, ", a2->conditionBits.test(pos));
+            }
+
+            a2_trace_np("\n");
+        }
+    }
 }
 
 void a2_timetick(A2 *a2)

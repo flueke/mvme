@@ -1,0 +1,39 @@
+# ####################################################
+# ##### Readout Stack and Trigger Setup          #####
+# ####################################################
+stack_start offset=512 output=data
+	marker 0x00000000
+	marker 0x00000001
+	marker 0x00000002
+	marker 0x00000003
+	marker 0x00000004
+	marker 0x00000005
+	marker 0x00000006
+	marker 0x00000007
+	marker 0x00000008
+	marker 0x00000009
+	marker 0x0000000A
+	marker 0x0000000B
+	marker 0x0000000C
+	marker 0x0000000D
+	marker 0x0000000E
+	marker 0x0000000F
+
+	marker 0x00000010
+	marker 0x00000011
+	marker 0x00000012
+	marker 0x00000013
+	marker 0x00000014
+	marker 0x00000015
+	marker 0x00000016
+	marker 0x00000017
+	marker 0x00000018
+	marker 0x00000019
+	marker 0x0000001A
+	marker 0x0000001B
+	marker 0x0000001C
+	marker 0x0000001D
+	marker 0x0000001E
+	marker 0x0000001F
+stack_end
+write_local 0x1204 512   # Set stack address register

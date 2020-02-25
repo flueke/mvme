@@ -1,7 +1,7 @@
 #ifndef __A2_MULTIWORD_DATAFILTER_H__
 #define __A2_MULTIWORD_DATAFILTER_H__
 
-#include "data_filter.h"
+#include "a2_data_filter.h"
 #include <cassert>
 #include <initializer_list>
 
@@ -99,7 +99,7 @@ inline u64 extract(MultiWordFilter *filter, MultiWordFilter::CacheType cacheType
     return result;
 }
 
-inline u16 get_extract_bits(MultiWordFilter *filter, MultiWordFilter::CacheType cacheType)
+inline u16 get_extract_bits(const MultiWordFilter *filter, MultiWordFilter::CacheType cacheType)
 {
     u16 result = 0;
 

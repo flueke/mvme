@@ -1,21 +1,23 @@
 #include <QCoreApplication>
-#include "mvme_listfile.h"
-#include "vme_config.h"
-#include "mvme_root_data_writer.h"
-#include "mvme_stream_processor.h"
-#include "analysis/analysis.h"
-#include "analysis/analysis_session.h"
-#include "util/strings.h"
-#include "util/counters.h"
-
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QThread>
 
 #include <fstream>
 #include <array>
 #include <iostream>
 #include <getopt.h>
 #include <signal.h>
+
+#include "analysis/analysis.h"
+#include "analysis/analysis_session.h"
+#include "event_server/server/event_server.h"
+#include "listfile_replay.h"
+#include "mvme_listfile_utils.h"
+#include "mvme_stream_processor.h"
+#include "util/counters.h"
+#include "util/strings.h"
+#include "vme_config.h"
 
 using std::cout;
 using std::cerr;
@@ -35,7 +37,9 @@ u32 read_listfile_version(std::ifstream &infile)
 
     infile.read(fourCC, bytesToRead);
 
-    if (std::strncmp(fourCC, listfile_v1::FourCC, bytesToRead) == 0)
+    const auto &lfc = listfile_constants();
+
+    if (std::strncmp(fourCC, lfc.FourCC, bytesToRead) == 0)
     {
         infile.read(reinterpret_cast<char *>(&fileVersion), sizeof(fileVersion));
     }
@@ -58,11 +62,16 @@ struct Context
     u32 listfileVersion;
     MVMEStreamProcessor::Logger logger;
     MVMEStreamProcessor streamProcessor;
+    std::unique_ptr<EventServer> eventServer;
 };
 
-void process_listfile(Context &context, ListFile *listfile)
+void process_listfile(Context &context, ListfileReplayHandle &input)
 {
-    assert(listfile);
+    assert(input.listfile);
+    assert(input.format == ListfileBufferFormat::MVMELST);
+
+    auto listfile = std::make_unique<ListFile>(input.listfile.get());
+    context.listfileVersion = listfile->getFileVersion();
 
     DataBuffer sectionBuffer(Megabytes(1));
 
@@ -87,15 +96,18 @@ void process_listfile(Context &context, ListFile *listfile)
             break;
 
         context.streamProcessor.processDataBuffer(&sectionBuffer);
+        // This is needed for the sockets used in the analysis data server to work.
+        qApp->processEvents(QEventLoop::AllEvents);
     }
 
-    context.streamProcessor.endRun();
+    context.streamProcessor.endRun({});
 
     counters.stopTime = QDateTime::currentDateTime();
 }
 
-void load_analysis_config(const QString &filename, Analysis *analysis, VMEConfig *vmeConfig = nullptr)
+std::error_code load_analysis_config(const QString &filename, Analysis *analysis, VMEConfig *vmeConfig = nullptr)
 {
+    assert(analysis);
     QFile infile(filename);
 
     if (!infile.open(QIODevice::ReadOnly))
@@ -110,12 +122,7 @@ void load_analysis_config(const QString &filename, Analysis *analysis, VMEConfig
         json = json["AnalysisNG"].toObject();
     }
 
-    auto readResult = analysis->read(json, vmeConfig);
-
-    if (!readResult)
-    {
-        throw readResult.toRichText();
-    }
+    return analysis->read(json, vmeConfig);
 }
 
 } // end anon namespace
@@ -129,17 +136,17 @@ int main(int argc, char *argv[])
 
     QCoreApplication app(argc, argv);
 
-    QString listfileFilename;
     QString analysisFilename;
-    QString sessionOutFilename;
+    bool writeSession = false;
     bool showHelp = false;
+    bool enableAnalysisServer = false;
 
     while (true)
     {
         static struct option long_options[] = {
-            { "listfile",               required_argument,      nullptr,    0 },
             { "analysis",               required_argument,      nullptr,    0 },
-            { "session-out",            required_argument,      nullptr,    0 },
+            { "write-session",          no_argument,            nullptr,    0 },
+            { "enable-analysis-server", no_argument,            nullptr,    0 },
             { "help",                   no_argument,            nullptr,    0 },
             { nullptr, 0, nullptr, 0 },
         };
@@ -147,119 +154,200 @@ int main(int argc, char *argv[])
         int option_index = 0;
         int c = getopt_long(argc, argv, "", long_options, &option_index);
 
+        if (c == '?') // Unrecognized option
+        {
+            return 1;
+        }
+
         if (c != 0)
             break;
 
         QString opt_name(long_options[option_index].name);
 
-        if (opt_name == "listfile") { listfileFilename = QString(optarg); }
-        if (opt_name == "analysis") { analysisFilename = QString(optarg); }
-        if (opt_name == "session-out") { sessionOutFilename = QString(optarg); }
-        if (opt_name == "help") { showHelp = true; }
+        if (opt_name == "write-session")            { writeSession = true; }
+        if (opt_name == "analysis")                 { analysisFilename = QString(optarg); }
+        if (opt_name == "enable-analysis-server")   { enableAnalysisServer = true; }
+        if (opt_name == "help")                     { showHelp = true; }
     }
 
     if (showHelp)
     {
-        cout << "Usage: " << argv[0] << " --listfile <filename> [--analysis <filename>] [--session-out <filename>]" << endl;
-        cout << "Example: " << argv[0] << " --listfile myfile.mvmelst --analysis example.analysis --session-out mysession.hdf5" << endl;
+        cout << "Usage: " << argv[0]
+            << " [--analysis <filename>]"
+            << " [--write-session] [--enable-analysis-server]"
+            << " listfile1 listfile2 ... listfileN"
+            << endl;
+
+        cout << "Example: " << argv[0]
+            << " --analysis example.analysis"
+            << " myrun001.zip myrun002.mvmelst"
+            << endl;
 
         return 0;
     }
 
-    if (listfileFilename.isEmpty())
+    QVector<QString> listfiles;
+
+    for (int i = optind; i < argc; i++)
     {
-        qDebug() << "Missing argument --listfile";
+        listfiles.push_back(argv[i]);
+    }
+
+    if (listfiles.isEmpty())
+    {
+        cerr << "No listfiles specified, exiting" << endl;
         return 1;
     }
 
-#if 1
     try
     {
-#endif
-        auto openResult = open_listfile(listfileFilename);
+        QVector<QString> failedToOpen;
+        size_t filesProcessed = 0u;
 
-        if (!openResult.listfile)
-            return 1;
-
-        std::unique_ptr<VMEConfig> vmeConfig(read_config_from_listfile(openResult.listfile.get()));
-        std::unique_ptr<Analysis> analysis = std::make_unique<Analysis>();
-
-        if (!analysisFilename.isEmpty())
+        auto logger = [] (const QString &msg)
         {
-            load_analysis_config(analysisFilename, analysis.get(), vmeConfig.get());
-        }
-
-        auto logger = [] (const QString &msg) { qDebug() << msg; };
+            cout << msg.toStdString() << endl;
+        };
 
         Context context = {};
-        context.runInfo.isReplay = true;
-        context.analysis = analysis.get();
-        context.vmeConfig = vmeConfig.get();
-        context.listfileVersion = openResult.listfile->getFileVersion();
         context.logger = logger;
 
-        qDebug() << "processing listfile" << listfileFilename << "...";
-
-        process_listfile(context, openResult.listfile.get());
-
-        qDebug() << "process_listfile() returned";
-
-        auto counters = context.streamProcessor.getCounters();
-
-        auto elapsed_ms = counters.startTime.msecsTo(counters.stopTime);
-        double dt_s = elapsed_ms / 1000.0;
-
-        double bytesPerSecond = counters.bytesProcessed / dt_s;
-
-        qDebug() << "startTime:" << counters.startTime.toString();
-        qDebug() << "endTime:" << counters.stopTime.toString();
-        qDebug() << "dt_s:" << dt_s;
-        qDebug() << "bytesProcessed:" << format_number(counters.bytesProcessed,
-                                                       "B", UnitScaling::Binary);
-
-        qDebug() << "bytesPerSecond:" << format_number(bytesPerSecond,
-                                                       "B/s", UnitScaling::Binary);
-
-        for (u32 ei = 0; ei < counters.eventCounters.size(); ei++)
+        if (enableAnalysisServer)
         {
-            if (counters.eventCounters[ei] > 0.0)
+            context.eventServer = std::make_unique<EventServer>();
+            context.eventServer->setLogger(logger);
+            context.streamProcessor.attachModuleConsumer(context.eventServer.get());
+        }
+
+        context.streamProcessor.startup();
+
+        if (enableAnalysisServer)
+        {
+            if (!context.eventServer->isListening())
+                return 1;
+
+            cout << "waiting for client to connect..." << endl;
+
+            while (context.eventServer->getNumberOfClients() == 0)
             {
-                qDebug() << (QString("ei=%1, count=%2, rate=%3")
+                app.processEvents(QEventLoop::AllEvents | QEventLoop::WaitForMoreEvents);
+            }
+
+        }
+
+        cout << "processing " << listfiles.size() << " listfiles" << endl;
+
+        for (const auto &listfileFilename: listfiles)
+        {
+            auto openResult = open_listfile(listfileFilename);
+
+            if (!openResult.listfile)
+            {
+                failedToOpen.push_back(listfileFilename);
+                continue;
+            }
+
+            std::unique_ptr<VMEConfig> vmeConfig;
+            std::error_code ec;
+
+            std::tie(vmeConfig, ec) = read_vme_config_from_listfile(openResult);
+
+            std::unique_ptr<Analysis> analysis = std::make_unique<Analysis>();
+
+            if (!analysisFilename.isEmpty())
+            {
+                if (auto ec = load_analysis_config(analysisFilename, analysis.get(), vmeConfig.get()))
+                {
+                    throw std::system_error(ec);
+                }
+            }
+
+            context.runInfo.runId = QFileInfo(listfileFilename).completeBaseName();
+            context.runInfo.isReplay = true;
+            context.analysis = analysis.get();
+            context.vmeConfig = vmeConfig.get();
+
+            auto indexMapping = vme_analysis_common::build_id_to_index_mapping(context.vmeConfig);
+            context.analysis->beginRun(context.runInfo, indexMapping);
+
+
+            cout << "processing listfile" << listfileFilename.toStdString() << "..." << endl;
+
+            process_listfile(context, openResult);
+
+            cout << "process_listfile() returned" << endl;
+
+            auto counters = context.streamProcessor.getCounters();
+
+            auto elapsed_ms = counters.startTime.msecsTo(counters.stopTime);
+            double dt_s = elapsed_ms / 1000.0;
+
+            double bytesPerSecond = counters.bytesProcessed / dt_s;
+
+            std::cout << "startTime:" << counters.startTime.toString().toStdString() << endl;
+            std::cout << "endTime:" << counters.stopTime.toString().toStdString() << endl;
+            std::cout << "dt_s:" << dt_s << endl;
+            std::cout << "bytesProcessed:" << format_number(counters.bytesProcessed,
+                                                           "B", UnitScaling::Binary).toStdString() << endl;
+
+            std::cout << "bytesPerSecond:" << format_number(bytesPerSecond,
+                                                           "B/s", UnitScaling::Binary).toStdString() << endl;
+
+            for (u32 ei = 0; ei < counters.eventCounters.size(); ei++)
+            {
+                if (counters.eventCounters[ei] > 0.0)
+                {
+                    cout << (QString("ei=%1, count=%2, rate=%3")
                              .arg(ei)
                              //.arg(counters.eventCounters[ei])
                              .arg(format_number(counters.eventCounters[ei], "", UnitScaling::Decimal))
                              .arg(format_number(counters.eventCounters[ei] / dt_s, "Hz", UnitScaling::Decimal))
-                            );
-            }
-        }
-
-        for (u32 ei = 0; ei < counters.moduleCounters.size(); ei++)
-        {
-            for (u32 mi = 0; mi < counters.moduleCounters[ei].size(); mi++)
-            {
-                if (counters.moduleCounters[ei][mi] > 0.0)
-                {
-                    qDebug() << (QString("ei=%1, mi=%2 count=%3, rate=%4")
-                                 .arg(ei).arg(mi)
-                                 .arg(format_number(counters.moduleCounters[ei][mi], "", UnitScaling::Decimal))
-                                 .arg(format_number(counters.moduleCounters[ei][mi] / dt_s, "Hz", UnitScaling::Decimal))
-                                );
+                            ).toStdString() << endl;
                 }
             }
-        }
 
-        if (!sessionOutFilename.isEmpty())
-        {
-            qDebug() << "saving session to" << sessionOutFilename << "...";
-            auto result = save_analysis_session(sessionOutFilename, analysis.get());
-
-            if (!result.first)
+            for (u32 ei = 0; ei < counters.moduleCounters.size(); ei++)
             {
-                throw result.second;
+                for (u32 mi = 0; mi < counters.moduleCounters[ei].size(); mi++)
+                {
+                    if (counters.moduleCounters[ei][mi] > 0.0)
+                    {
+                        auto msg = (QString("ei=%1, mi=%2 count=%3 (%5), rate=%4")
+                                    .arg(ei).arg(mi)
+                                    .arg(format_number(counters.moduleCounters[ei][mi], "", UnitScaling::Decimal))
+                                    .arg(format_number(counters.moduleCounters[ei][mi] / dt_s, "Hz", UnitScaling::Decimal))
+                                    .arg(counters.moduleCounters[ei][mi])
+                                   );
+                        cout << msg.toStdString() << endl;
+                    }
+                }
             }
+
+            if (writeSession)
+            {
+                QString sessionOutFilename = context.runInfo.runId + ".msess";
+                cout << "saving session to" << sessionOutFilename.toStdString() << " ...";
+                auto result = save_analysis_session(sessionOutFilename, analysis.get());
+                if (!result.first)
+                {
+                    throw result.second;
+                }
+            }
+
+            filesProcessed++;
         }
 
-#if 1
+        cout << "processed " << filesProcessed << " listfiles" << endl;
+
+        if (failedToOpen.size())
+        {
+            cout << "failed to open" << failedToOpen.size() << "files";
+        }
+
+    }
+    catch (const std::system_error &e)
+    {
+        cerr << e.code().message() << endl;
     }
     catch (const std::exception &e)
     {
@@ -268,10 +356,9 @@ int main(int argc, char *argv[])
     }
     catch (const QString &e)
     {
-        qDebug() << e << endl;
+        cerr << e.toStdString() << endl;
         return 1;
     }
-#endif
 
     return 0;
 }

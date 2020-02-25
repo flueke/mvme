@@ -1,0 +1,2 @@
+# WIENER VM_USB
+SUBSYSTEM=="usb", ATTRS{idVendor}=="16dc", ATTRS{idProduct}=="000b", MODE="0666"

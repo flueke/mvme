@@ -21,10 +21,12 @@
 #ifndef UUID_9196420f_dd04_4572_8e4b_952039634913
 #define UUID_9196420f_dd04_4572_8e4b_952039634913
 
+#include "libmvme_export.h"
+
 #include "analysis/analysis.h"
 #include "globals.h"
 #include "databuffer.h"
-#include "libmvme_export.h"
+#include "listfile_replay.h"
 #include "mvme_stream_worker.h"
 #include "vme_config.h"
 #include "vme_controller.h"
@@ -41,7 +43,6 @@
 
 class MVMEMainWindow;
 class ListFile;
-class ListFileReader;
 class QJsonObject;
 
 class QTimer;
@@ -49,8 +50,11 @@ class QThread;
 
 namespace analysis
 {
+namespace ui
+{
     class AnalysisWidget;
-}
+} // ns ui
+} // ns analysis
 
 struct MVMEContextPrivate;
 
@@ -63,13 +67,21 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void mvmeStreamWorkerStateChanged(MVMEStreamWorkerState);
         void controllerStateChanged(ControllerState state);
 
+        void vmeControllerAboutToBeChanged();
         void vmeControllerSet(VMEController *controller);
 
-        void daqConfigChanged(VMEConfig *config);
-        void daqConfigFileNameChanged(const QString &fileName);
+        void vmeConfigAboutToBeSet(VMEConfig *oldConfig, VMEConfig *newConfig);
+        void vmeConfigChanged(VMEConfig *config);
+        void vmeConfigFilenameChanged(const QString &fileName);
 
+        void ListFileOutputInfoChanged(const ListFileOutputInfo &info);
+
+        /* Emitted when a new analysis is loaded.
+         * Note that a nullptr may be passed in case loading did not succeed. */
+        void analysisChanged(analysis::Analysis *analysis);
+
+        /* Emitted when the current analysis file name changed. */
         void analysisConfigFileNameChanged(const QString &name);
-        void analysisChanged();
 
         void objectAdded(QObject *object);
         void objectAboutToBeRemoved(QObject *object);
@@ -96,7 +108,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         bool setVMEController(VMEController *controller, const QVariantMap &settings = QVariantMap());
         bool setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
         VMEController *getVMEController() const { return m_controller; }
-        void reconnectVMEController();
 
         ControllerState getControllerState() const;
         VMEReadoutWorker *getReadoutWorker() { return m_readoutWorker; }
@@ -107,25 +118,22 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QString getUniqueModuleName(const QString &prefix) const;
         DAQState getDAQState() const;
         MVMEStreamWorkerState getMVMEStreamWorkerState() const;
-        const DAQStats &getDAQStats() const { return m_daqStats; }
-        DAQStats &getDAQStats() { return m_daqStats; }
+        DAQStats getDAQStats() const;
 
-        struct ReplayFileAnalysisInfo
-        {
-            QString filename;
-            QString analysisFilename;
-            QByteArray analysisConfigData;
-        };
-
+#if 0
         bool setReplayFile(ListFile *listFile);
         void closeReplayFile();
         ListFile *getReplayFile() const { return m_listFile; }
-        void setReplayFileAnalysisInfo(ReplayFileAnalysisInfo info);
-        ReplayFileAnalysisInfo getReplayFileAnalysisInfo() const;
+#endif
+
+        bool setReplayFileHandle(ListfileReplayHandle listfile);
+        const ListfileReplayHandle &getReplayFileHandle() const;
+        ListfileReplayHandle &getReplayFileHandle();
+        void closeReplayFileHandle();
 
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
-        MVMEStreamWorker *getMVMEStreamWorker() const { return m_streamWorker.get(); }
+        StreamWorkerBase *getMVMEStreamWorker() const { return m_streamWorker.get(); }
 
         //
         // Object registry
@@ -243,7 +251,9 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         // Returns an empty shared_Ptr if getWorkspaceDirectory() returns an empty string
         std::shared_ptr<QSettings> makeWorkspaceSettings() const;
         // Returns an empty string if not workspace is open
-        QString getWorkspacePath(const QString &settingsKey, const QString &defaultValue = QString(), bool setIfDefaulted = true) const;
+        QString getWorkspacePath(const QString &settingsKey,
+                                 const QString &defaultValue = QString(),
+                                 bool setIfDefaulted = true) const;
 
         /* Reapplies some of the settings found in the mvmeworkspace.ini file.  Right now
          * (re)starts or stops the JSON-RPC server. */
@@ -259,7 +269,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         bool loadAnalysisConfig(const QString &fileName);
         bool loadAnalysisConfig(QIODevice *input, const QString &inputInfo = QString());
-        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString(), AnalysisLoadFlags flags = {});
+        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString(),
+                                AnalysisLoadFlags flags = {});
         bool loadAnalysisConfig(const QByteArray &blob, const QString &inputInfo = QString());
         void analysisWasCleared();
         void analysisWasSaved();
@@ -271,19 +282,19 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         bool isWorkspaceModified() const;
 
-        analysis::Analysis *getAnalysis() const { return m_analysis; }
+        analysis::Analysis *getAnalysis() const { return m_analysis.get(); }
 
         bool isAnalysisRunning();
         void stopAnalysis();
         void resumeAnalysis(analysis::Analysis::BeginRunOption option);
         QJsonDocument getAnalysisJsonDocument() const;
 
-        void setAnalysisUi(analysis::AnalysisWidget *analysisUi)
+        void setAnalysisUi(analysis::ui::AnalysisWidget *analysisUi)
         {
             m_analysisUi = analysisUi;
         }
 
-        analysis::AnalysisWidget *getAnalysisUi() const
+        analysis::ui::AnalysisWidget *getAnalysisUi() const
         {
             return m_analysisUi;
         }
@@ -308,8 +319,13 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void pauseDAQ();
         void resumeDAQ(u32 nCycles = 0);
 
-        void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel);
+        void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
+                                 s32 userLevel);
         void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);
+
+        void reconnectVMEController();
+        void forceResetVMEController();
+        void dumpVMEControllerRegisters();
 
     private slots:
         void tryOpenController();
@@ -327,6 +343,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
         void onControllerStateChanged(ControllerState state);
+        void onControllerOpenFinished();
 
         friend struct MVMEContextPrivate;
 
@@ -336,7 +353,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void cleanupWorkspaceAutoSaveFiles();
 
         QString getListFileOutputDirectoryFullPath(const QString &directory) const;
-        void prepareStart();
+        bool prepareStart();
 
         MVMEContextPrivate *m_d;
 
@@ -357,25 +374,22 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         VMEReadoutWorker *m_readoutWorker = nullptr;
 
-        QThread *m_eventThread;
-        std::unique_ptr<MVMEStreamWorker> m_streamWorker;
+        QThread *m_analysisThread;
+        std::unique_ptr<StreamWorkerBase> m_streamWorker;
 
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
         MVMEMainWindow *m_mainwin;
-        DAQStats m_daqStats;
-        ListFile *m_listFile = nullptr;
         GlobalMode m_mode;
         DAQState m_daqState;
-        ListFileReader *m_listFileWorker;
         QTime m_replayTime;
 
-        analysis::Analysis *m_analysis;
+        std::unique_ptr<analysis::Analysis> m_analysis;
 
         ThreadSafeDataBufferQueue m_freeBuffers;
         ThreadSafeDataBufferQueue m_fullBuffers;
 
-        analysis::AnalysisWidget *m_analysisUi = nullptr;
+        analysis::ui::AnalysisWidget *m_analysisUi = nullptr;
 };
 
 struct DAQPauser

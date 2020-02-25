@@ -111,7 +111,6 @@ struct DAQStatsSampler: public SamplerCollection
     RateSamplerPtr totalBuffersRead         = std::make_shared<RateSampler>();
     RateSamplerPtr buffersWithErrors        = std::make_shared<RateSampler>();
     RateSamplerPtr droppedBuffers           = std::make_shared<RateSampler>();
-    RateSamplerPtr totalNetBytesRead        = std::make_shared<RateSampler>();
     RateSamplerPtr listFileBytesWritten     = std::make_shared<RateSampler>();
 
     void sample(const DAQStats &counters)
@@ -120,7 +119,6 @@ struct DAQStatsSampler: public SamplerCollection
         totalBuffersRead->sample(counters.totalBuffersRead);
         buffersWithErrors->sample(counters.buffersWithErrors);
         droppedBuffers->sample(counters.droppedBuffers);
-        totalNetBytesRead->sample(counters.totalNetBytesRead);
         listFileBytesWritten->sample(counters.listFileBytesWritten);
     }
 
@@ -137,7 +135,6 @@ struct DAQStatsSampler: public SamplerCollection
         add_system_rate(&root, QSL("totalBuffersRead"),     totalBuffersRead);
         add_system_rate(&root, QSL("buffersWithErrors"),    buffersWithErrors);
         add_system_rate(&root, QSL("droppedBuffers"),       droppedBuffers);
-        add_system_rate(&root, QSL("totalNetBytesRead"),    totalNetBytesRead);
         add_system_rate(&root, QSL("listFileBytesWritten"), listFileBytesWritten);
 
         return root;

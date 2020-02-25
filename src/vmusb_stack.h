@@ -30,15 +30,18 @@ class VMUSB;
 class VMUSBStack
 {
     public:
-        void setStackID(uint8_t stackID)
+        void setStackID(s16 stackID)
         {
+            if (stackID < 0)
+                throw std::runtime_error("stackID out of range (<0)");
+
             if (stackID > 7)
                 throw std::runtime_error("stackID out of range (>7)");
 
             m_stackID = stackID;
         }
 
-        uint8_t getStackID() const
+        s16 getStackID() const
         {
             switch (triggerCondition)
             {
@@ -48,10 +51,10 @@ class VMUSBStack
                     return 1;
                 case TriggerCondition::Interrupt:
                     return m_stackID;
-
-                InvalidDefaultCase
+                default:
+                    break;
             }
-            return 0;
+            return -1;
         }
 
         VMEError loadStack(VMUSB *controller);
@@ -77,7 +80,8 @@ class VMUSBStack
         uint16_t scalerReadoutFrequency = 0;
 
     private:
-        uint8_t m_stackID = 2;
+        static const s16 FirstIRQStackID = 2;
+        s16 m_stackID = FirstIRQStackID;
         QVector<u32> m_contents;
 };
 

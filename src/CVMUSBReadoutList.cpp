@@ -197,16 +197,21 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
         case CommandType::ResetBase:
             break;
 
+        case CommandType::Blk2eSST64:
+        case CommandType::MVLC_WriteSpecial:
+        case CommandType::MetaBlock:
+            break;
+
         case CommandType::Read:
             {
                 switch (cmd.dataWidth)
                 {
                     case DataWidth::D16:
-                        addRead16(cmd.address, amod_from_AddressMode(cmd.addressMode));
+                        addRead16(cmd.address, cmd.addressMode);
                         addMarker(0x0000u); // Align to 32-bits by padding with zeroes
                         break;
                     case DataWidth::D32:
-                        addRead32(cmd.address, amod_from_AddressMode(cmd.addressMode));
+                        addRead32(cmd.address, cmd.addressMode);
                         break;
                 }
             } break;
@@ -217,10 +222,10 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
                 switch (cmd.dataWidth)
                 {
                     case DataWidth::D16:
-                        addWrite16(cmd.address, amod_from_AddressMode(cmd.addressMode), cmd.value);
+                        addWrite16(cmd.address, cmd.addressMode, cmd.value);
                         break;
                     case DataWidth::D32:
-                        addWrite32(cmd.address, amod_from_AddressMode(cmd.addressMode), cmd.value);
+                        addWrite32(cmd.address, cmd.addressMode, cmd.value);
                         break;
                 }
             } break;
@@ -239,19 +244,54 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
             } break;
 
         case CommandType::BLT:
-            addBlockRead32(cmd.address, amod_from_AddressMode(cmd.addressMode, true), cmd.transfers);
+            {
+                u8 amod = cmd.addressMode;
+
+                if (amod == vme_address_modes::A32)
+                    amod = vme_address_modes::BLT32;
+
+                if (amod == vme_address_modes::A24)
+                    amod = vme_address_modes::a24PrivBlock;
+
+                addBlockRead32(cmd.address, amod, cmd.transfers);
+            }
             break;
 
         case CommandType::BLTFifo:
-            addFifoRead32(cmd.address, amod_from_AddressMode(cmd.addressMode, true), cmd.transfers);
+            {
+                u8 amod = cmd.addressMode;
+
+                if (amod == vme_address_modes::A32)
+                    amod = vme_address_modes::BLT32;
+
+                if (amod == vme_address_modes::A24)
+                    amod = vme_address_modes::a24PrivBlock;
+
+                addFifoRead32(cmd.address, amod, cmd.transfers);
+            }
             break;
 
+
         case CommandType::MBLT:
-            addBlockRead32(cmd.address, amod_from_AddressMode(cmd.addressMode, false, true), cmd.transfers);
+            {
+                u8 amod = cmd.addressMode;
+
+                if (amod == vme_address_modes::A32)
+                    amod = vme_address_modes::MBLT64;
+
+                addBlockRead32(cmd.address, amod, cmd.transfers);
+            }
             break;
 
         case CommandType::MBLTFifo:
-            addFifoRead32(cmd.address, amod_from_AddressMode(cmd.addressMode, false, true), cmd.transfers);
+            {
+                u8 amod = cmd.addressMode;
+
+                if (amod == vme_address_modes::A32)
+                    amod = vme_address_modes::MBLT64;
+
+                addFifoRead32(cmd.address, amod, cmd.transfers);
+            }
             break;
 
         case CommandType::BLTCount:
@@ -259,14 +299,14 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
                 switch (cmd.dataWidth)
                 {
                     case DataWidth::D16:
-                        addBlockCountRead16(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        addBlockCountRead16(cmd.address, cmd.countMask, cmd.addressMode);
                         break;
                     case DataWidth::D32:
-                        addBlockCountRead32(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        addBlockCountRead32(cmd.address, cmd.countMask, cmd.addressMode);
                         break;
                 }
 
-                addMaskedCountBlockRead32(cmd.blockAddress, amod_from_AddressMode(cmd.blockAddressMode, true, false));
+                addMaskedCountBlockRead32(cmd.blockAddress, cmd.addressMode);
 
             } break;
 
@@ -275,14 +315,14 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
                 switch (cmd.dataWidth)
                 {
                     case DataWidth::D16:
-                        addBlockCountRead16(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        addBlockCountRead16(cmd.address, cmd.countMask, cmd.addressMode);
                         break;
                     case DataWidth::D32:
-                        addBlockCountRead32(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        addBlockCountRead32(cmd.address, cmd.countMask, cmd.addressMode);
                         break;
                 }
 
-                addMaskedCountFifoRead32(cmd.blockAddress, amod_from_AddressMode(cmd.blockAddressMode, true, false));
+                addMaskedCountFifoRead32(cmd.blockAddress, cmd.addressMode);
 
             } break;
 
@@ -291,14 +331,14 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
                 switch (cmd.dataWidth)
                 {
                     case DataWidth::D16:
-                        addBlockCountRead16(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        addBlockCountRead16(cmd.address, cmd.countMask, cmd.addressMode);
                         break;
                     case DataWidth::D32:
-                        addBlockCountRead32(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        addBlockCountRead32(cmd.address, cmd.countMask, cmd.addressMode);
                         break;
                 }
 
-                addMaskedCountBlockRead32(cmd.blockAddress, amod_from_AddressMode(cmd.blockAddressMode, false, true));
+                addMaskedCountBlockRead32(cmd.blockAddress, cmd.addressMode);
 
             } break;
 
@@ -307,14 +347,14 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
                 switch (cmd.dataWidth)
                 {
                     case DataWidth::D16:
-                        addBlockCountRead16(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        addBlockCountRead16(cmd.address, cmd.countMask, cmd.addressMode);
                         break;
                     case DataWidth::D32:
-                        addBlockCountRead32(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        addBlockCountRead32(cmd.address, cmd.countMask, cmd.addressMode);
                         break;
                 }
 
-                addMaskedCountFifoRead32(cmd.blockAddress, amod_from_AddressMode(cmd.blockAddressMode, false, true));
+                addMaskedCountFifoRead32(cmd.blockAddress, cmd.addressMode);
 
             } break;
 
@@ -655,6 +695,8 @@ CVMUSBReadoutList::dataStrobes(uint32_t address)
 void
 CVMUSBReadoutList::addBlockRead(uint32_t base, size_t transfers, uint32_t startingMode)
 {
+    assert(vme_address_modes::is_block_amod(startingMode));
+
     uint8_t amod = (startingMode >> modeAMShift) & modeAMMask;
 
     bool isMblt = (amod == a32UserBlock64 || amod == a32PrivBlock64);

@@ -7,7 +7,10 @@ project(mvme)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
-#set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-mismatched-tags")
+
+if (WIN32)
+    set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-format")
+endif(WIN32)
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 
@@ -15,7 +18,7 @@ set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
 
@@ -26,7 +29,7 @@ set(MTUNE_FLAG "core2")
 #set(MARCH_FLAG "skylake")
 #set(MTUNE_FLAG "skylake")
 
-set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og")
+set(CMAKE_CXX_FLAGS_DEBUG   "-ggdb -Og")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG}")
 set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG} -pg -fno-omit-frame-pointer")
 # Explicitly set the required c++ standard (CMake >= 3.1)
@@ -96,6 +99,11 @@ SET(CMAKE_INSTALL_RPATH ".")
 #   SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 #ENDIF("${isSystemDir}" STREQUAL "-1")
 
+#if (WIN32)
+#    string(APPEND CMAKE_CXX_FLAGS " -flto")
+#    string(APPEND CMAKE_C_FLAGS " -flto")
+#    string(APPEND CMAKE_EXE_LINKER_FLAGS " -flto")
+#endif(WIN32)
 
 # External libraries.
 # Note: This was moved up from the src/ subdirectory so that the
@@ -108,11 +116,90 @@ include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann" DESTINATION include/mvme)
+install(FILES "${CMAKE_SOURCE_DIR}/3rdparty/Mustache/mustache.hpp" DESTINATION include/mvme/Mustache)
 
-# qwt
+option(MVME_ENABLE_MVLC "Enable support for the mesytec MVLC controller" ON)
+
+if (MVME_ENABLE_MVLC)
+    option(YAML_CPP_BUILD_TESTS "Enable testing" OFF)
+    option(YAML_CPP_BUILD_TOOLS "Enable parse tools" OFF)
+    option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
+    option(YAML_CPP_INSTALL "Enable generation of install target" ON)
+    option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
+    set(MVME_YAML_DIR "${CMAKE_SOURCE_DIR}/3rdparty/yaml-cpp")
+    add_subdirectory(${MVME_YAML_DIR})
+    # FIXME: installing targets from subdirectories does not work with CMake
+    # 3.9.2 (msys build)
+    #install(TARGETS yaml-cpp DESTINATION .)
+endif(MVME_ENABLE_MVLC)
+
+# quazip
+find_path(QUAZIP_INCLUDE_DIR
+    NAMES quazip.h
+    PATH_SUFFIXES quazip quazip-qt5 quazip5)
+
+#include_directories(${QUAZIP_INCLUDE_DIR})
+
+find_library(QUAZIP_QT5_RELEASE NAMES quazip quazip-qt5 quazip5)
+find_library(QUAZIP_QT5_DEBUG NAMES quazipd quazip-qt5d quazip5d)
+
+if (WIN32 OR QUAZIP_QT5_DEBUG)
+    set(QUAZIP_QT5
+        optimized ${QUAZIP_QT5_RELEASE}
+        debug ${QUAZIP_QT5_DEBUG}
+        )
+else()
+    set(QUAZIP_QT5 ${QUAZIP_QT5_RELEASE})
+endif()
+
+message("-- Using QUAZIP_INCLUDE_DIR=${QUAZIP_INCLUDE_DIR}")
+message("-- Using QUAZIP_QT5=${QUAZIP_QT5}")
+
+if (MVME_ENABLE_MVLC)
+    # FTDI d3xx driver library for x64 linux and windows
+    add_library(ftd3xx SHARED IMPORTED)
+
+    # TODO: use target_include_directories
+    if (WIN32)
+        set_target_properties(ftd3xx PROPERTIES
+            IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
+            IMPORTED_IMPLIB ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.lib
+            IMPORTED_NO_SONAME TRUE
+            )
+        include_directories(${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/)
+        install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
+            DESTINATION .
+            )
+        file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
+            DESTINATION .)
+    elseif(UNIX AND NOT APPLE)
+        set_target_properties(ftd3xx PROPERTIES
+            IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+            IMPORTED_NO_SONAME TRUE
+            )
+        include_directories(${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/)
+        install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+            DESTINATION .
+            )
+    elseif(APPLE)
+        set_target_properties(ftd3xx PROPERTIES
+            IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
+            IMPORTED_NO_SONAME TRUE
+            )
+        include_directories(${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx)
+        install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
+            DESTINATION .
+            )
+        file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
+            DESTINATION .)
+    endif()
+endif (MVME_ENABLE_MVLC)
+
 find_path(QWT_INCLUDE_DIR
     NAMES qwt_plot.h
-    PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3 qt5/qwt6)
+    PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3 qt5/qwt6
+    PATHS /usr/local/lib/qwt.framework/Headers)
 
 include_directories(${QWT_INCLUDE_DIR})
 
@@ -131,53 +218,63 @@ endif()
 message("-- Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
 message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 
-# ROOT
-# https://root.cern.ch/how/integrate-root-my-project-cmake
 
-# FIXME: This interferes with our own CFLAGS and does not use CMAKE_BUILD_TYPE!
-option(ENABLE_ROOT "Enable ROOT support" OFF)
+# To get a 'make test' target. If this is not in the top level CMakeLists.txt
+# no test target is generated. Do this before any add_subdirectory() commands
+# as otherwise ctest won't pick up any tests in subprojects.
+option(BUILD_TESTS "Build test binaries" OFF)
 
-if (ENABLE_ROOT)
-    list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
+if (BUILD_TESTS)
+    # googletest / GTest
+    # https://github.com/google/googletest/blob/master/googletest/README.md
+    # Download and unpack googletest at configure time
+    configure_file(3rdparty/googletest_CMakeLists.txt.in googletest-download/CMakeLists.txt)
+    execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+      RESULT_VARIABLE result
+      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+    if(result)
+      message(FATAL_ERROR "CMake step for googletest failed: ${result}")
+    endif()
+    execute_process(COMMAND ${CMAKE_COMMAND} --build .
+      RESULT_VARIABLE result
+      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+    if(result)
+      message(FATAL_ERROR "Build step for googletest failed: ${result}")
+    endif()
 
-    find_package(ROOT
-        COMPONENTS Core RIO Tree Hist)
+    # Prevent overriding the parent project's compiler/linker
+    # settings on Windows
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-    if (ROOT_FOUND)
-        include(${ROOT_USE_FILE})
+    # Add googletest directly to our build. This defines
+    # the gtest and gtest_main targets.
+    add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
+                     ${CMAKE_CURRENT_BINARY_DIR}/googletest-build
+                     EXCLUDE_FROM_ALL)
 
-        find_program(ROOT_CONFIG_EXECUTABLE root-config
-            HINTS $ENV{ROOTSYS}/bin)
+    # The gtest/gtest_main targets carry header search path
+    # dependencies automatically when using CMake 2.8.11 or
+    # later. Otherwise we have to add them here ourselves.
+    if (CMAKE_VERSION VERSION_LESS 2.8.11)
+      include_directories("${gtest_SOURCE_DIR}/include")
+    endif()
 
-        add_definitions(-DMVME_ENABLE_ROOT)
-
-        message("-- Found ROOT in ${ROOT_USE_FILE}")
-    endif(ROOT_FOUND)
-endif(ENABLE_ROOT)
+    message("-- Building test binaries")
+    include(CTest)
+    enable_testing()
+    #include_directories(${GTEST_INCLUDE_DIRS})
+    add_subdirectory(test)
+endif()
 
 # Subdirectories containing build targets
 add_subdirectory(src)
 add_subdirectory(extras)
-
-# To get a 'make test' target. If this is not in the top level CMakeLists.txt
-# no test target is generated :(
-option(BUILD_TESTS "Build test binaries" OFF)
-
-if (BUILD_TESTS)
-    message("-- Building test binaries")
-    include(CTest)
-    enable_testing()
-    add_subdirectory(3rdparty/googletest)
-    include_directories(${gtest_SOURCE_DIR}/include)
-    add_subdirectory(test)
-endif()
 
 option(BUILD_DOCS "Build the documentation (if Sphinx is found)" ON)
 
 if (BUILD_DOCS)
     add_subdirectory(doc)
 endif()
-
 
 # Log build type and flags. Keep this below the commands that might change the
 # flags.

@@ -21,8 +21,6 @@
 #ifndef __QT_UTIL_H__
 #define __QT_UTIL_H__
 
-#include "typedefs.h"
-
 #include <memory>
 #include <QEventLoop>
 #include <QFormLayout>
@@ -32,9 +30,13 @@
 #include <QKeySequence>
 #include <QLabel>
 #include <QObject>
+#include <QSettings>
 #include <QStatusBar>
 #include <QToolBar>
 #include <QToolButton>
+
+#include "libmvme_core_export.h"
+#include "typedefs.h"
 
 #define QSL(str) QStringLiteral(str)
 
@@ -42,10 +44,10 @@ class QAction;
 class QEvent;
 class QWidget;
 
-class WidgetGeometrySaver: public QObject
+class LIBMVME_CORE_EXPORT WidgetGeometrySaver: public QObject
 {
     public:
-        WidgetGeometrySaver(QObject *parent = 0);
+        explicit WidgetGeometrySaver(QObject *parent = 0);
 
         void addWidget(QWidget *widget, const QString &key);
         void removeWidget(QWidget *widget);
@@ -56,21 +58,23 @@ class WidgetGeometrySaver: public QObject
         bool eventFilter(QObject *obj, QEvent *event);
 
     private:
+        QSettings m_settings;
         QHash<QWidget *, QString> m_widgetKeys;
 };
 
-QAction *add_widget_close_action(QWidget *widget,
-                                const QKeySequence &shortcut = QKeySequence(QSL("Ctrl+W")),
-                                Qt::ShortcutContext shortcutContext = Qt::WidgetWithChildrenShortcut);
+LIBMVME_CORE_EXPORT QAction *
+add_widget_close_action(QWidget *widget,
+                        const QKeySequence &shortcut = QKeySequence(QSL("Ctrl+W")),
+                        Qt::ShortcutContext shortcutContext = Qt::WidgetWithChildrenShortcut);
 
 
-QJsonObject storeDynamicProperties(const QObject *object);
-void loadDynamicProperties(const QJsonObject &json, QObject *dest);
-void loadDynamicProperties(const QVariantMap &properties, QObject *dest);
+QJsonObject LIBMVME_CORE_EXPORT storeDynamicProperties(const QObject *object);
+void LIBMVME_CORE_EXPORT loadDynamicProperties(const QJsonObject &json, QObject *dest);
+void LIBMVME_CORE_EXPORT loadDynamicProperties(const QVariantMap &properties, QObject *dest);
 
 
 // VerticalLabel source: https://stackoverflow.com/a/18515898
-class VerticalLabel : public QLabel
+class LIBMVME_CORE_EXPORT VerticalLabel : public QLabel
 {
     Q_OBJECT
 
@@ -84,19 +88,20 @@ protected:
     QSize minimumSizeHint() const;
 };
 
-void set_widget_font_pointsize(QWidget *widget, s32 pointSize);
-void set_widget_font_pointsize_relative(QWidget *widget, s32 relPointSize);
+void LIBMVME_CORE_EXPORT set_widget_font_pointsize(QWidget *widget, float pointSize);
+void LIBMVME_CORE_EXPORT set_widget_font_pointsize_relative(QWidget *widget, float relPointSize);
 
-QToolBar *make_toolbar(QWidget *parent = nullptr);
-QStatusBar *make_statusbar(QWidget *parent = nullptr);
+LIBMVME_CORE_EXPORT QToolBar *make_toolbar(QWidget *parent = nullptr);
+LIBMVME_CORE_EXPORT QStatusBar *make_statusbar(QWidget *parent = nullptr);
 
-void show_and_activate(QWidget *widget);
+LIBMVME_CORE_EXPORT void show_and_activate(QWidget *widget);
 
-QString get_bitness_string();
+LIBMVME_CORE_EXPORT QString get_bitness_string();
 
-QFont make_monospace_font(QFont baseFont = QFont());
-
+LIBMVME_CORE_EXPORT
 void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
+
+LIBMVME_CORE_EXPORT
 void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
 
 inline QFrame *make_separator_frame(Qt::Orientation orientation = Qt::Horizontal)
@@ -114,7 +119,7 @@ inline QLabel *make_aligned_label(const QString &text,
     return label;
 }
 
-struct VBoxContainerWithLabel
+struct LIBMVME_CORE_EXPORT VBoxContainerWithLabel
 {
     std::unique_ptr<QWidget> container;
     QVBoxLayout *layout;
@@ -122,18 +127,19 @@ struct VBoxContainerWithLabel
     QWidget *widget;
 };
 
-VBoxContainerWithLabel make_vbox_container(const QString &labelText, QWidget *widget,
-                                           int spacing = 2, int labelRelativeFontPointSize = 0);
+LIBMVME_CORE_EXPORT VBoxContainerWithLabel make_vbox_container(
+    const QString &labelText, QWidget *widget,
+    int spacing = 2, int labelRelativeFontPointSize = 0);
 
-QWidget *make_spacer_widget(QWidget *parent = nullptr);
-QToolButton *make_toolbutton(const QString &icon, const QString &text);
-QToolButton *make_action_toolbutton(QAction *action);
+LIBMVME_CORE_EXPORT QWidget *make_spacer_widget(QWidget *parent = nullptr);
+LIBMVME_CORE_EXPORT QToolButton *make_toolbutton(const QString &icon, const QString &text);
+LIBMVME_CORE_EXPORT QToolButton *make_action_toolbutton(QAction *action = nullptr);
 
-int get_widget_row(QFormLayout *layout, QWidget *widget);
+LIBMVME_CORE_EXPORT int get_widget_row(QFormLayout *layout, QWidget *widget);
 
 /* Helper class for QLabel which makes the label only grow but never shrink
  * when a new text is set. */
-class NonShrinkingLabelHelper
+class LIBMVME_CORE_EXPORT NonShrinkingLabelHelper
 {
     public:
         NonShrinkingLabelHelper(QLabel *label = nullptr)
@@ -170,5 +176,56 @@ uint qHash(const std::shared_ptr<T> &ptr, uint seed = 0)
 {
     return qHash(ptr.get());
 }
+
+template<typename LayoutType, int Margin = 2, int Spacing = 2>
+LayoutType *make_layout(QWidget *widget = nullptr)
+{
+    auto ret = new LayoutType(widget);
+    ret->setContentsMargins(Margin, Margin, Margin, Margin);
+    ret->setSpacing(Spacing);
+    return ret;
+};
+
+template<int Margin = 2, int Spacing = 2>
+QHBoxLayout *make_hbox(QWidget *widget = nullptr)
+{
+    return make_layout<QHBoxLayout, Margin, Spacing>(widget);
+}
+
+template<int Margin = 2, int Spacing = 2>
+QVBoxLayout *make_vbox(QWidget *widget = nullptr)
+{
+    return make_layout<QVBoxLayout, Margin, Spacing>(widget);
+}
+
+LIBMVME_CORE_EXPORT int calculate_tab_width(const QFont &font, int tabStop = 4);
+
+class QTextEdit;
+class QPushButton;
+class QLineEdit;
+
+class LIBMVME_CORE_EXPORT TextEditSearchWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        TextEditSearchWidget(QTextEdit *te, QWidget *parent = nullptr);
+
+        QPushButton *getSearchButton();
+        QLineEdit *getSearchTextEdit();
+
+    public slots:
+        void focusSearchInput();
+        void findNext();
+
+    private slots:
+        void onSearchTextEdited(const QString &text);
+
+    private:
+        void findNext(bool hasWrapped);
+
+        QLineEdit *m_searchInput;
+        QPushButton *m_searchButton;
+        QTextEdit *m_textEdit;
+};
 
 #endif /* __QT_UTIL_H__ */

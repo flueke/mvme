@@ -28,7 +28,8 @@
 #include <QVector>
 #include <functional>
 
-// VME/Analysis Template System
+// VME/Analysis Template System (not Vault-Tec Assisted Targeting System,
+// that would be V.A.T.S. :-)
 
 namespace vats
 {
@@ -65,6 +66,7 @@ struct LIBMVME_EXPORT VMEModuleMeta
     QString vendorName;
     VMEModuleTemplates templates;
     QByteArray eventHeaderFilter;
+    u32 vmeAddress = 0u;
 
     QString templatePath;
 };

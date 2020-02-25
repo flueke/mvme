@@ -21,12 +21,13 @@
 #ifndef UUID_6fd8e7d2_5ff5_4908_8b28_fbe474a74ebd
 #define UUID_6fd8e7d2_5ff5_4908_8b28_fbe474a74ebd
 
-#include "util.h"
 #include <QMetaType>
 #include <QMap>
 #include <QString>
 #include <QDateTime>
 
+#include "util.h"
+#include "run_info.h"
 #include "vme_config_limits.h"
 
 /* IMPORTANT: The numeric values of this enum where stored in the VME config
@@ -35,12 +36,13 @@
 enum class TriggerCondition
 {
     NIM1,               // VMUSB
-    Periodic,           // VMUSB and SIS3153
-    Interrupt,          // VMUSB and SIS3153
+    Periodic,           // MVLC, VMUSB and SIS3153
+    Interrupt,          // MVLC, VMUSB and SIS3153
     Input1RisingEdge,   // SIS3153
     Input1FallingEdge,  // SIS3153
     Input2RisingEdge,   // SIS3153
-    Input2FallingEdge   // SIS3153
+    Input2FallingEdge,  // SIS3153
+    TriggerIO,          // MVLC via the Trigger I/O logic
 };
 
 enum class DAQState
@@ -71,6 +73,7 @@ static const QMap<TriggerCondition, QString> TriggerConditionNames =
     { TriggerCondition::Input1FallingEdge,  "Input 1 Falling Edge" },
     { TriggerCondition::Input2RisingEdge,   "Input 2 Rising Edge" },
     { TriggerCondition::Input2FallingEdge,  "Input 2 Falling Edge" },
+    { TriggerCondition::TriggerIO,          "MVLC Trigger I/O" },
 };
 
 static const QMap<DAQState, QString> DAQStateStrings =
@@ -89,6 +92,7 @@ struct DAQStats
 {
     inline void start()
     {
+        *this = {};
         startTime = QDateTime::currentDateTime();
     }
 
@@ -107,10 +111,6 @@ struct DAQStats
                                 // not represent the number of "good" buffers.
     u64 buffersWithErrors = 0;  // buffers for which processing did not succeeed (structure not intact, etc)
     u64 droppedBuffers = 0;     // number of buffers not passed to the analysis due to the queue being full
-    u64 totalNetBytesRead = 0;  // The number of bytes read excluding protocol
-                                // overhead. This should be a measure for the
-                                // amount of data the VME bus transferred.
-
     u64 listFileBytesWritten = 0;
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
     QString listfileFilename; // For replay mode: the current replay filename
@@ -118,37 +118,6 @@ struct DAQStats
     u64 getAnalyzedBuffers() const { return totalBuffersRead - droppedBuffers; }
     double getAnalysisEfficiency() const;
 };
-
-/* Information about the current DAQ run or the run that's being replayed from
- * a listfile. */
-struct RunInfo
-{
-    /* This is the full runId string. It is used to generate the listfile
-     * archive name and the listfile filename inside the archive. */
-    QString runId;
-
-    /* Set to true to retain histogram contents across replays. Keeping the
-     * contents only works if the number of bins and the binning do not change
-     * between runs. If set to false all histograms will be cleared before the
-     * replay starts. */
-    // TODO: replace with flags
-    bool keepAnalysisState = false;
-    bool isReplay = false;
-    //bool generateExportFiles = false;
-
-};
-
-inline bool operator==(const RunInfo &a, const RunInfo &b)
-{
-    return a.runId == b.runId
-        && a.keepAnalysisState == b.keepAnalysisState
-        && a.isReplay == b.isReplay;
-}
-
-inline bool operator!=(const RunInfo &a, const RunInfo &b)
-{
-    return !(a == b);
-}
 
 enum class ListFileFormat
 {
@@ -190,5 +159,23 @@ struct ListFileOutputInfo
 QString generate_output_basename(const ListFileOutputInfo &info);
 // with .zip or .mvmelst extension
 QString generate_output_filename(const ListFileOutputInfo &info);
+
+enum class ControllerState
+{
+    Disconnected,
+    Connecting,
+    Connected,
+};
+
+Q_DECLARE_METATYPE(ControllerState);
+
+enum class ListfileBufferFormat
+{
+    MVMELST,      // .mvmelst style formatted data. Produced by VMUSB and SIS readouts
+    MVLC_ETH,     // MVLC_ETH UDP packet data containing including the two sepcial header words
+    MVLC_USB,     // MVLC_USB buffers. Do not contain any additional header words.
+};
+
+const char *to_string(const ListfileBufferFormat &fmt);
 
 #endif

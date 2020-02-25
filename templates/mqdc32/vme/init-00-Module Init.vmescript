@@ -57,8 +57,9 @@
                     # 4 -> amplitude = 0
                     # 5 -> use pulser amplitude with 100 ns gate
 
-# pulser_daq (8 bits)
+# pulser amplitude
 0x6072  32          # Pulser amplitude, typ. 32 for bin 2000
+					# (max setting = 255)
 
 # Timestamp/Event Counters: CTRA, CTRB
 # ############################################################################
@@ -135,8 +136,7 @@
 
 # Gate Limit
 # ############################################################################
-# Refer to the lookup table in the manual for register value to time
-# conversion.
+# Refer to the lookup table at the end of the file for value - time conversion
 # limit_bank0
 0x6050  255         # 4 -> 4.5 ns, 255 -> no limitation
 # limit_bank1
@@ -161,3 +161,46 @@
 
 # skip_oorange
 0x604A  0           # Skip out-of-range values
+
+# Gate Limit Lookup table
+# ###########
+#setting 	time[ns]
+#	4 		4,5
+#	5 		4,6
+#	6 		4,6
+#	7 		4,7
+#	8 		4,8
+#	9 		4,8
+#	10 		4,9
+#	11 		5,0
+#	12 		5,1
+#	13 		5,2
+#	14 		5,3
+#	15 		5,4
+#	16 		5,6
+#	17 		5,7
+#	18 		6,1
+#	19 		7,6
+#	20 		8,7
+#	21 		9,4
+#	22 		10,1
+#	23 		10,9
+#	24 		11,6
+#	25 		12,3
+#	30		16
+#	35		19
+#	40		24
+#	50		32
+#	60		41
+#	70		51
+#	80		62
+#	90		73
+#	100		86
+#	110		101
+#	120		117
+#	130		136
+#	140		158
+#	150		185
+#	160		219
+#	170		268
+#	175		300

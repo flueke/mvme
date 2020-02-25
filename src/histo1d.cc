@@ -84,6 +84,16 @@ void Histo1D::setData(const SharedHistoMem &mem, AxisBinning newBinning)
     setAxisBinning(Qt::XAxis, newBinning);
 }
 
+SharedHistoMem Histo1D::getSharedMemory() const
+{
+    if (ownsMemory())
+    {
+        throw HistoLogicError("getSharedMemory() not available when using internal memory");
+    }
+
+    return m_externalMemory;
+}
+
 s32 Histo1D::fill(double x, double weight)
 {
     if (!std::isnan(x))

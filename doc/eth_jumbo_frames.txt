@@ -1,0 +1,23 @@
+Windows
+============================================================
+
+Notes for a onboard Realtek 8168 adapter under Windows 10:
+  For my onboard Realtek 8168 I had to download a driver update directly from
+  Realtek because the driver shipped with Windows 10 does not support setting
+  the MTU. After the driver update open 'Control Panel -> Network and Sharing
+  Center -> Change Adapter Settings', right-click your adapter, select
+  'Properties', 'Configure' and then 'Advanced'. In the list select 'Jumbo
+  Frames' and set it to '9KB MTU'.
+
+  After this I was able to receive jumbo frames correctly. I did not have to
+  change the MTU settings using the 'netsh' commands shown below.
+
+
+Show network interfaces and their MTU:
+
+    netsh interface ipv4 show interfaces
+
+Set the MTU of a specific network interface (in this case the one with
+index14. Instead of an index the name of the interface can also be used.
+
+    netsh interface ipv4 set subinterface "14" mtu=9000 store=persistent

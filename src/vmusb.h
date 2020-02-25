@@ -17,19 +17,20 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-#ifndef VMUSB_H
-#define VMUSB_H
-
-#include "util.h"
-#include "vme_controller.h"
-#include "vmusb_constants.h"
+#ifndef MVME_VMUSB_H
+#define MVME_VMUSB_H
 
 #include <QObject>
 #include <QPair>
 #include <QVector>
 #include <QMutex>
-
 #include <functional>
+
+#include "libmvme_core_export.h"
+#include "util.h"
+#include "vme_controller.h"
+#include "vmusb_constants.h"
+
 
 class CVMUSBReadoutList;
 
@@ -38,7 +39,7 @@ struct libusb_context;
 struct libusb_device_handle;
 struct libusb_device;
 
-struct VMUSBDeviceInfo
+struct LIBMVME_CORE_EXPORT VMUSBDeviceInfo
 {
     libusb_device *device = nullptr;
     unsigned char serial[7] = {};
@@ -47,7 +48,7 @@ struct VMUSBDeviceInfo
 struct usb_dev_handle;
 struct usb_device;
 
-struct VMUSBDeviceInfo
+struct LIBMVME_CORE_EXPORT VMUSBDeviceInfo
 {
     usb_device *device = nullptr;
     char serial[7] = {};
@@ -69,7 +70,7 @@ represents vm_usb controller
 
   @author Gregor Montermann <g.montermann@mesytec.com>
 */
-class VMUSB: public VMEController
+class LIBMVME_CORE_EXPORT VMUSB: public VMEController
 {
     Q_OBJECT
     public:
@@ -299,14 +300,13 @@ namespace GlobalModeRegister
     static const uint32_t NoIRQHandshake = 0x80000;
 }
 
-uint16_t*
-listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
-                        size_t* outSize, off_t offset = 0);
+LIBMVME_CORE_EXPORT uint16_t* listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
+                                              size_t* outSize, off_t offset = 0);
 
-QString getRegisterName(u32 registerAddress);
-QList<u32> getRegisterAddresses();
+QString LIBMVME_CORE_EXPORT getRegisterName(u32 registerAddress);
+QList<u32> LIBMVME_CORE_EXPORT getRegisterAddresses();
 
 typedef std::function<void (const QString &)> Dumper;
-void dump_registers(VMUSB *vmusb, Dumper dumper);
+void LIBMVME_CORE_EXPORT dump_registers(VMUSB *vmusb, Dumper dumper);
 
-#endif
+#endif /* MVME_VMUSB_H */

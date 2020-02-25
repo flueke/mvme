@@ -5,6 +5,7 @@
  *
  */
 #include "exportsink_codegen.h"
+#include "util/variablify.h"
 
 #include <Mustache/mustache.hpp>
 #include <QFileInfo>
@@ -120,39 +121,6 @@ struct ExportSinkCodeGenerator::Private
     mu::data makeGlobalTemplateData();
     void generate(RenderFunction render, Logger logger);
 };
-
-QString variablify(QString str)
-{
-    QRegularExpression ReIsValidFirstChar("[a-zA-Z_]");
-    QRegularExpression ReIsValidChar("[a-zA-Z0-9_]");
-
-    for (int i = 0; i < str.size(); i++)
-    {
-        QRegularExpressionMatch match;
-
-        if (i == 0)
-        {
-            match = ReIsValidFirstChar.match(str, i, QRegularExpression::NormalMatch, QRegularExpression::AnchoredMatchOption);
-        }
-        else
-        {
-            match = ReIsValidChar.match(str, i, QRegularExpression::NormalMatch, QRegularExpression::AnchoredMatchOption);
-        }
-
-        if (!match.hasMatch())
-        {
-            //qDebug() << "re did not match on" << str.mid(i);
-            //qDebug() << "replacing " << str[i] << " with _ in " << str;
-            str[i] = '_';
-        }
-        else
-        {
-            //qDebug() << "re matched: " << match.captured(0);
-        }
-    }
-
-    return str;
-}
 
 bool is_valid_identifier(const QString &str)
 {
@@ -275,7 +243,8 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
     return result;
 }
 
-void ExportSinkCodeGenerator::Private::generate(RenderFunction render, ExportSinkCodeGenerator::Logger logger)
+void ExportSinkCodeGenerator::Private::generate(RenderFunction render,
+                                                ExportSinkCodeGenerator::Logger logger)
 {
     QString fmtString;
 
@@ -347,10 +316,12 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render, ExportSin
                        data, pyFilePath, 0, logger);
 
         render(QSL(":/analysis/export_templates/python_%1_export_dump.py.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_dump.py"), TemplateRenderFlags::SetExecutable, logger);
+               data, exportDir.filePath("export_dump.py"), TemplateRenderFlags::SetExecutable,
+               logger);
 
         render(QSL(":/analysis/export_templates/pyroot_generate_histos.py.mustache"),
-                       data, exportDir.filePath("pyroot_generate_histos.py"), TemplateRenderFlags::SetExecutable, logger);
+               data, exportDir.filePath("pyroot_generate_histos.py"), TemplateRenderFlags::SetExecutable,
+               logger);
     }
 }
 

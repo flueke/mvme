@@ -148,8 +148,8 @@ TEST(a2Exprtk, ExpressionBasicEval)
     }
 
     {
-        // internal variable, using e_commutative_check feature
-        Expression expr("var x := 5; 3x + 42");
+        // internal variable
+        Expression expr("var x := 5; 3*x + 42");
         expr.compile();
         ASSERT_EQ(expr.value(), (3 * 5 + 42));
         ASSERT_EQ(expr.results().size(), 0);

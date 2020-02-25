@@ -1,7 +1,6 @@
 # Settings related to the readout loop
 # #####################################
-0x6010  0           # irq level
-0x6012  0           # irq vector
+0x6010  1           # irq level
 
 # IRQ_source and thresholds
 #0x601C 1           # 1 -> specifies number of words
@@ -16,7 +15,7 @@
                     # 3 -> extended time stamp
 
 # multi event mode:
-0x6036  0x3         # 0x0 -> single event
+0x6036  0xb         # 0x0 -> single event
                     # 0x3 -> multi event, number of words
                     # 0xb -> multievent, transmits number of events specified
 

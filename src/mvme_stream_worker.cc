@@ -24,7 +24,6 @@
 #include "analysis/analysis.h"
 #include "analysis/analysis_session.h"
 #include "histo1d.h"
-#include "listfile_version.h"
 #include "mesytec_diagnostics.h"
 #include "mvme_context.h"
 #include "mvme_listfile.h"
@@ -67,19 +66,6 @@ static const double PauseMaxSleep_ms = 125.0;
 
 } // end anon namespace
 
-QString to_string(const MVMEStreamWorkerState &state)
-{
-    static const QMap<MVMEStreamWorkerState, QString> MVMEStreamWorkerState_StringTable =
-    {
-        { MVMEStreamWorkerState::Idle,              QSL("Idle") },
-        { MVMEStreamWorkerState::Paused,            QSL("Paused") },
-        { MVMEStreamWorkerState::Running,           QSL("Running") },
-        { MVMEStreamWorkerState::SingleStepping,    QSL("Stepping") },
-    };
-
-    return MVMEStreamWorkerState_StringTable.value(state);
-}
-
 struct MVMEStreamWorkerPrivate
 {
     MVMEStreamProcessor streamProcessor;
@@ -110,7 +96,7 @@ DataBuffer *MVMEStreamWorkerPrivate::dequeueNextBuffer()
         {
             if (internalState == StopIfQueueEmpty)
             {
-                internalState = StopImmediately;
+                //internalState = StopImmediately;
                 return buffer;
             }
 
@@ -123,7 +109,9 @@ DataBuffer *MVMEStreamWorkerPrivate::dequeueNextBuffer()
         }
     }
 
-    if (buffer)
+    // Set increasing buffer number for MVMELST buffers only. MVLC buffers have
+    // a buffer  number assigned by the readout side.
+    if (buffer && buffer->tag == static_cast<int>(ListfileBufferFormat::MVMELST))
     {
         buffer->id = this->nextBufferNumber++;
     }
@@ -196,7 +184,7 @@ void debug_dump(const ProcessingState &procState)
 
     qDebug() << ">>> begin ProcessingState";
 
-    qDebug("  buffer=%p, buffer.id=%lu, buffer.data=%p, buffer.used=%lu bytes, %lu words",
+    qDebug("  buffer=%p, buffer.id=%u, buffer.data=%p, buffer.used=%lu bytes, %lu words",
            procState.buffer,
            procState.buffer->id,
            procState.buffer->data,
@@ -242,11 +230,11 @@ static const QMap<ProcessingState::StepResult, QString> StepResult_StringTable =
 };
 
 QTextStream &
-log_processing_step(QTextStream &out, const ProcessingState &procState, const vats::MVMETemplates &vatsTemplates)
+log_processing_step(QTextStream &out, const ProcessingState &procState,
+                    const vats::MVMETemplates &vatsTemplates,
+                    const ListfileConstants &lfc)
 {
     Q_ASSERT(procState.buffer);
-
-    using LF = listfile_v1;
 
     out << "buffer #" << procState.buffer->id
         << ", size=" << (procState.buffer->used / sizeof(u32)) << " words"
@@ -259,8 +247,8 @@ log_processing_step(QTextStream &out, const ProcessingState &procState, const va
             || procState.stepResult == ProcessingState::StepResult_EventComplete)
         {
             u32 eventSectionHeader = *procState.buffer->indexU32(procState.lastSectionHeaderOffset);
-            u32 eventIndex         = (eventSectionHeader & LF::EventTypeMask) >> LF::EventTypeShift;
-            u32 eventSectionSize   = (eventSectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
+            u32 eventIndex         = (eventSectionHeader & lfc.EventIndexMask) >> lfc.EventIndexShift;
+            u32 eventSectionSize   = (eventSectionHeader & lfc.SectionSizeMask) >> lfc.SectionSizeShift;
 
             out << "  "
                 << (QString("eventHeader=0x%1, @offset %2, idx=%3, sz=%4 words")
@@ -291,8 +279,8 @@ log_processing_step(QTextStream &out, const ProcessingState &procState, const va
                         procState.lastModuleDataEndOffsets[moduleIndex]);
 
 
-                    u32 moduleSectionSize = (moduleSectionHeader & LF::SubEventSizeMask) >> LF::SubEventSizeShift;
-                    u32 moduleType = (moduleSectionHeader & LF::ModuleTypeMask) >> LF::ModuleTypeShift;
+                    u32 moduleSectionSize = (moduleSectionHeader & lfc.ModuleDataSizeMask) >> lfc.ModuleDataSizeShift;
+                    u32 moduleType = (moduleSectionHeader & lfc.ModuleTypeMask) >> lfc.ModuleTypeShift;
                     QString moduleTypeString = vats::get_module_meta_by_typeId(vatsTemplates, moduleType).typeName;
 
                     if (endlFlag) out << endl;
@@ -372,8 +360,18 @@ void single_step_one_event(ProcessingState &procState, MVMEStreamProcessor &stre
 
 } // end anon namespace
 
+void MVMEStreamWorker::startupConsumers()
+{
+    m_d->streamProcessor.startup();
+}
+
+void MVMEStreamWorker::shutdownConsumers()
+{
+    m_d->streamProcessor.shutdown();
+}
+
 /* The main worker loop. */
-void MVMEStreamWorker::start(bool keepState)
+void MVMEStreamWorker::start()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 
@@ -383,10 +381,6 @@ void MVMEStreamWorker::start(bool keepState)
     Q_ASSERT(m_d->context->getAnalysis());
 
     m_d->runInfo = m_d->context->getRunInfo();
-    //m_d->runInfo.generateExportFiles = true;
-
-    // XXX: last minute decision
-    m_d->runInfo.keepAnalysisState = keepState;
 
     m_d->streamProcessor.beginRun(
         m_d->runInfo,
@@ -403,7 +397,8 @@ void MVMEStreamWorker::start(bool keepState)
     MVMEStreamProcessor::ProcessingState singleStepProcState;
     auto vatsTemplates = vats::read_templates();
 
-    // Timers and timeticks
+    const auto &lfc = listfile_constants(m_d->m_listFileVersion);
+
     auto &counters = m_d->streamProcessor.getCounters();
     counters.startTime = QDateTime::currentDateTime();
     counters.stopTime  = QDateTime();
@@ -411,15 +406,16 @@ void MVMEStreamWorker::start(bool keepState)
     TimetickGenerator timetickGen;
 
     /* Fixed in MVMEContext::startDAQReplay:
-     * There's a race condition here that leads to being stuck in the loop
-     * below. If the replay is very short and the listfile reader is finished
-     * before we reach this line here then stop(IfQueueEmpty) may already have
-     * been called. Thus internalState will be StopIfQueueEmpty and we will
-     * overwrite it below with either Pause or KeepRunning.  As the listfile
-     * reader already sent it's finished signal which makes the context call
-     * our stop() method we won't get any more calls to stop().  A way to fix
-     * this would be to wait for the stream processor to enter it's loop and
-     * only then start the listfile reader.
+     * There is a potential  race condition here that leads to being stuck in
+     * the loop below. If the replay is very short and the listfile reader is
+     * finished before we reach this line here then stop(IfQueueEmpty) may
+     * already have been called. Thus internalState will be StopIfQueueEmpty
+     * and we will overwrite it below with either Pause or KeepRunning.  As the
+     * listfile reader already sent its finished signal - which makes the
+     * context call our stop() method - we won't get any more calls to stop().
+     * A way to fix this is to wait for the stream processor to enter its loop
+     * and only then start the listfile reader. This fix has been implemented
+     * in MVMEContext.
      */
 
     // Start out in running state unless pause mode was requested.
@@ -444,6 +440,9 @@ void MVMEStreamWorker::start(bool keepState)
                         m_d->streamProcessor.processDataBuffer(buffer);
                         enqueue(m_d->freeBuffers, buffer);
                     }
+                    else if (internalState == StopIfQueueEmpty)
+                        m_d->internalState = StopImmediately;
+
                     break;
 
                 case Pause:
@@ -469,16 +468,21 @@ void MVMEStreamWorker::start(bool keepState)
                 case Pause:
                 case PausedAfterSingleStep:
                     // stay paused
+                    //qDebug() << __PRETTY_FUNCTION__ << "Paused: Pause|PausedAfterSingleStep";
                     QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick_ms()));
                     break;
 
                 case SingleStep:
+                    //qDebug() << __PRETTY_FUNCTION__ << "Paused: SingleStep";
+
                     if (!singleStepProcState.buffer)
                     {
                         if (auto buffer = m_d->dequeueNextBuffer())
                         {
                             singleStepProcState = m_d->streamProcessor.singleStepInitState(buffer);
                         }
+                        else if (internalState == StopIfQueueEmpty)
+                            m_d->internalState = StopImmediately;
                     }
 
                     if (singleStepProcState.buffer)
@@ -487,7 +491,7 @@ void MVMEStreamWorker::start(bool keepState)
 
                         QString logBuffer;
                         QTextStream logStream(&logBuffer);
-                        log_processing_step(logStream, singleStepProcState, vatsTemplates);
+                        log_processing_step(logStream, singleStepProcState, vatsTemplates, lfc);
                         m_d->context->logMessageRaw(logBuffer);
 
                         if (singleStepProcState.stepResult == ProcessingState::StepResult_AtEnd
@@ -517,8 +521,8 @@ void MVMEStreamWorker::start(bool keepState)
                         {
                             single_step_one_event(singleStepProcState, m_d->streamProcessor);
 
-                            qDebug() << __PRETTY_FUNCTION__ << "resume after stepping case."
-                                << "stepResult is: " << StepResult_StringTable[singleStepProcState.stepResult];
+                            //qDebug() << __PRETTY_FUNCTION__ << "resume after stepping case."
+                            //    << "stepResult is: " << StepResult_StringTable[singleStepProcState.stepResult];
 
                             if (singleStepProcState.stepResult == ProcessingState::StepResult_AtEnd
                                 || singleStepProcState.stepResult == ProcessingState::StepResult_Error)
@@ -555,7 +559,7 @@ void MVMEStreamWorker::start(bool keepState)
 
     counters.stopTime = QDateTime::currentDateTime();
 
-    m_d->streamProcessor.endRun();
+    m_d->streamProcessor.endRun(m_d->context->getDAQStats());
 
     // analysis session auto save
     auto sessionPath = m_d->context->getWorkspacePath(QSL("SessionDirectory"));
@@ -625,7 +629,7 @@ MVMEStreamWorkerState MVMEStreamWorker::getState() const
     return m_d->state;
 }
 
-const MVMEStreamProcessorCounters &MVMEStreamWorker::getCounters() const
+MVMEStreamProcessorCounters MVMEStreamWorker::getCounters() const
 {
     return m_d->streamProcessor.getCounters();
 }
@@ -664,4 +668,24 @@ bool MVMEStreamWorker::hasDiagnostics() const
 void MVMEStreamWorker::removeDiagnostics()
 {
     m_d->streamProcessor.removeDiagnostics();
+}
+
+void MVMEStreamWorker::attachBufferConsumer(IMVMEStreamBufferConsumer *consumer)
+{
+    m_d->streamProcessor.attachBufferConsumer(consumer);
+}
+
+void MVMEStreamWorker::removeBufferConsumer(IMVMEStreamBufferConsumer *consumer)
+{
+    m_d->streamProcessor.removeBufferConsumer(consumer);
+}
+
+void MVMEStreamWorker::attachModuleConsumer(IMVMEStreamModuleConsumer *consumer)
+{
+    m_d->streamProcessor.attachModuleConsumer(consumer);
+}
+
+void MVMEStreamWorker::removeModuleConsumer(IMVMEStreamModuleConsumer *consumer)
+{
+    m_d->streamProcessor.removeModuleConsumer(consumer);
 }

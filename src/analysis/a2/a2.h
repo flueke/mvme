@@ -1,6 +1,11 @@
 #ifndef __MVME_A2_H__
 #define __MVME_A2_H__
 
+#include <boost/dynamic_bitset.hpp>
+#include <cassert>
+#include <cpp11-on-multicore/common/rwlock.h>
+#include <pcg_random.hpp>
+
 #ifdef liba2_shared_EXPORTS
 #include "a2_export.h"
 #endif
@@ -12,10 +17,6 @@
 #include "multiword_datafilter.h"
 #include "rate_sampler.h"
 #include "util/typed_block.h"
-
-#include <cassert>
-#include <cpp11-on-multicore/common/rwlock.h>
-#include <pcg_random.hpp>
 
 namespace a2
 {
@@ -50,6 +51,8 @@ struct Thresholds
     double max;
 };
 
+using Interval = Thresholds;
+
 inline bool in_range(Thresholds t, double v)
 {
     return (t.min <= v && v < t.max);
@@ -60,6 +63,13 @@ struct PipeVectors
     ParamVec data;
     ParamVec lowerLimits;
     ParamVec upperLimits;
+
+    inline ParamVec::size_type size() const
+    {
+        assert(data.size == lowerLimits.size);
+        assert(data.size == upperLimits.size);
+        return data.size;
+    }
 };
 
 /* ===============================================
@@ -149,9 +159,9 @@ DataSource make_datasource_listfilter_extractor(
 size_t get_address_count(DataSource *ds);
 
 void extractor_begin_event(DataSource *ex);
-void extractor_process_module_data(DataSource *ex, u32 *data, u32 size);
+void extractor_process_module_data(DataSource *ex, const u32 *data, u32 size);
 void listfilter_extractor_begin_event(DataSource *ex);
-u32 *listfilter_extractor_process_module_data(DataSource *ex, u32 *data, u32 dataSize);
+const u32 *listfilter_extractor_process_module_data(DataSource *ex, const u32 *data, u32 dataSize);
 
 
 /* ===============================================
@@ -161,8 +171,9 @@ struct Operator
 {
     using count_type = u8;
 
-    static const auto MaxInputCount = std::numeric_limits<count_type>::max();
+    static const auto MaxInputCount  = std::numeric_limits<count_type>::max();
     static const auto MaxOutputCount = std::numeric_limits<count_type>::max();
+    static const s16  NoCondition    = -1;
 
     ParamVec *inputs;
     ParamVec *inputLowerLimits;
@@ -170,13 +181,23 @@ struct Operator
     ParamVec *outputs;
     ParamVec *outputLowerLimits;
     ParamVec *outputUpperLimits;
+
+    /* Operator type specific private data pointer. */
     void *d;
+
+    /* Index into A2::conditionBits. This is the active condition bit for this
+     * operator. It is used to decide whether to step the operator or skip this
+     * event. The special value Operator::NoCondition is used if no condition
+     * is active for the operator. */
+    s16 conditionIndex;
+
     u8 inputCount;
     u8 outputCount;
     u8 type;
 };
 
 void assign_input(Operator *op, PipeVectors input, s32 inputIndex);
+void invalidate_outputs(Operator *op);
 
 Operator make_calibration(
     memory::Arena *arena,
@@ -416,10 +437,52 @@ Operator make_expression_operator(
  * option to complete building the operator. */
 void expression_operator_compile_step_expression(Operator *op);
 
-void expression_operator_step(Operator *op);
+struct A2;
+
+void expression_operator_step(Operator *op, A2 *a2 = nullptr);
 
 /* ===============================================
- * Histograms
+ * Conditions
+ * =============================================== */
+
+/* Base structure used for the Operator::d member of condition operators. */
+struct ConditionBaseData
+{
+    static const s16 InvalidIndex = -1;
+
+    /* Index into A2::conditionBits. This is the bit being set/cleared by this
+     * condition when it is stepped. For conditions using multiple bits this is
+     * the index of the first bit. */
+    s16 firstBitIndex;
+};
+
+bool is_condition_operator(const Operator &op);
+u32 get_number_of_condition_bits_used(const Operator &op);
+
+Operator make_condition_interval(
+    memory::Arena *arena,
+    PipeVectors input,
+    const std::vector<Interval> &intervals);
+
+Operator make_condition_rectangle(
+    memory::Arena *arena,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
+    Interval xInterval,
+    Interval yInterval);
+
+Operator make_condition_polygon(
+    memory::Arena *arena,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
+    const std::vector<std::pair<double, double>> &polygon);
+
+/* ===============================================
+ * Sinks: Histograms/RateMonitor/ExportSink
  * =============================================== */
 struct Binning
 {
@@ -435,8 +498,8 @@ struct H1D: public ParamVec
     // binningFactor = binCount / binning.range
     double binningFactor;
     double entryCount;
-    double underflow;
-    double overflow;
+    double *underflow;
+    double *overflow;
 };
 
 Operator make_h1d_sink(
@@ -632,13 +695,32 @@ struct A2
     std::array<u8, MaxVMEEvents> operatorCounts;
     std::array<Operator *, MaxVMEEvents> operators;
     std::array<u8 *, MaxVMEEvents> operatorRanks;
+
+    using BlockType = unsigned long;
+    using BitsetAllocator = memory::ArenaAllocator<BlockType>;
+    using ConditionBitset = boost::dynamic_bitset<BlockType, BitsetAllocator>;
+
+    /* FIXME: hide this member and provide an accessor that creates and returns
+     * a copy of the bitset. The copy should use std::allocator instead of the
+     * BitsetAllocator. */
+    ConditionBitset conditionBits;
+
+    A2(memory::Arena *arena);
+    ~A2();
+
+    /* No copy or move allowed for now as I don't want to deal with the combination of
+     * copy/move semantics and the custom arena alloctor. */
+    A2(const A2 &) = delete;
+    A2(A2 &&) = delete;
+    A2 &operator=(const A2 &) = delete;
+    A2 &operator=(A2 &&) = delete;
 };
 
 using Logger = std::function<void (const std::string &msg)>;
 
 void a2_begin_run(A2 *a2, Logger logger);
 void a2_begin_event(A2 *a2, int eventIndex);
-void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize);
+void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize);
 void a2_end_event(A2 *a2, int eventIndex);
 void a2_timetick(A2 *a2);
 void a2_end_run(A2 *a2);

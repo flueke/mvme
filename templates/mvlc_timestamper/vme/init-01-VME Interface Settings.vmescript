@@ -1,0 +1,5 @@
+# MCST - Multicast Setup for the MVLCs internal VME interface
+# ###########################################################
+0x6020 0x80         # Enable multicast
+0x6024 0xBB         # Set 8 high bits of MCST address
+

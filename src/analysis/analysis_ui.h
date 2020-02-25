@@ -24,14 +24,20 @@
 #include <memory>
 #include <QWidget>
 
+#include "analysis_fwd.h"
+
 class MVMEContext;
 
 namespace analysis
 {
 
+class ObjectInfoWidget;
+
+namespace ui
+{
+
 struct AnalysisWidgetPrivate;
-class OperatorInterface;
-using OperatorPtr = std::shared_ptr<OperatorInterface>;
+class ConditionWidget;
 
 class AnalysisWidget: public QWidget
 {
@@ -44,8 +50,15 @@ class AnalysisWidget: public QWidget
         void operatorEditedExternally(const OperatorPtr &op);
 
         void updateAddRemoveUserLevelButtons();
+        ConditionWidget *getConditionWidget() const;
+        ObjectInfoWidget *getObjectInfoWidget() const;
 
         virtual bool event(QEvent *event) override;
+
+        int removeObjects(const AnalysisObjectVector &objects);
+
+    public slots:
+        void repopulate();
 
     private:
         friend struct AnalysisWidgetPrivate;
@@ -54,6 +67,7 @@ class AnalysisWidget: public QWidget
         void eventConfigModified();
 };
 
+} // end namespace ui
 } // end namespace analysis
 
 #endif /* __ANALYSIS_UI_H__ */

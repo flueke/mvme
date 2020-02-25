@@ -14,15 +14,6 @@
                     # 3 -> 8k (6.4 us)
                     # 4 -> 8k hires (12.5 us)
 
-# adc_override
-#0x6046  3          # If set overrides the channel output width but not the conversion time.
-                    # Values are the same as for adc_resolution.
-
-# slc_off
-0x6048  0           # If set to 1 switch of sliding scale
-
-# skip_oorange
-0x604A  0           # Skip out-of-range values
 
 # Gate Generators
 # ############################################################################
@@ -149,3 +140,8 @@
 0x403A  0           # channel 29
 0x403C  0           # channel 30
 0x403E  0           # channel 31
+
+#### Expert settings, usually leave at default ##############
+# adc_override
+#0x6046  3          # If set overrides the channel output width but not the conversion time.
+                    # Values are the same as for adc_resolution.

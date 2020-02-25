@@ -1,0 +1,7 @@
+{
+    "typeId"        : 10,
+    "typeName"      : "mvlc_ts",
+    "displayName"   : "MVLC Timestamp/Counter",
+    "vendorName"    : "mesytec",
+    "vmeAddress": "0xffff0000"
+}

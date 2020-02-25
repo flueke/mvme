@@ -1,6 +1,6 @@
 **/*.swp
 **/*.swo
-CMakeLists.txt.user
+CMakeLists.txt.user*
 extras/mvme-listfile-dumper/mvme-listfile-dumper
 compile_commands.json
 doc/doxygen/html/

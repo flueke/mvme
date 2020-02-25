@@ -9,6 +9,8 @@
 #   depends on the output.
 
 find_package(Sphinx)
+find_program(LATEXMK latexmk)
+find_program(QCOLLECTIONGENERATOR qcollectiongenerator)
 
 if (SPHINX_EXECUTABLE)
 
@@ -21,8 +23,9 @@ if (SPHINX_EXECUTABLE)
     set(SPHINX_LATEX_DIR        "${CMAKE_CURRENT_BINARY_DIR}/latex")
     set(SPHINX_PDF_OUT          "${SPHINX_LATEX_DIR}/mvme.pdf")
 
-    #set(SPHINX_QTHELP_DIR   "${CMAKE_CURRENT_BINARY_DIR}/qthelp")
-    #set(SPHINX_QCH_OUT      "${SPHINX_QTHELP_DIR}/mvme.qch")
+    set(SPHINX_QTHELP_DIR       "${CMAKE_CURRENT_BINARY_DIR}/qthelp")
+    set(SPHINX_QCH_OUT          "${SPHINX_QTHELP_DIR}/mvme.qch")
+    set(SPHINX_QHC_OUT          "${SPHINX_QTHELP_DIR}/mvme.qhc")
 
     # Copies the footer logo for the latex build.
     configure_file(
@@ -37,6 +40,8 @@ if (SPHINX_EXECUTABLE)
         "${CMAKE_CURRENT_SOURCE_DIR}/ext"
         "${CMAKE_CURRENT_BINARY_DIR}/ext"
         )
+
+    add_custom_target(doc ALL)
 
     # html
     # ==================================================
@@ -58,88 +63,108 @@ if (SPHINX_EXECUTABLE)
         )
 
     add_dependencies(doc_html doc_sphinx_copy_ext)
+    add_dependencies(doc doc_html)
 
     install(DIRECTORY "${SPHINX_HTML_DIR}" DESTINATION doc)
 
     # latex
     # ==================================================
-    configure_file(
-        "${SPHINX_SOURCE_DIR}/conf.py.in"
-        "${SPHINX_BUILD_BASE}/latex/conf.py"
-        @ONLY
-        )
+    if (LATEXMK)
+        configure_file(
+            "${SPHINX_SOURCE_DIR}/conf.py.in"
+            "${SPHINX_BUILD_BASE}/latex/conf.py"
+            @ONLY
+            )
 
-    add_custom_target(doc_latex
-        ${SPHINX_EXECUTABLE}
-        -E -b latex
-        -c "${SPHINX_BUILD_BASE}/latex"
-        -d "${SPHINX_CACHE_BASE}/latex"
-        "${SPHINX_SOURCE_DIR}"
-        "${SPHINX_LATEX_DIR}"
-        COMMENT "Building latex documentation with Sphinx"
-        )
-    add_dependencies(doc_latex doc_sphinx_copy_ext)
+        add_custom_target(doc_latex
+            ${SPHINX_EXECUTABLE}
+            -E -b latex
+            -c "${SPHINX_BUILD_BASE}/latex"
+            -d "${SPHINX_CACHE_BASE}/latex"
+            "${SPHINX_SOURCE_DIR}"
+            "${SPHINX_LATEX_DIR}"
+            COMMENT "Building latex documentation with Sphinx"
+            )
+        add_dependencies(doc_latex doc_sphinx_copy_ext)
 
-    # latex -> pdf
-    # Trap here: as I'm using ninja for most builds ${CMAKE_MAKE_PROGRAM} is
-    # set to 'ninja' not 'make' but sphinx generates a Makefile, so the ninja
-    # build will fail here!
-    # I'm now calling 'make' manually to work around this issue. This might
-    # brake under windows as make could be 'mingw32-make' or 'nmake' or
-    # something else.
+        # latex -> pdf
+        # Trap here: as I'm using ninja for most builds ${CMAKE_MAKE_PROGRAM} is
+        # set to 'ninja' not 'make' but sphinx generates a Makefile, so the ninja
+        # build will fail here!
+        # I'm now calling 'make' manually to work around this issue. This might
+        # brake under windows as make could be 'mingw32-make' or 'nmake' or
+        # something else.
 
-    #add_custom_target(doc_latex_pdf
-    #        ${CMAKE_MAKE_PROGRAM} -C ${SPHINX_LATEX_DIR}
-    #    COMMENT "Generating PDF from Sphinx latex output"
-    #    )
-    add_custom_target(doc_latex_pdf
-            make -C ${SPHINX_LATEX_DIR}
-        COMMENT "Generating PDF from Sphinx latex output"
-        )
+        #add_custom_target(doc_latex_pdf
+        #        ${CMAKE_MAKE_PROGRAM} -C ${SPHINX_LATEX_DIR}
+        #    COMMENT "Generating PDF from Sphinx latex output"
+        #    )
 
-    add_dependencies(doc_latex_pdf doc_latex)
+        if (WIN32)
+            add_custom_target(doc_latex_pdf
+                    make -C ${SPHINX_LATEX_DIR}
+                    COMMENT "Generating PDF from Sphinx latex output")
+        else(WIN32)
+            add_custom_target(doc_latex_pdf
+                    make -C ${SPHINX_LATEX_DIR}
+                    COMMENT "Generating PDF from Sphinx latex output")
+        endif(WIN32)
 
-    install(FILES "${SPHINX_PDF_OUT}" DESTINATION doc)
+        add_dependencies(doc_latex_pdf doc_latex)
+        add_dependencies(doc doc_latex_pdf)
+
+        install(FILES "${SPHINX_PDF_OUT}" DESTINATION doc)
+    else(LATEXMK)
+        message("-- The latexmk program was not found on your system. Will not generate PDF documentation.")
+    endif(LATEXMK)
 
     # qthelp
     # ==================================================
 
-    # FIXME: disabled for now as it's not searchable and looks bad
-    #add_custom_target(doc_qthelp
-    #    ${SPHINX_EXECUTABLE}
-    #    -E -b qthelp
-    #    -c "${SPHINX_BUILD_DIR}"
-    #    -d "${SPHINX_CACHE_BASE}/qthelp"
-    #    "${SPHINX_SOURCE_DIR}"
-    #    "${SPHINX_QTHELP_DIR}"
-    #    COMMENT "Building qthelp documentation with Sphinx"
-    #    )
-    #add_dependencies(doc_qthelp doc_sphinx_copy_ext)
+    if (QCOLLECTIONGENERATOR)
+        configure_file(
+            "${SPHINX_SOURCE_DIR}/conf.py.in"
+            "${SPHINX_BUILD_BASE}/qthelp/conf.py"
+            @ONLY
+            )
 
-    ## qthelp collection
+        # produces mvme.qhp and mvme.qhcp
+        add_custom_target(doc_qthelp
+            ${SPHINX_EXECUTABLE}
+            -E -b qthelp
+            -c "${SPHINX_BUILD_BASE}/qthelp"
+            -d "${SPHINX_CACHE_BASE}/qthelp"
+            "${SPHINX_SOURCE_DIR}"
+            "${SPHINX_QTHELP_DIR}"
+            COMMENT "Building qthelp documentation with Sphinx"
+            BYPRODUCTS
+                "${SPHINX_QTHELP_DIR}/mvme.qhp"
+                "${SPHINX_QTHELP_DIR}/mvme.qhcp"
+            )
+        add_dependencies(doc_qthelp doc_sphinx_copy_ext)
 
-    #add_custom_command(
-    #    OUTPUT "${SPHINX_QCH_OUT}"
-    #    COMMAND qcollectiongenerator "${SPHINX_QTHELP_DIR}/mvme.qhcp"
-    #    COMMENT "Generating qthelp collection"
-    #    )
+        # qthelp collection
+        # Produces mvme.qhc and mvme.qch
+        add_custom_command(
+            DEPENDS "${SPHINX_QTHELP_DIR}/mvme.qhp"
+            OUTPUT "${SPHINX_QCH_OUT}" "${SPHINX_QHC_OUT}"
+            COMMAND qcollectiongenerator "${SPHINX_QTHELP_DIR}/mvme.qhcp"
+            COMMENT "Generating qthelp collection"
+            )
 
-    ## The dependency on the QCH_OUT is what makes CMake actually run the command.
-    ## See https://cmake.org/Wiki/CustomCommandCustomTargetInstall for details.
-    #add_custom_target(doc_qthelp_collection
-    #    ALL DEPENDS "${SPHINX_QCH_OUT}"
-    #    )
+        # The dependency on the QCH_OUT is what makes CMake actually run the command.
+        # See https://cmake.org/Wiki/CustomCommandCustomTargetInstall for details.
+        add_custom_target(doc_qthelp_collection
+            ALL DEPENDS "${SPHINX_QHC_OUT}"
+            )
 
-    #add_dependencies(doc_qthelp_collection doc_qthelp)
+        add_dependencies(doc_qthelp_collection doc_qthelp)
+        add_dependencies(doc doc_qthelp_collection)
 
-    #install(FILES "${SPHINX_QCH_OUT}" DESTINATION doc)
-
-    # 'doc' target for all formats
-    # ==================================================
-    add_custom_target(doc ALL)
-    #add_dependencies(doc doc_html doc_latex_pdf doc_qthelp_collection)
-    add_dependencies(doc doc_html doc_latex_pdf)
-
+        install(FILES "${SPHINX_QHC_OUT}" DESTINATION doc)
+    endif(QCOLLECTIONGENERATOR)
+else(SPHINX_EXECUTABLE)
+    message("-- sphinx-build was not found on your system. Will not generate documentation.")
 endif()
 
 # vim:tw=0

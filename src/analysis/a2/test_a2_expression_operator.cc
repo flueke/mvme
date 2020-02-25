@@ -23,69 +23,81 @@ inline void ASSERT_EQ_OR_NAN(double a, double b)
 
 TEST(a2ExpressionOperator, PassThroughSingleInput)
 {
-    Arena arena(Kilobytes(256));
-
-    static double inputData[] =
+    try
     {
-        0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
-        8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
-    };
 
-    static const s32 inputSize = ArrayCount(inputData);
+        Arena arena(Kilobytes(256));
 
-    std::vector<PipeVectors> inputs = {
+        static double inputData[] =
         {
-            ParamVec{inputData, inputSize},
-            push_param_vector(&arena, inputSize, 0.0),
-            push_param_vector(&arena, inputSize, 20.0),
-        },
-    };
+            0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
+            8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
+        };
 
-    std::vector<std::string> input_prefixes = { "input0" };
-    std::vector<std::string> input_units    = { "apples" };
-    std::vector<s32> input_param_indexes    = { NoParamIndex };
+        static const s32 inputSize = ArrayCount(inputData);
 
-    std::string expr_begin =
-        "return [ 'output0', input0.unit, input0.lower_limits, input0.upper_limits ];";
+        std::vector<PipeVectors> inputs = {
+            {
+                ParamVec{inputData, inputSize},
+                push_param_vector(&arena, inputSize, 0.0),
+                push_param_vector(&arena, inputSize, 20.0),
+            },
+        };
 
-    std::string expr_step =
-        "output0 := input0;";
+        std::vector<std::string> input_prefixes = { "input0" };
+        std::vector<std::string> input_units    = { "apples" };
+        std::vector<s32> input_param_indexes    = { NoParamIndex };
 
-    auto op = make_expression_operator(
-        &arena,
-        inputs,
-        input_param_indexes,
-        input_prefixes,
-        input_units,
-        expr_begin,
-        expr_step);
+        std::string expr_begin =
+            "return [ 'output0', input0.unit, input0.size, input0.lower_limits, input0.upper_limits ];";
 
-    auto d = reinterpret_cast<ExpressionOperatorData *>(op.d);
+        std::string expr_step =
+            "output0 := input0;";
 
-    // structure check
-    ASSERT_EQ(d->output_names.size(), 1);
-    ASSERT_EQ(d->output_names[0], "output0");
+        auto op = make_expression_operator(
+            &arena,
+            inputs,
+            input_param_indexes,
+            input_prefixes,
+            input_units,
+            expr_begin,
+            expr_step);
 
-    ASSERT_EQ(d->output_units.size(), 1);
-    ASSERT_EQ(d->output_units[0], "apples");
+        auto d = reinterpret_cast<ExpressionOperatorData *>(op.d);
 
-    ASSERT_EQ(op.outputCount, 1);
+        // structure check
+        ASSERT_EQ(d->output_names.size(), 1);
+        ASSERT_EQ(d->output_names[0], "output0");
 
-    ASSERT_EQ(op.outputs[0].size, inputSize);
+        ASSERT_EQ(d->output_units.size(), 1);
+        ASSERT_EQ(d->output_units[0], "apples");
 
-    ASSERT_EQ(op.outputLowerLimits[0].size, inputSize);
-    ASSERT_EQ(op.outputUpperLimits[0].size, inputSize);
+        ASSERT_EQ(op.outputCount, 1);
 
-    ASSERT_EQ(op.outputLowerLimits[0][0], 0.0);
-    ASSERT_EQ(op.outputUpperLimits[0][0], 20.0);
+        ASSERT_EQ(op.outputs[0].size, inputSize);
 
-    // step
-    expression_operator_step(&op);
+        ASSERT_EQ(op.outputLowerLimits[0].size, inputSize);
+        ASSERT_EQ(op.outputUpperLimits[0].size, inputSize);
 
-    // data check
-    for (s32 i = 0; i < inputSize; i++)
+        ASSERT_EQ(op.outputLowerLimits[0][0], 0.0);
+        ASSERT_EQ(op.outputUpperLimits[0][0], 20.0);
+
+        // step
+        expression_operator_step(&op);
+
+        // data check
+        for (s32 i = 0; i < inputSize; i++)
+        {
+            ASSERT_EQ_OR_NAN(op.outputs[0][i], inputData[i]);
+        }
+    } catch (const ExpressionOperatorSemanticError &e)
     {
-        ASSERT_EQ_OR_NAN(op.outputs[0][i], inputData[i]);
+        std::cerr << e.message << endl;
+        throw;
+    } catch (const std::exception &e)
+    {
+        std::cerr << e.what() << endl;
+        throw;
     }
 }
 
@@ -127,8 +139,8 @@ TEST(a2ExpressionOperator, PassThroughTwoInputs)
 
     std::string expr_begin =
         "return ["
-        "   'output0', input0.unit, input0.lower_limits, input0.upper_limits,"
-        "   'output1', input1.unit, input1.lower_limits, input1.upper_limits"
+        "   'output0', input0.unit, input0.size, input0.lower_limits, input0.upper_limits,"
+        "   'output1', input1.unit, input1.size, input1.lower_limits, input1.upper_limits"
         "];"
         ;
 

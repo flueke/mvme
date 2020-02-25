@@ -14,8 +14,6 @@
 class LIBMVME_EXPORT MVMEStreamWriterHelper
 {
     public:
-        using LF = listfile_v1;
-
         enum Flags
         {
             ResultOk,
@@ -62,8 +60,10 @@ class LIBMVME_EXPORT MVMEStreamWriterHelper
             m_outputBuffer->used += sizeof(u32);
             m_eventSize = 0;
 
-            *eventHeader = ((ListfileSections::SectionType_Event << LF::SectionTypeShift) & LF::SectionTypeMask)
-                | ((eventIndex << LF::EventTypeShift) & LF::EventTypeMask);
+            const auto &lfc = listfile_constants();
+
+            *eventHeader = ((ListfileSections::SectionType_Event << lfc.SectionTypeShift) & lfc.SectionTypeMask)
+                | ((eventIndex << lfc.EventIndexShift) & lfc.EventIndexMask);
 
             return ResultOk;
         }
@@ -75,8 +75,10 @@ class LIBMVME_EXPORT MVMEStreamWriterHelper
             if (!hasOpenEventSection() || hasOpenModuleSection())
                 return { NestingError, 0 };
 
+            const auto &lfc = listfile_constants();
+
             u32 *eventHeader = m_outputBuffer->asU32(m_eventHeaderOffset);
-            *eventHeader |= (m_eventSize << LF::SectionSizeShift) & LF::SectionSizeMask;
+            *eventHeader |= (m_eventSize << lfc.SectionSizeShift) & lfc.SectionSizeMask;
             m_eventHeaderOffset = -1;
 
             return { ResultOk, static_cast<u32>(m_eventSize * sizeof(u32)) };
@@ -89,7 +91,9 @@ class LIBMVME_EXPORT MVMEStreamWriterHelper
             if (!hasOpenEventSection() || hasOpenModuleSection())
                 return NestingError;
 
-            if (m_eventSize >= LF::SectionMaxWords)
+            const auto &lfc = listfile_constants();
+
+            if (m_eventSize >= lfc.SectionMaxWords)
                 return EventSizeExceeded;
 
             m_moduleHeaderOffset = m_outputBuffer->used;
@@ -98,7 +102,7 @@ class LIBMVME_EXPORT MVMEStreamWriterHelper
             m_eventSize++;
             m_moduleSize = 0;
 
-            *moduleHeader = (moduleType << LF::ModuleTypeShift) & LF::ModuleTypeMask;
+            *moduleHeader = (moduleType << lfc.ModuleTypeShift) & lfc.ModuleTypeMask;
 
             return ResultOk;
         }
@@ -110,8 +114,10 @@ class LIBMVME_EXPORT MVMEStreamWriterHelper
             if (!hasOpenEventSection() || !hasOpenModuleSection())
                 return { NestingError, 0 };
 
+            const auto &lfc = listfile_constants();
+
             u32 *moduleHeader = m_outputBuffer->asU32(m_moduleHeaderOffset);
-            *moduleHeader |= (m_moduleSize << LF::SubEventSizeShift) & LF::SubEventSizeMask;
+            *moduleHeader |= (m_moduleSize << lfc.ModuleDataSizeShift) & lfc.ModuleDataSizeMask;
             m_moduleHeaderOffset = -1;
 
             return { ResultOk, static_cast<u32>(m_moduleSize * sizeof(u32)) };
@@ -124,7 +130,9 @@ class LIBMVME_EXPORT MVMEStreamWriterHelper
             if (!hasOpenEventSection() || hasOpenModuleSection())
                 return NestingError;
 
-            if (m_eventSize >= LF::SectionMaxWords)
+            const auto &lfc = listfile_constants();
+
+            if (m_eventSize >= lfc.SectionMaxWords)
                 return EventSizeExceeded;
 
             *m_outputBuffer->asU32() = dataWord;
@@ -141,10 +149,12 @@ class LIBMVME_EXPORT MVMEStreamWriterHelper
             if (!hasOpenEventSection() || !hasOpenModuleSection())
                 return NestingError;
 
-            if (m_eventSize >= LF::SectionMaxWords)
+            const auto &lfc = listfile_constants();
+
+            if (m_eventSize >= lfc.SectionMaxWords)
                 return EventSizeExceeded;
 
-            if (m_moduleSize >= LF::SubEventMaxWords)
+            if (m_moduleSize >= lfc.ModuleDataMaxWords)
                 return ModuleSizeExceeded;
 
             *m_outputBuffer->asU32() = dataWord;

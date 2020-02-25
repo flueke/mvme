@@ -24,9 +24,7 @@
 
 #include "mvme_context.h"
 #include "vme_controller_factory.h"
-#ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
-#endif
 
 using RegisterMap = QMap<u32, QString>;
 

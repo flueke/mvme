@@ -1,7 +1,9 @@
 #include "analysis_serialization.h"
+#include <QHash>
+
 #include "analysis.h"
 #include "object_factory.h"
-#include <QHash>
+#include "util/qt_metaobject.h"
 
 namespace analysis
 {
@@ -74,7 +76,16 @@ QJsonObject serialze_connection(const Connection &con)
     return result;
 }
 
-QSet<Connection> collect_internal_collections(const AnalysisObjectVector &objects)
+QJsonObject serialize_conditionlink(const OperatorPtr &op, const ConditionLink &cl)
+{
+    QJsonObject result;
+    result["operatorId"] = op->getId().toString();
+    result["conditionId"] = cl.condition->getId().toString();
+    result["subIndex"] = cl.subIndex;
+    return result;
+}
+
+QSet<Connection> collect_internal_connections(const AnalysisObjectVector &objects)
 {
     QSet<Connection> connections;
 
@@ -90,9 +101,19 @@ QSet<Connection> collect_internal_collections(const AnalysisObjectVector &object
 
                 for (Slot *dstSlot: pipe->getDestinations())
                 {
-                    if (auto dstOp = std::dynamic_pointer_cast<OperatorInterface>(
-                            dstSlot->parentOperator->shared_from_this()))
+                    OperatorPtr dstOp;
+
+                    assert(dstSlot->parentOperator);
+
+                    if (dstSlot->parentOperator)
                     {
+                        dstOp = std::dynamic_pointer_cast<OperatorInterface>(
+                            dstSlot->parentOperator->shared_from_this());
+                    }
+
+                    if (dstOp)
+                    {
+                        // slow. let the caller pass an object set instead?
                         if (objects.contains(dstOp))
                         {
                             Connection con =
@@ -115,9 +136,48 @@ QSet<Connection> collect_internal_collections(const AnalysisObjectVector &object
     return connections;
 }
 
+QSet<Connection> collect_incoming_connections(const AnalysisObjectVector &objects)
+{
+    QSet<Connection> connections;
+
+    for (const auto &obj: objects)
+    {
+        auto op = std::dynamic_pointer_cast<OperatorInterface>(obj);
+
+        // Only OperatorInterface subclasses have input slots
+        if (!op) continue;
+
+        auto inputSlots = op->getSlots();
+
+        for (Slot *slot: inputSlots)
+        {
+            if (!slot->isConnected()) continue;
+
+            Connection con;
+
+            con.srcObject = std::dynamic_pointer_cast<PipeSourceInterface>(
+                slot->inputPipe->getSource()->shared_from_this());
+
+            // Skip internal connections
+            if (!objects.contains(con.srcObject))
+            {
+                con.srcIndex = slot->inputPipe->sourceOutputIndex;
+
+                con.dstObject = op;
+                con.dstIndex = slot->parentSlotIndex;
+                con.dstParamIndex = slot->paramIndex;
+
+                connections.insert(con);
+            }
+        }
+    }
+
+    return connections;
+}
+
 QJsonArray serialize_internal_connections(const AnalysisObjectVector &objects)
 {
-    QSet<Connection> connections = collect_internal_collections(objects);
+    QSet<Connection> connections = collect_internal_connections(objects);
 
     QJsonArray result;
 
@@ -158,7 +218,25 @@ QJsonArray ObjectSerializerVisitor::serializeConnections() const
     return serialize_internal_connections(visitedObjects);
 }
 
-QJsonObject ObjectSerializerVisitor::finalize() const
+QJsonArray ObjectSerializerVisitor::serializeConditionLinks(const ConditionLinks &links) const
+{
+    QJsonArray result;
+
+    for (auto it = links.begin(); it != links.end(); it++)
+    {
+        const auto &op(it.key());
+        const auto &link(it.value());
+
+        if (op && link)
+        {
+            result.append(serialize_conditionlink(op, link));
+        }
+    }
+
+    return result;
+}
+
+QJsonObject ObjectSerializerVisitor::finalize(const Analysis *analysis) const
 {
     QJsonObject json;
     json["MVMEAnalysisVersion"] = Analysis::getCurrentAnalysisVersion();
@@ -166,6 +244,7 @@ QJsonObject ObjectSerializerVisitor::finalize() const
     json["operators"] = operatorsArray;
     json["directories"] = directoriesArray;
     json["connections"] = serializeConnections();
+    json["conditionLinks"] = serializeConditionLinks(analysis->getConditionLinks());
     return json;
 }
 
@@ -175,7 +254,7 @@ namespace
 /* This function converts from analysis config versions prior to V2, which
  * stored eventIndex and moduleIndex instead of eventId and moduleId.
  */
-QJsonObject v1_to_v2(QJsonObject json, VMEConfig *vmeConfig)
+QJsonObject v1_to_v2(QJsonObject json, const VMEConfig *vmeConfig)
 {
     bool couldConvert = true;
 
@@ -241,12 +320,12 @@ QJsonObject v1_to_v2(QJsonObject json, VMEConfig *vmeConfig)
     return json;
 }
 
-QJsonObject noop_converter(QJsonObject json, VMEConfig *)
+QJsonObject noop_converter(QJsonObject json, const VMEConfig *)
 {
     return json;
 }
 
-using VersionConverter = std::function<QJsonObject (QJsonObject, VMEConfig *)>;
+using VersionConverter = std::function<QJsonObject (QJsonObject, const VMEConfig *)>;
 
 QVector<VersionConverter> get_version_converters()
 {
@@ -265,7 +344,7 @@ int get_version(const QJsonObject &json)
     return json[QSL("MVMEAnalysisVersion")].toInt(1);
 };
 
-QJsonObject convert_to_current_version(QJsonObject json, VMEConfig *vmeConfig)
+QJsonObject convert_to_current_version(QJsonObject json, const VMEConfig *vmeConfig)
 {
     int version;
 
@@ -304,15 +383,14 @@ AnalysisObjectVector AnalysisObjectStore::allObjects() const
 }
 
 AnalysisObjectStore deserialize_objects(QJsonObject data,
-                                        VMEConfig *vmeConfig,
+                                        const VMEConfig *vmeConfig,
                                         const ObjectFactory &objectFactory)
 {
     int version = get_version(data);
 
     if (version > Analysis::getCurrentAnalysisVersion())
     {
-        throw std::runtime_error("The analysis data was generated by a newer version of mvme."
-                                 " Please upgrade.");
+        throw std::system_error(make_error_code(AnalysisReadResult::VersionTooNew));
     }
 
     data = convert_to_current_version(data, vmeConfig);
@@ -443,10 +521,17 @@ AnalysisObjectStore deserialize_objects(QJsonObject data,
 
             if (srcObject && dstObject)
             {
-                qDebug() << __PRETTY_FUNCTION__
-                    << "src =" << srcObject.get() << ", dst =" << dstObject.get();
+                //qDebug() << __PRETTY_FUNCTION__
+                //    << "src =" << srcObject.get() << ", dst =" << dstObject.get();
 
                 Slot *dstSlot = dstObject->getSlot(dstIndex);
+
+                if (!dstSlot)
+                {
+                    qDebug() << __PRETTY_FUNCTION__
+                        << "null dstSlot encountered!, dstObject =" << dstObject.get()
+                        << ", dstSlotIndex =" << dstIndex;
+                }
 
                 assert(dstSlot);
 
@@ -460,6 +545,31 @@ AnalysisObjectStore deserialize_objects(QJsonObject data,
                 };
 
                 result.connections.insert(con);
+            }
+        }
+    }
+
+    // Condition Links
+    {
+        QJsonArray array = data["conditionLinks"].toArray();
+
+        for (auto it = array.begin(); it != array.end(); ++it)
+        {
+            auto objectJson = it->toObject();
+
+            QUuid opId(objectJson["operatorId"].toString());
+            QUuid condId(objectJson["conditionId"].toString());
+            s32 subIndex = objectJson["subIndex"].toInt();
+
+            auto op = std::dynamic_pointer_cast<OperatorInterface>(
+                result.objectsById.value(opId));
+
+            auto cond = std::dynamic_pointer_cast<ConditionInterface>(
+                result.objectsById.value(condId));
+
+            if (op && cond)
+            {
+                result.conditionLinks.insert(op, { cond, subIndex });
             }
         }
     }

@@ -4,10 +4,10 @@
 Quickstart Guide
 ##################################################
 
-The quickstart guide explains how to create a simple setup using the WIENER
-VM-USB VME controller and one mesytec VME module. The modules internal pulser
-is used to generate test data. Data readout is triggered by the module using
-IRQ1.
+The quickstart guide explains how to create a simple setup using the mesytec
+MVLC VME controller and one mesytec VME module. The modules internal pulser is
+used to generate test data. Data readout is triggered by the module itself
+using IRQ1 on the VME bus.
 
 .. note::
   In this example an MDPP-16 with the SCP firmware is used but any **mesytec**
@@ -34,10 +34,11 @@ IRQ1.
 
     GUI overview
 
-If a VM-USB VME controller is connected to the PC and powered on mvme should
-automatically find and use it. *VME Controller* in the DAQ Control area should
-show up as *Connected*. Also the VM-USB firmware version will be printed to the
-Log View.
+Press the ``Settings`` button in the DAQ Control area and select the correct
+controller type (MVLC_USB in this example). Assuming the controller is
+connected and powered on mvme will automatically find and use it. Also a
+message containing information about the controller will appear in the Log
+View.
 
 ==================================================
 VME Setup
@@ -48,8 +49,8 @@ VME Setup
 
   * Right-click the *Events* entry in the VME tree and select *Add Event*.
 
-  * Select *Interrupt* in the *Condition* combobox. Keep the defaults of *IRQ
-    Level = 1* and *IRQ Vector = 0*.
+  * Select *Interrupt* in the *Condition* combobox. Keep the default of *IRQ
+    Level = 1*.
 
 .. autofigure:: images/quickstart_event_config.png
    :scale-latex: 60%
@@ -70,22 +71,23 @@ VME Setup
 
    Module Config Dialog
 
-The VME GUI should now look like shown in :ref:`quickstart-vme-tree01`.
+The VME Config should now look like similar to :ref:`quickstart-vme-tree01`.
 
 .. _quickstart-vme-tree01:
 
 .. autofigure:: images/intro_vme_tree01.png
    :scale-latex: 60%
 
-   VME Config Tree
+   VME Config tree
 
 * Double-click the *Module Init* entry to open a VME Script Editor window.
-  Scroll to the bottom of the editor window and adjust the register value for
+  Scroll to the bottom of the editor window or use the search bar to search for
+  ``pulser`` and adjust the register value for
   the modules internal pulser:
 
-  ``0x6070 3``
+  ``0x6070 1``
 
-  This line tells mvme to write the value ``3`` to register address ``0x6070``.
+  This line tells mvme to write the value ``1`` to register address ``0x6070``.
   The address is relative to the module base address.
 
 * Click the *Apply* button on the editors toolbar to commit your changes to the
@@ -111,9 +113,9 @@ Analysis Setup
 * Activate the *Analysis UI* window (the shortcut is ``Ctrl+2``). The event
   containing the module just created should be visible in the UI.
 
-* Right-click the module and select *Generate default filters*. Choose *Yes* in
-  the messagebox that pops up. This will generate a set of data extraction
-  filters, calibration operators and histograms for the module.
+* Right-click the mdpp16 module and select *Generate default filters*. Choose
+  *Yes* in the messagebox that pops up. This will generate a set of data
+  extraction filters, calibration operators and histograms for the module.
 
 .. _quickstart-analysis-default-filters:
 
@@ -136,11 +138,14 @@ shown as *Connected* in the top part of the window.
    DAQ control
 
 Optionally uncheck the box titled *Write Listfile* to avoid writing the test
-data to disk. If the option is set the raw data will be written to a *.mvmelst*
-file inside the *listfile* subdirectory of the workspace. For each run a new
-filename based on the current timestamp is generated. If writing a ZIP archive
-both the current analysis and the text log file produced during the run will be
-added to the resulting archive.
+data to disk. If left checked a listfile will be created for each newly started
+DAQ run. This listfile is placed in the workspace directory under
+``listfiles``. It is a standard ZIP archive containing the raw readout data and
+copies of the current analysis setup and the log buffer contents.
+
+The naming scheme of the listfiles can be adjusted via the ``Run Settings``
+dialog. Note that mvme will never overwrite existing listfiles even if you
+manually adjust the ``Next Run Number`` value.
 
 Press the *Start* button to start the DAQ. Check the *Log View* (``Ctrl+3``)
 for warnings and errors.
@@ -166,8 +171,10 @@ at the top of the main window.
 Event Counter readout
 ==================================================
 
-.. TODO: Expand on this. Explain some more
-
+.. TODO: Expand on this. Explain what the counter values are, how to use them
+.. TODO: in the analysis and how to convert them to counts/second.
+.. TODO: On the other hand this is done in the rate setup tutorial. Maybe refer
+.. TODO: to that.
 
 Optionally a second event used to read out the modules event counter registers
 can be created. This event will be triggered periodically by the VME controller.

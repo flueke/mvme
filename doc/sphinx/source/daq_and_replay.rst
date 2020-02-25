@@ -25,9 +25,6 @@ current state of the system:
     | Pause        | * Leave DAQ mode                  | Pause replay                           |
     |              | * No special procedures are run   |                                        |
     +--------------+-----------------------------------+----------------------------------------+
-    | 1 Cycle      | * Start DAQ for one cycle         | * Replay the next event from the file  |
-    | / Next Event | * Dump received data to log view  | * Dump event data to log view          |
-    +--------------+-----------------------------------+----------------------------------------+
 
 The *Start* and *1 Cycle / Next Event* buttons allow to choose what should
 happen with existing histogram data. Selecting *Clear* will clear all
@@ -36,16 +33,27 @@ allows to accumulate the data from multiple replays or DAQ runs into the same
 histograms.
 
 The *Reconnect* button will attempt to reconnect to the current VME controller.
-This is needed when using the VM-USB controller and power-cycling the VME crate
-as USB disconnects are currently not detected.
 
 If *Write Listfile* is checked a new output listfile will be created when
 starting a DAQ run. The file will be created in the *listfiles* subdirectory of
 the current workspace. The filename is based off the current timestamp to make
 it unique.
 
-If *Write to ZIP* is checked a ZIP archive with optional compression will be
-created instead of a flat *.mvmelst* file.
+Use the *Compression* drop down to switch between a fast compression mode (ZIP
+level 1) and no compression at all (ZIP level 0). Even without compression the
+raw readout data is still placed in a ZIP archive together with the analysis
+and log buffer contents.
+
+Note: testing showed that higher compression levels did not yield a significant
+increase in data reduction but had a high performance impact so the higher
+level modes are not currently selectable via the GUI.
+
+Use the *Run Settings* button to change settings regarding the naming scheme of
+the listfiles produced during DAQ runs.
+
+The *Workspace Settings* dialog allows setting the experiment name (used by the
+'Event Server' component) and enabling/disabling the JSON-RPC and Event Server
+components.
 
 Replaying from listfile
 -------------------------

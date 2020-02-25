@@ -50,13 +50,46 @@ void enqueue_and_wakeOne(ThreadSafeQueue<T> *tsq, T obj)
     tsq->wc.wakeOne();
 }
 
+// Dequeue operation returning a default constructed value if the queue is
+// empty.
 template<typename T>
 T dequeue(ThreadSafeQueue<T> *tsq)
 {
     QMutexLocker lock(&tsq->mutex);
     if (!tsq->queue.isEmpty())
         return tsq->queue.dequeue();
-    return T();
+    return {};
+}
+
+// Dequeue operation waiting for the queues wait condition to be signaled in
+// case the queue is empty. A default constructed value is returned in case the
+// wait times out and the queue is still empty.
+template<typename T>
+T dequeue(ThreadSafeQueue<T> *tsq, unsigned  long wait_ms)
+{
+    QMutexLocker lock(&tsq->mutex);
+
+    if (tsq->queue.isEmpty())
+        tsq->wc.wait(&tsq->mutex, wait_ms);
+
+    if (!tsq->queue.isEmpty())
+        return tsq->queue.dequeue();
+
+    return {};
+}
+
+template<typename T>
+bool is_empty(ThreadSafeQueue<T> *tsq)
+{
+    QMutexLocker lock(&tsq->mutex);
+    return tsq->queue.isEmpty();
+}
+
+template<typename T>
+int queue_size(ThreadSafeQueue<T> *tsq)
+{
+    QMutexLocker lock(&tsq->mutex);
+    return tsq->queue.size();
 }
 
 #endif /* __THREADING_H__ */

@@ -32,6 +32,8 @@
 
 namespace analysis
 {
+namespace ui
+{
 
 class DataExtractionEditor: public QWidget
 {
@@ -56,6 +58,7 @@ class DataExtractionEditor: public QWidget
         QVector<FilterEditElements> m_filterEdits;
 };
 
+} // end namespace ui
 } // end namespace analysis
 
 #endif /* __DATA_EXTRACTION_WIDGET_H__ */

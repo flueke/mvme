@@ -6,6 +6,7 @@
  * Iterate formatting events using multievent processing if available and enabled.
  */
 
+#include "listfile_replay.h"
 #include "mvme_listfile.h"
 #include "mvme_stream_iter.h"
 #include "mvme_stream_util.h"
@@ -50,14 +51,15 @@ static void dump_listfile(ListFile *listfile, VMEConfig *vmeConfig)
              }
 
              u32 sectionHeader = *streamBuffer.indexU32(result.sectionOffset);
-             u32 sectionType   = lfc.section_type(sectionHeader);
-             u32 sectionSize   = lfc.section_size(sectionHeader);
+             u32 sectionType   = lfc.getSectionType(sectionHeader);
+             u32 sectionSize   = lfc.getSectionSize(sectionHeader);
 
              if (result.flags & (Result::EventComplete | Result::MultiEvent))
              {
                  assert(sectionType == ListfileSections::SectionType_Event);
 
-                 u32 eventIndex = lfc.event_index(sectionHeader);
+                 u32 crateIndex = lfc.getCrateIndex(sectionHeader);
+                 u32 eventIndex = lfc.getEventIndex(sectionHeader);
 
                  // event section data (either from a full event or from multi event handling
                  for (size_t mi = 0; mi < result.moduleDataOffsets.size(); mi++)
@@ -65,8 +67,9 @@ static void dump_listfile(ListFile *listfile, VMEConfig *vmeConfig)
                      const auto &offsets(result.moduleDataOffsets[mi]);
 
                      qDebug() << __PRETTY_FUNCTION__
-                         << "ei =" << eventIndex
-                         << ", mi =" << mi
+                         << "crateIndex =" << crateIndex
+                         << ", eventIndex =" << eventIndex
+                         << ", moduleIndex =" << mi
                          << ", offsets.sectionHeader" << offsets.sectionHeader
                          << ", offsets.dataBegin" << offsets.dataBegin
                          << ", offsets.dataEnd" << offsets.dataEnd
@@ -79,9 +82,10 @@ static void dump_listfile(ListFile *listfile, VMEConfig *vmeConfig)
                      u32 *dataBegin = streamBuffer.indexU32(offsets.dataBegin);
                      u32 *dataEnd   = streamBuffer.indexU32(offsets.dataEnd);
                      u32 dataSize   = dataEnd - dataBegin + 1;
-                     u32 moduleType = lfc.module_type(moduleSectionHeader);
+                     u32 moduleType = lfc.getModuleType(moduleSectionHeader);
 
-                     QString str = (QString("ei=%1, mi=%2, type=%3, sectionOffset=%4, moduleOffset=%5, dataBegin=%6, dataEnd=%7, dataSize=%8")
+                     QString str = (QString("crateIndex=%1, eventIndex=%2, moduleIndex=%3, type=%4, sectionOffset=%5, moduleOffset=%6, dataBegin=%7, dataEnd=%8, dataSize=%9")
+                                    .arg(crateIndex)
                                     .arg(eventIndex)
                                     .arg(mi)
                                     .arg(moduleType)
@@ -171,9 +175,12 @@ int main(int argc, char *argv[])
         if (!openResult.listfile)
             return 1;
 
-        std::unique_ptr<VMEConfig> vmeConfig(read_config_from_listfile(openResult.listfile.get()));
-
-        dump_listfile(openResult.listfile.get(), vmeConfig.get());
+        auto resultPair = read_vme_config_from_listfile(openResult);
+        {
+            ListFile lf(openResult.listfile.get());
+            lf.open();
+            dump_listfile(&lf, resultPair.first.get());
+        }
     }
     catch (const std::exception &e)
     {

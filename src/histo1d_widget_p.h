@@ -25,9 +25,8 @@
 
 #include <QDialog>
 #include <QDialogButtonBox>
-#include <QEvent>
-#include <qwt_picker_machine.h>
-#include <qwt_plot_picker.h>
+#include <qwt_plot_marker.h>
+#include <qwt_plot_zoneitem.h>
 
 class Histo1DSubRangeDialog: public QDialog
 {
@@ -53,65 +52,130 @@ class Histo1DSubRangeDialog: public QDialog
         QDialogButtonBox *buttonBox;
 };
 
-/* A picker machine that starts a point selection as soon as the mouse moves
- * inside the canvas. On releasing mouse button 1 the point is selected and
- * picking ends.
+/* ConditionInterval display and editing:
+ *
+ * Display is done using a QwtPlotZoneItem to color the interval and two
+ * QwtPlotMarkers to show the borders and border coordinates.
+ *
+ * Editing:
+ * Initially the normal zoomer interaction is enabled with the interval shown
+ * as described above.  Transition to edit mode is triggered either externally
+ * or by the user using a toolbar button or similar. (The h1d widget calls into
+ * the IntervalEditor object and tells it to transition.)
+ *
+ * Invalid intervals are supported for cut creation. In this case the AutoBeginClickPointMachine
+ * is used to pick two initial points.
+ *
+ * Once the interval is valid a QwtPickerDragPointMachine is used to drag one
+ * of the interval borders around.
+ *
  */
-class AutoBeginClickPointMachine: public QwtPickerMachine
+
+class IntervalPlotPicker: public QwtPlotPicker
 {
+    Q_OBJECT
     public:
-        static const int StateInitial   = 0;
-        static const int StatePickPoint = 1;
-
-        AutoBeginClickPointMachine()
-            : QwtPickerMachine(PointSelection)
+        enum SelectedPointType
         {
-            setState(StateInitial);
+            PT_None,
+            PT_Min,
+            PT_Max
+        };
+
+    signals:
+        void pointTypeSelected(SelectedPointType pt);
+
+    public:
+        IntervalPlotPicker(QWidget *plotCanvas);
+
+        void setInterval(const QwtInterval &interval);
+        QwtInterval getInterval() const;
+
+    protected:
+        virtual void widgetMousePressEvent(QMouseEvent *) override;
+        virtual void widgetMouseReleaseEvent(QMouseEvent *) override;
+        virtual void widgetMouseMoveEvent(QMouseEvent *) override;
+
+    private:
+        SelectedPointType getPointForXCoordinate(int pixelX);
+
+        bool hasValidInterval() const
+        {
+            return !std::isnan(m_interval.minValue()) && !std::isnan(m_interval.maxValue());
         }
 
-        virtual QList<QwtPickerMachine::Command> transition(const QwtEventPattern &eventPattern, const QEvent *ev) override
-        {
-            QList<QwtPickerMachine::Command> cmdList;
+        QwtInterval m_interval;
+        bool m_isDragging;
+};
 
-            switch (ev->type())
-            {
-                case QEvent::Enter:
-                case QEvent::MouseMove:
-                    {
-                        if (state() == StateInitial)
-                        {
-                            cmdList += Begin;
-                            cmdList += Append;
-                            setState(StatePickPoint);
-                        }
-                        else // StatePickPoint
-                        {
-                            // Moves the last point appended to the point
-                            // selection to the current cursor position.
-                            cmdList += Move;
-                        }
-                    } break;
+// abstraction for editing a single interval. sets the correct picker on the
+// histo1dwidget and shows/hides markers and a plot zone item. also replots the
+// histowidget if neccessary.
+class IntervalEditor: public QObject
+{
+    Q_OBJECT
+    signals:
+        void intervalCreated(const QwtInterval &interval);
+        void intervalModified(const QwtInterval &interval);
 
-                case QEvent::MouseButtonRelease:
-                    {
-                        // End selection in mouse button 1 release
-                        if (eventPattern.mouseMatch(QwtEventPattern::MouseSelect1,
-                                                    reinterpret_cast<const QMouseEvent *>(ev)))
-                        {
-                            if (state() == StatePickPoint)
-                            {
-                                cmdList += End;
-                                setState(StateInitial);
-                            }
-                        }
-                    } break;
+    public:
+        using SelectedPointType = IntervalPlotPicker::SelectedPointType;
 
-                default:
-                    break;
-            }
+        IntervalEditor(Histo1DWidget *histoWidget, QObject *parent = nullptr);
+        ~IntervalEditor();
 
-            return cmdList;
-        }
+        void setInterval(const QwtInterval &interval);
+        QwtInterval getInterval() const;
+
+        void show();
+        void hide();
+        void newInterval();
+        void beginEdit();
+        void endEdit();
+
+        bool isVisible() const { return m_zone->isVisible(); }
+        bool isEditing() const { return getHistoWidget()->getActivePlotPicker() == m_picker; }
+
+        Histo1DWidget *getHistoWidget() const;
+        QwtPlot *getPlot() const;
+
+    private:
+        void onPickerPointSelected(const QPointF &point);
+        void onPickerPointMoved(const QPointF &point);
+        void onPointTypeSelected(IntervalPlotPicker::SelectedPointType pt);
+        void replot();
+        void setMarker1Value(double x);
+        void setMarker2Value(double x);
+
+        Histo1DWidget *m_histoWidget;
+        IntervalPlotPicker *m_picker;
+        std::unique_ptr<QwtPlotZoneItem> m_zone;
+        std::unique_ptr<QwtPlotMarker> m_marker1;
+        std::unique_ptr<QwtPlotMarker> m_marker2;
+        QwtPlotPicker *m_prevPicker = nullptr;
+        QwtInterval m_interval;
+        SelectedPointType m_selectedPointType;
+};
+
+class IntervalCutDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        IntervalCutDialog(Histo1DWidget *histoWidget);
+        ~IntervalCutDialog();
+
+        virtual void accept();
+        virtual void reject();
+        void apply();
+
+    private:
+        Histo1DWidget *m_histoWidget;
+        QComboBox *combo_cuts;
+        QPushButton *pb_new,
+                    *pb_edit;
+        QDialogButtonBox *m_bb;
+
+        IntervalEditor *m_editor;
 };
 
 #endif /* __HISTO1D_WIDGET_P_H__ */

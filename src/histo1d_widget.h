@@ -21,19 +21,16 @@
 #ifndef __HISTO1D_WIDGET_H__
 #define __HISTO1D_WIDGET_H__
 
+#include "analysis/condition_editor_interface.h"
 #include "histo1d.h"
 #include "libmvme_export.h"
+
 #include <QSpinBox>
 #include <QWidget>
 
-class QTextStream;
-class QTimer;
-class QwtPlotCurve;
-class QwtPlotHistogram;
+#include <qwt_plot_picker.h>
+
 class QwtPlotPicker;
-class QwtPlotTextLabel;
-class QwtText;
-class ScrollZoomer;
 class MVMEContext;
 
 namespace analysis
@@ -44,20 +41,32 @@ namespace analysis
 
 struct Histo1DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo1DWidget: public QWidget
+class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEditorInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::ConditionEditorInterface);
+
+    signals:
+        void histogramSelected(int histoIndex);
+
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo1DSink>;
         using HistoSinkCallback = std::function<void (const SinkPtr &)>;
+        using HistoList = QVector<std::shared_ptr<Histo1D>>;
 
-        // Convenience constructor that enables the widget to keep the histo alive.
-        Histo1DWidget(const Histo1DPtr &histo, QWidget *parent = 0);
-        Histo1DWidget(Histo1D *histo, QWidget *parent = 0);
-        ~Histo1DWidget();
+        // single histo
+        Histo1DWidget(const Histo1DPtr &histo, QWidget *parent = nullptr);
+
+        // list of histos
+        Histo1DWidget(const HistoList &histos, QWidget *parent = nullptr);
+
+        // analysis histo sink
+        Histo1DWidget(const SinkPtr &histoSink, QWidget *parent = nullptr);
+        virtual ~Histo1DWidget();
+
+        HistoList getHistograms() const;
 
         void setHistogram(const Histo1DPtr &histo);
-        void setHistogram(Histo1D *histo);
 
         virtual bool eventFilter(QObject *watched, QEvent *e) override;
         virtual bool event(QEvent *event) override;
@@ -65,14 +74,24 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         friend class Histo1DListWidget;
 
         void setContext(MVMEContext *context);
-        void setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib,
-                                s32 histoAddress);
+        MVMEContext *getContext() const;
+        void setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib);
         void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
+        SinkPtr getSink() const;
+        void selectHistogram(int histoIndex);
 
         void setResolutionReductionFactor(u32 rrf);
         void setResolutionReductionSliderEnabled(bool b);
 
-        //QwtPlotCurve *getPlotCurve() { return m_plotCurve; }
+        QwtPlot *getPlot() const;
+
+        // ConditionEditorInterface
+        virtual bool setEditCondition(const analysis::ConditionLink &cl) override;
+        virtual analysis::ConditionLink getEditCondition() const override;
+        virtual void beginEditCondition() override;
+
+        void activatePlotPicker(QwtPlotPicker *picker);
+        QwtPlotPicker *getActivePlotPicker() const;
 
     public slots:
         void replot();
@@ -82,6 +101,8 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
          * Reason: there is/was a bug where qwt signals could only be succesfully
          * connected using the old SIGNAL/SLOT macros. Newer function pointer based
          * connections did not work. */
+        // TODO 10/2018: recheck this. It might have just been an issue with
+        // missing casts of overloaded signals.
         void zoomerZoomed(const QRectF &);
         void mouseCursorMovedToPlotCoord(QPointF);
         void mouseCursorLeftPlot();
@@ -91,42 +112,11 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         void on_tb_gauss_toggled(bool checked);
         void on_tb_test_clicked();
         void on_ratePointerPicker_selected(const QPointF &);
+        void onHistoSpinBoxValueChanged(int index);
 
     private:
         std::unique_ptr<Histo1DWidgetPrivate> m_d;
         friend struct Histo1DWidgetPrivate;
-};
-
-class Histo1DListWidget: public QWidget
-{
-    Q_OBJECT
-    public:
-        using HistoList = QVector<std::shared_ptr<Histo1D>>;
-        using SinkPtr = Histo1DWidget::SinkPtr;
-        using HistoSinkCallback = Histo1DWidget::HistoSinkCallback;
-
-        Histo1DListWidget(const HistoList &histos, QWidget *parent = 0);
-
-        HistoList getHistograms() const { return m_histos; }
-
-        void setContext(MVMEContext *context) { m_context = context; }
-        void setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib);
-        void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
-
-        void selectHistogram(int histoIndex);
-
-    private:
-        void onHistoSpinBoxValueChanged(int index);
-
-        HistoList m_histos;
-        Histo1DWidget *m_histoWidget;
-        QSpinBox *m_histoSpin;
-        s32 m_currentIndex = 0;
-        std::shared_ptr<analysis::CalibrationMinMax> m_calib;
-        MVMEContext *m_context = nullptr;
-
-        SinkPtr m_sink;
-        HistoSinkCallback m_sinkModifiedCallback;
 };
 
 #endif /* __HISTO1D_WIDGET_H__ */

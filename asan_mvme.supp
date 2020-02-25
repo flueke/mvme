@@ -1,0 +1,5 @@
+# Suppressions for the ASAN leak sanitizer. Usage example:
+# LSAN_OPTIONS=suppressions=../mvme2/asan_mvme.supp ./mvme
+
+leak:libfontconfig.so
+leak:libdbus-1

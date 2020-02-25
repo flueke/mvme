@@ -1,0 +1,8 @@
+stack_start
+    setbase 0x00000000
+	mbltfifo a32 0x0000 65535
+	writeabs a32 d16 0xbb006034      1   # readout reset 
+stack_end
+
+write_local 0x1200 0x0000   # Set stack offset register
+write_local 0x1100 0x100    # Immediate exec of stack 0

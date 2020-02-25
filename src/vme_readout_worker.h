@@ -31,7 +31,7 @@
 struct VMEReadoutWorkerContext
 {
     VMEController *controller;
-    DAQStats *daqStats;
+    DAQStats daqStats;
     VMEConfig *vmeConfig;
     ThreadSafeDataBufferQueue *freeBuffers,
                               *fullBuffers;
@@ -49,39 +49,43 @@ struct VMEReadoutWorkerContext
         : m_logThrottle(MaxLogMessagesPerSecond, std::chrono::seconds(1))
     {}
 
-    void logMessage(const QString &msg, bool useThrottle = false)
+    // Returns true if the message was logged, false if it was suppressed due
+    // to throttling.
+    bool logMessage(const QString &msg, bool useThrottle = false)
     {
         if (!this->logger)
-            return;
+            return false;
 
         if (!useThrottle)
         {
             qDebug().noquote() << msg;
             this->logger(msg);
+            return true;
         }
-        else
-        {
-            // have to store this before the call to eventOverflows()
-            size_t suppressedMessages = m_logThrottle.overflow();
 
-            if (!m_logThrottle.eventOverflows())
+        // have to store this before the call to eventOverflows()
+        size_t suppressedMessages = m_logThrottle.overflow();
+
+        if (!m_logThrottle.eventOverflows())
+        {
+            if (unlikely(suppressedMessages))
             {
-                if (unlikely(suppressedMessages))
-                {
-                    auto finalMsg(QString("%1 (suppressed %2 earlier messages)")
-                                  .arg(msg)
-                                  .arg(suppressedMessages)
-                                 );
-                    qDebug().noquote() << finalMsg;
-                    this->logger(finalMsg);
-                }
-                else
-                {
-                    qDebug().noquote() << msg;
-                    this->logger(msg);
-                }
+                auto finalMsg(QString("%1 (suppressed %2 earlier messages)")
+                              .arg(msg)
+                              .arg(suppressedMessages)
+                             );
+                qDebug().noquote() << finalMsg;
+                this->logger(finalMsg);
             }
+            else
+            {
+                qDebug().noquote() << msg;
+                this->logger(msg);
+            }
+            return true;
         }
+
+        return false;
     }
 };
 
@@ -90,6 +94,7 @@ class VMEReadoutWorker: public QObject
     Q_OBJECT
     signals:
         void stateChanged(DAQState);
+        void daqStarted();
         void daqStopped();
         void daqPaused();
 
@@ -110,15 +115,20 @@ class VMEReadoutWorker: public QObject
         virtual bool isRunning() const = 0;
         virtual DAQState getState() const = 0;
 
+        DAQStats getDAQStats() const { return m_workerContext.daqStats; }
+        VMEController *getVMEController() { return getContext().controller; }
+
     public slots:
         virtual void start(quint32 cycles = 0) = 0;
         virtual void stop() = 0;
         virtual void pause() = 0;
         virtual void resume(quint32 cycles = 0) = 0;
+        virtual bool logMessage(const QString &msg, bool useThrottle = false);
 
     protected:
         virtual void pre_setContext(VMEReadoutWorkerContext newContext) {}
         VMEReadoutWorkerContext m_workerContext;
+        bool do_VME_DAQ_Init(VMEController *ctrl);
 };
 
 #endif /* __VME_READOUT_WORKER_H__ */

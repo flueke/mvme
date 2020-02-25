@@ -1,0 +1,109 @@
+Trigger IO
+============================================================
+Rules for connection edge updating
+
+* Level0:
+- NIM: changes to the input/output direction cause edges to be shown/hidden
+  (Edges need to be found by source)
+- L0 utils do not have a native activation flag. A software only flag could be
+  added and stored in the meta block. Changes to this flag would then lead to
+  edge updates.
+  (Edges need to be found by source)
+
+* Level1:
+- Always show all edges for now.
+
+* Level2:
+- The LUTS can have inputs from L0 and L1. L1 is always shown, L0 would need
+  the artificial activate flag.
+- The strobe input edge can be hidden if none of the LUT outputs is to be
+  strobed.
+- Edges always have to be updated on input selection change: walk through a
+  list of all incoming edges and update their source to reflect the actual
+  input choice.
+
+* Level3:
+- NIM and ECL: changes to the direction and the activation flag cause updates.
+  (Edges need to be found by dest)
+- Timers and MasterTriggers: use the activate flag
+  (Edges by dest)
+- Counters: add software activate flag
+  (Edges by dest)
+  OR
+  For L0 connections: use the software activate flag of L0 to decide if and
+  edge is to be shown.
+  (Edges by source)
+
+Also keep connector label updates in mind!
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+
+* USB/ETH low level read cleanup
+* USB2 loses data under windows. The beginning of the very first buffer of a readout gets
+  lost. This means the initial F3 is not seen and we lose track of the buffer structure.
+
+* Make a std::error_category for getaddrinfo (enum, category, make_error_code).
+  It's needed for good winsock error reporting.
+
+* The usb::Impl::read() on Windows and the eth::Impl::read() calls on both systems can take
+  longer than the user specified timeout as they are issuing multiple read/receive calls
+  internally, each using the previously set timeout value. Document this behaviour and/or
+  work around it by taking into account how much time has elapsed between each of the
+  individual read/receive calls.
+
+* Low Level MVLC Ethernet Debugging:
+
+    ifconfig enp2s0 192.168.42.1 netmask 255.255.255.0 up
+    arp -i enp2s0 -s 192.168.42.2 ab:cd:12:34:56:78
+
+  Start wireshark or tcpdump in a second terminal window
+    sudo tcpdump -i enp2s0 -vvXX
+
+  Use netcat to generate an UDP packet containing "Hello, World!" as the payload.
+    echo "Hello, world!" | netcat -u 192.168.42.2 9000
+
+  To delete the arp entry:
+    arp -i enp2s0 -d 192.168.42.2
+
+Firmware 105 MAC address is 74:d0:2b:21:23:45
+
+-----------------------------------------------------------------------------------------
+
+USB readout
+-----------
+* Read multiples of 1024 bytes (the USB3 max bulk transfer packet size)
+* USB2: wMaxPacketSize is 512 for the bulk endpoints
+* USB3: wMaxPacketSize is 1024 for the bulkd endpoints
+
+* To maximize USB2 throughput both the read request size and the read timeout matter.
+  Buffers sizes starting from 500k to 1MB seem to be ok. At 45MB/s reading a 1MB/s buffer
+  will take 22 ms, so the timeout should be longer than that.
+  If the timeout is too short readout rate will drop dramatically from 45MB/s down to 32
+  MB/s with short timeouts. This was observed under Windows 10 using the FTDI driver that
+  comes bundled with the OS.
+
+  Very long timeouts will currently stall the GUI but this is just a matter of not doing
+  I/O in the GUI thread. Instead things like QtConcurrent::run should be used to do the
+  operation that requires a MVLC lock on a separate thread.
+
+* A single call to FT_ReadPipeEx is limited to a size of 1MB under both operating systems
+  and with both USB2 and 3.
+
+
+ETH readout
+-----------
+Setting rmem_max can help a lot. SO_RCVBUF is limited by this kernel setting:
+  net.core.rmem_max=104857600
+
+If the RX dropped counter in `ifconfig` does not increase but there is packet loss at the
+application level then having a large receive buffer can help. What this basically means
+is that the software does not read fast enough from the socket so that the OS side buffer
+fills up and packets are discarded at the OS level. Either make the application faster
+(dedicated reader thread) and use larger application level buffers or increase the value
+of rmem_max and set a large SO_RCVBUF size.
+
+Using SO_RCVBUF short spikes can be handled by the OS. If the user-space application is
+just plain too slow the large buffer will fill up eventually and application level loss
+will occur again.

@@ -1,5 +1,7 @@
 #include "data_filter_edit.h"
+
 #include "qt_util.h"
+#include "util/qt_font.h"
 
 //
 // DataFilterEdit
@@ -13,9 +15,7 @@ DataFilterEdit::DataFilterEdit(QWidget *parent)
 {
     setAlignment(Qt::AlignRight);
 
-    QFont font;
-    font.setFamily(QSL("Monospace"));
-    font.setStyleHint(QFont::Monospace);
+    auto font = make_monospace_font();
     font.setPointSize(9);
     setFont(font);
 

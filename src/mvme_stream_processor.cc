@@ -3,7 +3,7 @@
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
 #include "databuffer.h"
-#include "listfile_constants.h"
+#include "mvme_listfile.h"
 #include "mesytec_diagnostics.h"
 #include "mvme_listfile.h"
 #include "util/leaky_bucket.h"
@@ -55,6 +55,8 @@ struct MVMEStreamProcessorPrivate
 
     MVMEStreamProcessorPrivate();
 
+    void consumersBeginRun();
+
     void processEventSection(u32 sectionHeader, u32 *data, u32 size, u64 bufferNumber);
     void logMessage(const QString &msg, bool useThrottle = true);
 
@@ -86,6 +88,32 @@ MVMEStreamProcessor::MVMEStreamProcessor()
 
 MVMEStreamProcessor::~MVMEStreamProcessor()
 {
+}
+
+void MVMEStreamProcessor::startup()
+{
+    for (auto c: m_d->bufferConsumers)
+    {
+        c->startup();
+    }
+
+    for (auto c: m_d->moduleConsumers)
+    {
+        c->startup();
+    }
+}
+
+void MVMEStreamProcessor::shutdown()
+{
+    for (auto c: m_d->bufferConsumers)
+    {
+        c->shutdown();
+    }
+
+    for (auto c: m_d->moduleConsumers)
+    {
+        c->shutdown();
+    }
 }
 
 void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
@@ -175,23 +203,7 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
 
     // TODO: check that the analysis has been built (no object needs a rebuild)
 
-#if 0
-    //
-    // build and prepare the analysis system
-    //
-
-    m_d->analysis->beginRun(runInfo, vme_analysis_common::build_id_to_index_mapping(vmeConfig));
-
-    auto logger_adapter = [logger](const std::string &std_str)
-    {
-        if (logger)
-            logger(QString::fromStdString(std_str));
-    };
-
-    a2::a2_begin_run(m_d->analysis->getA2AdapterState()->a2, logger_adapter);
-#endif
-
-    startConsumers();
+    m_d->consumersBeginRun();
 
     if (m_d->diag)
     {
@@ -199,7 +211,22 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
     }
 }
 
-void MVMEStreamProcessor::endRun()
+void MVMEStreamProcessorPrivate::consumersBeginRun()
+{
+    qDebug() << __PRETTY_FUNCTION__ << "starting stream consumers";
+
+    for (auto c: bufferConsumers)
+    {
+        c->beginRun(runInfo, vmeConfig, analysis, logger);
+    }
+
+    for (auto c: moduleConsumers)
+    {
+        c->beginRun(runInfo, vmeConfig, analysis);
+    }
+}
+
+void MVMEStreamProcessor::endRun(const DAQStats &stats)
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 
@@ -210,30 +237,13 @@ void MVMEStreamProcessor::endRun()
 
     for (auto c: m_d->moduleConsumers)
     {
-        c->endRun();
+        c->endRun(stats);
     }
 
-    a2::a2_end_run(m_d->analysis->getA2AdapterState()->a2);
     m_d->analysis->endRun();
 
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
-
-void MVMEStreamProcessor::startConsumers()
-{
-    qDebug() << __PRETTY_FUNCTION__ << "starting stream consumers";
-
-    for (auto c: m_d->bufferConsumers)
-    {
-        c->beginRun(m_d->runInfo, m_d->vmeConfig, m_d->analysis, m_d->logger);
-    }
-
-    for (auto c: m_d->moduleConsumers)
-    {
-        c->beginRun(m_d->runInfo, m_d->vmeConfig, m_d->analysis, m_d->logger);
-    }
-}
-
 void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
 {
     Q_ASSERT(!m_d->singleStepState.bufferIter.data);
@@ -263,8 +273,8 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
         while (iter.longwordsLeft())
         {
             u32 sectionHeader = iter.extractU32();
-            u32 sectionType = lf.section_type(sectionHeader);
-            u32 sectionSize = lf.section_size(sectionHeader);
+            u32 sectionType = lf.getSectionType(sectionHeader);
+            u32 sectionSize = lf.getSectionSize(sectionHeader);
 
             if (unlikely(sectionSize > iter.longwordsLeft()))
             {
@@ -308,8 +318,8 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
                      && m_d->runInfo.isReplay)
             {
                 // If it's a replay pass timetick sections to the analysis.
-                Q_ASSERT(sectionSize == 0);
                 m_d->analysis->processTimetick();
+                iter.skip(sectionSize * sizeof(u32));
             }
             else
             {
@@ -354,12 +364,14 @@ void MVMEStreamProcessor::processExternalTimetick()
     }
 }
 
-void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *data, u32 size, u64 bufferNumber)
+void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader,
+                                                     u32 *data, u32 size,
+                                                     u64 bufferNumber)
 {
     const auto &lf(listfileConstants);
 
     this->counters.eventSections++;
-    const u32 eventIndex = lf.event_index(sectionHeader);
+    const u32 eventIndex = lf.getEventIndex(sectionHeader);
 
     if (unlikely(eventIndex >= this->eventConfigs.size()
                  || !this->eventConfigs[eventIndex]))
@@ -415,7 +427,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
         // moduleHeader now points to the first module header in the event section
 
         u32 moduleDataHeader = eventIter.extractU32();
-        u32 moduleDataSize   = lf.module_data_size(moduleDataHeader);
+        u32 moduleDataSize   = lf.getModuleDataSize(moduleDataHeader);
 #ifdef MVME_STREAM_PROCESSOR_DEBUG
         qDebug("%s   eventIndex=%d, moduleIndex=%d, moduleDataSize=%u",
                __PRETTY_FUNCTION__, eventIndex, moduleIndex, moduleDataSize);
@@ -517,7 +529,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
                 this->counters.moduleCounters[eventIndex][moduleIndex]++;
                 eventCountsByModule[moduleIndex]++;
 
-                u32 moduleDataSize   = lf.module_data_size(*mi.moduleDataHeader);
+                u32 moduleDataSize = lf.getModuleDataSize(*mi.moduleDataHeader);
 
                 if (this->analysis)
                 {
@@ -623,11 +635,20 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
             }
         }
 
+        /* At this point the data of all the modules in the current event has
+         * been passed to the analysis. The analysis performed the parameter
+         * extraction step. The extracted parameter double values are available
+         * at the output pipes of the data sources attached to each module of
+         * the current event. */
         if (this->analysis)
         {
 #ifdef MVME_STREAM_PROCESSOR_DEBUG
             qDebug("%s analysis::endEvent()", __PRETTY_FUNCTION__);
 #endif
+            /* This call makes the analysis system perform one step of all
+             * operators for the current event index. After the call the output
+             * pipes of the involved operators will contain the data produced
+             * for this event. */
             this->analysis->endEvent(eventIndex);
         }
 
@@ -643,8 +664,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
         }
     }
 
-    // Some final integrity checks
-
+    // Some final integrity checks if multievent splitting was done
     if (this->doMultiEventProcessing[eventIndex])
     {
         bool err = false;
@@ -757,8 +777,8 @@ MVMEStreamProcessor::singleStepNextStep(ProcessingState &procState)
         if (iter.longwordsLeft())
         {
             u32 sectionHeader = iter.extractU32();
-            u32 sectionType = lf.section_type(sectionHeader);
-            u32 sectionSize = lf.section_size(sectionHeader);
+            u32 sectionType = lf.getSectionType(sectionHeader);
+            u32 sectionSize = lf.getSectionSize(sectionHeader);
 
             procState.lastSectionHeaderOffset = iter.current32BitOffset() - 1;
 
@@ -859,7 +879,7 @@ void MVMEStreamProcessorPrivate::initEventSectionIteration(
     auto &lf(listfileConstants);
 
     this->counters.eventSections++;
-    const u32 eventIndex = lf.event_index(sectionHeader);
+    const u32 eventIndex = lf.getEventIndex(sectionHeader);
 
     if (unlikely(eventIndex >= this->eventConfigs.size()
                  || !this->eventConfigs[eventIndex]))
@@ -918,7 +938,7 @@ void MVMEStreamProcessorPrivate::initEventSectionIteration(
         // moduleHeader now points to the first module header in the event section
 
         u32 moduleDataHeader = eventIter.extractU32();
-        u32 moduleDataSize   = lf.module_data_size(moduleDataHeader);
+        u32 moduleDataSize   = lf.getModuleDataSize(moduleDataHeader);
 #ifdef MVME_STREAM_PROCESSOR_DEBUG
         qDebug("%s   eventIndex=%d, moduleIndex=%d, moduleDataSize=%u",
                __PRETTY_FUNCTION__, eventIndex, moduleIndex, moduleDataSize);
@@ -971,9 +991,9 @@ void MVMEStreamProcessorPrivate::stepNextEvent(ProcessingState &procState)
 
     const auto bufferNumber = procState.buffer->id;
     u32 sectionHeader = *procState.buffer->asU32(procState.lastSectionHeaderOffset * sizeof(u32));
-    u32 sectionType = lf.section_type(sectionHeader);
-    u32 sectionSize = lf.section_size(sectionHeader);
-    const u32 eventIndex = lf.event_index(sectionHeader);
+    u32 sectionType = lf.getSectionType(sectionHeader);
+    u32 sectionSize = lf.getSectionSize(sectionHeader);
+    const u32 eventIndex = lf.getEventIndex(sectionHeader);
 
     Q_ASSERT(sectionType == ListfileSections::SectionType_Event);
 
@@ -1048,7 +1068,7 @@ void MVMEStreamProcessorPrivate::stepNextEvent(ProcessingState &procState)
                 this->counters.moduleCounters[eventIndex][moduleIndex]++;
                 eventCountsByModule[moduleIndex]++;
 
-                u32 moduleDataSize = lf.module_data_size(*mi.moduleDataHeader);
+                u32 moduleDataSize = lf.getModuleDataSize(*mi.moduleDataHeader);
 
                 procState.lastModuleDataBeginOffsets[moduleIndex] =
                     mi.moduleHeader - procState.buffer->asU32(0);
@@ -1238,7 +1258,7 @@ void MVMEStreamProcessorPrivate::logMessage(const QString &msg, bool useThrottle
     }
 }
 
-const MVMEStreamProcessorCounters &MVMEStreamProcessor::getCounters() const
+MVMEStreamProcessorCounters MVMEStreamProcessor::getCounters() const
 {
     return m_d->counters;
 }

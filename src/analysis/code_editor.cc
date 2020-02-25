@@ -51,6 +51,7 @@
 #include <QtWidgets>
 
 #include "code_editor.h"
+#include "util/qt_font.h"
 
 
 CodeEditor::CodeEditor(QWidget *parent)
@@ -63,11 +64,15 @@ CodeEditor::CodeEditor(QWidget *parent)
     connect(this, SIGNAL(updateRequest(QRect,int)), this, SLOT(updateLineNumberArea(QRect,int)));
     connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(highlightCurrentLine()));
 
+    auto font = make_monospace_font();
+    font.setPointSize(8);
+    setFont(font);
+    setTabStopCharCount(DefaultTabStop);
+    setLineWrapMode(QPlainTextEdit::NoWrap);
+    enableCurrentLineHighlight(false);
+
     updateLineNumberAreaWidth(0);
-    highlightCurrentLine();
 }
-
-
 
 int CodeEditor::lineNumberAreaWidth()
 {
@@ -78,19 +83,19 @@ int CodeEditor::lineNumberAreaWidth()
         ++digits;
     }
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
+    int space = 3 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
+#else
     int space = 3 + fontMetrics().width(QLatin1Char('9')) * digits;
+#endif
 
     return space;
 }
-
-
 
 void CodeEditor::updateLineNumberAreaWidth(int /* newBlockCount */)
 {
     setViewportMargins(lineNumberAreaWidth(), 0, 0, 0);
 }
-
-
 
 void CodeEditor::updateLineNumberArea(const QRect &rect, int dy)
 {
@@ -102,8 +107,6 @@ void CodeEditor::updateLineNumberArea(const QRect &rect, int dy)
     if (rect.contains(viewport()->rect()))
         updateLineNumberAreaWidth(0);
 }
-
-
 
 void CodeEditor::resizeEvent(QResizeEvent *e)
 {
@@ -174,4 +177,13 @@ void CodeEditor::enableCurrentLineHighlight(bool b)
         QList<QTextEdit::ExtraSelection> extraSelections;
         setExtraSelections(extraSelections);
     }
+}
+
+void CodeEditor::setTabStopCharCount(int charCount)
+{
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
+    setTabStopDistance(calculate_tabstop_width(font(), charCount));
+#else
+    setTabStopWidth(calculate_tabstop_width(font(), charCount));
+#endif
 }

@@ -35,9 +35,6 @@ class ExportSinkCodeGenerator
 
 bool is_valid_identifier(const QString &str);
 
-// Highly sophisticated variable name generation ;-)
-QString variablify(QString str);
-
 }
 
 #endif /* __EXPORTSINK_CODEGEN_H__ */

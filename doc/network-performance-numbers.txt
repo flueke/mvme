@@ -1,0 +1,13 @@
+Fri 19 Jul 2019 02:53:22 PM CEST
+
+========================================================================================
+Some numbers to get a sense of what to expect from network transfers and copy operations
+in general
+========================================================================================
+
+* Internal 8GB file copy operation on my desktop machine from ssd to hdd and vice-versa:
+  ~ 280 MB/s.
+
+* Transfer from machine to machine over the 1GB/s company network: 110 MB/s.
+
+* From an older document: SIS3153 readout with tuning: 52 MB/s.

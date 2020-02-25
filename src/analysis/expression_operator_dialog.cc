@@ -1,13 +1,16 @@
 #include "expression_operator_dialog.h"
 #include "expression_operator_dialog_p.h"
 
-#include "a2/a2_impl.h"
-#include "a2_adapter.h"
-#include "analysis_ui_p.h"
-#include "analysis_util.h"
+#include "analysis/a2/a2_impl.h"
+#include "analysis/a2_adapter.h"
+#include "analysis/analysis.h"
+#include "analysis/analysis_ui_p.h"
+#include "analysis/analysis_util.h"
+#include "analysis/ui_eventwidget.h"
 #include "mvme_context_lib.h"
 #include "qt_util.h"
 #include "util/cpp17_algo.h"
+#include "util/qt_font.h"
 
 #include <QApplication>
 #include <QHeaderView>
@@ -33,6 +36,8 @@
  */
 
 namespace analysis
+{
+namespace ui
 {
 
 //
@@ -566,26 +571,13 @@ void ExpressionErrorWidget::assertConsistency()
 //
 // ExpressionCodeEditor
 //
-int calculate_tabstop_width(const QFont &font, int tabstop)
-{
-    QString spaces;
-    for (int i = 0; i < tabstop; ++i) spaces += " ";
-    QFontMetrics metrics(font);
-    return metrics.width(spaces);
-}
-
 static const int TabStop = 2;
 
 ExpressionCodeEditor::ExpressionCodeEditor(QWidget *parent)
     : QWidget(parent)
     , m_codeEditor(new CodeEditor)
 {
-    auto font = make_monospace_font();
-    font.setPointSize(8);
-    m_codeEditor->setFont(font);
-    m_codeEditor->setTabStopWidth(calculate_tabstop_width(font, TabStop));
-    m_codeEditor->setLineWrapMode(QPlainTextEdit::NoWrap);
-    m_codeEditor->enableCurrentLineHighlight(false);
+    m_codeEditor->setTabStopCharCount(TabStop);
     new ExpressionOperatorSyntaxHighlighter(m_codeEditor->document());
 
     auto widgetLayout = new QHBoxLayout(this);
@@ -2135,7 +2127,7 @@ void ExpressionOperatorDialog::apply()
 
         case ObjectEditorMode::Edit:
             {
-                analysis->operatorEdited(m_d->m_op);
+                analysis->setOperatorEdited(m_d->m_op);
             } break;
     }
 
@@ -2318,4 +2310,5 @@ void ExpressionOperatorSyntaxHighlighter::highlightBlock(const QString &text)
     }
 }
 
+} // end namespace ui
 } // end namespace analysis

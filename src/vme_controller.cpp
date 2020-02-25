@@ -29,22 +29,10 @@ QString to_string(VMEControllerType type)
             return "VMUSB";
         case VMEControllerType::SIS3153:
             return "SIS3153";
-    }
-
-    InvalidCodePath;
-    return QString();
-}
-
-QString LIBMVME_EXPORT to_string(ControllerState state)
-{
-    switch (state)
-    {
-        case ControllerState::Connected:
-            return QSL("Connected");
-        case ControllerState::Disconnected:
-            return QSL("Disconnected");
-        case ControllerState::Connecting:
-            return QSL("Connecting");
+        case VMEControllerType::MVLC_USB:
+            return "MVLC_USB";
+        case VMEControllerType::MVLC_ETH:
+            return "MVLC_ETH";
     }
 
     InvalidCodePath;
@@ -59,7 +47,29 @@ VMEControllerType from_string(const QString &str)
     if (str == QSL("SIS3153"))
         return VMEControllerType::SIS3153;
 
-    return VMEControllerType::VMUSB;
+    if (str == QSL("MVLC_USB"))
+        return VMEControllerType::MVLC_USB;
+
+    if (str == QSL("MVLC_ETH"))
+        return VMEControllerType::MVLC_ETH;
+
+    return VMEControllerType::MVLC_ETH;
+}
+
+QString to_string(ControllerState state)
+{
+    switch (state)
+    {
+        case ControllerState::Connected:
+            return QSL("Connected");
+        case ControllerState::Disconnected:
+            return QSL("Disconnected");
+        case ControllerState::Connecting:
+            return QSL("Connecting");
+    }
+
+    InvalidCodePath;
+    return QString();
 }
 
 static const QMap<VMEError::ErrorType, QString> errorNames =
@@ -78,6 +88,9 @@ static const QMap<VMEError::ErrorType, QString> errorNames =
     { VMEError::InvalidIPAddress,       QSL("Invalid IP address") },
     { VMEError::UnexpectedAddressMode,  QSL("Unexpected address mode") },
     { VMEError::HostLookupFailed,       QSL("Host lookup failed") },
+    { VMEError::WrongControllerType,    QSL("Wrong VME controller type") },
+    { VMEError::StdErrorCode,           QSL("std::error_code") },
+    { VMEError::UnsupportedCommand,     QSL("Unsupported command") },
 };
 
 QString VMEError::toString() const
@@ -85,9 +98,16 @@ QString VMEError::toString() const
     if (error() == VMEError::UnknownError && !m_message.isEmpty())
         return m_message;
 
+    if (auto ec = getStdErrorCode())
+    {
+        return QString(ec.message().c_str());
+    }
+
     QString result(errorName());
+
     if (!m_message.isEmpty())
         result += QSL(": ") + m_message;
+
     if (m_errorCode != 0)
         result += QString("(code=%1)").arg(m_errorCode);
 

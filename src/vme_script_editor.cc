@@ -19,11 +19,12 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_script_editor.h"
-#include "mvme_context.h"
 #include "vme_script.h"
 #include "gui_util.h"
 #include "mvme.h"
+#include "util/qt_font.h"
 
+#include <QApplication>
 #include <QFileDialog>
 #include <QLineEdit>
 #include <QMenu>
@@ -45,7 +46,6 @@ struct VMEScriptEditorPrivate
 {
     VMEScriptEditor *m_q;
 
-    MVMEContext *m_context;
     VMEScriptConfig *m_script;
 
     QToolBar *m_toolBar;
@@ -72,12 +72,11 @@ struct VMEScriptEditorPrivate
     //QPushButton *findPrev;
 };
 
-VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, QWidget *parent)
+VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
     : MVMEWidget(parent)
     , m_d(new VMEScriptEditorPrivate)
 {
     m_d->m_q = this;
-    m_d->m_context = context;
     m_d->m_script = script;
     m_d->m_toolBar = make_toolbar();
     m_d->m_editor = new QPlainTextEdit;
@@ -128,19 +127,12 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     // Editor area
     new vme_script::SyntaxHighlighter(m_d->m_editor->document());
 
-    auto font = QFont("Monospace", 8);
-    font.setStyleHint(QFont::Monospace);
-    font.setFixedPitch(true);
+    auto font = make_monospace_font();
+    font.setPointSize(8);
     m_d->m_editor->setFont(font);
+    set_tabstop_width(m_d->m_editor, TabStop);
 
-    {
-        // Tab width calculation
-        QString spaces;
-        for (int i = 0; i < TabStop; ++i)
-            spaces += " ";
-        QFontMetrics metrics(font);
-        m_d->m_editor->setTabStopWidth(metrics.width(spaces));
-    }
+    qDebug() << __PRETTY_FUNCTION__ << "editor font key is:" << m_d->m_editor->font().key();
 
     connect(script, &VMEScriptConfig::modified, this, &VMEScriptEditor::onScriptModified);
 
@@ -168,7 +160,7 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
 
     QAction *action;
 
-    action = m_d->m_toolBar->addAction(QIcon(":/script-run.png"), QSL("Run"), this,  &VMEScriptEditor::runScript);
+    action = m_d->m_toolBar->addAction(QIcon(":/script-run.png"), QSL("Run"), this,  &VMEScriptEditor::runScript_);
     action->setStatusTip(QSL("Run the VME script"));
     action->setShortcut(QSL("Ctrl+R"));
 
@@ -197,8 +189,31 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
 
     m_d->m_toolBar->addSeparator();
 
-    // Add the script Help action from the main window
-    m_d->m_toolBar->addAction(m_d->m_context->getMainWindow()->findChild<QAction *>("actionVMEScriptRef"));
+    auto actionHelpVMEScript = new QAction(
+        QIcon(QSL(":/help.png")), QSL("&VME Script Reference"), this);
+
+    m_d->m_toolBar->addAction(actionHelpVMEScript);
+
+    connect(actionHelpVMEScript, &QAction::triggered,
+            this, [this] ()
+    {
+        auto widgets = QApplication::topLevelWidgets();
+        auto it = std::find_if(widgets.begin(), widgets.end(), [](const QWidget *widget) {
+            return widget->objectName() == QSL("VMEScriptReference");
+        });
+
+        if (it != widgets.end())
+        {
+            auto widget = *it;
+            show_and_activate(widget);
+        }
+        else
+        {
+            auto widget = make_vme_script_ref_widget();
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+            emit addApplicationWidget(widget);
+        }
+    });
 
     m_d->m_toolBar->addSeparator();
 
@@ -225,7 +240,8 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
 
     m_d->m_editor->setFocus();
     m_d->updateCursorPositionLabel();
-    resize(650, 400);
+    setWindowIcon(QIcon(QPixmap(":/vme_script.png")));
+    resize(800, 600);
 }
 
 VMEScriptEditor::~VMEScriptEditor()
@@ -276,7 +292,7 @@ void VMEScriptEditor::onEditorTextChanged()
     updateWindowTitle();
 }
 
-void VMEScriptEditor::runScript()
+void VMEScriptEditor::runScript_()
 {
     try
     {
@@ -284,17 +300,12 @@ void VMEScriptEditor::runScript()
         auto script = vme_script::parse(m_d->m_editor->toPlainText(),
                                         moduleConfig ? moduleConfig->getBaseAddress() : 0);
 
-        m_d->m_context->logMessage(QString("Running script %1:").arg(m_d->m_script->objectName()));
-
-        auto logger = [this](const QString &str) { m_d->m_context->logMessage(QSL("  ") + str); };
-        auto results = m_d->m_context->runScript(script, logger);
-
-        for (auto result: results)
-            logger(format_result(result));
+        emit logMessage(QString("Running script '%1':").arg(m_d->m_script->objectName()));
+        emit runScript(script);
     }
     catch (const vme_script::ParseError &e)
     {
-        m_d->m_context->logMessage(QSL("Parse error: ") + e.what());
+        emit logMessage(QSL("Parse error: ") + e.what());
     }
 }
 

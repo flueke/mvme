@@ -21,7 +21,7 @@
 #ifndef __VME_SCRIPT_QT_H__
 #define __VME_SCRIPT_QT_H__
 
-#include "libmvme_export.h"
+#include "libmvme_core_export.h"
 #include "vme_controller.h"
 
 #include <cstdint>
@@ -38,6 +38,42 @@ class VMEController;
 namespace vme_script
 {
 
+struct PreparsedLine
+{
+    QString line;       // A copy of the original line
+    QStringList parts;  // The line trimmed of whitespace and split at word boundaries
+    u32 lineNumber;     // The original line number
+};
+
+static const QString MetaBlockBegin = "meta_block_begin";
+static const QString MetaBlockEnd = "meta_block_end";
+static const QString MetaTagMVLCTriggerIO = "mvlc_trigger_io";
+
+struct MetaBlock
+{
+    // The line containing the MetaBlockBegin instruction. May be used to parse
+    // additional arguments if desired.
+    PreparsedLine blockBegin;
+
+    // The contents of the meta block in the form of PreparsedLine structures.
+    // Does neither contain the MetaBlockBegin nor the MetaBlockEnd lines.
+    QVector<PreparsedLine> preparsedLines;
+
+    // The original block contents as a string.
+    // Note: completely empty lines are not present anymore in this variable.
+    QString textContents;
+
+    // Returns the first argument after the MetaBlockBegin keyword. This should
+    // be used as a tag type to identify which kind of meta block this is.
+    // The UI will use this to determine if a specialized editor should be
+    // launched when editing the script. Subsystems will use this to locate
+    // their meta block.
+    QString tag() const
+    {
+        return blockBegin.parts.value(1);
+    }
+};
+
 enum class CommandType
 {
     Invalid,
@@ -51,6 +87,7 @@ enum class CommandType
     BLTFifo,
     MBLT,
     MBLTFifo,
+    Blk2eSST64,
 
     BLTCount,
     BLTFifoCount,
@@ -62,13 +99,10 @@ enum class CommandType
 
     VMUSB_WriteRegister,
     VMUSB_ReadRegister,
-};
 
-enum class AddressMode
-{
-    A16 = 1,
-    A24,
-    A32
+    MVLC_WriteSpecial, // type is stored in Command.value (of type MVLCSpecialWord)
+
+    MetaBlock,
 };
 
 enum class DataWidth
@@ -77,29 +111,45 @@ enum class DataWidth
     D32
 };
 
+enum Blk2eSSTRate: u8
+{
+    Rate160MB,
+    Rate276MB,
+    Rate300MB,
+};
+
+enum class MVLCSpecialWord: u8
+{
+    Timestamp     = 0x0,
+    StackTriggers = 0x1,
+};
+
 struct Command
 {
     CommandType type = CommandType::Invalid;
-    AddressMode addressMode = AddressMode::A32;
+    u8 addressMode = vme_address_modes::A32;
     DataWidth dataWidth = DataWidth::D16;
     uint32_t address = 0;
     uint32_t value = 0;
     uint32_t transfers = 0;
     uint32_t delay_ms = 0;
     uint32_t countMask = 0;
-    AddressMode blockAddressMode = AddressMode::A32;
+    u8 blockAddressMode = vme_address_modes::A32;
     uint32_t blockAddress = 0;
+    Blk2eSSTRate blk2eSSTRate = Blk2eSSTRate::Rate160MB;
 
     QString warning;
     s32 lineNumber = 0;
+
+    MetaBlock metaBlock = {};
 };
 
-QString to_string(CommandType commandType);
-CommandType commandType_from_string(const QString &str);
-QString to_string(AddressMode addressMode);
-QString to_string(DataWidth dataWidth);
-QString to_string(const Command &cmd);
-QString format_hex(uint32_t value);
+LIBMVME_CORE_EXPORT QString to_string(CommandType commandType);
+LIBMVME_CORE_EXPORT CommandType commandType_from_string(const QString &str);
+LIBMVME_CORE_EXPORT QString to_string(u8 addressMode);
+LIBMVME_CORE_EXPORT QString to_string(DataWidth dataWidth);
+LIBMVME_CORE_EXPORT QString to_string(const Command &cmd);
+LIBMVME_CORE_EXPORT QString format_hex(uint32_t value);
 
 using VMEScript = QVector<Command>;
 
@@ -119,15 +169,18 @@ struct ParseError
         return message;
     }
 
+    QString toString() const { return what(); }
+
     QString message;
     int lineNumber;
 };
 
-VMEScript LIBMVME_EXPORT parse(QFile *input, uint32_t baseAddress = 0);
-VMEScript LIBMVME_EXPORT parse(const QString &input, uint32_t baseAddress = 0);
-VMEScript LIBMVME_EXPORT parse(QTextStream &input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_CORE_EXPORT parse(QFile *input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_CORE_EXPORT parse(const QString &input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_CORE_EXPORT parse(QTextStream &input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_CORE_EXPORT parse(const std::string &input, uint32_t baseAddress = 0);
 
-class LIBMVME_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
+class LIBMVME_CORE_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
 {
     using QSyntaxHighlighter::QSyntaxHighlighter;
 
@@ -135,9 +188,7 @@ class LIBMVME_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
         virtual void highlightBlock(const QString &text) override;
 };
 
-uint8_t LIBMVME_EXPORT amod_from_AddressMode(AddressMode mode, bool blt=false, bool mblt=false);
-
-struct LIBMVME_EXPORT Result
+struct LIBMVME_CORE_EXPORT Result
 {
     VMEError error;
     uint32_t value;
@@ -148,15 +199,66 @@ struct LIBMVME_EXPORT Result
 typedef QVector<Result> ResultList;
 typedef std::function<void (const QString &)> LoggerFun;
 
-LIBMVME_EXPORT ResultList run_script(VMEController *controller,
-                                     const VMEScript &script,
-                                     LoggerFun logger = LoggerFun(), bool logEachResult=false);
+namespace run_script_options
+{
+    using Flag = u8;
+    static const Flag LogEachResult = 1u << 0;
+    static const Flag AbortOnError  = 1u << 1;
+}
 
-LIBMVME_EXPORT Result run_command(VMEController *controller,
+LIBMVME_CORE_EXPORT ResultList run_script(
+    VMEController *controller,
+    const VMEScript &script,
+    LoggerFun logger = LoggerFun(),
+    const run_script_options::Flag &options = 0);
+
+#if 0
+inline ResultList run_script(
+    VMEController *controller,
+    const VMEScript &script,
+    LoggerFun logger = LoggerFun(),
+    bool logEachResult=false)
+{
+    run_script_options::Flag opts = (logEachResult ? run_script_options::LogEachResult : 0u);
+
+    return run_script(controller, script, logger, opts);
+}
+#endif
+
+inline bool has_errors(const ResultList &results)
+{
+    return std::any_of(
+        std::begin(results), std::end(results),
+        [] (const Result &r) { return r.error.isError(); });
+}
+
+LIBMVME_CORE_EXPORT Result run_command(VMEController *controller,
                                   const Command &cmd,
                                   LoggerFun logger = LoggerFun());
 
-QString format_result(const Result &result);
+LIBMVME_CORE_EXPORT QString format_result(const Result &result);
+
+inline bool is_block_read_command(const CommandType &cmdType)
+{
+    switch (cmdType)
+    {
+        case CommandType::BLT:
+        case CommandType::BLTFifo:
+        case CommandType::MBLT:
+        case CommandType::MBLTFifo:
+        case CommandType::Blk2eSST64:
+        case CommandType::BLTCount:
+        case CommandType::BLTFifoCount:
+        case CommandType::MBLTCount:
+        case CommandType::MBLTFifoCount:
+            return true;
+        default: break;
+    }
+    return false;
+}
+
+LIBMVME_CORE_EXPORT Command get_first_meta_block(const VMEScript &vmeScript);
+LIBMVME_CORE_EXPORT QString get_first_meta_block_tag(const VMEScript &vmeScript);
 
 } // namespace vme_script
 

@@ -25,10 +25,14 @@
 #include <QCloseEvent>
 #include <QCoreApplication>
 #include <QDebug>
+#include <QLineEdit>
 #include <QPainter>
+#include <QPushButton>
 #include <QSettings>
+#include <QTextEdit>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <quazipfile.h>
 
 WidgetGeometrySaver::WidgetGeometrySaver(QObject *parent)
     : QObject(parent)
@@ -54,11 +58,9 @@ void WidgetGeometrySaver::removeWidget(QWidget *widget)
 
 void WidgetGeometrySaver::restoreGeometry(QWidget *widget, const QString &key)
 {
-    QSettings settings;
-
-    if (settings.contains(key))
+    if (m_settings.contains(key))
     {
-        widget->restoreGeometry(settings.value(key).toByteArray());
+        widget->restoreGeometry(m_settings.value(key).toByteArray());
     }
 }
 
@@ -74,11 +76,9 @@ bool WidgetGeometrySaver::eventFilter(QObject *obj, QEvent *event)
     {
         auto widget = qobject_cast<QWidget *>(obj);
 
-        if (widget && m_widgetKeys.contains(widget))
+        if (widget && widget->isVisible() && m_widgetKeys.contains(widget))
         {
-            auto closeEvent = static_cast<QCloseEvent *>(event);
-            QSettings settings;
-            settings.setValue(m_widgetKeys[widget], widget->saveGeometry());
+            m_settings.setValue(m_widgetKeys[widget], widget->saveGeometry());
             qDebug() << "saved geometry for" << widget << " key =" << m_widgetKeys[widget];
         }
     }
@@ -86,11 +86,32 @@ bool WidgetGeometrySaver::eventFilter(QObject *obj, QEvent *event)
     return QObject::eventFilter(obj, event);
 }
 
+namespace
+{
+
+QAction *get_close_action(const QWidget *widget)
+{
+    for (auto action: widget->actions())
+    {
+        if (action->data().toString() == QSL("WidgetCloseAction"))
+            return action;
+    }
+
+    return nullptr;
+}
+
+}
+
 QAction *add_widget_close_action(QWidget *widget,
                                 const QKeySequence &shortcut,
                                 Qt::ShortcutContext shortcutContext)
 {
+    if (auto action = get_close_action(widget))
+        return action;
+
     auto closeAction = new QAction(QSL("Close"), widget);
+
+    closeAction->setData(QSL("WidgetCloseAction"));
 
     QObject::connect(closeAction, &QAction::triggered, widget, [widget] (bool) {
         widget->close();
@@ -169,17 +190,17 @@ QSize VerticalLabel::sizeHint() const
     return QSize(s.height(), s.width());
 }
 
-void set_widget_font_pointsize(QWidget *widget, s32 pointSize)
+void set_widget_font_pointsize(QWidget *widget, float pointSize)
 {
     auto font = widget->font();
-    font.setPointSize(pointSize);
+    font.setPointSizeF(pointSize);
     widget->setFont(font);
 }
 
-void set_widget_font_pointsize_relative(QWidget *widget, s32 relPointSize)
+void set_widget_font_pointsize_relative(QWidget *widget, float relPointSize)
 {
     auto font = widget->font();
-    font.setPointSize(font.pointSize() + relPointSize);
+    font.setPointSizeF(font.pointSizeF() + relPointSize);
     widget->setFont(font);
 }
 
@@ -219,14 +240,6 @@ QString get_bitness_string()
 #warning "Unknown processor bitness."
     return QString();
 #endif
-}
-
-QFont make_monospace_font(QFont baseFont)
-{
-    baseFont.setFamily(QSL("Monospace"));
-    baseFont.setStyleHint(QFont::Monospace);
-    baseFont.setFixedPitch(true);
-    return baseFont;
 }
 
 void processQtEvents(QEventLoop::ProcessEventsFlags flags)
@@ -281,9 +294,9 @@ QToolButton *make_toolbutton(const QString &icon, const QString &text)
 
 QToolButton *make_action_toolbutton(QAction *action)
 {
-    Q_ASSERT(action);
     auto result = new QToolButton;
-    result->setDefaultAction(action);
+    if (action)
+        result->setDefaultAction(action);
     result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     auto font = result->font();
     font.setPointSize(7);
@@ -302,4 +315,80 @@ int get_widget_row(QFormLayout *layout, QWidget *widget)
     layout->getWidgetPosition(widget, &row, &role);
 
     return row;
+}
+
+int calculate_tab_width(const QFont &font, int tabStop)
+{
+    QString spaces;
+    spaces.reserve(tabStop);
+
+    for (int i = 0; i < tabStop; ++i)
+        spaces += " ";
+
+    QFontMetrics metrics(font);
+    return metrics.width(spaces);
+}
+
+// TextEditSearchWidget
+
+TextEditSearchWidget::TextEditSearchWidget(QTextEdit *te, QWidget *parent)
+    : QWidget(parent)
+    , m_searchInput(new QLineEdit)
+    , m_searchButton(new QPushButton("Find"))
+    , m_textEdit(te)
+{
+    assert(te);
+
+    connect(m_searchInput, &QLineEdit::textEdited,
+            this, &TextEditSearchWidget::onSearchTextEdited);
+
+    connect(m_searchInput, &QLineEdit::returnPressed,
+            this, [this]() { findNext(); });
+
+    connect(m_searchButton, &QPushButton::clicked,
+            this, [this]() { findNext(); });
+
+    m_searchInput->setMinimumWidth(80);
+
+    auto layout = make_layout<QHBoxLayout>(this);
+    layout->addWidget(m_searchInput);
+    layout->addWidget(m_searchButton);
+    layout->setStretch(0, 1);
+}
+
+void TextEditSearchWidget::findNext()
+{
+    findNext(false);
+}
+
+void TextEditSearchWidget::findNext(bool hasWrapped)
+{
+    auto searchText = m_searchInput->text();
+    bool found      = m_textEdit->find(searchText);
+
+    if (!found && !hasWrapped)
+    {
+        auto currentCursor = m_textEdit->textCursor();
+        currentCursor.setPosition(0);
+        m_textEdit->setTextCursor(currentCursor);
+        findNext(true);
+    }
+}
+
+void TextEditSearchWidget::onSearchTextEdited(const QString &text)
+{
+    /* Move the cursor to the beginning of the current word, then search
+     * forward from that position. */
+    auto currentCursor = m_textEdit->textCursor();
+    currentCursor.movePosition(QTextCursor::StartOfWord);
+    m_textEdit->setTextCursor(currentCursor);
+    findNext();
+}
+
+void TextEditSearchWidget::focusSearchInput()
+{
+    if (m_searchInput->hasFocus())
+        m_searchInput->selectAll();
+    else
+        m_searchInput->setFocus();
 }
