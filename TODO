@@ -2,6 +2,7 @@
 TODO list
 ==================================================
 
+* mvme_root_client: runId is incorrect for live DAQ runs. it seems correct for replays.
 
 * heisencrash when deleting vme scripts? might have been due to changing
   compile flags. not sure.
