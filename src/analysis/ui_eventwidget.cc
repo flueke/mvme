@@ -1346,7 +1346,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
 
         tb->addSeparator();
 
-#ifndef QT_NO_DEBUG
+#if 0
         tb->addAction(QSL("Conditions/Cuts"), this, [this]() {
             if (auto w = getAnalysisWidget()->getConditionWidget())
             {
