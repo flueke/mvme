@@ -12,13 +12,32 @@
 * Optional: NSIS for the windows installer
 
 ### Linux
-`cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ../mvme`
+`cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/mvme ../mvme`
 `make -j4`
 `make install`
 
 The install step is optional, mvme does run directly from the build directory.
 
 See doc/README.build-centos7 for detailed build steps for CentOS7.
+
+#### Dependencies under Ubuntu-18.04
+
+build-essential
+cmake
+git
+libboost-dev
+libqt5websockets5-dev
+libquazip5-dev
+libqwt-qt5-dev
+libusb-dev
+qtbase5-dev
+
+Optional. Use with 'CMake -GNinja'. Faster than make.
+ninja-build
+
+Documentation dependencies
+python3-sphinx 
+texlive
 
 ### Windows MSYS2
 
