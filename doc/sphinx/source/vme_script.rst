@@ -246,10 +246,22 @@ name. The following name mappings are defined:
   | daq_settings      | 0x08        |
   +-------------------+-------------+
 
-Mathematical Expressions and Variables
---------------------------------------
-Since mvme 0.9.7 VME scripts support evaluation of numerical expressions and
-can contain references to variables.
+Floating Point Values, Variables and Mathematical Expressions
+-------------------------------------------------------------
+Since mvme-0.9.7 VME scripts support evaluation of numerical expressions and
+can contain references to variables. Additionally floating point values can be
+used where previously only unsigned integers where allowed.
+
+It is up to each specific command how floating point values are interpreted and
+what limits are imposed. The VME read and write commands use mathematical
+rounding and test that the resulting value fits in an unsigned 16 or 32 bit
+integer (depending on the commands data width argument). On the other hand the
+`vme-command-write-float-word` command uses the floating point value directly
+without doing any conversion to integer.
+
+Variables
+~~~~~~~~~
+
 
 Expressions
 ~~~~~~~~~~~
@@ -261,14 +273,14 @@ The enclosed string (including the outermost parentheses) is passed to the
 `exprtk`_ library for evaluation and the resulting value replaces the
 expression string before further parsing is done.
 
+exprtk internally uses floating point arithmetic and the result of evaluating
+an expression is always a floating point value.
+
 exprtk internally uses floating point arithmetic but most of the values inside
 VME scripts are unsigned 16 or 32 bit values. For this reason the result of the
 expression evaluation is rounded to the nearest integer value and converted to
 a 32-bit unsigned. If the evaluation yields a negative number the parser yields
 an error and stops further processing of the script.
-
-Variables
-~~~~~~~~~
 
 
 
