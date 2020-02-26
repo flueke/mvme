@@ -1,5 +1,6 @@
 #include "qt_assistant_remote_control.h"
 
+#include <cassert>
 #include <QCoreApplication>
 #include <QDir>
 #include <QDebug>
