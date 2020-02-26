@@ -140,6 +140,7 @@ private slots:
     void onShowDiagnostics(ModuleConfig *config);
     void onActionImport_Histo1D_triggered();
 
+    void onActionHelpMVMEManual_triggered();
     void onActionVMEScriptRef_triggered();
 
     void updateActions();

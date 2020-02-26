@@ -38,6 +38,7 @@
 #include "mvme_context_lib.h"
 #include "mvme_listfile.h"
 #include "mvme_stream_worker.h"
+#include "qt_assistant_remote_control.h"
 #include "qt_util.h"
 #include "rate_monitor_gui.h"
 #include "sis3153_util.h"
@@ -115,7 +116,7 @@ struct MVMEWindowPrivate
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
             *actionToolTemplateInfo, *actionToolSIS3153Debug, *actionToolMVLCDevGui,
 
-            *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt
+            *actionHelpMVMEManual, *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt
             ;
 
     QMenu *menuFile, *menuWindow, *menuTools, *menuHelp;
@@ -204,6 +205,10 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionToolSIS3153Debug         = new QAction(QSL("SIS3153 Debug Widget"), this);
     m_d->actionToolMVLCDevGui           = new QAction(QSL("MVLC Debug GUI"), this);
 
+    m_d->actionHelpMVMEManual = new QAction(QIcon(":/help.png"), QSL("&MVME Manual"), this);
+    m_d->actionHelpMVMEManual->setObjectName(QSL("actionMVMEManual"));
+    m_d->actionHelpMVMEManual->setIconText(QSL("MVME Manual"));
+
     m_d->actionHelpVMEScript   = new QAction(QIcon(QSL(":/help.png")), QSL("&VME Script Reference"), this);
     m_d->actionHelpVMEScript->setObjectName(QSL("actionVMEScriptRef"));
     m_d->actionHelpVMEScript->setIconText(QSL("Script Help"));
@@ -267,6 +272,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         m_d->actionToolMVLCDevGui->setEnabled(is_mvlc_controller(ctrl->getType()));
     });
 
+    connect(m_d->actionHelpMVMEManual,          &QAction::triggered, this, &MVMEMainWindow::onActionHelpMVMEManual_triggered);
     connect(m_d->actionHelpVMEScript,           &QAction::triggered, this, &MVMEMainWindow::onActionVMEScriptRef_triggered);
     connect(m_d->actionHelpAbout,               &QAction::triggered, this, &MVMEMainWindow::displayAbout);
     connect(m_d->actionHelpAboutQt,             &QAction::triggered, this, &MVMEMainWindow::displayAboutQt);
@@ -308,6 +314,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
     m_d->menuTools->addAction(m_d->actionToolMVLCDevGui);
 
+    m_d->menuHelp->addAction(m_d->actionHelpMVMEManual);
     m_d->menuHelp->addAction(m_d->actionHelpVMEScript);
     m_d->menuHelp->addSeparator();
     m_d->menuHelp->addAction(m_d->actionHelpAbout);
@@ -1648,6 +1655,16 @@ void MVMEMainWindow::onActionImport_Histo1D_triggered()
             addWidget(widget);
         }
     }
+}
+
+void MVMEMainWindow::onActionHelpMVMEManual_triggered()
+{
+    auto &instance = mvme::QtAssistantRemoteControl::instance();
+    instance.sendCommand(QSL("setSource qthelp://com.mesytec.mvme.%1/doc/index.html")
+                         .arg(GIT_VERSION_SHORT));
+    instance.sendCommand(QSL("syncContents"));
+
+    qDebug() << __PRETTY_FUNCTION__ << &instance << instance.startAssistant();
 }
 
 void MVMEMainWindow::onActionVMEScriptRef_triggered()
