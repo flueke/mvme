@@ -79,16 +79,13 @@ message("-- GIT_BRANCH=${GIT_BRANCH}")
 # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
 
 # use, i.e. don't skip the full RPATH for the build tree
-SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+SET(CMAKE_SKIP_BUILD_RPATH FALSE)
 
-# when building, don't use the install RPATH already
-# (but later on when installing)
-SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+# Enable $ORIGIN in the rpath if supported by the target platform.
+SET(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 
-SET(CMAKE_INSTALL_RPATH ".")
+SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 
-#SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}")
-#
 ## add the automatically determined parts of the RPATH
 ## which point to directories outside the build tree to the install RPATH
 #SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)

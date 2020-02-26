@@ -22,7 +22,7 @@ libmvme_root_event.so: $(EVENT_OBJECTS_DEPS) mvme_root_event_rdict.cxx
 	$(CXX) $(ROOTCFLAGS) $(CXXFLAGS) $(ROOTLIBS) -shared -fPIC -o $@ $< mvme_root_event_rdict.cxx
 
 mvme_root_client: $(current_dir)mvme_root_client.cc libmvme_root_event.so $(TEMPLATE_FILES)
-	$(CXX) $(LDFLAGS) $(ROOTCFLAGS) $(CXXFLAGS) $< -Wl,-rpath,.:$(MVME)/lib libmvme_root_event.so $(ROOTLIBS) -o $@
+	$(CXX) $(LDFLAGS) $(ROOTCFLAGS) $(CXXFLAGS) $< '-Wl,-rpath,$$ORIGIN/:$$ORIGIN/../lib' libmvme_root_event.so $(ROOTLIBS) -o $@
 
 clean:
 	-rm -f libmvme_root_event.so mvme_root_event_rdict.cxx mvme_root_event_rdict_rdict.pcm
