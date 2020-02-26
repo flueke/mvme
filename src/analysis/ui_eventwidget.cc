@@ -2987,7 +2987,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
         // Allow deleting all objects below the "Unassigned" node in the
         // top left tree. This is where data sources that belonging to this
         // event but that have not been assigned to any module are shown.
-        if (activeNode == sourceTree->unassignedDataSourcesRoot)
+        if (activeNode && activeNode == sourceTree->unassignedDataSourcesRoot)
         {
             QVector<QTreeWidgetItem *> children;
             for (int i=0; i<activeNode->childCount(); i++)
