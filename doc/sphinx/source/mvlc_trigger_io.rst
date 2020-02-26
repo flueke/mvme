@@ -191,9 +191,11 @@ ECL outputs
 These are similar to the NIM output units. Each of the 3 outputs needs to be
 activated separately.
 
+.. _mvlc-trigger-io-Timer:
+
 Timers
 ~~~~~~
-Generate logic pulses with a set frequency.
+Fixed frequency logic pulse generation.
 
 Settings
 ^^^^^^^^
@@ -336,6 +338,8 @@ Example
    Example LUT using input bits 0, 2 and 4. The output is activated if exactly
    two of the inputs are set.
 
+.. _mvlc-trigger-io-StackStart:
+
 StackStart
 ~~~~~~~~~~
 These units start the execution of one of the 7 MVLC command stacks.
@@ -396,10 +400,6 @@ except for the one that should be read out.
 Examples
 --------
 
-.. note::
-   More examples will be added in the future.
-
-
 Sysclk timestamp readout
 ~~~~~~~~~~~~~~~~~~~~~~~~
 This example shows how to create a counter that increments with the VME system
@@ -421,7 +421,7 @@ Only an MVLC is required for this setup to work.
 
 * Right-click the newly created event and select ``Add Module``. Use the type
   drop-down and select ``MVLC Timestamp/Counter``. Accept the dialog to create a
-  module which will read out Counter0 of Trigger I/O module.
+  module which will read out Counter0 of the Trigger I/O module.
 
   .. autofigure:: mvlc_examples/01-sysclk-readout/vme_tree.png
 
@@ -434,6 +434,7 @@ Only an MVLC is required for this setup to work.
   Add the following line to the script.
 
   ::
+
       writeabs a32 d16 0xffff6090 1 # reset counters
 
   This will make sure the counters are reset when starting a DAQ run.

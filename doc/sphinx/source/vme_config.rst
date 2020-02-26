@@ -81,11 +81,11 @@ The event level distinguishes between the following phases:
   event.
 
 
-Event and Module Variables
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Variables
+~~~~~~~~~
 
 Since mvme-0.9.7 both event and module configs can contain a set of variables
-whose values can be used inside `VME scripts <vme-script-reference`.
+whose values can be used inside :ref:`VME scripts <vme-script-reference>`.
 
 Variables from the event scope are available inside the event scripts and all
 child module scripts. Variables defined at module scope are available to the
@@ -184,12 +184,13 @@ VME Controller specifics
 
 Mesytec MVLC
 ~~~~~~~~~~~~
-To implement periodic events on the MVLC the global MVLC Trigger/IO script is
-modified by mvme when starting a DAQ run: A StackStart unit is connected to a
-Timer unit which is setup with the parameters from the coressponding periodic
-event. The StackStart unit is then setup to start the command stack for the
-respective event. These changes are visible in the MVLC Trigger/IO gui
-immediately after starting the DAQ.
+To implement periodic events on the MVLC the global :ref:`MVLC Trigger/IO
+<mvlc-trigger-io>` script is modified by mvme when starting a DAQ run: A
+:ref:`StackStart <mvlc-trigger-io-StackStart>` unit is connected to a
+:ref:`mvlc-trigger-io-Timer` unit which is setup with the parameters from the
+corresponding periodic event. The StackStart unit is then setup to start the
+command stack for the respective event. These changes are visible in the MVLC
+Trigger/IO gui immediately after starting the DAQ.
 
 SIS3153
 ~~~~~~~
