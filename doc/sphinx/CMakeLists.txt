@@ -162,6 +162,10 @@ if (SPHINX_EXECUTABLE)
         add_dependencies(doc doc_qthelp_collection)
 
         install(FILES "${SPHINX_QHC_OUT}" DESTINATION doc)
+
+        add_custom_command(TARGET doc
+            DEPENDS "${SPHINX_QHC_OUT}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SPHINX_QHC_OUT}" "${CMAKE_BINARY_DIR}/doc")
     endif(QCOLLECTIONGENERATOR)
 else(SPHINX_EXECUTABLE)
     message("-- sphinx-build was not found on your system. Will not generate documentation.")
