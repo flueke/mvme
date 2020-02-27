@@ -37,6 +37,7 @@
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme_listfile.h"
+#include "mvme_qthelp.h"
 #include "mvme_stream_worker.h"
 #include "qt_assistant_remote_control.h"
 #include "qt_util.h"
@@ -77,6 +78,7 @@
 #include <qwt_plot_curve.h>
 #include <QFormLayout>
 
+using namespace mesytec::mvme;
 using namespace vats;
 
 static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.analysis);; All Files (*.*)");
@@ -1659,12 +1661,10 @@ void MVMEMainWindow::onActionImport_Histo1D_triggered()
 
 void MVMEMainWindow::onActionHelpMVMEManual_triggered()
 {
-    auto &instance = mvme::QtAssistantRemoteControl::instance();
-    instance.sendCommand(QSL("setSource qthelp://com.mesytec.mvme.%1/doc/index.html")
-                         .arg(GIT_VERSION_SHORT));
-    instance.sendCommand(QSL("syncContents"));
-
-    qDebug() << __PRETTY_FUNCTION__ << &instance << instance.startAssistant();
+    auto &instance = mesytec::mvme::QtAssistantRemoteControl::instance();
+    instance.sendCommand(QSL("setSource ") + get_mvme_qthelp_index_url());
+    instance.showContents();
+    instance.syncContents();
 }
 
 void MVMEMainWindow::onActionVMEScriptRef_triggered()

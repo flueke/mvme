@@ -4,7 +4,7 @@
 
 std::unique_ptr<QPlainTextEdit> make_logview(size_t maxBlockCount)
 {
-    auto result = mvme::util::make_monospace_plain_textedit();
+    auto result = mesytec::mvme::util::make_monospace_plain_textedit();
 
     result->setAttribute(Qt::WA_DeleteOnClose);
     result->setReadOnly(true);

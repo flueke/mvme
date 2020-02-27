@@ -19,6 +19,7 @@
 #include <qnamespace.h>
 
 #include "qt_util.h"
+#include "qt_assistant_remote_control.h"
 
 using boost::adaptors::indexed;
 
@@ -3529,7 +3530,7 @@ LUTEditor::LUTEditor(
     setWindowTitle("Lookup Table " + lutName + " Setup");
 
     auto scrollWidget = new QWidget;
-    auto scrollLayout = make_layout<QVBoxLayout>(scrollWidget);
+    auto scrollLayout = make_vbox<2, 2>(scrollWidget);
 
     // If there are dynamic inputs show selection combo boxes at the top of the
     // dialog.
@@ -3672,12 +3673,23 @@ LUTEditor::LUTEditor(
         scrollLayout->addWidget(gb_strobe, 2);
     }
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
-                                   | QDialogButtonBox::Apply, this);
+    auto bb = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+        QDialogButtonBox::Apply | QDialogButtonBox::Help,
+        this);
+
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+    connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
             this, &QDialog::accepted);
+    connect(bb, &QDialogButtonBox::clicked,
+            this, [bb] (QAbstractButton *button)
+            {
+                if (button == bb->button(QDialogButtonBox::Help))
+                {
+                    mvme::QtAssistantRemoteControl::instance().activateKeyword("mvlc_trigger_io_luts");
+                }
+            });
     scrollLayout->addWidget(bb, 0);
 
     auto scrollArea = new QScrollArea;

@@ -1832,7 +1832,7 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
     mvme::print_histolist_stats(
         stream, m_histos, lowerBound, upperBound, m_rrf, title);
 
-    auto te = mvme::util::make_monospace_plain_textedit().release();
+    auto te = mesytec::mvme::util::make_monospace_plain_textedit().release();
     te->setWindowTitle(QSL("Stats for histogram array '%1'").arg(title));
     te->setAttribute(Qt::WA_DeleteOnClose);
     te->resize(1100, 600);

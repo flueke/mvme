@@ -30,6 +30,8 @@ std::unique_ptr<T> impl(qreal pointSizeDelta)
 
 } // end anon namespace
 
+namespace mesytec
+{
 namespace mvme
 {
 namespace util
@@ -67,3 +69,4 @@ std::unique_ptr<QTextEdit> make_monospace_textedit(const QFont &font)
 
 } // end namespace util
 } // end namespace mvme
+} // end namespace mesytec

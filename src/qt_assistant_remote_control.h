@@ -24,6 +24,8 @@
 #include <memory>
 #include <QObject>
 
+namespace mesytec
+{
 namespace mvme
 {
 
@@ -37,6 +39,21 @@ class QtAssistantRemoteControl: public QObject
         bool isRunning() const;
         bool sendCommand(const QString &cmd);
 
+        bool activateKeyword(const QString &keyword)
+        {
+            return sendCommand(QStringLiteral("activateKeyword ") + keyword);
+        }
+
+        bool showContents()
+        {
+            return sendCommand(QStringLiteral("show contents"));
+        }
+
+        bool syncContents()
+        {
+            return sendCommand(QStringLiteral("syncContents"));
+        }
+
     private:
         QtAssistantRemoteControl();
 
@@ -45,5 +62,6 @@ class QtAssistantRemoteControl: public QObject
 };
 
 } // end namespace mvme
+} // end namespace mesytec
 
 #endif /* __MVME_QT_ASSISTANT_REMOTE_CONTROL_H__ */

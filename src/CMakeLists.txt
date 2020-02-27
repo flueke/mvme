@@ -268,6 +268,7 @@ target_sources(libmvme PRIVATE
     mvme_listfile.cc
     mvme_listfile_utils.cc
     mvme_listfile_worker.cc
+    mvme_qthelp.cc
     mvme_qwt.cc
     mvme_session.cc
     mvme_stream_iter.cc

@@ -9,6 +9,7 @@
 #include "analysis/code_editor.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_trigger_io_util.h"
+#include "qt_assistant_remote_control.h"
 #include "util/algo.h"
 #include "util/qt_container.h"
 #include "util/qt_monospace_textedit.h"
@@ -648,6 +649,15 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             d->updateEditorText();
             d->scriptEditor->show();
             d->scriptEditor->raise();
+        });
+
+    toolbar->addSeparator();
+
+    action = toolbar->addAction(
+        QIcon(":/help.png"), QSL("Help"),
+        this, [] ()
+        {
+            mvme::QtAssistantRemoteControl::instance().activateKeyword("mvlc_trigger_io");
         });
 
     toolbar->addSeparator();

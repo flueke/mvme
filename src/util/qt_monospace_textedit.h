@@ -10,6 +10,8 @@ class QFont;
 class QPlainTextEdit;
 class QTextEdit;
 
+namespace mesytec
+{
 namespace mvme
 {
 namespace util
@@ -32,5 +34,6 @@ std::unique_ptr<QTextEdit> LIBMVME_EXPORT make_monospace_textedit(const QFont &f
 
 } // end namespace util
 } // end namespace mvme
+} // end namespace mesytec
 
 #endif /* __MVME_UTIL_QT_MONOSPACE_TEXTEDIT_H__ */

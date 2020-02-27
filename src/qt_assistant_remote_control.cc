@@ -8,6 +8,8 @@
 
 #include "util/qt_str.h"
 
+namespace mesytec
+{
 namespace mvme
 {
 
@@ -20,7 +22,7 @@ struct QtAssistantRemoteControl::Private
 
 bool QtAssistantRemoteControl::Private::startAssistant()
 {
-    qDebug() << __PRETTY_FUNCTION__ << process->state();
+    //qDebug() << __PRETTY_FUNCTION__ << process->state();
 
     if (process->state() == QProcess::Running)
         return true;
@@ -39,12 +41,15 @@ bool QtAssistantRemoteControl::Private::startAssistant()
         QSL("-enableRemoteControl"),
     };
 
-    qDebug() << __PRETTY_FUNCTION__ << "cmd=" << cmd << ", args=" << args;
+    qDebug() << __PRETTY_FUNCTION__ << "Starting assistant: cmd=" << cmd << ", args=" << args;
 
     process->start(cmd, args);
 
     if (!process->waitForStarted())
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "Failed to start assistant: " << process->errorString();
         return false;
+    }
 
     return true;
 }
@@ -82,6 +87,8 @@ QtAssistantRemoteControl::QtAssistantRemoteControl()
 
 QtAssistantRemoteControl::~QtAssistantRemoteControl()
 {
+    qDebug() << __PRETTY_FUNCTION__ << d->process;
+
     assert(d->process);
 
     if (d->process->state() == QProcess::Running)
@@ -109,9 +116,12 @@ bool QtAssistantRemoteControl::sendCommand(const QString &cmd)
 
         if (res != -1)
             return true;
+
+        qDebug() << __PRETTY_FUNCTION__ << "cmd =" << cmd << ", result=" << res;
     }
 
     return false;
 }
 
 } // end namespace mvme
+} // end namespace mesytec
