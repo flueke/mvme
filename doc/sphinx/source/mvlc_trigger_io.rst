@@ -1,4 +1,4 @@
-.. index:: MVLC Trigger/IO
+.. index:: MVLC Trigger/IO, mvlc_trigger_io
 .. highlight:: none
 
 .. _mvlc-trigger-io:
@@ -258,6 +258,8 @@ event names defined in the VME config.
 Sysclk
 ~~~~~~
 This unit provides access to the 16 MHz VMEbus system clock.
+
+.. index:: mvlc_trigger_io_luts, LUT, Lookup Table
 
 Lookup Tables (Levels 1 and 2)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
