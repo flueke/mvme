@@ -149,8 +149,8 @@ latex_elements = {
 \usepackage{lastpage}
 %\usepackage[head=36.16432pt,foot=8.39996pt]{geometry}
 
-%\setlength{\headheight}{36.16432pt}
-%\setlength{\footskip}{8.39996pt}
+\setlength{\headheight}{36.16432pt}
+\setlength{\footskip}{12.4pt}
 
 \newcommand{\mesyteccontact}{
     \tiny{\textsf{mesytec GmbH \& Co. KG\\
