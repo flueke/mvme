@@ -1,3 +1,4 @@
+.. index:: VME Script, VMEScript
 .. _vme-script-reference:
 
 .. TODO: difference between uploading script to the controller and running them.

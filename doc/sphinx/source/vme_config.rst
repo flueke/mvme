@@ -1,5 +1,5 @@
 .. highlight:: none
-
+.. index:: VME Config, VMEConfig, VME Tree
 .. _vme-config-reference:
 
 ==================================================

@@ -1,4 +1,4 @@
-
+.. index:: MVLC Trigger/IO
 .. highlight:: none
 
 .. _mvlc-trigger-io:
