@@ -1735,6 +1735,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             break;
 
         case CommandType::MetaBlock:
+        case CommandType::Blk2eSST64:
             break;
     }
 
