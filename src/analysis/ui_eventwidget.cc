@@ -1,6 +1,20 @@
 #include "analysis/ui_eventwidget.h"
 #include "analysis/ui_eventwidget_p.h"
 
+#include <algorithm>
+#include <boost/dynamic_bitset.hpp>
+#include <QCollator>
+#include <QClipboard>
+#include <QFileDialog>
+#include <QGuiApplication>
+#include <QListWidget>
+#include <QListWidgetItem>
+#include <QMenu>
+#include <QMessageBox>
+#include <QMimeData>
+#include <QStandardPaths>
+#include <QTimer>
+
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis_serialization.h"
 #include "analysis/analysis_ui.h"
@@ -14,19 +28,6 @@
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "rate_monitor_widget.h"
-
-#include <boost/dynamic_bitset.hpp>
-#include <QCollator>
-#include <QClipboard>
-#include <QFileDialog>
-#include <QGuiApplication>
-#include <QListWidget>
-#include <QListWidgetItem>
-#include <QMenu>
-#include <QMessageBox>
-#include <QMimeData>
-#include <QStandardPaths>
-#include <QTimer>
 
 namespace analysis
 {
@@ -172,7 +173,7 @@ ConditionLinkModifications get_condition_modifications(const ConditionLink &cl,
 
     result.candidates = get_apply_condition_candidates(cl.condition, analysis);
 
-    qSort(result.candidates);
+    std::sort(std::begin(result.candidates), std::end(result.candidates));
 
     result.active.reserve(result.candidates.size());
     result.checked.reserve(result.candidates.size());
@@ -2631,7 +2632,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         }
 
         // Sort operators by displayname
-        qSort(operators.begin(), operators.end(),
+        std::sort(operators.begin(), operators.end(),
               [](const OperatorPtr &a, const OperatorPtr &b) {
                   return a->getDisplayName() < b->getDisplayName();
               });
@@ -2837,7 +2838,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
             }
 
             // Sort sources by displayname
-            qSort(sources.begin(), sources.end(),
+            std::sort(sources.begin(), sources.end(),
                   [](const SourcePtr &a, const SourcePtr &b) {
                       return a->getDisplayName() < b->getDisplayName();
                   });
@@ -3069,7 +3070,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
         }
 
         // Sort operators by displayname
-        qSort(operators.begin(), operators.end(),
+        std::sort(operators.begin(), operators.end(),
               [](const OperatorPtr &a, const OperatorPtr &b) {
                   return a->getDisplayName() < b->getDisplayName();
               });

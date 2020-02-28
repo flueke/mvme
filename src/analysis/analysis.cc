@@ -20,6 +20,7 @@
  */
 #include "analysis/analysis.h"
 
+#include <algorithm>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -4746,7 +4747,7 @@ void Analysis::beginRun(const RunInfo &runInfo,
 
     updateRanks();
 
-    qSort(m_operators.begin(), m_operators.end(),
+    std::sort(m_operators.begin(), m_operators.end(),
           [] (const OperatorPtr &op1, const OperatorPtr &op2) {
         return op1->getRank() < op2->getRank();
     });

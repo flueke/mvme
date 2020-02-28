@@ -100,7 +100,11 @@ CVMUSBReadoutList::CVMUSBReadoutList(vector<uint32_t>& list) :
 {}
 
 CVMUSBReadoutList::CVMUSBReadoutList(const QVector<uint32_t> &list)
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+    : m_list(std::begin(list), std::end(list))
+#else
     : m_list(list.toStdVector())
+#endif
 {
 }
 

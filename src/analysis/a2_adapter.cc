@@ -1,6 +1,7 @@
 #include "a2_adapter.h"
 #include "a2/a2_impl.h"
 #include "analysis.h"
+
 #include <algorithm>
 #include <cstdio>
 #include <QMetaObject>
@@ -1430,7 +1431,7 @@ A2AdapterState a2_adapter_build(
     /* Sort the operator arrays by rank and type */
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
-        qSort(
+        std::sort(
             operatorsByEventIndex[ei].begin(),
             operatorsByEventIndex[ei].end(),
             [] (const OperatorInfo &oi1, const OperatorInfo &oi2) {

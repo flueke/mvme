@@ -269,12 +269,11 @@ bool ScrollZoomer::eventFilter( QObject *object, QEvent *event )
         {
             case QEvent::Resize:
             {
-                int left, top, right, bottom;
-                canvas()->getContentsMargins( &left, &top, &right, &bottom );
+                auto margins = canvas()->contentsMargins();
 
                 QRect rect;
                 rect.setSize( static_cast<QResizeEvent *>( event )->size() );
-                rect.adjust( left, top, -right, -bottom );
+                rect.adjust( margins.left(), margins.top(), -margins.right(), -margins.bottom());
 
                 layoutScrollBars( rect );
                 break;
@@ -565,10 +564,10 @@ QwtText ScrollZoomer::trackerTextF( const QPointF &pos ) const
     switch ( rubberBand() )
     {
         case HLineRubberBand:
-            text.sprintf( "%.4f", pos.y() );
+            text = QString::number(pos.y(), 'g', 4);
             break;
         case VLineRubberBand:
-            text.sprintf( "%.4f", pos.x() );
+            text = QString::number(pos.x(), 'g', 4);
             break;
         default:
             /*
@@ -578,6 +577,7 @@ QwtText ScrollZoomer::trackerTextF( const QPointF &pos ) const
             */
             break;
     }
+
     return QwtText( text );
 }
 

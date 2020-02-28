@@ -1,6 +1,7 @@
 #include "condition_ui.h"
 #include "condition_ui_p.h"
 
+#include <algorithm>
 #include <QMenu>
 #include <QPushButton>
 #include <QStackedWidget>
@@ -213,7 +214,7 @@ void ConditionTreeWidget::repopulate()
     auto analysis = m_d->getAnalysis();
     auto conditions = analysis->getConditions(m_d->getEventId());
 
-    qSort(conditions.begin(), conditions.end(), [](auto c1, auto c2) {
+    std::sort(conditions.begin(), conditions.end(), [](auto c1, auto c2) {
         return c1->objectName() < c2->objectName();
     });
 

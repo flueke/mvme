@@ -43,7 +43,6 @@ using namespace ListfileSections;
 void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer,
                       const ListfileConstants &lfc,  bool dumpData)
 {
-    QString buf;
     BufferIterator iter(eventBuffer->data, eventBuffer->used, BufferIterator::Align32);
 
     while (iter.longwordsLeft())
@@ -55,9 +54,13 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer,
         out << "eventBuffer: " << eventBuffer << ", used=" << eventBuffer->used
             << ", size=" << eventBuffer->size
             << endl;
-        out << buf.sprintf("sectionHeader=0x%08x, sectionType=%d, sectionSize=%u",
-                           sectionHeader, sectionType, sectionSize)
-            << endl;
+
+        out << QStringLiteral("sectionHeader=0x%1, sectionType=%2, sectionSize=%3")
+            .arg(sectionHeader, 8, 16, QLatin1Char('0'))
+            .arg(sectionType)
+            .arg(sectionSize);
+
+        out << endl;
 
         switch (sectionType)
         {
@@ -70,9 +73,13 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer,
             case SectionType_Event:
                 {
                     u32 eventType = (sectionHeader & lfc.EventIndexMask) >> lfc.EventIndexShift;
-                    out << buf.sprintf("Event section: eventHeader=0x%08x, eventType=%d, eventSize=%u",
-                                       sectionHeader, eventType, sectionSize)
-                        << endl;
+
+                    out << QStringLiteral("Event section: eventHeader=0x%1, eventType=%2, eventSize=%3")
+                        .arg(sectionHeader, 8, 16, QLatin1Char('0'))
+                        .arg(eventType)
+                        .arg(sectionSize);
+
+                    out << endl;
 
                     u32 wordsLeft = sectionSize;
 
@@ -83,21 +90,30 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer,
                         u32 moduleType = (subEventHeader & lfc.ModuleTypeMask) >> lfc.ModuleTypeShift;
                         u32 subEventSize = (subEventHeader & lfc.ModuleDataSizeMask) >> lfc.ModuleDataSizeShift;
 
-                        out << buf.sprintf("  subEventHeader=0x%08x, moduleType=%u, subEventSize=%u",
-                                           subEventHeader, moduleType, subEventSize)
-                            << endl;
+                        out << QStringLiteral("  subEventHeader=0x%1, moduleType=%2, subEventSize=%3")
+                            .arg(subEventHeader, 8, 16, QLatin1Char('0'))
+                            .arg(moduleType)
+                            .arg(subEventSize);
+                        out << endl;
 
                         for (u32 i=0; i<subEventSize; ++i)
                         {
                             u32 subEventData = iter.extractU32();
                             if (dumpData)
-                                out << buf.sprintf("    %u = 0x%08x", i, subEventData) << endl;
+                            {
+                                out << QStringLiteral("    %1 = 0x%2")
+                                    .arg(i)
+                                    .arg(subEventData, 8, 16, QLatin1Char('0'));
+                                out << endl;
+                            }
                         }
                         wordsLeft -= subEventSize;
                     }
 
                     u32 eventEndMarker = iter.extractU32();
-                    out << buf.sprintf("   eventEndMarker=0x%08x", eventEndMarker) << endl;
+                    out << QStringLiteral("   eventEndMarker=0x%1")
+                        .arg(eventEndMarker, 8, 16, QLatin1Char('0'));
+                    out << endl;
                 } break;
 
             default:

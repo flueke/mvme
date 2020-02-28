@@ -96,7 +96,12 @@ struct LIBMVME_CORE_EXPORT SymbolTable
 
     QSet<QString> symbolNameSet() const
     {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+        auto names = symbolNames();
+        return QSet<QString>(std::begin(names), std::end(names));
+#else
         return QSet<QString>::fromList(symbolNames());
+#endif
     }
 
     bool remove(const QString &varName)

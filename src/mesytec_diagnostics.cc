@@ -677,110 +677,79 @@ void MesytecDiagnosticsWidget::dispAll()
 
 void MesytecDiagnosticsWidget::dispDiag1()
 {
-    QString str;
     // upper range
-    str.sprintf("%2.2f", m_diag->getMean(MAXIDX));
-    ui->meanmax->setText(str);
-    str.sprintf("%d", m_diag->getMeanchannel(MAXIDX));
-    ui->meanmaxchan->setText(str);
-    str.sprintf("%2.2f", m_diag->getSigma(MAXIDX));
-    ui->sigmax->setText(str);
-    str.sprintf("%d", m_diag->getSigmachannel(MAXIDX));
-    ui->sigmaxchan->setText(str);
-    str.sprintf("%2.2f", m_diag->getMean(MINIDX));
-    ui->meanmin->setText(str);
-    str.sprintf("%d", m_diag->getMeanchannel(MINIDX));
-    ui->meanminchan->setText(str);
-    str.sprintf("%2.2f", m_diag->getSigma(MINIDX));
-    ui->sigmin->setText(str);
-    str.sprintf("%d", m_diag->getSigmachannel(MINIDX));
-    ui->sigminchan->setText(str);
+    ui->meanmax->setText(QString::number(m_diag->getMean(MAXIDX), 'g', 2));
+    ui->meanmaxchan->setText(QString::number(m_diag->getMeanchannel(MAXIDX)));
+    ui->sigmax->setText(QString::number(m_diag->getSigma(MAXIDX), 'g', 2));
+    ui->sigmaxchan->setText(QString::number(m_diag->getSigmachannel(MAXIDX)));
+    ui->meanmin->setText(QString::number(m_diag->getMean(MINIDX), 'g', 2));
+    ui->meanminchan->setText(QString::number(m_diag->getMeanchannel(MINIDX)));
+    ui->sigmin->setText(QString::number(m_diag->getSigma(MINIDX), 'g', 2));
+    ui->sigminchan->setText(QString::number(m_diag->getSigmachannel(MINIDX)));
 
     // odd even values upper range
-    str.sprintf("%2.2f", m_diag->getMean(ODD));
-    ui->meanodd->setText(str);
-    str.sprintf("%2.2f", m_diag->getMean(EVEN));
-    ui->meaneven->setText(str);
-    str.sprintf("%2.2f", m_diag->getSigma(ODD));
-    ui->sigmodd->setText(str);
-    str.sprintf("%2.2f", m_diag->getSigma(EVEN));
-    ui->sigmeven->setText(str);
+    ui->meanodd->setText(QString::number(m_diag->getMean(ODD), 'g', 2));
+    ui->meaneven->setText(QString::number(m_diag->getMean(EVEN), 'g', 2));
+    ui->sigmodd->setText(QString::number(m_diag->getSigma(ODD), 'g', 2));
+    ui->sigmeven->setText(QString::number(m_diag->getSigma(EVEN), 'g', 2));
 
     // delta between min and max mean values
-    str.sprintf("%2.2f", m_diag->getMean(MAXIDX) - m_diag->getMean(MINIDX));
-    ui->delta_mean_maxmin->setText(str);
+    ui->delta_mean_maxmin->setText(QString::number(m_diag->getMean(MAXIDX) - m_diag->getMean(MINIDX), 'g', 2));
 }
 
 void MesytecDiagnosticsWidget::dispDiag2()
 {
-    QString str;
     // lower range
-    str.sprintf("%2.2f", m_diag->getMean(MAXFILT));
-    ui->meanmax_filt->setText(str);
-    str.sprintf("%d", m_diag->getMeanchannel(MAXFILT));
-    ui->meanmaxchan_filt->setText(str);
-    str.sprintf("%2.2f", m_diag->getSigma(MAXFILT));
-    ui->sigmax_filt->setText(str);
-    str.sprintf("%d", m_diag->getSigmachannel(MAXFILT));
-    ui->sigmaxchan_filt->setText(str);
-    str.sprintf("%2.2f", m_diag->getMean(MINFILT));
-    ui->meanmin_filt->setText(str);
-    str.sprintf("%d", m_diag->getMeanchannel(MINFILT));
-    ui->meanminchan_filt->setText(str);
-    str.sprintf("%2.2f", m_diag->getSigma(MINFILT));
-    ui->sigmin_filt->setText(str);
-    str.sprintf("%d", m_diag->getSigmachannel(MINFILT));
-    ui->sigminchan_filt->setText(str);
+    ui->meanmax_filt->setText(QString::number(m_diag->getMean(MAXFILT), 'g', 2));
+    ui->meanmaxchan_filt->setText(QString::number(m_diag->getMeanchannel(MAXFILT)));
+    ui->sigmax_filt->setText(QString::number(m_diag->getSigma(MAXFILT), 'g', 2));
+    ui->sigmaxchan_filt->setText(QString::number(m_diag->getSigmachannel(MAXFILT)));
+    ui->meanmin_filt->setText(QString::number(m_diag->getMean(MINFILT), 'g', 2));
+    ui->meanminchan_filt->setText(QString::number(m_diag->getMeanchannel(MINFILT)));
+    ui->sigmin_filt->setText(QString::number(m_diag->getSigma(MINFILT), 'g', 2));
+    ui->sigminchan_filt->setText(QString::number(m_diag->getSigmachannel(MINFILT)));
 
     // odd even values lower range
-    str.sprintf("%2.2f", m_diag->getMean(ODDFILT));
-    ui->meanodd_filt->setText(str);
-    str.sprintf("%2.2f", m_diag->getMean(EVENFILT));
-    ui->meaneven_filt->setText(str);
-    str.sprintf("%2.2f", m_diag->getSigma(ODDFILT));
-    ui->sigmodd_filt->setText(str);
-    str.sprintf("%2.2f", m_diag->getSigma(EVENFILT));
-    ui->sigmeven_filt->setText(str);
+    ui->meanodd_filt->setText(QString::number(m_diag->getMean(ODDFILT), 'g', 2));
+    ui->meaneven_filt->setText(QString::number(m_diag->getMean(EVENFILT), 'g', 2));
+    ui->sigmodd_filt->setText(QString::number(m_diag->getSigma(ODDFILT), 'g', 2));
+    ui->sigmeven_filt->setText(QString::number(m_diag->getSigma(EVENFILT), 'g', 2));
 
     // delta between min and max mean values
-    str.sprintf("%2.2f", m_diag->getMean(MAXFILT) - m_diag->getMean(MINFILT));
-    ui->delta_mean_maxmin_filt->setText(str);
+    ui->delta_mean_maxmin_filt->setText(QString::number(m_diag->getMean(MAXFILT) - m_diag->getMean(MINFILT), 'g', 2));
 }
 
 void MesytecDiagnosticsWidget::dispResultList()
 {
-    QString text, str;
-    quint16 i;
+    QString text;
 
-    for(i=0;i<34;i++){
-        str.sprintf("%d:\t mean: %2.2f,\t sigma: %2.2f,\t\t counts: %d\n", i,
-                    m_diag->getMean(i),
-                    m_diag->getSigma(i),
-                    m_diag->getCounts(i));
+    for(quint16 i=0;i<34;i++)
+    {
+        auto str = QStringLiteral("%1:\t mean: %2,\t sigma: %3,\t\t counts: %4\n")
+            .arg(i)
+            .arg(m_diag->getMean(i), 0, 'g', 2)
+            .arg(m_diag->getSigma(i), 0, 'g', 2)
+            .arg(m_diag->getCounts(i));
+
         text.append(str);
     }
+
     ui->diagResult->setPlainText(text);
 }
 
 void MesytecDiagnosticsWidget::dispChan()
 {
-    QString str;
-    str.sprintf("%d", m_diag->getChannel(ui->diagChan->value(), ui->diagBin->value()));
-    ui->diagCounts->setText(str);
+    ui->diagCounts->setText(QString::number(m_diag->getChannel(ui->diagChan->value(), ui->diagBin->value())));
 }
 
 void MesytecDiagnosticsWidget::dispRt()
 {
     auto rtd = m_diag->getRealtimeData();
     QString str;
-    str.sprintf("%2.2f", rtd->getRdMean(0));
-    ui->rtMeanEven->setText(str);
-    str.sprintf("%2.2f", rtd->getRdMean(1));
-    ui->rtMeanOdd->setText(str);
-    str.sprintf("%2.2f", rtd->getRdSigma(0));
-    ui->rtSigmEven->setText(str);
-    str.sprintf("%2.2f", rtd->getRdSigma(1));
-    ui->rtSigmOdd->setText(str);
+    ui->rtMeanEven->setText(QString::number(rtd->getRdMean(0), 'g', 2));
+    ui->rtMeanOdd->setText(QString::number(rtd->getRdMean(1), 'g', 2));
+    ui->rtSigmEven->setText(QString::number(rtd->getRdSigma(0), 'g', 2));
+    ui->rtSigmOdd->setText(QString::number(rtd->getRdSigma(1), 'g', 2));
 }
 
 void MesytecDiagnosticsWidget::updateDisplay()

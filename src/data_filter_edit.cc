@@ -117,7 +117,11 @@ void DataFilterEdit::updateMaskAndWidth()
 
     QFontMetrics fm(font());
     s32 padding = 6;
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
+    s32 width = fm.horizontalAdvance(inputMask()) + padding;
+#else
     s32 width = fm.width(inputMask()) + padding;
+#endif
     setMinimumWidth(width);
 }
 

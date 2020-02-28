@@ -1,5 +1,6 @@
 #include "analysis_util.h"
 
+#include <algorithm>
 #include <QDir>
 #include <QJsonDocument>
 #include <QMessageBox>
@@ -43,7 +44,7 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
                 }
             }
 
-            qSort(result.begin(), result.end(), [](const auto &a, const auto &b) {
+            std::sort(result.begin(), result.end(), [](const auto &a, const auto &b) {
                 return a->objectName() < b->objectName();
             });
         }
@@ -372,7 +373,7 @@ SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector
 
     auto condInputSlots = cl.condition->getSlots();
 
-    qSort(condInputSlots.begin(), condInputSlots.end(), slot_lessThan);
+    std::sort(condInputSlots.begin(), condInputSlots.end(), slot_lessThan);
 
     SinkVector result;
     result.reserve(sinks.size());
@@ -387,7 +388,7 @@ SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector
 
         auto sinkSlots = sink->getSlots();
 
-        qSort(sinkSlots.begin(), sinkSlots.end(), slot_lessThan);
+        std::sort(sinkSlots.begin(), sinkSlots.end(), slot_lessThan);
 
         if (slots_match(condInputSlots, sinkSlots))
         {
