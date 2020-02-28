@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.1.0)
 project(mvme)
 
 # AUTOMOC related: https://cmake.org/cmake/help/v3.10/policy/CMP0071.html
@@ -6,13 +6,14 @@ project(mvme)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
+#set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
+set(WARNING_FLAGS "-Wall -Wextra")
 
-if (WIN32)
-    set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-format")
-endif(WIN32)
+#if (WIN32)
+#    set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-format")
+#endif(WIN32)
 
-set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
+set(CMAKE_CXX_FLAGS "-pipe ${WARNING_FLAGS}")
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
@@ -29,9 +30,10 @@ set(MTUNE_FLAG "core2")
 #set(MARCH_FLAG "skylake")
 #set(MTUNE_FLAG "skylake")
 
-set(CMAKE_CXX_FLAGS_DEBUG   "-ggdb -Og")
-set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG}")
-set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG} -pg -fno-omit-frame-pointer")
+#set(CMAKE_CXX_FLAGS_DEBUG   "-ggdb -Og")
+#set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG}")
+#set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG} -pg -fno-omit-frame-pointer")
+
 # Explicitly set the required c++ standard (CMake >= 3.1)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
