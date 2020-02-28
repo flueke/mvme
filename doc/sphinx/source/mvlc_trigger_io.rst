@@ -169,6 +169,8 @@ inside the logic (for example busy inputs from external hardware).
 I/O and logic units
 -------------------
 
+.. index:: mvlc_trigger_io_NIM, NIM, TTL
+
 NIM I/Os
 ~~~~~~~~
 The front panel NIM connectors can be configured as either input or output.
@@ -185,12 +187,14 @@ Note that it is possible to use a NIM as both input and output at the same
 time. In this case the NIM has to be configured as an output and the gate
 generator acts on the output signal only.
 
+.. index:: mvlc_trigger_io_LVDS, LVDS
 
-ECL outputs
-~~~~~~~~~~~
+LVDS outputs
+~~~~~~~~~~~~
 These are similar to the NIM output units. Each of the 3 outputs needs to be
 activated separately.
 
+.. index:: mvlc_trigger_io_Timer, Timer
 .. _mvlc-trigger-io-Timer:
 
 Timers
@@ -215,10 +219,14 @@ Settings
 
   Minimum: 0 - no delay, maximum: 65535 ns
 
+.. index:: mvlc_trigger_io_IRQ, IRQ
+
 IRQ Units
 ~~~~~~~~~
 Generates a signal when one of the 7 available VME IRQs triggers. The only
 setting is the number of the IRQ (1-7) this unit should react to.
+
+.. index:: mvlc_trigger_io_SoftTrigger, Soft Trigger, SoftTrigger
 
 Soft Triggers
 ~~~~~~~~~~~~~
@@ -242,10 +250,14 @@ Config area and choose ``Add Script``, type a name and double-click the newly
 created script to edit it. Then paste the script text into the editor and use
 the ``Run Script`` button to execute it.
 
+.. index:: mvlc_trigger_io_SlaveTrigger, Slave Trigger, SlaveTrigger
+
 Slave Triggers
 ~~~~~~~~~~~~~~
 Activates when one of the slave triggers fires. This feature will be available
 in the future with a special multi-crate firmware and supporting software.
+
+.. index:: mvlc_trigger_io_StackBusy, StackBusy
 
 Stack Busy
 ~~~~~~~~~~
@@ -255,11 +267,13 @@ being executed.
 In the mvme user interface the command stack numbers are augmented with the
 event names defined in the VME config.
 
+.. index:: mvlc_trigger_io_Sysclk, Sysclk
+
 Sysclk
 ~~~~~~
 This unit provides access to the 16 MHz VMEbus system clock.
 
-.. index:: mvlc_trigger_io_luts, LUT, Lookup Table
+.. index:: mvlc_trigger_io_LUT, LUT, Lookup Table
 
 Lookup Tables (Levels 1 and 2)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -342,6 +356,8 @@ Example
 
 .. _mvlc-trigger-io-StackStart:
 
+.. index:: mvlc_trigger_io_StackStart, StackStart
+
 StackStart
 ~~~~~~~~~~
 These units start the execution of one of the 7 MVLC command stacks.
@@ -355,11 +371,15 @@ Settings
 In the mvme user interface the command stack numbers are augmented with the
 event names defined in the VME config.
 
+.. index:: mvlc_trigger_io_MasterTrigger, MasterTrigger
+
 MasterTrigger
 ~~~~~~~~~~~~~
 Generates a master trigger in multi-crate setups. This feature will be
 available in the future with a special multi-crate firmware and supporting
 software.
+
+.. index:: mvlc_trigger_io_Counter, Counter
 
 Counters
 ~~~~~~~~
