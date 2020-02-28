@@ -35,6 +35,7 @@
 
 #include <memory>
 
+#include <QElapsedTimer>
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QJsonDocument>
@@ -47,7 +48,6 @@ class MVMEMainWindow;
 class ListFile;
 class QJsonObject;
 
-class QTimer;
 class QThread;
 
 namespace analysis
@@ -391,7 +391,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         MVMEMainWindow *m_mainwin;
         GlobalMode m_mode;
         DAQState m_daqState;
-        QTime m_replayTime;
+        QElapsedTimer m_replayTime;
 
         std::unique_ptr<analysis::Analysis> m_analysis;
 

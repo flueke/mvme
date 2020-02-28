@@ -336,7 +336,7 @@ QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates)
     // Module table
     {
         QVector<VMEModuleMeta> modules(templates.moduleMetas);
-        qSort(modules.begin(), modules.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
+        std::sort(modules.begin(), modules.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
             return a.typeId < b.typeId;
         });
 

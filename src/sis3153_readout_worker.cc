@@ -22,6 +22,7 @@
 #include "sis3153_readout_worker.h"
 
 #include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QHostInfo>
 #include <QThread>
 #include <QUdpSocket>
@@ -1008,8 +1009,9 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
                 for (u32 line: stackList)
                 {
-                    sis_log(msg.sprintf("  0x%08x", line));
+                    sis_log(QStringLiteral("  0x%1").arg(line, 8, 16, QLatin1Char('0')));
                 }
+
                 sis_log("");
 
                 // 13 bit stack start address which should be relative to the
@@ -1110,7 +1112,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                 sis_log(msg);
                 for (u32 line: stackList)
                 {
-                    sis_log(msg.sprintf("  0x%08x", line));
+                    sis_log(QStringLiteral("  0x%1").arg(line, 8, 16, QLatin1Char('0')));
                 }
                 sis_log("");
 
@@ -1346,8 +1348,8 @@ void SIS3153ReadoutWorker::readoutLoop()
     VMEError error;
 
     setState(DAQState::Running);
-    QTime elapsedTime;
-    QTime logReadErrorTimer;
+    QElapsedTimer elapsedTime;
+    QElapsedTimer logReadErrorTimer;
     static const int LogInterval_ReadError_ms = 5000;
     u32 readErrorCount = 0;
 

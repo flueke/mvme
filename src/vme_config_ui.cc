@@ -20,6 +20,7 @@
  */
 #include "vme_config_ui.h"
 
+#include <algorithm>
 #include <cmath>
 #include <QCheckBox>
 #include <QCloseEvent>
@@ -446,7 +447,7 @@ ModuleConfigDialog::ModuleConfigDialog(
 
     /* Sort by vendorName and then displayName, giving the vendorName "mesytec"
      * the highest priority. */
-    qSort(m_moduleMetas.begin(), m_moduleMetas.end(),
+    std::sort(m_moduleMetas.begin(), m_moduleMetas.end(),
           [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
         if (a.vendorName == b.vendorName)
             return a.displayName < b.displayName;

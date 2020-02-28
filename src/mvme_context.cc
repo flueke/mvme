@@ -59,7 +59,6 @@
 #include <QProgressDialog>
 #include <QtConcurrent>
 #include <QThread>
-#include <QTimer>
 #include <tuple>
 
 namespace

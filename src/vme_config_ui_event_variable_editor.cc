@@ -320,7 +320,12 @@ void EventVariableEditor::Private::logAffectedScripts()
 
     logView->clear();
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+    QVector<QString> sortedVarNames(
+        std::begin(changedVariableNames), std::end(changedVariableNames));
+#else
     auto sortedVarNames = changedVariableNames.toList();
+#endif
     std::sort(std::begin(sortedVarNames), std::end(sortedVarNames));
     auto symtab = varEditor->getVariables();
 
@@ -346,7 +351,7 @@ void EventVariableEditor::Private::logAffectedScripts()
             if (c.isAffected())
             {
                 logView->appendPlainText(QSL("+ ") + c.initScript->getObjectPath());
-                logView->appendPlainText(QSL("   vars: ") + c.affectedVarNames.toList().join(", "));
+                logView->appendPlainText(QSL("   vars: ") + c.affectedVarNames.values().join(", "));
             }
         }
     }
@@ -364,12 +369,12 @@ void EventVariableEditor::Private::logAffectedScripts()
             if (!c.scriptOverrides.isEmpty())
             {
                 logView->appendPlainText(QSL("- ") + c.initScript->getObjectPath());
-                logView->appendPlainText(QSL("   shadowed by a script variable: ") + c.scriptOverrides.toList().join(", "));
+                logView->appendPlainText(QSL("   shadowed by a script variable: ") + c.scriptOverrides.values().join(", "));
             }
             else if (!c.moduleOverrides.isEmpty())
             {
                 logView->appendPlainText(QSL("- ") + c.initScript->getObjectPath());
-                logView->appendPlainText(QSL("   shadowed by a module variable: ") + c.moduleOverrides.toList().join(", "));
+                logView->appendPlainText(QSL("   shadowed by a module variable: ") + c.moduleOverrides.values().join(", "));
             }
         }
     }
