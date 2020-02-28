@@ -660,12 +660,6 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             mvme::QtAssistantRemoteControl::instance().activateKeyword("mvlc_trigger_io");
         });
 
-    toolbar->addSeparator();
-
-    action = toolbar->addAction(
-        QIcon(":/dialog-close.png"), QSL("Close window"),
-        this, &MVLCTriggerIOEditor::close);
-
     auto mainLayout = make_vbox<2, 2>(this);
     mainLayout->addWidget(toolbar);
     mainLayout->addWidget(logicWidget);
