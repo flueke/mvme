@@ -19,7 +19,7 @@
 #include <qnamespace.h>
 
 #include "qt_util.h"
-#include "qt_assistant_remote_control.h"
+#include "mvme_qthelp.h"
 
 using boost::adaptors::indexed;
 
@@ -2343,12 +2343,17 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
         ui.checks_invert[row]->setChecked(io.invert);
     }
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
-                                   | QDialogButtonBox::Apply, this);
+    auto bb = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+        QDialogButtonBox::Apply | QDialogButtonBox::Help,
+        this);
+
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+    connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
             this, &QDialog::accepted);
+    connect(bb, &QDialogButtonBox::clicked,
+            this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_NIM")));
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addWidget(ui.table, 1);
@@ -2470,12 +2475,17 @@ ECL_SettingsDialog::ECL_SettingsDialog(
     m_tableUi = make_ecl_table_ui(names, settings, inputConnections, inputChoiceNameLists);
     auto &ui = m_tableUi;
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
-                                   | QDialogButtonBox::Apply, this);
+    auto bb = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+        QDialogButtonBox::Apply | QDialogButtonBox::Help,
+        this);
+
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+    connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
             this, &QDialog::accepted);
+    connect(bb, &QDialogButtonBox::clicked,
+            this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_LVDS")));
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addWidget(ui.table, 1);
@@ -2787,12 +2797,16 @@ Level0UtilsDialog::Level0UtilsDialog(
     grid->addWidget(make_groupbox(ui_slaveTriggers.table, "SlaveTriggers"), 1, 0);
     grid->addWidget(make_groupbox(ui_stackBusy.table, "StackBusy"), 1, 1);
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
-                                   | QDialogButtonBox::Apply, this);
+    auto bb = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+        QDialogButtonBox::Apply | QDialogButtonBox::Help,
+        this);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+    connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
             this, &QDialog::accepted);
+    connect(bb, &QDialogButtonBox::clicked,
+            this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_Timer")));
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addLayout(grid);
@@ -3095,12 +3109,17 @@ Level3UtilsDialog::Level3UtilsDialog(
     grid->addWidget(make_groupbox(ui_masterTriggers.table, "Master Triggers"), 0, 1);
     grid->addWidget(make_groupbox(ui_counters.table, "Counters"), 1, 0);
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
-                                   | QDialogButtonBox::Apply, this);
+    auto bb = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+        QDialogButtonBox::Apply | QDialogButtonBox::Help,
+        this);
+
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+    connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
             this, &QDialog::accepted);
+    connect(bb, &QDialogButtonBox::clicked,
+            this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_StackStart")));
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addLayout(grid);
@@ -3683,13 +3702,8 @@ LUTEditor::LUTEditor(
     connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
             this, &QDialog::accepted);
     connect(bb, &QDialogButtonBox::clicked,
-            this, [bb] (QAbstractButton *button)
-            {
-                if (button == bb->button(QDialogButtonBox::Help))
-                {
-                    mvme::QtAssistantRemoteControl::instance().activateKeyword("mvlc_trigger_io_luts");
-                }
-            });
+            this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_LUT")));
+
     scrollLayout->addWidget(bb, 0);
 
     auto scrollArea = new QScrollArea;

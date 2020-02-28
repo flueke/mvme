@@ -67,6 +67,7 @@
 #include "listfilter_extractor_dialog.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
+#include "mvme_qthelp.h"
 #include "mvme_stream_worker.h"
 #include "rate_monitor_widget.h"
 #include "treewidget_utils.h"
@@ -1174,6 +1175,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         m_d->m_toolbar->addAction(QIcon(QSL(":/folder_orange.png")), QSL("Explore Workspace"),
                                   this, [this]() { m_d->actionExploreWorkspace(); });
 
+        m_d->m_toolbar->addSeparator();
+
+        m_d->m_toolbar->addAction(
+            QIcon(QSL(":/help.png")), QSL("Help"),
+            this, mesytec::mvme::make_help_keyword_handler("Analysis"));
     }
 
     // After the toolbar entries the EventWidget specific action will be added.

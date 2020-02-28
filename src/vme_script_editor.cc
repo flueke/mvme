@@ -38,6 +38,7 @@
 
 #include "gui_util.h"
 #include "mvme.h"
+#include "mvme_qthelp.h"
 #include "util/qt_font.h"
 #include "vme_config_scripts.h"
 #include "vme_script.h"
@@ -191,31 +192,9 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
 
     m_d->m_toolBar->addSeparator();
 
-    auto actionHelpVMEScript = new QAction(
-        QIcon(QSL(":/help.png")), QSL("&VME Script Reference"), this);
-
-    m_d->m_toolBar->addAction(actionHelpVMEScript);
-
-    connect(actionHelpVMEScript, &QAction::triggered,
-            this, [this] ()
-    {
-        auto widgets = QApplication::topLevelWidgets();
-        auto it = std::find_if(widgets.begin(), widgets.end(), [](const QWidget *widget) {
-            return widget->objectName() == QSL("VMEScriptReference");
-        });
-
-        if (it != widgets.end())
-        {
-            auto widget = *it;
-            show_and_activate(widget);
-        }
-        else
-        {
-            auto widget = make_vme_script_ref_widget();
-            widget->setAttribute(Qt::WA_DeleteOnClose);
-            emit addApplicationWidget(widget);
-        }
-    });
+    m_d->m_toolBar->addAction(
+        QIcon(QSL(":/help.png")), QSL("VME Script Help"),
+        this, mesytec::mvme::make_help_keyword_handler("VMEScript"));
 
     m_d->m_toolBar->addSeparator();
 
