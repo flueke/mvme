@@ -61,8 +61,7 @@ A2AdapterState a2_adapter_build_memory_wrapper(
     const analysis::SourceVector &sources,
     const analysis::OperatorVector &operators,
     const vme_analysis_common::VMEIdToIndex &vmeMap,
-    const RunInfo &runInfo,
-    analysis::Logger logger = {})
+    const RunInfo &runInfo)
 {
     auto result = a2_adapter_build(
         arena.get(),
@@ -75,16 +74,6 @@ A2AdapterState a2_adapter_build_memory_wrapper(
 
     qDebug("%s a2: mem=%u sz=%u segments=%u",
            __FUNCTION__, (u32)arena->used(), (u32)arena->size(), (u32)arena->segmentCount());
-
-    return result;
-}
-
-QJsonObject to_json(const a2::data_filter::DataFilter &filter)
-{
-    QJsonObject result;
-
-    result["filterString"] = QString::fromStdString(to_string(filter));
-    result["wordIndex"] = filter.matchWordIndex;
 
     return result;
 }
@@ -290,7 +279,6 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
         paramIndex = newParamIndex;
         inputPipe->addDestination(this);
         Q_ASSERT(parentOperator);
-        parentOperator->slotConnected(this);
     }
 }
 
@@ -301,11 +289,6 @@ void Slot::disconnectPipe()
         inputPipe->removeDestination(this);
         inputPipe = nullptr;
         paramIndex = Slot::NoParamIndex;
-
-        if (parentOperator)
-        {
-            parentOperator->slotDisconnected(this);
-        }
     }
 }
 
@@ -574,7 +557,7 @@ Extractor::Extractor(QObject *parent)
     m_rngSeed = dist(StaticRandomDevice);
 }
 
-void Extractor::beginRun(const RunInfo &runInfo, Logger logger)
+void Extractor::beginRun(const RunInfo &, Logger)
 {
     m_fastFilter = {};
     for (auto slowFilter: m_filter.getSubFilters())
@@ -612,7 +595,7 @@ s32 Extractor::getNumberOfOutputs() const
     return 1;
 }
 
-QString Extractor::getOutputName(s32 outputIndex) const
+QString Extractor::getOutputName(s32) const
 {
     return QSL("Extracted data array");
 }
@@ -724,7 +707,7 @@ u32 ListFilterExtractor::getDataBits() const
     return bits;
 }
 
-void ListFilterExtractor::beginRun(const RunInfo &runInfo, Logger logger)
+void ListFilterExtractor::beginRun(const RunInfo &, Logger)
 {
     u32 addressCount = get_address_count(&m_a2Extractor);
     u32 dataBits = get_extract_bits(&m_a2Extractor.listFilter, a2::data_filter::MultiWordFilter::CacheD);
@@ -860,7 +843,7 @@ CalibrationMinMax::CalibrationMinMax(QObject *parent)
 {
 }
 
-void CalibrationMinMax::beginRun(const RunInfo &, Logger logger)
+void CalibrationMinMax::beginRun(const RunInfo &, Logger)
 {
     auto &out(m_output.getParameters());
 
@@ -1016,7 +999,7 @@ IndexSelector::IndexSelector(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Array;
 }
 
-void IndexSelector::beginRun(const RunInfo &, Logger logger)
+void IndexSelector::beginRun(const RunInfo &, Logger)
 {
     auto &out(m_output.getParameters());
 
@@ -1056,7 +1039,7 @@ PreviousValue::PreviousValue(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
-void PreviousValue::beginRun(const RunInfo &, Logger logger)
+void PreviousValue::beginRun(const RunInfo &, Logger)
 {
     auto &out(m_output.getParameters());
 
@@ -1124,7 +1107,7 @@ RetainValid::RetainValid(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
-void RetainValid::beginRun(const RunInfo &, Logger logger)
+void RetainValid::beginRun(const RunInfo &, Logger)
 {
     auto &out(m_output.getParameters());
 
@@ -1171,10 +1154,12 @@ void RetainValid::beginRun(const RunInfo &, Logger logger)
 
 void RetainValid::read(const QJsonObject &json)
 {
+    (void) json;
 }
 
 void RetainValid::write(QJsonObject &json) const
 {
+    (void) json;
 }
 
 //
@@ -1215,7 +1200,7 @@ void Difference::slotDisconnected(Slot *slot)
     }
 }
 
-void Difference::beginRun(const RunInfo &, Logger logger)
+void Difference::beginRun(const RunInfo &, Logger)
 {
     m_output.parameters.name = objectName(); // QSL("A-B");
     m_output.parameters.unit = QString();
@@ -1267,10 +1252,12 @@ void Difference::beginRun(const RunInfo &, Logger logger)
 
 void Difference::read(const QJsonObject &json)
 {
+    (void) json;
 }
 
 void Difference::write(QJsonObject &json) const
 {
+    (void) json;
 }
 
 //
@@ -1282,7 +1269,7 @@ Sum::Sum(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Array;
 }
 
-void Sum::beginRun(const RunInfo &, Logger logger)
+void Sum::beginRun(const RunInfo &, Logger)
 {
     auto &out(m_output.getParameters());
 
@@ -1412,7 +1399,7 @@ AggregateOps::AggregateOps(QObject *parent)
 
 // FIXME: min and max thresholds are not taken into account when calculating
 // the output lower and upper limits!
-void AggregateOps::beginRun(const RunInfo &runInfo, Logger logger)
+void AggregateOps::beginRun(const RunInfo &, Logger)
 {
     auto &out(m_output.getParameters());
 
@@ -1634,7 +1621,7 @@ bool ArrayMap::removeLastSlot()
     return false;
 }
 
-void ArrayMap::beginRun(const RunInfo &, Logger logger)
+void ArrayMap::beginRun(const RunInfo &, Logger)
 {
     s32 mappingCount = m_mappings.size();
     m_output.parameters.name = objectName();
@@ -1698,12 +1685,12 @@ s32 ArrayMap::getNumberOfOutputs() const
     return 1;
 }
 
-QString ArrayMap::getOutputName(s32 outputIndex) const
+QString ArrayMap::getOutputName(s32) const
 {
     return QSL("Output");
 }
 
-Pipe *ArrayMap::getOutput(s32 index)
+Pipe *ArrayMap::getOutput(s32)
 {
     return &m_output;
 }
@@ -1775,7 +1762,7 @@ RangeFilter1D::RangeFilter1D(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
-void RangeFilter1D::beginRun(const RunInfo &, Logger logger)
+void RangeFilter1D::beginRun(const RunInfo &, Logger)
 {
     auto &out(m_output.getParameters());
     out.resize(0);
@@ -1852,7 +1839,7 @@ ConditionFilter::ConditionFilter(QObject *parent)
     m_conditionInput.acceptedInputTypes = InputType::Both;
 }
 
-void ConditionFilter::beginRun(const RunInfo &, Logger logger)
+void ConditionFilter::beginRun(const RunInfo &, Logger)
 {
     auto &out(m_output.getParameters());
 
@@ -1925,12 +1912,12 @@ s32 ConditionFilter::getNumberOfOutputs() const
     return 1;
 }
 
-QString ConditionFilter::getOutputName(s32 outputIndex) const
+QString ConditionFilter::getOutputName(s32) const
 {
     return QSL("Output");
 }
 
-Pipe *ConditionFilter::getOutput(s32 index)
+Pipe *ConditionFilter::getOutput(s32)
 {
     return &m_output;
 }
@@ -1958,7 +1945,7 @@ RectFilter2D::RectFilter2D(QObject *parent)
     m_yInput.acceptedInputTypes = InputType::Value;
 }
 
-void RectFilter2D::beginRun(const RunInfo &, Logger logger)
+void RectFilter2D::beginRun(const RunInfo &, Logger)
 {
     auto &out(m_output.getParameters());
     out.resize(0);
@@ -1994,12 +1981,12 @@ s32 RectFilter2D::getNumberOfOutputs() const
     return 1;
 }
 
-QString RectFilter2D::getOutputName(s32 outputIndex) const
+QString RectFilter2D::getOutputName(s32) const
 {
     return QSL("Output");
 }
 
-Pipe *RectFilter2D::getOutput(s32 index)
+Pipe *RectFilter2D::getOutput(s32)
 {
     return &m_output;
 }
@@ -2148,7 +2135,7 @@ QString BinarySumDiff::getEquationDisplayString(s32 index) const
     return QString();
 }
 
-void BinarySumDiff::beginRun(const RunInfo &, Logger logger)
+void BinarySumDiff::beginRun(const RunInfo &, Logger)
 {
     if (!(0 <= m_equationIndex && m_equationIndex < EquationImpls.size()))
     {
@@ -2248,12 +2235,12 @@ s32 BinarySumDiff::getNumberOfOutputs() const
     return 1;
 }
 
-QString BinarySumDiff::getOutputName(s32 outputIndex) const
+QString BinarySumDiff::getOutputName(s32) const
 {
     return QSL("Output");
 }
 
-Pipe *BinarySumDiff::getOutput(s32 index)
+Pipe *BinarySumDiff::getOutput(s32)
 {
     return &m_output;
 }
@@ -2460,7 +2447,7 @@ Pipe *ExpressionOperator::getOutput(s32 index)
     return nullptr;
 }
 
-void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
+void ExpressionOperator::beginRun(const RunInfo &, Logger logger)
 {
     try
     {
@@ -2619,7 +2606,7 @@ Histo1DSink::Histo1DSink(QObject *parent)
 {
 }
 
-void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
+void Histo1DSink::beginRun(const RunInfo &runInfo, Logger)
 {
     /* Single memory block allocation strategy:
      * Don't shrink.
@@ -2821,7 +2808,7 @@ Histo2DSink::Histo2DSink(QObject *parent)
 
 // Creates or resizes the histogram. Updates the axis limits to match
 // the input parameters limits. Clears the histogram.
-void Histo2DSink::beginRun(const RunInfo &runInfo, Logger logger)
+void Histo2DSink::beginRun(const RunInfo &runInfo, Logger)
 {
     if (m_inputX.inputPipe && m_inputY.inputPipe)
     {
@@ -2845,9 +2832,6 @@ void Histo2DSink::beginRun(const RunInfo &runInfo, Logger logger)
         && 0 <= m_inputX.paramIndex && m_inputX.paramIndex < m_inputX.inputPipe->parameters.size()
         && 0 <= m_inputY.paramIndex && m_inputY.paramIndex < m_inputY.inputPipe->parameters.size())
     {
-        auto sourceX = m_inputX.inputPipe->getSource();
-        auto sourceY = m_inputY.inputPipe->getSource();
-
         double xMin = m_xLimitMin;
         double xMax = m_xLimitMax;
 
@@ -3073,7 +3057,7 @@ s32 RateMonitorSink::getNumberOfSlots() const
     return m_inputs.size();
 }
 
-void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
+void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger)
 {
     m_samplerInputMapping.resize(0);
 
@@ -3489,7 +3473,7 @@ ConditionInterval::ConditionInterval(QObject *parent)
 {
 }
 
-void ConditionInterval::beginRun(const RunInfo &runInfo, Logger logger)
+void ConditionInterval::beginRun(const RunInfo &, Logger)
 {
     if (m_input.isConnected())
     {
@@ -3603,7 +3587,7 @@ Slot *ConditionRectangle::getSlot(s32 slotIndex)
     return nullptr;
 }
 
-void ConditionRectangle::beginRun(const RunInfo &runInfo, Logger logger)
+void ConditionRectangle::beginRun(const RunInfo &, Logger)
 {
 }
 
@@ -3654,7 +3638,7 @@ Slot *ConditionPolygon::getSlot(s32 slotIndex)
     return nullptr;
 }
 
-void ConditionPolygon::beginRun(const RunInfo &runInfo, Logger logger)
+void ConditionPolygon::beginRun(const RunInfo &, Logger)
 {
 }
 
@@ -4853,8 +4837,7 @@ void Analysis::beginRun(const RunInfo &runInfo,
             m_sources,
             m_operators,
             m_vmeMap,
-            runInfo,
-            logger));
+            runInfo));
 
     assert(m_a2State);
 
@@ -4920,6 +4903,10 @@ void Analysis::beginEvent(int eventIndex)
 void Analysis::processModulePrefix(int eventIndex, int moduleIndex, const u32 *data, u32 size)
 {
     // TODO: implement something here
+    (void) eventIndex;
+    (void) moduleIndex;
+    (void) data;
+    (void) size;
 }
 
 void Analysis::processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size)
@@ -4930,6 +4917,10 @@ void Analysis::processModuleData(int eventIndex, int moduleIndex, const u32 *dat
 void Analysis::processModuleSuffix(int eventIndex, int moduleIndex, const u32 *data, u32 size)
 {
     // TODO: implement something here
+    (void) eventIndex;
+    (void) moduleIndex;
+    (void) data;
+    (void) size;
 }
 
 void Analysis::endEvent(int eventIndex)
@@ -5190,7 +5181,6 @@ RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor,
     auto objectName = extractor->objectName();
     auto extractionFilter = extractor->getFilter();
 
-    double srcMin = 0.0;
     double srcMax = std::pow(2.0, extractionFilter.getDataBits());
     u32 histoBins = static_cast<u32>(std::min(srcMax, maxRawHistoBins));
 

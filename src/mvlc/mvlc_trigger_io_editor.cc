@@ -234,7 +234,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(lutEditor.get(), &QDialog::accepted, this, do_apply);
 
-        auto dc = lutEditor->exec();
+        lutEditor->exec();
     });
 
     // NIM IO Setup
@@ -282,7 +282,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(&dialog, &QDialog::accepted, this, do_apply);
 
-        auto dc = dialog.exec();
+        dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editNIM_Outputs,
@@ -362,7 +362,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(&dialog, &QDialog::accepted, this, do_apply);
 
-        auto dc = dialog.exec();
+        dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editECL_Outputs,
@@ -435,7 +435,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(&dialog, &QDialog::accepted, this, do_apply);
 
-        auto dc = dialog.exec();
+        dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editL3Utils,
@@ -487,7 +487,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(&dialog, &QDialog::accepted, this, do_apply);
 
-        auto dc = dialog.exec();
+        dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editL0Utils,
@@ -506,7 +506,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(&dialog, &QDialog::accepted, this, do_apply);
 
-        auto dc = dialog.exec();
+        dialog.exec();
     });
 
     QObject::connect(d->scriptConfig, &VMEScriptConfig::modified,
@@ -518,8 +518,6 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         QPainter::Antialiasing | QPainter::TextAntialiasing |
         QPainter::SmoothPixmapTransform |
         QPainter::HighQualityAntialiasing);
-
-    auto pb_clearConfig = new QPushButton("Clear Config");
 
     auto logicWidget = new QWidget;
     auto logicLayout = make_vbox<0, 0>(logicWidget);

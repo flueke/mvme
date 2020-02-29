@@ -966,8 +966,8 @@ VMEError VMUSB::writeActionRegister(uint16_t value)
 
     int outSize = pOut - outPacket;
 
-    int transferred = 0;
 #ifdef WIENER_USE_LIBUSB1
+    int transferred = 0;
     int status = libusb_bulk_transfer(m_deviceHandle, ENDPOINT_OUT, outPacket, outSize, &transferred, defaultTimeout_ms);
 
     if (status != 0 || transferred != outSize)

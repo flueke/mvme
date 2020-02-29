@@ -484,7 +484,7 @@ ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
 
     // populate the toolbar
     {
-        auto tb = m_d->m_toolbar;
+        //auto tb = m_d->m_toolbar;
     }
 
     // layout

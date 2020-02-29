@@ -17,6 +17,9 @@ using std::endl;
 
 int main(int argc, char *argv[])
 {
+    (void) argc;
+    (void) argv;
+
     // list devices
     {
         auto dil = get_device_info_list();

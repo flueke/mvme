@@ -358,7 +358,6 @@ DataSource make_datasource_listfilter_extractor(
 void listfilter_extractor_begin_event(DataSource *ds)
 {
     assert(ds->type == DataSource_ListFilterExtractor);
-    auto ex = reinterpret_cast<Extractor *>(ds->d);
     invalidate_all(ds->output.data);
 }
 
@@ -480,7 +479,7 @@ struct CalibrationData
     ParamVec calibFactors;
 };
 
-void calibration_step(Operator *op, A2 *a2)
+void calibration_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     assert(op->inputCount == 1);
@@ -504,7 +503,7 @@ void calibration_step(Operator *op, A2 *a2)
     }
 }
 
-void calibration_sse_step(Operator *op, A2 *a2)
+void calibration_sse_step(Operator *op, A2 *)
 {
     /* Note: The partially transformed code below is slower than
      * calibration_step(). With the right compiler flags gcc seems to auto
@@ -682,7 +681,7 @@ Operator make_calibration_idx(
     return result;
 }
 
-void calibration_step_idx(Operator *op, A2 *a2)
+void calibration_step_idx(Operator *op, A2 *)
 {
     a2_trace("\n");
     assert(op->inputCount == 1);
@@ -715,7 +714,7 @@ struct KeepPreviousData_idx: public KeepPreviousData
     s32 inputIndex;
 };
 
-void keep_previous_step(Operator *op, A2 *a2)
+void keep_previous_step(Operator *op, A2 *)
 {
     assert(op->inputCount == 1);
     assert(op->outputCount == 1);
@@ -742,7 +741,7 @@ void keep_previous_step(Operator *op, A2 *a2)
     }
 }
 
-void keep_previous_step_idx(Operator *op, A2 *a2)
+void keep_previous_step_idx(Operator *op, A2 *)
 {
     assert(op->inputCount == 1);
     assert(op->outputCount == 1);
@@ -849,7 +848,7 @@ Operator make_difference_idx(
     return result;
 }
 
-void difference_step(Operator *op, A2 *a2)
+void difference_step(Operator *op, A2 *)
 {
     assert(op->inputCount == 2);
     assert(op->outputCount == 1);
@@ -875,7 +874,7 @@ void difference_step(Operator *op, A2 *a2)
     }
 }
 
-void difference_step_idx(Operator *op, A2 *a2)
+void difference_step_idx(Operator *op, A2 *)
 {
     assert(op->inputCount == 2);
     assert(op->outputCount == 1);
@@ -903,7 +902,7 @@ void difference_step_idx(Operator *op, A2 *a2)
  * members.
  */
 
-void array_map_step(Operator *op, A2 *a2)
+void array_map_step(Operator *op, A2 *)
 {
     auto d = reinterpret_cast<ArrayMapData *>(op->d);
 
@@ -1039,7 +1038,7 @@ static const size_t BinaryEquationCount_idx = ArrayCount(BinaryEquationTable_idx
 
 static_assert(BinaryEquationCount == BinaryEquationCount_idx, "Expected same number of equations for non-index and index cases.");
 
-void binary_equation_step(Operator *op, A2 *a2)
+void binary_equation_step(Operator *op, A2 *)
 {
     // The equationIndex is stored directly in the d pointer.
     u32 equationIndex = (uintptr_t)op->d;
@@ -1109,7 +1108,7 @@ Operator make_binary_equation_idx(
     return result;
 }
 
-void binary_equation_step_idx(Operator *op, A2 *a2)
+void binary_equation_step_idx(Operator *op, A2 *)
 {
     auto d = reinterpret_cast<BinaryEquationIdxData *>(op->d);
 
@@ -1193,7 +1192,7 @@ Operator make_aggregate_sum(
     return result;
 }
 
-void aggregate_sum_step(Operator *op, A2 *a2)
+void aggregate_sum_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1235,7 +1234,7 @@ Operator make_aggregate_multiplicity(
     return result;
 }
 
-void aggregate_multiplicity_step(Operator *op, A2 *a2)
+void aggregate_multiplicity_step(Operator *op, A2 *)
 {
     auto input = op->inputs[0];
     auto output = op->outputs[0];
@@ -1278,7 +1277,7 @@ Operator make_aggregate_min(
     return result;
 }
 
-void aggregate_min_step(Operator *op, A2 *a2)
+void aggregate_min_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1293,7 +1292,7 @@ void aggregate_min_step(Operator *op, A2 *a2)
         {
             if (!is_param_valid(result))
             {
-                double result = std::numeric_limits<double>::max();
+                result = std::numeric_limits<double>::max();
             }
 
             result = std::min(result, input[i]);
@@ -1328,7 +1327,7 @@ Operator make_aggregate_max(
     return result;
 }
 
-void aggregate_max_step(Operator *op, A2 *a2)
+void aggregate_max_step(Operator *op, A2 *)
 {
     auto input = op->inputs[0];
     auto output = op->outputs[0];
@@ -1412,7 +1411,7 @@ Operator make_aggregate_mean(
     return result;
 }
 
-void aggregate_mean_step(Operator *op, A2 *a2)
+void aggregate_mean_step(Operator *op, A2 *)
 {
     auto input = op->inputs[0];
     auto output = op->outputs[0];
@@ -1450,7 +1449,7 @@ Operator make_aggregate_sigma(
     return result;
 }
 
-void aggregate_sigma_step(Operator *op, A2 *a2)
+void aggregate_sigma_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1499,7 +1498,7 @@ Operator make_aggregate_minx(
     return result;
 }
 
-void aggregate_minx_step(Operator *op, A2 *a2)
+void aggregate_minx_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1542,7 +1541,7 @@ Operator make_aggregate_maxx(
     return result;
 }
 
-void aggregate_maxx_step(Operator *op, A2 *a2)
+void aggregate_maxx_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1629,7 +1628,7 @@ inline MeanXResult calculate_meanx(ParamVec input, Thresholds thresholds)
     return result;
 }
 
-void aggregate_meanx_step(Operator *op, A2 *a2)
+void aggregate_meanx_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1657,7 +1656,7 @@ Operator make_aggregate_sigmax(
     return result;
 }
 
-void aggregate_sigmax_step(Operator *op, A2 *a2)
+void aggregate_sigmax_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
@@ -1776,7 +1775,7 @@ Operator make_range_filter_idx(
     return result;
 }
 
-void range_filter_step(Operator *op, A2 *a2)
+void range_filter_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     assert(op->inputCount == 1);
@@ -1819,7 +1818,7 @@ void range_filter_step(Operator *op, A2 *a2)
     }
 }
 
-void range_filter_step_idx(Operator *op, A2 *a2)
+void range_filter_step_idx(Operator *op, A2 *)
 {
     a2_trace("\n");
     assert(op->inputCount == 1);
@@ -1894,7 +1893,7 @@ Operator make_rect_filter(
     return result;
 }
 
-void rect_filter_step(Operator *op, A2 *a2)
+void rect_filter_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     assert(op->inputCount == 2);
@@ -1984,7 +1983,7 @@ Operator make_condition_filter(
     return result;
 }
 
-void condition_filter_step(Operator *op, A2 *a2)
+void condition_filter_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     assert(op->inputCount == 2);
@@ -2389,7 +2388,7 @@ void expression_operator_compile_step_expression(Operator *op)
     d->expr_step.compile();
 }
 
-void expression_operator_step(Operator *op, A2 *a2)
+void expression_operator_step(Operator *op, A2 *)
 {
     assert(op->type == Operator_Expression);
 
@@ -2827,7 +2826,7 @@ Operator make_h1d_sink(
     return result;
 }
 
-void h1d_sink_step(Operator *op, A2 *a2)
+void h1d_sink_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     auto d = reinterpret_cast<H1DSinkData *>(op->d);
@@ -2839,7 +2838,7 @@ void h1d_sink_step(Operator *op, A2 *a2)
     }
 }
 
-void h1d_sink_step_idx(Operator *op, A2 *a2)
+void h1d_sink_step_idx(Operator *op, A2 *)
 {
     a2_trace("\n");
     auto d = reinterpret_cast<H1DSinkData_idx *>(op->d);
@@ -2898,7 +2897,7 @@ Operator make_h2d_sink(
     return result;
 };
 
-void h2d_sink_step(Operator *op, A2 *a2)
+void h2d_sink_step(Operator *op, A2 *)
 {
     a2_trace("\n");
 
@@ -2946,9 +2945,12 @@ struct RateMonitorData_FlowRate: public RateMonitorData
 
 static void debug_samplers(const TypedBlock<RateSampler *, s32> &samplers, const std::string &prefix)
 {
+    (void) prefix;
+
     for (s32 i = 0; i < samplers.size; i++)
     {
         RateSampler *sampler = samplers[i];
+        (void) sampler;
 
         a2_trace("%s: sampler[%d]@%p, rateHistory@%p, capacity=%lu, size=%lu\n",
                 prefix.c_str(),
@@ -3011,7 +3013,6 @@ Operator make_rate_monitor(
     for (s32 ii = 0; ii < inputs.size; ii++)
     {
         const auto &input  = inputs[ii];
-        const auto &pi     = input_param_indexes[ii];
 
         assign_input(&result, input, ii);
     }
@@ -3019,7 +3020,7 @@ Operator make_rate_monitor(
     return result;
 }
 
-void rate_monitor_step(Operator *op, A2 *a2)
+void rate_monitor_step(Operator *op, A2 *)
 {
     a2_trace("\n");
 
@@ -3277,7 +3278,7 @@ void export_sink_begin_run(Operator *op, Logger logger)
     }
 }
 
-void export_sink_full_step(Operator *op, A2 *a2)
+void export_sink_full_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     assert(op->type == Operator_ExportSinkFull);
@@ -3375,7 +3376,7 @@ static size_t write_indexed_parameter_vector(std::ostream &out, const ParamVec &
     return bytesWritten;
 }
 
-void export_sink_sparse_step(Operator *op, A2 *a2)
+void export_sink_sparse_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     assert(op->type == Operator_ExportSinkSparse);
@@ -3726,7 +3727,6 @@ void a2_end_event(A2 *a2, int eventIndex)
 
     const int opCount = a2->operatorCounts[eventIndex];
     Operator *operators = a2->operators[eventIndex];
-    u8 *ranks = a2->operatorRanks[eventIndex];
     s32 opSteppedCount = 0;
     s32 opCondSkipped  = 0;
 

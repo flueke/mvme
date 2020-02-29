@@ -19,7 +19,7 @@ TEST(TestMVLCError, MVLCErrorCode_to_ErrorType)
         ASSERT_EQ(make_error_code(code), ErrorType::ConnectionError);
 
     for (auto code: { MEC::ShortWrite, MEC::ShortRead })
-        ASSERT_EQ(make_error_code(MVLCErrorCode::ShortWrite), ErrorType::ShortTransfer);
+        ASSERT_EQ(make_error_code(code), ErrorType::ShortTransfer);
 
     for (auto code: { MEC::MirrorEmptyRequest, MEC::MirrorEmptyResponse,
                       MEC::MirrorShortResponse, MEC::MirrorNotEqual,

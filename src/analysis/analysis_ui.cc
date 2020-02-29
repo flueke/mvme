@@ -239,6 +239,9 @@ void AnalysisWidgetPrivate::onConditionLinkApplied(const OperatorPtr &op, const 
     assert(op->getEventId() == cl.condition->getEventId());
     auto eventId = op->getEventId();
     repopulateEventRelatedWidgets(eventId);
+#else
+    (void) op;
+    (void) cl;
 #endif
 }
 
@@ -249,6 +252,9 @@ void AnalysisWidgetPrivate::onConditionLinkCleared(const OperatorPtr &op, const 
     assert(op->getEventId() == cl.condition->getEventId());
     auto eventId = op->getEventId();
     repopulateEventRelatedWidgets(eventId);
+#else
+    (void) op;
+    (void) cl;
 #endif
 }
 
@@ -687,10 +693,6 @@ void AnalysisWidgetPrivate::actionSaveSession()
     QObject::connect(&watcher, &QFutureWatcher<ResultType>::finished,
                      &progressDialog, &QDialog::close);
 
-    auto fn = static_cast<QPair<bool, QString> (*) (const QString &filename,
-                                                    analysis::Analysis *analysis)>(
-                                                        save_analysis_session);
-
     QFuture<ResultType> future = QtConcurrent::run(save_analysis_session, filename,
                                                    m_context->getAnalysis());
     watcher.setFuture(future);
@@ -993,13 +995,13 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
      * emission of the vmeConfigChanged() signal. */
 
     connect(m_d->m_context, &MVMEContext::vmeConfigAboutToBeSet,
-            this, [this] (VMEConfig *oldcfg, VMEConfig *newcfg) {
+            this, [this] (VMEConfig *, VMEConfig *) {
                 qDebug() << __PRETTY_FUNCTION__ << "disabling repops";
                 m_d->m_repopEnabled = false;
             });
 
     connect(m_d->m_context, &MVMEContext::vmeConfigChanged,
-            this, [this] (VMEConfig *newcfg) {
+            this, [this] (VMEConfig *) {
                 qDebug() << __PRETTY_FUNCTION__ << "reenabling repops";
                 m_d->m_repopEnabled = true;
                 m_d->repopulate();
@@ -1071,8 +1073,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     // toolbar
     {
         m_d->m_toolbar = make_toolbar();
-
-        QAction *action;
 
         // new, open, save, save as
         m_d->m_toolbar->addAction(QIcon(":/document-new.png"), QSL("New"),
@@ -1301,9 +1301,12 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     static const char *rightSplitterStateKey = "AnalysisWidget/RightSplitterState";
 
     connect(rightSplitter, &QSplitter::splitterMoved,
-            this, [this, rightSplitter] (int pos, int index) {
-        m_d->m_settings.setValue(rightSplitterStateKey, rightSplitter->saveState());
-    });
+            this, [this, rightSplitter] (int pos, int index)
+            {
+                (void) pos;
+                (void) index;
+                m_d->m_settings.setValue(rightSplitterStateKey, rightSplitter->saveState());
+            });
 
 
     if (m_d->m_settings.contains(rightSplitterStateKey))
@@ -1322,9 +1325,12 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     static const char *mainSplitterStateKey = "AnalysisWidget/MainSplitterState";
 
     connect(mainSplitter, &QSplitter::splitterMoved,
-            this, [this, mainSplitter] (int pos, int index) {
-        m_d->m_settings.setValue(mainSplitterStateKey, mainSplitter->saveState());
-    });
+            this, [this, mainSplitter] (int pos, int index)
+            {
+                (void) pos;
+                (void) index;
+                m_d->m_settings.setValue(mainSplitterStateKey, mainSplitter->saveState());
+            });
 
 
     if (m_d->m_settings.contains(mainSplitterStateKey))

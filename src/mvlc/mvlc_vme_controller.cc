@@ -190,7 +190,7 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
     dumpTimer->start();
 }
 
-void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &oldState,
+void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &,
                                             const MVLCObject::State &newState)
 {
     switch (newState)
@@ -309,6 +309,7 @@ VMEError MVLC_VMEController::read16(u32 address, u16 *value, u8 amod)
 VMEError MVLC_VMEController::blockRead(u32 address, u32 transfers,
                                        QVector<u32> *dest, u8 amod, bool fifo)
 {
+    (void) fifo; // The MVLC does not use the FIFO flag. FIXME: does it always or never increment?
     auto ec = m_mvlc->vmeBlockRead(address, amod, transfers, *dest);
     return error_wrap(*m_mvlc, ec);
 }

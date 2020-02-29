@@ -309,6 +309,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
                                   const QMimeData *data,
                                   Qt::DropAction action)
 {
+    (void) parentIndex;
     /* Drag and drop of datasources:
      * If dropped onto the tree or onto unassignedDataSourcesRoot the sources are removed
      * from their module and end up being unassigned.
@@ -465,6 +466,8 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
                                 const QMimeData *data,
                                 Qt::DropAction action)
 {
+    (void) parentIndex;
+
     /* Note: This code assumes that only top level items are passed in via the mime data
      * object. OperatorTree::mimeData() guarantees this. */
 
@@ -511,8 +514,6 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 
     for (auto &obj: dropSet)
     {
-        const s32 levelDelta = destUserLevel - obj->getUserLevel();
-
         obj->setUserLevel(destUserLevel);
 
         movedObjects.append(obj);
@@ -661,6 +662,8 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
                             const QMimeData *data,
                             Qt::DropAction action)
 {
+    (void) parentIndex;
+
     qDebug() << __PRETTY_FUNCTION__ << this;
 
     const auto mimeType = SinkIdListMIMEType;
@@ -991,7 +994,7 @@ void add_directory_nodes(ObjectTree *tree, const DirectoryVector &dirs,
 
 
 
-ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src, s32 userLevel,
+ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
                                               ObjectEditorMode mode,
                                               ModuleConfig *moduleConfig,
                                               EventWidget *eventWidget)
@@ -1258,7 +1261,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
     // create the upper toolbar
     {
         m_d->m_upperToolBar = make_toolbar();
-        auto tb = m_d->m_upperToolBar;
+        //auto tb = m_d->m_upperToolBar;
 
         //tb->addWidget(new QLabel(QString("Hello, event! %1").arg((uintptr_t)this)));
     }
@@ -2362,11 +2365,14 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
 
         // keyboard interaction changes the treewidgets current item
         QObject::connect(tree, &QTreeWidget::currentItemChanged,
-                         m_q, [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous) {
-            qDebug() << "currentItemChanged on" << tree;
-            // TODO: show the object info instead of clearing the widget
-            m_analysisWidget->getObjectInfoWidget()->clear();
-        });
+                         m_q, [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous)
+                         {
+                             (void) current;
+                             (void) previous;
+                             qDebug() << "currentItemChanged on" << tree;
+                             // TODO: show the object info instead of clearing the widget
+                             m_analysisWidget->getObjectInfoWidget()->clear();
+                         });
 
         // inline editing via F2
         QObject::connect(tree, &QTreeWidget::itemChanged,
@@ -2814,7 +2820,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                                        [this, moduleConfig, srcPtr, userLevel]() {
 
                                            auto dialog = datasource_editor_factory(
-                                               srcPtr, userLevel, ObjectEditorMode::New, moduleConfig, m_q);
+                                               srcPtr, ObjectEditorMode::New, moduleConfig, m_q);
 
                                            assert(dialog);
 
@@ -2934,7 +2940,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                         [this, srcPtr, moduleConfig, userLevel]() {
 
                             auto dialog = datasource_editor_factory(
-                                srcPtr, userLevel, ObjectEditorMode::Edit, moduleConfig, m_q);
+                                srcPtr, ObjectEditorMode::Edit, moduleConfig, m_q);
 
                             assert(dialog);
 
@@ -3003,7 +3009,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
 
             if (!unassigned.isEmpty())
             {
-                auto action = menu.addAction(
+                menu.addAction(
                     QIcon::fromTheme(QSL("edit-delete")),
                     QSL("Remove unassigned data sources"),
                     remove_unassigned_objects);
@@ -4201,6 +4207,8 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode()
 
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
+    (void) column;
+
     auto objectInfoWidget = m_analysisWidget->getObjectInfoWidget();
     objectInfoWidget->clear();
 
@@ -4376,6 +4384,8 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
 
 void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel)
 {
+    (void) column;
+
     if (node->type() == NodeType_Directory || node->type() == NodeType_Module)
     {
         node->setExpanded(!node->isExpanded());
@@ -4593,7 +4603,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         if (moduleConfig)
                         {
                             auto dialog = datasource_editor_factory(
-                                srcPtr, userLevel, ObjectEditorMode::Edit, moduleConfig, m_q);
+                                srcPtr, ObjectEditorMode::Edit, moduleConfig, m_q);
 
                             assert(dialog);
 
@@ -4610,6 +4620,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
 void EventWidgetPrivate::onNodeChanged(TreeNode *node, int column, s32 userLevel)
 {
+    (void) userLevel;
     //qDebug() << __PRETTY_FUNCTION__ << node << column << userLevel << node->text(0);
 
     if (column != 0)
@@ -5279,8 +5290,6 @@ void EventWidgetPrivate::selectObjects(const AnalysisObjectVector &objects)
 
 void EventWidgetPrivate::updateActions()
 {
-    auto node = getCurrentNode();
-
     m_actionExport->setEnabled(false);
 
     if (m_mode == Default)

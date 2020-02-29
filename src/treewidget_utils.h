@@ -39,6 +39,9 @@ class NoEditDelegate: public QStyledItemDelegate
                                       const QStyleOptionViewItem &option,
                                       const QModelIndex &index) const
         {
+            (void) parent;
+            (void) option;
+            (void) index;
             return 0;
         }
 };

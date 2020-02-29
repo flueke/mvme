@@ -890,7 +890,7 @@ QVector<PreparsedLine> pre_parse(QTextStream &input)
         // of the write command the address value).
         parts[0] = parts[0].toLower();
 
-        PreparsedLine ppl{line, parts, lineNumber };
+        PreparsedLine ppl{line, parts, lineNumber, {} };
         collect_variable_references(ppl);
 
         result.push_back(ppl);

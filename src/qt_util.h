@@ -173,7 +173,7 @@ class LIBMVME_CORE_EXPORT NonShrinkingLabelHelper
 template<typename T>
 uint qHash(const std::shared_ptr<T> &ptr, uint seed = 0)
 {
-    return qHash(ptr.get());
+    return qHash(ptr.get(), seed);
 }
 
 template<typename LayoutType, int Margin = 2, int Spacing = 2>

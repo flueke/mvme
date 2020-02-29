@@ -154,9 +154,6 @@ void IntervalPlotPicker::widgetMousePressEvent(QMouseEvent *ev)
     {
         qDebug() << __PRETTY_FUNCTION__ << "have a valid interval -> cut is being edited";
 
-        int iMinPixel = transform({ m_interval.minValue(), 0.0 }).x();
-        int iMaxPixel = transform({ m_interval.maxValue(), 0.0 }).x();
-
         switch (getPointForXCoordinate(ev->pos().x()))
         {
             case PT_None:
@@ -203,9 +200,6 @@ void IntervalPlotPicker::widgetMouseMoveEvent(QMouseEvent *ev)
 {
     if (hasValidInterval() && !m_isDragging)
     {
-        int iMinPixel = transform({ m_interval.minValue(), 0.0 }).x();
-        int iMaxPixel = transform({ m_interval.maxValue(), 0.0 }).x();
-
         switch (getPointForXCoordinate(ev->pos().x()))
         {
             case PT_None:

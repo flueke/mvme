@@ -561,10 +561,10 @@ void MVLCCommandListBuilder::addVMEBlockRead(u32 address, u8 amod, u16 maxTransf
     addStack(DefaultOutputPipe, DefaultOffset, { command });
 }
 
-void MVLCCommandListBuilder::add2eSST64Read(u32 address, u16 maxTransfers, Blk2eSSTRate rate)
-{
-    assert(!"not implemented");
-}
+//void MVLCCommandListBuilder::add2eSST64Read(u32 address, u16 maxTransfers, Blk2eSSTRate rate)
+//{
+//    assert(!"not implemented");
+//}
 
 void MVLCCommandListBuilder::addVMEWrite(u32 address, u32 value, u8 amod,
                                          VMEDataWidth dataWidth)

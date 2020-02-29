@@ -126,7 +126,7 @@ class VMEReadoutWorker: public QObject
         virtual bool logMessage(const QString &msg, bool useThrottle = false);
 
     protected:
-        virtual void pre_setContext(VMEReadoutWorkerContext newContext) {}
+        virtual void pre_setContext(VMEReadoutWorkerContext newContext) { (void) newContext; }
         VMEReadoutWorkerContext m_workerContext;
         bool do_VME_DAQ_Init(VMEController *ctrl);
 };

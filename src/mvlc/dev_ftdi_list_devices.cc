@@ -5,7 +5,7 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-int main(int argc, char *argv[])
+int main(int, char *[])
 {
     printf("===== FT_GetDeviceInfoList =====\n");
     {

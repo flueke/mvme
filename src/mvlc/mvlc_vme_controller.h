@@ -39,6 +39,7 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         VMEError read32(u32 address, u32 *value, u8 amod) override;
         VMEError read16(u32 address, u16 *value, u8 amod) override;
 
+        // FIXME: MVLC does not use the fifo flag. How does it behave? Increment or not?
         VMEError blockRead(u32 address, u32 transfers,
                            QVector<u32> *dest, u8 amod, bool fifo) override;
 

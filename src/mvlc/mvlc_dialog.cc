@@ -205,7 +205,6 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
     using Clock = std::chrono::high_resolution_clock;
 
     auto tStart = Clock::now();
-    unsigned attempt = 0;
 
     while (true)
     {

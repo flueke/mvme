@@ -32,7 +32,7 @@ class LIBMVME_EXPORT DataFilterEdit: public QLineEdit
 
 // Note: obsolete wrapper from when a plain QLineEdit was used.
 // Create a QLineEdit setup for convenient filter editing and display.
-LIBMVME_EXPORT DataFilterEdit *makeFilterEdit(u8 bits = 32, QWidget *parent = nullptr);
+LIBMVME_EXPORT DataFilterEdit *makeFilterEdit(QWidget *parent = nullptr);
 
 
 #endif /* __DATA_FILTER_EDIT_H__ */

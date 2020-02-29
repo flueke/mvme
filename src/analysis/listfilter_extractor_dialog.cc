@@ -470,6 +470,8 @@ ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis
     connect(m_d->listWidgetUi.listWidget->model(), &QAbstractItemModel::rowsMoved,
             this, [this](const QModelIndex &parent, int srcIdx, int endIdx,
                          const QModelIndex &dest, int dstIdx) {
+                (void) parent;
+                (void) dest;
 
                 //qDebug() << "orig: srcIdx =" << srcIdx << ", dstIdx =" << dstIdx;
 

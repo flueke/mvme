@@ -1584,7 +1584,6 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
     auto diag = std::make_shared<MesytecDiagnostics>();
 
     diag->setEventAndModuleIndices(m_d->m_context->getVMEConfig()->getEventAndModuleIndices(moduleConfig));
-    auto streamWorker = m_d->m_context->getMVMEStreamWorker();
 
     auto widget = new MesytecDiagnosticsWidget(diag);
     widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -1689,65 +1688,6 @@ void MVMEMainWindow::onActionVMEScriptRef_triggered()
 static const auto UpdateCheckURL = QSL("http://mesytec.com/downloads/mvme/");
 static const QByteArray UpdateCheckUserAgent = "mesytec mvme ";
 
-static const QString get_package_platform_string()
-{
-#ifdef Q_OS_WIN
-    return QSL("Windows");
-#elif defined Q_OS_LINUX
-    return QSL("Linux");
-#else
-    #warning "Unknown platform name."
-    InvalidCodePath;
-    return QString();
-#endif
-}
-
-static const QString get_package_bitness_string()
-{
-#ifdef Q_PROCESSOR_X86_64
-    return QSL("x64");
-#elif defined Q_PROCESSOR_X86_32
-    return QSL("x32");
-#else
-#warning "Unknown processor bitness."
-    InvalidCodePath;
-    return QString();
-#endif
-}
-
-static u64 extract_package_version(const QString &filename)
-{
-    static const QString pattern = QSL("mvme-(?<major>[0-9]+)\\.(?<minor>[0-9]+)(\\.(?<point>[0-9]+))?(-(?<commits>[0-9]+))?");
-
-    u64 result = 0;
-    QRegularExpression re(pattern);
-    auto match = re.match(filename);
-
-    if (match.hasMatch())
-    {
-        u64 major   = match.captured("major").toUInt();
-        u64 minor   = match.captured("minor").toUInt();
-        u64 point   = match.captured("point").toUInt();
-        u64 commits = match.captured("commits").toUInt();
-
-        result = commits
-            + 1000 * point
-            + 1000 * 1000 * minor
-            + 1000 * 1000 * 1000 * major;
-
-        qDebug() << "filename =" << filename
-            << ", major =" << major
-            << ", minor =" << minor
-            << ", point =" << point
-            << ", commits =" << commits
-            << ", result =" << result;
-            ;
-
-    }
-
-    return result;
-}
-
 bool MVMEMainWindow::createNewOrOpenExistingWorkspace()
 {
     do
@@ -1798,9 +1738,7 @@ void MVMEMainWindow::updateActions()
 {
     if (m_quitting) return;
 
-    auto globalMode = m_d->m_context->getMode();
     auto daqState = m_d->m_context->getDAQState();
-    auto eventProcState = m_d->m_context->getMVMEStreamWorkerState();
 
     bool isDAQIdle = (daqState == DAQState::Idle);
 
@@ -2086,4 +2024,5 @@ void MVMEMainWindow::handleSniffedInputBuffer(const DataBuffer &buffer)
 {
     // TODO: Add an MVLCInputBufferDebugHandler similar to
     // MVLCParserDebugHandler. Let
+    (void) buffer;
 }

@@ -313,13 +313,13 @@ std::error_code Impl::connect()
 
         // Bind both sockets. In case of an error close the sockets and
         // continue with the loop.
-        if (int res = ::bind(m_cmdSock, reinterpret_cast<struct sockaddr *>(&cmdLocal),
+        if (::bind(m_cmdSock, reinterpret_cast<struct sockaddr *>(&cmdLocal),
                              sizeof(cmdLocal)))
         {
             goto try_again;
         }
 
-        if (int res = ::bind(m_dataSock, reinterpret_cast<struct sockaddr *>(&dataLocal),
+        if (::bind(m_dataSock, reinterpret_cast<struct sockaddr *>(&dataLocal),
                              sizeof(dataLocal)))
         {
             goto try_again;
@@ -345,7 +345,7 @@ std::error_code Impl::connect()
 
     // Call connect on the sockets so that we receive only datagrams
     // originating from the MVLC.
-    if (int res = ::connect(m_cmdSock, reinterpret_cast<struct sockaddr *>(&m_cmdAddr),
+    if (::connect(m_cmdSock, reinterpret_cast<struct sockaddr *>(&m_cmdAddr),
                             sizeof(m_cmdAddr)))
     {
         auto ec = std::error_code(errno, std::system_category());
@@ -354,7 +354,7 @@ std::error_code Impl::connect()
         return ec;
     }
 
-    if (int res = ::connect(m_dataSock, reinterpret_cast<struct sockaddr *>(&m_dataAddr),
+    if (::connect(m_dataSock, reinterpret_cast<struct sockaddr *>(&m_dataAddr),
                             sizeof(m_dataAddr)))
     {
         auto ec = std::error_code(errno, std::system_category());
@@ -513,7 +513,6 @@ bool Impl::isConnected() const
 
 std::error_code Impl::setWriteTimeout(Pipe pipe, unsigned ms)
 {
-#if 0
     auto p = static_cast<unsigned>(pipe);
 
     if (p >= PipeCount)
@@ -523,7 +522,6 @@ std::error_code Impl::setWriteTimeout(Pipe pipe, unsigned ms)
 
     if (isConnected())
         return set_socket_write_timeout(getSocket(pipe), ms);
-#endif
 
     return {};
 }

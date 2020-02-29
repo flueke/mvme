@@ -196,7 +196,6 @@ void AnalysisInfoWidget::update()
 
     double bytesPerSecond   = deltaBytesProcessed / dt;
     double mbPerSecond      = bytesPerSecond / Megabytes(1);
-    double buffersPerSecond = deltaBuffersProcessed / dt;
     double avgBufferSize    = deltaBytesProcessed / static_cast<double>(deltaBuffersProcessed);
     if (std::isnan(avgBufferSize)) avgBufferSize = 0.0;
 

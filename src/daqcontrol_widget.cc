@@ -160,7 +160,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     });
 
     connect(combo_compression, qOverload<int>(&QComboBox::currentIndexChanged),
-            this, [this] (int index)
+            this, [this] (int)
     {
         int compression = combo_compression->currentData().toInt();
         m_listFileOutputInfo.compressionLevel = compression;
@@ -359,9 +359,7 @@ void DAQControlWidget::updateWidget()
     bool isMVLC = is_mvlc_controller(m_vmeControllerTypeName);
 
     const bool isReplay  = (globalMode == GlobalMode::ListFile);
-    const bool isRun     = (globalMode == GlobalMode::DAQ);
     const bool isDAQIdle = (daqState == DAQState::Idle);
-    const bool isControllerConnected = (controllerState == ControllerState::Connected);
     const auto &stats = m_daqStats;
 
     //

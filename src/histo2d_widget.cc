@@ -146,7 +146,7 @@ struct Histo2DRasterData: public RasterDataBase
         return r;
     }
 
-    virtual QRectF pixelHint(const QRectF &area) const override
+    virtual QRectF pixelHint(const QRectF &) const override
     {
         QRectF result
         {
@@ -1096,7 +1096,7 @@ void Histo2DWidget::mouseCursorLeftPlot()
     updateCursorInfoLabel();
 }
 
-void Histo2DWidget::zoomerZoomed(const QRectF &zoomRect)
+void Histo2DWidget::zoomerZoomed(const QRectF &)
 {
 #if 0
     // do not zoom into negatives or above the upper bin

@@ -481,7 +481,7 @@ std::unique_ptr<QwtText> make_text_box(int renderFlags = Qt::AlignRight | Qt::Al
 } // end anon namespace
 
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histo, QWidget *parent)
-    : Histo1DWidget(HistoList{ histo })
+    : Histo1DWidget(HistoList{ histo }, parent)
 {
 }
 
@@ -1083,6 +1083,9 @@ void Histo1DWidget::replot()
             << "  norm_fitCurve          =" << norm_fitCurve << endl
             << "  norm_fitCurve_adjusted =" << norm_fitCurve_adjusted
             ;
+#else
+        (void) freeCounts_0_x1;
+        (void) norm_fitCurve_adjusted;
 #endif
 
 #if 0
@@ -1188,7 +1191,7 @@ void Histo1DWidgetPrivate::displayChanged()
     m_q->replot();
 }
 
-void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
+void Histo1DWidget::zoomerZoomed(const QRectF &)
 {
     if (m_d->m_zoomer->zoomRectIndex() == 0)
     {
@@ -1960,7 +1963,7 @@ void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interva
     }
 }
 
-void Histo1DWidgetPrivate::onCutEditorIntervalModified(const QwtInterval &interval)
+void Histo1DWidgetPrivate::onCutEditorIntervalModified(const QwtInterval &)
 {
 }
 

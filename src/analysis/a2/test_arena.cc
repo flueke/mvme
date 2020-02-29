@@ -51,6 +51,7 @@ int Foo::instance = 0;
 
 static void TEST_ObjectArena(benchmark::State &state)
 {
+    (void) state;
     using memory::Arena;
 
     cout << endl << "sizeof(Foo)=" << sizeof(Foo) << ", alignof(Foo)=" << alignof(Foo) << endl << endl;
@@ -78,6 +79,7 @@ BENCHMARK(TEST_ObjectArena);
 
 static void TEST_ArenaAllocator(benchmark::State &state)
 {
+    (void) state;
     using memory::Arena;
     using memory::ArenaAllocator;
 

@@ -29,7 +29,7 @@ std::error_code reset_stack_offsets(MVLCObject &mvlc)
 
 // Builds, uploads and sets up the readout stack for each event in the vme
 // config.
-std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
+std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger)
 {
     // Stack0 is reserved for immediate exec
     u8 stackId = stacks::ImmediateStackID + 1;

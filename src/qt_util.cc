@@ -215,7 +215,7 @@ QToolBar *make_toolbar(QWidget *parent)
 
 QStatusBar *make_statusbar(QWidget *parent)
 {
-    auto result = new QStatusBar;
+    auto result = new QStatusBar(parent);
     result->setSizeGripEnabled(false);
     set_widget_font_pointsize(result, 7);
     return result;
@@ -363,7 +363,7 @@ void TextEditSearchWidget::findNext(bool hasWrapped)
     }
 }
 
-void TextEditSearchWidget::onSearchTextEdited(const QString &text)
+void TextEditSearchWidget::onSearchTextEdited(const QString &)
 {
     /* Move the cursor to the beginning of the current word, then search
      * forward from that position. */

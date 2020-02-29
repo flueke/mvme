@@ -888,7 +888,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
     // mvlc connection state changes
     connect(m_d->mvlc, &MVLCObject::stateChanged,
-            this, [this] (const MVLCObject::State &oldState,
+            this, [this] (const MVLCObject::State &,
                           const MVLCObject::State &newState)
     {
         switch (newState)
@@ -1517,7 +1517,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
     });
 
     //
-    // UDP Debug Tab Interations
+    // UDP Debug Tab Interactions
     //
     connect(ui->pb_udpSend, &QPushButton::clicked,
             this, [this] ()
@@ -1549,7 +1549,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             while (bytesLeft > 0)
             {
                 qint64 bytesToWrite = std::min(bytesLeft, MaxPacketPayloadSize);
-                quint64 bytesWritten = sock.writeDatagram(dataPtr, bytesToWrite, destIP, destPort);
+                qint64 bytesWritten = sock.writeDatagram(dataPtr, bytesToWrite, destIP, destPort);
 
                 if (bytesWritten < 0)
                 {
@@ -1606,7 +1606,6 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             this, [this] ()
     {
         auto stats = m_d->dataReader->getStats();
-        auto &labels = m_d->readerStatLabels;
 
         for (int counterType = 0;
              counterType < ReaderStats::CountersCount;
@@ -1737,7 +1736,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             if (delta > 0)
             {
                 double rate = delta / dt;
-                strParts += QString("stack%1: %2").arg(stackId).arg(delta);
+                strParts += QString("stack%1: %2").arg(stackId).arg(rate);
             }
         }
 
@@ -1985,7 +1984,6 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
         connect(widgets.pb_read, &QPushButton::clicked,
                 this, [this, widgets] ()
         {
-            bool ok = true;
             u16 address = widgets.spin_address->value();
 
             u32 result = readRegister(address);

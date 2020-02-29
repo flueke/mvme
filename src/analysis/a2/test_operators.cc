@@ -113,7 +113,7 @@ static void BM_extractor_process_module_data(benchmark::State &state)
 }
 BENCHMARK(BM_extractor_process_module_data);
 
-static void TEST_listfilter_extractor(benchmark::State &state)
+static void TEST_listfilter_extractor(benchmark::State &)
 {
     // single extractor, 16 bit, not reversed, wordcount=2, repetitions=4
     {
@@ -537,7 +537,6 @@ static void BM_array_map_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputData);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -599,7 +598,6 @@ static void BM_keep_previous_step(benchmark::State &state)
     {
         inputDataSets[1][i] = inputDataSets[0][inputSize - i - 1];
     }
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -662,7 +660,6 @@ static void BM_aggregate_sum_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputData);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -721,7 +718,6 @@ static void BM_aggregate_multiplicity_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputData);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -772,7 +768,6 @@ static void BM_aggregate_max_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputData);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -821,7 +816,6 @@ static void BM_h1d_sink_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputData);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -908,7 +902,6 @@ static void BM_h2d_sink_step(benchmark::State &state)
     };
 
     static const s32 inputSize = ArrayCount(xValues);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -953,8 +946,6 @@ static void BM_h2d_sink_step(benchmark::State &state)
         0, // xIndex
         0, // yIndex
         histo);
-
-    auto d = reinterpret_cast<H2DSinkData *>(sink.d);
 
     while (state.KeepRunning())
     {

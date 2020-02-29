@@ -83,7 +83,6 @@ static void BM_a2(benchmark::State &state)
     double bytesProcessed = 0;
     double moduleCounter = 0;
     double eventCounter = 0;
-    size_t stateIters = 0;
 
     while (state.KeepRunning())
     {

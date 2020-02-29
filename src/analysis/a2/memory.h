@@ -367,6 +367,8 @@ struct ArenaAllocator
 
     void deallocate(T* ptr, std::size_t n) noexcept
     {
+        (void) ptr;
+        (void) n;
         /* noop
          *
          * Note: deallocate() could handle the case where the memory block to be

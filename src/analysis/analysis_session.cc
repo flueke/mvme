@@ -14,13 +14,6 @@ namespace
 
 using namespace analysis;
 
-QJsonObject analysis_to_json(analysis::Analysis *analysis)
-{
-    QJsonObject result;
-    analysis->write(result);
-    return result;
-}
-
 template<typename T>
 QByteArray to_json(T *obj)
 {

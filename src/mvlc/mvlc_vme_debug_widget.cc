@@ -431,8 +431,7 @@ void VMEDebugWidget::slt_loadScript()
 }
 
 // TODO: move into mvlc_util or mvlc_vme_script_bridge or something like that
-vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd,
-                               std::function<void (const QString &)> logger)
+vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd)
 {
     using namespace vme_script;
     Result result;
@@ -476,7 +475,7 @@ vme_script::ResultList run_script(MVLCObject *mvlc, const vme_script::VMEScript 
                       );
             }
 
-            auto result = run_command(mvlc, cmd, logger);
+            auto result = run_command(mvlc, cmd);
             results.push_back(result);
 
             //if (logEachResult)

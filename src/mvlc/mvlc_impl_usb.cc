@@ -400,12 +400,12 @@ std::error_code check_chip_configuration(void *handle)
 // Impl
 //
 Impl::Impl()
-    : m_connectMode{ConnectMode::First}
+    : m_connectMode{ConnectMode::First, {}, {}}
 {
 }
 
 Impl::Impl(unsigned index)
-    : m_connectMode{ConnectMode::ByIndex, index}
+    : m_connectMode{ConnectMode::ByIndex, index, {}}
 {
 }
 
@@ -1054,7 +1054,10 @@ std::error_code Impl::abortPipe(Pipe pipe, EndpointDirection dir)
                   );
         return ec;
     }
-#endif // __WIN32
+#else // !__WIN32
+    (void) pipe;
+    (void) dir;
+#endif // !__WIN32
     return {};
 }
 

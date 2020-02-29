@@ -18,7 +18,7 @@ void plugin_info (const char **plugin_name, const char **plugin_description)
 
 void *plugin_init (const char *pluginFilename, int argc, const char *argv[])
 {
-    cout << __PRETTY_FUNCTION__ << " - args:" << endl;
+    cout << __PRETTY_FUNCTION__ << "plugin: " << pluginFilename << ",  args:" << endl;
 
     for (int argi = 0; argi < argc; argi++)
     {
@@ -35,6 +35,8 @@ void plugin_destroy (void *userptr)
 
 void begin_run (void *userptr, const RunDescription *run)
 {
+    (void) userptr;
+    (void) run;
     cout << __PRETTY_FUNCTION__ << endl;
 }
 
@@ -72,6 +74,7 @@ void event_data (void *userptr, int eventIndex, const ModuleData *modules, int m
 }
 void end_run (void *userptr)
 {
+    (void) userptr;
     cout << __PRETTY_FUNCTION__ << endl;
 }
 

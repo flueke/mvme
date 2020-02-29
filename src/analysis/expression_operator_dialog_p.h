@@ -49,8 +49,7 @@ class InputSelectButton: public QPushButton
 {
     Q_OBJECT
     public:
-        InputSelectButton(Slot *destSlot, s32 userLevel,
-                          EventWidget *eventWidget, QWidget *parent = nullptr);
+        InputSelectButton(Slot *destSlot, EventWidget *eventWidget, QWidget *parent = nullptr);
 
         virtual bool eventFilter(QObject *watched, QEvent *event) override;
 

@@ -44,8 +44,7 @@ namespace ui
 // InputSelectButton
 //
 
-InputSelectButton::InputSelectButton(Slot *destSlot, s32 userLevel,
-                                     EventWidget *eventWidget, QWidget *parent)
+InputSelectButton::InputSelectButton(Slot *destSlot, EventWidget *eventWidget, QWidget *parent)
     : QPushButton(QSL("<select>"), parent)
     , m_eventWidget(eventWidget)
     , m_destSlot(destSlot)
@@ -533,6 +532,8 @@ void ExpressionErrorWidget::clear()
 
 void ExpressionErrorWidget::onCellClicked(int row, int column)
 {
+    (void) column;
+
     assertConsistency();
     assert(row < m_entries.size());
     assert(row < m_errorTable->rowCount());
@@ -549,6 +550,8 @@ void ExpressionErrorWidget::onCellClicked(int row, int column)
 
 void ExpressionErrorWidget::onCellDoubleClicked(int row, int column)
 {
+    (void) column;
+
     assertConsistency();
     assert(row < m_entries.size());
     assert(row < m_errorTable->rowCount());
@@ -1407,7 +1410,7 @@ void SlotGrid::repopulate(const detail::Model &model, EventWidget *eventWidget, 
     {
         Slot *slot = op->getSlot(slotIndex);
 
-        auto selectButton = new InputSelectButton(slot, userLevel, eventWidget);
+        auto selectButton = new InputSelectButton(slot, eventWidget);
         selectButtons.push_back(selectButton);
 
         auto clearButton = new QPushButton(QIcon(":/dialog-close.png"), QString());

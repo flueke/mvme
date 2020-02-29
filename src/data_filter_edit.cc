@@ -125,7 +125,7 @@ void DataFilterEdit::updateMaskAndWidth()
     setMinimumWidth(width);
 }
 
-DataFilterEdit *makeFilterEdit(u8 bits, QWidget *parent)
+DataFilterEdit *makeFilterEdit(QWidget *parent)
 {
 #if 1
     return new DataFilterEdit(parent);

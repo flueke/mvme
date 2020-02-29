@@ -837,7 +837,7 @@ bool AddEditOperatorDialog::eventFilter(QObject *watched, QEvent *event)
  *
  * Maybe there's a better way to achieve the same but I didn't find it.
  */
-void AddEditOperatorDialog::resizeEvent(QResizeEvent *event)
+void AddEditOperatorDialog::resizeEvent(QResizeEvent *)
 {
     if (!m_resizeEventSeen)
     {
@@ -898,6 +898,7 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
 
     //qDebug() << __PRETTY_FUNCTION__;
     //debug_dump(mappings);
+    (void) debug_dump;
 
     tw_input->clearContents();
     tw_input->setRowCount(0);
@@ -1924,7 +1925,7 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
     {
         repopulate_arrayMap_tables(arrayMap, m_arrayMappings, tw_input, tw_output);
     }
-    else if (auto rangeFilter = qobject_cast<RangeFilter1D *>(op))
+    else if (qobject_cast<RangeFilter1D *>(op))
     {
         Q_ASSERT(slot);
 
@@ -1959,7 +1960,7 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             }
         }
     }
-    else if (auto filter = qobject_cast<RectFilter2D *>(op))
+    else if (qobject_cast<RectFilter2D *>(op))
     {
         Q_ASSERT(slot);
 
@@ -2476,6 +2477,8 @@ void RateMonitorConfigWidget::configureOperator()
 
 void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
 {
+    (void) slotIndex;
+
     OperatorInterface *op = m_op;
 
     if (no_input_connected(op) && !wasNameEdited())
@@ -2529,7 +2532,6 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals, QWid
 {
     auto layout = new QGridLayout(this);
     s32 row = 0;
-    s32 nCols = 1;
 
     auto closeButton = new QPushButton(QSL("Close"));
     connect(closeButton, &QPushButton::clicked, this, &QWidget::close);

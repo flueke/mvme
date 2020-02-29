@@ -5,7 +5,7 @@
 
 using namespace a2::data_filter;
 
-static void TEST_combine(benchmark::State &state)
+static void TEST_combine(benchmark::State &)
 {
     // 4 u16 words, not reversed
     {
@@ -97,7 +97,7 @@ static void BM_combine(benchmark::State &state)
 }
 BENCHMARK(BM_combine);
 
-static void TEST_combine_and_extract_max_words(benchmark::State &state)
+static void TEST_combine_and_extract_max_words(benchmark::State &)
 {
     // 4 u16 words, not reversed
     {
@@ -220,7 +220,7 @@ static void TEST_combine_and_extract_max_words(benchmark::State &state)
 }
 BENCHMARK(TEST_combine_and_extract_max_words);
 
-static void TEST_combine_and_extract_non_max_words(benchmark::State &state)
+static void TEST_combine_and_extract_non_max_words(benchmark::State &)
 {
     // 3 u16 words, not reversed
     {

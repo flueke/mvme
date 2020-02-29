@@ -669,8 +669,6 @@ ParseResult parse_eth_packet(
     LOG_TRACE("begin parsing packet %u, dataWords=%u, packetLen=%u bytes",
               ethHdrs.packetNumber(), ethHdrs.dataWordCount(), packetIter.bytesLeft());
 
-    const u32 *packetEndPtr = reinterpret_cast<const u32 *>(packetIter.endp);
-
     // Skip to the first payload contents word, right after the two ETH
     // headers. This can be trailing data words from an already open stack
     // frame or it can be the next stack frame (continuation) header.

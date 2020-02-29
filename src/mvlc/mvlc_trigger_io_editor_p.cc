@@ -83,7 +83,6 @@ void TriggerIOView::scaleView(qreal scaleFactor)
 
 void TriggerIOView::wheelEvent(QWheelEvent *event)
 {
-    bool invert = false;
     auto keyMods = event->modifiers();
     double divisor = 300.0;
 
@@ -147,7 +146,7 @@ void ConnectorCircleItem::labelSet_(const QString &label)
     adjust();
 }
 
-void ConnectorCircleItem::alignmentSet_(const Qt::Alignment &align)
+void ConnectorCircleItem::alignmentSet_(const Qt::Alignment &)
 {
     adjust();
 }
@@ -193,8 +192,7 @@ QRectF ConnectorDiamondItem::boundingRect() const
     return QRectF(0, 0, m_baseLength, m_baseLength);
 }
 
-void ConnectorDiamondItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
-           QWidget *widget)
+void ConnectorDiamondItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
 {
     auto br = boundingRect();
 
@@ -224,7 +222,7 @@ void ConnectorDiamondItem::labelSet_(const QString &label)
     adjust();
 }
 
-void ConnectorDiamondItem::alignmentSet_(const Qt::Alignment &align)
+void ConnectorDiamondItem::alignmentSet_(const Qt::Alignment &)
 {
     adjust();
 }
@@ -357,7 +355,7 @@ void BlockItem::setOutputNames(const QStringList &names)
     }
 }
 
-void BlockItem::hoverEnterEvent(QGraphicsSceneHoverEvent *ev)
+void BlockItem::hoverEnterEvent(QGraphicsSceneHoverEvent *)
 {
     setBrush(Block_Brush_Hover);
 
@@ -380,7 +378,7 @@ void BlockItem::hoverEnterEvent(QGraphicsSceneHoverEvent *ev)
     QGraphicsRectItem::update();
 }
 
-void BlockItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *ev)
+void BlockItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *)
 {
     setBrush(Block_Brush);
     for (auto con: m_inputConnectors)
@@ -569,8 +567,8 @@ QRectF LineAndArrow::boundingRect() const
 
 void LineAndArrow::paint(
     QPainter *painter,
-    const QStyleOptionGraphicsItem *option,
-    QWidget *widget)
+    const QStyleOptionGraphicsItem *,
+    QWidget *)
 {
     QPointF lineStart{0, 0};
     QPointF lineEnd = getAdjustedEnd();
@@ -666,8 +664,7 @@ QRectF HorizontalBusBar::boundingRect() const
     return result;
 }
 
-void HorizontalBusBar::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
-           QWidget *widget)
+void HorizontalBusBar::paint(QPainter *, const QStyleOptionGraphicsItem *, QWidget *)
 {
 }
 
@@ -675,7 +672,7 @@ void HorizontalBusBar::paint(QPainter *painter, const QStyleOptionGraphicsItem *
 // MoveableRect
 //
 MovableRect::MovableRect(int w, int h, QGraphicsItem *parent)
-    : QGraphicsRectItem(0, 0, w, h, this)
+    : QGraphicsRectItem(0, 0, w, h, parent)
 {
     setFlags(QGraphicsItem::ItemIsMovable | QGraphicsItem::ItemSendsGeometryChanges);
 }
@@ -750,8 +747,7 @@ QRectF Edge::boundingRect() const
         .adjusted(-extra, -extra, extra, extra);
 }
 
-void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
-           QWidget *widget)
+void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
 {
     QLineF line(m_sourcePoint, m_destPoint);
     if (qFuzzyCompare(line.length(), qreal(0.)))
@@ -1285,7 +1281,6 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             auto bar = make_big_arrow_bar({0, 0, 34, 60}, 1.5, 0.3);
             auto barPos = m_level3UtilItems.parent->mapToScene(m_level3UtilItems.parent->rect().center());
             barPos.setX(vertBar->boundingRect().right());
-            auto py = m_level3UtilItems.parent->mapToScene(m_level3UtilItems.parent->rect().center()).y();
             set_big_arrow_bar_pos(bar, barPos);
             bar->setRotation(90);
 
@@ -1531,7 +1526,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // latch input
         // (FIXME: hack with the connection address which is invalid by default (l3.unit33 ("not connected"))
         {
-            unsigned conValue = ioCfg.l3.connections[unitIndex][1];
+            //unsigned conValue = ioCfg.l3.connections[unitIndex][1];
             //UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][1][conValue];
             UnitAddress conAddress = { 0, Level0::SysClockOffset };
 
@@ -1789,7 +1784,7 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
             UnitAddress addr {2, static_cast<unsigned>(kv.index()), input};
 
             update_connectors_and_edge(
-                kv.value(), addr, [] (const auto &lut) { return true; });
+                kv.value(), addr, [] (const auto &) { return true; });
         }
 
         UnitAddress strobeGGAddress {2, static_cast<unsigned>(kv.index()), LUT::StrobeGGInput};
@@ -3180,7 +3175,6 @@ Level3 Level3UtilsDialog::getSettings() const
 //
 
 LUTOutputEditor::LUTOutputEditor(
-    int outputNumber,
     const QVector<QStringList> &inputNameLists,
     const Level2::DynamicConnections &dynamicInputValues,
     QWidget *parent)
@@ -3610,7 +3604,7 @@ LUTEditor::LUTEditor(
 
     for (int output = 0; output < trigger_io::LUT::OutputBits; output++)
     {
-        auto lutOutputEditor = new LUTOutputEditor(output, inputNameLists, dynConValues);
+        auto lutOutputEditor = new LUTOutputEditor(inputNameLists, dynConValues);
 
         auto nameEdit = new QLineEdit;
         nameEdit->setText(outputNames.value(output));

@@ -114,6 +114,8 @@ ScriptPart write_strobe_connection(u16 offset, u16 value, const QString &sourceN
 
 ScriptParts generate(const trigger_io::Timer &unit, int index)
 {
+    (void) index;
+
     ScriptParts ret;
     ret += write_unit_reg(2, static_cast<u16>(unit.range), "range (0:ns, 1:us, 2:ms, 3:s)");
     ret += write_unit_reg(4, unit.delay_ns, "delay [ns]");
@@ -123,6 +125,8 @@ ScriptParts generate(const trigger_io::Timer &unit, int index)
 
 ScriptParts generate(const trigger_io::IRQ_Unit &unit, int index)
 {
+    (void) index;
+
     ScriptParts ret;
     ret += write_unit_reg(0, static_cast<u16>(unit.irqIndex),
                           "irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)");
@@ -181,6 +185,8 @@ ScriptParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags)
 
 ScriptParts generate(const trigger_io::StackBusy &unit, int index)
 {
+    (void) index;
+
     ScriptParts ret;
     ret += write_unit_reg(0, unit.stackIndex, "stack_index");
     return ret;
@@ -233,6 +239,8 @@ ScriptParts write_lut(const LUT &lut)
 
 ScriptParts generate(const trigger_io::StackStart &unit, int index)
 {
+    (void) index;
+
     ScriptParts ret;
     ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
     ret += write_unit_reg(2, unit.stackIndex, "stack index");
@@ -242,6 +250,8 @@ ScriptParts generate(const trigger_io::StackStart &unit, int index)
 
 ScriptParts generate(const trigger_io::MasterTrigger &unit, int index)
 {
+    (void) index;
+
     ScriptParts ret;
     ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
     return ret;
@@ -249,6 +259,9 @@ ScriptParts generate(const trigger_io::MasterTrigger &unit, int index)
 
 ScriptParts generate(const trigger_io::Counter &unit, int index)
 {
+    (void) unit;
+    (void) index;
+
     return {};
 }
 
@@ -1091,7 +1104,6 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
         for (const auto &kv: ioCfg.l3.counters | indexed(0))
         {
             unsigned unitIndex = kv.index() + Level3::CountersOffset;
-            auto &unit = kv.value();
 
             ioCfg.l3.connections[unitIndex] = { writes[unitIndex][0x80], writes[unitIndex][0x82] };
         }

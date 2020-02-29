@@ -730,7 +730,6 @@ class LUTOutputEditor: public QWidget
     Q_OBJECT
     public:
         LUTOutputEditor(
-            int outputNumber,
             const QVector<QStringList> &inputNameLists = {},
             const Level2::DynamicConnections &dynConValues = {},
             QWidget *parent = nullptr);

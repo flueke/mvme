@@ -30,8 +30,7 @@ namespace TemplateRenderFlags
 
 static QString render_to_string(
     const QString &templateFilename,
-    mu::data &templateData,
-    TemplateRenderFlags::Flag flags = 0)
+    mu::data &templateData)
 {
     QFile templateFile(templateFilename);
 
@@ -66,7 +65,7 @@ static void render_to_file(
         return;
     }
 
-    auto rendered = render_to_string(templateFilename, templateData, flags);
+    auto rendered = render_to_string(templateFilename, templateData);
 
     if (logger)
     {
@@ -347,12 +346,10 @@ QMap<QString, QString> ExportSinkCodeGenerator::generateMap() const
     auto renderer = [&result] (const QString &templateFilename,
                                mu::data &templateData,
                                const QString &outputFilename,
-                               TemplateRenderFlags::Flag flags,
-                               Logger logger)
+                               TemplateRenderFlags::Flag,
+                               Logger)
     {
-        result[outputFilename] = render_to_string(templateFilename,
-                                                  templateData,
-                                                  flags);
+        result[outputFilename] = render_to_string(templateFilename, templateData);
     };
 
     m_d->generate(renderer, Logger());
