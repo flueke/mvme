@@ -24,13 +24,31 @@ namespace
 namespace mvlc_listfile
 {
 
+size_t get_filemagic_len()
+{
+    static const size_t FileMagicLen = 8;
+    return FileMagicLen;
+}
+
+const char *get_filemagic_eth()
+{
+    static const char *FileMagic_ETH = "MVLC_ETH";
+    return FileMagic_ETH;
+}
+
+const char *get_filemagic_usb()
+{
+    static const char *FileMagic_USB = "MVLC_USB";
+    return FileMagic_USB;
+}
+
 QByteArray read_file_magic(QIODevice &listfile)
 {
     if (!seek_in_file(&listfile, 0))
         return {};
 
     QByteArray buffer;
-    buffer.resize(FileMagicLen);
+    buffer.resize(get_filemagic_len());
 
     if (listfile.read(buffer.data(), buffer.size()) != buffer.size())
         return {};
@@ -40,7 +58,7 @@ QByteArray read_file_magic(QIODevice &listfile)
 
 QByteArray read_vme_config_data(QIODevice &listfile)
 {
-    if (!seek_in_file(&listfile, FileMagicLen))
+    if (!seek_in_file(&listfile, get_filemagic_len()))
         return {};
 
     QByteArray buffer;

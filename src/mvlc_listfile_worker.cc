@@ -139,9 +139,9 @@ void MVLCListfileWorker::start()
 
     qDebug() << __PRETTY_FUNCTION__ << fileMagic;
 
-    if (fileMagic == mvlc_listfile::FileMagic_ETH)
+    if (fileMagic == mvlc_listfile::get_filemagic_eth())
         d->format = ListfileBufferFormat::MVLC_ETH;
-    else if (fileMagic == mvlc_listfile::FileMagic_USB)
+    else if (fileMagic == mvlc_listfile::get_filemagic_usb())
         d->format = ListfileBufferFormat::MVLC_USB;
     else
     {
