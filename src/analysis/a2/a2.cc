@@ -3446,6 +3446,9 @@ void export_sink_end_run(Operator *op)
  * A2 implementation
  * =============================================== */
 
+namespace
+{
+
 struct OperatorFunctions
 {
     using StepFunction      = void (*)(Operator *op, A2 *a2);
@@ -3457,56 +3460,62 @@ struct OperatorFunctions
     EndRunFunction end_run = nullptr;
 };
 
-static const OperatorFunctions OperatorTable[OperatorTypeCount] =
+const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
 {
-    [Invalid_OperatorType] = { nullptr },
+    static std::array<OperatorFunctions, OperatorTypeCount> result = {};
 
-    [Operator_Calibration] = { calibration_step },
-    [Operator_Calibration_sse] = { calibration_sse_step },
-    [Operator_Calibration_idx] = { calibration_step_idx },
-    [Operator_KeepPrevious] = { keep_previous_step },
-    [Operator_KeepPrevious_idx] = { keep_previous_step_idx },
-    [Operator_Difference] = { difference_step },
-    [Operator_Difference_idx] = { difference_step_idx },
-    [Operator_ArrayMap] = { array_map_step },
-    [Operator_BinaryEquation] = { binary_equation_step },
-    [Operator_BinaryEquation_idx] = { binary_equation_step_idx },
+    result[Invalid_OperatorType] = { nullptr };
 
-    [Operator_H1DSink] = { h1d_sink_step },
-    [Operator_H1DSink_idx] = { h1d_sink_step_idx },
-    [Operator_H2DSink] = { h2d_sink_step },
+    result[Operator_Calibration] = { calibration_step };
+    result[Operator_Calibration_sse] = { calibration_sse_step };
+    result[Operator_Calibration_idx] = { calibration_step_idx };
+    result[Operator_KeepPrevious] = { keep_previous_step };
+    result[Operator_KeepPrevious_idx] = { keep_previous_step_idx };
+    result[Operator_Difference] = { difference_step };
+    result[Operator_Difference_idx] = { difference_step_idx };
+    result[Operator_ArrayMap] = { array_map_step };
+    result[Operator_BinaryEquation] = { binary_equation_step };
+    result[Operator_BinaryEquation_idx] = { binary_equation_step_idx };
 
-    [Operator_RateMonitor_PrecalculatedRate] = { rate_monitor_step },
-    [Operator_RateMonitor_CounterDifference] = { rate_monitor_step },
-    [Operator_RateMonitor_FlowRate] = { rate_monitor_step },
+    result[Operator_H1DSink] = { h1d_sink_step };
+    result[Operator_H1DSink_idx] = { h1d_sink_step_idx };
+    result[Operator_H2DSink] = { h2d_sink_step };
 
-    [Operator_ExportSinkFull]   = { export_sink_full_step,   export_sink_begin_run, export_sink_end_run },
-    [Operator_ExportSinkSparse] = { export_sink_sparse_step, export_sink_begin_run, export_sink_end_run },
+    result[Operator_RateMonitor_PrecalculatedRate] = { rate_monitor_step };
+    result[Operator_RateMonitor_CounterDifference] = { rate_monitor_step };
+    result[Operator_RateMonitor_FlowRate] = { rate_monitor_step };
 
-    [Operator_RangeFilter] = { range_filter_step },
-    [Operator_RangeFilter_idx] = { range_filter_step_idx },
-    [Operator_RectFilter] = { rect_filter_step },
-    [Operator_ConditionFilter] = { condition_filter_step },
+    result[Operator_ExportSinkFull]   = { export_sink_full_step,   export_sink_begin_run, export_sink_end_run };
+    result[Operator_ExportSinkSparse] = { export_sink_sparse_step, export_sink_begin_run, export_sink_end_run };
 
-    [Operator_Aggregate_Sum] = { aggregate_sum_step },
-    [Operator_Aggregate_Multiplicity] = { aggregate_multiplicity_step },
+    result[Operator_RangeFilter] = { range_filter_step };
+    result[Operator_RangeFilter_idx] = { range_filter_step_idx };
+    result[Operator_RectFilter] = { rect_filter_step };
+    result[Operator_ConditionFilter] = { condition_filter_step };
 
-    [Operator_Aggregate_Min] = { aggregate_min_step },
-    [Operator_Aggregate_Max] = { aggregate_max_step },
-    [Operator_Aggregate_Mean] = { aggregate_mean_step },
-    [Operator_Aggregate_Sigma] = { aggregate_sigma_step },
+    result[Operator_Aggregate_Sum] = { aggregate_sum_step };
+    result[Operator_Aggregate_Multiplicity] = { aggregate_multiplicity_step };
 
-    [Operator_Aggregate_MinX] = { aggregate_minx_step },
-    [Operator_Aggregate_MaxX] = { aggregate_maxx_step },
-    [Operator_Aggregate_MeanX] = { aggregate_meanx_step },
-    [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
+    result[Operator_Aggregate_Min] = { aggregate_min_step };
+    result[Operator_Aggregate_Max] = { aggregate_max_step };
+    result[Operator_Aggregate_Mean] = { aggregate_mean_step };
+    result[Operator_Aggregate_Sigma] = { aggregate_sigma_step };
 
-    [Operator_Expression] = { expression_operator_step },
+    result[Operator_Aggregate_MinX] = { aggregate_minx_step };
+    result[Operator_Aggregate_MaxX] = { aggregate_maxx_step };
+    result[Operator_Aggregate_MeanX] = { aggregate_meanx_step };
+    result[Operator_Aggregate_SigmaX] = { aggregate_sigmax_step };
 
-    [Operator_ConditionInterval] = { condition_interval_step },
-    [Operator_ConditionRectangle] = { condition_rectangle_step },
-    [Operator_ConditionPolygon] = { condition_polygon_step },
-};
+    result[Operator_Expression] = { expression_operator_step };
+
+    result[Operator_ConditionInterval] = { condition_interval_step };
+    result[Operator_ConditionRectangle] = { condition_rectangle_step };
+    result[Operator_ConditionPolygon] = { condition_polygon_step };
+
+    return result;
+}
+
+} // end anon namespace
 
 A2::A2(memory::Arena *arena)
     : conditionBits(BitsetAllocator(arena))
@@ -3634,13 +3643,13 @@ inline u32 step_operator_range(Operator *first, Operator *last, A2 *a2)
         a2_trace("    op@%p\n", op);
 
         assert(op);
-        assert(op->type < ArrayCount(OperatorTable));
+        assert(op->type < get_operator_table().size());
 
         if (likely(op->type != Invalid_OperatorType))
         {
-            assert(OperatorTable[op->type].step);
+            assert(get_operator_table()[op->type].step);
 
-            OperatorTable[op->type].step(op, a2);
+            get_operator_table()[op->type].step(op, a2);
             opSteppedCount++;
         }
     }
@@ -3683,11 +3692,11 @@ void a2_begin_run(A2 *a2, Logger logger)
             Operator *op = a2->operators[ei] + opIdx;
 
             assert(op);
-            assert(op->type < ArrayCount(OperatorTable));
+            assert(op->type < get_operator_table().size());
 
-            if (OperatorTable[op->type].begin_run)
+            if (get_operator_table()[op->type].begin_run)
             {
-                OperatorTable[op->type].begin_run(op, logger);
+                get_operator_table()[op->type].begin_run(op, logger);
             }
         }
     }
@@ -3705,11 +3714,11 @@ void a2_end_run(A2 *a2)
             Operator *op = a2->operators[ei] + opIdx;
 
             assert(op);
-            assert(op->type < ArrayCount(OperatorTable));
+            assert(op->type < get_operator_table().size());
 
-            if (OperatorTable[op->type].end_run)
+            if (get_operator_table()[op->type].end_run)
             {
-                OperatorTable[op->type].end_run(op);
+                get_operator_table()[op->type].end_run(op);
             }
         }
     }
@@ -3739,11 +3748,11 @@ void a2_end_event(A2 *a2, int eventIndex)
         a2_trace("  op@%p\n", op);
 
         assert(op);
-        assert(op->type < ArrayCount(OperatorTable));
+        assert(op->type < get_operator_table().size());
 
         if (likely(op->type != Invalid_OperatorType))
         {
-            assert(OperatorTable[op->type].step);
+            assert(get_operator_table()[op->type].step);
 
             if (op->conditionIndex >= 0)
             {
@@ -3754,7 +3763,7 @@ void a2_end_event(A2 *a2, int eventIndex)
                 || a2->conditionBits.test(op->conditionIndex))
             {
                 // no active condition or the condition is true
-                OperatorTable[op->type].step(op, a2);
+                get_operator_table()[op->type].step(op, a2);
                 opSteppedCount++;
             }
             else
@@ -3814,7 +3823,7 @@ void a2_timetick(A2 *a2)
             Operator *op = a2->operators[ei] + opIdx;
 
             assert(op);
-            assert(op->type < ArrayCount(OperatorTable));
+            assert(op->type < get_operator_table().size());
 
             if (op->type == Operator_RateMonitor_FlowRate)
             {
