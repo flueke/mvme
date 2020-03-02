@@ -163,10 +163,6 @@ if(MVME_ENABLE_MVLC)
     target_link_libraries(libmvme_mvlc
         PRIVATE ftd3xx
         PUBLIC libmvme_core
-        PUBLIC Qt5::Concurrent
-        PUBLIC Qt5::Gui
-        PUBLIC Qt5::Network
-        PUBLIC Qt5::Widgets
         )
 
     if (WIN32)
@@ -338,10 +334,6 @@ target_link_libraries(libmvme
     PRIVATE liba2_static
     PRIVATE Threads::Threads
     PRIVATE jcon
-    PUBLIC Qt5::Concurrent
-    PUBLIC Qt5::Gui
-    PUBLIC Qt5::Network
-    PUBLIC Qt5::Widgets
     )
 
 target_include_directories(libmvme PUBLIC ${QUAZIP_INCLUDE_DIR})
@@ -369,14 +361,16 @@ if (MVME_ENABLE_MVLC)
     # Note: the BUILD_INTERFACE line does not work on older CMake versions
     # (tested with 3.7.2).
     target_include_directories(libmvme
-        PRIVATE ${MVME_YAML_DIR}/include)
-        #PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>)
+        PRIVATE ${MVME_YAML_DIR}/include
+        PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty/minbool
+        #PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>
+        )
 
     # The above still did not work under debian9. So the next line add
     # yaml-cpp to the global include paths.
-    include_directories(${MVME_YAML_DIR}/include)
+    #include_directories(${MVME_YAML_DIR}/include)
 
-    target_include_directories(libmvme PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty/minbool")
+    target_compile_options(libmvme PRIVATE -Wall -Wextra)
 
     add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
     target_link_libraries(dev_mvlc_daq_init libmvme)
@@ -410,9 +404,6 @@ target_sources(mvme PRIVATE main.cpp mvme.rc)
 
 target_link_libraries(mvme
     PRIVATE libmvme
-    PRIVATE Qt5::Concurrent
-    PRIVATE Qt5::Gui
-    PRIVATE Qt5::Widgets
     )
 
 target_compile_options(mvme PRIVATE -Wall -Wextra)
@@ -510,7 +501,5 @@ if(BUILD_TESTS)
     add_mvme_executable(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 
 endif(BUILD_TESTS)
-
-
 
 # vim:tw=0
