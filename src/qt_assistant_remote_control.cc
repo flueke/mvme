@@ -27,9 +27,7 @@ bool QtAssistantRemoteControl::Private::startAssistant()
     if (process->state() == QProcess::Running)
         return true;
 
-    QString cmd = QCoreApplication::applicationDirPath()
-        + QDir::separator()
-        + QSL("assistant");
+    QString cmd = QSL("assistant");
 
     QString collectionFile = QCoreApplication::applicationDirPath()
         + QDir::separator() + QSL("doc") + QDir::separator() + QSL("mvme.qhc");
