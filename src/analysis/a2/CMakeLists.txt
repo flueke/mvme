@@ -7,7 +7,7 @@ project(mvme-a2)
 #    enable_testing()
 #endif()
 
-set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
+#set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
 
 #set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 #
@@ -43,14 +43,14 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 #    string(APPEND CMAKE_EXE_LINKER_FLAGS " -flto")
 #endif(WIN32)
 
-include_directories(pcg-cpp-0.98/include/)
+#include_directories(pcg-cpp-0.98/include/)
 
 find_package(Boost REQUIRED)
-include_directories(${Boost_INCLUDE_DIRS})
+#include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for liba2 in ${Boost_INCLUDE_DIRS}")
 
 find_package(ZLIB REQUIRED)
-include_directories(${ZLIB_INCLUDE_DIRS})
+#include_directories(${ZLIB_INCLUDE_DIRS})
 message("-- Found zlib for liba2 in ${ZLIB_INCLUDE_DIRS}")
 
 set(liba2_SOURCES
@@ -72,23 +72,39 @@ option(A2_BUILD_STATIC "Build static version of the a2 library" ON)
 
 if (A2_BUILD_SHARED)
     add_library(liba2_shared SHARED ${liba2_SOURCES})
-    target_link_libraries(liba2_shared ${ZLIB_LIBRARIES})
-    set_target_properties(liba2_shared PROPERTIES OUTPUT_NAME a2)
-    target_include_directories(liba2_shared PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(liba2_shared PRIVATE ${ZLIB_LIBRARIES})
+    set_target_properties(liba2_shared PROPERTIES
+        OUTPUT_NAME a2)
+
+    target_include_directories(liba2_shared
+        PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
+        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/"
+        )
+
+    target_compile_options(liba2_shared PRIVATE -Wall -Wextra)
+
+    set(A2_TEST_LIBRARY liba2_shared)
+
     include(GenerateExportHeader)
     generate_export_header(liba2_shared
         EXPORT_MACRO_NAME "LIBA2_EXPORT"
         EXPORT_FILE_NAME "a2_export.h")
 
-    set(A2_TEST_LIBRARY liba2_shared)
 endif (A2_BUILD_SHARED)
 
 if (A2_BUILD_STATIC)
     add_library(liba2_static STATIC ${liba2_SOURCES})
-    target_link_libraries(liba2_static ${ZLIB_LIBRARIES})
+    target_link_libraries(liba2_static PRIVATE ${ZLIB_LIBRARIES})
     set_target_properties(liba2_static PROPERTIES
         OUTPUT_NAME a2
         POSITION_INDEPENDENT_CODE ON)
+
+    target_include_directories(liba2_static
+        PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
+        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/"
+        )
+
+    target_compile_options(liba2_static PRIVATE -Wall -Wextra)
 
     set(A2_TEST_LIBRARY liba2_static)
 endif (A2_BUILD_STATIC)
@@ -96,7 +112,7 @@ endif (A2_BUILD_STATIC)
 function(add_a2_test exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
     add_dependencies(${exe_name} ${A2_TEST_LIBRARY})
-    target_link_libraries(${exe_name} ${A2_TEST_LIBRARY})
+    target_link_libraries(${exe_name} PRIVATE ${A2_TEST_LIBRARY})
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_a2_test)
 
@@ -111,9 +127,16 @@ if(BUILD_TESTS)
         add_executable(${exe_name} ${exe_sources})
         add_dependencies(${exe_name} ${A2_TEST_LIBRARY})
         if (WIN32)
-            target_link_libraries(${exe_name} ${A2_TEST_LIBRARY} ${GOOGLE_BENCHMARK} Threads::Threads shlwapi.lib)
+            target_link_libraries(${exe_name}
+                PRIVATE ${A2_TEST_LIBRARY}
+                PRIVATE ${GOOGLE_BENCHMARK}
+                PRIVATE Threads::Threads
+                PRIVATE shlwapi.lib)
         else(WIN32)
-            target_link_libraries(${exe_name} ${A2_TEST_LIBRARY} ${GOOGLE_BENCHMARK} Threads::Threads)
+            target_link_libraries(${exe_name}
+                PRIVATE ${A2_TEST_LIBRARY}
+                PRIVATE ${GOOGLE_BENCHMARK}
+                PRIVATE Threads::Threads)
         endif(WIN32)
         add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
     endfunction(add_a2_bench)

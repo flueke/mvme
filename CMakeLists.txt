@@ -7,7 +7,7 @@ project(mvme)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 #set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
-set(WARNING_FLAGS "-Wall -Wextra")
+#set(WARNING_FLAGS "-Wall -Wextra")
 
 #if (WIN32)
 #    set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-format")
@@ -112,7 +112,7 @@ SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 
 # 3rdparty
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
+#include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann" DESTINATION include/mvme)
