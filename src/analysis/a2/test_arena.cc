@@ -56,7 +56,7 @@ static void TEST_ObjectArena(benchmark::State &state)
 
     cout << endl << "sizeof(Foo)=" << sizeof(Foo) << ", alignof(Foo)=" << alignof(Foo) << endl << endl;
 
-    //while (state.KeepRunning())
+    while (state.KeepRunning())
     {
         Foo *rawFoo = nullptr;
 
