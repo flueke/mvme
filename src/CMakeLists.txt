@@ -102,11 +102,11 @@ target_include_directories(libmvme_core PRIVATE ${LIBUSB_INCLUDE_PATH})
 target_link_libraries(libmvme_core
     PRIVATE liba2_static
     PRIVATE ${LIBUSB_LIBRARY}
-    PRIVATE ${QUAZIP_QT5}
-    PRIVATE Qt5::Concurrent
-    PRIVATE Qt5::Gui
-    PRIVATE Qt5::Network
-    PRIVATE Qt5::Widgets
+    PUBLIC ${QUAZIP_QT5}
+    PUBLIC Qt5::Concurrent
+    PUBLIC Qt5::Gui
+    PUBLIC Qt5::Network
+    PUBLIC Qt5::Widgets
     )
 
 if (WIN32)
@@ -162,11 +162,11 @@ if(MVME_ENABLE_MVLC)
 
     target_link_libraries(libmvme_mvlc
         PRIVATE ftd3xx
-        PRIVATE libmvme_core
-        PRIVATE Qt5::Concurrent
-        PRIVATE Qt5::Gui
-        PRIVATE Qt5::Network
-        PRIVATE Qt5::Widgets
+        PUBLIC libmvme_core
+        PUBLIC Qt5::Concurrent
+        PUBLIC Qt5::Gui
+        PUBLIC Qt5::Network
+        PUBLIC Qt5::Widgets
         )
 
     if (WIN32)
@@ -333,15 +333,15 @@ set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 generate_export_header(libmvme)
 
 target_link_libraries(libmvme
-    PRIVATE libmvme_core
-    PRIVATE ${QWT_LIBRARY}
+    PUBLIC libmvme_core
+    PUBLIC ${QWT_LIBRARY}
     PRIVATE liba2_static
     PRIVATE Threads::Threads
     PRIVATE jcon
-    PRIVATE Qt5::Concurrent
-    PRIVATE Qt5::Gui
-    PRIVATE Qt5::Network
-    PRIVATE Qt5::Widgets
+    PUBLIC Qt5::Concurrent
+    PUBLIC Qt5::Gui
+    PUBLIC Qt5::Network
+    PUBLIC Qt5::Widgets
     )
 
 target_include_directories(libmvme PUBLIC ${QUAZIP_INCLUDE_DIR})
@@ -361,9 +361,9 @@ if (MVME_ENABLE_MVLC)
     )
 
     target_link_libraries(libmvme
-        PRIVATE libmvme_mvlc
-        PRIVATE Qt5::Svg
-        PRIVATE yaml-cpp
+        PUBLIC libmvme_mvlc
+        PUBLIC Qt5::Svg
+        PUBLIC yaml-cpp
         )
 
     # Note: the BUILD_INTERFACE line does not work on older CMake versions
@@ -389,7 +389,8 @@ if (MVME_ENABLE_MVLC)
 
     if (NOT WIN32)
         add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
-        target_link_libraries(dev_mvlc_dump_eth_file libmvme)
+        target_link_libraries(dev_mvlc_dump_eth_file
+            PRIVATE libmvme)
     endif(NOT WIN32)
 endif()
 
@@ -491,8 +492,13 @@ if(BUILD_TESTS)
 
     function(add_mvme_gtest exe_name exe_source)
         add_executable(${exe_name} ${exe_source})
-        add_dependencies(${exe_name} libmvme)
-        target_link_libraries(${exe_name} libmvme gtest gtest_main)
+        target_link_libraries(${exe_name}
+            PRIVATE libmvme 
+            PRIVATE gtest 
+            PRIVATE gtest_main
+            PRIVATE Qt5::Gui
+            PRIVATE Qt5::Widgets
+            )
         add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
     endfunction(add_mvme_gtest)
 
