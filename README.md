@@ -20,6 +20,19 @@ The install step is optional, mvme does run directly from the build directory.
 
 See doc/README.build-centos7 for detailed build steps for CentOS7.
 
+#### Build commands on a fresh installation of Debian 10 (Buster)
+
+Starting point is a clean installation of Debian Buster with the *XFCE* desktop
+enviroment selected during installation time.
+
+    apt-get install build-essential cmake libboost-all-dev qt5-default \
+                    qtbase5-dev-tools libquazip5-dev libqwt-qt5-dev zlib1g-dev \
+                    libusb-dev libqt5websockets5-dev ninja-build
+    git clone https://github.com/flueke/mvme
+    cd mvme
+    cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/local/mvme ../mvme
+    ninja
+
 #### Dependencies under Ubuntu-18.04
 
 build-essential
@@ -36,7 +49,7 @@ Optional. Use with 'CMake -GNinja'. Faster than make.
 ninja-build
 
 Documentation dependencies
-python3-sphinx 
+python3-sphinx
 texlive
 
 ### Windows MSYS2
