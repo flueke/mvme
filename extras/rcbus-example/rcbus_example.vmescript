@@ -1,0 +1,93 @@
+# CBus VME Module Setup
+# Note: This example uses a MHV-4 with the cbus address coder set to address 3.
+##############################################################################
+# Base address of the module that is used as the CBus controller
+setbase 0x00000000
+
+# Enable Cbus for NIM0. This is module specific, choose one of the options.
+#0x606e 3 # madc, mqdc, mtdc
+#0x606e 1 # vmmr
+0x6074 1 # mdpp16
+
+# read the module id code
+##############################################################################
+#print
+#print "Reading module ID code and RC status"
+#print "-----------------------------------------------------------------------"
+0x6082 3 	# address module 3
+0x6084 6 	# send opcode "read IDC"
+0x6088 0 	# issue the request
+wait 10ms	# and delay a bit
+
+# read the result from the rc_data register
+# For the "read IDC" opcode the result consists of:
+# bit0: RC on/off, bits1..7: module IDC code
+# The MHV-4 IDC is 27.
+# If its RC status is off the resulting value should be 0x36 (54 dec).
+# With RC on bit 1 is set so the result should be 0x37 (55 dec)
+read a32 d16 0x6088
+
+# At this point the error bits should also be evaluated.
+# bit0: active, bit1: address collision, bit2: no response.
+# 'active' means the CBus transaction is still in progress.
+read a32 d16 0x608a
+
+# enable remote control for the module
+##############################################################################
+#print
+#print "Enabling module remote control"
+#print "-----------------------------------------------------------------------"
+0x6082 3 	# address module 3
+0x6084 3 	# send opcode "RC on"
+0x6088 0 	# issue the request
+wait 10ms	# and delay a bit
+read a32 d16 0x6088
+read a32 d16 0x608a
+
+# set channel 0 voltage limit to 10V
+#print
+#print "Setting channel 0 voltage limit"
+#print "-----------------------------------------------------------------------"
+0x6082 3 	# address module 3
+0x6084 16 	# send opcode "write data"
+0x6086 18   # set the module internal address (MHV-4 voltage_limit0 write address is 18)
+0x6088 100 	# write value 100 == 10V and start the request
+wait 10ms	# and delay a bit
+read a32 d16 0x6088
+read a32 d16 0x608a
+
+# read channel 0 voltage limit
+#print
+#print "Reading channel 0 voltage limit"
+#print "-----------------------------------------------------------------------"
+0x6082 3 	# address module 3
+0x6084 18 	# send opcode "read data"
+0x6086 22   # module internal address
+0x6088 0 	# issue the request
+wait 10ms	# and delay a bit
+read a32 d16 0x6088
+read a32 d16 0x608a
+
+# set channel 0 voltage to 10V
+#print
+#print "Setting channel 0 voltage"
+#print "-----------------------------------------------------------------------"
+0x6082 3 	# address module 3
+0x6084 16 	# send opcode "write data"
+0x6086 0    # set the module internal address
+0x6088 100 	# write value 100 == 10V and start the request
+wait 10ms	# and delay a bit
+read a32 d16 0x6088
+read a32 d16 0x608a
+
+# turn on channel 0
+#print
+#print "Turning on channel 0"
+#print "-----------------------------------------------------------------------"
+0x6082 3 	# address module 3
+0x6084 16 	# send opcode "write data"
+0x6086 4    # module internal address
+0x6088 1 	# value 1: turn channel on
+wait 10ms	# and delay a bit
+read a32 d16 0x6088
+read a32 d16 0x608a
