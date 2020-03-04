@@ -157,16 +157,19 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionNewVMEConfig->setToolTip(QSL("New VME Config"));
     m_d->actionNewVMEConfig->setIconText(QSL("New"));
     m_d->actionNewVMEConfig->setObjectName(QSL("actionNewVMEConfig"));
+    m_d->actionNewVMEConfig->setShortcut(QSL("Ctrl+N"));
 
     m_d->actionOpenVMEConfig    = new QAction(QIcon(QSL(":/document-open.png")), QSL("Open VME Config"), this);
     m_d->actionOpenVMEConfig->setObjectName(QSL("actionOpenVMEConfig"));
     m_d->actionOpenVMEConfig->setToolTip(QSL("Open VME Config"));
     m_d->actionOpenVMEConfig->setIconText(QSL("Open"));
+    m_d->actionOpenVMEConfig->setShortcut(QSL("Ctrl+O"));
 
     m_d->actionSaveVMEConfig    = new QAction(QIcon(QSL(":/document-save.png")), QSL("Save VME Config"), this);
     m_d->actionSaveVMEConfig->setObjectName(QSL("actionSaveVMEConfig"));
     m_d->actionSaveVMEConfig->setToolTip(QSL("Save VME Config"));
     m_d->actionSaveVMEConfig->setIconText(QSL("Save"));
+    m_d->actionSaveVMEConfig->setShortcut(QSL("Ctrl+S"));
 
     m_d->actionSaveVMEConfigAs  = new QAction(QIcon(QSL(":/document-save-as.png")), QSL("Save VME Config As"), this);
     m_d->actionSaveVMEConfigAs->setObjectName(QSL("actionSaveVMEConfigAs"));
