@@ -339,6 +339,10 @@ target_link_libraries(libmvme
     PRIVATE jcon
     )
 
+if (WIN32)
+    target_link_libraries(libmvme PRIVATE ws2_32)
+endif()
+
 target_include_directories(libmvme
     PUBLIC ${QUAZIP_INCLUDE_DIR}
     SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/"
