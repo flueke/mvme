@@ -461,30 +461,43 @@ Command parse_write_float_word(const QStringList &args, int lineNumber)
     return result;
 }
 
+Command parse_print(const QStringList &args, int lineNumber)
+{
+    Command result = {};
+    result.type = CommandType::Print;
+
+    if (args.size() > 1)
+        result.printArgs = QStringList(args.begin() + 1 , args.end());
+
+    return result;
+}
+
 typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
 
 static const QMap<QString, CommandParser> commandParsers =
 {
-    { QSL("read"),              parseRead },
-    { QSL("write"),             parseWrite },
-    { QSL("writeabs"),          parseWrite },
-    { QSL("wait"),              parseWait },
-    { QSL("marker"),            parseMarker },
+    { QSL("read"),                  parseRead },
+    { QSL("write"),                 parseWrite },
+    { QSL("writeabs"),              parseWrite },
+    { QSL("wait"),                  parseWait },
+    { QSL("marker"),                parseMarker },
 
-    { QSL("blt"),               parseBlockTransfer },
-    { QSL("bltfifo"),           parseBlockTransfer },
-    { QSL("mblt"),              parseBlockTransfer },
-    { QSL("mbltfifo"),          parseBlockTransfer },
+    { QSL("blt"),                   parseBlockTransfer },
+    { QSL("bltfifo"),               parseBlockTransfer },
+    { QSL("mblt"),                  parseBlockTransfer },
+    { QSL("mbltfifo"),              parseBlockTransfer },
 
-    { QSL("setbase"),           parseSetBase },
-    { QSL("resetbase"),         parseResetBase },
+    { QSL("setbase"),               parseSetBase },
+    { QSL("resetbase"),             parseResetBase },
 
-    { QSL("vmusb_write_reg"),    parse_VMUSB_write_reg },
-    { QSL("vmusb_read_reg"),     parse_VMUSB_read_reg },
+    { QSL("vmusb_write_reg"),       parse_VMUSB_write_reg },
+    { QSL("vmusb_read_reg"),        parse_VMUSB_read_reg },
 
     { QSL("mvlc_writespecial"),     parse_mvlc_writespecial },
 
     { QSL("write_float_word"),      parse_write_float_word },
+
+    { QSL("print"),                 parse_print },
 };
 
 static QString handle_multiline_comment(QString line, bool &in_multiline_comment)
@@ -1736,6 +1749,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
 
         case CommandType::MetaBlock:
         case CommandType::Blk2eSST64:
+        case CommandType::Print:
             break;
     }
 
@@ -1812,6 +1826,12 @@ QString format_result(const Result &result)
                 .arg(result.value, 8, 16, QChar('0'))
                 .arg(result.value)
                 ;
+            break;
+
+        case CommandType::Print:
+            {
+                ret = result.command.printArgs.join(' ');
+            }
             break;
     }
 

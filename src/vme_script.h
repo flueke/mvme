@@ -118,6 +118,11 @@ enum class CommandType
     // Meta command to set a variable value. The variable is inserted into the
     // first (most local) symbol table given to the parser.
     SetVariable,
+
+    // Prints its arguments to the log output on a separate line. Arguments are
+    // separated by a space by default which means string quoting is not
+    // strictly required.
+    Print,
 };
 
 enum class DataWidth
@@ -157,6 +162,7 @@ struct Command
     s32 lineNumber = 0;
 
     MetaBlock metaBlock = {};
+    QStringList printArgs;
 };
 
 LIBMVME_CORE_EXPORT QString to_string(CommandType commandType);
