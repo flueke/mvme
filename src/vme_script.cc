@@ -467,7 +467,14 @@ Command parse_print(const QStringList &args, int lineNumber)
     result.type = CommandType::Print;
 
     if (args.size() > 1)
+    {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
         result.printArgs = QStringList(args.begin() + 1 , args.end());
+#else
+        result.printArgs = args;
+        result.printArgs.pop_front();
+#endif
+    }
 
     return result;
 }
