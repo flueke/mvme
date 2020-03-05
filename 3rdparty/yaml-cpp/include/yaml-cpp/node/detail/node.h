@@ -42,9 +42,8 @@ class node {
       return;
 
     m_pRef->mark_defined();
-    for (nodes::iterator it = m_dependencies.begin();
-         it != m_dependencies.end(); ++it)
-      (*it)->mark_defined();
+    for (node* dependency : m_dependencies)
+      dependency->mark_defined();
     m_dependencies.clear();
   }
 
@@ -120,7 +119,7 @@ class node {
   template <typename Key>
   node* get(const Key& key, shared_memory_holder pMemory) const {
     // NOTE: this returns a non-const node so that the top-level Node can wrap
-    // it, and returns a pointer so that it can be NULL (if there is no such
+    // it, and returns a pointer so that it can be nullptr (if there is no such
     // key).
     return static_cast<const node_ref&>(*m_pRef).get(key, pMemory);
   }
@@ -137,7 +136,7 @@ class node {
 
   node* get(node& key, shared_memory_holder pMemory) const {
     // NOTE: this returns a non-const node so that the top-level Node can wrap
-    // it, and returns a pointer so that it can be NULL (if there is no such
+    // it, and returns a pointer so that it can be nullptr (if there is no such
     // key).
     return static_cast<const node_ref&>(*m_pRef).get(key, pMemory);
   }
@@ -160,7 +159,7 @@ class node {
 
  private:
   shared_node_ref m_pRef;
-  typedef std::set<node*> nodes;
+  using nodes = std::set<node*>;
   nodes m_dependencies;
 };
 }  // namespace detail
