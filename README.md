@@ -15,7 +15,7 @@
 * Type erased handler, copyable (shares state), thread-safe, access to concrete
   implementation (typeinfo check and cast).
 
-* Dialog layer 
+* Dialog layer
 * Error polling
 * Readout loop
 * Stack Building

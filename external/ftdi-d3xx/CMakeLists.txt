@@ -29,4 +29,3 @@ elseif(APPLE)
     install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/d3xx-osx-0.5.21/osx/libftd3xx.dylib
         DESTINATION lib)
 endif()
-
