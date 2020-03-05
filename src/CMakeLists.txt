@@ -161,7 +161,7 @@ if(MVME_ENABLE_MVLC)
     generate_export_header(libmvme_mvlc)
 
     target_link_libraries(libmvme_mvlc
-        PRIVATE ftd3xx
+        PUBLIC ftd3xx
         PUBLIC libmvme_core
         )
 
@@ -186,7 +186,6 @@ if(MVME_ENABLE_MVLC)
     if (WIN32)
         add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
         target_link_libraries(mvlc_dev_win_usb_debug
-            PRIVATE ftd3xx
             PRIVATE libmvme_mvlc
             )
     endif (WIN32)
@@ -195,13 +194,13 @@ if(MVME_ENABLE_MVLC)
     target_link_libraries(dev_ftdi_list_devices ftd3xx)
 
     add_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
-    target_link_libraries(dev_test_mvlc_usb_impl libmvme_mvlc)
+    target_link_libraries(dev_test_mvlc_usb_impl PRIVATE libmvme_mvlc)
 
     add_executable(dev_test_mvlc_eth_impl mvlc/dev_test_mvlc_eth_impl.cc)
-    target_link_libraries(dev_test_mvlc_eth_impl libmvme_mvlc)
+    target_link_libraries(dev_test_mvlc_eth_impl PRIVATE libmvme_mvlc)
 
     add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
-    target_link_libraries(dev_mvlc_vmescript_runner libmvme_mvlc)
+    target_link_libraries(dev_mvlc_vmescript_runner PRIVATE libmvme_mvlc)
 
     if(BUILD_TESTS)
         function(add_mvlc_gtest exe_name exe_source)
@@ -344,6 +343,8 @@ if (WIN32)
 endif()
 
 target_include_directories(libmvme
+    PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty
+    PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/"
     PUBLIC ${QUAZIP_INCLUDE_DIR}
     SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/"
     )
@@ -416,6 +417,8 @@ target_link_libraries(mvme
     PRIVATE libmvme
     )
 
+target_include_directories(mvme PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty)
+
 target_compile_options(mvme PRIVATE -Wall -Wextra)
 
 install(TARGETS mvme DESTINATION .)
@@ -424,6 +427,7 @@ install(TARGETS mvme DESTINATION .)
 function(add_mvme_executable exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
     target_link_libraries(${exe_name} PRIVATE libmvme)
+    target_include_directories(${exe_name} PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty)
 endfunction(add_mvme_executable)
 
 #

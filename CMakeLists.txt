@@ -111,10 +111,12 @@ SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 # inside test/.
 
 # 3rdparty
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
+#include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 #include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/")
+#include_directories("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/")
+
 add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
+
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann" DESTINATION include/mvme)
 install(FILES "${CMAKE_SOURCE_DIR}/3rdparty/Mustache/mustache.hpp" DESTINATION include/mvme/Mustache)
 
@@ -124,10 +126,9 @@ if (MVME_ENABLE_MVLC)
     option(YAML_CPP_BUILD_TESTS "Enable testing" OFF)
     option(YAML_CPP_BUILD_TOOLS "Enable parse tools" OFF)
     option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
-    option(YAML_CPP_INSTALL "Enable generation of install target" ON)
+    option(YAML_CPP_INSTALL "Enable generation of install target" OFF)
     option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
-    set(MVME_YAML_DIR "${CMAKE_SOURCE_DIR}/3rdparty/yaml-cpp")
-    add_subdirectory(${MVME_YAML_DIR})
+    add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/yaml-cpp")
     # FIXME: installing targets from subdirectories does not work with CMake
     # 3.9.2 (msys build)
     #install(TARGETS yaml-cpp DESTINATION .)
@@ -159,38 +160,33 @@ if (MVME_ENABLE_MVLC)
     # FTDI d3xx driver library for x64 linux and windows
     add_library(ftd3xx SHARED IMPORTED)
 
-    # TODO: use target_include_directories
     if (WIN32)
         set_target_properties(ftd3xx PROPERTIES
-            IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
-            IMPORTED_IMPLIB ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.lib
-            IMPORTED_NO_SONAME TRUE
-            )
-        include_directories(${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/)
-        install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
-            DESTINATION .
-            )
-        file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
+            IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
+            IMPORTED_IMPLIB ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.lib)
+
+        target_include_directories(ftd3xx
+            INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2)
+
+        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
             DESTINATION .)
     elseif(UNIX AND NOT APPLE)
         set_target_properties(ftd3xx PROPERTIES
-            IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
-            IMPORTED_NO_SONAME TRUE
-            )
-        include_directories(${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/)
-        install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
-            DESTINATION .
-            )
+            IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so)
+
+        target_include_directories(ftd3xx
+            INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/)
+
+        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+            DESTINATION .)
     elseif(APPLE)
         set_target_properties(ftd3xx PROPERTIES
-            IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
-            IMPORTED_NO_SONAME TRUE
-            )
-        include_directories(${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx)
-        install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
-            DESTINATION .
-            )
-        file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
+            IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib)
+
+        target_include_directories(ftd3xx
+            INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx)
+
+        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
             DESTINATION .)
     endif()
 endif (MVME_ENABLE_MVLC)

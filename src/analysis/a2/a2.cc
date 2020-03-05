@@ -22,7 +22,7 @@
 #include "a2_impl.h"
 #include "util/assert.h"
 #include "util/perf.h"
-#include "cpp11-on-multicore/common/benaphore.h"
+#include <cpp11-on-multicore/common/benaphore.h>
 
 #include <algorithm>
 #include <atomic>

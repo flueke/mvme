@@ -26,7 +26,7 @@
 //#define BOOST_CB_DISABLE_DEBUG
 #include <boost/circular_buffer.hpp>
 
-#include <cpp11-on-multicore/common/rwlock.h>
+//#include <cpp11-on-multicore/common/rwlock.h>
 #include <cmath>
 #include <memory>
 #include "util/counters.h"

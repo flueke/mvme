@@ -1,6 +1,3 @@
-cmake_minimum_required(VERSION 3.0.0)
-project(mvme-a2)
-
 #option(BUILD_TESTS "Build test binaries" ON)
 #
 #if (BUILD_TESTS)
@@ -32,8 +29,8 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ## Create binaries in the root of the build directory
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+#set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -77,8 +74,10 @@ if (A2_BUILD_SHARED)
         OUTPUT_NAME a2)
 
     target_include_directories(liba2_shared
-        PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
+        #PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
         SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/"
+        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/zstr/src"
+        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/"
         )
 
     target_compile_options(liba2_shared PRIVATE -Wall -Wextra)
@@ -100,8 +99,10 @@ if (A2_BUILD_STATIC)
         POSITION_INDEPENDENT_CODE ON)
 
     target_include_directories(liba2_static
-        PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
+        #PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
         SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/"
+        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/zstr/src"
+        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/"
         )
 
     target_compile_options(liba2_static PRIVATE -Wall -Wextra)
@@ -150,6 +151,7 @@ if(BUILD_TESTS)
 
     add_executable(test_a2_exprtk a2_exprtk.cc test_a2_exprtk.cc)
     target_link_libraries(test_a2_exprtk gtest gtest_main)
+    target_include_directories(test_a2_exprtk PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty)
     add_test(NAME test_a2_exprtk COMMAND $<TARGET_FILE:test_a2_exprtk>)
 
     add_executable(test_a2_expression_operator test_a2_expression_operator.cc)
