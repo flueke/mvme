@@ -23,7 +23,7 @@ See doc/README.build-centos7 for detailed build steps for CentOS7.
 #### Build commands on a fresh installation of Debian 10 (Buster)
 
 Starting point is a clean installation of Debian Buster with the *XFCE* desktop
-enviroment selected during installation time.
+environment selected during installation time.
 
     apt-get install build-essential cmake libboost-all-dev qt5-default \
                     qtbase5-dev-tools libquazip5-dev libqwt-qt5-dev zlib1g-dev \
