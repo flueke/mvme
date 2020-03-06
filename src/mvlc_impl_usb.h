@@ -26,7 +26,7 @@
 #include <thread>
 #include <memory>
 #include <vector>
-#include "libmvme_mvlc_export.h"
+#include "mesytec-mvlc_export.h"
 #include "mvlc/mvlc_impl_abstract.h"
 #ifdef __WIN32
 #include "mvlc/mvlc_impl_support.h"
@@ -94,13 +94,13 @@ enum class ListOptions
     AllDevices,
 };
 
-LIBMVME_MVLC_EXPORT DeviceInfoList get_device_info_list(
+MESYTEC_MVLC_EXPORT DeviceInfoList get_device_info_list(
     const ListOptions opts = ListOptions::MVLCDevices);
 
-LIBMVME_MVLC_EXPORT DeviceInfo get_device_info_by_serial(
+MESYTEC_MVLC_EXPORT DeviceInfo get_device_info_by_serial(
     const std::string &serial);
 
-LIBMVME_MVLC_EXPORT DeviceInfo get_device_info_by_serial(
+MESYTEC_MVLC_EXPORT DeviceInfo get_device_info_by_serial(
     unsigned serial);
 
 enum class EndpointDirection: u8
@@ -109,7 +109,7 @@ enum class EndpointDirection: u8
     Out
 };
 
-class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
+class MESYTEC_MVLC_EXPORT Impl: public AbstractImpl
 {
     public:
         // The constructors do not call connect(). They just setup the
@@ -190,7 +190,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
         DeviceInfo m_deviceInfo;
 };
 
-LIBMVME_MVLC_EXPORT std::error_code make_error_code(FT_STATUS st);
+MESYTEC_MVLC_EXPORT std::error_code make_error_code(FT_STATUS st);
 
 } // end namespace usb
 } // end namespace mvlc

@@ -1,6 +1,9 @@
 add_library(mesytec-mvlc SHARED
     mvlc.cc
+    mvlc_basic_interface.cc
     mvlc_factory.cc
+    mvlc_impl_eth.cc
+    #mvlc_impl_usb.cc
     util/ticketmutex.cc
     )
 
@@ -16,4 +19,4 @@ target_link_libraries(mesytec-mvlc
 target_compile_options(mesytec-mvlc PRIVATE -Wall -Wextra)
 
 include(GenerateExportHeader)
-generate_export_header(mesytec-mvlc BASE_NAME)
+generate_export_header(mesytec-mvlc)

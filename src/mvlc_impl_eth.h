@@ -39,7 +39,8 @@
 #include <unordered_map>
 
 #include "mesytec-mvlc_export.h"
-#include "util/int_types.h"
+#include "mvlc_basic_interface.h"
+#include "mvlc_constants.h"
 #include "util/ticketmutex.h"
 
 namespace mesytec
@@ -196,32 +197,32 @@ struct MESYTEC_MVLC_EXPORT PacketReadResult
     }
 };
 
-class MESYTEC_MVLC_EXPORT Impl
+class MESYTEC_MVLC_EXPORT Impl: public MVLCBasicInterface
 {
     public:
-        explicit Impl(const std::string &host = {});
-        ~Impl();
+        explicit Impl(const std::string &host);
+        ~Impl() override;
 
-        std::error_code connect();
-        std::error_code disconnect();
-        bool isConnected() const;
+        std::error_code connect() override;
+        std::error_code disconnect() override;
+        bool isConnected() const override;
 
-        std::error_code setWriteTimeout(Pipe pipe, unsigned ms);
-        std::error_code setReadTimeout(Pipe pipe, unsigned ms);
+        std::error_code setWriteTimeout(Pipe pipe, unsigned ms) override;
+        std::error_code setReadTimeout(Pipe pipe, unsigned ms) override;
 
-        unsigned getWriteTimeout(Pipe pipe) const;
-        unsigned getReadTimeout(Pipe pipe) const;
+        unsigned getWriteTimeout(Pipe pipe) const override;
+        unsigned getReadTimeout(Pipe pipe) const override;
 
         std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
-                              size_t &bytesTransferred);
+                              size_t &bytesTransferred) override;
 
         std::error_code read(Pipe pipe, u8 *buffer, size_t size,
-                             size_t &bytesTransferred);
+                             size_t &bytesTransferred) override;
 
         PacketReadResult read_packet(Pipe pipe, u8 *buffer, size_t size);
 
-        ConnectionType connectionType() const { return ConnectionType::ETH; }
-        std::string connectionInfo() const;
+        ConnectionType connectionType() const override { return ConnectionType::ETH; }
+        std::string connectionInfo() const override;
 
         std::error_code getReadQueueSize(Pipe pipe, u32 &dest);
 
@@ -241,6 +242,7 @@ class MESYTEC_MVLC_EXPORT Impl
         sockaddr_in getCmdSockAddress() const { return m_cmdAddr; }
         sockaddr_in getDataSockAddress() const { return m_dataAddr; }
 
+        // FIXME: move these one level up
         void setDisableTriggersOnConnect(bool b)
         {
             m_disableTriggersOnConnect = b;

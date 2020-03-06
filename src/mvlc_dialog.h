@@ -23,9 +23,9 @@
 
 #include <chrono>
 #include <functional>
-#include <QVector>
-#include "mvlc/mvlc_impl_abstract.h"
-#include "mvlc/mvlc_buffer_validators.h"
+#include <system_error>
+#include "mvlc_basic_interface.h"
+#include "mvlc_buffer_validators.h"
 
 // Higher level MVLC dialog (request/response) layer. Builds on top of the
 // AbstractImpl abstraction.
@@ -35,21 +35,21 @@ namespace mesytec
 namespace mvlc
 {
 
-std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &response);
+std::error_code check_mirror(const std::vector<u32> &request, const std::vector<u32> &response);
 
 class MVLCDialog
 {
     public:
         constexpr static auto ReadResponseMaxWait = std::chrono::milliseconds(60000);
 
-        MVLCDialog(AbstractImpl *mvlc);
+        MVLCDialog(MVLCBasicInterface *mvlc);
 
         // MVLC register access
         std::error_code readRegister(u16 address, u32 &value);
         std::error_code writeRegister(u16 address, u32 value);
 #if 0 // disabled for now. need to test if this is implemented in the firmware and working.
         std::error_code readRegisterBlock(u16 address, u16 words,
-                                          QVector<u32> &dest);
+                                          std::vector<u32> &dest);
 #endif
 
         // Higher level VME access
@@ -67,7 +67,7 @@ class MVLCDialog
         // The flags of either of these headers are not interpreted by this
         // method.
         std::error_code vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
-                                     QVector<u32> &dest);
+                                     std::vector<u32> &dest);
 
         // Lower level utilities
 
@@ -83,13 +83,13 @@ class MVLCDialog
         // non-stack_error_notification type buffer is read. All error
         // notifications received up to that point are saved and can be queried
         // using getStackErrorNotifications().
-        std::error_code readResponse(BufferHeaderValidator bhv, QVector<u32> &dest);
+        std::error_code readResponse(BufferHeaderValidator bhv, std::vector<u32> &dest);
 
         // Sends the given cmdBuffer to the MVLC then reads and verifies the
         // mirror response. The buffer must start with CmdBufferStart and end
         // with CmdBufferEnd, otherwise the MVLC cannot interpret it.
         std::error_code mirrorTransaction(
-            const QVector<u32> &cmdBuffer, QVector<u32> &responseDest);
+            const std::vector<u32> &cmdBuffer, std::vector<u32> &responseDest);
 
         // Sends the given stack data (which must include upload commands),
         // reads and verifies the mirror response, and executes the stack.
@@ -101,13 +101,13 @@ class MVLCDialog
         // - Any stack error notifications read while attempting to read an
         //   actual stack response are available via
         //   getStackErrorNotifications().
-        std::error_code stackTransaction(const QVector<u32> &stackUploadData,
-                                         QVector<u32> &responseDest);
+        std::error_code stackTransaction(const std::vector<u32> &stackUploadData,
+                                         std::vector<u32> &responseDest);
 
         // Low level read accepting any of the known buffer types (see
         // is_known_buffer_header()). Does not do any special handling for
         // stack error notification buffers as is done in readResponse().
-        std::error_code readKnownBuffer(QVector<u32> &dest);
+        std::error_code readKnownBuffer(std::vector<u32> &dest);
 #ifndef __WIN32
         // Same as readKnownBuffer() above but uses a custom timeout for the read.
         // Currently only available on non-windows systems as under windows the
@@ -115,16 +115,16 @@ class MVLCDialog
         // pipe is in progress (A solution to this would be to take both pipe
         // locks under windows, change the timeout and release the data pipe
         // lock but this would negatively effect readout performance.)
-        std::error_code readKnownBuffer(QVector<u32> &dest, unsigned timeout_ms);
+        std::error_code readKnownBuffer(std::vector<u32> &dest, unsigned timeout_ms);
 #endif
 
         // Returns the response buffer used internally by readRegister(),
         // readRegisterBlock(), writeRegister(), vmeSingleWrite() and
         // vmeSingleRead().
         // The buffer will contain the last data received from the MVLC.
-        QVector<u32> getResponseBuffer() const { return m_responseBuffer; }
+        std::vector<u32> getResponseBuffer() const { return m_responseBuffer; }
 
-        QVector<QVector<u32>> getStackErrorNotifications() const
+        std::vector<std::vector<u32>> getStackErrorNotifications() const
         {
             return m_stackErrorNotifications;
         }
@@ -136,19 +136,19 @@ class MVLCDialog
 
         bool hasStackErrorNotifications() const
         {
-            return !m_stackErrorNotifications.isEmpty();
+            return !m_stackErrorNotifications.empty();
         }
 
     private:
-        std::error_code doWrite(const QVector<u32> &buffer);
+        std::error_code doWrite(const std::vector<u32> &buffer);
         std::error_code readWords(u32 *dest, size_t count, size_t &wordsTransferred);
 
-        void logBuffer(const QVector<u32> &buffer, const QString &info);
+        void logBuffer(const std::vector<u32> &buffer, const std::string &info);
 
-        AbstractImpl *m_mvlc = nullptr;
+        MVLCBasicInterface *m_mvlc = nullptr;
         u32 m_referenceWord = 1;
-        QVector<u32> m_responseBuffer;
-        QVector<QVector<u32>> m_stackErrorNotifications;
+        std::vector<u32> m_responseBuffer;
+        std::vector<std::vector<u32>> m_stackErrorNotifications;
 };
 
 } // end namespace mvlc

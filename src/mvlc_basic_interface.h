@@ -25,33 +25,42 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "mvlc_factory.h"
+#ifndef __MESYTEC_MVLC_MVLC_BASIC_INTERFACE_H__
+#define __MESYTEC_MVLC_MVLC_BASIC_INTERFACE_H__
 
-#include "mvlc_impl_eth.h"
+#include <system_error>
+#include "mvlc_constants.h"
 
-namespace mesytec { namespace mvlc
+namespace mesytec
+{
+namespace mvlc
 {
 
-#if 0
-MVLC make_mvlc_usb()
+class MVLCBasicInterface
 {
-    return MVLC(detail::TypeHelper<usb::Impl>());
+    public:
+        virtual ~MVLCBasicInterface() {}
+
+        virtual std::error_code connect() = 0;
+        virtual std::error_code disconnect() = 0;
+        virtual bool isConnected() const = 0;
+        virtual ConnectionType connectionType() const = 0;
+        virtual std::string connectionInfo() const = 0;
+
+        virtual std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
+                                      size_t &bytesTransferred) = 0;
+
+        virtual std::error_code read(Pipe pipe, u8 *buffer, size_t size,
+                                     size_t &bytesTransferred) = 0;
+
+        virtual std::error_code setWriteTimeout(Pipe pipe, unsigned ms) = 0;
+        virtual std::error_code setReadTimeout(Pipe pipe, unsigned ms) = 0;
+
+        virtual unsigned getWriteTimeout(Pipe pipe) const = 0;
+        virtual unsigned getReadTimeout(Pipe pipe) const = 0;
+};
+
+}
 }
 
-MVLC make_mvlc_usb(unsigned index)
-{
-    return MVLC(detail::TypeHelper<usb::Impl>(index));
-}
-
-MVLC make_mvlc_usb(const std::string &serial)
-{
-    return MVLC(detail::TypeHelper<usb::Impl>(serial));
-}
-#endif
-
-MVLC make_mvlc_eth(const std::string &host)
-{
-    return MVLC(std::make_unique<eth::Impl>(host));
-}
-
-} }
+#endif /* __MESYTEC_MVLC_MVLC_BASIC_INTERFACE_H__ */

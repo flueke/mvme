@@ -29,93 +29,95 @@
 #define __MESYTEC_MVLC_MVLC_H__
 
 #include <memory>
-#include <netinet/ip.h>
-#include <system_error>
-#include <typeinfo>
+#include <vector>
 
+#include "mvlc_basic_interface.h"
+#include "mvlc_buffer_validators.h"
 #include "mvlc_constants.h"
+#include "mvlc_threading.h"
 
-namespace mesytec::mvlc
+namespace mesytec
+{
+namespace mvlc
 {
 
-class MVLC
+class MVLC: public MVLCBasicInterface
 {
     public:
-        template<typename T>
-            explicit MVLC(T &&impl)
-            : m_impl(std::make_shared<Model<T>>(std::forward<T>(impl)))
-            {
-            }
+        MVLC(std::unique_ptr<MVLCBasicInterface> &&impl);
+        ~MVLC() override;
+
+        MVLC(const MVLC &) = default;
+        MVLC &operator=(const MVLC &) = default;
+
+        MVLC(MVLC &&) = default;
+        MVLC &operator=(MVLC &&) = default;
+
+        //
+        // MVLCBasicInterface
+        //
+
+        std::error_code connect() override;
+        std::error_code disconnect() override;
+        bool isConnected() const override;
+        ConnectionType connectionType() const override;
+        std::string connectionInfo() const override;
+
+        std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
+                              size_t &bytesTransferred) override;
+
+        std::error_code read(Pipe pipe, u8 *buffer, size_t size,
+                             size_t &bytesTransferred) override;
+
+        std::error_code setWriteTimeout(Pipe pipe, unsigned ms) override;
+        std::error_code setReadTimeout(Pipe pipe, unsigned ms) override;
+
+        unsigned getWriteTimeout(Pipe pipe) const override;
+        unsigned getReadTimeout(Pipe pipe) const override;
+
+        //
+        // Dialog layer
+        //
+        std::error_code readRegister(u16 address, u32 &value);
+        std::error_code writeRegister(u16 address, u32 value);
+
+        std::error_code vmeSingleRead(u32 address, u32 &value, u8 amod,
+                                      VMEDataWidth dataWidth);
+
+        std::error_code vmeSingleWrite(u32 address, u32 value, u8 amod,
+                                       VMEDataWidth dataWidth);
+
+        std::error_code vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
+                                     std::vector<u32> &dest);
+
+        std::error_code readResponse(BufferHeaderValidator bhv, std::vector<u32> &dest);
+
+        std::error_code mirrorTransaction(
+            const std::vector<u32> &cmdBuffer, std::vector<u32> &responseDest);
+
+        std::error_code stackTransaction(const std::vector<u32> &stackUploadData,
+                                         std::vector<u32> &responseDest);
+
+        std::error_code readKnownBuffer(std::vector<u32> &dest);
+
+        std::vector<u32> getResponseBuffer() const;
+        std::vector<std::vector<u32>> getStackErrorNotifications() const;
+        void clearStackErrorNotifications();
+        bool hasStackErrorNotifications() const;
+
+        //
+        // Access to the low-level implementation and the mutexes.
+        //
+
+        MVLCBasicInterface *getImpl();
+        Locks &getLocks();
 
     private:
-        struct Concept
-        {
-            virtual ~Concept() {};
-
-            virtual std::error_code connect() = 0;
-            virtual std::error_code disconnect() = 0;
-            virtual bool isConnected() const = 0;
-            virtual std::string connectionInfo() const = 0;
-
-            virtual std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
-                                          size_t &bytesTransferred) = 0;
-            virtual std::error_code read(Pipe pipe, u8 *buffer, size_t size,
-                                         size_t &bytesTransferred) = 0;
-
-            virtual const std::type_info &typeInfo() = 0;
-        };
-
-        template<typename T>
-            struct Model: public Concept
-        {
-            explicit Model(T &&data)
-                : d(data)
-            {}
-
-            std::error_code connect() override
-            {
-                return d.connect();
-            }
-
-            std::error_code disconnect() override
-            {
-                return d.disconnect();
-            }
-
-            bool isConnected() const override
-            {
-                return d.isConnected();
-            }
-
-            std::string connectionInfo() const override
-            {
-                return d.connectionInfo();
-            }
-
-
-            std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
-                                  size_t &bytesTransferred) override
-            {
-                return d.write(pipe, buffer, size, bytesTransferred);
-            }
-
-            std::error_code read(Pipe pipe, u8 *buffer, size_t size,
-                                 size_t &bytesTransferred) override
-            {
-                return d.read(pipe, buffer, size, bytesTransferred);
-            }
-
-            const std::type_info &typeInfo() override
-            {
-                return typeid(T);
-            }
-
-            T d;
-        };
-
-        std::shared_ptr<Concept> m_impl;
+        struct Private;
+        std::shared_ptr<Private> d;
 };
 
+}
 }
 
 #endif /* __MESYTEC_MVLC_MVLC_H__ */

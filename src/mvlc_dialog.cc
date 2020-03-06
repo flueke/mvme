@@ -18,16 +18,16 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#include "mvlc/mvlc_dialog.h"
+#include "mvlc_dialog.h"
 
 #include <cassert>
 #include <cstdio>
 #include <iostream>
 
-#include "mvlc/mvlc_error.h"
-#include "mvlc/mvlc_script.h"
-#include "mvlc/mvlc_util.h"
-#include "util/debug_timer.h"
+#include "mvlc_error.h"
+//#include "mvlc/mvlc_script.h"
+#include "mvlc_util.h"
+//#include "util/debug_timer.h"
 
 #define LOG_LEVEL_OFF     0
 #define LOG_LEVEL_WARN  100
@@ -61,7 +61,7 @@ namespace mesytec
 namespace mvlc
 {
 
-std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &response)
+std::error_code check_mirror(const std::vector<u32> &request, const std::vector<u32> &response)
 {
     if (request.isEmpty())
     {
@@ -98,7 +98,7 @@ MVLCDialog::MVLCDialog(AbstractImpl *mvlc)
     assert(m_mvlc);
 }
 
-std::error_code MVLCDialog::doWrite(const QVector<u32> &buffer)
+std::error_code MVLCDialog::doWrite(const std::vector<u32> &buffer)
 {
     size_t bytesTransferred = 0u;
     const size_t bytesToTransfer = buffer.size() * sizeof(u32);
@@ -174,7 +174,7 @@ std::error_code MVLCDialog::readWords(u32 *dest, size_t count, size_t &wordsTran
     return ec;
 }
 
-std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
+std::error_code MVLCDialog::readKnownBuffer(std::vector<u32> &dest)
 {
     dest.resize(0);
 
@@ -208,7 +208,7 @@ std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
 }
 
 #ifndef __WIN32
-std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest, unsigned timeout_ms)
+std::error_code MVLCDialog::readKnownBuffer(std::vector<u32> &dest, unsigned timeout_ms)
 {
     auto prevTimeout = m_mvlc->getReadTimeout(Pipe::Command);
     m_mvlc->setReadTimeout(Pipe::Command, timeout_ms);
@@ -218,7 +218,7 @@ std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest, unsigned timeout
 }
 #endif
 
-std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32> &dest)
+std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, std::vector<u32> &dest)
 {
     assert(bhv);
 
@@ -268,7 +268,7 @@ std::error_code MVLCDialog::readRegister(u16 address, u32 &value)
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addReadLocal(address);
 
-    QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    std::vector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
     logBuffer(request, "readRegister >>>");
 
     auto ec = mirrorTransaction(request, m_responseBuffer);
@@ -285,7 +285,7 @@ std::error_code MVLCDialog::readRegister(u16 address, u32 &value)
 
 #if 0
 std::error_code MVLCDialog::readRegisterBlock(u16 address, u16 words,
-                                              QVector<u32> &dest)
+                                              std::vector<u32> &dest)
 {
     if (words > ReadLocalBlockMaxWords)
         return make_error_code(MVLCErrorCode::CommandArgOutOfRange);
@@ -294,7 +294,7 @@ std::error_code MVLCDialog::readRegisterBlock(u16 address, u16 words,
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addReadLocalBlock(address, words);
 
-    QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    std::vector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
     logBuffer(request, "readRegisterBlock >>>");
 
     if (auto ec = doWrite(request))
@@ -328,7 +328,7 @@ std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addWriteLocal(address, value);
 
-    QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    std::vector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
     logBuffer(request, "writeRegister >>>");
 
     auto ec = mirrorTransaction(request, m_responseBuffer);
@@ -341,10 +341,10 @@ std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
     return {};
 }
 
-std::error_code MVLCDialog::mirrorTransaction(const QVector<u32> &cmdBuffer,
-                                              QVector<u32> &dest)
+std::error_code MVLCDialog::mirrorTransaction(const std::vector<u32> &cmdBuffer,
+                                              std::vector<u32> &dest)
 {
-    DebugTimer timer;
+    //DebugTimer timer;
 
     // upload the stack
     if (auto ec = doWrite(cmdBuffer))
@@ -353,7 +353,7 @@ std::error_code MVLCDialog::mirrorTransaction(const QVector<u32> &cmdBuffer,
         return ec;
     }
 
-    auto dt_write = timer.restart();
+    //auto dt_write = timer.restart();
 
     // read the mirror response
     if (auto ec = readResponse(is_super_buffer, dest))
@@ -362,28 +362,30 @@ std::error_code MVLCDialog::mirrorTransaction(const QVector<u32> &cmdBuffer,
         return ec;
     }
 
-    auto dt_read = timer.restart();
+    //auto dt_read = timer.restart();
 
+#if 0
 #define ms_(x) std::chrono::duration_cast<std::chrono::milliseconds>(x)
     LOG_TRACE("dt_write=%ld, dt_read=%ld\n",
               ms_(dt_write).count(),
               ms_(dt_read).count());
 #undef ms_
+#endif
 
     // verify the mirror response
     return check_mirror(cmdBuffer, dest);
 }
 
-std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
-                                             QVector<u32> &dest)
+std::error_code MVLCDialog::stackTransaction(const std::vector<u32> &stack,
+                                             std::vector<u32> &dest)
 {
-    DebugTimer timer;
+    //DebugTimer timer;
 
     // upload, read mirror, verify mirror
     if (auto ec = mirrorTransaction(stack, dest))
         return ec;
 
-    auto dt_mirror = timer.restart();
+    //auto dt_mirror = timer.restart();
 
     // set the stack 0 offset register
     if (auto ec = writeRegister(stacks::Stack0OffsetRegister, 0))
@@ -393,7 +395,7 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
     if (auto ec = writeRegister(stacks::Stack0TriggerRegister, 1u << stacks::ImmediateShift))
         return ec;
 
-    auto dt_writeStackRegisters = timer.restart();
+    //auto dt_writeStackRegisters = timer.restart();
 
     // read the stack response into the supplied buffer
     if (auto ec = readResponse(is_stack_buffer, dest))
@@ -411,7 +413,7 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
 
     if (flags & frame_flags::Continue)
     {
-        QVector<u32> localBuffer;
+        std::vector<u32> localBuffer;
 
         while (flags & frame_flags::Continue)
         {
@@ -425,6 +427,7 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
         }
     }
 
+#if 0
     auto dt_readResponse = timer.restart();
 
 #define ms_(x) std::chrono::duration_cast<std::chrono::milliseconds>(x)
@@ -435,6 +438,7 @@ std::error_code MVLCDialog::stackTransaction(const QVector<u32> &stack,
               ms_(dt_readResponse).count());
 
 #undef ms_
+#endif
 
     // Check the last buffers flag values.
 
@@ -454,7 +458,7 @@ std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, u8 amod,
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addVMEWrite(address, value, amod, dataWidth);
 
-    QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    std::vector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
 
     auto ec = stackTransaction(request, m_responseBuffer);
 
@@ -479,7 +483,7 @@ std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, u8 amod,
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addVMERead(address, amod, dataWidth);
 
-    QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    std::vector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
 
     auto ec = stackTransaction(request, m_responseBuffer);
 
@@ -502,13 +506,13 @@ std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, u8 amod,
 }
 
 std::error_code MVLCDialog::vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
-                                         QVector<u32> &dest)
+                                         std::vector<u32> &dest)
 {
     script::MVLCCommandListBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addVMEBlockRead(address, amod, maxTransfers);
 
-    QVector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    std::vector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
 
     auto ec = stackTransaction(request, dest);
 
@@ -517,7 +521,7 @@ std::error_code MVLCDialog::vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
     return ec;
 }
 
-void MVLCDialog::logBuffer(const QVector<u32> &buffer, const QString &info)
+void MVLCDialog::logBuffer(const std::vector<u32> &buffer, const QString &info)
 {
     if (LOG_LEVEL_SETTING >= LOG_LEVEL_TRACE)
     {

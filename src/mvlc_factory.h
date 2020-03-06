@@ -34,11 +34,12 @@
 namespace mesytec { namespace mvlc
 {
 
+#if 0
 MVLC MESYTEC_MVLC_EXPORT make_mvlc_usb();
 MVLC MESYTEC_MVLC_EXPORT make_mvlc_usb(unsigned index);
 MVLC MESYTEC_MVLC_EXPORT make_mvlc_usb(const std::string &serial);
+#endif
 
-MVLC MESYTEC_MVLC_EXPORT make_mvlc_eth();
 MVLC MESYTEC_MVLC_EXPORT make_mvlc_eth(const std::string &host);
 
 } }

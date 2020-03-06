@@ -1,4 +1,4 @@
-#include "mvlc/mvlc_impl_eth.h"
+#include "mvlc_impl_eth.h"
 
 #include <cassert>
 #include <cerrno>
@@ -6,8 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <limits>
-
-#include <QDebug>
+#include <sstream>
 
 #ifndef __WIN32
 #include <netdb.h>
@@ -23,11 +22,11 @@
 #include <fcntl.h>
 #endif
 
-#include "mvlc/mvlc_buffer_validators.h"
-#include "mvlc/mvlc_dialog.h"
-#include "mvlc/mvlc_error.h"
-#include "mvlc/mvlc_util.h"
-#include "util/strings.h"
+#include "mvlc_buffer_validators.h"
+#include "mvlc_dialog.h"
+#include "mvlc_error.h"
+#include "mvlc_threading.h"
+#include "mvlc_util.h"
 
 #define LOG_LEVEL_OFF   0
 #define LOG_LEVEL_WARN  100
@@ -57,6 +56,7 @@ do\
 
 namespace
 {
+using namespace mesytec::mvlc;
 
 // Does IPv4 host lookup for a UDP socket. On success the resulting struct
 // sockaddr_in is copied to dest.
@@ -81,8 +81,8 @@ std::error_code lookup(const std::string &host, u16 port, sockaddr_in &dest)
     // TODO: check getaddrinfo specific error codes. make and use getaddrinfo error category
     if (rc != 0)
     {
-        qDebug("%s: HostLookupError, host=%s, error=%s", __PRETTY_FUNCTION__, host.c_str(),
-               gai_strerror(rc));
+        //qDebug("%s: HostLookupError, host=%s, error=%s", __PRETTY_FUNCTION__, host.c_str(),
+        //       gai_strerror(rc));
         return make_error_code(MVLCErrorCode::HostLookupError);
     }
 
@@ -99,7 +99,7 @@ std::error_code lookup(const std::string &host, u16 port, sockaddr_in &dest)
 
     if (!rp)
     {
-        qDebug("%s: HostLookupError, host=%s, no result found", __PRETTY_FUNCTION__, host.c_str());
+        //qDebug("%s: HostLookupError, host=%s, no result found", __PRETTY_FUNCTION__, host.c_str());
         return make_error_code(MVLCErrorCode::HostLookupError);
     }
 
@@ -175,6 +175,18 @@ std::error_code close_socket(int sock)
 
 const u16 FirstDynamicPort = 49152;
 static const int SocketReceiveBufferSize = 1024 * 1024 * 100;
+
+inline std::string format_ipv4(u32 a)
+{
+    std::stringstream ss;
+
+    ss << ((a >> 24) & 0xff) << '.'
+       << ((a >> 16) & 0xff) << '.'
+       << ((a >>  8) & 0xff) << '.'
+       << ((a >>  0) & 0xff);
+
+    return ss.str();
+}
 
 } // end anon namespace
 
@@ -984,7 +996,7 @@ u32 Impl::getDataAddress() const
 
 std::string Impl::connectionInfo() const
 {
-    std::string remoteIP = format_ipv4(getCmdAddress()).toStdString();
+    std::string remoteIP = format_ipv4(getCmdAddress());
 
     if (getHost() != remoteIP)
     {
