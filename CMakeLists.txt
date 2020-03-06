@@ -131,7 +131,7 @@ if (MVME_ENABLE_MVLC)
     add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/yaml-cpp")
     # FIXME: installing targets from subdirectories does not work with CMake
     # 3.9.2 (msys build)
-    #install(TARGETS yaml-cpp DESTINATION .)
+    install(TARGETS yaml-cpp DESTINATION .)
 endif(MVME_ENABLE_MVLC)
 
 # quazip
