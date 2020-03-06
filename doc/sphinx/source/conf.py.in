@@ -147,7 +147,7 @@ latex_elements = {
     'preamble': r'''
 % lastpage is used to get the total number of pages
 \usepackage{lastpage}
-%\usepackage[head=36.16432pt,foot=8.39996pt]{geometry}
+%\usepackage[head=36.16432pt,foot=12.4]{geometry}
 
 \setlength{\headheight}{36.16432pt}
 \setlength{\footskip}{12.4pt}
