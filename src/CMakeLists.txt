@@ -494,11 +494,14 @@ if(BUILD_TESTS)
     function(add_mvme_gtest exe_name exe_source)
         add_executable(${exe_name} ${exe_source})
         target_link_libraries(${exe_name}
-            PRIVATE libmvme 
-            PRIVATE gtest 
+            PRIVATE libmvme
+            PRIVATE gtest
             PRIVATE gtest_main
             PRIVATE Qt5::Gui
             PRIVATE Qt5::Widgets
+            )
+        target_include_directories(${exe_name}
+            PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty
             )
         add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
     endfunction(add_mvme_gtest)
