@@ -26,7 +26,7 @@ Starting point is a clean installation of Debian Buster with the *XFCE* desktop
 environment selected during installation time.
 
     apt-get install build-essential cmake libboost-all-dev qt5-default \
-                    qtbase5-dev-tools libqt5svg5-dev libquazip5-dev libqwt-qt5-dev \
+                    qtbase5-dev-tools libquazip5-dev libqwt-qt5-dev \
                     zlib1g-dev libusb-dev libqt5websockets5-dev ninja-build
     git clone https://github.com/flueke/mvme
     cd mvme

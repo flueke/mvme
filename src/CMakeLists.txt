@@ -10,9 +10,6 @@ find_package(Qt5Concurrent REQUIRED)
 find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
-if(MVME_ENABLE_MVLC)
-    find_package(Qt5Svg REQUIRED)
-endif(MVME_ENABLE_MVLC)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
     #add_definitions(-DQT_NO_DEBUG)
@@ -365,7 +362,6 @@ if (MVME_ENABLE_MVLC)
 
     target_link_libraries(libmvme
         PUBLIC libmvme_mvlc
-        PUBLIC Qt5::Svg
         PUBLIC yaml-cpp
         )
 
