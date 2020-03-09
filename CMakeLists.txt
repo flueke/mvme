@@ -59,4 +59,5 @@ if (BUILD_TESTS)
 endif()
 
 add_subdirectory(external)
+add_subdirectory(extras)
 add_subdirectory(src)
