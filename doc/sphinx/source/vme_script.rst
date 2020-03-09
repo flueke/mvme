@@ -205,7 +205,9 @@ Arguments:
 
   The floating point value using a *.* as the decimal separator.
 
-Example:::
+Example
+^^^^^^^
+::
 
   write_float_word a16 0x0014 upper 3.14
   write_float_word a16 0x0016 lower 3.14
