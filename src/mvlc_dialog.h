@@ -23,6 +23,7 @@
 
 #include <chrono>
 #include <functional>
+#include <vector>
 #include <system_error>
 #include "mvlc_basic_interface.h"
 #include "mvlc_buffer_validators.h"

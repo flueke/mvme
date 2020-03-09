@@ -12,9 +12,6 @@
   - support: error codes and conditions
   - Counters
 
-* Type erased handler, copyable (shares state), thread-safe, access to concrete
-  implementation (typeinfo check and cast).
-
 * Dialog layer
 * Error polling
 * Readout loop

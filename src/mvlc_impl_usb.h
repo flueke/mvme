@@ -22,12 +22,12 @@
 #define __MVLC_USB_IMPL_H__
 
 #include <array>
-#include <ftd3xx.h>
 #include <thread>
 #include <memory>
 #include <vector>
+
 #include "mesytec-mvlc_export.h"
-#include "mvlc/mvlc_impl_abstract.h"
+#include "mvlc_basic_interface.h"
 #ifdef __WIN32
 #include "mvlc/mvlc_impl_support.h"
 #endif
@@ -109,7 +109,7 @@ enum class EndpointDirection: u8
     Out
 };
 
-class MESYTEC_MVLC_EXPORT Impl: public AbstractImpl
+class MESYTEC_MVLC_EXPORT Impl: public MVLCBasicInterface
 {
     public:
         // The constructors do not call connect(). They just setup the
@@ -153,7 +153,6 @@ class MESYTEC_MVLC_EXPORT Impl: public AbstractImpl
         ConnectionType connectionType() const override { return ConnectionType::USB; }
         std::string connectionInfo() const override;
 
-        std::error_code getReadQueueSize(Pipe pipe, u32 &dest) override;
         DeviceInfo getDeviceInfo() const { return m_deviceInfo; }
 
     private:
@@ -190,15 +189,17 @@ class MESYTEC_MVLC_EXPORT Impl: public AbstractImpl
         DeviceInfo m_deviceInfo;
 };
 
-MESYTEC_MVLC_EXPORT std::error_code make_error_code(FT_STATUS st);
+//MESYTEC_MVLC_EXPORT std::error_code make_error_code(FT_STATUS st);
 
 } // end namespace usb
 } // end namespace mvlc
 } // end namespace mesytec
 
+#if 0
 namespace std
 {
     template<> struct is_error_code_enum<_FT_STATUS>: true_type {};
 } // end namespace std
+#endif
 
 #endif /* __MVLC_USB_IMPL_H__ */

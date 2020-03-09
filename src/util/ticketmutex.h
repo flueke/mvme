@@ -5,7 +5,9 @@
 #include <condition_variable>
 #include "util/int_types.h"
 
-namespace mesytec::mvlc
+namespace mesytec
+{
+namespace mvlc
 {
 
 // Ticket mutex system based on
@@ -71,6 +73,7 @@ class TicketMutex
         TicketTypeStore m_queue_tail; // next ticket number to take
 };
 
+}
 }
 
 #endif /* __MESYTEC_MVLC_UTIL_TICKETMUTEX_H__ */

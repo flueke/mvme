@@ -27,12 +27,12 @@
 #include <iomanip>
 #include <numeric>
 #include <regex>
-#include <QDebug>
 
-#include "mvlc/mvlc_dialog.h"
-#include "mvlc/mvlc_error.h"
-#include "mvlc/mvlc_threading.h"
-#include "mvlc/mvlc_util.h"
+#include <ftd3xx.h>
+
+#include "mvlc_dialog.h"
+#include "mvlc_error.h"
+#include "mvlc_util.h"
 
 
 #define LOG_LEVEL_OFF     0
@@ -65,8 +65,14 @@ do\
 #define USB_WIN_USE_EX_FUNCTIONS 1 // Currently only implemented for the SYNC case.
 #define USB_WIN_USE_STREAMPIPE 1
 
+namespace std
+{
+    template<> struct is_error_code_enum<_FT_STATUS>: true_type {};
+} // end namespace std
+
 namespace
 {
+using namespace mesytec::mvlc;
 
 class FTErrorCategory: public std::error_category
 {
@@ -175,6 +181,21 @@ class FTErrorCategory: public std::error_category
 
 const FTErrorCategory theFTErrorCategory {};
 
+}
+
+namespace mesytec { namespace mvlc { namespace usb
+{
+
+std::error_code make_error_code(FT_STATUS st)
+{
+    return { static_cast<int>(st), theFTErrorCategory };
+}
+
+}}}
+
+namespace
+{
+
 constexpr u8 get_fifo_id(mesytec::mvlc::Pipe pipe)
 {
     switch (pipe)
@@ -206,12 +227,6 @@ constexpr u8 get_endpoint(mesytec::mvlc::Pipe pipe, mesytec::mvlc::usb::Endpoint
         result |= 0x80;
 
     return result;
-}
-
-std::error_code set_endpoint_timeout(void *handle, u8 ep, unsigned ms)
-{
-    FT_STATUS st = FT_SetPipeTimeout(handle, ep, ms);
-    return mesytec::mvlc::usb::make_error_code(st);
 }
 
 // Returns an unfiltered list of all connected FT60X devices. */
@@ -261,8 +276,6 @@ mesytec::mvlc::usb::DeviceInfoList make_device_info_list()
     return result;
 }
 
-using namespace mesytec::mvlc;
-
 // USB specific post connect routine which tries to disable a potentially
 // running DAQ. This is done to make sure the command communication is working
 // properly and no readout data is clogging the USB.
@@ -278,7 +291,7 @@ using namespace mesytec::mvlc;
 // - Do a register read to check that communication is ok now.
 std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
 {
-    qDebug() << __PRETTY_FUNCTION__ << "begin";
+    //qDebug() << __PRETTY_FUNCTION__ << "begin";
 
     static const int DisableTriggerRetryCount = 5;
     static const int DataBufferSize = 10 * 1024;
@@ -336,10 +349,16 @@ std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
 
     ec = f.get();
 
-    qDebug() << __PRETTY_FUNCTION__ << "end, totalBytesTransferred ="
-        << totalBytesTransferred << ", ec =" << ec.message().c_str();
+    //qDebug() << __PRETTY_FUNCTION__ << "end, totalBytesTransferred ="
+    //    << totalBytesTransferred << ", ec =" << ec.message().c_str();
 
     return ec;
+}
+
+std::error_code set_endpoint_timeout(void *handle, u8 ep, unsigned ms)
+{
+    FT_STATUS st = FT_SetPipeTimeout(handle, ep, ms);
+    return mesytec::mvlc::usb::make_error_code(st);
 }
 
 } // end anon namespace
@@ -350,11 +369,6 @@ namespace mvlc
 {
 namespace usb
 {
-
-std::error_code make_error_code(FT_STATUS st)
-{
-    return { static_cast<int>(st), theFTErrorCategory };
-}
 
 DeviceInfoList get_device_info_list(const ListOptions opts)
 {
@@ -708,8 +722,8 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
         vOverlapped.hEvent = CreateEvent(nullptr, false, false, nullptr);
         //st = FT_InitializeOverlapped(m_handle, &vOverlapped);
 
-        qDebug("%s: vOverlapped.hEvent after call to FT_InitializeOverlapped: %p",
-               __PRETTY_FUNCTION__, vOverlapped.hEvent);
+        //qDebug("%s: vOverlapped.hEvent after call to FT_InitializeOverlapped: %p",
+        //       __PRETTY_FUNCTION__, vOverlapped.hEvent);
 
         //if (auto ec = make_error_code(st))
         //{
@@ -1081,6 +1095,7 @@ std::error_code Impl::abortPipe(Pipe pipe, EndpointDirection dir)
     return {};
 }
 
+#if 0
 std::error_code Impl::getReadQueueSize(Pipe pipe, u32 &dest)
 {
     assert(static_cast<unsigned>(pipe) < PipeCount);
@@ -1094,6 +1109,7 @@ std::error_code Impl::getReadQueueSize(Pipe pipe, u32 &dest)
 
     return make_error_code(st);
 }
+#endif
 
 std::string Impl::connectionInfo() const
 {

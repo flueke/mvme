@@ -31,7 +31,9 @@
 #include "mvlc.h"
 #include "mesytec-mvlc_export.h"
 
-namespace mesytec { namespace mvlc
+namespace mesytec
+{
+namespace mvlc
 {
 
 #if 0
@@ -42,6 +44,7 @@ MVLC MESYTEC_MVLC_EXPORT make_mvlc_usb(const std::string &serial);
 
 MVLC MESYTEC_MVLC_EXPORT make_mvlc_eth(const std::string &host);
 
-} }
+}
+}
 
 #endif /* __MESYTEC_MVLC_MVLC_FACTORY_H__ */

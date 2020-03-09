@@ -48,14 +48,14 @@ static const u32 FrameSizeMask = 0xFFFF;
 // The values in the SuperCommands enum contain the 2 high bytes of the
 // command word.
 // The output of super commands always goes to pipe 0, the CommandPipe.
-static const u32 SuperCmdMask  = 0xFFFF;
-static const u32 SuperCmdShift = 16;
-static const u32 SuperCmdArgMask = 0xFFFF;
-static const u32 SuperCmdArgShift = 0;
-
 namespace super_commands
 {
-    enum SuperCommands: u16
+    static const u32 SuperCmdMask  = 0xFFFF;
+    static const u32 SuperCmdShift = 16;
+    static const u32 SuperCmdArgMask = 0xFFFF;
+    static const u32 SuperCmdArgShift = 0;
+
+    enum class SuperCommandType: u16
     {
         CmdBufferStart = 0xF100,
         CmdBufferEnd   = 0xF200,
@@ -65,7 +65,9 @@ namespace super_commands
         WriteLocal     = 0x0204,
         WriteReset     = 0x0206,
     };
-} // end namespace supercommands
+}
+
+using super_commands::SuperCommandType;
 
 // Stack-only commands. These can be written into the stack memory area
 // starting from StackMemoryBegin using WriteLocal commands.
@@ -73,16 +75,16 @@ namespace super_commands
 // The output produced by a stack execution can go to either the
 // CommandPipe or the DataPipe. This is encoded in the StackStart command.
 
-static const u32 CmdMask      = 0xFF;
-static const u32 CmdShift     = 24;
-static const u32 CmdArg0Mask  = 0x00FF;
-static const u32 CmdArg0Shift = 16;
-static const u32 CmdArg1Mask  = 0x0000FFFF;
-static const u32 CmdArg1Shift = 0;
-
-namespace commands
+namespace stack_commands
 {
-    enum Commands: u8
+    static const u32 CmdMask      = 0xFF;
+    static const u32 CmdShift     = 24;
+    static const u32 CmdArg0Mask  = 0x00FF;
+    static const u32 CmdArg0Shift = 16;
+    static const u32 CmdArg1Mask  = 0x0000FFFF;
+    static const u32 CmdArg1Shift = 0;
+
+    enum class StackCommandType: u8
     {
         StackStart      = 0xF3,
         StackEnd        = 0xF4,
@@ -93,7 +95,9 @@ namespace commands
     // TODO: ScanDataRead, ReadDataLoop and masks/enums
     //static const u32 ScanDataRead      = 0x34;
     };
-};
+}
+
+using stack_commands::StackCommandType;
 
 namespace frame_headers
 {
@@ -211,13 +215,13 @@ namespace system_event
     }
 }
 
-enum VMEDataWidth
+enum class VMEDataWidth
 {
     D16 = 0x1,
     D32 = 0x2
 };
 
-enum Blk2eSSTRate: u8
+enum class Blk2eSSTRate: u8
 {
     Rate160MB,
     Rate276MB,
@@ -228,7 +232,7 @@ enum Blk2eSSTRate: u8
 static const u8 Blk2eSSTRateShift = 6;
 
 // For the WriteSpecial command
-enum SpecialWord: u8
+enum class SpecialWord: u8
 {
     Timestamp,
     StackTriggers
@@ -278,9 +282,8 @@ namespace stacks
         External    = 3,
     };
 
-    // IMPORTANT: For IRQ triggers the TriggerBits have to be set to the value
-    // (IRQ-1), e.g. value 0 for IRQ1!
-    // Note: higher IRQ numbers have higher priority.
+    // Note: For IRQ triggers the TriggerBits have to be set to the value
+    // (IRQ-1), e.g. value 0 for IRQ1! Higher IRQ numbers have higher priority.
     static const u16 TriggerBitsMask    = 0b11111;
     static const u16 TriggerBitsShift   = 0;
     static const u16 TriggerTypeMask    = 0b111;
@@ -311,7 +314,7 @@ namespace stacks
     };
 } // end namespace stacks
 
-static const u32 SelfVMEAddress = 0xFFFF0000u;
+constexpr const u32 SelfVMEAddress = 0xFFFF0000u;
 
 namespace usb
 {

@@ -56,7 +56,6 @@ class MVLC: public MVLCBasicInterface
         //
         // MVLCBasicInterface
         //
-
         std::error_code connect() override;
         std::error_code disconnect() override;
         bool isConnected() const override;
@@ -81,14 +80,14 @@ class MVLC: public MVLCBasicInterface
         std::error_code readRegister(u16 address, u32 &value);
         std::error_code writeRegister(u16 address, u32 value);
 
-        std::error_code vmeSingleRead(u32 address, u32 &value, u8 amod,
-                                      VMEDataWidth dataWidth);
+        std::error_code vmeSingleRead(
+            u32 address, u32 &value, u8 amod, VMEDataWidth dataWidth);
 
-        std::error_code vmeSingleWrite(u32 address, u32 value, u8 amod,
-                                       VMEDataWidth dataWidth);
+        std::error_code vmeSingleWrite(
+            u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
 
-        std::error_code vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
-                                     std::vector<u32> &dest);
+        std::error_code vmeBlockRead(
+            u32 address, u8 amod, u16 maxTransfers, std::vector<u32> &dest);
 
         std::error_code readResponse(BufferHeaderValidator bhv, std::vector<u32> &dest);
 
@@ -101,6 +100,10 @@ class MVLC: public MVLCBasicInterface
         std::error_code readKnownBuffer(std::vector<u32> &dest);
 
         std::vector<u32> getResponseBuffer() const;
+
+        //
+        // Stack Error Notifications (Command Pipe)
+        //
         std::vector<std::vector<u32>> getStackErrorNotifications() const;
         void clearStackErrorNotifications();
         bool hasStackErrorNotifications() const;

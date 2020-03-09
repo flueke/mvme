@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <iostream>
 
+#include "mvlc_commands.h"
 #include "mvlc_error.h"
 //#include "mvlc/mvlc_script.h"
 #include "mvlc_util.h"
@@ -63,12 +64,12 @@ namespace mvlc
 
 std::error_code check_mirror(const std::vector<u32> &request, const std::vector<u32> &response)
 {
-    if (request.isEmpty())
+    if (request.empty())
     {
         return make_error_code(MVLCErrorCode::MirrorEmptyRequest);
     }
 
-    if (response.isEmpty())
+    if (response.empty())
     {
         return make_error_code(MVLCErrorCode::MirrorEmptyResponse);
     }
@@ -92,7 +93,7 @@ std::error_code check_mirror(const std::vector<u32> &request, const std::vector<
 
 constexpr std::chrono::milliseconds MVLCDialog::ReadResponseMaxWait;
 
-MVLCDialog::MVLCDialog(AbstractImpl *mvlc)
+MVLCDialog::MVLCDialog(MVLCBasicInterface *mvlc)
     : m_mvlc(mvlc)
 {
     assert(m_mvlc);
@@ -232,7 +233,7 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, std::vector<
             return ec;
 
         // readKnownBuffer() should return an error code if its dest buffer is empty
-        assert(!dest.isEmpty());
+        assert(!dest.empty());
 
         u32 header = dest[0];
 
@@ -247,8 +248,8 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, std::vector<
             return make_error_code(MVLCErrorCode::NoResponseReceived);
     }
 
-    assert(!dest.isEmpty());
-    if (dest.isEmpty())
+    assert(!dest.empty());
+    if (dest.empty())
         return make_error_code(MVLCErrorCode::ShortRead);
 
     u32 header = dest[0];
@@ -264,11 +265,11 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, std::vector<
 
 std::error_code MVLCDialog::readRegister(u16 address, u32 &value)
 {
-    script::MVLCCommandListBuilder cmdList;
+    SuperCommandBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addReadLocal(address);
 
-    std::vector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    auto request = make_command_buffer(cmdList);
     logBuffer(request, "readRegister >>>");
 
     auto ec = mirrorTransaction(request, m_responseBuffer);
@@ -290,7 +291,7 @@ std::error_code MVLCDialog::readRegisterBlock(u16 address, u16 words,
     if (words > ReadLocalBlockMaxWords)
         return make_error_code(MVLCErrorCode::CommandArgOutOfRange);
 
-    script::MVLCCommandListBuilder cmdList;
+    SuperCommandBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addReadLocalBlock(address, words);
 
@@ -324,11 +325,11 @@ std::error_code MVLCDialog::readRegisterBlock(u16 address, u16 words,
 
 std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
 {
-    script::MVLCCommandListBuilder cmdList;
+    SuperCommandBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addWriteLocal(address, value);
 
-    std::vector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    auto request = make_command_buffer(cmdList);
     logBuffer(request, "writeRegister >>>");
 
     auto ec = mirrorTransaction(request, m_responseBuffer);
@@ -401,7 +402,7 @@ std::error_code MVLCDialog::stackTransaction(const std::vector<u32> &stack,
     if (auto ec = readResponse(is_stack_buffer, dest))
         return ec;
 
-    assert(!dest.isEmpty()); // guaranteed by readResponse()
+    assert(!dest.empty()); // guaranteed by readResponse()
 
     // Test if the Continue bit is set and if so read continuation buffers
     // (0xF9) until the Continue bit is cleared.
@@ -454,11 +455,11 @@ std::error_code MVLCDialog::stackTransaction(const std::vector<u32> &stack,
 std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, u8 amod,
                                            VMEDataWidth dataWidth)
 {
-    script::MVLCCommandListBuilder cmdList;
+    SuperCommandBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addVMEWrite(address, value, amod, dataWidth);
 
-    std::vector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    auto request = make_command_buffer(cmdList);
 
     auto ec = stackTransaction(request, m_responseBuffer);
 
@@ -479,11 +480,11 @@ std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, u8 amod,
 std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, u8 amod,
                                           VMEDataWidth dataWidth)
 {
-    script::MVLCCommandListBuilder cmdList;
+    SuperCommandBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addVMERead(address, amod, dataWidth);
 
-    std::vector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    auto request = make_command_buffer(cmdList);
 
     auto ec = stackTransaction(request, m_responseBuffer);
 
@@ -508,11 +509,11 @@ std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, u8 amod,
 std::error_code MVLCDialog::vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
                                          std::vector<u32> &dest)
 {
-    script::MVLCCommandListBuilder cmdList;
+    SuperCommandBuilder cmdList;
     cmdList.addReferenceWord(m_referenceWord++);
     cmdList.addVMEBlockRead(address, amod, maxTransfers);
 
-    std::vector<u32> request = to_mvlc_command_buffer(cmdList.getCommandList());
+    auto request = make_command_buffer(cmdList);
 
     auto ec = stackTransaction(request, dest);
 
@@ -521,12 +522,12 @@ std::error_code MVLCDialog::vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
     return ec;
 }
 
-void MVLCDialog::logBuffer(const std::vector<u32> &buffer, const QString &info)
+void MVLCDialog::logBuffer(const std::vector<u32> &buffer, const std::string &info)
 {
     if (LOG_LEVEL_SETTING >= LOG_LEVEL_TRACE)
     {
         log_buffer(std::cerr, buffer.data(), buffer.size(),
-                   ("MVLCDialog::" + info).toStdString().c_str());
+                   ("MVLCDialog::" + info).c_str());
     }
 }
 

@@ -954,6 +954,7 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
     return {};
 }
 
+#if 0
 std::error_code Impl::getReadQueueSize(Pipe pipe_, u32 &dest)
 {
     auto pipe = static_cast<unsigned>(pipe_);
@@ -964,6 +965,7 @@ std::error_code Impl::getReadQueueSize(Pipe pipe_, u32 &dest)
 
     return make_error_code(MVLCErrorCode::InvalidPipe);
 }
+#endif
 
 std::array<PipeStats, PipeCount> Impl::getPipeStats() const
 {
