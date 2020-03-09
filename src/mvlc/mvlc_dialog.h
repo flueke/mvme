@@ -146,7 +146,7 @@ class MVLCDialog
         void logBuffer(const QVector<u32> &buffer, const QString &info);
 
         AbstractImpl *m_mvlc = nullptr;
-        u32 m_referenceWord = 1;
+        u16 m_referenceWord = 1;
         QVector<u32> m_responseBuffer;
         QVector<QVector<u32>> m_stackErrorNotifications;
 };
