@@ -1,4 +1,7 @@
+configure_file("git_version.cc.in" "git_version.cc" @ONLY)
+
 add_library(mesytec-mvlc SHARED
+    "${CMAKE_CURRENT_BINARY_DIR}/git_version.cc"
     mvlc_basic_interface.cc
     mvlc.cc
     mvlc_commands.cc

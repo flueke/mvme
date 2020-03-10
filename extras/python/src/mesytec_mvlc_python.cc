@@ -1,6 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
 #include "mvlc_commands.h"
+#include "git_version.h"
 
 namespace py = pybind11;
 
@@ -9,6 +11,7 @@ using namespace mesytec::mvlc;
 PYBIND11_MODULE(mesytec_mvlc_python, m)
 {
     m.doc() = "driver library for the Mesytec MVLC VME controller";
+    m.attr("__version__") = std::string(GIT_VERSION);
 
     py::enum_<VMEDataWidth>(m, "VMEDataWidth")
         .value("D16", VMEDataWidth::D16)

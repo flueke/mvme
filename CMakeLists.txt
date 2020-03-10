@@ -26,13 +26,48 @@ if (WIN32)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 endif(WIN32)
 
+# Add the local cmake directory module path.
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/tools/cmake")
+
+# Pull information from git:
+# GIT_SHA1 contains the complete git hash
+#
+# GIT_VERSION contains the name of the latest git tag, the number of commits
+# since that tag was created and the start of the git hash if there have been
+# changes since the tag was created.
+# Example GIT_VERSION: 0.7-371-g12d9678
+
+# GIT_VERSION_SHORT contains the same as GIT_VERSION but without the start of
+# the last commits hash.
+# Example GIT_VERSION_SHORT: 0.7-371
+
+# GIT_VERSION_TAG contains only the tag part of the version
+# Example GIT_VERSION_TAG: 0.7
+include(GetGitRevisionDescription)
+get_git_head_revision(GIT_REFSPEC GIT_SHA1)
+git_describe(GIT_VERSION "--always")
+string(REGEX MATCH "^[0-9.]+(-beta)?(-[0-9]+)?" GIT_VERSION_SHORT ${GIT_VERSION})
+string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
+
+execute_process(
+    COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_BRANCH
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+message("-- GIT_VERSION=${GIT_VERSION}")
+message("-- GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
+message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
+message("-- GIT_BRANCH=${GIT_BRANCH}")
+
+# Optional tests
 option(MVLC_BUILD_TESTS "Build test binaries" ${MESYTEC_MVLC_MASTER_PROJECT})
 
 if (MVLC_BUILD_TESTS)
     # googletest / GTest
     # https://github.com/google/googletest/blob/master/googletest/README.md
     # Download and unpack googletest at configure time
-    configure_file(cmake/googletest_CMakeLists.txt.in googletest-download/CMakeLists.txt)
+    configure_file(tools/cmake/googletest_CMakeLists.txt.in googletest-download/CMakeLists.txt)
     execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
       RESULT_VARIABLE result
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
