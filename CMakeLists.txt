@@ -3,6 +3,12 @@ cmake_minimum_required(VERSION 3.10)
 project(mesytec-mvlc
     DESCRIPTION "User space library for the Mesytec MVLC VME controller")
 
+# Check if mesytec-mvlc is being used directly or via add_subdirectory
+set(MESYTEC_MVLC_MASTER_PROJECT OFF)
+if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+    set(MESYTEC_MVLC_MASTER_PROJECT ON)
+endif()
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -10,15 +16,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 #set(CMAKE_SKIP_BUILD_RPATH FALSE)
 #set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 #set(BUILD_WITH_INSTALL_RPATH TRUE)
-set(CMAKE_INSTALL_RPATH "$ORIGIN")
+set(CMAKE_INSTALL_RPATH "$ORIGIN;$ORIGIN/../lib")
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 #set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    option(BUILD_TESTS "Build test binaries" OFF)
-endif()
+option(MVLC_BUILD_TESTS "Build test binaries" ${MESYTEC_MVLC_MASTER_PROJECT})
 
-if (BUILD_TESTS)
+if (MVLC_BUILD_TESTS)
     # googletest / GTest
     # https://github.com/google/googletest/blob/master/googletest/README.md
     # Download and unpack googletest at configure time
@@ -56,7 +60,7 @@ if (BUILD_TESTS)
     message("-- Building tests")
     include(CTest)
     enable_testing()
-endif()
+endif(MVLC_BUILD_TESTS)
 
 add_subdirectory(external)
 add_subdirectory(extras)

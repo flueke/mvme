@@ -1,2 +1,5 @@
 add_subdirectory(ftdi-d3xx)
-add_subdirectory(pybind11-2.4.3)
+
+if (MVLC_ENABLE_PYTHON)
+    add_subdirectory(pybind11-2.4.3)
+endif(MVLC_ENABLE_PYTHON)

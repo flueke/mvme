@@ -8,7 +8,7 @@ if (WIN32)
     target_include_directories(ftd3xx
         INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/FTD3XXLibrary_v1.3.0.2)
 
-    install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
         DESTINATION lib)
 
     file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
@@ -21,7 +21,7 @@ elseif(UNIX AND NOT APPLE)
     target_include_directories(ftd3xx
         INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ftdi-d3xx-linux-x86_64/)
 
-    install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/ftdi-d3xx-linux-x86_64/libftd3xx.so
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/ftdi-d3xx-linux-x86_64/libftd3xx.so
         DESTINATION lib)
 
     file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/ftdi-d3xx-linux-x86_64/libftd3xx.so
@@ -34,7 +34,7 @@ elseif(APPLE)
     target_include_directories(ftd3xx
         INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/d3xx-osx-0.5.21/osx)
 
-    install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/d3xx-osx-0.5.21/osx/libftd3xx.dylib
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/d3xx-osx-0.5.21/osx/libftd3xx.dylib
         DESTINATION lib)
 
     file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/d3xx-osx-0.5.21/osx/libftd3xx.dylib

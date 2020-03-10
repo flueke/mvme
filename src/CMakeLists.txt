@@ -27,10 +27,13 @@ target_compile_options(mesytec-mvlc PRIVATE -Wall -Wextra)
 include(GenerateExportHeader)
 generate_export_header(mesytec-mvlc)
 
-install(TARGETS mesytec-mvlc DESTINATION lib)
-# TODO: install headers
+install(TARGETS mesytec-mvlc LIBRARY DESTINATION lib)
 
-if (BUILD_TESTS)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h")
+
+if (MVLC_BUILD_TESTS)
     function(add_gtest exe_name exe_source)
         add_executable(${exe_name} ${exe_source})
 
@@ -44,4 +47,4 @@ if (BUILD_TESTS)
     endfunction(add_gtest)
 
     add_gtest(test_mvlc_commands mvlc_commands.test.cc)
-endif(BUILD_TESTS)
+endif(MVLC_BUILD_TESTS)
