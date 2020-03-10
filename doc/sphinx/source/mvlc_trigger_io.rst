@@ -27,7 +27,6 @@ module can still be viewed and manually edited if needed.
 Structure and operation
 -----------------------
 .. figure:: images/mvlc_trigger_io_structure.png
-   :scale-latex: 60%
 
    Structure of the MVLC Trigger I/O module
 
@@ -63,7 +62,6 @@ VME Config tree when one of the MVLC variants (USB or Ethernet) is selected as
 the VME Controller.
 
 .. figure:: images/intro_vme_tree01.png
-   :scale-latex: 60%
 
    VME Config tree with the MVLC Trigger I/O module at the top
 
@@ -120,7 +118,6 @@ periodic events defined in the VME config is not allowed and will lead to an
 error at startup.
 
 .. figure:: images/mvlc_trigger_io_periodic_readout.png
-   :scale-latex: 60%
 
    Internal usage of Timer and StackStart units for a periodic VME event called
    ``counter_readout``.
@@ -292,7 +289,6 @@ outputs. Additionally the level2 LUTs each have a strobe input which is used to
 synchronize the switching of the LUT outputs.
 
 .. figure:: images/mvlc_trigger_io_hardwired_lut_connections.png
-   :scale-latex: 60%
 
    The lookup tables with all hardwired connections active.
 
@@ -301,7 +297,6 @@ LUT Editor GUI
 Editing of the LUT function is done via its own GUI:
 
 .. figure:: images/mvlc_trigger_io_lut_editor.png
-   :scale-latex: 60%
 
    Editor window for a LUT on Level2.
 
@@ -349,7 +344,6 @@ should be identical.
 Example
 ^^^^^^^
 .. figure:: images/mvlc_trigger_io_lut_example.png
-   :scale-latex: 60%
 
    Example LUT using input bits 0, 2 and 4. The output is activated if exactly
    two of the inputs are set.

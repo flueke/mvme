@@ -108,7 +108,6 @@ list of all USB devices and look for the controller again.
 .. _installation-zadig:
 
 .. figure:: images/installation_zadig.png
-   :scale-latex: 60%
 
    Zadig with VM-USB and libusb-win32 selected
 

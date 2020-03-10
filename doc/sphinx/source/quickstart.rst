@@ -55,7 +55,6 @@ VME Setup
     Level = 1*.
 
 .. figure:: images/quickstart_event_config.png
-   :scale-latex: 60%
 
    Event Config Dialog
 
@@ -69,7 +68,6 @@ VME Setup
     encoders modify the 4 most significant hex digits).
 
 .. figure:: images/quickstart_module_config.png
-   :scale-latex: 60%
 
    Module Config Dialog
 
@@ -78,7 +76,6 @@ The VME Config should now look like similar to :ref:`quickstart-vme-tree01`.
 .. _quickstart-vme-tree01:
 
 .. figure:: images/intro_vme_tree01.png
-   :scale-latex: 60%
 
    VME Config tree
 
