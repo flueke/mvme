@@ -27,7 +27,10 @@ target_compile_options(mesytec-mvlc PRIVATE -Wall -Wextra)
 include(GenerateExportHeader)
 generate_export_header(mesytec-mvlc)
 
-install(TARGETS mesytec-mvlc LIBRARY DESTINATION lib)
+install(TARGETS mesytec-mvlc
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+    )
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
     DESTINATION include
