@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#include "mesytec-mvlc_export.h"
 #include "mvlc_constants.h"
 
 namespace mesytec
@@ -10,14 +11,14 @@ namespace mesytec
 namespace mvlc
 {
 
-struct SuperCommand
+struct MESYTEC_MVLC_EXPORT SuperCommand
 {
     SuperCommandType type;
     u16 address;
     u32 value;
 };
 
-struct StackCommand
+struct MESYTEC_MVLC_EXPORT StackCommand
 {
     StackCommandType type;
     u32 address;
@@ -28,7 +29,7 @@ struct StackCommand
     Blk2eSSTRate rate;
 };
 
-class SuperCommandBuilder
+class MESYTEC_MVLC_EXPORT SuperCommandBuilder
 {
     public:
         SuperCommandBuilder &addReferenceWord(u16 refValue);
@@ -50,7 +51,7 @@ class SuperCommandBuilder
         std::vector<SuperCommand> m_commands;
 };
 
-class StackCommandBuilder
+class MESYTEC_MVLC_EXPORT StackCommandBuilder
 {
     public:
         StackCommandBuilder &addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth);

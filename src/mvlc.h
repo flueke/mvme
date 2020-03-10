@@ -31,6 +31,7 @@
 #include <memory>
 #include <vector>
 
+#include "mesytec-mvlc_export.h"
 #include "mvlc_basic_interface.h"
 #include "mvlc_buffer_validators.h"
 #include "mvlc_constants.h"
@@ -41,7 +42,7 @@ namespace mesytec
 namespace mvlc
 {
 
-class MVLC: public MVLCBasicInterface
+class MESYTEC_MVLC_EXPORT MVLC: public MVLCBasicInterface
 {
     public:
         MVLC(std::unique_ptr<MVLCBasicInterface> &&impl);

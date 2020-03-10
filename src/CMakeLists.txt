@@ -23,6 +23,10 @@ target_link_libraries(mesytec-mvlc
     PRIVATE ftd3xx
     )
 
+if (WIN32)
+    target_link_libraries(mesytec-mvlc PRIVATE ws2_32)
+endif(WIN32)
+
 target_compile_options(mesytec-mvlc PRIVATE -Wall -Wextra)
 
 include(GenerateExportHeader)

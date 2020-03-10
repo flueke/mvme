@@ -29,7 +29,7 @@
 #include "mesytec-mvlc_export.h"
 #include "mvlc_basic_interface.h"
 #ifdef __WIN32
-#include "mvlc/mvlc_impl_support.h"
+#include "mvlc_impl_support.h"
 #endif
 
 namespace mesytec
