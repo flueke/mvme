@@ -777,7 +777,7 @@ void MVMEMainWindow::displayAbout()
     // license
     {
         auto button = new QPushButton(QSL("&License"));
-        connect(button, &QPushButton::clicked, this, [this, tb_license]() {
+        connect(button, &QPushButton::clicked, this, [tb_license]() {
             auto sz = tb_license->size();
             sz = sz.expandedTo(QSize(500, 300));
             tb_license->resize(sz);
