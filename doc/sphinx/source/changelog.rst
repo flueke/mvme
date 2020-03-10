@@ -41,6 +41,7 @@ Version 0.9.7 (wip)
   - Speed up creating and updating the analysis tree views. This is especially
     noticeable when using many modules or many VME events.
 
+
 * Upgrade Qt to version 5.14.1 on the build servers.
 
 * Do not ship libstdc++ with the linux binary package anymore. It caused issues

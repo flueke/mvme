@@ -129,7 +129,7 @@ For event configs there is also a special variable editor available via the
 edit variables during a DAQ run and automatically executes VME scripts that are
 affected by changes to variable values.
 
-.. autofigure:: images/vme_config_event_variable_editor.png
+.. figure:: images/vme_config_event_variable_editor.png
 
    Event Variable Editor with system and custom variables
 

@@ -74,7 +74,7 @@ As input select the *ts_c8* node created in the previous step. Keep the default
 name *ts_c8.cal*. Type ``µs`` in the *Unit Label* field, set *Unit Max* to
 ``32768`` and press the *Apply* button. Accept the dialog by pressing *Ok*.
 
-.. autofigure:: images/guide_rateEstimation_add_calibration.png
+.. figure:: images/guide_rateEstimation_add_calibration.png
 
     Timestamp calibration
 
@@ -87,7 +87,7 @@ tree) and select *New -> Previous Value*.
 As input select the *ts_c8.cal* node created in the previous step. Make sure the
 *Keep valid parameters* box is checked. Set the name to *ts_c8.cal.prev*.
 
-.. autofigure:: images/guide_rateEstimation_add_previousvalue.png
+.. figure:: images/guide_rateEstimation_add_previousvalue.png
 
     Adding the PreviousValue operator
 
@@ -98,7 +98,7 @@ Again right-click in one of the processing trees and choose *New ->
 Difference*. Set input A to *ts_c8.cal* and input B to *ts_c8.cal.prev*. Set
 the name to *ts_c8.diff*.
 
-.. autofigure:: images/guide_rateEstimation_add_difference.png
+.. figure:: images/guide_rateEstimation_add_difference.png
 
     Calculating the timestamp difference
 
@@ -110,14 +110,14 @@ Open the newly created histogram click on *Subrange*, select *Limit X-Axis* and
 enter ``(0.0, 200.0)`` as the limits. This step limits the large default
 parameter range calculated by the :ref:`Difference operator <analysis-Difference>`.
 
-.. autofigure:: images/guide_rateEstimation_set_histo_limits.png
+.. figure:: images/guide_rateEstimation_set_histo_limits.png
 
     Setting the histogram subrange
 
 Next click the *Rate Estimation* button in the toolbar and then select two
 points on the x-axis to use for the rate estimation.
 
-.. autofigure:: images/guide_rateEstimation_select_estimation_points.png
+.. figure:: images/guide_rateEstimation_select_estimation_points.png
 
     Rate estimation data and curve visible
 

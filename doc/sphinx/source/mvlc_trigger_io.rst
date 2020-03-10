@@ -26,7 +26,7 @@ module can still be viewed and manually edited if needed.
 
 Structure and operation
 -----------------------
-.. autofigure:: images/mvlc_trigger_io_structure.png
+.. figure:: images/mvlc_trigger_io_structure.png
    :scale-latex: 60%
 
    Structure of the MVLC Trigger I/O module
@@ -62,7 +62,7 @@ Inside mvme the MVLC Trigger I/O module will appear as the topmost item in the
 VME Config tree when one of the MVLC variants (USB or Ethernet) is selected as
 the VME Controller.
 
-.. autofigure:: images/intro_vme_tree01.png
+.. figure:: images/intro_vme_tree01.png
    :scale-latex: 60%
 
    VME Config tree with the MVLC Trigger I/O module at the top
@@ -119,7 +119,7 @@ Timer and StackStart units will also be used by mvme. Having more than 4
 periodic events defined in the VME config is not allowed and will lead to an
 error at startup.
 
-.. autofigure:: images/mvlc_trigger_io_periodic_readout.png
+.. figure:: images/mvlc_trigger_io_periodic_readout.png
    :scale-latex: 60%
 
    Internal usage of Timer and StackStart units for a periodic VME event called
@@ -291,7 +291,7 @@ inputs which can be connected to the level1 utility units or certain level1 LUT
 outputs. Additionally the level2 LUTs each have a strobe input which is used to
 synchronize the switching of the LUT outputs.
 
-.. autofigure:: images/mvlc_trigger_io_hardwired_lut_connections.png
+.. figure:: images/mvlc_trigger_io_hardwired_lut_connections.png
    :scale-latex: 60%
 
    The lookup tables with all hardwired connections active.
@@ -300,7 +300,7 @@ LUT Editor GUI
 ^^^^^^^^^^^^^^
 Editing of the LUT function is done via its own GUI:
 
-.. autofigure:: images/mvlc_trigger_io_lut_editor.png
+.. figure:: images/mvlc_trigger_io_lut_editor.png
    :scale-latex: 60%
 
    Editor window for a LUT on Level2.
@@ -348,7 +348,7 @@ should be identical.
 
 Example
 ^^^^^^^
-.. autofigure:: images/mvlc_trigger_io_lut_example.png
+.. figure:: images/mvlc_trigger_io_lut_example.png
    :scale-latex: 60%
 
    Example LUT using input bits 0, 2 and 4. The output is activated if exactly

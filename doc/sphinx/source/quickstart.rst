@@ -31,7 +31,7 @@ using IRQ1 on the VME bus.
 
   * A log view where runtime messages will appear.
 
-.. autofigure:: images/quickstart_gui_overview.png
+.. figure:: images/quickstart_gui_overview.png
     :scale-latex: 75%
 
     GUI overview
@@ -54,7 +54,7 @@ VME Setup
   * Select *Interrupt* in the *Condition* combobox. Keep the default of *IRQ
     Level = 1*.
 
-.. autofigure:: images/quickstart_event_config.png
+.. figure:: images/quickstart_event_config.png
    :scale-latex: 60%
 
    Event Config Dialog
@@ -68,7 +68,7 @@ VME Setup
     address encoders adjust the *Address* value accordingly (the address
     encoders modify the 4 most significant hex digits).
 
-.. autofigure:: images/quickstart_module_config.png
+.. figure:: images/quickstart_module_config.png
    :scale-latex: 60%
 
    Module Config Dialog
@@ -77,7 +77,7 @@ The VME Config should now look like similar to :ref:`quickstart-vme-tree01`.
 
 .. _quickstart-vme-tree01:
 
-.. autofigure:: images/intro_vme_tree01.png
+.. figure:: images/intro_vme_tree01.png
    :scale-latex: 60%
 
    VME Config tree
@@ -121,7 +121,7 @@ shown as *Connected* in the top part of the window.
 
 .. _quickstart-daq-control:
 
-.. autofigure:: images/intro_daq_control.png
+.. figure:: images/intro_daq_control.png
 
    DAQ control
 

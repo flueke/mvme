@@ -87,7 +87,7 @@ specific parameters, multicast setup, etc.) and the commands required to
 perform the readout. The readout commands of all modules belonging to the same
 event are combined to form the trigger stacks uploaded to the VME controller.
 
-.. autofigure:: images/vme_two_modules_expanded.png
+.. figure:: images/vme_two_modules_expanded.png
    :scale-latex: 60%
 
    VME setup with one event containing two modules
@@ -108,7 +108,7 @@ during a DAQ run and while replaying from file. Additionally a set of built-in
 operators can be used to perform calculations and transformations on the data
 as it flows through the system.
 
-.. autofigure:: images/intro_analysis_default_filters_highlights.png
+.. figure:: images/intro_analysis_default_filters_highlights.png
    :scale-latex: 60%
 
    Analysis UI with MDPP-16 default objects

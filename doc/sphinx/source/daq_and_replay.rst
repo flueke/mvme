@@ -4,7 +4,7 @@
 DAQ / Replay controls
 ==================================================
 
-.. autofigure:: images/intro_daq_control.png
+.. figure:: images/intro_daq_control.png
 
     DAQ controls
 
