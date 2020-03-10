@@ -56,15 +56,15 @@ SuperCommandBuilder &SuperCommandBuilder::addVMERead(u32 address, u8 amod, VMEDa
     return addCommands(make_stack_upload_commands(CommandPipe, 0u, stack));
 }
 
-SuperCommandBuilder &SuperCommandBuilder::addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth)
-{
-    auto stack = StackCommandBuilder().addVMEWrite(address, value, amod, dataWidth);
-    return addCommands(make_stack_upload_commands(CommandPipe, 0u, stack));
-}
-
 SuperCommandBuilder &SuperCommandBuilder::addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers)
 {
     auto stack = StackCommandBuilder().addVMEBlockRead(address, amod, maxTransfers);
+    return addCommands(make_stack_upload_commands(CommandPipe, 0u, stack));
+}
+
+SuperCommandBuilder &SuperCommandBuilder::addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth)
+{
+    auto stack = StackCommandBuilder().addVMEWrite(address, value, amod, dataWidth);
     return addCommands(make_stack_upload_commands(CommandPipe, 0u, stack));
 }
 
@@ -80,22 +80,8 @@ std::vector<SuperCommand> SuperCommandBuilder::getCommands() const
 StackCommandBuilder &StackCommandBuilder::addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth)
 {
     StackCommand cmd = {};
-    cmd.cmd = StackCommandType::VMERead;
+    cmd.type = StackCommandType::VMERead;
     cmd.address = address;
-    cmd.amod = amod;
-    cmd.dataWidth = dataWidth;
-
-    m_commands.push_back(cmd);
-
-    return *this;
-}
-
-StackCommandBuilder &StackCommandBuilder::addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth)
-{
-    StackCommand cmd = {};
-    cmd.cmd = StackCommandType::VMEWrite;
-    cmd.address = address;
-    cmd.value = value;
     cmd.amod = amod;
     cmd.dataWidth = dataWidth;
 
@@ -107,7 +93,7 @@ StackCommandBuilder &StackCommandBuilder::addVMEWrite(u32 address, u32 value, u8
 StackCommandBuilder &StackCommandBuilder::addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers)
 {
     StackCommand cmd = {};
-    cmd.cmd = StackCommandType::VMERead;
+    cmd.type = StackCommandType::VMERead;
     cmd.address = address;
     cmd.amod = amod;
     cmd.transfers = maxTransfers;
@@ -117,10 +103,24 @@ StackCommandBuilder &StackCommandBuilder::addVMEBlockRead(u32 address, u8 amod, 
     return *this;
 }
 
+StackCommandBuilder &StackCommandBuilder::addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth)
+{
+    StackCommand cmd = {};
+    cmd.type = StackCommandType::VMEWrite;
+    cmd.address = address;
+    cmd.value = value;
+    cmd.amod = amod;
+    cmd.dataWidth = dataWidth;
+
+    m_commands.push_back(cmd);
+
+    return *this;
+}
+
 StackCommandBuilder &StackCommandBuilder::addWriteMarker(u32 value)
 {
     StackCommand cmd = {};
-    cmd.cmd = StackCommandType::WriteMarker;
+    cmd.type = StackCommandType::WriteMarker;
     cmd.value = value;
 
     m_commands.push_back(cmd);
@@ -147,9 +147,9 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
 
     for (const auto &cmd: stack)
     {
-        u32 cmdWord = static_cast<u32>(cmd.cmd) << stack_commands::CmdShift;
+        u32 cmdWord = static_cast<u32>(cmd.type) << stack_commands::CmdShift;
 
-        switch (cmd.cmd)
+        switch (cmd.type)
         {
             case StackCommandType::VMERead:
                 if (!vme_amods::is_block_mode(cmd.amod))
@@ -199,8 +199,8 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
                 result.push_back(cmdWord);
                 break;
 
-            // Note: these two should not be added to the stack but will be
-            // part of the command buffer used for uploading the stack.
+            // Note: these two should not be manually added to the stack but
+            // will be part of the command buffer used for uploading the stack.
             case StackCommandType::StackStart:
             case StackCommandType::StackEnd:
                 result.push_back(cmdWord);
@@ -222,6 +222,12 @@ std::vector<SuperCommand> make_stack_upload_commands(
 {
     auto stackBuffer = make_stack_buffer(stack);
 
+    return make_stack_upload_commands(stackOutputPipe, stackMemoryOffset, make_stack_buffer(stack));
+}
+
+std::vector<SuperCommand> make_stack_upload_commands(
+    u8 stackOutputPipe, u16 stackMemoryOffset, const std::vector<u32> &stackBuffer)
+{
     SuperCommandBuilder super;
 
     u16 address = stacks::StackMemoryBegin + stackMemoryOffset;
@@ -233,6 +239,7 @@ std::vector<SuperCommand> make_stack_upload_commands(
          | stackOutputPipe << stack_commands::CmdArg0Shift));
     address += AddressIncrement;
 
+    // A write for each data word of the stack.
     for (u32 stackWord: stackBuffer)
     {
         super.addWriteLocal(address, stackWord);
@@ -250,6 +257,61 @@ std::vector<SuperCommand> make_stack_upload_commands(
 
 std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands)
 {
+    return make_command_buffer(commands.getCommands());
+}
+
+std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands)
+{
+    using namespace super_commands;
+    using SCT = SuperCommandType;
+
+    std::vector<u32> result;
+
+    // CmdBufferStart
+    result.push_back(static_cast<u32>(SCT::CmdBufferStart) << SuperCmdShift);
+
+    for (const auto &cmd: commands)
+    {
+        u32 cmdWord = (static_cast<u32>(cmd.type) << SuperCmdShift);
+
+        switch (cmd.type)
+        {
+            case SCT::ReferenceWord:
+                result.push_back(cmdWord | (cmd.value & SuperCmdArgMask));
+                break;
+
+            case SCT::ReadLocal:
+                result.push_back(cmdWord | (cmd.address & SuperCmdArgMask));
+                break;
+
+            case SCT::ReadLocalBlock:
+                result.push_back(cmdWord | (cmd.address & SuperCmdArgMask));
+                result.push_back(cmd.value); // transfer count
+                break;
+
+            case SCT::WriteLocal:
+                result.push_back(cmdWord | (cmd.address & SuperCmdArgMask));
+                result.push_back(cmd.value);
+                break;
+
+            case SCT::WriteReset:
+                result.push_back(cmdWord);
+                break;
+
+            // Similar to StackStart and StackEnd these should not be manually
+            // added to the list of super commands but they are still handled
+            // in here just in case.
+            case SCT::CmdBufferStart:
+            case SCT::CmdBufferEnd:
+                result.push_back(cmdWord);
+                break;
+        }
+    }
+
+    // CmdBufferEnd
+    result.push_back(static_cast<u32>(SCT::CmdBufferEnd) << SuperCmdShift);
+
+    return result;
 }
 
 }

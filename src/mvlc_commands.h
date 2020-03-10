@@ -12,14 +12,14 @@ namespace mvlc
 
 struct SuperCommand
 {
-    SuperCommandType cmd;
+    SuperCommandType type;
     u16 address;
     u32 value;
 };
 
 struct StackCommand
 {
-    StackCommandType cmd;
+    StackCommandType type;
     u32 address;
     u32 value;
     u8 amod;
@@ -39,10 +39,10 @@ class SuperCommandBuilder
         SuperCommandBuilder &addCommands(const std::vector<SuperCommand> &commands);
 
         // Below are shortcut methods which internally create a stack using
-        // outputPipe=CommandPipe(=0) and offset=0
+        // outputPipe=CommandPipe(=0) and stackMemoryOffset=0
         SuperCommandBuilder &addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth);
-        SuperCommandBuilder &addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
         SuperCommandBuilder &addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers);
+        SuperCommandBuilder &addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
 
         std::vector<SuperCommand> getCommands() const;
 
@@ -54,8 +54,8 @@ class StackCommandBuilder
 {
     public:
         StackCommandBuilder &addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth);
-        StackCommandBuilder &addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
         StackCommandBuilder &addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers);
+        StackCommandBuilder &addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
         StackCommandBuilder &addWriteMarker(u32 value);
 
         std::vector<StackCommand> getCommands() const;
@@ -68,10 +68,10 @@ class StackCommandBuilder
 // Conversion to the mvlc buffer format
 //
 
+// Stack to raw stack commands. Not enclosed between StackStart and StackEnd,
+// not interleaved with the write commands for uploading.
 std::vector<u32> make_stack_buffer(const StackCommandBuilder &builder);
 std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack);
-
-std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands);
 
 // Enclosed between StackStart and StackEnd, interleaved with WriteLocal commands.
 std::vector<SuperCommand> make_stack_upload_commands(
@@ -80,8 +80,12 @@ std::vector<SuperCommand> make_stack_upload_commands(
 std::vector<SuperCommand> make_stack_upload_commands(
     u8 stackOutputPipe, u16 StackMemoryOffset, const std::vector<StackCommand> &stack);
 
-std::vector<u32> stack_command_to_buffer(const StackCommand &cmd);
-void stack_command_to_buffer(const StackCommand &cmd, std::vector<u32> &dest);
+std::vector<SuperCommand> make_stack_upload_commands(
+    u8 stackOutputPipe, u16 StackMemoryOffset, const std::vector<u32> &stackBuffer);
+
+std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands);
+std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands);
+
 
 }
 }

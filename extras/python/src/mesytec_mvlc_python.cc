@@ -36,7 +36,7 @@ PYBIND11_MODULE(mesytec_mvlc_python, m)
 
     py::class_<SuperCommand>(m, "SuperCommand")
         .def(py::init<>())
-        .def_readwrite("cmd", &SuperCommand::cmd)
+        .def_readwrite("type", &SuperCommand::type)
         .def_readwrite("address", &SuperCommand::address)
         .def_readwrite("value", &SuperCommand::value)
         ;

@@ -15,6 +15,7 @@ target_include_directories(mesytec-mvlc
     PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/>
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/>
     )
 
 target_link_libraries(mesytec-mvlc
