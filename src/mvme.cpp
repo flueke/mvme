@@ -760,7 +760,7 @@ void MVMEMainWindow::displayAbout()
 
     layout->addWidget(new QLabel(QSL("mvme - VME Data Acquisition")));
     layout->addWidget(new QLabel(versionString));
-    layout->addWidget(new QLabel(QSL("© 2015-2017 mesytec GmbH & Co. KG")));
+    layout->addWidget(new QLabel(QSL("© 2015-2020 mesytec GmbH & Co. KG")));
     layout->addWidget(new QLabel(QSL("Authors: F. Lüke, R. Schneider")));
 
     {
