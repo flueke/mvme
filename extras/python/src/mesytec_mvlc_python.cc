@@ -43,15 +43,33 @@ PYBIND11_MODULE(mesytec_mvlc_python, m)
 
     py::class_<SuperCommandBuilder>(m, "SuperCommandBuilder")
         .def(py::init<>())
-        .def("addReferenceWord", &SuperCommandBuilder::addReferenceWord)
-        .def("addReadLocal", &SuperCommandBuilder::addReadLocal)
-        .def("addReadLocalBlock", &SuperCommandBuilder::addReadLocalBlock)
-        .def("addWriteLocal", &SuperCommandBuilder::addWriteLocal)
+
+        .def("addReferenceWord", &SuperCommandBuilder::addReferenceWord,
+             py::arg("refValue"))
+
+        .def("addReadLocal", &SuperCommandBuilder::addReadLocal,
+             py::arg("address"))
+
+        .def("addReadLocalBlock", &SuperCommandBuilder::addReadLocalBlock,
+             py::arg("address"), py::arg("words"))
+
+        .def("addWriteLocal", &SuperCommandBuilder::addWriteLocal,
+             py::arg("address"), py::arg("value"))
+
         .def("addWriteReset", &SuperCommandBuilder::addWriteReset)
-        .def("addCommands", &SuperCommandBuilder::addCommands)
-        .def("addVMERead", &SuperCommandBuilder::addVMERead)
-        .def("addVMEWrite", &SuperCommandBuilder::addVMEWrite)
-        .def("addVMEBlockRead", &SuperCommandBuilder::addVMEBlockRead)
+
+        .def("addCommands", &SuperCommandBuilder::addCommands,
+             py::arg("commands"))
+
+        .def("addVMERead", &SuperCommandBuilder::addVMERead,
+             py::arg("address"), py::arg("amod"), py::arg("dataWidth"))
+
+        .def("addVMEBlockRead", &SuperCommandBuilder::addVMEBlockRead,
+             py::arg("address"), py::arg("amod"), py::arg("maxTransfers"))
+
+        .def("addVMEWrite", &SuperCommandBuilder::addVMEWrite,
+             py::arg("address"), py::arg("value"), py::arg("amod"), py::arg("dataWidth"))
+
         .def("getCommands", &SuperCommandBuilder::getCommands)
         ;
 }
