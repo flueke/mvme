@@ -7,6 +7,7 @@ add_library(mesytec-mvlc SHARED
     mvlc_error.cc
     mvlc_factory.cc
     mvlc_impl_eth.cc
+    mvlc_impl_support.cc
     mvlc_impl_usb.cc
     util/ticketmutex.cc
     )
