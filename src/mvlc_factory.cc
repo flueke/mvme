@@ -26,32 +26,33 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "mvlc_factory.h"
-
 #include "mvlc_impl_eth.h"
+#include "mvlc_impl_usb.h"
 
-namespace mesytec { namespace mvlc
+namespace mesytec
+{
+namespace mvlc
 {
 
-#if 0
 MVLC make_mvlc_usb()
 {
-    return MVLC(detail::TypeHelper<usb::Impl>());
+    return MVLC(std::make_unique<usb::Impl>());
 }
 
 MVLC make_mvlc_usb(unsigned index)
 {
-    return MVLC(detail::TypeHelper<usb::Impl>(index));
+    return MVLC(std::make_unique<usb::Impl>(index));
 }
 
 MVLC make_mvlc_usb(const std::string &serial)
 {
-    return MVLC(detail::TypeHelper<usb::Impl>(serial));
+    return MVLC(std::make_unique<usb::Impl>(serial));
 }
-#endif
 
 MVLC make_mvlc_eth(const std::string &host)
 {
     return MVLC(std::make_unique<eth::Impl>(host));
 }
 
-} }
+}
+}
