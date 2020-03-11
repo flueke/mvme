@@ -2,12 +2,14 @@
 
 ## Building mvme
 ### Dependencies
-* c++14 capable compiler (gcc, clang)
+* gcc/clang with c++14 support
 * Qt >= 5.7
 * qwt
 * quazip
 * libusb-0.1
-* boost (header only at the moment)
+* zlib
+* boost
+* make or ninja
 * Optional: sphinx and latex for the documentation
 * Optional: NSIS for the windows installer
 
@@ -32,25 +34,6 @@ enviroment selected during installation time.
     cd mvme
     cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/local/mvme ../mvme
     ninja
-
-#### Dependencies under Ubuntu-18.04
-
-build-essential
-cmake
-git
-libboost-dev
-libqt5websockets5-dev
-libquazip5-dev
-libqwt-qt5-dev
-libusb-dev
-qtbase5-dev
-
-Optional. Use with 'CMake -GNinja'. Faster than make.
-ninja-build
-
-Documentation dependencies
-python3-sphinx
-texlive
 
 ### Windows MSYS2
 
