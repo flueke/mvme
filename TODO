@@ -4,7 +4,7 @@ TODO list
 
 * qthelp: most images are links but they do show the binary file contents
   instead of the image. Note that not all images behave this way. Some are not
-  clickable, e.g the very first 'mvme overview' image in the introduction. 
+  clickable, e.g the very first 'mvme overview' image in the introduction.
 
 * mvme_root_client: runId is incorrect for live DAQ runs. it seems correct for replays.
 
