@@ -1,0 +1,16 @@
+# Helper script to set the VME base address of an ISEG VHS4030 module (section
+# 2.4.1 of the manual).
+
+# Note: as a starting point the default value of 0x4000 is assumed.
+
+# The new base address. Only the highest highest 6 bits are variable, the 2 low
+# bits of the MSB are fixed at 0b00.
+set NewBaseAddress      0x8000
+
+# NewBaseAddress XOR 0xffff
+set NewBaseAddressXOR   0x7fff
+
+# NewBaseAddress
+write a16 d16 0x43A0 ${NewBaseAddress}
+# NewBaseAddressXor
+write a16 d16 0x43A2 ${NewBaseAddressXOR}

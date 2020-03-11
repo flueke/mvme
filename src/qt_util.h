@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -37,8 +37,7 @@
 
 #include "libmvme_core_export.h"
 #include "typedefs.h"
-
-#define QSL(str) QStringLiteral(str)
+#include "util/qt_str.h"
 
 class QAction;
 class QEvent;
@@ -174,7 +173,7 @@ class LIBMVME_CORE_EXPORT NonShrinkingLabelHelper
 template<typename T>
 uint qHash(const std::shared_ptr<T> &ptr, uint seed = 0)
 {
-    return qHash(ptr.get());
+    return qHash(ptr.get(), seed);
 }
 
 template<typename LayoutType, int Margin = 2, int Spacing = 2>
@@ -197,8 +196,6 @@ QVBoxLayout *make_vbox(QWidget *widget = nullptr)
 {
     return make_layout<QVBoxLayout, Margin, Spacing>(widget);
 }
-
-LIBMVME_CORE_EXPORT int calculate_tab_width(const QFont &font, int tabStop = 4);
 
 class QTextEdit;
 class QPushButton;

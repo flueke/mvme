@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include <gtest/gtest.h>
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_impl_usb.h"
@@ -19,7 +39,7 @@ TEST(TestMVLCError, MVLCErrorCode_to_ErrorType)
         ASSERT_EQ(make_error_code(code), ErrorType::ConnectionError);
 
     for (auto code: { MEC::ShortWrite, MEC::ShortRead })
-        ASSERT_EQ(make_error_code(MVLCErrorCode::ShortWrite), ErrorType::ShortTransfer);
+        ASSERT_EQ(make_error_code(code), ErrorType::ShortTransfer);
 
     for (auto code: { MEC::MirrorEmptyRequest, MEC::MirrorEmptyResponse,
                       MEC::MirrorShortResponse, MEC::MirrorNotEqual,
@@ -44,7 +64,7 @@ TEST(TestMVLCError, FT_STATUS_to_ErrorType)
 
     for (int code = FT_IO_ERROR; code <= FT_NO_MORE_ITEMS; code++)
     {
-        ASSERT_EQ(make_error_code(static_cast<_FT_STATUS>(code)), ErrorType::IOError);
+        ASSERT_EQ(make_error_code(static_cast<_FT_STATUS>(code)), ErrorType::ConnectionError);
     }
 
     ASSERT_EQ(make_error_code(FT_TIMEOUT), ErrorType::Timeout);
@@ -53,7 +73,7 @@ TEST(TestMVLCError, FT_STATUS_to_ErrorType)
     {
         if (code != FT_DEVICE_NOT_CONNECTED)
         {
-            ASSERT_EQ(make_error_code(static_cast<_FT_STATUS>(code)), ErrorType::IOError);
+            ASSERT_EQ(make_error_code(static_cast<_FT_STATUS>(code)), ErrorType::ConnectionError);
         }
     }
 

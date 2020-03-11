@@ -1,3 +1,4 @@
+.. index:: VME Script, VMEScript
 .. _vme-script-reference:
 
 .. TODO: difference between uploading script to the controller and running them.
@@ -14,16 +15,16 @@ started using the ``#`` character. They extend to the end of the line.
 Alternatively blocks can be commented out starting with ``/*`` and ending with
 ``*/``.
 
-Scripts belonging to a module (**Module Init**, **VME Interface Settings**,
-**Module Reset** and the readout code) will have the **module base address**
-added to most of the commands. This allows writing scripts containing
+Scripts belonging to a module (**Module Init Scripts**, **VME Interface
+Settings**, **Module Reset** and the readout code) will have the **module base
+address** added to most of the commands. This allows writing scripts containing
 module-relative addresses only. An exception is the :ref:`writeabs
 <vme-command-writeabs>` command which does not modify its address argument. The
 base address can also be temporarily replaced with a different value by using
 the :ref:`setbase <vme-command-setbase>` and :ref:`resetbase
 <vme-command-resetbase>` commands.
 
-The commands below use the following values for address modifiers and data widths:
+The commands below accept the following values for address modifiers and data widths:
 
 .. table:: VME Address Modes
   :name: vme-address-modes
@@ -69,10 +70,11 @@ Internally these non-privileged (aka user) address modifiers will be used:
   | A32       | 0x09       | 0x0b    | 0x08     |
   +-----------+------------+---------+----------+
 
-Numbers in the script (addresses, transfer counts, masks) may be specified in decimal, octal or hex
-using the standard C prefixes (``0x`` for hex, ``0`` for octal). Additionally register values may be
-written in binary starting with a prefix of ``0b`` followed by ``0``\ s and ``1``\ s, optionally
-separated by ``'`` characters.
+Numbers in the script (addresses, transfer counts, masks) may be specified in
+decimal, octal, hex or floating point notation using the standard C prefixes
+(``0x`` for hex, ``0`` for octal). Additionally register values may be written
+in binary starting with a prefix of ``0b`` followed by ``0``\ s and ``1``\ s,
+optionally separated by ``'`` characters.
 
 Example: ``0b1010'0101'1100'0011`` is equal to ``0xa5c3``
 
@@ -124,40 +126,34 @@ transfer 64-bit words.
 
 The **\*fifo** variants do not increment the given starting address.
 
-.. _vme-command-bltcount:
-.. _vme-command-bltfifocount:
-.. _vme-command-mbltcount:
-.. _vme-command-mbltfifocount:
-
-Variable sized Block Transfers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-* **bltcount** *<reg_amode> <reg_dwidth> <reg_addr> <reg_count_mask> <block_amode> <block_addr>*
-* **bltfifocount** *<reg_amode> <reg_dwidth> <reg_addr> <reg_count_mask> <block_amode> <block_addr>*
-* **mbltcount** *<reg_amode> <reg_dwidth> <reg_addr> <reg_count_mask> <block_amode> <block_addr>*
-* **mbltfifocount** *<reg_amode> <reg_dwidth> <reg_addr> <reg_count_mask> <block_amode> <block_addr>*
-
-These commands read the number of transfers to perform from the register at *<reg_addr>*, using the
-given *<reg_amode>* and *<reg_dwidth>* as access modifiers. The value read is then AND'ed with
-*<reg_count_mask>*. The resulting value is the number of block transfers to perform, starting at
-*<block_addr>*.
-
-
 Miscellaneous
 ~~~~~~~~~~~~~
+
 .. _vme-command-wait:
 
+wait
+^^^^
 * **wait** *<waitspec>*
 
 Delays script execution for the given amount of time. *<waitspec>* is a number followed by one of
 ``ns``, ``ms`` or ``s`` for nanoseconds, milliseconds and seconds respectively. If no suffix is
 given milliseconds are assumed.
 
-Note: When creating a command stack to be executed by the VMUSB Controller in DAQ Mode the
-resolution of the waitspec is **200 ns** and the maximum value is **51000 ns**.
+.. note::
+  The wait command is only available when directly executing a script from
+  within mvme. It is not supported in command stacks for the MVLC and SIS3153
+  controllers.
+
+  The VMUSB has limited support for the wait command in command stacks with a
+  waitspec resolution of **200 ns** and the maximum possible delay being
+  **51000 ns**.
 
 Example: ``wait 500ms # Delay script execution for 500ms``
 
 .. _vme-command-marker:
+
+marker
+^^^^^^
 
 * **marker** *<marker_word>*
 
@@ -167,12 +163,56 @@ from different modules.
 .. _vme-command-setbase:
 .. _vme-command-resetbase:
 
+setbase/resetbase
+^^^^^^^^^^^^^^^^^
+
 * **setbase** *<address>*
 * **resetbase**
 
 These commands can be used to temporarily replace the current base address with a different value.
 **setbase** sets a new base address, which will be effective for all following commands. Use
 **resetbase** to restore the original base address.
+
+.. _vme-command-write-float-word:
+
+write_float_word
+^^^^^^^^^^^^^^^^
+
+* **write_float_word** *<address_mode>* *<address>* *<part>* *<value>*
+
+The write_float_word command is a helper function for dealing with VME modules
+using IEEE-754 floating point numbers internally (e.g. the ISEG VHS4030). The
+command writes a 16-bit part of a 32-bit float into the given register without
+performing any integer conversions.
+
+Arguments:
+
+* *address_mode*
+
+  The VME address mode: a16, a24 or a32
+
+* *address*
+
+  Address of the register to write to.
+
+* *part*
+
+  One of **upper** / **1** and  **lower** / **0**. The upper part contains the
+  16 most significant bits of the float, the lower part the 16 least
+  significant bits.
+
+* *value*
+
+  The floating point value using a *.* as the decimal separator.
+
+Example
+^^^^^^^
+::
+
+  write_float_word a16 0x0014 upper 3.14
+  write_float_word a16 0x0016 lower 3.14
+
+Writes the 32-bit float value *3.14* to the two 16-bit registers 0x14 and 0x16.
 
 VMUSB specific
 ~~~~~~~~~~~~~~
@@ -209,8 +249,95 @@ name. The following name mappings are defined:
   | daq_settings      | 0x08        |
   +-------------------+-------------+
 
+Floating Point Values, Variables and Mathematical Expressions
+-------------------------------------------------------------
+Since mvme-0.9.7 VME scripts support evaluation of numerical expressions and
+can contain references to variables. Additionally floating point values can be
+used where previously only unsigned integers where allowed.
+
+It is up to each specific command how floating point values are interpreted and
+what limits are imposed. The VME read and write commands use mathematical
+rounding and test that the resulting value fits in an unsigned 16 or 32 bit
+integer (depending on the commands data width argument). On the other hand the
+:ref:`vme-command-write-float-word` command uses the floating point value
+directly without performing an integer conversion.
+
+Variables
+~~~~~~~~~
+The variable system in VME Scripts is based on simple string replacement.
+Whenever a variable reference of the form ``${varname}`` is encountered the
+value stored under the name ``varname`` is looked up and is used to replace the
+variable reference. Variable expansion is currently not recursive so
+``${${foo}}`` will try to look up the value of a variable named ``${foo}``.
+
+Variables are stored in lists of symbol tables with the variables from the
+first (innermost) table overriding those defined in the outer scopes.
+
+Each object in the VME Config tree carries a symbol table: VME Events, VME
+Modules and VME Script objects each have a set of variables attached to them.
+When parsing a VME script the list symbol tables is assembled by traversing the
+VME Config tree upwards towards the root node. Each objects symbol table is
+appened to the list of tables. This way variables defined at script scope take
+precedence over those defined at module scope. The same is true for module and
+event scopes.
+
+In addition to variables defined by VME Config objects variables can also be
+locally defined inside a VME Script using the ``set`` command. The variable
+will be entered into the most local symbol table and will override any other
+definition of a variable with the same name.
+
+The mvme GUI currently contains a dedicated editor for variables defined at VME
+Event scope. Select an event in the VME Config tree and click the **Edit
+Variables** button above the tree. Module level variables can be accessed via
+**Edit Module Settings** from the context menu. A dedicated editor for Module
+and Script objects is going to be added in the future.
+
 Example
--------
+^^^^^^^
+::
+
+   set threshold 500
+   write a32 d16 0x1234 ${threshold}   # -> write a32 d16 0x1234 500
+
+   set addr 0x6789
+   set value 0b1010
+
+   write a32 d16 ${addr} ${value}      # -> write a32 d16 0x6789 0b1010
+   ${addr} ${value}                    # same as above using the short form of the write command
+
+
+Expressions
+~~~~~~~~~~~
+
+.. _exprtk: http://www.partow.net/programming/exprtk/index.html
+
+Mathematical expressions in VME scripts are enclosed between ``$(`` and ``)``.
+The enclosed string (including the outermost parentheses) is passed to the
+`exprtk`_ library for evaluation and the resulting value replaces the
+expression string before further parsing is done.
+
+exprtk internally uses floating point arithmetic and the result of evaluating
+an expression is always a floating point value. It is up to the specific
+command of how the value is treated.
+
+Variable references inside expressions are expanded before the expression is
+given to the `exprtk`_ library for evaluation.
+
+Example
+^^^^^^^
+::
+
+   # From the MDPP-32-QDC init script: Window start = 16384  + delay[ns] / 1.56;
+   0x6050  $(16384 - 100 / 1.56)
+
+   # or using a local variable to hold the delay:
+   set my_delay -100
+   0x6050  $(16384 + ${my_delay} / 1.56)
+
+
+
+Example Script
+--------------
 ::
 
     # BLT readout until BERR or number of transfers reached

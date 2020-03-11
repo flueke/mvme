@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -67,6 +67,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     , pb_start(new QPushButton)
     , pb_stop(new QPushButton)
     , pb_oneCycle(new QPushButton)
+    , pb_sniffBuffer(new QPushButton)
     , pb_reconnect(new QPushButton)
     , pb_controllerSettings(new QPushButton)
     , pb_runSettings(new QPushButton)
@@ -85,6 +86,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     , rb_keepData(new QRadioButton("Keep"))
     , rb_clearData(new QRadioButton("Clear"))
     , bg_daqData(new QButtonGroup(this))
+    , spin_runDuration(new QSpinBox(this))
 {
     bg_daqData->addButton(rb_keepData);
     bg_daqData->addButton(rb_clearData);
@@ -98,7 +100,8 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
             case DAQState::Idle:
                 {
                     bool keepHistoContents = rb_keepData->isChecked();
-                    emit startDAQ(cycles, keepHistoContents);
+                    std::chrono::seconds runDuration(spin_runDuration->value());
+                    emit startDAQ(cycles, keepHistoContents, runDuration);
                 }
                 break;
 
@@ -128,6 +131,9 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
         daq_ctrl(1);
     });
 
+    connect(pb_sniffBuffer, &QPushButton::clicked,
+            this, &DAQControlWidget::sniffNextInputBuffer);
+
     connect(pb_stop, &QPushButton::clicked,
             this, &DAQControlWidget::stopDAQ);
 
@@ -154,7 +160,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     });
 
     connect(combo_compression, qOverload<int>(&QComboBox::currentIndexChanged),
-            this, [this] (int index)
+            this, [this] (int)
     {
         int compression = combo_compression->currentData().toInt();
         m_listFileOutputInfo.compressionLevel = compression;
@@ -174,6 +180,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     pb_start->setText(QSL("Start"));
     pb_stop->setText(QSL("Stop"));
     pb_oneCycle->setText(QSL("1 Cycle"));
+    pb_sniffBuffer->setText(QSL("Sniff next buffer"));
     pb_reconnect->setText(QSL("Reconnect"));
     pb_forceReset->setText(QSL("Force Reset"));
     pb_controllerSettings->setText(QSL("Settings"));
@@ -194,6 +201,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     daqButtonLayout->addWidget(pb_start);
     daqButtonLayout->addWidget(pb_stop);
     daqButtonLayout->addWidget(pb_oneCycle);
+    daqButtonLayout->addWidget(pb_sniffBuffer);
 
     // state frame
     auto stateFrame = new QFrame;
@@ -210,6 +218,18 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
         rb_layout->addWidget(rb_clearData);
         rb_layout->addStretch(1);
         stateFrameLayout->addRow(QSL("Histo data:"), rb_layout);
+    }
+
+    // run duration
+    {
+        spin_runDuration->setMinimum(0);
+        spin_runDuration->setMaximum(std::numeric_limits<int>::max());
+        spin_runDuration->setSpecialValueText(QSL("unlimited"));
+        spin_runDuration->setSuffix(QSL(" s"));
+        auto l = make_hbox<0, 2>();
+        l->addWidget(spin_runDuration);
+        l->addStretch(1);
+        stateFrameLayout->addRow(QSL("Run duration:"), l);
     }
 
     // vme controller
@@ -231,7 +251,6 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     // listfile groupbox
     {
         gb_listfile->setTitle(QSL("Listfile Output:"));
-
 
         auto gbLayout = new QFormLayout(gb_listfile);
         gb_listfileLayout = gbLayout;
@@ -340,9 +359,7 @@ void DAQControlWidget::updateWidget()
     bool isMVLC = is_mvlc_controller(m_vmeControllerTypeName);
 
     const bool isReplay  = (globalMode == GlobalMode::ListFile);
-    const bool isRun     = (globalMode == GlobalMode::DAQ);
     const bool isDAQIdle = (daqState == DAQState::Idle);
-    const bool isControllerConnected = (controllerState == ControllerState::Connected);
     const auto &stats = m_daqStats;
 
     //
@@ -390,24 +407,50 @@ void DAQControlWidget::updateWidget()
     //
     // one cycle button
     //
-    bool enableOneCycleButton = false;
-    bool showOneCycleButton = !isMVLC;
-
-    if (globalMode == GlobalMode::DAQ
-        && controllerState == ControllerState::Connected
-        && daqState == DAQState::Idle)
     {
-        enableOneCycleButton = true;
+        bool enableOneCycleButton = false;
+        bool showOneCycleButton = !isMVLC;
+
+        if (globalMode == GlobalMode::DAQ
+            && controllerState == ControllerState::Connected
+            && daqState == DAQState::Idle)
+        {
+            enableOneCycleButton = true;
+        }
+        else if (globalMode == GlobalMode::ListFile
+                 && (daqState == DAQState::Idle || daqState == DAQState::Paused))
+        {
+            enableOneCycleButton = true;
+        }
+
+        pb_oneCycle->setEnabled(enableOneCycleButton);
+        pb_oneCycle->setVisible(showOneCycleButton);
     }
-    else if (globalMode == GlobalMode::ListFile
-             && (daqState == DAQState::Idle || daqState == DAQState::Paused))
+
+    // sniff buffer button
     {
-        enableOneCycleButton = true;
+        // NOTE: can reenable this at some point and implement a UI for it.
+        // right now it is hidden because the feature is not really needed and
+        // for mesytec internal debugging only.
+#if 0
+        bool enable = false;
+        bool show = isMVLC;;
+
+        // TODO: also enable for listfile mode once the mvlc replay worker
+        // supports buffer sniffing
+        if (globalMode == GlobalMode::DAQ
+            && controllerState == ControllerState::Connected)
+        {
+            enable = true;
+        }
+
+        pb_sniffBuffer->setEnabled(enable);
+        pb_sniffBuffer->setVisible(show);
+#else
+        pb_sniffBuffer->setEnabled(false);
+        pb_sniffBuffer->setVisible(false);
+#endif
     }
-
-    pb_oneCycle->setEnabled(enableOneCycleButton);
-    pb_oneCycle->setVisible(showOneCycleButton);
-
 
     //
     // button labels and actions
@@ -465,6 +508,7 @@ void DAQControlWidget::updateWidget()
 
     rb_keepData->setEnabled(daqState == DAQState::Idle);
     rb_clearData->setEnabled(daqState == DAQState::Idle);
+    spin_runDuration->setEnabled(daqState == DAQState::Idle && globalMode == GlobalMode::DAQ);
 
     QString stateString;
 

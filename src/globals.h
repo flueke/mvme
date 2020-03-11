@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -92,8 +92,14 @@ struct DAQStats
 {
     inline void start()
     {
-        *this = {};
+        totalBytesRead = 0;
+        totalBuffersRead = 0;
+        buffersWithErrors = 0;
+        droppedBuffers = 0;
+        listFileBytesWritten = 0;
+        listFileTotalBytes = 0;
         startTime = QDateTime::currentDateTime();
+        endTime = {};
     }
 
     inline void stop()

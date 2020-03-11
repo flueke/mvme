@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 /*
 
 Purpose of the mvme_listfile_reader program:
@@ -71,6 +91,7 @@ Notes:
 #include "mvme_listfile_utils.h"
 #include "mvlc_stream_worker.h" // FIXME: move collect_readout_scripts() elsewhere (a general readout parser file)
 #include "vme_controller_factory.h"
+#include "vme_config_scripts.h"
 
 using std::cout;
 using std::endl;
@@ -182,7 +203,7 @@ RunDescription * make_run_description(
                 moduleConfig->getModuleMeta().typeName.toStdString().c_str());
 
             auto moduleReadoutParts = mesytec::mvlc::parse_module_readout_script(
-                moduleConfig->getReadoutScript()->getScript());
+                mesytec::mvme::parse(moduleConfig->getReadoutScript()));
 
             module.prefixLen = moduleReadoutParts.prefixLen;
             module.suffixLen = moduleReadoutParts.suffixLen;
@@ -294,7 +315,6 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
 
     ThreadSafeDataBufferQueue emptyBuffers;
     ThreadSafeDataBufferQueue filledBuffers;
-    // To make sure buffers are deleted when leaving this function
     std::vector<std::unique_ptr<DataBuffer>> buffers;
 
     for (size_t i=0; i<DataBufferCount; ++i)
@@ -523,12 +543,13 @@ int main(int argc, char *argv[])
         //return 1;
     }
 
-#if 1
+#if 0
     try
     {
         auto plugin = load_plugin("listfile_reader_python_plugin");
         plugins.emplace_back(plugin);
     }
+    // FIXME: this didn't catch some library_load error.
     catch (const resolve_error &)
     {
         //return 1;

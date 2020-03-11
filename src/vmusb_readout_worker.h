@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -21,6 +21,7 @@
 #ifndef UUID_29c99c43_ffae_4ead_8003_c89c87696c15
 #define UUID_29c99c43_ffae_4ead_8003_c89c87696c15
 
+#include <QFile>
 #include "vme_readout_worker.h"
 #include "vmusb_stack.h"
 

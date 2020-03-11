@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -19,10 +19,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_script_editor.h"
-#include "vme_script.h"
-#include "gui_util.h"
-#include "mvme.h"
-#include "util/qt_font.h"
 
 #include <QApplication>
 #include <QFileDialog>
@@ -39,6 +35,13 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+#include "gui_util.h"
+#include "mvme.h"
+#include "mvme_qthelp.h"
+#include "util/qt_font.h"
+#include "vme_config_scripts.h"
+#include "vme_script.h"
 
 static const int TabStop = 4;
 
@@ -189,31 +192,9 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
 
     m_d->m_toolBar->addSeparator();
 
-    auto actionHelpVMEScript = new QAction(
-        QIcon(QSL(":/help.png")), QSL("&VME Script Reference"), this);
-
-    m_d->m_toolBar->addAction(actionHelpVMEScript);
-
-    connect(actionHelpVMEScript, &QAction::triggered,
-            this, [this] ()
-    {
-        auto widgets = QApplication::topLevelWidgets();
-        auto it = std::find_if(widgets.begin(), widgets.end(), [](const QWidget *widget) {
-            return widget->objectName() == QSL("VMEScriptReference");
-        });
-
-        if (it != widgets.end())
-        {
-            auto widget = *it;
-            show_and_activate(widget);
-        }
-        else
-        {
-            auto widget = make_vme_script_ref_widget();
-            widget->setAttribute(Qt::WA_DeleteOnClose);
-            emit addApplicationWidget(widget);
-        }
-    });
+    m_d->m_toolBar->addAction(
+        QIcon(QSL(":/help.png")), QSL("VME Script Help"),
+        this, mesytec::mvme::make_help_keyword_handler("VMEScript"));
 
     m_d->m_toolBar->addSeparator();
 
@@ -296,9 +277,18 @@ void VMEScriptEditor::runScript_()
 {
     try
     {
+        // We want to execute the text that's currently in the editor window
+        // using the variable symbols visible to the underlying VMEScriptConfig
+        // object. So first collect then symbol tables, then get the text and
+        // finally parse the text, passing in the list of symbol tables.
+
+        auto symtabs = mesytec::mvme::collect_symbol_tables(m_d->m_script);
+
         auto moduleConfig = qobject_cast<ModuleConfig *>(m_d->m_script->parent());
-        auto script = vme_script::parse(m_d->m_editor->toPlainText(),
-                                        moduleConfig ? moduleConfig->getBaseAddress() : 0);
+        u32 baseAddress = moduleConfig ? moduleConfig->getBaseAddress() : 0u;
+        auto scriptText = m_d->m_editor->toPlainText();
+
+        auto script = vme_script::parse(scriptText, symtabs, baseAddress);
 
         emit logMessage(QString("Running script '%1':").arg(m_d->m_script->objectName()));
         emit runScript(script);

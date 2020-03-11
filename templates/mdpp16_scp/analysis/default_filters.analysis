@@ -9,7 +9,7 @@
             "ModuleProperties": [
                 {
                     "moduleId": "{ef0ec715-e16b-449d-b3d2-d0e89eea87eb}",
-                    "moduleTypeName": "mdpp16"
+                    "moduleTypeName": "mdpp16_scp"
                 }
             ]
         },

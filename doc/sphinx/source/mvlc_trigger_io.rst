@@ -1,4 +1,4 @@
-
+.. index:: MVLC Trigger/IO, mvlc_trigger_io
 .. highlight:: none
 
 .. _mvlc-trigger-io:
@@ -26,8 +26,7 @@ module can still be viewed and manually edited if needed.
 
 Structure and operation
 -----------------------
-.. autofigure:: images/mvlc_trigger_io_structure.png
-   :scale-latex: 60%
+.. figure:: images/mvlc_trigger_io_structure.png
 
    Structure of the MVLC Trigger I/O module
 
@@ -62,8 +61,7 @@ Inside mvme the MVLC Trigger I/O module will appear as the topmost item in the
 VME Config tree when one of the MVLC variants (USB or Ethernet) is selected as
 the VME Controller.
 
-.. autofigure:: images/intro_vme_tree01.png
-   :scale-latex: 60%
+.. figure:: images/intro_vme_tree01.png
 
    VME Config tree with the MVLC Trigger I/O module at the top
 
@@ -119,8 +117,7 @@ Timer and StackStart units will also be used by mvme. Having more than 4
 periodic events defined in the VME config is not allowed and will lead to an
 error at startup.
 
-.. autofigure:: images/mvlc_trigger_io_periodic_readout.png
-   :scale-latex: 60%
+.. figure:: images/mvlc_trigger_io_periodic_readout.png
 
    Internal usage of Timer and StackStart units for a periodic VME event called
    ``counter_readout``.
@@ -169,6 +166,8 @@ inside the logic (for example busy inputs from external hardware).
 I/O and logic units
 -------------------
 
+.. index:: mvlc_trigger_io_NIM, NIM, TTL
+
 NIM I/Os
 ~~~~~~~~
 The front panel NIM connectors can be configured as either input or output.
@@ -185,15 +184,19 @@ Note that it is possible to use a NIM as both input and output at the same
 time. In this case the NIM has to be configured as an output and the gate
 generator acts on the output signal only.
 
+.. index:: mvlc_trigger_io_LVDS, LVDS
 
-ECL outputs
-~~~~~~~~~~~
+LVDS outputs
+~~~~~~~~~~~~
 These are similar to the NIM output units. Each of the 3 outputs needs to be
 activated separately.
 
+.. index:: mvlc_trigger_io_Timer, Timer
+.. _mvlc-trigger-io-Timer:
+
 Timers
 ~~~~~~
-Generate logic pulses with a set frequency.
+Fixed frequency logic pulse generation.
 
 Settings
 ^^^^^^^^
@@ -213,10 +216,14 @@ Settings
 
   Minimum: 0 - no delay, maximum: 65535 ns
 
+.. index:: mvlc_trigger_io_IRQ, IRQ
+
 IRQ Units
 ~~~~~~~~~
 Generates a signal when one of the 7 available VME IRQs triggers. The only
 setting is the number of the IRQ (1-7) this unit should react to.
+
+.. index:: mvlc_trigger_io_SoftTrigger, Soft Trigger, SoftTrigger
 
 Soft Triggers
 ~~~~~~~~~~~~~
@@ -240,10 +247,14 @@ Config area and choose ``Add Script``, type a name and double-click the newly
 created script to edit it. Then paste the script text into the editor and use
 the ``Run Script`` button to execute it.
 
+.. index:: mvlc_trigger_io_SlaveTrigger, Slave Trigger, SlaveTrigger
+
 Slave Triggers
 ~~~~~~~~~~~~~~
 Activates when one of the slave triggers fires. This feature will be available
 in the future with a special multi-crate firmware and supporting software.
+
+.. index:: mvlc_trigger_io_StackBusy, StackBusy
 
 Stack Busy
 ~~~~~~~~~~
@@ -253,9 +264,13 @@ being executed.
 In the mvme user interface the command stack numbers are augmented with the
 event names defined in the VME config.
 
+.. index:: mvlc_trigger_io_Sysclk, Sysclk
+
 Sysclk
 ~~~~~~
 This unit provides access to the 16 MHz VMEbus system clock.
+
+.. index:: mvlc_trigger_io_LUT, LUT, Lookup Table
 
 Lookup Tables (Levels 1 and 2)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -273,8 +288,7 @@ inputs which can be connected to the level1 utility units or certain level1 LUT
 outputs. Additionally the level2 LUTs each have a strobe input which is used to
 synchronize the switching of the LUT outputs.
 
-.. autofigure:: images/mvlc_trigger_io_hardwired_lut_connections.png
-   :scale-latex: 60%
+.. figure:: images/mvlc_trigger_io_hardwired_lut_connections.png
 
    The lookup tables with all hardwired connections active.
 
@@ -282,8 +296,7 @@ LUT Editor GUI
 ^^^^^^^^^^^^^^
 Editing of the LUT function is done via its own GUI:
 
-.. autofigure:: images/mvlc_trigger_io_lut_editor.png
-   :scale-latex: 60%
+.. figure:: images/mvlc_trigger_io_lut_editor.png
 
    Editor window for a LUT on Level2.
 
@@ -330,11 +343,14 @@ should be identical.
 
 Example
 ^^^^^^^
-.. autofigure:: images/mvlc_trigger_io_lut_example.png
-   :scale-latex: 60%
+.. figure:: images/mvlc_trigger_io_lut_example.png
 
    Example LUT using input bits 0, 2 and 4. The output is activated if exactly
    two of the inputs are set.
+
+.. _mvlc-trigger-io-StackStart:
+
+.. index:: mvlc_trigger_io_StackStart, StackStart
 
 StackStart
 ~~~~~~~~~~
@@ -342,17 +358,22 @@ These units start the execution of one of the 7 MVLC command stacks.
 
 Settings
 ^^^^^^^^
-* Number of the command stack to execute
+* Index of the command stack to execute
+* Delay: the delay in ns until the stack execution is started
 * Activation flag
 
 In the mvme user interface the command stack numbers are augmented with the
 event names defined in the VME config.
+
+.. index:: mvlc_trigger_io_MasterTrigger, MasterTrigger
 
 MasterTrigger
 ~~~~~~~~~~~~~
 Generates a master trigger in multi-crate setups. This feature will be
 available in the future with a special multi-crate firmware and supporting
 software.
+
+.. index:: mvlc_trigger_io_Counter, Counter
 
 Counters
 ~~~~~~~~
@@ -395,10 +416,6 @@ except for the one that should be read out.
 Examples
 --------
 
-.. note::
-   More examples will be added in the future.
-
-
 Sysclk timestamp readout
 ~~~~~~~~~~~~~~~~~~~~~~~~
 This example shows how to create a counter that increments with the VME system
@@ -420,7 +437,7 @@ Only an MVLC is required for this setup to work.
 
 * Right-click the newly created event and select ``Add Module``. Use the type
   drop-down and select ``MVLC Timestamp/Counter``. Accept the dialog to create a
-  module which will read out Counter0 of Trigger I/O module.
+  module which will read out Counter0 of the Trigger I/O module.
 
   .. autofigure:: mvlc_examples/01-sysclk-readout/vme_tree.png
 
@@ -433,6 +450,7 @@ Only an MVLC is required for this setup to work.
   Add the following line to the script.
 
   ::
+
       writeabs a32 d16 0xffff6090 1 # reset counters
 
   This will make sure the counters are reset when starting a DAQ run.

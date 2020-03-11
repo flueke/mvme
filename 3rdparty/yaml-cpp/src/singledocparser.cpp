@@ -21,7 +21,7 @@ SingleDocParser::SingleDocParser(Scanner& scanner, const Directives& directives)
       m_anchors{},
       m_curAnchor(0) {}
 
-SingleDocParser::~SingleDocParser() {}
+SingleDocParser::~SingleDocParser() = default;
 
 // HandleDocument
 // . Handles the next document
@@ -78,6 +78,12 @@ void SingleDocParser::HandleNode(EventHandler& eventHandler) {
 
   if (!anchor_name.empty())
     eventHandler.OnAnchor(mark, anchor_name);
+
+  // after parsing properties, an empty node is again a possibility
+  if (m_scanner.empty()) {
+    eventHandler.OnNull(mark, anchor);
+    return;
+  }
 
   const Token& token = m_scanner.peek();
 

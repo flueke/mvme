@@ -1,10 +1,85 @@
 ==================================================
-TODO list, not at all sorted by priority
+TODO list
 ==================================================
 
-* doc: mvlc and jumbo frames
+* qthelp: most images are links but they do show the binary file contents
+  instead of the image. Note that not all images behave this way. Some are not
+  clickable, e.g the very first 'mvme overview' image in the introduction.
 
-* trigger_io gui
+* mvme_root_client: runId is incorrect for live DAQ runs. it seems correct for replays.
+
+* heisencrash when deleting vme scripts? might have been due to changing
+  compile flags. not sure.
+
+* vme config tree
+--------------------------------------------------
+  - run scripts for container objects (depth first)
+  - move/reorder via drag and drop
+  - enable/disable for object trees under daq_start and daq_stop?
+
+* MVLC release work
+--------------------------------------------------
+  - use mvlc trigger io docs for the standalone mvlc doc
+  - lib design: (+ are things we want and that are mostly clear, ? are unclear things)
+    + direct mvlc com, direct vme com, stack upload, stack exec, irq setup,
+    + readout_worker, queued communication, lossless or lossfull queueing strategies
+    + blocking consumer channel (listfile) and non-blocking consumer channel (queue)
+    + stack -> readout parsing, readout reassembly
+    + stats, logging, python wrapper
+    ? trigger_io setup, automatic periodic stack setup
+
+  - multicreate: merging of the data stream. different strategies, one true way?
+
+analysis_ui: no small toolbar stats display with mvlc (rate, replayRate, etc)
+
+* do add in per pipe and per packet channel stats displays for the mvlc!
+* mvlc parser debugging
+* further debug the mvlc_eth mtdc pulser=7, multi_event>10 timeout problems.
+  how do the broken command buffers look exactly?
+* pausing and stopping an MVLC eth DAQ can still take forever
+  -> this is almost always caused by the mvlc error notifications going wild.
+  The MVLCObject code is stuck in the loop where the error buffers are handled.
+
+* change the analysis default filters generation to allow including custom
+  calibration operators and other things in the default_filters.analysis for
+  each module. The use case is to calibrate the module_timestamp to
+  microseconds by default and to allow custom calibrations for some of the
+  mdpp32_qdc time data.
+  Think about how this should be implemented. Some partial analysis or analyis
+  object library or something.
+  -> object rewrite code is already in place. When creating default filters the
+  source module is known, thus the object graph can be rewritten to connect to
+  that module. A problem is still the naming of things. Since the introduction
+  of directories for the default calibrations and histograms the indvidual
+  operator names can be pretty generic but the directory names should contain
+  the module name they're connected to. Use placeholders in the template names?
+  %m to be replaced by the actual module name?
+
+* config update from version 3 to 4 (introduction of vme_script variables):
+  What's done:
+  - marked the places where logging should be done
+
+  What's missing:
+  - use boost::log with a custom attribute or category or something to capture
+    the log output. or as a quick fix just pass in a loggger to the config
+    conversion routine.
+  - on the outside when loading a vme config and we do have a gui: detect if
+    config conversion from 3 to X is about to happen. If so pass a logger in
+    when converting and display the output in a new window. tell the user
+    what's going on and that they should check the config and save it if things
+    look ok.
+  - logging of what's changed
+  - user visible prompt (modal warning box) about the schema and script update.
+    also set the config to modified.
+
+* think about moving the business logic in vme_config_ui into factory functions
+  for new EventConfig and ModuleConfig instances. Also factor out things like
+  getting the next available mcst address.
+  -> done for EventConfig (vme_config_util.h)
+
+* doc: mvlc and jumbo frames. also test this
+
+* trigger_io gui [maybe]
   - show static connections when hovering over units.
   - highlight possible connections when hovering a pin
   - allow making connections by dragging from pin to pin or by clicking two
@@ -13,30 +88,19 @@ TODO list, not at all sorted by priority
   - ellide long names. maybe add logic to make the block wider when longer
     names are used or increase the width in general.
 
-* mvlc locking: use a separate lock for pipe stats. this should fix gui stalls
-  at low rates because the stats lock would only be taken for the short time
-  the stats update requires, not for the length of the read operation (which
-  might take the full timeout interval).
-
 http://www.sympnp.org/proceedings/57/G29.pdf
 
 * load and save button in the trigger ui editor are hidden now.
   implement the functionality!
   what should happen if the script is not a trigger io script? meaning the
   correct meta block doesn't exist in it?
+  -> display error message, leave existing script untouched
 * generate text file of input and output names used in the setup. this could be
   printed and used at experiment time to figure out what's what.
 
-* when no data arrives from the mvlc_eth while the debug gui is open the ui
-  thread gets very sluggish. this is because the debug gui polls the pipe queue
-  sizes which means it has to acquire the locks. at the same time the readout
-  thread will read till timeout so the lock is held for the timeout period.
-  I think the lock might be taken to get the pipe receive stats shown in the
-  daqstats widget.
-
 * when modifying the mvlc trigger io via the gui the vme config is not marked
   as modified. I'm not sure why because the underlying script does get
-  modified. maybe i'm ignoring the modification on purpose?
+  modified. Maybe i'm ignoring the modification on purpose?
 
 * daqcontrol listfile filename is not updated when using the vmusb
 * Event Server component only mentioned in the daq_control section of the docs.
@@ -47,10 +111,6 @@ http://www.sympnp.org/proceedings/57/G29.pdf
 
 * Help overlay for the analysis. Big fat arrows indicating data flow and arrows
   pointing at histograms.
-
-* add a vme script library for manual scripts and display the available script
-  in the 'add script' context menu. populate this with mvlc counter readouts
-  and soft trigger actication scripts.
 
 * Fix the mvlc_daq setup_trigger_io reset stuff
   Without doing a reset the stack will still be executed after having removed
@@ -66,11 +126,6 @@ http://www.sympnp.org/proceedings/57/G29.pdf
 * LUT editor minimize might not be correct. Test this more. Mostly I confuse
   myself when creating functions. Input bit order also is not documented (LSBit
   is the rightmost).
-
-* LUT editor: make the top section smaller when resizing the window. ideally it
-  would only just show all 6 input bits and nothing more. the bottom area can
-  then be used for the output bits.
-  https://stackoverflow.com/questions/8766633/how-to-determine-the-correct-size-of-a-qtablewidget
 
 * add readout side buffer sniffing similar to what's done on the analysis side.
 * after finishing a run/replay with pause enabled the next run will always
@@ -91,10 +146,6 @@ TODO: vary max_xfer for the above test
 * Linux, ETH, MTDC, Pulser 7 (event len 26-30), 10 max_xfer     -> TODO
 
 
-* vme scripts cannot be renamed while they're being edited
-
-* when removing an analysis object the eventwidgets are recreated and thus lose
-  their node expansions state. fix this at some point
 * make all name input dialogs only accept valid C identifiers
 
 * MVLC issues
@@ -103,12 +154,10 @@ TODO: vary max_xfer for the above test
   operations lead to connection error. for example when turning off the
   mvlc_usb the error poller will get FT_DEVICE_NOT_CONNECTED but the
   MVLC_VMEController will not be set to disconnected.
-* still deadlocks and short blocking of the ui especially when having the dev gui open.
-* Check the whole UI for things that are dead/obsolete when using the mvlc
-* Documentation needs updates
 
 * After a boot the firmware and hardware registers yield 0. Only after starting
   and stopping a DAQ those registers are populated. Try to narrow this down.
+  -> Test this again with the latest MVLC firmware
 * Running a VMEScript should completely disable any polling being done on the
   cmd pipe. Failing to do so will slow down script execution dramatically due
   to the time spent waiting for the lock whenever the polling code is waiting
@@ -139,6 +188,8 @@ they result in a timeout error. Do not immediately disconnect the MVLC.
   builds.
 
 * NSIS Installer: make the zadig installer less prominent and annoying.
+  -> Add a page asking if you're using the VMUSB. If true go to zadig page,
+  else skip it.
 
 * failing host lookups block the gui. espcially noticeable when loading a
   replay and starting it. the gui will feel unresponsive.

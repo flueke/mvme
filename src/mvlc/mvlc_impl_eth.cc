@@ -260,7 +260,7 @@ std::error_code Impl::connect()
     m_dataAddr = m_cmdAddr;
     m_dataAddr.sin_port = htons(DataPort);
 
-    // Lookup succeeded and we have now have two remote addresses, one for the
+    // Lookup succeeded and we now have two remote addresses, one for the
     // command and one for the data pipe.
     //
     // Now create two IPv4 UDP sockets and try to bind them to two consecutive
@@ -313,13 +313,13 @@ std::error_code Impl::connect()
 
         // Bind both sockets. In case of an error close the sockets and
         // continue with the loop.
-        if (int res = ::bind(m_cmdSock, reinterpret_cast<struct sockaddr *>(&cmdLocal),
+        if (::bind(m_cmdSock, reinterpret_cast<struct sockaddr *>(&cmdLocal),
                              sizeof(cmdLocal)))
         {
             goto try_again;
         }
 
-        if (int res = ::bind(m_dataSock, reinterpret_cast<struct sockaddr *>(&dataLocal),
+        if (::bind(m_dataSock, reinterpret_cast<struct sockaddr *>(&dataLocal),
                              sizeof(dataLocal)))
         {
             goto try_again;
@@ -345,7 +345,7 @@ std::error_code Impl::connect()
 
     // Call connect on the sockets so that we receive only datagrams
     // originating from the MVLC.
-    if (int res = ::connect(m_cmdSock, reinterpret_cast<struct sockaddr *>(&m_cmdAddr),
+    if (::connect(m_cmdSock, reinterpret_cast<struct sockaddr *>(&m_cmdAddr),
                             sizeof(m_cmdAddr)))
     {
         auto ec = std::error_code(errno, std::system_category());
@@ -354,7 +354,7 @@ std::error_code Impl::connect()
         return ec;
     }
 
-    if (int res = ::connect(m_dataSock, reinterpret_cast<struct sockaddr *>(&m_dataAddr),
+    if (::connect(m_dataSock, reinterpret_cast<struct sockaddr *>(&m_dataAddr),
                             sizeof(m_dataAddr)))
     {
         auto ec = std::error_code(errno, std::system_category());
@@ -368,6 +368,7 @@ std::error_code Impl::connect()
 
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
+#if 0
         if (auto ec = set_socket_write_timeout(getSocket(pipe), getWriteTimeout(pipe)))
         {
             LOG_TRACE("set_socket_write_timeout failed: %s, socket=%d",
@@ -375,6 +376,7 @@ std::error_code Impl::connect()
                       getSocket(pipe));
             return ec;
         }
+#endif
 
         if (auto ec = set_socket_read_timeout(getSocket(pipe), getReadTimeout(pipe)))
         {
@@ -552,19 +554,51 @@ unsigned Impl::getReadTimeout(Pipe pipe) const
 }
 
 // Standard MTU is 1500 bytes
-// Jumbos Frames are usually 9000 bytes
 // IPv4 header is 20 bytes
 // UDP header is 8 bytes
 static const size_t MaxOutgoingPayloadSize = 1500 - 20 - 8;
 
+// Note: it is not necessary to split writes into multiple calls to send()
+// because outgoing MVLC command buffers have to be smaller than the maximum,
+// non-jumbo ethernet MTU.
+// The send() call should return EMSGSIZE if the payload is too large to be
+// atomically transmitted.
+#ifdef _WIN32
 std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
                             size_t &bytesTransferred)
 {
-    // Note: it is not necessary to split this into multiple calls to send()
-    // because outgoing MVLC command buffers have to be smaller than the
-    // maximum, non-jumbo ethernet MTU.
-    // The send() call should return EMSGSIZE if the payload is too large to be
-    // atomically transmitted.
+    assert(size <= MaxOutgoingPayloadSize);
+    assert(static_cast<unsigned>(pipe) < PipeCount);
+
+    if (static_cast<unsigned>(pipe) >= PipeCount)
+        return make_error_code(MVLCErrorCode::InvalidPipe);
+
+    bytesTransferred = 0;
+
+    if (!isConnected())
+        return make_error_code(MVLCErrorCode::IsDisconnected);
+
+    ssize_t res = ::send(getSocket(pipe), reinterpret_cast<const char *>(buffer), size, 0);
+
+    if (res == SOCKET_ERROR)
+    {
+        int err = WSAGetLastError();
+
+        if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK)
+            return make_error_code(MVLCErrorCode::SocketWriteTimeout);
+
+        // Maybe TODO: use WSAGetLastError here with a WSA specific error
+        // category like this: https://gist.github.com/bbolli/710010adb309d5063111889530237d6d
+        return make_error_code(MVLCErrorCode::SocketError);
+    }
+
+    bytesTransferred = res;
+    return {};
+}
+#else
+std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
+                            size_t &bytesTransferred)
+{
     assert(size <= MaxOutgoingPayloadSize);
     assert(static_cast<unsigned>(pipe) < PipeCount);
 
@@ -579,14 +613,19 @@ std::error_code Impl::write(Pipe pipe, const u8 *buffer, size_t size,
     ssize_t res = ::send(getSocket(pipe), reinterpret_cast<const char *>(buffer), size, 0);
 
     if (res < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return make_error_code(MVLCErrorCode::SocketWriteTimeout);
+
         return std::error_code(errno, std::system_category());
+    }
 
     bytesTransferred = res;
     return {};
 }
+#endif
 
 #ifdef __WIN32
-// FIXME: use WSAGetLastError here once the std;:error_code infrastructure exists
 static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t size,
                                                  u16 &bytesTransferred, int timeout_ms)
 {
@@ -606,8 +645,15 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
 
     ssize_t res = ::recv(sockfd, reinterpret_cast<char *>(dest), size, 0);
 
-    if (res < 0)
+    if (res == SOCKET_ERROR)
+    {
+        int err = WSAGetLastError();
+
+        if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK)
+            return make_error_code(MVLCErrorCode::SocketReadTimeout);
+
         return make_error_code(MVLCErrorCode::SocketError);
+    }
 
     bytesTransferred = res;
     return {};
@@ -621,7 +667,12 @@ static inline std::error_code receive_one_packet(int sockfd, u8 *dest, size_t si
     ssize_t res = ::recv(sockfd, reinterpret_cast<char *>(dest), size, 0);
 
     if (res < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return make_error_code(MVLCErrorCode::SocketReadTimeout);
+
         return std::error_code(errno, std::system_category());
+    }
 
     bytesTransferred = res;
     return {};
@@ -635,7 +686,10 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     unsigned pipe = static_cast<unsigned>(pipe_);
     auto &pipeStats = m_pipeStats[pipe];
 
-    ++pipeStats.receiveAttempts;
+    {
+        UniqueLock guard(m_statsMutex);
+        ++pipeStats.receiveAttempts;
+    }
 
     if (pipe >= PipeCount)
     {
@@ -657,12 +711,16 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     if (res.ec && res.bytesTransferred == 0)
         return res;
 
-    ++pipeStats.receivedPackets;
-    pipeStats.receivedBytes += res.bytesTransferred;
-    ++pipeStats.packetSizes[res.bytesTransferred];
+    {
+        UniqueLock guard(m_statsMutex);
+        ++pipeStats.receivedPackets;
+        pipeStats.receivedBytes += res.bytesTransferred;
+        ++pipeStats.packetSizes[res.bytesTransferred];
+    }
 
     if (!res.hasHeaders())
     {
+        UniqueLock guard(m_statsMutex);
         ++pipeStats.shortPackets;
         LOG_WARN("  pipe=%u, received data is smaller than the MVLC UDP header size", pipe);
         res.ec = make_error_code(MVLCErrorCode::ShortRead);
@@ -682,20 +740,25 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     {
         LOG_WARN("  pipe=%u, %u leftover bytes in received packet",
                  pipe, res.leftoverBytes());
+        UniqueLock guard(m_statsMutex);
         ++pipeStats.packetsWithResidue;
     }
 
     if (res.packetChannel() >= NumPacketChannels)
     {
         LOG_WARN("  pipe=%u, packet channel number out of range: %u", pipe, res.packetChannel());
+        UniqueLock guard(m_statsMutex);
         ++pipeStats.packetChannelOutOfRange;
         res.ec = make_error_code(MVLCErrorCode::UDPPacketChannelOutOfRange);
         return res;
     }
 
     auto &channelStats = m_packetChannelStats[res.packetChannel()];
-    ++channelStats.receivedPackets;
-    channelStats.receivedBytes += res.bytesTransferred;
+    {
+        UniqueLock guard(m_statsMutex);
+        ++channelStats.receivedPackets;
+        channelStats.receivedBytes += res.bytesTransferred;
+    }
 
     {
         auto &lastPacketNumber = m_lastPacketNumbers[res.packetChannel()];
@@ -716,12 +779,17 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
             }
 
             res.lostPackets = loss;
+            UniqueLock guard(m_statsMutex);
             pipeStats.lostPackets += loss;
             channelStats.lostPackets += loss;
         }
 
         lastPacketNumber = res.packetNumber();
-        ++channelStats.packetSizes[res.bytesTransferred];
+
+        {
+            UniqueLock guard(m_statsMutex);
+            ++channelStats.packetSizes[res.bytesTransferred];
+        }
     }
 
     // Check where nextHeaderPointer is pointing to
@@ -733,6 +801,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
 
         if (headerp >= end)
         {
+            UniqueLock guard(m_statsMutex);
             ++pipeStats.headerOutOfRange;
             ++channelStats.headerOutOfRange;
 
@@ -747,6 +816,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
             LOG_TRACE("  pipe=%u, nextHeaderPointer=%u -> header=0x%08x",
                       pipe, res.nextHeaderPointer(), header);
             u32 type = get_frame_type(header);
+            UniqueLock guard(m_statsMutex);
             ++pipeStats.headerTypes[type];
             ++channelStats.headerTypes[type];
         }
@@ -755,6 +825,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
     {
         LOG_TRACE("  pipe=%u, NoHeaderPointerPresent, eth header1=0x%08x",
                   pipe, res.header1());
+        UniqueLock guard(m_statsMutex);
         ++pipeStats.noHeader;
         ++channelStats.noHeader;
     }
@@ -823,7 +894,6 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
     assert(receiveBuffer.available() == 0);
 
     size_t readCount = 0u;
-    auto &pipeStats = m_pipeStats[pipe];
     const auto tStart = std::chrono::high_resolution_clock::now();
 
     while (size > 0)
@@ -885,16 +955,19 @@ std::error_code Impl::getReadQueueSize(Pipe pipe_, u32 &dest)
 
 std::array<PipeStats, PipeCount> Impl::getPipeStats() const
 {
+    UniqueLock guard(m_statsMutex);
     return m_pipeStats;
 }
 
 std::array<PacketChannelStats, NumPacketChannels> Impl::getPacketChannelStats() const
 {
+    UniqueLock guard(m_statsMutex);
     return m_packetChannelStats;
 }
 
 void Impl::resetPipeAndChannelStats()
 {
+    UniqueLock guard(m_statsMutex);
     m_pipeStats = {};
     m_packetChannelStats = {};
 }

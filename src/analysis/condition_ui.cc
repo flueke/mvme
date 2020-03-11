@@ -1,6 +1,27 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "condition_ui.h"
 #include "condition_ui_p.h"
 
+#include <algorithm>
 #include <QMenu>
 #include <QPushButton>
 #include <QStackedWidget>
@@ -213,7 +234,7 @@ void ConditionTreeWidget::repopulate()
     auto analysis = m_d->getAnalysis();
     auto conditions = analysis->getConditions(m_d->getEventId());
 
-    qSort(conditions.begin(), conditions.end(), [](auto c1, auto c2) {
+    std::sort(conditions.begin(), conditions.end(), [](auto c1, auto c2) {
         return c1->objectName() < c2->objectName();
     });
 
@@ -483,7 +504,7 @@ ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
 
     // populate the toolbar
     {
-        auto tb = m_d->m_toolbar;
+        //auto tb = m_d->m_toolbar;
     }
 
     // layout

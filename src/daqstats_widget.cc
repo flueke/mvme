@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -277,7 +277,6 @@ struct DAQStatsWidgetPrivate
             {
                 auto mvlc_eth = reinterpret_cast<mesytec::mvlc::eth::Impl *>(
                     mvlc->getImpl());
-                auto guard = mvlc->getLocks().lockBoth();
                 auto dataPipeStats = mvlc_eth->getPipeStats()[mesytec::mvlc::DataPipe];
 
                 update_MVLC_ETH(dataPipeStats, prevCounters.mvlcDataPipeStats, dt_s);

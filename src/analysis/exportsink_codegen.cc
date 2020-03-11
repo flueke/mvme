@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 /* TODO
  * - fail on empty name or when failing to generate an identifier
  * - add version info, export date, etc to the template variables
@@ -30,8 +50,7 @@ namespace TemplateRenderFlags
 
 static QString render_to_string(
     const QString &templateFilename,
-    mu::data &templateData,
-    TemplateRenderFlags::Flag flags = 0)
+    mu::data &templateData)
 {
     QFile templateFile(templateFilename);
 
@@ -66,7 +85,7 @@ static void render_to_file(
         return;
     }
 
-    auto rendered = render_to_string(templateFilename, templateData, flags);
+    auto rendered = render_to_string(templateFilename, templateData);
 
     if (logger)
     {
@@ -347,12 +366,10 @@ QMap<QString, QString> ExportSinkCodeGenerator::generateMap() const
     auto renderer = [&result] (const QString &templateFilename,
                                mu::data &templateData,
                                const QString &outputFilename,
-                               TemplateRenderFlags::Flag flags,
-                               Logger logger)
+                               TemplateRenderFlags::Flag,
+                               Logger)
     {
-        result[outputFilename] = render_to_string(templateFilename,
-                                                  templateData,
-                                                  flags);
+        result[outputFilename] = render_to_string(templateFilename, templateData);
     };
 
     m_d->generate(renderer, Logger());

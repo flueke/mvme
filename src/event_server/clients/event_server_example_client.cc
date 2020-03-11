@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 //#include "event_server_lib.h"
 #include <event_server/common/event_server_lib.h>
 
@@ -57,11 +77,13 @@ class Context: public mvme::event_server::Client
 
 void Context::serverInfo(const Message &msg, const json &info)
 {
+    (void ) msg;
     cout << __FUNCTION__ << ": serverInfo=" << endl << info.dump(2) << endl;
 }
 
 void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
 {
+    (void ) msg;
     cout << __FUNCTION__ << ": streamInfo JSON data:" << endl
         << streamInfo.infoJson.dump(2) << endl;
 
@@ -118,6 +140,7 @@ void Context::eventData(const Message &msg, int eventIndex,
 
 void Context::endRun(const Message &msg, const json &info)
 {
+    (void ) msg;
     m_stats.tEnd = ClockType::now();
     m_stats.messageCount++;
 
@@ -155,7 +178,7 @@ void Context::endRun(const Message &msg, const json &info)
     if (m_singleRun) m_quit = true;
 }
 
-void Context::error(const Message &msg, const std::exception &e)
+void Context::error(const Message &, const std::exception &)
 {
     m_stats.errorCount++;
 }

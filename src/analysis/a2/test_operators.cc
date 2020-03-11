@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "a2.h"
 #include "a2_impl.h"
 #include "a2_data_filter.h"
@@ -113,7 +133,7 @@ static void BM_extractor_process_module_data(benchmark::State &state)
 }
 BENCHMARK(BM_extractor_process_module_data);
 
-static void TEST_listfilter_extractor(benchmark::State &state)
+static void TEST_listfilter_extractor(benchmark::State &)
 {
     // single extractor, 16 bit, not reversed, wordcount=2, repetitions=4
     {
@@ -537,7 +557,6 @@ static void BM_array_map_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputData);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -599,7 +618,6 @@ static void BM_keep_previous_step(benchmark::State &state)
     {
         inputDataSets[1][i] = inputDataSets[0][inputSize - i - 1];
     }
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -662,7 +680,6 @@ static void BM_aggregate_sum_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputData);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -721,7 +738,6 @@ static void BM_aggregate_multiplicity_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputData);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -772,7 +788,6 @@ static void BM_aggregate_max_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputData);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -821,7 +836,6 @@ static void BM_h1d_sink_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputData);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -908,7 +922,6 @@ static void BM_h2d_sink_step(benchmark::State &state)
     };
 
     static const s32 inputSize = ArrayCount(xValues);
-    static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -953,8 +966,6 @@ static void BM_h2d_sink_step(benchmark::State &state)
         0, // xIndex
         0, // yIndex
         histo);
-
-    auto d = reinterpret_cast<H2DSinkData *>(sink.d);
 
     while (state.KeepRunning())
     {

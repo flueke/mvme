@@ -1,9 +1,30 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #ifndef __MVME_MVLC_VME_CONTROLLER_H__
 #define __MVME_MVLC_VME_CONTROLLER_H__
 
 #include <QTimer>
 #include "vme_controller.h"
 #include "mvlc/mvlc_qt_object.h"
+#include "mvlc/mvlc_impl_eth.h"
 
 namespace mesytec
 {
@@ -38,6 +59,7 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         VMEError read32(u32 address, u32 *value, u8 amod) override;
         VMEError read16(u32 address, u16 *value, u8 amod) override;
 
+        // FIXME: MVLC does not use the fifo flag. How does it behave? Increment or not?
         VMEError blockRead(u32 address, u32 transfers,
                            QVector<u32> *dest, u8 amod, bool fifo) override;
 
@@ -60,6 +82,10 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
     private:
         MVLCObject *m_mvlc;
         MVLCNotificationPoller m_notificationPoller;
+
+        // FIXME: move the eth stats debug printing somewhere else. It does not belong here.
+        std::array<eth::PipeStats, PipeCount> prevPipeStats = {{{},{}}};
+        QDateTime lastUpdateTime;
 };
 
 } // end namespace mvlc

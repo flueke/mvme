@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvlc_util.h"
 
 #include <QDebug>
@@ -53,6 +73,7 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::SetBase:
             case CommandType::ResetBase:
             case CommandType::MetaBlock:
+            case CommandType::SetVariable:
                 break;
 
             case CommandType::Write:
@@ -120,10 +141,6 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
                 } break;
 
             case CommandType::Wait:
-            case CommandType::BLTCount:
-            case CommandType::BLTFifoCount:
-            case CommandType::MBLTCount:
-            case CommandType::MBLTFifoCount:
             case CommandType::VMUSB_ReadRegister:
             case CommandType::VMUSB_WriteRegister:
                 qDebug() << __FUNCTION__ << " unsupported VME Script command:"

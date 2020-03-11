@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvlc/mvlc_trigger_io_script.h"
 
 #include <boost/range/adaptor/indexed.hpp>
@@ -114,6 +134,8 @@ ScriptPart write_strobe_connection(u16 offset, u16 value, const QString &sourceN
 
 ScriptParts generate(const trigger_io::Timer &unit, int index)
 {
+    (void) index;
+
     ScriptParts ret;
     ret += write_unit_reg(2, static_cast<u16>(unit.range), "range (0:ns, 1:us, 2:ms, 3:s)");
     ret += write_unit_reg(4, unit.delay_ns, "delay [ns]");
@@ -123,6 +145,8 @@ ScriptParts generate(const trigger_io::Timer &unit, int index)
 
 ScriptParts generate(const trigger_io::IRQ_Unit &unit, int index)
 {
+    (void) index;
+
     ScriptParts ret;
     ret += write_unit_reg(0, static_cast<u16>(unit.irqIndex),
                           "irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)");
@@ -181,6 +205,8 @@ ScriptParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags)
 
 ScriptParts generate(const trigger_io::StackBusy &unit, int index)
 {
+    (void) index;
+
     ScriptParts ret;
     ret += write_unit_reg(0, unit.stackIndex, "stack_index");
     return ret;
@@ -233,14 +259,19 @@ ScriptParts write_lut(const LUT &lut)
 
 ScriptParts generate(const trigger_io::StackStart &unit, int index)
 {
+    (void) index;
+
     ScriptParts ret;
     ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
     ret += write_unit_reg(2, unit.stackIndex, "stack index");
+    ret += write_unit_reg(4, unit.delay_ns, "delay [ns]");
     return ret;
 }
 
 ScriptParts generate(const trigger_io::MasterTrigger &unit, int index)
 {
+    (void) index;
+
     ScriptParts ret;
     ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
     return ret;
@@ -248,6 +279,9 @@ ScriptParts generate(const trigger_io::MasterTrigger &unit, int index)
 
 ScriptParts generate(const trigger_io::Counter &unit, int index)
 {
+    (void) unit;
+    (void) index;
+
     return {};
 }
 
@@ -728,7 +762,7 @@ QString generate_trigger_io_script_text(
         "############################################################",
         "# MVLC Trigger I/O specific meta information               #",
         "############################################################",
-        vme_script::MetaBlockBegin + " " + vme_script::MetaTagMVLCTriggerIO,
+        vme_script::MetaBlockBegin + " " + MetaTagMVLCTriggerIO,
         generate_mvlc_meta_block(ioCfg, flags),
         vme_script::MetaBlockEnd
     });
@@ -822,7 +856,7 @@ void parse_mvlc_meta_block(const vme_script::MetaBlock &meta, TriggerIO &ioCfg)
         return QString::fromStdString(y.as<std::string>());
     };
 
-    assert(meta.tag() == vme_script::MetaTagMVLCTriggerIO);
+    assert(meta.tag() == MetaTagMVLCTriggerIO);
 
     YAML::Node yRoot = YAML::Load(meta.textContents.toStdString());
 
@@ -1072,6 +1106,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
 
             unit.activate = static_cast<bool>(writes[unitIndex][0]);
             unit.stackIndex = writes[unitIndex][2];
+            unit.delay_ns = writes[unitIndex][4];
 
             ioCfg.l3.connections[unitIndex] = { writes[unitIndex][0x80] };
         }
@@ -1089,7 +1124,6 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
         for (const auto &kv: ioCfg.l3.counters | indexed(0))
         {
             unsigned unitIndex = kv.index() + Level3::CountersOffset;
-            auto &unit = kv.value();
 
             ioCfg.l3.connections[unitIndex] = { writes[unitIndex][0x80], writes[unitIndex][0x82] };
         }
@@ -1156,7 +1190,7 @@ TriggerIO parse_trigger_io_script_text(const QString &text)
     // meta block handling
     auto metaCmd = get_first_meta_block(commands);
 
-    if (metaCmd.metaBlock.tag() == vme_script::MetaTagMVLCTriggerIO)
+    if (metaCmd.metaBlock.tag() == MetaTagMVLCTriggerIO)
         parse_mvlc_meta_block(metaCmd.metaBlock, ioCfg);
 
     return ioCfg;

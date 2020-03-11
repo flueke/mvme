@@ -1,3 +1,5 @@
+.. index:: Analysis
+
 ==================================================
 Analysis
 ==================================================
@@ -28,7 +30,7 @@ calibrated histograms in the bottom view.
 
 .. _analysis-ui-block-diagram:
 
-.. autofigure:: images/analysis_ui_block_diagram.png
+.. figure:: images/analysis_ui_block_diagram.png
     :scale-latex: 100%
 
     Analysis UI Block Diagram
@@ -53,7 +55,7 @@ Operators can be moved between levels by dragging and dropping them.
 
 .. _analysis-ui-screenshot:
 
-.. autofigure:: images/analysis_ui_simple_io_highlights.png
+.. figure:: images/analysis_ui_simple_io_highlights.png
     :scale-latex: 100%
 
     Analysis UI Screenshot
@@ -76,7 +78,7 @@ Clicking any of the input buttons will make the user interface enter "input
 select mode". In this mode valid outputs for the selected input are
 highlighted.
 
-.. autofigure:: images/analysis_ui_add_op_input_select.png
+.. figure:: images/analysis_ui_add_op_input_select.png
     :scale-latex: 100%
 
     Input select mode
@@ -115,7 +117,7 @@ histograms of the same size as the input array will be created.
 
 Double-click on the *H1D* node to open the histogram array widget:
 
-.. autofigure:: images/analysis_histo1d_listwidget.png
+.. figure:: images/analysis_histo1d_listwidget.png
 
     1D Histogram Array Widget
 
@@ -210,7 +212,7 @@ Double-click on the *H1D* node to open the histogram array widget:
   This view allows to quickly see if any or all channels of a module are
   responding.
 
-.. autofigure:: images/analysis_histo1d_combined_view.png
+.. figure:: images/analysis_histo1d_combined_view.png
 
     2D Combined View of MDPP-16_SCP amplitude values
 
@@ -226,7 +228,7 @@ Double-click on the *H1D* node to open the histogram array widget:
 accumulate. When selecting the inputs you will need to expand other operators
 and select the desired index directly.
 
-.. autofigure:: images/analysis_ui_add_histo2d.png
+.. figure:: images/analysis_ui_add_histo2d.png
     :scale-latex: 80
 
     Adding a 2D Histogram
@@ -238,7 +240,7 @@ falling within the given interval will be accumulated.
 
 Double-click on a *H2D* node to open the histogram widget:
 
-.. autofigure:: images/analysis_histo2d_widget.png
+.. figure:: images/analysis_histo2d_widget.png
 
     2D Histogram Widget
 
@@ -512,7 +514,7 @@ User Interface
 In the Analysis UI right-click a Module and select *New -> Filter Extractor* to
 add a new filter.
 
-.. autofigure:: images/analysis_add_filter_extractor.png
+.. figure:: images/analysis_add_filter_extractor.png
     :scale-latex: 60%
 
     Filter Extractor UI
@@ -553,7 +555,7 @@ calibrate input parameters using *unitMin* and *unitMax* values.
 Each input parameters ``[lowerLimit, upperLimit)`` interval is mapped to the
 outputs ``[unitMin, unitMax)`` interval.
 
-.. autofigure:: images/analysis_op_Calibration.png
+.. figure:: images/analysis_op_Calibration.png
     :scale-latex: 80%
 
 With *calibrate()*: ::
@@ -563,7 +565,7 @@ With *calibrate()*: ::
 Limits can be specified individually for each address in the input array. Use
 the *Apply* button to set all addresses to the global min and max values.
 
-.. autofigure:: images/analysis_calibration_ui.png
+.. figure:: images/analysis_calibration_ui.png
     :scale-latex: 80%
 
     Calibration UI
@@ -582,11 +584,11 @@ Previous Value
 Outputs the input array from the previous event. Optionally outputs the last
 input that was valid.
 
-.. autofigure:: images/analysis_op_PreviousValue.png
+.. figure:: images/analysis_op_PreviousValue.png
     :scale-latex: 80%
 
 
-.. autofigure:: images/analysis_op_PreviousValue_explanation.png
+.. figure:: images/analysis_op_PreviousValue_explanation.png
 
     Behaviour of Previous Value over time.
 
@@ -604,7 +606,7 @@ Difference
 
 Produces the element-wise difference of its two inputs *A* and *B*:
 
-.. autofigure:: images/analysis_op_Difference.png
+.. figure:: images/analysis_op_Difference.png
     :scale-latex: 80%
 
 The output unit label is taken from input *A*. If ``A[i]`` or ``B[i]`` are
@@ -625,7 +627,7 @@ Calculates the sum (optionally the mean) of the elements of its input array.
 This operator produces an output array of size 1.
 
 
-.. autofigure:: images/analysis_op_Sum.png
+.. figure:: images/analysis_op_Sum.png
     :scale-latex: 80%
 
 When calculating the mean the number of *valid* input values is used as the denominator.
@@ -638,12 +640,12 @@ Array Map
 Allows selecting and reordering arbitrary indices from a variable number of
 input arrays.
 
-.. autofigure:: images/analysis_op_ArrayMap.png
+.. figure:: images/analysis_op_ArrayMap.png
     :scale-latex: 80%
 
 The mappings are created via the user interface:
 
-.. autofigure:: images/analysis_array_map.png
+.. figure:: images/analysis_array_map.png
     :scale-latex: 60%
 
     Array Map UI
@@ -662,7 +664,7 @@ in-between them. Focus a list and press ``Ctrl-A`` to select all items.
 1D Range Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofigure:: images/analysis_op_RangeFilter1D.png
+.. figure:: images/analysis_op_RangeFilter1D.png
     :scale-latex: 80%
 
 Keeps values if they fall inside (optionally outside) a given interval. Input
@@ -673,7 +675,7 @@ values that do not match the criteria are set to *invalid* in the output.
 2D Rectangle Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofigure:: images/analysis_op_RectFilter2D.png
+.. figure:: images/analysis_op_RectFilter2D.png
     :scale-latex: 80%
 
 Produces a single *valid* output value if both inputs satisfy an interval based
@@ -684,7 +686,7 @@ condition.
 Condition Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofigure:: images/analysis_op_ConditionFilter.png
+.. figure:: images/analysis_op_ConditionFilter.png
     :scale-latex: 80%
 
 Copies data input to output if the corresponding element of the condition input
@@ -747,7 +749,7 @@ See :ref:`Working with 2D histograms <analysis-working-with-2d-histos>` for deta
 Export Sink
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofigure:: images/analysis_export_sink_ui.png
+.. figure:: images/analysis_export_sink_ui.png
     :scale-latex: 60%
 
 .. _ROOT: https://root.cern.ch/
@@ -803,7 +805,7 @@ types may not match. In this case auto-assignment of analysis objects to VME
 modules is tried first. If auto-assignment is not possible the "Module
 assignment" dialog will be shown.
 
-.. autofigure:: images/analysis_import_ui.png
+.. figure:: images/analysis_import_ui.png
     :scale-latex: 100%
 
     Module assignment dialog

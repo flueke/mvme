@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #ifndef __MVLC_CONSTANTS_H__
 #define __MVLC_CONSTANTS_H__
 
@@ -355,6 +375,9 @@ namespace eth
 
 namespace registers
 {
+    // Send gap for USB in 0.415us. Defaults to 20000 == 8.3ms
+    static const u16 usb_send_gap           = 0x0400;
+
     static const u16 own_ip_lo              = 0x4400;
     static const u16 own_ip_hi              = 0x4402;
     static const u16 StoreIPInFlash         = 0x4404;
@@ -413,8 +436,10 @@ enum class Pipe: u8
     Data = DataPipe,
 };
 
-static const unsigned DefaultWriteTimeout_ms = 250;
-static const unsigned DefaultReadTimeout_ms  = 250;
+// Note: The write timeout applies to USB only. When using ethernet the sockets
+// are set to blocking mode in the outgoing direction.
+static const unsigned DefaultWriteTimeout_ms = 500;
+static const unsigned DefaultReadTimeout_ms  = 500;
 
 enum class ConnectionType
 {

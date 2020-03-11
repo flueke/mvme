@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -176,7 +176,7 @@ class LIBMVME_EXPORT AnalysisObject:
          * The purpose of this method is to pull any additional required information from
          * cloneSource and copy it to the clone.
          * Also steps like creating a new random seed have to be performed here. */
-        virtual void postClone(const AnalysisObject *cloneSource) {}
+        virtual void postClone(const AnalysisObject *cloneSource) { (void) cloneSource; }
 
     private:
         ObjectFlags::Flags m_flags = ObjectFlags::None;
@@ -416,11 +416,6 @@ class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
     public:
         using PipeSourceInterface::PipeSourceInterface;
 
-        /* Use beginRun() to preallocate the outputs and setup internal state.
-         * This will also be called by Analysis UI to be able to get array
-         * sizes from operator output pipes! */
-        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override {}
-
         virtual ~SourceInterface() {}
 
         /** The id of the VME module this object is attached to. Only relevant for data
@@ -446,9 +441,6 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
     public:
         using PipeSourceInterface::PipeSourceInterface;
 
-        /* Use beginRun() to preallocate the outputs and setup internal state. */
-        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override {}
-
         virtual s32 getNumberOfSlots() const = 0;
 
         virtual Slot *getSlot(s32 slotIndex) = 0;
@@ -467,8 +459,8 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
         void setRank(s32 rank) { m_rank = rank; }
         s32 getRank() const { return m_rank; }
 
-        virtual void slotConnected(Slot *slot) {}
-        virtual void slotDisconnected(Slot *slot) {}
+        virtual void slotConnected(Slot *slot) { (void) slot; }
+        virtual void slotDisconnected(Slot *slot) { (void) slot; }
 
         virtual bool hasVariableNumberOfSlots() const { return false; }
         virtual bool addSlot() { return false; }
@@ -501,8 +493,8 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
 
         // PipeSourceInterface
         s32 getNumberOfOutputs() const override { return 0; }
-        QString getOutputName(s32 outputIndex) const override { return QString(); }
-        Pipe *getOutput(s32 index) override { return nullptr; }
+        QString getOutputName(s32 outputIndex) const override { (void) outputIndex; return QString(); }
+        Pipe *getOutput(s32 index) override { (void) index; return nullptr; }
 
         virtual size_t getStorageSize() const = 0;
 
@@ -531,8 +523,8 @@ class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
 
         // PipeSourceInterface
         s32 getNumberOfOutputs() const override { return 0; }
-        QString getOutputName(s32 outputIndex) const override { return QString(); }
-        Pipe *getOutput(s32 index) override { return nullptr; }
+        QString getOutputName(s32 outputIndex) const override { (void) outputIndex; return QString(); }
+        Pipe *getOutput(s32 index) override { (void) index; return nullptr; }
 
         virtual s32 getNumberOfBits() const = 0;
 };
@@ -705,7 +697,7 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
         virtual s32 getNumberOfOutputs() const override { return 1; }
-        virtual QString getOutputName(s32 outputIndex) const override { return QSL("Combined and extracted data array"); }
+        virtual QString getOutputName(s32 outputIndex) const override { (void) outputIndex; return QSL("Combined and extracted data array"); }
         virtual Pipe *getOutput(s32 index) override { return index == 0 ? &m_output : nullptr; }
 
         virtual void read(const QJsonObject &json) override;
@@ -924,7 +916,7 @@ class LIBMVME_EXPORT Difference: public OperatorInterface
 
         // PipeSourceInterface
         s32 getNumberOfOutputs() const override { return 1; }
-        QString getOutputName(s32 outputIndex) const override { return QSL("difference"); }
+        QString getOutputName(s32 outputIndex) const override { (void) outputIndex; return QSL("difference"); }
         Pipe *getOutput(s32 index) override { return (index == 0) ? &m_output : nullptr; }
 
         // OperatorInterface
@@ -939,8 +931,8 @@ class LIBMVME_EXPORT Difference: public OperatorInterface
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual void slotConnected(Slot *slot) override;
-        virtual void slotDisconnected(Slot *slot) override;
+        void slotConnected(Slot *slot) override;
+        void slotDisconnected(Slot *slot) override;
 
         virtual QString getDisplayName() const override { return QSL("Difference"); }
         virtual QString getShortName() const override { return QSL("Diff"); }
@@ -1233,8 +1225,9 @@ class LIBMVME_EXPORT BinarySumDiff: public OperatorInterface
         // Inputs
         virtual s32 getNumberOfSlots() const override;
         virtual Slot *getSlot(s32 slotIndex) override;
-        virtual void slotConnected(Slot *slot) override;
-        virtual void slotDisconnected(Slot *slot) override;
+
+        void slotConnected(Slot *slot) override;
+        void slotDisconnected(Slot *slot) override;
 
         // Outputs
         virtual s32 getNumberOfOutputs() const override;
@@ -1881,6 +1874,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         // Directory Objects
         //
         const DirectoryVector &getDirectories() const { return m_directories; }
+        DirectoryVector &getDirectories() { return m_directories; }
 
         const DirectoryVector getDirectories(const QUuid &eventId,
                                              const DisplayLocation &loc = DisplayLocation::Any) const;

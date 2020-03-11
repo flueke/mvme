@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -19,7 +19,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_script.h"
+#include "vme_script_p.h"
 
+#include <cmath>
+#include <cstring>
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
@@ -30,10 +33,13 @@
 #include <QThread>
 
 #include "util.h"
+#include "util/qt_container.h"
 #include "vme_controller.h"
 #include "vmusb.h"
 
+// FIXME: these should be restructed
 #include "mvlc/mvlc_vme_controller.h"
+#include "analysis/a2/a2_exprtk.h"
 
 
 namespace vme_script
@@ -125,17 +131,29 @@ T parseValue(const QString &str)
         return parseBinaryLiteral<T>(str);
     }
 
-    bool ok;
+    // Accepts dec, hex and octal values. Leaves 'ok' set to false when
+    // encountering a negative or a float value.
+    bool ok = false;
     qulonglong val = str.toULongLong(&ok, 0);
 
+    // Try parsing as a floating point value.
     if (!ok)
-        throw "invalid data value";
+    {
+        auto fval = std::round(str.toFloat(&ok));
+
+        if (!ok)
+            throw QSL("invalid numeric value");
+
+        if (fval < 0.0)
+            throw QSL("given numeric value is negative");
+
+        val = fval;
+    }
 
     constexpr auto maxValue = std::numeric_limits<T>::max();
 
     if (val > maxValue)
-        throw QString("given numeric value is out of range. max=%1")
-            .arg(maxValue, 0, 16);
+        throw QSL("given numeric value is out of range. max=%1").arg(maxValue, 0, 16);
 
     return val;
 }
@@ -145,45 +163,6 @@ template<>
 QString parseValue(const QString &str)
 {
     return str;
-}
-
-void maybe_set_warning(Command &cmd, int lineNumber)
-{
-    cmd.lineNumber = lineNumber;
-
-    switch (cmd.type)
-    {
-        case CommandType::SetBase:
-            {
-                if ((cmd.address & 0xffff) != 0)
-                {
-                    cmd.warning = QSL("Given base address has some of the low 16-bits set");
-                }
-            } break;
-
-        default:
-            break;
-    }
-
-    if (cmd.warning.isEmpty())
-    {
-        switch (cmd.type)
-        {
-            case CommandType::BLTCount:
-            case CommandType::BLTFifoCount:
-            case CommandType::MBLTCount:
-            case CommandType::MBLTFifoCount:
-                {
-                    if (cmd.address >= (1 << 16))
-                    {
-                        cmd.warning = QSL("Given block_address exceeds 0xffff");
-                    }
-                } break;
-
-            default:
-                break;
-        }
-    }
 }
 
 Command parseRead(const QStringList &args, int lineNumber)
@@ -283,27 +262,6 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
     result.addressMode = parseAddressMode(args[1]);
     result.address = parseAddress(args[2]);
     result.transfers = parseValue<u32>(args[3]);
-
-    return result;
-}
-
-Command parseBlockTransferCountRead(const QStringList &args, int lineNumber)
-{
-    auto usage = (QString("%1 <register_address_mode> <register_data_width> <register_address>"
-                         "<count_mask> <block_address_mode> <block_address>")
-                  .arg(args[0]));
-
-    if (args.size() != 7)
-        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
-
-    Command result;
-    result.type = commandType_from_string(args[0]);
-    result.addressMode = parseAddressMode(args[1]);
-    result.dataWidth = parseDataWidth(args[2]);
-    result.address = parseAddress(args[3]);
-    result.countMask = parseValue<u32>(args[4]);
-    result.blockAddressMode = parseAddressMode(args[5]);
-    result.blockAddress = parseAddress(args[6]);
 
     return result;
 }
@@ -450,33 +408,103 @@ Command parse_mvlc_writespecial(const QStringList &args, int lineNumber)
     return result;
 }
 
+Command parse_write_float_word(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("write_float_word <address_mode> <address> <part> <value>");
+
+    if (args.size() != 5)
+        throw ParseError(QSL("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = CommandType::Write;
+    result.addressMode = parseAddressMode(args[1]);
+    result.address = parseAddress(args[2]);
+    result.dataWidth = DataWidth::D16;
+
+    unsigned part = 0;
+
+    {
+        const QString &partStr = args[3].toLower();
+
+        if (partStr == "lower" || partStr == "0")
+            part = 0;
+        else if (partStr == "upper" || partStr == "1")
+            part = 1;
+        else
+        {
+            throw ParseError(
+                QSL("Invalid float part specification '%1'."
+                    " Valid values: 'lower', 'upper', '0', '1'").arg(partStr),
+                lineNumber);
+        }
+    }
+    assert(part == 0 || part == 1);
+
+    const QString &floatStr = args[4];
+    float floatValue = 0.0;
+    bool floatOk = false;
+    floatValue = floatStr.toFloat(&floatOk);
+
+    if (!floatOk)
+        throw ParseError(QSL("Could not parse '%1' as a float.").arg(floatStr),
+                         lineNumber);
+
+    u32 regValue = 0u;
+    std::memcpy(&regValue, &floatValue, sizeof(regValue));
+
+    if (part == 1)
+        regValue >>= 16;
+    regValue &= 0xffff;
+
+    result.value = regValue;
+
+    return result;
+}
+
+Command parse_print(const QStringList &args, int lineNumber)
+{
+    Command result = {};
+    result.type = CommandType::Print;
+
+    if (args.size() > 1)
+    {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+        result.printArgs = QStringList(args.begin() + 1 , args.end());
+#else
+        result.printArgs = args;
+        result.printArgs.pop_front();
+#endif
+    }
+
+    return result;
+}
+
 typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
 
 static const QMap<QString, CommandParser> commandParsers =
 {
-    { QSL("read"),              parseRead },
-    { QSL("write"),             parseWrite },
-    { QSL("writeabs"),          parseWrite },
-    { QSL("wait"),              parseWait },
-    { QSL("marker"),            parseMarker },
+    { QSL("read"),                  parseRead },
+    { QSL("write"),                 parseWrite },
+    { QSL("writeabs"),              parseWrite },
+    { QSL("wait"),                  parseWait },
+    { QSL("marker"),                parseMarker },
 
-    { QSL("blt"),               parseBlockTransfer },
-    { QSL("bltfifo"),           parseBlockTransfer },
-    { QSL("mblt"),              parseBlockTransfer },
-    { QSL("mbltfifo"),          parseBlockTransfer },
+    { QSL("blt"),                   parseBlockTransfer },
+    { QSL("bltfifo"),               parseBlockTransfer },
+    { QSL("mblt"),                  parseBlockTransfer },
+    { QSL("mbltfifo"),              parseBlockTransfer },
 
-    { QSL("bltcount"),          parseBlockTransferCountRead },
-    { QSL("bltfifocount"),      parseBlockTransferCountRead },
-    { QSL("mbltcount"),         parseBlockTransferCountRead },
-    { QSL("mbltfifocount"),     parseBlockTransferCountRead },
+    { QSL("setbase"),               parseSetBase },
+    { QSL("resetbase"),             parseResetBase },
 
-    { QSL("setbase"),           parseSetBase },
-    { QSL("resetbase"),         parseResetBase },
-
-    { QSL("vmusb_write_reg"),    parse_VMUSB_write_reg },
-    { QSL("vmusb_read_reg"),     parse_VMUSB_read_reg },
+    { QSL("vmusb_write_reg"),       parse_VMUSB_write_reg },
+    { QSL("vmusb_read_reg"),        parse_VMUSB_read_reg },
 
     { QSL("mvlc_writespecial"),     parse_mvlc_writespecial },
+
+    { QSL("write_float_word"),      parse_write_float_word },
+
+    { QSL("print"),                 parse_print },
 };
 
 static QString handle_multiline_comment(QString line, bool &in_multiline_comment)
@@ -499,7 +527,7 @@ static QString handle_multiline_comment(QString line, bool &in_multiline_comment
             }
             else
             {
-                ++i;
+                ++i; // skip over characters inside a comment block
             }
         }
         else
@@ -511,6 +539,7 @@ static QString handle_multiline_comment(QString line, bool &in_multiline_comment
             }
             else
             {
+                // append characters outside of a comment block to the result
                 result.append(line.at(i));
                 ++i;
             }
@@ -520,15 +549,334 @@ static QString handle_multiline_comment(QString line, bool &in_multiline_comment
     return result;
 }
 
-// Get rid of comment parts and empty lines and split each of the remaining
-// lines into space separated parts while keeping track of the correct input
-// line numbers.
-static QVector<PreparsedLine> pre_parse(QTextStream &input)
-{
-    static const QRegularExpression reWordSplit("\\s+");
+// Also see
+// https://stackoverflow.com/questions/27318631/parsing-through-a-csv-file-in-qt
+// for a nice implementation of quoted string parsing.
 
+std::pair<std::string, bool> read_atomic_variable_reference(std::istringstream &in)
+{
+    assert(in.peek() == '{');
+
+    in.unsetf(std::ios_base::skipws);
+
+    std::string result;
+    char c;
+
+    while (in >> c)
+    {
+        result.push_back(c);
+
+        if (c == '}')
+            return std::make_pair(result, true);
+    }
+
+    // Unterminated variable reference
+    return std::make_pair(result, false);
+}
+
+std::pair<std::string, bool> read_atomic_variable_reference(const std::string &str)
+{
+    std::istringstream in(str);
+    return read_atomic_variable_reference(in);
+}
+
+std::pair<std::string, bool> read_atomic_expression(std::istringstream &in)
+{
+    assert(in.peek() == '(');
+
+    in.unsetf(std::ios_base::skipws);
+
+    std::string result;
+    char c;
+    unsigned nParens = 0;
+
+    while (in >> c)
+    {
+        result.push_back(c);
+
+        switch (c)
+        {
+            case '(':
+                ++nParens;
+                break;
+
+            case ')':
+                if (--nParens == 0)
+                    return std::make_pair(result, true);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    // Mismatched number of opening and closing parens.
+    return std::make_pair(result, false);
+}
+
+std::pair<std::string, bool> read_atomic_expression(const std::string &str)
+{
+    std::istringstream in(str);
+    return read_atomic_expression(in);
+}
+
+// Split the input line into atomic parts according to the following rules:
+// - ${...} style variable references are considered parts
+// - $(...) style math expressions are considered parts
+// - Quoted strings are considered parts
+// - Concatenations of the above form parts. The following input line is
+//   considered to be a single part:
+//   some"things"${that}slumber" should never be awoken"$(6 * 7)
+// - If none of the above applies whitespace is used to separate parts.
+std::vector<std::string> split_into_atomic_parts(const std::string &line, int lineNumber)
+{
+    std::vector<std::string> result;
+    std::string part;
+    std::istringstream in(line);
+    in.unsetf(std::ios_base::skipws);
+
+
+    while (!in.eof())
+    {
+        switch (in.peek())
+        {
+            case ' ':
+            case '\t':
+                in.get();
+
+                if (!part.empty())
+                {
+                    result.push_back(part);
+                    part.clear();
+                }
+                break;
+
+            case '"':
+                {
+                    std::string quotedPart;
+                    in >> std::quoted(quotedPart);
+                    part.append(quotedPart);
+
+                    // Extra handling to allow concatenating quoted and
+                    // non-quoted parts if they are not separated by
+                    // whitespace.
+                    auto c = in.peek();
+                    if (c == ' ' || c == '\t')
+                    {
+                        result.push_back(part);
+                        part.clear();
+                    }
+                }
+                break;
+
+            case '$':
+                {
+                    part.push_back(in.get());
+
+                    switch (in.peek())
+                    {
+                        case '(':
+                            {
+                                auto rr = read_atomic_expression(in);
+                                part += rr.first;
+                                if (!rr.second)
+                                    throw ParseError(
+                                        QSL("Unterminated expression string '%1'")
+                                        .arg(part.c_str()), lineNumber);
+                            }
+                            break;
+
+                        case '{':
+                            {
+                                auto rr = read_atomic_variable_reference(in);
+                                part += rr.first;
+                                if (!rr.second)
+                                    throw ParseError(
+                                        QSL("Unterminated variable reference '%1'")
+                                        .arg(part.c_str()), lineNumber);
+                            }
+                            break;
+
+                        default:
+                            // Neither variable nor expression. Do nothing and
+                            // let the default case handle it on the next
+                            // iteration.
+                            continue;
+                    }
+
+
+                }
+                break;
+
+            default:
+                {
+                    // Need to do an explicit check for the EOF condition as
+                    // both peek() and get() can return an EOF even if in.eof()
+                    // is not true. The reason is that for some stream types
+                    // the EOF condition can only be determined when actually
+                    // performing the read.
+                    auto c = in.get();
+                    if (c != std::istringstream::traits_type::eof())
+                        part.push_back(c);
+                }
+        }
+    }
+
+    if (!part.empty())
+        result.push_back(part);
+
+    return result;
+}
+
+QString expand_variables(const QString &qline, const SymbolTables &symtabs, s32 lineNumber)
+{
+    QString result;
+    auto line = qline.toStdString();
+    std::istringstream in(line);
+    in.unsetf(std::ios_base::skipws);
+    char c;
+    enum State { OutsideVar, InsideVar };
+    State state = OutsideVar;
+    QString varName;
+
+    while (in >> c)
+    {
+        switch (state)
+        {
+            case OutsideVar:
+                if (c == '$' && in.peek() == '{')
+                {
+                    in.get();
+                    state = InsideVar;
+                }
+                else
+                    result.push_back(c);
+
+                break;
+
+            case InsideVar:
+                if (c == '}')
+                {
+                    if (auto var = lookup_variable(varName, symtabs))
+                        result += var.value;
+                    else
+                        throw ParseError(QSL("Undefined variable '%1'")
+                                         .arg(varName), lineNumber);
+                    state = OutsideVar;
+                    varName.clear();
+                }
+                else
+                    varName.push_back(c);
+
+                break;
+        }
+    }
+
+    if (state == InsideVar)
+    {
+        throw ParseError(QSL("Unterminated variable reference '${%1'")
+                         .arg(varName), lineNumber);
+    }
+
+    return result;
+}
+
+void expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs)
+{
+    for (auto &part: preparsed.parts)
+        part = expand_variables(part, symtabs, preparsed.lineNumber);
+}
+
+QSet<QString> collect_variable_references(const QString &qline, s32 lineNumber)
+{
+    QSet<QString> result;
+    auto line = qline.toStdString();
+    std::istringstream in(line);
+    in.unsetf(std::ios_base::skipws);
+    char c;
+    enum State { OutsideVar, InsideVar };
+    State state = OutsideVar;
+    QString varName;
+
+    while (in >> c)
+    {
+        switch (state)
+        {
+            case OutsideVar:
+                if (c == '$' && in.peek() == '{')
+                {
+                    in.get();
+                    state = InsideVar;
+                }
+
+                break;
+
+            case InsideVar:
+                if (c == '}')
+                {
+                    result.insert(varName);
+                    state = OutsideVar;
+                    varName.clear();
+                }
+                else
+                    varName.push_back(c);
+
+                break;
+        }
+    }
+
+    if (state == InsideVar)
+    {
+        throw ParseError(QSL("Unterminated variable reference '${%1'")
+                         .arg(varName), lineNumber);
+    }
+
+    return result;
+}
+
+void collect_variable_references(PreparsedLine &preparsed)
+{
+    preparsed.varRefs = {};
+
+    for (auto &part: preparsed.parts)
+        preparsed.varRefs.unite(collect_variable_references(part, preparsed.lineNumber));
+}
+
+QSet<QString> collect_variable_references(const QString &input)
+{
+    QSet<QString> result;
+
+    auto pp = pre_parse(input);
+    for (const auto &preparsed: pp)
+        result.unite(preparsed.varRefs);
+
+    return result;
+}
+
+QSet<QString> collect_variable_references(QTextStream &input)
+{
+    QSet<QString> result;
+
+    auto pp = pre_parse(input);
+    for (const auto &preparsed: pp)
+        result.unite(preparsed.varRefs);
+
+    return result;
+}
+
+QVector<PreparsedLine> pre_parse(const QString &input)
+{
+    QTextStream stream(const_cast<QString *>(&input), QIODevice::ReadOnly);
+    return pre_parse(stream);
+}
+
+// Get rid of comment parts and empty lines and split each of the remaining
+// lines into space separated (quoted string) parts while keeping track of the
+// correct input line numbers.
+QVector<PreparsedLine> pre_parse(QTextStream &input)
+{
     QVector<PreparsedLine> result;
-    u32 lineNumber = 0;
+    int lineNumber = 0;
     bool in_multiline_comment = false;
 
     while (true)
@@ -551,14 +899,21 @@ static QVector<PreparsedLine> pre_parse(QTextStream &input)
         if (trimmed.isEmpty())
             continue;
 
-        auto parts = trimmed.split(reWordSplit, QString::SkipEmptyParts);
+        auto stlParts = split_into_atomic_parts(trimmed.toStdString(), lineNumber);
 
-        if (parts.isEmpty())
+        if (stlParts.empty())
             continue;
 
+        auto parts = to_qstrlist_from_std(stlParts);
+
+        // Lowercase the first part (the command name or for the shortcut form
+        // of the write command the address value).
         parts[0] = parts[0].toLower();
 
-        result.push_back({ line, parts, lineNumber });
+        PreparsedLine ppl{line, parts, lineNumber, {} };
+        collect_variable_references(ppl);
+
+        result.push_back(ppl);
     }
 
     return result;
@@ -599,19 +954,33 @@ static Command handle_single_line_command(const PreparsedLine &line)
     {
         /* Try to parse an address followed by a value. This is the short form
          * of a write command. */
-        bool ok1;
-        uint32_t v1 = parts[0].toUInt(&ok1, 0);
-        uint32_t v2 = 0;
+        uint32_t addr = 0u, val = 0u;
 
-        if (!ok1)
-        {
-            throw ParseError(QString(QSL("Invalid short-form address \"%1\""))
-                             .arg(parts[0]), line.lineNumber);
-        }
-
+        // address
         try
         {
-            v2 = parseValue<u32>(parts[1]);
+            addr = parseValue<u32>(parts[0]);
+        }
+        catch (const QString &message)
+        {
+            throw ParseError(QString(QSL("Invalid short-form address \"%1\" (%2)"))
+                             .arg(parts[1], message), line.lineNumber);
+        }
+        catch (const char *message)
+        {
+            throw ParseError(QString(QSL("Invalid short-form address \"%1\" (%2)"))
+                             .arg(parts[1], message), line.lineNumber);
+        }
+
+        // value
+        try
+        {
+            val = parseValue<u32>(parts[1]);
+        }
+        catch (const QString &message)
+        {
+            throw ParseError(QString(QSL("Invalid short-form value \"%1\" (%2)"))
+                             .arg(parts[1], message), line.lineNumber);
         }
         catch (const char *message)
         {
@@ -622,10 +991,9 @@ static Command handle_single_line_command(const PreparsedLine &line)
         result.type = CommandType::Write;
         result.addressMode = vme_address_modes::A32;
         result.dataWidth = DataWidth::D16;
-        result.address = v1;
-        result.value = v2;
+        result.address = addr;
+        result.value = val;
 
-        maybe_set_warning(result, line.lineNumber);
         return result;
     }
 
@@ -637,8 +1005,11 @@ static Command handle_single_line_command(const PreparsedLine &line)
     try
     {
         Command result = parseFun(parts, line.lineNumber);
-        maybe_set_warning(result, line.lineNumber);
         return result;
+    }
+    catch (const QString &message)
+    {
+        throw ParseError(message, line.lineNumber);
     }
     catch (const char *message)
     {
@@ -675,26 +1046,161 @@ static Command handle_meta_block_command(
     return result;
 }
 
+QString evaluate_expressions(const QString &qstrPart, s32 lineNumber)
+{
+    QString result;
+    auto part = qstrPart.toStdString();
+    std::istringstream in(part);
+    in.unsetf(std::ios_base::skipws);
+    char c;
+    enum State { OutsideExpr, InsideExpr };
+    State state = OutsideExpr;
+    std::string exprString;
+    unsigned nParens = 0;
+
+    while (in >> c)
+    {
+        switch (state)
+        {
+            case OutsideExpr:
+                if (c == '$' && in.peek() == '(')
+                {
+                    // copy the first opening paren and count it
+                    exprString += in.get();
+                    ++nParens;
+                    state = InsideExpr;
+                }
+                else
+                    result.push_back(c);
+
+                break;
+
+            case InsideExpr:
+                if (c == ')')
+                {
+                    exprString.push_back(')');
+
+                    if (--nParens == 0)
+                    {
+                        try
+                        {
+                            a2::a2_exprtk::Expression expr(exprString);
+                            expr.compile();
+                            double d = expr.eval();
+
+                            result += QString::number(d);
+
+                            state = OutsideExpr;
+                            exprString.clear();
+                        }
+                        catch (const a2::a2_exprtk::ParserErrorList &el)
+                        {
+                            a2::a2_exprtk::ParserError pe = {};
+                            if (!el.errors.empty())
+                                pe = *el.errors.begin();
+
+                            throw ParseError(
+                                QSL("Embedded math expression parser error: %1")
+                                .arg(pe.diagnostic.c_str()),
+                                lineNumber);
+                        }
+                        catch (const a2::a2_exprtk::SymbolError &e)
+                        {
+                            throw ParseError(
+                                QSL("Embedded math expression symbol error (symbol name: %1)")
+                                .arg(e.symbolName.c_str()),
+                                lineNumber);
+                        }
+                    }
+                }
+                else
+                {
+                    if (c == '(')
+                        ++nParens;
+                    exprString.push_back(c);
+                }
+
+                break;
+        }
+    }
+
+    if (state == InsideExpr)
+    {
+        throw ParseError(QSL("Unterminated expression string '$(%1'")
+                         .arg(exprString.c_str()), lineNumber);
+    }
+
+    return result;
+}
+
+void evaluate_expressions(PreparsedLine &preparsed)
+{
+    auto eval = [&preparsed] (QString &part)
+    {
+        part = evaluate_expressions(part, preparsed.lineNumber);
+    };
+
+    std::for_each(preparsed.parts.begin(), preparsed.parts.end(), eval);
+}
+
+// Overloads without SymbolTables arguments. These will create a single symbol
+// table for internal use. Symbols set from within the script are not
+// accessible from the outside.
 VMEScript parse(QFile *input, uint32_t baseAddress)
 {
-    QTextStream stream(input);
-    return parse(stream, baseAddress);
+    SymbolTables symtabs;
+    return parse(input, symtabs, baseAddress);
 }
 
 VMEScript parse(const QString &input, uint32_t baseAddress)
 {
-    QTextStream stream(const_cast<QString *>(&input), QIODevice::ReadOnly);
-    return parse(stream, baseAddress);
+    SymbolTables symtabs;
+    return parse(input, symtabs, baseAddress);
 }
 
 VMEScript parse(const std::string &input, uint32_t baseAddress)
 {
-    auto qStr = QString::fromStdString(input);
-    return parse(qStr, baseAddress);
+    SymbolTables symtabs;
+    return parse(input, symtabs, baseAddress);
 }
 
 VMEScript parse(QTextStream &input, uint32_t baseAddress)
 {
+    SymbolTables symtabs;
+    return parse(input, symtabs, baseAddress);
+}
+
+// Overloads taking a SymbolTables instances.
+// Variables set from within the script are written to the first symbol table
+// symtabs[0]. If symtabs is empty a single fresh SymbolTable will be created
+// and added to symtabs.
+
+VMEScript parse(QFile *input, SymbolTables &symtabs, uint32_t baseAddress)
+{
+    QTextStream stream(input);
+    return parse(stream, symtabs, baseAddress);
+}
+
+VMEScript parse(const QString &input, SymbolTables &symtabs, uint32_t baseAddress)
+{
+    QTextStream stream(const_cast<QString *>(&input), QIODevice::ReadOnly);
+    return parse(stream, symtabs, baseAddress);
+}
+
+VMEScript parse(const std::string &input, SymbolTables &symtabs, uint32_t baseAddress)
+{
+    auto qStr = QString::fromStdString(input);
+    return parse(qStr, symtabs, baseAddress);
+}
+
+VMEScript parse(
+    QTextStream &input,
+    SymbolTables &symtabs,
+    uint32_t baseAddress)
+{
+    if (symtabs.isEmpty())
+        symtabs.push_back(SymbolTable{});
+
     VMEScript result;
 
     QVector<PreparsedLine> splitLines = pre_parse(input);
@@ -704,13 +1210,14 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
 
     while (lineIndex < splitLines.size())
     {
-        auto &sl = splitLines.at(lineIndex);
+        auto &preparsed = splitLines[lineIndex];
 
-        assert(!sl.parts.isEmpty());
+        assert(!preparsed.parts.isEmpty());
 
         // Handling of special meta blocks enclosed in MetaBlockBegin and
-        // MetaBlockEnd
-        if (sl.parts[0] == MetaBlockBegin)
+        // MetaBlockEnd. These can span multiple lines.
+        // Variable references are not replaced within meta blocks.
+        if (preparsed.parts[0] == MetaBlockBegin)
         {
             int blockStartIndex = lineIndex;
             int blockEndIndex   = find_index_of_next_command(
@@ -720,7 +1227,7 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
             {
                 throw ParseError(
                     QString("No matching \"%1\" found.").arg(MetaBlockEnd),
-                    sl.lineNumber);
+                    preparsed.lineNumber);
             }
 
             assert(blockEndIndex > blockStartIndex);
@@ -733,43 +1240,64 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
 
             lineIndex = blockEndIndex + 1;
         }
-        else
+        else // Not a meta block
         {
-            auto cmd = handle_single_line_command(sl);
+            expand_variables(preparsed, symtabs);
+            evaluate_expressions(preparsed);
 
-            /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
-             * here by modifying other commands before they are pushed onto result.
-             * To make warnings generated when parsing any of SetBase/ResetBase
-             * available to the outside I needed to return them in the result
-             * although they have already been handled in here!
-             * This is confusing and will lead to errors...
-             *
-             * An alternative would be to store the original base address inside
-             * VMEScript and implement SetBase/ResetBase in run_script().
-             */
-
-            switch (cmd.type)
+            if (preparsed.parts[0] == "set")
             {
-                case CommandType::Invalid:
-                    break;
+                if (preparsed.parts.size() != 3)
+                {
+                    throw ParseError(
+                        QString("Invalid arguments to 'set' command. Usage: set <var> <value>."),
+                        preparsed.lineNumber);
+                }
 
-                case CommandType::SetBase:
-                    {
-                        baseAddress = cmd.address;
-                        result.push_back(cmd);
-                    } break;
+                const auto &varName  = preparsed.parts[1];
+                const auto &varValue = preparsed.parts[2];
 
-                case CommandType::ResetBase:
-                    {
-                        baseAddress = originalBaseAddress;
-                        result.push_back(cmd);
-                    } break;
+                // Set the variable in the first/innermost symbol table.
+                symtabs[0][varName] = Variable{ varValue, preparsed.lineNumber };
+            }
+            else
+            {
+                auto cmd = handle_single_line_command(preparsed);
 
-                default:
-                    {
-                        cmd = add_base_address(cmd, baseAddress);
-                        result.push_back(cmd);
-                    } break;
+                /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
+                 * here by modifying other commands before they are pushed onto result.
+                 * To make warnings generated when parsing any of SetBase/ResetBase
+                 * available to the outside I needed to return them in the result
+                 * although they have already been handled in here!
+                 * This is confusing and will lead to errors...
+                 *
+                 * An alternative would be to store the original base address inside
+                 * VMEScript and implement SetBase/ResetBase in run_script().
+                 */
+
+                switch (cmd.type)
+                {
+                    case CommandType::Invalid:
+                        break;
+
+                    case CommandType::SetBase:
+                        {
+                            baseAddress = cmd.address;
+                            result.push_back(cmd);
+                        } break;
+
+                    case CommandType::ResetBase:
+                        {
+                            baseAddress = originalBaseAddress;
+                            result.push_back(cmd);
+                        } break;
+
+                    default:
+                        {
+                            cmd = add_base_address(cmd, baseAddress);
+                            result.push_back(cmd);
+                        } break;
+                }
             }
 
             lineIndex++;
@@ -790,10 +1318,6 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::BLTFifo,             QSL("bltfifo") },
     { CommandType::MBLT,                QSL("mblt") },
     { CommandType::MBLTFifo,            QSL("mbltfifo") },
-    { CommandType::BLTCount,            QSL("bltcount") },
-    { CommandType::BLTFifoCount,        QSL("bltfifocount") },
-    { CommandType::MBLTCount,           QSL("mbltcount") },
-    { CommandType::MBLTFifoCount,       QSL("mbltfifocount") },
     { CommandType::SetBase,             QSL("setbase") },
     { CommandType::ResetBase,           QSL("resetbase") },
     { CommandType::VMUSB_WriteRegister, QSL("vmusb_write_reg") },
@@ -913,21 +1437,6 @@ QString to_string(const Command &cmd)
                     .arg(cmd.transfers);
             } break;
 
-        case CommandType::BLTCount:
-        case CommandType::BLTFifoCount:
-        case CommandType::MBLTCount:
-        case CommandType::MBLTFifoCount:
-            {
-                buffer = QString(QSL("%1 %2 %3 %4 %5 %6 %7"))
-                    .arg(cmdStr)
-                    .arg(to_string(cmd.addressMode))
-                    .arg(to_string(cmd.dataWidth))
-                    .arg(format_hex(cmd.address))
-                    .arg(format_hex(cmd.countMask))
-                    .arg(to_string(cmd.blockAddressMode))
-                    .arg(format_hex(cmd.blockAddress));
-            } break;
-
         case CommandType::Blk2eSST64:
             {
                 assert(false);
@@ -970,6 +1479,10 @@ QString to_string(const Command &cmd)
                 buffer = QString("meta_block with %1 lines")
                     .arg(cmd.metaBlock.preparsedLines.size());
             } break;
+
+        case CommandType::SetVariable:
+            {
+            } break;
     }
 
     return buffer;
@@ -994,6 +1507,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::VMUSB_ReadRegister:
         case CommandType::MVLC_WriteSpecial:
         case CommandType::MetaBlock:
+        case CommandType::SetVariable:
             break;
 
         case CommandType::Read:
@@ -1005,15 +1519,6 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::Blk2eSST64:
 
             cmd.address += baseAddress;
-            break;
-
-        case CommandType::BLTCount:
-        case CommandType::BLTFifoCount:
-        case CommandType::MBLTCount:
-        case CommandType::MBLTFifoCount:
-
-            cmd.address += baseAddress;
-            cmd.blockAddress += baseAddress;
             break;
     }
     return cmd;
@@ -1144,6 +1649,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             /* Note: SetBase and ResetBase have already been handled at parse time. */
         case CommandType::SetBase:
         case CommandType::ResetBase:
+        case CommandType::SetVariable:
             break;
 
         case CommandType::Read:
@@ -1217,138 +1723,6 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                     vme_address_modes::MBLT64, true);
             } break;
 
-#if 1
-        /* There was no need to implement these in a generic way using the
-         * VMEController interface yet. VMUSB does have direct support for
-         * these types of commands (see CVMUSBReadoutList::addScriptCommand()).
-         */
-        case CommandType::BLTCount:
-        case CommandType::BLTFifoCount:
-        case CommandType::MBLTCount:
-        case CommandType::MBLTFifoCount:
-            {
-                if (logger)
-                {
-                    logger(QSL("xBLT count read commands are only supported during readout."));
-                }
-            } break;
-
-        case CommandType::Blk2eSST64:
-            if (logger)
-            {
-                logger(QSL("Blk2eSST64 count read command is only supported during readout."));
-            } break;
-
-#else
-        case CommandType::BLTCount:
-            {
-                u32 transfers = 0;
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        {
-                            uint16_t value = 0;
-                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                    case DataWidth::D32:
-                        {
-                            uint32_t value = 0;
-                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                }
-
-                transfers &= cmd.countMask;
-                transfers >>= trailing_zeroes(cmd.countMask);
-
-                QVector<u32> dest;
-                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, true), false);
-
-            } break;
-
-        case CommandType::BLTFifoCount:
-            {
-                u32 transfers = 0;
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        {
-                            uint16_t value = 0;
-                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                    case DataWidth::D32:
-                        {
-                            uint32_t value = 0;
-                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                }
-
-                transfers &= cmd.countMask;
-                transfers >>= trailing_zeroes(cmd.countMask);
-
-                QVector<u32> dest;
-                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, true), true);
-
-            } break;
-
-        case CommandType::MBLTCount:
-            {
-                u32 transfers = 0;
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        {
-                            uint16_t value = 0;
-                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                    case DataWidth::D32:
-                        {
-                            uint32_t value = 0;
-                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                }
-
-                transfers &= cmd.countMask;
-                transfers >>= trailing_zeroes(cmd.countMask);
-
-                QVector<u32> dest;
-                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, false, true), false);
-
-            } break;
-
-        case CommandType::MBLTFifoCount:
-            {
-                u32 transfers = 0;
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        {
-                            uint16_t value = 0;
-                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                    case DataWidth::D32:
-                        {
-                            uint32_t value = 0;
-                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
-                            transfers = value;
-                        } break;
-                }
-
-                transfers &= cmd.countMask;
-                transfers >>= trailing_zeroes(cmd.countMask);
-
-                QVector<u32> dest;
-                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, false, true), true);
-
-            } break;
-#endif
-
         case CommandType::VMUSB_WriteRegister:
             if (auto vmusb = qobject_cast<VMUSB *>(controller))
             {
@@ -1381,6 +1755,8 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             break;
 
         case CommandType::MetaBlock:
+        case CommandType::Blk2eSST64:
+        case CommandType::Print:
             break;
     }
 
@@ -1419,16 +1795,19 @@ QString format_result(const Result &result)
         case CommandType::ResetBase:
         case CommandType::MVLC_WriteSpecial:
         case CommandType::MetaBlock:
+        case CommandType::SetVariable:
             break;
 
         case CommandType::Write:
         case CommandType::WriteAbs:
         case CommandType::VMUSB_WriteRegister:
-            ret += QSL(", write ok");
+            // Append the decimal form of the written value and a message that
+            // the write was ok.
+            ret += QSL(" (%1 dec), write ok").arg(result.command.value);
             break;
 
         case CommandType::Read:
-            ret += QString(" -> 0x%1, %2")
+            ret += QString(" -> 0x%1 (%2 dec)")
                 .arg(result.value, 8, 16, QChar('0'))
                 .arg(result.value)
                 ;
@@ -1438,10 +1817,6 @@ QString format_result(const Result &result)
         case CommandType::BLTFifo:
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
-        case CommandType::BLTCount:
-        case CommandType::BLTFifoCount:
-        case CommandType::MBLTCount:
-        case CommandType::MBLTFifoCount:
         case CommandType::Blk2eSST64:
             {
                 ret += "\n";
@@ -1458,6 +1833,12 @@ QString format_result(const Result &result)
                 .arg(result.value, 8, 16, QChar('0'))
                 .arg(result.value)
                 ;
+            break;
+
+        case CommandType::Print:
+            {
+                ret = result.command.printArgs.join(' ');
+            }
             break;
     }
 

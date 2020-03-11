@@ -1,0 +1,22 @@
+{
+    "auxiliary_vme_scripts": [
+        {
+            "fileName": "mvlc-soft_trigger0.vmescript",
+            "scriptName": "MVLC SoftTrigger0",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
+        },
+        {
+            "fileName": "mvlc-soft_trigger1.vmescript",
+            "scriptName": "MVLC SoftTrigger1",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
+        },
+        {
+            "fileName": "mvlc-counter_readout.vmescript",
+            "scriptName": "MVLC Counter Readout",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
+        }
+    ]
+}

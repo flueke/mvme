@@ -1,6 +1,25 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvlc/mvlc_trigger_io_editor.h"
 #include "mvlc/mvlc_trigger_io_editor_p.h"
-#include "mvlc/mvlc_trigger_io_script.h"
 
 #include <QDebug>
 #include <QPushButton>
@@ -8,8 +27,13 @@
 #include <QTextEdit>
 
 #include "analysis/code_editor.h"
+#include "mvlc/mvlc_trigger_io_script.h"
+#include "mvlc/mvlc_trigger_io_util.h"
+#include "qt_assistant_remote_control.h"
 #include "util/algo.h"
 #include "util/qt_container.h"
+#include "util/qt_monospace_textedit.h"
+#include "vme_script.h"
 
 namespace mesytec
 {
@@ -20,6 +44,7 @@ using namespace mvlc::trigger_io_config;
 
 struct MVLCTriggerIOEditor::Private
 {
+    MVLCTriggerIOEditor *q;
     TriggerIO ioCfg;
     VMEScriptConfig *scriptConfig;
     QString initialScriptContents;
@@ -37,7 +62,24 @@ struct MVLCTriggerIOEditor::Private
             scriptEditor->verticalScrollBar()->setSliderPosition(pos);
         }
     }
+
+    void onActionPrintFrontPanelSetup();
 };
+
+void MVLCTriggerIOEditor::Private::onActionPrintFrontPanelSetup()
+{
+    QString buffer;
+    QTextStream stream(&buffer);
+    print_front_panel_io_table(stream, ioCfg);
+
+    auto te = mvme::util::make_monospace_plain_textedit().release();
+    te->setWindowTitle(QSL("MVLC Front Panel IO Setup"));
+    te->setAttribute(Qt::WA_DeleteOnClose);
+    te->resize(600, 600);
+    te->setPlainText(buffer);
+    te->show();
+    te->raise();
+}
 
 MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     VMEScriptConfig *scriptConfig,
@@ -45,6 +87,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
+    *d = {};
+    d->q = this;
     d->initialScriptContents = scriptConfig->getScriptContents();
     d->scriptConfig = scriptConfig;
 
@@ -55,6 +99,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
     auto scene = new TriggerIOGraphicsScene(d->ioCfg);
     d->scene = scene;
+    d->scene->setStaticConnectionsVisible(false);
+    d->scene->setConnectionBarsVisible(true);
 
     // Edit LUT
     QObject::connect(scene, &TriggerIOGraphicsScene::editLUT,
@@ -208,7 +254,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(lutEditor.get(), &QDialog::accepted, this, do_apply);
 
-        auto dc = lutEditor->exec();
+        lutEditor->exec();
     });
 
     // NIM IO Setup
@@ -256,7 +302,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(&dialog, &QDialog::accepted, this, do_apply);
 
-        auto dc = dialog.exec();
+        dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editNIM_Outputs,
@@ -336,7 +382,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(&dialog, &QDialog::accepted, this, do_apply);
 
-        auto dc = dialog.exec();
+        dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editECL_Outputs,
@@ -409,7 +455,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(&dialog, &QDialog::accepted, this, do_apply);
 
-        auto dc = dialog.exec();
+        dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editL3Utils,
@@ -461,7 +507,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(&dialog, &QDialog::accepted, this, do_apply);
 
-        auto dc = dialog.exec();
+        dialog.exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editL0Utils,
@@ -480,7 +526,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(&dialog, &QDialog::accepted, this, do_apply);
 
-        auto dc = dialog.exec();
+        dialog.exec();
     });
 
     QObject::connect(d->scriptConfig, &VMEScriptConfig::modified,
@@ -492,8 +538,6 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         QPainter::Antialiasing | QPainter::TextAntialiasing |
         QPainter::SmoothPixmapTransform |
         QPainter::HighQualityAntialiasing);
-
-    auto pb_clearConfig = new QPushButton("Clear Config");
 
     auto logicWidget = new QWidget;
     auto logicLayout = make_vbox<0, 0>(logicWidget);
@@ -554,9 +598,36 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             setupModified();
         });
 
+    toolbar->addSeparator();
+
+    // connection map: shows/hides static connection edges and the big bus-like bars
+    action = toolbar->addAction(QSL("Toggle connection map"));
+    action->setCheckable(true);
+    action->setChecked(true);
+    action->setToolTip(QSL("Shows/hides fixed connection lines and"
+                           " bars and arrows representing connection possibilities."));
+    action->setStatusTip(action->toolTip());
+
+    auto show_connect_help = [this, action](bool show)
+    {
+        d->scene->setStaticConnectionsVisible(show);
+        d->scene->setConnectionBarsVisible(show);
+
+        action->setIcon(show
+                        ? QIcon(":/resources/layer-visible-on.png")
+                        : QIcon(":/resources/layer-visible-off.png"));
+    };
+
+    connect(action, &QAction::triggered, this, show_connect_help);
+    show_connect_help(true);
+
+    // Print a list of the front panel io configuration and names. Could be
+    // printed on a piece of paper and used as a cheatsheet when working on the
+    // crate.
     action = toolbar->addAction(
-        QIcon(":/dialog-close.png"), QSL("Close window"),
-        this, &MVLCTriggerIOEditor::close);
+        QIcon(QSL(":/document-text.png")),
+        QSL("Print Front Panel Setup"),
+        this, [this] () { d->onActionPrintFrontPanelSetup(); });
 
     toolbar->addSeparator();
 
@@ -596,6 +667,15 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             d->updateEditorText();
             d->scriptEditor->show();
             d->scriptEditor->raise();
+        });
+
+    toolbar->addSeparator();
+
+    action = toolbar->addAction(
+        QIcon(":/help.png"), QSL("Help"),
+        this, [] ()
+        {
+            mvme::QtAssistantRemoteControl::instance().activateKeyword("mvlc_trigger_io");
         });
 
     auto mainLayout = make_vbox<2, 2>(this);

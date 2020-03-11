@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -31,8 +31,11 @@
 #include "vme_config.h"
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
+#include "vme_script.h"
+
 #include <memory>
 
+#include <QElapsedTimer>
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QJsonDocument>
@@ -45,7 +48,6 @@ class MVMEMainWindow;
 class ListFile;
 class QJsonObject;
 
-class QTimer;
 class QThread;
 
 namespace analysis
@@ -90,8 +92,9 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void objectMappingRemoved(QObject *key, QObject *value, const QString &category);
 
         void sigLogMessage(const QString &);
+        void sigLogError(const QString &);
 
-        void daqAboutToStart(quint32 nCycles);
+        void daqAboutToStart();
 
         void workspaceDirectoryChanged(const QString &);
 
@@ -100,6 +103,9 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void eventAboutToBeRemoved(EventConfig *event);
         void moduleAdded(ModuleConfig *module);
         void moduleAboutToBeRemoved(ModuleConfig *module);
+
+        // MVLC readout buffer sniffing
+        void sniffedInputBufferReady(const DataBuffer &buffer);
 
     public:
         MVMEContext(MVMEMainWindow *mainwin, QObject *parent = 0);
@@ -230,6 +236,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void logMessageRaw(const QString &msg);
         // Prepends the current time to the given msg.
         void logMessage(const QString &msg);
+        void logError(const QString &errMsg);
+
         QStringList getLogBuffer() const;
 
         friend class MVMEMainWindow;
@@ -326,6 +334,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void reconnectVMEController();
         void forceResetVMEController();
         void dumpVMEControllerRegisters();
+        void sniffNextInputBuffer();
 
     private slots:
         void tryOpenController();
@@ -340,7 +349,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void onEventAboutToBeRemoved(EventConfig *config);
         void onModuleAdded(ModuleConfig *module);
         void onModuleAboutToBeRemoved(ModuleConfig *config);
-        void onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config);
+        void onGlobalChildAboutToBeRemoved(ConfigObject *config);
 
         void onControllerStateChanged(ControllerState state);
         void onControllerOpenFinished();
@@ -382,7 +391,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         MVMEMainWindow *m_mainwin;
         GlobalMode m_mode;
         DAQState m_daqState;
-        QTime m_replayTime;
+        QElapsedTimer m_replayTime;
 
         std::unique_ptr<analysis::Analysis> m_analysis;
 

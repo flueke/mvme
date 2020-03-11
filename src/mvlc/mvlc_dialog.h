@@ -1,6 +1,27 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #ifndef __MVLC_DIALOG_H__
 #define __MVLC_DIALOG_H__
 
+#include <chrono>
 #include <functional>
 #include <QVector>
 #include "mvlc/mvlc_impl_abstract.h"
@@ -19,6 +40,7 @@ std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &re
 class MVLCDialog
 {
     public:
+        constexpr static auto ReadResponseMaxWait = std::chrono::milliseconds(60000);
 
         MVLCDialog(AbstractImpl *mvlc);
 
@@ -54,17 +76,20 @@ class MVLCDialog
         // is returned if the validation fails (in this case the data will
         // still be available in the dest buffer for inspection).
         //
+        // If no non-error buffer is received within ReadResponseMaxWait the
+        // method returns MVLCErrorCode::UnexpectedBufferHeader
+        //
         // Note: internally buffers are read from the MVLC until a
         // non-stack_error_notification type buffer is read. All error
         // notifications received up to that point are saved and can be queried
         // using getStackErrorNotifications().
         std::error_code readResponse(BufferHeaderValidator bhv, QVector<u32> &dest);
 
-        // Send the given cmdBuffer to the MVLC, reads and verifies the mirror
-        // response. The buffer must start with CmdBufferStart and end with
-        // CmdBufferEnd, otherwise the MVLC cannot interpret it.
-        std::error_code mirrorTransaction(const QVector<u32> &cmdBuffer,
-                                          QVector<u32> &responseDest);
+        // Sends the given cmdBuffer to the MVLC then reads and verifies the
+        // mirror response. The buffer must start with CmdBufferStart and end
+        // with CmdBufferEnd, otherwise the MVLC cannot interpret it.
+        std::error_code mirrorTransaction(
+            const QVector<u32> &cmdBuffer, QVector<u32> &responseDest);
 
         // Sends the given stack data (which must include upload commands),
         // reads and verifies the mirror response, and executes the stack.
@@ -121,7 +146,7 @@ class MVLCDialog
         void logBuffer(const QVector<u32> &buffer, const QString &info);
 
         AbstractImpl *m_mvlc = nullptr;
-        u32 m_referenceWord = 1;
+        u16 m_referenceWord = 1;
         QVector<u32> m_responseBuffer;
         QVector<QVector<u32>> m_stackErrorNotifications;
 };

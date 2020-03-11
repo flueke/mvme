@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -229,8 +229,11 @@ QString makeDurationString(qint64 durationSeconds)
     int minutes = durationSeconds % 60;
     durationSeconds /= 60;
     int hours = durationSeconds;
-    QString durationString;
-    durationString.sprintf("%02d:%02d:%02d", hours, minutes, seconds);
+    auto durationString = QSL("%1:%2:%3")
+        .arg(hours, 2, 10, QLatin1Char('0'))
+        .arg(minutes, 2, 10, QLatin1Char('0'))
+        .arg(seconds, 2, 10, QLatin1Char('0'))
+        ;
     return durationString;
 }
 

@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -49,8 +49,7 @@ class InputSelectButton: public QPushButton
 {
     Q_OBJECT
     public:
-        InputSelectButton(Slot *destSlot, s32 userLevel,
-                          EventWidget *eventWidget, QWidget *parent = nullptr);
+        InputSelectButton(Slot *destSlot, EventWidget *eventWidget, QWidget *parent = nullptr);
 
         virtual bool eventFilter(QObject *watched, QEvent *event) override;
 

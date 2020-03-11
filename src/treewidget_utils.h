@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -39,6 +39,9 @@ class NoEditDelegate: public QStyledItemDelegate
                                       const QStyleOptionViewItem &option,
                                       const QModelIndex &index) const
         {
+            (void) parent;
+            (void) option;
+            (void) index;
             return 0;
         }
 };

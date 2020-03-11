@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "listfile_replay.h"
 
 #include <array>
@@ -8,6 +28,7 @@
 #include "util_zip.h"
 #include "mvme_listfile_utils.h"
 #include "mvlc_listfile.h"
+#include "vme_config_json_schema_updates.h"
 
 namespace
 {
@@ -117,7 +138,9 @@ ListfileReplayHandle open_listfile(const QString &filename)
 }
 
 std::pair<std::unique_ptr<VMEConfig>, std::error_code>
-    read_vme_config_from_listfile(ListfileReplayHandle &handle)
+    read_vme_config_from_listfile(
+        ListfileReplayHandle &handle,
+        std::function<void (const QString &msg)> logger)
 {
     switch (handle.format)
     {
@@ -125,16 +148,21 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
             {
                 ListFile lf(handle.listfile.get());
                 lf.open();
-                return read_config_from_listfile(&lf);
+                return read_config_from_listfile(&lf, logger);
             }
 
         case ListfileBufferFormat::MVLC_ETH:
         case ListfileBufferFormat::MVLC_USB:
             {
-                auto vmeConfig = std::make_unique<VMEConfig>();
                 auto json = QJsonDocument::fromJson(
                     mvlc_listfile::read_vme_config_data(*handle.listfile)).object();
-                auto ec = vmeConfig->readVMEConfig(json.value("VMEConfig").toObject());
+
+                json = json.value("VMEConfig").toObject();
+                json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger);
+
+                auto vmeConfig = std::make_unique<VMEConfig>();
+                auto ec = vmeConfig->read(json);
+
                 return std::pair<std::unique_ptr<VMEConfig>, std::error_code>(
                     std::move(vmeConfig), ec);
             } break;

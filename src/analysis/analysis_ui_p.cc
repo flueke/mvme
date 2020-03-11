@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -837,7 +837,7 @@ bool AddEditOperatorDialog::eventFilter(QObject *watched, QEvent *event)
  *
  * Maybe there's a better way to achieve the same but I didn't find it.
  */
-void AddEditOperatorDialog::resizeEvent(QResizeEvent *event)
+void AddEditOperatorDialog::resizeEvent(QResizeEvent *)
 {
     if (!m_resizeEventSeen)
     {
@@ -898,6 +898,7 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
 
     //qDebug() << __PRETTY_FUNCTION__;
     //debug_dump(mappings);
+    (void) debug_dump;
 
     tw_input->clearContents();
     tw_input->setRowCount(0);
@@ -907,8 +908,18 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
 
     const s32 slotCount = arrayMap->getNumberOfSlots();
 
-    auto make_table_item = [](const QString &name, s32 slotIndex, s32 paramIndex)
+    auto make_table_item = [](const AnalysisObjectPtr &source, s32 slotIndex, s32 paramIndex)
     {
+        auto name = source->objectName();
+
+        qDebug() << __PRETTY_FUNCTION__ << source.get() << source->getAnalysis();
+
+        if (auto analysis = source->getAnalysis())
+        {
+            if (auto parentDir = analysis->getParentDirectory(source->shared_from_this()))
+                name = parentDir->objectName() + '/' + name;
+        }
+
         auto item = new QTableWidgetItem;
 
         item->setData(Qt::DisplayRole, QString("%1[%2]")
@@ -942,7 +953,8 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
             if (mappings.contains({slotIndex, paramIndex}))
                 continue;
 
-            auto item = make_table_item(slot->inputPipe->source->objectName(), slotIndex, paramIndex);
+            auto item = make_table_item(slot->inputPipe->source->shared_from_this(),
+                                        slotIndex, paramIndex);
 
             tw_input->setRowCount(tw_input->rowCount() + 1);
             tw_input->setItem(tw_input->rowCount() - 1, 0, item);
@@ -957,7 +969,7 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
         if (!slot || !slot->isConnected())
             continue;
 
-        auto item = make_table_item(slot->inputPipe->source->objectName(),
+        auto item = make_table_item(slot->inputPipe->source->shared_from_this(),
                                     mapping.slotIndex, mapping.paramIndex);
 
         tw_output->setRowCount(tw_output->rowCount() + 1);
@@ -1913,7 +1925,7 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
     {
         repopulate_arrayMap_tables(arrayMap, m_arrayMappings, tw_input, tw_output);
     }
-    else if (auto rangeFilter = qobject_cast<RangeFilter1D *>(op))
+    else if (qobject_cast<RangeFilter1D *>(op))
     {
         Q_ASSERT(slot);
 
@@ -1948,7 +1960,7 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             }
         }
     }
-    else if (auto filter = qobject_cast<RectFilter2D *>(op))
+    else if (qobject_cast<RectFilter2D *>(op))
     {
         Q_ASSERT(slot);
 
@@ -2465,6 +2477,8 @@ void RateMonitorConfigWidget::configureOperator()
 
 void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
 {
+    (void) slotIndex;
+
     OperatorInterface *op = m_op;
 
     if (no_input_connected(op) && !wasNameEdited())
@@ -2518,7 +2532,6 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals, QWid
 {
     auto layout = new QGridLayout(this);
     s32 row = 0;
-    s32 nCols = 1;
 
     auto closeButton = new QPushButton(QSL("Close"));
     connect(closeButton, &QPushButton::clicked, this, &QWidget::close);

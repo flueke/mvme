@@ -2,15 +2,21 @@ if (BUILD_TESTS)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
+find_package(Qt5Gui REQUIRED)
 find_package(Qt5Test REQUIRED)
+find_package(Qt5Widgets REQUIRED)
+
 include_directories(../src)
 include_directories("${CMAKE_BINARY_DIR}/src")
 
 function(add_mvme_test exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
-    add_dependencies(${exe_name} libmvme)
-    target_link_libraries(${exe_name} libmvme)
-    qt5_use_modules(${exe_name} Test)
+    target_link_libraries(${exe_name}
+        PRIVATE libmvme
+        PRIVATE Qt5::Gui
+        PRIVATE Qt5::Test
+        PRIVATE Qt5::Widgets
+        )
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_mvme_test)
 
@@ -31,11 +37,13 @@ find_package(Threads)
 
 function(add_mvme_bench exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
-    add_dependencies(${exe_name} libmvme)
+    target_link_libraries(${exe_name}
+        PRIVATE libmvme
+        PRIVATE ${GOOGLE_BENCHMARK}
+        PRIVATE Threads::Threads)
     if (WIN32)
-        target_link_libraries(${exe_name} libmvme ${GOOGLE_BENCHMARK} Threads::Threads shlwapi.lib)
-    else(WIN32)
-        target_link_libraries(${exe_name} libmvme ${GOOGLE_BENCHMARK} Threads::Threads)
+        target_link_libraries(${exe_name}
+            PRIVATE shlwapi.lib)
     endif(WIN32)
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_mvme_bench)
@@ -46,14 +54,30 @@ add_mvme_bench(test_misc test_misc.cc)
 
 # gtest tests
 
+# For tests depending on libmvme_core
 function(add_mvme_core_gtest exe_name exe_source)
     add_executable(${exe_name} ${exe_source})
-    add_dependencies(${exe_name} libmvme_core)
-    target_link_libraries(${exe_name} libmvme_core gtest gtest_main)
+    target_link_libraries(${exe_name}
+        PRIVATE libmvme_core
+        PRIVATE gtest
+        PRIVATE gtest_main)
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_mvme_core_gtest)
 
+# For tests depending on libmvme
+function(add_mvme_gtest exe_name exe_source)
+    add_executable(${exe_name} ${exe_source})
+    target_link_libraries(${exe_name}
+        PRIVATE libmvme
+        PRIVATE gtest
+        PRIVATE gtest_main)
+    add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+endfunction(add_mvme_gtest)
+
 add_mvme_core_gtest(test_util_databuffer "test_util_databuffer.cc")
 add_mvme_core_gtest(test_util_ticketmutex "test_util_ticketmutex.cc")
+add_mvme_core_gtest(test_vme_script_parsing "test_vme_script_parsing.cc")
+add_mvme_core_gtest(test_vme_script_variables "test_vme_script_variables.cc")
+add_mvme_core_gtest(test_vme_script_commands "test_vme_script_commands.cc")
 
 endif(BUILD_TESTS)

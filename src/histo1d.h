@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -21,11 +21,13 @@
 #ifndef __HISTO1D_H__
 #define __HISTO1D_H__
 
+#include <memory>
+#include <QObject>
+
 #include "analysis/a2/memory.h"
 #include "histo_util.h"
 #include "libmvme_export.h"
-#include <memory>
-#include <QObject>
+#include "util.h"
 
 struct Histo1DStatistics
 {
@@ -38,6 +40,12 @@ struct Histo1DStatistics
 
     // X coordinate of the center between the fwhm edges
     double fwhmCenter = 0.0;
+
+    // The bin range that was used when calculating the stats.
+    std::pair<s32, s32> statsBinRange = std::make_pair(-1, -1);
+
+    // Low-edge coordinates of the bin range used to calculate the stats.
+    std::pair<double, double> statsRange = std::make_pair(make_quiet_nan(), make_quiet_nan());
 
     /* The resultion reduction that was in effect when the stats where calculated.
      * bin numbers are given in terms of this factor. */
@@ -158,6 +166,7 @@ class LIBMVME_EXPORT Histo1D: public QObject
         // Note: No Resolution Reduction for the fill operation.
         bool setBinContent(u32 bin, double value);
 
+        inline u32 getBinCount() const { return m_xAxisBinning.getBinCount(); }
         inline double getXMin() const { return m_xAxisBinning.getMin(); }
         inline double getXMax() const { return m_xAxisBinning.getMax(); }
         inline double getWidth() const { return m_xAxisBinning.getWidth(); }

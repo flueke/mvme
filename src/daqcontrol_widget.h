@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -45,10 +45,12 @@ class DAQControlWidget: public QWidget
 {
     Q_OBJECT
     signals:
-        void startDAQ(u32 nCycles, bool keepHistoContents);
+        void startDAQ(u32 nCycles, bool keepHistoContents,
+                      const std::chrono::milliseconds &runDuration);
         void pauseDAQ();
         void resumeDAQ(u32 nCycles);
         void stopDAQ();
+        void sniffNextInputBuffer();
         void reconnectVMEController();
         void forceResetVMEController();
         void listFileOutputInfoModified(const ListFileOutputInfo &lfo);
@@ -88,6 +90,7 @@ class DAQControlWidget: public QWidget
         QPushButton *pb_start,
                     *pb_stop,
                     *pb_oneCycle,
+                    *pb_sniffBuffer,
                     *pb_reconnect,
                     *pb_controllerSettings,
                     *pb_runSettings,
@@ -111,6 +114,7 @@ class DAQControlWidget: public QWidget
 
         QRadioButton *rb_keepData, *rb_clearData;
         QButtonGroup *bg_daqData;
+        QSpinBox *spin_runDuration;
 };
 
 class DAQRunSettingsDialog: public QDialog

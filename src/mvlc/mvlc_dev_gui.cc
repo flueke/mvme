@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvlc/mvlc_dev_gui.h"
 
 #include <QComboBox>
@@ -432,7 +452,7 @@ void MVLCDataReader::readoutLoop()
         m_readBuffer.used = bytesTransferred;
 
 
-        if (ec == ErrorType::ConnectionError || ec == ErrorType::IOError)
+        if (ec == ErrorType::ConnectionError)
         {
             emit message(QSL("Lost connection to MVLC. Leaving readout loop. Reason: %1")
                          .arg(ec.message().c_str()));
@@ -888,7 +908,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
     // mvlc connection state changes
     connect(m_d->mvlc, &MVLCObject::stateChanged,
-            this, [this] (const MVLCObject::State &oldState,
+            this, [this] (const MVLCObject::State &,
                           const MVLCObject::State &newState)
     {
         switch (newState)
@@ -1517,7 +1537,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
     });
 
     //
-    // UDP Debug Tab Interations
+    // UDP Debug Tab Interactions
     //
     connect(ui->pb_udpSend, &QPushButton::clicked,
             this, [this] ()
@@ -1549,7 +1569,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             while (bytesLeft > 0)
             {
                 qint64 bytesToWrite = std::min(bytesLeft, MaxPacketPayloadSize);
-                quint64 bytesWritten = sock.writeDatagram(dataPtr, bytesToWrite, destIP, destPort);
+                qint64 bytesWritten = sock.writeDatagram(dataPtr, bytesToWrite, destIP, destPort);
 
                 if (bytesWritten < 0)
                 {
@@ -1606,7 +1626,6 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             this, [this] ()
     {
         auto stats = m_d->dataReader->getStats();
-        auto &labels = m_d->readerStatLabels;
 
         for (int counterType = 0;
              counterType < ReaderStats::CountersCount;
@@ -1737,7 +1756,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             if (delta > 0)
             {
                 double rate = delta / dt;
-                strParts += QString("stack%1: %2").arg(stackId).arg(delta);
+                strParts += QString("stack%1: %2").arg(stackId).arg(rate);
             }
         }
 
@@ -1985,7 +2004,6 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
         connect(widgets.pb_read, &QPushButton::clicked,
                 this, [this, widgets] ()
         {
-            bool ok = true;
             u16 address = widgets.spin_address->value();
 
             u32 result = readRegister(address);

@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -20,10 +20,12 @@
  */
 #include "vme_config_ui.h"
 
+#include <algorithm>
 #include <cmath>
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QDebug>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFile>
@@ -50,6 +52,7 @@
 #include "qt-collapsible-section/Section.h"
 #include "vme_config.h"
 #include "vme_script.h"
+#include "vme_config_ui_variable_editor.h"
 
 using namespace mesytec;
 using namespace vats;
@@ -72,16 +75,48 @@ struct EventConfigDialogPrivate
     QDoubleSpinBox *spin_timerPeriod;
 
     QCheckBox *cb_irqUseIACK;
+
+    VariableEditorWidget *variableEditor;
+
+    const VMEConfig *vmeConfig;
+
+    void on_trigger_condition_changed()
+    {
+        auto tc = static_cast<TriggerCondition>(combo_condition->currentData().toInt());
+
+        u8 irqValue = 0u;
+
+        if (tc == TriggerCondition::Interrupt)
+            irqValue = static_cast<u8>(spin_irqLevel->value());
+
+        auto vars = variableEditor->getVariables();
+        vars["sys_irq"].value = QString::number(irqValue);
+        variableEditor->setVariables(vars);
+    }
+
+    void on_irq_level_changed()
+    {
+        u8 irqValue = static_cast<u8>(spin_irqLevel->value());
+        variableEditor->setVariableValue("sys_irq", QString::number(irqValue));
+    }
 };
 
-EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *config,
-                                     QWidget *parent)
+EventConfigDialog::EventConfigDialog(
+    VMEController *controller,
+    EventConfig *config,
+    const VMEConfig *vmeConfig,
+    QWidget *parent)
     : QDialog(parent)
-    , m_d(new EventConfigDialogPrivate)
+    , m_d(new EventConfigDialogPrivate{})
     , m_controller(controller)
     , m_config(config)
 {
+    resize(700, 600);
+
+    m_d->vmeConfig = vmeConfig;
+
     m_d->le_name = new QLineEdit;
+
     m_d->combo_condition = new QComboBox;
     m_d->stack_options = new QStackedWidget;
     m_d->buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
@@ -96,22 +131,37 @@ EventConfigDialog::EventConfigDialog(VMEController *controller, EventConfig *con
     m_d->cb_irqUseIACK = new QCheckBox(this);
     m_d->cb_irqUseIACK->hide();
 
-    auto gb_nameAndCond = new QGroupBox;
-    auto gb_layout   = new QFormLayout(gb_nameAndCond);
-    gb_layout->setContentsMargins(2, 2, 2, 2);
-    gb_layout->addRow(QSL("Name"), m_d->le_name);
-    gb_layout->addRow(QSL("Condition"), m_d->combo_condition);
+    m_d->variableEditor = new VariableEditorWidget(this);
 
+    auto gb_topOptions = new QGroupBox;
+    {
+        auto gb_layout   = new QFormLayout(gb_topOptions);
+        gb_layout->setContentsMargins(2, 2, 2, 2);
+        gb_layout->addRow(QSL("Name"), m_d->le_name);
+        gb_layout->addRow(QSL("Condition"), m_d->combo_condition);
+    }
+
+    auto gb_variables = new QGroupBox("VME Script Variables");
+    {
+        auto layout = make_vbox<0, 0>(gb_variables);
+        layout->addWidget(m_d->variableEditor);
+    }
 
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
-    layout->addWidget(gb_nameAndCond);
+    layout->addWidget(gb_topOptions);
     layout->addWidget(m_d->stack_options);
+    layout->addWidget(gb_variables, 1);
     layout->addWidget(m_d->buttonBox);
 
-    connect(m_d->combo_condition,
-            static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+    connect(m_d->combo_condition, qOverload<int>(&QComboBox::currentIndexChanged),
             m_d->stack_options, &QStackedWidget::setCurrentIndex);
+
+    connect(m_d->combo_condition, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this] (int index) { m_d->on_trigger_condition_changed(); });
+
+    connect(m_d->spin_irqLevel, qOverload<int>(&QSpinBox::valueChanged),
+            this, [this] () { m_d->on_irq_level_changed(); });
 
     connect(m_d->buttonBox, &QDialogButtonBox::accepted, this, &EventConfigDialog::accept);
     connect(m_d->buttonBox, &QDialogButtonBox::rejected, this, &EventConfigDialog::reject);
@@ -273,6 +323,8 @@ EventConfigDialog::~EventConfigDialog()
 
 void EventConfigDialog::loadFromConfig()
 {
+    assert(m_d->vmeConfig);
+
     auto config = m_config;
 
     m_d->le_name->setText(config->objectName());
@@ -283,9 +335,12 @@ void EventConfigDialog::loadFromConfig()
         m_d->combo_condition->setCurrentIndex(condIndex);
     }
 
+    // FIXME: for new events adjust the IRQ value to be one plus the current
+    // highest IRQ value used.
     m_d->spin_irqLevel->setValue(config->irqLevel);
     m_d->spin_irqVector->setValue(config->irqVector);
     m_d->cb_irqUseIACK->setChecked(config->triggerOptions["IRQUseIACK"].toBool());
+    m_d->variableEditor->setVariables(config->getVariables());
 
     switch (m_controller->getType())
     {
@@ -321,6 +376,7 @@ void EventConfigDialog::saveToConfig()
     config->triggerCondition = static_cast<TriggerCondition>(m_d->combo_condition->currentData().toInt());
     config->irqLevel = static_cast<uint8_t>(m_d->spin_irqLevel->value());
     config->irqVector = static_cast<uint8_t>(m_d->spin_irqVector->value());
+    config->setVariables(m_d->variableEditor->getVariables());
 
     switch (m_controller->getType())
     {
@@ -359,22 +415,39 @@ void EventConfigDialog::setReadOnly(bool readOnly)
     m_d->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!readOnly);
 }
 
+struct ModuleConfigDialog::Private
+{
+    VariableEditorWidget *variableEditor;
+};
+
 //
 // ModuleConfigDialog
 //
-ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vmeConfig,
-                                       QWidget *parent)
-    : QDialog(parent)
-    , m_module(module)
-    , m_vmeConfig(vmeConfig)
+ModuleConfigDialog::ModuleConfigDialog(
+    ModuleConfig *module,
+    const EventConfig *parentEvent,
+    const VMEConfig *vmeConfig,
+    QWidget *parent)
+: QDialog(parent)
+, m_module(module)
+, m_vmeConfig(vmeConfig)
+, m_d(std::make_unique<Private>())
 {
+    assert(module);
+    assert(parentEvent);
+    assert(vmeConfig);
+
+    resize(500, 400);
+
+    m_d->variableEditor = new VariableEditorWidget;
+
     setWindowTitle(QSL("Module Config"));
     MVMETemplates templates = read_templates();
     m_moduleMetas = templates.moduleMetas;
 
     /* Sort by vendorName and then displayName, giving the vendorName "mesytec"
      * the highest priority. */
-    qSort(m_moduleMetas.begin(), m_moduleMetas.end(),
+    std::sort(m_moduleMetas.begin(), m_moduleMetas.end(),
           [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
         if (a.vendorName == b.vendorName)
             return a.displayName < b.displayName;
@@ -426,23 +499,38 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vm
     addressEdit->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
     addressEdit->setText(QString("0x%1").arg(module->getBaseAddress(), 8, 16, QChar('0')));
 
+    const bool isNewModule = (module->getModuleMeta().typeId
+                              == vats::VMEModuleMeta::InvalidTypeId);
+
+    const bool isFirstModuleInEvent = (parentEvent->getModuleConfigs().size() == 0);
+
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     auto layout = new QFormLayout(this);
 
-    const bool isNewModule = (module->getModuleMeta().typeId
-                              == vats::VMEModuleMeta::InvalidTypeId);
-
     if (!isNewModule)
     {
         typeCombo->setEnabled(false);
     }
 
+    auto gb_variables = new QGroupBox("VME Script Variables");
+    {
+        auto layout = make_vbox<0, 0>(gb_variables);
+        layout->addWidget(m_d->variableEditor);
+
+        m_d->variableEditor->setVariables(m_module->getVariables());
+
+        auto sizePol = gb_variables->sizePolicy();
+        sizePol.setVerticalStretch(1);
+        gb_variables->setSizePolicy(sizePol);
+    }
+
     layout->addRow("Type", typeCombo);
     layout->addRow("Name", nameEdit);
     layout->addRow("Address", addressEdit);
+    layout->addRow(gb_variables);
     layout->addRow(bb);
 
     auto onTypeComboIndexChanged = [this](int index)
@@ -493,6 +581,10 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *module, const VMEConfig *vm
     updateOkButton();
 }
 
+ModuleConfigDialog::~ModuleConfigDialog()
+{
+}
+
 void ModuleConfigDialog::accept()
 {
     bool ok;
@@ -510,6 +602,7 @@ void ModuleConfigDialog::accept()
     m_module->setModuleMeta(mm);
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
+    m_module->setVariables(m_d->variableEditor->getVariables());
 
     QDialog::accept();
 }

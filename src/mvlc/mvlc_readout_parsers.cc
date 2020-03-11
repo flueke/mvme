@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvlc/mvlc_readout_parsers.h"
 
 #include "mvlc/mvlc_buffer_validators.h"
@@ -404,6 +424,8 @@ ParseResult parse_readout_contents(
                 if (!nextStackFrame)
                     return ParseResult::NoStackFrameFound;
 
+                LOG_TRACE("found next StackFrame: @%p 0x%08x", nextStackFrame, *nextStackFrame);
+
                 state.counters.unusedBytes += (iter.buffp - prevIterPtr);
 
                 auto pr = parser_begin_event(state, iter.peekU32());
@@ -518,6 +540,11 @@ ParseResult parse_readout_contents(
 
                             if (state.curBlockFrame.info().type != frame_headers::BlockRead)
                             {
+
+                                qDebug("NotABlockFrame: type=0x%x, frameHeader=0x%08x",
+                                       state.curBlockFrame.info().type,
+                                       state.curBlockFrame.header);
+
                                 state.curBlockFrame = {};
                                 parser_clear_event_state(state);
                                 return ParseResult::NotABlockFrame;
@@ -659,10 +686,8 @@ ParseResult parse_eth_packet(
 {
     eth::PayloadHeaderInfo ethHdrs{ packetIter.peekU32(0), packetIter.peekU32(1) };
 
-    LOG_TRACE("begin parsing packet %u, dataWords=%u",
-              ethHdrs.packetNumber(), ethHdrs.dataWordCount());
-
-    const u32 *packetEndPtr = reinterpret_cast<const u32 *>(packetIter.endp);
+    LOG_TRACE("begin parsing packet %u, dataWords=%u, packetLen=%u bytes",
+              ethHdrs.packetNumber(), ethHdrs.dataWordCount(), packetIter.bytesLeft());
 
     // Skip to the first payload contents word, right after the two ETH
     // headers. This can be trailing data words from an already open stack

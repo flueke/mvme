@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvlc/mvlc_qt_object.h"
 
 #include <cassert>
@@ -78,6 +98,7 @@ void MVLCObject::setState(const State &newState)
         {
             auto guard = m_stackErrors.lock();
             m_stackErrors.counters = {};
+            m_dialog.clearStackErrorNotifications();
         }
 
         emit stateChanged(prevState, newState);
@@ -139,9 +160,10 @@ void MVLCObject::preDialogOperation()
 }
 
 // Called after stack operations. Checks if there are pending stack error
-// notifications and emits the stackErrorNotification() signal for each of
-// them.
-// The command mutex must be locked when this method is called.
+// notifications available from the MVLCDialog object and updates the stack
+// error counters accordingly.
+//
+// The command mutex must be locked when this method is called!
 void MVLCObject::postDialogOperation()
 {
     // The Command mutex should be locked at this point which means to avoid
@@ -155,11 +177,14 @@ void MVLCObject::postDialogOperation()
 
     auto lock = m_stackErrors.lock();
 
+    qDebug() << __PRETTY_FUNCTION__ << "updating stack error counters... (" << errorFrames.size() << ")";
+
     for (const auto &errorFrame: errorFrames)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "updating stack error counters";
         update_stack_error_counters(m_stackErrors.counters, errorFrame);
     }
+
+    qDebug() << __PRETTY_FUNCTION__ << "done handling" << errorFrames.size() << "errorFrames";
 }
 
 std::error_code MVLCObject::vmeSingleRead(u32 address, u32 &value, u8 amod,
@@ -178,9 +203,11 @@ std::error_code MVLCObject::vmeSingleWrite(u32 address, u32 value, u8 amod,
     auto tStart = QDateTime::currentDateTime();
     auto guard = getLocks().lockCmd();
     auto tLock = QDateTime::currentDateTime();
+
     preDialogOperation();
     auto result = m_dialog.vmeSingleWrite(address, value, amod, dataWidth);
     postDialogOperation();
+
     auto tEnd = QDateTime::currentDateTime();
 
 #if 0
@@ -359,7 +386,7 @@ void MVLCNotificationPoller::doPoll()
     if (!m_isPolling.compare_exchange_weak(f, true))
         return;
 
-    //qDebug() << __FUNCTION__ << "entering polling loop" << QThread::currentThread();
+    //qDebug() << __FUNCTION__ << "entering notification polling loop" << QThread::currentThread();
 
     QVector<u32> buffer;
     size_t iterationCount = 0u;

@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -21,10 +21,12 @@
 #ifndef UUID_364b82ee_241c_4c09_acbf_f7e36698fb74
 #define UUID_364b82ee_241c_4c09_acbf_f7e36698fb74
 
-#include "globals.h"
 #include "libmvme_export.h"
+
+#include "globals.h"
 #include "template_system.h"
-#include "vme_script.h"
+#include "vme_controller.h"
+#include "vme_script_variables.h"
 
 #include <QObject>
 #include <QUuid>
@@ -43,46 +45,29 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         ConfigObject(QObject *parent = 0);
 
         QUuid getId() const { return m_id; }
+        // Generates a new Uuid for the object.
+        // Note: this method does not set the objects modified flag!
+        void generateNewId();
 
-        virtual void setModified(bool b = true);
         bool isModified() const { return m_modified; }
-
-        void setEnabled(bool b);
         bool isEnabled() const { return m_enabled; }
 
         QString getObjectPath() const;
 
-        void read(const QJsonObject &json);
-        void write(QJsonObject &json) const;
+        std::error_code read(const QJsonObject &json);
+        std::error_code write(QJsonObject &json) const;
 
-#if 0
-        ConfigObject *findChildById(const QUuid &id, bool recurse=true) const
-        {
-            return findChildById<ConfigObject *>(id, recurse);
-        }
+        vme_script::SymbolTable getVariables() const { return m_variables; }
 
-        template<typename T> T findChildById(const QUuid &id, bool recurse=true) const
-        {
-            for (auto child: children())
-            {
-                auto configObject = qobject_cast<ConfigObject *>(child);
+        // Replaces the objects symboltable.
+        void setVariables(const vme_script::SymbolTable &variables);
 
-                if (configObject)
-                {
-                    if (configObject->getId() == id)
-                        return qobject_cast<T>(configObject);
-                }
+        // Adds a new or overwrites an existing variable.
+        void setVariable(const QString &name, const vme_script::Variable &var);
 
-                if (recurse)
-                {
-                    if (auto obj = configObject->findChildById<T>(id, recurse))
-                        return obj;
-                }
-            }
-
-            return {};
-        }
-#endif
+        // Udpates the named variables value. This leaves an existing comment and
+        // other variable attributes intact.
+        void setVariableValue(const QString &name, const QString &value);
 
         template<typename T, typename Predicate>
         T findChildByPredicate(Predicate p, bool recurse=true) const
@@ -122,6 +107,10 @@ class LIBMVME_EXPORT ConfigObject: public QObject
             return findChildByName<ConfigObject *>(name, recurse);
         }
 
+    public slots:
+        void setModified(bool b = true);
+        void setEnabled(bool b);
+
     protected:
         // Note: the watchDynamicProperties flag and
         // setWatchDynamicProperties() make it so that changes to dynamic
@@ -130,24 +119,33 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         bool eventFilter(QObject *obj, QEvent *event) override;
         void setWatchDynamicProperties(bool doWatch);
 
-        virtual void read_impl(const QJsonObject &json) = 0;
-        virtual void write_impl(QJsonObject &json) const = 0;
+        virtual std::error_code read_impl(const QJsonObject &json) = 0;
+        virtual std::error_code write_impl(QJsonObject &json) const = 0;
 
 
         QUuid m_id;
         bool m_modified = false;
         bool m_enabled = true;
         bool m_eventFilterInstalled = false;
+
+    private:
+        vme_script::SymbolTable m_variables;
 };
 
 // A generic container object used to hold more specific child objects or other
 // containers. This can be used by the UI to structure the object tree.
 //
 // Note: when a child object is deleted it will automatically be removed from
-// the list of children of this object.
+// the list of children of this object but the childAboutToBeRemoved() signal
+// will not be emitted (because at that point the child has already been
+// destroyed and only the QObject* part still exists).
 class LIBMVME_EXPORT ContainerObject: public ConfigObject
 {
     Q_OBJECT
+    signals:
+        void childAdded(ConfigObject *co);
+        void childAboutToBeRemoved(ConfigObject *co);
+
     public:
         Q_INVOKABLE explicit ContainerObject(QObject *parent = nullptr);
 
@@ -160,14 +158,18 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
             obj->setParent(this);
             connect(obj, &QObject::destroyed,
                     this, &ContainerObject::onChildDestroyed);
+            emit childAdded(obj);
             setModified();
         }
 
-        // Note: the child is neither deleted nor reparented.
+        // Note: the child is neither deleted nor reparented. It is only
+        // removed from this objects list of children.
         bool removeChild(ConfigObject *obj)
         {
-            if (m_children.removeOne(obj))
+            if (m_children.contains(obj))
             {
+                emit childAboutToBeRemoved(obj);
+                m_children.removeOne(obj);
                 disconnect(obj, &QObject::destroyed,
                            this, &ContainerObject::onChildDestroyed);
                 setModified();
@@ -176,19 +178,34 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
             return false;
         }
 
-        bool containsChild(ConfigObject *obj)
-        {
-            return m_children.indexOf(obj) >= 0;
-        }
-
+        // Returns the list of direct child objects.
         QVector<ConfigObject *> getChildren() const
         {
             return m_children;
         }
 
+        // Returns the direct child with the supplied name.
+        ConfigObject *getChild(const QString &name) const
+        {
+            return findChildByName(name, false);
+        }
+
+        // Returns true if obj is a direct child of this container.
+        bool contains(ConfigObject *obj) const
+        {
+            return m_children.indexOf(obj) >= 0;
+        }
+
+        // Returns true if the container has a direct child with the supplied
+        // name.
+        bool contains(const QString &name) const
+        {
+            return getChild(name) != nullptr;
+        }
+
     protected:
-        void read_impl(const QJsonObject &json) override;
-        void write_impl(QJsonObject &json) const override;
+        std::error_code read_impl(const QJsonObject &json) override;
+        std::error_code write_impl(QJsonObject &json) const override;
 
     private slots:
         // This should work even if this QObject had non-ConfigObject children
@@ -203,6 +220,13 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
         QVector<ConfigObject *> m_children;
 };
 
+inline std::unique_ptr<ContainerObject> make_directory_container(
+    const QString &name)
+{
+    return std::make_unique<ContainerObject>(
+        name, QString{}, ":/folder_orange.png");
+}
+
 class LIBMVME_EXPORT VMEScriptConfig: public ConfigObject
 {
     Q_OBJECT
@@ -216,13 +240,11 @@ class LIBMVME_EXPORT VMEScriptConfig: public ConfigObject
         void setScriptContents(const QString &);
         void addToScript(const QString &str);
 
-        vme_script::VMEScript getScript(u32 baseAddress = 0) const;
-
         QString getVerboseTitle() const;
 
     protected:
-        virtual void read_impl(const QJsonObject &json) override;
-        virtual void write_impl(QJsonObject &json) const override;
+        std::error_code read_impl(const QJsonObject &json) override;
+        std::error_code write_impl(QJsonObject &json) const override;
 
     private:
         QString m_script;
@@ -251,12 +273,13 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
 
         void addInitScript(VMEScriptConfig *script);
 
-        EventConfig *getEventConfig() const;
+        const EventConfig *getEventConfig() const;
+        EventConfig *getEventConfig();
         QUuid getEventId() const;
 
     protected:
-        virtual void read_impl(const QJsonObject &json) override;
-        virtual void write_impl(QJsonObject &json) const override;
+        std::error_code read_impl(const QJsonObject &json) override;
+        std::error_code write_impl(QJsonObject &json) const override;
 
     private:
         uint32_t m_baseAddress = 0;
@@ -265,6 +288,8 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         QVector<VMEScriptConfig *> m_initScripts;
         vats::VMEModuleMeta m_meta;
 };
+
+class VMEConfig;
 
 class LIBMVME_EXPORT EventConfig: public ConfigObject
 {
@@ -315,11 +340,14 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         /* Set by the readout worker and then used by the buffer
          * processor to map from stack ids to event configs. */
         // Maybe should move this elsewhere as it is vmusb specific
-        uint8_t stackID;
+        uint8_t stackID; // FIXME: vmusb only
+
+        const VMEConfig *getVMEConfig() const;
+        VMEConfig *getVMEConfig();
 
     protected:
-        virtual void read_impl(const QJsonObject &json) override;
-        virtual void write_impl(QJsonObject &json) const override;
+        std::error_code read_impl(const QJsonObject &json) override;
+        std::error_code write_impl(QJsonObject &json) const override;
 
     private:
         QList<ModuleConfig *> modules;
@@ -328,7 +356,8 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
 enum class VMEConfigReadResult
 {
     NoError,
-    VersionTooNew
+    VersionTooOld, // User should never see this as we do schema updates.
+    VersionTooNew  // User can see this and needs to ugprade mvme.
 };
 
 LIBMVME_EXPORT std::error_code make_error_code(VMEConfigReadResult r);
@@ -345,15 +374,19 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         void eventAdded(EventConfig *config);
         void eventAboutToBeRemoved(EventConfig *config);
 
-        void globalScriptAdded(VMEScriptConfig *config, const QString &category);
-        void globalScriptAboutToBeRemoved(VMEScriptConfig *config);
-
         void vmeControllerTypeSet(const VMEControllerType &t);
+
+        // Emitted on adding a global child at any hierarchy level (not only
+        // direct children are considered).
+        void globalChildAdded(ConfigObject *child);
+
+        // Emitted for a global child at any hierarchy level. Only emitted if
+        // the child is removed via ContainerObject::removeChild(), not if the
+        // child is manually deleted.
+        void globalChildAboutToBeRemoved(ConfigObject *child);
 
     public:
         Q_INVOKABLE VMEConfig(QObject *parent = 0);
-
-        std::error_code readVMEConfig(const QJsonObject &json);
 
         // events
         void addEventConfig(EventConfig *config);
@@ -372,6 +405,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         // scripts
         bool addGlobalScript(VMEScriptConfig *config, const QString &category);
         bool removeGlobalScript(VMEScriptConfig *config);
+        QStringList getGlobalScriptCategories() const;
 
         // vme controller
         void setVMEController(VMEControllerType type,
@@ -393,10 +427,12 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         ContainerObject &getGlobalObjectRoot();
 
     protected:
-        virtual void read_impl(const QJsonObject &json) override;
-        virtual void write_impl(QJsonObject &json) const override;
+        std::error_code read_impl(const QJsonObject &json) override;
+        std::error_code write_impl(QJsonObject &json) const override;
 
     private:
+        void onChildObjectAdded(ConfigObject *child);
+        void onChildObjectAboutToBeRemoved(ConfigObject *child);
         void createMissingGlobals();
 
         QList<EventConfig *> eventConfigs;
@@ -412,9 +448,14 @@ Q_DECLARE_METATYPE(ModuleConfig *);
 Q_DECLARE_METATYPE(EventConfig *);
 Q_DECLARE_METATYPE(VMEConfig *);
 
-LIBMVME_EXPORT std::pair<std::unique_ptr<VMEConfig>, QString>
-    read_vme_config_from_file(const QString &filename);
+std::pair<std::unique_ptr<VMEConfig>, QString>
+LIBMVME_EXPORT read_vme_config_from_file(
+    const QString &filename,
+    std::function<void (const QString &msg)> logger = {});
 
+QString make_unique_event_name(const QString &prefix, const VMEConfig *vmeConfig);
+QString make_unique_event_name(const VMEConfig *vmeConfig);
 QString make_unique_module_name(const QString &prefix, const VMEConfig *vmeConfig);
+QString make_unique_name(const ConfigObject *co, const ContainerObject *destContainer);
 
 #endif

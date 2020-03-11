@@ -103,23 +103,6 @@
   transfer 64-bit words.</p>
   <p>The <b>*fifo</b> variants do not increment the given starting address.</p>
 
-  <h3>Variable sized Block Transfers</h3>
-  <ul>
-    <li><b>bltcount</b> &lt;reg_amode&gt; &lt;reg_dwidth&gt; &lt;reg_addr&gt; &lt;reg_count_mask&gt; &lt;block_amode&gt;
-      &lt;block_addr&gt;</li>
-    <li><b>bltfifocount</b> &lt;reg_amode&gt; &lt;reg_dwidth&gt; &lt;reg_addr&gt; &lt;reg_count_mask&gt;
-      &lt;block_amode&gt; &lt;block_addr&gt;</li>
-    <li><b>mbltcount</b> &lt;reg_amode&gt; &lt;reg_dwidth&gt; &lt;reg_addr&gt; &lt;reg_count_mask&gt;
-      &lt;block_amode&gt; &lt;block_addr&gt;</li>
-    <li><b>mbltfifocount</b> &lt;reg_amode&gt; &lt;reg_dwidth&gt; &lt;reg_addr&gt; &lt;reg_count_mask&gt;
-      &lt;block_amode&gt; &lt;block_addr&gt;</li>
-  </ul>
-  </li>
-
-  <p>These commands read the number of transfers to perform from the register at &lt;reg_addr&gt;, using the given
-  &lt;reg_amode&gt; and &lt;reg_dwidth&gt; as access modifiers. The value read is then AND'ed with &lt;reg_count_mask&gt;.
-  The resulting value is the number of block transfers to perform, starting at &lt;block_addr&gt;.</p>
-
   <h3>Miscellaneous</h3>
   <ul>
     <li><b>wait</b> &lt;waitspec&gt;</li>

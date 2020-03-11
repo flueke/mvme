@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -48,13 +48,14 @@ class VMEConfigTreeWidget: public QWidget
         void runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs);
         void logMessage(const QString &msg);
         void dumpVMEControllerRegisters();
+        void editEventVariables(EventConfig *eventConfig);
 
     public:
         VMEConfigTreeWidget(QWidget *parent = 0);
         // This makes use of the action defined in the MVMEMainWindow class.
         // Call this after the actions have been added to this widget via
         // QWidget::addAction().
-        void setupActions();
+        void setupActionButtons();
 
         VMEConfig *getConfig() const;
 
@@ -69,6 +70,9 @@ class VMEConfigTreeWidget: public QWidget
     private slots:
         void editEventImpl();
         void onVMEControllerTypeSet(const VMEControllerType &t);
+        void onGlobalChildAdded(ConfigObject *globalChild);
+        void onGlobalChildAboutToBeRemoved(ConfigObject *globalChild);
+        void editScript();
 
     private:
         TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script);
@@ -77,9 +81,11 @@ class VMEConfigTreeWidget: public QWidget
 
         TreeNode *makeObjectNode(ConfigObject *obj);
         TreeNode *addObjectNode(QTreeWidgetItem *parentNode, ConfigObject *obj);
-        void addContainerNodes(TreeNode *parent, ContainerObject *obj);
+        void addContainerNodes(QTreeWidgetItem *parent, ContainerObject *obj);
 
+        void onCurrentItemChanged(QTreeWidgetItem *item, QTreeWidgetItem *prev);
         void onItemClicked(QTreeWidgetItem *item, int column);
+        void onItemActivated(QTreeWidgetItem *item, int column);
         void onItemDoubleClicked(QTreeWidgetItem *item, int column);
         void onItemChanged(QTreeWidgetItem *item, int column);
         void onItemExpanded(QTreeWidgetItem *item);
@@ -91,9 +97,6 @@ class VMEConfigTreeWidget: public QWidget
         void onModuleAdded(ModuleConfig *config);
         void onModuleAboutToBeRemoved(ModuleConfig *config);
 
-        void onScriptAdded(VMEScriptConfig *script, const QString &category);
-        void onScriptAboutToBeRemoved(VMEScriptConfig *script);
-
         // context menu action implementations
         void removeEvent();
 
@@ -102,10 +105,13 @@ class VMEConfigTreeWidget: public QWidget
         void editModule();
 
         void addGlobalScript();
+        void addScriptDirectory();
+        void removeDirectoryRecursively();
         void removeGlobalScript();
         void runScripts();
         void editName();
         void initModule();
+        void resetModule();
         void onActionShowAdvancedChanged();
         void handleShowDiagnostics();
         void exploreWorkspace();
@@ -114,6 +120,12 @@ class VMEConfigTreeWidget: public QWidget
         bool isObjectEnabled(QTreeWidgetItem *node, int expectedNodeType) const;
 
         void updateConfigLabel();
+
+        ConfigObject *getCurrentConfigObject() const;
+        void copyToClipboard(const ConfigObject *obj);
+        void pasteFromClipboard();
+        bool canCopy(const ConfigObject *obj) const;
+        bool canPaste() const;
 
         VMEConfig *m_config = nullptr;
         QString m_configFilename;
@@ -133,9 +145,10 @@ class VMEConfigTreeWidget: public QWidget
                  *m_nodeManual = nullptr;
 
         QAction *action_showAdvanced,
-                *action_dumpVMEControllerRegisters;
+                *action_dumpVMEControllerRegisters,
+                *action_editVariables;
 
-        QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs, *pb_notes;
+        QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs, *pb_notes, *pb_editVariables;
         QLineEdit *le_fileName;
 };
 

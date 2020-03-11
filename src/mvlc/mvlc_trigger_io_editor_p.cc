@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvlc/mvlc_trigger_io_editor_p.h"
 
 #include <cassert>
@@ -9,13 +29,17 @@
 
 #include <boost/range/adaptor/indexed.hpp>
 #include <minbool.h>
+
 #include <QDebug>
 #include <QDialogButtonBox>
+#include <QGraphicsPolygonItem>
 #include <QGroupBox>
 #include <QLineEdit>
 #include <QPushButton>
+#include <qnamespace.h>
 
 #include "qt_util.h"
+#include "mvme_qthelp.h"
 
 using boost::adaptors::indexed;
 
@@ -31,7 +55,7 @@ void reverse_rows(QTableWidget *table)
     }
 }
 
-}
+} // end anon namespace
 
 namespace mesytec
 {
@@ -79,7 +103,6 @@ void TriggerIOView::scaleView(qreal scaleFactor)
 
 void TriggerIOView::wheelEvent(QWheelEvent *event)
 {
-    bool invert = false;
     auto keyMods = event->modifiers();
     double divisor = 300.0;
 
@@ -143,7 +166,7 @@ void ConnectorCircleItem::labelSet_(const QString &label)
     adjust();
 }
 
-void ConnectorCircleItem::alignmentSet_(const Qt::Alignment &align)
+void ConnectorCircleItem::alignmentSet_(const Qt::Alignment &)
 {
     adjust();
 }
@@ -189,8 +212,7 @@ QRectF ConnectorDiamondItem::boundingRect() const
     return QRectF(0, 0, m_baseLength, m_baseLength);
 }
 
-void ConnectorDiamondItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
-           QWidget *widget)
+void ConnectorDiamondItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
 {
     auto br = boundingRect();
 
@@ -220,7 +242,7 @@ void ConnectorDiamondItem::labelSet_(const QString &label)
     adjust();
 }
 
-void ConnectorDiamondItem::alignmentSet_(const Qt::Alignment &align)
+void ConnectorDiamondItem::alignmentSet_(const Qt::Alignment &)
 {
     adjust();
 }
@@ -353,7 +375,7 @@ void BlockItem::setOutputNames(const QStringList &names)
     }
 }
 
-void BlockItem::hoverEnterEvent(QGraphicsSceneHoverEvent *ev)
+void BlockItem::hoverEnterEvent(QGraphicsSceneHoverEvent *)
 {
     setBrush(Block_Brush_Hover);
 
@@ -376,7 +398,7 @@ void BlockItem::hoverEnterEvent(QGraphicsSceneHoverEvent *ev)
     QGraphicsRectItem::update();
 }
 
-void BlockItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *ev)
+void BlockItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *)
 {
     setBrush(Block_Brush);
     for (auto con: m_inputConnectors)
@@ -430,6 +452,7 @@ LUTItem::LUTItem(int lutIdx, bool hasStrobeGG, QGraphicsItem *parent)
         con->setLabel("strobe GG");
 
         addInputConnector(con);
+        m_strobeConnector = con;
     }
 }
 
@@ -473,6 +496,215 @@ QPointF get_center_point(T *item)
     return item->boundingRect().center();
 }
 
+template<typename T>
+QPointF get_scene_center_point(T *item)
+{
+    return item->mapToScene(item->boundingRect().center());
+}
+
+//
+// LineAndArrow
+//
+LineAndArrow::LineAndArrow(const QPointF &sceneEnd, QGraphicsItem *parent)
+    : QAbstractGraphicsShapeItem(parent)
+{
+    //setFlags(QGraphicsItem::ItemSendsGeometryChanges);
+    setBrush(Qt::black);
+    setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    setEnd(sceneEnd);
+}
+
+QVariant LineAndArrow::itemChange(GraphicsItemChange change, const QVariant &value)
+{
+#if 0
+    qDebug() << __PRETTY_FUNCTION__ << this << change << value;
+
+    if (change == GraphicsItemChange::ItemSceneChange
+        || change == GraphicsItemChange::ItemVisibleChange
+        || change == GraphicsItemChange::ItemPositionChange)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << this << change << value << "calling adjust()";
+        adjust();
+    }
+#endif
+
+    return QAbstractGraphicsShapeItem::itemChange(change, value);
+}
+
+void LineAndArrow::setArrowSize(qreal arrowSize)
+{
+    m_arrowSize = arrowSize;
+    adjust();
+}
+
+void LineAndArrow::setEnd(const QPointF &p)
+{
+    m_sceneEnd = p;
+    qDebug() << __PRETTY_FUNCTION__ <<  "given endPoint = " << p << ", mapFromScene =" << mapFromScene(p);
+    adjust();
+}
+
+QPointF LineAndArrow::getAdjustedEnd() const
+{
+    QPointF lineStart{0, 0};
+    QPointF lineEnd = mapFromScene(m_sceneEnd);
+
+    QLineF line(lineStart, lineEnd);
+    qreal length = line.length();
+
+    if (length > qreal(2.)) {
+        // Shortens the line by 'offset' pixels at the end.
+        qreal offset = 6;
+        qreal offsetPercent = (length - offset) / length;
+        //m_adjustedStart = line.pointAt(1.0 - offsetPercent);
+        lineEnd = line.pointAt(offsetPercent);
+    } else {
+         lineEnd = line.p1();
+    }
+
+    return lineEnd;
+}
+
+void LineAndArrow::adjust()
+{
+    prepareGeometryChange();
+}
+
+QRectF LineAndArrow::boundingRect() const
+{
+    qreal penWidth = 1;
+    qreal extra = (penWidth + m_arrowSize) / 2.0;
+
+    QPointF lineStart{0, 0};
+    QPointF lineEnd = getAdjustedEnd();
+
+    return QRectF(lineStart,
+                  QSizeF(lineEnd.x() - lineStart.x(),
+                         lineEnd.y() - lineStart.y()))
+        .normalized()
+        .adjusted(-extra, -extra, extra, extra);
+}
+
+void LineAndArrow::paint(
+    QPainter *painter,
+    const QStyleOptionGraphicsItem *,
+    QWidget *)
+{
+    QPointF lineStart{0, 0};
+    QPointF lineEnd = getAdjustedEnd();
+
+    QLineF line(lineStart, lineEnd);
+    if (qFuzzyCompare(line.length(), qreal(0.)))
+        return;
+
+    // Draw the line itself
+    painter->setPen(pen());
+    painter->setBrush(brush());
+    painter->drawLine(line);
+
+    // Draw the arrows
+    double angle = std::atan2(-line.dy(), line.dx());
+
+    QPointF destArrowP1 = lineEnd + QPointF(sin(angle - M_PI / 3) * m_arrowSize,
+                                            cos(angle - M_PI / 3) * m_arrowSize);
+
+    QPointF destArrowP2 = lineEnd + QPointF(sin(angle - M_PI + M_PI / 3) * m_arrowSize,
+                                            cos(angle - M_PI + M_PI / 3) * m_arrowSize);
+
+    // Note: the alphas of the brush and the pen seem to get composed. This
+    // leads to the pen outline being very visible. I didn't get it to work as
+    // I wanted when playing with different composition modes so I decided not
+    // to use any alpha for the line and arrow.
+
+    painter->drawPolygon(QPolygonF() << line.p2() << destArrowP1 << destArrowP2);
+}
+
+//
+// HorizontalBusBar
+//
+HorizontalBusBar::HorizontalBusBar(const QString &labelText, QGraphicsItem *parent)
+    : QGraphicsItem(parent)
+{
+    // the bar
+    m_bar = new QGraphicsRectItem(0, 0, 75, 10, this);
+    m_bar->setPen(Qt::NoPen);
+
+    // right side arrow
+    m_arrow = new LineAndArrow(m_dest, this);
+    m_arrow->setPos({ m_bar->boundingRect().right(), m_bar->boundingRect().center().y() });
+    m_arrow->setArrowSize(6);
+
+    // label centered in the bar
+    if (!labelText.isEmpty())
+    {
+        m_label = new QGraphicsSimpleTextItem(labelText, this);
+        auto font = m_label->font();
+        font.setPixelSize(8);
+        m_label->setFont(font);
+
+        // center the text in the bar rectangle
+        auto w1 = m_bar->boundingRect().width();
+        auto w2 = m_label->boundingRect().width();
+        auto h1 = m_bar->boundingRect().height();
+        auto h2 = m_label->boundingRect().height();
+        auto x = (w1 - w2) * 0.5;
+        auto y = (h1 - h2) * 0.5;
+        m_label->setPos(x, y);
+    }
+}
+
+void HorizontalBusBar::setDestPoint(const QPointF &p)
+{
+    m_arrow->setEnd(p);
+}
+
+void HorizontalBusBar::setBarBrush(const QBrush &brush)
+{
+    m_bar->setBrush(brush);
+}
+
+void HorizontalBusBar::setLabelBrush(const QBrush &brush)
+{
+    if (m_label)
+        m_label->setBrush(brush);
+}
+
+LineAndArrow *HorizontalBusBar::getLineAndArrow() const
+{
+    return m_arrow;
+}
+
+QRectF HorizontalBusBar::boundingRect() const
+{
+    auto result = m_bar->boundingRect();
+
+    if (m_label)
+        result = result.united(m_label->boundingRect());
+
+    return result;
+}
+
+void HorizontalBusBar::paint(QPainter *, const QStyleOptionGraphicsItem *, QWidget *)
+{
+}
+
+//
+// MoveableRect
+//
+MovableRect::MovableRect(int w, int h, QGraphicsItem *parent)
+    : QGraphicsRectItem(0, 0, w, h, parent)
+{
+    setFlags(QGraphicsItem::ItemIsMovable | QGraphicsItem::ItemSendsGeometryChanges);
+}
+
+QVariant MovableRect::itemChange(GraphicsItemChange change, const QVariant &value)
+{
+    if (change == GraphicsItemChange::ItemPositionChange)
+        qDebug() << __PRETTY_FUNCTION__ << this << change << value;
+
+    return QAbstractGraphicsShapeItem::itemChange(change, value);
+}
+
 //
 // Edge
 //
@@ -513,7 +745,7 @@ void Edge::adjust()
     prepareGeometryChange();
 
     if (length > qreal(20.)) {
-        // Shortens the line to be drawn by 'offset' pixels at the start and
+        // Shortens the line by 'offset' pixels at the start and
         // end.
         qreal offset = 4;
         qreal offsetPercent = (length - offset) / length;
@@ -535,8 +767,7 @@ QRectF Edge::boundingRect() const
         .adjusted(-extra, -extra, extra, extra);
 }
 
-void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
-           QWidget *widget)
+void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
 {
     QLineF line(m_sourcePoint, m_destPoint);
     if (qFuzzyCompare(line.length(), qreal(0.)))
@@ -585,10 +816,18 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // NIM+ECL IO Item
         {
             result.nimItem = new gfx::BlockItem(
-                100, 470,
-                0, trigger_io::NIM_IO_Count,
-                0, 48,
+                100, 470, // width, height
+                trigger_io::NIM_IO_Count, // inputCount: connectors symbolizing the pyhsical NIM inputs
+                trigger_io::NIM_IO_Count, // outputCount: NIM connectors towards L1
+                48, // inputConnectorMargin
+                48, // outputConnectorMargin
                 result.parent);
+
+            for (auto c: result.nimItem->inputConnectors())
+            {
+                c->setEnabled(false);
+                c->setBrush(gfx::Connector_Brush_Disabled);
+            }
 
             result.nimItem->moveBy(25, 25);
 
@@ -603,6 +842,25 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         result.label->setFont(labelFont);
         result.label->moveBy(result.parent->boundingRect().width()
                              - result.label->boundingRect().width(), 0);
+
+        {
+            auto frontPanelInputsText = new QGraphicsSimpleTextItem(
+                QSL("Front Panel NIM/TTL inputs"),
+                result.parent);
+            frontPanelInputsText->setRotation(-90);
+            frontPanelInputsText->moveBy(0, result.parent->boundingRect().height() * 0.5);
+            frontPanelInputsText->moveBy(0, frontPanelInputsText->boundingRect().width() * 0.5);
+        }
+
+        {
+            auto ggText = new QGraphicsSimpleTextItem(
+                QSL("Gate Generators"),
+                result.nimItem);
+            ggText->setRotation(-90);
+            ggText->setPos(ggText->parentItem()->boundingRect().center());
+            ggText->moveBy(-ggText->boundingRect().height() * 0.5,
+                           +ggText->boundingRect().width() * 0.5);
+        }
 
         return result;
     };
@@ -752,17 +1010,33 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // NIM IO Item
         {
             result.nimItem = new gfx::BlockItem(
-                //100, 470,
-                100, 370,
-                trigger_io::NIM_IO_Count, 0,
-                48, 0,
+                100, 370, // width, height
+                trigger_io::NIM_IO_Count, // inputCount: internal connectors
+                trigger_io::NIM_IO_Count, // outputCount: symbolizing front panel LEMO connectors
+                48, 48, // in and out connector margins
                 result.parent);
+
+            for (auto c: result.nimItem->outputConnectors())
+            {
+                c->setEnabled(false);
+                c->setBrush(gfx::Connector_Brush_Disabled);
+            }
 
             result.nimItem->moveBy(25, 25);
 
             auto label = new QGraphicsSimpleTextItem(QString("NIM Outputs"), result.nimItem);
             label->moveBy((result.nimItem->boundingRect().width()
                            - label->boundingRect().width()) / 2.0, 0);
+
+            {
+                auto ggText = new QGraphicsSimpleTextItem(
+                    QSL("Gate Generators"),
+                    result.nimItem);
+                ggText->setRotation(-90);
+                ggText->setPos(ggText->parentItem()->boundingRect().center());
+                ggText->moveBy(-ggText->boundingRect().height() * 0.5,
+                               +ggText->boundingRect().width() * 0.5);
+            }
         }
 
         auto yOffset = result.nimItem->boundingRect().height() + 25;
@@ -770,18 +1044,37 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // ECL Out
         {
             result.eclItem = new gfx::BlockItem(
-                //100, 140,
-                100, 80,
-                trigger_io::ECL_OUT_Count, 0,
-                24, 0,
+                100, 80, // width, height
+                trigger_io::ECL_OUT_Count, // inputCount: internal connectors
+                trigger_io::ECL_OUT_Count, // outputCount: symbolizing front panel ECL outputs
+                24, 24,
                 result.parent);
+
+            for (auto c: result.eclItem->outputConnectors())
+            {
+                c->setEnabled(false);
+                c->setBrush(gfx::Connector_Brush_Disabled);
+            }
+
             result.eclItem->moveBy(25, 25);
 
-            auto label = new QGraphicsSimpleTextItem(QString("ECL Outputs"), result.eclItem);
-            label->moveBy((result.eclItem->boundingRect().width()
-                           - label->boundingRect().width()) / 2.0, 0);
+            {
+                auto label = new QGraphicsSimpleTextItem(QString("LVDS Outputs"), result.eclItem);
+                label->moveBy((result.eclItem->boundingRect().width()
+                               - label->boundingRect().width()) / 2.0, 0);
 
-            result.eclItem->moveBy(0, yOffset);
+                result.eclItem->moveBy(0, yOffset);
+
+                {
+                    auto ggText = new QGraphicsSimpleTextItem(
+                        QSL("GGs"),
+                        result.eclItem);
+                    ggText->setRotation(-90);
+                    ggText->setPos(ggText->parentItem()->boundingRect().center());
+                    ggText->moveBy(-ggText->boundingRect().height() * 0.5,
+                                   +ggText->boundingRect().width() * 0.5);
+                }
+            }
         }
 
         QFont labelFont;
@@ -790,6 +1083,15 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         result.label->setFont(labelFont);
         result.label->moveBy(result.parent->boundingRect().width()
                              - result.label->boundingRect().width(), 0);
+
+        auto frontPanelInputsText = new QGraphicsSimpleTextItem(
+            QSL("Front Panel NIM/TTL and LVDS outputs"),
+            result.parent);
+        frontPanelInputsText->setRotation(-90);
+
+        frontPanelInputsText->moveBy(25+100+frontPanelInputsText->boundingRect().height(), 0);
+        frontPanelInputsText->moveBy(0, result.parent->boundingRect().height() * 0.5);
+        frontPanelInputsText->moveBy(0, frontPanelInputsText->boundingRect().width() * 0.5);
 
         return result;
     };
@@ -870,9 +1172,241 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     this->addItem(m_level0UtilItems.parent);
     this->addItem(m_level3UtilItems.parent);
 
+    // Add bus bar items serving as a kind of map of the connection
+    // possibilities.
+    // This is purposely done before the connection edges are created so that
+    // the busbars naturally stack behind the edges (no z-value fiddling
+    // needed).
+    QColor barColor("#7da1d6");
+    QBrush barBrush(barColor);
+    QPen barPen(barBrush, 1.0);
+    QColor labelColor(Qt::black);
+    QBrush labelBrush(labelColor);
+
+    auto add_h_busbar = [this, barBrush, labelBrush] (const QGraphicsItem *dest, QString label = {})
+    {
+        auto busBar = new gfx::HorizontalBusBar(label);
+        busBar->setBarBrush(barBrush);
+        busBar->setLabelBrush(labelBrush);
+
+        auto destCenter = gfx::get_scene_center_point(dest);
+        busBar->setDestPoint(destCenter);
+        busBar->setPos(destCenter);
+        busBar->moveBy(-(busBar->boundingRect().width() + 20), -(busBar->boundingRect().height() * 0.5));
+
+        this->addItem(busBar);
+        m_connectionBars.push_back(busBar);
+    };
+
+    auto make_big_arrow_bar = [barBrush, barPen] (const QRectF barRect, qreal arrowWidthFactor, qreal arrowHeightFactor)
+        -> QGraphicsRectItem *
+    {
+        auto bar = new QGraphicsRectItem(barRect);
+        bar->setPen(barPen);
+        bar->setBrush(barBrush);
+
+        auto rect = QRectF(0, 0, arrowWidthFactor*barRect.width(), arrowHeightFactor*barRect.width());
+        auto p1 = rect.bottomLeft();
+        auto p2 = rect.bottomRight();
+        auto p3 = QPointF{ rect.center().x(), rect.top() };
+
+        auto bigArrow = new QGraphicsPolygonItem(bar);
+        bigArrow->setPen(Qt::NoPen);
+        bigArrow->setPen(barPen);
+        bigArrow->setBrush(barBrush);
+        bigArrow->setPolygon(QPolygonF() << p1 << p2 << p3);
+        bigArrow->moveBy(-((rect.width() - barRect.width()) * 0.5), -(rect.height()));
+
+        QPointF newOriginPoint = { barRect.width() * 0.5, barRect.height() };
+        bar->setTransformOriginPoint(newOriginPoint);
+
+        return bar;
+    };
+
+    auto set_big_arrow_bar_pos = [](QGraphicsRectItem *bar, QPointF scenePos)
+    {
+        bar->setPos(scenePos);
+        auto barOrigin = bar->mapToScene(bar->transformOriginPoint());
+        bar->moveBy(-fabs(scenePos.x() - barOrigin.x()), -fabs(scenePos.y() - barOrigin.y()));
+    };
+
+    // l2 lut busbars
+    {
+        // l2.lut0
+        add_h_busbar(m_level2Items.luts[0]->getStrobeConnector(), QSL("L0.Util, L1.LUT3/4"));
+        for (int i=0; i<3; i++)
+            add_h_busbar(m_level2Items.luts[0]->getInputConnector(i), QSL("L0, L1.LUT4.%1").arg(i));
+
+        // l2.lut1
+        add_h_busbar(m_level2Items.luts[1]->getStrobeConnector(), QSL("L0.Util, L1.LUT3/4"));
+        for (int i=0; i<3; i++)
+            add_h_busbar(m_level2Items.luts[1]->getInputConnector(i), QSL("L0, L1.LUT3.%1").arg(i));
+    }
+
+    // busbars to l3 utils
+    {
+        QGraphicsRectItem *vertBar = nullptr;
+        // vertical bus bar for connections going into l3 utils
+        {
+            auto bar = new QGraphicsRectItem(465, 107, 18, 760);
+            bar->setBrush(barBrush);
+            bar->setPen(Qt::NoPen);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+
+            vertBar = bar;
+        }
+        // vertbar text
+        {
+            auto text = new QGraphicsSimpleTextItem(
+                QSL("L0.Util/L2 to L3.Util"),
+                vertBar);
+            auto font = text->font();
+            font.setPixelSize(16);
+            text->setFont(font);
+            text->setRotation(-90);
+
+            auto pos = gfx::get_scene_center_point(vertBar);
+            pos.setX(pos.x() - text->boundingRect().height() * 0.5);
+            pos.setY(pos.y() * 1.3);
+            text->setPos(pos);
+        }
+        // l2.lut0 -> vertical bus bar to l3 utils
+        {
+            auto bar = make_big_arrow_bar({ 0, 0, 34, 10 }, 1.5, 0.3);
+            auto barPos = get_scene_center_point(m_level2Items.luts[0]->getOutputConnector(1));
+            barPos.setX(barPos.x() + 3.5);
+            barPos.setY(barPos.y() - 0.33 * m_level2Items.luts[0]->boundingRect().height());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // l2.lut1 -> vertical bus bar to l3 utils
+        {
+            auto bar = make_big_arrow_bar({ 0, 0, 34, 10 }, 1.5, 0.3);
+            auto barPos = get_scene_center_point(m_level2Items.luts[1]->getOutputConnector(1));
+            barPos.setX(barPos.x() + 3.5);
+            barPos.setY(barPos.y() - 0.33 * m_level2Items.luts[1]->boundingRect().height());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // vertical bar -> l3 utils
+        {
+            auto bar = make_big_arrow_bar({0, 0, 34, 60}, 1.5, 0.3);
+            auto barPos = m_level3UtilItems.parent->mapToScene(m_level3UtilItems.parent->rect().center());
+            barPos.setX(vertBar->boundingRect().right());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // l0 utils -> vertical bar to l3 utils
+        {
+            auto bar = make_big_arrow_bar({0, 0, 34, 200}, 1.5, 0.3);
+            auto py = m_level3UtilItems.parent->mapToScene(m_level0UtilItems.parent->rect().center()).y();
+            set_big_arrow_bar_pos(bar, { 250, py });
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+    }
+
+    // busbars to l3 outputs
+    {
+        QGraphicsRectItem *vertBar = nullptr;
+        // vertical bus bar for connections going into NIM/LVDS outputs
+        {
+            auto bar = new QGraphicsRectItem(520, 25, 18, 475);
+            bar->setBrush(barBrush);
+            bar->setPen(Qt::NoPen);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+
+            vertBar = bar;
+        }
+        // vertbar text
+        {
+            auto text = new QGraphicsSimpleTextItem(
+                QSL("L2 to Front Panel outputs"),
+                vertBar);
+            auto font = text->font();
+            font.setPixelSize(16);
+            text->setFont(font);
+            text->setRotation(-90);
+
+            auto pos = gfx::get_scene_center_point(vertBar);
+            pos.setX(pos.x() - text->boundingRect().height() * 0.5);
+            pos.setY(pos.y() + text->boundingRect().width() * 0.5);
+            text->setPos(pos);
+        }
+        // l2.lut0 -> vertical bus bar to outputs
+        {
+            auto bar = make_big_arrow_bar({ 0, 0, 34, 64 }, 1.5, 0.3);
+            auto barPos = get_scene_center_point(m_level2Items.luts[0]->getOutputConnector(1));
+            barPos.setX(barPos.x() + 4.5);
+            barPos.setY(barPos.y() + 0.33 * m_level2Items.luts[0]->boundingRect().height());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // l2.lut1 -> vertical bus bar to outputs
+        {
+            auto bar = make_big_arrow_bar({ 0, 0, 34, 64 }, 1.5, 0.3);
+            auto barPos = get_scene_center_point(m_level2Items.luts[1]->getOutputConnector(1));
+            barPos.setX(barPos.x() + 4.5);
+            barPos.setY(barPos.y() + 0.33 * m_level2Items.luts[1]->boundingRect().height());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // vertical bar -> l3 nim out
+        {
+            auto bar = make_big_arrow_bar({ 0, 0, 34, 10 }, 1.5, 0.3);
+            auto barPos = get_scene_center_point(m_level2Items.luts[1]->getOutputConnector(1));
+            barPos.setX(vertBar->boundingRect().right());
+            barPos.setY(barPos.y() + 0.33 * m_level2Items.luts[1]->boundingRect().height());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // vertical bar -> l3 lvds out
+        {
+            auto bar = make_big_arrow_bar({ 0, 0, 34, 10 }, 1.5, 0.3);
+            auto barPos = get_scene_center_point(m_level3Items.eclItem->getInputConnector(1));
+            barPos.setX(vertBar->boundingRect().right());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+    }
+
+    // testbar
+    //{
+    //    auto bar = new gfx::MovableRect(18, 760);
+    //    this->addItem(bar);
+    //}
+
     // Create all connection edges contained in the trigger io config. The
     // logic in setTriggerIOConfig then decides if edges should be shown/hidden
     // or drawn in a different way.
+    // Additionally edges for static connections are added.
 
     // static level 1 connections
     for (const auto &lutkv: Level1::StaticConnections | indexed(0))
@@ -891,6 +1425,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             if (sourceConnector && destConnector)
             {
                 addEdge(sourceConnector, destConnector);
+                addStaticConnectionEdge(sourceConnector, destConnector);
             }
         }
     }
@@ -915,6 +1450,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             if (sourceConnector && destConnector)
             {
                 addEdge(sourceConnector, destConnector);
+                addStaticConnectionEdge(sourceConnector, destConnector);
             }
         }
     }
@@ -989,7 +1525,6 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         }
     }
 
-    // FIXME: missing connector for the latch input
     for (const auto &kv: ioCfg.l3.counters | indexed(0))
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.CountersOffset;
@@ -1011,7 +1546,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // latch input
         // (FIXME: hack with the connection address which is invalid by default (l3.unit33 ("not connected"))
         {
-            unsigned conValue = ioCfg.l3.connections[unitIndex][1];
+            //unsigned conValue = ioCfg.l3.connections[unitIndex][1];
             //UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][1][conValue];
             UnitAddress conAddress = { 0, Level0::SysClockOffset };
 
@@ -1058,9 +1593,11 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         }
     }
 
-    // To trigger initial edge updates
+    // Set the config. This triggers the initial edge updates.
     setTriggerIOConfig(ioCfg);
+
     qDebug() << __PRETTY_FUNCTION__ << "created" << m_edges.size() << " Edges";
+    qDebug() << __PRETTY_FUNCTION__ << "sceneRect=" << this->sceneRect();
 };
 
 QAbstractGraphicsShapeItem *
@@ -1161,6 +1698,17 @@ gfx::Edge * TriggerIOGraphicsScene::getEdgeByDestConnector(
     return m_edgesByDest.value(sourceConnector);
 }
 
+gfx::Edge *TriggerIOGraphicsScene::addStaticConnectionEdge(
+    QAbstractGraphicsShapeItem *sourceConnector,
+    QAbstractGraphicsShapeItem *destConnector)
+{
+    auto edge = new gfx::Edge(sourceConnector, destConnector);
+    m_staticEdges.push_back(edge);
+    edge->adjust();
+    this->addItem(edge);
+    return edge;
+}
+
 void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 {
     using namespace gfx;
@@ -1256,7 +1804,7 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
             UnitAddress addr {2, static_cast<unsigned>(kv.index()), input};
 
             update_connectors_and_edge(
-                kv.value(), addr, [] (const auto &lut) { return true; });
+                kv.value(), addr, [] (const auto &) { return true; });
         }
 
         UnitAddress strobeGGAddress {2, static_cast<unsigned>(kv.index()), LUT::StrobeGGInput};
@@ -1568,6 +2116,24 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
     update_names(ioCfg);
 }
 
+void TriggerIOGraphicsScene::setStaticConnectionsVisible(bool visible)
+{
+#if 0
+    std::for_each(std::begin(m_staticEdges), std::end(m_staticEdges),
+                  [visible] (auto edge) { edge->setVisible(visible); });
+#else
+// beautiful, smelly code
+    for (auto edge: m_staticEdges)
+        edge->setVisible(visible);
+#endif
+}
+
+void TriggerIOGraphicsScene::setConnectionBarsVisible(bool visible)
+{
+    for (auto bar: m_connectionBars)
+        bar->setVisible(visible);
+}
+
 void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
 {
     auto items = this->items(ev->scenePos());
@@ -1792,12 +2358,17 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
         ui.checks_invert[row]->setChecked(io.invert);
     }
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
-                                   | QDialogButtonBox::Apply, this);
+    auto bb = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+        QDialogButtonBox::Apply | QDialogButtonBox::Help,
+        this);
+
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+    connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
             this, &QDialog::accepted);
+    connect(bb, &QDialogButtonBox::clicked,
+            this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_NIM")));
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addWidget(ui.table, 1);
@@ -1832,6 +2403,20 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
         m_tableUi.combos_connection[io]->addItems(
             inputChoiceNameLists.value(io));
         m_tableUi.combos_connection[io]->setCurrentIndex(connections.value(io)[0]);
+    }
+
+    for (int io = 0; io < m_tableUi.checks_activate.size(); io++)
+    {
+        auto cb_state = m_tableUi.checks_activate[io];
+        auto combo_dir = m_tableUi.combos_direction[io];
+
+        // Force the direction to 'out' if the user checks the 'activate' checkbox.
+        connect(cb_state, &QCheckBox::stateChanged,
+                this, [combo_dir] (int state)
+                {
+                    if (state == Qt::Checked)
+                        combo_dir->setCurrentIndex(static_cast<int>(trigger_io::IO::Direction::out));
+                });
     }
 
     m_tableUi.table->resizeColumnsToContents();
@@ -1905,12 +2490,17 @@ ECL_SettingsDialog::ECL_SettingsDialog(
     m_tableUi = make_ecl_table_ui(names, settings, inputConnections, inputChoiceNameLists);
     auto &ui = m_tableUi;
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
-                                   | QDialogButtonBox::Apply, this);
+    auto bb = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+        QDialogButtonBox::Apply | QDialogButtonBox::Help,
+        this);
+
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+    connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
             this, &QDialog::accepted);
+    connect(bb, &QDialogButtonBox::clicked,
+            this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_LVDS")));
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addWidget(ui.table, 1);
@@ -2222,12 +2812,16 @@ Level0UtilsDialog::Level0UtilsDialog(
     grid->addWidget(make_groupbox(ui_slaveTriggers.table, "SlaveTriggers"), 1, 0);
     grid->addWidget(make_groupbox(ui_stackBusy.table, "StackBusy"), 1, 1);
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
-                                   | QDialogButtonBox::Apply, this);
+    auto bb = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+        QDialogButtonBox::Apply | QDialogButtonBox::Help,
+        this);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+    connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
             this, &QDialog::accepted);
+    connect(bb, &QDialogButtonBox::clicked,
+            this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_Timer")));
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addLayout(grid);
@@ -2325,7 +2919,7 @@ Level3UtilsDialog::Level3UtilsDialog(
         StackStart_UI ret;
 
         QStringList columnTitles = {
-            "Name", "Input", "Stack#", "Activate",
+            "Name", "Input", "Stack#", "Start Delay", "Activate",
         };
 
         auto table = new QTableWidget(l3.stackStart.size(), columnTitles.size());
@@ -2371,6 +2965,10 @@ Level3UtilsDialog::Level3UtilsDialog(
                     l3.unitNames.value(row + ret.FirstUnitIndex)));
             table->setCellWidget(row, ret.ColConnection, combo_connection);
             table->setCellWidget(row, ret.ColStack, combo_stack);
+
+            ret.table->setItem(row, ret.ColStartDelay, new QTableWidgetItem(
+                    QString::number(l3.stackStart[row].delay_ns)));
+
             table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
 
 
@@ -2397,6 +2995,16 @@ Level3UtilsDialog::Level3UtilsDialog(
 
         table->resizeColumnsToContents();
         table->resizeRowsToContents();
+
+        auto noticeLabel = new QLabel(QSL(
+                "<b>Note</b>: The VME Events trigger condition has to be set to '<i>MVLC Trigger I/O</i>'"
+                " for the StackStart units to have an effect."));
+        noticeLabel->setWordWrap(true);
+
+        ret.parentWidget = new QWidget;
+        auto parentLayout = make_vbox<0, 4>(ret.parentWidget);
+        parentLayout->addWidget(noticeLabel);
+        parentLayout->addWidget(ret.table);
 
         return ret;
     };
@@ -2443,7 +3051,6 @@ Level3UtilsDialog::Level3UtilsDialog(
         return ret;
     };
 
-    // FIXME: the input choices for the latch input are missing
     auto make_ui_counters = [] (
         const Level3 &l3,
         const QVector<QVector<QStringList>> inputChoiceNameLists)
@@ -2513,16 +3120,21 @@ Level3UtilsDialog::Level3UtilsDialog(
         reverse_rows(ui->table);
 
     auto grid = new QGridLayout;
-    grid->addWidget(make_groupbox(ui_stackStart.table, "Stack Start"), 0, 0);
+    grid->addWidget(make_groupbox(ui_stackStart.parentWidget, "Stack Start"), 0, 0);
     grid->addWidget(make_groupbox(ui_masterTriggers.table, "Master Triggers"), 0, 1);
     grid->addWidget(make_groupbox(ui_counters.table, "Counters"), 1, 0);
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
-                                   | QDialogButtonBox::Apply, this);
+    auto bb = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+        QDialogButtonBox::Apply | QDialogButtonBox::Help,
+        this);
+
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+    connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
             this, &QDialog::accepted);
+    connect(bb, &QDialogButtonBox::clicked,
+            this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_StackStart")));
 
     auto widgetLayout = make_vbox(this);
     widgetLayout->addLayout(grid);
@@ -2542,6 +3154,7 @@ Level3 Level3UtilsDialog::getSettings() const
             auto &unit = m_l3.stackStart[row];
             unit.activate = ui.checks_activate[row]->isChecked();
             unit.stackIndex = ui.combos_stack[row]->currentData().toUInt();
+            unit.delay_ns = ui.table->item(row, ui.ColStartDelay)->text().toUInt();
         }
     }
 
@@ -2582,7 +3195,6 @@ Level3 Level3UtilsDialog::getSettings() const
 //
 
 LUTOutputEditor::LUTOutputEditor(
-    int outputNumber,
     const QVector<QStringList> &inputNameLists,
     const Level2::DynamicConnections &dynamicInputValues,
     QWidget *parent)
@@ -2730,8 +3342,8 @@ LUTOutputEditor::LUTOutputEditor(
     layout_outputActivation->addWidget(m_outputWidgetStack);
 
     auto layout = make_layout<QVBoxLayout>(this);
-    layout->addWidget(widget_inputSelect, 40);
-    layout->addWidget(widget_outputActivation, 60);
+    layout->addWidget(widget_inputSelect, 0);
+    layout->addWidget(widget_outputActivation, 1);
 
     onInputUsageChanged();
 }
@@ -2951,7 +3563,7 @@ LUTEditor::LUTEditor(
     setWindowTitle("Lookup Table " + lutName + " Setup");
 
     auto scrollWidget = new QWidget;
-    auto scrollLayout = make_layout<QVBoxLayout>(scrollWidget);
+    auto scrollLayout = make_vbox<2, 2>(scrollWidget);
 
     // If there are dynamic inputs show selection combo boxes at the top of the
     // dialog.
@@ -3012,7 +3624,7 @@ LUTEditor::LUTEditor(
 
     for (int output = 0; output < trigger_io::LUT::OutputBits; output++)
     {
-        auto lutOutputEditor = new LUTOutputEditor(output, inputNameLists, dynConValues);
+        auto lutOutputEditor = new LUTOutputEditor(inputNameLists, dynConValues);
 
         auto nameEdit = new QLineEdit;
         nameEdit->setText(outputNames.value(output));
@@ -3094,12 +3706,18 @@ LUTEditor::LUTEditor(
         scrollLayout->addWidget(gb_strobe, 2);
     }
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel
-                                   | QDialogButtonBox::Apply, this);
+    auto bb = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+        QDialogButtonBox::Apply | QDialogButtonBox::Help,
+        this);
+
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(bb->button(QDialogButtonBox::QDialogButtonBox::Apply), &QPushButton::clicked,
+    connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
             this, &QDialog::accepted);
+    connect(bb, &QDialogButtonBox::clicked,
+            this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_LUT")));
+
     scrollLayout->addWidget(bb, 0);
 
     auto scrollArea = new QScrollArea;

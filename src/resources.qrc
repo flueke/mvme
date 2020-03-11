@@ -21,6 +21,7 @@
     <file alias="document-open.png">resources/document-open.png</file>
     <file alias="document-pdf.png">resources/document-pdf.png</file>
     <file alias="document-revert.png">resources/document-revert.png</file>
+    <file alias="document-text.png">resources/document-text.png</file>
     <file alias="document-save-as.png">resources/document-save-as.png</file>
     <file alias="document-save.png">resources/document-save.png</file>
     <file alias="exclamation-circle.png">resources/exclamation-circle.png</file>
@@ -61,6 +62,9 @@
     <file alias="zoom_in.png">resources/zoom-in.png</file>
     <file alias="application-rename.png">resources/application-rename.png</file>
     <file alias="document-rename.png">resources/document-rename.png</file>
+
+    <file>resources/layer-visible-off.png</file>
+    <file>resources/layer-visible-on.png</file>
 
 
     <file alias="operator_calibration.png">resources/measure.png</file>
@@ -120,7 +124,9 @@
     <file>analysis/expr_data/basic_step_script.exprtk</file>
     <file>analysis/expr_data/expr_help.html</file>
 
+    <!-- mvlc related files -->
     <file>mvlc/scripts/0-init-mtdcs.mvlcscript</file>
+    <file>mvlc/trigio_connectivity_bus_bars_only.png</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml

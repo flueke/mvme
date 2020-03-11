@@ -1,6 +1,7 @@
 #include "a2_adapter.h"
 #include "a2/a2_impl.h"
 #include "analysis.h"
+
 #include <algorithm>
 #include <cstdio>
 #include <QMetaObject>
@@ -118,8 +119,17 @@ using OutputPipes = QVector<analysis::Pipe *>;
 
 typedef DEF_OP_MAGIC(OperatorMagic);
 
+#define OP_MAGIC_NOWARN\
+    (void) arena;\
+    (void) adapterState;\
+    (void) op;\
+    (void) inputSlots;\
+    (void) outputPipes;\
+    (void) runInfo;
+
 DEF_OP_MAGIC(calibration_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
     assert(inputSlots.size() == 1);
     assert_slot(inputSlots[0]);
@@ -169,6 +179,7 @@ DEF_OP_MAGIC(calibration_magic)
 
 DEF_OP_MAGIC(difference_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
     assert(inputSlots.size() == 2);
     assert_slot(inputSlots[0]);
@@ -218,6 +229,7 @@ struct QVectorBlock
 
 DEF_OP_MAGIC(array_map_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
 
     auto arrayMap = qobject_cast<analysis::ArrayMap *>(op.get());
@@ -256,6 +268,7 @@ DEF_OP_MAGIC(array_map_magic)
 
 DEF_OP_MAGIC(aggregate_ops_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
 
     using analysis::AggregateOps;
@@ -328,6 +341,7 @@ DEF_OP_MAGIC(aggregate_ops_magic)
  * operator doesn't have thresholds. */
 DEF_OP_MAGIC(sum_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
 
     auto sumOp = qobject_cast<analysis::Sum *>(op.get());
@@ -357,6 +371,7 @@ DEF_OP_MAGIC(sum_magic)
 
 DEF_OP_MAGIC(binary_equation_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
 
     auto binSumDiff = qobject_cast<analysis::BinarySumDiff *>(op.get());
@@ -395,6 +410,7 @@ DEF_OP_MAGIC(binary_equation_magic)
 
 DEF_OP_MAGIC(keep_previous_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
     assert(inputSlots.size() == 1);
     assert_slot(inputSlots[0]);
@@ -428,6 +444,7 @@ DEF_OP_MAGIC(keep_previous_magic)
 
 DEF_OP_MAGIC(range_filter_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
     assert(inputSlots.size() == 1);
     assert_slot(inputSlots[0]);
@@ -463,6 +480,7 @@ DEF_OP_MAGIC(range_filter_magic)
 
 DEF_OP_MAGIC(rect_filter_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
     assert(inputSlots.size() == 2);
     assert_slot(inputSlots[0]);
@@ -514,6 +532,7 @@ DEF_OP_MAGIC(rect_filter_magic)
 
 DEF_OP_MAGIC(condition_filter_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
     assert(inputSlots.size() == 2);
     assert_slot(inputSlots[0]);
@@ -542,6 +561,7 @@ DEF_OP_MAGIC(condition_filter_magic)
 
 DEF_OP_MAGIC(expression_operator_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
 
     auto a1_op = qobject_cast<analysis::ExpressionOperator *>(op.get());
@@ -588,6 +608,7 @@ DEF_OP_MAGIC(expression_operator_magic)
 
 DEF_OP_MAGIC(histo1d_sink_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
     assert(inputSlots.size() == 1);
     assert_slot(inputSlots[0]);
@@ -642,6 +663,7 @@ DEF_OP_MAGIC(histo1d_sink_magic)
 
 DEF_OP_MAGIC(histo2d_sink_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
     assert(inputSlots.size() == 2);
     assert_slot(inputSlots[0]);
@@ -705,6 +727,7 @@ DEF_OP_MAGIC(histo2d_sink_magic)
 
 DEF_OP_MAGIC(rate_monitor_sink_magic)
 {
+    OP_MAGIC_NOWARN;
     using a2::RateSampler;
 
     LOG("");
@@ -746,6 +769,7 @@ DEF_OP_MAGIC(rate_monitor_sink_magic)
 
 DEF_OP_MAGIC(export_sink_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
 
     auto sink = qobject_cast<analysis::ExportSink *>(op.get());
@@ -786,6 +810,7 @@ DEF_OP_MAGIC(export_sink_magic)
 
 DEF_OP_MAGIC(condition_interval_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
 
     auto cond = qobject_cast<analysis::ConditionInterval *>(op.get());
@@ -812,6 +837,7 @@ DEF_OP_MAGIC(condition_interval_magic)
 
 DEF_OP_MAGIC(condition_rectangle_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
 
     auto cond = qobject_cast<analysis::ConditionRectangle *>(op.get());
@@ -837,6 +863,7 @@ DEF_OP_MAGIC(condition_rectangle_magic)
 
 DEF_OP_MAGIC(condition_polygon_magic)
 {
+    OP_MAGIC_NOWARN;
     LOG("");
 
     auto cond = qobject_cast<analysis::ConditionPolygon *>(op.get());
@@ -1430,7 +1457,7 @@ A2AdapterState a2_adapter_build(
     /* Sort the operator arrays by rank and type */
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
-        qSort(
+        std::sort(
             operatorsByEventIndex[ei].begin(),
             operatorsByEventIndex[ei].end(),
             [] (const OperatorInfo &oi1, const OperatorInfo &oi2) {
@@ -1517,6 +1544,7 @@ A2AdapterState a2_adapter_build(
             for (a2::DataSource *ds = dataSources; ds < dataSources + srcCount; ds++)
             {
                 analysis::SourceInterface *a1_src = result.sourceMap.value(ds, nullptr);
+                (void) a1_src;
 
                 LOG("    [%u] data source@%p, moduleIndex=%d, a1_type=%s, a1_name=%s",
                     (u32)(ds - dataSources),
@@ -1545,8 +1573,10 @@ A2AdapterState a2_adapter_build(
             for (auto op = operators; op < operators + opCount; op++, opIndex++)
             {
                 s32 rank = ranks[opIndex];
+                (void) rank;
 
                 analysis::OperatorInterface *a1_op = result.operatorMap.value(op, nullptr);
+                (void) a1_op;
 
                 LOG("    [%3d] operator@%p, rank=%2d, type=%2d, condIdx=%d a1_type=%s, a1_name=%s",
                     opIndex,
@@ -1568,6 +1598,7 @@ A2AdapterState a2_adapter_build(
         for (const auto &errorInfo: result.operatorErrors)
         {
             auto &a1_op = errorInfo.op;
+            (void) a1_op;
 
             LOG("  ei=%d, a1_type=%s, a1_name=%s, reason=%s",
                 errorInfo.eventIndex,

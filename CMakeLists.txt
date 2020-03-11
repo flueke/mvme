@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.1.0)
 project(mvme)
 
 # AUTOMOC related: https://cmake.org/cmake/help/v3.10/policy/CMP0071.html
@@ -6,13 +6,14 @@ project(mvme)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
+#set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
+#set(WARNING_FLAGS "-Wall -Wextra")
 
-if (WIN32)
-    set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-format")
-endif(WIN32)
+#if (WIN32)
+#    set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-format")
+#endif(WIN32)
 
-set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
+#set(CMAKE_CXX_FLAGS "-pipe ${WARNING_FLAGS}")
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
@@ -22,16 +23,17 @@ set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
 
-set(MARCH_FLAG "nocona")
-set(MTUNE_FLAG "core2")
+#set(MARCH_FLAG "nocona")
+#set(MTUNE_FLAG "core2")
 #set(MARCH_FLAG "haswell")
 #set(MTUNE_FLAG "haswell")
 #set(MARCH_FLAG "skylake")
 #set(MTUNE_FLAG "skylake")
 
-set(CMAKE_CXX_FLAGS_DEBUG   "-ggdb -Og")
-set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG}")
-set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG} -pg -fno-omit-frame-pointer")
+#set(CMAKE_CXX_FLAGS_DEBUG   "-ggdb -Og")
+#set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG}")
+#set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG} -pg -fno-omit-frame-pointer")
+
 # Explicitly set the required c++ standard (CMake >= 3.1)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -79,16 +81,13 @@ message("-- GIT_BRANCH=${GIT_BRANCH}")
 # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
 
 # use, i.e. don't skip the full RPATH for the build tree
-SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+SET(CMAKE_SKIP_BUILD_RPATH FALSE)
 
-# when building, don't use the install RPATH already
-# (but later on when installing)
-SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+# Enable $ORIGIN in the rpath if supported by the target platform.
+SET(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 
-SET(CMAKE_INSTALL_RPATH ".")
+SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 
-#SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}")
-#
 ## add the automatically determined parts of the RPATH
 ## which point to directories outside the build tree to the install RPATH
 #SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -112,10 +111,12 @@ SET(CMAKE_INSTALL_RPATH ".")
 # inside test/.
 
 # 3rdparty
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/")
+#include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
+#include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
+#include_directories("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/")
+
 add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
+
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann" DESTINATION include/mvme)
 install(FILES "${CMAKE_SOURCE_DIR}/3rdparty/Mustache/mustache.hpp" DESTINATION include/mvme/Mustache)
 
@@ -125,13 +126,12 @@ if (MVME_ENABLE_MVLC)
     option(YAML_CPP_BUILD_TESTS "Enable testing" OFF)
     option(YAML_CPP_BUILD_TOOLS "Enable parse tools" OFF)
     option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
-    option(YAML_CPP_INSTALL "Enable generation of install target" ON)
+    option(YAML_CPP_INSTALL "Enable generation of install target" OFF)
     option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
-    set(MVME_YAML_DIR "${CMAKE_SOURCE_DIR}/3rdparty/yaml-cpp")
-    add_subdirectory(${MVME_YAML_DIR})
+    add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/yaml-cpp")
     # FIXME: installing targets from subdirectories does not work with CMake
     # 3.9.2 (msys build)
-    #install(TARGETS yaml-cpp DESTINATION .)
+    install(TARGETS yaml-cpp DESTINATION .)
 endif(MVME_ENABLE_MVLC)
 
 # quazip
@@ -160,38 +160,33 @@ if (MVME_ENABLE_MVLC)
     # FTDI d3xx driver library for x64 linux and windows
     add_library(ftd3xx SHARED IMPORTED)
 
-    # TODO: use target_include_directories
     if (WIN32)
         set_target_properties(ftd3xx PROPERTIES
-            IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
-            IMPORTED_IMPLIB ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.lib
-            IMPORTED_NO_SONAME TRUE
-            )
-        include_directories(${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/)
-        install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
-            DESTINATION .
-            )
-        file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
+            IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
+            IMPORTED_IMPLIB ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.lib)
+
+        target_include_directories(ftd3xx
+            INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2)
+
+        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
             DESTINATION .)
     elseif(UNIX AND NOT APPLE)
         set_target_properties(ftd3xx PROPERTIES
-            IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
-            IMPORTED_NO_SONAME TRUE
-            )
-        include_directories(${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/)
-        install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
-            DESTINATION .
-            )
+            IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so)
+
+        target_include_directories(ftd3xx
+            INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/)
+
+        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
+            DESTINATION .)
     elseif(APPLE)
         set_target_properties(ftd3xx PROPERTIES
-            IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
-            IMPORTED_NO_SONAME TRUE
-            )
-        include_directories(${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx)
-        install(PROGRAMS ${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
-            DESTINATION .
-            )
-        file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
+            IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib)
+
+        target_include_directories(ftd3xx
+            INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx)
+
+        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
             DESTINATION .)
     endif()
 endif (MVME_ENABLE_MVLC)

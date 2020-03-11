@@ -1,8 +1,10 @@
+.. index:: DAQ Controls, DAQ, Replay
+
 ==================================================
 DAQ / Replay controls
 ==================================================
 
-.. autofigure:: images/intro_daq_control.png
+.. figure:: images/intro_daq_control.png
 
     DAQ controls
 
@@ -26,11 +28,10 @@ current state of the system:
     |              | * No special procedures are run   |                                        |
     +--------------+-----------------------------------+----------------------------------------+
 
-The *Start* and *1 Cycle / Next Event* buttons allow to choose what should
-happen with existing histogram data. Selecting *Clear* will clear all
-histograms in the current analysis before accumulating new data. Using *Keep*
-allows to accumulate the data from multiple replays or DAQ runs into the same
-histograms.
+The *Start* button allows to choose what should happen with existing histogram
+data. Selecting *Clear* will clear all histograms in the current analysis
+before accumulating new data. Using *Keep* allows to accumulate the data from
+multiple replays or DAQ runs into the same histograms.
 
 The *Reconnect* button will attempt to reconnect to the current VME controller.
 

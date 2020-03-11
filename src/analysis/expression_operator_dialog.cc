@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "expression_operator_dialog.h"
 #include "expression_operator_dialog_p.h"
 
@@ -44,8 +64,7 @@ namespace ui
 // InputSelectButton
 //
 
-InputSelectButton::InputSelectButton(Slot *destSlot, s32 userLevel,
-                                     EventWidget *eventWidget, QWidget *parent)
+InputSelectButton::InputSelectButton(Slot *destSlot, EventWidget *eventWidget, QWidget *parent)
     : QPushButton(QSL("<select>"), parent)
     , m_eventWidget(eventWidget)
     , m_destSlot(destSlot)
@@ -533,6 +552,8 @@ void ExpressionErrorWidget::clear()
 
 void ExpressionErrorWidget::onCellClicked(int row, int column)
 {
+    (void) column;
+
     assertConsistency();
     assert(row < m_entries.size());
     assert(row < m_errorTable->rowCount());
@@ -549,6 +570,8 @@ void ExpressionErrorWidget::onCellClicked(int row, int column)
 
 void ExpressionErrorWidget::onCellDoubleClicked(int row, int column)
 {
+    (void) column;
+
     assertConsistency();
     assert(row < m_entries.size());
     assert(row < m_errorTable->rowCount());
@@ -1407,7 +1430,7 @@ void SlotGrid::repopulate(const detail::Model &model, EventWidget *eventWidget, 
     {
         Slot *slot = op->getSlot(slotIndex);
 
-        auto selectButton = new InputSelectButton(slot, userLevel, eventWidget);
+        auto selectButton = new InputSelectButton(slot, eventWidget);
         selectButtons.push_back(selectButton);
 
         auto clearButton = new QPushButton(QIcon(":/dialog-close.png"), QString());

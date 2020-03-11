@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -21,13 +21,14 @@
 #ifndef __VME_SCRIPT_QT_H__
 #define __VME_SCRIPT_QT_H__
 
+#include <cstdint>
+#include <functional>
+#include <QSyntaxHighlighter>
+#include <QVector>
+
 #include "libmvme_core_export.h"
 #include "vme_controller.h"
-
-#include <cstdint>
-#include <QVector>
-#include <QSyntaxHighlighter>
-#include <functional>
+#include "vme_script_variables.h"
 
 class QFile;
 class QTextStream;
@@ -40,14 +41,14 @@ namespace vme_script
 
 struct PreparsedLine
 {
-    QString line;       // A copy of the original line
-    QStringList parts;  // The line trimmed of whitespace and split at word boundaries
-    u32 lineNumber;     // The original line number
+    QString line;               // A copy of the original line
+    QStringList parts;          // The line trimmed of whitespace and split at word boundaries.
+    int lineNumber;             // The original line number
+    QSet<QString> varRefs;      // The names of the variables referenced by this line.
 };
 
 static const QString MetaBlockBegin = "meta_block_begin";
 static const QString MetaBlockEnd = "meta_block_end";
-static const QString MetaTagMVLCTriggerIO = "mvlc_trigger_io";
 
 struct MetaBlock
 {
@@ -77,32 +78,51 @@ struct MetaBlock
 enum class CommandType
 {
     Invalid,
+
+    // VME reads and writes.
     Read,
     Write,
     WriteAbs,
+
+    // Delay when directly executing a script.
     Wait,
+
+    // Marker word to be inserted into the data stream by the controller.
     Marker,
 
+    // VME block transfers
     BLT,
     BLTFifo,
     MBLT,
     MBLTFifo,
     Blk2eSST64,
 
-    BLTCount,
-    BLTFifoCount,
-    MBLTCount,
-    MBLTFifoCount,
-
+    // Meta commands to temporarily use a different base address for the
+    // following commands and then reset back to the default base address.
     SetBase,
     ResetBase,
 
+    // Low-level VMUSB specific register write and read commands.
     VMUSB_WriteRegister,
     VMUSB_ReadRegister,
 
-    MVLC_WriteSpecial, // type is stored in Command.value (of type MVLCSpecialWord)
+    // Low-level MVLC instruction to insert a special word into the data
+    // stream. Currently 'timestamp' and 'stack_triggers' are implemented. The
+    // special word code can also be given as a numeric value.
+    // The type of the special word is stored in Command.value.
+    MVLC_WriteSpecial,
 
+    // A meta block enclosed in meta_block_begin and meta_block_end.
     MetaBlock,
+
+    // Meta command to set a variable value. The variable is inserted into the
+    // first (most local) symbol table given to the parser.
+    SetVariable,
+
+    // Prints its arguments to the log output on a separate line. Arguments are
+    // separated by a space by default which means string quoting is not
+    // strictly required.
+    Print,
 };
 
 enum class DataWidth
@@ -142,6 +162,7 @@ struct Command
     s32 lineNumber = 0;
 
     MetaBlock metaBlock = {};
+    QStringList printArgs;
 };
 
 LIBMVME_CORE_EXPORT QString to_string(CommandType commandType);
@@ -175,10 +196,49 @@ struct ParseError
     int lineNumber;
 };
 
+QString expand_variables(const QString &line, const SymbolTables &symtabs, s32 lineNumber);
+void expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs);
+
+QString evaluate_expressions(const QString &qline, s32 lineNumber);
+void evaluate_expressions(PreparsedLine &preparsed);
+
+// These versions of the parse function use an internal symbol table. Access to
+// variables defined via the 'set' command is not possible.
 VMEScript LIBMVME_CORE_EXPORT parse(QFile *input, uint32_t baseAddress = 0);
 VMEScript LIBMVME_CORE_EXPORT parse(const QString &input, uint32_t baseAddress = 0);
 VMEScript LIBMVME_CORE_EXPORT parse(QTextStream &input, uint32_t baseAddress = 0);
 VMEScript LIBMVME_CORE_EXPORT parse(const std::string &input, uint32_t baseAddress = 0);
+
+// Versions of the parse function taking a list of SymbolTables by reference.
+// The first table in the list is used as the 'script local' symbol table. If
+// the list is empty a single SymbolTable instance will be created and added.
+VMEScript LIBMVME_CORE_EXPORT parse(QFile *input, SymbolTables &symtabs,
+                                    uint32_t baseAddress = 0);
+
+VMEScript LIBMVME_CORE_EXPORT parse(const QString &input, SymbolTables &symtabs,
+                                    uint32_t baseAddress = 0);
+
+VMEScript LIBMVME_CORE_EXPORT parse(QTextStream &input, SymbolTables &symtabs,
+                                    uint32_t baseAddress = 0);
+
+VMEScript LIBMVME_CORE_EXPORT parse(const std::string &input, SymbolTables &symtabs,
+                                    uint32_t baseAddress = 0);
+
+// Run a pre parse step on the input.
+// This splits the input into lines, removing comments and leading and trailing
+// whitespace. The line is then further split into atomic parts and the
+// variable names referenced whithin the line are collected.
+QVector<PreparsedLine> LIBMVME_CORE_EXPORT pre_parse(const QString &input);
+
+QVector<PreparsedLine> LIBMVME_CORE_EXPORT pre_parse(QTextStream &input);
+
+// These functions return the set of variable names references in the given vme
+// script text.
+QSet<QString> LIBMVME_CORE_EXPORT collect_variable_references(
+    const QString &input);
+
+QSet<QString> LIBMVME_CORE_EXPORT collect_variable_references(
+    QTextStream &input);
 
 class LIBMVME_CORE_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
 {
@@ -247,10 +307,6 @@ inline bool is_block_read_command(const CommandType &cmdType)
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
         case CommandType::Blk2eSST64:
-        case CommandType::BLTCount:
-        case CommandType::BLTFifoCount:
-        case CommandType::MBLTCount:
-        case CommandType::MBLTFifoCount:
             return true;
         default: break;
     }

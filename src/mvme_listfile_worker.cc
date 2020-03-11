@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvme_listfile_worker.h"
 
 #include <QCoreApplication>
@@ -23,6 +43,8 @@ MVMEListfileWorker::~MVMEListfileWorker()
 void MVMEListfileWorker::setListfile(QIODevice *input)
 {
     m_listfile = ListFile(input);
+    m_stats.listFileTotalBytes = m_listfile.size();
+    m_stats.listfileFilename = m_listfile.getFileName();
 }
 
 void MVMEListfileWorker::setEventsToRead(u32 eventsToRead)
@@ -46,7 +68,6 @@ void MVMEListfileWorker::start()
     m_bytesRead = 0;
     m_totalBytes = m_listfile.size();
     m_stats.start();
-    m_stats.listFileTotalBytes = m_listfile.size();
 
     mainLoop();
 }

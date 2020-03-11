@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -126,7 +126,7 @@ class VMEReadoutWorker: public QObject
         virtual bool logMessage(const QString &msg, bool useThrottle = false);
 
     protected:
-        virtual void pre_setContext(VMEReadoutWorkerContext newContext) {}
+        virtual void pre_setContext(VMEReadoutWorkerContext newContext) { (void) newContext; }
         VMEReadoutWorkerContext m_workerContext;
         bool do_VME_DAQ_Init(VMEController *ctrl);
 };

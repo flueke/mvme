@@ -1,6 +1,52 @@
+.. index:: Changelog, Changes
+
 ##################################################
 Changelog
 ##################################################
+
+Version 0.9.7 (wip)
+-------------------
+* Add ability to run the data acquisition for a limited amount of time before
+  automatically stopping the run.
+
+* Add VME templates for the MDPP-32 (SCP and QDC variants).
+
+* [vme_script] Drop support for the 'counted block read` commands. They are
+  complex, rarely used and the MVLC does not currently support them. As long as
+  a VME module supports either reading until BERR or can be read out using a
+  fixed amount of (M)BLT cycles there is no need for these special commands.
+
+* [vme_script] VME scripts now support floating point values, variables and
+  embedded mathematical expressions.
+
+* [vme_config] Updates to the mesytec module templates and the internal config
+  logic to make use of the new VME script variables.
+
+  These changes make IRQ and MCST handling with multiple modules and events
+  much simpler. When using only mesytec modules no manual editing of scripts is
+  required anymore.
+
+  When loading a config file from a previous mvme version all module and event
+  scripts will be updated to make use of the standard set of variables added to
+  each VME event.
+
+* Improve UI responsiveness with the MVLC at low data rates.
+
+* Multiple MVLC fixes and improvements.
+
+* Various bugfixes and UI improvements
+
+  - VME Script error messages are now highlighted in red in the log view.
+
+  - Speed up creating and updating the analysis tree views. This is especially
+    noticeable when using many modules or many VME events.
+
+
+* Upgrade Qt to version 5.14.1 on the build servers.
+
+* Do not ship libstdc++ with the linux binary package anymore. It caused issues
+  in combination with setting LD_LIBRARY_PATH as is done in the initMVME shell
+  script.
 
 Version 0.9.6
 -------------
@@ -57,7 +103,7 @@ Version 0.9.5.2
 
 .. note::
   Session files created by previous versions cannot be loaded anymore. They
-  have to be recrated by replaying from the original readout data.
+  have to be recreated by replaying from the original readout data.
 
 Version 0.9.5.1
 ---------------

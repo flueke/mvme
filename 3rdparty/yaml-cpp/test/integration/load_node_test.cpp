@@ -7,6 +7,7 @@ namespace {
 TEST(LoadNodeTest, Reassign) {
   Node node = Load("foo");
   node = Node();
+  EXPECT_TRUE(node.IsNull());
 }
 
 TEST(LoadNodeTest, FallbackValues) {
@@ -255,6 +256,11 @@ TEST(NodeTest, LoadTagWithParenthesis) {
     Node node = Load("!Complex(Tag) foo");
     EXPECT_EQ(node.Tag(), "!Complex(Tag)");
     EXPECT_EQ(node.as<std::string>(), "foo");
+}
+
+TEST(NodeTest, LoadTagWithNullScalar) {
+  Node node = Load("!2");
+  EXPECT_TRUE(node.IsNull());
 }
 
 }  // namespace

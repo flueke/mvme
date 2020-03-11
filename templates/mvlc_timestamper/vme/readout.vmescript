@@ -7,8 +7,8 @@
 # latched and finally the 4 16-bit registers can be read out.
 #
 # Note that latching can also be done via the Trigger I/O Logic to synchronize
-# the latch with for example the signal used to trigger a readout. In this case
-# remove the lines writing to the latch register.
+# the latch with for example the signal used to trigger the readout of vme
+# modules. In this case remove the lines writing to the latch register.
 
 # counter0
 0x0200 0x0308           # counter select

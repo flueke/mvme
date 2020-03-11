@@ -1,9 +1,30 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvlc/mvlc_vme_controller.h"
 
 #include <QDebug>
 
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_util.h"
+#include "util/counters.h"
 
 
 namespace
@@ -57,37 +78,6 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
     connect(m_mvlc, &MVLCObject::stateChanged,
             this, &MVLC_VMEController::onMVLCStateChanged);
 
-#if 0
-    // XXX: Debug
-    connect(this, &MVLC_VMEController::stackErrorNotification,
-            [] (const QVector<u32> &data)
-    {
-        if (data.isEmpty())
-        {
-            qDebug("%s - Empty notification!", __PRETTY_FUNCTION__);
-            assert(false);
-            return;
-        }
-
-        if (data.size() != 2)
-        {
-            qDebug("%s - Notification size != 2: %d",
-                   __PRETTY_FUNCTION__, data.size());
-        }
-
-        auto frameInfo = extract_frame_info(data[0]);
-
-        qDebug("%s - MVLC_VMEController polled a stack error notification:"
-               "header=0x%08x, data[1]=0x%08x, len=%u, stack=%u, flags=0x%02x",
-               QDateTime::currentDateTime().toString().toStdString().c_str(),
-               data[0],
-               data[1],
-               frameInfo.len,
-               frameInfo.stack,
-               frameInfo.flags);
-    });
-#endif
-
     auto debug_print_stack_error_counters = [this] ()
     {
         auto errorCounters = m_mvlc->getStackErrorCounters();
@@ -139,9 +129,10 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
             qDebug("  0x%08x: %lu", header, count);
         }
 
+        int frameIndex = 0;
         for (const auto &frameCopy: errorCounters.framesCopies)
         {
-            qDebug("copy of a frame recevied via polling:");
+            qDebug("copy of erroneous error frame %d recevied via polling:", frameIndex++);
             for (u32 word: frameCopy)
             {
                 qDebug("  0x%08x", word);
@@ -150,13 +141,76 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
         }
     };
 
+    auto debug_print_eth_stats = [this] ()
+    {
+        if (this->connectionType() != ConnectionType::ETH)
+            return;
+
+        auto implEth = reinterpret_cast<eth::Impl *>(this->getImpl());
+
+        auto pipeStats = implEth->getPipeStats();
+        auto packetChannelStats = implEth->getPacketChannelStats();
+        double dt_s = 0.0;
+
+        auto now = QDateTime::currentDateTime();
+
+        if (lastUpdateTime.isValid())
+            dt_s = lastUpdateTime.msecsTo(now) / 1000.0;
+
+        lastUpdateTime = now;
+
+        qDebug("ETH per pipe counters:");
+
+        for (size_t pipeIndex = 0; pipeIndex < pipeStats.size(); pipeIndex++)
+        {
+            const auto &stats = pipeStats[pipeIndex];
+            const auto &prevStats = prevPipeStats[pipeIndex];
+
+            u64 packetRate = calc_rate0(
+                stats.receivedPackets, prevStats.receivedPackets, dt_s);
+
+            u64 lossRate = calc_rate0(
+                stats.lostPackets, prevStats.lostPackets, dt_s);
+
+            u64 sumRate = calc_rate0(
+                stats.receivedPackets + stats.lostPackets,
+                prevStats.receivedPackets + prevStats.lostPackets,
+                dt_s);
+
+            qDebug("  pipe=%lu, receiveAttempts=%lu, receivedPackets=%lu, receivedBytes=%lu\n"
+                   "    shortPackets=%lu, packetsWithResidue=%lu, noHeader=%lu\n"
+                   "    headerOutOfRange=%lu, packetChannelOutOfRange=%lu, lostPackets=%lu\n"
+                   "    packetRate=%lu pkts/s, lossRate=%lu pkts/s, sumRate=%lu pkts/s",
+                   pipeIndex,
+                   stats.receiveAttempts,
+                   stats.receivedPackets,
+                   stats.receivedBytes,
+                   stats.shortPackets,
+                   stats.packetsWithResidue,
+                   stats.noHeader,
+                   stats.headerOutOfRange,
+                   stats.packetChannelOutOfRange,
+                   stats.lostPackets,
+                   packetRate,
+                   lossRate,
+                   sumRate
+                   );
+        }
+
+        prevPipeStats = pipeStats;
+
+        qDebug(" ");
+    };
+
     auto dumpTimer = new QTimer(this);
     connect(dumpTimer, &QTimer::timeout, this, debug_print_stack_error_counters);
+    //connect(dumpTimer, &QTimer::timeout, this, debug_print_eth_stats);
+    (void)debug_print_eth_stats;
     dumpTimer->setInterval(1000);
     dumpTimer->start();
 }
 
-void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &oldState,
+void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &,
                                             const MVLCObject::State &newState)
 {
     switch (newState)
@@ -275,6 +329,7 @@ VMEError MVLC_VMEController::read16(u32 address, u16 *value, u8 amod)
 VMEError MVLC_VMEController::blockRead(u32 address, u32 transfers,
                                        QVector<u32> *dest, u8 amod, bool fifo)
 {
+    (void) fifo; // The MVLC does not use the FIFO flag. FIXME: does it always or never increment?
     auto ec = m_mvlc->vmeBlockRead(address, amod, transfers, *dest);
     return error_wrap(*m_mvlc, ec);
 }

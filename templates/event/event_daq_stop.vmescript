@@ -1,1 +1,1 @@
-writeabs a32 d16 0xbb00603a     0   # stop acquisition
+writeabs a32 d16 0x${mesy_mcst}00603a     0   # stop acquisition

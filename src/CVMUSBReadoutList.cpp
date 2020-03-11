@@ -100,7 +100,11 @@ CVMUSBReadoutList::CVMUSBReadoutList(vector<uint32_t>& list) :
 {}
 
 CVMUSBReadoutList::CVMUSBReadoutList(const QVector<uint32_t> &list)
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+    : m_list(std::begin(list), std::end(list))
+#else
     : m_list(list.toStdVector())
+#endif
 {
 }
 
@@ -195,6 +199,7 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
         case CommandType::Invalid:
         case CommandType::SetBase:
         case CommandType::ResetBase:
+        case CommandType::SetVariable:
             break;
 
         case CommandType::Blk2eSST64:
@@ -293,70 +298,6 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
                 addFifoRead32(cmd.address, amod, cmd.transfers);
             }
             break;
-
-        case CommandType::BLTCount:
-            {
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        addBlockCountRead16(cmd.address, cmd.countMask, cmd.addressMode);
-                        break;
-                    case DataWidth::D32:
-                        addBlockCountRead32(cmd.address, cmd.countMask, cmd.addressMode);
-                        break;
-                }
-
-                addMaskedCountBlockRead32(cmd.blockAddress, cmd.addressMode);
-
-            } break;
-
-        case CommandType::BLTFifoCount:
-            {
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        addBlockCountRead16(cmd.address, cmd.countMask, cmd.addressMode);
-                        break;
-                    case DataWidth::D32:
-                        addBlockCountRead32(cmd.address, cmd.countMask, cmd.addressMode);
-                        break;
-                }
-
-                addMaskedCountFifoRead32(cmd.blockAddress, cmd.addressMode);
-
-            } break;
-
-        case CommandType::MBLTCount:
-            {
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        addBlockCountRead16(cmd.address, cmd.countMask, cmd.addressMode);
-                        break;
-                    case DataWidth::D32:
-                        addBlockCountRead32(cmd.address, cmd.countMask, cmd.addressMode);
-                        break;
-                }
-
-                addMaskedCountBlockRead32(cmd.blockAddress, cmd.addressMode);
-
-            } break;
-
-        case CommandType::MBLTFifoCount:
-            {
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        addBlockCountRead16(cmd.address, cmd.countMask, cmd.addressMode);
-                        break;
-                    case DataWidth::D32:
-                        addBlockCountRead32(cmd.address, cmd.countMask, cmd.addressMode);
-                        break;
-                }
-
-                addMaskedCountFifoRead32(cmd.blockAddress, cmd.addressMode);
-
-            } break;
 
         case CommandType::VMUSB_WriteRegister:
             {

@@ -1,5 +1,39 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "analysis/ui_eventwidget.h"
 #include "analysis/ui_eventwidget_p.h"
+
+#include <algorithm>
+#include <boost/dynamic_bitset.hpp>
+#include <QCollator>
+#include <QClipboard>
+#include <QFileDialog>
+#include <QGuiApplication>
+#include <QListWidget>
+#include <QListWidgetItem>
+#include <QMenu>
+#include <QMessageBox>
+#include <QMimeData>
+#include <QStandardPaths>
+#include <QTimer>
 
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis_serialization.h"
@@ -14,18 +48,6 @@
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "rate_monitor_widget.h"
-
-#include <boost/dynamic_bitset.hpp>
-#include <QClipboard>
-#include <QFileDialog>
-#include <QGuiApplication>
-#include <QListWidget>
-#include <QListWidgetItem>
-#include <QMenu>
-#include <QMessageBox>
-#include <QMimeData>
-#include <QStandardPaths>
-#include <QTimer>
 
 namespace analysis
 {
@@ -63,6 +85,45 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Qt::
 
     return AnalysisObjectPtr();
 }
+
+static QTreeWidgetItem *find_node(QTreeWidgetItem *root, const AnalysisObjectPtr &obj)
+{
+    if (root)
+    {
+        if (get_pointer<void>(root, DataRole_AnalysisObject) == obj.get())
+            return root;
+
+        const s32 childCount = root->childCount();
+
+        for (s32 ci = 0; ci < childCount; ci++)
+        {
+            if (auto result = find_node(root->child(ci), obj))
+                return result;
+        }
+    }
+
+    return nullptr;
+}
+
+static QTreeWidgetItem *find_node(QTreeWidgetItem *root, const void *rawPtr)
+{
+    if (root)
+    {
+        if (get_pointer<void>(root, DataRole_RawPointer) == rawPtr)
+            return root;
+
+        const s32 childCount = root->childCount();
+
+        for (s32 ci = 0; ci < childCount; ci++)
+        {
+            if (auto result = find_node(root->child(ci), rawPtr))
+                return result;
+        }
+    }
+
+    return nullptr;
+}
+
 
 template<typename T>
 std::shared_ptr<T> get_shared_analysis_object(QTreeWidgetItem *node,
@@ -132,7 +193,7 @@ ConditionLinkModifications get_condition_modifications(const ConditionLink &cl,
 
     result.candidates = get_apply_condition_candidates(cl.condition, analysis);
 
-    qSort(result.candidates);
+    std::sort(std::begin(result.candidates), std::end(result.candidates));
 
     result.active.reserve(result.candidates.size());
     result.checked.reserve(result.candidates.size());
@@ -268,6 +329,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
                                   const QMimeData *data,
                                   Qt::DropAction action)
 {
+    (void) parentIndex;
     /* Drag and drop of datasources:
      * If dropped onto the tree or onto unassignedDataSourcesRoot the sources are removed
      * from their module and end up being unassigned.
@@ -424,6 +486,8 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
                                 const QMimeData *data,
                                 Qt::DropAction action)
 {
+    (void) parentIndex;
+
     /* Note: This code assumes that only top level items are passed in via the mime data
      * object. OperatorTree::mimeData() guarantees this. */
 
@@ -470,8 +534,6 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 
     for (auto &obj: dropSet)
     {
-        const s32 levelDelta = destUserLevel - obj->getUserLevel();
-
         obj->setUserLevel(destUserLevel);
 
         movedObjects.append(obj);
@@ -620,6 +682,8 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
                             const QMimeData *data,
                             Qt::DropAction action)
 {
+    (void) parentIndex;
+
     qDebug() << __PRETTY_FUNCTION__ << this;
 
     const auto mimeType = SinkIdListMIMEType;
@@ -950,7 +1014,7 @@ void add_directory_nodes(ObjectTree *tree, const DirectoryVector &dirs,
 
 
 
-ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src, s32 userLevel,
+ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
                                               ObjectEditorMode mode,
                                               ModuleConfig *moduleConfig,
                                               EventWidget *eventWidget)
@@ -1217,7 +1281,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
     // create the upper toolbar
     {
         m_d->m_upperToolBar = make_toolbar();
-        auto tb = m_d->m_upperToolBar;
+        //auto tb = m_d->m_upperToolBar;
 
         //tb->addWidget(new QLabel(QString("Hello, event! %1").arg((uintptr_t)this)));
     }
@@ -1306,7 +1370,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
 
         tb->addSeparator();
 
-#ifndef QT_NO_DEBUG
+#if 0
         tb->addAction(QSL("Conditions/Cuts"), this, [this]() {
             if (auto w = getAnalysisWidget()->getConditionWidget())
             {
@@ -1924,6 +1988,29 @@ void EventWidgetPrivate::createView(const QUuid &eventId)
 namespace
 {
 
+QCollator make_natural_order_collator()
+{
+    QCollator result;
+
+    result.setCaseSensitivity(Qt::CaseSensitive);
+    result.setIgnorePunctuation(false);
+    result.setNumericMode(true);
+
+    return result;
+}
+
+bool qobj_natural_compare(const QObject *a, const QObject *b)
+{
+    static const auto collator = make_natural_order_collator();
+    return collator.compare(a->objectName(), b->objectName()) < 0;
+}
+
+bool qobj_ptr_natural_compare(const std::shared_ptr<QObject> &a, const std::shared_ptr<QObject> &b)
+{
+    static const auto collator = make_natural_order_collator();
+    return collator.compare(a->objectName(), b->objectName()) < 0;
+}
+
 UserLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &dispTitle, s32 level)
 {
     const auto editTriggers = QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed;
@@ -1980,21 +2067,24 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
     auto eventConfig = vmeConfig->getEventConfig(eventId);
     auto modules = eventConfig->getModuleConfigs();
 
+    std::sort(std::begin(modules), std::end(modules), qobj_natural_compare);
+
     UserLevelTrees result = make_displaylevel_trees(
         QSL("L0 Parameter Extraction"),
         QSL("L0 Raw Data Display"),
         0);
 
-    // Populate the OperatorTree (top left)
+    // Populate the OperatorTree (top left) with module nodes and extractor children
     for (const auto &mod: modules)
     {
         QObject::disconnect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
         QObject::connect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
         auto moduleNode = make_module_node(mod);
         result.operatorTree->addTopLevelItem(moduleNode);
-        moduleNode->setExpanded(true);
+        moduleNode->setExpanded(m_expandedObjects[TreeType_Operator].contains(mod));
 
         auto sources = analysis->getSources(eventId, mod->getId());
+        std::sort(std::begin(sources), std::end(sources), qobj_ptr_natural_compare);
 
 #if 0
 //#ifndef QT_NO_DEBUG
@@ -2022,7 +2112,8 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
     // Add unassigned data sources below a special root node
     for (const auto &source: analysis->getSourcesByEvent(eventId))
     {
-        if (source->getModuleId().isNull())
+        if (source->getModuleId().isNull()
+            || (m_objectMap.find(source) == m_objectMap.end()))
         {
             if (!dataSourceTree->unassignedDataSourcesRoot)
             {
@@ -2050,14 +2141,18 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
     // Create module nodes and nodes for the raw histograms for each data source for the module.
     QSet<QObject *> sinksAddedBelowModules;
     auto operators = analysis->getOperators(eventId, 0);
+    std::sort(std::begin(operators), std::end(operators), qobj_ptr_natural_compare);
 
     for (const auto &mod: modules)
     {
         auto moduleNode = make_module_node(mod);
         result.sinkTree->addTopLevelItem(moduleNode);
-        moduleNode->setExpanded(true);
+        moduleNode->setExpanded(m_expandedObjects[TreeType_Sink].contains(mod));
 
-        for (const auto &source: analysis->getSources(eventId, mod->getId()))
+        auto sources = analysis->getSources(eventId, mod->getId());
+        std::sort(std::begin(sources), std::end(sources), qobj_ptr_natural_compare);
+
+        for (const auto &source: sources)
         {
             for (const auto &op: operators)
             {
@@ -2129,8 +2224,6 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         }
     }
 
-    result.sinkTree->sortItems(0, Qt::AscendingOrder);
-
     return result;
 }
 
@@ -2147,6 +2240,9 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
     auto opDirs = analysis->getDirectories(eventId, level, DisplayLocation::Operator);
     auto sinkDirs = analysis->getDirectories(eventId, level, DisplayLocation::Sink);
 
+    std::sort(std::begin(opDirs), std::end(opDirs), qobj_ptr_natural_compare);
+    std::sort(std::begin(sinkDirs), std::end(sinkDirs), qobj_ptr_natural_compare);
+
     QHash<DirectoryPtr, TreeNode *> dirNodes;
 
     // Populate the OperatorTree
@@ -2154,6 +2250,7 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
     add_directory_nodes(result.operatorTree, opDirs, dirNodes, analysis);
 
     auto operators = analysis->getOperators(eventId, level);
+    std::sort(std::begin(operators), std::end(operators), qobj_ptr_natural_compare);
 
     for (auto op: operators)
     {
@@ -2186,7 +2283,6 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
         }
 
     }
-    result.operatorTree->sortItems(0, Qt::AscendingOrder);
 
     // Populate the SinkTree
 
@@ -2232,8 +2328,6 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
             }
         }
     }
-
-    result.sinkTree->sortItems(0, Qt::AscendingOrder);
 
     for (const auto &dir: dirNodes.keys())
     {
@@ -2291,11 +2385,14 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
 
         // keyboard interaction changes the treewidgets current item
         QObject::connect(tree, &QTreeWidget::currentItemChanged,
-                         m_q, [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous) {
-            qDebug() << "currentItemChanged on" << tree;
-            // TODO: show the object info instead of clearing the widget
-            m_analysisWidget->getObjectInfoWidget()->clear();
-        });
+                         m_q, [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous)
+                         {
+                             (void) current;
+                             (void) previous;
+                             qDebug() << "currentItemChanged on" << tree;
+                             // TODO: show the object info instead of clearing the widget
+                             m_analysisWidget->getObjectInfoWidget()->clear();
+                         });
 
         // inline editing via F2
         QObject::connect(tree, &QTreeWidget::itemChanged,
@@ -2338,7 +2435,7 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
         });
 
         QObject::connect(tree, &QTreeWidget::itemSelectionChanged,
-                         m_q, [this, tree] () {
+                         m_q, [this] () {
             //qDebug() << "itemSelectionChanged on" << tree
             //    << ", new selected item count =" << tree->selectedItems().size();
             updateActions();
@@ -2365,6 +2462,12 @@ static void expandObjectNodes(const QVector<UserLevelTrees> &treeVector, const T
 
 void EventWidgetPrivate::repopulate()
 {
+    if (!repopEnabled)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << m_q << "repop not enabled -> return";
+        return;
+    }
+
     qDebug() << __PRETTY_FUNCTION__ << m_q;
 
     auto splitterSizes = m_operatorFrameSplitter->sizes();
@@ -2514,6 +2617,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             return;
     }
 
+    // Handle the top-left tree containing the modules and data extractors.
     if (userLevel == 0)
     {
         doDataSourceOperatorTreeContextMenu(tree, pos, userLevel);
@@ -2554,7 +2658,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         }
 
         // Sort operators by displayname
-        qSort(operators.begin(), operators.end(),
+        std::sort(operators.begin(), operators.end(),
               [](const OperatorPtr &a, const OperatorPtr &b) {
                   return a->getDisplayName() < b->getDisplayName();
               });
@@ -2736,7 +2840,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                                        [this, moduleConfig, srcPtr, userLevel]() {
 
                                            auto dialog = datasource_editor_factory(
-                                               srcPtr, userLevel, ObjectEditorMode::New, moduleConfig, m_q);
+                                               srcPtr, ObjectEditorMode::New, moduleConfig, m_q);
 
                                            assert(dialog);
 
@@ -2760,7 +2864,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
             }
 
             // Sort sources by displayname
-            qSort(sources.begin(), sources.end(),
+            std::sort(sources.begin(), sources.end(),
                   [](const SourcePtr &a, const SourcePtr &b) {
                       return a->getDisplayName() < b->getDisplayName();
                   });
@@ -2856,7 +2960,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                         [this, srcPtr, moduleConfig, userLevel]() {
 
                             auto dialog = datasource_editor_factory(
-                                srcPtr, userLevel, ObjectEditorMode::Edit, moduleConfig, m_q);
+                                srcPtr, ObjectEditorMode::Edit, moduleConfig, m_q);
 
                             assert(dialog);
 
@@ -2903,6 +3007,34 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
             [this, globalSelectedObjects] {
                 removeObjects(globalSelectedObjects);
             });
+    }
+
+    if (auto sourceTree = qobject_cast<DataSourceTree *>(tree))
+    {
+        // Allow deleting all objects below the "Unassigned" node in the
+        // top left tree. This is where data sources that belonging to this
+        // event but that have not been assigned to any module are shown.
+        if (activeNode && activeNode == sourceTree->unassignedDataSourcesRoot)
+        {
+            QVector<QTreeWidgetItem *> children;
+            for (int i=0; i<activeNode->childCount(); i++)
+                children.push_back(activeNode->child(i));
+
+            auto unassigned = objects_from_nodes(children);
+
+            auto remove_unassigned_objects = [this, unassigned] ()
+            {
+                removeObjects(unassigned);
+            };
+
+            if (!unassigned.isEmpty())
+            {
+                menu.addAction(
+                    QIcon::fromTheme(QSL("edit-delete")),
+                    QSL("Remove unassigned data sources"),
+                    remove_unassigned_objects);
+            }
+        }
     }
 
     if (!menu.isEmpty())
@@ -2964,7 +3096,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
         }
 
         // Sort operators by displayname
-        qSort(operators.begin(), operators.end(),
+        std::sort(operators.begin(), operators.end(),
               [](const OperatorPtr &a, const OperatorPtr &b) {
                   return a->getDisplayName() < b->getDisplayName();
               });
@@ -4095,6 +4227,8 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode()
 
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
+    (void) column;
+
     auto objectInfoWidget = m_analysisWidget->getObjectInfoWidget();
     objectInfoWidget->clear();
 
@@ -4270,6 +4404,14 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
 
 void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel)
 {
+    (void) column;
+
+    if (node->type() == NodeType_Directory || node->type() == NodeType_Module)
+    {
+        node->setExpanded(!node->isExpanded());
+        return;
+    }
+
     if (hasPendingConditionModifications())
     {
             qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
@@ -4481,7 +4623,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         if (moduleConfig)
                         {
                             auto dialog = datasource_editor_factory(
-                                srcPtr, userLevel, ObjectEditorMode::Edit, moduleConfig, m_q);
+                                srcPtr, ObjectEditorMode::Edit, moduleConfig, m_q);
 
                             assert(dialog);
 
@@ -4498,6 +4640,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
 void EventWidgetPrivate::onNodeChanged(TreeNode *node, int column, s32 userLevel)
 {
+    (void) userLevel;
     //qDebug() << __PRETTY_FUNCTION__ << node << column << userLevel << node->text(0);
 
     if (column != 0)
@@ -4596,6 +4739,8 @@ void EventWidgetPrivate::clearTreeSelectionsExcept(QTreeWidget *treeNotToClear)
 
 void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 {
+    repopEnabled = false;
+
     {
         AnalysisPauser pauser(m_context);
 
@@ -4657,7 +4802,21 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
         }
     }
 
+    repopEnabled = true;
     repopulate();
+
+#if 1
+    // This expands the module nodes where new objects where added. Not sure if
+    // this is of much use or just plaing annoying.
+    if (!m_levelTrees.isEmpty())
+    {
+        if (auto node = find_node(m_levelTrees[0].operatorTree->invisibleRootItem(), module))
+            node->setExpanded(true);
+
+        if (auto node = find_node(m_levelTrees[0].sinkTree->invisibleRootItem(), module))
+            node->setExpanded(true);
+    }
+#endif
 }
 
 PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
@@ -5151,8 +5310,6 @@ void EventWidgetPrivate::selectObjects(const AnalysisObjectVector &objects)
 
 void EventWidgetPrivate::updateActions()
 {
-    auto node = getCurrentNode();
-
     m_actionExport->setEnabled(false);
 
     if (m_mode == Default)
@@ -5374,25 +5531,6 @@ void EventWidgetPrivate::removeObjects(const AnalysisObjectVector &objects)
     m_analysisWidget->removeObjects(objects);
 }
 
-static QTreeWidgetItem *find_node(QTreeWidgetItem *root, const AnalysisObjectPtr &obj)
-{
-    if (root)
-    {
-        if (get_pointer<void>(root, DataRole_AnalysisObject) == obj.get())
-            return root;
-
-        const s32 childCount = root->childCount();
-
-        for (s32 ci = 0; ci < childCount; ci++)
-        {
-            if (auto result = find_node(root->child(ci), obj))
-                return result;
-        }
-    }
-
-    return nullptr;
-}
-
 QTreeWidgetItem *EventWidgetPrivate::findNode(const AnalysisObjectPtr &obj)
 {
     for (auto &trees: m_levelTrees)
@@ -5406,6 +5544,21 @@ QTreeWidgetItem *EventWidgetPrivate::findNode(const AnalysisObjectPtr &obj)
 
     return nullptr;
 }
+
+QTreeWidgetItem *EventWidgetPrivate::findNode(const void *rawPtr)
+{
+    for (auto &trees: m_levelTrees)
+    {
+        if (auto node = find_node(trees.operatorTree->invisibleRootItem(), rawPtr))
+            return node;
+
+        if (auto node = find_node(trees.sinkTree->invisibleRootItem(), rawPtr))
+            return node;
+    }
+
+    return nullptr;
+}
+
 
 void EventWidgetPrivate::copyToClipboard(const AnalysisObjectVector &objects)
 {

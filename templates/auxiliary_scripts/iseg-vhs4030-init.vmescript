@@ -1,0 +1,60 @@
+# Setup script for the ISEG VHS4030 high voltage module.
+
+# In addition to simple 16-bit write commands this script uses the
+# 'write_float_word' command which takes a float value and an index (one of
+# 'upper' or 'lower') to specify which 16-bit word of the floats binary
+# representation to write to the register.
+# The VHS4030 internally uses big-endian byte order so it expects the two high
+# bytes of a float at the first register address, the two low bytes at the
+# register offset by 2 (upper first, lower second).
+
+# VoltageRampSpeed in % of nominal voltage of the channel (max 20%).
+set RampSpeedPercent 20.0
+
+# ChannelControl values. Bit 3 (value 0x0008) is the 'SetON' bit to enable the
+# channel.
+set ChannelControl0 0x0008
+set ChannelControl1 0x0008
+set ChannelControl2 0x0008
+set ChannelControl3 0x0008
+
+set VoltageSet0 0.0
+set VoltageSet1 0.0
+set VoltageSet2 0.0
+set VoltageSet3 0.0
+
+# VHS4030 default module base address. The write commands in this script will
+# add this value to their address arguments.
+setbase 0x00004000
+
+write a16 d16 0x0002 0x0040 # ModuleControl: doClear
+
+# VoltageRampSpeed
+write_float_word a16 0x0014 upper ${RampSpeedPercent}
+write_float_word a16 0x0016 lower ${RampSpeedPercent}
+
+# Channel Offsets:
+# Channel 0: 0x0060
+# Channel 1: 0x0090
+# Channel 2: 0x00C0
+# Channel 3: 0x00F0
+
+# Channel0
+write a16 d16 0x0062 ${ChannelControl0}                     # Ch0 ChannelControl: setON
+write_float_word a16 0x0068 upper ${VoltageSet0}            # Ch0 VoltageSet upper 16 bits
+write_float_word a16 0x006A lower ${VoltageSet0}            # Ch0 VoltageSet lower 16 bits
+
+# Channel1
+write a16 d16 0x0092 ${ChannelControl1}                     # Ch1 ChannelControl: setON
+write_float_word a16 0x0098 upper ${VoltageSet1}            # Ch1 VoltageSet upper 16 bits
+write_float_word a16 0x009A lower ${VoltageSet1}            # Ch1 VoltageSet lower 16 bits
+
+# Channel2
+write a16 d16 0x00C2 ${ChannelControl2}                     # Ch2 ChannelControl: setON
+write_float_word a16 0x00C8 upper ${VoltageSet2}            # Ch2 VoltageSet upper 16 bits
+write_float_word a16 0x00CA lower ${VoltageSet2}            # Ch2 VoltageSet lower 16 bits
+
+# Channel3
+write a16 d16 0x00F2 ${ChannelControl3}                     # Ch3 ChannelControl: setON
+write_float_word a16 0x00F8 upper ${VoltageSet3}            # Ch3 VoltageSet upper 16 bits
+write_float_word a16 0x00FA lower ${VoltageSet3}            # Ch3 VoltageSet lower 16 bits

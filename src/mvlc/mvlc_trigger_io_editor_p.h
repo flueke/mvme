@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #ifndef __MVME_MVLC_TRIGGER_IO_EDITOR_P_H__
 #define __MVME_MVLC_TRIGGER_IO_EDITOR_P_H__
 
@@ -253,6 +273,69 @@ class CounterItem: public BlockItem
         QGraphicsSimpleTextItem *m_labelItem = nullptr;
 };
 
+// Draw a line with an arrow at the end from the items position ({0, 0} in item
+// coordinates to the endpoint in scene coordinates.
+class LineAndArrow: public QAbstractGraphicsShapeItem
+{
+    public:
+        constexpr static const qreal DefaultArrowSize = 8;
+
+        LineAndArrow(const QPointF &scenePos, QGraphicsItem *parent = nullptr);
+
+        void setArrowSize(qreal arrowSize);
+        void setEnd(const QPointF &scenePos);
+
+        QRectF boundingRect() const override;
+        void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+                   QWidget *widget) override;
+
+    protected:
+        QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+
+    private:
+        QPointF getAdjustedEnd() const;
+        void adjust();
+
+        qreal m_arrowSize = DefaultArrowSize;
+        QPointF m_sceneEnd;
+};
+
+// Horizontal rectangle with a connection arrow on the right side.
+class HorizontalBusBar: public QGraphicsItem
+{
+    public:
+        HorizontalBusBar(const QString &label, QGraphicsItem *parent = nullptr);
+
+        HorizontalBusBar(QGraphicsItem *parent = nullptr)
+            : HorizontalBusBar({}, parent)
+        { }
+
+        void setDestPoint(const QPointF &scenePoint);
+        void setBarBrush(const QBrush &brush);
+        void setLabelBrush(const QBrush &brush);
+        LineAndArrow *getLineAndArrow() const;
+
+        QRectF boundingRect() const override;
+
+        void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+                   QWidget *widget) override;
+
+    private:
+        QPointF m_dest;
+        QGraphicsRectItem *m_bar = nullptr;
+        LineAndArrow *m_arrow = nullptr;
+        QGraphicsSimpleTextItem *m_label = nullptr;
+};
+
+class MovableRect: public QGraphicsRectItem
+{
+    public:
+        MovableRect(int w, int h, QGraphicsItem *parent = nullptr);
+
+    protected:
+        QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+};
+
 class Edge: public QAbstractGraphicsShapeItem
 {
     public:
@@ -300,6 +383,8 @@ class TriggerIOGraphicsScene: public QGraphicsScene
             QObject *parent = nullptr);
 
         void setTriggerIOConfig(const TriggerIO &ioCfg);
+        void setStaticConnectionsVisible(bool visible);
+        void setConnectionBarsVisible(bool visible);
 
     protected:
         virtual void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev) override;
@@ -352,6 +437,7 @@ class TriggerIOGraphicsScene: public QGraphicsScene
 
         QAbstractGraphicsShapeItem *getInputConnector(const UnitAddress &addr) const;
         QAbstractGraphicsShapeItem *getOutputConnector(const UnitAddress &addr) const;
+
         gfx::Edge *addEdge(QAbstractGraphicsShapeItem *sourceConnector,
                            QAbstractGraphicsShapeItem *destConnector);
 
@@ -360,6 +446,9 @@ class TriggerIOGraphicsScene: public QGraphicsScene
 
         gfx::Edge * getEdgeByDestConnector(
             QAbstractGraphicsShapeItem *destConnector) const;
+
+        gfx::Edge *addStaticConnectionEdge(QAbstractGraphicsShapeItem *sourceConnector,
+                                           QAbstractGraphicsShapeItem *destConnector);
 
         TriggerIO m_ioCfg;
 
@@ -370,11 +459,25 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         Level3Items m_level3Items;
         Level3UtilItems m_level3UtilItems;
 
+        // Flat list of all connection edges. This includes edges from dynamic
+        // and static connections. By default the edges are hidden unless the
+        // logic determines that the particular edge is considered to be in
+        // use.
+        // Note: this does not contain the edges added via
+        // addStaticConnectionEdge(). Those are used for the purpose of drawing
+        // all hardwired and possible connections when the user wants to see
+        // them.
         QVector<gfx::Edge *> m_edges;
         // Input Connector -> Edge
         QHash<QAbstractGraphicsShapeItem *, gfx::Edge *> m_edgesByDest;
         // Output Connector -> Edge list
         QHash<QAbstractGraphicsShapeItem *, gfx::Edge *> m_edgesBySource;
+
+        // Used to show all hardwired connections to matter if they are
+        // considered to be in use or not.
+        QVector<gfx::Edge *> m_staticEdges;
+
+        QVector<QGraphicsItem *> m_connectionBars;
 };
 
 struct NIM_IO_Table_UI
@@ -598,11 +701,13 @@ class Level3UtilsDialog: public QDialog
                 ColName,
                 ColConnection,
                 ColStack,
+                ColStartDelay,
                 ColActivate,
             };
 
             static const int FirstUnitIndex = 0;
 
+            QWidget *parentWidget;
             QVector<QComboBox *> combos_stack;
         };
 
@@ -645,7 +750,6 @@ class LUTOutputEditor: public QWidget
     Q_OBJECT
     public:
         LUTOutputEditor(
-            int outputNumber,
             const QVector<QStringList> &inputNameLists = {},
             const Level2::DynamicConnections &dynConValues = {},
             QWidget *parent = nullptr);

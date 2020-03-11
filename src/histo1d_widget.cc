@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -49,6 +49,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
@@ -59,12 +60,14 @@
 #include <QToolBar>
 
 #include "analysis/analysis.h"
+#include "histo1d_util.h"
 #include "histo_gui_util.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme_qwt.h"
 #include "scrollzoomer.h"
 #include "util.h"
+#include "util/qt_monospace_textedit.h"
 
 #include "git_sha1.h"
 
@@ -295,7 +298,9 @@ struct Histo1DWidgetPrivate
             *m_actionChangeRes,
             *m_actionGaussFit,
             *m_actionCalibUi,
-            *m_actionInfo;
+            *m_actionInfo,
+            *m_actionHistoListStats
+            ;
             //*m_actionCuts;
 
     // rate estimation
@@ -412,6 +417,7 @@ struct Histo1DWidgetPrivate
     void exportPlot();
     void exportPlotToClipboard();
     void saveHistogram();
+    void onActionHistoListStats();
 
     void onActionNewCutTriggered();
     void onCutIntervalSelected();
@@ -475,7 +481,7 @@ std::unique_ptr<QwtText> make_text_box(int renderFlags = Qt::AlignRight | Qt::Al
 } // end anon namespace
 
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histo, QWidget *parent)
-    : Histo1DWidget(HistoList{ histo })
+    : Histo1DWidget(HistoList{ histo }, parent)
 {
 }
 
@@ -639,6 +645,13 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
         });
     }
 #endif
+
+    m_d->m_actionHistoListStats = tb->addAction(
+        QIcon(QSL(":/document-text.png")),
+        QSL("Print Stats"));
+
+    connect(m_d->m_actionHistoListStats, &QAction::triggered,
+            this, [this] () { m_d->onActionHistoListStats(); });
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
     // this.
@@ -1070,6 +1083,9 @@ void Histo1DWidget::replot()
             << "  norm_fitCurve          =" << norm_fitCurve << endl
             << "  norm_fitCurve_adjusted =" << norm_fitCurve_adjusted
             ;
+#else
+        (void) freeCounts_0_x1;
+        (void) norm_fitCurve_adjusted;
 #endif
 
 #if 0
@@ -1175,7 +1191,7 @@ void Histo1DWidgetPrivate::displayChanged()
     m_q->replot();
 }
 
-void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
+void Histo1DWidget::zoomerZoomed(const QRectF &)
 {
     if (m_d->m_zoomer->zoomRectIndex() == 0)
     {
@@ -1271,7 +1287,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
     m_globalStatsTextItem->setText(*m_globalStatsText);
 
     //
-    // gauss peak stats
+    // set updated histo stats on the gauss curve object
     //
     auto gaussCurveData = reinterpret_cast<Histo1DGaussCurveData *>(m_gaussCurve->data());
     gaussCurveData->setStats(m_stats);
@@ -1360,11 +1376,15 @@ void Histo1DWidgetPrivate::exportPlotToClipboard()
 
     QSize size(1024, 768);
     QImage image(size, QImage::Format_ARGB32_Premultiplied);
-    image.fill(0);
+    image.fill(Qt::transparent);
 
     QwtPlotRenderer renderer;
+#ifndef Q_OS_WIN
+    // Enabling this leads to black pixels when pasting the image into windows
+    // paint.
     renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground
                              | QwtPlotRenderer::DiscardCanvasBackground);
+#endif
     renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
     renderer.renderTo(m_plot, image);
 
@@ -1372,7 +1392,9 @@ void Histo1DWidgetPrivate::exportPlotToClipboard()
     m_plot->setFooter(QString());
     m_waterMarkLabel->hide();
 
-    QApplication::clipboard()->setImage(image);
+    auto clipboard = QApplication::clipboard();
+    clipboard->clear();
+    clipboard->setImage(image);
 }
 
 void Histo1DWidgetPrivate::saveHistogram()
@@ -1798,6 +1820,34 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
     replot();
 }
 
+void Histo1DWidgetPrivate::onActionHistoListStats()
+{
+    if (m_histos.isEmpty() || !getCurrentHisto())
+        return;
+
+    double lowerBound = m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+    double upperBound = m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+
+    QString title = m_sink ? m_sink->objectName() : getCurrentHisto()->objectName();
+
+    QString buffer;
+    QTextStream stream(&buffer);
+    mvme::print_histolist_stats(
+        stream, m_histos, lowerBound, upperBound, m_rrf, title);
+
+    auto te = mesytec::mvme::util::make_monospace_plain_textedit().release();
+    te->setWindowTitle(QSL("Stats for histogram array '%1'").arg(title));
+    te->setAttribute(Qt::WA_DeleteOnClose);
+    te->resize(1100, 600);
+    te->setPlainText(buffer);
+    te->show();
+    te->raise();
+
+    add_widget_close_action(te);
+    auto geometrySaver = new WidgetGeometrySaver(te);
+    geometrySaver->addAndRestore(te, QSL("WindowGeometries/HistoListStats"));
+}
+
 void Histo1DWidgetPrivate::onEditCutAccept()
 {
     qDebug() << __PRETTY_FUNCTION__;
@@ -1913,7 +1963,7 @@ void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interva
     }
 }
 
-void Histo1DWidgetPrivate::onCutEditorIntervalModified(const QwtInterval &interval)
+void Histo1DWidgetPrivate::onCutEditorIntervalModified(const QwtInterval &)
 {
 }
 

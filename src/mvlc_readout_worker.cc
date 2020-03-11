@@ -1,6 +1,27 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvlc/mvlc_impl_eth.h"
 #include "mvlc_readout_worker.h"
 
+#include <cassert>
 #include <QCoreApplication>
 #include <QtConcurrent>
 #include <QThread>
@@ -52,7 +73,7 @@
 //   end up on the next header0() or at the start of a system frame.
 //   If part of a packet is at the end of the buffer read from disk store the part
 //   temporarily and truncate the buffer. Then when doing the next read add the
-//   partial packet to the front fo the new buffer.
+//   partial packet to the front of the new buffer.
 //   -> Packet boundaries can be restored and it can be guaranteed that only full
 //   packets worth of data are passed internally.
 //
@@ -490,6 +511,13 @@ void threaded_listfile_writer(
 
 struct MVLCReadoutWorker::Private
 {
+    enum class DebugInfoRequest
+    {
+        None,
+        OnNextBuffer,
+        OnNextError,
+    };
+
     MVLCReadoutWorker *q = nullptr;;
 
     // lots of mvlc api layers
@@ -503,8 +531,6 @@ struct MVLCReadoutWorker::Private
 
     std::atomic<DAQState> state;
     std::atomic<DAQState> desiredState;
-    quint32 cyclesToRun = 0;
-    bool logBuffers = false;
     DataBuffer previousData;
     DataBuffer localEventBuffer;
     DataBuffer *outputBuffer = nullptr;
@@ -518,6 +544,7 @@ struct MVLCReadoutWorker::Private
     static const size_t ListfileWriterBufferSize  = ReadBufferSize;
     ListfileWriterThreadContext listfileWriterContext;
     std::thread listfileWriterThread;
+    std::atomic<DebugInfoRequest> debugInfoRequest;
 
     Private(MVLCReadoutWorker *q_)
         : q(q_)
@@ -526,6 +553,7 @@ struct MVLCReadoutWorker::Private
         , previousData(ReadBufferSize)
         , localEventBuffer(LocalEventBufferSize)
         , listfileWriterContext(ListfileWriterBufferCount, ListfileWriterBufferSize)
+        , debugInfoRequest(DebugInfoRequest::None)
     {}
 
     struct EventWithModules
@@ -655,8 +683,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         return;
     }
 
-    d->cyclesToRun = cycles;
-    d->logBuffers = (cycles > 0); // log buffers to GUI if number of cycles has been passed in
+    assert(cycles == 0 || !"mvlc_readout_worker does not support running a limited number of cycles");
 
     try
     {
@@ -840,15 +867,6 @@ void MVLCReadoutWorker::readoutLoop()
                 d->mvlcCtrl->close();
                 break;
             }
-
-            if (unlikely(d->cyclesToRun > 0))
-            {
-                if (d->cyclesToRun == 1)
-                {
-                    break;
-                }
-                d->cyclesToRun--;
-            }
         }
         // pause
         else if (d->state == DAQState::Running && d->desiredState == DAQState::Paused)
@@ -905,8 +923,19 @@ std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred
     else
         ec = readout_usb(bytesTransferred);
 
-    if (getOutputBuffer()->used > 0)
+    auto outputBuffer = getOutputBuffer();
+
+    // TODO: handle the DebugInfoRequest::OnNextError case
+    if (outputBuffer->used > 0)
+    {
+        if (d->debugInfoRequest == Private::DebugInfoRequest::OnNextBuffer)
+        {
+            d->debugInfoRequest = Private::DebugInfoRequest::None;
+            emit debugInfoReady(*outputBuffer);
+        }
+
         flushCurrentOutputBuffer();
+    }
 
     return ec;
 }
@@ -942,15 +971,20 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
     {
         size_t bytesTransferred = 0u;
 
-        // TODO: this would be more efficient if the lock is held for multiple
+        // FIXME: this would be more efficient if the lock is held for multiple
         // packets. Using the FlushBufferTimeout is too long though and the GUI
         // will become sluggish.
+        // Update january 2020: the GUI should not be affected anymore because
+        // it can now pull stats without having to take the pipe lock anymore.
         auto dataGuard = mvlcLocks.lockData();
         auto result = d->mvlc_eth->read_packet(
             Pipe::Data, destBuffer->asU8(), destBuffer->free());
         dataGuard.unlock();
 
         daqStats.totalBytesRead += result.bytesTransferred;
+
+        if (result.ec == ErrorType::ConnectionError)
+            return result.ec;
 
         // ShortRead means that the received packet length was non-zero but
         // shorter than the two ETH header words. Overwrite this short data on
@@ -1232,10 +1266,10 @@ void MVLCReadoutWorker::pause()
 
 void MVLCReadoutWorker::resume(quint32 cycles)
 {
+    assert(cycles == 0 || !"mvlc_readout_worker does not support running a limited number of cycles");
+
     if (d->state == DAQState::Paused)
     {
-        d->cyclesToRun = cycles;
-        d->logBuffers = (cycles > 0); // log buffers to GUI if number of cycles has been passed in
         d->desiredState = DAQState::Running;
     }
 }
@@ -1287,6 +1321,16 @@ MVLCReadoutCounters MVLCReadoutWorker::getReadoutCounters() const
 MVLC_VMEController *MVLCReadoutWorker::getMVLC()
 {
     return d->mvlcCtrl;
+}
+
+void MVLCReadoutWorker::requestDebugInfoOnNextBuffer()
+{
+    d->debugInfoRequest = Private::DebugInfoRequest::OnNextBuffer;
+}
+
+void MVLCReadoutWorker::requestDebugInfoOnNextError()
+{
+    d->debugInfoRequest = Private::DebugInfoRequest::OnNextError;
 }
 
 void MVLCReadoutWorker::logError(const QString &msg)

@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -146,7 +146,7 @@ struct Histo2DRasterData: public RasterDataBase
         return r;
     }
 
-    virtual QRectF pixelHint(const QRectF &area) const override
+    virtual QRectF pixelHint(const QRectF &) const override
     {
         QRectF result
         {
@@ -516,6 +516,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
 
     // XXX: cut test
     {
+#if 0
         QPen pickerPen(Qt::red);
 
 
@@ -533,6 +534,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         TRY_ASSERT(connect(m_d->m_cutPolyPicker, &QwtPicker::activated, this, [this](bool on) {
             m_d->onCutPolyPickerActivated(on);
         }));
+#endif
 
 #if 0
         auto action = tb->addAction("Dev: Create cut");
@@ -1026,11 +1028,15 @@ void Histo2DWidget::exportPlotToClipboard()
 
     QSize size(1024, 768);
     QImage image(size, QImage::Format_ARGB32_Premultiplied);
-    image.fill(0);
+    image.fill(Qt::transparent);
 
     QwtPlotRenderer renderer;
+#ifndef Q_OS_WIN
+    // Enabling this leads to black pixels when pasting the image into windows
+    // paint.
     renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground
                              | QwtPlotRenderer::DiscardCanvasBackground);
+#endif
     renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
     renderer.renderTo(m_d->m_plot, image);
 
@@ -1038,7 +1044,9 @@ void Histo2DWidget::exportPlotToClipboard()
     m_d->m_plot->setFooter(QString());
     m_d->m_waterMarkLabel->hide();
 
-    QApplication::clipboard()->setImage(image);
+    auto clipboard = QApplication::clipboard();
+    clipboard->clear();
+    clipboard->setImage(image);
 }
 
 bool Histo2DWidget::zAxisIsLog() const
@@ -1088,7 +1096,7 @@ void Histo2DWidget::mouseCursorLeftPlot()
     updateCursorInfoLabel();
 }
 
-void Histo2DWidget::zoomerZoomed(const QRectF &zoomRect)
+void Histo2DWidget::zoomerZoomed(const QRectF &)
 {
 #if 0
     // do not zoom into negatives or above the upper bin

@@ -1,3 +1,5 @@
+.. index:: Quickstart
+
 .. _quickstart:
 
 ##################################################
@@ -29,7 +31,7 @@ using IRQ1 on the VME bus.
 
   * A log view where runtime messages will appear.
 
-.. autofigure:: images/quickstart_gui_overview.png
+.. figure:: images/quickstart_gui_overview.png
     :scale-latex: 75%
 
     GUI overview
@@ -52,8 +54,7 @@ VME Setup
   * Select *Interrupt* in the *Condition* combobox. Keep the default of *IRQ
     Level = 1*.
 
-.. autofigure:: images/quickstart_event_config.png
-   :scale-latex: 60%
+.. figure:: images/quickstart_event_config.png
 
    Event Config Dialog
 
@@ -66,8 +67,7 @@ VME Setup
     address encoders adjust the *Address* value accordingly (the address
     encoders modify the 4 most significant hex digits).
 
-.. autofigure:: images/quickstart_module_config.png
-   :scale-latex: 60%
+.. figure:: images/quickstart_module_config.png
 
    Module Config Dialog
 
@@ -75,8 +75,7 @@ The VME Config should now look like similar to :ref:`quickstart-vme-tree01`.
 
 .. _quickstart-vme-tree01:
 
-.. autofigure:: images/intro_vme_tree01.png
-   :scale-latex: 60%
+.. figure:: images/intro_vme_tree01.png
 
    VME Config tree
 
@@ -92,20 +91,6 @@ The VME Config should now look like similar to :ref:`quickstart-vme-tree01`.
 
 * Click the *Apply* button on the editors toolbar to commit your changes to the
   VME configuration. Close the editor window.
-
-* Start editing the *VME Interface Settings* VME Script. Near the top of the
-  script set the *irq level* to 1:
-
-  ``0x6010 1``
-
-  This makes the module send IRQ 1 if it has data to be read in its internal
-  buffer. The other parameters can be left at their default values. Click
-  *Apply* and close the editor window.
-
-.. autofigure:: images/quickstart_edit_vme_interface_settings.png
-   :scale-latex: 60%
-
-   VME Interface Settings with IRQ Level set to 1
 
 ==================================================
 Analysis Setup
@@ -133,7 +118,7 @@ shown as *Connected* in the top part of the window.
 
 .. _quickstart-daq-control:
 
-.. autofigure:: images/intro_daq_control.png
+.. figure:: images/intro_daq_control.png
 
    DAQ control
 

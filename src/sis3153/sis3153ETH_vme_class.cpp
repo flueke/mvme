@@ -381,8 +381,8 @@ unsigned int sis3153eth::get_class_lib_version(void){
 
 int sis3153eth::set_UdpSocketReceiveNofPackagesPerRequest(unsigned int nofPacketsPerRequest){
 unsigned int nof_packets ;
-unsigned int data ;
 
+//  unsigned int data ;
 //  this->udp_sis3153_register_read(0x4, &data);
 //  data |= 0x4; // 4 us gap
 //  this->udp_sis3153_register_write(0x4, data);
@@ -3610,7 +3610,6 @@ int sis3153eth::list_read_event(UCHAR* packet_ack, UCHAR* packet_ident, UCHAR* p
     int addr_len;
 #endif
     int return_code;
-    unsigned int i;
     *got_nof_event_data = 0;
     addr_len = sizeof(struct sockaddr);
 

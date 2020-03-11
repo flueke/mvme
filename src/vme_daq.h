@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -22,9 +22,11 @@
 #define __VME_DAQ_H__
 
 #include "libmvme_export.h"
+
 #include "vme_config.h"
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
+#include "vme_script.h"
 
 /* Both init functions throw on error:
  * QString, std::runtime_error, vme_script::ParseError
@@ -47,6 +49,11 @@ struct ScriptWithResult
     // list.
     // TODO: change this to a shared_ptr, weak_ptr or use a copy of the script.
     const VMEScriptConfig *scriptConfig;
+
+    // The symbol tables used when evaluating the script.
+    //const vme_script::SymbolTables symbols;
+
+    // List of results of running the script.
     const vme_script::ResultList results;
 };
 

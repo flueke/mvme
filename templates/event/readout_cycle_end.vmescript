@@ -1,3 +1,3 @@
 # Commands executed at the end of each readout cycle
 # Do a multicast write of the readout_reset register
-writeabs a32 d16 0xbb006034      1   # readout reset
+writeabs a32 d16 0x${mesy_mcst}006034      1   # readout reset

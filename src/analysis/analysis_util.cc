@@ -1,5 +1,26 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "analysis_util.h"
 
+#include <algorithm>
 #include <QDir>
 #include <QJsonDocument>
 #include <QMessageBox>
@@ -43,7 +64,7 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
                 }
             }
 
-            qSort(result.begin(), result.end(), [](const auto &a, const auto &b) {
+            std::sort(result.begin(), result.end(), [](const auto &a, const auto &b) {
                 return a->objectName() < b->objectName();
             });
         }
@@ -372,7 +393,7 @@ SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector
 
     auto condInputSlots = cl.condition->getSlots();
 
-    qSort(condInputSlots.begin(), condInputSlots.end(), slot_lessThan);
+    std::sort(condInputSlots.begin(), condInputSlots.end(), slot_lessThan);
 
     SinkVector result;
     result.reserve(sinks.size());
@@ -387,7 +408,7 @@ SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector
 
         auto sinkSlots = sink->getSlots();
 
-        qSort(sinkSlots.begin(), sinkSlots.end(), slot_lessThan);
+        std::sort(sinkSlots.begin(), sinkSlots.end(), slot_lessThan);
 
         if (slots_match(condInputSlots, sinkSlots))
         {

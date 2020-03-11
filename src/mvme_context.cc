@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -35,6 +35,7 @@
 #include "mvlc_listfile_worker.h"
 #include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_vme_controller.h"
+#include "mvlc_readout_worker.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_context_lib.h"
 #include "mvme.h"
@@ -58,7 +59,6 @@
 #include <QProgressDialog>
 #include <QtConcurrent>
 #include <QThread>
-#include <QTimer>
 #include <tuple>
 
 namespace
@@ -612,8 +612,8 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
     connect(m_vmeConfig, &VMEConfig::eventAboutToBeRemoved,
             this, &MVMEContext::onEventAboutToBeRemoved);
 
-    connect(m_vmeConfig, &VMEConfig::globalScriptAboutToBeRemoved,
-            this, &MVMEContext::onGlobalScriptAboutToBeRemoved);
+    connect(m_vmeConfig, &VMEConfig::globalChildAboutToBeRemoved,
+            this, &MVMEContext::onGlobalChildAboutToBeRemoved);
 
     if (m_readoutWorker)
     {
@@ -652,7 +652,7 @@ static std::tuple<bool, QHostInfo, int> get_event_server_listen_info(const QSett
 
 bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap &settings)
 {
-    qDebug() << __PRETTY_FUNCTION__ << "begin";
+    //qDebug() << __PRETTY_FUNCTION__ << "begin";
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getMVMEStreamWorkerState() == MVMEStreamWorkerState::Idle);
 
@@ -672,7 +672,8 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
      * performed when trying to open the current controller. This is the reason
      * for using an event loop instead of directly calling
      * m_ctrlOpenFuture.waitForFinished(). */
-    qDebug() << __PRETTY_FUNCTION__ << "before waitForFinished";
+    //qDebug() << __PRETTY_FUNCTION__ << "before waitForFinished";
+
     if (m_ctrlOpenFuture.isRunning())
     {
         QProgressDialog progressDialog("Changing VME Controller", QString(), 0, 0);
@@ -685,11 +686,11 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
                 &localLoop, &QEventLoop::quit);
         localLoop.exec();
     }
-    qDebug() << __PRETTY_FUNCTION__ << "after waitForFinished";
+    //qDebug() << __PRETTY_FUNCTION__ << "after waitForFinished";
 
     emit vmeControllerAboutToBeChanged();
 
-    qDebug() << __PRETTY_FUNCTION__ << "after emit vmeControllerAboutToBeChanged";
+    //qDebug() << __PRETTY_FUNCTION__ << "after emit vmeControllerAboutToBeChanged";
 
     // Delete objects inside the event loop via deleteLater() because Qt events
     // may still be scheduled which may make use of the objects.
@@ -735,6 +736,12 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     m_readoutWorker->setContext(readoutWorkerContext);
 
+    if (auto mvlcReadoutWorker = qobject_cast<MVLCReadoutWorker *>(m_readoutWorker))
+    {
+        connect(mvlcReadoutWorker, &MVLCReadoutWorker::debugInfoReady,
+                this, &MVMEContext::sniffedInputBufferReady);
+    }
+
     // replay worker (running on the readout thread)
     m_d->listfileReplayWorker = std::unique_ptr<ListfileReplayWorker>(
         factory.makeReplayWorker(&m_freeBuffers, &m_fullBuffers));
@@ -747,6 +754,9 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     connect(m_d->listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             this, &MVMEContext::onReplayDone);
+
+    // TODO: Add the buffer sniffing connection for the MVLCListfileWorker once
+    // the support is there.
 
     // Create a stream worker (analysis side). The concrete type depends on the
     // VME controller type.
@@ -836,7 +846,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     emit vmeControllerSet(controller);
 
-    qDebug() << __PRETTY_FUNCTION__ << "end";
+    //qDebug() << __PRETTY_FUNCTION__ << "end";
     return true;
 }
 
@@ -1000,6 +1010,12 @@ void MVMEContext::reconnectVMEController()
         progressDialog.setCancelButton(nullptr);
         progressDialog.show();
 
+        // XXX: Qt under windows warns that this connect likely leads to a
+        // race. I think it's ok because between the isRunning() test above and
+        // the connect no signal processing can happen because we do not enter
+        // an event loop. Even if the future finishes between isRunning() and
+        // loop.exec() below the finished() signal will still be queued up and
+        // delivered immediately upon entering the loop.
         QEventLoop localLoop;
         connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished,
                 &localLoop, &QEventLoop::quit);
@@ -1048,6 +1064,16 @@ void MVMEContext::dumpVMEControllerRegisters()
     {
         logMessage("'Dump Registers' not implemented for VME controller type " +
                    to_string(getVMEController()->getType()));
+    }
+}
+
+void MVMEContext::sniffNextInputBuffer()
+{
+    assert(is_mvlc_controller(getVMEController()));
+
+    if (auto rdoWorker = qobject_cast<MVLCReadoutWorker *>(m_readoutWorker))
+    {
+        rdoWorker->requestDebugInfoOnNextBuffer();
     }
 }
 
@@ -1540,7 +1566,7 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
     // Can be used for last minute changes before the actual startup. Used in
     // the GUI to ask the user if modifications to VME scripts should be applied
     // and used for the run.
-    emit daqAboutToStart(nCycles);
+    emit daqAboutToStart();
 
     // Generate new RunInfo here. Has to happen before prepareStart() calls
     // MVMEStreamWorker::beginRun()
@@ -1720,6 +1746,24 @@ void MVMEContext::logMessage(const QString &msg)
     logMessageRaw(fullMessage);
 }
 
+void MVMEContext::logError(const QString &msg)
+{
+    QString fullMessage(QString("%1: %2")
+             .arg(QDateTime::currentDateTime().toString("HH:mm:ss"))
+             .arg(msg));
+
+    {
+        QMutexLocker lock(&m_d->m_logBufferMutex);
+
+        if (m_d->m_logBuffer.size() >= LogBufferMaxEntries)
+            m_d->m_logBuffer.pop_front();
+
+        m_d->m_logBuffer.append(msg);
+    }
+
+    emit sigLogError(fullMessage);
+}
+
 QStringList MVMEContext::getLogBuffer() const
 {
     QMutexLocker lock(&m_d->m_logBufferMutex);
@@ -1751,7 +1795,7 @@ void MVMEContext::onEventAboutToBeRemoved(EventConfig *config)
     emit eventAboutToBeRemoved(config);
 }
 
-void MVMEContext::onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config)
+void MVMEContext::onGlobalChildAboutToBeRemoved(ConfigObject *config)
 {
     emit objectAboutToBeRemoved(config);
 }
@@ -1782,7 +1826,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
     if (!m_controller->isOpen())
     {
         logger("VME Script Error: VME controller not connected");
-        return results;
+        return { vme_script::Result{VMEError::NotOpen} };
     }
 
     // The MVLC can execute commands while the DAQ is running, other controllers
@@ -1798,6 +1842,15 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
         // results = vme_script::run_script(m_controller, script, logger, logEachResult);
         // but moves the run_script call into a different thread and shows a
         // progress dialog during execution.
+        //
+        // IMPORTANT: if logEachResult is true, then the logger will be invoked
+        // from within the thread chosen by QtConcurrent::run(). This means
+        // direct modification of GUI elements from within the logger code is
+        // not allowed and will most likely lead to a crash!  A workaround is
+        // to emit a signal from within the logger (via a lambda for example)
+        // to deliver the message to the destination. Then the usual Qt
+        // signal/slot thread handling will apply and the slot will be invoked
+        // in the destinations thread.
 
         using Watcher = QFutureWatcher<vme_script::ResultList>;
 
@@ -1859,17 +1912,10 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
             if (result.error.error() == VMEError::NotOpen ||
                 result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError)
             {
+                emit logMessage("ConnectionError during VME script execution,"
+                                " closing connection to VME Controller");
                 m_controller->close();
                 break;
-            }
-            else if (result.error.isTimeout()
-                     || result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::Timeout)
-            {
-                if (++timeouts >= TimeoutConnectionLossThreshold)
-                {
-                    m_controller->close();
-                    break;
-                }
             }
         }
     }
@@ -2402,22 +2448,33 @@ void MVMEContext::reapplyWorkspaceSettings()
 
 void MVMEContext::loadVMEConfig(const QString &fileName)
 {
-    QJsonDocument doc(gui_read_json_file(fileName));
-    auto vmeConfig = new VMEConfig;
-    if (auto ec = vmeConfig->readVMEConfig(doc.object()["DAQConfig"].toObject()))
+    std::unique_ptr<VMEConfig> vmeConfig;
+    QString errString;
+
+    logMessage(QSL("Loading VME Config from '%1'").arg(fileName));
+
+    auto logger = [this] (const QString &msg)
+    {
+        this->logMessage("VME config load: " + msg);
+    };
+
+    std::tie(vmeConfig, errString) = read_vme_config_from_file(fileName, logger);
+
+    if (!errString.isEmpty())
     {
         QMessageBox::critical(nullptr,
                               QSL("Error loading VME config"),
                               QSL("Error loading VME config from file %1: %2")
                               .arg(fileName)
-                              .arg(ec.message().c_str()));
+                              .arg(errString));
         return;
     }
 
-    setVMEConfig(vmeConfig);
+    setVMEConfig(vmeConfig.get());
     setConfigFileName(fileName);
     setMode(GlobalMode::DAQ);
     setVMEController(vmeConfig->getControllerType(), vmeConfig->getControllerSettings());
+    vmeConfig.release();
 
     if (m_d->m_vmeConfigAutoSaver)
     {

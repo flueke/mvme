@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -26,8 +26,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
-#include <QJsonObject>
 #include <QRegularExpression>
 #include <QTextStream>
 
@@ -336,7 +336,7 @@ QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates)
     // Module table
     {
         QVector<VMEModuleMeta> modules(templates.moduleMetas);
-        qSort(modules.begin(), modules.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
+        std::sort(modules.begin(), modules.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
             return a.typeId < b.typeId;
         });
 
@@ -412,6 +412,80 @@ VMEModuleMeta get_module_meta_by_typeId(const MVMETemplates &templates, u8 typeI
             return mm;
     }
     return {};
+}
+
+QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(
+    TemplateLogger logger)
+{
+    QString templatePath = get_template_path() + QSL("/auxiliary_scripts");
+    do_log(QString("Reading auxiliary scripts from %1").arg(templatePath), logger);
+    return read_auxiliary_scripts(templatePath, logger);
+}
+
+QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(
+    const QString &path, TemplateLogger logger)
+{
+    QVector<AuxiliaryVMEScriptInfo> result;
+
+    QDir auxDir(path);
+
+    auto jsonFiles = auxDir.entryList({ QSL("*.json") }, QDir::Files | QDir::Readable);
+
+    for (auto jsonFile: jsonFiles)
+    {
+        auto json = read_json_file(auxDir.filePath(jsonFile), logger).object();
+
+        if (!json.contains("auxiliary_vme_scripts")
+            || !json["auxiliary_vme_scripts"].isArray())
+            continue;
+
+        auto scriptInfoArray = json["auxiliary_vme_scripts"].toArray();
+
+        for (const auto &scriptInfoRef: scriptInfoArray)
+        {
+            auto scriptInfo = scriptInfoRef.toObject();
+
+            if (!scriptInfo.contains("fileName"))
+                continue;
+
+            QString scriptContents = read_file(auxDir.filePath(
+                    scriptInfo["fileName"].toString()), logger);
+
+            if (scriptContents.isEmpty())
+                continue;
+
+            AuxiliaryVMEScriptInfo auxInfo = {};
+            auxInfo.info=scriptInfo;
+            auxInfo.contents=scriptContents;
+            auxInfo.auxInfoFileName=jsonFile;
+
+            result.push_back(auxInfo);
+        }
+    }
+
+    std::sort(std::begin(result), std::end(result), auxinfo_default_compare);
+
+    return result;
+}
+
+bool auxinfo_default_compare(
+    const AuxiliaryVMEScriptInfo &a, const AuxiliaryVMEScriptInfo &b)
+{
+    if (a.vendorName() == b.vendorName())
+    {
+        if (a.moduleName() == b.moduleName())
+            return a.scriptName() < b.scriptName();
+
+        return a.moduleName() < b.moduleName();
+    }
+
+    if (a.vendorName() == QSL("mesytec"))
+        return true;
+
+    if (b.vendorName() == QSL("mesytec"))
+        return false;
+
+    return a.vendorName() < b.vendorName();
 }
 
 } // namespace vats

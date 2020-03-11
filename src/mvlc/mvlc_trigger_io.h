@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #ifndef __MVME_MVLC_TRIGGER_IO_H__
 #define __MVME_MVLC_TRIGGER_IO_H__
 
@@ -87,7 +107,7 @@ struct LUT
     std::bitset<OutputBits> strobedOutputs;
 
     // Strobe gate generator settings. Each Level2 LUT has one of these.
-    IO strobeGG = { .delay = 0, .width = StrobeGGDefaultWidth };
+    IO strobeGG = { .delay = 0, .width = StrobeGGDefaultWidth, .holdoff = 0, .invert = false, .direction = IO::Direction::in, .activate = false };
 
     std::array<QString, OutputBits> defaultOutputNames;
     std::array<QString, OutputBits> outputNames;
@@ -106,6 +126,7 @@ struct StackStart
 {
     bool activate;
     u8 stackIndex;
+    u16 delay_ns;
     //bool storeStrobes; // not implemented / not used
     // Note: the immediate flag is used to directly exec the stack which can be
     // useful for testing. The value is not currently stored in here.
@@ -332,6 +353,7 @@ struct TriggerIO
 
     // TODO: more generic structure for names and connection choices and
     // connection selections
+#if 0
     static const LevelUnitNames DefaultUnitNames;
     static const LevelUnitPinNames DefaultPinNames;
     static const LevelUnitInputChoices UnitInputChoices;
@@ -339,6 +361,7 @@ struct TriggerIO
     LevelUnitNames unitNames;
     LevelUnitPinNames pinNames;
     LevelUnitConnectionSelections connections;
+#endif
 };
 
 QString lookup_name(const TriggerIO &ioCfg, const UnitAddress &addr);

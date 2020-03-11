@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -90,6 +90,15 @@ QVector<ModuleInfo> get_module_infos(Analysis *analysis)
         info.id = QUuid(props.value("moduleId").toString());
         info.typeName = props.value("moduleTypeName").toString();
         info.name = props.value("moduleName").toString();
+
+        // Hack to fix the issues that the module type name change from mdpp16
+        // to mdpp16_scp brought with it :(
+        if (info.typeName == QSL("mdpp16")
+            || (info.typeName.isEmpty() && info.name.contains("mdpp16")))
+        {
+            info.typeName = QSL("mdpp16_scp");
+        }
+
         result.push_back(info);
     }
     return result;
@@ -152,8 +161,24 @@ static void rewrite_module(Analysis *analysis,
         if (op->getEventId() == fromEventId)
         {
 
-            qDebug() << __PRETTY_FUNCTION__ << "rewrite op eventId, old =" << op->getEventId() << ", new =" << toEventId;
+            qDebug() << __PRETTY_FUNCTION__ << "rewrite op eventId, old =" <<
+                op->getEventId() << ", new =" << toEventId;
+
             op->setEventId(toEventId);
+        }
+    }
+
+    auto &directories(analysis->getDirectories());
+    for (auto &dir: directories)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "checking dir =" << dir << ", eventId =" << dir->getEventId();
+
+        if (dir->getEventId() == fromEventId)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "rewrite dir eventId, old =" <<
+                dir->getEventId() << ", new =" << toEventId;
+
+            dir->setEventId(toEventId);
         }
     }
 }

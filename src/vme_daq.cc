@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -27,6 +27,9 @@
 
 #include "mvme_listfile_utils.h"
 #include "util_zip.h"
+#include "vme_config_scripts.h"
+
+using namespace mesytec::mvme;
 
 //
 // vme_daq_init
@@ -58,9 +61,10 @@ vme_daq_init(
             logger(QString("  %1").arg(scriptConfig->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
 
-            auto results = run_script(
-                controller, scriptConfig->getScript(), indentingLogger,
+            auto script = parse(scriptConfig);
+            auto results = run_script(controller, script, indentingLogger,
                 opts | LogEachResult);
+
             ret.push_back({ scriptConfig, results });
             if ((opts & AbortOnError) && has_errors(results))
                 return ret;
@@ -95,8 +99,10 @@ vme_daq_init(
             {
                 logger(QSL("    %1").arg(scriptConfig->objectName()));
                 auto indentingLogger = [logger](const QString &str) { logger(QSL("      ") + str); };
+
+                auto script = parse(scriptConfig, module->getBaseAddress());
                 auto results = run_script(
-                    controller, scriptConfig->getScript(module->getBaseAddress()),
+                    controller, script,
                     indentingLogger, opts | LogEachResult);
                 ret.push_back({ scriptConfig, results });
                 if ((opts & AbortOnError) && has_errors(results))
@@ -110,7 +116,7 @@ vme_daq_init(
     {
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
         auto scriptConfig = eventConfig->vmeScripts["daq_start"];
-        auto script = scriptConfig->getScript();
+        auto script = parse(scriptConfig);
 
         if (!script.isEmpty())
             logger(QString("  %1").arg(eventConfig->objectName()));
@@ -145,7 +151,8 @@ vme_daq_shutdown(
         logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
         auto scriptConfig = eventConfig->vmeScripts["daq_stop"];
-        auto results = run_script(controller, scriptConfig->getScript(), indentingLogger,
+        auto script = parse(scriptConfig);
+        auto results = run_script(controller, script, indentingLogger,
                                   opts | LogEachResult);
         ret.push_back({ scriptConfig, results });
         if ((opts & AbortOnError) && has_errors(results))
@@ -165,7 +172,8 @@ vme_daq_shutdown(
 
             logger(QString("  %1").arg(scriptConfig->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-            auto results = run_script(controller, scriptConfig->getScript(), indentingLogger,
+            auto script = parse(scriptConfig);
+            auto results = run_script(controller, script, indentingLogger,
                                       opts | LogEachResult);
             ret.push_back({ scriptConfig, results });
             if ((opts & AbortOnError) && has_errors(results))
@@ -187,13 +195,13 @@ vme_script::VMEScript build_event_readout_script(
 
     VMEScript result;
 
-    result += eventConfig->vmeScripts["readout_start"]->getScript();
+    result += parse(eventConfig->vmeScripts["readout_start"]);
 
     for (auto module: eventConfig->getModuleConfigs())
     {
         if (module->isEnabled())
         {
-            result += module->getReadoutScript()->getScript(module->getBaseAddress());
+            result += parse(module->getReadoutScript(), module->getBaseAddress());
         }
 
         /* If the module is disabled only the EndMarker will be present in the
@@ -208,7 +216,7 @@ vme_script::VMEScript build_event_readout_script(
         }
     }
 
-    result += eventConfig->vmeScripts["readout_end"]->getScript();
+    result += parse(eventConfig->vmeScripts["readout_end"]);
 
     return result;
 }

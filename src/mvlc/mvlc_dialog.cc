@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvlc/mvlc_dialog.h"
 
 #include <cassert>
@@ -69,6 +89,8 @@ std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &re
 
     return {};
 }
+
+constexpr std::chrono::milliseconds MVLCDialog::ReadResponseMaxWait;
 
 MVLCDialog::MVLCDialog(AbstractImpl *mvlc)
     : m_mvlc(mvlc)
@@ -177,7 +199,8 @@ std::error_code MVLCDialog::readKnownBuffer(QVector<u32> &dest)
 
     if (ec == make_error_code(MVLCErrorCode::ShortRead))
     {
-        // Adjust the destination size to the full number of words transferred.
+        // Got less words than requested. Adjust the destination size to the
+        // number of words actually received.
         dest.resize(1 + wordsTransferred);
     }
 
@@ -199,13 +222,16 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
 {
     assert(bhv);
 
-    // Read buffers until we receive one that is not a stack error notification.
+    using Clock = std::chrono::high_resolution_clock;
+
+    auto tStart = Clock::now();
+
     while (true)
     {
         if (auto ec = readKnownBuffer(dest))
             return ec;
 
-        // readKnownBuffer() returns an error code if its dest buffer is empty
+        // readKnownBuffer() should return an error code if its dest buffer is empty
         assert(!dest.isEmpty());
 
         u32 header = dest[0];
@@ -214,6 +240,11 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, QVector<u32>
             m_stackErrorNotifications.push_back(dest);
         else
             break;
+
+        auto elapsed = Clock::now() - tStart;
+
+        if (elapsed >= ReadResponseMaxWait)
+            return make_error_code(MVLCErrorCode::NoResponseReceived);
     }
 
     assert(!dest.isEmpty());

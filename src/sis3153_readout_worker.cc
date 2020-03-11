@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -22,6 +22,7 @@
 #include "sis3153_readout_worker.h"
 
 #include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QHostInfo>
 #include <QThread>
 #include <QUdpSocket>
@@ -134,16 +135,6 @@ namespace
                     InvalidCodePath;
                     break;
 
-                case  CommandType::BLTCount:
-                case  CommandType::BLTFifoCount:
-                case  CommandType::MBLTCount:
-                case  CommandType::MBLTFifoCount:
-                    // write DYN_BLK_SIZING_CONFIG
-                    // + read register and save length
-                    // + blt read using saved length
-                    size += 4 + 3 + 3;
-                    break;
-
                 case  CommandType::SetBase:
                 case  CommandType::ResetBase:
                 case  CommandType::VMUSB_ReadRegister:
@@ -151,6 +142,7 @@ namespace
                 case CommandType::Blk2eSST64:
                 case CommandType::MVLC_WriteSpecial:
                 case CommandType::MetaBlock:
+                case CommandType::SetVariable:
                     break;
 
                 case  CommandType::Invalid:
@@ -297,54 +289,6 @@ namespace
                  );
     }
 
-    /* Note: SIS3153 does not support the Command.countMask masking operation
-     * when doing dynamically sized block reads! */
-    void stackList_add_counted_block_read_command(vme_script::Command cmd, u32 *list_ptr, u32 *list_buffer)
-    {
-        sis_trace(QString("cmd=%1")
-                  .arg(to_string(cmd));
-                 );
-
-        u8 flags = 0;
-
-        switch (cmd.type)
-        {
-            case  CommandType::BLTCount:
-                flags = 0;
-                break;
-
-            case  CommandType::BLTFifoCount:
-                flags = BlockFlags::FIFO;
-                break;
-
-            case  CommandType::MBLTCount:
-                flags = (BlockFlags::MBLT | BlockFlags::MBLTWordSwap);
-                break;
-
-            case  CommandType::MBLTFifoCount:
-                flags = (BlockFlags::FIFO | BlockFlags::MBLT | BlockFlags::MBLTWordSwap);
-                break;
-
-            InvalidDefaultCase;
-        }
-
-        stackList_add_register_write(
-            list_ptr, list_buffer,
-            SIS3153Registers::StackListDynSizedBlockRead,
-            cmd.countMask);
-
-        stackList_add_save_count_read(
-            list_ptr, list_buffer,
-            cmd.address,
-            get_access_size(cmd.dataWidth),
-            cmd.addressMode);
-
-        stackList_add_count_block_read(
-            list_ptr, list_buffer,
-            cmd.blockAddress,
-            flags);
-    }
-
     /* Note: if lemoIOControlBaseValue is non-negative this functions adds writes to the
      * LemoIOControl register at the beginning and end of the stacklist. The first write
      * enables OUT2, the second at the end of the list disables OUT2. */
@@ -432,16 +376,6 @@ namespace
                     InvalidCodePath;
                     break;
 
-                case  CommandType::BLTCount:
-                case  CommandType::BLTFifoCount:
-                case  CommandType::MBLTCount:
-                case  CommandType::MBLTFifoCount:
-                    {
-                        Q_ASSERT(command.blockAddress == vme_address_modes::A32);
-                        stackList_add_counted_block_read_command(command, &resultOffset, result.data());
-                    }
-                    break;
-
                 case  CommandType::SetBase:
                 case  CommandType::ResetBase:
                 case  CommandType::VMUSB_ReadRegister:
@@ -449,6 +383,7 @@ namespace
                 case  CommandType::Blk2eSST64:
                 case  CommandType::MVLC_WriteSpecial:
                 case  CommandType::MetaBlock:
+                case  CommandType::SetVariable:
                     break;
 
                 case  CommandType::Invalid:
@@ -1074,8 +1009,9 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
                 for (u32 line: stackList)
                 {
-                    sis_log(msg.sprintf("  0x%08x", line));
+                    sis_log(QStringLiteral("  0x%1").arg(line, 8, 16, QLatin1Char('0')));
                 }
+
                 sis_log("");
 
                 // 13 bit stack start address which should be relative to the
@@ -1176,7 +1112,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                 sis_log(msg);
                 for (u32 line: stackList)
                 {
-                    sis_log(msg.sprintf("  0x%08x", line));
+                    sis_log(QStringLiteral("  0x%1").arg(line, 8, 16, QLatin1Char('0')));
                 }
                 sis_log("");
 
@@ -1412,8 +1348,8 @@ void SIS3153ReadoutWorker::readoutLoop()
     VMEError error;
 
     setState(DAQState::Running);
-    QTime elapsedTime;
-    QTime logReadErrorTimer;
+    QElapsedTimer elapsedTime;
+    QElapsedTimer logReadErrorTimer;
     static const int LogInterval_ReadError_ms = 5000;
     u32 readErrorCount = 0;
 

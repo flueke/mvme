@@ -8,10 +8,12 @@
 #endif
 
 #include <array>
+#include <cmath>
 #include <limits>
 #include <list>
 #include <map>
 #include <sstream>
+#include <type_traits>
 #include <vector>
 
 #include "yaml-cpp/binary.h"
@@ -88,43 +90,59 @@ struct convert<_Null> {
   }
 };
 
-#define YAML_DEFINE_CONVERT_STREAMABLE(type, negative_op)                \
-  template <>                                                            \
-  struct convert<type> {                                                 \
-    static Node encode(const type& rhs) {                                \
-      std::stringstream stream;                                          \
-      stream.precision(std::numeric_limits<type>::max_digits10);         \
-      stream << rhs;                                                     \
-      return Node(stream.str());                                         \
-    }                                                                    \
-                                                                         \
-    static bool decode(const Node& node, type& rhs) {                    \
-      if (node.Type() != NodeType::Scalar)                               \
-        return false;                                                    \
-      const std::string& input = node.Scalar();                          \
-      std::stringstream stream(input);                                   \
-      stream.unsetf(std::ios::dec);                                      \
-      if ((stream >> std::noskipws >> rhs) && (stream >> std::ws).eof()) \
-        return true;                                                     \
-      if (std::numeric_limits<type>::has_infinity) {                     \
-        if (conversion::IsInfinity(input)) {                             \
-          rhs = std::numeric_limits<type>::infinity();                   \
-          return true;                                                   \
-        } else if (conversion::IsNegativeInfinity(input)) {              \
-          rhs = negative_op std::numeric_limits<type>::infinity();       \
-          return true;                                                   \
-        }                                                                \
-      }                                                                  \
-                                                                         \
-      if (std::numeric_limits<type>::has_quiet_NaN) {                    \
-        if (conversion::IsNaN(input)) {                                  \
-          rhs = std::numeric_limits<type>::quiet_NaN();                  \
-          return true;                                                   \
-        }                                                                \
-      }                                                                  \
-                                                                         \
-      return false;                                                      \
-    }                                                                    \
+#define YAML_DEFINE_CONVERT_STREAMABLE(type, negative_op)                  \
+  template <>                                                              \
+  struct convert<type> {                                                   \
+    static Node encode(const type& rhs) {                                  \
+      std::stringstream stream;                                            \
+      stream.precision(std::numeric_limits<type>::max_digits10);           \
+      if (std::is_floating_point<type>::value) {                           \
+        if (std::isnan(rhs)) {                                             \
+          stream << ".nan";                                                \
+        } else if (std::isinf(rhs)) {                                      \
+          if (std::signbit(rhs)) {                                         \
+            stream << "-.inf";                                             \
+          } else {                                                         \
+            stream << ".inf";                                              \
+          }                                                                \
+        } else {                                                           \
+          stream << rhs;                                                   \
+        }                                                                  \
+      } else {                                                             \
+        stream << rhs;                                                     \
+      }                                                                    \
+      return Node(stream.str());                                           \
+    }                                                                      \
+                                                                           \
+    static bool decode(const Node& node, type& rhs) {                      \
+      if (node.Type() != NodeType::Scalar) {                               \
+        return false;                                                      \
+      }                                                                    \
+      const std::string& input = node.Scalar();                            \
+      std::stringstream stream(input);                                     \
+      stream.unsetf(std::ios::dec);                                        \
+      if ((stream >> std::noskipws >> rhs) && (stream >> std::ws).eof()) { \
+        return true;                                                       \
+      }                                                                    \
+      if (std::numeric_limits<type>::has_infinity) {                       \
+        if (conversion::IsInfinity(input)) {                               \
+          rhs = std::numeric_limits<type>::infinity();                     \
+          return true;                                                     \
+        } else if (conversion::IsNegativeInfinity(input)) {                \
+          rhs = negative_op std::numeric_limits<type>::infinity();         \
+          return true;                                                     \
+        }                                                                  \
+      }                                                                    \
+                                                                           \
+      if (std::numeric_limits<type>::has_quiet_NaN) {                      \
+        if (conversion::IsNaN(input)) {                                    \
+          rhs = std::numeric_limits<type>::quiet_NaN();                    \
+          return true;                                                     \
+        }                                                                  \
+      }                                                                    \
+                                                                           \
+      return false;                                                        \
+    }                                                                      \
   }
 
 #define YAML_DEFINE_CONVERT_STREAMABLE_SIGNED(type) \

@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -412,7 +412,12 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             CVMUSBReadoutList readoutList(readoutScript);
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+            auto stlvec = readoutList.get();
+            m_vmusbStack.setContents(QVector<u32>(std::begin(stlvec), std::end(stlvec)));
+#else
             m_vmusbStack.setContents(QVector<u32>::fromStdVector(readoutList.get()));
+#endif
 
             if (m_vmusbStack.getContents().size())
             {
@@ -427,11 +432,9 @@ void VMUSBReadoutWorker::start(quint32 cycles)
                 logMessage(msg);
 
                 {
-                    QString tmp;
                     for (u32 line: m_vmusbStack.getContents())
                     {
-                        tmp.sprintf("  0x%08x", line);
-                        logMessage(tmp);
+                        logMessage(QStringLiteral("  0x%1").arg(line, 8, 16, QLatin1Char('0')));
                     }
                 }
 
@@ -618,7 +621,7 @@ void VMUSBReadoutWorker::readoutLoop()
     setState(DAQState::Running);
 
     DAQStats &stats(m_workerContext.daqStats);
-    QTime logReadErrorTimer;
+    QElapsedTimer logReadErrorTimer;
     u64 nReadErrors = 0;
     u64 nGoodReads = 0;
 

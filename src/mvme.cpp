@@ -1,6 +1,6 @@
-/* MVMEMainWindow - Mesytec VME Data Acquisition
+/* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -33,16 +33,23 @@
 #include "mvlc/mvlc_dev_gui.h"
 #include "mvlc/mvlc_trigger_io_editor.h"
 #include "mvlc/mvlc_vme_controller.h"
+#include "mvlc/mvlc_trigger_io_script.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme_listfile.h"
+#include "mvme_qthelp.h"
 #include "mvme_stream_worker.h"
+#include "qt_assistant_remote_control.h"
 #include "qt_util.h"
 #include "rate_monitor_gui.h"
 #include "sis3153_util.h"
+#include "util/qt_logview.h"
 #include "util_zip.h"
 #include "vme_config_tree.h"
 #include "vme_config_ui.h"
+#include "vme_config_util.h"
+#include "vme_config_ui_event_variable_editor.h"
+#include "vme_config_scripts.h"
 #include "vme_controller_ui.h"
 #include "vme_debug_widget.h"
 #include "vme_script_editor.h"
@@ -67,9 +74,11 @@
 #include <QtGui>
 #include <QToolBar>
 #include <QVBoxLayout>
+#include <qnamespace.h>
 #include <qwt_plot_curve.h>
 #include <QFormLayout>
 
+using namespace mesytec::mvme;
 using namespace vats;
 
 static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.analysis);; All Files (*.*)");
@@ -109,7 +118,7 @@ struct MVMEWindowPrivate
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
             *actionToolTemplateInfo, *actionToolSIS3153Debug, *actionToolMVLCDevGui,
 
-            *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt
+            *actionHelpMVMEManual, *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt
             ;
 
     QMenu *menuFile, *menuWindow, *menuTools, *menuHelp;
@@ -148,16 +157,19 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionNewVMEConfig->setToolTip(QSL("New VME Config"));
     m_d->actionNewVMEConfig->setIconText(QSL("New"));
     m_d->actionNewVMEConfig->setObjectName(QSL("actionNewVMEConfig"));
+    m_d->actionNewVMEConfig->setShortcut(QSL("Ctrl+N"));
 
     m_d->actionOpenVMEConfig    = new QAction(QIcon(QSL(":/document-open.png")), QSL("Open VME Config"), this);
     m_d->actionOpenVMEConfig->setObjectName(QSL("actionOpenVMEConfig"));
     m_d->actionOpenVMEConfig->setToolTip(QSL("Open VME Config"));
     m_d->actionOpenVMEConfig->setIconText(QSL("Open"));
+    m_d->actionOpenVMEConfig->setShortcut(QSL("Ctrl+O"));
 
     m_d->actionSaveVMEConfig    = new QAction(QIcon(QSL(":/document-save.png")), QSL("Save VME Config"), this);
     m_d->actionSaveVMEConfig->setObjectName(QSL("actionSaveVMEConfig"));
     m_d->actionSaveVMEConfig->setToolTip(QSL("Save VME Config"));
     m_d->actionSaveVMEConfig->setIconText(QSL("Save"));
+    m_d->actionSaveVMEConfig->setShortcut(QSL("Ctrl+S"));
 
     m_d->actionSaveVMEConfigAs  = new QAction(QIcon(QSL(":/document-save-as.png")), QSL("Save VME Config As"), this);
     m_d->actionSaveVMEConfigAs->setObjectName(QSL("actionSaveVMEConfigAs"));
@@ -197,6 +209,10 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionToolTemplateInfo         = new QAction(QSL("VME Module Template Info"), this);
     m_d->actionToolSIS3153Debug         = new QAction(QSL("SIS3153 Debug Widget"), this);
     m_d->actionToolMVLCDevGui           = new QAction(QSL("MVLC Debug GUI"), this);
+
+    m_d->actionHelpMVMEManual = new QAction(QIcon(":/help.png"), QSL("&MVME Manual"), this);
+    m_d->actionHelpMVMEManual->setObjectName(QSL("actionMVMEManual"));
+    m_d->actionHelpMVMEManual->setIconText(QSL("MVME Manual"));
 
     m_d->actionHelpVMEScript   = new QAction(QIcon(QSL(":/help.png")), QSL("&VME Script Reference"), this);
     m_d->actionHelpVMEScript->setObjectName(QSL("actionVMEScriptRef"));
@@ -261,6 +277,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         m_d->actionToolMVLCDevGui->setEnabled(is_mvlc_controller(ctrl->getType()));
     });
 
+    connect(m_d->actionHelpMVMEManual,          &QAction::triggered, this, &MVMEMainWindow::onActionHelpMVMEManual_triggered);
     connect(m_d->actionHelpVMEScript,           &QAction::triggered, this, &MVMEMainWindow::onActionVMEScriptRef_triggered);
     connect(m_d->actionHelpAbout,               &QAction::triggered, this, &MVMEMainWindow::displayAbout);
     connect(m_d->actionHelpAboutQt,             &QAction::triggered, this, &MVMEMainWindow::displayAboutQt);
@@ -302,6 +319,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
     m_d->menuTools->addAction(m_d->actionToolMVLCDevGui);
 
+    m_d->menuHelp->addAction(m_d->actionHelpMVMEManual);
     m_d->menuHelp->addAction(m_d->actionHelpVMEScript);
     m_d->menuHelp->addSeparator();
     m_d->menuHelp->addAction(m_d->actionHelpAbout);
@@ -319,6 +337,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->m_context, &MVMEContext::daqAboutToStart, this, &MVMEMainWindow::onDAQAboutToStart);
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::onDAQStateChanged);
     connect(m_d->m_context, &MVMEContext::sigLogMessage, this, &MVMEMainWindow::appendToLog);
+    connect(m_d->m_context, &MVMEContext::sigLogError, this, &MVMEMainWindow::appendErrorToLog);
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::mvmeStreamWorkerStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::modeChanged, this, &MVMEMainWindow::updateActions);
@@ -351,7 +370,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         cw->addAction(m_d->actionOpenVMEConfig);
         cw->addAction(m_d->actionSaveVMEConfig);
         cw->addAction(m_d->actionSaveVMEConfigAs);
-        cw->setupActions();
+        cw->setupActionButtons();
 
         connect(m_d->m_context, &MVMEContext::vmeConfigChanged,
                 cw, &VMEConfigTreeWidget::setConfig);
@@ -394,6 +413,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
                 {
                     this->doRunScriptConfigs(scriptConfigs);
                 });
+
+        connect(cw, &VMEConfigTreeWidget::editEventVariables,
+                this, &MVMEMainWindow::runEditVMEEventVariables);
 
         cw->setConfig(m_d->m_context->getVMEConfig());
     }
@@ -439,6 +461,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         connect(dcw, &DAQControlWidget::listFileOutputInfoModified,
                 m_d->m_context, &MVMEContext::setListFileOutputInfo);
 
+        connect(dcw, &DAQControlWidget::sniffNextInputBuffer,
+                m_d->m_context, &MVMEContext::sniffNextInputBuffer);
+
         // DAQControlWidget -> DAQControl
         connect(dcw, &DAQControlWidget::startDAQ, m_d->daqControl, &DAQControl::startDAQ);
         connect(dcw, &DAQControlWidget::stopDAQ, m_d->daqControl, &DAQControl::stopDAQ);
@@ -454,6 +479,10 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
 
         connect(dcw, &DAQControlWidget::changeWorkspaceSettings,
                 this, &MVMEMainWindow::runWorkspaceSettingsDialog);
+
+        // MVMEContext -> The World
+        connect(m_d->m_context, &MVMEContext::sniffedInputBufferReady,
+                this, &MVMEMainWindow::handleSniffedInputBuffer);
 
         static const int DAQControlWidgetUpdateInterval_ms = 500;
 
@@ -603,6 +632,7 @@ void MVMEMainWindow::onActionNewWorkspace_triggered()
 
     try
     {
+        closeAllHistogramWidgets();
         m_d->m_context->newWorkspace(dirName);
     } catch (const QString &e)
     {
@@ -687,6 +717,7 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
 
     try
     {
+        closeAllHistogramWidgets();
         m_d->m_context->openWorkspace(dirName);
     } catch (const QString &e)
     {
@@ -729,7 +760,7 @@ void MVMEMainWindow::displayAbout()
 
     layout->addWidget(new QLabel(QSL("mvme - VME Data Acquisition")));
     layout->addWidget(new QLabel(versionString));
-    layout->addWidget(new QLabel(QSL("© 2015-2017 mesytec GmbH & Co. KG")));
+    layout->addWidget(new QLabel(QSL("© 2015-2020 mesytec GmbH & Co. KG")));
     layout->addWidget(new QLabel(QSL("Authors: F. Lüke, R. Schneider")));
 
     {
@@ -746,7 +777,7 @@ void MVMEMainWindow::displayAbout()
     // license
     {
         auto button = new QPushButton(QSL("&License"));
-        connect(button, &QPushButton::clicked, this, [this, tb_license]() {
+        connect(button, &QPushButton::clicked, this, [tb_license]() {
             auto sz = tb_license->size();
             sz = sz.expandedTo(QSize(500, 300));
             tb_license->resize(sz);
@@ -929,7 +960,7 @@ void MVMEMainWindow::restoreSettings()
 void MVMEMainWindow::addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey)
 {
     connect(widget, &QObject::destroyed, this, [this, object, widget] (QObject *) {
-        m_d->m_objectWindows[object].removeOne(widget);
+        m_d->m_objectWindows[object].removeAll(widget);
     });
 
     widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -969,6 +1000,21 @@ void MVMEMainWindow::activateObjectWidget(QObject *object)
     {
         show_and_activate(widget);
     }
+}
+
+QMultiMap<QObject *, QWidget *> MVMEMainWindow::getAllObjectWidgets() const
+{
+    QMultiMap<QObject *, QWidget *> result;
+
+    for (auto obj: m_d->m_objectWindows.keys())
+    {
+        for (auto widget: m_d->m_objectWindows.value(obj))
+        {
+            result.insertMulti(obj, widget);
+        }
+    }
+
+    return result;
 }
 
 void MVMEMainWindow::addWidget(QWidget *widget, const QString &stateKey)
@@ -1084,11 +1130,6 @@ bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
 
     auto config = m_d->m_context->getConfig();
     config->setModified(false);
-    auto configObjects = config->findChildren<ConfigObject *>();
-    for (auto obj: configObjects)
-    {
-        obj->setModified(false);
-    }
 
     m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
@@ -1272,38 +1313,22 @@ void MVMEMainWindow::onActionVME_Debug_triggered()
     show_and_activate(m_d->m_vmeDebugWidget);
 }
 
-static const size_t LogViewMaximumBlockCount = 10 * 1000u;
-
 void MVMEMainWindow::onActionLog_Window_triggered()
 {
     if (!m_d->m_logView)
     {
-        m_d->m_logView = new QPlainTextEdit;
-        m_d->m_logView->setAttribute(Qt::WA_DeleteOnClose);
-        m_d->m_logView->setReadOnly(true);
-        m_d->m_logView->setWindowTitle("Log View");
-        QFont font("MonoSpace");
-        font.setStyleHint(QFont::Monospace);
-        m_d->m_logView->setFont(font);
-        m_d->m_logView->setTabChangesFocus(true);
-        m_d->m_logView->document()->setMaximumBlockCount(LogViewMaximumBlockCount);
-        m_d->m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
-        m_d->m_logView->setStyleSheet("background-color: rgb(225, 225, 225);");
+        m_d->m_logView = make_logview().release();
+
         add_widget_close_action(m_d->m_logView);
 
-        connect(m_d->m_logView, &QWidget::customContextMenuRequested, this, [=](const QPoint &pos) {
-            auto menu = m_d->m_logView->createStandardContextMenu(pos);
-            auto action = menu->addAction("Clear");
-            connect(action, &QAction::triggered, m_d->m_logView, &QPlainTextEdit::clear);
-            menu->exec(m_d->m_logView->mapToGlobal(pos));
-            menu->deleteLater();
-        });
         connect(m_d->m_logView, &QObject::destroyed, this, [this] (QObject *) {
             this->m_d->m_logView = nullptr;
         });
 
         m_d->m_logView->resize(600, 800);
         m_d->m_geometrySaver->addAndRestore(m_d->m_logView, QSL("WindowGeometries/LogView"));
+
+        assert(m_d->m_logView);
     }
 
     show_and_activate(m_d->m_logView);
@@ -1355,12 +1380,29 @@ void MVMEMainWindow::onActionTemplate_Info_triggered()
     QString buffer;
     QTextStream logStream(&buffer);
 
-    logStream << "Reading templates..." << endl;
-    MVMETemplates templates = read_templates([&logStream](const QString &msg) {
+    auto logger = [&logStream] (const QString &msg)
+    {
         logStream << msg << endl;
-    });
+    };
 
-    logStream << endl << templates;
+    logStream << "Reading templates..." << endl;
+    MVMETemplates templates = read_templates(logger);
+    logStream << endl << templates << endl;
+
+    auto auxScriptInfos = read_auxiliary_scripts(logger);
+
+    for (auto aux: auxScriptInfos)
+    {
+        logger(QSL("* scriptFile=%1 vendorName: %2, moduleName: %3"
+                   ", scriptName: %4, scriptSize=%5, infoFile=%6")
+               .arg(aux.fileName())
+               .arg(aux.vendorName())
+               .arg(aux.moduleName())
+               .arg(aux.scriptName())
+               .arg(aux.contents.size())
+               .arg(aux.auxInfoFileName)
+              );
+    }
 
     auto textEdit = new QPlainTextEdit;
     textEdit->setAttribute(Qt::WA_DeleteOnClose);
@@ -1405,7 +1447,22 @@ void MVMEMainWindow::appendToLog(const QString &str)
 
     if (m_d->m_logView)
     {
-        m_d->m_logView->appendPlainText(str);
+        //m_d->m_logView->appendPlainText(str);
+        auto escaped = str.toHtmlEscaped();
+        auto html = QSL("<font color=\"black\"><pre>%1</pre></font>").arg(escaped);
+        m_d->m_logView->appendHtml(html);
+        auto bar = m_d->m_logView->verticalScrollBar();
+        bar->setValue(bar->maximum());
+    }
+}
+
+void MVMEMainWindow::appendErrorToLog(const QString &str)
+{
+    if (m_d->m_logView)
+    {
+        auto escaped = str.toHtmlEscaped();
+        auto html = QSL("<font color=\"red\"><pre>%1</pre></font>").arg(escaped);
+        m_d->m_logView->appendHtml(html);
         auto bar = m_d->m_logView->verticalScrollBar();
         bar->setValue(bar->maximum());
     }
@@ -1465,7 +1522,7 @@ void MVMEMainWindow::resizeEvent(QResizeEvent *event)
     QMainWindow::resizeEvent(event);
 }
 
-void MVMEMainWindow::onDAQAboutToStart(quint32 nCycles)
+void MVMEMainWindow::onDAQAboutToStart()
 {
     QList<VMEScriptEditor *> scriptEditors;
 
@@ -1530,7 +1587,6 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
     auto diag = std::make_shared<MesytecDiagnostics>();
 
     diag->setEventAndModuleIndices(m_d->m_context->getVMEConfig()->getEventAndModuleIndices(moduleConfig));
-    auto streamWorker = m_d->m_context->getMVMEStreamWorker();
 
     auto widget = new MesytecDiagnosticsWidget(diag);
     widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -1605,6 +1661,14 @@ void MVMEMainWindow::onActionImport_Histo1D_triggered()
     }
 }
 
+void MVMEMainWindow::onActionHelpMVMEManual_triggered()
+{
+    auto &instance = mesytec::mvme::QtAssistantRemoteControl::instance();
+    instance.sendCommand(QSL("setSource ") + get_mvme_qthelp_index_url());
+    instance.showContents();
+    instance.syncContents();
+}
+
 void MVMEMainWindow::onActionVMEScriptRef_triggered()
 {
     auto widgets = QApplication::topLevelWidgets();
@@ -1626,65 +1690,6 @@ void MVMEMainWindow::onActionVMEScriptRef_triggered()
 
 static const auto UpdateCheckURL = QSL("http://mesytec.com/downloads/mvme/");
 static const QByteArray UpdateCheckUserAgent = "mesytec mvme ";
-
-static const QString get_package_platform_string()
-{
-#ifdef Q_OS_WIN
-    return QSL("Windows");
-#elif defined Q_OS_LINUX
-    return QSL("Linux");
-#else
-    #warning "Unknown platform name."
-    InvalidCodePath;
-    return QString();
-#endif
-}
-
-static const QString get_package_bitness_string()
-{
-#ifdef Q_PROCESSOR_X86_64
-    return QSL("x64");
-#elif defined Q_PROCESSOR_X86_32
-    return QSL("x32");
-#else
-#warning "Unknown processor bitness."
-    InvalidCodePath;
-    return QString();
-#endif
-}
-
-static u64 extract_package_version(const QString &filename)
-{
-    static const QString pattern = QSL("mvme-(?<major>[0-9]+)\\.(?<minor>[0-9]+)(\\.(?<point>[0-9]+))?(-(?<commits>[0-9]+))?");
-
-    u64 result = 0;
-    QRegularExpression re(pattern);
-    auto match = re.match(filename);
-
-    if (match.hasMatch())
-    {
-        u64 major   = match.captured("major").toUInt();
-        u64 minor   = match.captured("minor").toUInt();
-        u64 point   = match.captured("point").toUInt();
-        u64 commits = match.captured("commits").toUInt();
-
-        result = commits
-            + 1000 * point
-            + 1000 * 1000 * minor
-            + 1000 * 1000 * 1000 * major;
-
-        qDebug() << "filename =" << filename
-            << ", major =" << major
-            << ", minor =" << minor
-            << ", point =" << point
-            << ", commits =" << commits
-            << ", result =" << result;
-            ;
-
-    }
-
-    return result;
-}
 
 bool MVMEMainWindow::createNewOrOpenExistingWorkspace()
 {
@@ -1736,9 +1741,7 @@ void MVMEMainWindow::updateActions()
 {
     if (m_quitting) return;
 
-    auto globalMode = m_d->m_context->getMode();
     auto daqState = m_d->m_context->getDAQState();
-    auto eventProcState = m_d->m_context->getMVMEStreamWorkerState();
 
     bool isDAQIdle = (daqState == DAQState::Idle);
 
@@ -1757,17 +1760,19 @@ void MVMEMainWindow::updateActions()
 
 void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString &metaTag)
 {
+    auto &MetaTagMVLCTriggerIO = mesytec::mvlc::trigger_io::MetaTagMVLCTriggerIO;
+
     if (m_d->m_context->hasObjectWidget(scriptConfig))
     {
         m_d->m_context->activateObjectWidget(scriptConfig);
     }
-    else if (metaTag == vme_script::MetaTagMVLCTriggerIO)
+    else if (metaTag == MetaTagMVLCTriggerIO)
     {
         auto widget = new mesytec::MVLCTriggerIOEditor(scriptConfig);
 
         m_d->m_context->addObjectWidget(
             widget, scriptConfig,
-            scriptConfig->getId().toString() + "_" + vme_script::MetaTagMVLCTriggerIO);
+            scriptConfig->getId().toString() + "_" + MetaTagMVLCTriggerIO);
 
         connect(widget, &mesytec::MVLCTriggerIOEditor::runScriptConfig,
                 this, [this] (VMEScriptConfig *scriptConfig)
@@ -1824,10 +1829,10 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
 
 void MVMEMainWindow::runAddVMEEventDialog()
 {
-    auto eventConfig = std::make_unique<EventConfig>();
     auto vmeConfig = m_d->m_context->getVMEConfig();
-    eventConfig->setObjectName(QString("event%1").arg(vmeConfig->getEventConfigs().size()));
-    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig.get(), this);
+    auto eventConfig = mvme::vme_config::make_new_event_config(vmeConfig);
+
+    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig.get(), vmeConfig, this);
     dialog.setWindowTitle(QSL("Add Event"));
     int result = dialog.exec();
 
@@ -1857,9 +1862,44 @@ void MVMEMainWindow::runAddVMEEventDialog()
 
 void MVMEMainWindow::runEditVMEEventDialog(EventConfig *eventConfig)
 {
-    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig, this);
+    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig, eventConfig->getVMEConfig(), this);
     dialog.setWindowTitle(QSL("Edit Event"));
     dialog.exec();
+}
+
+void MVMEMainWindow::runEditVMEEventVariables(EventConfig *eventConfig)
+{
+    // Check for an existing EventVariableEditor first
+    if (m_d->m_context->hasObjectWidget(eventConfig))
+    {
+        m_d->m_context->activateObjectWidget(eventConfig);
+        return;
+    }
+
+    auto runScriptCallback = [this] (
+        const vme_script::VMEScript &script,
+        vme_script::LoggerFun logger)
+    {
+        return m_d->m_context->runScript(script, logger, false);
+    };
+
+    auto editor = new EventVariableEditor(eventConfig, runScriptCallback);
+    editor->setAttribute(Qt::WA_DeleteOnClose);
+
+    connect(editor, &EventVariableEditor::logMessage,
+            m_d->m_context, &MVMEContext::logMessage);
+
+    connect(editor, &EventVariableEditor::logError,
+            m_d->m_context, &MVMEContext::logError);
+
+    m_d->m_context->addObjectWidget(
+        editor,
+        eventConfig,
+        eventConfig->getId().toString() + "_" + "EventVariableEditor");
+
+    m_d->m_geometrySaver->addAndRestore(editor , QSL("WindowGeometries/EventVariableEditor"));
+
+    editor->show();
 }
 
 void MVMEMainWindow::runVMEControllerSettingsDialog()
@@ -1908,14 +1948,16 @@ void MVMEMainWindow::doRunScriptConfigs(
 
         try
         {
+            auto script = mesytec::mvme::parse(
+                scriptConfig,
+                moduleConfig ? moduleConfig->getBaseAddress() : 0);
+
             auto logger = [this](const QString &str)
             {
                 m_d->m_context->logMessage(QSL("  ") + str);
             };
 
-            auto results = m_d->m_context->runScript(
-                scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
-                logger);
+            auto results = m_d->m_context->runScript(script, logger, false);
 
             if (options & RunScriptOptions::AggregateResults)
             {
@@ -1941,19 +1983,49 @@ void MVMEMainWindow::doRunScriptConfigs(
                         });
                     assert(it != results.end());
 
-                    m_d->m_context->logMessage(
-                        QSL("Error: %1").arg(it->error.toString()));
+                    m_d->m_context->logError(
+                        QSL("  Error: %1").arg(it->error.toString()));
                 }
             }
             else
             {
                 for (auto result: results)
-                    logger(format_result(result));
+                {
+                    if (result.error.isError())
+                        m_d->m_context->logError(QSL("  ") + format_result(result));
+                    else
+                        m_d->m_context->logMessage(QSL("  ") + format_result(result));
+                    //logger(format_result(result));
+                }
             }
         }
         catch (const vme_script::ParseError &e)
         {
-            m_d->m_context->logMessage(QSL("Parse error: ") + e.what());
+            m_d->m_context->logError(QSL("  Parse error: ") + e.what());
         }
     }
+}
+
+void MVMEMainWindow::closeAllHistogramWidgets()
+{
+    auto objectWidgets = getAllObjectWidgets();
+
+    for (auto obj: objectWidgets.keys())
+    {
+        for (auto widget: objectWidgets.values(obj))
+        {
+            if (qobject_cast<Histo1DWidget *>(widget))
+                widget->close();
+
+            if (qobject_cast<Histo2DWidget *>(widget))
+                widget->close();
+        }
+    }
+}
+
+void MVMEMainWindow::handleSniffedInputBuffer(const DataBuffer &buffer)
+{
+    // TODO: Add an MVLCInputBufferDebugHandler similar to
+    // MVLCParserDebugHandler. Let
+    (void) buffer;
 }

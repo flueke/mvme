@@ -1,3 +1,5 @@
+.. index:: Installation
+
 Installation
 ##################################################
 
@@ -12,6 +14,9 @@ System Requirements
   * `mesytec`_ MVLC (USB3/2, GBit/s Ethernet)
   * `WIENER`_ `VM-USB <http://www.wiener-d.com/sc/modules/vme--modules/vm-usb.html>`_ (USB2)
   * `Struck`_ SIS3153 (GBit/s Ethernet)
+
+* Firmware updates for the MVLC can be found here:
+  `<https://mesytec.com/downloads/firmware%20updates/MVLC/>`_
 
 * If using the WIENER VM-USB VME Controller:
 
@@ -102,8 +107,7 @@ list of all USB devices and look for the controller again.
 
 .. _installation-zadig:
 
-.. autofigure:: images/installation_zadig.png
-   :scale-latex: 60%
+.. figure:: images/installation_zadig.png
 
    Zadig with VM-USB and libusb-win32 selected
 

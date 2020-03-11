@@ -35,7 +35,7 @@ struct LIBMVME_EXPORT ConditionLink
 };
 
 #ifndef NDEBUG
-static QDebug &operator<<(QDebug& dbg, const ConditionLink &cl)
+inline QDebug &operator<<(QDebug& dbg, const ConditionLink &cl)
 {
     QDebugStateSaver dss(dbg);
 

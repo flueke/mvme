@@ -1,3 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvlc/mvlc_impl_eth.h" // keep on top to avoid a winsock2 warning
 #include "mvlc_stream_worker.h"
 
@@ -6,8 +26,10 @@
 #include <QThread>
 
 #include "analysis/analysis_util.h"
+#include "analysis/analysis_session.h"
 #include "databuffer.h"
 #include "mvme_context.h"
+#include "vme_config_scripts.h"
 #include "vme_analysis_common.h"
 
 using namespace vme_analysis_common;
@@ -27,7 +49,7 @@ VMEConfReadoutScripts collect_readout_scripts(const VMEConfig &vmeConfig)
         {
             if (moduleConfig->isEnabled())
             {
-                auto rdoScript = moduleConfig->getReadoutScript()->getScript();
+                auto rdoScript = mesytec::mvme::parse(moduleConfig->getReadoutScript());
                 moduleReadoutScripts.emplace_back(rdoScript);
             }
             else
@@ -288,6 +310,8 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         auto filterStrings = collect_multi_event_splitter_filter_strings(
             *vmeConfig, *analysis);
 
+        logInfo("enabling multi_event_splitter");
+
         m_multiEventSplitter = multi_event_splitter::make_splitter(filterStrings);
 
         // Copy our callbacks, which are driving the analysis, to the callbacks
@@ -342,12 +366,14 @@ void MVLC_StreamWorker::logParserInfo(const mesytec::mvlc::ReadoutParserState &p
         {
             const auto &moduleParts = modules[moduleIndex];
 
+#if 0
             logInfo(QString("mvlc readout parser info: ei=%1, mi=%2: prefixLen=%3, suffixLen=%4, hasDynamic=%5")
                     .arg(eventIndex)
                     .arg(moduleIndex)
                     .arg(static_cast<unsigned>(moduleParts.prefixLen))
                     .arg(static_cast<unsigned>(moduleParts.suffixLen))
                     .arg(moduleParts.hasDynamic));
+#endif
         }
     }
 }
@@ -490,6 +516,26 @@ void MVLC_StreamWorker::start()
     {
         UniqueLock guard(m_countersMutex);
         m_counters.stopTime = QDateTime::currentDateTime();
+    }
+
+    // analysis session auto save
+    auto sessionPath = m_context->getWorkspacePath(QSL("SessionDirectory"));
+
+    if (!sessionPath.isEmpty())
+    {
+        auto filename = sessionPath + "/last_session" + analysis::SessionFileExtension;
+        auto result   = save_analysis_session(filename, m_context->getAnalysis());
+
+        if (result.first)
+        {
+            //logInfo(QString("Auto saved analysis session to %1").arg(filename));
+        }
+        else
+        {
+            logInfo(QString("Error saving analysis session to %1: %2")
+                       .arg(filename)
+                       .arg(result.second));
+        }
     }
 
     setState(WorkerState::Idle);

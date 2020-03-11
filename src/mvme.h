@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -76,6 +76,7 @@ public:
     QWidget *getObjectWidget(QObject *object) const;
     QList<QWidget *> getObjectWidgets(QObject *object) const;
     void activateObjectWidget(QObject *object);
+    QMultiMap<QObject *, QWidget *> getAllObjectWidgets() const;
 
     void addWidget(QWidget *widget, const QString &stateKey = QString());
 
@@ -107,6 +108,8 @@ public slots:
     void runScriptConfig(VMEScriptConfig *config,
                          RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
 
+    void closeAllHistogramWidgets();
+
 protected:
     void resizeEvent(QResizeEvent *event) override;
 
@@ -127,15 +130,17 @@ private slots:
     void onObjectAboutToBeRemoved(QObject *obj);
 
     void appendToLog(const QString &);
+    void appendErrorToLog(const QString &);
     void appendToLogNoDebugOut(const QString &);
     void onConfigChanged(VMEConfig *config);
 
-    void onDAQAboutToStart(quint32 nCycles);
+    void onDAQAboutToStart();
     void onDAQStateChanged(const DAQState &);
 
     void onShowDiagnostics(ModuleConfig *config);
     void onActionImport_Histo1D_triggered();
 
+    void onActionHelpMVMEManual_triggered();
     void onActionVMEScriptRef_triggered();
 
     void updateActions();
@@ -143,12 +148,15 @@ private slots:
     void editVMEScript(VMEScriptConfig *vmeScript, const QString &metaTag = {});
     void runAddVMEEventDialog();
     void runEditVMEEventDialog(EventConfig *eventConfig);
+    void runEditVMEEventVariables(EventConfig *eventConfig);
     void runVMEControllerSettingsDialog();
     void runDAQRunSettingsDialog();
     void runWorkspaceSettingsDialog();
 
     void doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs,
                             RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
+
+    void handleSniffedInputBuffer(const DataBuffer &buffer);
 
 
 private:

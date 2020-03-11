@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -215,7 +215,7 @@ QToolBar *make_toolbar(QWidget *parent)
 
 QStatusBar *make_statusbar(QWidget *parent)
 {
-    auto result = new QStatusBar;
+    auto result = new QStatusBar(parent);
     result->setSizeGripEnabled(false);
     set_widget_font_pointsize(result, 7);
     return result;
@@ -317,18 +317,6 @@ int get_widget_row(QFormLayout *layout, QWidget *widget)
     return row;
 }
 
-int calculate_tab_width(const QFont &font, int tabStop)
-{
-    QString spaces;
-    spaces.reserve(tabStop);
-
-    for (int i = 0; i < tabStop; ++i)
-        spaces += " ";
-
-    QFontMetrics metrics(font);
-    return metrics.width(spaces);
-}
-
 // TextEditSearchWidget
 
 TextEditSearchWidget::TextEditSearchWidget(QTextEdit *te, QWidget *parent)
@@ -375,7 +363,7 @@ void TextEditSearchWidget::findNext(bool hasWrapped)
     }
 }
 
-void TextEditSearchWidget::onSearchTextEdited(const QString &text)
+void TextEditSearchWidget::onSearchTextEdited(const QString &)
 {
     /* Move the cursor to the beginning of the current word, then search
      * forward from that position. */

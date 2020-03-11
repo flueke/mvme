@@ -1,6 +1,10 @@
 # A small standalone test client for the mvme analysis event_server component.
 add_executable(mvme_event_server_example_client event_server_example_client.cc)
 
+target_include_directories(mvme_event_server_example_client
+    PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty
+    )
+
 if (WIN32)
     target_link_libraries(mvme_event_server_example_client ws2_32)
 endif (WIN32)
