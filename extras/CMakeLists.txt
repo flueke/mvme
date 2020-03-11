@@ -9,3 +9,5 @@ option(MVLC_ENABLE_PYTHON "Build the python wrapper module for mesytec-mvlc" OFF
 if (MVLC_ENABLE_PYTHON)
     add_subdirectory(python)
 endif(MVLC_ENABLE_PYTHON)
+
+add_subdirectory(zip-tests)
