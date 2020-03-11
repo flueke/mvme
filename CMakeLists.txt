@@ -20,12 +20,6 @@ set(CMAKE_INSTALL_RPATH "$ORIGIN;$ORIGIN/../lib")
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 #set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-if (WIN32)
-## Create binaries in the root of the build directory
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-endif(WIN32)
-
 # Add the local cmake directory module path.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/tools/cmake")
 
@@ -104,5 +98,10 @@ if (MVLC_BUILD_TESTS)
 endif(MVLC_BUILD_TESTS)
 
 add_subdirectory(external)
+
+## Create our binaries in the root of the build directory. It's just more convenient.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 add_subdirectory(extras)
 add_subdirectory(src)
