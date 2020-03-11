@@ -92,8 +92,14 @@ struct DAQStats
 {
     inline void start()
     {
-        *this = {};
+        totalBytesRead = 0;
+        totalBuffersRead = 0;
+        buffersWithErrors = 0;
+        droppedBuffers = 0;
+        listFileBytesWritten = 0;
+        listFileTotalBytes = 0;
         startTime = QDateTime::currentDateTime();
+        endTime = {};
     }
 
     inline void stop()

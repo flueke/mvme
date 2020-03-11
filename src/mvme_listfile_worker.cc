@@ -43,6 +43,8 @@ MVMEListfileWorker::~MVMEListfileWorker()
 void MVMEListfileWorker::setListfile(QIODevice *input)
 {
     m_listfile = ListFile(input);
+    m_stats.listFileTotalBytes = m_listfile.size();
+    m_stats.listfileFilename = m_listfile.getFileName();
 }
 
 void MVMEListfileWorker::setEventsToRead(u32 eventsToRead)
@@ -66,7 +68,6 @@ void MVMEListfileWorker::start()
     m_bytesRead = 0;
     m_totalBytes = m_listfile.size();
     m_stats.start();
-    m_stats.listFileTotalBytes = m_listfile.size();
 
     mainLoop();
 }

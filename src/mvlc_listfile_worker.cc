@@ -75,6 +75,10 @@ MVLCListfileWorker::~MVLCListfileWorker()
 void MVLCListfileWorker::setListfile(QIODevice *input)
 {
     d->input = input;
+    if (auto inFile = qobject_cast<QFile *>(d->input))
+        d->stats.listfileFilename = inFile->fileName();
+    else if (auto inZipFile = qobject_cast<QuaZipFile *>(d->input))
+        d->stats.listfileFilename = inZipFile->getZipName();
 }
 
 DAQStats MVLCListfileWorker::getStats() const
