@@ -157,38 +157,7 @@ message("-- Using QUAZIP_INCLUDE_DIR=${QUAZIP_INCLUDE_DIR}")
 message("-- Using QUAZIP_QT5=${QUAZIP_QT5}")
 
 if (MVME_ENABLE_MVLC)
-    # FTDI d3xx driver library for x64 linux and windows
-    add_library(ftd3xx SHARED IMPORTED)
-
-    if (WIN32)
-        set_target_properties(ftd3xx PROPERTIES
-            IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
-            IMPORTED_IMPLIB ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.lib)
-
-        target_include_directories(ftd3xx
-            INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2)
-
-        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/FTD3XXLibrary_v1.3.0.2/x64/FTD3XX.dll
-            DESTINATION .)
-    elseif(UNIX AND NOT APPLE)
-        set_target_properties(ftd3xx PROPERTIES
-            IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so)
-
-        target_include_directories(ftd3xx
-            INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/)
-
-        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ftdi-d3xx-linux-x86_64/libftd3xx.so
-            DESTINATION .)
-    elseif(APPLE)
-        set_target_properties(ftd3xx PROPERTIES
-            IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib)
-
-        target_include_directories(ftd3xx
-            INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx)
-
-        install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/d3xx-osx-0.5.21/osx/libftd3xx.dylib
-            DESTINATION .)
-    endif()
+    add_subdirectory(3rdparty/ftdi-d3xx)
 endif (MVME_ENABLE_MVLC)
 
 find_path(QWT_INCLUDE_DIR
