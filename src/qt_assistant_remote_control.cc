@@ -21,6 +21,7 @@
 #include "qt_assistant_remote_control.h"
 
 #include <cassert>
+#include <iostream>
 #include <QCoreApplication>
 #include <QDir>
 #include <QDebug>
@@ -42,12 +43,12 @@ struct QtAssistantRemoteControl::Private
 
 bool QtAssistantRemoteControl::Private::startAssistant()
 {
+    using std::cout;
+    using std::endl;
     //qDebug() << __PRETTY_FUNCTION__ << process->state();
 
     if (process->state() == QProcess::Running)
         return true;
-
-    QString cmd = QSL("assistant");
 
     QString collectionFile = QCoreApplication::applicationDirPath()
         + QDir::separator() + QSL("doc") + QDir::separator() + QSL("mvme.qhc");
@@ -59,14 +60,30 @@ bool QtAssistantRemoteControl::Private::startAssistant()
         QSL("-enableRemoteControl"),
     };
 
-    qDebug() << __PRETTY_FUNCTION__ << "Starting assistant: cmd=" << cmd << ", args=" << args;
+    QString cmd = QSL("assistant");
+
+    cout << "Starting Qt Assistant: cmd=" << cmd.toStdString()
+        << ", args=" << args.join(' ').toStdString() << endl;
+
+    //qDebug() << __PRETTY_FUNCTION__ << "Starting assistant: cmd=" << cmd << ", args=" << args;
 
     process->start(cmd, args);
 
     if (!process->waitForStarted())
     {
-        qDebug() << __PRETTY_FUNCTION__ << "Failed to start assistant: " << process->errorString();
-        return false;
+        cout << "Failed to start Qt Assistant: " << process->errorString().toStdString() << endl;
+
+        cmd = QCoreApplication::applicationDirPath() + QDir::separator() + QSL("assistant");
+
+        cout << "Trying again with cmd=" << cmd.toStdString() << endl;
+
+        process->start(cmd, args);
+
+        if (!process->waitForStarted())
+        {
+            cout << "Failed to start Qt Assistant: " << process->errorString().toStdString() << endl;
+            return false;
+        }
     }
 
     return true;
