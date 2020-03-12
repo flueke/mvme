@@ -1671,21 +1671,7 @@ void MVMEMainWindow::onActionHelpMVMEManual_triggered()
 
 void MVMEMainWindow::onActionVMEScriptRef_triggered()
 {
-    auto widgets = QApplication::topLevelWidgets();
-    auto it = std::find_if(widgets.begin(), widgets.end(), [](const QWidget *widget) {
-        return widget->objectName() == QSL("VMEScriptReference");
-    });
-
-    if (it != widgets.end())
-    {
-        auto widget = *it;
-        show_and_activate(widget);
-    }
-    else
-    {
-        auto widget = make_vme_script_ref_widget();
-        addWidget(widget, widget->objectName());
-    }
+    QtAssistantRemoteControl::instance().activateKeyword("VMEScript");
 }
 
 static const auto UpdateCheckURL = QSL("http://mesytec.com/downloads/mvme/");
