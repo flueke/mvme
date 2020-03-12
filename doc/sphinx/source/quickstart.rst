@@ -32,7 +32,6 @@ using IRQ1 on the VME bus.
   * A log view where runtime messages will appear.
 
 .. figure:: images/quickstart_gui_overview.png
-    :scale-latex: 75%
 
     GUI overview
 

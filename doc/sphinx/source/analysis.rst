@@ -31,7 +31,6 @@ calibrated histograms in the bottom view.
 .. _analysis-ui-block-diagram:
 
 .. figure:: images/analysis_ui_block_diagram.png
-    :scale-latex: 100%
 
     Analysis UI Block Diagram
 
@@ -56,7 +55,6 @@ Operators can be moved between levels by dragging and dropping them.
 .. _analysis-ui-screenshot:
 
 .. figure:: images/analysis_ui_simple_io_highlights.png
-    :scale-latex: 100%
 
     Analysis UI Screenshot
 
@@ -79,7 +77,6 @@ select mode". In this mode valid outputs for the selected input are
 highlighted.
 
 .. figure:: images/analysis_ui_add_op_input_select.png
-    :scale-latex: 100%
 
     Input select mode
 
@@ -180,7 +177,6 @@ Double-click on the *H1D* node to open the histogram array widget:
   calibration information from within the histogram:
 
     .. autofigure:: images/analysis_histo1d_adjust_calibration.png
-        :scale-latex: 60%
 
         Calibration adjustment from within the histogram display
 
@@ -229,7 +225,6 @@ accumulate. When selecting the inputs you will need to expand other operators
 and select the desired index directly.
 
 .. figure:: images/analysis_ui_add_histo2d.png
-    :scale-latex: 80
 
     Adding a 2D Histogram
 
@@ -515,7 +510,6 @@ In the Analysis UI right-click a Module and select *New -> Filter Extractor* to
 add a new filter.
 
 .. figure:: images/analysis_add_filter_extractor.png
-    :scale-latex: 60%
 
     Filter Extractor UI
 
@@ -556,7 +550,6 @@ Each input parameters ``[lowerLimit, upperLimit)`` interval is mapped to the
 outputs ``[unitMin, unitMax)`` interval.
 
 .. figure:: images/analysis_op_Calibration.png
-    :scale-latex: 80%
 
 With *calibrate()*: ::
 
@@ -566,7 +559,6 @@ Limits can be specified individually for each address in the input array. Use
 the *Apply* button to set all addresses to the global min and max values.
 
 .. figure:: images/analysis_calibration_ui.png
-    :scale-latex: 80%
 
     Calibration UI
 
@@ -585,7 +577,6 @@ Outputs the input array from the previous event. Optionally outputs the last
 input that was valid.
 
 .. figure:: images/analysis_op_PreviousValue.png
-    :scale-latex: 80%
 
 
 .. figure:: images/analysis_op_PreviousValue_explanation.png
@@ -607,7 +598,6 @@ Difference
 Produces the element-wise difference of its two inputs *A* and *B*:
 
 .. figure:: images/analysis_op_Difference.png
-    :scale-latex: 80%
 
 The output unit label is taken from input *A*. If ``A[i]`` or ``B[i]`` are
 invalid then ``Out[i]`` will be set to invalid: ::
@@ -628,7 +618,6 @@ This operator produces an output array of size 1.
 
 
 .. figure:: images/analysis_op_Sum.png
-    :scale-latex: 80%
 
 When calculating the mean the number of *valid* input values is used as the denominator.
 
@@ -641,12 +630,10 @@ Allows selecting and reordering arbitrary indices from a variable number of
 input arrays.
 
 .. figure:: images/analysis_op_ArrayMap.png
-    :scale-latex: 80%
 
 The mappings are created via the user interface:
 
 .. figure:: images/analysis_array_map.png
-    :scale-latex: 60%
 
     Array Map UI
 
@@ -665,7 +652,6 @@ in-between them. Focus a list and press ``Ctrl-A`` to select all items.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. figure:: images/analysis_op_RangeFilter1D.png
-    :scale-latex: 80%
 
 Keeps values if they fall inside (optionally outside) a given interval. Input
 values that do not match the criteria are set to *invalid* in the output.
@@ -676,7 +662,6 @@ values that do not match the criteria are set to *invalid* in the output.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. figure:: images/analysis_op_RectFilter2D.png
-    :scale-latex: 80%
 
 Produces a single *valid* output value if both inputs satisfy an interval based
 condition.
@@ -687,7 +672,6 @@ Condition Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. figure:: images/analysis_op_ConditionFilter.png
-    :scale-latex: 80%
 
 Copies data input to output if the corresponding element of the condition input
 is valid.
@@ -750,7 +734,6 @@ Export Sink
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. figure:: images/analysis_export_sink_ui.png
-    :scale-latex: 60%
 
 .. _ROOT: https://root.cern.ch/
 
@@ -806,7 +789,6 @@ modules is tried first. If auto-assignment is not possible the "Module
 assignment" dialog will be shown.
 
 .. figure:: images/analysis_import_ui.png
-    :scale-latex: 100%
 
     Module assignment dialog
 
