@@ -15,6 +15,7 @@ OPTION(BUILD_TOOLS "Build tools in the src directory (zipcmp, zipmerge, ziptool)
 OPTION(BUILD_REGRESS "Build regression tests" OFF)
 OPTION(BUILD_EXAMPLES "Build examples" OFF)
 OPTION(BUILD_DOC "Build documentation" OFF)
+
 add_subdirectory(libzip)
 target_include_directories(zip
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/libzip>
@@ -37,7 +38,10 @@ option(MZ_BUILD_TEST "Builds minizip test executable" OFF)
 option(MZ_BUILD_UNIT_TEST "Builds minizip unit test project" OFF)
 option(MZ_BUILD_FUZZ_TEST "Builds minizip fuzzer executables" OFF)
 option(MZ_CODE_COVERAGE "Builds with code coverage flags" OFF)
+
 add_subdirectory(minizip)
+target_include_directories(minizip
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/minizip>)
 
 # pybind11
 if (MVLC_ENABLE_PYTHON)
