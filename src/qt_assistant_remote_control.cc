@@ -29,6 +29,9 @@
 
 #include "util/qt_str.h"
 
+using std::cout;
+using std::endl;
+
 namespace mesytec
 {
 namespace mvme
@@ -43,8 +46,6 @@ struct QtAssistantRemoteControl::Private
 
 bool QtAssistantRemoteControl::Private::startAssistant()
 {
-    using std::cout;
-    using std::endl;
     //qDebug() << __PRETTY_FUNCTION__ << process->state();
 
     if (process->state() == QProcess::Running)
@@ -85,10 +86,8 @@ bool QtAssistantRemoteControl::Private::startAssistant()
             return false;
         }
     }
-    else
-    {
-        cout << "Qt Assistant is running" << endl;
-    }
+
+    cout << "Qt Assistant is running" << endl;
 
     return true;
 }
@@ -118,6 +117,8 @@ QtAssistantRemoteControl::QtAssistantRemoteControl()
             this, [this] (int exitCode, QProcess::ExitStatus exitStatus)
             {
                 qDebug() << __PRETTY_FUNCTION__ << "exitCode =" << exitCode << ", exitStatus =" << exitStatus;
+                cout << "Qt Assistant process terminated: exitCode=" << exitCode
+                    << ", exitStatus=" << static_cast<int>(exitStatus) << endl;
             });
 #endif
 
