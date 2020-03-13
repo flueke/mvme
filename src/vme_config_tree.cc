@@ -1199,6 +1199,19 @@ void VMEConfigTreeWidget::addModule()
                         vmeTemplate.name, vmeTemplate.contents));
             }
 
+            // FIXME: This should be done in the ModuleConfigDialog so that
+            // default module variables.
+            for (int i=0; i<moduleMeta.variables.size(); ++i)
+            {
+                auto json = moduleMeta.variables.at(i).toObject();
+                vme_script::Variable var(
+                    json["value"].toString(),
+                    {},
+                    json["comment"].toString());
+
+                module->setVariable(json["name"].toString(), var);
+            }
+
             event->addModuleConfig(module.release());
 
             if (doExpand)
