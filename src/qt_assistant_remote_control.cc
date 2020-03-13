@@ -60,7 +60,7 @@ bool QtAssistantRemoteControl::Private::startAssistant()
         QSL("-enableRemoteControl"),
     };
 
-    QString cmd = QSL("assistant");
+    QString cmd = QCoreApplication::applicationDirPath() + QDir::separator() + QSL("assistant");
 
     cout << "Starting Qt Assistant: cmd=" << cmd.toStdString()
         << ", args=" << args.join(' ').toStdString() << endl;
@@ -73,7 +73,7 @@ bool QtAssistantRemoteControl::Private::startAssistant()
     {
         cout << "Failed to start Qt Assistant: " << process->errorString().toStdString() << endl;
 
-        cmd = QCoreApplication::applicationDirPath() + QDir::separator() + QSL("assistant");
+        cmd = QSL("assistant");
 
         cout << "Trying again with cmd=" << cmd.toStdString() << endl;
 
@@ -84,6 +84,10 @@ bool QtAssistantRemoteControl::Private::startAssistant()
             cout << "Failed to start Qt Assistant: " << process->errorString().toStdString() << endl;
             return false;
         }
+    }
+    else
+    {
+        cout << "Qt Assistant is running" << endl;
     }
 
     return true;
