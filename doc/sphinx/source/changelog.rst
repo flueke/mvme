@@ -4,7 +4,7 @@
 Changelog
 ##################################################
 
-Version 0.9.7 (wip)
+Version 1.0.0-rc (wip)
 -------------------
 * Add ability to run the data acquisition for a limited amount of time before
   automatically stopping the run.
