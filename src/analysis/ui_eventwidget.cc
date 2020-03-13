@@ -34,6 +34,7 @@
 #include <QMimeData>
 #include <QStandardPaths>
 #include <QTimer>
+#include <memory>
 
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis_serialization.h"
@@ -4228,6 +4229,7 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode()
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
     (void) column;
+    (void) userLevel;
 
     auto objectInfoWidget = m_analysisWidget->getObjectInfoWidget();
     objectInfoWidget->clear();
@@ -4744,7 +4746,19 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
     {
         AnalysisPauser pauser(m_context);
 
-        auto defaultFilters = get_default_data_extractors(module->getModuleMeta().typeName);
+        auto dataSources = get_default_data_extractors(module->getModuleMeta().typeName);
+
+        QVector<std::shared_ptr<Extractor>> defaultFilters;
+        QVector<std::shared_ptr<ListFilterExtractor>> defaultListFilters;
+
+        for (auto source: dataSources)
+        {
+            if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
+                defaultFilters.push_back(extractor);
+            else if (auto listFilter = std::dynamic_pointer_cast<ListFilterExtractor>(source))
+                defaultListFilters.push_back(listFilter);
+        }
+
         auto analysis = m_context->getAnalysis();
 
         // Directory for calibration operators for this module
@@ -4799,6 +4813,15 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 
             add_raw_data_display(m_context->getAnalysis(), m_eventId, module->getId(), rawDataDisplay);
             m_context->getAnalysis()->beginRun(Analysis::KeepState);
+        }
+
+        for (auto &ex: defaultListFilters)
+        {
+            auto clone = std::dynamic_pointer_cast<ListFilterExtractor>(
+                std::shared_ptr<AnalysisObject>(ex->clone()));
+
+            if (clone)
+                m_context->getAnalysis()->addSource(m_eventId, module->getId(), clone);
         }
     }
 

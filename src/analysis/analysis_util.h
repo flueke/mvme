@@ -32,7 +32,7 @@ class QTreeWidgetItem;
 namespace analysis
 {
 
-QVector<std::shared_ptr<Extractor>> LIBMVME_EXPORT
+QVector<std::shared_ptr<SourceInterface>> LIBMVME_EXPORT
     get_default_data_extractors(const QString &moduleTypeName);
 
 namespace CollectFlags

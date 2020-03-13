@@ -45,6 +45,7 @@
 #include <QStackedWidget>
 #include <QTextBrowser>
 #include <QTimer>
+#include <memory>
 
 #include "a2/a2_exprtk.h"
 #include "a2_adapter.h"
@@ -144,7 +145,14 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
 {
     add_widget_close_action(this);
 
-    m_defaultExtractors = get_default_data_extractors(module->getModuleMeta().typeName);
+    auto dataSources = get_default_data_extractors(module->getModuleMeta().typeName);
+    m_defaultExtractors.clear();
+
+    for (auto source: dataSources)
+    {
+        if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
+            m_defaultExtractors.push_back(extractor);
+    }
 
     auto loadTemplateButton = new QPushButton(QIcon(QSL(":/document_import.png")),
                                               QSL("Load Filter Template"));

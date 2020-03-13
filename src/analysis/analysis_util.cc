@@ -25,15 +25,16 @@
 #include <QJsonDocument>
 #include <QMessageBox>
 #include <QRegularExpression>
+#include <memory>
 
 #include "../template_system.h"
 
 namespace analysis
 {
 
-QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &moduleTypeName)
+QVector<std::shared_ptr<SourceInterface>> get_default_data_extractors(const QString &moduleTypeName)
 {
-    QVector<std::shared_ptr<Extractor>> result;
+    QVector<std::shared_ptr<SourceInterface>> result;
 
     QDir moduleDir(vats::get_module_path(moduleTypeName));
     QFile filtersFile(moduleDir.filePath("analysis/default_filters.analysis"));
@@ -57,11 +58,10 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
         {
             for (auto source: filterAnalysis.getSources())
             {
-                auto extractor = std::dynamic_pointer_cast<Extractor>(source);
-                if (extractor)
-                {
+                if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
                     result.push_back(extractor);
-                }
+                else if (auto extractor = std::dynamic_pointer_cast<ListFilterExtractor>(source))
+                    result.push_back(extractor);
             }
 
             std::sort(result.begin(), result.end(), [](const auto &a, const auto &b) {
