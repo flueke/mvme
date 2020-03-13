@@ -1,0 +1,24 @@
+# BLT readout until BERR or number of transfers reached
+# Readout commands go here. For example a BLT read from the module.
+
+# first read data from last request, because data transfer need some us
+0x6100 ${Bus_Number}  #set bus number to read
+read A32 D16 0x6116
+read A32 D16 0x6118
+read A32 D16 0x6116
+read A32 D16 0x6118
+read A32 D16 0x6116
+read A32 D16 0x6118
+read A32 D16 0x6116
+read A32 D16 0x6118
+read A32 D16 0x6116
+read A32 D16 0x6118
+
+# Request data from front end module
+0x6100  ${Bus_Number} 	#set bus number to request data 
+0x6114 	0x05	# temp
+0x6114 	0x06	# voltage
+0x6114 	0x07	# receive power
+0x6114 	0x23	# bus error
+0x6114 	0x24	# pll_error
+

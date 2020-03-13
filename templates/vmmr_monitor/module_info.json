@@ -1,0 +1,13 @@
+{
+    "typeId"        : 17,
+    "typeName"      : "vmmr_monitor",
+    "displayName"   : "VMMR_Monitor",
+    "vendorName"    : "mesytec",
+    "variables"     : [
+        {
+            "name": "Bus_Number",
+            "value": "0",
+            "comment": "Specify Bus number of front end module; 0...16"
+        }
+    ]
+}
