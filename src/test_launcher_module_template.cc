@@ -236,10 +236,14 @@ int main(int argc, char *argv[])
         context->setVMEConfig(vmeConfig);
 
         // analysis
-        auto extractors = analysis::get_default_data_extractors(testInfo.moduleType);
-
-        for (auto &ex: extractors)
+        auto dataSources = analysis::get_default_data_extractors(testInfo.moduleType);
+        for (auto &source: dataSources)
         {
+            auto ex = std::dynamic_pointer_cast<Extractor>(source);
+
+            if (!ex)
+                continue;
+
             auto dataFilter = ex->getFilter();
             double unitMin = 0.0;
             double unitMax = std::pow(2.0, dataFilter.getDataBits());
