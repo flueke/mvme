@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
         zipHandle,
         newIndex,
         ZIP_CM_DEFLATE,
-        0);
+        1);
 
     cout << "pre zip close" << endl;
     zip_close(zipHandle);
