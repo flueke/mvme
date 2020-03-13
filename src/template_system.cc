@@ -258,6 +258,7 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
         mm.vendorName = json["vendorName"].toString();
         mm.eventHeaderFilter = json["eventHeaderFilter"].toString().toLocal8Bit();
         mm.vmeAddress = json["vmeAddress"].toString().toUInt(nullptr, 0);
+        mm.variables = json["variables"].toArray();
         mm.templates = read_module_templates(moduleDir.filePath(QSL("vme")), logger, baseDir);
         mm.templatePath = moduleDir.path();
 
@@ -326,6 +327,21 @@ static QTextStream &print(QTextStream &out, const VMEModuleMeta &module, int ind
         print(out, vmeTemplate, indent+6);
 
         ++idx;
+    }
+
+    if (module.variables.size())
+    {
+        do_indent(out, indent) << "variables:" << endl;
+
+        for (int i=0; i<module.variables.size(); ++i)
+        {
+            auto varEntry = module.variables.at(i).toObject();
+
+            do_indent(out, indent+2)
+                << "name=\"" << varEntry["name"].toString() << "\""
+                << ", value=\"" << varEntry["value"].toString() << "\""
+                << ", comment=\"" << varEntry["comment"].toString() << "\"" << endl;
+        }
     }
 
     return out;

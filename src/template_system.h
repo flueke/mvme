@@ -22,6 +22,7 @@
 #define __TEMPLATE_SYSTEM_H__
 
 #include <functional>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QString>
 #include <QTextStream>
@@ -75,6 +76,7 @@ struct LIBMVME_EXPORT VMEModuleMeta
     VMEModuleTemplates templates;
     QByteArray eventHeaderFilter;
     u32 vmeAddress = 0u;
+    QJsonArray variables;
 
     QString templatePath;
 };
