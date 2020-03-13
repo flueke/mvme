@@ -1,3 +1,4 @@
+#include <functional>
 #include <iostream>
 #include <getopt.h>
 #include "mvlc_constants.h"

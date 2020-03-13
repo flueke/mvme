@@ -14,7 +14,8 @@
 
 * Dialog layer
 * Error polling
-* Readout loop
+* Listfile format, Writer and Reader code
+* Readout loop, Readout Worker
 * Stack Building
 * Stack Management
 * Readout/Response Parser using readout stack to parse incoming data
