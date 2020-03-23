@@ -12,10 +12,16 @@ namespace mesytec
 namespace mvlc
 {
 
+// A thread-safe FIFO queue allowing concurrent access by multiple producers
+// and consumers.
+
 template<class T, class Allocator = std::allocator<T>>
 class ThreadSafeQueue
 {
     public:
+        using value_type = T;
+        using size_type = typename std::deque<T>::size_type;
+
         explicit ThreadSafeQueue(const Allocator &alloc = Allocator())
             : m_queue(alloc)
         {}
@@ -92,7 +98,7 @@ class ThreadSafeQueue
             return m_queue.empty();
         }
 
-        typename std::deque<T>::size_type size() const
+        size_type size() const
         {
             Lock lock(m_mutex);
             return m_queue.size();
