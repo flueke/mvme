@@ -54,6 +54,8 @@ int main(int argc, char *argv[])
             return 4;
     }
 
+    output.close();
+
     auto tEnd = std::chrono::steady_clock::now();
     auto elapsed = tEnd - tStart;
     auto seconds = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() / 1000.0;
