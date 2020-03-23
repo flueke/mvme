@@ -13,6 +13,7 @@ add_library(mesytec-mvlc SHARED
     mvlc_impl_support.cc
     mvlc_impl_usb.cc
     util/ticketmutex.cc
+    util/threadsafequeue.cc
     )
 
 target_include_directories(mesytec-mvlc
@@ -58,4 +59,5 @@ if (MVLC_BUILD_TESTS)
     endfunction(add_gtest)
 
     add_gtest(test_mvlc_commands mvlc_commands.test.cc)
+    add_gtest(test_threadsafequeue util/threadsafequeue.test.cc)
 endif(MVLC_BUILD_TESTS)
