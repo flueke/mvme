@@ -479,11 +479,12 @@ void threaded_listfile_writer(
 
     while (!(ctx.quit && is_empty(&ctx.filledBuffers)))
     {
+#if 0
         bool quit_ = ctx.quit;
         bool is_empty_ = is_empty(&ctx.filledBuffers);
-
-        //qDebug() << "quit =" << quit_ << ", is_empty =" << is_empty(&ctx.filledBuffers)
-        //    << ", cond =" << !(quit_ && is_empty_);
+        qDebug() << "quit =" << quit_ << ", is_empty =" << is_empty(&ctx.filledBuffers)
+            << ", cond =" << !(quit_ && is_empty_);
+#endif
 
 
         if (auto buffer = dequeue(&ctx.filledBuffers, 100))
@@ -969,13 +970,13 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
 
     while (destBuffer->free() >= eth::JumboFrameMaxSize)
     {
-        size_t bytesTransferred = 0u;
-
         // FIXME: this would be more efficient if the lock is held for multiple
         // packets. Using the FlushBufferTimeout is too long though and the GUI
         // will become sluggish.
         // Update january 2020: the GUI should not be affected anymore because
         // it can now pull stats without having to take the pipe lock anymore.
+        // Still taking the lock once for multiple packets would be more
+        // efficient.
         auto dataGuard = mvlcLocks.lockData();
         auto result = d->mvlc_eth->read_packet(
             Pipe::Data, destBuffer->asU8(), destBuffer->free());
