@@ -1,4 +1,5 @@
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <cstdlib>
@@ -36,11 +37,11 @@ struct Context
     Queue emptyBuffers;
     Queue fullBuffers;
 
-    size_t bytesRead = 0;
-    size_t readCount = 0;
+    std::atomic<size_t> bytesRead = {};
+    std::atomic<size_t> readCount = {};
 
-    size_t bytesWritten = 0;
-    size_t writeCount = 0;
+    std::atomic<size_t> bytesWritten = {};
+    std::atomic<size_t> writeCount = {};
 };
 
 void reader(std::ifstream &input, Context &ctx)
