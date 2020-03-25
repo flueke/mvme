@@ -423,7 +423,7 @@ StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer)
                     cmd.transfers = arg1;
                 }
 
-                if (++it != buffer.end())
+                if (++it != buffer.end()) // TODO: else error
                     cmd.address = *it;
 
                 break;
@@ -432,16 +432,16 @@ StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer)
                 cmd.amod = arg0;
                 cmd.dataWidth = static_cast<VMEDataWidth>(arg1);
 
-                if (++it != buffer.end())
+                if (++it != buffer.end()) // TODO: else error
                     cmd.address = *it;
 
-                if (++it != buffer.end())
+                if (++it != buffer.end()) // TODO: else error
                     cmd.value = *it;
 
                 break;
 
             case StackCT::WriteMarker:
-                if (++it != buffer.end())
+                if (++it != buffer.end()) // TODO: else error
                     cmd.value = *it;
 
                 break;
@@ -450,7 +450,6 @@ StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer)
                 cmd.value = *it & 0x00FFFFFFu;
 
                 break;
-
         }
 
         result.addCommand(cmd);
