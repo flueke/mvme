@@ -7,6 +7,36 @@ namespace mesytec
 namespace mvlc
 {
 
+namespace
+{
+
+bool is_super_command(u16 v)
+{
+    using SuperCT = SuperCommandType;
+
+    return (v == static_cast<u16>(SuperCT::CmdBufferStart)
+            || v == static_cast<u16>(SuperCT::CmdBufferEnd)
+            || v == static_cast<u16>(SuperCT::ReferenceWord)
+            || v == static_cast<u16>(SuperCT::ReadLocal)
+            || v == static_cast<u16>(SuperCT::ReadLocalBlock)
+            || v == static_cast<u16>(SuperCT::WriteLocal)
+            || v == static_cast<u16>(SuperCT::WriteReset));
+}
+
+bool is_stack_command(u8 v)
+{
+    using StackCT = StackCommandType;
+
+    return (v == static_cast<u8>(StackCT::StackStart)
+            || v == static_cast<u8>(StackCT::StackEnd)
+            || v == static_cast<u8>(StackCT::VMEWrite)
+            || v == static_cast<u8>(StackCT::VMERead)
+            || v == static_cast<u8>(StackCT::WriteMarker)
+            || v == static_cast<u8>(StackCT::WriteSpecial));
+}
+
+}
+
 //
 // SuperCommandBuilder
 //
@@ -38,6 +68,12 @@ SuperCommandBuilder &SuperCommandBuilder::addWriteLocal(u16 address, u32 value)
 SuperCommandBuilder &SuperCommandBuilder::addWriteReset()
 {
     m_commands.push_back({ SuperCommandType::WriteReset, 0, 0 });
+    return *this;
+}
+
+SuperCommandBuilder &SuperCommandBuilder::addCommand(const SuperCommand &cmd)
+{
+    m_commands.push_back(cmd);
     return *this;
 }
 
@@ -128,6 +164,12 @@ StackCommandBuilder &StackCommandBuilder::addWriteMarker(u32 value)
     return *this;
 }
 
+StackCommandBuilder &StackCommandBuilder::addCommand(const StackCommand &cmd)
+{
+    m_commands.push_back(cmd);
+    return *this;
+}
+
 std::vector<StackCommand> StackCommandBuilder::getCommands() const
 {
     return m_commands;
@@ -136,6 +178,122 @@ std::vector<StackCommand> StackCommandBuilder::getCommands() const
 //
 // Conversion to the mvlc buffer format
 //
+std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands)
+{
+    return make_command_buffer(commands.getCommands());
+}
+
+std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands)
+{
+    using namespace super_commands;
+    using SuperCT = SuperCommandType;
+
+    std::vector<u32> result;
+
+    // CmdBufferStart
+    result.push_back(static_cast<u32>(SuperCT::CmdBufferStart) << SuperCmdShift);
+
+    for (const auto &cmd: commands)
+    {
+        u32 cmdWord = (static_cast<u32>(cmd.type) << SuperCmdShift);
+
+        switch (cmd.type)
+        {
+            case SuperCT::ReferenceWord:
+                result.push_back(cmdWord | (cmd.value & SuperCmdArgMask));
+                break;
+
+            case SuperCT::ReadLocal:
+                result.push_back(cmdWord | (cmd.address & SuperCmdArgMask));
+                break;
+
+            case SuperCT::ReadLocalBlock:
+                result.push_back(cmdWord | (cmd.address & SuperCmdArgMask));
+                result.push_back(cmd.value); // transfer count
+                break;
+
+            case SuperCT::WriteLocal:
+                result.push_back(cmdWord | (cmd.address & SuperCmdArgMask));
+                result.push_back(cmd.value);
+                break;
+
+            case SuperCT::WriteReset:
+                result.push_back(cmdWord);
+                break;
+
+            // Similar to StackStart and StackEnd these should not be manually
+            // added to the list of super commands but they are still handled
+            // in here just in case.
+            case SuperCT::CmdBufferStart:
+            case SuperCT::CmdBufferEnd:
+                result.push_back(cmdWord);
+                break;
+        }
+    }
+
+    // CmdBufferEnd
+    result.push_back(static_cast<u32>(SuperCT::CmdBufferEnd) << SuperCmdShift);
+
+    return result;
+}
+
+SuperCommandBuilder super_builder_from_buffer(const std::vector<u32> &buffer)
+{
+    using namespace super_commands;
+    using SuperCT = SuperCommandType;
+
+    SuperCommandBuilder result;
+
+    for (auto it = buffer.begin(); it != buffer.end(); ++it)
+    {
+        u16 sct = (*it >> SuperCmdShift) & SuperCmdMask;
+
+        if (!is_super_command(sct))
+            break; // TODO: error
+
+        SuperCommand cmd = {};
+        cmd.type = static_cast<SuperCT>(sct);
+
+        switch (cmd.type)
+        {
+            case SuperCT::CmdBufferStart:
+            case SuperCT::CmdBufferEnd:
+                continue;
+
+            case SuperCT::ReferenceWord:
+                cmd.value = (*it >> SuperCmdArgShift) & SuperCmdArgMask;
+                break;
+
+            case SuperCT::ReadLocal:
+                cmd.address = (*it >> SuperCmdArgShift) & SuperCmdArgMask;
+                break;
+
+            case SuperCT::ReadLocalBlock:
+                cmd.address = (*it >> SuperCmdArgShift) & SuperCmdArgMask;
+
+                if (++it != buffer.end()) // TODO: else error
+                    cmd.value = *it;
+
+                break;
+
+            case SuperCT::WriteLocal:
+                cmd.address = (*it >> SuperCmdArgShift) & SuperCmdArgMask;
+
+                if (++it != buffer.end()) // TODO: else error
+                    cmd.value = *it;
+
+                break;
+
+            case SuperCT::WriteReset:
+                break;
+        }
+
+        result.addCommand(cmd);
+    }
+
+    return result;
+}
+
 std::vector<u32> make_stack_buffer(const StackCommandBuilder &builder)
 {
     return make_stack_buffer(builder.getCommands());
@@ -159,17 +317,17 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
                 }
                 else if (vme_amods::is_blt_mode(cmd.amod))
                 {
-                    cmdWord |= vme_amods::BLT32 << stack_commands::CmdArg0Shift;
+                    cmdWord |= cmd.amod << stack_commands::CmdArg0Shift;
                     cmdWord |= (cmd.transfers & stack_commands::CmdArg1Mask) << stack_commands::CmdArg1Shift;
                 }
                 else if (vme_amods::is_mblt_mode(cmd.amod))
                 {
-                    cmdWord |= vme_amods::MBLT64 << stack_commands::CmdArg0Shift;
+                    cmdWord |= cmd.amod << stack_commands::CmdArg0Shift;
                     cmdWord |= (cmd.transfers & stack_commands::CmdArg1Mask) << stack_commands::CmdArg1Shift;
                 }
                 else if (vme_amods::is_esst64_mode(cmd.amod))
                 {
-                    cmdWord |= (vme_amods::Blk2eSST64 | (static_cast<u32>(cmd.rate) << Blk2eSSTRateShift))
+                    cmdWord |= (cmd.amod | (static_cast<u32>(cmd.rate) << Blk2eSSTRateShift))
                         << stack_commands::CmdArg0Shift;
                     cmdWord |= (cmd.transfers & stack_commands::CmdArg1Mask) << stack_commands::CmdArg1Shift;
                 }
@@ -185,6 +343,7 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
 
                 result.push_back(cmdWord);
                 result.push_back(cmd.address);
+                result.push_back(cmd.value);
 
                 break;
 
@@ -206,6 +365,88 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
                 result.push_back(cmdWord);
                 break;
         }
+    }
+
+    return result;
+}
+
+StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer)
+{
+    using namespace stack_commands;
+    using StackCT = StackCommandType;
+
+    StackCommandBuilder result;
+
+    for (auto it = buffer.begin(); it != buffer.end(); ++it)
+    {
+        u8 sct = (*it >> CmdShift) & CmdMask;
+        u8 arg0 = (*it >> CmdArg0Shift) & CmdArg0Mask;
+        u16 arg1 = (*it >> CmdArg1Shift) & CmdArg1Mask;
+
+        if (!is_stack_command(sct))
+            break; // TODO: error
+
+        StackCommand cmd = {};
+        cmd.type = static_cast<StackCT>(sct);
+
+        switch (cmd.type)
+        {
+            case StackCT::StackStart:
+            case StackCT::StackEnd:
+                continue;
+
+            case StackCT::VMERead:
+                cmd.amod = arg0;
+
+                if (!vme_amods::is_block_mode(cmd.amod))
+                {
+                    cmd.dataWidth = static_cast<VMEDataWidth>(arg1);
+                }
+                else if (vme_amods::is_blt_mode(cmd.amod))
+                {
+                    cmd.transfers = arg1;
+                }
+                else if (vme_amods::is_mblt_mode(cmd.amod))
+                {
+                    cmd.transfers = arg1;
+                }
+                else if (vme_amods::is_esst64_mode(cmd.amod))
+                {
+                    cmd.rate = static_cast<Blk2eSSTRate>(cmd.amod >> Blk2eSSTRateShift);
+                    cmd.transfers = arg1;
+                }
+
+                if (++it != buffer.end())
+                    cmd.address = *it;
+
+                break;
+
+            case StackCT::VMEWrite:
+                cmd.amod = arg0;
+                cmd.dataWidth = static_cast<VMEDataWidth>(arg1);
+
+                if (++it != buffer.end())
+                    cmd.address = *it;
+
+                if (++it != buffer.end())
+                    cmd.value = *it;
+
+                break;
+
+            case StackCT::WriteMarker:
+                if (++it != buffer.end())
+                    cmd.value = *it;
+
+                break;
+
+            case StackCT::WriteSpecial:
+                cmd.value = *it & 0x00FFFFFFu;
+
+                break;
+
+        }
+
+        result.addCommand(cmd);
     }
 
     return result;
@@ -253,65 +494,6 @@ std::vector<SuperCommand> make_stack_upload_commands(
     address += AddressIncrement;
 
     return super.getCommands();
-}
-
-std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands)
-{
-    return make_command_buffer(commands.getCommands());
-}
-
-std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands)
-{
-    using namespace super_commands;
-    using SCT = SuperCommandType;
-
-    std::vector<u32> result;
-
-    // CmdBufferStart
-    result.push_back(static_cast<u32>(SCT::CmdBufferStart) << SuperCmdShift);
-
-    for (const auto &cmd: commands)
-    {
-        u32 cmdWord = (static_cast<u32>(cmd.type) << SuperCmdShift);
-
-        switch (cmd.type)
-        {
-            case SCT::ReferenceWord:
-                result.push_back(cmdWord | (cmd.value & SuperCmdArgMask));
-                break;
-
-            case SCT::ReadLocal:
-                result.push_back(cmdWord | (cmd.address & SuperCmdArgMask));
-                break;
-
-            case SCT::ReadLocalBlock:
-                result.push_back(cmdWord | (cmd.address & SuperCmdArgMask));
-                result.push_back(cmd.value); // transfer count
-                break;
-
-            case SCT::WriteLocal:
-                result.push_back(cmdWord | (cmd.address & SuperCmdArgMask));
-                result.push_back(cmd.value);
-                break;
-
-            case SCT::WriteReset:
-                result.push_back(cmdWord);
-                break;
-
-            // Similar to StackStart and StackEnd these should not be manually
-            // added to the list of super commands but they are still handled
-            // in here just in case.
-            case SCT::CmdBufferStart:
-            case SCT::CmdBufferEnd:
-                result.push_back(cmdWord);
-                break;
-        }
-    }
-
-    // CmdBufferEnd
-    result.push_back(static_cast<u32>(SCT::CmdBufferEnd) << SuperCmdShift);
-
-    return result;
 }
 
 }

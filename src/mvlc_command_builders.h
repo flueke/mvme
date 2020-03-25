@@ -16,6 +16,18 @@ struct MESYTEC_MVLC_EXPORT SuperCommand
     SuperCommandType type;
     u16 address;
     u32 value;
+
+    bool operator==(const SuperCommand &o) const noexcept
+    {
+        return (type == o.type
+                && address == o.address
+                && value == o.value);
+    }
+
+    bool operator!=(const SuperCommand &o) const noexcept
+    {
+        return !(*this == o);
+    }
 };
 
 struct MESYTEC_MVLC_EXPORT StackCommand
@@ -27,6 +39,22 @@ struct MESYTEC_MVLC_EXPORT StackCommand
     VMEDataWidth dataWidth;
     u16 transfers;
     Blk2eSSTRate rate;
+
+    bool operator==(const StackCommand &o) const noexcept
+    {
+        return (type == o.type
+                && address == o.address
+                && value == o.value
+                && amod == o.amod
+                && dataWidth == o.dataWidth
+                && transfers == o.transfers
+                && rate == o.rate);
+    }
+
+    bool operator!=(const StackCommand &o) const noexcept
+    {
+        return !(*this == o);
+    }
 };
 
 class MESYTEC_MVLC_EXPORT SuperCommandBuilder
@@ -37,6 +65,7 @@ class MESYTEC_MVLC_EXPORT SuperCommandBuilder
         SuperCommandBuilder &addReadLocalBlock(u16 address, u16 words);
         SuperCommandBuilder &addWriteLocal(u16 address, u32 value);
         SuperCommandBuilder &addWriteReset();
+        SuperCommandBuilder &addCommand(const SuperCommand &cmd);
         SuperCommandBuilder &addCommands(const std::vector<SuperCommand> &commands);
 
         // Below are shortcut methods which internally create a stack using
@@ -58,6 +87,7 @@ class MESYTEC_MVLC_EXPORT StackCommandBuilder
         StackCommandBuilder &addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers);
         StackCommandBuilder &addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
         StackCommandBuilder &addWriteMarker(u32 value);
+        StackCommandBuilder &addCommand(const StackCommand &cmd);
 
         std::vector<StackCommand> getCommands() const;
 
@@ -69,10 +99,17 @@ class MESYTEC_MVLC_EXPORT StackCommandBuilder
 // Conversion to the mvlc buffer format
 //
 
+std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands);
+std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands);
+
+SuperCommandBuilder super_builder_from_buffer(const std::vector<u32> &buffer);
+
 // Stack to raw stack commands. Not enclosed between StackStart and StackEnd,
 // not interleaved with the write commands for uploading.
 std::vector<u32> make_stack_buffer(const StackCommandBuilder &builder);
 std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack);
+
+StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer);
 
 // Enclosed between StackStart and StackEnd, interleaved with WriteLocal commands.
 std::vector<SuperCommand> make_stack_upload_commands(
@@ -83,10 +120,6 @@ std::vector<SuperCommand> make_stack_upload_commands(
 
 std::vector<SuperCommand> make_stack_upload_commands(
     u8 stackOutputPipe, u16 StackMemoryOffset, const std::vector<u32> &stackBuffer);
-
-std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands);
-std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands);
-
 
 }
 }

@@ -88,8 +88,8 @@ namespace stack_commands
     {
         StackStart      = 0xF3,
         StackEnd        = 0xF4,
-        VMEWrite        = 0x23,
         VMERead         = 0x12,
+        VMEWrite        = 0x23,
         WriteMarker     = 0xC2,
         WriteSpecial    = 0xC1,
     // TODO: ScanDataRead, ReadDataLoop and masks/enums
