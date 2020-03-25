@@ -223,7 +223,7 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, std::vector<
 {
     assert(bhv);
 
-    using Clock = std::chrono::high_resolution_clock;
+    using Clock = std::chrono::steady_clock;
 
     auto tStart = Clock::now();
 
