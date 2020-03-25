@@ -104,6 +104,13 @@ SuperCommandBuilder &SuperCommandBuilder::addVMEWrite(u32 address, u32 value, u8
     return addCommands(make_stack_upload_commands(CommandPipe, 0u, stack));
 }
 
+SuperCommandBuilder &SuperCommandBuilder::addStackUpload(
+    const StackCommandBuilder &stackBuilder,
+    u8 stackOutputPipe, u16 stackMemoryOffset)
+{
+    return addCommands(make_stack_upload_commands(stackOutputPipe, stackMemoryOffset, stackBuilder));
+}
+
 std::vector<SuperCommand> SuperCommandBuilder::getCommands() const
 {
     return m_commands;

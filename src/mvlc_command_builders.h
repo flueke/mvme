@@ -57,6 +57,8 @@ struct MESYTEC_MVLC_EXPORT StackCommand
     }
 };
 
+class StackCommandBuilder;
+
 class MESYTEC_MVLC_EXPORT SuperCommandBuilder
 {
     public:
@@ -73,6 +75,10 @@ class MESYTEC_MVLC_EXPORT SuperCommandBuilder
         SuperCommandBuilder &addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth);
         SuperCommandBuilder &addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers);
         SuperCommandBuilder &addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
+
+        SuperCommandBuilder &addStackUpload(
+            const StackCommandBuilder &stackBuilder,
+            u8 stackOutputPipe, u16 stackMemoryOffset);
 
         std::vector<SuperCommand> getCommands() const;
 
@@ -111,7 +117,8 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack);
 
 StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer);
 
-// Enclosed between StackStart and StackEnd, interleaved with WriteLocal commands.
+// Enclosed between StackStart and StackEnd, interleaved with WriteLocal
+// commands for uploading.
 std::vector<SuperCommand> make_stack_upload_commands(
     u8 stackOutputPipe, u16 StackMemoryOffset, const StackCommandBuilder &stack);
 
