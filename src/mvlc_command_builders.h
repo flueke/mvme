@@ -1,5 +1,5 @@
-#ifndef __MESYTEC_MVLC_MVLC_COMMANDS_H__
-#define __MESYTEC_MVLC_MVLC_COMMANDS_H__
+#ifndef __MESYTEC_MVLC_MVLC_COMMAND_BUILDERS_H__
+#define __MESYTEC_MVLC_MVLC_COMMAND_BUILDERS_H__
 
 #include <vector>
 
@@ -91,4 +91,4 @@ std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands);
 }
 }
 
-#endif /* __MESYTEC_MVLC_MVLC_COMMANDS_H__ */
+#endif /* __MESYTEC_MVLC_MVLC_COMMAND_BUILDERS_H__ */

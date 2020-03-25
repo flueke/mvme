@@ -4,7 +4,7 @@ add_library(mesytec-mvlc SHARED
     "${CMAKE_CURRENT_BINARY_DIR}/git_version.cc"
     mvlc_basic_interface.cc
     mvlc.cc
-    mvlc_commands.cc
+    mvlc_command_builders.cc
     mvlc_constants.cc
     mvlc_dialog.cc
     mvlc_error.cc
@@ -58,6 +58,6 @@ if (MVLC_BUILD_TESTS)
         add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
     endfunction(add_gtest)
 
-    add_gtest(test_mvlc_commands mvlc_commands.test.cc)
+    add_gtest(test_mvlc_command_builders mvlc_command_builders.test.cc)
     add_gtest(test_threadsafequeue util/threadsafequeue.test.cc)
 endif(MVLC_BUILD_TESTS)

@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "mvlc_commands.h"
+#include "mvlc_command_builders.h"
 #include "mvlc_constants.h"
 
 using namespace mesytec::mvlc;
