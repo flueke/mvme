@@ -41,7 +41,15 @@ std::error_code check_mirror(const std::vector<u32> &request, const std::vector<
 class MVLCDialog
 {
     public:
+        // Maximum time spent in readResponse() until a non-error-notification
+        // response buffer is received.
         constexpr static auto ReadResponseMaxWait = std::chrono::milliseconds(60000);
+
+        // Max number of retries for mirrorTransaction() in case of
+        // SocketReadTimeout or SocketWriteTimeout errors.
+        // When running into one of the above timeout cases the whole
+        // transaction is retried a maximum of MirrorMaxRetries times.
+        constexpr static unsigned MirrorMaxRetries = 3;
 
         MVLCDialog(MVLCBasicInterface *mvlc);
 

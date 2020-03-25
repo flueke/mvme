@@ -62,7 +62,10 @@ class MVLCErrorCategory: public std::error_category
                 return "mirror check: response too short";
 
             case MVLCErrorCode::MirrorNotEqual:
-                return "mirror check: unequal data words";
+                return "mirror check: mismatched mirror data";
+
+            case MVLCErrorCode::MirrorMaxTriesExceeded:
+                return "mirror transaction: max retries exceeded";
 
             case MVLCErrorCode::InvalidBufferHeader:
                 return "invalid buffer header";
@@ -190,6 +193,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::SocketReadTimeout:
             case MVLCErrorCode::SocketWriteTimeout:
             case MVLCErrorCode::ReadResponseMaxWaitExceeded:
+            case MVLCErrorCode::MirrorMaxTriesExceeded:
                 return ErrorType::Timeout;
         }
         assert(false);

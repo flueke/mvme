@@ -22,6 +22,7 @@ enum class MVLCErrorCode
     MirrorEmptyResponse, // size of the mirror response < 1
     MirrorShortResponse,
     MirrorNotEqual,
+    MirrorMaxTriesExceeded,
     InvalidBufferHeader,
     ReadResponseMaxWaitExceeded,
     UnexpectedResponseSize, // wanted N words, got M words

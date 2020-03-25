@@ -334,7 +334,9 @@ std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
 
     auto ec = mirrorTransaction(request, m_responseBuffer);
     logBuffer(m_responseBuffer, "writeRegister <<<");
-    if (ec) return ec;
+
+    if (ec)
+        return ec;
 
     if (m_responseBuffer.size() != 4)
         return make_error_code(MVLCErrorCode::UnexpectedResponseSize);
@@ -345,36 +347,39 @@ std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
 std::error_code MVLCDialog::mirrorTransaction(const std::vector<u32> &cmdBuffer,
                                               std::vector<u32> &dest)
 {
-    //DebugTimer timer;
-
-    // upload the stack
-    if (auto ec = doWrite(cmdBuffer))
+    for (unsigned tries = 0u; tries < MirrorMaxRetries; tries++)
     {
-        LOG_WARN("write error: %s", ec.message().c_str());
-        return ec;
+        // upload the stack
+        if (auto ec = doWrite(cmdBuffer))
+        {
+            LOG_WARN("write error: %s (attempt %u of %u)",
+                     ec.message().c_str(),
+                     tries+1, MirrorMaxRetries);
+
+            if (ec == ErrorType::Timeout)
+                continue;
+
+            return ec;
+        }
+
+        // read the mirror response
+        if (auto ec = readResponse(is_super_buffer, dest))
+        {
+            LOG_WARN("read error: %s (attempt %u of %u",
+                     ec.message().c_str(),
+                     tries+1, MirrorMaxRetries);
+
+            if (ec == ErrorType::Timeout)
+                continue;
+
+            return ec;
+        }
+
+        // verify the mirror response
+        return check_mirror(cmdBuffer, dest);
     }
 
-    //auto dt_write = timer.restart();
-
-    // read the mirror response
-    if (auto ec = readResponse(is_super_buffer, dest))
-    {
-        LOG_WARN("read error: %s", ec.message().c_str());
-        return ec;
-    }
-
-    //auto dt_read = timer.restart();
-
-#if 0
-#define ms_(x) std::chrono::duration_cast<std::chrono::milliseconds>(x)
-    LOG_TRACE("dt_write=%ld, dt_read=%ld\n",
-              ms_(dt_write).count(),
-              ms_(dt_read).count());
-#undef ms_
-#endif
-
-    // verify the mirror response
-    return check_mirror(cmdBuffer, dest);
+    return make_error_code(MVLCErrorCode::MirrorMaxTriesExceeded);
 }
 
 std::error_code MVLCDialog::stackTransaction(const std::vector<u32> &stack,
