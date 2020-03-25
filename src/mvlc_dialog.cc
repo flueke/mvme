@@ -423,7 +423,7 @@ std::error_code MVLCDialog::stackTransaction(const std::vector<u32> &stack,
 
             std::copy(localBuffer.begin(), localBuffer.end(), std::back_inserter(dest));
 
-            header = localBuffer[0];
+            header = !localBuffer.empty() ? localBuffer[0] : 0u;
             flags = extract_frame_info(header).flags;
         }
     }
