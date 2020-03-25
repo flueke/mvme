@@ -15,33 +15,49 @@ System Requirements
   * `WIENER`_ `VM-USB <http://www.wiener-d.com/sc/modules/vme--modules/vm-usb.html>`_ (USB2)
   * `Struck`_ SIS3153 (GBit/s Ethernet)
 
-* Firmware updates for the MVLC can be found here:
-  `<https://mesytec.com/downloads/firmware%20updates/MVLC/>`_
-
-* If using the WIENER VM-USB VME Controller:
-
-  * WIENER VM-USB VME Controller with a recent firmware
-
-    The VM-USB firmware can be updated from within mvme. See
-    :ref:`howto-vmusb-firmware-update` for a guide.
-
-  * Latest USB chipset driver for your system.
-
-    Updating the driver is especially important for Windows versions prior to
-    Windows 10 in combination with a NEC/Renesas chipset (frequently found in
-    laptops). The driver shipped by Microsoft has a bug that prevents libusb from
-    properly accessing devices. See the `libusb wiki`_ for more information.
-
-  * USB Driver: libusb-0.1 (Linux) / libusb-win32 (Windows)
-
-    The windows installer can optionally run `Zadig`_ to handle the driver
-    installation.
-
 * At least 4 GB RAM is recommended.
 
 * A multicore processor is recommended as mvme itself can make use of multiple
   cores: readout, data compression, analysis and the user interface all run in
   separate threads.
+
+Mesytec MVLC
+--------------------------------------------------
+
+* Firmware updates for the MVLC can be found here:
+  `<https://mesytec.com/downloads/firmware%20updates/MVLC/>`_
+
+* When using the MVLC via USB the drivers for the FTDI USB Chip are usually
+  shipped with the operating system. If your system does not recognize the
+  device you can get the drivers from the FTDI website:
+  `<https://www.ftdichip.com/Drivers/D3XX.htm>`_.
+
+* Using the MVLC via Ethernet requires a GBit/s network connection.
+
+WIENER VM-USB
+--------------------------------------------------
+
+* WIENER VM-USB VME Controller with a recent firmware
+
+  The VM-USB firmware can be updated from within mvme. See
+  :ref:`howto-vmusb-firmware-update` for a guide.
+
+* Latest USB chipset driver for your system.
+
+  Updating the driver is especially important for Windows versions prior to
+  Windows 10 in combination with a NEC/Renesas chipset (frequently found in
+  laptops). The driver shipped by Microsoft has a bug that prevents libusb from
+  properly accessing devices. See the `libusb wiki`_ for more information.
+
+* USB Driver: libusb-0.1 (Linux) / libusb-win32 (Windows)
+
+  The windows installer can optionally run `Zadig`_ to handle the driver
+  installation.
+
+Struck SIS3153
+--------------------------------------------------
+
+* The SIS3153 controller requires a GBit/s ethernet connection.
 
 .. _mesytec: https://www.mesytec.com/
 .. _WIENER: http://www.wiener-d.com/
