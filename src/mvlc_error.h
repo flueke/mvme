@@ -23,7 +23,7 @@ enum class MVLCErrorCode
     MirrorShortResponse,
     MirrorNotEqual,
     InvalidBufferHeader,
-    NoResponseReceived,
+    ReadResponseMaxWaitExceeded,
     UnexpectedResponseSize, // wanted N words, got M words
     CommandArgOutOfRange,
     InvalidPipe,

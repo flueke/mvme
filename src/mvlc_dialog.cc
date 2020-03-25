@@ -245,7 +245,7 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, std::vector<
         auto elapsed = Clock::now() - tStart;
 
         if (elapsed >= ReadResponseMaxWait)
-            return make_error_code(MVLCErrorCode::NoResponseReceived);
+            return make_error_code(MVLCErrorCode::ReadResponseMaxWaitExceeded);
     }
 
     assert(!dest.empty());

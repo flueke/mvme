@@ -67,7 +67,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::InvalidBufferHeader:
                 return "invalid buffer header";
 
-            case MVLCErrorCode::NoResponseReceived:
+            case MVLCErrorCode::ReadResponseMaxWaitExceeded:
                 return "no command response received from MVLC";
 
             case MVLCErrorCode::UnexpectedResponseSize:
@@ -169,7 +169,6 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::MirrorShortResponse:
             case MVLCErrorCode::MirrorNotEqual:
             case MVLCErrorCode::InvalidBufferHeader:
-            case MVLCErrorCode::NoResponseReceived:
             case MVLCErrorCode::UnexpectedResponseSize:
             case MVLCErrorCode::CommandArgOutOfRange:
             case MVLCErrorCode::InvalidPipe:
@@ -190,6 +189,7 @@ class MVLCErrorCategory: public std::error_category
 
             case MVLCErrorCode::SocketReadTimeout:
             case MVLCErrorCode::SocketWriteTimeout:
+            case MVLCErrorCode::ReadResponseMaxWaitExceeded:
                 return ErrorType::Timeout;
         }
         assert(false);
