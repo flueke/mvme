@@ -208,17 +208,6 @@ std::error_code MVLCDialog::readKnownBuffer(std::vector<u32> &dest)
     return ec;
 }
 
-#ifndef __WIN32
-std::error_code MVLCDialog::readKnownBuffer(std::vector<u32> &dest, unsigned timeout_ms)
-{
-    auto prevTimeout = m_mvlc->getReadTimeout(Pipe::Command);
-    m_mvlc->setReadTimeout(Pipe::Command, timeout_ms);
-    auto result = readKnownBuffer(dest);
-    m_mvlc->setReadTimeout(Pipe::Command, prevTimeout);
-    return result;
-}
-#endif
-
 std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, std::vector<u32> &dest)
 {
     assert(bhv);

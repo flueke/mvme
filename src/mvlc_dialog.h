@@ -117,15 +117,6 @@ class MVLCDialog
         // is_known_buffer_header()). Does not do any special handling for
         // stack error notification buffers as is done in readResponse().
         std::error_code readKnownBuffer(std::vector<u32> &dest);
-#ifndef __WIN32
-        // Same as readKnownBuffer() above but uses a custom timeout for the read.
-        // Currently only available on non-windows systems as under windows the
-        // usb pipe timeout cannot be changed while an operation on the other
-        // pipe is in progress (A solution to this would be to take both pipe
-        // locks under windows, change the timeout and release the data pipe
-        // lock but this would negatively effect readout performance.)
-        std::error_code readKnownBuffer(std::vector<u32> &dest, unsigned timeout_ms);
-#endif
 
         // Returns the response buffer used internally by readRegister(),
         // readRegisterBlock(), writeRegister(), vmeSingleWrite() and
