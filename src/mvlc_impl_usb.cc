@@ -573,14 +573,14 @@ std::error_code Impl::connect()
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
         if (auto ec = set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::Out),
-                                           getWriteTimeout(pipe)))
+                                           writeTimeout(pipe)))
         {
             closeHandle();
             return ec;
         }
 
         if (auto ec = set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::In),
-                                           getReadTimeout(pipe)))
+                                           readTimeout(pipe)))
         {
             closeHandle();
             return ec;
@@ -660,7 +660,7 @@ std::error_code Impl::setReadTimeout(Pipe pipe, unsigned ms)
     return {};
 }
 
-unsigned Impl::getWriteTimeout(Pipe pipe) const
+unsigned Impl::writeTimeout(Pipe pipe) const
 {
     auto up = static_cast<unsigned>(pipe);
     assert(up < PipeCount);
@@ -668,7 +668,7 @@ unsigned Impl::getWriteTimeout(Pipe pipe) const
     return m_writeTimeouts[up];
 }
 
-unsigned Impl::getReadTimeout(Pipe pipe) const
+unsigned Impl::readTimeout(Pipe pipe) const
 {
     auto up = static_cast<unsigned>(pipe);
     assert(up < PipeCount);

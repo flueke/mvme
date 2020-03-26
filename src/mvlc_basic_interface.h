@@ -56,8 +56,8 @@ class MVLCBasicInterface
         virtual std::error_code setWriteTimeout(Pipe pipe, unsigned ms) = 0;
         virtual std::error_code setReadTimeout(Pipe pipe, unsigned ms) = 0;
 
-        virtual unsigned getWriteTimeout(Pipe pipe) const = 0;
-        virtual unsigned getReadTimeout(Pipe pipe) const = 0;
+        virtual unsigned writeTimeout(Pipe pipe) const = 0;
+        virtual unsigned readTimeout(Pipe pipe) const = 0;
 
         virtual void setDisableTriggersOnConnect(bool b) = 0;
         virtual bool disableTriggersOnConnect() const = 0;

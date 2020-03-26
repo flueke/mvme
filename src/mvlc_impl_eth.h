@@ -167,8 +167,8 @@ class MESYTEC_MVLC_EXPORT Impl: public MVLCBasicInterface
         std::error_code setWriteTimeout(Pipe pipe, unsigned ms) override;
         std::error_code setReadTimeout(Pipe pipe, unsigned ms) override;
 
-        unsigned getWriteTimeout(Pipe pipe) const override;
-        unsigned getReadTimeout(Pipe pipe) const override;
+        unsigned writeTimeout(Pipe pipe) const override;
+        unsigned readTimeout(Pipe pipe) const override;
 
         std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
                               size_t &bytesTransferred) override;

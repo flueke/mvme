@@ -72,8 +72,8 @@ class MESYTEC_MVLC_EXPORT MVLC: public MVLCBasicInterface
         std::error_code setWriteTimeout(Pipe pipe, unsigned ms) override;
         std::error_code setReadTimeout(Pipe pipe, unsigned ms) override;
 
-        unsigned getWriteTimeout(Pipe pipe) const override;
-        unsigned getReadTimeout(Pipe pipe) const override;
+        unsigned writeTimeout(Pipe pipe) const override;
+        unsigned readTimeout(Pipe pipe) const override;
 
         void setDisableTriggersOnConnect(bool b) override;
         bool disableTriggersOnConnect() const override;

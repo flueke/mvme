@@ -380,7 +380,7 @@ std::error_code Impl::connect()
 
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
-        if (auto ec = set_socket_write_timeout(getSocket(pipe), getWriteTimeout(pipe)))
+        if (auto ec = set_socket_write_timeout(getSocket(pipe), writeTimeout(pipe)))
         {
             LOG_TRACE("set_socket_write_timeout failed: %s, socket=%d",
                       ec.message().c_str(),
@@ -388,7 +388,7 @@ std::error_code Impl::connect()
             return ec;
         }
 
-        if (auto ec = set_socket_read_timeout(getSocket(pipe), getReadTimeout(pipe)))
+        if (auto ec = set_socket_read_timeout(getSocket(pipe), readTimeout(pipe)))
         {
             LOG_TRACE("set_socket_read_timeout failed: %s", ec.message().c_str());
             return ec;
@@ -545,13 +545,13 @@ std::error_code Impl::setReadTimeout(Pipe pipe, unsigned ms)
     return {};
 }
 
-unsigned Impl::getWriteTimeout(Pipe pipe) const
+unsigned Impl::writeTimeout(Pipe pipe) const
 {
     if (static_cast<unsigned>(pipe) >= PipeCount) return 0u;
     return m_writeTimeouts[static_cast<unsigned>(pipe)];
 }
 
-unsigned Impl::getReadTimeout(Pipe pipe) const
+unsigned Impl::readTimeout(Pipe pipe) const
 {
     if (static_cast<unsigned>(pipe) >= PipeCount) return 0u;
     return m_readTimeouts[static_cast<unsigned>(pipe)];
@@ -709,7 +709,7 @@ PacketReadResult Impl::read_packet(Pipe pipe_, u8 *buffer, size_t size)
 
     res.ec = receive_one_packet(getSocket(pipe_), buffer, size,
                                 res.bytesTransferred,
-                                getReadTimeout(pipe_));
+                                readTimeout(pipe_));
     res.buffer = buffer;
 
     if (res.ec && res.bytesTransferred == 0)
@@ -927,9 +927,9 @@ std::error_code Impl::read(Pipe pipe_, u8 *buffer, size_t size,
         auto tEnd = std::chrono::high_resolution_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(tEnd - tStart);
 
-        //qDebug() << elapsed.count() << getReadTimeout(pipe_);
+        //qDebug() << elapsed.count() << readTimeout(pipe_);
 
-        if (elapsed.count() >= getReadTimeout(pipe_))
+        if (elapsed.count() >= readTimeout(pipe_))
         {
             LOG_TRACE("  pipe=%u, read of size=%zu completes with %zu bytes and timeout"
                       " after %zu reads, remaining bytes in buffer=%zu",

@@ -122,16 +122,16 @@ std::error_code MVLC::setReadTimeout(Pipe pipe, unsigned ms)
     return d->impl->setReadTimeout(pipe, ms);
 }
 
-unsigned MVLC::getWriteTimeout(Pipe pipe) const
+unsigned MVLC::writeTimeout(Pipe pipe) const
 {
     auto guard = d->locks.lock(pipe);
-    return d->impl->getWriteTimeout(pipe);
+    return d->impl->writeTimeout(pipe);
 }
 
-unsigned MVLC::getReadTimeout(Pipe pipe) const
+unsigned MVLC::readTimeout(Pipe pipe) const
 {
     auto guard = d->locks.lock(pipe);
-    return d->impl->getReadTimeout(pipe);
+    return d->impl->readTimeout(pipe);
 }
 
 void MVLC::setDisableTriggersOnConnect(bool b)
