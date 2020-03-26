@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <cassert>
+
 #include "mvlc_command_builders.h"
 #include "mvlc_constants.h"
 #include "vme_constants.h"
@@ -128,7 +131,7 @@ StackCommandBuilder &StackCommandBuilder::addVMERead(u32 address, u8 amod, VMEDa
     cmd.amod = amod;
     cmd.dataWidth = dataWidth;
 
-    m_commands.push_back(cmd);
+    addCommand(cmd);
 
     return *this;
 }
@@ -141,7 +144,7 @@ StackCommandBuilder &StackCommandBuilder::addVMEBlockRead(u32 address, u8 amod, 
     cmd.amod = amod;
     cmd.transfers = maxTransfers;
 
-    m_commands.push_back(cmd);
+    addCommand(cmd);
 
     return *this;
 }
@@ -155,7 +158,7 @@ StackCommandBuilder &StackCommandBuilder::addVMEWrite(u32 address, u32 value, u8
     cmd.amod = amod;
     cmd.dataWidth = dataWidth;
 
-    m_commands.push_back(cmd);
+    addCommand(cmd);
 
     return *this;
 }
@@ -166,20 +169,76 @@ StackCommandBuilder &StackCommandBuilder::addWriteMarker(u32 value)
     cmd.type = StackCommandType::WriteMarker;
     cmd.value = value;
 
-    m_commands.push_back(cmd);
+    addCommand(cmd);
 
     return *this;
 }
 
 StackCommandBuilder &StackCommandBuilder::addCommand(const StackCommand &cmd)
 {
-    m_commands.push_back(cmd);
+    if (!hasOpenGroup())
+        beginGroup();
+
+    assert(hasOpenGroup());
+
+    m_groups.back().commands.push_back(cmd);
+
+    return *this;
+}
+
+StackCommandBuilder &StackCommandBuilder::beginGroup(const std::string &name)
+{
+    m_groups.emplace_back(Group{name, {}});
     return *this;
 }
 
 std::vector<StackCommand> StackCommandBuilder::getCommands() const
 {
-    return m_commands;
+    std::vector<StackCommand> ret;
+
+    std::for_each(
+        std::begin(m_groups), std::end(m_groups),
+        [&ret] (const Group &group)
+        {
+            std::copy(
+                std::begin(group.commands), std::end(group.commands),
+                std::back_inserter(ret));
+        });
+
+    return ret;
+}
+
+std::vector<StackCommand> StackCommandBuilder::getCommands(size_t groupIndex) const
+{
+    return getGroup(groupIndex).commands;
+}
+
+std::vector<StackCommand> StackCommandBuilder::getCommands(const std::string &groupName) const
+{
+    return getGroup(groupName).commands;
+}
+
+StackCommandBuilder::Group StackCommandBuilder::getGroup(size_t groupIndex) const
+{
+    if (groupIndex < getGroupCount())
+        return m_groups[groupIndex];
+
+    return {};
+}
+
+StackCommandBuilder::Group StackCommandBuilder::getGroup(const std::string &groupName) const
+{
+    auto it = std::find_if(
+        std::begin(m_groups), std::end(m_groups),
+        [&groupName] (const Group &group)
+        {
+            return group.name == groupName;
+        });
+
+    if (it != std::end(m_groups))
+        return *it;
+
+    return {};
 }
 
 //

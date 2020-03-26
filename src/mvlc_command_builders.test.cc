@@ -229,6 +229,7 @@ TEST(mvlc_commands, StackVMERead)
 {
     auto builder = StackCommandBuilder().addVMERead(0x1337u, 0x09u, VMEDataWidth::D32);
     auto commands = builder.getCommands();
+    ASSERT_EQ(builder.getGroupCount(), 1);
     ASSERT_EQ(commands.size(), 1u);
     ASSERT_EQ(commands.front().type, StackCommandType::VMERead);
     ASSERT_EQ(commands.front().address, 0x1337u);
@@ -240,6 +241,7 @@ TEST(mvlc_commands, StackVMEWrite)
 {
     auto builder = StackCommandBuilder().addVMEWrite(0x1337u, 42u, 0x09u, VMEDataWidth::D32);
     auto commands = builder.getCommands();
+    ASSERT_EQ(builder.getGroupCount(), 1);
     ASSERT_EQ(commands.size(), 1u);
     ASSERT_EQ(commands.front().type, StackCommandType::VMEWrite);
     ASSERT_EQ(commands.front().address, 0x1337u);
@@ -252,6 +254,7 @@ TEST(mvlc_commands, StackVMEBlockRead)
 {
     auto builder = StackCommandBuilder().addVMEBlockRead(0x1337u, 0x09u, 111);
     auto commands = builder.getCommands();
+    ASSERT_EQ(builder.getGroupCount(), 1);
     ASSERT_EQ(commands.size(), 1u);
     ASSERT_EQ(commands.front().type, StackCommandType::VMERead);
     ASSERT_EQ(commands.front().address, 0x1337u);
@@ -263,6 +266,7 @@ TEST(mvlc_commands, StackWriteMarker)
 {
     auto builder = StackCommandBuilder().addWriteMarker(0x87654321u);
     auto commands = builder.getCommands();
+    ASSERT_EQ(builder.getGroupCount(), 1);
     ASSERT_EQ(commands.size(), 1u);
     ASSERT_EQ(commands.front().type, StackCommandType::WriteMarker);
     ASSERT_EQ(commands.front().value, 0x87654321u);
@@ -272,13 +276,51 @@ TEST(mvlc_commands, StackFromBuffer)
 {
     StackCommandBuilder builder;
 
+    ASSERT_EQ(builder.getGroupCount(), 0);
     builder.addVMERead(0x1337u, 0x09u, VMEDataWidth::D16);
     builder.addVMEBlockRead(0x1338u, vme_amods::BLT32, 42);
     builder.addVMEWrite(0x1339u, 43, 0x09u, VMEDataWidth::D32);
     builder.addWriteMarker(0x87654321u);
+    ASSERT_EQ(builder.getGroupCount(), 1);
 
     auto buffer = make_stack_buffer(builder);
     auto builder2 = stack_builder_from_buffer(buffer);
 
     ASSERT_EQ(builder.getCommands(), builder2.getCommands());
+}
+
+TEST(mvlc_commands, StackGroups)
+{
+    StackCommandBuilder builder;
+
+    ASSERT_EQ(builder.getGroupCount(), 0);
+
+    builder.beginGroup("first");
+    builder.addVMERead(0x1337u, 0x09u, VMEDataWidth::D16);
+
+    ASSERT_EQ(builder.getGroupCount(), 1);
+    ASSERT_EQ(builder.getGroup(0).name, "first");
+    ASSERT_EQ(builder.getGroup("first").name, "first");
+    ASSERT_EQ(builder.getCommands(0)[0].type, StackCT::VMERead);
+    ASSERT_EQ(builder.getCommands(0)[0].address, 0x1337u);
+
+    builder.beginGroup("second");
+    builder.addVMEWrite(0x1338u, 42, 0x09u, VMEDataWidth::D32);
+
+    ASSERT_EQ(builder.getGroupCount(), 2);
+    ASSERT_EQ(builder.getGroup(0).name, "first");
+    ASSERT_EQ(builder.getGroup("first").name, "first");
+    ASSERT_EQ(builder.getCommands(0)[0].type, StackCT::VMERead);
+    ASSERT_EQ(builder.getCommands(0)[0].address, 0x1337u);
+
+    ASSERT_EQ(builder.getGroup(1).name, "second");
+    ASSERT_EQ(builder.getGroup("second").name, "second");
+    ASSERT_EQ(builder.getCommands(1)[0].type, StackCT::VMEWrite);
+    ASSERT_EQ(builder.getCommands(1)[0].address, 0x1338u);
+
+    ASSERT_TRUE(builder.getGroup(999).name.empty());
+    ASSERT_TRUE(builder.getGroup(999).commands.empty());
+
+    ASSERT_TRUE(builder.getGroup("noexistent").name.empty());
+    ASSERT_TRUE(builder.getGroup("noexistent").commands.empty());
 }
