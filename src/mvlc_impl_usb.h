@@ -155,6 +155,16 @@ class MESYTEC_MVLC_EXPORT Impl: public MVLCBasicInterface
 
         DeviceInfo getDeviceInfo() const { return m_deviceInfo; }
 
+        void setDisableTriggersOnConnect(bool b) override
+        {
+            m_disableTriggersOnConnect = b;
+        }
+
+        bool disableTriggersOnConnect() const override
+        {
+            return m_disableTriggersOnConnect;
+        }
+
     private:
         struct ConnectMode
         {
@@ -187,6 +197,7 @@ class MESYTEC_MVLC_EXPORT Impl: public MVLCBasicInterface
         std::array<ReadBuffer<USBSingleTransferMaxBytes>, PipeCount> m_readBuffers;
 #endif
         DeviceInfo m_deviceInfo;
+        bool m_disableTriggersOnConnect = false;
 };
 
 //MESYTEC_MVLC_EXPORT std::error_code make_error_code(FT_STATUS st);

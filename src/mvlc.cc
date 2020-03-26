@@ -134,6 +134,18 @@ unsigned MVLC::getReadTimeout(Pipe pipe) const
     return d->impl->getReadTimeout(pipe);
 }
 
+void MVLC::setDisableTriggersOnConnect(bool b)
+{
+    auto guards = d->locks.lockBoth();
+    d->impl->setDisableTriggersOnConnect(b);
+}
+
+bool MVLC::disableTriggersOnConnect() const
+{
+    auto guards = d->locks.lockBoth();
+    return d->impl->disableTriggersOnConnect();
+}
+
 std::error_code MVLC::readRegister(u16 address, u32 &value)
 {
     auto guard = d->locks.lockCmd();

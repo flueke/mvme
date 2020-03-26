@@ -197,13 +197,12 @@ class MESYTEC_MVLC_EXPORT Impl: public MVLCBasicInterface
         sockaddr_in getCmdSockAddress() const { return m_cmdAddr; }
         sockaddr_in getDataSockAddress() const { return m_dataAddr; }
 
-        // FIXME: move these one level up
-        void setDisableTriggersOnConnect(bool b)
+        void setDisableTriggersOnConnect(bool b) override
         {
             m_disableTriggersOnConnect = b;
         }
 
-        bool disableTriggersOnConnect() const
+        bool disableTriggersOnConnect() const override
         {
             return m_disableTriggersOnConnect;
         }

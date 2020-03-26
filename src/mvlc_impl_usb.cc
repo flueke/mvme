@@ -604,13 +604,14 @@ std::error_code Impl::connect()
 
     LOG_INFO("opened USB device");
 
-#if 1
-    if (auto ec = post_connect_cleanup(*this))
+    if (disableTriggersOnConnect())
     {
-        LOG_WARN("error from USB post connect cleanup: %s", ec.message().c_str());
-        return ec;
+        if (auto ec = post_connect_cleanup(*this))
+        {
+            LOG_WARN("error from USB post connect cleanup: %s", ec.message().c_str());
+            return ec;
+        }
     }
-#endif
 
     LOG_INFO("connected to MVLC USB");
 

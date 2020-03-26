@@ -58,6 +58,9 @@ class MVLCBasicInterface
 
         virtual unsigned getWriteTimeout(Pipe pipe) const = 0;
         virtual unsigned getReadTimeout(Pipe pipe) const = 0;
+
+        virtual void setDisableTriggersOnConnect(bool b) = 0;
+        virtual bool disableTriggersOnConnect() const = 0;
 };
 
 }

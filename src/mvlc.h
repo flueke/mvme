@@ -75,6 +75,9 @@ class MESYTEC_MVLC_EXPORT MVLC: public MVLCBasicInterface
         unsigned getWriteTimeout(Pipe pipe) const override;
         unsigned getReadTimeout(Pipe pipe) const override;
 
+        void setDisableTriggersOnConnect(bool b) override;
+        bool disableTriggersOnConnect() const override;
+
         //
         // Dialog layer
         //
