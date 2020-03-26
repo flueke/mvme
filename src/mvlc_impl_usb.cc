@@ -645,9 +645,6 @@ std::error_code Impl::setWriteTimeout(Pipe pipe, unsigned ms)
 
     m_writeTimeouts[p] = ms;
 
-    if (isConnected())
-        return set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::Out), ms);
-
     return {};
 }
 
@@ -659,9 +656,6 @@ std::error_code Impl::setReadTimeout(Pipe pipe, unsigned ms)
         return make_error_code(MVLCErrorCode::InvalidPipe);
 
     m_readTimeouts[p] = ms;
-
-    if (isConnected())
-        return set_endpoint_timeout(m_handle, get_endpoint(pipe, EndpointDirection::In), ms);
 
     return {};
 }

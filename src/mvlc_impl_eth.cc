@@ -380,7 +380,6 @@ std::error_code Impl::connect()
 
     for (auto pipe: { Pipe::Command, Pipe::Data })
     {
-#if 0
         if (auto ec = set_socket_write_timeout(getSocket(pipe), getWriteTimeout(pipe)))
         {
             LOG_TRACE("set_socket_write_timeout failed: %s, socket=%d",
@@ -388,7 +387,6 @@ std::error_code Impl::connect()
                       getSocket(pipe));
             return ec;
         }
-#endif
 
         if (auto ec = set_socket_read_timeout(getSocket(pipe), getReadTimeout(pipe)))
         {
@@ -532,9 +530,6 @@ std::error_code Impl::setWriteTimeout(Pipe pipe, unsigned ms)
 
     m_writeTimeouts[p] = ms;
 
-    if (isConnected())
-        return set_socket_write_timeout(getSocket(pipe), ms);
-
     return {};
 }
 
@@ -546,9 +541,6 @@ std::error_code Impl::setReadTimeout(Pipe pipe, unsigned ms)
         return make_error_code(MVLCErrorCode::InvalidPipe);
 
     m_readTimeouts[p] = ms;
-
-    if (isConnected())
-        return set_socket_read_timeout(getSocket(pipe), ms);
 
     return {};
 }
