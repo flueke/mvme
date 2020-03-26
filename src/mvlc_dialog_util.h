@@ -24,8 +24,8 @@
 #include <utility>
 #include <vector>
 
-#include "mvlc/mvlc_constants.h"
-#include "mvlc/mvlc_error.h"
+#include "mvlc_constants.h"
+#include "mvlc_error.h"
 
 namespace mesytec
 {
@@ -36,6 +36,8 @@ template<typename DIALOG_API>
 std::pair<std::vector<u32>, std::error_code>
 read_stack_contents(DIALOG_API &mvlc, u16 startAddress)
 {
+    using namespace stack_commands;
+
     u32 stackHeader = 0u;
 
     if (auto ec = mvlc.readRegister(startAddress, stackHeader))
@@ -47,7 +49,7 @@ read_stack_contents(DIALOG_API &mvlc, u16 startAddress)
 
     u8 headerType = (stackHeader >> CmdShift) & CmdMask; // 0xF3
 
-    if (headerType != commands::StackStart)
+    if (headerType != static_cast<u8>(StackCommandType::StackStart))
         return { contents, make_error_code(MVLCErrorCode::InvalidStackHeader) };
 
     u32 addr  = startAddress + AddressIncrement;
@@ -64,7 +66,7 @@ read_stack_contents(DIALOG_API &mvlc, u16 startAddress)
         contents.push_back(value);
         addr += AddressIncrement;
 
-    } while (((value >> CmdShift) & CmdMask) != commands::StackEnd); // 0xF4
+    } while (((value >> CmdShift) & CmdMask) != static_cast<u8>(StackCommandType::StackEnd)); // 0xF4
 
     return { contents, {} };
 }

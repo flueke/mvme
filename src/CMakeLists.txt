@@ -7,6 +7,7 @@ add_library(mesytec-mvlc SHARED
     mvlc_command_builders.cc
     mvlc_constants.cc
     mvlc_dialog.cc
+    mvlc_dialog_util.cc
     mvlc_error.cc
     mvlc_factory.cc
     mvlc_impl_eth.cc
