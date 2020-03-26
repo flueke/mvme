@@ -76,8 +76,6 @@ struct StackInfo
     u8 id;
     u32 triggers;
     u32 offset;
-    u16 triggerReg;
-    u16 offsetReg;
     u16 startAddress;
     std::vector<u32> contents;
 };
@@ -92,13 +90,10 @@ read_stack_info(DIALOG_API &mvlc, u8 id)
     if (id >= stacks::StackCount)
         return { result, make_error_code(MVLCErrorCode::StackCountExceeded) };
 
-    result.triggerReg = stacks::get_trigger_register(id);
-    result.offsetReg  = stacks::get_offset_register(id);
-
-    if (auto ec = mvlc.readRegister(result.triggerReg, result.triggers))
+    if (auto ec = mvlc.readRegister(stacks::get_trigger_register(id), result.triggers))
         return { result, ec };
 
-    if (auto ec = mvlc.readRegister(result.offsetReg, result.offset))
+    if (auto ec = mvlc.readRegister(stacks::get_offset_register(id), result.offset))
         return { result, ec };
 
     result.startAddress = stacks::StackMemoryBegin + result.offset;
