@@ -152,27 +152,27 @@ class MESYTEC_MVLC_EXPORT StackCommandBuilder
 // Conversion to the mvlc buffer format
 //
 
-std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands);
-std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands);
+MESYTEC_MVLC_EXPORT std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands);
+MESYTEC_MVLC_EXPORT std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands);
 
-SuperCommandBuilder super_builder_from_buffer(const std::vector<u32> &buffer);
+MESYTEC_MVLC_EXPORT SuperCommandBuilder super_builder_from_buffer(const std::vector<u32> &buffer);
 
 // Stack to raw stack commands. Not enclosed between StackStart and StackEnd,
 // not interleaved with the write commands for uploading.
-std::vector<u32> make_stack_buffer(const StackCommandBuilder &builder);
-std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack);
+MESYTEC_MVLC_EXPORT std::vector<u32> make_stack_buffer(const StackCommandBuilder &builder);
+MESYTEC_MVLC_EXPORT std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack);
 
-StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer);
+MESYTEC_MVLC_EXPORT StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer);
 
 // Enclosed between StackStart and StackEnd, interleaved with WriteLocal
 // commands for uploading.
-std::vector<SuperCommand> make_stack_upload_commands(
+MESYTEC_MVLC_EXPORT std::vector<SuperCommand> make_stack_upload_commands(
     u8 stackOutputPipe, u16 StackMemoryOffset, const StackCommandBuilder &stack);
 
-std::vector<SuperCommand> make_stack_upload_commands(
+MESYTEC_MVLC_EXPORT std::vector<SuperCommand> make_stack_upload_commands(
     u8 stackOutputPipe, u16 StackMemoryOffset, const std::vector<StackCommand> &stack);
 
-std::vector<SuperCommand> make_stack_upload_commands(
+MESYTEC_MVLC_EXPORT std::vector<SuperCommand> make_stack_upload_commands(
     u8 stackOutputPipe, u16 StackMemoryOffset, const std::vector<u32> &stackBuffer);
 
 }
