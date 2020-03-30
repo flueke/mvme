@@ -24,6 +24,7 @@
 
 #include "mvlc_buffer_validators.h"
 #include "mvlc_dialog.h"
+#include "mvlc_dialog_util.h"
 #include "mvlc_error.h"
 #include "mvlc_threading.h"
 #include "mvlc_util.h"

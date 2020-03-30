@@ -4,7 +4,7 @@
 
 ## Components
 
-* USB and ETH implementations
+* USB and ETH implementations DONE
   - Two pipes
   - Buffered reads
   - Unbuffered/low level reads
@@ -12,10 +12,11 @@
   - support: error codes and conditions
   - Counters
 
-* Dialog layer
+* Dialog layer DONE
+  - (UDP) retries
 * Error polling
 * Listfile format, Writer and Reader code
 * Readout loop, Readout Worker
-* Stack Building
+* Stack Building DONE
 * Stack Management
 * Readout/Response Parser using readout stack to parse incoming data

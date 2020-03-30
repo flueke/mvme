@@ -58,6 +58,10 @@ class MESYTEC_MVLC_EXPORT SuperCommandBuilder
             const StackCommandBuilder &stackBuilder,
             u8 stackOutputPipe, u16 stackMemoryOffset);
 
+        SuperCommandBuilder &addStackUpload(
+            const std::vector<u32> &stackBuffer,
+            u8 stackOutputPipe, u16 stackMemoryOffset);
+
         std::vector<SuperCommand> getCommands() const;
 
     private:

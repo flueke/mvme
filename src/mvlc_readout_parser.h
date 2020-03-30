@@ -223,24 +223,33 @@ struct MESYTEC_MVLC_EXPORT ReadoutParserState
     ReadoutParserCounters counters = {};
 };
 
+// Create a readout parser from a list of readout stack defintions.
+//
+// This function assumes that the first element in the vector contains the
+// definition for the readout stack with id 1, the second the one for stack id
+// 2 and so on. Stack 0 (the direct exec stack) must not be included.
 MESYTEC_MVLC_EXPORT ReadoutParserState make_readout_parser(
     const std::vector<StackCommandBuilder> &readoutStacks);
+
+// Functions for steering the parser. These should be called repeatedly with
+// complete MVLC readout buffers. The input buffer sequence may be lossfull
+// which is useful when snooping parts of the data during a DAQ run.
 
 MESYTEC_MVLC_EXPORT ParseResult parse_readout_buffer(
     ConnectionType bufferType,
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
-    u32 bufferNumber, u8 *buffer, size_t bufferSize);
+    u32 bufferNumber, const u32 *buffer, size_t bufferWords);
 
 MESYTEC_MVLC_EXPORT ParseResult parse_readout_buffer_eth(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
-    u32 bufferNumber, u8 *buffer, size_t bufferSize);
+    u32 bufferNumber, const u32 *buffer, size_t bufferWords);
 
 MESYTEC_MVLC_EXPORT ParseResult parse_readout_buffer_usb(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
-    u32 bufferNumber, u8 *buffer, size_t bufferSize);
+    u32 bufferNumber, const u32 *buffer, size_t bufferWords);
 
 } // end namespace readout_parser
 } // end namespace mvlc

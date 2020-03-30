@@ -32,15 +32,6 @@ namespace mesytec
 namespace mvlc
 {
 
-MESYTEC_MVLC_EXPORT std::vector<u32> build_upload_commands(
-    const std::vector<u32> &stack, u16 startAddress);
-
-// Same as build_upload_commands but the returned list will be enclosed in
-// CmdBufferStart and CmdBufferEnd. This is a form that can be parsed by the
-// MVLC.
-MESYTEC_MVLC_EXPORT std::vector<u32> build_upload_command_buffer(
-    const std::vector<u32> &stack, u16 startAddress);
-
 struct FrameInfo
 {
     u16 len;
@@ -97,19 +88,6 @@ void log_buffer(Out &out, const u32 *buffer, size_t size, const char *info)
 MESYTEC_MVLC_EXPORT const char *get_system_event_subtype_name(u8 subtype);
 MESYTEC_MVLC_EXPORT const char *get_frame_flag_shift_name(u8 flag);
 
-template<typename MVLCDialogType>
-std::error_code disable_all_triggers(MVLCDialogType &mvlc)
-{
-    for (u8 stackId = 0; stackId < stacks::StackCount; stackId++)
-    {
-        u16 addr = stacks::get_trigger_register(stackId);
-
-        if (auto ec = mvlc.writeRegister(addr, stacks::NoTrigger))
-            return ec;
-    }
-
-    return {};
-}
 
 stacks::TimerBaseUnit MESYTEC_MVLC_EXPORT timer_base_unit_from_string(const std::string &str);
 

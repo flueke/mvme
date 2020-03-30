@@ -822,7 +822,7 @@ ParseResult parse_readout_buffer(
     ConnectionType bufferType,
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
-    u32 bufferNumber, u8 *buffer, size_t bufferSize)
+    u32 bufferNumber, const u32 *buffer, size_t bufferWords)
 {
     ParseResult result = {};
 
@@ -830,12 +830,12 @@ ParseResult parse_readout_buffer(
     {
         case ConnectionType::ETH:
             result = parse_readout_buffer_eth(
-                state, callbacks, bufferNumber, buffer, bufferSize);
+                state, callbacks, bufferNumber, buffer, bufferWords);
             break;
 
         case ConnectionType::USB:
             result =  parse_readout_buffer_usb(
-                state, callbacks, bufferNumber, buffer, bufferSize);
+                state, callbacks, bufferNumber, buffer, bufferWords);
             break;
     }
 
@@ -845,8 +845,10 @@ ParseResult parse_readout_buffer(
 ParseResult parse_readout_buffer_eth(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
-    u32 bufferNumber, u8 *buffer, size_t bufferBytes)
+    u32 bufferNumber, const u32 *buffer, size_t bufferWords)
 {
+    const size_t bufferBytes = bufferWords * sizeof(u32);
+
     LOG_TRACE("begin parsing ETH buffer %u, size=%lu bytes", bufferNumber, bufferBytes);
 
     s64 bufferLoss = calc_buffer_loss(bufferNumber, state.lastBufferNumber);
@@ -864,9 +866,7 @@ ParseResult parse_readout_buffer_eth(
         state.lastPacketNumber = -1;
     }
 
-    basic_string_view<u32> input(
-        reinterpret_cast<u32 *>(buffer),
-        bufferBytes / sizeof(u32));
+    basic_string_view<u32> input(buffer, bufferWords);
 
     try
     {
@@ -990,8 +990,10 @@ ParseResult parse_readout_buffer_eth(
 ParseResult parse_readout_buffer_usb(
     ReadoutParserState &state,
     ReadoutParserCallbacks &callbacks,
-    u32 bufferNumber, u8 *buffer, size_t bufferBytes)
+    u32 bufferNumber, const u32 *buffer, size_t bufferWords)
 {
+    const size_t bufferBytes = bufferWords * sizeof(u32);
+
     LOG_TRACE("begin parsing USB buffer %u, size=%lu bytes", bufferNumber, bufferBytes);
 
     s64 bufferLoss = calc_buffer_loss(bufferNumber, state.lastBufferNumber);
@@ -1005,9 +1007,7 @@ ParseResult parse_readout_buffer_usb(
         state.counters.internalBufferLoss += bufferLoss;
     }
 
-    basic_string_view<u32> input(
-        reinterpret_cast<u32 *>(buffer),
-        bufferBytes / sizeof(u32));
+    basic_string_view<u32> input(buffer, bufferWords);
 
     try
     {

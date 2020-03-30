@@ -14,8 +14,10 @@ add_library(mesytec-mvlc SHARED
     mvlc_impl_support.cc
     mvlc_impl_usb.cc
     mvlc_readout_parser.cc
-    util/ticketmutex.cc
+    mvlc_util.cc
+    util/string_util.cc
     util/threadsafequeue.cc
+    util/ticketmutex.cc
     )
 
 target_include_directories(mesytec-mvlc

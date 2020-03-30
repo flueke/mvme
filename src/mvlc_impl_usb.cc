@@ -31,6 +31,7 @@
 #include <ftd3xx.h>
 
 #include "mvlc_dialog.h"
+#include "mvlc_dialog_util.h"
 #include "mvlc_error.h"
 #include "mvlc_util.h"
 

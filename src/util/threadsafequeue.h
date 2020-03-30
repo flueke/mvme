@@ -20,7 +20,7 @@ class ThreadSafeQueue
 {
     public:
         using value_type = T;
-        using size_type = typename std::deque<T>::size_type;
+        using size_type = typename std::deque<T, Allocator>::size_type;
 
         explicit ThreadSafeQueue(const Allocator &alloc = Allocator())
             : m_queue(alloc)
@@ -30,25 +30,25 @@ class ThreadSafeQueue
         {
             {
                 Lock lock(m_mutex);
-                m_queue.push_back(value);
+                m_queue.emplace_back(value);
             }
 
-            m_cond.notify_one();
+            m_cond.notify_all();
         }
 
         void enqueue(const T &&value)
         {
             {
                 Lock lock(m_mutex);
-                m_queue.push_back(value);
+                m_queue.emplace_back(value);
             }
 
-            m_cond.notify_one();
+            m_cond.notify_all();
         }
 
         // Dequeue operation returning a default constructed value if the queue
         // is empty.
-        T dequeue()
+        T dequeue(const T &defaultValue = {})
         {
             Lock lock(m_mutex);
 
@@ -59,7 +59,7 @@ class ThreadSafeQueue
                 return ret;
             }
 
-            return {};
+            return defaultValue;
         }
 
         // Dequeue operation waiting for the queues wait condition to be
@@ -105,7 +105,7 @@ class ThreadSafeQueue
         }
 
     private:
-        std::deque<T> m_queue;
+        std::deque<T, Allocator> m_queue;
         mutable std::mutex m_mutex;
         std::condition_variable m_cond;
 

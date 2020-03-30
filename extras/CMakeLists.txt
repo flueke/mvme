@@ -11,3 +11,4 @@ if (MVLC_ENABLE_PYTHON)
 endif(MVLC_ENABLE_PYTHON)
 
 add_subdirectory(zip-tests)
+add_subdirectory(mini-daq)

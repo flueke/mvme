@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "mvlc_command_builders.h"
 #include "mvlc_constants.h"
 #include "mvlc_error.h"
 
@@ -31,6 +32,20 @@ namespace mesytec
 {
 namespace mvlc
 {
+
+struct StackInfo
+{
+    u32 triggers;
+    u32 offset;
+    u16 startAddress;
+    std::vector<u32> contents;
+};
+
+struct StackTrigger
+{
+    stacks::TriggerType triggerType;
+    u8 irqLevel = 0;
+};
 
 template<typename DIALOG_API>
 std::pair<std::vector<u32>, std::error_code>
@@ -71,21 +86,11 @@ read_stack_contents(DIALOG_API &mvlc, u16 startAddress)
     return { contents, {} };
 }
 
-struct StackInfo
-{
-    u8 id;
-    u32 triggers;
-    u32 offset;
-    u16 startAddress;
-    std::vector<u32> contents;
-};
-
 template<typename DIALOG_API>
 std::pair<StackInfo, std::error_code>
 read_stack_info(DIALOG_API &mvlc, u8 id)
 {
     StackInfo result = {};
-    result.id = id;
 
     if (id >= stacks::StackCount)
         return { result, make_error_code(MVLCErrorCode::StackCountExceeded) };
@@ -103,6 +108,108 @@ read_stack_info(DIALOG_API &mvlc, u8 id)
     result.contents = sc.first;
 
     return { result, sc.second };
+}
+
+template<typename DIALOG_API>
+std::error_code disable_all_triggers(DIALOG_API &mvlc)
+{
+    for (u8 stackId = 0; stackId < stacks::StackCount; stackId++)
+    {
+        u16 addr = stacks::get_trigger_register(stackId);
+
+        if (auto ec = mvlc.writeRegister(addr, stacks::NoTrigger))
+            return ec;
+    }
+
+    return {};
+}
+
+template<typename DIALOG_API>
+std::error_code reset_stack_offsets(DIALOG_API &mvlc)
+{
+    for (u8 stackId = 0; stackId < stacks::StackCount; stackId++)
+    {
+        u16 addr = stacks::get_offset_register(stackId);
+
+        if (auto ec = mvlc.writeRegister(addr, 0))
+            return ec;
+    }
+
+    return {};
+}
+
+// Builds, uploads and sets up the readout stack for each event in the vme
+// config.
+template<typename DIALOG_API>
+std::error_code setup_readout_stacks(
+    DIALOG_API &mvlc,
+    const std::vector<StackCommandBuilder> &readoutStacks)
+{
+    // Stack0 is reserved for immediate exec
+    u8 stackId = stacks::ImmediateStackID + 1;
+
+    // 1 word gap between immediate stack and first readout stack
+    u16 uploadWordOffset = stacks::ImmediateStackReservedWords + 1;
+
+    std::vector<u32> responseBuffer;
+
+    for (const auto &stackBuilder: readoutStacks)
+    {
+        if (stackId >= stacks::StackCount)
+            return make_error_code(MVLCErrorCode::StackCountExceeded);
+
+        auto stackBuffer = make_stack_buffer(stackBuilder);
+
+        u16 uploadAddress = uploadWordOffset * AddressIncrement;
+        u16 endAddress    = uploadAddress + stackBuffer.size() * AddressIncrement;
+
+        if (endAddress >= stacks::StackMemoryEnd)
+            return make_error_code(MVLCErrorCode::StackMemoryExceeded);
+
+        SuperCommandBuilder sb;
+        sb.addStackUpload(stackBuffer, DataPipe, uploadAddress);
+
+        auto uploadCommands = make_command_buffer(sb);
+
+        if (auto ec = mvlc.mirrorTransaction(uploadCommands, responseBuffer))
+            return ec;
+
+        u16 offsetRegister = stacks::get_offset_register(stackId);
+
+        if (auto ec = mvlc.writeRegister(offsetRegister, uploadAddress & stacks::StackOffsetBitMaskBytes))
+            return ec;
+
+        stackId++;
+        // again leave a 1 word gap between stacks
+        uploadWordOffset += stackBuffer.size() + 1;
+    }
+
+    return {};
+}
+
+template<typename DIALOG_API>
+std::error_code setup_stack_trigger(
+    DIALOG_API &mvlc, u8 stackId,
+    stacks::TriggerType triggerType, u8 irqLevel = 0)
+{
+    u16 triggerReg = stacks::get_trigger_register(stackId);
+    u32 triggerVal = triggerType << stacks::TriggerTypeShift;
+
+    if ((triggerType == stacks::TriggerType::IRQNoIACK
+         || triggerType == stacks::TriggerType::IRQWithIACK)
+        && irqLevel > 0)
+    {
+        triggerVal |= (irqLevel - 1) & stacks::TriggerBitsMask;
+    }
+
+    return mvlc.writeRegister(triggerReg, triggerVal);
+}
+
+template<typename DIALOG_API>
+std::error_code setup_stack_trigger(
+    DIALOG_API &mvlc, u8 stackId, const StackTrigger &st)
+{
+    return setup_stack_trigger(mvlc, stackId, st.triggerType, st.irqLevel);
 }
 
 } // end namespace mvlc

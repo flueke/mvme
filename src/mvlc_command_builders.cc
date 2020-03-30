@@ -114,6 +114,13 @@ SuperCommandBuilder &SuperCommandBuilder::addStackUpload(
     return addCommands(make_stack_upload_commands(stackOutputPipe, stackMemoryOffset, stackBuilder));
 }
 
+SuperCommandBuilder &SuperCommandBuilder::addStackUpload(
+    const std::vector<u32> &stackBuffer,
+    u8 stackOutputPipe, u16 stackMemoryOffset)
+{
+    return addCommands(make_stack_upload_commands(stackOutputPipe, stackMemoryOffset, stackBuffer));
+}
+
 std::vector<SuperCommand> SuperCommandBuilder::getCommands() const
 {
     return m_commands;
