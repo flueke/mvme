@@ -181,18 +181,18 @@ TEST(mvlc_commands, SuperVMERead)
 
     ASSERT_EQ(buffer[0], static_cast<u32>(SuperCT::CmdBufferStart) << super_commands::SuperCmdShift);
 
-    ASSERT_EQ(buffer[1], (static_cast<u32>(SuperCT::WriteLocal) << super_commands::SuperCmdShift) | stacks::StackMemoryBegin + AddressIncrement * 0);
+    ASSERT_EQ(buffer[1], (static_cast<u32>(SuperCT::WriteLocal) << super_commands::SuperCmdShift) | (stacks::StackMemoryBegin + AddressIncrement * 0));
     ASSERT_EQ(buffer[2], static_cast<u32>(StackCommandType::StackStart) << stack_commands::CmdShift);
 
-    ASSERT_EQ(buffer[3], (static_cast<u32>(SuperCT::WriteLocal) << super_commands::SuperCmdShift) | stacks::StackMemoryBegin + AddressIncrement * 1);
+    ASSERT_EQ(buffer[3], (static_cast<u32>(SuperCT::WriteLocal) << super_commands::SuperCmdShift) | (stacks::StackMemoryBegin + AddressIncrement * 1));
     ASSERT_EQ(buffer[4], ((static_cast<u32>(StackCT::VMERead) << stack_commands::CmdShift)
                           | (0x09u << stack_commands::CmdArg0Shift)
                           | (static_cast<u32>(VMEDataWidth::D16) << stack_commands::CmdArg1Shift)));
 
-    ASSERT_EQ(buffer[5], (static_cast<u32>(SuperCT::WriteLocal) << super_commands::SuperCmdShift) | stacks::StackMemoryBegin + AddressIncrement * 2);
+    ASSERT_EQ(buffer[5], (static_cast<u32>(SuperCT::WriteLocal) << super_commands::SuperCmdShift) | (stacks::StackMemoryBegin + AddressIncrement * 2));
     ASSERT_EQ(buffer[6], 0x1337);
 
-    ASSERT_EQ(buffer[7], (static_cast<u32>(SuperCT::WriteLocal) << super_commands::SuperCmdShift) | stacks::StackMemoryBegin + AddressIncrement * 3);
+    ASSERT_EQ(buffer[7], (static_cast<u32>(SuperCT::WriteLocal) << super_commands::SuperCmdShift) | (stacks::StackMemoryBegin + AddressIncrement * 3));
     ASSERT_EQ(buffer[8], static_cast<u32>(StackCommandType::StackEnd) << stack_commands::CmdShift);
 
     ASSERT_EQ(buffer[9], static_cast<u32>(SuperCT::CmdBufferEnd) << super_commands::SuperCmdShift);
