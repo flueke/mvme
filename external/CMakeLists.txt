@@ -47,3 +47,10 @@ target_include_directories(minizip
 if (MVLC_ENABLE_PYTHON)
     add_subdirectory(pybind11-2.4.3)
 endif(MVLC_ENABLE_PYTHON)
+
+option(YAML_CPP_BUILD_TESTS "Enable testing" OFF)
+option(YAML_CPP_BUILD_TOOLS "Enable parse tools" OFF)
+option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
+option(YAML_CPP_INSTALL "Enable generation of install target" OFF)
+option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
+add_subdirectory(yaml-cpp)
