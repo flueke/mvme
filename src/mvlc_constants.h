@@ -171,6 +171,9 @@ namespace system_event
     static const u8 ContinueShift = 23;
     static const u8 ContinueMask  = 0b1;
 
+    static const u8 CtrlIdShift   = 20;
+    static const u8 CtrlIdMask    = 0b111;
+
     static const u8 SubtypeShift  = 13;
     static const u8 SubtypeMask   = 0x7f;
 
