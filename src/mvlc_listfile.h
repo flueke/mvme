@@ -23,9 +23,10 @@ class FileInArchive
 
 // Magic bytes at the start of the listfile. The terminating zero is not
 // written to file, so the marker uses 8 bytes.
-size_t get_filemagic_len();
-const char *get_filemagic_eth();
-const char *get_filemagic_usb();
+constexpr size_t get_filemagic_len();
+constexpr const char *get_filemagic_eth();
+constexpr const char *get_filemagic_usb();
+constexpr const char *get_filemagic_multicrate();
 
 std::vector<u8> read_file_magic(FileInArchive &listfile);
 std::vector<u8> read_vme_config_data(FileInArchive &listfile);

@@ -7,22 +7,28 @@ namespace mvlc
 namespace listfile
 {
 
-size_t get_filemagic_len()
+constexpr size_t get_filemagic_len()
 {
-    static const size_t FileMagicLen = 8;
+    constexpr size_t FileMagicLen = 8;
     return FileMagicLen;
 }
 
-const char *get_filemagic_eth()
+constexpr const char *get_filemagic_eth()
 {
-    static const char *FileMagic_ETH = "MVLC_ETH";
+    constexpr const char *FileMagic_ETH = "MVLC_ETH";
     return FileMagic_ETH;
 }
 
-const char *get_filemagic_usb()
+constexpr const char *get_filemagic_usb()
 {
-    static const char *FileMagic_USB = "MVLC_USB";
+    constexpr const char *FileMagic_USB = "MVLC_USB";
     return FileMagic_USB;
+}
+
+constexpr const char *get_filemagic_multicrate()
+{
+    constexpr const char *FileMagic_Multicrate = "MVLC_MUL";
+    return FileMagic_Multicrate;
 }
 
 std::vector<u8> read_file_magic(FileInArchive &listfile)
