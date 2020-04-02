@@ -124,8 +124,8 @@ namespace frame_headers
     static const u8 StackNumShift       = 16;
     static const u8 StackNumMask        = 0xf;
 
-    static const u8 ControllerIdShift   = 13;
-    static const u8 ControllerIdMask    = 0b111;
+    static const u8 CtrlIdShift         = 13;
+    static const u8 CtrlIdMask          = 0b111;
 
     static const u16 LengthShift        = 0;
     static const u16 LengthMask         = 0x1fff;

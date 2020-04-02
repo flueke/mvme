@@ -51,7 +51,7 @@ inline FrameInfo extract_frame_info(u32 header)
     result.type  = (header >> TypeShift) & TypeMask;
     result.flags = (header >> FrameFlagsShift) & FrameFlagsMask;
     result.stack = (header >> StackNumShift) & StackNumMask;
-    result.ctrl  = (header >> ControllerIdShift) & ControllerIdMask;
+    result.ctrl  = (header >> CtrlIdShift) & CtrlIdMask;
 
     return result;
 }
