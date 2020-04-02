@@ -29,6 +29,7 @@ target_include_directories(mesytec-mvlc
 
 target_link_libraries(mesytec-mvlc
     PRIVATE ftd3xx
+    PRIVATE yaml-cpp
     )
 
 if (WIN32)
