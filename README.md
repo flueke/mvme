@@ -26,17 +26,29 @@
   If mvme would also store the library generated config the other way would
   also work. Do this!
 
-single create readout config:
-  list of stack triggers
-  list of readout stacks
+* single create readout config:
+  - list of stack triggers
+  - list of readout stacks
 
-single create readout instance:
-  readout config
-  readout buffer structure with crateId, number, type, capacity, used and view/read/write access
-  readout buffer queue plus operations (blocking, non-blocking)
-  listfile output (the readout config is serialized into the listfile at the start)
+* single create readout instance:
+  - readout config
+  - readout buffer structure with crateId, number, type, capacity, used and view/read/write access
+  - readout buffer queue plus operations (blocking, non-blocking)
+  - listfile output (the readout config is serialized into the listfile at the start)
 
-listfile writer
-  should be able to take buffers from multiple readout workers
-  takes copies of readout buffers and internally queues them up for writing
-  listfile output
+* listfile writer
+  - should be able to take buffers from multiple readout workers for multicrate setup
+  - takes copies of readout buffers and internally queues them up for writing
+  - listfile output
+  - write serialized verison of the readout setup (single or multicrate variants)
+
+* listfile reader
+  - open archive file
+  - open listfile in archive
+  - open and read other files from the archive, list files
+  - read sequences of specific section types to get MVLC and MVME
+    configs (and possibly custom sections) out
+  - deserialize config. this can then be used to construct a readout parser
+
+FIXME: open issues
+- how to detect and handle single vs multicrate setups?
