@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 
     auto do_write = [&mvlc] (u32 address, u16 value)
     {
-        if (auto ec = mvlc.vmeSingleWrite(address, value, vme_amods::A32, VMEDataWidth::D16))
+        if (auto ec = mvlc.vmeWrite(address, value, vme_amods::A32, VMEDataWidth::D16))
             throw ec;
     };
 

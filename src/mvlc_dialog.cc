@@ -26,7 +26,6 @@
 
 #include "mvlc_command_builders.h"
 #include "mvlc_error.h"
-//#include "mvlc/mvlc_script.h"
 #include "mvlc_util.h"
 //#include "util/debug_timer.h"
 
@@ -446,7 +445,7 @@ std::error_code MVLCDialog::stackTransaction(const std::vector<u32> &stack,
     return {};
 }
 
-std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, u8 amod,
+std::error_code MVLCDialog::vmeWrite(u32 address, u32 value, u8 amod,
                                            VMEDataWidth dataWidth)
 {
     SuperCommandBuilder cmdList;
@@ -457,7 +456,7 @@ std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, u8 amod,
 
     auto ec = stackTransaction(request, m_responseBuffer);
 
-    logBuffer(m_responseBuffer, "vmeSingleWrite response");
+    logBuffer(m_responseBuffer, "vmeWrite response");
 
     if (ec)
         return ec;
@@ -471,7 +470,7 @@ std::error_code MVLCDialog::vmeSingleWrite(u32 address, u32 value, u8 amod,
     return ec;
 }
 
-std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, u8 amod,
+std::error_code MVLCDialog::vmeRead(u32 address, u32 &value, u8 amod,
                                           VMEDataWidth dataWidth)
 {
     SuperCommandBuilder cmdList;
@@ -482,7 +481,7 @@ std::error_code MVLCDialog::vmeSingleRead(u32 address, u32 &value, u8 amod,
 
     auto ec = stackTransaction(request, m_responseBuffer);
 
-    logBuffer(m_responseBuffer, "vmeSingleRead response");
+    logBuffer(m_responseBuffer, "vmeRead response");
 
     if (ec)
         return ec;

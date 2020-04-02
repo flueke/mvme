@@ -84,10 +84,10 @@ class MESYTEC_MVLC_EXPORT MVLC: public MVLCBasicInterface
         std::error_code readRegister(u16 address, u32 &value);
         std::error_code writeRegister(u16 address, u32 value);
 
-        std::error_code vmeSingleRead(
+        std::error_code vmeRead(
             u32 address, u32 &value, u8 amod, VMEDataWidth dataWidth);
 
-        std::error_code vmeSingleWrite(
+        std::error_code vmeWrite(
             u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
 
         std::error_code vmeBlockRead(

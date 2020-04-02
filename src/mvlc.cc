@@ -158,18 +158,18 @@ std::error_code MVLC::writeRegister(u16 address, u32 value)
     return d->dialog.writeRegister(address, value);
 }
 
-std::error_code MVLC::vmeSingleRead(u32 address, u32 &value, u8 amod,
+std::error_code MVLC::vmeRead(u32 address, u32 &value, u8 amod,
                               VMEDataWidth dataWidth)
 {
     auto guard = d->locks.lockCmd();
-    return d->dialog.vmeSingleRead(address, value, amod, dataWidth);
+    return d->dialog.vmeRead(address, value, amod, dataWidth);
 }
 
-std::error_code MVLC::vmeSingleWrite(u32 address, u32 value, u8 amod,
+std::error_code MVLC::vmeWrite(u32 address, u32 value, u8 amod,
                                VMEDataWidth dataWidth)
 {
     auto guard = d->locks.lockCmd();
-    return d->dialog.vmeSingleWrite(address, value, amod, dataWidth);
+    return d->dialog.vmeWrite(address, value, amod, dataWidth);
 }
 
 std::error_code MVLC::vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,

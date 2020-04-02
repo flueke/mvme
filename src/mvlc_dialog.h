@@ -65,10 +65,10 @@ class MVLCDialog
         // Note: Stack0 is used for the VME commands and the stack is written
         // starting from offset 0 into stack memory.
 
-        std::error_code vmeSingleRead(u32 address, u32 &value, u8 amod,
+        std::error_code vmeRead(u32 address, u32 &value, u8 amod,
                                       VMEDataWidth dataWidth);
 
-        std::error_code vmeSingleWrite(u32 address, u32 value, u8 amod,
+        std::error_code vmeWrite(u32 address, u32 value, u8 amod,
                                        VMEDataWidth dataWidth);
 
         // Note: The data from the block read is currently returned as is
@@ -119,8 +119,8 @@ class MVLCDialog
         std::error_code readKnownBuffer(std::vector<u32> &dest);
 
         // Returns the response buffer used internally by readRegister(),
-        // readRegisterBlock(), writeRegister(), vmeSingleWrite() and
-        // vmeSingleRead().
+        // readRegisterBlock(), writeRegister(), vmeWrite() and
+        // vmeRead().
         // The buffer will contain the last data received from the MVLC.
         std::vector<u32> getResponseBuffer() const { return m_responseBuffer; }
 
