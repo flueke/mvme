@@ -13,6 +13,7 @@ add_library(mesytec-mvlc SHARED
     mvlc_impl_eth.cc
     mvlc_impl_support.cc
     mvlc_impl_usb.cc
+    mvlc_listfile.cc
     mvlc_readout_parser.cc
     mvlc_util.cc
     util/string_util.cc
