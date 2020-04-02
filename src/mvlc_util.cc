@@ -143,8 +143,11 @@ const char *get_system_event_subtype_name(u8 subtype_)
         case EndianMarker:
             return "EndianMarker";
 
-        case VMEConfig:
-            return "VMEConfig";
+        case MVMEConfig:
+            return "MVMEConfig";
+
+        case MVLCConfig:
+            return "MVLCConfig";
 
         case UnixTimestamp:
             return "UnixTimestamp";
