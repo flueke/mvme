@@ -1,11 +1,12 @@
 #ifndef __MESYTEC_MVLC_THREADSAFEQUEUE_H__
 #define __MESYTEC_MVLC_THREADSAFEQUEUE_H__
 
-#include <condition_variable>
 #include <chrono>
+#include <condition_variable>
 #include <deque>
 #include <memory>
-#include <mutex>
+
+#include "util/ticketmutex.h"
 
 namespace mesytec
 {
@@ -105,11 +106,12 @@ class ThreadSafeQueue
         }
 
     private:
-        std::deque<T, Allocator> m_queue;
-        mutable std::mutex m_mutex;
-        std::condition_variable m_cond;
+        using Mutex = TicketMutex;
+        using Lock = std::unique_lock<Mutex>;
 
-        using Lock = std::unique_lock<std::mutex>;
+        std::deque<T, Allocator> m_queue;
+        mutable Mutex m_mutex;
+        std::condition_variable_any m_cond;
 };
 
 } // end namespace mvlc
