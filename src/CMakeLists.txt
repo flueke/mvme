@@ -19,6 +19,8 @@ add_library(mesytec-mvlc SHARED
     util/string_util.cc
     util/threadsafequeue.cc
     util/ticketmutex.cc
+    util/readout_buffer.cc
+    util/readout_buffer_queues.cc
     )
 
 target_include_directories(mesytec-mvlc
