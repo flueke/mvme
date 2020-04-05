@@ -7,6 +7,8 @@
 #include <mz_zip.h>
 #include <mz_zip_rw.h>
 
+#include <sys/stat.h>
+
 #include "util/storage_sizes.h"
 
 namespace mesytec
@@ -21,6 +23,11 @@ ListfileZIPHandle::ListfileZIPHandle()
     mz_stream_os_create(&m_stream);
     mz_zip_reader_create(&m_reader);
     mz_zip_writer_create(&m_writer);
+
+    mz_zip_writer_set_compress_method(m_writer, MZ_COMPRESS_METHOD_DEFLATE);
+    mz_zip_writer_set_compress_level(m_writer, 1);
+    mz_zip_writer_set_follow_links(m_writer, true);
+
 }
 
 
@@ -46,7 +53,7 @@ std::ios_base::openmode ListfileZIPHandle::openMode() const
 
 bool ListfileZIPHandle::isOpen() const
 {
-    return (m_stream && (m_reader || m_writer));
+    return mz_stream_os_is_open(m_stream) == MZ_OK;
 }
 
 bool ListfileZIPHandle::atEnd() const
@@ -137,12 +144,11 @@ void ListfileZIPHandle::open(
 
         if (m_mode & std::ios_base::trunc)
             mzMode |= MZ_OPEN_MODE_CREATE;
+        else
+            mzMode |= MZ_OPEN_MODE_APPEND;
 
         if (auto err = mz_stream_os_open(m_stream, m_archiveName.c_str(), mzMode))
             throw std::runtime_error("mz_stream_os_open: " + std::to_string(err));
-
-        mz_zip_writer_set_compress_method(m_writer, MZ_COMPRESS_METHOD_DEFLATE);
-        mz_zip_writer_set_compress_level(m_writer, 1);
 
         if (auto err = mz_zip_writer_open(m_writer, m_stream))
             throw std::runtime_error("mz_zip_writer_open: " + std::to_string(err));
@@ -154,6 +160,7 @@ void ListfileZIPHandle::open(
         file_info.version_madeby = MZ_VERSION_MADEBY;
         file_info.compression_method = MZ_COMPRESS_METHOD_DEFLATE;
         file_info.zip64 = MZ_ZIP64_FORCE;
+        file_info.external_fa = (S_IFREG) | (0644u << 16);
 
         if (auto err = mz_zip_writer_entry_open(m_writer, &file_info))
             throw std::runtime_error("mz_zip_writer_entry_open: " + std::to_string(err));
