@@ -27,8 +27,9 @@
   also work. Do this!
 
 * single create readout config:
-  - list of stack triggers
-  - list of readout stacks
+  - list of stack triggers          <- required to setup the mvlc
+  - list of readout stacks          <- required for parsing the data stream
+  - additional: VME init sequence   <- for reference only to know what's going on
 
 * single create readout instance:
   - readout config

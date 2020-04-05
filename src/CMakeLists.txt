@@ -1,3 +1,5 @@
+find_package(Threads)
+
 configure_file("git_version.cc.in" "git_version.cc" @ONLY)
 
 add_library(mesytec-mvlc SHARED
@@ -14,6 +16,7 @@ add_library(mesytec-mvlc SHARED
     mvlc_impl_support.cc
     mvlc_impl_usb.cc
     mvlc_listfile.cc
+    mvlc_listfile_zip.cc
     mvlc_readout_parser.cc
     mvlc_util.cc
     util/string_util.cc
@@ -32,7 +35,9 @@ target_include_directories(mesytec-mvlc
 
 target_link_libraries(mesytec-mvlc
     PRIVATE ftd3xx
+    PRIVATE minizip
     PRIVATE yaml-cpp
+    PRIVATE Threads::Threads
     )
 
 if (WIN32)
@@ -67,5 +72,6 @@ if (MVLC_BUILD_TESTS)
     endfunction(add_gtest)
 
     add_gtest(test_mvlc_command_builders mvlc_command_builders.test.cc)
+    add_gtest(test_mvlc_listfile_zip mvlc_listfile_zip.test.cc)
     add_gtest(test_threadsafequeue util/threadsafequeue.test.cc)
 endif(MVLC_BUILD_TESTS)
