@@ -129,6 +129,16 @@ void listfile_write_endian_marker(WriteHandle &lf_out)
 
 void listfile_write_vme_config(WriteHandle &lf_out, const CrateConfig &config)
 {
+    auto yaml = to_yaml(config);
+
+    // Pad using spaces.
+    while (yaml.size() % sizeof(u32))
+        yaml += ' ';
+
+    listfile_write_system_event(
+            lf_out, system_event::subtype::MVLCConfig,
+            reinterpret_cast<const u32 *>(yaml.c_str()),
+            yaml.size() / sizeof(u32));
 }
 
 void listfile_write_system_event(
