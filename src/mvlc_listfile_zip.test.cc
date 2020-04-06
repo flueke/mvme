@@ -175,6 +175,7 @@ TEST(mvlc_listfile_zip, MinizipCreateWriteRead)
 
 }
 
+#if 0
 TEST(mvlc_listfile_zip, ListfileCreate)
 {
     const std::vector<u8> outData0 = { 0x12, 0x34, 0x56, 0x78 };
@@ -196,7 +197,9 @@ TEST(mvlc_listfile_zip, ListfileCreate)
         writeHandle.write(outData1.data(), outData1.size());
     }
 }
+#endif
 
+#if 0
 TEST(mvlc_listfile_zip, ListfileCreateLarge)
 {
     std::vector<u8> outData0(Megabytes(1));
@@ -226,6 +229,79 @@ TEST(mvlc_listfile_zip, ListfileCreateLarge)
 
     {
         ZipCreator creator;
+        creator.createArchive(archiveName);
+        auto &writeHandle = *creator.createEntry("outfile0.data");
+
+        do
+        {
+            size_t bytesWritten = writeHandle.write(outData0.data(), outData0.size());
+            totalBytes += bytesWritten;
+            ++writeCount;
+        } while (totalBytes < totalBytesToWrite);
+    }
+
+    auto tEnd = std::chrono::steady_clock::now();
+    auto elapsed = tEnd - tStart;
+    auto seconds = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() / 1000.0;
+    auto megaBytesPerSecond = (totalBytes / (1024 * 1024)) / seconds;
+
+    cout << "Wrote the listfile in " << writeCount << " iterations, totalBytes=" << totalBytes << endl;
+    cout << "Writing took " << std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() <<  " ms" << endl;
+    cout << "rate: " << megaBytesPerSecond << " MB/s" << endl;
+}
+#endif
+
+TEST(mvlc_listfile_zip, ListfileCreate2)
+{
+    const std::vector<u8> outData0 = { 0x12, 0x34, 0x56, 0x78 };
+    const std::vector<u8> outData1 = { 0xff, 0xfe, 0xfd, 0xdc };
+
+    std::string archiveName = "mvlc_listfile_zip.test.ListfileCreate2.zip";
+
+    ZipCreator2 creator;
+    creator.createArchive(archiveName);
+
+    {
+        auto &writeHandle = *creator.createEntry("outfile0.data");
+        writeHandle.write(outData0.data(), outData0.size());
+        writeHandle.write(outData0.data(), outData0.size());
+    }
+
+    {
+        auto &writeHandle = *creator.createEntry("outfile1.data");
+        writeHandle.write(outData1.data(), outData1.size());
+    }
+}
+
+TEST(mvlc_listfile_zip, ListfileCreateLarge2)
+{
+    std::vector<u8> outData0(Megabytes(1));
+
+#if 0
+    {
+        std::random_device rd;
+        std::default_random_engine engine(rd());
+        std::uniform_int_distribution<unsigned> dist(0u, 255u);
+        for (auto &c: outData0)
+            c = static_cast<u8>(dist(engine));
+    }
+#else
+    {
+        for (size_t i=0; i<outData0.size(); i++)
+            outData0[i] = i;
+    }
+#endif
+
+    std::string archiveName = "mvlc_listfile_zip.test.ListfileCreateLarge2.zip";
+
+    const size_t totalBytesToWrite = Gigabytes(4);
+    size_t totalBytes = 0u;
+    size_t writeCount = 0;
+
+    auto tStart = std::chrono::steady_clock::now();
+
+    {
+        ZipCreator2 creator;
         creator.createArchive(archiveName);
         auto &writeHandle = *creator.createEntry("outfile0.data");
 

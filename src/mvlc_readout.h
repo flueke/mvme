@@ -4,10 +4,11 @@
 #include <chrono>
 #include <system_error>
 
+#include "mesytec-mvlc_export.h"
+
 #include "mvlc.h"
 #include "mvlc_constants.h"
 #include "mvlc_dialog_util.h"
-#include "mesytec-mvlc_export.h"
 #include "util/readout_buffer.h"
 
 namespace mesytec
@@ -15,6 +16,7 @@ namespace mesytec
 namespace mvlc
 {
 
+#if 0
 enum class MESYTEC_MVLC_EXPORT ReadoutWorkerError
 {
     NoError,
@@ -55,6 +57,20 @@ class MESYTEC_MVLC_EXPORT ReadoutWorker
         struct Private;
         std::unique_ptr<Private> d;
 };
+#endif
+
+struct CrateConfig
+{
+    ConnectionType connectionType;
+    int usbIndex = -1;
+    std::string usbSerial;
+    std::string ethHost;
+    std::vector<StackCommandBuilder> stacks;
+    std::vector<u32> triggers;
+};
+
+std::string to_yaml(const CrateConfig &crateConfig);
+CrateConfig from_yaml(const std::string &yaml);
 
 } // end namespace mvlc
 } // end namespace mesytec

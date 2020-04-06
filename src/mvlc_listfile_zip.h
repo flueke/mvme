@@ -10,6 +10,7 @@ namespace mvlc
 namespace listfile
 {
 
+#if 0
 class ListfileZIPHandle: public ListfileHandle
 {
     public:
@@ -73,6 +74,39 @@ class ZipCreator
         void *m_bufStream = nullptr;
         void *m_writer = nullptr;
         ZipWriteHandle m_entryHandle;
+};
+#endif
+
+class ZipCreator2;
+
+class ZipWriteHandle2: public WriteHandle
+{
+    public:
+        ZipWriteHandle2(ZipCreator2 *creator)
+            : m_zipCreator(creator)
+        { }
+
+        size_t write(const u8 *data, size_t size);
+
+    private:
+        ZipCreator2 *m_zipCreator = nullptr;
+};
+
+class ZipCreator2
+{
+    public:
+        ZipCreator2();
+        ~ZipCreator2();
+        void createArchive(const std::string &zipFilename);
+
+        ZipWriteHandle2 *createEntry(const std::string &entryName);
+        ZipWriteHandle2 *currentEntry() { return &m_entryHandle; }
+        void closeCurrentEntry();
+        size_t writeCurrentEntry(const u8 *data, size_t size);
+
+    private:
+        void *m_zipFile = nullptr;
+        ZipWriteHandle2 m_entryHandle;
 };
 
 } // end namespace listfile

@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
             { base + 0x601e, 100 }, // irq fifo threshold in events
             { base + 0x6038, 0 }, // eoe marker
             { base + 0x6036, 0xb }, // multievent mode
-            { base + 0x601a, 10 }, // max transfer data
+            { base + 0x601a, 20 }, // max transfer data
             { base + 0x6020, 0x80 }, // enable mcst
             { base + 0x6024, mcstByte }, // mcst address
         };
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
     readBuffer.buffer.resize(Megabytes(1));
     auto mvlcUSB = reinterpret_cast<usb::Impl *>(mvlc.getImpl());
 
-    ZipCreator zipWriter;
+    ZipCreator2 zipWriter;
     zipWriter.createArchive("mini-daq.zip");
     auto lfh = zipWriter.createEntry("listfile.mvlclst");
 
@@ -172,8 +172,9 @@ int main(int argc, char *argv[])
 
         for (const auto &value: bufferView)
             printf("0x%08x\n", value);
-#else
+#elif 1
         lfh->write(readBuffer.buffer.data(), readBuffer.used);
+#elif 0
 #endif
 
         // TODO: follow usb buffer framing, store leftover data in tempBuffer,

@@ -22,7 +22,7 @@ target_include_directories(zip
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/libzip/lib>)
 
 # minizip options
-option(MZ_COMPAT "Enables compatibility layer" OFF)
+option(MZ_COMPAT "Enables compatibility layer" ON)
 option(MZ_ZLIB "Enables ZLIB compression" ON)
 option(MZ_BZIP2 "Enables BZIP2 compression" OFF)
 option(MZ_LZMA "Enables LZMA compression" OFF)
@@ -54,5 +54,5 @@ option(YAML_CPP_BUILD_TESTS "Enable testing" OFF)
 option(YAML_CPP_BUILD_TOOLS "Enable parse tools" OFF)
 option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
 option(YAML_CPP_INSTALL "Enable generation of install target" OFF)
-option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
+option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
 add_subdirectory(yaml-cpp)

@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include <mz.h>
+#include <mz_compat.h>
 #include <mz_os.h>
 #include <mz_strm.h>
 #include <mz_strm_buf.h>
@@ -11,6 +12,7 @@
 #include <mz_zip_rw.h>
 
 #include <sys/stat.h>
+#include <time.h>
 
 #include "util/storage_sizes.h"
 
@@ -21,6 +23,7 @@ namespace mvlc
 namespace listfile
 {
 
+#if 0
 ListfileZIPHandle::ListfileZIPHandle()
 {
     mz_stream_os_create(&m_stream);
@@ -261,6 +264,80 @@ size_t ZipCreator::writeCurrentEntry(const u8 *data, size_t size)
         throw std::runtime_error("mz_zip_writer_entry_write: " + std::to_string(bytesWritten));
 
     return static_cast<size_t>(bytesWritten);
+}
+#endif
+
+size_t ZipWriteHandle2::write(const u8 *data, size_t size)
+{
+    return m_zipCreator->writeCurrentEntry(data, size);
+}
+
+ZipCreator2::ZipCreator2()
+    : m_entryHandle(this)
+{
+}
+
+ZipCreator2::~ZipCreator2()
+{
+    try
+    {
+        closeCurrentEntry();
+
+        zipClose(m_zipFile, "");
+    }
+    catch (...)
+    {}
+}
+
+void ZipCreator2::createArchive(const std::string &archiveName)
+{
+    if (m_zipFile)
+        throw std::runtime_error("createArchive: archive is open");
+
+    m_zipFile = zipOpen64(archiveName.c_str(), APPEND_STATUS_CREATE);
+
+    //mz_zip_writer_set_compress_method(m_writer, MZ_COMPRESS_METHOD_DEFLATE);
+    //mz_zip_writer_set_compress_level(m_writer, 1);
+    //mz_zip_writer_set_follow_links(m_writer, true);
+}
+
+ZipWriteHandle2 *ZipCreator2::createEntry(const std::string &entryName)
+{
+    zip_fileinfo info = {};
+
+    time_t now = time(nullptr);
+    localtime_r(&now, &info.tmz_date);
+    info.external_fa = (S_IFREG) | (0644u << 16);
+
+    int res = zipOpenNewFileInZip_64(
+        m_zipFile,
+        entryName.c_str(),
+        &info,
+        nullptr, 0,
+        nullptr, 0,
+        "",
+        MZ_COMPRESS_METHOD_DEFLATE,
+        1,
+        true);
+
+    if (res)
+        throw std::runtime_error("zipOpenNewFileInZip_64: " + std::to_string(res));
+
+    return &m_entryHandle;
+}
+
+void ZipCreator2::closeCurrentEntry()
+{
+    if (auto err = zipCloseFileInZip64(m_zipFile))
+        throw std::runtime_error("zipCloseFileInZip64: " + std::to_string(err));
+}
+
+size_t ZipCreator2::writeCurrentEntry(const u8 *data, size_t size)
+{
+    if (auto err = zipWriteInFileInZip(m_zipFile, data, size))
+        throw std::runtime_error("zipWriteInFileInZip: " + std::to_string(err));
+
+    return size;
 }
 
 } // end namespace listfile
