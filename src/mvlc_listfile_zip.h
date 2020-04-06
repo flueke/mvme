@@ -3,6 +3,8 @@
 
 #include "mvlc_listfile.h"
 
+#include "mesytec-mvlc_export.h"
+
 namespace mesytec
 {
 namespace mvlc
@@ -79,7 +81,7 @@ class ZipCreator
 
 class ZipCreator2;
 
-class ZipWriteHandle2: public WriteHandle
+class MESYTEC_MVLC_EXPORT ZipWriteHandle2: public WriteHandle
 {
     public:
         ZipWriteHandle2(ZipCreator2 *creator)
@@ -92,7 +94,7 @@ class ZipWriteHandle2: public WriteHandle
         ZipCreator2 *m_zipCreator = nullptr;
 };
 
-class ZipCreator2
+class MESYTEC_MVLC_EXPORT ZipCreator2
 {
     public:
         ZipCreator2();

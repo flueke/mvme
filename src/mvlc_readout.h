@@ -59,7 +59,7 @@ class MESYTEC_MVLC_EXPORT ReadoutWorker
 };
 #endif
 
-struct CrateConfig
+struct MESYTEC_MVLC_EXPORT CrateConfig
 {
     ConnectionType connectionType;
     int usbIndex = -1;
@@ -69,8 +69,8 @@ struct CrateConfig
     std::vector<u32> triggers;
 };
 
-std::string to_yaml(const CrateConfig &crateConfig);
-CrateConfig from_yaml(const std::string &yaml);
+std::string MESYTEC_MVLC_EXPORT to_yaml(const CrateConfig &crateConfig);
+CrateConfig MESYTEC_MVLC_EXPORT from_yaml(const std::string &yaml);
 
 } // end namespace mvlc
 } // end namespace mesytec

@@ -48,7 +48,7 @@ std::vector<u8> read_vme_config(
 
 #endif
 
-class WriteHandle
+class MESYTEC_MVLC_EXPORT WriteHandle
 {
     public:
         virtual ~WriteHandle();
@@ -62,18 +62,18 @@ constexpr const char *get_filemagic_eth() { return "MVLC_ETH"; }
 constexpr const char *get_filemagic_usb() { return "MVLC_USB"; }
 //constexpr const char *get_filemagic_multicrate() { return "MVLC_MUL" }
 
-void listfile_write_preamble(WriteHandle &lf_out, const CrateConfig &config);
-void listfile_write_magic(WriteHandle &lf_out, ConnectionType ct);
-void listfile_write_endian_marker(WriteHandle &lf_out);
-void listfile_write_vme_config(WriteHandle &lf_out, const CrateConfig &config);
-void listfile_write_system_event(
+void MESYTEC_MVLC_EXPORT listfile_write_preamble(WriteHandle &lf_out, const CrateConfig &config);
+void MESYTEC_MVLC_EXPORT listfile_write_magic(WriteHandle &lf_out, ConnectionType ct);
+void MESYTEC_MVLC_EXPORT listfile_write_endian_marker(WriteHandle &lf_out);
+void MESYTEC_MVLC_EXPORT listfile_write_vme_config(WriteHandle &lf_out, const CrateConfig &config);
+void MESYTEC_MVLC_EXPORT listfile_write_system_event(
     WriteHandle &lf_out, u8 subtype,
     const u32 *buffp, size_t totalWords);
 
 // Writes an empty system section
-void listfile_write_system_event(WriteHandle &lf_out, u8 subtype);
+void MESYTEC_MVLC_EXPORT listfile_write_system_event(WriteHandle &lf_out, u8 subtype);
 
-void listfile_write_timestamp(WriteHandle &lf_out);
+void MESYTEC_MVLC_EXPORT listfile_write_timestamp(WriteHandle &lf_out);
 
 inline size_t listfile_write_raw(WriteHandle &lf_out, const u8 *buffer, size_t size)
 {
