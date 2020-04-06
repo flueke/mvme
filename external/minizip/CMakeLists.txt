@@ -66,7 +66,9 @@ set(MINIZIP_INC)
 
 # Check if zlib installation is present
 if(MZ_ZLIB AND NOT MZ_LIBCOMP)
-    find_package(ZLIB)
+    if (NOT ZLIB_REPOSITORY)
+        find_package(ZLIB)
+    endif()
     if(ZLIB_FOUND)
         message(STATUS "Using ZLIB ${ZLIB_VERSION_STRING}")
         list(APPEND MINIZIP_INC ${ZLIB_INCLUDE_DIRS})
@@ -113,6 +115,8 @@ if(MZ_ZLIB AND NOT MZ_LIBCOMP)
                 endif()
             endif()
         endforeach()
+
+        list(APPEND CMAKE_ARGS "-DZLIB_COMPAT:BOOL=ON")
 
         ExternalProject_Add(zlib
             PREFIX zlib
