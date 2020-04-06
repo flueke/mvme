@@ -1,8 +1,11 @@
 #include "mvlc_listfile_zip.h"
 
+#include <cassert>
+
 #include <mz.h>
 #include <mz_os.h>
 #include <mz_strm.h>
+#include <mz_strm_buf.h>
 #include <mz_strm_os.h>
 #include <mz_zip.h>
 #include <mz_zip_rw.h>
@@ -165,6 +168,99 @@ void ListfileZIPHandle::open(
         if (auto err = mz_zip_writer_entry_open(m_writer, &file_info))
             throw std::runtime_error("mz_zip_writer_entry_open: " + std::to_string(err));
     }
+}
+
+size_t ZipWriteHandle::write(const u8 *data, size_t size)
+{
+    return m_zipCreator->writeCurrentEntry(data, size);
+}
+
+ZipCreator::ZipCreator()
+    : m_entryHandle(this)
+{
+}
+
+ZipCreator::~ZipCreator()
+{
+    try
+    {
+        closeCurrentEntry();
+
+        mz_zip_writer_close(m_writer);
+        mz_stream_close(m_bufStream);
+
+        mz_zip_writer_delete(&m_writer);
+        mz_stream_delete(&m_bufStream);
+        mz_stream_delete(&m_osStream);
+    }
+    catch (...)
+    {}
+}
+
+void ZipCreator::createArchive(const std::string &archiveName)
+{
+    if (m_osStream || m_writer)
+        throw std::runtime_error("createArchive: archive is open");
+
+    mz_stream_os_create(&m_osStream);
+    mz_stream_buffered_create(&m_bufStream);
+
+    mz_stream_set_base(m_bufStream, m_osStream);
+
+    mz_zip_writer_create(&m_writer);
+
+    mz_zip_writer_set_compress_method(m_writer, MZ_COMPRESS_METHOD_DEFLATE);
+    mz_zip_writer_set_compress_level(m_writer, 1);
+    mz_zip_writer_set_follow_links(m_writer, true);
+
+    s32 mzMode = MZ_OPEN_MODE_WRITE | MZ_OPEN_MODE_CREATE;
+
+    if (auto err = mz_stream_open(m_bufStream, archiveName.c_str(), mzMode))
+        throw std::runtime_error("mz_stream_open: " + std::to_string(err));
+
+    //if (auto err = mz_stream_os_open(m_osStream, archiveName.c_str(), mzMode))
+    //    throw std::runtime_error("mz_stream_os_open: " + std::to_string(err));
+
+    //if (auto err = mz_stream_buffered_open(m_bufStream, nullptr, mzMode))
+    //    throw std::runtime_error("mz_stream_buffered_open: " + std::to_string(err));
+
+    if (auto err = mz_zip_writer_open(m_writer, m_bufStream))
+        throw std::runtime_error("mz_zip_writer_open: " + std::to_string(err));
+}
+
+ZipWriteHandle *ZipCreator::createEntry(const std::string &entryName)
+{
+    mz_zip_file file_info = {};
+    file_info.filename = entryName.c_str();
+    file_info.modified_date = time(nullptr);
+    file_info.version_madeby = MZ_VERSION_MADEBY;
+    file_info.compression_method = MZ_COMPRESS_METHOD_DEFLATE;
+    file_info.zip64 = MZ_ZIP64_FORCE;
+    file_info.external_fa = (S_IFREG) | (0644u << 16);
+
+    if (auto err = mz_zip_writer_entry_open(m_writer, &file_info))
+        throw std::runtime_error("mz_zip_writer_entry_open: " + std::to_string(err));
+
+    return &m_entryHandle;
+}
+
+void ZipCreator::closeCurrentEntry()
+{
+    if (auto err = mz_zip_writer_entry_close(m_writer))
+        throw std::runtime_error("mz_zip_writer_entry_close: " + std::to_string(err));
+}
+
+size_t ZipCreator::writeCurrentEntry(const u8 *data, size_t size)
+{
+    s32 bytesWritten = mz_zip_writer_entry_write(m_writer, data, size);
+
+    if (bytesWritten < 0)
+        throw std::runtime_error("mz_zip_writer_entry_write: " + std::to_string(bytesWritten));
+
+    if (static_cast<size_t>(bytesWritten) != size)
+        throw std::runtime_error("mz_zip_writer_entry_write: " + std::to_string(bytesWritten));
+
+    return static_cast<size_t>(bytesWritten);
 }
 
 } // end namespace listfile

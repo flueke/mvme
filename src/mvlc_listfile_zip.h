@@ -41,6 +41,40 @@ class ListfileZIPHandle: public ListfileHandle
         bool m_endOfStream = false;
 };
 
+class ZipCreator;
+
+class ZipWriteHandle: public WriteHandle
+{
+    public:
+        ZipWriteHandle(ZipCreator *creator)
+            : m_zipCreator(creator)
+        { }
+
+        size_t write(const u8 *data, size_t size);
+
+    private:
+        ZipCreator *m_zipCreator = nullptr;
+};
+
+class ZipCreator
+{
+    public:
+        ZipCreator();
+        ~ZipCreator();
+        void createArchive(const std::string &zipFilename);
+
+        ZipWriteHandle *createEntry(const std::string &entryName);
+        ZipWriteHandle *currentEntry() { return &m_entryHandle; }
+        void closeCurrentEntry();
+        size_t writeCurrentEntry(const u8 *data, size_t size);
+
+    private:
+        void *m_osStream = nullptr;
+        void *m_bufStream = nullptr;
+        void *m_writer = nullptr;
+        ZipWriteHandle m_entryHandle;
+};
+
 } // end namespace listfile
 } // end namespace mvlc
 } // end namespace mesytec

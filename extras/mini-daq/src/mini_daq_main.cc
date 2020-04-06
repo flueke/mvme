@@ -14,6 +14,7 @@ using std::cerr;
 using std::endl;
 
 using namespace mesytec::mvlc;
+using namespace mesytec::mvlc::listfile;
 using namespace nonstd;
 
 int main(int argc, char *argv[])
@@ -62,10 +63,10 @@ int main(int argc, char *argv[])
             { base + 0x6070, 7 }, // pulser
             { base + 0x6010, irq }, // irq
             { base + 0x601c, 0 },
-            { base + 0x601e, 1 }, // irq fifo threshold in events
+            { base + 0x601e, 100 }, // irq fifo threshold in events
             { base + 0x6038, 0 }, // eoe marker
             { base + 0x6036, 0xb }, // multievent mode
-            { base + 0x601a, 1 }, // max transfer data
+            { base + 0x601a, 10 }, // max transfer data
             { base + 0x6020, 0x80 }, // enable mcst
             { base + 0x6024, mcstByte }, // mcst address
         };
@@ -139,6 +140,10 @@ int main(int argc, char *argv[])
     readBuffer.buffer.resize(Megabytes(1));
     auto mvlcUSB = reinterpret_cast<usb::Impl *>(mvlc.getImpl());
 
+    ZipCreator zipWriter;
+    zipWriter.createArchive("mini-daq.zip");
+    auto lfh = zipWriter.createEntry("listfile.mvlclst");
+
     while (true)
     {
         auto elapsed = std::chrono::steady_clock::now() - tStart;
@@ -160,16 +165,16 @@ int main(int argc, char *argv[])
             break;
         }
 
+#if 0
         basic_string_view<u32> bufferView(
             reinterpret_cast<const u32 *>(readBuffer.buffer.data()),
             readBuffer.used / sizeof(u32));
 
         for (const auto &value: bufferView)
             printf("0x%08x\n", value);
-        //if (readBuffer.used >= sizeof(u32))
-        //{
-        //    printf("0x%08x\n", *reinterpret_cast<const u32 *>(readBuffer.buffer.data()));
-        //}
+#else
+        lfh->write(readBuffer.buffer.data(), readBuffer.used);
+#endif
 
         // TODO: follow usb buffer framing, store leftover data in tempBuffer,
         // pass buffers to consumers, track buffer numbers

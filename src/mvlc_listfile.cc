@@ -12,6 +12,9 @@ namespace listfile
 ListfileHandle::~ListfileHandle()
 { }
 
+WriteHandle::~WriteHandle()
+{ }
+
 constexpr size_t get_filemagic_len()
 {
     constexpr size_t FileMagicLen = 8;

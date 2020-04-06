@@ -16,10 +16,6 @@ namespace mvlc
 namespace listfile
 {
 
-class ListfileArchive
-{
-};
-
 // Note: write, read and seek should throw std::runtime_error on error.
 class ListfileHandle
 {
@@ -36,6 +32,13 @@ class ListfileHandle
 
         virtual void seek(size_t pos) = 0;
         virtual void close() = 0;
+};
+
+class WriteHandle
+{
+    public:
+        virtual ~WriteHandle();
+        virtual size_t write(const u8 *data, size_t size) = 0;
 };
 
 // Constant magic bytes at the start of the listfile. The terminating zero is

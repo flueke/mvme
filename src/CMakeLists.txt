@@ -73,5 +73,6 @@ if (MVLC_BUILD_TESTS)
 
     add_gtest(test_mvlc_command_builders mvlc_command_builders.test.cc)
     add_gtest(test_mvlc_listfile_zip mvlc_listfile_zip.test.cc)
+    target_link_libraries(test_mvlc_listfile_zip PUBLIC minizip)
     add_gtest(test_threadsafequeue util/threadsafequeue.test.cc)
 endif(MVLC_BUILD_TESTS)

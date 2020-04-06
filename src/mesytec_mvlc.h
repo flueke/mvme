@@ -33,6 +33,8 @@
 #include "mvlc_dialog_util.h"
 #include "mvlc_factory.h"
 #include "mvlc.h"
+#include "mvlc_listfile.h"
+#include "mvlc_listfile_zip.h"
 #include "mvlc_readout_parser.h"
 #include "vme_constants.h"
 
