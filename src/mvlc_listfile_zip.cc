@@ -306,7 +306,11 @@ ZipWriteHandle2 *ZipCreator2::createEntry(const std::string &entryName)
     zip_fileinfo info = {};
 
     time_t now = time(nullptr);
+#ifdef __WIN32
+    localtime_s(&info.tmz_date, &now);
+#else
     localtime_r(&now, &info.tmz_date);
+#endif
     info.external_fa = (S_IFREG) | (0644u << 16);
 
     int res = zipOpenNewFileInZip_64(
