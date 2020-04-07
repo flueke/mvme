@@ -130,6 +130,17 @@ std::vector<SuperCommand> SuperCommandBuilder::getCommands() const
 // StackCommandBuilder
 //
 
+StackCommandBuilder::StackCommandBuilder(const std::vector<StackCommand> &commands)
+{
+    for (const auto &cmd: commands)
+        addCommand(cmd);
+}
+
+bool StackCommandBuilder::operator==(const StackCommandBuilder &o) const
+{
+    return m_groups == o.m_groups;
+}
+
 StackCommandBuilder &StackCommandBuilder::addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth)
 {
     StackCommand cmd = {};
@@ -246,6 +257,17 @@ StackCommandBuilder::Group StackCommandBuilder::getGroup(const std::string &grou
         return *it;
 
     return {};
+}
+
+StackCommandBuilder &StackCommandBuilder::addGroup(
+    const std::string &name, const std::vector<StackCommand> &commands)
+{
+    beginGroup(name);
+
+    for (const auto &cmd: commands)
+        addCommand(cmd);
+
+    return *this;
 }
 
 //
@@ -445,10 +467,15 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
 
 StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer)
 {
+    return StackCommandBuilder(stack_commands_from_buffer(buffer));
+}
+
+std::vector<StackCommand> stack_commands_from_buffer(const std::vector<u32> &buffer)
+{
     using namespace stack_commands;
     using StackCT = StackCommandType;
 
-    StackCommandBuilder result;
+    std::vector<StackCommand> result;
 
     for (auto it = buffer.begin(); it != buffer.end(); ++it)
     {
@@ -518,7 +545,7 @@ StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer)
                 break;
         }
 
-        result.addCommand(cmd);
+        result.emplace_back(cmd);
     }
 
     return result;

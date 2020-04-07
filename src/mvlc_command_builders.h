@@ -106,7 +106,20 @@ class MESYTEC_MVLC_EXPORT StackCommandBuilder
         {
             std::string name;
             std::vector<StackCommand> commands;
+
+            bool operator==(const Group &o) const
+            {
+                return name == o.name
+                    && commands == o.commands;
+            }
+
+            bool operator!=(const Group &o) const { return !(*this == o); }
         };
+
+        explicit StackCommandBuilder(const std::vector<StackCommand> &commands = {});
+
+        bool operator==(const StackCommandBuilder &o) const;
+        bool operator!=(const StackCommandBuilder &o) const { return !(*this == o); }
 
         // These methods each add a single command to the currently open group.
         // If there exists no open group a new group with an empty name will be
@@ -136,6 +149,8 @@ class MESYTEC_MVLC_EXPORT StackCommandBuilder
         // Returns the group with the given groupName or a default constructed
         // group if the index is out of range.
         Group getGroup(const std::string &groupName) const;
+
+        StackCommandBuilder &addGroup(const std::string &name, const std::vector<StackCommand> &commands);
 
         // Returns a flattened list of the commands of all groups.
         std::vector<StackCommand> getCommands() const;
@@ -167,6 +182,7 @@ MESYTEC_MVLC_EXPORT std::vector<u32> make_stack_buffer(const StackCommandBuilder
 MESYTEC_MVLC_EXPORT std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack);
 
 MESYTEC_MVLC_EXPORT StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer);
+MESYTEC_MVLC_EXPORT std::vector<StackCommand> stack_commands_from_buffer(const std::vector<u32> &buffer);
 
 // Enclosed between StackStart and StackEnd, interleaved with WriteLocal
 // commands for uploading.
