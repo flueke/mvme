@@ -69,6 +69,27 @@ std::string to_string(ConnectionType ct)
 
     return {};
 }
+
+ConnectionType connection_type_from_string(const std::string &str)
+{
+    if (str == listfile::get_filemagic_usb())
+        return ConnectionType::USB;
+
+    if (str == listfile::get_filemagic_eth())
+        return ConnectionType::ETH;
+
+    return {};
+}
+} // end anon namespace
+
+bool CrateConfig::operator==(const CrateConfig &o) const
+{
+    return connectionType == o.connectionType
+        && usbIndex == o.usbIndex
+        && usbSerial == o.usbSerial
+        && ethHost == o.ethHost
+        && stacks == o.stacks
+        && triggers == o.triggers;
 }
 
 inline void emit_stack(YAML::Emitter &out, const StackCommandBuilder &stack)
@@ -120,7 +141,56 @@ std::string to_yaml(const CrateConfig &crateConfig)
     return out.c_str();
 }
 
-CrateConfig from_yaml(const std::string &yaml);
+CrateConfig crate_config_from_yaml(const std::string &yamlText)
+{
+    CrateConfig result = {};
+
+    YAML::Node yRoot = YAML::Load(yamlText);
+
+    if (!yRoot || !yRoot["crate"])
+        return result;
+
+    // crate
+    if (const auto &yCrate = yRoot["crate"])
+    {
+        if (const auto &yCon = yCrate["connection"])
+        {
+            result.connectionType = connection_type_from_string(yCon["type"].as<std::string>());
+            result.usbIndex = yCon["usbIndex"].as<int>();
+            result.usbSerial = yCon["usbSerial"].as<std::string>();
+            result.ethHost = yCon["ethHost"].as<std::string>();
+        }
+
+        // stacks
+        if (const auto &yStacks = yCrate["stacks"])
+        {
+            for (const auto &yStack: yStacks)
+            {
+                StackCommandBuilder stack;
+
+                for (const auto &yGroup: yStack)
+                {
+                    std::string groupName = yGroup["name"].as<std::string>();
+                    auto groupCommands = stack_commands_from_buffer(yGroup["contents"].as<std::vector<u32>>());
+                    stack.addGroup(groupName, groupCommands);
+                }
+
+                result.stacks.emplace_back(stack);
+            }
+        }
+
+        // triggers
+        if (const auto &yTriggers = yCrate["triggers"])
+        {
+            for (const auto &yTrig: yTriggers)
+                result.triggers.push_back(yTrig.as<u32>());
+        }
+    }
+
+
+
+    return result;
+}
 
 } // end namespace mvlc
 } // end namespace mesytec

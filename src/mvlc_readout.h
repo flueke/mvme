@@ -65,12 +65,16 @@ struct MESYTEC_MVLC_EXPORT CrateConfig
     int usbIndex = -1;
     std::string usbSerial;
     std::string ethHost;
+
     std::vector<StackCommandBuilder> stacks;
     std::vector<u32> triggers;
+
+    bool operator==(const CrateConfig &o) const;
+    bool operator!=(const CrateConfig &o) const { return !(*this == o); }
 };
 
 std::string MESYTEC_MVLC_EXPORT to_yaml(const CrateConfig &crateConfig);
-CrateConfig MESYTEC_MVLC_EXPORT from_yaml(const std::string &yaml);
+CrateConfig MESYTEC_MVLC_EXPORT crate_config_from_yaml(const std::string &yaml);
 
 } // end namespace mvlc
 } // end namespace mesytec
