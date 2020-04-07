@@ -626,7 +626,7 @@ HorizontalBusBar::HorizontalBusBar(const QString &labelText, QGraphicsItem *pare
     : QGraphicsItem(parent)
 {
     // the bar
-    m_bar = new QGraphicsRectItem(0, 0, 75, 10, this);
+    m_bar = new QGraphicsRectItem(0, 0, 90, 10, this);
     m_bar->setPen(Qt::NoPen);
 
     // right side arrow
@@ -1233,14 +1233,14 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     // l2 lut busbars
     {
         // l2.lut0
-        add_h_busbar(m_level2Items.luts[0]->getStrobeConnector(), QSL("L0.Util, L1.LUT3/4"));
+        add_h_busbar(m_level2Items.luts[0]->getStrobeConnector(), QSL("L0.Util, L1.LUT3/4, L2"));
         for (int i=0; i<3; i++)
-            add_h_busbar(m_level2Items.luts[0]->getInputConnector(i), QSL("L0, L1.LUT4.%1").arg(i));
+            add_h_busbar(m_level2Items.luts[0]->getInputConnector(i), QSL("L0.Util, L1.LUT4.%1").arg(i));
 
         // l2.lut1
-        add_h_busbar(m_level2Items.luts[1]->getStrobeConnector(), QSL("L0.Util, L1.LUT3/4"));
+        add_h_busbar(m_level2Items.luts[1]->getStrobeConnector(), QSL("L0.Util, L1.LUT3/4, L2"));
         for (int i=0; i<3; i++)
-            add_h_busbar(m_level2Items.luts[1]->getInputConnector(i), QSL("L0, L1.LUT3.%1").arg(i));
+            add_h_busbar(m_level2Items.luts[1]->getInputConnector(i), QSL("L0.Util, L1.LUT3.%1").arg(i));
     }
 
     // busbars to l3 utils
