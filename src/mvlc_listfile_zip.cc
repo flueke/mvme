@@ -344,6 +344,127 @@ size_t ZipCreator2::writeCurrentEntry(const u8 *data, size_t size)
     return size;
 }
 
+// ZipReadHandle
+
+size_t ZipReadHandle::read(u8 *dest, size_t maxSize)
+{
+    return m_zipReader->readCurrentEntry(dest, maxSize);
+}
+
+void ZipReadHandle::seek(size_t pos)
+{
+    std::string currentName = m_zipReader->currentEntryName();
+    m_zipReader->closeCurrentEntry();
+    m_zipReader->openEntry(currentName);
+
+    std::vector<u8> buffer(Megabytes(1));
+
+    while (pos > 0)
+    {
+        pos -= read(buffer.data(), std::min(buffer.size(), pos));
+    }
+}
+
+// ZipReader
+
+ZipReader::ZipReader()
+    : m_readHandle(this)
+{
+    mz_zip_reader_create(&m_reader);
+    mz_stream_os_create(&m_osStream);
+}
+
+ZipReader::~ZipReader()
+{
+    mz_stream_os_delete(&m_osStream);
+    mz_zip_reader_delete(&m_reader);
+}
+
+void ZipReader::openArchive(const std::string &archiveName)
+{
+    if (auto err = mz_stream_os_open(m_osStream, archiveName.c_str(), MZ_OPEN_MODE_READ))
+        throw std::runtime_error("mz_stream_os_open: " + std::to_string(err));
+
+    if (auto err = mz_zip_reader_open(m_reader, m_osStream))
+        throw std::runtime_error("mz_zip_reader_open: " + std::to_string(err));
+
+    if (auto err = mz_zip_reader_goto_first_entry(m_reader))
+    {
+        if (err != MZ_END_OF_LIST)
+            throw std::runtime_error("mz_zip_reader_goto_first_entry: " + std::to_string(err));
+    }
+
+    m_entryListCache = {};
+    s32 err = MZ_OK;
+
+    do
+    {
+        mz_zip_file *entryInfo = nullptr;
+        if ((err = mz_zip_reader_entry_get_info(m_reader, &entryInfo)))
+            throw std::runtime_error("mz_zip_reader_entry_get_info: " + std::to_string(err));
+
+        m_entryListCache.push_back(entryInfo->filename);
+    } while ((err = mz_zip_reader_goto_next_entry(m_reader)) == MZ_OK);
+
+    if (err != MZ_END_OF_LIST)
+        throw std::runtime_error("mz_zip_reader_goto_next_entry: " + std::to_string(err));
+}
+
+void ZipReader::closeArchive()
+{
+    if (auto err = mz_zip_reader_close(m_reader))
+        throw std::runtime_error("mz_zip_reader_close: " + std::to_string(err));
+
+    if (auto err = mz_stream_os_close(m_osStream))
+        throw std::runtime_error("mz_stream_os_close: " + std::to_string(err));
+
+    m_entryListCache = {};
+}
+
+std::vector<std::string> ZipReader::entryList()
+{
+    return m_entryListCache;
+}
+
+ZipReadHandle *ZipReader::openEntry(const std::string &name)
+{
+    if (auto err = mz_zip_reader_locate_entry(m_reader, name.c_str(), false))
+        throw std::runtime_error("mz_zip_reader_locate_entry: " + std::to_string(err));
+
+    if (auto err = mz_zip_reader_entry_open(m_reader))
+        throw std::runtime_error("mz_zip_reader_entry_open: " + std::to_string(err));
+
+    m_currentEntryName = name;
+
+    return &m_readHandle;
+}
+
+ZipReadHandle *ZipReader::currentEntry()
+{
+    return &m_readHandle;
+}
+
+void ZipReader::closeCurrentEntry()
+{
+    if (auto err = mz_zip_reader_entry_close(m_reader))
+        throw std::runtime_error("mz_zip_reader_entry_close: " + std::to_string(err));
+}
+
+size_t ZipReader::readCurrentEntry(u8 *dest, size_t maxSize)
+{
+    s32 res = mz_zip_reader_entry_read(m_reader, dest, maxSize);
+
+    if (res < 0)
+        throw std::runtime_error("mz_zip_reader_entry_read: " + std::to_string(res));
+
+    return static_cast<size_t>(res);
+}
+
+std::string ZipReader::currentEntryName() const
+{
+    return m_currentEntryName;
+}
+
 } // end namespace listfile
 } // end namespace mvlc
 } // end namespace mesytec

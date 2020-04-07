@@ -55,6 +55,14 @@ class MESYTEC_MVLC_EXPORT WriteHandle
         virtual size_t write(const u8 *data, size_t size) = 0;
 };
 
+class MESYTEC_MVLC_EXPORT ReadHandle
+{
+    public:
+        virtual ~ReadHandle();
+        virtual size_t read(u8 *dest, size_t maxSize) = 0;
+        virtual void seek(size_t pos) = 0;
+};
+
 // Constant magic bytes at the start of the listfile. The terminating zero is
 // not written to file, so the markers use 8 bytes.
 constexpr size_t get_filemagic_len() { return 8; }

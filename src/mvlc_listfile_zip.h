@@ -111,6 +111,46 @@ class MESYTEC_MVLC_EXPORT ZipCreator2
         ZipWriteHandle2 m_entryHandle;
 };
 
+class ZipReader;
+
+class MESYTEC_MVLC_EXPORT ZipReadHandle: public ReadHandle
+{
+    public:
+        ZipReadHandle(ZipReader *reader)
+            : m_zipReader(reader)
+        { }
+
+        size_t read(u8 *dest, size_t maxSize) override;
+        void seek(size_t pos) override;
+
+    private:
+        ZipReader *m_zipReader = nullptr;
+};
+
+class MESYTEC_MVLC_EXPORT ZipReader
+{
+    public:
+        ZipReader();
+        ~ZipReader();
+
+        void openArchive(const std::string &archiveName);
+        void closeArchive();
+        std::vector<std::string> entryList();
+
+        ZipReadHandle *openEntry(const std::string &name);
+        ZipReadHandle *currentEntry();
+        void closeCurrentEntry();
+        size_t readCurrentEntry(u8 *dest, size_t maxSize);
+        std::string currentEntryName() const;
+
+    private:
+        void *m_reader = nullptr;
+        void *m_osStream = nullptr;
+        std::vector<std::string> m_entryListCache;
+        ZipReadHandle m_readHandle;
+        std::string m_currentEntryName;
+};
+
 } // end namespace listfile
 } // end namespace mvlc
 } // end namespace mesytec

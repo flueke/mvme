@@ -187,8 +187,6 @@ CrateConfig crate_config_from_yaml(const std::string &yamlText)
         }
     }
 
-
-
     return result;
 }
 

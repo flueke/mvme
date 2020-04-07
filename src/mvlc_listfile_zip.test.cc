@@ -251,28 +251,76 @@ TEST(mvlc_listfile_zip, ListfileCreateLarge)
 }
 #endif
 
-TEST(mvlc_listfile_zip, ListfileCreate2)
+TEST(mvlc_listfile_zip, CreateWriteRead2)
 {
     const std::vector<u8> outData0 = { 0x12, 0x34, 0x56, 0x78 };
     const std::vector<u8> outData1 = { 0xff, 0xfe, 0xfd, 0xdc };
 
     std::string archiveName = "mvlc_listfile_zip.test.ListfileCreate2.zip";
 
-    ZipCreator2 creator;
-    creator.createArchive(archiveName);
-
     {
-        auto &writeHandle = *creator.createEntry("outfile0.data");
-        writeHandle.write(outData0.data(), outData0.size());
-        writeHandle.write(outData0.data(), outData0.size());
+        ZipCreator2 creator;
+        creator.createArchive(archiveName);
+
+        {
+            // Write outData0 two times
+            auto &writeHandle = *creator.createEntry("outfile0.data");
+            writeHandle.write(outData0.data(), outData0.size());
+            writeHandle.write(outData0.data(), outData0.size());
+        }
+
+        {
+            auto &writeHandle = *creator.createEntry("outfile1.data");
+            writeHandle.write(outData1.data(), outData1.size());
+        }
     }
 
     {
-        auto &writeHandle = *creator.createEntry("outfile1.data");
-        writeHandle.write(outData1.data(), outData1.size());
+        ZipReader reader;
+        reader.openArchive(archiveName);
+
+        auto entryList = reader.entryList();
+        std::vector<std::string> expectedEntries = { "outfile0.data", "outfile1.data" };
+
+        ASSERT_EQ(entryList, expectedEntries);
+
+        auto readHandle = reader.openEntry("outfile0.data");
+
+        {
+            // Read outData0 two times
+            std::vector<u8> inData0(outData0.size());
+            size_t bytesRead = readHandle->read(inData0.data(), inData0.size());
+
+            ASSERT_EQ(bytesRead, outData0.size());
+            ASSERT_EQ(inData0, outData0);
+
+            bytesRead = readHandle->read(inData0.data(), inData0.size());
+            ASSERT_EQ(bytesRead, outData0.size());
+            ASSERT_EQ(inData0, outData0);
+
+            // Third read should yield 0 bytes as we're at the end of the entry.
+            bytesRead = readHandle->read(inData0.data(), inData0.size());
+            ASSERT_EQ(bytesRead, 0);
+        }
+
+        {
+            // Restart reading from the beginning of the entry.
+            readHandle->seek(0);
+            std::vector<u8> inData0(outData0.size() * 2);
+            size_t bytesRead = readHandle->read(inData0.data(), inData0.size());
+
+            const std::vector<u8> outData0_2 = {
+                0x12, 0x34, 0x56, 0x78,
+                0x12, 0x34, 0x56, 0x78
+            };
+
+            ASSERT_EQ(bytesRead, outData0.size() * 2);
+            ASSERT_EQ(inData0, outData0);
+        }
     }
 }
 
+#if 0
 TEST(mvlc_listfile_zip, ListfileCreateLarge2)
 {
     std::vector<u8> outData0(Megabytes(1));
@@ -322,3 +370,4 @@ TEST(mvlc_listfile_zip, ListfileCreateLarge2)
     cout << "Writing took " << std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() <<  " ms" << endl;
     cout << "rate: " << megaBytesPerSecond << " MB/s" << endl;
 }
+#endif

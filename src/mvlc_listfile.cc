@@ -94,6 +94,9 @@ std::vector<u8> read_vme_config(ListfileHandle &listfile, u8 subType)
 WriteHandle::~WriteHandle()
 { }
 
+ReadHandle::~ReadHandle()
+{ }
+
 void listfile_write_preamble(WriteHandle &lf_out, const CrateConfig &config)
 {
     listfile_write_magic(lf_out, config.connectionType);
