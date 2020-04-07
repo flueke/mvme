@@ -1204,12 +1204,10 @@ void MVLCReadoutWorker::flushCurrentOutputBuffer()
 
         if (d->listfileOut.outdev)
         {
-            if (auto listfileWriterBuffer = dequeue(&d->listfileWriterContext.emptyBuffers))
-            {
-                // copy the data and queue it up for the writer thread
-                *listfileWriterBuffer = *outputBuffer;
-                enqueue_and_wakeOne(&d->listfileWriterContext.filledBuffers, listfileWriterBuffer);
-            }
+            auto listfileWriterBuffer = dequeue_blocking(&d->listfileWriterContext.emptyBuffers);
+            // copy the data and queue it up for the writer thread
+            *listfileWriterBuffer = *outputBuffer;
+            enqueue_and_wakeOne(&d->listfileWriterContext.filledBuffers, listfileWriterBuffer);
         }
 
         if (outputBuffer != &d->localEventBuffer)

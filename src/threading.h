@@ -79,6 +79,17 @@ T dequeue(ThreadSafeQueue<T> *tsq, unsigned  long wait_ms)
 }
 
 template<typename T>
+T dequeue_blocking(ThreadSafeQueue<T> *tsq)
+{
+    QMutexLocker lock(&tsq->mutex);
+
+    while (tsq->queue.isEmpty())
+        tsq->wc.wait(&tsq->mutex);
+
+    return tsq->queue.dequeue();
+}
+
+template<typename T>
 bool is_empty(ThreadSafeQueue<T> *tsq)
 {
     QMutexLocker lock(&tsq->mutex);
