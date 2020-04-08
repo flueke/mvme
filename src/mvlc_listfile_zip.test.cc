@@ -315,7 +315,7 @@ TEST(mvlc_listfile_zip, CreateWriteRead2)
             };
 
             ASSERT_EQ(bytesRead, outData0.size() * 2);
-            ASSERT_EQ(inData0, outData0);
+            ASSERT_EQ(inData0, outData0_2);
         }
     }
 }
