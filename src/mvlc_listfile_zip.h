@@ -79,7 +79,49 @@ class ZipCreator
 };
 #endif
 
-class ZipCreator3;
+class ZipEntryWriteHandle3;
+
+class MESYTEC_MVLC_EXPORT ZipCreator3
+{
+    public:
+        struct EntryInfo
+        {
+            enum Type { ZIP, LZ4 };
+            Type type = ZIP;
+            std::string name;
+            bool isOpen = false;
+            size_t bytesWritten = 0u;
+            size_t lz4CompressedBytesWritten = 0u;
+        };
+
+        ZipCreator3();
+        ~ZipCreator3();
+
+        void createArchive(const std::string &zipFilename);
+        void closeArchive();
+        bool isOpen() const;
+
+        ZipEntryWriteHandle3 *createZIPEntry(const std::string &entryName, int compressLevel);
+
+        ZipEntryWriteHandle3 *createZIPEntry(const std::string &entryName)
+        { return createZIPEntry(entryName, 1); }
+
+        ZipEntryWriteHandle3 *createLZ4Entry(const std::string &entryName, int compressLevel);
+
+        ZipEntryWriteHandle3 *createLZ4Entry(const std::string &entryName)
+        { return createLZ4Entry(entryName, 0); };
+
+        bool hasOpenEntry() const;
+        const EntryInfo &entryInfo() const;
+
+        size_t writeToCurrentEntry(const u8 *data, size_t size);
+
+        void closeCurrentEntry();
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
 
 class MESYTEC_MVLC_EXPORT ZipEntryWriteHandle3: public WriteHandle
 {
@@ -93,29 +135,6 @@ class MESYTEC_MVLC_EXPORT ZipEntryWriteHandle3: public WriteHandle
         ZipCreator3 *m_zipCreator = nullptr;
 };
 
-class MESYTEC_MVLC_EXPORT ZipCreator3
-{
-    public:
-        ZipCreator3();
-        ~ZipCreator3();
-
-        void createArchive(const std::string &zipFilename);
-        void closeArchive();
-        bool isOpen() const;
-
-        ZipEntryWriteHandle3 *createZIPEntry(const std::string &entryName, int compressLevel);
-        ZipEntryWriteHandle3 *createLZ4Entry(const std::string &entryName, int compressLevel);
-
-        bool hasOpenEntry() const;
-
-        size_t writeToCurrentEntry(const u8 *data, size_t size);
-
-        void closeCurrentEntry();
-
-    private:
-        struct Private;
-        std::unique_ptr<Private> d;
-};
 
 class ZipCreator2;
 
