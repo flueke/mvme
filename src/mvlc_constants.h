@@ -483,6 +483,15 @@ namespace stack_error_info
     static const unsigned StackNumberShift = 16u;
 }
 
+namespace listfile
+{
+    // Constant magic bytes at the start of the listfile. The terminating zero
+    // is not written to file, so the markers use 8 bytes.
+    constexpr size_t get_filemagic_len() { return 8; }
+    constexpr const char *get_filemagic_eth() { return "MVLC_ETH"; }
+    constexpr const char *get_filemagic_usb() { return "MVLC_USB"; }
+}
+
 } // end namespace mvlc
 } // end namespace mesytec
 

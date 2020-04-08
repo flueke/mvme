@@ -63,13 +63,6 @@ class MESYTEC_MVLC_EXPORT ReadHandle
         virtual void seek(size_t pos) = 0;
 };
 
-// Constant magic bytes at the start of the listfile. The terminating zero is
-// not written to file, so the markers use 8 bytes.
-constexpr size_t get_filemagic_len() { return 8; }
-constexpr const char *get_filemagic_eth() { return "MVLC_ETH"; }
-constexpr const char *get_filemagic_usb() { return "MVLC_USB"; }
-//constexpr const char *get_filemagic_multicrate() { return "MVLC_MUL" }
-
 void MESYTEC_MVLC_EXPORT listfile_write_preamble(WriteHandle &lf_out, const CrateConfig &config);
 void MESYTEC_MVLC_EXPORT listfile_write_magic(WriteHandle &lf_out, ConnectionType ct);
 void MESYTEC_MVLC_EXPORT listfile_write_endian_marker(WriteHandle &lf_out);

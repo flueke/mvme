@@ -3,7 +3,6 @@
 #include <atomic>
 #include <yaml-cpp/yaml.h>
 
-#include "mvlc_listfile.h"
 #include "yaml-cpp/emittermanip.h"
 
 namespace mesytec
@@ -133,6 +132,8 @@ std::string to_yaml(const CrateConfig &crateConfig)
     out << YAML::EndSeq; // stacks
 
     out << YAML::Key << "triggers" << YAML::Value << crateConfig.triggers;
+
+    // TODO: optional init sequence
 
     out << YAML::EndMap; // crate
 
