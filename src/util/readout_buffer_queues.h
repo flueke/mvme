@@ -1,6 +1,7 @@
 #ifndef __MESYTEC_MVLC_UTIL_READOUT_BUFFER_QUEUES_H__
 #define __MESYTEC_MVLC_UTIL_READOUT_BUFFER_QUEUES_H__
 
+#include "mesytec-mvlc_export.h"
 #include "util/readout_buffer.h"
 #include "util/threadsafequeue.h"
 
@@ -9,7 +10,7 @@ namespace mesytec
 namespace mvlc
 {
 
-class ReadoutBufferQueues
+class MESYTEC_MVLC_EXPORT ReadoutBufferQueues
 {
     public:
         using QueueType = ThreadSafeQueue<ReadoutBuffer *>;

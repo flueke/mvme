@@ -3,7 +3,9 @@
 #include <limits>
 #include <thread>
 #include <vector>
+#ifndef __WIN32
 #include <sys/prctl.h>
+#endif
 
 #include <mesytec_mvlc.h>
 #include <mvlc_impl_usb.h>
@@ -21,7 +23,9 @@ using namespace nonstd;
 
 void listfile_writer(listfile::WriteHandle *lfh, ReadoutBufferQueues &bufferQueues)
 {
+#ifndef __WIN32
     prctl(PR_SET_NAME,"listfile_writer",0,0,0);
+#endif
     auto &filled = bufferQueues.filledBufferQueue();
     auto &empty = bufferQueues.emptyBufferQueue();
 
