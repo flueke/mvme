@@ -140,9 +140,9 @@ int main(int argc, char *argv[])
     readBuffer.buffer.resize(Megabytes(1));
     auto mvlcUSB = reinterpret_cast<usb::Impl *>(mvlc.getImpl());
 
-    ZipCreator2 zipWriter;
+    ZipCreator zipWriter;
     zipWriter.createArchive("mini-daq.zip");
-    auto lfh = zipWriter.createEntry("listfile.mvlclst");
+    auto lfh = zipWriter.createLZ4Entry("listfile.mvlclst");
 
     while (true)
     {
