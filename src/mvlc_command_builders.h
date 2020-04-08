@@ -116,7 +116,8 @@ class MESYTEC_MVLC_EXPORT StackCommandBuilder
             bool operator!=(const Group &o) const { return !(*this == o); }
         };
 
-        explicit StackCommandBuilder(const std::vector<StackCommand> &commands = {});
+        StackCommandBuilder() {}
+        explicit StackCommandBuilder(const std::vector<StackCommand> &commands);
 
         bool operator==(const StackCommandBuilder &o) const;
         bool operator!=(const StackCommandBuilder &o) const { return !(*this == o); }
