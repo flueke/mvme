@@ -353,7 +353,7 @@ std::error_code MVLCDialog::mirrorTransaction(const std::vector<u32> &cmdBuffer,
         // read the mirror response
         if (auto ec = readResponse(is_super_buffer, dest))
         {
-            LOG_WARN("read error: %s (attempt %u of %u",
+            LOG_WARN("read error: %s (attempt %u of %u)",
                      ec.message().c_str(),
                      tries+1, MirrorMaxRetries);
 
