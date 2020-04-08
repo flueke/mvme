@@ -3,10 +3,12 @@
 #include <limits>
 #include <thread>
 #include <vector>
+#include <sys/prctl.h>
 
 #include <mesytec_mvlc.h>
-#include <util/storage_sizes.h>
 #include <mvlc_impl_usb.h>
+#include <util/readout_buffer_queues.h>
+#include <util/storage_sizes.h>
 #include <util/string_view.hpp>
 
 using std::cout;
@@ -16,6 +18,35 @@ using std::endl;
 using namespace mesytec::mvlc;
 using namespace mesytec::mvlc::listfile;
 using namespace nonstd;
+
+void listfile_writer(listfile::WriteHandle *lfh, ReadoutBufferQueues &bufferQueues)
+{
+    prctl(PR_SET_NAME,"listfile_writer",0,0,0);
+    auto &filled = bufferQueues.filledBufferQueue();
+    auto &empty = bufferQueues.emptyBufferQueue();
+
+    cout << "listfile_writer entering loop" << endl;
+    size_t bytesWritten = 0u;
+    size_t writes = 0u;
+
+    while (true)
+    {
+        auto buffer = filled.dequeue_blocking();
+
+        if (buffer->empty()) // sentinel
+        {
+            empty.enqueue(buffer);
+            break;
+        }
+
+        auto bufferView = buffer->viewU8();
+        bytesWritten += lfh->write(bufferView.data(), bufferView.size());
+        ++writes;
+        empty.enqueue(buffer);
+    }
+
+    cout << "listfile_writer left loop, writes=" << writes << ", bytesWritten=" << bytesWritten << endl;
+}
 
 int main(int argc, char *argv[])
 {
@@ -66,7 +97,7 @@ int main(int argc, char *argv[])
             { base + 0x601e, 100 }, // irq fifo threshold in events
             { base + 0x6038, 0 }, // eoe marker
             { base + 0x6036, 0xb }, // multievent mode
-            { base + 0x601a, 20 }, // max transfer data
+            { base + 0x601a, 60 }, // max transfer data
             { base + 0x6020, 0x80 }, // enable mcst
             { base + 0x6024, mcstByte }, // mcst address
         };
@@ -134,15 +165,24 @@ int main(int argc, char *argv[])
     };
 
     size_t totalBytesTransferred = 0u;
-    auto timeToRun = std::chrono::seconds(10);
+    auto timeToRun = std::chrono::seconds(60);
     auto tStart = std::chrono::steady_clock::now();
-    Buffer readBuffer, tempBuffer;
-    readBuffer.buffer.resize(Megabytes(1));
+    //Buffer readBuffer, tempBuffer;
+    //readBuffer.buffer.resize(Megabytes(1));
     auto mvlcUSB = reinterpret_cast<usb::Impl *>(mvlc.getImpl());
 
     ZipCreator zipWriter;
     zipWriter.createArchive("mini-daq.zip");
-    auto lfh = zipWriter.createLZ4Entry("listfile.mvlclst");
+    auto lfh = zipWriter.createLZ4Entry("listfile.mvlclst", 0);
+    //auto lfh = zipWriter.createZIPEntry("listfile.mvlclst", 0);
+
+    const size_t BufferSize = Megabytes(1);
+    const size_t BufferCount = 10;
+    ReadoutBufferQueues bufferQueues(BufferSize, 10);
+    auto &filled = bufferQueues.filledBufferQueue();
+    auto &empty = bufferQueues.emptyBufferQueue();
+
+    auto writerThread = std::thread(listfile_writer, lfh, std::ref(bufferQueues));
 
     while (true)
     {
@@ -151,13 +191,18 @@ int main(int argc, char *argv[])
         if (elapsed >= timeToRun)
             break;
 
+        auto readBuffer = empty.dequeue_blocking();
+        readBuffer->clear();
+
         size_t bytesTransferred = 0u;
         auto dataGuard = mvlc.getLocks().lockData();
         auto ec = mvlcUSB->read_unbuffered(
-            Pipe::Data, readBuffer.buffer.data(), readBuffer.buffer.size(), bytesTransferred);
+            Pipe::Data, readBuffer->data(), readBuffer->capacity(), bytesTransferred);
         dataGuard.unlock();
-        readBuffer.used = bytesTransferred;
+        readBuffer->use(bytesTransferred);
         totalBytesTransferred += bytesTransferred;
+
+        filled.enqueue(readBuffer);
 
         if (ec == ErrorType::ConnectionError)
         {
@@ -172,7 +217,7 @@ int main(int argc, char *argv[])
 
         for (const auto &value: bufferView)
             printf("0x%08x\n", value);
-#elif 1
+#elif 0
         lfh->write(readBuffer.buffer.data(), readBuffer.used);
 #elif 0
 #endif
@@ -180,6 +225,14 @@ int main(int argc, char *argv[])
         // TODO: follow usb buffer framing, store leftover data in tempBuffer,
         // pass buffers to consumers, track buffer numbers
     }
+
+    {
+        auto sentinel = empty.dequeue_blocking();
+        sentinel->clear();
+        filled.enqueue(sentinel);
+    }
+
+    writerThread.join();
 
     auto tEnd = std::chrono::steady_clock::now();
     auto runDuration = std::chrono::duration_cast<std::chrono::milliseconds>(tEnd - tStart);

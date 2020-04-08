@@ -39,7 +39,7 @@ target_link_libraries(mesytec-mvlc
     PRIVATE lz4_static
     PRIVATE minizip
     PRIVATE yaml-cpp
-    PRIVATE Threads::Threads
+    PUBLIC Threads::Threads
     )
 
 if (WIN32)

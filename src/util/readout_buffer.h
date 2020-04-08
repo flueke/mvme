@@ -31,6 +31,8 @@ class MESYTEC_MVLC_EXPORT ReadoutBuffer
         size_t used() const { return m_used; }
         size_t free() const { return capacity() - m_used; }
 
+        bool empty() const { return used() == 0; }
+
         void ensureFreeSpace(size_t freeSpace)
         {
             if (free() < freeSpace)
@@ -48,6 +50,9 @@ class MESYTEC_MVLC_EXPORT ReadoutBuffer
 
         const std::vector<u8> &buffer() const { return m_buffer; }
         std::vector<u8> &buffer() { return m_buffer; }
+
+        const u8 *data() const { return buffer().data(); }
+        u8 *data() { return buffer().data(); }
 
         basic_string_view<const u8> viewU8() const
         {
