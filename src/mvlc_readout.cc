@@ -88,10 +88,15 @@ bool CrateConfig::operator==(const CrateConfig &o) const
         && usbSerial == o.usbSerial
         && ethHost == o.ethHost
         && stacks == o.stacks
-        && triggers == o.triggers;
+        && triggers == o.triggers
+        && initCommands == o.initCommands
+        ;
 }
 
-inline void emit_stack(YAML::Emitter &out, const StackCommandBuilder &stack)
+namespace
+{
+
+YAML::Emitter &operator<<(YAML::Emitter &out, const StackCommandBuilder &stack)
 {
     out << YAML::BeginSeq;
 
@@ -104,7 +109,25 @@ inline void emit_stack(YAML::Emitter &out, const StackCommandBuilder &stack)
     }
 
     out << YAML::EndSeq;
+
+    return out;
 }
+
+StackCommandBuilder stack_command_builder_from_yaml(const YAML::Node &yStack)
+{
+    StackCommandBuilder stack;
+
+    for (const auto &yGroup: yStack)
+    {
+        std::string groupName = yGroup["name"].as<std::string>();
+        auto groupCommands = stack_commands_from_buffer(yGroup["contents"].as<std::vector<u32>>());
+        stack.addGroup(groupName, groupCommands);
+    }
+
+    return stack;
+}
+
+} // end anon namespace
 
 std::string to_yaml(const CrateConfig &crateConfig)
 {
@@ -125,15 +148,14 @@ std::string to_yaml(const CrateConfig &crateConfig)
     out << YAML::EndMap; // connection
 
     out << YAML::Key << "stacks" << YAML::Value << YAML::BeginSeq;
+
     for (const auto &stack: crateConfig.stacks)
-    {
-        emit_stack(out, stack);
-    }
+        out << stack;
+
     out << YAML::EndSeq; // stacks
 
     out << YAML::Key << "triggers" << YAML::Value << crateConfig.triggers;
-
-    // TODO: optional init sequence
+    out << YAML::Key << "init" << YAML::Value << crateConfig.initCommands;
 
     out << YAML::EndMap; // crate
 
@@ -166,18 +188,7 @@ CrateConfig crate_config_from_yaml(const std::string &yamlText)
         if (const auto &yStacks = yCrate["stacks"])
         {
             for (const auto &yStack: yStacks)
-            {
-                StackCommandBuilder stack;
-
-                for (const auto &yGroup: yStack)
-                {
-                    std::string groupName = yGroup["name"].as<std::string>();
-                    auto groupCommands = stack_commands_from_buffer(yGroup["contents"].as<std::vector<u32>>());
-                    stack.addGroup(groupName, groupCommands);
-                }
-
-                result.stacks.emplace_back(stack);
-            }
+                result.stacks.emplace_back(stack_command_builder_from_yaml(yStack));
         }
 
         // triggers
@@ -186,6 +197,8 @@ CrateConfig crate_config_from_yaml(const std::string &yamlText)
             for (const auto &yTrig: yTriggers)
                 result.triggers.push_back(yTrig.as<u32>());
         }
+
+        result.initCommands = stack_command_builder_from_yaml(yCrate["init"]);
     }
 
     return result;
