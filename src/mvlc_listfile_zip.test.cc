@@ -280,7 +280,7 @@ TEST(mvlc_listfile_zip, ListfileCreateLarge3)
         do
         {
             auto raw = reinterpret_cast<const u8 *>(outData0.data());
-            auto bytes = outData0.size() / sizeof(outData0.at(0));
+            auto bytes = outData0.size() * sizeof(outData0.at(0));
             size_t bytesWritten = writeHandle.write(raw, bytes);
             totalBytes += bytesWritten;
             ++writeCount;
