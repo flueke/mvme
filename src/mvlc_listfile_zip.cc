@@ -2,6 +2,8 @@
 
 #include <cassert>
 
+#include <lz4frame.h>
+
 #include <mz.h>
 #include <mz_compat.h>
 #include <mz_os.h>
@@ -15,6 +17,10 @@
 #include <time.h>
 
 #include "util/storage_sizes.h"
+
+namespace
+{
+};
 
 namespace mesytec
 {
@@ -266,6 +272,301 @@ size_t ZipCreator::writeCurrentEntry(const u8 *data, size_t size)
     return static_cast<size_t>(bytesWritten);
 }
 #endif
+
+namespace
+{
+
+}
+
+ZipEntryWriteHandle3::ZipEntryWriteHandle3(ZipCreator3 *creator)
+    : m_zipCreator(creator)
+{ }
+
+ZipEntryWriteHandle3::~ZipEntryWriteHandle3()
+{ }
+
+size_t ZipEntryWriteHandle3::write(const u8 *data, size_t size)
+{
+    return m_zipCreator->writeToCurrentEntry(data, size);
+}
+
+struct ZipCreator3::Private
+{
+    struct EntryInfo
+    {
+        enum Type { ZIP, LZ4 };
+        Type type = ZIP;
+        std::string name;
+        bool isOpen = false;
+        size_t bytesWritten = 0u;
+        size_t lz4CompressedBytesWritten = 0u;
+    };
+
+    struct LZ4Context
+    {
+        struct CompressResult
+        {
+            int error;
+            unsigned long long size_in;
+            unsigned long long size_out;
+        };
+
+        static constexpr size_t ChunkSize = Megabytes(1);
+
+        LZ4F_preferences_t lz4Prefs =
+        {
+            { LZ4F_max1MB, LZ4F_blockLinked, LZ4F_contentChecksumEnabled, LZ4F_frame,
+              0 /* unknown content size */, 0 /* no dictID */ , LZ4F_noBlockChecksum },
+            0,   /* compression level; 0 == default */
+            0,   /* autoflush */
+            0,   /* favor decompression speed */
+            { 0, 0, 0 },  /* reserved, must be set to 0 */
+        };
+
+        LZ4F_compressionContext_t ctx = {};
+        std::vector<u8> buffer;
+
+        void begin(int compressLevel)
+        {
+            if (auto err = LZ4F_createCompressionContext(&ctx, LZ4F_VERSION))
+                throw std::runtime_error("LZ4F_createCompressionContext: " + std::to_string(err));
+
+            lz4Prefs.compressionLevel = compressLevel;
+            size_t bufferSize = LZ4F_compressBound(ChunkSize, &lz4Prefs);
+            buffer = std::vector<u8>(bufferSize);
+        }
+
+        void end()
+        {
+            LZ4F_freeCompressionContext(ctx);   /* supports free on NULL */
+        }
+    };
+
+    explicit Private(ZipCreator3 *q_)
+        : entryWriteHandle(q_)
+    {
+        mz_stream_os_create(&mz_osStream);
+        mz_stream_buffered_create(&mz_bufStream);
+        mz_stream_set_base(mz_bufStream, mz_osStream);
+
+        mz_zip_writer_create(&mz_zipWriter);
+        mz_zip_writer_set_follow_links(mz_zipWriter, true);
+    }
+
+    ~Private()
+    {
+        mz_zip_writer_delete(&mz_zipWriter);
+        mz_stream_delete(&mz_bufStream);
+        mz_stream_delete(&mz_osStream);
+
+        mz_zipWriter = nullptr;
+        mz_bufStream = nullptr;
+        mz_osStream = nullptr;
+    }
+
+    size_t writeToCurrentZIPEntry(const u8 *data, size_t size)
+    {
+        s32 bytesWritten = mz_zip_writer_entry_write(mz_zipWriter, data, size);
+
+        if (bytesWritten < 0)
+            throw std::runtime_error("mz_zip_writer_entry_write: " + std::to_string(bytesWritten));
+
+        assert(static_cast<size_t>(bytesWritten) == size);
+
+        return static_cast<size_t>(bytesWritten);
+    }
+
+    void *mz_zipWriter = nullptr;
+    void *mz_bufStream = nullptr;
+    void *mz_osStream = nullptr;
+
+    EntryInfo entryInfo;
+
+    LZ4Context lz4Ctx;
+
+    ZipEntryWriteHandle3 entryWriteHandle;
+};
+
+ZipCreator3::ZipCreator3()
+    : d(std::make_unique<Private>(this))
+{}
+
+ZipCreator3::~ZipCreator3()
+{ }
+
+void ZipCreator3::createArchive(const std::string &zipFilename)
+{
+    s32 mzMode = MZ_OPEN_MODE_WRITE | MZ_OPEN_MODE_CREATE;
+
+    if (auto err = mz_stream_open(d->mz_bufStream, zipFilename.c_str(), mzMode))
+        throw std::runtime_error("mz_stream_open: " + std::to_string(err));
+
+    if (auto err = mz_zip_writer_open(d->mz_zipWriter, d->mz_bufStream))
+        throw std::runtime_error("mz_zip_writer_open: " + std::to_string(err));
+}
+
+void ZipCreator3::closeArchive()
+{
+    if (auto err = mz_zip_writer_close(d->mz_zipWriter))
+        throw std::runtime_error("mz_zip_writer_close: " + std::to_string(err));
+
+    if (auto err = mz_stream_close(d->mz_bufStream))
+        throw std::runtime_error("mz_stream_close: " + std::to_string(err));
+}
+
+bool ZipCreator3::isOpen() const
+{
+    return mz_stream_is_open(d->mz_bufStream) == MZ_OK;
+}
+
+ZipEntryWriteHandle3 *ZipCreator3::createZIPEntry(const std::string &entryName, int compressLevel)
+{
+    if (hasOpenEntry())
+        throw std::runtime_error("ZipCreator has open archive entry");
+
+    mz_zip_file file_info = {};
+    file_info.filename = entryName.c_str();
+    file_info.modified_date = time(nullptr);
+    file_info.version_madeby = MZ_VERSION_MADEBY;
+    file_info.compression_method = MZ_COMPRESS_METHOD_DEFLATE;
+    file_info.zip64 = MZ_ZIP64_FORCE;
+    file_info.external_fa = (S_IFREG) | (0644u << 16);
+
+    mz_zip_writer_set_compress_method(d->mz_zipWriter, MZ_COMPRESS_METHOD_DEFLATE);
+    mz_zip_writer_set_compress_level(d->mz_zipWriter, compressLevel);
+
+    if (auto err = mz_zip_writer_entry_open(d->mz_zipWriter, &file_info))
+        throw std::runtime_error("mz_zip_writer_entry_open: " + std::to_string(err));
+
+    d->entryInfo = {};
+    d->entryInfo.type = Private::EntryInfo::ZIP;
+    d->entryInfo.name = entryName;
+    d->entryInfo.isOpen = true;
+
+    return &d->entryWriteHandle;
+}
+
+ZipEntryWriteHandle3 *ZipCreator3::createLZ4Entry(const std::string &entryName, int compressLevel)
+{
+    if (hasOpenEntry())
+        throw std::runtime_error("ZipCreator has open archive entry");
+
+    mz_zip_file file_info = {};
+    file_info.filename = entryName.c_str();
+    file_info.modified_date = time(nullptr);
+    file_info.version_madeby = MZ_VERSION_MADEBY;
+    file_info.compression_method = MZ_COMPRESS_METHOD_STORE;
+    file_info.zip64 = MZ_ZIP64_FORCE;
+    file_info.external_fa = (S_IFREG) | (0644u << 16);
+
+    mz_zip_writer_set_compress_method(d->mz_zipWriter, MZ_COMPRESS_METHOD_STORE);
+    mz_zip_writer_set_compress_level(d->mz_zipWriter, 0);
+
+    if (auto err = mz_zip_writer_entry_open(d->mz_zipWriter, &file_info))
+        throw std::runtime_error("mz_zip_writer_entry_open: " + std::to_string(err));
+
+    d->entryInfo = {};
+    d->entryInfo.type = Private::EntryInfo::LZ4;
+    d->entryInfo.name = entryName;
+    d->entryInfo.isOpen = true;
+
+    d->lz4Ctx.begin(compressLevel);
+
+    // write the LZ4 frame header
+    size_t lz4BufferBytes = LZ4F_compressBegin(
+        d->lz4Ctx.ctx,
+        d->lz4Ctx.buffer.data(),
+        d->lz4Ctx.buffer.size(),
+        &d->lz4Ctx.lz4Prefs);
+
+    if (LZ4F_isError(lz4BufferBytes))
+        throw std::runtime_error("LZ4F_compressBegin: " + std::to_string(lz4BufferBytes));
+
+    // flush the LZ4 buffer contents to the ZIP
+    d->writeToCurrentZIPEntry(d->lz4Ctx.buffer.data(), lz4BufferBytes);
+
+    d->entryInfo.bytesWritten += lz4BufferBytes;
+    d->entryInfo.lz4CompressedBytesWritten += lz4BufferBytes;
+
+    return &d->entryWriteHandle;
+}
+
+bool ZipCreator3::hasOpenEntry() const
+{
+    return d->entryInfo.isOpen;
+}
+
+size_t ZipCreator3::writeToCurrentEntry(const u8 *inputData, size_t inputSize)
+{
+    if (!hasOpenEntry())
+        throw std::runtime_error("ZipCreator has no open archive entry");
+
+    size_t bytesWritten = 0u;
+
+    switch (d->entryInfo.type)
+    {
+        case Private::EntryInfo::ZIP:
+            bytesWritten = d->writeToCurrentZIPEntry(inputData, inputSize);
+            break;
+
+        case Private::EntryInfo::LZ4:
+            while (bytesWritten < inputSize)
+            {
+                size_t bytesLeft = inputSize - bytesWritten;
+                size_t chunkBytes = std::min(bytesLeft, d->lz4Ctx.buffer.size());
+
+                assert(inputData + bytesWritten + chunkBytes <= inputData + inputSize);
+                assert(chunkBytes <= LZ4F_compressBound(d->lz4Ctx.ChunkSize, &d->lz4Ctx.lz4Prefs));
+
+                // compress the chunk into the LZ4Context buffer
+                size_t compressedSize = LZ4F_compressUpdate(
+                    d->lz4Ctx.ctx,
+                    d->lz4Ctx.buffer.data(), d->lz4Ctx.buffer.size(),
+                    inputData + bytesWritten, chunkBytes,
+                    nullptr);
+
+                if (LZ4F_isError(compressedSize))
+                    throw std::runtime_error("LZ4F_compressUpdate: " + std::to_string(compressedSize));
+
+                // flush the LZ4 buffer contents to the ZIP
+                d->writeToCurrentZIPEntry(d->lz4Ctx.buffer.data(), compressedSize);
+
+                bytesWritten += chunkBytes;
+                d->entryInfo.bytesWritten += chunkBytes;
+                d->entryInfo.lz4CompressedBytesWritten += compressedSize;
+            }
+            break;
+    };
+
+    return bytesWritten;
+}
+
+void ZipCreator3::closeCurrentEntry()
+{
+    if (!hasOpenEntry())
+        throw std::runtime_error("ZipCreator has no open archive entry");
+
+    if (d->entryInfo.type == Private::EntryInfo::LZ4)
+    {
+        // flush whatever remains within internal buffers
+        size_t const compressedSize = LZ4F_compressEnd(
+            d->lz4Ctx.ctx,
+            d->lz4Ctx.buffer.data(), d->lz4Ctx.buffer.size(),
+            nullptr);
+
+        if (LZ4F_isError(compressedSize))
+            throw std::runtime_error("LZ4F_compressEnd: " + std::to_string(compressedSize));
+
+        // flush the LZ4 buffer contents to the ZIP
+        size_t bytesWritten = d->writeToCurrentZIPEntry(d->lz4Ctx.buffer.data(), compressedSize);
+
+        d->entryInfo.bytesWritten += bytesWritten;
+        d->entryInfo.lz4CompressedBytesWritten += compressedSize;
+    }
+
+    if (auto err = mz_zip_writer_entry_close(d->mz_zipWriter))
+        throw std::runtime_error("mz_zip_writer_entry_close: " + std::to_string(err));
+}
 
 size_t ZipWriteHandle2::write(const u8 *data, size_t size)
 {

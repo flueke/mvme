@@ -36,6 +36,7 @@ target_include_directories(mesytec-mvlc
 
 target_link_libraries(mesytec-mvlc
     PRIVATE ftd3xx
+    PRIVATE lz4_static
     PRIVATE minizip
     PRIVATE yaml-cpp
     PRIVATE Threads::Threads
