@@ -56,3 +56,7 @@ option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
 option(YAML_CPP_INSTALL "Enable generation of install target" OFF)
 option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
 add_subdirectory(yaml-cpp)
+
+add_subdirectory(lz4/contrib/cmake_unofficial)
+target_include_directories(lz4_static
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lz4/lib/>)
