@@ -10,7 +10,7 @@ using std::endl;
 
 using namespace mesytec::mvlc;
 using SuperCT = SuperCommandType;
-using StackCT = StackCommandType;
+using StackCT = StackCommand::CommandType;
 
 TEST(mvlc_commands, SuperReferenceWord)
 {
@@ -231,7 +231,7 @@ TEST(mvlc_commands, StackVMERead)
     auto commands = builder.getCommands();
     ASSERT_EQ(builder.getGroupCount(), 1);
     ASSERT_EQ(commands.size(), 1u);
-    ASSERT_EQ(commands.front().type, StackCommandType::VMERead);
+    ASSERT_EQ(commands.front().type, StackCommand::CommandType::VMERead);
     ASSERT_EQ(commands.front().address, 0x1337u);
     ASSERT_EQ(commands.front().amod, 0x09u);
     ASSERT_EQ(commands.front().dataWidth, VMEDataWidth::D32);
@@ -243,7 +243,7 @@ TEST(mvlc_commands, StackVMEWrite)
     auto commands = builder.getCommands();
     ASSERT_EQ(builder.getGroupCount(), 1);
     ASSERT_EQ(commands.size(), 1u);
-    ASSERT_EQ(commands.front().type, StackCommandType::VMEWrite);
+    ASSERT_EQ(commands.front().type, StackCommand::CommandType::VMEWrite);
     ASSERT_EQ(commands.front().address, 0x1337u);
     ASSERT_EQ(commands.front().value, 42u);
     ASSERT_EQ(commands.front().amod, 0x09u);
@@ -256,7 +256,7 @@ TEST(mvlc_commands, StackVMEBlockRead)
     auto commands = builder.getCommands();
     ASSERT_EQ(builder.getGroupCount(), 1);
     ASSERT_EQ(commands.size(), 1u);
-    ASSERT_EQ(commands.front().type, StackCommandType::VMERead);
+    ASSERT_EQ(commands.front().type, StackCommand::CommandType::VMERead);
     ASSERT_EQ(commands.front().address, 0x1337u);
     ASSERT_EQ(commands.front().amod, 0x09u);
     ASSERT_EQ(commands.front().transfers, 111);
@@ -268,7 +268,7 @@ TEST(mvlc_commands, StackWriteMarker)
     auto commands = builder.getCommands();
     ASSERT_EQ(builder.getGroupCount(), 1);
     ASSERT_EQ(commands.size(), 1u);
-    ASSERT_EQ(commands.front().type, StackCommandType::WriteMarker);
+    ASSERT_EQ(commands.front().type, StackCommand::CommandType::WriteMarker);
     ASSERT_EQ(commands.front().value, 0x87654321u);
 }
 

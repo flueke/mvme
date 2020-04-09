@@ -74,7 +74,18 @@ class MESYTEC_MVLC_EXPORT SuperCommandBuilder
 
 struct MESYTEC_MVLC_EXPORT StackCommand
 {
-    StackCommandType type;
+    enum class CommandType: u8
+    {
+        StackStart      = static_cast<u8>(StackCommandType::StackStart),
+        StackEnd        = static_cast<u8>(StackCommandType::StackEnd),
+        VMERead         = static_cast<u8>(StackCommandType::VMERead),
+        VMEWrite        = static_cast<u8>(StackCommandType::VMEWrite),
+        WriteMarker     = static_cast<u8>(StackCommandType::WriteMarker),
+        WriteSpecial    = static_cast<u8>(StackCommandType::WriteSpecial),
+        Delay           = 0xC3,
+    };
+
+    CommandType type;
     u32 address;
     u32 value;
     u8 amod;

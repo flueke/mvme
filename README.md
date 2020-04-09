@@ -51,5 +51,12 @@
     configs (and possibly custom sections) out
   - deserialize config. this can then be used to construct a readout parser
 
+* stack batch execution
+  - Used to execute large command lists by splitting them into max sized stack
+    chunks and running those. Max size means that the command stack does not
+    overflow.
+  - Important: delays are needed in init sequences (wait after module reset).
+    The MVLC can not handle these natively.
+
 FIXME: open issues
 - how to detect and handle single vs multicrate setups?

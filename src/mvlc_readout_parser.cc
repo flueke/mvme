@@ -73,15 +73,17 @@ namespace readout_parser
 
 GroupReadoutStructure parse_group_readout_commands(const std::vector<StackCommand> &commands)
 {
+    using StackCT = StackCommand::CommandType;
+
     enum State { Prefix, Dynamic, Suffix };
     State state = Prefix;
     GroupReadoutStructure modParts = {};
 
     for (const auto &cmd: commands)
     {
-        if ((cmd.type == StackCommandType::VMERead
+        if ((cmd.type == StackCT::VMERead
              && !vme_amods::is_block_mode(cmd.amod))
-            || cmd.type == StackCommandType::WriteMarker)
+            || cmd.type == StackCT::WriteMarker)
             // FIXME: WriteSpecial?
         {
             switch (state)
@@ -98,7 +100,7 @@ GroupReadoutStructure parse_group_readout_commands(const std::vector<StackComman
                     break;
             }
         }
-        else if (cmd.type == StackCommandType::VMERead)
+        else if (cmd.type == StackCT::VMERead)
         {
             assert(vme_amods::is_block_mode(cmd.amod));
 

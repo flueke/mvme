@@ -130,6 +130,8 @@ std::vector<SuperCommand> SuperCommandBuilder::getCommands() const
 // StackCommandBuilder
 //
 
+using CommandType = StackCommand::CommandType;
+
 StackCommandBuilder::StackCommandBuilder(const std::vector<StackCommand> &commands)
 {
     for (const auto &cmd: commands)
@@ -144,7 +146,7 @@ bool StackCommandBuilder::operator==(const StackCommandBuilder &o) const
 StackCommandBuilder &StackCommandBuilder::addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth)
 {
     StackCommand cmd = {};
-    cmd.type = StackCommandType::VMERead;
+    cmd.type = CommandType::VMERead;
     cmd.address = address;
     cmd.amod = amod;
     cmd.dataWidth = dataWidth;
@@ -157,7 +159,7 @@ StackCommandBuilder &StackCommandBuilder::addVMERead(u32 address, u8 amod, VMEDa
 StackCommandBuilder &StackCommandBuilder::addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers)
 {
     StackCommand cmd = {};
-    cmd.type = StackCommandType::VMERead;
+    cmd.type = CommandType::VMERead;
     cmd.address = address;
     cmd.amod = amod;
     cmd.transfers = maxTransfers;
@@ -170,7 +172,7 @@ StackCommandBuilder &StackCommandBuilder::addVMEBlockRead(u32 address, u8 amod, 
 StackCommandBuilder &StackCommandBuilder::addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth)
 {
     StackCommand cmd = {};
-    cmd.type = StackCommandType::VMEWrite;
+    cmd.type = CommandType::VMEWrite;
     cmd.address = address;
     cmd.value = value;
     cmd.amod = amod;
@@ -184,7 +186,7 @@ StackCommandBuilder &StackCommandBuilder::addVMEWrite(u32 address, u32 value, u8
 StackCommandBuilder &StackCommandBuilder::addWriteMarker(u32 value)
 {
     StackCommand cmd = {};
-    cmd.type = StackCommandType::WriteMarker;
+    cmd.type = CommandType::WriteMarker;
     cmd.value = value;
 
     addCommand(cmd);
@@ -404,7 +406,7 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
 
         switch (cmd.type)
         {
-            case StackCommandType::VMERead:
+            case CommandType::VMERead:
                 if (!vme_amods::is_block_mode(cmd.amod))
                 {
                     cmdWord |= cmd.amod << stack_commands::CmdArg0Shift;
@@ -432,7 +434,7 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
 
                 break;
 
-            case StackCommandType::VMEWrite:
+            case CommandType::VMEWrite:
                 cmdWord |= cmd.amod << stack_commands::CmdArg0Shift;
                 cmdWord |= static_cast<u32>(cmd.dataWidth) << stack_commands::CmdArg1Shift;
 
@@ -442,22 +444,26 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
 
                 break;
 
-            case StackCommandType::WriteMarker:
+            case CommandType::WriteMarker:
                 result.push_back(cmdWord);
                 result.push_back(cmd.value);
 
                 break;
 
-            case StackCommandType::WriteSpecial:
+            case CommandType::WriteSpecial:
                 cmdWord |= cmd.value & 0x00FFFFFFu;
                 result.push_back(cmdWord);
                 break;
 
             // Note: these two should not be manually added to the stack but
             // will be part of the command buffer used for uploading the stack.
-            case StackCommandType::StackStart:
-            case StackCommandType::StackEnd:
+            case CommandType::StackStart:
+            case CommandType::StackEnd:
                 result.push_back(cmdWord);
+                break;
+
+            case CommandType::Delay:
+                // Software-only
                 break;
         }
     }
@@ -473,7 +479,7 @@ StackCommandBuilder stack_builder_from_buffer(const std::vector<u32> &buffer)
 std::vector<StackCommand> stack_commands_from_buffer(const std::vector<u32> &buffer)
 {
     using namespace stack_commands;
-    using StackCT = StackCommandType;
+    using StackCT = StackCommand::CommandType;
 
     std::vector<StackCommand> result;
 
@@ -542,6 +548,8 @@ std::vector<StackCommand> stack_commands_from_buffer(const std::vector<u32> &buf
             case StackCT::WriteSpecial:
                 cmd.value = *it & 0x00FFFFFFu;
 
+            case StackCT::Delay:
+                // Note: Delay is software-only right now
                 break;
         }
 
