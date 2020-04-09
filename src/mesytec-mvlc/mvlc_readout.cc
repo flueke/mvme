@@ -104,7 +104,14 @@ YAML::Emitter &operator<<(YAML::Emitter &out, const StackCommandBuilder &stack)
     {
         out << YAML::BeginMap;
         out << YAML::Key << "name" << YAML::Value << group.name;
-        out << YAML::Key << "contents" << YAML::Value << make_stack_buffer(group.commands);
+
+        out << YAML::Key << "contents" << YAML::Value;
+
+        out << YAML::BeginSeq;
+        for (const auto &cmd: group.commands)
+            out << to_string(cmd);
+        out << YAML::EndSeq;
+
         out << YAML::EndMap;
     }
 
@@ -120,7 +127,12 @@ StackCommandBuilder stack_command_builder_from_yaml(const YAML::Node &yStack)
     for (const auto &yGroup: yStack)
     {
         std::string groupName = yGroup["name"].as<std::string>();
-        auto groupCommands = stack_commands_from_buffer(yGroup["contents"].as<std::vector<u32>>());
+
+        std::vector<StackCommand> groupCommands;
+
+        for (const auto &yCmd: yGroup["contents"])
+            groupCommands.emplace_back(stack_command_from_string(yCmd.as<std::string>()));
+
         stack.addGroup(groupName, groupCommands);
     }
 
@@ -140,24 +152,24 @@ std::string to_yaml(const CrateConfig &crateConfig)
     out << YAML::BeginMap;
     out << YAML::Key << "crate" << YAML::Value << YAML::BeginMap;
 
-    out << YAML::Key << "connection" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "mvlc_connection" << YAML::Value << YAML::BeginMap;
     out << YAML::Key << "type" << YAML::Value << to_string(crateConfig.connectionType);
     out << YAML::Key << "usbIndex" << YAML::Value << crateConfig.usbIndex;
     out << YAML::Key << "usbSerial" << YAML::Value << crateConfig.usbSerial;
     out << YAML::Key << "ethHost" << YAML::Value << crateConfig.ethHost;
-    out << YAML::EndMap; // connection
+    out << YAML::EndMap; // end mvlc_connection
 
-    out << YAML::Key << "stacks" << YAML::Value << YAML::BeginSeq;
+    out << YAML::Key << "readout_stacks" << YAML::Value << YAML::BeginSeq;
 
     for (const auto &stack: crateConfig.stacks)
         out << stack;
 
-    out << YAML::EndSeq; // stacks
+    out << YAML::EndSeq; // end readout_stacks
 
-    out << YAML::Key << "triggers" << YAML::Value << crateConfig.triggers;
-    out << YAML::Key << "init" << YAML::Value << crateConfig.initCommands;
+    out << YAML::Key << "stack_triggers" << YAML::Value << crateConfig.triggers;
+    out << YAML::Key << "init_sequence" << YAML::Value << crateConfig.initCommands;
 
-    out << YAML::EndMap; // crate
+    out << YAML::EndMap; // end crate
 
     assert(out.good());
 
@@ -173,10 +185,9 @@ CrateConfig crate_config_from_yaml(const std::string &yamlText)
     if (!yRoot || !yRoot["crate"])
         return result;
 
-    // crate
     if (const auto &yCrate = yRoot["crate"])
     {
-        if (const auto &yCon = yCrate["connection"])
+        if (const auto &yCon = yCrate["mvlc_connection"])
         {
             result.connectionType = connection_type_from_string(yCon["type"].as<std::string>());
             result.usbIndex = yCon["usbIndex"].as<int>();
@@ -184,21 +195,19 @@ CrateConfig crate_config_from_yaml(const std::string &yamlText)
             result.ethHost = yCon["ethHost"].as<std::string>();
         }
 
-        // stacks
-        if (const auto &yStacks = yCrate["stacks"])
+        if (const auto &yStacks = yCrate["readout_stacks"])
         {
             for (const auto &yStack: yStacks)
                 result.stacks.emplace_back(stack_command_builder_from_yaml(yStack));
         }
 
-        // triggers
-        if (const auto &yTriggers = yCrate["triggers"])
+        if (const auto &yTriggers = yCrate["stack_triggers"])
         {
             for (const auto &yTrig: yTriggers)
                 result.triggers.push_back(yTrig.as<u32>());
         }
 
-        result.initCommands = stack_command_builder_from_yaml(yCrate["init"]);
+        result.initCommands = stack_command_builder_from_yaml(yCrate["init_sequence"]);
     }
 
     return result;
