@@ -30,12 +30,22 @@ if (MVLC_ENABLE_PYTHON)
     add_subdirectory(pybind11-2.4.3)
 endif(MVLC_ENABLE_PYTHON)
 
+# yaml-cpp
 option(YAML_CPP_BUILD_TESTS "Enable testing" OFF)
 option(YAML_CPP_BUILD_TOOLS "Enable parse tools" OFF)
 option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
 option(YAML_CPP_INSTALL "Enable generation of install target" OFF)
-option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
+option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 add_subdirectory(yaml-cpp)
+# Disable the 'yaml-cpp/node/impl.h:202:11: warning: ‘operator=’ should return # a reference to ‘*this’ [-Weffc++]' warning
+# Note: the code does return *this.
+set(not-msvc $<NOT:$<CXX_COMPILER_ID:MSVC>>)
+target_compile_options(yaml-cpp
+  PRIVATE $<${not-msvc}:-Wno-effc++>)
+
+# Enable the PIC flag to fix a relocation error when linking against the
+# static version of yaml-cpp.
+set_target_properties(yaml-cpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # LZ4
 add_subdirectory(lz4/contrib/cmake_unofficial)
