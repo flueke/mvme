@@ -337,7 +337,11 @@ TEST(mvlc_commands, StackCommandToString)
 
     for (const auto &cmd: builder.getCommands())
     {
-        cout << to_string(cmd) << endl;
-    }
+        auto cmdString = to_string(cmd);
+        cout << cmdString << endl;
 
+        auto cmdParsed = stack_command_from_string(cmdString);
+
+        ASSERT_EQ(cmd, cmdParsed);
+    }
 }

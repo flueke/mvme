@@ -136,41 +136,35 @@ std::vector<SuperCommand> SuperCommandBuilder::getCommands() const
 
 namespace
 {
+
 std::string to_string(const VMEDataWidth &dw)
 {
-    std::string result;
-
     switch (dw)
     {
         case VMEDataWidth::D16:
-            result = "d16";
-            break;
+            return "d16";
+
         case VMEDataWidth::D32:
-            result = "d32";
-            break;
+            return "d32";
     }
 
-    return result;
+    throw std::runtime_error("invalid VMEDataWidth");
 }
-VMEDataWidth vme_data_width_from_string(const std::string &str_)
+
+VMEDataWidth vme_data_width_from_string(const std::string &str)
 {
-    auto str = util::str_tolower(str_);
-
-    VMEDataWidth result = {};
-
     if (str == "d16")
-        result = VMEDataWidth::D16;
+        return VMEDataWidth::D16;
     else if (str == "d32")
-        result = VMEDataWidth::D32;
+        return VMEDataWidth::D32;
 
-    return result;
+    throw std::runtime_error("invalid VMEDataWidth");
 }
 
-}
+} // end anon namespace
 
 std::string to_string(const StackCommand &cmd)
 {
-    // FIXME: implement the rest of this
     using CT = StackCommand::CommandType;
 
     switch (cmd.type)
@@ -183,24 +177,19 @@ std::string to_string(const StackCommand &cmd)
 
         case CT::VMERead:
             if (!vme_amods::is_block_mode(cmd.amod))
-            {
                 return fmt::format(
                     "vme_read {:#04x} {} {:#010x}",
                     cmd.amod, to_string(cmd.dataWidth), cmd.address);
-            }
-            else
-            {
-                return fmt::format(
-                    "vme_block_read {:#04x} {} {:#010x}",
-                    cmd.amod, cmd.transfers, cmd.address);
-            }
-            break;
+
+            // block mode
+            return fmt::format(
+                "vme_block_read {:#04x} {} {:#010x}",
+                cmd.amod, cmd.transfers, cmd.address);
 
         case CT::VMEWrite:
             return fmt::format(
                 "vme_write {:#04x} {} {:#010x} {:#010x}",
                 cmd.amod, to_string(cmd.dataWidth), cmd.address, cmd.value);
-            break;
 
         case CT::WriteMarker:
             return fmt::format("write_marker {:#010x}", cmd.value);
@@ -217,12 +206,62 @@ std::string to_string(const StackCommand &cmd)
 
 StackCommand stack_command_from_string(const std::string &str)
 {
+    using CT = StackCommand::CommandType;
+
+    if (str.empty())
+        throw std::runtime_error("empty line");
+
+    StackCommand result = {};
     std::istringstream iss(str);
-    std::vector<std::string> results(
-        std::istream_iterator<std::string>{iss},
-        std::istream_iterator<std::string>());
-    // FIXME: implement string split
-    // FIXME: implement the rest of this
+    std::string name;
+    std::string arg;
+    iss >> name;
+
+    if (name == "stack_start")
+        result.type = CT::StackStart;
+    else if (name == "stack_end")
+        result.type = CT::StackEnd;
+    else if (name == "vme_read")
+    {
+        result.type = CT::VMERead;
+        iss >> arg; result.amod = std::stoul(arg, nullptr, 0);
+        iss >> arg; result.dataWidth = vme_data_width_from_string(arg);
+        iss >> arg; result.address = std::stoul(arg, nullptr, 0);
+    }
+    else if (name == "vme_block_read")
+    {
+        result.type = CT::VMERead;
+        iss >> arg; result.amod = std::stoul(arg, nullptr, 0);
+        iss >> arg; result.transfers = std::stoul(arg, nullptr, 0);
+        iss >> arg; result.address = std::stoul(arg, nullptr, 0);
+    }
+    else if (name == "vme_write")
+    {
+        result.type = CT::VMEWrite;
+        iss >> arg; result.amod = std::stoul(arg, nullptr, 0);
+        iss >> arg; result.dataWidth = vme_data_width_from_string(arg);
+        iss >> arg; result.address = std::stoul(arg, nullptr, 0);
+        iss >> arg; result.value = std::stoul(arg, nullptr, 0);
+    }
+    else if (name == "write_marker")
+    {
+        result.type = CT::WriteMarker;
+        iss >> arg; result.value = std::stoul(arg, nullptr, 0);
+    }
+    else if (name == "write_special")
+    {
+        result.type = CT::WriteSpecial;
+        iss >> arg; result.value = std::stoul(arg, nullptr, 0);
+    }
+    else if (name == "software_delay")
+    {
+        result.type = CT::SoftwareDelay;
+        iss >> arg; result.value = std::stoul(arg, nullptr, 0);
+    }
+    else
+        throw std::runtime_error("invalid command");
+
+    return result;
 }
 
 //
@@ -571,6 +610,9 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
             case CommandType::StackEnd:
                 result.push_back(cmdWord);
                 break;
+
+            case CommandType::SoftwareDelay:
+                throw std::runtime_error("unsupported stack buffer command: SoftwareDelay");
         }
     }
 
@@ -605,6 +647,7 @@ std::vector<StackCommand> stack_commands_from_buffer(const std::vector<u32> &buf
         {
             case StackCT::StackStart:
             case StackCT::StackEnd:
+            case StackCT::SoftwareDelay:
                 continue;
 
             case StackCT::VMERead:
