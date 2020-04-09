@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
 
     const size_t BufferSize = Megabytes(1);
     const size_t BufferCount = 10;
-    ReadoutBufferQueues bufferQueues(BufferSize, 10);
+    ReadoutBufferQueues bufferQueues(BufferSize, BufferCount);
     auto &filled = bufferQueues.filledBufferQueue();
     auto &empty = bufferQueues.emptyBufferQueue();
 
