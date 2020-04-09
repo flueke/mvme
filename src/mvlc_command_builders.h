@@ -82,7 +82,7 @@ struct MESYTEC_MVLC_EXPORT StackCommand
         VMEWrite        = static_cast<u8>(StackCommandType::VMEWrite),
         WriteMarker     = static_cast<u8>(StackCommandType::WriteMarker),
         WriteSpecial    = static_cast<u8>(StackCommandType::WriteSpecial),
-        Delay           = 0xC3,
+        SoftwareDelay   = 0xC3,
     };
 
     CommandType type;
@@ -109,6 +109,9 @@ struct MESYTEC_MVLC_EXPORT StackCommand
         return !(*this == o);
     }
 };
+
+std::string to_string(const StackCommand &cmd);
+StackCommand stack_command_from_string(const std::string &str);
 
 class MESYTEC_MVLC_EXPORT StackCommandBuilder
 {

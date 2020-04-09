@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <cassert>
+#include <iterator>
+#include <sstream>
 
 #include "mvlc_command_builders.h"
 #include "mvlc_constants.h"
@@ -124,6 +126,53 @@ SuperCommandBuilder &SuperCommandBuilder::addStackUpload(
 std::vector<SuperCommand> SuperCommandBuilder::getCommands() const
 {
     return m_commands;
+}
+
+//
+// StackCommand
+//
+std::string to_string(const StackCommand &cmd)
+{
+    // FIXME: implement the rest of this
+    using CT = StackCommand::CommandType;
+    std::ostringstream ss;
+
+    ss << std::hex << std::showbase;
+
+    switch (cmd.type)
+    {
+        case CT::StackStart:
+            ss << "stack_start";
+
+        case CT::StackEnd:
+            ss << "stack_end";
+
+        case CT::VMERead:
+            if (!vme_amods::is_block_mode(cmd.amod))
+            {
+                //ss << "vme_read " << cmd.amod
+            }
+            else
+            {
+            }
+
+        case CT::VMEWrite:
+            ss << "vme_write " << cmd.amod <<
+                " " << cmd.address << " " << cmd.value;
+            break;
+    }
+
+    return ss.str();
+}
+
+StackCommand stack_command_from_string(const std::string &str)
+{
+    std::istringstream iss(str);
+    std::vector<std::string> results(
+        std::istream_iterator<std::string>{iss},
+        std::istream_iterator<std::string>());
+    // FIXME: implement string split
+    // FIXME: implement the rest of this
 }
 
 //
@@ -461,10 +510,6 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
             case CommandType::StackEnd:
                 result.push_back(cmdWord);
                 break;
-
-            case CommandType::Delay:
-                // Software-only
-                break;
         }
     }
 
@@ -547,10 +592,6 @@ std::vector<StackCommand> stack_commands_from_buffer(const std::vector<u32> &buf
 
             case StackCT::WriteSpecial:
                 cmd.value = *it & 0x00FFFFFFu;
-
-            case StackCT::Delay:
-                // Note: Delay is software-only right now
-                break;
         }
 
         result.emplace_back(cmd);
