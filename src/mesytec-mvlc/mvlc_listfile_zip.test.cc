@@ -196,7 +196,7 @@ TEST(mvlc_listfile_zip, CreateWriteRead3)
 #endif
 }
 
-#if 1
+#if 0
 TEST(mvlc_listfile_zip, ListfileCreateLarge3)
 {
 

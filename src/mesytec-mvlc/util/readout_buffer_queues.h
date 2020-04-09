@@ -2,8 +2,8 @@
 #define __MESYTEC_MVLC_UTIL_READOUT_BUFFER_QUEUES_H__
 
 #include "mesytec-mvlc_export.h"
-#include "util/readout_buffer.h"
-#include "util/threadsafequeue.h"
+#include "mesytec-mvlc/util/readout_buffer.h"
+#include "mesytec-mvlc/util/threadsafequeue.h"
 
 namespace mesytec
 {

@@ -7,11 +7,11 @@
 #include <sys/prctl.h>
 #endif
 
-#include <mesytec_mvlc.h>
-#include <mvlc_impl_usb.h>
-#include <util/readout_buffer_queues.h>
-#include <util/storage_sizes.h>
-#include <util/string_view.hpp>
+#include <mesytec-mvlc/mesytec_mvlc.h>
+#include <mesytec-mvlc/mvlc_impl_usb.h>
+#include <mesytec-mvlc/util/readout_buffer_queues.h>
+#include <mesytec-mvlc/util/storage_sizes.h>
+#include <mesytec-mvlc/util/string_view.hpp>
 
 using std::cout;
 using std::cerr;

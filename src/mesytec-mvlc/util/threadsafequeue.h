@@ -6,7 +6,7 @@
 #include <deque>
 #include <memory>
 
-#include "util/ticketmutex.h"
+#include "mesytec-mvlc/util/ticketmutex.h"
 
 namespace mesytec
 {

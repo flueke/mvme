@@ -4,8 +4,8 @@
 #include <vector>
 
 #include "mesytec-mvlc_export.h"
-#include "mvlc_constants.h"
-#include "util/string_view.hpp"
+#include "mesytec-mvlc/mvlc_constants.h"
+#include "mesytec-mvlc/util/string_view.hpp"
 
 namespace mesytec
 {

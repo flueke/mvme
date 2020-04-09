@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "util/threadsafequeue.h"
+#include "mesytec-mvlc/util/threadsafequeue.h"
 
 using namespace mesytec::mvlc;
 
