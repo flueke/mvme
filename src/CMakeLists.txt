@@ -35,7 +35,7 @@ target_include_directories(mesytec-mvlc
     )
 
 target_link_libraries(mesytec-mvlc
-    PRIVATE fmt::fmt
+    PRIVATE fmt::fmt-header-only # does add -DFMT_HEADER_ONLY=1
     PRIVATE ftd3xx
     PRIVATE lz4_static
     PRIVATE minizip
