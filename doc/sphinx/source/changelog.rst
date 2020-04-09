@@ -4,6 +4,23 @@
 Changelog
 ##################################################
 
+Version 1.0.1
+-------------
+* [vme_templates] Add new VMMR_Monitor module intended for reading out MMR
+  monitor data (power, temperature, errors).
+
+* [vme_templates] Module templates can now specify a set of default variables
+  to create when the module is instantiated.
+
+* [vme_templates] Allow using ListFilterExtractors in module analysis templates
+  in addition to MultiWordDataFilters.
+
+* [mvlc] Update trigger io editor connection bars to reflect changes to the firmware.
+
+* [mvlc] Fix potential data loss under very high data rates.
+
+* [doc] Updates to the Installation section.
+
 Version 1.0.0
 -------------
 * Add ability to run the data acquisition for a limited amount of time before
