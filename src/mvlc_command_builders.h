@@ -111,8 +111,8 @@ struct MESYTEC_MVLC_EXPORT StackCommand
     }
 };
 
-std::string to_string(const StackCommand &cmd);
-StackCommand stack_command_from_string(const std::string &str);
+std::string MESYTEC_MVLC_EXPORT to_string(const StackCommand &cmd);
+StackCommand MESYTEC_MVLC_EXPORT stack_command_from_string(const std::string &str);
 
 class MESYTEC_MVLC_EXPORT StackCommandBuilder
 {
