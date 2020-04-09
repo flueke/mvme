@@ -1,9 +1,9 @@
 #include <functional>
 #include <iostream>
 #include <getopt.h>
-#include "mvlc_constants.h"
-#include "mvlc_factory.h"
-#include "mvlc_dialog.h"
+#include <mesytec-mvlc/mvlc_constants.h>
+#include <mesytec-mvlc/mvlc_factory.h>
+#include <mesytec-mvlc/mvlc_dialog.h>
 
 using std::cerr;
 using std::cout;
