@@ -61,3 +61,6 @@ add_subdirectory(yaml-cpp)
 add_subdirectory(lz4/contrib/cmake_unofficial)
 target_include_directories(lz4_static
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lz4/lib/>)
+
+# fmt
+add_subdirectory(fmt)
