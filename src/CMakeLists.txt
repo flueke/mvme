@@ -35,6 +35,7 @@ target_include_directories(mesytec-mvlc
     )
 
 target_link_libraries(mesytec-mvlc
+    PRIVATE fmt::fmt
     PRIVATE ftd3xx
     PRIVATE lz4_static
     PRIVATE minizip

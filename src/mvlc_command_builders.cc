@@ -2,9 +2,11 @@
 #include <cassert>
 #include <iterator>
 #include <sstream>
+#include <fmt/format.h>
 
 #include "mvlc_command_builders.h"
 #include "mvlc_constants.h"
+#include "util/string_util.h"
 #include "vme_constants.h"
 
 namespace mesytec
@@ -131,38 +133,86 @@ std::vector<SuperCommand> SuperCommandBuilder::getCommands() const
 //
 // StackCommand
 //
+
+namespace
+{
+std::string to_string(const VMEDataWidth &dw)
+{
+    std::string result;
+
+    switch (dw)
+    {
+        case VMEDataWidth::D16:
+            result = "d16";
+            break;
+        case VMEDataWidth::D32:
+            result = "d32";
+            break;
+    }
+
+    return result;
+}
+VMEDataWidth vme_data_width_from_string(const std::string &str_)
+{
+    auto str = util::str_tolower(str_);
+
+    VMEDataWidth result = {};
+
+    if (str == "d16")
+        result = VMEDataWidth::D16;
+    else if (str == "d32")
+        result = VMEDataWidth::D32;
+
+    return result;
+}
+
+}
+
 std::string to_string(const StackCommand &cmd)
 {
     // FIXME: implement the rest of this
     using CT = StackCommand::CommandType;
-    std::ostringstream ss;
-
-    ss << std::hex << std::showbase;
 
     switch (cmd.type)
     {
         case CT::StackStart:
-            ss << "stack_start";
+            return "stack_start";
 
         case CT::StackEnd:
-            ss << "stack_end";
+            return "stack_end";
 
         case CT::VMERead:
             if (!vme_amods::is_block_mode(cmd.amod))
             {
-                //ss << "vme_read " << cmd.amod
+                return fmt::format(
+                    "vme_read {:#04x} {} {:#010x}",
+                    cmd.amod, to_string(cmd.dataWidth), cmd.address);
             }
             else
             {
+                return fmt::format(
+                    "vme_block_read {:#04x} {} {:#010x}",
+                    cmd.amod, cmd.transfers, cmd.address);
             }
+            break;
 
         case CT::VMEWrite:
-            ss << "vme_write " << cmd.amod <<
-                " " << cmd.address << " " << cmd.value;
+            return fmt::format(
+                "vme_write {:#04x} {} {:#010x} {:#010x}",
+                cmd.amod, to_string(cmd.dataWidth), cmd.address, cmd.value);
             break;
+
+        case CT::WriteMarker:
+            return fmt::format("write_marker {:#010x}", cmd.value);
+
+        case CT::WriteSpecial:
+            return fmt::format("write_special {}", cmd.value);
+
+        case CT::SoftwareDelay:
+            return fmt::format("software_delay {}", cmd.value);
     }
 
-    return ss.str();
+    return {};
 }
 
 StackCommand stack_command_from_string(const std::string &str)
@@ -237,6 +287,17 @@ StackCommandBuilder &StackCommandBuilder::addWriteMarker(u32 value)
     StackCommand cmd = {};
     cmd.type = CommandType::WriteMarker;
     cmd.value = value;
+
+    addCommand(cmd);
+
+    return *this;
+}
+
+StackCommandBuilder &StackCommandBuilder::addSoftwareDelay(const std::chrono::milliseconds &ms)
+{
+    StackCommand cmd = {};
+    cmd.type = CommandType::SoftwareDelay;
+    cmd.value = ms.count();
 
     addCommand(cmd);
 

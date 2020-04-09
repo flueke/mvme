@@ -1,3 +1,4 @@
+#include <chrono>
 #include <iostream>
 
 #include "gtest/gtest.h"
@@ -323,4 +324,20 @@ TEST(mvlc_commands, StackGroups)
 
     ASSERT_TRUE(builder.getGroup("noexistent").name.empty());
     ASSERT_TRUE(builder.getGroup("noexistent").commands.empty());
+}
+
+TEST(mvlc_commands, StackCommandToString)
+{
+    StackCommandBuilder builder;
+    builder.addVMERead(0x1337u, 0x09u, VMEDataWidth::D16);
+    builder.addVMEBlockRead(0x1338u, vme_amods::BLT32, 42);
+    builder.addVMEWrite(0x1339u, 43, 0x09u, VMEDataWidth::D32);
+    builder.addWriteMarker(0x87654321u);
+    builder.addSoftwareDelay(std::chrono::milliseconds(100));
+
+    for (const auto &cmd: builder.getCommands())
+    {
+        cout << to_string(cmd) << endl;
+    }
+
 }

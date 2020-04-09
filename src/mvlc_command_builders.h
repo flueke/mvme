@@ -1,6 +1,7 @@
 #ifndef __MESYTEC_MVLC_MVLC_COMMAND_BUILDERS_H__
 #define __MESYTEC_MVLC_MVLC_COMMAND_BUILDERS_H__
 
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -143,6 +144,7 @@ class MESYTEC_MVLC_EXPORT StackCommandBuilder
         StackCommandBuilder &addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers);
         StackCommandBuilder &addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
         StackCommandBuilder &addWriteMarker(u32 value);
+        StackCommandBuilder &addSoftwareDelay(const std::chrono::milliseconds &ms);
         StackCommandBuilder &addCommand(const StackCommand &cmd);
 
         // Begins a new group using the supplied name.
