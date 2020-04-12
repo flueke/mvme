@@ -179,6 +179,23 @@ std::error_code MVLC::vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
     return d->dialog.vmeBlockRead(address, amod, maxTransfers, dest);
 }
 
+std::error_code MVLC::uploadStack(
+    u8 stackOutputPipe,
+    u16 stackMemoryOffset,
+    const std::vector<StackCommand> &commands,
+    std::vector<u32> &responseDest)
+{
+    auto guard = d->locks.lockCmd();
+    return d->dialog.uploadStack(stackOutputPipe, stackMemoryOffset, commands, responseDest);
+}
+
+std::error_code MVLC::execImmediateStack(
+    u16 stackMemoryOffset, std::vector<u32> &responseDest)
+{
+    auto guard = d->locks.lockCmd();
+    return d->dialog.execImmediateStack(stackMemoryOffset, responseDest);
+}
+
 std::error_code MVLC::readResponse(BufferHeaderValidator bhv, std::vector<u32> &dest)
 {
     auto guard = d->locks.lockCmd();

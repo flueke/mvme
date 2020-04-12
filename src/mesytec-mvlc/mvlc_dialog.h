@@ -27,6 +27,7 @@
 #include <system_error>
 #include "mvlc_basic_interface.h"
 #include "mvlc_buffer_validators.h"
+#include "mvlc_command_builders.h"
 
 // Higher level MVLC dialog (request/response) layer. Builds on top of the
 // AbstractImpl abstraction.
@@ -78,6 +79,26 @@ class MVLCDialog
         // FIXME: Blk2eSST is missing
         std::error_code vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
                                      std::vector<u32> &dest);
+
+        // Command stack uploading
+
+        std::error_code uploadStack(
+            u8 stackOutputPipe,
+            u16 stackMemoryOffset,
+            const std::vector<StackCommand> &commands,
+            std::vector<u32> &responseDest);
+
+        inline std::error_code uploadStack(
+            u8 stackOutputPipe,
+            u16 stackMemoryOffset,
+            const StackCommandBuilder &stack,
+            std::vector<u32> &responseDest)
+        {
+            return uploadStack(stackOutputPipe, stackMemoryOffset, stack.getCommands(), responseDest);
+        }
+
+        // Immediate stack execution
+        std::error_code execImmediateStack(u16 stackMemoryOffset, std::vector<u32> &responseDest);
 
         // Lower level utilities
 

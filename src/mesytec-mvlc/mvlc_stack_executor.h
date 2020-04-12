@@ -54,103 +54,10 @@ template<typename DIALOG_API>
         DIALOG_API &mvlc, const std::vector<StackCommand> &commands,
         std::vector<u32> &responseDest)
 {
-    auto stackBuffer = make_stack_buffer(commands);
-
-    if (stackBuffer.size() > stacks::StackMemoryWords)
-        return make_error_code(MVLCErrorCode::StackMemoryExceeded);
-
-    // TODO: partition those into chunks that when converted to a command
-    // buffer are at most (MirrorTransactionMaxWords) words long.
-    auto uploadCommands = make_stack_upload_commands(CommandPipe, 0, stackBuffer);
-
-    auto firstCommand = std::begin(uploadCommands);
-    const auto endOfBuffer = std::end(uploadCommands);
-    size_t partCount = 0u;
-
-    while (firstCommand < endOfBuffer)
-    {
-        auto lastCommand = firstCommand;
-        size_t encodedSize = 0u;
-
-        while (lastCommand < endOfBuffer)
-        {
-            if (encodedSize + get_encoded_size(*lastCommand) > MirrorTransactionMaxContentsWords)
-                break;
-
-            encodedSize += get_encoded_size(*lastCommand++);
-        }
-
-        assert(encodedSize <= MirrorTransactionMaxContentsWords);
-
-        basic_string_view<SuperCommand> part(&(*firstCommand), lastCommand - firstCommand);
-
-        auto request = make_command_buffer(part);
-
-        std::cout << __PRETTY_FUNCTION__ << "part #" << partCount++ << ", request.size() = " << request.size() << std::endl;
-
-        assert(request.size() <= MirrorTransactionMaxWords);
-
-        if (auto ec = mvlc.mirrorTransaction(request, responseDest))
-            return ec;
-
-        firstCommand = lastCommand;
-    }
-
-    std::cout << __PRETTY_FUNCTION__ << "stack upload done in " << partCount << " parts" << std::endl;
-
-    assert(firstCommand == endOfBuffer);
-
-    // set the stack 0 offset register
-    if (auto ec = mvlc.writeRegister(stacks::Stack0OffsetRegister, 0))
+    if (auto ec = mvlc.uploadStack(CommandPipe, 0, commands, responseDest))
         return ec;
 
-    // exec stack 0
-    if (auto ec = mvlc.writeRegister(stacks::Stack0TriggerRegister, 1u << stacks::ImmediateShift))
-        return ec;
-
-    // read the stack response into the supplied buffer
-    if (auto ec = mvlc.readResponse(is_stack_buffer, responseDest))
-    {
-        std::cout << "stackTransaction: is_stack_buffer header validation failed" << std::endl;
-        return ec;
-    }
-
-    assert(!responseDest.empty()); // guaranteed by readResponse()
-
-    // Test if the Continue bit is set and if so read continuation buffers
-    // (0xF9) until the Continue bit is cleared.
-    // Note: stack error notification buffers (0xF7) as part of the response are
-    // handled in readResponse().
-
-    u32 header = responseDest[0];
-    u8 flags = extract_frame_info(header).flags;
-
-    if (flags & frame_flags::Continue)
-    {
-        std::vector<u32> localBuffer;
-
-        while (flags & frame_flags::Continue)
-        {
-            if (auto ec = mvlc.readResponse(is_stack_buffer_continuation, localBuffer))
-            {
-                std::cout << "stackTransaction: is_stack_buffer_continuation header validation failed" << std::endl;
-                return ec;
-            }
-
-            std::copy(localBuffer.begin(), localBuffer.end(), std::back_inserter(responseDest));
-
-            header = !localBuffer.empty() ? localBuffer[0] : 0u;
-            flags = extract_frame_info(header).flags;
-        }
-    }
-
-    if (flags & frame_flags::Timeout)
-        return MVLCErrorCode::NoVMEResponse;
-
-    if (flags & frame_flags::SyntaxError)
-        return MVLCErrorCode::StackSyntaxError;
-
-    return {};
+    return mvlc.execImmediateStack(0, responseDest);
 }
 
 template<typename DIALOG_API>

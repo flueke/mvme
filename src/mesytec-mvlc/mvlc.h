@@ -36,6 +36,7 @@
 #include "mvlc_buffer_validators.h"
 #include "mvlc_constants.h"
 #include "mvlc_threading.h"
+#include "mvlc_command_builders.h"
 
 namespace mesytec
 {
@@ -92,6 +93,49 @@ class MESYTEC_MVLC_EXPORT MVLC: public MVLCBasicInterface
 
         std::error_code vmeBlockRead(
             u32 address, u8 amod, u16 maxTransfers, std::vector<u32> &dest);
+
+        std::error_code uploadStack(
+            u8 stackOutputPipe,
+            u16 stackMemoryOffset,
+            const std::vector<StackCommand> &commands,
+            std::vector<u32> &responseDest);
+
+        inline std::error_code uploadStack(
+            u8 stackOutputPipe,
+            u16 stackMemoryOffset,
+            const StackCommandBuilder &stack,
+            std::vector<u32> &responseDest)
+        {
+            return uploadStack(stackOutputPipe, stackMemoryOffset, stack.getCommands(), responseDest);
+        }
+
+#if 0
+        inline std::error_code uploadStack(
+            u8 stackOutputPipe,
+            u16 stackMemoryOffset,
+            const std::vector<StackCommand> &commands)
+        {
+            std::vector<u32> responseDest;
+            return uploadStack(stackOutputPipe, stackMemoryOffset, commands, responseDest);
+        }
+
+        inline std::error_code uploadStack(
+            u8 stackOutputPipe,
+            u16 stackMemoryOffset,
+            const StackCommandBuilder &stack)
+        {
+            std::vector<u32> responseDest;
+            return uploadStack(stackOutputPipe, stackMemoryOffset, stack.getCommands(), responseDest);
+        }
+#endif
+
+        std::error_code execImmediateStack(
+            u16 stackMemoryOffset, std::vector<u32> &responseDest);
+
+        inline std::error_code execImmediateStack(std::vector<u32> &responseDest)
+        {
+            return execImmediateStack(0, responseDest);
+        }
 
         std::error_code readResponse(BufferHeaderValidator bhv, std::vector<u32> &dest);
 

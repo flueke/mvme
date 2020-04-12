@@ -24,7 +24,7 @@
 #include <cstdio>
 #include <iostream>
 
-#include "mvlc_command_builders.h"
+#include "mvlc_constants.h"
 #include "mvlc_error.h"
 #include "mvlc_util.h"
 //#include "util/debug_timer.h"
@@ -399,6 +399,139 @@ std::error_code MVLCDialog::stackTransaction(const std::vector<u32> &stack,
     if (auto ec = readResponse(is_stack_buffer, dest))
     {
         LOG_WARN("stackTransaction: is_stack_buffer header validation failed");
+        return ec;
+    }
+
+    assert(!dest.empty()); // guaranteed by readResponse()
+
+    // Test if the Continue bit is set and if so read continuation buffers
+    // (0xF9) until the Continue bit is cleared.
+    // Note: stack error notification buffers (0xF7) as part of the response are
+    // handled in readResponse().
+
+    u32 header = dest[0];
+    u8 flags = extract_frame_info(header).flags;
+
+    if (flags & frame_flags::Continue)
+    {
+        std::vector<u32> localBuffer;
+
+        while (flags & frame_flags::Continue)
+        {
+            if (auto ec = readResponse(is_stack_buffer_continuation, localBuffer))
+            {
+                LOG_WARN("stackTransaction: is_stack_buffer_continuation header validation failed");
+                return ec;
+            }
+
+            std::copy(localBuffer.begin(), localBuffer.end(), std::back_inserter(dest));
+
+            header = !localBuffer.empty() ? localBuffer[0] : 0u;
+            flags = extract_frame_info(header).flags;
+        }
+    }
+
+#if 0
+    auto dt_readResponse = timer.restart();
+
+#define ms_(x) std::chrono::duration_cast<std::chrono::milliseconds>(x)
+
+    LOG_DEBUG("dt_mirror=%ld, dt_writeStackRegisters=%ld, dt_readResponse=%ld\n",
+              ms_(dt_mirror).count(),
+              ms_(dt_writeStackRegisters).count(),
+              ms_(dt_readResponse).count());
+
+#undef ms_
+#endif
+
+    // Check the last buffers flag values.
+
+    if (flags & frame_flags::Timeout)
+        return MVLCErrorCode::NoVMEResponse;
+
+    if (flags & frame_flags::SyntaxError)
+        return MVLCErrorCode::StackSyntaxError;
+
+    return {};
+}
+
+std::error_code MVLCDialog::uploadStack(
+    u8 stackOutputPipe,
+    u16 stackMemoryOffset,
+    const std::vector<StackCommand> &commands,
+    std::vector<u32> &responseDest)
+{
+    // The memory contents for the stack area in 32-bit words.
+    auto stackBuffer = make_stack_buffer(commands);
+
+    if (stacks::StackMemoryBegin + stackMemoryOffset + stackBuffer.size() * sizeof(u32) >= stacks::StackMemoryEnd)
+        return make_error_code(MVLCErrorCode::StackMemoryExceeded);
+
+    // One WriteLocal command for each of the stack words.
+    auto uploadCommands = make_stack_upload_commands(stackOutputPipe, stackMemoryOffset, stackBuffer);
+
+    // The WriteLocal commands are now partitioned into parts so that each part
+    // encoded as a super command buffer is at most MirrorTransactionMaxWords
+    // long.
+    auto firstCommand = std::begin(uploadCommands);
+    const auto endOfBuffer = std::end(uploadCommands);
+    size_t partCount = 0u;
+
+    while (firstCommand < endOfBuffer)
+    {
+        auto lastCommand = firstCommand;
+        size_t encodedSize = 0u;
+
+        while (lastCommand < endOfBuffer)
+        {
+            if (encodedSize + get_encoded_size(*lastCommand) > MirrorTransactionMaxContentsWords)
+                break;
+
+            encodedSize += get_encoded_size(*lastCommand++);
+        }
+
+        assert(encodedSize <= MirrorTransactionMaxContentsWords);
+
+        basic_string_view<SuperCommand> part(&(*firstCommand), lastCommand - firstCommand);
+
+        auto request = make_command_buffer(part);
+
+        std::cout << __PRETTY_FUNCTION__ << "part #" << partCount++ << ", request.size() = " << request.size() << std::endl;
+
+        assert(request.size() <= MirrorTransactionMaxWords);
+
+        if (auto ec = mirrorTransaction(request, responseDest))
+            return ec;
+
+        firstCommand = lastCommand;
+    }
+
+    assert(firstCommand == endOfBuffer);
+
+    std::cout << __PRETTY_FUNCTION__ << "stack upload done in " << partCount << " parts" << std::endl;
+
+    return {};
+}
+
+std::error_code MVLCDialog::execImmediateStack(
+    u16 stackMemoryOffset, std::vector<u32> &dest)
+{
+    //DebugTimer timer;
+
+    // set the stack 0 offset register
+    if (auto ec = writeRegister(stacks::Stack0OffsetRegister, stackMemoryOffset))
+        return ec;
+
+    // exec stack 0
+    if (auto ec = writeRegister(stacks::Stack0TriggerRegister, 1u << stacks::ImmediateShift))
+        return ec;
+
+    //auto dt_writeStackRegisters = timer.restart();
+
+    // read the stack response into the supplied buffer
+    if (auto ec = readResponse(is_stack_buffer, dest))
+    {
+        LOG_WARN("execImmediateStack: is_stack_buffer header validation failed");
         return ec;
     }
 

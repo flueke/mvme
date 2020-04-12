@@ -48,7 +48,7 @@ TEST(mvlc_stack_executor, TestTransactions)
         const u32 vmeBase = 0x0;
         const u32 vmeBaseNoModule = 0x10000000u;
 
-        for (int attempt = 0; attempt < 100; ++attempt)
+        for (int attempt = 0; attempt < 2; ++attempt)
         {
             StackCommandBuilder stack;
 
@@ -57,13 +57,18 @@ TEST(mvlc_stack_executor, TestTransactions)
 
             //stack.addVMERead(vmeBaseNoModule + 0x6008, vme_amods::A32, VMEDataWidth::D16);
 
-            //stack.addVMERead(vmeBase + 0x6008, vme_amods::A32, VMEDataWidth::D16);
-            //stack.addVMERead(vmeBase + 0x600E, vme_amods::A32, VMEDataWidth::D16);
 
-            //stack.addVMERead(vmeBaseNoModule + 0x6008, vme_amods::A32, VMEDataWidth::D16);
-
-            for (int i=0; i<511; i++)
+            for (int i=0; i<505; i++)
                 stack.addVMERead(vmeBase + 0x600E, vme_amods::A32, VMEDataWidth::D16);
+
+            stack.addVMERead(vmeBase + 0x6008, vme_amods::A32, VMEDataWidth::D16);
+            stack.addVMERead(vmeBase + 0x600E, vme_amods::A32, VMEDataWidth::D16);
+
+            stack.addVMERead(vmeBaseNoModule + 0x6008, vme_amods::A32, VMEDataWidth::D16);
+            stack.addVMERead(vmeBaseNoModule + 0x600E, vme_amods::A32, VMEDataWidth::D16);
+
+            stack.addVMERead(vmeBase + 0x6008, vme_amods::A32, VMEDataWidth::D16);
+            stack.addVMERead(vmeBase + 0x600E, vme_amods::A32, VMEDataWidth::D16);
 
             std::vector<u32> response;
 
