@@ -7,11 +7,14 @@
 
 #include "mesytec-mvlc_export.h"
 #include "mvlc_constants.h"
+#include "util/string_view.hpp"
 
 namespace mesytec
 {
 namespace mvlc
 {
+
+using namespace nonstd;
 
 //
 // SuperCommands for direct communication with the MVLC
@@ -193,9 +196,12 @@ class MESYTEC_MVLC_EXPORT StackCommandBuilder
 //
 // Conversion to the mvlc buffer format
 //
+MESYTEC_MVLC_EXPORT size_t get_encoded_size(const SuperCommandType &type);
+MESYTEC_MVLC_EXPORT size_t get_encoded_size(const SuperCommand &command);
 
 MESYTEC_MVLC_EXPORT std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands);
 MESYTEC_MVLC_EXPORT std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands);
+MESYTEC_MVLC_EXPORT std::vector<u32> make_command_buffer(const basic_string_view<SuperCommand> &commands);
 
 MESYTEC_MVLC_EXPORT SuperCommandBuilder super_builder_from_buffer(const std::vector<u32> &buffer);
 

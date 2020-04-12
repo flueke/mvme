@@ -77,7 +77,7 @@ ConnectionType connection_type_from_string(const std::string &str)
     if (str == listfile::get_filemagic_eth())
         return ConnectionType::ETH;
 
-    return {};
+    throw std::runtime_error("invalid connection type: " + str);
 }
 } // end anon namespace
 

@@ -36,7 +36,7 @@
 #define LOG_LEVEL_TRACE 400
 
 #ifndef MVLC_DIALOG_LOG_LEVEL
-#define MVLC_DIALOG_LOG_LEVEL LOG_LEVEL_WARN
+#define MVLC_DIALOG_LOG_LEVEL LOG_LEVEL_TRACE
 #endif
 
 #define LOG_LEVEL_SETTING MVLC_DIALOG_LOG_LEVEL
@@ -245,6 +245,7 @@ std::error_code MVLCDialog::readResponse(BufferHeaderValidator bhv, std::vector<
     if (!bhv(header))
     {
         LOG_WARN("readResponse header validation failed, header=0x%08x", header);
+        logBuffer(dest, "readResponse dest buffer");
         return make_error_code(MVLCErrorCode::UnexpectedBufferHeader);
     }
 
@@ -335,6 +336,9 @@ std::error_code MVLCDialog::writeRegister(u16 address, u32 value)
 std::error_code MVLCDialog::mirrorTransaction(const std::vector<u32> &cmdBuffer,
                                               std::vector<u32> &dest)
 {
+    if (cmdBuffer.size() > MirrorTransactionMaxWords)
+        return make_error_code(MVLCErrorCode::MirrorTransactionMaxWordsExceeded);
+
     for (unsigned tries = 0u; tries < MirrorMaxRetries; tries++)
     {
         // upload the stack
@@ -393,7 +397,10 @@ std::error_code MVLCDialog::stackTransaction(const std::vector<u32> &stack,
 
     // read the stack response into the supplied buffer
     if (auto ec = readResponse(is_stack_buffer, dest))
+    {
+        LOG_WARN("stackTransaction: is_stack_buffer header validation failed");
         return ec;
+    }
 
     assert(!dest.empty()); // guaranteed by readResponse()
 
@@ -412,7 +419,10 @@ std::error_code MVLCDialog::stackTransaction(const std::vector<u32> &stack,
         while (flags & frame_flags::Continue)
         {
             if (auto ec = readResponse(is_stack_buffer_continuation, localBuffer))
+            {
+                LOG_WARN("stackTransaction: is_stack_buffer_continuation header validation failed");
                 return ec;
+            }
 
             std::copy(localBuffer.begin(), localBuffer.end(), std::back_inserter(dest));
 

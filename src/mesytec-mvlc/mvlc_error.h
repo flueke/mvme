@@ -38,7 +38,9 @@ enum class MVLCErrorCode
     UDPPacketChannelOutOfRange,
     StackCountExceeded,
     StackMemoryExceeded,
+    ImmediateStackReservedMemoryExceeded,
     StackSyntaxError,
+    MirrorTransactionMaxWordsExceeded,
     InvalidStackHeader,
 
     // Readout setup releated (e.g. mvlc_daq.cc)

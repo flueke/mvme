@@ -43,6 +43,12 @@ static const u32 AddressIncrement = 4;
 static const u32 ReadLocalBlockMaxWords = 768;
 static const u32 FrameSizeMask = 0xFFFF;
 
+// Limitation of the MVLC firmware when running lists of super commands.
+// Subtract 2 for CmdBufferStart and CmdBufferEnd which have to be added to
+// form a valid super command buffer.
+static const size_t MirrorTransactionMaxWords = 255;
+static const size_t MirrorTransactionMaxContentsWords = MirrorTransactionMaxWords - 2;
+
 // Super commands are commands that are directly interpreted and executed
 // by the MVLC.
 // The values in the SuperCommands enum contain the 2 high bytes of the

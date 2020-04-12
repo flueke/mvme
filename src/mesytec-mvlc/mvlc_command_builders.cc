@@ -182,6 +182,7 @@ std::string to_string(const StackCommand &cmd)
                     cmd.amod, to_string(cmd.dataWidth), cmd.address);
 
             // block mode
+            // FIXME: Blk2eSST is missing
             return fmt::format(
                 "vme_block_read {:#04x} {} {:#010x}",
                 cmd.amod, cmd.transfers, cmd.address);
@@ -230,6 +231,7 @@ StackCommand stack_command_from_string(const std::string &str)
     }
     else if (name == "vme_block_read")
     {
+        // FIXME: Blk2eSST is missing
         result.type = CT::VMERead;
         iss >> arg; result.amod = std::stoul(arg, nullptr, 0);
         iss >> arg; result.transfers = std::stoul(arg, nullptr, 0);
@@ -424,12 +426,44 @@ StackCommandBuilder &StackCommandBuilder::addGroup(
 //
 // Conversion to the mvlc buffer format
 //
+
+size_t get_encoded_size(const SuperCommandType &type)
+{
+    using SuperCT = SuperCommandType;
+
+    switch (type)
+    {
+        case SuperCT::ReferenceWord:
+        case SuperCT::ReadLocal:
+        case SuperCT::WriteReset:
+        case SuperCT::CmdBufferStart:
+        case SuperCT::CmdBufferEnd:
+            return 1;
+
+        case SuperCT::ReadLocalBlock:
+        case SuperCT::WriteLocal:
+            return 2;
+    }
+
+    return 0u;
+}
+
+size_t get_encoded_size(const SuperCommand &cmd)
+{
+    return get_encoded_size(cmd.type);
+}
+
 std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands)
 {
     return make_command_buffer(commands.getCommands());
 }
 
 std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands)
+{
+    return make_command_buffer(basic_string_view<SuperCommand>(commands.data(), commands.size()));
+}
+
+MESYTEC_MVLC_EXPORT std::vector<u32> make_command_buffer(const basic_string_view<SuperCommand> &commands)
 {
     using namespace super_commands;
     using SuperCT = SuperCommandType;
@@ -729,7 +763,7 @@ std::vector<SuperCommand> make_stack_upload_commands(
     super.addWriteLocal(
         address,
         (static_cast<u32>(StackCommandType::StackStart) << stack_commands::CmdShift
-         | stackOutputPipe << stack_commands::CmdArg0Shift));
+         | (stackOutputPipe << stack_commands::CmdArg0Shift)));
     address += AddressIncrement;
 
     // A write for each data word of the stack.

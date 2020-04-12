@@ -115,6 +115,9 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::StackSyntaxError:
                  return "Stack syntax error";
 
+            case MVLCErrorCode::MirrorTransactionMaxWordsExceeded:
+                 return "Mirror transaction max words exceeded";
+
             case MVLCErrorCode::InvalidStackHeader:
                  return "Invalid stack header";
 
@@ -178,6 +181,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::StackCountExceeded:
             case MVLCErrorCode::StackMemoryExceeded:
             case MVLCErrorCode::StackSyntaxError:
+            case MVLCErrorCode::MirrorTransactionMaxWordsExceeded:
             case MVLCErrorCode::InvalidStackHeader:
             case MVLCErrorCode::TimerCountExceeded: // FIXME: does not belong here
             case MVLCErrorCode::ReadoutSetupError:  // FIXME: does not belong here

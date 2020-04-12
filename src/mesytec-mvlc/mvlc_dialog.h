@@ -75,6 +75,7 @@ class MVLCDialog
         // including the stack frame (0xF3) and block frame (0xF5) headers.
         // The flags of either of these headers are not interpreted by this
         // method.
+        // FIXME: Blk2eSST is missing
         std::error_code vmeBlockRead(u32 address, u8 amod, u16 maxTransfers,
                                      std::vector<u32> &dest);
 
