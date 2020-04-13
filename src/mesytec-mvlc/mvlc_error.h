@@ -88,4 +88,32 @@ namespace std
     template<> struct is_error_condition_enum<mesytec::mvlc::ErrorType>: true_type {};
 } // end namespace std
 
+namespace mesytec
+{
+namespace mvlc
+{
+
+inline bool is_vme_error(const std::error_code &ec)
+{
+    return ec == ErrorType::VMEError;
+}
+
+inline bool is_connection_error(const std::error_code &ec)
+{
+    return ec == ErrorType::ConnectionError;
+}
+
+inline bool is_protocol_error(const std::error_code &ec)
+{
+    return ec == ErrorType::ProtocolError;
+}
+
+inline bool is_timeout(const std::error_code &ec)
+{
+    return ec == ErrorType::Timeout;
+}
+
+} // end namespace mvlc
+} // end namespace mesytec
+
 #endif /* __MVLC_ERROR_H__ */

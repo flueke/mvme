@@ -78,6 +78,7 @@ class MESYTEC_MVLC_EXPORT SuperCommandBuilder
 
 struct MESYTEC_MVLC_EXPORT StackCommand
 {
+    // A crude way of extending the StackCommandType enum.
     enum class CommandType: u8
     {
         StackStart      = static_cast<u8>(StackCommandType::StackStart),
@@ -198,6 +199,9 @@ class MESYTEC_MVLC_EXPORT StackCommandBuilder
 //
 MESYTEC_MVLC_EXPORT size_t get_encoded_size(const SuperCommandType &type);
 MESYTEC_MVLC_EXPORT size_t get_encoded_size(const SuperCommand &command);
+
+MESYTEC_MVLC_EXPORT size_t get_encoded_size(const StackCommand::CommandType &type);
+MESYTEC_MVLC_EXPORT size_t get_encoded_size(const StackCommand &command);
 
 MESYTEC_MVLC_EXPORT std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands);
 MESYTEC_MVLC_EXPORT std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands);

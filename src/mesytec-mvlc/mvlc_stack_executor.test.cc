@@ -90,6 +90,12 @@ TEST(mvlc_stack_executor, TestTransactions)
             {
                 log_buffer(cout, notification, "notification #" + std::to_string(notificationIndex++));
             }
+
+            auto parts = partition_commands(stack, stacks::StackMemoryWords / 2);
+
+            cout << "partition_commands returned " << parts.size() << " parts:" << endl;
+            for (const auto &part: parts)
+                cout << " size=" << part.size() << ", encodedSize=" << get_encoded_size(part) << endl;
         }
     }
     //catch (const std::error_code &ec)

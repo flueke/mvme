@@ -453,6 +453,40 @@ size_t get_encoded_size(const SuperCommand &cmd)
     return get_encoded_size(cmd.type);
 }
 
+size_t get_encoded_size(const StackCommand::CommandType &type)
+{
+    using StackCT = StackCommand::CommandType;
+
+    switch (type)
+    {
+        case StackCT::StackStart:
+        case StackCT::StackEnd:
+            return 1;
+
+        case StackCT::VMERead:
+            return 2;
+
+        case StackCT::VMEWrite:
+            return 3;
+
+        case StackCT::WriteMarker:
+            return 2;
+
+        case StackCT::WriteSpecial:
+            return 1;
+
+        case StackCT::SoftwareDelay:
+            return 0;
+    }
+
+    return 0u;
+}
+
+size_t get_encoded_size(const StackCommand &cmd)
+{
+    return get_encoded_size(cmd.type);
+}
+
 std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands)
 {
     return make_command_buffer(commands.getCommands());

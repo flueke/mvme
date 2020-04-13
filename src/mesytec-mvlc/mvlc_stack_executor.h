@@ -4,6 +4,7 @@
 #include <cassert>
 #include <iostream>
 #include <functional>
+#include <numeric>
 #include <system_error>
 
 #include "mvlc_buffer_validators.h"
@@ -66,6 +67,71 @@ template<typename DIALOG_API>
         std::vector<u32> &responseDest)
 {
     return stack_transaction(mvlc, stack.getCommands(), responseDest);
+}
+
+using StackCommandView = basic_string_view<const StackCommand>;
+
+inline size_t get_encoded_size(const StackCommandView &commands)
+{
+    size_t encodedPartSize = 2 + std::accumulate(
+        std::begin(commands), std::end(commands), static_cast<size_t>(0u),
+        [] (const size_t &encodedSize, const StackCommand &cmd)
+        {
+            return encodedSize + get_encoded_size(cmd);
+        });
+
+    return encodedPartSize;
+}
+
+inline std::vector<StackCommandView> partition_commands(
+    const StackCommandBuilder &stack,
+    u16 immediateStackMaxSize = stacks::ImmediateStackReservedWords)
+{
+    std::vector<StackCommandView> result;
+
+    auto commands = stack.getCommands();
+    auto firstCommand = std::begin(commands);
+    const auto endOfCommands = std::end(commands);
+
+    while (firstCommand < endOfCommands)
+    {
+        auto nextCommand = firstCommand;
+        size_t encodedSize = 2u; // StackStart and StackEnd
+
+        while (nextCommand < endOfCommands)
+        {
+            if (encodedSize + get_encoded_size(*nextCommand) > immediateStackMaxSize)
+                break;
+
+            encodedSize += get_encoded_size(*nextCommand);
+            ++nextCommand;
+
+            if (nextCommand < endOfCommands
+                && nextCommand->type == StackCommand::CommandType::SoftwareDelay)
+            {
+                break;
+            }
+        }
+
+        StackCommandView part(&(*firstCommand), nextCommand - firstCommand);
+
+#ifndef NDEBUG
+        size_t encodedPartSize = 2 + std::accumulate(
+            std::begin(part), std::end(part), static_cast<size_t>(0u),
+            [] (const size_t &encodedSize, const StackCommand &cmd)
+            {
+                return encodedSize + get_encoded_size(cmd);
+            });
+
+        assert(encodedPartSize == encodedSize);
+        assert(encodedPartSize <= immediateStackMaxSize);
+#endif
+
+        result.push_back(part);
+        firstCommand = nextCommand; // advance
+    }
+
+    return result;
 }
 
 struct ParsedResponse

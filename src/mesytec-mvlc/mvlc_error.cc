@@ -112,6 +112,9 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::StackMemoryExceeded:
                  return "MVLC stack memory exceeded";
 
+            case MVLCErrorCode::ImmediateStackReservedMemoryExceeded:
+                 return "immediate stack reserved memory exceeeded";
+
             case MVLCErrorCode::StackSyntaxError:
                  return "Stack syntax error";
 
@@ -180,6 +183,7 @@ class MVLCErrorCategory: public std::error_category
             case MVLCErrorCode::InvalidPipe:
             case MVLCErrorCode::StackCountExceeded:
             case MVLCErrorCode::StackMemoryExceeded:
+            case MVLCErrorCode::ImmediateStackReservedMemoryExceeded:
             case MVLCErrorCode::StackSyntaxError:
             case MVLCErrorCode::MirrorTransactionMaxWordsExceeded:
             case MVLCErrorCode::InvalidStackHeader:
