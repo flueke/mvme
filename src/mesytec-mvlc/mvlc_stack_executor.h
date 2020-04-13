@@ -104,6 +104,7 @@ inline std::vector<StackCommandView> partition_commands(
                 break;
 
             encodedSize += get_encoded_size(*nextCommand);
+
             ++nextCommand;
 
             if (nextCommand < endOfCommands
