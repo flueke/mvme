@@ -37,12 +37,17 @@ target_include_directories(mesytec-mvlc
 
 target_link_libraries(mesytec-mvlc
     PRIVATE fmt::fmt-header-only # does add -DFMT_HEADER_ONLY=1
-    PRIVATE ftd3xx
     PRIVATE lz4_static
     PRIVATE minizip
     PRIVATE yaml-cpp
     PUBLIC Threads::Threads
     )
+
+if (UNIX AND NOT APPLE)
+    target_link_libraries(mesytec-mvlc PRIVATE ftd3xx-static)
+else()
+    target_link_libraries(mesytec-mvlc PRIVATE ftd3xx)
+endif()
 
 if (WIN32)
     target_link_libraries(mesytec-mvlc PRIVATE ws2_32)
