@@ -1,26 +1,6 @@
 # ftdi d3xx drivers
 add_subdirectory(ftdi-d3xx)
 
-# libzip options
-OPTION(ENABLE_COMMONCRYPTO "Enable use of CommonCrypto" OFF)
-OPTION(ENABLE_GNUTLS "Enable use of GnuTLS" OFF)
-OPTION(ENABLE_MBEDTLS "Enable use of mbed TLS" OFF)
-OPTION(ENABLE_OPENSSL "Enable use of OpenSSL" OFF)
-OPTION(ENABLE_WINDOWS_CRYPTO "Enable use of Windows cryptography libraries" OFF)
-
-OPTION(ENABLE_BZIP2 "Enable use of BZip2" OFF)
-OPTION(ENABLE_LZMA "Enable use of LZMA" OFF)
-
-OPTION(BUILD_TOOLS "Build tools in the src directory (zipcmp, zipmerge, ziptool)" OFF)
-OPTION(BUILD_REGRESS "Build regression tests" OFF)
-OPTION(BUILD_EXAMPLES "Build examples" OFF)
-OPTION(BUILD_DOC "Build documentation" OFF)
-
-add_subdirectory(libzip)
-target_include_directories(zip
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/libzip>
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/libzip/lib>)
-
 # minizip options
 option(MZ_COMPAT "Enables compatibility layer" OFF)
 option(MZ_ZLIB "Enables ZLIB compression" ON)
@@ -38,6 +18,7 @@ option(MZ_BUILD_TEST "Builds minizip test executable" OFF)
 option(MZ_BUILD_UNIT_TEST "Builds minizip unit test project" OFF)
 option(MZ_BUILD_FUZZ_TEST "Builds minizip fuzzer executables" OFF)
 option(MZ_CODE_COVERAGE "Builds with code coverage flags" OFF)
+set(SKIP_INSTALL_ALL ON)
 #set(ZLIB_REPOSITORY "https://github.com/Dead2/zlib-ng" CACHE STRING "")
 #set(ZLIB_TAG "develop" CACHE STRING "")
 
@@ -50,12 +31,22 @@ if (MVLC_ENABLE_PYTHON)
     add_subdirectory(pybind11-2.4.3)
 endif(MVLC_ENABLE_PYTHON)
 
+# yaml-cpp
 option(YAML_CPP_BUILD_TESTS "Enable testing" OFF)
 option(YAML_CPP_BUILD_TOOLS "Enable parse tools" OFF)
 option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
 option(YAML_CPP_INSTALL "Enable generation of install target" OFF)
-option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
+option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 add_subdirectory(yaml-cpp)
+# Disable the 'yaml-cpp/node/impl.h:202:11: warning: ‘operator=’ should return # a reference to ‘*this’ [-Weffc++]' warning
+# Note: the code does return *this.
+set(not-msvc $<NOT:$<CXX_COMPILER_ID:MSVC>>)
+target_compile_options(yaml-cpp
+  PRIVATE $<${not-msvc}:-Wno-effc++>)
+
+# Enable the PIC flag to fix a relocation error when linking against the
+# static version of yaml-cpp.
+set_target_properties(yaml-cpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # LZ4
 add_subdirectory(lz4/contrib/cmake_unofficial)

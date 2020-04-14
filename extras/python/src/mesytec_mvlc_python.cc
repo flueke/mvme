@@ -1,8 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "mvlc_command_builders.h"
-#include "git_version.h"
+#include <mesytec-mvlc/mvlc_command_builders.h>
+#include <mesytec-mvlc/git_version.h>
 
 namespace py = pybind11;
 

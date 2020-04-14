@@ -16,8 +16,8 @@
 #include <mz_zip_rw.h>
 #include <mz_strm_os.h>
 
-#include "util/int_types.h"
-#include "util/threadsafequeue.h"
+#include "mesytec-mvlc/util/int_types.h"
+#include "mesytec-mvlc/util/threadsafequeue.h"
 
 using std::cout;
 using std::endl;

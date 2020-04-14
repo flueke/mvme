@@ -26,6 +26,14 @@ elseif(UNIX AND NOT APPLE)
 
     #file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/ftdi-d3xx-linux-x86_64/libftd3xx.so
     #    DESTINATION ${CMAKE_BINARY_DIR})
+
+    add_library(ftd3xx-static STATIC IMPORTED GLOBAL)
+
+    set_target_properties(ftd3xx-static PROPERTIES
+        IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/ftdi-d3xx-linux-x86_64/libftd3xx-static.a)
+
+    target_include_directories(ftd3xx-static
+        INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ftdi-d3xx-linux-x86_64/)
 elseif(APPLE)
     set_target_properties(ftd3xx PROPERTIES
         IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/d3xx-osx-0.5.21/osx/libftd3xx.dylib
