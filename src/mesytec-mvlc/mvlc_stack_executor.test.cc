@@ -35,7 +35,8 @@ TEST(mvlc_stack_executor, TestTransactions)
 
     //try
     {
-        auto mvlc = make_mvlc_eth("mvlc-0007");
+        auto mvlc = make_mvlc_usb();
+        //auto mvlc = make_mvlc_eth("mvlc-0007");
 
         mvlc.setDisableTriggersOnConnect(true);
 
@@ -58,7 +59,7 @@ TEST(mvlc_stack_executor, TestTransactions)
             //stack.addVMERead(vmeBaseNoModule + 0x6008, vme_amods::A32, VMEDataWidth::D16);
 
 
-            for (int i=0; i<505; i++)
+            for (int i=0; i<5505; i++)
                 stack.addVMERead(vmeBase + 0x600E, vme_amods::A32, VMEDataWidth::D16);
 
             stack.addVMERead(vmeBase + 0x6008, vme_amods::A32, VMEDataWidth::D16);
@@ -72,7 +73,8 @@ TEST(mvlc_stack_executor, TestTransactions)
 
             std::vector<u32> response;
 
-            auto ec = stack_transaction(mvlc, stack, response);
+            std::error_code ec= {};
+            //auto ec = stack_transaction(mvlc, stack, response);
 
             if (ec && ec != ErrorType::VMEError)
             {
@@ -91,11 +93,18 @@ TEST(mvlc_stack_executor, TestTransactions)
                 log_buffer(cout, notification, "notification #" + std::to_string(notificationIndex++));
             }
 
-            auto parts = partition_commands(stack, stacks::StackMemoryWords / 2);
+            auto commands = stack.getCommands();
+            auto parts = split_commands(commands, stacks::StackMemoryWords);
 
-            cout << "partition_commands returned " << parts.size() << " parts:" << endl;
+            cout << "split_commands returned " << parts.size() << " parts:" << endl;
             for (const auto &part: parts)
                 cout << " size=" << part.size() << ", encodedSize=" << get_encoded_size(part) << endl;
+
+            for (const auto &part: parts)
+            {
+                if (auto ec = stack_transaction(mvlc, part, response))
+                    throw ec;
+            }
         }
     }
     //catch (const std::error_code &ec)

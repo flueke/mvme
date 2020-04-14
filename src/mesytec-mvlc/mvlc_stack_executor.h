@@ -69,9 +69,7 @@ template<typename DIALOG_API>
     return stack_transaction(mvlc, stack.getCommands(), responseDest);
 }
 
-using StackCommandView = basic_string_view<const StackCommand>;
-
-inline size_t get_encoded_size(const StackCommandView &commands)
+inline size_t get_encoded_size(const std::vector<StackCommand> &commands)
 {
     size_t encodedPartSize = 2 + std::accumulate(
         std::begin(commands), std::end(commands), static_cast<size_t>(0u),
@@ -83,58 +81,92 @@ inline size_t get_encoded_size(const StackCommandView &commands)
     return encodedPartSize;
 }
 
-inline std::vector<StackCommandView> partition_commands(
-    const StackCommandBuilder &stack,
-    u16 immediateStackMaxSize = stacks::ImmediateStackReservedWords)
+template<typename C, typename Predicate>
+std::vector<std::vector<typename C::value_type>>
+conditional_split(const C &container, Predicate split_predicate)
 {
-    std::vector<StackCommandView> result;
+    using PartType = std::vector<typename C::value_type>;
 
-    auto commands = stack.getCommands();
-    auto firstCommand = std::begin(commands);
-    const auto endOfCommands = std::end(commands);
+    std::vector<PartType> result;
 
-    while (firstCommand < endOfCommands)
+    auto first = std::begin(container);
+    const auto end = std::end(container);
+
+    while (first < end)
     {
-        auto nextCommand = firstCommand;
-        size_t encodedSize = 2u; // StackStart and StackEnd
+        auto next = first;
 
-        while (nextCommand < endOfCommands)
+        while (next < end)
         {
-            if (encodedSize + get_encoded_size(*nextCommand) > immediateStackMaxSize)
+            if (split_predicate(*next))
                 break;
 
-            encodedSize += get_encoded_size(*nextCommand);
-
-            ++nextCommand;
-
-            if (nextCommand < endOfCommands
-                && nextCommand->type == StackCommand::CommandType::SoftwareDelay)
-            {
-                break;
-            }
+            ++next;
         }
 
-        StackCommandView part(&(*firstCommand), nextCommand - firstCommand);
-
-#ifndef NDEBUG
-        size_t encodedPartSize = 2 + std::accumulate(
-            std::begin(part), std::end(part), static_cast<size_t>(0u),
-            [] (const size_t &encodedSize, const StackCommand &cmd)
-            {
-                return encodedSize + get_encoded_size(cmd);
-            });
-
-        assert(encodedPartSize == encodedSize);
-        assert(encodedPartSize <= immediateStackMaxSize);
-#endif
-
-        result.push_back(part);
-        firstCommand = nextCommand; // advance
+        //ViewType part(&(*first), next - first);
+        PartType part;
+        std::copy(first, next, std::back_inserter(part));
+        result.emplace_back(part);
+        first = next; // advance
     }
 
     return result;
 }
 
+inline std::vector<std::vector<StackCommand>> split_commands(
+    const std::vector<StackCommand> &commands,
+    const u16 immediateStackMaxSize = stacks::ImmediateStackReservedWords)
+{
+    struct SplitPredicateState
+    {
+        size_t encodedSize = 2;
+        bool lastCommandWasSoftwareDelay = false;
+    };
+
+    SplitPredicateState predState;
+
+    auto split_predicate = [&predState, &immediateStackMaxSize]
+        (const StackCommand &nextCmd) -> bool
+    {
+        std::cout << to_string(nextCmd) << std::endl;
+        // Returning false means that nextCmd should be added to the current
+        // part. Returning true means that a new split should be created.
+        bool ret = false;
+
+        // Check if adding the next command to the current split would push the
+        // encoded stacks size over immediateStackMaxSize.
+        if (predState.encodedSize + get_encoded_size(nextCmd) > immediateStackMaxSize)
+            ret = true;
+        else
+            predState.encodedSize += get_encoded_size(nextCmd);
+
+        // If the previous command was a software delay we terminate the split
+        // now. This means software delays will be positioned at the end of
+        // each split.
+        if (predState.lastCommandWasSoftwareDelay)
+            ret = true;
+
+        // Update state
+        predState.lastCommandWasSoftwareDelay = (
+            nextCmd.type == StackCommand::CommandType::SoftwareDelay);
+
+        // Reset state if we tell the algorithm to terminate the current split.
+        if (ret)
+            predState.encodedSize = 2;
+
+        return ret;
+    };
+
+    auto result = conditional_split(commands, split_predicate);
+
+    for (const auto &part: result)
+        assert(get_encoded_size(part) <= immediateStackMaxSize);
+
+    return result;
+}
+
+#if 0
 struct ParsedResponse
 {
     std::error_code ec;
@@ -178,6 +210,7 @@ template<typename DIALOG_API>
 
     return pr;
 }
+#endif
 
 } // end namespace detail
 
