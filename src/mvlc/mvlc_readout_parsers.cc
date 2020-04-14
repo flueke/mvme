@@ -541,9 +541,9 @@ ParseResult parse_readout_contents(
                             if (state.curBlockFrame.info().type != frame_headers::BlockRead)
                             {
 
-                                qDebug("NotABlockFrame: type=0x%x, frameHeader=0x%08x",
-                                       state.curBlockFrame.info().type,
-                                       state.curBlockFrame.header);
+                                //qDebug("NotABlockFrame: type=0x%x, frameHeader=0x%08x",
+                                //       state.curBlockFrame.info().type,
+                                //       state.curBlockFrame.header);
 
                                 state.curBlockFrame = {};
                                 parser_clear_event_state(state);
