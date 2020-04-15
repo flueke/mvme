@@ -39,10 +39,8 @@ struct Result
 
 struct Options
 {
-    using opt = unsigned;
-
-    static constexpr opt IgnoreDelays = 1u << 0;
-    static constexpr opt NoBatching = 1u << 1;
+    bool ignoreDelays = false;
+    bool noBatching  = false;
 };
 
 using AbortPredicate = std::function<bool (const std::error_code &ec)>;
@@ -69,7 +67,7 @@ template<typename DIALOG_API>
     return stack_transaction(mvlc, stack.getCommands(), responseDest);
 }
 
-inline size_t get_encoded_size(const std::vector<StackCommand> &commands)
+inline size_t get_encoded_stack_size(const std::vector<StackCommand> &commands)
 {
     size_t encodedPartSize = 2 + std::accumulate(
         std::begin(commands), std::end(commands), static_cast<size_t>(0u),
@@ -81,13 +79,18 @@ inline size_t get_encoded_size(const std::vector<StackCommand> &commands)
     return encodedPartSize;
 }
 
-template<typename C, typename Predicate>
-std::vector<std::vector<typename C::value_type>>
-conditional_split(const C &container, Predicate split_predicate)
+// Split the elements of an input container into parts using a predicate to
+// decide when to terminate each part.
+//
+// Each element of the input container is passed to the predicate.  If the
+// predicate returns true the current part is terminated and a new one is
+// started. Otherwise the current input container element is added to the
+// current part.
+template<typename Container, typename Predicate>
+std::vector<Container> conditional_split(
+    const Container &container, Predicate terminate_part_predicate)
 {
-    using PartType = std::vector<typename C::value_type>;
-
-    std::vector<PartType> result;
+    std::vector<Container> result;
 
     auto first = std::begin(container);
     const auto end = std::end(container);
@@ -98,14 +101,16 @@ conditional_split(const C &container, Predicate split_predicate)
 
         while (next < end)
         {
-            if (split_predicate(*next))
+            if (terminate_part_predicate(*next))
                 break;
 
             ++next;
         }
 
-        //ViewType part(&(*first), next - first);
-        PartType part;
+        if (first == next)
+            throw std::runtime_error("conditional_split produced an empty part");
+
+        Container part;
         std::copy(first, next, std::back_inserter(part));
         result.emplace_back(part);
         first = next; // advance
@@ -116,12 +121,21 @@ conditional_split(const C &container, Predicate split_predicate)
 
 inline std::vector<std::vector<StackCommand>> split_commands(
     const std::vector<StackCommand> &commands,
+    const Options &options = {},
     const u16 immediateStackMaxSize = stacks::ImmediateStackReservedWords)
 {
+#if 0
     struct SplitPredicateState
     {
+        // Start with two encoded words for StackStart and StackEnd
         size_t encodedSize = 2;
-        bool lastCommandWasSoftwareDelay = false;
+
+        // We want SoftwareDelay commands to be added to the current part and
+        // then terminate the part. This way all SoftwareDelay commands will be
+        // at the very end of each part. Multiple successive SoftwareDelays
+        // will result in parts of size 1 for each but the first delay command.
+
+        StackCommand lastAddedCommand;
     };
 
     SplitPredicateState predState;
@@ -129,7 +143,11 @@ inline std::vector<std::vector<StackCommand>> split_commands(
     auto split_predicate = [&predState, &immediateStackMaxSize]
         (const StackCommand &nextCmd) -> bool
     {
-        std::cout << to_string(nextCmd) << std::endl;
+        auto is_sw_delay = [] (const StackCommand &cmd) -> bool
+        {
+            return cmd.type == StackCommand::CommandType::SoftwareDelay;
+        };
+#if 0
         // Returning false means that nextCmd should be added to the current
         // part. Returning true means that a new split should be created.
         bool ret = false;
@@ -144,26 +162,111 @@ inline std::vector<std::vector<StackCommand>> split_commands(
         // If the previous command was a software delay we terminate the split
         // now. This means software delays will be positioned at the end of
         // each split.
-        if (predState.lastCommandWasSoftwareDelay)
+        if (predState.lastAddedCommand.type == StackCommand::CommandType::SoftwareDelay)
             ret = true;
 
         // Update state
-        predState.lastCommandWasSoftwareDelay = (
-            nextCmd.type == StackCommand::CommandType::SoftwareDelay);
+        predState.lastAddedCommand = nextCmd;
+
+        if (ret && predState.lastAddedCommand.type == StackCommand::CommandType::SoftwareDelay)
+            ret = false;
 
         // Reset state if we tell the algorithm to terminate the current split.
         if (ret)
             predState.encodedSize = 2;
 
         return ret;
+#else
+        // Returning false means that nextCmd should be added to the current
+        // part. Returning true means that a new split should be created.
+
+        if (is_sw_delay(predState.lastAddedCommand))
+        {
+            if (is_sw_delay(nextCmd))
+            {
+                predState.encodedSize += get_encoded_size(nextCmd);
+                return false;
+            }
+            else
+            {
+                predState.encodedSize = 2;
+                return true;
+            }
+        }
+
+        bool ret = true;
+
+        if (predState.encodedSize + get_encoded_size(nextCmd) <= immediateStackMaxSize)
+        {
+            predState.encodedSize += get_encoded_size(nextCmd);
+            predState.lastAddedCommand = nextCmd;
+            ret = false;
+        }
+
+
+        if (ret)
+            predState.encodedSize = 2;
+
+        return ret;
+#endif
     };
 
     auto result = conditional_split(commands, split_predicate);
 
     for (const auto &part: result)
-        assert(get_encoded_size(part) <= immediateStackMaxSize);
+        assert(get_encoded_stack_size(part) <= immediateStackMaxSize);
 
     return result;
+#else
+    auto is_sw_delay = [] (const StackCommand &cmd) -> bool
+    {
+        return cmd.type == StackCommand::CommandType::SoftwareDelay;
+    };
+
+    std::vector<std::vector<StackCommand>> result;
+
+    auto first = std::begin(commands);
+    const auto end = std::end(commands);
+
+    while (first < end)
+    {
+        auto next = first;
+        size_t encodedSize = 2u;
+
+        while (next < end)
+        {
+            if (encodedSize + get_encoded_size(*next) > immediateStackMaxSize)
+                break;
+
+            encodedSize += get_encoded_size(*next);
+
+            auto prev = next++;
+
+            if (options.noBatching)
+                break;
+
+            if (!options.ignoreDelays && is_sw_delay(*prev))
+                break;
+        }
+
+        if (first == next)
+            throw std::runtime_error("split_commands produced an empty part");
+
+        std::vector<StackCommand> part;
+        std::copy(first, next, std::back_inserter(part));
+
+        assert(get_encoded_stack_size(part) <= immediateStackMaxSize);
+
+        if (options.noBatching)
+            assert(part.size() == 1);
+
+        result.emplace_back(part);
+
+        first = next; // advance
+    }
+
+    return result;
+#endif
 }
 
 #if 0

@@ -4,6 +4,7 @@
 
 #include "gtest/gtest.h"
 
+#include "mesytec-mvlc/mvlc_constants.h"
 #include "mvlc_dialog_util.h"
 #include "mvlc_factory.h"
 #include "mvlc_stack_executor.h"
@@ -94,11 +95,11 @@ TEST(mvlc_stack_executor, TestTransactions)
             }
 
             auto commands = stack.getCommands();
-            auto parts = split_commands(commands, stacks::StackMemoryWords);
+            auto parts = split_commands(commands, {}, stacks::StackMemoryWords);
 
             cout << "split_commands returned " << parts.size() << " parts:" << endl;
             for (const auto &part: parts)
-                cout << " size=" << part.size() << ", encodedSize=" << get_encoded_size(part) << endl;
+                cout << " size=" << part.size() << ", encodedSize=" << get_encoded_stack_size(part) << endl;
 
             for (const auto &part: parts)
             {
@@ -112,4 +113,99 @@ TEST(mvlc_stack_executor, TestTransactions)
     //    cout << "std::error_code thrown: " << ec.message() << endl;
     //    throw;
     //}
+}
+
+TEST(mvlc_stack_executor, SplitCommands1)
+{
+    const u32 vmeBase = 0x0;
+    StackCommandBuilder stack;
+    stack.addVMERead(vmeBase + 0x1000, vme_amods::A32, VMEDataWidth::D16);
+    stack.addVMERead(vmeBase + 0x1002, vme_amods::A32, VMEDataWidth::D16);
+    stack.addSoftwareDelay(std::chrono::milliseconds(100));
+    stack.addVMERead(vmeBase + 0x1004, vme_amods::A32, VMEDataWidth::D16);
+    stack.addVMERead(vmeBase + 0x1008, vme_amods::A32, VMEDataWidth::D16);
+
+
+    {
+        const u16 StackReservedWords = 1;
+        auto commands = stack.getCommands();
+        ASSERT_THROW(detail::split_commands(commands, {}, StackReservedWords), std::runtime_error);
+    }
+
+    {
+        const u16 StackReservedWords = stacks::ImmediateStackReservedWords;
+        auto commands = stack.getCommands();
+        auto parts = detail::split_commands(commands, {}, StackReservedWords);
+        ASSERT_EQ(parts.size(), 2);
+        ASSERT_EQ(parts[0][0].type, StackCommand::CommandType::VMERead);
+        ASSERT_EQ(parts[0][1].type, StackCommand::CommandType::VMERead);
+        ASSERT_EQ(parts[0][2].type, StackCommand::CommandType::SoftwareDelay);
+        ASSERT_EQ(parts[1][0].type, StackCommand::CommandType::VMERead);
+        ASSERT_EQ(parts[1][1].type, StackCommand::CommandType::VMERead);
+    }
+
+    for (int i=0; i<2000; i++)
+    {
+        stack.addVMERead(vmeBase + 0x100a + 2 * i, vme_amods::A32, VMEDataWidth::D16);
+    }
+
+    {
+        const std::vector<u16> StackReservedWords =
+        {
+            stacks::ImmediateStackReservedWords / 2,
+            stacks::ImmediateStackReservedWords,
+            stacks::ImmediateStackReservedWords * 2,
+            stacks::StackMemoryWords / 2,
+            stacks::StackMemoryWords,
+            // Would overflow MVLCs stack memory.
+            stacks::StackMemoryWords * 2,
+            // Would overflow MVLCs stack memory. Still results in at least two
+            // parts because the 3rd command is a SoftwareDelay.
+            stacks::StackMemoryWords * 4,
+        };
+
+        const auto commands = stack.getCommands();
+        std::cout << "--- commandCount=" << commands.size() << std::endl;
+
+        for (auto reservedWords: StackReservedWords)
+        {
+            auto parts = detail::split_commands(commands, {}, reservedWords);
+
+            std::cout << "--- reservedWords=" << reservedWords
+                << ", partCount=" << parts.size() << std::endl;
+
+            ASSERT_TRUE(parts.size() > 1);
+            ASSERT_EQ(parts[0].size(), 3);
+            ASSERT_EQ(parts[0][0].type, StackCommand::CommandType::VMERead);
+            ASSERT_EQ(parts[0][1].type, StackCommand::CommandType::VMERead);
+            ASSERT_EQ(parts[0][2].type, StackCommand::CommandType::SoftwareDelay);
+            ASSERT_TRUE(parts[1][0].type !=  StackCommand::CommandType::SoftwareDelay);
+
+            for (const auto &part: parts)
+            {
+                ASSERT_TRUE(detail::get_encoded_stack_size(part) <= reservedWords);
+                //std::cout << part.size() << ", " << detail::get_encoded_stack_size(part) << std::endl;
+            }
+        }
+    }
+}
+
+TEST(mvlc_stack_executor, SplitCommands2)
+{
+    const u32 vmeBase = 0x0;
+    StackCommandBuilder stack;
+    //stack.addVMERead(vmeBase + 0x1000, vme_amods::A32, VMEDataWidth::D16);
+    //stack.addVMERead(vmeBase + 0x1002, vme_amods::A32, VMEDataWidth::D16);
+    stack.addSoftwareDelay(std::chrono::milliseconds(100));
+    stack.addSoftwareDelay(std::chrono::milliseconds(100));
+    //stack.addVMERead(vmeBase + 0x1004, vme_amods::A32, VMEDataWidth::D16);
+    //stack.addVMERead(vmeBase + 0x1008, vme_amods::A32, VMEDataWidth::D16);
+
+    auto commands = stack.getCommands();
+    auto parts = detail::split_commands(commands);
+    ASSERT_EQ(parts.size(), 2);
+    ASSERT_EQ(parts[0][0].type, StackCommand::CommandType::SoftwareDelay);
+    ASSERT_EQ(parts[1][0].type, StackCommand::CommandType::SoftwareDelay);
+
+    //ASSERT_EQ(parts.size(), 3);
 }
