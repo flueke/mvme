@@ -2,6 +2,9 @@
 TODO list
 ==================================================
 
+* mesytec diagnostics are not implemented for the mvlc. Redesign how the
+  diagnostics widget wors and implement it for the mvlc.
+
 * qthelp: most images are links but they do show the binary file contents
   instead of the image. Note that not all images behave this way. Some are not
   clickable, e.g the very first 'mvme overview' image in the introduction.
