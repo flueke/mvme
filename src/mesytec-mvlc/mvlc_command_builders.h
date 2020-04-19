@@ -171,7 +171,7 @@ class MESYTEC_MVLC_EXPORT StackCommandBuilder
 
         // Returns the group with the given groupIndex or a default constructed
         // group if the index is out of range.
-        Group getGroup(size_t groupIndex) const;
+        const Group &getGroup(size_t groupIndex) const;
 
         // Returns the group with the given groupName or a default constructed
         // group if the index is out of range.

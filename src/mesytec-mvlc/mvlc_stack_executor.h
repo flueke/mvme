@@ -2,10 +2,13 @@
 #define __MVLC_STACK_EXECUTOR_H__
 
 #include <cassert>
+#include <chrono>
 #include <iostream>
 #include <functional>
+#include <iterator>
 #include <numeric>
 #include <system_error>
+#include <thread>
 
 #include "mvlc_buffer_validators.h"
 #include "mvlc_command_builders.h"
@@ -13,6 +16,7 @@
 #include "mvlc_error.h"
 #include "mvlc_util.h"
 #include "util/string_view.hpp"
+#include "vme_constants.h"
 
 namespace mesytec
 {
@@ -27,14 +31,22 @@ struct Result
     size_t groupIndex = 0;
     std::error_code ec;
     std::vector<u32> response;
+    bool isValid = false;
+
+    explicit Result() {};
 
     explicit Result(const StackCommand &cmd_)
         : cmd(cmd_)
+        , isValid(true)
     {}
 
     explicit Result(const std::error_code &ec_)
         : ec(ec_)
+        , isValid(true)
     {}
+
+    void clear() { isValid = false; }
+    bool valid() const { return isValid; }
 };
 
 struct Options
@@ -79,194 +91,116 @@ inline size_t get_encoded_stack_size(const std::vector<StackCommand> &commands)
     return encodedPartSize;
 }
 
-// Split the elements of an input container into parts using a predicate to
-// decide when to terminate each part.
-//
-// Each element of the input container is passed to the predicate.  If the
-// predicate returns true the current part is terminated and a new one is
-// started. Otherwise the current input container element is added to the
-// current part.
-template<typename Container, typename Predicate>
-std::vector<Container> conditional_split(
-    const Container &container, Predicate terminate_part_predicate)
+inline bool is_sw_delay (const StackCommand &cmd)
 {
-    std::vector<Container> result;
-
-    auto first = std::begin(container);
-    const auto end = std::end(container);
-
-    while (first < end)
-    {
-        auto next = first;
-
-        while (next < end)
-        {
-            if (terminate_part_predicate(*next))
-                break;
-
-            ++next;
-        }
-
-        if (first == next)
-            throw std::runtime_error("conditional_split produced an empty part");
-
-        Container part;
-        std::copy(first, next, std::back_inserter(part));
-        result.emplace_back(part);
-        first = next; // advance
-    }
-
-    return result;
-}
+    return cmd.type == StackCommand::CommandType::SoftwareDelay;
+};
 
 inline std::vector<std::vector<StackCommand>> split_commands(
     const std::vector<StackCommand> &commands,
     const Options &options = {},
     const u16 immediateStackMaxSize = stacks::ImmediateStackReservedWords)
 {
-#if 0
-    struct SplitPredicateState
-    {
-        // Start with two encoded words for StackStart and StackEnd
-        size_t encodedSize = 2;
-
-        // We want SoftwareDelay commands to be added to the current part and
-        // then terminate the part. This way all SoftwareDelay commands will be
-        // at the very end of each part. Multiple successive SoftwareDelays
-        // will result in parts of size 1 for each but the first delay command.
-
-        StackCommand lastAddedCommand;
-    };
-
-    SplitPredicateState predState;
-
-    auto split_predicate = [&predState, &immediateStackMaxSize]
-        (const StackCommand &nextCmd) -> bool
-    {
-        auto is_sw_delay = [] (const StackCommand &cmd) -> bool
-        {
-            return cmd.type == StackCommand::CommandType::SoftwareDelay;
-        };
-#if 0
-        // Returning false means that nextCmd should be added to the current
-        // part. Returning true means that a new split should be created.
-        bool ret = false;
-
-        // Check if adding the next command to the current split would push the
-        // encoded stacks size over immediateStackMaxSize.
-        if (predState.encodedSize + get_encoded_size(nextCmd) > immediateStackMaxSize)
-            ret = true;
-        else
-            predState.encodedSize += get_encoded_size(nextCmd);
-
-        // If the previous command was a software delay we terminate the split
-        // now. This means software delays will be positioned at the end of
-        // each split.
-        if (predState.lastAddedCommand.type == StackCommand::CommandType::SoftwareDelay)
-            ret = true;
-
-        // Update state
-        predState.lastAddedCommand = nextCmd;
-
-        if (ret && predState.lastAddedCommand.type == StackCommand::CommandType::SoftwareDelay)
-            ret = false;
-
-        // Reset state if we tell the algorithm to terminate the current split.
-        if (ret)
-            predState.encodedSize = 2;
-
-        return ret;
-#else
-        // Returning false means that nextCmd should be added to the current
-        // part. Returning true means that a new split should be created.
-
-        if (is_sw_delay(predState.lastAddedCommand))
-        {
-            if (is_sw_delay(nextCmd))
-            {
-                predState.encodedSize += get_encoded_size(nextCmd);
-                return false;
-            }
-            else
-            {
-                predState.encodedSize = 2;
-                return true;
-            }
-        }
-
-        bool ret = true;
-
-        if (predState.encodedSize + get_encoded_size(nextCmd) <= immediateStackMaxSize)
-        {
-            predState.encodedSize += get_encoded_size(nextCmd);
-            predState.lastAddedCommand = nextCmd;
-            ret = false;
-        }
-
-
-        if (ret)
-            predState.encodedSize = 2;
-
-        return ret;
-#endif
-    };
-
-    auto result = conditional_split(commands, split_predicate);
-
-    for (const auto &part: result)
-        assert(get_encoded_stack_size(part) <= immediateStackMaxSize);
-
-    return result;
-#else
-    auto is_sw_delay = [] (const StackCommand &cmd) -> bool
-    {
-        return cmd.type == StackCommand::CommandType::SoftwareDelay;
-    };
-
     std::vector<std::vector<StackCommand>> result;
+
+    if (options.noBatching)
+    {
+        for (const auto &cmd: commands)
+            result.push_back({ cmd });
+
+        return result;
+    }
 
     auto first = std::begin(commands);
     const auto end = std::end(commands);
 
     while (first < end)
     {
-        auto next = first;
         size_t encodedSize = 2u;
 
-        while (next < end)
-        {
-            if (encodedSize + get_encoded_size(*next) > immediateStackMaxSize)
-                break;
+        auto partEnd = std::find_if(
+            first, end, [&] (const StackCommand &cmd)
+            {
+                if (is_sw_delay(cmd) && !options.ignoreDelays)
+                    return true;
 
-            encodedSize += get_encoded_size(*next);
+                if (encodedSize + get_encoded_size(cmd) > immediateStackMaxSize)
+                    return true;
 
-            auto prev = next++;
+                encodedSize += get_encoded_size(cmd);
 
-            if (options.noBatching)
-                break;
+                return false;
+            });
 
-            if (!options.ignoreDelays && is_sw_delay(*prev))
-                break;
-        }
+        if (first < end && first == partEnd && is_sw_delay(*first))
+            ++partEnd;
 
-        if (first == next)
-            throw std::runtime_error("split_commands produced an empty part");
+        if (first == partEnd)
+            throw std::runtime_error("split_commands: not advancing");
 
         std::vector<StackCommand> part;
-        std::copy(first, next, std::back_inserter(part));
-
-        assert(get_encoded_stack_size(part) <= immediateStackMaxSize);
-
-        if (options.noBatching)
-            assert(part.size() == 1);
-
+        part.reserve(partEnd - first);
+        std::copy(first, partEnd, std::back_inserter(part));
         result.emplace_back(part);
-
-        first = next; // advance
+        first = partEnd;
     }
 
     return result;
-#endif
+}
+
+template<typename DIALOG_API>
+std::error_code run_part(
+    DIALOG_API &mvlc,
+    const std::vector<StackCommand> &part,
+    const Options &options,
+    std::vector<u32> &responseDest)
+{
+    if (part.empty())
+        throw std::runtime_error("empty command stack part");
+
+    if (is_sw_delay(part[0]))
+    {
+        if (!options.ignoreDelays)
+        {
+            std::cout << "run_part: delaying for " << part[0].value << " ms" << std::endl;
+            std::chrono::milliseconds delay(part[0].value);
+            std::this_thread::sleep_for(delay);
+        }
+
+        responseDest.resize(0);
+
+        return {};
+    }
+
+    return stack_transaction(mvlc, part, responseDest);
+}
+
+template<typename DIALOG_API>
+std::error_code run_parts(
+    DIALOG_API &mvlc,
+    const std::vector<std::vector<StackCommand>> &parts,
+    const Options &options,
+    AbortPredicate abortPredicate,
+    std::vector<u32> &combinedResponses)
+{
+    std::error_code ret;
+    std::vector<u32> responseBuffer;
+
+    for (const auto &part: parts)
+    {
+        auto ec = run_part(mvlc, part, options, responseBuffer);
+
+        std::copy(std::begin(responseBuffer), std::end(responseBuffer),
+                  std::back_inserter(combinedResponses));
+
+        if (ec && !ret)
+            ret = ec;
+
+        if (abortPredicate && abortPredicate(ec))
+            break;
+    }
+
+    return ret;
 }
 
 #if 0
@@ -317,12 +251,87 @@ template<typename DIALOG_API>
 
 } // end namespace detail
 
-#if 0
 template<typename DIALOG_API>
-std::vector<Result>
-execute_stack(DIALOG_API &mvlc, const StackCommandBuilder &stack, const Options &options, AbortPredicate &pred)
+std::error_code execute_stack(
+    DIALOG_API &mvlc,
+    const StackCommandBuilder &stack,
+    u16 immediateStackMaxSize,
+    const Options &options,
+    AbortPredicate &abortPredicate,
+    std::vector<u32> &responseBuffer)
 {
+    if (stack.getGroupCount() == 0)
+        return {};
+
+    auto commands = stack.getCommands();
+
+    auto parts = detail::split_commands(commands, options, immediateStackMaxSize);
+
+    if (parts.empty())
+        return {};
+
+    responseBuffer.clear();
+
+    auto ec = detail::run_parts(mvlc, parts, options, abortPredicate, responseBuffer);
+
+    return ec;
 }
+
+std::vector<Result> MESYTEC_MVLC_EXPORT parse_response(
+    const StackCommandBuilder &stack, const std::vector<u32> &responseBuffer);
+
+
+#if 0
+    while (!response.empty())
+    {
+        const auto groupEnd = std::end(group.get().commands);
+
+        if (cmdIter == groupEnd)
+        {
+            if (++groupIndex >= stack.getGroupCount())
+                throw std::runtime_error("execute_stack: groupIndex out of range (response too long?)");
+
+            group = std::ref(stack.getGroup(groupIndex));
+            cmdIter = std::begin(group.get().commands);
+        }
+
+        assert(cmdIter != groupEnd);
+
+        using CT = StackCommand::CommandType;
+
+        Result result(*cmdIter);
+
+        switch (cmdIter->type)
+        {
+            case CT::StackStart:
+            case CT::StackEnd:
+            case CT::SoftwareDelay:
+                break;
+
+            case CT::VMERead:
+                if (!vme_amods::is_block_mode(cmdIter->amod))
+                {
+                    result.response = { response[0] };
+                    response.remove_prefix(1);
+                }
+                else
+                {
+                    u32 header = response[0];
+                    if (!is_stack_buffer(header))
+                        throw std::runtime_error("execute_stack: expected stack buffer response");
+
+                    do
+                    {
+                    } while (is_stack_buffer_continuation(header));
+
+                }
+            case CT::VMEWrite:
+            case CT::WriteSpecial:
+            case CT::WriteMarker:
+                break;
+        }
+
+    }
 #endif
 
 } // end namespace mvlc

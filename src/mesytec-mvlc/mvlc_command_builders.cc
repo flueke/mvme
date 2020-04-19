@@ -389,12 +389,9 @@ std::vector<StackCommand> StackCommandBuilder::getCommands(const std::string &gr
     return getGroup(groupName).commands;
 }
 
-StackCommandBuilder::Group StackCommandBuilder::getGroup(size_t groupIndex) const
+const StackCommandBuilder::Group &StackCommandBuilder::getGroup(size_t groupIndex) const
 {
-    if (groupIndex < getGroupCount())
-        return m_groups[groupIndex];
-
-    return {};
+    return m_groups[groupIndex];
 }
 
 StackCommandBuilder::Group StackCommandBuilder::getGroup(const std::string &groupName) const

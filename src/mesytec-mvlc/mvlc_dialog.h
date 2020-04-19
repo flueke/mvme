@@ -25,6 +25,8 @@
 #include <functional>
 #include <vector>
 #include <system_error>
+
+#include "mesytec-mvlc_export.h"
 #include "mvlc_basic_interface.h"
 #include "mvlc_buffer_validators.h"
 #include "mvlc_command_builders.h"
@@ -39,7 +41,7 @@ namespace mvlc
 
 std::error_code check_mirror(const std::vector<u32> &request, const std::vector<u32> &response);
 
-class MVLCDialog
+class MESYTEC_MVLC_EXPORT MVLCDialog
 {
     public:
         // Maximum time spent in readResponse() until a non-error-notification
