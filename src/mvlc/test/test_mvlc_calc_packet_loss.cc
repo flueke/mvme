@@ -23,7 +23,7 @@
 
 #include "mvlc/mvlc_impl_eth.h"
 
-using namespace mesytec::mvlc::eth;
+using namespace mesytec::mvme_mvlc::eth;
 
 // Prototype is: s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber);
 

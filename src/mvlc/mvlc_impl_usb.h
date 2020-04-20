@@ -34,7 +34,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace usb
 {
@@ -193,7 +193,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 LIBMVME_MVLC_EXPORT std::error_code make_error_code(FT_STATUS st);
 
 } // end namespace usb
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 namespace std

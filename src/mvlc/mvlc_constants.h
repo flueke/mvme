@@ -26,7 +26,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 // Communication with the MVLC is done using 32-bit wide binary data words.
 // Results from commands and stack executions are also 32-bit aligned.
@@ -455,7 +455,7 @@ namespace stack_error_info
     static const unsigned StackNumberShift = 16u;
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_CONSTANTS_H__ */

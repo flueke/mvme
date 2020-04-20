@@ -26,7 +26,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 std::error_code disable_all_triggers(MVLCObject &mvlc)
@@ -333,5 +333,5 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
     return {};
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

@@ -30,7 +30,7 @@
 namespace
 {
 
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 // Checks for certain MVLCErrorCode values and returns a VMEError containing
 // additional information if applicable. Otherwise a VMEError object
@@ -65,7 +65,7 @@ VMEError error_wrap(const MVLCObject &mvlc, const std::error_code &ec)
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
@@ -334,5 +334,5 @@ VMEError MVLC_VMEController::blockRead(u32 address, u32 transfers,
     return error_wrap(*m_mvlc, ec);
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

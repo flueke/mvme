@@ -28,7 +28,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 // Implementation of the VMEController interface for the MVLC.
@@ -88,7 +88,7 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         QDateTime lastUpdateTime;
 };
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVME_MVLC_VME_CONTROLLER_H__ */

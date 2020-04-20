@@ -29,7 +29,7 @@ class QTextStream;
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace script
 {
@@ -175,7 +175,7 @@ QVector<u32> LIBMVME_MVLC_EXPORT to_mvlc_buffer(const Command &cmd);
 QVector<u32> LIBMVME_MVLC_EXPORT to_mvlc_command_buffer(const CommandList &cmdList);
 
 } // end namespace script
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_SCRIPT_H__ */

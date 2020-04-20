@@ -26,8 +26,8 @@
 #include <iostream>
 #include <vector>
 
-using namespace mesytec::mvlc;
-using namespace mesytec::mvlc::eth;
+using namespace mesytec::mvme_mvlc;
+using namespace mesytec::mvme_mvlc::eth;
 
 using std::cout;
 using std::cerr;

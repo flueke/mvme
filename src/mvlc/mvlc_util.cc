@@ -24,11 +24,11 @@
 #include <iostream>
 #include <cassert>
 
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 //
@@ -53,7 +53,7 @@ vme_script::DataWidth convert_data_width(VMEDataWidth dataWidth)
         case D32: return vme_script::DataWidth::D32;
     }
 
-    throw std::runtime_error("invalid mvlc::VMEDataWidth given");
+    throw std::runtime_error("invalid mvme_mvlc::VMEDataWidth given");
 }
 
 QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
@@ -373,5 +373,5 @@ stacks::TimerBaseUnit timer_base_unit_from_string(const QString &str_)
     return {};
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

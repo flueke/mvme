@@ -27,7 +27,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 class AbstractImpl
@@ -60,7 +60,7 @@ class AbstractImpl
         virtual ~AbstractImpl() {};
 };
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_ABSTRACT_IMPL_H__ */

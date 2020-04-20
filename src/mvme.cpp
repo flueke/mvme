@@ -253,7 +253,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     });
 
     connect(m_d->actionToolMVLCDevGui, &QAction::triggered, this, [this]() {
-        if (auto mvlcCtrl = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(
+        if (auto mvlcCtrl = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(
                 getContext()->getVMEController()))
         {
             auto widget = new MVLCDevGUI(mvlcCtrl->getMVLCObject());
@@ -1746,7 +1746,7 @@ void MVMEMainWindow::updateActions()
 
 void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString &metaTag)
 {
-    auto &MetaTagMVLCTriggerIO = mesytec::mvlc::trigger_io::MetaTagMVLCTriggerIO;
+    auto &MetaTagMVLCTriggerIO = mesytec::mvme_mvlc::trigger_io::MetaTagMVLCTriggerIO;
 
     if (m_d->m_context->hasObjectWidget(scriptConfig))
     {

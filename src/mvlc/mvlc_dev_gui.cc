@@ -55,8 +55,8 @@
 #include "util/strings.h"
 
 using namespace mesytec;
-using namespace mesytec::mvlc;
-using namespace mesytec::mvlc::usb;
+using namespace mesytec::mvme_mvlc;
+using namespace mesytec::mvme_mvlc::usb;
 
 FixedSizeBuffer::FixedSizeBuffer(size_t capacity_)
     : data(std::make_unique<u8[]>(capacity_))
@@ -128,7 +128,7 @@ static const QString Key_LastMVLCScriptDirectory = "Files/LastMVLCScriptDirector
 static const QString Key_LastMVLCDataOutputDirectory = "Files/LastMVLCDataOutputDirectory";
 static const QString DefaultOutputFilename = "mvlc_dev_data.bin";
 
-OwningPacketReadResult::OwningPacketReadResult(const mesytec::mvlc::eth::PacketReadResult &input)
+OwningPacketReadResult::OwningPacketReadResult(const mesytec::mvme_mvlc::eth::PacketReadResult &input)
 {
     buffer.reserve(input.bytesTransferred);
     std::copy(input.buffer, input.buffer + input.bytesTransferred,
@@ -395,7 +395,7 @@ void MVLCDataReader::readoutLoop()
                         m_ethDebugBuffer.push_back(OwningPacketReadResult(eth_rr));
 
                         // check header pointer validity, range and type of pointed to data word
-                        if (eth_rr.nextHeaderPointer() != mvlc::eth::header1::NoHeaderPointerPresent)
+                        if (eth_rr.nextHeaderPointer() != mvme_mvlc::eth::header1::NoHeaderPointerPresent)
                         {
                             bool isInvalid = false;
 
@@ -630,7 +630,7 @@ struct MVLCDevGUI::Private
 
     struct StackNotificationStats
     {
-        std::array<size_t, mesytec::mvlc::stacks::StackCount> counts = {};
+        std::array<size_t, mesytec::mvme_mvlc::stacks::StackCount> counts = {};
         size_t nonErrorNotifications = 0;
     };
 
@@ -968,8 +968,8 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             bool logMirror  = ui->cb_scriptLogMirror->isChecked();
 
             auto scriptText = ui->te_scriptInput->toPlainText();
-            auto cmdList = mvlc::script::parse(scriptText);
-            auto cmdBuffer = mvlc::script::to_mvlc_command_buffer(cmdList);
+            auto cmdList = mvme_mvlc::script::parse(scriptText);
+            auto cmdBuffer = mvme_mvlc::script::to_mvlc_command_buffer(cmdList);
 
             if (logRequest)
             {
@@ -1060,7 +1060,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                 this->handleStackErrorNotification(notification);
             }
         }
-        catch (const mvlc::script::ParseError &e)
+        catch (const mvme_mvlc::script::ParseError &e)
         {
             logMessage("MVLC Script parse error: " + e.toString());
         }
@@ -1545,8 +1545,8 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         try
         {
             auto scriptText = ui->te_udpScriptInput->toPlainText();
-            auto cmdList = mvlc::script::parse(scriptText);
-            auto cmdBuffer = mvlc::script::to_mvlc_command_buffer(cmdList);
+            auto cmdList = mvme_mvlc::script::parse(scriptText);
+            auto cmdBuffer = mvme_mvlc::script::to_mvlc_command_buffer(cmdList);
 
             //for (u32 &word: cmdBuffer)
             //{
@@ -1584,7 +1584,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
             logMessage(QSL("Sent command buffer using %1 UDP packets").arg(packetsSent));
         }
-        catch (const mvlc::script::ParseError &e)
+        catch (const mvme_mvlc::script::ParseError &e)
         {
             logMessage("MVLC Script parse error: " + e.toString());
         }
@@ -1862,7 +1862,7 @@ void MVLCDevGUI::handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const Q
     size_t pktIdx = 0;
     for (const OwningPacketReadResult &rr: debugBuffer)
     {
-        const mesytec::mvlc::eth::PacketReadResult &prr = rr.prr;
+        const mesytec::mvme_mvlc::eth::PacketReadResult &prr = rr.prr;
 
         logMessage(QString("* pkt %1/%2 size=%3 bytes (%4 words), lossFromPrevious=%5, availablePayloadWords=%6, leftOverBytes=%7")
                    .arg(pktIdx + 1)
@@ -1923,7 +1923,7 @@ void MVLCDevGUI::handleStackErrorNotification(const QVector<u32> &buffer)
         auto info = extract_frame_info(buffer.at(0));
 
         if (info.type == frame_headers::StackError
-            && info.stack < mesytec::mvlc::stacks::StackCount)
+            && info.stack < mesytec::mvme_mvlc::stacks::StackCount)
         {
             ++m_d->stackErrorNotificationStats.counts[info.stack];
         }
@@ -2030,7 +2030,7 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
     {
         auto spin_stackId = new QSpinBox();
         spin_stackId->setMinimum(0);
-        spin_stackId->setMaximum(mvlc::stacks::StackCount - 1);
+        spin_stackId->setMaximum(mvme_mvlc::stacks::StackCount - 1);
 
         auto pb_readStackInfo = new QPushButton("Read Info");
 

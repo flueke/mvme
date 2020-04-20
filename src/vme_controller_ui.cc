@@ -280,7 +280,7 @@ MVLC_USB_SettingsWidget::MVLC_USB_SettingsWidget(QWidget *parent)
 
 void MVLC_USB_SettingsWidget::listDevices()
 {
-    using namespace mesytec::mvlc::usb;
+    using namespace mesytec::mvme_mvlc::usb;
     auto allDevices = get_device_info_list(ListOptions::AllDevices);
 
     QString textBuffer;

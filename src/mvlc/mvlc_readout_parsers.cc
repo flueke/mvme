@@ -53,7 +53,7 @@ do\
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 ModuleReadoutParts parse_module_readout_script(const vme_script::VMEScript &readoutScript)
@@ -949,4 +949,4 @@ ParseResult parse_readout_buffer_usb(
 }
 
 } // end namespace mesytec
-} // end namespace mvlc
+} // end namespace mvme_mvlc

@@ -28,7 +28,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 //
@@ -427,5 +427,5 @@ void MVLCNotificationPoller::doPoll()
     m_isPolling = false;
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

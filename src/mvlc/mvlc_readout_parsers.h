@@ -29,7 +29,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 /* analysis calls:
@@ -250,6 +250,6 @@ LIBMVME_MVLC_EXPORT ParseResult parse_readout_buffer_usb(
     u32 bufferNumber, u8 *buffer, size_t bufferSize);
 
 } // end namespace mesytec
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 
 #endif /* __MVME_MVLC_READOUT_PARSERS_H__ */

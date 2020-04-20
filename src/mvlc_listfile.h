@@ -26,7 +26,7 @@
 
 #include "typedefs.h"
 
-namespace mvlc_listfile
+namespace mvme_mvlc_listfile
 {
 
 // Magic bytes at the start of the listfile. The terminating zero is not

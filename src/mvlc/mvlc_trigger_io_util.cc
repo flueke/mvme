@@ -23,7 +23,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace trigger_io
 {
@@ -105,5 +105,5 @@ QTextStream &print_front_panel_io_table(QTextStream &out, const TriggerIO &ioCfg
 }
 
 } // end namespace trigger_io
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

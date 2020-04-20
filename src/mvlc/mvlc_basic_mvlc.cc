@@ -23,7 +23,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 BasicMVLC::BasicMVLC(std::unique_ptr<AbstractImpl> impl)
@@ -113,5 +113,5 @@ unsigned BasicMVLC::getWriteTimeout(Pipe pipe) const
     return m_impl->getWriteTimeout(pipe);
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

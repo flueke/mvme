@@ -120,7 +120,7 @@ class FTErrorCategory: public std::error_category
 
     std::error_condition default_error_condition(int ev) const noexcept override
     {
-        using mesytec::mvlc::ErrorType;
+        using mesytec::mvme_mvlc::ErrorType;
 
         switch (static_cast<_FT_STATUS>(ev))
         {
@@ -175,34 +175,34 @@ class FTErrorCategory: public std::error_category
 
 const FTErrorCategory theFTErrorCategory {};
 
-constexpr u8 get_fifo_id(mesytec::mvlc::Pipe pipe)
+constexpr u8 get_fifo_id(mesytec::mvme_mvlc::Pipe pipe)
 {
     switch (pipe)
     {
-        case mesytec::mvlc::Pipe::Command:
+        case mesytec::mvme_mvlc::Pipe::Command:
             return 0;
-        case mesytec::mvlc::Pipe::Data:
+        case mesytec::mvme_mvlc::Pipe::Data:
             return 1;
     }
     return 0;
 }
 
-constexpr u8 get_endpoint(mesytec::mvlc::Pipe pipe, mesytec::mvlc::usb::EndpointDirection dir)
+constexpr u8 get_endpoint(mesytec::mvme_mvlc::Pipe pipe, mesytec::mvme_mvlc::usb::EndpointDirection dir)
 {
     u8 result = 0;
 
     switch (pipe)
     {
-        case mesytec::mvlc::Pipe::Command:
+        case mesytec::mvme_mvlc::Pipe::Command:
             result = 0x2;
             break;
 
-        case mesytec::mvlc::Pipe::Data:
+        case mesytec::mvme_mvlc::Pipe::Data:
             result = 0x3;
             break;
     }
 
-    if (dir == mesytec::mvlc::usb::EndpointDirection::In)
+    if (dir == mesytec::mvme_mvlc::usb::EndpointDirection::In)
         result |= 0x80;
 
     return result;
@@ -211,14 +211,14 @@ constexpr u8 get_endpoint(mesytec::mvlc::Pipe pipe, mesytec::mvlc::usb::Endpoint
 std::error_code set_endpoint_timeout(void *handle, u8 ep, unsigned ms)
 {
     FT_STATUS st = FT_SetPipeTimeout(handle, ep, ms);
-    return mesytec::mvlc::usb::make_error_code(st);
+    return mesytec::mvme_mvlc::usb::make_error_code(st);
 }
 
 // Returns an unfiltered list of all connected FT60X devices. */
-mesytec::mvlc::usb::DeviceInfoList make_device_info_list()
+mesytec::mvme_mvlc::usb::DeviceInfoList make_device_info_list()
 {
-    using mesytec::mvlc::usb::DeviceInfoList;
-    using mesytec::mvlc::usb::DeviceInfo;
+    using mesytec::mvme_mvlc::usb::DeviceInfoList;
+    using mesytec::mvme_mvlc::usb::DeviceInfo;
 
     DeviceInfoList result;
 
@@ -261,7 +261,7 @@ mesytec::mvlc::usb::DeviceInfoList make_device_info_list()
     return result;
 }
 
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 // USB specific post connect routine which tries to disable a potentially
 // running DAQ. This is done to make sure the command communication is working
@@ -276,7 +276,7 @@ using namespace mesytec::mvlc;
 //   responses from writing to the trigger registers or queued up stack error
 //   notifications.
 // - Do a register read to check that communication is ok now.
-std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
+std::error_code post_connect_cleanup(mesytec::mvme_mvlc::usb::Impl &impl)
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 
@@ -284,7 +284,7 @@ std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
     static const int DataBufferSize = 10 * 1024;
     static const auto ReadDataPipeMaxWait = std::chrono::seconds(10);
 
-    mesytec::mvlc::MVLCDialog dlg(&impl);
+    mesytec::mvme_mvlc::MVLCDialog dlg(&impl);
     std::error_code ec;
     size_t totalBytesTransferred = 0u;
 
@@ -346,7 +346,7 @@ std::error_code post_connect_cleanup(mesytec::mvlc::usb::Impl &impl)
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace usb
 {
@@ -1114,5 +1114,5 @@ std::string Impl::connectionInfo() const
 }
 
 } // end namespace usb
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

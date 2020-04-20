@@ -2853,7 +2853,7 @@ void ModuleSettingsDialog::accept()
 //
 // MVLCParserDebugHandler
 //
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 MVLCParserDebugHandler::MVLCParserDebugHandler(QObject *parent)
     : QObject(parent)
@@ -2907,7 +2907,7 @@ void mvlc_parser_debug_log_buffer(
 
 void MVLCParserDebugHandler::handleDebugInfo(
     const DataBuffer &buffer,
-    mesytec::mvlc::ReadoutParserState parserState,
+    mesytec::mvme_mvlc::ReadoutParserState parserState,
     const VMEConfig *vmeConfig,
     const analysis::Analysis *analysis)
 {

@@ -22,7 +22,7 @@
 #include "util_zip.h"
 #include "mvlc/mvlc_util.h"
 
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 namespace
 {
@@ -41,7 +41,7 @@ namespace
     }
 }
 
-namespace mvlc_listfile
+namespace mvme_mvlc_listfile
 {
 
 size_t get_filemagic_len()

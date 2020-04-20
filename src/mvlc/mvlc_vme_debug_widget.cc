@@ -73,7 +73,7 @@ static const int LoopInterval = 1000;
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 struct VMEDebugWidget::Private
@@ -457,8 +457,8 @@ vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd)
     Result result;
     result.command = cmd;
 
-    auto uploadData = mvlc::build_upload_command_buffer(
-        { cmd }, mvlc::CommandPipe, mvlc::stacks::StackMemoryBegin);
+    auto uploadData = mvme_mvlc::build_upload_command_buffer(
+        { cmd }, mvme_mvlc::CommandPipe, mvme_mvlc::stacks::StackMemoryBegin);
 
     log_buffer(uploadData, "run_command upload data");
 
@@ -557,5 +557,5 @@ void VMEDebugWidget::slt_runScript()
     }
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

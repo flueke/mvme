@@ -33,7 +33,7 @@
 #include "vme_analysis_common.h"
 
 using namespace vme_analysis_common;
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 using WorkerState = MVMEStreamWorkerState;
 
@@ -123,8 +123,8 @@ MVLC_StreamWorker::MVLC_StreamWorker(
 , m_stopFlag(StopWhenQueueEmpty)
 , m_debugInfoRequest(DebugInfoRequest::None)
 {
-    qRegisterMetaType<mesytec::mvlc::ReadoutParserState>(
-        "mesytec::mvlc::ReadoutParserState");
+    qRegisterMetaType<mesytec::mvme_mvlc::ReadoutParserState>(
+        "mesytec::mvme_mvlc::ReadoutParserState");
 }
 
 MVLC_StreamWorker::~MVLC_StreamWorker()
@@ -354,7 +354,7 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
     }
 }
 
-void MVLC_StreamWorker::logParserInfo(const mesytec::mvlc::ReadoutParserState &parser)
+void MVLC_StreamWorker::logParserInfo(const mesytec::mvme_mvlc::ReadoutParserState &parser)
 {
     auto &readoutInfo = parser.readoutInfo;
 

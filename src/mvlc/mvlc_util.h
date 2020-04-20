@@ -28,7 +28,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 // vme_script -> mvlc constant
@@ -141,7 +141,7 @@ std::error_code disable_all_triggers(MVLCDialogType &mvlc)
 
 stacks::TimerBaseUnit LIBMVME_MVLC_EXPORT timer_base_unit_from_string(const QString &str);
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_UTIL_H__ */

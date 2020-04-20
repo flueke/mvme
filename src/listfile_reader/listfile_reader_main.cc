@@ -202,7 +202,7 @@ RunDescription * make_run_description(
             module.type = arena.pushCString(
                 moduleConfig->getModuleMeta().typeName.toStdString().c_str());
 
-            auto moduleReadoutParts = mesytec::mvlc::parse_module_readout_script(
+            auto moduleReadoutParts = mesytec::mvme_mvlc::parse_module_readout_script(
                 mesytec::mvme::parse(moduleConfig->getReadoutScript()));
 
             module.prefixLen = moduleReadoutParts.prefixLen;
@@ -217,7 +217,7 @@ RunDescription * make_run_description(
 class MVMEStreamCallbackWrapper: public IMVMEStreamModuleConsumer
 {
     public:
-        MVMEStreamCallbackWrapper(const mesytec::mvlc::ReadoutParserCallbacks &callbacks)
+        MVMEStreamCallbackWrapper(const mesytec::mvme_mvlc::ReadoutParserCallbacks &callbacks)
             : m_callbacks(callbacks)
         {
         }
@@ -273,7 +273,7 @@ class MVMEStreamCallbackWrapper: public IMVMEStreamModuleConsumer
 
 
     private:
-        mesytec::mvlc::ReadoutParserCallbacks m_callbacks;
+        mesytec::mvme_mvlc::ReadoutParserCallbacks m_callbacks;
 };
 
 void process_one_listfile(const QString &filename, const std::vector<RawDataPlugin> &plugins)
@@ -341,7 +341,7 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
     QObject::connect(replayWorker.get(), &ListfileReplayWorker::replayStopped,
                      &replayThread, &QThread::quit);
 
-    using namespace mesytec::mvlc;
+    using namespace mesytec::mvme_mvlc;
 
     memory::Arena arena(4096);
     auto runDescription = make_run_description(arena, filename, *vmeConfig);

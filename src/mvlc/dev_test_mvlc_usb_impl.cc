@@ -28,8 +28,8 @@
 #include <thread>
 #include <regex>
 
-using namespace mesytec::mvlc;
-using namespace mesytec::mvlc::usb;
+using namespace mesytec::mvme_mvlc;
+using namespace mesytec::mvme_mvlc::usb;
 
 using std::cout;
 using std::cerr;

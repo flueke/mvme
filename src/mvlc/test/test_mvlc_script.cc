@@ -23,7 +23,7 @@
 
 #include "mvlc/mvlc_script.h"
 
-using namespace mesytec::mvlc::script;
+using namespace mesytec::mvme_mvlc::script;
 
 TEST(MVLCScriptTest, Empty)
 {
@@ -74,7 +74,7 @@ TEST(MVLCScriptTest, ReadLocal)
             read_local 0x1ffff
         )";
 
-        ASSERT_THROW(parse(input), mesytec::mvlc::script::ParseError);
+        ASSERT_THROW(parse(input), mesytec::mvme_mvlc::script::ParseError);
 
     }
 }
@@ -149,7 +149,7 @@ TEST(MVLCScriptTest, StackEmpty)
         ASSERT_EQ(cmd.stack.offset, 0x100);
     }
 
-    //catch (const mesytec::mvlc::script::ParseError &e)
+    //catch (const mesytec::mvme_mvlc::script::ParseError &e)
     //{
     //    std::cout << e.what() << std::endl;
     //}
@@ -164,7 +164,7 @@ TEST(MVLCScriptTest, StackErrors)
             stack_end
         )";
 
-        ASSERT_THROW(parse(input), mesytec::mvlc::script::ParseError);
+        ASSERT_THROW(parse(input), mesytec::mvme_mvlc::script::ParseError);
     }
 
     // unknown output name
@@ -174,7 +174,7 @@ TEST(MVLCScriptTest, StackErrors)
             stack_end
         )";
 
-        ASSERT_THROW(parse(input), mesytec::mvlc::script::ParseError);
+        ASSERT_THROW(parse(input), mesytec::mvme_mvlc::script::ParseError);
     }
 
     // invalid output
@@ -184,7 +184,7 @@ TEST(MVLCScriptTest, StackErrors)
             stack_end
         )";
 
-        ASSERT_THROW(parse(input), mesytec::mvlc::script::ParseError);
+        ASSERT_THROW(parse(input), mesytec::mvme_mvlc::script::ParseError);
     }
 
     // offset out of range
@@ -194,7 +194,7 @@ TEST(MVLCScriptTest, StackErrors)
             stack_end
         )";
 
-        ASSERT_THROW(parse(input), mesytec::mvlc::script::ParseError);
+        ASSERT_THROW(parse(input), mesytec::mvme_mvlc::script::ParseError);
     }
 
     // offset % 4 != 0
@@ -204,7 +204,7 @@ TEST(MVLCScriptTest, StackErrors)
             stack_end
         )";
 
-        ASSERT_THROW(parse(input), mesytec::mvlc::script::ParseError);
+        ASSERT_THROW(parse(input), mesytec::mvme_mvlc::script::ParseError);
     }
 }
 

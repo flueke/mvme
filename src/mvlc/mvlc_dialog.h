@@ -32,7 +32,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 std::error_code check_mirror(const QVector<u32> &request, const QVector<u32> &response);
@@ -151,7 +151,7 @@ class MVLCDialog
         QVector<QVector<u32>> m_stackErrorNotifications;
 };
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_DIALOG_H__ */

@@ -159,13 +159,13 @@ void MVLCListfileWorker::start()
     logMessage(QString("Starting replay from %1.").arg(
             get_filename(d->input)));
 
-    auto fileMagic = mvlc_listfile::read_file_magic(*d->input);
+    auto fileMagic = mvme_mvlc_listfile::read_file_magic(*d->input);
 
     qDebug() << __PRETTY_FUNCTION__ << fileMagic;
 
-    if (fileMagic == mvlc_listfile::get_filemagic_eth())
+    if (fileMagic == mvme_mvlc_listfile::get_filemagic_eth())
         d->format = ListfileBufferFormat::MVLC_ETH;
-    else if (fileMagic == mvlc_listfile::get_filemagic_usb())
+    else if (fileMagic == mvme_mvlc_listfile::get_filemagic_usb())
         d->format = ListfileBufferFormat::MVLC_USB;
     else
     {
@@ -244,7 +244,7 @@ void MVLCListfileWorker::start()
     setState(DAQState::Idle);
 }
 
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 // Follows the framing structure inside the buffer until a partial frame at the
 // end is detected. The partial data is moved over to the tempBuffer so that

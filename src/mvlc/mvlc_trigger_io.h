@@ -34,7 +34,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace trigger_io
 {
@@ -45,7 +45,7 @@ static const size_t ECL_OUT_Count = 3;
 
 struct Timer
 {
-    using Range = mvlc::stacks::TimerBaseUnit;
+    using Range = mvme_mvlc::stacks::TimerBaseUnit;
     Range range;
     u16 delay_ns;
     u16 period;
@@ -424,7 +424,7 @@ inline void set(LUT_RAM &lut, u8 address, u8 value)
 }
 
 } // end namespace trigger_io
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVME_MVLC_TRIGGER_IO_H__ */

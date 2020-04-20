@@ -37,7 +37,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace eth
 {
@@ -289,7 +289,7 @@ class LIBMVME_MVLC_EXPORT Impl: public AbstractImpl
 s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber);
 
 } // end namespace eth
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_IMPL_UDP_H__ */

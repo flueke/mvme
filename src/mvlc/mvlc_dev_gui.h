@@ -71,7 +71,7 @@ struct LIBMVME_MVLC_EXPORT FrameCheckData
     // stats. These should be somewhere else...
     size_t framesChecked;
     size_t framesWithContinueFlag;
-    std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
+    std::array<size_t, mesytec::mvme_mvlc::stacks::StackCount> stackHits = {};
 };
 
 FrameCheckResult LIBMVME_MVLC_EXPORT frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data);
@@ -94,16 +94,16 @@ struct LIBMVME_MVLC_EXPORT ReaderStats
     size_t counters[CountersCount];
     // Histogram of incoming read size -> number of reads
     QHash<size_t, size_t> readBufferSizes;
-    std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
+    std::array<size_t, mesytec::mvme_mvlc::stacks::StackCount> stackHits = {};
 };
 
 struct LIBMVME_MVLC_EXPORT OwningPacketReadResult
 {
     std::vector<u8> buffer;
-    mesytec::mvlc::eth::PacketReadResult prr;
+    mesytec::mvme_mvlc::eth::PacketReadResult prr;
 
     OwningPacketReadResult(): buffer{}, prr{} {}
-    OwningPacketReadResult(const mesytec::mvlc::eth::PacketReadResult &prr);
+    OwningPacketReadResult(const mesytec::mvme_mvlc::eth::PacketReadResult &prr);
     OwningPacketReadResult(const OwningPacketReadResult &other);
 };
 
@@ -116,7 +116,7 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
 {
     Q_OBJECT
     public:
-        using MVLCObject = mesytec::mvlc::MVLCObject;
+        using MVLCObject = mesytec::mvme_mvlc::MVLCObject;
         //static const int USB3PacketSizeMax = 1024;
         static const int ReadBufferSize = Megabytes(1);
         //static const int ReadTimeout_ms = 50;
@@ -203,7 +203,7 @@ class LIBMVME_MVLC_EXPORT MVLCDevGUI: public QMainWindow
         void sigLogMessage(const QString &msg);
 
     public:
-        using MVLCObject = mesytec::mvlc::MVLCObject;
+        using MVLCObject = mesytec::mvme_mvlc::MVLCObject;
 
         MVLCDevGUI(MVLCObject *mvlc, QWidget *parent = nullptr);
         ~MVLCDevGUI();
@@ -232,11 +232,11 @@ class MVLCRegisterWidget: public QWidget
         void stackErrorNotification(const QVector<u32> &notification);
 
     public:
-        MVLCRegisterWidget(mesytec::mvlc::MVLCObject *mvlc, QWidget *parent = nullptr);
+        MVLCRegisterWidget(mesytec::mvme_mvlc::MVLCObject *mvlc, QWidget *parent = nullptr);
         ~MVLCRegisterWidget();
 
     private:
-        mesytec::mvlc::MVLCObject *m_mvlc;
+        mesytec::mvme_mvlc::MVLCObject *m_mvlc;
 
         void writeRegister(u16 address, u32 value);
         u32 readRegister(u16 address);

@@ -1590,13 +1590,13 @@ ResultList run_script(
 
 
 #if 0
-            if (auto mvlc = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(controller))
+            if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
             {
                 qDebug() << __FUNCTION__
                     << "mvlc cmd read timeout="
-                    << mvlc->getMVLCObject()->getReadTimeout(mesytec::mvlc::Pipe::Command)
+                    << mvlc->getMVLCObject()->getReadTimeout(mesytec::mvme_mvlc::Pipe::Command)
                     << "mvlc cmd write timeout="
-                    << mvlc->getMVLCObject()->getWriteTimeout(mesytec::mvlc::Pipe::Command);
+                    << mvlc->getMVLCObject()->getWriteTimeout(mesytec::mvme_mvlc::Pipe::Command);
             }
 #endif
 

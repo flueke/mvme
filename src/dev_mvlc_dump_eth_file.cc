@@ -32,7 +32,7 @@
 
 using std::cerr;
 using std::endl;
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 void process_file(u32 *addr, size_t size)
 {

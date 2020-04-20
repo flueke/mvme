@@ -35,7 +35,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
@@ -50,8 +50,8 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         };
 
     signals:
-        void stateChanged(const mesytec::mvlc::MVLCObject::State &oldState,
-                          const mesytec::mvlc::MVLCObject::State &newState);
+        void stateChanged(const mesytec::mvme_mvlc::MVLCObject::State &oldState,
+                          const mesytec::mvme_mvlc::MVLCObject::State &newState);
 
     public:
         explicit MVLCObject(std::unique_ptr<AbstractImpl> impl, QObject *parent = nullptr);
@@ -208,7 +208,7 @@ class LIBMVME_MVLC_EXPORT MVLCNotificationPoller: public QObject
         std::atomic<bool> m_isPolling;
 };
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_QT_OBJECT_H__ */

@@ -27,7 +27,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 using Logger = std::function<void (const QString &)>;
@@ -64,7 +64,7 @@ std::error_code LIBMVME_EXPORT
     setup_trigger_io(MVLCObject &mvlc, VMEConfig &vmeConfig,
                      Logger logger);
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVME_MVLC_DAQ_H__ */

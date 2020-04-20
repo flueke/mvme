@@ -62,7 +62,7 @@ namespace
 // sockaddr_in is copied to dest.
 std::error_code lookup(const std::string &host, u16 port, sockaddr_in &dest)
 {
-    using namespace mesytec::mvlc;
+    using namespace mesytec::mvme_mvlc;
 
     if (host.empty())
         return MVLCErrorCode::EmptyHostname;
@@ -180,7 +180,7 @@ static const int SocketReceiveBufferSize = 1024 * 1024 * 100;
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace eth
 {
@@ -1012,5 +1012,5 @@ s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber)
 }
 
 } // end namespace eth
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

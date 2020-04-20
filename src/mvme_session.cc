@@ -41,7 +41,7 @@ void mvme_init(const QString &appName)
     qRegisterMetaType<MVMEStreamWorkerState>("MVMEStreamWorkerState");
     qRegisterMetaType<ControllerState>("ControllerState");
     qRegisterMetaType<Qt::Axis>("Qt::Axis");
-    qRegisterMetaType<mesytec::mvlc::MVLCObject::State>("mesytec::mvlc::MVLCObject::State");
+    qRegisterMetaType<mesytec::mvme_mvlc::MVLCObject::State>("mesytec::mvlc::MVLCObject::State");
     qRegisterMetaType<DataBuffer>("DataBuffer");
     qRegisterMetaType<EventRecord>("EventRecord");
 

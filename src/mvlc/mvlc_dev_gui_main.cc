@@ -23,7 +23,7 @@
 #include "mvlc/mvlc_dev_gui.h"
 #include "mvlc/mvlc_impl_factory.h"
 
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 int main(int argc, char *argv[])
 {

@@ -26,7 +26,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 template<size_t Capacity>
@@ -43,7 +43,7 @@ struct ReadBuffer
     void clear() { first = last = data.data(); }
 };
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVME_MVLC_IMPL_SUPPORT_H__ */

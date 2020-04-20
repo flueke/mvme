@@ -27,7 +27,7 @@
 #include "mvlc/mvlc_constants.h"
 #include "mvlc/mvlc_trigger_io.h"
 
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 struct Write { u16 reg; u16 val; const QString comment; };
 

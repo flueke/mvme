@@ -855,7 +855,7 @@ void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &sett
             triggerIOScript->setProperty("display_name", "MVLC Trigger/IO");
             triggerIOScript->setProperty("icon", ":/vme_module.png");
             triggerIOScript->setScriptContents(
-                mesytec::mvlc::trigger_io::generate_trigger_io_script_text({}));
+                mesytec::mvme_mvlc::trigger_io::generate_trigger_io_script_text({}));
             m_globalObjects.addChild(triggerIOScript);
 
             assert(m_globalObjects.findChildByName("mvlc_trigger_io"));

@@ -33,7 +33,7 @@ class MVLCErrorCategory: public std::error_category
 
     std::string message(int ev) const override
     {
-        using mesytec::mvlc::MVLCErrorCode;
+        using mesytec::mvme_mvlc::MVLCErrorCode;
 
         switch (static_cast<MVLCErrorCode>(ev))
         {
@@ -142,8 +142,8 @@ class MVLCErrorCategory: public std::error_category
 
     std::error_condition default_error_condition(int ev) const noexcept override
     {
-        using mesytec::mvlc::MVLCErrorCode;
-        using mesytec::mvlc::ErrorType;
+        using mesytec::mvme_mvlc::MVLCErrorCode;
+        using mesytec::mvme_mvlc::ErrorType;
 
         switch (static_cast<MVLCErrorCode>(ev))
         {
@@ -208,7 +208,7 @@ class ErrorTypeCategory: public std::error_category
 
     std::string message(int ev) const
     {
-        using mesytec::mvlc::ErrorType;
+        using mesytec::mvme_mvlc::ErrorType;
 
         switch (static_cast<ErrorType>(ev))
         {
@@ -237,7 +237,7 @@ class ErrorTypeCategory: public std::error_category
     // Equivalence between local conditions and any error code
     bool equivalent(const std::error_code &ec, int condition) const noexcept
     {
-        using mesytec::mvlc::ErrorType;
+        using mesytec::mvme_mvlc::ErrorType;
 
         switch (static_cast<ErrorType>(condition))
         {
@@ -258,7 +258,7 @@ const ErrorTypeCategory theErrorTypeCategory;
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 std::error_code make_error_code(MVLCErrorCode error)
@@ -271,5 +271,5 @@ std::error_condition make_error_condition(ErrorType et)
     return { static_cast<int>(et), theErrorTypeCategory };
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

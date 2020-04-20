@@ -28,7 +28,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 class LIBMVME_MVLC_EXPORT BasicMVLC
@@ -62,7 +62,7 @@ class LIBMVME_MVLC_EXPORT BasicMVLC
         std::unique_ptr<AbstractImpl> m_impl;
 };
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_BASIC_MVLC_H__ */

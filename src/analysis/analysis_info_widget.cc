@@ -75,9 +75,9 @@ struct AnalysisInfoWidgetPrivate
 
     QWidget *mvlcInfoWidget;
     QVector<QLabel *> mvlcLabels;
-    mesytec::mvlc::ReadoutParserCounters prevMVLCCounters;
+    mesytec::mvme_mvlc::ReadoutParserCounters prevMVLCCounters;
 
-    void updateMVLCWidget(const mesytec::mvlc::ReadoutParserCounters &counters, double dt);
+    void updateMVLCWidget(const mesytec::mvme_mvlc::ReadoutParserCounters &counters, double dt);
 };
 
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
@@ -388,9 +388,9 @@ void AnalysisInfoWidget::update()
 }
 
 void AnalysisInfoWidgetPrivate::updateMVLCWidget(
-    const mesytec::mvlc::ReadoutParserCounters &counters, double dt)
+    const mesytec::mvme_mvlc::ReadoutParserCounters &counters, double dt)
 {
-    using namespace mesytec::mvlc;
+    using namespace mesytec::mvme_mvlc;
 
     auto &prevCounters = prevMVLCCounters;
 

@@ -155,7 +155,7 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
         case ListfileBufferFormat::MVLC_USB:
             {
                 auto json = QJsonDocument::fromJson(
-                    mvlc_listfile::read_vme_config_data(*handle.listfile)).object();
+                    mvme_mvlc_listfile::read_vme_config_data(*handle.listfile)).object();
 
                 json = json.value("VMEConfig").toObject();
                 json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger);

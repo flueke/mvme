@@ -25,7 +25,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace trigger_io
 {
@@ -47,7 +47,7 @@ QString generate_trigger_io_script_text(
 
 TriggerIO parse_trigger_io_script_text(const QString &text);
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 } // end namespace trigger_io
 

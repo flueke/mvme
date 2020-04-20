@@ -44,7 +44,7 @@ VMEControllerFactory::VMEControllerFactory(VMEControllerType type)
 
 VMEController *VMEControllerFactory::makeController(const QVariantMap &settings)
 {
-    auto make_mvlc_ctrl = [](std::unique_ptr<mesytec::mvlc::AbstractImpl> impl)
+    auto make_mvlc_ctrl = [](std::unique_ptr<mesytec::mvme_mvlc::AbstractImpl> impl)
     {
         // Dependencies of the MVLC_VMEController object:
         // MVLC_VMEController -> MVLCObject -> (eth|usb)::Impl
@@ -54,8 +54,8 @@ VMEController *VMEControllerFactory::makeController(const QVariantMap &settings)
         // Constructing a MVLC_VMEController on the stack using a MVLCObject is
         // fine without transfering ownership.
 
-        auto obj  = std::make_unique<mesytec::mvlc::MVLCObject>(std::move(impl));
-        auto ctrl = std::make_unique<mesytec::mvlc::MVLC_VMEController>(obj.get());
+        auto obj  = std::make_unique<mesytec::mvme_mvlc::MVLCObject>(std::move(impl));
+        auto ctrl = std::make_unique<mesytec::mvme_mvlc::MVLC_VMEController>(obj.get());
 
         // Transfer ownership of the MVLCObject to the newly created
         // MVLC_VMEController wrapper
@@ -81,22 +81,22 @@ VMEController *VMEControllerFactory::makeController(const QVariantMap &settings)
 
         case VMEControllerType::MVLC_USB:
             {
-                std::unique_ptr<mesytec::mvlc::AbstractImpl> impl;
+                std::unique_ptr<mesytec::mvme_mvlc::AbstractImpl> impl;
 
                 auto method = settings["method"].toString();
 
                 if (method == "by_index")
                 {
-                    impl = mesytec::mvlc::make_mvlc_usb(settings["index"].toUInt());
+                    impl = mesytec::mvme_mvlc::make_mvlc_usb(settings["index"].toUInt());
                 }
                 else if (method == "by_serial")
                 {
-                    impl = mesytec::mvlc::make_mvlc_usb_using_serial(
+                    impl = mesytec::mvme_mvlc::make_mvlc_usb_using_serial(
                         settings["serial"].toString().toStdString());
                 }
                 else
                 {
-                    impl = mesytec::mvlc::make_mvlc_usb();
+                    impl = mesytec::mvme_mvlc::make_mvlc_usb();
                 }
 
                 return make_mvlc_ctrl(std::move(impl));
@@ -106,7 +106,7 @@ VMEController *VMEControllerFactory::makeController(const QVariantMap &settings)
         case VMEControllerType::MVLC_ETH:
             {
                 auto hostname = settings["mvlc_hostname"].toString();
-                auto impl = mesytec::mvlc::make_mvlc_eth(hostname.toStdString().c_str());
+                auto impl = mesytec::mvme_mvlc::make_mvlc_eth(hostname.toStdString().c_str());
                 return make_mvlc_ctrl(std::move(impl));
             } break;
     }

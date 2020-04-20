@@ -65,7 +65,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
     signals:
         void debugInfoReady(
             const DataBuffer &buffer,
-            const mesytec::mvlc::ReadoutParserState &parserState,
+            const mesytec::mvme_mvlc::ReadoutParserState &parserState,
             const VMEConfig *vmeConfig,
             const analysis::Analysis *analysis);
 
@@ -122,7 +122,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
             return m_counters;
         }
 
-        mesytec::mvlc::ReadoutParserCounters getReadoutParserCounters() const
+        mesytec::mvme_mvlc::ReadoutParserCounters getReadoutParserCounters() const
         {
             UniqueLock guard(m_parserCountersMutex);
             return m_parserCountersCopy;
@@ -154,7 +154,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         ThreadSafeDataBufferQueue *getFullBuffers() { return m_fullBuffers; }
         void setState(MVMEStreamWorkerState newState);
 
-        using UniqueLock = mesytec::mvlc::UniqueLock;
+        using UniqueLock = mesytec::mvme_mvlc::UniqueLock;
 
         // Used for the transition from non-Idle state to Idle state.
         enum StopFlag
@@ -181,7 +181,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void blockIfPaused();
         void publishStateIfSingleStepping();
 
-        void logParserInfo(const mesytec::mvlc::ReadoutParserState &parser);
+        void logParserInfo(const mesytec::mvme_mvlc::ReadoutParserState &parser);
 
         MVMEContext *m_context;
         ThreadSafeDataBufferQueue *m_freeBuffers,
@@ -193,10 +193,10 @@ class MVLC_StreamWorker: public StreamWorkerBase
         mutable mesytec::mvme::TicketMutex m_countersMutex;
         MVMEStreamProcessorCounters m_counters = {};
 
-        mesytec::mvlc::ReadoutParserCallbacks m_parserCallbacks;
-        mesytec::mvlc::ReadoutParserState m_parser;
+        mesytec::mvme_mvlc::ReadoutParserCallbacks m_parserCallbacks;
+        mesytec::mvme_mvlc::ReadoutParserState m_parser;
         mutable mesytec::mvme::TicketMutex m_parserCountersMutex;
-        mesytec::mvlc::ReadoutParserCounters m_parserCountersCopy = {};
+        mesytec::mvme_mvlc::ReadoutParserCounters m_parserCountersCopy = {};
 
         // Note: std::condition_variable requires an std::mutex, that's why a
         // TicketMutex is not used here.
@@ -218,7 +218,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         EventRecord m_singleStepEventRecord = {};
 };
 
-mesytec::mvlc::VMEConfReadoutScripts LIBMVME_EXPORT
+mesytec::mvme_mvlc::VMEConfReadoutScripts LIBMVME_EXPORT
     collect_readout_scripts(const VMEConfig &vmeConfig);
 
 #endif /* __MVLC_STREAM_WORKERS_H__ */

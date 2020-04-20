@@ -95,7 +95,7 @@
 // Note: max amount to copy is the max length of a frame. That's 2^13 words
 // (32k bytes) for readout frames.
 
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 static const size_t LocalEventBufferSize = Megabytes(1);
 static const size_t ReadBufferSize = Megabytes(1);
@@ -1101,7 +1101,7 @@ inline void fixup_usb_buffer(
 }
 
 //static const size_t USBReadMinBytes = Kilobytes(256);
-static const size_t USBReadMinBytes = mesytec::mvlc::usb::USBSingleTransferMaxBytes;
+static const size_t USBReadMinBytes = mesytec::mvme_mvlc::usb::USBSingleTransferMaxBytes;
 
 std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
 {

@@ -36,7 +36,7 @@ using vme_address_modes::is_block_amod;
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace script
 {
@@ -274,9 +274,9 @@ static Command handle_stack_command(const QVector<PreparsedLine> &lines,
             if (keyword == "output")
             {
                 if (value == "command" || value == "cmd")
-                    result.stack.outputPipe = mesytec::mvlc::CommandPipe;
+                    result.stack.outputPipe = mesytec::mvme_mvlc::CommandPipe;
                 else if (value == "data")
-                    result.stack.outputPipe = mesytec::mvlc::DataPipe;
+                    result.stack.outputPipe = mesytec::mvme_mvlc::DataPipe;
                 else
                 {
                     try
@@ -299,7 +299,7 @@ static Command handle_stack_command(const QVector<PreparsedLine> &lines,
             {
                 u16 offset = parseValue<u16>(value);
 
-                if (offset % mesytec::mvlc::AddressIncrement)
+                if (offset % mesytec::mvme_mvlc::AddressIncrement)
                     throw QString("invalid stack offset address. must be divisible by 4");
 
                 result.stack.offset = offset;
@@ -536,7 +536,7 @@ void MVLCCommandListBuilder::addStack(u8 outputPipe, u16 offset,
     m_commands.push_back(cmd);
 }
 
-static const u8 DefaultOutputPipe = mesytec::mvlc::CommandPipe;
+static const u8 DefaultOutputPipe = mesytec::mvme_mvlc::CommandPipe;
 static const u8 DefaultOffset = 0;
 
 void MVLCCommandListBuilder::addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth)
@@ -692,5 +692,5 @@ QVector<u32> to_mvlc_command_buffer(const CommandList &cmdList)
 }
 
 } // end namespace script
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

@@ -270,8 +270,8 @@ EventConfigDialog::EventConfigDialog(
                     auto on_timer_base_changed = [this] (const QString &unit)
                     {
                         m_d->spin_timerPeriod->setSuffix(QSL(" ") + unit);
-                        m_d->spin_timerPeriod->setMinimum(unit == "ns" ? mvlc::stacks::TimerPeriodMin_ns : 1);
-                        m_d->spin_timerPeriod->setMaximum(mvlc::stacks::TimerPeriodMax);
+                        m_d->spin_timerPeriod->setMinimum(unit == "ns" ? mvme_mvlc::stacks::TimerPeriodMin_ns : 1);
+                        m_d->spin_timerPeriod->setMaximum(mvme_mvlc::stacks::TimerPeriodMax);
                     };
 
                     on_timer_base_changed("ns");

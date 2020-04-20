@@ -29,7 +29,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 template<typename DIALOG_API>
@@ -108,7 +108,7 @@ read_stack_info(DIALOG_API &mvlc, u8 id)
     return { result, sc.second };
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVME_MVLC_DIALOG_UTIL_H__ */

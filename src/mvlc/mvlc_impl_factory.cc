@@ -25,7 +25,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 //
@@ -60,5 +60,5 @@ std::unique_ptr<AbstractImpl> make_mvlc_eth(const char *host)
     return std::make_unique<eth::Impl>(host);
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

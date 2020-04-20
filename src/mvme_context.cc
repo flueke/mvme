@@ -931,9 +931,9 @@ void MVMEContext::onControllerOpenFinished()
                           );
             }
         }
-        else if (auto mvlc = dynamic_cast<mesytec::mvlc::MVLC_VMEController *>(m_controller))
+        else if (auto mvlc = dynamic_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(m_controller))
         {
-            using namespace mesytec::mvlc;
+            using namespace mesytec::mvme_mvlc;
 
             logMessage(QString("Opened VME Controller %1 (%2)")
                        .arg(mvlc->getIdentifyingString())
@@ -957,7 +957,7 @@ void MVMEContext::onControllerOpenFinished()
         m_d->m_ctrlOpenRetryCount++;
 
         // The result indicates an error. First handle the MVLCs "InUse" case.
-        if (result.getStdErrorCode() == mesytec::mvlc::MVLCErrorCode::InUse)
+        if (result.getStdErrorCode() == mesytec::mvme_mvlc::MVLCErrorCode::InUse)
         {
             if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
             {
@@ -1035,11 +1035,11 @@ void MVMEContext::forceResetVMEController()
     {
         sis->setResetOnConnect(true);
     }
-    else if (auto mvlc = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(getVMEController()))
+    else if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(getVMEController()))
     {
-        if (mvlc->connectionType() == mesytec::mvlc::ConnectionType::ETH)
+        if (mvlc->connectionType() == mesytec::mvme_mvlc::ConnectionType::ETH)
         {
-            auto mvlc_eth = reinterpret_cast<mesytec::mvlc::eth::Impl *>(mvlc->getImpl());
+            auto mvlc_eth = reinterpret_cast<mesytec::mvme_mvlc::eth::Impl *>(mvlc->getImpl());
             mvlc_eth->setDisableTriggersOnConnect(true);
         }
     }
@@ -1833,7 +1833,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
     // cannot so the DAQ has to be paused and resumed if needed.
     if (is_mvlc_controller(m_controller->getType()))
     {
-        auto mvlc = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(m_controller);
+        auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(m_controller);
         assert(mvlc);
 
         mvlc->disableNotificationPolling();
@@ -1904,13 +1904,13 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
             << result.error.error()
             << result.error.getStdErrorCode().value()
             << result.error.getStdErrorCode().category().name()
-            << (result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError);
+            << (result.error.getStdErrorCode() == mesytec::mvme_mvlc::ErrorType::ConnectionError);
 #endif
 
         if (result.error.isError())
         {
             if (result.error.error() == VMEError::NotOpen ||
-                result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError)
+                result.error.getStdErrorCode() == mesytec::mvme_mvlc::ErrorType::ConnectionError)
             {
                 emit logMessage("ConnectionError during VME script execution,"
                                 " closing connection to VME Controller");

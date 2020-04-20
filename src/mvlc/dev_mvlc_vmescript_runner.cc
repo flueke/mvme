@@ -76,17 +76,17 @@ int main(int argc, char *argv[])
         vmeScript = vme_script::parse(&scriptFile);
     }
 
-    std::unique_ptr<mvlc::AbstractImpl> mvlcImpl;
+    std::unique_ptr<mvme_mvlc::AbstractImpl> mvlcImpl;
 
     if (parser.isSet(ethOption))
     {
         auto hostname = parser.value(ethOption);
-        mvlcImpl = mvlc::make_mvlc_eth(hostname.toLocal8Bit().data());
+        mvlcImpl = mvme_mvlc::make_mvlc_eth(hostname.toLocal8Bit().data());
     }
     else // default to usb
     {
         unsigned index = parser.value(usbOption).toUInt();
-        mvlcImpl = mvlc::make_mvlc_usb(index);
+        mvlcImpl = mvme_mvlc::make_mvlc_usb(index);
     }
 
     assert(mvlcImpl);
@@ -94,8 +94,8 @@ int main(int argc, char *argv[])
     const unsigned repetitions = parser.value(repetitionOption).toUInt();
     const bool verbose = parser.isSet(verboseOption);
 
-    mvlc::MVLCObject mvlcObj(std::move(mvlcImpl));
-    mvlc::MVLC_VMEController mvlcCtrl(&mvlcObj);
+    mvme_mvlc::MVLCObject mvlcObj(std::move(mvlcImpl));
+    mvme_mvlc::MVLC_VMEController mvlcCtrl(&mvlcObj);
 
     if (auto err = mvlcCtrl.open())
     {
@@ -108,11 +108,11 @@ int main(int argc, char *argv[])
         cout << msg.toStdString() << endl;
     };
 
-    mvlcObj.setReadTimeout(mvlc::Pipe::Command, 250);
-    mvlcObj.setWriteTimeout(mvlc::Pipe::Command, 250);
+    mvlcObj.setReadTimeout(mvme_mvlc::Pipe::Command, 250);
+    mvlcObj.setWriteTimeout(mvme_mvlc::Pipe::Command, 250);
 
-    cout << "Command pipe timeouts: read=" << mvlcObj.getReadTimeout(mvlc::Pipe::Command)
-        << ", write=" << mvlcObj.getWriteTimeout(mvlc::Pipe::Command)
+    cout << "Command pipe timeouts: read=" << mvlcObj.getReadTimeout(mvme_mvlc::Pipe::Command)
+        << ", write=" << mvlcObj.getWriteTimeout(mvme_mvlc::Pipe::Command)
         << endl;
 
     //mvlcCtrl.disableNotificationPolling();

@@ -26,7 +26,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 /* Lower level MVLC specific error codes. In addition to this the specific
@@ -95,14 +95,14 @@ enum class ErrorType
 
 LIBMVME_MVLC_EXPORT std::error_condition make_error_condition(ErrorType et);
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 namespace std
 {
-    template<> struct is_error_code_enum<mesytec::mvlc::MVLCErrorCode>: true_type {};
+    template<> struct is_error_code_enum<mesytec::mvme_mvlc::MVLCErrorCode>: true_type {};
 
-    template<> struct is_error_condition_enum<mesytec::mvlc::ErrorType>: true_type {};
+    template<> struct is_error_condition_enum<mesytec::mvme_mvlc::ErrorType>: true_type {};
 } // end namespace std
 
 #endif /* __MVLC_ERROR_H__ */

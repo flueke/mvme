@@ -28,7 +28,7 @@
 #include "mvlc/mvlc_vme_controller.h"
 #include "vme_daq.h"
 
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
             printf("  |  %4u | 0x%04x | 0x%08x |\n",
                    line, addr, value);
 
-            addr += mesytec::mvlc::AddressIncrement;
+            addr += mesytec::mvme_mvlc::AddressIncrement;
             line++;
         }
 

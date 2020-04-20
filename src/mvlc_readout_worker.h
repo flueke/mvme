@@ -43,7 +43,7 @@ struct MVLCReadoutCounters
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
     class MVLC_VMEController;
 }
@@ -67,7 +67,7 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         DAQState getState() const override;
 
         MVLCReadoutCounters getReadoutCounters() const;
-        mesytec::mvlc::MVLC_VMEController *getMVLC();
+        mesytec::mvme_mvlc::MVLC_VMEController *getMVLC();
 
     public slots:
         void requestDebugInfoOnNextBuffer();

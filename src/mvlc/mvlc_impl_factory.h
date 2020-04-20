@@ -28,7 +28,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 // TODO: support URI schemes like:
@@ -45,7 +45,7 @@ std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_usb_using_serial(con
 std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_eth();
 std::unique_ptr<AbstractImpl> LIBMVME_MVLC_EXPORT make_mvlc_eth(const char *host);
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_IMPL_FACTORY_H__ */

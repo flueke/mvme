@@ -28,7 +28,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 using Mutex = mvme::TicketMutex;
@@ -76,7 +76,7 @@ class Locks
         Mutex m_dataMutex;
 };
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_THREADING_H__ */

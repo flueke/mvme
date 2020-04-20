@@ -26,8 +26,8 @@
 using std::cout;
 using std::endl;
 
-using namespace mesytec::mvlc;
-using namespace mesytec::mvlc::usb;
+using namespace mesytec::mvme_mvlc;
+using namespace mesytec::mvme_mvlc::usb;
 
 TEST(TestMVLCError, MVLCErrorCode_to_ErrorType)
 {
