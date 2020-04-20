@@ -173,6 +173,14 @@ struct MESYTEC_MVLC_EXPORT ReadoutParserState
             --wordsLeft;
         }
 
+        inline void consumeWords(size_t count)
+        {
+            if (wordsLeft < count)
+                throw end_of_frame();
+
+            wordsLeft -= count;
+        }
+
         u32 header;
         u16 wordsLeft;
     };

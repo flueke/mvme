@@ -36,7 +36,7 @@
 #define LOG_LEVEL_TRACE 400
 
 #ifndef MVLC_DIALOG_LOG_LEVEL
-#define MVLC_DIALOG_LOG_LEVEL LOG_LEVEL_TRACE
+#define MVLC_DIALOG_LOG_LEVEL LOG_LEVEL_WARN
 #endif
 
 #define LOG_LEVEL_SETTING MVLC_DIALOG_LOG_LEVEL
@@ -496,19 +496,20 @@ std::error_code MVLCDialog::uploadStack(
 
         auto request = make_command_buffer(part);
 
-        std::cout << __PRETTY_FUNCTION__ << "part #" << partCount++ << ", request.size() = " << request.size() << std::endl;
+        LOG_DEBUG("part #%lu, size=%lu words", partCount, request.size());
 
         assert(request.size() <= MirrorTransactionMaxWords);
 
         if (auto ec = mirrorTransaction(request, responseDest))
             return ec;
 
+        ++partCount;
         firstCommand = lastCommand;
     }
 
     assert(firstCommand == endOfBuffer);
 
-    std::cout << __PRETTY_FUNCTION__ << "stack upload done in " << partCount << " parts" << std::endl;
+    LOG_DEBUG("stack upload done in %lu parts", partCount);
 
     return {};
 }

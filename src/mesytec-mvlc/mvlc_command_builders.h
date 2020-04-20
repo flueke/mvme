@@ -87,14 +87,16 @@ struct MESYTEC_MVLC_EXPORT StackCommand
         VMEWrite        = static_cast<u8>(StackCommandType::VMEWrite),
         WriteMarker     = static_cast<u8>(StackCommandType::WriteMarker),
         WriteSpecial    = static_cast<u8>(StackCommandType::WriteSpecial),
-        SoftwareDelay   = 0xED, // some value not used in the mvlc protocol
+        // some value not used in the mvlc protocol
+        SoftwareDelay   = static_cast<u8>(0xEDu),
+        Invalid         = static_cast<u8>(0x0u),
     };
 
-    CommandType type;
+    CommandType type = CommandType::Invalid;
     u32 address;
     u32 value;
     u8 amod;
-    VMEDataWidth dataWidth;
+    VMEDataWidth dataWidth = VMEDataWidth::D16;
     u16 transfers;
     Blk2eSSTRate rate;
 
@@ -202,6 +204,9 @@ MESYTEC_MVLC_EXPORT size_t get_encoded_size(const SuperCommand &command);
 
 MESYTEC_MVLC_EXPORT size_t get_encoded_size(const StackCommand::CommandType &type);
 MESYTEC_MVLC_EXPORT size_t get_encoded_size(const StackCommand &command);
+
+// Returns the sum of the sizes of the encoded commands plus 2 for StackStart and StackEnd.
+MESYTEC_MVLC_EXPORT size_t get_encoded_stack_size(const std::vector<StackCommand> &commands);
 
 MESYTEC_MVLC_EXPORT std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands);
 MESYTEC_MVLC_EXPORT std::vector<u32> make_command_buffer(const std::vector<SuperCommand> &commands);

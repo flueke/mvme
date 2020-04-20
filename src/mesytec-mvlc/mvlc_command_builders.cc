@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cassert>
 #include <iterator>
+#include <numeric>
 #include <sstream>
 #include <fmt/format.h>
 
@@ -169,6 +170,9 @@ std::string to_string(const StackCommand &cmd)
 
     switch (cmd.type)
     {
+        case CT::Invalid:
+            return "invalid";
+
         case CT::StackStart:
             return "stack_start";
 
@@ -472,6 +476,7 @@ size_t get_encoded_size(const StackCommand::CommandType &type)
         case StackCT::WriteSpecial:
             return 1;
 
+        case StackCT::Invalid:
         case StackCT::SoftwareDelay:
             return 0;
     }
@@ -482,6 +487,18 @@ size_t get_encoded_size(const StackCommand::CommandType &type)
 size_t get_encoded_size(const StackCommand &cmd)
 {
     return get_encoded_size(cmd.type);
+}
+
+size_t get_encoded_stack_size(const std::vector<StackCommand> &commands)
+{
+    size_t encodedPartSize = 2 + std::accumulate(
+        std::begin(commands), std::end(commands), static_cast<size_t>(0u),
+        [] (const size_t &encodedSize, const StackCommand &cmd)
+        {
+            return encodedSize + get_encoded_size(cmd);
+        });
+
+    return encodedPartSize;
 }
 
 std::vector<u32> make_command_buffer(const SuperCommandBuilder &commands)
@@ -678,6 +695,9 @@ std::vector<u32> make_stack_buffer(const std::vector<StackCommand> &stack)
 
             case CommandType::SoftwareDelay:
                 throw std::runtime_error("unsupported stack buffer command: SoftwareDelay");
+
+            case CommandType::Invalid:
+                throw std::runtime_error("unsupported stack buffer command: Invalid");
         }
     }
 
@@ -713,6 +733,7 @@ std::vector<StackCommand> stack_commands_from_buffer(const std::vector<u32> &buf
             case StackCT::StackStart:
             case StackCT::StackEnd:
             case StackCT::SoftwareDelay:
+            case StackCT::Invalid:
                 continue;
 
             case StackCT::VMERead:

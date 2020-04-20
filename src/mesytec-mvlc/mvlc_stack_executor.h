@@ -53,9 +53,10 @@ struct Options
 {
     bool ignoreDelays = false;
     bool noBatching  = false;
+    bool contineOnVMEError = false;
 };
 
-using AbortPredicate = std::function<bool (const std::error_code &ec)>;
+//using AbortPredicate = std::function<bool (const std::error_code &ec)>;
 
 namespace detail
 {
@@ -71,82 +72,23 @@ template<typename DIALOG_API>
     return mvlc.execImmediateStack(0, responseDest);
 }
 
-template<typename DIALOG_API>
-    std::error_code stack_transaction(
-        DIALOG_API &mvlc, const StackCommandBuilder &stack,
-        std::vector<u32> &responseDest)
-{
-    return stack_transaction(mvlc, stack.getCommands(), responseDest);
-}
-
-inline size_t get_encoded_stack_size(const std::vector<StackCommand> &commands)
-{
-    size_t encodedPartSize = 2 + std::accumulate(
-        std::begin(commands), std::end(commands), static_cast<size_t>(0u),
-        [] (const size_t &encodedSize, const StackCommand &cmd)
-        {
-            return encodedSize + get_encoded_size(cmd);
-        });
-
-    return encodedPartSize;
-}
+//template<typename DIALOG_API>
+//    std::error_code stack_transaction(
+//        DIALOG_API &mvlc, const StackCommandBuilder &stack,
+//        std::vector<u32> &responseDest)
+//{
+//    return stack_transaction(mvlc, stack.getCommands(), responseDest);
+//}
 
 inline bool is_sw_delay (const StackCommand &cmd)
 {
     return cmd.type == StackCommand::CommandType::SoftwareDelay;
 };
 
-inline std::vector<std::vector<StackCommand>> split_commands(
+MESYTEC_MVLC_EXPORT std::vector<std::vector<StackCommand>> split_commands(
     const std::vector<StackCommand> &commands,
     const Options &options = {},
-    const u16 immediateStackMaxSize = stacks::ImmediateStackReservedWords)
-{
-    std::vector<std::vector<StackCommand>> result;
-
-    if (options.noBatching)
-    {
-        for (const auto &cmd: commands)
-            result.push_back({ cmd });
-
-        return result;
-    }
-
-    auto first = std::begin(commands);
-    const auto end = std::end(commands);
-
-    while (first < end)
-    {
-        size_t encodedSize = 2u;
-
-        auto partEnd = std::find_if(
-            first, end, [&] (const StackCommand &cmd)
-            {
-                if (is_sw_delay(cmd) && !options.ignoreDelays)
-                    return true;
-
-                if (encodedSize + get_encoded_size(cmd) > immediateStackMaxSize)
-                    return true;
-
-                encodedSize += get_encoded_size(cmd);
-
-                return false;
-            });
-
-        if (first < end && first == partEnd && is_sw_delay(*first))
-            ++partEnd;
-
-        if (first == partEnd)
-            throw std::runtime_error("split_commands: not advancing");
-
-        std::vector<StackCommand> part;
-        part.reserve(partEnd - first);
-        std::copy(first, partEnd, std::back_inserter(part));
-        result.emplace_back(part);
-        first = partEnd;
-    }
-
-    return result;
-}
+    const u16 immediateStackMaxSize = stacks::ImmediateStackReservedWords);
 
 template<typename DIALOG_API>
 std::error_code run_part(
@@ -180,7 +122,7 @@ std::error_code run_parts(
     DIALOG_API &mvlc,
     const std::vector<std::vector<StackCommand>> &parts,
     const Options &options,
-    AbortPredicate abortPredicate,
+    //AbortPredicate abortPredicate,
     std::vector<u32> &combinedResponses)
 {
     std::error_code ret;
@@ -196,8 +138,8 @@ std::error_code run_parts(
         if (ec && !ret)
             ret = ec;
 
-        if (abortPredicate && abortPredicate(ec))
-            break;
+        //if (abortPredicate && abortPredicate(ec))
+        //    break;
     }
 
     return ret;
@@ -257,7 +199,7 @@ std::error_code execute_stack(
     const StackCommandBuilder &stack,
     u16 immediateStackMaxSize,
     const Options &options,
-    AbortPredicate &abortPredicate,
+    //AbortPredicate &abortPredicate,
     std::vector<u32> &responseBuffer)
 {
     if (stack.getGroupCount() == 0)
@@ -272,7 +214,7 @@ std::error_code execute_stack(
 
     responseBuffer.clear();
 
-    auto ec = detail::run_parts(mvlc, parts, options, abortPredicate, responseBuffer);
+    auto ec = detail::run_parts(mvlc, parts, options, /* abortPredicate, */ responseBuffer);
 
     return ec;
 }
