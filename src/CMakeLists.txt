@@ -472,6 +472,12 @@ add_mvme_executable(dev_vme_config_ui_variable_editor "dev_vme_config_variable_e
 add_mvme_executable(dev_zip_write_test zip-write-test.cc)
 target_link_libraries(dev_zip_write_test PRIVATE Threads::Threads)
 
+
+if(MVME_ENABLE_MVLC)
+    add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
+    target_link_libraries(mvme_to_mvlc PUBLIC mesytec-mvlc)
+endif(MVME_ENABLE_MVLC)
+
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
 #install(FILES data_export/mvme_root_treewriter_client.cc DESTINATION extras/root_treewriter_client/)
