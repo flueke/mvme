@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
     std::tie(vmeConfig, message) = read_vme_config_from_file(inFilename);
 
     if (!vmeConfig || !message.isEmpty())
-        std::cerr << "Error loading mvme VME config: " << message.toStdString() << endl;
+        std::cerr << "Error loading mvme VME config: " << message.toStdString() << std::endl;
 
     mesytec::mvlc::CrateConfig dstConfig;
 
@@ -51,14 +51,6 @@ int main(int argc, char *argv[])
             break;
     }
 
-// TODO: 
-// readout_stacks:
-//    []
-//  stack_triggers:
-//    []
-//  init_sequence:
-//  []
-
     auto convert_command = [](const auto &srcCmd)
     {
         using namespace vme_script;
@@ -72,7 +64,9 @@ int main(int argc, char *argv[])
                 dstCmd.type = mvlcCT::VMERead;
                 dstCmd.address = srcCmd.address;
                 dstCmd.amod = srcCmd.addressMode;
-                dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16 ? mesytec::mvlc::VMEDataWidth::D16 : mesytec::mvlc::VMEDataWidth::D32);
+                dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16
+                                    ? mesytec::mvlc::VMEDataWidth::D16
+                                    : mesytec::mvlc::VMEDataWidth::D32);
                 break;
 
             case CommandType::Write:
@@ -81,7 +75,9 @@ int main(int argc, char *argv[])
                 dstCmd.address = srcCmd.address;
                 dstCmd.value = srcCmd.value;
                 dstCmd.amod = srcCmd.addressMode;
-                dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16 ? mesytec::mvlc::VMEDataWidth::D16 : mesytec::mvlc::VMEDataWidth::D32);
+                dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16
+                                    ? mesytec::mvlc::VMEDataWidth::D16
+                                    : mesytec::mvlc::VMEDataWidth::D32);
                 break;
 
             case CommandType::Wait:
@@ -136,9 +132,9 @@ int main(int argc, char *argv[])
 
     const auto eventConfigs = vmeConfig->getEventConfigs();
 
-    for (size_t ei = 0; ei < eventConfigs.size(); ei++)
+    // readout stacks
+    for (const auto &eventConfig: eventConfigs)
     {
-        const auto eventConfig = eventConfigs[ei];
         const auto moduleConfigs = eventConfig->getModuleConfigs();
 
         mesytec::mvlc::StackCommandBuilder readoutStack(eventConfig->objectName().toStdString());
@@ -147,10 +143,8 @@ int main(int argc, char *argv[])
             readoutStack, "readout_start",
             mesytec::mvme::parse(eventConfig->vmeScripts["readout_start"]));
 
-        for (size_t mi = 0; mi < moduleConfigs.size(); mi++)
+        for (const auto &moduleConfig: moduleConfigs)
         {
-            const auto moduleConfig = moduleConfigs[mi];
-
             auto moduleName = moduleConfig->objectName().toStdString();
 
             add_stack_group(
@@ -167,10 +161,9 @@ int main(int argc, char *argv[])
         dstConfig.stacks.emplace_back(readoutStack);
     }
 
-    for (size_t ei = 0; ei < eventConfigs.size(); ei++)
+    // triggers
+    for (const auto &eventConfig: eventConfigs)
     {
-        const auto eventConfig = eventConfigs[ei];
-
         using namespace mesytec::mvlc;
 
         switch (eventConfig->triggerCondition)
@@ -196,6 +189,80 @@ int main(int argc, char *argv[])
                 dstConfig.triggers.push_back(trigger_value(stacks::External));
                 break;
         }
+    }
+
+    auto startScripts = vmeConfig->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_start")->findChildren<VMEScriptConfig *>();
+
+    auto stopScripts = vmeConfig->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_stop")->findChildren<VMEScriptConfig *>();
+
+    // init_commands
+    // order is global_daq_start, module_init, events_daq_start
+    dstConfig.initCommands.setName("init_commands");
+
+    // stop_commands
+    // order is events_daq_stop, global_daq_stop
+    dstConfig.stopCommands.setName("stop_commands");
+
+    for (const auto &script: startScripts)
+    {
+        add_stack_group(
+            dstConfig.initCommands,
+            script->objectName().toStdString(),
+            mesytec::mvme::parse(script));
+    }
+
+    for (const auto &eventConfig: eventConfigs)
+    {
+        auto eventName = eventConfig->objectName().toStdString();
+        const auto moduleConfigs = eventConfig->getModuleConfigs();
+
+        for (const auto &moduleConfig: moduleConfigs)
+        {
+            auto moduleName = moduleConfig->objectName().toStdString();
+
+            add_stack_group(
+                dstConfig.initCommands,
+                eventName + "." + moduleName + ".reset",
+                mesytec::mvme::parse(
+                    moduleConfig->getResetScript(), moduleConfig->getBaseAddress()));
+
+            for (const auto &script: moduleConfig->getInitScripts())
+            {
+                add_stack_group(
+                    dstConfig.initCommands,
+                    eventName + "." + moduleName + "." + script->objectName().toStdString(),
+                    mesytec::mvme::parse(
+                        script, moduleConfig->getBaseAddress()));
+            }
+        }
+
+        {
+            auto script = eventConfig->vmeScripts["daq_start"];
+
+            add_stack_group(
+                dstConfig.initCommands,
+                eventName + "." + script->objectName().toStdString(),
+                mesytec::mvme::parse(script));
+        }
+
+        {
+            auto script = eventConfig->vmeScripts["daq_stop"];
+
+            add_stack_group(
+                dstConfig.stopCommands,
+                eventName + "." + script->objectName().toStdString(),
+                mesytec::mvme::parse(script));
+        }
+    }
+
+    for (const auto &script: stopScripts)
+    {
+        add_stack_group(
+            dstConfig.stopCommands,
+            script->objectName().toStdString(),
+            mesytec::mvme::parse(script));
     }
 
     std::cout << mesytec::mvlc::to_yaml(dstConfig) << std::endl;
