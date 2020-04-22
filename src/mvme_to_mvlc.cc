@@ -277,6 +277,22 @@ int main(int argc, char *argv[])
             mesytec::mvme::parse(script));
     }
 
+    // init_trigger_io
+    {
+        dstConfig.initTriggerIO.setName("init_trigger_io");
+
+        auto script = qobject_cast<VMEScriptConfig *>(
+            vmeConfig->getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
+
+        if (script)
+        {
+            add_stack_group(
+                dstConfig.initTriggerIO,
+                {},
+                mesytec::mvme::parse(script));
+        }
+    }
+
     std::cout << mesytec::mvlc::to_yaml(dstConfig) << std::endl;
 
     return 0;
