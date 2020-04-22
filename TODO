@@ -2,6 +2,9 @@
 TODO list
 ==================================================
 
+* QObject::connect: Cannot queue arguments of type 'mesytec::mvme_mvlc::MVLCObject::State'
+  (Make sure 'mesytec::mvme_mvlc::MVLCObject::State' is registered using qRegisterMetaType().)
+
 * mesytec diagnostics are not implemented for the mvlc. Redesign how the
   diagnostics widget wors and implement it for the mvlc.
 
