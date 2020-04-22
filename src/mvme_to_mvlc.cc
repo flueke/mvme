@@ -1,5 +1,6 @@
 #include <iostream>
 #include <tuple>
+#include <QCoreApplication>
 
 #include <mesytec-mvlc/mvlc_command_builders.h>
 #include <mesytec-mvlc/mvlc_constants.h>
@@ -7,11 +8,16 @@
 #include <mesytec-mvlc/mvlc_readout.h>
 
 #include "mvlc_stream_worker.h"
+#include "mvme_session.h"
 #include "vme_config.h"
 #include "vme_config_scripts.h"
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication app(argc, argv);
+
+    mvme_init("mvme_to_mvlc");
+
     if (argc < 2)
     {
         std::cerr << "Error: no input file specified." << std::endl;
@@ -191,19 +197,13 @@ int main(int argc, char *argv[])
         }
     }
 
-    auto startScripts = vmeConfig->getGlobalObjectRoot().findChild<ContainerObject *>(
-        "daq_start")->findChildren<VMEScriptConfig *>();
-
-    auto stopScripts = vmeConfig->getGlobalObjectRoot().findChild<ContainerObject *>(
-        "daq_stop")->findChildren<VMEScriptConfig *>();
 
     // init_commands
     // order is global_daq_start, module_init, events_daq_start
     dstConfig.initCommands.setName("init_commands");
 
-    // stop_commands
-    // order is events_daq_stop, global_daq_stop
-    dstConfig.stopCommands.setName("stop_commands");
+    auto startScripts = vmeConfig->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_start")->findChildren<VMEScriptConfig *>();
 
     for (const auto &script: startScripts)
     {
@@ -246,6 +246,15 @@ int main(int argc, char *argv[])
                 eventName + "." + script->objectName().toStdString(),
                 mesytec::mvme::parse(script));
         }
+    }
+
+    // stop_commands
+    // order is events_daq_stop, global_daq_stop
+    dstConfig.stopCommands.setName("stop_commands");
+
+    for (const auto &eventConfig: eventConfigs)
+    {
+        auto eventName = eventConfig->objectName().toStdString();
 
         {
             auto script = eventConfig->vmeScripts["daq_stop"];
@@ -256,6 +265,9 @@ int main(int argc, char *argv[])
                 mesytec::mvme::parse(script));
         }
     }
+
+    auto stopScripts = vmeConfig->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_stop")->findChildren<VMEScriptConfig *>();
 
     for (const auto &script: stopScripts)
     {
