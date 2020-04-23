@@ -1,11 +1,13 @@
 #include <iostream>
 #include <tuple>
 #include <QCoreApplication>
+#include <QDebug>
 
 #include <mesytec-mvlc/mvlc_command_builders.h>
 #include <mesytec-mvlc/mvlc_constants.h>
 #include <mesytec-mvlc/mvlc_dialog_util.h>
 #include <mesytec-mvlc/mvlc_readout.h>
+#include <mesytec-mvlc/vme_constants.h>
 
 #include "mvlc_stream_worker.h"
 #include "mvme_session.h"
@@ -32,7 +34,10 @@ int main(int argc, char *argv[])
     std::tie(vmeConfig, message) = read_vme_config_from_file(inFilename);
 
     if (!vmeConfig || !message.isEmpty())
+    {
         std::cerr << "Error loading mvme VME config: " << message.toStdString() << std::endl;
+        return 1;
+    }
 
     mesytec::mvlc::CrateConfig dstConfig;
 
@@ -47,8 +52,13 @@ int main(int argc, char *argv[])
 
         case VMEControllerType::MVLC_USB:
             dstConfig.connectionType = mesytec::mvlc::ConnectionType::USB;
-            dstConfig.usbIndex = ctrlSettings.value("index", "-1").toInt();
-            dstConfig.usbSerial = ctrlSettings["serial"].toString().toStdString();
+
+            if (ctrlSettings.value("method") == QSL("by_index"))
+                dstConfig.usbIndex = ctrlSettings.value("index", "-1").toInt();
+
+            if (ctrlSettings.value("method") == QSL("by_serial"))
+                dstConfig.usbSerial = ctrlSettings["serial"].toString().toStdString();
+
             break;
 
         default:
@@ -98,16 +108,28 @@ int main(int argc, char *argv[])
 
             case CommandType::BLT:
             case CommandType::BLTFifo:
-            case CommandType::MBLT:
-            case CommandType::MBLTFifo:
                 dstCmd.type = mvlcCT::VMERead;
+                dstCmd.amod = mesytec::mvlc::vme_amods::BLT32;
                 dstCmd.address = srcCmd.address;
-                dstCmd.amod = srcCmd.addressMode;
                 dstCmd.transfers = srcCmd.transfers;
                 break;
 
-            case CommandType::Blk2eSST64: // TODO: implement me
-                throw std::runtime_error("implement me");
+            case CommandType::MBLT:
+            case CommandType::MBLTFifo:
+                dstCmd.type = mvlcCT::VMERead;
+                dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
+                dstCmd.address = srcCmd.address;
+                dstCmd.transfers = srcCmd.transfers;
+                break;
+
+#if 0 // TODO: This is not currently implemented in vme_script
+            case CommandType::Blk2eSST64:
+                dstCmd.type = mvlcCT::VMERead;
+                dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
+                dstCmd.address = srcCmd.address;
+                dstCmd.transfers = srcCmd.transfers;
+                break;
+#endif
 
             case CommandType::MVLC_WriteSpecial:
                 dstCmd.type = mvlcCT::WriteSpecial;
