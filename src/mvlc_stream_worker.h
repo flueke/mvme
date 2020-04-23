@@ -23,6 +23,7 @@
 
 #include "stream_worker_base.h"
 
+#include "libmvme_export.h"
 #include "data_buffer_queue.h"
 #include "mvlc/mvlc_threading.h"
 #include "mvlc/mvlc_readout_parsers.h"

@@ -2707,6 +2707,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId,
 {
     if (auto eventConfig = m_vmeConfig->getEventConfig(eventId))
     {
+        (void) eventConfig;
         AnalysisPauser pauser(this);
         getAnalysis()->addOperator(eventId, userLevel, op);
         getAnalysis()->beginRun(analysis::Analysis::KeepState);

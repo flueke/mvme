@@ -21,6 +21,7 @@
 #ifndef __MVME_MVLC_READOUT_PARSERS_H__
 #define __MVME_MVLC_READOUT_PARSERS_H__
 
+#include "libmvme_mvlc_export.h"
 #include "vme_script.h"
 #include "mvlc/mvlc_threading.h"
 #include "mvlc/mvlc_util.h"
