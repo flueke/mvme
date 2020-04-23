@@ -259,6 +259,9 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
 
     Command result;
     result.type = commandType_from_string(args[0]);
+    // FIXME: this is not the actual block address mode for the vme bus.
+    // Instead contains the single transfers amod. The real amod is determined
+    // by the command type instead
     result.addressMode = parseAddressMode(args[1]);
     result.address = parseAddress(args[2]);
     result.transfers = parseValue<u32>(args[3]);
@@ -1483,6 +1486,11 @@ QString to_string(const Command &cmd)
         case CommandType::SetVariable:
             {
             } break;
+
+        case CommandType::Print:
+            {
+                return cmdStr + cmd.printArgs.join(" ");
+            } break;
     }
 
     return buffer;
@@ -1508,6 +1516,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::MVLC_WriteSpecial:
         case CommandType::MetaBlock:
         case CommandType::SetVariable:
+        case CommandType::Print:
             break;
 
         case CommandType::Read:
