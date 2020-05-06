@@ -28,6 +28,7 @@
 #include "mvlc/mvlc_threading.h"
 #include "mvlc/mvlc_readout_parsers.h"
 #include "multi_event_splitter.h"
+#include "mesytec_diagnostics.h"
 
 class MVMEContext;
 
@@ -129,6 +130,9 @@ class MVLC_StreamWorker: public StreamWorkerBase
             return m_parserCountersCopy;
         }
 
+        void setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag) { m_diag = diag; }
+        bool hasDiagnostics() const { return m_diag != nullptr; }
+
     public slots:
         void startupConsumers() override;
         void shutdownConsumers() override;
@@ -149,6 +153,10 @@ class MVLC_StreamWorker: public StreamWorkerBase
         {
             m_debugInfoRequest = DebugInfoRequest::OnNextError;
         }
+
+        /* Is invoked from MVMEMainWindow via QMetaObject::invokeMethod so that
+         * it runs in our thread. */
+        void removeDiagnostics() { m_diag.reset(); }
 
     private:
         ThreadSafeDataBufferQueue *getFreeBuffers() { return m_freeBuffers; }
@@ -217,6 +225,8 @@ class MVLC_StreamWorker: public StreamWorkerBase
         mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
 
         EventRecord m_singleStepEventRecord = {};
+
+        std::shared_ptr<MesytecDiagnostics> m_diag;
 };
 
 mesytec::mvme_mvlc::VMEConfReadoutScripts LIBMVME_EXPORT
