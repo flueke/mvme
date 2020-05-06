@@ -40,7 +40,7 @@ public:
     inline int getModuleIndex() const { return m_moduleIndex; }
     void beginEvent(int eventIndex);
     void endEvent(int eventIndex);
-    void processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size);
+    void processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size);
     RealtimeData *getRealtimeData() const { return m_rtd; }
     void setLogNextEvent() { m_logNextEvent = true; }
 

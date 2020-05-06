@@ -318,7 +318,7 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
     }
 }
 
-void MesytecDiagnostics::processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size)
+void MesytecDiagnostics::processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size)
 {
     if (!(eventIndex == m_eventIndex && moduleIndex == m_moduleIndex))
     {

@@ -183,6 +183,9 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
 
         if (m_state == WorkerState::SingleStepping)
             begin_event_record(m_singleStepEventRecord, ei);
+
+        if (m_diag)
+            m_diag->beginEvent(ei);
     };
 
     m_parserCallbacks.modulePrefix = [this, analysis](int ei, int mi, const u32 *data, u32 size)
@@ -209,6 +212,9 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
             for (auto c: m_moduleConsumers)
                 c->processModuleData(ei, mi, data, size);
 
+            if (m_diag)
+                m_diag->processModuleData(ei, mi, data, size);
+
             UniqueLock guard(m_countersMutex);
             m_counters.moduleCounters[ei][mi]++;
         }
@@ -233,6 +239,9 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         {
             c->processModuleData(ei, mi, data, size);
         }
+
+        if (m_diag)
+            m_diag->processModuleData(ei, mi, data, size);
 
         if (0 <= ei && ei < MaxVMEEvents && 0 <= mi && mi < MaxVMEModules)
         {
@@ -271,6 +280,9 @@ void MVLC_StreamWorker::setupParserCallbacks(const VMEConfig *vmeConfig, analysi
         {
             c->endEvent(ei);
         }
+
+        if (m_diag)
+            m_diag->endEvent(ei);
 
         if (0 <= ei && ei < MaxVMEEvents)
         {

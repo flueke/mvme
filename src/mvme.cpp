@@ -32,8 +32,9 @@
 #include "mesytec_diagnostics.h"
 #include "mvlc/mvlc_dev_gui.h"
 #include "mvlc/mvlc_trigger_io_editor.h"
-#include "mvlc/mvlc_vme_controller.h"
 #include "mvlc/mvlc_trigger_io_script.h"
+#include "mvlc/mvlc_vme_controller.h"
+#include "mvlc_stream_worker.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme_listfile.h"
@@ -1578,11 +1579,16 @@ void MVMEMainWindow::onDAQStateChanged(const DAQState &)
 void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 {
     auto mvmeStreamWorker = qobject_cast<MVMEStreamWorker *>(m_d->m_context->getMVMEStreamWorker());
+    auto mvlcStreamWorker = qobject_cast<MVLC_StreamWorker *>(m_d->m_context->getMVMEStreamWorker());
 
-    if (!mvmeStreamWorker || mvmeStreamWorker->hasDiagnostics())
-    {
+    if (!(mvmeStreamWorker || mvlcStreamWorker))
         return;
-    }
+
+    if (mvmeStreamWorker && mvmeStreamWorker->hasDiagnostics())
+        return;
+
+    if (mvlcStreamWorker && mvlcStreamWorker->hasDiagnostics())
+        return;
 
     auto diag = std::make_shared<MesytecDiagnostics>();
 
@@ -1607,7 +1613,10 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 
     });
 
-    mvmeStreamWorker->setDiagnostics(diag);
+    if (mvmeStreamWorker)
+        mvmeStreamWorker->setDiagnostics(diag);
+    else if (mvlcStreamWorker)
+        mvlcStreamWorker->setDiagnostics(diag);
 
     widget->show();
     widget->raise();
