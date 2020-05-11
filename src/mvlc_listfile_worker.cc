@@ -356,7 +356,7 @@ qint64 MVLCListfileWorker::readAndProcessBuffer(DataBuffer *destBuffer)
                 fixup_buffer_usb(*destBuffer, d->previousData);
                 break;
 
-                InvalidDefaultCase;
+            InvalidDefaultCase;
         }
     }
 
