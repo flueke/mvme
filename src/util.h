@@ -18,8 +18,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef __MVME_UTIL_H__
+#define __MVME_UTIL_H__
 
 #include <QMetaType>
 #include <QPair>
@@ -340,4 +340,4 @@ inline constexpr size_t Gigabytes(size_t x) { return Megabytes(x) * 1024; }
 #define InvalidCodePath Q_ASSERT(!"invalid code path")
 #define InvalidDefaultCase default: { Q_ASSERT(!"invalid default case"); }
 
-#endif // UTIL_H
+#endif // __MVME_UTIL_H_
