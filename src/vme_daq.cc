@@ -145,6 +145,10 @@ vme_daq_shutdown(
 
     QVector<ScriptWithResult> ret;
 
+    logger(QSL("DAQ stopped on %1")
+           .arg(QDateTime::currentDateTime().toString(Qt::ISODate)));
+    logger("");
+
     logger(QSL("Events DAQ Stop"));
     for (auto eventConfig: config->getEventConfigs())
     {
