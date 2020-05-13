@@ -449,37 +449,6 @@ enum class AxisScaleType
     Logarithmic
 };
 
-namespace
-{
-
-std::unique_ptr<QwtText> make_text_box(int renderFlags = Qt::AlignRight | Qt::AlignTop)
-{
-    auto result = std::make_unique<QwtText>();
-
-    /* This controls the alignment of the whole text on the canvas aswell as
-     * the alignment of the text itself. */
-    result->setRenderFlags(renderFlags);
-
-    QPen borderPen(Qt::SolidLine);
-    borderPen.setColor(Qt::black);
-    result->setBorderPen(borderPen);
-
-    QBrush brush;
-    brush.setColor("#e6e2de");
-    brush.setStyle(Qt::SolidPattern);
-    result->setBackgroundBrush(brush);
-
-    /* The text rendered by qwt looked non-antialiased when using the RichText
-     * format. Manually setting the pixelSize fixes this. */
-    QFont font;
-    font.setPixelSize(10);
-    result->setFont(font);
-
-    return result;
-}
-
-} // end anon namespace
-
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histo, QWidget *parent)
     : Histo1DWidget(HistoList{ histo }, parent)
 {
@@ -694,7 +663,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     //
     // Global stats box
     //
-    m_d->m_globalStatsText = make_text_box(Qt::AlignTop | Qt::AlignRight);
+    m_d->m_globalStatsText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight);
     m_d->m_globalStatsTextItem = new mvme_qwt::TextLabelItem();
     /* Margin added to contentsMargins() of the canvas. This is (mis)used to
      * not clip the top scrollbar. */
@@ -703,7 +672,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     //
     // Gauss stats box
     //
-    m_d->m_gaussStatsText = make_text_box(Qt::AlignTop | Qt::AlignRight);
+    m_d->m_gaussStatsText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight);
 
     m_d->m_gaussStatsTextItem = new mvme_qwt::TextLabelItem();
     m_d->m_gaussStatsTextItem->setVisible(false);
