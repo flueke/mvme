@@ -1585,7 +1585,6 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
     // E.g. the runNumber might be incremented due to run files already existing.
 
     m_d->clearLog();
-    logMessage(QSL("DAQ starting"));
 
     // Log mvme version and bitness and runtime cpu architecture
     logMessage(QString(QSL("mvme %1 (%2) running on %3 (%4)\n"))
@@ -1593,6 +1592,10 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
                .arg(get_bitness_string())
                .arg(QSysInfo::prettyProductName())
                .arg(QSysInfo::currentCpuArchitecture()));
+
+    logMessage(QSL("DAQ starting on %1")
+               .arg(QDateTime::currentDateTime().toString(Qt::ISODate)));
+
 
     if (!prepareStart())
     {
