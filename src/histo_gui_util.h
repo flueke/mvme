@@ -23,8 +23,10 @@
 
 #include <QEvent>
 #include <QSlider>
+#include <memory>
 #include <qwt_picker_machine.h>
 #include <qwt_plot_picker.h>
+#include <qwt_text.h>
 
 QSlider *make_res_reduction_slider(QWidget *parent = nullptr);
 
@@ -89,5 +91,7 @@ class AutoBeginClickPointMachine: public QwtPickerMachine
             return cmdList;
         }
 };
+
+std::unique_ptr<QwtText> make_qwt_text_box(int renderFlags = Qt::AlignRight | Qt::AlignTop);
 
 #endif /* __MVME_HISTO_GUI_UTIL_H__ */
