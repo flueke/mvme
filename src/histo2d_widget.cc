@@ -53,6 +53,7 @@
 #include "histo_gui_util.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
+#include "mvme_qwt.h"
 #include "qt_util.h"
 #include "scrollzoomer.h"
 #include "util.h"
@@ -351,6 +352,10 @@ struct Histo2DWidgetPrivate
     WidgetGeometrySaver *m_geometrySaver;
     MVMEContext *m_context = nullptr;
 
+    mvme_qwt::TextLabelItem *m_statsTextItem;
+    std::unique_ptr<QwtText> m_statsText;
+    mvme_qwt::TextLabelRowLayout m_textLabelLayout;
+
     void onActionChangeResolution()
     {
         auto combo_xBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
@@ -400,6 +405,8 @@ struct Histo2DWidgetPrivate
     void onRRSliderYValueChanged(int sliderValue);
 
     void onCutPolyPickerActivated(bool on);
+
+    void updatePlotStatsTextBox(const Histo2DStatistics &stats);
 };
 
 enum class AxisScaleType
@@ -635,6 +642,14 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         m_d->m_statusBar->addPermanentWidget(m_d->m_infoContainer);
     }
 
+    // stats box (inside the plot)
+    m_d->m_statsText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight);
+    m_d->m_statsTextItem = new mvme_qwt::TextLabelItem();
+    m_d->m_statsTextItem->setZ(m_d->m_plotItem->z() + 1);
+
+    m_d->m_textLabelLayout.addTextLabel(m_d->m_statsTextItem);
+    m_d->m_textLabelLayout.attachAll(m_d->m_plot);
+
     // Main Widget Layout
 
     auto toolBarFrame = new QFrame;
@@ -752,6 +767,7 @@ void Histo2DWidget::replot()
     /* Things that have to happen:
      * - calculate stats for the visible area. use this to scale z
      * - update info display
+     * - update stats text box
      * - update cursor info
      * - update axis titles
      * - update window title
@@ -893,6 +909,8 @@ void Histo2DWidget::replot()
 
     m_d->m_labelHistoInfo->setText(infoText);
 
+    m_d->updatePlotStatsTextBox(stats);
+
     // tell qwt to replot
     m_d->m_plot->replot();
 
@@ -984,11 +1002,15 @@ void Histo2DWidget::exportPlot()
     m_d->m_plot->setFooter(footerText);
     m_d->m_waterMarkLabel->show();
 
+    bool infoWasVisible = m_d->m_actionInfo->isChecked();
+    m_d->m_actionInfo->setChecked(true);
+
     QwtPlotRenderer renderer;
     renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
     renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
     renderer.exportTo(m_d->m_plot, fileName);
 
+    m_d->m_actionInfo->setChecked(infoWasVisible);
     m_d->m_plot->setTitle(QString());
     m_d->m_plot->setFooter(QString());
     m_d->m_waterMarkLabel->hide();
@@ -1719,4 +1741,24 @@ analysis::ConditionLink Histo2DWidget::getEditCondition() const
 void Histo2DWidget::beginEditCondition()
 {
     qDebug() << __PRETTY_FUNCTION__ << this << "not implemented!";
+}
+
+void Histo2DWidgetPrivate::updatePlotStatsTextBox(const Histo2DStatistics &stats)
+{
+    static const QString statsTextTemplate = QSL(
+        "<table>"
+        "<tr><td align=\"left\">Counts </td><td>%L1</td></tr>"
+        "<tr><td align=\"left\">Max Z  </td><td>%L2 @ (%L3, %L4)</td></tr>"
+        "</table>"
+        );
+
+    QString buffer = statsTextTemplate
+        .arg(stats.entryCount, 0, 'f', 0)
+        .arg(stats.maxZ)
+        .arg(stats.maxX, 0, 'g', 6)
+        .arg(stats.maxY, 0, 'g', 6)
+        ;
+
+    m_statsText->setText(buffer, QwtText::RichText);
+    m_statsTextItem->setText(*m_statsText);
 }
