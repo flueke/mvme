@@ -1,6 +1,9 @@
 ==================================================
 TODO list
 ==================================================
+* doc: mvlc and jumbo frames. also test this
+  I think right now there's not even a way to enable jumbos for the mvlc
+  via the GUI.
 
 * QObject::connect: Cannot queue arguments of type 'mesytec::mvme_mvlc::MVLCObject::State'
   (Make sure 'mesytec::mvme_mvlc::MVLCObject::State' is registered using qRegisterMetaType().)
@@ -82,8 +85,6 @@ analysis_ui: no small toolbar stats display with mvlc (rate, replayRate, etc)
   for new EventConfig and ModuleConfig instances. Also factor out things like
   getting the next available mcst address.
   -> done for EventConfig (vme_config_util.h)
-
-* doc: mvlc and jumbo frames. also test this
 
 * trigger_io gui [maybe]
   - show static connections when hovering over units.
