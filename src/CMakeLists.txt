@@ -112,7 +112,9 @@ endif()
 
 target_compile_options(libmvme_core PRIVATE -Wall -Wextra)
 
-install(TARGETS libmvme_core DESTINATION .)
+install(TARGETS libmvme_core
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
 
 #
 # libmvme_mvlc - MVLC support
@@ -172,12 +174,16 @@ if(MVME_ENABLE_MVLC)
     target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_READOUT_PARSER_LOG_LEVEL=${MVLC_READOUT_PARSER_LOG_LEVEL})
     target_compile_options(libmvme_mvlc PRIVATE -Wall -Wextra)
 
-    install(TARGETS libmvme_mvlc DESTINATION .)
+    install(TARGETS libmvme_mvlc
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib)
 
     # mvlc_dev_gui
     add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
     target_link_libraries(mvlc_dev_gui PRIVATE libmvme_mvlc)
-    install(TARGETS mvlc_dev_gui DESTINATION .)
+    install(TARGETS mvlc_dev_gui
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib)
 
     # mvlc_dev_win_usb_debug
     if (WIN32)
@@ -395,7 +401,9 @@ if (MVME_ENABLE_MVLC)
     endif(NOT WIN32)
 endif()
 
-install(TARGETS libmvme DESTINATION .)
+install(TARGETS libmvme
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
 
 #
 # mvme - the main GUI binary
@@ -417,7 +425,9 @@ target_include_directories(mvme PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty)
 
 target_compile_options(mvme PRIVATE -Wall -Wextra)
 
-install(TARGETS mvme DESTINATION .)
+install(TARGETS mvme
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
 
 # Helper for additional utility / debug binaries and alternative launchers.
 function(add_mvme_executable exe_name exe_sources)
@@ -494,7 +504,11 @@ if (NOT WIN32)
     find_library(ZLIB z)
     add_executable(mvme_recover_listfile mvme_recover_listfile_hack.c)
     target_link_libraries(mvme_recover_listfile ${ZLIB})
-    install(TARGETS mvme_recover_listfile DESTINATION .)
+
+    install(TARGETS mvme_recover_listfile
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib)
+
 endif (NOT WIN32)
 
 if(BUILD_TESTS)

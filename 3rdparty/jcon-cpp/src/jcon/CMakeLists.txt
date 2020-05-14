@@ -17,9 +17,9 @@ add_library(${PROJECT_NAME} SHARED ${${PROJECT_NAME}_headers} ${${PROJECT_NAME}_
 find_package(Qt5 COMPONENTS Core)
 qt5_use_modules(${PROJECT_NAME} Core Network Test WebSockets Widgets)
 
-#install(TARGETS ${PROJECT_NAME}
-#        RUNTIME DESTINATION bin
-#        LIBRARY DESTINATION lib
-#        ARCHIVE DESTINATION lib/static)
+install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib/static)
 
-install(TARGETS ${PROJECT_NAME} DESTINATION .)
+#install(TARGETS ${PROJECT_NAME} DESTINATION .)

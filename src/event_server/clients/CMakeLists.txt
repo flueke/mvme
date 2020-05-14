@@ -9,7 +9,9 @@ if (WIN32)
     target_link_libraries(mvme_event_server_example_client ws2_32)
 endif (WIN32)
 
-install(TARGETS mvme_event_server_example_client DESTINATION .)
+install(TARGETS mvme_event_server_example_client
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
 
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/mvme_root_client/"
     DESTINATION share/mvme_root_client)
