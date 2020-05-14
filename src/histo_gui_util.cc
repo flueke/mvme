@@ -33,3 +33,29 @@ QSlider *make_res_reduction_slider(QWidget *parent)
 
     return result;
 }
+
+std::unique_ptr<QwtText> make_qwt_text_box(int renderFlags)
+{
+    auto result = std::make_unique<QwtText>();
+
+    /* This controls the alignment of the whole text on the canvas aswell as
+     * the alignment of the text itself. */
+    result->setRenderFlags(renderFlags);
+
+    QPen borderPen(Qt::SolidLine);
+    borderPen.setColor(Qt::black);
+    result->setBorderPen(borderPen);
+
+    QBrush brush;
+    brush.setColor("#e6e2de");
+    brush.setStyle(Qt::SolidPattern);
+    result->setBackgroundBrush(brush);
+
+    /* The text rendered by qwt looked non-antialiased when using the RichText
+     * format. Manually setting the pixelSize fixes this. */
+    QFont font;
+    font.setPixelSize(10);
+    result->setFont(font);
+
+    return result;
+}
