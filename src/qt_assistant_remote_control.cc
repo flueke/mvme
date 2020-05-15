@@ -52,7 +52,7 @@ bool QtAssistantRemoteControl::Private::startAssistant()
         return true;
 
     QString collectionFile = QCoreApplication::applicationDirPath()
-        + QDir::separator() + QSL("doc") + QDir::separator() + QSL("mvme.qhc");
+        + QDir::separator() + ".." + QDir::separator() + QSL("doc") + QDir::separator() + QSL("mvme.qhc");
 
     QStringList args =
     {
