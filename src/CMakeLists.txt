@@ -99,6 +99,7 @@ target_include_directories(libmvme_core PRIVATE ${LIBUSB_INCLUDE_PATH})
 target_link_libraries(libmvme_core
     PRIVATE liba2_static
     PRIVATE ${LIBUSB_LIBRARY}
+    PUBLIC mesytec-mvlc
     PUBLIC ${QUAZIP_QT5}
     PUBLIC Qt5::Concurrent
     PUBLIC Qt5::Gui
@@ -162,6 +163,7 @@ if(MVME_ENABLE_MVLC)
     target_link_libraries(libmvme_mvlc
         PUBLIC ftd3xx
         PUBLIC libmvme_core
+        PUBLIC mesytec-mvlc
         )
 
     if (WIN32)
@@ -485,7 +487,7 @@ target_link_libraries(dev_zip_write_test PRIVATE Threads::Threads)
 
 if(MVME_ENABLE_MVLC)
     add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
-    target_link_libraries(mvme_to_mvlc PUBLIC mesytec-mvlc)
+    target_link_libraries(mvme_to_mvlc PRIVATE mesytec-mvlc)
 endif(MVME_ENABLE_MVLC)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to

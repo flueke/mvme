@@ -33,6 +33,8 @@
 #include "mvlc/mvlc_stack_errors.h"
 #include "mvlc/mvlc_threading.h"
 
+//#include <mesytec-mvlc/mesytec-mvlc.h>
+
 namespace mesytec
 {
 namespace mvme_mvlc
@@ -206,6 +208,10 @@ class LIBMVME_MVLC_EXPORT MVLCNotificationPoller: public QObject
         MVLCObject &m_mvlc;
         QTimer m_pollTimer;
         std::atomic<bool> m_isPolling;
+};
+
+class LIBMVME_MVLC_EXPORT MVLCObject2: public QObject
+{
 };
 
 } // end namespace mvme_mvlc
