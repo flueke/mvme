@@ -222,7 +222,7 @@ endif()
 add_subdirectory(src)
 add_subdirectory(extras)
 
-option(BUILD_DOCS "Build the documentation (if Sphinx is found)" ON)
+option(BUILD_DOCS "Build the documentation (if Sphinx is present)" OFF)
 
 if (BUILD_DOCS)
     add_subdirectory(doc)
