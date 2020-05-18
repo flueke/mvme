@@ -64,46 +64,48 @@ if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     )
 endif()
 
-option(A2_BUILD_SHARED "Build shared version of the a2 library" OFF)
+#option(A2_BUILD_SHARED "Build shared version of the a2 library" OFF)
 option(A2_BUILD_STATIC "Build static version of the a2 library" ON)
 
-if (A2_BUILD_SHARED)
-    add_library(liba2_shared SHARED ${liba2_SOURCES})
-    target_link_libraries(liba2_shared PRIVATE ${ZLIB_LIBRARIES})
-    set_target_properties(liba2_shared PROPERTIES
-        OUTPUT_NAME a2)
-
-    target_include_directories(liba2_shared
-        #PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
-        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/"
-        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/zstr/src"
-        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/"
-        )
-
-    target_compile_options(liba2_shared PRIVATE -Wall -Wextra)
-
-    set(A2_TEST_LIBRARY liba2_shared)
-
-    include(GenerateExportHeader)
-    generate_export_header(liba2_shared
-        EXPORT_MACRO_NAME "LIBA2_EXPORT"
-        EXPORT_FILE_NAME "a2_export.h")
-
-endif (A2_BUILD_SHARED)
+#if (A2_BUILD_SHARED)
+#    add_library(liba2_shared SHARED ${liba2_SOURCES})
+#    target_link_libraries(liba2_shared
+#        PRIVATE ${ZLIB_LIBRARIES}
+#        PUBLIC pcg
+#        )
+#    set_target_properties(liba2_shared PROPERTIES
+#        OUTPUT_NAME a2)
+#
+#    target_include_directories(liba2_shared
+#        #PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
+#        #SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/"
+#        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/zstr/src"
+#        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/"
+#        )
+#
+#    target_compile_options(liba2_shared PRIVATE -Wall -Wextra)
+#
+#    set(A2_TEST_LIBRARY liba2_shared)
+#
+#    include(GenerateExportHeader)
+#    generate_export_header(liba2_shared
+#        EXPORT_MACRO_NAME "LIBA2_EXPORT"
+#        EXPORT_FILE_NAME "a2_export.h")
+#
+#endif (A2_BUILD_SHARED)
 
 if (A2_BUILD_STATIC)
     add_library(liba2_static STATIC ${liba2_SOURCES})
-    target_link_libraries(liba2_static PRIVATE ${ZLIB_LIBRARIES})
+
+    target_link_libraries(liba2_static
+        PUBLIC pcg
+        PRIVATE cpp11-on-multicore
+        PRIVATE ${ZLIB_LIBRARIES}
+        PRIVATE zstr)
+
     set_target_properties(liba2_static PROPERTIES
         OUTPUT_NAME a2
         POSITION_INDEPENDENT_CODE ON)
-
-    target_include_directories(liba2_static
-        #PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
-        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/"
-        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/zstr/src"
-        SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/"
-        )
 
     target_compile_options(liba2_static PRIVATE -Wall -Wextra)
 
@@ -151,7 +153,6 @@ if(BUILD_TESTS)
 
     add_executable(test_a2_exprtk a2_exprtk.cc test_a2_exprtk.cc)
     target_link_libraries(test_a2_exprtk gtest gtest_main)
-    target_include_directories(test_a2_exprtk PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty)
     add_test(NAME test_a2_exprtk COMMAND $<TARGET_FILE:test_a2_exprtk>)
 
     add_executable(test_a2_expression_operator test_a2_expression_operator.cc)

@@ -227,7 +227,7 @@ endif(MVME_ENABLE_MVLC)
 qt5_wrap_ui(LIBMVME_UIC_OUT mesytec_diagnostics.ui vme_debug_widget.ui)
 
 add_library(libmvme SHARED
-    "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
+    "${CMAKE_SOURCE_DIR}/external/qt-collapsible-section/Section.cpp"
     ${LIBMVME_UIC_OUT}
     analysis/a2_adapter.cc
     analysis/analysis.cc
@@ -348,10 +348,10 @@ if (WIN32)
 endif()
 
 target_include_directories(libmvme
-    PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty
-    PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/"
+    PRIVATE ${CMAKE_SOURCE_DIR}/external
+    PRIVATE "${CMAKE_SOURCE_DIR}/external/jcon-cpp/src/"
     PUBLIC ${QUAZIP_INCLUDE_DIR}
-    SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/"
+    SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/external/pcg-cpp-0.98/include/"
     )
 
 if (MVME_ENABLE_MVLC)
@@ -377,7 +377,7 @@ if (MVME_ENABLE_MVLC)
     # (tested with 3.7.2).
     target_include_directories(libmvme
         PRIVATE ${MVME_YAML_DIR}/include
-        PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty/minbool
+        PRIVATE ${CMAKE_SOURCE_DIR}/external/minbool
         #PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>
         )
 
@@ -423,7 +423,7 @@ target_link_libraries(mvme
     PRIVATE libmvme
     )
 
-target_include_directories(mvme PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty)
+target_include_directories(mvme PRIVATE ${CMAKE_SOURCE_DIR}/external)
 
 target_compile_options(mvme PRIVATE -Wall -Wextra)
 
@@ -435,7 +435,7 @@ install(TARGETS mvme
 function(add_mvme_executable exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
     target_link_libraries(${exe_name} PRIVATE libmvme)
-    target_include_directories(${exe_name} PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty)
+    target_include_directories(${exe_name} PRIVATE ${CMAKE_SOURCE_DIR}/external)
 endfunction(add_mvme_executable)
 
 #
@@ -525,7 +525,7 @@ if(BUILD_TESTS)
             PRIVATE Qt5::Widgets
             )
         target_include_directories(${exe_name}
-            PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty
+            PRIVATE ${CMAKE_SOURCE_DIR}/external
             )
         add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
     endfunction(add_mvme_gtest)

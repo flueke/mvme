@@ -110,20 +110,21 @@ SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 # subdirectories. Otherwise the find_path() commands would have to be repeated
 # inside test/.
 
-# 3rdparty
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
-#include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
-#include_directories("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/")
+# external
+add_subdirectory("${CMAKE_SOURCE_DIR}/external")
+#include_directories("${CMAKE_SOURCE_DIR}/external")
+#include_directories("${CMAKE_SOURCE_DIR}/external/pcg-cpp-0.98/include/")
+#include_directories("${CMAKE_SOURCE_DIR}/external/jcon-cpp/src/")
 
-add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
+#add_subdirectory("${CMAKE_SOURCE_DIR}/external/jcon-cpp/src/jcon/")
 
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann" DESTINATION include/mvme)
-install(FILES "${CMAKE_SOURCE_DIR}/3rdparty/Mustache/mustache.hpp" DESTINATION include/mvme/Mustache)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/external/nlohmann" DESTINATION include/mvme)
+install(FILES "${CMAKE_SOURCE_DIR}/external/Mustache/mustache.hpp" DESTINATION include/mvme/Mustache)
 
 option(MVME_ENABLE_MVLC "Enable support for the mesytec MVLC controller" ON)
 
 if (MVME_ENABLE_MVLC)
-    add_subdirectory(3rdparty/mesytec-mvlc)
+    add_subdirectory(external/mesytec-mvlc)
 endif(MVME_ENABLE_MVLC)
 
 # quazip
@@ -180,7 +181,7 @@ if (BUILD_TESTS)
     # googletest / GTest
     # https://github.com/google/googletest/blob/master/googletest/README.md
     # Download and unpack googletest at configure time
-    configure_file(3rdparty/googletest_CMakeLists.txt.in googletest-download/CMakeLists.txt)
+    configure_file(external/googletest_CMakeLists.txt.in googletest-download/CMakeLists.txt)
     execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
       RESULT_VARIABLE result
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
