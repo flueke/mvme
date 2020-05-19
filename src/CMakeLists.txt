@@ -163,7 +163,6 @@ if(MVME_ENABLE_MVLC)
     target_link_libraries(libmvme_mvlc
         PUBLIC ftd3xx
         PUBLIC libmvme_core
-        PUBLIC mesytec-mvlc
         )
 
     if (WIN32)
@@ -338,6 +337,8 @@ generate_export_header(libmvme)
 target_link_libraries(libmvme
     PUBLIC libmvme_core
     PUBLIC ${QWT_LIBRARY}
+    PRIVATE nlohmann-json
+    PUBLIC cpp11-on-multicore
     PRIVATE liba2_static
     PRIVATE Threads::Threads
     PRIVATE jcon

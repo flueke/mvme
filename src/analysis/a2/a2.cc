@@ -34,7 +34,7 @@
 #include <queue>
 #include <random>
 #include <vector>
-#include <zstr/src/zstr.hpp>
+#include <zstr.hpp>
 
 /* Circumvent compile errors related to the 'Q' numeric literal suffix.
  * See https://svn.boost.org/trac10/ticket/9240 and

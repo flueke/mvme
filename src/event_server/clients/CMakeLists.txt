@@ -2,7 +2,7 @@
 add_executable(mvme_event_server_example_client event_server_example_client.cc)
 
 target_link_libraries(mvme_event_server_example_client
-    PRIVATE nlohmann-json)
+    PUBLIC nlohmann-json)
 
 #target_include_directories(mvme_event_server_example_client
 #    PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty

@@ -98,12 +98,11 @@ if (A2_BUILD_STATIC)
     add_library(liba2_static STATIC ${liba2_SOURCES})
 
     target_link_libraries(liba2_static
+        PRIVATE exprtk
+        PRIVATE ${ZLIB_LIBRARIES}
         PUBLIC pcg
         PUBLIC cpp11-on-multicore
-        PRIVATE exprtk
-        PRIVATE cpp11-on-multicore
-        PRIVATE ${ZLIB_LIBRARIES}
-        PRIVATE zstr)
+        PUBLIC zstr)
 
     set_target_properties(liba2_static PROPERTIES
         OUTPUT_NAME a2
