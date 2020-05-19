@@ -464,7 +464,7 @@ Command parse_write_float_word(const QStringList &args, int lineNumber)
     return result;
 }
 
-Command parse_print(const QStringList &args, int lineNumber)
+Command parse_print(const QStringList &args, int /*lineNumber*/)
 {
     Command result = {};
     result.type = CommandType::Print;
