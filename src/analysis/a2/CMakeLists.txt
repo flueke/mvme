@@ -99,6 +99,8 @@ if (A2_BUILD_STATIC)
 
     target_link_libraries(liba2_static
         PUBLIC pcg
+        PUBLIC cpp11-on-multicore
+        PRIVATE exprtk
         PRIVATE cpp11-on-multicore
         PRIVATE ${ZLIB_LIBRARIES}
         PRIVATE zstr)
@@ -151,8 +153,9 @@ if(BUILD_TESTS)
     add_a2_bench(test_a2_arena test_arena.cc)
     add_a2_bench(bench_poly_within bench_poly_within.cc)
 
-    add_executable(test_a2_exprtk a2_exprtk.cc test_a2_exprtk.cc)
-    target_link_libraries(test_a2_exprtk gtest gtest_main)
+    add_executable(test_a2_exprtk test_a2_exprtk.cc)
+    target_link_libraries(test_a2_exprtk
+        PRIVATE gtest gtest_main liba2_static)
     add_test(NAME test_a2_exprtk COMMAND $<TARGET_FILE:test_a2_exprtk>)
 
     add_executable(test_a2_expression_operator test_a2_expression_operator.cc)
