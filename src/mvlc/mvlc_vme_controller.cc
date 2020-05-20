@@ -22,7 +22,6 @@
 
 #include <QDebug>
 
-#include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_util.h"
 #include "util/counters.h"
 
@@ -30,26 +29,25 @@
 namespace
 {
 
-using namespace mesytec::mvme_mvlc;
+using namespace mesytec;
+using namespace mesytec::mvlc;
 
 // Checks for certain MVLCErrorCode values and returns a VMEError containing
 // additional information if applicable. Otherwise a VMEError object
 // constructed from the given error_code is returned.
-VMEError error_wrap(const MVLCObject &mvlc, const std::error_code &ec)
+VMEError error_wrap(const mvme_mvlc::MVLCObject &mvlc, const std::error_code &ec)
 {
     if (ec == MVLCErrorCode::InvalidBufferHeader ||
         ec == MVLCErrorCode::UnexpectedBufferHeader)
     {
         auto buffer = mvlc.getResponseBuffer();
 
-        if (!buffer.isEmpty())
+        if (!buffer.empty())
         {
             QStringList strings;
 
-            for (u32 word: mvlc.getResponseBuffer())
-            {
+            for (u32 word: buffer)
                 strings.append(QString("0x%1").arg(word, 8, 16, QLatin1Char('0')));
-            }
 
             QString msg(ec.message().c_str());
             msg += ": " + strings.join(", ");
@@ -71,13 +69,14 @@ namespace mvme_mvlc
 MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
     : VMEController(parent)
     , m_mvlc(mvlc)
-    , m_notificationPoller(*mvlc)
+    //, m_notificationPoller(*mvlc)
 {
     assert(m_mvlc);
 
     connect(m_mvlc, &MVLCObject::stateChanged,
             this, &MVLC_VMEController::onMVLCStateChanged);
 
+#if 0
     auto debug_print_stack_error_counters = [this] ()
     {
         auto errorCounters = m_mvlc->getStackErrorCounters();
@@ -208,6 +207,7 @@ MVLC_VMEController::MVLC_VMEController(MVLCObject *mvlc, QObject *parent)
     (void)debug_print_eth_stats;
     dumpTimer->setInterval(1000);
     dumpTimer->start();
+#endif
 }
 
 void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &,
@@ -216,13 +216,13 @@ void MVLC_VMEController::onMVLCStateChanged(const MVLCObject::State &,
     switch (newState)
     {
         case MVLCObject::Disconnected:
-            m_notificationPoller.disablePolling();
+            //m_notificationPoller.disablePolling();
             emit controllerClosed();
             emit controllerStateChanged(ControllerState::Disconnected);
             break;
 
         case MVLCObject::Connected:
-            m_notificationPoller.enablePolling();
+            //m_notificationPoller.enablePolling();
             emit controllerOpened();
             emit controllerStateChanged(ControllerState::Connected);
             break;
@@ -287,10 +287,10 @@ VMEControllerType MVLC_VMEController::getType() const
 {
     switch (m_mvlc->connectionType())
     {
-        case ConnectionType::USB:
+        case mvlc::ConnectionType::USB:
             return VMEControllerType::MVLC_USB;
 
-        case ConnectionType::ETH:
+        case mvlc::ConnectionType::ETH:
             return VMEControllerType::MVLC_ETH;
     }
 
@@ -300,27 +300,27 @@ VMEControllerType MVLC_VMEController::getType() const
 
 VMEError MVLC_VMEController::write32(u32 address, u32 value, u8 amod)
 {
-    auto ec = m_mvlc->vmeSingleWrite(address, value, amod, VMEDataWidth::D32);
+    auto ec = m_mvlc->vmeWrite(address, value, amod, mvlc::VMEDataWidth::D32);
     return error_wrap(*m_mvlc, ec);
 }
 
 VMEError MVLC_VMEController::write16(u32 address, u16 value, u8 amod)
 {
-    auto ec = m_mvlc->vmeSingleWrite(address, value, amod, VMEDataWidth::D16);
+    auto ec = m_mvlc->vmeWrite(address, value, amod, mvlc::VMEDataWidth::D16);
     return error_wrap(*m_mvlc, ec);
 }
 
 
 VMEError MVLC_VMEController::read32(u32 address, u32 *value, u8 amod)
 {
-    auto ec = m_mvlc->vmeSingleRead(address, *value, amod, VMEDataWidth::D32);
+    auto ec = m_mvlc->vmeRead(address, *value, amod, mvlc::VMEDataWidth::D32);
     return error_wrap(*m_mvlc, ec);
 }
 
 VMEError MVLC_VMEController::read16(u32 address, u16 *value, u8 amod)
 {
     u32 tmpVal = 0u;
-    auto ec = m_mvlc->vmeSingleRead(address, tmpVal, amod, VMEDataWidth::D16);
+    auto ec = m_mvlc->vmeRead(address, tmpVal, amod, mvlc::VMEDataWidth::D16);
     *value = tmpVal;
     return error_wrap(*m_mvlc, ec);
 }
@@ -330,7 +330,14 @@ VMEError MVLC_VMEController::blockRead(u32 address, u32 transfers,
                                        QVector<u32> *dest, u8 amod, bool fifo)
 {
     (void) fifo; // The MVLC does not use the FIFO flag. FIXME: does it always or never increment?
-    auto ec = m_mvlc->vmeBlockRead(address, amod, transfers, *dest);
+
+    std::vector<u32> buffer;
+    auto ec = m_mvlc->vmeBlockRead(address, amod, transfers, buffer);
+
+    dest->clear();
+    dest->reserve(buffer.size());
+    std::copy(std::begin(buffer), std::end(buffer), std::back_inserter(*dest));
+
     return error_wrap(*m_mvlc, ec);
 }
 

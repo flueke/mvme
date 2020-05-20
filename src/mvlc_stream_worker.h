@@ -23,12 +23,13 @@
 
 #include "stream_worker_base.h"
 
+#include <mesytec-mvlc/mesytec-mvlc.h>
+
 #include "libmvme_export.h"
 #include "data_buffer_queue.h"
-#include "mvlc/mvlc_threading.h"
-#include "mvlc/mvlc_readout_parsers.h"
 #include "multi_event_splitter.h"
 #include "mesytec_diagnostics.h"
+#include "mvlc/readout_parser_support.h"
 
 class MVMEContext;
 
@@ -67,7 +68,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
     signals:
         void debugInfoReady(
             const DataBuffer &buffer,
-            const mesytec::mvme_mvlc::ReadoutParserState &parserState,
+            const mesytec::mvlc::readout_parser::ReadoutParserState &parserState,
             const VMEConfig *vmeConfig,
             const analysis::Analysis *analysis);
 
@@ -120,11 +121,11 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         virtual MVMEStreamProcessorCounters getCounters() const override
         {
-            UniqueLock guard(m_countersMutex);
+            mesytec::mvlc::UniqueLock guard(m_countersMutex);
             return m_counters;
         }
 
-        mesytec::mvme_mvlc::ReadoutParserCounters getReadoutParserCounters() const
+        mesytec::mvlc::readout_parser::ReadoutParserCounters getReadoutParserCounters() const
         {
             UniqueLock guard(m_parserCountersMutex);
             return m_parserCountersCopy;
@@ -163,7 +164,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         ThreadSafeDataBufferQueue *getFullBuffers() { return m_fullBuffers; }
         void setState(MVMEStreamWorkerState newState);
 
-        using UniqueLock = mesytec::mvme_mvlc::UniqueLock;
+        using UniqueLock = mesytec::mvlc::UniqueLock;
 
         // Used for the transition from non-Idle state to Idle state.
         enum StopFlag
@@ -190,7 +191,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void blockIfPaused();
         void publishStateIfSingleStepping();
 
-        void logParserInfo(const mesytec::mvme_mvlc::ReadoutParserState &parser);
+        void logParserInfo(const mesytec::mvlc::readout_parser::ReadoutParserState &parser);
 
         MVMEContext *m_context;
         ThreadSafeDataBufferQueue *m_freeBuffers,
@@ -199,13 +200,13 @@ class MVLC_StreamWorker: public StreamWorkerBase
         QVector<IMVMEStreamBufferConsumer *> m_bufferConsumers;
         QVector<IMVMEStreamModuleConsumer *> m_moduleConsumers;
 
-        mutable mesytec::mvme::TicketMutex m_countersMutex;
+        mutable mesytec::mvlc::TicketMutex m_countersMutex;
         MVMEStreamProcessorCounters m_counters = {};
 
-        mesytec::mvme_mvlc::ReadoutParserCallbacks m_parserCallbacks;
-        mesytec::mvme_mvlc::ReadoutParserState m_parser;
-        mutable mesytec::mvme::TicketMutex m_parserCountersMutex;
-        mesytec::mvme_mvlc::ReadoutParserCounters m_parserCountersCopy = {};
+        mesytec::mvlc::readout_parser::ReadoutParserCallbacks m_parserCallbacks;
+        mesytec::mvlc::readout_parser::ReadoutParserState m_parser;
+        mutable mesytec::mvlc::TicketMutex m_parserCountersMutex;
+        mesytec::mvlc::readout_parser::ReadoutParserCounters m_parserCountersCopy = {};
 
         // Note: std::condition_variable requires an std::mutex, that's why a
         // TicketMutex is not used here.

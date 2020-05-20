@@ -517,7 +517,6 @@ bool ListFileWriter::writeConfig(QByteArray contents)
     }
 
     u32 configSize = static_cast<u32>(contents.size());
-    int configWords = configSize / sizeof(u32);
     int configSections = qCeil((float)configSize / (float)lfc.SectionMaxSize);
 
     DataBuffer localBuffer(configSections * lfc.SectionMaxSize // space for all config sections

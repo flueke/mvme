@@ -251,8 +251,8 @@ class LIBMVME_CORE_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
 struct LIBMVME_CORE_EXPORT Result
 {
     VMEError error;
-    uint32_t value;
-    QVector<uint32_t> valueVector;
+    uint32_t value = 0u;
+    QVector<uint32_t> valueVector = {};
     Command command;
 };
 

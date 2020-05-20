@@ -21,8 +21,8 @@
 #include <QApplication>
 #include <iostream>
 #include "mvlc/mvlc_dev_gui.h"
-#include "mvlc/mvlc_impl_factory.h"
 
+using namespace mesytec;
 using namespace mesytec::mvme_mvlc;
 
 int main(int argc, char *argv[])
@@ -53,15 +53,17 @@ int main(int argc, char *argv[])
     LogWidget logWindow;
     logWindow.addAction(actionQuit);
 
-    auto mvlc_usb = std::make_unique<MVLCObject>(make_mvlc_usb());
-    auto mvlc_eth = std::make_unique<MVLCObject>(make_mvlc_eth(argv[1]));
+    auto mvlc_usb = std::make_unique<MVLCObject>(mvlc::make_mvlc_usb());
+    auto mvlc_eth = std::make_unique<MVLCObject>(mvlc::make_mvlc_eth(argv[1]));
 
+#if 0 // FIXME: error polling
     for (auto mvlc: { mvlc_usb.get(), mvlc_eth.get() })
     {
         auto poller = new MVLCNotificationPoller(*mvlc, mvlc);
 
         poller->enablePolling();
     }
+#endif
 
     MVLCDevGUI devGui_usb(mvlc_usb.get());
     devGui_usb.setWindowTitle("MVLC Dev GUI - USB");

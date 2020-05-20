@@ -19,7 +19,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvlc_daq.h"
-#include "mvlc/mvlc_error.h"
+
+#include <mesytec-mvlc/mesytec-mvlc.h>
+#include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_util.h"
 #include "vme_daq.h"
@@ -31,14 +33,14 @@ namespace mvme_mvlc
 
 std::error_code disable_all_triggers(MVLCObject &mvlc)
 {
-    return disable_all_triggers<MVLCObject>(mvlc);
+    return mvlc::disable_all_triggers<mvme_mvlc::MVLCObject>(mvlc);
 }
 
 std::error_code reset_stack_offsets(MVLCObject &mvlc)
 {
-    for (u8 stackId = 0; stackId < stacks::StackCount; stackId++)
+    for (u8 stackId = 0; stackId < mvlc::stacks::StackCount; stackId++)
     {
-        u16 addr = stacks::get_offset_register(stackId);
+        u16 addr = mvlc::stacks::get_offset_register(stackId);
 
         if (auto ec = mvlc.writeRegister(addr, 0))
             return ec;
@@ -52,37 +54,38 @@ std::error_code reset_stack_offsets(MVLCObject &mvlc)
 std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger)
 {
     // Stack0 is reserved for immediate exec
-    u8 stackId = stacks::ImmediateStackID + 1;
+    u8 stackId = mvlc::stacks::ImmediateStackID + 1;
 
     // 1 word gap between immediate stack and first readout stack
-    u16 uploadOffset = stacks::ImmediateStackReservedWords + 1;
+    u16 uploadOffset = mvlc::stacks::ImmediateStackReservedWords + 1;
 
-    QVector<u32> responseBuffer;
+    std::vector<u32> responseBuffer;
 
     for (const auto &event: vmeConfig.getEventConfigs())
     {
-        if (stackId >= stacks::StackCount)
-            return make_error_code(MVLCErrorCode::StackCountExceeded);
+        if (stackId >= mvlc::stacks::StackCount)
+            return make_error_code(mvlc::MVLCErrorCode::StackCountExceeded);
 
         auto readoutScript = build_event_readout_script(
             event, EventReadoutBuildFlags::NoModuleEndMarker);
 
-        auto stackContents = build_stack(readoutScript, DataPipe);
+        auto stackContents = build_stack(readoutScript, mvlc::DataPipe);
 
-        u16 uploadAddress = stacks::StackMemoryBegin + uploadOffset * 4;
+        u16 uploadAddress = mvlc::stacks::StackMemoryBegin + uploadOffset * 4;
         u16 endAddress    = uploadAddress + stackContents.size() * 4;
 
-        if (endAddress >= stacks::StackMemoryEnd)
-            return make_error_code(MVLCErrorCode::StackMemoryExceeded);
+        if (endAddress >= mvlc::stacks::StackMemoryEnd)
+            return make_error_code(mvlc::MVLCErrorCode::StackMemoryExceeded);
 
         auto uploadCommands = build_upload_command_buffer(stackContents, uploadAddress);
 
         if (auto ec = mvlc.mirrorTransaction(uploadCommands, responseBuffer))
             return ec;
 
-        u16 offsetRegister = stacks::get_offset_register(stackId);
+        u16 offsetRegister = mvlc::stacks::get_offset_register(stackId);
 
-        if (auto ec = mvlc.writeRegister(offsetRegister, uploadAddress & stacks::StackOffsetBitMaskBytes))
+        if (auto ec = mvlc.writeRegister(
+                offsetRegister, uploadAddress & mvlc::stacks::StackOffsetBitMaskBytes))
             return ec;
 
         stackId++;
@@ -95,7 +98,7 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
 
 std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
 {
-    u8 stackId = stacks::ImmediateStackID + 1;
+    u8 stackId = mvlc::stacks::ImmediateStackID + 1;
     u16 timersInUse = 0u;
 
     for (const auto &event: vmeConfig.getEventConfigs())
@@ -110,14 +113,14 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
 
                     bool useIACK = event->triggerOptions["IRQUseIACK"].toBool();
 
-                    u16 triggerReg = stacks::get_trigger_register(stackId);
+                    u16 triggerReg = mvlc::stacks::get_trigger_register(stackId);
 
                     u32 triggerVal = (useIACK
-                                      ? stacks::IRQWithIACK
-                                      : stacks::IRQNoIACK
-                                      ) << stacks::TriggerTypeShift;
+                                      ? mvlc::stacks::IRQWithIACK
+                                      : mvlc::stacks::IRQNoIACK
+                                      ) << mvlc::stacks::TriggerTypeShift;
 
-                    triggerVal |= (event->irqLevel - 1) & stacks::TriggerBitsMask;
+                    triggerVal |= (event->irqLevel - 1) & mvlc::stacks::TriggerBitsMask;
 
                     if (auto ec = mvlc.writeRegister(triggerReg, triggerVal))
                         return ec;
@@ -125,9 +128,9 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                 } break;
 
             case TriggerCondition::Periodic:
-                if (timersInUse >= stacks::TimerCount)
+                if (timersInUse >= mvlc::stacks::TimerCount)
                 {
-                    return make_error_code(MVLCErrorCode::TimerCountExceeded);
+                    return make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
                 }
                 else
                 {
@@ -138,8 +141,8 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                     // the timer and the connection between the Timer and
                     // StackStart units is done in setup_trigger_io().
                     if (auto ec = mvlc.writeRegister(
-                            stacks::get_trigger_register(stackId),
-                            stacks::External << stacks::TriggerTypeShift))
+                            mvlc::stacks::get_trigger_register(stackId),
+                            mvlc::stacks::External << mvlc::stacks::TriggerTypeShift))
                     {
                         return ec;
                     }
@@ -154,8 +157,8 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                     // Set the stack trigger to 'External'. The actual trigger
                     // setup is done by the user via the trigger io gui.
                     if (auto ec = mvlc.writeRegister(
-                            stacks::get_trigger_register(stackId),
-                            stacks::External << stacks::TriggerTypeShift))
+                            mvlc::stacks::get_trigger_register(stackId),
+                            mvlc::stacks::External << mvlc::stacks::TriggerTypeShift))
                     {
                         return ec;
                     }
@@ -178,7 +181,7 @@ std::error_code setup_trigger_io(
 
     assert(scriptConfig);
     if (!scriptConfig)
-        return make_error_code(MVLCErrorCode::ReadoutSetupError);
+        return make_error_code(mvlc::MVLCErrorCode::ReadoutSetupError);
 
     auto ioCfg = trigger_io::parse_trigger_io_script_text(
         scriptConfig->getScriptContents());
@@ -200,25 +203,25 @@ std::error_code setup_trigger_io(
         ss.activate = false;
 #endif
 
-    u8 stackId = stacks::ImmediateStackID + 1;
+    u8 stackId = mvlc::stacks::ImmediateStackID + 1;
     u16 timersInUse = 0u;
 
     for (const auto &event: vmeConfig.getEventConfigs())
     {
         if (event->triggerCondition == TriggerCondition::Periodic)
         {
-            if (timersInUse >= stacks::TimerCount)
+            if (timersInUse >= mvlc::stacks::TimerCount)
             {
                 logger("No more timers available");
-                return make_error_code(MVLCErrorCode::TimerCountExceeded);
+                return make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
             }
 
             // Setup the l0 timer unit
             auto &timer = ioCfg.l0.timers[timersInUse];
             timer.period = event->triggerOptions["mvlc.timer_period"].toUInt();
 
-            timer.range = timer_base_unit_from_string(
-                    event->triggerOptions["mvlc.timer_base"].toString());
+            timer.range = mvlc::timer_base_unit_from_string(
+                    event->triggerOptions["mvlc.timer_base"].toString().toStdString());
 
             timer.softActivate = true;
 
@@ -263,7 +266,7 @@ std::error_code setup_trigger_io(
         if (cmd.type != vme_script::CommandType::Write)
             continue;
 
-        if (auto ec = mvlc.vmeSingleWrite(
+        if (auto ec = mvlc.vmeWrite(
                 cmd.address, cmd.value,
                 cmd.addressMode, convert_data_width(cmd.dataWidth)))
         {
@@ -277,14 +280,14 @@ std::error_code setup_trigger_io(
 
 inline std::error_code read_vme_reg(MVLCObject &mvlc, u16 reg, u32 &dest)
 {
-    return mvlc.vmeSingleRead(SelfVMEAddress + reg, dest,
-                              vme_address_modes::a32UserData, VMEDataWidth::D16);
+    return mvlc.vmeRead(mvlc::SelfVMEAddress + reg, dest,
+                        vme_address_modes::a32UserData, mvlc::VMEDataWidth::D16);
 }
 
 inline std::error_code write_vme_reg(MVLCObject &mvlc, u16 reg, u16 value)
 {
-    return mvlc.vmeSingleWrite(SelfVMEAddress + reg, value,
-                               vme_address_modes::a32UserData, VMEDataWidth::D16);
+    return mvlc.vmeWrite(mvlc::SelfVMEAddress + reg, value,
+                         vme_address_modes::a32UserData, mvlc::VMEDataWidth::D16);
 }
 
 std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)

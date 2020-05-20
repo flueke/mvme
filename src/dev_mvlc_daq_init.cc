@@ -21,14 +21,15 @@
 #include <cassert>
 #include <iostream>
 #include <QCoreApplication>
-
+#include <mesytec-mvlc/mesytec-mvlc.h>
+#include "mesytec-mvlc/mvlc_constants.h"
 #include "mvlc_daq.h"
-#include "mvlc/mvlc_dialog_util.h"
-#include "mvlc/mvlc_impl_factory.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "vme_daq.h"
 
+using namespace mesytec::mvlc;
 using namespace mesytec::mvme_mvlc;
+
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -51,14 +52,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    std::unique_ptr<AbstractImpl> impl;
+    MVLC mvlc;
 
     if (argv[1] == std::string("usb"))
-        impl = make_mvlc_usb();
+        mvlc = make_mvlc_usb();
     else
-        impl = make_mvlc_eth(argv[1]);
+        mvlc = make_mvlc_eth(argv[1]);
 
-    assert(impl);
+    assert(mvlc);
 
     std::unique_ptr<VMEConfig> vmeConfig;
 
@@ -83,7 +84,7 @@ int main(int argc, char *argv[])
     };
 
     // takes ownership of the implementation object
-    MVLCObject mvlc(std::move(impl));
+    MVLCObject mvlcObj(mvlc);
 
     if (auto ec = mvlc.connect())
     {
@@ -97,7 +98,7 @@ int main(int argc, char *argv[])
             cout << "Running DAQ init sequence..." << endl;
 
             // does not take ownership. just a wrapper implementing the VMEController interface
-            MVLC_VMEController mvlcCtrl(&mvlc);
+            MVLC_VMEController mvlcCtrl(&mvlcObj);
 
             vme_daq_init(vmeConfig.get(), &mvlcCtrl, logger);
 
@@ -105,7 +106,7 @@ int main(int argc, char *argv[])
             cout << "Setting up MVLC stacks and triggers" << endl;
         }
 
-        auto ec = setup_mvlc(mvlc, *vmeConfig, logger);
+        auto ec = setup_mvlc(mvlcObj, *vmeConfig, logger);
 
         if (ec)
         {
@@ -145,9 +146,9 @@ int main(int argc, char *argv[])
         const auto &stackInfo = readResult.first;
 
         printf("  stackId=%u, offset=0x%04x (@0x%04x), triggers=0x%08x (@0x%04x):\n",
-               stackInfo.id,
-               stackInfo.offset, stackInfo.offsetReg,
-               stackInfo.triggers, stackInfo.triggerReg);
+               stackId,
+               stackInfo.offset, stacks::get_offset_register(stackId),
+               stackInfo.triggers, stacks::get_trigger_register(stackId));
 
         u16 addr = stackInfo.startAddress;
         unsigned line = 0u;
@@ -161,7 +162,7 @@ int main(int argc, char *argv[])
             printf("  |  %4u | 0x%04x | 0x%08x |\n",
                    line, addr, value);
 
-            addr += mesytec::mvme_mvlc::AddressIncrement;
+            addr += mesytec::mvlc::AddressIncrement;
             line++;
         }
 

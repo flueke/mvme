@@ -33,10 +33,8 @@
 #include <QString>
 
 #include "libmvme_mvlc_export.h"
-#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "vme_script.h"
-
 
 struct LIBMVME_MVLC_EXPORT FixedSizeBuffer
 {
@@ -71,7 +69,7 @@ struct LIBMVME_MVLC_EXPORT FrameCheckData
     // stats. These should be somewhere else...
     size_t framesChecked;
     size_t framesWithContinueFlag;
-    std::array<size_t, mesytec::mvme_mvlc::stacks::StackCount> stackHits = {};
+    std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
 };
 
 FrameCheckResult LIBMVME_MVLC_EXPORT frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data);
@@ -94,16 +92,16 @@ struct LIBMVME_MVLC_EXPORT ReaderStats
     size_t counters[CountersCount];
     // Histogram of incoming read size -> number of reads
     QHash<size_t, size_t> readBufferSizes;
-    std::array<size_t, mesytec::mvme_mvlc::stacks::StackCount> stackHits = {};
+    std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
 };
 
 struct LIBMVME_MVLC_EXPORT OwningPacketReadResult
 {
     std::vector<u8> buffer;
-    mesytec::mvme_mvlc::eth::PacketReadResult prr;
+    mesytec::mvlc::eth::PacketReadResult prr;
 
     OwningPacketReadResult(): buffer{}, prr{} {}
-    OwningPacketReadResult(const mesytec::mvme_mvlc::eth::PacketReadResult &prr);
+    OwningPacketReadResult(const mesytec::mvlc::eth::PacketReadResult &prr);
     OwningPacketReadResult(const OwningPacketReadResult &other);
 };
 
@@ -210,11 +208,11 @@ class LIBMVME_MVLC_EXPORT MVLCDevGUI: public QMainWindow
 
     public slots:
         void logMessage(const QString &msg);
-        void logBuffer(const QVector<u32> &buffer, const QString &info);
+        void logBuffer(const std::vector<u32> &buffer, const QString &info);
 
     private slots:
         void handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const QString &reason);
-        void handleStackErrorNotification(const QVector<u32> &notification);
+        void handleStackErrorNotification(const std::vector<u32> &notification);
 
     private:
         struct Private;
@@ -229,7 +227,7 @@ class MVLCRegisterWidget: public QWidget
     signals:
         void sigLogMessage(const QString &str);
         void sigLogBuffer(const QVector<u32> &buffer, const QString &info);
-        void stackErrorNotification(const QVector<u32> &notification);
+        void stackErrorNotification(const std::vector<u32> &notification);
 
     public:
         MVLCRegisterWidget(mesytec::mvme_mvlc::MVLCObject *mvlc, QWidget *parent = nullptr);

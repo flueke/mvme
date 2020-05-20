@@ -24,7 +24,6 @@
 #include <QTimer>
 #include "vme_controller.h"
 #include "mvlc/mvlc_qt_object.h"
-#include "mvlc/mvlc_impl_eth.h"
 
 namespace mesytec
 {
@@ -59,7 +58,8 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         VMEError read32(u32 address, u32 *value, u8 amod) override;
         VMEError read16(u32 address, u16 *value, u8 amod) override;
 
-        // FIXME: MVLC does not use the fifo flag. How does it behave? Increment or not?
+        // Note: the MVLC does not actually use the FIFO flag. It never (or
+        // always) increments the block read address. TODO: figure this out
         VMEError blockRead(u32 address, u32 transfers,
                            QVector<u32> *dest, u8 amod, bool fifo) override;
 
@@ -67,13 +67,15 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         // MVLC specific methods
         //
         MVLCObject *getMVLCObject() { return m_mvlc; }
-        ConnectionType connectionType() const { return m_mvlc->connectionType(); }
-        AbstractImpl *getImpl() { return m_mvlc->getImpl(); }
-        Locks &getLocks() { return m_mvlc->getLocks(); }
+        mvlc::ConnectionType connectionType() const { return m_mvlc->connectionType(); }
+        mvlc::MVLCBasicInterface *getImpl() { return m_mvlc->getImpl(); }
+        mvlc::Locks &getLocks() { return m_mvlc->getLocks(); }
 
+#if 0
     public slots:
         void enableNotificationPolling() { m_notificationPoller.enablePolling(); }
         void disableNotificationPolling() { m_notificationPoller.disablePolling(); }
+#endif
 
     private slots:
         void onMVLCStateChanged(const MVLCObject::State &oldState,
@@ -81,11 +83,6 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
 
     private:
         MVLCObject *m_mvlc;
-        MVLCNotificationPoller m_notificationPoller;
-
-        // FIXME: move the eth stats debug printing somewhere else. It does not belong here.
-        std::array<eth::PipeStats, PipeCount> prevPipeStats = {{{},{}}};
-        QDateTime lastUpdateTime;
 };
 
 } // end namespace mvme_mvlc

@@ -21,8 +21,8 @@
 #ifndef __MVME_MVLC_READOUT_WORKER_H__
 #define __MVME_MVLC_READOUT_WORKER_H__
 
-#include "mvlc/mvlc_constants.h"
-#include "mvme_stream_util.h"
+#include <mesytec-mvlc/mvlc_readout.h>
+#include "mvlc/mvlc_vme_controller.h"
 #include "vme_daq.h"
 #include "vme_readout_worker.h"
 
@@ -40,14 +40,6 @@ struct MVLCReadoutCounters
     // reused at the start of the next buffer.
     u64 partialFrameTotalBytes;
 };
-
-namespace mesytec
-{
-namespace mvme_mvlc
-{
-    class MVLC_VMEController;
-}
-}
 
 class MVLCReadoutWorker: public VMEReadoutWorker
 {

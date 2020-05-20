@@ -18,10 +18,12 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+#include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mvlc_listfile.h"
 #include "util_zip.h"
 #include "mvlc/mvlc_util.h"
 
+using namespace mesytec::mvlc;
 using namespace mesytec::mvme_mvlc;
 
 namespace
@@ -34,10 +36,10 @@ namespace
         return bytesRead == sizeof(dest);
     }
 
-    bool is_vme_config_frame(u32 frameHeader)
+    bool is_mvme_config_frame(u32 frameHeader)
     {
         return (extract_frame_info(frameHeader).type == frame_headers::SystemEvent
-            && system_event::extract_subtype(frameHeader) == system_event::subtype::VMEConfig);
+            && system_event::extract_subtype(frameHeader) == system_event::subtype::MVMEConfig);
     }
 }
 
@@ -90,7 +92,7 @@ QByteArray read_vme_config_data(QIODevice &listfile)
         if (!checked_read(listfile, frameHeader))
             return {};
 
-        if (is_vme_config_frame(frameHeader))
+        if (is_mvme_config_frame(frameHeader))
             break;
 
         // skip over the frame
@@ -102,7 +104,7 @@ QByteArray read_vme_config_data(QIODevice &listfile)
 
     buffer.resize(0);
 
-    while (!listfile.atEnd() && is_vme_config_frame(frameHeader))
+    while (!listfile.atEnd() && is_mvme_config_frame(frameHeader))
     {
         auto frameInfo = extract_frame_info(frameHeader);
         qint64 frameBytes = frameInfo.len * sizeof(u32);

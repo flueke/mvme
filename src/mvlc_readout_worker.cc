@@ -18,18 +18,18 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc_readout_worker.h"
 
 #include <cassert>
 #include <QCoreApplication>
 #include <QtConcurrent>
 #include <QThread>
+#include <mesytec-mvlc/mesytec-mvlc.h>
+#include <mesytec-mvlc/mvlc_impl_eth.h>
+#include <mesytec-mvlc/mvlc_impl_usb.h>
+#include "mvlc/mvlc_qt_object.h"
 
-#include "mvlc/mvlc_error.h"
-#include "mvlc/mvlc_vme_controller.h"
 #include "mvlc/mvlc_util.h"
-#include "mvlc/mvlc_impl_usb.h"
 #include "mvlc_daq.h"
 #include "util_zip.h"
 #include "vme_analysis_common.h"
@@ -95,6 +95,8 @@
 // Note: max amount to copy is the max length of a frame. That's 2^13 words
 // (32k bytes) for readout frames.
 
+using namespace mesytec;
+using namespace mesytec::mvlc;
 using namespace mesytec::mvme_mvlc;
 
 static const size_t LocalEventBufferSize = Megabytes(1);
@@ -238,11 +240,11 @@ void listfile_write_magic(ListfileOutput &lf_out, const MVLCObject &mvlc)
 
     switch (mvlc.connectionType())
     {
-        case ConnectionType::ETH:
+        case mvlc::ConnectionType::ETH:
             magic = "MVLC_ETH";
             break;
 
-        case ConnectionType::USB:
+        case mvlc::ConnectionType::USB:
             magic = "MVLC_USB";
             break;
     }
@@ -253,11 +255,11 @@ void listfile_write_magic(ListfileOutput &lf_out, const MVLCObject &mvlc)
 // Writes an empty system section
 void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype)
 {
-    if (subtype > system_event::subtype::SubtypeMax)
+    if (subtype > mvlc::system_event::subtype::SubtypeMax)
         throw listfile_write_error("system event subtype out of range");
 
-    u32 sectionHeader = (frame_headers::SystemEvent << frame_headers::TypeShift)
-        | ((subtype & system_event::SubtypeMask) << system_event::SubtypeShift);
+    u32 sectionHeader = (mvlc::frame_headers::SystemEvent << mvlc::frame_headers::TypeShift)
+        | ((subtype & mvlc::system_event::SubtypeMask) << mvlc::system_event::SubtypeShift);
 
     listfile_write_raw(lf_out, reinterpret_cast<const u8 *>(&sectionHeader),
                        sizeof(sectionHeader));
@@ -280,7 +282,7 @@ void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype,
         return;
     }
 
-    if (subtype > system_event::subtype::SubtypeMax)
+    if (subtype > mvlc::system_event::subtype::SubtypeMax)
         throw listfile_write_error("system event subtype out of range");
 
     const u32 *endp  = buffp + totalWords;
@@ -289,17 +291,18 @@ void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype,
     {
         unsigned wordsLeft = endp - buffp;
         unsigned wordsInSection = std::min(
-            wordsLeft, static_cast<unsigned>(system_event::LengthMask));
+            wordsLeft, static_cast<unsigned>(mvlc::system_event::LengthMask));
 
         bool isLastSection = (wordsInSection == wordsLeft);
 
-        u32 sectionHeader = (frame_headers::SystemEvent << frame_headers::TypeShift)
-            | ((subtype & system_event::SubtypeMask) << system_event::SubtypeShift);
+        u32 sectionHeader = (mvlc::frame_headers::SystemEvent << mvlc::frame_headers::TypeShift)
+            | ((subtype & mvlc::system_event::SubtypeMask) << mvlc::system_event::SubtypeShift);
 
         if (!isLastSection)
-            sectionHeader |= 0b1 << system_event::ContinueShift;
+            sectionHeader |= 0b1 << mvlc::system_event::ContinueShift;
 
-        sectionHeader |= (wordsInSection & system_event::LengthMask) << system_event::LengthShift;
+        sectionHeader |= ((wordsInSection & mvlc::system_event::LengthMask)
+                          << mvlc::system_event::LengthShift);
 
         listfile_write_raw(lf_out, reinterpret_cast<const u8 *>(&sectionHeader),
                            sizeof(sectionHeader));
@@ -324,7 +327,7 @@ void listfile_write_system_event(ListfileOutput &lf_out, u8 subtype, const QByte
     listfile_write_system_event(lf_out, subtype, buffp, totalWords);
 }
 
-void listfile_write_vme_config(ListfileOutput &lf_out, const VMEConfig &vmeConfig)
+void listfile_write_mvme_config(ListfileOutput &lf_out, const VMEConfig &vmeConfig)
 {
     if (!lf_out.isOpen())
         return;
@@ -341,14 +344,14 @@ void listfile_write_vme_config(ListfileOutput &lf_out, const VMEConfig &vmeConfi
     while (bytes.size() % sizeof(u32))
         bytes.append(' ');
 
-    listfile_write_system_event(lf_out, system_event::subtype::VMEConfig, bytes);
+    listfile_write_system_event(lf_out, mvlc::system_event::subtype::MVMEConfig, bytes);
 }
 
 void listfile_write_endian_marker(ListfileOutput &lf_out)
 {
     listfile_write_system_event(
-        lf_out, system_event::subtype::EndianMarker,
-        &system_event::EndianMarkerValue, 1);
+        lf_out, mvlc::system_event::subtype::EndianMarker,
+        &mvlc::system_event::EndianMarkerValue, 1);
 }
 
 void listfile_write_timestamp(ListfileOutput &lf_out)
@@ -360,17 +363,18 @@ void listfile_write_timestamp(ListfileOutput &lf_out)
     auto epoch = now.time_since_epoch();
     u64 timestamp = std::chrono::duration_cast<std::chrono::seconds>(epoch).count();
 
-    listfile_write_system_event(lf_out, system_event::subtype::UnixTimestamp,
+    listfile_write_system_event(lf_out, mvlc::system_event::subtype::UnixTimetick,
                                 reinterpret_cast<u32 *>(&timestamp),
                                 sizeof(timestamp) / sizeof(u32));
 }
 
+#warning "Use the mesytec-mvlc version here"
 void listfile_write_preamble(ListfileOutput &lf_out, const MVLCObject &mvlc,
                              const VMEConfig &vmeConfig)
 {
     listfile_write_magic(lf_out, mvlc);
     listfile_write_endian_marker(lf_out);
-    listfile_write_vme_config(lf_out, vmeConfig);
+    listfile_write_mvme_config(lf_out, vmeConfig);
     listfile_write_timestamp(lf_out);
 }
 
@@ -382,7 +386,7 @@ void listfile_end_run_and_close(ListfileOutput &lf_out,
         return;
 
     // Write end of file marker to indicate the file was properly written.
-    listfile_write_system_event(lf_out, system_event::subtype::EndOfFile);
+    listfile_write_system_event(lf_out, mvlc::system_event::subtype::EndOfFile);
 
     // Can close the listfile output device now. This is required in case it's
     // a file inside a zip archive as only one file per archive can be open at
@@ -469,7 +473,7 @@ struct ListfileWriterThreadContext
     std::atomic<size_t> writeErrorCount;
     // Protects access to the listfiles io device. Threads have to take this
     // lock while they are writing to the file.
-    mesytec::mvme::TicketMutex listfileMutex;
+    mesytec::mvlc::TicketMutex listfileMutex;
 };
 
 void threaded_listfile_writer(
@@ -489,7 +493,7 @@ void threaded_listfile_writer(
 
         if (auto buffer = dequeue(&ctx.filledBuffers, 100))
         {
-            std::unique_lock<mesytec::mvme::TicketMutex> guard(ctx.listfileMutex);
+            std::unique_lock<mesytec::mvlc::TicketMutex> guard(ctx.listfileMutex);
 
             if (outdev && outdev->isOpen())
             {
@@ -524,8 +528,8 @@ struct MVLCReadoutWorker::Private
     // lots of mvlc api layers
     MVLC_VMEController *mvlcCtrl = nullptr;;
     MVLCObject *mvlcObj = nullptr;;
-    eth::Impl *mvlc_eth = nullptr;;
-    usb::Impl *mvlc_usb = nullptr;;
+    mvlc::eth::Impl *mvlc_eth = nullptr;;
+    mvlc::usb::Impl *mvlc_usb = nullptr;;
 
     ListfileOutput listfileOut;
     u32 nextOutputBufferNumber = 1u;;
@@ -538,7 +542,7 @@ struct MVLCReadoutWorker::Private
 
     // stat counters
     MVLCReadoutCounters counters = {};
-    mutable mesytec::mvme::TicketMutex countersMutex;
+    mutable mesytec::mvlc::TicketMutex countersMutex;
 
     // Threaded listfile writing
     static const size_t ListfileWriterBufferCount = 16u;
@@ -570,7 +574,7 @@ struct MVLCReadoutWorker::Private
     {
         nextOutputBufferNumber = 1u;
 
-        UniqueLock guard(countersMutex);
+        mvlc::UniqueLock guard(countersMutex);
         counters = {};
     }
 
@@ -593,7 +597,7 @@ struct MVLCReadoutWorker::Private
             {
                 if (auto ec = disable_all_triggers(*mvlcObj))
                 {
-                    if (ec == ErrorType::ConnectionError)
+                    if (ec == mvlc::ErrorType::ConnectionError)
                         return ec;
                 }
                 else break;
@@ -654,14 +658,14 @@ void MVLCReadoutWorker::setMVLCObjects()
     {
         switch (d->mvlcObj->connectionType())
         {
-            case ConnectionType::ETH:
-                d->mvlc_eth = reinterpret_cast<eth::Impl *>(d->mvlcObj->getImpl());
+            case mvlc::ConnectionType::ETH:
+                d->mvlc_eth = reinterpret_cast<mvlc::eth::Impl *>(d->mvlcObj->getImpl());
                 d->mvlc_usb = nullptr;
                 break;
 
-            case ConnectionType::USB:
+            case mvlc::ConnectionType::USB:
                 d->mvlc_eth = nullptr;
-                d->mvlc_usb = reinterpret_cast<usb::Impl *>(d->mvlcObj->getImpl());
+                d->mvlc_usb = reinterpret_cast<mvlc::usb::Impl *>(d->mvlcObj->getImpl());
                 break;
         }
     }
@@ -695,14 +699,16 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         setState(DAQState::Starting);
 
+#if 0 // TODO: remove me
         // Clear the error counts when starting a new run.
         {
             auto &counters = d->mvlcObj->getGuardedStackErrorCounters();
             auto guard = counters.lock();
             counters.counters = {};
         }
+#endif
 
-#if 1
+#if 0
         // Note: disabling polling at this point is not strictly required. It
         // just speeds up script execution because the poller won't interfere.
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
@@ -715,7 +721,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         // Run the standard VME DAQ init sequence
         bool initOk = this->do_VME_DAQ_Init(d->mvlcCtrl);
 
-#if 1
+#if 0
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
         QMetaObject::invokeMethod(d->mvlcCtrl, &MVLC_VMEController::enableNotificationPolling);
 #else
@@ -739,7 +745,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
             size_t bytesTransferred = 0;
 
             if (auto ec = d->mvlcObj->write(
-                    Pipe::Data,
+                    mvlc::Pipe::Data,
                     reinterpret_cast<const u8 *>(EmptyRequest.data()),
                     EmptyRequest.size() * sizeof(u32),
                     bytesTransferred))
@@ -849,7 +855,7 @@ void MVLCReadoutWorker::readoutLoop()
         // Write a timestamp system event to the listfile once per second.
         if (timetickGen.generateElapsedSeconds() >= 1)
         {
-            std::unique_lock<mesytec::mvme::TicketMutex> guard(d->listfileWriterContext.listfileMutex);
+            std::unique_lock<mesytec::mvlc::TicketMutex> guard(d->listfileWriterContext.listfileMutex);
             listfile_write_timestamp(d->listfileOut);
         }
 
@@ -859,7 +865,7 @@ void MVLCReadoutWorker::readoutLoop()
             size_t bytesTransferred = 0u;
             auto ec = readAndProcessBuffer(bytesTransferred);
 
-            if (ec == ErrorType::ConnectionError)
+            if (ec == mvlc::ErrorType::ConnectionError)
             {
                 logMessage(QSL("Lost connection to MVLC. Leaving readout loop. Error=%1")
                            .arg(ec.message().c_str()));
@@ -968,7 +974,7 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
     //auto dataGuard = mvlcLocks.lockData();
     auto tStart = std::chrono::steady_clock::now();
 
-    while (destBuffer->free() >= eth::JumboFrameMaxSize)
+    while (destBuffer->free() >= mvlc::eth::JumboFrameMaxSize)
     {
         // FIXME: this would be more efficient if the lock is held for multiple
         // packets. Using the FlushBufferTimeout is too long though and the GUI
@@ -979,12 +985,12 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
         // efficient.
         auto dataGuard = mvlcLocks.lockData();
         auto result = d->mvlc_eth->read_packet(
-            Pipe::Data, destBuffer->asU8(), destBuffer->free());
+            mvlc::Pipe::Data, destBuffer->asU8(), destBuffer->free());
         dataGuard.unlock();
 
         daqStats.totalBytesRead += result.bytesTransferred;
 
-        if (result.ec == ErrorType::ConnectionError)
+        if (result.ec == mvlc::ErrorType::ConnectionError)
             return result.ec;
 
         // ShortRead means that the received packet length was non-zero but
@@ -992,7 +998,7 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
         // the next iteration so that the framing structure stays intact.
         // Also do not count these short reads in totalBytesTransferred as that
         // would suggest we actually did receive valid data.
-        if (result.ec == MVLCErrorCode::ShortRead)
+        if (result.ec == mvlc::MVLCErrorCode::ShortRead)
         {
             daqStats.buffersWithErrors++;
             continue;
@@ -1021,8 +1027,8 @@ std::error_code MVLCReadoutWorker::readout_eth(size_t &totalBytesTransferred)
 
 inline bool is_valid_readout_frame(const FrameInfo &frameInfo)
 {
-    return (frameInfo.type == frame_headers::StackFrame
-            || frameInfo.type == frame_headers::StackContinuation);
+    return (frameInfo.type == mvlc::frame_headers::StackFrame
+            || frameInfo.type == mvlc::frame_headers::StackContinuation);
 }
 
 // Ensure that the readBuffer contains only complete frames. In other words: if
@@ -1101,7 +1107,7 @@ inline void fixup_usb_buffer(
 }
 
 //static const size_t USBReadMinBytes = Kilobytes(256);
-static const size_t USBReadMinBytes = mesytec::mvme_mvlc::usb::USBSingleTransferMaxBytes;
+static const size_t USBReadMinBytes = mesytec::mvlc::usb::USBSingleTransferMaxBytes;
 
 std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
 {
@@ -1133,10 +1139,10 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
         //ec = d->mvlc_usb->read_unbuffered(
         //    Pipe::Data, destBuffer->asU8(), destBuffer->free(), bytesTransferred);
         ec = d->mvlc_usb->read_unbuffered(
-            Pipe::Data, destBuffer->asU8(), USBReadMinBytes, bytesTransferred);
+            mvlc::Pipe::Data, destBuffer->asU8(), USBReadMinBytes, bytesTransferred);
         dataGuard.unlock();
 
-        if (ec == ErrorType::ConnectionError)
+        if (ec == mvlc::ErrorType::ConnectionError)
             break;
 
         daqStats.totalBytesRead += bytesTransferred;
@@ -1149,7 +1155,7 @@ std::error_code MVLCReadoutWorker::readout_usb(size_t &totalBytesTransferred)
             break;
     }
 
-    UniqueLock countersGuard(d->countersMutex);
+    mvlc::UniqueLock countersGuard(d->countersMutex);
     auto prevFrameTypeErrors = d->counters.frameTypeErrors;
     fixup_usb_buffer(*destBuffer, d->previousData, d->counters);
     if (prevFrameTypeErrors != d->counters.frameTypeErrors)
@@ -1226,8 +1232,8 @@ void MVLCReadoutWorker::pauseDAQ()
 {
     d->shutdownReadout();
 
-    std::unique_lock<mesytec::mvme::TicketMutex> guard(d->listfileWriterContext.listfileMutex);
-    listfile_write_system_event(d->listfileOut, system_event::subtype::Pause);
+    std::unique_lock<mesytec::mvlc::TicketMutex> guard(d->listfileWriterContext.listfileMutex);
+    listfile_write_system_event(d->listfileOut, mvlc::system_event::subtype::Pause);
 
     setState(DAQState::Paused);
     logMessage(QString(QSL("MVLC readout paused")));
@@ -1244,8 +1250,8 @@ void MVLCReadoutWorker::resumeDAQ()
 
     enable_triggers(*d->mvlcObj, *getContext().vmeConfig, logger);
 
-    std::unique_lock<mesytec::mvme::TicketMutex> guard(d->listfileWriterContext.listfileMutex);
-    listfile_write_system_event(d->listfileOut, system_event::subtype::Resume);
+    std::unique_lock<mesytec::mvlc::TicketMutex> guard(d->listfileWriterContext.listfileMutex);
+    listfile_write_system_event(d->listfileOut, mvlc::system_event::subtype::Resume);
 
     setState(DAQState::Running);
     logMessage(QSL("MVLC readout resumed"));
@@ -1313,7 +1319,7 @@ DAQState MVLCReadoutWorker::getState() const
 
 MVLCReadoutCounters MVLCReadoutWorker::getReadoutCounters() const
 {
-    UniqueLock guard(d->countersMutex);
+    mvlc::UniqueLock guard(d->countersMutex);
     return d->counters;
 }
 

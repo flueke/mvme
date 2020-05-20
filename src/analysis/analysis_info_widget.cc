@@ -31,6 +31,9 @@
 #include "mvlc_stream_worker.h"
 #include "mvme_stream_worker.h"
 
+using namespace mesytec;
+using namespace mesytec::mvlc;
+
 static const QVector<const char *> LabelTexts =
 {
     "state",
@@ -75,9 +78,9 @@ struct AnalysisInfoWidgetPrivate
 
     QWidget *mvlcInfoWidget;
     QVector<QLabel *> mvlcLabels;
-    mesytec::mvme_mvlc::ReadoutParserCounters prevMVLCCounters;
+    mesytec::mvlc::readout_parser::ReadoutParserCounters prevMVLCCounters;
 
-    void updateMVLCWidget(const mesytec::mvme_mvlc::ReadoutParserCounters &counters, double dt);
+    void updateMVLCWidget(const mesytec::mvlc::readout_parser::ReadoutParserCounters &counters, double dt);
 };
 
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
@@ -388,9 +391,9 @@ void AnalysisInfoWidget::update()
 }
 
 void AnalysisInfoWidgetPrivate::updateMVLCWidget(
-    const mesytec::mvme_mvlc::ReadoutParserCounters &counters, double dt)
+    const mesytec::mvlc::readout_parser::ReadoutParserCounters &counters, double dt)
 {
-    using namespace mesytec::mvme_mvlc;
+    using mesytec::mvlc::readout_parser::ReadoutParserCounters;
 
     auto &prevCounters = prevMVLCCounters;
 
@@ -451,7 +454,7 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
                 buffer += "\n";
 
             buffer += QString("%1 (0x%2): %3")
-                .arg(get_system_event_subtype_name(subtype))
+                .arg(QString::fromStdString(mvlc::listfile::system_event_type_to_string(subtype)))
                 .arg(subtype, 2, 16, QLatin1Char('0'))
                 .arg(counters.systemEventTypes[subtype]);
                 //.arg(format_number(counters.systemEventTypes[subtype],
@@ -474,7 +477,8 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
                 buffer += "\n";
 
             buffer += QString("%1: %2, rate=%3 results/s")
-                .arg(get_parse_result_name(static_cast<ParseResult>(pr)))
+                .arg(mvlc::readout_parser::get_parse_result_name(
+                        static_cast<readout_parser::ParseResult>(pr)))
                 .arg(counters.parseResults[pr])
                 //.arg(format_number(counters.parseResults[pr], "", UnitScaling::Decimal, 0, 'f', 0))
                 .arg(parseResultRates[pr], 0, 'f', 0);

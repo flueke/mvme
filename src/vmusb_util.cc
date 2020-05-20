@@ -39,7 +39,7 @@ void format_vmusb_buffer(DataBuffer *buffer, QTextStream &out, u64 bufferNumber)
 
         u32 header1 = iter.extractWord();
         bool lastBuffer     = header1 & Buffer::LastBufferMask;
-        bool scalerBuffer   = header1 & Buffer::IsScalerBufferMask;
+        //bool scalerBuffer   = header1 & Buffer::IsScalerBufferMask;
         bool continuousMode = header1 & Buffer::ContinuationMask;
         bool multiBuffer    = header1 & Buffer::MultiBufferMask;
         u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;

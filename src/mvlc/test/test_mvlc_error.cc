@@ -19,15 +19,16 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include <gtest/gtest.h>
-#include "mvlc/mvlc_error.h"
-#include "mvlc/mvlc_impl_usb.h"
+#include <mesytec-mvlc/mvlc_error.h>
+#include <mesytec-mvlc/mvlc_impl_usb.h>
+#include <ftd3xx.h>
 #include <iostream>
 
 using std::cout;
 using std::endl;
 
-using namespace mesytec::mvme_mvlc;
-using namespace mesytec::mvme_mvlc::usb;
+using namespace mesytec::mvlc;
+using namespace mesytec::mvlc::usb;
 
 TEST(TestMVLCError, MVLCErrorCode_to_ErrorType)
 {
@@ -54,6 +55,9 @@ TEST(TestMVLCError, MVLCErrorCode_to_ErrorType)
     //cout << ec.category().name() << "(" << ec.value() << "): " << ec.message() << endl;
 }
 
+#if 0
+// TODO: move this into mesytec-mvlc. This cannot work here because the ftd3xx
+// header is deliberately not exposed by mesytec-mvlc.
 TEST(TestMVLCError, FT_STATUS_to_ErrorType)
 {
     ASSERT_EQ(make_error_code(FT_OK), ErrorType::Success);
@@ -80,3 +84,4 @@ TEST(TestMVLCError, FT_STATUS_to_ErrorType)
     //auto ec = make_error_code(FT_NO_MORE_ITEMS);
     //cout << ec.category().name() << "(" << ec.value() << "): " << ec.message() << endl;
 }
+#endif

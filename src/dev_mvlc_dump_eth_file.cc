@@ -26,13 +26,14 @@
 #include <iostream>
 #include <system_error>
 
-#include "mvlc/mvlc_impl_eth.h"
+#include <mesytec-mvlc/mvlc_impl_eth.h>
+#include <mesytec-mvlc/mvlc_util.h>
 #include "mvlc/mvlc_util.h"
 #include "util.h"
 
 using std::cerr;
 using std::endl;
-using namespace mesytec::mvme_mvlc;
+using namespace mesytec;
 
 void process_file(u32 *addr, size_t size)
 {
@@ -44,11 +45,11 @@ void process_file(u32 *addr, size_t size)
     while (!iter.atEnd())
     {
         ptrdiff_t packetOffset = iter.current32BitOffset();
-        eth::PayloadHeaderInfo ethHeaders{ iter.extractU32(), iter.extractU32() };
+        mvlc::eth::PayloadHeaderInfo ethHeaders{ iter.extractU32(), iter.extractU32() };
 
         s32 packetLoss = 0;
         if (lastPacketNumber >= 0)
-            packetLoss = eth::calc_packet_loss(lastPacketNumber, ethHeaders.packetNumber());
+            packetLoss = mvlc::eth::calc_packet_loss(lastPacketNumber, ethHeaders.packetNumber());
 
 
         printf("pkt %lu @%lu:\n", linearPacketNumber, packetOffset);
@@ -73,9 +74,10 @@ void process_file(u32 *addr, size_t size)
                 ++packetWordIndex;
                 size_t wordsLeftInPacket = (endOfPacket - iter.buffp) / sizeof(u32);
 
-                auto frameInfo = extract_frame_info(frameHeader);
+                auto frameInfo = mvlc::extract_frame_info(frameHeader);
+
                 printf("  frameHeader=0x%08x: %s, wordsLeftInPacket=%lu\n",
-                       frameHeader, decode_frame_header(frameHeader).toStdString().c_str(),
+                       frameHeader, mvlc::decode_frame_header(frameHeader).c_str(),
                        wordsLeftInPacket);
 
                 const u8* frameEnd = iter.buffp + frameInfo.len * sizeof(u32);

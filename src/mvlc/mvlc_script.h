@@ -21,8 +21,8 @@
 #ifndef __MVLC_SCRIPT_H__
 #define __MVLC_SCRIPT_H__
 
+#include <mesytec-mvlc/mvlc_constants.h>
 #include "vme_script.h"
-#include "mvlc_constants.h"
 #include "libmvme_mvlc_export.h"
 
 class QTextStream;
@@ -144,14 +144,14 @@ class MVLCCommandListBuilder
         // outputPipe=CommandPipe(=0) and offset=0
 
         // single value reads
-        void addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth);
+        void addVMERead(u32 address, u8 amod, mvlc::VMEDataWidth dataWidth);
 
         // block reads (BLT, MBLT, 2eSST64)
         void addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers);
         //void add2eSST64Read(u32 address, u16 maxTransfers, Blk2eSSTRate rate = Rate300MB);
 
         // single value write
-        void addVMEWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
+        void addVMEWrite(u32 address, u32 value, u8 amod, mvlc::VMEDataWidth dataWidth);
 
         CommandList getCommandList() const;
 
@@ -167,12 +167,12 @@ class MVLCCommandListBuilder
 // Transform a single MVLC Command into a list of 32-bit MVLC command words.
 // Note: this does not include the CmdBufferStart and CmdBufferEnd words needed
 // at the start and end to form a full, valid MVLC buffer.
-QVector<u32> LIBMVME_MVLC_EXPORT to_mvlc_buffer(const Command &cmd);
+std::vector<u32> LIBMVME_MVLC_EXPORT to_mvlc_buffer(const Command &cmd);
 
 // Transform a list of commands into a full MVLC command buffer. The buffer
 // starts with CmdBufferStart and ends with CmdBufferEnd.
 // This form can be directly sent to the MVLC.
-QVector<u32> LIBMVME_MVLC_EXPORT to_mvlc_command_buffer(const CommandList &cmdList);
+std::vector<u32> LIBMVME_MVLC_EXPORT to_mvlc_command_buffer(const CommandList &cmdList);
 
 } // end namespace script
 } // end namespace mvme_mvlc

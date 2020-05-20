@@ -26,8 +26,9 @@
 #include <QMessageBox>
 #include <QStandardPaths>
 #include <QTimer>
+#include <iterator>
 
-#include "mvlc/mvlc_dialog.h"
+#include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mvlc/mvlc_util.h"
 #include "util/qt_font.h"
 #include "vme_script.h"
@@ -319,7 +320,7 @@ void VMEDebugWidget::slt_doRead_clicked(int readerIndex)
 
     u8 amod = reader.rb_blt->isChecked() ? vme_address_modes::BLT32 : vme_address_modes::MBLT64;
     u16 transfers = static_cast<u16>(reader.spin_blockReadCount->value());
-    QVector<u32> buffer;
+    std::vector<u32> buffer;
     buffer.reserve(transfers);
 
     auto ec = d->mvlc->vmeBlockRead(address, amod, transfers, buffer);
@@ -333,7 +334,7 @@ void VMEDebugWidget::slt_doRead_clicked(int readerIndex)
     QStringList lines;
     lines.reserve(buffer.size());
 
-    for (int i=0; i<buffer.size(); ++i)
+    for (size_t i=0; i<buffer.size(); ++i)
     {
         lines << QString(QSL("%1: 0x%2"))
             .arg(i, 2, 10, QChar(' '))
@@ -355,7 +356,7 @@ void VMEDebugWidget::slt_doRead_clicked(int readerIndex)
 
 void VMEDebugWidget::doWrite(u32 address, u16 value)
 {
-    auto ec = d->mvlc->vmeSingleWrite(address, value, vme_address_modes::A32, VMEDataWidth::D16);
+    auto ec = d->mvlc->vmeWrite(address, value, vme_address_modes::A32, mvlc::VMEDataWidth::D16);
 
     if (ec)
     {
@@ -369,7 +370,7 @@ u16 VMEDebugWidget::doSingleRead(u32 address)
 {
     u32 value = 0u;
 
-    auto ec = d->mvlc->vmeSingleRead(address, value, vme_address_modes::A32, VMEDataWidth::D16);
+    auto ec = d->mvlc->vmeRead(address, value, vme_address_modes::A32, mvlc::VMEDataWidth::D16);
 
     if (ec)
     {
@@ -458,17 +459,22 @@ vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd)
     result.command = cmd;
 
     auto uploadData = mvme_mvlc::build_upload_command_buffer(
-        { cmd }, mvme_mvlc::CommandPipe, mvme_mvlc::stacks::StackMemoryBegin);
+        { cmd }, mvlc::CommandPipe, mvlc::stacks::StackMemoryBegin);
 
     log_buffer(uploadData, "run_command upload data");
 
-    if (auto ec = mvlc->stackTransaction(uploadData, result.valueVector))
+    std::vector<u32> tmpBuffer;
+
+    if (auto ec = mvlc->stackTransaction(uploadData, tmpBuffer))
     {
         qDebug() << __PRETTY_FUNCTION__ << "error from MVLCDialog::stackTransaction: "
             << ec.message().c_str();
         result.error = VMEError { ec };
         assert(result.error.isError());
     }
+
+    result.valueVector.reserve(tmpBuffer.size());
+    std::copy(std::begin(tmpBuffer), std::end(tmpBuffer), std::back_inserter(result.valueVector));
 
     return result;
 }

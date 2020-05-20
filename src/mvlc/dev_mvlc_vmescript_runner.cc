@@ -23,9 +23,10 @@
 #include <iostream>
 #include <QDebug>
 
-#include "mvlc/mvlc_impl_factory.h"
+#include "mesytec-mvlc/mvlc_factory.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_vme_controller.h"
+#include "vme_script.h"
 
 using namespace mesytec;
 using std::cout;
@@ -76,25 +77,23 @@ int main(int argc, char *argv[])
         vmeScript = vme_script::parse(&scriptFile);
     }
 
-    std::unique_ptr<mvme_mvlc::AbstractImpl> mvlcImpl;
+    mvlc::MVLC mvlc;
 
     if (parser.isSet(ethOption))
     {
         auto hostname = parser.value(ethOption);
-        mvlcImpl = mvme_mvlc::make_mvlc_eth(hostname.toLocal8Bit().data());
+        mvlc = mvlc::make_mvlc_eth(hostname.toStdString());
     }
     else // default to usb
     {
         unsigned index = parser.value(usbOption).toUInt();
-        mvlcImpl = mvme_mvlc::make_mvlc_usb(index);
+        mvlc = mvlc::make_mvlc_usb(index);
     }
-
-    assert(mvlcImpl);
 
     const unsigned repetitions = parser.value(repetitionOption).toUInt();
     const bool verbose = parser.isSet(verboseOption);
 
-    mvme_mvlc::MVLCObject mvlcObj(std::move(mvlcImpl));
+    mvme_mvlc::MVLCObject mvlcObj(mvlc);
     mvme_mvlc::MVLC_VMEController mvlcCtrl(&mvlcObj);
 
     if (auto err = mvlcCtrl.open())
@@ -108,11 +107,11 @@ int main(int argc, char *argv[])
         cout << msg.toStdString() << endl;
     };
 
-    mvlcObj.setReadTimeout(mvme_mvlc::Pipe::Command, 250);
-    mvlcObj.setWriteTimeout(mvme_mvlc::Pipe::Command, 250);
+    mvlcObj.setReadTimeout(mvlc::Pipe::Command, 250);
+    mvlcObj.setWriteTimeout(mvlc::Pipe::Command, 250);
 
-    cout << "Command pipe timeouts: read=" << mvlcObj.getReadTimeout(mvme_mvlc::Pipe::Command)
-        << ", write=" << mvlcObj.getWriteTimeout(mvme_mvlc::Pipe::Command)
+    cout << "Command pipe timeouts: read=" << mvlcObj.readTimeout(mvlc::Pipe::Command)
+        << ", write=" << mvlcObj.writeTimeout(mvlc::Pipe::Command)
         << endl;
 
     //mvlcCtrl.disableNotificationPolling();

@@ -28,13 +28,15 @@
 #include <QPushButton>
 #include <QTextBrowser>
 
+#include <mesytec-mvlc/mvlc_impl_usb.h>
+
 #include "gui_util.h"
-#include "mvlc/mvlc_impl_usb.h"
 #include "mvme_context.h"
 #include "qt_util.h"
 #include "sis3153.h"
 #include "vme_controller_factory.h"
 #include "vme_controller_ui_p.h"
+
 
 //
 // VMUSBSettingsWidget
@@ -280,7 +282,7 @@ MVLC_USB_SettingsWidget::MVLC_USB_SettingsWidget(QWidget *parent)
 
 void MVLC_USB_SettingsWidget::listDevices()
 {
-    using namespace mesytec::mvme_mvlc::usb;
+    using namespace mesytec::mvlc::usb;
     auto allDevices = get_device_info_list(ListOptions::AllDevices);
 
     QString textBuffer;

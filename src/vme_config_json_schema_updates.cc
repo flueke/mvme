@@ -104,7 +104,7 @@ using VMEConfigConverter = std::function<QJsonObject (QJsonObject oldJson, Logge
  * vme_scripts.parameters           -> initScripts[0]
  * vme_scripts.readout_settings     -> initScripts[1]
  */
-static QJsonObject v1_to_v2(QJsonObject json, Logger logger)
+static QJsonObject v1_to_v2(QJsonObject json, Logger /*logger*/)
 {
     qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
 
@@ -145,7 +145,7 @@ static QJsonObject v1_to_v2(QJsonObject json, Logger logger)
 
 /* Instead of numeric TriggerCondition values string representations are now
  * stored. */
-static QJsonObject v2_to_v3(QJsonObject json, Logger logger)
+static QJsonObject v2_to_v3(QJsonObject json, Logger /*logger*/)
 {
     qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
 

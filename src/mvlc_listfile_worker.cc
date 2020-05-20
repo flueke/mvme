@@ -24,10 +24,14 @@
 #include <QDebug>
 #include <QThread>
 
+#include <mesytec-mvlc/mesytec-mvlc.h>
+#include <mesytec-mvlc/mvlc_impl_eth.h>
+
 #include "mvlc_listfile.h"
 #include "mvlc/mvlc_util.h"
-#include "mvlc/mvlc_impl_eth.h"
 #include "util_zip.h"
+
+using namespace mesytec;
 
 // How long to block in paused state on each iteration of the main loop
 static const unsigned PauseSleepDuration_ms = 100;
@@ -298,14 +302,14 @@ inline void fixup_buffer_eth(DataBuffer &readBuffer, DataBuffer &tempBuffer)
         // Either a SystemEvent header or the first of the two ETH packet headers
         u32 header = iter.peekU32(0);
 
-        if (get_frame_type(header) == frame_headers::SystemEvent)
-            return 1u + extract_frame_info(header).len;
+        if (mvlc::get_frame_type(header) == mvlc::frame_headers::SystemEvent)
+            return 1u + mvlc::extract_frame_info(header).len;
 
         if (iter.longwordsLeft() > 1)
         {
             u32 header1 = iter.peekU32(1);
-            eth::PayloadHeaderInfo ethHdrs{ header, header1 };
-            return eth::HeaderWords + ethHdrs.dataWordCount();
+            mvlc::eth::PayloadHeaderInfo ethHdrs{ header, header1 };
+            return mvlc::eth::HeaderWords + ethHdrs.dataWordCount();
         }
 
         // Not enough data to get the 2nd ETH header word.
@@ -320,7 +324,7 @@ inline void fixup_buffer_usb(DataBuffer &readBuffer, DataBuffer &tempBuffer)
     auto skip_func = [] (const BufferIterator &iter) -> u32
     {
         u32 header = iter.peekU32(0);
-        return 1u + extract_frame_info(header).len;
+        return 1u + mvlc::extract_frame_info(header).len;
     };
 
     fixup_buffer(readBuffer, tempBuffer, skip_func);

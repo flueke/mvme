@@ -140,28 +140,21 @@ if(MVME_ENABLE_MVLC)
 
     add_library(libmvme_mvlc SHARED
         ${MVLC_DEV_GUI_UIC}
-        mvlc/mvlc_basic_mvlc.cc
         mvlc/mvlc_dev_gui.cc
-        mvlc/mvlc_dialog.cc
-        mvlc/mvlc_error.cc
-        mvlc/mvlc_impl_eth.cc
-        mvlc/mvlc_impl_factory.cc
-        mvlc/mvlc_impl_usb.cc
         mvlc/mvlc_qt_object.cc
-        mvlc/mvlc_qt_object.cc
-        mvlc/mvlc_readout_parsers.cc
         mvlc/mvlc_register_names.cc
         mvlc/mvlc_script.cc
         mvlc/mvlc_util.cc
         mvlc/mvlc_vme_controller.cc
         mvlc/mvlc_vme_debug_widget.cc
+        mvlc/readout_parser_support.cc
         )
 
     set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
     generate_export_header(libmvme_mvlc)
 
     target_link_libraries(libmvme_mvlc
-        PUBLIC ftd3xx
+        PUBLIC ftd3xx # TODO: get rid of this once the switch to the mesytec-mvlc lib is done
         PUBLIC libmvme_core
         )
 
@@ -196,12 +189,6 @@ if(MVME_ENABLE_MVLC)
 
     add_executable(dev_ftdi_list_devices mvlc/dev_ftdi_list_devices)
     target_link_libraries(dev_ftdi_list_devices ftd3xx)
-
-    add_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
-    target_link_libraries(dev_test_mvlc_usb_impl PRIVATE libmvme_mvlc)
-
-    add_executable(dev_test_mvlc_eth_impl mvlc/dev_test_mvlc_eth_impl.cc)
-    target_link_libraries(dev_test_mvlc_eth_impl PRIVATE libmvme_mvlc)
 
     add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
     target_link_libraries(dev_mvlc_vmescript_runner PRIVATE libmvme_mvlc)

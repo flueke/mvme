@@ -18,7 +18,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#include "mvlc/mvlc_impl_eth.h"
 #include "daqstats_widget.h"
 
 #include <boost/range/adaptor/indexed.hpp>
@@ -26,6 +25,7 @@
 #include <QLabel>
 #include <QFormLayout>
 #include <QTimer>
+#include <mesytec-mvlc/mvlc_impl_eth.h>
 
 #include "mvlc_readout_worker.h"
 #include "mvme_context.h"
@@ -51,7 +51,7 @@ struct DAQStatsWidgetPrivate
         DAQStats daqStats;
         SIS3153ReadoutWorker::Counters sisCounters;
         MVLCReadoutCounters mvlcCounters;
-        mesytec::mvme_mvlc::eth::PipeStats mvlcDataPipeStats;
+        mesytec::mvlc::eth::PipeStats mvlcDataPipeStats;
     };
 
     CountersHolder prevCounters;
@@ -166,8 +166,8 @@ struct DAQStatsWidgetPrivate
 #endif
     }
 
-    void update_MVLC_ETH(const mesytec::mvme_mvlc::eth::PipeStats &dataPipeStats,
-                         const mesytec::mvme_mvlc::eth::PipeStats &prevStats,
+    void update_MVLC_ETH(const mesytec::mvlc::eth::PipeStats &dataPipeStats,
+                         const mesytec::mvlc::eth::PipeStats &prevStats,
                          double dt_s)
     {
         u64 packetRate = calc_rate0(
@@ -187,8 +187,10 @@ struct DAQStatsWidgetPrivate
              .arg(packetLossRate)));
     }
 
-    void update_MVLC_common(mesytec::mvme_mvlc::MVLC_VMEController *mvlcCtrl)
+    void update_MVLC_common(mesytec::mvme_mvlc::MVLC_VMEController * /*mvlcCtrl*/)
     {
+#warning "Revive mvlc daqstats widget"
+#if 0
         auto mvlc = mvlcCtrl->getMVLCObject();
         auto counters = mvlc->getStackErrorCounters();
 
@@ -222,6 +224,7 @@ struct DAQStatsWidgetPrivate
         }
 
         label_mvlcStackErrors->setText(text);
+#endif
     }
 
     void updateWidget(VMEReadoutWorker *readoutWorker)
@@ -275,9 +278,9 @@ struct DAQStatsWidgetPrivate
 
             if (is_MVLC_ETH)
             {
-                auto mvlc_eth = reinterpret_cast<mesytec::mvme_mvlc::eth::Impl *>(
+                auto mvlc_eth = reinterpret_cast<mesytec::mvlc::eth::Impl *>(
                     mvlc->getImpl());
-                auto dataPipeStats = mvlc_eth->getPipeStats()[mesytec::mvme_mvlc::DataPipe];
+                auto dataPipeStats = mvlc_eth->getPipeStats()[mesytec::mvlc::DataPipe];
 
                 update_MVLC_ETH(dataPipeStats, prevCounters.mvlcDataPipeStats, dt_s);
                 prevCounters.mvlcDataPipeStats = dataPipeStats;

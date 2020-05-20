@@ -41,12 +41,13 @@
 #include <iostream>
 #include <cmath>
 
+#include <mesytec-mvlc/mesytec-mvlc.h>
+#include <mesytec-mvlc/mvlc_impl_eth.h>
+#include <mesytec-mvlc/mvlc_impl_usb.h>
+
 #include "ui_mvlc_dev_ui.h"
 
-#include "mvlc/mvlc_dialog.h"
-#include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_script.h"
-#include "mvlc/mvlc_impl_usb.h"
 #include "mvlc/mvlc_vme_debug_widget.h"
 #include "mvlc/mvlc_util.h"
 #include "qt_util.h"
@@ -56,7 +57,7 @@
 
 using namespace mesytec;
 using namespace mesytec::mvme_mvlc;
-using namespace mesytec::mvme_mvlc::usb;
+using namespace mesytec::mvlc::usb;
 
 FixedSizeBuffer::FixedSizeBuffer(size_t capacity_)
     : data(std::make_unique<u8[]>(capacity_))
@@ -128,7 +129,7 @@ static const QString Key_LastMVLCScriptDirectory = "Files/LastMVLCScriptDirector
 static const QString Key_LastMVLCDataOutputDirectory = "Files/LastMVLCDataOutputDirectory";
 static const QString DefaultOutputFilename = "mvlc_dev_data.bin";
 
-OwningPacketReadResult::OwningPacketReadResult(const mesytec::mvme_mvlc::eth::PacketReadResult &input)
+OwningPacketReadResult::OwningPacketReadResult(const mesytec::mvlc::eth::PacketReadResult &input)
 {
     buffer.reserve(input.bytesTransferred);
     std::copy(input.buffer, input.buffer + input.bytesTransferred,
@@ -268,13 +269,13 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
 
         const u32 header = *nextp;
 
-        if (!(is_stack_buffer(header) || is_stack_buffer_continuation(header)))
+        if (!(mvlc::is_stack_buffer(header) || mvlc::is_stack_buffer_continuation(header)))
         {
             qDebug("%s: loopIteration=%lu, header=0x%08x, is_stack_buffer=%d,"
                    " is_stack_buffer_continuation=%d => HeaderMatchFailed",
                    __FUNCTION__, loopIteration,
-                   header, is_stack_buffer(header),
-                   is_stack_buffer_continuation(header));
+                   header, mvlc::is_stack_buffer(header),
+                   mvlc::is_stack_buffer_continuation(header));
 
             qDebug("%s: buffp=%p, nextHeaderOffset=%lu",
                    __FUNCTION__,
@@ -284,12 +285,12 @@ FrameCheckResult frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data
             return FrameCheckResult::HeaderMatchFailed;
         }
 
-        const auto hdrInfo = extract_frame_info(header);
+        const auto hdrInfo = mvlc::extract_frame_info(header);
 
-        if (hdrInfo.stack < stacks::StackCount)
+        if (hdrInfo.stack < mvlc::stacks::StackCount)
             ++data.stackHits[hdrInfo.stack];
 
-        if (hdrInfo.flags & frame_flags::Continue)
+        if (hdrInfo.flags & mvlc::frame_flags::Continue)
             ++data.framesWithContinueFlag;
 
         ++data.framesChecked;
@@ -314,16 +315,16 @@ void MVLCDataReader::readoutLoop()
     qDebug() << __PRETTY_FUNCTION__ << "entering readout loop";
     qDebug() << __PRETTY_FUNCTION__ << "executing in" << QThread::currentThread();
     qDebug() << __PRETTY_FUNCTION__ << "read timeout is"
-        << m_mvlc->getReadTimeout(Pipe::Data) << "ms";
+        << m_mvlc->readTimeout(mvlc::Pipe::Data) << "ms";
 
-    eth::Impl *mvlc_eth = nullptr;
-    usb::Impl *mvlc_usb = nullptr;
+    mvlc::eth::Impl *mvlc_eth = nullptr;
+    mvlc::usb::Impl *mvlc_usb = nullptr;
 
     switch (m_mvlc->connectionType())
     {
-        case ConnectionType::ETH:
+        case mvlc::ConnectionType::ETH:
             {
-                mvlc_eth = reinterpret_cast<eth::Impl *>(m_mvlc->getImpl());
+                mvlc_eth = reinterpret_cast<mvlc::eth::Impl *>(m_mvlc->getImpl());
 
                 emit message(QSL("Connection type is UDP. Sending initial empty request"
                                  " using the data socket."));
@@ -336,10 +337,11 @@ void MVLCDataReader::readoutLoop()
                     0xF2000000
                 };
 
-                if (auto ec = m_mvlc->write(Pipe::Data,
-                                            reinterpret_cast<const u8 *>(EmptyRequest.data()),
-                                            EmptyRequest.size() * sizeof(u32),
-                                            bytesTransferred))
+                if (auto ec = m_mvlc->write(
+                        mvlc::Pipe::Data,
+                        reinterpret_cast<const u8 *>(EmptyRequest.data()),
+                        EmptyRequest.size() * sizeof(u32),
+                        bytesTransferred))
                 {
                     emit message(QSL("Error sending initial empty request using the data socket: %1")
                                  .arg(ec.message().c_str()));
@@ -348,9 +350,9 @@ void MVLCDataReader::readoutLoop()
                 }
             } break;
 
-        case ConnectionType::USB:
+        case mvlc::ConnectionType::USB:
             {
-                mvlc_usb = reinterpret_cast<usb::Impl *>(m_mvlc->getImpl());
+                mvlc_usb = reinterpret_cast<mvlc::usb::Impl *>(m_mvlc->getImpl());
             } break;
     }
 
@@ -370,7 +372,7 @@ void MVLCDataReader::readoutLoop()
 
         size_t bytesTransferred = 0u;
         std::error_code ec;
-        eth::PacketReadResult eth_rr = {};
+        mvlc::eth::PacketReadResult eth_rr = {};
 
         if (mvlc_eth)
         {
@@ -379,10 +381,10 @@ void MVLCDataReader::readoutLoop()
             // Manual locking. Might be better to make read_packet() available
             // in a higher layer?
             auto guard = m_mvlc->getLocks().lockData();
-            eth_rr = mvlc_eth->read_packet(Pipe::Data, m_readBuffer.data.get(), m_readBuffer.capacity);
+            eth_rr = mvlc_eth->read_packet(mvlc::Pipe::Data, m_readBuffer.data.get(), m_readBuffer.capacity);
             ec = eth_rr.ec;
             bytesTransferred = eth_rr.bytesTransferred;
-            m_readBuffer.payloadBegin = m_readBuffer.data.get() + eth::HeaderBytes;
+            m_readBuffer.payloadBegin = m_readBuffer.data.get() + mvlc::eth::HeaderBytes;
 
             // ethernet buffer debugging
             {
@@ -395,7 +397,7 @@ void MVLCDataReader::readoutLoop()
                         m_ethDebugBuffer.push_back(OwningPacketReadResult(eth_rr));
 
                         // check header pointer validity, range and type of pointed to data word
-                        if (eth_rr.nextHeaderPointer() != mvme_mvlc::eth::header1::NoHeaderPointerPresent)
+                        if (eth_rr.nextHeaderPointer() != mvlc::eth::header1::NoHeaderPointerPresent)
                         {
                             bool isInvalid = false;
 
@@ -407,8 +409,8 @@ void MVLCDataReader::readoutLoop()
                             else
                             {
                                 u32 stackFrameHeader = *(eth_rr.payloadBegin() + eth_rr.nextHeaderPointer());
-                                if (!(is_stack_buffer(stackFrameHeader)
-                                      || is_stack_buffer_continuation(stackFrameHeader)))
+                                if (!(mvlc::is_stack_buffer(stackFrameHeader)
+                                      || mvlc::is_stack_buffer_continuation(stackFrameHeader)))
                                 {
                                     isInvalid = true;
                                     m_ethDebugReason = "nextHeaderPointer does not point to a stack header (F3 or F9)";
@@ -443,7 +445,7 @@ void MVLCDataReader::readoutLoop()
             assert(!mvlc_eth);
 
             auto guard = m_mvlc->getLocks().lockData();
-            ec = mvlc_usb->read_unbuffered(Pipe::Data,
+            ec = mvlc_usb->read_unbuffered(mvlc::Pipe::Data,
                                            m_readBuffer.data.get(),
                                            m_readBuffer.capacity,
                                            bytesTransferred);
@@ -452,13 +454,13 @@ void MVLCDataReader::readoutLoop()
         m_readBuffer.used = bytesTransferred;
 
 
-        if (ec == ErrorType::ConnectionError)
+        if (ec == mvlc::ErrorType::ConnectionError)
         {
             emit message(QSL("Lost connection to MVLC. Leaving readout loop. Reason: %1")
                          .arg(ec.message().c_str()));
             break;
         }
-        else if (ec && ec != ErrorType::Timeout)
+        else if (ec && ec != mvlc::ErrorType::Timeout)
         {
             emit message(QSL("Other error from read: %1, %2, %3")
                          .arg(ec.message().c_str())
@@ -478,7 +480,7 @@ void MVLCDataReader::readoutLoop()
 
             if (ec)
             {
-                if (ec == ErrorType::Timeout)
+                if (ec == mvlc::ErrorType::Timeout)
                     ++m_stats.counters[ReaderStats::NumberOfTimeouts];
                 else
                     ++m_stats.counters[ReaderStats::NumberOfErrors];
@@ -630,7 +632,7 @@ struct MVLCDevGUI::Private
 
     struct StackNotificationStats
     {
-        std::array<size_t, mesytec::mvme_mvlc::stacks::StackCount> counts = {};
+        std::array<size_t, mesytec::mvlc::stacks::StackCount> counts = {};
         size_t nonErrorNotifications = 0;
     };
 
@@ -716,7 +718,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
     // UDP receive stats table
     ui->gb_udpStats->hide();
-    if (m_d->mvlc->connectionType() == ConnectionType::ETH)
+    if (m_d->mvlc->connectionType() == mvlc::ConnectionType::ETH)
     {
         ui->gb_udpStats->show();
 
@@ -736,7 +738,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         auto update_stats_table = [this, tbl]()
         {
             auto guard = m_d->mvlc->getLocks().lockBoth();
-            auto udp_impl = reinterpret_cast<eth::Impl *>(m_d->mvlc->getImpl());
+            auto udp_impl = reinterpret_cast<mvlc::eth::Impl *>(m_d->mvlc->getImpl());
 
             static auto lastPipeStats = udp_impl->getPipeStats();
 
@@ -820,10 +822,10 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         // UDP packet channel loss counters
         //
         QStringList channelNames = { "Command", "Stack", "Data" };
-        std::array<QLabel *, eth::NumPacketChannels> lossLabels;
+        std::array<QLabel *, mvlc::eth::NumPacketChannels> lossLabels;
         auto l_packetLoss = new QFormLayout();
         l_packetLoss->addRow(new QLabel("Packet loss counters"));
-        for (u8 chan = 0; chan < eth::NumPacketChannels; chan++)
+        for (u8 chan = 0; chan < mvlc::eth::NumPacketChannels; chan++)
         {
             lossLabels[chan] = new QLabel(this);
             l_packetLoss->addRow(channelNames[chan], lossLabels[chan]);
@@ -832,7 +834,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         auto update_loss_labels = [this, lossLabels] ()
         {
             auto guard = m_d->mvlc->getLocks().lockBoth();
-            auto udp_impl = reinterpret_cast<eth::Impl *>(m_d->mvlc->getImpl());
+            auto udp_impl = reinterpret_cast<mvlc::eth::Impl *>(m_d->mvlc->getImpl());
             auto channelStats = udp_impl->getPacketChannelStats();
 
             for (size_t chan = 0; chan < channelStats.size(); chan++)
@@ -929,12 +931,12 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
             switch (m_d->mvlc->connectionType())
             {
-                case ConnectionType::USB:
+                case mvlc::ConnectionType::USB:
                     {
-                        auto mvlc_usb = reinterpret_cast<usb::Impl *>(m_d->mvlc->getImpl());
+                        auto mvlc_usb = reinterpret_cast<mvlc::usb::Impl *>(m_d->mvlc->getImpl());
                         auto devInfo = mvlc_usb->getDeviceInfo();
 
-                        const char *speedstr = ((devInfo.flags & DeviceInfo::Flags::USB2)
+                        const char *speedstr = ((devInfo.flags & mvlc::usb::DeviceInfo::Flags::USB2)
                                                 ? "USB2" : "USB3");
 
                         msg += QString(" (speed=%1, serial=%2)")
@@ -942,9 +944,9 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                             .arg(devInfo.serial.c_str());
 
                     } break;
-                case ConnectionType::ETH:
+                case mvlc::ConnectionType::ETH:
                     {
-                        auto mvlc_eth = reinterpret_cast<eth::Impl *>(m_d->mvlc->getImpl());
+                        auto mvlc_eth = reinterpret_cast<mvlc::eth::Impl *>(m_d->mvlc->getImpl());
 
                         msg += QString (" (address=%1)")
                             .arg(QHostAddress(mvlc_eth->getCmdAddress()).toString());
@@ -976,7 +978,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                 logBuffer(cmdBuffer, "Outgoing Request Buffer");
             }
 
-            QVector<u32> responseBuffer;
+            std::vector<u32> responseBuffer;
 
             if (auto ec = m_d->mvlc->mirrorTransaction(cmdBuffer, responseBuffer))
             {
@@ -1009,21 +1011,21 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             {
                 logMessage("Attempting to read stack response...");
 
-                auto ec = m_d->mvlc->readResponse(is_stack_buffer, responseBuffer);
+                auto ec = m_d->mvlc->readResponse(mvlc::is_stack_buffer, responseBuffer);
 
-                if (ec && ec != ErrorType::Timeout)
+                if (ec && ec != mvlc::ErrorType::Timeout)
                 {
                     logMessage(QString("Error reading from MVLC: %1")
                                .arg(ec.message().c_str()));
                     return;
                 }
-                else if (responseBuffer.isEmpty())
+                else if (responseBuffer.empty())
                 {
                     logMessage("Did not receive a stack response from MVLC");
                     return;
                 }
 
-                if (ec == ErrorType::Timeout)
+                if (ec == mvlc::ErrorType::Timeout)
                     logMessage("Received response but ran into a read timeout");
 
                 logBuffer(responseBuffer, "Stack response from MVLC");
@@ -1032,17 +1034,18 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                 // bits are set, read in the error notification (0xF7) buffer
                 // and log it.
                 u32 header = responseBuffer[0];
-                u8 errorBits = (header >> frame_headers::FrameFlagsShift) & frame_headers::FrameFlagsMask;
+                u8 errorBits = ((header >> mvlc::frame_headers::FrameFlagsShift)
+                                & mvlc::frame_headers::FrameFlagsMask);
 
                 if (errorBits)
                 {
-                    QVector<u32> tmpBuffer;
+                    std::vector<u32> tmpBuffer;
                     m_d->mvlc->readKnownBuffer(tmpBuffer);
-                    if (!tmpBuffer.isEmpty())
+                    if (!tmpBuffer.empty())
                     {
                         u32 header = tmpBuffer[0];
 
-                        if (is_stackerror_notification(header))
+                        if (mvlc::is_stackerror_notification(header))
                         {
                             logBuffer(tmpBuffer, "Stack error notification from MVLC");
                             handleStackErrorNotification(tmpBuffer);
@@ -1171,12 +1174,12 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             this, [this] ()
     {
         static const int ManualCmdRead_WordCount = 1024;
-        QVector<u32> readBuffer;
+        std::vector<u32> readBuffer;
         readBuffer.resize(ManualCmdRead_WordCount);
         size_t bytesTransferred;
 
         auto ec = m_d->mvlc->read(
-            Pipe::Command,
+            mvlc::Pipe::Command,
             reinterpret_cast<u8 *>(readBuffer.data()),
             readBuffer.size() * sizeof(u32),
             bytesTransferred);
@@ -1184,7 +1187,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         // IMPORTANT: This silently discards any superfluous bytes.
         readBuffer.resize(bytesTransferred / sizeof(u32));
 
-        if (!readBuffer.isEmpty())
+        if (!readBuffer.empty())
             logBuffer(readBuffer, "Results of manual read from Command Pipe");
 
         if (ec)
@@ -1196,12 +1199,12 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             this, [this] ()
     {
         static const int ManualDataRead_WordCount = 8192;
-        QVector<u32> readBuffer;
+        std::vector<u32> readBuffer;
         readBuffer.resize(ManualDataRead_WordCount);
         size_t bytesTransferred;
 
         auto ec = m_d->mvlc->read(
-            Pipe::Data,
+            mvlc::Pipe::Data,
             reinterpret_cast<u8 *>(readBuffer.data()),
             readBuffer.size() * sizeof(u32),
             bytesTransferred);
@@ -1209,7 +1212,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         // IMPORTANT: This silently discards any superfluous bytes.
         readBuffer.resize(bytesTransferred / sizeof(u32));
 
-        if (!readBuffer.isEmpty())
+        if (!readBuffer.empty())
             logBuffer(readBuffer, "Results of manual read from Data Pipe");
 
         if (ec)
@@ -1813,14 +1816,14 @@ void MVLCDevGUI::logMessage(const QString &msg)
     emit sigLogMessage(msg);
 }
 
-void MVLCDevGUI::logBuffer(const QVector<u32> &buffer, const QString &info)
+void MVLCDevGUI::logBuffer(const std::vector<u32> &buffer, const QString &info)
 {
     QStringList strBuffer;
     strBuffer.reserve(buffer.size() + 2);
 
     strBuffer << QString(">>> %1, size=%2").arg(info).arg(buffer.size());
 
-    for (int i = 0; i < buffer.size(); i++)
+    for (size_t i = 0; i < buffer.size(); i++)
     {
         u32 value = buffer.at(i);
 
@@ -1830,9 +1833,9 @@ void MVLCDevGUI::logBuffer(const QVector<u32> &buffer, const QString &info)
             .arg(value)
             ;
 
-        if (is_known_frame_header(value))
+        if (mvlc::is_known_frame_header(value))
         {
-            str += " " + decode_frame_header(value);
+            str += " " + QString::fromStdString(mvlc::decode_frame_header(value));
         }
 
         strBuffer << str;
@@ -1862,7 +1865,7 @@ void MVLCDevGUI::handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const Q
     size_t pktIdx = 0;
     for (const OwningPacketReadResult &rr: debugBuffer)
     {
-        const mesytec::mvme_mvlc::eth::PacketReadResult &prr = rr.prr;
+        const mesytec::mvlc::eth::PacketReadResult &prr = rr.prr;
 
         logMessage(QString("* pkt %1/%2 size=%3 bytes (%4 words), lossFromPrevious=%5, availablePayloadWords=%6, leftOverBytes=%7")
                    .arg(pktIdx + 1)
@@ -1916,14 +1919,14 @@ void MVLCDevGUI::handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const Q
     logMessage(QString("<<< End Ethernet Header Debug (%1 packets)").arg(debugBuffer.size()));
 }
 
-void MVLCDevGUI::handleStackErrorNotification(const QVector<u32> &buffer)
+void MVLCDevGUI::handleStackErrorNotification(const std::vector<u32> &buffer)
 {
-    if (!buffer.isEmpty())
+    if (!buffer.empty())
     {
-        auto info = extract_frame_info(buffer.at(0));
+        auto info = mvlc::extract_frame_info(buffer.at(0));
 
-        if (info.type == frame_headers::StackError
-            && info.stack < mesytec::mvme_mvlc::stacks::StackCount)
+        if (info.type == mvlc::frame_headers::StackError
+            && info.stack < mesytec::mvlc::stacks::StackCount)
         {
             ++m_d->stackErrorNotificationStats.counts[info.stack];
         }
@@ -2030,7 +2033,7 @@ MVLCRegisterWidget::MVLCRegisterWidget(MVLCObject *mvlc, QWidget *parent)
     {
         auto spin_stackId = new QSpinBox();
         spin_stackId->setMinimum(0);
-        spin_stackId->setMaximum(mvme_mvlc::stacks::StackCount - 1);
+        spin_stackId->setMaximum(mvlc::stacks::StackCount - 1);
 
         auto pb_readStackInfo = new QPushButton("Read Info");
 
@@ -2179,10 +2182,10 @@ u32 MVLCRegisterWidget::readRegister(u16 address)
 
 void MVLCRegisterWidget::readStackInfo(u8 stackId)
 {
-    assert(stackId < stacks::StackCount);
+    assert(stackId < mvlc::stacks::StackCount);
 
-    u16 offsetRegister = stacks::Stack0OffsetRegister + stackId * AddressIncrement;
-    u16 triggerRegister = stacks::Stack0TriggerRegister + stackId * AddressIncrement;
+    u16 offsetRegister = mvlc::stacks::Stack0OffsetRegister + stackId * mvlc::AddressIncrement;
+    u16 triggerRegister = mvlc::stacks::Stack0TriggerRegister + stackId * mvlc::AddressIncrement;
 
     u32 stackOffset = 0u;
     u32 stackTriggers = 0u;
@@ -2193,7 +2196,7 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
         return;
     }
 
-    stackOffset &= stacks::StackOffsetBitMaskWords;
+    stackOffset &= mvlc::stacks::StackOffsetBitMaskWords;
 
     if (auto ec = m_mvlc->readRegister(triggerRegister, stackTriggers))
     {
@@ -2214,7 +2217,7 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
         .arg(stackTriggers, 4, 16, QLatin1Char('0'))
         .arg(stackTriggers);
 
-    u16 reg = stacks::StackMemoryBegin + stackOffset;
+    u16 reg = mvlc::stacks::StackMemoryBegin + stackOffset;
     u32 stackHeader = 0u;
 
     if (auto ec = m_mvlc->readRegister(reg, stackHeader))
@@ -2236,7 +2239,7 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
         static const int StackMaxSize = 128;
         int stackSize = 0;
 
-        while (stackSize <= StackMaxSize && reg < stacks::StackMemoryEnd)
+        while (stackSize <= StackMaxSize && reg < mvlc::stacks::StackMemoryEnd)
         {
             u32 value = 0u;
             if (auto ec = m_mvlc->readRegister(reg, value))
@@ -2258,7 +2261,7 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
                 break;
             }
 
-            reg += AddressIncrement;
+            reg += mvlc::AddressIncrement;
             stackSize++;
         }
     }

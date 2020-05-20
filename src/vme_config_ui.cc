@@ -45,10 +45,10 @@
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QThread>
+#include <mesytec-mvlc/mvlc_constants.h>
 
 #include "analysis/analysis.h"
 #include "data_filter_edit.h"
-#include "mvlc/mvlc_constants.h"
 #include "qt-collapsible-section/Section.h"
 #include "vme_config.h"
 #include "vme_script.h"
@@ -158,7 +158,7 @@ EventConfigDialog::EventConfigDialog(
             m_d->stack_options, &QStackedWidget::setCurrentIndex);
 
     connect(m_d->combo_condition, qOverload<int>(&QComboBox::currentIndexChanged),
-            this, [this] (int index) { m_d->on_trigger_condition_changed(); });
+            this, [this] (int /*index*/) { m_d->on_trigger_condition_changed(); });
 
     connect(m_d->spin_irqLevel, qOverload<int>(&QSpinBox::valueChanged),
             this, [this] () { m_d->on_irq_level_changed(); });
@@ -270,8 +270,9 @@ EventConfigDialog::EventConfigDialog(
                     auto on_timer_base_changed = [this] (const QString &unit)
                     {
                         m_d->spin_timerPeriod->setSuffix(QSL(" ") + unit);
-                        m_d->spin_timerPeriod->setMinimum(unit == "ns" ? mvme_mvlc::stacks::TimerPeriodMin_ns : 1);
-                        m_d->spin_timerPeriod->setMaximum(mvme_mvlc::stacks::TimerPeriodMax);
+                        m_d->spin_timerPeriod->setMinimum(
+                            unit == "ns" ? mvlc::stacks::TimerPeriodMin_ns : 1);
+                        m_d->spin_timerPeriod->setMaximum(mvlc::stacks::TimerPeriodMax);
                     };
 
                     on_timer_base_changed("ns");

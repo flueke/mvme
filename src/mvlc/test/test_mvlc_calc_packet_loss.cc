@@ -21,9 +21,10 @@
 #include <gtest/gtest.h>
 #include <iostream>
 
-#include "mvlc/mvlc_impl_eth.h"
+#include <mesytec-mvlc/mvlc_impl_eth.h>
+#include "typedefs.h"
 
-using namespace mesytec::mvme_mvlc::eth;
+using namespace mesytec::mvlc::eth;
 
 // Prototype is: s32 calc_packet_loss(u16 lastPacketNumber, u16 packetNumber);
 
