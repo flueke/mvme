@@ -258,6 +258,7 @@ add_library(libmvme SHARED
     listfile_replay_worker.cc
     mesytec_diagnostics.cc
     multi_event_splitter.cc
+    mvlc/vmeconfig_to_crateconfig.cc
     mvme_context.cc
     mvme_context_lib.cc
     mvme.cpp
@@ -322,10 +323,11 @@ set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 generate_export_header(libmvme)
 
 target_link_libraries(libmvme
+    PUBLIC mesytec-mvlc
     PUBLIC libmvme_core
     PUBLIC ${QWT_LIBRARY}
-    PRIVATE nlohmann-json
     PUBLIC cpp11-on-multicore
+    PRIVATE nlohmann-json
     PRIVATE liba2_static
     PRIVATE Threads::Threads
     PRIVATE jcon
