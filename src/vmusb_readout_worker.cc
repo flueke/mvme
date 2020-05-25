@@ -620,7 +620,6 @@ void VMUSBReadoutWorker::readoutLoop()
 
     setState(DAQState::Running);
 
-    DAQStats &stats(m_workerContext.daqStats);
     QElapsedTimer logReadErrorTimer;
     u64 nReadErrors = 0;
     u64 nGoodReads = 0;

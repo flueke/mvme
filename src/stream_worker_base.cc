@@ -45,7 +45,7 @@ StreamWorkerBase::~StreamWorkerBase()
     qDebug() << __PRETTY_FUNCTION__ << this << this->objectName() << this->parent();
 }
 
-bool StreamWorkerBase::logMessage(const MessageSeverity &sev,
+bool StreamWorkerBase::logMessage(const MessageSeverity &/*sev*/,
                                   const QString &msg,
                                   bool useThrottle)
 {

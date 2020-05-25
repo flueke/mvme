@@ -1012,7 +1012,7 @@ void MVMEStreamProcessorPrivate::stepNextEvent(ProcessingState &procState)
     const auto bufferNumber = procState.buffer->id;
     u32 sectionHeader = *procState.buffer->asU32(procState.lastSectionHeaderOffset * sizeof(u32));
     u32 sectionType = lf.getSectionType(sectionHeader);
-    u32 sectionSize = lf.getSectionSize(sectionHeader);
+    //u32 sectionSize = lf.getSectionSize(sectionHeader);
     const u32 eventIndex = lf.getEventIndex(sectionHeader);
 
     Q_ASSERT(sectionType == ListfileSections::SectionType_Event);

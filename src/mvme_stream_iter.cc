@@ -175,7 +175,7 @@ StreamIterator::Result &StreamIterator::startEventSectionIteration(u32 sectionHe
     //
     auto &lfc(m_result.lfc);
 
-    const u32 eventIndex = lfc.getEventIndex(sectionHeader);
+    //const u32 eventIndex = lfc.getEventIndex(sectionHeader);
     BufferIterator localEventIter(reinterpret_cast<u8 *>(data), size * sizeof(u32));
     m_result.resetModuleDataOffsets();
 
@@ -320,9 +320,9 @@ StreamIterator::Result &StreamIterator::nextEvent()
         // was to be called again. If it's not the case add the EventComplete
         // flag to the result flags. -> The caller should get result.flags =
         // (MultiEvent | EventComplete) as it was intended.
-        {
-            u32 nextBeginOffset = getOffsets(0).dataEnd + 1; // FIXME: leftoff
-        }
+        //{
+        //    u32 nextBeginOffset = getOffsets(0).dataEnd + 1; // FIXME: leftoff
+        //}
     }
 
     return m_result;
