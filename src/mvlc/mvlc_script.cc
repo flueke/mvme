@@ -627,21 +627,21 @@ std::vector<u32> to_mvlc_buffer(const Command &cmd)
         case CommandType::ReferenceWord:
             return std::vector<u32>
             {
-                (static_cast<u8>(SuperCT::ReferenceWord) << SuperCmdShift)
+                (static_cast<u32>(SuperCT::ReferenceWord) << SuperCmdShift)
                     | (cmd.value & SuperCmdArgMask),
             };
 
         case CommandType::ReadLocal:
             return std::vector<u32>
             {
-                (static_cast<u8>(SuperCT::ReadLocal) << SuperCmdShift)
+                (static_cast<u32>(SuperCT::ReadLocal) << SuperCmdShift)
                     | (cmd.address & SuperCmdArgMask),
             };
 
         case CommandType::ReadLocalBlock:
             return std::vector<u32>
             {
-                (static_cast<u8>(SuperCT::ReadLocalBlock) << SuperCmdShift)
+                (static_cast<u32>(SuperCT::ReadLocalBlock) << SuperCmdShift)
                     | (cmd.address & SuperCmdArgMask),
                 cmd.value
             };
@@ -649,7 +649,7 @@ std::vector<u32> to_mvlc_buffer(const Command &cmd)
         case CommandType::WriteLocal:
             return std::vector<u32>
             {
-                (static_cast<u8>(SuperCT::WriteLocal) << SuperCmdShift)
+                (static_cast<u32>(SuperCT::WriteLocal) << SuperCmdShift)
                     | (cmd.address & SuperCmdArgMask),
                 cmd.value
             };
@@ -657,7 +657,7 @@ std::vector<u32> to_mvlc_buffer(const Command &cmd)
         case CommandType::WriteReset:
             return std::vector<u32>
             {
-                static_cast<u8>(SuperCT::WriteReset) << SuperCmdShift,
+                static_cast<u32>(SuperCT::WriteReset) << SuperCmdShift,
             };
 
         case CommandType::Stack:
@@ -687,14 +687,14 @@ std::vector<u32> to_mvlc_command_buffer(const CommandList &cmdList)
 
     std::vector<u32> result;
 
-    result.push_back(static_cast<u8>(SuperCT::CmdBufferStart) << SuperCmdShift);
+    result.push_back(static_cast<u32>(SuperCT::CmdBufferStart) << SuperCmdShift);
     for (const auto &cmd: cmdList)
     {
         auto cmdBuffer = to_mvlc_buffer(cmd);
         std::copy(std::begin(cmdBuffer), std::end(cmdBuffer),
                   std::back_inserter(result));
     }
-    result.push_back(static_cast<u8>(SuperCT::CmdBufferEnd) << SuperCmdShift);
+    result.push_back(static_cast<u32>(SuperCT::CmdBufferEnd) << SuperCmdShift);
 
     return result;
 }

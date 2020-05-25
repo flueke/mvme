@@ -66,7 +66,7 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
     using namespace mesytec::mvlc::stack_commands;
     std::vector<u32> result;
 
-    u32 firstWord = static_cast<u8>(StackCommandType::StackStart) << CmdShift | outPipe << CmdArg0Shift;
+    u32 firstWord = static_cast<u32>(StackCommandType::StackStart) << CmdShift | outPipe << CmdArg0Shift;
     result.push_back(firstWord);
 
     for (auto &cmd: script)
@@ -86,7 +86,7 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::Write:
             case CommandType::WriteAbs:
                 {
-                    firstWord = static_cast<u8>(StackCommandType::VMEWrite) << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::VMEWrite) << CmdShift;
                     firstWord |= cmd.addressMode << CmdArg0Shift;
                     firstWord |= convert_data_width_untyped(cmd.dataWidth) << CmdArg1Shift;
                     result.push_back(firstWord);
@@ -96,7 +96,7 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
 
             case CommandType::Read:
                 {
-                    firstWord = static_cast<u8>(StackCommandType::VMERead) << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::VMERead) << CmdShift;
                     firstWord |= cmd.addressMode << CmdArg0Shift;
                     firstWord |= convert_data_width_untyped(cmd.dataWidth) << CmdArg1Shift;
                     result.push_back(firstWord);
@@ -106,7 +106,7 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::BLT:
             case CommandType::BLTFifo:
                 {
-                    firstWord = static_cast<u8>(StackCommandType::VMERead) << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::VMERead) << CmdShift;
                     firstWord |= vme_address_modes::BLT32 << CmdArg0Shift;
                     firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
                     result.push_back(firstWord);
@@ -116,7 +116,7 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::MBLT:
             case CommandType::MBLTFifo:
                 {
-                    firstWord = static_cast<u8>(StackCommandType::VMERead) << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::VMERead) << CmdShift;
                     firstWord |= vme_address_modes::MBLT64 << CmdArg0Shift;
                     firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
                     result.push_back(firstWord);
@@ -125,7 +125,7 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
 
             case CommandType::Blk2eSST64:
                 {
-                    firstWord = static_cast<u8>(StackCommandType::VMERead) << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::VMERead) << CmdShift;
                     firstWord |= (vme_address_modes::Blk2eSST64
                                   | (cmd.blk2eSSTRate << mvlc::Blk2eSSTRateShift))
                         << CmdArg0Shift;
@@ -136,14 +136,14 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
 
             case CommandType::Marker:
                 {
-                    firstWord = static_cast<u8>(StackCommandType::WriteMarker) << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::WriteMarker) << CmdShift;
                     result.push_back(firstWord);
                     result.push_back(cmd.value);
                 } break;
 
             case CommandType::MVLC_WriteSpecial:
                 {
-                    firstWord = static_cast<u8>(StackCommandType::WriteSpecial) << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::WriteSpecial) << CmdShift;
                     firstWord |= cmd.value & 0x00FFFFFFu;
                     result.push_back(firstWord);
                 } break;
@@ -157,7 +157,7 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
         }
     }
 
-    firstWord = static_cast<u8>(StackCommandType::StackEnd) << CmdShift;
+    firstWord = static_cast<u32>(StackCommandType::StackEnd) << CmdShift;
     result.push_back(firstWord);
 
     return result;
@@ -181,7 +181,7 @@ std::vector<u32> build_upload_commands(const std::vector<u32> &stack, u16 startA
 
     for (u32 stackValue: stack)
     {
-        u32 cmdValue = static_cast<u8>(SuperCommandType::WriteLocal) << SuperCmdShift;
+        u32 cmdValue = static_cast<u32>(SuperCommandType::WriteLocal) << SuperCmdShift;
         cmdValue |= address;
         address += mvlc::AddressIncrement;
         result.push_back(cmdValue);
@@ -205,9 +205,9 @@ std::vector<u32> build_upload_command_buffer(const std::vector<u32> &stack, u16 
     std::vector<u32> result;
     auto uploadData = build_upload_commands(stack, startAddress);
     result.reserve(uploadData.size() + 2);
-    result.push_back(static_cast<u8>(SuperCommandType::CmdBufferStart) << SuperCmdShift);
+    result.push_back(static_cast<u32>(SuperCommandType::CmdBufferStart) << SuperCmdShift);
     std::copy(uploadData.begin(), uploadData.end(), std::back_inserter(result));
-    result.push_back(static_cast<u8>(SuperCommandType::CmdBufferEnd) << SuperCmdShift);
+    result.push_back(static_cast<u32>(SuperCommandType::CmdBufferEnd) << SuperCmdShift);
 
     return result;
 }
