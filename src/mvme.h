@@ -156,7 +156,7 @@ private slots:
     void doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs,
                             RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
 
-    void handleSniffedInputBuffer(const DataBuffer &buffer);
+    void handleSniffedReadoutBuffer(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
 
 
 private:

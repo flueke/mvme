@@ -173,6 +173,75 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
     return {};
 }
 
+std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig &vmeConfig, Logger logger)
+{
+    std::vector<u32> triggers;
+
+    u8 stackId = mvlc::stacks::ImmediateStackID + 1;
+    u16 timersInUse = 0u;
+
+    for (const auto &event: vmeConfig.getEventConfigs())
+    {
+        switch (event->triggerCondition)
+        {
+            case TriggerCondition::Interrupt:
+                {
+                    logger(QSL("    Event %1: Stack %2, IRQ %3")
+                           .arg(event->objectName()).arg(stackId)
+                           .arg(event->irqLevel));
+
+                    bool useIACK = event->triggerOptions["IRQUseIACK"].toBool();
+
+                    u32 triggerVal = (useIACK
+                                      ? mvlc::stacks::IRQWithIACK
+                                      : mvlc::stacks::IRQNoIACK
+                                      ) << mvlc::stacks::TriggerTypeShift;
+
+                    triggerVal |= (event->irqLevel - 1) & mvlc::stacks::TriggerBitsMask;
+
+                    triggers.push_back(triggerVal);
+                } break;
+
+            case TriggerCondition::Periodic:
+                if (timersInUse >= mvlc::stacks::TimerCount)
+                {
+                    auto ec = make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
+                    return std::make_pair(triggers, ec);
+                }
+                else
+                {
+                    logger(QSL("    Event %1: Stack %2, periodic")
+                           .arg(event->objectName()).arg(stackId));
+
+                    // Set the stack trigger to 'External'. The actual setup of
+                    // the timer and the connection between the Timer and
+                    // StackStart units is done in setup_trigger_io().
+                    u32 triggerVal = mvlc::stacks::External << mvlc::stacks::TriggerTypeShift;
+                    triggers.push_back(triggerVal);
+                    ++timersInUse;
+                } break;
+
+            case TriggerCondition::TriggerIO:
+                {
+                    logger(QSL("    Event %1: Stack %2, via MVLC Trigger I/O")
+                           .arg(event->objectName()).arg(stackId));
+
+                    // Set the stack trigger to 'External'. The actual trigger
+                    // setup is done by the user via the trigger io gui.
+                    u32 triggerVal = mvlc::stacks::External << mvlc::stacks::TriggerTypeShift;
+                    triggers.push_back(triggerVal);
+                }
+                break;
+
+            InvalidDefaultCase;
+        }
+
+        stackId++;
+    }
+
+    return std::make_pair(triggers, std::error_code{});
+}
+
 std::error_code setup_trigger_io(
     MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
 {
@@ -328,10 +397,12 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
         return ec;
     }
 
+#if 0
     logger("  Enabling triggers");
 
     if (auto ec = enable_triggers(mvlc, vmeConfig, logger))
         return ec;
+#endif
 
     return {};
 }

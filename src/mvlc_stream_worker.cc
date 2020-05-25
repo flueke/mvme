@@ -30,6 +30,7 @@
 #include "mvme_context.h"
 #include "vme_config_scripts.h"
 #include "vme_analysis_common.h"
+#include "mvlc/vmeconfig_to_crateconfig.h"
 
 using namespace vme_analysis_common;
 using namespace mesytec;
@@ -393,8 +394,6 @@ void MVLC_StreamWorker::logParserInfo(
 
 void MVLC_StreamWorker::start()
 {
-#warning "Reimplement the mvlc analysis side"
-#if 0
     {
         std::unique_lock<std::mutex> guard(m_stateMutex);
 
@@ -420,7 +419,8 @@ void MVLC_StreamWorker::start()
     try
     {
         UniqueLock guard(m_parserCountersMutex);
-        m_parser = make_readout_parser(collect_readout_scripts(*vmeConfig));
+        auto mvlcCrateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
+        m_parser = mesytec::mvlc::readout_parser::make_readout_parser(mvlcCrateConfig.stacks);
         m_parserCountersCopy = m_parser.counters;
         logParserInfo(m_parser);
     }
@@ -554,7 +554,6 @@ void MVLC_StreamWorker::start()
     }
 
     setState(WorkerState::Idle);
-#endif
 }
 
 void MVLC_StreamWorker::blockIfPaused()

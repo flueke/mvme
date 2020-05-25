@@ -29,6 +29,7 @@
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
 #include "listfile_browser.h"
+#include "mesytec-mvlc/util/readout_buffer.h"
 #include "mesytec_diagnostics.h"
 #include "mvlc/mvlc_dev_gui.h"
 #include "mvlc/mvlc_trigger_io_editor.h"
@@ -482,8 +483,8 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
                 this, &MVMEMainWindow::runWorkspaceSettingsDialog);
 
         // MVMEContext -> The World
-        connect(m_d->m_context, &MVMEContext::sniffedInputBufferReady,
-                this, &MVMEMainWindow::handleSniffedInputBuffer);
+        connect(m_d->m_context, &MVMEContext::sniffedReadoutBufferReady,
+                this, &MVMEMainWindow::handleSniffedReadoutBuffer);
 
         static const int DAQControlWidgetUpdateInterval_ms = 500;
 
@@ -2018,9 +2019,8 @@ void MVMEMainWindow::closeAllHistogramWidgets()
     }
 }
 
-void MVMEMainWindow::handleSniffedInputBuffer(const DataBuffer &buffer)
+void MVMEMainWindow::handleSniffedReadoutBuffer(const mesytec::mvlc::ReadoutBuffer &/*readoutBuffer*/)
 {
     // TODO: Add an MVLCInputBufferDebugHandler similar to
     // MVLCParserDebugHandler. Let
-    (void) buffer;
 }

@@ -29,6 +29,7 @@
 #include "analysis/analysis_ui.h"
 #include "event_server/server/event_server.h"
 #include "file_autosaver.h"
+#include "mesytec-mvlc/util/readout_buffer_queues.h"
 #include "mvlc_listfile.h"
 #include "mvlc_listfile_worker.h"
 #include "mvlc/mvlc_vme_controller.h"
@@ -56,6 +57,7 @@
 #include <QProgressDialog>
 #include <QtConcurrent>
 #include <QThread>
+#include <qnamespace.h>
 #include <tuple>
 
 namespace
@@ -170,6 +172,11 @@ struct MVMEContextPrivate
 
     ListfileReplayHandle listfileReplayHandle;
     std::unique_ptr<ListfileReplayWorker> listfileReplayWorker;
+    mesytec::mvlc::ReadoutBufferQueues mvlcSnoopQueues;
+
+    MVMEContextPrivate()
+        : mvlcSnoopQueues(DataBufferSize, DataBufferCount)
+    {}
 
     void stopDAQ();
     void pauseDAQ();
@@ -231,9 +238,11 @@ void MVMEContextPrivate::stopDAQReadout()
 
     if (m_q->m_readoutWorker->isRunning())
     {
-        m_q->m_readoutWorker->stop();
         auto con = QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqStopped,
                                     &localLoop, &QEventLoop::quit);
+        QMetaObject::invokeMethod(
+            m_q, [this] () { m_q->m_readoutWorker->stop(); }, Qt::QueuedConnection);
+
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -266,10 +275,15 @@ void MVMEContextPrivate::pauseDAQReadout()
 
     if (m_q->m_readoutWorker->getState() == DAQState::Running)
     {
-        m_q->m_readoutWorker->pause();
         auto con = QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqPaused,
                                     &localLoop, &QEventLoop::quit);
+        QMetaObject::invokeMethod(
+            m_q, [this] () { m_q->m_readoutWorker->pause(); }, Qt::QueuedConnection);
+
+        qDebug() << __PRETTY_FUNCTION__ << "entering localLoop";
         localLoop.exec();
+        qDebug() << __PRETTY_FUNCTION__ << "left localLoop";
+
         QObject::disconnect(con);
     }
 
@@ -300,11 +314,12 @@ void MVMEContextPrivate::stopDAQReplay()
     if (listfileReplayWorker->getState() == DAQState::Running
         || listfileReplayWorker->getState() == DAQState::Paused)
     {
-        listfileReplayWorker->stop();
-
         auto con = QObject::connect(
             listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             &localLoop, &QEventLoop::quit);
+
+        QMetaObject::invokeMethod(
+            m_q, [this] () { listfileReplayWorker->stop(); }, Qt::QueuedConnection);
 
         localLoop.exec();
         QObject::disconnect(con);
@@ -320,9 +335,12 @@ void MVMEContextPrivate::stopDAQReplay()
     // as we enter the event loop.
     if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
-        m_q->m_streamWorker->stop();
         auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                                     &localLoop, &QEventLoop::quit);
+
+        QMetaObject::invokeMethod(
+            m_q, [this] () { m_q->m_streamWorker->stop(); }, Qt::QueuedConnection);
+
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -347,11 +365,13 @@ void MVMEContextPrivate::pauseDAQReplay()
 
     if (listfileReplayWorker->getState() == DAQState::Running)
     {
-        listfileReplayWorker->pause();
-
         auto con = QObject::connect(
             listfileReplayWorker.get(), &ListfileReplayWorker::replayPaused,
             &localLoop, &QEventLoop::quit);
+
+        QMetaObject::invokeMethod(
+            m_q, [this] () { listfileReplayWorker->pause(); }, Qt::QueuedConnection);
+
         localLoop.exec();
 
         QObject::disconnect(con);
@@ -736,7 +756,9 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     if (auto mvlcReadoutWorker = qobject_cast<MVLCReadoutWorker *>(m_readoutWorker))
     {
         connect(mvlcReadoutWorker, &MVLCReadoutWorker::debugInfoReady,
-                this, &MVMEContext::sniffedInputBufferReady);
+                this, &MVMEContext::sniffedReadoutBufferReady);
+
+        mvlcReadoutWorker->setSnoopQueues(&m_d->mvlcSnoopQueues);
     }
 
     // replay worker (running on the readout thread)
@@ -2312,7 +2334,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
         m_d->m_vmeConfigAutoSaver->start();
 
         connect(m_d->m_vmeConfigAutoSaver.get(), &FileAutoSaver::writeError,
-                this, [this] (const QString &filename, const QString &errorMessage) {
+                this, [this] (const QString &/*filename*/, const QString &errorMessage) {
             logMessage(errorMessage);
         });
 
@@ -2326,7 +2348,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
         m_d->m_analysisAutoSaver->start();
 
         connect(m_d->m_analysisAutoSaver.get(), &FileAutoSaver::writeError,
-                this, [this] (const QString &filename, const QString &errorMessage) {
+                this, [this] (const QString &/*filename*/, const QString &errorMessage) {
             logMessage(errorMessage);
         });
 

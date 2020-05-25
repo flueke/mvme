@@ -21,6 +21,7 @@
 #ifndef __VME_READOUT_WORKER_H__
 #define __VME_READOUT_WORKER_H__
 
+#include <mesytec-mvlc/util/readout_buffer_queues.h>
 #include "data_buffer_queue.h"
 #include "globals.h"
 #include "vme_config.h"
@@ -33,8 +34,13 @@ struct VMEReadoutWorkerContext
     VMEController *controller;
     DAQStats daqStats;
     VMEConfig *vmeConfig;
+    // Legacy buffer snoop queues for non-mvlc controllers.
     ThreadSafeDataBufferQueue *freeBuffers,
                               *fullBuffers;
+
+    // Snoop queues for the MVLC controller.
+    mesytec::mvlc::ReadoutBufferQueues *snoopQueues;
+
     ListFileOutputInfo *listfileOutputInfo;
     RunInfo *runInfo;
 

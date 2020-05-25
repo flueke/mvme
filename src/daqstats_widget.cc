@@ -26,6 +26,7 @@
 #include <QFormLayout>
 #include <QTimer>
 #include <mesytec-mvlc/mvlc_impl_eth.h>
+#include <mesytec-mvlc/mvlc_readout.h>
 
 #include "mvlc_readout_worker.h"
 #include "mvme_context.h"
@@ -50,7 +51,7 @@ struct DAQStatsWidgetPrivate
     {
         DAQStats daqStats;
         SIS3153ReadoutWorker::Counters sisCounters;
-        MVLCReadoutCounters mvlcCounters;
+        mesytec::mvlc::ReadoutWorker::Counters mvlcCounters;
         mesytec::mvlc::eth::PipeStats mvlcDataPipeStats;
     };
 
@@ -140,6 +141,7 @@ struct DAQStatsWidgetPrivate
         label_sisEventLoss->setText(lossText);
     }
 
+#if 0
     void update_MVLC_USB(const MVLCReadoutCounters &mvlcCounters,
                          const MVLCReadoutCounters &prevMVLCCounters,
                          double dt_s)
@@ -186,6 +188,7 @@ struct DAQStatsWidgetPrivate
              .arg(dataPipeStats.lostPackets)
              .arg(packetLossRate)));
     }
+#endif
 
     void update_MVLC_common(mesytec::mvme_mvlc::MVLC_VMEController * /*mvlcCtrl*/)
     {
@@ -266,6 +269,7 @@ struct DAQStatsWidgetPrivate
             prevCounters.sisCounters = sisCounters;
         }
 
+#if 0 // TODO: reive the mvlc daqstats widget
         if (auto mvlcWorker = qobject_cast<MVLCReadoutWorker *>(readoutWorker))
         {
             auto mvlcCounters = mvlcWorker->getReadoutCounters();
@@ -288,6 +292,7 @@ struct DAQStatsWidgetPrivate
 
             update_MVLC_common(mvlc);
         }
+#endif
 
         lastUpdateTime = QDateTime::currentDateTime();
     }

@@ -105,7 +105,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void moduleAboutToBeRemoved(ModuleConfig *module);
 
         // MVLC readout buffer sniffing
-        void sniffedInputBufferReady(const DataBuffer &buffer);
+        void sniffedReadoutBufferReady(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
 
     public:
         MVMEContext(MVMEMainWindow *mainwin, QObject *parent = 0);

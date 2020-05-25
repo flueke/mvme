@@ -67,6 +67,7 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         // MVLC specific methods
         //
         MVLCObject *getMVLCObject() { return m_mvlc; }
+        mvlc::MVLC getMVLC() { return m_mvlc->getMVLC(); }
         mvlc::ConnectionType connectionType() const { return m_mvlc->connectionType(); }
         mvlc::MVLCBasicInterface *getImpl() { return m_mvlc->getImpl(); }
         mvlc::Locks &getLocks() { return m_mvlc->getLocks(); }
