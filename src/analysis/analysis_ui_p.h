@@ -444,6 +444,7 @@ class MVLCParserDebugHandler: public QObject
         void handleDebugInfo(
             const DataBuffer &buffer,
             mesytec::mvlc::readout_parser::ReadoutParserState parserState,
+            const mesytec::mvlc::readout_parser::ReadoutParserCounters &parserCounters,
             const VMEConfig *vmeConfig,
             const analysis::Analysis *analysis);
 

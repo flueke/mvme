@@ -21,6 +21,7 @@
 #ifndef __MVLC_STREAM_WORKERS_H__
 #define __MVLC_STREAM_WORKERS_H__
 
+#include "mesytec-mvlc/mvlc_readout_parser.h"
 #include "stream_worker_base.h"
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
@@ -69,6 +70,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void debugInfoReady(
             const DataBuffer &buffer,
             const mesytec::mvlc::readout_parser::ReadoutParserState &parserState,
+            const mesytec::mvlc::readout_parser::ReadoutParserCounters &parserCounters,
             const VMEConfig *vmeConfig,
             const analysis::Analysis *analysis);
 
@@ -77,8 +79,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
     public:
         MVLC_StreamWorker(
             MVMEContext *context,
-            ThreadSafeDataBufferQueue *freeBuffers,
-            ThreadSafeDataBufferQueue *fullBuffers,
+            mesytec::mvlc::ReadoutBufferQueues &snoopQueues,
             QObject *parent = nullptr);
 
         ~MVLC_StreamWorker() override;
@@ -99,16 +100,6 @@ class MVLC_StreamWorker: public StreamWorkerBase
             return m_startPaused;
         }
 
-        void attachBufferConsumer(IMVMEStreamBufferConsumer *consumer) override
-        {
-            m_bufferConsumers.push_back(consumer);
-        }
-
-        void removeBufferConsumer(IMVMEStreamBufferConsumer *consumer) override
-        {
-            m_bufferConsumers.removeAll(consumer);
-        }
-
         void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer) override
         {
             m_moduleConsumers.push_back(consumer);
@@ -127,8 +118,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         mesytec::mvlc::readout_parser::ReadoutParserCounters getReadoutParserCounters() const
         {
-            UniqueLock guard(m_parserCountersMutex);
-            return m_parserCountersCopy;
+            return m_parserCountersSnapshot.copy();
         }
 
         void setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag) { m_diag = diag; }
@@ -160,8 +150,6 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void removeDiagnostics() { m_diag.reset(); }
 
     private:
-        ThreadSafeDataBufferQueue *getFreeBuffers() { return m_freeBuffers; }
-        ThreadSafeDataBufferQueue *getFullBuffers() { return m_fullBuffers; }
         void setState(MVMEStreamWorkerState newState);
 
         using UniqueLock = mesytec::mvlc::UniqueLock;
@@ -180,13 +168,16 @@ class MVLC_StreamWorker: public StreamWorkerBase
             OnNextError,
         };
 
-        void setupParserCallbacks(const VMEConfig *vmeConfig, analysis::Analysis *analysis);
-
-        void processBuffer(
-            DataBuffer *buffer,
+        void setupParserCallbacks(
             const RunInfo &runInfo,
             const VMEConfig *vmeConfig,
             analysis::Analysis *analysis);
+
+        void processBuffer(
+            const mesytec::mvlc::ReadoutBuffer *buffer,
+            const VMEConfig *vmeConfig,
+            const analysis::Analysis *analysis
+            );
 
         void blockIfPaused();
         void publishStateIfSingleStepping();
@@ -194,19 +185,17 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void logParserInfo(const mesytec::mvlc::readout_parser::ReadoutParserState &parser);
 
         MVMEContext *m_context;
-        ThreadSafeDataBufferQueue *m_freeBuffers,
-                                  *m_fullBuffers;
 
-        QVector<IMVMEStreamBufferConsumer *> m_bufferConsumers;
         QVector<IMVMEStreamModuleConsumer *> m_moduleConsumers;
 
         mutable mesytec::mvlc::TicketMutex m_countersMutex;
         MVMEStreamProcessorCounters m_counters = {};
 
+        mesytec::mvlc::ReadoutBufferQueues &m_snoopQueues;
         mesytec::mvlc::readout_parser::ReadoutParserCallbacks m_parserCallbacks;
         mesytec::mvlc::readout_parser::ReadoutParserState m_parser;
-        mutable mesytec::mvlc::TicketMutex m_parserCountersMutex;
-        mesytec::mvlc::readout_parser::ReadoutParserCounters m_parserCountersCopy = {};
+        mesytec::mvlc::Protected<mesytec::mvlc::readout_parser::ReadoutParserCounters> m_parserCounters;
+        mutable mesytec::mvlc::Protected<mesytec::mvlc::readout_parser::ReadoutParserCounters> m_parserCountersSnapshot;
 
         // Note: std::condition_variable requires an std::mutex, that's why a
         // TicketMutex is not used here.
