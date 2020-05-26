@@ -670,16 +670,6 @@ void MVMEStreamWorker::removeDiagnostics()
     m_d->streamProcessor.removeDiagnostics();
 }
 
-void MVMEStreamWorker::attachBufferConsumer(IMVMEStreamBufferConsumer *consumer)
-{
-    m_d->streamProcessor.attachBufferConsumer(consumer);
-}
-
-void MVMEStreamWorker::removeBufferConsumer(IMVMEStreamBufferConsumer *consumer)
-{
-    m_d->streamProcessor.removeBufferConsumer(consumer);
-}
-
 void MVMEStreamWorker::attachModuleConsumer(IMVMEStreamModuleConsumer *consumer)
 {
     m_d->streamProcessor.attachModuleConsumer(consumer);

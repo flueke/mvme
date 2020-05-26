@@ -21,6 +21,7 @@
 #include "stream_worker_base.h"
 
 #include "util/perf.h"
+#include "util/qt_str.h"
 
 QString to_string(const MVMEStreamWorkerState &state)
 {
