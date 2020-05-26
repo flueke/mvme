@@ -129,7 +129,8 @@ enum class ListFileFormat
 {
     Invalid,
     Plain,
-    ZIP
+    ZIP,
+    LZ4
 };
 
 QString toString(const ListFileFormat &fmt);
@@ -152,7 +153,7 @@ struct ListFileOutputInfo
     QString fullDirectory;      // Always the full path to the listfile output directory.
                                 // This is transient and not stored in the workspace settings.
 
-    int compressionLevel = 1;   // zlib compression level
+    int compressionLevel = 1;   // zlib/lz4 compression level
 
     QString prefix = QSL("mvmelst");
 

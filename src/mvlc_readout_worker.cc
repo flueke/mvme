@@ -29,10 +29,13 @@
 #include <mesytec-mvlc/mvlc_impl_eth.h>
 #include <mesytec-mvlc/mvlc_impl_usb.h>
 #include <thread>
+#include "mesytec-mvlc/mvlc_listfile.h"
+#include "mesytec-mvlc/mvlc_listfile_zip.h"
 #include "mesytec-mvlc/util/readout_buffer_queues.h"
 #include "mvlc/mvlc_qt_object.h"
 
 #include "mvlc/mvlc_util.h"
+#include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvlc_daq.h"
 #include "util_zip.h"
 #include "vme_analysis_common.h"
@@ -102,9 +105,7 @@ using namespace mesytec;
 using namespace mesytec::mvlc;
 using namespace mesytec::mvme_mvlc;
 
-static const size_t LocalEventBufferSize = Megabytes(1);
 static const size_t ReadBufferSize = Megabytes(1);
-static const auto ShutdownReadoutMaxWait = std::chrono::seconds(10);
 
 namespace
 {
@@ -488,13 +489,14 @@ struct MVLCReadoutWorker::Private
     MVLCReadoutWorker *q = nullptr;;
 
     std::unique_ptr<mesytec::mvlc::ReadoutWorker> mvlcReadoutWorker;
+    std::unique_ptr<mesytec::mvlc::listfile::ZipCreator> mvlcZipCreator;
     mvlc::ReadoutBufferQueues *snoopQueues;
 
     // lots of mvlc api layers
     MVLC_VMEController *mvlcCtrl = nullptr;;
     MVLCObject *mvlcObj = nullptr;;
 
-    ListfileOutput listfileOut;
+    //ListfileOutput listfileOut;
     u32 nextOutputBufferNumber = 1u;;
 
     std::atomic<DAQState> state;
@@ -613,11 +615,52 @@ void MVLCReadoutWorker::start(quint32 cycles)
         if (ec)
             throw ec;
 
+        mvlc::listfile::WriteHandle *listfileWriteHandle = nullptr;
+        QString listfileArchiveName;
+
+        if (m_workerContext.listfileOutputInfo->enabled)
+        {
+            auto outInfo = m_workerContext.listfileOutputInfo;
+            auto archiveName = make_new_listfile_name(outInfo);
+            listfileArchiveName = archiveName;
+            auto memberName = QFileInfo(archiveName).completeBaseName();
+            memberName += QSL(".mvlclst");
+
+            if (outInfo->format != ListFileFormat::ZIP
+                && outInfo->format != ListFileFormat::LZ4)
+            {
+                throw std::runtime_error("Unsupported listfile format");
+            }
+
+            d->mvlcZipCreator = std::make_unique<mvlc::listfile::ZipCreator>();
+            d->mvlcZipCreator->createArchive(archiveName.toStdString());
+
+            if (outInfo->format == ListFileFormat::ZIP)
+            {
+                listfileWriteHandle = d->mvlcZipCreator->createZIPEntry(
+                    memberName.toStdString(), outInfo->compressionLevel);
+            }
+            else if (outInfo->format == ListFileFormat::LZ4)
+            {
+                listfileWriteHandle = d->mvlcZipCreator->createLZ4Entry(
+                    memberName.toStdString(), outInfo->compressionLevel);
+            }
+
+            assert(listfileWriteHandle);
+
+            if (listfileWriteHandle)
+            {
+                mvlc::listfile::listfile_write_preamble(
+                    *listfileWriteHandle,
+                    mesytec::mvme::vmeconfig_to_crateconfig(getContext().vmeConfig));
+            }
+        }
+
         d->mvlcReadoutWorker = std::make_unique<mvlc::ReadoutWorker>(
             d->mvlcCtrl->getMVLC(),
             triggers,
             *d->snoopQueues,
-            nullptr); // TODO: listfile write handle
+            listfileWriteHandle);
 
         auto fStart = d->mvlcReadoutWorker->start();
 
@@ -627,7 +670,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         setState(DAQState::Running);
 
         m_workerContext.daqStats.start();
-        m_workerContext.daqStats.listfileFilename = d->listfileOut.outFilename;
+        m_workerContext.daqStats.listfileFilename = listfileArchiveName;
 
         // wait until readout done
         while (d->mvlcReadoutWorker->state() != ReadoutWorker::State::Idle)
@@ -642,6 +685,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
             d->updateDAQStats();
         }
 
+        d->mvlcZipCreator.reset();
         m_workerContext.daqStats.stop();
 
 #if 0

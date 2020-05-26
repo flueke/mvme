@@ -25,6 +25,8 @@
 #include <QIODevice>
 
 #include "typedefs.h"
+#include "vme_config.h"
+#include <mesytec-mvlc/mvlc_listfile.h>
 
 namespace mvme_mvlc_listfile
 {
@@ -38,6 +40,9 @@ const char *get_filemagic_usb();
 QByteArray read_file_magic(QIODevice &listfile);
 QByteArray read_vme_config_data(QIODevice &listfile);
 
+void listfile_write_mvme_config(
+    mesytec::mvlc::listfile::WriteHandle &lf_out,
+    const VMEConfig &vmeConfig);
 }
 
 #endif /* __MVME_MVLC_LISTFILE_H__ */

@@ -18,6 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+#include <QJsonDocument>
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mvlc_listfile.h"
 #include "util_zip.h"
@@ -122,4 +123,26 @@ QByteArray read_vme_config_data(QIODevice &listfile)
     return buffer;
 }
 
+void listfile_write_mvme_config(
+    mesytec::mvlc::listfile::WriteHandle &lf_out,
+    const VMEConfig &vmeConfig)
+{
+    QJsonObject json;
+    vmeConfig.write(json);
+    QJsonObject parentJson;
+    parentJson["VMEConfig"] = json;
+    QJsonDocument doc(parentJson);
+    QByteArray bytes(doc.toJson());
+
+    // Pad using spaces. The Qt JSON parser will handle this without error when
+    // reading it back.
+    while (bytes.size() % sizeof(u32))
+        bytes.append(' ');
+
+    mesytec::mvlc::listfile::listfile_write_system_event(
+        lf_out, mesytec::mvlc::system_event::subtype::MVMEConfig,
+        reinterpret_cast<const u32 *>(bytes.data()),
+        bytes.size() / sizeof(u32));
 }
+
+} // end namespace mvme_mvlc_listfile
