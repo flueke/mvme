@@ -606,6 +606,8 @@ void MVLCReadoutWorker::start(quint32 cycles)
         if (auto ec = setup_mvlc(*d->mvlcObj, *getContext().vmeConfig, logger))
             throw ec;
 
+        logMessage("  Enabling triggers");
+
         std::vector<u32> triggers;
         std::error_code ec;
 
@@ -635,7 +637,9 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 throw std::runtime_error("Unsupported listfile format");
             }
 
+            logMessage("");
             logger(QString("Writing listfile into %1").arg(listfileArchiveName));
+            logMessage("");
 
             d->mvlcZipCreator = std::make_unique<mvlc::listfile::ZipCreator>();
             d->mvlcZipCreator->createArchive(listfileArchiveName.toStdString());
@@ -672,12 +676,14 @@ void MVLCReadoutWorker::start(quint32 cycles)
         if (auto ec = fStart.get())
             throw ec;
 
+        logMessage("Entering readout loop");
+
         setState(DAQState::Running);
 
         m_workerContext.daqStats.start();
         m_workerContext.daqStats.listfileFilename = listfileArchiveName;
 
-        // wait until readout done
+        // wait until readout done while periodically updating the DAQ stats
         while (d->mvlcReadoutWorker->state() != ReadoutWorker::State::Idle)
         {
             d->mvlcReadoutWorker->waitableState().wait_for(
@@ -690,8 +696,35 @@ void MVLCReadoutWorker::start(quint32 cycles)
             d->updateDAQStats();
         }
 
-        d->mvlcZipCreator.reset();
+        logMessage("Leaving readout loop");
+        logMessage("");
+
+        vme_daq_shutdown(getContext().vmeConfig, d->mvlcCtrl, logger);
         m_workerContext.daqStats.stop();
+
+        // add the log buffer and the analysis configs to the listfile archive
+        if (d->mvlcZipCreator && d->mvlcZipCreator->isOpen())
+        {
+            if (d->mvlcZipCreator->hasOpenEntry())
+                d->mvlcZipCreator->closeCurrentEntry();
+
+            if (auto writeHandle = d->mvlcZipCreator->createZIPEntry("messages.log", 0))
+            {
+                auto messages = m_workerContext.getLogBuffer().join('\n');
+                auto bytes = messages.toUtf8();
+                writeHandle->write(reinterpret_cast<const u8 *>(bytes.data()), bytes.size());
+                d->mvlcZipCreator->closeCurrentEntry();
+            }
+
+            if (auto writeHandle = d->mvlcZipCreator->createZIPEntry("analysis.analysis", 0))
+            {
+                auto bytes = m_workerContext.getAnalysisJson().toJson();
+                writeHandle->write(reinterpret_cast<const u8 *>(bytes.data()), bytes.size());
+                d->mvlcZipCreator->closeCurrentEntry();
+            }
+        }
+
+        d->mvlcZipCreator.reset(); // destroy the ZipCreator to flush and close the listfile archive
 
 #if 0
         // listfile handling
@@ -841,41 +874,6 @@ void MVLCReadoutWorker::readoutLoop()
 }
 #endif
 
-#if 0
-std::error_code MVLCReadoutWorker::readAndProcessBuffer(size_t &bytesTransferred)
-{
-    // Return ConnectionError from this function if the whole readout should be
-    // aborted.
-    // Other error codes are ignored right now.
-    //
-    // TODO: If no data was read within some interval that fact should be logged.
-
-    bytesTransferred = 0u;
-    std::error_code ec;
-
-    if (d->mvlc_eth)
-        ec = readout_eth(bytesTransferred);
-    else
-        ec = readout_usb(bytesTransferred);
-
-    auto outputBuffer = getOutputBuffer();
-
-    // TODO: handle the DebugInfoRequest::OnNextError case
-    if (outputBuffer->used > 0)
-    {
-        if (d->debugInfoRequest == Private::DebugInfoRequest::OnNextBuffer)
-        {
-            d->debugInfoRequest = Private::DebugInfoRequest::None;
-            emit debugInfoReady(*outputBuffer);
-        }
-
-        flushCurrentOutputBuffer();
-    }
-
-    return ec;
-}
-#endif
-
 void MVLCReadoutWorker::stop()
 {
     if (auto ec = d->mvlcReadoutWorker->stop())
@@ -893,7 +891,7 @@ void MVLCReadoutWorker::stop()
             QCoreApplication::processEvents();
         }
         setState(readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state()));
-        logMessage(QString(QSL("MVLC readout resumed")));
+        logMessage(QString(QSL("MVLC readout stopped")));
     }
 }
 
