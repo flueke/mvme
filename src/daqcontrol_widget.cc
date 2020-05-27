@@ -185,8 +185,6 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     {
         auto preset = combo_compression->currentData().toInt();
 
-        qDebug() << __PRETTY_FUNCTION__ << "selected preset =" << preset;
-
         switch (preset)
         {
             case CompressionPreset::NoCompression:

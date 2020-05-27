@@ -2083,6 +2083,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
         // listfile subdir
         {
+            logMessage(QString("Workspace ListFileDirectory=%1").arg(getWorkspacePath(QSL("ListFileDirectory"))));
             QDir dir(getWorkspacePath(QSL("ListFileDirectory"), QSL("listfiles")));
 
             if (!QDir::root().mkpath(dir.absolutePath()))
@@ -2150,6 +2151,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
             }
 
             info.fullDirectory = getListFileOutputDirectoryFullPath(info.directory);
+            logMessage(QString("Setting ListFileOutputInfo.fullDirectory=%1").arg(info.fullDirectory));
             m_d->m_listfileOutputInfo = info;
             writeToSettings(info, *workspaceSettings);
         }
@@ -2407,6 +2409,12 @@ QString MVMEContext::getWorkspacePath(const QString &settingsKey,
     {
         return QSL("");
     }
+
+    qDebug() << __PRETTY_FUNCTION__ << QSL("settings->contains(%1) = %2")
+        .arg(settingsKey).arg(settings->contains(settingsKey));
+
+    qDebug() << __PRETTY_FUNCTION__ << QSL("settings->value(%1) = %2")
+        .arg(settingsKey).arg(settings->value(settingsKey).toString());
 
     if (!settings->contains(settingsKey) && setIfDefaulted)
     {

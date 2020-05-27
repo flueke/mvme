@@ -38,9 +38,6 @@ struct VMEReadoutWorkerContext
     ThreadSafeDataBufferQueue *freeBuffers,
                               *fullBuffers;
 
-    // Snoop queues for the MVLC controller.
-    mesytec::mvlc::ReadoutBufferQueues *snoopQueues;
-
     ListFileOutputInfo *listfileOutputInfo;
     RunInfo *runInfo;
 

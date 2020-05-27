@@ -137,7 +137,7 @@ ListfileOutput listfile_create(ListFileOutputInfo &outinfo,
         return result;
 
     if (outinfo.fullDirectory.isEmpty())
-        throw QString("Error: listfile output directory is not set");
+        throw QString("listfile output directory is not set");
 
     result.outFilename = make_new_listfile_name(&outinfo);
 
@@ -621,9 +621,12 @@ void MVLCReadoutWorker::start(quint32 cycles)
         if (m_workerContext.listfileOutputInfo->enabled)
         {
             auto outInfo = m_workerContext.listfileOutputInfo;
-            auto archiveName = make_new_listfile_name(outInfo);
-            listfileArchiveName = archiveName;
-            auto memberName = QFileInfo(archiveName).completeBaseName();
+
+            if (outInfo->fullDirectory.isEmpty())
+                throw std::runtime_error("Error: listfile output directory is not set");
+
+            listfileArchiveName = make_new_listfile_name(outInfo);
+            auto memberName = QFileInfo(listfileArchiveName).completeBaseName();
             memberName += QSL(".mvlclst");
 
             if (outInfo->format != ListFileFormat::ZIP
@@ -632,8 +635,10 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 throw std::runtime_error("Unsupported listfile format");
             }
 
+            logger(QString("Writing listfile into %1").arg(listfileArchiveName));
+
             d->mvlcZipCreator = std::make_unique<mvlc::listfile::ZipCreator>();
-            d->mvlcZipCreator->createArchive(archiveName.toStdString());
+            d->mvlcZipCreator->createArchive(listfileArchiveName.toStdString());
 
             if (outInfo->format == ListFileFormat::ZIP)
             {
