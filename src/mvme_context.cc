@@ -2505,7 +2505,6 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
     setVMEConfig(vmeConfig.get());
     setConfigFileName(fileName);
     setMode(GlobalMode::DAQ);
-    setVMEController(vmeConfig->getControllerType(), vmeConfig->getControllerSettings());
     vmeConfig.release();
 
     if (m_d->m_vmeConfigAutoSaver)
