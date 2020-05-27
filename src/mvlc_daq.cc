@@ -361,7 +361,7 @@ inline std::error_code write_vme_reg(MVLCObject &mvlc, u16 reg, u16 value)
 
 std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
 {
-    logger("Initializing MVLC Triggers and I/O");
+    logger("Initializing MVLC Readout Stacks and Trigger I/O");
 
     logger("  Disabling triggers");
 
@@ -396,13 +396,6 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
         logger(QString("Error applying trigger & I/O setup: %1").arg(ec.message().c_str()));
         return ec;
     }
-
-#if 0
-    logger("  Enabling triggers");
-
-    if (auto ec = enable_triggers(mvlc, vmeConfig, logger))
-        return ec;
-#endif
 
     return {};
 }
