@@ -72,6 +72,7 @@ enum CompressionPreset
 
 static void fill_compression_combo(QComboBox *combo, bool isMVLC)
 {
+    QSignalBlocker blocker(combo);
     combo->clear();
 
     combo->addItem(QSL("No compression"), CompressionPreset::NoCompression);
@@ -632,6 +633,7 @@ void DAQControlWidget::updateWidget()
 
     //qDebug() << __PRETTY_FUNCTION__ << "filename=" << filename;
 
+#if 0
     if (auto settings = make_workspace_settings(m_workspaceDirectory))
     {
         QDir listfileDir(settings->value(QSL("ListFileDirectory")).toString());
@@ -646,6 +648,7 @@ void DAQControlWidget::updateWidget()
             }
         }
     }
+#endif
 
     if (le_listfileFilename->text() != filename)
         le_listfileFilename->setText(filename);
