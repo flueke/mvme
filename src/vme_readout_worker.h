@@ -31,15 +31,15 @@
 
 struct VMEReadoutWorkerContext
 {
-    VMEController *controller;
+    VMEController *controller = nullptr;
     DAQStats daqStats;
-    VMEConfig *vmeConfig;
+    VMEConfig *vmeConfig = nullptr;
     // Legacy buffer snoop queues for non-mvlc controllers.
-    ThreadSafeDataBufferQueue *freeBuffers,
-                              *fullBuffers;
+    ThreadSafeDataBufferQueue *freeBuffers = nullptr,
+                              *fullBuffers = nullptr;
 
-    ListFileOutputInfo *listfileOutputInfo;
-    RunInfo *runInfo;
+    ListFileOutputInfo *listfileOutputInfo = nullptr;
+    RunInfo *runInfo = nullptr;
 
     std::function<void (const QString &)> logger;
     std::function<QStringList ()> getLogBuffer;
