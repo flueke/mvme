@@ -63,20 +63,6 @@ class MVLCReadoutWorker: public VMEReadoutWorker
         void setMVLCObjects();
         void setState(const DAQState &state);
         void logError(const QString &msg);
-#if 0
-        void readoutLoop();
-        void timetick();
-        void pauseDAQ();
-        void resumeDAQ();
-        std::error_code readAndProcessBuffer(size_t &bytesTransferred);
-        std::error_code readout_eth(size_t &bytesTransferred);
-        std::error_code readout_usb(size_t &bytesTransferred);
-
-        DataBuffer *getOutputBuffer();
-        void maybePutBackBuffer();
-        void flushCurrentOutputBuffer();
-        //void handleStackErrorNotification(const QVector<u32> &data);
-#endif
 };
 
 #endif /* __MVME_MVLC_READOUT_WORKER_H__ */

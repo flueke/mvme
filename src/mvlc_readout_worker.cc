@@ -490,7 +490,7 @@ struct MVLCReadoutWorker::Private
 
     std::unique_ptr<mesytec::mvlc::ReadoutWorker> mvlcReadoutWorker;
     std::unique_ptr<mesytec::mvlc::listfile::ZipCreator> mvlcZipCreator;
-    mvlc::ReadoutBufferQueues *snoopQueues;
+    mvlc::ReadoutBufferQueues *snoopQueues = nullptr;
 
     // lots of mvlc api layers
     MVLC_VMEController *mvlcCtrl = nullptr;;
