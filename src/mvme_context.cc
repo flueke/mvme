@@ -455,7 +455,9 @@ static ListFileOutputInfo readFromSettings(QSettings &settings)
 {
     ListFileOutputInfo result;
     result.enabled          = settings.value(QSL("WriteListFile"), QSL("true")).toBool();
-    result.format           = ListFileFormat::ZIP; // XXX: Forcing ListFileFormat::ZIP since 0.9.x
+    result.format           = listFileFormat_fromString(settings.value(QSL("ListFileFormat")).toString());
+    if (result.format == ListFileFormat::Invalid)
+        result.format = ListFileFormat::ZIP;
     result.directory        = settings.value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
     result.compressionLevel = settings.value(QSL("ListFileCompressionLevel"), DefaultListFileCompression).toInt();
     result.prefix           = settings.value(QSL("ListFilePrefix"), QSL("mvmelst")).toString();

@@ -134,7 +134,7 @@ enum class ListFileFormat
 };
 
 QString toString(const ListFileFormat &fmt);
-ListFileFormat fromString(const QString &str);
+ListFileFormat listFileFormat_fromString(const QString &str);
 
 struct ListFileOutputInfo
 {

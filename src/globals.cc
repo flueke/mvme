@@ -37,7 +37,7 @@ QString toString(const ListFileFormat &fmt)
     return QString();
 }
 
-ListFileFormat fromString(const QString &str)
+ListFileFormat listFileFormat_fromString(const QString &str)
 {
     if (str == "Plain")
         return ListFileFormat::Plain;

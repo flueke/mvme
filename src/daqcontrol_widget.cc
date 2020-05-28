@@ -182,7 +182,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     });
 
     connect(combo_compression, qOverload<int>(&QComboBox::currentIndexChanged),
-            this, [this] (int)
+            this, [this] (int /*index*/)
     {
         auto preset = combo_compression->currentData().toInt();
 
@@ -206,13 +206,10 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
             default:
                 return;
         }
+
         emit listFileOutputInfoModified(m_listFileOutputInfo);
     });
 
-
-#if 0 // FIXME: move to the outside
-    connect(m_context, &MVMEContext::vmeConfigChanged, this, &DAQControlWidget::updateWidget);
-#endif
 
 
     //

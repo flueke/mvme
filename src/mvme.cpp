@@ -495,6 +495,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
                 this, [this, dcw] ()
         {
             dcw->setDAQStats(m_d->m_context->getDAQStats());
+            // copy ListFileOutputInfo from MVMEContext to DAQControlWidget
             dcw->setListFileOutputInfo(m_d->m_context->getListFileOutputInfo());
             dcw->updateWidget();
         });
