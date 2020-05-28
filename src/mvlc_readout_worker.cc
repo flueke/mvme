@@ -982,7 +982,9 @@ DAQState MVLCReadoutWorker::getState() const
 
 mesytec::mvlc::ReadoutWorker::Counters MVLCReadoutWorker::getReadoutCounters() const
 {
-    return d->mvlcReadoutWorker->counters();
+    return (d->mvlcReadoutWorker
+            ? d->mvlcReadoutWorker->counters()
+            : mesytec::mvlc::ReadoutWorker::Counters{});
 }
 
 MVLC_VMEController *MVLCReadoutWorker::getMVLC()
