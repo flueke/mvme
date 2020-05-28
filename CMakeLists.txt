@@ -104,28 +104,10 @@ SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 #    string(APPEND CMAKE_EXE_LINKER_FLAGS " -flto")
 #endif(WIN32)
 
-# External libraries.
-# Note: This was moved up from the src/ subdirectory so that the
-# include_directories() commands have effect both in the src/ and test/
-# subdirectories. Otherwise the find_path() commands would have to be repeated
-# inside test/.
-
-# external
+# externals
 add_subdirectory("${CMAKE_SOURCE_DIR}/external")
-#include_directories("${CMAKE_SOURCE_DIR}/external")
-#include_directories("${CMAKE_SOURCE_DIR}/external/pcg-cpp-0.98/include/")
-#include_directories("${CMAKE_SOURCE_DIR}/external/jcon-cpp/src/")
-
-#add_subdirectory("${CMAKE_SOURCE_DIR}/external/jcon-cpp/src/jcon/")
-
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/external/nlohmann" DESTINATION include/mvme)
-install(FILES "${CMAKE_SOURCE_DIR}/external/Mustache/mustache.hpp" DESTINATION include/mvme/Mustache)
 
 option(MVME_ENABLE_MVLC "Enable support for the mesytec MVLC controller" ON)
-
-if (MVME_ENABLE_MVLC)
-    add_subdirectory(external/mesytec-mvlc)
-endif(MVME_ENABLE_MVLC)
 
 # quazip
 find_path(QUAZIP_INCLUDE_DIR

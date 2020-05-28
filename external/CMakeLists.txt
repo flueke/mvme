@@ -12,6 +12,11 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/jcon-cpp/src/jcon/)
 # nlohmann json.hpp
 add_library(nlohmann-json INTERFACE)
 target_include_directories(nlohmann-json INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/nlohmann-json)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/nlohmann-json/nlohmann" DESTINATION include/mvme)
+
+# Mustache template library
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Mustache/mustache.hpp" DESTINATION include/mvme/Mustache)
+
 
 # exprtk
 add_library(exprtk INTERFACE)
@@ -20,3 +25,8 @@ target_include_directories(exprtk INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/exprtk)
 # cpp11-on-multicore
 add_library(cpp11-on-multicore INTERFACE)
 target_include_directories(cpp11-on-multicore INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/cpp11-on-multicore)
+
+# libmesytec-mvlc
+if (MVME_ENABLE_MVLC)
+    add_subdirectory(mesytec-mvlc)
+endif(MVME_ENABLE_MVLC)
