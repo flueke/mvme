@@ -20,9 +20,11 @@
  */
 #include "mvlc_util.h"
 
-#include <QDebug>
-#include <iostream>
 #include <cassert>
+#include <iostream>
+#include <QDebug>
+
+#include <mesytec-mvlc/mvlc_util.h>
 
 using namespace mesytec::mvme_mvlc;
 
@@ -212,32 +214,11 @@ std::vector<u32> build_upload_command_buffer(const std::vector<u32> &stack, u16 
     return result;
 }
 
-void log_buffer(const u32 *buffer, size_t size, const std::string &info)
-{
-    using std::cout;
-    using std::endl;
-
-    cout << "begin " << info << " (size=" << size << ")" << endl;
-
-    for (size_t i = 0; i < size; i++)
-    {
-        //printf("  %3lu: 0x%08x\n", i, buffer[i]);
-        printf("  0x%08X\n", buffer[i]);
-    }
-
-    cout << "end " << info << endl;
-}
-
-void log_buffer(const std::vector<u32> &buffer, const std::string &info)
-{
-    log_buffer(buffer.data(), buffer.size(), info);
-}
-
 void log_buffer(const QVector<u32> &buffer, const QString &info)
 {
     std::vector<u32> vec;
     std::copy(buffer.begin(), buffer.end(), std::back_inserter(vec));
-    log_buffer(vec, info.toStdString());
+    mvlc::log_buffer(vec, info.toStdString());
 }
 
 } // end namespace mvme_mvlc

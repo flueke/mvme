@@ -66,29 +66,7 @@ LIBMVME_MVLC_EXPORT std::vector<u32> build_upload_command_buffer(
 LIBMVME_MVLC_EXPORT std::vector<u32> build_upload_command_buffer(
     const std::vector<u32> &stack, u16 startAddress);
 
-LIBMVME_MVLC_EXPORT void log_buffer(const u32 *buffer, size_t size, const std::string &info = {});
-LIBMVME_MVLC_EXPORT void log_buffer(const std::vector<u32> &buffer, const std::string &info = {});
 LIBMVME_MVLC_EXPORT void log_buffer(const QVector<u32> &buffer, const QString &info = {});
-
-template<typename Out>
-void log_buffer(Out &out, const u32 *buffer, size_t size, const char *info)
-{
-    using std::endl;
-
-    out << "begin " << info << " (size=" << size << ")" << endl;
-
-    for (size_t i=0; i < size; i++)
-    {
-        out << "  0x"
-            << std::setfill('0') << std::setw(8) << std::hex
-            << buffer[i]
-            << std::dec << std::setw(0)
-            << endl
-            ;
-    }
-
-    out << "end " << info << endl;
-}
 
 } // end namespace mvme_mvlc
 } // end namespace mesytec
