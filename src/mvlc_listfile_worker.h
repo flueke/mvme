@@ -21,6 +21,7 @@
 #ifndef __MVLC_LISTFILE_WORKER_H__
 #define __MVLC_LISTFILE_WORKER_H__
 
+#include <mesytec-mvlc/util/readout_buffer_queues.h>
 #include "listfile_replay_worker.h"
 
 class LIBMVME_EXPORT MVLCListfileWorker: public ListfileReplayWorker
@@ -29,13 +30,10 @@ class LIBMVME_EXPORT MVLCListfileWorker: public ListfileReplayWorker
     public:
         using LoggerFun = std::function<void (const QString &)>;
 
-        MVLCListfileWorker(
-            ThreadSafeDataBufferQueue *emptyBufferQueue,
-            ThreadSafeDataBufferQueue *filledBufferQueue,
-            QObject *parent = nullptr);
-
+        MVLCListfileWorker(QObject *parent = nullptr);
         ~MVLCListfileWorker() override;
 
+        void setSnoopQueues(mesytec::mvlc::ReadoutBufferQueues *snoopQueues);
         void setListfile(QIODevice *listifle) override;
 
         DAQStats getStats() const override;

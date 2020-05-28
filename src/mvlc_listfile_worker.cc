@@ -55,6 +55,8 @@ struct MVLCListfileWorker::Private
     u32 nextOutputBufferNumber = 1u;
     DataBuffer previousData;
 
+    mvlc::ReadoutBufferQueues *snoopQueues = nullptr;
+
     Private()
         : state(DAQState::Idle)
         , desiredState(DAQState::Idle)
@@ -62,18 +64,19 @@ struct MVLCListfileWorker::Private
     {}
 };
 
-MVLCListfileWorker::MVLCListfileWorker(
-    ThreadSafeDataBufferQueue *emptyBufferQueue,
-    ThreadSafeDataBufferQueue *filledBufferQueue,
-    QObject *parent)
-    : ListfileReplayWorker(emptyBufferQueue, filledBufferQueue, parent)
+MVLCListfileWorker::MVLCListfileWorker(QObject *parent)
+    : ListfileReplayWorker(parent)
     , d(std::make_unique<Private>())
 {
-    qDebug() << __PRETTY_FUNCTION__;
 }
 
 MVLCListfileWorker::~MVLCListfileWorker()
 {
+}
+
+void MVLCListfileWorker::setSnoopQueues(mesytec::mvlc::ReadoutBufferQueues *queues)
+{
+    d->snoopQueues = queues;
 }
 
 void MVLCListfileWorker::setListfile(QIODevice *input)
@@ -82,7 +85,11 @@ void MVLCListfileWorker::setListfile(QIODevice *input)
     if (auto inFile = qobject_cast<QFile *>(d->input))
         d->stats.listfileFilename = inFile->fileName();
     else if (auto inZipFile = qobject_cast<QuaZipFile *>(d->input))
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "inZipFile->getZipName()" << inZipFile->getZipName();
+        qDebug() << __PRETTY_FUNCTION__ << "inZipFile->getFileName()" << inZipFile->getFileName();
         d->stats.listfileFilename = inZipFile->getZipName();
+    }
 }
 
 DAQStats MVLCListfileWorker::getStats() const

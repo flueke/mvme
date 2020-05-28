@@ -95,6 +95,7 @@ ListfileReplayHandle open_listfile(const QString &filename)
         auto it = std::find_if(fileNames.begin(), fileNames.end(), [](const QString &str) {
             return (str.endsWith(QSL(".mvmelst"))
                     || str.endsWith(QSL(".mvlclst"))
+                    || str.endsWith(QSL(".mvlclst.lz4"))
                     || str.endsWith(QSL(".mvlc_eth"))
                     || str.endsWith(QSL(".mvlc_usb"))
                     );

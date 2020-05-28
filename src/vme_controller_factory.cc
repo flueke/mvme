@@ -171,7 +171,7 @@ ListfileReplayWorker *VMEControllerFactory::makeReplayWorker(
 
         case VMEControllerType::MVLC_USB:
         case VMEControllerType::MVLC_ETH:
-            return new MVLCListfileWorker(emptyBuffers, filledBuffers);
+            return new MVLCListfileWorker();
     }
 
     return nullptr;
