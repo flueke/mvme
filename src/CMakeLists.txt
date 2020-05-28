@@ -121,17 +121,17 @@ install(TARGETS libmvme_core
 # libmvme_mvlc - MVLC support
 #
 if(MVME_ENABLE_MVLC)
-    set(MVLC_USB_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-        "mvlc_usb layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+    #set(MVLC_USB_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+    #    "mvlc_usb layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    set(MVLC_ETH_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-        "mvlc_eth layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+    #set(MVLC_ETH_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+    #    "mvlc_eth layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    set(MVLC_DIALOG_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-        "mvlc_dialog layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+    #set(MVLC_DIALOG_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+    #    "mvlc_dialog layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    set(MVLC_READOUT_PARSER_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-        "mvlc readout parser log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+    #set(MVLC_READOUT_PARSER_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+    #    "mvlc readout parser log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
     qt5_wrap_ui(MVLC_DEV_GUI_UIC
         vme_debug_widget.ui
@@ -153,19 +153,16 @@ if(MVME_ENABLE_MVLC)
     set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
     generate_export_header(libmvme_mvlc)
 
-    target_link_libraries(libmvme_mvlc
-        PUBLIC ftd3xx # TODO: get rid of this once the switch to the mesytec-mvlc lib is done
-        PUBLIC libmvme_core
-        )
+    target_link_libraries(libmvme_mvlc PUBLIC libmvme_core)
 
     if (WIN32)
         target_link_libraries(libmvme_mvlc PRIVATE ws2_32)
     endif(WIN32)
 
-    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_USB_LOG_LEVEL=${MVLC_USB_LOG_LEVEL})
-    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_ETH_LOG_LEVEL=${MVLC_ETH_LOG_LEVEL})
-    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_DIALOG_LOG_LEVEL=${MVLC_DIALOG_LOG_LEVEL})
-    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_READOUT_PARSER_LOG_LEVEL=${MVLC_READOUT_PARSER_LOG_LEVEL})
+    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_USB_LOG_LEVEL=${MVLC_USB_LOG_LEVEL})
+    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_ETH_LOG_LEVEL=${MVLC_ETH_LOG_LEVEL})
+    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_DIALOG_LOG_LEVEL=${MVLC_DIALOG_LOG_LEVEL})
+    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_READOUT_PARSER_LOG_LEVEL=${MVLC_READOUT_PARSER_LOG_LEVEL})
     target_compile_options(libmvme_mvlc PRIVATE -Wall -Wextra)
 
     install(TARGETS libmvme_mvlc
