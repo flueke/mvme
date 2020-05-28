@@ -523,8 +523,6 @@ void MVLC_StreamWorker::start()
                     throw;
                 }
             }
-            else
-                break;
         }
         // stopping
         else if (desiredState == WorkerState::Idle)
