@@ -187,9 +187,6 @@ if(MVME_ENABLE_MVLC)
             )
     endif (WIN32)
 
-    add_executable(dev_ftdi_list_devices mvlc/dev_ftdi_list_devices)
-    target_link_libraries(dev_ftdi_list_devices ftd3xx)
-
     add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
     target_link_libraries(dev_mvlc_vmescript_runner PRIVATE libmvme_mvlc)
 
