@@ -52,7 +52,6 @@ struct DAQStatsWidgetPrivate
         DAQStats daqStats;
         SIS3153ReadoutWorker::Counters sisCounters;
         mesytec::mvlc::ReadoutWorker::Counters mvlcCounters;
-        mesytec::mvlc::eth::PipeStats mvlcDataPipeStats;
     };
 
     CountersHolder prevCounters;
@@ -141,18 +140,20 @@ struct DAQStatsWidgetPrivate
         label_sisEventLoss->setText(lossText);
     }
 
-#if 0
-    void update_MVLC_USB(const MVLCReadoutCounters &mvlcCounters,
-                         const MVLCReadoutCounters &prevMVLCCounters,
-                         double dt_s)
+    using MVLCCounters = mesytec::mvlc::ReadoutWorker::Counters;
+
+    void update_MVLC_USB(
+        const mesytec::mvlc::ReadoutWorker::Counters &counters,
+        const mesytec::mvlc::ReadoutWorker::Counters &prevCounters,
+        double dt_s)
     {
         u64 frameTypeErrorRate =
-            calc_rate0<TYPE_AND_VAL(&MVLCReadoutCounters::frameTypeErrors)>(
-                mvlcCounters, prevMVLCCounters, dt_s);
+            calc_rate0<TYPE_AND_VAL(&MVLCCounters::usbFramingErrors)>(
+                counters, prevCounters, dt_s);
 
         label_mvlcFrameTypeErrors->setText(
             (QString("%1, %2 errors/s")
-             .arg(mvlcCounters.frameTypeErrors)
+             .arg(counters.usbFramingErrors)
              .arg(frameTypeErrorRate)));
 
 #if 0
@@ -188,15 +189,9 @@ struct DAQStatsWidgetPrivate
              .arg(dataPipeStats.lostPackets)
              .arg(packetLossRate)));
     }
-#endif
 
-    void update_MVLC_common(mesytec::mvme_mvlc::MVLC_VMEController * /*mvlcCtrl*/)
+    void update_MVLC_common(const mesytec::mvlc::StackErrorCounters &counters)
     {
-#warning "Revive mvlc daqstats widget"
-#if 0
-        auto mvlc = mvlcCtrl->getMVLCObject();
-        auto counters = mvlc->getStackErrorCounters();
-
         QString text;
 
         for (const auto &kv: counters.stackErrors | indexed(0))
@@ -227,7 +222,6 @@ struct DAQStatsWidgetPrivate
         }
 
         label_mvlcStackErrors->setText(text);
-#endif
     }
 
     void updateWidget(VMEReadoutWorker *readoutWorker)
@@ -269,7 +263,6 @@ struct DAQStatsWidgetPrivate
             prevCounters.sisCounters = sisCounters;
         }
 
-#if 0 // TODO: reive the mvlc daqstats widget
         if (auto mvlcWorker = qobject_cast<MVLCReadoutWorker *>(readoutWorker))
         {
             auto mvlcCounters = mvlcWorker->getReadoutCounters();
@@ -282,17 +275,16 @@ struct DAQStatsWidgetPrivate
 
             if (is_MVLC_ETH)
             {
-                auto mvlc_eth = reinterpret_cast<mesytec::mvlc::eth::Impl *>(
-                    mvlc->getImpl());
-                auto dataPipeStats = mvlc_eth->getPipeStats()[mesytec::mvlc::DataPipe];
-
-                update_MVLC_ETH(dataPipeStats, prevCounters.mvlcDataPipeStats, dt_s);
-                prevCounters.mvlcDataPipeStats = dataPipeStats;
+                update_MVLC_ETH(
+                    mvlcCounters.ethStats[mesytec::mvlc::DataPipe],
+                    prevCounters.mvlcCounters.ethStats[mesytec::mvlc::DataPipe],
+                    dt_s);
             }
 
-            update_MVLC_common(mvlc);
+            update_MVLC_common(mvlcCounters.stackErrors);
+
+            prevCounters.mvlcCounters = mvlcCounters;
         }
-#endif
 
         lastUpdateTime = QDateTime::currentDateTime();
     }
@@ -402,5 +394,6 @@ DAQStatsWidget::~DAQStatsWidget()
 
 void DAQStatsWidget::updateWidget()
 {
-    m_d->updateWidget(m_d->context->getReadoutWorker());
+    if (auto rdoWorker = m_d->context->getReadoutWorker())
+        m_d->updateWidget(rdoWorker);
 }
