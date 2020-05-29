@@ -1219,7 +1219,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
     static const QStringList filters =
     {
-        "MVME Listfiles (*.mvmelst *.mvlclst *.zip)",
+        "MVME Listfiles (*.mvmelst *.zip)",
         "All Files (*.*)"
     };
 
