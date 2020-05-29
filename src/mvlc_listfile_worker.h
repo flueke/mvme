@@ -34,7 +34,7 @@ class LIBMVME_EXPORT MVLCListfileWorker: public ListfileReplayWorker
         ~MVLCListfileWorker() override;
 
         void setSnoopQueues(mesytec::mvlc::ReadoutBufferQueues *snoopQueues);
-        void setListfile(QIODevice *listifle) override;
+        void setListfile(ListfileReplayHandle *handle) override;
 
         DAQStats getStats() const override;
         bool isRunning() const override;

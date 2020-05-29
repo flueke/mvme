@@ -1320,7 +1320,7 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle)
 {
     using namespace vme_analysis_common;
 
-    if (!handle.listfile)
+    if (handle.format == ListfileBufferFormat::MVMELST && !handle.listfile)
         return false;
 
     if (getDAQState() != DAQState::Idle)
@@ -1329,23 +1329,40 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle)
     std::unique_ptr<VMEConfig> vmeConfig;
     std::error_code ec;
 
-    std::tie(vmeConfig, ec) = read_vme_config_from_listfile(handle);
-
-    if (ec)
+    try
     {
-        QMessageBox::critical(nullptr,
-                              QSL("Error loading VME config"),
-                              QSL("Error loading VME config from %1: %2")
-                              .arg(handle.inputFilename)
-                              .arg(ec.message().c_str()));
+        std::tie(vmeConfig, ec) = read_vme_config_from_listfile(handle);
+
+        if (ec)
+        {
+            QMessageBox::critical(
+                nullptr,
+                QSL("Error loading VME config"),
+                QSL("Error loading VME config from %1: %2")
+                .arg(handle.inputFilename)
+                .arg(ec.message().c_str()));
+
+            return false;
+        }
+    }
+    catch (const std::runtime_error &e)
+    {
+        QMessageBox::critical(
+            nullptr,
+            QSL("Error loading VME config"),
+            QSL("Error loading VME config from %1: %2")
+            .arg(handle.inputFilename)
+            .arg(e.what()));
+
         return false;
     }
+
 
     m_d->m_isFirstConnectionAttempt = true; // FIXME: add a note on why this is done
     setVMEConfig(vmeConfig.release());
 
     m_d->listfileReplayHandle = std::move(handle);
-    m_d->listfileReplayWorker->setListfile(m_d->listfileReplayHandle.listfile.get());
+    m_d->listfileReplayWorker->setListfile(&m_d->listfileReplayHandle);
 
     setConfigFileName(QString(), false);
     setMode(GlobalMode::ListFile);

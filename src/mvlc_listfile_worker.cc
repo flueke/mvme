@@ -26,6 +26,7 @@
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/mvlc_impl_eth.h>
+#include <stdexcept>
 
 #include "mvlc_listfile.h"
 #include "mvlc/mvlc_util.h"
@@ -79,8 +80,14 @@ void MVLCListfileWorker::setSnoopQueues(mesytec::mvlc::ReadoutBufferQueues *queu
     d->snoopQueues = queues;
 }
 
-void MVLCListfileWorker::setListfile(QIODevice *input)
+void MVLCListfileWorker::setListfile(ListfileReplayHandle *handle)
 {
+    QIODevice *input = handle->listfile.get();
+
+    if (qobject_cast<QFile *>(input))
+        throw std::runtime_error("MVLC replays from flat file are not supported yet.");
+
+
     d->input = input;
     if (auto inFile = qobject_cast<QFile *>(d->input))
         d->stats.listfileFilename = inFile->fileName();
