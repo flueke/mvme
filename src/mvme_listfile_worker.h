@@ -37,7 +37,7 @@ class LIBMVME_EXPORT MVMEListfileWorker: public ListfileReplayWorker
 
         ~MVMEListfileWorker() override;
 
-        void setListfile(QIODevice *listfile) override;
+        void setListfile(ListfileReplayHandle *handle) override;
 
         DAQStats getStats() const override { return m_stats; }
         bool isRunning() const override { return m_state != DAQState::Idle; }
