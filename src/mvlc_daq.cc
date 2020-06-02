@@ -393,7 +393,20 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
 
     if (auto ec = setup_trigger_io(mvlc, vmeConfig, logger))
     {
-        logger(QString("Error applying trigger & I/O setup: %1").arg(ec.message().c_str()));
+        logger(QSL("Error applying trigger & I/O setup: %1").arg(ec.message().c_str()));
+        return ec;
+    }
+
+    bool enableJumboFrames = vmeConfig.getControllerSettings().value("mvlc_eth_enable_jumbos").toBool();
+
+    logger(QSL("  %1 jumbo frame support")
+           .arg(enableJumboFrames ? QSL("Enabling") : QSL("Disabling")));
+
+    if (auto ec = mvlc.writeRegister(mvlc::registers::jumbo_frame_enable, enableJumboFrames))
+    {
+        logger(QSL("Error %1 jumbo frames: %2")
+               .arg(enableJumboFrames ? QSL("enabling") : QSL("disabling"))
+               .arg(ec.message().c_str()));
         return ec;
     }
 

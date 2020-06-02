@@ -97,6 +97,7 @@ class MVLC_ETH_SettingsWidget: public VMEControllerSettingsWidget
 
     private:
         QLineEdit *le_address;
+        QCheckBox *cb_jumboFrames;
 };
 
 
