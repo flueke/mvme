@@ -37,14 +37,6 @@ inline std::shared_ptr<QSettings> make_workspace_settings(const QString &workspa
     auto path = dir.filePath(WorkspaceIniName);
     auto result = std::make_shared<QSettings>(path, QSettings::IniFormat);
 
-#if 0
-    auto listfileDir = result->value("ListFileDirectory");
-    qDebug() << __PRETTY_FUNCTION__ << "workspace ini file path =" << path
-        << ", ListFileDirectory=" << listfileDir;
-    if (listfileDir.toString().isEmpty())
-        std::terminate();
-#endif
-
     return result;
 }
 

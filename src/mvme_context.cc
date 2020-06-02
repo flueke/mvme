@@ -776,6 +776,11 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     connect(m_d->listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             this, &MVMEContext::onReplayDone);
 
+    if (auto mvlcListfileWorker = qobject_cast<MVLCListfileWorker *>(m_d->listfileReplayWorker.get()))
+    {
+        mvlcListfileWorker->setSnoopQueues(&m_d->mvlcSnoopQueues);
+    }
+
     // TODO: Add the buffer sniffing connection for the MVLCListfileWorker once
     // the support is there.
 
@@ -1669,9 +1674,15 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getMVMEStreamWorkerState() == MVMEStreamWorkerState::Idle);
 
-    if (m_mode != GlobalMode::ListFile || !m_d->listfileReplayHandle.listfile
+    if (m_mode != GlobalMode::ListFile
         || getDAQState() != DAQState::Idle
         || getMVMEStreamWorkerState() != MVMEStreamWorkerState::Idle)
+    {
+        return;
+    }
+
+    if (m_d->listfileReplayHandle.format == ListfileBufferFormat::MVMELST
+        && !m_d->listfileReplayHandle.listfile)
     {
         return;
     }

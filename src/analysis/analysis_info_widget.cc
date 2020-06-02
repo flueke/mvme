@@ -454,7 +454,7 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
                 buffer += "\n";
 
             buffer += QString("%1 (0x%2): %3")
-                .arg(QString::fromStdString(mvlc::listfile::system_event_type_to_string(subtype)))
+                .arg(QString::fromStdString(mvlc::system_event_type_to_string(subtype)))
                 .arg(subtype, 2, 16, QLatin1Char('0'))
                 .arg(counters.systemEventTypes[subtype]);
                 //.arg(format_number(counters.systemEventTypes[subtype],

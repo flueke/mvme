@@ -22,12 +22,13 @@
 #define __MVME_MVLC_READOUT_WORKER_H__
 
 #include <mesytec-mvlc/mvlc_readout.h>
-#include "mesytec-mvlc/util/readout_buffer_queues.h"
+
+#include "libmvme_export.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "vme_daq.h"
 #include "vme_readout_worker.h"
 
-class MVLCReadoutWorker: public VMEReadoutWorker
+class LIBMVME_EXPORT MVLCReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
     signals:

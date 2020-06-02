@@ -23,9 +23,8 @@
 #include <array>
 #include <cstring>
 #include <QJsonDocument>
-#include <mesytec-mvlc/mvlc_listfile_zip.h>
+#include <mesytec-mvlc/mesytec-mvlc.h>
 
-#include "mesytec-mvlc/mvlc_listfile.h"
 #include "qt_util.h"
 #include "util_zip.h"
 #include "mvme_listfile_utils.h"
@@ -202,7 +201,7 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
                 for (const auto &sysEvent: preamble.systemEvents)
                 {
                     qDebug() << __PRETTY_FUNCTION__ << "found preamble sysEvent type"
-                        << mvlc::listfile::system_event_type_to_string(sysEvent.type).c_str();
+                        << mvlc::system_event_type_to_string(sysEvent.type).c_str();
                 }
 
                 auto it = std::find_if(

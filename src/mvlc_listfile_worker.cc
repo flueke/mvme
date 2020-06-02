@@ -51,17 +51,17 @@ struct MVLCListfileWorker::Private
     std::atomic<DAQState> desiredState;
     u32 eventsToRead = 0;
     bool logBuffers = false;
-    QIODevice *input = nullptr;
     ListfileBufferFormat format = ListfileBufferFormat::MVLC_ETH;
     u32 nextOutputBufferNumber = 1u;
-    DataBuffer previousData;
-
     mvlc::ReadoutBufferQueues *snoopQueues = nullptr;
+    ListfileReplayHandle *replayHandle = nullptr;
+
+    std::unique_ptr<mesytec::mvlc::ReplayWorker> mvlcReplayWorker;
+    std::unique_ptr<mesytec::mvlc::listfile::ZipReader> mvlcZipReader;
 
     Private()
         : state(DAQState::Idle)
         , desiredState(DAQState::Idle)
-        , previousData(ListfileSingleReadSize)
     {}
 };
 
@@ -87,16 +87,10 @@ void MVLCListfileWorker::setListfile(ListfileReplayHandle *handle)
     if (qobject_cast<QFile *>(input))
         throw std::runtime_error("MVLC replays from flat file are not supported yet.");
 
+    d->replayHandle = handle;
 
-    d->input = input;
-    if (auto inFile = qobject_cast<QFile *>(d->input))
-        d->stats.listfileFilename = inFile->fileName();
-    else if (auto inZipFile = qobject_cast<QuaZipFile *>(d->input))
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "inZipFile->getZipName()" << inZipFile->getZipName();
-        qDebug() << __PRETTY_FUNCTION__ << "inZipFile->getFileName()" << inZipFile->getFileName();
+    if (auto inZipFile = qobject_cast<QuaZipFile *>(input))
         d->stats.listfileFilename = inZipFile->getZipName();
-    }
 }
 
 DAQStats MVLCListfileWorker::getStats() const
@@ -165,33 +159,67 @@ DataBuffer *MVLCListfileWorker::getOutputBuffer()
 // TODO: handle eventsToRead
 void MVLCListfileWorker::start()
 {
-    Q_ASSERT(getEmptyQueue());
-    Q_ASSERT(getFilledQueue());
-    Q_ASSERT(d->state == DAQState::Idle);
+    assert(d->state == DAQState::Idle);
+    assert(d->snoopQueues);
 
-    if (d->state != DAQState::Idle || !d->input)
+    if (d->state != DAQState::Idle || !d->replayHandle)
         return;
 
-    setState(DAQState::Starting);
-
-    logMessage(QString("Starting replay from %1.").arg(
-            get_filename(d->input)));
-
-    auto fileMagic = mvme_mvlc_listfile::read_file_magic(*d->input);
-
-    qDebug() << __PRETTY_FUNCTION__ << fileMagic;
-
-    if (fileMagic == mvme_mvlc_listfile::get_filemagic_eth())
-        d->format = ListfileBufferFormat::MVLC_ETH;
-    else if (fileMagic == mvme_mvlc_listfile::get_filemagic_usb())
-        d->format = ListfileBufferFormat::MVLC_USB;
-    else
+    if (d->replayHandle->format != ListfileBufferFormat::MVLC_ETH
+        && d->replayHandle->format != ListfileBufferFormat::MVLC_USB)
     {
         logMessage("Error: Unknown listfile format. Aborting replay.");
-        setState(DAQState::Idle);
         return;
     }
 
+    setState(DAQState::Starting);
+
+
+    try
+    {
+
+        logMessage(QString("Starting replay from %1.%2")
+                   .arg(d->replayHandle->inputFilename)
+                   .arg(d->replayHandle->listfileFilename));
+
+        d->mvlcZipReader = std::make_unique<mvlc::listfile::ZipReader>();
+        d->mvlcZipReader->openArchive(d->replayHandle->inputFilename.toStdString());
+        auto readHandle = d->mvlcZipReader->openEntry(d->replayHandle->listfileFilename.toStdString());
+
+        d->mvlcReplayWorker = std::make_unique<mvlc::ReplayWorker>(
+            *d->snoopQueues,
+            readHandle);
+
+        auto fStart = d->mvlcReplayWorker->start();
+
+        if (auto ec = fStart.get())
+            throw ec;
+    }
+    catch (const std::error_code &ec)
+    {
+        logError(ec.message().c_str());
+    }
+    catch (const std::runtime_error &e)
+    {
+        logError(e.what());
+    }
+    catch (const VMEError &e)
+    {
+        logError(e.toString());
+    }
+    catch (const QString &e)
+    {
+        logError(e);
+    }
+    catch (const vme_script::ParseError &e)
+    {
+        logError(QSL("VME Script parse error: ") + e.what());
+    }
+
+    d->stats.stop();
+    setState(DAQState::Idle);
+
+#if 0
     d->nextOutputBufferNumber = 1u;
     d->stats.start();
     d->stats.listFileTotalBytes = d->input->size();
@@ -260,94 +288,16 @@ void MVLCListfileWorker::start()
 
     d->stats.stop();
     setState(DAQState::Idle);
+#endif
 }
 
 using namespace mesytec::mvme_mvlc;
-
-// Follows the framing structure inside the buffer until a partial frame at the
-// end is detected. The partial data is moved over to the tempBuffer so that
-// the readBuffer ends with a complete frame.
-//
-// The input buffer must start with a frame header (skip_count will be called
-// with the first word of the input buffer on the first iteration).
-//
-// The SkipCountFunc must return the number of words to skip to get to the next
-// frame header or 0 if there is not enough data left in the input iterator to
-// determine the frames size.
-// Signature of SkipCountFunc:  u32 skip_count(const BufferIterator &iter);
-template<typename SkipCountFunc>
-inline void fixup_buffer(DataBuffer &readBuffer, DataBuffer &tempBuffer, SkipCountFunc skip_count)
-{
-    BufferIterator iter(readBuffer.data, readBuffer.used);
-
-    while (!iter.atEnd())
-    {
-        if (iter.longwordsLeft())
-        {
-            u32 wordsToSkip = skip_count(iter);
-
-            if (wordsToSkip == 0 || wordsToSkip > iter.longwordsLeft())
-            {
-                // Move the trailing data into the temporary buffer. This will
-                // truncate the readBuffer to the last complete frame or packet
-                // boundary.
-                auto trailingBytes = iter.bytesLeft();
-                move_bytes(readBuffer, tempBuffer, iter.asU8(), trailingBytes);
-                return;
-            }
-
-            // Skip over the SystemEvent frame or the ETH packet data.
-            iter.skip(wordsToSkip, sizeof(u32));
-        }
-    }
-}
-
-// The listfile contains two types of data:
-// - System event sections identified by a header word with 0xFA in the highest
-//   byte.
-// - ETH packet data starting with the two ETH specific header words followed
-//   by the packets payload
-// The first ETH packet header can never have the value 0xFA because the
-// highest two bits are always 0.
-inline void fixup_buffer_eth(DataBuffer &readBuffer, DataBuffer &tempBuffer)
-{
-    auto skip_func = [](const BufferIterator &iter) -> u32
-    {
-        // Either a SystemEvent header or the first of the two ETH packet headers
-        u32 header = iter.peekU32(0);
-
-        if (mvlc::get_frame_type(header) == mvlc::frame_headers::SystemEvent)
-            return 1u + mvlc::extract_frame_info(header).len;
-
-        if (iter.longwordsLeft() > 1)
-        {
-            u32 header1 = iter.peekU32(1);
-            mvlc::eth::PayloadHeaderInfo ethHdrs{ header, header1 };
-            return mvlc::eth::HeaderWords + ethHdrs.dataWordCount();
-        }
-
-        // Not enough data to get the 2nd ETH header word.
-        return 0u;
-    };
-
-    fixup_buffer(readBuffer, tempBuffer, skip_func);
-}
-
-inline void fixup_buffer_usb(DataBuffer &readBuffer, DataBuffer &tempBuffer)
-{
-    auto skip_func = [] (const BufferIterator &iter) -> u32
-    {
-        u32 header = iter.peekU32(0);
-        return 1u + mvlc::extract_frame_info(header).len;
-    };
-
-    fixup_buffer(readBuffer, tempBuffer, skip_func);
-}
 
 // Returns the result of QIODevice::read(): the number of bytes transferred or
 // a  negative value on error.
 qint64 MVLCListfileWorker::readAndProcessBuffer(DataBuffer *destBuffer)
 {
+#if 0
     // Move leftover data from the previous buffer into the destination buffer.
     if (d->previousData.used)
     {
@@ -379,6 +329,7 @@ qint64 MVLCListfileWorker::readAndProcessBuffer(DataBuffer *destBuffer)
     }
 
     return bytesRead;
+#endif
 }
 
 // Thread-safe calls, setting internal flags to do the state transition
@@ -395,4 +346,9 @@ void MVLCListfileWorker::pause()
 void MVLCListfileWorker::resume()
 {
     d->desiredState = DAQState::Running;
+}
+
+void MVLCListfileWorker::logError(const QString &msg)
+{
+    logMessage(QSL("MVLC Replay Error: %1").arg(msg));
 }
