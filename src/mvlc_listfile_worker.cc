@@ -90,7 +90,7 @@ struct MVLCListfileWorker::Private
         auto daqStats = stats.access();
         daqStats->totalBytesRead = counters.bytesRead;
         daqStats->totalBuffersRead = counters.buffersRead;
-        // TODO: buffersFlushed
+        daqStats->buffersFlushed = counters.buffersFlushed;
     }
 
     template<typename Cond>

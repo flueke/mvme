@@ -96,6 +96,7 @@ struct DAQStats
         totalBuffersRead = 0;
         buffersWithErrors = 0;
         droppedBuffers = 0;
+        buffersFlushed = 0;
         listFileBytesWritten = 0;
         listFileTotalBytes = 0;
         startTime = QDateTime::currentDateTime();
@@ -117,6 +118,7 @@ struct DAQStats
                                 // not represent the number of "good" buffers.
     u64 buffersWithErrors = 0;  // buffers for which processing did not succeeed (structure not intact, etc)
     u64 droppedBuffers = 0;     // number of buffers not passed to the analysis due to the queue being full
+    u64 buffersFlushed = 0;     // Number of buffers flushed to the output queue (from readout or replay to the analysis side).
     u64 listFileBytesWritten = 0;
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
     QString listfileFilename; // For replay mode: the current replay filename
