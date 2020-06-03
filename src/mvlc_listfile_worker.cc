@@ -21,6 +21,7 @@
 #include "mvlc_listfile_worker.h"
 
 #include <cassert>
+#include <QCoreApplication>
 #include <QDebug>
 #include <QThread>
 
@@ -34,19 +35,35 @@
 
 using namespace mesytec;
 
-// How long to block in paused state on each iteration of the main loop
-static const unsigned PauseSleepDuration_ms = 100;
+namespace
+{
+DAQState replay_worker_state_to_daq_state(const mvlc::ReplayWorker::State &state)
+{
+    switch (state)
+    {
+        case mvlc::ReplayWorker::State::Idle:
+            return DAQState::Idle;
+        case mvlc::ReplayWorker::State::Starting:
+            return DAQState::Starting;
+        case mvlc::ReplayWorker::State::Running:
+            return DAQState::Running;
+        case mvlc::ReplayWorker::State::Paused:
+            return DAQState::Paused;
+        case mvlc::ReplayWorker::State::Stopping:
+            return DAQState::Stopping;
 
-// How long to block waiting for a buffer from the free queue
-static const unsigned FreeBufferWaitTimeout_ms = 100;
+        InvalidDefaultCase
+    }
 
-// Amount of data to read from the listfile using a single read call. The data
-// buffers from the free queue are also resized to at least this size.
-static const size_t ListfileSingleReadSize = Megabytes(1);
+    return {};
+}
+
+} // end anon namespace
 
 struct MVLCListfileWorker::Private
 {
-    DAQStats stats;
+    MVLCListfileWorker *q = nullptr;
+    mvlc::Protected<DAQStats> stats;
     DAQState state;
     std::atomic<DAQState> desiredState;
     u32 eventsToRead = 0;
@@ -59,15 +76,43 @@ struct MVLCListfileWorker::Private
     std::unique_ptr<mesytec::mvlc::ReplayWorker> mvlcReplayWorker;
     std::unique_ptr<mesytec::mvlc::listfile::ZipReader> mvlcZipReader;
 
-    Private()
-        : state(DAQState::Idle)
+    Private(MVLCListfileWorker *q_)
+        : q(q_)
+        , stats({})
+        , state(DAQState::Idle)
         , desiredState(DAQState::Idle)
     {}
+
+    void updateDAQStats()
+    {
+        auto counters = mvlcReplayWorker->counters();
+
+        auto daqStats = stats.access();
+        daqStats->totalBytesRead = counters.bytesRead;
+        daqStats->totalBuffersRead = counters.buffersRead;
+        // TODO: buffersFlushed
+    }
+
+    template<typename Cond>
+    void waitForStateChange(Cond cond)
+    {
+        while (cond(mvlcReplayWorker->state()))
+        {
+            mvlcReplayWorker->waitableState().wait_for(
+                std::chrono::milliseconds(20),
+                [cond] (const mvlc::ReplayWorker::State &state)
+                {
+                    return !cond(state);
+                });
+            QCoreApplication::processEvents();
+        }
+        q->setState(replay_worker_state_to_daq_state(mvlcReplayWorker->state()));
+    }
 };
 
 MVLCListfileWorker::MVLCListfileWorker(QObject *parent)
     : ListfileReplayWorker(parent)
-    , d(std::make_unique<Private>())
+    , d(std::make_unique<Private>(this))
 {
 }
 
@@ -90,12 +135,12 @@ void MVLCListfileWorker::setListfile(ListfileReplayHandle *handle)
     d->replayHandle = handle;
 
     if (auto inZipFile = qobject_cast<QuaZipFile *>(input))
-        d->stats.listfileFilename = inZipFile->getZipName();
+        d->stats.access()->listfileFilename = inZipFile->getZipName();
 }
 
 DAQStats MVLCListfileWorker::getStats() const
 {
-    return d->stats;
+    return d->stats.copy();
 }
 
 bool MVLCListfileWorker::isRunning() const
@@ -138,23 +183,6 @@ void MVLCListfileWorker::setState(DAQState newState)
     }
 }
 
-// Dequeues a buffer from the free queue and prepares it for use. On timeout
-// nullptr is returned.
-DataBuffer *MVLCListfileWorker::getOutputBuffer()
-{
-    DataBuffer *result = dequeue(getEmptyQueue(), FreeBufferWaitTimeout_ms);
-
-    if (result)
-    {
-        result->used = 0;
-        result->id   = d->nextOutputBufferNumber++;
-        result->tag  = static_cast<int>(d->format);
-        result->ensureFreeSpace(ListfileSingleReadSize);
-    }
-
-    return result;
-}
-
 // Blocking call which will perform the work
 // TODO: handle eventsToRead
 void MVLCListfileWorker::start()
@@ -173,7 +201,7 @@ void MVLCListfileWorker::start()
     }
 
     setState(DAQState::Starting);
-
+    d->stats.access()->start();
 
     try
     {
@@ -194,6 +222,21 @@ void MVLCListfileWorker::start()
 
         if (auto ec = fStart.get())
             throw ec;
+
+        setState(DAQState::Running);
+
+        // wait until readout done while periodically updating the DAQ stats
+        while (d->mvlcReplayWorker->state() != mvlc::ReplayWorker::State::Idle)
+        {
+            d->mvlcReplayWorker->waitableState().wait_for(
+                std::chrono::milliseconds(100),
+                [] (const mvlc::ReplayWorker::State &state)
+                {
+                    return state == mvlc::ReplayWorker::State::Idle;
+                });
+
+            d->updateDAQStats();
+        }
     }
     catch (const std::error_code &ec)
     {
@@ -216,7 +259,7 @@ void MVLCListfileWorker::start()
         logError(QSL("VME Script parse error: ") + e.what());
     }
 
-    d->stats.stop();
+    d->stats.access()->stop();
     setState(DAQState::Idle);
 
 #if 0
@@ -293,59 +336,52 @@ void MVLCListfileWorker::start()
 
 using namespace mesytec::mvme_mvlc;
 
-// Returns the result of QIODevice::read(): the number of bytes transferred or
-// a  negative value on error.
-qint64 MVLCListfileWorker::readAndProcessBuffer(DataBuffer *destBuffer)
-{
-#if 0
-    // Move leftover data from the previous buffer into the destination buffer.
-    if (d->previousData.used)
-    {
-        assert(destBuffer->free() >= d->previousData.used);
-        std::memcpy(destBuffer->endPtr(), d->previousData.data, d->previousData.used);
-        destBuffer->used += d->previousData.used;
-        d->previousData.used = 0u;
-    }
-
-    // Read data from the input file
-    qint64 bytesRead = d->input->read(destBuffer->asCharStar(), destBuffer->free());
-
-    if (bytesRead >= 0)
-    {
-        destBuffer->used += bytesRead;
-
-        switch (d->format)
-        {
-            case ListfileBufferFormat::MVLC_ETH:
-                fixup_buffer_eth(*destBuffer, d->previousData);
-                break;
-
-            case ListfileBufferFormat::MVLC_USB:
-                fixup_buffer_usb(*destBuffer, d->previousData);
-                break;
-
-            InvalidDefaultCase;
-        }
-    }
-
-    return bytesRead;
-#endif
-}
-
-// Thread-safe calls, setting internal flags to do the state transition
 void MVLCListfileWorker::stop()
 {
-    d->desiredState = DAQState::Stopping;
+    if (auto ec = d->mvlcReplayWorker->stop())
+        logError(ec.message().c_str());
+    else
+    {
+        auto cond = [](const mvlc::ReplayWorker::State &state)
+        {
+            return state != mvlc::ReplayWorker::State::Idle;
+        };
+
+        d->waitForStateChange(cond);
+        logMessage(QString(QSL("MVLC readout stopped")));
+    }
 }
 
 void MVLCListfileWorker::pause()
 {
-    d->desiredState = DAQState::Paused;
+    if (auto ec = d->mvlcReplayWorker->pause())
+        logError(ec.message().c_str());
+    else
+    {
+        auto cond = [](const mvlc::ReplayWorker::State &state)
+        {
+            return state == mvlc::ReplayWorker::State::Running;
+        };
+
+        d->waitForStateChange(cond);
+        logMessage(QString(QSL("MVLC readout paused")));
+    }
 }
 
 void MVLCListfileWorker::resume()
 {
-    d->desiredState = DAQState::Running;
+    if (auto ec = d->mvlcReplayWorker->resume())
+        logError(ec.message().c_str());
+    else
+    {
+        auto cond = [](const mvlc::ReplayWorker::State &state)
+        {
+            return state == mvlc::ReplayWorker::State::Paused;
+        };
+
+        d->waitForStateChange(cond);
+        logMessage(QString(QSL("MVLC readout resumed")));
+    }
 }
 
 void MVLCListfileWorker::logError(const QString &msg)

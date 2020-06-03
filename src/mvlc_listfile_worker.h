@@ -53,8 +53,6 @@ class LIBMVME_EXPORT MVLCListfileWorker: public ListfileReplayWorker
 
     private:
         void setState(DAQState state);
-        DataBuffer *getOutputBuffer();
-        qint64 readAndProcessBuffer(DataBuffer *destBuffer);
         void logError(const QString &msg);
 
         struct Private;
