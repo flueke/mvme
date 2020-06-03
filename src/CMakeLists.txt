@@ -153,7 +153,9 @@ if(MVME_ENABLE_MVLC)
     set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
     generate_export_header(libmvme_mvlc)
 
-    target_link_libraries(libmvme_mvlc PUBLIC libmvme_core)
+    target_link_libraries(libmvme_mvlc
+        PUBLIC mesytec-mvlc
+        PUBLIC libmvme_core)
 
     if (WIN32)
         target_link_libraries(libmvme_mvlc PRIVATE ws2_32)
