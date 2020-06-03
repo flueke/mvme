@@ -21,25 +21,23 @@
 #include "mvlc_readout_worker.h"
 
 #include <cassert>
-#include <QCoreApplication>
-#include <QtConcurrent>
-#include <QThread>
 #include <chrono>
+#include <QCoreApplication>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <thread>
+
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/mvlc_impl_eth.h>
 #include <mesytec-mvlc/mvlc_impl_usb.h>
-#include <thread>
-#include "mesytec-mvlc/mvlc_listfile.h"
-#include "mesytec-mvlc/mvlc_listfile_zip.h"
-#include "mesytec-mvlc/util/readout_buffer_queues.h"
-#include "mvlc/mvlc_qt_object.h"
 
+#include "mvlc_daq.h"
+#include "mvlc_listfile.h"
+#include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_util.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
-#include "mvlc_daq.h"
 #include "util_zip.h"
 #include "vme_analysis_common.h"
-#include "mvlc_listfile.h"
 
 // =========================
 //    MVLC readout outline
