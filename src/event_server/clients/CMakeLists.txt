@@ -9,7 +9,7 @@ target_link_libraries(mvme_event_server_example_client
 #    )
 
 if (WIN32)
-    target_link_libraries(mvme_event_server_example_client ws2_32)
+    target_link_libraries(mvme_event_server_example_client PRIVATE ws2_32)
 endif (WIN32)
 
 install(TARGETS mvme_event_server_example_client
