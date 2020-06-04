@@ -179,12 +179,12 @@ if(MVME_ENABLE_MVLC)
         LIBRARY DESTINATION lib)
 
     # mvlc_dev_win_usb_debug
-    if (WIN32)
-        add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
-        target_link_libraries(mvlc_dev_win_usb_debug
-            PRIVATE libmvme_mvlc
-            )
-    endif (WIN32)
+    #if (WIN32)
+    #    add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
+    #    target_link_libraries(mvlc_dev_win_usb_debug
+    #        PRIVATE libmvme_mvlc
+    #        )
+    #endif (WIN32)
 
     add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
     target_link_libraries(dev_mvlc_vmescript_runner PRIVATE libmvme_mvlc)
