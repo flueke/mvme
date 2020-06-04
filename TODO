@@ -1,16 +1,7 @@
 ==================================================
 TODO list
 ==================================================
-* doc: mvlc and jumbo frames. also test this
-  I think right now there's not even a way to enable jumbos for the mvlc
-  via the GUI.
-
-* QObject::connect: Cannot queue arguments of type 'mesytec::mvme_mvlc::MVLCObject::State'
-  (Make sure 'mesytec::mvme_mvlc::MVLCObject::State' is registered using qRegisterMetaType().)
-
-* mesytec diagnostics are not implemented for the mvlc. Redesign how the
-  diagnostics widget wors and implement it for the mvlc.
-
+* improve mesytec diagnostics
 * qthelp: most images are links but they do show the binary file contents
   instead of the image. Note that not all images behave this way. Some are not
   clickable, e.g the very first 'mvme overview' image in the introduction.
@@ -19,6 +10,12 @@ TODO list
 
 * heisencrash when deleting vme scripts? might have been due to changing
   compile flags. not sure.
+
+* mvlc readout: are stack errors being updated?
+* general: use mvlc::Protected to guard all the counters and similar objects in the system.
+* event_server: test with the mvlc. measure performance
+* test m2r
+* do not install libftd3xx.so
 
 * vme config tree
 --------------------------------------------------
@@ -43,11 +40,6 @@ analysis_ui: no small toolbar stats display with mvlc (rate, replayRate, etc)
 
 * do add in per pipe and per packet channel stats displays for the mvlc!
 * mvlc parser debugging
-* further debug the mvlc_eth mtdc pulser=7, multi_event>10 timeout problems.
-  how do the broken command buffers look exactly?
-* pausing and stopping an MVLC eth DAQ can still take forever
-  -> this is almost always caused by the mvlc error notifications going wild.
-  The MVLCObject code is stuck in the loop where the error buffers are handled.
 
 * change the analysis default filters generation to allow including custom
   calibration operators and other things in the default_filters.analysis for
@@ -63,23 +55,6 @@ analysis_ui: no small toolbar stats display with mvlc (rate, replayRate, etc)
   operator names can be pretty generic but the directory names should contain
   the module name they're connected to. Use placeholders in the template names?
   %m to be replaced by the actual module name?
-
-* config update from version 3 to 4 (introduction of vme_script variables):
-  What's done:
-  - marked the places where logging should be done
-
-  What's missing:
-  - use boost::log with a custom attribute or category or something to capture
-    the log output. or as a quick fix just pass in a loggger to the config
-    conversion routine.
-  - on the outside when loading a vme config and we do have a gui: detect if
-    config conversion from 3 to X is about to happen. If so pass a logger in
-    when converting and display the output in a new window. tell the user
-    what's going on and that they should check the config and save it if things
-    look ok.
-  - logging of what's changed
-  - user visible prompt (modal warning box) about the schema and script update.
-    also set the config to modified.
 
 * think about moving the business logic in vme_config_ui into factory functions
   for new EventConfig and ModuleConfig instances. Also factor out things like
