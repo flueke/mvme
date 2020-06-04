@@ -371,7 +371,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         m_vmusbStack.resetLoadOffset(); // reset the static load offset
         int nextStackID = 2; // start at ID=2 as NIM=0 and scaler=1 (fixed)
-        bool NIMO1InUse = false;
 
         for (auto event: daqConfig->getEventConfigs())
         {
