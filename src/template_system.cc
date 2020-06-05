@@ -185,7 +185,7 @@ QDebug operator<<(QDebug debug, const MVMETemplates &templates);
 
 QString get_template_path()
 {
-    QString templatePath = QCoreApplication::applicationDirPath() + QSL("/templates");
+    QString templatePath = QCoreApplication::applicationDirPath() + QSL("../templates");
     return templatePath;
 }
 
