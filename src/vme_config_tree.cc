@@ -240,8 +240,6 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     pb_save   = make_action_toolbutton();
     pb_saveAs = make_action_toolbutton();
     pb_editVariables = make_action_toolbutton();
-    //pb_notes  = make_toolbutton(QSL(":/text-document.png"), QSL("Notes"));
-    //connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
 
     QToolButton *pb_moreMenu = nullptr;
 
@@ -290,7 +288,6 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
         buttonLayout->addWidget(sep);
     }
     buttonLayout->addWidget(pb_moreMenu);
-    //buttonLayout->addWidget(pb_notes); TODO: implement this
     buttonLayout->addStretch(1);
 
     // filename label
@@ -1439,10 +1436,6 @@ void VMEConfigTreeWidget::handleShowDiagnostics()
 void VMEConfigTreeWidget::exploreWorkspace()
 {
     QDesktopServices::openUrl(QUrl::fromLocalFile(m_workspaceDirectory));
-}
-
-void VMEConfigTreeWidget::showEditNotes()
-{
 }
 
 void VMEConfigTreeWidget::setConfigFilename(const QString &filename)
