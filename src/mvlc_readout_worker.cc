@@ -380,6 +380,13 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 writeHandle->write(reinterpret_cast<const u8 *>(bytes.data()), bytes.size());
                 d->mvlcZipCreator->closeCurrentEntry();
             }
+
+            if (auto writeHandle = d->mvlcZipCreator->createZIPEntry("mvme_run_notes.txt", 0))
+            {
+                auto bytes = m_workerContext.getRunNotes().toLocal8Bit();
+                writeHandle->write(reinterpret_cast<const u8 *>(bytes.data()), bytes.size());
+                d->mvlcZipCreator->closeCurrentEntry();
+            }
         }
 
         d->mvlcZipCreator.reset(); // destroy the ZipCreator to flush and close the listfile archive

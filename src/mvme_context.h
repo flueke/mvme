@@ -126,12 +126,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         MVMEStreamWorkerState getMVMEStreamWorkerState() const;
         DAQStats getDAQStats() const;
 
-#if 0
-        bool setReplayFile(ListFile *listFile);
-        void closeReplayFile();
-        ListFile *getReplayFile() const { return m_listFile; }
-#endif
-
         bool setReplayFileHandle(ListfileReplayHandle listfile);
         const ListfileReplayHandle &getReplayFileHandle() const;
         ListfileReplayHandle &getReplayFileHandle();
@@ -316,6 +310,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void addWidget(QWidget *widget, const QString &stateKey);
 
         RunInfo getRunInfo() const;
+        QString getRunNotes() const;
 
     public slots:
         void startDAQReadout(u32 nCycles = 0, bool keepHistoContents = false);
@@ -335,6 +330,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void forceResetVMEController();
         void dumpVMEControllerRegisters();
         void sniffNextInputBuffer();
+
+        void setRunNotes(const QString &notes);
 
     private slots:
         void tryOpenController();

@@ -84,6 +84,12 @@ ListfileReplayHandle open_listfile(const QString &filename)
                 result.messages = f.readAll();
         }
 
+        {
+            QuaZipFile f(filename, QSL("mvme_run_notes.txt"));
+            if (f.open(QIODevice::ReadOnly))
+                result.runNotes = QString::fromLocal8Bit(f.readAll());
+        }
+
         // Now open the archive manually and search for a listfile
         result.archive = std::make_unique<QuaZip>(filename);
 

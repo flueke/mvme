@@ -88,6 +88,8 @@
     <file alias="splash-screen.png">resources/Splash_Screen.png</file>
     <file alias="vme-script-help.html">resources/vme-script-help.html</file>
 
+    <file alias="default_run_notes.txt">resources/default_run_notes.txt</file>
+
 
     <!-- export sink -->
     <file>analysis/export_templates/CMakeLists.txt.mustache</file>

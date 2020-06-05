@@ -57,6 +57,7 @@ struct LIBMVME_EXPORT ListfileReplayHandle
 
     QByteArray messages;        // Contents of messages.log if found.
     QByteArray analysisBlob;    // Analysis config contents if present in the archive.
+    QString runNotes;           // Contents of the mvme_run_notes.txt file stored in the archive.
 
     ListfileReplayHandle() = default;
 

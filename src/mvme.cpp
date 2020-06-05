@@ -46,6 +46,7 @@
 #include "rate_monitor_gui.h"
 #include "sis3153_util.h"
 #include "util/qt_logview.h"
+#include "util/qt_monospace_textedit.h"
 #include "util_zip.h"
 #include "vme_config_tree.h"
 #include "vme_config_ui.h"
@@ -100,6 +101,7 @@ struct MVMEWindowPrivate
     WidgetGeometrySaver *m_geometrySaver;
     ListfileBrowser *m_listfileBrowser = nullptr;
     RateMonitorGui *m_rateMonitorGui = nullptr;
+    QPlainTextEdit *runNotesWidget = nullptr;
 
     DAQControl *daqControl = nullptr;
 
@@ -482,6 +484,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         connect(dcw, &DAQControlWidget::changeWorkspaceSettings,
                 this, &MVMEMainWindow::runWorkspaceSettingsDialog);
 
+        connect(dcw, &DAQControlWidget::showRunNotes,
+                this, &MVMEMainWindow::showRunNotes);
+
         // MVMEContext -> The World
         connect(m_d->m_context, &MVMEContext::sniffedReadoutBufferReady,
                 this, &MVMEMainWindow::handleSniffedReadoutBuffer);
@@ -722,6 +727,8 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
     {
         closeAllHistogramWidgets();
         m_d->m_context->openWorkspace(dirName);
+        if (m_d->runNotesWidget)
+            m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
     } catch (const QString &e)
     {
         QMessageBox::critical(this, QSL("Workspace Error"),
@@ -1349,7 +1356,8 @@ void MVMEMainWindow::onActionListfileBrowser_triggered()
             this->m_d->m_listfileBrowser = nullptr;
         });
 
-        m_d->m_geometrySaver->addAndRestore(m_d->m_listfileBrowser, QSL("WindowGeometries/ListfileBrowser"));
+        m_d->m_geometrySaver->addAndRestore(
+            m_d->m_listfileBrowser, QSL("WindowGeometries/ListfileBrowser"));
     }
 
     show_and_activate(m_d->m_listfileBrowser);
@@ -2022,6 +2030,53 @@ void MVMEMainWindow::closeAllHistogramWidgets()
 
 void MVMEMainWindow::handleSniffedReadoutBuffer(const mesytec::mvlc::ReadoutBuffer &/*readoutBuffer*/)
 {
-    // TODO: Add an MVLCInputBufferDebugHandler similar to
-    // MVLCParserDebugHandler. Let
+    // TODO: Add an MVLCInputBufferDebugHandler similar to MVLCParserDebugHandler.
+}
+
+void MVMEMainWindow::showRunNotes()
+{
+    if (!m_d->runNotesWidget)
+    {
+        m_d->runNotesWidget = new QPlainTextEdit;
+        m_d->runNotesWidget = mesytec::mvme::util::make_monospace_plain_textedit(-2).release();
+        m_d->runNotesWidget->setWindowTitle(QSL("DAQ Run Notes"));
+        m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+        m_d->runNotesWidget->setAttribute(Qt::WA_DeleteOnClose);
+        add_widget_close_action(m_d->runNotesWidget);
+
+        m_d->m_geometrySaver->addAndRestore(
+            m_d->runNotesWidget, QSL("WindowGeometries/RunNotesEditorWidget"));
+
+        auto on_global_mode_changed = [this](const GlobalMode &mode)
+        {
+            if (!m_d->runNotesWidget) return;
+
+            bool ro = (mode == GlobalMode::ListFile);
+
+            QString css = ro ? "background-color: rgb(225, 225, 225);" : "";
+            m_d->runNotesWidget->setStyleSheet(css);
+            m_d->runNotesWidget->setReadOnly(ro);
+
+            QSignalBlocker b(m_d->runNotesWidget);
+            m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+        };
+
+        on_global_mode_changed(getContext()->getMode());
+
+        connect(m_d->runNotesWidget, &QObject::destroyed, this, [this] (QObject *) {
+            this->m_d->runNotesWidget = nullptr;
+        });
+
+        connect(m_d->runNotesWidget, &QPlainTextEdit::textChanged,
+                this, [this] ()
+                {
+                    getContext()->setRunNotes(m_d->runNotesWidget->toPlainText());
+                });
+
+        connect(getContext(), &MVMEContext::modeChanged,
+                this, on_global_mode_changed);
+
+    }
+
+    show_and_activate(m_d->runNotesWidget);
 }

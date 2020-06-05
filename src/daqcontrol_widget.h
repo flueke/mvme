@@ -58,6 +58,7 @@ class DAQControlWidget: public QWidget
         void changeVMEControllerSettings();
         void changeDAQRunSettings();
         void changeWorkspaceSettings();
+        void showRunNotes();
 
     public:
         DAQControlWidget(QWidget *parent = 0);
@@ -95,6 +96,7 @@ class DAQControlWidget: public QWidget
                     *pb_controllerSettings,
                     *pb_runSettings,
                     *pb_workspaceSettings,
+                    *pb_runNotes,
                     *pb_forceReset;
 
         QLabel *label_controllerState,

@@ -94,6 +94,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     , pb_controllerSettings(new QPushButton)
     , pb_runSettings(new QPushButton)
     , pb_workspaceSettings(new QPushButton)
+    , pb_runNotes(new QPushButton)
     , pb_forceReset(new QPushButton)
     , label_controllerState(new QLabel)
     , label_daqState(new QLabel)
@@ -174,6 +175,9 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     connect(pb_workspaceSettings, &QPushButton::clicked,
             this, &DAQControlWidget::changeWorkspaceSettings);
 
+    connect(pb_runNotes, &QPushButton::clicked,
+            this, &DAQControlWidget::showRunNotes);
+
     connect(cb_writeListfile, &QCheckBox::stateChanged,
             this, [this](int state)
     {
@@ -225,6 +229,8 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     pb_controllerSettings->setText(QSL("Settings"));
     pb_runSettings->setText(QSL("Run Settings"));
     pb_workspaceSettings->setText(QSL("Workspace Settings"));
+    pb_runNotes->setIcon(QIcon(QSL(":/text-document.png")));
+    pb_runNotes->setText(QSL("Run Notes"));
 
     {
         auto pal = le_listfileFilename->palette();
@@ -314,6 +320,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
             hbox->setSpacing(2);
             hbox->addWidget(pb_runSettings);
             hbox->addWidget(pb_workspaceSettings);
+            hbox->addWidget(pb_runNotes);
             hbox->addStretch();
             gbLayout->addRow(hbox);
         }

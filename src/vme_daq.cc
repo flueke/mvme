@@ -460,6 +460,27 @@ void DAQReadoutListfileHelper::endRun()
                     }
                 }
 
+                // run_notes
+                {
+                    QuaZipNewInfo info("mvme_run_notes.txt");
+                    info.setPermissions(static_cast<QFile::Permissions>(0x6644));
+                    QuaZipFile outFile(&m_d->listfileArchive);
+
+                    bool res = outFile.open(QIODevice::WriteOnly, info,
+                                            // password, crc
+                                            nullptr, 0,
+                                            // method (Z_DEFLATED or 0 for no compression)
+                                            0,
+                                            // level
+                                            m_readoutContext.listfileOutputInfo->compressionLevel
+                                           );
+
+                    if (res)
+                    {
+                        outFile.write(m_readoutContext.getRunNotes().toLocal8Bit());
+                    }
+                }
+
                 m_d->listfileArchive.close();
 
                 if (m_d->listfileArchive.getZipError() != UNZ_OK)

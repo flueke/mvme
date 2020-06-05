@@ -157,7 +157,7 @@ private slots:
                             RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
 
     void handleSniffedReadoutBuffer(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
-
+    void showRunNotes();
 
 private:
     MVMEWindowPrivate *m_d;

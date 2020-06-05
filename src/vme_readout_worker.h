@@ -44,6 +44,7 @@ struct VMEReadoutWorkerContext
     std::function<void (const QString &)> logger;
     std::function<QStringList ()> getLogBuffer;
     std::function<QJsonDocument ()> getAnalysisJson;
+    std::function<QString ()> getRunNotes;
     LeakyBucketMeter m_logThrottle;
 
     static const size_t MaxLogMessagesPerSecond = 5;

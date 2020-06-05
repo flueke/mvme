@@ -81,6 +81,7 @@ static const ListFileFormat DefaultListFileFormat = ListFileFormat::ZIP;
 static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
+static const QString RunNotesFilename = QSL("mvme_run_notes.txt");
 
 static const QString VMEConfigAutoSaveFilename = QSL(".vme_autosave.vme");
 static const QString AnalysisAutoSaveFilename  = QSL(".analysis_autosave.analysis");
@@ -173,9 +174,11 @@ struct MVMEContextPrivate
     ListfileReplayHandle listfileReplayHandle;
     std::unique_ptr<ListfileReplayWorker> listfileReplayWorker;
     mesytec::mvlc::ReadoutBufferQueues mvlcSnoopQueues;
+    mutable mesytec::mvlc::Protected<QString> runNotes;
 
     MVMEContextPrivate()
         : mvlcSnoopQueues(DataBufferSize, DataBufferCount)
+        , runNotes({})
     {}
 
     void stopDAQ();
@@ -197,6 +200,9 @@ struct MVMEContextPrivate
     void resumeAnalysis(analysis::Analysis::BeginRunOption option);
 
     void clearLog();
+
+    void maybeSaveDAQNotes();
+    void workspaceClosingCleanup();
 };
 
 void MVMEContextPrivate::stopDAQ()
@@ -444,7 +450,8 @@ static void writeToSettings(const ListFileOutputInfo &info, QSettings &settings)
 {
     settings.setValue(QSL("WriteListFile"),             info.enabled);
     settings.setValue(QSL("ListFileFormat"),            toString(info.format));
-    settings.setValue(QSL("ListFileDirectory"),         info.directory);
+    if (!info.directory.isEmpty())
+        settings.setValue(QSL("ListFileDirectory"),         info.directory);
     settings.setValue(QSL("ListFileCompressionLevel"),  info.compressionLevel);
     settings.setValue(QSL("ListFilePrefix"),            info.prefix);
     settings.setValue(QSL("ListFileRunNumber"),         info.runNumber);
@@ -595,7 +602,7 @@ MVMEContext::~MVMEContext()
     qDeleteAll(m_freeBuffers.queue);
     qDeleteAll(m_fullBuffers.queue);
 
-    cleanupWorkspaceAutoSaveFiles();
+    m_d->workspaceClosingCleanup();
 
     delete m_d;
 
@@ -752,6 +759,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     readoutWorkerContext.logger             = [this](const QString &msg) { logMessage(msg); };
     readoutWorkerContext.getLogBuffer       = [this]() { return getLogBuffer(); };
     readoutWorkerContext.getAnalysisJson    = [this]() { return getAnalysisJsonDocument(); };
+    readoutWorkerContext.getRunNotes        = [this]() { return getRunNotes(); };
 
     m_readoutWorker->setContext(readoutWorkerContext);
 
@@ -1362,14 +1370,17 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle)
         return false;
     }
 
+    // save the current run notes to disk if in DAQ mode
+    m_d->maybeSaveDAQNotes();
 
-    m_d->m_isFirstConnectionAttempt = true; // FIXME: add a note on why this is done
+    m_d->m_isFirstConnectionAttempt = true;
     setVMEConfig(vmeConfig.release());
 
     m_d->listfileReplayHandle = std::move(handle);
     m_d->listfileReplayWorker->setListfile(&m_d->listfileReplayHandle);
 
     setConfigFileName(QString(), false);
+    setRunNotes(m_d->listfileReplayHandle.runNotes);
     setMode(GlobalMode::ListFile);
 
     bool ret = handle_vme_analysis_assignment(
@@ -1398,6 +1409,16 @@ void MVMEContext::closeReplayFileHandle()
 
     m_d->listfileReplayHandle = {};
     m_d->m_isFirstConnectionAttempt = true;
+
+    // Reload the Run Notes
+    {
+        QFile f(RunNotesFilename);
+
+        if (f.open(QIODevice::ReadOnly))
+        {
+            setRunNotes(QString::fromLocal8Bit(f.readAll()));
+        }
+    }
 
     /* Open the last used VME config in the workspace. Create a new VME config
      * if no previous exists. */
@@ -2003,7 +2024,7 @@ void MVMEContext::newWorkspace(const QString &dirName)
         return;
     }
 
-    // cleanup autosaves in the previous workspace
+    // cleanup autosaves in the previous (currently open) workspace
     cleanupWorkspaceAutoSaveFiles();
 
     auto workspaceSettings(makeWorkspaceSettings(dirName));
@@ -2060,38 +2081,57 @@ void MVMEContext::newWorkspace(const QString &dirName)
         }
     }
 
+    if (!destDir.exists(RunNotesFilename))
+    {
+        QFile inFile(":/default_run_notes.txt");
+
+        if (!inFile.open(QIODevice::ReadOnly))
+            throw QString("Error reading default_run_notes.txt from resource file.");
+
+        QFile outFile(QDir(dirName).filePath(RunNotesFilename));
+
+        if (!outFile.open(QIODevice::WriteOnly))
+            throw QString(QSL("Error saving default DAQ run notes to file: %1").arg(outFile.errorString()));
+
+        auto defRunNotes = inFile.readAll();
+        auto written = outFile.write(defRunNotes);
+
+        if (written != defRunNotes.size())
+            throw QString(QSL("Error saving default DAQ run notes to file: %1").arg(outFile.errorString()));
+    }
+
     openWorkspace(dirName);
 }
 
 void MVMEContext::openWorkspace(const QString &dirName)
 {
-    QDir dir(dirName);
-
-    if (!dir.exists())
-    {
-        throw QString ("Workspace directory %1 does not exist.")
-            .arg(dirName);
-    }
-
-    if (!dir.exists(WorkspaceIniName))
-    {
-        throw QString("Workspace settings file %1 not found in %2.")
-            .arg(WorkspaceIniName)
-            .arg(dirName);
-    }
-
-    if (!QDir::setCurrent(dirName))
-    {
-        throw QString("Could not change directory to workspace path %1.")
-            .arg(dirName);
-    }
 
     QString lastWorkspaceDirectory(m_workspaceDir);
 
     try
     {
-        // cleanup files in the previous workspace that's being closed
-        cleanupWorkspaceAutoSaveFiles();
+        m_d->workspaceClosingCleanup();
+
+        QDir dir(dirName);
+
+        if (!dir.exists())
+        {
+            throw QString ("Workspace directory %1 does not exist.")
+                .arg(dirName);
+        }
+
+        if (!dir.exists(WorkspaceIniName))
+        {
+            throw QString("Workspace settings file %1 not found in %2.")
+                .arg(WorkspaceIniName)
+                .arg(dirName);
+        }
+
+        if (!QDir::setCurrent(dirName))
+        {
+            throw QString("Could not change directory to workspace path %1.")
+                .arg(dirName);
+        }
 
         setWorkspaceDirectory(dirName);
         auto workspaceSettings(makeWorkspaceSettings(dirName));
@@ -2353,6 +2393,18 @@ void MVMEContext::openWorkspace(const QString &dirName)
         }
 
         //
+        // Run Notes
+        //
+        {
+            QFile f(RunNotesFilename);
+
+            if (f.open(QIODevice::ReadOnly))
+                setRunNotes(QString::fromLocal8Bit(f.readAll()));
+            else
+                setRunNotes({});
+        }
+
+        //
         // Create the autosavers here as the workspace specific autosave
         // directory is known at this point.
         //
@@ -2393,6 +2445,38 @@ void MVMEContext::openWorkspace(const QString &dirName)
         setWorkspaceDirectory(lastWorkspaceDirectory);
         throw;
     }
+}
+
+void MVMEContextPrivate::maybeSaveDAQNotes()
+{
+    if (!m_q->isWorkspaceOpen())
+        return;
+
+    // flush run notes to disk
+    if (m_q->getMode() == GlobalMode::DAQ)
+    {
+        QFile f(RunNotesFilename);
+
+        if (!f.open(QIODevice::WriteOnly))
+            throw QString(QSL("Error saving DAQ run notes to file: %1").arg(f.errorString()));
+
+        auto bytes = m_q->getRunNotes().toLocal8Bit();
+        auto written = f.write(bytes);
+
+        if (written != bytes.size())
+            throw QString(QSL("Error saving DAQ run notes to file: %1").arg(f.errorString()));
+    }
+}
+
+void MVMEContextPrivate::workspaceClosingCleanup()
+{
+    if (!m_q->isWorkspaceOpen())
+        return;
+
+    // cleanup files in the previous workspace that's being closed
+    m_q->cleanupWorkspaceAutoSaveFiles();
+    maybeSaveDAQNotes();
+    m_q->setRunNotes({});
 }
 
 void MVMEContext::cleanupWorkspaceAutoSaveFiles()
@@ -2796,6 +2880,16 @@ void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::Operato
 RunInfo MVMEContext::getRunInfo() const
 {
     return m_d->m_runInfo;
+}
+
+void MVMEContext::setRunNotes(const QString &notes)
+{
+    m_d->runNotes.access().ref() = notes;
+}
+
+QString MVMEContext::getRunNotes() const
+{
+    return m_d->runNotes.copy();
 }
 
 // DAQPauser
