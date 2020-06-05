@@ -2,6 +2,16 @@
 TODO list
 ==================================================
 
+* DAQ notes font too small under windows
+* Windows GUI is sluggish even when a non-mvlc controller is selected. Might be
+  a threading/locking issue.
+* NSIS installer "run mvme" on the last page still does not work
+* add the functionality of the mvme_to_mvlc converted to the gui.
+
+* apparently there's a crash when compiling an expression operator script while
+  a replay is running. Robert ran into this while editing an expresison and
+  lost all of his edits...
+
 (gdb) bt
 #0  __GI_raise (sig=sig@entry=6) at ../sysdeps/unix/sysv/linux/raise.c:50
 #1  0x00007ffff4b92535 in __GI_abort () at abort.c:79
