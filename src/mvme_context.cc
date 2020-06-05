@@ -2113,8 +2113,9 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
         // listfile subdir
         {
-            logMessage(QString("Workspace ListFileDirectory=%1").arg(getWorkspacePath(QSL("ListFileDirectory"))));
-            QDir dir(getWorkspacePath(QSL("ListFileDirectory"), QSL("listfiles")));
+            auto path = getWorkspacePath(QSL("ListFileDirectory"), QSL("listfiles"));
+            logMessage(QString("Workspace ListFileDirectory=%1").arg(path));
+            QDir dir(path);
 
             if (!QDir::root().mkpath(dir.absolutePath()))
             {
