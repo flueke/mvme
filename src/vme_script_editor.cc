@@ -429,7 +429,7 @@ void VMEScriptEditor::search()
     }
 }
 
-void VMEScriptEditor::onSearchTextEdited(const QString &text)
+void VMEScriptEditor::onSearchTextEdited(const QString &/*text*/)
 {
     /* Move the cursor to the beginning of the current word, then search
      * forward from that position. */
