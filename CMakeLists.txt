@@ -256,7 +256,7 @@ if (WIN32)
     set(CPACK_GENERATOR "NSIS") # "NSIS;ZIP"
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
     set(CPACK_NSIS_PACKAGE_NAME "mvme")
-    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "bin/mvme.exe")
+    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "bin\mvme.exe")
     set(CPACK_NSIS_URL_INFO_ABOUT "http://www.mesytec.com")
     set(CPACK_NSIS_CONTACT "info@mesytec.com")
 
