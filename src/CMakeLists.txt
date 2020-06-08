@@ -107,11 +107,13 @@ target_link_libraries(libmvme_core
     PUBLIC Qt5::Widgets
     )
 
+target_compile_options(libmvme_core PRIVATE -Wall -Wextra)
+
 if (WIN32)
     target_link_libraries(libmvme_core PRIVATE ws2_32)
+    target_compile_options(libmvme_core PRIVATE -Wno-format)
 endif()
 
-target_compile_options(libmvme_core PRIVATE -Wall -Wextra)
 
 install(TARGETS libmvme_core
     RUNTIME DESTINATION bin
@@ -159,6 +161,7 @@ if(MVME_ENABLE_MVLC)
 
     if (WIN32)
         target_link_libraries(libmvme_mvlc PRIVATE ws2_32)
+        target_compile_options(libmvme_mvlc PRIVATE -Wno-format)
     endif(WIN32)
 
     #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_USB_LOG_LEVEL=${MVLC_USB_LOG_LEVEL})
@@ -328,8 +331,11 @@ target_link_libraries(libmvme
     PRIVATE jcon
     )
 
+target_compile_options(libmvme PRIVATE -Wall -Wextra)
+
 if (WIN32)
     target_link_libraries(libmvme PRIVATE ws2_32)
+    target_compile_options(libmvme PRIVATE -Wno-format)
 endif()
 
 target_include_directories(libmvme
@@ -370,8 +376,6 @@ if (MVME_ENABLE_MVLC)
     # yaml-cpp to the global include paths.
     #include_directories(${MVME_YAML_DIR}/include)
 
-    target_compile_options(libmvme PRIVATE -Wall -Wextra)
-
     add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
     target_link_libraries(dev_mvlc_daq_init libmvme)
 
@@ -383,8 +387,7 @@ if (MVME_ENABLE_MVLC)
 
     if (NOT WIN32)
         add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
-        target_link_libraries(dev_mvlc_dump_eth_file
-            PRIVATE libmvme)
+        target_link_libraries(dev_mvlc_dump_eth_file PRIVATE libmvme)
     endif(NOT WIN32)
 endif()
 
@@ -411,6 +414,10 @@ target_link_libraries(mvme
 target_include_directories(mvme PRIVATE ${CMAKE_SOURCE_DIR}/external)
 
 target_compile_options(mvme PRIVATE -Wall -Wextra)
+
+if (WIN32)
+    target_compile_options(mvme PRIVATE -Wno-format)
+endif()
 
 install(TARGETS mvme
     RUNTIME DESTINATION bin
