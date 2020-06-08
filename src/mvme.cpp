@@ -2038,7 +2038,7 @@ void MVMEMainWindow::showRunNotes()
     if (!m_d->runNotesWidget)
     {
         m_d->runNotesWidget = new QPlainTextEdit;
-        m_d->runNotesWidget = mesytec::mvme::util::make_monospace_plain_textedit(-2).release();
+        m_d->runNotesWidget = mesytec::mvme::util::make_monospace_plain_textedit().release();
         m_d->runNotesWidget->setWindowTitle(QSL("DAQ Run Notes"));
         m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
         m_d->runNotesWidget->setAttribute(Qt::WA_DeleteOnClose);
