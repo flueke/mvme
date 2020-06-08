@@ -347,7 +347,7 @@ QTextStream &dump_tree(QTextStream &out, const Node<T> &node, size_t indent)
 
     for (auto it = children.begin(); it != children.end(); it++)
     {
-        do_indent() << it.key() << std::endl;
+        do_indent() << it.key() << endl;
         dump_tree(out, it.value(), indent + 1);
     }
 
