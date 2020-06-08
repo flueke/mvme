@@ -96,6 +96,7 @@ public slots:
     void onActionOpenVMEConfig_triggered();
     bool onActionSaveVMEConfig_triggered();
     bool onActionSaveVMEConfigAs_triggered();
+    bool onActionExportVMEConfig_triggered();
 
     void loadConfig(const QString &fileName);
 

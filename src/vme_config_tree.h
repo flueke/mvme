@@ -55,7 +55,7 @@ class VMEConfigTreeWidget: public QWidget
         // This makes use of the action defined in the MVMEMainWindow class.
         // Call this after the actions have been added to this widget via
         // QWidget::addAction().
-        void setupActionButtons();
+        void setupGlobalActions();
 
         VMEConfig *getConfig() const;
 
@@ -150,6 +150,7 @@ class VMEConfigTreeWidget: public QWidget
 
         QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs, *pb_notes, *pb_editVariables;
         QLineEdit *le_fileName;
+        QMenu *menu_more = nullptr;
 };
 
 #endif /* __DAQCONFIG_TREE_H__ */

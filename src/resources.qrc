@@ -24,6 +24,7 @@
     <file alias="document-text.png">resources/document-text.png</file>
     <file alias="document-save-as.png">resources/document-save-as.png</file>
     <file alias="document-save.png">resources/document-save.png</file>
+    <file alias="document-export.png">resources/document-export.png</file>
     <file alias="exclamation-circle.png">resources/exclamation-circle.png</file>
     <file alias="exclam-circle.png">resources/emblem-important.png</file>
     <file alias="eye_pencil.png">resources/eye--pencil.png</file>

@@ -245,6 +245,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
 
     {
         auto menu = new QMenu(this);
+        this->menu_more = menu;
         action_showAdvanced = menu->addAction(QSL("Show advanced objects"));
         action_showAdvanced->setCheckable(true);
         connect(action_showAdvanced, &QAction::changed, this,
@@ -330,7 +331,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     pb_editVariables->setDefaultAction(action_editVariables);
 }
 
-void VMEConfigTreeWidget::setupActionButtons()
+void VMEConfigTreeWidget::setupGlobalActions()
 {
     auto actions_ = actions();
 
@@ -349,6 +350,8 @@ void VMEConfigTreeWidget::setupActionButtons()
     pb_load->setDefaultAction(find_action("actionOpenVMEConfig"));
     pb_save->setDefaultAction(find_action("actionSaveVMEConfig"));
     pb_saveAs->setDefaultAction(find_action("actionSaveVMEConfigAs"));
+    if (auto action = find_action("actionExportVMEConfig"))
+        menu_more->addAction(action);
 }
 
 void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)

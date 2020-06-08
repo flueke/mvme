@@ -35,6 +35,7 @@
 #include "mvlc/mvlc_trigger_io_editor.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_vme_controller.h"
+#include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
@@ -48,11 +49,11 @@
 #include "util/qt_logview.h"
 #include "util/qt_monospace_textedit.h"
 #include "util_zip.h"
+#include "vme_config_scripts.h"
 #include "vme_config_tree.h"
 #include "vme_config_ui.h"
-#include "vme_config_util.h"
 #include "vme_config_ui_event_variable_editor.h"
-#include "vme_config_scripts.h"
+#include "vme_config_util.h"
 #include "vme_controller_ui.h"
 #include "vme_debug_widget.h"
 #include "vme_script_editor.h"
@@ -109,7 +110,7 @@ struct MVMEWindowPrivate
     QMenuBar *menuBar;
 
     QAction *actionNewWorkspace, *actionOpenWorkspace,
-            *actionNewVMEConfig, *actionOpenVMEConfig, *actionSaveVMEConfig, *actionSaveVMEConfigAs,
+            *actionNewVMEConfig, *actionOpenVMEConfig, *actionSaveVMEConfig, *actionSaveVMEConfigAs, *actionExportVMEConfig,
             *actionOpenListfile, *actionCloseListfile,
             *actionQuit,
 
@@ -180,6 +181,11 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionSaveVMEConfigAs->setToolTip(QSL("Save VME Config As"));
     m_d->actionSaveVMEConfigAs->setIconText(QSL("Save As"));
 
+    m_d->actionExportVMEConfig = new QAction(QIcon(QSL(":/document-export.png")), QSL("Export VME Config"), this);
+    m_d->actionExportVMEConfig->setObjectName(QSL("actionExportVMEConfig"));
+    m_d->actionExportVMEConfig->setToolTip(QSL("Export VME Config to YAML"));
+    m_d->actionExportVMEConfig->setIconText(QSL("Export"));
+
     m_d->actionOpenListfile     = new QAction(QSL("Open Listfile"), this);
     m_d->actionCloseListfile    = new QAction(QSL("Close Listfile"), this);
 
@@ -234,6 +240,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->actionOpenVMEConfig,           &QAction::triggered, this, &MVMEMainWindow::onActionOpenVMEConfig_triggered);
     connect(m_d->actionSaveVMEConfig,           &QAction::triggered, this, &MVMEMainWindow::onActionSaveVMEConfig_triggered);
     connect(m_d->actionSaveVMEConfigAs,         &QAction::triggered, this, &MVMEMainWindow::onActionSaveVMEConfigAs_triggered);
+    connect(m_d->actionExportVMEConfig,         &QAction::triggered, this, &MVMEMainWindow::onActionExportVMEConfig_triggered);
     connect(m_d->actionOpenListfile,            &QAction::triggered, this, &MVMEMainWindow::onActionOpenListfile_triggered);
     connect(m_d->actionCloseListfile,           &QAction::triggered, this, &MVMEMainWindow::onActionCloseListfile_triggered);
     connect(m_d->actionQuit,                    &QAction::triggered, this, &MVMEMainWindow::close);
@@ -303,6 +310,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuFile->addAction(m_d->actionOpenVMEConfig);
     m_d->menuFile->addAction(m_d->actionSaveVMEConfig);
     m_d->menuFile->addAction(m_d->actionSaveVMEConfigAs);
+    m_d->menuFile->addAction(m_d->actionExportVMEConfig);
     m_d->menuFile->addSeparator();
     m_d->menuFile->addAction(m_d->actionOpenListfile);
     m_d->menuFile->addAction(m_d->actionCloseListfile);
@@ -369,12 +377,13 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     // Setup the VMEConfig tree widget
     {
         auto &cw = m_d->m_vmeConfigTreeWidget;
-        // FIXME: use a global action factory to get the actions
+        // FIXME: use a global action registry/factory to find the actions from within the VMEConfigTreeWidget
         cw->addAction(m_d->actionNewVMEConfig);
         cw->addAction(m_d->actionOpenVMEConfig);
         cw->addAction(m_d->actionSaveVMEConfig);
         cw->addAction(m_d->actionSaveVMEConfigAs);
-        cw->setupActionButtons();
+        cw->addAction(m_d->actionExportVMEConfig);
+        cw->setupGlobalActions();
 
         connect(m_d->m_context, &MVMEContext::vmeConfigChanged,
                 cw, &VMEConfigTreeWidget::setConfig);
@@ -1191,6 +1200,40 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
     m_d->m_context->getConfig()->setModified(false);
     m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
+
+    return true;
+}
+
+bool MVMEMainWindow::onActionExportVMEConfig_triggered()
+{
+    QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    QString fileName = QFileDialog::getSaveFileName(
+        this, "Export VME Config", path, QSL("YAML Files (*.yaml);; All Files (*.*)"));
+
+    if (fileName.isEmpty())
+        return false;
+
+    if (QFileInfo(fileName).completeSuffix().isEmpty())
+        fileName += QSL(".yaml");
+
+    QFile outfile(fileName);
+
+    if (!outfile.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(0, "Error", QString("Error opening %1 for writing").arg(fileName));
+        return false;
+    }
+
+    auto vmeConfig = m_d->m_context->getConfig();
+    auto crateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
+    auto yamlString = mesytec::mvlc::to_yaml(crateConfig);
+    auto yamlBytes = QByteArray::fromStdString(yamlString);
+
+    if (outfile.write(yamlBytes) != yamlBytes.size())
+    {
+        QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
+        return false;
+    }
 
     return true;
 }
