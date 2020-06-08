@@ -108,7 +108,7 @@ if (A2_BUILD_STATIC)
         OUTPUT_NAME a2
         POSITION_INDEPENDENT_CODE ON)
 
-    target_compile_options(liba2_static PRIVATE -Wall -Wextra)
+    target_compile_options(liba2_static PRIVATE -Wall -Wextra -Wno-format)
 
     set(A2_TEST_LIBRARY liba2_static)
 endif (A2_BUILD_STATIC)
