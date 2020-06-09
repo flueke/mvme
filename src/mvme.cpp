@@ -1206,7 +1206,14 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
 
 bool MVMEMainWindow::onActionExportVMEConfig_triggered()
 {
+    auto basename = QFileInfo(m_d->m_context->getConfigFileName()).completeBaseName();
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+
+    if (!basename.isEmpty())
+    {
+        basename += QSL(".yaml");
+        path += "/" + basename;
+    }
     QString fileName = QFileDialog::getSaveFileName(
         this, "Export VME Config", path, QSL("YAML Files (*.yaml);; All Files (*.*)"));
 
