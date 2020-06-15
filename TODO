@@ -2,49 +2,24 @@
 TODO list
 ==================================================
 
-* DAQ notes font too small under windows
 * Windows GUI is sluggish even when a non-mvlc controller is selected. Might be
-  a threading/locking issue.
-* NSIS installer "run mvme" on the last page still does not work
-* add the functionality of the mvme_to_mvlc converted to the gui.
+  a threading/locking issue. -> Cannot reproduce. Everything works fine...
 
 * apparently there's a crash when compiling an expression operator script while
   a replay is running. Robert ran into this while editing an expresison and
   lost all of his edits...
 
-(gdb) bt
-#0  __GI_raise (sig=sig@entry=6) at ../sysdeps/unix/sysv/linux/raise.c:50
-#1  0x00007ffff4b92535 in __GI_abort () at abort.c:79
-#2  0x00007ffff4b9240f in __assert_fail_base (fmt=0x7ffff4cf4ee0 "%s%s%s:%u: %s%sAssertion `%s' failed.\n%n", assertion=0x7ffff70d8327 "n <= size()", file=0x7ffff70d8720 "../external/mesytec-mvlc/src/mesytec-mvlc/util/string_view.hpp", line=579, function=<optimized out>) at assert.c:92
-#3  0x00007ffff4ba0102 in __GI___assert_fail (assertion=0x7ffff70d8327 "n <= size()", file=0x7ffff70d8720 "../external/mesytec-mvlc/src/mesytec-mvlc/util/string_view.hpp", line=579, 
-    function=0x7ffff70da9a0 <nonstd::sv_lite::basic_string_view<unsigned int, std::char_traits<unsigned int> >::remove_prefix(unsigned long)::__PRETTY_FUNCTION__> "constexpr void nonstd::sv_lite::basic_string_view<CharT, Traits>::remove_prefix(nonstd::sv_lite::basic_string_view<CharT, Traits>::size_type) [with CharT = unsigned int; Traits = std::char_traits<unsi"...)
-    at assert.c:101
-#4  0x00007ffff6ffd977 in mesytec::mvlc::readout_parser::parse_readout_buffer_eth (state=..., callbacks=..., counters_=..., bufferNumber=<optimized out>, buffer=<optimized out>, bufferWords=<optimized out>) at ../external/mesytec-mvlc/src/mesytec-mvlc/mvlc_readout_parser.cc:945
-#5  0x00007ffff6ffda6e in mesytec::mvlc::readout_parser::parse_readout_buffer (bufferType=<optimized out>, state=..., callbacks=..., counters=..., bufferNumber=<optimized out>, buffer=<optimized out>, bufferWords=<optimized out>) at ../external/mesytec-mvlc/src/mesytec-mvlc/mvlc_readout_parser.cc:906
-#6  0x00007ffff7c6d17b in MVLC_StreamWorker::processBuffer (this=0x555557859000, buffer=0x55555570bb50, vmeConfig=0x555557634b70, analysis=0x555555601500) at ../external/mesytec-mvlc/src/mesytec-mvlc/../mesytec-mvlc/util/readout_buffer.h:28
-#7  0x00007ffff7c6e0ab in MVLC_StreamWorker::start (this=0x555557859000) at ../src/mvlc_stream_worker.cc:516
-#8  0x00007ffff53148c3 in QObject::event(QEvent*) () from /home/florian/Qt/5.14.1/gcc_64/lib/libQt5Core.so.5
-#9  0x00007ffff62a39fc in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.14.1/gcc_64/lib/libQt5Widgets.so.5
-#10 0x00007ffff62aa980 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.14.1/gcc_64/lib/libQt5Widgets.so.5
-#11 0x00007ffff52e58f8 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.14.1/gcc_64/lib/libQt5Core.so.5
-#12 0x00007ffff52e8e8a in QCoreApplicationPrivate::sendPostedEvents(QObject*, int, QThreadData*) () from /home/florian/Qt/5.14.1/gcc_64/lib/libQt5Core.so.5
-#13 0x00007ffff533ed53 in postEventSourceDispatch(_GSource*, int (*)(void*), void*) () from /home/florian/Qt/5.14.1/gcc_64/lib/libQt5Core.so.5
-
-
 * cmake: get rid of MVME_ENABLE_MVLC, do some sanity checks on the libraries
   being built and make sure files are only part of a single library
-* mvlc readout: are stack errors being updated?
-* general: use mvlc::Protected to guard all the counters and similar objects in the system.
+* general: use mvlc::Protected to guard all the counters and similar objects in the system. (WIP)
 * event_server: test with the mvlc. measure performance
 * mvme_root_client: runId is incorrect for live DAQ runs. it seems correct for replays.
 * test m2r. get rid of duplicate files. clean up the env file. write some docs
-* do not install libftd3xx.so
 * improve mesytec diagnostics
 
 * qthelp: most images are links but they do show the binary file contents
   instead of the image. Note that not all images behave this way. Some are not
   clickable, e.g the very first 'mvme overview' image in the introduction.
-
 
 * heisencrash when deleting vme scripts? might have been due to changing
   compile flags. not sure.
