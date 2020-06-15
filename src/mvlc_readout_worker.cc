@@ -390,6 +390,10 @@ void MVLCReadoutWorker::start(quint32 cycles)
         }
 
         d->mvlcZipCreator.reset(); // destroy the ZipCreator to flush and close the listfile archive
+
+        // Rethrow any exception recorded by the mvlc::ReadoutWorker.
+        if (auto eptr = d->mvlcReadoutWorker->counters().eptr)
+            std::rethrow_exception(eptr);
     }
     catch (const std::error_code &ec)
     {
@@ -410,6 +414,10 @@ void MVLCReadoutWorker::start(quint32 cycles)
     catch (const vme_script::ParseError &e)
     {
         logError(QSL("VME Script parse error: ") + e.what());
+    }
+    catch (...)
+    {
+        logError("Unknown exception during readout");
     }
 
     // Reset object pointers to ensure we don't accidentially work with stale
