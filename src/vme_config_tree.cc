@@ -1551,7 +1551,7 @@ bool VMEConfigTreeWidget::canPaste() const
                 || nt == NodeType_EventModulesInit)
                && qobject_cast<ModuleConfig *>(obj.get()));
 
-    result |= ((node->type() == NodeType_Container)
+    result |= ((nt == NodeType_Container)
                && qobject_cast<VMEScriptConfig *>(obj.get()));
 
     return result;
