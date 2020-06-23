@@ -313,10 +313,15 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
             if (listfileWriteHandle)
             {
+                // Standard listfile preamble including a mesytec-mvlc
+                // CrateConfig generated from our VMEConfig.
                 mvlc::listfile::listfile_write_preamble(
                     *listfileWriteHandle,
                     mesytec::mvme::vmeconfig_to_crateconfig(getContext().vmeConfig));
 
+                // Write our VMEConfig to the listfile aswell (the CrateConfig
+                // from the library does not have all the meta information
+                // stored in the VMEConfig).
                 mvme_mvlc_listfile::listfile_write_mvme_config(
                     *listfileWriteHandle,
                     *getContext().vmeConfig);
