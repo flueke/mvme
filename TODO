@@ -2,6 +2,9 @@
 TODO list
 ==================================================
 
+* VME Script exec is very slow when reading out an mdpp16. Probably due to the
+  low data rate and something blocking.
+
 * Windows GUI is sluggish even when a non-mvlc controller is selected. Might be
   a threading/locking issue. -> Cannot reproduce. Everything works fine...
 
