@@ -177,7 +177,7 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
         std::error_code stackTransaction(const std::vector<u32> &stackUploadData,
                                          std::vector<u32> &responseDest)
         {
-            return updateState(stackTransaction(
+            return updateState(m_mvlc.stackTransaction(
                     stackUploadData, responseDest));
         }
 
