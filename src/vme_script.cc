@@ -1598,32 +1598,32 @@ ResultList run_script(
             }
 
 
-#if 0
+#if 1
             if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
             {
                 qDebug() << __FUNCTION__
                     << "mvlc cmd read timeout="
-                    << mvlc->getMVLCObject()->getReadTimeout(mesytec::mvme_mvlc::Pipe::Command)
+                    << mvlc->getMVLCObject()->readTimeout(mesytec::mvlc::Pipe::Command)
                     << "mvlc cmd write timeout="
-                    << mvlc->getMVLCObject()->getWriteTimeout(mesytec::mvme_mvlc::Pipe::Command);
+                    << mvlc->getMVLCObject()->writeTimeout(mesytec::mvlc::Pipe::Command);
             }
 #endif
 
             auto tStart = QDateTime::currentDateTime();
 
-            //qDebug() << __FUNCTION__
-            //    << tStart << "begin run_command" << cmdNumber << "of" << script.size();
+            qDebug() << __FUNCTION__
+                << tStart << "begin run_command" << cmdNumber << "of" << script.size();
 
             auto result = run_command(controller, cmd, logger);
 
             auto tEnd = QDateTime::currentDateTime();
             results.push_back(result);
 
-            //qDebug() << __FUNCTION__
-            //    << tEnd
-            //    << "  " << cmdNumber << "of" << script.size() << ":"
-            //    << format_result(result)
-            //    << "duration:" << tStart.msecsTo(tEnd) << "ms";
+            qDebug() << __FUNCTION__
+                << tEnd
+                << "  " << cmdNumber << "of" << script.size() << ":"
+                << format_result(result)
+                << "duration:" << tStart.msecsTo(tEnd) << "ms";
 
             if (options & run_script_options::LogEachResult)
                 logger(format_result(result));
