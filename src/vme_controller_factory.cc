@@ -59,6 +59,8 @@ VMEController *VMEControllerFactory::makeController(const QVariantMap &settings)
         // fine without transfering ownership.
 
         auto obj  = std::make_unique<mesytec::mvme_mvlc::MVLCObject>(mvlc);
+        obj->setReadTimeout(mvlc::Pipe::Command, 250);
+        obj->setReadTimeout(mvlc::Pipe::Data, 250);
         auto ctrl = std::make_unique<mesytec::mvme_mvlc::MVLC_VMEController>(obj.get());
 
         // Transfer ownership of the MVLCObject to the newly created
