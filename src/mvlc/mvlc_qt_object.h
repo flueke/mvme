@@ -194,6 +194,7 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
         //
         // Stack Error Notifications (Command Pipe)
         //
+#if 0
         std::vector<std::vector<u32>> getStackErrorNotifications() const
         {
             return m_mvlc.getStackErrorNotifications();
@@ -201,6 +202,22 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
 
         void clearStackErrorNotifications() { m_mvlc.clearStackErrorNotifications(); }
         bool hasStackErrorNotifications() const { return m_mvlc.hasStackErrorNotifications(); }
+#endif
+
+        mvlc::StackErrorCounters getStackErrorCounters() const
+        {
+            return m_mvlc.getStackErrorCounters();
+        }
+
+        mvlc::Protected<mvlc::StackErrorCounters> &getProtectedStackErrorCounters()
+        {
+            return m_mvlc.getProtectedStackErrorCounters();
+        }
+
+        void clearStackErrorCounters()
+        {
+            m_mvlc.clearStackErrorCounters();
+        }
 
         //
         // Access to the low-level implementation and the per-pipe locks.

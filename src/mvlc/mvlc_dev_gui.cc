@@ -45,6 +45,7 @@
 #include <mesytec-mvlc/mvlc_impl_eth.h>
 #include <mesytec-mvlc/mvlc_impl_usb.h>
 
+#include "mesytec-mvlc/mvlc_stack_errors.h"
 #include "ui_mvlc_dev_ui.h"
 
 #include "mvlc/mvlc_script.h"
@@ -630,14 +631,8 @@ struct MVLCDevGUI::Private
 
     ReaderStats prevReaderStats = {};
 
-    struct StackNotificationStats
-    {
-        std::array<size_t, mesytec::mvlc::stacks::StackCount> counts = {};
-        size_t nonErrorNotifications = 0;
-    };
-
-    StackNotificationStats stackErrorNotificationStats,
-                           prevStackErrorNotificationStats;
+    mvlc::StackErrorCounters curStackErrors,
+                             prevStackErrors;
 };
 
 MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
@@ -1058,10 +1053,12 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                 }
             }
 
+#if 0
             for (const auto &notification: m_d->mvlc->getStackErrorNotifications())
             {
                 this->handleStackErrorNotification(notification);
             }
+#endif
         }
         catch (const mvme_mvlc::script::ParseError &e)
         {
@@ -1746,15 +1743,26 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         }
 
         double dt = m_d->tLastStackNotificationUpdate.msecsTo(now);
-        auto &curStats  = m_d->stackErrorNotificationStats;
-        auto &prevStats = m_d->prevStackErrorNotificationStats;
+        auto curCounters = m_d->mvlc->getStackErrorCounters();
+        auto &prevCounters = m_d->prevStackErrors;
 
         QStringList strParts;
 
-        for (u32 stackId = 0; stackId < curStats.counts.size(); stackId++)
+        for (u32 stackId = 0; stackId < curCounters.stackErrors.size(); stackId++)
         {
-            u64 delta = calc_delta0(curStats.counts[stackId],
-                                    prevStats.counts[stackId]);
+            auto curErrorInfoCounts = curCounters.stackErrors[stackId];
+            auto prevErrorInfoCounts = prevCounters.stackErrors[stackId];
+
+            size_t curTotalErrors = 0u;
+            size_t prevTotalErrors = 0u;
+
+            for (const auto &kv: curErrorInfoCounts)
+                curTotalErrors += kv.second;
+
+            for(const auto &kv: prevErrorInfoCounts)
+                prevTotalErrors += kv.second;
+
+            u64 delta = calc_delta0(curTotalErrors, prevTotalErrors);
 
             if (delta > 0)
             {
@@ -1771,7 +1779,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         }
 
         {
-            u64 delta = prevStats.nonErrorNotifications - curStats.nonErrorNotifications;
+            u64 delta = prevCounters.nonErrorFrames - curCounters.nonErrorFrames;
 
             if (delta > 0)
             {
@@ -1784,7 +1792,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         ui->label_notificationStats->setText(labelText);
 
         m_d->tLastStackNotificationUpdate = now;
-        prevStats = curStats;
+        prevCounters = curCounters; // updates m_d->prevStackErrors through the reference
     });
 
     updateTimer->start();
@@ -1921,20 +1929,8 @@ void MVLCDevGUI::handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const Q
 
 void MVLCDevGUI::handleStackErrorNotification(const std::vector<u32> &buffer)
 {
-    if (!buffer.empty())
-    {
-        auto info = mvlc::extract_frame_info(buffer.at(0));
-
-        if (info.type == mvlc::frame_headers::StackError
-            && info.stack < mesytec::mvlc::stacks::StackCount)
-        {
-            ++m_d->stackErrorNotificationStats.counts[info.stack];
-        }
-        else
-        {
-            ++m_d->stackErrorNotificationStats.nonErrorNotifications;
-        }
-    }
+    mvlc::update_stack_error_counters(
+        m_d->mvlc->getProtectedStackErrorCounters().access().ref(), buffer);
 }
 
 //
@@ -2270,11 +2266,11 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
 
     emit sigLogMessage(strings.join("\n"));
 
-    for (const auto &notification: m_mvlc->getStackErrorNotifications())
-    {
-        emit stackErrorNotification(notification);
-        //emit sigLogBuffer(notification, "Error notification from MVLC");
-    }
+    //for (const auto &notification: m_mvlc->getStackErrorNotifications())
+    //{
+    //    emit stackErrorNotification(notification);
+    //    //emit sigLogBuffer(notification, "Error notification from MVLC");
+    //}
 }
 
 //

@@ -55,7 +55,7 @@ void MVLCObject::setState(const State &newState)
         m_state = newState;
 
         if (newState == Connected)
-            clearStackErrorNotifications();
+            clearStackErrorCounters();
 
         emit stateChanged(prevState, newState);
     }
