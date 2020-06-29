@@ -1,6 +1,13 @@
 ==================================================
 TODO list
 ==================================================
+* Replace the special module nodes for raw histograms with simple Directory
+  nodes. When creating default filters populate the directory instead of
+  attaching the histos to the module. Then allow dragging the directory around,
+  creating subdires, dragging histos, etc.
+  This should be limited to raw histos either explicitly or via the logic that
+  disallows dragging operators to levels below their current input. (data flows
+  from left to right).
 
 * VME Script exec is very slow when reading out an mdpp16. Probably due to the
   low data rate and something blocking.
