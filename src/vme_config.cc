@@ -680,8 +680,6 @@ std::error_code EventConfig::write_impl(QJsonObject &json) const
 // VMEConfig
 //
 
-
-
 VMEConfig::VMEConfig(QObject *parent)
     : ConfigObject(parent)
 {
@@ -700,15 +698,15 @@ VMEConfig::VMEConfig(QObject *parent)
     setVMEController(m_controllerType);
 }
 
-void VMEConfig::onChildObjectAdded(ConfigObject *child)
+void VMEConfig::onChildObjectAdded(ConfigObject *child, int index)
 {
+    qDebug() << __PRETTY_FUNCTION__ << "child=" << child << "index=" << index;
     assert(child);
 
-    emit globalChildAdded(child);
+    emit globalChildAdded(child, index);
 
     // React to the childs modified signal
-    connect(child, &ConfigObject::modified,
-            this, [this] () { setModified(); });
+    connect(child, &ConfigObject::modified, this, [this] () { setModified(); });
 
     // Handle a container object by subscribing to its childAdded() signal and
     // then recursing to its children.
@@ -717,9 +715,14 @@ void VMEConfig::onChildObjectAdded(ConfigObject *child)
         connect(co, &ContainerObject::childAdded,
                 this, &VMEConfig::onChildObjectAdded);
 
+        connect(co, &ContainerObject::childAboutToBeRemoved,
+                this, &VMEConfig::onChildObjectAboutToBeRemoved);
+
         // Handle existing children of the newly added ContainerObject.
-        for (auto subChild: co->getChildren())
-            onChildObjectAdded(subChild);
+        auto children = co->getChildren();
+
+        for (int i=0; i<children.size(); i++)
+            onChildObjectAdded(children[i], i);
     }
 
     setModified();
@@ -728,6 +731,7 @@ void VMEConfig::onChildObjectAdded(ConfigObject *child)
 void VMEConfig::onChildObjectAboutToBeRemoved(ConfigObject *child)
 {
     assert(child);
+    qDebug() << __PRETTY_FUNCTION__ << "emit globalChildAboutToBeRemoved() child=" << child;
     emit globalChildAboutToBeRemoved(child);
     setModified();
 }

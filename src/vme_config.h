@@ -30,6 +30,7 @@
 
 #include <QObject>
 #include <QUuid>
+#include <QDebug>
 
 class QJsonObject;
 
@@ -43,6 +44,10 @@ class LIBMVME_EXPORT ConfigObject: public QObject
 
     public:
         ConfigObject(QObject *parent = 0);
+        ~ConfigObject()
+        {
+            qDebug() << __PRETTY_FUNCTION__ << this;
+        }
 
         QUuid getId() const { return m_id; }
         // Generates a new Uuid for the object.
@@ -143,7 +148,7 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
 {
     Q_OBJECT
     signals:
-        void childAdded(ConfigObject *co);
+        void childAdded(ConfigObject *co, int index);
         void childAboutToBeRemoved(ConfigObject *co);
 
     public:
@@ -152,13 +157,27 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
         ContainerObject(const QString &name, const QString &displayName,
                         const QString &icon, QObject *parent = nullptr);
 
+        // Append a child
         void addChild(ConfigObject *obj)
         {
-            m_children.push_back(obj);
+            addChild(obj, m_children.size());
+        }
+
+        // Insert a child at the specified index
+        void addChild(ConfigObject *obj, int index)
+        {
+            index = std::min(m_children.size(), index);
+            m_children.insert(index, obj);
             obj->setParent(this);
             connect(obj, &QObject::destroyed,
                     this, &ContainerObject::onChildDestroyed);
-            emit childAdded(obj);
+
+            qDebug() << __PRETTY_FUNCTION__
+                << "emit childAdded() this=" << this
+                << "obj=" << obj
+                << "index=" << index;
+
+            emit childAdded(obj, index);
             setModified();
         }
 
@@ -168,10 +187,14 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
         {
             if (m_children.contains(obj))
             {
+                qDebug() << __PRETTY_FUNCTION__ << "emit childAboutToBeRemoved() this=" << this << "obj=" << obj;
                 emit childAboutToBeRemoved(obj);
+
                 m_children.removeOne(obj);
+
                 disconnect(obj, &QObject::destroyed,
                            this, &ContainerObject::onChildDestroyed);
+
                 setModified();
                 return true;
             }
@@ -378,7 +401,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
 
         // Emitted on adding a global child at any hierarchy level (not only
         // direct children are considered).
-        void globalChildAdded(ConfigObject *child);
+        void globalChildAdded(ConfigObject *child, int parentIndex);
 
         // Emitted for a global child at any hierarchy level. Only emitted if
         // the child is removed via ContainerObject::removeChild(), not if the
@@ -431,7 +454,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         std::error_code write_impl(QJsonObject &json) const override;
 
     private:
-        void onChildObjectAdded(ConfigObject *child);
+        void onChildObjectAdded(ConfigObject *child, int parentIndex);
         void onChildObjectAboutToBeRemoved(ConfigObject *child);
         void createMissingGlobals();
 

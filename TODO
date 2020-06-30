@@ -1,13 +1,30 @@
 ==================================================
 TODO list
 ==================================================
+* Test if disabled VME script are actually not executed when a whole set of
+  scripts inside directories are executed. Also make sure that they're not
+  executed on DAQ Stop/Start respectively.
+
+* FIXME: when pasting disabled directories/scripts under "manual" they can
+  never be enabled again!
+
+* VME Script logging is still broken:
+  - When running from a VMEScriptEditor errors are not drawn in red.
+  - When running via the VMEConfigTree context menu errors are drawn red.
+  - On my machine a test script with a single read command produces two error lines.
+    The first is black, the second is red.
+  - Also weirdness like thi s is happening:
+    15:16:58:   VME Script Error: VME controller not connected
+    15:16:58:   Error from "unknown": Controller not open
+
 * Replace the special module nodes for raw histograms with simple Directory
   nodes. When creating default filters populate the directory instead of
   attaching the histos to the module. Then allow dragging the directory around,
   creating subdires, dragging histos, etc.
-  This should be limited to raw histos either explicitly or via the logic that
-  disallows dragging operators to levels below their current input. (data flows
-  from left to right).
+  This should be limited to raw histos either explicitly or via some logic that
+  disallows dragging non-raw histograms to the L0 area. (Note: there is no
+  logic prohibiting dragging operators to the left, even if the connection
+  logic wouldn't allow connecting that way (flow from left to right)).
 
 * VME Script exec is very slow when reading out an mdpp16. Probably due to the
   low data rate and something blocking.

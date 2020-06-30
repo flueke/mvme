@@ -33,8 +33,8 @@ class QTreeWidgetItem;
 class QToolButton;
 
 class TreeNode;
-
 class EventNode;
+class VMEConfigTree; // declaration in vme_config_tree_p.h
 
 class VMEConfigTreeWidget: public QWidget
 {
@@ -70,16 +70,19 @@ class VMEConfigTreeWidget: public QWidget
     private slots:
         void editEventImpl();
         void onVMEControllerTypeSet(const VMEControllerType &t);
-        void onGlobalChildAdded(ConfigObject *globalChild);
+        void onGlobalChildAdded(ConfigObject *globalChild, int parentIndex);
         void onGlobalChildAboutToBeRemoved(ConfigObject *globalChild);
         void editScript();
 
     private:
+        friend class VMEConfigTree;
+
         TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script);
         TreeNode *addEventNode(TreeNode *parent, EventConfig *event);
         TreeNode *addModuleNodes(EventNode *parent, ModuleConfig *module);
 
         TreeNode *makeObjectNode(ConfigObject *obj);
+        TreeNode *addObjectNode(QTreeWidgetItem *parentNode, int parentIndex, ConfigObject *obj);
         TreeNode *addObjectNode(QTreeWidgetItem *parentNode, ConfigObject *obj);
         void addContainerNodes(QTreeWidgetItem *parent, ContainerObject *obj);
 
@@ -134,7 +137,7 @@ class VMEConfigTreeWidget: public QWidget
         ControllerState m_vmeControllerState = ControllerState::Disconnected;
         const VMEController *m_vmeController = nullptr;
 
-        QTreeWidget *m_tree;
+        VMEConfigTree *m_tree;
         // Maps config objects to tree nodes
         QMap<QObject *, TreeNode *> m_treeMap;
 
