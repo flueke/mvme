@@ -561,12 +561,71 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
     return json;
 }
 
+// Changes between format version 4 and 5:
+// - When opening an existing setup and switching from one controller type to
+//   another the values for the timer of periodic events where wrong. Each
+//   controller uses a different internal representation and granularity for the
+//   periodic stack execution frequency.
+//   The result when switching from a VMUSB and a 1s period to the MVLC is that
+//   the period is set to 0 which is then set to MVLCs minimum period of 16 ns.
+//   The version 5 format uses a signed 64 bit value to store the timer period
+//   in nanoseconds. Code using the value can convert it to/from
+//   std::chrono::nanoseconds if desired. The 64-bit value is stored as a
+//   string in the JSON data to avoid internal conversion to double and the
+//   associated loss of precision.
+static QJsonObject v4_to_v5(QJsonObject json, Logger logger)
+{
+    VMEControllerType controllerType = from_string(json["vme_controller"].toObject()["type"].toString());
+
+    auto eventsArray = json["events"].toArray();
+
+    for (int eventIndex = 0;
+         eventIndex < eventsArray.size();
+         ++eventIndex)
+    {
+        QJsonObject eventJson = eventsArray[eventIndex].toObject();
+        auto triggerOptions = eventJson["triggerOptions"].toObject().toVariantMap();
+
+        switch (controllerType)
+        {
+            // XXX: leftoff here. rethink this. maybe the conversion is not
+            // needed at all and we just issues a warning. Also the periods
+            // should be set to 1.0s if no or invalid values are stored in the
+            // config.
+            case VMEControllerType::VMUSB:
+                {
+                    u8 scalerReadoutPeriod = eventJson["scalerReadoutPeriod"].toInt();
+                    u16 scalerReadoutFrequency = eventJson["scalerReadoutFrequency"].toInt();
+                } break;
+
+            case VMEControllerType::SIS3153:
+                {
+                } break;
+
+            case VMEControllerType::MVLC_ETH:
+            case VMEControllerType::MVLC_USB:
+                {
+                } break;
+
+            default:
+                break;
+        }
+
+        if (vmeControllerType == "VMUSB")
+        {
+        }
+        else (
+
+    }
+}
+
 static QVector<VMEConfigConverter> VMEConfigConverters =
 {
     nullptr,
     v1_to_v2,
     v2_to_v3,
-    v3_to_v4
+    v3_to_v4,
+    v4_to_v5
 };
 
 } // end anon namespace

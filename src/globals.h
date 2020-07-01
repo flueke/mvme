@@ -66,9 +66,9 @@ Q_DECLARE_METATYPE(GlobalMode);
 
 static const QMap<TriggerCondition, QString> TriggerConditionNames =
 {
-    { TriggerCondition::NIM1,       "NIM1" },
-    { TriggerCondition::Periodic,   "Periodic" },
-    { TriggerCondition::Interrupt,  "Interrupt" },
+    { TriggerCondition::NIM1,               "NIM1" },
+    { TriggerCondition::Periodic,           "Periodic" },
+    { TriggerCondition::Interrupt,          "Interrupt" },
     { TriggerCondition::Input1RisingEdge,   "Input 1 Rising Edge" },
     { TriggerCondition::Input1FallingEdge,  "Input 1 Falling Edge" },
     { TriggerCondition::Input2RisingEdge,   "Input 2 Rising Edge" },

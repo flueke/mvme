@@ -20,7 +20,7 @@
  */
 #include "vme_config_version.h"
 
-static const int CurrentVMEConfigVersion = 4;
+static const int CurrentVMEConfigVersion = 5;
 
 int GetCurrentVMEConfigVersion()
 {
