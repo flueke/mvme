@@ -1550,6 +1550,9 @@ void MVMEMainWindow::updateWindowTitle()
                 if (filename.isEmpty())
                     filename = QSL("<no listfile>");
 
+                if (filename.startsWith(wsDir.absolutePath() + "/"))
+                    filename.remove(0, wsDir.absolutePath().size() + 1);
+
                 title = QSL("%1 - %2 - [ListFile mode] - mvme")
                     .arg(workspaceDir)
                     .arg(filename);
