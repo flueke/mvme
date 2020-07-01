@@ -1692,8 +1692,10 @@ void MVMEContext::resumeDAQ(u32 nCycles)
 
 void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
 {
+#if 0
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getMVMEStreamWorkerState() == MVMEStreamWorkerState::Idle);
+#endif
 
     if (m_mode != GlobalMode::ListFile
         || getDAQState() != DAQState::Idle
