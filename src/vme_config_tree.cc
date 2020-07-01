@@ -1158,7 +1158,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     QStringList rootNames = { "daq_start", "daq_stop", "manual" };
     QStringList manualRoot = { "manual" };
 
-    if (is_child_of(obj, rootNames))
+    if (obj && is_child_of(obj, rootNames))
     {
         QString actionName = "Rename ";
 
