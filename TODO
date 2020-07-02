@@ -1,6 +1,12 @@
 ==================================================
 TODO list
 ==================================================
+* MDPP-16_SCP "variable rate" setup:
+  threshold 0
+  gain >= 2000
+  WindowOfInterest -100ns
+  -> pulser data should appear to be uniformely or randomly distributed
+
 * Event timer period is hidden in the Event Settings dialog. It should be shown
   somewhere else, either in the VME Config Tree Info column and/or when setting
   up the events/trigger io
