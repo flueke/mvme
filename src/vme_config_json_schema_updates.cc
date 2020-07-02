@@ -361,9 +361,9 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
              ++eventIndex)
         {
             QJsonObject eventJson = eventsArray[eventIndex].toObject();
-            auto modulesArray = eventJson["modules"].toArray();
 
             auto eventName = eventJson["name"].toString();
+            auto modulesArray = eventJson["modules"].toArray();
 
             for (int moduleIndex = 0;
                  moduleIndex < modulesArray.size();
@@ -407,6 +407,13 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
         return json;
     };
 
+#if 0
+    // Add a set of default variables to each EventConfig.
+    // Note: this version creates an EventConfig object from the JSON, modifies
+    // the object and serializes it back to JSON. This apporach has the
+    // drawback that the EventConfig class has to be able to deserialize
+    // correctly from the old JSON data which in effect means that no
+    // substantial changes can be made to the class.
     auto add_event_variables = [logger] (QJsonObject json)
     {
         qDebug() << __PRETTY_FUNCTION__ << "adding event variables";
@@ -468,6 +475,78 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
 
         return json;
     };
+#else
+    // Add a set of default variables to each EventConfig.
+    // Note: this version works directly on the serialzed JSON data instead of
+    // creating an EventConfig object. This decouples the logic from the
+    // current implementation of the EventConfig class and allows to make
+    // structural changes as long as the resulting JSON can be deserialized
+    // correctly. The drawback is that the code is slightly more complex.
+    auto add_event_variables = [logger] (QJsonObject json)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "adding event variables";
+
+        auto eventsArray = json["events"].toArray();
+
+        for (int eventIndex = 0;
+             eventIndex < eventsArray.size();
+             ++eventIndex)
+        {
+            QJsonObject eventJson = eventsArray[eventIndex].toObject();
+            auto eventName = eventJson["name"].toString();
+
+            auto scriptsJson = eventJson["vme_scripts"].toObject();
+
+            // Try to get the events multicast address by looking at the daq_start script.
+            u8 mcst = mvme::vme_config::json_schema::guess_event_mcst(
+                scriptsJson["daq_start"].toObject()["vme_script"].toString());
+
+            // Set the proper irq value depending on triggerCondition and irqLevel.
+            u8 irq = 0u;
+
+            if (eventJson["triggerCondition"].toString() == QSL("Interrupt"))
+                irq = eventJson["irqLevel"].toInt();
+
+            // Create the variables for the event object.
+            auto eventVariables = make_standard_event_variables(irq, mcst);
+
+            // Look at the first module in the event and use its 'VME Interface
+            // Settings' script to guess values for 'mesy_eoe_marker' and
+            // 'mesy_reaodut_num_events'.
+            auto modulesArray = eventJson["modules"].toArray();
+
+            if (!modulesArray.isEmpty())
+            {
+                auto firstModuleJson = modulesArray[0].toObject();
+                auto initScriptsJson = firstModuleJson["initScripts"].toArray();
+
+                for (int scriptIndex = 0; scriptIndex < initScriptsJson.size(); ++scriptIndex)
+                {
+                    auto scriptJson = initScriptsJson[scriptIndex].toObject();
+
+                    if (scriptJson["name"].toString() == QSL("VME Interface Settings"))
+                    {
+                        u32 eoe_marker = guess_module_mesy_eoe_marker(scriptJson["vme_script"].toString());
+                        u32 num_events = guess_module_readout_num_events(scriptJson["vme_script"].toString());
+
+                        eventVariables["mesy_eoe_marker"].value = QString::number(eoe_marker);
+                        eventVariables["mesy_readout_num_events"].value = QString::number(num_events);
+                    }
+                }
+            }
+
+            logger(QSL("Adding standard variables to event '%1': %2")
+                   .arg(eventName).arg(eventVariables.symbolNames().join(", ")));
+
+            eventJson["variable_table"] = vme_script::to_json(eventVariables);
+            eventsArray[eventIndex] = eventJson;
+        }
+
+        json["events"] = eventsArray;
+
+        return json;
+    };
+#endif
 
     auto update_event_scripts = [logger] (QJsonObject json)
     {
@@ -561,71 +640,12 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
     return json;
 }
 
-// Changes between format version 4 and 5:
-// - When opening an existing setup and switching from one controller type to
-//   another the values for the timer of periodic events where wrong. Each
-//   controller uses a different internal representation and granularity for the
-//   periodic stack execution frequency.
-//   The result when switching from a VMUSB and a 1s period to the MVLC is that
-//   the period is set to 0 which is then set to MVLCs minimum period of 16 ns.
-//   The version 5 format uses a signed 64 bit value to store the timer period
-//   in nanoseconds. Code using the value can convert it to/from
-//   std::chrono::nanoseconds if desired. The 64-bit value is stored as a
-//   string in the JSON data to avoid internal conversion to double and the
-//   associated loss of precision.
-static QJsonObject v4_to_v5(QJsonObject json, Logger logger)
-{
-    VMEControllerType controllerType = from_string(json["vme_controller"].toObject()["type"].toString());
-
-    auto eventsArray = json["events"].toArray();
-
-    for (int eventIndex = 0;
-         eventIndex < eventsArray.size();
-         ++eventIndex)
-    {
-        QJsonObject eventJson = eventsArray[eventIndex].toObject();
-        auto triggerOptions = eventJson["triggerOptions"].toObject().toVariantMap();
-
-        switch (controllerType)
-        {
-            // XXX: leftoff here. rethink this. maybe the conversion is not
-            // needed at all and we just issues a warning. Also the periods
-            // should be set to 1.0s if no or invalid values are stored in the
-            // config.
-            case VMEControllerType::VMUSB:
-                {
-                    u8 scalerReadoutPeriod = eventJson["scalerReadoutPeriod"].toInt();
-                    u16 scalerReadoutFrequency = eventJson["scalerReadoutFrequency"].toInt();
-                } break;
-
-            case VMEControllerType::SIS3153:
-                {
-                } break;
-
-            case VMEControllerType::MVLC_ETH:
-            case VMEControllerType::MVLC_USB:
-                {
-                } break;
-
-            default:
-                break;
-        }
-
-        if (vmeControllerType == "VMUSB")
-        {
-        }
-        else (
-
-    }
-}
-
 static QVector<VMEConfigConverter> VMEConfigConverters =
 {
     nullptr,
     v1_to_v2,
     v2_to_v3,
     v3_to_v4,
-    v4_to_v5
 };
 
 } // end anon namespace
