@@ -688,9 +688,17 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         return false;
     }
 
+    auto currentControllerType = (m_controller
+                                  ? m_controller->getType()
+                                  : VMEControllerType::MVLC_ETH);
+
+    auto newControllerType = (controller
+                              ?  controller->getType()
+                              : VMEControllerType::MVLC_ETH);
+
     qDebug() << __PRETTY_FUNCTION__
-        << "current type =" << (m_controller ? to_string(m_controller->getType()) : QSL("none"))
-        << ", new type   =" << (controller ? to_string(controller->getType()) : QSL("none"))
+        << "current type =" << (m_controller ? to_string(currentControllerType) : QSL("none"))
+        << ", new type   =" << (controller ? to_string(newControllerType) : QSL("none"))
         ;
 
     /* Wait for possibly active VMEController::open() to return before deleting
@@ -858,6 +866,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         (void) invoked;
     }
 
+    // Moves the StreamWorker and its EventServer child
     m_streamWorker->moveToThread(m_analysisThread);
 
     // Run the StreamWorkerBase::startupConsumers in the worker thread. This is
@@ -879,6 +888,25 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
             this, &MVMEContext::logMessage);
 
     emit vmeControllerSet(controller);
+
+    if ((currentControllerType != newControllerType)
+        && !(is_mvlc_controller(currentControllerType)
+             && is_mvlc_controller(newControllerType)))
+    {
+        auto predicate = [] (const EventConfig *event)
+        {
+            return event->triggerCondition == TriggerCondition::Periodic;
+        };
+
+        auto events = m_vmeConfig->getEventConfigs();
+
+        if (std::find_if(std::begin(events), std::end(events), predicate) != std::end(events))
+        {
+            logError("Warning: the timer period for periodic events is reset"
+                     " when switching VME controller types. Please re-apply the"
+                     " timer period in the Event Settings.");
+        }
+    }
 
     //qDebug() << __PRETTY_FUNCTION__ << "end";
     return true;
