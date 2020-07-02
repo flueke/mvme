@@ -352,9 +352,9 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         uint8_t irqVector = 0;
 
         // Maximum time between scaler stack executions in units of 0.5s (VMUSB)
-        [[deprecated]] uint8_t scalerReadoutPeriod = 2;
+        uint8_t scalerReadoutPeriod = 2;
         // Maximum number of events between scaler stack executions (VMUSB)
-        [[deprecated]] uint16_t scalerReadoutFrequency = 0;
+        uint16_t scalerReadoutFrequency = 0;
 
         /** Known keys for an event:
          * "daq_start", "daq_stop", "readout_start", "readout_end"

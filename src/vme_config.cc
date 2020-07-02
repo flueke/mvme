@@ -573,8 +573,6 @@ EventConfig::EventConfig(QObject *parent)
     vmeScripts[QSL("readout_end")]->setObjectName(QSL("Cycle End"));
 
     triggerOptions[QSL("sis3153.timer_period")] = 1.0;
-
-    triggerOptions[QSL("generic.timer_period_ns")] = QString::number(1);
 }
 
 const VMEConfig *EventConfig::getVMEConfig() const
