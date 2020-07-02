@@ -71,8 +71,8 @@ namespace
  * analysis system has to fully process the last buffer it pulled from the
  * shared queue.
  */
-static const size_t DataBufferCount = 25;
-static const size_t DataBufferSize = Megabytes(1);
+static const size_t ReadoutBufferCount = 20;
+static const size_t ReadoutBufferSize = Megabytes(1);
 
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
@@ -177,7 +177,7 @@ struct MVMEContextPrivate
     mutable mesytec::mvlc::Protected<QString> runNotes;
 
     MVMEContextPrivate()
-        : mvlcSnoopQueues(DataBufferSize, DataBufferCount)
+        : mvlcSnoopQueues(ReadoutBufferSize, ReadoutBufferCount)
         , runNotes({})
     {}
 
@@ -491,9 +491,9 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     m_d->m_q = this;
     m_d->m_remoteControl = std::make_unique<RemoteControl>(this);
 
-    for (size_t i=0; i<DataBufferCount; ++i)
+    for (size_t i=0; i<ReadoutBufferCount; ++i)
     {
-        enqueue(&m_freeBuffers, new DataBuffer(DataBufferSize));
+        enqueue(&m_freeBuffers, new DataBuffer(ReadoutBufferSize));
     }
 
 #if 0
@@ -598,7 +598,7 @@ MVMEContext::~MVMEContext()
     delete m_controller;
     delete m_readoutWorker;
 
-    Q_ASSERT(queue_size(&m_freeBuffers) + queue_size(&m_fullBuffers) == DataBufferCount);
+    Q_ASSERT(queue_size(&m_freeBuffers) + queue_size(&m_fullBuffers) == ReadoutBufferCount);
     qDeleteAll(m_freeBuffers.queue);
     qDeleteAll(m_fullBuffers.queue);
 
@@ -1589,7 +1589,7 @@ bool MVMEContext::prepareStart()
     while (auto buffer = dequeue(&m_fullBuffers))
         enqueue(&m_freeBuffers, buffer);
 
-    assert(queue_size(&m_freeBuffers) == DataBufferCount);
+    assert(queue_size(&m_freeBuffers) == ReadoutBufferCount);
     assert(queue_size(&m_fullBuffers) == 0);
 
     assert(m_streamWorker->getState() == MVMEStreamWorkerState::Idle);
