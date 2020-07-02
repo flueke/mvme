@@ -23,13 +23,14 @@
 
 #include <cmath>
 #include <cstring>
+#include <iomanip>
+#include <QApplication>
 #include <QDebug>
 #include <QFile>
-#include <QTextStream>
 #include <QRegExp>
 #include <QRegularExpression>
 #include <QTextEdit>
-#include <QApplication>
+#include <QTextStream>
 #include <QThread>
 
 #include "util.h"
@@ -37,8 +38,8 @@
 #include "vme_controller.h"
 #include "vmusb.h"
 
-// FIXME: these should be restructed
-#include "mvlc/mvlc_vme_controller.h"
+// FIXME: the exprtk abstration should be moved to a standalone library. also
+// the a2 structure as a standalone project is useless.
 #include "analysis/a2/a2_exprtk.h"
 
 
@@ -1596,18 +1597,6 @@ ResultList run_script(
                        .arg(to_string(cmd.type))
                       );
             }
-
-
-#if 1
-            if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
-            {
-                qDebug() << __FUNCTION__
-                    << "mvlc cmd read timeout="
-                    << mvlc->getMVLCObject()->readTimeout(mesytec::mvlc::Pipe::Command)
-                    << "mvlc cmd write timeout="
-                    << mvlc->getMVLCObject()->writeTimeout(mesytec::mvlc::Pipe::Command);
-            }
-#endif
 
             auto tStart = QDateTime::currentDateTime();
 
