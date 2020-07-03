@@ -24,6 +24,7 @@
 #include "a2_data_filter.h"
 #include <cassert>
 #include <initializer_list>
+#include <system_error>
 
 namespace a2
 {
