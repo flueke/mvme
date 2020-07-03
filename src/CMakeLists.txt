@@ -107,11 +107,14 @@ target_link_libraries(libmvme_core
     PUBLIC Qt5::Widgets
     )
 
-target_compile_options(libmvme_core PRIVATE -Wall -Wextra)
+target_compile_options(libmvme_core
+    PRIVATE $<${not-msvc}:-Wall -Wextra>
+    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    )
 
 if (WIN32)
     target_link_libraries(libmvme_core PRIVATE ws2_32)
-    target_compile_options(libmvme_core PRIVATE -Wno-format)
+    target_compile_options(libmvme_core PRIVATE $<${not-msvc}:-Wno-format>)
 endif()
 
 
@@ -168,7 +171,10 @@ if(MVME_ENABLE_MVLC)
     #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_ETH_LOG_LEVEL=${MVLC_ETH_LOG_LEVEL})
     #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_DIALOG_LOG_LEVEL=${MVLC_DIALOG_LOG_LEVEL})
     #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_READOUT_PARSER_LOG_LEVEL=${MVLC_READOUT_PARSER_LOG_LEVEL})
-    target_compile_options(libmvme_mvlc PRIVATE -Wall -Wextra)
+    target_compile_options(libmvme_mvlc
+        PRIVATE $<${not-msvc}:-Wall -Wextra>
+        PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+        )
 
     install(TARGETS libmvme_mvlc
         RUNTIME DESTINATION bin
@@ -331,7 +337,10 @@ target_link_libraries(libmvme
     PRIVATE jcon
     )
 
-target_compile_options(libmvme PRIVATE -Wall -Wextra)
+target_compile_options(libmvme
+    PRIVATE $<${not-msvc}:-Wall -Wextra>
+    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    )
 
 if (WIN32)
     target_link_libraries(libmvme PRIVATE ws2_32)
@@ -413,7 +422,10 @@ target_link_libraries(mvme
 
 target_include_directories(mvme PRIVATE ${CMAKE_SOURCE_DIR}/external)
 
-target_compile_options(mvme PRIVATE -Wall -Wextra)
+target_compile_options(mvme
+    PRIVATE $<${not-msvc}:-Wall -Wextra>
+    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    )
 
 if (WIN32)
     target_compile_options(mvme PRIVATE -Wno-format)

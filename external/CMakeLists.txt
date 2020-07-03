@@ -8,6 +8,9 @@ target_include_directories(zstr INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/zstr/src)
 
 # jcon-cpp
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/jcon-cpp/src/jcon/)
+target_compile_options(jcon
+    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    )
 
 # nlohmann json.hpp
 add_library(nlohmann-json INTERFACE)

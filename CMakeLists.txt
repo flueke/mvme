@@ -107,6 +107,8 @@ SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 #option(MVME_ENABLE_MVLC "Enable support for the mesytec MVLC controller" ON)
 set(MVME_ENABLE_MVLC ON)
 
+set(not-msvc $<NOT:$<CXX_COMPILER_ID:MSVC>>)
+
 # externals
 add_subdirectory("${CMAKE_SOURCE_DIR}/external")
 
