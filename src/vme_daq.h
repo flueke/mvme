@@ -27,6 +27,7 @@
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
 #include "vme_script.h"
+#include "vme_script_exec.h"
 
 /* Both init functions throw on error:
  * QString, std::runtime_error, vme_script::ParseError

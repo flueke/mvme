@@ -86,6 +86,8 @@ add_library(libmvme_core SHARED
     util.cc
     vme_controller.cpp
     vme_script.cc
+    vme_script_exec.cc
+    vme_script_util.cc
     vme_script_variables.cc
     vmusb.cpp
     util.cc)

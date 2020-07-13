@@ -21,6 +21,7 @@
 #include "mvlc/mvlc_dev_gui.h"
 
 #include <QComboBox>
+#include <QDateTime>
 #include <QDebug>
 #include <QFileDialog>
 #include <QGridLayout>
@@ -55,6 +56,7 @@
 #include "util/counters.h"
 #include "util/qt_font.h"
 #include "util/strings.h"
+#include "vme_script_util.h"
 
 using namespace mesytec;
 using namespace mesytec::mvme_mvlc;

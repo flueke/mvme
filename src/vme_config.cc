@@ -21,12 +21,14 @@
 #include "vme_config.h"
 
 #include <cmath>
+#include <memory>
+#include <QDebug>
+#include <QEvent>
+#include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QJsonArray>
-#include <QDebug>
 #include <QRegularExpression>
-#include <memory>
 
 #include "CVMUSBReadoutList.h"
 #include "mvlc/mvlc_trigger_io_script.h"

@@ -27,6 +27,7 @@
 #include "libmvme_export.h"
 #include "vme_config.h"
 #include "vme_script.h"
+#include "vme_script_exec.h"
 
 class LIBMVME_EXPORT EventVariableEditor: public QWidget
 {

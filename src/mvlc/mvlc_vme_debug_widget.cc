@@ -31,7 +31,8 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mvlc/mvlc_util.h"
 #include "util/qt_font.h"
-#include "vme_script.h"
+#include "vme_script_util.h"
+#include "vme_script_exec.h"
 
 namespace
 {

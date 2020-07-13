@@ -30,6 +30,7 @@
 #include "ui_vme_debug_widget.h"
 #include "util/qt_font.h"
 #include "vme_controller.h"
+#include "vme_script_util.h"
 
 static const int tabStop = 4;
 static const QString scriptFileSetting = QSL("Files/LastDebugScriptDirectory");

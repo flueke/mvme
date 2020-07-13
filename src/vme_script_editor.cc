@@ -42,6 +42,7 @@
 #include "util/qt_font.h"
 #include "vme_config_scripts.h"
 #include "vme_script.h"
+#include "vme_script_util.h"
 
 static const int TabStop = 4;
 

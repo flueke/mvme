@@ -34,6 +34,7 @@
 #include "util/qt_container.h"
 #include "util/qt_monospace_textedit.h"
 #include "vme_script.h"
+#include "vme_script_util.h"
 
 namespace mesytec
 {

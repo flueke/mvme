@@ -1,4 +1,5 @@
 #include "mvlc/readout_parser_support.h"
+#include "vme_script_util.h"
 
 namespace mesytec
 {

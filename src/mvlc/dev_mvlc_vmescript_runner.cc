@@ -18,15 +18,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#include <QCoreApplication>
-#include <QCommandLineParser>
 #include <iostream>
+#include <QCommandLineParser>
+#include <QCoreApplication>
 #include <QDebug>
+#include <QFile>
 
 #include "mesytec-mvlc/mvlc_factory.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "vme_script.h"
+#include "vme_script_exec.h"
 
 using namespace mesytec;
 using std::cout;

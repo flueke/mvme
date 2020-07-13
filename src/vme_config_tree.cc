@@ -35,6 +35,7 @@
 #include <QShortcut>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QUrl>
 
 #include "mvme.h"
 #include "mvme_stream_worker.h"

@@ -28,6 +28,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QVBoxLayout>
+#include <QMouseEvent>
 #include <qwt_picker_machine.h>
 #include <qwt_plot.h>
 
