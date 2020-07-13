@@ -1973,7 +1973,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
         auto f = QtConcurrent::run(
             [=] () -> vme_script::ResultList {
                 auto result = vme_script::run_script(
-                    m_controller, script, logger, /*logEachResult*/ true); // XXX FIXME XXX
+                    m_controller, script, logger, logEachResult);
                 return result;
             });
 
