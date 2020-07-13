@@ -65,6 +65,14 @@ vme_daq_init(
     std::function<void (const QString &)> logger,
     vme_script::run_script_options::Flag opts = 0u);
 
+QVector<ScriptWithResult> LIBMVME_EXPORT
+vme_daq_init(
+    VMEConfig *vmeConfig,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts = 0u);
+
 /* Counterpart to vme_daq_init. Runs
  * - for each event
  *     - event DAQ stop script
@@ -75,6 +83,14 @@ vme_daq_shutdown(
     VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
+    vme_script::run_script_options::Flag opts = 0);
+
+QVector<ScriptWithResult>
+vme_daq_shutdown(
+    VMEConfig *vmeConfig,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
     vme_script::run_script_options::Flag opts = 0);
 
 bool has_errors(const QVector<ScriptWithResult> &results);

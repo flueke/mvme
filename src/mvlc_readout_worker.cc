@@ -244,6 +244,11 @@ void MVLCReadoutWorker::start(quint32 cycles)
             this->logMessage(msg);
         };
 
+        auto errorLogger = [this] (const QString &msg)
+        {
+            this->logError(msg);
+        };
+
         setState(DAQState::Starting);
 
         // Run the standard VME DAQ init sequence
@@ -362,7 +367,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         logMessage("Leaving readout loop");
         logMessage("");
 
-        vme_daq_shutdown(getContext().vmeConfig, d->mvlcCtrl, logger);
+        vme_daq_shutdown(getContext().vmeConfig, d->mvlcCtrl, logger, errorLogger);
         m_workerContext.daqStats.stop();
 
         // add the log buffer and the analysis configs to the listfile archive
@@ -568,5 +573,5 @@ void MVLCReadoutWorker::requestDebugInfoOnNextError()
 
 void MVLCReadoutWorker::logError(const QString &msg)
 {
-    logMessage(QSL("MVLC Readout Error: %1").arg(msg));
+    getContext().errorLogger(QSL("MVLC Readout Error: %1").arg(msg));
 }

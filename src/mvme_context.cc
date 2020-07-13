@@ -766,6 +766,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     readoutWorkerContext.runInfo            = &m_d->m_runInfo;
 
     readoutWorkerContext.logger             = [this](const QString &msg) { logMessage(msg); };
+    readoutWorkerContext.errorLogger        = [this](const QString &msg) { logError(msg); };
     readoutWorkerContext.getLogBuffer       = [this]() { return getLogBuffer(); };
     readoutWorkerContext.getAnalysisJson    = [this]() { return getAnalysisJsonDocument(); };
     readoutWorkerContext.getRunNotes        = [this]() { return getRunNotes(); };

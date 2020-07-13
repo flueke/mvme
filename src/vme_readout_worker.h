@@ -42,6 +42,7 @@ struct VMEReadoutWorkerContext
     RunInfo *runInfo = nullptr;
 
     std::function<void (const QString &)> logger;
+    std::function<void (const QString &)> errorLogger;
     std::function<QStringList ()> getLogBuffer;
     std::function<QJsonDocument ()> getAnalysisJson;
     std::function<QString ()> getRunNotes;
