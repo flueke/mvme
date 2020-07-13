@@ -25,10 +25,20 @@ namespace run_script_options
     static const Flag AbortOnError  = 1u << 1;
 }
 
+// Classic version of run_script taking a single logger functions which handles
+// both normal and errors messages.
 ResultList LIBMVME_CORE_EXPORT run_script(
     VMEController *controller,
     const VMEScript &script,
     LoggerFun logger = LoggerFun(),
+    const run_script_options::Flag &options = 0);
+
+// Updated version taking a second logger to handle error messages.
+ResultList LIBMVME_CORE_EXPORT run_script(
+    VMEController *controller,
+    const VMEScript &script,
+    LoggerFun logger,
+    LoggerFun error_logger,
     const run_script_options::Flag &options = 0);
 
 inline bool has_errors(const ResultList &results)

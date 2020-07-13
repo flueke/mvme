@@ -12,6 +12,14 @@ ResultList run_script(
     VMEController *controller, const VMEScript &script,
     LoggerFun logger, const run_script_options::Flag &options)
 {
+    return run_script(controller, script, logger, logger, options);
+}
+
+ResultList run_script(
+    VMEController *controller, const VMEScript &script,
+    LoggerFun logger, LoggerFun error_logger,
+    const run_script_options::Flag &options)
+{
     int cmdNumber = 1;
     ResultList results;
 
@@ -45,7 +53,12 @@ ResultList run_script(
                 << "duration:" << tStart.msecsTo(tEnd) << "ms";
 
             if (options & run_script_options::LogEachResult)
-                logger(format_result(result));
+            {
+                if (result.error.isError())
+                    error_logger(format_result(result));
+                else
+                    logger(format_result(result));
+            }
 
             if ((options & run_script_options::AbortOnError)
                 && result.error.isError())
