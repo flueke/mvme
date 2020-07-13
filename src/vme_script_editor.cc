@@ -278,9 +278,10 @@ void VMEScriptEditor::runScript_()
     try
     {
         // We want to execute the text that's currently in the editor window
-        // using the variable symbols visible to the underlying VMEScriptConfig
-        // object. So first collect then symbol tables, then get the text and
-        // finally parse the text, passing in the list of symbol tables.
+        // using the variables visible to the underlying (unmodified)
+        // VMEScriptConfig object. So first collect the symbol tables, then get
+        // the script text and finally parse the text, passing in the list of
+        // symbol tables.
 
         auto symtabs = mesytec::mvme::collect_symbol_tables(m_d->m_script);
 
@@ -290,7 +291,7 @@ void VMEScriptEditor::runScript_()
 
         auto script = vme_script::parse(scriptText, symtabs, baseAddress);
 
-        emit logMessage(QString("Running script '%1':").arg(m_d->m_script->objectName()));
+        emit logMessage(QString("Running script \"%1\":").arg(m_d->m_script->getVerboseTitle()));
         emit runScript(script);
     }
     catch (const vme_script::ParseError &e)

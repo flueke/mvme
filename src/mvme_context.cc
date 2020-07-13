@@ -1942,8 +1942,6 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
         auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(m_controller);
         assert(mvlc);
 
-        // pre lib switch code: mvlc->disableNotificationPolling();
-
         // The below code should be equivalent to
         // results = vme_script::run_script(m_controller, script, logger, logEachResult);
         // but moves the run_script call into a different thread and shows a
@@ -1973,6 +1971,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
         auto f = QtConcurrent::run(
             [=] () -> vme_script::ResultList {
                 auto pollSuspendGuard = mvlc->getMVLC().suspendStackErrorPolling();
+
                 auto result = vme_script::run_script(
                     m_controller, script, logger,
                     logEachResult ? vme_script::run_script_options::LogEachResult : 0u);
@@ -1991,8 +1990,6 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
             pd.exec();
 
         results = f.result();
-
-        // post lib switch code: mvlc->enableNotificationPolling();
     }
     else
     {

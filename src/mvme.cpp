@@ -1508,7 +1508,6 @@ void MVMEMainWindow::appendToLog(const QString &str)
 
     if (m_d->m_logView)
     {
-        //m_d->m_logView->appendPlainText(str);
         auto escaped = str.toHtmlEscaped();
         auto html = QSL("<font color=\"black\"><pre>%1</pre></font>").arg(escaped);
         m_d->m_logView->appendHtml(html);
@@ -1870,11 +1869,27 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
         connect(widget, &VMEScriptEditor::runScript,
                 this, [this] (const vme_script::VMEScript &script)
         {
-            auto logger = [this] (const QString &msg) { m_d->m_context->logMessage("  " + msg); };
+            auto logger = [this](const QString &str)
+            {
+                m_d->m_context->logMessage("  " + str);
+            };
+
+            auto error_logger = [this](const QString &str)
+            {
+                m_d->m_context->logError("  " + str);
+            };
+
             auto results = m_d->m_context->runScript(script, logger);
 
             for (auto result: results)
-                logger(format_result(result));
+            {
+                auto msg = format_result(result);
+
+                if (!result.error.isError())
+                    logger(msg);
+                else
+                    error_logger(msg);
+            }
         });
 
         connect(widget, &VMEScriptEditor::addApplicationWidget,
@@ -2015,7 +2030,7 @@ void MVMEMainWindow::doRunScriptConfigs(
                 m_d->m_context->logMessage(QSL("  ") + str);
             };
 
-            auto results = m_d->m_context->runScript(script, logger, false);
+            auto results = m_d->m_context->runScript(script, logger);
 
             if (options & RunScriptOptions::AggregateResults)
             {

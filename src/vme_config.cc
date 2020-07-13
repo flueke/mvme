@@ -405,8 +405,7 @@ QString VMEScriptConfig::getVerboseTitle() const
     }
     else
     {
-        title = QString("VMEScript %1")
-            .arg(objectName());
+        title = objectName();
     }
 
     return title;
