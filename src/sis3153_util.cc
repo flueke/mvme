@@ -400,14 +400,15 @@ SIS3153DebugToolsWidget::SIS3153DebugToolsWidget(MVMEContext *context, QWidget *
 }
 
 
+namespace
+{
+
 void format_sis3153_single_event(
     QTextStream &out,
-    u64 bufferNumber,
-    u8 packetAck, u8 packetIdent, u8 packetStatus,
+    u64 /*bufferNumber*/,
+    u8 /*packetAck*/, u8 /*packetIdent*/, u8 /*packetStatus*/,
     u8 *data, size_t size)
 {
-    int stackList = packetAck & SIS3153Constants::AckStackListMask;
-
     if (size)
     {
         BufferIterator iter(data, size);
@@ -432,6 +433,8 @@ void format_sis3153_single_event(
 #endif
 
     debugOutputBuffer(out, data, size);
+}
+
 }
 
 void format_sis3153_buffer(DataBuffer *buffer, QTextStream &out, u64 bufferNumber)
