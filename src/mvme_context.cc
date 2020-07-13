@@ -1968,10 +1968,10 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 
         connect(&fw, &Watcher::finished, &pd, &QProgressDialog::accept);
 
-        auto pollSuspendGuard = mvlc->getMVLC().suspendStackErrorPolling();
 
         auto f = QtConcurrent::run(
             [=] () -> vme_script::ResultList {
+                auto pollSuspendGuard = mvlc->getMVLC().suspendStackErrorPolling();
                 auto result = vme_script::run_script(
                     m_controller, script, logger, logEachResult);
                 return result;
