@@ -272,19 +272,6 @@ LIBMVME_CORE_EXPORT ResultList run_script(
     LoggerFun logger = LoggerFun(),
     const run_script_options::Flag &options = 0);
 
-#if 0
-inline ResultList run_script(
-    VMEController *controller,
-    const VMEScript &script,
-    LoggerFun logger = LoggerFun(),
-    bool logEachResult=false)
-{
-    run_script_options::Flag opts = (logEachResult ? run_script_options::LogEachResult : 0u);
-
-    return run_script(controller, script, logger, opts);
-}
-#endif
-
 inline bool has_errors(const ResultList &results)
 {
     return std::any_of(

@@ -46,6 +46,7 @@
 #include "vme_analysis_common.h"
 #include "vme_config_ui.h"
 #include "vme_controller_factory.h"
+#include "vme_script.h"
 #include "vmusb_buffer_processor.h"
 #include "vmusb.h"
 #include "vmusb_readout_worker.h"
@@ -1973,7 +1974,8 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
             [=] () -> vme_script::ResultList {
                 auto pollSuspendGuard = mvlc->getMVLC().suspendStackErrorPolling();
                 auto result = vme_script::run_script(
-                    m_controller, script, logger, logEachResult);
+                    m_controller, script, logger,
+                    logEachResult ? vme_script::run_script_options::LogEachResult : 0u);
                 return result;
             });
 

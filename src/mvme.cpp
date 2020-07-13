@@ -1938,7 +1938,7 @@ void MVMEMainWindow::runEditVMEEventVariables(EventConfig *eventConfig)
         const vme_script::VMEScript &script,
         vme_script::LoggerFun logger)
     {
-        return m_d->m_context->runScript(script, logger, false);
+        return m_d->m_context->runScript(script, logger);
     };
 
     auto editor = new EventVariableEditor(eventConfig, runScriptCallback);
