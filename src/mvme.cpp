@@ -1166,6 +1166,12 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
+    if (m_d->m_context->getMode() == GlobalMode::ListFile)
+    {
+        const auto &replayHandle = m_d->m_context->getReplayFileHandle();
+        path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".vme";
+    }
+
     QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", path, VMEConfigFileFilter);
 
     if (fileName.isEmpty())
