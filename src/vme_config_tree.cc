@@ -1619,15 +1619,21 @@ void VMEConfigTreeWidget::removeGlobalScript()
     }
 }
 
+enum class CollectOption { CollectAll, CollectEnabled };
+
 // Collect vme scripts in depth first order.
-void collect_script_configs(QVector<VMEScriptConfig *> &dest, ConfigObject *root)
+void collect_script_configs(QVector<VMEScriptConfig *> &dest, ConfigObject *root, const CollectOption &opt)
 {
     if (auto script = qobject_cast<VMEScriptConfig *>(root))
-        dest.push_back(script);
+    {
+        if ((opt == CollectOption::CollectAll)
+            || (opt == CollectOption::CollectEnabled && script->isEnabled()))
+            dest.push_back(script);
+    }
     else if (auto container = qobject_cast<ContainerObject *>(root))
     {
         for (auto child: container->getChildren())
-            collect_script_configs(dest, child);
+            collect_script_configs(dest, child, opt);
     }
 }
 
@@ -1638,7 +1644,7 @@ void VMEConfigTreeWidget::runScripts()
 
     QVector<VMEScriptConfig *> scriptConfigs;
 
-    collect_script_configs(scriptConfigs, obj);
+    collect_script_configs(scriptConfigs, obj, CollectOption::CollectEnabled);
 
     emit runScriptConfigs(scriptConfigs);
 }
