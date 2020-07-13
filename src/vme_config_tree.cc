@@ -1144,7 +1144,6 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                        this, &VMEConfigTreeWidget::addScriptDirectory);
     }
 
-#if 1
     // - Rename for scripts if they are under any of the global nodes.
     // - Rename for directories if they are under any of the global nodes.
     // - Recursive enable/disable of trees if they are under any of the global
@@ -1153,10 +1152,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //   where disabled objects hierarchies are pasted under "manual" does not
     //   need special handling.
 
-    // XXX: leftoff here! With the light of the seven!
-
     QStringList rootNames = { "daq_start", "daq_stop", "manual" };
-    QStringList manualRoot = { "manual" };
 
     if (obj && is_child_of(obj, rootNames))
     {
@@ -1171,40 +1167,12 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                        this, &VMEConfigTreeWidget::editName);
         menu.addSeparator();
 
-        const bool isUnderManual = is_child_of(obj, manualRoot);
+        bool enable = !obj->isEnabled();
 
-        if (!isUnderManual)
-        {
-            bool enable = !obj->isEnabled();
-
-            menu.addAction(
-                enable ? QSL("Enable Scripts") : QSL("Disable Scripts"),
-                this, [obj, enable] { recursively_set_objects_enabled(obj, enable); });
-        }
+        menu.addAction(
+            enable ? QSL("Enable Scripts") : QSL("Disable Scripts"),
+            this, [obj, enable] { recursively_set_objects_enabled(obj, enable); });
     }
-
-#else
-
-    if (qobject_cast<VMEScriptConfig *>(obj))
-    {
-        auto po = obj->parent();
-
-        if (isIdle && po && (po->objectName() == "daq_start"
-                             || po->objectName() == "daq_stop"
-                             || po->objectName() == "manual"))
-        {
-            menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename Script"),
-                           this, &VMEConfigTreeWidget::editName);
-            menu.addSeparator();
-            // disabling manual scripts doesn't make any sense
-            if (po->objectName() != "manual")
-            {
-                menu.addAction(obj->isEnabled() ? QSL("Disable Script") : QSL("Enable Script"),
-                               this, [this, node]() { toggleObjectEnabled(node, NodeType_VMEScript); });
-            }
-        }
-    }
-#endif
 
     auto make_object_type_string = [](const ConfigObject *obj)
     {
