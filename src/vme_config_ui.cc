@@ -501,8 +501,6 @@ ModuleConfigDialog::ModuleConfigDialog(
     const bool isNewModule = (module->getModuleMeta().typeId
                               == vats::VMEModuleMeta::InvalidTypeId);
 
-    const bool isFirstModuleInEvent = (parentEvent->getModuleConfigs().size() == 0);
-
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -532,7 +530,7 @@ ModuleConfigDialog::ModuleConfigDialog(
     layout->addRow(gb_variables);
     layout->addRow(bb);
 
-    auto onTypeComboIndexChanged = [this](int index)
+    auto onTypeComboIndexChanged = [this](int /*index*/)
     {
         u8 typeId = typeCombo->currentData().toUInt();
 
