@@ -178,19 +178,17 @@ using VMEScript = QVector<Command>;
 
 Command add_base_address(Command cmd, uint32_t baseAddress);
 
-struct ParseError
+struct ParseError: std::exception
 {
     ParseError(const QString &message, int lineNumber = -1)
         : message(message)
         , lineNumber(lineNumber)
     {}
 
-#if 0
     const char *what() const noexcept override
     {
         return "vme_script::ParseError";
     }
-#endif
 
     QString toString() const
     {
