@@ -52,7 +52,7 @@ bool VMEReadoutWorker::do_VME_DAQ_Init(VMEController *ctrl)
         logMessage("VME Init Startup Errors:");
         auto logger = [this] (const QString &msg) { logMessage("  " + msg); };
         log_errors(initResults, logger);
-        logMessage("Please make sure the above VME module addresses are correct.");
+        //logMessage("Please make sure the above VME module addresses are correct.");
         return false;
     }
 
