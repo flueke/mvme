@@ -423,7 +423,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
     }
     catch (const vme_script::ParseError &e)
     {
-        logError(QSL("VME Script parse error: ") + e.what());
+        logError(QSL("VME Script parse error: ") + e.toString());
     }
     catch (...)
     {

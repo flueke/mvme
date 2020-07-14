@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
     catch (const vme_script::ParseError &e)
     {
         cout << "vme_script::ParseError from setup_mvlc(): "
-            << e.what().toStdString() << endl;
+            << e.toString().toStdString() << endl;
         return 1;
     }
 

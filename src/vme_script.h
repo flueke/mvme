@@ -185,14 +185,19 @@ struct ParseError
         , lineNumber(lineNumber)
     {}
 
-    QString what() const
+#if 0
+    const char *what() const noexcept override
+    {
+        return "vme_script::ParseError";
+    }
+#endif
+
+    QString toString() const
     {
         if (lineNumber >= 0)
             return QString("%1 on line %2").arg(message).arg(lineNumber);
         return message;
     }
-
-    QString toString() const { return what(); }
 
     QString message;
     int lineNumber;

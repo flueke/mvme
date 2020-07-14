@@ -1335,7 +1335,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
     }
     catch (const vme_script::ParseError &e)
     {
-        logError(QSL("VME Script parse error: ") + e.what());
+        logError(QSL("VME Script parse error: ") + e.toString());
     }
 
     setState(DAQState::Idle);

@@ -560,7 +560,7 @@ void VMEDebugWidget::slt_runScript()
     }
     catch (const vme_script::ParseError &e)
     {
-        logger(QSL("Parse error: ") + e.what());
+        logger(QSL("Parse error: ") + e.toString());
     }
 }
 

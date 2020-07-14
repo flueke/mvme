@@ -2080,7 +2080,7 @@ void MVMEMainWindow::doRunScriptConfigs(
         }
         catch (const vme_script::ParseError &e)
         {
-            m_d->m_context->logError(QSL("  Parse error: ") + e.what());
+            m_d->m_context->logError(QSL("  Parse error: ") + e.toString());
         }
     }
 }

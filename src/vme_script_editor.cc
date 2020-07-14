@@ -297,7 +297,7 @@ void VMEScriptEditor::runScript_()
     }
     catch (const vme_script::ParseError &e)
     {
-        emit logMessage(QSL("Parse error: ") + e.what());
+        emit logMessage(QSL("Parse error: ") + e.toString());
     }
 }
 

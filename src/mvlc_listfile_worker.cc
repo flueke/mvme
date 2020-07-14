@@ -256,7 +256,7 @@ void MVLCListfileWorker::start()
     }
     catch (const vme_script::ParseError &e)
     {
-        logError(QSL("VME Script parse error: ") + e.what());
+        logError(QSL("VME Script parse error: ") + e.toString());
     }
 
     d->stats.access()->stop();
