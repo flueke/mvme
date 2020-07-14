@@ -44,28 +44,31 @@
  *     - event DAQ start script
  */
 
-struct ScriptWithResult
+struct ScriptWithResults
 {
     // Non-owning pointer to the vme script config that produced the result
     // list.
     // TODO: change this to a shared_ptr, weak_ptr or use a copy of the script.
-    const VMEScriptConfig *scriptConfig;
+    const VMEScriptConfig *scriptConfig = nullptr;
 
     // The symbol tables used when evaluating the script.
     //const vme_script::SymbolTables symbols;
 
     // List of results of running the script.
     const vme_script::ResultList results;
+
+    // A ParseError instance or nullptr if parsing the script was sucessful.
+    std::shared_ptr<vme_script::ParseError> parseError = {};
 };
 
-QVector<ScriptWithResult> LIBMVME_EXPORT
+QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_init(
     VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     vme_script::run_script_options::Flag opts = 0u);
 
-QVector<ScriptWithResult> LIBMVME_EXPORT
+QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_init(
     VMEConfig *vmeConfig,
     VMEController *controller,
@@ -78,14 +81,14 @@ vme_daq_init(
  *     - event DAQ stop script
  * - global DAQ stop scripts
  */
-QVector<ScriptWithResult>
+QVector<ScriptWithResults>
 vme_daq_shutdown(
     VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     vme_script::run_script_options::Flag opts = 0);
 
-QVector<ScriptWithResult>
+QVector<ScriptWithResults>
 vme_daq_shutdown(
     VMEConfig *vmeConfig,
     VMEController *controller,
@@ -93,9 +96,9 @@ vme_daq_shutdown(
     std::function<void (const QString &)> errorLogger,
     vme_script::run_script_options::Flag opts = 0);
 
-bool has_errors(const QVector<ScriptWithResult> &results);
+bool has_errors(const QVector<ScriptWithResults> &results);
 
-void log_errors(const QVector<ScriptWithResult> &results,
+void log_errors(const QVector<ScriptWithResults> &results,
                 std::function<void (const QString &)> logger);
 
 
