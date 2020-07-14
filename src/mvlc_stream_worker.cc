@@ -32,6 +32,7 @@
 #include "vme_config_scripts.h"
 #include "vme_analysis_common.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
+#include "vme_script.h"
 
 using namespace vme_analysis_common;
 using namespace mesytec;
@@ -463,6 +464,13 @@ void MVLC_StreamWorker::start()
         pca.ref() = {};
         m_parserCountersSnapshot.access().ref() = pca.copy();
         logParserInfo(m_parser);
+    }
+    catch (const vme_script::ParseError &e)
+    {
+        logError(QSL("Error setting up MVLC stream parser: %1")
+                 .arg(e.toString()));
+        emit stopped();
+        return;
     }
     catch (const std::exception &e)
     {
