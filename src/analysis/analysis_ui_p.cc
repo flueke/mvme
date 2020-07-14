@@ -2862,7 +2862,7 @@ MVLCParserDebugHandler::MVLCParserDebugHandler(QObject *parent)
 {
 }
 
-inline const char *to_string(const readout_parser::ReadoutParserState::ModuleParseState &mps)
+inline const char *to_string(const readout_parser::ReadoutParserState::GroupParseState &mps)
 {
     switch (mps)
     {
@@ -2931,8 +2931,8 @@ void MVLCParserDebugHandler::handleDebugInfo(
         out << "last ETH packet number = " << parserState.lastPacketNumber << endl;
 
         out << "ParserState: eventIndex=" << parserState.eventIndex
-            << ", moduleIndex=" << parserState.moduleIndex
-            << ", moduleParseState=" << to_string(parserState.moduleParseState)
+            << ", moduleIndex=" << parserState.groupIndex
+            << ", moduleParseState=" << to_string(parserState.groupParseState)
             << endl;
 
         out << "Parser readoutInfo:" << endl;
@@ -3042,7 +3042,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
                 multi_event_splitter::begin_event(multiEventSplitter, ei);
         };
 
-        parserCallbacks.modulePrefix = [&](
+        parserCallbacks.groupPrefix = [&](
             int ei, int mi, const u32 *data, u32 size)
         {
             parserOut << QString("  modulePrefix, ei=%1, mi=%2, size=%3:")
@@ -3059,7 +3059,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
                     multiEventSplitter, ei, mi, data, size);
         };
 
-        parserCallbacks.moduleDynamic = [&](
+        parserCallbacks.groupDynamic = [&](
             int ei, int mi, const u32 *data, u32 size)
         {
             parserOut << QString("  moduleDynamic, ei=%1, mi=%2, size=%3:")
@@ -3076,7 +3076,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
                     multiEventSplitter, ei, mi, data, size);
         };
 
-        parserCallbacks.moduleSuffix = [&](
+        parserCallbacks.groupSuffix = [&](
             int ei, int mi, const u32 *data, u32 size)
         {
             parserOut << QString("  moduleSuffix, ei=%1, mi=%2, size=%3:")

@@ -445,9 +445,9 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
     {
         QString buffer;
 
-        for (size_t subtype=0; subtype<counters.systemEventTypes.size(); subtype++)
+        for (size_t subtype=0; subtype<counters.systemEvents.size(); subtype++)
         {
-            if (!counters.systemEventTypes[subtype])
+            if (!counters.systemEvents[subtype])
                 continue;
 
             if (!buffer.isEmpty())
@@ -456,7 +456,7 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
             buffer += QString("%1 (0x%2): %3")
                 .arg(QString::fromStdString(mvlc::system_event_type_to_string(subtype)))
                 .arg(subtype, 2, 16, QLatin1Char('0'))
-                .arg(counters.systemEventTypes[subtype]);
+                .arg(counters.systemEvents[subtype]);
                 //.arg(format_number(counters.systemEventTypes[subtype],
                 //                   "", UnitScaling::Decimal, 0, 'f', 0));
         }

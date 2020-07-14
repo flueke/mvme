@@ -249,21 +249,21 @@ class MVMEStreamCallbackWrapper: public IMVMEStreamModuleConsumer
                                        s32 moduleIndex,
                                        const u32 *data, u32 size) override
         {
-            m_callbacks.modulePrefix(eventIndex, moduleIndex, data, size);
+            m_callbacks.groupPrefix(eventIndex, moduleIndex, data, size);
         }
 
         void processModuleData(s32 eventIndex,
                                        s32 moduleIndex,
                                        const u32 *data, u32 size) override
         {
-            m_callbacks.moduleDynamic(eventIndex, moduleIndex, data, size);
+            m_callbacks.groupDynamic(eventIndex, moduleIndex, data, size);
         }
 
         void processModuleSuffix(s32 eventIndex,
                                        s32 moduleIndex,
                                        const u32 *data, u32 size) override
         {
-            m_callbacks.moduleSuffix(eventIndex, moduleIndex, data, size);
+            m_callbacks.groupSuffix(eventIndex, moduleIndex, data, size);
         }
 
         void processTimetick() override

@@ -196,7 +196,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
             m_diag->beginEvent(ei);
     };
 
-    m_parserCallbacks.modulePrefix = [this, analysis](int ei, int mi, const u32 *data, u32 size)
+    m_parserCallbacks.groupPrefix = [this, analysis](int ei, int mi, const u32 *data, u32 size)
     {
         //qDebug() << "  modulePrefix" << ei << mi << data << size;
 
@@ -238,7 +238,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         }
     };
 
-    m_parserCallbacks.moduleDynamic = [this, analysis](int ei, int mi, const u32 *data, u32 size)
+    m_parserCallbacks.groupDynamic = [this, analysis](int ei, int mi, const u32 *data, u32 size)
     {
         //qDebug() << "  moduleDynamic" << ei << mi << data << size;
         analysis->processModuleData(ei, mi, data, size);
@@ -264,7 +264,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         }
     };
 
-    m_parserCallbacks.moduleSuffix = [this, analysis](int ei, int mi, const u32 *data, u32 size)
+    m_parserCallbacks.groupSuffix = [this, analysis](int ei, int mi, const u32 *data, u32 size)
     {
         //qDebug() << "  moduleSuffix" << ei << mi << data << size;
         analysis->processModuleSuffix(ei, mi, data, size);
@@ -343,9 +343,9 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // for the multi event splitter.
         auto &splitterCallbacks = m_multiEventSplitterCallbacks;
         splitterCallbacks.beginEvent = m_parserCallbacks.beginEvent;
-        splitterCallbacks.modulePrefix = m_parserCallbacks.modulePrefix;
-        splitterCallbacks.moduleDynamic = m_parserCallbacks.moduleDynamic;
-        splitterCallbacks.moduleSuffix = m_parserCallbacks.moduleSuffix;
+        splitterCallbacks.modulePrefix = m_parserCallbacks.groupPrefix;
+        splitterCallbacks.moduleDynamic = m_parserCallbacks.groupDynamic;
+        splitterCallbacks.moduleSuffix = m_parserCallbacks.groupSuffix;
         splitterCallbacks.endEvent = m_parserCallbacks.endEvent;
 
         // Now overwrite our own callbacks to drive the splitter instead of the
@@ -357,17 +357,17 @@ void MVLC_StreamWorker::setupParserCallbacks(
             multi_event_splitter::begin_event(m_multiEventSplitter, ei);
         };
 
-        m_parserCallbacks.modulePrefix = [this](int ei, int mi, const u32 *data, u32 size)
+        m_parserCallbacks.groupPrefix = [this](int ei, int mi, const u32 *data, u32 size)
         {
             multi_event_splitter::module_prefix(m_multiEventSplitter, ei, mi, data, size);
         };
 
-        m_parserCallbacks.moduleDynamic = [this](int ei, int mi, const u32 *data, u32 size)
+        m_parserCallbacks.groupDynamic = [this](int ei, int mi, const u32 *data, u32 size)
         {
             multi_event_splitter::module_data(m_multiEventSplitter, ei, mi, data, size);
         };
 
-        m_parserCallbacks.moduleSuffix = [this](int ei, int mi, const u32 *data, u32 size)
+        m_parserCallbacks.groupSuffix = [this](int ei, int mi, const u32 *data, u32 size)
         {
             multi_event_splitter::module_suffix(m_multiEventSplitter, ei, mi, data, size);
         };
