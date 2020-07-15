@@ -1096,7 +1096,7 @@ std::pair<std::unique_ptr<VMEConfig>, QString>
     }
 
     QJsonObject json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(
-        doc.object()["DAQConfig"].toObject(), logger);
+        doc.object()["DAQConfig"].toObject(), logger, {});
 
     auto vmeConfig = std::make_unique<VMEConfig>();
 

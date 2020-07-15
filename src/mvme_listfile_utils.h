@@ -33,6 +33,10 @@
 #include "mvme_listfile.h"
 #include "libmvme_export.h"
 
+// Note: These structures and functions are for the older, pre-MVLC 'mvmelst'
+// style listfiles. MVLC listfiles use a different code path in
+// listfile_replay.cc
+
 void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer,
                       const ListfileConstants &lfc, bool dumpData=false);
 

@@ -219,6 +219,8 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
                     });
 
                 // TODO: implement a fallback using the MVLCCrateConfig data
+                // (or make it an explicit action in the GUI and put the code
+                // elsewhere)
                 if (it == std::end(preamble.systemEvents))
                     throw std::runtime_error("No MVMEConfig found in listfile");
 
@@ -231,7 +233,11 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
                 auto doc = QJsonDocument::fromJson(qbytes);
                 auto json = doc.object();
                 json = json.value("VMEConfig").toObject();
-                json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger);
+
+                mvme::vme_config::json_schema::SchemaUpdateOptions updateOptions;
+                updateOptions.skip_v4_VMEScriptVariableUpdate = true;
+
+                json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger, updateOptions);
                 auto vmeConfig = std::make_unique<VMEConfig>();
                 auto ec = vmeConfig->read(json);
                 return std::pair<std::unique_ptr<VMEConfig>, std::error_code>(

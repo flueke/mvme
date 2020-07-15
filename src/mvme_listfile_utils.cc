@@ -658,7 +658,11 @@ read_config_from_listfile(
     std::function<void (const QString &msg)> logger)
 {
     auto json = listfile->getVMEConfigJSON();
-    json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger);
+
+    mvme::vme_config::json_schema::SchemaUpdateOptions updateOptions;
+    updateOptions.skip_v4_VMEScriptVariableUpdate = true;
+
+    json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger, updateOptions);
 
     auto vmeConfig = std::make_unique<VMEConfig>();
     auto ec = vmeConfig->read(json);
