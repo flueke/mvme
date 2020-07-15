@@ -50,7 +50,7 @@ u32 get_register_value(u32 address, const QString &vmeScript, u32 defaultValue =
     return defaultValue;
 }
 
-// defaults to 1: timestamp
+// defaults to 1 (timestamp)
 u32 guess_module_mesy_eoe_marker(const QString &vmeSettingsScript)
 {
     return get_register_value(0x6038, vmeSettingsScript, 1u);
@@ -94,9 +94,11 @@ u8 guess_event_mcst(const QString &eventScript)
 
 namespace
 {
-    using namespace mvme::vme_config::json_schema;
 
-using VMEConfigConverter = std::function<QJsonObject (QJsonObject oldJson, Logger logger)>;
+using namespace mvme::vme_config::json_schema;
+
+using VMEConfigConverter = std::function<QJsonObject (
+    QJsonObject oldJson, Logger logger, const SchemaUpdateOptions & options)>;
 
 /* Module script storage changed:
  * vme_scripts.readout              -> vmeReadout
@@ -104,7 +106,7 @@ using VMEConfigConverter = std::function<QJsonObject (QJsonObject oldJson, Logge
  * vme_scripts.parameters           -> initScripts[0]
  * vme_scripts.readout_settings     -> initScripts[1]
  */
-static QJsonObject v1_to_v2(QJsonObject json, Logger /*logger*/)
+static QJsonObject v1_to_v2(QJsonObject json, Logger /*logger*/, const SchemaUpdateOptions & /*options*/)
 {
     qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
 
@@ -145,7 +147,7 @@ static QJsonObject v1_to_v2(QJsonObject json, Logger /*logger*/)
 
 /* Instead of numeric TriggerCondition values string representations are now
  * stored. */
-static QJsonObject v2_to_v3(QJsonObject json, Logger /*logger*/)
+static QJsonObject v2_to_v3(QJsonObject json, Logger /*logger*/, const SchemaUpdateOptions & /*options*/)
 {
     qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
 
@@ -348,7 +350,7 @@ static const QVector<ReplacementRule> ModuleRules =
 //   regular expression won't be touched and the containing setup will have to
 //   be updated manually by the user.
 
-static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
+static QJsonObject v3_to_v4(QJsonObject json, Logger logger, const SchemaUpdateOptions &options)
 {
     auto fix_mdpp16_module_typename = [logger] (QJsonObject json) -> QJsonObject
     {
@@ -631,11 +633,14 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
 
     json = fix_mdpp16_module_typename(json);
 
-    json = add_event_variables(json);
+    if (!options.skip_v4_VMEScriptVariableUpdate)
+    {
+        json = add_event_variables(json);
 
-    json = update_event_scripts(json);
+        json = update_event_scripts(json);
 
-    json = update_module_scripts(json);
+        json = update_module_scripts(json);
+    }
 
     return json;
 }
@@ -667,7 +672,8 @@ int get_vmeconfig_version(const QJsonObject &json)
     return json["properties"].toObject()["version"].toInt(1);
 };
 
-QJsonObject convert_vmeconfig_to_current_version(QJsonObject json, Logger logger)
+QJsonObject convert_vmeconfig_to_current_version(
+    QJsonObject json, Logger logger, const SchemaUpdateOptions &options)
 {
     qDebug() << "<<<<<<<<<<<<< begin vme config json conversion <<<<<<<<<<<<<<<<<";
 
@@ -683,7 +689,7 @@ QJsonObject convert_vmeconfig_to_current_version(QJsonObject json, Logger logger
         if (!converter)
             break;
 
-        json = converter(json, logger);
+        json = converter(json, logger, options);
         set_vmeconfig_version(json, version + 1);
 
         qDebug() << __PRETTY_FUNCTION__ << "converted VMEConfig from version"
