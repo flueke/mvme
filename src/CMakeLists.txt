@@ -400,6 +400,9 @@ if (MVME_ENABLE_MVLC)
         add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
         target_link_libraries(dev_mvlc_dump_eth_file PRIVATE libmvme)
     endif(NOT WIN32)
+
+    add_executable(mvlc_listfile_updater mvlc_listfile_updater.cc)
+    target_link_libraries(mvlc_listfile_updater PRIVATE libmvme)
 endif()
 
 install(TARGETS libmvme

@@ -460,6 +460,7 @@ void MVLC_StreamWorker::start()
         m_parser = mesytec::mvlc::readout_parser::make_readout_parser(
             sanitizedReadoutStacks);
 
+        // Reset the parser counters and the snapshot copy
         auto pca = m_parserCounters.access();
         pca.ref() = {};
         m_parserCountersSnapshot.access().ref() = pca.copy();
