@@ -16,6 +16,56 @@ using std::endl;
 using namespace mesytec;
 using namespace mesytec::mvme;
 
+class PeriodicEventTrimmer
+{
+    public:
+        // Removes most of the periodic event1 data from the ReadoutBuffer.
+        // Attempts to keep one event per second.
+        // Expects the buffer to contain full readout frames or ethernet
+        // packets only.
+        void trimBuffer(mvlc::ConnectionType bufferType, mvlc::ReadoutBuffer &workBuffer);
+
+    private:
+        mvlc::ReadoutBuffer tmpBuffer = mvlc::ReadoutBuffer(Megabytes(1));
+        // 1 s = 1e9 ns; divide by the 16ns timer period and subtract 1.
+        // Skipping that many events will keep one per second.
+        const size_t EventSkipCount = 1e9 / 16.0 - 1;
+        const size_t currentSkipCount = 0;
+};
+
+void PeriodicEventTrimmer::trimBuffer(mvlc::ConnectionType bufferType, mvlc::ReadoutBuffer &workBuffer)
+{
+    using namespace mesytec::mvlc;
+
+    tmpBuffer.clear();
+    auto view = workBuffer.viewU32();
+
+    auto copy_to_tmp_update_view = [this, &view] (const u32 *data, size_t size)
+    {
+        tmpBuffer.ensureFreeSpace(size);
+        std::memcpy(tmpBuffer.data() + tmpBuffer.used(), data, size);
+        tmpBuffer.use(size);
+        view.remove_prefix(size);
+    };
+
+    while (!view.empty())
+    {
+        u32 header = *reinterpret_cast<const u32 *>(view.data());
+
+        if (get_frame_type(header) == frame_headers::SystemEvent)
+        {
+            copy_to_tmp_update_view(view.data(), 1u + extract_frame_info(header).len);
+            continue;
+        }
+
+        if (bufferType == ConnectionType::ETH)
+        {
+            assert(view.size() >= 2 * sizeof(u32));
+            // This is going to get tricky...
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -47,13 +97,21 @@ int main(int argc, char *argv[])
 
         auto mvlcCrateConfig = vmeconfig_to_crateconfig(vmeConfig.get());
 
+        // Special handling for an out of control 16ns periodic readout in event1.
+        bool trimPeriodicEvents = false;
+
+        if (vmeConfig->getEventConfigs().size() > 1
+            && vmeConfig->getEventConfig(1)->triggerCondition == TriggerCondition::Periodic)
+        {
+            cout << "Found event1 to be a periodic event. Activating trimming to a 1s frequency." << endl;
+            trimPeriodicEvents = true;
+        }
+
         // Reopen the input listfile using the mesytec::mvlc::ZipReader
         mvlc::listfile::ZipReader zipReader;
         zipReader.openArchive(listfileHandle.inputFilename.toStdString());
         auto readHandle = zipReader.openEntry(listfileHandle.listfileFilename.toStdString());
-
-        auto inputPreamble = mvlc::listfile::read_preamble(*readHandle);
-        cout << inputPreamble.magic << endl;
+        mvlc::listfile::read_preamble(*readHandle); // skip over the preamble
 
         // Create and open the output listfile
         mvlc::listfile::ZipCreator zipCreator;
