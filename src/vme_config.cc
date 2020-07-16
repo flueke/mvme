@@ -701,7 +701,7 @@ VMEConfig::VMEConfig(QObject *parent)
 
 void VMEConfig::onChildObjectAdded(ConfigObject *child, int index)
 {
-    qDebug() << __PRETTY_FUNCTION__ << "child=" << child << "index=" << index;
+    //qDebug() << __PRETTY_FUNCTION__ << "child=" << child << "index=" << index;
     assert(child);
 
     emit globalChildAdded(child, index);
@@ -732,7 +732,7 @@ void VMEConfig::onChildObjectAdded(ConfigObject *child, int index)
 void VMEConfig::onChildObjectAboutToBeRemoved(ConfigObject *child)
 {
     assert(child);
-    qDebug() << __PRETTY_FUNCTION__ << "emit globalChildAboutToBeRemoved() child=" << child;
+    //qDebug() << __PRETTY_FUNCTION__ << "emit globalChildAboutToBeRemoved() child=" << child;
     emit globalChildAboutToBeRemoved(child);
     setModified();
 }
@@ -953,7 +953,7 @@ std::error_code VMEConfig::read_impl(const QJsonObject &json)
         eventConfig->read(eventObject);
         eventConfigs.append(eventConfig);
     }
-    qDebug() << __PRETTY_FUNCTION__ << "read" << eventConfigs.size() << "event configs";
+    //qDebug() << __PRETTY_FUNCTION__ << "read" << eventConfigs.size() << "event configs";
 
     // read global objects, create missing objects afterwards
     assert(m_globalObjects.objectName() == "global_objects");
