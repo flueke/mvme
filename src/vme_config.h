@@ -46,7 +46,7 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         ConfigObject(QObject *parent = 0);
         ~ConfigObject()
         {
-            qDebug() << __PRETTY_FUNCTION__ << this;
+            //qDebug() << __PRETTY_FUNCTION__ << this;
         }
 
         QUuid getId() const { return m_id; }
@@ -172,10 +172,10 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
             connect(obj, &QObject::destroyed,
                     this, &ContainerObject::onChildDestroyed);
 
-            qDebug() << __PRETTY_FUNCTION__
-                << "emit childAdded() this=" << this
-                << "obj=" << obj
-                << "index=" << index;
+            //qDebug() << __PRETTY_FUNCTION__
+            //    << "emit childAdded() this=" << this
+            //    << "obj=" << obj
+            //    << "index=" << index;
 
             emit childAdded(obj, index);
             setModified();
@@ -187,7 +187,7 @@ class LIBMVME_EXPORT ContainerObject: public ConfigObject
         {
             if (m_children.contains(obj))
             {
-                qDebug() << __PRETTY_FUNCTION__ << "emit childAboutToBeRemoved() this=" << this << "obj=" << obj;
+                //qDebug() << __PRETTY_FUNCTION__ << "emit childAboutToBeRemoved() this=" << this << "obj=" << obj;
                 emit childAboutToBeRemoved(obj);
 
                 m_children.removeOne(obj);
