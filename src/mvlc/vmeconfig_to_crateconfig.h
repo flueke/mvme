@@ -10,6 +10,7 @@ namespace mesytec
 namespace mvme
 {
 
+// Converts a mvme VMEConfig to a mesytec-mvlc CrateConfig.
 mvlc::CrateConfig LIBMVME_EXPORT vmeconfig_to_crateconfig(const VMEConfig *vmeConfig);
 
 }

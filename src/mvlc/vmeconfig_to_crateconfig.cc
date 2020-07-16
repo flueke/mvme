@@ -90,12 +90,15 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
         mesytec::mvlc::StackCommandBuilder &stack, const std::string &groupName,
         const vme_script::VMEScript &contents)
     {
-        stack.beginGroup(groupName);
-
-        for (const auto &srcCmd: contents)
+        if (!contents.isEmpty())
         {
-            if (auto dstCmd = convert_command(srcCmd))
-                stack.addCommand(dstCmd);
+            stack.beginGroup(groupName);
+
+            for (const auto &srcCmd: contents)
+            {
+                if (auto dstCmd = convert_command(srcCmd))
+                    stack.addCommand(dstCmd);
+            }
         }
 
         return stack;
