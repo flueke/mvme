@@ -359,7 +359,7 @@ target_include_directories(libmvme
 if (MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE
         mvlc_daq.cc
-        mvlc_listfile.cc
+        mvme_mvlc_listfile.cc
         mvlc_listfile_worker.cc
         mvlc/mvlc_trigger_io.cc
         mvlc/mvlc_trigger_io_editor.cc

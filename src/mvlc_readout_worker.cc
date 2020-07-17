@@ -32,7 +32,7 @@
 #include <mesytec-mvlc/mvlc_impl_usb.h>
 
 #include "mvlc_daq.h"
-#include "mvlc_listfile.h"
+#include "mvme_mvlc_listfile.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_util.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
