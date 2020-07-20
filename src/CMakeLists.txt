@@ -403,6 +403,9 @@ if (MVME_ENABLE_MVLC)
 
     add_executable(mvlc_listfile_updater mvlc_listfile_updater.cc)
     target_link_libraries(mvlc_listfile_updater PRIVATE libmvme)
+    install(TARGETS mvlc_listfile_updater
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib)
 endif()
 
 install(TARGETS libmvme
