@@ -16,71 +16,27 @@ using std::endl;
 using namespace mesytec;
 using namespace mesytec::mvme;
 
-class PeriodicEventTrimmer
-{
-    public:
-        // Removes most of the periodic event1 data from the ReadoutBuffer.
-        // Attempts to keep one event per second.
-        // Expects the buffer to contain full readout frames or ethernet
-        // packets only.
-        void trimBuffer(mvlc::ConnectionType bufferType, mvlc::ReadoutBuffer &workBuffer);
-
-    private:
-        mvlc::ReadoutBuffer tmpBuffer = mvlc::ReadoutBuffer(Megabytes(1));
-        // 1 s = 1e9 ns; divide by the 16ns timer period and subtract 1.
-        // Skipping that many events will keep one per second.
-        const size_t EventSkipCount = 1e9 / 16.0 - 1;
-        const size_t currentSkipCount = 0;
-};
-
-void PeriodicEventTrimmer::trimBuffer(mvlc::ConnectionType bufferType, mvlc::ReadoutBuffer &workBuffer)
-{
-    using namespace mesytec::mvlc;
-
-    tmpBuffer.clear();
-    auto view = workBuffer.viewU32();
-
-    auto copy_to_tmp_update_view = [this, &view] (const u32 *data, size_t size)
-    {
-        tmpBuffer.ensureFreeSpace(size);
-        std::memcpy(tmpBuffer.data() + tmpBuffer.used(), data, size);
-        tmpBuffer.use(size);
-        view.remove_prefix(size);
-    };
-
-    while (!view.empty())
-    {
-        u32 header = *reinterpret_cast<const u32 *>(view.data());
-
-        if (get_frame_type(header) == frame_headers::SystemEvent)
-        {
-            copy_to_tmp_update_view(view.data(), 1u + extract_frame_info(header).len);
-            continue;
-        }
-
-        if (bufferType == ConnectionType::ETH)
-        {
-            assert(view.size() >= 2 * sizeof(u32));
-            // This is going to get tricky...
-        }
-    }
-}
-
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
     mvme_init();
 
-    if (argc != 2)
+    if (argc < 2 || argv[1] == std::string("-h") || argv[1] == std::string("--help"))
     {
-        cerr << "Usage: " << argv[0] << " <inputListfile>" << endl;
+        cout << endl << "Usage: " << argv[0] << " <inputListfile>" << endl << endl;
+        cout << "mvlc_listfile_updater is a tool for updating MVLC listfiles written by" << endl
+            << "mvme-1.0.1 to the newer mvme-1.1 format." << endl
+            << "The program  reads the mvme VMEConfig from the input listfile and generates " << endl
+            << "a mesytec-mvlc CrateConfig. Both configs and the readout data are then written " << endl
+            << "out to a new output file." << endl;
+
         return 1;
     }
 
     QString inputFilename(argv[1]);
     QString outputFilename = QFileInfo(inputFilename).baseName() + "_updated.zip";
 
-#define DO_CATCH 0
+#define DO_CATCH 1
 
 #if DO_CATCH
     try
@@ -97,26 +53,20 @@ int main(int argc, char *argv[])
 
         auto mvlcCrateConfig = vmeconfig_to_crateconfig(vmeConfig.get());
 
-        // Special handling for an out of control 16ns periodic readout in event1.
-        bool trimPeriodicEvents = false;
-
-        if (vmeConfig->getEventConfigs().size() > 1
-            && vmeConfig->getEventConfig(1)->triggerCondition == TriggerCondition::Periodic)
-        {
-            cout << "Found event1 to be a periodic event. Activating trimming to a 1s frequency." << endl;
-            trimPeriodicEvents = true;
-        }
-
         // Reopen the input listfile using the mesytec::mvlc::ZipReader
         mvlc::listfile::ZipReader zipReader;
         zipReader.openArchive(listfileHandle.inputFilename.toStdString());
         auto readHandle = zipReader.openEntry(listfileHandle.listfileFilename.toStdString());
-        mvlc::listfile::read_preamble(*readHandle); // skip over the preamble
+
+        // Read and skip past the preamble so that we do not read it again in the
+        // loop below.
+        auto preamble = mvlc::listfile::read_preamble(*readHandle);
+        readHandle->seek(preamble.endOffset);
 
         // Create and open the output listfile
         mvlc::listfile::ZipCreator zipCreator;
         zipCreator.createArchive(outputFilename.toStdString());
-        auto writeHandle = zipCreator.createLZ4Entry(
+        auto writeHandle = zipCreator.createZIPEntry(
             listfileHandle.listfileFilename.toStdString());
 
         // Write the standard mvlc preamble followed by the mvme VMEConfig.
@@ -124,7 +74,6 @@ int main(int argc, char *argv[])
         mvme_mvlc_listfile::listfile_write_mvme_config(*writeHandle, vmeConfig.get());
 
         mvlc::ReadoutBuffer workBuffer(Megabytes(1));
-        mvlc::ReadoutBuffer previousData(workBuffer.capacity());
 
         struct Counters
         {
@@ -135,17 +84,10 @@ int main(int argc, char *argv[])
         Counters counters = {};
 
         // Main loop copying data from readHandle to writeHandle.
+        // Note: the buffer fixup step can be skipped if no processing is done
+        // during the copy process.
         while (true)
         {
-            if (previousData.used())
-            {
-                workBuffer.ensureFreeSpace(previousData.used());
-                std::memcpy(workBuffer.data() + workBuffer.used(),
-                            previousData.data(), previousData.used());
-                workBuffer.use(previousData.used());
-                previousData.clear();
-            }
-
             size_t bytesRead = readHandle->read(
                 workBuffer.data() + workBuffer.used(),
                 workBuffer.free());
@@ -156,21 +98,46 @@ int main(int argc, char *argv[])
 
             counters.totalBytesRead += bytesRead;
 
-            // Buffer cleanup so that we do not have incomplete frames in the
-            // workBuffer.
-            mvlc::fixup_buffer(
-                mvlcCrateConfig.connectionType,
-                workBuffer, previousData);
-
-            // TODO: do any processing here
-
             counters.totalBytesWritten += writeHandle->write(
                 workBuffer.data(), workBuffer.used());
+
             workBuffer.clear();
         }
 
         cout << "totalBytesRead=" << counters.totalBytesRead << endl;
         cout << "totalBytesWritten=" << counters.totalBytesWritten << endl;
+
+        {
+            auto rh = zipReader.openEntry("messages.log");
+            zipCreator.closeCurrentEntry();
+            auto wh = zipCreator.createZIPEntry("messages.log", 0);
+
+            size_t bytesRead = 0u;
+
+            do
+            {
+                workBuffer.clear();
+                bytesRead = rh->read(workBuffer.data(), workBuffer.free());
+                workBuffer.use(bytesRead);
+                wh->write(workBuffer.data(), workBuffer.used());
+            } while (bytesRead > 0);
+        }
+
+        {
+            auto rh = zipReader.openEntry("analysis.analysis");
+            zipCreator.closeCurrentEntry();
+            auto wh = zipCreator.createZIPEntry("analysis.analysis", 0);
+
+            size_t bytesRead = 0u;
+
+            do
+            {
+                workBuffer.clear();
+                bytesRead = rh->read(workBuffer.data(), workBuffer.free());
+                workBuffer.use(bytesRead);
+                wh->write(workBuffer.data(), workBuffer.used());
+            } while (bytesRead > 0);
+        }
     }
 #if DO_CATCH
     catch (const QString &s)
