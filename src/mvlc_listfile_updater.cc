@@ -2,12 +2,13 @@
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QString>
+#include <fmt/format.h>
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mvme_session.h"
 #include "listfile_replay.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
-#include "mvlc_listfile.h"
+#include "mvme_mvlc_listfile.h"
 
 using std::cerr;
 using std::cout;
@@ -23,7 +24,7 @@ class PeriodicEventTrimmer
         // Attempts to keep one event per second.
         // Expects the buffer to contain full readout frames or ethernet
         // packets only.
-        void trimBuffer(mvlc::ConnectionType bufferType, mvlc::ReadoutBuffer &workBuffer);
+        void trimBuffer(mvlc::ReadoutBuffer &workBuffer);
 
     private:
         mvlc::ReadoutBuffer tmpBuffer = mvlc::ReadoutBuffer(Megabytes(1));
@@ -33,7 +34,7 @@ class PeriodicEventTrimmer
         const size_t currentSkipCount = 0;
 };
 
-void PeriodicEventTrimmer::trimBuffer(mvlc::ConnectionType bufferType, mvlc::ReadoutBuffer &workBuffer)
+void PeriodicEventTrimmer::trimBuffer(mvlc::ReadoutBuffer &workBuffer)
 {
     using namespace mesytec::mvlc;
 
@@ -50,7 +51,7 @@ void PeriodicEventTrimmer::trimBuffer(mvlc::ConnectionType bufferType, mvlc::Rea
 
     while (!view.empty())
     {
-        u32 header = *reinterpret_cast<const u32 *>(view.data());
+        u32 header = view[0];
 
         if (get_frame_type(header) == frame_headers::SystemEvent)
         {
@@ -58,10 +59,31 @@ void PeriodicEventTrimmer::trimBuffer(mvlc::ConnectionType bufferType, mvlc::Rea
             continue;
         }
 
-        if (bufferType == ConnectionType::ETH)
+        assert(view.size() >= eth::HeaderWords);
+        // This is going to get tricky...
+
+        u32 header2 = view[1];
+        eth::PayloadHeaderInfo ethHdrs{ header, header2 };
+        size_t packetWords = eth::HeaderWords + ethHdrs.dataWordCount();
+
+        if (view.size() >= packetWords)
         {
-            assert(view.size() >= 2 * sizeof(u32));
-            // This is going to get tricky...
+            if (ethHdrs.isNextHeaderPointerPresent())
+            {
+                u32 frameHeader = view[eth::HeaderWords + ethHdrs.nextHeaderPointer()];
+                cout << fmt::format(
+                    "frameHeader: 0x{:08X} @{}",
+                    frameHeader, (void *)(view.data() + eth::HeaderWords + ethHdrs.nextHeaderPointer()) ) << endl;
+                copy_to_tmp_update_view(view.data(), packetWords);
+            }
+            else // leave the packet intact ignoring frames cut at packet boundaries...
+            {
+                copy_to_tmp_update_view(view.data(), packetWords);
+            }
+        }
+        else
+        {
+                copy_to_tmp_update_view(view.data(), view.size());
         }
     }
 }
@@ -80,7 +102,7 @@ int main(int argc, char *argv[])
     QString inputFilename(argv[1]);
     QString outputFilename = QFileInfo(inputFilename).baseName() + "_updated.zip";
 
-#define DO_CATCH 0
+#define DO_CATCH 1
 
 #if DO_CATCH
     try
@@ -111,9 +133,24 @@ int main(int argc, char *argv[])
         mvlc::listfile::ZipReader zipReader;
         zipReader.openArchive(listfileHandle.inputFilename.toStdString());
         auto readHandle = zipReader.openEntry(listfileHandle.listfileFilename.toStdString());
-        mvlc::listfile::read_preamble(*readHandle); // skip over the preamble
+
+        // read the preamble and print out some details
+        auto preamble = mvlc::listfile::read_preamble(*readHandle);
+
+        cout << "preamble.magic=" << preamble.magic << endl;
+        cout << "preamble.#systemEvents=" << preamble.systemEvents.size() << endl;
+
+        for (const auto &sysEvent: preamble.systemEvents)
+        {
+            cout << "preamble.systemEvent.type="
+                << mvlc::system_event_type_to_string(sysEvent.type) << endl;
+
+            cout << "preamble.systemEvent.size(words)="
+                << sysEvent.contents.size() / sizeof(u32) << endl;
+        }
 
         // Create and open the output listfile
+        cout << "Opening " << outputFilename.toStdString() << " for writing" << endl;
         mvlc::listfile::ZipCreator zipCreator;
         zipCreator.createArchive(outputFilename.toStdString());
         auto writeHandle = zipCreator.createLZ4Entry(
@@ -133,6 +170,7 @@ int main(int argc, char *argv[])
         };
 
         Counters counters = {};
+        PeriodicEventTrimmer trimmer;
 
         // Main loop copying data from readHandle to writeHandle.
         while (true)
@@ -162,8 +200,13 @@ int main(int argc, char *argv[])
                 mvlcCrateConfig.connectionType,
                 workBuffer, previousData);
 
-            // TODO: do any processing here
+            // Do any processing here.
+            if (mvlcCrateConfig.connectionType == mvlc::ConnectionType::ETH)
+            {
+                trimmer.trimBuffer(workBuffer);
+            }
 
+            // Write to the output file
             counters.totalBytesWritten += writeHandle->write(
                 workBuffer.data(), workBuffer.used());
             workBuffer.clear();
