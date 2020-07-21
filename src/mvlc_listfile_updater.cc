@@ -7,7 +7,7 @@
 #include "mvme_session.h"
 #include "listfile_replay.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
-#include "mvlc_listfile.h"
+#include "mvme_mvlc_listfile.h"
 
 using std::cerr;
 using std::cout;

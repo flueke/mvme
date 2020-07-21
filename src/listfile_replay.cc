@@ -28,7 +28,7 @@
 #include "qt_util.h"
 #include "util_zip.h"
 #include "mvme_listfile_utils.h"
-#include "mvlc_listfile.h"
+#include "mvme_mvlc_listfile.h"
 #include "vme_config_json_schema_updates.h"
 
 using namespace mesytec;

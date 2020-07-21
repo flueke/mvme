@@ -29,7 +29,7 @@
 #include <mesytec-mvlc/mvlc_impl_eth.h>
 #include <stdexcept>
 
-#include "mvlc_listfile.h"
+#include "mvme_mvlc_listfile.h"
 #include "mvlc/mvlc_util.h"
 #include "util_zip.h"
 
@@ -184,7 +184,6 @@ void MVLCListfileWorker::setState(DAQState newState)
 }
 
 // Blocking call which will perform the work
-// TODO: handle eventsToRead
 void MVLCListfileWorker::start()
 {
     assert(d->state == DAQState::Idle);
