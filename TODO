@@ -2,6 +2,17 @@
 TODO list
 ==================================================
 
+* Figure out the shared_ptr<VMEConfig> reference vs. pointer strangeness.
+  Tracking this down
+  did cost quite a bit of time.
+
+* Analysis processing skip flag:
+  Decide directly after the data filters if this events output should be
+  further processed and passed to the EventServer or if it should be
+  skipped/filtered out.
+
+  The decision should be based on the current(?) values and previous data.
+
 * Lots of analysis files (silvias PMT, berkeley-stephen.yates and others) do
   assert in the a2_adapter code in src/analysis/a2_adapter.cc:206: a2::Operator
   {anonymous}::difference_magic().
@@ -26,7 +37,7 @@ TODO list
   logic wouldn't allow connecting that way (flow from left to right)).
 
 * apparently there's a crash when compiling an expression operator script while
-  a replay is running. Robert ran into this while editing an expresison and
+  a replay is running. Robert ran into this while editing an expression and
   lost all of his edits...
 
 * cmake: get rid of MVME_ENABLE_MVLC, do some sanity checks on the libraries
