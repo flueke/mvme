@@ -184,7 +184,6 @@ void MVLCListfileWorker::setState(DAQState newState)
 }
 
 // Blocking call which will perform the work
-// TODO: handle eventsToRead
 void MVLCListfileWorker::start()
 {
     assert(d->state == DAQState::Idle);
@@ -206,7 +205,7 @@ void MVLCListfileWorker::start()
     try
     {
 
-        logMessage(QString("Starting replay from %1.%2")
+        logMessage(QString("Starting replay from %1:%2")
                    .arg(d->replayHandle->inputFilename)
                    .arg(d->replayHandle->listfileFilename));
 

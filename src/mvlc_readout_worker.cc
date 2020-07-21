@@ -329,7 +329,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 // stored in the VMEConfig).
                 mvme_mvlc_listfile::listfile_write_mvme_config(
                     *listfileWriteHandle,
-                    *getContext().vmeConfig);
+                    getContext().vmeConfig);
             }
         }
 
