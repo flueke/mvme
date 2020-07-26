@@ -1,0 +1,18 @@
+# Shutdown script for the ISEG VHS-Cxxxx (12 channel) high voltage module.
+
+# VHS-Cxxxx default module base address. The write commands in this script will
+# add this value to their address arguments.
+setbase 0x00004000
+
+write a16 d16 0x0062 0      # Ch 0 ChannelControl
+write a16 d16 0x0092 0      # Ch 1 ChannelControl
+write a16 d16 0x00C2 0      # Ch 2 ChannelControl
+write a16 d16 0x00F2 0      # Ch 3 ChannelControl
+write a16 d16 0x0122 0      # Ch 4 ChannelControl
+write a16 d16 0x0152 0      # Ch 5 ChannelControl
+write a16 d16 0x0182 0      # Ch 6 ChannelControl
+write a16 d16 0x01B2 0      # Ch 7 ChannelControl
+write a16 d16 0x01E2 0      # Ch 8 ChannelControl
+write a16 d16 0x0212 0      # Ch 9 ChannelControl
+write a16 d16 0x0242 0      # Ch10 ChannelControl
+write a16 d16 0x0272 0      # Ch11 ChannelControl

@@ -1,0 +1,17 @@
+# Helper script to set the VME base address of an ISEG VHS Multi Channel HV
+# Source module (section 2 of the manual).
+
+# Note: as a starting point the default value of 0x4000 is assumed.
+
+# The new base address. Only the highest 6 bits are variable, the 10 low bits
+# are fixed at 0. The first hex digit can take values from 0 to F, the second
+# the values {0, 4, 8, C}.
+set NewBaseAddress      0x8000
+
+# NewBaseAddress XOR 0xffff
+set NewBaseAddressXOR   0x7fff
+
+# NewBaseAddress
+write a16 d16 0x43A0 ${NewBaseAddress}
+# NewBaseAddressXor
+write a16 d16 0x43A2 ${NewBaseAddressXOR}
