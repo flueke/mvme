@@ -251,6 +251,10 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         setState(DAQState::Starting);
 
+        logMessage(QSL("Using VME Controller %1 (%2)")
+                   .arg(d->mvlcCtrl->getIdentifyingString())
+                   .arg(d->mvlcObj->getConnectionInfo()));
+
         // Run the standard VME DAQ init sequence
         if (!this->do_VME_DAQ_Init(d->mvlcCtrl))
         {

@@ -2,9 +2,9 @@
 TODO list
 ==================================================
 
-* Figure out the shared_ptr<VMEConfig> reference vs. pointer strangeness.
-  Tracking this down
-  did cost quite a bit of time.
+* Figure out the shared_ptr<VMEConfig> reference vs. pointer strangeness:
+  passing a shared pointer ref to a function was accepted by the compiler
+  altough the function expects a raw pointer to VMEConfig.
 
 * Analysis processing skip flag:
   Decide directly after the data filters if this events output should be
