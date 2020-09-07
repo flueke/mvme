@@ -112,17 +112,6 @@ VarModelInfo get_variable_model_info(const QStandardItemModel &model, int row)
     return { name, originalName, var };
 }
 
-int find_row_by_varname(const QStandardItemModel &model, const QString &varName)
-{
-    for (int row = 0; row < model.rowCount(); row++)
-    {
-        if (model.item(row, 0)->text() == varName)
-            return row;
-    }
-
-    return -1;
-}
-
 } // end anon namespace
 
 void save_to_symboltable(const QStandardItemModel &model, vme_script::SymbolTable &symtab)
@@ -185,7 +174,7 @@ struct VariableNameValidator: public QValidator
             , m_existingNames(existingVarNames)
         {}
 
-        QValidator::State validate(QString &input, int &pos) const override
+        QValidator::State validate(QString &input, int &/*pos*/) const override
         {
             if (vme_script::is_system_variable_name(input))
             {
@@ -355,8 +344,8 @@ VariableEditorWidget::VariableEditorWidget(
     // Note: this assumes that only a single cell is edited.
     auto on_model_data_changed = [this] (
         const QModelIndex &topLeft,
-        const QModelIndex &bottomRight,
-        const QVector<int> &roles = QVector<int>())
+        const QModelIndex &/*bottomRight*/,
+        const QVector<int> &/*roles*/ = QVector<int>())
     {
         //qDebug() << __PRETTY_FUNCTION__ << topLeft << bottomRight << roles << d->isModifying;
 
@@ -413,7 +402,7 @@ void VariableEditorWidget::setVariables(const vme_script::SymbolTable &symtab)
         // This has to happen after every call to setModel() because a new
         // QItemSelectionModel will have been created internally by the view.
         connect(d->tableView->selectionModel(), &QItemSelectionModel::selectionChanged,
-                this, [this] (const QItemSelection &selected, const QItemSelection &deselected)
+                this, [this] (const QItemSelection &selected, const QItemSelection &/*deselected*/)
         {
             qDebug() << __PRETTY_FUNCTION__;
             if (!selected.isEmpty())
