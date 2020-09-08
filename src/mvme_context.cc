@@ -177,8 +177,9 @@ struct MVMEContextPrivate
     mesytec::mvlc::ReadoutBufferQueues mvlcSnoopQueues;
     mutable mesytec::mvlc::Protected<QString> runNotes;
 
-    MVMEContextPrivate()
-        : mvlcSnoopQueues(ReadoutBufferSize, ReadoutBufferCount)
+    MVMEContextPrivate(MVMEContext *q)
+        : m_q(q)
+        , mvlcSnoopQueues(ReadoutBufferSize, ReadoutBufferCount)
         , runNotes({})
     {}
 
@@ -407,7 +408,7 @@ void MVMEContextPrivate::stopAnalysis()
 
     if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
-        // Tell the analysis top stop immediately
+        // Tell the analysis to stop immediately
         m_q->m_streamWorker->stop(false);
         QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                          &localLoop, &QEventLoop::quit);
@@ -477,7 +478,7 @@ static ListFileOutputInfo readFromSettings(QSettings &settings)
 
 MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     : QObject(parent)
-    , m_d(new MVMEContextPrivate)
+    , m_d(new MVMEContextPrivate(this))
     , m_listFileFormat(ListFileFormat::ZIP)
     , m_ctrlOpenTimer(new QTimer(this))
     , m_logTimer(new QTimer(this))
@@ -489,7 +490,6 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     , m_daqState(DAQState::Idle)
     , m_analysis(std::make_unique<analysis::Analysis>())
 {
-    m_d->m_q = this;
     m_d->m_remoteControl = std::make_unique<RemoteControl>(this);
 
     for (size_t i=0; i<ReadoutBufferCount; ++i)
