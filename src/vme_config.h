@@ -364,7 +364,7 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         /* Set by the readout worker and then used by the buffer
          * processor to map from stack ids to event configs. */
         // Maybe should move this elsewhere as it is vmusb specific
-        uint8_t stackID; // FIXME: vmusb only
+        uint8_t stackID = 0u; // FIXME: vmusb only
 
         const VMEConfig *getVMEConfig() const;
         VMEConfig *getVMEConfig();

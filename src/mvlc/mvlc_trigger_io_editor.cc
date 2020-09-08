@@ -232,6 +232,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
                 lut = &ioCfg.l1.luts[unit];
             else if (level == 2)
                 lut = &ioCfg.l2.luts[unit];
+            else
+            {
+                InvalidCodePath;
+                return;
+            }
 
             size_t count = std::min(lut->outputNames.size(),
                                     static_cast<size_t>(outputNames.size()));
