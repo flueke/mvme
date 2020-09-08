@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="1">
+    <builddir>build-cppcheck</builddir>
+    <platform>unix64</platform>
+    <importproject>compile_commands.json</importproject>
+    <analyze-all-vs-configs>true</analyze-all-vs-configs>
+    <tools>
+        <tool>clang-tidy</tool>
+    </tools>
+</project>
