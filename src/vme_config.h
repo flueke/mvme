@@ -410,7 +410,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         void globalChildAboutToBeRemoved(ConfigObject *child);
 
     public:
-        Q_INVOKABLE VMEConfig(QObject *parent = 0);
+        Q_INVOKABLE explicit VMEConfig(QObject *parent = 0);
 
         // events
         void addEventConfig(EventConfig *config);

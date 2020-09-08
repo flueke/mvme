@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 
         // Write the standard mvlc preamble followed by the mvme VMEConfig.
         mvlc::listfile::listfile_write_preamble(*writeHandle, mvlcCrateConfig);
-        mvme_mvlc_listfile::listfile_write_mvme_config(*writeHandle, vmeConfig.get());
+        mvme_mvlc_listfile::listfile_write_mvme_config(*writeHandle, *vmeConfig);
 
         mvlc::ReadoutBuffer workBuffer(Megabytes(1));
 
