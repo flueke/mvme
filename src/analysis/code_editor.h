@@ -74,7 +74,7 @@ class CodeEditor : public QPlainTextEdit
     public:
         static const int DefaultTabStop = 4;
 
-        CodeEditor(QWidget *parent = 0);
+        explicit CodeEditor(QWidget *parent = 0);
 
         void lineNumberAreaPaintEvent(QPaintEvent *event);
         int lineNumberAreaWidth();
@@ -100,7 +100,7 @@ class CodeEditor : public QPlainTextEdit
 class LineNumberArea : public QWidget
 {
     public:
-        LineNumberArea(CodeEditor *editor) : QWidget(editor) {
+        explicit LineNumberArea(CodeEditor *editor) : QWidget(editor) {
             codeEditor = editor;
         }
 

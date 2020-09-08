@@ -438,7 +438,7 @@ class MVLCParserDebugHandler: public QObject
 {
     Q_OBJECT
     public:
-        MVLCParserDebugHandler(QObject *parent = nullptr);
+        explicit MVLCParserDebugHandler(QObject *parent = nullptr);
 
     public slots:
         void handleDebugInfo(

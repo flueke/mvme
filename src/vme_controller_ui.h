@@ -33,7 +33,7 @@ class VMEControllerSettingsWidget: public QWidget
 {
     Q_OBJECT
     public:
-        VMEControllerSettingsWidget(QWidget *parent = 0)
+        explicit VMEControllerSettingsWidget(QWidget *parent = 0)
             : QWidget(parent)
         { }
 

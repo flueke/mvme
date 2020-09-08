@@ -28,8 +28,8 @@ class ScrollBar: public QScrollBar
     Q_OBJECT
 
 public:
-    ScrollBar( QWidget *parent = NULL );
-    ScrollBar( Qt::Orientation, QWidget *parent = NULL );
+    explicit ScrollBar( QWidget *parent = NULL );
+    explicit ScrollBar( Qt::Orientation, QWidget *parent = NULL );
     ScrollBar( double minBase, double maxBase,
         Qt::Orientation o, QWidget *parent = NULL );
 

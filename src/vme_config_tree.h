@@ -51,7 +51,7 @@ class VMEConfigTreeWidget: public QWidget
         void editEventVariables(EventConfig *eventConfig);
 
     public:
-        VMEConfigTreeWidget(QWidget *parent = 0);
+        explicit VMEConfigTreeWidget(QWidget *parent = 0);
         // This makes use of the action defined in the MVMEMainWindow class.
         // Call this after the actions have been added to this widget via
         // QWidget::addAction().

@@ -40,7 +40,7 @@ class VMUSBBufferProcessor: public QObject
 {
     Q_OBJECT
     public:
-        VMUSBBufferProcessor(VMUSBReadoutWorker *parent = 0);
+        explicit VMUSBBufferProcessor(VMUSBReadoutWorker *parent = 0);
         ~VMUSBBufferProcessor();
 
         void processBuffer(DataBuffer *buffer);

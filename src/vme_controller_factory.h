@@ -30,7 +30,7 @@
 class LIBMVME_EXPORT VMEControllerFactory
 {
     public:
-        VMEControllerFactory(VMEControllerType type);
+        explicit VMEControllerFactory(VMEControllerType type);
 
         VMEController *makeController(const QVariantMap &settings);
         VMEControllerSettingsWidget *makeSettingsWidget();

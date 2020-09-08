@@ -35,7 +35,7 @@ class LIBMVME_EXPORT EventServer: public QObject, public IMVMEStreamModuleConsum
     public:
         static const uint16_t Default_ListenPort = 13801;
 
-        EventServer(QObject *parent = nullptr);
+        explicit EventServer(QObject *parent = nullptr);
         virtual ~EventServer();
 
         virtual void startup() override;

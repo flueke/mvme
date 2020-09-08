@@ -100,7 +100,7 @@ class LIBMVME_EXPORT StreamIterator
             s32 sectionOffset = -1;
             ResultFlag flags = 0;
 
-            Result(DataBuffer *streamBuffer = nullptr)
+            explicit Result(DataBuffer *streamBuffer = nullptr)
                 : buffer(streamBuffer)
             {
                 resetModuleDataOffsets();
@@ -134,7 +134,7 @@ class LIBMVME_EXPORT StreamIterator
             }
         };
 
-        StreamIterator(const StreamInfo &streamInfo);
+        explicit StreamIterator(const StreamInfo &streamInfo);
 
         void setStreamBuffer(DataBuffer *streamBuffer);
         const Result &next();

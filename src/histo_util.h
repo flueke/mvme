@@ -44,7 +44,7 @@ class QRadioButton;
 class UnitConversionAxisScaleDraw: public QwtScaleDraw
 {
     public:
-        UnitConversionAxisScaleDraw(const QwtScaleMap &conversionMap)
+        explicit UnitConversionAxisScaleDraw(const QwtScaleMap &conversionMap)
             : m_conversionMap(conversionMap)
         {}
 
@@ -118,7 +118,7 @@ class UnitConversionLinearScaleEngine: public QwtLinearScaleEngine
 class MinBoundLogTransform: public QwtLogTransform
 {
     public:
-        MinBoundLogTransform(double minBound = 0.1)
+        explicit MinBoundLogTransform(double minBound = 0.1)
             : m_minBound(minBound)
         {
         }

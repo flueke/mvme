@@ -1121,7 +1121,7 @@ struct ExpressionOperatorDialog::Private
     static const int TabIndex_Begin = 1;
     static const int TabIndex_Step  = 2;
 
-    Private(ExpressionOperatorDialog *q)
+    explicit Private(ExpressionOperatorDialog *q)
         : m_q(q)
         , m_arena(WorkArenaSegmentSize)
     {}

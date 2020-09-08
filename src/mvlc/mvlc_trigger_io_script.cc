@@ -482,7 +482,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
 class ScriptGenPartVisitor: public boost::static_visitor<>
 {
     public:
-        ScriptGenPartVisitor(QStringList &lineBuffer)
+        explicit ScriptGenPartVisitor(QStringList &lineBuffer)
             : m_lineBuffer(lineBuffer)
         { }
 

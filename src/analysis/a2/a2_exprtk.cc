@@ -462,7 +462,7 @@ struct FunctionCompositor::Private
     Private()
     {}
 
-    Private(const SymbolTable &symTab)
+    explicit Private(const SymbolTable &symTab)
         : compositor_impl(symTab.m_d->symtab_impl)
     {}
 

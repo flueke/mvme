@@ -68,7 +68,7 @@ class DAQControlService: public QObject
 {
     Q_OBJECT
     public:
-        DAQControlService(MVMEContext *context);
+        explicit DAQControlService(MVMEContext *context);
 
     public slots:
         QString getDAQState();
@@ -84,7 +84,7 @@ class InfoService: public QObject
 {
     Q_OBJECT
     public:
-        InfoService(MVMEContext *context);
+        explicit InfoService(MVMEContext *context);
 
     public slots:
         QString getVersion();

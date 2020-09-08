@@ -87,7 +87,7 @@ class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::ConditionEd
         void on_tb_projY_clicked();
 
     private:
-        Histo2DWidget(QWidget *parent = 0);
+        explicit Histo2DWidget(QWidget *parent = 0);
 
         bool zAxisIsLog() const;
         bool zAxisIsLin() const;

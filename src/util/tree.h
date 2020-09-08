@@ -36,7 +36,7 @@ namespace tree
 class PathIterator
 {
     public:
-        PathIterator(const QString &path)
+        explicit PathIterator(const QString &path)
             : path(path)
             , eos(path.size())
         {}

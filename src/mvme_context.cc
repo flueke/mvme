@@ -102,7 +102,7 @@ static const int EventServer_DefaultListenPort = 13801;
 class VMEConfigSerializer
 {
     public:
-        VMEConfigSerializer(MVMEContext *context)
+        explicit VMEConfigSerializer(MVMEContext *context)
             : m_context(context)
         { }
 
@@ -125,7 +125,7 @@ class VMEConfigSerializer
 class AnalysisSerializer
 {
     public:
-        AnalysisSerializer(MVMEContext *context)
+        explicit AnalysisSerializer(MVMEContext *context)
             : m_context(context)
         { }
 
@@ -1932,7 +1932,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
     {
         logger("VME Script Error: VME controller not connected");
         vme_script::Result result = {};
-        result.error = VMEError::NotOpen;
+        result.error = VMEError(VMEError::NotOpen);
         return { result };
     }
 

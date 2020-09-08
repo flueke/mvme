@@ -34,7 +34,7 @@ class TextLabelRowLayout;
 class LIBMVME_EXPORT TextLabelItem: public QwtPlotItem
 {
     public:
-        TextLabelItem(const QwtText &title = QwtText());
+        explicit TextLabelItem(const QwtText &title = QwtText());
         virtual ~TextLabelItem();
 
         void setText(const QwtText &text);

@@ -103,7 +103,7 @@ class LIBMVME_EXPORT DataFilter
 class LIBMVME_EXPORT MultiWordDataFilter
 {
     public:
-        MultiWordDataFilter(const QVector<DataFilter> &filters = QVector<DataFilter>());
+        explicit MultiWordDataFilter(const QVector<DataFilter> &filters = QVector<DataFilter>());
 
         void addSubFilter(const DataFilter &filter);
 

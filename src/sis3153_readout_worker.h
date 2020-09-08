@@ -35,7 +35,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
     public:
-        SIS3153ReadoutWorker(QObject *parent = 0);
+        explicit SIS3153ReadoutWorker(QObject *parent = 0);
         ~SIS3153ReadoutWorker();
 
         virtual void start(quint32 cycles = 0) override;

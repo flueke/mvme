@@ -4424,7 +4424,7 @@ namespace
 class IdComparator
 {
     public:
-        IdComparator(const QUuid &idToMatch)
+        explicit IdComparator(const QUuid &idToMatch)
             : m_id(idToMatch)
         { }
 

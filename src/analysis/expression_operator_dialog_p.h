@@ -74,7 +74,7 @@ class SlotGrid: public QFrame
         void inputPrefixEdited(s32 slotIndex, const QString &text);
 
     public:
-        SlotGrid(QWidget *parent = nullptr);
+        explicit SlotGrid(QWidget *parent = nullptr);
 
         QVector<InputSelectButton *> selectButtons;
         QVector<QPushButton *> clearButtons;
@@ -97,7 +97,7 @@ class ExpressionOperatorPipeView: public QWidget
 {
     Q_OBJECT
     public:
-        ExpressionOperatorPipeView(QWidget *parent = nullptr);
+        explicit ExpressionOperatorPipeView(QWidget *parent = nullptr);
 
         void setPipe(const a2::PipeVectors &a2_pipe, const QString &unit = {});
 
@@ -131,7 +131,7 @@ class ExpressionOperatorPipesComboView: public QWidget
 {
     Q_OBJECT
     public:
-        ExpressionOperatorPipesComboView(QWidget *parent = nullptr);
+        explicit ExpressionOperatorPipesComboView(QWidget *parent = nullptr);
 
         void setPipes(const std::vector<a2::PipeVectors> &pipes,
                       const QStringList &titles,
@@ -160,7 +160,7 @@ class ExpressionErrorWidget: public QWidget
         void parserErrorDoubleClicked(int line, int col);
 
     public:
-        ExpressionErrorWidget(QWidget *parent = nullptr);
+        explicit ExpressionErrorWidget(QWidget *parent = nullptr);
 
         void setError(const std::exception_ptr &ep);
 
@@ -182,7 +182,7 @@ class ExpressionErrorWidget: public QWidget
                 RuntimeError,
             };
 
-            Entry(Type t = Type::RuntimeError)
+            explicit Entry(Type t = Type::RuntimeError)
                 : type(t)
                 , semanticError("<unspecified>")
                 , runtimeError("<unspecified>")
@@ -211,7 +211,7 @@ class ExpressionCodeEditor: public QWidget
         void modificationChanged(bool changed);
 
     public:
-        ExpressionCodeEditor(QWidget *parent = nullptr);
+        explicit ExpressionCodeEditor(QWidget *parent = nullptr);
 
         void setExpressionText(const QString &text);
         QString expressionText() const;
@@ -235,7 +235,7 @@ class ExpressionEditorWidget: public QWidget
         void modificationChanged(bool changed);
 
     public:
-        ExpressionEditorWidget(QWidget *parent = nullptr);
+        explicit ExpressionEditorWidget(QWidget *parent = nullptr);
 
         void setExpressionText(const QString &);
         QString expressionText() const;
@@ -273,7 +273,7 @@ class ExpressionOperatorEditorComponent: public QWidget
         void expressionModificationChanged(bool changed);
 
     public:
-        ExpressionOperatorEditorComponent(QWidget *parent = nullptr);
+        explicit ExpressionOperatorEditorComponent(QWidget *parent = nullptr);
 
         void setExpressionText(const QString &text);
         QString expressionText() const;
@@ -328,7 +328,7 @@ struct ExpressionOperatorSyntaxHighlighter: public QSyntaxHighlighter
     Q_OBJECT
     using QSyntaxHighlighter::QSyntaxHighlighter;
     public:
-        ExpressionOperatorSyntaxHighlighter(QTextDocument *parentDoc);
+        explicit ExpressionOperatorSyntaxHighlighter(QTextDocument *parentDoc);
         virtual ~ExpressionOperatorSyntaxHighlighter();
 
     protected:

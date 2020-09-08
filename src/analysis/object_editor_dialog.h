@@ -39,7 +39,7 @@ class ObjectEditorDialog: public QDialog
         void applied();
 
     public:
-        ObjectEditorDialog(QWidget *parent = nullptr);
+        explicit ObjectEditorDialog(QWidget *parent = nullptr);
         virtual ~ObjectEditorDialog();
 };
 

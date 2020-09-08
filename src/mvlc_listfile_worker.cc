@@ -76,7 +76,7 @@ struct MVLCListfileWorker::Private
     std::unique_ptr<mesytec::mvlc::ReplayWorker> mvlcReplayWorker;
     std::unique_ptr<mesytec::mvlc::listfile::ZipReader> mvlcZipReader;
 
-    Private(MVLCListfileWorker *q_)
+    explicit Private(MVLCListfileWorker *q_)
         : q(q_)
         , stats({})
         , state(DAQState::Idle)

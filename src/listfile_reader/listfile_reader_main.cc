@@ -220,7 +220,7 @@ RunDescription * make_run_description(
 class MVMEStreamCallbackWrapper: public IMVMEStreamModuleConsumer
 {
     public:
-        MVMEStreamCallbackWrapper(const readout_parser::ReadoutParserCallbacks &callbacks)
+        explicit MVMEStreamCallbackWrapper(const readout_parser::ReadoutParserCallbacks &callbacks)
             : m_callbacks(callbacks)
         {
         }

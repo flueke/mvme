@@ -164,7 +164,7 @@ struct MVLCReadoutWorker::Private
     static const size_t ListfileWriterBufferSize  = ReadBufferSize;
     std::atomic<DebugInfoRequest> debugInfoRequest;
 
-    Private(MVLCReadoutWorker *q_)
+    explicit Private(MVLCReadoutWorker *q_)
         : q(q_)
         , state(DAQState::Idle)
         , desiredState(DAQState::Idle)

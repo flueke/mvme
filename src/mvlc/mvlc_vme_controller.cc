@@ -56,7 +56,7 @@ VMEError error_wrap(const mvme_mvlc::MVLCObject &mvlc, const std::error_code &ec
         }
     }
 
-    return ec;
+    return VMEError(ec);
 }
 
 } // end anon namespace
@@ -240,12 +240,12 @@ bool MVLC_VMEController::isOpen() const
 
 VMEError MVLC_VMEController::open()
 {
-    return m_mvlc->connect();
+    return VMEError(m_mvlc->connect());
 }
 
 VMEError MVLC_VMEController::close()
 {
-    return m_mvlc->disconnect();
+    return VMEError(m_mvlc->disconnect());
 }
 
 ControllerState MVLC_VMEController::getState() const

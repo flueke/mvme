@@ -35,7 +35,7 @@ class LIBMVME_EXPORT MVLCReadoutWorker: public VMEReadoutWorker
         void debugInfoReady(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
 
     public:
-        MVLCReadoutWorker(QObject *parent = nullptr);
+        explicit MVLCReadoutWorker(QObject *parent = nullptr);
         ~MVLCReadoutWorker() override;
 
     public slots:

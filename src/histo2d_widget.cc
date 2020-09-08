@@ -129,7 +129,7 @@ struct Histo2DRasterData: public RasterDataBase
 {
     Histo2D *m_histo;
 
-    Histo2DRasterData(Histo2D *histo)
+    explicit Histo2DRasterData(Histo2D *histo)
         : RasterDataBase()
         , m_histo(histo)
     {}
@@ -169,7 +169,7 @@ struct Histo1DListRasterData: public RasterDataBase
 {
     HistoList m_histos;
 
-    Histo1DListRasterData(const HistoList &histos)
+    explicit Histo1DListRasterData(const HistoList &histos)
         : RasterDataBase()
         , m_histos(histos)
     {}

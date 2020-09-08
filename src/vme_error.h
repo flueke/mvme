@@ -44,7 +44,7 @@ class LIBMVME_CORE_EXPORT VMEError
         VMEError()
         {}
 
-        VMEError(ErrorType error)
+        explicit VMEError(ErrorType error)
             : m_error(error)
         {}
 
@@ -53,7 +53,7 @@ class LIBMVME_CORE_EXPORT VMEError
             , m_message(message)
         {}
 
-        VMEError(const QString &message)
+        explicit VMEError(const QString &message)
             : m_error(ErrorType::UnknownError)
             , m_message(message)
         {}
@@ -76,7 +76,7 @@ class LIBMVME_CORE_EXPORT VMEError
             , m_errorCodeString(codeString)
         {}
 
-        VMEError(const std::error_code &ec)
+        explicit VMEError(const std::error_code &ec)
             : m_error(StdErrorCode)
             , m_stdErrorCode(ec)
         {}

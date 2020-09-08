@@ -24,7 +24,7 @@ template<typename T>
 class mpmc_bounded_queue
 {
 public:
-    mpmc_bounded_queue(size_t buffer_size)
+    explicit mpmc_bounded_queue(size_t buffer_size)
         : buffer_(new cell_t [buffer_size])
         , buffer_mask_(buffer_size - 1)
     {

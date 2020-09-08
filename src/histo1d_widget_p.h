@@ -86,7 +86,7 @@ class IntervalPlotPicker: public QwtPlotPicker
         void pointTypeSelected(SelectedPointType pt);
 
     public:
-        IntervalPlotPicker(QWidget *plotCanvas);
+        explicit IntervalPlotPicker(QWidget *plotCanvas);
 
         void setInterval(const QwtInterval &interval);
         QwtInterval getInterval() const;
@@ -161,7 +161,7 @@ class IntervalCutDialog: public QDialog
 {
     Q_OBJECT
     public:
-        IntervalCutDialog(Histo1DWidget *histoWidget);
+        explicit IntervalCutDialog(Histo1DWidget *histoWidget);
         ~IntervalCutDialog();
 
         virtual void accept();

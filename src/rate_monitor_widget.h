@@ -68,7 +68,7 @@ class LIBMVME_EXPORT RateMonitorWidget: public QWidget
         void yAxisScalingChanged();
 
     private:
-        RateMonitorWidget(QWidget *parent = nullptr);
+        explicit RateMonitorWidget(QWidget *parent = nullptr);
 
         friend struct RateMonitorWidgetPrivate;
         std::unique_ptr<RateMonitorWidgetPrivate> m_d;

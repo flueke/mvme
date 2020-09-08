@@ -83,7 +83,7 @@ class LIBMVME_EXPORT MVMEStreamProcessor
          * singleStepNextStep(). */
         struct ProcessingState
         {
-            ProcessingState(DataBuffer *buffer = nullptr)
+            explicit ProcessingState(DataBuffer *buffer = nullptr)
                 : buffer(buffer)
             {
                 resetModuleDataOffsets();

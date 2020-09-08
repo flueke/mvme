@@ -31,7 +31,7 @@ class LIBMVME_EXPORT MVLCListfileWorker: public ListfileReplayWorker
     public:
         using LoggerFun = std::function<void (const QString &)>;
 
-        MVLCListfileWorker(QObject *parent = nullptr);
+        explicit MVLCListfileWorker(QObject *parent = nullptr);
         ~MVLCListfileWorker() override;
 
         void setSnoopQueues(mesytec::mvlc::ReadoutBufferQueues *snoopQueues);

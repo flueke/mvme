@@ -104,7 +104,7 @@ class VMEReadoutWorker: public QObject
         void daqPaused();
 
     public:
-        VMEReadoutWorker(QObject *parent = 0);
+        explicit VMEReadoutWorker(QObject *parent = 0);
 
         void setContext(VMEReadoutWorkerContext context)
         {
