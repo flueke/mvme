@@ -306,6 +306,7 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
 
     }
 
+#if 0 // currently not used
     //
     // extended timestamp
     //
@@ -316,6 +317,7 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
         // high 16 bits of timestamp
         u32 high_stamp = (currentWord & 0x0000FFFF);
     }
+#endif
 }
 
 void MesytecDiagnostics::processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size)
@@ -639,12 +641,12 @@ void MesytecDiagnosticsWidget::on_pb_reset_clicked()
     dispAll();
 }
 
-void MesytecDiagnosticsWidget::on_diagBin_valueChanged(int value)
+void MesytecDiagnosticsWidget::on_diagBin_valueChanged(int /*value*/)
 {
     dispChan();
 }
 
-void MesytecDiagnosticsWidget::on_diagChan_valueChanged(int value)
+void MesytecDiagnosticsWidget::on_diagChan_valueChanged(int /*value*/)
 {
     dispChan();
 }

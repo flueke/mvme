@@ -72,7 +72,7 @@ static void dump_listfile(ListFile *listfile, VMEConfig *vmeConfig)
 
              u32 sectionHeader = *streamBuffer.indexU32(result.sectionOffset);
              u32 sectionType   = lfc.getSectionType(sectionHeader);
-             u32 sectionSize   = lfc.getSectionSize(sectionHeader);
+             //u32 sectionSize   = lfc.getSectionSize(sectionHeader);
 
              if (result.flags & (Result::EventComplete | Result::MultiEvent))
              {
