@@ -20,8 +20,6 @@
  */
 #include <QJsonDocument>
 #include <mesytec-mvlc/mesytec-mvlc.h>
-#include "mesytec-mvlc/mvlc_constants.h"
-#include "mesytec-mvlc/mvlc_listfile.h"
 #include "mvme_mvlc_listfile.h"
 #include "util_zip.h"
 #include "mvlc/mvlc_util.h"
