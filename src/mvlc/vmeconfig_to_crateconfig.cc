@@ -113,6 +113,7 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
         case VMEControllerType::MVLC_ETH:
             dstConfig.connectionType = mesytec::mvlc::ConnectionType::ETH;
             dstConfig.ethHost = ctrlSettings["mvlc_hostname"].toString().toStdString();
+            dstConfig.ethJumboEnable = ctrlSettings["mvlc_eth_enable_jumbos"].toBool();
             break;
 
         case VMEControllerType::MVLC_USB:
