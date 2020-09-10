@@ -1169,6 +1169,7 @@ bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
     config->setModified(false);
 
     m_d->m_context->vmeConfigWasSaved();
+    m_d->m_context->setConfigFileName(fileName);
     updateWindowTitle();
 
     return true;
@@ -1343,7 +1344,7 @@ void MVMEMainWindow::onActionImportFromMVLC_triggered()
     auto configName = fi.baseName() + QSL("-imported.vme");
 
     m_d->m_context->setVMEConfig(vmeConfig.release());
-    m_d->m_context->setConfigFileName(configName);
+    m_d->m_context->setConfigFileName(configName, false);
     m_d->m_context->setMode(GlobalMode::DAQ);
 }
 
