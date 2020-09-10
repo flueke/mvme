@@ -264,7 +264,6 @@ add_library(libmvme SHARED
     listfile_replay_worker.cc
     mesytec_diagnostics.cc
     multi_event_splitter.cc
-    mvlc/vmeconfig_to_crateconfig.cc
     mvme_context.cc
     mvme_context_lib.cc
     mvme.cpp
@@ -366,6 +365,8 @@ if (MVME_ENABLE_MVLC)
         mvlc/mvlc_trigger_io_editor_p.cc
         mvlc/mvlc_trigger_io_script.cc
         mvlc/mvlc_trigger_io_util.cc
+        mvlc/vmeconfig_from_crateconfig.cc
+        mvlc/vmeconfig_to_crateconfig.cc
         mvlc_readout_worker.cc
         mvlc_stream_worker.cc
     )
@@ -395,6 +396,9 @@ if (MVME_ENABLE_MVLC)
 
     add_executable(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
     target_link_libraries(dev_mvlc_trigger_gui libmvme)
+
+    add_executable(dev_import_mvlc_crateconfig dev_import_mvlc_crateconfig.cc)
+    target_link_libraries(dev_import_mvlc_crateconfig PRIVATE libmvme)
 
     if (NOT WIN32)
         add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
