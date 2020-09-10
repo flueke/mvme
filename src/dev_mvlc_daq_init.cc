@@ -22,7 +22,6 @@
 #include <iostream>
 #include <QCoreApplication>
 #include <mesytec-mvlc/mesytec-mvlc.h>
-#include "mesytec-mvlc/mvlc_constants.h"
 #include "mvlc_daq.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "vme_daq.h"
