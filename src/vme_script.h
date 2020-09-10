@@ -167,6 +167,11 @@ struct Command
     QStringList printArgs;
 };
 
+inline bool is_valid(const Command &cmd)
+{
+    return cmd.type != CommandType::Invalid;
+}
+
 LIBMVME_CORE_EXPORT QString to_string(CommandType commandType);
 LIBMVME_CORE_EXPORT CommandType commandType_from_string(const QString &str);
 LIBMVME_CORE_EXPORT QString to_string(u8 addressMode);
