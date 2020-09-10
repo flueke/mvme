@@ -2,6 +2,7 @@
 #include "mesytec-mvlc/mvlc_command_builders.h"
 #include "mesytec-mvlc/mvlc_constants.h"
 #include "mesytec-mvlc/vme_constants.h"
+#include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/vmeconfig_from_crateconfig.h"
 #include "vme.h"
 #include "vme_script.h"
@@ -140,7 +141,7 @@ std::unique_ptr<VMEConfig> vmeconfig_from_crateconfig(
     auto result = std::make_unique<VMEConfig>();
 
     //
-    // VME Controller config
+    // Build the VME Controller config
     //
     VMEControllerType controllerType = {};
     QVariantMap controllerSettings;
@@ -192,18 +193,37 @@ std::unique_ptr<VMEConfig> vmeconfig_from_crateconfig(
         result->addGlobalScript(stopScript.release(), QSL("daq_stop"));
     }
 
-    // Replace the Trigger/IO Script contents which should have been created as
-    // a side effect of setVMEController() above.
+    // Use the CrateConfig.initTriggerIO stack to update the Trigger/IO global
+    // script which should have been created as a side effect of the
+    // setVMEController() call above.
     if (auto triggerIOScript = qobject_cast<VMEScriptConfig *>(
             result->getGlobalObjectRoot().getChild("mvlc_trigger_io")))
     {
         auto lines = command_builder_to_vmescript_lines(crateConfig.initTriggerIO);
 
-        // Add an empty meta_block so that mvme starts the trigger_io GUI when
-        // editing the script.
-        lines << "" <<  QSL("meta_block_begin mvlc_trigger_io") << QSL("meta_block_end");
+        // Just adding two lines 'meta_block_begin mvlc_trigger_io' and
+        // 'meta_block_end' would be enough for the UI to start the trigger_io
+        // GUI when editing the script but this leaves all the 'SoftActivate'
+        // flags set to false which means the GUI state is misleading (note:
+        // the SoftActivate info is not present in the parsed data).
+        // To improve this situation the script text is parsed into a TriggerIO
+        // struct, then the SoftActivate flags are enabled and finally
+        // generate_trigger_io_script_text() is used to convert the TriggerIO
+        // structure back to its string representation.
+        // This also has the side effect that the script text is nicely
+        // formatted and commented again. The drawback is that all Timers and
+        // Counters and their connections will be shown as active in the UI.
+        auto unparsedText = lines.join("\n");
+        auto triggerIO = mvme_mvlc::trigger_io::parse_trigger_io_script_text(unparsedText);
 
-        triggerIOScript->setScriptContents(lines.join("\n"));
+        for (auto &timer: triggerIO.l0.timers)
+            timer.softActivate = true;
+
+        for (auto &counter: triggerIO.l3.counters)
+            counter.softActivate = true;
+
+        triggerIOScript->setScriptContents(
+            mvme_mvlc::trigger_io::generate_trigger_io_script_text(triggerIO));
     }
 
     auto make_scriptconfig_from_stack_group = [] (
