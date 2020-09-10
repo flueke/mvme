@@ -206,7 +206,7 @@ struct ParseError: std::exception
             ret = message;
 
         if (!scriptName.isEmpty())
-            ret = scriptName + QSL(": ") + ret;
+            ret = QSL("Script '") + scriptName + QSL("': ") + ret;
 
         return ret;
     }
@@ -268,4 +268,3 @@ LIBMVME_CORE_EXPORT QString get_first_meta_block_tag(const VMEScript &vmeScript)
 } // namespace vme_script
 
 #endif /* __VME_SCRIPT_QT_H__ */
-
