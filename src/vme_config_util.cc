@@ -298,7 +298,7 @@ QString trigger_condition_to_string(const TriggerCondition &str)
     return TriggerConditionNames.value(str);
 }
 
-bool serialize_vme_config_to_device(QIODevice &out, const VMEConfig &config)
+QJsonDocument serialize_vme_config_to_json_document(const VMEConfig &config)
 {
     QJsonObject configJson;
     config.write(configJson);
@@ -306,8 +306,12 @@ bool serialize_vme_config_to_device(QIODevice &out, const VMEConfig &config)
     QJsonObject outerJson;
     outerJson["DAQConfig"] = configJson;
 
-    QJsonDocument doc(outerJson);
+    return QJsonDocument(outerJson);
+}
 
+bool serialize_vme_config_to_device(QIODevice &out, const VMEConfig &config)
+{
+    auto doc = serialize_vme_config_to_json_document(config);
     return out.write(doc.toJson()) >= 0;
 }
 

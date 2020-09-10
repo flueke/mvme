@@ -29,6 +29,7 @@
 #include "util_zip.h"
 #include "vme_config_scripts.h"
 #include "vme_script.h"
+#include "vme_config_util.h"
 
 using namespace mesytec::mvme;
 
@@ -454,11 +455,7 @@ void DAQReadoutListfileHelper::beginRun()
             InvalidDefaultCase;
     }
 
-    QJsonObject daqConfigJson;
-    m_readoutContext.vmeConfig->write(daqConfigJson);
-    QJsonObject configJson;
-    configJson["DAQConfig"] = daqConfigJson;
-    QJsonDocument doc(configJson);
+    auto doc = mvme::vme_config::serialize_vme_config_to_json_document(*m_readoutContext.vmeConfig);
 
     if (!m_d->listfileWriter->writePreamble() || !m_d->listfileWriter->writeConfig(doc.toJson()))
     {

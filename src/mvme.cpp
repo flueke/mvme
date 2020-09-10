@@ -1147,29 +1147,26 @@ bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
 
     QString fileName = m_d->m_context->getConfigFileName();
     QFile outFile(fileName);
+
     if (!outFile.open(QIODevice::WriteOnly))
     {
-        QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
+        QMessageBox::critical(0, "Error", QString("Error opening %1 for writing").arg(fileName));
         return false;
     }
 
-    QJsonObject daqConfigJson;
-    m_d->m_context->getVMEConfig()->write(daqConfigJson);
-    QJsonObject configObject;
-    configObject["DAQConfig"] = daqConfigJson;
-    QJsonDocument doc(configObject);
+    auto vmeConfig = m_d->m_context->getVMEConfig();
 
-    if (outFile.write(doc.toJson()) < 0)
+    if (!mvme::vme_config::serialize_vme_config_to_device(
+            outFile, *vmeConfig))
     {
-        QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
+        QMessageBox::critical(0, "Error", QSL("Error writing to %1: %2")
+                              .arg(fileName).arg(outFile.errorString()));
         return false;
     }
 
-    auto config = m_d->m_context->getConfig();
-    config->setModified(false);
-
-    m_d->m_context->vmeConfigWasSaved();
+    vmeConfig->setModified(false);
     m_d->m_context->setConfigFileName(fileName);
+    m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
 
     return true;
@@ -1209,20 +1206,18 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
         return false;
     }
 
-    QJsonObject daqConfigJson;
-    m_d->m_context->getVMEConfig()->write(daqConfigJson);
-    QJsonObject configObject;
-    configObject["DAQConfig"] = daqConfigJson;
-    QJsonDocument doc(configObject);
+    auto vmeConfig = m_d->m_context->getVMEConfig();
 
-    if (outFile.write(doc.toJson()) < 0)
+    if (!mvme::vme_config::serialize_vme_config_to_device(
+            outFile, *vmeConfig))
     {
-        QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
+        QMessageBox::critical(0, "Error", QSL("Error writing to %1: %2")
+                              .arg(fileName).arg(outFile.errorString()));
         return false;
     }
 
+    vmeConfig->setModified(false);
     m_d->m_context->setConfigFileName(fileName);
-    m_d->m_context->getConfig()->setModified(false);
     m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
 

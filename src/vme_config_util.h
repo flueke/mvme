@@ -76,6 +76,9 @@ void generate_new_object_ids(ConfigObject *root);
 TriggerCondition LIBMVME_EXPORT trigger_condition_from_string(const QString &str);
 QString LIBMVME_EXPORT trigger_condition_to_string(const TriggerCondition &str);
 
+// Serializes the VMEConfig to JSON and returns the resulting QJsonDocument.
+QJsonDocument LIBMVME_EXPORT serialize_vme_config_to_json_document(const VMEConfig &config);
+
 // Serializes the VMEConfig to JSON and writes the JSON string to the given QIODevice.
 // Returns false on error. Use out.errorString() to retrieve error information.
 bool LIBMVME_EXPORT serialize_vme_config_to_device(QIODevice &out, const VMEConfig &config);
