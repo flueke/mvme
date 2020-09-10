@@ -298,6 +298,18 @@ QString trigger_condition_to_string(const TriggerCondition &str)
     return TriggerConditionNames.value(str);
 }
 
+bool serialize_vme_config_to_device(QIODevice &out, const VMEConfig &config)
+{
+    QJsonObject configJson;
+    config.write(configJson);
+
+    QJsonObject outerJson;
+    outerJson["DAQConfig"] = configJson;
+
+    QJsonDocument doc(outerJson);
+
+    return out.write(doc.toJson()) >= 0;
+}
 
 } // end namespace vme_config
 } // end namespace mvme
