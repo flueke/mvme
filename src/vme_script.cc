@@ -1352,9 +1352,26 @@ QString to_string(u8 addressMode)
 {
     static const QMap<u8, QString> addressModeToString =
     {
-        { vme_address_modes::A16,         QSL("a16") },
-        { vme_address_modes::A24,         QSL("a24") },
-        { vme_address_modes::A32,         QSL("a32") },
+        { vme_address_modes::a16User,         QSL("a16") },
+        { vme_address_modes::a16Priv,         QSL("a16") },
+
+        { vme_address_modes::a24UserData    , QSL("a24") },
+        { vme_address_modes::a24UserProgram , QSL("a24") },
+        { vme_address_modes::a24UserBlock   , QSL("a24") },
+
+        { vme_address_modes::a24PrivData    , QSL("a24") },
+        { vme_address_modes::a24PrivProgram , QSL("a24") },
+        { vme_address_modes::a24PrivBlock   , QSL("a24") },
+
+        { vme_address_modes::a32UserData    , QSL("a32") },
+        { vme_address_modes::a32UserProgram , QSL("a32") },
+        { vme_address_modes::a32UserBlock   , QSL("a32") },
+        { vme_address_modes::a32UserBlock64 , QSL("a32") },
+
+        { vme_address_modes::a32PrivData    , QSL("a32") },
+        { vme_address_modes::a32PrivProgram , QSL("a32") },
+        { vme_address_modes::a32PrivBlock   , QSL("a32") },
+        { vme_address_modes::a32PrivBlock64 , QSL("a32") },
     };
 
     return addressModeToString.value(addressMode, QSL("unknown"));
