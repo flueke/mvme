@@ -2,9 +2,26 @@
 TODO list
 ==================================================
 
-* Figure out the shared_ptr<VMEConfig> reference vs. pointer strangeness:
-  passing a shared pointer ref to a function was accepted by the compiler
-  altough the function expects a raw pointer to VMEConfig.
+* write unit test for CrateConfig import/export
+
+* improve the TriggerIO editor "view script text" window. It's small and annoying.
+
+* log the DAQ run duration when the DAQ is stopped
+
+* add "log to file" functionality: currently the contents of the logview are
+  only saved into listfiles archives when a run ends. This means on
+  non-succesful starts there's no file on disk containing the log conents
+  (users have to take screenshots or copy/paste the contents of the log
+  buffer).
+
+
+* When adding a periodic event the mvlc trigger io is not updated immediately
+  but only on next daq start. This is not great as the trigger io gui state
+  does not reflect the state the system will have and things like exporting to
+  CrateConfig YAML will lead to incorrect results.
+  Bad! :D
+  Implement a kind of hook system that updates the trigger io when
+  adding/removing events.
 
 * Analysis processing skip flag:
   Decide directly after the data filters if this events output should be
@@ -38,7 +55,7 @@ TODO list
 
 * apparently there's a crash when compiling an expression operator script while
   a replay is running. Robert ran into this while editing an expression and
-  lost all of his edits...
+  lost all of his edits... Cannot reproduce
 
 * cmake: get rid of MVME_ENABLE_MVLC, do some sanity checks on the libraries
   being built and make sure files are only part of a single library
