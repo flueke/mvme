@@ -1531,7 +1531,7 @@ QObject *MVMEContext::getMappedObject(QObject *key, const QString &category) con
 
 void MVMEContext::setConfigFileName(QString name, bool updateWorkspace)
 {
-    if (m_configFileName != name)
+    if (m_configFileName != name || updateWorkspace)
     {
         m_configFileName = name;
         if (updateWorkspace)
@@ -1545,7 +1545,7 @@ void MVMEContext::setConfigFileName(QString name, bool updateWorkspace)
 
 void MVMEContext::setAnalysisConfigFileName(QString name, bool updateWorkspace)
 {
-    if (m_analysisConfigFileName != name)
+    if (m_analysisConfigFileName != name || updateWorkspace)
     {
         m_analysisConfigFileName = name;
         if (updateWorkspace)
