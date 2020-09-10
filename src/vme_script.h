@@ -28,6 +28,7 @@
 #include "libmvme_core_export.h"
 
 #include "typedefs.h"
+#include "util/qt_str.h"
 #include "vme.h"
 #include "vme_script_variables.h"
 #include "vme_error.h"
@@ -197,13 +198,24 @@ struct ParseError: std::exception
 
     QString toString() const
     {
+        QString ret;
+
         if (lineNumber >= 0)
-            return QString("%1 on line %2").arg(message).arg(lineNumber);
-        return message;
+            ret = QSL("%1 on line %2").arg(message).arg(lineNumber);
+        else
+            ret = message;
+
+        if (!scriptName.isEmpty())
+            ret = scriptName + QSL(": ") + ret;
+
+        return ret;
     }
 
     QString message;
     int lineNumber;
+    // Name of the input script. To be filled out by callers of the parse()
+    // functions if the info is available.
+    QString scriptName;
 };
 
 QString expand_variables(const QString &line, const SymbolTables &symtabs, s32 lineNumber);
