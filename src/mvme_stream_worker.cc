@@ -498,7 +498,7 @@ void MVMEStreamWorker::start()
                             || singleStepProcState.stepResult == ProcessingState::StepResult_Error)
                         {
                             enqueue(m_d->freeBuffers, singleStepProcState.buffer);
-                            singleStepProcState = {};
+                            singleStepProcState = MVMEStreamProcessor::ProcessingState();
                         }
                     }
 
@@ -528,7 +528,7 @@ void MVMEStreamWorker::start()
                                 || singleStepProcState.stepResult == ProcessingState::StepResult_Error)
                             {
                                 enqueue(m_d->freeBuffers, singleStepProcState.buffer);
-                                singleStepProcState = {};
+                                singleStepProcState = MVMEStreamProcessor::ProcessingState();
                                 break;
                             }
                         }
