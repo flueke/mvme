@@ -78,7 +78,6 @@ static const size_t ReadoutBufferSize = Megabytes(1);
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
 
-static const ListFileFormat DefaultListFileFormat = ListFileFormat::ZIP;
 static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
