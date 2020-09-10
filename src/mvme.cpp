@@ -323,7 +323,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuFile->addAction(m_d->actionSaveVMEConfig);
     m_d->menuFile->addAction(m_d->actionSaveVMEConfigAs);
 
-    auto menuMVLCLib = new QMenu(QSL("mesytec-mvlc interop"), this);
+    auto menuMVLCLib = new QMenu(QSL("mesytec-mvlc library import/export"), this);
     menuMVLCLib->addAction(m_d->actionExportToMVLC);
     menuMVLCLib->addAction(m_d->actionImportFromMVLC);
 
