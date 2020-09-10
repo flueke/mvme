@@ -26,6 +26,10 @@
 // Constants for the known privileged and user vme address modifiers.
 namespace vme_address_modes
 {
+    // a16
+    static const uint8_t a16User   = 0x29;
+    static const uint8_t a16Priv   = 0x2D;
+
     // a32
     static const u8 a32UserData    = 0x09;
     static const u8 a32UserProgram = 0x0A;
@@ -45,10 +49,6 @@ namespace vme_address_modes
     static const u8 a24PrivData    = 0x3D;
     static const u8 a24PrivProgram = 0x3E;
     static const u8 a24PrivBlock   = 0x3F;
-
-    // a16
-    static const uint8_t a16User   = 0x29;
-    static const uint8_t a16Priv   = 0x2D;
 
     // defaults using the privileged modes
     static const u8 A16         = a16Priv;
