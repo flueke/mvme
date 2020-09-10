@@ -156,8 +156,8 @@ struct Command
     uint32_t transfers = 0;
     uint32_t delay_ms = 0;
     uint32_t countMask = 0;
-    u8 blockAddressMode = vme_address_modes::A32;
-    uint32_t blockAddress = 0;
+    //u8 blockAddressMode = vme_address_modes::A32;
+    //uint32_t blockAddress = 0;
     Blk2eSSTRate blk2eSSTRate = Blk2eSSTRate::Rate160MB;
 
     QString warning;
