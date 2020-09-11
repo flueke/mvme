@@ -2195,38 +2195,33 @@ void MVMEContext::openWorkspace(const QString &dirName)
             }
         }
 
-        // plots subdir
+        // Creates non-existent workspace subdirectories. pathSettingsKey is
+        // used to lookup the directory name from the workspace settings INI
+        // file, defaultDirectoryName is the default name for the directory if
+        // the setting is missing from the INI. Missing entries will be updated
+        // in the INI file.
+        auto make_missing_workspace_dir = [this] (const QString &pathSettingsKey, const QString &defaultDirectoryName)
         {
-            QDir dir(getWorkspacePath(QSL("PlotsDirectory"), QSL("plots")));
+            QDir dir(getWorkspacePath(pathSettingsKey, defaultDirectoryName));
 
             if (!QDir::root().mkpath(dir.absolutePath()))
             {
-                throw QString(QSL("Error creating plots directory %1.")).arg(dir.path());
+                throw QString(QSL("Error creating %1 '%2'")
+                              .arg(pathSettingsKey).arg(dir.absolutePath()));
             }
-        }
+        };
 
-        // sessions subdir
-        {
-            QDir dir(getWorkspacePath(QSL("SessionDirectory"), QSL("sessions")));
+        // Contains exported plots (PDF or images files)
+        make_missing_workspace_dir(QSL("PlotsDirectory"), QSL("plots"));
+        // Contains analysis session files.
+        make_missing_workspace_dir(QSL("SessionDirectory"), QSL("sessions"));
+        // Contains analysis ExportSink data
+        make_missing_workspace_dir(QSL("ExportsDirectory"), QSL("exports"));
+        // Holds logfiles of the last DAQ runs (also for unsuccessful starts)
+        make_missing_workspace_dir(QSL("LogsDirectory"), QSL("logs"));
 
-            if (!QDir::root().mkpath(dir.absolutePath()))
-            {
-                throw QString(QSL("Error creating sessions directory %1.")).arg(dir.path());
-            }
-        }
-
-        // exports subdir
-        {
-            QDir dir(getWorkspacePath(QSL("ExportsDirectory"), QSL("exports")));
-
-            if (!QDir::root().mkpath(dir.absolutePath()))
-            {
-                throw QString(QSL("Error creating exports directory %1.")).arg(dir.path());
-            }
-        }
-
-        // special listfile output directory handling. TODO: this might not
-        // actually be needed anymore
+        // special listfile output directory handling.
+        // FIXME: this might not actually be needed anymore
         {
             ListFileOutputInfo info = readFromSettings(*workspaceSettings);
 
