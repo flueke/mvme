@@ -1,4 +1,4 @@
-if (BUILD_TESTS)
+if (MVME_BUILD_TESTS)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -80,4 +80,4 @@ add_mvme_core_gtest(test_vme_script_parsing "test_vme_script_parsing.cc")
 add_mvme_core_gtest(test_vme_script_variables "test_vme_script_variables.cc")
 add_mvme_core_gtest(test_vme_script_commands "test_vme_script_commands.cc")
 
-endif(BUILD_TESTS)
+endif(MVME_BUILD_TESTS)

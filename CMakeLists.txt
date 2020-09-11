@@ -160,9 +160,9 @@ message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 # To get a 'make test' target. If this is not in the top level CMakeLists.txt
 # no test target is generated. Do this before any add_subdirectory() commands
 # as otherwise ctest won't pick up any tests in subprojects.
-option(BUILD_TESTS "Build test binaries" OFF)
+option(MVME_BUILD_TESTS "Build test binaries" OFF)
 
-if (BUILD_TESTS)
+if (MVME_BUILD_TESTS)
     # googletest / GTest
     # https://github.com/google/googletest/blob/master/googletest/README.md
     # Download and unpack googletest at configure time
@@ -202,7 +202,7 @@ if (BUILD_TESTS)
     enable_testing()
     #include_directories(${GTEST_INCLUDE_DIRS})
     add_subdirectory(test)
-endif()
+endif(MVME_BUILD_TESTS)
 
 # Subdirectories containing build targets
 add_subdirectory(src)
