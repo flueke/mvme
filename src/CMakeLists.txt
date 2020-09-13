@@ -262,6 +262,7 @@ add_library(libmvme SHARED
     listfile_browser.cc
     listfile_replay.cc
     listfile_replay_worker.cc
+    logfile_helper.cc
     mesytec_diagnostics.cc
     multi_event_splitter.cc
     mvme_context.cc

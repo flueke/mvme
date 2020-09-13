@@ -79,5 +79,6 @@ add_mvme_core_gtest(test_util_ticketmutex "test_util_ticketmutex.cc")
 add_mvme_core_gtest(test_vme_script_parsing "test_vme_script_parsing.cc")
 add_mvme_core_gtest(test_vme_script_variables "test_vme_script_variables.cc")
 add_mvme_core_gtest(test_vme_script_commands "test_vme_script_commands.cc")
+add_mvme_gtest(test_logfile_helper "logfile_helper.test.cc")
 
 endif(MVME_BUILD_TESTS)

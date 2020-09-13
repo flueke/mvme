@@ -15,8 +15,9 @@ TODO list
   buffer).
   Concept:
   - Introduce a new workspace subdirectory 'logs' for logfile storage
-  - On each DAQ start attempt create a logfile using the current runid to form
-    the filename. If the file exists add an incrementing suffix to the filename
+  - On each DAQ start attempt to create a logfile using the current runid to
+    form the filename. If the file exists add an incrementing suffix to the
+    filename.
   - Append all messages (normal and error) to the file.
   - Close the file on run end (independent on whether the run was successfully
     started or was aborted during startup).
