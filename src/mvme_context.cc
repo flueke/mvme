@@ -2168,20 +2168,19 @@ void MVMEContext::openWorkspace(const QString &dirName)
         setWorkspaceDirectory(dirName);
         auto workspaceSettings(makeWorkspaceSettings(dirName));
 
-        // settings defaults
-        if (!workspaceSettings->contains(QSL("JSON-RPC/Enabled")))
-            workspaceSettings->setValue(QSL("JSON-RPC/Enabled"), false);
-        if (!workspaceSettings->contains(QSL("JSON-RPC/ListenAddress")))
-            workspaceSettings->setValue(QSL("JSON-RPC/ListenAddress"), QString());
-        if (!workspaceSettings->contains(QSL("JSON-RPC/ListenPort")))
-            workspaceSettings->setValue(QSL("JSON-RPC/ListenPort"), JSON_RPC_DefaultListenPort);
+        auto set_default = [&workspaceSettings](const QString &key, const auto &value)
+        {
+            if (!workspaceSettings->contains(key))
+                workspaceSettings->setValue(key, value);
+        };
 
-        if (!workspaceSettings->contains(QSL("EventServer/Enabled")))
-            workspaceSettings->setValue(QSL("EventServer/Enabled"), false);
-        if (!workspaceSettings->contains(QSL("EventServer/ListenAddress")))
-            workspaceSettings->setValue(QSL("EventServer/ListenAddress"), QString());
-        if (!workspaceSettings->contains(QSL("EventServer/ListenPort")))
-            workspaceSettings->setValue(QSL("EventServer/ListenPort"), EventServer_DefaultListenPort);
+        // settings defaults
+        set_default(QSL("JSON-RPC/Enabled"), false);
+        set_default(QSL("JSON-RPC/ListenAddress"), QString());
+        set_default(QSL("JSON-RPC/ListenPort"), JSON_RPC_DefaultListenPort);
+        set_default(QSL("EventServer/Enabled"), false);
+        set_default(QSL("EventServer/ListenAddress"), QString());
+        set_default(QSL("EventServer/ListenPort"), EventServer_DefaultListenPort);
 
         // listfile subdir
         {
