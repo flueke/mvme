@@ -76,7 +76,7 @@ bool LogfileHelper::beginNewFile(const QString &filenamePrefix)
     if (d->currentFile.exists())
         return false;
 
-    return d->currentFile.open(QIODevice::WriteOnly);
+    return d->currentFile.open(QIODevice::WriteOnly | QIODevice::Text);
 }
 
 bool LogfileHelper::closeCurrentFile()
