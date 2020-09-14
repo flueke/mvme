@@ -761,6 +761,11 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
         QMessageBox::critical(this, QSL("Workspace Error"),
                               QString("Error opening workspace: %1").arg(e));
     }
+    catch (const std::runtime_error &e)
+    {
+        QMessageBox::critical(this, QSL("Workspace Error"),
+                              QSL("Error opening workspace: %1>").arg(e.what()));
+    }
 }
 
 void MVMEMainWindow::displayAbout()
