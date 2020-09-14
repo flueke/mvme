@@ -29,6 +29,7 @@
 #include "analysis/analysis_ui.h"
 #include "event_server/server/event_server.h"
 #include "file_autosaver.h"
+#include "logfile_helper.h"
 #include "mesytec-mvlc/util/readout_buffer_queues.h"
 #include "mvme_mvlc_listfile.h"
 #include "mvlc_listfile_worker.h"
@@ -98,6 +99,10 @@ static const s64 LogBufferMaxEntries = 100 * 1000;
 static const int JSON_RPC_DefaultListenPort = 13800;
 static const int EventServer_DefaultListenPort = 13801;
 
+// The number of DAQ run logfiles to keep in run_logs/
+static const unsigned Default_RunLogsMaxCount = 10;
+static const QString RunLogsWorkspaceDirectory = QSL("run_logs");
+
 class VMEConfigSerializer
 {
     public:
@@ -152,6 +157,7 @@ class AnalysisSerializer
 } // end anon namespace
 
 using remote_control::RemoteControl;
+using mesytec::mvme::LogfileHelper;
 
 struct MVMEContextPrivate
 {
@@ -175,6 +181,8 @@ struct MVMEContextPrivate
     std::unique_ptr<ListfileReplayWorker> listfileReplayWorker;
     mesytec::mvlc::ReadoutBufferQueues mvlcSnoopQueues;
     mutable mesytec::mvlc::Protected<QString> runNotes;
+
+    std::unique_ptr<mesytec::mvme::LogfileHelper> daqRunLogfileHelper;
 
     MVMEContextPrivate(MVMEContext *q)
         : m_q(q)
@@ -1255,9 +1263,12 @@ void MVMEContext::onMVMEStreamWorkerStateChanged(MVMEStreamWorkerState state)
     }
 }
 
-// Called on VMUSBReadoutWorker::daqStopped()
+// Called on VMEReadoutWorker::daqStopped()
 void MVMEContext::onDAQDone()
 {
+    assert(m_d->daqRunLogfileHelper);
+    m_d->daqRunLogfileHelper->closeCurrentFile();
+
     // stops the analysis side thread
     m_streamWorker->stop();
 
@@ -1678,6 +1689,10 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
     // E.g. the runNumber might be incremented due to run files already existing.
 
     m_d->clearLog();
+
+    assert(m_d->daqRunLogfileHelper);
+
+    m_d->daqRunLogfileHelper->beginNewFile(m_d->m_runInfo.runId);
 
     // Log mvme version and bitness and runtime cpu architecture
     logMessage(QString(QSL("mvme %1 (%2) running on %3 (%4)\n"))
@@ -2181,6 +2196,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
         set_default(QSL("EventServer/Enabled"), false);
         set_default(QSL("EventServer/ListenAddress"), QString());
         set_default(QSL("EventServer/ListenPort"), EventServer_DefaultListenPort);
+        set_default(QSL("Logs/RunLogsMaxCount"), Default_RunLogsMaxCount);
 
         // listfile subdir
         {
@@ -2199,7 +2215,8 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // file, defaultDirectoryName is the default name for the directory if
         // the setting is missing from the INI. Missing entries will be updated
         // in the INI file.
-        auto make_missing_workspace_dir = [this] (const QString &pathSettingsKey, const QString &defaultDirectoryName)
+        auto make_missing_workspace_dir = [this] (
+            const QString &pathSettingsKey, const QString &defaultDirectoryName)
         {
             QDir dir(getWorkspacePath(pathSettingsKey, defaultDirectoryName));
 
@@ -2217,7 +2234,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // Contains analysis ExportSink data
         make_missing_workspace_dir(QSL("ExportsDirectory"), QSL("exports"));
         // Holds logfiles of the last DAQ runs (also for unsuccessful starts)
-        make_missing_workspace_dir(QSL("RunLogsDirectory"), QSL("run_logs"));
+        make_missing_workspace_dir(QSL("RunLogsDirectory"), RunLogsWorkspaceDirectory);
         // Holds mvme.log and mvme_last.log: log files rotated at mvme startup,
         // kept open during the application lifetime, containing all logged
         // messages.
@@ -2467,9 +2484,32 @@ void MVMEContext::openWorkspace(const QString &dirName)
             logMessage(errorMessage);
         });
 
+        // Create a new LogfileHelper instance for the DAQ run logs in this
+        // workspace.
+        m_d->daqRunLogfileHelper = std::make_unique<mesytec::mvme::LogfileHelper>(
+            QDir(getWorkspaceDirectory()).filePath(RunLogsWorkspaceDirectory),
+            workspaceSettings->value(QSL("Logs/RunLogsMaxCount")).toUInt()
+            );
+
+        // The connections can be made immediately. As long as beginNewFile()
+        // has not been called on the LogfileHelper, the calls to logMessage()
+        // will have no effect.
+        connect(this, &MVMEContext::sigLogMessage,
+                this, [this] (const QString &msg)
+                {
+                    m_d->daqRunLogfileHelper->logMessage(msg + QSL("\n"));
+                });
+
+        connect(this, &MVMEContext::sigLogError,
+                this, [this] (const QString &msg)
+                {
+                    m_d->daqRunLogfileHelper->logMessage(QSL("EE ") + msg + QSL("\n"));
+                });
+
+
         reapplyWorkspaceSettings();
     }
-    catch (const QString &)
+    catch (...)
     {
         // Restore previous workspace directory as the load was not successfull
         setWorkspaceDirectory(lastWorkspaceDirectory);
