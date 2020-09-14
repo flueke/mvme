@@ -2,6 +2,7 @@
 #include "logfile_helper.h"
 #include <QDebug>
 #include <thread>
+#include <chrono>
 
 using namespace mesytec::mvme;
 
@@ -26,6 +27,12 @@ QStringList list_logfiles()
     return logDir.entryList({"*.log"}, QDir::Files, QDir::Time | QDir::Reversed);
 }
 
+void sleep_for_mtime_change()
+{
+    static const auto duration = std::chrono::milliseconds(100);
+    std::this_thread::sleep_for(duration);
+}
+
 }
 
 class LogfileHelperTestFixture: public ::testing::Test
@@ -41,8 +48,6 @@ class LogfileHelperTestFixture: public ::testing::Test
             {
                 if (!dir.mkdir(logDirName))
                     throw std::runtime_error("Cannot create LogfileHelper test directory");
-
-                qDebug() << "created LogFileHelper test directory" << dir.filePath(logDirName);
             }
         }
 
@@ -58,11 +63,9 @@ class LogfileHelperTestFixture: public ::testing::Test
             {
                 auto absfile = dir.absoluteFilePath(filename);
 
-                qDebug() << __PRETTY_FUNCTION__ << "removing logfile" << absfile;
-
                 if (!QFile::remove(absfile))
                 {
-                    qDebug() << "Could not remove logfile" << absfile;
+                    std::cerr << "Could not remove logfile " << absfile.toStdString() << std::endl;
                     std::abort();
                 }
             }
@@ -71,7 +74,8 @@ class LogfileHelperTestFixture: public ::testing::Test
 
             if (!dir.rmdir(logDirName))
             {
-                qDebug() << "Could not remove LogfileHelper test directory";
+                std::cerr << "Could not remove LogfileHelper test directory "
+                    << dir.filePath(logDirName).toStdString() << std::endl;
                 std::abort();
             }
         }
@@ -92,6 +96,11 @@ TEST(LogFileHelperTestNoFixture, FileCreationFails)
     ASSERT_FALSE(lf.closeCurrentFile());
 }
 
+TEST(LogFileHelperTestNoFixture, ThrowOnZeroMaxFiles)
+{
+    ASSERT_THROW(LogfileHelper(logDirName, 0), std::runtime_error);
+}
+
 TEST_F(LogfileHelperTestFixture, BeginNewLogfile)
 {
     LogfileHelper lf(logDirName, 10);
@@ -101,6 +110,7 @@ TEST_F(LogfileHelperTestFixture, BeginNewLogfile)
 
     lf.beginNewFile("thePrefix");
 
+    ASSERT_EQ(lf.currentFilename(), QString("thePrefix.log"));
     ASSERT_TRUE(lf.hasOpenFile());
     ASSERT_TRUE(lf.logMessage("foobar"));
     ASSERT_TRUE(lf.flush());
@@ -112,8 +122,8 @@ TEST_F(LogfileHelperTestFixture, BeginNewLogfile)
 TEST_F(LogfileHelperTestFixture, ExceedMaxFiles)
 {
     // Note: the sleeps are in here to make sure the files have unique
-    // timestamps and thus the time based sorting in LogfileHelper and in here
-    // yields predictable results.
+    // timestamps and thus the time based sorting in LogfileHelper and in this
+    // test yield predictable results.
 
     {
         const unsigned MaxFiles = 10;
@@ -123,22 +133,36 @@ TEST_F(LogfileHelperTestFixture, ExceedMaxFiles)
         for (unsigned i = 0; i < MaxFiles; i++)
         {
             ASSERT_TRUE(lf.beginNewFile("logfile" + QString::number(i)));
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+
+
+            const auto message = "message" + QString::number(i);
+
+            ASSERT_TRUE(lf.logMessage(message));
+            ASSERT_TRUE(lf.flush());
+            ASSERT_EQ(read_file(lf.currentAbsFilepath()), message);
+
+            sleep_for_mtime_change();
         }
 
         ASSERT_EQ(static_cast<unsigned>(list_logfiles().size()), MaxFiles);
 
         lf.beginNewFile("logfile" + QString::number(MaxFiles));
 
-        auto filenames = list_logfiles();
+        {
+            const auto message = "message" + QString::number(MaxFiles);
 
-        qDebug() << filenames;
+            ASSERT_TRUE(lf.logMessage(message));
+            ASSERT_TRUE(lf.flush());
+            ASSERT_EQ(read_file(lf.currentAbsFilepath()), message);
+        }
+
+        auto filenames = list_logfiles();
 
         ASSERT_EQ(static_cast<unsigned>(filenames.size()), MaxFiles);
         ASSERT_EQ(filenames.last(), QString("logfile10.log"));
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    sleep_for_mtime_change();
 
     // Now we have 10 files from logfile1.log to logfile10.log
     // Create another instance but this time with a lower MaxFiles value.
@@ -154,5 +178,6 @@ TEST_F(LogfileHelperTestFixture, ExceedMaxFiles)
 
         ASSERT_EQ(static_cast<unsigned>(filenames.size()), MaxFiles);
         ASSERT_EQ(filenames.last(), QString("logfile11.log"));
+        ASSERT_EQ(lf.currentFilename(), QString("logfile11.log"));
     }
 }

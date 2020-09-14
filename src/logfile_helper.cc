@@ -47,12 +47,11 @@ bool LogfileHelper::beginNewFile(const QString &filenamePrefix)
 
     auto logfiles = list_logfiles();
 
-    qDebug() << __PRETTY_FUNCTION__ << logfiles;
+    //qDebug() << __PRETTY_FUNCTION__ << "existing logfiles:" << logfiles;
 
     if (static_cast<unsigned>(logfiles.size()) >= d->maxFiles)
     {
         const auto rmCount = (logfiles.size() - d->maxFiles) + 1;
-        qDebug() << __PRETTY_FUNCTION__ << rmCount;
         auto rmBegin = logfiles.begin();
         const auto rmEnd = rmBegin + rmCount;
 
@@ -60,7 +59,7 @@ bool LogfileHelper::beginNewFile(const QString &filenamePrefix)
         {
             auto absfile = d->logDir.absoluteFilePath(*rmBegin++);
 
-            qDebug() << __PRETTY_FUNCTION__ << "removing " << absfile;
+            //qDebug() << __PRETTY_FUNCTION__ << "removing old logfile" << absfile;
 
             if (!QFile::remove(absfile))
                 return false;
@@ -73,7 +72,7 @@ bool LogfileHelper::beginNewFile(const QString &filenamePrefix)
 
     d->currentFile.setFileName(newFilename);
 
-    // TODO: append a counter suffix to the prefix if the file exists
+    // TODO (maybe): append a counter suffix to the prefix if the file exists
     if (d->currentFile.exists())
         return false;
 
@@ -116,7 +115,7 @@ QDir LogfileHelper::logDir() const
 
 QString LogfileHelper::currentFilename() const
 {
-    return d->currentFile.fileName();
+    return d->logDir.relativeFilePath(d->currentFile.fileName());
 }
 
 QString LogfileHelper::currentAbsFilepath() const
