@@ -2218,6 +2218,10 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // Contains analysis ExportSink data
         make_missing_workspace_dir(QSL("ExportsDirectory"), QSL("exports"));
         // Holds logfiles of the last DAQ runs (also for unsuccessful starts)
+        make_missing_workspace_dir(QSL("RunLogsDirectory"), QSL("run_logs"));
+        // Holds mvme.log and mvme_last.log: log files rotated at mvme startup,
+        // kept open during the application lifetime, containing all logged
+        // messages.
         make_missing_workspace_dir(QSL("LogsDirectory"), QSL("logs"));
 
         // special listfile output directory handling.
