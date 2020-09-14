@@ -92,7 +92,11 @@ bool LogfileHelper::closeCurrentFile()
 
 bool LogfileHelper::flush()
 {
-    return d->currentFile.flush();
+    // If no file is open the windows QFile::flush() implementation always
+    // returns true. This method should return false in this case.
+    if (hasOpenFile())
+        return d->currentFile.flush();
+    return false;
 }
 
 bool LogfileHelper::logMessage(const QString &msg)
@@ -129,6 +133,11 @@ QString LogfileHelper::currentAbsFilepath() const
 unsigned LogfileHelper::maxFiles() const
 {
     return d->maxFiles;
+}
+
+QString LogfileHelper::errorString() const
+{
+    return d->currentFile.errorString();
 }
 
 } // end namespace mvme

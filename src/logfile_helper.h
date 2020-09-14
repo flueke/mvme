@@ -28,6 +28,7 @@ class LIBMVME_EXPORT LogfileHelper: public QObject
         QString currentFilename() const;
         QString currentAbsFilepath() const;
         unsigned maxFiles() const;
+        QString errorString() const;
 
     public slots:
         bool logMessage(const QString &msg);
