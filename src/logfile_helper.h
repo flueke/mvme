@@ -6,12 +6,14 @@
 #include <QDir>
 #include <memory>
 
+#include "libmvme_export.h"
+
 namespace mesytec
 {
 namespace mvme
 {
 
-class LogfileHelper: public QObject
+class LIBMVME_EXPORT LogfileHelper: public QObject
 {
     public:
         explicit LogfileHelper(const QDir &logDir, unsigned maxFiles = 10, QObject *parent = nullptr);

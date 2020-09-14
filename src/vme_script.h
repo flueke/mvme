@@ -218,11 +218,11 @@ struct ParseError: std::exception
     QString scriptName;
 };
 
-QString expand_variables(const QString &line, const SymbolTables &symtabs, s32 lineNumber);
-void expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs);
+QString LIBMVME_CORE_EXPORT expand_variables(const QString &line, const SymbolTables &symtabs, s32 lineNumber);
+void LIBMVME_CORE_EXPORT expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs);
 
-QString evaluate_expressions(const QString &qline, s32 lineNumber);
-void evaluate_expressions(PreparsedLine &preparsed);
+QString LIBMVME_CORE_EXPORT evaluate_expressions(const QString &qline, s32 lineNumber);
+void LIBMVME_CORE_EXPORT evaluate_expressions(PreparsedLine &preparsed);
 
 // These versions of the parse function use an internal symbol table. Access to
 // variables defined via the 'set' command is not possible.
