@@ -7,14 +7,14 @@ namespace mesytec
 namespace mvme
 {
 
-struct LogfileHelper::Private
+struct LogfileCountLimiter::Private
 {
     QDir logDir;
     unsigned maxFiles;
     QFile currentFile;
 };
 
-LogfileHelper::LogfileHelper(const QDir &logDir, unsigned maxFiles, QObject *parent)
+LogfileCountLimiter::LogfileCountLimiter(const QDir &logDir, unsigned maxFiles, QObject *parent)
     : QObject(parent)
     , d(std::make_unique<Private>())
 {
@@ -25,11 +25,11 @@ LogfileHelper::LogfileHelper(const QDir &logDir, unsigned maxFiles, QObject *par
         throw std::runtime_error("LogFileHelper: maxFiles is 0");
 }
 
-LogfileHelper::~LogfileHelper()
+LogfileCountLimiter::~LogfileCountLimiter()
 {
 }
 
-bool LogfileHelper::beginNewFile(const QString &filenamePrefix)
+bool LogfileCountLimiter::beginNewFile(const QString &filenamePrefix)
 {
     if (filenamePrefix.isEmpty())
         return false;
@@ -79,7 +79,7 @@ bool LogfileHelper::beginNewFile(const QString &filenamePrefix)
     return d->currentFile.open(QIODevice::WriteOnly | QIODevice::Text);
 }
 
-bool LogfileHelper::closeCurrentFile()
+bool LogfileCountLimiter::closeCurrentFile()
 {
     if (hasOpenFile())
     {
@@ -90,7 +90,7 @@ bool LogfileHelper::closeCurrentFile()
     return false;
 }
 
-bool LogfileHelper::flush()
+bool LogfileCountLimiter::flush()
 {
     // If no file is open the windows QFile::flush() implementation always
     // returns true. This method should return false in this case.
@@ -99,7 +99,7 @@ bool LogfileHelper::flush()
     return false;
 }
 
-bool LogfileHelper::logMessage(const QString &msg)
+bool LogfileCountLimiter::logMessage(const QString &msg)
 {
     if (!hasOpenFile())
         return false;
@@ -107,22 +107,22 @@ bool LogfileHelper::logMessage(const QString &msg)
     return (d->currentFile.write(msg.toUtf8()) >= 0);
 }
 
-bool LogfileHelper::hasOpenFile() const
+bool LogfileCountLimiter::hasOpenFile() const
 {
     return d->currentFile.isOpen();
 }
 
-QDir LogfileHelper::logDir() const
+QDir LogfileCountLimiter::logDir() const
 {
     return d->logDir;
 }
 
-QString LogfileHelper::currentFilename() const
+QString LogfileCountLimiter::currentFilename() const
 {
     return d->logDir.relativeFilePath(d->currentFile.fileName());
 }
 
-QString LogfileHelper::currentAbsFilepath() const
+QString LogfileCountLimiter::currentAbsFilepath() const
 {
     if (!hasOpenFile())
         return {};
@@ -130,12 +130,12 @@ QString LogfileHelper::currentAbsFilepath() const
     return d->logDir.absoluteFilePath(currentFilename());
 }
 
-unsigned LogfileHelper::maxFiles() const
+unsigned LogfileCountLimiter::maxFiles() const
 {
     return d->maxFiles;
 }
 
-QString LogfileHelper::errorString() const
+QString LogfileCountLimiter::errorString() const
 {
     return d->currentFile.errorString();
 }

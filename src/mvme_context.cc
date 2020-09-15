@@ -157,7 +157,7 @@ class AnalysisSerializer
 } // end anon namespace
 
 using remote_control::RemoteControl;
-using mesytec::mvme::LogfileHelper;
+using mesytec::mvme::LogfileCountLimiter;
 
 struct MVMEContextPrivate
 {
@@ -182,7 +182,7 @@ struct MVMEContextPrivate
     mesytec::mvlc::ReadoutBufferQueues mvlcSnoopQueues;
     mutable mesytec::mvlc::Protected<QString> runNotes;
 
-    std::unique_ptr<mesytec::mvme::LogfileHelper> daqRunLogfileHelper;
+    std::unique_ptr<mesytec::mvme::LogfileCountLimiter> daqRunLogfileLimiter;
 
     MVMEContextPrivate(MVMEContext *q)
         : m_q(q)
@@ -1266,8 +1266,8 @@ void MVMEContext::onMVMEStreamWorkerStateChanged(MVMEStreamWorkerState state)
 // Called on VMEReadoutWorker::daqStopped()
 void MVMEContext::onDAQDone()
 {
-    assert(m_d->daqRunLogfileHelper);
-    m_d->daqRunLogfileHelper->closeCurrentFile();
+    assert(m_d->daqRunLogfileLimiter);
+    m_d->daqRunLogfileLimiter->closeCurrentFile();
 
     // stops the analysis side thread
     m_streamWorker->stop();
@@ -1690,9 +1690,9 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 
     m_d->clearLog();
 
-    assert(m_d->daqRunLogfileHelper);
+    assert(m_d->daqRunLogfileLimiter);
 
-    m_d->daqRunLogfileHelper->beginNewFile(m_d->m_runInfo.runId);
+    m_d->daqRunLogfileLimiter->beginNewFile(m_d->m_runInfo.runId);
 
     // Log mvme version and bitness and runtime cpu architecture
     logMessage(QString(QSL("mvme %1 (%2) running on %3 (%4)\n"))
@@ -2484,26 +2484,26 @@ void MVMEContext::openWorkspace(const QString &dirName)
             logMessage(errorMessage);
         });
 
-        // Create a new LogfileHelper instance for the DAQ run logs in this
+        // Create a new LogfileCountLimiter instance for the DAQ run logs in this
         // workspace.
-        m_d->daqRunLogfileHelper = std::make_unique<mesytec::mvme::LogfileHelper>(
+        m_d->daqRunLogfileLimiter = std::make_unique<mesytec::mvme::LogfileCountLimiter>(
             QDir(getWorkspaceDirectory()).filePath(RunLogsWorkspaceDirectory),
             workspaceSettings->value(QSL("Logs/RunLogsMaxCount")).toUInt()
             );
 
         // The connections can be made immediately. As long as beginNewFile()
-        // has not been called on the LogfileHelper, the calls to logMessage()
+        // has not been called on the LogfileCountLimiter, the calls to logMessage()
         // will have no effect.
         connect(this, &MVMEContext::sigLogMessage,
                 this, [this] (const QString &msg)
                 {
-                    m_d->daqRunLogfileHelper->logMessage(msg + QSL("\n"));
+                    m_d->daqRunLogfileLimiter->logMessage(msg + QSL("\n"));
                 });
 
         connect(this, &MVMEContext::sigLogError,
                 this, [this] (const QString &msg)
                 {
-                    m_d->daqRunLogfileHelper->logMessage(QSL("EE ") + msg + QSL("\n"));
+                    m_d->daqRunLogfileLimiter->logMessage(QSL("EE ") + msg + QSL("\n"));
                 });
 
 

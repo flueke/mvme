@@ -47,7 +47,7 @@ class LogfileHelperTestFixture: public ::testing::Test
             if (!dir.exists(logDirName))
             {
                 if (!dir.mkdir(logDirName))
-                    throw std::runtime_error("Cannot create LogfileHelper test directory");
+                    throw std::runtime_error("Cannot create LogfileCountLimiter test directory");
             }
         }
 
@@ -74,7 +74,7 @@ class LogfileHelperTestFixture: public ::testing::Test
 
             if (!dir.rmdir(logDirName))
             {
-                std::cerr << "Could not remove LogfileHelper test directory "
+                std::cerr << "Could not remove LogfileCountLimiter test directory "
                     << dir.filePath(logDirName).toStdString() << std::endl;
                 std::abort();
             }
@@ -87,7 +87,7 @@ TEST(LogFileHelperTestNoFixture, FileCreationFails)
 {
     ASSERT_TRUE(!QDir().exists(logDirName));
 
-    LogfileHelper lf(logDirName, 10);
+    LogfileCountLimiter lf(logDirName, 10);
 
     ASSERT_FALSE(lf.logMessage("theMessage"));
     ASSERT_FALSE(lf.beginNewFile("thePrefix"));
@@ -98,12 +98,12 @@ TEST(LogFileHelperTestNoFixture, FileCreationFails)
 
 TEST(LogFileHelperTestNoFixture, ThrowOnZeroMaxFiles)
 {
-    ASSERT_THROW(LogfileHelper(logDirName, 0), std::runtime_error);
+    ASSERT_THROW(LogfileCountLimiter(logDirName, 0), std::runtime_error);
 }
 
 TEST_F(LogfileHelperTestFixture, BeginNewLogfile)
 {
-    LogfileHelper lf(logDirName, 10);
+    LogfileCountLimiter lf(logDirName, 10);
 
     ASSERT_FALSE(lf.logMessage("foobar"));
     ASSERT_FALSE(lf.hasOpenFile());
@@ -122,13 +122,13 @@ TEST_F(LogfileHelperTestFixture, BeginNewLogfile)
 TEST_F(LogfileHelperTestFixture, ExceedMaxFiles)
 {
     // Note: the sleeps are in here to make sure the files have unique
-    // timestamps and thus the time based sorting in LogfileHelper and in this
+    // timestamps and thus the time based sorting in LogfileCountLimiter and in this
     // test yield predictable results.
 
     {
         const unsigned MaxFiles = 10;
 
-        LogfileHelper lf(logDirName, MaxFiles);
+        LogfileCountLimiter lf(logDirName, MaxFiles);
 
         for (unsigned i = 0; i < MaxFiles; i++)
         {
@@ -170,7 +170,7 @@ TEST_F(LogfileHelperTestFixture, ExceedMaxFiles)
     {
         const unsigned MaxFiles = 5;
 
-        LogfileHelper lf(logDirName, MaxFiles);
+        LogfileCountLimiter lf(logDirName, MaxFiles);
 
         ASSERT_TRUE(lf.beginNewFile("logfile" + QString::number(11)));
 
