@@ -100,7 +100,7 @@ static const int JSON_RPC_DefaultListenPort = 13800;
 static const int EventServer_DefaultListenPort = 13801;
 
 // The number of DAQ run logfiles to keep in run_logs/
-static const unsigned Default_RunLogsMaxCount = 10;
+static const unsigned Default_RunLogsMaxCount = 50;
 static const QString RunLogsWorkspaceDirectory = QSL("run_logs");
 
 class VMEConfigSerializer
@@ -2235,9 +2235,9 @@ void MVMEContext::openWorkspace(const QString &dirName)
         make_missing_workspace_dir(QSL("ExportsDirectory"), QSL("exports"));
         // Holds logfiles of the last DAQ runs (also for unsuccessful starts)
         make_missing_workspace_dir(QSL("RunLogsDirectory"), RunLogsWorkspaceDirectory);
-        // Holds mvme.log and mvme_last.log: log files rotated at mvme startup,
-        // kept open during the application lifetime, containing all logged
-        // messages.
+        // Holds mvme.log and mvme_last.log: log files rotated at mvme startup.
+        // mvme.log is kept open during the application lifetime and contains
+        // all logged messages.
         make_missing_workspace_dir(QSL("LogsDirectory"), QSL("logs"));
 
         // special listfile output directory handling.
