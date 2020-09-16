@@ -103,6 +103,8 @@ static const int EventServer_DefaultListenPort = 13801;
 static const unsigned Default_RunLogsMaxCount = 50;
 static const QString RunLogsWorkspaceDirectory = QSL("run_logs");
 
+static const QString LogsWorkspaceDirectory = QSL("logs");
+
 class VMEConfigSerializer
 {
     public:
@@ -158,6 +160,7 @@ class AnalysisSerializer
 
 using remote_control::RemoteControl;
 using mesytec::mvme::LogfileCountLimiter;
+using mesytec::mvme::LastlogHelper;
 
 struct MVMEContextPrivate
 {
@@ -183,6 +186,7 @@ struct MVMEContextPrivate
     mutable mesytec::mvlc::Protected<QString> runNotes;
 
     std::unique_ptr<mesytec::mvme::LogfileCountLimiter> daqRunLogfileLimiter;
+    std::unique_ptr<LastlogHelper> lastLogfileHelper;
 
     MVMEContextPrivate(MVMEContext *q)
         : m_q(q)
@@ -2238,7 +2242,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // Holds mvme.log and mvme_last.log: log files rotated at mvme startup.
         // mvme.log is kept open during the application lifetime and contains
         // all logged messages.
-        make_missing_workspace_dir(QSL("LogsDirectory"), QSL("logs"));
+        make_missing_workspace_dir(QSL("LogsDirectory"), LogsWorkspaceDirectory);
 
         // special listfile output directory handling.
         // FIXME: this might not actually be needed anymore
@@ -2273,6 +2277,28 @@ void MVMEContext::openWorkspace(const QString &dirName)
             m_d->m_listfileOutputInfo = info;
             writeToSettings(info, *workspaceSettings);
         }
+
+        // Create a new LastlogHelper to log into mvme.log until another
+        // workspace is opened.
+        // Do this before attempting to open vme and analysis files inside the
+        // newly entered workspace so that messages end up in the correct log
+        // file.
+        m_d->lastLogfileHelper = std::make_unique<LastlogHelper>(
+            QDir(getWorkspaceDirectory()).filePath(LogsWorkspaceDirectory),
+            QSL("mvme.log"), QSL("last_mvme.log"));
+
+        connect(this, &MVMEContext::sigLogMessage,
+                this, [this] (const QString &msg)
+                {
+                    m_d->lastLogfileHelper->logMessage(msg + QSL("\n"));
+                });
+
+        connect(this, &MVMEContext::sigLogError,
+                this, [this] (const QString &msg)
+                {
+                    m_d->lastLogfileHelper->logMessage(QSL("EE ") + msg + QSL("\n"));
+                });
+
 
         //
         // VME config
@@ -2506,12 +2532,14 @@ void MVMEContext::openWorkspace(const QString &dirName)
                     m_d->daqRunLogfileLimiter->logMessage(QSL("EE ") + msg + QSL("\n"));
                 });
 
-
         reapplyWorkspaceSettings();
     }
     catch (...)
     {
-        // Restore previous workspace directory as the load was not successfull
+        // Restore previous workspace directory as the load was not successful
+        // FIXME: other actions should be done here like recreating the
+        // lastLogfileHelper. Just restoring the old workspace directory is not
+        // enough.
         setWorkspaceDirectory(lastWorkspaceDirectory);
         throw;
     }
