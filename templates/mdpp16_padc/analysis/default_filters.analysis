@@ -1,0 +1,923 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 3,
+        "VMEObjectSettings": {
+            "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}": {
+                "MultiEventProcessing": true
+            }
+        },
+        "conditionLinks": [
+        ],
+        "connections": [
+            {
+                "dstId": "{ffb74062-6de9-4144-9b3f-64c66903822f}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{5a6a8744-805a-4193-b507-2aaaa1f7d45f}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{03fd95fb-774b-46b0-ba42-12817db624b0}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{8849d091-f117-41fe-8d9b-03935ca7f233}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{25c6b6a5-0e20-4cf5-babc-bd3ea9076418}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{46041e19-fb72-4eb5-a0aa-788e28edc05c}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{cdf83d72-f345-4595-a642-35022cff9fb7}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{be330cab-9511-43ce-94a6-a85efd6dc2bb}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{843c2a4c-2187-4acd-a7a9-7b4658a47501}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{61311c56-ab3f-4d8c-bb98-5ed51b88bff9}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{9b7b1807-0737-4cf0-9131-9db76b9c657d}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{370c5e81-35af-4fd2-b47c-82e6215e0665}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{99c9e3a7-b293-4b51-bc55-3cfb339fd09e}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{843c2a4c-2187-4acd-a7a9-7b4658a47501}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{9e15d22e-54d9-4be8-a504-af75bcab8f21}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{a5dc1c7e-da59-4c52-a765-70a9dec2c0e7}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{83c1e784-930e-46f8-944f-cf48989b1c63}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{9daa7445-b1c6-46b6-ad2b-06fdb0f3accc}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{de152fd5-1ab5-4228-ac4c-a992693d42d5}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{5a6a8744-805a-4193-b507-2aaaa1f7d45f}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{3b1e8a98-9964-43b9-b1ad-7fc3e1480500}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{29a72b49-03cb-44d8-8edb-85e2a79b02d2}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{b8f34d8e-a3d6-42e5-89eb-c4407c74cc8c}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{bee80683-0c2e-4526-9921-1d4fb174d63f}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{be330cab-9511-43ce-94a6-a85efd6dc2bb}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{89c5d6e0-1fa8-4fb5-bc99-c753e97f4b5a}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{dc18d656-fa12-4b6e-88d8-92b7ff72d5da}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{de152fd5-1ab5-4228-ac4c-a992693d42d5}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{46041e19-fb72-4eb5-a0aa-788e28edc05c}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{bee80683-0c2e-4526-9921-1d4fb174d63f}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{8849d091-f117-41fe-8d9b-03935ca7f233}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{29a72b49-03cb-44d8-8edb-85e2a79b02d2}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{3326be6d-8716-4b64-aa6f-5e62334e087b}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{7b794e0e-7c06-45cf-ac6b-98066d14889c}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{9daa7445-b1c6-46b6-ad2b-06fdb0f3accc}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{317e2c98-3d4f-4e1e-9ead-66fe1874a1d3}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{73fa314f-c31d-4f01-93a4-a1c4fd9df035}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{bf872201-b0e4-410e-a47c-acf26adb7b74}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{bf872201-b0e4-410e-a47c-acf26adb7b74}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{a5dc1c7e-da59-4c52-a765-70a9dec2c0e7}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{059a6da4-5cf8-4a92-aa84-3c54f6850733}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{317e2c98-3d4f-4e1e-9ead-66fe1874a1d3}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{0864123c-5585-454f-ba7e-369154a3ac3b}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{89c5d6e0-1fa8-4fb5-bc99-c753e97f4b5a}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{50e13c67-1749-4702-88e0-0b0816494e3e}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{61311c56-ab3f-4d8c-bb98-5ed51b88bff9}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{7b794e0e-7c06-45cf-ac6b-98066d14889c}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{370c5e81-35af-4fd2-b47c-82e6215e0665}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+            {
+                "data": {
+                    "displayLocation": "operator",
+                    "members": [
+                        "{de152fd5-1ab5-4228-ac4c-a992693d42d5}",
+                        "{46041e19-fb72-4eb5-a0aa-788e28edc05c}",
+                        "{bf872201-b0e4-410e-a47c-acf26adb7b74}",
+                        "{be330cab-9511-43ce-94a6-a85efd6dc2bb}"
+                    ]
+                },
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{8f4f86ae-15a2-4e67-be0c-c50c7137d2f1}",
+                "name": "Cal mdpp16_PADC",
+                "userLevel": 1
+            },
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{dc18d656-fa12-4b6e-88d8-92b7ff72d5da}",
+                        "{25c6b6a5-0e20-4cf5-babc-bd3ea9076418}",
+                        "{73fa314f-c31d-4f01-93a4-a1c4fd9df035}",
+                        "{cdf83d72-f345-4595-a642-35022cff9fb7}"
+                    ]
+                },
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{b1135e7d-f83a-4a40-9f28-7892478f0d57}",
+                "name": "Cal Histos mdpp16_PADC",
+                "userLevel": 1
+            }
+        ],
+        "operators": [
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": "ns"
+                },
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{46041e19-fb72-4eb5-a0aa-788e28edc05c}",
+                "name": "time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 67108864,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": "us"
+                },
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{bf872201-b0e4-410e-a47c-acf26adb7b74}",
+                "name": "timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": "ns"
+                },
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{be330cab-9511-43ce-94a6-a85efd6dc2bb}",
+                "name": "trigger_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{9e15d22e-54d9-4be8-a504-af75bcab8f21}",
+                "name": "timestamp_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{3b1e8a98-9964-43b9-b1ad-7fc3e1480500}",
+                "name": "mdpp16_scp.trigger_time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{8849d091-f117-41fe-8d9b-03935ca7f233}",
+                "name": "mdpp16_scp.trigger_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "amplitude",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{059a6da4-5cf8-4a92-aa84-3c54f6850733}",
+                "name": "mdpp16_scp.amplitude_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{9b7b1807-0737-4cf0-9131-9db76b9c657d}",
+                "name": "mdpp16_scp.timestamp_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{9daa7445-b1c6-46b6-ad2b-06fdb0f3accc}",
+                "name": "mdpp16_scp.amplitude",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 1073741824,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{7b794e0e-7c06-45cf-ac6b-98066d14889c}",
+                "name": "mdpp16_scp.timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{50e13c67-1749-4702-88e0-0b0816494e3e}",
+                "name": "mdpp16_scp.time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "amplitude",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{ffb74062-6de9-4144-9b3f-64c66903822f}",
+                "name": "amplitude_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{de152fd5-1ab5-4228-ac4c-a992693d42d5}",
+                "name": "amplitude",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{b8f34d8e-a3d6-42e5-89eb-c4407c74cc8c}",
+                "name": "time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 1600,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": "ns"
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{843c2a4c-2187-4acd-a7a9-7b4658a47501}",
+                "name": "mdpp16_scp.time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{0864123c-5585-454f-ba7e-369154a3ac3b}",
+                "name": "trigger_time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 1,
+                    "xAxisTitle": "time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{25c6b6a5-0e20-4cf5-babc-bd3ea9076418}",
+                "name": "time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "amplitude",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{83c1e784-930e-46f8-944f-cf48989b1c63}",
+                "name": "mdpp16_scp.amplitude",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{3326be6d-8716-4b64-aa6f-5e62334e087b}",
+                "name": "mdpp16_scp.timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{03fd95fb-774b-46b0-ba42-12817db624b0}",
+                "name": "mdpp16_scp.trigger_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{99c9e3a7-b293-4b51-bc55-3cfb339fd09e}",
+                "name": "mdpp16_scp.time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "amplitude",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{dc18d656-fa12-4b6e-88d8-92b7ff72d5da}",
+                "name": "amplitude",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{73fa314f-c31d-4f01-93a4-a1c4fd9df035}",
+                "name": "timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{cdf83d72-f345-4595-a642-35022cff9fb7}",
+                "name": "trigger_time",
+                "userLevel": 1
+            }
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{84dfbcf7-6ac8-4998-b493-657ad6b30d91}",
+                    "moduleName": "mdpp16_PADC",
+                    "moduleTypeName": "mdpp16_padc"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "3396cf90f756b24c",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXPO00AAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{5a6a8744-805a-4193-b507-2aaaa1f7d45f}",
+                "moduleId": "{84dfbcf7-6ac8-4998-b493-657ad6b30d91}",
+                "name": "amplitude"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "e17f2ae3a8eb0e85",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXX01AAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{bee80683-0c2e-4526-9921-1d4fb174d63f}",
+                "moduleId": "{84dfbcf7-6ac8-4998-b493-657ad6b30d91}",
+                "name": "time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "615972ae203dbcad",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{a5dc1c7e-da59-4c52-a765-70a9dec2c0e7}",
+                "moduleId": "{84dfbcf7-6ac8-4998-b493-657ad6b30d91}",
+                "name": "timestamp"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "294d138853a8b710",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXX10000ADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{a07483dc-eb4e-42d3-bba0-108637381a79}",
+                "id": "{89c5d6e0-1fa8-4fb5-bc99-c753e97f4b5a}",
+                "moduleId": "{84dfbcf7-6ac8-4998-b493-657ad6b30d91}",
+                "name": "trigger_time"
+            }
+        ]
+    }
+}
