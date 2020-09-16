@@ -604,7 +604,7 @@
                 "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
                 "id": "{317e2c98-3d4f-4e1e-9ead-66fe1874a1d3}",
                 "moduleId": "{b8a351fd-33d1-40a8-ace6-e963c16e664a}",
-                "name": "mdpp16_CSI.long"
+                "name": "integration_long"
             },
             {
                 "class": "analysis::Extractor",
@@ -624,7 +624,7 @@
                 "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
                 "id": "{61311c56-ab3f-4d8c-bb98-5ed51b88bff9}",
                 "moduleId": "{b8a351fd-33d1-40a8-ace6-e963c16e664a}",
-                "name": "mdpp16_CSI.time"
+                "name": "time"
             },
             {
                 "class": "analysis::Extractor",
@@ -644,7 +644,7 @@
                 "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
                 "id": "{370c5e81-35af-4fd2-b47c-82e6215e0665}",
                 "moduleId": "{b8a351fd-33d1-40a8-ace6-e963c16e664a}",
-                "name": "mdpp16_scp.timestamp"
+                "name": "timestamp"
             },
             {
                 "class": "analysis::Extractor",
@@ -664,7 +664,7 @@
                 "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
                 "id": "{29a72b49-03cb-44d8-8edb-85e2a79b02d2}",
                 "moduleId": "{b8a351fd-33d1-40a8-ace6-e963c16e664a}",
-                "name": "mdpp16_scp.trigger_time"
+                "name": "trigger_time"
             },
             {
                 "class": "analysis::Extractor",
@@ -684,7 +684,7 @@
                 "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
                 "id": "{30683d97-8ccf-46d9-8168-6a57d1ef5278}",
                 "moduleId": "{b8a351fd-33d1-40a8-ace6-e963c16e664a}",
-                "name": "mdpp16_CSI.short"
+                "name": "integration_short"
             }
         ]
     }
