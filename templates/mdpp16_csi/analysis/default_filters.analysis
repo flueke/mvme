@@ -1,0 +1,691 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 3,
+        "VMEObjectSettings": {
+            "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}": {
+                "MultiEventProcessing": true
+            }
+        },
+        "conditionLinks": [
+        ],
+        "connections": [
+            {
+                "dstId": "{9b7b1807-0737-4cf0-9131-9db76b9c657d}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{370c5e81-35af-4fd2-b47c-82e6215e0665}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{8849d091-f117-41fe-8d9b-03935ca7f233}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{29a72b49-03cb-44d8-8edb-85e2a79b02d2}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{5bf3b99d-544c-47e4-9b9e-141d4fa3ab26}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{57be1ad2-76f5-4d8b-8bd3-3effdb9139a1}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{9daa7445-b1c6-46b6-ad2b-06fdb0f3accc}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{317e2c98-3d4f-4e1e-9ead-66fe1874a1d3}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{843c2a4c-2187-4acd-a7a9-7b4658a47501}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{61311c56-ab3f-4d8c-bb98-5ed51b88bff9}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{7b794e0e-7c06-45cf-ac6b-98066d14889c}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{370c5e81-35af-4fd2-b47c-82e6215e0665}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{99c9e3a7-b293-4b51-bc55-3cfb339fd09e}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{843c2a4c-2187-4acd-a7a9-7b4658a47501}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{3b1e8a98-9964-43b9-b1ad-7fc3e1480500}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{29a72b49-03cb-44d8-8edb-85e2a79b02d2}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{e46be7d5-090a-4583-9116-7a3b304bd448}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{30683d97-8ccf-46d9-8168-6a57d1ef5278}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{03fd95fb-774b-46b0-ba42-12817db624b0}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{8849d091-f117-41fe-8d9b-03935ca7f233}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{57be1ad2-76f5-4d8b-8bd3-3effdb9139a1}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{30683d97-8ccf-46d9-8168-6a57d1ef5278}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{3326be6d-8716-4b64-aa6f-5e62334e087b}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{7b794e0e-7c06-45cf-ac6b-98066d14889c}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{059a6da4-5cf8-4a92-aa84-3c54f6850733}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{317e2c98-3d4f-4e1e-9ead-66fe1874a1d3}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{83c1e784-930e-46f8-944f-cf48989b1c63}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{9daa7445-b1c6-46b6-ad2b-06fdb0f3accc}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{50e13c67-1749-4702-88e0-0b0816494e3e}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{61311c56-ab3f-4d8c-bb98-5ed51b88bff9}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+            {
+                "data": {
+                    "displayLocation": "operator",
+                    "members": [
+                        "{57be1ad2-76f5-4d8b-8bd3-3effdb9139a1}",
+                        "{9daa7445-b1c6-46b6-ad2b-06fdb0f3accc}",
+                        "{843c2a4c-2187-4acd-a7a9-7b4658a47501}",
+                        "{7b794e0e-7c06-45cf-ac6b-98066d14889c}",
+                        "{8849d091-f117-41fe-8d9b-03935ca7f233}"
+                    ]
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{abfa96a9-baf6-4f8f-8623-802a79ba4c01}",
+                "name": "Calibration",
+                "userLevel": 1
+            },
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{5bf3b99d-544c-47e4-9b9e-141d4fa3ab26}",
+                        "{83c1e784-930e-46f8-944f-cf48989b1c63}"
+                    ]
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{33be28af-7c09-47e7-8cc2-bb4c4080428f}",
+                "name": "Amplitudes",
+                "userLevel": 1
+            },
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{99c9e3a7-b293-4b51-bc55-3cfb339fd09e}",
+                        "{3326be6d-8716-4b64-aa6f-5e62334e087b}",
+                        "{03fd95fb-774b-46b0-ba42-12817db624b0}"
+                    ]
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{a9105146-b525-440c-9777-08833f922b6a}",
+                "name": "Time",
+                "userLevel": 1
+            }
+        ],
+        "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 2,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{e46be7d5-090a-4583-9116-7a3b304bd448}",
+                "name": "mdpp16_CSI.short_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": "ns"
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{843c2a4c-2187-4acd-a7a9-7b4658a47501}",
+                "name": "mdpp16_scp.time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{57be1ad2-76f5-4d8b-8bd3-3effdb9139a1}",
+                "name": "mdpp16_CSI.short",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{50e13c67-1749-4702-88e0-0b0816494e3e}",
+                "name": "mdpp16_CSI.time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 67108864,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": "us"
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{7b794e0e-7c06-45cf-ac6b-98066d14889c}",
+                "name": "mdpp16_scp.timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{9daa7445-b1c6-46b6-ad2b-06fdb0f3accc}",
+                "name": "mdpp16_scp.amplitude",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{9b7b1807-0737-4cf0-9131-9db76b9c657d}",
+                "name": "mdpp16_scp.timestamp_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "amplitude",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{059a6da4-5cf8-4a92-aa84-3c54f6850733}",
+                "name": "mdpp16_CSI.long_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6400,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": "ns"
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{8849d091-f117-41fe-8d9b-03935ca7f233}",
+                "name": "mdpp16_scp.trigger_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{3b1e8a98-9964-43b9-b1ad-7fc3e1480500}",
+                "name": "mdpp16_scp.trigger_time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "amplitude",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{83c1e784-930e-46f8-944f-cf48989b1c63}",
+                "name": "mdpp16_scp.amplitude",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{3326be6d-8716-4b64-aa6f-5e62334e087b}",
+                "name": "mdpp16_scp.timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{03fd95fb-774b-46b0-ba42-12817db624b0}",
+                "name": "mdpp16_scp.trigger_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{99c9e3a7-b293-4b51-bc55-3cfb339fd09e}",
+                "name": "mdpp16_scp.time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{5bf3b99d-544c-47e4-9b9e-141d4fa3ab26}",
+                "name": "mdpp16_CSI.short",
+                "userLevel": 1
+            }
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{b8a351fd-33d1-40a8-ace6-e963c16e664a}",
+                    "moduleName": "mdpp16_csi",
+                    "moduleTypeName": "mdpp16_csi"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "a839e2ab81f3211d",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXPO00AAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{317e2c98-3d4f-4e1e-9ead-66fe1874a1d3}",
+                "moduleId": "{b8a351fd-33d1-40a8-ace6-e963c16e664a}",
+                "name": "mdpp16_CSI.long"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "db79bbd8a94e5b08",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXX01AAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{61311c56-ab3f-4d8c-bb98-5ed51b88bff9}",
+                "moduleId": "{b8a351fd-33d1-40a8-ace6-e963c16e664a}",
+                "name": "mdpp16_CSI.time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "87a240acf494b221",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{370c5e81-35af-4fd2-b47c-82e6215e0665}",
+                "moduleId": "{b8a351fd-33d1-40a8-ace6-e963c16e664a}",
+                "name": "mdpp16_scp.timestamp"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "bea4e4fd65abd185",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXX10000ADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{29a72b49-03cb-44d8-8edb-85e2a79b02d2}",
+                "moduleId": "{b8a351fd-33d1-40a8-ace6-e963c16e664a}",
+                "name": "mdpp16_scp.trigger_time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "d6426b56c9855e36",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXX11AAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{30683d97-8ccf-46d9-8168-6a57d1ef5278}",
+                "moduleId": "{b8a351fd-33d1-40a8-ace6-e963c16e664a}",
+                "name": "mdpp16_CSI.short"
+            }
+        ]
+    }
+}
