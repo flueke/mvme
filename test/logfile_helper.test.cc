@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "logfile_helper.h"
 #include <QDebug>
+#include <stdexcept>
 #include <thread>
 #include <chrono>
 
@@ -83,7 +84,7 @@ class LogfileHelperTestFixture: public ::testing::Test
 
 // Tests the case where the log directory does not exist (or a logfile cannot
 // be created for some other reason).
-TEST(LogFileHelperTestNoFixture, FileCreationFails)
+TEST(LogfileCountLimiter, FileCreationFails)
 {
     ASSERT_TRUE(!QDir().exists(logDirName));
 
@@ -96,7 +97,7 @@ TEST(LogFileHelperTestNoFixture, FileCreationFails)
     ASSERT_FALSE(lf.closeCurrentFile());
 }
 
-TEST(LogFileHelperTestNoFixture, ThrowOnZeroMaxFiles)
+TEST(LogfileCountLimiter, ThrowOnZeroMaxFiles)
 {
     ASSERT_THROW(LogfileCountLimiter(logDirName, 0), std::runtime_error);
 }
@@ -179,5 +180,71 @@ TEST_F(LogfileHelperTestFixture, ExceedMaxFiles)
         ASSERT_EQ(static_cast<unsigned>(filenames.size()), MaxFiles);
         ASSERT_EQ(filenames.last(), QString("logfile11.log"));
         ASSERT_EQ(lf.currentFilename(), QString("logfile11.log"));
+    }
+}
+
+// Note: for correctness the cases in the LastlogHelper constructor should be
+// checked. This means file permissions would have to be changed so that
+// removing, renaming and file creation fail :-(
+TEST(LastlogHelper, MissingDirConstructorThrows)
+{
+    ASSERT_THROW(
+        LastlogHelper(QDir(logDirName), "foo.log", "last_foo.log"),
+        std::runtime_error);
+}
+
+// Testing the LastlogHelper:
+// - start with an empty dir. create an instance, assert that the log file
+// exists.
+// - destroy the instance
+// - create another instance, assert that the log has moved to lastlog and that
+//   an empty new logfile exists.
+// - assert that log message go to the first logfile
+// - destroy the instance
+// - create a third instance and ensure that the existing lastlog is removed,
+//   the file rotation happens and an empty new log is created.
+
+TEST_F(LogfileHelperTestFixture, LastlogHelperTest)
+{
+    static const QString &logname = "testlog.log";
+    static const QString &lastlogname = "last_" + logname;
+
+    QDir logDir(logDirName);
+    ASSERT_FALSE(logDir.exists(logname));
+    ASSERT_FALSE(logDir.exists(lastlogname));
+
+    {
+        LastlogHelper llh(logDir, logname, lastlogname);
+
+        ASSERT_FALSE(logDir.exists(lastlogname));
+        ASSERT_TRUE(logDir.exists(logname));
+
+        ASSERT_TRUE(llh.logMessage("foobar"));
+        ASSERT_TRUE(llh.flush());
+        ASSERT_EQ(read_file(logDir.absoluteFilePath(logname)), QString("foobar"));
+    }
+
+    {
+        LastlogHelper llh(logDir, logname, lastlogname);
+
+        ASSERT_TRUE(logDir.exists(lastlogname));
+        ASSERT_TRUE(logDir.exists(logname));
+
+        ASSERT_EQ(read_file(logDir.absoluteFilePath(logname)), QString());
+        ASSERT_EQ(read_file(logDir.absoluteFilePath(lastlogname)), QString("foobar"));
+
+        ASSERT_TRUE(llh.logMessage("EnergyCakeBestCake"));
+        ASSERT_TRUE(llh.flush());
+        ASSERT_EQ(read_file(logDir.absoluteFilePath(logname)), QString("EnergyCakeBestCake"));
+    }
+
+    {
+        LastlogHelper llh(logDir, logname, lastlogname);
+
+        ASSERT_TRUE(logDir.exists(lastlogname));
+        ASSERT_TRUE(logDir.exists(logname));
+
+        ASSERT_EQ(read_file(logDir.absoluteFilePath(logname)), QString());
+        ASSERT_EQ(read_file(logDir.absoluteFilePath(lastlogname)), QString("EnergyCakeBestCake"));
     }
 }

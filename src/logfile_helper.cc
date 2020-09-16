@@ -2,6 +2,8 @@
 #include <cassert>
 #include <QDebug>
 
+#include "util/qt_str.h"
+
 namespace mesytec
 {
 namespace mvme
@@ -138,6 +140,66 @@ unsigned LogfileCountLimiter::maxFiles() const
 QString LogfileCountLimiter::errorString() const
 {
     return d->currentFile.errorString();
+}
+
+struct LastlogHelper::Private
+{
+    QFile currentFile;
+};
+
+LastlogHelper::LastlogHelper(QDir logDir, const QString &logfileName,
+         const QString &lastLogfileName, QObject *parent)
+    : QObject(parent)
+    , d(std::make_unique<Private>())
+{
+    if (logDir.exists(logfileName) && logDir.exists(lastLogfileName))
+    {
+        if (!logDir.remove(lastLogfileName))
+            throw std::runtime_error(
+                ("LastlogHelper: unable to remove old logfile "
+                 + logDir.absoluteFilePath(lastLogfileName)).toStdString());
+    }
+
+    assert(!logDir.exists(lastLogfileName));
+
+    if (logDir.exists(logfileName))
+    {
+        if (!logDir.rename(logfileName, lastLogfileName))
+            throw std::runtime_error(QSL(
+                    "LastlogHelper: unable to rename last logfile from (%1 to %2)")
+                .arg(logDir.absoluteFilePath(logfileName))
+                .arg(logDir.absoluteFilePath(lastLogfileName)).toStdString());
+    }
+
+    assert(!logDir.exists(logfileName));
+
+    d->currentFile.setFileName(logDir.absoluteFilePath(logfileName));
+
+    if (!d->currentFile.open(QIODevice::WriteOnly | QIODevice::Text))
+        throw std::runtime_error(QSL(
+                "LastlogHelper: unable to open log file %1 for writing: %2")
+            .arg(d->currentFile.fileName())
+            .arg(d->currentFile.errorString()).toStdString());
+
+    assert(d->currentFile.isOpen());
+}
+
+LastlogHelper::~LastlogHelper()
+{
+}
+
+bool LastlogHelper::logMessage(const QString &msg)
+{
+    return (d->currentFile.write(msg.toUtf8()) >= 0);
+}
+
+bool LastlogHelper::flush()
+{
+    // If no file is open the windows QFile::flush() implementation always
+    // returns true. This method should return false in this case.
+    if (d->currentFile.isOpen())
+        return d->currentFile.flush();
+    return false;
 }
 
 } // end namespace mvme

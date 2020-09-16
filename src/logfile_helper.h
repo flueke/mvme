@@ -13,12 +13,12 @@ namespace mesytec
 namespace mvme
 {
 
-// The LogfileCountLimiter class is used to keep a limited number of logfiles in a
-// specified log directory. When a new logfile is created via beginNewFile()
-// the number of existing files in the log directory is checked. If it exceeds
-// the maximum number of logs to keep the oldest (by filesystem modification
-// time) logfiles are deleted until maxFiles-1 files are left. Then the new
-// file is created.
+// The LogfileCountLimiter class is used to keep a limited number of logfiles
+// in a specified log directory. When a new logfile is created via
+// beginNewFile() the number of existing files in the log directory is checked.
+// If it exceeds the maximum number of logs to keep, the oldest logfiles (by
+// filesystem modification time) are deleted until maxFiles-1 files are left.
+// Then the new file is created.
 // Message can be logged using the logMessage() slot. The string is converted
 // to utf8 and written to the current logfile. If no file is open the message
 // is discarded and logMessage() returns false;
@@ -55,6 +55,32 @@ class LIBMVME_EXPORT LogfileCountLimiter: public QObject
         // Writes the result of msg.toUtf8() to the current logfile.
         // Returns false if no logfile is open or a write error occured.
         bool logMessage(const QString &msg);
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+// LastlogHelper implements a dual logfile scheme where two files are kept: the
+// current logfile and the last logfile. Inside mvme it is intended for logging
+// all messages, including those generated while no DAQ run was in progress.
+class LIBMVME_EXPORT LastlogHelper: public QObject
+{
+    public:
+        LastlogHelper(
+            QDir logDir,
+            const QString &logfileName,
+            const QString &lastLogfileName,
+            QObject *parent = nullptr);
+        ~LastlogHelper() override;
+
+    public slots:
+        // Writes the result of msg.toUtf8() to the logfile.
+        // Returns false if no logfile is open or a write error occured.
+        bool logMessage(const QString &msg);
+
+        // Calls QFile::flush() on the current logfile.
+        bool flush();
 
     private:
         struct Private;
