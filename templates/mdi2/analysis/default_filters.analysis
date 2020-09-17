@@ -1,0 +1,527 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 3,
+        "VMEObjectSettings": {
+            "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}": {
+                "MultiEventProcessing": true
+            }
+        },
+        "conditionLinks": [
+        ],
+        "connections": [
+            {
+                "dstId": "{de39e83a-e8fa-4d07-91a5-ddb822444a38}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{85d45e89-77b9-435b-8483-f0ee680dcbe2}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{c935072e-b8f5-4e3c-8a85-3b7e7c1ce152}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{85d45e89-77b9-435b-8483-f0ee680dcbe2}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{32309f06-f172-4758-a1f6-20a2ded84472}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{90c8d5d0-1723-41aa-bcc7-8099b841e25c}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{4d096823-cde3-47b2-ad99-8f7d978ee654}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{73f01141-9084-4c22-bc97-168627ed8b05}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{acf40fc3-f3bb-4294-ab66-1a04ada1b608}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{90c8d5d0-1723-41aa-bcc7-8099b841e25c}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{a5d0ec3b-67d3-4b80-aaa3-7ee8a683d391}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{6e3acd47-e1cf-4fdf-97da-7d17572121c1}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{b1f405f8-6e84-497a-b89d-83bb15279a5b}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{73f01141-9084-4c22-bc97-168627ed8b05}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{e096936f-574d-4e7e-aec8-c621a8895775}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{32309f06-f172-4758-a1f6-20a2ded84472}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{9d3d1de9-2de4-44a5-8056-7fc948dc6ed2}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{de39e83a-e8fa-4d07-91a5-ddb822444a38}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{b909f203-3eb9-4ec7-8d7c-d1d9e27fdf6c}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{d41b80a9-be1c-4d4f-920d-8f6231a05399}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{ec9612f6-34d1-4db2-9d10-d5e9aca249e7}",
+                "dstIndex": 0,
+                "dstParamIndex": 0,
+                "srcId": "{85d45e89-77b9-435b-8483-f0ee680dcbe2}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{5242731a-14a0-4959-bf86-4ff5f96563e5}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{b1f405f8-6e84-497a-b89d-83bb15279a5b}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+        ],
+        "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{c935072e-b8f5-4e3c-8a85-3b7e7c1ce152}",
+                "name": "mtdc32.timestamp_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{4d096823-cde3-47b2-ad99-8f7d978ee654}",
+                "name": "mtdc32.time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{acf40fc3-f3bb-4294-ab66-1a04ada1b608}",
+                "name": "mtdc32.trigger_time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 1073741824,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{de39e83a-e8fa-4d07-91a5-ddb822444a38}",
+                "name": "mtdc32.timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::RateMonitorSink",
+                "data": {
+                    "calibrationFactor": 1,
+                    "calibrationOffset": 0,
+                    "capacity": 86400,
+                    "numberOfInputs": 1,
+                    "samplingInterval": 1,
+                    "type": "FlowRate",
+                    "unitLabel": "",
+                    "useCombinedView": false
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{ec9612f6-34d1-4db2-9d10-d5e9aca249e7}",
+                "name": "mtdc32.timestamp[0].flowRate",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{32309f06-f172-4758-a1f6-20a2ded84472}",
+                "name": "mtdc32.trigger_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{b1f405f8-6e84-497a-b89d-83bb15279a5b}",
+                "name": "mtdc32.time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 8192,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{92ab60db-b44d-479f-929e-140a0ae19736}",
+                "id": "{a5d0ec3b-67d3-4b80-aaa3-7ee8a683d391}",
+                "name": "Bus0_Amplitudes_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 8192,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "Bus1_Amplitudes_raw",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{92ab60db-b44d-479f-929e-140a0ae19736}",
+                "id": "{b909f203-3eb9-4ec7-8d7c-d1d9e27fdf6c}",
+                "name": "Bus1_Amplitudes_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{e096936f-574d-4e7e-aec8-c621a8895775}",
+                "name": "mtdc32.trigger_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{5242731a-14a0-4959-bf86-4ff5f96563e5}",
+                "name": "mtdc32.time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{9d3d1de9-2de4-44a5-8056-7fc948dc6ed2}",
+                "name": "mtdc32.timestamp",
+                "userLevel": 1
+            }
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{ace39102-1bc7-4fef-9f2c-64708fc712a2}",
+                    "moduleName": "mdi2",
+                    "moduleTypeName": "mdi2"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "ea6da4aea3c78807",
+                    "subFilters": [
+                        {
+                            "filterString": "00XXX1XX000AAAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{73f01141-9084-4c22-bc97-168627ed8b05}",
+                "moduleId": "{66524b95-d49c-49f6-9e37-8cc5048510e3}",
+                "name": "mtdc32.time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "cace1969e0e0d4ad",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{85d45e89-77b9-435b-8483-f0ee680dcbe2}",
+                "moduleId": "{66524b95-d49c-49f6-9e37-8cc5048510e3}",
+                "name": "mtdc32.timestamp"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "f5a14bab80f00988",
+                    "subFilters": [
+                        {
+                            "filterString": "00XXX1XX0010000ADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
+                "id": "{90c8d5d0-1723-41aa-bcc7-8099b841e25c}",
+                "moduleId": "{66524b95-d49c-49f6-9e37-8cc5048510e3}",
+                "name": "mtdc32.trigger_time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "8becaca79a677529",
+                    "subFilters": [
+                        {
+                            "filterString": "000001AAAAAAAAAA0XXDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{92ab60db-b44d-479f-929e-140a0ae19736}",
+                "id": "{6e3acd47-e1cf-4fdf-97da-7d17572121c1}",
+                "moduleId": "{ace39102-1bc7-4fef-9f2c-64708fc712a2}",
+                "name": "Bus0_Amplitudes"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "6dfaa1cef40a907a",
+                    "subFilters": [
+                        {
+                            "filterString": "000001AAAAAAAAAA1XXDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{92ab60db-b44d-479f-929e-140a0ae19736}",
+                "id": "{d41b80a9-be1c-4d4f-920d-8f6231a05399}",
+                "moduleId": "{ace39102-1bc7-4fef-9f2c-64708fc712a2}",
+                "name": "Bus1_Amplitudes"
+            }
+        ]
+    }
+}
