@@ -115,6 +115,7 @@ void FileAutoSaver::saveNow()
     {
         emit writeError(m_outputFilename,
                         QSL("%1: Could not copy temporary file %2 to output file %3")
+                        .arg(objectName())
                         .arg(tempFile.fileName())
                         .arg(m_outputFilename)
                         );
