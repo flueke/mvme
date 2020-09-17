@@ -2,6 +2,9 @@
 TODO list
 ==================================================
 
+* add functionality for checking if the scripts in the vme tree can be parsed
+  successfully. Right now parse errors are only detected on DAQ startup.
+
 * move all MVLCReadoutWorker stateChange signal emissions from the
   start/stop/pause/resume methods into the main loop. This way they will be
   emitted from the readout thread and the behaviour will be the same as for the
