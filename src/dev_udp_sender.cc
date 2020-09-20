@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 
     char outBuffer[OutBufferSize] = {};
     ssize_t outBufferUsed = OutBufferSize;
-    static const int loopCount = 1 << 20;
+    static const int loopCount = 1 << 10;
     QElapsedTimer timer;
     double totalBytes = 0.0;
     u64 totalPackets = 0.0;
