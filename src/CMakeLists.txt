@@ -506,6 +506,7 @@ target_link_libraries(dev_zip_write_test PRIVATE Threads::Threads)
 if(MVME_ENABLE_MVLC)
     add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
     target_link_libraries(mvme_to_mvlc PRIVATE mesytec-mvlc)
+    add_mvme_executable(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
 endif(MVME_ENABLE_MVLC)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
