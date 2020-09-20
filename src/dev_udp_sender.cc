@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 
     QUdpSocket sendSock;
 
-    if (!sendSock.bind(QHostAddress::LocalHost, 0, QAbstractSocket::DefaultForPlatform))
+    if (!sendSock.bind(QHostAddress::Any, 0, QAbstractSocket::DefaultForPlatform))
     {
         qDebug() << "bind failed" << sendSock.errorString();
         return 42;
