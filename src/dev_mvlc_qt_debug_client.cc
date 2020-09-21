@@ -86,6 +86,12 @@ int main(int argc, char *argv[])
 
     do_write(cmdSock, request, destHost, destPort);
 
+    if (!cmdSock.waitForReadyRead(10000))
+    {
+        qDebug() << "waitForReadyRead timed or errored out";
+        return 1;
+    }
+
     std::vector<u32> receiveBuffer(10240);
     read_packet_from_any(cmdSock, receiveBuffer, receiveBuffer.size());
 
