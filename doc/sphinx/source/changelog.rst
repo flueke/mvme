@@ -14,7 +14,7 @@ Version 1.1.1
   - All messages generated during DAQ runs (from 'DAQ start' to 'DAQ stop') are
     written to a file in the workspace 'run_logs/' directory.
 
-    The maximum number of run_logs kept is limited to 50. On reaching the limit
+    The maximum number of files kept is limited to 50. On reaching the limit
     the oldest file is removed. Filenames are based on the current date and
     time.
 
