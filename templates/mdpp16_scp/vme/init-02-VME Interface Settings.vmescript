@@ -4,7 +4,7 @@
 
 # IRQ_source and thresholds
 #0x601C 1                                   # 1 -> specifies number of words
-#0x6018  100                                # IRQ-FIFO threshold, words
+#0x6018 100                                 # IRQ-FIFO threshold, words
 0x601C 0                                    # 0 -> the following register specifies the number of events
 0x601E $(${mesy_readout_num_events} + 1)    # IRQ-FIFO threshold, events
 
