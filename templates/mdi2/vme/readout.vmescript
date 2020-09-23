@@ -1,2 +1,2 @@
-# BLT readout until BERR or number of transfers reached
-bltfifo a32 0x0000 65535
+# MBLT readout until BERR or number of transfers reached
+mbltfifo a32 0x0000 65535
