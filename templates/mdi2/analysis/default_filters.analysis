@@ -54,7 +54,7 @@
                     "rngSeed": "8becaca79a677529",
                     "subFilters": [
                         {
-                            "filterString": "000001AAAAAAAAAA0XXDDDDDDDDDDDDD",
+                            "filterString": "000001XXAAAAAAAA0O00DDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
@@ -74,7 +74,7 @@
                     "rngSeed": "6dfaa1cef40a907a",
                     "subFilters": [
                         {
-                            "filterString": "000001AAAAAAAAAA1XXDDDDDDDDDDDDD",
+                            "filterString": "000001XXAAAAAAAA1O00DDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
