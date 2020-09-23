@@ -80,11 +80,17 @@
 # Sequencer Length
 # ############################################################################
 # seq0_cct
-0x6074  17          # 17 counts per MTM-16 needed
+0x6074  17          # 17 counts per MTM-16 needed (16 channels + sync)
 
 # seq1_cct
-0x6076  17          # 17 counts per MTM-16 needed
+0x6076  17          # 17 counts per MTM-16 needed (16 channels + sync)
 
 # allow_sync_word
 0x6078  0           # allow_sync_words in FIFO buffer. Useful when zero
                     # suppression in front end MTM-16 (future feature).
+
+# Internal test and Pulser Registers
+# ############################################################################
+#0x6048 0 			# gen_trigger: generates a trigger on write
+#0x604A 0 			# gen_event: generates a trigger and event data for testing.
+0x6070 0b00 		# Internal test pulser (since FW 0300). Bit0 for Bus0, Bit1 for Bus1.

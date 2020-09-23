@@ -2,11 +2,12 @@
 # #####################################
 0x6010  ${sys_irq}                        # irq level
 
+# Note: MDI-2 does not support the event based FIFO threshold and this template
+# file does not make use of the event-wide variable ${mesy_readout_num_events}!
+#
 # IRQ_source and thresholds
-#0x601C 1                                 # 1 -> specifies number of words
-#0x6018  1                                # IRQ-FIFO threshold, words
-#0x601C 0                                 # 0 -> the following register specifies the number of events
-#0x601E $(${mesy_readout_num_events} + 1) # IRQ-FIFO threshold, events
+0x601C 1                                  # 1 -> specifies number of words
+0x6018 1                                  # IRQ-FIFO threshold, words
 
 # marking_type
 0x6038 ${mesy_eoe_marker}                 # End Of Event marking
@@ -16,11 +17,9 @@
 
 # multi event mode:
 0x6036 0x0                                # 0x0 -> single event
-                                          # 0x3 -> multi event, number of words
-                                          # 0xb -> multievent, transmits number of events specified
 
 # max_transfer_data
-0x601A 1 #${mesy_readout_num_events}      # multi event mode == 0x3 -> Berr is emitted when more or equal the
+0x601A 1                                  # multi event mode == 0x3 -> Berr is emitted when more or equal the
                                           #   specified number of words have been sent and "End Of Event" is detected.
                                           # multi event mode == 0xb -> Berr is emitted when the specified number
                                           #   of events has been transmitted.
@@ -31,5 +30,5 @@
 0x6024 0x${mesy_mcst}                     # Set 8 high bits of MCST address
 
 
-# immediately activate the test pulser
+# Immediately activate the single-shot test pulser (gen_event).
 #writeabs a32 d16 0x${mesy_mcst}00604A      1

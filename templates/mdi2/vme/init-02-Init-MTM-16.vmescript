@@ -1,0 +1,38 @@
+# ############################################################################
+# MTM-16 frontend module control example
+# ############################################################################
+
+# Each MTM-16 has two registers at addresses 0 and 1.
+#
+# Register 0:
+#   - bit4: set rc_status
+#   - bit3: read rc_status
+#   - bit2: not used
+#   - bit1: polarity, 0 -> negative input, 1 -> positive input
+#   - bit0: gain, 0 -> high gain, 1 -> low gain
+#
+# When writing a value of 0 to the register the values are not changed but only
+# read back.
+
+# Register 1: 12 bits for setting the threshold. The maximum value of 0xfff
+# means 50% of single channel range.
+#
+
+# Examples from the MTM-16 datasheet:
+# Set threshold of MTM-16 with address 5 at bus 1 to the value 0x0ff
+# (gets only active when RC is switched on).
+0x6080 1        # select bus 1
+0x6082 5        # address 5
+0x6084 16       # opcode 16 == write
+0x6086 1        # MTM-16 internal register address
+0x6088 0x00ff   # value to be written to the MTM-16
+wait 5ms        # wait for the transaction to complete
+
+# Set MTM-16 to positive, high gain and activate the remote control values.
+# (deactivate G/P coder and threshold potentiometer)
+0x6080 1        # select bus 1
+0x6080 5        # address 5
+0x6084 16       # opcode 16 == write
+0x6086 0        # MTM-16 internal register address
+0x6088 0b11010  # "set" "rc-status on" "nc" "positive pol." "high gain"
+wait 5ms        # wait for the transaction to complete
